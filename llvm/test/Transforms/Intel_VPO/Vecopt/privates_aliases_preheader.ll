@@ -30,7 +30,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(double* %d.lpriv), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(double* %d.lpriv, double zeroinitializer, i32 1) ]
   br label %DIR.OMP.SIMD.237
 
 DIR.OMP.SIMD.237:                                 ; preds = %DIR.OMP.SIMD.1

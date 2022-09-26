@@ -38,7 +38,6 @@ RUN:                     -with-name=xoZvxw -with-name=LJPwNRh -with-name=QplRJuD
 RUN:                     -with-name=HGfxvKdQO -with-name=loxueqJLH -with-name=bqSuLGQgWa -with-name=rbEaPKrlrRwk \
 RUN:                     %t.pdb | FileCheck %s
 
-
 CHECK:      [1 occurrences] - LuU
 CHECK-NEXT:   func [0x000010d0+ 0 - 0x000010d1- 1 | sizeof=  1] (FPO) void __cdecl LuU()
 CHECK-NEXT: [1 occurrences] - oet

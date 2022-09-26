@@ -4699,9 +4699,9 @@ bool MemManageTransImpl::recognizeConstructor(Function *F) {
         // Obj->ArenaAllocator.List.FreeHead = null;
         if (!isa<Constant>(ValOp) || !cast<Constant>(ValOp)->isNullValue())
           return false;
-        if (!isListHeadAddr(PtrOp, ThisObj))
+        if (isListHeadAddr(PtrOp, ThisObj))
           ListHeadAssigned++;
-        else if (!isListFreeHeadAddr(PtrOp, ThisObj))
+        else if (isListFreeHeadAddr(PtrOp, ThisObj))
           ListFreeHeadAssigned++;
         else
           return false;
@@ -7113,12 +7113,29 @@ bool MemManageTransImpl::identifyDestroyBlock(
                        PredBBSet, &BlockAvailableBB))
     return false;
 
+
   // Check for "this->m_blocks.pop_front();"
-  LoadInst *NodePrev = getFirstLoadInst(BlockAvailableBB);
+  //
+  // There should be 3 load instructions in the block. Find the LoadInst that
+  // corresponds to: 'NodePrev'
+  //
+  // This should occur prior to any StoreInst in the block, because the address
+  // used by the StoreInst should be derived from the value loaded. The other 2
+  // LoadInst will be checked inside of identifyFreeNode.
+  LoadInst *NodePrev = nullptr;
+  for (auto &I : *BlockAvailableBB) {
+    if (auto *LI = dyn_cast<LoadInst>(&I)) {
+      if (isNodePosPrevLoad(LI, Iter)) {
+        NodePrev = LI;
+        break;
+      }
+    } else if (isa<StoreInst>(&I)) {
+      break;
+    }
+  }
   if (!NodePrev)
     return false;
-  if (!isNodePosPrevLoad(NodePrev, Iter))
-    return false;
+
   Value *PFPtr = nullptr;
   if (!identifyFreeNode(BlockAvailableBB, Obj, Iter, IncIter, NodePrev, &PFPtr))
     return false;

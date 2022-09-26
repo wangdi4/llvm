@@ -474,38 +474,35 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       }
     }
 
-    if (IsPerfectNest) {
-      // If the innermost loop is undosinking candidate, it was a near perfect
-      // loop
+    // If the innermost loop is undosinking candidate, it was a near perfect
+    // loop
 
-      if (InnermostLoop->isUndoSinkingCandidate()) {
-        if (isSinkedPerfectLoopProfitableForInterchange(Loop, InnermostLoop)) {
-          CandidateLoops.push_back(
-              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-          LIP.PerfectLoopsEnabled.push_back(InnermostLoop);
-        }
+    if (InnermostLoop->isUndoSinkingCandidate()) {
+      if (isSinkedPerfectLoopProfitableForInterchange(Loop, InnermostLoop)) {
+        CandidateLoops.push_back(
+            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+        LIP.PerfectLoopsEnabled.push_back(InnermostLoop);
       }
-
-      LLVM_DEBUG(dbgs() << "\nIs Perfect Nest\n");
-
-      if (!HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
-        printDiag(NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES, FuncName, Loop);
-      } else if (isJumpThreadingFriendly(Loop, InnermostLoop)) {
-        printDiag(JUMP_THREADING_FRIENDLY, FuncName, Loop);
-      } else {
-        LLVM_DEBUG(dbgs() << "\nHas non unit stride\n");
-        CandidateLoopPair LoopPair =
-            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop));
-        if (std::find(CandidateLoops.begin(), CandidateLoops.end(), LoopPair) ==
-            CandidateLoops.end()) {
-          CandidateLoops.push_back(
-              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-        }
-      }
-
-      SkipNode = Loop;
-      return;
     }
+
+    LLVM_DEBUG(dbgs() << "\nIs Perfect Nest\n");
+
+    if (!HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
+      printDiag(NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES, FuncName, Loop);
+    } else if (isJumpThreadingFriendly(Loop, InnermostLoop)) {
+      printDiag(JUMP_THREADING_FRIENDLY, FuncName, Loop);
+    } else {
+      LLVM_DEBUG(dbgs() << "\nHas non unit stride\n");
+      CandidateLoopPair LoopPair =
+          std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop));
+      if (std::find(CandidateLoops.begin(), CandidateLoops.end(), LoopPair) ==
+          CandidateLoops.end()) {
+       CandidateLoops.push_back(LoopPair);
+      }
+    }
+
+    SkipNode = Loop;
+    return;
   }
 
   void visit(HLNode *Node) {}

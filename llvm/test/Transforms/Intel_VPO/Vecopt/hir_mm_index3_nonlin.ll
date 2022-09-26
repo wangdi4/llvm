@@ -2,12 +2,9 @@
 ; Test checks correct processing of min/max+index idiom with non-linear and linear indexes.
 ; Linear index appears before non-linear one.
 ; REQUIRES: asserts
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck -check-prefixes CHECK %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck -check-prefixes DISABLED %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=hir-vplan-vec  < %s 2>&1 | FileCheck -check-prefix CG_ENABLE %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck -check-prefixes CHECK %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck -check-prefixes DISABLED %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=hir-vplan-vec  < %s 2>&1 | FileCheck -check-prefix CG_ENABLE %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck -check-prefixes CHECK %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck -check-prefixes DISABLED %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=hir-vplan-vec  -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck -check-prefix CG_ENABLE %s
 
 ; CHECK:      Reduction list
 ; CHECK-NEXT:   signed (SIntMax) Start: i32 [[BEST_0230:%.*]] Exit: i32 [[VP0:%.*]]
@@ -22,7 +19,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP7:%.*]] = add i32 [[VP8:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP8]], i32 [[VP7]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP8]], i32 [[VP7]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_INIT_STEP]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]:
 ; CHECK:         [[BB2:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[UB_INC:%.*]] = add i32 [[VP9:%.*]] i32 1
@@ -68,10 +65,10 @@
 ;CG_ENABLE-NEXT:            %[[val025:.*]] = extractelement %.[[vec8:.*]],  %[[bsf]];
 ;CG_ENABLE:              }
 ;CG_ENABLE:              + DO i1 = {{.*}}, %m + -1, 1   <DO_LOOP>
-;CG_ENABLE-NEXT:         |   %0 = (%ordering)[i1];
-;CG_ENABLE-NEXT:         |   %[[tmp024]] = (%0 >= %[[best023]]) ? i1 : %[[tmp024]];
-;CG_ENABLE-NEXT:         |   %[[val025]] = (%0 >= %[[best023]]) ? %0 + 2 : %[[val025]];
-;CG_ENABLE-NEXT:         |   %[[best023]] = (%0 >= %[[best023]]) ? %0 : %[[best023]];
+;CG_ENABLE-NEXT:         |   [[TMP0:%.*]] = (%ordering)[i1];
+;CG_ENABLE-NEXT:         |   %[[tmp024]] = ([[TMP0]] >= %[[best023]]) ? i1 : %[[tmp024]];
+;CG_ENABLE-NEXT:         |   %[[val025]] = ([[TMP0]] >= %[[best023]]) ? [[TMP0]] + 2 : %[[val025]];
+;CG_ENABLE-NEXT:         |   %[[best023]] = ([[TMP0]] >= %[[best023]]) ? [[TMP0]] : %[[best023]];
 ;CG_ENABLE-NEXT:         + END LOOP
 ;CG_ENABLE:        END REGION
 ;

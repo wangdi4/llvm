@@ -1,4 +1,21 @@
 //===- llvm/InlineAsm.h - Class to represent inline asm strings -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -25,6 +42,7 @@
 
 namespace llvm {
 
+class Error;
 class FunctionType;
 class PointerType;
 template <class ConstantClass> class ConstantUniqueMap;
@@ -85,17 +103,16 @@ public:
   const std::string &getConstraintString() const { return Constraints; }
   void collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const; // INTEL
 
-  /// Verify - This static method can be used by the parser to check to see if
-  /// the specified constraint string is legal for the type.  This returns true
-  /// if legal, false if not.
-  ///
-  static bool Verify(FunctionType *Ty, StringRef Constraints);
+  /// This static method can be used by the parser to check to see if the
+  /// specified constraint string is legal for the type.
+  static Error verify(FunctionType *Ty, StringRef Constraints);
 
   // Constraint String Parsing
   enum ConstraintPrefix {
     isInput,            // 'x'
     isOutput,           // '=x'
-    isClobber           // '~x'
+    isClobber,          // '~x'
+    isLabel,            // '!x'
   };
 
   using ConstraintCodeVector = std::vector<std::string>;
@@ -120,7 +137,7 @@ public:
   using ConstraintInfoVector = std::vector<ConstraintInfo>;
 
   struct ConstraintInfo {
-    /// Type - The basic type of the constraint: input/output/clobber
+    /// Type - The basic type of the constraint: input/output/clobber/label
     ///
     ConstraintPrefix Type = isInput;
 

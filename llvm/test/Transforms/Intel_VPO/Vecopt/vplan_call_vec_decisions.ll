@@ -363,14 +363,14 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 ; Test for DPCPP's unmasked function call.
 declare i1 @some_cond(i64)
 declare i1 @ballot(i1) #5
-declare <2 x i1> @ballot.vec(<2 x i1>, <2 x i1>)
+declare <2 x i8> @ballot.vec(<2 x i8>, <2 x i1>)
 
 ; Exact type for the active mask will depend on the library implementation, but
 ; it doesn't matter for the VPlan implementation as long as the library
 ; implementation for ballot is in sync with that of the first argument (mask)
 ; for the unmasked functions.
 declare void @unmasked_scalar(i1, i64) #6
-declare void @unmasked_vector(<2 x i1>, <2 x i64>)
+declare void @unmasked_vector(<2 x i8>, <2 x i64>)
 define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* nocapture %B, i32 %N) {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
 ; CALLVECDEC-NEXT:  VPlan IR for: foo_unmasked_call_in_dpcpp:header

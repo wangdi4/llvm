@@ -142,7 +142,10 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
 #if INTEL_COLLAB
   case OMPC_data:
 #endif // INTEL_COLLAB`
-  case OMPC_tile:  // INTEL
+#if INTEL_CUSTOMIZATION
+  case OMPC_tile:
+  case OMPC_ompx_assert:
+#endif // INTEL_CUSTOMIZATION
   case OMPC_private:
   case OMPC_shared:
   case OMPC_aligned:
@@ -298,6 +301,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_affinity:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
+  case OMPC_ompx_assert:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -1588,42 +1592,61 @@ const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
   assert(NumLoop < NumLoops && "too many loops.");
   return getTrailingObjects<Expr *>()[NumLoop];
 }
+
+OMPOmpxMonotonicClause *
+OMPOmpxMonotonicClause::Create(const ASTContext &C, SourceLocation StartLoc,
+                               SourceLocation LParenLoc,
+                               SourceLocation ColonLoc, SourceLocation EndLoc,
+                               ArrayRef<Expr *> VL, Expr *Step) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size() + 1));
+  OMPOmpxMonotonicClause *Clause = new (Mem)
+      OMPOmpxMonotonicClause(StartLoc, LParenLoc, ColonLoc, EndLoc, VL.size());
+  Clause->setVarRefs(VL);
+  Clause->setStep(Step);
+  return Clause;
+}
+
+OMPOmpxMonotonicClause *OMPOmpxMonotonicClause::CreateEmpty(const ASTContext &C,
+                                                            unsigned NumVars) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumVars + 1));
+  return new (Mem) OMPOmpxMonotonicClause(NumVars);
+}
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
+OMPInteropClause *OMPInteropClause::Create(const ASTContext &C,
+                                           SourceLocation StartLoc,
+                                           SourceLocation LParenLoc,
+                                           SourceLocation EndLoc,
+                                           ArrayRef<Expr *> LV) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(LV.size()));
+  auto *Clause =
+      new (Mem) OMPInteropClause(StartLoc, LParenLoc, EndLoc, LV.size());
+  Clause->setVarRefs(LV);
+  return Clause;
+}
+
+OMPInteropClause *OMPInteropClause::CreateEmpty(const ASTContext &C,
+                                                unsigned N) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
+  return new (Mem) OMPInteropClause(N);
+}
+
 OMPDataClause *OMPDataClause::Create(const ASTContext &C,
                                      SourceLocation StartLoc,
-                                     SourceLocation EndLoc,
+                                     SourceLocation LParenLoc,
+                                     SourceLocation EndLoc, Expr *Hint,
                                      ArrayRef<Expr *> LV) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(LV.size()));
-  auto *Clause = new (Mem) OMPDataClause(StartLoc, EndLoc, LV.size());
-  for (unsigned I = 0; I < LV.size(); ++I)
-    Clause->setDataInfo(I, LV[I]);
+  auto *Clause =
+      new (Mem) OMPDataClause(StartLoc, LParenLoc, EndLoc, Hint, LV.size());
+  Clause->setVarRefs(LV);
   return Clause;
 }
 
-OMPDataClause *OMPDataClause::CreateEmpty(const ASTContext &C,
-                                          unsigned NumDataClauseVals) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumDataClauseVals));
-  auto *Clause = new (Mem) OMPDataClause(NumDataClauseVals);
-  for (unsigned I = 0; I < NumDataClauseVals; ++I)
-    Clause->setDataInfo(I, nullptr);
-  return Clause;
-}
-
-void OMPDataClause::setDataInfo(unsigned NumDataClause, Expr *E) {
-  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
-  getTrailingObjects<Expr *>()[NumDataClause] = E;
-}
-
-Expr *OMPDataClause::getDataInfo(unsigned NumDataClause) {
-  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
-  return getTrailingObjects<Expr *>()[NumDataClause];
-}
-
-const Expr *OMPDataClause::getDataInfo(unsigned NumDataClause) const {
-  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
-  return getTrailingObjects<Expr *>()[NumDataClause];
+OMPDataClause *OMPDataClause::CreateEmpty(const ASTContext &C, unsigned N) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
+  return new (Mem) OMPDataClause(N);
 }
 #endif // INTEL_COLLAB
 
@@ -1747,18 +1770,19 @@ OMPAffinityClause *OMPAffinityClause::CreateEmpty(const ASTContext &C,
 }
 
 OMPInitClause *OMPInitClause::Create(const ASTContext &C, Expr *InteropVar,
-                                     ArrayRef<Expr *> PrefExprs, bool IsTarget,
-                                     bool IsTargetSync, SourceLocation StartLoc,
+                                     OMPInteropInfo &InteropInfo,
+                                     SourceLocation StartLoc,
                                      SourceLocation LParenLoc,
                                      SourceLocation VarLoc,
                                      SourceLocation EndLoc) {
 
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(PrefExprs.size() + 1));
-  auto *Clause =
-      new (Mem) OMPInitClause(IsTarget, IsTargetSync, StartLoc, LParenLoc,
-                              VarLoc, EndLoc, PrefExprs.size() + 1);
+  void *Mem =
+      C.Allocate(totalSizeToAlloc<Expr *>(InteropInfo.PreferTypes.size() + 1));
+  auto *Clause = new (Mem) OMPInitClause(
+      InteropInfo.IsTarget, InteropInfo.IsTargetSync, StartLoc, LParenLoc,
+      VarLoc, EndLoc, InteropInfo.PreferTypes.size() + 1);
   Clause->setInteropVar(InteropVar);
-  llvm::copy(PrefExprs, Clause->getTrailingObjects<Expr *>() + 1);
+  llvm::copy(InteropInfo.PreferTypes, Clause->getTrailingObjects<Expr *>() + 1);
   return Clause;
 }
 
@@ -1802,6 +1826,12 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
 }
 
 #if INTEL_COLLAB
+void OMPClausePrinter::VisitOMPInteropClause(OMPInteropClause *Node) {
+  OS << "interop";
+  VisitOMPClauseList(Node, '(');
+  OS << ")";
+}
+
 void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   OS << "subdevice(";
   if (auto *E = Node->getLevel()) {
@@ -1845,20 +1875,15 @@ void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
   // Some data clauses might have multiple data clause specifications
   // separated by a comma. Every three values represent one specification.
   // Emit them and separate each group of three with a comma.
-  //   <addr>:<uint>:<uint>
-  OS << "data(";
-  for (unsigned I = 0, E = Node->getNumDataClauseVals(); I < E; I += 3) {
-    if (I > 0)
-      OS << ", ";
-    Expr *Addr = Node->getDataInfo(I);
-    Expr *Hint = Node->getDataInfo(I + 1);
-    Expr *NumElements = Node->getDataInfo(I + 2);
-    Addr->printPretty(OS, nullptr, Policy);
-    OS << ":";
+  //   data( [hint:] arrsect [, arrsect]... )
+  OS << "data";
+  Expr *Hint = Node->getHint();
+  if (Hint) {
+    OS << "(";
     Hint->printPretty(OS, nullptr, Policy);
     OS << ":";
-    NumElements->printPretty(OS, nullptr, Policy);
   }
+  VisitOMPClauseList(Node, Hint ? ' ' : '(');
   OS << ")";
 }
 #endif // INTEL_COLLAB
@@ -1873,6 +1898,25 @@ void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {
     E->printPretty(OS, nullptr, Policy);
     PrintComma = true;
   }
+  OS << ")";
+}
+void OMPClausePrinter::VisitOMPOmpxMonotonicClause(
+    OMPOmpxMonotonicClause *Node) {
+  OS << "ompx_monotonic";
+  VisitOMPClauseList(Node, '(');
+  if (Node->getStep() != nullptr) {
+    OS << ": ";
+    Node->getStep()->printPretty(OS, nullptr, Policy, 0);
+  }
+  OS << ")";
+}
+void OMPClausePrinter::VisitOMPOmpxAssertClause(OMPOmpxAssertClause *) {
+  OS << "ompx_assert";
+}
+void OMPClausePrinter::VisitOMPOmpxOverlapClause(OMPOmpxOverlapClause *Node) {
+  OS << "ompx_overlap";
+  OS << "(";
+  Node->getOverlap()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
 }
 #if INTEL_FEATURE_CSA
@@ -1927,7 +1971,7 @@ void OMPClausePrinter::VisitOMPSimdlenClause(OMPSimdlenClause *Node) {
 void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
   OS << "sizes(";
   bool First = true;
-  for (auto Size : Node->getSizesRefs()) {
+  for (auto *Size : Node->getSizesRefs()) {
     if (!First)
       OS << ", ";
     Size->printPretty(OS, nullptr, Policy, 0);

@@ -1,3 +1,19 @@
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+
 set(TARGET_NAME BuiltinLibInfo)
 
 include_directories(BEFORE ".")
@@ -13,17 +29,10 @@ include_directories(
 
 set(TARGET_EXTRA_SOURCE_FILES 
   Driver/Volcano/VolcanoOpenclRuntime.cpp
-#These files are needed only for building opt (to run dx LIT tests)
-  Driver/DX/DXData.cpp
-  Driver/DX/DXRuntime.cpp
-  Driver/DX/DXWrapperParamsCheck.cpp
   Driver/Functions.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES 
   Driver/Volcano/VolcanoOpenclRuntime.h
-#These files are needed only for building opt (to run dx LIT tests)
-  Driver/DX/DXRuntime.h
-  Driver/DX/DXWrapperParamsCheck.h
   Driver/Functions.h
 )
 

@@ -1,4 +1,21 @@
 //===- Symbols.h ------------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -93,10 +110,6 @@ public:
   // The partition whose dynamic symbol table contains this symbol's definition.
   uint8_t partition = 1;
 
-  // Symbol visibility. This is the computed minimum visibility of all
-  // observed non-DSO symbols.
-  uint8_t visibility : 2;
-
   // True if this symbol is preemptible at load time.
   uint8_t isPreemptible : 1;
 
@@ -145,6 +158,13 @@ public:
   uint8_t hasVersionSuffix : 1;
 
   inline void replace(const Symbol &other);
+
+  // Symbol visibility. This is the computed minimum visibility of all
+  // observed non-DSO symbols.
+  uint8_t visibility() const { return stOther & 3; }
+  void setVisibility(uint8_t visibility) {
+    stOther = (stOther & ~3) | visibility;
+  }
 
   bool includeInDynsym() const;
   uint8_t computeBinding() const;
@@ -250,16 +270,15 @@ protected:
   Symbol(Kind k, InputFile *file, StringRef name, uint8_t binding,
          uint8_t stOther, uint8_t type)
       : file(file), nameData(name.data()), nameSize(name.size()), type(type),
-        binding(binding), stOther(stOther), symbolKind(k),
-        visibility(stOther & 3), isPreemptible(false),
+        binding(binding), stOther(stOther), symbolKind(k), isPreemptible(false),
         isUsedInRegularObj(false), used(false), exportDynamic(false),
         inDynamicList(false), referenced(false), referencedAfterWrap(false),
         traced(false), hasVersionSuffix(false), isInIplt(false),
         gotInIgot(false), folded(false), needsTocRestore(false),
-        scriptDefined(false), needsCopy(false), needsGot(false),
-        needsPlt(false), needsTlsDesc(false), needsTlsGd(false),
-        needsTlsGdToIe(false), needsGotDtprel(false), needsTlsIe(false),
-        hasDirectReloc(false) {}
+        scriptDefined(false), dsoProtected(false), needsCopy(false),
+        needsGot(false), needsPlt(false), needsTlsDesc(false),
+        needsTlsGd(false), needsTlsGdToIe(false), needsGotDtprel(false),
+        needsTlsIe(false), hasDirectReloc(false) {}
 
 public:
   // True if this symbol is in the Iplt sub-section of the Plt and the Igot
@@ -282,6 +301,9 @@ public:
   // LTO shouldn't inline the symbol because it doesn't know the final content
   // of the symbol.
   uint8_t scriptDefined : 1;
+
+  // True if defined in a DSO as protected visibility.
+  uint8_t dsoProtected : 1;
 
   // True if this symbol needs a canonical PLT entry, or (during
   // postScanRelocations) a copy relocation.
@@ -404,6 +426,7 @@ public:
       : Symbol(SharedKind, &file, name, binding, stOther, type), value(value),
         size(size), alignment(alignment) {
     exportDynamic = true;
+    dsoProtected = visibility() == llvm::ELF::STV_PROTECTED;
     // GNU ifunc is a mechanism to allow user-supplied functions to
     // resolve PLT slot values at load-time. This is contrary to the
     // regular symbol resolution scheme in which symbols are resolved just
@@ -533,7 +556,7 @@ void Symbol::replace(const Symbol &other) {
   nameData = old.nameData;
   nameSize = old.nameSize;
   partition = old.partition;
-  visibility = old.visibility;
+  setVisibility(old.visibility());
   isPreemptible = old.isPreemptible;
   isUsedInRegularObj = old.isUsedInRegularObj;
   exportDynamic = old.exportDynamic;
@@ -560,7 +583,6 @@ void reportDuplicate(const Symbol &sym, const InputFile *newFile,
                      InputSectionBase *errSec, uint64_t errOffset);
 void maybeWarnUnorderableSymbol(const Symbol *sym);
 bool computeIsPreemptible(const Symbol &sym);
-void reportBackrefs();
 
 } // namespace elf
 } // namespace lld

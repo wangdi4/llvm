@@ -15,6 +15,9 @@
 ; The IR is the output of inliner, which inserts lifetime begin/end intrinsics
 ; for temp vars generated in prepare pass.
 
+; Additional lifetime end markers were added for %y.addr.i to make sure we
+; can handle deletion of multiple markers for the same operand addr.
+
 ; ALL-NOT:       %y.addr.i
 
 ; RESTR-COUNT-1: call void @llvm.lifetime.start.p0i8
@@ -57,6 +60,10 @@ b.exit:                                           ; preds = %entry, %DIR.OMP.PAR
   call void @llvm.directive.region.exit(token %2) #1 [ "DIR.OMP.END.PARALLEL"() ]
   %3 = bitcast i32** %y.addr.i to i8*
   call void @llvm.lifetime.end.p0i8(i64 8, i8* %3)
+
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %3)
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %3)
+
   %4 = bitcast i1* %end.dir.temp.i to i8*
   call void @llvm.lifetime.end.p0i8(i64 1, i8* %4)
   ret i32 undef

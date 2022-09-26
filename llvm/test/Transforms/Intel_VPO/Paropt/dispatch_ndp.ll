@@ -1,7 +1,8 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 
-; // C++ source:
+; Test src:
+
 ; void __attribute__((nothrow,noinline))  foo_gpu(int aaa, int* bbb) {
 ;   // printf("\n *** VARIANT FUNCTION ***\n");
 ; }
@@ -17,47 +18,54 @@
 ;   return 0;
 ; }
 ;
+
+; CHECK: [[PTR_V:%.+]] = load ptr, ptr %ptr, align 8
+; CHECK: [[GEP:%.+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
+; CHECK: store ptr [[PTR_V]], ptr [[GEP]], align 8
 ; CHECK: call void @__tgt_target_data_begin_mapper
-; CHECK: [[CAST:%[a-zA-Z._0-9]+]] = bitcast i8** %{{.*}} to i32**
-; CHECK: [[UPDATEDVAL:%[a-zA-Z._0-9]+]] = load i32*, i32** [[CAST]], align 8
-; CHECK: call void @_Z7foo_gpuiPi(i32 0, i32* [[UPDATEDVAL]])
+; CHECK: [[UPDATED_V:%.+]] = load ptr, ptr [[GEP]], align 8
+; CHECK: call void @_Z7foo_gpuiPi(i32 0, ptr [[UPDATED_V]])
 ; CHECK: call void @__tgt_target_data_end_mapper
 
-; ModuleID = 'dispatch_ndp.cpp'
-source_filename = "dispatch_ndp.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "spir64"
 
-; Function Attrs: noinline norecurse nounwind optnone uwtable mustprogress
-define dso_local i32 @main() #2 {
+; Function Attrs: mustprogress noinline norecurse nounwind optnone uwtable
+define dso_local noundef i32 @main() #2 {
 entry:
   %retval = alloca i32, align 4
-  %ptr = alloca i32*, align 8
-  store i32 0, i32* %retval, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISPATCH"(), "QUAL.OMP.DEVICE"(i32 0) ]
-  %1 = load i32*, i32** %ptr, align 8
-  call void @_Z3fooiPi(i32 0, i32* %1) #3 [ "QUAL.OMP.DISPATCH.CALL"() ]
+  %ptr = alloca ptr, align 8
+  store i32 0, ptr %retval, align 4
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISPATCH"(),
+    "QUAL.OMP.DEVICE"(i32 0) ]
+
+  %1 = load ptr, ptr %ptr, align 8
+  call void @_Z3fooiPi(i32 noundef 0, ptr noundef %1) #3 [ "QUAL.OMP.DISPATCH.CALL"() ]
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.DISPATCH"() ]
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone uwtable mustprogress
-define dso_local void @_Z7foo_gpuiPi(i32 %aaa, i32* %bbb) #0 {
+
+; Function Attrs: mustprogress noinline nounwind optnone uwtable
+define dso_local void @_Z7foo_gpuiPi(i32 noundef %aaa, ptr noundef %bbb) #0 {
 entry:
   %aaa.addr = alloca i32, align 4
-  %bbb.addr = alloca i32*, align 8
-  store i32 %aaa, i32* %aaa.addr, align 4
-  store i32* %bbb, i32** %bbb.addr, align 8
+  %bbb.addr = alloca ptr, align 8
+  store i32 %aaa, ptr %aaa.addr, align 4
+  store ptr %bbb, ptr %bbb.addr, align 8
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone uwtable mustprogress
-define dso_local void @_Z3fooiPi(i32 %aaa, i32* %bbb) #1 {
+; Function Attrs: mustprogress noinline nounwind optnone uwtable
+define dso_local void @_Z3fooiPi(i32 noundef %aaa, ptr noundef %bbb) #1 {
 entry:
   %aaa.addr = alloca i32, align 4
-  %bbb.addr = alloca i32*, align 8
-  store i32 %aaa, i32* %aaa.addr, align 4
-  store i32* %bbb, i32** %bbb.addr, align 8
+  %bbb.addr = alloca ptr, align 8
+  store i32 %aaa, ptr %aaa.addr, align 4
+  store ptr %bbb, ptr %bbb.addr, align 8
   ret void
 }
 
@@ -67,11 +75,7 @@ declare token @llvm.directive.region.entry() #3
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #3
 
-attributes #0 = { noinline nounwind optnone uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { noinline nounwind optnone uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-variant"="name:_Z7foo_gpuiPi;construct:dispatch;arch:gen;need_device_ptr:F,T" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #2 = { noinline norecurse nounwind optnone uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "may-have-openmp-directive"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #0 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-variant"="name:_Z7foo_gpuiPi;construct:dispatch;arch:gen;need_device_ptr:F,T" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #2 = { mustprogress noinline norecurse nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #3 = { nounwind }
-
-!llvm.module.flags = !{!0}
-
-!0 = !{i32 1, !"wchar_size", i32 4}

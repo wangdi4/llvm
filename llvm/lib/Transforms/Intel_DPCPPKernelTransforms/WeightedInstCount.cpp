@@ -18,11 +18,14 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/InstructionCost.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/PostDominanceFrontier.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/Predicator.h"
 
@@ -31,7 +34,7 @@ using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-weighted-inst-count-analysis"
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VFISAKind> IsaEncodingOverride;
 
 // MAGIC NUMBERS
 
@@ -74,6 +77,7 @@ static constexpr int CallClampWeight = 2;
 static constexpr int CallMinMaxWeight = 1;
 static constexpr int CallFloorWeight = 2;
 static constexpr int CallFakeInsertExtractWeight = 2;
+static constexpr int CallRelational = 3;
 
 static constexpr int PenaltyFactorForGEPWithSixParams = 7;
 static constexpr unsigned NumParamsInGEPPenaltyHack = 6;
@@ -81,9 +85,9 @@ static constexpr unsigned NumParamsInGEPPenaltyHack = 6;
 namespace llvm {
 class InstCountResultImpl {
 public:
-  InstCountResultImpl(Function &F, PostDominatorTree &DT, LoopInfo &LI,
-                      ScalarEvolution &SE, VectorVariant::ISAClass ISA,
-                      bool PreVec);
+  InstCountResultImpl(Function &F, TargetTransformInfo &TTI,
+                      PostDominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
+                      VFISAKind ISA, bool PreVec);
 
   void analyze();
 
@@ -94,6 +98,9 @@ public:
 
   // Returns the computed total weight.
   float getWeight() const { return TotalWeight; }
+
+  // Returns the probability of a basic block being executed.
+  float getBBProb(const BasicBlock *BB) const { return ProbMap.lookup(BB); }
 
   /// Calculate the heuristic results per basic block and output as counts.
   void countPerBlockHeuristics(std::map<BasicBlock *, int> *PreCosts,
@@ -164,13 +171,15 @@ private:
 private:
   Function &F;
 
+  TargetTransformInfo &TTI;
+
   PostDominatorTree &DT;
 
   LoopInfo &LI;
 
   ScalarEvolution &SE;
 
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 
   // Is this a before or after vectorization pass.
   // Affects debug printing right now, but may count some
@@ -190,14 +199,18 @@ private:
 
   // A map of costs for the load/store transpose functions
   StringMap<int> TransCosts;
+
+  // The probability of each basic block being executed.
+  DenseMap<BasicBlock *, float> ProbMap;
 };
 } // namespace llvm
 
-InstCountResultImpl::InstCountResultImpl(Function &F, PostDominatorTree &DT,
-                                         LoopInfo &LI, ScalarEvolution &SE,
-                                         VectorVariant::ISAClass ISA,
+InstCountResultImpl::InstCountResultImpl(Function &F, TargetTransformInfo &TTI,
+                                         PostDominatorTree &DT, LoopInfo &LI,
+                                         ScalarEvolution &SE,
+                                         VFISAKind ISA,
                                          bool PreVec)
-    : F(F), DT(DT), LI(LI), SE(SE), ISA(ISA), PreVec(PreVec) {
+    : F(F), TTI(TTI), DT(DT), LI(LI), SE(SE), ISA(ISA), PreVec(PreVec) {
   if (IsaEncodingOverride.getNumOccurrences())
     this->ISA = IsaEncodingOverride.getValue();
 
@@ -300,7 +313,6 @@ void InstCountResultImpl::analyze() {
 
   // Now compute some estimation of the probability of each basic block
   // being executed in a run.
-  DenseMap<BasicBlock *, float> ProbMap;
   estimateProbability(F, ProbMap);
 
   // Ok, start counting with 0
@@ -378,7 +390,7 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
     Function &F, DenseMap<Loop *, int> &IterMap,
     DenseMap<BasicBlock *, float> &ProbMap) {
   // For SSE, this is always 4.
-  if (ISA == VectorVariant::XMM)
+  if (ISA == VFISAKind::SSE)
     return 4;
 
   // For AVX, estimate the most used type in the kernel.
@@ -386,7 +398,7 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
   // otherwise, 8.
   // This logic was inherited from the old heuristic, but the types
   // are computed slightly more rationally now.
-  if (ISA == VectorVariant::YMM1) {
+  if (ISA == VFISAKind::AVX) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
     // For AVX, there is only x4 native sub-group implementation.
     if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get())
@@ -424,7 +436,7 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
       return 4;
   }
 
-  if (ISA != VectorVariant::ZMM)
+  if (ISA != VFISAKind::AVX512)
     return 8;
 
   return 16;
@@ -503,6 +515,24 @@ Type *InstCountResultImpl::estimateDominantType(
     }
   }
   return DominantType;
+}
+
+/// isequal ... islessgreater are already replaced with instruction in
+/// BuiltinCallToInst pass, so there is no need to handle them.
+static bool isRelationalBuiltin(StringRef Name) {
+  return StringSwitch<bool>(Name)
+      .Case("isfinite", true)
+      .Case("isinf", true)
+      .Case("isnan", true)
+      .Case("isnormal", true)
+      .Case("isordered", true)
+      .Case("isunordered", true)
+      .Case("signbit", true)
+      .Case("any", true)
+      .Case("all", true)
+      .Case("bitselect", true)
+      .Case("select", true)
+      .Default(false);
 }
 
 int InstCountResultImpl::estimateCall(CallInst *CI) {
@@ -610,9 +640,24 @@ int InstCountResultImpl::estimateCall(CallInst *CI) {
     // calculated by ptr + indices, so we can check if the indices are in 64
     // bits; while LLVM gather/scatter intrinsic simply accepts a vector of
     // address, so we simply return the Weight.
-    if (IsGatherIntrinsic || IsScatterIntrinsic)
-      return Weight;
+    if (IsGatherIntrinsic || IsScatterIntrinsic) {
+      unsigned Opcode =
+          IsGatherIntrinsic ? Instruction::Load : Instruction::Store;
+      Type *DataTy =
+          IsGatherIntrinsic ? CI->getType() : CI->getArgOperand(0)->getType();
+      const Value *Ptr =
+          IsGatherIntrinsic ? CI->getArgOperand(0) : CI->getArgOperand(1);
+      bool VariableMask = !isa<ConstantVector>(
+          IsGatherIntrinsic ? CI->getArgOperand(2) : CI->getArgOperand(3));
+      auto *Alignment =
+          IsGatherIntrinsic ? CI->getArgOperand(1) : CI->getArgOperand(2);
+      InstructionCost IC = TTI.getGatherScatterOpCost(
+          Opcode, DataTy, Ptr, VariableMask,
+          Align(cast<ConstantInt>(Alignment)->getZExtValue()));
+      return *IC.getValue();
+    }
 
+    // TODO remove after volcano vectorizer is removed.
     Value *Index = CI->getArgOperand(2);
     auto *Ty = cast<VectorType>(Index->getType());
     // return doubled weight for 64 bit indices
@@ -646,15 +691,20 @@ int InstCountResultImpl::estimateCall(CallInst *CI) {
 
   // Ugly hacks start here.
   // FIXME: What about masked versions?
-  if (Name.startswith("_Z5clamp") || Name.startswith("clamp"))
+  using namespace NameMangleAPI;
+  StringRef DemangledName = isMangledName(Name) ? stripName(Name) : Name;
+  if (DemangledName == "clamp")
     return CallClampWeight;
 
-  if (Name.startswith("_Z5floor") || Name.startswith("floor"))
+  if (DemangledName == "floor")
     return CallFloorWeight;
 
-  if (Name.startswith("_Z3min") || Name.startswith("min") ||
-      Name.startswith("_Z3max") || Name.startswith("max"))
+  if (DemangledName == "fmin" || DemangledName == "min" ||
+      DemangledName == "fmax" || DemangledName == "max")
     return CallMinMaxWeight;
+
+  if (isRelationalBuiltin(DemangledName))
+    return CallRelational;
 
   if (Name.startswith("fake.insert") || Name.startswith("fake.extract"))
     return CallFakeInsertExtractWeight;
@@ -704,17 +754,17 @@ unsigned InstCountResultImpl::getOpWidth(FixedVectorType *VecType) const {
   unsigned ElemCount = VecType->getNumElements();
 
   unsigned Float, Double, LongInt, ShortInt;
-  if (ISA == VectorVariant::ZMM) {
+  if (ISA == VFISAKind::AVX512) {
     Float = 16;
     Double = 8;
     LongInt = 8;
     ShortInt = 16;
-  } else if (ISA == VectorVariant::YMM2) {
+  } else if (ISA == VFISAKind::AVX2) {
     Float = 8;
     Double = 4;
     LongInt = 4;
     ShortInt = 8;
-  } else if (ISA == VectorVariant::YMM1) {
+  } else if (ISA == VFISAKind::AVX) {
     // Only AVX, 4-wide on ints, 2-wide on i64
     Float = 8;
     Double = 4;
@@ -797,7 +847,7 @@ int InstCountResultImpl::getInstructionWeight(
     assert(OpType && "Extract from a non-vector type!");
 
     if (((OpType->getNumElements() == 4) || (OpType->getNumElements() == 8) ||
-         (ISA == VectorVariant::ZMM && (OpType->getNumElements() == 16))) &&
+         (ISA == VFISAKind::AVX512 && (OpType->getNumElements() == 16))) &&
         ((OpType->getElementType()->isFloatTy()) ||
          OpType->getElementType()->isIntegerTy(32)))
       return CheapExtractWeight;
@@ -834,7 +884,10 @@ int InstCountResultImpl::getInstructionWeight(
       return OpCost->second;
 
     // Not known to be special, return normal weight.
-    return MemOpWeight;
+    InstructionCost IC = TTI.getMemoryOpCost(
+        I->getOpcode(), getLoadStoreType(I), getLoadStoreAlignment(I),
+        getLoadStoreAddressSpace(I));
+    return *IC.getValue();
   }
 
   // Conditional branches are expensive.
@@ -1396,10 +1449,11 @@ void InstCountResultImpl::print(raw_ostream &OS) {
   OS.indent(2) << "Total weight : " << TotalWeight << "\n";
 }
 
-InstCountResult::InstCountResult(Function &F, PostDominatorTree &DT,
-                                 LoopInfo &LI, ScalarEvolution &SE,
-                                 VectorVariant::ISAClass ISA, bool PreVec) {
-  Impl.reset(new InstCountResultImpl(F, DT, LI, SE, ISA, PreVec));
+InstCountResult::InstCountResult(Function &F, TargetTransformInfo &TTI,
+                                 PostDominatorTree &DT, LoopInfo &LI,
+                                 ScalarEvolution &SE,
+                                 VFISAKind ISA, bool PreVec) {
+  Impl.reset(new InstCountResultImpl(F, TTI, DT, LI, SE, ISA, PreVec));
 }
 
 InstCountResult::InstCountResult(InstCountResult &&Other)
@@ -1412,6 +1466,10 @@ void InstCountResult::print(raw_ostream &OS) { return Impl->print(OS); }
 unsigned InstCountResult::getDesiredVF() const { return Impl->getDesiredVF(); }
 
 float InstCountResult::getWeight() const { return Impl->getWeight(); }
+
+float InstCountResult::getBBProb(const BasicBlock *BB) const {
+  return Impl->getBBProb(BB);
+}
 
 void InstCountResult::countPerBlockHeuristics(
     std::map<BasicBlock *, int> *PreCosts, int PacketWidth) {
@@ -1427,13 +1485,14 @@ INITIALIZE_PASS_BEGIN(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
                     "Weighted instruction count analysis", false, true)
 
 char WeightedInstCountAnalysisLegacy::ID = 0;
 
 WeightedInstCountAnalysisLegacy::WeightedInstCountAnalysisLegacy(
-    VectorVariant::ISAClass ISA, bool PreVec)
+    VFISAKind ISA, bool PreVec)
     : FunctionPass(ID), ISA(ISA), PreVec(PreVec) {
   initializeWeightedInstCountAnalysisLegacyPass(
       *PassRegistry::getPassRegistry());
@@ -1441,6 +1500,7 @@ WeightedInstCountAnalysisLegacy::WeightedInstCountAnalysisLegacy(
 
 void WeightedInstCountAnalysisLegacy::getAnalysisUsage(
     AnalysisUsage &AU) const {
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.addRequired<PostDominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
@@ -1448,16 +1508,18 @@ void WeightedInstCountAnalysisLegacy::getAnalysisUsage(
 }
 
 bool WeightedInstCountAnalysisLegacy::runOnFunction(Function &F) {
+  TargetTransformInfo &TTI =
+      getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   PostDominatorTree &DT =
       getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  Result.reset(new InstCountResult(F, DT, LI, SE, ISA, PreVec));
+  Result.reset(new InstCountResult(F, TTI, DT, LI, SE, ISA, PreVec));
   return false;
 }
 
 FunctionPass *
-llvm::createWeightedInstCountAnalysisLegacyPass(VectorVariant::ISAClass ISA,
+llvm::createWeightedInstCountAnalysisLegacyPass(VFISAKind ISA,
                                                 bool PreVec) {
   return new WeightedInstCountAnalysisLegacy(ISA, PreVec);
 }
@@ -1466,8 +1528,9 @@ AnalysisKey WeightedInstCountAnalysis::Key;
 
 InstCountResult WeightedInstCountAnalysis::run(Function &F,
                                                FunctionAnalysisManager &AM) {
+  TargetTransformInfo &TTI = AM.getResult<TargetIRAnalysis>(F);
   PostDominatorTree &DT = AM.getResult<PostDominatorTreeAnalysis>(F);
   LoopInfo &LI = AM.getResult<LoopAnalysis>(F);
   ScalarEvolution &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
-  return InstCountResult{F, DT, LI, SE, ISA, PreVec};
+  return InstCountResult{F, TTI, DT, LI, SE, ISA, PreVec};
 }

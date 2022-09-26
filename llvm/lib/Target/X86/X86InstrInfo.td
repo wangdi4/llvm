@@ -405,17 +405,19 @@ def X86AbsMemAsmOperand : AsmOperandClass {
 }
 
 class X86MemOperand<string printMethod,
-          AsmOperandClass parserMatchClass = X86MemAsmOperand> : Operand<iPTR> {
+                    AsmOperandClass parserMatchClass = X86MemAsmOperand,
+                    int size = 0> : Operand<iPTR> {
   let PrintMethod = printMethod;
   let MIOperandInfo = (ops ptr_rc, i8imm, ptr_rc_nosp, i32imm, SEGMENT_REG);
   let ParserMatchClass = parserMatchClass;
   let OperandType = "OPERAND_MEMORY";
+  int Size = size;
 }
 
 // Gather mem operands
 class X86VMemOperand<RegisterClass RC, string printMethod,
-                     AsmOperandClass parserMatchClass>
-    : X86MemOperand<printMethod, parserMatchClass> {
+                     AsmOperandClass parserMatchClass, int size = 0>
+    : X86MemOperand<printMethod, parserMatchClass, size> {
   let MIOperandInfo = (ops ptr_rc, i8imm, RC, i32imm, SEGMENT_REG);
 }
 
@@ -430,48 +432,50 @@ def opaquemem : X86MemOperand<"printMemReference">;
 
 def sibmem: X86MemOperand<"printMemReference", X86SibMemOperand>;
 
-def i8mem   : X86MemOperand<"printbytemem",   X86Mem8AsmOperand>;
-def i16mem  : X86MemOperand<"printwordmem",  X86Mem16AsmOperand>;
-def i32mem  : X86MemOperand<"printdwordmem",  X86Mem32AsmOperand>;
-def i64mem  : X86MemOperand<"printqwordmem",  X86Mem64AsmOperand>;
-def i128mem : X86MemOperand<"printxmmwordmem", X86Mem128AsmOperand>;
-def i256mem : X86MemOperand<"printymmwordmem", X86Mem256AsmOperand>;
-def i512mem : X86MemOperand<"printzmmwordmem", X86Mem512AsmOperand>;
-def f16mem  : X86MemOperand<"printwordmem",   X86Mem16AsmOperand>;
-def f32mem  : X86MemOperand<"printdwordmem",  X86Mem32AsmOperand>;
-def f64mem  : X86MemOperand<"printqwordmem",  X86Mem64AsmOperand>;
-def f80mem  : X86MemOperand<"printtbytemem",  X86Mem80AsmOperand>;
-def f128mem : X86MemOperand<"printxmmwordmem", X86Mem128AsmOperand>;
-def f256mem : X86MemOperand<"printymmwordmem", X86Mem256AsmOperand>;
-def f512mem : X86MemOperand<"printzmmwordmem", X86Mem512AsmOperand>;
+def i8mem   : X86MemOperand<"printbytemem",   X86Mem8AsmOperand, 8>;
+def i16mem  : X86MemOperand<"printwordmem",  X86Mem16AsmOperand, 16>;
+def i32mem  : X86MemOperand<"printdwordmem",  X86Mem32AsmOperand, 32>;
+def i64mem  : X86MemOperand<"printqwordmem",  X86Mem64AsmOperand, 64>;
+def i128mem : X86MemOperand<"printxmmwordmem", X86Mem128AsmOperand, 128>;
+def i256mem : X86MemOperand<"printymmwordmem", X86Mem256AsmOperand, 256>;
+def i512mem : X86MemOperand<"printzmmwordmem", X86Mem512AsmOperand, 512>;
+def f16mem  : X86MemOperand<"printwordmem",   X86Mem16AsmOperand, 16>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def bf16mem : X86MemOperand<"printwordmem",   X86Mem16AsmOperand, 16>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+def f32mem  : X86MemOperand<"printdwordmem",  X86Mem32AsmOperand, 32>;
+def f64mem  : X86MemOperand<"printqwordmem",  X86Mem64AsmOperand, 64>;
+def f80mem  : X86MemOperand<"printtbytemem",  X86Mem80AsmOperand, 80>;
+def f128mem : X86MemOperand<"printxmmwordmem", X86Mem128AsmOperand, 128>;
+def f256mem : X86MemOperand<"printymmwordmem", X86Mem256AsmOperand, 256>;
+def f512mem : X86MemOperand<"printzmmwordmem", X86Mem512AsmOperand, 512>;
 
 // Gather mem operands
-def vx64mem  : X86VMemOperand<VR128,  "printqwordmem",  X86Mem64_RC128Operand>;
-def vx128mem : X86VMemOperand<VR128,  "printxmmwordmem", X86Mem128_RC128Operand>;
-def vx256mem : X86VMemOperand<VR128,  "printymmwordmem", X86Mem256_RC128Operand>;
-def vy128mem : X86VMemOperand<VR256,  "printxmmwordmem", X86Mem128_RC256Operand>;
-def vy256mem : X86VMemOperand<VR256,  "printymmwordmem", X86Mem256_RC256Operand>;
+def vx64mem  : X86VMemOperand<VR128,  "printqwordmem",  X86Mem64_RC128Operand, 64>;
+def vx128mem : X86VMemOperand<VR128,  "printxmmwordmem", X86Mem128_RC128Operand, 128>;
+def vx256mem : X86VMemOperand<VR128,  "printymmwordmem", X86Mem256_RC128Operand, 256>;
+def vy128mem : X86VMemOperand<VR256,  "printxmmwordmem", X86Mem128_RC256Operand, 128>;
+def vy256mem : X86VMemOperand<VR256,  "printymmwordmem", X86Mem256_RC256Operand, 256>;
 
-def vx64xmem  : X86VMemOperand<VR128X, "printqwordmem",  X86Mem64_RC128XOperand>;
-def vx128xmem : X86VMemOperand<VR128X, "printxmmwordmem", X86Mem128_RC128XOperand>;
-def vx256xmem : X86VMemOperand<VR128X, "printymmwordmem", X86Mem256_RC128XOperand>;
-def vy128xmem : X86VMemOperand<VR256X, "printxmmwordmem", X86Mem128_RC256XOperand>;
-def vy256xmem : X86VMemOperand<VR256X, "printymmwordmem", X86Mem256_RC256XOperand>;
-def vy512xmem : X86VMemOperand<VR256X, "printzmmwordmem", X86Mem512_RC256XOperand>;
-def vz256mem  : X86VMemOperand<VR512,  "printymmwordmem", X86Mem256_RC512Operand>;
-def vz512mem  : X86VMemOperand<VR512,  "printzmmwordmem", X86Mem512_RC512Operand>;
+def vx64xmem  : X86VMemOperand<VR128X, "printqwordmem",  X86Mem64_RC128XOperand, 64>;
+def vx128xmem : X86VMemOperand<VR128X, "printxmmwordmem", X86Mem128_RC128XOperand, 128>;
+def vx256xmem : X86VMemOperand<VR128X, "printymmwordmem", X86Mem256_RC128XOperand, 256>;
+def vy128xmem : X86VMemOperand<VR256X, "printxmmwordmem", X86Mem128_RC256XOperand, 128>;
+def vy256xmem : X86VMemOperand<VR256X, "printymmwordmem", X86Mem256_RC256XOperand, 256>;
+def vy512xmem : X86VMemOperand<VR256X, "printzmmwordmem", X86Mem512_RC256XOperand, 512>;
+def vz256mem  : X86VMemOperand<VR512,  "printymmwordmem", X86Mem256_RC512Operand, 256>;
+def vz512mem  : X86VMemOperand<VR512,  "printzmmwordmem", X86Mem512_RC512Operand, 512>;
 
 // A version of i8mem for use on x86-64 and x32 that uses a NOREX GPR instead
 // of a plain GPR, so that it doesn't potentially require a REX prefix.
 def ptr_rc_norex : PointerLikeRegClass<2>;
 def ptr_rc_norex_nosp : PointerLikeRegClass<3>;
 
-def i8mem_NOREX : Operand<iPTR> {
-  let PrintMethod = "printbytemem";
+def i8mem_NOREX : X86MemOperand<"printbytemem", X86Mem8AsmOperand, 8> {
   let MIOperandInfo = (ops ptr_rc_norex, i8imm, ptr_rc_norex_nosp, i32imm,
                        SEGMENT_REG);
-  let ParserMatchClass = X86Mem8AsmOperand;
-  let OperandType = "OPERAND_MEMORY";
 }
 
 // GPRs available for tailcall.
@@ -481,23 +485,17 @@ def ptr_rc_tailcall : PointerLikeRegClass<4>;
 // Special i32mem for addresses of load folding tail calls. These are not
 // allowed to use callee-saved registers since they must be scheduled
 // after callee-saved register are popped.
-def i32mem_TC : Operand<i32> {
-  let PrintMethod = "printdwordmem";
+def i32mem_TC : X86MemOperand<"printdwordmem", X86Mem32AsmOperand, 32> {
   let MIOperandInfo = (ops ptr_rc_tailcall, i8imm, ptr_rc_tailcall,
                        i32imm, SEGMENT_REG);
-  let ParserMatchClass = X86Mem32AsmOperand;
-  let OperandType = "OPERAND_MEMORY";
 }
 
 // Special i64mem for addresses of load folding tail calls. These are not
 // allowed to use callee-saved registers since they must be scheduled
 // after callee-saved register are popped.
-def i64mem_TC : Operand<i64> {
-  let PrintMethod = "printqwordmem";
+def i64mem_TC : X86MemOperand<"printqwordmem", X86Mem64AsmOperand, 64> {
   let MIOperandInfo = (ops ptr_rc_tailcall, i8imm,
                        ptr_rc_tailcall, i32imm, SEGMENT_REG);
-  let ParserMatchClass = X86Mem64AsmOperand;
-  let OperandType = "OPERAND_MEMORY";
 }
 
 // Special parser to detect 16-bit mode to select 16-bit displacement.
@@ -980,6 +978,11 @@ def NoVLX_Or_NoBITALG    : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBIT
 def PKU        : Predicate<"Subtarget->hasPKU()">;
 def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
 def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def HasNEBF16      : Predicate<"Subtarget->hasNEBF16()">;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
 def HasBF16      : Predicate<"Subtarget->hasBF16()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_BF16
@@ -1109,6 +1112,7 @@ def HasCLFLUSHOPT : Predicate<"Subtarget->hasCLFLUSHOPT()">;
 def HasCLWB      : Predicate<"Subtarget->hasCLWB()">;
 def HasWBNOINVD  : Predicate<"Subtarget->hasWBNOINVD()">;
 def HasRDPID     : Predicate<"Subtarget->hasRDPID()">;
+def HasRDPRU     : Predicate<"Subtarget->hasRDPRU()">;
 def HasWAITPKG   : Predicate<"Subtarget->hasWAITPKG()">;
 def HasINVPCID   : Predicate<"Subtarget->hasINVPCID()">;
 def HasCX8       : Predicate<"Subtarget->hasCX8()">;
@@ -1162,9 +1166,6 @@ def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
 def HasAMXTILE2    : Predicate<"Subtarget->hasAMXTILE2()">;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 
-#if INTEL_FEATURE_ISA_AMX_BF8
-def HasAMXBF8    : Predicate<"Subtarget->hasAMXBF8()">;
-#endif // INTEL_FEATURE_ISA_AMX_BF8
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
 def HasAMXMEMADVISE    : Predicate<"Subtarget->hasAMXMEMADVISE()">;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
@@ -1285,6 +1286,32 @@ def HasAVX512COMPLEX : Predicate<"Subtarget->hasAVX512COMPLEX()">;
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
 def HasAVX512REDUCTION : Predicate<"Subtarget->hasAVX512REDUCTION()">;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION2
+// AUTO GENERATED BY TOOL
+def HasAVX512REDUCTION2 : Predicate<"Subtarget->hasAVX512REDUCTION2()">;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION2
+#if INTEL_FEATURE_ISA_AVX256P
+def HasAVX256P : Predicate<"Subtarget->hasAVX256P()">;
+def HasAVX256P_Or_HasAVX512 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasAVX512()">;
+def HasAVX256P_Or_HasVLX : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasVLX()">;
+def HasAVX256P_Or_HasFP16 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasFP16()">;
+def HasAVX256P_Or_HasDQI_NoVL : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasDQI()">;
+def HasAVX256P_Or_HasDQI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasDQI() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasBWI_NoVL : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasBWI()">;
+def HasAVX256P_Or_HasBWI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasBWI() && Subtarget->hasVLX())">;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_AMX_FP8
+// AUTO GENERATED BY TOOL
+def HasAMXFP8 : Predicate<"Subtarget->hasAMXFP8()">;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AMX_FP8
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+def HasAVX512NECONVERTFP8 : Predicate<"Subtarget->hasAVX512NECONVERTFP8()">;
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+def HasAVX512VNNIFP8 : Predicate<"Subtarget->hasAVX512VNNIFP8()">;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
@@ -1322,8 +1349,8 @@ def NotWin64WithoutFP : Predicate<"!Subtarget->isTargetWin64() ||"
                                   "Subtarget->getFrameLowering()->hasFP(*MF)"> {
   let RecomputePerFunction = 1;
 }
-def IsPS4        : Predicate<"Subtarget->isTargetPS4()">;
-def NotPS4       : Predicate<"!Subtarget->isTargetPS4()">;
+def IsPS         : Predicate<"Subtarget->isTargetPS()">;
+def NotPS        : Predicate<"!Subtarget->isTargetPS()">;
 def IsNaCl       : Predicate<"Subtarget->isTargetNaCl()">;
 def NotNaCl      : Predicate<"!Subtarget->isTargetNaCl()">;
 def SmallCode    : Predicate<"TM.getCodeModel() == CodeModel::Small">;
@@ -1504,6 +1531,11 @@ def loadi32 : PatFrag<(ops node:$ptr), (i32 (unindexedload node:$ptr)), [{
 }]>;
 
 def loadi64  : PatFrag<(ops node:$ptr), (i64 (load node:$ptr))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadbf16 : PatFrag<(ops node:$ptr), (bf16 (load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadf16  : PatFrag<(ops node:$ptr), (f16 (load node:$ptr))>;
 def loadf32  : PatFrag<(ops node:$ptr), (f32 (load node:$ptr))>;
 def loadf64  : PatFrag<(ops node:$ptr), (f64 (load node:$ptr))>;
@@ -2624,6 +2656,18 @@ def STD : I<0xFD, RawFrm, (outs), (ins), "std", []>;
 let Uses = [AL,EBX], Defs = [AL], hasSideEffects = 0, mayLoad = 1 in
 def XLAT : I<0xD7, RawFrm, (outs), (ins), "xlatb", []>, Sched<[WriteLoad]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+// Marker Count
+let hasNoSchedulingInfo = 1, hasSideEffects = 0 in {
+def MARKER_COUNT_LOOP_HEADER: I<0x37, RawFrm, (outs), (ins), "markercount_loopheader", []>,
+        Requires<[In64BitMode]>;
+def MARKER_COUNT_FUNCTION: I<0x0e, RawFrm, (outs), (ins), "markercount_function", []>,
+        Requires<[In64BitMode]>;
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
 let SchedRW = [WriteMicrocoded] in {
 // ASCII Adjust After Addition
 let Uses = [AL,EFLAGS], Defs = [AX,EFLAGS], hasSideEffects = 0 in
@@ -3523,6 +3567,9 @@ include "Intel_X86InstrRAOINT.td"
 #if INTEL_FEATURE_XUCC
 include "Intel_X86XuCC.td"
 #endif // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_ISA_AVX256P
+include "Intel_X86InstrAVX256P.td"
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.

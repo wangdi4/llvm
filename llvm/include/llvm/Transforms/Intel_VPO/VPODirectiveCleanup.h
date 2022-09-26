@@ -29,6 +29,9 @@ public:
 
   bool runImpl(Function &F);
   static bool isRequired() { return true; }
+
+private:
+  bool removeScanFence(Function &F);
 };
 
 namespace vpo {

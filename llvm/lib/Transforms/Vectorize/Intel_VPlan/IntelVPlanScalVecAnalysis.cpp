@@ -1,6 +1,6 @@
 //===- IntelVPlanScalVecAnalysis.cpp --------------------------------------===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -97,6 +97,12 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
     const VPInstruction *Inst) {
+  auto SetSVAKindForCallArgOperands = [this](const VPCallInstruction *VPCall,
+                                             const SVAKind Kind) {
+    for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands(); ++ArgIdx)
+      setSVAKindForOperand(VPCall, ArgIdx, Kind);
+  };
+
   auto *DA = Plan->getVPlanDA();
 
   switch (Inst->getOpcode()) {
@@ -219,11 +225,6 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // scenario is Undefined i.e. not analyzed, then we conservatively skip the
     // instruction from any further analysis and mark both instruction and its
     // operands as Vector.
-    auto SetSVAKindForArgOperands = [this](const VPCallInstruction *VPCall,
-                                           const SVAKind Kind) {
-      for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands(); ++ArgIdx)
-        setSVAKindForOperand(VPCall, ArgIdx, Kind);
-    };
 
     const VPCallInstruction *VPCall = cast<VPCallInstruction>(Inst);
     assert(VPCall->getVFForScenario() > 0 &&
@@ -232,42 +233,41 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     case VPCallInstruction::CallVecScenariosTy::Undefined: {
       // No knowledge available for call, conservatively vectorize.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
       // This is a vector library call, so all call arguments sould be vector in
       // nature.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // Serialization is tracked as emulated vectorization by SVA. Set
       // instruction and operands as vector.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
       // Call will be emitted as single scalar copy in generated code.
       setSVAKindForInst(Inst, SVAKind::FirstScalar);
-      SetSVAKindForArgOperands(VPCall, SVAKind::FirstScalar);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::FirstScalar);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
       // Ther are no way to specify uniformity/linearity/etc. in the current
       // DPC++ spec.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
       // Call that will be vectorized using matching SIMD vector variant.
       // Argument nature is decided based on VectorVariant's properties.
-      VectorVariant *VecVariant =
-          const_cast<VectorVariant *>(VPCall->getVectorVariant());
-      std::vector<VectorKind> Parms = VecVariant->getParameters();
+      const VFInfo *VecVariant = VPCall->getVectorVariant();
+      ArrayRef<VFParameter> Parms = VecVariant->getParameters();
       bool IsIntelIndirectCall = VPCall->isIntelIndirectCall();
       if (IsIntelIndirectCall) {
         // For __intel_indirect_calls, first argument represents pointer to call
@@ -318,6 +318,22 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::TransformLibraryCall: {
+    const auto *VPCall = cast<VPTransformLibraryCall>(Inst);
+
+    // Instruction itself is vector in nature.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+
+    // This is a vector library call, so all call arguments should be vector in
+    // nature.
+    SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
+
+    // Last operand of call is called value, which should be left as scalar.
+    setSVAKindForOperand(Inst, VPCall->getNumOperands() - 1,
+                         SVAKind::FirstScalar);
+    return true;
+  }
+
   // Specialization for loop entities related instructions.
   case VPInstruction::InductionInit: {
     // All operands of induction-init should be scalar strictly.
@@ -352,21 +368,22 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::ReductionInit: {
+    const auto *Init = cast<VPReductionInit>(Inst);
+
     // All operands of reduction-init should be scalar strictly.
     setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+
     // FIXME: Enable assert below when legality is fixed to bail out of
     // vectorization for loops where reduction PHI is stored to non-private
     // address. Check vplan_scalvec_analysis_header_phi_specialization.ll.
     // assert(!instNeedsFirstScalarCode(Inst) && !instNeedsLastScalarCode(Inst)
     // && "Reduction can never be done with scalar instructions.");
-    setSVAKindForInst(Inst, SVAKind::Vector);
-    return true;
-  }
 
-  case VPInstruction::ReductionInitScalar: {
-    // All operands of reduction-init-scalar should be scalar strictly.
-    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
-    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    if (Init->isScalar())
+      setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    else
+      setSVAKindForInst(Inst, SVAKind::Vector);
+
     return true;
   }
 
@@ -397,8 +414,17 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ReductionFinalUdr: {
+    // We make VF number of calls to Combiner to finalize UDRs, hence
+    // instruction is vector in nature.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::ReductionFinalInscan: {
-    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     // The instruction itself is vectorized, although it produces a scalar
     // return value.
     setSVAKindForInst(Inst, SVAKind::Vector);
@@ -435,6 +461,14 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalArrayMasked: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2, SVAKind::Vector);
+    return true;
+  }
+
   case VPInstruction::PrivateLastValueNonPOD: {
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     setSVAKindForOperand(Inst, 0, SVAKind::LastScalar);
@@ -451,15 +485,9 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::AllocatePrivate: {
-    // Mark as scalar if explicitly marked.
-    auto *VPAlloca = cast<VPAllocatePrivate>(Inst);
-    if (VPAlloca->getIsScalar()) {
-      setSVAKindForInst(Inst, SVAKind::FirstScalar);
-      return true;
-    }
-    // Otherwise, we don't set any specific bits for the allocate-private
-    // instruction, it will decided only based on uses of the instruction.
-    // If there are no users, set Vector conservatively.
+    // We don't set any specific bits for the allocate-private instruction, it
+    // will decided only based on uses of the instruction. If there are no
+    // users, set Vector conservatively.
     SVABits SetBits = getAllSetBitsFromUsers(Inst);
     setSVABitsForInst(Inst, SetBits);
     return true;
@@ -670,6 +698,73 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForOperand(Inst, 0 /*FirstArg*/, SVAKind::Vector);
     setSVAKindForOperand(Inst, 1 /*SecondArg*/, SVAKind::FirstScalar);
     setSVAKindForOperand(Inst, 2 /*ThirdArg*/, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::CompressStore: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressStoreNonu: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    return true;
+  }
+  case VPInstruction::ExpandLoad: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::ExpandLoadNonu: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndexInit: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndexFinal: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndex: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndexInc: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    return true;
+  }
+  case VPInstruction::CompressExpandMask: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::SOAExtractValue: {
+    // Instruction is scalar
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+
+    // Return and aggregate argument are vector
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+
+    // Index arguments are scalar
+    for (unsigned I = 1; I < Inst->getNumOperands(); ++I) {
+      setSVAKindForOperand(Inst, I, SVAKind::FirstScalar);
+    }
     return true;
   }
 
@@ -891,7 +986,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
       auto *OpInst = cast<VPInstruction>(Op);
       Optional<SVABits> CurrentOpSVABits = findSVABitsForInst(OpInst);
 
-      if (CurrentOpSVABits && CurrentOpSVABits.getValue() == SetBits) {
+      if (CurrentOpSVABits && CurrentOpSVABits.value() == SetBits) {
         // Nothing to do, operand already has same state as Inst.
         continue;
       }
@@ -921,7 +1016,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
     const VPInstruction *Inst = Worklist.pop_back_val();
     SVABits OrigBits(0);
     if (auto FoundBits = findSVABitsForInst(Inst))
-      OrigBits = FoundBits.getValue();
+      OrigBits = FoundBits.value();
     assert((OrigBits.any() || SkippedPHIs.count(cast<VPPHINode>(Inst))) &&
            "Trying to back propagate to an unprocessed instruction.");
     // Compute SVA results for instruction during back propagation.
@@ -944,12 +1039,13 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case Instruction::Load:
   case Instruction::Store:
   case Instruction::Call:
+  case VPInstruction::TransformLibraryCall:
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
   case VPInstruction::ReductionInit:
-  case VPInstruction::ReductionInitScalar:
   case VPInstruction::ReductionFinal:
+  case VPInstruction::ReductionFinalUdr:
   case VPInstruction::ReductionFinalInscan:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
@@ -975,6 +1071,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
   case VPInstruction::PrivateFinalArray:
+  case VPInstruction::PrivateFinalArrayMasked:
   case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::PrivateLastValueNonPODMasked:
   case VPInstruction::VLSLoad:
@@ -990,6 +1087,16 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ExtractLastVectorLane:
   case VPInstruction::RunningInclusiveReduction:
   case VPInstruction::RunningExclusiveReduction:
+  case VPInstruction::CompressStore:
+  case VPInstruction::CompressStoreNonu:
+  case VPInstruction::ExpandLoad:
+  case VPInstruction::ExpandLoadNonu:
+  case VPInstruction::CompressExpandIndexInit:
+  case VPInstruction::CompressExpandIndexFinal:
+  case VPInstruction::CompressExpandIndex:
+  case VPInstruction::CompressExpandIndexInc:
+  case VPInstruction::CompressExpandMask:
+  case VPInstruction::SOAExtractValue:
     return true;
   default:
     return false;
@@ -1025,11 +1132,11 @@ void VPlanScalVecAnalysis::printSVAKindForInst(raw_ostream &OS,
   // Default if inst doesn't have valid SVABits is 0.
   SVABits InstBits(0);
   if (auto InstBitsOption = findSVABitsForInst(VPI))
-    InstBits = InstBitsOption.getValue();
+    InstBits = InstBitsOption.value();
   // Default if inst doesn't have valid return value SVABits is 0.
   SVABits RetValBits(0);
   if (auto RetValBitsOption = findSVABitsForReturnValue(VPI))
-    RetValBits = RetValBitsOption.getValue();
+    RetValBits = RetValBitsOption.value();
   if (InstBits != RetValBits) {
     OS << "RetVal:(";
     if (RetValBits.test(static_cast<unsigned>(SVAKind::FirstScalar)))
@@ -1068,7 +1175,7 @@ void VPlanScalVecAnalysis::printSVAKindForOperand(raw_ostream &OS,
   // Default if operand doesn't have valid SVABits is 0.
   SVABits OpBits(0);
   if (auto OpBitsOption = findSVABitsForOperand(VPI, OpIdx))
-    OpBits = OpBitsOption.getValue();
+    OpBits = OpBitsOption.value();
   if (OpBits.test(static_cast<unsigned>(SVAKind::FirstScalar)))
     OS << "F";
   if (OpBits.test(static_cast<unsigned>(SVAKind::LastScalar)))

@@ -368,12 +368,13 @@ void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
       continue;
 
     Kernels.push_back(&F);
+
+    // OpenCL/SYCL/SPIR-V kernel could have internal linkage since spec doesn't
+    // mandate kernel to have external linkage.
+    F.setLinkage(GlobalValue::ExternalLinkage);
+
     if (F.getName().contains("_block_invoke_") &&
         F.getName().endswith("_kernel")) {
-      // Clang generates enqueued block invoke functions as kernels with
-      // InternalLinkage, so ensure the linkage is External.
-      // FIXME: It looks like a bug in clang
-      F.setLinkage(GlobalValue::ExternalLinkage);
       // Set block-literal-size attribute for enqueued kernels.
       setBlockLiteralSizeMetadata(F);
     }

@@ -75,6 +75,7 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -110,8 +111,11 @@ cl::opt<bool> VerifyScheduling(
 cl::opt<bool> ViewMISchedDAGs(
     "view-misched-dags", cl::Hidden,
     cl::desc("Pop up a window to show MISched dags after they are processed"));
+cl::opt<bool> PrintDAGs("misched-print-dags", cl::Hidden,
+                        cl::desc("Print schedule DAGs"));
 #else
 const bool ViewMISchedDAGs = false;
+const bool PrintDAGs = false;
 #endif // NDEBUG
 
 } // end namespace llvm
@@ -129,10 +133,6 @@ static cl::opt<std::string> SchedOnlyFunc("misched-only-func", cl::Hidden,
   cl::desc("Only schedule this function"));
 static cl::opt<unsigned> SchedOnlyBlock("misched-only-block", cl::Hidden,
                                         cl::desc("Only schedule this MBB#"));
-static cl::opt<bool> PrintDAGs("misched-print-dags", cl::Hidden,
-                              cl::desc("Print schedule DAGs"));
-#else
-static const bool PrintDAGs = false;
 #endif // NDEBUG
 
 /// Avoid quadratic complexity in unusually large basic blocks by limiting the
@@ -321,6 +321,12 @@ static cl::opt<bool> EnablePostRAMachineSched(
     "enable-post-misched",
     cl::desc("Enable the post-ra machine instruction scheduling pass."),
     cl::init(true), cl::Hidden);
+
+#if INTEL_CUSTOMIZATION
+static bool enableTargetSchedHeuristics(const MachineFunction *MF) {
+  return MF && MF->getSubtarget().enableTargetSchedHeuristics();
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Decrement this iterator until reaching the top or a non-debug instr.
 static MachineBasicBlock::const_iterator
@@ -783,7 +789,7 @@ void ScheduleDAGMI::moveInstruction(
 }
 
 bool ScheduleDAGMI::checkSchedLimit() {
-#if LLVM_ENABLE_ABI_BREAKING_CHECKS
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS && !defined(NDEBUG)
   if (NumInstrsScheduled == MISchedCutoff && MISchedCutoff != ~0U) {
     CurrentTop = CurrentBottom;
     return false;
@@ -1758,7 +1764,7 @@ void BaseMemOpClusterMutation::collectMemOpRecords(
                         << ", Width: " << Width << "\n");
     }
 #ifndef NDEBUG
-    for (auto *Op : BaseOps)
+    for (const auto *Op : BaseOps)
       assert(Op);
 #endif
   }
@@ -2913,7 +2919,7 @@ bool tryGreater(int TryVal, int CandVal,
 
 bool tryLatency(GenericSchedulerBase::SchedCandidate &TryCand,
                 GenericSchedulerBase::SchedCandidate &Cand,
-                SchedBoundary &Zone) {
+                SchedBoundary &Zone, const MachineFunction *MF) { // INTEL
   if (Zone.isTop()) {
     // Prefer the candidate with the lesser depth, but only if one of them has
     // depth greater than the total latency scheduled so far, otherwise either
@@ -2931,12 +2937,21 @@ bool tryLatency(GenericSchedulerBase::SchedCandidate &TryCand,
     // Prefer the candidate with the lesser height, but only if one of them has
     // height greater than the total latency scheduled so far, otherwise either
     // of them could be scheduled now with no stall.
-    if (std::max(TryCand.SU->getHeight(), Cand.SU->getHeight()) >= //INTEL
+    if (std::max(TryCand.SU->getHeight(), Cand.SU->getHeight()) >
         Zone.getScheduledLatency()) {
       if (tryLess(TryCand.SU->getHeight(), Cand.SU->getHeight(),
                   TryCand, Cand, GenericSchedulerBase::BotHeightReduce))
         return true;
     }
+#if INTEL_CUSTOMIZATION
+    if (enableTargetSchedHeuristics(MF) &&
+        std::max(TryCand.SU->getHeight(), Cand.SU->getHeight()) ==
+            Zone.getScheduledLatency()) {
+      if (tryLess(TryCand.SU->getHeight(), Cand.SU->getHeight(), TryCand, Cand,
+                  GenericSchedulerBase::BotHeightReduce))
+        return true;
+    }
+#endif // INTEL_CUSTOMIZATION
     if (tryGreater(TryCand.SU->getDepth(), Cand.SU->getDepth(),
                    TryCand, Cand, GenericSchedulerBase::BotPathReduce))
       return true;
@@ -3321,7 +3336,7 @@ bool GenericScheduler::tryCandidate(SchedCandidate &Cand,
     // latency. Within an single cycle, whenever CurrMOps > 0, allow normal
     // heuristics to take precedence.
     if (Rem.IsAcyclicLatencyLimited && !Zone->getCurrMOps() &&
-        tryLatency(TryCand, Cand, *Zone))
+        tryLatency(TryCand, Cand, *Zone, &DAG->MF)) // ITNEL
       return TryCand.Reason != NoCand;
 
     // Prioritize instructions that read unbuffered resources by stall cycles.
@@ -3371,7 +3386,6 @@ bool GenericScheduler::tryCandidate(SchedCandidate &Cand,
                    TryCand, Cand, ResourceDemand))
       return TryCand.Reason != NoCand;
 
-
 #if INTEL_CUSTOMIZATION
     // Since latency heuristic may increase the register pressure, this
     // heuristic try to avoid to let current max register pressure bigger than
@@ -3412,15 +3426,23 @@ bool GenericScheduler::tryCandidate(SchedCandidate &Cand,
     unsigned RemLatency = 0;
     // Avoid serializing long latency dependence chains.
     // For acyclic path limited loops, latency was already checked above.
-    //TODO: check if it is possible that setPolicy (which includes ReduceResIdx)
-    //      could be better than shouldReduceLatency
-    if (!RegionPolicy.DisableLatencyHeuristic &&
+    // TODO: check if it is possible that setPolicy (which includes
+    // ReduceResIdx) could be better than shouldReduceLatency
+    if (enableTargetSchedHeuristics(&DAG->MF) &&
+        !RegionPolicy.DisableLatencyHeuristic &&
         DAG->MF.getFunction().hasFnAttribute(Attribute::NoFree) == true &&
         LowRegPressure(TryCand, Cand, DAG) &&
         shouldReduceLatency(TryCand.Policy, *Zone, true, RemLatency) &&
-        !Rem.IsAcyclicLatencyLimited && tryLatency(TryCand, Cand, *Zone))
+        !Rem.IsAcyclicLatencyLimited &&
+        tryLatency(TryCand, Cand, *Zone, &DAG->MF))
       return TryCand.Reason != NoCand;
 #endif // INTEL_CUSTOMIZATION
+
+    // Avoid serializing long latency dependence chains.
+    // For acyclic path limited loops, latency was already checked above.
+    if (!RegionPolicy.DisableLatencyHeuristic && TryCand.Policy.ReduceLatency &&
+        !Rem.IsAcyclicLatencyLimited && tryLatency(TryCand, Cand, *Zone))
+      return TryCand.Reason != NoCand;
 
     // Fall through to original instruction order.
     if ((Zone->isTop() && TryCand.SU->NodeNum < Cand.SU->NodeNum)
@@ -3724,7 +3746,7 @@ bool PostGenericScheduler::tryCandidate(SchedCandidate &Cand,
     return TryCand.Reason != NoCand;
 
   // Avoid serializing long latency dependence chains.
-  if (Cand.Policy.ReduceLatency && tryLatency(TryCand, Cand, Top)) {
+  if (Cand.Policy.ReduceLatency && tryLatency(TryCand, Cand, Top, &DAG->MF)) { // INTEL
     return TryCand.Reason != NoCand;
   }
 

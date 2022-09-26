@@ -1,5 +1,6 @@
 ; This test try to find the ptr and ptrofptr's global variables and validate isValidPtr function.
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume < %s -dtrans-reusefield -debug-only=dtrans-reusefield -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume < %s -passes=dtrans-reusefield -debug-only=dtrans-reusefield -disable-output 2>&1 | FileCheck %s
 
@@ -113,10 +114,13 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 
 ; Function Attrs: inaccessiblememonly nocallback nofree nosync nounwind willreturn
 declare i32* @llvm.ptr.annotation.p0i32(i32* %0, i8* %1, i8* %2, i32 %3, i8* %4)
 
 ; Function Attrs: inaccessiblemem_or_argmemonly mustprogress nounwind willreturn
-declare dso_local void @free(i8* nocapture noundef %0) local_unnamed_addr
+declare dso_local void @free(i8* nocapture noundef %0) local_unnamed_addr #1
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

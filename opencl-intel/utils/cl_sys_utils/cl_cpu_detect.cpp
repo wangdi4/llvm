@@ -37,8 +37,6 @@ const std::map<int, std::string> FeatureMap = {
     {CFS_BMI2, "bmi2"},
     {CFS_AVX512F, "avx512f"},
     {CFS_AVX512CD, "avx512cd"},
-    {CFS_AVX512ER, "avx512er"},
-    {CFS_AVX512PF, "avx512pf"},
     {CFS_AVX512BW, "avx512bw"},
     {CFS_AVX512DQ, "avx512dq"},
     {CFS_AVX512VL, "avx512vl"},
@@ -196,14 +194,6 @@ void CPUDetect::ResetCPU(ECPU cpuId,
   if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512dq") !=
       forcedFeatures.end())
     m_CPUFeatures["avx512dq"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512er") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512er"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512pf") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512pf"] = true;
 
   if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vl") !=
       forcedFeatures.end())

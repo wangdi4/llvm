@@ -1759,7 +1759,6 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
                                                               bool Invalidate) {
   bool LLVMConstFolded = false;
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
-  bool IsFastFP = isa<FPMathOperator>(LLVMInst) ? LLVMInst->isFast() : false;
 
   if (isa<BinaryOperator>(LLVMInst)) {
     RegDDRef *RHS, *LHS, *Result;
@@ -1808,13 +1807,21 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
           Result = LHS;
         }
         break;
-      case Instruction::FMul:
-        if (!IsFastFP) {
-          break;
-        }
-        if (RHS->isZero() || LHS->isOne()) {
+      case Instruction::FMul: {
+
+        // This case does the HIR equivalent of simplifyFMAFMul in
+        // lib/Analysis/InstructionSimplify.cpp and also the "X * -1.0 --> -X"
+        // peephole in InstCombinerImpl::visitFMul. Most of these operations
+        // do not require any fast math flags, except that simplifying
+        // multiply by zero to zero requires nnan (because 0.0*NaN=NaN) and
+        // nsz (because the resulting zero sign would depend on the sign of
+        // both operands).
+        bool CanFoldZeroFMul =
+            LLVMInst->hasNoNaNs() && LLVMInst->hasNoSignedZeros();
+
+        if ((RHS->isZero() && CanFoldZeroFMul) || LHS->isOne()) {
           Result = RHS;
-        } else if (LHS->isZero() || RHS->isOne()) {
+        } else if ((LHS->isZero() && CanFoldZeroFMul) || RHS->isOne()) {
           Result = LHS;
         } else {
           if (LHS->isMinusOne()) {
@@ -1824,7 +1831,8 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
           }
           Negate = true;
         }
-        break;
+      }
+      break;
 
       case Instruction::Mul:
         if (RHS->isZero() || LHS->isOne()) {

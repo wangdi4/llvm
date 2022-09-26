@@ -23,35 +23,38 @@
 ; END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = trunc i64 [[VP2]] to i32
-; CHECK-NEXT:     store i32 [[VP4]] i32* [[I_LPRIV0:%.*]]
-; CHECK-NEXT:     i8* [[VP5:%.*]] = bitcast i32* [[B_PRIV0:%.*]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[I_LPRIV0:%.*]]
+; CHECK-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[B_PRIV0:%.*]]
+; CHECK-NEXT:     i8* [[VP5:%.*]] = bitcast i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP5]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     store i32 0 i32* [[B_PRIV0]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[B_PRIV0]]
+; CHECK-NEXT:     store i32 0 i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i32 (i32)** [[VP7:%.*]] = subscript inbounds i32 (i32)** [[FUNC0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i32 (i32)* [[VP8:%.*]] = load i32 (i32)** [[VP7]]
 ; CHECK-NEXT:     i32* [[VP9:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = call i32 [[VP10]] i32 (i32)* [[VP8]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = load i32* [[B_PRIV0]]
-; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[I_LPRIV0]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[B_PRIV0]]
+; CHECK-NEXT:     i32 [[VP12:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[I_LPRIV0]]
+; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:     i64 [[VP14:%.*]] = sext i32 [[VP13]] to i64
 ; CHECK-NEXT:     i32* [[VP15:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP14]]
 ; CHECK-NEXT:     i32 [[VP16:%.*]] = load i32* [[VP15]]
 ; CHECK-NEXT:     i32 [[VP17:%.*]] = add i32 [[VP11]] i32 [[VP12]]
 ; CHECK-NEXT:     i32 [[VP18:%.*]] = add i32 [[VP17]] i32 [[VP16]]
-; CHECK-NEXT:     i64 [[VP19:%.*]] = sext i32 [[VP13]] to i64
-; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP19]]
+; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP14]]
 ; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP20]]
-; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[B_PRIV0]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds i32* [[B_PRIV0]]
+; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp slt i64 [[VP3]] i64 [[VP1:%vp.*]]
@@ -83,7 +86,7 @@ DIR.OMP.SIMD.116:                                 ; preds = %entry
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.116
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LASTPRIVATE"(i32* %i.lpriv), "QUAL.OMP.PRIVATE"(i32* %b.priv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* %b.priv, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

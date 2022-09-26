@@ -21,7 +21,7 @@ entry:
   br i1 %cmp, label %for.body.lr.ph, label %exit
 
 for.body.lr.ph:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(<2 x i64>* %arr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(<2 x i64>* %arr, <2 x i64> zeroinitializer, i32 1) ]
   br label %for.body
 
 for.body:

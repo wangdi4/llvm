@@ -1010,7 +1010,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
 
   // We should not be checking the SCEV of the livein copy instruction as it
   // should inherit the SCEV of the rval.
-  if (!IsLiveInCopy && HIRP->ScopedSE.isSCEVable(CurInst->getType())) {
+  if (!IsLiveInCopy && HIRP->isSCEVable(CurInst->getType())) {
     auto CurSCEV = HIRP->ScopedSE.getSCEV(const_cast<Instruction *>(CurInst));
 
     // First instruction can only be an exact match. A partial match means that
@@ -1220,16 +1220,16 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
 const SCEVConstant *
 HIRParser::BlobProcessor::getSDiv(const SCEVConstant *LHS,
                                   const SCEVConstant *RHS) const {
-  auto *Const = dyn_cast<ConstantInt>(
-      ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()));
+  bool Overflow = false;
+  const APInt SDiv = LHS->getAPInt().sdiv_ov(RHS->getAPInt(), Overflow);
 
   // sdiv overflows in the following scenario and returns undef-
   // min_int /s -1
-  if (!Const) {
+  if (Overflow) {
     return nullptr;
   }
 
-  return cast<SCEVConstant>(HIRP->ScopedSE.getConstant(Const));
+  return cast<SCEVConstant>(HIRP->ScopedSE.getConstant(SDiv));
 }
 
 const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
@@ -1470,6 +1470,18 @@ bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
   return false;
 }
 
+bool HIRParser::isSCEVable(Type *Ty) const {
+  if (!ScopedSE.isSCEVable(Ty)) {
+    return false;
+  }
+
+  auto *IntTy = dyn_cast<IntegerType>(Ty);
+
+  // Force integers larger than 64 bits to be parsed as blobs as CanonExpr's
+  // constant field is int64_t.
+  return (!IntTy || (IntTy->getPrimitiveSizeInBits() <= 64));
+}
+
 bool HIRParser::isEssential(const Instruction *Inst) const {
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
@@ -1488,7 +1500,7 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
     return true;
   }
 
-  if (!ScopedSE.isSCEVable(Inst->getType())) {
+  if (!isSCEVable(Inst->getType())) {
     return true;
   }
 
@@ -2410,7 +2422,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop,
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
-  if (!ScopedSE.isSCEVable(ValTy)) {
+  if (!isSCEVable(ValTy)) {
     assert(!FinalIntTy && "Cannot convert value to integer type! ");
     CE = parseAsBlob(Val, Level);
 
@@ -3033,7 +3045,7 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
 
   auto *FoundElemTy = RI.findPhiElementType(Phi);
 
-  if (!FoundElemTy) {
+  if (!FoundElemTy || !FoundElemTy->isSized()) {
     return nullptr;
   }
 
@@ -3168,6 +3180,7 @@ class DimInfo {
   SmallVector<Value *, 4> IndicesLB;
 
   bool HasZeroIndex = false;
+  unsigned Extent = 0;
 
 public:
   Type *getType() const { return Ty; }
@@ -3178,6 +3191,9 @@ public:
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
+
+  unsigned getExtent() const { return Extent; }
+  void setExtent(unsigned Extent) { this->Extent = Extent; }
 
   bool isStrideExactMultiple() const { return IsExactMultiple; }
   void setStrideIsExactMultiple(bool Flag) { IsExactMultiple = Flag; }
@@ -3307,6 +3323,8 @@ public:
 
   unsigned getMinRank() const { return MinRank; }
   unsigned getMaxRank() const { return Dimensions.size() - 1; }
+
+  bool isEmpty() const { return Dimensions.size() == 0; }
 
   iterator begin() const { return Dimensions.begin(); }
   iterator end() const { return Dimensions.end(); }
@@ -3452,6 +3470,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
   Dim.setStrideIsExactMultiple(Sub->isExact());
+  Dim.setExtent(Sub->getExtent());
 
   return {Arr};
 }
@@ -3776,6 +3795,17 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       CurDim.setType(NextDim.getType());
       CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
+
+      // Assume FE provides extent one time per memref
+      assert(!CurDim.getExtent() || !NextDim.getExtent() ||
+             CurDim.getExtent() == NextDim.getExtent() &&
+                 "Extent metadata mistmatch!");
+
+      // Use extent metadata for the incoming DimInfo
+      if (!CurDim.getExtent() && NextDim.getExtent()) {
+        CurDim.setExtent(NextDim.getExtent());
+      }
+
       // Reset exact flag if either of two dims are not exact.
       CurDim.setStrideIsExactMultiple(CurDim.isStrideExactMultiple() &&
                                       NextDim.isStrideExactMultiple());
@@ -3896,6 +3926,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
                                Dim.isStrideExactMultiple());
     }
   }
+
+  // Merge the extent using the last ArrayInfo where the metadata can exist.
+  if (!Chain.front().isEmpty())
+    Ref->setHighestDimNumElements(Chain.front().getHighestDim().getExtent());
 
   auto *BaseGEPOp = Chain.getBase();
 
@@ -4728,7 +4762,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   unsigned NumRvalOp = getNumRvalOperands(Inst);
   auto *Call = HInst->getCallInst();
 
-  bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory());
+  bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory() &&
+                             !Call->onlyAccessesInaccessibleMemory());
   bool IsReadOnly =
       (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
 

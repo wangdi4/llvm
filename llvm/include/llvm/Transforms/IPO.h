@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -38,8 +38,6 @@
 namespace llvm {
 
 struct InlineParams;
-class StringRef;
-class ModuleSummaryIndex;
 class ModulePass;
 class Pass;
 class BasicBlock;
@@ -116,10 +114,6 @@ ModulePass *createGVExtractionPass(std::vector<GlobalValue*>& GVs, bool
                                   deleteFn = false, bool keepConstInit = false);
 
 //===----------------------------------------------------------------------===//
-/// This pass performs iterative function importing from other modules.
-Pass *createFunctionImportPass();
-
-//===----------------------------------------------------------------------===//
 /// createFunctionInliningPass - Return a new pass object that uses a heuristic
 /// to inline direct function calls to small functions.
 ///
@@ -131,9 +125,12 @@ Pass *createFunctionImportPass();
 Pass *createFunctionInliningPass();
 Pass *createFunctionInliningPass(int Threshold);
 Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel,
-                                 bool DisableInlineHotCallSite, // INTEL
-                                 bool PrepareForLTO = false,    // INTEL
-                                 bool LinkForLTO = false);      // INTEL
+#if INTEL_CUSTOMIZATION
+                                 bool DisableInlineHotCallSite,
+                                 bool PrepareForLTO = false,
+                                 bool LinkForLTO = false,
+                                 bool SYCLOptimizationMode = false);
+#endif // INTEL_CUSTOMIZATION
 Pass *createFunctionInliningPass(InlineParams &Params);
 
 //===----------------------------------------------------------------------===//
@@ -173,28 +170,6 @@ ModulePass *createDeadArgHackingPass();
 
 /// DeadArgumentElimination pass for SYCL kernel functions
 ModulePass *createDeadArgEliminationSYCLPass();
-
-//===----------------------------------------------------------------------===//
-/// createArgumentPromotionPass - This pass promotes "by reference" arguments to
-/// be passed by value if the number of elements passed is smaller or
-/// equal to maxElements (maxElements == 0 means always promote).
-#if INTEL_CUSTOMIZATION
-/// removeHomedArguments == true indicates that homed arguments, which
-/// are introduced for debugging, should be removed to enable argument
-/// promotion. For example, here is a homed argument sequence:
-///    define void foo(double** %grid.addr) {
-///      ...
-///      %grid.addr.addr = alloca double**, align 8
-///      store double** %grid.addr, double*** %grid.addr.addr, align 8
-///      %grid.addr.value = load double**, double*** %grid.addr.addr, align 8
-///      ...
-/// to enable argument promotion of '%grid.addr', we would replace all
-/// references to %grid.addr.value with %grid.addr and remove the alloca,
-/// store, and load.
-///
-Pass *createArgumentPromotionPass(bool removeHomedArguments = false,
-                                  unsigned maxElements = 3);
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 /// createOpenMPOptLegacyPass - OpenMP specific optimizations.
@@ -287,38 +262,8 @@ enum class PassSummaryAction {
   Export, ///< Export information to summary.
 };
 
-/// This pass lowers type metadata and the llvm.type.test intrinsic to
-/// bitsets.
-///
-/// The behavior depends on the summary arguments:
-/// - If ExportSummary is non-null, this pass will export type identifiers to
-///   the given summary.
-/// - If ImportSummary is non-null, this pass will import type identifiers from
-///   the given summary.
-/// - Otherwise, if both are null and DropTypeTests is true, all type test
-///   assume sequences will be removed from the IR.
-/// It is invalid for both ExportSummary and ImportSummary to be non-null
-/// unless DropTypeTests is true.
-ModulePass *createLowerTypeTestsPass(ModuleSummaryIndex *ExportSummary,
-                                     const ModuleSummaryIndex *ImportSummary,
-                                     bool DropTypeTests = false);
-
 /// This pass export CFI checks for use by external modules.
 ModulePass *createCrossDSOCFIPass();
-
-/// This pass implements whole-program devirtualization using type
-/// metadata.
-///
-/// The behavior depends on the summary arguments:
-/// - If ExportSummary is non-null, this pass will export type identifiers to
-///   the given summary.
-/// - Otherwise, if ImportSummary is non-null, this pass will import type
-///   identifiers from the given summary.
-/// - Otherwise it does neither.
-/// It is invalid for both ExportSummary and ImportSummary to be non-null.
-ModulePass *
-createWholeProgramDevirtPass(ModuleSummaryIndex *ExportSummary,
-                             const ModuleSummaryIndex *ImportSummary);
 
 /// This pass splits globals into pieces for the benefit of whole-program
 /// devirtualization and control-flow integrity.
@@ -424,16 +369,6 @@ ModulePass *createArgNoAliasPropPass(void);
 
 ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
-
-//===----------------------------------------------------------------------===//
-// SampleProfilePass - Loads sample profile data from disk and generates
-// IR metadata to reflect the profile.
-ModulePass *createSampleProfileLoaderPass();
-ModulePass *createSampleProfileLoaderPass(StringRef Name);
-
-/// Write ThinLTO-ready bitcode to Str.
-ModulePass *createWriteThinLTOBitcodePass(raw_ostream &Str,
-                                          raw_ostream *ThinLinkOS = nullptr);
 
 } // End llvm namespace
 

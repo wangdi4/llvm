@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -46,6 +46,9 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/VPOParoptConstants.h"
+#endif // INTEL_COLLAB
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Argument.h"
@@ -79,6 +82,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypeFinder.h"
+#include "llvm/IR/TypedPointerType.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
@@ -109,6 +113,11 @@ using namespace llvm;
 // Make virtual table appear in this compilation unit.
 AssemblyAnnotationWriter::~AssemblyAnnotationWriter() = default;
 
+#if INTEL_COLLAB
+static cl::opt<bool> PrettyPrintDirectives(
+    "pretty-print-directives", cl::init(false), cl::Hidden,
+    cl::desc("Improve printing of region.entrty/exit directives."));
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> PrintDbgLoc(
     "print-debug-loc", cl::init(false), cl::Hidden,
@@ -344,6 +353,7 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::Intel_OCL_BI_AVX512: Out << "intel_ocl_bicc_avx512"; break;
   case CallingConv::SVML:          Out << "svml_cc"; break;
   case CallingConv::SVML_AVX:      Out << "svml_avx_cc"; break;
+  case CallingConv::SVML_AVX_AVX_Impl: Out << "svml_avx_avx_impl_cc"; break;
   case CallingConv::SVML_AVX512:   Out << "svml_avx512_cc"; break;
   case CallingConv::SVML_Unified:  Out << "svml_unified_cc"; break;
   case CallingConv::SVML_Unified_256: Out << "svml_unified_cc_256"; break;
@@ -656,11 +666,12 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
     OS << '>';
     return;
   }
-  case Type::DXILPointerTyID:
-    // DXIL pointer types are only handled by the DirectX backend. To avoid
-    // extra dependencies we just print the pointer's address here.
-    OS << "dxil-ptr (" << Ty << ")";
+  case Type::TypedPointerTyID: {
+    TypedPointerType *TPTy = cast<TypedPointerType>(Ty);
+    OS << "typedptr(" << *TPTy->getElementType() << ", "
+       << TPTy->getAddressSpace() << ")";
     return;
+  }
   }
   llvm_unreachable("Invalid TypeID");
 }
@@ -1636,10 +1647,6 @@ static void WriteConstantInternal(raw_ostream &Out, const Constant *CV,
         Out << ", ";
     }
 
-    if (CE->hasIndices())
-      for (unsigned I : CE->getIndices())
-        Out << ", " << I;
-
     if (CE->isCast()) {
       Out << " to ";
       WriterCtx.TypePrinter->print(CE->getType(), Out);
@@ -2121,7 +2128,7 @@ static void writeDIFile(raw_ostream &Out, const DIFile *N, AsmWriterContext &) {
   // Print all values for checksum together, or not at all.
   if (N->getChecksum())
     Printer.printChecksum(*N->getChecksum());
-  Printer.printString("source", N->getSource().getValueOr(StringRef()),
+  Printer.printString("source", N->getSource().value_or(StringRef()),
                       /* ShouldSkipEmpty */ true);
   Out << ")";
 }
@@ -2762,6 +2769,85 @@ void AssemblyWriter::writeParamOperand(const Value *Operand,
   auto WriterCtx = getContext();
   WriteAsOperandInternal(Out, Operand, WriterCtx);
 }
+#if INTEL_COLLAB
+
+// If the bundle BU is for a "QUAL.OMP.MAP", then try to extract its map-type
+// and print its description as a comment.
+//
+// For example, for the map:
+//   "QUAL.OMP.MAP.TOFROM"(ptr @y, ptr @y, i64 16, i64 33)
+//
+// The printed map type comment is:
+//   ; MAP type: 33 = 0x21 | PARAM (0x20) | TO (0x1)
+//
+static void printMapTypeAsComment(raw_ostream &Out,
+                                  const OperandBundleUse &&BU) {
+  if (!BU.getTagName().startswith("QUAL.OMP.MAP"))
+    return;
+
+  if (BU.Inputs.size() < 4)
+    return;
+
+  ConstantInt *MapTypeV = dyn_cast<ConstantInt>(BU.Inputs[3]);
+  if (!MapTypeV)
+    return;
+
+  uint64_t MapType = MapTypeV->getZExtValue();
+  Out << " ; MAP type: " << MapType << " = " << format_hex(MapType, 0);
+
+  if (!MapType)
+    return;
+
+  Out << " = ";
+
+  // Decode map-type bits next.
+  bool FirstMapType = true;
+
+  if (MapType & vpo::TGT_MAP_MEMBER_OF) {
+    FirstMapType = false;
+    uint64_t MemberValue = MapType & vpo::TGT_MAP_MEMBER_OF;
+    Out << "MEMBER_OF_" << (MemberValue >> 48) << " ("
+        << format_hex(MemberValue, 0) << ")";
+    MapType &= ~vpo::TGT_MAP_MEMBER_OF;
+  }
+
+#define TEST_MAPTYPE(type)                                                     \
+  if (!MapType)                                                                \
+    return;                                                                    \
+                                                                               \
+  if (MapType & vpo::TGT_MAP_##type) {                                         \
+    if (!FirstMapType)                                                         \
+      Out << " | ";                                                            \
+    FirstMapType = false;                                                      \
+    Out << #type " (" << format_hex(vpo::TGT_MAP_##type, 0) << ")";            \
+    MapType &= ~vpo::TGT_MAP_##type;                                           \
+  }
+
+  TEST_MAPTYPE(NON_CONTIG);
+  TEST_MAPTYPE(OMPX_HOLD);
+  TEST_MAPTYPE(PRESENT);
+  TEST_MAPTYPE(ND_DESC);
+  TEST_MAPTYPE(CLOSE);
+  TEST_MAPTYPE(IMPLICIT);
+  TEST_MAPTYPE(LITERAL);
+  TEST_MAPTYPE(PRIVATE);
+  TEST_MAPTYPE(RETURN_PARAM);
+  TEST_MAPTYPE(TARGET_PARAM);
+  TEST_MAPTYPE(PTR_AND_OBJ);
+  TEST_MAPTYPE(DELETE);
+  TEST_MAPTYPE(ALWAYS);
+  TEST_MAPTYPE(FROM);
+  TEST_MAPTYPE(TO);
+#undef TEST_MAPTYPE
+
+  if (!MapType)
+    return;
+
+  if (!FirstMapType)
+    Out << " | ";
+  Out << "UNKNOWN (" << format_hex(MapType, 0) << ")";
+}
+#endif // INTEL_COLLAB
 
 void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
   if (!Call->hasOperandBundles())
@@ -2770,11 +2856,32 @@ void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
   Out << " [ ";
 
   bool FirstBundle = true;
+#if INTEL_COLLAB
+  bool DoDirectiveSpecificPrinting =
+      PrettyPrintDirectives &&
+      Call->getOperandBundleAt(0).getTagName().startswith("DIR.");
+#endif // INTEL_COLLAB
   for (unsigned i = 0, e = Call->getNumOperandBundles(); i != e; ++i) {
     OperandBundleUse BU = Call->getOperandBundleAt(i);
 
+#if INTEL_COLLAB
+    // TODO: We might need to move the isOpenMPDirective method from VPOAnalysis
+    // library to the Code library, if we want to call it here. Until then, we
+    // have to string match the bundle name's prefix to "DIR.".
+    if (!FirstBundle) {
+      if (DoDirectiveSpecificPrinting) {
+        Out << ",";
+        // If the previous bundle was for a map QUAL, print its maptypes.
+        printMapTypeAsComment(Out, Call->getOperandBundleAt(i - 1));
+        Out << "\n    ";
+      } else {
+        Out << ", ";
+      }
+    }
+#else
     if (!FirstBundle)
       Out << ", ";
+#endif // INTEL_COLLAB
     FirstBundle = false;
 
     Out << '"';
@@ -2799,6 +2906,14 @@ void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
   }
 
   Out << " ]";
+#if INTEL_COLLAB
+  if (DoDirectiveSpecificPrinting) {
+    // If the last bundle was for a map QUAL, print its maptypes.
+    printMapTypeAsComment(
+        Out, Call->getOperandBundleAt(Call->getNumOperandBundles() - 1));
+    Out << "\n";
+  }
+#endif // INTEL_COLLAB
 }
 
 void AssemblyWriter::printModule(const Module *M) {
@@ -3600,8 +3715,8 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
       Out << ", no_sanitize_address";
     if (MD.NoHWAddress)
       Out << ", no_sanitize_hwaddress";
-    if (MD.NoMemtag)
-      Out << ", no_sanitize_memtag";
+    if (MD.Memtag)
+      Out << ", sanitize_memtag";
     if (MD.IsDynInit)
       Out << ", sanitize_address_dyninit";
   }
@@ -4322,7 +4437,7 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
       Out << ", align " << A->value();
     }
 
-    unsigned AddrSpace = AI->getType()->getAddressSpace();
+    unsigned AddrSpace = AI->getAddressSpace();
     if (AddrSpace != 0) {
       Out << ", addrspace(" << AddrSpace << ')';
     }
@@ -4357,9 +4472,9 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
     bool PrintAllTypes = false;
     Type *TheType = Operand->getType();
 
-    // Select, Store and ShuffleVector always print all types.
-    if (isa<SelectInst>(I) || isa<StoreInst>(I) || isa<ShuffleVectorInst>(I)
-        || isa<ReturnInst>(I)) {
+    // Select, Store, ShuffleVector and CmpXchg always print all types.
+    if (isa<SelectInst>(I) || isa<StoreInst>(I) || isa<ShuffleVectorInst>(I) ||
+        isa<ReturnInst>(I) || isa<AtomicCmpXchgInst>(I)) {
       PrintAllTypes = true;
     } else {
       for (unsigned i = 1, E = I.getNumOperands(); i != E; ++i) {
@@ -4797,9 +4912,8 @@ struct MDTreeAsmWriterContext : public AsmWriterContext {
       : AsmWriterContext(TP, ST, M), Level(0U), Visited({InitMD}), MainOS(OS) {}
 
   void onWriteMetadataAsOperand(const Metadata *MD) override {
-    if (Visited.count(MD))
+    if (!Visited.insert(MD).second)
       return;
-    Visited.insert(MD);
 
     std::string Str;
     raw_string_ostream SS(Str);

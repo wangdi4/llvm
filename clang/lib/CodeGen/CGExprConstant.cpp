@@ -720,8 +720,8 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, bool AllowOverwrite) {
         !declaresSameEntity(ILE->getInitializedFieldInUnion(), Field))
       continue;
 
-    // Don't emit anonymous bitfields or zero-sized fields.
-    if (Field->isUnnamedBitfield() || Field->isZeroSize(CGM.getContext()))
+    // Don't emit anonymous bitfields.
+    if (Field->isUnnamedBitfield())
       continue;
 
     // Get the initializer.  A struct can include fields without initializers,
@@ -731,6 +731,14 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, bool AllowOverwrite) {
       Init = ILE->getInit(ElementNo++);
     if (Init && isa<NoInitExpr>(Init))
       continue;
+
+    // Zero-sized fields are not emitted, but their initializers may still
+    // prevent emission of this struct as a constant.
+    if (Field->isZeroSize(CGM.getContext())) {
+      if (Init->HasSideEffects(CGM.getContext()))
+        return false;
+      continue;
+    }
 
     // When emitting a DesignatedInitUpdateExpr, a nested InitListExpr
     // represents additional overwriting of our current constant value, and not
@@ -922,17 +930,16 @@ bool ConstStructBuilder::UpdateStruct(ConstantEmitter &Emitter,
 //                             ConstExprEmitter
 //===----------------------------------------------------------------------===//
 
-static ConstantAddress tryEmitGlobalCompoundLiteral(CodeGenModule &CGM,
-                                                    CodeGenFunction *CGF,
-                                              const CompoundLiteralExpr *E) {
+static ConstantAddress
+tryEmitGlobalCompoundLiteral(ConstantEmitter &emitter,
+                             const CompoundLiteralExpr *E) {
+  CodeGenModule &CGM = emitter.CGM;
   CharUnits Align = CGM.getContext().getTypeAlignInChars(E->getType());
   if (llvm::GlobalVariable *Addr =
           CGM.getAddrOfConstantCompoundLiteralIfEmitted(E))
     return ConstantAddress(Addr, Addr->getValueType(), Align);
 
   LangAS addressSpace = E->getType().getAddressSpace();
-
-  ConstantEmitter emitter(CGM, CGF);
   llvm::Constant *C = emitter.tryEmitForInitializer(E->getInitializer(),
                                                     addressSpace, E->getType());
   if (!C) {
@@ -1404,15 +1411,12 @@ ConstantEmitter::tryEmitAbstract(const APValue &value, QualType destType) {
 llvm::Constant *ConstantEmitter::tryEmitConstantExpr(const ConstantExpr *CE) {
   if (!CE->hasAPValueResult())
     return nullptr;
-  const Expr *Inner = CE->getSubExpr()->IgnoreImplicit();
-  QualType RetType;
-  if (auto *Call = dyn_cast<CallExpr>(Inner))
-    RetType = Call->getCallReturnType(CGM.getContext());
-  else if (auto *Ctor = dyn_cast<CXXConstructExpr>(Inner))
-    RetType = Ctor->getType();
-  llvm::Constant *Res =
-      emitAbstract(CE->getBeginLoc(), CE->getAPValueResult(), RetType);
-  return Res;
+
+  QualType RetType = CE->getType();
+  if (CE->isGLValue())
+    RetType = CGM.getContext().getLValueReferenceType(RetType);
+
+  return emitAbstract(CE->getBeginLoc(), CE->getAPValueResult(), RetType);
 }
 
 llvm::Constant *
@@ -1988,7 +1992,9 @@ ConstantLValueEmitter::VisitConstantExpr(const ConstantExpr *E) {
 
 ConstantLValue
 ConstantLValueEmitter::VisitCompoundLiteralExpr(const CompoundLiteralExpr *E) {
-  return tryEmitGlobalCompoundLiteral(CGM, Emitter.CGF, E);
+  ConstantEmitter CompoundLiteralEmitter(CGM, Emitter.CGF);
+  CompoundLiteralEmitter.setInConstantContext(Emitter.isInConstantContext());
+  return tryEmitGlobalCompoundLiteral(CompoundLiteralEmitter, E);
 }
 
 ConstantLValue
@@ -2232,7 +2238,8 @@ void CodeGenModule::setAddrOfConstantCompoundLiteral(
 ConstantAddress
 CodeGenModule::GetAddrOfConstantCompoundLiteral(const CompoundLiteralExpr *E) {
   assert(E->isFileScope() && "not a file-scope compound literal expr");
-  return tryEmitGlobalCompoundLiteral(*this, nullptr, E);
+  ConstantEmitter emitter(*this);
+  return tryEmitGlobalCompoundLiteral(emitter, E);
 }
 
 llvm::Constant *

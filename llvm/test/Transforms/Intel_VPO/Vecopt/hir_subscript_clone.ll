@@ -1,5 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output | FileCheck %s
 
 %S = type { i64, i64 }
 define void @_Z3fooPii(%S *%p) local_unnamed_addr {

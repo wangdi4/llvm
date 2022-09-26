@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that basic transformations are done correctly for
 ; Sub/MemFunc instructions when DynClone transformation is triggered.
 
@@ -103,9 +105,13 @@ entry:
   ret i32 0
 }
 ; Function Attrs: nounwind
-declare noalias i8* @calloc(i64, i64)
-declare noalias i8* @malloc(i64)
-declare noalias i8* @realloc(i8*, i64)
+declare noalias i8* @calloc(i64, i64) #0
+declare noalias i8* @malloc(i64) #1
+declare noalias i8* @realloc(i8*, i64) #2
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
 declare void @llvm.memmove.p0i8.p0i8.i64(i8* , i8*, i64, i1)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #2 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }

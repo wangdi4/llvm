@@ -1045,7 +1045,7 @@ namespace X86II {
     // Force output with prefix
     EmitVEXOrEVEXPrefixShift = ExplicitVEXShift + 1,
     EmitVEXOrEVEXPrefix = 1ULL << EmitVEXOrEVEXPrefixShift,
-#if INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_XISA_COMMON
     // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
     // Their encoding is actually the same as OpPrefix.
     XuCCPrefixShift = EmitVEXOrEVEXPrefixShift + 1,
@@ -1053,7 +1053,11 @@ namespace X86II {
     XuCCPD = 1ULL << XuCCPrefixShift,  // 66
     XuCCXS = 2ULL << XuCCPrefixShift,  // F3
     XuCCXD = 3ULL << XuCCPrefixShift,  // F2
-#endif // INTEL_FEATURE_XUCC
+
+    // EVEX_P10 - Set if this instruction has EVEX.P10 field set.
+    EVEX_P10Shift = XuCCPrefixShift + 2,
+    EVEX_P10      = 1ULL << EVEX_P10Shift,
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   };
 

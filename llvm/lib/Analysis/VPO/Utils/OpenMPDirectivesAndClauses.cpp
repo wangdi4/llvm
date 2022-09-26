@@ -57,14 +57,15 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsF90DopeVector(false), IsF90NonPod(false), IsCptr(false),
       IsWILocal(false), IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
-      IsAggregate(false), IsPointer(false), IsFunctionPointer(false),
-      IsPointerToPointer(false), IsScalar(false), IsAlways(false),
-      IsClose(false), IsPresent(false), IsUnsigned(false), IsComplex(false),
-      IsConditional(false), IsScheduleMonotonic(false),
+      IsVarLen(false), IsAggregate(false), IsPointer(false),
+      IsFunctionPointer(false), IsPointerToPointer(false), IsScalar(false),
+      IsAlways(false), IsClose(false), IsPresent(false), IsUnsigned(false),
+      IsComplex(false), IsConditional(false), IsScheduleMonotonic(false),
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
-      IsInitPrefer(false), IsTask(false), IsInscan(false), IsTyped(false) {
+      IsInitPrefer(false), IsStrict(false), IsTask(false), IsInscan(false),
+      IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -178,6 +179,11 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #endif // INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
+        else if (ModSubString[i] ==
+                 "STRICT") // for grainsize or numtasks clause
+          setIsStrict();
+        else if (ModSubString[i] == "VARLEN")
+          setIsVarLen();
         else if (ModSubString[i] == "UNSIGNED")    // for reduction clause
           setIsUnsigned();
         else if (ModSubString[i] == "CMPLX")       // for reduction clause
@@ -227,6 +233,10 @@ StringRef VPOAnalysisUtils::getClauseString(int Id) {
   assert(Directives::ClauseStrings.count(Id) &&
          "Can't find a string for clause id");
   return Directives::ClauseStrings[Id];
+}
+
+std::string VPOAnalysisUtils::getTypedClauseString(int Id) {
+  return VPOAnalysisUtils::getClauseString(Id).str() + ":TYPED";
 }
 
 StringRef VPOAnalysisUtils::getOmpDirectiveName(int Id) {
@@ -285,8 +295,11 @@ int VPOAnalysisUtils::getDirectiveID(const Instruction *I) {
 }
 
 int VPOAnalysisUtils::getClauseID(StringRef ClauseFullName) {
-  if (Directives::ClauseIDs.count(ClauseFullName))
-    return Directives::ClauseIDs[ClauseFullName];
+  size_t SeparatorPos = ClauseFullName.find(getClauseSeparator());
+  StringRef BaseName = ClauseFullName.take_front(SeparatorPos);
+
+  if (Directives::ClauseIDs.count(BaseName))
+    return Directives::ClauseIDs[BaseName];
   return -1;
 }
 
@@ -325,6 +338,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_PRAGMA_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
 #endif // INTEL_CUSTOMIZATION
+  case DIR_VPO_GUARD_MEM_MOTION:
     return true;
   }
   return false;
@@ -406,6 +420,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
 #endif // INTEL_CUSTOMIZATION
+  case DIR_VPO_END_GUARD_MEM_MOTION:
     return true;
   }
   return false;
@@ -629,6 +644,9 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   case DIR_PRAGMA_DISTRIBUTE_POINT:
     return DIR_PRAGMA_END_DISTRIBUTE_POINT;
 #endif // INTEL_CUSTOMIZATION
+
+  case DIR_VPO_GUARD_MEM_MOTION:
+    return DIR_VPO_END_GUARD_MEM_MOTION;
 
   // StandAlone Directives
   case DIR_OMP_BARRIER:

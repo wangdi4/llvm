@@ -19,10 +19,8 @@
 ;}
 
 ; REQUIRES: asserts
-; RUN: opt < %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 -vplan-enable-new-cfg-merge-hir=0 -disable-output | FileCheck %s
-; RUN: opt < %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 -vplan-enable-new-cfg-merge-hir=1 -disable-output | FileCheck %s
-; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 -vplan-enable-new-cfg-merge-hir=0 -disable-output | FileCheck %s
-; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 -vplan-enable-new-cfg-merge-hir=1 -disable-output | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 -disable-output | FileCheck %s
+; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 -disable-output | FileCheck %s
 
 ; CHECK:       Printing Groups- Total Groups 2
 ; CHECK-NEXT:  Group#1

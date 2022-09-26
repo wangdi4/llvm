@@ -163,6 +163,8 @@ def err_opencl_unknown_type_specifier : Error<
 
 def warn_unknown_attribute_ignored : Warning<
   "unknown attribute %0 ignored">, InGroup<UnknownAttributes>;
+def warn_attribute_ignored : Warning<"%0 attribute ignored">,
+  InGroup<IgnoredAttributes>;
 def err_use_of_tag_name_without_tag : Error<
   "must use '%1' tag to refer to type %0%select{| in this scope}2">;
 
@@ -370,6 +372,12 @@ def err_omp_more_one_clause : Error<
   "directive '#pragma omp %0' cannot contain more than one '%1' clause%select{| with '%3' name modifier| with 'source' dependence}2">;
 def err_omp_required_clause : Error<
   "directive '#pragma omp %0' requires the '%1' clause">;
+#if INTEL_COLLAB
+def err_ompx_more_one_clause : Error<
+  "directive '#pragma ompx %0' cannot contain more than one '%1' clause">;
+def err_ompx_required_clause : Error<
+  "directive '#pragma ompx %0' requires the '%1' clause">;
+#endif // INTEL_COLLAB
 
 // Static Analyzer Core
 def err_unknown_analyzer_checker_or_package : Error<

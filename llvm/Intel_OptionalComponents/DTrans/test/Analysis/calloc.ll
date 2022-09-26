@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -185,4 +186,6 @@ define void @test13(i64 %X, i64 %Y) {
 ; CHECK: LLVMType: [6 x %struct.good.S1]
 ; CHECK: Safety data: No issues found
 
-declare noalias i8* @calloc(i64, i64)
+declare noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

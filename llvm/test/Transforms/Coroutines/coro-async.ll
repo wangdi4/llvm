@@ -1,7 +1,5 @@
-; INTEL_CUSTOMIZATION
-; RUN: opt < %s -enable-coroutines -passes='default<O2>' -S | FileCheck --check-prefixes=CHECK %s
-; RUN: opt < %s -enable-coroutines -O0 -S | FileCheck --check-prefixes=CHECK-O0 %s
-; end INTEL_CUSTOMIZATION
+; RUN: opt < %s -passes='default<O2>' -S | FileCheck --check-prefixes=CHECK %s
+; RUN: opt < %s -O0 -S | FileCheck --check-prefixes=CHECK-O0 %s
 target datalayout = "p:64:64:64"
 
 %async.task = type { i64 }
@@ -568,7 +566,7 @@ entry:
 ; CHECK-LABEL: define swiftcc void @undefined_coro_async_resume
 ; CHECK-NOT: @llvm.coro.async.resume
 ; CHECK: call void @use(i8* null)
-; CHECK: unreachable
+; CHECK: ret
 
 declare { i8*, i8*, i8*, i8* } @llvm.coro.suspend.async.sl_p0i8p0i8p0i8p0i8s(i32, i8*, i8*, ...)
 declare i8* @llvm.coro.prepare.async(i8*)

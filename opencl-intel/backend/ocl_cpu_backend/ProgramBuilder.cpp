@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,10 +19,10 @@
 #include "BitCodeContainer.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
-#include "CompilationUtils.h"
-#include "Compiler.h"
+#include "CPUCompiler.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
+#include "OCLAddressSpace.h"
 #include "ObjectCodeCache.h"
 #include "ObjectCodeContainer.h"
 #include "Optimizer.h"
@@ -34,19 +34,12 @@
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "exceptions.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
-
-#define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Argument.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -54,8 +47,11 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -64,6 +60,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#define DEBUG_TYPE "ProgramBuilder"
 
 using std::string;
 using namespace DPCPPKernelMetadataAPI;
@@ -232,9 +230,41 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         assert(pModule && "Module parsing has failed without exception. Strange");
 
 #ifndef INTEL_PRODUCT_RELEASE
+        std::string Env;
+        llvm::LLVMContext *ReplaceModuleCtx = nullptr;
+        auto ReplaceModule = [&](bool BeforeOptimizer) {
+          dbgs() << "WARNING: replace module IR before device "
+                 << (BeforeOptimizer ? "optimizer" : "CodeGen") << ": " << Env
+                 << "\n";
+          // Create new LLVMContext instead of reusing pModule's LLVMContext, in
+          // order to avoid type renaming in textual IR dump.
+          static llvm::once_flag OnceFlag;
+          llvm::call_once(OnceFlag, [&]() {
+            ReplaceModuleCtx = pCompiler->resetLLVMContextForCurrentThread();
+            // Reload builtin modules since context is changed.
+            static_cast<CPUCompiler *>(pCompiler)->GetOrLoadBuiltinModules(
+                /*ForceLoad*/ true);
+          });
+          assert(ReplaceModuleCtx && "invalid replace context");
+          SMDiagnostic Err;
+          std::unique_ptr<Module> ReplaceModule =
+              parseIRFile(Env, Err, *ReplaceModuleCtx);
+          if (!ReplaceModule) {
+            Err.print("", errs());
+            throw Exceptions::DeviceBackendExceptionBase(
+                std::string("Failed to load module IR to replace"));
+          }
+          pProgram->GetModuleOwner().reset(nullptr);
+          pProgram->SetModule(std::move(ReplaceModule));
+          pModule = pProgram->GetModule();
+        };
+        if (Intel::OpenCL::Utils::getEnvVar(
+                Env, "CL_CONFIG_REPLACE_IR_BEFORE_OPTIMIZER") &&
+            !Env.empty())
+          ReplaceModule(true);
+
         // If environment variable VOLCANO_EQUALIZER_STATS is set to any
         // non-empty string, then we dump IR before optimization.
-        std::string Env;
         if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS")) {
           if (!Env.empty()) {
             DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
@@ -248,9 +278,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
                                                         nullptr);
 
         std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
-        if((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
-           (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
-             MergeOptions.append(" -cl-opt-disable");
+        if ((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
+            (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
+          MergeOptions.append(" -cl-opt-disable");
         if((MergeOptions.find("-g") == std::string::npos) &&
            (CompilationUtils::getDebugFlagFromMetadata(pModule)))
              MergeOptions.append(" -g");
@@ -269,6 +299,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         pProgram->SetRuntimeService(lRuntimeService);
 
 #ifndef INTEL_PRODUCT_RELEASE
+        if (Intel::OpenCL::Utils::getEnvVar(
+                Env, "CL_CONFIG_REPLACE_IR_AFTER_OPTIMIZER") &&
+            !Env.empty())
+          ReplaceModule(false);
+
         // Dump module stats just before lowering if requested
         if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS")) {
           if (!Env.empty())
@@ -466,9 +501,9 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   // KernelAnalysisPass is running in all scenarios.
   const bool HasNoBarrierPath =
       skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get();
+  const bool HasMatrixCall = skimd.HasMatrixCall.hasValue() && skimd.HasMatrixCall.get();
   const unsigned int localBufferSize = skimd.LocalBufferSize.get();
   const bool hasGlobalSync = skimd.KernelHasGlobalSync.get();
-  const bool useNativeSubgroups = skimd.KernelHasSubgroups.hasValue();
   const size_t scalarExecutionLength = skimd.KernelExecutionLength.get();
   const unsigned int scalarBufferStride = skimd.BarrierBufferSize.get();
   unsigned int privateMemorySize = skimd.PrivateMemorySize.get();
@@ -514,8 +549,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetReqdNumSG(reqdNumSG);
   pProps->SetTotalImplSize(localBufferSize);
   pProps->SetHasNoBarrierPath(HasNoBarrierPath);
+  pProps->SetHasMatrixCall(HasMatrixCall);
   pProps->SetHasGlobalSync(hasGlobalSync);
-  pProps->SetUseNativeSubgroups(useNativeSubgroups);
   pProps->SetKernelExecutionLength(executionLength);
   pProps->SetVectorizationWidth(VF);
   pProps->SetIsAutorun(isAutorun);
@@ -549,8 +584,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetCpuMaxWGSize(m_config->GetCpuMaxWGSize());
 
   // OpenCL 2.0 related properties
-  if (OclVersion::CL_VER_2_0 <=
-                  CompilationUtils::fetchCLVersionFromMetadata(*pModule)) {
+  if (CompilationUtils::OclVersion::CL_VER_2_0 <=
+      CompilationUtils::fetchCLVersionFromMetadata(*pModule)) {
     bool isNonUniformWGSizeSupported = !buildOptions.GetUniformWGSize();
     pProps->SetIsNonUniformWGSizeSupported(isNonUniformWGSizeSupported);
   }

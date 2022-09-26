@@ -5,11 +5,12 @@
 ; Check that dead argument elimination does not happen for @foo because it
 ; has vector variants. The arguments of vector variants cannot be eliminated
 ; because the number of arguments is tied to the function signature of the
-; vector variant.
+; vector variant. In addition, do not turn dead args to poison because args not
+; explicitly used in the function may be used by VecClone to calculate stride.
 
 ; CHECK: DeadArgumentEliminationPass - foo has vector variants
 ; CHECK: define dso_local i32 @main()
-; CHECK: call i32 @foo(i32 %0, i32 poison)
+; CHECK: call i32 @foo(i32 %0, i32 %1)
 ; CHECK: define internal i32 @foo(i32 %i, i32 %x)
 
 @glob1 = dso_local global i32 5, align 4
@@ -33,4 +34,4 @@ entry:
   ret i32 %add
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4lu_,_ZGVbN4lu_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4lu_foo,_ZGVbN4lu_foo" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

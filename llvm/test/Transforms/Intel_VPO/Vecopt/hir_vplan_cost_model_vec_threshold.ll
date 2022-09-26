@@ -3,23 +3,13 @@
 ; RUN:     -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vec-threshold=20 -debug-only=LoopVectorizationPlanner \
 ; RUN:     -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR-VECTORIZE
-; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert \
-; RUN:     -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vec-threshold=20 -debug-only=LoopVectorizationPlanner \
-; RUN:     -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR-VECTORIZE
+; RUN:     | FileCheck %s --check-prefix=HIR-VECTORIZE
 
 ; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert \
 ; RUN:     -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vec-threshold=80 -debug-only=LoopVectorizationPlanner \
 ; RUN:     -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR-NOVECTORIZE
-; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert \
-; RUN:     -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vec-threshold=80 -debug-only=LoopVectorizationPlanner \
-; RUN:     -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR-NOVECTORIZE
+; RUN:     | FileCheck %s --check-prefix=HIR-NOVECTORIZE
 
 ; Test that VPlan Cost Model drives the VF selection.
 

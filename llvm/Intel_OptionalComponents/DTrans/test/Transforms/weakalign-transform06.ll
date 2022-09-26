@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -S -whole-program-assume -dtrans-weakalign 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -passes=dtrans-weakalign 2>&1 | FileCheck %s
 

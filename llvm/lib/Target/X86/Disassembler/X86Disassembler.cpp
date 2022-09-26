@@ -438,7 +438,13 @@ static int readPrefixes(struct InternalInstruction *insn) {
     }
 
     if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0) &&
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        ((~byte1 & 0x8) == 0x8)) {
+#else // INTEL_FEATURE_ISA_AVX256P
         ((~byte1 & 0x8) == 0x8) && ((byte2 & 0x4) == 0x4)) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       insn->vectorExtensionType = TYPE_EVEX;
     } else {
       --insn->readerCursor; // unconsume byte1
@@ -813,7 +819,7 @@ static int readModRM(struct InternalInstruction *insn) {
       break;
     case 0x1:
       insn->displacementSize = 1;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case 0x2:
       insn->eaDisplacement = (mod == 0x1 ? EA_DISP_8 : EA_DISP_32);
       switch (rm & 7) {
@@ -1166,7 +1172,13 @@ static bool is64Bit(const char *name) {
 // for extended and escape opcodes, and using a supplied attribute mask.
 static int getInstructionIDWithAttrMask(uint16_t *instructionID,
                                         struct InternalInstruction *insn,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                                        unsigned attrMask) {
+#else // INTEL_FEATURE_ISA_AVX256P
                                         uint16_t attrMask) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   auto insnCtx = InstructionContext(x86DisassemblerContexts[attrMask]);
   const ContextDecision *decision;
   switch (insn->opcodeType) {
@@ -1225,7 +1237,7 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
 // the instruction before doing so.
 static int getInstructionID(struct InternalInstruction *insn,
                             const MCInstrInfo *mii) {
-  uint16_t attrMask;
+  unsigned attrMask;
   uint16_t instructionID;
 
   LLVM_DEBUG(dbgs() << "getID()");
@@ -1251,6 +1263,12 @@ static int getInstructionID(struct InternalInstruction *insn,
         break;
       }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (p10FromEVEX3of4(insn->vectorExtensionPrefix[2]))
+        attrMask |= ATTR_EVEXP10;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       if (zFromEVEX4of4(insn->vectorExtensionPrefix[3]))
         attrMask |= ATTR_EVEXKZ;
       if (bFromEVEX4of4(insn->vectorExtensionPrefix[3]))

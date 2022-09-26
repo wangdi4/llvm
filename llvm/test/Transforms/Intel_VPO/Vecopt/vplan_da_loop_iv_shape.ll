@@ -48,7 +48,7 @@ pre.entry:
   br label %entry
 
 entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR"(i64* %i, i32 -1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %i, i64 0, i32 1, i32 -1) ]
   br label %for.preheader
 
 for.preheader:

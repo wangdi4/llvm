@@ -9,6 +9,7 @@
 ; RUN: opt < %s -dtrans-meminit-recognize-all -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown,dtrans-soatoaosclassinfo -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate
 ; struct. "f1" and "f2" will be considered as candidate vector fields.
@@ -461,9 +462,12 @@ entry:
 
 declare i32 @llvm.umax.i32(i32, i32)
 declare noalias i8* @_Znwm(i64)
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 declare void @llvm.memset.p0i8.i32(i8* nocapture writeonly, i8, i32, i1 immarg)
 declare void @__cxa_rethrow()
-declare void @free(i8* nocapture)
+declare void @free(i8* nocapture) #1
 declare void @_ZdlPv(i8* nocapture)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

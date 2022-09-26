@@ -3,9 +3,7 @@
 ; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 
@@ -22,7 +20,7 @@ entry:
   br i1 %cmp3.not20, label %omp.precond.end, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"(%struct.ClassA* %value.priv, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.ClassA* %value.priv, %struct.ClassA zeroinitializer, i32 1, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
   br label %DIR.OMP.SIMD.128
 
 DIR.OMP.SIMD.128:                                 ; preds = %DIR.OMP.SIMD.1

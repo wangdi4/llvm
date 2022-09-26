@@ -1032,6 +1032,26 @@ void WRNScopeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 //
+// Methods for WRNGuardMemMotionNode
+//
+
+// constructor
+WRNGuardMemMotionNode::WRNGuardMemMotionNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNGuardMemMotion, BB) {
+  LLVM_DEBUG(dbgs() << "\nCreated WRNGuardMemMotionNode<" << getNumber()
+                    << ">\n");
+}
+
+#if INTEL_CUSTOMIZATION
+// constructor for HIR
+WRNGuardMemMotionNode::WRNGuardMemMotionNode(loopopt::HLNode *EntryHLN)
+    : WRegionNode(WRegionNode::WRNGuardMemMotion), EntryHLNode(EntryHLN) {
+  LLVM_DEBUG(dbgs() << "\nCreated WRNGuardMemMotionNode<" << getNumber()
+                    << ">\n");
+}
+#endif // INTEL_CUSTOMIZATION
+
+//
 // Methods for WRNTileNode
 //
 
@@ -1301,8 +1321,12 @@ void vpo::printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
 
   // WRNTaskloop has a few more additional fields to print
   if (isa<WRNTaskloopNode>(W)) {
-    vpo::printVal("GRAINSIZE", W->getGrainsize(), OS, Indent, Verbosity);
-    vpo::printVal("NUM_TASKS", W->getNumTasks(), OS, Indent, Verbosity);
+    vpo::printVal((W->getIsStrict() && W->getGrainsize()) ? "GRAINSIZE:STRICT"
+                                                          : "GRAINSIZE",
+                  W->getGrainsize(), OS, Indent, Verbosity);
+    vpo::printVal((W->getIsStrict() && W->getNumTasks()) ? "NUM_TASKS:STRICT"
+                                                         : "NUM_TASKS",
+                  W->getNumTasks(), OS, Indent, Verbosity);
     vpo::printInt("COLLAPSE", W->getCollapse(), OS, Indent, Verbosity);
     vpo::printBool("NOGROUP", W->getNogroup(), OS, Indent, Verbosity);
   }

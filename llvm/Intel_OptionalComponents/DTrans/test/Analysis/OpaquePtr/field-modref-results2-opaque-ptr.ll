@@ -56,7 +56,9 @@ define void @filter01a(ptr "intel_dtrans_func_index"="1" %st) !intel.dtrans.func
   ret void
 }
 
-declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" ptr @malloc(i64)
+declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: FieldModRefQuery: - ModRef     : [testbase]   %ld1 = load i32, ptr %fieldaddr, align 4 --   call void @test01()
 ; CHECK: FieldModRefQuery: - Ref        : [test01]   store i32 8, ptr %f0, align 4 --   call void @use01a(ptr %st, ptr @filter01a)

@@ -70,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
         int             GetRTLoopUnrollFactor() const { return m_pConfigFile->Read<int>(CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR, 1); }
         bool            IsSpirSupported() const;
-
+        bool            IsHalfSupported() const;
         bool            IsDoubleSupported() const;
         const char*     GetExtensions() const;
         const std::vector<cl_name_version>& GetExtensionsWithVersion() const;

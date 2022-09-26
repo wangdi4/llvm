@@ -139,10 +139,6 @@ public:
   bool isPipeArrayType(Type *Ty) const;
 };
 
-inline bool isPipeBuiltin(StringRef Name) {
-  return CompilationUtils::getPipeKind(Name);
-}
-
 Function *getPipeBuiltin(Module &M, RuntimeService &RTS,
                          const CompilationUtils::PipeKind &Kind);
 

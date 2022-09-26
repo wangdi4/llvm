@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -S -disable-output -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v2;m2" < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -S -disable-output -vplan-vec-scenario="n0;v2;m2" < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -7,12 +7,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local noundef i32 @_Z3foov() local_unnamed_addr {
-; CHECK:               %1 = bitcast.<2 x i1>.i2(%.vec21);
-; CHECK-NEXT:          %cmp25 = %1 == 0;
+; CHECK:               %2 = bitcast.<2 x i1>.i2(%.vec21);
+; CHECK-NEXT:          %cmp25 = %2 == 0;
 ; CHECK-NEXT:          %all.zero.check26 = %cmp25;
 ; CHECK-NEXT:          if (%cmp25 == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto BB19.90;
+; CHECK-NEXT:             goto BB19.91;
 ; CHECK-NEXT:          }
 ; CHECK-NEXT:          %bsfintmask = bitcast.<2 x i1>.i2(%.vec21);
 ; CHECK-NEXT:          %bsf = @llvm.ctlz.i2(%bsfintmask,  1);
@@ -22,7 +22,7 @@ define dso_local noundef i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:          @_ZTS3str.omp.destr(&((%struct.str*)(%priv.mem13)[0]));
 ; CHECK-NEXT:          %extract.1.27 = extractelement &((<2 x %struct.str*>)(%priv.mem.bc14)[<i32 0, i32 1>]),  1;
 ; CHECK-NEXT:          @_ZTS3str.omp.destr(%extract.1.27);
-; CHECK-NEXT:          BB19.90:
+; CHECK-NEXT:          BB19.91:
 ; CHECK-NEXT:          %phi.temp10 = 9999;
 ; CHECK-NEXT:          final.merge.58:
 ;
@@ -32,7 +32,7 @@ DIR.OMP.SIMD.116:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.116
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD"(%struct.str* %x.lpriv, %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr, void (%struct.str*, %struct.str*)* @_ZTS3str.omp.copy_assign, void (%struct.str*)* @_ZTS3str.omp.destr), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(%struct.str* %x.lpriv, %struct.str zeroinitializer, i32 1, %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr, void (%struct.str*, %struct.str*)* @_ZTS3str.omp.copy_assign, void (%struct.str*)* @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

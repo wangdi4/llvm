@@ -1,4 +1,21 @@
 //===-- ThreadSanitizer.cpp - race detector -------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -429,7 +446,7 @@ static bool shouldInstrumentReadWriteFromAddress(const Module *M, Value *Addr) {
       return false;
   }
 
-  // Do not instrument acesses from different address spaces; we cannot deal
+  // Do not instrument accesses from different address spaces; we cannot deal
   // with them.
   if (Addr) {
     Type *PtrTy = cast<PointerType>(Addr->getType()->getScalarType());
@@ -533,10 +550,10 @@ void ThreadSanitizer::chooseInstructionsToInstrument(
 static bool isTsanAtomic(const Instruction *I) {
   // TODO: Ask TTI whether synchronization scope is between threads.
   auto SSID = getAtomicSyncScopeID(I);
-  if (!SSID.hasValue())
+  if (!SSID)
     return false;
   if (isa<LoadInst>(I) || isa<StoreInst>(I))
-    return SSID.getValue() != SyncScope::SingleThread;
+    return SSID.value() != SyncScope::SingleThread;
   return true;
 }
 
@@ -611,12 +628,12 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
   // Instrument atomic memory accesses in any case (they can be used to
   // implement synchronization).
   if (ClInstrumentAtomics)
-    for (auto Inst : AtomicAccesses) {
+    for (auto *Inst : AtomicAccesses) {
       Res |= instrumentAtomic(Inst, DL);
     }
 
   if (ClInstrumentMemIntrinsics && SanitizeFunction)
-    for (auto Inst : MemIntrinCalls) {
+    for (auto *Inst : MemIntrinCalls) {
       Res |= instrumentMemIntrinsic(Inst);
     }
 
@@ -726,7 +743,7 @@ static ConstantInt *createOrdering(IRBuilder<> *IRB, AtomicOrdering ord) {
   switch (ord) {
     case AtomicOrdering::NotAtomic:
       llvm_unreachable("unexpected atomic ordering!");
-    case AtomicOrdering::Unordered:              LLVM_FALLTHROUGH;
+    case AtomicOrdering::Unordered:              [[fallthrough]];
     case AtomicOrdering::Monotonic:              v = 0; break;
     // Not specified yet:
     // case AtomicOrdering::Consume:                v = 1; break;

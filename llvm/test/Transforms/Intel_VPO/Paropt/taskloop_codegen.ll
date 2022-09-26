@@ -127,4 +127,4 @@ attributes #2 = { nounwind }
 !6 = !{!"int", !3, i64 0}
 
 ; CHECK:  %{{.*}} = call i8* @__kmpc_omp_task_alloc({{.*}})
-; CHECK:  call void @__kmpc_taskloop({{.*}})
+; CHECK:  call void @__kmpc_taskloop_5({{.*}})

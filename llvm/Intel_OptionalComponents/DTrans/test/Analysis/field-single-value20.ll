@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -9,13 +10,15 @@
 
 @coxglobalstruct = internal dso_local global %struct.MYOUTERSTRUCT* null, align 8
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
 define dso_local i32 @main() {
   %1 = tail call noalias i8* @malloc(i64 24) #2
   store i8* %1, i8** bitcast (%struct.MYOUTERSTRUCT** @coxglobalstruct to i8**), align 8
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYINNERSTRUCT = type { i32, float }

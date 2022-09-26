@@ -217,6 +217,7 @@ public:
 
   /// Returns true if this type is supported.
   static bool isSupported(Type *Ty, bool IsGEPRelated,
+                          const Instruction *Inst = nullptr,
                           const Loop *Lp = nullptr);
 
   /// Returns true if \p GEPOp contains a type not supported by HIR.
@@ -259,6 +260,11 @@ public:
   /// Tries to find the element type of an AddRec phi by tracing it back to a
   /// GEPOperator. Returns null if element type cannot be found.
   Type *findPhiElementType(const PHINode *AddRecPhi) const;
+
+  /// Traces back \p Inst's operands to a phi in \p Lp's header block which
+  /// would act as loop's IV. Returns null if no such instruction is found.
+  const PHINode *findIVDefInHeader(const Loop &Lp,
+                                   const Instruction *Inst) const;
 };
 
 class HIRRegionIdentificationAnalysis

@@ -201,6 +201,10 @@ class Register<string n, list<string> altNames = []> {
   bits<16> HWEncoding = 0;
 
   bit isArtificial = false;
+
+  // isConstant - This register always holds a constant value (e.g. the zero
+  // register in architectures such as MIPS)
+  bit isConstant = false;
 }
 
 // RegisterWithSubRegs - This can be used to define instances of Register which
@@ -1205,6 +1209,28 @@ def COPY_TO_REGCLASS : StandardPseudoInstruction {
   let hasSideEffects = false;
   let isAsCheapAsAMove = true;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+def PSEUDO_LOOP_HEADER : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins);
+  let AsmString = "PSEUDO_LOOP_HEADER";
+  let hasSideEffects = true;
+}
+def PSEUDO_FUNCTION_PROLOG : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins);
+  let AsmString = "PSEUDO_FUNCTION_PROLOG";
+  let hasSideEffects = true;
+}
+def PSEUDO_FUNCTION_EPILOG : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins);
+  let AsmString = "PSEUDO_FUNCTION_EPILOG";
+  let hasSideEffects = true;
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 def DBG_VALUE : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);

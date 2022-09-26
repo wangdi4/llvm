@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test checks that the GlobalVariables @opt is not split during dynamic
 ; cloning because it appears in a non-cloned function that does not meet the
 ; special extra clone function criterion. Also that @myglobal does not get
@@ -97,4 +99,6 @@ define void @proc4() {
 @myglobal = dso_local local_unnamed_addr global i64 0, align 8
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

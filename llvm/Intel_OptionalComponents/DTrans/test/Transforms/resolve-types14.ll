@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
 ; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
 

@@ -627,9 +627,10 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
                                       unsigned BaseIndex);
 
   /// Returns true if it should be considered profitable to propagate this
-  /// alloca store.
+  /// alloca store. \p IsOptimistic indicates whether we are returning true
+  /// based on an optimistic assumption.
   bool profitableToPropagateAllocaStore(const RegDDRef *AllocaStore,
-                                        unsigned BaseIndex);
+                                        unsigned BaseIndex, bool &IsOptimistic);
 
   /// Returns true if simplifiable \p MemRef can be optimized away. \p
   /// CanSimplifySubs indicates whether all its subscripts can be simplified to
@@ -1230,6 +1231,31 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isUnconditionallyExecuted(
       // check this accurately as we need redundant node logic.
       // Nevertheless, it seems better to make this assumption as we see
       // some performance regressions without it.
+
+      // Check if Ref is guarded by the 'IF' condition which is Opt Var
+      // Predicate candidate. If so treat it as unconditionally executed.
+      if (HLIf *If = dyn_cast<HLIf>(ParentNode)) {
+        if (If->getNumPredicates() == 1) {
+          if (HLLoop *IfParentLoop = If->getParentLoop()) {
+            auto *PredI = If->pred_begin();
+            const RegDDRef *LHSRef = If->getLHSPredicateOperandDDRef(PredI);
+            const RegDDRef *RHSRef = If->getRHSPredicateOperandDDRef(PredI);
+            unsigned Level;
+            unsigned LoopLevel = IfParentLoop->getNestingLevel();
+
+            if ((LHSRef->isStandAloneIV(true, &Level) && (Level == LoopLevel) &&
+                 RHSRef->isTerminalRef() &&
+                 RHSRef->isStructurallyInvariantAtLevel(Level)) ||
+                (RHSRef->isStandAloneIV(true, &Level) && (Level == LoopLevel) &&
+                 LHSRef->isTerminalRef() &&
+                 LHSRef->isStructurallyInvariantAtLevel(Level))) {
+              ParentNode = ParentNode->getParent();
+              continue;
+            }
+          }
+        }
+      }
+
       return false;
     }
 
@@ -1740,24 +1766,29 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder final
     : public HLNodeVisitorBase {
   HIRCompleteUnroll::ProfitabilityAnalyzer &PA;
   unsigned AllocaBaseIndex;
+  const RegDDRef *CurAllocaStore;
   BasicBlock *StartBBlock;
   bool IsStartLoop;
   bool FoundInvalidRef;
+  bool FoundIdenticalUse;
   bool IsDone;
 
   bool foundInvalidRef() const { return FoundInvalidRef; }
 
   void reset(bool StartLoop) {
     FoundInvalidRef = false;
+    FoundIdenticalUse = false;
     IsDone = false;
     IsStartLoop = StartLoop;
   }
 
 public:
   InvalidAllocaRefFinder(HIRCompleteUnroll::ProfitabilityAnalyzer &PA,
-                         unsigned AllocaBaseIndex, BasicBlock *StartBBlock)
-      : PA(PA), AllocaBaseIndex(AllocaBaseIndex), StartBBlock(StartBBlock),
-        IsStartLoop(true), FoundInvalidRef(false), IsDone(false) {}
+                         unsigned AllocaBaseIndex, const RegDDRef *AllocaStore,
+                         BasicBlock *StartBBlock)
+      : PA(PA), AllocaBaseIndex(AllocaBaseIndex), CurAllocaStore(AllocaStore),
+        StartBBlock(StartBBlock), IsStartLoop(true), FoundInvalidRef(false),
+        FoundIdenticalUse(false), IsDone(false) {}
 
   void visit(const HLNode *Node) {}
 
@@ -1768,7 +1799,8 @@ public:
 
   bool isDone() const { return FoundInvalidRef || IsDone; }
 
-  bool foundInvalidUse(const HLNode *PrevNode, bool IsStartLoop);
+  bool foundInvalidUse(const HLNode *PrevNode, bool IsStartLoop,
+                       bool *FoundProfitableUse = nullptr);
 };
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
@@ -1825,14 +1857,23 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
       ParLoop = ParLoop->getParentLoop();
     }
 
-    FoundInvalidRef = !IsCandidateLoop;
+    if (IsCandidateLoop) {
+      if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfLoopStatistics(ParLoop))
+                                    .hasProfitableVectorizableCalls())) {
+        FoundIdenticalUse = DDRefUtils::areEqual(CurAllocaStore, Ref);
+      }
+    } else {
+      FoundInvalidRef = true;
+    }
+
     IsDone = true;
     break;
   }
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::
-    foundInvalidUse(const HLNode *PrevNode, bool IsStartLoop) {
+    foundInvalidUse(const HLNode *PrevNode, bool IsStartLoop,
+                    bool *FoundProfitableUse) {
 
   reset(IsStartLoop);
 
@@ -1852,13 +1893,19 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::
     auto *EndNode =
         HLNodeUtils::getLastLexicalChild(StartNode->getParent(), StartNode);
     HLNodeUtils::visitRange(*this, StartNode, EndNode);
+
+    if (FoundProfitableUse) {
+      *FoundProfitableUse = FoundIdenticalUse;
+    }
   }
 
   return foundInvalidRef();
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::profitableToPropagateAllocaStore(
-    const RegDDRef *AllocaStore, unsigned BaseIndex) {
+    const RegDDRef *AllocaStore, unsigned BaseIndex, bool &IsOptimistic) {
+
+  IsOptimistic = true;
 
   auto It = ProfitableAllocaStores.find(BaseIndex);
 
@@ -1868,7 +1915,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::profitableToPropagateAllocaStore(
 
   auto *CurRegion = OuterLoop->getParentRegion();
 
-  InvalidAllocaRefFinder IARF(*this, BaseIndex, CurRegion->getExitBBlock());
+  InvalidAllocaRefFinder IARF(*this, BaseIndex, AllocaStore,
+                              CurRegion->getExitBBlock());
 
   // Look for invalid use in current loop.
   if (IARF.foundInvalidUse(AllocaStore->getHLDDNode(), true)) {
@@ -1877,9 +1925,16 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::profitableToPropagateAllocaStore(
   }
 
   // Look for invalid use in current region.
-  if (IARF.foundInvalidUse(OuterLoop, false)) {
+  bool FoundProfitableUse = false;
+  if (IARF.foundInvalidUse(OuterLoop, false, &FoundProfitableUse)) {
     ProfitableAllocaStores[BaseIndex] = false;
     return false;
+  }
+
+  if (FoundProfitableUse) {
+    IsOptimistic = false;
+    ProfitableAllocaStores[BaseIndex] = true;
+    return true;
   }
 
   // Give up on conditional loops.
@@ -1921,15 +1976,14 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
   unsigned BaseIndex = MemRef->getBasePtrBlobIndex();
 
   if (MemRef->isLval()) {
+    bool IsOptimistic = true;
     if (CanSimplifySubs &&
-        profitableToPropagateAllocaStore(MemRef, BaseIndex)) {
+        profitableToPropagateAllocaStore(MemRef, BaseIndex, IsOptimistic)) {
       // Alloca stores can be eliminated after unrolling by propagating the
       // assigned value directly into corresponding loads.
       AllocaStores[BaseIndex] = MemRef;
 
-      // Restrict the optimistic assumption of considering alloca stores as
-      // optimizable to post-vec complete unroll.
-      return !HCU.IsPreVec;
+      return (!IsOptimistic || !HCU.IsPreVec);
     } else {
       // We encountered a non-simplifiable alloca store. Invalidate its entry
       // from the data structures.
@@ -2903,9 +2957,8 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  // Ignore vectorizable loops
-  if (Loop->isVecLoop()) {
-    LLVM_DEBUG(dbgs() << "Skipping complete unroll of vectorizable loop!\n");
+  if (Loop->isSIMD()) {
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of SIMD loop!\n");
     return false;
   }
 

@@ -1,14 +1,9 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-idioms \
-; RUN:     2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-idioms \
-; RUN:     2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     2>&1 | FileCheck %s
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
-; RUN:     < %s -S -debug-only=vplan-idioms 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
-; RUN:     < %s -S -debug-only=vplan-idioms 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     < %s -S -debug-only=vplan-idioms 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 ;

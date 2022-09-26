@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -132,7 +133,7 @@ define void @test9(%struct.test09.a* %pa, %struct.test09.b* %pb) {
 ; CHECK: Safety data: Unsafe pointer merge | Address taken
 
 ; Call free with a pointer to a structure.
-declare void @free(i8*)
+declare void @free(i8*) #0
 %struct.test10 = type { i32, i32 }
 define void @test10(%struct.test10* %p) {
   %tmp = bitcast %struct.test10* %p to i8*
@@ -211,3 +212,5 @@ define void @test14(%struct.test14* %s) {
 ; CHECK: Safety data: No issues found
 
 declare i8* @strcpy(i8*, i8*)
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }

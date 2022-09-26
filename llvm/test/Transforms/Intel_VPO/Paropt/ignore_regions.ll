@@ -11,7 +11,7 @@
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
 
 ; Test src:
-
+;
 ; extern void f1(int);
 ;
 ; void bar() {
@@ -110,20 +110,34 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64"
 
-; Function Attrs: noinline nounwind optnone uwtable mustprogress
-define dso_local void @_Z3barv() #0 {
+$__clang_call_terminate = comdat any
+
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @.omp_offloading.requires_reg, ptr null }]
+
+; Function Attrs: mustprogress noinline nounwind optnone uwtable
+define dso_local void @_Z3barv() #0 personality ptr @__gxx_personality_v0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
   fence acquire
-  call void @_Z2f1i(i32 1) #1
+  call void @_Z2f1i(i32 noundef 1) #1
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SINGLE"() ]
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
   fence acquire
-  call void @_Z2f1i(i32 2)
+  invoke void @_Z2f1i(i32 noundef 2)
+          to label %invoke.cont unwind label %terminate.lpad
+
+invoke.cont:                                      ; preds = %entry
   fence release
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.CRITICAL"() ]
   ret void
+
+terminate.lpad:                                   ; preds = %entry
+  %2 = landingpad { ptr, i32 }
+          catch ptr null
+  %3 = extractvalue { ptr, i32 } %2, 0
+  call void @__clang_call_terminate(ptr %3) #6
+  unreachable
 }
 
 ; Function Attrs: nounwind
@@ -132,44 +146,85 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-declare dso_local void @_Z2f1i(i32) #2
+declare dso_local void @_Z2f1i(i32 noundef) #2
 
-; Function Attrs: noinline nounwind optnone uwtable mustprogress
-define dso_local void @_Z3foov() #0 {
+declare dso_local i32 @__gxx_personality_v0(...)
+
+; Function Attrs: noinline noreturn nounwind
+define linkonce_odr hidden void @__clang_call_terminate(ptr %0) #3 comdat {
+  %2 = call ptr @__cxa_begin_catch(ptr %0) #1
+  call void @_ZSt9terminatev() #6
+  unreachable
+}
+
+declare dso_local ptr @__cxa_begin_catch(ptr)
+
+declare dso_local void @_ZSt9terminatev()
+
+; Function Attrs: mustprogress noinline optnone uwtable
+define dso_local void @_Z3foov() #4 personality ptr @__gxx_personality_v0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
-  call void @_Z2f1i(i32 3) #1
+  call void @_Z2f1i(i32 noundef 3) #1
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASTER"() ]
   fence acquire
-  call void @_Z2f1i(i32 4)
+  invoke void @_Z2f1i(i32 noundef 4)
+          to label %invoke.cont unwind label %terminate.lpad
+
+invoke.cont:                                      ; preds = %entry
   fence release
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.MASTER"() ]
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.BARRIER"() ]
   fence acq_rel
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.BARRIER"() ]
-  call void @_Z2f1i(i32 5)
+  call void @_Z2f1i(i32 noundef 5)
   ret void
+
+terminate.lpad:                                   ; preds = %entry
+  %3 = landingpad { ptr, i32 }
+          catch ptr null
+  %4 = extractvalue { ptr, i32 } %3, 0
+  call void @__clang_call_terminate(ptr %4) #6
+  unreachable
 }
 
-; Function Attrs: noinline nounwind optnone uwtable mustprogress
+; Function Attrs: mustprogress noinline nounwind optnone uwtable
 define dso_local void @_Z3bazv() #0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"() ]
-  call void @_Z2f1i(i32 6) #1
+  call void @_Z2f1i(i32 noundef 6) #1
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TASK"() ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
-  call void @_Z2f1i(i32 7) #1
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  call void @_Z2f1i(i32 noundef 7) #1
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
 
-attributes #0 = { noinline nounwind optnone uwtable mustprogress "frame-pointer"="all" "may-have-openmp-directive"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
+; Function Attrs: noinline uwtable
+define internal void @.omp_offloading.requires_reg() #5 section ".text.startup" {
+entry:
+  call void @__tgt_register_requires(i64 1)
+  ret void
+}
+
+; Function Attrs: nounwind
+declare void @__tgt_register_requires(i64) #1
+
+attributes #0 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
-attributes #2 = { "frame-pointer"="all" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
+attributes #2 = { "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #3 = { noinline noreturn nounwind }
+attributes #4 = { mustprogress noinline optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #5 = { noinline uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #6 = { noreturn nounwind }
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
+!llvm.module.flags = !{!1, !2, !3, !4}
 
-!0 = !{i32 0, i32 66309, i32 99231124, !"_Z3bazv", i32 26, i32 0, i32 0}
+!0 = !{i32 0, i32 53, i32 -1923893656, !"_Z3bazv", i32 26, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
+!2 = !{i32 7, !"openmp", i32 51}
+!3 = !{i32 7, !"uwtable", i32 2}
+!4 = !{i32 7, !"frame-pointer", i32 2}

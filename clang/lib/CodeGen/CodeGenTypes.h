@@ -328,9 +328,16 @@ public:  // These are internal details of CGT that shouldn't be used externally.
 
   /// getExpandedTypes - Expand the type \arg Ty into the LLVM
   /// argument types it would be passed as. See ABIArgInfo::Expand.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  void getExpandedTypes(QualType Ty,
+                        SmallVectorImpl<llvm::Type *>::iterator &TI,
+                        SmallVectorImpl<QualType>::iterator *DFI);
+#else // INTEL_FEATURE_SW_DTRANS
   void getExpandedTypes(QualType Ty,
                         SmallVectorImpl<llvm::Type *>::iterator &TI);
-
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   /// IsZeroInitializable - Return whether a type can be
   /// zero-initialized (in the C++ sense) with an LLVM zeroinitializer.
   bool isZeroInitializable(QualType T);

@@ -30,6 +30,7 @@
 #include <cl_sys_info.h>
 #include <clang_device_info.h>
 #include <cpu_dev_limits.h>
+#include <numeric>
 
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
@@ -104,12 +105,10 @@ cl_ulong GetLocalMemorySize(const CPUDeviceConfig &config)
         else
         {
           auto deviceMode = config.GetDeviceMode();
-          if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-              deviceMode != EYEQ_EMU_DEVICE)
+          if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
             return CL_DEV_INVALID_VALUE;
           switch (deviceMode) {
           case CPU_DEVICE:
-          case EYEQ_EMU_DEVICE:
             localMemSize = CPU_DEV_LCL_MEM_SIZE;
             break;
           case FPGA_EMU_DEVICE:
@@ -146,11 +145,7 @@ cl_ulong GetMaxMemAllocSize(const CPUDeviceConfig &config, bool* isForced = null
 
 struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& config)
 {
-#if defined ENABLE_KNL
-    static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {nullptr, 0, 1, 0, 0};
-#else
     static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {nullptr, 1, 1, 0, 0};
-#endif
     if (nullptr == CPUDevInfo.sExtensionStrings)
     {
         CPUDevInfo.sExtensionStrings = config.GetExtensions();
@@ -167,13 +162,6 @@ template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::DeviceCommands
 template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::DeviceCommands::DeviceCommand>;
 template class Intel::OpenCL::Utils::SharedPtrBase<ITaskList>;
 template class Intel::OpenCL::Utils::SharedPtrBase<ITaskGroup>;
-
-static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
-    {
-        CPU_MAX_WORK_GROUP_SIZE,
-        CPU_MAX_WORK_GROUP_SIZE,
-        CPU_MAX_WORK_GROUP_SIZE
-    };
 
 static const size_t FPGA_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     {
@@ -337,12 +325,7 @@ cl_dev_err_code CPUDevice::Init()
 
     // Enable VTune source level profiling
     GetCPUDevInfo(m_CPUDeviceConfig)->bEnableSourceLevelProfiling = m_CPUDeviceConfig.UseVTune();
-    if (EYEQ_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
-    {
-        GetCPUDevInfo(m_CPUDeviceConfig)->bImageSupport = false;
-        GetCPUDevInfo(m_CPUDeviceConfig)->bDoubleSupport = false;
-    }
-    else if (FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
+    if (FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
     {
         GetCPUDevInfo(m_CPUDeviceConfig)->bImageSupport = false;
     }
@@ -431,139 +414,208 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     return CL_DEV_SUCCESS;
 }
 
-void CPUDevice::calculateComputeUnitMap()
-{
-    // default mapping
-    for (unsigned int i = 0; i < m_numCores; i++)
-        m_pComputeUnitMap[i] = i;
+/// Read processor indices from each numa node and rearrange them so that a
+/// logical core index is placed right after its physical core index.
+/// This assumes GetProcessorIndexFromNumaNode is returning a list of physical
+/// core indices followed by logical core indices.
+/// E.g.
+///   NUMA node0 CPU(s):   0-27,56-83
+///   NUMA node1 CPU(s):   28-55,84-111
+///   GetProcessorIndexFromNumaNode returns
+///     node0 [0,1,...,27,56,67,...,83] and node1 [28,29,...,55,84,85,...,111]
+///   This function returns [0,56,1,67,...,27,83,  28,84,29,85,...,55,111]
+static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores,
+                                                  bool HTEnabled) {
+  std::vector<unsigned> processorMap(numCores);
+  std::iota(processorMap.begin(), processorMap.end(), 0);
+
+  const unsigned numNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
+  if (numNodes <= 1)
+    return processorMap;
+
+  const unsigned numCoresPerNode = numCores / numNodes;
+  for (unsigned s = 0; s < numNodes; ++s) {
+    std::vector<cl_uint> index;
+    bool res = Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(s, index);
+    // TODO replace res check with assert once GetProcessorIndexFromNumaNode
+    // supports windows.
+    // numCoresPerNode could be smaller than index size if custom CPU affinity
+    // mask is set, e.g. by sched_setaffinity.
+    if (!res || index.size() != numCoresPerNode)
+      break;
+    if (HTEnabled) {
+      for (unsigned i = 0; i < numCoresPerNode; ++i)
+        processorMap[s * numCoresPerNode + i] =
+            index[(i / 2) + (i % 2) * (numCoresPerNode / 2)];
+    } else {
+      std::copy(index.begin(), index.end(),
+                processorMap.begin() + s * numCoresPerNode);
+    }
+  }
+
+  return processorMap;
+}
+
+void CPUDevice::calculateComputeUnitMap() {
+  // default mapping
+  for (unsigned int i = 0; i < m_numCores; i++)
+    m_pComputeUnitMap[i] = i;
 
 #ifndef WIN32
-    //For Linux, respect the process affinity mask in determining which cores to run on
-    affinityMask_t myParentMask;
-    threadid_t     myParentId = clMyParentThreadId();
-    clGetThreadAffinityMask(&myParentMask, myParentId);
-    clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
+  // For Linux, respect the process affinity mask in determining which cores to
+  // run on
+  affinityMask_t myParentMask;
+  threadid_t myParentId = clMyParentThreadId();
+  clGetThreadAffinityMask(&myParentMask, myParentId);
+  clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
 
-    // Prevent divide by 0.
-    if (m_numCores <= 1)
-      return;
+  const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+  const unsigned numNumaNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
 
-    // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
-    // affinity, similar to OMP_PROC_BIND in OpenMP.
-    // By default, the DPCPP_CPU_CU_AFFINITY variable is not set.
-    std::string env_dpcpp_affinity;
-    if (!Intel::OpenCL::Utils::getEnvVar(env_dpcpp_affinity,
-                                         "DPCPP_CPU_CU_AFFINITY"))
-      return;
+  // Prevent divide by 0.
+  if (m_numCores <= 1 || numSockets == 0 || numNumaNodes == 0)
+    return;
 
-    CPU_CU_AFFINITY affinity;
-    if ("close" == env_dpcpp_affinity)
-        affinity = CPU_CU_AFFINITY_CLOSE;
-    else if ("spread" == env_dpcpp_affinity)
-        affinity = CPU_CU_AFFINITY_SPREAD;
-    else if ("master" == env_dpcpp_affinity)
-        affinity = CPU_CU_AFFINITY_MASTER;
-    else
+  // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
+  // affinity, similar to OMP_PROC_BIND in OpenMP.
+  // By default, the DPCPP_CPU_CU_AFFINITY variable is not set.
+  std::string envAffinity;
+  if (!Intel::OpenCL::Utils::getEnvVar(envAffinity, "DPCPP_CPU_CU_AFFINITY"))
+    return;
+
+  envAffinity = StringRef(envAffinity).lower();
+  CPU_CU_AFFINITY affinity;
+  if ("close" == envAffinity)
+    affinity = CPU_CU_AFFINITY_CLOSE;
+  else if ("spread" == envAffinity)
+    affinity = CPU_CU_AFFINITY_SPREAD;
+  else if ("master" == envAffinity)
+    affinity = CPU_CU_AFFINITY_MASTER;
+  else
+    return;
+
+  // Pin master thread if DPCPP_CPU_CU_AFFINITY env is set.
+  // If we don't pin master thread, DPCPP_CPU_CU_AFFINITY affinity can't be
+  // set correctly.
+  m_pinMaster = true;
+
+  // DPCPP_CPU_PLACES = {sockets | numa_domains | cores | threads} controls
+  // which place to set affinity, analogous to OMP_PLACES in OpenMP.
+  // DPCPP_CPU_PLACES must be used together with DPCPP_CPU_CU_AFFINITY.
+  // Default value is cores.
+  // If value is numa_domains, TBB NUMA API will be used.
+  std::string places = "cores";
+  (void)Intel::OpenCL::Utils::getEnvVar(places, "DPCPP_CPU_PLACES");
+  places = StringRef(places).lower();
+  if ("sockets" != places && "numa_domains" != places && "cores" != places &&
+      "threads" != places)
+    return;
+
+  // Assume we have a system of 2 sockets, 1 numa node per socket, 4 physical
+  // cores per numa node.
+  // Case 1: HT is enabled (2 HT threads per core).
+  //
+  // If DPCPP_CPU_NUM_CUS=16,
+  // DPCPP_CPU_PLACES=sockets,
+  //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  // DPCPP_CPU_PLACES=cores,
+  //   close : S0:[T0 T8 T1 T9 T2 T10 T3 T11] S1:[T4 T12 T5 T13 T6 T14 T7 T15]
+  //   spread: S0:[T0 T8 T2 T10 T4 T12 T6 T14] S1:[T1 T9 T3 T11 T5 T13 T7 T15]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  // DPCPP_CPU_PLACES=threads,
+  //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  //
+  // If DPCPP_CPU_NUM_CUS=8,
+  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  //   close:  S0:[T0 - T1 - T2 - T3 -]     S1:[T4 - T5 - T6 - T7 -]
+  //   spread: S0:[T0 - T2 - T4 - T6 -]     S1:[T1 - T3 - T5 - T7 -]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[]
+  // S is socket, T is tbb thread, and - denotes unused core.
+  //
+  // Case 2: HT is disabled.
+  //
+  // If DPCPP_CPU_NUM_CUS=8,
+  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  //   close:  S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
+  //   spread: S0:[T0 T2 T4 T6]     S1:[T1 T3 T5 T7]
+  //   master: S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
+  //
+  // If DPCPP_CPU_NUM_CUS=4,
+  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  //   close:  S0:[T0 - T1 -]       S1:[T2 - T3 -]
+  //   spread: S0:[T0 - T2 -]       S1:[T1 - T3 -]
+  //   master: S0:[T0 T1 T2 T3]     S1:[]
+
+  const bool HTEnabled = Intel::OpenCL::Utils::IsHyperThreadingEnabled();
+  std::vector<unsigned> processorMap =
+      getProcessorIndexMap(m_numCores, HTEnabled);
+
+  const unsigned numCoresPerSocket = m_numCores / numSockets;
+  std::vector<std::vector<int>> coresPerSocket(numSockets);
+  if (HTEnabled && "sockets" == places) {
+    std::map<int, int> coreToSocket =
+        Intel::OpenCL::Utils::GetProcessorToSocketMap();
+    for (unsigned i = 0; i < m_numCores; ++i)
+      coresPerSocket[coreToSocket[processorMap[i]]].push_back(i);
+    for (auto &C : coresPerSocket)
+      if (C.size() < numCoresPerSocket)
         return;
+  }
 
-    // Pin master thread if DPCPP_CPU_CU_AFFINITY env is set.
-    // If we don't pin master thread, DPCPP_CPU_CU_AFFINITY affinity can't be
-    // set correctly.
-    m_pinMaster = true;
+  const size_t numTbbThreads =
+      TaskExecutor::GetTaskExecutor()->GetMaxNumOfConcurrentThreads();
+  const unsigned numCoresPerNumaNode = m_numCores / numNumaNodes;
+  const unsigned numCoresHalf = m_numCores / 2;
 
-    // DPCPP_CPU_PLACES = {sockets | numa_domains | cores | threads} controls
-    // which place to set affinity, analogous to OMP_PLACES in OpenMP.
-    // DPCPP_CPU_PLACES must be used together with DPCPP_CPU_CU_AFFINITY.
-    // Default value is cores.
-    // If value is numa_domains, TBB NUMA API will be used.
-    std::string places = "cores";
-    (void)Intel::OpenCL::Utils::getEnvVar(places, "DPCPP_CPU_PLACES");
+  std::vector<unsigned> dpcppAffinityMap(m_numCores);
 
-    // Assume we have a 2 sockets, 4 physical cores per socket
-    // Case 1: HT is enabled (2 HT threads per core).
-    //
-    // If DPCPP_CPU_NUM_CUS=16,
-    // DPCPP_CPU_PLACES=sockets,
-    //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    // DPCPP_CPU_PLACES=cores,
-    //   close : S0:[T0 T8 T1 T9 T2 T10 T3 T11] S1:[T4 T12 T5 T13 T6 T14 T7 T15]
-    //   spread: S0:[T0 T8 T2 T10 T4 T12 T6 T14] S1:[T1 T9 T3 T11 T5 T13 T7 T15]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    // DPCPP_CPU_PLACES=threads,
-    //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    //
-    // If DPCPP_CPU_NUM_CUS=8,
-    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
-    //   close:  S0:[T0 - T1 - T2 - T3 -]     S1:[T4 - T5 - T6 - T7 -]
-    //   spread: S0:[T0 - T2 - T4 - T6 -]     S1:[T1 - T3 - T5 - T7 -]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[]
-    // S is socket, T is tbb thread, and - denotes unused core.
-    //
-    // Case 2: HT is disabled.
-    //
-    // If DPCPP_CPU_NUM_CUS=8,
-    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
-    //   close:  S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
-    //   spread: S0:[T0 T2 T4 T6]     S1:[T1 T3 T5 T7]
-    //   master: S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
-    //
-    // If DPCPP_CPU_NUM_CUS=4,
-    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
-    //   close:  S0:[T0 - T1 -]       S1:[T2 - T3 -]
-    //   spread: S0:[T0 - T2 -]       S1:[T1 - T3 -]
-    //   master: S0:[T0 T1 T2 T3]     S1:[]
-
-    const size_t numTbbThreads =
-        TaskExecutor::GetTaskExecutor()->GetMaxNumOfConcurrentThreads();
-    const unsigned int numSockets =
-        Intel::OpenCL::Utils::GetNumberOfCpuSockets();
-    const unsigned int numCoresPerSocket = m_numCores / numSockets;
-    const unsigned int numCoresHalf = m_numCores / 2;
-
-    std::vector<unsigned int> dpcppAffinityMap(m_numCores);
-
-    for (unsigned int i = 0; i < m_numCores; i++) {
-        unsigned int j = i;
-        if (CPU_CU_AFFINITY_CLOSE == affinity) {
-            if (numTbbThreads <= numCoresHalf)
-                j = i * 2;
-            else if ("cores" == places)
-                j = (i % numCoresHalf) * 2 + (i / numCoresHalf);
-        }
-        if (CPU_CU_AFFINITY_SPREAD == affinity) {
-            j = (i % numSockets) * numCoresPerSocket;
-            if (numTbbThreads <= numCoresHalf)
-                j += (i / numSockets) * 2;
-            else {
-                if (Intel::OpenCL::Utils::IsHyperThreadingEnabled() &&
-                    "cores" == places) {
-                    j += ((i - (i % numSockets)) % numCoresHalf) /
-                             numSockets * 2 +
-                         (i / numCoresHalf);
-                } else
-                    j += i / numSockets;
-            }
-        }
-        dpcppAffinityMap[i] = j;
+  for (unsigned i = 0; i < m_numCores; i++) {
+    unsigned j = i;
+    if (CPU_CU_AFFINITY_CLOSE == affinity) {
+      if (numTbbThreads <= numCoresHalf)
+        j = i * 2;
+      else if ("cores" == places)
+        j = (i % numCoresHalf) * 2 + (i / numCoresHalf);
     }
+    if (CPU_CU_AFFINITY_SPREAD == affinity) {
+      j = (i % numNumaNodes) * numCoresPerNumaNode;
+      if (numTbbThreads <= numCoresHalf) {
+        if (HTEnabled && "sockets" == places)
+          j = coresPerSocket[i % numSockets][std::min((i / numSockets) * 2,
+                                                      numCoresPerSocket - 1)];
+        else
+          j += (i / numNumaNodes) * 2;
+      } else {
+        if (HTEnabled && "cores" == places)
+          j += ((i - (i % numNumaNodes)) % numCoresHalf) / numNumaNodes * 2 +
+               (i / numCoresHalf);
+        else if (HTEnabled && "sockets" == places)
+          j = coresPerSocket[i % numSockets][i / numSockets];
+        else
+          j += i / numNumaNodes;
+      }
+    }
+    dpcppAffinityMap[i] = j;
+  }
 
-    // Apply mapping.
-    // dpcppAffinityMap's values can be out of range if number of cores in
-    // myParentMask is larger than numTbbThreads when numTbbThreads is set by
-    // DPCPP_CPU_NUM_CUS.
-    for (unsigned int i = 0; i < m_numCores; i++) {
-        if (dpcppAffinityMap[i] < m_numCores)
-            dpcppAffinityMap[i] = m_pComputeUnitMap[dpcppAffinityMap[i]];
-    }
-    for (unsigned int i = 0; i < m_numCores; i++) {
-        if (dpcppAffinityMap[i] < m_numCores)
-            m_pComputeUnitMap[i] = dpcppAffinityMap[i];
-    }
+  // Apply mapping.
+  // dpcppAffinityMap's values can be out of range if number of cores in
+  // myParentMask is larger than numTbbThreads when numTbbThreads is set by
+  // DPCPP_CPU_NUM_CUS.
+  for (unsigned int i = 0; i < m_numCores; i++)
+    if (dpcppAffinityMap[i] < m_numCores)
+      dpcppAffinityMap[i] = m_pComputeUnitMap[dpcppAffinityMap[i]];
+  for (unsigned int i = 0; i < m_numCores; i++)
+    if (dpcppAffinityMap[i] < m_numCores)
+      m_pComputeUnitMap[i] = dpcppAffinityMap[i];
+
+  for (unsigned int i = 0; i < m_numCores; i++)
+    m_pComputeUnitMap[i] = processorMap[m_pComputeUnitMap[i]];
 }
 
 bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
@@ -864,15 +916,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     // if OUT paramVal is NULL it should be ignored
     if (nullptr != paramVal) {
       auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-          deviceMode != EYEQ_EMU_DEVICE)
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
         return CL_DEV_INVALID_VALUE;
       switch (deviceMode) {
       case CPU_DEVICE:
         *(cl_device_type *)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
         break;
       case FPGA_EMU_DEVICE:
-      case EYEQ_EMU_DEVICE:
         *(cl_device_type *)paramVal =
             (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
         break;
@@ -889,8 +939,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     // if OUT paramVal is NULL it should be ignored
     if (nullptr != paramVal) {
       auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-          deviceMode != EYEQ_EMU_DEVICE)
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
         return CL_DEV_INVALID_VALUE;
       switch (deviceMode) {
       case CPU_DEVICE:
@@ -898,9 +947,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         break;
       case FPGA_EMU_DEVICE:
         *(cl_uint *)paramVal = 4466;
-        break;
-      case EYEQ_EMU_DEVICE:
-        *(cl_uint *)paramVal = 1337;
         break;
       }
     }
@@ -1028,15 +1074,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     // if OUT paramVal is NULL it should be ignored
     if (nullptr != paramVal) {
       auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-          deviceMode != EYEQ_EMU_DEVICE)
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
         return CL_DEV_INVALID_VALUE;
       switch (deviceMode) {
       case CPU_DEVICE:
         *(cl_bool *)paramVal = CL_TRUE;
         break;
       case FPGA_EMU_DEVICE:
-      case EYEQ_EMU_DEVICE:
         *(cl_bool *)paramVal = CL_FALSE;
         break;
       }
@@ -1058,17 +1102,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
   case (CL_DEVICE_SINGLE_FP_CONFIG): {
     cl_device_fp_config fpConfig = 0;
     auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-    if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-        deviceMode != EYEQ_EMU_DEVICE)
+    if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
       return CL_DEV_INVALID_VALUE;
     switch (deviceMode) {
     case CPU_DEVICE:
     case FPGA_EMU_DEVICE:
       fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM;
-      break;
-    case EYEQ_EMU_DEVICE:
-      fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN |
-                 CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT;
       break;
     }
     *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
@@ -1233,15 +1272,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     // if OUT paramVal is NULL it should be ignored
     if (nullptr != paramVal) {
       auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-          deviceMode != EYEQ_EMU_DEVICE)
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
         return CL_DEV_INVALID_VALUE;
       switch (deviceMode) {
       case CPU_DEVICE:
         *(size_t *)paramVal = m_CPUDeviceConfig.GetCpuMaxWGSize();
-        break;
-      case EYEQ_EMU_DEVICE:
-        *(size_t *)paramVal = CPU_MAX_WORK_GROUP_SIZE;
         break;
       case FPGA_EMU_DEVICE:
         *(size_t *)paramVal = FPGA_MAX_WORK_GROUP_SIZE;
@@ -1258,8 +1293,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     // if OUT paramVal is NULL it should be ignored
     if (nullptr != paramVal) {
       auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-          deviceMode != EYEQ_EMU_DEVICE)
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
         return CL_DEV_INVALID_VALUE;
       switch (deviceMode) {
       case CPU_DEVICE: {
@@ -1269,10 +1303,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         MEMCPY_S(paramVal, valSize, cpuMaxWISizes, *pinternalRetunedValueSize);
         break;
       }
-      case EYEQ_EMU_DEVICE:
-        MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
-                 *pinternalRetunedValueSize);
-        break;
       case FPGA_EMU_DEVICE:
         MEMCPY_S(paramVal, valSize, FPGA_MAX_WORK_ITEM_SIZES,
                  *pinternalRetunedValueSize);
@@ -1535,8 +1565,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         {
             const char* name = NULL;
             auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-                deviceMode != EYEQ_EMU_DEVICE)
+            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
               return CL_DEV_INVALID_VALUE;
             switch (deviceMode) {
             case CPU_DEVICE:
@@ -1547,9 +1576,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
               break;
             case FPGA_EMU_DEVICE:
               name = "Intel(R) FPGA Emulation Device";
-              break;
-            case EYEQ_EMU_DEVICE:
-              name = "Mobileye(R) EyeQ(R) Emulation Device";
               break;
             }
 
@@ -1584,15 +1610,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         {
             const char* profile = NULL;
             auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-                deviceMode != EYEQ_EMU_DEVICE)
+            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
               return CL_DEV_INVALID_VALUE;
             switch (deviceMode) {
             case CPU_DEVICE:
               profile = "FULL_PROFILE";
               break;
             case FPGA_EMU_DEVICE:
-            case EYEQ_EMU_DEVICE:
               profile = "EMBEDDED_PROFILE";
               break;
             }
@@ -1856,16 +1880,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         {
             std::string driverVer;
             auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-                deviceMode != EYEQ_EMU_DEVICE)
+            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
               return CL_DEV_INVALID_VALUE;
             switch (deviceMode) {
             case CPU_DEVICE:
             case FPGA_EMU_DEVICE:
               driverVer = GetModuleProductVersion();
-              break;
-            case EYEQ_EMU_DEVICE:
-              driverVer = "1.0";
               break;
             }
             *pinternalRetunedValueSize = driverVer.length() + 1;
@@ -2065,8 +2085,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             if (nullptr != paramVal)
             {
               auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-              if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
-                  deviceMode != EYEQ_EMU_DEVICE)
+              if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
                 return CL_DEV_INVALID_VALUE;
               switch (deviceMode) {
               case CPU_DEVICE: {
@@ -2079,8 +2098,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 break;
               }
                     case FPGA_EMU_DEVICE:
-                    case EYEQ_EMU_DEVICE:
-                       // FPGA and EyeQ emulators do not support pipe reservation.
+                       // FPGA emulator do not support pipe reservation.
                        *(cl_uint*)paramVal = 0;
                         break;
                     }
@@ -3436,12 +3454,7 @@ const char* CPUDevice::clDevFEModuleName() const
 const void* CPUDevice::clDevFEDeviceInfo() const
 {
     struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *dev_info = GetCPUDevInfo(m_CPUDeviceConfig);
-    if (EYEQ_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
-    {
-        dev_info->bImageSupport = false;
-        dev_info->bDoubleSupport = false;
-    }
-    else if (FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
+    if (FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
     {
         dev_info->bImageSupport = false;
     }

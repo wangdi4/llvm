@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -inline -argpromotion -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
 ; RUN: opt < %s -passes='cgscc(inline),module(argpromotion)' -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefix=CHECK-NEW
 
 ; Check that the classic inlining report does not produce messages about

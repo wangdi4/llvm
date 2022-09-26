@@ -14,21 +14,17 @@ define float @expl_reduction_sub(float* nocapture %x2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   (+) Start: float [[X_PROMOTED0:%.*]] Exit: float [[VP_ADD:%.*]]
-; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD]], float* [[VP_X:%.*]], float [[VP_XRED_INIT:%.*]], void [[VP_STORE:%.*]], float [[VP_XRED_FINAL:%.*]],
-; CHECK-NEXT:   Memory: float* [[X0:%.*]]
+; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD]], float [[VP_XRED_INIT:%.*]], float [[VP_XRED_FINAL:%.*]],
+; CHECK-EMPTY:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1000 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float*, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP0:%.*]] = bitcast float* [[VP_X]]
-; CHECK-NEXT:     call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     float [[VP_XRED_INIT]] = reduction-init float -0.000000e+00
-; CHECK-NEXT:     store float [[VP_XRED_INIT]] float* [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -43,9 +39,6 @@ define float @expl_reduction_sub(float* nocapture %x2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:     float [[VP_XRED_FINAL]] = reduction-final{fadd} float [[VP_ADD]] float [[X_PROMOTED0]]
-; CHECK-NEXT:     store float [[VP_XRED_FINAL]] float* [[X0]]
-; CHECK-NEXT:     i8* [[VP1:%.*]] = bitcast float* [[VP_X]]
-; CHECK-NEXT:     call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -75,7 +68,7 @@ entry:
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD"(float* %x) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split

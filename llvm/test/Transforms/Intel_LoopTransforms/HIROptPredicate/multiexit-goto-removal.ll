@@ -24,30 +24,41 @@
 ;        + END LOOP
 ;   END REGION
 
-; CHECK:   BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-; CHECK:        |   if (%m > 1024)
-; CHECK:        |   {
-; CHECK:        |      if (%n < 256)
-; CHECK:        |      {
-; CHECK:        |         %0 = (%a)[0];
-; CHECK:        |         (%a)[0] = %0 + 1;
-; CHECK-NOT:              goto L.loopexit;
-; CHECK:        |      }
-; CHECK:        |      else
-; CHECK:        |      {
-; CHECK:        |         + DO i2 = 0, 9, 1   <DO_LOOP>
-; CHECK:        |         |   %0 = (%a)[i2];
-; CHECK:        |         |   (%a)[i2] = %0 + 1;
-; CHECK:        |         |   (%a)[i2] = %0 + 2;
-; CHECK:        |         + END LOOP
-; CHECK:        |      }
-; CHECK-NOT:           L.loopexit:
-; CHECK:        |   }
-; CHECK:        |   %1 = (%a)[i1];
-; CHECK:        |   (%a)[i1] = %1 + 1;
-; CHECK:        + END LOOP
-; CHECK:   END REGION
+;CHECK:  BEGIN REGION { modified }
+;CHECK-NEXT:        if (%m > 1024)
+;CHECK-NEXT:        {
+;CHECK-NEXT:           if (%n < 256)
+;CHECK-NEXT:           {
+;CHECK-NEXT:              + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+;CHECK-NEXT:              |   %0 = (%a)[0];
+;CHECK-NEXT:              |   (%a)[0] = %0 + 1;
+;CHECK-NEXT:              |   %1 = (%a)[i1];
+;CHECK-NEXT:              |   (%a)[i1] = %1 + 1;
+;CHECK-NEXT:              + END LOOP
+;CHECK-NEXT:           }
+;CHECK-NEXT:           else
+;CHECK-NEXT:           {
+;CHECK-NEXT:              + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+;CHECK-NEXT:              |   + DO i2 = 0, 9, 1
+;CHECK-NEXT:              |   |   %0 = (%a)[i2];
+;CHECK-NEXT:              |   |   (%a)[i2] = %0 + 1;
+;CHECK-NEXT:              |   |   (%a)[i2] = %0 + 2;
+;CHECK-NEXT:              |   + END LOOP
+;CHECK-NEXT:              |
+;CHECK-NEXT:              |   %1 = (%a)[i1];
+;CHECK-NEXT:              |   (%a)[i1] = %1 + 1;
+;CHECK-NEXT:              + END LOOP
+;CHECK-NEXT:           }
+;CHECK-NEXT:        }
+;CHECK-NEXT:        else
+;CHECK-NEXT:        {
+;CHECK-NEXT:           + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+;CHECK-NEXT:           |   %1 = (%a)[i1];
+;CHECK-NEXT:           |   (%a)[i1] = %1 + 1;
+;CHECK-NEXT:           + END LOOP
+;CHECK-NEXT:        }
+;CHECK-NEXT:  END REGION
+
 
 ;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
@@ -56,15 +67,23 @@
 ; Incorrect line number ("at line 0" in the remark) only occurs during some
 ; lit-tests (real-world test cases would have correct line numbers).
 ;
-;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     LOOP BEGIN
-;OPTREPORT:     <Predicate Optimized v1>
-;OPTREPORT:         remark #25423: Invariant If condition at line 0 hoisted out of this loop
-;OPTREPORT:     LOOP END
-;OPTREPORT:     LOOP BEGIN
-;OPTREPORT:     <Predicate Optimized v2>
-;OPTREPORT:     LOOP END
-;OPTREPORT: LOOP END
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v2>
+; OPTREPORT: LOOP END
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v3>
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:     LOOP END
+; OPTREPORT: LOOP END
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v1>
+; OPTREPORT:     remark #25423: Invariant If condition at line 0 hoisted out of this loop
+; OPTREPORT:     remark #25423: Invariant If condition at line 0 hoisted out of this loop
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:     LOOP END
+; OPTREPORT: LOOP END
+
 
 ;Module Before HIR; ModuleID = 'multiexit-goto-remap.c'
 source_filename = "multiexit-goto-remap.c"

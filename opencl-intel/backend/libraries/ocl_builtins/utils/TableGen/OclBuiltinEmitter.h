@@ -1,12 +1,10 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2018 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -281,7 +279,9 @@ public:
 
   std::string getCImpl(const std::string&) const;
 
-  void appendImpl(const Record *, const char *Loc);
+  void appendImpl(const Record *, const char *Loc, int TargetID = 0);
+
+  void sortImplsByTarget();
 
   const OclBuiltin* getOclBuiltin() const { return m_Proto; }
 
@@ -297,6 +297,7 @@ protected:
     std::map<std::string, std::string> m_customMacro;
     std::string m_Code;
     bool m_IsDeclOnly;
+    int m_TargetID;
   };
   std::vector<Impl*> m_Impls;
 };
@@ -304,7 +305,7 @@ protected:
 /// OclBuiltinDB
 class OclBuiltinDB {
 public:
-  explicit OclBuiltinDB(RecordKeeper&);
+  explicit OclBuiltinDB(RecordKeeper &, bool CollectImplDefs = true);
   virtual ~OclBuiltinDB();
 
   std::string rewritePattern(const OclBuiltin*, const OclType*, const std::string&,

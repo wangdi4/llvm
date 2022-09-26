@@ -36,27 +36,28 @@
 ///
 //==------------------------------------------------------------------------==//
 
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/Module.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeSize.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#include "llvm/Analysis/EHPersonalities.h"
+#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include <string>
 
 #if INTEL_CUSTOMIZATION
@@ -113,10 +114,11 @@ static cl::opt<bool> SPIRImplicitMultipleTeams(
 
 // Control the level of detail of the source location info passed to OpenMP
 // via the kmp_ident_t* argument of most kmp calls.
-static cl::opt<uint32_t> ParallelSourceInfoMode(
-    "parallel-source-info", cl::Hidden, cl::init(1),
-    cl::desc("Control source location info in OpenMP code.  0 = none; "
-             "1 (default) = function + line; 2 = path + function + line."));
+static cl::opt<int32_t> ParallelSourceInfoMode(
+    "parallel-source-info", cl::Hidden, cl::init(-1),
+    cl::desc("Control source location info in OpenMP code. 0 = none; "
+             "1 = function + line (default without debug compilation); "
+             "2 = path + function + line (default with debug compilation)."));
 
 // Enable target compilation mode expliclty, e.g. for LIT tests.
 // This option is currently not used by any driver.
@@ -157,15 +159,17 @@ static cl::opt<bool> PutInteropAfterVararg(
 
 // Control data prefetch API generation
 static cl::opt<uint32_t> DataPrefetchKind(
-    "vpo-paropt-data-prefetch-kind", cl::Hidden, cl::init(2),
+    "vpo-paropt-data-prefetch-kind", cl::Hidden, cl::init(1),
     cl::desc("Control prefetch API generation in OpenMP code. 0 = none; "
-             "1 = lsc_prefetch; 2 (default) = OpenCL_prefetch."));
+             "1 (default) = lsc_prefetch; 2 = OpenCL_prefetch."));
 
-// Switch to control memory address-space setting for device.
-static cl::opt<uint32_t> DeviceMemoryKind(
-    "vpo-paropt-device-memory-kind", cl::Hidden, cl::init(3),
-    cl::desc("Control memory address space setting for device. 0 = private; "
-             "1 = global, 2 = constant, 3 (default) = local; 4 = generic."));
+// Enables block loads codegen for GPUs.
+static cl::opt<bool> EnableDeviceBlockLoad(
+    "vpo-paropt-enable-device-block-load", cl::Hidden, cl::init(false),
+    cl::desc("Enable GPU block load generation for OpenMP target region"));
+
+extern cl::opt<bool> AtomicFreeReduction;
+extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
 
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
@@ -656,6 +660,15 @@ CallInst *VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   return PushNumThreads;
 }
 
+void VPOParoptUtils::emitWarning(WRegionNode *W, const Twine &Message) {
+  Function *F = W->getEntryDirective()->getFunction();
+  DiagnosticInfoOptimizationFailure DI("openmp", "implementation-warning",
+                                       W->getEntryDirective()->getDebugLoc(),
+                                       W->getEntryBBlock());
+  DI << Message.str();
+  F->getContext().diagnose(DI);
+}
+
 // Allow using short names for llvm::vpo::intrinsics::IntrinsicOperandTy
 // constants (e.g. I8, I16, etc.)
 using namespace llvm::vpo::intrinsics;
@@ -710,7 +723,7 @@ void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
   for (DataItem *DI : DataC.items()) {
     Value *V = DI->getOrig();
 
-    Type *DataTy = DI->getPointeeElementType();
+    Type *DataTy = DI->getPointeeElementTypeFromIR();
 
     // TODO: GPU prefetch API supports i32 and i64, we may change to
     // allow both 32-bit and 64-bit, We need type info from Front-End.
@@ -722,9 +735,16 @@ void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
 
     auto MapEntry = SPIRVPrefetchMap.find({DataElemTyID, NumElementsTySize});
 
-    if (MapEntry == SPIRVPrefetchMap.end())
+    if (MapEntry == SPIRVPrefetchMap.end()) {
+      std::string TypeName = "";
+      raw_string_ostream OS(TypeName);
+      DataTy->print(OS);
+      emitWarning(W, "A 'data' clause in the '" + W->getName() +
+                         "' construct was ignored. SPIRV OpenCL prefetch API "
+                         "doesn't support its element type: " +
+                         TypeName + ".");
       continue;
-
+    }
     StringRef FnName = MapEntry->second;
 
     IRBuilder<> Builder(InsertPt);
@@ -755,18 +775,12 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
 
   // The prefetch SPIRV builtin is selected based on
   // the element data type and data type of size.
-  typedef std::pair<IntrinsicOperandTy, int>
-      LscPrefetchTy;
 
   // TODO: check if DenseMap<LscPrefetchTy, StringRef> works here
-  static const std::map<LscPrefetchTy, const std::string>
-      LscPrefetchMap = {
-        { { I32, 32 }, "__builtin_IB_lsc_prefetch_global_uint" },
-        { { I64, 32 }, "__builtin_IB_lsc_prefetch_global_ulong" },
-
-        { { I32, 64 }, "__builtin_IB_lsc_prefetch_global_uint" },
-        { { I64, 64 }, "__builtin_IB_lsc_prefetch_global_ulong" },
-      };
+  static const std::map<unsigned, const std::string> LscPrefetchMap = {
+      {32, "__builtin_IB_lsc_prefetch_global_uint"},
+      {64, "__builtin_IB_lsc_prefetch_global_ulong"},
+  };
 
   if (!W->canHaveData())
     return;
@@ -782,34 +796,44 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
   for (DataItem *DI : DataC.items()) {
     Value *V = DI->getOrig();
 
-    Type *DataTy = DI->getPointeeElementType();
+    Type *DataTy = DI->getPointeeElementTypeFromIR();
 
     // TODO: LSC prefetch API supports i32 and i64, we may change to
     // allow both 32-bit and 64-bit, We need type info from Front-End.
     auto ElemOffsetTy = Type::getInt32Ty(C);
-    unsigned ElemOffsetTySize = ElemOffsetTy->getIntegerBitWidth();
 
+    const auto &DL = M->getDataLayout();
+    unsigned ElementSize = DL.getTypeSizeInBits(DataTy);
     auto HintTy = Type::getInt32Ty(C);
 
-    IntrinsicOperandTy DataElemTyID = { DataTy->getTypeID(),
-                                        DataTy->getPrimitiveSizeInBits() };
+    auto MapEntry = LscPrefetchMap.find(ElementSize);
 
-    auto MapEntry = LscPrefetchMap.find(
-           { DataElemTyID, ElemOffsetTySize });
-
-    if (MapEntry == LscPrefetchMap.end())
+    if (MapEntry == LscPrefetchMap.end()) {
+      std::string TypeName = "";
+      raw_string_ostream OS(TypeName);
+      DataTy->print(OS);
+      emitWarning(W, "A 'data' clause in the '" + W->getName() +
+                         "' construct was ignored. SPIRV LSC prefetch API "
+                         "doesn't support its element type: " +
+                         TypeName + ".");
       continue;
-
+    }
     StringRef FnName = MapEntry->second;
 
-    IRBuilder<> Builder(InsertPt);
-    Value *ElemOffset =
-        Builder.CreateSExtOrTrunc(DI->getNumElements(), ElemOffsetTy);
+    Type *OriginalElementTy = V->getType();
+    assert(OriginalElementTy->isPointerTy() &&
+           "The data address should be a pointer.");
+    unsigned AS = cast<PointerType>(OriginalElementTy)->getAddressSpace();
+    Type *PrefetchPtrTy = Type::getIntNPtrTy(C, ElementSize, AS);
 
+    IRBuilder<> Builder(InsertPt);
+    Value *ElemOffset = ConstantInt::get(ElemOffsetTy, 0);
+    Value *PrefetchPtr =
+        Builder.CreatePointerBitCastOrAddrSpaceCast(V, PrefetchPtrTy);
     Value *CacheHint = Builder.CreateSExtOrTrunc(
                          Builder.getInt32(DI->getHint()), HintTy);
 
-    SmallVector<Value *, 2> FnArgs = {V, ElemOffset, CacheHint};
+    SmallVector<Value *, 2> FnArgs = {PrefetchPtr, ElemOffset, CacheHint};
     Type *RetTy = Type::getVoidTy(C);
 
     CallInst *PrefetchBuiltIn = genCall(M, FnName, RetTy, FnArgs);
@@ -1224,7 +1248,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
   return Call;
 }
 
-VPOParoptUtils::SrcLocMode getSrcLocMode() {
+VPOParoptUtils::SrcLocMode getSrcLocMode(Function *F) {
   switch (ParallelSourceInfoMode) {
   case 0:
     return VPOParoptUtils::SRC_LOC_NONE;
@@ -1232,7 +1256,11 @@ VPOParoptUtils::SrcLocMode getSrcLocMode() {
     return VPOParoptUtils::SRC_LOC_FUNC;
   case 2:
     return VPOParoptUtils::SRC_LOC_PATH;
+  case -1:
+    LLVM_FALLTHROUGH;
   default:
+    if (F->getParent()->getNamedMetadata("llvm.dbg.cu"))
+      return VPOParoptUtils::SRC_LOC_PATH;
     return VPOParoptUtils::SRC_LOC_FUNC;
   }
 }
@@ -1252,7 +1280,7 @@ CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
 
   DILocation *Loc1 = Location->getDebugLoc();
   DILocation *Loc2 = nullptr;
-  SrcLocMode Mode = getSrcLocMode();
+  SrcLocMode Mode = getSrcLocMode(F);
 
   GlobalVariable *LocStr = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
@@ -1460,11 +1488,36 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   return Call;
 }
 
+// Construct a global array of unsigned ints from PreferList and return a void*
+// pointing to the array. If PreferList is empty, then return (void*)nullptr.
+static Value *genPreferArray(const SmallVectorImpl<unsigned> &PreferList,
+                             Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  if (PreferList.empty()) {
+    ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+    return NullPtr;
+  }
+
+  IRBuilder<> Builder(InsertPt);
+  Constant *PreferListInit = ConstantDataArray::get(C, PreferList);
+  auto *PreferListGblVar = new GlobalVariable(
+      *(F->getParent()), PreferListInit->getType(), true,
+      GlobalValue::PrivateLinkage, PreferListInit, ".prefer.list", nullptr);
+  PreferListGblVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+  Value *PreferListGblVarCast =
+      Builder.CreateBitCast(PreferListGblVar, Int8PtrTy);
+  return PreferListGblVarCast;
+}
+
 // Generate a call to
 // omp_interop_t __tgt_create_interop(
 //    int64_t device_id, int32_t interop_type, int32_t num_prefers,
 //   intptr_t* prefer_ids);
-
 CallInst *
 VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
                                     const SmallVectorImpl<unsigned> &PreferList,
@@ -1492,21 +1545,8 @@ VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
   Args.push_back(CountVal);
   ArgTypes.push_back(Int32Ty);
 
-  if (PreferList.empty()) {
-    ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
-    Args.push_back(NullPtr);
-  } else {
-    Constant *PreferListInit =
-        ConstantDataArray::get(Builder.getContext(), PreferList);
-    auto *PreferListGblVar = new GlobalVariable(
-        *(F->getParent()), PreferListInit->getType(), true,
-        GlobalValue::PrivateLinkage, PreferListInit, ".prefer.list", nullptr);
-    PreferListGblVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-
-    Value *PreferListGblVarCast =
-        Builder.CreateBitCast(PreferListGblVar, Int8PtrTy);
-    Args.push_back(PreferListGblVarCast);
-  }
+  Value *PreferArray = genPreferArray(PreferList, InsertPt);
+  Args.push_back(PreferArray);
   ArgTypes.push_back(Int8PtrTy);
 
   CallInst *Call =
@@ -1583,18 +1623,175 @@ CallInst *VPOParoptUtils::genTgtReleaseInterop(Value* InteropObj,
 //   int __tgt_use_interop(omp_interop_t interop)
 CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
                                            Instruction* InsertPt) {
-    BasicBlock* B = InsertPt->getParent();
-    Function* F = B->getParent();
-    LLVMContext& C = F->getContext();
-    Type* Int32Ty = Type::getInt32Ty(C);
-    Type* Int8PtrTy = Type::getInt8PtrTy(C);
+  BasicBlock* B = InsertPt->getParent();
+  Function* F = B->getParent();
+  LLVMContext& C = F->getContext();
+  Type* Int32Ty = Type::getInt32Ty(C);
+  Type* Int8PtrTy = Type::getInt8PtrTy(C);
 
-    assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
-        "InteropObj expected to be void*");
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
 
-    CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
-                             {Int8PtrTy}, InsertPt);
-    return Call;
+  CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
+                           {Int8PtrTy}, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   void __tgt_interop_use_async(ident_t *Loc,
+//                                int32_t Tid,
+//                                omp_interop_t InteropObj,
+//                                bool Nowait,
+//                                void *Ptask /*nullptr*/)
+CallInst *VPOParoptUtils::genTgtInteropUseAsync(WRegionNode *W,
+                                                StructType *IdentTy,
+                                                Value *TidPtr,
+                                                Value *InteropObj, bool Nowait,
+                                                Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Type *VoidTy = Builder.getVoidTy();
+  Type *Int8Ty = Builder.getInt8Ty();
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  SmallVector<Value *, 5> Args;
+  SmallVector<Type *, 5> ArgTypes;
+
+  //arg #1: ident_t *Loc
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+    IdentTy, KMP_IDENT_KMPC, W->getEntryBBlock(), W->getExitBBlock());
+  Args.push_back(Loc);
+  ArgTypes.push_back(PointerType::getUnqual(IdentTy));
+
+  //arg #2: int32_t Tid
+  LoadInst *Tid =
+      Builder.CreateAlignedLoad(Int32Ty, TidPtr, Align(4), "my.tid");
+  Args.push_back(Tid);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #3: omp_interop_t InteropObj
+  Args.push_back(InteropObj);
+  ArgTypes.push_back(Int8PtrTy);
+
+  //arg #4: bool Nowait
+  Value *NowaitVal = ConstantInt::get(Int8Ty, Nowait);
+  Args.push_back(NowaitVal);
+  ArgTypes.push_back(Int8Ty);
+
+  //arg #5: (void*)nullptr
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+  Args.push_back(NullPtr);
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_interop_use_async", VoidTy, Args, ArgTypes, InsertPt);
+
+  return Call;
+}
+
+// Generate a call to
+//   omp_interopt_t __tgt_get_interop_obj(ident_t *Loc,
+//                                        uint32_t OmpInteropContext,
+//                                        uint32_t NumPrefers,
+//                                        omp_interop_fr_t *PreferList,
+//                                        int64_t DeviceNum,
+//                                        int32_t Tid,
+//                                        void *CurrentTask);
+CallInst *VPOParoptUtils::genTgtGetInteropObj(
+    WRegionNode *W, StructType *IdentTy, unsigned OmpInteropContext,
+    const SmallVectorImpl<unsigned> &PreferList, Value *DeviceNum, Value *Tid,
+    Value *CurrentTask, Instruction *InsertPt) {
+
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  SmallVector<Value *, 7> Args;
+  SmallVector<Type *, 7> ArgTypes;
+
+  //arg #1: ident_t *Loc
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+    IdentTy, KMP_IDENT_KMPC, W->getEntryBBlock(), W->getExitBBlock());
+  Args.push_back(Loc);
+  ArgTypes.push_back(PointerType::getUnqual(IdentTy));
+
+  //arg #2: uint32_t OmpInteropContext
+  Value *OmpInteropContextVal = ConstantInt::get(Int32Ty, OmpInteropContext);
+  Args.push_back(OmpInteropContextVal);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #3: uint32_t NumPrefers
+  Value *NumPrefers = ConstantInt::get(Int32Ty, PreferList.size());
+  Args.push_back(NumPrefers);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #4: omp_interop_fr_t *PreferList, where omp_interop_fr_t is uint32_t
+  Value *PreferArray = genPreferArray(PreferList, InsertPt);
+  Args.push_back(PreferArray);
+  ArgTypes.push_back(Int8PtrTy);
+
+  //arg #5: int64_t DeviceNum
+  Args.push_back(DeviceNum);
+  ArgTypes.push_back(Int64Ty);
+
+  //arg #6: int32_t Tid
+  Args.push_back(Tid);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #7: void *CurrentTask
+  Args.push_back(CurrentTask);
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_get_interop_obj", Int8PtrTy, Args, ArgTypes, InsertPt);
+
+  return Call;
+}
+
+// Generate a call to
+//   void __tgt_target_sync(ident_t *Loc,
+//                          int32_t Tid,
+//                          void *CurrentTask,
+//                          void *Event /*nullptr*/ )
+CallInst *VPOParoptUtils::genTgtTargetSync(WRegionNode *W, StructType *IdentTy,
+                                           Value *Tid, Value *CurrentTask,
+                                           Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *VoidTy = Type::getVoidTy(C);
+  Type *Int32Ty = Type::getInt32Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  SmallVector<Value *, 4> Args;
+  SmallVector<Type *, 4> ArgTypes;
+
+  //arg #1: ident_t *Loc
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+    IdentTy, KMP_IDENT_KMPC, W->getEntryBBlock(), W->getExitBBlock());
+  Args.push_back(Loc);
+  ArgTypes.push_back(PointerType::getUnqual(IdentTy));
+
+  //arg #2: int32_t Tid
+  Args.push_back(Tid);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #3: void *CurrentTask
+  Args.push_back(CurrentTask);
+  ArgTypes.push_back(Int8PtrTy);
+
+  //arg #4: (void*)nullptr
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+  Args.push_back(NullPtr);
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_target_sync", VoidTy, Args, ArgTypes, InsertPt);
+
+  return Call;
 }
 
 // Generate a call to
@@ -1614,15 +1811,49 @@ CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
 // Generate a call to
 //   int omp_get_default_device()
 CallInst* VPOParoptUtils::genOmpGetDefaultDevice(Instruction* InsertPt) {
-    BasicBlock* B = InsertPt->getParent();
-    Function* F = B->getParent();
-    Module* M = F->getParent();
-    LLVMContext& C = F->getContext();
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
 
-    Type* Int32Ty = Type::getInt32Ty(C); // return type
+  Type *Int32Ty = Type::getInt32Ty(C); // return type
 
-    CallInst* Call = genEmptyCall(M, "omp_get_default_device", Int32Ty, InsertPt);
-    return Call;
+  CallInst *Call = genEmptyCall(M, "omp_get_default_device", Int32Ty, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   int64 omp_get_interop_int(omp_interop_t       interop,     // void*
+//                             omp_get_interop_int property_id, // int
+//                             int *return_code)                // (unused)
+CallInst *VPOParoptUtils::genOmpGetInteropInt(Value *InteropObj, int PropertyID,
+                                              Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  Type *Int64Ty = Builder.getInt64Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  PointerType *Int32PtrTy = PointerType::getUnqual(Int32Ty);
+
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
+
+  Value *PropertyIDVal = Builder.getInt32(PropertyID);
+
+  // Ignoring the return code argument for now. Pass a nullptr to the call.
+  Value *RetCode = Constant::getNullValue(Int32PtrTy);
+
+  CallInst *Call = genCall("omp_get_interop_int", Int64Ty,
+                           {InteropObj, PropertyIDVal, RetCode   },
+                           {Int8PtrTy,  Int32Ty,       Int32PtrTy}, InsertPt);
+  return Call;
+}
+
+// Generate a call to omp_get_interop_int(interop, omp_ipr_device_num, nullptr)
+// which extracts the device num (property_id = omp_ipr_device_num = -5) and
+// returns it as an i64 value (omp_intptr_t in the OMP spec).
+CallInst *VPOParoptUtils::genOmpGetInteropDeviceNum(Value *InteropObj,
+                                                    Instruction *InsertPt) {
+  return genOmpGetInteropInt(InteropObj, /*omp_ipr_device_num=*/ -5, InsertPt);
 }
 
 // Generate a call to
@@ -1901,8 +2132,8 @@ CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
 }
 
 // This function generates a call as follows.
-//    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
-//    i64*, i64*, i64, i32, i32, i64, i8*)
+//    void @__kmpc_taskloop_5({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
+//    i64*, i64*, i64, i32, i32, i64, i32, i8*)
 // The generated code is based on the assumption that the loop is normalized
 // and the stride is 1.
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
@@ -1914,6 +2145,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Function *FnTaskDup) {
   IRBuilder<> Builder(InsertPt);
   Value *Zero = Builder.getInt32(0);
+  Value *One = Builder.getInt32(1);
   Type *Int64Ty = Builder.getInt64Ty();
   Type *Int32Ty = Builder.getInt32Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
@@ -1984,22 +2216,22 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
       Loc,
       Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
       TaskAlloc,
-      Cmp == nullptr ? Builder.getInt32(1)
-                     : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
+      Cmp == nullptr ? One : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
       LBGep,
       UBGep,
       STVal,
       Zero,
       Builder.getInt32(W->getSchedCode()),
       GrainSizeV,
+      W->getIsStrict() ? One : Zero,
       (FnTaskDup == nullptr) ? ConstantPointerNull::get(Int8PtrTy)
                              : Builder.CreateBitCast(FnTaskDup, Int8PtrTy)};
   Type *TypeParams[] = {Loc->getType(), Int32Ty,    Int8PtrTy, Int32Ty,
                         Int64PtrTy,     Int64PtrTy, Int64Ty,   Int32Ty,
-                        Int32Ty,        Int64Ty,    Int8PtrTy};
+                        Int32Ty,        Int64Ty,    Int32Ty,   Int8PtrTy};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
-  StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop";
+  StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop_5";
   Function *FnTaskLoop = M->getFunction(FnName);
 
   if (!FnTaskLoop)
@@ -2993,7 +3225,7 @@ Constant *VPOParoptUtils::genKmpcLocfromDebugLoc(StructType *IdentTy,
   Instruction *EInst = dyn_cast<Instruction>(BE->begin());
   DILocation *Loc2 = EInst ? EInst->getDebugLoc() : nullptr;
 
-  SrcLocMode Mode = getSrcLocMode();
+  SrcLocMode Mode = getSrcLocMode(F);
 
   GlobalVariable *LocStringVar = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
@@ -4468,7 +4700,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       } else {
         // Case 1b. With InteropPosition.
         // The position is 1-based (ie, first arg is position 1, not 0).
-        uint64_t Position = InteropPosition.getValue();
+        uint64_t Position = InteropPosition.value();
         auto ArgsIter = FnArgs.begin() + Position - 1;
         FnArgs.insert(ArgsIter, InteropObj);
         auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
@@ -5428,21 +5660,21 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   };
 
   assert((!AllocaAddrSpace ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_GLOBAL ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) &&
+          AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_PRIVATE ||
+          AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_GLOBAL ||
+          AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_LOCAL) &&
          "Address space of an alloca may be either global, local or private.");
   assert(DL.getAllocaAddrSpace() == vpo::ADDRESS_SPACE_PRIVATE &&
          "Default alloca address space does not match "
          "vpo::ADDRESS_SPACE_PRIVATE.");
 
   if (AllocaAddrSpace &&
-      (AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL ||
-       AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_GLOBAL)) {
+      (AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_LOCAL ||
+       AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_GLOBAL)) {
     // OpenCL __local/__global variables are globalized even when declared
     // inside a kernel.
     SmallString<64> GlobalName;
-    if (AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL)
+    if (AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_LOCAL)
       (VarName + Twine(".__local")).toStringRef(GlobalName);
     else
       (VarName + Twine(".__global")).toStringRef(GlobalName);
@@ -5458,14 +5690,14 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
                           Constant::getNullValue(GVType), GlobalName,
                           nullptr,
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
-                          AllocaAddrSpace.getValue());
+                          AllocaAddrSpace.value());
      GV->setAlignment(OrigAlignment);
 
     if (!ValueAddrSpace)
       return GV;
 
     return AddrSpaceCastValue(
-        Builder, GV, ElementType->getPointerTo(ValueAddrSpace.getValue()));
+        Builder, GV, ElementType->getPointerTo(ValueAddrSpace.value()));
   }
 
 
@@ -5523,9 +5755,9 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   auto *AI = Builder.CreateAlloca(
       ElementType,
       AllocaAddrSpace ?
-          AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
+          AllocaAddrSpace.value() : DL.getAllocaAddrSpace(),
       NumElements, VarName);
-  AI->setAlignment(OrigAlignment.getValueOr(DL.getPrefTypeAlign(ElementType)));
+  AI->setAlignment(OrigAlignment.value_or(DL.getPrefTypeAlign(ElementType)));
 
   if (IsTargetSPIRV && AI->isArrayAllocation()) {
     LLVM_DEBUG(dbgs() <<
@@ -5555,7 +5787,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     return V;
 
   auto *CastTy = PointerType::getWithSamePointeeType(
-      cast<PointerType>(V->getType()), ValueAddrSpace.getValue());
+      cast<PointerType>(V->getType()), ValueAddrSpace.value());
   auto *ASCI = dyn_cast<Instruction>(
       AddrSpaceCastValue(Builder, V, CastTy));
 
@@ -5625,10 +5857,12 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
                                                      unsigned Idx,
                                                      Value *UB,
                                                      Instruction* InsertPt) {
-
-  assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
+  assert(W->getIsOmpLoop() &&
+         "updateOmpPredicateAndUpperBound: not a loop-type WRN");
 
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "updateOmpPredicateAndUpperBound: Unexpected: loop is missing");
+
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
@@ -6053,6 +6287,29 @@ static void BreakEdge(BasicBlock *Src, BasicBlock *Dst, DominatorTree *DT) {
       NewPad->getTerminator()->eraseFromParent();
       Builder.SetInsertPoint(NewPad);
       Builder.CreateUnreachable();
+    } else if (auto *II = dyn_cast<InvokeInst>(Terminator)) {
+      // %r = invoke @foo(...) to label %normaldest unwind %unwinddest
+      // =>
+      // %r = call @foo(...)
+      // br label %normaldest
+      auto *UnwindDest = II->getUnwindDest();
+      bool IsCxaFunc = II->getCalledFunction() &&
+                        II->getCalledFunction()->getName().contains("__cxa_");
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Src has invoke:\n"
+                        << *II << "\n");
+      if (Dst != UnwindDest || IsCxaFunc) {
+        // If we are asked to break the normal successor, or any edge of a
+        // throw/catch intrinsic, the src block does
+        // not actually belong in the region. Normal control flow should not
+        // illegally exit the region. Leave the block alone. The BreakEHToBlock
+        // function should should remove this block from the region without
+        // altering it, as it is not region code.
+        LLVM_DEBUG(dbgs() << "Ignoring, not part of region.\n");
+        return;
+      }
+      // Unwind edge of invoke escapes the region. Change to call+br.
+      LLVM_DEBUG(dbgs() << "Replacing with call.\n");
+      llvm::changeToCall(II, nullptr); // create call+br
     } else {
       // unconditional branch, or call. Terminate the flow here.
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Src has unconditional branch:\n"
@@ -6139,13 +6396,8 @@ static void BreakEHToBlock(BasicBlock *BB, SmallSet<BasicBlock *, 8> &BBSet,
            (DeleteSet.find(PredBB) == DeleteSet.end());
   });
 
-  if (!HasPredInSet) {
+  if (!HasPredInSet)
     DeleteSet.insert(BB);
-    // Exclude any blocks that BB dominates also.
-    for (auto *SetBB : BBSet) // order doesn't make a difference
-      if (DT->dominates(BB, SetBB))
-        DeleteSet.insert(SetBB);
-  }
 }
 
 // If BB has a predecessor that is unreachable from the function entry, break
@@ -6280,6 +6532,35 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
       RemoveDeadPredecessors(BB, DT);
   }
 
+  // Close the DeleteSet. Add any blocks in BBSet that are dominated by
+  // DeleteSet blocks, or blocks where all predecessors are in the DeleteSet.
+  if (!DeleteSet.empty()) {
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (auto *BB : BBVec) {
+        // in the DeleteSet already, skip it
+        if (DeleteSet.find(BB) != DeleteSet.end())
+          continue;
+        // dominated by any DeleteSet block, delete it
+        if (std::any_of(
+                DeleteSet.begin(), DeleteSet.end(),
+                [&](BasicBlock *DelBB) { return DT->dominates(DelBB, BB); })) {
+          DeleteSet.insert(BB);
+          changed = true;
+        }
+        // all preds are in the DeleteSet, delete it
+        else if (std::all_of(pred_begin(BB), pred_end(BB),
+                             [&](BasicBlock *PredBB) {
+                               return DeleteSet.find(PredBB) != DeleteSet.end();
+                             })) {
+          DeleteSet.insert(BB);
+          changed = true;
+        }
+      }
+    }
+  }
+
   // If we need to modify the region blocks, copy the new set to OutputVec.
   if (!AddSet.empty() || !DeleteSet.empty()) {
     // Copy BBVec to OutputVec, excluding the former shared blocks that are
@@ -6287,7 +6568,6 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
     LLVM_DEBUG(for (auto *BB
                     : DeleteSet) dbgs()
                    << "Removing block from region: " << BB->getName() << "\n";);
-
     llvm::copy_if(BBVec, std::back_inserter(OutputVec),
                   [&](BasicBlock *R) { return DeleteSet.count(R) == 0; });
     // Add any new handler blocks to the region.
@@ -6430,7 +6710,7 @@ Function *VPOParoptUtils::genOutlineFunction(
   // We avoid mutating the actual region set.
   SmallVector<BasicBlock *, 16> FixedBlocks;
   auto ExtractArray =
-      BBsToExtractIn.getValueOr(makeArrayRef(W.bbset_begin(), W.bbset_end()));
+      BBsToExtractIn.value_or(makeArrayRef(W.bbset_begin(), W.bbset_end()));
   FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
     ExtractArray = makeArrayRef(FixedBlocks);
@@ -6462,8 +6742,8 @@ Function *VPOParoptUtils::genOutlineFunction(
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   if (!BBsToExtractIn ||
-      (llvm::is_contained(BBsToExtractIn.getValue(), W.getExitBBlock()) !=
-       llvm::is_contained(BBsToExtractIn.getValue(), W.getEntryBBlock())))
+      (llvm::is_contained(BBsToExtractIn.value(), W.getExitBBlock()) !=
+       llvm::is_contained(BBsToExtractIn.value(), W.getEntryBBlock())))
     // Remove the use of the entry directive in the exit directive, so that it
     // isn't considered a live-out, in case the end directive is unreachable,
     // and won't be in the outlined function.
@@ -6712,8 +6992,8 @@ bool VPOParoptUtils::enableAsyncHelperThread() {
   return EnableAsyncHelperThread;
 }
 
-uint32_t VPOParoptUtils::getDeviceMemoryKind() {
-  return DeviceMemoryKind;
+bool VPOParoptUtils::enableDeviceBlockLoad() {
+  return EnableDeviceBlockLoad;
 }
 
 bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {
@@ -6884,6 +7164,30 @@ void VPOParoptUtils::getItemInfoFromValue(Value *OrigValue,
   AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
 
+// Return the Module the item I belongs to. The information is extracted
+// using the Orig field of the item. Returns null if the information
+// cannot be obtained (for example if Orig is null, or it has already been
+// erased from the IR).
+// The logic is similar to that used in `getModuleFromVal` in AsmWriter.
+static Module *getModuleFromItem(const Item *I) {
+  Value *V = I->getOrig();
+  if (!V)
+    return nullptr;
+
+  if (auto *MA = dyn_cast<Argument>(V))
+    return MA->getParent() ? MA->getParent()->getParent() : nullptr;
+
+  if (auto *I = dyn_cast<Instruction>(V)) {
+    Function *F = I->getParent() ? I->getParent()->getParent() : nullptr;
+    return F ? F->getParent() : nullptr;
+  }
+
+  if (auto *GV = dyn_cast<GlobalValue>(V))
+    return GV->getParent();
+
+  return nullptr;
+}
+
 // Extract the type and size of local Alloca to be created to privatize I.
 std::tuple<Type *, Value *, unsigned>
 VPOParoptUtils::getItemInfo(const Item *I) {
@@ -6894,6 +7198,13 @@ VPOParoptUtils::getItemInfo(const Item *I) {
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
+
+  auto getDefaultPointerType = [&]() {
+    const Module *M = getModuleFromItem(I);
+    assert(M && "Cannot find module that the item belongs to");
+    unsigned AS = M ? WRegionUtils::getDefaultAS(M) : 0;
+    return PointerType::get(Orig->getContext(), AS);
+  };
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
                                     &AddrSpace]() -> bool {
@@ -6925,7 +7236,43 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     return true;
   };
 
-  if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
+  auto getItemInfoIfOpaquePtrToPtr = [&]() -> bool {
+    if (!I->getIsPointerToPointer() || !Orig->getType()->isOpaquePointerTy())
+      return false;
+
+    // A PTR_TO_PTR clause operand's pointee type is a pointer. e.g.
+    //   i32* for "USE_DEVICE_PTR:PTR_TO_PTR"(i32** %p)
+    //   ptr  for "USE_DEVICE_PTR:PTR_TO_PTR"(ptr %p)
+    ElementType = getDefaultPointerType();
+    NumElements = nullptr;
+    AddrSpace = cast<PointerType>(Orig->getType())->getAddressSpace();
+    return true;
+  };
+
+#if INTEL_CUSTOMIZATION
+  auto getItemInfoIfOpaqueCPtr = [&]() -> bool {
+    if (!I->getIsCptr() || !Orig->getType()->isOpaquePointerTy())
+      return false;
+
+    // A PTR_TO_PTR clause operand's pointee type is a named struct with one
+    // integer that's the same size as the size of a pointer.
+    //   %cptr = type {i64} ; for x86_64 architecture
+    //   "USE_DEVICE_PTR:CPTR"(%cptr* %p)
+    //
+    // So, if type information for a CPTR operand is not available (e.g. via a
+    // typed clause) we can use a "pointer type" as its element type.
+    ElementType = getDefaultPointerType();
+    NumElements = nullptr;
+    AddrSpace = cast<PointerType>(Orig->getType())->getAddressSpace();
+    return true;
+  };
+#endif // INTEL_CUSTOMIZATION
+
+  if (!getItemInfoIfTyped() && !getItemInfoIfOpaquePtrToPtr() &&
+#if INTEL_CUSTOMIZATION
+      !getItemInfoIfOpaqueCPtr() &&
+#endif // INTEL_CUSTOMIZATION
+      !getItemInfoIfArraySection()) {
     // OPAQUEPOINTER: this code must be removed, when we switch
     //                to TYPED clauses.
     Type *OrigElemTy = I->getOrig()->getType();
@@ -6943,6 +7290,9 @@ VPOParoptUtils::getItemInfo(const Item *I) {
       ElementType = ElementType->getNonOpaquePointerElementType();
     }
   }
+  // FIXME: Add an assert here once typed clauses are enabled by default.
+  // Currently, element type can be null for array sections before the
+  // information has been computed.
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
              Orig->printAsOperand(dbgs()); dbgs() << "' ";
              if (I->getIsTyped()) dbgs() << "(Typed)"; dbgs() << ":: Type: ";
@@ -7103,6 +7453,24 @@ bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
     if (ArrSecInfo.isArraySectionWithVariableLengthOrOffset())
       return false;
   }
+
+  Value *NumElems = nullptr;
+  std::tie(std::ignore, NumElems, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
+
+  if (NumElems && !isa<Constant>(NumElems))
+    return false;
+
   return true;
+}
+
+bool VPOParoptUtils::isAtomicFreeReductionLocalEnabled() {
+  return AtomicFreeReduction &&
+         (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Local);
+}
+
+bool VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() {
+  return AtomicFreeReduction &&
+         (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
 #endif // INTEL_COLLAB

@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; This test verifies that frequencies of field accesses are computed as
 ; expected when BlockFrequencyInfo is not used (i.e -dtrans-ignore-bfi=true).
 

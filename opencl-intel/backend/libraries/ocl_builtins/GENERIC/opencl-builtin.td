@@ -1,4 +1,14 @@
-// vim:ts=2:sw=2:et:
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 def outs;
 def ins;
@@ -77,7 +87,8 @@ class VectorSVMLSuffixString<string base, int len> {
                     !subst("ushort",  "f",
                     !subst("char",    "f",
                     !subst("uchar",   "f",
-                      base))))))))));
+                    !subst("half",    "s",
+                      base)))))))))));
   string Value = !strconcat(TypeName, Length);
 }
 
@@ -318,6 +329,7 @@ def ocl_types : TypeNameList<[
   v12u8.TypeName,  v24u8.TypeName,  v48u8.TypeName,  v96u8.TypeName,  v192u8.TypeName,
   v12i16.TypeName, v24i16.TypeName, v48i16.TypeName, v96i16.TypeName, v192i16.TypeName,
   v12u16.TypeName, v24u16.TypeName, v48u16.TypeName, v96u16.TypeName, v192u16.TypeName,
+  v12f16.TypeName, v24f16.TypeName, v48f16.TypeName, v96f16.TypeName, v192f16.TypeName,
 
   image1d_ro.TypeName, image1d_wo.TypeName, image1d_rw.TypeName,
   image2d_ro.TypeName, image2d_wo.TypeName, image2d_rw.TypeName,
@@ -337,7 +349,7 @@ def ocl_types : TypeNameList<[
   pv1u32.TypeName, pv2u32.TypeName, pv3u32.TypeName, pv4u32.TypeName, pv8u32.TypeName, pv16u32.TypeName,
   pv1i64.TypeName, pv2i64.TypeName, pv3i64.TypeName, pv4i64.TypeName, pv8i64.TypeName, pv16i64.TypeName,
   pv1u64.TypeName, pv2u64.TypeName, pv3u64.TypeName, pv4u64.TypeName, pv8u64.TypeName, pv16u64.TypeName,
-  pv1f16.TypeName, pv2f16.TypeName, pv3f16.TypeName, pv4f16.TypeName, pv8f16.TypeName, pv16f16.TypeName,
+  pv1f16.TypeName, pv2f16.TypeName, pv3f16.TypeName, pv4f16.TypeName, pv8f16.TypeName, pv16f16.TypeName, pv32f16.TypeName, pv64f16.TypeName,
   pv1f32.TypeName, pv2f32.TypeName, pv3f32.TypeName, pv4f32.TypeName, pv8f32.TypeName, pv16f32.TypeName,
   pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
 
@@ -833,12 +845,15 @@ def f64gentype : OclGenType<"f64gentype"> {
   list<string> Tout = T9;
 }
 // rf2igentype: 'vNf32' -> 'vNi32', 'vNf64' -> 'vNi64', 'v1f32' -> 'v1i32', 'v1f64' -> 'v1i32'
+//   'vNf16' -> 'vNi16', 'v1f16' -> 'v1i32'
 def rf2igentype : OclGenType<"rf2igentype"> {
   list<string> Tin = Torig;
-  list<string> T0 = !foreach(n, Tin, !subst("f32", "i32", n));
-  list<string> T1 = !foreach(n,  T0, !subst("f64", "i64", n));
-  list<string> T2 = !foreach(n,  T1, !subst("v1i64", "v1i32", n));
-  list<string> Tout = T2;
+  list<string> T0 = !foreach(n, Tin, !subst("f16", "i16", n));
+  list<string> T1 = !foreach(n,  T0, !subst("f32", "i32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f64", "i64", n));
+  list<string> T3 = !foreach(n,  T2, !subst("v1i16", "v1i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("v1i64", "v1i32", n));
+  list<string> Tout = T4;
 }
 // up_gentype: 'vNx8' -> 'vNx16', 'vNx16' -> 'vNx32', 'vNx32' -> 'vNx64'
 def up_gentype : OclGenType<"up_gentype"> {
@@ -1052,6 +1067,12 @@ class WidenType<OclType type, int vf> {
 }
 
 // e.g.
+// WidenTypeForList<[v1i8, v2i8], 4>.Tout == [v4i8, v8i8]
+class WidenTypeForList<list<OclType> types, int vf> {
+  list<OclType> Tout = !foreach(type, types, WidenType<type, vf>.Tout);
+}
+
+// e.g.
 // ExpandTypeByVF<v16i32, [2,4,8]>.Tout == [v2i32, v4i32, v8i32]
 class ExpandTypeByVF<OclType type, list<int> vfs> {
   list<OclType> Tout = !foreach(vf, vfs,
@@ -1086,7 +1107,7 @@ def KERNEL_CONVERGENT_CALL : OclBuiltinVectorAttr<"kernel-convergent-call">;
 def OPENCL_VEC_UNIFORM_RETURN : OclBuiltinVectorAttr<"opencl-vec-uniform-return">;
 
 // OclBuiltin
-class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs = [], bit exclude = true, bit prefix = false> {
+class OclBuiltin<string name, dag outs, dag ins, list<OclType> types = [], list<OclBuiltinAttr> attrs = [], bit exclude = true, bit prefix = false> {
   string Name = name;
   dag Outs = outs;
   dag Ins = ins;
@@ -1165,21 +1186,6 @@ class AliasMap<list<list<string>> aliasList, list<OclType> types>{
   list<list<string>> AliasList = aliasList;
   list<OclType> Types = types;
 }
-
-//Reflection module map cell
-class MapCell<OclBuiltin bi, OclType ty>{
-  OclBuiltin builtin = bi;
-  OclType type = ty;
-}
-
-def nullCell : MapCell<?, ?>;
-
-class MapRow< list<MapCell> cl, bit is, bit ip>{
-  list<MapCell> cellList = cl;
-  bit isScalarizable = is;
-  bit isPacketaizable= ip;
-}
-
 
 class FuncProto<OclBuiltin bi, list<OclType> tys>{
   OclBuiltin builtin = bi;
@@ -1303,3 +1309,9 @@ class TargetImpl {
 }
 
 include "GENERIC/td-helper.td"
+
+// e.g.
+// RangeStr<"$Arg#VarName", [0, 1, 2]>.Tout == ["$Arg0VarName", "$Arg1VarName", "$Arg2VarName"]
+class RangeStr<string template, list<int> indices> {
+  list<string> Tout = !foreach(i, indices, !subst("#", !cast<string>(i), template));
+}

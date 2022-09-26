@@ -917,7 +917,7 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
       return false;
 
     // Fall through to check the bits common with FunctionNoProtoType.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
 
   case Type::FunctionNoProto: {

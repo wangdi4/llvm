@@ -68,7 +68,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"(%struct.ClassA* %value.priv, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.ClassA* %value.priv, %struct.ClassA zeroinitializer, i32 1, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
   br label %DIR.OMP.SIMD.128
 
 DIR.OMP.SIMD.128:                                 ; preds = %DIR.OMP.SIMD.1

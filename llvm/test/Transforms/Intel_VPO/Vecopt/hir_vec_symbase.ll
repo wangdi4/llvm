@@ -1,9 +1,7 @@
 ; Test to check that VPValue based code generation assigns the same symbases to
 ; vector memory references as the corresponding scalar memory reference.
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -hir-details -S -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -hir-details -S -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -hir-details -S -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -hir-details -S -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -hir-details -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -hir-details -S -disable-output < %s 2>&1 | FileCheck %s
 ; CHECK: DO i64 i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:  <RVAL-REG> {{.*}}(LINEAR i32* %arr1){{.*}} {sb:[[ARR1SB:[0-9]+]]}
 ; CHECK:  <LVAL-REG> {{.*}}(LINEAR i32* %arr2){{.*}} {sb:[[ARR2SB:[0-9]+]]}

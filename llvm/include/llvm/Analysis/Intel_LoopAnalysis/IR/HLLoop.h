@@ -103,8 +103,10 @@ public:
   typedef LiveInSetTy::const_iterator const_live_in_iterator;
   typedef LiveOutSetTy::const_iterator const_live_out_iterator;
 
-  /// Scenarios that can be used to tag a given vectorized HLLoop.
-  enum class VecTagTy { NONE = 0, AUTOVEC = 1, SIMD = 2 };
+  /// Scenarios that can be used to tag a given vectorized HLLoop. These
+  /// tags are meant to be used as a debugging aid and should not be used
+  /// to tune optimization passes.
+  enum class VecTagTy { NONE, AUTOVEC, SIMD, PEEL, REMAINDER };
 
 private:
   const Loop *OrigLoop;
@@ -806,10 +808,6 @@ public:
     }
     return false;
   }
-
-  /// Checks whether we have a vectorizable loop by checking if SIMD
-  /// or AUTO_VEC directive is attached to the loop.
-  bool isVecLoop() const { return isSIMD() || getDirective(DIR_VPO_AUTO_VEC); }
 
   unsigned getMVTag() const { return MVTag; }
 

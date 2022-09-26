@@ -46,7 +46,7 @@ for.body4:                                        ; preds = %for.body4, %for.bod
   %arrayidx6 = getelementptr inbounds i32, i32* %A, i64 %idxprom5
   store i32 %j.020, i32* %arrayidx6, align 4
   %inc = add nsw i32 %j.020, 1
-  %cmp3 = icmp slt i32 %j.020, %sub
+  %cmp3 = icmp sle i32 %j.020, %sub
   br i1 %cmp3, label %for.body4, label %for.inc7
 
 for.inc7:                                         ; preds = %for.body4

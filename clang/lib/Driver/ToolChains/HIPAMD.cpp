@@ -1,4 +1,21 @@
 //===--- HIPAMD.cpp - HIP Tool and ToolChain Implementations ----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -115,7 +132,7 @@ void AMDGCN::Linker::constructLldCommand(Compilation &C, const JobAction &JA,
   auto &D = TC.getDriver();
   assert(!Inputs.empty() && "Must have at least one input.");
   bool IsThinLTO = D.getLTOMode(/*IsOffload=*/true) == LTOK_Thin;
-  addLTOOptions(TC, Args, LldArgs, Output, Inputs[0], IsThinLTO);
+  addLTOOptions(TC, Args, LldArgs, Output, Inputs[0], IsThinLTO, JA); // INTEL
 
   // Extract all the -m options
   std::vector<llvm::StringRef> Features;
@@ -157,10 +174,12 @@ void AMDGCN::Linker::constructLldCommand(Compilation &C, const JobAction &JA,
   // Look for archive of bundled bitcode in arguments, and add temporary files
   // for the extracted archive of bitcode to inputs.
   auto TargetID = Args.getLastArgValue(options::OPT_mcpu_EQ);
-  AddStaticDeviceLibsLinking(C, *this, JA, Inputs, Args, LldArgs, "amdgcn",
-                             TargetID,
-                             /*IsBitCodeSDL=*/true,
-                             /*PostClangLink=*/false);
+  if (C.getDriver().getUseNewOffloadingDriver() ||
+      JA.getOffloadingDeviceKind() != Action::OFK_SYCL)
+    AddStaticDeviceLibsLinking(C, *this, JA, Inputs, Args, LldArgs, "amdgcn",
+                               TargetID,
+                               /*IsBitCodeSDL=*/true,
+                               /*PostClangLink=*/false);
 
   const char *Lld = Args.MakeArgString(getToolChain().GetProgramPath("lld"));
   C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
@@ -203,7 +222,7 @@ HIPAMDToolChain::HIPAMDToolChain(const Driver &D, const llvm::Triple &Triple,
   if (!Args.hasFlag(options::OPT_fgpu_sanitize, options::OPT_fno_gpu_sanitize,
                     true))
     return;
-  for (auto A : Args.filtered(options::OPT_fsanitize_EQ)) {
+  for (auto *A : Args.filtered(options::OPT_fsanitize_EQ)) {
     SanitizerMask K = parseSanitizerValue(A->getValue(), /*AllowGroups=*/false);
     if (K != SanitizerKind::Address)
       D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
@@ -248,7 +267,7 @@ void HIPAMDToolChain::addClangTargetOptions(
   // supported for the foreseeable future.
   if (!DriverArgs.hasArg(options::OPT_fvisibility_EQ,
                          options::OPT_fvisibility_ms_compat)) {
-    CC1Args.append({"-fvisibility", "hidden"});
+    CC1Args.append({"-fvisibility=hidden"});
     CC1Args.push_back("-fapply-global-visibility-to-externs");
   }
 
@@ -486,6 +505,6 @@ void HIPAMDToolChain::checkTargetID(
   auto PTID = getParsedTargetID(DriverArgs);
   if (PTID.OptionalTargetID && !PTID.OptionalGPUArch) {
     getDriver().Diag(clang::diag::err_drv_bad_target_id)
-        << PTID.OptionalTargetID.getValue();
+        << *PTID.OptionalTargetID;
   }
 }

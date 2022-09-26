@@ -31,6 +31,7 @@
 #include "IntelVPlanExternals.h"
 #include "IntelVPlan.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
 #define DEBUG_TYPE "VPlanExternals"
 
@@ -195,12 +196,28 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
 }
 
 void VPLiveInOutCreator::addOriginalLiveInOut(
-    const VPLoopEntityList *, loopopt::HLLoop *OrigLoop, VPLoopEntity *,
+    const VPLoopEntityList *, loopopt::HLLoop *OrigLoop, VPLoopEntity *E,
     VPExtUseList &ExtUseList, ScalarInOutListHIR &ScalarInOuts) {
   // External use w/o underlying operand is created only for main loop IV.
   // TODO: Is this valid?
   for (auto ExtUse : ExtUseList) {
     bool IsMainLoopIV = !ExtUse->hasUnderlying();
+    // Carry over knowledge of MainLoopIV
+    // to explicit VPInstructions in CFG.
+    if (auto *Ind = dyn_cast<VPInduction>(E)) {
+      VPInductionInit *Init = nullptr;
+      VPInductionInitStep *InitStep = nullptr;
+      for (VPValue *Val : Ind->getLinkedVPValues()) {
+        if (!Init)
+          Init = dyn_cast<VPInductionInit>(Val);
+        if (!InitStep)
+          InitStep = dyn_cast<VPInductionInitStep>(Val);
+      }
+      assert((Init && InitStep) &&
+             "Expected non-null init and init-step for every induction.");
+      Init->setIsMainLoopIV(IsMainLoopIV);
+      InitStep->setIsMainLoopIV(IsMainLoopIV);
+    }
     // For a given VPEntity a single temp is expected to be live-in, live-out or
     // both. We rely purely on VPExternalUse here to capture the temp associated
     // with current loop entity. For main loop IV we track only the final value
@@ -234,14 +251,27 @@ void VPLiveInOutCreator::createInOutsInductions(
         getInitFinal<VPInductionInit, VPInductionFinal, VPInduction>(
             Ind, IndFinalExternalUse);
     assert((IndInit && IndFinal) && "Expected non-null init, final");
-    bool NeedAddExtUse = IndFinalExternalUse.empty();
+    VPValue *StartV = IndInit->getStartValueOperand();
+    bool ExtUseAdded = false;
     // Inductions should always have outgoing value
-    if (NeedAddExtUse) {
-      auto ExtUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
-      ExtUse->addOperand(IndFinal);
-      IndFinalExternalUse.push_back(ExtUse);
+    if (IndFinalExternalUse.empty()) {
+      if (auto ExtDef = dyn_cast<VPExternalDef>(StartV))
+        if (auto VBlob = dyn_cast_or_null<VPBlob>(ExtDef->getOperandHIR())) {
+          auto ExtUse =
+              ExtVals.getOrCreateVPExternalUseForDDRef(VBlob->getBlob());
+          ExtUse->addOperand(IndFinal);
+          IndFinalExternalUse.push_back(ExtUse);
+        }
+      if (IndFinalExternalUse.empty()) {
+        // That means we have a constant start value. Should be main loop IV,
+        // create ExternalUse without underlying IR.
+        auto ExtUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
+        ExtUse->addOperand(IndFinal);
+        IndFinalExternalUse.push_back(ExtUse);
+      }
+      ExtUseAdded = true;
     }
-    addInOutValues(IndInit, IndFinal, IndFinalExternalUse, NeedAddExtUse,
+    addInOutValues(IndInit, IndFinal, IndFinalExternalUse, ExtUseAdded,
                    IndInit->getStartValueOperand());
     addOriginalLiveInOut(VPLEntityList, OrigLoop, Ind, IndFinalExternalUse,
                          ScalarInOuts);
@@ -378,6 +408,55 @@ VPLiveInOutCreator::createInOutsPrivates<Loop>(const VPLoopEntityList *,
 template void VPLiveInOutCreator::createInOutsPrivates<loopopt::HLLoop>(
     const VPLoopEntityList *, loopopt::HLLoop *);
 
+template <>
+void VPLiveInOutCreator::createInOutsCompressExpandIdioms(
+    const VPLoopEntityList *VPLEntityList, Loop *) {
+
+  assert(VPLEntityList->vpceidioms().empty() &&
+         "Compress/expand idiom support for LLVM IR is not implemented.");
+}
+
+template <>
+void VPLiveInOutCreator::createInOutsCompressExpandIdioms(
+    const VPLoopEntityList *VPLEntityList, loopopt::HLLoop *OrigLoop) {
+
+  VPExternalValues &ExtVals = Plan.getExternals();
+  auto &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  for (VPCompressExpandIdiom *CEIdiom : VPLEntityList->vpceidioms()) {
+
+    VPExtUseList ExtUseList;
+    VPCompressExpandFinal *Final = CEIdiom->getFinal();
+    for (VPUser *User : Final->users())
+      if (VPExternalUse *ExtUse = dyn_cast<VPExternalUse>(User))
+        ExtUseList.push_back(ExtUse);
+
+    bool NeedAddExtUse = ExtUseList.empty();
+    if (NeedAddExtUse) {
+
+      VPExternalDef *ExtDef = cast<VPExternalDef>(CEIdiom->getLiveIn());
+      const VPBlob *VBlob = cast<VPBlob>(ExtDef->getOperandHIR());
+      const loopopt::DDRef *DDRef = VBlob->getBlob();
+
+      const loopopt::RegDDRef *RegDDRef = dyn_cast<loopopt::RegDDRef>(DDRef);
+      if (!RegDDRef) {
+        const loopopt::BlobDDRef *BlobRef = cast<loopopt::BlobDDRef>(DDRef);
+        RegDDRef = BlobRef->getDDRefUtils().createScalarRegDDRef(
+            BlobRef->getSymbase(), BlobRef->getSingleCanonExpr()->clone());
+      }
+
+      VPExternalUse *ExtUse =
+          ExtVals.getOrCreateVPExternalUseForDDRef(RegDDRef);
+      ExtUse->addOperand(Final);
+      ExtUseList.push_back(ExtUse);
+    }
+
+    addInOutValues(CEIdiom->getInit(), Final, ExtUseList, NeedAddExtUse,
+                   CEIdiom->getLiveIn());
+    addOriginalLiveInOut(VPLEntityList, OrigLoop, CEIdiom, ExtUseList,
+                         ScalarInOuts);
+  }
+}
+
 template <class LoopTy>
 void VPLiveInOutCreator::createInOutValues(LoopTy *OrigLoop) {
   VPlanVector &VecPlan = cast<VPlanVector>(Plan);
@@ -402,6 +481,7 @@ void VPLiveInOutCreator::createInOutValues(LoopTy *OrigLoop) {
   createInOutsInductions(VPLEntityList, OrigLoop);
   createInOutsReductions(VPLEntityList, OrigLoop);
   createInOutsPrivates(VPLEntityList, OrigLoop);
+  createInOutsCompressExpandIdioms(VPLEntityList, OrigLoop);
 
   VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
 

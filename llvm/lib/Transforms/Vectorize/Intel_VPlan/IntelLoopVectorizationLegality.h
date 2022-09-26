@@ -61,12 +61,12 @@ public:
     // Loop entities framework does not support array reductions idiom. Bailout
     // to prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
     ArrayReduction,
-    // Loop entities framework does not support nonPOD lastprivates array.
+    // Loop entities framework does not support nonPOD [last]privates array.
     // Bailout to prevent incorrect vector code generatiion.
     // TODO: CMPLRLLVM-30686.
     ArrayLastprivateNonPod,
+    ArrayPrivateNonPod,
     ArrayPrivate,
-    UserDefinedReduction,
     UnsupportedReductionOp,
     InscanReduction,
     VectorCondLastPrivate, // need CG implementation
@@ -85,10 +85,10 @@ public:
       return "Cannot handle array reductions.\n";
     case BailoutReason::ArrayLastprivateNonPod:
       return "Cannot handle nonPOD array lastprivates.\n";
+    case BailoutReason::ArrayPrivateNonPod:
+      return "Cannot handle nonPOD array privates.\n";
     case BailoutReason::ArrayPrivate:
       return "Cannot handle array privates yet.\n";
-    case BailoutReason::UserDefinedReduction:
-      return "User defined reductions are not supported.\n";
     case BailoutReason::UnsupportedReductionOp:
       return "A reduction of this operation is not supported.\n";
     case BailoutReason::InscanReduction:
@@ -164,9 +164,8 @@ private:
       case ReductionItem::WRNReductionBor:
       case ReductionItem::WRNReductionBxor:
       case ReductionItem::WRNReductionBand:
-        return true;
       case ReductionItem::WRNReductionUdr:
-        return bailout(BailoutReason::UserDefinedReduction);
+        return true;
       default:
         return bailout(BailoutReason::UnsupportedReductionOp);
       }
@@ -227,6 +226,8 @@ private:
       return RecurKind::Xor;
     case ReductionItem::WRNReductionBand:
       return RecurKind::And;
+    case ReductionItem::WRNReductionUdr:
+      return RecurKind::Udr;
     default:
       llvm_unreachable("Unsupported reduction type");
     }
@@ -235,7 +236,7 @@ private:
   // When NumElements is null (aka 1 element) return ElType.
   // When it is a constant, construct an array type <NumElements x ElType>
   // Otherwise return nullptr.
-  Type *adjustTypeIfArray(Type *ElType, Value *NumElements) {
+  Type *adjustTypeIfArray(Type *ElType, const Value *NumElements) {
     if (!NumElements)
       return ElType;
     // For opaque pointers this is a new way an array type being communicated
@@ -263,6 +264,7 @@ private:
     Value *NumElements = nullptr;
     std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
+
     assert(Type && "Missed OMP clause item type!");
 
     Type = adjustTypeIfArray(Type, NumElements);
@@ -272,12 +274,15 @@ private:
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
+      if (isa<ArrayType>(Type) || NumElements)
+        return bailout(BailoutReason::ArrayPrivateNonPod);
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
                      nullptr /* no CopyAssign */, PrivateKindTy::NonLast,
                      Item->getIsF90NonPod());
       return true;
     }
-    addLoopPrivate(Val, Type, PrivateKindTy::NonLast);
+    addLoopPrivate(Val, Type, PrivateKindTy::NonLast,
+                   Item->getIsF90DopeVector());
     return true;
   }
 
@@ -311,16 +316,22 @@ private:
 
     addLoopPrivate(Val, Type,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
-                                            : PrivateKindTy::Last);
+                                            : PrivateKindTy::Last,
+                   Item->getIsF90DopeVector());
     return true;
   }
 
   /// Register explicit linear variable
   void visitLinear(const LinearItem *Item) {
+    Type *PointeeTy = nullptr;
     Type *Type = nullptr;
     Value *NumElements = nullptr;
     std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
+    // TODO: Move to VPOParoptUtils::getItemInfo
+    if (Item->getIsTyped() && Item->getIsPointerToPointer()) {
+      PointeeTy = Item->getPointeeElementTypeFromIR();
+    }
     assert(Type && "Missed OMP clause item type!");
 
     // NumElements == nullptr by convention means the number is 1.
@@ -331,7 +342,7 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     ValueTy *Step = Item->getStep<IR>();
-    addLinear(Val, Type, Step);
+    addLinear(Val, Type, PointeeTy, Step);
   }
 
   /// Register explicit reduction variable
@@ -355,7 +366,11 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     RecurKind Kind = getReductionRecurKind(Item, Type);
-    if (Item->getIsInscan()) {
+    // Capture functions for init/finalization for UDRs.
+    if (Kind == RecurKind::Udr) {
+      addReduction(Val, Item->getCombiner(), Item->getInitializer(),
+                   Item->getConstructor(), Item->getDestructor());
+    } else if (Item->getIsInscan()) {
       assert(InscanMap.count(Item->getInscanIdx()) &&
              "The inscan item must be present in the separating pragma");
       addReduction(Val, Kind, InscanMap[Item->getInscanIdx()]);
@@ -370,24 +385,31 @@ private:
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,
-                      Function *CopyAssign, PrivateKindTy Kind,
-                      bool IsF90NonPod) {
+                      Function *CopyAssign, PrivateKindTy Kind, bool IsF90) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(
-        Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90NonPod);
+        Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90);
   }
 
-  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind) {
-    return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind);
+  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind, bool IsF90) {
+    return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind,
+                                                           IsF90);
   }
 
-  void addLinear(ValueTy *Val, Type *Ty, ValueTy *Step) {
-    return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, Step);
+  void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step) {
+    return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, PointeeType,
+                                                      Step);
   }
 
   void addReduction(ValueTy *V, RecurKind Kind,
                     Optional<InscanReductionKind> InscanRedKind) {
     return static_cast<LegalityTy *>(this)->addReduction(
       V, Kind, InscanRedKind);
+  }
+
+  void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
+                    Function *Constr, Function *Destr) {
+    return static_cast<LegalityTy *>(this)->addReduction(
+        V, Combiner, Initializer, Constr, Destr);
   }
 };
 
@@ -401,6 +423,11 @@ public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
 
+  struct ExplicitReductionDescr {
+    RecurrenceDescriptor RD;
+    Value *RedVarPtr;
+    Optional<InscanReductionKind> InscanRedKind;
+  };
   struct InMemoryReductionDescr {
     RecurKind Kind;
     Optional<InscanReductionKind> InscanRedKind;
@@ -414,6 +441,7 @@ public:
   using DescrWithAliasesTy = DescrWithAliases<Value>;
   using PrivDescrTy = PrivDescr<Value>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
+  using UDRDescrTy = RedDescrUDR<Value>;
 
   /// Container-class for storing the different types of Privates
   using PrivatesListTy = MapVector<const Value *, std::unique_ptr<PrivDescrTy>>;
@@ -423,11 +451,13 @@ public:
   using ReductionList = MapVector<PHINode *, RecurrenceDescriptor>;
 
   /// The list of explicit reduction variables.
-  using ExplicitReductionList =
-      MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
+  using ExplicitReductionList = MapVector<PHINode *, ExplicitReductionDescr>;
   /// The list of in-memory reductions. Store instruction that updates the
   /// reduction is also tracked.
   using InMemoryReductionList = MapVector<Value *, InMemoryReductionDescr>;
+  /// The list of user-defined reductions. Stores the Legality descriptor that
+  /// captures the SIMD reduction variable.
+  using UDRList = SmallVector<std::unique_ptr<UDRDescrTy>, 2>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -436,7 +466,9 @@ public:
   /// Linear list contains explicit linear specifications, mapping linear values
   /// to their strides and a type of the linear.
   using LinearListTy =
-      MapVector<Value *, std::pair<Type * /*EltType*/, int /*Step*/>>;
+      MapVector<Value *,
+                std::tuple<Type * /*EltType*/, Type * /* EltPointeeTy */,
+                           Value * /*Step*/>>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
@@ -458,18 +490,22 @@ public:
     return &InMemoryReductions;
   }
 
+  /// Returns the list of user-defined reductions (legality descriptors) found
+  /// in loop.
+  UDRList *getUDRVars() { return &UserDefinedReductions; }
+
   /// Return a recurrence descriptor for the given \p Phi node.
   /// (For explicit reduction variables)
   RecurrenceDescriptor &getRecurrenceDescrByPhi(PHINode *Phi) {
     assert(ExplicitReductions.count(Phi) && "Exp reduction var is not found");
-    return ExplicitReductions[Phi].first;
+    return ExplicitReductions[Phi].RD;
   }
 
   /// Return a pointer to reduction var using the \p Phi node.
   /// (Explicit only)
   Value *getReductionPtrByPhi(PHINode *Phi) {
     assert(ExplicitReductions.count(Phi) && "Exp reduction var is not found");
-    return ExplicitReductions[Phi].second;
+    return ExplicitReductions[Phi].RedVarPtr;
   }
 
   /// Returns True if V is an induction variable in this loop.
@@ -520,6 +556,8 @@ private:
   /// Holds the explicitly-specified reduction variables that
   /// calculated in loop using memory.
   InMemoryReductionList InMemoryReductions;
+  /// Holds descriptors that describe user-defined reduction variables.
+  UDRList UserDefinedReductions;
 
   /// Holds all of the induction variables that we found in the loop.
   /// Notice that inductions don't need to start at zero and that induction
@@ -591,13 +629,20 @@ public:
   // are of 'Pointer Type'.
   inline decltype(auto) explicitReductionVals() const {
     return make_filter_range(
-        make_second_range(make_second_range(ExplicitReductions)),
+        map_range(make_second_range(ExplicitReductions),
+                  [](auto &Descr) { return Descr.RedVarPtr; }),
         [](auto *Val) { return Val->getType()->isPointerTy(); });
   }
 
   // Return the iterator-range to the list of in-memory reduction variables.
   inline decltype(auto) inMemoryReductionVals() const {
     return make_first_range(InMemoryReductions);
+  }
+
+  // Return the iterator-range to the list of user-defined reduction variables.
+  inline decltype(auto) userDefinedReductions() const {
+    return make_range(UserDefinedReductions.begin(),
+                      UserDefinedReductions.end());
   }
 
   // Return the iterator-range to the list of 'linear' variables.
@@ -615,28 +660,38 @@ private:
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
                       Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
-                      bool IsF90NonPod) {
+                      bool IsF90) {
     Privates.insert({PrivVal, std::make_unique<PrivDescrNonPODTy>(
-                                  PrivVal, PrivTy, Kind, Constr, Destr,
-                                  CopyAssign, IsF90NonPod)});
+                                  PrivVal, PrivTy, Kind, IsF90, Constr, Destr,
+                                  CopyAssign)});
   }
 
   /// Add an in memory POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind) {
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind,
+                      bool IsF90) {
     Privates.insert(
-        {PrivVal, std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind)});
+        {PrivVal, std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind, IsF90)});
   }
 
   /// Add linear value to Linears map
-  void addLinear(Value *LinearVal, Type *EltTy, Value *StepValue) {
-    ConstantInt *CI = cast<ConstantInt>(StepValue);
-    int Step = *((CI->getValue()).getRawData());
-    Linears[LinearVal] = std::make_pair(EltTy, Step);
+  void addLinear(Value *LinearVal, Type *EltTy, Type *EltPointeeTy,
+                 Value *StepValue) {
+    assert(TheLoop->isLoopInvariant(StepValue) &&
+           "Unexpected step value in linear clause");
+    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, StepValue);
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
   void addReduction(Value *V, RecurKind Kind,
                     Optional<InscanReductionKind> InscanRedKind);
+
+  /// Add a user-defined reduction variable \p V and functions that are needed
+  /// for its initialization/finalization.
+  void addReduction(Value *V, Function *Combiner, Function *Initializer,
+                    Function *Constr, Function *Destr) {
+    UserDefinedReductions.emplace_back(
+        std::make_unique<UDRDescrTy>(V, Combiner, Initializer, Constr, Destr));
+  }
 
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);
@@ -648,12 +703,12 @@ private:
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,
                                 Value *&StartV);
 
-  /// Return true if the reduction variable \p RedVarPtr is stored inside the
-  /// loop or used by a call. The found store or call instruction is captured in
-  /// \p CallOrStore. A store is preferred, so if there are both store and call,
-  /// the store is returned.
-  bool isReductionVarUpdatedInTheLoop(Value *RedVarPtr,
-                                      Instruction *&CallOrStore);
+  /// Return true if the reduction variable \p RedVarPtr is updated via
+  /// in-memory reduction pattern. This is identified by checking if variable is
+  /// stored inside the loop or used by a call. The found store or call
+  /// instruction is captured in \p CallOrStore. A store is preferred, so if
+  /// there are both store and call, the store is returned.
+  bool isInMemoryReductionPattern(Value *RedVarPtr, Instruction *&CallOrStore);
 
   /// Check whether \p I is liveout.
   bool isLiveOut(const Instruction *I) const;

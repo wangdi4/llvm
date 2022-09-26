@@ -69,33 +69,13 @@
 // CHECK: encoding: [0x62,0x82,0x45,0x20,0x67,0xf0]
                {evex} vcvtne2ps2ph %ymm24, %ymm23, %ymm22
 
-// CHECK:      {evex} vcvtne2ps2ph %ymm24, %ymm23, %ymm22 {%k7}
-// CHECK: encoding: [0x62,0x82,0x45,0x27,0x67,0xf0]
-               {evex} vcvtne2ps2ph %ymm24, %ymm23, %ymm22 {%k7}
-
-// CHECK:      {evex} vcvtne2ps2ph %ymm24, %ymm23, %ymm22 {%k7} {z}
-// CHECK: encoding: [0x62,0x82,0x45,0xa7,0x67,0xf0]
-               {evex} vcvtne2ps2ph %ymm24, %ymm23, %ymm22 {%k7} {z}
-
 // CHECK:      {evex} vcvtne2ps2ph %xmm24, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0x82,0x45,0x00,0x67,0xf0]
                {evex} vcvtne2ps2ph %xmm24, %xmm23, %xmm22
 
-// CHECK:      {evex} vcvtne2ps2ph %xmm24, %xmm23, %xmm22 {%k7}
-// CHECK: encoding: [0x62,0x82,0x45,0x07,0x67,0xf0]
-               {evex} vcvtne2ps2ph %xmm24, %xmm23, %xmm22 {%k7}
-
-// CHECK:      {evex} vcvtne2ps2ph %xmm24, %xmm23, %xmm22 {%k7} {z}
-// CHECK: encoding: [0x62,0x82,0x45,0x87,0x67,0xf0]
-               {evex} vcvtne2ps2ph %xmm24, %xmm23, %xmm22 {%k7} {z}
-
 // CHECK:      {evex} vcvtne2ps2ph  268435456(%rbp,%r14,8), %ymm23, %ymm22
 // CHECK: encoding: [0x62,0xa2,0x45,0x20,0x67,0xb4,0xf5,0x00,0x00,0x00,0x10]
                {evex} vcvtne2ps2ph  268435456(%rbp,%r14,8), %ymm23, %ymm22
-
-// CHECK:      {evex} vcvtne2ps2ph  291(%r8,%rax,4), %ymm23, %ymm22 {%k7}
-// CHECK: encoding: [0x62,0xc2,0x45,0x27,0x67,0xb4,0x80,0x23,0x01,0x00,0x00]
-               {evex} vcvtne2ps2ph  291(%r8,%rax,4), %ymm23, %ymm22 {%k7}
 
 // CHECK:      {evex} vcvtne2ps2ph  (%rip){1to8}, %ymm23, %ymm22
 // CHECK: encoding: [0x62,0xe2,0x45,0x30,0x67,0x35,0x00,0x00,0x00,0x00]
@@ -105,21 +85,9 @@
 // CHECK: encoding: [0x62,0xe2,0x45,0x20,0x67,0x34,0x6d,0x00,0xfc,0xff,0xff]
                {evex} vcvtne2ps2ph  -1024(,%rbp,2), %ymm23, %ymm22
 
-// CHECK:      {evex} vcvtne2ps2ph  4064(%rcx), %ymm23, %ymm22 {%k7} {z}
-// CHECK: encoding: [0x62,0xe2,0x45,0xa7,0x67,0x71,0x7f]
-               {evex} vcvtne2ps2ph  4064(%rcx), %ymm23, %ymm22 {%k7} {z}
-
-// CHECK:      {evex} vcvtne2ps2ph  -512(%rdx){1to8}, %ymm23, %ymm22 {%k7} {z}
-// CHECK: encoding: [0x62,0xe2,0x45,0xb7,0x67,0x72,0x80]
-               {evex} vcvtne2ps2ph  -512(%rdx){1to8}, %ymm23, %ymm22 {%k7} {z}
-
 // CHECK:      {evex} vcvtne2ps2ph  268435456(%rbp,%r14,8), %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xa2,0x45,0x00,0x67,0xb4,0xf5,0x00,0x00,0x00,0x10]
                {evex} vcvtne2ps2ph  268435456(%rbp,%r14,8), %xmm23, %xmm22
-
-// CHECK:      {evex} vcvtne2ps2ph  291(%r8,%rax,4), %xmm23, %xmm22 {%k7}
-// CHECK: encoding: [0x62,0xc2,0x45,0x07,0x67,0xb4,0x80,0x23,0x01,0x00,0x00]
-               {evex} vcvtne2ps2ph  291(%r8,%rax,4), %xmm23, %xmm22 {%k7}
 
 // CHECK:      {evex} vcvtne2ps2ph  (%rip){1to4}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe2,0x45,0x10,0x67,0x35,0x00,0x00,0x00,0x00]
@@ -128,14 +96,6 @@
 // CHECK:      {evex} vcvtne2ps2ph  -512(,%rbp,2), %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe2,0x45,0x00,0x67,0x34,0x6d,0x00,0xfe,0xff,0xff]
                {evex} vcvtne2ps2ph  -512(,%rbp,2), %xmm23, %xmm22
-
-// CHECK:      {evex} vcvtne2ps2ph  2032(%rcx), %xmm23, %xmm22 {%k7} {z}
-// CHECK: encoding: [0x62,0xe2,0x45,0x87,0x67,0x71,0x7f]
-               {evex} vcvtne2ps2ph  2032(%rcx), %xmm23, %xmm22 {%k7} {z}
-
-// CHECK:      {evex} vcvtne2ps2ph  -512(%rdx){1to4}, %xmm23, %xmm22 {%k7} {z}
-// CHECK: encoding: [0x62,0xe2,0x45,0x97,0x67,0x72,0x80]
-               {evex} vcvtne2ps2ph  -512(%rdx){1to4}, %xmm23, %xmm22 {%k7} {z}
 
 // CHECK:      {evex} vcvtneebf162ps  268435456(%rbp,%r14,8), %xmm22
 // CHECK: encoding: [0x62,0xa2,0x7e,0x08,0xb0,0xb4,0xf5,0x00,0x00,0x00,0x10]

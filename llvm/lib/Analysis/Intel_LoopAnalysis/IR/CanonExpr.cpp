@@ -1685,8 +1685,8 @@ bool CanonExpr::containsUndef() const {
       });
 }
 
-bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex,
-                                       bool AllowConversion) const {
+bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex, bool AllowConversion,
+                                       bool AllowExtStandAloneBlob) const {
   if (getDenominator() != 1 ||
       !(AllowConversion || (getSrcType() == getDestType()))) {
     return false;
@@ -1727,6 +1727,21 @@ bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex,
     auto Blob = BU.getBlob(BlobIdx);
 
     if (BU.contains(Blob, StandAloneBlob)) {
+
+      if (AllowExtStandAloneBlob && getBlobCoeff(BlobIdx) == 1) {
+
+        BlobTy InnerBlob;
+        if (BU.isZeroExtendBlob(Blob, &InnerBlob) ||
+            BU.isSignExtendBlob(Blob, &InnerBlob)) {
+
+          if (InnerBlob == StandAloneBlob) {
+
+            Found = true;
+            continue;
+          }
+        }
+      }
+
       return false;
     }
   }

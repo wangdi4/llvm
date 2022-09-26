@@ -1,4 +1,21 @@
 //===--- CompileCommands.cpp ----------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -48,7 +65,7 @@ llvm::Optional<std::string> queryXcrun(llvm::ArrayRef<llvm::StringRef> Argv) {
   llvm::sys::fs::createTemporaryFile("clangd-xcrun", "", OutFile);
   llvm::FileRemover OutRemover(OutFile);
   llvm::Optional<llvm::StringRef> Redirects[3] = {
-      /*stdin=*/{""}, /*stdout=*/{OutFile}, /*stderr=*/{""}};
+      /*stdin=*/{""}, /*stdout=*/{OutFile.str()}, /*stderr=*/{""}};
   vlog("Invoking {0} to find clang installation", *Xcrun);
   int Ret = llvm::sys::ExecuteAndWait(*Xcrun, Argv,
                                       /*Env=*/llvm::None, Redirects,
@@ -118,7 +135,7 @@ std::string detectClangPath() {
 
 // On mac, /usr/bin/clang sets SDKROOT and then invokes the real clang.
 // The effect of this is to set -isysroot correctly. We do the same.
-const llvm::Optional<std::string> detectSysroot() {
+llvm::Optional<std::string> detectSysroot() {
 #ifndef __APPLE__
   return llvm::None;
 #endif
@@ -426,6 +443,8 @@ unsigned char getModes(const llvm::opt::Option &Opt) {
     Result |= DM_CC1;
   if (!Opt.hasFlag(driver::options::NoDriverOption)) {
     if (Opt.hasFlag(driver::options::CLOption)) {
+      Result |= DM_CL;
+    } else if (Opt.hasFlag(driver::options::CLDXCOption)) {
       Result |= DM_CL;
     } else {
       Result |= DM_GCC;

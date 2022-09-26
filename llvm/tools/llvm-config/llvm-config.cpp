@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -187,10 +187,8 @@ static std::vector<std::string> ComputeLibsForComponents(
 
   // Build a map of component names to information.
   StringMap<AvailableComponent *> ComponentMap;
-  for (unsigned i = 0; i != array_lengthof(AvailableComponents); ++i) {
-    AvailableComponent *AC = &AvailableComponents[i];
-    ComponentMap[AC->Name] = AC;
-  }
+  for (auto &AC : AvailableComponents)
+    ComponentMap[AC.Name] = &AC;
 
   // Visit the components.
   for (unsigned i = 0, e = Components.size(); i != e; ++i) {
@@ -263,7 +261,8 @@ Typical components:\n\
 #if INTEL_CUSTOMIZATION
   errs() << "\
 Intel-specific options:\n\
-  --intel-features  List of all Intel features currently enabled.\n";
+  --intel-features  List of all Intel features currently enabled.\n\
+  --opaque-ptr-mode Print opaque pointer mode of LLVM tree (ON or OFF)\n";
 #endif  // INTEL_CUSTOMIZATION
   if (ExitWithFailure)
     exit(1);
@@ -392,7 +391,11 @@ int main(int argc, char **argv) {
       ActiveBinDir = std::string(Path.str());
     }
     ActiveLibDir = ActivePrefix + "/lib" + LLVM_LIBDIR_SUFFIX;
-    ActiveCMakeDir = ActiveLibDir + "/cmake/llvm";
+    {
+      SmallString<256> Path(LLVM_INSTALL_PACKAGE_DIR);
+      sys::fs::make_absolute(ActivePrefix, Path);
+      ActiveCMakeDir = std::string(Path.str());
+    }
     ActiveIncludeOption = "-I" + ActiveIncludeDir;
   }
 
@@ -564,15 +567,14 @@ int main(int argc, char **argv) {
         /// built, print LLVM_DYLIB_COMPONENTS instead of everything
         /// in the manifest.
         std::vector<std::string> Components;
-        for (unsigned j = 0; j != array_lengthof(AvailableComponents); ++j) {
+        for (const auto &AC : AvailableComponents) {
           // Only include non-installed components when in a development tree.
-          if (!AvailableComponents[j].IsInstalled && !IsInDevelopmentTree)
+          if (!AC.IsInstalled && !IsInDevelopmentTree)
             continue;
 
-          Components.push_back(AvailableComponents[j].Name);
-          if (AvailableComponents[j].Library && !IsInDevelopmentTree) {
-            std::string path(
-                GetComponentLibraryPath(AvailableComponents[j].Library, false));
+          Components.push_back(AC.Name);
+          if (AC.Library && !IsInDevelopmentTree) {
+            std::string path(GetComponentLibraryPath(AC.Library, false));
             if (DirSep == "\\") {
               std::replace(path.begin(), path.end(), '/', '\\');
             }
@@ -598,6 +600,12 @@ int main(int argc, char **argv) {
 #if INTEL_CUSTOMIZATION
       } else if (Arg == "--intel-features") {
         OS << LLVM_INTEL_FEATURES << '\n';
+      } else if (Arg == "--opaque-ptr-mode") {
+#if defined(ENABLE_OPAQUE_POINTERS)
+        OS << "ON\n";
+#else
+        OS << "OFF\n";
+#endif  // ENABLE_OPAQUE_POINTERS
 #endif  // INTEL_CUSTOMIZATION
       } else if (Arg == "--host-target") {
         OS << Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE) << '\n';
@@ -682,7 +690,7 @@ int main(int argc, char **argv) {
         }
         WithColor::error(errs(), "llvm-config")
             << "component libraries and shared library\n\n";
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       case LinkModeStatic:
         for (auto &Lib : MissingLibs)
           WithColor::error(errs(), "llvm-config") << "missing: " << Lib << "\n";

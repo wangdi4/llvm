@@ -20,7 +20,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1.split
 
 DIR.OMP.SIMD.1.split:                             ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(i32* %j.priv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.PRIVATE:TYPED"(i32* %j.priv, i32 0, i32 1) ]
   br label %blk1
 
 blk1:

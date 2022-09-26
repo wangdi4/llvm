@@ -419,10 +419,13 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   LLVMContext &C = F->getContext();
   SmallVector<Type *, 4> KmpTaksTWithPrivatesTyArgs;
   KmpTaksTWithPrivatesTyArgs.push_back(KmpTaskTTy);
-
   SmallVector<Type *, 4> PrivateThunkTypes;
   SmallVector<Type *, 4> SharedThunkTypes;
   IRBuilder<> Builder(InsertBefore);
+  Instruction *InsertBeforeForSize = W->getVlaAllocaInsertPt();
+  IRBuilder<> SizeBuilder(C);
+  if (InsertBeforeForSize)
+    SizeBuilder.SetInsertPoint(InsertBeforeForSize);
   Type *SizeTTy = GeneralUtils::getSizeTTy(InsertBefore->getFunction());
   unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
 
@@ -434,6 +437,10 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     if (!I->getIsF90DopeVector())
       return;
 
+    assert(InsertBeforeForSize != nullptr &&
+           "genKmpTaskTWithPrivatesRecordDecl: Expect a vla array size "
+           "insertion point for F90 Dope Vector");
+
     // For F90 DVs, similar to VLAs, we allocate three spaces in the
     // privates thunk, corresponding to the local copy of the DV, array size
     // in bytes, and offset to the actual array in the task thunk buffer.
@@ -443,7 +450,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
     StringRef NamePrefix = I->getOrig()->getName();
     Value *ArraySizeInBytes =
-        VPOParoptUtils::genF90DVSizeCall(I->getOrig(), InsertBefore);
+        VPOParoptUtils::genF90DVSizeCall(I->getOrig(), InsertBeforeForSize);
     ArraySizeInBytes->setName(NamePrefix + ".array.size.in.bytes");
     I->setThunkBufferSize(ArraySizeInBytes);
   };
@@ -477,11 +484,15 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     StringRef NamePrefix = I->getOrig()->getName();
     I->setIsVla(true);
 
-    Value *ElementSize =
-        Builder.getIntN(SizeTBitWidth, ElementTy->getScalarSizeInBits() / 8);
+    assert(InsertBeforeForSize != nullptr &&
+           "genKmpTaskTWithPrivatesRecordDecl: Expect a vla array size "
+           "insertion point");
+
+    Value *ElementSize = SizeBuilder.getIntN(
+        SizeTBitWidth, ElementTy->getScalarSizeInBits() / 8);
     Value *ArraySizeInBytes =
-        Builder.CreateMul(Builder.CreateBitCast(NumElements, SizeTTy),
-                          ElementSize, NamePrefix + ".array.size.in.bytes");
+        SizeBuilder.CreateMul(Builder.CreateBitCast(NumElements, SizeTTy),
+                              ElementSize, NamePrefix + ".array.size.in.bytes");
     I->setThunkBufferSize(ArraySizeInBytes);
 
     // For VLAs, we allocate three spaces in the privates thunk. For the pointer
@@ -674,7 +685,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 
   KmpSharedTy = nullptr;
   StructType *KmpPrivatesTy = nullptr;
-  Instruction *InsertBefore = F->getEntryBlock().getTerminator();
+  Instruction *InsertBefore = VPOParoptUtils::getInsertionPtForAllocas(W, F);
   KmpTaskTTWithPrivatesTy = genKmpTaskTWithPrivatesRecordDecl(
       W, KmpSharedTy, KmpPrivatesTy, InsertBefore);
 
@@ -1219,7 +1230,7 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
 }
 
 // Save the loop lower upper bound, upper bound and stride for the use
-// by the call __kmpc_taskloop
+// by the call __kmpc_taskloop_5
 void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
                                                     AllocaInst *&LBPtr,
                                                     AllocaInst *&UBPtr,
@@ -1582,7 +1593,8 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
         if (!cast<PointerType>(Orig->getType())->isOpaque())
           Size = Builder.getIntN(
               DL.getPointerSizeInBits(),
-              DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+              DL.getTypeAllocSize(
+                  Orig->getType()->getNonOpaquePointerElementType()));
         else
           llvm_unreachable("use DEPEND:TYPED with opaque pointers.");
       }
@@ -1815,7 +1827,7 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
                                         InsertPt);
 }
 
-// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop or
+// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop_5 or
 // __kmpc_omp_task and the corresponding outlined function
 //
 // Based on the presence/absence of the IF and the DEPEND clauses,
@@ -1874,6 +1886,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     resetValueInOmpClauseGeneric(W, W->getNumTasks());
     resetValueInOmpClauseGeneric(W, W->getGrainsize());
   }
+  resetTypedNumElementsInOmpClauses(W);
 
   AllocaInst *SharedAggrStruct = genAndPopulateTaskSharedStruct(W, KmpSharedTy);
 
@@ -2036,10 +2049,10 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
     AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
     genTaskDeps(W, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
                 DummyTaskTDependRec, InsertPt, true);
+  } else {
+    VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
+                                    W->getEntryBBlock()->getTerminator());
   }
-
-  VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
-                                  W->getEntryBBlock()->getTerminator());
   return true;
 }
 

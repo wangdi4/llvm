@@ -1,8 +1,8 @@
 ; This test verifies that basic transformations are done correctly for
 ; Sub/MemFunc instructions when DynClone transformation is triggered.
 
-;  RUN: opt < %s -opaque-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dyncloneop 2>&1 | FileCheck %s
-;  RUN: opt < %s -opaque-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dyncloneop' 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -dtrans-dynclone-shrunken-type-width=16 -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dyncloneop 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -dtrans-dynclone-shrunken-type-width=16 -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dyncloneop' 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -106,12 +106,16 @@ entry:
   ret i32 0
 }
 ; Function Attrs: nounwind
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64)
-declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64)
-declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @realloc(ptr "intel_dtrans_func_index"="2", i64)
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64) #1
+declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @realloc(ptr "intel_dtrans_func_index"="2", i64) #2
 declare !intel.dtrans.func.type !9 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 declare !intel.dtrans.func.type !10 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 declare !intel.dtrans.func.type !11 void @llvm.memmove.p0.p0.i64(ptr "intel_dtrans_func_index"="1" , ptr "intel_dtrans_func_index"="2", i64, i1)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #2 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

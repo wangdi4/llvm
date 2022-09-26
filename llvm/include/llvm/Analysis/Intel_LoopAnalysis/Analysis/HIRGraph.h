@@ -44,8 +44,7 @@ public:
   // TODO: fix definition to return non-modifiable edge.
   typedef typename GraphEdgeContainerTy::const_iterator EdgeIterator;
 
-  typedef std::pointer_to_unary_function<GraphEdge *, GraphNode *>
-      GraphNodeDerefFun;
+  typedef std::function<GraphNode *(GraphEdge *)> GraphNodeDerefFun;
 
   typedef mapped_iterator<EdgeIterator, GraphNodeDerefFun> children_iterator;
 

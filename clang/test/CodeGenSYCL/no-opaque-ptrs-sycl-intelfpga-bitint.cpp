@@ -1,4 +1,3 @@
-// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -no-opaque-pointers -fsycl-is-device -fintelfpga -triple spir64_fpga -aux-triple x86_64-unknown-linux-gnu -IInputs -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -no-opaque-pointers -fsycl-is-device -fintelfpga -triple spir64_fpga -aux-triple x86_64-pc-windows-msvc -IInputs -emit-llvm %s -o - | FileCheck %s
 
@@ -27,4 +26,3 @@ int main() {
   };
   h.single_task(lambda);
 }
-// end INTEL_CUSTOMIZATION

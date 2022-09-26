@@ -72,6 +72,7 @@ protected:
   bool calculateDep(ExtractValueInst *I);
   bool calculateDep(LoadInst *I);
   bool calculateDep(VAArgInst *I);
+  bool calculateDep(FreezeInst *I);
 
   /// Return true if and only if a given value is ralated to WI Id.
   bool getWIRelation(Value *V);

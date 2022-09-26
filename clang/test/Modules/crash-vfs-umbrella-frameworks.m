@@ -14,10 +14,12 @@
 // RUN:     -F %/t/i/Frameworks -fmodules \
 // RUN:     -fmodules-cache-path=%t/m/ 2>&1 | FileCheck %s
 
+// INTEL_CUSTOMIZATION
 // RUN: FileCheck --check-prefix=CHECKYAML %s -input-file \
-// RUN:         %t/crash-vfs-*.cache/vfs/vfs.yaml
-// RUN: find %t/crash-vfs-*.cache/vfs | \
+// RUN:         %t/clang*/crash-vfs-*.cache/vfs/vfs.yaml
+// RUN: find %t/clang*/crash-vfs-*.cache/vfs | \
 // RUN:   grep "B.framework/Headers/B.h" | count 1
+// end INTEL_CUSTOMIZATION
 
 // CHECK: Preprocessed source(s) and associated run script(s) are located at:
 // CHECK-NEXT: note: diagnostic msg: {{.*}}.m
@@ -50,6 +52,9 @@
 //
 // RUN: cd %t
 // RUN: rm -rf i
+// INTEL_CUSTOMIZATION
+// RUN: cd clang*
+// end INTEL_CUSTOMIZATION
 // RUN: rm -rf crash-vfs-umbrella-*.cache/modules/*
 // RUN: chmod 755 crash-vfs-*.sh
 // RUN: ./crash-vfs-*.sh

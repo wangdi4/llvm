@@ -1,12 +1,10 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2022 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -24,26 +22,27 @@
 #include "llvm/TableGen/Record.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
+#define DEBUG_TYPE "vect-info-gen"
+
 namespace llvm {
 
-const VectorVariant::ISAClass VectEntry::isaClass =
-    VectorVariant::ISAClass::XMM;
+const VFISAKind VectEntry::isaClass = VFISAKind::SSE;
 const std::string VectEntry::baseName = "";
 bool VectEntry::isMasked = false;
 bool VectEntry::kernelCallOnce = true;
 unsigned VectEntry::stride = 0;
-std::vector<VectorKind> VectEntry::vectorKindEncode;
+std::vector<VFParameter> VectEntry::vectorKindEncode;
 
 OclBuiltinDB *VectInfo::builtinDB = nullptr;
 
-VectorVariant getVectorVariant(unsigned int V, const std::string &BaseName,
-                               const std::string &Alias) {
-  return VectorVariant{VectEntry::isaClass,
-                       VectEntry::isMasked,
-                       V,
-                       VectEntry::vectorKindEncode,
-                       BaseName,
-                       Alias};
+VFInfo getVectorVariant(unsigned int V, const std::string &BaseName,
+                        const std::string &Alias) {
+  return VFInfo::get(VectEntry::isaClass,
+                     VectEntry::isMasked,
+                     V,
+                     VectEntry::vectorKindEncode,
+                     BaseName,
+                     Alias);
 }
 
 template <class T>
@@ -125,29 +124,30 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
                  });
 }
 
-std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
-  unsigned numVariants = Ent.funcNames.size();
-  for (unsigned i = 1; i < numVariants; ++i) {
-    output << "{\"" << Ent.funcNames[0] << "\",\"";
+static void generateVectInfos(const VectEntry &Ent,
+                              std::set<std::string> &AllVectInfos) {
+  unsigned NumVariants = Ent.funcNames.size();
+  for (unsigned I = 1; I < NumVariants; ++I) {
+    std::stringstream S;
+    S << '"' << Ent.funcNames[0] << "\",\"";
     if (Ent.kernelCallOnce) {
-      output << "kernel-call-once\",\"";
+      S << "kernel-call-once\",\"";
     } else {
-      output << "\",\"";
+      S << "\",\"";
     }
 
-    output << getVectorVariant((unsigned)2 << i, Ent.funcNames[0],
-                               Ent.funcNames[i])
-                  .toString()
-           << "\"},\n";
+    S << getVectorVariant((unsigned)2 << I, Ent.funcNames[0], Ent.funcNames[I])
+             .FullName
+      << '"';
+    AllVectInfos.insert(S.str());
   }
-  return output;
 }
 
 VectInfoGenerator::VectInfoGenerator(RecordKeeper &keeper)
-    : m_RecordKeeper(keeper), m_DB(keeper) {}
+    : m_RecordKeeper(keeper), m_DB(keeper, /*CollectImplDefs*/ false) {}
 
-void VectInfoGenerator::decodeParamKind(StringRef scalarName,
-                                        StringRef v4FuncName) {
+void VectInfoGenerator::decodeParam(StringRef scalarName,
+                                    StringRef v4FuncName) {
   reflection::FunctionDescriptor v1Func =
       NameMangleAPI::demangle(scalarName, false);
   reflection::FunctionDescriptor v4Func =
@@ -167,21 +167,21 @@ void VectInfoGenerator::decodeParamKind(StringRef scalarName,
         const auto *v1VectorType =
             static_cast<const reflection::VectorType *>(v1ParamType);
         if (v1VectorType->equals(v4ParamType)) {
-          VectEntry::vectorKindEncode.push_back(VectorKind::uniform());
+          VectEntry::vectorKindEncode.push_back(VFParameter::uniform(i));
         } else {
           // Should be vector kind, do some check here.
           assert(v1VectorType->getLength() * 4 ==
                      static_cast<const reflection::VectorType *>(v4ParamType)
                          ->getLength() &&
                  "Unresolved vector kind");
-          VectEntry::vectorKindEncode.push_back(VectorKind::vector());
+          VectEntry::vectorKindEncode.push_back(VFParameter::vector(i));
         }
       } else {
         if (v1TypeId == reflection::TYPE_ID_POINTER && VectEntry::stride != 0)
           VectEntry::vectorKindEncode.push_back(
-              VectorKind::linear(VectEntry::stride));
+              VFParameter::linear(i, VectEntry::stride));
         else
-          VectEntry::vectorKindEncode.push_back(VectorKind::uniform());
+          VectEntry::vectorKindEncode.push_back(VFParameter::uniform(i));
       }
 
     } else {
@@ -191,7 +191,7 @@ void VectInfoGenerator::decodeParamKind(StringRef scalarName,
                      ->getScalarType()
                      ->getTypeId() == v1TypeId &&
              "Unresolved vector kind");
-      VectEntry::vectorKindEncode.push_back(VectorKind::vector());
+      VectEntry::vectorKindEncode.push_back(VFParameter::vector(i));
     }
   }
 }
@@ -210,6 +210,9 @@ void VectInfoGenerator::generateFunctions(
       std::string proto = pBuiltin->getCProto(strTy);
       // Get Alias proto.
       const std::string &funcName = pBuiltin->getCFunc(strTy);
+      LLVM_DEBUG(dbgs() << "Generating dummy function body for " << funcName
+                        << "\n  #Variant = " << t << "  Proto: " << proto
+                        << "\n  Type: " << strTy << '\n');
       size_t pos = proto.find(funcName);
       size_t length = funcName.size();
       const std::string &rewritedAlias =
@@ -238,7 +241,7 @@ void VectInfoGenerator::generateFunctions(
   }
 }
 
-bool isVPlanMaskedFunctionVectorVariant(Function &F, VectorVariant &Variant,
+bool isVPlanMaskedFunctionVectorVariant(Function &F, const VFInfo &Variant,
                                         Type *CharacteristicType) {
   if (!Variant.isMasked())
     return false;
@@ -275,6 +278,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
   std::vector<unsigned> strides;
 
   for (Record *record : vectInfos) {
+    LLVM_DEBUG(dbgs() << "Processing VectInfo record: " << *record << '\n');
     VectInfo vectInfo{record};
 
     strides.push_back(vectInfo.stride());
@@ -338,10 +342,9 @@ void VectInfoGenerator::run(raw_ostream &os) {
                   funcs[item.first] = funcs[item.second];
                 });
 
-  std::stringstream ss;
+  static std::set<std::string> AllVectInfos;
   // Generating list of variants who use VPlan-fashioned masks.
-  std::stringstream ssVPlan;
-  ssVPlan << '{';
+  static std::set<std::string> VPlanMaskedFuncs;
 
   auto funcIt = funcs.cbegin();
   size_t k = 0;
@@ -352,7 +355,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
     assert(
         funcIt != funcs.cend() && funcIt != funcs.cend() - 1 &&
         "the number of tblgen functions and llvm functions should be the same");
-    decodeParamKind((*funcIt)->getName(), (*(funcIt + 1))->getName());
+    decodeParam((*funcIt)->getName(), (*(funcIt + 1))->getName());
     while (i++ < numEntry.first) {
       size_t j = 0;
       std::vector<std::string> funcNames;
@@ -374,17 +377,16 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
           if (isVPlanMaskedFunctionVectorVariant(**funcIt, variant,
                                                  characteristicType)) {
-            ssVPlan << '"' << fname << "\",\n";
+            VPlanMaskedFuncs.insert(fname);
           }
         }
 
         funcNames.push_back(fname);
         funcIt++;
       }
-      ss << VectEntry{funcNames};
+      generateVectInfos(VectEntry{funcNames}, AllVectInfos);
     }
   }
-  ssVPlan << "}\n";
 
   assert(k == ScalarBuiltins.size() && k == strides.size() &&
          "the number of entries and scalar builtins should be the same");
@@ -392,15 +394,14 @@ void VectInfoGenerator::run(raw_ostream &os) {
       funcIt == funcs.cend() &&
       "the number of tblgen functions and llvm functions should be the same");
   os << "#ifndef IMPORT_VPLAN_MASKED_VARIANTS\n";
-  os << ss.str();
-  ss.clear();
-  ss.str("");
+  for (auto &S : AllVectInfos)
+    os << '{' << S << "},\n";
 
   os << "#else\n";
-  os << ssVPlan.str();
-  ssVPlan.clear();
-  ssVPlan.str("");
-
+  os << "{\n";
+  for (auto &S : VPlanMaskedFuncs)
+    os << '"' << S << '"' << ",\n";
+  os << "}\n";
   os << "#endif // IMPORT_VPLAN_MASKED_VARIANTS\n";
 }
 

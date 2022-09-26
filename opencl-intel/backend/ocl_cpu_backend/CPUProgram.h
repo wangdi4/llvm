@@ -57,6 +57,8 @@ public:
     // Get LLJIT instance
     llvm::orc::LLJIT* GetLLJIT() override { return m_LLJIT.get(); }
 
+    void LoadProfileLib() const override;
+
     void ReleaseExecutionEngine();
 
     // Return the address of a function.

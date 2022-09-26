@@ -106,6 +106,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndexYAML.h"
 #include "llvm/InitializePasses.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Casting.h"
@@ -418,7 +423,7 @@ bool mustBeUnreachableFunction(ValueInfo TheFnVI) {
     return false;
   }
 
-  for (auto &Summary : TheFnVI.getSummaryList()) {
+  for (const auto &Summary : TheFnVI.getSummaryList()) {
     // Conservatively returns false if any non-live functions are seen.
     // In general either all summaries should be live or all should be dead.
     if (!Summary->isLive())
@@ -829,106 +834,7 @@ struct DevirtIndex {
 
   void run();
 };
-
-struct WholeProgramDevirt : public ModulePass {
-  static char ID;
-
-  bool UseCommandLine = false;
-
-  ModuleSummaryIndex *ExportSummary = nullptr;
-  const ModuleSummaryIndex *ImportSummary = nullptr;
-
-  WholeProgramDevirt() : ModulePass(ID), UseCommandLine(true) {
-    initializeWholeProgramDevirtPass(*PassRegistry::getPassRegistry());
-  }
-
-  WholeProgramDevirt(ModuleSummaryIndex *ExportSummary,
-                     const ModuleSummaryIndex *ImportSummary)
-      : ModulePass(ID), ExportSummary(ExportSummary),
-        ImportSummary(ImportSummary) {
-    initializeWholeProgramDevirtPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    // In the new pass manager, we can request the optimization
-    // remark emitter pass on a per-function-basis, which the
-    // OREGetter will do for us.
-    // In the old pass manager, this is harder, so we just build
-    // an optimization remark emitter on the fly, when we need it.
-    std::unique_ptr<OptimizationRemarkEmitter> ORE;
-    auto OREGetter = [&](Function *F) -> OptimizationRemarkEmitter & {
-      ORE = std::make_unique<OptimizationRemarkEmitter>(F);
-      return *ORE;
-    };
-
-    auto LookupDomTree = [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    IntelDevirtMultiversion IntelDevirtMV(M, WPInfo, GetTLI);
-
-    if (UseCommandLine)
-      return DevirtModule::runForTesting(M, LegacyAARGetter(*this), OREGetter,
-                                         LookupDomTree, IntelDevirtMV);
-
-    return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
-                        ExportSummary, ImportSummary, IntelDevirtMV)
-        .run();
-#else  // INTEL_FEATURE_SW_DTRANS
-    if (UseCommandLine)
-      return DevirtModule::runForTesting(M, LegacyAARGetter(*this), OREGetter,
-                                         LookupDomTree);
-
-    return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
-                        ExportSummary, ImportSummary)
-        .run();
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-#if INTEL_CUSTOMIZATION
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<XmainOptLevelWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-#endif // INTEL_CUSTOMIZATION
-  }
-};
-
 } // end anonymous namespace
-
-INITIALIZE_PASS_BEGIN(WholeProgramDevirt, "wholeprogramdevirt",
-                      "Whole program devirtualization", false, false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-#if INTEL_CUSTOMIZATION
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-#endif // INTEL_CUSTOMIZATION
-INITIALIZE_PASS_END(WholeProgramDevirt, "wholeprogramdevirt",
-                    "Whole program devirtualization", false, false)
-char WholeProgramDevirt::ID = 0;
-
-ModulePass *
-llvm::createWholeProgramDevirtPass(ModuleSummaryIndex *ExportSummary,
-                                   const ModuleSummaryIndex *ImportSummary) {
-  return new WholeProgramDevirt(ExportSummary, ImportSummary);
-}
 
 PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
                                               ModuleAnalysisManager &AM) {
@@ -983,9 +889,10 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 #endif // INTEL_CUSTOMIZATION
 }
 
+namespace llvm {
 // Enable whole program visibility if enabled by client (e.g. linker) or
 // internal option, and not force disabled.
-static bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
+bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // If the user specifies that we assume whole program then we need to turn
@@ -999,8 +906,6 @@ static bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
          !DisableWholeProgramVisibility;
 }
 
-namespace llvm {
-
 /// If whole program visibility asserted, then upgrade all public vcall
 /// visibility metadata on vtable definitions to linkage unit visibility in
 /// Module IR (for regular or hybrid LTO).
@@ -1009,7 +914,7 @@ void updateVCallVisibilityInModule(
     const DenseSet<GlobalValue::GUID> &DynamicExportSymbols) {
   if (!hasWholeProgramVisibility(WholeProgramVisibilityEnabledInLTO))
     return;
-  for (GlobalVariable &GV : M.globals())
+  for (GlobalVariable &GV : M.globals()) {
     // Add linkage unit visibility to any variable with type metadata, which are
     // the vtable definitions. We won't have an existing vcall_visibility
     // metadata on vtable definitions with public visibility.
@@ -1019,6 +924,34 @@ void updateVCallVisibilityInModule(
         // linker, as we have no information on their eventual use.
         !DynamicExportSymbols.count(GV.getGUID()))
       GV.setVCallVisibilityMetadata(GlobalObject::VCallVisibilityLinkageUnit);
+  }
+}
+
+void updatePublicTypeTestCalls(Module &M,
+                               bool WholeProgramVisibilityEnabledInLTO) {
+  Function *PublicTypeTestFunc =
+      M.getFunction(Intrinsic::getName(Intrinsic::public_type_test));
+  if (!PublicTypeTestFunc)
+    return;
+  if (hasWholeProgramVisibility(WholeProgramVisibilityEnabledInLTO)) {
+    Function *TypeTestFunc =
+        Intrinsic::getDeclaration(&M, Intrinsic::type_test);
+    for (Use &U : make_early_inc_range(PublicTypeTestFunc->uses())) {
+      auto *CI = cast<CallInst>(U.getUser());
+      auto *NewCI = CallInst::Create(
+          TypeTestFunc, {CI->getArgOperand(0), CI->getArgOperand(1)}, None, "",
+          CI);
+      CI->replaceAllUsesWith(NewCI);
+      CI->eraseFromParent();
+    }
+  } else {
+    auto *True = ConstantInt::getTrue(M.getContext());
+    for (Use &U : make_early_inc_range(PublicTypeTestFunc->uses())) {
+      auto *CI = cast<CallInst>(U.getUser());
+      CI->replaceAllUsesWith(True);
+      CI->eraseFromParent();
+    }
+  }
 }
 
 /// If whole program visibility asserted, then upgrade all public vcall
@@ -1309,7 +1242,7 @@ bool DevirtIndex::tryFindVirtualCallTargets(
     // conservatively return false early.
     const GlobalVarSummary *VS = nullptr;
     bool LocalFound = false;
-    for (auto &S : P.VTableVI.getSummaryList()) {
+    for (const auto &S : P.VTableVI.getSummaryList()) {
       if (GlobalValue::isLocalLinkage(S->linkage())) {
         if (LocalFound)
           return false;
@@ -1563,7 +1496,7 @@ bool DevirtIndex::trySingleImplDevirt(MutableArrayRef<ValueInfo> TargetsForSlot,
 
   // If the summary list contains multiple summaries where at least one is
   // a local, give up, as we won't know which (possibly promoted) name to use.
-  for (auto &S : TheFn.getSummaryList())
+  for (const auto &S : TheFn.getSummaryList())
     if (GlobalValue::isLocalLinkage(S->linkage()) && Size > 1)
       return false;
 
@@ -2146,6 +2079,7 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
       {ConstantDataArray::get(M.getContext(), B.Before.Bytes),
        B.GV->getInitializer(),
        ConstantDataArray::get(M.getContext(), B.After.Bytes)});
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Changed under INTEL_CUSTOMIZATION to not create an unnamed global variable
@@ -2169,6 +2103,14 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
   // Copy the original vtable's metadata to the anonymous global, adjusting
   // offsets as required.
   NewGV->copyMetadata(B.GV, B.Before.Bytes.size());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Create intel_dtrans_type metadata and attach it to  NewGV.
+  dtransOP::DTransTypeMetadataPropagator::setDevirtVarDTransMetadata(
+      B.GV, NewGV, B.Before.Bytes.size(), B.After.Bytes.size());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Build an alias named after the original global, pointing at the second
   // element (the original initializer).
@@ -2234,7 +2176,7 @@ void DevirtModule::scanTypeTestUsers(
 
     auto RemoveTypeTestAssumes = [&]() {
       // We no longer need the assumes or the type test.
-      for (auto Assume : Assumes)
+      for (auto *Assume : Assumes)
         Assume->eraseFromParent();
       // We can't use RecursivelyDeleteTriviallyDeadInstructions here because we
       // may use the vtable argument later.
@@ -2331,7 +2273,7 @@ void DevirtModule::scanTypeCheckedLoadUsers(Function *TypeCheckedLoadFunc) {
     // (although this is unlikely). In that case, explicitly build a pair and
     // RAUW it.
     if (!CI->use_empty()) {
-      Value *Pair = UndefValue::get(CI->getType());
+      Value *Pair = PoisonValue::get(CI->getType());
       IRBuilder<> B(CI);
       Pair = B.CreateInsertValue(Pair, LoadedValue, {0});
       Pair = B.CreateInsertValue(Pair, TypeTestCall, {1});
@@ -2667,10 +2609,10 @@ bool DevirtModule::run() {
     if (ExportSummary && isa<MDString>(S.first.TypeID)) {
       auto GUID =
           GlobalValue::getGUID(cast<MDString>(S.first.TypeID)->getString());
-      for (auto FS : S.second.CSInfo.SummaryTypeCheckedLoadUsers)
+      for (auto *FS : S.second.CSInfo.SummaryTypeCheckedLoadUsers)
         FS->addTypeTest(GUID);
       for (auto &CCS : S.second.ConstCSInfo)
-        for (auto FS : CCS.second.SummaryTypeCheckedLoadUsers)
+        for (auto *FS : CCS.second.SummaryTypeCheckedLoadUsers)
           FS->addTypeTest(GUID);
     }
   }
@@ -2717,7 +2659,7 @@ void DevirtIndex::run() {
     return;
 
   DenseMap<GlobalValue::GUID, std::vector<StringRef>> NameByGUID;
-  for (auto &P : ExportSummary.typeIdCompatibleVtableMap()) {
+  for (const auto &P : ExportSummary.typeIdCompatibleVtableMap()) {
     NameByGUID[GlobalValue::getGUID(P.first)].push_back(P.first);
   }
 

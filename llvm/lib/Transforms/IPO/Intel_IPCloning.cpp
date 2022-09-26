@@ -1149,12 +1149,17 @@ static bool isRecProSub(SubscriptInst *SubI, GetElementPtrInst *GEPI) {
 //
 static bool isRecProTempVector(SubscriptInst *SI, PHINode *PHI,
                                AllocaInst **AIOut) {
-  auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
-  if (!GEPI || !isRecProSub(SI, GEPI))
-    return false;
-  auto AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
-  if (!AI || !isRecProGEP(GEPI, AI))
-    return false;
+  AllocaInst *AI = nullptr;
+  Value *V = SI->getPointerOperand();
+  if (auto GEPI = dyn_cast<GetElementPtrInst>(V)) {
+    AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+    if (!AI || !isRecProGEP(GEPI, AI))
+      return false;
+  } else {
+    AI = dyn_cast<AllocaInst>(V);
+    if (!AI)
+      return false;
+  }
   int ArraySize = 0;
   if (!isRecProAllocaIntArray(AI, &ArraySize))
     return false;
@@ -1412,9 +1417,24 @@ static bool isRecProSpecialLoopSequence(
     StoreInst **SILower1, StoreInst **SILower2, StoreInst **SIUpper1,
     StoreInst **SIUpper2, int *LowerConstantValueOut,
     int *UpperConstantValueOut) {
+
+  auto FindNextPreHeaderAndLoopHeader = [](BasicBlock *BBLatch,
+                                           BasicBlock *BBExit,
+                                           BasicBlock **BBPreHeader,
+                                           BasicBlock **BBLoopHeader) {
+    *BBPreHeader = BBLatch;
+    *BBLoopHeader = BBExit;
+    if ((*BBLoopHeader)->getSingleSuccessor()) {
+      *BBPreHeader = *BBLoopHeader;
+      *BBLoopHeader = (*BBLoopHeader)->getSingleSuccessor();
+    }
+  };
+              
   AllocaInst *AICond = nullptr;
   BasicBlock *BBLatch = nullptr;
   BasicBlock *BBExit = nullptr;
+  BasicBlock *BBPreHeader = nullptr;
+  BasicBlock *BBLoopHeader = nullptr;
   AllocaInst *VStoreLower = nullptr;
   AllocaInst *VStoreLowerTemp = nullptr;
   AllocaInst *VStoreUpper = nullptr;
@@ -1425,11 +1445,13 @@ static bool isRecProSpecialLoopSequence(
   BasicBlock *LH = PH->getSingleSuccessor();
   if (!isRecProSimpleLoop(PH, LH, &AICond, &BBLatch, &BBExit))
     return false;
-  if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
+  FindNextPreHeaderAndLoopHeader(BBLatch, BBExit, &BBPreHeader, &BBLoopHeader);
+  if (!isRecProFalseBranchComplexLoop(BBPreHeader, BBLoopHeader,
                                       AICond, nullptr, &VStoreLower, SILower1,
                                       &BBLatch, &BBExit))
     return false;
-  if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
+  FindNextPreHeaderAndLoopHeader(BBLatch, BBExit, &BBPreHeader, &BBLoopHeader);
+  if (!isRecProFalseBranchComplexLoop(BBPreHeader, BBLoopHeader,
                                       AICond, VStoreLower, &VStoreUpper,
                                       SIUpper1, &BBLatch, &BBExit))
     return false;
@@ -1569,39 +1591,57 @@ static void addSpecialRecProCloneCode(Function *F, Function *FClone,
 static bool validateRecProVectorMemOps(AllocaInst *AI,
                                        SmallVectorImpl<StoreInst *> &SV,
                                        SmallVectorImpl<LoadInst *> &LV) {
-  for (User *U1 : AI->users()) {
-    auto GEPI = dyn_cast<GetElementPtrInst>(U1);
-    if (!GEPI || !isRecProGEP(GEPI, AI)) {
-      LV.clear();
-      return false;
-    }
-    for (User *U2 : GEPI->users()) {
-      auto SubI = dyn_cast<SubscriptInst>(U2);
-      if (!SubI || !isRecProSub(SubI, GEPI)) {
-        LV.clear();
-        return false;
-      }
-      for (User *U3 : SubI->users()) {
-        auto LI = dyn_cast<LoadInst>(U3);
-        if (LI)
-          LV.push_back(LI);
-        else {
-          auto SI = dyn_cast<StoreInst>(U3);
-          if (SI) {
-            unsigned I = 0;
-            for (; I < SV.size(); ++I)
-              if (SV[I] == SI)
-                break;
-            if (I == SV.size()) {
-              LV.clear();
-              return false;
-            }
-          } else {
+
+  auto UpdateLVSV = [](SubscriptInst *SubI,
+                       SmallVectorImpl<LoadInst *> &LV,
+                       SmallVectorImpl<StoreInst *> &SV) -> bool {
+    for (User *U3 : SubI->users()) {
+      auto LI = dyn_cast<LoadInst>(U3);
+      if (LI)
+        LV.push_back(LI);
+      else {
+        auto SI = dyn_cast<StoreInst>(U3);
+        if (SI) {
+          unsigned I = 0;
+          for (; I < SV.size(); ++I)
+            if (SV[I] == SI)
+              break;
+          if (I == SV.size()) {
             LV.clear();
             return false;
           }
+        } else {
+          LV.clear();
+          return false;
         }
       }
+    }
+    return true;
+  };
+
+  for (User *U1 : AI->users()) {
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U1)) {
+      if (!isRecProGEP(GEPI, AI)) {
+        LV.clear();
+        return false;
+      }
+      for (User *U2 : GEPI->users()) {
+        auto SubI = dyn_cast<SubscriptInst>(U2);
+        if (!SubI || !isRecProSub(SubI, GEPI)) {
+          LV.clear();
+          return false;
+        }
+        if (!UpdateLVSV(SubI, LV, SV))
+          return false;
+      }
+    } else {
+      auto SubI = dyn_cast<SubscriptInst>(U1);
+      if (!SubI || SubI->getPointerOperand() != AI) {
+        LV.clear();
+        return false;
+      }
+      if (!UpdateLVSV(SubI, LV, SV))
+        return false;
     }
   }
   return true;
@@ -5170,7 +5210,8 @@ static bool isManyLoopSpecializationCandidate(Function *F,
       continue;
     }
     Type *Ty = inferPtrElementType(Arg);
-    if (!Ty || Arg.getDereferenceableBytes() < DL.getTypeStoreSize(Ty)) {
+    if (!Ty || !Ty->isSized() ||
+        Arg.getDereferenceableBytes() < DL.getTypeStoreSize(Ty)) {
       LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                         << "Arg missing required attributes\n");
       continue;

@@ -30,6 +30,7 @@ class TargetTransformInfo;
 class Instruction;
 class Loop;
 class LoopInfo;
+class TargetLibraryInfo;
 
 namespace loopopt {
 
@@ -42,7 +43,9 @@ private:
   unsigned NumUserCalls = 0;
   unsigned NumIndirectCalls = 0;
   unsigned NumIntrinsics = 0;
+  unsigned NumProfitableVectorizableCalls = 0;
   bool HasCallsWithUnsafeSideEffects = false;
+  bool HasNonSIMDCallsWithUnsafeSideEffects = false;
   bool HasCallsWithNoDuplicate = false;
   bool HasCallsWithUnknownAliasing = false;
 
@@ -74,6 +77,13 @@ public:
   unsigned getNumIntrinsics() const { return NumIntrinsics; }
   bool hasIntrinsics() const { return getNumIntrinsics() > 0; }
 
+  unsigned getNumProfitableVectorizableCalls() const {
+    return NumProfitableVectorizableCalls;
+  }
+  bool hasProfitableVectorizableCalls() const {
+    return getNumProfitableVectorizableCalls() > 0;
+  }
+
   unsigned getNumCalls() const {
     return getNumUserCalls() + getNumIntrinsics();
   }
@@ -88,6 +98,17 @@ public:
         (!HasCallsWithUnsafeSideEffects || hasCalls()) &&
         "Number of calls and HasCallsWithUnsafeSideEffects are out of sync!");
     return HasCallsWithUnsafeSideEffects;
+  }
+
+  // Set to true if loop has calls with side effects other than SIMD calls. This
+  // is useful for transformations which want to handle SIMD calls in a special
+  // way.
+  bool hasNonSIMDCallsWithUnsafeSideEffects() const {
+    assert((!HasNonSIMDCallsWithUnsafeSideEffects ||
+            HasCallsWithUnsafeSideEffects) &&
+           "Number of SIMD and overall calls with unsafe side effects are out "
+           "of sync!");
+    return HasNonSIMDCallsWithUnsafeSideEffects;
   }
 
   bool hasCallsWithNoDuplicate() const {
@@ -111,7 +132,10 @@ public:
     NumUserCalls += LS.NumUserCalls;
     NumIndirectCalls += LS.NumIndirectCalls;
     NumIntrinsics += LS.NumIntrinsics;
+    NumProfitableVectorizableCalls += LS.NumProfitableVectorizableCalls;
     HasCallsWithUnsafeSideEffects |= LS.HasCallsWithUnsafeSideEffects;
+    HasNonSIMDCallsWithUnsafeSideEffects |=
+        LS.HasNonSIMDCallsWithUnsafeSideEffects;
     HasCallsWithNoDuplicate |= LS.HasCallsWithNoDuplicate;
     HasCallsWithUnknownAliasing |= LS.HasCallsWithUnknownAliasing;
 
@@ -135,11 +159,14 @@ protected:
   virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) override;
 
 public:
-  HIRLoopStatistics(HIRFramework &HIRF) : HIRAnalysis(HIRF) {}
+  TargetLibraryInfo &TLI;
+
+  HIRLoopStatistics(HIRFramework &HIRF, TargetLibraryInfo &TLI)
+      : HIRAnalysis(HIRF), TLI(TLI) {}
   HIRLoopStatistics(HIRLoopStatistics &&Arg)
       : HIRAnalysis(std::move(Arg)),
         SelfStatisticsMap(std::move(Arg.SelfStatisticsMap)),
-        TotalStatisticsMap(std::move(Arg.TotalStatisticsMap)) {}
+        TotalStatisticsMap(std::move(Arg.TotalStatisticsMap)), TLI(Arg.TLI) {}
   HIRLoopStatistics(const HIRLoopStatistics &Arg) = delete;
 
   /// This method will mark the loop and all its parent loops as modified. If

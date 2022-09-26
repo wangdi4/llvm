@@ -157,6 +157,7 @@ public:
     VPLiveOutValueSC,
     VPRegionSC,
     VPRegionLiveOutSC,
+    VPTemporaryUserSC,
   };
 
   VPValue(Type *BaseTy, Value *UV = nullptr)
@@ -423,27 +424,30 @@ public:
   const_reverse_operand_iterator op_rend() const { return Operands.rend(); }
 };
 
-class VPRegionLiveOut : public VPUser {
+template <unsigned Opcode> class VPProxyUser : public VPUser {
 public:
-  VPRegionLiveOut(VPValue *Operand, Type *BaseTy)
-      : VPUser(VPValue::VPRegionLiveOutSC, {Operand}, BaseTy) {
-    addOperand(Operand);
-  }
+  VPProxyUser(VPValue *Operand)
+      : VPUser(Opcode, {Operand}, Operand->getType()) {}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const override { OS << *getOperand(0); }
-  friend raw_ostream &operator<<(raw_ostream &OS, const VPUser &VPU) {
+  friend raw_ostream &operator<<(raw_ostream &OS,
+                                 const VPProxyUser<Opcode> &VPU) {
     VPU.print(OS);
     return OS;
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static inline bool classof(const VPValue *V) {
-    return V->getVPValueID() == VPValue::VPRegionLiveOutSC;
+    return V->getVPValueID() == Opcode;
   }
 
   // VPUser's destructor won't drop references.
-  ~VPRegionLiveOut() { dropAllReferences(); }
+  ~VPProxyUser() { dropAllReferences(); }
 };
+
+using VPRegionLiveOut = VPProxyUser<VPValue::VPRegionLiveOutSC>;
+using VPTemporaryUser = VPProxyUser<VPValue::VPTemporaryUserSC>;
 
 /// This class augments VPValue with constant operands that encapsulates LLVM
 /// Constant information. In the same way as LLVM Constant, VPConstant is

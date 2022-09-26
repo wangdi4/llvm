@@ -302,9 +302,6 @@
 ; We don't have checks for CHECK-NOEXT here, but this simplifies the test, while
 ; avoiding FileCheck complaining about the unused prefix.
 ; CHECK-NOEXT: {{.*}}
-; CHECK-O0-NEXT: Running pass: VecClonePass ;INTEL
-; CHECK-O0-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
-; CHECK-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
 
 ; RUN: opt -disable-output -disable-verify -verify-cfg-preserved=1 -debug-pass-manager \
 ; RUN:     -passes='repeat<3>(no-op-module)' %s 2>&1 \

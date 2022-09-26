@@ -1,6 +1,9 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
+; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=VERSION1
+; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=VERSION1
+;
 ; Test Src:
 ;
 ;  #include <omp.h>
@@ -43,6 +46,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_OBJ3]])
 ;CHECK-NEXT: store i8* null, i8** %obj3.addr, align 8
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
+
+; With -vpo-paropt-dispatch-codegen-version=1, just check that __tgt_interop_use_async is called instead of __tgt_use_interop
+; VERSION1: call void @__tgt_interop_use_async(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, i8* %obj{{.*}}, i8 0, i8* null)
+; VERSION1-NOT: call i32 @__tgt_use_interop
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @foo(i8* %obj1, i8* %obj2, i8* %obj3) #0 {

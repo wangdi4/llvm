@@ -28,49 +28,68 @@
 ;        + END LOOP
 ;   END REGION
 
-;CHECK:   BEGIN REGION { modified }
-;CHECK:         + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-;CHECK:         |   if (%k > 1024)
-;CHECK:         |   {
-;CHECK:         |      if (%n < 256)
-;CHECK:         |      {
-;CHECK:         |         if (%m > 1024)
-;CHECK:         |         {
-;CHECK:         |            %0 = (%a)[0];
-;CHECK:         |            (%a)[0] = %0 + 1;
+; CHECK:   BEGIN REGION { modified }
+; CHECK:         if (%k > 1024)
+; CHECK:         {
+; CHECK:            if (%n < 256)
+; CHECK:            {
+; CHECK:               if (%m > 1024)
+; CHECK:               {
+; CHECK:                  + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+; CHECK:                  |   %0 = (%a)[0];
+; CHECK:                  |   (%a)[0] = %0 + 1;
+; CHECK:                  |   %1 = (%a)[i1];
+; CHECK:                  |   (%a)[i1] = %1 + 1;
+; CHECK:                  + END LOOP
+; CHECK:               }
+; CHECK:               else
+; CHECK:               {
+; CHECK:                  + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+; CHECK:                  |   %0 = (%a)[0];
+; CHECK:                  |   (%a)[0] = %0 + 1;
+; CHECK:                  |   %1 = (%a)[i1];
+; CHECK:                  |   (%a)[i1] = %1 + 1;
 ; CHECK-NOT:                 goto L.loopexit;
-;CHECK:         |         }
-;CHECK:         |         else
-;CHECK:         |         {
-;CHECK:         |            %0 = (%a)[0];
-;CHECK:         |            (%a)[0] = %0 + 1;
-; CHECK-NOT:                 goto L.loopexit;
-;CHECK:         |         }
-;CHECK:         |      }
-;CHECK:         |      else
-;CHECK:         |      {
-;CHECK:         |         if (%m > 1024)
-;CHECK:         |         {
-;CHECK:         |            %0 = (%a)[0];
-;CHECK:         |            (%a)[0] = %0 + 1;
-;CHECK:         |            (%a)[0] = %0 + 2;
-; CHECK-NOT:                 goto L.loopexit;
-;CHECK:         |         }
-;CHECK:         |         else
-;CHECK:         |         {
-;CHECK:         |            + DO i2 = 0, 9, 1   <DO_LOOP>
-;CHECK:         |            |   %0 = (%a)[i2];
-;CHECK:         |            |   (%a)[i2] = %0 + 1;
-;CHECK:         |            |   (%a)[i2] = %0 + 2;
-;CHECK:         |            + END LOOP
-;CHECK:         |         }
-;CHECK:         |      }
-; CHECK-NOT:           L.loopexit:
-;CHECK:         |   }
-;CHECK:         |   %1 = (%a)[i1];
-;CHECK:         |   (%a)[i1] = %1 + 1;
-;CHECK:         + END LOOP
-;CHECK:   END REGION
+; CHECK:                  + END LOOP
+; CHECK:               }
+; CHECK:            }
+; CHECK:            else
+; CHECK:            {
+; CHECK:               if (%m > 1024)
+; CHECK:               {
+; CHECK:                  + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+; CHECK:                  |   %0 = (%a)[0];
+; CHECK:                  |   (%a)[0] = %0 + 1;
+; CHECK:                  |   (%a)[0] = %0 + 2;
+; CHECK:                  |   %1 = (%a)[i1];
+; CHECK:                  |   (%a)[i1] = %1 + 1;
+; CHECK:                  + END LOOP
+; CHECK:               }
+; CHECK:               else
+; CHECK:               {
+; CHECK:                  + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+; CHECK:                  |   + DO i2 = 0, 9, 1   <DO_LOOP>
+; CHECK:                  |   |   %0 = (%a)[i2];
+; CHECK:                  |   |   (%a)[i2] = %0 + 1;
+; CHECK:                  |   |   (%a)[i2] = %0 + 2;
+; CHECK-NOT:                    goto L.loopexit;
+; CHECK:                  |   + END LOOP
+; CHECK:                  |
+; CHECK:                  |   %1 = (%a)[i1];
+; CHECK:                  |   (%a)[i1] = %1 + 1;
+; CHECK:                  + END LOOP
+; CHECK:               }
+; CHECK:            }
+; CHECK:         }
+; CHECK:         else
+; CHECK:         {
+; CHECK:            + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:            |   %1 = (%a)[i1];
+; CHECK:            |   (%a)[i1] = %1 + 1;
+; CHECK:            + END LOOP
+; CHECK:         }
+; CHECK:   END REGION
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

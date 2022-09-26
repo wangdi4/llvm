@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; Test DTrans integration in the new pass manager.
 ;
 ; Test that the DTrans analysis results get invalidated with the

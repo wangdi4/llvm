@@ -39,9 +39,10 @@ define void @test02() {
 ; CHECK-DAG: AOS-to-SOA rejecting -- Unsupported safety data: %struct.dep01
 ; CHECK-DAG: AOS-to-SOA rejecting -- Unsupported bitcasts: %struct.test01
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
 declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1 immarg)
 
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

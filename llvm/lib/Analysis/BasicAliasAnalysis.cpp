@@ -38,13 +38,13 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -168,32 +168,7 @@ static bool isEscapeArgDereference(const Value *V) {
   }
   return false;
 }
-#endif // INTEL_CUSTOMIZATION
 
-/// Returns true if the pointer is one which would have been considered an
-/// escape by isNonEscapingLocalObject.
-static bool isEscapeSource(const Value *V) {
-  if (isa<CallBase>(V))
-    return true;
-
-  // The load case works because isNonEscapingLocalObject considers all
-  // stores to be escapes (it passes true for the StoreCaptures argument
-  // to PointerMayBeCaptured).
-  if (isa<LoadInst>(V))
-    return true;
-
-  // The inttoptr case works because isNonEscapingLocalObject considers all
-  // means of converting or equating a pointer to an int (ptrtoint, ptr store
-  // which could be followed by an integer load, ptr<->int compare) as
-  // escaping, and objects located at well-known addresses via platform-specific
-  // means cannot be considered non-escaping local objects.
-  if (isa<IntToPtrInst>(V))
-    return true;
-
-  return false;
-}
-
-#ifdef INTEL_CUSTOMIZATION
 static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
                                         const Value **BasePtr) {
   auto *LI = dyn_cast<LoadInst>(V);
@@ -525,7 +500,7 @@ static LinearExpression GetLinearExpression(
                                BOp, DT))
           return Val;
 
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       case Instruction::Add: {
         E = GetLinearExpression(Val.withValue(BOp->getOperand(0)), DL,
                                 Depth + 1, AC, DT);
@@ -1112,6 +1087,31 @@ AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
   return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI);
 }
 
+#if INTEL_CUSTOMIZATION
+// Tests the operand bundles on a call, against the given Loc.
+// Returns ModRef if there may/must be an alias, Ref otherwise.
+// Does not analyze the call parameters.
+ModRefInfo BasicAAResult::getDirectiveModRefInfo(const CallBase *Call,
+                                                 const MemoryLocation &Loc,
+                                                 AAQueryInfo &AAQI) {
+  for (unsigned I = 0; I < Call->getNumOperandBundles(); ++I) {
+    OperandBundleUse BU = Call->getOperandBundleAt(I);
+    for (const Use &U : BU.Inputs) {
+      Value *V = U;
+      if (V->getType()->isPointerTy()) {
+        AliasResult AR = getBestAAResults().alias(
+            MemoryLocation::getBeforeOrAfter(V), Loc, AAQI);
+        if (AR != AliasResult::NoAlias)
+          return ModRefInfo::ModRef;
+      }
+    }
+  }
+  // Even if all are "NoAlias" (or no operand bundles), return "Ref".
+  // We want to avoid store motion across calls with operand bundles.
+  return ModRefInfo::Ref;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Checks to see if the specified callsite can clobber the specified memory
 /// object.
 ///
@@ -1125,6 +1125,14 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
          "AliasAnalysis query involving multiple functions!");
 
   const Value *Object = getUnderlyingObject(Loc.Ptr);
+
+#if INTEL_CUSTOMIZATION
+  if (vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_SIMD ||
+       vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_END_SIMD)
+    // With SIMD directives, we do not examine the parameters, just
+    // the bundle operands.
+    return getDirectiveModRefInfo(Call, Loc, AAQI);
+#endif // INTEL_CUSTOMIZATION
 
   // Calls marked 'tail' cannot read or write allocas from the current frame
   // because the current frame might be destroyed by the time they run. However,
@@ -1153,7 +1161,6 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
     ModRefInfo Result = ModRefInfo::NoModRef;
-    bool IsMustAlias = true;
 
     unsigned OperandNo = 0;
     for (auto CI = Call->data_operands_begin(), CE = Call->data_operands_end();
@@ -1176,8 +1183,6 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       AliasResult AR = getBestAAResults().alias(
           MemoryLocation::getBeforeOrAfter(*CI),
           MemoryLocation::getBeforeOrAfter(Object), AAQI);
-      if (AR != AliasResult::MustAlias)
-        IsMustAlias = false;
       // Operand doesn't alias 'Object', continue looking for other aliases
 #if INTEL_CUSTOMIZATION
       // AA currently does not handle vectors of pointers, if we get
@@ -1188,12 +1193,12 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       // Operand aliases 'Object', but call doesn't modify it. Strengthen
       // initial assumption and keep looking in case if there are more aliases.
       if (Call->onlyReadsMemory(OperandNo)) {
-        Result = setRef(Result);
+        Result |= ModRefInfo::Ref;
         continue;
       }
       // Operand aliases 'Object' but call only writes into it.
       if (Call->onlyWritesMemory(OperandNo)) {
-        Result = setMod(Result);
+        Result |= ModRefInfo::Mod;
         continue;
       }
       // This operand aliases 'Object' and call reads and writes into it.
@@ -1203,17 +1208,9 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       break;
     }
 
-    // No operand aliases, reset Must bit. Add below if at least one aliases
-    // and all aliases found are MustAlias.
-    if (isNoModRef(Result))
-      IsMustAlias = false;
-
     // Early return if we improved mod ref information
-    if (!isModAndRefSet(Result)) {
-      if (isNoModRef(Result))
-        return ModRefInfo::NoModRef;
-      return IsMustAlias ? setMust(Result) : clearMust(Result);
-    }
+    if (!isModAndRefSet(Result))
+      return Result;
   }
 
   // If the call is malloc/calloc like, we can assume that it doesn't
@@ -1244,9 +1241,9 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
     // It's also possible for Loc to alias both src and dest, or neither.
     ModRefInfo rv = ModRefInfo::NoModRef;
     if (SrcAA != AliasResult::NoAlias || Call->hasReadingOperandBundles())
-      rv = setRef(rv);
+      rv |= ModRefInfo::Ref;
     if (DestAA != AliasResult::NoAlias || Call->hasClobberingOperandBundles())
-      rv = setMod(rv);
+      rv |= ModRefInfo::Mod;
     return rv;
   }
 
@@ -2332,7 +2329,7 @@ bool BasicAAResult::isValueEqualInPotentialCycles(const Value *V,
   // Make sure that the visited phis cannot reach the Value. This ensures that
   // the Values cannot come from different iterations of a potential cycle the
   // phi nodes could be involved in.
-  for (auto *P : VisitedPhiBBs)
+  for (const auto *P : VisitedPhiBBs)
     if (isPotentiallyReachable(&P->front(), Inst, nullptr, DT))
       return false;
 

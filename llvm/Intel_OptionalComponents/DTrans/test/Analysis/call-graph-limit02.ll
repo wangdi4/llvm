@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; Tests to check that the call graph was not seen to be too large for
 ; DTransAnalysis to run.
 

@@ -95,7 +95,7 @@ DTransPointerType *DTransLibraryInfo::findIOPtrType(Module &M) {
 }
 
 DTransFunctionType *
-DTransLibraryInfo::getDTransFunctionType(const Function *F) {
+DTransLibraryInfo::getDTransFunctionType(const Function *F) const {
   assert(DTransI1Type &&
          "DTransLibraryInfo class must be initialized before querying");
   auto It = FunctionCache.find(F);
@@ -108,7 +108,7 @@ DTransLibraryInfo::getDTransFunctionType(const Function *F) {
   return DTy;
 }
 
-DTransType *DTransLibraryInfo::getFunctionReturnType(const Function *F) {
+DTransType *DTransLibraryInfo::getFunctionReturnType(const Function *F) const {
   assert(DTransI1Type &&
          "DTransLibraryInfo class must be initialized before querying");
   DTransFunctionType *DTy = getDTransFunctionType(F);
@@ -118,7 +118,7 @@ DTransType *DTransLibraryInfo::getFunctionReturnType(const Function *F) {
 }
 
 DTransType *DTransLibraryInfo::getFunctionArgumentType(const Function *F,
-                                                       unsigned Idx) {
+                                                       unsigned Idx) const {
   assert(DTransI1Type &&
          "DTransLibraryInfo class must be initialized before querying");
   DTransFunctionType *DTy = getDTransFunctionType(F);
@@ -129,7 +129,7 @@ DTransType *DTransLibraryInfo::getFunctionArgumentType(const Function *F,
 }
 
 DTransFunctionType *
-DTransLibraryInfo::getDTransFunctionTypeImpl(const Function *F) {
+DTransLibraryInfo::getDTransFunctionTypeImpl(const Function *F) const {
   if (F->isIntrinsic())
     return getDTransFunctionTypeImpl(F->getIntrinsicID());
 
@@ -153,7 +153,7 @@ DTransLibraryInfo::getDTransFunctionTypeImpl(const Function *F) {
 }
 
 DTransFunctionType *
-DTransLibraryInfo::getDTransFunctionTypeImpl(LibFunc TheLibFunc) {
+DTransLibraryInfo::getDTransFunctionTypeImpl(LibFunc TheLibFunc) const {
   switch (TheLibFunc) {
   default:
     break;
@@ -387,8 +387,16 @@ DTransLibraryInfo::getDTransFunctionTypeImpl(LibFunc TheLibFunc) {
 }
 
 DTransFunctionType *
-DTransLibraryInfo::getDTransFunctionTypeImpl(Intrinsic::ID Id) {
+DTransLibraryInfo::getDTransFunctionTypeImpl(Intrinsic::ID Id) const {
   switch (Id) {
+  case Intrinsic::eh_typeid_for:
+    // i32 @llvm.eh.typeid.for(i8*)
+    return TM.getOrCreateFunctionType(DTransI32Type, {DTransI8PtrType},
+                                      /*IsVarArg=*/false);
+  case Intrinsic::icall_branch_funnel:
+    // void @llvm.icall.branch.funnel(...)
+    return TM.getOrCreateFunctionType(DTransVoidType, {}, /*IsVarArg=*/true);
+
   case Intrinsic::lifetime_end:
   case Intrinsic::lifetime_start:
     // void llvm.lifetime.end(i64, i8*)

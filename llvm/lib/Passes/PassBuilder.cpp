@@ -385,7 +385,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreEliminationPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMinMaxRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
@@ -405,6 +404,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUBPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMinMaxBlobToSelectPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMinMaxRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopRerollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNontemporalMarking.h"
@@ -435,22 +436,25 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/DTransPasses.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptTargetInline.h"
-#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // VPO
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptGuardMemoryMotion.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLoopTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
-#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #include "llvm/Transforms/VPO/Utils/CFGSimplify.h"
+#include "llvm/Transforms/VPO/Utils/VPORenameOperands.h"
+#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #endif // INTEL_COLLAB
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
@@ -1097,6 +1101,11 @@ Expected<bool> parseVPlanDriverHIROptions(StringRef Params) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+Expected<bool> parseDependenceAnalysisPrinterOptions(StringRef Params) {
+  return parseSinglePassOption(Params, "normalized-results",
+                               "DependenceAnalysisPrinter");
+}
+
 } // namespace
 
 /// Tests whether a pass name starts with a valid prefix for a default pipeline
@@ -1431,12 +1440,12 @@ Error PassBuilder::parseModulePass(ModulePassManager &MPM,
   if (Name == "require<" NAME ">") {                                           \
     MPM.addPass(                                                               \
         RequireAnalysisPass<                                                   \
-            std::remove_reference<decltype(CREATE_PASS)>::type, Module>());    \
+            std::remove_reference_t<decltype(CREATE_PASS)>, Module>());        \
     return Error::success();                                                   \
   }                                                                            \
   if (Name == "invalidate<" NAME ">") {                                        \
     MPM.addPass(InvalidateAnalysisPass<                                        \
-                std::remove_reference<decltype(CREATE_PASS)>::type>());        \
+                std::remove_reference_t<decltype(CREATE_PASS)>>());            \
     return Error::success();                                                   \
   }
 #define CGSCC_PASS(NAME, CREATE_PASS)                                          \
@@ -1565,14 +1574,14 @@ Error PassBuilder::parseCGSCCPass(CGSCCPassManager &CGPM,
 #define CGSCC_ANALYSIS(NAME, CREATE_PASS)                                      \
   if (Name == "require<" NAME ">") {                                           \
     CGPM.addPass(RequireAnalysisPass<                                          \
-                 std::remove_reference<decltype(CREATE_PASS)>::type,           \
+                 std::remove_reference_t<decltype(CREATE_PASS)>,               \
                  LazyCallGraph::SCC, CGSCCAnalysisManager, LazyCallGraph &,    \
                  CGSCCUpdateResult &>());                                      \
     return Error::success();                                                   \
   }                                                                            \
   if (Name == "invalidate<" NAME ">") {                                        \
     CGPM.addPass(InvalidateAnalysisPass<                                       \
-                 std::remove_reference<decltype(CREATE_PASS)>::type>());       \
+                 std::remove_reference_t<decltype(CREATE_PASS)>>());           \
     return Error::success();                                                   \
   }
 #define FUNCTION_PASS(NAME, CREATE_PASS)                                       \
@@ -1641,8 +1650,9 @@ Error PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
         return Err;
       // Add the nested pass manager with the appropriate adaptor.
       bool UseMemorySSA = (Name == "loop-mssa");
-      bool UseBFI = llvm::any_of(
-          InnerPipeline, [](auto Pipeline) { return Pipeline.Name == "licm"; });
+      bool UseBFI = llvm::any_of(InnerPipeline, [](auto Pipeline) {
+        return Pipeline.Name.contains("simple-loop-unswitch");
+      });
       bool UseBPI = llvm::any_of(InnerPipeline, [](auto Pipeline) {
         return Pipeline.Name == "loop-predication";
       });
@@ -1686,12 +1696,12 @@ Error PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
   if (Name == "require<" NAME ">") {                                           \
     FPM.addPass(                                                               \
         RequireAnalysisPass<                                                   \
-            std::remove_reference<decltype(CREATE_PASS)>::type, Function>());  \
+            std::remove_reference_t<decltype(CREATE_PASS)>, Function>());      \
     return Error::success();                                                   \
   }                                                                            \
   if (Name == "invalidate<" NAME ">") {                                        \
     FPM.addPass(InvalidateAnalysisPass<                                        \
-                std::remove_reference<decltype(CREATE_PASS)>::type>());        \
+                std::remove_reference_t<decltype(CREATE_PASS)>>());            \
     return Error::success();                                                   \
   }
 // FIXME: UseMemorySSA is set to false. Maybe we could do things like:
@@ -1782,14 +1792,14 @@ Error PassBuilder::parseLoopPass(LoopPassManager &LPM,
 #define LOOP_ANALYSIS(NAME, CREATE_PASS)                                       \
   if (Name == "require<" NAME ">") {                                           \
     LPM.addPass(RequireAnalysisPass<                                           \
-                std::remove_reference<decltype(CREATE_PASS)>::type, Loop,      \
+                std::remove_reference_t<decltype(CREATE_PASS)>, Loop,          \
                 LoopAnalysisManager, LoopStandardAnalysisResults &,            \
                 LPMUpdater &>());                                              \
     return Error::success();                                                   \
   }                                                                            \
   if (Name == "invalidate<" NAME ">") {                                        \
     LPM.addPass(InvalidateAnalysisPass<                                        \
-                std::remove_reference<decltype(CREATE_PASS)>::type>());        \
+                std::remove_reference_t<decltype(CREATE_PASS)>>());            \
     return Error::success();                                                   \
   }
 #include "PassRegistry.def"
@@ -1805,13 +1815,13 @@ bool PassBuilder::parseAAPassName(AAManager &AA, StringRef Name) {
 #define MODULE_ALIAS_ANALYSIS(NAME, CREATE_PASS)                               \
   if (Name == NAME) {                                                          \
     AA.registerModuleAnalysis<                                                 \
-        std::remove_reference<decltype(CREATE_PASS)>::type>();                 \
+        std::remove_reference_t<decltype(CREATE_PASS)>>();                     \
     return true;                                                               \
   }
 #define FUNCTION_ALIAS_ANALYSIS(NAME, CREATE_PASS)                             \
   if (Name == NAME) {                                                          \
     AA.registerFunctionAnalysis<                                               \
-        std::remove_reference<decltype(CREATE_PASS)>::type>();                 \
+        std::remove_reference_t<decltype(CREATE_PASS)>>();                     \
     return true;                                                               \
   }
 #include "PassRegistry.def"

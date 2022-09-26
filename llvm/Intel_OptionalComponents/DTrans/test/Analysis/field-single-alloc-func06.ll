@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -12,7 +13,7 @@
 
 %struct.MYSTRUCT1 = type { i8* }
 @globalstruct1 = internal global %struct.MYSTRUCT1 zeroinitializer, align 8
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
 define i32 @foo_1() {
   %t0 = tail call noalias i8* @malloc(i64 100)
@@ -141,6 +142,8 @@ define i32 @foo_5() {
   ret i32 %t6
 }
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYSTRUCT5 = type { i8* }
 ; CHECK: Number of fields: 1
@@ -149,4 +152,3 @@ define i32 @foo_5() {
 ; CHECK: Multiple Value
 ; CHECK-NOT: Bottom Alloc Function
 ; CHECK: Safety data: Global instance
-

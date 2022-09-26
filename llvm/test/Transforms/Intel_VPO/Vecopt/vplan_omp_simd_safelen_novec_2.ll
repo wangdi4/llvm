@@ -18,10 +18,8 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; RUN: opt -S -vplan-force-vf=8 -vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 ; RUN: opt -S -vplan-force-vf=8 -passes="vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM

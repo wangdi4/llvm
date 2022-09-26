@@ -2,8 +2,9 @@
 ; are not inlined and other calls in member functions of ReusableArenaAllocator
 ; are inlined.
 
-; RUN: opt < %s -S -dtrans-force-inline -inline -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
 
+; RUN: opt < %s -S -dtrans-force-inline -inline -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes='module(dtrans-force-inline),cgscc(inline)' -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

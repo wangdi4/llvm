@@ -52,8 +52,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* noalias nocap
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP8:%.*]] = trunc i64 [[VP4]] to i32 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP9:%.*]] = sext i32 [[VP_LOAD_1]] to i64 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP9]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_VPCONFLICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_CTLZ:%.*]] = call i64 [[VP_VPCONFLICT_INTRINSIC]] i1 false llvm.ctlz [x 1] (SVAOpBits 0-> 1-> 2-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP10:%.*]] = sub i64 63 i64 [[VP_CTLZ]] (SVAOpBits 0-> 1-> )
@@ -97,13 +96,10 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* noalias nocap
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (   )] br [[BB9:BB[0-9]+]] (SVAOpBits 0-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB9]]: # preds: [[BB5]]
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_VCONFLICT_INDEX_1:%.*]] = sext i32 [[VP_LOAD_1]] to i64 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX_1]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_4]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP20:%.*]] = trunc i64 [[VP4]] to i32 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP21:%.*]] = sext i32 [[VP_LOAD_1]] to i64 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP21]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_VPCONFLICT_INTRINSIC_1:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX_1]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_VPCONFLICT_INTRINSIC_1:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_CTLZ_1:%.*]] = call i64 [[VP_VPCONFLICT_INTRINSIC_1]] i1 false llvm.ctlz [x 1] (SVAOpBits 0-> 1-> 2-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP22:%.*]] = sub i64 63 i64 [[VP_CTLZ_1]] (SVAOpBits 0-> 1-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP23:%.*]] = trunc i64 [[VP22]] to i32 (SVAOpBits 0-> )
@@ -117,7 +113,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* noalias nocap
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:      [[BB12]]: # preds: [[BB11]], [[BB12]]
 ; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_CURR_VPERM_CONTROL_1:%.*]] = phi  [ i32 [[VP23]], [[BB11]] ],  [ i32 [[VP_VPERM_CONTROL_SELECT_1:%.*]], [[BB12]] ] (SVAOpBits 0-> 1-> )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_CURR_VRES_1:%.*]] = phi  [ i32 [[VP20]], [[BB11]] ],  [ i32 [[VP_VRES_NEXT_1:%.*]], [[BB12]] ] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_CURR_VRES_1:%.*]] = phi  [ i32 [[VP8]], [[BB11]] ],  [ i32 [[VP_VRES_NEXT_1:%.*]], [[BB12]] ] (SVAOpBits 0-> 1-> )
 ; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i1 [[VP_CURR_MASK_TODO_1:%.*]] = phi  [ i1 [[VP24]], [[BB11]] ],  [ i1 [[VP_MASK_TODO_NEXT_1:%.*]], [[BB12]] ] (SVAOpBits 0-> 1-> )
 ; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] float [[VP25:%.*]] = bitcast i32 [[VP_CURR_VRES_1]] (SVAOpBits 0-> )
 ; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] float [[VP_VTMP_1:%.*]] = permute float [[VP25]] i32 [[VP_CURR_VPERM_CONTROL_1]] (SVAOpBits 0-> 1-> )
@@ -139,7 +135,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* noalias nocap
 ; CHECK-VF4-NEXT:       [DA: Uni, SVA: (   )] br [[BB10]] (SVAOpBits 0-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB10]]: # preds: [[BB13]], [[BB9]]
-; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP_FINAL_RESULT_1:%.*]] = phi  [ i32 [[VP20]], [[BB9]] ],  [ i32 [[VP_VRES_NEXT_1]], [[BB12]] ] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP_FINAL_RESULT_1:%.*]] = phi  [ i32 [[VP8]], [[BB9]] ],  [ i32 [[VP_VRES_NEXT_1]], [[BB12]] ] (SVAOpBits 0-> 1-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i1 [[VP30:%.*]] = block-predicate i1 [[VP6]] (SVAOpBits 0-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP31:%.*]] = add i32 [[VP_LOAD_3]] i32 [[VP_FINAL_RESULT_1]] (SVAOpBits 0-> 1-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP31]] i32* [[VP_SUBSCRIPT_5]] (SVAOpBits 0->V 1->V )

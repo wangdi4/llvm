@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_amx_memadvise
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
+// RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-memadvise  -emit-llvm -o - -Wall -Werror -pedantic \
 // RUN: -Wno-gnu-statement-expression| FileCheck %s
 

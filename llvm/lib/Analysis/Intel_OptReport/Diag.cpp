@@ -396,7 +396,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15551, "%s was not vectorized with \"simd assert\""},
     {15552, "%s was not vectorized with \"simd\""},
     {15553, "loop was not vectorized: outer loop is not an auto-vectorization "
-            "candidate at -O2. Consider using -O3."},
+            "candidate."},
     // Four entries below semantically belong to "vector loop memory reference
     // summary". Be sure to update their mentiones under respective section
     // above.
@@ -427,6 +427,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15568, "Scatters are generated due to non-unit stride index of the corresponding stores."},
     {15569, "Compiler has chosen to target XMM/YMM vector. Try using "
             "-mprefer-vector-width=512 to override."},
+    {15570, "using scalar loop trip count: %s"},
 
     {25018, "Total number of lines prefetched=%d"},
     {25019, "Number of spatial prefetches=%d, default dist=%d"},

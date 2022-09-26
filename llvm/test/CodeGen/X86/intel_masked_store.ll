@@ -8,7 +8,7 @@ define void @mstore_constmask_v12i8_v12i8(<12 x i8>* %addr, <12 x i8> %val) {
 ; SSE2:       ## %bb.0:
 ; SSE2-NEXT:    movq %xmm0, (%rdi)
 ; SSE2-NEXT:    movdqa %xmm0, -{{[0-9]+}}(%rsp)
-; SSE2-NEXT:    movb -{{[0-9]+}}(%rsp), %al
+; SSE2-NEXT:    movzbl -{{[0-9]+}}(%rsp), %eax
 ; SSE2-NEXT:    movb %al, 10(%rdi)
 ; SSE2-NEXT:    pextrw $4, %xmm0, %eax
 ; SSE2-NEXT:    movw %ax, 8(%rdi)

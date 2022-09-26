@@ -1,4 +1,3 @@
-; RUN: opt < %s -argpromotion -S | FileCheck %s
 ; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
 
 ; This test is to verify that functions and calls created by argument
@@ -16,10 +15,8 @@ entry:
   ret void
 }
 
-; CHECK-LABEL: define internal void @f(i32 %b.0, i64 %b.1) !prof !0
-; CHECK: alloca %struct.ss, align 8{{$}}
-; CHECK: store i32 %b.0
-; CHECK: store i64 %b.1
+; CHECK-LABEL: define internal void @f(i32 %b.0.val) !prof !0
+; CHECK: add i32 %b.0.val
 
 define internal void @g(%struct.ss* byval(%struct.ss) align 32 %b) !prof !1 {
 entry:
@@ -30,10 +27,8 @@ entry:
   ret void
 }
 
-; CHECK-LABEL: define internal void @g(i32 %b.0, i64 %b.1) !prof !1
-; CHECK: alloca %struct.ss, align 32
-; CHECK: store i32 %b.0
-; CHECK: store i64 %b.1
+; CHECK-LABEL: define internal void @g(i32 %b.0.val) !prof !1
+; CHECK: add i32 %b.0.val
 
 define i32 @main() nounwind  {
 entry:
@@ -54,8 +49,8 @@ exit:
 }
 
 ; CHECK-LABEL: define i32 @main
-; CHECK: call void @f(i32 %{{.*}}, i64 %{{.*}}), !intel-profx !2
-; CHECK: call void @g(i32 %{{.*}}, i64 %{{.*}}), !intel-profx !3
+; CHECK: call void @f(i32 {{.*}}), !intel-profx !2
+; CHECK: call void @g(i32 %{{.*}}), !intel-profx !3
 
 !0 = !{!"function_entry_count", i64 0}
 !1 = !{!"function_entry_count", i64 10000}

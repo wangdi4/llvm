@@ -1,3 +1,14 @@
+// Copyright (C) 2013-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 // Work-group functions and their vectorized versions
 let NeedForwardDecl = 1, VectorAttrs = [KERNEL_CALL_ONCE] in {
@@ -115,45 +126,6 @@ let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
 let Types = [v1i32] in {
   foreach op = ["logical_and", "logical_or", "logical_xor"] in {
     def : VectInfo<[], !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op)>;
-  }
-}
-
-//
-// Vectorizer table for scalar and vectorized versions of work-group functions
-//
-foreach func_name = [ "work_group_all", "work_group_any" ] in {
-  def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1i32>;
-  def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name), v4i32>;
-  def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name), v8i32>;
-  def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name), v16i32>;
-  def func_name#_vectorized : MapRow<[
-   !cast<MapCell>(func_name#"_cell1"),  //scalar
-    nullCell,                            //v2
-    !cast<MapCell>(func_name#"_cell4"),  //v4
-    !cast<MapCell>(func_name#"_cell8"),  //v8
-    !cast<MapCell>(func_name#"_cell16"), //16
-    nullCell],                           //3
-    0,1>;          //not scalarizable, packetizable
-}
-foreach func_name = [ "work_group_broadcast1d", "work_group_broadcast2d", "work_group_broadcast3d",
-                      "work_group_reduce_add", "work_group_reduce_min", "work_group_reduce_max", "work_group_reduce_mul",
-                      "work_group_scan_exclusive_add", "work_group_scan_exclusive_min", "work_group_scan_exclusive_max",
-                      "work_group_scan_exclusive_mul",
-                      "work_group_scan_inclusive_add", "work_group_scan_inclusive_min", "work_group_scan_inclusive_max",
-                      "work_group_scan_inclusive_mul",] in {
-  foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
-    def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
-    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v4"#base_type)>;
-    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v8"#base_type)>;
-    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v16"#base_type)>;
-    def func_name#_#base_type#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#_#base_type#"_cell1"),  //scalar
-    nullCell,                                        //v2
-    !cast<MapCell>(func_name#_#base_type#"_cell4"),  //v4
-    !cast<MapCell>(func_name#_#base_type#"_cell8"),  //v8
-    !cast<MapCell>(func_name#_#base_type#"_cell16"), //16
-    nullCell],                                       //3
-    0,1>;          //not scalarizable, packetizable
   }
 }
 

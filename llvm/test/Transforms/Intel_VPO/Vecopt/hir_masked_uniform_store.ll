@@ -13,10 +13,8 @@
 ;   return 0;
 ; }
 
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
-; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 
 
 ; Incoming HIR into the vectorizer is expected to look like:

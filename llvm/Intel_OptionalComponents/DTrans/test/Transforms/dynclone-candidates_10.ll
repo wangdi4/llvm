@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test is same as dynclone-candidates_09.ll except one additional call
 ; "call void @proc3(i64 %bc1, %struct.test.01* %tp3)", which passes value of
 ; field_0 as first argument, in "proc2" routine. Since it is not safe to
@@ -103,5 +105,7 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

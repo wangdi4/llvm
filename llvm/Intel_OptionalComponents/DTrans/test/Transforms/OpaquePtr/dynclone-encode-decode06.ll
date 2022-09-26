@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-;  RUN: opt < %s -opaque-pointers -disable-output -debug-only=dtrans-dynclone-reencoding -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dyncloneop 2>&1 | FileCheck %s
-;  RUN: opt < %s -opaque-pointers -disable-output -debug-only=dtrans-dynclone-reencoding -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dyncloneop' 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -dtrans-dynclone-shrunken-type-width=16 -dtrans-dynclone-sign-shrunken-int-type=false -disable-output -debug-only=dtrans-dynclone-reencoding -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dyncloneop 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -dtrans-dynclone-shrunken-type-width=16 -dtrans-dynclone-sign-shrunken-int-type=false -disable-output -debug-only=dtrans-dynclone-reencoding -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dyncloneop' 2>&1 | FileCheck %s
 
 ; This test is to verify that constant collection for re-encoding collects constants
 ; when a @llvm.smax intrinsic is used, instead of a select instruction. (CMPLRLLVM-36879)
@@ -50,8 +50,10 @@ define internal i64 @primal_start_artificial.57.87.117() {
   ret i64 0
 }
 
-declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64)
+declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 declare i64 @llvm.smax.i64(i64, i64)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i64 0, i32 1}  ; i64*
 !2 = !{i32 0, i32 1}  ; i32*

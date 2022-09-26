@@ -87,6 +87,7 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
 set (CLANG_C_COMPILER_PARAMS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
   -I ${IMPORT_DIR} ${INCLUDE_OCL_CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
+  -no-opaque-pointers
   # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
   # bytecode for C/C++ files w/o LTO flag.
   -flto
@@ -102,9 +103,6 @@ else (WIN32)
   set (CLANG_CL_CBK_COMPILER_FLAGS ${CLANG_CL_COMMON_COMPILER_FLAGS} -stack-protector 2)
 endif (WIN32)
 
-# llvm-opt
-set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
-
 #------------------- Utility functions ---------------------------
 
 #
@@ -117,19 +115,26 @@ set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
 #   PROC            - target CPU
 #   INPUT_FILE      - full path to input file
 #   OUTPUT_DIR      - directory for output file
+#   DISABLE_LLVM_PASSES - whether to add '--disable-llvm-passes' option to clang
 #
 
-function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
+function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR DISABLE_LLVM_PASSES )
 
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
 
+  # Provide an option to explicitly disable llvm optimization pipeline when we
+  # compile OpenCL sources, especially when the output bitcode will later be
+  # optimized by `opt -O3`, avoiding running duplication optimizations.
+  if (${DISABLE_LLVM_PASSES})
+    set(COMPILE_OPTIONS ${COMPILE_OPTIONS} -disable-llvm-passes)
+  endif (${DISABLE_LLVM_PASSES})
+
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
     COMMAND ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
-    COMMAND ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES} ${OPT} ${CLANG} process-intrin-headers
+    DEPENDS ${HEADER_FILES} ${CLANG} process-intrin-headers
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
     COMMENT "Compiling ${INPUT_FILE}"
@@ -175,13 +180,13 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 
   foreach (FILE ${ARGN})
-    compile( "${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+    compile( "${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR} TRUE)
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
 
   if(NOT ("${C_FILES}" STREQUAL "IGNORE"))
     foreach (FILE ${C_FILES})
-      compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+      compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR} TRUE)
       list (APPEND TMP_FILES ${TMP_RTL})
     endforeach (FILE)
   endif()
@@ -203,10 +208,11 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
     # and particular lib (for  example, clbltfnl9.rtl), but image optimizer takes only one runtime lib as argument, so we have to
     # link clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to temporary TMP_LINKED_RTL_OUTPUT and then
     # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
+    # We also allow symbols from target-specific rtl (e.g. clbltfnl9.rtl) to override defined symbol in shared rtl.
     #
     add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
       COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} --override=${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
       DEPENDS ${LLVM_LINK} ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${TARGET_NAME_SHARED}
       VERBATIM
       )
@@ -230,9 +236,10 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
   else()
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
-      COMMENT "Linking ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
+      COMMENT "Linking and optimizing ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}"
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_link ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_link -O3 -disable-intel-proprietary-opts -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
+      DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       VERBATIM
       )
   endif()
@@ -275,17 +282,14 @@ function( install_svml ARCH )
 
 endfunction( install_svml )
 
-file(GLOB_RECURSE TD_SOURCES "${CL_BUILTIN_SOURCE_DIR}/*.td")
-
 function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        #COMMAND ${OCL-TBLGEN} ${ARGN} -gen-ocl-Exclude=true -gen-ocl-Prefix="__cl_" -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         COMMAND ${OCL_TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
-        DEPENDS ${OCL_TBLGEN} ${TD_SOURCES}
+        DEPENDS ${OCL_TBLGEN} ${OCL_ALL_TD_FILES}
         COMMENT "Generating ${OFN}"
         )
-    set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
+    set(${OUTPUT_VAR} ${${OUTPUT_VAR}} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
 endfunction(tblgenoclblt)
 
 function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
@@ -328,14 +332,24 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-  list(APPEND CMD_ARGS -gen-ocl-bi)
   # generate OCL builtin implementation
+  # TODO: remove this tblgenoclblt invocation when we migrate all builtins to
+  # source/main.td
   tblgenoclblt(OCL_TABLEGEN_SOURCE
     ${INTERMEDIATE_OUTPUT_DIR}
     ${TARGET_DIR}
     target-${ARCH}.td
     target-${ARCH}.cl
-    ${CMD_ARGS}
+    --gen-ocl-bi
+  )
+  # The newly added builtins are implemented in souce/main.td
+  tblgenoclblt(OCL_TABLEGEN_SOURCE
+    ${INTERMEDIATE_OUTPUT_DIR}
+    source
+    main.td
+    target-${ARCH}-new.cl
+    # args for ocl-tblgen
+    --gen-ocl-bi --handle-impl-target-inheritance --emit-target-name=${TARGET_DIR}
   )
   list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
@@ -359,7 +373,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${TD_SOURCES} ${OCL_CLANG_HEADER_DIR}
+    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${OCL_ALL_TD_FILES} ${OCL_CLANG_HEADER_DIR}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_20_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
@@ -440,10 +454,6 @@ add_subdirectory (avx2)
 add_subdirectory (avx512)
 add_subdirectory (amx)
 add_subdirectory (shared)
-if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
-    # includes AVX-512 F, CD, ER, PF.
-  add_subdirectory (avx512phi)
-endif()
 
 # algorithm from compiler-rt for soft types
 add_subdirectory(soft_math)

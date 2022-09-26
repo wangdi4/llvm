@@ -1062,13 +1062,15 @@ public:
                     bool AlwaysInline, bool isTailCall,
                     MachinePointerInfo DstPtrInfo,
                     MachinePointerInfo SrcPtrInfo,
-                    const AAMDNodes &AAInfo = AAMDNodes());
+                    const AAMDNodes &AAInfo = AAMDNodes(),
+                    AAResults *AA = nullptr);
 
   SDValue getMemmove(SDValue Chain, const SDLoc &dl, SDValue Dst, SDValue Src,
                      SDValue Size, Align Alignment, bool isVol, bool isTailCall,
                      MachinePointerInfo DstPtrInfo,
                      MachinePointerInfo SrcPtrInfo,
-                     const AAMDNodes &AAInfo = AAMDNodes());
+                     const AAMDNodes &AAInfo = AAMDNodes(),
+                     AAResults *AA = nullptr);
 
   SDValue getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst, SDValue Src,
                     SDValue Size, Align Alignment, bool isVol,
@@ -1199,7 +1201,7 @@ public:
       uint64_t Size = 0, const AAMDNodes &AAInfo = AAMDNodes()) {
     // Ensure that codegen never sees alignment 0
     return getMemIntrinsicNode(Opcode, dl, VTList, Ops, MemVT, PtrInfo,
-                               Alignment.getValueOr(getEVTAlign(MemVT)), Flags,
+                               Alignment.value_or(getEVTAlign(MemVT)), Flags,
                                Size, AAInfo);
   }
 
@@ -1280,7 +1282,7 @@ public:
       const AAMDNodes &AAInfo = AAMDNodes(), const MDNode *Ranges = nullptr) {
     // Ensures that codegen never sees a None Alignment.
     return getLoad(AM, ExtType, VT, dl, Chain, Ptr, Offset, PtrInfo, MemVT,
-                   Alignment.getValueOr(getEVTAlign(MemVT)), MMOFlags, AAInfo,
+                   Alignment.value_or(getEVTAlign(MemVT)), MMOFlags, AAInfo,
                    Ranges);
   }
   /// FIXME: Remove once transition to Align is over.
@@ -1314,7 +1316,7 @@ public:
            MachineMemOperand::Flags MMOFlags = MachineMemOperand::MONone,
            const AAMDNodes &AAInfo = AAMDNodes()) {
     return getStore(Chain, dl, Val, Ptr, PtrInfo,
-                    Alignment.getValueOr(getEVTAlign(Val.getValueType())),
+                    Alignment.value_or(getEVTAlign(Val.getValueType())),
                     MMOFlags, AAInfo);
   }
   /// FIXME: Remove once transition to Align is over.
@@ -1340,7 +1342,7 @@ public:
                 MachineMemOperand::Flags MMOFlags = MachineMemOperand::MONone,
                 const AAMDNodes &AAInfo = AAMDNodes()) {
     return getTruncStore(Chain, dl, Val, Ptr, PtrInfo, SVT,
-                         Alignment.getValueOr(getEVTAlign(SVT)), MMOFlags,
+                         Alignment.value_or(getEVTAlign(SVT)), MMOFlags,
                          AAInfo);
   }
   /// FIXME: Remove once transition to Align is over.
@@ -1373,7 +1375,7 @@ public:
             const MDNode *Ranges = nullptr, bool IsExpanding = false) {
     // Ensures that codegen never sees a None Alignment.
     return getLoadVP(AM, ExtType, VT, dl, Chain, Ptr, Offset, Mask, EVL,
-                     PtrInfo, MemVT, Alignment.getValueOr(getEVTAlign(MemVT)),
+                     PtrInfo, MemVT, Alignment.value_or(getEVTAlign(MemVT)),
                      MMOFlags, AAInfo, Ranges, IsExpanding);
   }
   SDValue getLoadVP(ISD::MemIndexedMode AM, ISD::LoadExtType ExtType, EVT VT,
@@ -1433,7 +1435,7 @@ public:
     // Ensures that codegen never sees a None Alignment.
     return getStridedLoadVP(AM, ExtType, VT, DL, Chain, Ptr, Offset, Stride,
                             Mask, EVL, PtrInfo, MemVT,
-                            Alignment.getValueOr(getEVTAlign(MemVT)), MMOFlags,
+                            Alignment.value_or(getEVTAlign(MemVT)), MMOFlags,
                             AAInfo, Ranges, IsExpanding);
   }
   SDValue getStridedLoadVP(ISD::MemIndexedMode AM, ISD::LoadExtType ExtType,
@@ -1873,24 +1875,6 @@ public:
   SDValue FoldSetCC(EVT VT, SDValue N1, SDValue N2, ISD::CondCode Cond,
                     const SDLoc &dl);
 
-  /// See if the specified operand can be simplified with the knowledge that
-  /// only the bits specified by DemandedBits are used.  If so, return the
-  /// simpler operand, otherwise return a null SDValue.
-  ///
-  /// (This exists alongside SimplifyDemandedBits because GetDemandedBits can
-  /// simplify nodes with multiple uses more aggressively.)
-  SDValue GetDemandedBits(SDValue V, const APInt &DemandedBits);
-
-  /// See if the specified operand can be simplified with the knowledge that
-  /// only the bits specified by DemandedBits are used in the elements specified
-  /// by DemandedElts.  If so, return the simpler operand, otherwise return a
-  /// null SDValue.
-  ///
-  /// (This exists alongside SimplifyDemandedBits because GetDemandedBits can
-  /// simplify nodes with multiple uses more aggressively.)
-  SDValue GetDemandedBits(SDValue V, const APInt &DemandedBits,
-                          const APInt &DemandedElts);
-
   /// Return true if the sign bit of Op is known to be zero.
   /// We use this predicate to simplify operations downstream.
   bool SignBitIsZero(SDValue Op, unsigned Depth = 0) const;
@@ -1906,6 +1890,11 @@ public:
   /// known to be the same type.
   bool MaskedValueIsZero(SDValue Op, const APInt &Mask,
                          const APInt &DemandedElts, unsigned Depth = 0) const;
+
+  /// Return true if 'Op' is known to be zero in DemandedElts.  We
+  /// use this predicate to simplify operations downstream.
+  bool MaskedVectorIsZero(SDValue Op, const APInt &DemandedElts,
+                          unsigned Depth = 0) const;
 
   /// Return true if '(Op & Mask) == Mask'.
   /// Op and Mask are known to be the same type.
@@ -2002,6 +1991,32 @@ public:
     return isGuaranteedNotToBeUndefOrPoison(Op, DemandedElts,
                                             /*PoisonOnly*/ true, Depth);
   }
+
+  /// Return true if Op can create undef or poison from non-undef & non-poison
+  /// operands. The DemandedElts argument limits the check to the requested
+  /// vector elements.
+  ///
+  /// \p ConsiderFlags controls whether poison producing flags on the
+  /// instruction are considered.  This can be used to see if the instruction
+  /// could still introduce undef or poison even without poison generating flags
+  /// which might be on the instruction.  (i.e. could the result of
+  /// Op->dropPoisonGeneratingFlags() still create poison or undef)
+  bool canCreateUndefOrPoison(SDValue Op, const APInt &DemandedElts,
+                              bool PoisonOnly = false,
+                              bool ConsiderFlags = true,
+                              unsigned Depth = 0) const;
+
+  /// Return true if Op can create undef or poison from non-undef & non-poison
+  /// operands.
+  ///
+  /// \p ConsiderFlags controls whether poison producing flags on the
+  /// instruction are considered.  This can be used to see if the instruction
+  /// could still introduce undef or poison even without poison generating flags
+  /// which might be on the instruction.  (i.e. could the result of
+  /// Op->dropPoisonGeneratingFlags() still create poison or undef)
+  bool canCreateUndefOrPoison(SDValue Op, bool PoisonOnly = false,
+                              bool ConsiderFlags = true,
+                              unsigned Depth = 0) const;
 
   /// Return true if the specified operand is an ISD::ADD with a ConstantSDNode
   /// on the right-hand side, or if it is an ISD::OR with a ConstantSDNode that

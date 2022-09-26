@@ -45,8 +45,7 @@
 #include <set>
 #include <vector>
 
-namespace lld {
-namespace coff {
+namespace lld::coff {
 
 extern std::unique_ptr<class LinkerDriver> driver;
 
@@ -71,6 +70,7 @@ extern COFFOptTable optTable;
 struct ParsedDirectives {
   std::vector<StringRef> exports;
   std::vector<StringRef> includes;
+  std::vector<StringRef> excludes;
   llvm::opt::InputArgList args;
 };
 
@@ -185,7 +185,9 @@ private:
   std::vector<StringRef> filePaths;
   std::vector<MemoryBufferRef> resources;
 
-  llvm::StringSet<> directivesExports;
+  llvm::DenseSet<StringRef> directivesExports;
+  llvm::DenseSet<StringRef> excludedSymbols;
+
   COFFLinkerContext &ctx;
 #if INTEL_CUSTOMIZATION
   // Return true if argv contains an response file (@) and the file
@@ -272,7 +274,6 @@ enum {
 #undef OPTION
 };
 
-} // namespace coff
-} // namespace lld
+} // namespace lld::coff
 
 #endif

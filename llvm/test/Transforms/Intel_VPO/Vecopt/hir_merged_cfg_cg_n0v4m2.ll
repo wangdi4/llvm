@@ -17,8 +17,8 @@
 ;       ret ;
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;m2" -vplan-enable-masked-variant-hir -vplan-print-after-create-masked-vplan -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;m2" -vplan-enable-masked-variant-hir -vplan-print-after-create-masked-vplan -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;m2" -vplan-enable-masked-variant-hir -vplan-print-after-create-masked-vplan -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n0;v4;m2" -vplan-enable-masked-variant-hir -vplan-print-after-create-masked-vplan -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
@@ -87,8 +87,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        |   (<4 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        + END LOOP
 
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
-; CHECK:             [[DOTVEC40:%.*]] = umax(1, sext.i32.i64([[C0]])) == [[VEC_TC30]]
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC30]]
+; CHECK-NEXT:        [[DOTVEC40:%.*]] = umax(1, sext.i32.i64([[C0]])) == [[VEC_TC30]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[PHI_TEMP60:%.*]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC40]],  0
@@ -97,8 +97,9 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:           goto final.merge.50
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].28:
+; CHECK-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1>
 ; CHECK-NEXT:        [[LOOP_UB90:%.*]] = umax(1, sext.i32.i64([[C0]]))  -  1
-; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB90]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB90]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1> <u umax(1, sext.i32.i64([[C0]]))
 ; CHECK-NEXT:        |   (<2 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1>, Mask = @{[[DOTVEC100]]}
 ; CHECK-NEXT:        |   [[DOTVEC110:%.*]] = i1 + <i64 0, i64 1> + 2 <u umax(1, sext.i32.i64([[C0]]))
@@ -106,7 +107,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        |   [[CMP120:%.*]] = [[TMP0]] == 0
 ; CHECK-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP120]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[IND_FINAL130:%.*]] = [[LOOP_UB90]]  +  1
+; CHECK:             [[IND_FINAL130:%.*]] = 0 + umax(1, sext.i32.i64([[C0]]))
 ; CHECK:             [[PHI_TEMP60]] = [[IND_FINAL130]]
 ; CHECK-NEXT:        final.merge.50:
 ; CHECK-NEXT:        ret

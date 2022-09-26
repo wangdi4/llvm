@@ -1,9 +1,9 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S -debug-only=vpo-paropt-target -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S -debug-only=vpo-paropt-target -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S -debug-only=vpo-paropt-target -disable-output %s 2>&1 | FileCheck %s
-;
-; Test src:
 
+; Test src:
+;
 ; #include <stdio.h>
 ; #include <omp.h>
 ;
@@ -39,28 +39,44 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
-; Function Attrs: noinline nounwind optnone uwtable
-declare void @foo_gpu(double* %x, i8* %interop_obj) #0
+@.str = private unnamed_addr constant [24 x i8] c"enter variant function\0A\00", align 1
+@.str.1 = private unnamed_addr constant [21 x i8] c"enter base function\0A\00", align 1
 
 ; Function Attrs: noinline nounwind optnone uwtable
-declare void @foo(double* %x) #2
-
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @bar(double* %y) #3 {
+define dso_local void @foo_gpu(ptr noundef %x, ptr noundef %interop_obj) #0 {
 entry:
-  %y.addr = alloca double*, align 8
-  store double* %y, double** %y.addr, align 8
+  %x.addr = alloca ptr, align 8
+  %interop_obj.addr = alloca ptr, align 8
+  store ptr %x, ptr %x.addr, align 8
+  store ptr %interop_obj, ptr %interop_obj.addr, align 8
+  %call = call i32 (ptr, ...) @printf(ptr noundef @.str)
+  ret void
+}
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(double** %y.addr) ]
-  %y.val = load double*, double** %y.addr, align 8
-  call void @foo(double* %y.val) #4
+declare dso_local i32 @printf(ptr noundef, ...) #1
+
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local void @foo(ptr noundef %x) #2 {
+entry:
+  %x.addr = alloca ptr, align 8
+  store ptr %x, ptr %x.addr, align 8
+  %call = call i32 (ptr, ...) @printf(ptr noundef @.str.1)
+  ret void
+}
+
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local void @bar(ptr noundef %y) #3 {
+entry:
+  %y.addr = alloca ptr, align 8
+  store ptr %y, ptr %y.addr, align 8
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"() ]
+  %1 = load ptr, ptr %y.addr, align 8
+  call void @foo(ptr noundef %1) #4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"() ]
-
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISPATCH"() ]
-  %y.val1 = load double*, double** %y.addr, align 8
-  call void @foo(double* %y.val1) #4 [ "QUAL.OMP.DISPATCH.CALL"() ]
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.DISPATCH"() ]
-
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISPATCH"() ]
+  %3 = load ptr, ptr %y.addr, align 8
+  call void @foo(ptr noundef %3) #4 [ "QUAL.OMP.DISPATCH.CALL"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.DISPATCH"() ]
   ret void
 }
 
@@ -70,15 +86,15 @@ declare token @llvm.directive.region.entry() #4
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #4
 
-attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { "approx-func-fp-math"="true" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #2 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-variant"="name:foo_gpu;arch:gen;construct:target_variant_dispatch;;name:foo_gpu;construct:dispatch;need_device_ptr:T;interop:targetsync" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #3 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #2 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen;;name:foo_gpu;construct:dispatch;need_device_ptr:T;interop:targetsync" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #3 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #4 = { nounwind }
 
 !llvm.module.flags = !{!0, !1, !2, !3}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"openmp", i32 51}
-!2 = !{i32 7, !"uwtable", i32 1}
+!2 = !{i32 7, !"uwtable", i32 2}
 !3 = !{i32 7, !"frame-pointer", i32 2}

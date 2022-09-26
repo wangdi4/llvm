@@ -15,6 +15,7 @@
 #include "Intel_DTrans/Analysis/DTransBadCastingAnalyzerOP.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransRelatedTypesUtils.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -841,6 +842,20 @@ public:
                                     "Byte flattened GEP could not be resolved",
                                     GEP);
       return;
+    }
+
+    auto FlatGepInfo = PTA.getFlattenedGEPElement(GEP);
+    if (FlatGepInfo) {
+      // TODO: To fully support arbitrary flattened GEPs, we need to extend the
+      // DTransFieldInfo structure, and locations that use the DTransFieldInfo
+      // structure to indicate which fields are addressed that way. Also,
+      // transformations may need to be updated to be able to process those
+      // GEPs. Because currently this is not seen on the types we know we
+      // need to transform, we will just mark the structure that is indexed as
+      // 'unhandled'.
+      setAllElementPointeeSafetyData(
+          GEPInfo, dtrans::UnhandledUse,
+          "Only byte-flattened GEPs currently supported", GEP);
     }
 
     if (!PtrInfo->canAliasToAggregatePointer())
@@ -2231,11 +2246,17 @@ public:
       // expected type for the indexed element.
       else if (!isElementLoadStoreTypeCompatible(IndexedType, ValTy)) {
         TypesCompatible = false;
-        // If the expected type was a pointer or the used type was a pointer,
-        // then mark it as bad casting.
-        BadCasting = (IndexedType->isPointerTy() &&
-                      ValTy != getDTransPtrSizedIntPtrType()) ||
-                     ValTy->isPointerTy();
+        if ((IndexedType->isPointerTy() &&
+             ValTy != getDTransPtrSizedIntPtrType()) || ValTy->isPointerTy()) {
+          // If the indexed and value type are both ptrs that are making
+          // scalar accesses, the should be treated as mismatched element
+          // access, otherwise if the expected type was a pointer or the used
+          // type was a pointer, then mark it as bad casting.
+          if (!(IndexedType->isPointerTy() && ValTy->isPointerTy() &&
+                !IndexedType->getPointerElementType()->isAggregateType() &&
+                !ValTy->getPointerElementType()->isAggregateType()))
+            BadCasting = true;
+         }
       }
       // Check whether the value is compatible with the pointer operand
       else if (!areLoadStoreTypesCompatible(IndexedType, ValInfo, ValOp,
@@ -2891,6 +2912,13 @@ public:
     }
 
     if (auto *ParentStTy = dyn_cast<DTransStructType>(ParentTy)) {
+      // It's possible to have a type alias that is an opaque or empty
+      // structure type. In that case, there is no field info to set, so just
+      // return.
+      auto *LLVMParentStTy = cast<llvm::StructType>(ParentStTy->getLLVMType());
+      if (LLVMParentStTy->getStructNumElements() == 0)
+        return;
+
       auto *TI = DTInfo.getTypeInfo(ParentTy);
       assert(TI && "visitModule() should create all TypeInfo objects");
       auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI);
@@ -3896,6 +3924,13 @@ public:
       dtrans::collectSpecialFreeArgs(FKind, &Call, SpecialArguments, TLI);
     }
 
+    bool DummyAlloc = DTransAllocCollector::isDummyFuncWithThisAndIntArgs(
+        &Call, TLI, MDReader);
+    // Ignore arguments of DummyAlloc by treating them as special arguments.
+    if (DummyAlloc)
+      for (unsigned ArgNum = 0; ArgNum < Call.arg_size(); ++ArgNum)
+        SpecialArguments.insert(Call.getArgOperand(ArgNum));
+
     // If the call returns a type of interest, then we need to analyze the
     // return value for safety bits that need to be set
     Function *F = dtrans::getCalledFunction(Call);
@@ -3921,9 +3956,14 @@ public:
         // allowed as a safe alias type when analyzing instructions that use the
         // value. Other type mismatches should be detected when the value gets
         // used.
+        // Not necessary to set dtrans::BadCasting if Call is Dummy allocation
+        // function that doesn't really allocate any memory.
+        bool NotAllocOrDummyCall =
+            !DummyAlloc && (AKind == dtrans::AK_NotAlloc);
+
         if (PTA.getDominantType(*Info, ValueTypeInfo::VAT_Decl) ==
                 getDTransI8PtrType() &&
-            AKind == dtrans::AK_NotAlloc)
+            NotAllocOrDummyCall)
           setAllAliasedTypeSafetyData(
               Info, dtrans::BadCasting,
               "i8* type returned by call used as aggregate pointer type",
@@ -5183,7 +5223,7 @@ public:
     // are types of interest.
     for (Value *Arg : I.args()) {
       ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
-      if (!Info)
+      if (!Info || Info->empty())
         continue;
       setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
                                             "Value passed to intrinsic", &I);
@@ -5221,18 +5261,18 @@ public:
     if (dtrans::isValueEqualToSize(SetSize, ElementSize))
       return true;
 
-    dtrans::MemfuncRegion RegionDesc;
-    llvm::StructType *CurrLLVMTy = cast<StructType>(StrLLVMTy);
-    while (CurrLLVMTy) {
-      if (analyzePartialStructUse(DL, CurrLLVMTy, /*FieldNum =*/ 0,
-                                  /*PrePadBytes = */ 0, SetSize,
-                                  &RegionDesc))
+    MFTypeRegionVec RegionDescVec;
+    while (DTStruct) {
+      if (analyzePartialStructUse(DL, DTStruct, /*FieldNum =*/0,
+                                  /*PrePadBytes = */0, SetSize,
+                                  /*AllowRecuse=*/false,
+                                  RegionDescVec))
         return true;
 
-      if (CurrLLVMTy->getNumElements() == 0)
+      if (DTStruct->getNumFields() == 0)
         return false;
 
-      CurrLLVMTy = dyn_cast<StructType>(CurrLLVMTy->getElementType(0));
+      DTStruct = dyn_cast<DTransStructType>(DTStruct->getFieldType(0));
     }
 
     return false;
@@ -5298,12 +5338,17 @@ public:
                                   &PrePadBytes)) {
 
         // Check the structure, and mark any safety flags needed.
-        dtrans::MemfuncRegion RegionDesc;
+        MFTypeRegionVec RegionDescVec;
         if (analyzeMemfuncStructureMemberParam(
-                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc,
+                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDescVec,
                 IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue))
-          createMemsetCallInfo(I, StructTy, RegionDesc);
-
+          for (auto RegionDesc : RegionDescVec) {
+            createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
+            if (RegionDescVec.size() > 1)
+              setBaseTypeInfoSafetyData(RegionDesc.first,
+                                        dtrans::MultiStructMemFunc,
+                                        "multi-struct mem func", &I);
+          }
         return;
       }
 
@@ -5408,13 +5453,19 @@ public:
     // Check for the case where a portion of a structure is being set, starting
     // from field number zero.
     if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
-      dtrans::MemfuncRegion RegionDesc;
+      MFTypeRegionVec RegionDescVec;
       if (analyzeMemfuncStructureMemberParam(
               I, StructTy, /*FieldNum=*/0,
-              /*PrePadBytes=*/0, SetSize, RegionDesc,
+              /*PrePadBytes=*/0, SetSize, RegionDescVec,
               IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue)) {
 
-        createMemsetCallInfo(I, StructTy, RegionDesc);
+        for (auto RegionDesc : RegionDescVec) {
+          createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
+          if (RegionDescVec.size() > 1)
+            setBaseTypeInfoSafetyData(RegionDesc.first,
+                                      dtrans::MultiStructMemFunc,
+                                      "multi-struct mem func", &I);
+        }
         return;
       }
     }
@@ -5567,13 +5618,13 @@ public:
                 // Mark the fields written, starting from the embedded
                 // structure field of the outer structure.
                 markStructFieldsWritten(OuterInfo, FieldNum, FieldNum, I,
-                                        FWT_ExistingValue);
+                                        FWT_ExistingValue, true);
 
                 if (ElemTy->isStructTy())
                   markStructFieldReaders(
                       cast<dtrans::StructInfo>(ElemInfo), 0,
                       cast<DTransStructType>(ElemTy)->getNumFields() - 1,
-                      I.getFunction());
+                      I.getFunction(), true);
 
               } else {
                 // Mark the fields in the embedded structure as written.
@@ -5586,7 +5637,7 @@ public:
                 // FieldInfo to record that the field may be referenced for the
                 // FieldModRef analysis.
                 markStructFieldReaders(OuterInfo, FieldNum, FieldNum,
-                                       I.getFunction());
+                                       I.getFunction(), true);
               }
               return;
             }
@@ -5679,10 +5730,11 @@ public:
       }
 
       // Identify the set of fields affected.
-      dtrans::MemfuncRegion RegionDesc;
+      MFTypeRegionVec RegionDescVec;
       if (!analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
                                               DstPrePadBytes, SetSize,
-                                              RegionDesc, FWT_ExistingValue)) {
+                                              RegionDescVec,
+                                              FWT_ExistingValue)) {
         SetSafetyDataOnElementPointees(
             DstInfo, dtrans::BadMemFuncSize,
             "memcpy/memmove - unsupport array, or invalid offset/size", &I);
@@ -5691,21 +5743,30 @@ public:
       }
 
       // The call is safe for the ElementPointee.
-      createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind,
-                                    /*RegionDescDest=*/RegionDesc,
-                                    /*RegionDescSrc=*/RegionDesc);
+      bool FirstTime = true;
+      for (auto RegionDesc : RegionDescVec) {
+        createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
+                                      /*RegionDescDest=*/RegionDesc.second,
+                                      /*RegionDescSrc=*/RegionDesc.second);
 
-      // NOTE: For memcpy/memmove, we do not mark the "Read" property in the
-      // FieldInfo objects. This is to allow for field deletion to identify the
-      // field as potentially unneeded. However, we need to add the function to
-      // the "Readers" list in the FieldInfo to record that the field may be
-      // referenced for the FieldModRef analysis.
-      assert(SrcStructTy->isStructTy() && "Source should be structure");
-      auto *SI =
-          cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(SrcStructTy));
-      assert(SI && "visitModule() should create all TypeInfo objects");
-      markStructFieldReaders(SI, RegionDesc.FirstField, RegionDesc.LastField,
-                             I.getFunction());
+        // NOTE: For memcpy/memmove, we do not mark the "Read" property in the
+        // FieldInfo objects. This is to allow for field deletion to identify
+        // the field as potentially unneeded. However, we need to add the
+        // function to the "Readers" list in the FieldInfo to record that the
+        // field may be referenced for the FieldModRef analysis.
+        assert(RegionDesc.first->isStructTy() && "Source should be structure");
+        dtrans::TypeInfo *TyInfo = DTInfo.getTypeInfo(RegionDesc.first);
+        auto *SI = cast_or_null<dtrans::StructInfo>(TyInfo);
+        assert(SI && "visitModule() should create all TypeInfo objects");
+        markStructFieldReaders(SI, RegionDesc.second.FirstField,
+                               RegionDesc.second.LastField, I.getFunction(),
+                               FirstTime);
+        if (RegionDescVec.size() > 1)
+          setBaseTypeInfoSafetyData(RegionDesc.first,
+                                    dtrans::MultiStructMemFunc,
+                                    "multi-struct mem func", &I);
+        FirstTime = false;
+       }
       return;
     }
 
@@ -5832,7 +5893,8 @@ public:
         auto *SI = cast_or_null<dtrans::StructInfo>(
             DTInfo.getTypeInfo(SrcPointeeType));
         assert(SI && "visitModule() should create all TypeInfo objects");
-        markStructFieldReaders(SI, 0, SI->getNumFields() - 1, I.getFunction());
+        markStructFieldReaders(SI, 0, SI->getNumFields() - 1, I.getFunction(),
+                               true);
       }
 
       return;
@@ -5841,27 +5903,36 @@ public:
     // Check for the case where a portion of a structure is being set, starting
     // from field number zero.
     if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
-      dtrans::MemfuncRegion RegionDesc;
+      MFTypeRegionVec RegionDescVec;
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
-                                             RegionDesc, FWT_ExistingValue)) {
+                                             RegionDescVec,
+                                             FWT_ExistingValue)) {
         // The call is safe, and affects the region described in RegionDesc
-        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind,
-                                      /*RegionDescDest=*/RegionDesc,
-                                      /*RegionDescSrc=*/RegionDesc);
+        bool FirstTime = true;
+        for (auto RegionDesc : RegionDescVec) {
+          createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
+                                        /*RegionDescDest=*/RegionDesc.second,
+                                        /*RegionDescSrc=*/RegionDesc.second);
 
-        auto *SrcPointeeType = SrcParentTy->getPointerElementType();
-        if (SrcPointeeType->isStructTy()) {
-          // For ModRef information of the field, we add the function to the
-          // "Readers" list in the FieldInfo to record that the field may be
-          // referenced.
-          auto *SI = cast_or_null<dtrans::StructInfo>(
-              DTInfo.getTypeInfo(SrcPointeeType));
-          assert(SI && "visitModule() should create all TypeInfo objects");
-          markStructFieldReaders(SI, RegionDesc.FirstField,
-                                 RegionDesc.LastField, I.getFunction());
+          auto *SrcPointeeType = RegionDesc.first;
+          if (SrcPointeeType->isStructTy()) {
+            // For ModRef information of the field, we add the function to the
+            // "Readers" list in the FieldInfo to record that the field may be
+            // referenced.
+            auto *SI = cast_or_null<dtrans::StructInfo>(
+                DTInfo.getTypeInfo(SrcPointeeType));
+            assert(SI && "visitModule() should create all TypeInfo objects");
+            markStructFieldReaders(SI, RegionDesc.second.FirstField,
+                                   RegionDesc.second.LastField,
+                                   I.getFunction(), FirstTime);
+          }
+          if (RegionDescVec.size() > 1)
+            setBaseTypeInfoSafetyData(RegionDesc.first,
+                                      dtrans::MultiStructMemFunc,
+                                      "multi-struct mem func", &I);
+          FirstTime = false;
         }
-
         return;
       }
     }
@@ -5989,25 +6060,26 @@ public:
                                           DTransStructType *StructTy,
                                           size_t FieldNum, uint64_t PrePadBytes,
                                           Value *SetSize,
-                                          dtrans::MemfuncRegion &RegionDesc,
+                                          MFTypeRegionVec &RegionDescVec,
                                           FieldWriteType WriteType) {
-    dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(StructTy);
-    assert(ParentTI && "visitModule() should create all TypeInfo objects");
-    llvm::StructType *LLVMTy = cast<llvm::StructType>(StructTy->getLLVMType());
-
     // Try to determine if a set of fields in a structure is being written.
-    if (analyzePartialStructUse(DL, LLVMTy, FieldNum, PrePadBytes, SetSize,
-                                &RegionDesc)) {
-      // If not all members of the structure were set, mark it as a partial
-      // write.
-      if (!RegionDesc.IsCompleteAggregate) {
-        setBaseTypeInfoSafetyData(
-            StructTy, dtrans::MemFuncPartialWrite,
-            "size covers subset of fields of the structures", &I);
+    if (analyzePartialStructUse(DL, StructTy, FieldNum, PrePadBytes, SetSize,
+                                /*AllowRecurse=*/true, RegionDescVec)) {
+      bool FirstTime = true;
+      for (auto RegionDesc : RegionDescVec) {
+        // If not all members of the structure were set, mark it as a partial
+        // write.
+        if (!RegionDesc.second.IsCompleteAggregate) {
+          setBaseTypeInfoSafetyData(
+              RegionDesc.first, dtrans::MemFuncPartialWrite,
+              "size covers subset of fields of the structures", &I);
+        }
+        dtrans::TypeInfo *LParentTI = DTInfo.getTypeInfo(RegionDesc.first);
+        markStructFieldsWritten(LParentTI, RegionDesc.second.FirstField,
+                                RegionDesc.second.LastField, I, WriteType,
+                                FirstTime);
+        FirstTime = false;
       }
-
-      markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
-                              RegionDesc.LastField, I, WriteType);
       return true;
     }
 
@@ -6384,6 +6456,12 @@ public:
     return;
   }
 
+  void visitInsertValueInst(InsertValueInst &I) {
+    // This instruction results in a type containing a pointer, but there are no
+    // safety flags affected.
+    return;
+  }
+
   void visitFreezeInst(FreezeInst &I) {
     // This instruction may result in a type containing a pointer, but there are
     // no safety flags affected.
@@ -6402,7 +6480,8 @@ public:
     assert((!dtrans::hasPointerType(I.getType()) || Info) &&
            "Expected pointer type analyzer to analyze pointer result");
 
-    if (Info && Info->canAliasToAggregatePointer()) {
+    if (Info &&
+        (Info->canAliasToAggregatePointer() || Info->pointsToSomeElement())) {
       setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
                                             "Unhandled instruction", &I);
     }
@@ -6410,7 +6489,8 @@ public:
     for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum)
       if (IsPossiblePtrValue(I.getOperand(OpNum))) {
         ValueTypeInfo *OpInfo = PTA.getValueTypeInfo(&I, OpNum);
-        if (OpInfo && OpInfo->canAliasToAggregatePointer())
+        if (OpInfo && (OpInfo->canAliasToAggregatePointer() ||
+                       OpInfo->pointsToSomeElement()))
           setAllAliasedAndPointeeTypeSafetyData(
               OpInfo, dtrans::UnhandledUse,
               "Operand used in unhandled instruction", &I);
@@ -6876,6 +6956,7 @@ private:
     case dtrans::LocalInstance:
     case dtrans::LocalPtr:
     case dtrans::MemFuncPartialWrite:
+    case dtrans::MultiStructMemFunc:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
     case dtrans::MismatchedElementAccessPending:
@@ -6944,6 +7025,7 @@ private:
     case dtrans::MismatchedElementAccessPending:
     case dtrans::MismatchedElementAccessConditional:
     case dtrans::MismatchedElementAccessRelatedTypes:
+    case dtrans::MultiStructMemFunc:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::SystemObject:
@@ -7316,10 +7398,13 @@ private:
 
   // A specialized form of the MarkAllFieldsWritten that is used to mark a
   // subset of fields of a structure type as written. Any contained aggregates
-  // within the subset are marked as completely written.
+  // within the subset are marked as completely written for all fields
+  // except the last and for the last also if 'MarkLastFieldContainedAggregates'
+  // is true.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
                                unsigned int LastField, Instruction &I,
-                               FieldWriteType WriteType) {
+                               FieldWriteType WriteType,
+                               bool MarkLastFieldContainedAggregates) {
     assert(TI && isa<dtrans::StructInfo>(TI) &&
            "markStructFieldsWritten requires Structure type");
 
@@ -7343,16 +7428,21 @@ private:
       // TODO: Update frequency count for field info
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
       assert(ComponentTI && "visitModule() should create all TypeInfo objects");
-      markAllFieldsWritten(ComponentTI, I, WriteType);
+      if (Idx < LastField || MarkLastFieldContainedAggregates)
+        markAllFieldsWritten(ComponentTI, I, WriteType);
     }
   }
 
   // Update the fields of the structure \p StInfo from \p FirstField to \p
   // LastField to indicate that a read occurs via a memcpy or memmove call
-  // within the function containing Instruction \p I.
+  // within the function containing Instruction \p I. Any contained aggregates
+  // within the subset are marked as completely read for all fields
+  // except the last and for the last also if 'MarkLastFieldContainedAggregates'
+  // is true.
   void markStructFieldReaders(dtrans::StructInfo *StInfo,
                               unsigned int FirstField, unsigned int LastField,
-                              Function *F) {
+                              Function *F,
+                              bool MarkLastFieldContainedAggregates) {
     assert(LastField >= FirstField && LastField < StInfo->getNumFields() &&
            "markStructFieldsRead with invalid field index");
 
@@ -7360,9 +7450,10 @@ private:
       auto &FI = StInfo->getField(Idx);
       FI.addReader(F);
       dtrans::TypeInfo *FieldInfo = DTInfo.getTypeInfo(FI.getDTransType());
-      if (auto *FieldStInfo = dyn_cast<dtrans::StructInfo>(FieldInfo))
-        markStructFieldReaders(FieldStInfo, 0, FieldStInfo->getNumFields() - 1,
-                               F);
+      if (Idx < LastField || MarkLastFieldContainedAggregates)
+        if (auto *FieldStInfo = dyn_cast<dtrans::StructInfo>(FieldInfo))
+          markStructFieldReaders(FieldStInfo, 0,
+                                 FieldStInfo->getNumFields() - 1, F, true);
     }
   }
 
@@ -7694,8 +7785,10 @@ void DTransSafetyInfo::analyzeModule(
   TM = std::make_unique<DTransTypeManager>(Ctx);
   MDReader = std::make_unique<TypeMetadataReader>(*TM);
   if (!MDReader->initialize(M)) {
-    LLVM_DEBUG(dbgs() << "DTransSafetyInfo: Type metadata reader did not find "
-                         "structure type metadata\n");
+    LLVM_DEBUG(
+        dbgs()
+        << "DTransSafetyInfo: Type metadata reader did not find "
+           "structure type metadata or errors were detected in the metadata\n");
     return;
   }
 
@@ -8263,22 +8356,25 @@ void DTransSafetyInfo::printCallInfo() {
   // that can be sorted, then output the sorted list.
   // Sort order is: Function name, CallInfoKind, Instruction
   std::vector<std::tuple<StringRef, dtrans::CallInfo::CallInfoKind, std::string,
-                         dtrans::CallInfo *>>
+                         unsigned, dtrans::CallInfo *>>
       Entries;
 
-  for (auto *CI : call_info_entries()) {
-    Instruction *I = CI->getInstruction();
-    std::string InstStr;
-    raw_string_ostream Stream(InstStr);
-    I->printAsOperand(Stream);
-    Stream.flush();
-    Entries.emplace_back(std::make_tuple(I->getFunction()->getName(),
-                                         CI->getCallInfoKind(), InstStr, CI));
-  }
+  for (auto CIVec : call_info_entries())
+    for (auto &E : enumerate(CIVec)) {
+      auto *CI = E.value();
+      Instruction *I = CI->getInstruction();
+      std::string InstStr;
+      raw_string_ostream Stream(InstStr);
+      I->printAsOperand(Stream);
+      Stream.flush();
+      Entries.emplace_back(std::make_tuple(I->getFunction()->getName(),
+                                           CI->getCallInfoKind(), InstStr,
+                                           E.index(), CI));
+    }
 
   std::sort(Entries.begin(), Entries.end());
   for (auto &Entry : Entries) {
-    dtrans::CallInfo *CI = std::get<3>(Entry);
+    dtrans::CallInfo *CI = std::get<4>(Entry);
     Instruction *I = CI->getInstruction();
     dbgs() << "Function: " << I->getFunction()->getName() << "\n";
     dbgs() << "Instruction: " << *I << "\n";

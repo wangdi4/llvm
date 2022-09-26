@@ -1,4 +1,5 @@
-; RUN: llc < %s -mtriple=nvptx64-nvidia-cuda | FileCheck %s
+; INTEL: Added options to revert to upstream behavior
+; RUN: llc < %s -mtriple=nvptx64-nvidia-cuda -salvage-addrspacecast-dbginfo=false -infer-as-update-dbg-var-intrin=false | FileCheck %s
 ; RUN: %if ptxas %{ llc < %s -mtriple=nvptx64-nvidia-cuda | %ptxas-verify %}
 
 ; // Bitcode int this test case is reduced version of compiled code below:

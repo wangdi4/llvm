@@ -70,18 +70,18 @@ int *const *f5(float add, int * const &res)
 // TARG-NEXT:    [[ONE_ASCAST:%.*]] = addrspacecast i32 (i32)** [[ONE]] to i32 (i32)* addrspace(4)*
 // TARG-NEXT:    [[ONE_MAP_PTR_TMP_ASCAST:%.*]] = addrspacecast i32 (i32)** [[ONE_MAP_PTR_TMP]] to i32 (i32)* addrspace(4)*
 // TARG:    [[TMP4:%.*]] = load i32 addrspace(4)* addrspace(4)* (float, i32 addrspace(4)* addrspace(4)*)*, i32 addrspace(4)* addrspace(4)* (float, i32 addrspace(4)* addrspace(4)*)* addrspace(4)* [[G_MAP_PTR_TMP_ASCAST]], align 8
-// TARG-NEXT:    [[TMP5:%.*]] = addrspacecast i32 addrspace(4)* addrspace(4)* (float, i32 addrspace(4)* addrspace(4)*)* [[TMP4]] to i8 addrspace(4)*
-// TARG-NEXT:    [[TMP6:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i8 addrspace(4)* [[TMP5]])
+// TARG-NEXT:    [[TMP5:%.*]] = ptrtoint i32 addrspace(4)* addrspace(4)* (float, i32 addrspace(4)* addrspace(4)*)* [[TMP4]] to i64
+// TARG-NEXT:    [[TMP6:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i64 [[TMP5]])
 // TARG-NEXT:    [[TMP7:%.*]] = addrspacecast i8 addrspace(4)* [[TMP6]] to i32 addrspace(4)* addrspace(4)* (float, i32 addrspace(4)* addrspace(4)*)*
 // TARG-NEXT:    [[TMP8:%.*]] = call i32 addrspace(4)* addrspace(4)* [[TMP7]](float 3.000000e+00, i32 addrspace(4)* addrspace(4)* [[CP_MAP_PTR_TMP_ASCAST]])
 // TARG:  [[TMP11:%.*]] = load i32 (i32, i32)*, i32 (i32, i32)* addrspace(4)* [[TWO_MAP_PTR_TMP_ASCAST]], align 8
-// TARG-NEXT:    [[TMP12:%.*]] = addrspacecast i32 (i32, i32)* [[TMP11]] to i8 addrspace(4)*
-// TARG-NEXT:    [[TMP13:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i8 addrspace(4)* [[TMP12]])
+// TARG-NEXT:    [[TMP12:%.*]] = ptrtoint i32 (i32, i32)* [[TMP11]] to i64
+// TARG-NEXT:    [[TMP13:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i64 [[TMP12]])
 // TARG-NEXT:    [[TMP14:%.*]] = addrspacecast i8 addrspace(4)* [[TMP13]] to i32 (i32, i32)*
 // TARG-NEXT:    [[TMP15:%.*]] = call i32 [[TMP14]](i32 1, i32 2)
 // TARG:    [[TMP20:%.*]] = load i32 (i32)*, i32 (i32)* addrspace(4)* [[ONE_MAP_PTR_TMP_ASCAST]], align 8
-// TARG-NEXT:    [[TMP21:%.*]] = addrspacecast i32 (i32)* [[TMP20]] to i8 addrspace(4)*
-// TARG-NEXT:    [[TMP22:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i8 addrspace(4)* [[TMP21]])
+// TARG-NEXT:    [[TMP21:%.*]] = ptrtoint i32 (i32)* [[TMP20]] to i64
+// TARG-NEXT:    [[TMP22:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i64 [[TMP21]])
 // TARG-NEXT:    [[TMP23:%.*]] = addrspacecast i8 addrspace(4)* [[TMP22]] to i32 (i32)*
 // TARG-NEXT:    [[TMP24:%.*]] = call i32 [[TMP23]](i32 1)
 // TARG:    ret void
@@ -138,8 +138,8 @@ struct C {
 // TARG-NEXT:    br label [[MEMPTR_END]]
 // TARG:       memptr.end:
 // TARG-NEXT:    [[TMP10:%.*]] = phi void ([[STRUCT_C]] addrspace(4)*)* [ [[MEMPTR_VIRTUALFN]], [[MEMPTR_VIRTUAL]] ], [ [[MEMPTR_NONVIRTUALFN]], [[MEMPTR_NONVIRTUAL]] ]
-// TARG-NEXT:    [[TMP11:%.*]] = addrspacecast void ([[STRUCT_C]] addrspace(4)*)* [[TMP10]] to i8 addrspace(4)*
-// TARG-NEXT:    [[TMP12:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i8 addrspace(4)* [[TMP11]])
+// TARG-NEXT:    [[TMP11:%.*]] = ptrtoint void ([[STRUCT_C]] addrspace(4)*)* [[TMP10]] to i64
+// TARG-NEXT:    [[TMP12:%.*]] = call i8 addrspace(4)* @__kmpc_target_translate_fptr(i64 [[TMP11]])
 // TARG-NEXT:    [[TMP13:%.*]] = addrspacecast i8 addrspace(4)* [[TMP12]] to void ([[STRUCT_C]] addrspace(4)*)*
 // TARG-NEXT:    call void [[TMP13]]([[STRUCT_C]] addrspace(4)* [[THIS_ADJUSTED]])
 // TARG-NEXT:    ret void

@@ -233,7 +233,6 @@ constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_FEATURE_ISA_AVX256
 #define ENABLE_ISA_AVX256
 // FIXME: Need to add AVX512-BF16-NE
-// FIXME: Need to add PBNDKB
 constexpr FeatureBitset FeaturesCommonAVX256 =
 #endif // INTEL_FEATURE_ISA_AVX256
 #ifdef ENABLE_ISA_AVX256
@@ -301,6 +300,138 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
     FeaturesSapphireRapids;
 #undef ENABLE_ISA_AVX256
 #endif // INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_CPU_GNR
+#define ENABLE_CPU_GNR
+constexpr FeatureBitset FeaturesGraniteRapids =
+#endif // INTEL_FEATURE_CPU_GNR
+#ifdef ENABLE_CPU_GNR
+#if INTEL_FEATURE_ISA_AMX_FP16
+    FeatureAMX_FP16 |
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_PREFETCHI
+    FeaturePREFETCHI |
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // ENABLE_CPU_GNR
+#if INTEL_FEATURE_CPU_GNR
+    FeaturesSapphireRapids;
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+#define ENABLE_CPU_DMR
+constexpr FeatureBitset FeaturesLioncoveServer =
+#endif // INTEL_FEATURE_CPU_DMR
+#ifdef ENABLE_CPU_DMR
+#if INTEL_FEATURE_CPU_GNR
+    FeaturesGraniteRapids |
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_ISA_SM3
+    FeatureSM3 |
+#endif // INTEL_FEATURE_ISA_SM3
+#if INTEL_FEATURE_ISA_SM4
+    FeatureSM4 |
+#endif // INTEL_FEATURE_ISA_SM4
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+    FeatureAVX512VNNIFP16 |
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+    FeatureAVX512VNNIINT16 |
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+    FeatureAVX512VNNIINT8 |
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+// FIXME: Need to change to AVX-NE-CONVERT
+    FeatureAVXCONVERT |
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
+    FeatureAVXVNNIINT16 |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+    FeatureAVXVNNIINT8 |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+    FeatureAVX512MEDIAX |
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+// FIXME: Need to change to AVX512-NE-CONVERT
+    FeatureAVX512CONVERT |
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+    FeatureAVX512BF16NE |
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#if INTEL_FEATURE_ISA_AVX_IFMA
+    FeatureAVXIFMA |
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_CMPCCXADD
+    FeatureCMPCCXADD |
+#endif // INTEL_FEATURE_ISA_CMPCCXADD
+#if INTEL_FEATURE_ISA_SHA512
+    FeatureSHA512 |
+#endif // INTEL_FEATURE_ISA_SHA512
+#if INTEL_FEATURE_ISA_PREFETCHST2
+    FeaturePREFETCHST2 |
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#if INTEL_FEATURE_ISA_AMX_LNC
+// FIXME: according to latest EAS (lnc-rev52 and pnc-rev11), part of AMX_TRANSPOSE
+// is split into AMX_INTERLEAVE, which is introduced in pnc.
+    FeatureAMX_TRANSPOSE |
+    FeatureAMX_AVX512 |
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+    FeatureAMX_COMPLEX |
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_TF32
+    FeatureAMX_TF32;
+#endif // INTEL_FEATURE_ISA_AMX_TF32
+#endif // ENABLE_CPU_DMR
+#if INTEL_FEATURE_CPU_DMR
+constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
+// FIXME: Add FeatureMTT
+// FIXME: Add FeatureUMSR
+// FIXME: Add FeatureAMXF8
+// FIXME: Add FeatureAVX512NECONVERTFP8
+// FIXME: Add FeatureAVX512VNNIFP8
+#endif // INTEL_FEATURE_CPU_DMR
+#ifdef ENABLE_CPU_DMR
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+    FeatureAMX_SPARSE |
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
+#if INTEL_FEATURE_ISA_AMX_TILE2
+    FeatureAMX_TILE2 |
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+    FeatureAMX_MEMADVISE |
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+    FeatureAVX512MEMADVISE |
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+    FeatureAVX512MINMAX |
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
+#if INTEL_FEATURE_ISA_AVX512_COMPLEX
+    FeatureAVX512COMPLEX |
+#endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+    FeatureAVX512REDUCTION |
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+    FeatureAVX512SATCVT |
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX256P
+    FeatureAVX256P |
+#endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+    FeatureVPINSR_VPEXTR |
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#if INTEL_FEATURE_ISA_RAO_INT
+    FeatureRAOINT |
+#endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_ISA_AVX_RAO_FP
+    FeatureAVXRAOFP |
+#endif // INTEL_FEATURE_ISA_AVX_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+    FeatureAVX512RAOFP;
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#endif // ENABLE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
 
 // Intel Atom processors.
@@ -323,6 +454,20 @@ constexpr FeatureBitset FeaturesAlderlake =
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
     FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_MTL
+#define ENABLE_CPU_MTL
+constexpr FeatureBitset FeaturesMeteorlake =
+#endif // INTEL_FEATURE_CPU_MTL
+#ifdef ENABLE_CPU_MTL
+#if INTEL_FEATURE_ISA_PREFETCHI
+    FeaturePREFETCHI |
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // ENABLE_CPU_MTL
+#if INTEL_FEATURE_CPU_MTL
+    FeaturesAlderlake;
+#endif // INTEL_FEATURE_CPU_MTL
+#endif // INTEL_CUSTOMIZATION
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
@@ -380,8 +525,9 @@ constexpr FeatureBitset FeaturesZNVER1 =
     FeatureSSE | FeatureSSE2 | FeatureSSE3 | FeatureSSSE3 | FeatureSSE4_1 |
     FeatureSSE4_2 | FeatureSSE4_A | FeatureXSAVE | FeatureXSAVEC |
     FeatureXSAVEOPT | FeatureXSAVES;
-constexpr FeatureBitset FeaturesZNVER2 =
-    FeaturesZNVER1 | FeatureCLWB | FeatureRDPID | FeatureWBNOINVD;
+constexpr FeatureBitset FeaturesZNVER2 = FeaturesZNVER1 | FeatureCLWB |
+                                         FeatureRDPID | FeatureRDPRU |
+                                         FeatureWBNOINVD;
 static constexpr FeatureBitset FeaturesZNVER3 = FeaturesZNVER2 |
                                                 FeatureINVPCID | FeaturePKU |
                                                 FeatureVAES | FeatureVPCLMULQDQ;
@@ -415,7 +561,7 @@ constexpr ProcInfo Processors[] = {
   { {"prescott"}, CK_Prescott, ~0U, FeaturesPrescott },
   { {"nocona"}, CK_Nocona, ~0U, FeaturesNocona },
   // Core microarchitecture based processors.
-  { {"core2"}, CK_Core2, ~0U, FeaturesCore2 },
+  { {"core2"}, CK_Core2, FEATURE_SSSE3, FeaturesCore2 },
   { {"penryn"}, CK_Penryn, ~0U, FeaturesPenryn },
   // Atom processors
   { {"bonnell"}, CK_Bonnell, FEATURE_SSSE3, FeaturesBonnell },
@@ -475,6 +621,28 @@ constexpr ProcInfo Processors[] = {
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
   // Alderlake microarchitecture based processors.
   { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+  // Raptorlake microarchitecture based processors.
+  { {"raptorlake"}, CK_Raptorlake, FEATURE_AVX2, FeaturesAlderlake },
+#endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_GNR
+  // Graniterapids microarchitecture based processors.
+  { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512VP2INTERSECT, FeaturesGraniteRapids },
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+  // Diamondrapids microarchitecture based processors.
+  { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids },
+#endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+  // Meteorlake microarchitecture based processors.
+  { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesMeteorlake },
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+  // Emeraldrapids microarchitecture based processors.
+  { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
+#endif // INTEL_FEATURE_CPU_EMR
+#endif // INTEL_CUSTOMIZATION
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.
@@ -596,6 +764,7 @@ constexpr FeatureBitset ImpliedFeaturesPREFETCHWT1 = {};
 constexpr FeatureBitset ImpliedFeaturesPRFCHW = {};
 constexpr FeatureBitset ImpliedFeaturesPTWRITE = {};
 constexpr FeatureBitset ImpliedFeaturesRDPID = {};
+constexpr FeatureBitset ImpliedFeaturesRDPRU = {};
 constexpr FeatureBitset ImpliedFeaturesRDRND = {};
 constexpr FeatureBitset ImpliedFeaturesRDSEED = {};
 constexpr FeatureBitset ImpliedFeaturesRTM = {};
@@ -771,9 +940,6 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_CONVERT = FeatureAMX_TILE;
 #if INTEL_FEATURE_ISA_AMX_TILE2
 static constexpr FeatureBitset ImpliedFeaturesAMX_TILE2 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_BF8
-static constexpr FeatureBitset ImpliedFeaturesAMX_BF8 = FeatureAMX_TILE;
-#endif // INTEL_FEATURE_ISA_AMX_BF8
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
 static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
@@ -893,8 +1059,23 @@ static constexpr FeatureBitset ImpliedFeaturesAVX512MINMAX = FeatureAVX512BF16 |
 static constexpr FeatureBitset ImpliedFeaturesAVX512COMPLEX = FeatureAVX512FP16;
 #endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
-static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F;
+static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION2 = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX256P
+static constexpr FeatureBitset ImpliedFeaturesAVX256P = FeatureAVX2 | FeatureF16C | FeatureFMA;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+static constexpr FeatureBitset ImpliedFeaturesAVX512BF16NE =
+    FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#if INTEL_FEATURE_ISA_AMX_FP8
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesAMX_FP8 = FeatureAMX_TILE;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AMX_FP8
 #endif // INTEL_CUSTOMIZATION
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;

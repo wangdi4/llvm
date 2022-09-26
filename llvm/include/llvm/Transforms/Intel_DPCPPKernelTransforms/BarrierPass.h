@@ -31,7 +31,7 @@ namespace llvm {
 ///   Group-A   : Alloca instructions
 ///   Group-B.1 : Values crossed barriers and the value is
 ///              related to WI-Id or initialized inside a loop
-///   Group-B.2 : Value crossed barrier but does not suit Group-B.2
+///   Group-B.2 : Value crossed barrier but does not suit Group-B.1
 /// Synchronize instructions
 ///   barrier(), fiber() and dummyBarrier() instructions.
 /// Get LID/GID instructions
@@ -77,9 +77,9 @@ private:
   void useStackAsWorkspace(Instruction *InsertBeforeBegin,
                            Instruction *InsertBeforeEnd);
 
-  /// Hanlde Values of Group-A of processed function.
+  /// Hanlde Values of Group-A and debug info.
   /// F Function to fix.
-  void fixAllocaValues(Function &F);
+  void fixAllocaAndDbg(Function &F);
 
   /// Hanlde Values of Group-B.1 of processed function.
   void fixSpecialValues();
@@ -137,8 +137,7 @@ private:
   /// Fix usage of argument by loading it from special buffer
   /// if needed instead of reading it directly from the function arguments.
   /// OriginalArg original argument that need to be fix its usages,
-  /// OffsetArg offset in special buffer to load the argument value from.
-  void fixArgumentUsage(Value *OriginalArg, unsigned int OffsetArg);
+  void fixArgumentUsage(Value *OriginalArg);
 
   /// Fix return value by storing it to special buffer at given offset
   /// RetVal value to be saved, it is the function return value,
@@ -268,12 +267,13 @@ private:
   /// Return The nearest SyncBB.
   BasicBlock *findNearestDominatorSyncBB(DominatorTree &DT, BasicBlock *BB);
 
-  /// Bind AI's users to basic blocks so that a user will be replaced
-  /// by value loaded from AI's new address alloca in its bound basic block.
-  /// \param AI AllocaInst to process,
+  /// Bind a value's users to basic blocks so that a user will be replaced
+  /// by value loaded from value's new address alloca in its bound basic block.
+  /// \param F Function to process.
+  /// \param V Value to process.
   /// \param DI DbgVariableIntrinsic of AI.
   /// \param BBUsers Output binding map.
-  void bindUsersToBasicBlock(AllocaInst *AI, DbgVariableIntrinsic *DI,
+  void bindUsersToBasicBlock(Function &F, Value *V, DbgVariableIntrinsic *DI,
                              BasicBlockToInstructionMapVectorTy &BBUsers);
 
 private:
@@ -376,7 +376,7 @@ private:
   bool IsNativeDBG;
 
   /// This holds a map between function to its total size of all new addr
-  /// alloca created in fixAllocaValues.
+  /// alloca created in fixAllocaAndDbg.
   DenseMap<Function *, uint64_t> AddrAllocaSize;
 
   /// This holds per-function map from sync basic block to newly splitted sync

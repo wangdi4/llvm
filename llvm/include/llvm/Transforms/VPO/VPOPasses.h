@@ -46,9 +46,12 @@ FunctionPass *createVPOParoptApplyConfigPass();
 FunctionPass *createVPOCFGRestructuringPass();
 FunctionPass *createVPOCFGSimplifyPass();
 FunctionPass *createVPOParoptLoopCollapsePass();
+FunctionPass *createVPOParoptLoopTransformPass();
 // 0x5 is equivalent to ParPrepare | OmpPar
 FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5u);
 FunctionPass *createVPORestoreOperandsPass();
+FunctionPass *createVPORenameOperandsPass();
+FunctionPass *createVPOParoptGuardMemoryMotionPass();
 // 0x6 is equivalent to ParTrans | OmpPar
 ModulePass   *createVPOParoptPass(unsigned Mode = 0x6u);
 }

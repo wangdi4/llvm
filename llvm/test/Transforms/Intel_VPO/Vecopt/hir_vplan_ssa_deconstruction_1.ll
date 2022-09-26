@@ -28,10 +28,8 @@
 ;         @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;   END REGION
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:

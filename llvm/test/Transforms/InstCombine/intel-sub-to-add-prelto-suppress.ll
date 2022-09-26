@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt < %s --enable-new-pm=0 -enable-dtrans -O3 -prepare-for-lto -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-npm-dtrans -passes='lto-pre-link<O3>' -S 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-27767: Makes sure InstCombine doesn't do the following

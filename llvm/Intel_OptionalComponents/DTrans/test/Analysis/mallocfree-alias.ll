@@ -1,7 +1,8 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test is to verify that DTrans Analysis of allocation/free can analyze
 ; function calls made via a GlobalAlias definition.
-
 
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
@@ -48,5 +49,8 @@ define internal void @test02(%struct.test02* %p) {
 ; CHECK: Safety data: No issues found
 
 
-declare void @free(i8*)
-declare i8* @malloc(i64)
+declare void @free(i8*) #1
+declare i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

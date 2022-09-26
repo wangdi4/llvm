@@ -13,11 +13,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:      [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = (%A)[%0];
 ; CHECK-NEXT: [VConflict Idiom] Depends(WAR) on:<[[NUM1]]>          (%A)[%0] = (%A)[%0];
-; CHECK-NEXT: [VConflict Idiom] Detected!
+; CHECK-NEXT: [VConflict Idiom] Detected, legality pending further dependence checking!
 ; CHECK-NEXT: Idiom List
 ; CHECK-NEXT: VConflictLikeStore: <[[NUM1]]>          (%A)[%0] = (%A)[%0];
 
-; CHECK:      VConflict idiom load could not be a VConflict store operand.
+; CHECK:      VConflict store operand cannot be a live-in.
 ; CHECK-NEXT: The current VConflict idiom is not supported.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress

@@ -1623,8 +1623,7 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
   };
 
   // Functor: compare function by its #args
-  struct CompareFunctionPtr
-      : public std::binary_function<Function *, Function *, bool> {
+  struct CompareFunctionPtr {
     bool operator()(const Function *lhs, const Function *rhs) const {
       if (lhs == nullptr || rhs == nullptr)
         return lhs < rhs;

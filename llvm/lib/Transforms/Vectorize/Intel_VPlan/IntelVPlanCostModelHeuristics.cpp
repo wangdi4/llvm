@@ -581,7 +581,7 @@ void HeuristicGatherScatter::apply(
     // correctly scale the cost of the basic block.
     GSCost += (*this)(Block);
 
-  unsigned CGThreshold = CMGatherScatterDefaultThreshold;
+  unsigned CGThreshold = CMGatherScatterThreshold;
 
   // If CMGatherScatterThreshold is not specified in the command line the
   // default value for heuristic is different in ZMM-enabled context.
@@ -618,8 +618,10 @@ VPInstructionCost HeuristicGatherScatter::operator()(
 
   bool NegativeStride;
   if (!CM->isOptimizedVLSGroupMember(LoadStore) &&
+      !CM->isUniformLoadStore(LoadStore) &&
       !CM->isUnitStrideLoadStore(LoadStore, NegativeStride))
-    return CM->getLoadStoreCost(LoadStore, VF);
+    return CM->getLoadStoreCost(LoadStore, VF,
+                                true /* only need gather/scatter cost */);
 
   return 0;
 }

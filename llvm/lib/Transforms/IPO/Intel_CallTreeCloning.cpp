@@ -764,8 +764,7 @@ private:
 
 using DCGNodeList = SmallVector<DCGNode *, EST_NUM_CALL_SITES_PER_FUNC>;
 
-struct CompareDCGNodePtr
-    : public std::binary_function<DCGNode *, DCGNode *, bool> {
+struct CompareDCGNodePtr {
   bool operator()(const DCGNode *lhs, const DCGNode *rhs) const {
     if (lhs == nullptr || rhs == nullptr)
       return lhs < rhs;
@@ -773,8 +772,7 @@ struct CompareDCGNodePtr
   }
 };
 
-struct CompareFuncPtr
-    : public std::binary_function<Function *, Function *, bool> {
+struct CompareFuncPtr {
   bool operator()(const Function *lhs, const Function *rhs) const {
     if (lhs == nullptr || rhs == nullptr)
       return lhs < rhs;
@@ -782,8 +780,7 @@ struct CompareFuncPtr
   }
 };
 
-struct CompareCallInstPtr
-    : public std::binary_function<CallInst *, CallInst *, bool> {
+struct CompareCallInstPtr {
   bool operator()(const CallInst *lhs, const CallInst *rhs) const {
     if (lhs == nullptr || rhs == nullptr)
       return lhs < rhs;

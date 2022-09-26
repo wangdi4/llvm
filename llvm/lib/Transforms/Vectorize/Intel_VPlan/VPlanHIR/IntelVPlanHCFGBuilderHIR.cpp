@@ -117,6 +117,11 @@ void HIRVectorizationLegality::dump(raw_ostream &OS) const {
     Red.dump();
     OS << "\n";
   }
+  OS << "\n\nHIRLegality UDRList:\n";
+  for (auto &UDR : UDRList) {
+    UDR.dump();
+    OS << "\n";
+  }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -140,9 +145,10 @@ DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
 }
 
 // Explicit template instantiations for findDescr.
-template HIRVectorizationLegality::RedDescr *
+template HIRVectorizationLegality::RedDescrTy *
 HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::RedDescr> List, const DDRef *Ref) const;
+    ArrayRef<HIRVectorizationLegality::RedDescrTy> List,
+    const DDRef *Ref) const;
 template HIRVectorizationLegality::PrivDescrTy *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::PrivDescrTy> List,
@@ -158,7 +164,7 @@ HIRVectorizationLegality::findDescr(
 
 void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
-  DescrWithInitValue *Descr = getLinearRednDescriptors(Ref);
+  DescrWithInitValueTy *Descr = getLinearRednDescriptors(Ref);
 
   // If Ref does not correspond to SIMD descriptor then nothing to do
   if (!Descr)
@@ -174,7 +180,7 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
     // Ref is an alias to the original descriptor
     auto AliasIt = Descr->findAlias(Ref);
     assert(AliasIt && "Alias not found.");
-    auto *Alias = cast<DescrWithInitValue>(AliasIt);
+    auto *Alias = cast<DescrWithInitValueTy>(AliasIt);
     Alias->setInitValue(Ref);
   }
 }
@@ -274,8 +280,8 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
     return Descr;
   };
   auto addAlias = [](DescrWithAliasesTy *Descr, DDRef *Val) {
-    if (isa<DescrWithInitValue>(Descr))
-      Descr->addAlias(Val, std::make_unique<DescrWithInitValue>(Val));
+    if (isa<DescrWithInitValueTy>(Descr))
+      Descr->addAlias(Val, std::make_unique<DescrWithInitValueTy>(Val));
     else
       Descr->addAlias(Val, std::make_unique<DescrWithAliasesTy>(Val));
   };
@@ -603,6 +609,9 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   Latch->getTerminator()->setDebugLocation(HLp->getBranchDebugLoc());
 
+  // Add auto-recognized FP inductions for the loop.
+  Decomposer.addFPInductionsForLoop(HLp);
+
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
   ActiveVPBB = nullptr;
@@ -897,10 +906,6 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     assert(VConflictIndex && "Conflict index is expected.");
     VConflictIndex->setName("vconflict.index");
 
-    if (VConflictStore->getOperand(0) == VConflictLoad)
-      return reportMatchFail(
-          "VConflict idiom load could not be a VConflict store operand.");
-
     // Collect the instructions of VConflict region by checking the uses of
     // VConflictLoad. In the simplest case, one value of the data of store
     // instruction is the load instruction and the other one is the value:
@@ -977,20 +982,19 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // Collect the live-ins of VConflict region. We check if any operands of the
     // VConflct region's instructions have definition outside of the region.
     SetVector<VPValue *> RgnLiveIns;
+    RgnLiveIns.insert(VConflictLoad);
     for (auto *VPInst : RegionInsns) {
       for (auto *Op : VPInst->operands()) {
         if (isa<VPConstant>(Op) || isa<VPExternalDef>(Op))
           continue;
         if (is_contained(RegionInsns, Op))
           continue;
-        if (cast<VPInstruction>(Op) == VConflictLoad) {
-          // We want VConflictLoad to be the third operand of VConflict
-          // instruction.
-          continue;
-        }
         RgnLiveIns.insert(Op);
       }
     }
+
+    if (RgnLiveIns.contains(VConflictStore->getOperand(0)))
+      return reportMatchFail("VConflict store operand cannot be a live-in.");
 
     // Create new region and fill it with instructions, live-ins and live-outs.
     auto Region =
@@ -1015,13 +1019,6 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // by the region.
     int LInIt = 0;
     SmallVector<std::unique_ptr<VPValue>, 2> RenamedLiveIns;
-    // VConflictLoad is also a live-in for VPGeneralMemOptConflict. Therefore,
-    // we need to rename it.
-    auto NewValue = std::make_unique<VPValue>(VConflictLoad->getType());
-    NewValue->setName("live.in" + std::to_string(LInIt));
-    VConflictLoad->replaceAllUsesWithInRegion(NewValue.get(), VConflictBBs);
-    RenamedLiveIns.push_back(std::move(NewValue));
-    LInIt++;
     for (auto *LIn : RgnLiveIns) {
       auto NewValue = std::make_unique<VPValue>(LIn->getType());
       NewValue->setName("live.in" + std::to_string(LInIt));
@@ -1032,8 +1029,7 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // Generate new live-out. Its operand is the original live-out.
     SmallVector<std::unique_ptr<VPRegionLiveOut>, 2> RgnLiveOuts;
     VPValue *LiveOutUse = VConflictStore->getOperand(0);
-    auto NewLiveOut =
-        std::make_unique<VPRegionLiveOut>(LiveOutUse, LiveOutUse->getType());
+    auto NewLiveOut = std::make_unique<VPRegionLiveOut>(LiveOutUse);
     RgnLiveOuts.push_back(std::move(NewLiveOut));
     Region->addRgnLiveInsOuts(std::move(RenamedLiveIns),
                               std::move(RgnLiveOuts));
@@ -1043,8 +1039,7 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     VPBldr.setInsertPoint(VConflictStore);
     auto *Conflict = VPBldr.create<VPGeneralMemOptConflict>(
         "vp.general.mem.opt.conflict", VConflictStore->getOperand(0)->getType(),
-        VConflictIndex, std::move(Region), VConflictLoad,
-        RgnLiveIns.getArrayRef());
+        VConflictIndex, std::move(Region), RgnLiveIns.getArrayRef());
     // Update VPConflictStore's first operand with VPGeneralMemOptConflict.
     VConflictStore->setOperand(0, Conflict);
   }
@@ -1452,6 +1447,7 @@ public:
   using InductionList = VPDecomposerHIR::VPInductionHIRList;
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
+  using UDRList = HIRVectorizationLegality::UDRListTy;
   using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
   using PrivatesNonPODListTy = HIRVectorizationLegality::PrivatesNonPODListTy;
   using InductionKind = VPInduction::InductionKind;
@@ -1493,34 +1489,81 @@ public:
 
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
-    // TODO: for opaque pointers we may need to pull type information down
-    // through the legality checker.
-    Type *IndTy = CurrValue.getRef()->getDestType();
-    const HLDDNode *HLNode = CurrValue.getRef()->getHLDDNode();
-    Descriptor.setStartPhi(
-        dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
+    const auto *Linear = cast<RegDDRef>(CurrValue.getRef());
+    Type *IndTy = CurrValue.LinearTy;
+    // Save data type and find opcode for the induction.
+    // Based on data type it is either Add, FAdd or GEP.
     Descriptor.setKindAndOpcodeFromTy(IndTy);
-    Descriptor.setStart(Descriptor.getStartPhi());
-    int64_t Stride = CurrValue.Step->getSingleCanonExpr()->getConstant();
-    Constant *Cstep = nullptr;
+
+    for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {
+      auto *VPInst =
+          dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst));
+      assert(VPInst && "Instruction updating reduction descriptor is invalid.");
+      Descriptor.addUpdateVPInst(VPInst);
+    }
+
+    if (auto *Alias =
+            cast_or_null<DescrWithInitValue<DDRef>>(
+                CurrValue.getValidAlias())) {
+      SmallVector<VPInstruction *, 2> AliasUpdates;
+      for (auto *UpdateInst : Alias->getUpdateInstructions())
+        AliasUpdates.push_back(
+            cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
+      VPValue *AliasInit =
+          Decomposer.getVPExternalDefForDDRef(Alias->getInitValue());
+      Descriptor.setAlias(AliasInit, AliasUpdates);
+    }
+
+    // Set start value of descriptor (can be null)
+    if (const loopopt::DDRef *DDR = CurrValue.getInitValue())
+      Descriptor.setStart(Decomposer.getVPExternalDefForDDRef(DDR));
+    else
+      Descriptor.setStart(nullptr);
+
+    const DDRef *BasePtrRef =
+        Linear->getBlobDDRef(Linear->getBasePtrBlobIndex());
+    // Add VPExternalDefs for both the BasePtrRef and Step if it is
+    // non-constant. This code should appear before processing Step
+    // below to ensure a VPExternalDef is created (variable stride
+    // cases only)
+    Descriptor.setAllocaInst(
+        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+
+    auto *StrideCE = CurrValue.Step->getSingleCanonExpr();
+    int64_t Stride = StrideCE->getConstant();
     if (IndTy->isPointerTy()) {
-      Type *PointerElementType = IndTy->getPointerElementType();
-      // The pointer stride cannot be determined if the pointer element type is
-      // not sized.
-      assert(PointerElementType->isSized() &&
-             "Can't determine size of pointed-to type");
-      const DataLayout &DL =
-          CurrValue.getRef()->getDDRefUtils().getDataLayout();
-      int64_t Size =
-          static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
-      assert(Size && "Can't determine size of pointed-to type");
-      Type *IntTy = DL.getIntPtrType(IndTy);
-      Cstep = ConstantInt::get(IntTy, Stride * Size);
-    } else
-      Cstep = ConstantInt::get(IndTy, Stride);
-    Descriptor.setStep(Decomposer.getVPValueForConst(Cstep));
-    Descriptor.setInductionOp(nullptr);
-    Descriptor.setAllocaInst(Descriptor.getStart());
+      const DataLayout &DL = Linear->getDDRefUtils().getDataLayout();
+      if (IndTy->isOpaquePointerTy()) {
+        Type *PointerElementType = CurrValue.PointeeTy;
+        // The pointer stride can only be determined if the pointer element type
+        // is sized.
+        assert(PointerElementType->isSized() &&
+               "Can't determine size of pointed-to type");
+        int64_t Size =
+            static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
+        assert(Size > 0 && "Can't determine size of pointed-to type");
+        assert(StrideCE->isConstant() &&
+               "Variable stride for opaque pointer inductions not supported");
+        Stride = Stride * Size;
+      }
+      IndTy = DL.getIntPtrType(IndTy);
+    }
+
+    if (StrideCE->isConstant()) {
+      Descriptor.setStep(
+        Decomposer.getVPValueForConst(ConstantInt::get(IndTy, Stride)));
+    } else {
+      auto *StrideExtDef =
+          Decomposer.getVPExternalDefForDDRef(CurrValue.Step,
+                                              false /* MustBeLiveIn */);
+      Descriptor.setStep(StrideExtDef);
+    }
+
+    Descriptor.setIsExplicitInduction(true);
+    // The remaining fields to be determined later during VPInduction entity
+    // creation and based on analysis of information in the Descriptor.
+    Descriptor.setStartPhi(/*VPInstruction**/ nullptr);
+    Descriptor.setInductionOp(/*VPInstruction**/ nullptr);
   }
 };
 
@@ -1589,7 +1632,7 @@ public:
     if (HIRVectorizationLegality::DescrValueTy *Alias =
             CurrValue.getValidAlias()) {
       auto *RedAlias =
-          cast<HIRVectorizationLegality::DescrWithInitValue>(Alias);
+          cast<HIRVectorizationLegality::DescrWithInitValueTy>(Alias);
       VPValue *AliasInit =
           Decomposer.getVPExternalDefForDDRef(RedAlias->getInitValue());
       SmallVector<VPInstruction *, 4> AliasUpdates;
@@ -1607,25 +1650,41 @@ public:
     Descriptor.setAllocaInst(Descriptor.getStart());
 
     Descriptor.setStartPhi(nullptr);
-    Descriptor.setKind(CurrValue.Kind);
+    Descriptor.setKind(CurrValue.getKind());
     // In the directive, we have the kinds always set as for integers. Need to
     // correct them for fp-data.
     if (RType->isFloatingPointTy()) {
-      if (CurrValue.Kind == RecurKind::Add)
+      if (CurrValue.getKind() == RecurKind::Add)
         Descriptor.setKind(RecurKind::FAdd);
-      else if (CurrValue.Kind == RecurKind::Mul)
+      else if (CurrValue.getKind() == RecurKind::Mul)
         Descriptor.setKind(RecurKind::FMul);
-      else if (CurrValue.Kind == RecurKind::UMin ||
-               CurrValue.Kind == RecurKind::SMin)
+      else if (CurrValue.getKind() == RecurKind::UMin ||
+               CurrValue.getKind() == RecurKind::SMin)
         Descriptor.setKind(RecurKind::FMin);
-      else if (CurrValue.Kind == RecurKind::UMax ||
-               CurrValue.Kind == RecurKind::SMax)
+      else if (CurrValue.getKind() == RecurKind::UMax ||
+               CurrValue.getKind() == RecurKind::SMax)
         Descriptor.setKind(RecurKind::FMax);
     }
     Descriptor.setRecType(RType);
-    Descriptor.setSigned(CurrValue.IsSigned);
+    Descriptor.setSigned(CurrValue.isSigned());
     Descriptor.setLinkPhi(nullptr);
     Descriptor.setIsLinearIndex(false);
+  }
+
+  /// Fill in the data from list of user defined reductions
+  void operator()(ReductionDescr &Descriptor,
+                  const UDRList::value_type &CurrValue) {
+    Descriptor.clear();
+    // Use explicit reductions data filling operator above to populate
+    // preliminary fields in descriptor.
+    auto *BaseTyVal =
+        static_cast<const ExplicitReductionList::value_type *>(&CurrValue);
+    ExplicitReductionListCvt{Decomposer}(Descriptor, *BaseTyVal);
+    // Capture functions needed for initialization/finalization.
+    Descriptor.setCombiner(CurrValue.getCombiner());
+    Descriptor.setInitializer(CurrValue.getInitializer());
+    Descriptor.setCtor(CurrValue.getCtor());
+    Descriptor.setDtor(CurrValue.getDtor());
   }
 };
 
@@ -1645,6 +1704,7 @@ public:
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
+    Descriptor.setIsF90(CurValue.isF90());
     if (HIRVectorizationLegality::DescrValueTy *Alias =
             CurValue.getValidAlias()) {
       SmallVector<VPInstruction *, 4> AliasUpdates;
@@ -1672,7 +1732,58 @@ public:
     Descriptor.setCopyAssign(CurValue.getCopyAssign());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
-    Descriptor.setIsF90NonPod(CurValue.isF90NonPod());
+    Descriptor.setIsF90(CurValue.isF90());
+  }
+};
+
+class CompressExpandIdiomListCvt : public VPEntityConverterBase {
+  const HIRVectorIdioms *VecIdioms;
+
+public:
+  CompressExpandIdiomListCvt(VPDecomposerHIR &Decomp,
+                             const HIRVectorIdioms *VecIdioms)
+      : VPEntityConverterBase(Decomp), VecIdioms(VecIdioms) {}
+
+  void operator()(CompressExpandIdiomDescr &Desc, const HIRVecIdiom &Idiom) {
+
+    std::function<void(const HIRVecIdiom &Idiom)> AddIdiom =
+        [&](const HIRVecIdiom &Idiom) {
+          switch (VecIdioms->isIdiom(Idiom)) {
+          case HIRVectorIdioms::CEIndexIncFirst:
+          case HIRVectorIdioms::CEIndexIncNext: {
+            int64_t Stride;
+            bool IsIncrement = HIRVectorIdioms::isIncrementInst(
+                Idiom.get<const HLInst *>(), Stride);
+            assert(IsIncrement && "Increment instruction expected.");
+            (void)IsIncrement;
+            Desc.addIncrement(
+                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)),
+                Stride);
+            break;
+          }
+          case HIRVectorIdioms::CEStore:
+            Desc.addStore(
+                cast<VPLoadStoreInst>(Decomposer.getVPValueForCEIdiom(Idiom)));
+            break;
+          case HIRVectorIdioms::CELoad:
+            Desc.addLoad(
+                cast<VPLoadStoreInst>(Decomposer.getVPValueForCEIdiom(Idiom)));
+            break;
+          case HIRVectorIdioms::CELdStIndex:
+            Desc.addIndex(
+                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)));
+            break;
+          default:
+            llvm_unreachable("Unexpected CE idiom id.");
+          }
+
+          const auto *LinkedIdioms = VecIdioms->getLinkedIdioms(Idiom);
+          if (LinkedIdioms)
+            for (const auto &LinkedIdiom : *LinkedIdioms)
+              AddIdiom(LinkedIdiom);
+        };
+
+    AddIdiom(Idiom);
   }
 };
 
@@ -1717,6 +1828,7 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   auto IndCvt = std::make_unique<Converter<InductionDescr>>(Plan);
   auto PrivCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
   auto PrivNonPODCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
+  auto CEIdiomCvt = std::make_unique<Converter<CompressExpandIdiomDescr>>(Plan);
 
   for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
        LoopDescr != End; ++LoopDescr) {
@@ -1750,15 +1862,15 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
       Bind(Legal->getReductions(), ExplicitReductionListCvt{Decomposer}),
       Bind(make_range(MinMaxIdiomsInputIteratorHIR(true, *Idioms),
                       MinMaxIdiomsInputIteratorHIR(false, *Idioms)),
-           ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}));
+           ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}),
+      Bind(Legal->getUDRs(), ExplicitReductionListCvt{Decomposer}));
 
     IndCvt->createDescrList(HL,
       Bind(Decomposer.getInductions(HL), InductionListCvt{Decomposer}),
       // TODO: ArrayRef-based empty slice here serves as a stub because
       // LinearListCvt is not working correctly. Fix it when the converter
       // is fixed.
-      Bind(makeArrayRef(Legal->getLinears()).take_front(0),
-           LinearListCvt{Decomposer}));
+      Bind(Legal->getLinears(), LinearListCvt{Decomposer}));
 
     PrivCvt->createDescrList(HL,
       Bind(Legal->getPrivates(), PrivatesListCvt{Decomposer}));
@@ -1766,11 +1878,19 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     PrivNonPODCvt->createDescrList(HL,
       Bind(Legal->getNonPODPrivates(), PrivatesListCvt{Decomposer}));
     // clang-format on
+
+    const HIRVectorIdioms *VecIdioms = Legal->getVectorIdioms(HL);
+    CEIdiomCvt->createDescrList(
+        HL, Bind(map_range(
+                     VecIdioms->getIdiomsById(HIRVectorIdioms::CEIndexIncFirst),
+                     [](const auto &Pair) { return Pair.first; }),
+                 CompressExpandIdiomListCvt(Decomposer, VecIdioms)));
   }
   CvtVec.emplace_back(std::move(RedCvt));
   CvtVec.emplace_back(std::move(IndCvt));
   CvtVec.emplace_back(std::move(PrivCvt));
   CvtVec.emplace_back(std::move(PrivNonPODCvt));
+  CvtVec.emplace_back(std::move(CEIdiomCvt));
 }
 
 bool VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {

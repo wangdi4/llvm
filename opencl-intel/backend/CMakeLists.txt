@@ -1,3 +1,15 @@
+# Copyright (C) 2011-2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 if (NOT OPENCL_INTREE_BUILD)
   # LLVM
   if( NOT DEFINED LLVM_PATH_BE )
@@ -33,11 +45,13 @@ endif()
 
 # Version of cached binary.
 # This value should be incremented each time cached binary format changes.
-add_definitions(-DOCL_CACHED_BINARY_VERSION=14)
+add_definitions(-DOCL_CACHED_BINARY_VERSION=17)
 
 set(OCL_OUTPUT_EXTENSION .rtl)
 set(OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 set(OCL_LIBRARY_TARGET_NAME cllibrary)
+
+file(GLOB_RECURSE OCL_ALL_TD_FILES "${BACKEND_ROOT_DIR}/libraries/ocl_builtins/*.td")
 
 SET_UNICODE_OFF()
 

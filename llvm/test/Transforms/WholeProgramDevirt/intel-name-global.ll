@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -S -wholeprogramdevirt -whole-program-visibility %intel_devirt_options %s 2>&1 | FileCheck %s
 ; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options %s 2>&1 | FileCheck %s
 
 ; This test is to check that the virtual function constant variables are not

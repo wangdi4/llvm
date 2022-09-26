@@ -32,6 +32,7 @@ tablegen(LLVM IntrinsicsCSA.h -gen-intrinsic-enums -intrinsic-prefix=csa)
 endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
+tablegen(LLVM IntrinsicsDirectX.h -gen-intrinsic-enums -intrinsic-prefix=dx)
 tablegen(LLVM IntrinsicsHexagon.h -gen-intrinsic-enums -intrinsic-prefix=hexagon)
 tablegen(LLVM IntrinsicsMips.h -gen-intrinsic-enums -intrinsic-prefix=mips)
 tablegen(LLVM IntrinsicsNVPTX.h -gen-intrinsic-enums -intrinsic-prefix=nvvm)

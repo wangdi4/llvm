@@ -45,18 +45,20 @@
 // CHK-PHASES: 30: linker, {4}, ir, (device-sycl)
 // CHK-PHASES: 31: input, "{{.*libsycl-itt-user-wrappers.o.*}}", object
 // CHK-PHASES: 32: clang-offload-unbundler, {31}, object
-// CHK-PHASES: 33: input, "{{.*libsycl-itt-compiler-wrappers.o.*}}", object
-// CHK-PHASES: 34: clang-offload-unbundler, {33}, object
-// CHK-PHASES: 35: input, "{{.*libsycl-itt-stubs.o.*}}", object
-// CHK-PHASES: 36: clang-offload-unbundler, {35}, object
-// CHK-PHASES: 37: linker, {30, 32, 34, 36}, ir, (device-sycl)
-// CHK-PHASES: 38: sycl-post-link, {37}, tempfiletable, (device-sycl)
-// CHK-PHASES: 39: file-table-tform, {38}, tempfilelist, (device-sycl)
-// CHK-PHASES: 40: llvm-spirv, {39}, tempfilelist, (device-sycl)
-// CHK-PHASES: 41: file-table-tform, {38, 40}, tempfiletable, (device-sycl)
-// CHK-PHASES: 42: clang-offload-wrapper, {41}, object, (device-sycl)
-// CHK-PHASES: 43: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {29}, "device-sycl (spir64-unknown-unknown)" {42}, image
-
+// CHK-PHASES: 33: offload, " (spir64-unknown-unknown)" {32}, object
+// CHK-PHASES: 34: input, "{{.*libsycl-itt-compiler-wrappers.o.*}}", object
+// CHK-PHASES: 35: clang-offload-unbundler, {34}, object
+// CHK-PHASES: 36: offload, " (spir64-unknown-unknown)" {35}, object
+// CHK-PHASES: 37: input, "{{.*libsycl-itt-stubs.o.*}}", object
+// CHK-PHASES: 38: clang-offload-unbundler, {37}, object
+// CHK-PHASES: 39: offload, " (spir64-unknown-unknown)" {38}, object
+// CHK-PHASES: 40: linker, {30, 33, 36, 39}, ir, (device-sycl)
+// CHK-PHASES: 41: sycl-post-link, {40}, tempfiletable, (device-sycl)
+// CHK-PHASES: 42: file-table-tform, {41}, tempfilelist, (device-sycl)
+// CHK-PHASES: 43: llvm-spirv, {42}, tempfilelist, (device-sycl)
+// CHK-PHASES: 44: file-table-tform, {41, 43}, tempfiletable, (device-sycl)
+// CHK-PHASES: 45: clang-offload-wrapper, {44}, object, (device-sycl)
+// CHK-PHASES: 46: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {29}, "device-sycl (spir64-unknown-unknown)" {45}, image
 
 /// ###########################################################################
 
@@ -66,9 +68,9 @@
 
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown"{{.*}} "-fsycl-is-device"{{.*}} "-fsycl-int-header=[[SYCLHEADER:.+\.h]]"{{.*}} "-emit-llvm-bc"{{.*}} "-std=c++17"{{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
 // CHK-COMMANDS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC1:.+\.bc]]"
-// CHK-COMMANDS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-user-wrappers.o" "-output=[[ITTUSERSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles"
-// CHK-COMMANDS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-compiler-wrappers.o" "-output=[[ITTCOMPSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles"
-// CHK-COMMANDS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-stubs.o" "-output=[[ITTSTUBSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-user-wrappers.o" "-output=[[ITTUSERSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles" "-base-temp-dir={{.*}}"
+// CHK-COMMANDS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-compiler-wrappers.o" "-output=[[ITTCOMPSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles" "-base-temp-dir={{.*}}"
+// CHK-COMMANDS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-stubs.o" "-output=[[ITTSTUBSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles" "-base-temp-dir={{.*}}"
 // CHK-COMMANDS: llvm-link{{.*}} "-only-needed" "[[SYCLLINKEDBC1]]" "[[ITTUSERSYCL]]" "[[ITTCOMPSYCL]]" "[[ITTSTUBSYCL]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
 // CHK-COMMANDS: sycl-post-link{{.*}} "-o" "[[TABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // CHK-COMMANDS: file-table-tform{{.*}} "-o" "[[FILELIST:.+\.txt]]" "[[TABLE]]"
@@ -86,7 +88,7 @@
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-stubs.o" "-output=[[ITT3TGTOMP:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: llvm-link{{.*}} "[[OMPBC]]" "[[RTLTGTOMP]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-COMMANDS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGTOMP]]" "[[ITT2TGTOMP]]" "[[ITT3TGTOMP]]" "-o" "[[OMPLINKEDBC:.+\.bc]]"
-// CHK-COMMANDS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-o" "[[OMPPOSTLINK:.+\.bc]]" "[[OMPLINKEDBC]]"
+// CHK-COMMANDS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[OMPPOSTLINK:.+\.bc]]" "[[OMPLINKEDBC]]"
 // CHK-COMMANDS: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.spv]]" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}} "[[OMPPOSTLINK]]"
 // CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRV]]"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-o" "[[OMPWRAPPEROBJ:.+\.o]]" {{.*}} "[[OMPWRAPPERBC]]"
@@ -146,18 +148,20 @@
 // CHK-UBACTIONS: 20: linker, {19}, ir, (device-sycl)
 // CHK-UBACTIONS: 21: input, "{{.*libsycl-itt-user-wrappers.o.*}}", object
 // CHK-UBACTIONS: 22: clang-offload-unbundler, {21}, object
-// CHK-UBACTIONS: 23: input, "{{.*libsycl-itt-compiler-wrappers.o.*}}", object
-// CHK-UBACTIONS: 24: clang-offload-unbundler, {23}, object
-// CHK-UBACTIONS: 25: input, "{{.*libsycl-itt-stubs.o.*}}", object
-// CHK-UBACTIONS: 26: clang-offload-unbundler, {25}, object
-// CHK-UBACTIONS: 27: linker, {20, 22, 24, 26}, ir, (device-sycl)
-// CHK-UBACTIONS: 28: sycl-post-link, {27}, tempfiletable, (device-sycl)
-// CHK-UBACTIONS: 29: file-table-tform, {28}, tempfilelist, (device-sycl)
-// CHK-UBACTIONS: 30: llvm-spirv, {29}, tempfilelist, (device-sycl)
-// CHK-UBACTIONS: 31: file-table-tform, {28, 30}, tempfiletable, (device-sycl)
-// CHK-UBACTIONS: 32: clang-offload-wrapper, {31}, object, (device-sycl)
-// CHK-UBACTIONS: 33: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {18}, "device-sycl (spir64-unknown-unknown)" {32}, image
-
+// CHK-UBACTIONS: 23: offload, " (spir64-unknown-unknown)" {22}, object
+// CHK-UBACTIONS: 24: input, "{{.*libsycl-itt-compiler-wrappers.o.*}}", object
+// CHK-UBACTIONS: 25: clang-offload-unbundler, {24}, object
+// CHK-UBACTIONS: 26: offload, " (spir64-unknown-unknown)" {25}, object
+// CHK-UBACTIONS: 27: input, "{{.*libsycl-itt-stubs.o.*}}", object
+// CHK-UBACTIONS: 28: clang-offload-unbundler, {27}, object
+// CHK-UBACTIONS: 29: offload, " (spir64-unknown-unknown)" {28}, object
+// CHK-UBACTIONS: 30: linker, {20, 23, 26, 29}, ir, (device-sycl)
+// CHK-UBACTIONS: 31: sycl-post-link, {30}, tempfiletable, (device-sycl)
+// CHK-UBACTIONS: 32: file-table-tform, {31}, tempfilelist, (device-sycl)
+// CHK-UBACTIONS: 33: llvm-spirv, {32}, tempfilelist, (device-sycl)
+// CHK-UBACTIONS: 34: file-table-tform, {31, 33}, tempfiletable, (device-sycl)
+// CHK-UBACTIONS: 35: clang-offload-wrapper, {34}, object, (device-sycl)
+// CHK-UBACTIONS: 36: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {18}, "device-sycl (spir64-unknown-unknown)" {35}, image
 
 /// ###########################################################################
 
@@ -187,7 +191,7 @@
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-compiler-wrappers.o" "-output=[[ITTCOMPSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}libsycl-itt-stubs.o" "-output=[[ITTSTUBSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: llvm-link{{.*}} "-only-needed" "[[SYCLLINKEDBC1]]" "[[ITTUSERSYCL]]" "[[ITTCOMPSYCL]]" "[[ITTSTUBSYCL]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
-// CHK-UBJOBS: sycl-post-link{{.*}} "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
+// CHK-UBJOBS: sycl-post-link{{.*}} "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
 // CHK-UBJOBS: llvm-foreach{{.*}} "--in-file-list=[[SYCLTABLEOUT]]" "--in-replace=[[SYCLTABLEOUT]]" "--out-ext=spv" "--out-file-list=[[SYCLLLVMFOROUT:.+\.txt]]" "--out-replace=[[SYCLLLVMFOROUT]]" "--" "{{.*}}llvm-spirv" "-o" "[[SYCLLLVMFOROUT]]" "-spirv-max-version=1.3" "-spirv-debug-info-version=ocl-100" "-spirv-allow-extra-diexpressions" "-spirv-allow-unknown-intrinsics=llvm.genx."{{.*}} "[[SYCLTABLEOUT]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[SYCLSPIRV:.+\.table]]" "[[SYCLTABLE]]" "[[SYCLLLVMFOROUT]]"
@@ -200,7 +204,7 @@
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-stubs.o" "-output=[[ITT3TGTOMP:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: llvm-link{{.*}} "[[OMPBC]]" "[[RTLTGTOMP]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-UBJOBS: llvm-link{{.*}} "[[UNBUNDLED]]" "[[ITT1TGTOMP]]" "[[ITT2TGTOMP]]" "[[ITT3TGTOMP]]" "-o" "[[OMPLINKEDBC:.+\.bc]]"
-// CHK-UBJOBS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-o" "[[OMPPOSTLINK:.+\.bc]]" "[[OMPLINKEDBC]]"
+// CHK-UBJOBS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[OMPPOSTLINK:.+\.bc]]" "[[OMPLINKEDBC]]"
 // CHK-UBJOBS: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.spv]]" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}} "[[OMPPOSTLINK]]"
 // CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRV]]"
 // CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-o" "[[OMPWRAPPEROBJ:.+\.o]]" {{.*}} "[[OMPWRAPPERBC]]"
@@ -225,7 +229,7 @@
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "-o" "[[SYCLLINKEDBCPRE1:.+\.bc]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "--only-needed" "[[SYCLLINKEDBCPRE1]]" "@[[SYCLLIBLIST]]" "-o" "[[SYCLLINKEDBCPRE2:.+\.bc]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "-only-needed" "[[SYCLLINKEDBCPRE2]]"{{.*}} "-o" "[[SYCLLINKEDBC:.+\.bc]]"
-// FOFFLOAD_STATIC_LIB_MULTI_O: sycl-post-link{{.*}} "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
+// FOFFLOAD_STATIC_LIB_MULTI_O: sycl-post-link{{.*}} "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
 // INTEL_CUSTOMIZATION
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-foreach{{.*}} "--in-file-list=[[SYCLTABLEOUT]]" "--in-replace=[[SYCLTABLEOUT]]" "--out-ext=spv" "--out-file-list=[[SYCLLLVMFOROUT:.+\.txt]]" "--out-replace=[[SYCLLLVMFOROUT]]" "--" "{{.*}}llvm-spirv" "-o" "[[SYCLLLVMFOROUT]]" "-spirv-max-version=1.3" "-spirv-debug-info-version=ocl-100" "-spirv-allow-extra-diexpressions" "-spirv-allow-unknown-intrinsics=llvm.genx."{{.*}} "[[SYCLTABLEOUT]]"
@@ -237,7 +241,7 @@
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "-o" "[[LINKOUT2:.+\.bc]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "--only-needed" "[[LINKOUT2]]" {{.*}} "-o" "[[LINKOUT1:.+\.bc]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "--only-needed" "[[LINKOUT1]]" {{.*}} "-o" "[[LINKOUT2:.+\.bc]]"
-// FOFFLOAD_STATIC_LIB_MULTI_O: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-o" "[[OMPPOSTLINK:.+\.bc]]" "[[LINKOUT2]]"
+// FOFFLOAD_STATIC_LIB_MULTI_O: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[OMPPOSTLINK:.+\.bc]]" "[[LINKOUT2]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.spv]]" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}} "[[OMPPOSTLINK]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRV]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-o" "[[OMPWRAPPEROBJ:.+\.o]]" {{.*}} "[[OMPWRAPPERBC]]"
@@ -289,17 +293,20 @@
 // FOFFLOAD_STATIC_LIB_SRC: 37: linker, {5, 16, 36}, ir, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 38: input, "{{.*libsycl-itt-user-wrappers.o.*}}", object
 // FOFFLOAD_STATIC_LIB_SRC: 39: clang-offload-unbundler, {38}, object
-// FOFFLOAD_STATIC_LIB_SRC: 40: input, "{{.*libsycl-itt-compiler-wrappers.o.*}}", object
-// FOFFLOAD_STATIC_LIB_SRC: 41: clang-offload-unbundler, {40}, object
-// FOFFLOAD_STATIC_LIB_SRC: 42: input, "{{.*libsycl-itt-stubs.o.*}}", object
-// FOFFLOAD_STATIC_LIB_SRC: 43: clang-offload-unbundler, {42}, object
-// FOFFLOAD_STATIC_LIB_SRC: 44: linker, {37, 39, 41, 43}, ir, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 45: sycl-post-link, {44}, tempfiletable, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 46: file-table-tform, {45}, tempfilelist, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 47: llvm-spirv, {46}, tempfilelist, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 48: file-table-tform, {45, 47}, tempfiletable, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 49: clang-offload-wrapper, {48}, object, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 50: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {35}, "device-sycl (spir64-unknown-unknown)" {49}, image
+// FOFFLOAD_STATIC_LIB_SRC: 40: offload, " (spir64-unknown-unknown)" {39}, object
+// FOFFLOAD_STATIC_LIB_SRC: 41: input, "{{.*libsycl-itt-compiler-wrappers.o.*}}", object
+// FOFFLOAD_STATIC_LIB_SRC: 42: clang-offload-unbundler, {41}, object
+// FOFFLOAD_STATIC_LIB_SRC: 43: offload, " (spir64-unknown-unknown)" {42}, object
+// FOFFLOAD_STATIC_LIB_SRC: 44: input, "{{.*libsycl-itt-stubs.o.*}}", object
+// FOFFLOAD_STATIC_LIB_SRC: 45: clang-offload-unbundler, {44}, object
+// FOFFLOAD_STATIC_LIB_SRC: 46: offload, " (spir64-unknown-unknown)" {45}, object
+// FOFFLOAD_STATIC_LIB_SRC: 47: linker, {37, 40, 43, 46}, ir, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 48: sycl-post-link, {47}, tempfiletable, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 49: file-table-tform, {48}, tempfilelist, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 50: llvm-spirv, {49}, tempfilelist, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 51: file-table-tform, {48, 50}, tempfiletable, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 52: clang-offload-wrapper, {51}, object, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 53: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {35}, "device-sycl (spir64-unknown-unknown)" {52}, image
 
 /// ###########################################################################
 

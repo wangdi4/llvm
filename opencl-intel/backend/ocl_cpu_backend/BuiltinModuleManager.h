@@ -58,11 +58,6 @@ public:
      * Returns the \see BuiltinsLibrary for the given cpu. Loads it if necessary
      */
     BuiltinLibrary *GetOrLoadCPULibrary(const CPUDetect *cpuId);
-    /**
-     * Returns the \see BuiltinsLibrary for an EyeQ device, based on the given
-     * cpu. Loads it if necessary
-     */
-    BuiltinLibrary *GetOrLoadEyeQLibrary(const CPUDetect *cpuId);
 
     /**
      * Returns the \see BuiltinsLibrary for the FPGA emu. Loads it if necessary

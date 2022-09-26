@@ -17,7 +17,7 @@ entry:
   br label %b1
 
 b1:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(<2 x i64>* %mm), "QUAL.OMP.SIMDLEN"(i64 2) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(<2 x i64>* %mm, <2 x i64> zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i64 2) ]
   br label %for.body
 
 for.body:

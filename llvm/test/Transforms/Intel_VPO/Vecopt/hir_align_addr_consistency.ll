@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4 -vplan-enable-peeling -hir-details < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-peeling -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4 -vplan-enable-peeling -hir-details -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-peeling -hir-details -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to show issue with ref consistency when the peeled memref has a nested
 ; blob that is defined in the parent loop of the loop being vectorized. When creating
@@ -7,15 +7,15 @@
 ; verification errors.
 ;
 ; CHECK:                    + DO i64 i1 = 0, 1023, 1   <DO_LOOP>
-; CHECK-NEXT:               |   %0 = (%off)[i1];
+; CHECK-NEXT:               |   [[TMP0:%.*]] = (%off)[i1];
 
-; CHECK:                    |   %1 = (%lpp)[i1];
+; CHECK:                    |   [[TMP1:%.*]] = (%lpp)[i1];
 
-; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%1)[sext.i32.i64(%0)]));
-; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:23}
-; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[NON-LINEAR <4 x i64> sext.i32.i64(%0)]) inbounds  {sb:22}
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* %1 {sb:10}
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 %0 {sb:6}
+; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[TMP1]])[sext.i32.i64([[TMP0]])]));
+; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:22}
+; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> [[TMP1]])[NON-LINEAR <4 x i64> sext.i32.i64([[TMP0]])]) inbounds
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 [[TMP0]]
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* [[TMP1]]
 ;
 define  void @baz(i64**  %lpp, i32* %off) {
 entry:

@@ -4,8 +4,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt -vplan-vec -vplan-print-after-vpentity-instrs -vplan-dump-details -S < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-dump-details -print-after=hir-vplan-vec -hir-details-llvm-inst -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-dump-details -print-after=hir-vplan-vec -hir-details-llvm-inst -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-dump-details -print-after=hir-vplan-vec -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s
 
 ; Checks for VPReductionFinal in VPlan IR
 ; CHECK:        float [[RED_FINAL:%vp.*]] = reduction-final{fadd} float [[VEC:%vp.*]]  float [[START:%.*]]
@@ -28,7 +27,7 @@ entry:
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD"(float* %x) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split

@@ -380,6 +380,8 @@ class DDTest {
   void setDVForLE(DirectionVector &ForwardDV, DirectionVector &BackwardDV,
                   const Dependences &Result, unsigned Levels);
 
+  void setDVForCollapsedRefs(DirectionVector &BackwardDV,
+                             const Dependences &Result, unsigned Levels);
   /// Distance: from CE to INT
 
   void populateDistanceVector(const DirectionVector &ForwardDV,
@@ -407,8 +409,17 @@ class DDTest {
   /// Assumes no loop carried dependencies exist for all loops
   void adjustForAllAssumedDeps(Dependences &Result);
 
-  /// Map DV to distance
+  /// Assumes LT dependence with NewDist distance exist for the innermost loop
+  void adjustCollapsedDepsForInnermostLoop(Dependences &Result,
+                                           const CanonExpr *NewDist);
 
+  /// Assumes ALL dependence on the levels with zero stride (Fortran only).
+  void adjustForZeroStride(Dependences &Result, const RegDDRef *SrcRegDDRef,
+                           const RegDDRef *DstRegDDRef);
+  /// Goe through IVs in CE and put ALL dependence at the corresponding levels.
+  void setStarAtIVLevel(const CanonExpr *CE, Dependences &Result);
+
+  /// Map DV to distance
   DistTy mapDVToDist(DVKind DV, unsigned Level, const Dependences &Result);
 
   /// Subscript - This private struct represents a pair of subscripts from

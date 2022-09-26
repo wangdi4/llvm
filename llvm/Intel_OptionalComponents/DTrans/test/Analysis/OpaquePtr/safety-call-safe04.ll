@@ -33,7 +33,9 @@ define void @test01() {
 ; CHECK: End LLVMType: %struct.test01
 
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

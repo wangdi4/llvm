@@ -26,7 +26,7 @@ static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
                                             VPlanScalarEvolutionLLVM &VPSE) {
   VPlanSCEV *VPExpr = VPSE.toVPlanSCEV(Expr);
   Optional<VPConstStepLinear> Linear = VPSE.asConstStepLinear(VPExpr);
-  return Linear.map([](auto &L) { return L.Step; });
+  return Linear.transform([](auto &L) { return L.Step; });
 }
 
 static Optional<int64_t>

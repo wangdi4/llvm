@@ -5,21 +5,9 @@
 // CHECK: encoding: [0x62,0x82,0x45,0x40,0x67,0xf0]
                {evex} vcvtne2ps2ph %zmm24, %zmm23, %zmm22
 
-// CHECK:      {evex} vcvtne2ps2ph %zmm24, %zmm23, %zmm22 {%k7}
-// CHECK: encoding: [0x62,0x82,0x45,0x47,0x67,0xf0]
-               {evex} vcvtne2ps2ph %zmm24, %zmm23, %zmm22 {%k7}
-
-// CHECK:      {evex} vcvtne2ps2ph %zmm24, %zmm23, %zmm22 {%k7} {z}
-// CHECK: encoding: [0x62,0x82,0x45,0xc7,0x67,0xf0]
-               {evex} vcvtne2ps2ph %zmm24, %zmm23, %zmm22 {%k7} {z}
-
 // CHECK:      {evex} vcvtne2ps2ph  268435456(%rbp,%r14,8), %zmm23, %zmm22
 // CHECK: encoding: [0x62,0xa2,0x45,0x40,0x67,0xb4,0xf5,0x00,0x00,0x00,0x10]
                {evex} vcvtne2ps2ph  268435456(%rbp,%r14,8), %zmm23, %zmm22
-
-// CHECK:      {evex} vcvtne2ps2ph  291(%r8,%rax,4), %zmm23, %zmm22 {%k7}
-// CHECK: encoding: [0x62,0xc2,0x45,0x47,0x67,0xb4,0x80,0x23,0x01,0x00,0x00]
-               {evex} vcvtne2ps2ph  291(%r8,%rax,4), %zmm23, %zmm22 {%k7}
 
 // CHECK:      {evex} vcvtne2ps2ph  (%rip){1to16}, %zmm23, %zmm22
 // CHECK: encoding: [0x62,0xe2,0x45,0x50,0x67,0x35,0x00,0x00,0x00,0x00]
@@ -29,13 +17,13 @@
 // CHECK: encoding: [0x62,0xe2,0x45,0x40,0x67,0x34,0x6d,0x00,0xf8,0xff,0xff]
                {evex} vcvtne2ps2ph  -2048(,%rbp,2), %zmm23, %zmm22
 
-// CHECK:      {evex} vcvtne2ps2ph  8128(%rcx), %zmm23, %zmm22 {%k7} {z}
-// CHECK: encoding: [0x62,0xe2,0x45,0xc7,0x67,0x71,0x7f]
-               {evex} vcvtne2ps2ph  8128(%rcx), %zmm23, %zmm22 {%k7} {z}
+// CHECK:      {evex} vcvtne2ps2ph {rn-sae}, %zmm24, %zmm23, %zmm22
+// CHECK: encoding: [0x62,0x82,0x45,0x10,0x67,0xf0]
+               {evex} vcvtne2ps2ph {rn-sae}, %zmm24, %zmm23, %zmm22
 
-// CHECK:      {evex} vcvtne2ps2ph  -512(%rdx){1to16}, %zmm23, %zmm22 {%k7} {z}
-// CHECK: encoding: [0x62,0xe2,0x45,0xd7,0x67,0x72,0x80]
-               {evex} vcvtne2ps2ph  -512(%rdx){1to16}, %zmm23, %zmm22 {%k7} {z}
+// CHECK:      {evex} vcvtne2ps2ph {rz-sae}, %zmm24, %zmm23, %zmm22
+// CHECK: encoding: [0x62,0x82,0x45,0x70,0x67,0xf0]
+               {evex} vcvtne2ps2ph {rz-sae}, %zmm24, %zmm23, %zmm22
 
 // CHECK:      {evex} vbcstnebf162ps  268435456(%rbp,%r14,8), %zmm22
 // CHECK: encoding: [0x62,0xa2,0x7e,0x48,0xb1,0xb4,0xf5,0x00,0x00,0x00,0x10]

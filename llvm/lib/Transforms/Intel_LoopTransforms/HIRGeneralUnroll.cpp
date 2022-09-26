@@ -602,8 +602,8 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
 }
 
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
-  if (Loop->isVecLoop()) {
-    LLVM_DEBUG(dbgs() << "Skipping unroll of vectorizable loop!\n");
+  if (Loop->isSIMD()) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll of SIMD loop!\n");
     return false;
   }
 

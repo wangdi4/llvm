@@ -142,7 +142,8 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
 }
 
 static bool cloneFunctions(Module &M,
-                           function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
+                           function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+                           function_ref<TargetTransformInfo &(Function &)> GetTTI) {
 
   const Triple TT{M.getTargetTriple()};
 
@@ -246,9 +247,9 @@ static bool cloneFunctions(Module &M,
       Function *New = CloneFunction(&Fn, VMap);
 
       New->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
 
-      std::string Features =
-          LibIRCDispatchFeatures.str();
+      std::string Features = LibIRCDispatchFeatures.str();
 
       const Attribute Attr = New->getFnAttribute("target-features");
       const StringRef OldFeatures = Attr.getValueAsString();
@@ -272,6 +273,7 @@ static bool cloneFunctions(Module &M,
       New->addFnAttr("tune-cpu", TargetCpu);
 
       New->addFnAttr("loopopt-pipeline", "full");
+      New->addFnAttr("advanced-optim", "true");
 
       New->setName(Fn.getName() + "." + getTargetSuffix(TargetCpuDealiased));
 
@@ -307,12 +309,75 @@ static bool cloneFunctions(Module &M,
 
     Orig2MultiFuncs[&Fn] = {Resolver, Dispatcher, std::move(Clones)};
     Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    Fn.setMetadata("llvm.acd.clone", MDNode::get(Fn.getContext(), {}));
+
+    std::string FnAttr = GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false";
+    Fn.addFnAttr("advanced-optim", FnAttr);
+    Resolver->addFnAttr("advanced-optim", FnAttr);
     Changed = true;
   }
 
   // No functions were multiversioned, exiting.
   if (!Changed)
     return false;
+
+  // Multiversion GlobalAliases aliasing multiversioned functions.
+  SmallVector<GlobalAlias*> GlobalAliasWorklist;
+  for (GlobalAlias &GA : M.aliases()) {
+
+    GlobalValue *Fn = GA.getAliaseeObject();
+    if (Orig2MultiFuncs.count(Fn) == 0)
+      continue;
+
+    GlobalAliasWorklist.push_back(&GA);
+  }
+
+  for (auto It : GlobalAliasWorklist) {
+
+    GlobalAlias &GA = *It;
+    std::string Name = GA.getName().str();
+
+    // Set GA's name to indicate that it aliases the generic version of Fn.
+    GA.setName(Name + ".A");
+
+    // Make a clone of GA aliasing the dispatcher.
+    GlobalValue *Fn = GA.getAliaseeObject();
+    GlobalValue *Dispatcher = std::get<1>(Orig2MultiFuncs[Fn]);
+    GlobalAlias *DispatcherGA =
+      GlobalAlias::create(GA.getValueType(), GA.getType()->getPointerAddressSpace(),
+                          GA.getLinkage(), Name, &M);
+    DispatcherGA->copyAttributesFrom(&GA);
+    ValueToValueMapTy VMap;
+    VMap[Fn] = Dispatcher;
+    if (const Constant *C = GA.getAliasee())
+      DispatcherGA->setAliasee(MapValue(C, VMap));
+
+    // Make clones of GA each aliasing a version of Fn.
+    std::map<std::string, GlobalValue *> GAClones;
+    std::map<std::string, GlobalValue *> &FnClones = std::get<2>(Orig2MultiFuncs[Fn]);
+    for (auto& I : FnClones) {
+      const StringRef TargetCpu = I.first;
+
+      // Get llvm/Support/X86TargetParser.def friendly target name.
+      const StringRef TargetCpuDealiased = CPUSpecificCPUDispatchNameDealias(TargetCpu);
+
+      auto *NewGA =
+        GlobalAlias::create(GA.getValueType(),
+                            GA.getType()->getPointerAddressSpace(), GA.getLinkage(),
+                            Name + "." + getTargetSuffix(TargetCpuDealiased), &M);
+
+      ValueToValueMapTy VMap;
+      VMap[Fn] = I.second;
+      if (const Constant *C = GA.getAliasee())
+        NewGA->setAliasee(MapValue(C, VMap));
+      NewGA->copyAttributesFrom(&GA);
+
+      MultiFunc2TargetExt[NewGA] = I.first;
+      GAClones[I.first] = NewGA;
+    }
+
+    Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, std::move(GAClones)};
+  }
 
   // Update uses of the original functions.
   // At this point all functions(except resolvers) use original functions (those
@@ -393,6 +458,41 @@ static bool cloneFunctions(Module &M,
     }
   }
 
+  // Iterate over GlobalAliases once more.
+  // Earlier call to replaceUsesWithIf() caused generic versions
+  // of GlobalAlias clones to incorrectly alias dispatchers functions.
+  // Make generic versions of GlobalAlias clones, alias the generic
+  // versions of function clones instead.
+  for (auto It : GlobalAliasWorklist) {
+
+    GlobalAlias &GA = *It;
+    assert(GA.getName().endswith(".A") && "GlobalAlias name criteria mismatch");
+    GlobalIFunc *GIF = dyn_cast<GlobalIFunc>(GA.getAliaseeObject());
+    if (!GIF)
+      continue;
+
+    Function *Fn = M.getFunction(GIF->getName().str() + ".A");
+    assert(Fn && "Aliasee must exist");
+    if (Fn->hasMetadata("llvm.acd.clone")) {
+      ValueToValueMapTy VMap;
+      VMap[GIF] = Fn;
+      if (const Constant *C = GA.getAliasee())
+        GA.setAliasee(MapValue(C, VMap));
+    }
+  }
+
+  for (Function &Fn : M) {
+    if (Fn.isDeclaration())
+      continue;
+    // Remove "llvm.auto.cpu.dispatch" metadata from functions that're skipped and
+    // not multi-versioned.
+    if (Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+      Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    // Add "advanced-optim" attribute on functions that are skipped and not multi-versioned.
+    if (!Fn.hasFnAttribute("advanced-optim"))
+      Fn.addFnAttr("advanced-optim", GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
+  }
+
   // If we are here then we have done modifications.
   return true;
 }
@@ -403,8 +503,11 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
+  auto GetTTI = [&FAM](Function &F) -> TargetTransformInfo & {
+    return FAM.getResult<TargetIRAnalysis>(F);
+  };
 
-  if (cloneFunctions(M, GetTLI))
+  if (cloneFunctions(M, GetTLI, GetTTI))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
@@ -420,6 +523,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
@@ -427,11 +531,14 @@ public:
     auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
+    auto GetTTI = [this](Function &F) -> TargetTransformInfo & {
+      return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+    };
 
     if (skipModule(M))
       return false;
 
-    bool anyFunctionsCloned = cloneFunctions(M, GetTLI);
+    bool anyFunctionsCloned = cloneFunctions(M, GetTLI, GetTTI);
     return anyFunctionsCloned;
   }
 };
@@ -441,6 +548,7 @@ char AutoCPUCloneLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(AutoCPUCloneLegacyPass, "auto-cpu-clone",
                       "Clone functions for Auto CPU Dispatch", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(AutoCPUCloneLegacyPass, "auto-cpu-clone",
                     "Clone functions for Auto CPU Dispatch", false, false)
 

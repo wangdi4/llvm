@@ -12,10 +12,10 @@ define void @foo(i32 %i, float %f) {
 entry:
   call void @bar(i32 %i, float %f) #0
 ; CHECK: call void @bar(i32 %i, float %f) #0
-; CHECK: attributes #0 = { "vector-variants"="_ZGVbN0lu_XXX,_ZGVbM0vv_XXX" }
+; CHECK: attributes #0 = { "vector-variants"="_ZGVbN1lu_bar,_ZGVbM1vv_bar" }
   ret void
 }
 
-attributes #0 = { "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
+attributes #0 = { "vector-variants"="_ZGVxN1lu_bar,_ZGVxM1vv_bar" }
 
 ; DEBUGIFY-NOT: WARNING

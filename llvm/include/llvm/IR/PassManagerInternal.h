@@ -1,4 +1,21 @@
 //===- PassManager internal APIs and implementation details -----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -57,6 +74,11 @@ struct PassConcept {
   /// To opt-in, pass should implement `static bool isRequired()`. It's no-op
   /// to have `isRequired` always return false since that is the default.
   virtual bool isRequired() const = 0;
+
+#if INTEL_CUSTOMIZATION
+  virtual bool isLimited() const = 0;
+  virtual LoopOptLimiter getLimiter() const = 0;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A template wrapper used to implement the polymorphic API.
@@ -111,6 +133,11 @@ struct PassModel : PassConcept<IRUnitT, AnalysisManagerT, ExtraArgTs...> {
   }
 
   bool isRequired() const override { return passIsRequiredImpl<PassT>(); }
+
+#if INTEL_CUSTOMIZATION
+  bool isLimited() const override { return Pass.isLimited(); }
+  LoopOptLimiter getLimiter() const override { return Pass.getLimiter(); }
+#endif // INTEL_CUSTOMIZATION
 
   PassT Pass;
 };

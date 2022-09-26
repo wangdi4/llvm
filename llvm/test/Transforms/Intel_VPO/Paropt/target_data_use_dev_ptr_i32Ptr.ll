@@ -1,4 +1,4 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 
 ; Test src:
@@ -37,38 +37,37 @@ target device_triples = "x86_64"
 define dso_local i32 @main() #0 {
 entry:
   %a = alloca [10 x i32], align 16
-  %array_device = alloca i32*, align 8
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
-  store i32* %arrayidx, i32** %array_device, align 8
-  %0 = load i32*, i32** %array_device, align 8
-  %arrayidx1 = getelementptr inbounds i32, i32* %0, i64 0
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx1)
+  %array_device = alloca ptr, align 8
+  %arrayidx = getelementptr inbounds [10 x i32], ptr %a, i64 0, i64 0
+  store ptr %arrayidx, ptr %array_device, align 8
+  %0 = load ptr, ptr %array_device, align 8
+  %arrayidx1 = getelementptr inbounds i32, ptr %0, i64 0
+  %call = call i32 (ptr, ...) @printf(ptr @.str, ptr %arrayidx1)
+  %array_device.val = load ptr, ptr %array_device, align 8
 
-  %array_device.val = load i32*, i32** %array_device
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"(i32* %array_device.val) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
+    "QUAL.OMP.USE_DEVICE_PTR"(ptr %array_device.val) ]
 
 ; Check that the map created for %array_device.val has the correct map-type (64)
 ; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check that the value in the baseptrs struct after the tgt_data call is
 ; used inside the region as the updated value of the pointer %array_device.val.
-; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x i8*], [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
 ; CHECK: call void @__tgt_target_data_begin({{.+}})
-; CHECK: [[GEP_CAST:%[^ ]+]] = bitcast i8** [[GEP]] to i32**
-; CHECK: %array_device.val.updated.val = load i32*, i32** [[GEP_CAST]]
+; CHECK: %array_device.val.updated.val = load ptr, ptr [[GEP]]
 
 ; Check that call to outlined function for target data uses %array_device.new
-; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(i32* %array_device.val.updated.val)
+; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(ptr %array_device.val.updated.val)
 
-
-  %arrayidx2 = getelementptr inbounds i32, i32* %array_device.val, i64 0
-  %call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx2) #2
+  %arrayidx2 = getelementptr inbounds i32, ptr %array_device.val, i64 0
+  %call3 = call i32 (ptr, ...) @printf(ptr @.str, ptr %arrayidx2) #2
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET.DATA"() ]
   ret i32 0
 }
 
-declare dso_local i32 @printf(i8*, ...) #1
+declare dso_local i32 @printf(ptr, ...) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -81,7 +80,5 @@ attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 attributes #2 = { nounwind }
 
 !llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 10.0.0"}

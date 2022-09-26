@@ -69,7 +69,11 @@ static bool vectorizerMode(bool enabled) {
   return SETENV("CL_CONFIG_USE_VECTORIZER", mode.c_str());
 }
 
+#if defined(_WIN32) && !defined(_WIN64)
+TEST_F(PrivateMemSizeTest, DISABLED_Basic) {
+#else
 TEST_F(PrivateMemSizeTest, Basic) {
+#endif
   std::string programSources = "__kernel void test(__global int* o)\n"
                                "{\n"
                                "    const int size = (STACK_SIZE/17) / "
@@ -136,7 +140,11 @@ TEST_F(PrivateMemSizeTest, OutOfResources) {
   ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }
 
+#if defined(_WIN32) && !defined(_WIN64)
+TEST_F(PrivateMemSizeTest, DISABLED_WithoutVectorizer) {
+#else
 TEST_F(PrivateMemSizeTest, WithoutVectorizer) {
+#endif
   std::string programSources =
       "__kernel void test(__global int* o)\n"
       "{\n"

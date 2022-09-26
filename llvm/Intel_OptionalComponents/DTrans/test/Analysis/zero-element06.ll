@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -debug-only=dtrans-lpa -disable-output 2>&1 | FileCheck %s
 

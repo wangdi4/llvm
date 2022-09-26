@@ -9,7 +9,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 100 BinOp: i64 [[VP_ADD5:%.*]] = add i64 [[VP__OMP_IV_LOCAL_015:%.*]] i64 [[VP__OMP_IV_LOCAL_015_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP__OMP_IV_LOCAL_015]], i64 [[VP_ADD5]], i64 [[VP__OMP_IV_LOCAL_015_IND_INIT:%.*]], i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP__OMP_IV_LOCAL_015]], i64 [[VP_ADD5]], i64 [[VP__OMP_IV_LOCAL_015_IND_INIT:%.*]], i64 [[VP__OMP_IV_LOCAL_015_IND_INIT_STEP]], i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i64 [[VP_RET_LCSSA26:%.*]] = phi  [ i64 [[VP_RET_LCSSA25:%.*]], [[BB0]] ],  [ i64 [[VP_RET:%.*]], [[BB1:BB[0-9]+]] ]
@@ -78,7 +78,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(i64* %ret.lpriv), "QUAL.OMP.LINEAR:IV"(i64* %l1.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i64* %ret.lpriv, i64 0, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

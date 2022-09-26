@@ -1,4 +1,3 @@
-// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -no-opaque-pointers -fsycl-is-host -fintelfpga -triple x86_64 -aux-triple spir64_fpga -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -no-opaque-pointers -fsycl-is-host -fintelfpga -triple x86_64-pc-windows-msvc -aux-triple spir64_fpga -emit-llvm %s -o - | FileCheck %s
 
@@ -25,4 +24,3 @@ signed _BitInt(4096) foo(signed _BitInt(4096) a, signed _BitInt(4096) b) {
   // CHECK: ret void
   return a / b;
 }
-// end INTEL_CUSTOMIZATION

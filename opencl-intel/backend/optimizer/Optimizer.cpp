@@ -1,3 +1,4 @@
+//
 // Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
@@ -19,7 +20,6 @@
 #include "cl_config.h"
 #include "cl_cpu_detect.h"
 #include "exceptions.h"
-#include "mic_dev_limits.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -76,13 +76,6 @@ cl::opt<bool> EnableVPlan("enable-vplan-kernel-vectorizer", cl::init(true),
                           cl::Hidden,
                           cl::desc("Enable VPlan Kernel Vectorizer"));
 
-// Enables kernel vectorizer identification message.
-cl::opt<bool>
-    EmitKernelVectorizerSignOn("emit-kernel-vectorizer-sign-on",
-                               cl::init(false), cl::Hidden,
-                               cl::desc("Emit which vectorizer is used "
-                                        "(Volcano or Vplan)"));
-
 // Enable vectorization at O0 optimization level.
 cl::opt<bool> EnableO0Vectorization(
     "enable-o0-vectorization", cl::init(false), cl::Hidden,
@@ -95,13 +88,6 @@ extern bool DPCPPForceOptnone;
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
-
-llvm::Pass *createVectorizerPass(SmallVectorImpl<Module *> &builtinModules,
-                                 const intel::OptimizerConfig *pConfig);
-llvm::Pass *createCLStreamSamplerPass();
-llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
-                                     std::string type);
-llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
@@ -142,9 +128,7 @@ const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
 static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             unsigned OptLevel, bool UnitAtATime,
                                             bool UnrollLoops,
-                                            int rtLoopUnrollFactor,
-                                            bool allowAllocaModificationOpt,
-                                            bool /*UseVplan*/) {
+                                            int rtLoopUnrollFactor) {
   if (OptLevel == 0) {
     return;
   }
@@ -170,8 +154,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   // Set readonly/readnone attrs
   if (UnitAtATime)
     PM->add(llvm::createInferFunctionAttrsLegacyPass());
-  if (OptLevel > 2)
-    PM->add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
 
   // Break up aggregate allocas
   PM->add(llvm::createSROAPass());
@@ -222,11 +204,9 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   // Clean up after the unroller
   PM->add(llvm::createInstructionCombiningPass());
   PM->add(llvm::createInstSimplifyLegacyPass());
-  if (allowAllocaModificationOpt) {
-    if (OptLevel > 1)
-      PM->add(llvm::createGVNPass());     // Remove redundancies
-    PM->add(llvm::createMemCpyOptPass()); // Remove memcpy / form memset
-  }
+  if (OptLevel > 1)
+    PM->add(llvm::createGVNPass());     // Remove redundancies
+  PM->add(llvm::createMemCpyOptPass()); // Remove memcpy / form memset
   PM->add(llvm::createSCCPPass()); // Constant prop with SCCP
 
   // Run instcombine after redundancy elimination to exploit opportunities
@@ -261,11 +241,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        llvm::Module & /*M*/, unsigned OptLevel,
                                        const intel::OptimizerConfig &pConfig,
                                        bool isOcl20, bool isFpgaEmulator,
-                                       bool UnrollLoops, bool isSPIRV,
-                                       bool UseVplan) {
-  bool HasGatherScatterPrefetch =
-      pConfig.GetCpuId()->HasGatherScatterPrefetch();
-
+                                       bool UnrollLoops, bool isSPIRV) {
   PM.add(llvm::createSetPreferVectorWidthLegacyPass(
       VectorizerCommon::getCPUIdISA(pConfig.GetCpuId())));
   if (isSPIRV && pConfig.GetRelaxedMath()) {
@@ -322,11 +298,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(createDPCPPExternalAliasAnalysisLegacyPass());
   }
 
-  std::string Env;
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "DISMPF") ||
-      DPCPPStatistic::isEnabled())
-    PM.add(createRemovePrefetchPass());
-
   PM.add(llvm::createBuiltinCallToInstLegacyPass());
 
   // When running the standard optimization passes, do not change the
@@ -337,11 +308,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   int rtLoopUnrollFactor = pConfig.GetRTLoopUnrollFactor();
 
-  bool allowAllocaModificationOpt = !HasGatherScatterPrefetch;
-
   createStandardLLVMPasses(&PM, OptLevel, UnitAtATime, UnrollLoops,
-                           rtLoopUnrollFactor, allowAllocaModificationOpt,
-                           UseVplan);
+                           rtLoopUnrollFactor);
 
   // check there is no recursion, if there is fail compilation
   PM.add(llvm::createDetectRecursionLegacyPass());
@@ -357,15 +325,14 @@ static void populatePassesPostFailCheck(
     llvm::legacy::PassManagerBase &PM, llvm::Module &M,
     SmallVectorImpl<Module *> &pRtlModuleList, unsigned OptLevel,
     const intel::OptimizerConfig &pConfig, bool isOcl20, bool isFpgaEmulator,
-    bool isEyeQEmulator, bool UnrollLoops, bool UseVplan, bool IsSPIRV,
+    bool UnrollLoops, bool UseVplan, bool IsSPIRV,
     bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
     bool UseTLSGlobals) {
   bool isProfiling = pConfig.GetProfilingFlag();
   bool HasGatherScatter = pConfig.GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
-  VectorVariant::ISAClass ISA =
-      VectorizerCommon::getCPUIdISA(pConfig.GetCpuId());
+  VFISAKind ISA = VectorizerCommon::getCPUIdISA(pConfig.GetCpuId());
 
   if (pConfig.EnableOCLAA()) {
     PM.add(createDPCPPAliasAnalysisLegacyPass());
@@ -463,15 +430,10 @@ static void populatePassesPostFailCheck(
       PM.add(createProfilingInfoLegacyPass());
     }
 
-    if (!isEyeQEmulator) {
-      PM.add(createSinCosFoldLegacyPass());
-    }
+    PM.add(createSinCosFoldLegacyPass());
 
     if (!pRtlModuleList.empty()) {
       if (UseVplan) {
-        if (EmitKernelVectorizerSignOn)
-          dbgs() << "Kernel Vectorizer\n";
-
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
         PM.add(createMathLibraryFunctionsReplacementPass());
@@ -538,10 +500,6 @@ static void populatePassesPostFailCheck(
         if (!IsSYCL && !DisableVPlanCM &&
             pConfig.GetTransposeSize() == TRANSPOSE_SIZE_NOT_SET)
           PM.add(llvm::createVectorKernelEliminationLegacyPass());
-      } else {
-        if (EmitKernelVectorizerSignOn)
-          dbgs() << "OpenCL Kernel Vectorizer\n";
-        PM.add(createVectorizerPass(pRtlModuleList, &pConfig));
       }
     }
 
@@ -566,8 +524,7 @@ static void populatePassesPostFailCheck(
   // Unroll small loops with unknown trip count.
   if (OptLevel > 0) {
     PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
-    if (!isEyeQEmulator)
-      PM.add(createOptimizeIDivAndIRemLegacyPass());
+    PM.add(createOptimizeIDivAndIRemLegacyPass());
   }
   PM.add(createPreventDivCrashesLegacyPass());
   // We need InstructionCombining and GVN passes after PreventDivCrashes
@@ -624,7 +581,6 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createLICMPass());
     PM.add(llvm::createBuiltinLICMLegacyPass());
     PM.add(llvm::createLoopStridedCodeMotionLegacyPass());
-    PM.add(createCLStreamSamplerPass());
   }
 
   if (pConfig.GetRelaxedMath()) {
@@ -710,7 +666,6 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createGlobalDCEPass());
     // AddImplicitArgs pass may create dead implicit arguments.
     PM.add(llvm::createDeadArgEliminationPass());
-    PM.add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
     PM.add(llvm::createDeadStoreEliminationPass()); // Delete dead stores
     PM.add(llvm::createAggressiveDCEPass());        // Delete dead instructions
@@ -719,7 +674,7 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createPromoteMemoryToRegisterPass());
   }
   // Only support CPU Device
-  if (OptLevel > 0 && !isFpgaEmulator && !isEyeQEmulator) {
+  if (OptLevel > 0 && !isFpgaEmulator) {
     PM.add(llvm::createLICMPass());      // Hoist loop invariants
     PM.add(llvm::createLoopIdiomPass()); // Transform simple loops to non-loop form, e.g. memcpy
     PM.add(createLoopDeletionPass()); // Delete dead loops
@@ -767,8 +722,6 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
     OptLevel = 0;
   DPCPPForceOptnone = OptLevel == 0;
 
-  bool UnrollLoops = true;
-
   // Initialize TTI
   m_PM.add(createTargetTransformInfoWrapperPass(
       targetMachine->getTargetIRAnalysis()));
@@ -780,12 +733,10 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
   auto materializerPM = [this]() {
     if (m_IsSYCL)
       m_PM.add(createSPIRVToOCL20Legacy());
-    m_PM.add(llvm::createNameAnonGlobalPass());
     m_PM.add(llvm::createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
-    m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
     m_PM.add(createDPCPPEqualizerLegacyPass());
     Triple TargetTriple(m_M.getTargetTriple());
-    if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
+    if (TargetTriple.isArch64Bit()) {
       if (TargetTriple.isOSLinux())
         m_PM.add(createCoerceTypesLegacyPass());
       else if (TargetTriple.isOSWindows())
@@ -797,11 +748,10 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
   materializerPM();
 
   populatePassesPreFailCheck(m_PM, pModule, OptLevel, pConfig, m_IsOcl20,
-                             m_IsFpgaEmulator, UnrollLoops, m_IsSPIRV,
-                             EnableVPlan);
+                             m_IsFpgaEmulator, UnrollLoops, m_IsSPIRV);
 
   populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
-                              m_IsOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+                              m_IsOcl20, m_IsFpgaEmulator,
                               UnrollLoops, EnableVPlan, m_IsSPIRV, m_IsSYCL,
                               m_IsOMP, m_debugType, m_UseTLSGlobals);
 }
@@ -865,8 +815,7 @@ Optimizer::Optimizer(llvm::Module &M,
       m_IsSPIRV(llvm::CompilationUtils::generatedFromSPIRV(M)),
       m_IsSYCL(llvm::CompilationUtils::isGeneratedFromOCLCPP(M)),
       m_IsOMP(llvm::CompilationUtils::isGeneratedFromOMP(M)),
-      m_IsFpgaEmulator(Config.isFpgaEmulator()),
-      m_IsEyeQEmulator(Config.isEyeQEmulator()) {
+      m_IsFpgaEmulator(Config.isFpgaEmulator()), UnrollLoops(true) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerCommon::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
@@ -875,7 +824,7 @@ Optimizer::Optimizer(llvm::Module &M,
               llvm::CompilationUtils::OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
-  m_UseTLSGlobals = (m_debugType == intel::Native) && !m_IsEyeQEmulator;
+  m_UseTLSGlobals = (m_debugType == intel::Native);
 }
 
 void Optimizer::setDiagnosticHandler(llvm::raw_ostream &LogStream) {
@@ -968,7 +917,6 @@ void OptimizerOCLLegacy::initializePasses() {
   // Initialize passes so that -print-after/-print-before work.
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
-  initializeCoroutines(Registry);
   initializeScalarOpts(Registry);
   initializeObjCARCOpts(Registry);
   initializeVectorization(Registry);
@@ -992,8 +940,6 @@ void OptimizerOCLLegacy::initializePasses() {
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
   initializeGlobalMergePass(Registry);
   initializeInterleavedAccessPass(Registry);
-  initializeEntryExitInstrumenterPass(Registry);
-  initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeExpandReductionsPass(Registry);
   initializeWriteBitcodePassPass(Registry);

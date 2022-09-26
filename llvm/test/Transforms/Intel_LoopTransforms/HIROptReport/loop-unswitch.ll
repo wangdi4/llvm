@@ -43,23 +43,9 @@
 ; CHECK-EMITTER-NEXT: LOOP END
 
 ; TODO: -simplifycfg gets rid of one of loops showing the remark of loop unswitch in this test case. We need to change the test case to show loop unswitch remark in the HIR.
-; TODO: Different checks are seen because of difference in ordering blocks between legacy and merged CFG-based CG. Scalar remainder
-; is on false branch of its top test in merged CFG-based HIR.
-; RUN: opt -enable-new-pm=0 -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
-; RUN: opt -enable-new-pm=0 -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-HIR --strict-whitespace
-
-; CHECK-HIR:      LOOP BEGIN
-; CHECK-HIR:          LOOP BEGIN
-; CHECK-HIR-NEXT:         remark #15300: LOOP WAS VECTORIZED
-; CHECK-HIR-NEXT:         remark #15305: vectorization support: vector length {{.*}}
-; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
-; CHECK-HIR-NEXT:     LOOP BEGIN
-; CHECK-HIR-NEXT:         <Remainder loop for vectorization>
-; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
-; CHECK-HIR-NEXT:     LOOP BEGIN
-; CHECK-HIR-NEXT:         remark #25436: Loop completely unrolled by 3
-; CHECK-HIR-NEXT:     LOOP END
-; CHECK-HIR-NEXT: LOOP END
+; TODO: There is still a small issue where the merged CFG-based HIR causes
+; the opt report layout to mismatch slightly with the loop layout.
+; RUN: opt -enable-new-pm=0 -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-HIR --strict-whitespace
 
 ; MERGED-CFG-HIR:      LOOP BEGIN
 ; MERGED-CFG-HIR:          LOOP BEGIN

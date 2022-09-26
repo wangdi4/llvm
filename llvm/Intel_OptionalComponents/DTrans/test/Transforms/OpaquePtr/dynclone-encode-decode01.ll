@@ -2,8 +2,8 @@
 ; Load/Store instructions when DynClone+Reencoding transformation
 ; is triggered.
 
-;  RUN: opt < %s -dtransop-allow-typed-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dyncloneop 2>&1 | FileCheck %s
-;  RUN: opt < %s -dtransop-allow-typed-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dyncloneop' 2>&1 | FileCheck %s
+;  RUN: opt < %s -dtransop-allow-typed-pointers -dtrans-dynclone-shrunken-type-width=16 -dtrans-dynclone-sign-shrunken-int-type=false -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dyncloneop 2>&1 | FileCheck %s
+;  RUN: opt < %s -dtransop-allow-typed-pointers -dtrans-dynclone-shrunken-type-width=16 -dtrans-dynclone-sign-shrunken-int-type=false -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dyncloneop' 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -149,7 +149,7 @@ define void @init() {
 ;   { 300000, 2000000, 2000015, 4000000, 4000015}
 ;
 
-; CHECK-LABEL: define internal i16 @__DYN_encoder(i64 %0) #1 {
+; CHECK-LABEL: define internal i16 @__DYN_encoder(i64 %0) #2 {
 ; CHECK: entry:
 ; CHECK:  [[CMP1:%[0-9]+]] = icmp ule i64 [[ARG:%[0-9]+]], 65530
 ; CHECK:  br i1 [[CMP1]], label %default, label %switch_bb
@@ -178,7 +178,7 @@ define void @init() {
 ; CHECK:  case4:
 ; CHECK:    br label %return
 
-; CHECK-LABEL: define internal i64 @__DYN_decoder(i16 %0) #1 {
+; CHECK-LABEL: define internal i64 @__DYN_decoder(i16 %0) #2 {
 ; CHECK: entry:
 ; CHECK:  [[CMP2:%[0-9]+]] = icmp ule i16 [[ARG:%[0-9]+]], -6
 ; CHECK:  br i1 [[CMP2]], label %default, label %switch_bb
@@ -208,7 +208,7 @@ define void @init() {
 ; CHECK:  br label %return
 ; CHECK:}
 
-; CHECK: attributes #1 = { "min-legal-vector-width"="0" }
+; CHECK: attributes #2 = { "min-legal-vector-width"="0" }
 
 ; Call to "init" routine is qualified as InitRoutine for DynClone.
 define i32 @main() {
@@ -220,8 +220,9 @@ entry:
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #1
 attributes #0 = { "target-features"="+avx2" }
+attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

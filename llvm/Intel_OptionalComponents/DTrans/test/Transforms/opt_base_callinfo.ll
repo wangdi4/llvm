@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; RUN: opt  < %s -whole-program-assume -disable-output -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtrans-optbase 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -disable-output -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtrans-optbase 2>&1 | FileCheck %s
@@ -183,8 +184,11 @@ define void @test09(%struct.type01dep* %in1, %struct.type01dep* %in2) {
 ; CHECK:     Type: %__DDT_struct.type01dep = type { %__DTT_struct.type01*, %__DTT_struct.type01* }
 
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
 declare void @llvm.memmove.p0i8.p0i8.i64(i8* , i8*, i64, i1)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

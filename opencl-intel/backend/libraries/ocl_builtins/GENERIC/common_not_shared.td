@@ -1,24 +1,26 @@
+// Copyright (C) 2014-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // vim:ts=2:sw=2:et:
 
 // degrees
 
 OclBuiltinImpl degrees_f64_generic_not_shared = OclBuiltinImpl<degrees,
-  [v3f64] , 0, [{
-    return ($Arg0Type)generic_inv_pi_180 * $Arg0VarName;
-  }]>;
-
-// mix
-OclBuiltinImpl mix_generic_not_shared = OclBuiltinImpl<mix, 
-  [v3f64], 0, [{
-    return $Arg0VarName + ($Arg1VarName - $Arg0VarName) * $Arg2VarName;
-  }]>;
+  [v3f64] , 0, degrees_f64_code>;
 
 // radians
 
 OclBuiltinImpl radians_f64_generic_not_shared = OclBuiltinImpl<radians,
-  [v3f64] , 0, [{
-    return ($Arg0Type)generic_pi_180 * $Arg0VarName;
-  }]>;
+  [v3f64] , 0, radians_f64_code>;
 
 // step
 OclBuiltinImpl step_f32_generic_not_shared = OclBuiltinImpl<step,
@@ -32,10 +34,7 @@ OclBuiltinImpl step_f64_generic_not_shared = OclBuiltinImpl<step,
 
 // smoothstep
 OclBuiltinImpl smoothstep_f64_generic_not_shared = OclBuiltinImpl<smoothstep,
-  [v3f64] , 0, [{
-    $ReturnType t = clamp(($Arg2VarName - $Arg0VarName) / ($Arg1VarName - $Arg0VarName), 0.0, 1.0);
-    return t * t * (3.0 - 2.0 * t);
-  }]>;
+  [v3f64] , 0, smoothstep_f64_code>;
 
 // sign
 OclBuiltinImpl sign_f32_generic_not_shared = OclBuiltinImpl<sign,

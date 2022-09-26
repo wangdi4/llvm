@@ -2,10 +2,8 @@
 ; Test to check correctness of decomposed HCFG when external definition of a
 ; DDRef is killed by an instruction inside the HLLoop being decomposed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <0>     BEGIN REGION { }
@@ -47,7 +45,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    Linked values: i32 [[VP3:%.*]], i32 [[VP2]], i32 [[VP_RED_INIT_1:%.*]], i32 [[VP_RED_FINAL_1:%.*]],
 ; CHECK:       Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1023 BinOp: i64 [[VP4:%.*]] = add i64 [[VP5:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP5]], i64 [[VP4]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP5]], i64 [[VP4]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -101,7 +99,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %s2.red = alloca i32, align 4
   %s.red = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s.red), "QUAL.OMP.REDUCTION.ADD"(i32* %s2.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s2.red, i32 0, i32 1) ]
   store i32 0, i32* %s2.red, align 4
   store i32 0, i32* %s.red, align 4
   br label %omp.inner.for.body

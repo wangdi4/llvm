@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
@@ -42,6 +43,7 @@ entry:
 ; CHECK-LABEL: LLVMType: %struct.test_02
 ; CHECK: Single Alloc Function: i8* (i64)* @malloc
 
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr
+declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1)
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

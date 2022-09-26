@@ -29,12 +29,8 @@
 ; Note: -hir-vec-dir-insert is not explicitly used below to ensure that SIMD loop is recognized
 ; and vectorized by VPlan.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s  2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; Check stability of test for merged CFG-based CG.
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -print-after=hir-vplan-vec -disable-output < %s  2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; Check stability of test for merged CFG-based CG.
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; CHECK:              %red.init = 0.000000e+00;
@@ -76,7 +72,7 @@ for.body:                                         ; preds = %omp.precond.end, %f
 
 DIR.OMP.SIMD.2:                                   ; preds = %for.body
   %sum.red = alloca float, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.REDUCTION.ADD"(float* %sum.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %sum.red, float zeroinitializer, i32 1) ]
   store float 0.000000e+00, float* %sum.red, align 4
   br label %omp.inner.for.body
 

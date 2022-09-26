@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that Field-reordering transformation applied
 ; correctly to realloc with constant and non-constant sizes with and
 ; without sext/zext related to %struct.test.
@@ -53,4 +55,6 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @realloc(i8*, i64)
+declare noalias i8* @realloc(i8*, i64) #0
+
+attributes #0 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }

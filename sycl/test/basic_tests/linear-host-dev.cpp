@@ -1,10 +1,10 @@
 // RUN: %clangxx -fsycl %s -o %t.out
 // RUN: %RUN_ON_HOST %t.out | FileCheck %s
 
-#include <CL/sycl.hpp>
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <sycl/sycl.hpp>
 
 // Check that linear id is monotonically increased on host device.
 // Only there we can reliable check that. Since the kernel has a restriction
@@ -16,7 +16,7 @@
 // is somehow changed so it's no longer possible to run this test reliable
 // it can be removed.
 
-namespace s = cl::sycl;
+namespace s = sycl;
 
 int main(int argc, char *argv[]) {
   s::queue q;
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     s::stream out(1024, 80, h);
 
     h.parallel_for<class linear_id>(s::range<2>(rng), [=](s::item<2> item) {
-      out << item.get_linear_id() << cl::sycl::endl;
+      out << item.get_linear_id() << sycl::endl;
     });
   });
   q.wait();

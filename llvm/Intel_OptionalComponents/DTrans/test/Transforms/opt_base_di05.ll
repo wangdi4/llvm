@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; RUN: opt -S -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.MyStruct -o %t %s
 ; RUN:   grep "DILocalVariable(name: \"x\"" %t | count 1
 ; RUN:   grep "DILocalVariable(name: \"y\"" %t | count 1

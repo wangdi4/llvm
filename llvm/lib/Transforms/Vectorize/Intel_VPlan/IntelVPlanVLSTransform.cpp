@@ -140,6 +140,13 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
                     "not supported.";
     return;
   }
+  for (OVLSMemref *Memref: *Group) {
+    auto ElementSizeInBits = Memref->getType().getElementSize();
+    if (*GroupStride % (ElementSizeInBits / 8)) {
+      FailureReason = "Stride not a multiple of element size, skipping.";
+      return;
+    }
+  }
   if (std::abs(*GroupStride) > 64) {
     // TODO: Don't skip in LLVM IR case?
     FailureReason = "HIR only supports up to 64 bits in mask, skipping.";

@@ -31,18 +31,26 @@
 #define _OMPTARGET_RTL_H
 
 #include "omptarget.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/DynamicLibrary.h"
+
+#include "omptarget.h"
+
 #include <list>
 #include <map>
 #include <mutex>
 #include <string>
-#include <vector>
 
 // Forward declarations.
 struct DeviceTy;
 struct __tgt_bin_desc;
 
 struct RTLInfoTy {
+  typedef int32_t(init_plugin_ty)();
+  typedef int32_t(deinit_plugin_ty)();
   typedef int32_t(is_valid_binary_ty)(void *);
+  typedef int32_t(is_valid_binary_info_ty)(void *, void *);
   typedef int32_t(is_data_exchangable_ty)(int32_t, int32_t);
   typedef int32_t(number_of_devices_ty)();
   typedef int32_t(init_device_ty)(int32_t);
@@ -74,7 +82,7 @@ struct RTLInfoTy {
 #if INTEL_COLLAB
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
-  typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
+  typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *, int32_t);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
@@ -91,7 +99,6 @@ struct RTLInfoTy {
   typedef int32_t(pop_subdevice_ty)(void);
   typedef void (add_build_options_ty)(const char *, const char *);
   typedef int32_t(is_supported_device_ty)(int32_t, void *);
-  typedef void (deinit_ty)(void);
 #if INTEL_CUSTOMIZATION
   typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
                                              int32_t *);
@@ -118,6 +125,9 @@ struct RTLInfoTy {
   typedef void(free_per_hw_thread_scratch_ty)(int32_t, void *);
   typedef int32_t(get_device_info_ty)(int32_t, int32_t, size_t, void *,
                                       size_t *);
+  typedef void *(data_aligned_alloc_shared_ty)(int32_t, size_t, size_t,
+                                               int32_t);
+  typedef int(prefetch_shared_mem_ty)(int32_t, size_t, void **, size_t *);
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
@@ -139,7 +149,7 @@ struct RTLInfoTy {
                                 // to be registered with this RTL.
   int32_t NumberOfDevices = -1; // Number of devices this RTL deals with.
 
-  void *LibraryHandler = nullptr;
+  std::unique_ptr<llvm::sys::DynamicLibrary> LibraryHandler;
 
 #ifdef OMPTARGET_DEBUG
   std::string RTLName;
@@ -150,7 +160,10 @@ struct RTLInfoTy {
 #endif  // INTEL_COLLAB
 
   // Functions implemented in the RTL.
+  init_plugin_ty *init_plugin = nullptr;
+  deinit_plugin_ty *deinit_plugin = nullptr;
   is_valid_binary_ty *is_valid_binary = nullptr;
+  is_valid_binary_info_ty *is_valid_binary_info = nullptr;
   is_data_exchangable_ty *is_data_exchangable = nullptr;
   number_of_devices_ty *number_of_devices = nullptr;
   init_device_ty *init_device = nullptr;
@@ -188,7 +201,6 @@ struct RTLInfoTy {
   pop_subdevice_ty *pop_subdevice = nullptr;
   add_build_options_ty *add_build_options = nullptr;
   is_supported_device_ty *is_supported_device = nullptr;
-  deinit_ty *deinit = nullptr;
 #if INTEL_CUSTOMIZATION
   create_interop_ty *create_interop = nullptr;
   release_interop_ty *release_interop = nullptr;
@@ -210,6 +222,8 @@ struct RTLInfoTy {
   alloc_per_hw_thread_scratch_ty *alloc_per_hw_thread_scratch = nullptr;
   free_per_hw_thread_scratch_ty *free_per_hw_thread_scratch = nullptr;
   get_device_info_ty *get_device_info = nullptr;
+  data_aligned_alloc_shared_ty *data_aligned_alloc_shared = nullptr;
+  prefetch_shared_mem_ty *prefetch_shared_mem = nullptr;
 #endif // INTEL_COLLAB
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;
@@ -226,7 +240,9 @@ struct RTLInfoTy {
   release_async_info_ty *release_async_info = nullptr;
 
   // Are there images associated with this RTL.
-  bool isUsed = false;
+  bool IsUsed = false;
+
+  llvm::DenseSet<const __tgt_device_image *> UsedImages;
 
   // Mutex for thread-safety when calling RTL interface functions.
   // It is easier to enforce thread-safety at the libomptarget level,
@@ -241,7 +257,7 @@ struct RTLsTy {
 
   // Array of pointers to the detected runtime libraries that have compatible
   // binaries.
-  std::vector<RTLInfoTy *> UsedRTLs;
+  llvm::SmallVector<RTLInfoTy *> UsedRTLs;
 
 #if INTEL_COLLAB
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -252,7 +268,7 @@ struct RTLsTy {
   explicit RTLsTy() = default;
 
   // Register the clauses of the requires directive.
-  void RegisterRequires(int64_t flags);
+  void registerRequires(int64_t Flags);
 
   // Initialize RTL if it has not been initialized
   void initRTLonce(RTLInfoTy &RTL);
@@ -261,15 +277,15 @@ struct RTLsTy {
   void initAllRTLs();
 
   // Register a shared library with all (compatible) RTLs.
-  void RegisterLib(__tgt_bin_desc *desc);
+  void registerLib(__tgt_bin_desc *Desc);
 
   // Unregister a shared library from all RTLs.
-  void UnregisterLib(__tgt_bin_desc *desc);
+  void unregisterLib(__tgt_bin_desc *Desc);
 
   // Mutex-like object to guarantee thread-safety and unique initialization
   // (i.e. the library attempts to load the RTLs (plugins) only once).
-  std::once_flag initFlag;
-  void LoadRTLs(); // not thread-safe
+  std::once_flag InitFlag;
+  void loadRTLs(); // not thread-safe
 };
 
 /// Map between the host entry begin and the translation table. Each
@@ -280,10 +296,12 @@ struct TranslationTable {
   __tgt_target_table HostTable;
 
   // Image assigned to a given device.
-  std::vector<__tgt_device_image *> TargetsImages; // One image per device ID.
+  llvm::SmallVector<__tgt_device_image *>
+      TargetsImages; // One image per device ID.
 
   // Table of entry points or NULL if it was not already computed.
-  std::vector<__tgt_target_table *> TargetsTable; // One table per device ID.
+  llvm::SmallVector<__tgt_target_table *>
+      TargetsTable; // One table per device ID.
 };
 typedef std::map<__tgt_offload_entry *, TranslationTable>
     HostEntriesBeginToTransTableTy;
@@ -293,8 +311,8 @@ struct TableMap {
   TranslationTable *Table = nullptr; // table associated with the host ptr.
   uint32_t Index = 0; // index in which the host ptr translated entry is found.
   TableMap() = default;
-  TableMap(TranslationTable *table, uint32_t index)
-      : Table(table), Index(index) {}
+  TableMap(TranslationTable *Table, uint32_t Index)
+      : Table(Table), Index(Index) {}
 };
 typedef std::map<void *, TableMap> HostPtrToTableMapTy;
 

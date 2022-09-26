@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that type mapping occurs properly in the DTrans base.
 ; The DTrans Transform Test class is used to establish a set of types that
 ; should be remapped (__DTT_<name>). Then the DTrans Transform class should

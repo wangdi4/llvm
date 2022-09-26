@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that baz1, baz3, baz4, baz5 and baz6 routines
 ; are not selected to increase alignment due to different heuristics.
 ; Verifies that only alignment of bar is increased.

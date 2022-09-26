@@ -1,4 +1,21 @@
 //===- GCOVProfiling.cpp - Insert edge counters for gcov profiling --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -305,8 +322,8 @@ namespace {
     void writeOut() {
       write(0);
       writeString(Filename);
-      for (int i = 0, e = Lines.size(); i != e; ++i)
-        write(Lines[i]);
+      for (uint32_t L : Lines)
+        write(L);
     }
 
     GCOVLines(GCOVProfiler *P, StringRef F)
@@ -649,8 +666,8 @@ static bool functionHasLines(const Function &F, unsigned &EndLine) {
   // Check whether this function actually has any source lines. Not only
   // do these waste space, they also can crash gcov.
   EndLine = 0;
-  for (auto &BB : F) {
-    for (auto &I : BB) {
+  for (const auto &BB : F) {
+    for (const auto &I : BB) {
       // Debug intrinsic locations correspond to the location of the
       // declaration, not necessarily any statements or expressions.
       if (isa<DbgInfoIntrinsic>(&I)) continue;
@@ -702,7 +719,7 @@ bool GCOVProfiler::AddFlushBeforeForkAndExec() {
     }
   }
 
-  for (auto F : Forks) {
+  for (auto *F : Forks) {
     IRBuilder<> Builder(F);
     BasicBlock *Parent = F->getParent();
     auto NextInst = ++F->getIterator();
@@ -727,7 +744,7 @@ bool GCOVProfiler::AddFlushBeforeForkAndExec() {
     Parent->back().setDebugLoc(Loc);
   }
 
-  for (auto E : Execs) {
+  for (auto *E : Execs) {
     IRBuilder<> Builder(E);
     BasicBlock *Parent = E->getParent();
     auto NextInst = ++E->getIterator();
@@ -851,6 +868,8 @@ bool GCOVProfiler::emitProfileNotes(
       if (isUsingScopeBasedEH(F)) continue;
       if (F.hasFnAttribute(llvm::Attribute::NoProfile))
         continue;
+      if (F.hasFnAttribute(llvm::Attribute::SkipProfile))
+        continue;
 
       // Add the function line number to the lines of the entry block
       // to have a counter for the function definition.
@@ -931,7 +950,7 @@ bool GCOVProfiler::emitProfileNotes(
           while ((Idx >>= 8) > 0);
         }
 
-        for (auto &I : BB) {
+        for (const auto &I : BB) {
           // Debug intrinsic locations correspond to the location of the
           // declaration, not necessarily any statements or expressions.
           if (isa<DbgInfoIntrinsic>(&I)) continue;

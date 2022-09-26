@@ -91,9 +91,6 @@ bool RecurrenceDescriptor::isFloatingPointRecurrenceKind(RecurKind Kind) {
 
 #if INTEL_CUSTOMIZATION
 bool RecurrenceDescriptorData::isArithmeticRecurrenceKind(RecurKind Kind) {
-#else
-bool RecurrenceDescriptor::isArithmeticRecurrenceKind(RecurKind Kind) {
-#endif
   switch (Kind) {
   default:
     break;
@@ -106,6 +103,7 @@ bool RecurrenceDescriptor::isArithmeticRecurrenceKind(RecurKind Kind) {
   }
   return false;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Determines if Phi may have been type-promoted. If Phi has a single user
 /// that ANDs the Phi with a type mask, return the user. RT is updated to
@@ -833,7 +831,7 @@ RecurrenceDescriptor::isRecurrenceInstr(Loop *L, PHINode *OrigPhi,
   case Instruction::Select:
     if (Kind == RecurKind::FAdd || Kind == RecurKind::FMul)
       return isConditionalRdxPattern(Kind, I);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case Instruction::FCmp:
   case Instruction::ICmp:
   case Instruction::Call:
@@ -965,7 +963,7 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
   return false;
 }
 
-bool RecurrenceDescriptor::isFirstOrderRecurrence(
+bool RecurrenceDescriptor::isFixedOrderRecurrence(
     PHINode *Phi, Loop *TheLoop,
     MapVector<Instruction *, Instruction *> &SinkAfter, DominatorTree *DT) {
 
@@ -989,6 +987,20 @@ bool RecurrenceDescriptor::isFirstOrderRecurrence(
   // Get the previous value. The previous value comes from the latch edge while
   // the initial value comes form the preheader edge.
   auto *Previous = dyn_cast<Instruction>(Phi->getIncomingValueForBlock(Latch));
+
+  // If Previous is a phi in the header, go through incoming values from the
+  // latch until we find a non-phi value. Use this as the new Previous, all uses
+  // in the header will be dominated by the original phi, but need to be moved
+  // after the non-phi previous value.
+  SmallPtrSet<PHINode *, 4> SeenPhis;
+  while (auto *PrevPhi = dyn_cast_or_null<PHINode>(Previous)) {
+    if (PrevPhi->getParent() != Phi->getParent())
+      return false;
+    if (!SeenPhis.insert(PrevPhi).second)
+      return false;
+    Previous = dyn_cast<Instruction>(PrevPhi->getIncomingValueForBlock(Latch));
+  }
+
   if (!Previous || !TheLoop->contains(Previous) || isa<PHINode>(Previous) ||
       SinkAfter.count(Previous)) // Cannot rely on dominance due to motion.
     return false;
@@ -1030,7 +1042,7 @@ bool RecurrenceDescriptor::isFirstOrderRecurrence(
       return false;
 
     // Avoid sinking an instruction multiple times (if multiple operands are
-    // first order recurrences) by sinking once - after the latest 'previous'
+    // fixed order recurrences) by sinking once - after the latest 'previous'
     // instruction.
     auto It = SinkAfter.find(SinkCandidate);
     if (It != SinkAfter.end()) {
@@ -1177,6 +1189,11 @@ unsigned RecurrenceDescriptor::getOpcode(RecurKind Kind) {
   case RecurKind::FMin:
   case RecurKind::SelectFCmp:
     return Instruction::FCmp;
+#if INTEL_CUSTOMIZATION
+  // For UDRs finalization is done by calling custom reducer.
+  case RecurKind::Udr:
+    return Instruction::Call;
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown recurrence operation");
   }
@@ -1207,7 +1224,7 @@ RecurrenceDescriptor::getReductionOpChain(PHINode *Phi, Loop *L) const {
     ExpectedUses = 2;
 
   auto getNextInstruction = [&](Instruction *Cur) -> Instruction * {
-    for (auto User : Cur->users()) {
+    for (auto *User : Cur->users()) {
       Instruction *UI = cast<Instruction>(User);
       if (isa<PHINode>(UI))
         continue;
@@ -1310,8 +1327,12 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
          "Step value is zero");
 
+#if !INTEL_CUSTOMIZATION
+  // Pointer induction that are not constant are supported in intel
+  // customization.
   assert((IK != IK_PtrInduction || getConstIntStepValue()) &&
          "Step value should be constant for pointer induction");
+#endif
   assert((IK == IK_FpInduction || Step->getType()->isIntegerTy()) &&
          "StepValue is not an integer");
 
@@ -1601,9 +1622,12 @@ bool InductionDescriptor::isInductionPHI(
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
-  // Pointer induction should be a constant.
+#if !INTEL_CUSTOMIZATION
+  // Pointer induction should be a constant. Non-constant step is supported
+  // in intel customization.
   if (!ConstStep)
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Always use i8 element type for opaque pointer inductions.
   PointerType *PtrTy = cast<PointerType>(PhiTy);
@@ -1613,7 +1637,9 @@ bool InductionDescriptor::isInductionPHI(
   if (!ElementType->isSized())
     return false;
 
+#if !INTEL_CUSTOMIZATION
   ConstantInt *CV = ConstStep->getValue();
+#endif // INTEL_CUSTOMIZATION
   const DataLayout &DL = Phi->getModule()->getDataLayout();
   TypeSize TySize = DL.getTypeAllocSize(ElementType);
   // TODO: We could potentially support this for scalable vectors if we can
@@ -1621,14 +1647,26 @@ bool InductionDescriptor::isInductionPHI(
   // the scalable type.
   if (TySize.isZero() || TySize.isScalable())
     return false;
-
   int64_t Size = static_cast<int64_t>(TySize.getFixedSize());
-  int64_t CVSize = CV->getSExtValue();
-  if (CVSize % Size)
-    return false;
-  auto *StepValue =
-      SE->getConstant(CV->getType(), CVSize / Size, true /* signed */);
-  D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
-                          /* BinOp */ nullptr, ElementType);
+
+#if INTEL_CUSTOMIZATION
+  if (ConstStep) {
+    ConstantInt *CV = ConstStep->getValue();
+#endif // INTEL_CUSTOMIZATION
+    int64_t CVSize = CV->getSExtValue();
+    if (CVSize % Size)
+      return false;
+    auto *StepValue =
+        SE->getConstant(CV->getType(), CVSize / Size, true /* signed */);
+    D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
+                            /* BinOp */ nullptr, ElementType);
+#if INTEL_CUSTOMIZATION
+  } else {
+    auto *StepValue =
+        SE->getUDivExpr(Step, SE->getConstant(Step->getType(), Size));
+    D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
+                            /* BinOp */ nullptr, ElementType);
+  }
+#endif // INTEL_CUSTOMIZATION
   return true;
 }

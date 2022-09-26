@@ -1,7 +1,6 @@
 ; Check that VPlan vectorizes uniform fneg instruction properly
 ; RUN: opt -S -vplan-vec -vplan-force-vf=4 < %s 2>&1 | FileCheck %s -check-prefixes=CHECK-IR
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s -check-prefix=CHECK-HIR
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s -check-prefix=CHECK-HIR
+; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 < %s | FileCheck %s -check-prefix=CHECK-HIR
 
 ; CHECK-IR: vector.body:
 ; CHECK-IR:   fneg float

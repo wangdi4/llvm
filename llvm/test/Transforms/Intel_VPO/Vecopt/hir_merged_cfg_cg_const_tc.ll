@@ -11,8 +11,8 @@
 ;       @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n0;v4;s1" -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }
@@ -23,7 +23,7 @@
 
 ; CHECK:                %lb.tmp = 100;
 
-; CHECK:                + DO i1 = 100, 100, 1   <DO_LOOP> <novectorize>
+; CHECK:                + DO i1 = 100, 100, 1   <DO_LOOP> <vector-remainder> <novectorize>
 ; CHECK-NEXT:           |   (%A)[i1] = i1;
 ; CHECK-NEXT:           + END LOOP
 ; CHECK-NEXT:     END REGION

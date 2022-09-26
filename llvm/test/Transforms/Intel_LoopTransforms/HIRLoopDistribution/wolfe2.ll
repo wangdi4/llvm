@@ -1,13 +1,8 @@
 
-; RUN: opt -enable-new-pm=0 -O2   < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="default<O2>"   < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-; This is just a remainder that we need to defer the PreLoad in GVN until
-; loopopt cleanup.  Loop Carried temps will prevent loop transformations and
-; vectorization
+; Check that Loop Distribution distributes out the PiBlock with memory reduction on @E.
 ;
-;  XFAIL: *
-;;Split at 8-10 and again 21-22
 ;          BEGIN REGION { }
 ;<30>         + DO i1 = 0, 98, 1   <DO_LOOP>
 ;<3>          |   %0 = (@B)[0][i1 + 1];
@@ -33,16 +28,6 @@
 ; CHECK-NEXT: DO i1 = 0, 98, 1
 ; CHECK: (@A)[0][i1 + 1] =
 ; CHECK: END LOOP
-
-; Ideally we should split into 3 loops. However the dependence
-;between pi block 1 and 2 is only =, recurrence analysis
-;sees no reason to separate the two. The reason to do is
-; that pi block 1 forms a vectorizable loop and 2 does not
-; Enable the following 4 checks when this analysis is available
-; ACHECK-NEXT: DO i1 = 0, 98, 1
-; ACHECK-NEXT: (@E)[0][i1 + 1]
-; ACHECK: (@E)[0][i1 + 2]
-; ACHECK-NEXT: END LOOP
 
 ; CHECK: DO i1 = 0, 98, 1
 ; CHECK: (@E)[0][i1 + 1]

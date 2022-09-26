@@ -1,3 +1,15 @@
+# Copyright (C) 2012-2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 if (INCLUDE_MKL)
     add_definitions( -D__INCLUDE_MKL__ )
 endif(INCLUDE_MKL)
@@ -29,10 +41,6 @@ set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEF
 # and scalar kernel, our compiler can works with maximum width equals to 17. So we have to allocate additional stack
 # size equals to 17MB.
 set_source_files_properties( cl_device_private_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=17825792 )
-# In test with disabling master join we allocate 15MB for array. And allocate stack size with size 8MB = 8388608,
-# set private mem size 16MB via CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE env. It will have no stack overflow since master
-# thread dose not participate in kernel computations on O0 mode for Windows.
-set_source_files_properties( clDisableMasterJoinTest.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
 
 add_definitions(-DCURRENT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -80,7 +88,11 @@ add_ocl_unittest_artifacts(
     data/cached_binary_gold_update2_release_windows32.bin
     data/cached_binary_without_section.bin
     data/cached_binary_with_wrong_version.bin
+    data/code_coverage.bc
+    data/code_coverage_linux.bin
     data/fp-as-kernel-arg.spv
+    data/replace-module-after-optimizer.ll
+    data/replace-module-before-optimizer.ll
     data/reqd_num_sub_groups_32.bc
     data/reqd_num_sub_groups_64.bc
     data/spec_const.spv

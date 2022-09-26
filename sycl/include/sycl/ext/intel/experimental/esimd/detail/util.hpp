@@ -29,35 +29,14 @@
 
 #include <sycl/ext/intel/esimd/detail/util.hpp>
 
-__SYCL_INLINE_NAMESPACE(cl) {
-namespace __ESIMD_EDNS {
+namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
+namespace ext::intel::experimental::esimd::detail {
 
 template <unsigned int N, unsigned int M>
 constexpr unsigned int roundUpNextMultiple() {
   return ((N + M - 1) / M) * M;
 }
-
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
-template <typename T>
-struct is_hf_type
-    : std::integral_constant<
-          bool, std::is_same<__ESIMD_DNS::half,
-                             typename sycl::detail::remove_const_t<T>>::value> {
-};
-
-template <typename T, int N>
-struct is_hf_type<__ESIMD_DNS::raw_vector_type<T, N>> {
-  static const bool value = is_hf_type<T>::value;
-};
-
-template <typename T, int N> struct is_hf_type<__ESIMD_NS::simd<T, N>> {
-  static const bool value = is_hf_type<T>::value;
-};
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 /// Compile-time checks if first template parameter is equal for any other
 template <typename...> struct is_one_of {
@@ -89,7 +68,8 @@ struct is_one_of_enum<enumClass, Checked, First, Else...> {
 template <typename enumClass, enumClass... T>
 inline constexpr bool is_one_of_enum_v = is_one_of_enum<enumClass, T...>::value;
 
-} // namespace __ESIMD_EDNS
-} // __SYCL_INLINE_NAMESPACE(cl)
+} // namespace ext::intel::experimental::esimd::detail
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace sycl
 
 /// @endcond ESIMD_DETAIL

@@ -21,8 +21,7 @@
 ; REQUIRES: asserts
 
 ; Check for HIR driver
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-vplan-vec -debug-only=vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-vplan-vec -debug-only=vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-vplan-vec -debug-only=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 ; CHECK-HIR-LABEL: VPlan HIR Driver for Function
 ; CHECK-HIR: VPLAN_OPTREPORT: Loop was optimized out. 
 

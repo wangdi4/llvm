@@ -2269,7 +2269,7 @@ static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_madd_epi16(__m128i __a,
 ///    each comparison.
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */
-#if !defined(__DSPV1_SUPPORTED__)
+#if !defined(__DSPINTRIN_H)
 /* end INTEL_FEATURE_ISA_DSPV1 */
 /* end INTEL_CUSTOMIZATION */
 static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_max_epi16(__m128i __a,
@@ -2335,7 +2335,7 @@ static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_min_epu8(__m128i __a,
 }
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */
-#endif // __DSPV1_SUPPORTED__
+#endif // __DSPINTRIN_H
 /* end INTEL_FEATURE_ISA_DSPV1 */
 /* end INTEL_CUSTOMIZATION */
 

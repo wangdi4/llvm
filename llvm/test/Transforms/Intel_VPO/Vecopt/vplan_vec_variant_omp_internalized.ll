@@ -1,4 +1,17 @@
-; RUN: opt %s -S --passes="openmp-opt,hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" 2>&1 | FileCheck %s
+; RUN: opt %s -S -vplan-force-vf=1 --passes="openmp-opt,hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" 2>&1 | FileCheck %s
+
+; Since vectorizing loops with vector functions is now supported for HIR, this
+; test started failing because the calls to the vector functions were
+; scalarized due to VF=2 and no variant was available for that VF. Also, things
+; were further complicated by the fact that the loop was completely unrolled
+; after vectorization and only the scalarized calls remained. The test
+; originally looks at IR dumped just after VPlanDriverHIR, and this is before
+; the LLVM is cleaned up so the calls were appearing in the entry block with
+; the loop still present in the dump. The HIR region was shown correctly (e.g.,
+; no loop). It isn't until later when hir-cg creates valid LLVM-IR. Instead of
+; adding more options and changing the dumps, it was easier to just keep the
+; original intent of the test by forcing VF=1 and thus preventing the unrolling
+; and scalarization of the vector function calls.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"

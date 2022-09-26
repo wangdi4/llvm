@@ -36,18 +36,22 @@
 
 ; CHECK: Function
 ; CHECK: BEGIN REGION { modified }
-; CHECK: DO i1
 ; CHECK:  if
 ; CHECK:   if
-; CHECK:    DO i2
+; CHECK:    DO i1
+; CHECK:      DO i2
+; CHECK:      END LOOP
 ; CHECK:    END LOOP
 ; CHECK:   else
-; CHECK:    DO i2
-; CHECK:     if
-; CHECK:      goto [[L:.*]];
+; CHECK:    DO i1
+; CHECK:     DO i2
+; CHECK:      if
+; CHECK:       goto [[L:.*]];
+; CHECK:     END LOOP
+; CHECK:     [[L]]:
 ; CHECK:    END LOOP
-; CHECK:    [[L]]:
-; CHECK: END LOOP
+; CHECK:  else
+; CHECK:   DO i1
 ; CHECK: END REGION
 
 ;Module Before HIR; ModuleID = 'multiexit-goto-remap.ll'

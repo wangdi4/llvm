@@ -39,7 +39,7 @@ ObjectFile("inject-object-file",
            llvm::cl::desc("Execute pre-compiled object file"),
            llvm::cl::value_desc("filename"));
 
-// Enable VTune support in Volcano.
+// Enable VTune support.
 llvm::cl::opt<bool>
 StopBeforeJIT("stop-before-jit",
         llvm::cl::desc("Stops compilation after all optimization passes, but before binary generation."),
@@ -67,7 +67,6 @@ OptVectorizerType("vectorizer-type",
                llvm::cl::desc("Specify vectorizer type. "
                               "Default value - default."),
                llvm::cl::values(
-                clEnumValN(VOLCANO_VECTORIZER, "volcano", "volcano vectorizer"),
                 clEnumValN(VPO_VECTORIZER,     "vpo",     "vplan vectorizer"),
                 clEnumValN(DEFAULT_VECTORIZER, "default",  "default vectorizer")
                ),
@@ -90,13 +89,7 @@ TransposeSize("tsize",
 
 llvm::cl::opt<std::string>
 CPUArch("cpuarch",
-         llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, core-avx2, knc,"
-#if defined ENABLE_KNL
-         " knl,"
-#else
-         ""
-#endif
-         " skx"),
+         llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, core-avx2, knc, skx"),
          llvm::cl::init("auto")
          );
 
@@ -177,7 +170,7 @@ DefaultLocalWGSize("default_wg_size",
                    llvm::cl::desc("Default local work group size used in Validation mode"),
                    llvm::cl::init(16));
 
-// turn on printing LLVM IR produced by Volcano after all optimization passes applied.
+// turn on printing LLVM IR produced after all optimization passes applied.
 llvm::cl::opt<std::string>
 OptimizedLLVMIRDumpFile("dump-llvm-file",
                         llvm::cl::desc("Prints LLVM IR to the file <filename> after all optimization passes applied. "
@@ -191,16 +184,16 @@ DetailedStat("detailed_stat",
                  llvm::cl::desc("Print detailed statistics."),
                  llvm::cl::init(true));
 
-// Enable VTune support in Volcano.
+// Enable VTune support.
 llvm::cl::opt<bool>
 UseVTune("vtune",
-        llvm::cl::desc("Enable VTune support in Volcano."),
+        llvm::cl::desc("Enable VTune support."),
         llvm::cl::init(false));
 
-// Enable printing Volcano build log.
+// Enable printing build log.
 llvm::cl::opt<bool>
 PrintBuildLog("build-log",
-        llvm::cl::desc("Enable printing Volcano build log."),
+        llvm::cl::desc("Enable printing build log."),
         llvm::cl::init(false));
 
 // turn on printing bytecode instructions after
@@ -280,7 +273,7 @@ int main(int argc, char *argv[])
 {
     // Parse received options
     llvm::cl::ParseCommandLineOptions(argc, argv,
-        "Stand-alone test application to validate OCL/DX back-end.\n");
+        "Stand-alone test application to validate OCL back-end.\n");
 
     try
     {

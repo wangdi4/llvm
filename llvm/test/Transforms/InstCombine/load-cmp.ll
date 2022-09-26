@@ -284,8 +284,11 @@ define i1 @test10_struct_arr_i16(i16 %x) {
 
 define i1 @test10_struct_arr_i64(i64 %x) {
 ; CHECK-LABEL: @test10_struct_arr_i64(
+; INTEL_CUSTOMIZATION
+; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i64 [[X:%.*]] to i32
 ; CHECK-NEXT:    [[R:%.*]] = icmp ne i32 [[TMP1]], 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %p = getelementptr inbounds [4 x %Foo], [4 x %Foo]* @GStructArr, i64 0, i64 %x, i32 2

@@ -1,4 +1,21 @@
 //===- Config.h -------------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,6 +30,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/BinaryFormat/MachO.h"
@@ -43,8 +61,8 @@ struct PlatformInfo {
 
 inline uint32_t encodeVersion(const llvm::VersionTuple &version) {
   return ((version.getMajor() << 020) |
-          (version.getMinor().getValueOr(0) << 010) |
-          version.getSubminor().getValueOr(0));
+          (version.getMinor().value_or(0) << 010) |
+          version.getSubminor().value_or(0));
 }
 
 enum class NamespaceKind {
@@ -65,6 +83,11 @@ enum class ICFLevel {
   none,
   safe,
   all,
+};
+
+enum class ObjCStubsMode {
+  fast,
+  small,
 };
 
 struct SectionAlign {
@@ -109,7 +132,7 @@ struct Configuration {
   bool archMultiple = false;
   bool exportDynamic = false;
   bool forceLoadObjC = false;
-  bool forceLoadSwift = false;
+  bool forceLoadSwift = false; // Only applies to LC_LINKER_OPTIONs.
   bool staticLink = false;
   bool implicitDylibs = false;
   bool isPic = false;
@@ -126,14 +149,14 @@ struct Configuration {
   bool emitBitcodeBundle = false;
   bool emitDataInCodeInfo = false;
   bool emitEncryptionInfo = false;
+  bool emitInitOffsets = false;
   bool timeTraceEnabled = false;
   bool dataConst = false;
   bool dedupLiterals = true;
   bool omitDebugInfo = false;
   bool warnDylibInstallName = false;
-  // Temporary config flag that will be removed once we have fully implemented
-  // support for __eh_frame.
-  bool parseEhFrames = false;
+  bool ignoreOptimizationHints = false;
+  bool forceExactCpuSubtypeMatch = false;
   uint32_t headerPad;
   uint32_t dylibCompatibilityVersion = 0;
   uint32_t dylibCurrentVersion = 0;
@@ -167,11 +190,12 @@ struct Configuration {
   UndefinedSymbolTreatment undefinedSymbolTreatment =
       UndefinedSymbolTreatment::error;
   ICFLevel icfLevel = ICFLevel::none;
+  ObjCStubsMode objcStubsMode = ObjCStubsMode::fast;
   llvm::MachO::HeaderFileType outputType;
   std::vector<llvm::StringRef> systemLibraryRoots;
   std::vector<llvm::StringRef> librarySearchPaths;
   std::vector<llvm::StringRef> frameworkSearchPaths;
-  std::vector<llvm::StringRef> runtimePaths;
+  llvm::SmallVector<llvm::StringRef, 0> runtimePaths;
   std::vector<std::string> astPaths;
   std::vector<Symbol *> explicitUndefineds;
   llvm::StringSet<> explicitDynamicLookups;
@@ -186,9 +210,12 @@ struct Configuration {
   SectionRenameMap sectionRenameMap;
   SegmentRenameMap segmentRenameMap;
 
+  bool hasExplicitExports = false;
   SymbolPatterns exportedSymbols;
   SymbolPatterns unexportedSymbols;
   SymbolPatterns whyLive;
+
+  std::vector<std::pair<llvm::StringRef, llvm::StringRef>> aliasedSymbols;
 
   SymtabPresence localSymbolsPresence = SymtabPresence::All;
   SymbolPatterns localSymbolPatterns;
@@ -202,13 +229,6 @@ struct Configuration {
   llvm::MachO::PlatformType platform() const {
     return platformInfo.target.Platform;
   }
-};
-
-// Whether to force-load an archive.
-enum class ForceLoad {
-  Default, // Apply -all_load or -ObjC behaviors if those flags are enabled
-  Yes,     // Always load the archive, regardless of other flags
-  No,      // Never load the archive, regardless of other flags
 };
 
 extern std::unique_ptr<Configuration> config;

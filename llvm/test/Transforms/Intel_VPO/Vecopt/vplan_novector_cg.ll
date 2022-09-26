@@ -7,13 +7,9 @@
 ; RUN: opt -S < %s -vplan-vec -vplan-force-vf=1 | FileCheck %s
 ; RUN: opt -S < %s -passes="vplan-vec" -vplan-force-vf=1 | FileCheck %s
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:        -hir-cg  -vplan-force-vf=1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:        -hir-cg  -vplan-force-vf=1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:        -hir-cg  -vplan-force-vf=1 | FileCheck %s
 ; RUN: opt -S < %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" \
-; RUN:        -vplan-force-vf=1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -S < %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" \
-; RUN:        -vplan-force-vf=1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:        -vplan-force-vf=1 | FileCheck %s
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 @arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16

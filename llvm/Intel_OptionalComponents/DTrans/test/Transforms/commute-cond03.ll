@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that CommuteCond transformation is triggered
 ; using DTrans heuristic, which checks that %ident is a field of a struct
 ; and number of possible constant values for the field is less than 4.
@@ -58,4 +60,6 @@ define void @proc1() {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

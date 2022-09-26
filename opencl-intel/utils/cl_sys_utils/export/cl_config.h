@@ -468,7 +468,8 @@ template<typename T>
 T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal)
 {
     HKEY key = nullptr;
-	LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, keyName.c_str(), 0, KEY_QUERY_VALUE | KEY_WOW64_64KEY, &key);
+    LONG res = RegOpenKeyExA(HKEY_LOCAL_MACHINE, keyName.c_str(), 0,
+        KEY_QUERY_VALUE | KEY_WOW64_64KEY, &key);
 
     if (ERROR_SUCCESS != res)
     {
@@ -582,9 +583,6 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
           std::string strDeviceMode = GetDeviceModeName();
           if ("fpga-emu" == strDeviceMode) {
             return FPGA_EMU_DEVICE;
-          }
-          if ("eyeq-emu" == strDeviceMode) {
-            return EYEQ_EMU_DEVICE;
           }
           // TODO: strDeviceMode may be empty. But currently we do not define
           // invalid device. We return CPU device by default. It's better to fix

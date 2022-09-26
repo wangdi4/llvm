@@ -94,6 +94,13 @@ public:
     return !HasLoad;
   }
 
+  bool isInsideLifetimeIntrinsics() const { return IsInsideLifetimeIntrinsics; }
+
+  void setInsideLifetimeIntrinsics() {
+    assert(HasStore && "Unexpected memref group!");
+    IsInsideLifetimeIntrinsics = true;
+  }
+
 #ifndef NDEBUG
   // Print MemRefGroup
   // E.g.: A[0] { R W R R .. W } 5W:3R
@@ -107,6 +114,8 @@ private:
 
   bool IsAnalyzed;
   bool HasLoad, HasLoadOnDomPath, HasStore, HasStoreOnDomPath;
+
+  bool IsInsideLifetimeIntrinsics;
 };
 
 // MemRefCollection is a SmallVector of MemRefGroup
@@ -219,7 +228,8 @@ private:
   /// \p QueryMode indicates that this pass only intends to query invariance but
   /// not perform any transformation.
   bool isLegal(const HLLoop *Lp, const MemRefGroup &Group,
-               bool QueryMode = false);
+               bool QueryMode = false,
+               bool *IsInsideLifetimeIntrinsics = nullptr);
 
   // Analyze the Loop by doing collection, profit analysis and legal analysis.
   // Return true indicates that the loop has at least 1 Group suitable

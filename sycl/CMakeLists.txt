@@ -45,7 +45,9 @@ include(SYCLUtils)
 set(SYCL_MAJOR_VERSION 5)
 set(SYCL_MINOR_VERSION 7)
 set(SYCL_PATCH_VERSION 0)
-set(SYCL_DEV_ABI_VERSION 0)
+# Don't forget to re-enable sycl_symbols_windows.dump once we leave ABI-breaking
+# window!
+set(SYCL_DEV_ABI_VERSION 15)
 if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
 endif()
@@ -66,6 +68,19 @@ if (MSVC)
 # end INTEL_CUSTOMIZATION
 else ()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-deprecated-declarations")
+  # Temporarily disable warnings for use of implicit CTAD since clang
+  # currently issues them for STL class usage (e.g. lock_guard).
+  check_cxx_compiler_flag("-Wno-ctad-maybe-unsupported" SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+  if (SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-ctad-maybe-unsupported")
+  endif()
+endif()
+
+# Temporarily disable warnings for use of implicit CTAD since clang
+# currently issues them for STL class usage (e.g. lock_guard).
+check_cxx_compiler_flag("-Wno-ctad-maybe-unsupported" SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+if (SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-ctad-maybe-unsupported")
 endif()
 
 if(SYCL_ENABLE_WERROR)
@@ -178,9 +193,9 @@ set(sycl_inc_dir ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(sycl_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/source)
 set(sycl_plugin_dir ${CMAKE_CURRENT_SOURCE_DIR}/plugins)
 string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")
-set(version_header "${sycl_inc_dir}/CL/sycl/version.hpp")
+set(version_header "${sycl_inc_dir}/sycl/version.hpp")
 configure_file("${version_header}.in" "${version_header}")
-set(feature_header "${sycl_inc_dir}/CL/sycl/feature_test.hpp")
+set(feature_header "${sycl_inc_dir}/sycl/feature_test.hpp")
 configure_file("${feature_header}.in" "${feature_header}")
 
 include(AddBoostMp11Headers)
@@ -435,6 +450,17 @@ if(INTEL_CUSTOMIZATION)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
+# Build and install lld as part of the sycl-toolchain if available
+if("lld" IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl-toolchain lld)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS lld)
+endif()
+
+if("libclc" IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl-toolchain libspirv-builtins)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins)
+endif()
+
 if("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
   # Ensure that libclc is enabled.
   list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
@@ -443,8 +469,8 @@ if("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
       "CUDA support requires adding \"libclc\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
   endif()
 
-  add_dependencies(sycl-toolchain libspirv-builtins pi_cuda)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_cuda)
+  add_dependencies(sycl-toolchain pi_cuda)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_cuda)
 endif()
 
 if("hip" IN_LIST SYCL_ENABLE_PLUGINS)
@@ -455,8 +481,13 @@ if("hip" IN_LIST SYCL_ENABLE_PLUGINS)
       "HIP support requires adding \"libclc\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
   endif()
 
-  add_dependencies(sycl-toolchain libspirv-builtins pi_hip)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_hip)
+  if(NOT TARGET lld AND "${SYCL_BUILD_PI_HIP_PLATFORM}" STREQUAL "AMD")
+    message(FATAL_ERROR
+      "HIP support requires adding \"lld\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
+  endif()
+
+  add_dependencies(sycl-toolchain pi_hip)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_hip)
 endif()
 
 if("esimd_emulator" IN_LIST SYCL_ENABLE_PLUGINS)

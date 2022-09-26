@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; RUN: sed -e s/^.new64:// %s | \
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.newa64:// %s | \

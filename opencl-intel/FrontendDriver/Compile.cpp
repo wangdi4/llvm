@@ -181,7 +181,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
   // Define OpenCL C 3.0 feature macros.
   // FPGA emulator only support OpenCL C 1.2, so no macro will be defined.
-  if (!m_pProgDesc->bEyeQEmulator && !m_pProgDesc->bFpgaEmulator) {
+  if (!m_pProgDesc->bFpgaEmulator) {
     optionsEx << " -cl-ext=+" OPENCL_C_3D_IMAGE_WRITES;
     optionsEx << " -cl-ext=+" OPENCL_C_ATOMIC_ORDER_ACQ_REL;
     optionsEx << " -cl-ext=+" OPENCL_C_ATOMIC_ORDER_SEQ_CST;
@@ -239,23 +239,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -cl-ext=+cl_khr_3d_image_writes ";
   }
 
-  if (m_pProgDesc->bEyeQEmulator) {
-#if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) ||             \
-    defined(_M_X64)
-    options << " -triple spir64-unknown-unknown-inteleyeq";
-#elif defined(_WIN32) || defined(i386) || defined(__i386__) || defined(__x86__)
-    options << " -triple spir-unknown-unknown-inteleyeq";
-#else
-#error "Can't define target triple: unknown architecture."
-#endif
-    options   << " -cl-denorms-are-zero";
-    optionsEx << " -ffp-contract=off";
-    optionsEx << " -D__INTELEYEQ_CL__";
-    optionsEx << " -U__IMAGE_SUPPORT__";
-  }
-  else if (m_sDeviceInfo.bImageSupport) {
+  if (m_sDeviceInfo.bImageSupport)
     optionsEx << " -D__IMAGE_SUPPORT__=1";
-  }
 
 #ifndef INTEL_PRODUCT_RELEASE
   std::string IntermediateType;
@@ -274,7 +259,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
   // Input header with OpenCL pre-release extensions
   // Skip Emulator devices
-  if (!m_pProgDesc->bFpgaEmulator && !m_pProgDesc->bEyeQEmulator) {
+  if (!m_pProgDesc->bFpgaEmulator) {
     // Append the header to the program source
     InputHeaders.push_back(OPENCL_CTH_PRE_RELEASE_H);
     InputHeadersNames.push_back(OPENCL_CTH_PRE_RELEASE_H_name);

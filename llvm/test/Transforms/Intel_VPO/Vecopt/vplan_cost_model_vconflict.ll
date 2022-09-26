@@ -3,14 +3,10 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=1 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF1
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=1 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF1
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=2 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF2
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=2 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF2
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=8 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF8
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=8 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=1 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF1
+; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=2 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
+; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=8 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
 
 define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr {
 ;

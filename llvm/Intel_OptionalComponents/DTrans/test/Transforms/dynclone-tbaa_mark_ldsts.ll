@@ -1,8 +1,9 @@
 ; This test verifies that !tbaa tags on load(s) and store(s) from a user routine
 ; will be carried into its corresponding dyn-clone transformed user routine.
 
-;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dynclone 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dynclone' 2>&1 | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
+; RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dynclone 2>&1 | FileCheck %s
+; RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dynclone' 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -81,9 +82,11 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
 declare dso_local noalias i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !0 = !{!1, !1, i64 0}
 !1 = !{!"int", !2, i64 0}

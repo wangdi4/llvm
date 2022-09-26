@@ -76,7 +76,7 @@ std::string SystemInfo::GetExecutableFilename() {
   WCHAR path[MAX_PATH];
   if (GetModuleFileNameW(GetModuleHandleW(nullptr), path, MAX_PATH)) {
     std::wstring wstr(path);
-    name = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
+    name = std::string(wstr.begin(), wstr.end());
   }
   // Remove .exe from the name.
   if (!name.empty())

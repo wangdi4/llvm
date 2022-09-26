@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test is same as dynclone-bit-field_01.ll except more values (0, 1, 2,
 ; 3 and 4) are stored to 4th field of %struct.test.01 in @proc1. Since all
 ; possible values of 4th field can't fit in 2-bits, fields 1 and 4 can't be
@@ -61,4 +63,6 @@ define void @proc1() {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

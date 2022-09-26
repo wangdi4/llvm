@@ -3,9 +3,11 @@
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa \
 // RUN:          -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906 --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib %s 2>&1 \
 // RUN:   | FileCheck %s
-// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa \
+// INTEL_CUSTOMIZATION
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa \
 // RUN:          --offload-arch=gfx906 --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib %s 2>&1 \
 // RUN:   | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 // verify the tools invocations
 // CHECK: "-cc1" "-triple" "x86_64-unknown-linux-gnu"{{.*}}"-emit-llvm-bc"{{.*}}"-x" "c"
@@ -38,8 +40,10 @@
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx803 -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOGPULIB
 // CHECK-NOGPULIB-NOT: "-cc1" "-triple" "amdgcn-amd-amdhsa"{{.*}}"-target-cpu" "gfx803" "-fcuda-is-device" "-mlink-builtin-bitcode"{{.*}}libomptarget-amdgpu-gfx803.bc"{{.*}}
 
-// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx803 -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-BINDINGS
-// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa --offload-arch=gfx803 -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-BINDINGS
+// INTEL_CUSTOMIZATION
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx803 -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-BINDINGS
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa --offload-arch=gfx803 -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-BINDINGS
+// end INTEL_CUSTOMIZATION
 // CHECK-BINDINGS: "x86_64-unknown-linux-gnu" - "clang", inputs: ["[[INPUT:.+]]"], output: "[[HOST_BC:.+]]"
 // CHECK-BINDINGS: "amdgcn-amd-amdhsa" - "clang", inputs: ["[[INPUT]]", "[[HOST_BC]]"], output: "[[DEVICE_BC:.+]]"
 // CHECK-BINDINGS: "x86_64-unknown-linux-gnu" - "Offload::Packager", inputs: ["[[DEVICE_BC]]"], output: "[[BINARY:.+]]"
@@ -50,4 +54,4 @@
 // CHECK-EMIT-LLVM-IR: "-cc1" "-triple" "amdgcn-amd-amdhsa"{{.*}}"-emit-llvm"
 
 // RUN: %clang -### -target x86_64-pc-linux-gnu -fopenmp -fopenmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx803 -lm --rocm-device-lib-path=%S/Inputs/rocm/amdgcn/bitcode -fopenmp-new-driver %s 2>&1 | FileCheck %s --check-prefix=CHECK-LIB-DEVICE-NEW
-// CHECK-LIB-DEVICE-NEW: {{.*}}clang-linker-wrapper{{.*}}-target-library=openmp-amdgcn-amd-amdhsa-gfx803={{.*}}ocml.bc"{{.*}}ockl.bc"{{.*}}oclc_daz_opt_on.bc"{{.*}}oclc_unsafe_math_off.bc"{{.*}}oclc_finite_only_off.bc"{{.*}}oclc_correctly_rounded_sqrt_on.bc"{{.*}}oclc_wavefrontsize64_on.bc"{{.*}}oclc_isa_version_803.bc"
+// CHECK-LIB-DEVICE-NEW: {{.*}}clang-linker-wrapper{{.*}}--bitcode-library=openmp-amdgcn-amd-amdhsa-gfx803={{.*}}ocml.bc"{{.*}}ockl.bc"{{.*}}oclc_daz_opt_on.bc"{{.*}}oclc_unsafe_math_off.bc"{{.*}}oclc_finite_only_off.bc"{{.*}}oclc_correctly_rounded_sqrt_on.bc"{{.*}}oclc_wavefrontsize64_on.bc"{{.*}}oclc_isa_version_803.bc"

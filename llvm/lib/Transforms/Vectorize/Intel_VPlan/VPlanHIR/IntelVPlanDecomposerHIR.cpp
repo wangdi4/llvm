@@ -16,12 +16,14 @@
 
 #include "IntelVPlanDecomposerHIR.h"
 #include "../IntelVPlanIDF.h"
+#include "llvm/ADT/FoldingSet.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -35,12 +37,67 @@ static cl::opt<bool> VPlanForceInvariantDecomposition(
     "vplan-force-invariant-decomposition", cl::init(false), cl::Hidden,
     cl::desc("Force decomposition of invariants"));
 
+static cl::opt<bool> VPlanAvoidRedundantInst(
+    "vplan-avoid-redundant-inst", cl::init(true), cl::Hidden,
+    cl::desc("Avoid generating redundant instructions in a basic block"));
+
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
 // VPPhi instruction to the front of the list
 static void movePhiToFront(VPPHINode *Phi) {
   VPBasicBlock *BB = Phi->getParent();
   BB->getInstructions().splice((BB->front()).getIterator(),
                                BB->getInstructions(), Phi->getIterator());
+}
+
+VPInstruction *VPDecomposerHIR::getOrCreateNaryOp(unsigned Opcode,
+                                                  ArrayRef<VPValue *> Operands,
+                                                  Type *BaseTy) {
+  if (!VPlanAvoidRedundantInst)
+    return cast<VPInstruction>(
+        Builder.createNaryOp(Opcode, Operands, BaseTy, nullptr /* DDNode */));
+
+  // Use FoldingSetNodeID to compute a hash from the opcode, base type and the
+  // first two operands at most.
+  FoldingSetNodeID Id;
+  unsigned NumOps = Operands.size();
+  Id.AddInteger(Opcode);
+  Id.AddPointer(BaseTy);
+  Id.AddPointer(Operands[0]);
+  if (NumOps > 1)
+    Id.AddPointer(Operands[1]);
+  else
+    Id.AddPointer(nullptr);
+  unsigned InstHash = Id.ComputeHash();
+
+  // Search InstrMap to see if we can find an equivalent instruction and reuse
+  // the same if one is found.
+  auto InstRange = InstrMap.equal_range(InstHash);
+  for (auto Start = InstRange.first; Start != InstRange.second; ++Start) {
+    VPInstruction *Inst = Start->second;
+    if (Inst->getType() != BaseTy)
+      continue;
+    if (Inst->getOpcode() != Opcode)
+      continue;
+    if (Inst->getNumOperands() != NumOps)
+      continue;
+    for (unsigned OpIdx = 0; OpIdx < NumOps; OpIdx++)
+      if (Inst->getOperand(OpIdx) != Operands[OpIdx])
+        continue;
+
+    // Found a matching instruction to reuse
+    return Inst;
+  }
+
+  // Create a new instruction for the specified opcode/operands.
+  auto *NewInst = cast<VPInstruction>(
+      Builder.createNaryOp(Opcode, Operands, BaseTy, nullptr /* DDNode */));
+
+  // We avoid reusing instructions that may have side effects by not adding
+  // it to InstrMap.
+  if (!NewInst->mayHaveSideEffects())
+    InstrMap.insert(std::pair<unsigned, VPInstruction *>(InstHash, NewInst));
+
+  return NewInst;
 }
 
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
@@ -55,9 +112,7 @@ VPValue *VPDecomposerHIR::combineDecompDefs(VPValue *LHS, VPValue *RHS,
   if (RHS == nullptr)
     return LHS;
 
-  auto *NewVPI = cast<VPInstruction>(
-      Builder.createNaryOp(OpCode, {LHS, RHS}, LHS->getType()));
-  return NewVPI;
+  return getOrCreateNaryOp(OpCode, {LHS, RHS}, LHS->getType());
 }
 
 // Create a VPConstant for an integer coefficient.
@@ -76,9 +131,7 @@ VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
 VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
                                                     unsigned ConvOpCode,
                                                     Type *DestType) {
-  auto *NewConv = cast<VPInstruction>(
-      Builder.createNaryOp(ConvOpCode, {Src}, DestType));
-  return NewConv;
+  return getOrCreateNaryOp(ConvOpCode, {Src}, DestType);
 }
 
 // Create a VPInstruction for the conversion of \p CE, if any, using \p Src as a
@@ -376,6 +429,8 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     InvariantWithoutIV = true;
   }
 
+  bool IsIdiomCE = Idioms->isCEIdiom(CE);
+
   // If the canon expression is invariant once we ignore IV at the vectorization
   // level, we do not need to decompose blobs.
   if (!InvariantWithoutIV)
@@ -401,6 +456,9 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     if (IVConstCoeff != 0 &&
         (!InvariantWithoutIV ||
          CE->getLevel(IVIt) == OutermostHLp->getNestingLevel())) {
+      assert((!IsIdiomCE ||
+              CE->getLevel(IVIt) != OutermostHLp->getNestingLevel()) &&
+             "Unexpected IV in compress/expand index");
       VPValue *DecompIV =
           decomposeIV(RDDR, CE, CE->getLevel(IVIt), CE->getSrcType());
       DecompDef = combineDecompDefs(DecompDef, DecompIV, CE->getSrcType(),
@@ -425,6 +483,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   // Decompose denominator.
   int64_t Denominator = CE->getDenominator();
   if (Denominator != 1) {
+    assert(!IsIdiomCE && "Unexpected denominator in compress/expand index");
     VPValue *DecompDenom = decomposeCoeff(Denominator, CE->getSrcType());
     DecompDef = combineDecompDefs(DecompDef, DecompDenom, CE->getSrcType(),
                                   CE->isUnsignedDiv() ? Instruction::UDiv
@@ -435,6 +494,8 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   DecompDef = decomposeCanonExprConv(CE, DecompDef);
 
   assert(DecompDef && "CanonExpr has not been decomposed");
+  if (IsIdiomCE)
+    addVPValueForCEIdiom(CE, DecompDef);
   return DecompDef;
 }
 
@@ -499,8 +560,6 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   // load memory references might not be in separate instructions. For this
   // reason, in legality, we mark the DDRef that includes VConflict load memory
   // references. Here, we collect load instructions along with their index.
-  const HIRVectorIdioms *Idioms =
-      HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp));
   bool IsVConflictLoad = Idioms->isVConflictLoad(Ref);
 
   // Note: the insert location guard also guards builder debug location.
@@ -522,37 +581,33 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   unsigned NumDims = Ref->getNumDimensions();
   assert(NumDims > 0 && "Number of dimensions in memory operand is 0.");
 
-  // If Ref is of the form a[0] or &a[0], subscript instructions are not needed.
-  // TODO: This is needed for correctness of any analysis with opaque types.
-  // However HIR codegen should be aware of this lack of subscript for Refs of
-  // form a[0] and &a[0] and generate them if needed during codegen. For example
-  // check Transforms/Intel_VPO/Vecopt/hir_vector_opaque_type.ll
-  if (NumDims == 1 && !Ref->hasTrailingStructOffsets() &&
-      (*Ref->canon_begin())->isZero())
-    MemOpVPI = DecompBaseCE;
-  else {
-    // Determine resulting type of the subscript instruction
-    //
-    // Example: float a[1024];
-    //
-    // @a[0][i] will be decomposed as -
-    // float* %vp = subscript [1024 x float]* %a, i64 0, i64 %i
-    //
-    // Here -
-    // SubscriptResultType = float*
-    //
-    // NOTE: Type information about pointer type or pointer element type can be
-    // retrieved anytime from the pointer operand of subscript instruction.
-    //
+  // If Ref is of the form a[0] or &a[0], create a subscript instruction with no
+  // dimensions.
+  bool SkipDims = NumDims == 1 && !Ref->hasTrailingStructOffsets() &&
+                  (*Ref->canon_begin())->isZero();
 
-    Type *SubscriptResultType = Ref->getSrcType();
+  // Determine resulting type of the subscript instruction
+  //
+  // Example: float a[1024];
+  //
+  // @a[0][i] will be decomposed as -
+  // float* %vp = subscript [1024 x float]* %a, i64 0, i64 %i
+  //
+  // Here -
+  // SubscriptResultType = float*
+  //
+  // NOTE: Type information about pointer type or pointer element type can be
+  // retrieved anytime from the pointer operand of subscript instruction.
+  //
+  Type *SubscriptResultType = Ref->getSrcType();
 
-    // For store/load references we need to convert to PointerType
-    if (!Ref->isAddressOf())
-      SubscriptResultType =
-          PointerType::get(SubscriptResultType, Ref->getPointerAddressSpace());
+  // For store/load references we need to convert to PointerType
+  if (!Ref->isAddressOf())
+    SubscriptResultType =
+        PointerType::get(SubscriptResultType, Ref->getPointerAddressSpace());
 
-    SmallVector<VPSubscriptInst::DimInfo, 4> Dimensions;
+  SmallVector<VPSubscriptInst::DimInfo, 4> Dimensions;
+  if (!SkipDims) {
     for (unsigned I = NumDims; I > 0; --I) {
       VPValue *DecompLower = decomposeCanonExpr(Ref, Ref->getDimensionLower(I));
       VPValue *DecompStride =
@@ -580,11 +635,12 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                               Ref->getDimensionType(I),
                               Ref->getDimensionElementType(I), HIRDimOffsets);
     }
-    auto *Subscript = Builder.create<VPSubscriptInst>(
-        "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
-    Subscript->setIsInBounds(Ref->isInBounds());
-    MemOpVPI = Subscript;
   }
+  auto *Subscript = Builder.create<VPSubscriptInst>(
+      "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
+  Subscript->setIsInBounds(Ref->isInBounds());
+  Subscript->HIR().setSymbase(Ref->getSymbase());
+  MemOpVPI = Subscript;
 
   // Create a bitcast instruction if needed
   auto *BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();
@@ -643,6 +699,9 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
   LLVM_DEBUG(dbgs() << "VPDecomp: MemOpVPI: "; MemOpVPI->dump();
              dbgs() << "\n");
+
+  if (Idioms->isCEIdiom(Ref))
+    addVPValueForCEIdiom(Ref, MemOpVPI);
 
   return MemOpVPI;
 }
@@ -950,6 +1009,10 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
       // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
       NewVPInst->HIR().setOperandDDR(RvalDDR);
+
+    if (Idioms->isCEIdiom(HInst))
+      addVPValueForCEIdiom(HInst, NewVPInst);
+
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.
     NewVPInst = createVPInstsForHLIf(HIf, VPOperands);
@@ -1167,7 +1230,7 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   // step. Insert it at the beginning of the loop header and map it to the loop
   // level. HLp is set as underlying HIR of the induction phi.
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(LpH, LpH->begin());
+  setInsertPoint(LpH, LpH->begin());
   // Base type for the VPPHINode is obtained from IVStart
   Type *BaseTy = IVStart->getType();
   VPPHINode *IndVPPhi = Builder.createPhiInstruction(BaseTy, HLp);
@@ -1210,7 +1273,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
          "Expected positive unit-stride HLLoop.");
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(LpLatch);
+  setInsertPoint(LpLatch);
   Builder.setCurrentDebugLocation(HLp->getCmpDebugLoc());
   VPConstant *One =
       Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
@@ -1259,7 +1322,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   VPValue *DecompUB;
   { // #1. This scope is for Guard (RAII).
     VPBuilder::InsertPointGuard Guard(Builder);
-    Builder.setInsertPoint(LpPH);
+    setInsertPoint(LpPH);
     DecompUB = decomposeVPOperand(HLp->getUpperDDRef());
     // Increment UB value by 1 since HLLoop upper bounds are inclusive. This
     // allows to avoid off-by-one errors during vector TC computation and use
@@ -1306,10 +1369,45 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   return BottomTest;
 }
 
+void VPDecomposerHIR::addFPInductionsForLoop(HLLoop *HLp) {
+  // Collect all FP induction variables identifed by LoopOpt framework.
+
+  // FP inductions should be collected only for auto-vectorized loop
+  // canidadates.
+  if (OutermostHLp->isSIMD())
+    return;
+
+  SmallVector<FPInductionInfo, 2> LoopFPIVs;
+  DDUtils::populateFPInductions(HLp, DDG, LoopFPIVs);
+  if (LoopFPIVs.empty())
+    return;
+
+  std::unique_ptr<VPInductionHIRList> &IndList = Inductions[HLp];
+  assert(IndList && "List for auto-recognized induction descriptors missing.");
+  // Add each FP IV into the list of auto-recognized inductions tracked by
+  // decomposer.
+  for (auto FPIV : LoopFPIVs) {
+    const HLInst *DefInst = FPIV.DefInst;
+    const RegDDRef *StrideRef = FPIV.StrideRef;
+    auto *BinOp = cast<VPInstruction>(getVPValueForNode(DefInst));
+    ConstantFP *ConstStep = nullptr;
+    VPValue *Step = nullptr;
+    // Step can be constant or loop invariant external value.
+    if (StrideRef->isFPConstant(&ConstStep))
+      Step = getVPValueForConst(ConstStep);
+    else
+      Step = getVPExternalDefForDDRef(StrideRef);
+    VPValue *Start = getVPExternalDefForDDRef(DefInst->getLvalDDRef());
+
+    IndList->push_back(std::make_unique<VPInductionHIR>(
+        BinOp, Step, Start, nullptr /*StartVal*/, nullptr /*EndVal*/));
+  }
+}
+
 VPInstruction *VPDecomposerHIR::createLoopZtt(HLLoop *HLp,
                                               VPBasicBlock *ZttBlock) {
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(ZttBlock);
+  setInsertPoint(ZttBlock);
   Builder.setCurrentDebugLocation(HLp->getDebugLoc());
 
   // Keep last instruction before decomposition. We will need it to set the
@@ -1363,7 +1461,7 @@ VPPHINode *VPDecomposerHIR::getOrCreateEmptyPhiForDDRef(Type *PhiTy,
   // If no entry is found in PhisToFix then create a new VPPhi node and add it
   // to the map
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(VPBB, VPBB->begin());
+  setInsertPoint(VPBB, VPBB->begin());
   auto *VPPhi = Builder.createPhiInstruction(PhiTy);
   PhisToFix[VPBBSymPair] = std::make_pair(VPPhi, DDR);
 
@@ -1623,7 +1721,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
         // was found in PhisToFix
 
         VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(NewPhiBB, NewPhiBB->begin());
+        setInsertPoint(NewPhiBB, NewPhiBB->begin());
 
         assert(TrackedSymTypes.count(Sym) &&
                "PHI type for tracked symbase not found.");
@@ -2080,6 +2178,18 @@ void VPDecomposerHIR::fixExternalUses() {
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
                                              VPBasicBlock *InsPointVPBB) {
+  // Ignore DIR.VPO.GUARD.MEM.MOTION directives during VPlan CFG construction.
+  // They were introduced by Paropt to prevent memory motion of UDRs before
+  // vectorizer.
+  if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    if (auto *CallI = HInst->getCallInst()) {
+      int DirID = vpo::VPOAnalysisUtils::getDirectiveID(CallI);
+      if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
+          DirID == DIR_VPO_END_GUARD_MEM_MOTION)
+        return nullptr;
+    }
+  }
+
   LLVM_DEBUG(dbgs() << "Generating VPInstructions for "; Node->dump();
              dbgs() << "\n");
   // There should't be any VPValue for Node at this point. Otherwise, we
@@ -2094,7 +2204,7 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 
   // Set the insertion point in the builder for the VPInstructions that we are
   // going to create for this Node.
-  Builder.setInsertPoint(InsPointVPBB);
+  setInsertPoint(InsPointVPBB);
   // Keep last instruction before decomposition. We will need it to set the
   // master VPInstruction of all the decomposed VPInstructions created.
   VPInstruction *LastVPIBeforeDec = getLastVPI(InsPointVPBB);
@@ -2144,6 +2254,10 @@ VPConstant *VPDecomposerHIR::VPBlobDecompVisitor::decomposeNonIntConstBlob(
 
   if (BlUtils.isUndefBlob(Blob))
     return Decomposer.Plan->getVPConstant(UndefValue::get(Blob->getType()));
+
+  ConstantInt *LargeIntConst;
+  if (BlUtils.isConstantLargeIntBlob(Blob, &LargeIntConst))
+    return Decomposer.Plan->getVPConstant(LargeIntConst);
 
   llvm_unreachable("Unsupported non-integer HIR Constant.");
 }

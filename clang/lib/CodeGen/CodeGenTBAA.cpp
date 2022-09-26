@@ -454,9 +454,43 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
   if (auto *TTy = dyn_cast<RecordType>(Ty)) {
     assert(CGM && "Module is null!"); // INTEL
     const RecordDecl *RD = TTy->getDecl()->getDefinition();
-    const CGRecordLayout &RL = CGM->getTypes().getCGRecordLayout(RD); // INTEL
     const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
-    SmallVector<llvm::MDBuilder::TBAAStructField, 4> Fields;
+    using TBAAStructField = llvm::MDBuilder::TBAAStructField;
+    SmallVector<TBAAStructField, 4> Fields;
+    if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+      // Handle C++ base classes. Non-virtual bases can treated a a kind of
+      // field. Virtual bases are more complex and omitted, but avoid an
+      // incomplete view for NewStructPathTBAA.
+      if (CodeGenOpts.NewStructPathTBAA && CXXRD->getNumVBases() != 0)
+        return BaseTypeMetadataCache[Ty] = nullptr;
+      for (const CXXBaseSpecifier &B : CXXRD->bases()) {
+        if (B.isVirtual())
+          continue;
+        QualType BaseQTy = B.getType();
+        const CXXRecordDecl *BaseRD = BaseQTy->getAsCXXRecordDecl();
+        if (BaseRD->isEmpty())
+          continue;
+        llvm::MDNode *TypeNode = isValidBaseType(CGM, BaseQTy) // INTEL
+                                     ? getBaseTypeInfo(BaseQTy)
+                                     : getTypeInfo(BaseQTy);
+        if (!TypeNode)
+          return BaseTypeMetadataCache[Ty] = nullptr;
+        uint64_t Offset = Layout.getBaseClassOffset(BaseRD).getQuantity();
+        uint64_t Size =
+            Context.getASTRecordLayout(BaseRD).getDataSize().getQuantity();
+        Fields.push_back(
+            llvm::MDBuilder::TBAAStructField(Offset, Size, TypeNode));
+      }
+      // The order in which base class subobjects are allocated is unspecified,
+      // so may differ from declaration order. In particular, Itanium ABI will
+      // allocate a primary base first.
+      // Since we exclude empty subobjects, the objects are not overlapping and
+      // their offsets are unique.
+      llvm::sort(Fields,
+                 [](const TBAAStructField &A, const TBAAStructField &B) {
+                   return A.Offset < B.Offset;
+                 });
+    }
     for (FieldDecl *Field : RD->fields()) {
       if (Field->isZeroSize(Context) || Field->isUnnamedBitfield())
         continue;
@@ -464,6 +498,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
 #if INTEL_CUSTOMIZATION
       if (CGM->getLangOpts().isIntelCompat(LangOptions::IntelTBAABF) &&
           Field->isBitField() && Field->getBitWidthValue(Context) > 0) {
+        const CGRecordLayout &RL = CGM->getTypes().getCGRecordLayout(RD);
         const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
         FieldQTy = Context.getIntTypeForBitwidth(Info.StorageSize, 0);
         if (FieldQTy.isNull())

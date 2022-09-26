@@ -518,7 +518,7 @@ def : MutualExclusions<[IntelFPGARegister, StaticArrayReset]>;
 def TargetPromotion : InheritableAttr {
   let Spellings = [];
   let Args = [StringArgument<"Features">];
-  let Documentation = [Undocumented];
+  let Documentation = [InternalOnly];
 }
 
 def IntelOclBiccAVX : DeclOrTypeAttr {

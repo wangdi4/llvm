@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=true -dtrans-fieldmodref-analysis -debug-only=dtrans-fmr-candidates-post -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=true -passes='require<dtrans-fieldmodref-analysis>' -debug-only=dtrans-fmr-candidates-post -disable-output 2>&1 | FileCheck %s
 
@@ -87,5 +88,7 @@ done:
 ; CHECK: RWState: bottom
 
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

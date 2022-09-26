@@ -26,7 +26,6 @@
 #include <string.h>
 
 extern cl::opt<std::string> OptReqdSubGroupSizes;
-extern cl::opt<bool> OptEyeQDivCrashBehavior;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -152,25 +151,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
             + std::to_string(channelDepthEmulationMode));
         m_LLVMOptions.emplace_back("--dpcpp-remove-fpga-reg");
         m_LLVMOptions.emplace_back("--dpcpp-demangle-fpga-pipes");
-    }
-    else if (EYEQ_EMU_DEVICE == m_targetDevice)
-    {
-      m_LLVMOptions.emplace_back("-" + OptEyeQDivCrashBehavior.ArgStr.str());
-    }
-
-    if (llvm::find_if(m_LLVMOptions, [](std::string S) {
-          return S.find("-enable-vplan-kernel-vectorizer") != std::string::npos;
-        }) == m_LLVMOptions.end()) {
-      // If VOLCANO_LLVM_OPTIONS doesn't try to override vectorizer choice
-      // look at CL_CONFIG_CPU_VECTORIZER_MODE. Check also whether
-      // VOLCANO_VECTORIZER_OPTIONS wants to override
-      // enable-default-kernel-vectorizer.
-      // Can be verified with -emit-vectorizer-sign-on
-      VectorizerType VType =
-        static_cast<VectorizerType>(pBackendOptions->GetIntValue(
-            (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, DEFAULT_VECTORIZER));
-      if (VType == VOLCANO_VECTORIZER)
-        m_LLVMOptions.emplace_back("-enable-vplan-kernel-vectorizer=0");
     }
 
     bool EnableSubgroupEmulation =

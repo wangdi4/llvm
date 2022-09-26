@@ -62,9 +62,7 @@
 ; CHECK:           |
 ; CHECK:           |         + DO i2 = 0, zext.i32.i64(smax(1, ((-1 * %3) + %4))) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <simd>
 ; CHECK:           |         |   %13 = (%colidx.map.ptr.tmp307.priv.v)[i2 + sext.i32.i64(%3)];
-; CHECK:           |         |   %14 = (%a.map.ptr.tmp308.priv.v)[i2 + sext.i32.i64(%3)];
-; CHECK:           |         |   %15 = (%z.map.ptr.tmp309.priv.v)[%13];
-; CHECK:           |         |   %mul358 = %14  *  %15;
+; CHECK:           |         |   %mul358 = (%a.map.ptr.tmp308.priv.v)[i2 + sext.i32.i64(%3)]  *  (%z.map.ptr.tmp309.priv.v)[%13];
 ; CHECK:           |         |   %11 = %11  +  %mul358;
 ; CHECK:           |         + END LOOP
 ; CHECK:           |            %12 = zext.i32.i64(smax(1, ((-1 * %3) + %4))) + -1  +  %3;

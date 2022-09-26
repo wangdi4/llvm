@@ -12,9 +12,9 @@
 ; RUN: opt -opaque-pointers < %s -disable-output -inlinereportsetup -inline -inline-report=0xe886 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost -inlinereportemitter 2>&1 | FileCheck %s
 
 ; New PM command
-; R;UN: opt -opaque-pointers < %s -disable-output  -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost  2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -disable-output  -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost  2>&1 | FileCheck %s
 ; Same as above except using metadata
-; R;UN: opt -opaque-pointers < %s -disable-output -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -disable-output -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 
 ; CHECK: COMPILE FUNC: foo
 ; CHECK-NOT: copy_inside_array {{.*}}Inline decision is delayed until link time

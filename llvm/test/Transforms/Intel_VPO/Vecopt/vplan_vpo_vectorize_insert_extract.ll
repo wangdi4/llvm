@@ -63,7 +63,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(<2 x i32> addrspace(1)* %srcA, <2 x i32> addrspace(1)* %srcB, <2 x i32> addrspace(1)* %dst) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(<2 x i32> addrspace(1)* %srcA, <2 x i32> zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(<2 x i32> addrspace(1)* %srcB, <2 x i32> zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(<2 x i32> addrspace(1)* %dst, <2 x i32> zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region

@@ -2,8 +2,10 @@
 // RUN: mkdir "%t"
 // RUN: cp "%s" "%t/crash report spaces.c"
 // RUN: env TMPDIR="%t" TEMP="%t" TMP="%t" RC_DEBUG_OPTIONS=1 not %clang -fsyntax-only "%t/crash report spaces.c" 2>&1 | FileCheck "%s"
-// RUN: cat "%t/crash report spaces"-*.c | FileCheck --check-prefix=CHECKSRC "%s"
-// RUN: cat "%t/crash report spaces"-*.sh | FileCheck --check-prefix=CHECKSH "%s"
+// INTEL_CUSTOMIZATION
+// RUN: cat %t/clang*/"crash report spaces"-*.c | FileCheck --check-prefix=CHECKSRC "%s"
+// RUN: cat %t/clang*/"crash report spaces"-*.sh | FileCheck --check-prefix=CHECKSH "%s"
+// end INTEL_CUSTOMIZATION
 // REQUIRES: crash-recovery
 
 #pragma clang __debug parser_crash

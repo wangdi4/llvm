@@ -79,7 +79,8 @@
 #else // _WIN32
 #define OCL_KERNEL_BEGIN(ID)                                                   \
   do {                                                                         \
-    if (DeviceInfo->Option.KernelDynamicMemorySize > 0) {                      \
+    if (DeviceInfo->Option.KernelDynamicMemorySize > 0 &&                      \
+        DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {                   \
       /* Already in critical section */                                        \
       DeviceInfo->NumActiveKernels[ID]++;                                      \
     }                                                                          \
@@ -87,7 +88,8 @@
 
 #define OCL_KERNEL_END(ID)                                                     \
   do {                                                                         \
-    if (DeviceInfo->Option.KernelDynamicMemorySize > 0) {                      \
+    if (DeviceInfo->Option.KernelDynamicMemorySize > 0 &&                      \
+        DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {                   \
       DeviceInfo->Mutexes[ID].lock();                                          \
       DeviceInfo->NumActiveKernels[ID]--;                                      \
       if (DeviceInfo->NumActiveKernels[ID] == 0)                               \
@@ -107,6 +109,7 @@ enum DeviceArch : uint64_t {
   DeviceArch_Gen9   = 0x0001,
   DeviceArch_XeLP   = 0x0002,
   DeviceArch_XeHP   = 0x0004,
+  DeviceArch_XeHPG  = 0x0008,
   DeviceArch_x86_64 = 0x0100
 };
 
@@ -150,16 +153,21 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4600, // ADLS
     }
   },
+#if INTEL_CUSTOMIZATION
   {
     DeviceArch_XeHP, {
-#if INTEL_CUSTOMIZATION
       0x0200, // ATS
       // Putting PVC here for now.
       // We may decide to add another arch type if needed in the future.
       0x0b00, // PVC
-#endif // INTEL_CUSTOMIZATION
+    }
+  },
+  {
+    DeviceArch_XeHPG, {
+      0x4F00, 0x5600 // DG2/ATS-M
     }
   }
+#endif // INTEL_CUSTOMIZATION
 };
 
 #if INTEL_CUSTOMIZATION
@@ -561,6 +569,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
   void *DynamicMemPool = nullptr;
+  int TeamsThreadLimit = 0;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -955,7 +964,11 @@ struct RTLOptionTy {
 
 #if INTEL_CUSTOMIZATION
   /// Dynamic kernel memory size
-  size_t KernelDynamicMemorySize = 0; // Turned off by default
+  /// After enabling kernel dynamic memory, we found an orthogonal issue caused
+  /// by invoking clSetKernelExecInfo with
+  /// CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL, so the support is
+  /// disabled by default. We can reenable this once XDEPS-4933 is resolved.
+  size_t KernelDynamicMemorySize = 0; // Disabled by default
   /// Dynamic kernel memory allocation method
   /// 0: atomic_add with no free()
   /// 1: pool-based allocator with free() support
@@ -1200,7 +1213,9 @@ struct RTLOptionTy {
         DP("Ignoring incorrect value for LIBOMPTARGET_DYNAMIC_MEMORY_SIZE\n");
         Size = 0;
       }
-      if (Size > 0) {
+      if (Size == 0) {
+        KernelDynamicMemorySize = 0;
+      } else if (Size > 0) {
         size_t MaxSize;
         if (KernelDynamicMemoryMethod == 0) {
           MaxSize = 2048;
@@ -1493,7 +1508,7 @@ public:
   void *allocDataClMem(int32_t DeviceId, size_t Size);
 
   /// Get PCI device ID
-  uint32_t getPCIDeviceId(int32_t DeviceId);
+  uint32_t getPCIDeviceId(int32_t DeviceId) const;
 
   /// Get device arch
   uint64_t getDeviceArch(int32_t DeviceId);
@@ -1524,6 +1539,7 @@ public:
 #endif // _WIN32
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
+static void closeRTL();
 
 __ATTRIBUTE__(constructor(101)) void init() {
   DP("Init OpenCL plugin!\n");
@@ -1532,6 +1548,7 @@ __ATTRIBUTE__(constructor(101)) void init() {
 
 __ATTRIBUTE__(destructor(101)) void deinit() {
   DP("Deinit OpenCL plugin!\n");
+  closeRTL();
   delete DeviceInfo;
   DeviceInfo = nullptr;
 }
@@ -1695,7 +1712,7 @@ public:
   }
 }; // ProfileIntervalTy
 
-/// Clean-up routine to be registered by std::atexit().
+/// Clean-up routine to be invoked by destructor.
 static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
     if (!DeviceInfo->Initialized[i])
@@ -2221,80 +2238,85 @@ static int32_t retrieveData(int32_t device_id, void *hst_ptr, void *tgt_ptr,
 }
 
 // Return the number of total HW threads required to execute
-// a loop kernel compiled with the given simdWidth, and the given
+// a loop kernel compiled with the given SIMDWidth, and the given
 // loop(s) trip counts and group sizes.
 // Returns UINT64_MAX, if computations overflow.
 static uint64_t computeThreadsNeeded(
-    const size_t (&tripCounts)[3], const size_t (&groupSizes)[3],
-    uint32_t simdWidth) {
-  uint64_t groupCount[3];
-  for (int i = 0; i < 3; ++i) {
-    if (tripCounts[i] == 0 || groupSizes[i] == 0)
+    const size_t (&TripCounts)[3], const size_t (&GroupSizes)[3],
+    uint32_t SIMDWidth) {
+  uint64_t GroupCount[3];
+  for (int I = 0; I < 3; ++I) {
+    if (TripCounts[I] == 0 || GroupSizes[I] == 0)
       return (std::numeric_limits<uint64_t>::max)();
-    groupCount[i] =
-        (uint64_t(tripCounts[i]) + groupSizes[i] - 1) / groupSizes[i];
-    if (groupCount[i] > (std::numeric_limits<uint32_t>::max)())
+    GroupCount[I] =
+        (uint64_t(TripCounts[I]) + GroupSizes[I] - 1) / GroupSizes[I];
+    if (GroupCount[I] > (std::numeric_limits<uint32_t>::max)())
       return (std::numeric_limits<uint64_t>::max)();
   }
-  for (int i = 1; i < 3; ++i) {
-    if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] < groupCount[i])
+  for (int I = 1; I < 3; ++I) {
+    if ((std::numeric_limits<uint64_t>::max)() / GroupCount[0] < GroupCount[I])
       return (std::numeric_limits<uint64_t>::max)();
-    groupCount[0] *= groupCount[i];
+    GroupCount[0] *= GroupCount[I];
   }
   // Multiplication of the group sizes must never overflow uint64_t
   // for any existing device.
-  uint64_t localWorkSize =
-      uint64_t(groupSizes[0]) * groupSizes[1] * groupSizes[2];
-  uint64_t threadsPerWG = ((localWorkSize + simdWidth - 1) / simdWidth);
+  uint64_t LocalWorkSize =
+      uint64_t(GroupSizes[0]) * GroupSizes[1] * GroupSizes[2];
+  uint64_t ThreadsPerWG = ((LocalWorkSize + SIMDWidth - 1) / SIMDWidth);
 
   // Check that the total number of threads fits uint64_t.
-  if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
-      threadsPerWG)
+  if ((std::numeric_limits<uint64_t>::max)() / GroupCount[0] < ThreadsPerWG)
     return (std::numeric_limits<uint64_t>::max)();
 
-  return groupCount[0] * threadsPerWG;
+  return GroupCount[0] * ThreadsPerWG;
 }
 
 static void decideLoopKernelGroupArguments(
     int32_t DeviceId, int32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
     cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
 
-  size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
-  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  size_t kernelWidth = KernelProperty.Width;
-  DP("Assumed kernel SIMD width is %zu\n", KernelProperty.SIMDWidth);
-  DP("Preferred group size is multiple of %zu\n", kernelWidth);
+  size_t MaxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
+  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  size_t KernelWidth = KernelPR.Width;
+  DP("Assumed kernel SIMD width is %zu\n", KernelPR.SIMDWidth);
+  DP("Preferred team size is multiple of %zu\n", KernelWidth);
 
-  size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
-  if (kernelMaxThreadGroupSize < maxGroupSize) {
-    maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
-       maxGroupSize);
+  // Set correct max group size if the kernel was compiled with explicit SIMD
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  if (KernelPR.SIMDWidth == 1) {
+    MaxGroupSize = DevicePR.NumEUsPerSubslice * DevicePR.NumThreadsPerEU;
   }
 
-  bool maxGroupSizeForced = false;
+  size_t KernelMaxThreadGroupSize = KernelPR.MaxThreadGroupSize;
+  if (KernelMaxThreadGroupSize < MaxGroupSize) {
+    MaxGroupSize = KernelMaxThreadGroupSize;
+    DP("Capping maximum team size to %zu due to kernel constraints.\n",
+       MaxGroupSize);
+  }
+
+  bool MaxGroupSizeForced = false;
 
   if (ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if ((uint32_t)ThreadLimit <= maxGroupSize) {
-      maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %zu (thread_limit clause)\n", maxGroupSize);
+    if ((uint32_t)ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = ThreadLimit;
+      DP("Max team size is set to %zu (thread_limit clause)\n", MaxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
-         ThreadLimit, maxGroupSize);
+         ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
-      maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
+    if (DeviceInfo->Option.ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = DeviceInfo->Option.ThreadLimit;
+      DP("Max team size is set to %zu (OMP_THREAD_LIMIT)\n", MaxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
-         DeviceInfo->Option.ThreadLimit, maxGroupSize);
+         DeviceInfo->Option.ThreadLimit, MaxGroupSize);
     }
   }
 
@@ -2302,35 +2324,35 @@ static void decideLoopKernelGroupArguments(
     DP("OMP_NUM_TEAMS(%" PRIu32 ") is ignored\n", DeviceInfo->Option.NumTeams);
 
   GroupCounts[0] = GroupCounts[1] = GroupCounts[2] = 1;
-  size_t groupSizes[3] = {maxGroupSize, 1, 1};
-  TgtLoopDescTy *level = LoopLevels->Levels;
-  int32_t distributeDim = LoopLevels->DistributeDim;
-  assert(distributeDim >= 0 && distributeDim <= 2 &&
+  size_t GRPSizes[3] = {MaxGroupSize, 1, 1};
+  TgtLoopDescTy *Levels = LoopLevels->Levels;
+  int32_t DistributeDim = LoopLevels->DistributeDim;
+  assert(DistributeDim >= 0 && DistributeDim <= 2 &&
          "Invalid distribute dimension.");
-  int32_t numLoopLevels = LoopLevels->NumLoops;
-  assert((numLoopLevels > 0 && numLoopLevels <= 3) &&
+  int32_t NumLoops = LoopLevels->NumLoops;
+  assert((NumLoops > 0 && NumLoops <= 3) &&
          "Invalid loop nest description for ND partitioning");
 
   // Compute global widths for X/Y/Z dimensions.
-  size_t tripCounts[3] = {1, 1, 1};
+  size_t TripCounts[3] = {1, 1, 1};
 
-  for (int32_t i = 0; i < numLoopLevels; i++) {
-    assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
+  for (int32_t I = 0; I < NumLoops; I++) {
+    assert(Levels[I].Stride > 0 && "Invalid loop stride for ND partitioning");
     DP("Loop %" PRIu32 ": lower bound = %" PRId64 ", upper bound = %" PRId64
        ", Stride = %" PRId64 "\n",
-       i, level[i].Lb, level[i].Ub, level[i].Stride);
-    if (level[i].Ub < level[i].Lb)
-      tripCounts[i] = 0;
+       I, Levels[I].Lb, Levels[I].Ub, Levels[I].Stride);
+    if (Levels[I].Ub < Levels[I].Lb)
+      TripCounts[I] = 0;
     else
-      tripCounts[i] =
-          (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
+      TripCounts[I] =
+          (Levels[I].Ub - Levels[I].Lb + Levels[I].Stride) / Levels[I].Stride;
   }
 
   // Check if any of the loop has zero iterations.
-  if (tripCounts[0] == 0 || tripCounts[1] == 0 || tripCounts[2] == 0) {
+  if (TripCounts[0] == 0 || TripCounts[1] == 0 || TripCounts[2] == 0) {
     std::fill(GroupSizes, GroupSizes + 3, 1);
     std::fill(GroupCounts, GroupCounts + 3, 1);
-    if (distributeDim > 0 && tripCounts[distributeDim] != 0) {
+    if (DistributeDim > 0 && TripCounts[DistributeDim] != 0) {
       // There is a distribute dimension, and the distribute loop
       // has non-zero iterations, but some inner parallel loop
       // has zero iterations. We still want to split the distribute
@@ -2339,42 +2361,42 @@ static void decideLoopKernelGroupArguments(
       // Note that this code is currently dead, because we are not
       // hoisting the inner loops' bounds outside of the target regions.
       // The code is here just for completeness.
-      size_t distributeTripCount = tripCounts[distributeDim];
-      GroupCounts[distributeDim] = distributeTripCount;
+      size_t DistributeTripCount = TripCounts[DistributeDim];
+      GroupCounts[DistributeDim] = DistributeTripCount;
     }
     return;
   }
 
-  if (!maxGroupSizeForced) {
+  if (!MaxGroupSizeForced) {
     // Use clGetKernelSuggestedLocalWorkSizeINTEL to compute group sizes,
     // or fallback to setting dimension 0 width to SIMDWidth.
-    // Note that in case of user-specified LWS groupSizes[0]
+    // Note that in case of user-specified LWS GRPSizes[0]
     // is already set according to the specified value.
-    size_t globalSizes[3] = { tripCounts[0], tripCounts[1], tripCounts[2] };
-    if (distributeDim > 0) {
+    size_t GlobalSizes[3] = {TripCounts[0], TripCounts[1], TripCounts[2]};
+    if (DistributeDim > 0) {
       // There is a distribute dimension.
-      globalSizes[distributeDim - 1] *= globalSizes[distributeDim];
-      globalSizes[distributeDim] = 1;
+      GlobalSizes[DistributeDim - 1] *= GlobalSizes[DistributeDim];
+      GlobalSizes[DistributeDim] = 1;
     }
 
-    cl_int rc = CL_DEVICE_NOT_FOUND;
-    size_t suggestedGroupSizes[3] = {1, 1, 1};
+    cl_int RC = CL_DEVICE_NOT_FOUND;
+    size_t SuggestedGroupSizes[3] = {1, 1, 1};
     if (DeviceInfo->Option.Flags.UseDriverGroupSizes &&
         DeviceInfo->isExtensionFunctionEnabled(
             DeviceId, clGetKernelSuggestedLocalWorkSizeINTELId)) {
-      CALL_CL_EXT(DeviceId, rc, clGetKernelSuggestedLocalWorkSizeINTEL,
-                  DeviceInfo->Queues[DeviceId], Kernel, 3, nullptr, globalSizes,
-                  suggestedGroupSizes);
+      CALL_CL_EXT(DeviceId, RC, clGetKernelSuggestedLocalWorkSizeINTEL,
+                  DeviceInfo->Queues[DeviceId], Kernel, 3, nullptr, GlobalSizes,
+                  SuggestedGroupSizes);
     }
-    if (rc == CL_SUCCESS) {
-      groupSizes[0] = suggestedGroupSizes[0];
-      groupSizes[1] = suggestedGroupSizes[1];
-      groupSizes[2] = suggestedGroupSizes[2];
+    if (RC == CL_SUCCESS) {
+      GRPSizes[0] = SuggestedGroupSizes[0];
+      GRPSizes[1] = SuggestedGroupSizes[1];
+      GRPSizes[2] = SuggestedGroupSizes[2];
     } else {
-      if (maxGroupSize > kernelWidth) {
-        groupSizes[0] = kernelWidth;
+      if (MaxGroupSize > KernelWidth) {
+        GRPSizes[0] = KernelWidth;
       }
-      if (distributeDim == 0 &&
+      if (DistributeDim == 0 &&
           // We need to know exact number of HW threads available
           // on the device, so we need cl_intel_device_attribute_query
           // extension to be supported.
@@ -2389,50 +2411,48 @@ static void decideLoopKernelGroupArguments(
         // the kernel - this may allow more parallelism due to
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
-        assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
-               "Unexpected group sizes for dimensions 1 or/and 2.");
-        uint32_t simdWidth = KernelProperty.SIMDWidth;
-        auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
-        uint32_t numEUsPerSubslice = deviceProperties.NumEUsPerSubslice;
-        uint32_t numSubslices = deviceProperties.NumSlices *
-            deviceProperties.NumSubslicesPerSlice;
-        uint32_t numThreadsPerEU = deviceProperties.NumThreadsPerEU;
-        uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
-            numSubslices;
-              totalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
+        assert(GRPSizes[1] == 1 && GRPSizes[2] == 1 &&
+               "Unexpected team sizes for dimensions 1 or/and 2.");
+        uint32_t SIMDWidth = KernelPR.SIMDWidth;
+        uint32_t NumEUsPerSubslice = DevicePR.NumEUsPerSubslice;
+        uint32_t NumSubslices = DevicePR.NumSlices *
+            DevicePR.NumSubslicesPerSlice;
+        uint32_t NumThreadsPerEU = DevicePR.NumThreadsPerEU;
+        uint64_t TotalThreads =
+            uint64_t(NumThreadsPerEU) * NumEUsPerSubslice * NumSubslices;
+        TotalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
 
-        uint64_t groupSizePrev = groupSizes[0];
-        uint64_t threadsNeeded =
-            computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
-        while (threadsNeeded < totalThreads) {
-          groupSizePrev = groupSizes[0];
+        uint64_t GRPSizePrev = GRPSizes[0];
+        uint64_t ThreadsNeeded =
+            computeThreadsNeeded(TripCounts, GRPSizes, SIMDWidth);
+        while (ThreadsNeeded < TotalThreads) {
+          GRPSizePrev = GRPSizes[0];
           // Try to half the local work size (if possible) and see
           // how many HW threads the kernel will require with this
           // new local work size.
-          // In most implementations the initial groupSizes[0]
+          // In most implementations the initial GRPSizes[0]
           // will be a power-of-two.
-          if (groupSizes[0] <= 1)
+          if (GRPSizes[0] <= 1)
             break;
-          groupSizes[0] >>= 1;
-          threadsNeeded =
-              computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+          GRPSizes[0] >>= 1;
+          ThreadsNeeded = computeThreadsNeeded(TripCounts, GRPSizes, SIMDWidth);
         }
-        groupSizes[0] = groupSizePrev;
+        GRPSizes[0] = GRPSizePrev;
       }
     }
   }
 
-  for (int32_t i = 0; i < numLoopLevels; i++) {
-    if (i < distributeDim) {
-      GroupCounts[i] = 1;
+  for (int32_t I = 0; I < NumLoops; I++) {
+    if (I < DistributeDim) {
+      GroupCounts[I] = 1;
       continue;
     }
-    size_t trip = tripCounts[i];
-    if (groupSizes[i] >= trip)
-      groupSizes[i] = trip;
-    GroupCounts[i] = (trip + groupSizes[i] - 1) / groupSizes[i];
+    size_t Trip = TripCounts[I];
+    if (GRPSizes[I] >= Trip)
+      GRPSizes[I] = Trip;
+    GroupCounts[I] = (Trip + GRPSizes[I] - 1) / GRPSizes[I];
   }
-  std::copy(groupSizes, groupSizes + 3, GroupSizes);
+  std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
 static void decideKernelGroupArguments(
@@ -2440,49 +2460,49 @@ static void decideKernelGroupArguments(
     cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
 #if INTEL_CUSTOMIZATION
   // Default to best GEN9 GT4 configuration initially.
-  size_t numSubslices = 9;
-  size_t numEUsPerSubslice= 8;
-  size_t numThreadsPerEU = 7;
-  size_t numEUs = DeviceInfo->maxExecutionUnits[DeviceId];
+  size_t NumSubslices = 9;
+  size_t NumEUsPerSubslice= 8;
+  size_t NumThreadsPerEU = 7;
+  size_t NumEUs = DeviceInfo->maxExecutionUnits[DeviceId];
   if (DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_GPU) {
     // Use cl_intel_device_attribute_query if available.
     if (DeviceInfo->Extensions[DeviceId].DeviceAttributeQuery ==
         ExtensionStatusEnabled) {
       auto &P = DeviceInfo->DeviceProperties[DeviceId];
-      numEUsPerSubslice = P.NumEUsPerSubslice;
-      numThreadsPerEU = P.NumThreadsPerEU;
-      numSubslices = P.NumSlices * P.NumSubslicesPerSlice;
-    } else if (numEUs >= 256) {
+      NumEUsPerSubslice = P.NumEUsPerSubslice;
+      NumThreadsPerEU = P.NumThreadsPerEU;
+      NumSubslices = P.NumSlices * P.NumSubslicesPerSlice;
+    } else if (NumEUs >= 256) {
       // Newer GPUs.
-      numEUsPerSubslice = 16;
-      numSubslices = numEUs / numEUsPerSubslice;
-      numThreadsPerEU = 8;
+      NumEUsPerSubslice = 16;
+      NumSubslices = NumEUs / NumEUsPerSubslice;
+      NumThreadsPerEU = 8;
     } else if (DeviceInfo->DeviceArchs[DeviceId] == DeviceArch_XeLP) {
-      numEUsPerSubslice = 16;
-      numSubslices = numEUs / numEUsPerSubslice;
-      numThreadsPerEU = 7;
-    } else if (numEUs >= 72) {
+      NumEUsPerSubslice = 16;
+      NumSubslices = NumEUs / NumEUsPerSubslice;
+      NumThreadsPerEU = 7;
+    } else if (NumEUs >= 72) {
       // Default GEN9 GT4 configuration.
-    } else if (numEUs >= 48) {
+    } else if (NumEUs >= 48) {
       // GT3
-      numSubslices = 6;
-    } else if (numEUs >= 24) {
+      NumSubslices = 6;
+    } else if (NumEUs >= 24) {
       // GT2
-      numSubslices = 3;
-    } else if (numEUs >= 18) {
+      NumSubslices = 3;
+    } else if (NumEUs >= 18) {
       // GT1.5
-      numSubslices = 3;
-      numEUsPerSubslice = 6;
+      NumSubslices = 3;
+      NumEUsPerSubslice = 6;
     } else {
       // GT1
-      numSubslices = 2;
-      numEUsPerSubslice = 6;
+      NumSubslices = 2;
+      NumEUsPerSubslice = 6;
     }
 
-    DPI("numEUsPerSubslice: %zu\n", numEUsPerSubslice);
-    DPI("numSubslices: %zu\n", numSubslices);
-    DPI("numThreadsPerEU: %zu\n", numThreadsPerEU);
-    DPI("totalEUs: %zu\n", numEUs);
+    DPI("NumEUsPerSubslice: %zu\n", NumEUsPerSubslice);
+    DPI("NumSubslices: %zu\n", NumSubslices);
+    DPI("NumThreadsPerEU: %zu\n", NumThreadsPerEU);
+    DPI("TotalEUs: %zu\n", NumEUs);
   }
 #endif // INTEL_CUSTOMIZATION
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
@@ -2490,73 +2510,79 @@ static void decideKernelGroupArguments(
     DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
        DPxPTR(Kernel));
   }
-  size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
-  bool maxGroupSizeForced = false;
-  bool maxGroupCountForced = false;
+  size_t MaxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
+  bool MaxGroupSizeForced = false;
+  bool MaxGroupCountForced = false;
 
-  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  size_t kernelWidth = KernelProperty.Width;
+  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  size_t KernelWidth = KernelPR.Width;
 #if INTEL_CUSTOMIZATION
-  size_t simdWidth = KernelProperty.SIMDWidth;
-  DP("Assumed kernel SIMD width is %zu\n", simdWidth);
+  size_t SIMDWidth = KernelPR.SIMDWidth;
+  DP("Assumed kernel SIMD width is %zu\n", SIMDWidth);
 #endif // INTEL_CUSTOMIZATION
-  DP("Preferred group size is multiple of %zu\n", kernelWidth);
+  DP("Preferred team size is multiple of %zu\n", KernelWidth);
 
-  size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
-  if (kernelMaxThreadGroupSize < maxGroupSize) {
-    maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
-       maxGroupSize);
+  // Set correct max group size if the kernel was compiled with explicit SIMD
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  if (KernelPR.SIMDWidth == 1) {
+    MaxGroupSize = DevicePR.NumEUsPerSubslice * DevicePR.NumThreadsPerEU;
+  }
+
+  size_t KernelMaxThreadGroupSize = KernelPR.MaxThreadGroupSize;
+  if (KernelMaxThreadGroupSize < MaxGroupSize) {
+    MaxGroupSize = KernelMaxThreadGroupSize;
+    DP("Capping maximum team size to %zu due to kernel constraints.\n",
+       MaxGroupSize);
   }
 
   if (ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if ((uint32_t)ThreadLimit <= maxGroupSize) {
-      maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %zu (thread_limit clause)\n",
-         maxGroupSize);
+    if ((uint32_t)ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = ThreadLimit;
+      DP("Max team size is set to %zu (thread_limit clause)\n",
+         MaxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
-         ThreadLimit, maxGroupSize);
+         ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
-      maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
+    if (DeviceInfo->Option.ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = DeviceInfo->Option.ThreadLimit;
+      DP("Max team size is set to %zu (OMP_THREAD_LIMIT)\n", MaxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
-         DeviceInfo->Option.ThreadLimit, maxGroupSize);
+         DeviceInfo->Option.ThreadLimit, MaxGroupSize);
     }
   }
 
-  size_t maxGroupCount = 0;
+  size_t MaxGroupCount = 0;
 
   if (NumTeams > 0) {
-    maxGroupCount = NumTeams;
-    maxGroupCountForced = true;
-    DP("Max group count is set to %zu "
-       "(num_teams clause or no teams construct)\n", maxGroupCount);
+    MaxGroupCount = NumTeams;
+    MaxGroupCountForced = true;
+    DP("Max number of teams is set to %zu "
+       "(num_teams clause or no teams construct)\n", MaxGroupCount);
   } else if (DeviceInfo->Option.NumTeams > 0) {
     // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
-    maxGroupCount = DeviceInfo->Option.NumTeams;
-    maxGroupCountForced = true;
-    DP("Max group count is set to %zu (OMP_NUM_TEAMS)\n", maxGroupCount);
+    MaxGroupCount = DeviceInfo->Option.NumTeams;
+    MaxGroupCountForced = true;
+    DP("Max number of teams is set to %zu (OMP_NUM_TEAMS)\n", MaxGroupCount);
   }
 
-  if (maxGroupCountForced) {
-    // If number of teams is specified by the user, then use kernelWidth
+  if (MaxGroupCountForced) {
+    // If number of teams is specified by the user, then use KernelWidth
     // WIs per WG by default, so that it matches
     // decideLoopKernelGroupArguments() behavior.
-    if (!maxGroupSizeForced) {
-      maxGroupSize = kernelWidth;
+    if (!MaxGroupSizeForced) {
+      MaxGroupSize = KernelWidth;
     }
   } else {
-    maxGroupCount = DeviceInfo->maxExecutionUnits[DeviceId];
+    MaxGroupCount = DeviceInfo->maxExecutionUnits[DeviceId];
 #if INTEL_CUSTOMIZATION
     if (DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_GPU) {
       // A work group is partitioned into EU threads,
@@ -2568,19 +2594,18 @@ static void decideKernelGroupArguments(
       //   https://software.intel.com/sites/default/files/      \
       //   Faster-Better-Pixels-on-the-Go-and-in-the-Cloud-     \
       //   with-OpenCL-on-Intel-Architecture.pdf
-      size_t numThreadsPerSubslice = numEUsPerSubslice * numThreadsPerEU;
-      maxGroupCount = numSubslices * numThreadsPerSubslice;
-      if (maxGroupSizeForced) {
+      size_t NumThreadsPerSubslice = NumEUsPerSubslice * NumThreadsPerEU;
+      MaxGroupCount = NumSubslices * NumThreadsPerSubslice;
+      if (MaxGroupSizeForced) {
         // Set group size for the HW capacity
-        size_t numThreadsPerGroup =
-            (maxGroupSize + simdWidth - 1) / simdWidth;
+        size_t NumThreadsPerGroup = (MaxGroupSize + SIMDWidth - 1) / SIMDWidth;
         size_t numGroupsPerSubslice =
-            (numThreadsPerSubslice + numThreadsPerGroup - 1) /
-            numThreadsPerGroup;
-        maxGroupCount = numGroupsPerSubslice * numSubslices;
+            (NumThreadsPerSubslice + NumThreadsPerGroup - 1) /
+            NumThreadsPerGroup;
+        MaxGroupCount = numGroupsPerSubslice * NumSubslices;
       } else {
         // For kernels with cross-WG reductions use LWS equal
-        // to kernelWidth. This is just a performance heuristic.
+        // to KernelWidth. This is just a performance heuristic.
         if (KInfo && KInfo->getHasTeamsReduction() &&
             // Only do this for discrete devices.
             DeviceInfo->isDiscreteDevice(DeviceId) &&
@@ -2589,41 +2614,41 @@ static void decideKernelGroupArguments(
             // atomic-free reductions. We want to maximize
             // LWS for such kernels.
             !KInfo->isAtomicFreeReduction())
-          maxGroupSize = kernelWidth;
+          MaxGroupSize = KernelWidth;
 
-        assert(!maxGroupSizeForced && !maxGroupCountForced);
-        assert((maxGroupSize <= kernelWidth ||
-                maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
+        assert(!MaxGroupSizeForced && !MaxGroupCountForced);
+        assert((MaxGroupSize <= KernelWidth ||
+                MaxGroupSize % KernelWidth == 0) && "Invalid MaxGroupSize");
         // Maximize group size
-        while (maxGroupSize >= kernelWidth) {
-          size_t numThreadsPerGroup =
-              (maxGroupSize + simdWidth - 1) / simdWidth;
-          if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
+        while (MaxGroupSize >= KernelWidth) {
+          size_t NumThreadsPerGroup =
+              (MaxGroupSize + SIMDWidth - 1) / SIMDWidth;
+          if (NumThreadsPerSubslice % NumThreadsPerGroup == 0) {
             size_t numGroupsPerSubslice =
-                numThreadsPerSubslice / numThreadsPerGroup;
-            maxGroupCount = numGroupsPerSubslice * numSubslices;
+                NumThreadsPerSubslice / NumThreadsPerGroup;
+            MaxGroupCount = numGroupsPerSubslice * NumSubslices;
             break;
           }
-          maxGroupSize -= kernelWidth;
+          MaxGroupSize -= KernelWidth;
         }
       }
     }
 #endif  // INTEL_CUSTOMIZATION
   }
 
-  GroupSizes[0] = maxGroupSize;
+  GroupSizes[0] = MaxGroupSize;
   GroupSizes[1] = GroupSizes[2] = 1;
 
   if (KInfo && KInfo->getWINum()) {
     GroupSizes[0] =
         (std::min)(KInfo->getWINum(), static_cast<uint64_t>(GroupSizes[0]));
-    DP("Capping maximum thread group size to %" PRIu64
+    DP("Capping maximum team size to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWINum());
   }
 
-  GroupCounts[0] = maxGroupCount;
+  GroupCounts[0] = MaxGroupCount;
   GroupCounts[1] = GroupCounts[2] = 1;
-  if (!maxGroupCountForced) {
+  if (!MaxGroupCountForced) {
     if (KInfo && KInfo->getHasTeamsReduction() &&
         DeviceInfo->Option.ReductionSubscriptionRate) {
 #if INTEL_CUSTOMIZATION
@@ -2667,6 +2692,14 @@ static inline int32_t runTargetTeamNDRegion(
     REPORT("Failed to invoke deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
+
+  // Libomptarget can pass negative NumTeams and ThreadLimit now after
+  // introducing __tgt_target_kernel. This happens only when we have valid
+  // LoopDesc and the region is not a teams region.
+  if (NumTeams < 0)
+    NumTeams = 0;
+  if (ThreadLimit < 0)
+    ThreadLimit = 0;
 
 #if INTEL_INTERNAL_BUILD
   // TODO: kernels using to much SLM may limit the number of
@@ -2931,7 +2964,7 @@ void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
   return (void *)ret;
 }
 
-uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) {
+uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) const {
   if (Extensions[DeviceId].DeviceAttributeQuery == ExtensionStatusEnabled)
     return DeviceProperties[DeviceId].DeviceId;
 
@@ -3012,14 +3045,13 @@ RTLDeviceInfoTy::getAllocMemProperties(int32_t DeviceId, size_t Size) {
 
 #if INTEL_CUSTOMIZATION
 bool RTLDeviceInfoTy::isDiscreteDevice(int32_t DeviceId) const {
-  switch (DeviceArchs[DeviceId]) {
-  case DeviceArch_XeHP:
+  switch (getPCIDeviceId(DeviceId) & 0xFF00) {
+  case 0x4900: // DG1
+  case 0x0200: // ATS SDV
+  case 0x0B00: // PVC
+  case 0x4F00: // DG2/ATS-M
+  case 0x5600: // DG2/ATS-M
     return true;
-
-  case DeviceArch_Gen9:
-  // FIXME: if needed, we should handle discrete cards from XeLP family
-  //        properly. XeLP is currently a mix.
-  case DeviceArch_XeLP:
   default:
     return false;
   }
@@ -3519,9 +3551,21 @@ int32_t OpenCLProgramTy::buildKernels() {
     Entries[I].addr = &Kernels[I];
     Entries[I].name = Name;
 
-    // Do not try to query information for deleted kernels.
-    if (!Kernels[I])
+    if (!Kernels[I]) {
+      if (Image->EntriesBegin[I].flags & OMP_DECLARE_TARGET_FPTR) {
+        // Return device function ptr for entires marked as
+        // OMP_DECLARE_TARGET_FPTR and inherit flags from the host entry.
+        Entries[I].flags = Image->EntriesBegin[I].flags;
+        Entries[I].addr = getOffloadVarDeviceAddr(Name, Size);
+        DP("Returning device function pointer " DPxMOD
+           " for host function pointer " DPxMOD "\n",
+           DPxPTR(Entries[I].addr), DPxPTR(Image->EntriesBegin[I].addr));
+      } else {
+        // Do not try to query information for deleted kernels.
+        DP("Warning: cannot find kernel %s\n", Name);
+      }
       continue;
+    }
 
     if (!readKernelInfo(Entries[I])) {
       DP("Error: failed to read kernel info for kernel %s\n", Name);
@@ -3543,8 +3587,17 @@ int32_t OpenCLProgramTy::buildKernels() {
       // assign default value to avoid any issues when using this variable.
       KernelProperty.SIMDWidth = KernelProperty.Width / 2;
     }
+
+#if INTEL_CUSTOMIZATION
+    if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
+      // Adjust kernel width to match level_zero plugin.
+      KernelProperty.Width =
+          (std::max)(KernelProperty.Width, 2 * KernelProperty.SIMDWidth);
+    }
+#endif // INTEL_CUSTOMIZATION
+
     assert(KernelProperty.SIMDWidth <= KernelProperty.Width &&
-           "Invalid preferred group size multiple.");
+           "Invalid preferred team size multiple.");
     CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel, Device,
                      CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t),
                      &KernelProperty.MaxThreadGroupSize, nullptr);
@@ -3722,7 +3775,9 @@ int32_t OpenCLProgramTy::initProgramData() {
     (uintptr_t)MemLB,    // Dynamic memory LB
     MemUB,               // Dynamic memory UB
     DeviceType,          // Device type (0 for GPU, 1 for CPU)
-    MemPool              // Dynamic memory pool
+    MemPool,             // Dynamic memory pool
+    (int32_t)DeviceInfo->maxWorkGroupSize[DeviceId]
+                         // Teams thread limit
   };
 
   CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
@@ -4179,14 +4234,6 @@ int32_t __tgt_rtl_number_of_devices() {
     DP("WARNING: No OpenCL devices found.\n");
   }
 
-#ifndef _WIN32
-  // Make sure it is registered after OCL handlers are registered.
-  // Registerization is done in DLLmain for Windows
-  if (std::atexit(closeRTL)) {
-    FATAL_ERROR("Registration of clean-up function");
-  }
-#endif //WIN32
-
   return DeviceInfo->NumDevices;
 }
 
@@ -4486,6 +4533,14 @@ int32_t __tgt_rtl_synchronize(int32_t device_id, __tgt_async_info *AsyncInfo) {
   return OFFLOAD_SUCCESS;
 }
 
+#ifdef _WIN32
+EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
+  static std::once_flag Flag;
+  std::call_once(Flag, deinit);
+  return OFFLOAD_SUCCESS;
+}
+#endif // _WIN32
+
 ///
 /// Extended plugin interface
 ///
@@ -4528,7 +4583,7 @@ int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
 
 // Allocate a base buffer with the given information.
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase) {
+                                void *HstBase, int32_t CachedPool) {
   return dataAlloc(DeviceId, Size, HstPtr, HstBase, false);
 }
 
@@ -4670,16 +4725,6 @@ int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   DP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
      DeviceId, Ret ? "" : " not", DPxPTR(DeviceType));
   return Ret;
-}
-
-void __tgt_rtl_deinit(void) {
-  // No-op on Linux
-#ifdef _WIN32
-  if (DeviceInfo) {
-    closeRTL();
-    deinit();
-  }
-#endif // _WIN32
 }
 
 #if INTEL_CUSTOMIZATION
@@ -4909,7 +4954,7 @@ int32_t __tgt_rtl_set_function_ptr_map(
         std::min<uint64_t>(Size, static_cast<uint64_t>(DebugLevel) * 5);
     for (uint64_t I = 0; I < PrintEntriesNum; ++I) {
       DP("\t{ " DPxMOD ", " DPxMOD " }\n",
-         DPxPTR(FnPtrs[I].host_ptr), DPxPTR(FnPtrs[I].tgt_ptr));
+         DPxPTR(FnPtrs[I].HostPtr), DPxPTR(FnPtrs[I].TargetPtr));
     }
     if (PrintEntriesNum < Size)
       DP("\t... increase LIBOMPTARGET_DEBUG to see more entries ...\n");

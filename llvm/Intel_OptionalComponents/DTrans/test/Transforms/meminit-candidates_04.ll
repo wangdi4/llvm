@@ -7,6 +7,7 @@
 ; RUN: opt < %s -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Here is C++ version of the testcase. Definitions of most of the member
 ; functions are empty or doesn't make sense.

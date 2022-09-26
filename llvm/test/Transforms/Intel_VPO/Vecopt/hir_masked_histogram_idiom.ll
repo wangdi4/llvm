@@ -2,8 +2,7 @@
 ; Test to check VPlan histogram lowering and HIR vectorizer CG support for
 ; masked histogram idiom.
 
-; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-optimize-vconflict-idiom -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-optimize-vconflict-idiom -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-optimize-vconflict-idiom -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

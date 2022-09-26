@@ -1,4 +1,19 @@
 //==----------- dot_product.hpp ------- SYCL dot-product --------------------==//
+// INTEL_CUSTOMIZATION
+//
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,8 +25,8 @@
 
 #pragma once
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace intel {
 
 union Us {
@@ -72,5 +87,5 @@ int dot_acc(vec<int8_t, 4> a, vec<uint8_t, 4> b, int32_t c) {
 }
 
 } // namespace intel
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // namespace cl

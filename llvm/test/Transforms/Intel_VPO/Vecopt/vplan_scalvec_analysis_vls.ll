@@ -2,8 +2,7 @@
 ; Test to check SVA results for a loop with VLS optimized memory accesses.
 
 ; RUN: opt -S < %s -vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s --check-prefix=SVA-IR
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=SVA-HIR
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=SVA-HIR
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s --check-prefix=SVA-HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -85,8 +84,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=0 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_1:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=1 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = add i32 [[VP_LOAD]] i32 7 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP5:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->F 1->F )
-; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP5]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP6:%.*]] = add i32 [[VP_LOAD_1]] i32 11 (SVAOpBits 0->V 1->V )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i32> undef i32 [[VP4]], group_size=2, offset=0 (SVAOpBits 0->F 1->V )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i32> [[VP_VLS_INSERT]] i32 [[VP6]], group_size=2, offset=1 (SVAOpBits 0->F 1->V )

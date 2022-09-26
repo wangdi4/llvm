@@ -26,9 +26,6 @@ extern "C" {
     intel::BuiltinLibInfo::RuntimeServicesTypes rtType = intel::BuiltinLibInfo::RTS_OCL;
     if(type == "ocl") {
       rtType = intel::BuiltinLibInfo::RTS_OCL;
-    }
-    else if(type == "dx") {
-      rtType = intel::BuiltinLibInfo::RTS_DX;
     } else {
       assert(type == "" && "Unknown runtime service type");
     }
@@ -36,7 +33,6 @@ extern "C" {
   }
 
   intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(ArrayRef<Module *> runtimeModuleList);
-  intel::RuntimeServices* createDXRuntimeSupport(ArrayRef<Module *> runtimeModuleList);
 }
 
 namespace intel{
@@ -55,9 +51,6 @@ namespace intel{
     switch(type) {
     case RTS_OCL:
       m_pRuntimeServices = createVolcanoOpenclRuntimeSupport(m_BIModuleList);
-      break;
-    case RTS_DX:
-      m_pRuntimeServices = createDXRuntimeSupport(m_BIModuleList);
       break;
     default:
       assert(false && "Unknown runtime services type.");

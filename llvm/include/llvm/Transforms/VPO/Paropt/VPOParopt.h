@@ -65,7 +65,7 @@ namespace vpo {
 // If OmpTbb==false, emit the regular OMP task runtime calls:
 //
 //   __kmpc_omp_task_alloc
-//   __kmpc_taskloop
+//   __kmpc_taskloop_5
 //   __kmpc_task_reduction_init
 //   __kmpc_task_reduction_get_th_data
 //

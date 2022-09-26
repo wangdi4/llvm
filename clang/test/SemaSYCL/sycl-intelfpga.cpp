@@ -1,4 +1,3 @@
-// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -fsycl-is-device -fintelfpga -verify=device-intelfpga -fsyntax-only %s -triple spir64_fpga -aux-triple x86_64-unknown-linux-gnu
 // RUN: %clang_cc1 -fsycl-is-host -fintelfpga -verify=host-intelfpga -fsyntax-only %s -triple x86_64 -aux-triple spir64_fpga
 // RUN: %clang_cc1 -fsycl-is-device -fintelfpga -verify=device-intelfpga -fsyntax-only %s -triple spir64_fpga -aux-triple x86_64-pc-windows-msvc
@@ -25,4 +24,3 @@ signed _BitInt(4097) foo(signed _BitInt(4097) a, signed _BitInt(4097) b) {
 signed _BitInt(215) foo(signed _BitInt(215) a, signed _BitInt(215) b) {
   return a + b;
 }
-// end INTEL_CUSTOMIZATION

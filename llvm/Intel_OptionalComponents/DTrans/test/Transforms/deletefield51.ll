@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -whole-program-assume -passes='dtrans-deletefield' -S -o - %s | FileCheck %s
 
@@ -73,5 +74,8 @@ define i64 @user(i64 %idx, %struct.test* align 16 %p_test) {
 ; CHECK:  %valD = load i32, i32* %p_test_D, align 4
 ; CHECK:  %valE = load i64, i64* %p_test_E, align 8
 
-declare dso_local noalias noundef align 16 i8* @malloc(i64 noundef)
-declare dso_local void @free(i8* nocapture noundef) local_unnamed_addr #16
+declare dso_local noalias noundef align 16 i8* @malloc(i64 noundef) #0
+declare dso_local void @free(i8* nocapture noundef) local_unnamed_addr #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

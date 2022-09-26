@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
-; RUN: opt -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -18,9 +18,9 @@
 ; in clang, and minimizing the IR.
 
 ; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.v1 i64 %n.v2 i64 %n.v '
-; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[NV1_ADDR:%n.v1.addr.*]]'
-; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[NV2_ADDR:%n.v2.addr.*]]'
-; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[NV_ADDR:%n.v.addr.*]]'
+; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr [[NV1_ADDR:%n.v1.addr.*]]'
+; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr [[NV2_ADDR:%n.v2.addr.*]]'
+; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr [[NV_ADDR:%n.v.addr.*]]'
 
 ; Check that the private copies for the three VLAs are created inside the outlined function for the teams construct.
 ; CHECK: define internal void @main.{{.*}}TEAMS{{.*}}(ptr %tid, ptr %bid, i64 %n.vv1, i64 %n.vv, i64 %n.vv2, ptr %vla1, ptr %vla2)
@@ -32,7 +32,7 @@
 ; CHECK: call i32 (ptr, ...) @printf({{.*}}, ptr noundef %vla.priv, ptr noundef %vla1.fpriv, ptr noundef %vla2.red)
 
 ; Check the signature of the outlined kernel to make sure it has the same 9 arguments as the device compilation (target_map_teams_priv_fp_red_vla_tgt.ll): 3 for maps, 3 for implicit capture of VLA sizes, and 3 for firstprivate operands.
-; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(ptr noalias %vla1, ptr noalias %vla2, ptr noalias %vla, ptr noalias [[NV1_ADDR]], ptr noalias [[NV2_ADDR]], ptr noalias [[NV_ADDR]], i64 %n.v.addr.val, i64 %n.v1.addr.val, i64 %n.v2.addr.val)
+; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(ptr noalias %vla1, ptr noalias %vla2, ptr noalias %vla, i64 %n.v.addr.val, i64 %n.v1.addr.val, i64 %n.v2.addr.val, i64 [[NV1_ADDR]].val, i64 [[NV2_ADDR]].val, i64 [[NV_ADDR]].val)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

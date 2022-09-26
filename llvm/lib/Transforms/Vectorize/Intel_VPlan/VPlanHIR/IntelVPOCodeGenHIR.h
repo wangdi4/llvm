@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -129,6 +129,11 @@ public:
   HLLoop *getMainLoop() const { return MainLoop; }
   unsigned getVF() const { return VF; };
   unsigned getUF() const { return UF; };
+
+  unsigned getPeelVF() const { return PeelVF; }
+  unsigned getMainVF() const { return MainVF; }
+  unsigned getRemVF() const { return RemVF; }
+
   VPlanVLSAnalysis *getVLS() const { return VLSA; }
   const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
@@ -242,6 +247,10 @@ public:
   /// remainder loop, \p IsRemainderLoop is used to distinguish these scenarios.
   void generateStoreForSinCos(const HLInst *HInst, HLInst *WideInst,
                               RegDDRef *Mask, bool IsRemainderLoop);
+
+  /// Widen call instruction \p VPCall using a vector variant. \p Mask is used
+  /// to generate masked version of widened calls, if needed.
+  void widenVectorVariant(const VPCallInstruction *VPCall, RegDDRef *Mask);
 
   /// Widen call instruction \p VPCall using vector library function. \p Mask is
   /// used to generate masked version of widened calls, if needed.
@@ -381,6 +390,11 @@ public:
   // Return the scalar ref corresponding to VPVal for specified Lane if found
   // in VPValScalRefMap, return null otherwise.
   RegDDRef *getScalRefForVPVal(const VPValue *VPVal, unsigned Lane) const {
+    // If we are dealing with a uniform value, use lane 0 to get the scalar
+    // value.
+    if (!Plan->getVPlanDA()->isDivergent(*VPVal))
+      Lane = 0;
+
     auto It = VPValScalRefMap.find(VPVal);
     if (It == VPValScalRefMap.end())
       return nullptr;
@@ -627,6 +641,10 @@ public:
   // "llvm.loop.vectorize.enable" metadata.
   void setIsVecMDForHLLoops();
 
+  // Replace calls in scalar peel/remainder loops that were library vectorized
+  // in the main loop.
+  void replaceLibCallsInScalarLoops();
+
   // Set flag that indicates tree conflict instructions were lowered to double
   // permute tree reduction.
   void setTreeConflictsLowered(bool Lowered);
@@ -694,6 +712,11 @@ private:
   // to operate on this number of operands.
   unsigned VF;
   unsigned MaxVF;
+
+  // Vector factors of peel, main and remainder loops.
+  unsigned PeelVF = 0;
+  unsigned MainVF = 0;
+  unsigned RemVF = 0;
 
   // Unroll factor which was applied to VPlan before code generation.
   unsigned UF;
@@ -804,8 +827,10 @@ private:
   SmallDenseMap<const VPInstruction *, HLLoop *> OutgoingScalarHLLoopsMap;
   SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
 
-  // Utility to check if current target loop being vectorized has merged CFG.
-  bool isMergedCFG();
+  // Keep track of which scalar call instructions got replaced with a call to a
+  // library function. We need this so we can ensure these calls are also
+  // replaced in any scalar peel or remainder loops.
+  SmallDenseSet<const CallInst*> VectorizedLibraryCalls;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
@@ -819,6 +844,10 @@ private:
       MaxVF = VF;
   }
   void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
+
+  void setPeelVF(unsigned V) { PeelVF = V; }
+  void setMainVF(unsigned V) { MainVF = V; }
+  void setRemVF(unsigned V) { RemVF = V; }
 
   void insertReductionInit(HLContainerTy *List);
   void insertReductionFinal(HLContainerTy *List);
@@ -872,9 +901,10 @@ private:
   // Find users of OrigRef and replaces them with NewRef.
   void replaceOrigRef(RegDDRef *OrigRef, RegDDRef *NewRef);
 
-  // Replace math library calls in the remainder loop with the vectorized one
-  // used in the main vector loop.
-  void replaceLibCallsInRemainderLoop(HLInst *HInst);
+  // Replace math library calls in the scalar loop with a call to the vectorized
+  // version, if and only if the same transformation was done in the main vector
+  // loop. This is done to preserve FP consistency across all loops.
+  void replaceLibCallsInScalarLoop(HLInst *HInst);
 
   // Helper function to generate a wide Cmp HLInst for given predicate
   // PredIt found in the HLIf node. VF is used as vector length.
@@ -1035,17 +1065,23 @@ private:
   // Helper utility to generate a widened Call HLInst(s) for given VPCall, using
   // vector library function or vector intrinsics. The generated call(s) are
   // returned via \p CallResults.
-  // TODO: Extend this utility to support call vectorization using
-  // vector-variants.
   void generateWideCalls(const VPCallInstruction *VPCall, unsigned PumpFactor,
-                         RegDDRef *Mask, Intrinsic::ID VectorIntrinID,
+                         RegDDRef *Mask, const VFInfo *MatchedVariant,
+                         Intrinsic::ID VectorIntrinID,
                          SmallVectorImpl<HLInst *> &CallResults);
+
+  // Helper utility to generate the mask argument for calls to vector functions.
+  // If the call is to a vector variant and i1 vectors are not used for the
+  // mask, then convert the mask to the characteristic type of the function.
+  RegDDRef* generateMaskArg(RegDDRef *Mask, const VFInfo *MatchedVariant,
+                            const VPCallInstruction *VPCall);
 
   // Vectorize call arguments, or for trivial vector intrinsics scalarize if the
   // arg is always scalar. If the call is being pumped by \p PumpFactor times,
   // then the appropriate sub-vector is extracted for given \p PumpPart.
   void widenCallArgs(const VPCallInstruction *VPCall, RegDDRef *Mask,
-                     Intrinsic::ID VectorIntrinID, unsigned PumpPart,
+                     Intrinsic::ID VectorIntrinID,
+                     const VFInfo *MatchedVariant, unsigned PumpPart,
                      unsigned PumpFactor, SmallVectorImpl<RegDDRef *> &CallArgs,
                      SmallVectorImpl<Type *> &ArgTys,
                      SmallVectorImpl<AttributeSet> &ArgAttrs);
@@ -1146,6 +1182,16 @@ private:
     HasNUW = PreserveOverflowFlags && VPInst->hasNoUnsignedWrap();
     HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
   }
+
+  // Returns CurMaskValue if it exists or all-ones value otherwise.
+  RegDDRef *getCurMaskValueOrAllOnes() const;
+
+  // Calculate mask for a non-unit strided compress store or expand load.
+  RegDDRef *generateMaskForCompressExpandLoadStoreNonu();
+
+  // Returns compress/expand intrinsic with correct attributes.
+  Function *getCompressExpandIntrinsicDeclaration(Intrinsic::ID IntrinsicId,
+                                                  VectorType *VecType);
 
   template <typename FinalInstType>
   void insertPrivateFinalCond(const VPInstruction *VPInst);

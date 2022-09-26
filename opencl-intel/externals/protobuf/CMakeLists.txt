@@ -22,6 +22,13 @@ use_rtti(TRUE)
 
 include_directories( . include src )
 
+# Temporarily disable warnings for use of deprecated declarations
+# util we upgrade protobuf to support c++17.
+check_cxx_compiler_flag("-Wno-deprecated-declarations" OCL_DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+if (OCL_DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+endif()
+
 if (WIN32)
   add_definitions( -D_SCL_SECURE_NO_WARNINGS -D _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)
 else (WIN32)

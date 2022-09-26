@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -47,7 +47,6 @@ namespace llvm {
 class AllocaInst;
 class AAResults;
 class Argument;
-class CallInst;
 class ConstantPointerNull;
 class DataLayout;
 class ExtractElementInst;
@@ -75,41 +74,48 @@ bool isAllocationFn(const Value *V,
                     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
 #if INTEL_CUSTOMIZATION
-/// Tests if a value is a call or invoke to a library function that
+
+class IntelMemoryBuiltins {
+public:
+/// Tests if a value/function is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
-bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-bool isMallocLikeFn(const Value *V,
-                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
+static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+static bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
-/// Tests if a function is a call or invoke to a library function that
-/// allocates memory (e.g., malloc).
-bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
-#endif
-
-#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
-bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
-/// Tests if a function is a call or invoke to a library function that
-/// allocates memory (e.g., calloc).
-bool isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory similar to malloc or calloc.
+static bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
-bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+static bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., new).
-bool isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+static bool isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// frees memory (e.g., free).
-bool isFreeFn(const Function *F, const TargetLibraryInfo *TLI);
+static bool isFreeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// frees memory (e.g., delete).
-bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
+static bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// Returns indices of size arguments of Malloc-like functions.
+/// All functions except calloc return -1 as a second argument.
+static std::pair<unsigned, unsigned>
+getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
+
+/// Returns 'true' if the LibFunc is contained within the list of library
+/// functions that are known to allocate memory. The list is maintained
+/// within MemoryBuiltins.cpp as 'AllocationFnData'.
+static bool isAllocationLibFunc(LibFunc LF);
+};
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -121,25 +127,12 @@ bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 /// allocates memory (either malloc, calloc, or strdup like).
 bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
-/// Tests if a value is a call or invoke to a library function that
-/// reallocates memory (e.g., realloc).
-bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
 /// Tests if a function is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
 bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
-#if INTEL_CUSTOMIZATION
-/// Returns indices of size arguments of Malloc-like functions.
-/// All functions except calloc return -1 as a second argument.
-std::pair<unsigned, unsigned>
-getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
-
-/// Returns 'true' if the LibFunc is contained within the list of library
-/// functions that are known to allocate memory. The list is maintained
-/// within MemoryBuiltins.cpp as 'AllocationFnData'.
-bool isAllocationLibFunc(LibFunc LF);
-#endif // INTEL_CUSTOMIZATION
+/// If this is a call to a realloc function, return the reallocated operand.
+Value *getReallocatedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
 
 //===----------------------------------------------------------------------===//
 //  free Call Utility Functions.
@@ -152,16 +145,10 @@ bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
 /// isLibDeleteFunction - Returns true if the function is a builtin delete()
 bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
 
-/// isFreeCall - Returns non-null if the value is a call to the free(). Skip
-/// IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
-const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
-                           bool CheckNoBuiltin = true);
-
-inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI,
-                            bool CheckNoBuiltin = true) {
-  return const_cast<CallInst *>(
-      isFreeCall((const Value *) I, TLI, CheckNoBuiltin));
-}
+/// If this if a call to a free function, return the freed operand.
+/// Skip IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
+Value *getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
+                       bool CheckNoBuiltin = true);
 
 /// isDeleteCall - Returns non-null if the value is a call to the
 /// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
@@ -180,15 +167,16 @@ inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
 //  Properties of allocation functions
 //
 
-/// Return false if the allocation can have side effects on the program state
-/// we are required to preserve beyond the effect of allocating a new object.
+/// Return true if this is a call to an allocation function that does not have
+/// side effects that we are required to preserve beyond the effect of
+/// allocating a new object.
 /// Ex: If our allocation routine has a counter for the number of objects
 /// allocated, and the program prints it on exit, can the value change due
 /// to optimization? Answer is highly language dependent.
 /// Note: *Removable* really does mean removable; it does not mean observable.
 /// A language (e.g. C++) can allow removing allocations without allowing
 /// insertion or speculative execution of allocation routines.
-bool isAllocRemovable(const CallBase *V, const TargetLibraryInfo *TLI);
+bool isRemovableAlloc(const CallBase *V, const TargetLibraryInfo *TLI);
 
 /// Gets the alignment argument for an aligned_alloc-like function, using either
 /// built-in knowledge based on fuction names/signatures or allocalign
@@ -196,17 +184,21 @@ bool isAllocRemovable(const CallBase *V, const TargetLibraryInfo *TLI);
 /// the definition of the allocalign attribute.
 Value *getAllocAlignment(const CallBase *V, const TargetLibraryInfo *TLI);
 
-/// Return the size of the requested allocation.  With a trivial mapper, this is
-/// identical to calling getObjectSize(..., Exact).  A mapper function can be
-/// used to replace one Value* (operand to the allocation) with another.  This
-/// is useful when doing abstract interpretation.
-Optional<APInt> getAllocSize(const CallBase *CB,
-                             const TargetLibraryInfo *TLI,
-                             std::function<const Value*(const Value*)> Mapper);
+/// Return the size of the requested allocation. With a trivial mapper, this is
+/// similar to calling getObjectSize(..., Exact), but without looking through
+/// calls that return their argument. A mapper function can be used to replace
+/// one Value* (operand to the allocation) with another. This is useful when
+/// doing abstract interpretation.
+Optional<APInt> getAllocSize(
+    const CallBase *CB, const TargetLibraryInfo *TLI,
+    function_ref<const Value *(const Value *)> Mapper = [](const Value *V) {
+      return V;
+    });
 
-/// If this allocation function initializes memory to a fixed value, return
-/// said value in the requested type.  Otherwise, return nullptr.
-Constant *getInitialValueOfAllocation(const CallBase *Alloc,
+/// If this is a call to an allocation function that initializes memory to a
+/// fixed value, return said value in the requested type.  Otherwise, return
+/// nullptr.
+Constant *getInitialValueOfAllocation(const Value *V,
                                       const TargetLibraryInfo *TLI,
                                       Type *Ty);
 
@@ -224,17 +216,21 @@ Optional<StringRef> getAllocationFamily(const Value *I,
 struct ObjectSizeOpts {
   /// Controls how we handle conditional statements with unknown conditions.
   enum class Mode : uint8_t {
-    /// Fail to evaluate an unknown condition.
-        Exact,
+    /// All branches must be known and have the same size, starting from the
+    /// offset, to be merged.
+    ExactSizeFromOffset,
+    /// All branches must be known and have the same underlying size and offset
+    /// to be merged.
+    ExactUnderlyingSizeAndOffset,
     /// Evaluate all branches of an unknown condition. If all evaluations
     /// succeed, pick the minimum size.
-        Min,
+    Min,
     /// Same as Min, except we pick the maximum size of all of the branches.
-        Max
+    Max,
   };
 
   /// How we want to evaluate this object's size.
-  Mode EvalMode = Mode::Exact;
+  Mode EvalMode = Mode::ExactSizeFromOffset;
   /// Whether to round the result up to the alignment of allocas, byval
   /// arguments, and global variables.
   bool RoundToAlign = false;

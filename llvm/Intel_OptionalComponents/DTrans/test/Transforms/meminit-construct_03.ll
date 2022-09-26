@@ -6,6 +6,7 @@
 ; RUN: opt < %s -dtrans-meminit-recognize-all -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown,dtrans-soatoaosclassinfo -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Here is C++ version of the testcase.
 
@@ -242,5 +243,7 @@ entry:
 }
 
 declare noalias i8* @_Znwm(i64)
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

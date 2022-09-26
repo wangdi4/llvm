@@ -42,7 +42,9 @@
 //expected-no-diagnostics
 //
 
+#pragma omp begin declare target
 volatile double g, g_orig;
+#pragma omp end declare target
 volatile double &g1 = g_orig;
 template <class T> struct S {
   T f;

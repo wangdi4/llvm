@@ -21,7 +21,8 @@
 ; |   + END LOOP
 ; + END LOOP
 
-; CHECK: Illegal to unroll & jam due to dependence between inner sibling loops
+; CHECK: Illegal edge found: 
+; CHECK-SAME: (@A)[0][i2] --> (@A)[0][i2 + 1] FLOW (=)
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

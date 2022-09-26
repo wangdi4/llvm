@@ -8,8 +8,7 @@
 ;   return a + b;
 ; }
 
-; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=false | FileCheck %s
-; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir | FileCheck %s
+; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
 ; Check for vectorized HIR loop
 
 ; CHECK:      BEGIN REGION {

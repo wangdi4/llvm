@@ -1,8 +1,6 @@
 ;; This subscript is safe for SOA transform.
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -22,7 +20,7 @@ DIR.OMP.SIMD.119:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.119
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"hello_$I.linear.iv", i32 1), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE"([256 x float]* %"hello_$X.priv"), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %"hello_$I.linear.iv", i32 0, i32 1, i32 1), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"([256 x float]* %"hello_$X.priv", float zeroinitializer, i32 256) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

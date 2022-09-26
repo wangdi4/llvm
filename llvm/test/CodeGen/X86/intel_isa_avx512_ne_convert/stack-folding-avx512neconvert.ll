@@ -5,55 +5,18 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-unknown"
 
-declare <32 x half> @llvm.x86.avx512.mask.vcvtne2ps2ph512(<16 x float>, <16 x float>, <32 x half>, i32)
+declare <32 x half> @llvm.x86.avx512.vcvtne2ps2ph512(<16 x float> %A, <16 x float> %B, i32 immarg)
 
-define <32 x half> @stack_fold_vcvtne2ps2ph(<16 x float> %x0, <16 x float> %x1, <32 x half> %x2) {
+define <32 x half> @stack_fold_vcvtne2ps2ph(<16 x float> %x0, <16 x float> %x1) {
 ; CHECK-LABEL: stack_fold_vcvtne2ps2ph:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movl $4, %eax
-; CHECK-NEXT:    kmovd %eax, %k1
-; CHECK-NEXT:    vcvtne2ps2ph %zmm1, %zmm0, %zmm2 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    nop
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    retq
-  %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
-  %2 = call <32 x half> @llvm.x86.avx512.mask.vcvtne2ps2ph512(<16 x float> %x0, <16 x float> %x1, <32 x half> %x2, i32 4)
-  ret <32 x half> %2
-}
-
-define <32 x half> @stack_fold_vcvtne2ps2ph_mask(<32 x half>* %x0, <16 x float> %x1, <16 x float> %x2) {
-; CHECK-LABEL: stack_fold_vcvtne2ps2ph_mask:
-; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vmovups %zmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    vmovdqa64 (%rdi), %zmm2
-; CHECK-NEXT:    movl $4, %eax
-; CHECK-NEXT:    kmovd %eax, %k1
-; CHECK-NEXT:    vcvtne2ps2ph {{[-0-9]+}}(%r{{[sb]}}p), %zmm0, %zmm2 {%k1} # 64-byte Folded Reload
-; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    vcvtne2ps2ph {{[-0-9]+}}(%r{{[sb]}}p), %zmm0, %zmm0 # 64-byte Folded Reload
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
-  %2 = load <32 x half>, <32 x half> *%x0
-  %3 = call <32 x half> @llvm.x86.avx512.mask.vcvtne2ps2ph512(<16 x float> %x1, <16 x float> %x2, <32 x half> %2, i32 4)
-  ret <32 x half> %3
-}
-
-define <32 x half> @stack_fold_vcvtne2ps2ph_maskz(<16 x float> %x0, <16 x float> %x1, i32 %x2) {
-; CHECK-LABEL: stack_fold_vcvtne2ps2ph_maskz:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovups %zmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    nop
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    movl $4, %eax
-; CHECK-NEXT:    kmovd %eax, %k1
-; CHECK-NEXT:    vcvtne2ps2ph {{[-0-9]+}}(%r{{[sb]}}p), %zmm0, %zmm0 {%k1} {z} # 64-byte Folded Reload
-; CHECK-NEXT:    retq
-  %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
-  %2 = call <32 x half> @llvm.x86.avx512.mask.vcvtne2ps2ph512(<16 x float> %x0, <16 x float> %x1, <32 x half> zeroinitializer, i32 4)
+  %2 = call <32 x half> @llvm.x86.avx512.vcvtne2ps2ph512(<16 x float> %x0, <16 x float> %x1, i32 4)
   ret <32 x half> %2
 }

@@ -9,7 +9,6 @@
 ; The mul instruction has no freeze in its def-use chain, and freeze should not
 ; be spread to its %storemerge92 operand.
 
-; CHECK: add{{.*}}.fr
 ; CHECK-NOT: mul{{.*}}.fr
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -39,11 +39,11 @@ OpenCLComparator::OpenCLComparator(const OpenCLProgramConfiguration* pProgramCon
 }
 
 /// @brief Compares the result of two runs
-IRunResultComparison* OpenCLComparator::Compare( IRunResult* volcanoRunResults, IRunResult* referenceRunResults ) const
+IRunResultComparison* OpenCLComparator::Compare( IRunResult* runResults, IRunResult* referenceRunResults ) const
 {
     std::unique_ptr<RunResultComparison> spResult(new RunResultComparison());
 
-    if( volcanoRunResults->GetOutputsCount() != referenceRunResults->GetOutputsCount() )
+    if( runResults->GetOutputsCount() != referenceRunResults->GetOutputsCount() )
     {
         spResult->SetIsFailedStatus(true);
     }
@@ -53,15 +53,15 @@ IRunResultComparison* OpenCLComparator::Compare( IRunResult* volcanoRunResults, 
 
     for( std::vector<std::string>::const_iterator i = m_kernels.begin(), e = m_kernels.end(); i != e; ++i )
     {
-        IBufferContainerList& volcanoOutput = volcanoRunResults->GetOutput( i->c_str() );
+        IBufferContainerList& output = runResults->GetOutput( i->c_str() );
         IBufferContainerList& referenceOutput = referenceRunResults->GetOutput( i->c_str() );
         IBufferContainerList* neatOutput = m_useNeat? &referenceRunResults->GetNEATOutput(i->c_str() ) : NULL;
 
         // run comparison for OpenCL kernel
         std::unique_ptr<ComparisonResults> spres(new ComparisonResults(*i, m_detailedStat));
         COMP_RESULT compRes = comparator.Compare(*spres,
-                                                 volcanoRunResults->GetComparatorIgnoreList(i->c_str()),
-                                                 volcanoOutput,
+                                                 runResults->GetComparatorIgnoreList(i->c_str()),
+                                                 output,
                                                  &referenceOutput,
                                                  neatOutput);
         spres->Report();

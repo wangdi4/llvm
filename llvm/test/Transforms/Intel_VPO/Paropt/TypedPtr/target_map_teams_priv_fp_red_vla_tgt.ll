@@ -24,9 +24,9 @@
 ; in clang, and minimizing the IR.
 
 ; ALL:       collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.v1 i64 %n.v2 i64 %n.v '
-; ALL:       captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[NV1_ADDR:%n.v1.addr.*]]'
-; ALL:       captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[NV2_ADDR:%n.v2.addr.*]]'
-; ALL:       captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[NV_ADDR:%n.v.addr.*]]'
+; ALL:       captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'i64 addrspace(4)* %n.v1.addr.ascast'
+; ALL:       captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'i64 addrspace(4)* %n.v2.addr.ascast'
+; ALL:       captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'i64 addrspace(4)* %n.v.addr.ascast'
 
 ; With alloc-mode=module, a single element of the vlas is allocated at module level, but the
 ; accesses happens as if the allocation happened for the full vla. This is incorrect, but is
@@ -36,13 +36,22 @@
 ; MODULE:    [[VLA1:@vla1.ascast.fpriv.__local]] = internal addrspace(3) global i32 0
 ; MODULE:    [[VLA2:@vla2.ascast.red.__local]] = internal addrspace(3) global i32 0
 
-; Check that the kernal function has arguments for the VLA and the captured VLA size.
-; ALL:      define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* noalias %vla1.ascast, i32 addrspace(1)* noalias %vla2.ascast, i32 addrspace(1)* noalias %vla.ascast, i64 addrspace(1)* noalias [[NV1_ADDR]], i64 addrspace(1)* noalias [[NV2_ADDR]], i64 addrspace(1)* noalias [[NV_ADDR]])
+; Check that the kernel function has arguments for the VLA and the captured VLA size.
+; ALL:      define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* noalias %vla1.ascast, i32 addrspace(1)* noalias %vla2.ascast, i32 addrspace(1)* noalias %vla.ascast, i64 [[NV1_ARG:%n.v1.addr.ascast.val]], i64 [[NV2_ARG:%n.v2.addr.ascast.val]], i64 [[NV_ARG:%n.v.addr.ascast.val]])
+
+; Check for the firstprivate allocation/initialization of the captured VLA sizes.
+; ALL:       [[NV_FP:%n.v.addr.ascast.fpriv]] = alloca i64, align 8
+; ALL:       [[NV2_FP:%n.v2.addr.ascast.fpriv]] = alloca i64, align 8
+; ALL:       [[NV1_FP:%n.v1.addr.ascast.fpriv]] = alloca i64, align 8
+
+; ALL:       store i64 [[NV_ARG]], i64* [[NV_FP]], align 8
+; ALL:       store i64 [[NV2_ARG]], i64* [[NV2_FP]], align 8
+; ALL:       store i64 [[NV1_ARG]], i64* [[NV1_FP]], align 8
 
 ; Check that by default, the local copies of the three VLAs is allocated in the stack of the kernel.
-; LOCAL:     [[NV:%n.v.*]] = load i64, i64 addrspace(1)* [[NV_ADDR]], align 8
-; LOCAL:     [[NV2:%n.v.*]] = load i64, i64 addrspace(1)* [[NV2_ADDR]], align 8
-; LOCAL:     [[NV1:%n.v.*]] = load i64, i64 addrspace(1)* [[NV1_ADDR]], align 8
+; LOCAL:     [[NV:%n.v.*]] = load i64, i64* [[NV_FP]], align 8
+; LOCAL:     [[NV2:%n.v.*]] = load i64, i64* [[NV2_FP]], align 8
+; LOCAL:     [[NV1:%n.v.*]] = load i64, i64* [[NV1_FP]], align 8
 
 ; LOCAL:     %vla2.ascast.red = alloca i32, i64 [[NV2]], align 4
 ; LOCAL:     [[VLA2:%vla2.ascast.red.ascast]] = addrspacecast i32* %vla2.ascast.red to i32 addrspace(4)*

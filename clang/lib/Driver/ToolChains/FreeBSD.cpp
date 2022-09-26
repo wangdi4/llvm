@@ -1,4 +1,21 @@
 //===--- FreeBSD.cpp - FreeBSD ToolChain Implementations --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -170,7 +187,7 @@ void freebsd::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-export-dynamic");
     if (Args.hasArg(options::OPT_shared)) {
       CmdArgs.push_back("-Bshareable");
-    } else {
+    } else if (!Args.hasArg(options::OPT_r)) {
       CmdArgs.push_back("-dynamic-linker");
       CmdArgs.push_back("/libexec/ld-elf.so.1");
     }
@@ -223,10 +240,12 @@ void freebsd::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   case llvm::Triple::riscv32:
     CmdArgs.push_back("-m");
     CmdArgs.push_back("elf32lriscv");
+    CmdArgs.push_back("-X");
     break;
   case llvm::Triple::riscv64:
     CmdArgs.push_back("-m");
     CmdArgs.push_back("elf64lriscv");
+    CmdArgs.push_back("-X");
     break;
   default:
     break;
@@ -286,7 +305,7 @@ void freebsd::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
-                  D.getLTOMode() == LTOK_Thin);
+                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
   }
 
   bool NeedsSanitizerDeps = addSanitizerRuntimes(ToolChain, Args, CmdArgs);
@@ -387,10 +406,10 @@ FreeBSD::FreeBSD(const Driver &D, const llvm::Triple &Triple,
   // back to '/usr/lib' if it doesn't exist.
   if ((Triple.getArch() == llvm::Triple::x86 || Triple.isMIPS32() ||
        Triple.isPPC32()) &&
-      D.getVFS().exists(getDriver().SysRoot + "/usr/lib32/crt1.o"))
-    getFilePaths().push_back(getDriver().SysRoot + "/usr/lib32");
+      D.getVFS().exists(concat(getDriver().SysRoot, "/usr/lib32/crt1.o")))
+    getFilePaths().push_back(concat(getDriver().SysRoot, "/usr/lib32"));
   else
-    getFilePaths().push_back(getDriver().SysRoot + "/usr/lib");
+    getFilePaths().push_back(concat(getDriver().SysRoot, "/usr/lib"));
 }
 
 ToolChain::CXXStdlibType FreeBSD::GetDefaultCXXStdlibType() const {
@@ -409,14 +428,14 @@ unsigned FreeBSD::GetDefaultDwarfVersion() const {
 void FreeBSD::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                                     llvm::opt::ArgStringList &CC1Args) const {
   addSystemInclude(DriverArgs, CC1Args,
-                   getDriver().SysRoot + "/usr/include/c++/v1");
+                   concat(getDriver().SysRoot, "/usr/include/c++/v1"));
 }
 
 void FreeBSD::addLibStdCxxIncludePaths(
     const llvm::opt::ArgList &DriverArgs,
     llvm::opt::ArgStringList &CC1Args) const {
-  addLibStdCXXIncludePaths(getDriver().SysRoot + "/usr/include/c++/4.2", "", "",
-                           DriverArgs, CC1Args);
+  addLibStdCXXIncludePaths(concat(getDriver().SysRoot, "/usr/include/c++/4.2"),
+                           "", "", DriverArgs, CC1Args);
 }
 
 void FreeBSD::AddCXXStdlibLibArgs(const ArgList &Args,
@@ -428,6 +447,8 @@ void FreeBSD::AddCXXStdlibLibArgs(const ArgList &Args,
   switch (Type) {
   case ToolChain::CST_Libcxx:
     CmdArgs.push_back(Profiling ? "-lc++_p" : "-lc++");
+    if (Args.hasArg(options::OPT_fexperimental_library))
+      CmdArgs.push_back("-lc++experimental");
     break;
 
   case ToolChain::CST_Libstdcxx:
@@ -485,12 +506,14 @@ SanitizerMask FreeBSD::getSupportedSanitizers() const {
   Res |= SanitizerKind::PointerCompare;
   Res |= SanitizerKind::PointerSubtract;
   Res |= SanitizerKind::Vptr;
-  if (IsX86_64 || IsMIPS64) {
+  if (IsAArch64 || IsX86_64 || IsMIPS64) {
     Res |= SanitizerKind::Leak;
     Res |= SanitizerKind::Thread;
   }
   if (IsX86 || IsX86_64) {
     Res |= SanitizerKind::Function;
+  }
+  if (IsAArch64 || IsX86 || IsX86_64) {
     Res |= SanitizerKind::SafeStack;
     Res |= SanitizerKind::Fuzzer;
     Res |= SanitizerKind::FuzzerNoLink;
@@ -498,8 +521,6 @@ SanitizerMask FreeBSD::getSupportedSanitizers() const {
   if (IsAArch64 || IsX86_64) {
     Res |= SanitizerKind::KernelAddress;
     Res |= SanitizerKind::KernelMemory;
-  }
-  if (IsX86_64) {
     Res |= SanitizerKind::Memory;
   }
   return Res;

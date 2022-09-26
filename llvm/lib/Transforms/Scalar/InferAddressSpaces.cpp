@@ -170,8 +170,21 @@ static const unsigned UninitializedAddressSpace =
 static cl::opt<unsigned> OverrideFlatAS("override-flat-addr-space",
                                         cl::init(UninitializedAddressSpace));
 
+static cl::opt<bool> RemoveSameASCCast(
+    "remove-same-addressspace-cast", cl::init(true),
+    cl::desc("Remove the Address Space Cast if its use is the same space"));
+
+static cl::opt<bool> CollectCallInstOperands(
+    "infer-as-collect-callinst-opnds", cl::init(true),
+    cl::desc("Include CallInst's pointer arguments in "
+             "the flat address expressions collection."));
+
 static cl::opt<bool> RewriteOpenCLBuiltins("infer-as-rewrite-opencl-bis",
                                            cl::init(false));
+
+static cl::opt<bool> UpdateDbgVarIntrinsic("infer-as-update-dbg-var-intrin",
+                                           cl::init(true));
+
 #endif // INTEL_COLLAB
 
 namespace {
@@ -523,10 +536,12 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
             cast<Operator>(I2P->getOperand(0))->getOperand(0));
     }
 #if INTEL_COLLAB
-    else if (auto *CI = dyn_cast<CallInst>(&I)) {
-      for (Value *Op : CI->args())
-        if (isa<PointerType>(Op->getType()))
-          PushPtrOperand(Op);
+    else if (CollectCallInstOperands) {
+      if (auto *CI = dyn_cast<CallInst>(&I)) {
+        for (Value *Op : CI->args())
+          if (isa<PointerType>(Op->getType()))
+            PushPtrOperand(Op);
+      }
     }
 #endif // INTEL_COLLAB
   }
@@ -1491,6 +1506,8 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 #if INTEL_COLLAB
               BCNewV = CastInst::Create(Instruction::BitCast, NewV,
                                         ASC->getType(), "", &*InsertPos);
+              if (!RemoveSameASCCast)
+                NewV = BCNewV;
 #endif // INTEL_COLLAB
             }
 #if INTEL_COLLAB
@@ -1526,7 +1543,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 
 #if INTEL_COLLAB
     // Update debug variable intrinsics with the value change.
-    if (V->isUsedByMetadata()) {
+    if (UpdateDbgVarIntrinsic && V->isUsedByMetadata()) {
       if (auto *VAMD = ValueAsMetadata::getIfExists(V)) {
         if (auto *MDAV = MetadataAsValue::getIfExists(V->getContext(), VAMD)) {
           ValueAsMetadata *NewVAMD = ValueAsMetadata::get(NewV);

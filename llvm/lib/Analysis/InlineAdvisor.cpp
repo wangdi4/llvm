@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -74,6 +74,11 @@ static cl::opt<int>
     InlineDeferralScale("inline-deferral-scale",
                         cl::desc("Scale to limit the cost of inline deferral"),
                         cl::init(2), cl::Hidden);
+
+static cl::opt<bool>
+    AnnotateInlinePhase("annotate-inline-phase", cl::Hidden, cl::init(false),
+                        cl::desc("If true, annotate inline advisor remarks "
+                                 "with LTO and pass information."));
 
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 
@@ -178,7 +183,7 @@ llvm::InlineCost static getDefaultInlineAdvice(
   return llvm::shouldInline(
       CB, GetInlineCost, ORE,
 #if INTEL_CUSTOMIZATION
-      Params.EnableDeferral.getValueOr(EnableInlineDeferral)
+      Params.EnableDeferral.value_or(EnableInlineDeferral)
 #if INTEL_FEATURE_SW_ADVANCED
           || intelEnableInlineDeferral()
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -228,18 +233,18 @@ AnalysisKey InlineAdvisorAnalysis::Key;
 
 bool InlineAdvisorAnalysis::Result::tryCreate(
     InlineParams Params, InliningAdvisorMode Mode,
-    const ReplayInlinerSettings &ReplaySettings) {
+    const ReplayInlinerSettings &ReplaySettings, InlineContext IC) {
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   switch (Mode) {
   case InliningAdvisorMode::Default:
     LLVM_DEBUG(dbgs() << "Using default inliner heuristic.\n");
-    Advisor.reset(new DefaultInlineAdvisor(M, FAM, Params));
+    Advisor.reset(new DefaultInlineAdvisor(M, FAM, Params, IC));
     // Restrict replay to default advisor, ML advisors are stateful so
     // replay will need augmentations to interleave with them correctly.
     if (!ReplaySettings.ReplayFile.empty()) {
       Advisor = llvm::getReplayInlineAdvisor(M, FAM, M.getContext(),
                                              std::move(Advisor), ReplaySettings,
-                                             /* EmitRemarks =*/true);
+                                             /* EmitRemarks =*/true, IC);
     }
     break;
   case InliningAdvisorMode::Development:
@@ -571,7 +576,10 @@ void llvm::emitInlinedIntoBasedOnCost(
 
 InlineAdvisor::InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
                              Optional<InlineContext> IC)
-    : M(M), FAM(FAM), IC(IC) {
+    : M(M), FAM(FAM), IC(IC),
+      AnnotatedInlinePassName((IC && AnnotateInlinePhase)
+                                  ? llvm::AnnotateInlinePassName(*IC)
+                                  : DEBUG_TYPE) {
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No) {
     ImportedFunctionsStats =
         std::make_unique<ImportedFunctionsInliningStatistics>();
@@ -599,12 +607,14 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   bool AdviceT = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
   bool IsAlways = AdviceT && (&Caller != &Callee);
   InlineCost MIC =
-      IsAlways
-          ? llvm::InlineCost::getAlways("always inline", InlrAlwaysInline)
-          : MandatoryInliningKind::Never == MIK
-                ? llvm::InlineCost::getNever("never inline", NinlrNeverInline)
-                : llvm::InlineCost::getNever("not mandatory",
-                                             NinlrNotMandatory);
+      IsAlways ? (CB.hasFnAttr(Attribute::AlwaysInlineRecursive)
+                      ? llvm::InlineCost::getAlways("always inline (recursive)",
+                                                    InlrAlwaysInlineRecursive)
+                      : llvm::InlineCost::getAlways("always inline",
+                                                    InlrAlwaysInline))
+      : MandatoryInliningKind::Never == MIK
+          ? llvm::InlineCost::getNever("never inline", NinlrNeverInline)
+          : llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
   if (IsAlways)
     MIC.setIsRecommended(true);
   auto UP =
@@ -656,18 +666,6 @@ std::string llvm::AnnotateInlinePassName(InlineContext IC) {
          std::string(getInlineAdvisorContext(IC.Pass));
 }
 
-const char *InlineAdvisor::getAnnotatedInlinePassName() {
-  if (!IC.hasValue())
-    return DEBUG_TYPE;
-
-  // IC is constant and initialized in constructor, so compute the annotated
-  // name only once.
-  static const std::string PassName =
-      llvm::AnnotateInlinePassName(IC.getValue());
-
-  return PassName.c_str();
-}
-
 InlineAdvisor::MandatoryInliningKind
 InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
                                 OptimizationRemarkEmitter &ORE) {
@@ -682,7 +680,7 @@ InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
   auto TrivialDecision =
       llvm::getAttributeBasedInliningDecision(CB, &Callee, TIR, GetTLI);
 
-  if (TrivialDecision.hasValue()) {
+  if (TrivialDecision) {
     if (TrivialDecision->isSuccess())
       return MandatoryInliningKind::Always;
     else
@@ -731,6 +729,25 @@ OptimizationRemarkEmitter &InlineAdvisor::getCallerORE(CallBase &CB) {
 PreservedAnalyses
 InlineAdvisorAnalysisPrinterPass::run(Module &M, ModuleAnalysisManager &MAM) {
   const auto *IA = MAM.getCachedResult<InlineAdvisorAnalysis>(M);
+  if (!IA)
+    OS << "No Inline Advisor\n";
+  else
+    IA->getAdvisor()->print(OS);
+  return PreservedAnalyses::all();
+}
+
+PreservedAnalyses InlineAdvisorAnalysisPrinterPass::run(
+    LazyCallGraph::SCC &InitialC, CGSCCAnalysisManager &AM, LazyCallGraph &CG,
+    CGSCCUpdateResult &UR) {
+  const auto &MAMProxy =
+      AM.getResult<ModuleAnalysisManagerCGSCCProxy>(InitialC, CG);
+
+  if (InitialC.size() == 0) {
+    OS << "SCC is empty!\n";
+    return PreservedAnalyses::all();
+  }
+  Module &M = *InitialC.begin()->getFunction().getParent();
+  const auto *IA = MAMProxy.getCachedResult<InlineAdvisorAnalysis>(M);
   if (!IA)
     OS << "No Inline Advisor\n";
   else

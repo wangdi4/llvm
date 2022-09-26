@@ -25,3 +25,10 @@ RUN: llvm-config --shared-mode 2>&1 | FileCheck --check-prefix=CHECK-SHARED-MODE
 CHECK-SHARED-MODE: {{static|shared}}
 CHECK-SHARED-MODE-NOT: error:
 CHECK-SHARED-MODE-NOT: warning
+
+#INTEL_CUSTOMIZATION
+RUN: llvm-config --opaque-ptr-mode 2>&1 | FileCheck --check-prefix=CHECK-OPAQUE-PTR-MODE-ONOFF %s
+CHECK-OPAQUE-PTR-MODE-ONOFF: {{ON|OFF}}
+CHECK-OPAQUE-PTR-MODE-ONOFF-NOT: error:
+CHECK-OPAQUE-PTR-MODE-ONOFF-NOT: warning
+#end INTEL_CUSTOMIZATION

@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -internal-isystem %S/Inputs -fsycl-is-device -O0 -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -internal-isystem %S/Inputs -fsycl-is-device -O0 -emit-llvm -no-opaque-pointers -o - %s | FileCheck %s
 
 #include "sycl.hpp"
 
@@ -120,7 +120,7 @@ void foo_ivdep(int select, SIVDep &SV, SIVDep2 &SV2, SIVDep2 *Sv2p)
 }
 
 int main() {
-  cl::sycl::handler h;
+  sycl::handler h;
   h.single_task([]() {
     foo_unroll();
     SIVDep SV;

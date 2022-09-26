@@ -16,6 +16,23 @@
 //
 // end INTEL_CUSTOMIZATION
 //===-- LowerESIMD.cpp - lower Explicit SIMD (ESIMD) constructs -----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -94,7 +111,8 @@ private:
 
 char SYCLLowerESIMDLegacyPass::ID = 0;
 INITIALIZE_PASS(SYCLLowerESIMDLegacyPass, "LowerESIMD",
-                "Lower constructs specific to Close To Metal", false, false)
+                "Lower constructs specific to the 'explicit SIMD' extension",
+                false, false)
 
 // Public interface to the SYCLLowerESIMDPass.
 ModulePass *llvm::createSYCLLowerESIMDPass() {
@@ -521,21 +539,17 @@ public:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
-        {"dpas",
-         {"dpas2", {a(0), a(1), a(2), a(3), a(4), a(5), a(6), a(7), a(8)}}},
-        {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
-        {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
-        {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
         {"bf_cvt", { "bf.cvt", { a(0) }}},
         {"tf32_cvt", { "tf32.cvt", { a(0) }}},
         {"qf_cvt", { "qf.cvt", { a(0) }}},
         {"srnd", {"srnd", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
+        {"dpas2",
+         {"dpas2", {a(0), a(1), a(2), t(0), t(1), t(2), t(3), t(11), t(12)}}},
+        {"dpas_nosrc0", {"dpas.nosrc0", {a(0), a(1), t(0)}}},
+        {"dpasw", {"dpasw", {a(0), a(1), a(2), t(0)}}},
+        {"dpasw_nosrc0", {"dpasw.nosrc0", {a(0), a(1), t(0)}}},
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
         {"raw_send_nbarrier_signal",
          {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
@@ -683,7 +697,7 @@ public:
         {"test_src_tmpl_arg",
          {"test.src.tmpl.arg", {t(0), t1(1), t8(2), t16(3), t32(4), c8(17)}}},
         {"slm_init", {"slm.init", {a(0)}}},
-    };
+        {"bf_cvt", {"bf.cvt", {a(0)}}}};
   }
 
   const IntrinTable &getTable() { return Table; }
@@ -933,59 +947,63 @@ static inline llvm::Metadata *getMD(llvm::Value *V) {
   return llvm::ValueAsMetadata::get(V);
 }
 
-/// Updates genx.kernels metadata attribute \p MD for the given function \p F.
-/// The value of the attribute is updated only if the new value \p NewVal is
-/// bigger than what is already stored in the attribute.
-// TODO: 1) In general this function is supposed to handle intrinsics
-// translated into kernel's metadata. So, the primary/intended usage model is
-// when such intrinsics are called from kernels.
-// 2) For now such intrinsics are also handled in functions directly called
-// from kernels and being translate into those caller-kernel meeven though such
-// behaviour is not fully specified/documented.
-// 3) This code (or the code in FE) must verify that slm_init or other such
-// intrinsic is not called from another module because kernels in that other
-// module would not get updated meta data attributes.
-static void updateGenXMDNodes(llvm::Function *F, genx::KernelMDOp MD,
-                              uint64_t NewVal) {
-  llvm::NamedMDNode *GenXKernelMD =
-      F->getParent()->getNamedMetadata(GENX_KERNEL_METADATA);
-  llvm::esimd::assert_and_diag(GenXKernelMD, "invalid genx.kernels metadata");
+// A functor which updates ESIMD kernel's uint64_t metadata in case it is less
+// than the given one. Used in callgraph traversal to update nbarriers or SLM
+// size metadata. Update is performed by the '()' operator and happens only
+// when given function matches one of the kernels - thus, only reachable kernels
+// are updated.
+struct UpdateUint64MetaDataToMaxValue {
+  Module &M;
+  // The uint64_t metadata key to update.
+  genx::KernelMDOp Key;
+  // The new metadata value. Must be greater than the old for update to happen.
+  uint64_t NewVal;
+  // Pre-selected nodes from GENX_KERNEL_METADATA which can only potentially be
+  // updated.
+  SmallVector<MDNode *, 4> CandidatesToUpdate;
 
-  SmallPtrSet<Function *, 32> FunctionsVisited;
-  SmallVector<Function *, 32> Worklist{F};
-  while (!Worklist.empty()) {
-    Function *CurF = Worklist.pop_back_val();
-    FunctionsVisited.insert(CurF);
-
-    // Update the meta data attribute for the current function.
+  UpdateUint64MetaDataToMaxValue(Module &M, genx::KernelMDOp Key,
+                                 uint64_t NewVal)
+      : M(M), Key(Key), NewVal(NewVal) {
+    // Pre-select nodes for update to do less work in the '()' operator.
+    llvm::NamedMDNode *GenXKernelMD = M.getNamedMetadata(GENX_KERNEL_METADATA);
+    llvm::esimd::assert_and_diag(GenXKernelMD, "invalid genx.kernels metadata");
     for (auto Node : GenXKernelMD->operands()) {
-      if (Node->getNumOperands() <= MD ||
-          getVal(Node->getOperand(genx::KernelMDOp::FunctionRef)) != CurF)
+      if (Node->getNumOperands() <= (unsigned)Key) {
         continue;
-
-      llvm::Value *Old = getVal(Node->getOperand(MD));
+      }
+      llvm::Value *Old = getVal(Node->getOperand(Key));
       uint64_t OldVal = cast<llvm::ConstantInt>(Old)->getZExtValue();
+
       if (OldVal < NewVal) {
-        llvm::Value *New = llvm::ConstantInt::get(Old->getType(), NewVal);
-        Node->replaceOperandWith(MD, getMD(New));
+        CandidatesToUpdate.push_back(Node);
       }
     }
+  }
 
-    // Update all callers as well.
-    for (auto It = CurF->use_begin(); It != CurF->use_end(); It++) {
-      auto FCall = It->getUser();
-      if (!isa<CallInst>(FCall))
-        llvm::report_fatal_error(
-            llvm::Twine(__FILE__ " ") +
-            "Found an intrinsic violating assumption on usage from a kernel or "
-            "a func directly called from a kernel");
+  void operator()(Function *F) {
+    // Update the meta data attribute for the current function.
+    for (auto Node : CandidatesToUpdate) {
+      assert(Node->getNumOperands() > (unsigned)Key);
 
-      auto FCaller = cast<CallInst>(FCall)->getFunction();
-      if (!FunctionsVisited.count(FCaller))
-        Worklist.push_back(FCaller);
+      if (getVal(Node->getOperand(genx::KernelMDOp::FunctionRef)) != F) {
+        continue;
+      }
+      llvm::Value *Old = getVal(Node->getOperand(Key));
+#ifndef NDEBUG
+      uint64_t OldVal = cast<llvm::ConstantInt>(Old)->getZExtValue();
+      assert(OldVal < NewVal);
+#endif // NDEBUG
+      llvm::Value *New = llvm::ConstantInt::get(Old->getType(), NewVal);
+      Node->replaceOperandWith(Key, getMD(New));
     }
   }
-}
+};
+
+// TODO Specify document behavior for slm_init and nbarrier_init when:
+// 1) they are called not from kernels
+// 2) there are multiple such calls reachable from a kernel
+// 3) when a call in external function linked by the Back-End
 
 // This function sets/updates VCSLMSize attribute to the kernels
 // calling this intrinsic initializing SLM memory.
@@ -997,7 +1015,11 @@ static void translateSLMInit(CallInst &CI) {
 
   uint64_t NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
   assert(NewVal != 0 && "zero slm bytes being requested");
-  updateGenXMDNodes(F, genx::KernelMDOp::SLMSize, NewVal);
+  UpdateUint64MetaDataToMaxValue SetMaxSLMSize{
+      *F->getParent(), genx::KernelMDOp::SLMSize, NewVal};
+  // TODO: Keep track of traversed functions (use 4-argument version of
+  // traverseCallgraphUp) to avoid repeating traversals over same function.
+  esimd::traverseCallgraphUp(F, SetMaxSLMSize);
 }
 
 // This function sets/updates VCNamedBarrierCount attribute to the kernels
@@ -1011,7 +1033,11 @@ static void translateNbarrierInit(CallInst &CI) {
 
   auto NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
   assert(NewVal != 0 && "zero named barrier count being requested");
-  updateGenXMDNodes(F, genx::KernelMDOp::NBarrierCnt, NewVal);
+  UpdateUint64MetaDataToMaxValue SetMaxNBarrierCnt{
+      *F->getParent(), genx::KernelMDOp::NBarrierCnt, NewVal};
+  // TODO: Keep track of traversed functions to avoid repeating traversals
+  // over same function.
+  esimd::traverseCallgraphUp(F, SetMaxNBarrierCnt);
 }
 
 static void translatePackMask(CallInst &CI) {
@@ -1236,6 +1262,7 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
   // TODO: Implement support for the following intrinsics:
   // uint32_t __spirv_BuiltIn NumSubgroups;
   // uint32_t __spirv_BuiltIn SubgroupId;
+  // uint32_t __spirv_BuiltIn GlobalLinearId
 
   // Translate those loads from _scalar_ SPIRV globals that can be replaced with
   // a const value here.
@@ -1248,6 +1275,8 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
              SpirvGlobalName == "SubgroupMaxSize") {
     NewInst = llvm::Constant::getIntegerValue(LI->getType(),
                                               llvm::APInt(32, 1, true));
+  } else if (SpirvGlobalName == "GlobalLinearId") {
+    NewInst = llvm::Constant::getNullValue(LI->getType());
   }
   if (NewInst) {
     LI->replaceAllUsesWith(NewInst);
@@ -1395,11 +1424,11 @@ static Function *createTestESIMDDeclaration(const ESIMDIntrinDesc &Desc,
 //
 // ### Source-level intrinsic:
 //
-// sycl::ext::intel::experimental::esimd::__vector_type<int, 16>::type
+// sycl::_V1::ext::intel::experimental::esimd::__vector_type<int, 16>::type
 // __esimd_flat_read<int, 16>(
-//     sycl::ext::intel::experimental::esimd::__vector_type<unsigned long long,
-//     16>::type, sycl::ext::intel::experimental::esimd::__vector_type<int,
-//     16>::type)
+//     sycl::_V1::ext::intel::experimental::esimd::__vector_type<unsigned long
+//     long, 16>::type,
+//     sycl::_V1::ext::intel::experimental::esimd::__vector_type<int, 16>::type)
 //
 // ### Itanium-mangled name:
 //
@@ -1542,8 +1571,7 @@ void generateKernelMetadata(Module &M) {
 
   for (auto &F : M.functions()) {
     // Skip non-SIMD kernels.
-    if (F.getCallingConv() != CallingConv::SPIR_KERNEL ||
-        F.getMetadata("sycl_explicit_simd") == nullptr)
+    if (!esimd::isESIMDKernel(F))
       continue;
 
     // Metadata node containing N i32s, where N is the number of kernel
@@ -1641,14 +1669,15 @@ SmallPtrSet<Type *, 4> collectGenXVolatileTypes(Module &M) {
     // TODO FIXME relying on type name in LLVM IR is fragile, needs rework
     if (!GTy || !GTy->getName()
                      .rtrim(".0123456789")
-                     .endswith("sycl::ext::intel::esimd::simd"))
+                     .endswith("sycl::_V1::ext::intel::esimd::simd"))
       continue;
     assert(GTy->getNumContainedTypes() == 1);
     auto VTy = GTy->getContainedType(0);
     if ((GTy = dyn_cast<StructType>(VTy))) {
-      assert(GTy->getName()
-                 .rtrim(".0123456789")
-                 .endswith("sycl::ext::intel::esimd::detail::simd_obj_impl"));
+      assert(
+          GTy->getName()
+              .rtrim(".0123456789")
+              .endswith("sycl::_V1::ext::intel::esimd::detail::simd_obj_impl"));
       VTy = GTy->getContainedType(0);
     }
     assert(VTy->isVectorTy());
@@ -1706,7 +1735,11 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
         auto TmpTy = llvm::FixedVectorType::get(
             llvm::Type::getInt32Ty(DstTy->getContext()),
             cast<FixedVectorType>(DstTy)->getNumElements());
-        Src = Builder.CreateFPToSI(Src, TmpTy);
+        if (CastOpcode == llvm::Instruction::FPToUI) {
+          Src = Builder.CreateFPToUI(Src, TmpTy);
+        } else {
+          Src = Builder.CreateFPToSI(Src, TmpTy);
+        }
 
         llvm::Instruction::CastOps TruncOp = llvm::Instruction::Trunc;
         llvm::Value *NewDst = Builder.CreateCast(TruncOp, Src, DstTy);
@@ -1736,7 +1769,7 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
 
       // process ESIMD builtins that go through special handling instead of
       // the translation procedure
-      // TODO FIXME slm_init should be made top-level __esimd_slm_init
+
       if (Name.startswith("__esimd_slm_init") &&
           isa<ConstantInt>(CI->getArgOperand(0))) {
         // tag the kernel with meta-data SLMSize, and remove this builtin
@@ -1744,7 +1777,6 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
         ToErase.push_back(CI);
         continue;
       }
-
       if (Name.startswith("__esimd_nbarrier_init")) {
         translateNbarrierInit(*CI);
         ToErase.push_back(CI);
@@ -1776,12 +1808,13 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
           continue;
         }
       }
-
       if (Name.startswith("__esimd_get_surface_index")) {
         translateGetSurfaceIndex(*CI);
         ToErase.push_back(CI);
         continue;
       }
+      assert(!Name.startswith("__esimd_set_kernel_properties") &&
+             "__esimd_set_kernel_properties must have been lowered");
 
       if (Name.empty() || !Name.startswith(ESIMD_INTRIN_PREF1))
         continue;

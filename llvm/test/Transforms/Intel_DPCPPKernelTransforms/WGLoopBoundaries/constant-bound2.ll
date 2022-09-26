@@ -36,7 +36,7 @@ if.end:
   ret void
 }
 
-; CHECK: define {{.*}} @WG.boundaries.constant_kernel(i32 {{.*}}* %0)
+; CHECK: define {{.*}} @WG.boundaries.constant_kernel(i32 {{.*}}* noalias %{{.*}})
 
 !sycl.kernels = !{!0}
 

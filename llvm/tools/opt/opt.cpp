@@ -32,7 +32,6 @@
 #include "NewPMDriver.h"
 #if INTEL_CUSTOMIZATION
 #include "Intel_PassPrinters.h"
-#include "llvm/Transforms/Coroutines.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -255,18 +254,6 @@ static cl::opt<bool> VerifyDebugInfoPreserve(
     cl::desc("Start the pipeline with collecting and end it with checking of "
              "debug info preservation."));
 
-static cl::opt<bool> VerifyEachDebugInfoPreserve(
-    "verify-each-debuginfo-preserve",
-    cl::desc("Start each pass with collecting and end it with checking of "
-             "debug info preservation."));
-
-static cl::opt<std::string>
-    VerifyDIPreserveExport("verify-di-preserve-export",
-                   cl::desc("Export debug info preservation failures into "
-                            "specified (JSON) file (should be abs path as we use"
-                            " append mode to insert new JSON objects)"),
-                   cl::value_desc("filename"), cl::init(""));
-
 static cl::opt<bool>
 PrintBreakpoints("print-breakpoints-for-testing",
                  cl::desc("Print select breakpoints location for testing"));
@@ -295,13 +282,6 @@ static cl::opt<bool> DiscardValueNames(
     "discard-value-names",
     cl::desc("Discard names from Value (other than GlobalValue)."),
     cl::init(false), cl::Hidden);
-
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool> Coroutines(
-  "enable-coroutines",
-  cl::desc("Enable coroutine passes."),
-  cl::init(false), cl::Hidden);
-#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> TimeTrace(
     "time-trace",
@@ -423,41 +403,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   if (TM)
     TM->adjustPassManager(Builder);
 
-#if INTEL_CUSTOMIZATION
-  if (Coroutines)
-    addCoroutinePassesToExtensionPoints(Builder);
-#endif // INTEL_CUSTOMIZATION
-
-  switch (PGOKindFlag) {
-  case InstrGen:
-    Builder.EnablePGOInstrGen = true;
-    Builder.PGOInstrGen = ProfileFile;
-    break;
-  case InstrUse:
-    Builder.PGOInstrUse = ProfileFile;
-    break;
-  case SampleUse:
-    Builder.PGOSampleUse = ProfileFile;
-    break;
-  default:
-    break;
-  }
-
-  switch (CSPGOKindFlag) {
-  case CSInstrGen:
-    Builder.EnablePGOCSInstrGen = true;
-    break;
-  case CSInstrUse:
-    Builder.EnablePGOCSInstrUse = true;
-    break;
-  default:
-    break;
-  }
-#if INTEL_CUSTOMIZATION
-  if (PrepareForLTOFlag)
-    Builder.PrepareForLTO = true;
-#endif // INTEL_CUSTOMIZATION
-
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
 }
@@ -563,7 +508,7 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "replace-with-veclib",  "jmc-instrument",
       "dot-regions",          "dot-regions-only",
       "view-regions",         "view-regions-only",
-      "select-optimize"};
+      "select-optimize",      "expand-large-div-rem"};
   for (const auto &P : PassNamePrefix)
     if (Pass.startswith(P))
       return true;
@@ -600,7 +545,6 @@ int main(int argc, char **argv) {
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
-  initializeCoroutines(Registry); // INTEL
   initializeScalarOpts(Registry);
   initializeObjCARCOpts(Registry);
   initializeVectorization(Registry);
@@ -613,6 +557,7 @@ int main(int argc, char **argv) {
   initializeTarget(Registry);
   // For codegen passes, only passes that do IR to IR transformation are
   // supported.
+  initializeExpandLargeDivRemLegacyPassPass(Registry);
   initializeExpandMemCmpPassPass(Registry);
   initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
   initializeSelectOptimizePass(Registry);
@@ -628,8 +573,6 @@ int main(int argc, char **argv) {
   initializeIndirectBrExpandPassPass(Registry);
   initializeInterleavedLoadCombinePass(Registry);
   initializeInterleavedAccessPass(Registry);
-  initializeEntryExitInstrumenterPass(Registry);
-  initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeExpandReductionsPass(Registry);
   initializeExpandVectorPredicationPass(Registry);
@@ -945,7 +888,8 @@ int main(int argc, char **argv) {
                            ThinLinkOut.get(), RemarksFile.get(), Pipeline,
                            Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
-                           EmitModuleHash, EnableDebugify)
+                           EmitModuleHash, EnableDebugify,
+                           VerifyDebugInfoPreserve)
                ? 0
                : 1;
   }
@@ -1157,8 +1101,8 @@ int main(int argc, char **argv) {
         report_fatal_error("Text output is incompatible with -module-hash");
       Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
     } else if (OutputThinLTOBC)
-      Passes.add(createWriteThinLTOBitcodePass(
-          *OS, ThinLinkOut ? &ThinLinkOut->os() : nullptr));
+      report_fatal_error(
+          "Use the new pass manager for printing ThinLTO bitcode");
     else
       Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder,
                                          EmitSummaryIndex, EmitModuleHash));

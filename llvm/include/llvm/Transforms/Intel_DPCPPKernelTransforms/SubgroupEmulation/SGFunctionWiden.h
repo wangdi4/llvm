@@ -12,12 +12,12 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SG_EMULATION_SG_FUNCTION_WIDEN_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 namespace llvm {
+struct VFInfo;
 
 class FunctionWidener {
 public:
@@ -37,11 +37,11 @@ private:
   void removeByValAttr(Function &F);
 
   /// Make a copy of the function if it is marked as SIMD.
-  Function *cloneFunction(Function &F, VectorVariant &V,
+  Function *cloneFunction(Function &F, const VFInfo &V,
                           ValueToValueMapTy &Vmap);
 
   /// Update uses for widened parameters.
-  void expandVectorParameters(Function *Clone, VectorVariant &V,
+  void expandVectorParameters(Function *Clone, const VFInfo &V,
                               ValueToValueMapTy &Vmap);
 
   /// Update return value.

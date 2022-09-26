@@ -24,6 +24,8 @@ VERS1.0 {
     __tgt_target_data_update_nowait_mapper;
     __tgt_target_nowait_mapper;
     __tgt_target_teams_nowait_mapper;
+    __tgt_target_kernel;
+    __tgt_target_kernel_nowait;
     __tgt_mapper_num_components;
     __tgt_push_mapper_component;
 # INTEL_COLLAB
@@ -49,6 +51,7 @@ VERS1.0 {
     __tgt_target_free_per_hw_thread_scratch;
 # end INTEL_COLLAB
     omp_get_num_devices;
+    omp_get_device_num;
     omp_get_initial_device;
     omp_target_alloc;
     omp_target_free;
@@ -87,6 +90,8 @@ VERS1.0 {
     ompx_kernel_batch_begin;
     ompx_kernel_batch_end;
     ompx_get_device_info;
+    ompx_target_aligned_alloc_shared_with_hint;
+    ompx_target_prefetch_shared_mem;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount;

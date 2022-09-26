@@ -94,35 +94,6 @@ private:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-//Hard Coded strategy: the 'junk yard' of builtin versioning.
-//When ever it is hard to apply a rule to the versioning, use this strategy as
-//a way out. Note! it is our goal to keep the builtins under this strategy as
-//thin as possible, since the names are hard-coded, which poses a problem when
-//the mangling algorithm will change.
-////////////////////////////////////////////////////////////////////////////////
-class HardCodedVersionStrategy: public VersionStrategy{
-public:
-  //
-  //Parameters:
-  //  versions- an array with 6 strings, containing names of versions of the
-  //  same function, as follows:
-  // <v1>, <v2>, <v4> <v8>, <v16>, <v3>. Empty entries should be signaled by
-  // reflection::FunctionDescriptor::nullString()
-  void assumeResponsability(const TableRow*);
-
-  PairSW operator()(const PairSW &) const override;
-
-private:
-  //Maps each version to the list of containing rows in the table
-  //Duplicate entries in the table are supported by using TableRowList as the container.
-  //There can be duplicates in the case where there are two rows (more than two is not possible)
-  //that define separate rules for scalaring and packetizing, e.g. sincos.
-  typedef llvm::SmallVector<const TableRow*, 2> TableRowList;
-  typedef llvm::StringMap<TableRowList> FuncName2TableRowLookup;
-  FuncName2TableRowLookup m_func2row;
-};
-
-////////////////////////////////////////////////////////////////////////////////
 // "Identity strategy", which returns the pair past as parameter.
 ////////////////////////////////////////////////////////////////////////////////
 struct IdentityStrategy: VersionStrategy{

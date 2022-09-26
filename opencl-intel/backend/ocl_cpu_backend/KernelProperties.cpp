@@ -44,15 +44,16 @@ void KernelJITProperties::Deserialize(IInputStream &ist,
 }
 
 KernelProperties::KernelProperties()
-    : m_hasNoBarrierPath(false), m_hasGlobalSync(false), m_useNativeSubgroups(false),
-      m_DAZ(false), m_optWGSize(0), m_totalImplSize(0), m_barrierBufferSize(0),
-      m_privateMemorySize(0), m_maxPrivateMemorySize(0), m_reqdNumSG(0),
-      m_kernelExecutionLength(0), m_vectorizationWidth(1),
-      m_minGroupSizeFactorial(1), m_isVectorizedWithTail(false),
-      m_uiSizeT(sizeof(void *)), m_bIsBlock(false), m_bIsAutorun(false),
-      m_bNeedSerializeWGs(false), m_bIsTask(false),
-      m_bCanUseGlobalWorkOffset(true), m_bIsNonUniformWGSizeSupported(false),
-      m_canUniteWG(false), m_verctorizeOnDimention(0), m_debugInfo(false) {
+    : m_hasNoBarrierPath(false), m_hasMatrixCall(false), m_hasGlobalSync(false),
+      m_DAZ(false), m_optWGSize(0),
+      m_totalImplSize(0), m_barrierBufferSize(0), m_privateMemorySize(0),
+      m_maxPrivateMemorySize(0), m_reqdNumSG(0), m_kernelExecutionLength(0),
+      m_vectorizationWidth(1), m_minGroupSizeFactorial(1),
+      m_isVectorizedWithTail(false), m_uiSizeT(sizeof(void *)),
+      m_bIsBlock(false), m_bIsAutorun(false), m_bNeedSerializeWGs(false),
+      m_bIsTask(false), m_bCanUseGlobalWorkOffset(true),
+      m_bIsNonUniformWGSizeSupported(false), m_canUniteWG(false),
+      m_verctorizeOnDimention(0), m_debugInfo(false) {
   memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
   memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
@@ -63,8 +64,13 @@ void KernelProperties::Serialize(IOutputStream &ost,
   // Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
   Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
   Serializer::SerialPrimitive<bool>(&m_hasNoBarrierPath, ost);
+  if (OCL_CACHED_BINARY_VERSION >= 15)
+    Serializer::SerialPrimitive<bool>(&m_hasMatrixCall, ost);
   Serializer::SerialPrimitive<bool>(&m_hasGlobalSync, ost);
-  Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
+  if (OCL_CACHED_BINARY_VERSION < 16) {
+    bool DeprecatedUseNativeSubgroups = true;
+    Serializer::SerialPrimitive<bool>(&DeprecatedUseNativeSubgroups, ost);
+  }
   Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
   Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
   Serializer::SerialPrimitive(&m_cpuId, ost);
@@ -119,13 +125,18 @@ void KernelProperties::Serialize(IOutputStream &ost,
 }
 
 void KernelProperties::Deserialize(IInputStream &ist,
-                                   SerializationStatus * /*stats*/) {
+                                   SerializationStatus *stats) {
   // Need to revert dbgPrint flag
   // Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
   Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
   Serializer::DeserialPrimitive<bool>(&m_hasNoBarrierPath, ist);
+  if (stats->m_binaryVersion >= 15)
+    Serializer::DeserialPrimitive<bool>(&m_hasMatrixCall, ist);
   Serializer::DeserialPrimitive<bool>(&m_hasGlobalSync, ist);
-  Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
+  if (stats->m_binaryVersion < 16) {
+    bool DeprecatedUseNativeSubgroups = true;
+    Serializer::DeserialPrimitive<bool>(&DeprecatedUseNativeSubgroups, ist);
+  }
   Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
   Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
   Serializer::DeserialPrimitive(&m_cpuId, ist);
@@ -134,7 +145,9 @@ void KernelProperties::Deserialize(IInputStream &ist,
   // varies in it's size relating to the platform (32/64 bit)
   unsigned long long int tmp;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-  assert((MAX_WORK_DIM == tmp) && "WORK DIM dont match!");
+  if (MAX_WORK_DIM != tmp)
+    throw Exceptions::DeviceBackendExceptionBase(
+        "invalid MAX WORK DIM in program binary.");
 
   for (int i = 0; i < MAX_WORK_DIM; ++i) {
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
@@ -160,6 +173,13 @@ void KernelProperties::Deserialize(IInputStream &ist,
   m_kernelExecutionLength = (size_t)tmp;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_vectorizationWidth = (size_t)tmp;
+  // There was a bug in the old compiler (OCL_CACHED_BINARY_VERSION <= 10, see
+  // commit 0db0bd83cf658d1dc3e26637b6adeb7a6ed2c098) that the vectorization
+  // width was wrongly set as 0 if the kernel is not vectorized nor
+  // subgroup-emulated. We need to materialize the unexpected zero vectorization
+  // width to 1 to keep backwards compatibility.
+  if (stats->m_binaryVersion <= 10 && m_vectorizationWidth == 0)
+    m_vectorizationWidth = 1;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_reqdSubGroupSize = (size_t)tmp;
   Serializer::DeserialString(m_kernelAttributes, ist);
@@ -222,7 +242,6 @@ size_t KernelProperties::GetRequiredNumSubGroups() const
 }
 
 size_t KernelProperties::getMaterializedSubGroupSize() const {
-  assert(m_useNativeSubgroups);
   // Vectorization width is usually set by vectorizer or subgroup emulation.
   // This value is 1 (default value) iff neither vectorizer nor subgroup
   // emulation is run.
@@ -243,20 +262,12 @@ size_t KernelProperties::getMaterializedSubGroupSize() const {
   return MaterializedSGSize;
 }
 
-size_t KernelProperties::GetMaxNumSubGroups(size_t const wgSizeUpperBound) const
-{
-    if (m_useNativeSubgroups)
-      return wgSizeUpperBound / getMaterializedSubGroupSize();
-    // Return 1 for emulation case.
-    return 1;
+size_t KernelProperties::GetMaxNumSubGroups(size_t const WGSizeUpperBound) const {
+  return WGSizeUpperBound / getMaterializedSubGroupSize();
 }
 
 size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const
 {
-    // Return 1 for emulation case.
-    if (!m_useNativeSubgroups)
-        return 1;
-
     assert((m_verctorizeOnDimention < size) && "Vect dim must be less that NDRange dim!");
 
     // The following calculation routine will allow for extra
@@ -272,16 +283,8 @@ size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes
     return SubGroupsOnOtherDims * SubGroupsOnVectorizedDim;
 }
 
-size_t KernelProperties::GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const
-{
-    if (m_useNativeSubgroups)
-      return getMaterializedSubGroupSize();
-
-    // Return WGSizes[0]*WGSizes[1]*WGSizes[2] for emulation case.
-    size_t maxSGSize = 1;
-    for(size_t i = 0; i < size; ++i)
-        maxSGSize *= WGSizes[i];
-    return maxSGSize;
+size_t KernelProperties::GetMaxSubGroupSize() const {
+  return getMaterializedSubGroupSize();
 }
 
 unsigned int KernelProperties::GetMinGroupSizeFactorial() const
@@ -305,6 +308,8 @@ bool KernelProperties::HasGlobalSyncOperation() const
 }
 
 bool KernelProperties::HasNoBarrierPath() const { return m_hasNoBarrierPath; }
+
+bool KernelProperties::HasMatrixCall() const { return m_hasMatrixCall; }
 
 bool KernelProperties::HasDebugInfo() const
 {
@@ -363,21 +368,12 @@ void KernelProperties::GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
     const size_t maxWorkGroupSize =
         GetMaxWorkGroupSize(wgSizeUpperBound, wgPrivateMemSizeUpperBound);
     bool successFill = true;
-    if (m_useNativeSubgroups) {
-        size_t wg_size = getMaterializedSubGroupSize() * desiredSGCount;
-        if (wg_size <= maxWorkGroupSize) {
-            pValue[0] = wg_size;
-            successFill = true;
-        } else {
-            successFill = false;
-        }
+    size_t wg_size = getMaterializedSubGroupSize() * desiredSGCount;
+    if (wg_size <= maxWorkGroupSize) {
+        pValue[0] = wg_size;
+        successFill = true;
     } else {
-        if (1 == desiredSGCount) {
-            pValue[0] = maxWorkGroupSize;
-            successFill = true;
-        } else {
-          successFill = false;
-        }
+        successFill = false;
     }
 
     // Desired SG count == 0 can't be fulfilled anyway.
@@ -451,8 +447,8 @@ void KernelProperties::Print() const {
     outs() << "}\n";
   };
   outs().indent(NS) << "hasNoBarrierPath: " << m_hasNoBarrierPath << "\n";
+  outs().indent(NS) << "hasMatrixCall: " << m_hasMatrixCall << "\n";
   outs().indent(NS) << "hasGlobalSync: " << m_hasGlobalSync << "\n";
-  outs().indent(NS) << "useNativeSubgroups: " << m_useNativeSubgroups << "\n";
   outs().indent(NS) << "DAZ: " << m_DAZ << "\n";
   outs().indent(NS) << "CPUId: " << m_cpuId.str() << "\n";
   outs().indent(NS) << "optWGSize: " << m_optWGSize << "\n";
@@ -467,9 +463,8 @@ void KernelProperties::Print() const {
   outs().indent(NS) << "kernelExecutionLength: " << m_kernelExecutionLength
                     << "\n";
   outs().indent(NS) << "vectorizationWidth: " << m_vectorizationWidth << "\n";
-  if (m_useNativeSubgroups)
-    outs().indent(NS) << "Materialized subgroup size: "
-                      << getMaterializedSubGroupSize() << "\n";
+  outs().indent(NS) << "Materialized subgroup size: "
+                    << getMaterializedSubGroupSize() << "\n";
   outs().indent(NS) << "reqdSubGroupSize: " << m_reqdSubGroupSize << "\n";
   outs().indent(NS) << "kernelAttributes: " << m_kernelAttributes << "\n";
   outs().indent(NS) << "minGroupSizeFactorial: " << m_minGroupSizeFactorial
@@ -491,8 +486,7 @@ void KernelProperties::Print() const {
   outs().indent(NS) << "debugInfo: " << m_debugInfo << "\n";
   outs().indent(NS) << "targetDevice: "
                     << ((m_targetDevice == CPU_DEVICE)        ? "cpu"
-                        : (m_targetDevice == FPGA_EMU_DEVICE) ? "fpga-emu"
-                                                              : "eyeq-emu")
+                        : "fpga-emu")
                     << "\n";
   outs().indent(NS) << "cpuMaxWGSize: " << m_cpuMaxWGSize << "\n";
 }

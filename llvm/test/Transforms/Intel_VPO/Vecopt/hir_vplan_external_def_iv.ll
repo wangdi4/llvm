@@ -1,5 +1,4 @@
-  ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-  ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+  ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we properly represent and external definition that is an IV.
 

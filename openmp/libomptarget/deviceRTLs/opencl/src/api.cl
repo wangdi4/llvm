@@ -190,6 +190,24 @@ EXTERN double omp_get_wtime(void) {
   return 0.0;
 }
 
+EXTERN int omp_get_max_teams(void) {
+  // This is what we use in the plugin for non-ND-loop kernels
+  return __omp_spirv_program_data.total_eus *
+      __omp_spirv_program_data.hw_threads_per_eu;
+}
+
+EXTERN int omp_get_teams_thread_limit(void) {
+  return __omp_spirv_program_data.teams_thread_limit;
+}
+
+EXTERN void *omp_alloc(size_t size, omp_allocator_handle_t al) {
+  return __kmpc_alloc(0, size, al);
+}
+
+EXTERN void omp_free(void *ptr, omp_allocator_handle_t al) {
+  __kmpc_free(0, ptr, al);
+}
+
 EXTERN void *malloc(size_t size) {
   return __kmpc_alloc(0, size, NULL);
 }

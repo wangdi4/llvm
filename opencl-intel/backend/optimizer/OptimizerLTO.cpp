@@ -18,12 +18,6 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Transforms/IPO/GlobalOpt.h"
-#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h"
-#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
-#include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"
-#include "llvm/Transforms/Scalar/JumpThreading.h"
-#include "llvm/Transforms/Vectorize/VectorCombine.h"
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // #ifndef NDEBUG
@@ -34,15 +28,21 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
+#include "llvm/Transforms/IPO/GlobalOpt.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
+#include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"
+#include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
@@ -54,6 +54,7 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
+#include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 #include "SPIRVLowerConstExpr.h"
 
@@ -78,7 +79,6 @@ cl::opt<bool> VerifyEachPass("verify-each-pass", cl::Hidden,
 extern bool DPCPPForceOptnone;
 
 extern cl::opt<bool> DisableVPlanCM;
-extern cl::opt<bool> EmitKernelVectorizerSignOn;
 extern cl::opt<bool> EnableO0Vectorization;
 
 using namespace llvm;
@@ -180,17 +180,15 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(DPCPPEqualizerPass());
 
         Triple TargetTriple(m_M.getTargetTriple());
-        if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit() &&
+        if (TargetTriple.isArch64Bit() &&
             TargetTriple.isOSWindows())
           MPM.addPass(CoerceWin64TypesPass());
 
         if (m_IsFpgaEmulator)
           MPM.addPass(RemoveAtExitPass());
 
-        // SetPreferVectorWidthPass is not enabled because it causes 3%
-        // regression on non-spirv sycl_benchmarks/apriori.
-        // MPM.addPass(SetPreferVectorWidthPass(
-        //     VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
+        MPM.addPass(SetPreferVectorWidthPass(
+            VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
 
         if (m_IsSPIRV && Config.GetRelaxedMath())
           MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));
@@ -239,6 +237,11 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
         FPM.addPass(BuiltinCallToInstPass());
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+        // Adding IPSCCPPass to the beginning to propogate constant. Otherwise
+        // the opportunity may disappear when EarlyCSE pass is run first.
+        if (Level != OptimizationLevel::O0)
+          MPM.addPass(IPSCCPPass());
       });
 }
 
@@ -272,8 +275,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
           }
           if (Config.GetTransposeSize() != 1 &&
               (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
-            if (!m_IsEyeQEmulator)
-              FPM.addPass(SinCosFoldPass());
+            FPM.addPass(SinCosFoldPass());
             // Replace 'div' and 'rem' instructions with calls to optimized
             // library functions
             FPM.addPass(MathLibraryFunctionsReplacementPass());
@@ -405,7 +407,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
 
     FunctionPassManager FPM;
-    if (Level != OptimizationLevel::O0 && !m_IsEyeQEmulator)
+    if (Level != OptimizationLevel::O0)
       FPM.addPass(OptimizeIDivAndIRemPass());
     FPM.addPass(PreventDivCrashesPass());
     if (Level != OptimizationLevel::O0) {
@@ -434,11 +436,21 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
 
     // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
     // workload, which can benefit from LoopIdiom.
-    if (Level != OptimizationLevel::O0 && Config.GetTransposeSize() != 1) {
-      LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(24);
-      MPM.addPass(
-          createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
+    // TODO wen can consider move this unroll into ScalarOptimizerLate callback.
+    if (UnrollLoops && Level != OptimizationLevel::O0 &&
+        Config.GetTransposeSize() != 1) {
+      // unroll loops with non-constant trip count
+      const int thresholdBase = 16;
+      int RTLoopUnrollFactor = Config.GetRTLoopUnrollFactor();
+      if (RTLoopUnrollFactor > 1) {
+        LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+        const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
+        // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
+        // doesn't allow the customization.
+        UnrollOpts.setPartial(false).setRuntime(true).setThreshold(threshold);
+        MPM.addPass(
+            createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
+      }
     }
 
     // Resolve __intel_indirect_call for scalar kernels.

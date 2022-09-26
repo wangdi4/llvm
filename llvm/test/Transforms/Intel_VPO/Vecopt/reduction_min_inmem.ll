@@ -2,10 +2,8 @@
 ; Test to verify VPlan's functionality and generated vector code for in-memory
 ; min/max reduction.
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 
@@ -34,11 +32,13 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; HIR-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; HIR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[IP0:%.*]] i64 [[VP2]]
 ; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; HIR-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_MIN]]
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP_MIN]]
+; HIR-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:     i1 [[VP4:%.*]] = icmp sgt i32 [[VP_LOAD_2]] i32 [[VP_LOAD_1]]
 ; HIR-NEXT:     br i1 [[VP4]], [[BB4:BB[0-9]+]], [[BB3]]
 ; HIR:           [[BB4]]: # preds: [[BB2]]
-; HIR-NEXT:       store i32 [[VP_LOAD_1]] i32* [[VP_MIN]]
+; HIR-NEXT:       i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[VP_MIN]]
+; HIR-NEXT:       store i32 [[VP_LOAD_1]] i32* [[VP_SUBSCRIPT_3]]
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
@@ -53,7 +53,6 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; HIR-NEXT:     br [[BB6:BB[0-9]+]]
 ; === Generated HIR code
 ; HIR:       BEGIN REGION { modified }
-; HIR-NEXT:        [[DOTPRE0:%.*]] = ([[MIN0]])[0]
 ; HIR-NEXT:        [[PRIV_MEM_BC0:%.*]] = &((i32*)([[PRIV_MEM0:%.*]])[0])
 ; HIR-NEXT:        [[DOTUNIFLOAD0:%.*]] = ([[MIN0]])[0]
 ; HIR-NEXT:        [[RED_INIT0:%.*]] = [[DOTUNIFLOAD0]]
@@ -167,7 +166,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN"(i32* %min) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(i32* %min, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:

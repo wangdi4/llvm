@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -whole-program-assume -internalize -internalize-public-api-list main -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -whole-program-assume -dtrans-identify-unused-values=false -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
 
@@ -24,7 +25,7 @@ entry:
 if.then:                                          ; preds = %entry
   %exception = call i8* @__cxa_allocate_exception(i64 1) #2
   %tmp = bitcast i8* %exception to %struct.exc*
-  call void @__cxa_throw(i8* %exception, i8* bitcast ({ i8*, i8* }* @_ZTI3exc to i8*), i8* null) #4
+  call void @__cxa_throw(i8* %exception, i8* bitcast ({ i8*, i8* }* @_ZTI3exc to i8*), i8* null) #3
   unreachable
 
 if.end:                                           ; preds = %entry
@@ -103,13 +104,13 @@ eh.resume:                                        ; preds = %catch.dispatch
 ; CHECK  store i32 1, i32* %i1, align 8
 ; CHECK  %i11 = getelementptr inbounds %__DFT_struct.test, %__DFT_struct.test* %p, i32 0, i32 0
 
-declare noalias i8* @malloc(i64) #2
+declare noalias i8* @malloc(i64) #4
 
 declare i32 @__gxx_personality_v0(...)
 
-declare void @free(i8*) #2
+declare void @free(i8*) #5
 
-declare i32 @llvm.eh.typeid.for(i8*) #3
+declare i32 @llvm.eh.typeid.for(i8*) #2
 
 declare i8* @__cxa_begin_catch(i8*)
 
@@ -117,6 +118,7 @@ declare void @__cxa_end_catch()
 
 attributes #0 = { noinline uwtable }
 attributes #1 = { noinline norecurse uwtable }
-attributes #2 = { nounwind }
-attributes #3 = { nounwind readnone }
-attributes #4 = { noreturn }
+attributes #2 = { nounwind readnone }
+attributes #3 = { noreturn }
+attributes #4 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #5 = { allockind("free") "alloc-family"="malloc" }

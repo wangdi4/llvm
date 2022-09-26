@@ -1,7 +1,5 @@
-; RUN: opt -opaque-pointers -argpromotion -inline -inline-report=0xf859 < %s -S 2>&1 | FileCheck %s 
 ; RUN: opt -opaque-pointers -passes='argpromotion,cgscc(inline)' -inline-report=0xf859 < %s -S 2>&1 | FileCheck %s 
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -argpromotion -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -S 2>&1 | FileCheck %s 
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='argpromotion,cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -S 2>&1 | FileCheck %s 
 
 ; CMPLRLLVM-32526: Check that the inlining report specified with -qopt-report=3

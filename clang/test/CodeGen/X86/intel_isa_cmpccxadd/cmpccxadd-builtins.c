@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_cmpccxadd
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +cmpccxadd \
+// RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +cmpccxadd \
 // RUN: -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>

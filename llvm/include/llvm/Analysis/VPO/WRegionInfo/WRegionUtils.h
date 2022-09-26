@@ -464,6 +464,13 @@ public:
   /// reduction(inscan) item from the outer loop/simd directive.
   static ReductionItem *getReductionItemForInclusiveExclusiveItem(
       const WRNScanNode *W, const InclusiveExclusiveItemBase *I);
+
+  /// Checks if \p W is legal for local (parallel/parallel loop) atomic-free
+  /// reduction.
+  static bool supportsLocalAtomicFreeReduction(const WRegionNode *W);
+
+  /// Checks if \p W is legal for global (teams) atomic-free reduction.
+  static bool supportsGlobalAtomicFreeReduction(const WRegionNode *W);
   /// @}
 };
 

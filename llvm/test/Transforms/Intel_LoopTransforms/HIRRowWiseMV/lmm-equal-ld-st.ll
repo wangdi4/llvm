@@ -42,7 +42,7 @@ L2:
   %Aij = load double, double* %Aijp
   %bjp = getelementptr inbounds double, double* %b, i64 %j
   %bj = load double, double* %bjp, align 8
-  %bj.next = fadd fast double %bj, %Aij
+  %bj.next = fadd nnan nsz arcp afn reassoc double %bj, %Aij
   store double %bj.next, double* %bjp, align 8
   %j.next = add nuw nsw i64 %j, 1
   %L2.cond = icmp ne i64 %j.next, 32

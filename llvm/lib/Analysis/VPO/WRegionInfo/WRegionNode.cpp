@@ -160,17 +160,17 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
         }
       }
     }
-    if (hasMap && canHavePrivate()) {
-      for (PrivateItem *PrivI : getPriv().items()) {
-        Value *Orig = PrivI->getOrig();
-        MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
-        if (!MapI)
-          continue;
-        MapI->setInPrivate(PrivI);
-        PrivI->setInMap(MapI);
-        LLVM_DEBUG(dbgs() << "Found (" << *Orig
-                          << ") in both Private and Map\n");
-      }
+  }
+
+  if (hasMap && canHavePrivate()) {
+    for (PrivateItem *PrivI : getPriv().items()) {
+      Value *Orig = PrivI->getOrig();
+      MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
+      if (!MapI)
+        continue;
+      MapI->setInPrivate(PrivI);
+      PrivI->setInMap(MapI);
+      LLVM_DEBUG(dbgs() << "Found (" << *Orig << ") in both Private and Map\n");
     }
   }
 
@@ -359,8 +359,9 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       // setIsTask();
     }
   }
+
   assert((getWRegionKindID() != WRNTask || !getIsTaskwaitNowaitTask() ||
-          !getDepend().empty()) &&
+          !getDepend().empty() || getDepArray()) &&
          "taskwait construct cannot have a nowait clause without a depend "
          "clause.");
 }
@@ -537,6 +538,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveSubdevice())
     PrintedSomething |= getSubdevice().print(OS, Depth, Verbosity);
 
+  if (canHaveInterop())
+    PrintedSomething |= getInterop().print(OS, Depth, Verbosity);
+
   if (canHaveInteropAction())
     PrintedSomething |= getInteropAction().print(OS, Depth, Verbosity);
 
@@ -664,7 +668,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
     Value *V = Args[0];
-    handleQualOpnd(ClauseID, V);
+    handleQualOpnd(ClauseInfo, V);
   } else {
     // The clause takes a list of arguments
     assert(NumArgs >= 1 && "This clause takes one or more arguments.");
@@ -827,10 +831,11 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   }
 }
 
-void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
+void WRegionNode::handleQualOpnd(const ClauseSpecifier &ClauseInfo, Value *V) {
   // for clauses whose parameter are constant integer exprs,
   // we store the information as an int rather than a Value*,
   // so we must extract the integer N from V and store N.
+  int ClauseID = ClauseInfo.getId();
   int64_t N = -1;
   ConstantInt *CI = dyn_cast<ConstantInt>(V);
   if (CI != nullptr)
@@ -888,12 +893,16 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_FINAL:
     setFinal(V);
     break;
-  case QUAL_OMP_GRAINSIZE:
+  case QUAL_OMP_GRAINSIZE: {
+    if (ClauseInfo.getIsStrict())
+      setIsStrict(true);
     setGrainsize(V);
-    break;
-  case QUAL_OMP_NUM_TASKS:
+  } break;
+  case QUAL_OMP_NUM_TASKS: {
+    if (ClauseInfo.getIsStrict())
+      setIsStrict(true);
     setNumTasks(V);
-    break;
+  } break;
   case QUAL_OMP_PRIORITY:
     setPriority(V);
     break;
@@ -906,13 +915,13 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DESTROY: {
     InteropActionClause &InteropAction = getInteropAction();
     InteropAction.add(V);
-    InteropItem *InteropI = InteropAction.back();
+    InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsDestroy();
   } break;
   case QUAL_OMP_USE: {
     InteropActionClause &InteropAction = getInteropAction();
     InteropAction.add(V);
-    InteropItem *InteropI = InteropAction.back();
+    InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsUse();
   } break;
 #if INTEL_CUSTOMIZATION
@@ -989,13 +998,30 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
 
     if (IsTyped) {
       assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
-              ClauseID == QUAL_OMP_COPYPRIVATE || ClauseID == QUAL_OMP_SHARED) &&
+              ClauseID == QUAL_OMP_SHARED ||
+              ClauseID == QUAL_OMP_USE_DEVICE_PTR ||
+              ClauseID == QUAL_OMP_USE_DEVICE_ADDR) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
       assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
       assert(I == 0 && "More than one variable in a TYPED clause");
       C.setClauseID(ClauseID);
       C.back()->setIsTyped(true);
-      C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+      Type *Arg1Ty = Args[1]->getType();
+      if (IsPointerToPointer) {
+        unsigned AS =
+            WRegionUtils::getDefaultAS(getEntryDirective()->getModule());
+        C.back()->setOrigItemElementTypeFromIR(PointerType::get(Arg1Ty, AS));
+        C.back()->setPointeeElementTypeFromIR(Arg1Ty);
+      } else {
+        C.back()->setOrigItemElementTypeFromIR(Arg1Ty);
+      }
+#if INTEL_CUSTOMIZATION
+      if (ClauseInfo.getIsF90DopeVector()) {
+        C.back()->setPointeeElementTypeFromIR(Args[2]->getType());
+        C.back()->setNumElements(
+            ConstantInt::get(Type::getInt32Ty(Args[2]->getContext()), 1));
+      } else
+#endif // INTEL_CUSTOMIZATION
       C.back()->setNumElements(Args[2]);
       break;
     }
@@ -1015,14 +1041,17 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   // ctor, dtor) Example of a Typed nonPOD clause: "QUAL.OMP.PRIVATE:TYPED"(var,
   // type, number of elements, ctor, dtor)
   if (IsTyped) {
-    assert((ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE ||
+    assert((ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_COPYPRIVATE ||
+            ClauseID == QUAL_OMP_FIRSTPRIVATE ||
             ClauseID == QUAL_OMP_LASTPRIVATE) &&
-           "The TYPED keyword is for PRIVATE, FIRSTPRIVATE, LASTPRIVATE only");
+           "The TYPED keyword is for PRIVATE, COPYPRIVATE, FIRSTPRIVATE, "
+           "LASTPRIVATE only");
     // Typed clauses have 2 extra arguments, therefore minimal number of
     // arguments is 3 (POD private or firstprivate), maximal number of
     // arguments is 6 (nonPOD lastprivate)
-    assert((NumArgs == 3 || NumArgs == 5 || NumArgs == 6) &&
-           "Expected 3 or 5 (private, firstprivate) or 3 or 6 (lastprivate) "
+    assert((NumArgs == 3 || NumArgs == 4 || NumArgs == 5 || NumArgs == 6) &&
+           "Expected 3 or 4 (copyprivate) or 3 or 5 (private, firstprivate) or "
+           "3 or 6 (lastprivate) "
            "arguments for TYPED");
   }
   bool IsByRef = ClauseInfo.getIsByRef();
@@ -1049,6 +1078,8 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       I->setIsNonPod(true);
     if (ClauseInfo.getIsTyped())
       I->setIsTyped(true);
+    if (ClauseInfo.getIsVarLen())
+      I->setIsVarLen(true);
 #if INTEL_CUSTOMIZATION
     if (ClauseInfo.getIsF90DopeVector())
       I->setIsF90DopeVector(true);
@@ -1060,11 +1091,15 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
 
   if (IsNonPod) {
     // NONPOD representation requires multiple args per var:
+    //  - COPYPRIVATE:  2 args : Var, CopyAssign
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
     //  - LASTPRIVATE:  4 args : Var, Ctor, CopyAssign, Dtor
     //  Note: if (IsTyped), 2 extra arguments are used
-    if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
+    if (ClauseID == QUAL_OMP_COPYPRIVATE)
+      assert((NumArgs == 2 || NumArgs == 4) &&
+             "Expected 2 or 4 arguments for COPYPRIVATE NONPOD");
+    else if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
       assert((NumArgs == 3 || NumArgs == 5) &&
              "Expected 3 or 5 arguments for [FIRST]PRIVATE NONPOD");
     else if (ClauseID == QUAL_OMP_LASTPRIVATE)
@@ -1133,7 +1168,7 @@ void WRegionNode::extractInitOpndList(InteropActionClause &InteropAction,
 
   Value *V = Args[0];
   InteropAction.add(V);
-  InteropItem *InteropI = InteropAction.back();
+  InteropActionItem *InteropI = InteropAction.back();
   InteropI->setIsInit();
 
   if (ClauseInfo.getIsInitTarget())
@@ -1268,6 +1303,7 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
       MI->setOrig(BasePtr);
       MI->setIsByRef(ClauseInfo.getIsByRef());
       MI->setIsFunctionPointer(ClauseInfo.getIsFunctionPointer());
+      MI->setIsVarLen(ClauseInfo.getIsVarLen());
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
@@ -1611,15 +1647,18 @@ void WRegionNode::extractInclusiveExclusiveOpndList(
   assert((ClauseInfo.getId() == QUAL_OMP_INCLUSIVE ||
           ClauseInfo.getId() == QUAL_OMP_EXCLUSIVE) &&
          "Unexpected clause.");
-  assert(!ClauseInfo.getIsTyped() &&
-         "Typed clauses are not supported for Inclusive/Exclusive clauses.");
-  assert(NumArgs == 2 && "Inclusive/Exclusive quals should only have two "
-                         "operands: var and inscan_idx");
+  if (ClauseInfo.getIsTyped())
+    assert(NumArgs == 4 && "Inclusive/Exclusive quals should only have four "
+                           "operands: var, type, number of elements and "
+                           "inscan_idx");
+  else
+    assert(NumArgs == 2 && "Inclusive/Exclusive quals should only have two "
+                           "operands: var and inscan_idx");
 
   C.add(Args[0]);
 
   uint64_t InscanIdx = 0;
-  Value *InscanIdxV = Args[1];
+  Value *InscanIdxV = Args[ClauseInfo.getIsTyped() ? 3 : 1];
 
   assert(isa<ConstantInt>(InscanIdxV) && "Inscan idx is not a constant int.");
   InscanIdx = cast<ConstantInt>(InscanIdxV)->getZExtValue();
@@ -1752,8 +1791,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_COPYPRIVATE: {
-    extractQualOpndList<CopyprivateClause>(Args, NumArgs, ClauseInfo,
-                                           getCpriv());
+    extractQualOpndListNonPod<CopyprivateItem>(Args, NumArgs, ClauseInfo,
+                                               getCpriv());
     break;
   }
   case QUAL_OMP_DEPEND_IN:
@@ -1858,6 +1897,9 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_ALIGNED: {
     // IR: "QUAL.OMP.ALIGNED"(TYPE1** %ptr1, TYPE2** %ptr2, ..., i32 8)
     assert(NumArgs >= 2 && "Expected at least 2 arguments for ALIGNED clause");
+#if INTEL_CUSTOMIZATION
+    setHasAligned(true);
+#endif // INTEL_CUSTOMIZATION
     Value *AlignVal = Args[NumArgs - 1];
     assert(isa<ConstantInt>(AlignVal) &&
            "Alignment in an ALIGNED clause must be constant.");
@@ -1951,27 +1993,18 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_DATA: {
     // "QUAL.OMP.DATA"(ptr %ptr, TYPE null, i64 <NumElements>, i32 <hint>)
-    assert((NumArgs == 3 || NumArgs == 4) &&
-           "Expected 3 or 4 arguments for DATA clause");
-    bool IsTyped = false;
-    int Offset = 0;
-    Type *DataTy = nullptr;
+    assert((NumArgs == 4) && "Expected 4 arguments for DATA clause");
     Value *Ptr = Args[0];
-    if (NumArgs == 4) {
-      Offset = 1;
-      DataTy = Args[1]->getType();
-      IsTyped = true;
-    }
-    assert(isa<ConstantInt>(Args[1 + Offset]) &&
-           "Hint must be a constant integer");
-    ConstantInt *CI = cast<ConstantInt>(Args[1 + Offset]);
+    Type *DataTy = Args[1]->getType();
+    assert(isa<ConstantInt>(Args[3]) && "Hint must be a constant integer");
+    ConstantInt *CI = cast<ConstantInt>(Args[3]);
     unsigned Hint = CI->getZExtValue();
-    Value *NumElements = Args[2 + Offset];
+    Value *NumElements = Args[2];
     assert((NumElements->getType()->isIntegerTy(32) ||
             NumElements->getType()->isIntegerTy(64)) &&
            "Number of elements must be an integer");
     DataItem *Item = new DataItem(Ptr, DataTy, NumElements, Hint);
-    Item->setIsTyped(IsTyped);
+    Item->setIsTyped(true);
     DataClause &C = getData();
     C.add(Item);
     break;
@@ -2168,6 +2201,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     setThreadLimit(Args[0]);
     setThreadLimitType(Args[1]->getType());
     break;
+  case QUAL_OMP_OPERAND_ADDR:
+    // TODO: Should anything be handled for QUAL.OMP.OPERAND.ADDR clause?
+    break;
+  case QUAL_OMP_INTEROP: {
+    extractQualOpndList<InteropClause>(Args, NumArgs, ClauseID, getInterop());
+    break;
+  }
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -2462,6 +2502,15 @@ bool WRegionNode::canHaveSubdevice() const {
   return false;
 }
 
+bool WRegionNode::canHaveInterop() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNDispatch:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveInteropAction() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2649,6 +2698,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNWksLoop:
   case WRNTarget:
   case WRNTile:
+  case WRNGuardMemMotion:
     return true;
   }
   return false;

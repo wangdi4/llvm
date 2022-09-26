@@ -49,20 +49,370 @@
 #define __DEFAULT_FN_ATTRS_AVX512                                              \
 __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 
-#define _tile_cvtrowd2pse(tsrc, A) __builtin_ia32_tcvtrowd2pse(tsrc, A)
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the int32 source elements to fp32. The row of the tile is selected by an
+///    32b GPR.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowd2pse(__tile tsrc, unsigned int row);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row_index := row & 0xffff
+/// row_chunk := ((row >> 16) & 0xffff) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.f32[i] := CONVERT_INT32_TO_FP32(tsrc.row[row_index].dword[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWD2PS instruction.
+///
+/// \param tsrc
+///    The 1st source tile. Max size is 1024 Bytes.
+/// \param row
+///    The row of the source tile
+#define _tile_cvtrowd2pse(tsrc, row) __builtin_ia32_tcvtrowd2pse(tsrc, row)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the int32 source elements to fp32. The row of the tile is selected by an
+///    imm8.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowd2psi(__tile tsrc, const unsigned int Imm);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row := Imm
+/// row_index := imm8 & 0x3f
+/// row_chunk := (imm8 >> 6) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.f32[i] := CONVERT_INT32_TO_FP32(tsrc.row[row_index].dword[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWD2PS instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param Imm
+///    The row of the source tile
 #define _tile_cvtrowd2psi(tsrc, Imm) __builtin_ia32_tcvtrowd2psi(tsrc, Imm)
-#define _tile_cvtrowps2pbf16he(tsrc, A)                                       \
-  __builtin_ia32_tcvtrowps2pbf16he(tsrc, A)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to bf16. It places the resulting bf16 elements
+///    in the high 16 bits within each dword. The row of the tile is selected
+///    by an 32b GPR.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2pbf16he(__tile tsrc, unsigned int row);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row_index := row & 0xffff
+/// row_chunk := ((row >> 16) & 0xffff) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+0] := 0
+///         dst.bf16[2*i+1] := CONVERT_FP32_TO_BF16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PBF16H instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param row
+///    The the row of the source tile.
+#define _tile_cvtrowps2pbf16he(tsrc, row)                                       \
+  __builtin_ia32_tcvtrowps2pbf16he(tsrc, row)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to bf16. It places the resulting bf16 elements
+///    in the high 16 bits within each dword. The row of the tile is selected
+///    by an immediate.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2pbf16hi(__tile tsrc, const unsigned int Imm);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row := Imm
+/// row_index := imm8 & 0x3f
+/// row_chunk := (imm8 >> 6) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+0] := 0
+///         dst.bf16[2*i+1] := CONVERT_FP32_TO_BF16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PBF16H instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param Imm
+///    The the row of the source tile.
 #define _tile_cvtrowps2pbf16hi(tsrc, Imm)                                     \
   __builtin_ia32_tcvtrowps2pbf16hi(tsrc, Imm)
-#define _tile_cvtrowps2pbf16le(tsrc, A)                                       \
-  __builtin_ia32_tcvtrowps2pbf16le(tsrc, A)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to bf16. It places the resulting bf16 elements
+///    in the low 16 bits within each dword. The row of the tile is selected
+///    by an 32b GPR.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2pbf16le(__tile tsrc, unsigned int row);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row_index := row & 0xffff
+/// row_chunk := ((row >> 16) & 0xffff) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+1] := 0
+///         dst.bf16[2*i+0] := CONVERT_FP32_TO_BF16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PBF16L instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param row
+///    The the row of the source tile.
+#define _tile_cvtrowps2pbf16le(tsrc, row)                                       \
+  __builtin_ia32_tcvtrowps2pbf16le(tsrc, row)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to bf16. It places the resulting bf16 elements
+///    in the low 16 bits within each dword. The row of the tile is selected
+///    by an immediate.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2pbf16hi(__tile tsrc, const unsigned int Imm);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row := Imm
+/// row_index := imm8 & 0x3f
+/// row_chunk := (imm8 >> 6) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+1] := 0
+///         dst.bf16[2*i+0] := CONVERT_FP32_TO_BF16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PBF16H instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param Imm
+///    The the row of the source tile.
 #define _tile_cvtrowps2pbf16li(tsrc, Imm)                                     \
   __builtin_ia32_tcvtrowps2pbf16li(tsrc, Imm)
-#define _tile_cvtrowps2phhe(tsrc, A) __builtin_ia32_tcvtrowps2phhe(tsrc, A)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to fp16. It places the resulting fp16 elements
+///    in the high 16 bits within each dword. The row of the tile is selected
+///    by an 32b GPR.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2phhe(__tile tsrc, unsigned int row);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row_index := row & 0xffff
+/// row_chunk := ((row >> 16) & 0xffff) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+0] := 0
+///         dst.fp16[2*i+1] := CONVERT_FP32_TO_FP16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PHH instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param row
+///    The the row of the source tile.
+#define _tile_cvtrowps2phhe(tsrc, row) __builtin_ia32_tcvtrowps2phhe(tsrc, row)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to fp16. It places the resulting fp16 elements
+///    in the high 16 bits within each dword. The row of the tile is selected
+///    by an immediate.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2phhi(__tile tsrc, const unsigned int Imm);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row := Imm
+/// row_index := imm8 & 0x3f
+/// row_chunk := (imm8 >> 6) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+0] := 0
+///         dst.fp16[2*i+1] := CONVERT_FP32_TO_FP16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PHH instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param Imm
+///    The the row of the source tile.
 #define _tile_cvtrowps2phhi(tsrc, Imm)                                        \
   __builtin_ia32_tcvtrowps2phhi(tsrc, Imm)
-#define _tile_cvtrowps2phle(tsrc, A) __builtin_ia32_tcvtrowps2phle(tsrc, A)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to fp16. It places the resulting fp16 elements
+///    in the low 16 bits within each dword. The row of the tile is selected
+///    by an 32b GPR.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2phle(__tile tsrc, unsigned int row);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row_index := row & 0xffff
+/// row_chunk := ((row >> 16) & 0xffff) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+1] := 0
+///         dst.fp16[2*i+0] := CONVERT_FP32_TO_FP16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PHL instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param row
+///    The the row of the source tile.
+#define _tile_cvtrowps2phle(tsrc, row) __builtin_ia32_tcvtrowps2phle(tsrc, row)
+
+/// Moves a row from a tile register to a zmm destination register, converting
+///    the fp32 source elements to fp16. It places the resulting fp16 elements
+///    in the low 16 bits within each dword. The row of the tile is selected
+///    by an immediate.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m512i _tile_cvtrowps2phli(__tile tsrc, const unsigned int Imm);
+/// \endcode
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL >> 3
+/// row := Imm
+/// row_index := imm8 & 0x3f
+/// row_chunk := (imm8 >> 6) * VL_bytes
+/// FOR i := 0 TO (VL_bytes / 4) - 1
+///     IF i + row_chunk / 4 >= tsrc.colsb / 4
+///         dst.dword[i] := 0
+///     ELSE
+///         dst.word[2*i+1] := 0
+///         dst.fp16[2*i+0] := CONVERT_FP32_TO_FP16(tsrc.row[row_index].fp32[row_chunk/4+i], RNE)
+///     FI
+/// ENDFOR
+/// dst[MAX_VL-1:VL] := 0
+/// zero_tileconfig_start()
+/// \endcode
+///
+/// This intrinsic corresponds to the \c TCVTROWPS2PHL instruction.
+///
+/// \param tsrc
+///    The source tile. Max size is 1024 Bytes.
+/// \param Imm
+///    The the row of the source tile.
 #define _tile_cvtrowps2phli(tsrc, Imm)                                        \
   __builtin_ia32_tcvtrowps2phli(tsrc, Imm)
 

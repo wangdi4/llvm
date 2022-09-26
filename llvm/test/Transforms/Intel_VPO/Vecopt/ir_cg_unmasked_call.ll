@@ -6,38 +6,40 @@ target triple = "x86_64-unknown-linux-gnu"
 declare i1 @some_cond(i64)
 
 declare i1 @ballot(i1) #0
-declare <2 x i1> @ballot.vec(<2 x i1>, <2 x i1>)
+declare <2 x i8> @ballot.vec(<2 x i8>, <2 x i1>)
 
 ; Exact type for the active mask will depend on the library implementation, but
 ; it doesn't matter for the VPlan implementation as long as the library
 ; implementation for ballot is in sync with that of the first argument (mask)
 ; for the unmasked functions.
 declare void @unmasked_scalar(i1, i64) #1
-declare void @unmasked_vector(<2 x i1>, <2 x i64>)
+declare void @unmasked_vector(<2 x i8>, <2 x i64>)
 
 define void @test() local_unnamed_addr #1 {
 ; CHECK-LABEL: @test(
-; CHECK:         [[TMP0:%.*]] = call i1 @some_cond(i64 [[UNI_PHI3:%.*]])
-; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x i1> undef, i1 [[TMP0]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = call i1 @some_cond(i64 [[VEC_PHI_EXTRACT_1_:%.*]])
-; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i1> [[TMP1]], i1 [[TMP2]], i32 1
+; CHECK:         [[TMP1:%.*]] = call i1 @some_cond(i64 [[UNI_PHI3:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i1> undef, i1 [[TMP1]], i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = call i1 @some_cond(i64 [[VEC_PHI_EXTRACT_1_:%.*]])
+; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x i1> [[TMP2]], i1 [[TMP3]], i32 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x i1> @ballot.vec(<2 x i1> <i1 true, i1 true>, <2 x i1> [[TMP3]])
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i1> [[TMP3]] to i2
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i2 [[TMP5]], 0
-; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF:%.*]], label [[TMP7:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <2 x i8> @ballot.vec(<2 x i8> <i8 1, i8 1>, <2 x i1> [[TMP4]])
+; CHECK-NEXT:    [[TMP6:%.*]] = trunc <2 x i8> [[TMP5]] to <2 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <2 x i1> [[TMP4]] to i2
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp ne i2 [[TMP7]], 0
+; CHECK-NEXT:    [[TMP9:%.*]] = zext <2 x i1> [[TMP6]] to <2 x i8>
+; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_CALL_IF:%.*]], label %[[TMP10:.*]]
 ; CHECK:       pred.call.if:
-; CHECK-NEXT:    call void @unmasked_vector(<2 x i1> [[TMP4]], <2 x i64> [[VEC_PHI:%.*]])
-; CHECK-NEXT:    br label [[TMP7]]
-; CHECK:       7:
+; CHECK-NEXT:    call void @unmasked_vector(<2 x i8> [[TMP9]], <2 x i64> [[VEC_PHI:%.*]])
+; CHECK-NEXT:    br label %[[TMP10]]
+; CHECK:       [[TMP10]]:
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
 ; CHECK:       pred.call.continue:
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], 2
+; CHECK-NEXT:    [[TMP11:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP12:%.*]] = add nuw nsw i64 [[UNI_PHI3]], 2
+; CHECK-NEXT:    [[TMP13:%.*]] = icmp uge i64 [[TMP12]], 2
 ; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

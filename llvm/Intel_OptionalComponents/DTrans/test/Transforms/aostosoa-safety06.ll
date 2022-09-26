@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
@@ -20,5 +21,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: DTRANS-AOSTOSOA: Rejecting -- Multiple call paths: struct.test01
 
 
-declare i8* @calloc(i64, i64)
-declare void @free(i8*)
+declare i8* @calloc(i64, i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

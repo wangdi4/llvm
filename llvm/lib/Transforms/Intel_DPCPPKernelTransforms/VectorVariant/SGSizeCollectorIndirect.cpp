@@ -1,6 +1,6 @@
 //=-------------------- SGSizeCollectorIndirect.cpp -*- C++ -*---------------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -12,7 +12,6 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -69,15 +68,13 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
 
   auto GenerateVectorVariants = [&VecLengths, this](const std::string &FuncName,
                                                     int NumParams) {
-    std::vector<VectorKind> Parameters(NumParams, VectorKind::vector());
+    std::vector<VFParamKind> ParamKinds(NumParams, VFParamKind::Vector);
     SmallVector<std::string, 4> Variants;
     for (int VecLength : VecLengths) {
-      VectorVariant VariantMasked(ISA, true, VecLength, Parameters, FuncName,
-                                  "");
-      VectorVariant VariantUnmasked(ISA, false, VecLength, Parameters, FuncName,
-                                    "");
-      Variants.push_back(VariantMasked.toString());
-      Variants.push_back(VariantUnmasked.toString());
+      auto VariantMasked = VFInfo::get(ISA, true, VecLength, ParamKinds, FuncName);
+      auto VariantUnmasked = VFInfo::get(ISA, false, VecLength, ParamKinds, FuncName);
+      Variants.push_back(VariantMasked.VectorName);
+      Variants.push_back(VariantUnmasked.VectorName);
     }
     return join(Variants, ",");
   };
@@ -188,8 +185,7 @@ class SGSizeCollectorIndirectLegacy : public ModulePass {
 public:
   static char ID;
 
-  SGSizeCollectorIndirectLegacy(
-      VectorVariant::ISAClass ISA = VectorVariant::XMM);
+  SGSizeCollectorIndirectLegacy(VFISAKind ISA = VFISAKind::SSE);
 
   StringRef getPassName() const override {
     return "SGSizeCollectorIndirectLegacy";
@@ -205,7 +201,7 @@ protected:
   bool runOnModule(Module &M) override;
 
 private:
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 };
 } // namespace
 
@@ -217,7 +213,7 @@ bool SGSizeCollectorIndirectLegacy::runOnModule(Module &M) {
 }
 
 SGSizeCollectorIndirectLegacy::SGSizeCollectorIndirectLegacy(
-    VectorVariant::ISAClass ISA)
+    VFISAKind ISA)
     : ModulePass(ID), ISA(ISA) {
   initializeSGSizeCollectorIndirectLegacyPass(*PassRegistry::getPassRegistry());
 }
@@ -233,6 +229,6 @@ INITIALIZE_PASS_END(SGSizeCollectorIndirectLegacy,
                     false, false)
 
 ModulePass *
-llvm::createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass ISA) {
+llvm::createSGSizeCollectorIndirectLegacyPass(VFISAKind ISA) {
   return new SGSizeCollectorIndirectLegacy(ISA);
 }

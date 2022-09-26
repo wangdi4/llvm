@@ -4,10 +4,8 @@
 ; necessarily defined in the predecessor VPBB, but the value rather flows in
 ; from another predecessor in the control flow.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>"  -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>"  -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>"  -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <70>    + DO i1 = 0, 1023, 1   <DO_LOOP> <simd>
@@ -135,9 +133,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
-; CHECK-NEXT:     i32 [[VP22:%.*]] = mul i32 [[N0]] i32 2
-; CHECK-NEXT:     i32 [[VP23:%.*]] = add i32 [[VP18]] i32 [[VP22]]
-; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP23]] i32 [[VP_LOAD_3]]
+; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP21]] i32 [[VP_LOAD_3]]
 ; CHECK-NEXT:     i64 [[VP25:%.*]] = sext i32 [[VP24]] to i64
 ; CHECK-NEXT:     i1 [[VP26:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP25]]
 ; CHECK-NEXT:     i32 [[VP27:%.*]] = select i1 [[VP26]] i32 [[VP18]] i32 [[VP_LOAD_3]]

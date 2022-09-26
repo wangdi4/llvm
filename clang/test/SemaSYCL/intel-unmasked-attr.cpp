@@ -7,7 +7,7 @@
 
 #include "sycl.hpp"
 
-using namespace cl::sycl;
+using namespace sycl;
 queue q;
 
 [[intel::unmasked]] // expected-warning {{'unmasked' attribute only applies to functions}}

@@ -18,7 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define x86_regcallcc void @test_sinf(float* nocapture %a, float* nocapture readonly %b, i32 %i) {
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(float* %a, float* %b) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %b, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -46,7 +46,7 @@ simd.end.region:                                  ; preds = %simd.loop.exit
 
 define x86_regcallcc void @test_sin(double* nocapture %a, double* nocapture readonly %b, i32 %i) {
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(double* %a, double* %b) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(double* %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(double* %b, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region

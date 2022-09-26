@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat -dtrans-fieldmodref-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat -passes='require<dtrans-fieldmodref-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
 
@@ -87,7 +88,9 @@ define void @filter01b(%struct.test01* %st) {
 }
 
 declare !callback !0 void @broker(%struct.ident_t* %0, i32 %1, void (i32*, i32*, ...)* %2, ...)
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !0 = !{!1}
 !1 = !{i64 2, i64 -1, i64 -1, i1 true}

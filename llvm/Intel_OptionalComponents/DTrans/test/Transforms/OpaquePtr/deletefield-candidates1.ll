@@ -33,8 +33,11 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
 ; CHECK: Delete field for opaque pointers: looking for candidate structures
 ; CHECK: Selected for deletion: %struct.test
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !7 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !7 void @free(i8* "intel_dtrans_func_index"="1") #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

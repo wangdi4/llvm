@@ -234,6 +234,11 @@ public:
     // LocalPointerAnalyzer dumps.
     if (Info && (ExpectPointerInfo || !Info->empty())) {
       OS << "\n";
+      if (auto *GEP = dyn_cast<GEPOperator>(V)) {
+        auto FlatGepInfo = Analyzer.getFlattenedGEPElement(GEP);
+        if (FlatGepInfo)
+          OS << ";      <FLATTENED GEP>\n";
+      }
       Info->print(OS, CombineUseAndDecl, ";    ");
       OS << ";      ";
       printDominantUsageType(OS, *Info);
@@ -298,6 +303,38 @@ public:
 
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GEPOperator *GEP) const;
+
+  // Record that a GEP result for the field was obtained using a GEP that
+  // indexed the field by using multiples of the size of a pointer. This is
+  // similar to a byte-flattened GEP access, but the offset is computing using a
+  // multiple of the size of a pointer (or some other type), rather than
+  // requiring it to be a single byte.
+  //
+  // For example, given:
+  //   %struct.BMLog = type { ptr, ptr, ptr, %struct.ListBase, ptr }
+  //   %struct.ListBase = type { ptr, ptr }
+  //
+  // If %in was resolved to be a pointer to %struct.BMLog, then all the
+  // following are equivalent, and resolve to the address of the last
+  // field of %struct.BMLog:
+  //   1)  %field4 = getelementptr %struct.BMLog, ptr %in, i64 0, i32 4
+  //   2)  %field4 = getelementptr ptr, ptr %in, i64 5
+  //   3)  %field4 = getelementptr i8, ptr %in, i64 40
+  //
+  // 1. uses normal structure addressing
+  // 2. uses flattened addressing
+  // 3. uses byte-flattened GEP addressing. (this is just a specific form of
+  //    flattened indexing that the transformations currently understand)
+  //
+  // TODO: It would be nice to unify this with the byte-flattened GEP tracking,
+  // instead of having a separate map for the cases that were identified as
+  // being a byte-flattened GEP.
+  void addFlattenedGEPMapping(GEPOperator *GEP, DTransType *Ty, size_t Idx,
+                              size_t Multiplier);
+
+  // Query function for saved results about flattened GEPs.
+  llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+  getFlattenedGEPElement(GEPOperator *GEP) const;
 
   void addAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
     AllocationCalls.insert({Call, Kind});
@@ -462,6 +499,23 @@ private:
   using ByteFlattenedGEPInfoMapType =
       DenseMap<GEPOperator *, std::pair<DTransType *, size_t>>;
   ByteFlattenedGEPInfoMapType ByteFlattenedGEPInfoMap;
+
+  // A mapping from GEPs that have been identified as being structure
+  // element accesses in flattened form to map the GEP to:
+  //   <Type, Field number, Index multiplier>
+  //
+  // For example:
+  // Given %in that represents a pointer to a structure that is 48 bytes long,
+  // the following would be accessing a field within the structure using a
+  // flattened form:
+  //
+  //   %field = getelementptr ptr, ptr %in, i64 5
+  // or
+  //   %gep = getelementptr double, ptr %in, i64 5
+  //
+  using FlattenedGEPInfoMapType =
+      DenseMap<GEPOperator *, PtrTypeAnalyzer::FlattenedGEPInfoType>;
+  FlattenedGEPInfoMapType FlattenedGEPInfoMap;
 
   // Map of calls identified as being memory allocation calls to the allocation
   // kind.
@@ -1085,17 +1139,22 @@ public:
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
+  void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) { analyzeValue(&I); }
+  void visitAtomicRMWInst(AtomicRMWInst &I) { analyzeValue(&I); }
   void visitBinaryOperator(BinaryOperator &I) {
-    // To support safety analysis on pointer arithmetic, subtract instruction
-    // need to be analyzed to see if they carry pointer information.
+    // To support safety analysis on pointer arithmetic, subtract instructions
+    // may need to be analyzed to check whether they carry pointer information.
     if (I.getOpcode() == Instruction::Sub)
-      analyzeValue(&I);
+      if (!isCompilerConstant(I.getOperand(0)) ||
+          !isCompilerConstant(I.getOperand(1)))
+        analyzeValue(&I);
   }
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
   void visitFreezeInst(FreezeInst& I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
+  void visitInsertValueInst(InsertValueInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) {
     ValueTypeInfo *ResultInfo = analyzeValue(&I);
 
@@ -1182,14 +1241,14 @@ public:
 
               if (auto ElemZeroPair = LocalPTA.getElementZeroType(PropAlias)) {
                 PointerInfo->addElementPointee(
-                    ValueTypeInfo::VAT_Use, ElemZeroPair.getValue().first, 0);
-                ValueInfo->addTypeAlias(Kind, ElemZeroPair.getValue().second);
+                    ValueTypeInfo::VAT_Use, ElemZeroPair.value().first, 0);
+                ValueInfo->addTypeAlias(Kind, ElemZeroPair.value().second);
 
                 // Need to defer updating the PointerInfo until the loop
                 // completes because we cannot modify the set while we are
                 // iterating it.
                 PendingTypes.push_back(LocalTM.getOrCreatePointerType(
-                    ElemZeroPair.getValue().second));
+                    ElemZeroPair.value().second));
               } else {
                 ValueInfo->setUnhandled();
               }
@@ -1328,8 +1387,8 @@ private:
     if (auto *I = dyn_cast<Instruction>(V))
       if (auto TyFromMD =
               dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I)) {
-        llvm::Type *Ty = TyFromMD.getValue().first;
-        unsigned Level = TyFromMD.getValue().second;
+        llvm::Type *Ty = TyFromMD.value().first;
+        unsigned Level = TyFromMD.value().second;
 
         // The format of the metadata used restricts the type to being just a
         // pointer to a scalar or a structure type. This assertion is to catch
@@ -1460,6 +1519,12 @@ private:
     case Instruction::Alloca:
       analyzeAllocaInst(cast<AllocaInst>(I), Info);
       break;
+    case Instruction::AtomicCmpXchg:
+      analyzeAtomicCmpXchg(cast<AtomicCmpXchgInst>(I), Info);
+      break;
+    case Instruction::AtomicRMW:
+      analyzeAtomicRMWInst(cast<AtomicRMWInst>(I), Info);
+      break;
     case Instruction::BitCast:
       analyzeBitCastOperator(cast<BitCastOperator>(I), Info);
       break;
@@ -1475,6 +1540,9 @@ private:
       break;
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
+      break;
+    case Instruction::InsertValue:
+      analyzeInsertValueInst(cast<InsertValueInst>(I), Info);
       break;
     case Instruction::IntToPtr:
       analyzeIntToPtrInst(cast<IntToPtrInst>(I), Info);
@@ -1761,8 +1829,8 @@ private:
           DTransType *InferredValTy = PtrTy->getPointerElementType();
           if (InferredValTy->isAggregateType()) {
             auto ElemZeroTy = PTA.getElementZeroType(InferredValTy);
-            if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
-              InferredValTy = ElemZeroTy.getValue().second;
+            if (ElemZeroTy && ElemZeroTy.value().second->isPointerTy())
+              InferredValTy = ElemZeroTy.value().second;
           }
           // The only time we would need to infer the value operand type is for
           // a pointer value. Only add the type inferred if is a pointer value.
@@ -1870,8 +1938,8 @@ private:
                 addInferredType(PTI, PtrTy->getPointerElementType());
               } else if (ElemTy->isAggregateType()) {
                 auto ElemZeroTy = PTA.getElementZeroType(ElemTy);
-                if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
-                  addInferredType(PTI, ElemZeroTy.getValue().second);
+                if (ElemZeroTy && ElemZeroTy.value().second->isPointerTy())
+                  addInferredType(PTI, ElemZeroTy.value().second);
             }
           }
         }
@@ -1928,7 +1996,7 @@ private:
   // stack or false if it was present before the call. The value is pushed
   // onto the stack in either case. A return value of 'true' indicates that
   // dependents of the Value also need to be added to the stack.
-  LLVM_NODISCARD bool addDependency(Value *DV, DependencyStackImpl &DepStack) {
+  [[nodiscard]] bool addDependency(Value *DV, DependencyStackImpl &DepStack) {
     // If the dependency has already been completely analyzed, skip adding the
     // item to the stack and return false because all of the values that
     // depend on it have also been analyzed.
@@ -2171,6 +2239,38 @@ private:
       default:
         break;
 
+      case Instruction::AtomicCmpXchg: {
+        auto *CXI = cast<AtomicCmpXchgInst>(I);
+        Value *PtrOp = CXI->getPointerOperand();
+        if (addDependency(PtrOp, DependentVals))
+          populateDependencyStack(PtrOp, DependentVals);
+        Value *Op1 = CXI->getCompareOperand();
+        Value *Op2 = CXI->getNewValOperand();
+        // Op1 and Op2 must be the same type. If the type is a pointer,
+        // make sure both are processed.
+        if (Op1->getType()->isPointerTy()) {
+          bool Op1WasAdded = addDependency(Op1, DependentVals);
+          bool Op2WasAdded = addDependency(Op2, DependentVals);
+          if (Op1WasAdded)
+            populateDependencyStack(Op1, DependentVals);
+          if (Op2WasAdded)
+            populateDependencyStack(Op2, DependentVals);
+        }
+        break;
+      }
+
+      case Instruction::AtomicRMW: {
+        auto RMWI = cast<AtomicRMWInst>(I);
+        Value *PtrOp = RMWI->getPointerOperand();
+        if (addDependency(PtrOp, DependentVals))
+          populateDependencyStack(PtrOp, DependentVals);
+        Value *ValOp = RMWI->getValOperand();
+        if (ValOp->getType()->isPointerTy())
+          if (addDependency(ValOp, DependentVals))
+            populateDependencyStack(ValOp, DependentVals);
+        break;
+      }
+
       case Instruction::BitCast:
       case Instruction::ExtractValue:
       case Instruction::Freeze:
@@ -2185,6 +2285,14 @@ private:
           populateDependencyStack(BasePtr, DependentVals);
         break;
       }
+
+      case Instruction::InsertValue: {
+        Value *Val = cast<InsertValueInst>(I)->getInsertedValueOperand();
+        if (addDependency(Val, DependentVals))
+          populateDependencyStack(Val, DependentVals);
+        break;
+      }
+
       case Instruction::IntToPtr:
       case Instruction::PtrToInt:
         if (addDependency(I->getOperand(0), DependentVals))
@@ -2380,6 +2488,58 @@ private:
 
     ResultInfo->setUnhandled();
     LLVM_DEBUG(dbgs() << "Unhandled AllocaInst:" << *AI << "\n");
+  }
+
+  void analyzeAtomicCmpXchg(AtomicCmpXchgInst *CXI, ValueTypeInfo *ResultInfo) {
+    // The value to be read/written to memory could be an integer or a pointer.
+    // For simplicity, only support integer types for now. This could be
+    // extended to support pointer types, if necessary. However, doing so would
+    // require:
+    // - propagating a pointer of the value operand type to the information
+    //   collected about the pointer operand.
+    // - Setting the 'ResultInfo' to contain a literal structure type containing
+    //   the type collected for the 'compare operand' and an 'i1' type.
+    ValueTypeInfo *PointerInfo =
+        PTA.getOrCreateValueTypeInfo(CXI, CXI->getPointerOperandIndex());
+    llvm::Type *Ty = CXI->getCompareOperand()->getType();
+    if (!Ty->isIntegerTy()) {
+      ResultInfo->setUnhandled();
+      PointerInfo->setUnhandled();
+      return;
+    }
+
+    // The result type is the same as the compare operand. Since we are limiting
+    // this to integers, there is no need to set pointer type info to
+    // 'ResultInfo'.
+    // Treat the pointer operand as a use of a pointer to the integer type used
+    // for the instruction operands.
+    PointerInfo->addTypeAlias(
+        ValueTypeInfo::VAT_Use,
+        TM.getOrCreatePointerType(TM.getOrCreateSimpleType(Ty)));
+  }
+
+  void analyzeAtomicRMWInst(AtomicRMWInst *RMWI, ValueTypeInfo *ResultInfo) {
+    // Generally the value operand will be an integer type, but it could be a
+    // floating point or pointer type. For simplicity, only support integer
+    // types for now. This could be extended to support pointer types, if
+    // necessary, by propagating a pointer of the value operand type to the
+    // information collected about the pointer operand.
+    ValueTypeInfo *PointerInfo =
+        PTA.getOrCreateValueTypeInfo(RMWI, RMWI->getPointerOperandIndex());
+    llvm::Type *Ty = RMWI->getValOperand()->getType();
+    if (!Ty->isIntegerTy()) {
+      ResultInfo->setUnhandled();
+      PointerInfo->setUnhandled();
+      return;
+    }
+
+    // The result type is the same as the value operand. Since we are limiting
+    // this to integers, there is no need to set pointer type info to
+    // 'ResultInfo'. The pointer operand will be treated as a use of a pointer
+    // to the integer type used for the instruction operands.
+    PointerInfo->addTypeAlias(
+        ValueTypeInfo::VAT_Use,
+        TM.getOrCreatePointerType(TM.getOrCreateSimpleType(Ty)));
   }
 
   void analyzeBitCastOperator(BitCastOperator *BC, ValueTypeInfo *ResultInfo) {
@@ -3053,13 +3213,144 @@ private:
     //   getelementptr ptr, ptr %x, i64 5
     //   getelementptr <ty>, <ptr vector> %x, <vector index type> %idx
     //
-    // These are treating the source operand as an array, and therefore are
+    // These may be treating the source operand as an array, and therefore are
     // generating the same type as the pointer operand. However, there is a
-    // special case when indexed type is an i8, since it may be a
-    // byte-flattened GEP that needs to be analyzed.
-    if (ProcessedAsByteFlattenedGEP == BFG_None)
-      propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
-                DerefType::DT_SameType);
+    // special case when indexed type is a single value type (ptr, i8, i32,
+    // double, etc) where the indexing is just the number of bytes computed
+    // based on the type and the GEP operand. Supported byte-flattened cases
+    // were checked above. If it's not one of those cases, we still need to
+    // check for the possibility that the GEP is addressing into a structure
+    // with some other type.
+    //
+    // Note: we can only handle the case where the indexing amount is a
+    // constant. If it is not constant, we assume it is indexing an array. When
+    // the safety analyzer runs, hopefully it would detect a type mismatch where
+    // the result is used, if it is not an array.
+    if (ProcessedAsByteFlattenedGEP == BFG_None) {
+      std::function<bool(const DataLayout &, DTransStructType *, uint64_t,
+                         DTransStructType **, DTransType **, uint32_t *)>
+          GetFieldTypeAndIndex;
+
+      GetFieldTypeAndIndex =
+          [&GetFieldTypeAndIndex](
+              const DataLayout &DL, DTransStructType *DTransStTy,
+              uint64_t OffsetInBytes, DTransStructType **IndexedType,
+              DTransType **FieldType, uint32_t *FieldIndex) -> bool {
+        // Try to find a field of 'DTransStTy' that starts at 'OffsetInBytes'
+        auto *StTy = cast<llvm::StructType>(DTransStTy->getLLVMType());
+        auto *SL = DL.getStructLayout(StTy);
+        uint64_t ElemIdx = SL->getElementContainingOffset(OffsetInBytes);
+        uint64_t ElemOffset = SL->getElementOffset(ElemIdx);
+        if (OffsetInBytes == ElemOffset) {
+          *IndexedType = DTransStTy;
+          *FieldType = DTransStTy->getFieldType(ElemIdx);
+          assert(*FieldType && "Fields should be set for structure");
+          *FieldIndex = ElemIdx;
+          return true;
+        }
+
+        // The offset does not start a field in the 'DTransStTy'. Check
+        // whether a field with that offset is within is an aggregate type
+        // within the current structure.
+
+        // The field number of the llvm::Type should be valid for the
+        // DTransType, but make sure.
+        if (ElemIdx >= DTransStTy->getNumFields())
+          return false;
+
+        // Adjust the offset to where the aggregate field begins.
+        uint64_t NewOffset = OffsetInBytes - ElemOffset;
+        DTransType *DTransFieldTy = DTransStTy->getFieldType(ElemIdx);
+        assert(DTransFieldTy && "Expected fields to be set");
+
+        if (auto *DTransFieldStTy = dyn_cast<DTransStructType>(DTransFieldTy))
+          return GetFieldTypeAndIndex(DL, DTransFieldStTy, NewOffset,
+                                      IndexedType, FieldType, FieldIndex);
+
+        // If the field is an array, find the array type to check for a
+        // structure type being indexed.
+        if (DTransFieldTy->isArrayTy()) {
+          while (DTransFieldTy->isArrayTy()) {
+            llvm::Type *FieldTy = DTransFieldTy->getLLVMType();
+            uint64_t FieldSize = DL.getTypeAllocSize(FieldTy);
+            if (FieldSize == 0)
+              return false;
+            NewOffset = NewOffset % FieldSize;
+            DTransFieldTy = DTransFieldTy->getArrayElementType();
+          }
+
+          // Handle an array of structures.
+          if (auto *DTransFieldStTy = dyn_cast<DTransStructType>(DTransFieldTy))
+            return GetFieldTypeAndIndex(DL, DTransFieldStTy, NewOffset,
+                                        IndexedType, FieldType, FieldIndex);
+
+          // The array was to a pointer type, or other non-structure type.
+          *IndexedType = DTransStTy;
+          *FieldType = DTransFieldTy;
+          *FieldIndex = ElemIdx;
+          return true;
+        }
+
+        return false;
+      };
+
+      bool ProcessedAsFlattenedGEP = false;
+      // Check for the case of a GEP that indexes into a structure by using a
+      // multiple of size of an atomic type, such as:
+      //    %field = getelementptr ptr, ptr %in, i64 5
+      if (GEP.getNumIndices() == 1 && !SrcTy->isAggregateType() &&
+          PointerInfo->canAliasToAggregatePointer()) {
+        auto *ConstOffset = dyn_cast<ConstantInt>(GEP.getOperand(1));
+        if (ConstOffset) {
+          size_t GEPSize = DL.getTypeAllocSize(SrcTy);
+          int64_t OffsetInBytes = ConstOffset->getSExtValue() * GEPSize;
+
+          for (auto *AliasTy :
+               PointerInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+            if (!AliasTy->isPointerTy() ||
+                !AliasTy->getPointerElementType()->isStructTy())
+              continue;
+
+            auto *DStTy =
+                cast<DTransStructType>(AliasTy->getPointerElementType());
+            auto *StTy = cast<llvm::StructType>(DStTy->getLLVMType());
+            if (StTy->isSized()) {
+              uint64_t StructSize = DL.getTypeAllocSize(StTy);
+              if (OffsetInBytes > 0 && (uint64_t)OffsetInBytes < StructSize) {
+                DTransStructType *IndexedType = nullptr;
+                DTransType *FieldType;
+                uint32_t FieldNum = 0;
+                bool Identified =
+                    GetFieldTypeAndIndex(DL, DStTy, OffsetInBytes, &IndexedType,
+                                         &FieldType, &FieldNum);
+                if (Identified) {
+                  ResultInfo->addTypeAlias(
+                      ValueTypeInfo::VAT_Decl,
+                      TM.getOrCreatePointerType(FieldType));
+                  ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl,
+                                                IndexedType, FieldNum);
+                  PTA.addFlattenedGEPMapping(&GEP, IndexedType, FieldNum,
+                                             GEPSize);
+                  ProcessedAsFlattenedGEP = true;
+                } else {
+                  // The GEP is inside of an aggregate type, but a field was
+                  // not identified.
+                  ResultInfo->setUnhandled();
+                  DEBUG_WITH_TYPE_P(
+                      FNFilter, VERBOSE_TRACE,
+                      dbgs() << "GEP to unknown location within structure: "
+                             << GEP << "\nStructure type: " << *DStTy << "\n");
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!ProcessedAsFlattenedGEP)
+        propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+                  DerefType::DT_SameType);
+    }
   }
 
   // Check whether the GEP is a byte-flattened GEP or an array of 'i8' elements.
@@ -3411,6 +3702,54 @@ private:
 
     if (!PtrInfo->isCompletelyAnalyzed())
       ResultInfo->setPartiallyAnalyzed();
+  }
+
+  void analyzeInsertValueInst(InsertValueInst *IV, ValueTypeInfo *ResultInfo) {
+
+    // Returns true if "IV" is transitively used by ResumeInst only
+    // through other InsertValue instructions or no real uses.
+    auto IsUsedByOnlyResumeInst = [] (InsertValueInst *IV) {
+      SmallVector<const User *, 4> WorkList(IV->user_begin(), IV->user_end());
+      while (!WorkList.empty()) {
+        const User *U = WorkList.pop_back_val();
+        if (isa<InsertValueInst>(U))
+          for (const User *UU : U->users())
+            WorkList.push_back(UU);
+	else if (!isa<ResumeInst>(U))
+          return false;
+      }
+      return true;
+    };
+
+    // Currently, only handle cases with a single index value and return
+    // type { i8*, i32 }.
+    if (IV->getNumIndices() > 1 ||
+        IV->getType() != getDTransLandingPadTy()->getLLVMType() ||
+	!IsUsedByOnlyResumeInst(IV)) {
+      ResultInfo->setUnhandled();
+      LLVM_DEBUG(
+          dbgs() << "Unhandled InsertValueInst due to number of indices: "
+                 << *IV << "\n");
+      return;
+    }
+
+    ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, getDTransLandingPadTy());
+    Value *Val = IV->getInsertedValueOperand();
+    if (isCompilerConstant(Val))
+      return;
+    // Allow only I8* type for value operand.
+    ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(Val);
+    for (auto Alias :
+         ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      if (!Alias->isPointerTy())
+        continue;
+      if (Alias != PTA.getDTransI8PtrType()) {
+        ValInfo->setUnhandled();
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Unhandled InsertValueInst due to Value type: "
+                          << *IV << "\n");
+      }
+    }
   }
 
   void analyzeIntToPtrInst(IntToPtrInst *ITP, ValueTypeInfo *ResultInfo) {
@@ -3920,7 +4259,11 @@ private:
     if (!isa<ConstantInt>(BinOp->getOperand(1)))
       return;
 
-    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BinOp->getOperand(0));
+    Value *Op0 = BinOp->getOperand(0);
+    if (isCompilerConstant(Op0))
+      return;
+
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Op0);
     propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
     if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
       ResultInfo->setDependsOnUnhandled();
@@ -4341,6 +4684,30 @@ void PtrTypeAnalyzerImpl::addByteFlattenedGEPMapping(GEPOperator *GEP,
 std::pair<DTransType *, size_t>
 PtrTypeAnalyzerImpl::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return ByteFlattenedGEPInfoMap.lookup(GEP);
+}
+
+void PtrTypeAnalyzerImpl::addFlattenedGEPMapping(GEPOperator *GEP,
+                                                 DTransType *Ty, size_t Idx,
+                                                 size_t Multiplier) {
+  if (FlattenedGEPInfoMap.insert({GEP, {Ty, Idx, Multiplier}}).second)
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
+      dbgs() << "Adding Flattened-GEP access: ";
+      dbgs() << *Ty << " @ " << Idx << " -- ";
+      if (auto *I = dyn_cast<Instruction>(GEP))
+        dbgs() << "[" << I->getFunction()->getName() << "] ";
+      printValue(dbgs(), GEP);
+      dbgs() << " - Multiplier = " << Multiplier;
+      dbgs() << "\n";
+      });
+}
+
+llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+PtrTypeAnalyzerImpl::getFlattenedGEPElement(GEPOperator *GEP) const {
+  auto Entry = FlattenedGEPInfoMap.find(GEP);
+  if (Entry != FlattenedGEPInfoMap.end())
+    return Entry->second;
+    
+  return None;
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
@@ -4875,6 +5242,11 @@ bool PtrTypeAnalyzer::isPtrToIntOrFloat(ValueTypeInfo &Info) const {
 std::pair<DTransType *, size_t>
 PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getByteFlattenedGEPElement(GEP);
+}
+
+llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+PtrTypeAnalyzer::getFlattenedGEPElement(GEPOperator *GEP) const {
+  return Impl->getFlattenedGEPElement(GEP);
 }
 
 dtrans::AllocKind PtrTypeAnalyzer::getAllocationCallKind(CallBase *Call) const {

@@ -86,30 +86,17 @@ template <typename T, typename U, typename R, typename... P>
 struct has_same_member_pointer_type<R (T::*)(P...), R (U::*)(P...)>
     : std::true_type {};
 
-template <bool has_same_type> struct is_same_method_impl {
-  template <typename FirstMethodPtrTy, typename SecondMethodPtrTy>
-  static bool isSameMethod(FirstMethodPtrTy FirstMethodPtr,
-                           SecondMethodPtrTy SecondMethodPtr) {
-    return false;
-  }
-};
-
-template <> struct is_same_method_impl<true> {
-  template <typename FirstMethodPtrTy, typename SecondMethodPtrTy>
-  static bool isSameMethod(FirstMethodPtrTy FirstMethodPtr,
-                           SecondMethodPtrTy SecondMethodPtr) {
-    return FirstMethodPtr == SecondMethodPtr;
-  }
-};
-
 /// Returns true if and only if \p FirstMethodPtr and \p SecondMethodPtr
 /// are pointers to the same non-static member function.
 template <typename FirstMethodPtrTy, typename SecondMethodPtrTy>
-bool isSameMethod(FirstMethodPtrTy FirstMethodPtr,
-                  SecondMethodPtrTy SecondMethodPtr) {
-  return is_same_method_impl<has_same_member_pointer_type<
-      FirstMethodPtrTy,
-      SecondMethodPtrTy>::value>::isSameMethod(FirstMethodPtr, SecondMethodPtr);
+LLVM_ATTRIBUTE_ALWAYS_INLINE LLVM_ATTRIBUTE_NODEBUG auto
+isSameMethod([[maybe_unused]] FirstMethodPtrTy FirstMethodPtr,
+             [[maybe_unused]] SecondMethodPtrTy SecondMethodPtr)
+    -> bool {
+  if constexpr (has_same_member_pointer_type<FirstMethodPtrTy,
+                                             SecondMethodPtrTy>::value)
+    return FirstMethodPtr == SecondMethodPtr;
+  return false;
 }
 
 } // end namespace detail
@@ -1587,10 +1574,15 @@ DEF_TRAVERSE_DECL(ImportDecl, {})
 
 DEF_TRAVERSE_DECL(FriendDecl, {
   // Friend is either decl or a type.
-  if (D->getFriendType())
+  if (D->getFriendType()) {
     TRY_TO(TraverseTypeLoc(D->getFriendType()->getTypeLoc()));
-  else
+    // Traverse any CXXRecordDecl owned by this type, since
+    // it will not be in the parent context:
+    if (auto *ET = D->getFriendType()->getType()->getAs<ElaboratedType>())
+      TRY_TO(TraverseDecl(ET->getOwnedTagDecl()));
+  } else {
     TRY_TO(TraverseDecl(D->getFriendDecl()));
+  }
 })
 
 DEF_TRAVERSE_DECL(FriendTemplateDecl, {
@@ -3043,6 +3035,9 @@ DEF_TRAVERSE_STMT(OMPParallelForSimdDirective,
 DEF_TRAVERSE_STMT(OMPParallelMasterDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPParallelMaskedDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 DEF_TRAVERSE_STMT(OMPParallelSectionsDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -3122,6 +3117,18 @@ DEF_TRAVERSE_STMT(OMPParallelMasterTaskLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPParallelMasterTaskLoopSimdDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPMaskedTaskLoopDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPMaskedTaskLoopSimdDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPParallelMaskedTaskLoopDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPParallelMaskedTaskLoopSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPDistributeDirective,
@@ -3267,6 +3274,12 @@ RecursiveASTVisitor<Derived>::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 
 #if INTEL_COLLAB
 template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPInteropClause(OMPInteropClause *C) {
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+
+template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   TRY_TO(VisitOMPClauseWithPreInit(C));
@@ -3290,9 +3303,8 @@ RecursiveASTVisitor<Derived>::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
 template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
-  for (auto *E : C->val_exprs()) {
-    TRY_TO(TraverseStmt(E));
-  }
+  TRY_TO(TraverseStmt(C->getHint()));
+  TRY_TO(VisitOMPClauseList(C));
   return true;
 }
 
@@ -3306,6 +3318,28 @@ RecursiveASTVisitor<Derived>::VisitOMPTileClause(OMPTileClause *C) {
   }
   return true;
 }
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPOmpxMonotonicClause(
+    OMPOmpxMonotonicClause *C) {
+  TRY_TO(TraverseStmt(C->getStep()));
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPOmpxAssertClause(
+    OMPOmpxAssertClause *) {
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPOmpxOverlapClause(
+    OMPOmpxOverlapClause *C) {
+  TRY_TO(TraverseStmt(C->getOverlap()));
+  return true;
+}
+
 #if INTEL_FEATURE_CSA
 template <typename Derived>
 bool

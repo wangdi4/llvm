@@ -10,6 +10,14 @@
 ; attached to them because an internal lookup table can be used to resolve their
 ; types.
 
+@g = external global i8
+; CHECK:   LocalPointerInfo:
+; CHECK-NOT: UNHANDLED
+
+@_ZTIi = external dso_local constant i8
+; CHECK:   LocalPointerInfo:
+; CHECK-NOT: UNHANDLED
+
 define void @test_intrinsic() {
   %p8.1 = alloca i8
 ; CHECK: %p8.1 = alloca i8
@@ -21,6 +29,13 @@ define void @test_intrinsic() {
 ; CHECK:   LocalPointerInfo:
 ; CHECK-NOT: UNHANDLED
 
+  %p8.3 = alloca i8
+; CHECK: %p8.3 = alloca i8
+; CHECK:   LocalPointerInfo:
+; CHECK-NOT: UNHANDLED
+
+  %r = call i32 @llvm.eh.typeid.for(i8* @_ZTIi)
+  call void (...) @llvm.icall.branch.funnel(i8* %p8.3, i8* getelementptr (i8, i8* @g, i64 0))
   call void @llvm.lifetime.start.p0i8(i64 0, i8* %p8.1)
   call void @llvm.lifetime.end.p0i8(i64 0, i8* %p8.1)
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p8.1, i8* %p8.2, i64 1, i1 false)
@@ -40,6 +55,8 @@ define void @test_intrinsic() {
 }
 
 ; Intrinsic library functions declared without DTrans metadata.
+declare i32 @llvm.eh.typeid.for(i8*)
+declare void @llvm.icall.branch.funnel(...)
 declare void @llvm.lifetime.start.p0i8(i64, i8*)
 declare void @llvm.lifetime.end.p0i8(i64, i8*)
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)

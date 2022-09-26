@@ -10,7 +10,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %priv), "QUAL.OMP.SIMDLEN"(i32 8) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %priv, i32 0, i32 1), "QUAL.OMP.SIMDLEN"(i32 8) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:

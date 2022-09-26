@@ -2,6 +2,7 @@
 ; isn't applied, the generated global variable and interface
 ; are removed from the IR.
 
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtrans-test-paddedmalloc -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-test-paddedmalloc -passes=dtrans-paddedmalloc -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-test-paddedmalloc -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s

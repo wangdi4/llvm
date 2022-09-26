@@ -1320,7 +1320,7 @@ static VersionTuple getMachoBuildVersionSupportedOS(const Triple &Target) {
     // Mac Catalyst always uses the build version load command.
     if (Target.isMacCatalystEnvironment())
       return VersionTuple();
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case Triple::TvOS:
     return VersionTuple(12);
   case Triple::WatchOS:
@@ -1405,15 +1405,14 @@ void MCStreamer::emitVersionForTarget(
       emitDarwinTargetVariantBuildVersion(
           getMachoBuildVersionPlatformType(Target),
           LinkedTargetVersion.getMajor(),
-          LinkedTargetVersion.getMinor().getValueOr(0),
-          LinkedTargetVersion.getSubminor().getValueOr(0), SDKVersion);
+          LinkedTargetVersion.getMinor().value_or(0),
+          LinkedTargetVersion.getSubminor().value_or(0), SDKVersion);
       return;
     }
     emitBuildVersion(getMachoBuildVersionPlatformType(Target),
                      LinkedTargetVersion.getMajor(),
-                     LinkedTargetVersion.getMinor().getValueOr(0),
-                     LinkedTargetVersion.getSubminor().getValueOr(0),
-                     SDKVersion);
+                     LinkedTargetVersion.getMinor().value_or(0),
+                     LinkedTargetVersion.getSubminor().value_or(0), SDKVersion);
     ShouldEmitBuildVersion = true;
   }
 
@@ -1424,8 +1423,8 @@ void MCStreamer::emitVersionForTarget(
       emitDarwinTargetVariantBuildVersion(
           getMachoBuildVersionPlatformType(*TVT),
           TVLinkedTargetVersion.getMajor(),
-          TVLinkedTargetVersion.getMinor().getValueOr(0),
-          TVLinkedTargetVersion.getSubminor().getValueOr(0),
+          TVLinkedTargetVersion.getMinor().value_or(0),
+          TVLinkedTargetVersion.getSubminor().value_or(0),
           DarwinTargetVariantSDKVersion);
     }
   }
@@ -1435,6 +1434,6 @@ void MCStreamer::emitVersionForTarget(
 
   emitVersionMin(getMachoVersionMinLoadCommandType(Target),
                  LinkedTargetVersion.getMajor(),
-                 LinkedTargetVersion.getMinor().getValueOr(0),
-                 LinkedTargetVersion.getSubminor().getValueOr(0), SDKVersion);
+                 LinkedTargetVersion.getMinor().value_or(0),
+                 LinkedTargetVersion.getSubminor().value_or(0), SDKVersion);
 }

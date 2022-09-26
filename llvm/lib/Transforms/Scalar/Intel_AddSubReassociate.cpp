@@ -819,7 +819,7 @@ int64_t AddSubReassociate::getSumAbsDistances(const CanonForm &G1,
     Value *V2 = G2It->getLeaf();
     Optional<int64_t> Distance = findLoadDistance(V1, V2);
     if (Distance)
-      Sum += std::abs(Distance.getValue());
+      Sum += std::abs(Distance.value());
     else
       return MAX_DISTANCE;
   }

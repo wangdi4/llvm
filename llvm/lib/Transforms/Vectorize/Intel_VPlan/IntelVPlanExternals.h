@@ -642,6 +642,12 @@ private:
   void createInOutsPrivates(const VPLoopEntityList *VPLEntityList,
                             LoopTy *OrigLoop);
 
+  // Create list of VPLiveInValues/VPLiveOutValues for VPlan's compress/expand
+  // idioms.
+  template <class LoopTy>
+  void createInOutsCompressExpandIdioms(const VPLoopEntityList *VPLEntityList,
+                                        LoopTy *OrigLoop);
+
   VPLiveInValue *createLiveInValue(unsigned Id, Type *Ty) {
     VPLiveInValue *LiveIn = new VPLiveInValue(Id, Ty);
     Twine Name = "livein.";

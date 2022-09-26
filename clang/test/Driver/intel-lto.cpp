@@ -15,8 +15,7 @@
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -flto -fuse-ld=lld --intel -mllvm -dummy-option -### %s 2>&1 \
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -Qipo --intel -mllvm -dummy-option -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK_LTO_WIN %s
-// Use of an empty config file should not break -Qipo recognition
-// RUN: %clang_cl --target=x86_64-pc-windows-msvc -Qipo --intel --intel-config %S/Inputs/empty.cfg -mllvm -dummy-option -### %s 2>&1 \
+// RUN: %clang_cl --target=x86_64-pc-windows-msvc -Qipo --intel -mllvm -dummy-option -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK_LTO_WIN %s
 // CHECK_LTO_WIN: lld-link{{.*}} "-mllvm:-mcpu=x86-64"
 // CHECK_LTO_WIN: "-opt:lldlto=2"

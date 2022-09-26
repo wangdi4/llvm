@@ -85,7 +85,6 @@ private:
 
   void initNullStrategyEntries();
   void initSoaStrategyEntries();
-  void initHardCodeStrategy();
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: Adds the behavior expected from WI functions. (i.e., NULL strategy
@@ -161,7 +160,6 @@ private:
   //
   NullDescriptorStrategy m_nullStrategy;
   SoaDescriptorStrategy  m_soaStrategy;
-  HardCodedVersionStrategy m_hardCodedStrategy;
   IdentityStrategy m_indentityStrategy;
 
   //Maps a function descriptor to its return type

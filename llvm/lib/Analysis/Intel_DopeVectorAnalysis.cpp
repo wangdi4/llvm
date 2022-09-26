@@ -98,12 +98,13 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
 
   *ArrayRank = ArRank;
 
-  // NOTE: Collecting the type for the pointer address is only available
-  // for typed pointers. This needs to be updated for opaque pointers.
+  // TODO: Collecting the type for the pointer address is only available
+  // for typed pointers. This needs to be updated for opaque pointers, if the
+  // information is required.
   if (ElementType) {
-    assert(Ty->getContext().supportsTypedPointers() &&
-           "Trying to collect pointer address' type for opaque pointers");
-    *ElementType = FirstType->getNonOpaquePointerElementType();
+    *ElementType = nullptr;
+    if (Ty->getContext().supportsTypedPointers())
+      *ElementType = FirstType->getNonOpaquePointerElementType();
   }
 
   return true;
@@ -189,8 +190,7 @@ static bool isFieldInUplevelTypeVar(Value *V) {
   auto *GEP = dyn_cast<GetElementPtrInst>(V);
   if (!GEP)
     return false;
-  return isUplevelVarType(
-      GEP->getPointerOperand()->getType()->getNonOpaquePointerElementType());
+  return isUplevelVarType(GEP->getSourceElementType());
 }
 
 Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
@@ -1027,18 +1027,6 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   bool AllocSiteFound = false;
   bool PtrAddressInitFound = false;
   for (auto *DVUser : DVObject->users()) {
-    // CMPLRLLVM-3747: DVCP analysis is disabled for opaque pointers. This
-    // will be turned back on once the FE supplies a mechanism to collect the
-    // type of the pointers.
-    if (auto *Inst = dyn_cast<Instruction>(DVUser)) {
-      auto *Func = Inst->getFunction();
-      if (!Func->getParent()->getContext().supportsTypedPointers()) {
-        LLVM_DEBUG(dbgs() << "  Opaque pointers not supported\n");
-        setInvalid();
-        return;
-      }
-    }
-
     LLVM_DEBUG(dbgs() << "  DV user: " << *DVUser << "\n");
     if (auto *GEP = dyn_cast<GetElementPtrInst>(DVUser)) {
       // Find which of the fields this GEP is the address of.
@@ -2342,19 +2330,23 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
     uint32_t DArrayRank = 0;
     Type *SElementType = nullptr;
     Type *DElementType = nullptr;
+
+    bool Opaque = !BC->getType()->getContext().supportsTypedPointers();
+
     auto STy = BC->getSrcTy();
     if (!STy->isPointerTy())
       return false;
-    // Will need to be updated for opaque pointers.
-    auto SPTy = STy->getNonOpaquePointerElementType();
-    if (!isDopeVectorType(SPTy, DL, &SArrayRank, &SElementType))
+    auto SPTy = (Opaque) ? inferPtrElementType(*(BC->getOperand(0)))
+                         : STy->getNonOpaquePointerElementType();
+    if (!SPTy || !isDopeVectorType(SPTy, DL, &SArrayRank, &SElementType))
       return false;
+
     auto DTy = BC->getDestTy();
     if (!DTy->isPointerTy())
       return false;
-    // Will need to be updated for opaque pointers.
-    auto DPTy = DTy->getNonOpaquePointerElementType();
-    if (!isDopeVectorType(DPTy, DL, &DArrayRank, &DElementType))
+    auto DPTy = (Opaque) ? inferPtrElementType(*BC)
+                         : DTy->getNonOpaquePointerElementType();
+    if (!DPTy || !isDopeVectorType(DPTy, DL, &DArrayRank, &DElementType))
       return false;
 
     // If typed pointers are enabled then SElementType and DElementType
@@ -2397,7 +2389,17 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
         return false;
       NestedDV->addAllocSite(Call);
     } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
-      // Calls should only load data
+      // It can be a call to allocate/deallocate function in opaque
+      // pointers case.
+      if(!V->getType()->getContext().supportsTypedPointers()) {
+          if (isCallToAllocFunction(Call, GetTLI)) {
+            if (!AllowCheckForAllocSite)
+              return false;
+            NestedDV->addAllocSite(Call);
+            return true;
+        }
+      }
+      // Other calls should only load data
       if (!CollectAccessFromCall(Call, V, GetTLI, DL, NestedDV, ForDVCP,
                                  ValueChecked))
         return false;
@@ -2475,7 +2477,7 @@ void NestedDopeVectorInfo::analyzeNestedDopeVector() {
 
 // Return true if the input BitCast operator is used for allocation
 bool GlobalDopeVector::collectAndAnalyzeAllocSite(BitCastOperator *BC) {
-  if (!BC || !GlobalDVInfo || GlobalDVInfo->hasAllocSite())
+  if (!BC || GlobalDVInfo->hasAllocSite())
     return false;
 
   CallBase *Call = castingUsedForDataAllocation(BC, GetTLI);
@@ -2493,7 +2495,7 @@ bool GlobalDopeVector::collectAndAnalyzeAllocSite(BitCastOperator *BC) {
 bool
 GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
 
-  if (!GEP || !GlobalDVInfo)
+  if (!GEP)
     return false;
 
   // Check which dope vector field is being accessed and
@@ -2651,13 +2653,21 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         return NullPair;
 
       // NOTE: This may need to be updated for opaque pointers.
-      SrcTy = SrcTy->getNonOpaquePointerElementType();
+      if (SrcTy->getContext().supportsTypedPointers())
+        SrcTy = SrcTy->getNonOpaquePointerElementType();
+      else
+        SrcTy = inferPtrElementType(*(BC->getOperand(0)));
       if (!SrcTy->isStructTy() || SrcTy->getStructNumElements() == 0)
         return NullPair;
 
       Type *ZeroType = SrcTy->getStructElementType(0);
-      DestTy = DestTy->getNonOpaquePointerElementType();
-      if (ZeroType == DestTy)
+      if (SrcTy->getContext().supportsTypedPointers())
+        DestTy = DestTy->getNonOpaquePointerElementType();
+      else
+        DestTy = inferPtrElementType(*BC);
+
+      if (ZeroType == DestTy ||
+          (!SrcTy->getContext().supportsTypedPointers() && DestTy->isPointerTy()))
         RetType = DestTy;
     } else if (auto GEP = dyn_cast<GetElementPtrInst>(Val)) {
       // If it is a GEP, then all indices are constants
@@ -3445,9 +3455,14 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       if (!SrcTy->isPointerTy())
         return false;
 
-      StructType *StrSource =
-          dyn_cast<StructType>(SrcTy->getNonOpaquePointerElementType());
+      bool Opaque = !BC->getType()->getContext().supportsTypedPointers();
+      auto *Ty = (Opaque) ? inferPtrElementType(*BC)
+                          : SrcTy->getNonOpaquePointerElementType();
 
+      if (!Ty)
+        return false;
+
+      auto* StrSource = dyn_cast<StructType>(Ty);
       if (!StrSource || StrSource->getNumElements() == 0)
         return false;
 
@@ -3707,19 +3722,9 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
                                    Type *DVType) -> NestedDopeVectorInfo * {
     assert(isDopeVectorType(DVType, DL) && "Trying to make a copy dope vector "
                                            "from a non-dope vector type");
-
-
-    auto *PtrAllocType = AI->getType();
-    // NOTE: This won't work for opaque pointers. We need to address collecting
-    // the dope vector for opaque pointers.
-    auto *AllocMainType = PtrAllocType->getNonOpaquePointerElementType();
-    if (AllocMainType != DVType)
-      return nullptr;
-
-    auto CopyNestedDV = new NestedDopeVectorInfo(AI, AllocMainType, FieldNum,
+    auto CopyNestedDV = new NestedDopeVectorInfo(AI, DVType, FieldNum,
         VBase, true /* AllowMultipleFieldAddresses */,
         true /* IsCopyDopeVector */);
-
     CopyNestedDV->addAllocSite(AI);
     return CopyNestedDV;
   };
@@ -3791,6 +3796,52 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
     }
   }
 }
+// The function parses Fortran QNCA encoded dope vector types when the type
+// is a struct type. With opaque pointers the pointer to data has no type and
+// the type of element is inferred from QNCA type name.
+// For example: %"QNCA_a0$%PHYSICS_TYPES$.btPHYSICS_STATE*$rank1$" will return
+// the type "%PHYSICS_TYPES$.btPHYSICS_STATE".
+static std::unique_ptr<std::tuple<Type*, unsigned>>
+parseQNCAStructDopeVectorElementType(const StructType* Ty) {
+  if (!Ty)
+    return nullptr;
+
+  const std::string QNCAPrefix = "QNCA_a0$";
+  const std::string RankPrefix = "$rank";
+
+  const StringRef &name = Ty->getStructName();
+  if (!name.startswith(QNCAPrefix))
+    return nullptr;
+  auto SIdx = QNCAPrefix.size();
+  auto EIdx = name.rfind(RankPrefix);
+  if (EIdx == StringRef::npos)
+    return nullptr;
+  bool isPointer = false;
+  if (EIdx > SIdx && name[EIdx-1] == '*') {
+    --EIdx;
+    isPointer = true;
+  }
+  if (EIdx > SIdx && name[SIdx] == '%') {
+    ++SIdx;
+  }
+  if (EIdx > SIdx && name[SIdx] =='"') {
+    ++SIdx;
+    if (EIdx > SIdx && name[EIdx-1] =='"') {
+      --EIdx;
+    }
+    else
+      return nullptr;
+  }
+
+  const auto ETName = name.substr(SIdx, EIdx-SIdx);
+  Type *ETy = StructType::getTypeByName(Ty->getContext(), ETName);
+  if (!ETy)
+    return nullptr;
+
+  unsigned PtrLevel = (!isPointer)?0u:1u;
+  auto Res = std::make_unique<std::tuple<Type*, unsigned>>(ETy, PtrLevel);
+  return std::move(Res);
+}
 
 // Return true if the pointer address of the current global dope vector is a
 // pointer to another dope vector, or if it is a pointer to a structure where
@@ -3801,6 +3852,32 @@ bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
 
   StructType *DVStruct = GlobalDVInfo->getLLVMStructType();
   assert(DVStruct && "Analyzing dope vector without the proper structure");
+
+  if (!Glob->getType()->getContext().supportsTypedPointers()) {
+    auto PR = parseQNCAStructDopeVectorElementType(DVStruct);
+    if (!PR)
+      return false;
+
+    Type *Ty;
+    unsigned Level;
+    std::tie(Ty, Level) = *PR;
+
+    PointerType *PtrAddr = dyn_cast<PointerType>(DVStruct->getElementType(0));
+    if (!PtrAddr)
+      return false;
+
+    StructType *StrTy = dyn_cast<StructType>(Ty);
+    if (!StrTy)
+      return false;
+
+    if (isDopeVectorType(StrTy, DL))
+      return true;
+
+    for (unsigned I = 0, E = StrTy->getNumElements(); I < E; I++)
+      if (isDopeVectorType(StrTy->getElementType(I), DL))
+        return true;
+    return false;
+  }
 
   PointerType *PtrAddr = dyn_cast<PointerType>(DVStruct->getElementType(0));
   if (!PtrAddr)
@@ -3828,15 +3905,6 @@ bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
 void
 GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
                                                      bool ForDVCP) {
-
-  // NOTE: This needs to be updated for opaque pointers
-  auto GetResultTypeFromSubscript = [](SubscriptInst *SI) {
-    Type *ResType = SI->getType();
-    if (ResType->isPointerTy())
-      ResType = ResType->getNonOpaquePointerElementType();
-
-    return ResType;
-  };
 
   // First check if there is any nested dope vector. At this point we know that
   // the global is a dope vector, but double check.
@@ -3882,7 +3950,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
 
         // Collect the type that the subscript is loading.
         // The type should be the same accross all subscripts.
-        Type *CurrSIType = GetResultTypeFromSubscript(SI);
+        Type *CurrSIType = SI->getElementType();
         if (CurrSIType->isPointerTy()) {
           NestedDVDataValid = false;
           break;
@@ -3979,16 +4047,6 @@ void GlobalDopeVector::validateGlobalDopeVector(const DataLayout &DL) {
 
 void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
                                           bool ForDVCP) {
-
-  // CMPLRLLVM-37474: DVCP analysis is disabled for opaque pointers. This
-  // will be turned back on once the FE supplies a mechanism to collect the
-  // type of the pointers.
-  if (!Glob->getParent()->getContext().supportsTypedPointers()) {
-    LLVM_DEBUG(dbgs() << "  Opaque pointers not supported for global DVCP\n");
-    getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-    return;
-  }
-
 #if INTEL_FEATURE_SW_ADVANCED
   // Aggressive DVCP is turned on by default, collect the option from opt if
   // it is turned off.
@@ -3996,27 +4054,44 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
     EnableAggressiveDVCP = EnableAgressiveDVCPOpt;
 #endif // INTEL_FEATURE_SW_ADVANCED
 
+  bool isOpaquePtr = !Glob->getParent()->getContext().supportsTypedPointers();
   for (auto *U : Glob->users()) {
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // The BitCast should only be used for data allocation and
       // should happen only once
-      if (!collectAndAnalyzeAllocSite(BC)) {
-        getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-        break;
-      }
+      if (collectAndAnalyzeAllocSite(BC))
+        continue;
     } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
-
       // The fields of the global dope vector are accessed through
       // a GEPOperator
-      if (!collectAndAnalyzeGlobalDopeVectorField(GEP)) {
-        getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-        break;
+      if (collectAndAnalyzeGlobalDopeVectorField(GEP))
+        continue;
+    } else if (auto *CB = dyn_cast<CallBase>(U)) {
+      // This is needed in the opaque pointer case because we cannot 
+      // find the DV allocate function through bitcasts.
+      if (isOpaquePtr && !GlobalDVInfo->hasAllocSite()) {
+        if (isCallToAllocFunction(CB, GetTLI)) {
+          GlobalDVInfo->addAllocSite(CB);
+          continue;
+        }
       }
-    } else {
-      // Any other use is invalid
-      getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-      break;
+    } else if (isa<LoadInst>(U) || isa<StoreInst>(U)) {
+      // This is needed in the opaque pointer case because
+      // GEP(X,0,0) instructions may be dead code eliminated.
+      if (isOpaquePtr) {
+        auto *DVField = GlobalDVInfo->getDopeVectorField(DV_ArrayPtr);
+        if (DVField && !DVField->getIsBottom()) {
+          DVField->addFieldAddr(Glob);
+          bool isNotForDVCP = DVField->isAddrNotForDVCP(Glob);
+          DVField->analyzeLoadOrStoreInstruction(U, Glob, isNotForDVCP);
+          if (!DVField->getIsBottom())
+            continue;
+        }
+      }
     }
+    // Any other use is invalid
+    getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+    break;
   }
 
   // Make sure that none of the fields the in the dope vector are

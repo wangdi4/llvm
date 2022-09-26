@@ -1,4 +1,21 @@
 //===- PPC64.cpp ----------------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -623,7 +640,7 @@ static uint32_t getEFlags(InputFile *file) {
 // This file implements v2 ABI. This function makes sure that all
 // object files have v2 or an unspecified version as an ABI version.
 uint32_t PPC64::calcEFlags() const {
-  for (InputFile *f : objectFiles) {
+  for (InputFile *f : ctx->objectFiles) {
     uint32_t flag = getEFlags(f);
     if (flag == 1)
       error(toString(f) + ": ABI version 1 is not supported");
@@ -1065,11 +1082,18 @@ RelType PPC64::getDynRel(RelType type) const {
 int64_t PPC64::getImplicitAddend(const uint8_t *buf, RelType type) const {
   switch (type) {
   case R_PPC64_NONE:
+  case R_PPC64_GLOB_DAT:
+  case R_PPC64_JMP_SLOT:
     return 0;
   case R_PPC64_REL32:
     return SignExtend64<32>(read32(buf));
   case R_PPC64_ADDR64:
   case R_PPC64_REL64:
+  case R_PPC64_RELATIVE:
+  case R_PPC64_IRELATIVE:
+  case R_PPC64_DTPMOD64:
+  case R_PPC64_DTPREL64:
+  case R_PPC64_TPREL64:
     return read64(buf);
   default:
     internalLinkerError(getErrorLocation(buf),
@@ -1343,7 +1367,7 @@ void PPC64::relocate(uint8_t *loc, const Relocation &rel, uint64_t val) const {
     // of the TLS block. Therefore, in the case of R_PPC64_DTPREL34 we first
     // need to subtract that value then fallthrough to the general case.
     val -= dynamicThreadPointerOffset;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case R_PPC64_PCREL34:
   case R_PPC64_GOT_PCREL34:
   case R_PPC64_GOT_TLSGD_PCREL34:

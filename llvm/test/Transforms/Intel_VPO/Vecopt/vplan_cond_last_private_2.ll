@@ -118,7 +118,7 @@ DIR.OMP.SIMD.113.split:                           ; preds = %entry
   br i1 %cmp415, label %omp.inner.for.body.lr.ph, label %DIR.OMP.END.SIMD.1
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.113.split
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(i8* %ret.lpriv) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i8* %ret.lpriv, i8 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %if.end, %omp.inner.for.body.lr.ph

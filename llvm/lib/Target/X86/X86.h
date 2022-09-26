@@ -69,6 +69,9 @@ FunctionPass *createX86IssueVZeroUpperPass();
 /// destinations as part of CET IBT mechanism.
 FunctionPass *createX86IndirectBranchTrackingPass();
 
+/// This pass inserts KCFI checks before indirect calls.
+FunctionPass *createX86KCFIPass();
+
 /// Return a pass that pads short functions with NOOPs.
 /// This will prevent a stall when returning on the Atom.
 FunctionPass *createX86PadShortFunctions();
@@ -166,6 +169,9 @@ FunctionPass *createX86EvexToVexInsts();
 /// This pass creates the thunks for the retpoline feature.
 FunctionPass *createX86IndirectThunksPass();
 
+/// This pass replaces ret instructions with jmp's to __x86_return thunk.
+FunctionPass *createX86ReturnThunksPass();
+
 /// This pass ensures instructions featuring a memory operand
 /// have distinctive <LineNumber, Discriminator> (with respect to eachother)
 FunctionPass *createX86DiscriminateMemOpsPass();
@@ -213,6 +219,11 @@ FunctionPass *createX86LoadValueInjectionLoadHardeningPass();
 FunctionPass *createX86LoadValueInjectionRetHardeningPass();
 FunctionPass *createX86SpeculativeLoadHardeningPass();
 FunctionPass *createX86SpeculativeExecutionSideEffectSuppression();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+FunctionPass *createX86MarkerCountPass();
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
 void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
@@ -235,6 +246,7 @@ void initializeX86ExecutionDomainFixPass(PassRegistry &);
 void initializeX86ExpandPseudoPass(PassRegistry &);
 void initializeX86FixupSetCCPassPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
+void initializeX86KCFIPass(PassRegistry &);
 void initializeX86LoadValueInjectionLoadHardeningPassPass(PassRegistry &);
 void initializeX86LoadValueInjectionRetHardeningPassPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
@@ -242,6 +254,9 @@ void initializeX86PartialReductionPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
 void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void initializeX86MarkerCountPassPass(PassRegistry &);
+#endif // INTEL_FEATURE_MARKERCOUNT
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
@@ -258,6 +273,7 @@ void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
 void initializeX86PreAMXConfigPassPass(PassRegistry &);
 void initializeX86LowerTileCopyPass(PassRegistry &);
 void initializeX86LowerAMXIntrinsicsLegacyPassPass(PassRegistry &);
+void initializeX86ReturnThunksPass(PassRegistry &);
 
 namespace X86AS {
 enum : unsigned {

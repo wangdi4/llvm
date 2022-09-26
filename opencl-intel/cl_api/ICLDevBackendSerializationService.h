@@ -105,7 +105,7 @@ public:
     virtual cl_dev_err_code DeSerializeProgram(
         cl_serialization_type serializationType,
         ICLDevBackendProgram_** ppProgram, 
-        const void* pBlob, size_t blobSize) const = 0;
+        const void* pBlob, size_t blobSize, unsigned int binaryVersion) const = 0;
 
     /**
      * Release the deserialized program 

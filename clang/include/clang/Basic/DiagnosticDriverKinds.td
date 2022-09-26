@@ -77,8 +77,6 @@ def err_drv_no_cuda_libdevice : Error<
   "cannot find libdevice for %0; provide path to different CUDA installation "
   "via '--cuda-path', or pass '-nocudalib' to build without linking with "
   "libdevice">;
-def err_drv_no_rdc_new_driver : Error<
-  "Using '--offload-new-driver' requires '-fgpu-rdc'">;
 
 def err_drv_no_rocm_device_lib : Error<
   "cannot find ROCm device library%select{| for %1|for ABI version %1}0; provide its path via "
@@ -150,8 +148,6 @@ def err_drv_invalid_stdlib_name : Error<
 def err_drv_invalid_output_with_multiple_archs : Error<
   "cannot use '%0' output with multiple -arch options">;
 def err_drv_no_input_files : Error<"no input files">;
-def err_drv_use_of_Z_option : Error<
-  "unsupported use of internal gcc -Z option '%0'">;
 def err_drv_output_argument_with_multiple_files : Error<
   "cannot specify -o when generating multiple output files">;
 def err_drv_output_type_with_host_compiler : Error<
@@ -353,6 +349,7 @@ def err_drv_expecting_fopenmp_with_fopenmp_targets : Error<
 #if INTEL_CUSTOMIZATION
 def err_drv_opt_requires_opt : Error<"The use of '%0' requires '%1'.">;
 def err_drv_openmp_targets_spir64_unsupported_opt : Error<"The use of '%0' is not supported with '/Qiopenmp /Qopenmp-targets=spir64'.">;
+def err_drv_unsupported_target : Error<"target '%0' is not supported">;
 #endif // INTEL_CUSTOMIZATION
 def err_drv_expecting_fsycl_with_sycl_opt : Error<
   "'%0' must be used in conjunction with '-fsycl' to enable offloading">;
@@ -365,6 +362,11 @@ def err_drv_sycl_missing_amdgpu_arch : Error<
 def warn_drv_sycl_offload_target_duplicate : Warning<
   "SYCL offloading target '%0' is similar to target '%1' already specified; "
   "will be ignored">, InGroup<SyclTarget>;
+def warn_drv_sycl_target_missing : Warning<
+  "linked binaries do not contain expected '%0' target; found targets: '%1'">,
+  InGroup<SyclTarget>;
+def err_drv_multiple_target_with_forced_target : Error<
+  "multiple target usage with '%0' is not supported with '%1'">;
 def err_drv_failed_to_deduce_target_from_arch : Error<
   "failed to deduce triple for target architecture '%0'; specify the triple "
   "using '-fopenmp-targets' and '-Xopenmp-target' instead.">;
@@ -398,6 +400,9 @@ def warn_ignored_gcc_optimization : Warning<"optimization flag '%0' is not suppo
 def warn_ignored_clang_option : Warning<"the flag '%0' has been deprecated and will be ignored">,
   InGroup<UnusedCommandLineArgument>;
 #if INTEL_CUSTOMIZATION
+def warn_drv_deprecated_driver_use_driver_opt : Warning<
+  "use of '%0' is deprecated and will be removed in a future release. "
+  "Use '%1 %2'">, InGroup<Deprecated>;
 def warn_use_of_debug_turn_off_optimization_level : Warning<
   "Note that use of '%0' without any optimization-level option will turn off "
   "most compiler optimizations similar to use of '%1'">,
@@ -737,6 +742,8 @@ def err_drv_invalid_directx_shader_module : Error<
   "invalid profile : %0">;
 def err_drv_dxc_missing_target_profile : Error<
   "target profile option (-T) is missing">;
+def err_drv_hlsl_unsupported_target : Error<
+  "HLSL code generation is unsupported for target '%0'">;
 
 def err_drv_invalid_range_dxil_validator_version : Error<
   "invalid validator version : %0\n"
@@ -747,4 +754,17 @@ def err_drv_invalid_format_dxil_validator_version : Error<
 def err_drv_invalid_empty_dxil_validator_version : Error<
   "invalid validator version : %0\n"
   "If validator major version is 0, minor version must also be 0.">;
+
+def warn_drv_sarif_format_unstable : Warning<
+  "diagnostic formatting in SARIF mode is currently unstable">,
+  InGroup<DiagGroup<"sarif-format-unstable">>;
+
+def err_drv_riscv_unsupported_with_linker_relaxation : Error<
+  "%0 is unsupported with RISC-V linker relaxation (-mrelax)">;
+#if INTEL_CUSTOMIZATION
+def warn_drv_aot_tool_not_found : Warning<"%0 tool could not be found and is required for AOT compilation. "
+  "See: https://www.intel.com/content/www/us/en/develop/documentation/"
+  "oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html"
+  " for more information.">, InGroup<DiagGroup<"aot-tool-not-found">>;
+#endif // INTEL_CUSTOMIZATION
 }

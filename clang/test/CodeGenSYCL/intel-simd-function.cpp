@@ -1,9 +1,9 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -Wno-c++20-extensions \
 // RUN:  -fsycl-is-device -triple spir64-unknown-unknown-sycldevice \
-// RUN:  %s | FileCheck %s
+// RUN:  -no-opaque-pointers %s | FileCheck %s
 
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -Wno-c++20-extensions \
-// RUN:  -fenable-variant-function-pointers \
+// RUN:  -no-opaque-pointers -fenable-variant-function-pointers \
 // RUN:  -fsycl-is-device -triple spir64-unknown-unknown-sycldevice \
 // RUN:  %s | FileCheck %s
 

@@ -13,7 +13,7 @@
 // vim:ts=2:sw=2:et:
 
 // OpenCL 1.2 rev 15, Table 6.8
-let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def acos          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -39,16 +39,16 @@ def exp           : OclBuiltin<"exp",       (outs gentype:$ret), (ins gentype:$x
 def exp2          : OclBuiltin<"exp2",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def exp10         : OclBuiltin<"exp10",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def expm1         : OclBuiltin<"expm1",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def fabs          : OclBuiltin<"fabs",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def : OclBuiltin<"fabs",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def fdim          : OclBuiltin<"fdim",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def floor         : OclBuiltin<"floor",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def fma           : OclBuiltin<"fma",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 1>;
 def fmax          : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmax_common   : OclBuiltin<"fmax_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-def fmax_s        : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
+def fmax_s        : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def fmin          : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmin_common   : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-def fmin_s        : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
+def fmin_s        : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def fmod          : OclBuiltin<"fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fract_pas     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def fract_las     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
@@ -62,7 +62,7 @@ def frexp_gen     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x
 def hypot         : OclBuiltin<"hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def ilogb         : OclBuiltin<"ilogb",     (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def ldexp         : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$k), [], [], 0, 1>;
-def ldexp_s       : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, si32gentype:$k), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
+def ldexp_s       : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, si32gentype:$k), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def lgamma        : OclBuiltin<"lgamma",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def lgamma_r_pas  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def lgamma_r_las  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, LOCAL;
@@ -81,7 +81,6 @@ def modf_las      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x
 def modf_gas      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 def modf_gen      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
 def modf_pas2    : OclBuiltin<"modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def nan           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x), [], [], 0, 1>;
 def nextafter     : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def pow           : OclBuiltin<"pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def pown          : OclBuiltin<"pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], [], 0, 1>;
@@ -112,7 +111,7 @@ def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x
 }
 
 // OpenCL 1.2 rev 15, Table 6.8, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
 def acos_mask          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def acosh_mask         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
@@ -137,7 +136,6 @@ def exp_mask           : OclBuiltin<"exp",       (outs gentype:$ret), (ins genty
 def exp2_mask          : OclBuiltin<"exp2",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def exp10_mask         : OclBuiltin<"exp10",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def expm1_mask         : OclBuiltin<"expm1",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
-def fabs_mask          : OclBuiltin<"fabs",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def fdim_mask          : OclBuiltin<"fdim",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
 def floor_mask         : OclBuiltin<"floor",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def fma_mask           : OclBuiltin<"fma",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, gentype:$mask), [], [], 0, 1>;
@@ -176,7 +174,6 @@ def modf_las_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins genty
 def modf_gas_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 def modf_gen_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
 def modf_pas2_mask     : OclBuiltin<"modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def nan_mask           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x, gentype:$mask), [], [], 0, 1>;
 def nextafter_mask     : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
 def pow_mask           : OclBuiltin<"pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
 def pown_mask          : OclBuiltin<"pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y, gentype:$mask), [], [], 0, 1>;
@@ -230,7 +227,7 @@ def half_tan      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins gentyp
 // OpenCL 1.2 rev 15, Table 6.9
 // half, masked version
 // Spec requires Data type to be ONLY float(f32) (not-double)
-let Types = [v2f32, v3f32, v4f32, v8f32, v16f32],
+let Types = [v4f32, v8f32, v16f32],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def half_cos_mask      : OclBuiltin<"half_cos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
 def half_divide_mask   : OclBuiltin<"half_divide",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
@@ -322,7 +319,7 @@ def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (
 // native, masked version
 // Spec requires Data type to be ONLY float(f32) (not-double)
 // Double support is not in OpenCL 1.2 spec. It is Intel defined extension of spec
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
 def native_cos_mask    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
@@ -416,93 +413,21 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
       Attrs = [CONSTFUNC, OVERLOADABLE] in {
         def retbyarray_#bi : OclBuiltin<"__retbyarray_"#bi, (outs), (ins gentype:$x), [], [], 0, 0>;
   }
- //float:
-  //Cells
-  def bi#cellf            : MapCell<!cast<OclBuiltin>(bi#"_scalarized"), v1f32>;
-  def retbyarray_#bi#cellv2f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v2f32>;
-  def retbyarray_#bi#cellv4f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v4f32>;
-  def retbyarray_#bi#cellv8f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v8f32>;
-  def retbyarray_#bi#cellv16f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v16f32>;
-  def retbyarray_#bi#cellv3f32 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v3f32>;
-  //Rows
-  def bi#row_scalarizef            : MapRow<[
-    !cast<MapCell>(bi#"cellf"), //scalar
-    !cast<MapCell>("retbyarray_"#bi#"cellv2f32"), //v2
-    !cast<MapCell>("retbyarray_"#bi#"cellv4f32"), //v4
-    !cast<MapCell>("retbyarray_"#bi#"cellv8f32"), //v8
-    !cast<MapCell>("retbyarray_"#bi#"cellv16f32"), //16
-    !cast<MapCell>("retbyarray_"#bi#"cellv3f32")], //3,
-    1,0>;
-//double:
-  //Cells
-  def bi#celld            : MapCell<!cast<OclBuiltin>(bi#"_scalarized"), v1f64>;
-  def retbyarray_#bi#cellv2f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v2f64>;
-  def retbyarray_#bi#cellv4f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v4f64>;
-  def retbyarray_#bi#cellv8f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v8f64>;
-  def retbyarray_#bi#cellv16f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v16f64>;
-  def retbyarray_#bi#cellv3f64 : MapCell<!cast<OclBuiltin>("retbyarray_"#bi), v3f64>;
-  //Rows
-  def bi#row_scalarized            : MapRow<[
-    !cast<MapCell>(bi#"celld"), //scalar
-    !cast<MapCell>("retbyarray_"#bi#"cellv2f64"), //v2
-    !cast<MapCell>("retbyarray_"#bi#"cellv4f64"), //v4
-    !cast<MapCell>("retbyarray_"#bi#"cellv8f64"), //v8
-    !cast<MapCell>("retbyarray_"#bi#"cellv16f64"), //16
-    !cast<MapCell>("retbyarray_"#bi#"cellv3f64")], //3,
-    1,0>;
-//float:
-  def bi#_ret2ptrv4f32 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v4f32>;
-  def bi#_ret2ptrv8f32 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v8f32>;
-  def bi#_ret2ptrv16f32 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v16f32>;
-  def bi#row_packetizef : MapRow<[
-    !cast<MapCell>(bi#"cellf"), //scalar
-    nullCell,
-    !cast<MapCell>(bi#"_ret2ptrv4f32"),
-    !cast<MapCell>(bi#"_ret2ptrv8f32"),
-    !cast<MapCell>(bi#"_ret2ptrv16f32"),
-    nullCell],
-    0,1>;
-//double:
-  def bi#_ret2ptrv4f64 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v4f64>;
-  def bi#_ret2ptrv8f64 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v8f64>;
-  def bi#_ret2ptrv16f64 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v16f64>;
-  def bi#row_packetized : MapRow<[
-    !cast<MapCell>(bi#"celld"), //scalar
-    nullCell,
-    !cast<MapCell>(bi#"_ret2ptrv4f64"),
-    !cast<MapCell>(bi#"_ret2ptrv8f64"),
-    !cast<MapCell>(bi#"_ret2ptrv16f64"),
-    nullCell],
-    0,1>;
 }
 
 //VecInfo for DPCPPKernelVecClone
 let Types = [v1f32, v1f64] in {
   foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
                 "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
-                "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
+                "exp10", "expm1", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
                 "fmod", "hypot", "ilogb", "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb",
-                "mad", "maxmag", "minmag", "nan", "nextafter", "pow", "pown", "powr", "remainder", "rint",
+                "mad", "maxmag", "minmag", "nextafter", "pow", "pown", "powr", "remainder", "rint",
                 "rootn", "round", "rsqrt", "sin", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
     def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
     // masked version
     let HandleAlias = 0 in {
       def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-    }
-  }
-}
-
-// VectInfo for fp16 math builtins
-let Types = [v1f16] in {
-  foreach name = ["fabs"] in {
-    defvar builtin = !cast<OclBuiltin>(name);
-    defvar masked_builtin = !cast<OclBuiltin>(name#"_mask");
-
-    def : VectInfo<[], builtin, builtin, builtin, builtin, builtin, builtin>;
-    // masked version
-    let HandleAlias = 0 in {
-      def : VectInfo<[], builtin, masked_builtin, masked_builtin, masked_builtin, masked_builtin, masked_builtin>;
     }
   }
 }
@@ -604,14 +529,14 @@ def min_s   : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, sgentype
 }
 
 // OpenCL 1.2 rev 15, Table 6.10, masked version
-let Types = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-              v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-             v2i16, v3i16, v4i16, v8i16, v16i16,
-             v2u16, v3u16, v4u16, v8u16, v16u16,
-             v2i32, v3i32, v4i32, v8i32, v16i32,
-             v2u32, v3u32, v4u32, v8u32, v16u32,
-             v2i64, v3i64, v4i64, v8i64, v16i64,
-             v2u64, v3u64, v4u64, v8u64, v16u64],
+let Types = [ v4i8,  v8i8,  v16i8,
+              v4u8,  v8u8,  v16u8,
+             v4i16, v8i16, v16i16,
+             v4u16, v8u16, v16u16,
+             v4i32, v8i32, v16i32,
+             v4u32, v8u32, v16u32,
+             v4i64, v8i64, v16i64,
+             v4u64, v8u64, v16u64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def abs_mask       : OclBuiltin<"abs",       (outs ugentype:$ret), (ins gentype:$x, ugentype:$mask), [], [], 0, 1>;
 def abs_diff_mask  : OclBuiltin<"abs_diff",  (outs ugentype:$ret), (ins gentype:$x, gentype:$y, ugentype:$mask), [], [], 0, 0>;
@@ -626,17 +551,9 @@ def rotate_mask    : OclBuiltin<"rotate",    (outs gentype:$ret), (ins gentype:$
 def sub_sat_mask   : OclBuiltin<"sub_sat",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
 def upsample_mask  : OclBuiltin<"upsample",  (outs up_gentype:$ret), (ins gentype:$hi, ugentype:$lo, up_gentype:$mask), [], [], 0, 0>,
                 Except<[v2i64, v3i64, v4i64, v8i64, v16i64, v2u64, v3u64, v4u64, v8u64, v16u64]>;
+def popcount_mask  : OclBuiltin<"popcount",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
 }
-let Types = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-              v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-             v2i16, v3i16, v4i16, v8i16, v16i16,
-             v2u16, v3u16, v4u16, v8u16, v16u16,
-             v2i32, v3i32, v4i32, v8i32, v16i32,
-             v2u32, v3u32, v4u32, v8u32, v16u32,
-             v2i64, v3i64, v4i64, v8i64, v16i64,
-             v2u64, v3u64, v4u64, v8u64, v16u64,
-             v2f32, v3f32, v4f32, v8f32, v16f32,
-             v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def clamp_mask   : OclBuiltin<"clamp", (outs gentype:$ret), (ins gentype:$x, gentype:$minval, gentype:$maxval, gentype:$mask), [], [], 0, 0>;
 def max_mask     : OclBuiltin<"max",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
@@ -647,7 +564,7 @@ def min_mask     : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, gen
 let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
   foreach bi = ["abs", "abs_diff", "add_sat", "hadd", "rhadd",
                 "clz", "mad_hi", "mad_sat", "mul_hi", "rotate",
-                "sub_sat"] in {
+                "sub_sat", "popcount"] in {
     def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
     // masked version
@@ -665,11 +582,11 @@ let Types = [ v1i8, v1u8, v1i16, v1u16,
               v1i32, v1u32, v1i64, v1u64,
               v1f32, v1f64] in {
   foreach bi = ["clamp", "max", "min"] in {
-    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
     // masked version
     let HandleAlias = 0 in {
-      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
     }
   }
 }
@@ -689,8 +606,7 @@ let Types = [v1i32, v1u32] in {
 }
 
 // OpenCL 1.2 rev 15, Table 6.12
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def degrees       : OclBuiltin<"degrees",     (outs gentype:$ret), (ins gentype:$radians), [], [], 0, 0>;
 def mix           : OclBuiltin<"mix",         (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$a), [], [], 0, 0>;
@@ -704,8 +620,7 @@ def sign          : OclBuiltin<"sign",        (outs gentype:$ret), (ins gentype:
 }
 
 // OpenCL 1.2 rev 15, Table 6.12, masked version
-let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
-             v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def degrees_mask       : OclBuiltin<"degrees",     (outs gentype:$ret), (ins gentype:$radians, gentype:$mask), [], [], 0, 0>;
 def mix_mask           : OclBuiltin<"mix",         (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$a, gentype:$mask), [], [], 0, 0>;
@@ -718,11 +633,11 @@ def sign_mask          : OclBuiltin<"sign",        (outs gentype:$ret), (ins gen
 // VectInfo for OclVecClone
 let Types = [v1f32, v1f64] in {
   foreach bi = ["degrees", "mix", "radians", "step", "smoothstep", "sign"] in {
-    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
     // masked version
     let HandleAlias = 0 in {
-      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
     }
   }
 }
@@ -746,98 +661,78 @@ def fast_normalize : OclBuiltin<"fast_normalize", (outs gentype:$ret), (ins gent
 }
 
 // OpenCL 1.2 rev 15, Table 6.14
-// Note that isequal, isnotequal, isgreater, isgreaterequal, isless, islessequal
-// and islessgreater are handled in BuiltinCallToInst pass, so they are not
-// defined here.
+// Note that isequal, isnotequal, isgreater, isgreaterequal, isless,
+// islessequal, islessgreater, isnan, isordered, isunordered and signbit are
+// handled in BuiltinCallToInst pass, so they are not defined here.
 let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isinf           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isnan           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isnormal        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isordered       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def isunordered     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+  // Emit forward declarations for non-standard (not in spec) builtins so that
+  // they can be invoked by other builtins.
+  let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout in {
+    def : OclBuiltin<"isnan", (outs rf2igentype:$ret), (ins gentype:$x)>;
+  }
 }
 // Scalar version of these builtins return 1 if the relation is true, and their
 // widended version should return vector of 1. However, vector version of these
 // builtins (defined in the above table) return vector of -1. So we can't use
 // vector version builtins for VectInfo. The following table defines a set of
 // widened builtins that return vector of 1 if relation is true.
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite_v1widen        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isinf_v1widen           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isnan_v1widen           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isnormal_v1widen        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isordered_v1widen       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def isunordered_v1widen     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def signbit_v1widen         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 }
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32, v1i64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def any : OclBuiltin<"any", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def all : OclBuiltin<"all", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
+
+// Already migrated to source/relational.td
+// These OclBuiltin records are kept here to emit forward declarations for
+// other builtins depending on these builtins.
+// TODO: Remove after we migrate all dependent builtins.
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1  in {
-def bitselect   : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 0>;
-def iselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c), [], [], 0, 0>;
-def uselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c), [], [], 0, 0>;
+def : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 0>;
+def : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c), [], [], 0, 0>;
+def : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c), [], [], 0, 0>;
 }
 
 // OpenCL 1.2 rev 15, Table 6.14, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
      Attrs = [CONSTFUNC, OVERLOADABLE],
      NeedForwardDecl = 1 in {
 def isfinite_mask        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isinf_mask           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isnan_mask           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isnormal_mask        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isordered_mask       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def isunordered_mask     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 }
 // Following table defines vectorized masked builtins that are for scalar
 // builtin. Therefore, the return value is vector of 1 if relation is true.
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isinf_v1widen_mask           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isnan_v1widen_mask           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isordered_v1widen_mask       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def isunordered_v1widen_mask     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def signbit_v1widen_mask         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-}
-let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
-    Attrs = [CONSTFUNC, OVERLOADABLE],
-    NeedForwardDecl = 1  in {
-def bitselect_mask   : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, i32gentype:$mask), [], [], 0, 1>;
-def iselect_mask     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c, i32gentype:$mask), [], [], 0, 1>;
-def uselect_mask     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c, i32gentype:$mask), [], [], 0, 1>;
 }
 
 // VectInfo for OclVecClone
 let Types = [v1f32, v1f64],
     HandleAlias = 0 in {
-  foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunordered", "signbit"] in {
+  foreach name = ["isfinite", "isinf", "isnormal"] in {
     defvar bi = name # "_v1widen";
     def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi),
                        !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
     def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"),
                      !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-  }
-}
-let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64] in {
-  foreach bi = ["bitselect", "iselect", "uselect"] in {
-    def bi # _vect_info : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-    def bi # _mask_vect_info : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"),
-                                            !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
   }
 }
 
@@ -1668,215 +1563,4 @@ foreach qual = [ "wo", "rw" ] in {
                 (ins v16i32:$mask, !cast<OclType>("image2d_"#qual):$image, v16i32:$coord_x, v16i32:$coord_y,
                      v16u32:$val_x, v16u32:$val_y, v16u32:$val_z, v16u32:$val_w), [], [], 0, 0>;
   }
-}
-
-// Vectorizer generated table for masked image read/write functions
-foreach imagebi = [ "mask_read_imagef_2d_ro", "mask_read_imagef_2d_rw",
-                    "mask_read_imagei_2d_ro", "mask_read_imagei_2d_rw" ] in {
-  def imagebi#_f_cell : MapCell<!cast<OclBuiltin>(imagebi), v4f32>;
-  def imagebi#_f_vectorized : MapRow<[
-    !cast<MapCell>(imagebi#_f_cell), //scalar
-    nullCell,      //v2
-    nullCell,      //v4
-    nullCell,      //v8
-    nullCell,      //16
-    nullCell],     //3
-    0,0>;          //not scalarizable, not packetizable
-  def imagebi#_i_cell : MapCell<!cast<OclBuiltin>(imagebi), v4i32>;
-  def imagebi#_i_vectorized : MapRow<[
-    !cast<MapCell>(imagebi#_i_cell), //scalar
-    nullCell,      //v2
-    nullCell,      //v4
-    nullCell,      //v8
-    nullCell,      //16
-    nullCell],     //3,
-    0,0>;          //not scalarizable, not packetizable
-}
-
-foreach imagebi = [ "mask_read_imagef_2d_ro_no_sampler", "mask_read_imagef_2d_rw_no_sampler",
-                    "mask_read_imagei_2d_ro_no_sampler", "mask_read_imagei_2d_rw_no_sampler" ] in {
-  def imagebi#_f_cell : MapCell<!cast<OclBuiltin>(imagebi), v4i32>;
-  def imagebi#_f_vectorized : MapRow<[
-    !cast<MapCell>(imagebi#_f_cell), //scalar
-    nullCell,      //v2
-    nullCell,      //v4
-    nullCell,      //v8
-    nullCell,      //16
-    nullCell],     //3
-    0,0>;          //not scalarizable, not packetizable
-}
-
-foreach imagebi = [ "mask_write_imagef_2d_wo", "mask_write_imagef_2d_rw",
-                    "mask_write_imagei_2d_wo", "mask_write_imagei_2d_rw" ] in {
-  def imagebi#_i_cell : MapCell<!cast<OclBuiltin>(imagebi), v4i32>;
-  def imagebi#_i_vectorized : MapRow<[
-    !cast<MapCell>(imagebi#_i_cell), //scalar
-    nullCell,      //v2
-    nullCell,      //v4
-    nullCell,      //v8
-    nullCell,      //16
-    nullCell],     //3
-    0,0>;          //not scalarizable, not packetizable
-}
-
-foreach qual = [ "ro", "rw"] in {
-  def mask_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_read_imageui_2d_"#qual), v4i32>;
-  def mask_soa4_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa4_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def mask_soa8_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa8_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def mask_soa16_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa16_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def mask_read_imageui_2d_#qual#_i_vectorized : MapRow<[
-    !cast<MapCell>("mask_read_imageui_2d_"#qual#"_i_cell"), //scalar
-    nullCell,      //v2
-    !cast<MapCell>("mask_soa4_read_imageui_2d_"#qual#"_i_cell"),      //v4
-    !cast<MapCell>("mask_soa8_read_imageui_2d_"#qual#"_i_cell"),      //v8
-    !cast<MapCell>("mask_soa16_read_imageui_2d_"#qual#"_i_cell"),     //16
-    nullCell],     //3
-    0,1>;          //not scalarizable, packetizable
-}
-
-foreach qual = [ "ro", "rw"] in {
-  def mask_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_read_imageui_2d_"#qual#"_no_sampler"), v4i32>;
-  def mask_soa4_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_soa4_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
-  def mask_soa8_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_soa8_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
-  def mask_soa16_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_soa16_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
-  def mask_read_imageui_2d_#qual#_no_sampler_i_vectorized : MapRow<[
-    !cast<MapCell>("mask_read_imageui_2d_"#qual#"_no_sampler_i_cell"), //scalar
-    nullCell,      //v2
-    !cast<MapCell>("mask_soa4_read_imageui_2d_"#qual#"_no_sampler_i_cell"),      //v4
-    !cast<MapCell>("mask_soa8_read_imageui_2d_"#qual#"_no_sampler_i_cell"),      //v8
-    !cast<MapCell>("mask_soa16_read_imageui_2d_"#qual#"_no_sampler_i_cell"),     //16
-    nullCell],     //3
-    0,1>;          //not scalarizable, packetizable
-}
-
-foreach qual = [ "wo", "rw"] in {
-  def mask_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_write_imageui_2d_"#qual), v4i32>;
-  def mask_soa4_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa4_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def mask_soa8_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa8_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def mask_soa16_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa16_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def mask_write_imageui_2d_#qual#_i_vectorized : MapRow<[
-    !cast<MapCell>("mask_write_imageui_2d_"#qual#"_i_cell"), //scalar
-    nullCell,      //v2
-    !cast<MapCell>("mask_soa4_write_imageui_2d_"#qual#"_i_cell"),      //v4
-    !cast<MapCell>("mask_soa8_write_imageui_2d_"#qual#"_i_cell"),      //v8
-    !cast<MapCell>("mask_soa16_write_imageui_2d_"#qual#"_i_cell"),     //16
-    nullCell],     //3
-    0,1>;          //not scalarizable, packetizable
-}
-
-// Vectorizer generated table for image properties functions
-foreach qual = [ "ro", "wo", "rw" ] in {
-  foreach imagebi = [ "image2d_", "image3d_", "image2d_array_" ] in {
-    def imagebi#qual#_get_image_height_cell : MapCell<!cast<OclBuiltin>("get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa4_get_image_height_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa8_get_image_height_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa16_get_image_height_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_get_image_height_vectorized : MapRow<[
-      !cast<MapCell>(imagebi#qual#"_get_image_height_cell"), //scalar
-      nullCell,      //v2
-      !cast<MapCell>(imagebi#qual#"_soa4_get_image_height_cell"),      //v4
-      !cast<MapCell>(imagebi#qual#"_soa8_get_image_height_cell"),      //v8
-      !cast<MapCell>(imagebi#qual#"_soa16_get_image_height_cell"),     //16
-      nullCell],     //3
-      0,1>;          //not scalarizable, packetizable
-  }
-
-  foreach imagebi = [ "image1d_", "image2d_", "image3d_", "image1d_array_", "image1d_buffer_", "image2d_array_" ] in {
-    def imagebi#qual#_get_image_width_cell : MapCell<!cast<OclBuiltin>("get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa4_get_image_width_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa8_get_image_width_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa16_get_image_width_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_get_image_width_vectorized : MapRow<[
-      !cast<MapCell>(imagebi#qual#_get_image_width_cell), //scalar
-      nullCell,      //v2
-      !cast<MapCell>(imagebi#qual#_soa4_get_image_width_cell),      //v4
-      !cast<MapCell>(imagebi#qual#_soa8_get_image_width_cell),      //v8
-      !cast<MapCell>(imagebi#qual#_soa16_get_image_width_cell),     //16
-      nullCell],     //3
-      0,1>;          //not scalarizable, packetizable
-
-    def imagebi#qual#_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa4_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa8_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa16_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_get_image_channel_order_vectorized : MapRow<[
-      !cast<MapCell>(imagebi#qual#_get_image_channel_order_cell), //scalar
-      nullCell,      //v2
-      !cast<MapCell>(imagebi#qual#_soa4_get_image_channel_order_cell),      //v4
-      !cast<MapCell>(imagebi#qual#_soa8_get_image_channel_order_cell),      //v8
-      !cast<MapCell>(imagebi#qual#_soa16_get_image_channel_order_cell),     //16
-      nullCell],     //3
-      0,1>;          //not scalarizable, packetizable
-
-    def imagebi#qual#_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa4_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa8_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_soa16_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
-    def imagebi#qual#_get_image_channel_data_type_vectorized : MapRow<[
-      !cast<MapCell>(imagebi#qual#_get_image_channel_data_type_cell), //scalar
-      nullCell,      //v2
-      !cast<MapCell>(imagebi#qual#_soa4_get_image_channel_data_type_cell),      //v4
-      !cast<MapCell>(imagebi#qual#_soa8_get_image_channel_data_type_cell),      //v8
-      !cast<MapCell>(imagebi#qual#_soa16_get_image_channel_data_type_cell),     //16
-      nullCell],     //3
-      0,1>;          //not scalarizable, packetizable
-  }
-
-  def get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
-  def soa4_get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("soa4_get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
-  def soa8_get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("soa8_get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
-  def soa16_get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("soa16_get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
-  def get_image_depth_vectorized_#qual : MapRow<[
-    !cast<MapCell>("get_image_depth_cell_"#qual), //scalar
-    nullCell,      //v2
-    !cast<MapCell>("soa4_get_image_depth_cell_"#qual),      //v4
-    !cast<MapCell>("soa8_get_image_depth_cell_"#qual),      //v8
-    !cast<MapCell>("soa16_get_image_depth_cell_"#qual),     //16
-    nullCell],     //3
-    0,1>;          //not scalarizable, packetizable
-}
-
-// Vectorizer generated table for image read/write functions
-foreach qual = [ "ro", "rw" ] in {
-  def read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("read_imageui_2d_"#qual), v4i32>;
-  def soa4_read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa4_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def soa8_read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa8_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def soa16_read_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa16_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def read_imageui_2d_#qual#_vectorized : MapRow<[
-    !cast<MapCell>("read_imageui_2d_"#qual#"_cell"), //scalar
-    nullCell,      //v2
-    !cast<MapCell>("soa4_read_imageui_2d_"#qual#"_cell"),      //v4
-    !cast<MapCell>("soa8_read_imageui_2d_"#qual#"_cell"),      //v8
-    !cast<MapCell>("soa16_read_imageui_2d_"#qual#"_cell"),     //16
-    nullCell],     //3
-    0,1>;          //not scalarizable, packetizable
-
-  def read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("read_imageui_2d_"#qual#"_no_sampler"), v4i32>;
-  def soa4_read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("soa4_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
-  def soa8_read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("soa8_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
-  def soa16_read_imageui_2d_#qual#_no_sampler_cell : MapCell<!cast<OclBuiltin>("soa16_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
-  def read_imageui_2d_#qual#_no_sampler__vectorized : MapRow<[
-    !cast<MapCell>("read_imageui_2d_"#qual#"_no_sampler_cell"), //scalar
-    nullCell,      //v2
-    !cast<MapCell>("soa4_read_imageui_2d_"#qual#"_no_sampler_cell"),      //v4
-    !cast<MapCell>("soa8_read_imageui_2d_"#qual#"_no_sampler_cell"),      //v8
-    !cast<MapCell>("soa16_read_imageui_2d_"#qual#"_no_sampler_cell"),      //16
-    nullCell],     //3
-    0,1>;          //not scalarizable, packetizable
-}
-
-foreach qual = [ "wo", "rw" ] in {
-  def write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("write_imageui_2d_"#qual), v4i32>;
-  def soa4_write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa4_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def soa8_write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa8_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def soa16_write_imageui_2d_#qual#_cell : MapCell<!cast<OclBuiltin>("soa16_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
-  def write_imageui_2d_#qual#_vectorized : MapRow<[
-    !cast<MapCell>("write_imageui_2d_"#qual#"_cell"), //scalar
-    nullCell,      //v2
-    !cast<MapCell>("soa4_write_imageui_2d_"#qual#"_cell"),      //v4
-    !cast<MapCell>("soa8_write_imageui_2d_"#qual#"_cell"),      //v8
-    !cast<MapCell>("soa16_write_imageui_2d_"#qual#"_cell"),      //16
-    nullCell],     //3
-    0,1>;          //not scalarizable, packetizable
-
 }

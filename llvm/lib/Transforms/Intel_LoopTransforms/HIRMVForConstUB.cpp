@@ -226,10 +226,38 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   LoopsMultiversioned++;
 }
 
+  // Try to multivesion loopnest if one of innermost loops has small MAX_TC_EST.
+  // Ex.:
+  // Before optimization:
+  //      DO i1 =
+  //        %N = ...;
+  //        DO i2 =
+  //          DO i3 = 1, %N      <MAX_TC_EST = 5>
+  //            ...
+  //          ENDDO
+  //        ENDDO
+  //      ENDDO
+  // After optimization:
+  //      DO i1 =
+  //        %N = ...;
+  //        if (%N == 3) {
+  //          DO i2 =
+  //            DO i3 = 0, 2, 1
+  //              ...
+  //            ENDDO
+  //          ENDDO
+  //        else {
+  //          DO i2 =
+  //            DO i3 = 0, %N -1      <MAX_TC_EST = 5>
+  //              ...
+  //            ENDDO
+  //          ENDDO
+  //        }
+  //      ENDDO
 bool HIRMVForConstUB::transformLoopNest(HLLoop *OuterLoop, unsigned BlobIndex,
                                         int64_t NewValue) {
   // Create multiversioning condition.
-  RegDDRef *LHS = DRU.createSelfBlobRef(BlobIndex, 0);
+  RegDDRef *LHS = DRU.createSelfBlobRef(BlobIndex, OuterLoop->getNestingLevel() - 1);
   RegDDRef *RHS = DRU.createConstDDRef(LHS->getDestType(), NewValue);
 
   HLIf *If =
@@ -242,10 +270,12 @@ bool HIRMVForConstUB::transformLoopNest(HLLoop *OuterLoop, unsigned BlobIndex,
   HLNodeUtils::insertAsFirstThenChild(If, ThenLoop);
   HLNodeUtils::moveAsFirstElseChild(If, OuterLoop);
 
+  LHS->makeConsistent();
+
   // Propogate new constant value of TC throught loopnest.
   propagateConstant(ThenLoop, BlobIndex, NewValue);
 
-  HIRInvalidationUtils::invalidateNonLoopRegion(OuterLoop->getParentRegion());
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 
   LoopsMultiversioned++;
   return true;
@@ -282,30 +312,33 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   }
 
   // Try to multivesion loopnest if one of innermost loops has small MAX_TC_EST.
+  // If innermost loop has single blob in the TC and this blob is defined at
+  // some nesting level L, then do loop multivertioning on the base of the blob
+  // value calculated from MAX_TC_EST.
   if (!Loop->isInnermost() || (Loop->getNestingLevel() == 1) ||
       (MaxTCEstMVCandidates.size() > 64)) {
     return false;
   }
 
-  // Bail out for unprofitable TC or no outer loop.
+  // Calculate on which level UB blob is defined to figure out what loop should be
+  // multiversioned.
+  unsigned DefAtLvl = Ref->getDefinedAtLevel();
+
+  // Bail out for unprofitable TC or no outer loop. Initial target was TC = 3.
   uint64_t TC = Loop->getMaxTripCountEstimate();
-  if ((TC < 3) || (TC > 32)) {
-    LLVM_DEBUG(dbgs() << "\t Give up: bad TC.\n");
+  if ((TC < 3) || (TC > 15)) {
+    LLVM_DEBUG(dbgs() << "\t Give up: unprofitable TC.\n");
     return false;
   }
 
   // If we already have this candidate we do not consider it again.
-  HLLoop *const OutermostParent = Loop->getOutermostParentLoop();
-  if (MaxTCEstMVCandidates.find(OutermostParent) !=
-      MaxTCEstMVCandidates.end()) {
-    LLVM_DEBUG(dbgs() << "\t Give up: we already have this candidate.\n");
+  HLLoop *const ParentL = Loop->getParentLoopAtLevel(DefAtLvl + 1);
+  if (ParentL->hasPreheader()) {
     return false;
   }
 
-  // Check that UB blob is defined outside a loop so we could move it at the
-  // outermost 'if' in the region.
-  if (Ref->getDefinedAtLevel() != 0) {
-    LLVM_DEBUG(dbgs() << "\t Give up due to UB not defined on level 0.\n");
+  if (MaxTCEstMVCandidates.find(ParentL) != MaxTCEstMVCandidates.end()) {
+    LLVM_DEBUG(dbgs() << "\t Give up: we already have this candidate.\n");
     return false;
   }
 
@@ -322,14 +355,15 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   int64_t Const = TCCanonExpr->getConstant();
 
   // We expect TC to be in the form of C * %x + C1.
-  // Also check the case of C * sext(%x) + C1.
+  // Also check the case of C * ext(%x) + C1.
   TCCanonExpr->setConstant(0);
   TCCanonExpr->setBlobCoeff(BlobIndex, 1);
 
-  // Only self blob or sext of self blob is allowed.
+  // Only self blob or ext of self blob is allowed.
   BlobTy InnerBlob = nullptr;
  if (!TCCanonExpr->isSelfBlob()) {
-    if (BU.isSignExtendBlob(BU.getBlob(BlobIndex), &InnerBlob) &&
+    if ((BU.isSignExtendBlob(BU.getBlob(BlobIndex), &InnerBlob) ||
+         BU.isZeroExtendBlob(BU.getBlob(BlobIndex), &InnerBlob)) &&
         BU.isTempBlob(InnerBlob)) {
       BlobIndex = BU.findBlob(InnerBlob);
     } else {
@@ -349,9 +383,9 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
 
   LLVM_DEBUG(dbgs() << "\t MAX_TC_EST candidate:  ";
              dbgs() << NewBlobValue << " = "; BU.getBlob(BlobIndex)->dump();
-             OutermostParent->dump(););
+             ParentL->dump(););
   MaxTCEstMVCandidates.insert(
-      std::make_pair(OutermostParent, std::make_pair(BlobIndex, NewBlobValue)));
+      std::make_pair(ParentL, std::make_pair(BlobIndex, NewBlobValue)));
 
   return false;
 }

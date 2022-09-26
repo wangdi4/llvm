@@ -12,10 +12,10 @@
 
 #include "CPUProgramBuilder.h"
 #include "CPUJITContainer.h"
-#include "CompilationUtils.h"
 #include "CompilerConfig.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
+#include "OCLAddressSpace.h"
 #include "Program.h"
 #include "StaticObjectLoader.h"
 #include "debuggingservicetype.h"
@@ -43,8 +43,7 @@ using namespace Intel::OpenCL::ELFUtils;
 CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory *pBackendFactory,
                                      std::unique_ptr<ICompilerConfig> config)
     : ProgramBuilder(pBackendFactory, std::move(config)), m_compiler(*m_config),
-      m_isFpgaEmulator(FPGA_EMU_DEVICE == m_config->TargetDevice()),
-      m_isEyeQEmulator(EYEQ_EMU_DEVICE == m_config->TargetDevice()) {}
+      m_isFpgaEmulator(FPGA_EMU_DEVICE == m_config->TargetDevice()) {}
 
 CPUProgramBuilder::~CPUProgramBuilder()
 {
@@ -134,6 +133,8 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
   size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
   size_t irSize = reader.GetSectionSize(g_irSectionName);
   size_t objectSize = reader.GetSectionSize(g_objSectionName);
+  pProgram->m_binaryVersion = *((const unsigned int *)reader.GetSectionData(
+      Intel::OpenCL::ELFUtils::g_objVerSectionName));
 
   // get the buffers entries
   const char *bitCodeBuffer =
@@ -210,7 +211,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     std::unique_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
     pCPUSerializationService->ReloadProgram(SERIALIZE_PERSISTENT_IMAGE,
                                             pProgram, serializationBuffer,
-                                            serializationSize);
+                                            serializationSize, pProgram->m_binaryVersion);
 
     // init refcounted runtime service shared storage between program and kernels
     RuntimeServiceSharedPtr lRuntimeService =
@@ -276,7 +277,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
       intel::DebuggingServiceType debugType = intel::getDebuggingServiceType(
           buildOptions.GetDebugInfoFlag(), pModule,
           buildOptions.GetUseNativeDebuggerFlag());
-      bool useTLSGlobals = (debugType == intel::Native) && !m_isEyeQEmulator;
+      bool useTLSGlobals = (debugType == intel::Native);
       std::unique_ptr<Kernel> spKernel(
           CreateKernel(pFunc, pWrapperFunc->getName().str(),
                        spKernelProps.get(), useTLSGlobals));
@@ -388,6 +389,11 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram) const
         const llvm::DataLayout &DL = spModule->getDataLayout();
         for (auto &GV : spModule->globals())
         {
+            // If there is a global variable like '__llvm_gcov_ctr.x', it means
+            // that the code was built with profiling enabled.
+            if (GV.getName().contains("__llvm_gcov_ctr"))
+                pProgram->SetCodeProfilingStatus(PROFILING_GCOV);
+
             llvm::PointerType *PT = GV.getType();
             unsigned AS = PT->getAddressSpace();
             if (!IS_ADDR_SPACE_GLOBAL(AS) && !IS_ADDR_SPACE_CONSTANT(AS))
@@ -443,7 +449,12 @@ void CPUProgramBuilder::JitProcessing(
           (static_cast<CPUProgram *>(program))->getLLJITLogStream(),
           "JIT session error: ");
     });
+
     program->SetLLJIT(std::move(LLJIT));
+
+    // Load clang profile library if the code was built with profiling
+    if (program->GetCodeProfilingStatus() != PROFILING_NONE)
+      program->LoadProfileLib();
   }
 
   // Check if we are going to do injection

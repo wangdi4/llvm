@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx_ne_convert
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +avx2 -target-feature +avxneconvert \
+// RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +avx2 -target-feature +avxneconvert \
 // RUN: -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>

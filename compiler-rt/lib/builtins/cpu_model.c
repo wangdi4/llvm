@@ -1,4 +1,21 @@
 //===-- cpu_model.c - Support for __cpu_model builtin  ------------*- C -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -107,6 +124,23 @@ enum ProcessorSubtypes {
   INTEL_COREI7_ALDERLAKE,
   AMDFAM19H_ZNVER3,
   INTEL_COREI7_ROCKETLAKE,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+  INTEL_COREI7_RAPTORLAKE,
+#endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_GNR
+  INTEL_COREI7_GRANITERAPIDS,
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+  INTEL_COREI7_DIAMONDRAPIDS,
+#endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+  INTEL_COREI7_METEORLAKE,
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+  INTEL_COREI7_EMERALDRAPIDS,
+#endif // INTEL_FEATURE_CPU_EMR
+#endif // INTEL_CUSTOMIZATION
   CPU_SUBTYPE_MAX
 };
 
@@ -445,6 +479,36 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = INTEL_COREI7_ALDERLAKE;
       break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+    // Raptorlake:
+    case 0xb7: // Raptorlake desktop
+    case 0xba: // Raptorlake mobile
+      CPU = "raptorlake";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_RAPTORLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_MTL
+    // Meteorlake:
+    case 0xb5: // Meteorlake N
+    case 0xaa: // Meteorlake P/M
+    case 0xac: // Meteorlake S
+      CPU = "meteorlake";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_METEORLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+    // Emeraldrapids:
+    case 0xcf:
+      CPU = "emeraldrapids";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_EMERALDRAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_EMR
+#endif // INTEL_CUSTOMIZATION
+
     // Icelake Xeon:
     case 0x6a:
     case 0x6c:
@@ -459,6 +523,25 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_SAPPHIRERAPIDS;
       break;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GNR
+    // Granite Rapids:
+    case 0xad:
+      CPU = "graniterapids";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_GRANITERAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+    // Diamond Rapids:
+    case 0xd6:
+      CPU = "diamondrapids";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_DIAMONDRAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft

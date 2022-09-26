@@ -33,31 +33,46 @@ int main() {
   int a;
   int b;
   int *p;
+  int p2[30];
+  int *p3;
+  int *p4;
 
-  #pragma omp prefetch data(p:1:10, &b:2:20) if (a < b)
+  #pragma ompx prefetch data(1:p[0:10]) data(2:p2[3:20],p3[5:5]) data(p4[4:99]) if (a < b)
   return 0;
 }
 //DUMP: FunctionDecl{{.*}} main 'int ()'
 //DUMP: OMPPrefetchDirective
 //DUMP: OMPDataClause
-//DUMP: DeclRefExpr {{.*}} lvalue Var{{.*}}'p' 'int *'
-//DUMP: IntegerLiteral {{.*}}'int' 1
+//DUMP: OMPArraySectionExpr
+//DUMP: DeclRefExpr {{.*}}'p' 'int *'
+//DUMP: IntegerLiteral {{.*}}'int' 0
 //DUMP: IntegerLiteral {{.*}}'int' 10
-//DUMP: DeclRefExpr {{.*}} <col:38> 'int' lvalue Var {{.*}} 'b' 'int'
-//DUMP: IntegerLiteral {{.*}} <col:40> 'int' 2
-//DUMP: IntegerLiteral {{.*}} <col:42> 'int' 20
+//DUMP: OMPDataClause
+//DUMP: OMPArraySectionExpr
+//DUMP: DeclRefExpr {{.*}}'p2' 'int[30]'
+//DUMP: IntegerLiteral {{.*}}'int' 3
+//DUMP: IntegerLiteral {{.*}}'int' 20
+//DUMP: OMPArraySectionExpr
+//DUMP: DeclRefExpr {{.*}}'p3' 'int *'
+//DUMP: IntegerLiteral {{.*}}'int' 5
+//DUMP: IntegerLiteral {{.*}}'int' 5
+//DUMP: OMPDataClause
+//DUMP: OMPArraySectionExpr
+//DUMP: DeclRefExpr {{.*}}'p4' 'int *'
+//DUMP: IntegerLiteral {{.*}}'int' 4
+//DUMP: IntegerLiteral {{.*}}'int' 99
 //DUMP: OMPIfClause
 //DUMP: BinaryOperator{{.*}}'bool' '<'
 //DUMP: ImplicitCastExpr{{.*}}'int' <LValueToRValue>
 //DUMP: DeclRefExpr{{.*}}'int' lvalue Var{{.*}}'a' 'int'
 //DUMP: ImplicitCastExpr{{.*}}'int' <LValueToRValue>
 //DUMP: DeclRefExpr{{.*}}'int' lvalue Var{{.*}}'b' 'int'
-//PRINT: #pragma omp prefetch data(p:1:10, &b:2:20) if(a < b)
+//PRINT: #pragma ompx prefetch data(1: p[0:10]) data(2: p2[3:20],p3[5:5]) data(p4[4:99]) if(a < b)
 
 template <typename T, unsigned hint, unsigned size>
 T run() {
   T foo[size];
-  #pragma omp prefetch data(&foo:hint:size)
+  #pragma ompx prefetch data(hint:foo[0:size])
 
   return foo[0];
 }
@@ -68,42 +83,32 @@ int template_test() {
   return 0;
 }
 
-//DUMP: FunctionTemplateDecl {{.*}} <line:57:1, line:63:1> line:58:3
-//DUMP: TemplateTypeParmDecl {{.*}} <line:57:11, col:20> col:20
-//DUMP: NonTypeTemplateParmDecl {{.*}} <col:23, col:32> col:32 {{.*}} 'unsigned int' depth 0 index 1 hint
-//DUMP: NonTypeTemplateParmDecl {{.*}} <col:38, col:47> col:47 {{.*}} 'unsigned int' depth 0 index 2 size
-//DUMP: FunctionDecl {{.*}} <line:58:1, line:63:1> line:58:3 {{.*}} 'T ()'
-//DUMP: CompoundStmt {{.*}} <col:9, line:63:1>
-//DUMP: DeclStmt {{.*}} <line:59:3, col:14>
-//DUMP: VarDecl {{.*}} <col:3, col:13> col:5 {{.*}} foo 'T[size]'
-//DUMP: OMPPrefetchDirective {{.*}} <line:60:3, col:44> openmp_standalone_directive
-//DUMP: OMPDataClause {{.*}} <col:24, col:43>
-//DUMP: UnaryOperator {{.*}} <col:29, col:30> '<dependent type>' prefix '&' cannot overflow
-//DUMP: DeclRefExpr {{.*}} <col:30> 'T[size]' lvalue Var {{.*}} 'foo' 'T[size]'
-//DUMP: DeclRefExpr {{.*}} <col:34> 'unsigned int' NonTypeTemplateParm {{.*}} 'hint' 'unsigned int'
-//DUMP: DeclRefExpr {{.*}} <col:39> 'unsigned int' NonTypeTemplateParm {{.*}} 'size' 'unsigned int'
-//DUMP: ReturnStmt {{.*}} <line:62:3, col:15>
-//DUMP: ArraySubscriptExpr {{.*}} 'T' lvalue
-//DUMP: DeclRefExpr {{.*}} <col:10> 'T[size]' lvalue Var {{.*}} 'foo' 'T[size]'
-//DUMP: IntegerLiteral {{.*}} <col:14> 'int' 0
-//DUMP: FunctionDecl {{.*}} <line:58:1, line:63:1> line:58:3 {{.*}} run 'double ()'
+//DUMP: FunctionTemplateDecl {{.*}}run
+//DUMP: TemplateTypeParmDecl {{.*}}typename depth 0 index 0 T
+//DUMP: NonTypeTemplateParmDecl {{.*}}'unsigned int' depth 0 index 1 hint
+//DUMP: NonTypeTemplateParmDecl {{.*}}'unsigned int' depth 0 index 2 size
+//DUMP: FunctionDecl {{.*}}run 'T ()'
+//DUMP: OMPPrefetchDirective {{.*}}openmp_standalone_directive
+//DUMP: OMPDataClause
+//DUMP: OMPArraySectionExpr {{.*}}'<dependent type>' lvalue
+//DUMP: DeclRefExpr {{.*}}'foo' 'T[size]'
+//DUMP: IntegerLiteral {{.*}}'int' 0
+//DUMP: DeclRefExpr {{.*}}NonTypeTemplateParm {{.*}}'size' 'unsigned int'
+//PRINT: #pragma ompx prefetch data(hint: foo[0:size])
+
+//DUMP: FunctionDecl {{.*}}run 'double ()'
 //DUMP: TemplateArgument type 'double'
 //DUMP: BuiltinType {{.*}} 'double'
 //DUMP: TemplateArgument integral 1
 //DUMP: TemplateArgument integral 10
-//DUMP: CompoundStmt {{.*}} <col:9, line:63:1>
-//DUMP: DeclStmt {{.*}} <line:59:3, col:14>
-//DUMP: VarDecl {{.*}} <col:3, col:13> col:5 {{.*}} foo 'double[10]'
-//DUMP: OMPPrefetchDirective {{.*}} <line:60:3, col:44> openmp_standalone_directive
-//DUMP: OMPDataClause {{.*}} <col:24, col:43>
-//DUMP: UnaryOperator {{.*}} <col:29, col:30> 'double (*)[10]' prefix '&' cannot overflow
-//DUMP: DeclRefExpr {{.*}} <col:30> 'double[10]' lvalue Var {{.*}} 'foo' 'double[10]'
-//DUMP: SubstNonTypeTemplateParmExpr {{.*}} <col:34> 'unsigned int'
-//DUMP: NonTypeTemplateParmDecl {{.*}} <line:57:23, col:32> col:32 {{.*}} 'unsigned int' depth 0 index 1 hint
-//DUMP: IntegerLiteral {{.*}} <line:60:34> 'unsigned int' 1
-//DUMP: SubstNonTypeTemplateParmExpr {{.*}} <col:39> 'unsigned int'
-//DUMP: NonTypeTemplateParmDecl {{.*}} <line:57:38, col:47> col:47 {{.*}} 'unsigned int' depth 0 index 2 size
-//DUMP: IntegerLiteral {{.*}} <line:60:39> 'unsigned int' 10
-//PRINT: #pragma omp prefetch data(&foo:1U:10U)
+//DUMP: OMPPrefetchDirective {{.*}}openmp_standalone_directive
+//DUMP: OMPDataClause
+//DUMP: OMPArraySectionExpr {{.*}}<OpenMP array section type>' lvalue
+//DUMP: DeclRefExpr {{.*}}'foo' 'double[10]'
+//DUMP: IntegerLiteral {{.*}}'int' 0
+//DUMP: SubstNonTypeTemplateParmExpr {{.*}}'unsigned int'
+//DUMP: NonTypeTemplateParmDecl {{.*}}'unsigned int' depth 0 index 2 size
+//DUMP: IntegerLiteral {{.*}}'unsigned int' 10
+//PRINT: #pragma ompx prefetch data(1U: foo[0:10U])
 #endif // HEADER
 // end INTEL_COLLAB

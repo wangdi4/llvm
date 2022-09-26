@@ -28,14 +28,17 @@
 ; Check that we capture the VLA size expression at both parallel and target constructs.
 ; CHECK: VPOParopt Transform: PARALLEL construct
 ; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %fp.len '
-; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[SIZE_ADDR1:%[^ ]+]]'
+; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr [[SIZE_ADDR1:%[^ ]+]]'
 ; CHECK: VPOParopt Transform: TARGET construct
 ; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %i1 '
-; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[I1_ADDR:%i1.addr]]'
+; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr [[I1_ADDR:%i1.addr]]'
 
-; Check that no captured VLA size is passed in to the outlined function for the target region.
+; Ensure that the map-type for I1_ADDR (3rd) is 161 (PARAM|TO|PRIVATE)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [3 x i64] [i64 35, i64 161, i64 161]
+
+; Check that the captured VLA size is passed in to the outlined function for the target region.
 ; CHECK: define dso_local i32 @main()
-; CHECK: call void @__omp_offloading{{.*}}main{{.*}}(ptr %vla, ptr [[I1_ADDR]], ptr %omp.vla.tmp)
+; CHECK: call void @__omp_offloading{{.*}}main{{.*}}(ptr %vla, ptr %omp.vla.tmp, ptr [[I1_ADDR]])
 
 ; Check that the captured VLA size is used in the parallel region for allocation of the private VLA.
 ; CHECK: define internal void @main.DIR.OMP.PARALLEL{{.*}}(ptr %{{.*}}, ptr %{{.*}}, ptr [[SIZE_ADDR1]], ptr %{{.*}})
@@ -43,8 +46,12 @@
 ; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL1]], align 16
 
 ; Check that the address of %fp.len is passed into the outlined function for the parallel region.
-; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(ptr noalias %vla, ptr noalias [[I1_ADDR]], ptr %omp.vla.tmp)
-; Check that the captured VLA size is passed in to the outlined function for the parallel region.
+; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(ptr noalias %vla, ptr %omp.vla.tmp, ptr noalias [[I1_ADDR]])
+; Check for the firstprivatet initialization of I1_ADDR
+; CHECK: [[I1_ADDR]].fpriv = alloca i64, align 8
+; CHECK: [[I1_VAL:%.+]] = load i64, ptr [[I1_ADDR]], align 8
+; CHECK: store i64 [[I1_VAL]], ptr [[I1_ADDR]].fpriv, align 8
+; Check that the captured VLA size %fp.len is passed in to the outlined function for the parallel region.
 ; CHECK: store i64 %fp.len, ptr [[SIZE_ADDR1]], align 8
 ; CHECK: call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr @.kmpc_loc{{.*}}, i32 2, ptr @main.DIR.OMP.PARALLEL.{{.*}}, ptr [[SIZE_ADDR1]], ptr %{{.*}})
 

@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
 
@@ -124,6 +125,10 @@ define void @test08(i64 %size) {
 ; CHECK:     Type: %struct.test08 = type { i32, i32, i32 }
 
 
-declare noalias i8* @calloc(i64, i64)
-declare noalias i8* @malloc(i64)
-declare noalias i8* @realloc(i8*, i64)
+declare noalias i8* @calloc(i64, i64) #0
+declare noalias i8* @malloc(i64) #1
+declare noalias i8* @realloc(i8*, i64) #2
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #2 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }

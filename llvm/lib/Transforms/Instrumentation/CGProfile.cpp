@@ -1,4 +1,21 @@
 //===-- CGProfile.cpp -----------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -39,7 +56,8 @@ addModuleFlags(Module &M,
     Nodes.push_back(MDNode::get(Context, Vals));
   }
 
-  M.addModuleFlag(Module::Append, "CG Profile", MDNode::get(Context, Nodes));
+  M.addModuleFlag(Module::Append, "CG Profile",
+                  MDTuple::getDistinct(Context, Nodes));
   return true;
 }
 
@@ -105,42 +123,6 @@ static bool runCGProfilePass(
   }
 
   return addModuleFlags(M, Counts);
-}
-
-namespace {
-struct CGProfileLegacyPass final : public ModulePass {
-  static char ID;
-  CGProfileLegacyPass() : ModulePass(ID) {
-    initializeCGProfileLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addRequired<LazyBlockFrequencyInfoPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-      return this->getAnalysis<LazyBlockFrequencyInfoPass>(F).getBFI();
-    };
-    auto GetTTI = [this](Function &F) -> TargetTransformInfo & {
-      return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    };
-
-    return runCGProfilePass(M, GetBFI, GetTTI, true);
-  }
-};
-
-} // namespace
-
-char CGProfileLegacyPass::ID = 0;
-
-INITIALIZE_PASS(CGProfileLegacyPass, "cg-profile", "Call Graph Profile", false,
-                false)
-
-ModulePass *llvm::createCGProfileLegacyPass() {
-  return new CGProfileLegacyPass();
 }
 
 PreservedAnalyses CGProfilePass::run(Module &M, ModuleAnalysisManager &MAM) {

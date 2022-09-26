@@ -1,5 +1,17 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // Expand
-foreach name = ["fma", "rint"] in {
+foreach name = ["fma", "rint", "native_rsqrt", "sqrt", "native_sqrt"] in {
   defvar builtin = !cast<OclBuiltin>(name);
   defvar types = [v16f64];
   defvar num_args = !size(builtin.Ins);
@@ -52,7 +64,7 @@ foreach name = ["acos", "acosh", "acospi", "asin",
     "exp", "exp2", "exp10", "expm1", "log", 
     "log2", "log10", "log1p", "pow", "pown", 
     "powr", "rcbrt", "rootn", "sin", "sinh", 
-    "sinpi", "sqrt", "tan", "tanh", "tanpi"] in {
+    "sinpi", "tan", "tanh", "tanpi"] in {
   defvar builtin = !cast<OclBuiltin>("native_" # name);
   defvar types = [v16f32, v32f32, v8f64, v16f64];
   defvar num_args = !size(builtin.Ins);

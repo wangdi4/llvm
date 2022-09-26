@@ -64,6 +64,14 @@ def Transform_Dialect : Dialect {
     correspond to groups of outer and inner loops, respectively, produced by
     the tiling transformation.
 
+    A Transform IR value such as `%0` may be associated with multiple payload
+    operations. This is conceptually a set of operations and no assumptions
+    should be made about the order of ops. Most Transform IR ops support
+    operand values that are mapped to multiple operations. They usually apply
+    the respective transformation for every mapped op ("batched execution").
+    Deviations from this convention are described in the documentation of
+    Transform IR ops.
+
     Overall, Transform IR ops are expected to be contained in a single top-level
     op. Such top-level ops specify how to apply the transformations described
     by the operations they contain, e.g., `transform.sequence` executes
@@ -150,6 +158,38 @@ def Transform_Dialect : Dialect {
     meaningless to refer to them. When further transformations are desired, the
     transform operations can return _new_ handles that can be read or consumed
     by subsequent operations.
+
+    ## Execution Model
+
+    The transformation starts at the specifed top-level transform IR operation
+    and applies to some payload IR scope, identified by the payload IR op that
+    contains the IR to transform. It is the responsibility of the user to
+    properly select the scope and/or to avoid the transformations to modify the
+    IR outside of the given scope. The top-level transform IR operation may
+    contain further transform operations and execute them in the desired order.
+
+    Transformation application functions produce a tri-state status:
+
+    - success;
+    - recoverable (silencable) failure;
+    - irrecoverable failure.
+
+    Transformation container operations may intercept recoverable failures and
+    perform the required recovery steps thus succeeding themselves. On
+    the other hand, they must propagate irrecoverable failures. For such
+    failures, the diagnostics are emitted immediately whereas their emission is
+    postponed for recoverable failures. Transformation container operations may
+    also fail to recover from a theoretically recoverable failure, in which case
+    they are expected to emit the diagnostic and turn the failure into an
+    irrecoverable one. A recoverable failure produced by applying the top-level
+    transform IR operation is considered irrecoverable.
+
+    Transformation container operations are allowed to "step over" some nested
+    operations if the application of some previous operation produced a failure.
+    This can be conceptually thought of as having a global "recoverable error
+    register" that is read/write accessed by each transform operation as a side
+    effect. The transformation is skipped if the register already contains an
+    error description, and the control flow proceeds to the following operation.
 
     ## Handle Invalidation
 
@@ -294,13 +334,10 @@ def Transform_Dialect : Dialect {
       /// dialect. Checks that they implement the required interfaces.
       template <typename... OpTys>
       void addOperationsChecked() {
-        (void)std::initializer_list<int>{(addOperationIfNotRegistered<OpTys>(),
-                                          0)...};
+        (addOperationIfNotRegistered<OpTys>(),...);
 
         #ifndef NDEBUG
-        (void)std::initializer_list<int>{
-          (detail::checkImplementsTransformInterface<OpTys>(getContext()),
-           0)...};
+        (detail::checkImplementsTransformInterface<OpTys>(getContext()),...);
         #endif // NDEBUG
       }
 

@@ -5,8 +5,8 @@
 ; Note: the LLVM IR used as input to this test has already had Mem2Reg applied to it, so no need to
 ; do that here.
 
-; RUN: opt -vec-clone -S < %s | FileCheck %s
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vec-clone -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Begin non-masked variant checking
 
@@ -29,4 +29,4 @@ entry:
   ret i32 %add
 }
 
-attributes #0 = { nounwind readnone uwtable "vector-variants"="_ZGVbM4vv_,_ZGVbN4vv_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind readnone uwtable "vector-variants"="_ZGVbM4vv_vec_sum,_ZGVbN4vv_vec_sum" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

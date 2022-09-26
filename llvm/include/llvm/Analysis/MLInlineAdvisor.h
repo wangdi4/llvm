@@ -1,4 +1,21 @@
 //===- MLInlineAdvisor.h - ML - based InlineAdvisor factories ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -31,7 +48,7 @@ public:
 
   virtual ~MLInlineAdvisor() = default;
 
-  void onPassEntry() override;
+  void onPassEntry(LazyCallGraph::SCC *SCC) override;
   void onPassExit(LazyCallGraph::SCC *SCC) override;
 
   int64_t getIRSize(Function &F) const {
@@ -71,7 +88,8 @@ protected:
 
 private:
   int64_t getModuleIRSize() const;
-
+  std::unique_ptr<InlineAdvice>
+  getSkipAdviceIfUnreachableCallsite(CallBase &CB);
   void print(raw_ostream &OS) const override;
 
   mutable DenseMap<const Function *, FunctionPropertiesInfo> FPICache;
@@ -85,7 +103,7 @@ private:
   std::map<const LazyCallGraph::Node *, unsigned> FunctionLevels;
   const int32_t InitialIRSize = 0;
   int32_t CurrentIRSize = 0;
-  std::deque<const LazyCallGraph::Node *> NodesInLastSCC;
+  llvm::SmallPtrSet<const LazyCallGraph::Node *, 1> NodesInLastSCC;
   DenseSet<const LazyCallGraph::Node *> AllNodes;
   bool ForceStop = false;
 };
@@ -109,7 +127,7 @@ public:
   const int64_t CallerIRSize;
   const int64_t CalleeIRSize;
   const int64_t CallerAndCalleeEdges;
-  void updateCachedCallerFPI(const LoopInfo &LI) const;
+  void updateCachedCallerFPI(FunctionAnalysisManager &FAM) const;
 
 private:
   void reportContextForRemark(DiagnosticInfoOptimizationBase &OR);

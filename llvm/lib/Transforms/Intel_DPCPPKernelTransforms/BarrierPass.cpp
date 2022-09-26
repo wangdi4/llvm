@@ -158,7 +158,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
     runOnFunction(*FuncToFix);
 
   // Update Map with structure stride size for each kernel.
-  // fixAllocaValues may add new alloca.
+  // fixAllocaAndDbg may add new alloca.
   updateStructureStride(M, FunctionsWithSync);
 
   // Fix TID user functions that doesn't contains sync instruction. This is
@@ -189,8 +189,8 @@ bool KernelBarrier::runOnFunction(Function &F) {
   // Fix special values.
   fixSpecialValues();
 
-  // Fix alloca values.
-  fixAllocaValues(F);
+  // Fix alloca values and debug info.
+  fixAllocaAndDbg(F);
 
   // Fix cross barrier uniform values.
   fixCrossBarrierValues(&*F.begin()->begin());
@@ -314,10 +314,10 @@ BasicBlock *KernelBarrier::findNearestDominatorSyncBB(DominatorTree &DT,
   return Dominator;
 }
 
-// This function binds alloca's user instruction to a basic block.
+// This function binds a value's user instruction to a basic block.
 // It also does optimization based on dominance information so that we load
 // address from new alloca only if necessary. For example, if both basick
-// block A and B contain alloca's users, A dominates B and there is no barrier
+// block A and B contain value's users, A dominates B and there is no barrier
 // between A and B, we can bind users in B to A. Then we only need to load
 // address in A.
 // For the following IR, there is a barrier in for loop. There is no barrier
@@ -355,16 +355,15 @@ BasicBlock *KernelBarrier::findNearestDominatorSyncBB(DominatorTree &DT,
 // while.end:
 // for.inc:
 void KernelBarrier::bindUsersToBasicBlock(
-    AllocaInst *AI, DbgVariableIntrinsic *DI,
+    Function &F, Value *V, DbgVariableIntrinsic *DI,
     BasicBlockToInstructionMapVectorTy &BBUsers) {
-  Function &F = *AI->getFunction();
   DominatorTree DT;
   DT.recalculate(F);
 
   SmallVector<Instruction *, 8> UIs;
-  for (User *U : AI->users()) {
+  for (User *U : V->users()) {
     Instruction *UI = dyn_cast<Instruction>(U);
-    assert(UI && "uses of alloca instruction is not an instruction!");
+    assert(UI && "uses of value is not an instruction!");
     UIs.push_back(UI);
   }
 
@@ -377,7 +376,9 @@ void KernelBarrier::bindUsersToBasicBlock(
   DenseMap<Instruction *, BasicBlock *> UIToInsertPointBB;
   CompilationUtils::BBSet BBs;
   for (Instruction *UI : UIs) {
-    Instruction *InsertBefore = getInstructionToInsertBefore(AI, UI, false);
+    auto *VI = dyn_cast<Instruction>(V);
+    Instruction *InsertBefore =
+        VI ? getInstructionToInsertBefore(VI, UI, false) : UI;
     // If UI is PHINode, BB is PHINode's previous basic block, otherwise
     // BB is UI's parent basic block.
     BasicBlock *BB = InsertBefore->getParent();
@@ -465,14 +466,33 @@ void KernelBarrier::bindUsersToBasicBlock(
   }
 }
 
-void KernelBarrier::fixAllocaValues(Function &F) {
+static TinyPtrVector<DbgVariableIntrinsic *> findDbgUses(Value *V) {
+  TinyPtrVector<DbgVariableIntrinsic *> DIs = FindDbgAddrUses(V);
+  if (!DIs.empty())
+    return DIs;
+
+  // Try debug info of addrspacecast user.
+  for (auto *U : V->users()) {
+    if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
+      DIs = FindDbgAddrUses(ASC);
+      if (!DIs.empty())
+        break;
+    }
+  }
+  return DIs;
+}
+
+void KernelBarrier::fixAllocaAndDbg(Function &F) {
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
   const DataLayout &DL = F.getParent()->getDataLayout();
   Instruction *AddrInsertBefore = &*F.getEntryBlock().begin();
   DISubprogram *SP = F.getSubprogram();
   DebugLoc DB;
-  if (SP) 
-     DB = DILocation::get(SP->getContext(), SP->getScopeLine(), 0, SP);  
+  auto File = DIB.createFile("CPU_DEVICE_RT", "/");
+  if (SP) {
+    auto Scope = DIB.createLexicalBlockFile(SP, File, 0);
+    DB = DILocation::get(SP->getContext(), 0, 0, Scope);
+  }
   // Reset containers for the current function.
   SyncPerBB.clear();
   SyncBBSuccessors.clear();
@@ -485,51 +505,52 @@ void KernelBarrier::fixAllocaValues(Function &F) {
   // contains a synchronization instruction.
   findSyncBBSuccessors();
 
-  for (Value *V : *AllocaValues) {
-    AllocaInst *AI = dyn_cast<AllocaInst>(V);
-    assert(AI && "container of alloca values has non AllocaInst value!");
+  ValueVec WorkList(*AllocaValues);
+  // Fix kernel argument which has debug info.
+  for (auto &Arg : F.args())
+    if (!Arg.use_empty() && DPV->hasOffset(&Arg))
+      WorkList.push_back(&Arg);
+
+  for (Value *V : WorkList) {
+    auto *AI = dyn_cast<AllocaInst>(V);
 
     // Don't fix implicit GID.
-    if (IsNativeDBG && CompilationUtils::isImplicitGID(AI)) {
+    if (IsNativeDBG && AI && CompilationUtils::isImplicitGID(AI)) {
       // Move implicit GID out of barrier loop.
       AI->moveBefore(AddrInsertBefore);
       continue;
     }
-    // Insert new alloca which stores AI's address in special buffer.
-    // AI's users will be replaced by result of load instruction from the new
-    // alloca.
-    StringRef AllocaName = AI->getName();
-    AllocaInst *AddrAI = new AllocaInst(AI->getType(), DL.getAllocaAddrSpace(),
-                                        AllocaName + ".addr", AddrInsertBefore);
-    AddrAI->setDebugLoc(AI->getDebugLoc());
-    uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).getValue() / 8;
-    AddrAI->setAlignment(assumeAligned(ASize));
-    AddrAllocaSize[&F] += ASize;
 
     // Collect debug intrinsic.
     TinyPtrVector<DbgVariableIntrinsic *> DIs;
-    if (IsNativeDBG) {
-      auto findDbgVariableOfAlloca = [AI]() {
-        TinyPtrVector<DbgVariableIntrinsic *> DIs = FindDbgAddrUses(AI);
-        if (DIs.empty()) {
-          // Try debug info of addrspacecast user.
-          for (auto *U : AI->users()) {
-            if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
-              DIs = FindDbgAddrUses(ASC);
-              if (!DIs.empty())
-                break;
-            }
-          }
-        }
-        return DIs;
-      };
-      DIs = findDbgVariableOfAlloca();
-    }
+    if (IsNativeDBG)
+      DIs = findDbgUses(V);
+
     // Only use the first DbgVariableIntrinsic.
     // TODO: there might be multiple llvm.dbg.addr calls when llvm.dbg.declare
     // is deprecated. We probably need to insert new llvm.dbg.addr for each
     // call.
     DbgVariableIntrinsic *DI = DIs.empty() ? nullptr : DIs.front();
+    // Need not to create new alloca if the value isn't an alloca and doesn't
+    // have debug info.
+    if (!DI && !AI)
+      continue;
+
+    // Insert new alloca which stores AI's address in special buffer.
+    // AI's users will be replaced by result of load instruction from the new
+    // alloca.
+    StringRef AllocaName = V->getName();
+    PointerType *AllocatedTy = AI ? AI->getType()
+                                  : cast<Argument>(V)->getType()->getPointerTo(
+                                        SPECIAL_BUFFER_ADDR_SPACE);
+    AllocaInst *AddrAI = new AllocaInst(AllocatedTy, DL.getAllocaAddrSpace(),
+                                        AllocaName + ".addr", AddrInsertBefore);
+    if (AI)
+      AddrAI->setDebugLoc(AI->getDebugLoc());
+    uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).value() / 8;
+    AddrAI->setAlignment(assumeAligned(ASize));
+    AddrAllocaSize[&F] += ASize;
+
     if (DI) {
       DIExpression *Expr =
           DIExpression::prepend(DI->getExpression(), DIExpression::DerefBefore);
@@ -538,15 +559,15 @@ void KernelBarrier::fixAllocaValues(Function &F) {
     }
 
     // Get offset of alloca value in special buffer.
-    unsigned int Offset = DPV->getOffset(AI);
+    unsigned int Offset = DPV->getOffset(V);
 
-    // Bind AI's users to basic blocks that update AddrAI.
+    // Bind V's users to basic blocks that update AddrAI.
     // MapVector is used so that access order is deterministic.
     BasicBlockToInstructionMapVectorTy BBUsers;
-    bindUsersToBasicBlock(AI, DI, BBUsers);
+    bindUsersToBasicBlock(F, V, DI, BBUsers);
 
     // Now each user is bound to a basic block, in which we insert instruction
-    // to load AI's address in special buffer to AddrAI, and replace the user
+    // to load V's address in special buffer to AddrAI, and replace the user
     // with result of the load instruction.
 
     bool AllocaDebugLocFixed = false;
@@ -559,7 +580,7 @@ void KernelBarrier::fixAllocaValues(Function &F) {
             InsertBefore->getParent() == BB &&
             "sync instruction must not be the last instruction in the block");
       } else {
-        if (AI->getParent() == BB) {
+        if (AI && AI->getParent() == BB) {
           // The inserted instructions will get debug loc of current alloca.
           InsertBefore = AI;
           AllocaDebugLocFixed = true;
@@ -569,33 +590,36 @@ void KernelBarrier::fixAllocaValues(Function &F) {
       }
       assert(InsertBefore && "InsertBefore is invalid");
       // Calculate the pointer of the current alloca in the special buffer.
-      Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
-          Offset, AI->getType(), InsertBefore, &DB);
+      Value *AddrInSpecialBuffer =
+          getAddressInSpecialBuffer(Offset, AllocatedTy, InsertBefore, &DB);
       IRBuilder<> Builder(InsertBefore);
       Builder.SetCurrentDebugLocation(DB);
       Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
-      LoadInst *LI = Builder.CreateLoad(AddrAI->getAllocatedType(), AddrAI);
+      LoadInst *LI = Builder.CreateLoad(AllocatedTy, AddrAI);
+      if (isa<Argument>(V))
+        LI =
+            Builder.CreateLoad(cast<Argument>(V)->getType(), LI, "loadedValue");
       for (Instruction *UI : BBUser.second) {
         if (!isa<DbgVariableIntrinsic>(UI))
-          UI->replaceUsesOfWith(AI, LI);
+          UI->replaceUsesOfWith(V, LI);
       }
     }
 
-    if (IsNativeDBG && !AllocaDebugLocFixed) {
+    if (IsNativeDBG && AI && !AllocaDebugLocFixed) {
       // Store the new addr in special buffer into AddrAI to preserve debug
       // info.
-      Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
-          Offset, AI->getType(), AI, &DB);
+      Value *AddrInSpecialBuffer =
+          getAddressInSpecialBuffer(Offset, AllocatedTy, AI, &DB);
       auto *SI = new StoreInst(AddrInSpecialBuffer, AddrAI, AI);
       SI->setDebugLoc(DB);
     }
-    InstructionsToRemove.push_back(AI);
+    if (AI)
+      InstructionsToRemove.push_back(AI);
 
     // Remove old DbgVariableIntrinsic.
-    if (IsNativeDBG) {
+    if (IsNativeDBG)
       for (auto *DI : DIs)
         DI->eraseFromParent();
-    }
   }
   DIB.finalize();
 }
@@ -1161,10 +1185,8 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
   Function::arg_iterator ArgIter = FuncToFix->arg_begin();
   for (unsigned int i = 0; i < NumOfArgs; ++i, ++ArgIter) {
     Value *ArgVal = &*ArgIter;
-    if (DPV->hasOffset(ArgVal)) {
-      unsigned int Offset = DPV->getOffset(ArgVal);
-      fixArgumentUsage(ArgVal, Offset);
-    }
+    if (DPV->hasOffset(ArgVal))
+      fixArgumentUsage(ArgVal);
   }
   if (DPV->hasOffset(FuncToFix)) {
     unsigned int Offset = DPV->getOffset(FuncToFix);
@@ -1242,11 +1264,18 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
   }
 }
 
-void KernelBarrier::fixArgumentUsage(Value *OriginalArg,
-                                     unsigned int OffsetArg) {
+void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
   assert((!DPV->isOneBitElementType(OriginalArg) ||
           !isa<VectorType>(OriginalArg->getType())) &&
          "OriginalArg with base type i1!");
+
+  // function argument with debug info will be handled in fixAllocaAndDbg.
+  if (IsNativeDBG && !findDbgUses(OriginalArg).empty())
+    return;
+
+  // offset in special buffer to load the argument value from.
+  unsigned OffsetArg = DPV->getOffset(OriginalArg);
+
   InstSet UserInsts;
   for (User *U : OriginalArg->users()) {
     Instruction *UserInst = dyn_cast<Instruction>(U);
@@ -1447,7 +1476,7 @@ void KernelBarrier::updateStructureStride(Module &M,
   calculatePrivateSize(M, FunctionsWithSync, FuncToPrivSize);
 
   // Get the kernels using the barrier for work group loops.
-  for (auto Func : TodoList) {
+  for (auto *Func : TodoList) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
     // Need to check if Vectorized Width Value exists, it is not guaranteed
     // that  Vectorized is running in all scenarios.
@@ -1479,6 +1508,10 @@ void KernelBarrier::updateStructureStride(Module &M,
       // buffer size. So need to add non barrier private memory.
       KIMD.PrivateMemorySize.set(StrideSize + PrivateSize);
     }
+    LLVM_DEBUG(dbgs() << "Set metadata for kernel " << Func->getName()
+                      << ": BarrierBufferSize=" << KIMD.BarrierBufferSize.get()
+                      << ", PrivateMemorySize=" << KIMD.PrivateMemorySize.get()
+                      << '\n');
   }
 }
 

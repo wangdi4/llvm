@@ -436,10 +436,12 @@ inline void createAndMapNewAppendFunc(
 inline void fixCallInfo(Function &OrigFunc, DTransSafetyInfo *DTInfo,
                         ValueToValueMapTy &NewVMap) {
   SmallPtrSet<dtrans::CallInfo *, 8> CallInfoSet;
-  for (auto *CInfo : DTInfo->call_info_entries()) {
-    if (&OrigFunc != CInfo->getInstruction()->getFunction())
-      continue;
-    CallInfoSet.insert(CInfo);
+  for (auto CInfoVec : DTInfo->call_info_entries()) {
+    for (auto CInfo : CInfoVec) {
+      if (&OrigFunc != CInfo->getInstruction()->getFunction())
+        continue;
+      CallInfoSet.insert(CInfo);
+    }
   }
   for (auto *CInfo : CallInfoSet)
     DTInfo->replaceCallInfoInstruction(

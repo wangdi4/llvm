@@ -37,13 +37,13 @@ void func(pt_to_by_func_t*){};
 
 // CHECK: !intel.dtrans.types = !{![[USED:[0-9]+]], ![[USED_BASE:[0-9]+]], ![[USED_BASE_BASE:[0-9]+]], ![[PT_TO_BY_FUNC:[0-9]+]], ![[PTRED_TO:[0-9]+]], ![[PT_TO_BASE:[0-9]+]], ![[PT_TO_BASE_BASE:[0-9]+]], ![[ARR_TO:[0-9]+]]}
 
+// CHECK: ![[INT:[0-9]+]] = !{i32 0, i32 0}
 // CHECK: ![[USED]]  = !{!"S", %struct._ZTS6used_t.used_t zeroinitializer, i32 2, ![[USED_BASE_BASE_REF:[0-9]+]], ![[PTRED_TO_PTR:[0-9]+]]}
 // CHECK: ![[USED_BASE_BASE_REF]]  = !{%struct._ZTS11used_base_t.used_base_t.base zeroinitializer, i32 0}
 // CHECK: ![[PTRED_TO_PTR]]  = !{%struct._ZTS12pointed_to_t.pointed_to_t zeroinitializer, i32 1}
-// CHECK: ![[USED_BASE]] = !{!"S", %struct._ZTS11used_base_t.used_base_t zeroinitializer, i32 3, ![[VTABLE_PTR:[0-9]+]], ![[INT:[0-9]+]], ![[PAD_ARR:[0-9]+]]}
+// CHECK: ![[USED_BASE]] = !{!"S", %struct._ZTS11used_base_t.used_base_t zeroinitializer, i32 3, ![[VTABLE_PTR:[0-9]+]], ![[INT]], ![[PAD_ARR:[0-9]+]]}
 // CHECK: ![[VTABLE_PTR]] = !{![[VTABLE:[0-9]+]], i32 2}
 // CHECK: ![[VTABLE]] = !{!"F", i1 true, i32 0, ![[INT]]}
-// CHECK: ![[INT]]  = !{i32 0, i32 0}
 // CHECK: ![[PAD_ARR]] = !{!"A", i32 4, ![[CHAR:[0-9]+]]}
 // CHECK: ![[CHAR]] = !{i8 0, i32 0}
 // CHECK: ![[USED_BASE_BASE]] = !{!"S", %struct._ZTS11used_base_t.used_base_t.base zeroinitializer, i32 2, ![[VTABLE_PTR]], ![[INT]]}

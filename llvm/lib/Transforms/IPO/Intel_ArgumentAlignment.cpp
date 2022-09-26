@@ -608,7 +608,7 @@ isValidAllocSite(Value *AllocSite,
 
     const TargetLibraryInfo TLI = GetTLI(*Callee);
     // TODO: Maybe in a future we might want to extend this for malloc
-    if (isCallocLikeFn(AllocSite, &TLI)) {
+    if (IntelMemoryBuiltins::isCallocLikeFn(AllocSite, &TLI)) {
       assert((CallSite->arg_size() == 2) && "Calloc uses exactly 2 arguments");
 
       ConstantInt *SecondArg =
@@ -811,9 +811,11 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
         // Ignore Load/ICmp/free call since "CurrVal" is not really escaped
         // through them.
         if (isa<LoadInst>(UserI) || isa<CmpInst>(UserI) ||
-            isFreeCall(UserI,
-                       &GetTLI(const_cast<Function &>(*UserI->getFunction())),
-                       false))
+            (isa<CallInst>(UserI) &&
+             getFreedOperand(
+                 cast<CallInst>(UserI),
+                 &GetTLI(const_cast<Function &>(*UserI->getFunction())),
+                 false)))
           continue;
         if (auto *SI = dyn_cast<StoreInst>(UserI)) {
           if (SI->getValueOperand() == CurrVal || *StoreOnceInstPtr != nullptr)
@@ -873,7 +875,7 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
       Value *Val = LI->getPointerOperand();
       if (auto *BC = dyn_cast<BitCastInst>(Val))
         Val = BC->getOperand(0);
-      if (!isMallocLikeFn(Val, GetTLI))
+      if (!IntelMemoryBuiltins::isMallocLikeFn(Val, &GetTLI(*(LI->getFunction()))))
         return false;
 
       auto *CI = cast<CallInst>(Val);

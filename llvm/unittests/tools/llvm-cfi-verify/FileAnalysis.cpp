@@ -105,7 +105,13 @@ TEST_F(BasicX86FileAnalysisTest, BasicDisassemblyTraversalTest) {
           0x48, 0xbe, 0xc4, 0x07, 0x40,
           0x00, 0x00, 0x00, 0x00, 0x00, // 10: movabs $0x4007c4, %rsi
           0x2f,                         // 20: (bad)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+          0x41, 0x2f,                   // 21: rex.B (bad)
+#else // INTEL_FEATURE_MARKERCOUNT
           0x41, 0x0e,                   // 21: rex.B (bad)
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
           0x62, 0x72, 0x65, 0x61, 0x6b, // 23: (bad) {%k1}
       },
       {0xDEADBEEF, 0x0});

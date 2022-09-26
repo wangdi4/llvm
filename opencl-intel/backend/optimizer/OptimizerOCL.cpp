@@ -72,7 +72,6 @@ extern cl::opt<DebugLogging> DebugPM;
 extern cl::opt<bool> VerifyEachPass;
 extern bool DPCPPForceOptnone;
 extern cl::opt<bool> DisableVPlanCM;
-extern cl::opt<bool> EmitKernelVectorizerSignOn;
 extern cl::opt<bool> EnableO0Vectorization;
 
 namespace Intel {
@@ -84,7 +83,6 @@ OptimizerOCL::OptimizerOCL(Module &M, SmallVectorImpl<Module *> &RtlModuleList,
     : Optimizer(M, RtlModuleList, Config) {
   Level =
       Config.GetDisableOpt() ? OptimizationLevel::O0 : OptimizationLevel::O3;
-  UnrollLoops = true;
 }
 
 void OptimizerOCL::Optimize(raw_ostream &LogStream) {
@@ -160,7 +158,7 @@ void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
   MPM.addPass(NameAnonGlobalPass());
   MPM.addPass(DPCPPEqualizerPass());
   Triple TargetTriple(m_M.getTargetTriple());
-  if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
+  if (TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
       MPM.addPass(CoerceTypesPass());
     else if (TargetTriple.isOSWindows())
@@ -280,13 +278,9 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
   // Clean up after the unroller
   FPM3.addPass(InstCombinePass());
   FPM3.addPass(InstSimplifyPass());
-  bool AllowAllocaModificationOpt =
-      !Config.GetCpuId()->HasGatherScatterPrefetch();
-  if (AllowAllocaModificationOpt) {
-    if (Level.getSpeedupLevel() > 1)
-      FPM3.addPass(GVNPass());     // Remove redundancies
-    FPM3.addPass(MemCpyOptPass()); // Remove memcpy / form memset
-  }
+  if (Level.getSpeedupLevel() > 1)
+    FPM3.addPass(GVNPass());     // Remove redundancies
+  FPM3.addPass(MemCpyOptPass()); // Remove memcpy / form memset
   FPM3.addPass(SCCPPass()); // Constant prop with SCCP
 
   // Run instcombine after redundancy elimination to exploit opportunities
@@ -445,11 +439,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
       MPM.addPass(ProfilingInfoPass());
 
     FunctionPassManager FPM1;
-    if (!m_IsEyeQEmulator)
-      FPM1.addPass(SinCosFoldPass());
-
-    if (EmitKernelVectorizerSignOn)
-      dbgs() << "Kernel Vectorizer\n";
+    FPM1.addPass(SinCosFoldPass());
 
     // Replace 'div' and 'rem' instructions with calls to optimized library
     // functions
@@ -546,12 +536,13 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // Unroll small loops with unknown trip count.
   FunctionPassManager FPM1;
   if (Level != OptimizationLevel::O0) {
-    LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
-    FPM1.addPass(LoopUnrollPass(UnrollOpts));
+    if (UnrollLoops) {
+      LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+      UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
+      FPM1.addPass(LoopUnrollPass(UnrollOpts));
+    }
 
-    if (!m_IsEyeQEmulator)
-      FPM1.addPass(OptimizeIDivAndIRemPass());
+    FPM1.addPass(OptimizeIDivAndIRemPass());
   }
   FPM1.addPass(PreventDivCrashesPass());
   // We need InstructionCombining and GVN passes after PreventDivCrashes
@@ -613,7 +604,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
                          /*AllowSpeculation*/ true));
     LPM.addPass(BuiltinLICMPass());
     LPM.addPass(LoopStridedCodeMotionPass());
-    //    LPM.addPass(CLStreamSamplerPass());
     FPM2.addPass(
         createFunctionToLoopPassAdaptor(std::move(LPM), /*UseMemorySSA=*/true,
                                         /*UseBlockFrequencyInfo=*/true));
@@ -703,8 +693,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
   // Only support CPU Device
-  if (Level != OptimizationLevel::O0 && !m_IsFpgaEmulator &&
-      !m_IsEyeQEmulator) {
+  if (Level != OptimizationLevel::O0 && !m_IsFpgaEmulator) {
     LoopPassManager LPM;
     LPM.addPass(LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
                          /*AllowSpeculation*/ true));

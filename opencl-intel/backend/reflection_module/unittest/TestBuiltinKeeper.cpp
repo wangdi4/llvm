@@ -92,12 +92,7 @@ TEST(isBuiltin, invalidInput){
 }
 
 TEST(isBuiltin, unmangledBuiltins){
-  const char* allZero = "__ocl_allZero";
   const BuiltinKeeper* pKeeper = BuiltinKeeper::instance();
-  ASSERT_TRUE(pKeeper->isBuiltin(allZero));
-  PairSW sw = pKeeper->getVersion(allZero, width::TWO);
-  ASSERT_EQ(std::string("__ocl_allZero_v2"), sw.first);
-  ASSERT_EQ(width::TWO, sw.second);
   ASSERT_TRUE(pKeeper->isBuiltin("_Z13get_global_idj"));
   ASSERT_TRUE(pKeeper->isBuiltin("_Z15get_global_sizej"));
 }
@@ -191,29 +186,6 @@ TEST(VectorizerReference, OldTable){
     }
   }
 }//end TEST
-
-TEST(VectorizerReference, syntesizedFunctions){
-  const BuiltinKeeper* pKepper = BuiltinKeeper::instance();
-  PairSW allonev = pKepper->getVersion("__ocl_allOne", width::TWO);
-  ASSERT_EQ("__ocl_allOne_v2", allonev.first);
-  allonev = pKepper->getVersion("__ocl_allOne", width::FOUR);
-  ASSERT_EQ("__ocl_allOne_v4", allonev.first);
-  allonev = pKepper->getVersion("__ocl_allOne", width::EIGHT);
-  ASSERT_EQ("__ocl_allOne_v8", allonev.first);
-  allonev = pKepper->getVersion("__ocl_allOne", width::SIXTEEN);
-  ASSERT_EQ("__ocl_allOne_v16", allonev.first);
-  allonev = pKepper->getVersion("__ocl_allOne", width::THREE);
-  ASSERT_TRUE(isNullPair(allonev));
-
-  PairSW allzerov = pKepper->getVersion("__ocl_allZero", width::TWO);
-  ASSERT_EQ("__ocl_allZero_v2", allzerov.first);
-  allzerov = pKepper->getVersion("__ocl_allZero", width::FOUR);
-  ASSERT_EQ("__ocl_allZero_v4", allzerov.first);
-  allzerov = pKepper->getVersion("__ocl_allZero", width::EIGHT);
-  ASSERT_EQ("__ocl_allZero_v8", allzerov.first);
-  allzerov = pKepper->getVersion("__ocl_allZero", width::SIXTEEN);
-  ASSERT_EQ("__ocl_allZero_v16", allzerov.first);
-}
 
 TEST(Functionality, VShapeBuiltiins) {
   // Mangled names of the functions, in the flavor in which the second arg. is

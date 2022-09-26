@@ -35,7 +35,7 @@ DIR.OMP.PARALLEL.LOOP.1:                          ; preds = %omp.precond.then
   br label %DIR.OMP.PARALLEL.LOOP.2
 
 DIR.OMP.PARALLEL.LOOP.2:                          ; preds = %DIR.OMP.PARALLEL.LOOP.1
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub) ]
+%3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.NORMALIZED.IV:TYPED"(i32* %.omp.iv, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i32* %.omp.ub, i32 0) ]
   %4 = load i32, i32* %.omp.lb, align 4, !tbaa !6
   store volatile i32 %4, i32* %.omp.iv, align 4, !tbaa !6
   br label %omp.inner.for.cond

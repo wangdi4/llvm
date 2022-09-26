@@ -61,7 +61,7 @@ void TraceContext::dump(raw_ostream &OS) {
     return;
   }
 
-  auto TraceSection = TraceSectionOrNone.getValue();
+  auto TraceSection = TraceSectionOrNone.value();
 
   // Check the alignment.
   auto *Object = TraceSection.getObject();

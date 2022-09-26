@@ -57,9 +57,9 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
 
-get_property(LLVMGenXIntrinsics_SOURCE_DIR GLOBAL 
+get_property(LLVMGenXIntrinsics_SOURCE_DIR GLOBAL
              PROPERTY LLVMGenXIntrinsics_SOURCE_PROP)
-get_property(LLVMGenXIntrinsics_BINARY_DIR GLOBAL 
+get_property(LLVMGenXIntrinsics_BINARY_DIR GLOBAL
              PROPERTY LLVMGenXIntrinsics_BINARY_PROP)
 
 include_directories(
@@ -71,6 +71,7 @@ add_llvm_component_library(LLVMVPOTransforms
 
   Utils/CFGRestructuring.cpp
   Utils/CFGSimplify.cpp
+  Utils/VPORenameOperands.cpp
   Utils/VPORestoreOperands.cpp
   Utils/MultiVersioning.cpp
   Utils/ParSecTrans.cpp
@@ -78,13 +79,16 @@ add_llvm_component_library(LLVMVPOTransforms
 
   Paropt/VPOParopt.cpp
   Paropt/VPOParoptAtomics.cpp
+  Paropt/VPOParoptGuardMemoryMotion.cpp
   Paropt/VPOParoptLoopCollapse.cpp
+  Paropt/VPOParoptLoopTransform.cpp
   Paropt/VPOParoptLowerSimd.cpp
   Paropt/VPOParoptModuleTransform.cpp
   Paropt/VPOParoptPrepare.cpp
   Paropt/VPOParoptTpv.cpp
   Paropt/VPOParoptTarget.cpp
   Paropt/VPOParoptTask.cpp
+  Paropt/VPOParoptTileLoops.cpp
   Paropt/VPOParoptTransform.cpp
   Paropt/VPOParoptUtils.cpp
 

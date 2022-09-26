@@ -5,9 +5,7 @@
 
 ; HIR-run.
 ; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -49,7 +47,7 @@ DIR.OMP.SIMD.211:
   br label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.211
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e2.priv, i32 0, i32 1024), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %index.linear.iv, i32 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i8 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e2.priv, i32 0, i32 1024), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %index.linear.iv, i32 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i8 0) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph

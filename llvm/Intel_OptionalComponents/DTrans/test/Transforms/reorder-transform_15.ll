@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; CMPLRLLVM-26277: Test to make sure the reorder fields pass does not crash when
 ; examining the pattern of a subtract instruction followed by a division
 ; instruction for a case that is not computing the distance between two
@@ -41,4 +43,6 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

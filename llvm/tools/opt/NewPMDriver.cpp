@@ -1,4 +1,21 @@
 //===- NewPMDriver.cpp - Driver for opt with new PM -----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -52,6 +69,19 @@ cl::opt<std::string>
     DebugifyExport("debugify-export",
                    cl::desc("Export per-pass debugify statistics to this file"),
                    cl::value_desc("filename"));
+
+cl::opt<bool> VerifyEachDebugInfoPreserve(
+    "verify-each-debuginfo-preserve",
+    cl::desc("Start each pass with collecting and end it with checking of "
+             "debug info preservation."));
+
+cl::opt<std::string>
+    VerifyDIPreserveExport("verify-di-preserve-export",
+                   cl::desc("Export debug info preservation failures into "
+                            "specified (JSON) file (should be abs path as we use"
+                            " append mode to insert new JSON objects)"),
+                   cl::value_desc("filename"), cl::init(""));
+
 } // namespace llvm
 
 enum class DebugLogging { None, Normal, Verbose, Quiet };
@@ -286,7 +316,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            bool ShouldPreserveAssemblyUseListOrder,
                            bool ShouldPreserveBitcodeUseListOrder,
                            bool EmitSummaryIndex, bool EmitModuleHash,
-                           bool EnableDebugify) {
+                           bool EnableDebugify, bool VerifyDIPreserve) {
   bool VerifyEachPass = VK == VK_VerifyEachPass;
 
   Optional<PGOOptions> P;
@@ -343,8 +373,19 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                               PrintPassOpts);
   SI.registerCallbacks(PIC, &FAM);
   DebugifyEachInstrumentation Debugify;
-  if (DebugifyEach)
+  DebugifyStatsMap DIStatsMap;
+  DebugInfoPerPass DebugInfoBeforePass;
+  if (DebugifyEach) {
+    Debugify.setDIStatsMap(DIStatsMap);
+    Debugify.setDebugifyMode(DebugifyMode::SyntheticDebugInfo);
     Debugify.registerCallbacks(PIC);
+  } else if (VerifyEachDebugInfoPreserve) {
+    Debugify.setDebugInfoBeforePass(DebugInfoBeforePass);
+    Debugify.setDebugifyMode(DebugifyMode::OriginalDebugInfo);
+    Debugify.setOrigDIVerifyBugsReportFilePath(
+      VerifyDIPreserveExport);
+    Debugify.registerCallbacks(PIC);
+  }
 
   PipelineTuningOptions PTO;
   // LoopUnrolling defaults on to true and DisableLoopUnrolling is initialized
@@ -366,8 +407,6 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
          ArrayRef<PassBuilder::PipelineElement>) {
         AddressSanitizerOptions Opts;
         if (Name == "asan-pipeline") {
-          MPM.addPass(
-              RequireAnalysisPass<ASanGlobalsMetadataAnalysis, Module>());
           MPM.addPass(ModuleAddressSanitizerPass(Opts));
           return true;
         }
@@ -428,6 +467,9 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
     MPM.addPass(VerifierPass());
   if (EnableDebugify)
     MPM.addPass(NewPMDebugifyPass());
+  if (VerifyDIPreserve)
+    MPM.addPass(NewPMDebugifyPass(DebugifyMode::OriginalDebugInfo, "",
+                                  &DebugInfoBeforePass));
 
   // Add passes according to the -passes options.
   if (!PassPipeline.empty()) {
@@ -467,7 +509,11 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   if (VK > VK_NoVerifier)
     MPM.addPass(VerifierPass());
   if (EnableDebugify)
-    MPM.addPass(NewPMCheckDebugifyPass());
+    MPM.addPass(NewPMCheckDebugifyPass(false, "", &DIStatsMap));
+  if (VerifyDIPreserve)
+    MPM.addPass(NewPMCheckDebugifyPass(
+        false, "", nullptr, DebugifyMode::OriginalDebugInfo, &DebugInfoBeforePass,
+        VerifyDIPreserveExport));
 
   // Add any relevant output pass at the end of the pipeline.
   switch (OK) {
@@ -515,7 +561,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
     OptRemarkFile->keep();
 
   if (DebugifyEach && !DebugifyExport.empty())
-    exportDebugifyStats(DebugifyExport, Debugify.StatsMap);
+    exportDebugifyStats(DebugifyExport, Debugify.getDebugifyStatsMap());
 
   return true;
 }

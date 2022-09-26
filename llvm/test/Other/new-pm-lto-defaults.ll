@@ -184,6 +184,7 @@
 ; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O1-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-O1-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
+; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-O1-NEXT: Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 
@@ -226,7 +227,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass
-; CHECK-O23SZ: Running pass: InstCombinePass
+; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager
@@ -368,6 +369,7 @@
 ; CHECK-O23SZ-NEXT:Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph{{.*}}>
 ; CHECK-O23SZ-NEXT:Running pass: OpenMPOptCGSCCPass
+; CHECK-O23SZ-NEXT:Running pass: VPOCFGRestructuringPass
 ; CHECK-O23SZ-NEXT:Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 
@@ -411,6 +413,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O23SZ-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
+; CHECK-O23SZ-NEXT: Running pass: CGProfilePass
 ; CHECK-EP-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InlineReportEmitterPass ;INTEL

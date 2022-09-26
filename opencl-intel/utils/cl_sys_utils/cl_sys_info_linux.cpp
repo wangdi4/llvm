@@ -17,13 +17,13 @@
 #include <sstream>
 
 using namespace Intel::OpenCL::Utils;
-#include <fstream>
+#include <assert.h>
 #include <cstdlib>
 #include <cstring>
-#include <time.h>
-#include <assert.h>
-#include <unistd.h>
 #include <dirent.h>
+#include <fstream>
+#include <time.h>
+#include <unistd.h>
 
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
@@ -37,7 +37,14 @@ using namespace Intel::OpenCL::Utils;
 #include "hw_utils.h"
 #include "cl_secure_string_linux.h"
 
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/Regex.h"
 #include "llvm/Support/Valgrind.h"
+
+using namespace llvm;
+using namespace llvm::sys;
 
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 {
@@ -202,6 +209,20 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 	{
 		szModuleDir[0] = 0;
 	}
+}
+
+std::string Intel::OpenCL::Utils::GetClangRuntimePath() {
+  char ModuleName[MAX_PATH];
+  GetModuleDirectory(ModuleName, MAX_PATH);
+  std::string BaseLibDir =
+    std::string(path::parent_path(path::parent_path(ModuleName)));
+
+  SmallString<128> P(BaseLibDir);
+
+  path::append(P, "clang", CLANG_VERSION_STRING, "lib",
+               llvm::sys::getDefaultTargetTriple());
+
+  return std::string(P.str());
 }
 
 int CharToHexDigit(char c)
@@ -450,6 +471,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(unsigned long node, std::vector<cl_uint> &index)
 {
     // TODO use hwloc to get the cpu index of numa node
+    index.clear();
     const char *prefix = "/sys/devices/system/node/node";
     std::string path(prefix);
     path.append(std::to_string(node) + "/cpumap");
@@ -533,6 +555,44 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
   (void)nodeSize;
   return false;
 #endif // USE_NUMA
+}
+
+std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
+  // TODO use hwloc.
+  const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+  (void)numSockets;
+  std::map<int, int> CoreIdToPhysicalId;
+
+  std::string SysCpuDir = "/sys/devices/system/cpu";
+  assert(fs::is_directory(SysCpuDir) &&
+         "/sys/devices/system/cpu isn't a directory");
+
+  Regex r("cpu[0-9]+");
+  std::error_code EC;
+  for (fs::directory_iterator I(SysCpuDir, EC), E; I != E && !EC;
+       I.increment(EC)) {
+    const std::string Path = I->path();
+    StringRef Filename = path::filename(Path);
+    if (!r.match(Filename))
+      continue;
+    std::string PhysicalIdFile = Path + "/topology/physical_package_id";
+    std::string Buf(4, ' ');
+    Expected<fs::file_t> FD = fs::openNativeFileForRead(PhysicalIdFile);
+    if (!FD)
+      assert(false && toString(FD.takeError()).c_str());
+    if (Expected<size_t> BytesRead = fs::readNativeFile(
+            *FD, makeMutableArrayRef(&*Buf.begin(), Buf.size())))
+      Buf = Buf.substr(0, *BytesRead);
+    else
+      assert(false && toString(BytesRead.takeError()).c_str());
+    EC = fs::closeFile(*FD);
+    assert(!EC && "failed to close file");
+    int PhysicalId = std::stoi(Buf);
+    assert((unsigned)PhysicalId < numSockets && "physical id is out of range");
+    CoreIdToPhysicalId[std::stoi(Filename.substr(3).str())] = PhysicalId;
+  }
+
+  return CoreIdToPhysicalId;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

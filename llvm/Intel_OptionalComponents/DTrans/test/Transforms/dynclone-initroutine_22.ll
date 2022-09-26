@@ -2,6 +2,7 @@
 ; does not disqualify the "init" routine.
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
 ;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
@@ -37,5 +38,7 @@ define void @init(i64 %arg1, i64 %arg2) {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare i64 @llvm.smax.i64(i64, i64)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

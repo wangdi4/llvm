@@ -54,6 +54,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FileUtilities.h" // INTEL
+#include "llvm/Support/LineIterator.h"  // INTEL
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VersionTuple.h"
@@ -203,11 +205,11 @@ static const DriverSuffix *FindDriverSuffix(StringRef ProgName, size_t &Pos) {
       {"clang-dxc", "--driver-mode=dxc"},
   };
 
-  for (size_t i = 0; i < llvm::array_lengthof(DriverSuffixes); ++i) {
-    StringRef Suffix(DriverSuffixes[i].Suffix);
+  for (const auto &DS : DriverSuffixes) {
+    StringRef Suffix(DS.Suffix);
     if (ProgName.endswith(Suffix)) {
       Pos = ProgName.size() - Suffix.size();
-      return &DriverSuffixes[i];
+      return &DS;
     }
   }
   return nullptr;
@@ -518,6 +520,9 @@ static StringRef getArchNameForCompilerRTLib(const ToolChain &TC,
   const llvm::Triple &Triple = TC.getTriple();
   bool IsWindows = Triple.isOSWindows();
 
+  if (TC.isBareMetal())
+    return Triple.getArchName();
+
   if (TC.getArch() == llvm::Triple::arm || TC.getArch() == llvm::Triple::armeb)
     return (arm::getARMFloatABI(TC, Args) == arm::FloatABI::Hard && !IsWindows)
                ? "armhf"
@@ -555,7 +560,10 @@ StringRef ToolChain::getOSLibName() const {
 
 std::string ToolChain::getCompilerRTPath() const {
   SmallString<128> Path(getDriver().ResourceDir);
-  if (Triple.isOSUnknown()) {
+  if (isBareMetal()) {
+    llvm::sys::path::append(Path, "lib", getOSLibName());
+    Path += SelectedMultilib.gccSuffix();
+  } else if (Triple.isOSUnknown()) {
     llvm::sys::path::append(Path, "lib");
   } else {
     llvm::sys::path::append(Path, "lib", getOSLibName());
@@ -1114,6 +1122,8 @@ void ToolChain::AddCXXStdlibLibArgs(const ArgList &Args,
   switch (Type) {
   case ToolChain::CST_Libcxx:
     CmdArgs.push_back("-lc++");
+    if (Args.hasArg(options::OPT_fexperimental_library))
+      CmdArgs.push_back("-lc++experimental");
 #if INTEL_CUSTOMIZATION
     if (Args.hasArg(options::OPT__intel))
       CmdArgs.push_back("-lc++abi");
@@ -1434,7 +1444,8 @@ void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ,
+                                     options::OPT_qmkl_ilp64_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
     if (getDriver().IsDPCPPMode() &&
@@ -1451,10 +1462,12 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
         LibName += "d";
       MKLLibs.push_back(Args.MakeArgString(LibName));
     }
-    auto addMKLExt = [&Args, IsMSVC](std::string LN, const llvm::Triple &Triple) {
+    auto addMKLExt = [&Args, IsMSVC, &A](std::string LN,
+                      const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64) {
-        if (Args.hasArg(options::OPT_fsycl))
+        if (A->getOption().matches(options::OPT_qmkl_ilp64_EQ) ||
+                                   Args.hasArg(options::OPT_fsycl))
           LibName.append("_ilp64");
         else
           LibName.append("_lp64");
@@ -1464,8 +1477,8 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode()) {
-        // Use TBB when -tbb or DPC++
+      if (Args.hasArg(options::OPT_qtbb)) {
+        // Use TBB when -tbb
         SmallString<32> LibName("mkl_tbb_thread");
         if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
           LibName += "d";
@@ -1535,6 +1548,43 @@ void ToolChain::AddACTypesLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     CmdArgs.push_back(Args.MakeArgString(LibName));
   }
 }
+
+bool ToolChain::detectGCCPIEDefault() const {
+  auto GCCBinary = llvm::sys::findProgramByName("gcc");
+
+  if (GCCBinary.getError())
+    return false;
+
+  llvm::SmallString<64> OutputFile(
+      getDriver().GetTemporaryPath("gcc-enable-pie", "txt"));
+  llvm::FileRemover OutputRemover(OutputFile.c_str());
+  llvm::Optional<llvm::StringRef> Redirects[] = {
+      {""},
+      OutputFile.str(),
+      OutputFile.str(),
+  };
+
+  std::string ErrorMessage;
+  if (int Result = llvm::sys::ExecuteAndWait(
+          GCCBinary.get(), {GCCBinary.get(), "-v"}, {}, Redirects,
+          /*SecondsToWait*/ 0, /*MemoryLimit*/ 0, &ErrorMessage)) {
+    // Could not get the information, return false
+    return false;
+  }
+
+  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> OutputBuf =
+      llvm::MemoryBuffer::getFile(OutputFile.c_str());
+  if (!OutputBuf) {
+    // Could not capture output, return false
+    return false;
+  }
+
+  for (llvm::line_iterator LineIt(**OutputBuf); !LineIt.is_at_end(); ++LineIt) {
+    if (LineIt->str().find("enable-default-pie") != std::string::npos)
+      return true;
+  }
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool ToolChain::isFastMathRuntimeAvailable(const ArgList &Args,
@@ -1590,6 +1640,9 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
       getTriple().isAArch64() || getTriple().isRISCV())
     Res |= SanitizerKind::CFIICall;
+  if (getTriple().getArch() == llvm::Triple::x86_64 ||
+      getTriple().isAArch64(64))
+    Res |= SanitizerKind::KCFI;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC

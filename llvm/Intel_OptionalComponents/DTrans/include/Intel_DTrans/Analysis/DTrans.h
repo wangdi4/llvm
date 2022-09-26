@@ -698,6 +698,10 @@ const SafetyData BadMemFuncManipulationForRelatedTypes = 0x0000'8000'0000'0000;
 /// StructCouldBeBaseABIPadding above.
 const SafetyData UnsafePtrMergeRelatedTypes = 0x0001'0000'0000'0000;
 
+/// Multiple structures are modified via a single memory function intrinsic
+// (memcpy, memmove, or memset).
+const SafetyData MultiStructMemFunc = 0x0002'0000'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -745,7 +749,8 @@ const SafetyData SDDeleteField =
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
     MemFuncNestedStructsPartialWrite | ComplexAllocSize |
     StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
-    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes |
+    MultiStructMemFunc;
 
 const SafetyData SDReuseField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -806,7 +811,7 @@ const SafetyData SDReorderFields =
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
     StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
-    UnsafePtrMergeRelatedTypes;
+    UnsafePtrMergeRelatedTypes | MultiStructMemFunc;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
@@ -875,7 +880,7 @@ const SafetyData SDAOSToSOA =
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
     StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
-    UnsafePtrMergeRelatedTypes;
+    UnsafePtrMergeRelatedTypes | MultiStructMemFunc;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -1484,6 +1489,8 @@ private:
   CallInfoKind CIK;
 };
 
+typedef SmallVector<CallInfo *, 2> CallInfoVec;
+
 /// The AllocCallInfo class tracks a memory allocation site that dynamically
 /// allocates a type of interest.
 class AllocCallInfo : public CallInfo {
@@ -1655,9 +1662,14 @@ public:
   CallInfoManager(CallInfoManager &&) = default;
   CallInfoManager &operator=(CallInfoManager &&) = default;
 
-  // Retrieve the CallInfo object for the instruction, if information exists.
-  // Otherwise, return nullptr.
+  // Retrieve the unique CallInfo object for the instruction, if information
+  // exists. Otherwise, return nullptr.
   dtrans::CallInfo *getCallInfo(const Instruction *I) const;
+
+  // Retrieve the CallInfoVec object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfoVec *getCallInfoVec(const Instruction *I);
+  const dtrans::CallInfoVec *getCallInfoVec(const Instruction *I) const;
 
   // Create an entry in the CallInfoMap about a memory allocation call.
   dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
@@ -1679,6 +1691,9 @@ public:
   // Destroy the CallInfo stored about the specific instruction.
   void deleteCallInfo(Instruction *I);
 
+  // Destroy the CallInfoVec stored about the specific instruction.
+  void deleteCallInfoVec(Instruction *I);
+
   // Update the instruction associated with the CallInfo object. This
   // is necessary when a function is cloned during the DTrans optimizations to
   // transfer the information to the newly created instruction of the cloned
@@ -1688,7 +1703,7 @@ public:
   // Clear all the entries from the CallInfoMap.
   void reset();
 
-  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfo *>;
+  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfoVec>;
 
   // Adaptor for directly iterating over the dtrans::CallInfo pointers.
   struct call_info_iterator
@@ -1698,8 +1713,8 @@ public:
     explicit call_info_iterator(CallInfoMapType::iterator X)
         : iterator_adaptor_base(X) {}
 
-    dtrans::CallInfo *&operator*() const { return I->second; }
-    dtrans::CallInfo *&operator->() const { return operator*(); }
+    dtrans::CallInfoVec &operator*() const { return I->second; }
+    dtrans::CallInfoVec &operator->() const { return operator*(); }
   };
 
   iterator_range<call_info_iterator> call_info_entries() {

@@ -10,10 +10,8 @@
 ;   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details-dims -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -hir-details-dims -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details-dims -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -hir-details-dims -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Check that memref and loop was vectorized.

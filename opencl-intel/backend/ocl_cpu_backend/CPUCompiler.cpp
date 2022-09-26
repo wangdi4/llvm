@@ -14,17 +14,16 @@
 
 #define NOMINMAX
 
-#include "cl_cpu_detect.h"
-#include "BuiltinModules.h"
-#include "BuiltinModuleManager.h"
 #include "CPUCompiler.h"
+#include "BuiltinModuleManager.h"
+#include "BuiltinModules.h"
+#include "LLDJITBuilder.h"
 #include "ObjectCodeCache.h"
-#include "CompilationUtils.h"
+#include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "debuggingservicetype.h"
 #include "exceptions.h"
-#include "LLDJITBuilder.h"
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
 #include "llvm/ADT/Triple.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -105,8 +104,7 @@ BuiltinModules* CPUCompiler::GetOrLoadBuiltinModules(bool ForceLoad)
     if (ForceLoad || It == m_builtinModules.end()) {
         BuiltinModuleManager *Manager = BuiltinModuleManager::GetInstance();
         BuiltinLibrary *Library =
-            m_bIsEyeQEmulator   ? Manager->GetOrLoadEyeQLibrary(m_CpuId)
-            : m_bIsFPGAEmulator ? Manager->GetOrLoadFPGAEmuLibrary(m_CpuId)
+            m_bIsFPGAEmulator ? Manager->GetOrLoadFPGAEmuLibrary(m_CpuId)
                                 : Manager->GetOrLoadCPULibrary(m_CpuId);
         auto bltnModules = LoadBuiltinModules(Library);
         m_builtinModules[TID].reset(new BuiltinModules(std::move(bltnModules)));
@@ -177,13 +175,6 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
   if ((selectedCpuId >= Intel::OpenCL::Utils::CPU_SNB) &&
       m_CpuId->IsFeatureSupported(Intel::OpenCL::Utils::CFS_F16C))
     m_forcedCpuFeatures.push_back("+f16c");
-
-  if (selectedCpuId == Intel::OpenCL::Utils::CPU_KNL) {
-    m_forcedCpuFeatures.push_back("+avx512f");
-    m_forcedCpuFeatures.push_back("+avx512cd");
-    m_forcedCpuFeatures.push_back("+avx512er");
-    m_forcedCpuFeatures.push_back("+avx512pf");
-  }
 
   if (selectedCpuId >= Intel::OpenCL::Utils::CPU_SKX) {
     m_forcedCpuFeatures.push_back("+avx512f");

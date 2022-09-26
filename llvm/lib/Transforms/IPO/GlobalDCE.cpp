@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -232,7 +232,7 @@ void GlobalDCEPass::ScanVTables(Module &M) {
 
 void GlobalDCEPass::ScanVTableLoad(Function *Caller, Metadata *TypeId,
                                    uint64_t CallOffset) {
-  for (auto &VTableInfo : TypeIdMap[TypeId]) {
+  for (const auto &VTableInfo : TypeIdMap[TypeId]) {
     GlobalVariable *VTable = VTableInfo.first;
     uint64_t VTableOffset = VTableInfo.second;
 
@@ -266,7 +266,7 @@ void GlobalDCEPass::ScanTypeCheckedLoadIntrinsics(Module &M) {
   if (!TypeCheckedLoadFunc)
     return;
 
-  for (auto U : TypeCheckedLoadFunc->users()) {
+  for (auto *U : TypeCheckedLoadFunc->users()) {
     auto CI = dyn_cast<CallInst>(U);
     if (!CI)
       continue;
@@ -280,7 +280,7 @@ void GlobalDCEPass::ScanTypeCheckedLoadIntrinsics(Module &M) {
     } else {
       // type.checked.load with a non-constant offset, so assume every entry in
       // every matching vtable is used.
-      for (auto &VTableInfo : TypeIdMap[TypeId]) {
+      for (const auto &VTableInfo : TypeIdMap[TypeId]) {
         VFESafeVTables.erase(VTableInfo.first);
       }
     }
@@ -314,8 +314,63 @@ void GlobalDCEPass::AddVirtualFunctionDependencies(Module &M) {
   );
 }
 
+#if INTEL_CUSTOMIZATION
+// Preprocess Auto CPU Dispatch (ACD) inserted dispatcher function uses
+// to turn up more opportunities for DCE.
+static bool PreprocessDispatcherFunctions(Module &M) {
+  bool Changed = false;
+
+  // After Inliner is run, ACD generated multi-versioned functions may have
+  // direct calls to other multi-versioned functions in the same module through
+  // dispatcher functions (IFunc's on Linux). Such direct calls should instead be
+  // to the appropriate target-specific callees matching the caller's target.
+  // This routine transforms the below call to bar():
+  //      define foo.A
+  //        call bar()    // bar is a dispather function
+  // to a call to bar.A():
+  //      define foo.A
+  //        call bar.A()
+  // This transformation may create dead dispatchers for GlobalDCE to remove them.
+  // Linux implementation uses IFunc based dispatchers, thus here we preprocess IFuncs.
+  for (GlobalIFunc &GIF : M.ifuncs()) {
+
+    Function *Resolver = GIF.getResolverFunction();
+    if (!Resolver || !Resolver->getName().endswith(".resolver"))
+      continue;
+
+    for (auto It = GIF.use_begin(), End = GIF.use_end(); It != End;) {
+      Use &IFUse = *It;
+      ++It;
+
+      auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
+      if (CInst && CInst->isCallee(&IFUse)) {
+        Function *Caller = CInst->getFunction();
+        if (!Caller->hasMetadata("llvm.acd.clone"))
+          continue;
+        auto NameTargetPair = Caller->getName().rsplit('.');
+        if (NameTargetPair.second.empty())
+          continue;
+        auto ReplacementName = GIF.getName().str() + "." + NameTargetPair.second.str();
+        Function *Replacement = M.getFunction(ReplacementName);
+        if (Replacement && Replacement->hasMetadata("llvm.acd.clone")) {
+          CInst->setCalledFunction(Replacement);
+          Changed = true;
+        }
+      }
+    }
+  }
+  return Changed;
+}
+#endif // INTEL_CUSTOMIZATION
+
 PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &MAM) {
   bool Changed = false;
+
+#if INTEL_CUSTOMIZATION
+  // Preprocess Auto CPU Dispatch (ACD) inserted dispatcher function uses
+  // to turn up more opportunities for DCE.
+  Changed |= PreprocessDispatcherFunctions(M);
+#endif // INTEL_CUSTOMIZATION
 
   // The algorithm first computes the set L of global variables that are
   // trivially live.  Then it walks the initialization of these variables to

@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: sed -e s/.T1:// %s | \
 ; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK1 %s
@@ -97,5 +98,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK5-NOT: Selected for deletion: %struct.test
 ; CHECK5: No candidates found.
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

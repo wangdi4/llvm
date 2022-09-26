@@ -11,7 +11,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 
 #include "llvm/ADT/StringSet.h"
-#include "llvm/IR/Intel_VectorVariant.h" // for VectorVariant::ISAClass
+#include "llvm/Analysis/VectorUtils.h"
 
 namespace llvm {
 
@@ -33,7 +33,7 @@ FunctionPass *createRedundantPhiNodeLegacyPass();
 FunctionPass *createSinCosFoldLegacyPass();
 FunctionPass *createSoaAllocaAnalysisLegacyPass();
 FunctionPass *createWeightedInstCountAnalysisLegacyPass(
-    VectorVariant::ISAClass ISA = VectorVariant::XMM, bool PreVec = true);
+    VFISAKind ISA = VFISAKind::SSE, bool PreVec = true);
 FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
 ImmutablePass *
 createBuiltinLibInfoAnalysisLegacyPass(ArrayRef<Module *> BuiltinModules = {});
@@ -63,7 +63,7 @@ ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelVecClonePass(
     ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
         {},
-    VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
+    VFISAKind ISA = VFISAKind::SSE, bool IsOCL = false);
 ModulePass *
 createDPCPPKernelWGLoopCreatorLegacyPass(bool UseTLSGlobals = false);
 ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
@@ -78,8 +78,7 @@ ModulePass *createImplicitGIDLegacyPass(bool HandleBarrier = true);
 ModulePass *createIndirectCallLoweringLegacyPass();
 ModulePass *createInferArgumentAliasLegacyPass();
 ModulePass *createInfiniteLoopCreatorLegacyPass();
-ModulePass *createInstToFuncCallLegacyPass(
-    VectorVariant::ISAClass ISA = VectorVariant::XMM);
+ModulePass *createInstToFuncCallLegacyPass(VFISAKind ISA = VFISAKind::SSE);
 ModulePass *createInternalizeGlobalVariablesLegacyPass();
 ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
@@ -107,9 +106,9 @@ ModulePass *createResolveVarTIDCallLegacyPass();
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
 ModulePass *createSetPreferVectorWidthLegacyPass(
-    VectorVariant::ISAClass ISA = VectorVariant::XMM);
+    VFISAKind ISA = VFISAKind::SSE);
 ModulePass *createSetVectorizationFactorLegacyPass(
-    VectorVariant::ISAClass ISA = VectorVariant::XMM);
+    VFISAKind ISA = VFISAKind::SSE);
 ModulePass *createSGBarrierPropagateLegacyPass();
 ModulePass *createSGBarrierSimplifyLegacyPass();
 ModulePass *createSGBuiltinLegacyPass(
@@ -117,8 +116,8 @@ ModulePass *createSGBuiltinLegacyPass(
         {});
 ModulePass *createSGLoopConstructLegacyPass();
 ModulePass *createSGSizeAnalysisLegacyPass();
-ModulePass *createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass);
-ModulePass *createSGSizeCollectorLegacyPass(VectorVariant::ISAClass);
+ModulePass *createSGSizeCollectorIndirectLegacyPass(VFISAKind);
+ModulePass *createSGSizeCollectorLegacyPass(VFISAKind);
 ModulePass *createSGValueWidenLegacyPass();
 ModulePass *createSplitBBonBarrierLegacyPass();
 ModulePass *createTaskSeqAsyncHandlingLegacyPass();
@@ -126,7 +125,7 @@ ModulePass *createUpdateCallAttrsLegacyPass();
 ModulePass *createVectorizationDimensionAnalysisLegacyPass();
 ModulePass *createVectorKernelEliminationLegacyPass();
 ModulePass *createVectorVariantFillInLegacyPass();
-ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
+ModulePass *createVectorVariantLoweringLegacyPass(VFISAKind);
 ModulePass *createVFAnalysisLegacyPass();
 ModulePass *createWGLoopBoundariesLegacyPass();
 ModulePass *createWIRelatedValueWrapperPass();

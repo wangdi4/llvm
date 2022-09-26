@@ -123,9 +123,8 @@ void ParVecDirectiveInsertion::Visitor::visit(HLLoop *HLoop) {
   }
 }
 
-HLInst *
-ParVecDirectiveInsertion::Visitor::insertBeginRegion(HLLoop *Lp,
-                                                     OMP_DIRECTIVES Dir) {
+HLInst *ParVecDirectiveInsertion::Visitor::insertBeginRegion(
+    HLLoop *Lp, OMP_DIRECTIVES Dir, const ParVecInfo *Info) {
   auto Intrin = Intrinsic::getDeclaration(Func.getParent(),
                                           Intrinsic::directive_region_entry);
   assert(Intrin && "Cannot get declaration for intrinsic");
@@ -135,13 +134,25 @@ ParVecDirectiveInsertion::Visitor::insertBeginRegion(HLLoop *Lp,
       std::string(IntrinsicUtils::getDirectiveString(Dir)),
       ArrayRef<llvm::Value *>{});
   IntrinOpBundle.push_back(OpBundle);
-  // TODO: Operand bundles for any clauses in auto-vec directive
 
-  // No arguments to region.entry call
+  SmallVector<RegDDRef *, 1> BundleRefs;
+  unsigned Safelen = Info->getSafelen();
+  // Emit safelen clause if needed
+  if (Safelen != UINT_MAX) {
+    Constant *SafelenConst = ConstantInt::get(
+        Type::getInt32Ty(Lp->getHLNodeUtils().getContext()), Safelen);
+    llvm::OperandBundleDef SafelenBundle(
+        std::string(IntrinsicUtils::getClauseString(llvm::QUAL_OMP_SAFELEN)),
+        ArrayRef<llvm::Value *>{SafelenConst});
+    IntrinOpBundle.push_back(SafelenBundle);
+    BundleRefs.push_back(Lp->getDDRefUtils().createConstDDRef(SafelenConst));
+  }
+
   SmallVector<RegDDRef *, 1> CallArgs;
   // Create "%entry = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]"
-  auto Inst = Lp->getHLNodeUtils().createCall(
-      Intrin, CallArgs, "entry.region", nullptr /*Lvalddref*/, IntrinOpBundle);
+  auto Inst = Lp->getHLNodeUtils().createCall(Intrin, CallArgs, "entry.region",
+                                              nullptr /*Lvalddref*/,
+                                              IntrinOpBundle, BundleRefs);
 
   HLNodeUtils::insertBefore(Lp, Inst);
   return Inst;
@@ -177,7 +188,7 @@ void ParVecDirectiveInsertion::Visitor::insertVecDirectives(
   Inserted = true;
 
   // Insert region entry for auto-vec directive
-  HLInst *RegionEntry = insertBeginRegion(Lp, DIR_VPO_AUTO_VEC);
+  HLInst *RegionEntry = insertBeginRegion(Lp, DIR_VPO_AUTO_VEC, Info);
   // Insert region exit for auto-vec directive
   insertEndRegion(Lp, DIR_VPO_END_AUTO_VEC, RegionEntry);
 }

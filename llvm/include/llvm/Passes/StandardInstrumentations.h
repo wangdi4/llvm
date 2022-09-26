@@ -80,6 +80,18 @@ private:
   SmallVector<PrintModuleDesc, 2> ModuleDescStack;
 };
 
+#if INTEL_CUSTOMIZATION
+class LimitingInstrumentation {
+public:
+  LimitingInstrumentation(bool DebugLogging) : DebugLogging(DebugLogging) {}
+  void registerCallbacks(PassInstrumentationCallbacks &PIC);
+
+private:
+  bool DebugLogging;
+  bool shouldRun(StringRef PassID, LoopOptLimiter Limiter, Any IR);
+};
+#endif // INTEL_CUSTOMIZATION
+
 class OptNoneInstrumentation {
 public:
   OptNoneInstrumentation(bool DebugLogging) : DebugLogging(DebugLogging) {}
@@ -155,9 +167,9 @@ public:
     }
 
     bool isPoisoned() const {
-      return BBGuards &&
-             std::any_of(BBGuards->begin(), BBGuards->end(),
-                         [](const auto &BB) { return BB.second.isPoisoned(); });
+      return BBGuards && llvm::any_of(*BBGuards, [](const auto &BB) {
+               return BB.second.isPoisoned();
+             });
     }
 
     static void printDiff(raw_ostream &out, const CFG &Before,
@@ -403,13 +415,13 @@ public:
 
 protected:
   // Create a representation of the IR.
-  virtual void generateIRRepresentation(Any IR, StringRef PassID,
-                                        IRDataT<EmptyData> &Output) override;
+  void generateIRRepresentation(Any IR, StringRef PassID,
+                                IRDataT<EmptyData> &Output) override;
 
   // Called when an interesting IR has changed.
-  virtual void handleAfter(StringRef PassID, std::string &Name,
-                           const IRDataT<EmptyData> &Before,
-                           const IRDataT<EmptyData> &After, Any) override;
+  void handleAfter(StringRef PassID, std::string &Name,
+                   const IRDataT<EmptyData> &Before,
+                   const IRDataT<EmptyData> &After, Any) override;
 
   void handleFunctionCompare(StringRef Name, StringRef Prefix, StringRef PassID,
                              StringRef Divider, bool InModule, unsigned Minor,
@@ -529,6 +541,7 @@ class StandardInstrumentations {
   TimePassesHandler TimePasses;
   OptNoneInstrumentation OptNone;
   OptBisectInstrumentation OptBisect;
+  LimitingInstrumentation Limiter;        // INTEL
   PreservedCFGCheckerInstrumentation PreservedCFGChecker;
   IRChangedPrinter PrintChangedIR;
   PseudoProbeVerifier PseudoProbeVerification;

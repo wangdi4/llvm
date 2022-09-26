@@ -310,5 +310,101 @@ void DTransTypeMetadataPropagator::copyDTransMetadata(Value *DestValue,
     DTransTypeMetadataBuilder::addDTransMDNode(*DestValue, MD);
 }
 
+// Create new intel_dtrans_type metadata for NewGV which is created by
+// WholeProgramDevirt.
+// Type of NewGV: { [i8 x B.Before.Bytes], Type of OldGV, [i8 x AfterBytesSize]
+// }
+void DTransTypeMetadataPropagator::setDevirtVarDTransMetadata(
+    GlobalVariable *OldGV, GlobalVariable *NewGV, uint64_t BeforeBytesSize,
+    uint64_t AfterBytesSize) {
+  MDNode *MMD = dtransOP::TypeMetadataReader::getDTransMDNode(*OldGV);
+  if (!MMD)
+    return;
+  LLVMContext &Ctx = OldGV->getType()->getContext();
+  auto CharMD = llvm::MDNode::get(
+      Ctx, {llvm::ConstantAsMetadata::get(
+                llvm::Constant::getNullValue(llvm::Type::getInt8Ty(Ctx))),
+            llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 0))});
+
+  llvm::SmallVector<llvm::Metadata *> NewMD;
+  auto Arr1MD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                  ConstantAsMetadata::get(ConstantInt::get(
+                                      Type::getInt32Ty(Ctx), BeforeBytesSize)),
+                                  CharMD});
+  NewMD.push_back(Arr1MD);
+  if (auto *RefMD = dyn_cast<MDNode>(MMD->getOperand(0)))
+    MMD = RefMD;
+  NewMD.push_back(MMD);
+
+  auto Arr2MD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                  ConstantAsMetadata::get(ConstantInt::get(
+                                      Type::getInt32Ty(Ctx), AfterBytesSize)),
+                                  CharMD});
+  NewMD.push_back(Arr2MD);
+  MDTuple *LiteralMD =
+      DTransTypeMetadataBuilder::createLiteralStructMetadata(Ctx, NewMD);
+  NewGV->setMetadata(MDDTransTypeTag, nullptr);
+  NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, LiteralMD);
+}
+
+// Create new intel_dtrans_type metadata for NewGV which is created by
+// GlobalOpt.
+//  Type of NewGV: [i8* x NewArrSize]
+void DTransTypeMetadataPropagator::setGlobUsedVarDTransMetadata(
+    GlobalVariable *OldGV, GlobalVariable *NewGV, uint64_t NewArrSize) {
+
+  // Skip if DTransMDNode is not attached to OldGV.
+  MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(*OldGV);
+  if (!MD)
+    return;
+
+  // Get metadata for Int8Ptr.
+  LLVMContext &Ctx = NewGV->getType()->getContext();
+  auto CharPtrMD = llvm::MDNode::get(
+      Ctx, {llvm::ConstantAsMetadata::get(
+                llvm::Constant::getNullValue(llvm::Type::getInt8Ty(Ctx))),
+            llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 1))});
+
+  // Create metadata for [i8* x NewArrSize]
+  auto ArrMD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                 ConstantAsMetadata::get(ConstantInt::get(
+                                     Type::getInt32Ty(Ctx), NewArrSize)),
+                                 CharPtrMD});
+  NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, ArrMD);
+}
+
+// Create new intel_dtrans_type metadata for NewGV which is created during
+// IRMover.
+//   Type of NewGV: [EltTy x NewArrSize]
+void DTransTypeMetadataPropagator::setGlobAppendingVarDTransMetadata(
+    const GlobalVariable *SrcGV, GlobalVariable *DstGV, GlobalVariable *NewGV,
+    uint64_t NewArrSize) {
+  // Makes sure both SrcGV and DstGV have intel_dtrans_type metadata.
+  MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(*SrcGV);
+  if (!MD)
+    return;
+  if (DstGV) {
+    MDNode *DMD = dtransOP::TypeMetadataReader::getDTransMDNode(*DstGV);
+    if (!DMD)
+      return;
+  }
+  assert(isa<MDString>(MD->getOperand(0)) && "Expected MD String");
+  assert(cast<MDString>(MD->getOperand(0))->getString().equals("A") &&
+         "Expected Array");
+
+  LLVMContext &Ctx = NewGV->getType()->getContext();
+  auto *RefMD = dyn_cast<MDNode>(MD->getOperand(2));
+  assert(RefMD && "Expected metadata constant");
+
+  // Create MD for [EltTy x NewArrSize]
+  auto ArrMD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                 ConstantAsMetadata::get(ConstantInt::get(
+                                     Type::getInt32Ty(Ctx), NewArrSize)),
+                                 RefMD});
+  NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, ArrMD);
+}
+
 } // end namespace dtransOP
 } // end namespace llvm

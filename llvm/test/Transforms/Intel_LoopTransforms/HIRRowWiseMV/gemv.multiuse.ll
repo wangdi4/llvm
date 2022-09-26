@@ -115,10 +115,10 @@ L2:
   %A2ij = load double, double* %A2ijp
   %bjp = getelementptr inbounds double, double* %b, i32 %j
   %bj = load double, double* %bjp
-  %A1ijbj = fmul fast double %A1ij, %bj
-  %A2ijbj = fmul fast double %A2ij, %bj
-  %Aijbjsum = fadd fast double %A1ijbj, %A2ijbj
-  %sum.next = fadd fast double %sum.L2, %Aijbjsum
+  %A1ijbj = fmul nnan nsz arcp afn reassoc double %A1ij, %bj
+  %A2ijbj = fmul nnan nsz arcp afn reassoc double %A2ij, %bj
+  %Aijbjsum = fadd double %A1ijbj, %A2ijbj
+  %sum.next = fadd double %sum.L2, %Aijbjsum
   %j.next = add nuw nsw i32 %j, 1
   %L2.cond = icmp eq i32 %j.next, 128
   br i1 %L2.cond, label %L2.exit, label %L2

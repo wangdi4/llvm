@@ -278,6 +278,11 @@ def note_omp_tile_expr : Note<"as specified in 'tile' clause">;
 def warn_omp_subdevice_level: Warning<
   "'subdevice' level value must be 0 or 1 - ignored, assuming 0">,
   InGroup<Pragmas>;
+def err_omp_expected_simd : Error<"'#pragma omp %0' %select{|with '%2' clause "
+                                  "}1can only be used with 'ordered simd'">;
+def err_ompx_monotonic_expected_integral_or_ptr
+    : Error<"argument of %select{ompx_monotonic|ompx_overlap}0 clause should "
+            "be of integral or pointer type, not %1">;
 
 #if INTEL_FEATURE_CSA
 // Intel CSA extensions

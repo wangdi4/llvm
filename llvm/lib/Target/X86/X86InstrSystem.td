@@ -93,9 +93,9 @@ def SYSEXIT64 :RI<0x35, RawFrm, (outs), (ins), "sysexitq", []>, TB,
 } // SchedRW
 
 def : Pat<(debugtrap),
-          (INT3)>, Requires<[NotPS4]>;
+          (INT3)>, Requires<[NotPS]>;
 def : Pat<(debugtrap),
-          (INT (i8 0x41))>, Requires<[IsPS4]>;
+          (INT (i8 0x41))>, Requires<[IsPS]>;
 
 //===----------------------------------------------------------------------===//
 //  Input/Output Instructions.
@@ -447,8 +447,30 @@ def LLDT16m : I<0x00, MRM2m, (outs), (ins i16mem:$src),
 let SchedRW = [WriteSystem] in {
 let Uses = [EAX, ECX, EDX] in
 def WRMSR : I<0x30, RawFrm, (outs), (ins), "wrmsr", []>, TB;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_WRMSRNS
+let Uses = [EAX, ECX, EDX] in
+def WRMSRNS : I<0x01, MRM_C6, (outs), (ins), "wrmsrns", []>, PS;
+#endif // INTEL_FEATURE_ISA_WRMSRNS
+#endif // INTEL_CUSTOMIZATION
 let Defs = [EAX, EDX], Uses = [ECX] in
 def RDMSR : I<0x32, RawFrm, (outs), (ins), "rdmsr", []>, TB;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_RDMSRLIST_WRMSRLIST
+let Uses = [RSI, RDI, RCX], Predicates = [In64BitMode] in
+def WRMSRNLIST : I<0x01, MRM_C6, (outs), (ins), "wrmsrlist", []>, XS;
+let Uses = [RSI, RDI, RCX], Predicates = [In64BitMode] in
+def RDMSRNLIST : I<0x01, MRM_C6, (outs), (ins), "rdmsrlist", []>, XD;
+#endif // INTEL_FEATURE_ISA_RDMSRLIST_WRMSRLIST
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PBNDKB
+let Uses = [RAX, RBX, RCX], Predicates = [In64BitMode] in
+def PBNDKB : I<0x01, MRM_C7, (outs), (ins), "pbndkb", []>, PS;
+#endif // INTEL_FEATURE_ISA_PBNDKB
+#endif // INTEL_CUSTOMIZATION
 
 let Defs = [RAX, RDX], Uses = [ECX] in
 def RDPMC : I<0x33, RawFrm, (outs), (ins), "rdpmc", []>, TB;
@@ -762,6 +784,15 @@ def PTWRITE64r : RI<0xAE, MRM4r, (outs), (ins GR64:$dst),
                     "ptwrite{q}\t$dst", [(int_x86_ptwrite64 GR64:$dst)]>, XS,
                     Requires<[In64BitMode, HasPTWRITE]>;
 } // SchedRW
+
+//===----------------------------------------------------------------------===//
+// RDPRU - Read Processor Register instruction.
+
+let SchedRW = [WriteSystem] in {
+let Uses = [ECX], Defs = [EAX, EDX] in
+   def RDPRU : I<0x01, MRM_FD, (outs), (ins), "rdpru", []>, PS,
+               Requires<[HasRDPRU]>;
+}
 
 //===----------------------------------------------------------------------===//
 // Platform Configuration instruction

@@ -1,7 +1,6 @@
 ; Test to check HIR vectorizer CG support for histogram idiom.
 
-; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL:   BEGIN REGION { modified }
 ; CHECK:               + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
@@ -17,9 +16,9 @@
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK:               + DO i1 = {{.*}}, 1026, 1   <DO_LOOP>
-; CHECK-NEXT:          |   %0 = (%B)[i1];
-; CHECK-NEXT:          |   %add = (%A)[%0]  +  2.000000e+00;
-; CHECK-NEXT:          |   (%A)[%0] = %add;
+; CHECK-NEXT:          |   [[TMP0:%.*]] = (%B)[i1];
+; CHECK-NEXT:          |   %add = (%A)[[[TMP0]]]  +  2.000000e+00;
+; CHECK-NEXT:          |   (%A)[[[TMP0]]] = %add;
 ; CHECK-NEXT:          + END LOOP
 ; CHECK:         END REGION
 

@@ -30,18 +30,20 @@ using namespace llvm;
 
 #define DEBUG_TYPE "hetero-arch-opt"
 
-static cl::opt<bool> DisableHeteroArchOpt(
-    "disable-hetero-arch-opt", cl::Hidden,
-    cl::desc("Disable Hetero Architecture Optimization."),
-    cl::init(false));
+static cl::opt<bool>
+    DisableHeteroArchOpt("disable-hetero-arch-opt", cl::Hidden,
+                         cl::desc("Disable Hetero Architecture Optimization."),
+                         cl::init(false));
 
-// Defines preferable loop height to clone. If the max height of loop candidate
-// is less than this value, this pass will try to find its ancestor loop with
-// max height equals to this value, or top level loop if its max height is less
-// than this value. Then this pass will try to clone this ancestor loop.
-static cl::opt<uint32_t>
-    HeteroArchCloneLoopHeightThreshold("hetero-arch-clone-loop-height",
-                                       cl::init(3), cl::ReallyHidden);
+// Defines preferable loop height to clone. If it's possible, this pass will try
+// to clone loop candidate's ancestor loop with loop height equals to this value
+// rather than directly clone loop candidates to leverage cpu core detection
+// cost and detection interval. This pass may clone loop candidate's ancestor
+// with height not equals to this value. The priority(dsc) is:
+// 1. Ancestor height is greater than or equals to this value.
+// 2. Ancestor height is closer to this value.
+static cl::opt<uint32_t> PreferCloneLoopHeight("hetero-arch-clone-loop-height",
+                                               cl::init(3), cl::ReallyHidden);
 
 namespace {
 
@@ -77,6 +79,16 @@ public:
 private:
   bool optLoop();
 
+  // Data need to be cleaned over each function.
+  void cleanup() {
+    NoCloneLoops.clear();
+    CloneExitBlocks.clear();
+  }
+
+  bool isTerminatorBB(const BasicBlock *BB) {
+    return succ_begin(BB) == succ_end(BB);
+  }
+
   // Populate loop candidates which contains flollowing instructions:
   // 1. masked_gather intrinsic that won't be scalarized for alderlake.
   unsigned scanLoopCandidates(Loop *L, SmallVector<LoopCand> &LoopCandidates);
@@ -96,6 +108,12 @@ private:
   DominatorTree *DT = nullptr;
   TargetTransformInfo *TTI = nullptr;
   Function *CurFn = nullptr;
+
+  // Loops that are not cloneable due to token type.
+  DenseSet<const Loop *> NoCloneLoops;
+
+  // Exit blocks that should also be cloned when loop is cloned.
+  DenseMap<Loop *, SmallVector<BasicBlock *, 2>> CloneExitBlocks;
 };
 
 } // end anonymous namespace
@@ -130,6 +148,7 @@ bool HeteroArchOpt::runOnFunction(Function &F) {
 
   // Dominator tree and loop info is NOT up to date after this optimization.
   bool Changed = optLoop();
+  cleanup();
   return Changed;
 }
 
@@ -149,22 +168,52 @@ HeteroArchOpt::scanLoopCandidates(Loop *L,
         std::max(scanLoopCandidates(SubLoop, LoopCandidates), MaxHeight);
   MaxHeight++;
 
+  LoopCand LC(L, MaxHeight);
   for (BasicBlock *BB : L->blocks()) {
-    // Skip BB belonging to subloops.
-    if (LI->getLoopFor(BB) != L)
-      continue;
-
-    LoopCand LC(L, MaxHeight);
+    bool InSubLoop = LI->getLoopFor(BB) != L;
     for (Instruction &I : *BB) {
+      // LCSSA won't handle tokens defined inside loop but with loop outside
+      // user. We can't use tokens in PHI so we mark this loop as not cloneable.
+      // An exception is if the token is only used in exit blocks and those exit
+      // blocks has no successor and all of predecessors are in loop. In this
+      // case, we can safely clone blocks of loop as well as those exit blocks.
+      if (I.getType()->isTokenTy()) {
+        for (User *U : I.users()) {
+          Instruction *UI = cast<Instruction>(U);
+          BasicBlock *UBB = UI->getParent();
+          if (L->contains(UI))
+            continue;
+
+          // We don't need to check if UBB is dominated by loop header here
+          // since cloneLoop works only if loop is in simplify form.
+          SmallVector<BasicBlock *> ExitBlocks;
+          L->getUniqueExitBlocks(ExitBlocks);
+          if (isTerminatorBB(UBB) &&
+              (find(ExitBlocks, UBB) != ExitBlocks.end())) {
+            CloneExitBlocks[L].push_back(UBB);
+            continue;
+          }
+
+          NoCloneLoops.insert(L);
+          break;
+        }
+        continue;
+      }
+
+      // Skip BB belonging to subloops.
+      if (InSubLoop)
+        continue;
+
       IntrinsicInst *II = dyn_cast<IntrinsicInst>(&I);
       if (II && II->getIntrinsicID() == Intrinsic::masked_gather &&
           !TTI->shouldScalarizeMaskedGather(II))
         LC.CandInsts.push_back(II);
     }
-
-    if (LC.CandInsts.size())
-      LoopCandidates.push_back(std::move(LC));
   }
+
+  if (LC.CandInsts.size())
+    LoopCandidates.push_back(std::move(LC));
+
   return MaxHeight;
 }
 
@@ -173,24 +222,34 @@ bool HeteroArchOpt::createLoopMultiVersion(
   // Group ancestor loops belonging to same top level loop.
   MapVector<Loop *, SmallVector<Loop *>> TopLevelLoop2AncLoops;
   DenseMap<Loop *, SmallDenseSet<LoopCand *, 2>> AncLoop2Cands;
-  for (auto &LC : LoopCandidates) {
-    // AncLoop is the ancestor of L to be cloned.
-    Loop *AncLoop = LC.L;
-    if (LC.MaxHeight < HeteroArchCloneLoopHeightThreshold) {
-      unsigned RecedeLevel =
-          std::min<unsigned>(HeteroArchCloneLoopHeightThreshold - LC.MaxHeight,
-                             LC.L->getLoopDepth() - 1);
-      while (RecedeLevel--)
-        AncLoop = AncLoop->getParentLoop();
-    }
-    Loop *TopLevelLoop = AncLoop;
-    while (Loop *ParentLoop = TopLevelLoop->getParentLoop())
-      TopLevelLoop = ParentLoop;
-    TopLevelLoop2AncLoops[TopLevelLoop].push_back(AncLoop);
 
-    // At this point, AncLoop2Cands doesn't contain all subloop candidates which
-    // is inside the corresponding ancestor loop. It'll be filled later.
-    AncLoop2Cands[AncLoop].insert(&LC);
+  for (auto &LC : LoopCandidates) {
+    SmallVector<Loop *, 4> Path;
+    for (Loop *L = LC.L; L; L = L->getParentLoop())
+      Path.push_back(L);
+
+    Loop *TopLevelLoop = Path.back();
+    unsigned PreferIdx =
+        LC.MaxHeight < PreferCloneLoopHeight
+            ? std::min<unsigned>(PreferCloneLoopHeight - LC.MaxHeight,
+                                 LC.L->getLoopDepth() - 1)
+            : 0;
+    // Sort path so that loop with preferable height comes frist, then loops
+    // with greater height in asc, then lower height in dsc.
+    std::reverse(Path.begin(), Path.begin() + PreferIdx);
+    std::rotate(Path.begin(), Path.begin() + PreferIdx, Path.end());
+
+    // AncLoop is the ancestor of L to be cloned.
+    auto AncLoop =
+        find_if(Path, [this](const Loop *L) { return !NoCloneLoops.count(L); });
+    if (AncLoop != Path.end()) {
+      // At this point, AncLoop2Cands doesn't contain all subloop candidates
+      // which is inside the corresponding ancestor loop. It'll be filled later.
+      TopLevelLoop2AncLoops[TopLevelLoop].push_back(*AncLoop);
+      AncLoop2Cands[*AncLoop].insert(&LC);
+    } else {
+      LLVM_DEBUG(dbgs() << "Can't create multiversion for loop:\n" << *LC.L);
+    }
   }
 
   // Sort it with lower depth comes first.
@@ -250,13 +309,16 @@ bool HeteroArchOpt::createLoopMultiVersion(
 }
 
 bool HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
+  assert(!NoCloneLoops.count(L) && "Found not cloneable loop");
   if (!L->isLoopSimplifyForm() || !L->isLCSSAForm(*DT))
     return false;
 
   // Clone all basicblocks belong to loop L and insert clone one after the
   // original one.
-  ArrayRef<BasicBlock *> OrigBBs = L->getBlocks();
+  std::vector<BasicBlock *> OrigBBs = L->getBlocksVector();
   SmallVector<BasicBlock *, 32> CloneBBs;
+  OrigBBs.insert(OrigBBs.end(), CloneExitBlocks[L].begin(),
+                 CloneExitBlocks[L].end());
   auto InsertPoint = (*OrigBBs.rbegin())->getIterator();
   for (auto RI = OrigBBs.rbegin(), End = OrigBBs.rend(); RI != End; RI++) {
     BasicBlock *CloneBB = CloneBasicBlock(*RI, VMap, ".clone");
@@ -287,6 +349,10 @@ bool HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
   SmallVector<BasicBlock *> ExitBlocks;
   L->getUniqueExitBlocks(ExitBlocks);
   for (BasicBlock *ExitBB : ExitBlocks) {
+    // Don't need to fix phi for cloned exit basic block.
+    if (VMap.count(ExitBB))
+      continue;
+
     for (PHINode &ExitPHI : ExitBB->phis()) {
       SmallVector<std::pair<Value *, BasicBlock *>, 4> Incomings;
       for (unsigned I = 0, E = ExitPHI.getNumIncomingValues(); I != E; I++)

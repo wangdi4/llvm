@@ -43,7 +43,7 @@ static cl::opt<bool> VPlanSIMDAssertDefault(
     "vplan-simd-assert-default", cl::init(false),
     cl::desc("Emits assert if pragma simd loop is not vectorized by VPlan"));
 static cl::opt<bool> VPlanSIMDAssertNoError(
-    "vplan-simd-assert-no-error", cl::init(true),
+    "vplan-simd-assert-no-error", cl::init(false),
     cl::desc(
         "Emit a warning instead of an error if pragma simd assert loop is not "
         "vectorized by VPlan"));
@@ -109,7 +109,7 @@ static void warnAboutLeftoverTransformations(Loop *L,
              "requested transformation; the transformation might be disabled "
              "or specified as part of an unsupported transformation ordering");
     } // INTEL
-    else if (InterleaveCount.getValueOr(0) != 1)
+    else if (InterleaveCount.value_or(0) != 1)
       ORE->emit(
           DiagnosticInfoOptimizationFailure(DEBUG_TYPE,
                                             "FailedRequestedInterleaving",

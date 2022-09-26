@@ -1,4 +1,21 @@
 //===- InlineAsm.cpp - Implement the InlineAsm class ----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,6 +36,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/Errc.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -33,9 +51,10 @@ InlineAsm::InlineAsm(FunctionType *FTy, const std::string &asmString,
       AsmString(asmString), Constraints(constraints), FTy(FTy),
       HasSideEffects(hasSideEffects), IsAlignStack(isAlignStack),
       Dialect(asmDialect), CanThrow(canThrow) {
+#ifndef NDEBUG
   // Do various checks on the constraint string and type.
-  assert(Verify(getFunctionType(), constraints) &&
-         "Function type not legal for constraints!");
+  cantFail(verify(getFunctionType(), constraints));
+#endif
 }
 
 InlineAsm *InlineAsm::get(FunctionType *FTy, StringRef AsmString,
@@ -99,6 +118,9 @@ bool InlineAsm::ConstraintInfo::Parse(StringRef Str,
   } else if (*I == '=') {
     ++I;
     Type = isOutput;
+  } else if (*I == '!') {
+    ++I;
+    Type = isLabel;
   }
 
   if (*I == '*') {
@@ -256,54 +278,76 @@ InlineAsm::ParseConstraints(StringRef Constraints) {
   return Result;
 }
 
-/// Verify - Verify that the specified constraint string is reasonable for the
-/// specified function type, and otherwise validate the constraint string.
-bool InlineAsm::Verify(FunctionType *Ty, StringRef ConstStr) {
-  if (Ty->isVarArg()) return false;
+static Error makeStringError(const char *Msg) {
+  return createStringError(errc::invalid_argument, Msg);
+}
+
+Error InlineAsm::verify(FunctionType *Ty, StringRef ConstStr) {
+  if (Ty->isVarArg())
+    return makeStringError("inline asm cannot be variadic");
 
   ConstraintInfoVector Constraints = ParseConstraints(ConstStr);
 
   // Error parsing constraints.
-  if (Constraints.empty() && !ConstStr.empty()) return false;
+  if (Constraints.empty() && !ConstStr.empty())
+    return makeStringError("failed to parse constraints");
 
   unsigned NumOutputs = 0, NumInputs = 0, NumClobbers = 0;
-  unsigned NumIndirect = 0;
+  unsigned NumIndirect = 0, NumLabels = 0;
 
   for (const ConstraintInfo &Constraint : Constraints) {
     switch (Constraint.Type) {
     case InlineAsm::isOutput:
-      if ((NumInputs-NumIndirect) != 0 || NumClobbers != 0)
-        return false;  // outputs before inputs and clobbers.
+      if ((NumInputs-NumIndirect) != 0 || NumClobbers != 0 || NumLabels != 0)
+        return makeStringError("output constraint occurs after input, "
+                               "clobber or label constraint");
+
       if (!Constraint.isIndirect) {
         ++NumOutputs;
         break;
       }
       ++NumIndirect;
-      LLVM_FALLTHROUGH; // We fall through for Indirect Outputs.
+      [[fallthrough]]; // We fall through for Indirect Outputs.
     case InlineAsm::isInput:
-      if (NumClobbers) return false;               // inputs before clobbers.
+      if (NumClobbers)
+        return makeStringError("input constraint occurs after clobber "
+                               "constraint");
       ++NumInputs;
       break;
     case InlineAsm::isClobber:
       ++NumClobbers;
+      break;
+    case InlineAsm::isLabel:
+      if (NumClobbers)
+        return makeStringError("label constraint occurs after clobber "
+                               "constraint");
+
+      ++NumLabels;
       break;
     }
   }
 
   switch (NumOutputs) {
   case 0:
-    if (!Ty->getReturnType()->isVoidTy()) return false;
+    if (!Ty->getReturnType()->isVoidTy())
+      return makeStringError("inline asm without outputs must return void");
     break;
   case 1:
-    if (Ty->getReturnType()->isStructTy()) return false;
+    if (Ty->getReturnType()->isStructTy())
+      return makeStringError("inline asm with one output cannot return struct");
     break;
   default:
     StructType *STy = dyn_cast<StructType>(Ty->getReturnType());
     if (!STy || STy->getNumElements() != NumOutputs)
-      return false;
+      return makeStringError("number of output constraints does not match "
+                             "number of return struct elements");
     break;
   }
 
-  if (Ty->getNumParams() != NumInputs) return false;
-  return true;
+  if (Ty->getNumParams() != NumInputs)
+    return makeStringError("number of input constraints does not match number "
+                           "of parameters");
+
+  // We don't have access to labels here, NumLabels will be checked separately.
+  return Error::success();
 }

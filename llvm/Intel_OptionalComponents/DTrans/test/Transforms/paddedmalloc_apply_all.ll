@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test that identifies if the DTrans padded malloc optimization was applied.
 ; In order to apply padded malloc, the optimization must find a malloc
@@ -16,9 +17,9 @@
 @arr1 = internal global [10 x i32] zeroinitializer, align 16
 @arr2 = internal global [10 x i32] zeroinitializer, align 16
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
-declare void @free(i8* nocapture)
+declare void @free(i8* nocapture) #1
 
 ; Malloc function
 define internal noalias i8* @mallocFunc(i64) {
@@ -62,6 +63,10 @@ define i32 @main() {
   call zeroext i1 @searchloop()
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
+
 
 ; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc
 ; CHECK: dtrans-paddedmalloc: Identifying alloc functions

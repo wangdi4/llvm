@@ -25,6 +25,11 @@ namespace loopopt {
 typedef SmallSet<unsigned, 16> SpecialSymbasesTy;
 typedef SpecialSymbasesTy InterchangeIgnorableSymbasesTy;
 
+struct FPInductionInfo {
+  const HLInst *DefInst;
+  const RegDDRef *StrideRef;
+};
+
 /// \brief Defines utilities for DDUtils Class
 ///
 /// It contains a functions which analyze and manipulate DD
@@ -133,6 +138,10 @@ public:
   static void gatherTempRegDDRefSymbases(
       const SmallVectorImpl<HLInst *> &Insts,
       InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases);
+
+  static void
+  populateFPInductions(const HLLoop *Lp, const DDGraph &DDG,
+                       SmallVectorImpl<FPInductionInfo> &FPInductions);
 };
 } // End namespace loopopt
 } // End namespace llvm

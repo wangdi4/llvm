@@ -1,8 +1,8 @@
 ; Check that opt-report is consistent with outgoing code emitted by vectorizer
 ; when vector loop is completely unrolled.
 
-; RUN: opt %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-optreport-emitter -intel-opt-report=medium -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-optreport-emitter" -intel-opt-report=medium -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-optreport-emitter -intel-opt-report=medium -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-optreport-emitter" -intel-opt-report=medium -vplan-force-vf=2 -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: full_unroll_vec_report
 ; CHECK:       BEGIN REGION { modified }

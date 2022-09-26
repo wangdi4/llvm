@@ -12,12 +12,10 @@
 ; CHECK:                |   %1 = (%x)[i1];
 ; CHECK:                |   %conv14 = fpext.float.double(%1);
 ; CHECK:                |   %mul12 = %conv14  *  3.140000e+00;
-; CHECK:                |   %a1.red.promoted = (%a1.red)[0];
-; CHECK:                |   %2 = %a1.red.promoted;
+; CHECK:                |   %2 = (%a1.red)[0];
 ;                       |
 ; CHECK:                |   + DO i2 = 0, %n + -1, 1   <DO_LOOP> <simd> <ivdep>
-; CHECK:                |   |   %3 = (%x)[i2];
-; CHECK:                |   |   %sub7 = %1  -  %3;
+; CHECK:                |   |   %sub7 = %1  -  (%x)[i2];
 ; CHECK:                |   |   %storemerge = 0.000000e+00;
 ; CHECK:                |   |   if (i2 != i1 + %k)
 ; CHECK:                |   |   {
@@ -50,13 +48,11 @@
 ;CHECK:                |   %1 = (%x)[i1];
 ;CHECK:                |   %conv14 = fpext.float.double(%1);
 ;CHECK:                |   %mul12 = %conv14  *  3.140000e+00;
-;CHECK:                |   %a1.red.promoted = (%a1.red)[0];
-;CHECK:                |   %2 = %a1.red.promoted;
+;CHECK:                |   %2 = (%a1.red)[0];
 ;CHECK:                |   %ivcopy = i1 + %k;
 ;                      |
 ;CHECK:                |   + DO i2 = 0, smin((-1 + %n), (-1 + %ivcopy)), 1   <DO_LOOP> <simd> <ivdep>
-;CHECK:                |   |   %3 = (%x)[i2];
-;CHECK:                |   |   %sub7 = %1  -  %3;
+;CHECK:                |   |   %sub7 = %1  -  (%x)[i2];
 ;CHECK:                |   |   %storemerge = 0.000000e+00;
 ;CHECK:                |   |   %mul8 = %sub7  *  %sub7;
 ;CHECK:                |   |   %add9 = %mul8  +  %sub7;
@@ -75,11 +71,9 @@
 ;CHECK:                |   if (smax(0, %ivcopy) < smin((-1 + %n), %ivcopy) + 1)
 ;CHECK:                |    {
 ;CHECK:                |       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
-;CHECK:                |       %a1.red.promoted = (%a1.red)[0];
-;CHECK:                |       %2 = %a1.red.promoted;
+;CHECK:                |       %2 = (%a1.red)[0];
 
-;CHECK:                |       %3 = (%x)[smax(0, %ivcopy)];
-;CHECK:                |       %sub7 = %1  -  %3;
+;CHECK:                |       %sub7 = %1  -  (%x)[smax(0, %ivcopy)];
 ;CHECK:                |       %storemerge = 0.000000e+00;
 ;CHECK:                |       %mul17 = %storemerge  *  %sub7;
 ;CHECK:                |       %2 = %2  +  %mul17;
@@ -89,12 +83,10 @@
 ;CHECK:                |   }
 
 ;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
-;CHECK:                |   %a1.red.promoted = (%a1.red)[0];
-;CHECK:                |   %2 = %a1.red.promoted;
+;CHECK:                |   %2 = (%a1.red)[0];
 ;     :                |
 ;CHECK:                |   + DO i2 = 0, %n + -1 * smax(0, (1 + %ivcopy)) + -1, 1   <DO_LOOP> <simd> <ivdep>
-;CHECK:                |   |   %3 = (%x)[i2 + smax(0, (1 + %ivcopy))];
-;CHECK:                |   |   %sub7 = %1  -  %3;
+;CHECK:                |   |   %sub7 = %1  -  (%x)[i2 + smax(0, (1 + %ivcopy))];
 ;CHECK:                |   |   %storemerge = 0.000000e+00;
 ;CHECK:                |   |   %mul8 = %sub7  *  %sub7;
 ;CHECK:                |   |   %add9 = %mul8  +  %sub7;

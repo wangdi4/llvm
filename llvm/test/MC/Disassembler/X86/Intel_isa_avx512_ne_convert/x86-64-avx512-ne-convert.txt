@@ -9,21 +9,9 @@
 # INTEL:      vcvtne2ps2ph zmm22, zmm23, zmm24
 0x62,0x82,0x45,0x40,0x67,0xf0
 
-# ATT:        vcvtne2ps2ph %zmm24, %zmm23, %zmm22 {%k7}
-# INTEL:      vcvtne2ps2ph zmm22 {k7}, zmm23, zmm24
-0x62,0x82,0x45,0x47,0x67,0xf0
-
-# ATT:        vcvtne2ps2ph %zmm24, %zmm23, %zmm22 {%k7} {z}
-# INTEL:      vcvtne2ps2ph zmm22 {k7} {z}, zmm23, zmm24
-0x62,0x82,0x45,0xc7,0x67,0xf0
-
 # ATT:        vcvtne2ps2ph  268435456(%rbp,%r14,8), %zmm23, %zmm22
 # INTEL:      vcvtne2ps2ph zmm22, zmm23, zmmword ptr [rbp + 8*r14 + 268435456]
 0x62,0xa2,0x45,0x40,0x67,0xb4,0xf5,0x00,0x00,0x00,0x10
-
-# ATT:        vcvtne2ps2ph  291(%r8,%rax,4), %zmm23, %zmm22 {%k7}
-# INTEL:      vcvtne2ps2ph zmm22 {k7}, zmm23, zmmword ptr [r8 + 4*rax + 291]
-0x62,0xc2,0x45,0x47,0x67,0xb4,0x80,0x23,0x01,0x00,0x00
 
 # ATT:        vcvtne2ps2ph  (%rip){1to16}, %zmm23, %zmm22
 # INTEL:      vcvtne2ps2ph zmm22, zmm23, dword ptr [rip]{1to16}
@@ -33,13 +21,13 @@
 # INTEL:      vcvtne2ps2ph zmm22, zmm23, zmmword ptr [2*rbp - 2048]
 0x62,0xe2,0x45,0x40,0x67,0x34,0x6d,0x00,0xf8,0xff,0xff
 
-# ATT:        vcvtne2ps2ph  8128(%rcx), %zmm23, %zmm22 {%k7} {z}
-# INTEL:      vcvtne2ps2ph zmm22 {k7} {z}, zmm23, zmmword ptr [rcx + 8128]
-0x62,0xe2,0x45,0xc7,0x67,0x71,0x7f
+# ATT:   vcvtne2ps2ph {rn-sae}, %zmm24, %zmm23, %zmm22
+# INTEL: vcvtne2ps2ph zmm22, zmm23, zmm24, {rn-sae}
+0x62,0x82,0x45,0x10,0x67,0xf0
 
-# ATT:        vcvtne2ps2ph  -512(%rdx){1to16}, %zmm23, %zmm22 {%k7} {z}
-# INTEL:      vcvtne2ps2ph zmm22 {k7} {z}, zmm23, dword ptr [rdx - 512]{1to16}
-0x62,0xe2,0x45,0xd7,0x67,0x72,0x80
+# ATT:   vcvtne2ps2ph {rz-sae}, %zmm24, %zmm23, %zmm22
+# INTEL: vcvtne2ps2ph zmm22, zmm23, zmm24, {rz-sae}
+0x62,0x82,0x45,0x70,0x67,0xf0
 
 # ATT:        vbcstnebf162ps  268435456(%rbp,%r14,8), %zmm22
 # INTEL:      vbcstnebf162ps zmm22, word ptr [rbp + 8*r14 + 268435456]

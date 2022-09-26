@@ -16,10 +16,8 @@
 ; NOTE: We use the switch -vplan-vectorizer-min-trip-count to make sure that loop
 ; is not vectorized. VPlan does not vectorize loops with constant trip counts lesser
 ; than the value specified in the switch.
-; RUN: opt -enable-new-pm=0 -vplan-vectorizer-min-trip-count=1030 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after-all -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -vplan-vectorizer-min-trip-count=1030 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after-all -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-vectorizer-min-trip-count=1030 -print-after-all -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-vectorizer-min-trip-count=1030 -print-after-all -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-vectorizer-min-trip-count=1030 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after-all -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-vectorizer-min-trip-count=1030 -print-after-all -S < %s 2>&1 | FileCheck %s
 
 ;
 ; HIR Test.

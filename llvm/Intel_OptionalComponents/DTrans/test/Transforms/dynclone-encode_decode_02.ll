@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone+Reencoding transformation is not
 ; triggered because there are too many large constants to be reencoded
 ; when -dtrans-simple-dynclone-enable=false.
@@ -76,4 +78,6 @@ entry:
   ret i32 0
 }
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

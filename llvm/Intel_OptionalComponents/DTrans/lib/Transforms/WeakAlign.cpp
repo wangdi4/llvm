@@ -266,7 +266,7 @@ bool WeakAlignImpl::analyzeModule(
   for (auto &F : M) {
     const TargetLibraryInfo &TLI = GetTLI(F);
     if (TLI.getLibFunc(F.getName(), TheLibFunc) && TLI.has(TheLibFunc) &&
-        llvm::isAllocationLibFunc(TheLibFunc) &&
+        llvm::IntelMemoryBuiltins::isAllocationLibFunc(TheLibFunc) &&
         !IsSupportedAllocationFn(TheLibFunc)) {
       LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- May allocate "
                            "alignment memory:\n  "

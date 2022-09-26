@@ -80,8 +80,8 @@ bool TraceByteParser::doesReachEnd() const { return Range.end() == It; }
 traceback::Tag TraceByteParser::getLastTag() const {
   assert(LastTwoTags[0] && "Has not found any tag!");
   if (LastTwoTags[1])
-    return LastTwoTags[1].getValue();
-  return LastTwoTags[0].getValue();
+    return LastTwoTags[1].value();
+  return LastTwoTags[0].value();
 }
 
 static std::string takeByteAsHexString(char Byte) {
@@ -199,7 +199,7 @@ void TraceByteParser::checkOptimalCorrelationTag() {
   auto TagOrNone =
       traceback::getOptimalCorrelationTag(LinePair.second, AddrPair.second);
   assert(TagOrNone && "Unexpected control flow!");
-  warnNonOptimalTag(TagOrNone.getValue());
+  warnNonOptimalTag(TagOrNone.value());
 }
 
 void TraceByteParser::checkReplacementForLastTwoTags() {
@@ -208,13 +208,13 @@ void TraceByteParser::checkReplacementForLastTwoTags() {
   if (!LastTwoTags[1])
     return;
 
-  auto FirstTag = LastTwoTags[0].getValue();
+  auto FirstTag = LastTwoTags[0].value();
   // The first tag is not a line tag here.
   if (FirstTag != traceback::TB_TAG_LN1 && FirstTag != traceback::TB_TAG_LN2 &&
       FirstTag != traceback::TB_TAG_LN4)
     return;
 
-  auto SecondTag = LastTwoTags[1].getValue();
+  auto SecondTag = LastTwoTags[1].value();
   // The second tag is not a PC tag here.
   if (SecondTag != traceback::TB_TAG_PC1 &&
       SecondTag != traceback::TB_TAG_PC2 && SecondTag != traceback::TB_TAG_PC4)
@@ -227,7 +227,7 @@ void TraceByteParser::checkReplacementForLastTwoTags() {
     return;
 
   indentAfterAddr();
-  auto Tag = TagOrNone.getValue();
+  auto Tag = TagOrNone.value();
   OS << "(warning: could use " << traceback::getTagString(Tag)
      << " to replace the preivous two tags)\n";
 }

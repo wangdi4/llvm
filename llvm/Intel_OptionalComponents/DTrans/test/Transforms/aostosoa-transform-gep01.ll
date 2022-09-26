@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; Legacy pass manager runs:
 ; RUN: sed -e s/.T1:// %s | \
 ; RUN:   opt -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -S -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
@@ -186,4 +188,6 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret void
 }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

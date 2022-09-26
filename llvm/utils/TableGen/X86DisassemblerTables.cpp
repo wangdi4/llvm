@@ -58,11 +58,11 @@ static inline const char* stringForContext(InstructionContext insnContext) {
         ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)\
         ENUM_ENTRY(n##_KZ_B, r, d)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-  INSTRUCTION_XUCC_CONTEXTS
-#else // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_XISA_COMMON
+  INSTRUCTION_XISA_CONTEXTS
+#else // INTEL_FEATURE_XISA_COMMON
   INSTRUCTION_CONTEXTS
-#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 #undef ENUM_ENTRY
 #undef ENUM_ENTRY_K_B
@@ -589,6 +589,33 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_XUCCXD_PD:
     return false;
 #endif // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_ISA_AVX256P
+  case IC_EVEX_B_P10:
+  case IC_EVEX_XS_B_P10:
+  case IC_EVEX_XD_B_P10:
+  case IC_EVEX_OPSIZE_B_P10:
+  case IC_EVEX_W_B_P10:
+  case IC_EVEX_W_XS_B_P10:
+  case IC_EVEX_W_XD_B_P10:
+  case IC_EVEX_W_OPSIZE_B_P10:
+  case IC_EVEX_K_B_P10:
+  case IC_EVEX_XS_K_B_P10:
+  case IC_EVEX_XD_K_B_P10:
+  case IC_EVEX_OPSIZE_K_B_P10:
+  case IC_EVEX_W_K_B_P10:
+  case IC_EVEX_W_XS_K_B_P10:
+  case IC_EVEX_W_XD_K_B_P10:
+  case IC_EVEX_W_OPSIZE_K_B_P10:
+  case IC_EVEX_KZ_B_P10:
+  case IC_EVEX_XS_KZ_B_P10:
+  case IC_EVEX_XD_KZ_B_P10:
+  case IC_EVEX_OPSIZE_KZ_B_P10:
+  case IC_EVEX_W_KZ_B_P10:
+  case IC_EVEX_W_XS_KZ_B_P10:
+  case IC_EVEX_W_XD_KZ_B_P10:
+  case IC_EVEX_W_OPSIZE_KZ_B_P10:
+    return false;
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   default:
     errs() << "Unknown instruction class: " <<
@@ -615,11 +642,11 @@ static inline bool outranks(InstructionContext upper,
   ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)
   static int ranks[IC_max] = {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-    INSTRUCTION_XUCC_CONTEXTS
-#else // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_XISA_COMMON
+    INSTRUCTION_XISA_CONTEXTS
+#else // INTEL_FEATURE_XISA_COMMON
     INSTRUCTION_CONTEXTS
-#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   };
 #undef ENUM_ENTRY
@@ -802,7 +829,7 @@ void DisassemblerTables::emitOpcodeDecision(raw_ostream &o1, raw_ostream &o2,
   }
   if (index == 256) {
     // If all 256 entries are MODRM_ONEENTRY, omit output.
-    static_assert(MODRM_ONEENTRY == 0, "");
+    static_assert(MODRM_ONEENTRY == 0);
     --i2;
     o2 << "},\n";
   } else {
@@ -923,6 +950,13 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
       else
         o << "IC_VEX";
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if ((index & ATTR_EVEXB) && (index & ATTR_EVEXP10))
+        ; // Override ATTR_VEXL and ATTR_EVEXL2
+      else
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       if ((index & ATTR_EVEX) && (index & ATTR_EVEXL2))
         o << "_L2";
       else if (index & ATTR_VEXL)
@@ -946,6 +980,13 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
 
         if (index & ATTR_EVEXB)
           o << "_B";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        if ((index & ATTR_EVEXB) && (index & ATTR_EVEXP10)) {
+          o << "_P10";
+        }
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC

@@ -1,4 +1,21 @@
 //===-- ExtractGV.cpp - Global Value extraction pass ----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,6 +38,12 @@
 #include "llvm/Transforms/IPO.h"
 #include <algorithm>
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#define EXTRACT_DTRANS_MD "extract-dtrans-md"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 /// Make sure GV is visible from both modules. Delete is true if it is
 /// being deleted from this module.
@@ -147,6 +170,14 @@ namespace {
 
         if (Delete) {
           Type *Ty = GA.getValueType();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+          // If there is DTrans type metadata attached to the target alias, then
+          // we will need the target to set up DTrans type metadata after creating
+          // a new declaration.
+          auto *AliasTarget = GA.getAliasee();
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
           GA.removeFromParent();
           llvm::Value *Declaration;
@@ -154,11 +185,58 @@ namespace {
             Declaration =
                 Function::Create(FTy, GlobalValue::ExternalLinkage,
                                  GA.getAddressSpace(), GA.getName(), &M);
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+            // If there was DTrans type metadata, set it on the new function
+            // declaration that is being created to replace the alias of the
+            // function.            
+            if (auto *TargFunc = dyn_cast<Function>(AliasTarget))
+              if (TargFunc->getValueType() == Ty) {
+                dtransOP::DTransTypeMetadataBuilder::copyDTransFuncMetadata(
+                    TargFunc, cast<Function>(Declaration));
+              } else {
+                DEBUG_WITH_TYPE(EXTRACT_DTRANS_MD, {
+                  if (dtransOP::TypeMetadataReader::getDTransMDNode(*TargFunc))
+                    dbgs() << "\nDTrans type metadata dropped during "
+                              "extraction: "
+                           << *Declaration
+                           << " - Source was: " << TargFunc->getName() << "\n";
+                });
+              }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
           } else {
             Declaration =
                 new GlobalVariable(M, Ty, false, GlobalValue::ExternalLinkage,
                                    nullptr, GA.getName());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+            // Propagate DTrans type metadata to the replacement declaration, if
+            // we can. We avoid doing this for constant expressions for now
+            // because it may require more than just copying metadata
+            // information. For example, if the alias is a GEPOperator, then the
+            // type for the replacement declaration would need to determine the
+            // type of the element indexed. Because this functionality is only
+            // being used when running llvm-extract to trim down test cases, we
+            // can probably live with losing the metadata in some cases.
+            if (isa<GlobalVariable>(AliasTarget)) {
+              MDNode *MD =
+                  dtransOP::TypeMetadataReader::getDTransMDNode(*AliasTarget);
+              if (MD)
+                dtransOP::DTransTypeMetadataBuilder::addDTransMDNode(
+                    *Declaration, MD);
+            } else {
+              DEBUG_WITH_TYPE(EXTRACT_DTRANS_MD, {
+                Value *SrcVal = AliasTarget->stripInBoundsConstantOffsets();
+                if (dtransOP::TypeMetadataReader::getDTransMDNode(*SrcVal))
+                  dbgs() << "\nDTrans type metadata dropped during "
+                            "extraction: "
+                         << *Declaration << " - Source was: " << *SrcVal
+                         << "\n";
+              });
+            }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
           }
           GA.replaceAllUsesWith(Declaration);
           delete &GA;

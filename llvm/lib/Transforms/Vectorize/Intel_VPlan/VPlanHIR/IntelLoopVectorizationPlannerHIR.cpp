@@ -21,6 +21,7 @@
 #include "../IntelVPlanVLSTransform.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
+#include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlannerHIR"
 
@@ -34,11 +35,6 @@ static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
 static cl::opt<bool>
     EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
                            cl::Hidden, cl::desc("Enable in memory entities."));
-
-static cl::opt<bool, true>
-    EnableNewCFGMergeHIROpt("vplan-enable-new-cfg-merge-hir", cl::Hidden,
-                            cl::location(EnableNewCFGMergeHIR),
-                            cl::desc("Enable the new CFG merger for HIR."));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
                                                   unsigned UF) {
@@ -76,14 +72,13 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   std::string Label;
-  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
-    CallVecDecisions.runForMergedCFG(TLI, TTI);
-    Label = "CallVecDecisions analysis for merged CFG";
-  } else {
-    CallVecDecisions.runForVF(BestVF, TLI, TTI);
-    Label = "CallVecDecisions analysis for VF=" + std::to_string(BestVF);
-  }
+  CallVecDecisions.runForMergedCFG(TLI, TTI);
+  Label = "CallVecDecisions analysis for merged CFG";
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
+
+  // Transform lib calls (like 'sincos') that need additional processing.
+  VPTransformLibraryCalls VPTransLibCalls(*Plan, *TLI);
+  VPTransLibCalls.transform();
 
   // Compute SVA results for final VPlan which will be used by CG.
   Plan->runSVA(BestVF);
@@ -152,7 +147,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                             << Inst << "\n");
           return false;
         }
-      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
+      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst) &&
+                 !LE->getCompressExpandIdiom(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
         LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
@@ -173,37 +169,21 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                             << *UnderlyingCall << "\n");
           return false;
         }
-
-        LibFunc CallF;
-        if (TLI->getLibFunc(*CalledF, CallF) &&
-            (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
-          // Check if sin/cos value pointer operands are marked as SIMD
-          // privates.
-          if (LE->getPrivate(VPCall->getOperand(1)) ||
-              LE->getPrivate(VPCall->getOperand(2))) {
-            LLVM_DEBUG(dbgs() << "LVP: sincos calls using private sin/cos "
-                                 "pointer operands not supported.\n"
-                              << Inst << "\n");
-            return false;
-          }
-        }
       }
     }
-
-  // HIR-CG is not setup to deal with memory instructions outside the loop
-  // region like load/store from privatized memory. Check and bail out for any
-  // in-memory reduction/induction or liveout private which introduce such
-  // operations during initialization and finalization. Walking the VPlan
-  // instructions will not work as this check is done before we insert entity
-  // related instructions.
-  if (LE->hasInMemoryInduction())
-    return false;
 
   // Check whether all reductions are supported
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
         Red->getRecurrenceKind() == RecurKind::SelectFCmp)
       return false;
+
+  for (auto Ind : LE->vpinductions()) {
+    if (Ind->getKind() == InductionDescriptor::IK_PtrInduction) {
+      LLVM_DEBUG(dbgs() << "LVP: Pointer induction currently not supported.\n");
+      return false;
+    }
+  }
 
   // All checks passed.
   return true;
@@ -270,7 +250,7 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
 
 void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
                                                            unsigned UF) {
-  if (isSearchLoop() || !EnableNewCFGMerge || !EnableNewCFGMergeHIR)
+  if (isSearchLoop())
     return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
@@ -294,15 +274,13 @@ void LoopVectorizationPlannerHIR::createMergerVPlans(
     return;
 
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
-  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
-    assert(getBestVF() > 1 && "Unexpected VF");
+  assert(getBestVF() > 1 && "Unexpected VF");
 
-    VPlanVector *Plan = getBestVPlan();
-    assert(Plan && "No best VPlan found.");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
 
-    VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
-                                *Plan, VPAF);
-  }
+  VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
+                              *Plan, VPAF);
 }
 
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {

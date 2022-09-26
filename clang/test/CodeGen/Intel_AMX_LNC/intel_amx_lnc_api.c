@@ -19,20 +19,20 @@ void test_tile_transposed(__tile1024i dst, __tile1024i src) {
   __tile_transposed(&dst, src);
 }
 
-void test_tile_ttdpbf16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
-  //CHECK-LABEL: @test_tile_ttdpbf16ps
+void test_tile_tdpbf16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
+  //CHECK-LABEL: @test_tile_tdpbf16ps
   //CHECK-DAG: call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> {{%.*}})
   //CHECK-DAG: call x86_amx @llvm.x86.ttdpbf16ps.internal
   //CHECK-DAG: call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx {{%.*}})
-  __tile_ttdpbf16ps(&c, a, b);
+  __tile_tdpbf16ps(&c, a, b);
 }
 
-void test_tile_ttdpfp16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
-  //CHECK-LABEL: @test_tile_ttdpfp16ps
+void test_tile_tdpfp16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
+  //CHECK-LABEL: @test_tile_tdpfp16ps
   //CHECK-DAG: call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> {{%.*}})
   //CHECK-DAG: call x86_amx @llvm.x86.ttdpfp16ps.internal
   //CHECK-DAG: call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx {{%.*}})
-  __tile_ttdpfp16ps(&c, a, b);
+  __tile_tdpfp16ps(&c, a, b);
 }
 
 __m512 test_tile_tilemovrowe(__tile1024i a, unsigned b) {

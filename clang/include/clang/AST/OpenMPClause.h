@@ -785,6 +785,81 @@ public:
 };
 
 #if INTEL_COLLAB
+/// This represents an 'interop' clause for the '#pragma omp dispatch'
+/// directive.
+///
+/// \code
+/// #pragma omp dispatch interop(iop1, iop2)
+/// \endcode
+/// In this example directive '#pragma omp dispatch' has an interop
+/// clause with two interop variables iop1 and iop2.
+///
+class OMPInteropClause final
+    : public OMPVarListClause<OMPInteropClause>,
+      private llvm::TrailingObjects<OMPInteropClause, Expr *> {
+  friend class OMPClauseReader;
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of the '('
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of variables in the clause.
+  OMPInteropClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                   SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPInteropClause>(llvm::omp::OMPC_interop, StartLoc,
+                                           LParenLoc, EndLoc, N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables in the clause.
+  explicit OMPInteropClause(unsigned N)
+      : OMPVarListClause<OMPInteropClause>(llvm::omp::OMPC_interop,
+                                           SourceLocation(), SourceLocation(),
+                                           SourceLocation(), N) {}
+
+public:
+  /// Creates clause with list of variables \a LV.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param LV List of variables for interop clause.
+  static OMPInteropClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                  SourceLocation LParenLoc,
+                                  SourceLocation EndLoc, ArrayRef<Expr *> LV);
+
+  /// Creates an empty clause with \a N interop clause variables.
+  ///
+  /// \param C AST context.
+  /// \param N Number of variables.
+  static OMPInteropClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPInteropClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_interop;
+  }
+};
+
 /// This represents the 'subdevice' clause in '#pragma omp ...' directives.
 ///
 /// \code
@@ -968,103 +1043,76 @@ public:
   }
 };
 
-/// This represents a 'data' clause for the '#pragma omp prefetch'
+/// This represents a 'data' clause for the '#pragma ompx prefetch'
 /// directive.
 ///
 /// \code
-/// #pragma omp prefetch data(addr:1:10)
+/// #pragma ompx prefetch data(2 : A[1:4])
 /// \endcode
-/// In this example directive '#pragma omp prefetch' has a single 'data'
-/// clause with three arguments, each separated by a ':'.
+/// In this example directive '#pragma ompx prefetch' has a single array
+/// section, with a hint of '2'.
+
+/// The hint value, an unsigned integer with a value ranging from 0 to 6,
+/// inclusive.
 ///
-/// Parameter one is an address expression representing the base address of the
-/// data to be prefetched.
-/// Parameter two is the hint value, an unsigned integer with a value
-/// ranging from 1...4
-/// Parameter three is the number of elements to prefetch, and is an
-/// unsigned integer value greater than 0.
-///
-/// NOTE: Within a single data clause, multiple 'addr:hint:num-elements'
-/// triples can be specified, separated by commas. For example:
-///     #pragma omp prefetch data(&v1:1:10, &v2:2:100)
-/// is also a valid data clause. There can also be an arbitrary number of
-/// explicit data clauses.
 class OMPDataClause final
-    : public OMPClause,
+    : public OMPVarListClause<OMPDataClause>,
       private llvm::TrailingObjects<OMPDataClause, Expr *> {
   friend class OMPClauseReader;
+  friend OMPVarListClause;
   friend TrailingObjects;
 
-  /// Number of colon separated values within a single data clause
-  /// specification (see above).
-  unsigned NumDataClauseVals = 0;
+  /// Hint expression.
+  Expr *Hint = nullptr;
 
-  /// Build clause with number of (colon separated) values \a NumDataClauseVals.
+  /// Build clause with number of array sections \a N.
   ///
   /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of the '('
   /// \param EndLoc Ending location of the clause.
-  /// \param NumDataClauseVals Number of individual colon separated values
-  ///        within a single data clause.
-  OMPDataClause(SourceLocation StartLoc, SourceLocation EndLoc,
-                unsigned NumDataClauseVals)
-      : OMPClause(llvm::omp::OMPC_data, StartLoc, EndLoc),
-                  NumDataClauseVals(NumDataClauseVals) {}
+  /// \param Hint Unsigned integral hint expression.
+  /// \param N Number of array sections in the clause.
+  OMPDataClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                SourceLocation EndLoc, Expr *Hint, unsigned N)
+      : OMPVarListClause<OMPDataClause>(llvm::omp::OMPC_data, StartLoc,
+                                        LParenLoc, EndLoc, N),
+        Hint(Hint) {}
 
   /// Build an empty clause.
   ///
-  /// \param NumDataClauseVals Number of individual colon separated values
-  ///        within a single data clause.
-  explicit OMPDataClause(unsigned NumDataClauseVals)
-      : OMPClause(llvm::omp::OMPC_data, SourceLocation(), SourceLocation()),
-        NumDataClauseVals(NumDataClauseVals) {}
-
-  /// Fetches list of values associated with this data clause.
-  MutableArrayRef<Expr *> getDataClauseValues() {
-    return MutableArrayRef<Expr *>(getTrailingObjects<Expr *>(),
-        NumDataClauseVals);
+  /// \param N Number of array sections in the clause.
+  explicit OMPDataClause(unsigned N)
+      : OMPVarListClause<OMPDataClause>(llvm::omp::OMPC_data, SourceLocation(),
+                                        SourceLocation(), SourceLocation(), N) {
   }
 
+  /// Set the Hint expression.
+  void setHint(Expr *H) { Hint = H; }
+
 public:
-  /// Creates clause with list of data clause values \a LV.
+  /// Creates clause with list of array section values \a LV.
   ///
   /// \param C AST context.
   /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
-  /// \param LV List of all values for data clause.
+  /// \param Hint The hint expression.
+  /// \param LV List of array sections values for data clause.
   static OMPDataClause *Create(const ASTContext &C, SourceLocation StartLoc,
-                               SourceLocation EndLoc, ArrayRef<Expr *> LV);
+                               SourceLocation LParenLoc, SourceLocation EndLoc,
+                               Expr *Hint, ArrayRef<Expr *> LV);
 
-  /// Creates an empty clause with \a NumDataClauseVals data clause values.
+  /// Creates an empty clause with \a N data clause values.
   ///
   /// \param C AST context.
-  /// \param NumDataClauseVals Number of colon separated values to be emitted
-  /// in data clauses.
-  static OMPDataClause *CreateEmpty(const ASTContext &C,
-      unsigned NumDataClauseVals);
+  /// \param N Number of array section values
+  static OMPDataClause *CreateEmpty(const ASTContext &C, unsigned N);
 
-  /// Get number of data clause values.
-  unsigned getNumDataClauseVals() const { return NumDataClauseVals; }
+  Expr *getHint() const { return Hint; }
 
-  /// Set an individual data clause value.
-  void setDataInfo(unsigned NumDataClause, Expr *E);
-
-  /// Get an individual data clause value.
-  Expr *getDataInfo(unsigned NumDataClause);
-  const Expr *getDataInfo(unsigned NumDataClause) const;
-
-  using exprlist_iterator = MutableArrayRef<Expr *>::iterator;
-  using exprlist_const_iterator = ArrayRef<const Expr *>::iterator;
-
-  exprlist_iterator exprlist_begin() { return getDataClauseValues().begin(); }
-  exprlist_iterator exprlist_end() { return getDataClauseValues().end(); }
-
-  using values_iterator = MutableArrayRef<Expr *>::iterator;
-  using values_const_iterator = ArrayRef<const Expr *>::iterator;
-  using values_range = llvm::iterator_range<values_iterator>;
-  using values_const_range = llvm::iterator_range<values_const_iterator>;
   child_range children() {
-    return child_range(reinterpret_cast<Stmt **>(exprlist_begin()),
-                       reinterpret_cast<Stmt **>(exprlist_end()));
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
   }
 
   const_child_range children() const {
@@ -1079,14 +1127,6 @@ public:
     return const_child_range(const_child_iterator(), const_child_iterator());
   }
 
-  values_range val_exprs() {
-    return values_range(getTrailingObjects<Expr *>(),
-                        getTrailingObjects<Expr *>() + NumDataClauseVals);
-  }
-  values_const_range val_exprs() const {
-    return values_const_range(getTrailingObjects<Expr *>(),
-                              getTrailingObjects<Expr *>() + NumDataClauseVals);
-  }
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == llvm::omp::OMPC_data;
   }
@@ -1304,6 +1344,210 @@ public:
 
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == llvm::omp::OMPC_tile;
+  }
+};
+
+/// This represents clause 'ompx_monotonic' in the '#pragma omp ordered'
+/// directive.
+///
+/// \code
+/// #pragma omp ordered simd ompx_monotonic(a, b:10)
+/// In this example directive '#pragma omp ordered simd' has clause
+/// 'ompx_monotonic' with variables 'a' and 'b' and monotonic-step '10'
+class OMPOmpxMonotonicClause final
+    : public OMPVarListClause<OMPOmpxMonotonicClause>,
+      private llvm::TrailingObjects<OMPOmpxMonotonicClause, Expr *> {
+  friend class OMPClauseReader;
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Location of ':'.
+  SourceLocation ColonLoc;
+
+  /// Sets the step for clause.
+  void setStep(Expr *Step) { *varlist_end() = Step; }
+
+  /// Build 'Monotonic' clause with given number of variables \a NumVars.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param ColonLoc Location of ':'.
+  /// \param EndLoc Ending location of the clause.
+  /// \param NumVars Number of variables.
+  OMPOmpxMonotonicClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                         SourceLocation ColonLoc, SourceLocation EndLoc,
+                         unsigned NumVars)
+      : OMPVarListClause<OMPOmpxMonotonicClause>(llvm::omp::OMPC_ompx_monotonic,
+                                                 StartLoc, LParenLoc, EndLoc,
+                                                 NumVars),
+        ColonLoc(ColonLoc) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param NumVars Number of variables.
+  explicit OMPOmpxMonotonicClause(unsigned NumVars)
+      : OMPVarListClause<OMPOmpxMonotonicClause>(
+            llvm::omp::OMPC_ompx_monotonic, SourceLocation(), SourceLocation(),
+            SourceLocation(), NumVars) {}
+
+public:
+  /// Creates clause with a list of variables \a VL and monotonic-step
+  /// \a Step.
+  ///
+  /// \param C AST Context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param ColonLoc Location of ':'.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  /// \param Step The monotonic step.
+  static OMPOmpxMonotonicClause *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
+         SourceLocation ColonLoc, SourceLocation EndLoc, ArrayRef<Expr *> VL,
+         Expr *Step);
+
+  /// Creates an empty clause with the place for \a NumVars variables.
+  ///
+  /// \param C AST context.
+  /// \param NumVars Number of variables.
+  static OMPOmpxMonotonicClause *CreateEmpty(const ASTContext &C,
+                                             unsigned NumVars);
+
+  /// Sets the location of ':'.
+  void setColonLoc(SourceLocation Loc) { ColonLoc = Loc; }
+
+  /// Returns the location of ':'.
+  SourceLocation getColonLoc() const { return ColonLoc; }
+
+  /// Returns Step.
+  Expr *getStep() { return *varlist_end(); }
+
+  /// Returns Step.
+  const Expr *getStep() const { return *varlist_end(); }
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPOmpxMonotonicClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_monotonic;
+  }
+};
+
+/// This represents 'ompx_assert' clause in the '#pragma omp simd' directive.
+///
+/// \code
+/// #pragma omp simd ompx_assert
+/// \endcode
+/// In this example directive '#pragma omp simd' has 'ompx_assert' clause.
+class OMPOmpxAssertClause : public OMPClause {
+public:
+  /// Build 'ompx_assert' clause.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param EndLoc Ending location of the clause.
+  OMPOmpxAssertClause(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_ompx_assert, StartLoc, EndLoc) {}
+
+  /// Build an empty clause.
+  OMPOmpxAssertClause()
+      : OMPClause(llvm::omp::OMPC_ompx_assert, SourceLocation(), SourceLocation()) {}
+
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_assert;
+  }
+};
+
+/// This represents clause 'ompx_overlap' in the '#pragma omp ordered'
+/// directive.
+///
+/// \code
+/// #pragma omp ordered simd ompx_overlap(a)
+/// In this example directive '#pragma omp ordered simd' has clause
+/// 'ompx_overlap' with single expression 'a'.
+class OMPOmpxOverlapClause final : public OMPClause {
+  friend class OMPClauseReader;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// Overlap expression of the 'ompx_overlap' clause
+  Stmt *Overlap = nullptr;
+
+  /// Set condition.
+  void setOverlap(Expr *OverlapExpr) { Overlap = OverlapExpr; }
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+public:
+  /// Build 'Overlap' clause with given Expr \a Overlap.
+  ///
+  /// \param Overlap of ompx_overlap expression.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  OMPOmpxOverlapClause(Expr *Overlap, SourceLocation StartLoc,
+                       SourceLocation LParenLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_ompx_overlap, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Overlap(Overlap) {}
+  /// Build an empty clause.
+  ///
+  OMPOmpxOverlapClause()
+      : OMPClause(llvm::omp::OMPC_ompx_overlap, SourceLocation(),
+                  SourceLocation()) {}
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Return overlap expr.
+  Expr *getOverlap() const { return cast_or_null<Expr>(Overlap); }
+
+  child_range children() { return child_range(&Overlap, &Overlap + 1); }
+
+  const_child_range children() const {
+    return const_child_range(&Overlap, &Overlap + 1);
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_overlap;
   }
 };
 #endif // INTEL_CUSTOMIZATION
@@ -8334,16 +8578,14 @@ public:
   ///
   /// \param C AST context.
   /// \param InteropVar The interop variable.
-  /// \param PrefExprs The list of preference expressions.
-  /// \param IsTarget Uses the 'target' interop-type.
-  /// \param IsTargetSync Uses the 'targetsync' interop-type.
+  /// \param InteropInfo The interop-type and prefer_type list.
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param VarLoc Location of the interop variable.
   /// \param EndLoc Ending location of the clause.
   static OMPInitClause *Create(const ASTContext &C, Expr *InteropVar,
-                               ArrayRef<Expr *> PrefExprs, bool IsTarget,
-                               bool IsTargetSync, SourceLocation StartLoc,
+                               OMPInteropInfo &InteropInfo,
+                               SourceLocation StartLoc,
                                SourceLocation LParenLoc, SourceLocation VarLoc,
                                SourceLocation EndLoc);
 
@@ -8962,14 +9204,14 @@ private:
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
-  /// \param N Number of allocators asssociated with the clause.
+  /// \param N Number of allocators associated with the clause.
   OMPUsesAllocatorsClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                           SourceLocation EndLoc, unsigned N)
       : OMPClause(llvm::omp::OMPC_uses_allocators, StartLoc, EndLoc),
         LParenLoc(LParenLoc), NumOfAllocators(N) {}
 
   /// Build an empty clause.
-  /// \param N Number of allocators asssociated with the clause.
+  /// \param N Number of allocators associated with the clause.
   ///
   explicit OMPUsesAllocatorsClause(unsigned N)
       : OMPClause(llvm::omp::OMPC_uses_allocators, SourceLocation(),
@@ -9063,14 +9305,14 @@ class OMPAffinityClause final
   /// \param LParenLoc Location of '('.
   /// \param ColonLoc Location of ':'.
   /// \param EndLoc Ending location of the clause.
-  /// \param N Number of locators asssociated with the clause.
+  /// \param N Number of locators associated with the clause.
   OMPAffinityClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                     SourceLocation ColonLoc, SourceLocation EndLoc, unsigned N)
       : OMPVarListClause<OMPAffinityClause>(llvm::omp::OMPC_affinity, StartLoc,
                                             LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
-  /// \param N Number of locators asssociated with the clause.
+  /// \param N Number of locators associated with the clause.
   ///
   explicit OMPAffinityClause(unsigned N)
       : OMPVarListClause<OMPAffinityClause>(llvm::omp::OMPC_affinity,

@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CompilationUtils.h"
 #include "CPUJITContainer.h"
 #include "CPUProgram.h"
 #include "Kernel.h"

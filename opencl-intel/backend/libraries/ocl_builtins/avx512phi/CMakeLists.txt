@@ -1,5 +1,0 @@
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    create_target ( knl d3 avx512phi FALSE )
-else ()
-    create_target ( knl b3 avx512phi FALSE )
-endif(CMAKE_SIZEOF_VOID_P EQUAL 4)

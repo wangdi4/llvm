@@ -45,7 +45,7 @@ namespace Validation
 
         /// @brief Compares the result of two runs
         virtual IRunResultComparison *
-        Compare(IRunResult *volcanoRunResults,
+        Compare(IRunResult *runResults,
                 IRunResult *referenceRunResults) const override;
 
       private:

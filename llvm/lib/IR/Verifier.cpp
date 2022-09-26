@@ -40,7 +40,6 @@
 //  * Only phi nodes can be self referential: 'add i32 %0, %0 ; <int>:0' is bad
 //  * PHI nodes must have an entry for each predecessor, with no extras.
 //  * PHI nodes must be the first thing in a basic block, all grouped together
-//  * PHI nodes must have at least one entry
 //  * All basic blocks should only end with terminator insts, not contain them
 //  * The entry node to a function must not have predecessors
 //  * All Instructions must be embedded into a basic block
@@ -492,6 +491,9 @@ private:
   void visitRangeMetadata(Instruction &I, MDNode *Range, Type *Ty);
   void visitDereferenceableMetadata(Instruction &I, MDNode *MD);
   void visitProfMetadata(Instruction &I, MDNode *MD);
+  void visitCallStackMetadata(MDNode *MD);
+  void visitMemProfMetadata(Instruction &I, MDNode *MD);
+  void visitCallsiteMetadata(Instruction &I, MDNode *MD);
   void visitAnnotationMetadata(MDNode *Annotation);
   void visitAliasScopeMetadata(const MDNode *MD);
   void visitAliasScopeListMetadata(const MDNode *MD);
@@ -687,7 +689,13 @@ void Verifier::visitGlobalValue(const GlobalValue &GV) {
   if (GV.isDeclarationForLinker())
     Check(!GV.hasComdat(), "Declaration may not be in a Comdat!", &GV);
 
+  if (GV.hasDLLExportStorageClass()) {
+    Check(GV.hasDefaultVisibility(),
+          "dllexport GlobalValue must have default visibility", &GV);
+  }
   if (GV.hasDLLImportStorageClass()) {
+    Check(GV.hasDefaultVisibility(),
+          "dllimport GlobalValue must have default visibility", &GV);
     Check(!GV.isDSOLocal(), "GlobalValue with DLLImport Storage is dso_local!",
           &GV);
 
@@ -1672,8 +1680,10 @@ Verifier::visitModuleFlag(const MDNode *Op,
     break;
 
   case Module::Min: {
-    Check(mdconst::dyn_extract_or_null<ConstantInt>(Op->getOperand(2)),
-          "invalid value for 'min' module flag (expected constant integer)",
+    auto *V = mdconst::dyn_extract_or_null<ConstantInt>(Op->getOperand(2));
+    Check(V && V->getValue().isNonNegative(),
+          "invalid value for 'min' module flag (expected constant non-negative "
+          "integer)",
           Op->getOperand(2));
     break;
   }
@@ -2194,6 +2204,20 @@ void Verifier::verifyFunctionMetadata(
             MD);
       Check(isa<ConstantAsMetadata>(MD->getOperand(1)),
             "expected integer argument to function_entry_count", MD);
+    } else if (Pair.first == LLVMContext::MD_kcfi_type) {
+      MDNode *MD = Pair.second;
+      Check(MD->getNumOperands() == 1,
+            "!kcfi_type must have exactly one operand", MD);
+      Check(MD->getOperand(0) != nullptr, "!kcfi_type operand must not be null",
+            MD);
+      Check(isa<ConstantAsMetadata>(MD->getOperand(0)),
+            "expected a constant operand for !kcfi_type", MD);
+      Constant *C = cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
+      Check(isa<ConstantInt>(C),
+            "expected a constant integer operand for !kcfi_type", MD);
+      IntegerType *Type = cast<ConstantInt>(C)->getType();
+      Check(Type->getBitWidth() == 32,
+            "expected a 32-bit integer constant operand for !kcfi_type", MD);
     }
   }
 }
@@ -2248,7 +2272,13 @@ bool Verifier::verifyAttributeCount(AttributeList Attrs, unsigned Params) {
 void Verifier::verifyInlineAsmCall(const CallBase &Call) {
   const InlineAsm *IA = cast<InlineAsm>(Call.getCalledOperand());
   unsigned ArgNo = 0;
+  unsigned LabelNo = 0;
   for (const InlineAsm::ConstraintInfo &CI : IA->ParseConstraints()) {
+    if (CI.Type == InlineAsm::isLabel) {
+      ++LabelNo;
+      continue;
+    }
+
     // Only deal with constraints that correspond to call arguments.
     if (!CI.hasArg())
       continue;
@@ -2269,6 +2299,15 @@ void Verifier::verifyInlineAsmCall(const CallBase &Call) {
     }
 
     ArgNo++;
+  }
+
+  if (auto *CallBr = dyn_cast<CallBrInst>(&Call)) {
+    Check(LabelNo == CallBr->getNumIndirectDests(),
+          "Number of label constraints does not match number of callbr dests",
+          &Call);
+  } else {
+    Check(LabelNo == 0, "Label constraints can only be used with callbr",
+          &Call);
   }
 }
 
@@ -2522,7 +2561,7 @@ void Verifier::visitFunction(const Function &F) {
   case CallingConv::SPIR_KERNEL:
     Check(F.getReturnType()->isVoidTy(),
           "Calling convention requires void return type", &F);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case CallingConv::AMDGPU_VS:
   case CallingConv::AMDGPU_HS:
   case CallingConv::AMDGPU_GS:
@@ -2551,7 +2590,7 @@ void Verifier::visitFunction(const Function &F) {
       }
     }
 
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case CallingConv::Fast:
   case CallingConv::Cold:
   case CallingConv::Intel_OCL_BI:
@@ -2560,6 +2599,7 @@ void Verifier::visitFunction(const Function &F) {
   case CallingConv::Intel_OCL_BI_AVX512:
   case CallingConv::SVML:
   case CallingConv::SVML_AVX:
+  case CallingConv::SVML_AVX_AVX_Impl:
   case CallingConv::SVML_AVX512:
   case CallingConv::SVML_Unified:
   case CallingConv::SVML_Unified_256:
@@ -2656,7 +2696,8 @@ void Verifier::visitFunction(const Function &F) {
             "blockaddress may not be used with the entry block!", Entry);
     }
 
-    unsigned NumDebugAttachments = 0, NumProfAttachments = 0;
+    unsigned NumDebugAttachments = 0, NumProfAttachments = 0,
+             NumKCFIAttachments = 0;
     // Visit metadata attachments.
     for (const auto &I : MDs) {
       // Verify that the attachment is legal.
@@ -2686,6 +2727,12 @@ void Verifier::visitFunction(const Function &F) {
         ++NumProfAttachments;
         Check(NumProfAttachments == 1,
               "function must have a single !prof attachment", &F, I.second);
+        break;
+      case LLVMContext::MD_kcfi_type:
+        ++NumKCFIAttachments;
+        Check(NumKCFIAttachments == 1,
+              "function must have a single !kcfi_type attachment", &F,
+              I.second);
         break;
       }
 
@@ -2898,25 +2945,6 @@ void Verifier::visitCallBrInst(CallBrInst &CBI) {
   Check(CBI.isInlineAsm(), "Callbr is currently only used for asm-goto!", &CBI);
   const InlineAsm *IA = cast<InlineAsm>(CBI.getCalledOperand());
   Check(!IA->canThrow(), "Unwinding from Callbr is not allowed");
-  for (unsigned i = 0, e = CBI.getNumSuccessors(); i != e; ++i)
-    Check(CBI.getSuccessor(i)->getType()->isLabelTy(),
-          "Callbr successors must all have pointer type!", &CBI);
-  for (unsigned i = 0, e = CBI.getNumOperands(); i != e; ++i) {
-    Check(i >= CBI.arg_size() || !isa<BasicBlock>(CBI.getOperand(i)),
-          "Using an unescaped label as a callbr argument!", &CBI);
-    if (isa<BasicBlock>(CBI.getOperand(i)))
-      for (unsigned j = i + 1; j != e; ++j)
-        Check(CBI.getOperand(i) != CBI.getOperand(j),
-              "Duplicate callbr destination!", &CBI);
-  }
-  {
-    SmallPtrSet<BasicBlock *, 4> ArgBBs;
-    for (Value *V : CBI.args())
-      if (auto *BA = dyn_cast<BlockAddress>(V))
-        ArgBBs.insert(BA->getBasicBlock());
-    for (BasicBlock *BB : CBI.getIndirectDests())
-      Check(ArgBBs.count(BB), "Indirect label missing from arglist.", &CBI);
-  }
 
   verifyInlineAsmCall(CBI);
   visitTerminator(CBI);
@@ -3407,7 +3435,7 @@ void Verifier::visitCallBase(CallBase &Call) {
   bool FoundDeoptBundle = false, FoundFuncletBundle = false,
        FoundGCTransitionBundle = false, FoundCFGuardTargetBundle = false,
        FoundPreallocatedBundle = false, FoundGCLiveBundle = false,
-       FoundPtrauthBundle = false,
+       FoundPtrauthBundle = false, FoundKCFIBundle = false,
        FoundAttachedCallBundle = false;
   for (unsigned i = 0, e = Call.getNumOperandBundles(); i < e; ++i) {
     OperandBundleUse BU = Call.getOperandBundleAt(i);
@@ -3443,6 +3471,14 @@ void Verifier::visitCallBase(CallBase &Call) {
             "Ptrauth bundle key operand must be an i32 constant", Call);
       Check(BU.Inputs[1]->getType()->isIntegerTy(64),
             "Ptrauth bundle discriminator operand must be an i64", Call);
+    } else if (Tag == LLVMContext::OB_kcfi) {
+      Check(!FoundKCFIBundle, "Multiple kcfi operand bundles", Call);
+      FoundKCFIBundle = true;
+      Check(BU.Inputs.size() == 1, "Expected exactly one kcfi bundle operand",
+            Call);
+      Check(isa<ConstantInt>(BU.Inputs[0]) &&
+                BU.Inputs[0]->getType()->isIntegerTy(32),
+            "Kcfi bundle operand must be an i32 constant", Call);
     } else if (Tag == LLVMContext::OB_preallocated) {
       Check(!FoundPreallocatedBundle, "Multiple preallocated operand bundles",
             Call);
@@ -3472,8 +3508,10 @@ void Verifier::visitCallBase(CallBase &Call) {
 
   // Verify that each inlinable callsite of a debug-info-bearing function in a
   // debug-info-bearing function has a debug location attached to it. Failure to
-  // do so causes assertion failures when the inliner sets up inline scope info.
+  // do so causes assertion failures when the inliner sets up inline scope info
+  // (Interposable functions are not inlinable).
   if (Call.getFunction()->getSubprogram() && Call.getCalledFunction() &&
+      !Call.getCalledFunction()->isInterposable() &&
       Call.getCalledFunction()->getSubprogram())
     CheckDI(Call.getDebugLoc(),
             "inlinable function call in a function with "
@@ -3847,6 +3885,8 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
          &I);
 
   // Check for proper 'ElementType' attribute and expected size.
+  Check(I.getElementType(),
+        "llvm.intel.subscript requires elementtype attribute", &I);
   Check(I.getElementType()->isSized(),
          "llvm.intel.subscript into unsized type!", &I);
 
@@ -4631,6 +4671,8 @@ void Verifier::visitProfMetadata(Instruction &I, MDNode *MD) {
         ExpectedNumOperands = IBI->getNumDestinations();
       else if (isa<SelectInst>(&I))
         ExpectedNumOperands = 2;
+      else if (CallBrInst *CI = dyn_cast<CallBrInst>(&I))
+        ExpectedNumOperands = CI->getNumSuccessors();
       else
         CheckFailed("!prof branch_weights are not allowed for this instruction",
                     MD);
@@ -4645,6 +4687,55 @@ void Verifier::visitProfMetadata(Instruction &I, MDNode *MD) {
             "!prof brunch_weights operand is not a const int");
     }
   }
+}
+
+void Verifier::visitCallStackMetadata(MDNode *MD) {
+  // Call stack metadata should consist of a list of at least 1 constant int
+  // (representing a hash of the location).
+  Check(MD->getNumOperands() >= 1,
+        "call stack metadata should have at least 1 operand", MD);
+
+  for (const auto &Op : MD->operands())
+    Check(mdconst::dyn_extract_or_null<ConstantInt>(Op),
+          "call stack metadata operand should be constant integer", Op);
+}
+
+void Verifier::visitMemProfMetadata(Instruction &I, MDNode *MD) {
+  Check(isa<CallBase>(I), "!memprof metadata should only exist on calls", &I);
+  Check(MD->getNumOperands() >= 1,
+        "!memprof annotations should have at least 1 metadata operand "
+        "(MemInfoBlock)",
+        MD);
+
+  // Check each MIB
+  for (auto &MIBOp : MD->operands()) {
+    MDNode *MIB = dyn_cast<MDNode>(MIBOp);
+    // The first operand of an MIB should be the call stack metadata.
+    // There rest of the operands should be MDString tags, and there should be
+    // at least one.
+    Check(MIB->getNumOperands() >= 2,
+          "Each !memprof MemInfoBlock should have at least 2 operands", MIB);
+
+    // Check call stack metadata (first operand).
+    Check(MIB->getOperand(0) != nullptr,
+          "!memprof MemInfoBlock first operand should not be null", MIB);
+    Check(isa<MDNode>(MIB->getOperand(0)),
+          "!memprof MemInfoBlock first operand should be an MDNode", MIB);
+    MDNode *StackMD = dyn_cast<MDNode>(MIB->getOperand(0));
+    visitCallStackMetadata(StackMD);
+
+    // Check that remaining operands are MDString.
+    Check(llvm::all_of(llvm::drop_begin(MIB->operands()),
+                       [](const MDOperand &Op) { return isa<MDString>(Op); }),
+          "Not all !memprof MemInfoBlock operands 1 to N are MDString", MIB);
+  }
+}
+
+void Verifier::visitCallsiteMetadata(Instruction &I, MDNode *MD) {
+  Check(isa<CallBase>(I), "!callsite metadata should only exist on calls", &I);
+  // Verify the partial callstack annotated from memprof profiles. This callsite
+  // is a part of a profiled allocation callstack.
+  visitCallStackMetadata(MD);
 }
 
 void Verifier::visitAnnotationMetadata(MDNode *Annotation) {
@@ -4893,6 +4984,12 @@ void Verifier::visitInstruction(Instruction &I) {
   if (MDNode *MD = I.getMetadata(LLVMContext::MD_prof))
     visitProfMetadata(I, MD);
 
+  if (MDNode *MD = I.getMetadata(LLVMContext::MD_memprof))
+    visitMemProfMetadata(I, MD);
+
+  if (MDNode *MD = I.getMetadata(LLVMContext::MD_callsite))
+    visitCallsiteMetadata(I, MD);
+
   if (MDNode *Annotation = I.getMetadata(LLVMContext::MD_annotation))
     visitAnnotationMetadata(Annotation);
 
@@ -5045,7 +5142,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
 
     Optional<RoundingMode> RoundMode =
         convertStrToRoundingMode(cast<MDString>(MD)->getString());
-    Check(RoundMode.hasValue() && RoundMode.getValue() != RoundingMode::Dynamic,
+    Check(RoundMode && *RoundMode != RoundingMode::Dynamic,
           "unsupported rounding mode argument", Call);
     break;
   }
@@ -5247,6 +5344,13 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     Check(cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue() < 2,
           "invalid arguments to llvm.prefetch", Call);
 #endif // INTEL_FEATURE_ISA_PREFETCHI
+#else // INTEL_CUSTOMIZATION
+    Check(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 2,
+          "rw argument to llvm.prefetch must be 0-1", Call);
+    Check(cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
+          "locality argument to llvm.prefetch must be 0-4", Call);
+    Check(cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue() < 2,
+          "cache type argument to llvm.prefetch must be 0-1", Call);
 #endif // INTEL_CUSTOMIZATION
     break;
   case Intrinsic::stackprotector:
@@ -5340,14 +5444,13 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
       // In all other cases relocate should be tied to the statepoint directly.
       // This covers relocates on a normal return path of invoke statepoint and
       // relocates of a call statepoint.
-      auto Token = Call.getArgOperand(0);
-      Check(isa<GCStatepointInst>(Token),
+      auto *Token = Call.getArgOperand(0);
+      Check(isa<GCStatepointInst>(Token) || isa<UndefValue>(Token),
             "gc relocate is incorrectly tied to the statepoint", Call, Token);
     }
 
     // Verify rest of the relocate arguments.
-    const CallBase &StatepointCall =
-      *cast<GCRelocateInst>(Call).getStatepoint();
+    const Value &StatepointCall = *cast<GCRelocateInst>(Call).getStatepoint();
 
     // Both the base and derived must be piped through the safepoint.
     Value *Base = Call.getArgOperand(1);
@@ -5362,7 +5465,10 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     const uint64_t DerivedIndex = cast<ConstantInt>(Derived)->getZExtValue();
 
     // Check the bounds
-    if (auto Opt = StatepointCall.getOperandBundle(LLVMContext::OB_gc_live)) {
+    if (isa<UndefValue>(StatepointCall))
+      break;
+    if (auto Opt = cast<GCStatepointInst>(StatepointCall)
+                       .getOperandBundle(LLVMContext::OB_gc_live)) {
       Check(BaseIndex < Opt->Inputs.size(),
             "gc.relocate: statepoint base index out of bounds", Call);
       Check(DerivedIndex < Opt->Inputs.size(),
@@ -5695,7 +5801,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
           &Call);
     break;
   }
-  case Intrinsic::experimental_vector_insert: {
+  case Intrinsic::vector_insert: {
     Value *Vec = Call.getArgOperand(0);
     Value *SubVec = Call.getArgOperand(1);
     Value *Idx = Call.getArgOperand(2);
@@ -5707,11 +5813,11 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     ElementCount VecEC = VecTy->getElementCount();
     ElementCount SubVecEC = SubVecTy->getElementCount();
     Check(VecTy->getElementType() == SubVecTy->getElementType(),
-          "experimental_vector_insert parameters must have the same element "
+          "vector_insert parameters must have the same element "
           "type.",
           &Call);
     Check(IdxN % SubVecEC.getKnownMinValue() == 0,
-          "experimental_vector_insert index must be a constant multiple of "
+          "vector_insert index must be a constant multiple of "
           "the subvector's known minimum vector length.");
 
     // If this insertion is not the 'mixed' case where a fixed vector is
@@ -5720,12 +5826,12 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     if (VecEC.isScalable() == SubVecEC.isScalable()) {
       Check(IdxN < VecEC.getKnownMinValue() &&
                 IdxN + SubVecEC.getKnownMinValue() <= VecEC.getKnownMinValue(),
-            "subvector operand of experimental_vector_insert would overrun the "
+            "subvector operand of vector_insert would overrun the "
             "vector being inserted into.");
     }
     break;
   }
-  case Intrinsic::experimental_vector_extract: {
+  case Intrinsic::vector_extract: {
     Value *Vec = Call.getArgOperand(0);
     Value *Idx = Call.getArgOperand(1);
     unsigned IdxN = cast<ConstantInt>(Idx)->getZExtValue();
@@ -5737,11 +5843,11 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     ElementCount ResultEC = ResultTy->getElementCount();
 
     Check(ResultTy->getElementType() == VecTy->getElementType(),
-          "experimental_vector_extract result must have the same element "
+          "vector_extract result must have the same element "
           "type as the input vector.",
           &Call);
     Check(IdxN % ResultEC.getKnownMinValue() == 0,
-          "experimental_vector_extract index must be a constant multiple of "
+          "vector_extract index must be a constant multiple of "
           "the result type's known minimum vector length.");
 
     // If this extraction is not the 'mixed' case where a fixed vector is is
@@ -5750,7 +5856,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     if (VecEC.isScalable() == ResultEC.isScalable()) {
       Check(IdxN < VecEC.getKnownMinValue() &&
                 IdxN + ResultEC.getKnownMinValue() <= VecEC.getKnownMinValue(),
-            "experimental_vector_extract would overrun.");
+            "vector_extract would overrun.");
     }
     break;
   }
@@ -6040,10 +6146,10 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
   // match the specification in the intrinsic call table. Thus, no
   // argument type check is needed here.
 
-  Check(FPI.getExceptionBehavior().hasValue(),
+  Check(FPI.getExceptionBehavior().has_value(),
         "invalid exception behavior argument", &FPI);
   if (HasRoundingMD) {
-    Check(FPI.getRoundingMode().hasValue(), "invalid rounding mode argument",
+    Check(FPI.getRoundingMode().has_value(), "invalid rounding mode argument",
           &FPI);
   }
 }
@@ -6213,7 +6319,7 @@ void Verifier::verifyCompileUnits() {
   SmallPtrSet<const Metadata *, 2> Listed;
   if (CUs)
     Listed.insert(CUs->op_begin(), CUs->op_end());
-  for (auto *CU : CUVisited)
+  for (const auto *CU : CUVisited)
     CheckDI(Listed.count(CU), "DICompileUnit not listed in llvm.dbg.cu", CU);
   CUVisited.clear();
 }
@@ -6223,7 +6329,7 @@ void Verifier::verifyDeoptimizeCallingConvs() {
     return;
 
   const Function *First = DeoptimizeDeclarations[0];
-  for (auto *F : makeArrayRef(DeoptimizeDeclarations).slice(1)) {
+  for (const auto *F : makeArrayRef(DeoptimizeDeclarations).slice(1)) {
     Check(First->getCallingConv() == F->getCallingConv(),
           "All llvm.experimental.deoptimize declarations must have the same "
           "calling convention",
@@ -6263,7 +6369,7 @@ void Verifier::verifyAttachedCallBundle(const CallBase &Call,
 }
 
 void Verifier::verifySourceDebugInfo(const DICompileUnit &U, const DIFile &F) {
-  bool HasSource = F.getSource().hasValue();
+  bool HasSource = F.getSource().has_value();
   if (!HasSourceDebugInfo.count(&U))
     HasSourceDebugInfo[&U] = HasSource;
   CheckDI(HasSource == HasSourceDebugInfo[&U],

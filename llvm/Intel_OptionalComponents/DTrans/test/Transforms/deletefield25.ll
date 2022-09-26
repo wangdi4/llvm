@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -whole-program-assume -internalize -dtrans-identify-unused-values=false  -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -whole-program-assume -dtrans-identify-unused-values=false -passes='internalize,dtrans-deletefield' -S -o - %s | FileCheck %s
 
@@ -59,4 +60,6 @@ define %struct.test01* @test01(i64 %num) {
 ; CHECK-SAME:                         %__DFT_struct.test01dep* @g_test01depptr,
 ; CHECK-SAME:                         i64 0, i32 0)
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

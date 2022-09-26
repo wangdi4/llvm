@@ -150,8 +150,8 @@ B {
 )"[1]);
 
 void errors(B b) {
-  __builtin_dump_struct(); // expected-error {{too few arguments to function call, expected 2, have 0}}
-  __builtin_dump_struct(1); // expected-error {{too few arguments to function call, expected 2, have 1}}
+  __builtin_dump_struct(); // expected-error {{too few arguments to function call, expected at least 2, have 0}}
+  __builtin_dump_struct(1); // expected-error {{too few arguments to function call, expected at least 2, have 1}}
   __builtin_dump_struct(1, 2); // expected-error {{expected pointer to struct as 1st argument to '__builtin_dump_struct', found 'int'}}
   __builtin_dump_struct(&b, 2); // expected-error {{expected a callable expression as 2nd argument to '__builtin_dump_struct', found 'int'}}
   __builtin_dump_struct(&b, Format, 0); // expected-error {{no matching function for call to 'Format'}}

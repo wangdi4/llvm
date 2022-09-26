@@ -6,6 +6,7 @@
 ; RUN: opt < %s -whole-program-assume -internalize -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; CHECK-NOT: Rejecting %struct.B based on safety data of enclosing type %struct.A
 

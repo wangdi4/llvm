@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
-; RUN: opt -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt-target-capture-non-pointers-using-map-to=true -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-paropt-target-capture-non-pointers-using-map-to=true -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -16,9 +16,9 @@
 ; The test IR is a reduced version of the IR for the above src.
 
 ; CHECK:     collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.val '
-; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%n.val.addr.*]]'
+; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%n.val.addr.*]]'
 
-; Check that the kernal function has arguments for the VLA and the captured VLA size.
+; Check that the kernel function has arguments for the VLA and the captured VLA size.
 ; CHECK:     define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* noalias %vla.ascast, i64 addrspace(1)* noalias [[SIZE_ADDR]])
 
 ; Check that no extra local copy is made for the VLA inside the kernel, and the argument passed-in is used directly.

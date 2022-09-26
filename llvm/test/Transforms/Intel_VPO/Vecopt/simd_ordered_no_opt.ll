@@ -1,6 +1,5 @@
 ; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-after-plain-cfg -vplan-vec | FileCheck --allow-empty %s
-; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-after-plain-cfg -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=0 | FileCheck --allow-empty %s
-; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-after-plain-cfg -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=1 | FileCheck --allow-empty %s
+; RUN: opt -S < %s -vplan-force-vf=2 -disable-output -vplan-print-after-plain-cfg -hir-framework -hir-vplan-vec | FileCheck --allow-empty %s
 
 ; Ensure VPlan wasn't built at all  due to unsupported "#pragma omp simd ordered"
 ; TODO: Implement support for it.

@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
@@ -30,6 +31,6 @@ loop_exit:
 
 ; CHECK: DTRANS-AOSTOSOA: Rejecting -- Allocation in loop: struct.test01
 
+declare i8* @calloc(i64, i64) #0
 
-declare i8* @calloc(i64, i64)
-
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

@@ -19,20 +19,28 @@
 // problem reports or change requests be submitted to it directly
 
 #include "TestsHelpClasses.h"
+#include "common_utils.h"
 #include <algorithm>
 #include <iterator>
 #include <sstream>
 
 extern cl_device_type gDeviceType;
 
-class CheckExtensions : public ::testing::Test {
+class CheckExtensions : public ::testing::TestWithParam<bool> {
 protected:
   virtual void SetUp() {
+    if (GetParam() && !SETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16", "1"))
+      FAIL() << "Failed to set CL_CONFIG_CPU_EXPERIMENTAL_FP16";
     cl_int err = clGetPlatformIDs(1, &m_platform, NULL);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
     err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, NULL);
     ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
+  }
+
+  virtual void TearDown() {
+    if (GetParam() && !UNSETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16"))
+      FAIL() << "Failed to unset CL_CONFIG_CPU_EXPERIMENTAL_FP16";
   }
 
 protected:
@@ -76,7 +84,7 @@ const std::map<std::string, cl_version> extRefCPU = {
     // {"cl_khr_subgroup_ballot", CL_MAKE_VERSION(1, 0, 0)}
     };
 
-TEST_F(CheckExtensions, CpuDevice) {
+TEST_P(CheckExtensions, CpuDevice) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
   size_t retSize;
   cl_int err = clGetPlatformInfo(m_platform, CL_PLATFORM_EXTENSIONS, 0, nullptr,
@@ -104,6 +112,8 @@ TEST_F(CheckExtensions, CpuDevice) {
                    extensions.end());
   // Check each queried extension is present in reference extensions
   std::map<std::string, cl_version> extRef(extRefCPU);
+  if (GetParam())
+    extRef.insert({"cl_khr_fp16", CL_MAKE_VERSION(1, 0, 0)});
   std::istringstream extss(extensions);
   for (auto i = std::istream_iterator<std::string>(extss),
             e = std::istream_iterator<std::string>();
@@ -138,7 +148,7 @@ static bool operator==(const cl_name_version &lhs, const cl_name_version &rhs) {
   return strcmp(lhs.name, rhs.name) == 0 && lhs.version == rhs.version;
 }
 
-TEST_F(CheckExtensions, WithVersion) {
+TEST_P(CheckExtensions, WithVersion) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
   size_t retSize;
   size_t numOfExts;
@@ -167,6 +177,8 @@ TEST_F(CheckExtensions, WithVersion) {
 
   // Check each queried extension is present in reference extensions
   std::map<std::string, cl_version> extRef(extRefCPU);
+  if (GetParam())
+    extRef.insert({"cl_khr_fp16", CL_MAKE_VERSION(1, 0, 0)});
   for (auto extVer : extsWithVer) {
     ASSERT_EQ(extVer.version, extRef[extVer.name])
         << ("Expect " + std::string(extVer.name) + "(" +
@@ -186,3 +198,6 @@ TEST_F(CheckExtensions, WithVersion) {
                "are not in extensions queried from clGetDeviceInfo");
   }
 }
+
+INSTANTIATE_TEST_SUITE_P(FrameworkTestType, CheckExtensions,
+                         ::testing::Values(false, true));

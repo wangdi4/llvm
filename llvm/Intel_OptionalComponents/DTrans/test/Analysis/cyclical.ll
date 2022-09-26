@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -265,6 +266,10 @@ define void @test07() {
 ; CHECK: LLVMType: %struct.test07 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
-declare void @free(i8* nocapture)
-declare noalias i8* @calloc(i64, i64)
-declare noalias i8* @malloc(i64)
+declare void @free(i8* nocapture) #0
+declare noalias i8* @calloc(i64, i64) #1
+declare noalias i8* @malloc(i64) #2
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #2 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

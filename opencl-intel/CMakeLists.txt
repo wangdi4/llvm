@@ -424,6 +424,19 @@ endif()
 # FindLLVM.cmake will overwrite LLVM_BINARY_DIR, so we save it as LLVM_OBJ_DIR.
 set(LLVM_OBJ_DIR ${LLVM_BINARY_DIR})
 
+# Use CLANG_VERSION_* if it's specified, otherwise use LLVM_VERSION_*.
+if(NOT DEFINED CLANG_VERSION_MAJOR)
+  set(CLANG_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
+endif()
+if(NOT DEFINED CLANG_VERSION_MINOR)
+  set(CLANG_VERSION_MINOR ${LLVM_VERSION_MINOR})
+endif()
+if(NOT DEFINED CLANG_VERSION_PATCHLEVEL)
+  set(CLANG_VERSION_PATCHLEVEL ${LLVM_VERSION_PATCH})
+endif()
+# Unlike PACKAGE_VERSION, CLANG_VERSION does not include LLVM_VERSION_SUFFIX.
+set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION_PATCHLEVEL}")
+
 # Let's help CMake to find llvm-lit
 if (NOT OPENCL_INTREE_BUILD)
   set(LLVM_EXTERNAL_LIT "${LLVM_PATH_BE}/bin/llvm-lit")
@@ -499,7 +512,6 @@ if (NOT OPENCL_INTREE_BUILD)
     ocl-builtins-shared
     ocl-cl_logger
     ocl-gdb-plugin
-#    ocl-eyeq-builtins
   )
 
   if(WIN32)

@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //===-- Intel_FoldWPIntrinsic.cpp - Intrinsic wholeprogramsafe Lowering -*--===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -114,6 +114,10 @@ static bool foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel,
 
   updateVCallVisibilityInModule(M, WPInfo->isWholeProgramSafe(),
                                 DynamicExportSymbols);
+
+  // If whole program is safe, transform llvm.public.test.type intrinsic to 
+  // llvm.test.type, otherwise remove llvm.public.test.type from the module
+  updatePublicTypeTestCalls(M, WPInfo->isWholeProgramSafe());
 
   return true;
 }

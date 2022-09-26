@@ -146,6 +146,35 @@ TRACE_FN_DEF(zeCommandListAppendMemoryCopy)(
   return rc;
 }
 
+TRACE_FN_DEF(zeCommandListAppendMemoryPrefetch)(
+    ze_command_list_handle_t hCommandList,
+    const void *ptr,
+    size_t size) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hCommandList);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_END();
+
+  return zeCommandListAppendMemoryPrefetch(hCommandList, ptr, size);
+}
+
+TRACE_FN_DEF(zeCommandListAppendMemAdvise)(
+    ze_command_list_handle_t hCommandList,
+    ze_device_handle_t hDevice,
+    const void *ptr,
+    size_t size,
+    ze_memory_advice_t advice) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hCommandList);
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_UINT(advice);
+
+  return zeCommandListAppendMemAdvise(hCommandList, hDevice, ptr, size, advice);
+}
+
 TRACE_FN_DEF(zeCommandListClose)(
     ze_command_list_handle_t hCommandList) {
   auto rc = zeCommandListClose(hCommandList);

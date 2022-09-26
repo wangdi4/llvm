@@ -4,7 +4,6 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: gv: (name: "f3_c", {{.*}} aliasee: ^[[L1:[0-9]]])
-; CHECK: gv: (name: "f3_a", {{.*}} aliasee: ^[[L1]])
 ; CHECK: ^[[L1]] = gv: (name: "f3_d",
 ; CHECK: gv: (name: "f3_b", {{.*}} aliasee: ^[[L1]])
 

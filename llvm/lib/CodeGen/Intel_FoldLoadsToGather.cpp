@@ -196,7 +196,7 @@ bool FoldLoadsToGather::run(Instruction& I) {
   if (!LoadOpt)
     return false;
 
-  Loads.push_back(LoadOpt.getValue());
+  Loads.push_back(LoadOpt.value());
   auto Load0 = Loads[0];
   if (Load0.VF != Load0.Pos + 1)
     return false;
@@ -210,7 +210,7 @@ bool FoldLoadsToGather::run(Instruction& I) {
     if (!LoadOpt)
       return false;
 
-    auto Load = LoadOpt.getValue();
+    auto Load = LoadOpt.value();
     if (Load0.AddrIndex != Load.AddrIndex)
       return false;
     if (Load0.AddrBase != Load.AddrBase)
@@ -255,8 +255,10 @@ bool FoldLoadsToGather::run(Instruction& I) {
   }
 
   // Generate the GEP with 'AddrBase' and 'AddrIndex'.
-  auto GEPTy =
-      Load0.AddrBase->getType()->getScalarType()->getPointerElementType();
+  auto AddrBaseTy = Load0.AddrBase->getType()->getScalarType();
+  auto GEPTy = AddrBaseTy->isOpaquePointerTy()
+                   ? AddrBaseTy
+                   : AddrBaseTy->getPointerElementType();
   auto GEP =
       Builder.CreateGEP(GEPTy, Load0.AddrBase, ArrayRef<Value *>({AddrIndex}));
 

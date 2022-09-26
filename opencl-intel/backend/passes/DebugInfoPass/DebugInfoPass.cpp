@@ -12,9 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "CompilationUtils.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constants.h"
@@ -27,10 +26,10 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 using namespace std;
-using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel  {
 
@@ -210,20 +209,19 @@ bool DebugInfoPass::runOnModule(Module& M)
 
 void DebugInfoPass::addGlobalIdDeclaration()
 {
-    std::string gid =
-      Intel::OpenCL::DeviceBackend::CompilationUtils::mangledGetGID();
-    if (findFunctionsInModule(gid))
-        return;
+  std::string gid = CompilationUtils::mangledGetGID();
+  if (findFunctionsInModule(gid))
+    return;
 
-    // No such declaration; let's add it
-    //
-    Type* i_size_t = IntegerType::get(*m_llvm_context, 8 * sizeof(size_t));
-    Type* uint_type = IntegerType::get(*m_llvm_context, 32);
-    SmallVector<Type*, 4> params;
-    params.push_back(uint_type);
+  // No such declaration; let's add it
+  //
+  Type *i_size_t = IntegerType::get(*m_llvm_context, 8 * sizeof(size_t));
+  Type *uint_type = IntegerType::get(*m_llvm_context, 32);
+  SmallVector<Type *, 4> params;
+  params.push_back(uint_type);
 
-    FunctionType* gid_type = FunctionType::get(i_size_t, params, false);
-    Function::Create(gid_type, Function::ExternalLinkage, gid, m_pModule);
+  FunctionType *gid_type = FunctionType::get(i_size_t, params, false);
+  Function::Create(gid_type, Function::ExternalLinkage, gid, m_pModule);
 }
 
 
@@ -303,39 +301,34 @@ void DebugInfoPass::runOnUserFunction(Function* pFunc)
 
 void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fContext)
 {
-    const std::string gid =
-      Intel::OpenCL::DeviceBackend::CompilationUtils::mangledGetGID();
-    Type* uint_type = IntegerType::get(*m_llvm_context, 32);
-    Function* get_global_id_func = m_pModule->getFunction(gid);
-    assert(get_global_id_func);
+  const std::string gid = CompilationUtils::mangledGetGID();
+  Type *uint_type = IntegerType::get(*m_llvm_context, 32);
+  Function *get_global_id_func = m_pModule->getFunction(gid);
+  assert(get_global_id_func);
 
-    // Find the first instruction in the function
+  // Find the first instruction in the function
+  //
+  BasicBlock &entry_block = pFunc->getEntryBlock();
+  Instruction &first_instr = entry_block.front();
+
+  SmallVector<Value *, 8> gids;
+  for (unsigned i = 0; i <= 2; ++i) {
+    Value *const_dim = ConstantInt::get(uint_type, i, false);
+    Value *gid_at_dim = CallInst::Create(get_global_id_func, const_dim,
+                                         Twine(gid) + Twine(i), &first_instr);
+
+    // get_global_id returns size_t, but we want to always pass a 64-bit
+    // number. So we may need to extend the result to 64 bits.
     //
-    BasicBlock& entry_block = pFunc->getEntryBlock();
-    Instruction& first_instr = entry_block.front();
-
-    SmallVector<Value*, 8> gids;
-    for (unsigned i = 0; i <= 2; ++i) {
-        Value* const_dim = ConstantInt::get(uint_type, i, false);
-        Value* gid_at_dim = CallInst::Create(
-            get_global_id_func, const_dim,
-            Twine(gid) + Twine(i), &first_instr);
-
-        // get_global_id returns size_t, but we want to always pass a 64-bit
-        // number. So we may need to extend the result to 64 bits.
-        //
-        const IntegerType* gid_type = dyn_cast<IntegerType>(gid_at_dim->getType());
-        if (gid_type && gid_type->getBitWidth() != 64) {
-            Value* zext_gid = new ZExtInst(
-                gid_at_dim,
-                IntegerType::getInt64Ty(*m_llvm_context),
-                Twine("gid") + Twine(i) + Twine("_i64"),
-                &first_instr);
-            gids.push_back(zext_gid);
-        }
-        else {
-            gids.push_back(gid_at_dim);
-        }
+    const IntegerType *gid_type = dyn_cast<IntegerType>(gid_at_dim->getType());
+    if (gid_type && gid_type->getBitWidth() != 64) {
+      Value *zext_gid =
+          new ZExtInst(gid_at_dim, IntegerType::getInt64Ty(*m_llvm_context),
+                       Twine("gid") + Twine(i) + Twine("_i64"), &first_instr);
+      gids.push_back(zext_gid);
+    } else {
+      gids.push_back(gid_at_dim);
+    }
     }
 
     fContext.gids = gids;

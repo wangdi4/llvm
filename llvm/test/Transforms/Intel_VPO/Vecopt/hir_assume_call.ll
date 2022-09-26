@@ -1,9 +1,7 @@
 ; Test to check handling of @llvm.assume call in VPlan HIR vectorizer.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; Ensure that call to @llvm.assume does not prevent the insertion of vec directives.
 ; CHECK-LABEL: BEGIN REGION { }

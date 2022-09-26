@@ -190,6 +190,7 @@
 ; CHECK-O-NEXT: Running pass: LoopRotatePass
 ; CHECK-O-NEXT: Running pass: LICM
 ; CHECK-O-NEXT: Running pass: SimpleLoopUnswitchPass
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
@@ -199,7 +200,6 @@
 ; CHECK-EP-LOOP-LATE-NEXT: Running pass: NoOpLoopPass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: LoopFullUnrollPass
-; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-EP-LOOP-END-NEXT: Running pass: NoOpLoopPass
 ; CHECK-O-NEXT: Running pass: SROAPass on foo
 ; CHECK-MATRIX: Running pass: VectorCombinePass
@@ -230,7 +230,10 @@
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
+; CHECK-O-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
+; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}ShouldNotRunFunctionPassesAnalysis
+; CHECK-O-NEXT: Invalidating analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
@@ -321,6 +324,7 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-DEFAULT-NEXT:  Running pass: AlwaysInlinerPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
 ; CHECK-DEFAULT-NEXT:  Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 
@@ -365,15 +369,16 @@
 ; CHECK-LTO-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
+; CHECK-O-NEXT: Running pass: TailCallElimPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-EP-OPTIMIZER-LAST: Running pass: NoOpModulePass
 ; CHECK-HOT-COLD-SPLIT-NEXT: Running pass: HotColdSplittingPass
 ; CHECK-IR-OUTLINER-NEXT: Running pass: IROutlinerPass
 ; CHECK-IR-OUTLINER-NEXT: Running analysis: IRSimilarityAnalysis
 ; CHECK-MERGE-FUNCS-NEXT: Running pass: MergeFunctionsPass
-; CHECK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: ConstantMergePass
+; CHECK-DEFAULT-NEXT: Running pass: CGProfilePass
 ; CHECK-DEFAULT-NEXT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NOT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NEXT: Running pass: IntelMathLibrariesDeclarationPass ;INTEL

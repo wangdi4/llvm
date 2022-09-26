@@ -542,6 +542,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Bad memfunc manipulation (related types)";
   if (SafetyInfo & dtrans::UnsafePtrMergeRelatedTypes)
     return "Unsafe pointer merge (related types)";
+  if (SafetyInfo & dtrans::MultiStructMemFunc)
+    return "Multi-struct memfunc";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -583,6 +585,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::StructCouldBeBaseABIPadding |
       dtrans::BadMemFuncManipulationForRelatedTypes |
       dtrans::UnsafePtrMergeRelatedTypes |
+      dtrans::MultiStructMemFunc |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -617,6 +620,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::StructCouldBeBaseABIPadding ^
            dtrans::BadMemFuncManipulationForRelatedTypes ^
            dtrans::UnsafePtrMergeRelatedTypes ^
+           dtrans::MultiStructMemFunc ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
@@ -1203,18 +1207,33 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-CallInfo *CallInfoManager::getCallInfo(const llvm::Instruction *I) const {
+dtrans::CallInfo *
+CallInfoManager::getCallInfo(const llvm::Instruction *I) const {
+  auto CInfoVec = getCallInfoVec(I);
+  if (!CInfoVec)
+    return nullptr;
+  assert(CInfoVec->size() == 1 && "Expecting single element call info");
+  return (*CInfoVec)[0];
+}
+
+const dtrans::CallInfoVec *
+CallInfoManager::getCallInfoVec(const llvm::Instruction *I) const {
   auto Entry = CallInfoMap.find(I);
   if (Entry == CallInfoMap.end())
     return nullptr;
+  return &Entry->second;
+}
 
-  return Entry->second;
+dtrans::CallInfoVec *
+CallInfoManager::getCallInfoVec(const llvm::Instruction *I) {
+  auto Entry = CallInfoMap.find(I);
+  if (Entry == CallInfoMap.end())
+    return nullptr;
+  return &Entry->second;
 }
 
 void CallInfoManager::addCallInfo(Instruction *I, dtrans::CallInfo *CI) {
-  assert(getCallInfo(I) == nullptr &&
-         "An instruction is only allowed a single CallInfo mapping");
-  CallInfoMap[I] = CI;
+  CallInfoMap[I].push_back(CI);
 }
 
 dtrans::AllocCallInfo *
@@ -1249,24 +1268,44 @@ dtrans::MemfuncCallInfo *CallInfoManager::createMemfuncCallInfo(
 }
 
 void CallInfoManager::deleteCallInfo(Instruction *I) {
-  dtrans::CallInfo *Info = getCallInfo(I);
-  if (!Info)
+  auto InfoVec = getCallInfoVec(I);
+  if (!InfoVec)
     return;
-
+  assert(InfoVec->size() == 1 &&  "Expecting single element CallInfoVec");
+  auto CI = InfoVec->pop_back_val();
+  delete CI;
   CallInfoMap.erase(I);
-  delete Info;
+}
+
+void CallInfoManager::deleteCallInfoVec(Instruction *I) {
+  auto InfoVec = getCallInfoVec(I);
+  if (!InfoVec)
+    return;
+  while (!InfoVec->empty()) {
+    auto CI = InfoVec->pop_back_val();
+    delete CI;
+  }
+  CallInfoMap.erase(I);
 }
 
 void CallInfoManager::replaceCallInfoInstruction(dtrans::CallInfo *Info,
                                                  Instruction *NewI) {
-  CallInfoMap.erase(Info->getInstruction());
+  Instruction *OldI = Info->getInstruction();
+  auto CInfoVec = CallInfoMap[OldI];
+  auto It = std::find(CInfoVec.begin(), CInfoVec.end(), Info);
+  if (It == CInfoVec.end())
+    return;
+  CInfoVec.erase(It);
+  if (CInfoVec.empty())
+    CallInfoMap.erase(OldI);
   addCallInfo(NewI, Info);
   Info->setInstruction(NewI);
 }
 
 void CallInfoManager::reset() {
   for (auto Info : CallInfoMap)
-    destructCallInfo(Info.second);
+    for (auto CallInfo : Info.second)
+      destructCallInfo(CallInfo);
   CallInfoMap.clear();
 }
 
@@ -1460,8 +1499,8 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
   // unreachable
   //
   auto DummyAllocBBWithCxxThrowException = [&](BasicBlock &BB) {
-    auto CI =
-        dyn_cast<CallInst>(BB.getTerminator()->getPrevNonDebugInstruction());
+    auto CI = dyn_cast_or_null<CallInst>(
+        BB.getTerminator()->getPrevNonDebugInstruction());
     if (!CI)
       return false;
     auto *Func = dtrans::getCalledFunction(*CI);

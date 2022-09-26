@@ -155,6 +155,9 @@ bool VPSOAAnalysis::isSafeGEPInst(const VPGEPInstruction *VPGEP,
 bool VPSOAAnalysis::isSafeVPSubscriptInst(const VPSubscriptInst *VPS,
                                           Type *AllocatedType,
                                           Type *PrivElemSize) const {
+  if (isSelfAddressOfInst(VPS))
+    return true;
+
   // For supported privates we should have 2-dim VPSubscript.
   if (VPS->getNumDimensions() != 2)
     return false;
@@ -228,10 +231,6 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
   // Clear the WorkList and AnalyzedInsts of contents of the earlier run.
   WL.clear();
   AnalyzedInsts.clear();
-
-  // If the alloca is marked as scalar, SOA does not make sense.
-  if (Alloca->getIsScalar())
-    return true;
 
   // If this is a scalar-private, just return. The real memory layout for simple
   // scalars is identical for both SOA and AOS, it's just vector of elements.

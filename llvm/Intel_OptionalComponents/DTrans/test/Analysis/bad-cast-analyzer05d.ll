@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
 
@@ -85,7 +86,7 @@ t11:                                     ; preds = %t5, %t1
   ret void
 }
 
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #2
+declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #0
 
 define internal fastcc void @init_with_coder2(%struct.mynextcoder* nocapture) unnamed_addr {
   %t2 = getelementptr inbounds %struct.mynextcoder, %struct.mynextcoder* %0, i64 0, i32 0
@@ -144,6 +145,8 @@ define dso_local i32 @main() {
   ret i32 0
 }
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+
 ; CHECK: dtrans-bca: Begin bad casting analysis
 ; CHECK: dtrans-bca: Candidate Root Type: struct.mynextcoder
 ; CHECK: dtrans-bca: (L) Unmatched call:   call void @mysillyfunction(i8* %t3)
@@ -162,4 +165,3 @@ define dso_local i32 @main() {
 ; CHECK: Bad casting | Unsafe pointer store
 ; CHECK: LLVMType: %struct.mynextcoder
 ; CHECK: Safety data: Unsafe pointer store | Global instance | Has function ptr
-

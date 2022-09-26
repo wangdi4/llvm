@@ -14,8 +14,13 @@ define <2 x half> @intrinsic_f16(<2 x half> %z, <2 x half> %w) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    pushq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-NEXT:    movdqa %xmm1, %xmm2
+; CHECK-NEXT:    movdqa %xmm0, %xmm1
+; CHECK-NEXT:    psrld $16, %xmm1
+; CHECK-NEXT:    movdqa %xmm2, %xmm3
+; CHECK-NEXT:    psrld $16, %xmm3
 ; CHECK-NEXT:    callq __mulhc3@PLT
-; CHECK-NEXT:    popq %rcx
+; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
   %mul = call <2 x half> @llvm.intel.complex.fmul.v2f16(<2 x half> %z, <2 x half> %w)

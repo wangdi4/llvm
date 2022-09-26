@@ -1,5 +1,6 @@
 // INTEL_FEATURE_SW_DTRANS
 // REQUIRES: x86-registered-target, intel_feature_sw_dtrans
+// UNSUPPORTED: enable-opaque-pointers
 
 /// Intel specific optimization options that are available only under
 /// INTEL FEATURE SW_DTRANS. This test case is the same as

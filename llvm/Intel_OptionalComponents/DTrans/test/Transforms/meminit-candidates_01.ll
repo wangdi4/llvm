@@ -8,6 +8,7 @@
 ; RUN: opt < %s -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate
 ; struct. "f1" and "f2" will be considered as candidate vector fields.

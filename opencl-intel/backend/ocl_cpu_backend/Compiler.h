@@ -89,7 +89,6 @@ public:
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetUniformWGSize() const { return m_uniformWGSize; }
-    int  GetAPFLevel()      const { return m_APFLevel; }
     bool GetDenormalsZero() const { return m_denormalsZero;}
 
     void SetDisableOpt(bool disableOpt)       { m_disableOpt = disableOpt; }
@@ -98,7 +97,6 @@ public:
     void SetProfilingFlag(bool profiling)     { m_profiling = profiling; }
     void SetRelaxedMath(bool relaxedMath)     { m_relaxedMath = relaxedMath; }
     void SetUniformWGSize(bool uniformWGSize) { m_uniformWGSize = uniformWGSize; }
-    void SetAPFLevel(int APFLevel)            { m_APFLevel = APFLevel; }
     void SetDenormalsZero(bool denormalsZero) { m_denormalsZero = denormalsZero;}
 
 private:
@@ -109,7 +107,6 @@ private:
     bool m_relaxedMath;
     bool m_denormalsZero;
     bool m_uniformWGSize;
-    int  m_APFLevel;
 };
 
 //*****************************************************************************************
@@ -214,6 +211,10 @@ public:
     virtual bool useLLDJITForExecution(llvm::Module* pModule) const = 0;
     virtual bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const = 0;
 
+    // Reset and create a new LLVMContext for current thread.
+    // Returns the new LLVMContext.
+    llvm::LLVMContext * resetLLVMContextForCurrentThread();
+
 protected:
     SmallVector<std::unique_ptr<Module>, 2> LoadBuiltinModules(BuiltinLibrary *
                                                                pLibrary);
@@ -226,11 +227,15 @@ protected:
     }
 protected:
     bool                     m_bIsFPGAEmulator;
-    bool                     m_bIsEyeQEmulator;
     // Each host thread should have its own LLVMContext, because it is not
     // thread-safe for multiple threads to access LLVM resources within a
     // single LLVMContext.
-    std::unordered_map<std::thread::id, llvm::LLVMContext *> m_LLVMContexts;
+    std::unordered_map<std::thread::id, std::unique_ptr<llvm::LLVMContext>>
+        m_LLVMContexts;
+    // LLVMContext is reset when CL_CONFIG_REPLACE_IR_BEFORE_OPTIMIZER is set,
+    // This vector stored the old LLVMContext, which must be valid until its
+    // related resources are released.
+    std::vector<std::unique_ptr<llvm::LLVMContext>> m_depletedLLVMContexts;
     llvm::sys::Mutex m_LLVMContextMutex;
     Intel::OpenCL::Utils::CPUDetect *m_CpuId;
     llvm::SmallVector<std::string, 8>
@@ -252,8 +257,6 @@ private:
     // Disable copy ctor and assignment operator
     Compiler( const Compiler& );
     bool operator = (const Compiler& );
-    // Check if given program is valid for the target.
-    bool isProgramValid(llvm::Module*, ProgramBuildResult*) const;
     // Validate if the vectorized mode is supported by a target arch.
     // If not then issue an error and interrupt the compilation.
     void validateVectorizerMode(llvm::raw_ostream& log) const;

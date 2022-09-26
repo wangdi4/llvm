@@ -19,7 +19,7 @@
 ; CHECK: [[DEPNUMBYTES:%[0-9A-Za-z._]+]] = getelementptr inbounds %__struct.kmp_depend_info, %__struct.kmp_depend_info* %{{.*}}, i32 0, i32 1
 ; CHECK: store i64 [[SIZE]], i64* [[DEPNUMBYTES]]
 ; CHECK:  call void @__kmpc_omp_wait_deps(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 1, i8* %{{.*}}, i32 0, i8* null)
-; CHECK:  call void @__kmpc_omp_taskwait(%struct.ident_t* @{{.*}}, i32 %{{.*}})
+; CHECK-NOT:  call void @__kmpc_omp_taskwait
 
 ; OPQPTR: [[START:%[0-9A-Za-z._]+]] = getelementptr i32, ptr %a, i64 %conv1
 ; OPQPTR: [[SIZE:%[0-9A-Za-z._]+]] = mul i64 %conv, 4
@@ -29,7 +29,6 @@
 ; OPQPTR: [[DEPNUMBYTES:%[0-9A-Za-z._]+]] = getelementptr inbounds %__struct.kmp_depend_info, ptr %{{.*}}, i32 0, i32 1
 ; OPQPTR: store i64 [[SIZE]], ptr [[DEPNUMBYTES]]
 ; OPQPTR:  call void @__kmpc_omp_wait_deps(ptr @{{.*}}, i32 %{{.*}}, i32 1, ptr %{{.*}}, i32 0, ptr null)
-; OPQPTR:  call void @__kmpc_omp_taskwait(ptr @{{.*}}, i32 %{{.*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

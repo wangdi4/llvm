@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -445,4 +446,6 @@ define void @test22(i32 %n) {
 ; CHECK: LLVMType: %struct.good.S2
 ; CHECK: Safety data: Contains nested structure
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

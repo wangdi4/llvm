@@ -4,20 +4,12 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
 ; RUN:     -mattr=+avx2 -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-CM-AVX2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -mattr=+avx2 -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-CM-AVX2
+; RUN:     | FileCheck %s --check-prefix=VPLAN-CM-AVX2
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
 ; RUN:     -mattr=+avx512f -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-CM-AVX512
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -mattr=+avx512f -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-CM-AVX512
+; RUN:     | FileCheck %s --check-prefix=VPLAN-CM-AVX512
 
 ; Expensive load/store operations in the loop should not induce register
 ; pressure high enough to cause spill/fills if they are not serialized.
@@ -39,16 +31,16 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 16 resulted Cost = 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP0]]
-; VPLAN-CM-AVX2-NEXT:    Cost 4.875 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; VPLAN-CM-AVX2-NEXT:    Cost 4.5 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 4 for i64 [[VP2:%.*]] = mul i64 [[VP_LOAD]] i64 2
 ; VPLAN-CM-AVX2-NEXT:    Cost 24 for i64 [[VP3:%.*]] = mul i64 2 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP3]]
@@ -67,15 +59,15 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 4 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 16 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 424.875
+; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 424.5
 ; VPLAN-CM-AVX2-NEXT:  Block total cost includes GS Cost: 288
 ; VPLAN-CM-AVX2-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 160
-; VPLAN-CM-AVX2-NEXT:  Base Cost: 424.875
+; VPLAN-CM-AVX2-NEXT:  Base Cost: 424.5
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Gather/Scatter heuristic is 576
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 160
-; VPLAN-CM-AVX2-NEXT:  Total Cost: 1160.875
+; VPLAN-CM-AVX2-NEXT:  Total Cost: 1160.5
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -88,16 +80,16 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 16 resulted Cost = 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP0]]
-; VPLAN-CM-AVX512-NEXT:    Cost 2.9375 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; VPLAN-CM-AVX512-NEXT:    Cost 2.75 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 2 for i64 [[VP2:%.*]] = mul i64 [[VP_LOAD]] i64 2
 ; VPLAN-CM-AVX512-NEXT:    Cost 12 for i64 [[VP3:%.*]] = mul i64 2 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP3]]
@@ -116,11 +108,11 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 2 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-CM-AVX512-NEXT:  [[BB2]]: base cost: 206.9375
+; VPLAN-CM-AVX512-NEXT:  [[BB2]]: base cost: 206.75
 ; VPLAN-CM-AVX512-NEXT:  Block total cost includes GS Cost: 144
-; VPLAN-CM-AVX512-NEXT:  Base Cost: 206.9375
+; VPLAN-CM-AVX512-NEXT:  Base Cost: 206.75
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB4]]

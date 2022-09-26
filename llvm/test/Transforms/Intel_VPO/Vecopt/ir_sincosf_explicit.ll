@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(float* %a, float* %vsin, float* %vcos, i32 %i)  {
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(float* %vsin, float* %vcos) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %vsin, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %vcos, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region

@@ -1,8 +1,7 @@
 ; Test if debug information for PrivDescr class are generated correctly.
 
 ; RUN: opt -S -vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=LLVMIR
-; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s -check-prefix=HIR
-; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s -check-prefix=HIR
+; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen < %s 2>&1 | FileCheck %s -check-prefix=HIR
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -45,7 +44,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"(%struct.point2d* %myPoint2.priv, %struct.point2d* (%struct.point2d*)* @_ZTS7point2d.omp.def_constr, void (%struct.point2d*)* @_ZTS7point2d.omp.destr), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.point2d* %myPoint2.priv, %struct.point2d zeroinitializer, i32 1, %struct.point2d* (%struct.point2d*)* @_ZTS7point2d.omp.def_constr, void (%struct.point2d*)* @_ZTS7point2d.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

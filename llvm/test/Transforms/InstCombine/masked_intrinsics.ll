@@ -434,6 +434,42 @@ define <2 x i64> @negative_gather_v2i64_uniform_ptrs_no_all_active_mask(i64* %sr
   ret <2 x i64> %res
 }
 
+; INTEL_CUSTOMIZATION
+declare void @llvm.masked.store.v16f32.p0v16f32(<16 x float>, <16 x float>*, i32 immarg, <16 x i1>)
+define void @select_to_masked_store(<16 x i1> %mask, <16 x float> %trueval, <16 x float>* %addr) {
+; CHECK-LABEL: @select_to_masked_store(
+; CHECK-NEXT:    call void @llvm.masked.store.v16f32.p0v16f32(<16 x float> [[TRUEVAL:%.*]], <16 x float>* [[ADDR:%.*]], i32 4, <16 x i1> [[MASK:%.*]])
+; CHECK-NEXT:    ret void
+;
+  %sel = select <16 x i1> %mask, <16 x float> %trueval, <16 x float> undef
+  call void @llvm.masked.store.v16f32.p0v16f32(<16 x float> %sel, <16 x float>* %addr, i32 4, <16 x i1> %mask)
+  ret void
+}
+
+define void @select_to_zero_masked_store(<16 x float> %trueval, <16 x float>* %addr) {
+; CHECK-LABEL: @select_to_zero_masked_store(
+; CHECK-NEXT:    ret void
+;
+  %broadcast.value = insertelement <16 x i1> poison, i1 false, i32 0
+  %mask = shufflevector <16 x i1> %broadcast.value, <16 x i1> poison, <16 x i32> zeroinitializer
+  %sel = select <16 x i1> %mask, <16 x float> %trueval, <16 x float> undef
+  call void @llvm.masked.store.v16f32.p0v16f32(<16 x float> %sel, <16 x float>* %addr, i32 4, <16 x i1> %mask)
+  ret void
+}
+
+define void @select_to_one_masked_store(<16 x float> %trueval, <16 x float>* %addr) {
+; CHECK-LABEL: @select_to_one_masked_store(
+; CHECK-NEXT:    store <16 x float> [[TRUEVAL:%.*]], <16 x float>* [[ADDR:%.*]], align 4
+; CHECK-NEXT:    ret void
+;
+  %broadcast.value = insertelement <16 x i1> poison, i1 true, i32 0
+  %mask = shufflevector <16 x i1> %broadcast.value, <16 x i1> poison, <16 x i32> zeroinitializer
+  %sel = select <16 x i1> %mask, <16 x float> %trueval, <16 x float> undef
+  call void @llvm.masked.store.v16f32.p0v16f32(<16 x float> %sel, <16 x float>* %addr, i32 4, <16 x i1> %mask)
+  ret void
+}
+; end INTEL_CUSTOMIZATION
+
 ; Function Attrs:
 declare <vscale x 2 x i64> @llvm.masked.gather.nxv2i64(<vscale x 2 x i64*>, i32, <vscale x 2 x i1>, <vscale x 2 x i64>)
 declare <2 x i64> @llvm.masked.gather.v2i64(<2 x i64*>, i32, <2 x i1>, <2 x i64>)

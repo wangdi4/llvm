@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that basic transformations are done correctly for
 ; Load/Store instructions when DynClone+Reencoding transformation
 ; is triggered.
@@ -149,7 +151,7 @@ define void @init() {
 ;   { 300000, 2000000, 2000015, 4000000, 4000015}
 ;
 
-; CHECK-LABEL: define internal i16 @__DYN_encoder(i64 %0) #1 {
+; CHECK-LABEL: define internal i16 @__DYN_encoder(i64 %0) #2 {
 ; CHECK: entry:
 ; CHECK:  [[CMP1:%[0-9]+]] = icmp ule i64 [[ARG:%[0-9]+]], 65530
 ; CHECK:  br i1 [[CMP1]], label %default, label %switch_bb
@@ -178,7 +180,7 @@ define void @init() {
 ; CHECK:  case4:
 ; CHECK:    br label %return
 
-; CHECK-LABEL: define internal i64 @__DYN_decoder(i16 %0) #1 {
+; CHECK-LABEL: define internal i64 @__DYN_decoder(i16 %0) #2 {
 ; CHECK: entry:
 ; CHECK:  [[CMP2:%[0-9]+]] = icmp ule i16 [[ARG:%[0-9]+]], -6
 ; CHECK:  br i1 [[CMP2]], label %default, label %switch_bb
@@ -208,7 +210,7 @@ define void @init() {
 ; CHECK:  br label %return
 ; CHECK:}
 
-; CHECK: attributes #1 = { "min-legal-vector-width"="0" }
+; CHECK: attributes #2 = { "min-legal-vector-width"="0" }
 
 ; Call to "init" routine is qualified as InitRoutine for DynClone.
 define i32 @main() {
@@ -220,5 +222,6 @@ entry:
   ret i32 0
 }
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #1
 attributes #0 = { "target-features"="+avx2" }
+attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

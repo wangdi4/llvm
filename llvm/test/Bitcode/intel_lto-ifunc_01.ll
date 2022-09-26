@@ -1,9 +1,11 @@
 ; CMPLRLLVM-11512: Check ifunc is handled while computing module summary.
 ; RUN: opt -module-summary %s -o - | llvm-dis | FileCheck %s
 
-; CHECK: ^[[L1:[0-9]]] = gv: (name: "MCD.ifunc", {{.*}}  aliasee: ^[[L3:[0-9]]]
-; CHECK: gv: (name: "MCD", {{.*}} aliasee: ^[[L1]]
-; CHECK: ^[[L3]] = gv: (name: "MCD.resolver",
+; CHECK:      (name: "MCD"
+; CHECK-NOT:  summaries: (
+; CHECK-SAME: ; guid = {{[0-9]+}}
+; CHECK: (name: "MCD.resolver",
+; CHECK-SAME: live: 1
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

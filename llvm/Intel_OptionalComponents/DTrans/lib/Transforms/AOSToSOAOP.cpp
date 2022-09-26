@@ -3276,64 +3276,68 @@ bool AOSToSOAOPPass::qualifyCalls(Module &M, WholeProgramInfo &WPInfo,
   SmallPtrSet<StructInfo *, 8> Disqualified;
   DenseMap<dtrans::StructInfo *, Instruction *> AllocTypeInfoToInstr;
   DenseMap<dtrans::StructInfo *, Instruction *> FreeTypeInfoToInstr;
-  for (auto *CInfo : DTInfo.call_info_entries()) {
-    if (!CInfo->getAliasesToAggregateType())
-      continue;
+  for (auto CInfoVec : DTInfo.call_info_entries()) {
+    for (auto CInfo : CInfoVec ) {
+      if (!CInfo->getAliasesToAggregateType())
+        continue;
 
-    if (CInfo->getElementTypesRef().getNumTypes() != 1) {
-      AddCallInfoStructTypes(CInfo, Disqualified);
-      continue;
-    }
+      if (CInfo->getElementTypesRef().getNumTypes() != 1) {
+        AddCallInfoStructTypes(CInfo, Disqualified);
+        continue;
+      }
 
-    // Do not support any memfuncs on the candidate type. These can be
-    // supported, but are not currently needed.
-    if (isa<MemfuncCallInfo>(CInfo)) {
-      AddCallInfoStructTypes(CInfo, Disqualified);
-      continue;
-    }
+      // Do not support any memfuncs on the candidate type. These can be
+      // supported, but are not currently needed.
+      if (isa<MemfuncCallInfo>(CInfo)) {
+        AddCallInfoStructTypes(CInfo, Disqualified);
+        continue;
+      }
 
-    if (auto *ACI = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
-      if (ACI->getAllocKind() != dtrans::AK_Calloc &&
-          ACI->getAllocKind() != dtrans::AK_Malloc) {
-        AddCallInfoStructTypes(ACI, Disqualified);
-      } else {
-        auto &TypeList = CInfo->getElementTypesRef();
-        DTransType *AllocatedTy = TypeList.getElemDTransType(0);
-        if (AllocatedTy->isStructTy()) {
-          // Save the first allocation seen, otherwise disqualify the type.
-          auto *TI = DTInfo.getTypeInfo(AllocatedTy);
-          assert(TI && "TypeInfo not found. DTransInfo out of date?");
-          auto *STI = cast<StructInfo>(TI);
-          Instruction *Inst = CInfo->getInstruction();
-          if (!AllocTypeInfoToInstr.insert(std::make_pair(STI, Inst)).second) {
-            Disqualified.insert(STI);
-            LLVM_DEBUG(dbgs()
-                       << "AOS-to-SOA rejecting -- Too many allocations: "
-                       << *AllocatedTy << "\n");
+      if (auto *ACI = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
+        if (ACI->getAllocKind() != dtrans::AK_Calloc &&
+            ACI->getAllocKind() != dtrans::AK_Malloc) {
+          AddCallInfoStructTypes(ACI, Disqualified);
+        } else {
+          auto &TypeList = CInfo->getElementTypesRef();
+          DTransType *AllocatedTy = TypeList.getElemDTransType(0);
+          if (AllocatedTy->isStructTy()) {
+            // Save the first allocation seen, otherwise disqualify the type.
+            auto *TI = DTInfo.getTypeInfo(AllocatedTy);
+            assert(TI && "TypeInfo not found. DTransInfo out of date?");
+            auto *STI = cast<StructInfo>(TI);
+            Instruction *Inst = CInfo->getInstruction();
+            if (!AllocTypeInfoToInstr.insert(
+                std::make_pair(STI, Inst)).second) {
+              Disqualified.insert(STI);
+              LLVM_DEBUG(dbgs()
+                         << "AOS-to-SOA rejecting -- Too many allocations: "
+                         << *AllocatedTy << "\n");
+            }
           }
         }
-      }
-    } else if (auto *FCI = dyn_cast<dtrans::FreeCallInfo>(CInfo)) {
-      auto &TypeList = CInfo->getElementTypesRef();
-      DTransType *FreeTy = TypeList.getElemDTransType(0);
-      if (FreeTy->isStructTy()) {
-        auto *TI = dyn_cast<StructInfo>(DTInfo.getTypeInfo(FreeTy));
-        if (FCI->getFreeKind() != dtrans::FK_Free) {
-          Disqualified.insert(TI);
-          LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Deallocation not using "
-                               "call to 'free': "
-                            << *FreeTy << "\n");
-        }
-
-        // Save the first free seen, otherwise disqualify the type. The limit
-        // that 'free' is only called in one location is not strictly necessary
-        // for the transformation. It is simply checked here as a simplification
-        // for the checks for 'BitCast' instructions.
-        Instruction *Inst = CInfo->getInstruction();
-        if (!FreeTypeInfoToInstr.insert(std::make_pair(TI, Inst)).second) {
-          if (Disqualified.insert(TI).second)
-            LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Too many free-sites: "
+      } else if (auto *FCI = dyn_cast<dtrans::FreeCallInfo>(CInfo)) {
+        auto &TypeList = CInfo->getElementTypesRef();
+        DTransType *FreeTy = TypeList.getElemDTransType(0);
+        if (FreeTy->isStructTy()) {
+          auto *TI = dyn_cast<StructInfo>(DTInfo.getTypeInfo(FreeTy));
+          if (FCI->getFreeKind() != dtrans::FK_Free) {
+            Disqualified.insert(TI);
+            LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- "
+                              << "Deallocation not using call to 'free': "
                               << *FreeTy << "\n");
+          }
+
+          // Save the first free seen, otherwise disqualify the type. The
+          // limit that 'free' is only called in one location is not strictly
+          // necessary for the transformation. It is simply checked here as a
+          // simplification for the checks for 'BitCast' instructions.
+          Instruction *Inst = CInfo->getInstruction();
+          if (!FreeTypeInfoToInstr.insert(std::make_pair(TI, Inst)).second) {
+            if (Disqualified.insert(TI).second)
+              LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- " 
+                                << "Too many free-sites: "
+                                << *FreeTy << "\n");
+          }
         }
       }
     }

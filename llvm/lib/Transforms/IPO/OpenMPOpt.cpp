@@ -518,11 +518,14 @@ struct OMPInformationCache : public InformationCache {
 
     // Remove the `noinline` attribute from `__kmpc`, `_OMP::` and `omp_`
     // functions, except if `optnone` is present.
-    for (Function &F : M) {
-      for (StringRef Prefix : {"__kmpc", "_ZN4_OMP", "omp_"})
-        if (F.getName().startswith(Prefix) &&
-            !F.hasFnAttribute(Attribute::OptimizeNone))
-          F.removeFnAttr(Attribute::NoInline);
+    if (isOpenMPDevice(M)) {
+      for (Function &F : M) {
+        for (StringRef Prefix : {"__kmpc", "_ZN4_OMP", "omp_"})
+          if (F.hasFnAttribute(Attribute::NoInline) &&
+              F.getName().startswith(Prefix) &&
+              !F.hasFnAttribute(Attribute::OptimizeNone))
+            F.removeFnAttr(Attribute::NoInline);
+      }
     }
 
     // TODO: We should attach the attributes defined in OMPKinds.def.
@@ -2437,8 +2440,7 @@ struct AAICVTrackerFunction : public AAICVTracker {
 
       auto CallCheck = [&](Instruction &I) {
         Optional<Value *> ReplVal = getValueForCall(A, I, ICV);
-        if (ReplVal.hasValue() &&
-            ValuesMap.insert(std::make_pair(&I, *ReplVal)).second)
+        if (ReplVal && ValuesMap.insert(std::make_pair(&I, *ReplVal)).second)
           HasChanged = ChangeStatus::CHANGED;
 
         return true;
@@ -2540,13 +2542,13 @@ struct AAICVTrackerFunction : public AAICVTracker {
         if (ValuesMap.count(CurrInst)) {
           Optional<Value *> NewReplVal = ValuesMap.lookup(CurrInst);
           // Unknown value, track new.
-          if (!ReplVal.hasValue()) {
+          if (!ReplVal) {
             ReplVal = NewReplVal;
             break;
           }
 
           // If we found a new value, we can't know the icv value anymore.
-          if (NewReplVal.hasValue())
+          if (NewReplVal)
             if (ReplVal != NewReplVal)
               return nullptr;
 
@@ -2554,11 +2556,11 @@ struct AAICVTrackerFunction : public AAICVTracker {
         }
 
         Optional<Value *> NewReplVal = getValueForCall(A, *CurrInst, ICV);
-        if (!NewReplVal.hasValue())
+        if (!NewReplVal)
           continue;
 
         // Unknown value, track new.
-        if (!ReplVal.hasValue()) {
+        if (!ReplVal) {
           ReplVal = NewReplVal;
           break;
         }
@@ -2570,7 +2572,7 @@ struct AAICVTrackerFunction : public AAICVTracker {
       }
 
       // If we are in the same BB and we have a value, we are done.
-      if (CurrBB == I->getParent() && ReplVal.hasValue())
+      if (CurrBB == I->getParent() && ReplVal)
         return ReplVal;
 
       // Go through all predecessors and add terminators for analysis.
@@ -2628,7 +2630,7 @@ struct AAICVTrackerFunctionReturned : AAICVTracker {
             ICVTrackingAA.getReplacementValue(ICV, &I, A);
 
         // If we found a second ICV value there is no unique returned value.
-        if (UniqueICVValue.hasValue() && UniqueICVValue != NewReplVal)
+        if (UniqueICVValue && UniqueICVValue != NewReplVal)
           return false;
 
         UniqueICVValue = NewReplVal;
@@ -2679,7 +2681,7 @@ struct AAICVTrackerCallSite : AAICVTracker {
   }
 
   ChangeStatus manifest(Attributor &A) override {
-    if (!ReplVal.hasValue() || !ReplVal.getValue())
+    if (!ReplVal || !*ReplVal)
       return ChangeStatus::UNCHANGED;
 
     A.changeAfterManifest(IRPosition::inst(*getCtxI()), **ReplVal);
@@ -3363,6 +3365,9 @@ struct AAKernelInfoFunction : AAKernelInfo {
   }
 
   bool changeToSPMDMode(Attributor &A, ChangeStatus &Changed) {
+    if (!mayContainParallelRegion())
+      return false;
+
     auto &OMPInfoCache = static_cast<OMPInformationCache &>(A.getInfoCache());
 
     if (!SPMDCompatibilityTracker.isAssumed()) {
@@ -4448,13 +4453,13 @@ struct AAFoldRuntimeCallCallSiteReturned : AAFoldRuntimeCall {
 
     std::string Str("simplified value: ");
 
-    if (!SimplifiedValue.hasValue())
+    if (!SimplifiedValue)
       return Str + std::string("none");
 
-    if (!SimplifiedValue.getValue())
+    if (!SimplifiedValue.value())
       return Str + std::string("nullptr");
 
-    if (ConstantInt *CI = dyn_cast<ConstantInt>(SimplifiedValue.getValue()))
+    if (ConstantInt *CI = dyn_cast<ConstantInt>(SimplifiedValue.value()))
       return Str + std::to_string(CI->getSExtValue());
 
     return Str + std::string("unknown");
@@ -4478,8 +4483,8 @@ struct AAFoldRuntimeCallCallSiteReturned : AAFoldRuntimeCall {
         IRPosition::callsite_returned(CB),
         [&](const IRPosition &IRP, const AbstractAttribute *AA,
             bool &UsedAssumedInformation) -> Optional<Value *> {
-          assert((isValidState() || (SimplifiedValue.hasValue() &&
-                                     SimplifiedValue.getValue() == nullptr)) &&
+          assert((isValidState() ||
+                  (SimplifiedValue && SimplifiedValue.value() == nullptr)) &&
                  "Unexpected invalid state!");
 
           if (!isAtFixpoint()) {
@@ -4519,7 +4524,7 @@ struct AAFoldRuntimeCallCallSiteReturned : AAFoldRuntimeCall {
   ChangeStatus manifest(Attributor &A) override {
     ChangeStatus Changed = ChangeStatus::UNCHANGED;
 
-    if (SimplifiedValue.hasValue() && SimplifiedValue.getValue()) {
+    if (SimplifiedValue && *SimplifiedValue) {
       Instruction &I = *getCtxI();
       A.changeAfterManifest(IRPosition::inst(I), **SimplifiedValue);
       A.deleteAfterManifest(I);
@@ -4607,7 +4612,7 @@ private:
       // We have empty reaching kernels, therefore we cannot tell if the
       // associated call site can be folded. At this moment, SimplifiedValue
       // must be none.
-      assert(!SimplifiedValue.hasValue() && "SimplifiedValue should be none");
+      assert(!SimplifiedValue && "SimplifiedValue should be none");
     }
 
     return SimplifiedValue == SimplifiedValueBefore ? ChangeStatus::UNCHANGED
@@ -4650,7 +4655,7 @@ private:
       return indicatePessimisticFixpoint();
 
     if (CallerKernelInfoAA.ReachingKernelEntries.empty()) {
-      assert(!SimplifiedValue.hasValue() &&
+      assert(!SimplifiedValue &&
              "SimplifiedValue should keep none at this point");
       return ChangeStatus::UNCHANGED;
     }
@@ -4828,7 +4833,7 @@ void OpenMPOpt::registerAAs(bool IsModulePass) {
       if (auto *LI = dyn_cast<LoadInst>(&I)) {
         bool UsedAssumedInformation = false;
         A.getAssumedSimplified(IRPosition::value(*LI), /* AA */ nullptr,
-                               UsedAssumedInformation);
+                               UsedAssumedInformation, AA::Interprocedural);
       } else if (auto *SI = dyn_cast<StoreInst>(&I)) {
         A.getOrCreateAAFor<AAIsDead>(IRPosition::value(*SI));
       }

@@ -11,9 +11,12 @@
 // License.
 
 #include "VecConfig.h"
-#include "CompilationUtils.h"
 
 namespace intel {
+/// Expensive memory optimizations defined in cl.cfg
+enum ExpensiveMemOpts : uint32_t {
+  OCLAA = 1,
+};
 
 bool OptimizerConfig::EnableOCLAA() const {
   return m_expensiveMemOpts & ExpensiveMemOpts::OCLAA;

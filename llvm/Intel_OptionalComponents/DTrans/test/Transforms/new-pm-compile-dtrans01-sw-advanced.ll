@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; Test passes run under -enable-dtrans in the compile step in the new pass manager
 ;
 ; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \

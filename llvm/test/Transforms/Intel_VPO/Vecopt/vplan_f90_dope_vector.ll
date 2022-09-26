@@ -3,10 +3,8 @@
 ; RUN: opt -S -vplan-vec -vplan-force-vf=16  -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 ; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=16  -debug-only=vpo-ir-loop-vectorize-legality  < %s 2>&1 | FileCheck %s
 
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-temp-cleanup -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=16 -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR-CHECK
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-temp-cleanup -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=16 -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR-CHECK
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -print-after=hir-vplan-vec -vplan-force-vf=16 -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR-CHECK
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -print-after=hir-vplan-vec -vplan-force-vf=16 -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=16 -debug-only=HIRLegality < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -print-after=hir-vplan-vec -vplan-force-vf=16 -debug-only=HIRLegality < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
 
 %"QNCA_a0$i32*$rank2$" = type { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
@@ -20,7 +18,7 @@ define void @sum_(float* %C2ptr, i64* %Nptr, i64* %Mptr) #0 {
 ; CHECK-NEXT:    br label [[REGION_00:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  region.0:
-; CHECK-NEXT:    [[TOKEN10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV"(%"QNCA_a0$i32*$rank2$"* [[LPRIV0]]) ]
+; CHECK-NEXT:    [[TOKEN10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV.TYPED"(%"QNCA_a0$i32*$rank2$"* [[LPRIV0]], %"QNCA_a0$i32*$rank2$" zeroinitializer, i32 1) ]
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_13780:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.1378:
@@ -47,7 +45,7 @@ entry:
   br label %region.0
 
 region.0:                                         ; preds = %entry
-  %token1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV"(%"QNCA_a0$i32*$rank2$"* %lpriv) ]
+  %token1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV.TYPED"(%"QNCA_a0$i32*$rank2$"* %lpriv, %"QNCA_a0$i32*$rank2$" zeroinitializer, i32 1) ]
   br label %DIR.OMP.SIMD.1378
 
 DIR.OMP.SIMD.1378:                                ; preds = %region.0

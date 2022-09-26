@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -132,6 +132,11 @@ static cl::opt<int> IntraSCCCostMultiplier(
 /// as part of the default (e.g. -O3) pipeline.
 static cl::opt<bool> KeepAdvisorForPrinting("keep-inline-advisor-for-printing",
                                             cl::init(false), cl::Hidden);
+
+/// Allows printing the contents of the advisor after each SCC inliner pass.
+static cl::opt<bool>
+    EnablePostSCCAdvisorPrinting("enable-scc-inline-advisor-printing",
+                                 cl::init(false), cl::Hidden);
 
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 #if INTEL_CUSTOMIZATION
@@ -851,15 +856,16 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass(bool OnlyMandatory): OnlyMandatory(OnlyMandatory) {
+InlinerPass::InlinerPass(bool OnlyMandatory, ThinOrFullLTOPhase LTOPhase)
+    : OnlyMandatory(OnlyMandatory), LTOPhase(LTOPhase) {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
 }
-#endif  // INTEL_CUSTOMIZATION
 
 InlinerPass::~InlinerPass() {
   getReport()->testAndPrint(this);
 }
+#endif // INTEL_CUSTOMIZATION
 
 InlineAdvisor &
 InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
@@ -877,8 +883,9 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
     // duration of the inliner pass, and thus the lifetime of the owned advisor.
     // The one we would get from the MAM can be invalidated as a result of the
     // inliner's activity.
-    OwnedAdvisor =
-        std::make_unique<DefaultInlineAdvisor>(M, FAM, getInlineParams());
+    OwnedAdvisor = std::make_unique<DefaultInlineAdvisor>(
+        M, FAM, getInlineParams(),
+        InlineContext{LTOPhase, InlinePass::CGSCCInliner});
 
     if (!CGSCCInlineReplayFile.empty())
       OwnedAdvisor = getReplayInlineAdvisor(
@@ -887,7 +894,9 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                                 CGSCCInlineReplayScope,
                                 CGSCCInlineReplayFallback,
                                 {CGSCCInlineReplayFormat}},
-          /*EmitRemarks=*/true);
+          /*EmitRemarks=*/true,
+          InlineContext{LTOPhase,
+                              InlinePass::ReplayCGSCCInliner});
 
     return *OwnedAdvisor;
   }
@@ -913,7 +922,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           .getManager();
 
   InlineAdvisor &Advisor = getAdvisor(MAMProxy, FAM, M);
-  Advisor.onPassEntry();
+  Advisor.onPassEntry(&InitialC);
 
   auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(&InitialC); });
 
@@ -991,10 +1000,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                      << setIsVerbose();
             });
           }
-        }
-     } // INTEL
-  }
 #if INTEL_CUSTOMIZATION
+        } else {
+          Report->setReasonNotInlined(CB, NinlrIndirect);
+          llvm::setMDReasonNotInlined(CB, NinlrIndirect);
+        }
+     }
+  }
   if (Calls.empty()) {
     Report->endSCC();
     delete ILIC;
@@ -1105,6 +1117,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
       Report->beginUpdate(CB);
       MDReport->beginUpdate(CB);
+      bool IsAlwaysInlineRecursive =
+          CB->hasFnAttr(Attribute::AlwaysInlineRecursive);
+      bool IsInlineHintRecursive =
+          CB->hasFnAttr(Attribute::InlineHintRecursive);
       Report->setReasonIsInlined(CB, *IC);
       llvm::setMDReasonIsInlined(CB, *IC);
 #endif // INTEL_CUSTOMIZATION
@@ -1112,7 +1128,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       int CBCostMult =
           getStringFnAttrAsInt(
               *CB, InlineConstants::FunctionInlineCostMultiplierAttributeName)
-              .getValueOr(1);
+              .value_or(1);
 
       // Setup the data structure used to plumb customization into the
       // `InlineFunction` routine.
@@ -1205,6 +1221,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           }
           if (NewCallee) {
             if (!NewCallee->isDeclaration()) {
+              if (IsAlwaysInlineRecursive)
+                 ICB->addFnAttr(Attribute::AlwaysInlineRecursive);
+              if (IsInlineHintRecursive)
+                 ICB->addFnAttr(Attribute::InlineHintRecursive);
               Calls.push({ICB, NewHistoryID});
               // Continually inlining through an SCC can result in huge compile
               // times and bloated code since we arbitrarily stop at some point
@@ -1376,17 +1396,24 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
 ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
                                                    bool MandatoryFirst,
+                                                   InlineContext IC,
                                                    InliningAdvisorMode Mode,
                                                    unsigned MaxDevirtIterations)
-    : Params(Params), Mode(Mode), MaxDevirtIterations(MaxDevirtIterations) {
+    : Params(Params), IC(IC), Mode(Mode),
+      MaxDevirtIterations(MaxDevirtIterations) {
   // Run the inliner first. The theory is that we are walking bottom-up and so
   // the callees have already been fully optimized, and we want to inline them
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
-  if (MandatoryFirst)
+  if (MandatoryFirst) {
     PM.addPass(InlinerPass(/*OnlyMandatory*/ true));
+    if (EnablePostSCCAdvisorPrinting)
+      PM.addPass(InlineAdvisorAnalysisPrinterPass(dbgs()));
+  }
   PM.addPass(InlinerPass());
+  if (EnablePostSCCAdvisorPrinting)
+    PM.addPass(InlineAdvisorAnalysisPrinterPass(dbgs()));
 }
 
 PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
@@ -1396,7 +1423,8 @@ PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
                      {CGSCCInlineReplayFile,
                       CGSCCInlineReplayScope,
                       CGSCCInlineReplayFallback,
-                      {CGSCCInlineReplayFormat}})) {
+                      {CGSCCInlineReplayFormat}},
+                     IC)) {
     M.getContext().emitError(
         "Could not setup Inlining Advisor for the requested "
         "mode and/or options");

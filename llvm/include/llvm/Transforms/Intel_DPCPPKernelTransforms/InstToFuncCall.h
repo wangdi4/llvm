@@ -25,20 +25,20 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_INSTTOFUNCCALL_H
 #define LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_INSTTOFUNCCALL_H
 
-#include "llvm/IR/Intel_VectorVariant.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
 
 class InstToFuncCallPass : public PassInfoMixin<InstToFuncCallPass> {
 public:
-  InstToFuncCallPass(VectorVariant::ISAClass ISA = VectorVariant::XMM)
+  InstToFuncCallPass(VFISAKind ISA = VFISAKind::SSE)
       : ISA(ISA) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
 private:
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 };
 
 } // namespace llvm

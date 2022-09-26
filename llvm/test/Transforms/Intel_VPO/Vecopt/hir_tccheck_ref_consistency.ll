@@ -23,10 +23,10 @@
 ;
 ; CHECK:   Function: foo
 ;
-; CHECK:           |      %.scal = %1  *  %2;
+; CHECK:           |      %.scal = [[TMP1:%.*]]  *  [[TMP2:%.*]];
 ; CHECK-NEXT:      |      <LVAL-REG> NON-LINEAR i64 %.scal {sb:25}
-; CHECK-NEXT:      |      <RVAL-REG> NON-LINEAR i64 %1 {sb:9}
-; CHECK-NEXT:      |      <RVAL-REG> NON-LINEAR i64 %2 {sb:12}
+; CHECK-NEXT:      |      <RVAL-REG> NON-LINEAR i64 [[TMP1]] {sb:9}
+; CHECK-NEXT:      |      <RVAL-REG> NON-LINEAR i64 [[TMP2]] {sb:12}
 ;
 ; CHECK:           |      %tgu3 = %.scal  /u  4;
 ;

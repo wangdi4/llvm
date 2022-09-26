@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===- llvm-lto: a simple command-line program to link modules with LTO ---===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -266,6 +283,10 @@ static cl::opt<bool>
     DebugPassManager("debug-pass-manager", cl::init(false), cl::Hidden,
                      cl::desc("Print pass management debugging information"),
                      cl::cat(LTOCategory));
+
+static cl::opt<bool>
+    LTOSaveBeforeOpt("lto-save-before-opt", cl::init(false),
+                     cl::desc("Save the IR before running optimizations"));
 
 namespace {
 
@@ -1075,9 +1096,12 @@ int main(int argc, char **argv) {
   CodeGen.setUseNewPM(UseNewPM); // INTEL
 
   if (auto FT = codegen::getExplicitFileType())
-    CodeGen.setFileType(FT.getValue());
+    CodeGen.setFileType(*FT);
 
   if (!OutputFilename.empty()) {
+    if (LTOSaveBeforeOpt)
+      CodeGen.setSaveIRBeforeOptPath(OutputFilename + ".0.preopt.bc");
+
     if (SaveLinkedModuleFile) {
       std::string ModuleFilename = OutputFilename;
       ModuleFilename += ".linked.bc";

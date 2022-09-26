@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone handles MultiElem load/store instructions
 ; correctly during transformation when all fields involved in load/store are
 ; marked with aostosoa index fields and analysis able to detect all fields
@@ -101,6 +103,8 @@ entry:
 ; CHECK: void @proc1.
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
 declare dso_local noalias i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

@@ -7,9 +7,15 @@
 ; RUN: echo '{ global: _start; local: *; };' > %t.ver
 
 ; RUN: ld.lld %t1.o %t2.o -o %t.out --save-temps --lto-whole-program-visibility -shared \
+; INTEL_CUSTOMIZATION
+; RUN: %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | count 0
 
 ; RUN: ld.lld %t1.o %t2.o -o %t.out --save-temps --lto-whole-program-visibility -shared \
+; INTEL_CUSTOMIZATION
+; RUN: %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   --version-script=%t.ver -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis < %t1.o.4.opt.bc | FileCheck %s --check-prefix=CHECK-IR
 

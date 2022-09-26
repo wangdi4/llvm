@@ -1,6 +1,6 @@
 //===------------ Intel_VPOParoptSharedPrivatization.cpp ------------------===//
 //
-//   Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/Analysis/VPO/VPOParoptConstants.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
@@ -239,8 +240,7 @@ static bool isPrivatizationCandidate(AllocaInst *AI,
           // AA assumes they do.
           if (isa<FenceInst>(&I))
             continue;
-          if (isModOrRefSet(intersectModRef(AA->getModRefInfo(&I, Loc),
-                                            ModRefInfo::Mod))) {
+          if (isModOrRefSet(AA->getModRefInfo(&I, Loc) & ModRefInfo::Mod)) {
             LLVM_DEBUG(reportSkipped(AI, "is modified by");
                        dbgs() << I << "\n";);
             return true;
@@ -650,7 +650,7 @@ bool VPOParoptTransform::addPrivateClausesToRegion(
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Adding private clause for '";
                V->printAsOperand(dbgs()); dbgs() << "'.\n");
 
-    if (!I.second.hasValue()) {
+    if (!I.second.has_value()) {
       PrivateBundles.push_back({PrivateClauseStr, {V}});
       PrivC.add(V);
       continue;
@@ -658,7 +658,7 @@ bool VPOParoptTransform::addPrivateClausesToRegion(
 
     Type *ElementTy = nullptr;
     Value *NumElements = nullptr;
-    std::tie(ElementTy, NumElements) = I.second.getValue();
+    std::tie(ElementTy, NumElements) = I.second.value();
     PrivateBundles.push_back(
         {TypedPrivateClauseStr,
          {V, Constant::getNullValue(ElementTy), NumElements}});

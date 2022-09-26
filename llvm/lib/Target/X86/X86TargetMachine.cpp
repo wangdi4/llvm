@@ -81,6 +81,13 @@ static cl::opt<bool>
                      cl::desc("Enable the tile register allocation pass"),
                      cl::init(true), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+extern cl::opt<bool> MarkPrologEpilog;
+extern cl::opt<bool> MarkLoopHeader;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   // Register the target.
   RegisterTargetMachine<X86TargetMachine> X(getTheX86_32Target());
@@ -110,6 +117,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86TileConfigPass(PR);
   initializeX86FastPreTileConfigPass(PR);
   initializeX86FastTileConfigPass(PR);
+  initializeX86KCFIPass(PR);
   initializeX86LowerTileCopyPass(PR);
   initializeX86ExpandPseudoPass(PR);
   initializeX86ExecutionDomainFixPass(PR);
@@ -124,7 +132,11 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86OptimizeLEAPassPass(PR);
   initializeX86PartialReductionPass(PR);
   initializePseudoProbeInserterPass(PR);
+  initializeX86ReturnThunksPass(PR);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  initializeX86MarkerCountPassPass(PR);
+#endif // INTEL_FEATURE_MARKERCOUNT
   initializeX86AvoidMRNBPassPass(PR);
   initializeX86GlobalFMAPass(PR);
   initializeX86CFMAPass(PR);
@@ -199,7 +211,7 @@ static Reloc::Model getEffectiveRelocModel(const Triple &TT,
                                            bool JIT,
                                            Optional<Reloc::Model> RM) {
   bool is64Bit = TT.getArch() == Triple::x86_64;
-  if (!RM.hasValue()) {
+  if (!RM) {
     // JIT codegen should use static relocations by default, since it's
     // typically executed in process and not relocatable.
     if (JIT)
@@ -263,9 +275,9 @@ X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
           getEffectiveX86CodeModel(CM, JIT, TT.getArch() == Triple::x86_64),
           OL),
       TLOF(createTLOF(getTargetTriple())), IsJIT(JIT) {
-  // On PS4, the "return address" of a 'noreturn' call must still be within
+  // On PS4/PS5, the "return address" of a 'noreturn' call must still be within
   // the calling function, and TrapUnreachable is an easy way to get that.
-  if (TT.isPS4() || TT.isOSBinFormatMachO()) {
+  if (TT.isPS() || TT.isOSBinFormatMachO()) {
     this->Options.TrapUnreachable = true;
     this->Options.NoTrapAfterNoreturn = TT.isOSBinFormatMachO();
   }
@@ -288,10 +300,25 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
 
   StringRef CPU =
       CPUAttr.isValid() ? CPUAttr.getValueAsString() : (StringRef)TargetCPU;
-  StringRef TuneCPU =
-      TuneAttr.isValid() ? TuneAttr.getValueAsString() : (StringRef)CPU;
+  // "x86-64" is a default target setting for many front ends. In these cases,
+  // they actually request for "generic" tuning unless the "tune-cpu" was
+  // specified.
+  StringRef TuneCPU = TuneAttr.isValid() ? TuneAttr.getValueAsString()
+                      : CPU == "x86-64"  ? "generic"
+                                         : (StringRef)CPU;
   StringRef FS =
       FSAttr.isValid() ? FSAttr.getValueAsString() : (StringRef)TargetFS;
+
+#if INTEL_CUSTOMIZATION
+  // FIXME: This customizations needs to go away once TargetOptions is
+  // properly represented on the functions and not on the TargetMachines.
+
+  // Enable IntelAdvanceOptim for the auto-cpu-dispatch generated
+  // Intel-processor-targeting clones. Disable IntelAdvancedOptim
+  // for the "generic" clone if targeting "x86-64".
+  if (F.hasFnAttribute("advanced-optim"))
+    Options.IntelAdvancedOptim = F.getFnAttribute("advanced-optim").getValueAsBool();
+#endif // INTEL_CUSTOMIZATION
 
   SmallString<512> Key;
   // The additions here are ordered so that the definitely short strings are
@@ -632,7 +659,10 @@ void X86PassConfig::addPostRegAlloc() {
     addPass(createX86LoadValueInjectionLoadHardeningPass());
 }
 
-void X86PassConfig::addPreSched2() { addPass(createX86ExpandPseudoPass()); }
+void X86PassConfig::addPreSched2() {
+  addPass(createX86ExpandPseudoPass());
+  addPass(createX86KCFIPass());
+}
 
 void X86PassConfig::addPreEmitPass() {
   if (getOptLevel() != CodeGenOpt::None) {
@@ -675,6 +705,7 @@ void X86PassConfig::addPreEmitPass2() {
   // hand inspection of the codegen output.
   addPass(createX86SpeculativeExecutionSideEffectSuppression());
   addPass(createX86IndirectThunksPass());
+  addPass(createX86ReturnThunksPass());
 
   // Insert extra int3 instructions after trailing call instructions to avoid
   // issues in the unwinder.
@@ -700,17 +731,26 @@ void X86PassConfig::addPreEmitPass2() {
   // Insert pseudo probe annotation for callsite profiling
   addPass(createPseudoProbeInserter());
 
-  // On Darwin platforms, BLR_RVMARKER pseudo instructions are lowered to
-  // bundles.
-  if (TT.isOSDarwin())
-    addPass(createUnpackMachineBundles([](const MachineFunction &MF) {
-      // Only run bundle expansion if there are relevant ObjC runtime functions
-      // present in the module.
-      const Function &F = MF.getFunction();
-      const Module *M = F.getParent();
-      return M->getFunction("objc_retainAutoreleasedReturnValue") ||
-             M->getFunction("objc_unsafeClaimAutoreleasedReturnValue");
-    }));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // Convert pseudo markercount to x86 instruction
+  if (MarkLoopHeader || MarkPrologEpilog)
+    addPass(createX86MarkerCountPass());
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
+  // KCFI indirect call checks are lowered to a bundle, and on Darwin platforms,
+  // also CALL_RVMARKER.
+  addPass(createUnpackMachineBundles([&TT](const MachineFunction &MF) {
+    // Only run bundle expansion if the module uses kcfi, or there are relevant
+    // ObjC runtime functions present in the module.
+    const Function &F = MF.getFunction();
+    const Module *M = F.getParent();
+    return M->getModuleFlag("kcfi") ||
+           (TT.isOSDarwin() &&
+            (M->getFunction("objc_retainAutoreleasedReturnValue") ||
+             M->getFunction("objc_unsafeClaimAutoreleasedReturnValue")));
+  }));
 }
 
 bool X86PassConfig::addPostFastRegAllocRewrite() {

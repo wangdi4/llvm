@@ -37,6 +37,18 @@
 ;CHECK-NEXT:     Lazy Block Frequency Analysis
 ;CHECK-NEXT:     Optimization Remark Emitter
 ;CHECK-NEXT:     VPO Work-Region Information
+;CHECK-NEXT:     VPO Paropt Loop Transform Function Pass
+;CHECK-NEXT:     Dominator Tree Construction
+;CHECK-NEXT:     Natural Loop Information
+;CHECK-NEXT:     VPO CFGRestructuring
+;CHECK-NEXT:     Scalar Evolution Analysis
+;CHECK-NEXT:     Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:     Function Alias Analysis Results
+;CHECK-NEXT:     VPO Work-Region Collection
+;CHECK-NEXT:     Lazy Branch Probability Analysis
+;CHECK-NEXT:     Lazy Block Frequency Analysis
+;CHECK-NEXT:     Optimization Remark Emitter
+;CHECK-NEXT:     VPO Work-Region Information
 ;CHECK-NEXT:     VPO Paropt Loop Collapse Function Pass
 ;CHECK-NEXT:     Dominator Tree Construction
 ;CHECK-NEXT:     Natural Loop Information
@@ -403,6 +415,9 @@
 ;                  Inliner for always_inline functions
 ;                A No-Op Barrier Pass
 ;                FunctionPass Manager
+;                  Dominator Tree Construction
+;                  Natural Loop Information
+;                  VPO CFGRestructuring
 ;                  VPO Directive Cleanup
 ; end INTEL_CUSTOMIZATION
 ;CHECK:            VPO Restore Operands
@@ -445,6 +460,9 @@
 ;CHECK-NEXT:         Optimization Remark Emitter
 ;CHECK-NEXT:         VPO Work-Region Information
 ;CHECK-NEXT:     FunctionPass Manager
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       VPO CFGRestructuring
 ;CHECK-NEXT:       VPO Directive Cleanup
 ;CHECK-NEXT:       VPO CFG simplification
 ;CHECK-NEXT:     CallGraph Construction

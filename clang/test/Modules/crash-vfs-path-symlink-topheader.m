@@ -16,12 +16,14 @@
 // RUN: not %clang -fsyntax-only %s -I %/t/i -isysroot %/t/sysroot/ \
 // RUN:     -fmodules -fmodules-cache-path=%t/m/ 2>&1 | FileCheck %s
 
-// RUN: FileCheck --check-prefix=CHECKSRC %s -input-file %t/crash-vfs-*.m
-// RUN: FileCheck --check-prefix=CHECKSH %s -input-file %t/crash-vfs-*.sh
+// INTEL_CUSTOMIZATION
+// RUN: FileCheck --check-prefix=CHECKSRC %s -input-file %t/clang*/crash-vfs-*.m
+// RUN: FileCheck --check-prefix=CHECKSH %s -input-file %t/clang*/crash-vfs-*.sh
 // RUN: FileCheck --check-prefix=CHECKYAML %s -input-file \
-// RUN: %t/crash-vfs-*.cache/vfs/vfs.yaml
-// RUN: find %t/crash-vfs-*.cache/vfs | \
+// RUN: %t/clang*/crash-vfs-*.cache/vfs/vfs.yaml
+// RUN: find %t/clang*/crash-vfs-*.cache/vfs | \
 // RUN:   grep "usr/include/pthread_impl.h" | count 1
+// end INTEL_CUSTOMIZATION
 
 #include "usr/include/stdio.h"
 

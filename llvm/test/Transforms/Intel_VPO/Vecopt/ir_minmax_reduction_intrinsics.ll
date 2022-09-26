@@ -13,15 +13,10 @@ define float @foo(float* nocapture readonly %A, i32 %N) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   (FloatMax) Start: float [[TMP0:%.*]] Exit: float [[VP__MAX_0:%.*]]
-; CHECK-NEXT:    Linked values: float [[VP_MAX_014:%.*]], float [[VP__MAX_0]], float* [[VP_RED:%.*]], float [[VP_REDMINMAX_RED_INIT:%.*]], void [[VP_STORE:%.*]], float [[VP_REDMINMAX_RED_FINAL:%.*]],
-; CHECK-NEXT:   Memory: float* [[RED0:%.*]]
+; CHECK-NEXT:    Linked values: float [[VP_MAX_014:%.*]], float [[VP__MAX_0]], float [[VP_REDMINMAX_RED_INIT:%.*]], float [[VP_REDMINMAX_RED_FINAL:%.*]],
 
 ; CHECK:        [[VPBB_PH:BB[0-9]+]]: # preds: {{BB[0-9]+}}
-; CHECK-NEXT:     float* [[VP_RED]] = allocate-priv float*, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP_RED_BCAST:%.*]] = bitcast float* [[VP_RED]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     float [[VP_REDMINMAX_RED_INIT]] = reduction-init float %0
-; CHECK-NEXT:     store float [[VP_REDMINMAX_RED_INIT]] float* [[VP_RED]]
 
 ; CHECK:        [[VPBB_HEADER:BB[0-9]+]]: # preds: [[VPBB_PH]], [[VPBB_HEADER]]
 ; CHECK:          float [[VP_MAX_014]] = phi [ float [[VP__MAX_0]], [[VPBB_HEADER]] ], [ float [[VP_REDMINMAX_RED_INIT]], [[VPBB_PH]] ]
@@ -29,7 +24,6 @@ define float @foo(float* nocapture readonly %A, i32 %N) {
 
 ; CHECK:        [[VPBB_EXIT:BB[0-9]+]]: # preds: [[VPBB_HEADER]]
 ; CHECK-NEXT:     float [[VP_REDMINMAX_RED_FINAL]] = reduction-final{fmax} float [[VP__MAX_0]]
-; CHECK-NEXT:     store float [[VP_REDMINMAX_RED_FINAL]] float* [[RED0]]
 
 
 ; Checks for generated LLVM-IR
@@ -44,7 +38,6 @@ define float @foo(float* nocapture readonly %A, i32 %N) {
 
 ; CHECK:  VPlannedBB6:
 ; CHECK:    [[TMP11:%.*]] = call float @llvm.vector.reduce.fmax.v4f32(<4 x float> [[TMP6]])
-; CHECK:    store float [[TMP11]], float* [[RED0]], align 1
 
 ; CHECK:  final.merge:
 ; CHECK:    [[UNI_PHI120:%.*]] = phi float [ [[DOTMAX_00:%.*]], [[VPLANNEDBB110:%.*]] ], [ [[TMP11]], [[VPLANNEDBB80:%.*]] ]
@@ -54,7 +47,7 @@ entry:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX"(float* %red) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(float* %red, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:

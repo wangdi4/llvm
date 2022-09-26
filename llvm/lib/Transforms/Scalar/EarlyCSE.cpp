@@ -142,8 +142,24 @@ struct SimpleValue {
         case Intrinsic::experimental_constrained_fcmp:
         case Intrinsic::experimental_constrained_fcmps: {
           auto *CFP = cast<ConstrainedFPIntrinsic>(CI);
-          return CFP->isDefaultFPEnvironment();
+          if (CFP->getExceptionBehavior() &&
+              CFP->getExceptionBehavior() == fp::ebStrict)
+            return false;
+          // Since we CSE across function calls we must not allow
+          // the rounding mode to change.
+          if (CFP->getRoundingMode() &&
+              CFP->getRoundingMode() == RoundingMode::Dynamic)
+            return false;
+          return true;
         }
+#if INTEL_COLLAB
+        case Intrinsic::threadlocal_address:
+          // TLS needs to stay where it is, if there are OpenMP directives.
+          // The active thread may change depending on the OpenMP regions.
+          // CSE/GVN can take care of these after OpenMP lowering.
+          return !llvm::vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(
+              *(Inst->getFunction()));
+#endif // INTEL_COLLAB
         }
       }
       return CI->doesNotAccessMemory() && !CI->getType()->isVoidTy();
@@ -909,8 +925,8 @@ private:
       auto *Vec1 = dyn_cast<ConstantVector>(Mask1);
       if (!Vec0 || !Vec1)
         return false;
-      assert(Vec0->getType() == Vec1->getType() &&
-             "Masks should have the same type");
+      if (Vec0->getType() != Vec1->getType())
+        return false;
       for (int i = 0, e = Vec0->getNumOperands(); i != e; ++i) {
         Constant *Elem0 = Vec0->getOperand(i);
         Constant *Elem1 = Vec1->getOperand(i);
@@ -1134,7 +1150,7 @@ bool EarlyCSE::handleBranchCondition(Instruction *CondInst,
 
     Value *LHS, *RHS;
     if (MatchBinOp(Curr, PropagateOpcode, LHS, RHS))
-      for (auto &Op : { LHS, RHS })
+      for (auto *Op : { LHS, RHS })
         if (Instruction *OPI = dyn_cast<Instruction>(Op))
           if (SimpleValue::canHandle(OPI) && Visited.insert(OPI).second)
             WorkList.push_back(OPI);
@@ -1447,6 +1463,13 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
 #endif // INTEL_COLLAB
     // If this is a simple instruction that we can value number, process it.
     if (SimpleValue::canHandle(&Inst)) {
+      if (auto *CI = dyn_cast<ConstrainedFPIntrinsic>(&Inst)) {
+        assert(CI->getExceptionBehavior() != fp::ebStrict &&
+               "Unexpected ebStrict from SimpleValue::canHandle()");
+        assert((!CI->getRoundingMode() ||
+                CI->getRoundingMode() != RoundingMode::Dynamic) &&
+               "Unexpected dynamic rounding from SimpleValue::canHandle()");
+      }
       // See if the instruction has an available value.  If so, use it.
       if (Value *V = AvailableValues.lookup(&Inst)) {
 #if INTEL_COLLAB

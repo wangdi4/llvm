@@ -12,14 +12,18 @@
 // RUN: env TMPDIR=%t TEMP=%t TMP=%t RC_DEBUG_OPTIONS=1                  \
 // RUN:  CC_PRINT_HEADERS=1 CC_LOG_DIAGNOSTICS=1                         \
 // RUN:  not %clang %s @%t.rsp -DASSERT 2>&1 | FileCheck %s
-// RUN: cat %t/crash-report-*.c | FileCheck --check-prefix=CHECKSRC %s
-// RUN: cat %t/crash-report-*.sh | FileCheck --check-prefix=CHECKSH %s
+// INTEL_CUSTOMIZATION
+// RUN: cat %t/clang*/crash-report-*.c | FileCheck --check-prefix=CHECKSRC %s
+// RUN: cat %t/clang*/crash-report-*.sh | FileCheck --check-prefix=CHECKSH %s
+// end INTEL_CUSTOMIZATION
 
 // RUN: env TMPDIR=%t TEMP=%t TMP=%t RC_DEBUG_OPTIONS=1                  \
 // RUN:  CC_PRINT_HEADERS=1 CC_LOG_DIAGNOSTICS=1                         \
 // RUN:  not %clang %s @%t.rsp -DUNREACHABLE 2>&1 | FileCheck %s
-// RUN: cat %t/crash-report-with-asserts-*.c | FileCheck --check-prefix=CHECKSRC %s
-// RUN: cat %t/crash-report-with-asserts-*.sh | FileCheck --check-prefix=CHECKSH %s
+// INTEL_CUSTOMIZATION
+// RUN: cat %t/clang*/crash-report-with-asserts-*.c | FileCheck --check-prefix=CHECKSRC %s
+// RUN: cat %t/clang*/crash-report-with-asserts-*.sh | FileCheck --check-prefix=CHECKSH %s
+// end INTEL_CUSTOMIZATION
 
 // REQUIRES: crash-recovery, asserts
 

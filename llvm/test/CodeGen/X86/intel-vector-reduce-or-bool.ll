@@ -250,7 +250,7 @@ define i1 @trunc_v16i16_v16i1(<16 x i16>) {
 ;
 ; AVX-LABEL: trunc_v16i16_v16i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpand {{.*}}(%rip), %ymm0, %ymm0
+; AVX-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
 ; AVX-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX-NEXT:    vpackuswb %xmm1, %xmm0, %xmm0
 ; AVX-NEXT:    vpsllw $7, %xmm0, %xmm0
@@ -605,8 +605,8 @@ define i1 @icmp_v4i64_v4i1(<4 x i64>) {
 ; SSE-NEXT:    pxor %xmm2, %xmm2
 ; SSE-NEXT:    pcmpeqq %xmm2, %xmm1
 ; SSE-NEXT:    pcmpeqq %xmm2, %xmm0
-; SSE-NEXT:    packssdw %xmm1, %xmm0
-; SSE-NEXT:    movmskps %xmm0, %eax
+; SSE-NEXT:    por %xmm1, %xmm0
+; SSE-NEXT:    movmskpd %xmm0, %eax
 ; SSE-NEXT:    testl %eax, %eax
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
@@ -640,8 +640,8 @@ define i1 @icmp_v8i32_v8i1(<8 x i32>) {
 ; SSE-NEXT:    pxor %xmm2, %xmm2
 ; SSE-NEXT:    pcmpeqd %xmm2, %xmm1
 ; SSE-NEXT:    pcmpeqd %xmm2, %xmm0
-; SSE-NEXT:    packssdw %xmm1, %xmm0
-; SSE-NEXT:    pmovmskb %xmm0, %eax
+; SSE-NEXT:    por %xmm1, %xmm0
+; SSE-NEXT:    movmskps %xmm0, %eax
 ; SSE-NEXT:    testl %eax, %eax
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
@@ -760,8 +760,8 @@ define i1 @icmp_v8i64_v8i1(<8 x i64>) {
 ; AVX-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; AVX-NEXT:    vpcmpeqq %ymm2, %ymm1, %ymm1
 ; AVX-NEXT:    vpcmpeqq %ymm2, %ymm0, %ymm0
-; AVX-NEXT:    vpackssdw %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vmovmskps %ymm0, %eax
+; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
+; AVX-NEXT:    vmovmskpd %ymm0, %eax
 ; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
@@ -801,8 +801,8 @@ define i1 @icmp_v16i32_v16i1(<16 x i32>) {
 ; AVX-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; AVX-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
 ; AVX-NEXT:    vpcmpeqd %ymm2, %ymm0, %ymm0
-; AVX-NEXT:    vpackssdw %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vpmovmskb %ymm0, %eax
+; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
+; AVX-NEXT:    vmovmskps %ymm0, %eax
 ; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper

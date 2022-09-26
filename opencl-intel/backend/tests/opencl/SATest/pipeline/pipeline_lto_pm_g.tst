@@ -16,6 +16,7 @@
 
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
 ; CHECK:      Running pass: FMASplitterPass
@@ -29,6 +30,7 @@
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
+; CHECK-NEXT: Running pass: IPSCCPPass
 
 ; CHECK:      Running pass: DetectRecursionPass
 ; CHECK:      Running pass: ReassociatePass
@@ -100,7 +102,6 @@
 ; CHECK:      Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
-; CHECK:      Running pass: LoopUnrollPass
 ; CHECK:      Running pass: IndirectCallLowering
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass

@@ -15,7 +15,7 @@ loop:
   br i1 %cmp, label %bb, label %latch
 
 bb:
-  callbr void asm "", "r,X"(i32 %x, i8* blockaddress(@foo, %indirect))
+  callbr void asm "", "r,!X"(i32 %x)
           to label %latch [label %indirect]
 
 latch:

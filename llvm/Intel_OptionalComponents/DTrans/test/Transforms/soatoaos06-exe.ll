@@ -15,6 +15,7 @@
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                   \
 ; RUN:       | %lli
 ; REQUIRES: x86_64-linux
+; UNSUPPORTED: enable-opaque-pointers
 
 ; -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays,dtrans-soatoaos-struct
 
@@ -659,7 +660,7 @@ entry:
   ret void
 }
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #3
 declare void @__cxa_rethrow()
 declare void @llvm.memset.p0i8.i64(i8*  align 8, i8, i64, i1)
 
@@ -753,7 +754,7 @@ cleanup:                                          ; preds = %for.cond.cleanup, %
   ret void, !dbg !461
 }
 
-declare void @free(i8*)
+declare void @free(i8*) #4
 
 define void @"Arr<float*>::realloc(int)"(%struct.Arr.0* nocapture %this, i32 %inc) align 2 !dbg !462 {
 entry:
@@ -987,6 +988,8 @@ declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 attributes #0 = { nounwind readonly }
 attributes #1 = { nounwind readnone speculatable }
 attributes #2 = { nounwind }
+attributes #3 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #4 = { allockind("free") "alloc-family"="malloc" }
 
 !llvm.dbg.cu = !{!2}
 !llvm.module.flags = !{!19, !20, !21}

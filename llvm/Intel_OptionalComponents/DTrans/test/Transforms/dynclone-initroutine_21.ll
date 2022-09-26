@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is qualified as InitRoutine
 ; for DynClone transformation even though user defined printf routine
 ; is called before "init" is called. printf routine calls another user
@@ -67,5 +69,7 @@ define void @init() {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare i32 @putchar(i32)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

@@ -8,7 +8,6 @@
 ; RUN: FileCheck -input-file=%t %s -check-prefix=INDIRECT_VB
 ; RUN: FileCheck -input-file=%t %s -check-prefix=INDIRECT_AND_DIRECT_VB
 
-
 ; DIRECT_VB_ONLY:      struct TestIVBBase [sizeof = 16]
 ; DIRECT_VB_ONLY-NEXT:   : public virtual TestVB {
 ; DIRECT_VB_ONLY-NEXT:   vbptr +0x00 [sizeof=4]

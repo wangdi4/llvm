@@ -4,15 +4,10 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF8
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF8
-
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF8
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
 
 ; TODO: We're missing support for VF=16 for i32 types because the conflict index
 ; is promoted to i64. If we can preserve the original type, then checks for VF=16

@@ -1,5 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 -disable-output | FileCheck %s
 
 ; CHECK: BEGIN REGION
 ; CHECK-NOT: llvm.directive.region.entry
@@ -21,7 +20,7 @@ DIR.OMP.SIMD.122:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.122
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(float* %x.red), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV"(i32* %index.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x.red, float zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %index.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

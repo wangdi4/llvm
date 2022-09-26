@@ -19,7 +19,7 @@
 
 using namespace Intel::OpenCL::Utils;
 
-void NativeSubgroupsTest::GetDummySubgroupKernel(cl_kernel &kern) const {
+void SubgroupsTest::GetDummySubgroupKernel(cl_kernel &kern) const {
   const char *kernel = "__kernel void dummy_kernel(__global uint* ptr)\
                           {\
                                 size_t gid = get_global_id(0);\
@@ -45,7 +45,7 @@ void NativeSubgroupsTest::GetDummySubgroupKernel(cl_kernel &kern) const {
   ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed. ";
 }
 
-void NativeSubgroupsTest::CheckSGCount(
+void SubgroupsTest::CheckSGCount(
     cl_device_id device, cl_kernel kern,
     const std::vector<size_t> &local_work_sizes) {
   cl_int iRet = CL_SUCCESS;
@@ -88,7 +88,7 @@ void NativeSubgroupsTest::CheckSGCount(
       << " clGetKernelSubGroupInfo failed. SG count is not valid.";
 }
 
-TEST_F(NativeSubgroupsTest, NativeSubgroups_MAX_SB_SIZE) {
+TEST_F(SubgroupsTest, Subgroups_MAX_SB_SIZE) {
   cl_int iRet = CL_SUCCESS;
 
   cl_kernel kern = nullptr;
@@ -139,7 +139,7 @@ TEST_F(NativeSubgroupsTest, NativeSubgroups_MAX_SB_SIZE) {
   }
 }
 
-TEST_F(NativeSubgroupsTest, NativeSubgroups_SG_COUNT) {
+TEST_F(SubgroupsTest, Subgroups_SG_COUNT) {
   cl_kernel kern = nullptr;
   GetDummySubgroupKernel(kern);
 
@@ -168,7 +168,7 @@ TEST_F(NativeSubgroupsTest, NativeSubgroups_SG_COUNT) {
   }
 }
 
-TEST_F(NativeSubgroupsTest, NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT) {
+TEST_F(SubgroupsTest, Subgroups_LOCAL_SIZE_FOR_SG_COUNT) {
   cl_int iRet = CL_SUCCESS;
 
   cl_kernel kern = nullptr;

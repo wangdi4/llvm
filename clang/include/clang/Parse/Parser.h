@@ -235,6 +235,7 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> AttributePragmaHandler;
   std::unique_ptr<PragmaHandler> MaxTokensHerePragmaHandler;
   std::unique_ptr<PragmaHandler> MaxTokensTotalPragmaHandler;
+  std::unique_ptr<PragmaHandler> RISCVPragmaHandler;
 
   std::unique_ptr<CommentHandler> CommentSemaHandler;
 
@@ -748,6 +749,8 @@ private:
                               SourceLocation PragmaLocation);
   bool HandlePragmaMSAllocText(StringRef PragmaName,
                                SourceLocation PragmaLocation);
+  bool HandlePragmaMSOptimize(StringRef PragmaName,
+                              SourceLocation PragmaLocation);
 
   /// Handle the annotation token produced for
   /// #pragma align...
@@ -1094,7 +1097,7 @@ private:
   /// If the next token is not a semicolon, this emits the specified diagnostic,
   /// or, if there's just some closing-delimiter noise (e.g., ')' or ']') prior
   /// to the semicolon, consumes that extra token.
-  bool ExpectAndConsumeSemi(unsigned DiagID);
+  bool ExpectAndConsumeSemi(unsigned DiagID , StringRef TokenUsed = "");
 
   /// The kind of extra semi diagnostic to emit.
   enum ExtraSemiKind {
@@ -2144,7 +2147,8 @@ private:
       SourceLocation *TrailingElseLoc = nullptr);
   StmtResult ParseStatementOrDeclarationAfterAttributes(
       StmtVector &Stmts, ParsedStmtContext StmtCtx,
-      SourceLocation *TrailingElseLoc, ParsedAttributes &Attrs);
+      SourceLocation *TrailingElseLoc, ParsedAttributes &DeclAttrs,
+      ParsedAttributes &DeclSpecAttrs);
   StmtResult ParseExprStatement(ParsedStmtContext StmtCtx);
   StmtResult ParseLabeledStatement(ParsedAttributes &Attrs,
                                    ParsedStmtContext StmtCtx);
@@ -2181,7 +2185,8 @@ private:
   StmtResult ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                                       ParsedStmtContext StmtCtx,
                                       SourceLocation *TrailingElseLoc,
-                                      ParsedAttributes &Attrs);
+                                      ParsedAttributes &DeclAttrs,
+                                      ParsedAttributes &DeclSpecAttrs);
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
   std::unique_ptr<PragmaHandler> IIHandler;
@@ -2209,7 +2214,8 @@ private:
   StmtResult ParsePragmaInline(StmtVector &Stmts,
                                ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributes &Attrs);
+                               ParsedAttributes &DeclAttrs,
+                               ParsedAttributes &DeclSpecAttrs);
   // Pragma distribute_point
   std::unique_ptr<PragmaHandler> DistributePointHandler;
   // Pragma nofusion
@@ -2229,15 +2235,18 @@ private:
   StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributes &Attrs);
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs);
   bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
   StmtResult ParsePragmaLoopCount(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributes &Attrs);
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs);
   StmtResult ParsePragmaVector(StmtVector &Stmts, ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributes &Attrs);
+                               ParsedAttributes &DeclAttrs,
+                               ParsedAttributes &DeclSpecAttrs);
   // Pragma prefetch
   std::unique_ptr<PragmaHandler> PrefetchHandler;
   // Pragma noprefetch
@@ -2245,7 +2254,8 @@ private:
   StmtResult ParsePragmaPrefetch(StmtVector &Stmts,
                                  ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
-                                 ParsedAttributes &Attrs);
+                                 ParsedAttributes &DeclAttrs,
+                                 ParsedAttributes &DeclSpecAttrs);
   bool HandlePragmaPrefetch(ArgsVector *ArgExprs);
 #endif // INTEL_CUSTOMIZATION
 
@@ -2464,15 +2474,18 @@ private:
 
   DeclGroupPtrTy ParseDeclaration(DeclaratorContext Context,
                                   SourceLocation &DeclEnd,
-                                  ParsedAttributes &Attrs,
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs,
                                   SourceLocation *DeclSpecStart = nullptr);
   DeclGroupPtrTy
   ParseSimpleDeclaration(DeclaratorContext Context, SourceLocation &DeclEnd,
-                         ParsedAttributes &Attrs, bool RequireSemi,
+                         ParsedAttributes &DeclAttrs,
+                         ParsedAttributes &DeclSpecAttrs, bool RequireSemi,
                          ForRangeInit *FRI = nullptr,
                          SourceLocation *DeclSpecStart = nullptr);
   bool MightBeDeclarator(DeclaratorContext Context);
   DeclGroupPtrTy ParseDeclGroup(ParsingDeclSpec &DS, DeclaratorContext Context,
+                                ParsedAttributes &Attrs,
                                 SourceLocation *DeclEnd = nullptr,
                                 ForRangeInit *FRI = nullptr);
   Decl *ParseDeclarationAfterDeclarator(Declarator &D,
@@ -3042,7 +3055,6 @@ private:
   void AnnotateExistingDecltypeSpecifier(const DeclSpec &DS,
                                          SourceLocation StartLoc,
                                          SourceLocation EndLoc);
-  void ParseUnderlyingTypeSpecifier(DeclSpec &DS);
   void ParseAtomicSpecifier(DeclSpec &DS);
 
   ExprResult ParseAlignArgument(SourceLocation Start,
@@ -3140,6 +3152,8 @@ private:
          SourceLocation &EllipsisLoc);
   void ParseBracketDeclarator(Declarator &D);
   void ParseMisplacedBracketDeclarator(Declarator &D);
+  bool MaybeParseTypeTransformTypeSpecifier(DeclSpec &DS);
+  DeclSpec::TST TypeTransformTokToDeclSpec();
 
   //===--------------------------------------------------------------------===//
   // C++ 7: Declarations [dcl.dcl]
@@ -3315,8 +3329,7 @@ private:
   bool parseOMPContextSelectors(SourceLocation Loc, OMPTraitInfo &TI);
 
   /// Parse an 'append_args' clause for '#pragma omp declare variant'.
-  bool parseOpenMPAppendArgs(
-      SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes);
+  bool parseOpenMPAppendArgs(SmallVectorImpl<OMPInteropInfo> &InteropInfos);
 
   /// Parse a `match` clause for an '#pragma omp declare variant'. Return true
   /// if there was an error.
@@ -3520,6 +3533,9 @@ private:
   /// Expected format:
   /// '(' { <allocator> [ '(' <allocator_traits> ')' ] }+ ')'
   OMPClause *ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind);
+
+  /// Parses the 'interop' parts of the 'append_args' and 'init' clauses.
+  bool ParseOMPInteropInfo(OMPInteropInfo &InteropInfo, OpenMPClauseKind Kind);
 
   /// Parses clause with an interop variable of kind \a Kind.
   ///

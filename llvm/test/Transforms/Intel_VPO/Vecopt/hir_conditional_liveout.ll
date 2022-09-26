@@ -4,10 +4,8 @@
 ; the liveout variable(%nz.061) is not live-in to the target loop, but live-in
 ; to the parent loop region.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 -disable-output | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details -vplan-enable-new-cfg-merge-hir < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details -vplan-enable-new-cfg-merge-hir < %s 2>&1 -disable-output | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
 
 ; Checks for incoming HIR
 ; INPUT-LABEL: BEGIN REGION { }
@@ -81,8 +79,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x i32]* [[S10:%.*]] i64 0 i64 [[VP11]]
 ; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       i32 [[VP12:%.*]] = add i32 [[VP_LOAD_1]] i32 -1
-; CHECK-NEXT:       i64 [[VP13:%.*]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x i32]* [[S10]] i64 0 i64 [[VP13]]
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x i32]* [[S10]] i64 0 i64 [[VP11]]
 ; CHECK-NEXT:       store i32 [[VP12]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:

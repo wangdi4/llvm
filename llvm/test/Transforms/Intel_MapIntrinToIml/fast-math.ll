@@ -81,31 +81,32 @@ entry:
 }
 
 ; CHECK-LABEL: @test_widen_fmf
-; CHECK: [[ARG:%.*]] = shufflevector <4 x float> %A, <4 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[MASK:%.*]] = shufflevector <4 x i32> %B, <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT:%.*]] = call nnan afn svml_avx_cc <8 x float> @__svml_sinf8_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
-; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <8 x float> [[RESULT]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: ret <4 x float> [[RESULT_EXTRACT]]
+; CHECK: [[ARG:%.*]] = shufflevector <2 x float> %A, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK: [[MASK:%.*]] = shufflevector <2 x i32> %B, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK: [[RESULT:%.*]] = call nnan afn svml_cc <4 x float> @__svml_sinf4_mask_e9(<4 x float> [[ARG]], <4 x i32> [[MASK]])
+; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <4 x float> [[RESULT]], <4 x float> undef, <2 x i32> <i32 0, i32 1>
+; CHECK: ret <2 x float> [[RESULT_EXTRACT]]
 
-define <4 x float> @test_widen_fmf(<4 x float> %A, <4 x i32> %B) #1 {
+define <2 x float> @test_widen_fmf(<2 x float> %A, <2 x i32> %B) #1 {
 entry:
-  %0 = tail call nnan afn svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> %A, <4 x i32> %B)
-  ret <4 x float> %0
+  %0 = tail call nnan afn svml_cc <2 x float> @__svml_sinf2_mask(<2 x float> %A, <2 x i32> %B)
+  ret <2 x float> %0
 }
 
 ; CHECK-LABEL: @test_widen_nofmf
-; CHECK: [[ARG:%.*]] = shufflevector <4 x float> %A, <4 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[MASK:%.*]] = shufflevector <4 x i32> %B, <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT:%.*]] = call svml_avx_cc <8 x float> @__svml_sinf8_ha_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
-; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <8 x float> [[RESULT]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: ret <4 x float> [[RESULT_EXTRACT]]
+; CHECK: [[ARG:%.*]] = shufflevector <2 x float> %A, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK: [[MASK:%.*]] = shufflevector <2 x i32> %B, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK: [[RESULT:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask_e9(<4 x float> [[ARG]], <4 x i32> [[MASK]])
+; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <4 x float> [[RESULT]], <4 x float> undef, <2 x i32> <i32 0, i32 1>
+; CHECK: ret <2 x float> [[RESULT_EXTRACT]]
 
-define <4 x float> @test_widen_nofmf(<4 x float> %A, <4 x i32> %B) #1 {
+define <2 x float> @test_widen_nofmf(<2 x float> %A, <2 x i32> %B) #1 {
 entry:
-  %0 = tail call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> %A, <4 x i32> %B)
-  ret <4 x float> %0
+  %0 = tail call svml_cc <2 x float> @__svml_sinf2_mask(<2 x float> %A, <2 x i32> %B)
+  ret <2 x float> %0
 }
 
+declare svml_cc <2 x float> @__svml_sinf2_mask(<2 x float>, <2 x i32>)
 declare svml_cc <4 x float> @__svml_sinf4_mask(<4 x float>, <4 x i32>)
 declare svml_cc <16 x float> @__svml_sinf16_mask(<16 x float>, <16 x i1>, <16 x float>)
 

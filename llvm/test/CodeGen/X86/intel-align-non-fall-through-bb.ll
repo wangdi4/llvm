@@ -1,4 +1,5 @@
-;RUN: llc -mtriple=x86_64-pc-linux -mattr=+avx512f -mcpu=skylake-avx512  --enable-intel-advanced-opts -O3  < %s | FileCheck %s
+;RUN: llc -mtriple=x86_64-pc-linux -mattr=+avx512f -mcpu=skylake-avx512  --enable-intel-advanced-opts -O3  < %s | FileCheck %s --check-prefix=SKX
+;RUN: llc -mtriple=x86_64-pc-linux -mattr=+avx512f -mcpu=sapphirerapids  --enable-intel-advanced-opts -O3  < %s | FileCheck %s --check-prefix=SPR
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -7,11 +8,16 @@ target triple = "x86_64-unknown-linux-gnu"
 @b = dso_local local_unnamed_addr global i32 0, align 4
 
 ; Function Attrs: uwtable
-define dso_local void @test_align_non_fall_through_bb() local_unnamed_addr #0 {
-; CHECK-LABEL: test_align_non_fall_through_bb:
-; CHECK:       .p2align 5, 0x90
-; CHECK:       .p2align 5, 0x90
-; CHECK:       .p2align 5, 0x90
+define dso_local void @test_align_non_fall_through_bb() local_unnamed_addr {
+; SKX-LABEL: test_align_non_fall_through_bb:
+; SKX:       .p2align 5, 0x90
+; SKX:       .p2align 5, 0x90
+; SKX:       .p2align 5, 0x90
+
+; SPR-LABEL: test_align_non_fall_through_bb:
+; SPR:       .p2align 6, 0x90
+; SPR:       .p2align 6, 0x90
+; SPR:       .p2align 6, 0x90
 
 entry:
   %c = alloca %class.B, align 1
@@ -103,7 +109,6 @@ declare dso_local void @_Z13multiset_testPdS_i(double*, double*, i32) local_unna
 ; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
 
-attributes #0 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind willreturn }
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { nounwind readnone speculatable willreturn }

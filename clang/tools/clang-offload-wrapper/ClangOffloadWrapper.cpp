@@ -299,10 +299,21 @@ public:
     Image(const llvm::StringRef File_, const llvm::StringRef Manif_,
           const llvm::StringRef Tgt_, BinaryImageFormat Fmt_,
           const llvm::StringRef CompileOpts_, const llvm::StringRef LinkOpts_,
-          const llvm::StringRef EntriesFile_, const llvm::StringRef PropsFile_)
+          const llvm::StringRef EntriesFile_, const llvm::StringRef PropsFile_
+#if INTEL_CUSTOMIZATION
+          ,
+          const size_t SubSections_ = 0
+#endif // INTEL_CUSTOMIZATION
+          )
         : File(File_.str()), Manif(Manif_.str()), Tgt(Tgt_.str()), Fmt(Fmt_),
           CompileOpts(CompileOpts_.str()), LinkOpts(LinkOpts_.str()),
-          EntriesFile(EntriesFile_.str()), PropsFile(PropsFile_.str()) {}
+          EntriesFile(EntriesFile_.str()), PropsFile(PropsFile_.str())
+#if INTEL_CUSTOMIZATION
+          ,
+          SubSections(SubSections_)
+#endif // INTEL_CUSTOMIZATION
+    {
+    }
 
     /// Name of the file with actual contents
     const std::string File;
@@ -320,6 +331,13 @@ public:
     const std::string EntriesFile;
     /// File with properties
     const std::string PropsFile;
+
+#if INTEL_CUSTOMIZATION
+    /// Number of subsections in an application if the image has been read
+    /// from a list for the -split-batch option. By default, there is no
+    /// subsections and the whole file is a monolith.
+    const size_t SubSections;
+#endif // INTEL_CUSTOMIZATION
 
     friend raw_ostream &operator<<(raw_ostream &Out, const Image &Img);
   };
@@ -348,16 +366,26 @@ private:
   llvm::SmallVector<std::unique_ptr<MemoryBuffer>, 4> AutoGcBufs;
 
 public:
-  void addImage(const OffloadKind Kind, llvm::StringRef File,
-                llvm::StringRef Manif, llvm::StringRef Tgt,
-                const BinaryImageFormat Fmt, llvm::StringRef CompileOpts,
-                llvm::StringRef LinkOpts, llvm::StringRef EntriesFile,
-                llvm::StringRef PropsFile) {
+  void
+  addImage(const OffloadKind Kind, llvm::StringRef File, llvm::StringRef Manif,
+           llvm::StringRef Tgt, const BinaryImageFormat Fmt,
+           llvm::StringRef CompileOpts, llvm::StringRef LinkOpts,
+           llvm::StringRef EntriesFile, llvm::StringRef PropsFile
+#if INTEL_CUSTOMIZATION
+           ,
+           const size_t SubSections = 0 // by default, no subsections are there
+#endif                                  // INTEL_CUSTOMIZATION
+  ) {
     std::unique_ptr<SameKindPack> &Pack = Packs[Kind];
     if (!Pack)
       Pack.reset(new SameKindPack());
     Pack->emplace_back(std::make_unique<Image>(
-        File, Manif, Tgt, Fmt, CompileOpts, LinkOpts, EntriesFile, PropsFile));
+        File, Manif, Tgt, Fmt, CompileOpts, LinkOpts, EntriesFile, PropsFile
+#if INTEL_CUSTOMIZATION
+        ,
+        SubSections
+#endif // INTEL_CUSTOMIZATION
+        ));
   }
 
   std::string ToolName;
@@ -859,6 +887,7 @@ public:
     MemoryBuffer *addELFNotes(MemoryBuffer *Buf, StringRef OriginalFileName);
 
 private:
+
   /// Creates binary descriptor for the given device images. Binary descriptor
   /// is an object that is passed to the offloading runtime at program startup
   /// and it describes all device images available in the executable or shared
@@ -969,12 +998,19 @@ private:
         // will be defined by the linker. But linker will do that only if linker
         // inputs have section with "omp_offloading_entries" name which is not
         // guaranteed. So, we just create dummy zero sized object in the offload
-        // entries section to force linker to define those symbols.
+        // entries section to force linker to define those symbols. For
+        // OffloadKind::Host, if multiple files need the dummy entry need to
+        // make them unique as windows linker complains about multiple
+        // definitions.
         auto *DummyInit =
             ConstantAggregateZero::get(ArrayType::get(getEntryTy(), 0u));
+        assert(!Pack.empty() && "No inputs for this offloading kind?");
+        const auto LastSlash = Pack.front()->File.find_last_of("/\\");
+        const std::string FileBaseName = Pack.front()->File.substr(
+            (LastSlash == std::string::npos) ? 0 : LastSlash + 1);
         auto *DummyEntry = new GlobalVariable(
             M, DummyInit->getType(), true, GlobalVariable::ExternalLinkage,
-            DummyInit, "__dummy.omp_offloading.entry");
+            DummyInit, "__" + FileBaseName + ".dummy.omp_offloading.entry");
         DummyEntry->setSection("omp_offloading_entries");
         DummyEntry->setVisibility(GlobalValue::HiddenVisibility);
 
@@ -1000,7 +1036,6 @@ private:
     // Create initializer for the images array.
     SmallVector<Constant *, 4u> ImagesInits;
     unsigned ImgId = 0;
-
     for (const auto &ImgPtr : Pack) {
       const BinaryWrapper::Image &Img = *(ImgPtr.get());
       if (Verbose)
@@ -1397,13 +1432,16 @@ public:
     SmallVector<std::string, 2> AuxInfos;
     size_t MaxImagesNum = OpenMPPack->size();
     // To avoid references invalidation, we have to reserve a string
-    // for each image.
+    // for each image. TODO: Should we reserve for ImageFiles and SubSections?
     AuxInfos.reserve(MaxImagesNum);
+    // SubSections numbers will hold a number of subsections for each image.
+    // They will be used for correct subsection numbering.
+    SmallVector<size_t, 2> SubSections;
 
     // Find SPIR-V images and create notes with auxiliary information
     // for each of them.
     unsigned ImageIdx = 0;
-    for (auto I = OpenMPPack->begin(); I != OpenMPPack->end(); ++I) {
+    for (auto *I = OpenMPPack->begin(); I != OpenMPPack->end(); ++I) {
       const BinaryWrapper::Image &Img = *(I->get());
       if (Img.Tgt.find("spir") != 0)
         continue;
@@ -1411,7 +1449,6 @@ public:
       unsigned ImageFmt = 1; // SPIR-V format
       if (Img.Tgt.find("spir64_") == 0 || Img.Tgt.find("spir_") == 0)
         ImageFmt = 0; // native format
-
       ImageFiles.push_back(Img.File);
       AuxInfos.push_back(toHex((Twine(ImageIdx) + Twine('\0') +
                                 Twine(ImageFmt) + Twine('\0') +
@@ -1421,6 +1458,7 @@ public:
           "INTELONEOMPOFFLOAD",
           yaml::BinaryRef(AuxInfos.back()),
           NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX});
+      SubSections.push_back(Img.SubSections);
 
       ++ImageIdx;
     }
@@ -1523,19 +1561,27 @@ public:
       }
     }
 
-    // Invoke objcopy to put each image into its own __openmp_offload_spirv_#
-    // section:
-    //   objcopy --add-section=__openmp_offload_spirv_0=ImgFile0 \
+    // Invoke objcopy to put each image into its own
+    // __openmp_offload_spirv_#[_#] section:
+    //   objcopy --add-section=__openmp_offload_spirv_0_0=ImgFile0 \
     //       spirv.elfimage.tmp spirv.elfimage.tmp
-    //   objcopy --add-section=__openmp_offload_spirv_1=ImgFile1 \
+    //   objcopy --add-section=__openmp_offload_spirv_0_1=ImgFile1 \
+    //       spirv.elfimage.tmp spirv.elfimage.tmp
+    //   objcopy --add-section=__openmp_offload_spirv_1=ImgFile2   \
     //       spirv.elfimage.tmp spirv.elfimage.tmp
     //   ...
-    ImageIdx = 0;
-    for (auto Name : ImageFiles) {
+    unsigned AppIdx = 0;
+    unsigned SubImageIdx = 0;
+    for (unsigned I = 0; I < ImageIdx; ++I) {
+      auto Name = ImageFiles[I];
+      auto SubImages = SubSections[I];
       std::vector<StringRef> Args;
       Args.push_back(ObjcopyPath);
+      // If there are any subsections in the image, the section name will be
+      // in the format of __openmp_offload_spirv_#_#
       std::string Option(("--add-section=__openmp_offload_spirv_" +
-                          Twine(ImageIdx) +
+                          Twine(AppIdx) +
+                          (SubImages > 0 ? "_" + Twine(SubImageIdx) : "") +
                           "=" + Name).str());
       Args.push_back(Option);
       Args.push_back(*ImageFileName);
@@ -1552,12 +1598,18 @@ public:
         return;
       }
 
-      ++ImageIdx;
+      // Every image contains a number of subsection in its parent application,
+      // so we should skip this number of images and increment AppIdx just after
+      // all the subsections has been processed.
+      if (++SubImageIdx >= SubImages) {
+        SubImageIdx = 0;
+        ++AppIdx;
+      }
     }
 
     // Delete the original Images from the list and replace then
     // with a single combined container ELF.
-    for (auto I = OpenMPPack->begin(); I != OpenMPPack->end();) {
+    for (auto *I = OpenMPPack->begin(); I != OpenMPPack->end();) {
       const BinaryWrapper::Image &Img = *(I->get());
       if (Img.Tgt.find("spir") != 0)
         ++I;
@@ -1791,7 +1843,6 @@ public:
     AutoGcBufs.emplace_back(std::move(*BufOrErr));
     return AutoGcBufs.back().get();
   }
-
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               const BinaryWrapper::Image &Img) {
   Out << "\n{\n";
@@ -2074,13 +2125,22 @@ int main(int argc, const char **argv) {
             return 1;
           }
           const util::SimpleTable &T = *TPtr->get();
+#if INTEL_CUSTOMIZATION
+          StringRef Manif = CurInputGroup.size() > 1 ? CurInputGroup[1] : "";
+          const size_t SubSections = T.rows().size();
+#endif // INTEL_CUSTOMIZATION
 
           // iterate via records
           for (const auto &Row : T.rows()) {
+#if INTEL_CUSTOMIZATION
+            // TODO right numbering for sections (_0_1, _0_2, etc.)
             Wr.addImage(Knd, Row.getCell(COL_CODE),
-                        Row.getCell(COL_MANIFEST, ""), Tgt, Fmt, CompileOpts,
-                        LinkOpts, Row.getCell(COL_SYM, ""),
-                        Row.getCell(COL_PROPS, ""));
+                        Row.getCell(COL_MANIFEST, Manif), Tgt, Fmt,
+                        CompileOpts, LinkOpts,
+                        Row.getCell(COL_SYM, EntriesFile),
+                        Row.getCell(COL_PROPS, PropsFile),
+                        SubSections);
+#endif // INTEL_CUSTOMIZATION
           }
         } else {
           if (Knd == OffloadKind::Unknown) {

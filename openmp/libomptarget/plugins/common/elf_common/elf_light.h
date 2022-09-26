@@ -63,8 +63,7 @@ public:
 };
 
 // Iterator over NOTEs in PT_NOTE segments.
-class ElfLSegmentNoteIterator
-    : std::iterator<std::forward_iterator_tag, ElfLNote> {
+class ElfLSegmentNoteIterator {
 
   void *Impl = nullptr;
 
@@ -75,6 +74,11 @@ class ElfLSegmentNoteIterator
   ElfLSectionNoteIterator &operator=(const ElfLSegmentNoteIterator &) = delete;
 
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = ElfLNote;
+  using difference_type = std::ptrdiff_t;
+  using pointer = ElfLNote*;
+  using reference = ElfLNote&;
   // FIXME: add move copy constructor and assignment operator.
   ElfLSegmentNoteIterator(const ElfLSegmentNoteIterator &Other);
   ~ElfLSegmentNoteIterator();
@@ -85,8 +89,7 @@ public:
 };
 
 // Iterator over NOTEs in SHT_NOTE sections.
-class ElfLSectionNoteIterator
-    : std::iterator<std::forward_iterator_tag, ElfLNote> {
+class ElfLSectionNoteIterator {
 
   void *Impl = nullptr;
 
@@ -97,6 +100,11 @@ class ElfLSectionNoteIterator
   ElfLSectionNoteIterator &operator=(const ElfLSectionNoteIterator &) = delete;
 
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = ElfLNote;
+  using difference_type = std::ptrdiff_t;
+  using pointer = ElfLNote*;
+  using reference = ElfLNote&;
   // FIXME: add move copy constructor and assignment operator.
   ElfLSectionNoteIterator(const ElfLSectionNoteIterator &Other);
   ~ElfLSectionNoteIterator();
@@ -131,8 +139,7 @@ public:
 };
 
 // Iterator over sections.
-class ElfLSectionIterator
-    : std::iterator<std::forward_iterator_tag, ElfLSection> {
+class ElfLSectionIterator {
 
   void *Impl = nullptr;
 
@@ -143,6 +150,11 @@ class ElfLSectionIterator
   ElfLSectionIterator &operator=(const ElfLSectionIterator &) = delete;
 
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = ElfLSection;
+  using difference_type = std::ptrdiff_t;
+  using pointer = ElfLSection*;
+  using reference = ElfLSection&;
   // FIXME: add move copy constructor and assignment operator.
   ElfLSectionIterator(const ElfLSectionIterator &Other);
   ~ElfLSectionIterator();

@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is qualified as InitRoutine
 ; for DynClone transformation even though it has two user calls (
 ; @safecall and @unsafecall). Only unsafecall is considered as unsafe
@@ -68,8 +70,11 @@ define i32 @main() {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare void @llvm.dbg.value(metadata, metadata, metadata)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4, !5}

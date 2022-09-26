@@ -73,6 +73,8 @@ using namespace llvm::vpo;
 // Major internal options. Some of these are used in InlineCost.cpp.
 //
 
+// These options are primarily used for LIT tests.
+
 cl::opt<bool> InlineForXmain("inline-for-xmain", cl::Hidden, cl::init(true),
                              cl::desc("Xmain customization of inlining"));
 
@@ -85,8 +87,13 @@ cl::opt<bool> DTransInlineHeuristics(
     cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
 
 cl::opt<bool> EnableLTOInlineCost("lto-inline-cost", cl::Hidden,
-                                   cl::init(false),
-                                   cl::desc("Enable LTO inline cost"));
+                                  cl::init(false),
+                                  cl::desc("Enable LTO inline cost"));
+
+cl::opt<bool>
+    EnableSYCLOptimizationMode("sycl-optimization-mode", cl::Hidden,
+                               cl::init(false),
+                               cl::desc("Enable SYCL Optimization Mode"));
 
 namespace llvm {
 
@@ -144,6 +151,18 @@ static cl::opt<unsigned> DynAllocaMaxCharArraySize(
 static cl::opt<unsigned> HugeFunctionBasicBlockCount(
     "inlining-huge-bb-count", cl::init(90), cl::ReallyHidden,
     cl::desc("Function with this many basic blocks or more may be huge"));
+
+static cl::opt<unsigned> HugeODRFunctionBasicBlockCount(
+#ifndef _WIN32
+    "inlining-huge-odr-bb-count", cl::init(35), cl::ReallyHidden,
+#else
+    "inlining-huge-odr-bb-count", cl::init(25), cl::ReallyHidden,
+#endif // _WIN32
+    cl::desc("ODR Function with this many basic blocks or more is huge"));
+
+static cl::opt<unsigned> HugeLTOODRFunctionBasicBlockCount(
+    "inlining-huge-lto-odr-bb-count", cl::init(200), cl::ReallyHidden,
+    cl::desc("LTO ODR Function with this many basic blocks or more is huge"));
 
 static cl::opt<unsigned> HugeFunctionArgCount(
     "inlining-huge-arg-count", cl::init(8), cl::ReallyHidden,
@@ -497,7 +516,7 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M) {
       Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB);
       if (ProfCount == None)
         continue;
-      uint64_t NewValue = ProfCount.getValue();
+      uint64_t NewValue = ProfCount.value();
       if (ProfQueue.size() < ProfInstrumentHotCount) {
         ProfQueue.push(NewValue);
       } else if (NewValue > ProfQueue.top()) {
@@ -530,7 +549,7 @@ static bool isProfInstrumentHotCallSite(CallBase &CB, ProfileSummaryInfo *PSI,
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB);
   if (ProfCount == None)
     return false;
-  return ProfCount.getValue() >= Threshold;
+  return ProfCount.value() >= Threshold;
 }
 
 //
@@ -578,8 +597,23 @@ extern bool forgivableCondition(const Instruction *TI) {
 // basic blocks, and loops. We test them in this order (from cheapest to
 // most expensive).
 //
-extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC) {
-  if (!InlineForXmain || !DTransInlineHeuristics)
+extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,
+                           const TargetTransformInfo &TTI, bool PrepareForLTO,
+                           bool LinkForLTO, bool IsSYCLHost,
+                           bool IsSYCLDevice) {
+  if (!InlineForXmain)
+    return false;
+  if (F->hasLinkOnceODRLinkage() && !IsSYCLHost && !IsSYCLDevice &&
+      !DTransInlineHeuristics) {
+      if (!PrepareForLTO && !LinkForLTO) {
+        if (F->size() > HugeODRFunctionBasicBlockCount)
+          return true;
+      } else {
+        if (F->size() > HugeLTOODRFunctionBasicBlockCount)
+          return true;
+      }
+  }
+  if (!DTransInlineHeuristics)
     return false;
   size_t ArgSize = F->arg_size();
   if (ArgSize < HugeFunctionArgCount)
@@ -771,8 +805,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // when we are compiling with -O3 -flto -xCORE-AVX2 on the link step.
   if (DTransInlineHeuristics ||
       passesMinimalSmallAppConditions(
-          CandidateCall, CalleeTTI, WPI, Params.LinkForLTO.getValueOr(false),
-          Params.InlineOptLevel.getValueOr(false))) {
+          CandidateCall, CalleeTTI, WPI, Params.LinkForLTO.value_or(false),
+          Params.InlineOptLevel.value_or(false))) {
     for (User *U : I.users())
       if (isa<SubscriptInst>(U))
         return true;
@@ -1139,8 +1173,9 @@ static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
   if (F->getName().contains("realloc"))
     return true;
   for (auto &I : instructions(F))
-    if (isReallocLikeFn(&I, TLI))
-      return true;
+    if (const auto *const CB = dyn_cast<CallBase>(&I))
+      if (getReallocatedOperand(CB, TLI))
+        return true;
   return false;
 }
 
@@ -1866,12 +1901,12 @@ extern Optional<InlineResult> intelWorthNotInlining(
     const TargetTransformInfo &CalleeTTI, ProfileSummaryInfo *PSI,
     InliningLoopInfoCache *ILIC, SmallPtrSetImpl<Function *> *QueuedCallers,
     InlineReasonVector &NoReasonVector) {
-  bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false);
+  bool PrepareForLTO = Params.PrepareForLTO.value_or(false);
   Function *Callee = CandidateCall.getCalledFunction();
   if (!Callee || !InlineForXmain)
     return None;
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall);
-  if (ProfCount && ProfCount.getValue() == 0) {
+  if (ProfCount && ProfCount.value() == 0) {
     if (!Callee->hasLinkOnceODRLinkage())
       return InlineResult::failure("not profitable")
           .setIntelInlReason(NinlrColdProfile);
@@ -4082,9 +4117,9 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
                               SmallPtrSetImpl<Function *> *QueuedCallers,
                               InlineReasonVector &YesReasonVector,
                               WholeProgramInfo *WPI, bool IsCallerRecursive) {
-  bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false);
-  bool LinkForLTO = Params.LinkForLTO.getValueOr(false);
-  unsigned InlineOptLevel = Params.InlineOptLevel.getValueOr(0);
+  bool PrepareForLTO = Params.PrepareForLTO.value_or(false);
+  bool LinkForLTO = Params.LinkForLTO.value_or(false);
+  unsigned InlineOptLevel = Params.InlineOptLevel.value_or(0);
   Function *F = CB.getCalledFunction();
   if (!F)
     return 0;

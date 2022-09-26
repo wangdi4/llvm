@@ -95,6 +95,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
@@ -173,7 +174,7 @@ bool ForcedCMOVGeneration::IsProfitableForCMOV(BasicBlock *Entry) {
   if (BI == nullptr)
     return false;
   uint64_t TrueWeight, FalseWeight;
-  if (BI->extractProfMetadata(TrueWeight, FalseWeight)) {
+  if (extractBranchWeights(*BI, TrueWeight, FalseWeight)) {
     LLVM_DEBUG(dbgs() << "Metadata is available\n");
     LLVM_DEBUG(dbgs() << "TrueWeight = " << TrueWeight << " and FalseWeight =  " << FalseWeight << "\n");
     uint64_t Max = std::max(TrueWeight, FalseWeight);

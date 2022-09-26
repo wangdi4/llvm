@@ -13,7 +13,6 @@
 // License.
 
 #include "VersionStrategy.h"
-#include "CustomVersionMaping.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include <sstream>
 
@@ -205,72 +204,6 @@ SoaDescriptorStrategy::vectorReturnTranspose(const PairSW& sw)const{
   for(int i=0 ; i<retVecTy->getLength() ; ++i)
     fd.Parameters.push_back(ptr);
   return fd;
-}
-
-//
-//HardCodedVersionStrategy
-//
-
-void HardCodedVersionStrategy::assumeResponsability(const TableRow* tableRow){
-  for (size_t i=0 ; i<width::OCL_VERSIONS ; ++i) {
-    if (llvm::StringRef(tableRow->names[i]) == INVALID_ENTRY) continue;
-    FuncName2TableRowLookup::iterator it = m_func2row.find(tableRow->names[i]);
-    assert((it == m_func2row.end() || i == 0)
-          //Only the scalar function name can be duplicate. This happens when
-          //there are two rows for the same function: one for scalarizing,
-          //and another for packetizing.
-        && "Unexpected duplicate function name in custom mapping!");
-    if (it != m_func2row.end()) {
-      assert(it->second.size() == 1 && "More than two entries are not allowed");
-      assert(it->second[0]->isScalarizable == !tableRow->isScalarizable &&
-          it->second[0]->isPacketizable == !tableRow->isPacketizable &&
-          "If two rows are defined for same function, one must be for scalarizing and the other for packetizing");
-      it->second.push_back(tableRow);
-    } else
-      m_func2row[tableRow->names[i]] = TableRowList(1, tableRow);
-  }
-}
-
-PairSW HardCodedVersionStrategy::operator()(const PairSW& p)const{
-  FuncName2TableRowLookup::const_iterator it = m_func2row.find(p.first);
-  if (it == m_func2row.end())
-    return nullPair();
-  int tindex;
-  width::V w = p.second;
-  switch (w){
-    case width::SCALAR:
-      tindex = 0;
-      break;
-    case width::TWO:
-      tindex = 1;
-      break;
-    case width::FOUR:
-      tindex = 2;
-      break;
-    case width::EIGHT:
-      tindex = 3;
-      break;
-    case width::SIXTEEN:
-      tindex = 4;
-      break;
-    case width::THREE:
-      tindex = 5;
-      break;
-    default:
-      assert( false && "unreachable code");
-      tindex = 0;
-  }
-  const TableRowList &rows = it->second;
-  for (unsigned i=0; i<rows.size(); ++i) {
-    const TableRow *r = rows[i];
-    llvm::StringRef strVersion = r->names[tindex];
-    if (width::SCALAR == w && p.first != strVersion.str() && !r->isScalarizable)
-      continue;
-    if (width::SCALAR != w && !r->isPacketizable)
-      continue;
-    return PairSW(std::make_pair(std::string(r->names[tindex]), w));
-  }
-  return nullPair();
 }
 
 //

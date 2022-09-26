@@ -23,15 +23,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/defines.hpp>
-#include <CL/sycl/detail/pi.hpp>
+#include <sycl/detail/defines.hpp>
+#include <sycl/detail/pi.hpp>
 
 #include <dlfcn.h>
 #include <string>
 #include <iostream>
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace detail {
 namespace pi {
 
@@ -55,5 +55,5 @@ void *getOsLibraryFuncAddress(void *Library, const std::string &FunctionName) {
 
 } // namespace pi
 } // namespace detail
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)

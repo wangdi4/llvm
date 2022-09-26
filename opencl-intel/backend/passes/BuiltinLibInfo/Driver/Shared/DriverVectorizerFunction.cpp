@@ -14,7 +14,6 @@
 
 #include "DriverVectorizerFunction.h"
 #include "BuiltinKeeper.h"
-#include "CompilationUtils.h"
 #include "Logger.h"
 #include "Mangler.h"
 #include "VectorizerFunction.h"
@@ -24,6 +23,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
@@ -51,7 +51,6 @@ unsigned DriverVectorizerFunction::getWidth() const {
     if (m_name == sw.first)
       return sw.second;
   }
-  using namespace Intel::OpenCL::DeviceBackend;
   assert((isMangled() || CompilationUtils::isPipeBuiltin(m_name)) &&
          "not a mangled name, cannot determine function width");
   // if we reached here, that means that function cannot be versioned, so our

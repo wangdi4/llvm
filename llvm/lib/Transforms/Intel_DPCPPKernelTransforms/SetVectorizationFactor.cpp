@@ -1,6 +1,6 @@
 //==-- SetVectorizationFactor.cpp - Set vectorization factor ------ C++ -*-==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetVectorizationFactor.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
@@ -29,7 +28,7 @@ class SetVectorizationFactorLegacy : public ModulePass {
 public:
   static char ID;
 
-  SetVectorizationFactorLegacy(VectorVariant::ISAClass ISA = VectorVariant::XMM)
+  SetVectorizationFactorLegacy(VFISAKind ISA = VFISAKind::SSE)
       : ModulePass(ID), Impl(ISA) {
     initializeSetVectorizationFactorLegacyPass(
         *PassRegistry::getPassRegistry());
@@ -59,13 +58,13 @@ INITIALIZE_PASS_END(SetVectorizationFactorLegacy, DEBUG_TYPE,
                     "Set VF metadata for kernels", false, false)
 
 ModulePass *
-llvm::createSetVectorizationFactorLegacyPass(VectorVariant::ISAClass ISA) {
+llvm::createSetVectorizationFactorLegacyPass(VFISAKind ISA) {
   return new SetVectorizationFactorLegacy(ISA);
 }
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VFISAKind> IsaEncodingOverride;
 SetVectorizationFactorPass::SetVectorizationFactorPass(
-    VectorVariant::ISAClass ISA) {
+    VFISAKind ISA) {
   // Update IsaEncodingOverride. Used by VFAnalysis.
   if (!IsaEncodingOverride.getNumOccurrences())
     IsaEncodingOverride.setValue(ISA);

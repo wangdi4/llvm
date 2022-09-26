@@ -1,4 +1,21 @@
 //===- CoroElide.cpp - Coroutine Frame Allocation Elision Pass ------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,8 +33,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/InitializePasses.h" // INTEL
-#include "llvm/Pass.h" //INTEL
 
 using namespace llvm;
 
@@ -246,7 +261,7 @@ bool Lowerer::shouldElide(Function *F, DominatorTree &DT) const {
 
   // Filter out the coro.destroy that lie along exceptional paths.
   SmallPtrSet<CoroBeginInst *, 8> ReferencedCoroBegins;
-  for (auto &It : DestroyAddr) {
+  for (const auto &It : DestroyAddr) {
     // If there is any coro.destroy dominates all of the terminators for the
     // coro.begin, we could know the corresponding coro.begin wouldn't escape.
     for (Instruction *DA : It.second) {
@@ -338,14 +353,13 @@ bool Lowerer::processCoroId(CoroIdInst *CoroId, AAResults &AA,
   assert(Resumers && "PostSplit coro.id Info argument must refer to an array"
                      "of coroutine subfunctions");
   auto *ResumeAddrConstant =
-      ConstantExpr::getExtractValue(Resumers, CoroSubFnInst::ResumeIndex);
+      Resumers->getAggregateElement(CoroSubFnInst::ResumeIndex);
 
   replaceWithConstant(ResumeAddrConstant, ResumeAddr);
 
   bool ShouldElide = shouldElide(CoroId->getFunction(), DT);
 
-  auto *DestroyAddrConstant = ConstantExpr::getExtractValue(
-      Resumers,
+  auto *DestroyAddrConstant = Resumers->getAggregateElement(
       ShouldElide ? CoroSubFnInst::CleanupIndex : CoroSubFnInst::DestroyIndex);
 
   for (auto &It : DestroyAddr)
@@ -369,28 +383,6 @@ bool Lowerer::processCoroId(CoroIdInst *CoroId, AAResults &AA,
 
   return true;
 }
-
-#if INTEL_CUSTOMIZATION
-// See if there are any coro.subfn.addr instructions referring to coro.devirt
-// trigger, if so, replace them with a direct call to devirt trigger function.
-static bool replaceDevirtTrigger(Function &F) {
-  SmallVector<CoroSubFnInst *, 1> DevirtAddr;
-  for (auto &I : instructions(F))
-    if (auto *SubFn = dyn_cast<CoroSubFnInst>(&I))
-      if (SubFn->getIndex() == CoroSubFnInst::RestartTrigger)
-        DevirtAddr.push_back(SubFn);
-
-  if (DevirtAddr.empty())
-    return false;
-
-  Module &M = *F.getParent();
-  Function *DevirtFn = M.getFunction(CORO_DEVIRT_TRIGGER_FN);
-  assert(DevirtFn && "coro.devirt.fn not found");
-  replaceWithConstant(DevirtFn, DevirtAddr);
-
-  return true;
-}
-#endif // INTEL_CUSTOMIZATION
 
 static bool declaresCoroElideIntrinsics(Module &M) {
   return coro::declaresIntrinsics(M, {"llvm.coro.id", "llvm.coro.id.async"});
@@ -417,65 +409,3 @@ PreservedAnalyses CoroElidePass::run(Function &F, FunctionAnalysisManager &AM) {
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-#if INTEL_CUSTOMIZATION
-
-namespace {
-struct CoroElideLegacy : FunctionPass {
-  static char ID;
-  CoroElideLegacy() : FunctionPass(ID) {
-    initializeCoroElideLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  std::unique_ptr<Lowerer> L;
-
-  bool doInitialization(Module &M) override {
-    if (declaresCoroElideIntrinsics(M))
-      L = std::make_unique<Lowerer>(M);
-    return false;
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (!L)
-      return false;
-
-    bool Changed = false;
-
-    if (F.hasFnAttribute(CORO_PRESPLIT_ATTR))
-      Changed = replaceDevirtTrigger(F);
-
-    L->CoroIds.clear();
-    L->collectPostSplitCoroIds(&F);
-    // If we did not find any coro.id, there is nothing to do.
-    if (L->CoroIds.empty())
-      return Changed;
-
-    AAResults &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
-    for (auto *CII : L->CoroIds)
-      Changed |= L->processCoroId(CII, AA, DT);
-
-    return Changed;
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-  }
-  StringRef getPassName() const override { return "Coroutine Elision"; }
-};
-}
-
-char CoroElideLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(
-    CoroElideLegacy, "coro-elide",
-    "Coroutine frame allocation elision and indirect calls replacement", false,
-    false)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_END(
-    CoroElideLegacy, "coro-elide",
-    "Coroutine frame allocation elision and indirect calls replacement", false,
-    false)
-
-Pass *llvm::createCoroElideLegacyPass() { return new CoroElideLegacy(); }
-#endif // INTEL_CUSTOMIZATION

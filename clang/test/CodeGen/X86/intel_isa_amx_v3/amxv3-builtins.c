@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_amx_v3
-// RUN: %clang_cc1 %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-v3 \
+// RUN: %clang_cc1 -no-opaque-pointers %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-v3 \
 // RUN: -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>

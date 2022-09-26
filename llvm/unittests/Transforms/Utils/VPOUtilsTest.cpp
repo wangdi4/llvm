@@ -1,4 +1,5 @@
 #if INTEL_COLLAB
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 //===------ VPOUtilsTest.cpp - Unit tests for VPOUtils --------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -71,4 +72,5 @@ declare void @llvm.directive.region.exit(token)
   EXPECT_TRUE(TypeParam && SizeParam);
   EXPECT_TRUE(SizeParam->getValue() == 4);
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif

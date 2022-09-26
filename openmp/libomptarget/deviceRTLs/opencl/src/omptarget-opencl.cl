@@ -33,7 +33,8 @@ kmp_program_data_t __omp_spirv_program_data = {
   .dyna_mem_cur = 0,
   .dyna_mem_ub = 0,
   .device_type = 0,
-  .dyna_mem_pool = NULL
+  .dyna_mem_pool = NULL,
+  .teams_thread_limit = 0
 };
 
 ushort __omp_spirv_spmd_num_threads[KMP_MAX_SPMD_NUM_GROUPS];
@@ -48,36 +49,35 @@ __attribute__((weak)) __global __omp_offloading_fptr_map_t *
 // Number of entries in __omp_offloading_fptr_map_p map.
 __attribute__((weak)) ulong __omp_offloading_fptr_map_size = 0;
 
-EXTERN void *__kmpc_target_translate_fptr(void *fn_ptr) {
+EXTERN void *__kmpc_target_translate_fptr(ulong fn_ptr) {
   ulong size = __omp_offloading_fptr_map_size;
   if (size == 0 || !__omp_offloading_fptr_map_p)
-    return fn_ptr;
+    return (void *)fn_ptr;
 
   // Do a binary search of fn_ptr in __omp_offloading_fptr_map_p
   // comparing it to the host_ptr keys.
-  ulong fn_addr = (long)fn_ptr;
   ulong left = 0;
   ulong right = size - 1;
 
-  // Do a quick check for fn_addr being outside of the host code region.
+  // Do a quick check for fn_ptr being outside of the host code region.
   // This should speed-up lookups for cases when the function pointer
   // already holds a device address.
-  if (fn_addr < __omp_offloading_fptr_map_p[left].host_ptr ||
-      fn_addr > __omp_offloading_fptr_map_p[right].host_ptr)
-    return fn_ptr;
+  if (fn_ptr < __omp_offloading_fptr_map_p[left].host_ptr ||
+      fn_ptr > __omp_offloading_fptr_map_p[right].host_ptr)
+    return (void *)fn_ptr;
 
   while (left < right) {
     ulong middle = (left + right) / 2;
-    if (__omp_offloading_fptr_map_p[middle].host_ptr < fn_addr)
+    if (__omp_offloading_fptr_map_p[middle].host_ptr < fn_ptr)
       left = middle + 1;
     else
       right = middle;
   }
 
-  if (__omp_offloading_fptr_map_p[left].host_ptr == fn_addr)
+  if (__omp_offloading_fptr_map_p[left].host_ptr == fn_ptr)
     return (void *)__omp_offloading_fptr_map_p[left].tgt_ptr;
 
-  return fn_ptr;
+  return (void *)fn_ptr;
 }
 
 #endif // INTEL_COLLAB

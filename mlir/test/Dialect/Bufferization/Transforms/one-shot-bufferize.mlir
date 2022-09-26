@@ -5,6 +5,31 @@
 // RUN: mlir-opt %s -one-shot-bufferize="test-analysis-only analysis-fuzzer-seed=59" -split-input-file -o /dev/null
 // RUN: mlir-opt %s -one-shot-bufferize="test-analysis-only analysis-fuzzer-seed=91" -split-input-file -o /dev/null
 
+// Test without analysis: Insert a copy on every buffer write.
+// RUN: mlir-opt %s -allow-unregistered-dialect -one-shot-bufferize="allow-unknown-ops copy-before-write" -split-input-file | FileCheck %s --check-prefix=CHECK-COPY-BEFORE-WRITE
+
+// CHECK-LABEL: func @no_conflict
+//       CHECK:   memref.alloc
+//       CHECK:   memref.store
+//  CHECK-NEXT:   memref.store
+//  CHECK-NEXT:   memref.store
+//  CHECK-NEXT:   memref.store
+// CHECK-COPY-BEFORE-WRITE-LABEL: func @no_conflict
+//       CHECK-COPY-BEFORE-WRITE:   memref.alloc
+//       CHECK-COPY-BEFORE-WRITE:   memref.store
+//       CHECK-COPY-BEFORE-WRITE:   memref.store
+//       CHECK-COPY-BEFORE-WRITE:   memref.store
+//       CHECK-COPY-BEFORE-WRITE:   memref.alloc
+//       CHECK-COPY-BEFORE-WRITE:   memref.copy
+//       CHECK-COPY-BEFORE-WRITE:   memref.store
+func.func @no_conflict(%fill: f32, %f: f32, %idx: index) -> tensor<3xf32> {
+  %t = tensor.from_elements %fill, %fill, %fill : tensor<3xf32>
+  %i = tensor.insert %f into %t[%idx] : tensor<3xf32>
+  return %i : tensor<3xf32>
+}
+
+// -----
+
 // CHECK-LABEL: func @use_tensor_func_arg(
 //  CHECK-SAME:     %[[A:.*]]: tensor<?xf32>
 func.func @use_tensor_func_arg(%A : tensor<?xf32>) -> (vector<4xf32>) {
@@ -138,3 +163,14 @@ func.func @alloc_tensor_with_copy(%t: tensor<5xf32>) -> tensor<5xf32> {
   return %0 : tensor<5xf32>
 }
 
+// -----
+
+// CHECK-LABEL: func @alloc_tensor_with_memory_space()
+func.func @alloc_tensor_with_memory_space() -> tensor<5xf32> {
+  // CHECK: %[[alloc:.*]] = memref.alloc() {{.*}} : memref<5xf32, 1>
+  %0 = bufferization.alloc_tensor() {memory_space = 1 : ui64} : tensor<5xf32>
+  // CHECK: %[[r:.*]] = bufferization.to_tensor %[[alloc]]
+  // CHECK: memref.dealloc %[[alloc]]
+  // CHECK: return %[[r]]
+  return %0 : tensor<5xf32>
+}

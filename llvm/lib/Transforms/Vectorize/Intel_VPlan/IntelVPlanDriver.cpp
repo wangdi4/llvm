@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -17,6 +17,7 @@
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPMemRefTransform.h"
+#include "IntelVPTransformLibraryCalls.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
 #include "IntelVPlan.h"
@@ -60,7 +61,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -221,7 +221,18 @@ static bool isSupportedRec(Loop *Lp) {
   return true;
 }
 
-static bool canProcessMaskedVariant(const VPlan &P) {
+static bool canProcessMaskedVariant(const VPlanVector &P) {
+  // First check that there is nothing between loop latch condition
+  // and branch. Masked mode loop creator may insert inconsistent phi-s
+  // for such instructions.
+  const VPLoop *VLoop = P.getMainLoop(true /* StrictCheck */);
+  const VPBasicBlock *LatchBlock = VLoop->getLoopLatch();
+  assert(LatchBlock && "expected non-null latch");
+  const VPBranchInst *Br = LatchBlock->getTerminator();
+  auto *LatchCond = cast<VPInstruction>(Br->getCondition());
+  if (Br->getPrevNode() != LatchCond)
+    return false;
+
   for (const VPInstruction &I : vpinstructions(&P))
     switch (I.getOpcode()) {
     default:
@@ -229,10 +240,6 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     // Cloning of VPRegion is not implemented yet, hence we can't support masked
     // variants for CFGs containing them.
     case VPInstruction::GeneralMemOptConflict:
-    // We need special processing for those instructions in masked mode,
-    // as we need to extract last value not from (VF-1)th lane but from
-    // the lane defined by the execution mask.
-    case VPInstruction::PrivateFinalArray:
       return false;
     case VPInstruction::PrivateFinalUncond:
     case VPInstruction::PrivateFinalUncondMem:
@@ -292,7 +299,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
                    VPInst.getOpcode() == VPInstruction::PrivateFinalMasked ||
                    VPInst.getOpcode() == VPInstruction::PrivateFinalMaskedMem ||
                    VPInst.getOpcode() ==
-                       VPInstruction::PrivateLastValueNonPODMasked;
+                       VPInstruction::PrivateLastValueNonPODMasked ||
+                   VPInst.getOpcode() == VPInstruction::PrivateFinalArrayMasked;
           }),
       [](VPInstruction &VPInst) { return &VPInst; });
 
@@ -321,9 +329,14 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
       // assertion checks before VPBBFalse can be generated.
       LLVM_FALLTHROUGH;
     }
-    case VPInstruction::PrivateLastValueNonPODMasked:
+    case VPInstruction::PrivateLastValueNonPODMasked: {
       VPBBFalse = VPBlockUtils::splitBlock(
           VPBBTrue, std::next(NextInst->getIterator()), VPLI, DT, PDT);
+      break;
+    }
+    case VPInstruction::PrivateFinalArrayMasked:
+      VPBBFalse = VPBlockUtils::splitBlock(
+          VPBBTrue, NextInst->getIterator(), VPLI, DT, PDT);
       break;
     default: {
       VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
@@ -345,7 +358,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
         VPInst->getOpcode() == VPInstruction::PrivateFinalMaskedMem) {
       CmpInst = cast<VPCmpInst>(VPInst->getOperand(1));
     } else if (VPInst->getOpcode() ==
-               VPInstruction::PrivateLastValueNonPODMasked) {
+                   VPInstruction::PrivateLastValueNonPODMasked ||
+               VPInst->getOpcode() == VPInstruction::PrivateFinalArrayMasked) {
       CmpInst = cast<VPCmpInst>(VPInst->getOperand(2));
     } else {
       // The index operand of the VPPrivateFinalCond is initialized with -1,
@@ -462,12 +476,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   unsigned UF = LVP.getLoopUnrollFactor();
-  // If EnableCFGMerge is disabled, run AZB and unroll at this point in the
-  // pipeline.
-  if (!EnableNewCFGMerge) {
-    LVP.insertAllZeroBypasses(Plan, VF);
-    LVP.unroll(*Plan);
-  }
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
   // loop creation inside vec-clone) followed by loop vectorization. That
@@ -519,14 +527,15 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
         if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan))
           LVP.unroll(*NonMaskedVPlan);
 
-      // Transform SOA-GEPs.
+      // Transform SOA-GEPs and library calls.
       // Do this transformation only for Masked and Non-masked, i.e.,
       // vector-loops.
-      if (isa<VPlanVector>(Plan))
+      if (auto *VPlan = dyn_cast<VPlanVector>(Plan)) {
         if (EnableSOAAnalysis) {
-          VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
+          VPMemRefTransform VPMemRefTrans(*VPlan);
           VPMemRefTrans.transformSOAGEPs(PlanDescr.getVF());
         }
+      }
 
       // Capture opt-report remarks for main VPLoop.
       if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain)
@@ -575,12 +584,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
   applyVLSTransform(*Plan, VLSA, VF);
 
-  // Transform SOA-GEPs.
-  if (!EnableNewCFGMerge && EnableSOAAnalysis) {
-    VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
-    VPMemRefTrans.transformSOAGEPs(VF);
-  }
-
   LVP.executeBestPlan(VCodeGen);
 
   // Strip the directives once the loop is vectorized. In stress testing,
@@ -619,7 +622,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
           }
 
     OptimizationRemark R("VPlan Vectorization", "Vectorized", &Fn);
-    if (VectorVariant::isVectorVariant(Fn.getName()))
+    if (VFInfo::isVectorVariant(Fn.getName()))
       R << ore::NV("Remark",
                    "Kernel was " + Twine(VF).str() + "-way vectorized");
     else
@@ -1534,7 +1537,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LVP.readLoopMetadata();
   if (isOmpSIMDLoop &&
       (LVP.isDynAlignEnabled() || LVP.isVecRemainderEnforced()) &&
-      (!EnableNewCFGMergeHIR || !VPlanEnableGeneralPeeling)) {
+      !VPlanEnableGeneralPeeling) {
     // If peeling and/or remainder vectorization are enforced,
     // bailout relying on the vplan-vec after loop opt if either
     // cfg merger or general peeling is disabled.
@@ -1608,14 +1611,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   bool TreeConflictsLowered = false;
-  // If new CFG merger is not enabled, run AZB at this point in pipeline.
-  if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR) {
-    LVP.insertAllZeroBypasses(Plan, VF);
-    TreeConflictsLowered =
-        lowerTreeConflictsToDoublePermuteTreeReduction(Plan, VF, Fn);
-    Plan->computeDT();
-    Plan->computePDT();
-  }
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
@@ -1725,9 +1720,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         if (isOmpSIMDLoop) {
           setHLLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
           VCodeGen.setIsVecMDForHLLoops();
-          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::SIMD);
-        } else {
-          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::AUTOVEC);
         }
       }
     }

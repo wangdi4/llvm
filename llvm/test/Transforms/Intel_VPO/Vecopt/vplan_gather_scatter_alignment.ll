@@ -36,7 +36,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i8 %uni), "QUAL.OMP.PRIVATE"([2 x <4 x i8>]* %sPrivateStorage.src, [2 x <4 x i8>]* %sPrivateStorage.dst)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i8 %uni), "QUAL.OMP.PRIVATE:TYPED"([2 x <4 x i8>]* %sPrivateStorage.src, <4 x i8> zeroinitializer, i32 2), "QUAL.OMP.PRIVATE:TYPED"([2 x <4 x i8>]* %sPrivateStorage.dst, <4 x i8> zeroinitializer, i32 2)]
   br label %simd.loop
 
 simd.loop:
@@ -75,7 +75,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i8 %uni), "QUAL.OMP.PRIVATE"([2 x i32]* %sPrivateStorage.src, [2 x i32]* %sPrivateStorage.dst)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i8 %uni), "QUAL.OMP.PRIVATE:TYPED"([2 x i32]* %sPrivateStorage.src, i32 0, i32 2), "QUAL.OMP.PRIVATE:TYPED"([2 x i32]* %sPrivateStorage.dst, i32 0, i32 2)]
   br label %simd.loop
 
 simd.loop:

@@ -9,9 +9,9 @@
 #define SYCL2020_DISABLE_DEPRECATION_WARNINGS
 #define __SYCL_INTERNAL_API
 
-#include <CL/sycl.hpp>
-#include <CL/sycl/backend/opencl.hpp>
 #include <detail/context_impl.hpp>
+#include <sycl/backend/opencl.hpp>
+#include <sycl/sycl.hpp>
 
 #include <helpers/CommonRedefinitions.hpp>
 #include <helpers/PiMock.hpp>
@@ -22,7 +22,7 @@
 #include <iostream>
 #include <memory>
 
-using namespace cl::sycl;
+using namespace sycl;
 
 int TestCounter = 0;
 int DeviceRetainCounter = 0;
@@ -115,9 +115,6 @@ TEST(GetNative, GetNativeHandle) {
   context Context(Plt);
   queue Queue(Context, Selector);
 
-  program Program{Context};
-  Program.build_with_source("");
-
   auto Device = Queue.get_device();
 
   unsigned char *HostAlloc = (unsigned char *)malloc_host(1, Context);
@@ -127,18 +124,18 @@ TEST(GetNative, GetNativeHandle) {
   sycl::buffer<int, 1> Buffer(&Data[0], sycl::range<1>(1));
   Queue.submit([&](sycl::handler &cgh) {
     auto Acc = Buffer.get_access<sycl::access::mode::read_write>(cgh);
-    cgh.single_task<TestKernel>([=]() { (void)Acc; });
+    constexpr size_t KS = sizeof(decltype(Acc));
+    cgh.single_task<TestKernel<KS>>([=]() { (void)Acc; });
   });
 
   get_native<backend::opencl>(Context);
   get_native<backend::opencl>(Queue);
-  get_native<backend::opencl>(Program);
   get_native<backend::opencl>(Device);
   get_native<backend::opencl>(Event);
   get_native<backend::opencl>(Buffer);
 
   // Depending on global caches state, piDeviceRetain is called either once or
-  // twice, so there'll be 6 or 7 calls.
-  ASSERT_EQ(TestCounter, 6 + DeviceRetainCounter - 1)
+  // twice, so there'll be 5 or 6 calls.
+  ASSERT_EQ(TestCounter, 5 + DeviceRetainCounter - 1)
       << "Not all the retain methods were called";
 }

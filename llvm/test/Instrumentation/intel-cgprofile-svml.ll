@@ -1,4 +1,3 @@
-; RUN:  opt -S -cg-profile %s 2>&1 | FileCheck %s
 ; RUN:  opt -S -passes=cg-profile %s 2>&1 | FileCheck %s
 
 ; This test is to verify that references to __svml_* functions are not included

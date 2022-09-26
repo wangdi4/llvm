@@ -27,6 +27,13 @@
 #
 ##===----------------------------------------------------------------------===##
 
+# Temporarily disable warnings for use of deprecated declarations
+# util libomptarget supports c++17.
+check_cxx_compiler_flag("-Wno-deprecated-declarations" DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+if (DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+endif()
+
 add_subdirectory(common)
 
 # void build_generic_elf64(string tmachine, string tmachine_name, string tmachine_libname, string elf_machine_id);
@@ -47,15 +54,46 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
       # Define macro with the ELF ID for this target.
       add_definitions("-DTARGET_ELF_ID=${elf_machine_id}")
 
-      add_library("omptarget.rtl.${tmachine_libname}" SHARED
-        ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp)
-
       if(INTEL_CUSTOMIZATION)
         add_library(ffi-stub SHARED
           ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/ffi_stub.c)
         target_compile_definitions(ffi-stub PRIVATE INTEL_CUSTOMIZATION=1)
         target_link_libraries(ffi-stub PRIVATE "-Wl,--soname=libffi.so")
         set(LIBOMPTARGET_DEP_LIBFFI_LIBRARIES ffi-stub)
+
+        # Do not build it as LLVM library for product build
+        add_library("omptarget.rtl.${tmachine_libname}" SHARED
+          ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp)
+
+        target_link_libraries(
+          "omptarget.rtl.${tmachine_libname}"
+          elf_common
+          ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
+          ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
+          dl
+          ${OPENMP_PTHREAD_LIB}
+          "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
+      else(INTEL_CUSTOMIZATION)
+      add_llvm_library("omptarget.rtl.${tmachine_libname}"
+        SHARED
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp
+
+        ADDITIONAL_HEADER_DIRS
+        ${LIBOMPTARGET_INCLUDE_DIR}
+        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
+        ${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR}
+
+        LINK_LIBS 
+        PRIVATE
+        elf_common
+        ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
+        ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
+        ${OPENMP_PTHREAD_LIB}
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
+
+        NO_INSTALL_RPATH
+      )
       endif(INTEL_CUSTOMIZATION)
 
       # Install plugin under the lib destination folder.
@@ -64,20 +102,13 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         COMPONENT llvm-${tmachine_libname}-ompplugin
 # end INTEL_CUSTOMIZATION
         LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+      set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES 
+        INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
 
       target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
         ${LIBOMPTARGET_INCLUDE_DIR}
         ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
         ${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
-
-      target_link_libraries(
-        "omptarget.rtl.${tmachine_libname}"
-        elf_common
-        ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
-        ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
-        dl
-        ${OPENMP_PTHREAD_LIB}
-        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
 
       list(APPEND LIBOMPTARGET_TESTED_PLUGINS
         "omptarget.rtl.${tmachine_libname}")
@@ -85,6 +116,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
       # Report to the parent scope that we are building a plugin.
       set(LIBOMPTARGET_SYSTEM_TARGETS
         "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-oldDriver" PARENT_SCOPE)
+      set(LIBOMPTARGET_SYSTEM_TARGETS
+        "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-LTO" PARENT_SCOPE)
       set(LIBOMPTARGET_TESTED_PLUGINS
         "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
 
@@ -99,6 +132,9 @@ else()
 endif()
 endmacro()
 
+if(INTEL_CUSTOMIZATION)
+add_subdirectory(x86_64)
+else(INTEL_CUSTOMIZATION)
 add_subdirectory(aarch64)
 add_subdirectory(amdgpu)
 add_subdirectory(cuda)
@@ -107,6 +143,7 @@ add_subdirectory(ppc64le)
 add_subdirectory(ve)
 add_subdirectory(x86_64)
 add_subdirectory(remote)
+endif(INTEL_CUSTOMIZATION)
 
 if(INTEL_CUSTOMIZATION)
 # INTEL_FEATURE_CSA

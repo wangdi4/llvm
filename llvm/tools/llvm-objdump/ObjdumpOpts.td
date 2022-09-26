@@ -103,6 +103,9 @@ def dwarf_EQ : Joined<["--"], "dwarf=">,
 def fault_map_section : Flag<["--"], "fault-map-section">,
   HelpText<"Display the content of the fault map section">;
 
+def offloading : Flag<["--"], "offloading">,
+  HelpText<"Display the content of the offloading section">;
+
 def file_headers : Flag<["--"], "file-headers">,
   HelpText<"Display the contents of the overall file header">;
 def : Flag<["-"], "f">, Alias<file_headers>,
@@ -119,6 +122,10 @@ def line_numbers : Flag<["--"], "line-numbers">,
 def : Flag<["-"], "l">,
   Alias<line_numbers>,
   HelpText<"Alias for --line-numbers">;
+#if INTEL_CUSTOMIZATION
+def line_numbers_strip : Flag<["--"], "line-numbers-strip">,
+  HelpText<"Strip out directories for --line-numbers">;
+#endif // INTEL_CUSTOMIZATION
 
 def macho : Flag<["--"], "macho">,
   HelpText<"Use MachO specific object file parser">;
@@ -171,6 +178,10 @@ def : Flag<["--"], "headers">, Alias<section_headers>,
   HelpText<"Alias for --section-headers">;
 def : Flag<["-"], "h">, Alias<section_headers>,
   HelpText<"Alias for --section-headers">;
+
+def show_all_symbols : Flag<["--"], "show-all-symbols">,
+  HelpText<"Show all symbols during disassembly, even if multiple "
+           "symbols are defined at the same location">;
 
 def show_lma : Flag<["--"], "show-lma">,
   HelpText<"Display LMA column when dumping ELF section headers">;
@@ -318,11 +329,15 @@ def info_plist : Flag<["--"], "info-plist">,
            "Mach-O objects (requires --macho)">,
   Group<grp_mach_o>;
 
-def dyld_info : Flag<["--"], "dyld_info">,
-      HelpText<"Print bind and rebase information used by dyld to resolve "
-               "external references in a final linked binary "
-               "(requires --macho)">,
-      Group<grp_mach_o>;
+def chained_fixups : Flag<["--"], "chained-fixups">,
+  HelpText<"Print chained fixup information (requires --macho)">,
+  Group<grp_mach_o>;
+
+def dyld_info : Flag<["--"], "dyld-info">,
+  HelpText<"Print bind and rebase information used by dyld to resolve "
+           "external references in a final linked binary "
+           "(requires --macho)">,
+  Group<grp_mach_o>;
 
 def dylibs_used : Flag<["--"], "dylibs-used">,
   HelpText<"Print the shared libraries used for linked "

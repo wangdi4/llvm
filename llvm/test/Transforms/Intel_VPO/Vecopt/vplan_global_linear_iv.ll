@@ -23,7 +23,7 @@ define i32 @linear_iv_test(i32* nocapture %k) {
   %sum.red = alloca double, align 8
   br label %simd.begin.region
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() , "QUAL.OMP.REDUCTION.ADD"(double* %sum.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %k, i32 1)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() , "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sum.red, double zeroinitializer, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %k, i32 0, i32 1, i32 1)]
   br label %simd.loop
 simd.loop:
   %index = phi i64 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]

@@ -1,3 +1,15 @@
+# Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 set(TARGET_NAME reflection_module)
 
 project (${TARGET_NAME})
@@ -14,9 +26,9 @@ add_custom_command(
   OUTPUT ${BUILT_IN_LIST_INC}
   COMMAND ocl-tblgen -gen-ocl-biheader
   -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/misc_main.td
   -o ${BUILT_IN_LIST_INC}
-  DEPENDS ocl-tblgen
+  DEPENDS ocl-tblgen ${OCL_ALL_TD_FILES}
   COMMENT "Generating demangled headers..."
   VERBATIM
 )
@@ -24,37 +36,16 @@ add_custom_target(builtin_list_target
   DEPENDS ${BUILT_IN_LIST_INC}
 )
 
-add_custom_command(
-  OUTPUT CustomMappings.gen
-  COMMAND ocl-tblgen -gen-vectorizer-map
-  -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
-  -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
-  DEPENDS ocl-tblgen
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
-  COMMENT "generating custom mapping ..."
-  VERBATIM
-)
-
-set(CUSTOM_MAPPINGS_GEN
-  CustomMappings.gen
-)
-
 set(TARGET_SOURCE_FILES
   Mangler.cpp
   BuiltinKeeper.cpp
   VersionStrategy.cpp
   BuiltinMap.cpp
-  ${CUSTOM_MAPPINGS_GEN}
 )
 
 set(TARGET_INCLUDE_FILES
   Mangler.h
   BuiltinKeeper.h
-  CustomVersionMaping.h
   VersionStrategy.h
   ${BUILT_IN_LIST_INC}
   BuiltinMap.h

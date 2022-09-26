@@ -47,16 +47,16 @@ public:
 
   void initialize(Module &M);
 
-  DTransFunctionType *getDTransFunctionType(const Function *F);
-  DTransType *getFunctionReturnType(const Function *F);
-  DTransType *getFunctionArgumentType(const Function *F, unsigned Idx);
+  DTransFunctionType *getDTransFunctionType(const Function *F) const;
+  DTransType *getFunctionReturnType(const Function *F) const;
+  DTransType *getFunctionArgumentType(const Function *F, unsigned Idx) const;
 
   DTransPointerType *getDTransIOPtrType() const { return DTransIOPtrType; }
 
 private:
-  DTransFunctionType *getDTransFunctionTypeImpl(const Function *F);
-  DTransFunctionType *getDTransFunctionTypeImpl(LibFunc TheLibFunc);
-  DTransFunctionType *getDTransFunctionTypeImpl(Intrinsic::ID Id);
+  DTransFunctionType *getDTransFunctionTypeImpl(const Function *F) const;
+  DTransFunctionType *getDTransFunctionTypeImpl(LibFunc TheLibFunc) const;
+  DTransFunctionType *getDTransFunctionTypeImpl(Intrinsic::ID Id) const;
 
   DTransStructType *findIdentTStructType(Module &M);
   DTransPointerType *findIOPtrType(Module &M);
@@ -70,7 +70,7 @@ private:
   DTransType *DTransI32Type = nullptr;
   DTransType *DTransI64Type = nullptr;
   DTransType *DTransSizeType = nullptr;
-  DTransType* DTransMDType = nullptr;
+  DTransType *DTransMDType = nullptr;
 
   DTransType *DTransVoidType = nullptr;
 
@@ -92,7 +92,7 @@ private:
   DTransPointerType *DTransKMPCriticalNamePtrType = nullptr;
 
   // Cache of computed Function -> DTransFunctionType entries.
-  std::map<const Function *, DTransFunctionType *> FunctionCache;
+  mutable std::map<const Function *, DTransFunctionType *> FunctionCache;
 };
 
 } // end namespace dtransOP

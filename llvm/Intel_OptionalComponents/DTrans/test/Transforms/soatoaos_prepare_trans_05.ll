@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; CMPLRLLVM-27768: This test is same as soatoaos_prepare_trans_02.ll
 ; except the following. This test verifies that SOAToAOSPrepare transformations
 ; occur when pre-header is missing for loops in _ZN6RefArrIPsED2Ev and
@@ -760,6 +762,9 @@ cleanup:                                          ; preds = %entry, %for.end24
 declare dso_local noalias i8* @_Znwm(i64)
 declare dso_local void @_ZdlPv(i8*)
 declare dso_local void @__cxa_rethrow()
-declare dso_local void @free(i8* nocapture)
+declare dso_local void @free(i8* nocapture) #1
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
-declare dso_local noalias i8* @malloc(i64)
+declare dso_local noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

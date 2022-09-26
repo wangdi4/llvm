@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
-; R;UN: opt -opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test two structs with function pointers of different types.
 ; Right now, these will be compatible, but we could refine the analysis

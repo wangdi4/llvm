@@ -36,7 +36,6 @@
 extern bool DPCPPForceOptnone;
 
 extern cl::opt<bool> DisableVPlanCM;
-extern cl::opt<bool> EmitKernelVectorizerSignOn;
 extern cl::opt<bool> EnableO0Vectorization;
 
 using namespace llvm;
@@ -71,8 +70,6 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   PMBuilder.DisableUnrollLoops = false;
   PMBuilder.LoopsInterleaved = false;
   PMBuilder.MergeFunctions = false;
-  PMBuilder.PrepareForThinLTO = false;
-  PMBuilder.PrepareForLTO = false;
   PMBuilder.RerollLoops = false;
 
   DPCPPForceOptnone = PMBuilder.OptLevel == 0;
@@ -86,9 +83,8 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     // We do not want to inline hot callsites for SamplePGO module-summary build
     // because profile annotation will happen again in ThinLTO backend, and we
     // want the IR of the hot path to match the profile.
-    auto Params =
-        getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
-                        PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO);
+    auto Params = getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
+                                  false, false, /*SYCLOptimizationMode=*/false);
     Params.DefaultThreshold = 16384;
     PMBuilder.Inliner = createFunctionInliningPass(Params);
   }
@@ -104,7 +100,6 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   MaterializerMPM.add(createDPCPPPreprocessSPIRVFriendlyIRLegacyPass());
   MaterializerMPM.add(createSPIRVLowerConstExprLegacy());
   MaterializerMPM.add(createSPIRVToOCL20Legacy());
-  MaterializerMPM.add(createNameAnonGlobalPass());
 #ifndef NDEBUG
   MaterializerMPM.add(createVerifierPass());
 #endif // #ifndef NDEBUG
@@ -130,15 +125,15 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         MPM.add(createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
         MPM.add(createDPCPPEqualizerLegacyPass());
         Triple TargetTriple(m_M.getTargetTriple());
-        if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit() &&
+        if (TargetTriple.isArch64Bit() &&
             TargetTriple.isOSWindows())
           MPM.add(createCoerceWin64TypesLegacyPass());
 
         if (m_IsFpgaEmulator)
           MPM.add(createRemoveAtExitLegacyPass());
 
-        // MPM.add(createSetPreferVectorWidthLegacyPass(
-        //     VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
+        MPM.add(createSetPreferVectorWidthLegacyPass(
+            VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
         if (m_IsSPIRV && Config.GetRelaxedMath())
           MPM.add(createAddFastMathLegacyPass());
 
@@ -255,8 +250,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         if (Config.GetProfilingFlag())
           MPM.add(createProfilingInfoLegacyPass());
 
-        if (!m_IsEyeQEmulator)
-          MPM.add(createSinCosFoldLegacyPass());
+        MPM.add(createSinCosFoldLegacyPass());
 
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
@@ -349,7 +343,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
 
   MPM.add(createResolveSubGroupWICallLegacyPass(
       /*ResolveSGBarrier*/ false));
-  if (OptLevel > 0 && !m_IsEyeQEmulator)
+  if (OptLevel > 0)
     MPM.add(createOptimizeIDivAndIRemLegacyPass());
 
   MPM.add(createPreventDivCrashesLegacyPass());

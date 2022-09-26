@@ -257,19 +257,37 @@ def RetCC_X86Common : CallingConv<[
   // Vector types are returned in XMM0 and XMM1, when they fit.  XMM2 and XMM3
   // can only be used by ABI non-compliant code. If the target doesn't have XMM
   // registers, it won't have vector types.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[XMM0,XMM1,XMM2,XMM3]>>,
 
   // 256-bit vectors are returned in YMM0 and XMM1, when they fit. YMM2 and YMM3
   // can only be used by ABI non-compliant code. This vector type is only
   // supported while using the AVX target feature.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[YMM0,YMM1,YMM2,YMM3]>>,
 
   // 512-bit vectors are returned in ZMM0 and ZMM1, when they fit. ZMM2 and ZMM3
   // can only be used by ABI non-compliant code. This vector type is only
   // supported while using the AVX-512 target feature.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v64i8, v32i16, v16i32, v8i64, v32bf16, v32f16, v16f32, v8f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[ZMM0,ZMM1,ZMM2,ZMM3]>>,
 
   // MMX vector types are always returned in MM0. If the target doesn't have
@@ -295,6 +313,11 @@ def RetCC_X86_32_C : CallingConv<[
   CCIfNotSubtarget<"hasX87()",
     CCIfType<[f32], CCAssignToReg<[EAX, EDX, ECX]>>>,
   CCIfType<[f16], CCAssignToReg<[XMM0,XMM1,XMM2]>>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[bf16], CCAssignToReg<[XMM0,XMM1,XMM2]>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   CCDelegateTo<RetCC_X86Common>
 ]>;
 
@@ -357,6 +380,11 @@ def RetCC_X86_32_VectorCall : CallingConv<[
 // X86-64 C return-value convention.
 def RetCC_X86_64_C : CallingConv<[
   // The X86-64 calling convention always returns FP values in XMM0.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[bf16], CCAssignToReg<[XMM0, XMM1]>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   CCIfType<[f16], CCAssignToReg<[XMM0, XMM1]>>,
   CCIfType<[f32], CCAssignToReg<[XMM0, XMM1]>>,
   CCIfType<[f64], CCAssignToReg<[XMM0, XMM1]>>,
@@ -518,13 +546,25 @@ def RetCC_X86_64 : CallingConv<[
 // if INTEL_CUSTOMIZATION
 def RetCC_SVML : CallingConv<[
 
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[bf16, f16, f32, f64, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[f16, f32, f64, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
            CCAssignToReg<[XMM0, XMM1]>>,
   
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v16bf16, v16f16, v8f32, v4f64, v8i32, v4i64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16f16, v8f32, v4f64, v8i32, v4i64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
            CCAssignToReg<[YMM0, YMM1]>>,
 
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v32bf16, v32f16, v16f32, v8f64, v16i32, v8i64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32f16, v16f32, v8f64, v16i32, v8i64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
            CCAssignToReg<[ZMM0, ZMM1]>>
 ]>;
 
@@ -540,6 +580,7 @@ def RetCC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<RetCC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<RetCC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX_AVX_Impl", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<RetCC_SVML>>,
@@ -604,7 +645,13 @@ def CC_X86_64_C : CallingConv<[
   CCIfType<[v64i1], CCPromoteToType<v64i8>>,
 
   // The first 8 FP/Vector arguments are passed in XMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[bf16, f16, f32, f64, f128, v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[f16, f32, f64, f128, v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
             CCIfSubtarget<"hasSSE1()",
             CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7]>>>,
 
@@ -613,35 +660,69 @@ def CC_X86_64_C : CallingConv<[
   // FIXME: This isn't precisely correct; the x86-64 ABI document says that
   // fixed arguments to vararg functions are supposed to be passed in
   // registers.  Actually modeling that would be a lot of work, though.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
                           CCIfSubtarget<"hasAVX()",
                           CCAssignToReg<[YMM0, YMM1, YMM2, YMM3,
                                          YMM4, YMM5, YMM6, YMM7]>>>>,
 
   // The first 8 512-bit vector arguments are passed in ZMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32bf16, v32f16, v16f32, v8f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
             CCIfSubtarget<"hasAVX512()",
             CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, ZMM4, ZMM5, ZMM6, ZMM7]>>>>,
 
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[i32, i64, bf16, f16, f32, f64], CCAssignToStack<8, 8>>,
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[i32, i64, f16, f32, f64], CCAssignToStack<8, 8>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // Long doubles get stack slots whose size and alignment depends on the
   // subtarget.
   CCIfType<[f80, f128], CCAssignToStack<0, 0>>,
 
   // Vectors get 16-byte stack slots that are 16-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64], CCAssignToStack<16, 16>>,
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64], CCAssignToStack<16, 16>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // 256-bit vectors get 32-byte stack slots that are 32-byte aligned.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
            CCAssignToStack<32, 32>>,
 #endif // INTEL_CUSTOMIZATION
 
   // 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v64i8, v32i16, v16i32, v8i64, v32bf16, v32f16, v16f32, v8f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToStack<64, 64>>
 ]>;
 
@@ -689,13 +770,31 @@ def CC_X86_Win64_C : CallingConv<[
   CCIfCFGuardTarget<CCAssignToReg<[RAX]>>,
 
   // 128 bit vectors are passed by pointer
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64], CCPassIndirect<i64>>,
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64], CCPassIndirect<i64>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // 256 bit vectors are passed by pointer
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64], CCPassIndirect<i64>>,
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64], CCPassIndirect<i64>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // 512 bit vectors are passed by pointer
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v64i8, v32i16, v16i32, v32bf16, v32f16, v16f32, v8f64, v8i64], CCPassIndirect<i64>>,
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v64i8, v32i16, v16i32, v32f16, v16f32, v8f64, v8i64], CCPassIndirect<i64>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // Long doubles are passed by pointer
   CCIfType<[f80], CCPassIndirect<i64>>,
@@ -709,7 +808,13 @@ def CC_X86_Win64_C : CallingConv<[
   CCIfType<[f64], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i64>>>,
 
   // The first 4 FP/Vector arguments are passed in XMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[bf16, f16, f32, f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[f16, f32, f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
                                    [RCX , RDX , R8  , R9  ]>>,
 
@@ -732,7 +837,13 @@ def CC_X86_Win64_C : CallingConv<[
 
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[i8, i16, i32, i64, bf16, f16, f32, f64], CCAssignToStack<8, 8>>
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[i8, i16, i32, i64, f16, f32, f64], CCAssignToStack<8, 8>>
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 ]>;
 
 def CC_X86_Win64_VectorCall : CallingConv<[
@@ -811,15 +922,33 @@ def CC_X86_64_AnyReg : CallingConv<[
 /// values are spilled on the stack.
 def CC_X86_32_Vector_Common : CallingConv<[
   // Other SSE vectors get 16-byte stack slots that are 16-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToStack<16, 16>>,
 
   // 256-bit AVX vectors get 32-byte stack slots that are 32-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToStack<32, 32>>,
 
   // 512-bit AVX 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v64i8, v32i16, v16i32, v8i64, v32bf16, v32f16, v16f32, v8f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToStack<64, 64>>
 ]>;
 
@@ -827,15 +956,33 @@ def CC_X86_32_Vector_Common : CallingConv<[
 /// values are spilled on the stack.
 def CC_X86_Win32_Vector : CallingConv<[
   // Other SSE vectors get 16-byte stack slots that are 4-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToStack<16, 4>>,
 
   // 256-bit AVX vectors get 32-byte stack slots that are 4-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToStack<32, 4>>,
 
   // 512-bit AVX 512-bit vectors get 64-byte stack slots that are 4-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v64i8, v32i16, v16i32, v8i64, v32bf16, v32f16, v16f32, v8f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToStack<64, 4>>
 ]>;
 
@@ -843,16 +990,34 @@ def CC_X86_Win32_Vector : CallingConv<[
 // vector registers
 def CC_X86_32_Vector_Standard : CallingConv<[
   // SSE vector arguments are passed in XMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[XMM0, XMM1, XMM2]>>>,
 
   // AVX 256-bit vector arguments are passed in YMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
                 CCIfSubtarget<"hasAVX()",
                 CCAssignToReg<[YMM0, YMM1, YMM2]>>>>,
 
   // AVX 512-bit vector arguments are passed in ZMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32bf16, v32f16, v16f32, v8f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>>,
 
   CCIfIsVarArgOnWin<CCDelegateTo<CC_X86_Win32_Vector>>,
@@ -863,16 +1028,34 @@ def CC_X86_32_Vector_Standard : CallingConv<[
 // vector registers.
 def CC_X86_32_Vector_Darwin : CallingConv<[
   // SSE vector arguments are passed in XMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[XMM0, XMM1, XMM2, XMM3]>>>,
 
   // AVX 256-bit vector arguments are passed in YMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16bf16, v16f16, v8f32, v4f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
                 CCIfSubtarget<"hasAVX()",
                 CCAssignToReg<[YMM0, YMM1, YMM2, YMM3]>>>>,
 
   // AVX 512-bit vector arguments are passed in ZMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32bf16, v32f16, v16f32, v8f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3]>>>,
 
   CCDelegateTo<CC_X86_32_Vector_Common>
@@ -893,12 +1076,23 @@ def CC_X86_32_Common : CallingConv<[
 
   CCIfNotVarArg<CCIfInReg<CCIfType<[f16], CCAssignToReg<[XMM0,XMM1,XMM2]>>>>,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfNotVarArg<CCIfInReg<CCIfType<[bf16], CCAssignToReg<[XMM0,XMM1,XMM2]>>>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   // The first 3 __m64 vector arguments are passed in mmx registers if the
   // call is not a vararg call.
   CCIfNotVarArg<CCIfType<[x86mmx],
                 CCAssignToReg<[MM0, MM1, MM2]>>>,
 
   CCIfType<[f16], CCAssignToStack<4, 4>>,
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[bf16], CCAssignToStack<4, 4>>,
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // Integer/Float values get stored in stack slots that are 4 bytes in
   // size and 4-byte aligned.
@@ -1078,13 +1272,31 @@ def CC_X86_32_HiPE : CallingConv<[
 // if INTEL_CUSTOMIZATION
 def CC_SVML : CallingConv<[
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[bf16, f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5]>>,
   
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v16bf16, v16f16, v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16f16, v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[YMM0, YMM1, YMM2, YMM3, YMM4, YMM5]>>,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  CCIfType<[v32bf16, v32f16, v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
+#else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32f16, v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, ZMM4, ZMM5]>>,
 
   CCIfType<[v2i1, v4i1, v8i1, v16i1, v32i1],
@@ -1184,6 +1396,7 @@ def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<CC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX_AVX_Impl", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<CC_SVML>>,
@@ -1329,21 +1542,18 @@ def CSR_Win64_SVML_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13,
                                             (sequence "ZMM%u", 6, 21))>;
 def CSR_Lin64_SVML : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14, R15,
                                      (sequence "XMM%u", 8, 15))>;
-// FIXME: The assumption that 256-bit SVML functions preserve YMM16-31 and K4-7
-// is not correct. It breaks if the SVML function dispatches to an AVX512
-// implementation. But putting this constraint induces serious performance
-// regression since we're operating on YMM pervasively in many benchmarks. We
-// know the vast majority of SVML functions will just dispatch to an AVX2
-// implementation when using 256-bit variant, so we just assume that and will
-// fix it after static dispatch is available.
 // TODO: For now, as a workaround for CMPLRLLVM-28381, We remove K4~K7 from CSRs
 // since callee assumes lower 16-bits are preserved while K regs are 64-bits if
 // they are listed in CSRs. In the future, we will put lower-16-bits of K4~K7 in
 // CSRs instead of full-64bits K4~K7.
 def CSR_Lin64_SVML_AVX : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14,
                                          R15,
-                                         (sequence "XMM%u", 8, 31),
-                                         (sequence "YMM%u", 8, 31))>;
+                                         (sequence "XMM%u", 8, 15),
+                                         (sequence "YMM%u", 8, 15))>;
+def CSR_Lin64_SVML_AVX_AVX_Impl : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12,
+                                                   R13, R14, R15,
+                                                   (sequence "XMM%u", 8, 31),
+                                                   (sequence "YMM%u", 8, 31))>;
 // TODO: For now, as a workaround for CMPLRLLVM-28381, We remove K4~K7 from CSRs
 // since callee assumes lower 16-bits are preserved while K regs are 64-bits if
 // they are listed in CSRs. In the future, we will put lower-16-bits of K4~K7 in

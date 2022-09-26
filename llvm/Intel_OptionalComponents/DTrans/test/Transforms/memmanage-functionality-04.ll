@@ -5,6 +5,7 @@
 ; This function is not recognized as AllocateBlock since condition for
 ; BlockAvailable is "eq" instead of "ult" in "%33".
 
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 

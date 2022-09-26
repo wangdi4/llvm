@@ -1,6 +1,6 @@
 //===---MemoryBuiltinsExtras.cpp -Extend MemoryBuiltins.h functionality----===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -76,15 +76,15 @@ bool isUserFreeKind(FreeKind Kind) {
 
 AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI) {
   // Returns non-null, so C++ function.
-  if (isNewLikeFn(Call, &TLI))
+  if (IntelMemoryBuiltins::isNewLikeFn(Call, &TLI))
     return AK_New;
-  if (isMallocLikeFn(Call, &TLI))
+  if (IntelMemoryBuiltins::isMallocLikeFn(Call, &TLI))
     // if C++ and could return null, then there should be more than one
     // argument.
     return Call->arg_size() == 1 ? AK_Malloc : AK_New;
-  if (isCallocLikeFn(Call, &TLI))
+  if (IntelMemoryBuiltins::isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
-  if (isReallocLikeFn(Call, &TLI))
+  if (getReallocatedOperand(Call, &TLI))
     return AK_Realloc;
   return AK_NotAlloc;
 }
@@ -116,7 +116,7 @@ static void getAllocSizeArgsImpl(AllocKind Kind, const CallBase *Call,
   case AK_Malloc:
   case AK_Realloc: {
     /// All functions except calloc return -1 as a second argument.
-    auto Inds = getAllocSizeArgumentIndices(Call, &TLI);
+    auto Inds = IntelMemoryBuiltins::getAllocSizeArgumentIndices(Call, &TLI);
     if (Inds.second == -1U) {
       AllocSizeInd = Inds.first;
       AllocCountInd = -1U;
@@ -170,7 +170,7 @@ void collectSpecialAllocArgs(AllocKind Kind, const CallBase *Call,
 }
 
 bool isFreeFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
-  return isFreeCall(Call, &TLI, false);
+  return getFreedOperand(Call, &TLI, false);
 }
 
 bool isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI) {

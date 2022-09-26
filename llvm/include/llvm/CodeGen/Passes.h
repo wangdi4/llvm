@@ -43,7 +43,6 @@ namespace llvm {
 class FunctionPass;
 class MachineFunction;
 class MachineFunctionPass;
-class MemoryBuffer;
 class ModulePass;
 class Pass;
 class TargetMachine;
@@ -527,6 +526,9 @@ namespace llvm {
   /// predicate mask.
   FunctionPass *createExpandVectorPredicationPass();
 
+  // Expands large div/rem instructions.
+  FunctionPass *createExpandLargeDivRemPass();
+
   // This pass expands memcmp() to load/stores.
   FunctionPass *createExpandMemCmpPass();
 
@@ -564,6 +566,13 @@ namespace llvm {
 
   /// This pass inserts pseudo probe annotation for callsite profiling.
   FunctionPass *createPseudoProbeInserter();
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  /// This pass inserts pseudo markercount.
+  FunctionPass *createPseudoMarkerCountInserter();
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   /// Create IR Type Promotion pass. \see TypePromotion.cpp
   FunctionPass *createTypePromotionPass();

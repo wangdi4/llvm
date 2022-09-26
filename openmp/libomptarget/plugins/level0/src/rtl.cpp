@@ -118,7 +118,8 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #else // _WIN32
 #define LEVEL0_KERNEL_BEGIN(ID)                                                \
   do {                                                                         \
-    if (DeviceInfo->Option.KernelDynamicMemorySize > 0) {                      \
+    if (DeviceInfo->Option.KernelDynamicMemorySize > 0 &&                      \
+        DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {                   \
       DeviceInfo->Mutexes[ID].lock();                                          \
       DeviceInfo->NumActiveKernels[ID]++;                                      \
       DeviceInfo->Mutexes[ID].unlock();                                        \
@@ -127,7 +128,8 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 
 #define LEVEL0_KERNEL_END(ID)                                                  \
   do {                                                                         \
-    if (DeviceInfo->Option.KernelDynamicMemorySize > 0) {                      \
+    if (DeviceInfo->Option.KernelDynamicMemorySize > 0 &&                      \
+        DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {                   \
       DeviceInfo->Mutexes[ID].lock();                                          \
       DeviceInfo->NumActiveKernels[ID]--;                                      \
       if (DeviceInfo->NumActiveKernels[ID] == 0)                               \
@@ -143,6 +145,7 @@ enum DeviceArch : uint64_t {
   DeviceArch_Gen9   = 0x0001,
   DeviceArch_XeLP   = 0x0002,
   DeviceArch_XeHP   = 0x0004,
+  DeviceArch_XeHPG  = 0x0008,
   DeviceArch_x86_64 = 0x0100
 };
 
@@ -170,6 +173,11 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       // Putting PVC here for now.
       // We may decide to add another arch type if needed in the future.
       0x0b00, // PVC
+    }
+  },
+  {
+    DeviceArch_XeHPG, {
+      0x4F00, 0x5600 // DG2/ATS-M
     }
   }
 };
@@ -997,6 +1005,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
   void *DynamicMemPool = nullptr;
+  int TeamsThreadLimit = 0;
 };
 
 /// Level Zero program that can contain multiple modules.
@@ -1438,7 +1447,7 @@ struct RTLOptionTy {
   uint32_t NumTeams = 0;
 
   /// Dynamic kernel memory size
-  size_t KernelDynamicMemorySize = 0;
+  size_t KernelDynamicMemorySize = (1 << 20);
 
   /// Dynamic kernel memory allocator
   /// 0: atomic_add with no free()
@@ -1814,7 +1823,9 @@ struct RTLOptionTy {
         DP("Ignoring incorrect value for LIBOMPTARGET_DYNAMIC_MEMORY_SIZE\n");
         Size = 0;
       }
-      if (Size > 0) {
+      if (Size == 0) {
+        KernelDynamicMemorySize = 0;
+      } else if (Size > 0) {
         size_t MaxSize;
         if (KernelDynamicMemoryMethod == 0) {
           MaxSize = 2048;
@@ -2022,13 +2033,15 @@ struct MemAllocInfoTy {
   bool InPool = false;
   /// Is implicit argument
   bool ImplicitArg = false;
+  /// Allocation-time hint used for shared memory
+  uint32_t MemAdvice = UINT32_MAX;
 
   MemAllocInfoTy() = default;
 
   MemAllocInfoTy(void *_Base, size_t _Size, int32_t _Kind, bool _InPool,
-                 bool _ImplicitArg) :
+                 bool _ImplicitArg, uint32_t _MemAdvice) :
       Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
-      ImplicitArg(_ImplicitArg) {}
+      ImplicitArg(_ImplicitArg), MemAdvice(_MemAdvice) {}
 };
 
 /// Responsible for all activities involving memory allocation/deallocation.
@@ -2240,6 +2253,30 @@ class MemAllocatorTy {
          BlockCapacity, PoolSizeMax);
     }
 
+    MemPoolTy(MemAllocatorTy *_Allocator) {
+      // Use fixed options
+      AllocKind = TARGET_ALLOC_DEVICE;
+      Allocator = _Allocator;
+      AllocMin = AllocUnit = 1024 << 6; // 64KB
+      AllocMax = 256 << 20; // 256 MB
+      BlockCapacity = 4;
+      PoolSize = 0;
+      PoolSizeMax = 1 << 30; // 1GB
+
+      auto MinSize = getBucketId(AllocMin);
+      auto MaxSize = getBucketId(AllocMax);
+      Buckets.resize(MaxSize - MinSize + 1);
+      BucketStats.resize(Buckets.size(), {0, 0});
+      for (size_t I = 0; I < Buckets.size(); I++) {
+        size_t ChunkSize = AllocMin << I;
+        BucketParams.emplace_back(ChunkSize, ChunkSize * BlockCapacity);
+      }
+
+      DP("Initialized reduction scratch pool for device " DPxMOD
+         ": AllocMin = %zu, AllocMax = %zu, PoolSizeMax = %zu\n",
+         DPxPTR(Allocator->Device), AllocMin, AllocMax, PoolSizeMax);
+    }
+
     void printUsage() {
       auto PrintNum = [](uint64_t Num) {
         if (Num > 1e9)
@@ -2247,27 +2284,35 @@ class MemAllocatorTy {
         else
           fprintf(stderr, "%11" PRIu64, Num);
       };
+
+      bool HasPoolAlloc = false;
+      for (auto &Stat : BucketStats) {
+        if (Stat.first > 0 || Stat.second > 0) {
+          HasPoolAlloc = true;
+          break;
+        }
+      }
+
       DP("MemPool usage for %s, device " DPxMOD "\n",
          ALLOC_KIND_TO_STR(AllocKind), DPxPTR(Allocator->Device));
-      if (Allocator->Stats.count(AllocKind) > 0 &&
-          Allocator->Stats[AllocKind].NumAllocs[1] > 0) {
-        // Has allocation from pool
+
+      if (HasPoolAlloc) {
         DP("-- AllocMax=%zu(MB), Capacity=%" PRIu32
            ", PoolSizeMax=%zu(MB)\n", AllocMax >> 20, BlockCapacity,
            PoolSizeMax >> 20);
         DP("-- %18s:%11s%11s%11s\n", "", "NewAlloc", "Reuse", "Hit(%)");
+        for (auto I = 0; I < Buckets.size(); I++) {
+          auto &Stat = BucketStats[I];
+          if (Stat.first > 0 || Stat.second > 0) {
+            DP("-- Bucket[%10zu]:", BucketParams[I].first);
+            PrintNum(Stat.first);
+            PrintNum(Stat.second);
+            fprintf(stderr, "%11.2f\n",
+                    float(Stat.second) / float(Stat.first + Stat.second) * 100);
+          }
+        }
       } else {
         DP("-- Not used\n");
-      }
-      for (auto I = 0; I < Buckets.size(); I++) {
-        auto &Stat = BucketStats[I];
-        if (Stat.first > 0 || Stat.second > 0) {
-          DP("-- Bucket[%10zu]:", BucketParams[I].first);
-          PrintNum(Stat.first);
-          PrintNum(Stat.second);
-          fprintf(stderr, "%11.2f\n",
-                  float(Stat.second) / float(Stat.first + Stat.second) * 100);
-        }
       }
     }
 
@@ -2348,10 +2393,12 @@ class MemAllocatorTy {
 
   public:
     /// Add allocation information to the map
-    void add(void *Ptr, void *_Base, size_t _Size, int32_t _Kind,
-             bool _InPool = false, bool _ImplicitArg = false) {
+    void add(void *Ptr, void *Base, size_t Size, int32_t Kind,
+             bool InPool = false, bool ImplicitArg = false,
+             uint32_t MemAdvice = UINT32_MAX) {
       auto Inserted = Map.emplace(
-          Ptr, MemAllocInfoTy{_Base, _Size, _Kind, _InPool, _ImplicitArg});
+          Ptr,
+          MemAllocInfoTy{Base, Size, Kind, InPool, ImplicitArg, MemAdvice});
 #if INTEL_INTERNAL_BUILD
       // Check if we keep valid disjoint memory ranges.
       bool Valid = Inserted.second;
@@ -2364,15 +2411,15 @@ class MemAllocatorTy {
         if (Valid) {
           auto I = std::next(Inserted.first, 1);
           if (I != Map.end())
-            Valid = Valid && (uintptr_t)Ptr + _Size <= (uintptr_t)I->first;
+            Valid = Valid && (uintptr_t)Ptr + Size <= (uintptr_t)I->first;
         }
       }
       assert(Valid && "Invalid overlapping memory allocation");
 #else // INTEL_INTERNAL_BUILD
       (void)Inserted;
 #endif // INTEL_INTERNAL_BUILD
-      if (_ImplicitArg)
-        NumImplicitArgs[_Kind]++;
+      if (ImplicitArg)
+        NumImplicitArgs[Kind]++;
     }
 
     /// Remove allocation information for the given memory location
@@ -2428,6 +2475,8 @@ class MemAllocatorTy {
   std::map<int32_t, MemStatTy> Stats;
   /// Map from allocation kind to memory pool
   std::map<int32_t, MemPoolTy> Pools;
+  /// Memory pool dedicated to reduction scratch space
+  std::unique_ptr<MemPoolTy> ReductionPool;
   /// Allocation information map
   MemAllocInfoMapTy AllocInfo;
   /// RTL-owned memory that needs to be freed automatically
@@ -2469,6 +2518,7 @@ public:
           Stats.emplace(std::piecewise_construct, std::forward_as_tuple(Kind),
                         std::tuple<>{});
       }
+      ReductionPool = std::make_unique<MemPoolTy>(this);
     }
   }
 
@@ -2479,6 +2529,7 @@ public:
       dealloc(M);
     // Release resources used in the pool
     Pools.clear();
+    ReductionPool.reset(nullptr);
     // Report memory usage if requested
     if (DebugLevel > 0) {
       for (auto &Stat : Stats) {
@@ -2530,7 +2581,7 @@ public:
     case TARGET_ALLOC_SHARED:
       CALL_ZE_RET_NULL(zeMemAllocShared, Context, &DeviceDesc, &HostDesc, Size,
                        Align, Device, &Mem);
-      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(Mem));
+      DP("Allocated a shared memory " DPxMOD "\n", DPxPTR(Mem));
       break;
     default:
       assert(0 && "Invalid target data allocation kind");
@@ -2543,7 +2594,8 @@ public:
 
   /// Allocate memory with the specified information
   void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
-              bool UserAlloc = false, bool Owned = false) {
+              bool UserAlloc, bool Owned, uint32_t MemAdvice,
+              int32_t CachedPool) {
     assert((Kind == TARGET_ALLOC_DEVICE || Kind == TARGET_ALLOC_HOST ||
             Kind == TARGET_ALLOC_SHARED) &&
             "Unknown memory kind while allocating target memory");
@@ -2557,11 +2609,17 @@ public:
     void *Mem = nullptr;
     void *AllocBase = nullptr;
 
-    if (Pools.count(Kind) > 0) {  // Pool is enabled for the allocation kind
+    if ((Pools.count(Kind) > 0 && MemAdvice == UINT32_MAX) || CachedPool) {
+      // Pool is enabled for the allocation kind, and we do not use any memory
+      // advice. We should avoid using pool if there is any meaningful memory
+      // advice not to affect sibling allocation in the same block.
       if (Align > 0)
         AllocSize += (Align - 1);
       size_t PoolAllocSize = 0;
-      AllocBase = Pools[Kind].alloc(AllocSize, PoolAllocSize);
+      if (CachedPool)
+        AllocBase = ReductionPool->alloc(AllocSize, PoolAllocSize);
+      else
+        AllocBase = Pools[Kind].alloc(AllocSize, PoolAllocSize);
       if (AllocBase) {
         uintptr_t Base = (uintptr_t)AllocBase;
         if (Align > 0)
@@ -2578,7 +2636,7 @@ public:
     AllocBase = allocL0(AllocSize, Align, Kind);
     if (AllocBase) {
       Mem = (void *)((uintptr_t)AllocBase + Offset);
-      AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc);
+      AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc, MemAdvice);
       if (Owned)
         MemOwned.push_back(AllocBase);
     }
@@ -2600,8 +2658,12 @@ public:
       assert(Pools.count(Info.Kind) > 0 && "Inconsistent memory information\n");
       size_t DeallocSize = Pools[Info.Kind].dealloc(Info.Base);
       if (DeallocSize == 0) {
-        DP("Error: Cannot return memory " DPxMOD " to pool\n", DPxPTR(Ptr));
-        return OFFLOAD_FAIL;
+        // Try cached scratch pool
+        DeallocSize = ReductionPool->dealloc(Info.Base);
+        if (DeallocSize == 0) {
+          DP("Error: Cannot return memory " DPxMOD " to pool\n", DPxPTR(Ptr));
+          return OFFLOAD_FAIL;
+        }
       }
       log(0, DeallocSize, Info.Kind, true /* Pool */);
       return OFFLOAD_SUCCESS;
@@ -2760,8 +2822,10 @@ struct RTLDeviceInfoTy {
   void *GitsIndirectAllocationOffsets = nullptr;
 
   /// function addresses for registering and unregistering host pointer
+  /// and testing if a host malloced pointer is registered
   void *RegisterHostPointer = nullptr;
   void *UnRegisterHostPointer = nullptr;
+  void *GetHostPointerBaseAddress = nullptr;
 
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
@@ -2954,24 +3018,65 @@ struct RTLDeviceInfoTy {
     getTLS()->setSubDeviceCode(Code);
   }
 
-  bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
-     if (RegisterHostPointer) {
-       using FnTy = int (*)(ze_driver_handle_t, void *, size_t);
-       auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
-       return  Fn(Driver, Ptr, Size);
-     }
-     return false;
-  }
+ //  Prototype for Register and unRegister functions from zex_driver.h
+ //
+ //  ze_result_t ZE_APICALL
+ //  zexDriverImportExternalPointer(
+ //    ze_driver_handle_t hDriver,
+ //    void *ptr,
+ //    size_t size
+ //  );
+ //
+ //  ze_result_t ZE_APICALL
+ //  zexDriverReleaseImportedPointer(
+ //    ze_driver_handle_t hDriver,
+ //    void *ptr
+ //  );
+ //
+ // ze_result_t ZE_APICALL
+ // zexDriverGetHostPointerBaseAddress(
+ //   ze_driver_handle_t hDriver,
+ //   void *ptr,
+ //   void **baseAddress
+ // );
 
-  bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
-     if (UnRegisterHostPointer) {
-       using FnTy = void(*)(ze_driver_handle_t, void *);
-       auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
-       Fn(Driver, Ptr);
-       return true;
-     }
-     return false;
-  }
+   bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
+      if (RegisterHostPointer) {
+        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
+        auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
+        DP("Registering Host Pointer: " DPxMOD " Size  %zu\n", DPxPTR(Ptr), Size);
+        return  (Fn(Driver, Ptr, Size) == ZE_RESULT_SUCCESS);
+      }
+      return false;
+   }
+
+   bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
+      if (UnRegisterHostPointer) {
+        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
+        auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
+        DP("UnRegistering Host Pointer: " DPxMOD " \n", DPxPTR(Ptr));
+        ze_result_t RC = Fn(Driver, Ptr);
+        if ( RC == ZE_RESULT_SUCCESS)
+           return true;
+      }
+      DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
+      return false;
+   }
+
+   bool getHostPointerBaseAddress(int32_t DeviceId, void *Ptr) {
+      if (GetHostPointerBaseAddress) {
+        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
+        auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
+        void *BaseAddress = NULL;
+        ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
+        if ( RC == ZE_RESULT_SUCCESS) {
+          DP("Host Pointer: " DPxMOD " is registered with BaseAddress : " DPxMOD " \n",
+                         DPxPTR(Ptr),DPxPTR(BaseAddress));
+          return true;
+        }
+      }
+      return false;
+   }
 
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
@@ -3007,7 +3112,8 @@ struct RTLDeviceInfoTy {
 
   /// Data alloc
   void *dataAlloc(int32_t DeviceId, size_t Size, size_t Align, int32_t Kind,
-                  intptr_t Offset, bool UserAlloc, bool Owned = false);
+                  intptr_t Offset, bool UserAlloc, bool Owned = false,
+                  uint32_t MemAdvice = UINT32_MAX, int32_t CachedPool = 0);
 
   /// Data delete
   int32_t dataDelete(int32_t DeviceId, void *Ptr);
@@ -3216,9 +3322,7 @@ ATTRIBUTE(constructor(101)) void init() {
 
 ATTRIBUTE(destructor(101)) void deinit() {
   DP("Deinit Level0 plugin!\n");
-#ifndef _WIN32
   closeRTL();
-#endif
   delete TLSList;
   TLSList = nullptr;
   delete DeviceInfo;
@@ -3265,8 +3369,16 @@ static uint64_t getDeviceArch(uint32_t L0DeviceId) {
 }
 
 static bool isDiscrete(uint32_t L0DeviceId) {
-  uint32_t prefix = L0DeviceId & 0xFF00;
-  return prefix == 0x4900 || prefix == 0x0200 || prefix == 0x0b00;
+  switch (L0DeviceId & 0xFF00) {
+  case 0x4900: // DG1
+  case 0x0200: // ATS SDV
+  case 0x0B00: // PVC
+  case 0x4F00: // DG2/ATS-M
+  case 0x5600: // DG2/ATS-M
+    return true;
+  default:
+    return false;
+  }
 }
 
 // Decide device's default memory kind for internal allocation (e.g., map)
@@ -3529,7 +3641,9 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     void *SrcPtr = HstPtr;
     if (DiscreteDevice &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST) {
+        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
+        // Check if host pointer is registered
+        !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
       SrcPtr = DeviceInfo->getStagingBuffer().get();
       std::copy_n(
           static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
@@ -3571,7 +3685,9 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
     void *DstPtr = HstPtr;
     if (DiscreteDevice &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST) {
+        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
+        // Check if host pointer is registered
+        !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
       DstPtr = DeviceInfo->getStagingBuffer().get();
     }
     if (OFFLOAD_SUCCESS !=
@@ -3591,39 +3707,37 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 }
 
 // Return the number of total HW threads required to execute
-// a loop kernel compiled with the given simdWidth, and the given
+// a loop kernel compiled with the given SIMDWidth, and the given
 // loop(s) trip counts and group sizes.
 // Returns UINT64_MAX, if computations overflow.
 static uint64_t computeThreadsNeeded(
-    const size_t (&tripCounts)[3], const uint32_t (&groupSizes)[3],
-    uint32_t simdWidth) {
-  uint64_t groupCount[3];
-  for (int i = 0; i < 3; ++i) {
-    if (tripCounts[i] == 0 || groupSizes[i] == 0)
+    const size_t (&TripCounts)[3], const uint32_t (&GroupSizes)[3],
+    uint32_t SIMDWidth) {
+  uint64_t GroupCount[3];
+  for (int I = 0; I < 3; ++I) {
+    if (TripCounts[I] == 0 || GroupSizes[I] == 0)
       return (std::numeric_limits<uint64_t>::max)();
-    groupCount[i] =
-        (uint64_t(tripCounts[i]) + groupSizes[i] - 1) / groupSizes[i];
-    if (groupCount[i] > (std::numeric_limits<uint32_t>::max)())
+    GroupCount[I] =
+        (uint64_t(TripCounts[I]) + GroupSizes[I] - 1) / GroupSizes[I];
+    if (GroupCount[I] > (std::numeric_limits<uint32_t>::max)())
       return (std::numeric_limits<uint64_t>::max)();
   }
-  for (int i = 1; i < 3; ++i) {
-    if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
-        groupCount[i])
+  for (int I = 1; I < 3; ++I) {
+    if ((std::numeric_limits<uint64_t>::max)() / GroupCount[0] < GroupCount[I])
       return (std::numeric_limits<uint64_t>::max)();
-    groupCount[0] *= groupCount[i];
+    GroupCount[0] *= GroupCount[I];
   }
   // Multiplication of the group sizes must never overflow uint64_t
   // for any existing device.
-  uint64_t localWorkSize =
-      uint64_t(groupSizes[0]) * groupSizes[1] * groupSizes[2];
-  uint64_t threadsPerWG = ((localWorkSize + simdWidth - 1) / simdWidth);
+  uint64_t LocalWorkSize =
+      uint64_t(GroupSizes[0]) * GroupSizes[1] * GroupSizes[2];
+  uint64_t ThreadsPerWG = ((LocalWorkSize + SIMDWidth - 1) / SIMDWidth);
 
   // Check that the total number of threads fits uint64_t.
-  if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
-      threadsPerWG)
+  if ((std::numeric_limits<uint64_t>::max)() / GroupCount[0] < ThreadsPerWG)
     return (std::numeric_limits<uint64_t>::max)();
 
-  return groupCount[0] * threadsPerWG;
+  return GroupCount[0] * ThreadsPerWG;
 }
 
 static int32_t decideLoopKernelGroupArguments(
@@ -3631,81 +3745,85 @@ static int32_t decideLoopKernelGroupArguments(
     ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
     ze_group_count_t &GroupCounts) {
 
-  auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
-  uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
-  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  uint32_t kernelWidth = KernelProperty.Width;
-  DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelProperty.SIMDWidth);
-  DP("Preferred group size is multiple of %" PRIu32 "\n", kernelWidth);
+  auto &ComputePR = DeviceInfo->ComputeProperties[DeviceId];
+  uint32_t MaxGroupSize = ComputePR.maxTotalGroupSize;
+  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelPR.SIMDWidth);
+  DP("Preferred team size is multiple of %" PRIu32 "\n", KernelPR.Width);
 
-  uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
-  if (kernelMaxThreadGroupSize < maxGroupSize) {
-    maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %" PRIu32
-       " due to kernel constraints.\n", maxGroupSize);
+  // Set correct max group size if the kernel was compiled with explicit SIMD
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  if (KernelPR.SIMDWidth == 1) {
+    MaxGroupSize = DevicePR.numEUsPerSubslice * DevicePR.numThreadsPerEU;
   }
 
-  bool maxGroupSizeForced = false;
+  if (KernelPR.MaxThreadGroupSize < MaxGroupSize) {
+    MaxGroupSize = KernelPR.MaxThreadGroupSize;
+    DP("Capping maximum team size to %" PRIu32
+       " due to kernel constraints.\n", MaxGroupSize);
+  }
+
+  bool MaxGroupSizeForced = false;
 
   if (ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (ThreadLimit <= maxGroupSize) {
-      maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
-         maxGroupSize);
+    if (ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = ThreadLimit;
+      DP("Max team size is set to %" PRIu32 " (thread_limit clause)\n",
+         MaxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         ThreadLimit, maxGroupSize);
+         ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
-      maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
-         maxGroupSize);
+    if (DeviceInfo->Option.ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = DeviceInfo->Option.ThreadLimit;
+      DP("Max team size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
+         MaxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         DeviceInfo->Option.ThreadLimit, maxGroupSize);
+         DeviceInfo->Option.ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.NumTeams > 0)
     DP("OMP_NUM_TEAMS(%" PRIu32 ") is ignored\n", DeviceInfo->Option.NumTeams);
 
-  uint32_t groupCounts[3] = {1, 1, 1};
-  uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
-  TgtLoopDescTy *level = LoopLevels->Levels;
-  int32_t distributeDim = LoopLevels->DistributeDim;
-  assert(distributeDim >= 0 && distributeDim <= 2 &&
+  uint32_t GRPCounts[3] = {1, 1, 1};
+  uint32_t GRPSizes[3] = {MaxGroupSize, 1, 1};
+  TgtLoopDescTy *Levels = LoopLevels->Levels;
+  int32_t DistributeDim = LoopLevels->DistributeDim;
+  assert(DistributeDim >= 0 && DistributeDim <= 2 &&
          "Invalid distribute dimension.");
-  int32_t numLoopLevels = LoopLevels->NumLoops;
-  assert((numLoopLevels > 0 && numLoopLevels <= 3) &&
+  int32_t NumLoops = LoopLevels->NumLoops;
+  assert((NumLoops > 0 && NumLoops <= 3) &&
          "Invalid loop nest description for ND partitioning");
 
   // Compute global widths for X/Y/Z dimensions.
-  size_t tripCounts[3] = {1, 1, 1};
+  size_t TripCounts[3] = {1, 1, 1};
 
-  for (int32_t i = 0; i < numLoopLevels; i++) {
-    assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
+  for (int32_t I = 0; I < NumLoops; I++) {
+    assert(Levels[I].Stride > 0 && "Invalid loop stride for ND partitioning");
     DP("Loop %" PRIu32 ": lower bound = %" PRId64 ", upper bound = %" PRId64
-       ", Stride = %" PRId64 "\n",
-       i, level[i].Lb, level[i].Ub, level[i].Stride);
-    if (level[i].Ub < level[i].Lb)
-      tripCounts[i] = 0;
+       ", Stride = %" PRId64 "\n", I, Levels[I].Lb, Levels[I].Ub,
+       Levels[I].Stride);
+    if (Levels[I].Ub < Levels[I].Lb)
+      TripCounts[I] = 0;
     else
-      tripCounts[i] =
-          (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
+      TripCounts[I] =
+          (Levels[I].Ub - Levels[I].Lb + Levels[I].Stride) / Levels[I].Stride;
   }
 
   // Check if any of the loop has zero iterations.
-  if (tripCounts[0] == 0 || tripCounts[1] == 0 || tripCounts[2] == 0) {
+  if (TripCounts[0] == 0 || TripCounts[1] == 0 || TripCounts[2] == 0) {
     std::fill(GroupSizes, GroupSizes + 3, 1);
-    std::fill(groupCounts, groupCounts + 3, 1);
-    if (distributeDim > 0 && tripCounts[distributeDim] != 0) {
+    std::fill(GRPCounts, GRPCounts + 3, 1);
+    if (DistributeDim > 0 && TripCounts[DistributeDim] != 0) {
       // There is a distribute dimension, and the distribute loop
       // has non-zero iterations, but some inner parallel loop
       // has zero iterations. We still want to split the distribute
@@ -3714,54 +3832,54 @@ static int32_t decideLoopKernelGroupArguments(
       // Note that this code is currently dead, because we are not
       // hoisting the inner loops' bounds outside of the target regions.
       // The code is here just for completeness.
-      size_t distributeTripCount = tripCounts[distributeDim];
-      if (distributeTripCount > UINT32_MAX) {
-        DP("Invalid group count %zu due to large loop trip count\n",
-           distributeTripCount);
+      size_t DistributeTripCount = TripCounts[DistributeDim];
+      if (DistributeTripCount > UINT32_MAX) {
+        DP("Invalid number of teams %zu due to large loop trip count\n",
+           DistributeTripCount);
         return OFFLOAD_FAIL;
       }
-      groupCounts[distributeDim] = distributeTripCount;
+      GRPCounts[DistributeDim] = DistributeTripCount;
     }
-    GroupCounts.groupCountX = groupCounts[0];
-    GroupCounts.groupCountY = groupCounts[1];
-    GroupCounts.groupCountZ = groupCounts[2];
+    GroupCounts.groupCountX = GRPCounts[0];
+    GroupCounts.groupCountY = GRPCounts[1];
+    GroupCounts.groupCountZ = GRPCounts[2];
     return OFFLOAD_SUCCESS;
   }
 
-  if (!maxGroupSizeForced) {
+  if (!MaxGroupSizeForced) {
     // Use zeKernelSuggestGroupSize to compute group sizes,
     // or fallback to setting dimension 0 width to SIMDWidth.
-    // Note that in case of user-specified LWS groupSizes[0]
+    // Note that in case of user-specified LWS GRPSizes[0]
     // is already set according to the specified value.
-    size_t globalSizes[3] = { tripCounts[0], tripCounts[1], tripCounts[2] };
-    if (distributeDim > 0) {
+    size_t GlobalSizes[3] = { TripCounts[0], TripCounts[1], TripCounts[2] };
+    if (DistributeDim > 0) {
       // There is a distribute dimension.
-      globalSizes[distributeDim - 1] *= globalSizes[distributeDim];
-      globalSizes[distributeDim] = 1;
+      GlobalSizes[DistributeDim - 1] *= GlobalSizes[DistributeDim];
+      GlobalSizes[DistributeDim] = 1;
     }
-    bool LargeGlobalSize = globalSizes[0] > UINT32_MAX ||
-                           globalSizes[1] > UINT32_MAX ||
-                           globalSizes[2] > UINT32_MAX;
+    bool LargeGlobalSize = GlobalSizes[0] > UINT32_MAX ||
+                           GlobalSizes[1] > UINT32_MAX ||
+                           GlobalSizes[2] > UINT32_MAX;
 
-    ze_result_t rc = ZE_RESULT_ERROR_UNKNOWN;
-    uint32_t suggestedGroupSizes[3];
+    ze_result_t RC = ZE_RESULT_ERROR_UNKNOWN;
+    uint32_t SuggestedGroupSizes[3];
     if (DeviceInfo->Option.Flags.UseDriverGroupSizes && !LargeGlobalSize) {
       // Call this only when global sizes satisfy API requirement.
-      CALL_ZE_RC(rc, zeKernelSuggestGroupSize,
-                 Kernel, (uint32_t)globalSizes[0], (uint32_t)globalSizes[1],
-                 (uint32_t)globalSizes[2], &suggestedGroupSizes[0],
-                 &suggestedGroupSizes[1], &suggestedGroupSizes[2]);
+      CALL_ZE_RC(RC, zeKernelSuggestGroupSize,
+                 Kernel, (uint32_t)GlobalSizes[0], (uint32_t)GlobalSizes[1],
+                 (uint32_t)GlobalSizes[2], &SuggestedGroupSizes[0],
+                 &SuggestedGroupSizes[1], &SuggestedGroupSizes[2]);
     }
 
-    if (rc == ZE_RESULT_SUCCESS) {
-      groupSizes[0] = suggestedGroupSizes[0];
-      groupSizes[1] = suggestedGroupSizes[1];
-      groupSizes[2] = suggestedGroupSizes[2];
+    if (RC == ZE_RESULT_SUCCESS) {
+      GRPSizes[0] = SuggestedGroupSizes[0];
+      GRPSizes[1] = SuggestedGroupSizes[1];
+      GRPSizes[2] = SuggestedGroupSizes[2];
     } else {
-      if (maxGroupSize > kernelWidth) {
-        groupSizes[0] = kernelWidth;
+      if (MaxGroupSize > KernelPR.Width) {
+        GRPSizes[0] = KernelPR.Width;
       }
-      if (distributeDim == 0) {
+      if (DistributeDim == 0) {
         // If there is a distribute dimension, then we do not use
         // thin HW threads, since we do not know anything about
         // the iteration space of the inner parallel loop regions.
@@ -3771,59 +3889,57 @@ static int32_t decideLoopKernelGroupArguments(
         // the kernel - this may allow more parallelism due to
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
-        assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
-               "Unexpected group sizes for dimensions 1 or/and 2.");
-        uint32_t simdWidth = KernelProperty.SIMDWidth;
-        auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
-        uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
-        uint32_t numSubslices = deviceProperties.numSlices *
-            deviceProperties.numSubslicesPerSlice;
-        uint32_t numThreadsPerEU = deviceProperties.numThreadsPerEU;
-        uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
-            numSubslices;
-        totalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
+        assert(GRPSizes[1] == 1 && GRPSizes[2] == 1 &&
+               "Unexpected team sizes for dimensions 1 or/and 2.");
+        uint32_t SimdWidth = KernelPR.SIMDWidth;
+        uint32_t NumEUsPerSubslice = DevicePR.numEUsPerSubslice;
+        uint32_t NumSubslices =
+            DevicePR.numSlices * DevicePR.numSubslicesPerSlice;
+        uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
+        uint64_t TotalThreads =
+            uint64_t(NumThreadsPerEU) * NumEUsPerSubslice * NumSubslices;
+        TotalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
 
-        uint32_t groupSizePrev = groupSizes[0];
-        uint64_t threadsNeeded =
-            computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
-        while (threadsNeeded < totalThreads) {
-          groupSizePrev = groupSizes[0];
+        uint32_t GRPSizePrev = GRPSizes[0];
+        uint64_t ThreadsNeeded =
+            computeThreadsNeeded(TripCounts, GRPSizes, SimdWidth);
+        while (ThreadsNeeded < TotalThreads) {
+          GRPSizePrev = GRPSizes[0];
           // Try to half the local work size (if possible) and see
           // how many HW threads the kernel will require with this
           // new local work size.
-          // In most implementations the initial groupSizes[0]
+          // In most implementations the initial GRPSizes[0]
           // will be a power-of-two.
-          if (groupSizes[0] <= 1)
+          if (GRPSizes[0] <= 1)
             break;
-          groupSizes[0] >>= 1;
-          threadsNeeded =
-              computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+          GRPSizes[0] >>= 1;
+          ThreadsNeeded = computeThreadsNeeded(TripCounts, GRPSizes, SimdWidth);
         }
-        groupSizes[0] = groupSizePrev;
+        GRPSizes[0] = GRPSizePrev;
       }
     }
   }
 
-  for (int32_t i = 0; i < numLoopLevels; i++) {
-    if (i < distributeDim) {
-      groupCounts[i] = 1;
+  for (int32_t I = 0; I < NumLoops; I++) {
+    if (I < DistributeDim) {
+      GRPCounts[I] = 1;
       continue;
     }
-    size_t trip = tripCounts[i];
-    if (groupSizes[i] >= trip)
-      groupSizes[i] = trip;
-    size_t Count = (trip + groupSizes[i] - 1) / groupSizes[i];
+    size_t Trip = TripCounts[I];
+    if (GRPSizes[I] >= Trip)
+      GRPSizes[I] = Trip;
+    size_t Count = (Trip + GRPSizes[I] - 1) / GRPSizes[I];
     if (Count > UINT32_MAX) {
-      DP("Invalid group count %zu due to large loop trip count\n", Count);
+      DP("Invalid number of teams %zu due to large loop trip count\n", Count);
       return OFFLOAD_FAIL;
     }
-    groupCounts[i] = (uint32_t)Count;
+    GRPCounts[I] = (uint32_t)Count;
   }
 
-  GroupCounts.groupCountX = groupCounts[0];
-  GroupCounts.groupCountY = groupCounts[1];
-  GroupCounts.groupCountZ = groupCounts[2];
-  std::copy(groupSizes, groupSizes + 3, GroupSizes);
+  GroupCounts.groupCountX = GRPCounts[0];
+  GroupCounts.groupCountY = GRPCounts[1];
+  GroupCounts.groupCountZ = GRPCounts[2];
+  std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 
   return OFFLOAD_SUCCESS;
 }
@@ -3838,96 +3954,99 @@ static void decideKernelGroupArguments(
     DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
        DPxPTR(Kernel));
   }
-  auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
-  auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
-  uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
-  uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
-  uint32_t numSubslices = deviceProperties.numSlices *
-                          deviceProperties.numSubslicesPerSlice;
-  uint32_t numThreadsPerEU = deviceProperties.numThreadsPerEU;
-  bool maxGroupSizeForced = false;
-  bool maxGroupCountForced = false;
+  auto &ComputePR = DeviceInfo->ComputeProperties[DeviceId];
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  uint32_t MaxGroupSize = ComputePR.maxTotalGroupSize;
+  uint32_t NumEUsPerSubslice = DevicePR.numEUsPerSubslice;
+  uint32_t NumSubslices = DevicePR.numSlices * DevicePR.numSubslicesPerSlice;
+  uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
+  bool MaxGroupSizeForced = false;
+  bool MaxGroupCountForced = false;
 
   // Dump input data for the occupancy calculation to ease triaging.
-  DPI("numEUsPerSubslice: %" PRIu32 "\n", numEUsPerSubslice);
-  DPI("numSubslices: %" PRIu32 "\n", numSubslices);
-  DPI("numThreadsPerEU: %" PRIu32 "\n", numThreadsPerEU);
-  DPI("totalEUs: %" PRIu32 "\n", numEUsPerSubslice * numSubslices);
-  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  uint32_t kernelWidth = KernelProperty.Width;
-  uint32_t simdWidth = KernelProperty.SIMDWidth;
-  DP("Assumed kernel SIMD width is %" PRIu32 "\n", simdWidth);
-  DP("Preferred group size is multiple of %" PRIu32 "\n", kernelWidth);
-  assert(simdWidth <= kernelWidth && "Invalid SIMD width.");
+  DPI("NumEUsPerSubslice: %" PRIu32 "\n", NumEUsPerSubslice);
+  DPI("NumSubslices: %" PRIu32 "\n", NumSubslices);
+  DPI("NumThreadsPerEU: %" PRIu32 "\n", NumThreadsPerEU);
+  DPI("TotalEUs: %" PRIu32 "\n", NumEUsPerSubslice * NumSubslices);
+  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  uint32_t KernelWidth = KernelPR.Width;
+  uint32_t SIMDWidth = KernelPR.SIMDWidth;
+  DP("Assumed kernel SIMD width is %" PRIu32 "\n", SIMDWidth);
+  DP("Preferred team size is multiple of %" PRIu32 "\n", KernelWidth);
+  assert(SIMDWidth <= KernelWidth && "Invalid SIMD width.");
 
-  uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
-  if (kernelMaxThreadGroupSize < maxGroupSize) {
-    maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %" PRIu32
-       " due to kernel constraints.\n", maxGroupSize);
+  // Set correct max group size if the kernel was compiled with explicit SIMD
+  if (SIMDWidth == 1) {
+    MaxGroupSize = NumEUsPerSubslice * NumThreadsPerEU;
+  }
+
+  uint32_t KernelMaxThreadGroupSize = KernelPR.MaxThreadGroupSize;
+  if (KernelMaxThreadGroupSize < MaxGroupSize) {
+    MaxGroupSize = KernelMaxThreadGroupSize;
+    DP("Capping maximum team size to %" PRIu32
+       " due to kernel constraints.\n", MaxGroupSize);
   }
 
   if (ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (ThreadLimit <= maxGroupSize) {
-      maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
-         maxGroupSize);
+    if (ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = ThreadLimit;
+      DP("Max team size is set to %" PRIu32 " (thread_limit clause)\n",
+         MaxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         ThreadLimit, maxGroupSize);
+         ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
-      maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
-         maxGroupSize);
+    if (DeviceInfo->Option.ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = DeviceInfo->Option.ThreadLimit;
+      DP("Max team size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
+         MaxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         DeviceInfo->Option.ThreadLimit, maxGroupSize);
+         DeviceInfo->Option.ThreadLimit, MaxGroupSize);
     }
   }
 
-  uint32_t maxGroupCount = 0;
+  uint32_t MaxGroupCount = 0;
 
   if (NumTeams > 0) {
-    maxGroupCount = NumTeams;
-    maxGroupCountForced = true;
-    DP("Max group count is set to %" PRIu32
-       " (num_teams clause or no teams construct)\n", maxGroupCount);
+    MaxGroupCount = NumTeams;
+    MaxGroupCountForced = true;
+    DP("Max number of teams is set to %" PRIu32
+       " (num_teams clause or no teams construct)\n", MaxGroupCount);
   } else if (DeviceInfo->Option.NumTeams > 0) {
     // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
-    maxGroupCount = DeviceInfo->Option.NumTeams;
-    maxGroupCountForced = true;
-    DP("Max group count is set to %" PRIu32 " (OMP_NUM_TEAMS)\n",
-       maxGroupCount);
+    MaxGroupCount = DeviceInfo->Option.NumTeams;
+    MaxGroupCountForced = true;
+    DP("Max number of teams is set to %" PRIu32 " (OMP_NUM_TEAMS)\n",
+       MaxGroupCount);
   }
 
-  if (maxGroupCountForced) {
-    // If number of teams is specified by the user, then use kernelWidth
+  if (MaxGroupCountForced) {
+    // If number of teams is specified by the user, then use KernelWidth
     // WIs per WG by default, so that it matches
     // decideLoopKernelGroupArguments() behavior.
-    if (!maxGroupSizeForced) {
-      maxGroupSize = kernelWidth;
+    if (!MaxGroupSizeForced) {
+      MaxGroupSize = KernelWidth;
     }
   } else {
-    uint32_t numThreadsPerSubslice = numEUsPerSubslice * numThreadsPerEU;
-    maxGroupCount = numSubslices * numThreadsPerSubslice;
-    if (maxGroupSizeForced) {
+    uint32_t NumThreadsPerSubslice = NumEUsPerSubslice * NumThreadsPerEU;
+    MaxGroupCount = NumSubslices * NumThreadsPerSubslice;
+    if (MaxGroupSizeForced) {
       // Set group size for the HW capacity
-      uint32_t numThreadsPerGroup =
-          (maxGroupSize + simdWidth - 1) / simdWidth;
-      uint32_t numGroupsPerSubslice =
-          (numThreadsPerSubslice + numThreadsPerGroup - 1) / numThreadsPerGroup;
-      maxGroupCount = numGroupsPerSubslice * numSubslices;
+      uint32_t NumThreadsPerGroup = (MaxGroupSize + SIMDWidth - 1) / SIMDWidth;
+      uint32_t NumGroupsPerSubslice =
+          (NumThreadsPerSubslice + NumThreadsPerGroup - 1) / NumThreadsPerGroup;
+      MaxGroupCount = NumGroupsPerSubslice * NumSubslices;
     } else {
       // For kernels with cross-WG reductions use LWS equal
-      // to kernelWidth. This is just a performance heuristic.
+      // to KernelWidth. This is just a performance heuristic.
       if (KInfo && KInfo->getHasTeamsReduction() &&
           // Only do this for discrete devices.
           DeviceInfo->isDiscreteDevice(DeviceId) &&
@@ -3936,35 +4055,35 @@ static void decideKernelGroupArguments(
           // atomic-free reductions. We want to maximize
           // LWS for such kernels.
           !KInfo->isAtomicFreeReduction())
-        maxGroupSize = kernelWidth;
+        MaxGroupSize = KernelWidth;
 
-      assert(!maxGroupSizeForced && !maxGroupCountForced);
-      assert((maxGroupSize <= kernelWidth ||
-              maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
+      assert(!MaxGroupSizeForced && !MaxGroupCountForced);
+      assert((MaxGroupSize <= KernelWidth ||
+              MaxGroupSize % KernelWidth == 0) && "Invalid maxGroupSize");
       // Maximize group size
-      while (maxGroupSize >= kernelWidth) {
-        uint32_t numThreadsPerGroup =
-            (maxGroupSize + simdWidth - 1) / simdWidth;
-        if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
-          uint32_t numGroupsPerSubslice =
-              numThreadsPerSubslice / numThreadsPerGroup;
-          maxGroupCount = numGroupsPerSubslice * numSubslices;
+      while (MaxGroupSize >= KernelWidth) {
+        uint32_t NumThreadsPerGroup =
+            (MaxGroupSize + SIMDWidth - 1) / SIMDWidth;
+        if (NumThreadsPerSubslice % NumThreadsPerGroup == 0) {
+          uint32_t NumGroupsPerSubslice =
+              NumThreadsPerSubslice / NumThreadsPerGroup;
+          MaxGroupCount = NumGroupsPerSubslice * NumSubslices;
           break;
         }
-        maxGroupSize -= kernelWidth;
+        MaxGroupSize -= KernelWidth;
       }
     }
   }
 
-  uint32_t groupCounts[3] = {maxGroupCount, 1, 1};
-  uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
+  uint32_t GRPCounts[3] = {MaxGroupCount, 1, 1};
+  uint32_t GRPSizes[3] = {MaxGroupSize, 1, 1};
   if (KInfo && KInfo->getWINum()) {
-    groupSizes[0] =
-        (std::min)(KInfo->getWINum(), static_cast<uint64_t>(groupSizes[0]));
-    DP("Capping maximum thread group size to %" PRIu64
+    GRPSizes[0] =
+        (std::min)(KInfo->getWINum(), static_cast<uint64_t>(GRPSizes[0]));
+    DP("Capping maximum team size to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWINum());
   }
-  if (!maxGroupCountForced) {
+  if (!MaxGroupCountForced) {
     if (KInfo && KInfo->getHasTeamsReduction() &&
         DeviceInfo->Option.ReductionSubscriptionRate) {
       if (DeviceInfo->isDiscreteDevice(DeviceId) &&
@@ -3978,24 +4097,24 @@ static void decideKernelGroupArguments(
         // Also use reduction subscription rate 1 for kernels using
         // atomic-free reductions, unless user forced reduction subscription
         // rate via environment.
-        groupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
-        groupCounts[0] = (std::max)(groupCounts[0], 1u);
+        GRPCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
+        GRPCounts[0] = (std::max)(GRPCounts[0], 1u);
       }
     } else {
-      groupCounts[0] *= DeviceInfo->Option.SubscriptionRate;
+      GRPCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
   }
   if (KInfo && KInfo->getWGNum()) {
-    groupCounts[0] =
-        (std::min)(KInfo->getWGNum(), static_cast<uint64_t>(groupCounts[0]));
+    GRPCounts[0] =
+        (std::min)(KInfo->getWGNum(), static_cast<uint64_t>(GRPCounts[0]));
     DP("Capping maximum thread groups count to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWGNum());
   }
 
-  GroupCounts.groupCountX = groupCounts[0];
-  GroupCounts.groupCountY = groupCounts[1];
-  GroupCounts.groupCountZ = groupCounts[2];
-  std::copy(groupSizes, groupSizes + 3, GroupSizes);
+  GroupCounts.groupCountX = GRPCounts[0];
+  GroupCounts.groupCountY = GRPCounts[1];
+  GroupCounts.groupCountZ = GRPCounts[2];
+  std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
 #if INTEL_INTERNAL_BUILD
@@ -4024,7 +4143,13 @@ static int32_t runTargetTeamRegion(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
   assert(TgtEntryPtr && "Invalid kernel");
-  assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
+  // Libomptarget can pass negative NumTeams and ThreadLimit now after
+  // introducing __tgt_target_kernel. This happens only when we have valid
+  // LoopDesc and the region is not a teams region.
+  if (NumTeams < 0)
+    NumTeams = 0;
+  if (ThreadLimit < 0)
+    ThreadLimit = 0;
   DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
   int32_t RootId = DeviceId;
@@ -4513,8 +4638,9 @@ int32_t RTLDeviceInfoTy::getInternalDeviceId(int32_t DeviceId) {
 }
 
 void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
-                                 int32_t Kind, intptr_t Offset,
-                                 bool UserAlloc, bool Owned) {
+                                 int32_t Kind, intptr_t Offset, bool UserAlloc,
+                                 bool Owned, uint32_t MemAdvice,
+                                 int32_t CachedPool) {
   ScopedTimerTy TM(DeviceId, "DataAlloc");
   DeviceId = getInternalDeviceId(DeviceId);
   auto Device = DeviceInfo->Devices[DeviceId];
@@ -4522,12 +4648,15 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
     if (UserAlloc)
       Kind = (Option.TargetAllocKind == TARGET_ALLOC_DEFAULT) ?
              TARGET_ALLOC_DEVICE : Option.TargetAllocKind;
+    else if (CachedPool)
+      Kind = TARGET_ALLOC_DEVICE;
     else
       Kind = AllocKinds[DeviceId];
   }
   auto &Allocator = (Kind == TARGET_ALLOC_HOST)
                     ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
-  return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned);
+  return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned,
+                         MemAdvice, CachedPool);
 }
 
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
@@ -4536,10 +4665,42 @@ int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
   auto AllocType = getMemAllocType(Ptr);
   auto &Allocator = (AllocType == ZE_MEMORY_TYPE_HOST)
                     ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
+  if (AllocType == ZE_MEMORY_TYPE_SHARED) {
+    // We need to "clear" any "set" memory advice here. Otherwise, we can see
+    // inconsistent shared memory state if subsequent new allocation happen to
+    // use the same memory range.
+    const MemAllocInfoTy *Info = Allocator.getAllocInfo(Ptr);
+    if (Info && Info->MemAdvice != UINT32_MAX) {
+      uint32_t ClearAdvice;
+      switch (Info->MemAdvice) {
+      case ZE_MEMORY_ADVICE_SET_READ_MOSTLY:
+        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_READ_MOSTLY;
+        break;
+      case ZE_MEMORY_ADVICE_SET_PREFERRED_LOCATION:
+        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_PREFERRED_LOCATION;
+        break;
+      case ZE_MEMORY_ADVICE_SET_NON_ATOMIC_MOSTLY:
+        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_NON_ATOMIC_MOSTLY;
+        break;
+      default:
+        ClearAdvice = UINT32_MAX;
+      }
+      if (ClearAdvice != UINT32_MAX) {
+        auto CmdList = getLinkCopyCmdList(DeviceId);
+        auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
+        CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Ptr,
+                         Info->Size,
+                         static_cast<ze_memory_advice_t>(ClearAdvice));
+        CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
+        CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
+                         &CmdList, nullptr);
+        CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+        CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+      }
+    }
+  }
   return Allocator.dealloc(Ptr);
 }
-
-
 
 bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
   for (auto &E : DriverExtensions) {
@@ -4820,9 +4981,14 @@ int32_t RTLDeviceInfoTy::findDevices() {
      RegisterHostPointer = nullptr;
 
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
-          "zexDriverReleaseImportExternalPointer", &UnRegisterHostPointer);
+          "zexDriverReleaseImportedPointer", &UnRegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
      UnRegisterHostPointer = nullptr;
+
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
+          "zexDriverGetHostPointerBaseAddress", &GetHostPointerBaseAddress);
+  if (Rc != ZE_RESULT_SUCCESS)
+     GetHostPointerBaseAddress  = nullptr;
 
   return NumRootDevices;
 }
@@ -4907,7 +5073,7 @@ int32_t LevelZeroProgramTy::addModule(
   // module does not contain any kernels or globals.
   // FIXME: module build with "-library-compilation" does not work on iGPU now.
   // Keep the device check until XDEPS-3954 is resolved.
-  if (IsLibModule && DeviceInfo->isDiscreteDevice(DeviceId))
+  if (IsLibModule)
     BuildOptions += " -library-compilation ";
 
   ze_module_desc_t ModuleDesc{ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, Format};
@@ -4986,8 +5152,12 @@ int32_t LevelZeroProgramTy::addModule(
   bool BuildFailed = (RC != ZE_RESULT_SUCCESS);
   bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
   // Suppress build log if it is due to -library-compilation
-  bool SuppressLog =
-      !BuildFailed && IsLibModule && DeviceInfo->isDiscreteDevice(DeviceId);
+#if INTEL_INTERNAL_BUILD
+  // Track IsLibModule-related error only in the internal build.
+  bool SuppressLog = !BuildFailed && IsLibModule;
+#else // INTEL_INTERNAL_BUILD
+  bool SuppressLog = IsLibModule;
+#endif // INTEL_INTERNAL_BUILD
   if (!SuppressLog && (BuildFailed || ShowBuildLog)) {
     if (BuildFailed)
       DP("Error: module creation failed\n");
@@ -5011,10 +5181,16 @@ int32_t LevelZeroProgramTy::addModule(
   CALL_ZE_RET_FAIL(zeModuleBuildLogDestroy, BuildLog);
 
   if (BuildFailed) {
+    // We have an IGC issue related with "-library-compilation" in the latest
+    // driver affecting all OpenMP programs that do not have kernels. We just
+    // discard such cases for now to reduce the exposure of the issue.
+    if (IsLibModule)
+      return OFFLOAD_SUCCESS;
     return OFFLOAD_FAIL;
   } else {
-    // Check if module link is required
-    if (!RequiresModuleLink) {
+    // Check if module link is required. We do not need this check for
+    // library module
+    if (!RequiresModuleLink && !IsLibModule) {
       ze_module_properties_t Properties = {
         ZE_STRUCTURE_TYPE_MODULE_PROPERTIES, nullptr, 0
       };
@@ -5406,6 +5582,7 @@ bool LevelZeroProgramTy::loadOffloadTable(size_t NumEntries) {
     }
 
     Entry.Base.name = new char[NameSize];
+    std::fill(Entry.Base.name, Entry.Base.name + NameSize, 0);
     RC = DeviceInfo->enqueueMemCopy(DeviceId, Entry.Base.name, NameTgtAddr,
                                     NameSize);
     if (RC != OFFLOAD_SUCCESS)
@@ -5558,6 +5735,14 @@ int32_t LevelZeroProgramTy::buildKernels() {
   Entries.resize(NumEntries);
   Kernels.resize(NumEntries);
 
+  Table.EntriesBegin = &(Entries.data()[0]);
+  Table.EntriesEnd = &(Entries.data()[Entries.size()]);
+
+  if (IsLibModule) {
+    // Library module is not supposed to have any entries
+    return OFFLOAD_SUCCESS;
+  }
+
   auto EnableTargetGlobals = DeviceInfo->Option.Flags.EnableTargetGlobals;
   if (NumEntries > 0 && EnableTargetGlobals && !loadOffloadTable(NumEntries))
     DP("Warning: could not load offload table.\n");
@@ -5632,11 +5817,21 @@ int32_t LevelZeroProgramTy::buildKernels() {
     std::string KernelName(Name);
     auto K = ModuleKernels.find(KernelName);
     if (K == ModuleKernels.end()) {
-      // If a kernel was deleted by optimizations (e.g. DCE), then
-      // zeCreateKernel will fail. We expect that such a kernel
-      // will never be actually invoked.
-      DP("Warning: cannot find kernel %s\n", Name);
-      Kernels[I] = nullptr;
+      if (Image->EntriesBegin[I].flags & OMP_DECLARE_TARGET_FPTR) {
+        // Return device function ptr for entires marked as
+        // OMP_DECLARE_TARGET_FPTR and inherit flags from the host entry.
+        Entries[I].flags = Image->EntriesBegin[I].flags;
+        Entries[I].addr = getOffloadVarDeviceAddr(Name, Size);
+        DP("Returning device function pointer " DPxMOD
+           " for host function pointer " DPxMOD "\n",
+           DPxPTR(Entries[I].addr), DPxPTR(Image->EntriesBegin[I].addr));
+      } else {
+        // If a kernel was deleted by optimizations (e.g. DCE), then
+        // zeCreateKernel will fail. We expect that such a kernel
+        // will never be actually invoked.
+        DP("Warning: cannot find kernel %s\n", Name);
+        Kernels[I] = nullptr;
+      }
       continue;
     } else {
       Kernels[I] = K->second;
@@ -5653,18 +5848,30 @@ int32_t LevelZeroProgramTy::buildKernels() {
     auto &KernelProperties = DeviceInfo->KernelProperties[DeviceId][Kernels[I]];
     KernelProperties.Name = Name;
     ze_kernel_properties_t KP{ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, nullptr};
+#ifndef _WIN32
+    // TODO: enable on Windows when this becomes buildable
+    ze_kernel_preferred_group_size_properties_t KPrefGRPSize
+        {ZE_STRUCTURE_TYPE_KERNEL_PREFERRED_GROUP_SIZE_PROPERTIES, nullptr};
+    if (DeviceInfo->DriverAPIVersion >= ZE_API_VERSION_1_2)
+      KP.pNext = &KPrefGRPSize;
+#endif
     CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
     if (DeviceInfo->Option.ForcedKernelWidth > 0) {
       KernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
     } else {
-      KernelProperties.Width = KP.maxSubgroupSize;
       KernelProperties.SIMDWidth = KP.maxSubgroupSize;
-      // Temporary workaround before ze_kernel_preferred_group_size_properties_t
-      // becomes available with L0 1.2.
+      KernelProperties.Width = KP.maxSubgroupSize;
       // Here we try to match OpenCL kernel property
-      // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE.
-      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9)
-        KernelProperties.Width *= 2;
+      // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE for "Width".
+#ifndef _WIN32
+      if (KP.pNext)
+        KernelProperties.Width = KPrefGRPSize.preferredMultiple;
+#endif
+      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
+        // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
+        KernelProperties.Width =
+            (std::max)(KernelProperties.Width, 2 * KernelProperties.SIMDWidth);
+      }
     }
     DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, "
        "NumArgs = %" PRIu32 ", Handle = " DPxMOD "\n", I,
@@ -5683,9 +5890,6 @@ int32_t LevelZeroProgramTy::buildKernels() {
   // Release unused kernels
   for (auto &K : ModuleKernels)
     CALL_ZE_RET_FAIL(zeKernelDestroy, K.second);
-
-  Table.EntriesBegin = &(Entries.data()[0]);
-  Table.EntriesEnd = &(Entries.data()[Entries.size()]);
 
   return OFFLOAD_SUCCESS;
 }
@@ -5832,7 +6036,9 @@ int32_t LevelZeroProgramTy::initProgramData() {
     (uintptr_t)MemLB,    // Dynamic memory LB
     MemUB,               // Dynamic memory UB
     0,                   // Device type (0 for GPU, 1 for CPU)
-    MemPool              // Dynamic memory pool
+    MemPool,             // Dynamic memory pool
+    (int32_t)DeviceInfo->ComputeProperties[DeviceId].maxTotalGroupSize
+                         // Teams thread limit
   };
 
   return DeviceInfo->enqueueMemCopy(DeviceId, PGMDataPtr, &PGMData,
@@ -6091,13 +6297,21 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
 
 int32_t __tgt_rtl_supports_empty_images() { return 1; }
 
+#ifdef _WIN32
+EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
+  static std::once_flag Flag;
+  std::call_once(Flag, deinit);
+  return OFFLOAD_SUCCESS;
+}
+#endif // _WIN32
+
 
 ///
 /// Extended plugin interface
 ///
 
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase) {
+                                void *HstBase, int32_t CachedPool) {
   intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   int64_t AllocSize = Size;
   if (Offset < 0) {
@@ -6113,7 +6327,8 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
       AllocSize = AbsOffset + 1;
   }
   return DeviceInfo->dataAlloc(DeviceId, AllocSize, 0, TARGET_ALLOC_DEFAULT,
-                               Offset, false);
+                               Offset, false/* UserAlloc */, false/* Owned */,
+                               UINT32_MAX/* MemAdvice */, CachedPool);
 }
 
 void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
@@ -6246,16 +6461,6 @@ int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   DP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
      DeviceId, ret ? "" : " not", DPxPTR(DeviceType));
   return ret;
-}
-
-void __tgt_rtl_deinit(void) {
-  // No-op on Linux
-#ifdef _WIN32
-  if (DeviceInfo) {
-    closeRTL();
-    deinit();
-  }
-#endif // _WIN32
 }
 
 __tgt_interop *__tgt_rtl_create_interop(
@@ -6571,7 +6776,7 @@ int32_t __tgt_rtl_set_function_ptr_map(
         std::min<uint64_t>(Size, static_cast<uint64_t>(DebugLevel) * 5);
     for (uint64_t I = 0; I < PrintEntriesNum; ++I) {
       DP("\t{ " DPxMOD ", " DPxMOD " }\n",
-         DPxPTR(FnPtrs[I].host_ptr), DPxPTR(FnPtrs[I].tgt_ptr));
+         DPxPTR(FnPtrs[I].HostPtr), DPxPTR(FnPtrs[I].TargetPtr));
     }
     if (PrintEntriesNum < Size)
       DP("\t... increase LIBOMPTARGET_DEBUG to see more entries ...\n");
@@ -6741,4 +6946,78 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
   return OFFLOAD_SUCCESS;
 }
 
+void *__tgt_rtl_data_aligned_alloc_shared(int32_t DeviceId, size_t Align,
+                                          size_t Size, int32_t AccessHint) {
+  if (Align != 0 && (Align & (Align - 1)) != 0) {
+    DP("Error: Alignment %zu is not power of two.\n", Align);
+    return nullptr;
+  }
+
+  uint32_t MemAdvice = static_cast<uint32_t>(AccessHint);
+  // Ignore hints that are unknown or not effective. This is allocation-time
+  // hint, so L0 hint with "CLEAR" action does not have any effect.
+  // Host runtime is responsible for defining meaningful enum constants for the
+  // "effective" access hints listed below.
+  switch (MemAdvice) {
+  case ZE_MEMORY_ADVICE_SET_READ_MOSTLY:
+  case ZE_MEMORY_ADVICE_SET_PREFERRED_LOCATION:
+  case ZE_MEMORY_ADVICE_SET_NON_ATOMIC_MOSTLY:
+  case ZE_MEMORY_ADVICE_BIAS_CACHED:
+  case ZE_MEMORY_ADVICE_BIAS_UNCACHED:
+    break;
+  default:
+    DP("Ignoring unknown/ineffective access hints %" PRId32 "\n", AccessHint);
+    MemAdvice = UINT32_MAX;
+  }
+
+  void *Mem = DeviceInfo->dataAlloc(DeviceId, Size, Align, TARGET_ALLOC_SHARED,
+                                    0/*Offset*/, true/*UserAlloc*/,
+                                    false/*Owned*/, MemAdvice/*MemAdvice*/);
+  if (!Mem) {
+    DP("Error: Cannot allocate shared memory with size %zu, align %zu\n", Size,
+       Align);
+    return nullptr;
+  }
+
+  if (MemAdvice == UINT32_MAX)
+    return Mem;
+
+  auto CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+  auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+  auto Device = DeviceInfo->Devices[DeviceId];
+  CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Mem, Size,
+                   static_cast<ze_memory_advice_t>(MemAdvice));
+  CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
+  CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                   nullptr);
+  CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+
+  return Mem;
+}
+
+int32_t __tgt_rtl_prefetch_shared_mem(int32_t DeviceId, size_t NumPtrs,
+                                      void **Ptrs, size_t *Sizes) {
+  if (NumPtrs == 0)
+    return OFFLOAD_SUCCESS;
+
+  if (!Ptrs || !Sizes) {
+    DP("Error: Invalid input while attempting shared memory prefetch\n");
+    return OFFLOAD_FAIL;
+  }
+
+  auto CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+  auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+  for (size_t I = 0; I < NumPtrs; I++) {
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryPrefetch, CmdList, Ptrs[I],
+                     Sizes[I]);
+  }
+  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                   nullptr);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+
+  return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_CUSTOMIZATION

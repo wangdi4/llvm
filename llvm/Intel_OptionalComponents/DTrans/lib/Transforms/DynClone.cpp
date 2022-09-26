@@ -264,8 +264,7 @@ template <class InfoClass> class DynCloneImpl {
 
   // Functor that compares Function* using alphabetical ordering of the
   // function's name.
-  struct CompareFuncPtr
-      : public std::binary_function<Function *, Function *, bool> {
+  struct CompareFuncPtr {
     bool operator()(const Function *lhs, const Function *rhs) const {
       if (lhs == nullptr || rhs == nullptr)
         return lhs < rhs;
@@ -4735,14 +4734,6 @@ void DynCloneImpl<InfoClass>::fillupCoderRoutine(Function *F, bool IsEncoder) {
 template <class InfoClass> bool DynCloneImpl<InfoClass>::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
-
-  // Does not support 32-bit DTransDynCloneShrTyWidth and
-  // DTransDynCloneSignShrunkenIntType with opaque pointer yet.
-  if (dtrans::shouldRunOpaquePointerPasses(M)) {
-    if (DTransDynCloneShrTyWidth == 32)
-      DTransDynCloneShrTyWidth = 16;
-    DTransDynCloneSignShrunkenIntType = false;
-  }
 
   ShrunkenIntTy =
             Type::getIntNTy(M.getContext(), DTransDynCloneShrTyWidth);

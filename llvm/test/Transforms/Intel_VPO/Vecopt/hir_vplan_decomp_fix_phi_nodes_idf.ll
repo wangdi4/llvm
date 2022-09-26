@@ -4,10 +4,8 @@
 ; missing PHI node due to lack of use. The issue is addressed when IDF based
 ; PHI node placement algorithm is executed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <50>    + DO i1 = 0, %n + -1, 1   <DO_LOOP>
@@ -128,7 +126,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.118, label %omp.precond.end
 
 DIR.OMP.SIMD.118:                                 ; preds = %entry
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR"(i64* %i, i32 1), "QUAL.OMP.LINEAR"(i64* %j, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %i, i64 0, i32 1, i32 1), "QUAL.OMP.LINEAR:TYPED"(i64* %j, i64 0, i32 1, i32 1) ]
   %cmp622 = icmp sgt i64 %m, 0
   br label %omp.inner.for.body
 

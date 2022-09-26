@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that Field-reordering transformation is applied
 ; correctly to sdiv and udiv instructions with constant and non-constant
 ; sizes related to %struct.T.

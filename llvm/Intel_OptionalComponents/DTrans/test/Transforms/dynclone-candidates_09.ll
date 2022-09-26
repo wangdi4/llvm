@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone can handle argument assignments to
 ; possible candidate fields while pruning candidate fields. First argument
 ; of proc3 routine is assigned to field_1 of %struct.test.01. Possible values
@@ -101,5 +103,7 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

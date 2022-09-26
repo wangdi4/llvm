@@ -8,9 +8,7 @@
 ;
 ; ; HIR-run.
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; Marking as fail due to the test in test_pointer_induction_escape function is incorrect.
 ; The test contains inducitons of pointers to private arrays. This is an incorrect
@@ -63,7 +61,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv, [1024 x i32]* %arr_e2.priv), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LASTPRIVATE"(i32* %index.lpriv), "QUAL.OMP.PRIVATE"(i32** %ptr.priv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e2.priv, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %index.lpriv, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32** %ptr.priv, i32* null, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
@@ -124,7 +122,7 @@ define void @test_bitcast() {
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([624 x i32]* %arr_e1.priv, [624 x i32]* %arr_e2.priv, [624 x i32]* %arr_e3.priv, [624 x i32]* %arr_e4.priv, [624 x i32]* %arr_e5.priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([624 x i32]* %arr_e1.priv, i32 0, i32 624), "QUAL.OMP.PRIVATE:TYPED"([624 x i32]* %arr_e2.priv, i32 0, i32 624), "QUAL.OMP.PRIVATE:TYPED"([624 x i32]* %arr_e3.priv, i32 0, i32 624), "QUAL.OMP.PRIVATE:TYPED"([624 x i32]* %arr_e4.priv, i32 0, i32 624), "QUAL.OMP.PRIVATE:TYPED"([624 x i32]* %arr_e5.priv, i32 0, i32 624) ]
   br label %simd.loop
 
 simd.loop:
@@ -227,7 +225,7 @@ define void @test_negative(i32 (i32 *)** nocapture readonly %p2) {
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32** %ptr.priv, [624 x i32]* %arr_e.priv, [624 x i32*]* %arr_e1.priv, {i32, [624 x i32]}* %struct.priv, [100 x {i32}]* %arr.struct.priv, [100 x {i32}*]* %arr.struct.ptr.priv, <4 x i32>* %vec.priv, [100 x <4 x i32>]* %arr.vec.priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32** %ptr.priv, i32* null, i32 1), "QUAL.OMP.PRIVATE:TYPED"([624 x i32]* %arr_e.priv, i32 0, i32 624), "QUAL.OMP.PRIVATE:TYPED"([624 x i32*]* %arr_e1.priv, i32 0, i32 624), "QUAL.OMP.PRIVATE:TYPED"({i32, [624 x i32]}* %struct.priv, {i32, [624 x i32]} zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"([100 x {i32}]* %arr.struct.priv, {i32} zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"([100 x {i32}*]* %arr.struct.ptr.priv, {i32} zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(<4 x i32>* %vec.priv, <4 x i32> zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"([100 x <4 x i32>]* %arr.vec.priv, <4 x i32> zeroinitializer, i32 100) ]
   br label %simd.loop
 
 simd.loop:
@@ -267,7 +265,7 @@ define void @test_pointer_induction_escape() {
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv, [1024 x i32]* %arr_ne.priv ) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_ne.priv, i32 0, i32 1024) ]
   br label %simd.loop
 
 simd.loop:

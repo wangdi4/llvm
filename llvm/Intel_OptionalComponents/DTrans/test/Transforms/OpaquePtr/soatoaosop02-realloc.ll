@@ -171,11 +171,13 @@ entry:
 }
 
 declare !intel.dtrans.func.type !34 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
-declare !intel.dtrans.func.type !35 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !35 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 
 ; XCHECK: Deps computed: 23, Queries: 55
 
 declare void @llvm.dbg.value(metadata, metadata, metadata)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4, !5}

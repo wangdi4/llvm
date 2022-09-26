@@ -15,7 +15,6 @@
 #include "Compiler.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
-#include "CompilationUtils.h"
 #include "CompilerConfig.h"
 #include "OptimizerLTO.h"
 #include "OptimizerLTOLegacyPM.h"
@@ -179,8 +178,7 @@ CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
     m_disableOpt(false),
     m_relaxedMath(false),
     m_denormalsZero(false),
-    m_uniformWGSize(false),
-    m_APFLevel(0)
+    m_uniformWGSize(false)
 {
     llvm::StringRef buildOptions(pBuildOpts);
 
@@ -203,8 +201,6 @@ CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
          m_denormalsZero = true;
        else if (opt.equals("-cl-uniform-work-group-size"))
          m_uniformWGSize = true;
-       else if (opt.compare("-auto-prefetch-level") == 1)
-         opt.substr(opt.find("=") + 1).getAsInteger(10, m_APFLevel);
      }
 }
 
@@ -327,7 +323,6 @@ void Compiler::Terminate()
 
 Compiler::Compiler(const ICompilerConfig &config)
     : m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
-      m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
       m_transposeSize(config.GetTransposeSize()),
       m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
       m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()), m_debug(false),
@@ -344,10 +339,6 @@ Compiler::~Compiler()
     // WORKAROUND!!! See the notes in TerminationBlocker description
     if( Utils::TerminationBlocker::IsReleased() )
         return;
-
-    for (auto &C : m_LLVMContexts)
-        delete C.second;
-    m_LLVMContexts.clear();
 }
 
 void Compiler::materializeSpirTriple(llvm::Module *M) {
@@ -392,7 +383,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   // the OpenCL Spec).
   // Disabling Codegen's -do-x86-global-fma optimization in this situation
   // could improve the precision (Only apply this for OpenCL program).
-  if (!llvm::CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
+  if (!CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
       CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
 
@@ -426,19 +417,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
     validateVectorizerMode(pResult->LogS());
 
-    // Check if given program is valid for the target.
-    if (!isProgramValid(pModule, pResult))
-    {
-        throw Exceptions::CompilerException(
-          "Program is not valid for this target", CL_DEV_INVALID_BINARY);
-    }
-
     CompilerBuildOptions buildOptions(pBuildOptions);
-    if (m_bIsEyeQEmulator)
-    {
-        buildOptions.SetRelaxedMath(false);
-        buildOptions.SetDenormalsZero(true);
-    }
 
     // Record the debug control flags.
     m_debug = buildOptions.GetDebugInfoFlag();
@@ -473,9 +452,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             buildOptions.GetRelaxedMath(),
                                             buildOptions.GetUniformWGSize(),
                                             m_bIsFPGAEmulator,
-                                            m_bIsEyeQEmulator,
                                             m_dumpHeuristicIR,
-                                            buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor,
                                             m_streamingAlways,
                                             m_expensiveMemOpts);
@@ -590,24 +567,6 @@ SmallVector<std::unique_ptr<Module>, 2>
 Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
     SmallVector<std::unique_ptr<Module>, 2> builtinsModules;
     LLVMContext &Ctx = getLLVMContext();
-    llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4>
-        rtlBuffersForEyeQEmulationMode = pLibrary->GetRtlBuffersForEyeQEmulationMode();
-    // This is an empty loop unless in EyeQ emulation mode
-    for (std::unique_ptr<llvm::MemoryBuffer> &rtlBufferForEyeQEmulationMode :
-         rtlBuffersForEyeQEmulationMode) {
-        assert(rtlBufferForEyeQEmulationMode &&
-               "rtlBufferForEyeQEmulationMode is NULL pointer");
-        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
-            expectedToErrorOrAndEmitErrors(
-                Ctx, llvm::getOwningLazyBitcodeModule(
-                         std::move(rtlBufferForEyeQEmulationMode), Ctx));
-
-        if (!spModuleOrErr) {
-            throw Exceptions::CompilerException(
-                "Failed to allocate/parse buitin module");
-        }
-        builtinsModules.push_back(std::move(spModuleOrErr.get()));
-    }
 
     std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(pLibrary->GetRtlBuffer());
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
@@ -634,6 +593,11 @@ Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
 
     auto &spModule = spModuleOrErr.get();
     auto *pModule = spModule.get();
+    // Note: the order of builtinsModules matters, BuiltinImport pass will
+    // try to import functions in a precedent module first.
+    // We explicitly insert the target-specific module first, so that the
+    // function definitions in the target-specific RTL can override those of
+    // shared RTL.
     builtinsModules.push_back(std::move(spModule));
 
     // the shared RTL is loaded here
@@ -653,20 +617,10 @@ Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
     pModuleSvmlShared->setTargetTriple(pModule->getTargetTriple());
     pModuleSvmlShared->setDataLayout(pModule->getDataLayout());
 
+    // Make sure the shared RTL module is inserted after the target-specific
+    // module.
     builtinsModules.push_back(std::move(pModuleSvmlShared));
     return builtinsModules;
-}
-
-bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
-{
-    // Check for the limitation: "Images are not supported on Xeon Phi".
-    if (m_CpuId->GetCPU() == Intel::OpenCL::Utils::CPU_KNL &&
-        CompilationUtils::isImagesUsed(*pModule)) {
-      pResult->LogS() << "Images are not supported on given device.\n";
-      return false;
-    }
-
-    return true;
 }
 
 void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
@@ -709,13 +663,24 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
     return *strTargetTriple;
 }
 
+llvm::LLVMContext* Compiler::resetLLVMContextForCurrentThread() {
+  std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
+  auto NewCtx = std::make_unique<LLVMContext>();
+  auto NewCtxPtr = NewCtx.get();
+  auto It = m_LLVMContexts.find(std::this_thread::get_id());
+  assert(It != m_LLVMContexts.end() && "LLVMContext should already exist");
+  It->second.swap(NewCtx);
+  m_depletedLLVMContexts.push_back(std::move(NewCtx));
+  return NewCtxPtr;
+}
+
 llvm::LLVMContext& Compiler::getLLVMContext() {
-    std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
-    auto TID = std::this_thread::get_id();
-    auto It = m_LLVMContexts.find(TID);
-    if (It == m_LLVMContexts.end())
-        It = m_LLVMContexts.insert(std::make_pair(TID, new LLVMContext)).first;
-    return *It->second;
+  std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
+  auto TID = std::this_thread::get_id();
+  auto It = m_LLVMContexts.find(TID);
+  if (It == m_LLVMContexts.end())
+      It = m_LLVMContexts.emplace(TID, std::make_unique<LLVMContext>()).first;
+  return *It->second;
 }
 
 }}}

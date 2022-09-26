@@ -1,6 +1,4 @@
-;  XFAIL: *
-; RUN: opt -hir-details -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-details -passes="hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Note: test uses an LLVM IR after SSA deconstruction.
 
@@ -26,36 +24,28 @@
 ;       + END LOOP
 ; END REGION
 
-; The loop after the distribution
+; *** IR Dump After HIRLoopDistributionForMemRecPass ***
 
-; BEGIN REGION { modified }
-;       + DO i1 = 0, 31, 1   <DO_LOOP>
-;       |   %0 = (%b)[i1];
-;       |   (%.TempArray)[0][i1] = %0;
-;       |   %t.1 = 0;
-;       |   (%.TempArray1)[0][i1] = 0;
-;       + END LOOP
-;
-;
-;       + DO i1 = 0, 31, 1   <DO_LOOP>
-;       |   %0 = (%.TempArray)[0][i1];
-;       |   %t.1 = (%.TempArray1)[0][i1];  << Here %t.1 should not have %conv BlobDDRef
-;       |   if (%n != 0)
-;       |   {
-;       |      %conv = fptosi.float.i32(%0);
-;       |      %conv3 = sitofp.i32.float(i1);
-;       |      %add = %conv3  +  1.000000e+00;
-;       |      (%b)[i1] = %add;
-;       |      (%a)[i1 + -1] = 100;
-;       |      %t.1 = %conv + 1;
-;       |   }
-;       + END LOOP
-; END REGION
-
-; CHECK: %t.1 = (%.TempArray1)[0][i1];
-; CHECK: <LVAL-REG> NON-LINEAR i32 %t.1
-; CHECK-NOT: <BLOB>
-; CHECK: <RVAL-REG> (LINEAR [64 x i32]* %.TempArray1)
+; CHECK: BEGIN REGION { modified }
+; CHECK:       + DO i1 = 0, 31, 1   <DO_LOOP>
+;              |   %0 = (%b)[i1];
+; CHECK:       |   (%.TempArray)[0][i1] = %0;
+;              |   %t.1 = 0;
+; CHECK:       + END LOOP
+; CHECK:       + DO i1 = 0, 31, 1   <DO_LOOP>
+; CHECK:       |   %0 = (%.TempArray)[0][i1];
+; CHECK:       |   %t.1 = 0;
+; CHECK:       |   if (%n != 0)
+;              |   {
+; CHECK:       |      %conv = fptosi.float.i32(%0);
+;              |      %conv3 = sitofp.i32.float(i1);
+;              |      %add = %conv3  +  1.000000e+00;
+;              |      (%b)[i1] = %add;
+;              |      (%a)[i1 + -1] = 100;
+; CHECK:       |      %t.1 = %conv + 1;
+;              |   }
+;              + END LOOP
+;        END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

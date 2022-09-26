@@ -1,4 +1,21 @@
 //===- X86InstrCompiler.td - Compiler Pseudos and Patterns -*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -254,6 +271,15 @@ let isPseudo = 1, SchedRW = [WriteSystem] in {
                             "#SEH_EndPrologue", []>;
   def SEH_Epilogue : I<0, Pseudo, (outs), (ins),
                             "#SEH_Epilogue", []>;
+}
+
+//===----------------------------------------------------------------------===//
+// Pseudo instructions used by KCFI.
+//===----------------------------------------------------------------------===//
+let
+  Defs = [R10, EFLAGS] in {
+def KCFI_CHECK : PseudoI<
+  (outs), (ins GR64:$ptr, i32imm:$type), []>, Sched<[]>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -562,12 +588,26 @@ let usesCustomInserter = 1, hasNoSchedulingInfo = 1, Uses = [EFLAGS] in {
   let Predicates = [HasMMX] in
     defm _VR64   : CMOVrr_PSEUDO<VR64, x86mmx>;
 
-  defm _FR16X    : CMOVrr_PSEUDO<FR16X, f16>;
   let Predicates = [HasSSE1,NoAVX512] in
     defm _FR32   : CMOVrr_PSEUDO<FR32, f32>;
+  let Predicates = [HasSSE2,NoAVX512] in {
+    defm _FR16   : CMOVrr_PSEUDO<FR16, f16>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  let Predicates = [HasSSE2,NoAVX512] in
+    defm _BFR16   : CMOVrr_PSEUDO<BFR16, bf16>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   let Predicates = [HasSSE2,NoAVX512] in
     defm _FR64   : CMOVrr_PSEUDO<FR64, f64>;
+  }
   let Predicates = [HasAVX512] in {
+    defm _FR16X  : CMOVrr_PSEUDO<FR16X, f16>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+    defm _BFR16X : CMOVrr_PSEUDO<BFR16X, bf16>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
     defm _FR32X  : CMOVrr_PSEUDO<FR32X, f32>;
     defm _FR64X  : CMOVrr_PSEUDO<FR64X, f64>;
   }
@@ -620,6 +660,12 @@ let Predicates = [HasVLX] in {
             (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
   def : Pat<(v8i16 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  def : Pat<(v8bf16 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
+            (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8f16 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
   def : Pat<(v4i32 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
@@ -633,6 +679,12 @@ let Predicates = [HasVLX] in {
             (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
   def : Pat<(v16i16 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  def : Pat<(v16bf16 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
+            (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16f16 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
   def : Pat<(v8i32 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
@@ -647,6 +699,12 @@ def : Pat<(v64i8 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
           (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
 def : Pat<(v32i16 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
           (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v32bf16 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
+          (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v32f16 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
           (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
 def : Pat<(v16i32 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
@@ -1527,44 +1585,6 @@ def : Pat<(xor GR16:$src1, -32768),
           (ADD16ri GR16:$src1, -32768)>;
 def : Pat<(xor GR32:$src1, -2147483648),
           (ADD32ri GR32:$src1, -2147483648)>;
-}
-
-//===----------------------------------------------------------------------===//
-// Pattern match SUB as XOR
-//===----------------------------------------------------------------------===//
-
-// An immediate in the LHS of a subtract can't be encoded in the instruction.
-// If there is no possibility of a borrow we can use an XOR instead of a SUB
-// to enable the immediate to be folded.
-// TODO: Move this to a DAG combine?
-
-def sub_is_xor : PatFrag<(ops node:$lhs, node:$rhs), (sub node:$lhs, node:$rhs),[{
-  if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(N->getOperand(0))) {
-    KnownBits Known = CurDAG->computeKnownBits(N->getOperand(1));
-
-    // If all possible ones in the RHS are set in the LHS then there can't be
-    // a borrow and we can use xor.
-    return (~Known.Zero).isSubsetOf(CN->getAPIntValue());
-  }
-
-  return false;
-}]>;
-
-let AddedComplexity = 5 in {
-def : Pat<(sub_is_xor imm:$src2, GR8:$src1),
-          (XOR8ri GR8:$src1, imm:$src2)>;
-def : Pat<(sub_is_xor i16immSExt8:$src2, GR16:$src1),
-          (XOR16ri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(sub_is_xor imm:$src2, GR16:$src1),
-          (XOR16ri GR16:$src1, imm:$src2)>;
-def : Pat<(sub_is_xor i32immSExt8:$src2, GR32:$src1),
-          (XOR32ri8 GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(sub_is_xor imm:$src2, GR32:$src1),
-          (XOR32ri GR32:$src1, imm:$src2)>;
-def : Pat<(sub_is_xor i64immSExt8:$src2, GR64:$src1),
-          (XOR64ri8 GR64:$src1, i64immSExt8:$src2)>;
-def : Pat<(sub_is_xor i64immSExt32:$src2, GR64:$src1),
-          (XOR64ri32 GR64:$src1, i64immSExt32:$src2)>;
 }
 
 //===----------------------------------------------------------------------===//

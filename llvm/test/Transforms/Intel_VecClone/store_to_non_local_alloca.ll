@@ -7,7 +7,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable willreturn writeonly mustprogress
 define dso_local void @foo1(i32* nocapture nonnull align 4 dereferenceable(4) %p, i32 %i) local_unnamed_addr #0 {
-; CHECK:  define dso_local void @_ZGVbN2vl_foo1(<2 x i32*> nocapture nonnull align 4 dereferenceable(4) [[P0:%.*]], i32 [[I0:%.*]]) local_unnamed_addr #1 {
+; CHECK:  define dso_local void @_ZGVbN2vl_foo1(<2 x i32*> nocapture nonnull align 4 dereferenceable(4) [[P0:%.*]], i32 [[I0:%.*]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_I0:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    store i32 [[I0]], i32* [[ALLOCA_I0]], align 4
@@ -51,8 +51,8 @@ entry:
   ret void
 }
 
-define dso_local void @foo2(i32* nocapture %p, i32 %i) local_unnamed_addr #0 {
-; CHECK:  define dso_local void @_ZGVbN2vl_foo2(<2 x i32*> nocapture [[P0:%.*]], i32 [[I0:%.*]]) local_unnamed_addr #1 {
+define dso_local void @foo2(i32* nocapture %p, i32 %i) local_unnamed_addr #1 {
+; CHECK:  define dso_local void @_ZGVbN2vl_foo2(<2 x i32*> nocapture [[P0:%.*]], i32 [[I0:%.*]]) local_unnamed_addr #4 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_I0:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    store i32 [[I0]], i32* [[ALLOCA_I0]], align 4
@@ -98,4 +98,5 @@ entry:
   ret void
 }
 
-attributes #0 = { nounwind uwtable "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "vector-variants"="_ZGVbN2vl_" }
+attributes #0 = { nounwind uwtable "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "vector-variants"="_ZGVbN2vl_foo1" }
+attributes #1 = { nounwind uwtable "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "vector-variants"="_ZGVbN2vl_foo2" }

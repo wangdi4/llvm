@@ -18,7 +18,7 @@
 ;       @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;v2s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;v2s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }
@@ -57,7 +57,7 @@
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC170]])
-; CHECK-NEXT:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC130]]
 ; CHECK-NEXT:        [[TGU190:%.*]] = [[N0]]  /u  2
 ; CHECK-NEXT:        [[VEC_TC200:%.*]] = [[TGU190]]  *  2
 ; CHECK-NEXT:        [[DOTVEC210:%.*]] = [[VEC_TC200]] == [[VEC_TC130]]
@@ -75,17 +75,18 @@
 ; CHECK-NEXT:        [[VEC_TC300:%.*]] = [[TGU290]]  *  2
 ; CHECK-NEXT:        [[RED_INIT310:%.*]] = 0
 ; CHECK-NEXT:        [[RED_INIT_INSERT320:%.*]] = insertelement [[RED_INIT310]],  [[PHI_TEMP70]],  0
+; CHECK-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP90]] + <i64 0, i64 1>
 ; CHECK-NEXT:        [[PHI_TEMP330:%.*]] = [[RED_INIT_INSERT320]]
 ; CHECK-NEXT:        [[LOOP_UB350:%.*]] = [[VEC_TC300]]  -  1
 
-; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB350]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB350]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:        |   [[DOTVEC360:%.*]] = (<2 x i32>*)([[A0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC370:%.*]] = [[DOTVEC360]]  +  [[PHI_TEMP330]]
 ; CHECK-NEXT:        |   [[PHI_TEMP330]] = [[DOTVEC370]]
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v2i32([[DOTVEC370]])
-; CHECK:             [[IND_FINAL400:%.*]] = [[LOOP_UB350]]  +  1
+; CHECK:             [[IND_FINAL400:%.*]] = 0 + [[VEC_TC300]]
 ; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL400]]
 ; CHECK-NEXT:        [[MERGE_AFTER_VEC_REM]]:
@@ -105,7 +106,7 @@
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
 ; CHECK-NEXT:        [[SUM_070]] = [[PHI_TEMP0]]
 
-; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
 ; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
 ; CHECK-NEXT:        + END LOOP

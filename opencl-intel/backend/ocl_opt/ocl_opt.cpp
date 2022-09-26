@@ -74,7 +74,6 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Coroutines.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -279,11 +278,6 @@ static cl::opt<bool> DiscardValueNames(
     cl::desc("Discard names from Value (other than GlobalValue)."),
     cl::init(false), cl::Hidden);
 
-static cl::opt<bool> Coroutines(
-  "enable-coroutines",
-  cl::desc("Enable coroutine passes."),
-  cl::init(false), cl::Hidden);
-
 static cl::opt<bool> PassRemarksWithHotness(
     "pass-remarks-with-hotness",
     cl::desc("With PGO, include profile count in optimization remarks"),
@@ -306,11 +300,8 @@ RuntimeLib(cl::CommaSeparated, "runtimelib",
 
 static cl::opt<std::string>
 RuntimeServices("runtime",
-                  cl::desc("Runtime services type (ocl/dx/rs)"),
+                  cl::desc("Runtime services type (ocl)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
-
-extern "C" Pass *createBuiltinLibInfoPass(ArrayRef<Module *> builtinsList,
-                                          std::string type);
 
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,
                                  llvm::legacy::PassManager& passMgr) {
@@ -340,7 +331,6 @@ static void addMustHaveOCLPasses(llvm::LLVMContext& context,
 
   // Always add the BuiltinLibInfo Pass to the Pass Manager
   passMgr.add(createBuiltinLibInfoAnalysisLegacyPass(runtimeModuleList));
-  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, RuntimeServices));
   passMgr.add(createImplicitArgsAnalysisLegacyPass());
 }
 
@@ -394,9 +384,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
 
   if (TM)
     TM->adjustPassManager(Builder);
-
-  if (Coroutines)
-    addCoroutinePassesToExtensionPoints(Builder);
 
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
@@ -475,7 +462,6 @@ int main(int argc, char **argv) {
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
-  initializeCoroutines(Registry);
   initializeScalarOpts(Registry);
   initializeObjCARCOpts(Registry);
   initializeVectorization(Registry);
@@ -501,8 +487,6 @@ int main(int argc, char **argv) {
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
   initializeGlobalMergePass(Registry);
   initializeInterleavedAccessPass(Registry);
-  initializeEntryExitInstrumenterPass(Registry);
-  initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeExpandReductionsPass(Registry);
   initializeWriteBitcodePassPass(Registry);
@@ -870,9 +854,7 @@ int main(int argc, char **argv) {
       if (EmitModuleHash)
         report_fatal_error("Text output is incompatible with -module-hash");
       Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
-    } else if (OutputThinLTOBC)
-      Passes.add(createWriteThinLTOBitcodePass(
-          *OS, ThinLinkOut ? &ThinLinkOut->os() : nullptr));
+    }
     else
       Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder,
                                          EmitSummaryIndex, EmitModuleHash));

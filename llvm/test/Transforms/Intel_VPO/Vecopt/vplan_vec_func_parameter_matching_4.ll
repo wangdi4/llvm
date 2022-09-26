@@ -41,8 +41,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV"(i64* %i.linear.iv, i32 1
-), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
@@ -65,8 +64,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body9
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV"(i64* %i.linear.iv36, i32
- 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv36, i64 0, i32 1, i32 1) ]
   br label %omp.inner.for.body9
 
 omp.inner.for.body9:                              ; preds = %omp.inner.for.body9, %DIR.OMP.END.SIMD.3

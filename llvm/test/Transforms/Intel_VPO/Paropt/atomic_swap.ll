@@ -1,7 +1,8 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
 ; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -S %s | FileCheck %s
-;
+
 ; Test src:
+;
 ; short x = 10;
 ; long v = 2;
 ; double e = 1.0;
@@ -11,9 +12,15 @@
 ; #pragma omp atomic capture
 ;    { v = x; x = e; }
 ; }
-;
-; ModuleID = 'atomic_swap.c'
-source_filename = "atomic_swap.c"
+
+; CHECK-NOT: %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
+; CHECK: %[[EXPR:[0-9]+]] = load double, ptr @e, align 8
+; CHECK-NEXT: %[[EXPRCAST:conv[0-9]*]] = fptosi double %[[EXPR]] to i16
+; CHECK:  %[[RET:[0-9]+]] = call i16 @__kmpc_atomic_fixed2_swp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, ptr @x, i16 %[[EXPRCAST]])
+; CHECK-NEXT: %[[RETCAST:[a-zA-Z._0-9]+]] = sext i16 %[[RET]] to i64
+; CHECK-NEXT: store i64 %[[RETCAST]], ptr @v
+; CHECK-NOT: call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -21,29 +28,20 @@ target triple = "x86_64-unknown-linux-gnu"
 @v = dso_local global i64 2, align 8
 @e = dso_local global double 1.000000e+00, align 8
 
-; Function Attrs: nounwind uwtable
+; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @foo() #0 {
 entry:
-; CHECK-NOT: %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
-
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(),
+    "QUAL.OMP.CAPTURE"() ]
   fence acquire
-  %1 = load i16, i16* @x, align 2
+  %1 = load i16, ptr @x, align 2
   %conv = sext i16 %1 to i64
-  store i64 %conv, i64* @v, align 8
-  %2 = load double, double* @e, align 8
+  store i64 %conv, ptr @v, align 8
+  %2 = load double, ptr @e, align 8
   %conv1 = fptosi double %2 to i16
-  store i16 %conv1, i16* @x, align 2
+  store i16 %conv1, ptr @x, align 2
   fence release
-
-; CHECK: %[[EXPR:[0-9]+]] = load double, double* @e, align 8
-; CHECK-NEXT: %[[EXPRCAST:conv[0-9]*]] = fptosi double %[[EXPR]] to i16
-; CHECK:  %[[RET:[0-9]+]] = call i16 @__kmpc_atomic_fixed2_swp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, i16 %[[EXPRCAST]])
-; CHECK-NEXT: %[[RETCAST:[a-zA-Z._0-9]+]] = sext i16 %[[RET]] to i64
-; CHECK-NEXT: store i64 %[[RETCAST]], i64* @v
-
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
-; CHECK-NOT: call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
 }
 

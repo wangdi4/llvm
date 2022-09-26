@@ -12,6 +12,7 @@
 ; This test just checks for transformed code but doesn’t check for any
 ; debug messages.
 ;
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 

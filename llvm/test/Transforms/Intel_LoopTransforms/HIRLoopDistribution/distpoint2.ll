@@ -2,6 +2,7 @@
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"    < %s 2>&1 | FileCheck %s
 
 ; There is a bug in the test: the loop should be stripmined, but the checks does not expect that.
+; REQUIRES: 0
 ; XFAIL: *
 
 ;

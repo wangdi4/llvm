@@ -747,14 +747,16 @@ Syntax:
 
 .. code-block:: text
 
-  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align
+  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align|[no]vecremainder|vectorlength(n1[, n2]...)}
 
 ``pragma vector`` with no other keyword will do nothing.
 
 Currently we only support ``pragma vector``, ``pragma vector always``,
 ``pragma vector aligned``, ``pragma vector dynamic_align``,
-``pragma vector nodynamic_align``, ``pragma vector vecremainder`` and
-``pragma vector novecremainder``, ``pragma vector always assert``.
+``pragma vector nodynamic_align``, ``pragma vector vecremainder``,
+``pragma vector novecremainder``, ``pragma vector always assert``,
+``pragma vector temporal``, ``pragma vecotor nontemporal`` and
+``pramga vector vectorlength(n1[,n2]...)``.
 When the 'aligned' keyword is used, it indicates to the compiler that the loop
 should be vectorized using aligned data movement instructions for all array
 references inside the loop.
@@ -779,6 +781,12 @@ Example:
     #pragma vector novecremainder
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector always assert
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector temporal
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector nontemporal
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector vectorlength(2,4)
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -832,6 +840,24 @@ AST:
       | |-<<<NULL>>>
       | `-<<<NULL>>>
 
+  -AttributedStmt 0x110e2c38 <<invalid sloc>, line:19:48>
+      |-LoopHintAttr 0x110e2bf8 <line:18:13, col:27> Implicit vector VectorizeTemporal Enable
+      | |-<<<NULL>>>
+      | `-<<<NULL>>>
+
+  -AttributedStmt 0x110e30e0 <<invalid sloc>, line:21:48>
+      |-LoopHintAttr 0x110e30a0 <line:20:13, col:27> Implicit vector VectorizeNonTemporal Enable
+      | |-<<<NULL>>>
+      | `-<<<NULL>>>
+
+  -AttributedStmt 0x110e3620 <<invalid sloc>, line:23:48>
+      |-LoopHintAttr 0x110e35a0 <line:22:20, col:34> Implicit vector VectorizeLength Numeric
+      | |-IntegerLiteral 0x110e3118 <col:33> 'int' 2
+      | `-<<<NULL>>>
+      |-LoopHintAttr 0x110e35e0 <col:20, col:36> Implicit vector VectorizeLength Numeric
+      | |-IntegerLiteral 0x110e3158 <col:35> 'int' 4
+      | `-<<<NULL>>>
+
 Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
 represented as two LoopHint attributes.
 
@@ -850,6 +876,9 @@ IR:
   br label %for.cond48, !llvm.loop !11
   br label %for.cond62, !llvm.loop !13
   br label %for.cond76, !llvm.loop !15
+  br label %for.cond90, !llvm.loop !17
+  br label %for.cond104, !llvm.loop !19
+  br label %for.cond118, !llvm.loop !21
 
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.mustprogress"}
@@ -868,11 +897,18 @@ IR:
   !16 = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
   17 = distinct !{!17, !3, !5, !18, !6}
   !18 = !{!"llvm.loop.intel.vector.assert"}
+  !19 = distinct !{!19, !3, !20}
+  !20 = !{!"llvm.loop.intel.vector.temporal"}
+  !21 = distinct !{!21, !3, !22}
+  !22 = !{!"llvm.loop.intel.vector.nontemporal"}
+  !23 = distinct !{!23, !3, !24}
+  !24 = !{!"llvm.loop.intel.vector.vectorlength", i32 2, i32 4}
   }];
   let UserContent = [{
 Accept #pragma vector - indicates a loop should be vectorized according to the
-argument keywords 'assert', 'aligned', 'unaligned', 'vecremainder', and
-'novecremainder'.
+argument keywords 'assert', 'aligned', 'always assert', 'dynamic_align',
+'nodynamic_align', 'vecremainder', 'novecremainder', 'temporal',
+'nontemporal' and 'vectorlength'.
   }];
 }
 

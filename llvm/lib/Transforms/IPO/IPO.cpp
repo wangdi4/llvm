@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -44,7 +44,6 @@ using namespace llvm;
 
 void llvm::initializeIPO(PassRegistry &Registry) {
   initializeOpenMPOptCGSCCLegacyPassPass(Registry);
-  initializeArgPromotionPass(Registry);
   initializeAnnotation2MetadataLegacyPass(Registry);
   initializeCalledValuePropagationLegacyPassPass(Registry);
   initializeConstantMergeLegacyPassPass(Registry);
@@ -69,7 +68,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeLoopExtractorLegacyPassPass(Registry);
   initializeBlockExtractorLegacyPassPass(Registry);
   initializeSingleLoopExtractorPass(Registry);
-  initializeLowerTypeTestsPass(Registry);
   initializeMergeFunctionsLegacyPassPass(Registry);
   initializePartialInlinerLegacyPassPass(Registry);
   initializeAttributorLegacyPassPass(Registry);
@@ -85,9 +83,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeStripNonDebugSymbolsPass(Registry);
   initializeBarrierNoopPass(Registry);
   initializeEliminateAvailableExternallyLegacyPassPass(Registry);
-  initializeSampleProfileLoaderLegacyPassPass(Registry);
-  initializeFunctionImportLegacyPassPass(Registry);
-  initializeWholeProgramDevirtPass(Registry);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   initializeIPCloningLegacyPassPass(Registry);
@@ -120,10 +115,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {
   initializeIPO(*unwrap(R));
-}
-
-void LLVMAddArgumentPromotionPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createArgumentPromotionPass());
 }
 
 void LLVMAddCalledValuePropagationPass(LLVMPassManagerRef PM) {
@@ -184,6 +175,10 @@ void LLVMAddMergeFunctionsPass(LLVMPassManagerRef PM) {
 
 void LLVMAddInternalizePass(LLVMPassManagerRef PM, unsigned AllButMain) {
   auto PreserveMain = [=](const GlobalValue &GV) {
+#if INTEL_CUSTOMIZATION
+    if (isa<Function>(GV) && cast<Function>(GV).hasMetadata("llvm.acd.clone"))
+      return AllButMain && GV.getName().startswith("main.");
+#endif // INTEL_CUSTOMIZATION
     return AllButMain && GV.getName() == "main";
   };
   unwrap(PM)->add(createInternalizePass(PreserveMain));

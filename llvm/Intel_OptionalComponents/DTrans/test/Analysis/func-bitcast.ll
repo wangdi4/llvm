@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
@@ -208,7 +209,7 @@ define void @test07(i8* %p1, i8* %p2) {
 
 ; Test that the memory space allocated refers to the
 ; proper structure
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 %struct.test08 = type { i32, i32 }
 define void @doSomething08(%struct.test08* %str) {
   %temp = load i32, i32* @myglobal, align 4
@@ -307,6 +308,8 @@ define void @test9(i8** %pp) {
                        to void (i8*)*)(i8* %vp)
   ret void
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: LLVMType: %struct.test9a = type { i32, i32 }
 ; CHECK: Safety data: Nested structure | Mismatched argument use

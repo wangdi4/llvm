@@ -24,6 +24,7 @@
 
 namespace llvm {
 class AllocaInst;
+class GlobalVariable;
 class DataLayout;
 class MDNode;
 class Module;
@@ -81,6 +82,20 @@ public:
   // Helper to copy DTrans type metadata attachment from 'SrcValue' to
   // 'DestValue', if it exists.
   static void copyDTransMetadata(Value *DestValue, const Value *SrcValue);
+
+  static void setDevirtVarDTransMetadata(GlobalVariable *OldGV,
+                                         GlobalVariable *NewGV,
+                                         uint64_t BeforeBytesSize,
+                                         uint64_t AfterBytesSize);
+
+  static void setGlobUsedVarDTransMetadata(GlobalVariable *OldGV,
+                                           GlobalVariable *NewGV,
+                                           uint64_t NewArrSize);
+
+  static void setGlobAppendingVarDTransMetadata(const GlobalVariable *SrcGV,
+                                                GlobalVariable *DstGV,
+                                                GlobalVariable *NewGV,
+                                                uint64_t NewArrSize);
 
 private:
   void initialize(Module &M);

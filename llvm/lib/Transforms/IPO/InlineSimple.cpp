@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -140,10 +140,11 @@ Pass *llvm::createFunctionInliningPass(unsigned OptLevel,
                                        unsigned SizeOptLevel,
                                        bool DisableInlineHotCallSite,
                                        bool PrepareForLTO,
-                                       bool LinkForLTO)
+                                       bool LinkForLTO,
+                                       bool SYCLOptimizationMode)
 {
   auto Param = llvm::getInlineParams(OptLevel, SizeOptLevel, PrepareForLTO,
-      LinkForLTO);
+      LinkForLTO, SYCLOptimizationMode);
   if (DisableInlineHotCallSite)
     Param.HotCallSiteThreshold = 0;
   return new SimpleInliner(Param);

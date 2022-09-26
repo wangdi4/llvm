@@ -157,6 +157,13 @@ class Item
     VAR   OrigGEP;   // TASK only: offset in thunk for the addr of orig var
     bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
+    bool IsVarLen = false; // true if the var had a non-constant number of
+                           // elements when the frontend emitted code for it.
+                           // Intervening optimizations may change the number
+                           // of elements to a constant before reaching Paropt.
+    // TODO: This can be removed after switch to typed clauses + opaque-pointers.
+    // It's currently used by task codegen. For typed clauses, we can replace
+    // getIsVLA()'s body with a check for NumElements not being a constant.
     bool  IsVla;     // true for variable-length arrays (C99)
     bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
     EXPR ThunkBufferSize; // Tasks: size in bytes of the space needed for the
@@ -203,6 +210,7 @@ class Item
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
+    void setIsVarLen(bool Flag)   { IsVarLen = Flag;    }
     void setIsTyped(bool Flag) { IsTyped = Flag; }
     void setIsPointerToPointer(bool Flag) {
 #if INTEL_CUSTOMIZATION
@@ -225,6 +233,7 @@ class Item
     VAR getOrigGEP()        const { return OrigGEP;        }
     bool getIsByRef()       const { return IsByRef;        }
     bool getIsNonPod()      const { return IsNonPod;       }
+    bool getIsVarLen()      const { return IsVarLen;       }
     bool getIsVla()         const { return IsVla;          }
     bool getIsTyped() const { return IsTyped; }
     bool getIsPointerToPointer() const { return IsPointerToPointer; }
@@ -284,7 +293,10 @@ class Item
                "F90_DV and PTR_TO_PTR can't be on the same case.");
         if (getIsF90DopeVector()) {
           OS << ", POINTEE_TYPE: ";
-          getPointeeElementTypeFromIR()->print(OS);
+          if (auto *PointeeTy = getPointeeElementTypeFromIR())
+            PointeeTy->print(OS);
+          else
+            OS << "UNSPECIFIED";
         }
 #endif // INTEL_CUSTOMIZATION
         if (getIsPointerToPointer()) {
@@ -305,6 +317,8 @@ class Item
       if (getIsCptr())
         OS << "CPTR(";
 #endif // INTEL_CUSTOMIZATION
+      if (getIsVarLen())
+        OS << "VARLEN(";
       if (getIsByRef())
         OS << "BYREF(";
       if (getIsPointerToPointer())
@@ -320,6 +334,8 @@ class Item
       if (getIsByRef())
         OS << ")";
 #if INTEL_CUSTOMIZATION
+      if (getIsVarLen())
+        OS << ")";
       if (getIsCptr())
         OS << ")";
       if (getIsF90DopeVector())
@@ -328,25 +344,24 @@ class Item
     }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    SmallVector<StringRef, 5> ModStrings;
 #if INTEL_CUSTOMIZATION
-      if (getIsF90DopeVector()) {
-        OS << "F90_DV";
-        if (getIsCptr() || getIsByRef() || getIsPointerToPointer())
-          OS << ",";
-      }
-      if (getIsCptr()) {
-        OS << "CPTR";
-        if (getIsByRef() || getIsPointerToPointer())
-          OS << ",";
-      }
+      if (getIsF90DopeVector())
+        ModStrings.push_back("F90_DV");
+      if (getIsCptr())
+        ModStrings.push_back("CPTR");
 #endif // INTEL_CUSTOMIZATION
-      if (getIsByRef()) {
-        OS << "BYREF";
-        if (getIsPointerToPointer())
+      if (getIsVarLen())
+        ModStrings.push_back("VARLEN");
+      if (getIsByRef())
+        ModStrings.push_back("BYREF");
+      if (getIsPointerToPointer())
+        ModStrings.push_back("PTR_TO_PTR");
+      for (size_t I = 0, NumStrings = ModStrings.size(); I < NumStrings; I++) {
+        OS << ModStrings[I];
+        if (I + 1 < NumStrings)
           OS << ",";
       }
-      if (getIsPointerToPointer())
-        OS << "PTR_TO_PTR";
       OS << "(" ;
 #if INTEL_CUSTOMIZATION
       if (HOrigItem)
@@ -384,6 +399,7 @@ class Item
       case IK_Linear:
       case IK_Shared:
       case IK_Uniform:
+      case IK_UseDevicePtr:
         return true;
       default:
         return false;
@@ -547,6 +563,10 @@ class FirstprivateItem : public Item
     // pointer translation is still applied for zero-sized pointers).
     bool IsPointer = false;
 
+    // True for clauses added to capture non-pointer values to be passed into a
+    // region (e.g. VLA sizes).
+    bool IsParoptGeneratedForNonPtrCapture = false;
+
   public:
     FirstprivateItem(VAR Orig)
         : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
@@ -590,6 +610,12 @@ class FirstprivateItem : public Item
     RDECL getDestructor()      const { return Destructor;      }
     void setIsPointer(bool Val) { IsPointer = Val; }
     bool getIsPointer() const { return IsPointer; }
+    void setIsParoptGeneratedForNonPtrCapture(bool Val) {
+      IsParoptGeneratedForNonPtrCapture = Val;
+    }
+    bool getIsParoptGeneratedForNonPtrCapture() const {
+      return IsParoptGeneratedForNonPtrCapture;
+    }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
@@ -1018,13 +1044,42 @@ class CopyprivateItem : public Item
 
   public:
     CopyprivateItem(VAR Orig) : Item(Orig, IK_Copyprivate), Copy(nullptr) {}
+    CopyprivateItem(const Use *Args, bool Typed = false)
+        : Item(nullptr, IK_Copyprivate), Copy(nullptr) {
+      // COPYPRIVATE nonPOD Args are: var, copy-assign
+      setIsTyped(Typed);
+      int TypeOffset = 0;
+      if (getIsTyped()) {
+        // COPYPRIVATE:TYPED nonPOD Args are: var, Type, NumElements,
+        // copy-assign
+        TypeOffset = 2;
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
+      }
+      Value *V = Args[0];
+      setOrig(V);
+      V = Args[1 + TypeOffset];
+      Copy = dyn_cast<Function>(V);
+      assert(Copy || isa<ConstantPointerNull>(V) &&
+                         "CopyAssign must be a function pointer or null");
+    }
+
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
     static bool classof(const Item *I) { return I->getKind() == IK_Copyprivate; }
     void print(formatted_raw_ostream &OS,
                bool PrintType = true) const override {
-      printOrig(OS, PrintType);
-      printIfTyped(OS, PrintType);
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
+        OS << ", COPYASSIGN: ";
+        printFnPtr(getCopy(), OS, PrintType);
+        OS << ") ";
+      } else {
+        printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
+      }
     }
 };
 
@@ -1319,8 +1374,9 @@ public:
 
   void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
     if (getIsMapChain()) {
-      OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "") << "(";
-      for (unsigned I=0; I < MapChain.size(); ++I) {
+      OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "")
+         << (getIsVarLen() ? ",VARLEN" : "") << "(";
+      for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         Value *BasePtr = Aggr->getBasePtr();
         Value *SectionPtr = Aggr->getSectionPtr();
@@ -1328,7 +1384,7 @@ public:
         uint64_t MapType = Aggr->getMapType();
         GlobalVariable *Name = Aggr->getName();
         Value *Mapper = Aggr->getMapper();
-        OS << "<" ;
+        OS << "<";
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
         SectionPtr->printAsOperand(OS, PrintType);
@@ -1358,6 +1414,8 @@ public:
     } else {
       if (getIsFunctionPointer())
         OS << "FPTR";
+      if (getIsVarLen())
+        OS << "VARLEN";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -1396,6 +1454,10 @@ public:
   MapItem *getInMap() const { return InMap; }
   bool getIsUseDeviceAddr() const { return IsUseDeviceAddr; }
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
+    Item::print(OS, PrintType);
+    printIfTyped(OS, PrintType);
+  }
 };
 
 // Parent class for inclusive/exclusive clause items
@@ -1447,6 +1509,8 @@ public:
 //   LiveinItem    (for the auxiliary livein clause)
 //   AllocateItem  (for the allocate clause)
 //   DataItem      (for the data clause in prefetch constructs)
+//   InteropActionItem (for the init/destroy/use clause in interop constructs)
+//   InteropItem   (for the interop clause in dispatch constructs)
 //   NontemporalItem (for the nontemporal clause in simd constructs)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
@@ -1780,19 +1844,6 @@ public:
   unsigned getHint() const { return Hint; }
   bool getIsTyped() const { return IsTyped; }
 
-  Type *getPointeeElementType() const {
-    if (!getIsTyped()) {
-      // This branch is for the old IR of DATA clause, which is obsolete.
-      // It won't be reachable with opaque pointers.
-      assert(!Ptr->getType()->isOpaquePointerTy() &&
-             "Need typed DATA clause for opaque pointers.");
-      auto PtrTy =
-          Ptr->getType()->getScalarType()->getNonOpaquePointerElementType();
-      return PtrTy->getNonOpaquePointerElementType();
-    }
-    return getPointeeElementTypeFromIR();
-  }
-
   void printIfTyped(formatted_raw_ostream &OS) const {
     if (!getIsTyped())
       return;
@@ -1810,6 +1861,159 @@ public:
     OS << getHint();
     OS << ") ";
   }
+};
+
+// For the InteropActionClause of an INTEROP construct, which can represent
+// an INIT, DESTROY, or USE clause.
+class InteropActionItem {
+public:
+  typedef enum InteropAction {
+    InteropNone = 0,
+    InteropDestroy,
+    InteropUse,
+    InteropInit
+  } InteropAction;
+
+  enum InitClauseMod {
+    InitTarget       = 0x0001,
+    InitTargetSync   = 0x0002,
+    InitPrefer       = 0x0004,
+    InitPreferOpenCL = 0x0008,
+    InitPreferSycl   = 0x0010,
+    InitPreferL0     = 0x0020
+  } InitClauseMod;
+
+private:
+  VAR InteropObj;
+  InteropAction Action;
+  unsigned InitModifiers; // bit vector for INIT modifiers
+  SmallVector<unsigned, 4> PreferList;
+
+public:
+  InteropActionItem(VAR V = nullptr) : InteropObj(V), InitModifiers(0) {}
+  void setOrig(VAR V) { InteropObj = V; }
+  VAR getOrig() const { return InteropObj; }
+
+  void setIsDestroy() { Action = InteropDestroy; }
+  void setIsUse() { Action = InteropUse; }
+  void setIsInit() { Action = InteropInit; }
+
+  void setIsTarget() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Target modifier for a non Init Clause");
+    InitModifiers |= InitTarget;
+  }
+
+  void setIsTargetSync() {
+    assert(
+        Action == InteropInit &&
+        "Unexpected: Trying to set TargetSync modifier for a non Init Clause");
+    InitModifiers |= InitTargetSync;
+  }
+
+  void setIsPrefer() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPrefer;
+  }
+
+  void setIsPreferOpenCL() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferOpenCL;
+  }
+
+  void setIsPreferSycl() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferSycl;
+  }
+
+  void setIsPreferL0() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferL0;
+  }
+
+  // Get prefer items from Args and populate the PreferList
+  void populatePreferList(const Use *Args, unsigned NumArgs);
+
+  unsigned getInteropAction() const { return Action; }
+  bool getIsDestroy() const { return Action == InteropDestroy; }
+  bool getIsUse() const { return Action == InteropUse; }
+  bool getIsInit() const { return Action == InteropInit; }
+
+  bool getIsTarget() const { return InitModifiers & InitTarget; }
+  bool getIsTargetSync() const { return InitModifiers & InitTargetSync; }
+  bool getIsPrefer() const { return InitModifiers & InitPrefer; }
+  bool getIsPreferOpenCL() const { return InitModifiers & InitPreferOpenCL; }
+  bool getIsPreferSycl() const { return InitModifiers & InitPreferSycl; }
+  bool getIsPreferL0() const { return InitModifiers & InitPreferL0; }
+  const SmallVectorImpl<unsigned>&  getPreferList() const { return PreferList;}
+
+  void  printPreferList(formatted_raw_ostream& OS) const {
+      OS << "PREFER_TYPE < ";
+      for (unsigned I = 0; I < PreferList.size(); I++){
+        if(PreferList[I] == 3)
+          OS << "3 (OpenCL) ";
+        else if (PreferList[I] == 4)
+          OS << "4 (SYCL) ";
+        else if (PreferList[I] == 6)
+          OS << "6 (LEVEL0) ";
+      }
+      OS << "> ";
+  }
+
+  void print(formatted_raw_ostream &OS, unsigned Depth = 0,
+             bool PrintType = true) const {
+    if(getIsDestroy()){
+      OS.indent(2 * Depth) << "DESTROY clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ")\n";
+    }
+    else if(getIsUse()){
+      OS.indent(2 * Depth) << "USE clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ")\n";
+    }
+    else {
+      OS.indent(2 * Depth) << "INIT clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+      if (getIsTarget())
+        OS << "TARGET ";
+      if (getIsTargetSync())
+        OS << "TARGETSYNC ";
+      if (getIsPrefer())
+        printPreferList(OS);
+      OS << "\n";
+    }
+  }
+};
+
+// For the INTEROP clause in a DISPATCH construct.
+class InteropItem
+{
+  private:
+    VAR  Var;
+
+  public:
+    InteropItem(VAR V=nullptr) : Var(V) {}
+    void setOrig(VAR V) { Var = V; }
+    VAR getOrig() const { return Var; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+
+    void dump() const {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      formatted_raw_ostream OS(dbgs());
+      print(OS, true);
+#endif
+    }
 };
 
 //
@@ -1916,187 +2120,63 @@ typename std::vector<ClauseItem>::iterator Clause<ClauseItem>::findOrig(VAR V)
 }
 */
 
-class InteropItem {
-public:
-  typedef enum InteropAction {
-    InteropNone = 0,
-    InteropDestroy,
-    InteropUse,
-    InteropInit
-  } InteropAction;
-
-  enum InitClauseMod {
-    InitTarget       = 0x0001,
-    InitTargetSync   = 0x0002,
-    InitPrefer       = 0x0004,
-    InitPreferOpenCL = 0x0008,
-    InitPreferSycl   = 0x0010,
-    InitPreferL0     = 0x0020
-  } InitClauseMod;
-
-private:
-  VAR InteropObj;
-  InteropAction Action;
-  unsigned InitModifiers; // bit vector for INIT modifiers
-  SmallVector<unsigned, 4> PreferList;
-
-public:
-  InteropItem(VAR V = nullptr) : InteropObj(V), InitModifiers(0) {}
-  void setOrig(VAR V) { InteropObj = V; }
-  VAR getOrig() const { return InteropObj; }
-
-  void setIsDestroy() { Action = InteropDestroy; }
-  void setIsUse() { Action = InteropUse; }
-  void setIsInit() { Action = InteropInit; }
-
-  void setIsTarget() {
-    assert(Action == InteropInit &&
-           "Unexpected: Trying to set Target modifier for a non Init Clause");
-    InitModifiers |= InitTarget;
-  }
-
-  void setIsTargetSync() {
-    assert(
-        Action == InteropInit &&
-        "Unexpected: Trying to set TargetSync modifier for a non Init Clause");
-    InitModifiers |= InitTargetSync;
-  }
-
-  void setIsPrefer() {
-    assert(Action == InteropInit &&
-           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
-    InitModifiers |= InitPrefer;
-  }
-
-  void setIsPreferOpenCL() {
-    assert(Action == InteropInit &&
-           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
-    InitModifiers |= InitPreferOpenCL;
-  }
-
-  void setIsPreferSycl() {
-    assert(Action == InteropInit &&
-           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
-    InitModifiers |= InitPreferSycl;
-  }
-
-  void setIsPreferL0() {
-    assert(Action == InteropInit &&
-           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
-    InitModifiers |= InitPreferL0;
-  }
-
-  // Get prefer items from Args and populate the PreferList
-  void populatePreferList(const Use *Args, unsigned NumArgs);
-
-  unsigned getInteropAction() const { return Action; }
-  bool getIsDestroy() const { return Action == InteropDestroy; }
-  bool getIsUse() const { return Action == InteropUse; }
-  bool getIsInit() const { return Action == InteropInit; }
-
-  bool getIsTarget() const { return InitModifiers & InitTarget; }
-  bool getIsTargetSync() const { return InitModifiers & InitTargetSync; }
-  bool getIsPrefer() const { return InitModifiers & InitPrefer; }
-  bool getIsPreferOpenCL() const { return InitModifiers & InitPreferOpenCL; }
-  bool getIsPreferSycl() const { return InitModifiers & InitPreferSycl; }
-  bool getIsPreferL0() const { return InitModifiers & InitPreferL0; }
-  const SmallVectorImpl<unsigned>&  getPreferList() const { return PreferList;}
-
-  void  printPreferList(formatted_raw_ostream& OS) const {
-      OS << "PREFER_TYPE < ";
-      for (unsigned I = 0; I < PreferList.size(); I++){
-        if(PreferList[I] == 3)
-          OS << "3 (OpenCL) ";
-        else if (PreferList[I] == 4)
-          OS << "4 (SYCL) ";
-        else if (PreferList[I] == 6)
-          OS << "6 (LEVEL0) ";
-      }
-      OS << "> ";
-  }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth = 0,
-             bool PrintType = true) const {
-    if(getIsDestroy()){
-      OS.indent(2 * Depth) << "DESTROY clause (size=1): (";
-      getOrig()->printAsOperand(OS, PrintType);
-      OS << ")\n";
-    }
-    else if(getIsUse()){
-      OS.indent(2 * Depth) << "USE clause (size=1): (";
-      getOrig()->printAsOperand(OS, PrintType);
-      OS << ")\n";
-    }
-    else {
-      OS.indent(2 * Depth) << "INIT clause (size=1): (";
-      getOrig()->printAsOperand(OS, PrintType);
-      OS << ") ";
-      if (getIsTarget())
-        OS << "TARGET ";
-      if (getIsTargetSync())
-        OS << "TARGETSYNC ";
-      if (getIsPrefer())
-        printPreferList(OS);
-      OS << "\n";
-    }
-  }
-};
-
 //
 // typedef for list-type clause classes and associated iterator types
 //
-typedef Clause<SharedItem>        SharedClause;
-typedef Clause<PrivateItem>       PrivateClause;
-typedef Clause<FirstprivateItem>  FirstprivateClause;
-typedef Clause<LastprivateItem>   LastprivateClause;
-typedef Clause<ReductionItem>     ReductionClause;
-typedef Clause<CopyinItem>        CopyinClause;
-typedef Clause<CopyprivateItem>   CopyprivateClause;
-typedef Clause<LinearItem>        LinearClause;
-typedef Clause<UniformItem>       UniformClause;
-typedef Clause<MapItem>           MapClause;
-typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
-typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
-typedef Clause<InclusiveItem>     InclusiveClause;
-typedef Clause<ExclusiveItem>     ExclusiveClause;
-typedef Clause<SubdeviceItem>     SubdeviceClause;
-typedef Clause<InteropItem>       InteropActionClause;
-typedef Clause<DependItem>        DependClause;
-typedef Clause<DepSinkItem>       DepSinkClause;
-typedef Clause<DepSourceItem>     DepSourceClause;
-typedef Clause<AlignedItem>       AlignedClause;
-typedef Clause<NontemporalItem>   NontemporalClause;
-typedef Clause<FlushItem>         FlushSet;
-typedef Clause<SizesItem>         SizesClause;
-typedef Clause<LiveinItem>        LiveinClause;
-typedef Clause<AllocateItem>      AllocateClause;
-typedef Clause<DataItem>          DataClause;
+typedef Clause<SharedItem>          SharedClause;
+typedef Clause<PrivateItem>         PrivateClause;
+typedef Clause<FirstprivateItem>    FirstprivateClause;
+typedef Clause<LastprivateItem>     LastprivateClause;
+typedef Clause<ReductionItem>       ReductionClause;
+typedef Clause<CopyinItem>          CopyinClause;
+typedef Clause<CopyprivateItem>     CopyprivateClause;
+typedef Clause<LinearItem>          LinearClause;
+typedef Clause<UniformItem>         UniformClause;
+typedef Clause<MapItem>             MapClause;
+typedef Clause<IsDevicePtrItem>     IsDevicePtrClause;
+typedef Clause<UseDevicePtrItem>    UseDevicePtrClause;
+typedef Clause<InclusiveItem>       InclusiveClause;
+typedef Clause<ExclusiveItem>       ExclusiveClause;
+typedef Clause<SubdeviceItem>       SubdeviceClause;
+typedef Clause<InteropActionItem>   InteropActionClause;
+typedef Clause<DependItem>          DependClause;
+typedef Clause<DepSinkItem>         DepSinkClause;
+typedef Clause<DepSourceItem>       DepSourceClause;
+typedef Clause<AlignedItem>         AlignedClause;
+typedef Clause<NontemporalItem>     NontemporalClause;
+typedef Clause<FlushItem>           FlushSet;
+typedef Clause<SizesItem>           SizesClause;
+typedef Clause<LiveinItem>          LiveinClause;
+typedef Clause<AllocateItem>        AllocateClause;
+typedef Clause<DataItem>            DataClause;
+typedef Clause<InteropItem>         InteropClause;
 
-typedef std::vector<SharedItem>::iterator        SharedIter;
-typedef std::vector<PrivateItem>::iterator       PrivateIter;
-typedef std::vector<FirstprivateItem>::iterator  FirstprivateIter;
-typedef std::vector<LastprivateItem>::iterator   LastprivateIter;
-typedef std::vector<ReductionItem>::iterator     ReductionIter;
-typedef std::vector<CopyinItem>::iterator        CopyinIter;
-typedef std::vector<CopyprivateItem>::iterator   CopyprivateIter;
-typedef std::vector<LinearItem>::iterator        LinearIter;
-typedef std::vector<UniformItem>::iterator       UniformIter;
-typedef std::vector<MapItem>::iterator           MapIter;
-typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
-typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
-typedef std::vector<InclusiveItem>::iterator     InclusiveIter;
-typedef std::vector<ExclusiveItem>::iterator     ExclusiveIter;
-typedef std::vector<SubdeviceItem>::iterator     SubdeviceIter;
-typedef std::vector<InteropItem>::iterator       InteropIter;
-typedef std::vector<DependItem>::iterator        DependIter;
-typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
-typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
-typedef std::vector<AlignedItem>::iterator       AlignedIter;
-typedef std::vector<NontemporalItem>::iterator   NontemporalIter;
-typedef std::vector<FlushItem>::iterator         FlushIter;
-typedef std::vector<LiveinItem>::iterator        LiveinIter;
-typedef std::vector<AllocateItem>::iterator      AllocateIter;
-typedef std::vector<DataItem>::iterator          DataIter;
+typedef std::vector<SharedItem>::iterator          SharedIter;
+typedef std::vector<PrivateItem>::iterator         PrivateIter;
+typedef std::vector<FirstprivateItem>::iterator    FirstprivateIter;
+typedef std::vector<LastprivateItem>::iterator     LastprivateIter;
+typedef std::vector<ReductionItem>::iterator       ReductionIter;
+typedef std::vector<CopyinItem>::iterator          CopyinIter;
+typedef std::vector<CopyprivateItem>::iterator     CopyprivateIter;
+typedef std::vector<LinearItem>::iterator          LinearIter;
+typedef std::vector<UniformItem>::iterator         UniformIter;
+typedef std::vector<MapItem>::iterator             MapIter;
+typedef std::vector<IsDevicePtrItem>::iterator     IsDevicePtrIter;
+typedef std::vector<UseDevicePtrItem>::iterator    UseDevicePtrIter;
+typedef std::vector<InclusiveItem>::iterator       InclusiveIter;
+typedef std::vector<ExclusiveItem>::iterator       ExclusiveIter;
+typedef std::vector<SubdeviceItem>::iterator       SubdeviceIter;
+typedef std::vector<InteropActionItem>::iterator   InteropActionIter;
+typedef std::vector<DependItem>::iterator          DependIter;
+typedef std::vector<DepSinkItem>::iterator         DepSinkIter;
+typedef std::vector<DepSourceItem>::iterator       DepSourceIter;
+typedef std::vector<AlignedItem>::iterator         AlignedIter;
+typedef std::vector<NontemporalItem>::iterator     NontemporalIter;
+typedef std::vector<FlushItem>::iterator           FlushIter;
+typedef std::vector<LiveinItem>::iterator          LiveinIter;
+typedef std::vector<AllocateItem>::iterator        AllocateIter;
+typedef std::vector<DataItem>::iterator            DataIter;
+typedef std::vector<InteropItem>::iterator         InteropIter;
 
 
 //

@@ -35,8 +35,8 @@ define void @vector_foo(float* nocapture %varray, float* nocapture readonly %exp
 ; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP5]], i32 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = bitcast float* [[TMP9]] to <4 x float>*
 ; CHECK-NEXT:    [[WIDE_LOAD4:%.*]] = load <4 x float>, <4 x float>* [[TMP10]], align 4
-; CHECK-NEXT:    [[TMP11:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP3]], <4 x i32> [[VEC_IND]]) #[[ATTR2:[0-9]+]]
-; CHECK-NEXT:    [[TMP12:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP4]], <4 x i32> [[STEP_ADD]]) #[[ATTR2]]
+; CHECK-NEXT:    [[TMP11:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP3]], <4 x i32> [[VEC_IND]])
+; CHECK-NEXT:    [[TMP12:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP4]], <4 x i32> [[STEP_ADD]])
 ; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, float* [[VARRAY]], i64 [[TMP1]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds float, float* [[VARRAY]], i64 [[TMP2]]
 ; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds float, float* [[TMP13]], i32 0
@@ -61,7 +61,7 @@ define void @vector_foo(float* nocapture %varray, float* nocapture readonly %exp
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[TMP20]] to float
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, float* [[EXP]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    [[TMP21:%.*]] = load float, float* [[ARRAYIDX]], align 4
-; CHECK-NEXT:    [[TMP22:%.*]] = tail call fast float @ldexpf(float [[CONV]], i32 [[TMP20]]) #[[ATTR2]]
+; CHECK-NEXT:    [[TMP22:%.*]] = tail call fast float @ldexpf(float [[CONV]], i32 [[TMP20]]) #[[ATTR2:[0-9]+]]
 ; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds float, float* [[VARRAY]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    store float [[TMP22]], float* [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1

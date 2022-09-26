@@ -130,7 +130,7 @@ LANGOPT(
     OpenMPDeclareTargetScalarDefaultMapFirstPrivate	, 1, 0,
     "Specify defaultmap for scalar variable with declare target attribute")
 LANGOPT(
-    OpenMPDeclareTargetGlobalDefaultNoMap	, 1, 0,
+    OpenMPDeclareTargetGlobalDefaultMap	, 1, 0,
     "Specify defaultmap for Global variable with declare target attribute")
 
 LANGOPT(KeepImportTemps        , 1, 0,
@@ -203,6 +203,7 @@ LANGOPT(TraditionalCPP    , 1, 0, "traditional CPP emulation")
 LANGOPT(RTTI              , 1, 1, "run-time type information")
 LANGOPT(RTTIData          , 1, 1, "emit run-time type information data")
 LANGOPT(MSBitfields       , 1, 0, "Microsoft-compatible structure layout")
+LANGOPT(MSVolatile        , 1, 0, "Microsoft-compatible volatile loads and stores")
 LANGOPT(Freestanding, 1, 0, "freestanding implementation")
 LANGOPT(NoBuiltin         , 1, 0, "disable builtin functions")
 LANGOPT(NoMathBuiltin     , 1, 0, "disable math builtin functions")
@@ -210,7 +211,7 @@ LANGOPT(GNUAsm            , 1, 1, "GNU-style inline assembly")
 LANGOPT(Coroutines        , 1, 0, "C++20 coroutines")
 LANGOPT(DllExportInlines  , 1, 1, "dllexported classes dllexport inline methods")
 LANGOPT(RelaxedTemplateTemplateArgs, 1, 0, "C++17 relaxed matching of template template arguments")
-LANGOPT(Unstable          , 1, 0, "Enable unstable and experimental features")
+LANGOPT(ExperimentalLibrary, 1, 0, "enable unstable and experimental library features")
 
 LANGOPT(DoubleSquareBracketAttributes, 1, 0, "'[[]]' attributes extension for all language standard modes")
 
@@ -250,6 +251,7 @@ VALUE_LANGOPT(DoubleSize            , 32, 0, "width of double")
 VALUE_LANGOPT(LongDoubleSize        , 32, 0, "width of long double")
 LANGOPT(PPCIEEELongDouble            , 1, 0, "use IEEE 754 quadruple-precision for long double")
 LANGOPT(EnableAIXExtendedAltivecABI  , 1, 0, "__EXTABI__  predefined macro")
+LANGOPT(EnableAIXQuadwordAtomicsABI  , 1, 0, "Use 16-byte atomic lock free semantics")
 COMPATIBLE_VALUE_LANGOPT(PICLevel    , 2, 0, "__PIC__ level")
 COMPATIBLE_VALUE_LANGOPT(PIE         , 1, 0, "is pie")
 LANGOPT(ROPI                         , 1, 0, "Read-only position independence")
@@ -305,6 +307,8 @@ LANGOPT(OpenMPTargetMalloc, 1, 0,
     "Enable dynamic memory allocation in parallel regions")
 LANGOPT(OpenMPNewDependIR, 1, 0,
     "Enable generation of new IR for OpenMP depend clause")
+LANGOPT(OpenMPExperimentalVLAs, 1, 1,
+    "Enable VLAs in OpenMP device code which may not be fully functional")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
@@ -328,6 +332,7 @@ LANGOPT(OpenMPOptimisticCollapse  , 1, 0, "Use at most 32 bits to represent the 
 LANGOPT(OpenMPThreadSubscription  , 1, 0, "Assume work-shared loops do not have more iterations than participating threads.")
 LANGOPT(OpenMPTeamSubscription  , 1, 0, "Assume distributed loops do not have more iterations than participating teams.")
 LANGOPT(OpenMPNoThreadState  , 1, 0, "Assume that no thread in a parallel region will modify an ICV.")
+LANGOPT(OpenMPNoNestedParallelism  , 1, 0, "Assume that no thread in a parallel region will encounter a parallel region")
 LANGOPT(OpenMPOffloadMandatory  , 1, 0, "Assert that offloading is mandatory and do not create a host fallback.")
 LANGOPT(NoGPULib  , 1, 0, "Indicate a build without the standard GPU libraries.")
 LANGOPT(RenderScript      , 1, 0, "RenderScript")
@@ -348,9 +353,9 @@ LANGOPT(OffloadingNewDriver, 1, 0, "use the new driver for generating offloading
 
 LANGOPT(SYCLIsDevice      , 1, 0, "Generate code for SYCL device")
 LANGOPT(SYCLIsHost        , 1, 0, "SYCL host compilation")
+LANGOPT(IntelFPGA         , 1, 0, "Perform ahead-of-time compilation for FPGA")
 LANGOPT(SYCLAllowFuncPtr  , 1, 0, "Allow function pointers in SYCL device code")
 #if INTEL_CUSTOMIZATION
-LANGOPT(IntelFPGA         , 1, 0, "Perform ahead-of-time compilation for FPGA")
 LANGOPT(EnableVariantVirtualCalls , 1, 0, "Allow Virtual function call with vecttor variants")
 LANGOPT(EnableVariantFunctionPointers, 1, 0, "Allow function pointers with vector variants")
 #endif // INTEL_CUSTOMIZATION
@@ -407,8 +412,8 @@ COMPATIBLE_LANGOPT(CLFiniteMathOnly , 1, 0, "__FINITE_MATH_ONLY__ predefined mac
 /// FP_CONTRACT mode (on/off/fast).
 BENIGN_ENUM_LANGOPT(DefaultFPContractMode, FPModeKind, 2, FPM_Off, "FP contraction type")
 COMPATIBLE_LANGOPT(ExpStrictFP, 1, false, "Enable experimental strict floating point")
-BENIGN_ENUM_LANGOPT(FPRoundingMode, RoundingMode, 3, RoundingMode::NearestTiesToEven, "FP Rounding Mode type")
-BENIGN_ENUM_LANGOPT(FPExceptionMode, FPExceptionModeKind, 2, FPE_Ignore, "FP Exception Behavior Mode type")
+BENIGN_LANGOPT(RoundingMath, 1, false, "Do not assume default floating-point rounding behavior")
+BENIGN_ENUM_LANGOPT(FPExceptionMode, FPExceptionModeKind, 2, FPE_Default, "FP Exception Behavior Mode type")
 BENIGN_ENUM_LANGOPT(FPEvalMethod, FPEvalMethodKind, 2, FEM_UnsetOnCommandLine, "FP type used for floating point arithmetic")
 LANGOPT(NoBitFieldTypeAlign , 1, 0, "bit-field type alignment")
 LANGOPT(HexagonQdsp6Compat , 1, 0, "hexagon-qdsp6 backward compatibility")
@@ -526,6 +531,7 @@ LANGOPT(PaddingOnUnsignedFixedPoint, 1, 0,
 LANGOPT(RegisterStaticDestructors, 1, 1, "Register C++ static destructors")
 
 LANGOPT(MatrixTypes, 1, 0, "Enable or disable the builtin matrix type")
+LANGOPT(StrictFlexArrays, 2, 0, "Rely on strict definition of flexible arrays")
 
 COMPATIBLE_VALUE_LANGOPT(MaxTokens, 32, 0, "Max number of tokens per TU or 0")
 

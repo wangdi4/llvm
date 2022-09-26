@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; This test checks that the argument regexe_t is marked as system object
 ; since it is used in a libfunc.

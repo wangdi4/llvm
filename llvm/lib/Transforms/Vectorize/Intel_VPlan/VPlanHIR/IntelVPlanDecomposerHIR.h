@@ -18,6 +18,7 @@
 #include "IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include <map>
 
 namespace llvm {
 namespace loopopt {
@@ -85,6 +86,12 @@ private:
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   const loopopt::DDGraph &DDG;
 
+  /// Multimap of a hash value(representing instruction opcode and operands)
+  /// and the generated instructions. This multimap is used to avoid generating
+  /// duplicate instructions for the same opcode/operands combination within
+  /// a VPBasicBlock.
+  std::multimap<unsigned, VPInstruction *> InstrMap;
+
   /// Map HLInst's and their respective VPValue's representing their definition.
   DenseMap<loopopt::HLDDNode *, VPValue *> HLDef2VPValue;
 
@@ -99,6 +106,14 @@ private:
 
   // HIR legality object
   HIRVectorizationLegality &HIRLegality;
+
+  // Recognized VPlan idioms.
+  const HIRVectorIdioms *Idioms;
+
+  // Maps compress/expand idiom Nodes/Refs to VPValues.
+  SmallDenseMap<HIRVecIdiom, VPValue *> CEIdiomToVPValue;
+
+  SmallVector<std::unique_ptr<VPTemporaryUser>, 4> TempUsers;
 
   // Maps Load RegDDRef to the generated load instruction that corresponds
   // to VConflict idiom.
@@ -191,6 +206,12 @@ private:
   void getOrCreateVPDefsForUse(loopopt::DDRef *UseDDR,
                                SmallVectorImpl<VPValue *> &VPDefs);
 
+  // Search through InstrMap to find an equivalent instruction for given
+  // opcode/operands and return the same if found. Otherwise, return a newly
+  // created instruction.
+  VPInstruction *getOrCreateNaryOp(unsigned Opcode,
+                                   ArrayRef<VPValue *> Operands, Type *BaseTy);
+
   // Private helper method to create CmpInsts in VPlan using given HLPredicate
   // and operands.
   VPCmpInst *createCmpInst(const HLPredicate &P, VPValue *LHS, VPValue *RHS) {
@@ -222,6 +243,39 @@ private:
   VPValue *decomposeCanonExpr(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE);
   VPValue *decomposeMemoryOp(loopopt::RegDDRef *RDDR);
   VPValue *decomposeVPOperand(loopopt::RegDDRef *RDDR);
+
+  /// This specifies that created VPInstructions should be appended to the end
+  /// of the specified block.
+  VPBuilder &setInsertPoint(VPBasicBlock *TheBB) {
+    /// Clear InstrMap if insertpoint block is changing
+    if (Builder.getInsertBlock() != TheBB)
+      InstrMap.clear();
+
+    return Builder.setInsertPoint(TheBB);
+  }
+
+  /// This specifies that created instructions should be inserted at the
+  /// specified point.
+  VPBuilder &setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
+    /// Clear InstrMap if insertpoint block is changing or if the insertion
+    /// point is not the current insertpoint block terminator. When the
+    /// insertion point is changing to something other than the terminator, we
+    /// can have a situation like the following:
+    ///
+    /// VP1 = ...
+    /// VP2 = ...
+    /// ...
+    /// VP3 = add VP1, VP2
+    ///
+    /// VP3 is in the map and the insertion point may be changing to insert
+    /// instructions right after VP2. We may now try to generate another add
+    /// instruction with VP1 and VP2 as operands and it would be incorrect
+    /// to try to reuse VP3 for the same.
+    if (Builder.getInsertBlock() != TheBB || IP != TheBB->terminator())
+      InstrMap.clear();
+
+    return Builder.setInsertPoint(TheBB, IP);
+  }
 
   /// This class implements the decomposition of a blob in a RegDDRef. The
   /// decomposition is based on the SCEV representation of the blob.
@@ -268,7 +322,9 @@ public:
   VPDecomposerHIR(VPlanVector *P, const loopopt::HLLoop *OHLp,
                   const loopopt::DDGraph &DDG,
                   HIRVectorizationLegality &HIRLegality)
-      : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality){};
+      : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality),
+        Idioms(
+            HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp))){};
 
   /// Create VPInstructions for the incoming \p Node and insert them into \p
   /// InsPointVPBB. \p Node will be decomposed into several VPInstructions if
@@ -292,6 +348,10 @@ public:
   VPValue *createLoopIVNextAndBottomTest(loopopt::HLLoop *HLp,
                                          VPBasicBlock *LpPH,
                                          VPBasicBlock *LpLatch);
+
+  /// Add list of auto-recognized FP inductions into VPInductionHIRList tracked
+  /// for the given \p HLp.
+  void addFPInductionsForLoop(HLLoop *HLp);
 
   /// Create instructions that compute the Ztt check for the given \p HLp.
   /// The instruction that gives the final result to be used for bypassing
@@ -322,15 +382,43 @@ public:
 
   VPValue *getVPValueForNode(const loopopt::HLNode *Node);
 
+  VPValue *getVPValueForCEIdiom(const HIRVecIdiom &Idiom) {
+    assert(CEIdiomToVPValue.find(Idiom) != CEIdiomToVPValue.end() &&
+           "Expected existing idiom map");
+    VPValue *Ret = CEIdiomToVPValue[Idiom];
+    if (auto *FU = dyn_cast<VPTemporaryUser>(Ret)) {
+      assert(FU->getNumOperands() == 1 && "Expected only one operand");
+      Ret = FU->getOperand(0);
+    }
+    return Ret;
+  }
+
+  void addVPValueForCEIdiom(const HIRVecIdiom &Idiom, VPValue *VPVal) {
+    assert(CEIdiomToVPValue.find(Idiom) == CEIdiomToVPValue.end() &&
+           "Unexpected existing idiom map");
+    if (auto *VPPhi = dyn_cast<VPPHINode>(VPVal)) {
+      // VPPHINodes can be replaced during adjustment by other instructions,
+      // e.g. by their operand if they have only one operand. To keep track of
+      // those changes we create a ProxyUser. Those ProxyUsers will be deleted
+      // after decomposition so there will be no interleaving with the VPlan.
+      auto *TempUser = new VPTemporaryUser(VPVal);
+      TempUsers.emplace_back(TempUser);
+      VPVal = TempUser;
+    }
+    CEIdiomToVPValue[Idiom] = VPVal;
+  }
+
   /// Return requested VPConstant, for components that don't have VPlan
   /// reference.
   VPConstant *getVPValueForConst(Constant *CVal) const {
     return Plan->getVPConstant(CVal);
   }
 
-  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *Ref) {
-    assert(isExternalDef(Ref) &&
-           "DDRef is not externally defined for the loop.");
+  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *Ref,
+                                          bool MustBeLiveIn = true) {
+    if (MustBeLiveIn)
+      assert(isExternalDef(Ref) &&
+             "DDRef is not externally defined for the loop.");
     return Plan->getVPExternalDefForDDRef(Ref);
   }
 
@@ -339,6 +427,13 @@ public:
                        HIRLegality.getLinearDescr(Ref) != nullptr ||
                        HIRLegality.getPrivateDescr(Ref) != nullptr ||
                        HIRLegality.getPrivateDescrNonPOD(Ref) != nullptr;
+    if (HIRVectorizationLegality::LinearDescr *LinDescr =
+            HIRLegality.getLinearDescr(Ref)) {
+      // Create a VPExternalDef for variable stride DDRef
+      const DDRef *StepDDRef = LinDescr->Step;
+      if (!StepDDRef->getSingleCanonExpr()->isConstant())
+        Plan->getVPExternalDefForDDRef(StepDDRef);
+    }
     assert(IsSIMDDescr && "DDRef is not a SIMD entity descriptor.");
     (void)IsSIMDDescr;
     return Plan->getVPExternalDefForDDRef(Ref);

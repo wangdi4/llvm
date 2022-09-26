@@ -1,4 +1,21 @@
 //===- SelectionDAGBuilder.h - Selection-DAG building -----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -207,7 +224,7 @@ public:
     SDAGSwitchLowering(SelectionDAGBuilder *sdb, FunctionLoweringInfo &funcinfo)
         : SwitchCG::SwitchLowering(funcinfo), SDB(sdb) {}
 
-    virtual void addSuccessorWithProb(
+    void addSuccessorWithProb(
         MachineBasicBlock *Src, MachineBasicBlock *Dst,
         BranchProbability Prob = BranchProbability::getUnknown()) override {
       SDB->addSuccessorWithProb(Src, Dst, Prob);
@@ -542,8 +559,8 @@ private:
   void visitInsertElement(const User &I);
   void visitShuffleVector(const User &I);
 
-  void visitExtractValue(const User &I);
-  void visitInsertValue(const User &I);
+  void visitExtractValue(const ExtractValueInst &I);
+  void visitInsertValue(const InsertValueInst &I);
   void visitLandingPad(const LandingPadInst &LP);
 
   void visitGetElementPtr(const User &I);
@@ -703,9 +720,7 @@ struct RegsForValue {
                const DataLayout &DL, unsigned Reg, Type *Ty,
                Optional<CallingConv::ID> CC);
 
-  bool isABIMangled() const {
-    return CallConv.hasValue();
-  }
+  bool isABIMangled() const { return CallConv.has_value(); }
 
   /// Add the specified values to this one.
   void append(const RegsForValue &RHS) {

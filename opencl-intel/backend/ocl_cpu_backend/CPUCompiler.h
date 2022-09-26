@@ -69,6 +69,8 @@ public:
     bool useLLDJITForExecution(llvm::Module* pModule) const override;
     bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const override;
 
+    BuiltinModules* GetOrLoadBuiltinModules(bool ForceLoad = false);
+
 protected:
     // Returns a list of pointers to the RTL library modules
     llvm::SmallVector<llvm::Module*, 2> &GetBuiltinModuleList() override;
@@ -76,7 +78,6 @@ protected:
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
     void CreateCPUExecutionEngine(llvm::Module* pModule);
-    BuiltinModules* GetOrLoadBuiltinModules(bool ForceLoad = false);
 
 private:
     std::unordered_map<std::thread::id, std::unique_ptr<BuiltinModules>>

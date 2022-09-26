@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -25,7 +26,9 @@ define dso_local i32 @main() {
   ret i32 7
 }
 
-declare noalias i8* @calloc(i64, i64) local_unnamed_addr #1
+declare noalias i8* @calloc(i64, i64) local_unnamed_addr #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYINNERSTRUCT = type { i32, float }

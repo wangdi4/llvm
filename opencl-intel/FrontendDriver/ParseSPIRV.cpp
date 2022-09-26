@@ -213,7 +213,10 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityLongConstantCompositeINTEL:
       // SPV_INTEL_bf16_conversion
     case spv::internal::CapabilityBfloat16ConversionINTEL:
+      // SPV_INTEL_global_variable_decoration
+    case spv::internal::CapabilityGlobalVariableDecorationsINTEL:
     case spv::CapabilityGroupNonUniformBallot:
+    case spv::internal::CapabilityMaskedGatherScatterINTEL:
       break;
     case spv::CapabilityInt64Atomics:
     case spv::CapabilityAtomicFloat64AddEXT:

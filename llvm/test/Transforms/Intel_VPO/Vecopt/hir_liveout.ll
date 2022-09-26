@@ -14,8 +14,7 @@
 ;   return val;
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -hir-vplan-vec -hir-cg -mem2reg -S %s -print-after=hir-vplan-vec 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -hir-vplan-vec -hir-cg -mem2reg -S %s -print-after=hir-vplan-vec 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -hir-vplan-vec -hir-cg -mem2reg -S %s -print-after=hir-vplan-vec 2>&1 | FileCheck %s
 
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP>

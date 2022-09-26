@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ICSCData>
+  <BufferContainerList size="1" version="0.1">
+    <BufferContainer size="1">
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">6.9</Vector>
+        <Vector id="1">-0.1</Vector>
+        <Vector id="2">0.9</Vector>
+        <Vector id="3">1.9</Vector>
+        <Vector id="4">2.9</Vector>
+        <Vector id="5">3.9</Vector>
+        <Vector id="6">4.9</Vector>
+        <Vector id="7">5.9</Vector>
+      </Buffer>
+    </BufferContainer>
+  </BufferContainerList>
+</ICSCData>

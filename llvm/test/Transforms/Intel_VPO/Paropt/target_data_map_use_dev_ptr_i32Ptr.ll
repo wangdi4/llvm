@@ -1,4 +1,4 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 
 ; Test src:
@@ -24,8 +24,6 @@
 ;   } // end parallel
 ; }
 
-; ModuleID = '/tmp/icx22OMlG.bc'
-source_filename = "target_data_map_use_dev_ptr_i32Ptr.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
@@ -36,16 +34,18 @@ target device_triples = "spir64"
 define dso_local i32 @main() #0 {
 entry:
   %a = alloca [10 x i32], align 16
-  %array_device = alloca i32*, align 8
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
-  store i32* %arrayidx, i32** %array_device, align 8
-  %0 = load i32*, i32** %array_device, align 8
-  %arrayidx1 = getelementptr inbounds i32, i32* %0, i64 0
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx1)
+  %array_device = alloca ptr, align 8
+  %arrayidx = getelementptr inbounds [10 x i32], ptr %a, i64 0, i64 0
+  store ptr %arrayidx, ptr %array_device, align 8
+  %0 = load ptr, ptr %array_device, align 8
+  %arrayidx1 = getelementptr inbounds i32, ptr %0, i64 0
+  %call = call i32 (ptr, ...) @printf(ptr @.str, ptr %arrayidx1)
+  %array_device.val = load ptr, ptr %array_device, align 8
+  %arrayidx2 = getelementptr inbounds i32, ptr %array_device.val, i64 0
 
-  %array_device.val = load i32*, i32** %array_device
-  %arrayidx2 = getelementptr inbounds i32, i32* %array_device.val, i64 0
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"(i32* %array_device.val), "QUAL.OMP.MAP.TOFROM"(i32* %array_device.val, i32* %arrayidx2, i64 40, i64 35) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
+    "QUAL.OMP.USE_DEVICE_PTR"(ptr %array_device.val),
+    "QUAL.OMP.MAP.TOFROM"(ptr %array_device.val, ptr %arrayidx2, i64 40, i64 35) ]
 
 ; Check that no extra map is created, and map-type for %array_device.val (35)
 ; is OR'd with TGT_MAP_RETURN_PARAM (0x040) to give "99"
@@ -53,22 +53,21 @@ entry:
 
 ; Check that the value in the baseptrs struct after the tgt_data call is
 ; used inside the region as the updated value of the pointer %array_device.val.
-; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x i8*], [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
 ; CHECK: call void @__tgt_target_data_begin({{.+}})
-; CHECK: [[GEP_CAST:%[^ ]+]] = bitcast i8** [[GEP]] to i32**
-; CHECK: %array_device.val.updated.val = load i32*, i32** [[GEP_CAST]]
+; CHECK: %array_device.val.updated.val = load ptr, ptr [[GEP]]
 
 ; Check that call to outlined function for target data uses %array_device.new
-; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(i32* %array_device.val.updated.val)
+; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(ptr %array_device.val.updated.val)
 
-  %arrayidx3 = getelementptr inbounds i32, i32* %array_device.val, i64 0
-  %call4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx3) #2
-
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET.DATA"() ]
+  %arrayidx3 = getelementptr inbounds i32, ptr %array_device.val, i64 0
+  %call4 = call i32 (ptr, ...) @printf(ptr @.str, ptr %arrayidx3) #2
+  
+call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET.DATA"() ]
   ret i32 0
 }
 
-declare dso_local i32 @printf(i8*, ...) #1
+declare dso_local i32 @printf(ptr, ...) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -81,7 +80,5 @@ attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 attributes #2 = { nounwind }
 
 !llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 10.0.0"}

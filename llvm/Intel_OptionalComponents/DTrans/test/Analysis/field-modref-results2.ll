@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat -dtrans-fieldmodref-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat -passes='require<dtrans-fieldmodref-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
 
@@ -58,7 +59,9 @@ define void @filter01a(%struct.test01* %st) {
   ret void
 }
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: FieldModRefQuery: - ModRef     : [testbase]   %ld1 = load i32, i32* %fieldaddr, align 4 --   call void @test01()
 ; CHECK: FieldModRefQuery: - Ref        : [test01]   store i32 8, i32* %f0, align 4 --   call void @use01a(%struct.test01* %st, void (%struct.test01*)* @filter01a)

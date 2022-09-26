@@ -1,4 +1,21 @@
 //===--- Fuchsia.cpp - Fuchsia ToolChain Implementations --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -101,7 +118,7 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   const SanitizerArgs &SanArgs = ToolChain.getSanitizerArgs(Args);
 
-  if (!Args.hasArg(options::OPT_shared)) {
+  if (!Args.hasArg(options::OPT_shared) && !Args.hasArg(options::OPT_r)) {
     std::string Dyld = D.DyldPrefix;
     if (SanArgs.needsAsanRt() && SanArgs.needsSharedRt())
       Dyld += "asan/";
@@ -113,6 +130,9 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-dynamic-linker");
     CmdArgs.push_back(Args.MakeArgString(Dyld));
   }
+
+  if (ToolChain.getArch() == llvm::Triple::riscv64)
+    CmdArgs.push_back("-X");
 
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
@@ -132,7 +152,7 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
-                  D.getLTOMode() == LTOK_Thin);
+                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
   }
 
   addLinkerCompressDebugSectionsOption(ToolChain, Args, CmdArgs);
@@ -414,6 +434,8 @@ void Fuchsia::AddCXXStdlibLibArgs(const ArgList &Args,
   switch (GetCXXStdlibType(Args)) {
   case ToolChain::CST_Libcxx:
     CmdArgs.push_back("-lc++");
+    if (Args.hasArg(options::OPT_fexperimental_library))
+      CmdArgs.push_back("-lc++experimental");
     break;
 
   case ToolChain::CST_Libstdcxx:

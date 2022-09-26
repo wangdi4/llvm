@@ -664,10 +664,6 @@ FunctionPass *createLoopVersioningPass();
 //
 FunctionPass *createLoopDataPrefetchPass();
 
-///===---------------------------------------------------------------------===//
-ModulePass *createNameAnonGlobalPass();
-ModulePass *createCanonicalizeAliasesPass();
-
 //===----------------------------------------------------------------------===//
 //
 // LibCallsShrinkWrap - Shrink-wraps a call to function if the result is not

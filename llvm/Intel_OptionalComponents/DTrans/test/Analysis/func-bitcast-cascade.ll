@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies the DTrans analysis behavavior for cascading the
 ; mismatched argument safety data for cases where it should be pointer
 ; carried.

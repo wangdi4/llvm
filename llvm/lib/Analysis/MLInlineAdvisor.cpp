@@ -1,4 +1,21 @@
 //===- MLInlineAdvisor.cpp - machine learned InlineAdvisor ----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,6 +40,7 @@
 #include "llvm/Analysis/MLModelRunner.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
@@ -138,8 +156,8 @@ unsigned MLInlineAdvisor::getInitialFunctionLevel(const Function &F) const {
   return CG.lookup(F) ? FunctionLevels.at(CG.lookup(F)) : 0;
 }
 
-void MLInlineAdvisor::onPassEntry() {
-  if (ForceStop)
+void MLInlineAdvisor::onPassEntry(LazyCallGraph::SCC *LastSCC) {
+  if (!LastSCC || ForceStop)
     return;
   FPICache.clear();
   // Function passes executed between InlinerPass runs may have changed the
@@ -157,8 +175,8 @@ void MLInlineAdvisor::onPassEntry() {
   // care about the nature of the Edge (call or ref).
   NodeCount -= static_cast<int64_t>(NodesInLastSCC.size());
   while (!NodesInLastSCC.empty()) {
-    const auto *N = NodesInLastSCC.front();
-    NodesInLastSCC.pop_front();
+    const auto *N = *NodesInLastSCC.begin();
+    NodesInLastSCC.erase(N);
     // The Function wrapped by N could have been deleted since we last saw it.
     if (N->isDead()) {
       assert(!N->getFunction().isDeclaration());
@@ -171,12 +189,18 @@ void MLInlineAdvisor::onPassEntry() {
       assert(!AdjNode->isDead() && !AdjNode->getFunction().isDeclaration());
       auto I = AllNodes.insert(AdjNode);
       if (I.second)
-        NodesInLastSCC.push_back(AdjNode);
+        NodesInLastSCC.insert(AdjNode);
     }
   }
 
   EdgeCount -= EdgesOfLastSeenNodes;
   EdgesOfLastSeenNodes = 0;
+
+  // (Re)use NodesInLastSCC to remember the nodes in the SCC right now,
+  // in case the SCC is split before onPassExit and some nodes are split out
+  assert(NodesInLastSCC.empty());
+  for (const auto &N : *LastSCC)
+    NodesInLastSCC.insert(&N);
 }
 
 void MLInlineAdvisor::onPassExit(LazyCallGraph::SCC *LastSCC) {
@@ -188,14 +212,24 @@ void MLInlineAdvisor::onPassExit(LazyCallGraph::SCC *LastSCC) {
   // Keep track of the nodes and edges we last saw. Then, in onPassEntry,
   // we update the node count and edge count from the subset of these nodes that
   // survived.
-  assert(NodesInLastSCC.empty());
-  assert(NodeCount >= LastSCC->size());
   EdgesOfLastSeenNodes = 0;
+
+  // Check on nodes that were in SCC onPassEntry
+  for (auto I = NodesInLastSCC.begin(); I != NodesInLastSCC.end();) {
+    if ((*I)->isDead())
+      NodesInLastSCC.erase(*I++);
+    else
+      EdgesOfLastSeenNodes += getLocalCalls((*I++)->getFunction());
+  }
+
+  // Check on nodes that may have got added to SCC
   for (const auto &N : *LastSCC) {
     assert(!N.isDead());
-    EdgesOfLastSeenNodes += getLocalCalls(N.getFunction());
-    NodesInLastSCC.push_back(&N);
+    auto I = NodesInLastSCC.insert(&N);
+    if (I.second)
+      EdgesOfLastSeenNodes += getLocalCalls(N.getFunction());
   }
+  assert(NodeCount >= NodesInLastSCC.size());
   assert(EdgeCount >= EdgesOfLastSeenNodes);
 }
 
@@ -215,10 +249,13 @@ void MLInlineAdvisor::onSuccessfulInlining(const MLInlineAdvice &Advice,
   Function *Callee = Advice.getCallee();
   // The caller features aren't valid anymore.
   {
-    PreservedAnalyses PA = PreservedAnalyses::none();
+    PreservedAnalyses PA = PreservedAnalyses::all();
+    PA.abandon<FunctionPropertiesAnalysis>();
+    PA.abandon<DominatorTreeAnalysis>();
+    PA.abandon<LoopAnalysis>();
     FAM.invalidate(*Caller, PA);
   }
-  Advice.updateCachedCallerFPI(FAM.getResult<LoopAnalysis>(*Caller));
+  Advice.updateCachedCallerFPI(FAM);
   int64_t IRSizeAfter =
       getIRSize(*Caller) + (CalleeWasDeleted ? 0 : Advice.CalleeIRSize);
   CurrentIRSize += IRSizeAfter - (Advice.CallerIRSize + Advice.CalleeIRSize);
@@ -264,6 +301,9 @@ std::unique_ptr<InlineAdvice>
 MLInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
                                WholeProgramInfo *WPI, InlineCost **IC) {
 #endif // INTEL_CUSTOMIZATION
+  if (auto Skip = getSkipAdviceIfUnreachableCallsite(CB))
+    return Skip;
+
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
 
@@ -377,12 +417,25 @@ MLInlineAdvisor::getAdviceFromModel(CallBase &CB,
 #endif
 }
 
+std::unique_ptr<InlineAdvice>
+MLInlineAdvisor::getSkipAdviceIfUnreachableCallsite(CallBase &CB) {
+  if (!FAM.getResult<DominatorTreeAnalysis>(*CB.getCaller())
+           .isReachableFromEntry(CB.getParent()))
+#if INTEL_CUSTOMIZATION
+    return std::make_unique<InlineAdvice>(this, CB, InlineCost::get(0, 0),
+                                          getCallerORE(CB), false);
+#endif
+  return nullptr;
+}
+
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 MLInlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                                     WholeProgramInfo *WPI, InlineCost **IC,
                                     bool Advice) {
   // Make sure we track inlinings in all cases - mandatory or not.
+  if (auto Skip = getSkipAdviceIfUnreachableCallsite(CB))
+    return Skip;
   if (Advice && !ForceStop)
     return getMandatoryAdviceImpl(CB);
 
@@ -405,7 +458,7 @@ MLInlineAdvisor::getMandatoryAdviceImpl(CallBase &CB) {
 
 void MLInlineAdvisor::print(raw_ostream &OS) const {
   OS << "[MLInlineAdvisor] Nodes: " << NodeCount << " Edges: " << EdgeCount
-     << "\n";
+     << " EdgesOfLastSeenNodes: " << EdgesOfLastSeenNodes << "\n";
   OS << "[MLInlineAdvisor] FPI:\n";
   for (auto I : FPICache) {
     OS << I.getFirst()->getName() << ":\n";
@@ -441,8 +494,8 @@ void MLInlineAdvice::reportContextForRemark(
   OR << NV("ShouldInline", isInliningRecommended());
 }
 
-void MLInlineAdvice::updateCachedCallerFPI(const LoopInfo &LI) const {
-  FPU->finish(LI);
+void MLInlineAdvice::updateCachedCallerFPI(FunctionAnalysisManager &FAM) const {
+  FPU->finish(FAM);
 }
 
 void MLInlineAdvice::recordInliningImpl() {

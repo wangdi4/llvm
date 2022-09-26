@@ -1,4 +1,21 @@
 //===- CloneFunction.cpp - Clone a function into another function ---------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -249,9 +266,20 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
     };
 
     // Avoid cloning types, compile units, and (other) subprograms.
-    for (DISubprogram *ISP : DIFinder->subprograms())
-      if (ISP != SPClonedWithinModule)
+    SmallPtrSet<const DISubprogram *, 16> MappedToSelfSPs;
+    for (DISubprogram *ISP : DIFinder->subprograms()) {
+      if (ISP != SPClonedWithinModule) {
         mapToSelfIfNew(ISP);
+        MappedToSelfSPs.insert(ISP);
+      }
+    }
+
+    // If a subprogram isn't going to be cloned skip its lexical blocks as well.
+    for (DIScope *S : DIFinder->scopes()) {
+      auto *LScope = dyn_cast<DILocalScope>(S);
+      if (LScope && MappedToSelfSPs.count(LScope->getSubprogram()))
+        mapToSelfIfNew(S);
+    }
 
     for (DICompileUnit *CU : DIFinder->compile_units())
       mapToSelfIfNew(CU);
@@ -766,14 +794,14 @@ void llvm::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
     }
 
     // If the loops above have made these phi nodes have 0 or 1 operand,
-    // replace them with undef or the input value.  We must do this for
+    // replace them with poison or the input value.  We must do this for
     // correctness, because 0-operand phis are not valid.
     PN = cast<PHINode>(NewBB->begin());
     if (PN->getNumIncomingValues() == 0) {
       BasicBlock::iterator I = NewBB->begin();
       BasicBlock::const_iterator OldI = OldBB->begin();
       while ((PN = dyn_cast<PHINode>(I++))) {
-        Value *NV = UndefValue::get(PN->getType());
+        Value *NV = PoisonValue::get(PN->getType());
         PN->replaceAllUsesWith(NV);
         assert(VMap[&*OldI] == PN && "VMap mismatch");
         VMap[&*OldI] = NV;
@@ -1073,7 +1101,7 @@ void llvm::cloneNoAliasScopes(ArrayRef<MDNode *> NoAliasDeclScopes,
   MDBuilder MDB(Context);
 
   for (auto *ScopeList : NoAliasDeclScopes) {
-    for (auto &MDOperand : ScopeList->operands()) {
+    for (const auto &MDOperand : ScopeList->operands()) {
       if (MDNode *MD = dyn_cast<MDNode>(MDOperand)) {
         AliasScopeNode SNANode(MD);
 
@@ -1098,7 +1126,7 @@ void llvm::adaptNoAliasScopes(Instruction *I,
   auto CloneScopeList = [&](const MDNode *ScopeList) -> MDNode * {
     bool NeedsReplacement = false;
     SmallVector<Metadata *, 8> NewScopeList;
-    for (auto &MDOp : ScopeList->operands()) {
+    for (const auto &MDOp : ScopeList->operands()) {
       if (MDNode *MD = dyn_cast<MDNode>(MDOp)) {
         if (auto *NewMD = ClonedScopes.lookup(MD)) {
           NewScopeList.push_back(NewMD);

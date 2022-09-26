@@ -29,6 +29,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
 
@@ -54,6 +55,10 @@ cl::opt<bool>
 cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable vconflict idiom"));
+
+cl::opt<bool> CEIdiomsEnabled("enable-compress-expand-idiom", cl::init(true),
+                              cl::Hidden,
+                              cl::desc("Enable compress/expand idioms"));
 
 static cl::opt<bool> DisableNonMonotonicIndexes(
     "disable-nonlinear-mmindex", cl::init(false), cl::Hidden,
@@ -141,6 +146,10 @@ class DDWalk final : public HLNodeVisitorBase {
   ParVecInfo *Info;
   /// Indicates whether we have computed safe reduction chain for the loop.
   bool ComputedSafeRedn;
+  /// Indicates whether we have gathered FP IVs for the loop.
+  bool PopulatedFPInductions;
+  /// List of FP IVs identified in loop.
+  SmallVector<FPInductionInfo, 2> LoopFPInductions;
 
   const HIRVectorIdioms &IdiomList;
 
@@ -151,13 +160,21 @@ class DDWalk final : public HLNodeVisitorBase {
   /// due to safe reduction.
   bool isSafeReductionFlowDep(const DDEdge *Edge);
 
+  /// Analyze whether the flow dependence edge can be ignored due to FP
+  /// induction idiom.
+  bool isFPInductionFlowDep(const DDEdge *Edge);
+
+  /// Returns true if there is an anti edge considered safe as part of a
+  /// vconflict idiom.
+  bool isSafeVConflictAntiDep(const RegDDRef *SrcRef, const DDEdge *Edge);
+
 public:
   DDWalk(TargetLibraryInfo &TLI, HIRDDAnalysis &DDA,
          HIRSafeReductionAnalysis &SRA, HLLoop *CandidateLoop, ParVecInfo *Info,
          const HIRVectorIdioms &IList)
       : TLI(TLI), DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop)),
         CandidateLoop(CandidateLoop), Info(Info), ComputedSafeRedn(false),
-        IdiomList(IList) {}
+        PopulatedFPInductions(false), IdiomList(IList) {}
 
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
@@ -367,6 +384,113 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
          IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastVal;
 }
 
+// Pattern match a loop structure that is known to cause FP computation
+// precision issue when vectorized. The relative tolerance of the benchmark
+// containing such a loop cannot be adjusted hence we need to pattern match to
+// prohibit vectorization. Target loop's structure looks like -
+//
+//   + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+//   |   (%addr)[%dim0][i1] = %fpiv;
+//   |   %fpiv = %fpivstep  +  %fpiv;
+//   + END LOOP
+static bool
+isSuitableForFPIVVectorization(HLLoop *CandidateLoop,
+                               ArrayRef<FPInductionInfo> LoopFPInductions) {
+  if (!CandidateLoop->isDo() || CandidateLoop->isConstTripLoop())
+    return true;
+
+  if (CandidateLoop->getNumChildren() != 2)
+    return true;
+
+  // Checks for first node in loop.
+  HLNode *FirstNode = CandidateLoop->getFirstChild();
+  auto *FirstI = dyn_cast<HLInst>(FirstNode);
+  if (!FirstI || !isa<StoreInst>(FirstI->getLLVMInstruction()))
+    return true;
+
+  // Checks for last/second node in loop.
+  HLNode *LastNode = CandidateLoop->getLastChild();
+  auto *LastI = dyn_cast<HLInst>(LastNode);
+  if (!LastI || LastI->getLLVMInstruction()->getOpcode() != Instruction::FAdd)
+    return true;
+
+  // Check that loop has only one FP IV and the last node represents it.
+  if (LoopFPInductions.size() != 1 || LoopFPInductions[0].DefInst != LastI)
+    return true;
+
+  // All checks failed. Loop is not suitable for FP IV vectorization.
+  return false;
+}
+
+bool DDWalk::isFPInductionFlowDep(const DDEdge *Edge) {
+  assert(Edge->isFlow() && "Flow edge expected.");
+
+  DDRef *SrcRef = Edge->getSrc();
+  const HLDDNode *WriteNode = SrcRef->getHLDDNode();
+  auto Inst = cast<HLInst>(WriteNode);
+
+  if (!PopulatedFPInductions) {
+    DDUtils::populateFPInductions(CandidateLoop, DDG, LoopFPInductions);
+    PopulatedFPInductions = true;
+  }
+
+  if (!isSuitableForFPIVVectorization(CandidateLoop, LoopFPInductions)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "\tLoop is not safe to vectorize (known FP accuracy issues)\n");
+    return false;
+  }
+
+  return llvm::any_of(LoopFPInductions, [Inst](FPInductionInfo FPI) {
+    return FPI.DefInst == Inst;
+  });
+}
+
+bool DDWalk::isSafeVConflictAntiDep(const RegDDRef *SrcRef,
+                                    const DDEdge *Edge) {
+  // Consider as safe anti edges from vconflict load to vconflict store idiom.
+  // E.g., anti edge 342(Src) to Sink of 332 should be ignored because we have
+  // recorded a vconflict idiom for 330/332.
+  //
+  // <330:168>    |   %75 = (%cnt_ptr)[%and503 /u 256 + %and503))];
+  // <332:168>    |   (%cnt_ptr)[%and503 /u 256 + %and503))] = %75 + 1;
+  //
+  // <342:169>    |   %76 = (%cnt_ptr)[%and514 /u 256 + %and514))];
+  // <344:169>    |   (%cnt_ptr)[%and514 /u 256 + %and514))] = %76 + 1;
+  //
+  // However, we do want to analyze all edges for any case where the sink nodes
+  // are not vconflict stores, because these could break vector legality.
+  // Notice here how <10> and <11> will form a vconflict idiom, but the index
+  // load at <9> is out of order with <8> so no vconflict idiom is formed there.
+  // Thus, we want to analyze edges for <9>. In this case, the anti edge from
+  // <9> to <8> would prevent vectorization and even though we've recorded a
+  // vconflict idiom, this edge would still prevent vectorization.
+  //
+  //<18>         + DO i1 = 0, 1023, 1   <DO_LOOP>
+  // <3>          |   %0 = (%B)[i1];
+  // <6>          |   %conv = sitofp.i32.float(%0);
+  // <7>          |   %add = %conv  +  2.000000e+00;
+  // <8>          |   (%A)[%0] = %add;
+  // <9>          |   %1 = (%A)[%0];
+  // <10>         |   %add2 = %1  +  2.000000e+00;
+  // <11>         |   (%A)[%0] = %add2;
+  // <18>         + END LOOP
+  //
+  // Note: all edges for vconflict store instructions are ignored in visit()
+  // via IdiomList.isIdiom(StoreInst), so only analyze the conflict load here.
+  auto *SrcRefNode = SrcRef->getHLDDNode();
+  if (auto Inst = dyn_cast<HLInst>(SrcRefNode)) {
+    auto *SrcDDRef = const_cast<RegDDRef*>(SrcRef);
+    if (isa<LoadInst>(Inst->getLLVMInstruction()) &&
+        IdiomList.isVConflictLoad(SrcDDRef)) {
+      if (Edge->isAnti() &&
+          IdiomList.isIdiom(cast<HLInst>(Edge->getSink()->getHLDDNode())))
+        return true;
+    }
+  }
+  return false;
+}
+
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   LLVM_DEBUG(Edge->dump());
@@ -383,6 +507,19 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
       // TODO: Set ParType/ParLoc. Call emitDiag().
       return;
     }
+
+    if (Edge->isBackwardDep()) {
+      DistTy DepDistance = Edge->getDistanceAtLevel(NestLevel);
+
+      // If the dependence distance is at least 2, we can vectorize the loop
+      // leveraging safe vectorization length.
+      if (DepDistance != UnknownDistance && DepDistance > 1) {
+        LLVM_DEBUG(dbgs() << "\tis safe to vectorize with Safelen: "
+                          << +DepDistance << "\n");
+        Info->setSafelen(+DepDistance);
+        return;
+      }
+    }
   }
 
   if (SrcRef->isTerminalRef() &&
@@ -394,6 +531,17 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
   if (Edge->isFlow() && isSafeReductionFlowDep(Edge)) {
     LLVM_DEBUG(
         dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
+    return;
+  }
+
+  if (Edge->isFlow() && isFPInductionFlowDep(Edge)) {
+    LLVM_DEBUG(dbgs() << "\tis safe to vectorize/parallelize (FP induction)\n");
+    return;
+  }
+
+  if (isSafeVConflictAntiDep(SrcRef, Edge)) {
+    LLVM_DEBUG(
+        dbgs() << "\tis safe to vectorize (vconflict idiom)\n");
     return;
   }
 
@@ -491,8 +639,10 @@ void DDWalk::visit(HLDDNode *Node) {
           // TODO: Update cost model so that ephemeral values are ignored.
           IsVectorizable = isTriviallyVectorizable(IntrinsicId) ||
                            IntrinsicId == Intrinsic::assume;
-        } else
-          IsVectorizable = TLI.isFunctionVectorizable(Func->getName());
+        } else {
+          IsVectorizable = TLI.isFunctionVectorizable(Func->getName()) ||
+              Func->hasFnAttribute("vector-variants");
+        }
       } else {
         IsVectorizable = false;
       }
@@ -699,6 +849,8 @@ class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
   /// Current loop to analyse.
   HLLoop *Loop;
 
+  MapVector<unsigned, SetVector<HLInst *>> CEIdiomCandidates;
+
 public:
   HIRIdiomAnalyzer(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
                    const DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
@@ -716,6 +868,11 @@ public:
   bool isRecognizedConflictIndex(RegDDRef *StoreMemDDRef,
                                  const BlobDDRef *&NonLinearBlob);
   bool tryVConflictIdiom(HLDDNode *Node);
+
+  // Compress/expand idiom recognition related functions.
+  void tryAddIncrementNode(HLDDNode *Node);
+  SetVector<RegDDRef *> collectLoadsStores(const SetVector<HLInst *> &Incs);
+  void detectCompressExpandIdioms();
 };
 
 // Checks if the given Node is the beginning of Min/Max idiom. If the search
@@ -1036,12 +1193,8 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   int FlowDepCnt = 0;
   DDRef *LoadRef = nullptr;
   for (DDEdge *E : DDG.outgoing(StoreMemDDRef)) {
-    if (E->isOutput()) {
-      if (E->getSink() != StoreMemDDRef)
-        return Mismatch(
-            "The output dependency is expected to be self-dependency.\n");
+    if (E->isOutput())
       continue;
-    }
 
     DDRef *SinkRef = E->getSink();
     HLDDNode *SinkNode = SinkRef->getHLDDNode();
@@ -1050,7 +1203,29 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
 
     assert(E->isFlow() && "Expected flow-dependency");
 
-    if (FlowDepCnt >= 1)
+    // Check if both source and sink nodes have the same memory reference.
+    // VConflict idioms are represented in the DDG as a flow/output pair of
+    // DDG edges. For each of those edges, the sink node should be equal to
+    // StoreMemDDRef (i.e., the Lval of the store candidate upon entry to this
+    // function). Other flow/output edges should be ignored because they could
+    // be part of other VConflict idiom sequences and we don't want to bail out
+    // when seeing them.
+    //
+    // E.g., the following two idiom sequences should be analyzed separately
+    // because the flow/output edge for each uses non-equal memory references.
+    // i.e., effectively what is RHS expression for %75 vs %76. Thus, ignore
+    // dependences across pairs.
+    //
+    // <330:168>    |   %75 = (%cnt_ptr)[%and503 /u 256 + %and503))];
+    // <332:168>    |   (%cnt_ptr)[%and503 /u 256 + %and503))] = %75 + 1;
+    //
+    // <342:169>    |   %76 = (%cnt_ptr)[%and514 /u 256 + %and514))];
+    // <344:169>    |   (%cnt_ptr)[%and514 /u 256 + %and514))] = %76 + 1;
+    //
+    if (!DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
+      continue;
+
+    if (FlowDepCnt > 1)
       return Mismatch("Too many dependencies.");
 
     FlowDepCnt++;
@@ -1069,10 +1244,6 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
     if (E->isForwardDep())
       return Mismatch("Nodes are not in the right order.");
 
-    // Check if both source and sink nodes have the same memory reference.
-    if (!DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
-      return Mismatch("Wrong memory dependency.");
-
     // Check that sink ref is not a fake ref of the call.
     if ((cast<RegDDRef>(SinkRef))->isFake())
       return Mismatch("Sink ref is fake ref.");
@@ -1090,6 +1261,22 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
       DDEdge *NonLinBlobToStoreEdge = *DDG.incoming_edges_begin(NonLinearBlob);
       HLDDNode *NonLinBlobDefNode =
           NonLinBlobToStoreEdge->getSrc()->getHLDDNode();
+
+      // Check to make sure that the symbases for the conflict index load and
+      // store are not the same. i.e., we can't both load index and store to the
+      // same array due to a memory dependence.
+      //; <3>  %0 = (%A)[i1];
+      //; <6>  %1 = (%A)[%0];
+      //; <7>  %add = %1  +  2.000000e+00;
+      //; <8>  (%A)[%0] = %add;
+      if (auto Inst = dyn_cast<HLInst>(NonLinBlobDefNode)) {
+        if (isa<LoadInst>(Inst->getLLVMInstruction())) {
+          auto *IndexLoadMemRef = Inst->getRvalDDRef();
+          if (StoreMemDDRef->getSymbase() == IndexLoadMemRef->getSymbase())
+            return Mismatch("Wrong memory dependency.");
+        }
+      }
+
       // Check if the node where non-linear blob for store is defined precedes
       // the load as well. E.g., index is defined before the reference to the
       // store (%0 is defined before %1).
@@ -1107,9 +1294,266 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   if (FlowDepCnt == 0)
     return Mismatch("Store address should have one flow-dependency.");
 
-  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected!\n");
+  // Check to see that flow dependences don't break grouping of multiple
+  // vconflict idioms.
+  for (DDEdge *E : DDG.outgoing(StoreMemDDRef)) {
+    auto *SinkRefNode = E->getSink()->getHLDDNode();
+    auto *LoadRefNode = LoadRef->getHLDDNode();
+    if (E->isFlow() && SinkRefNode != LoadRefNode) {
+      // There is a memory(flow) dependence in between the vconflict load and
+      // store that prevents legal recording of the vconflict idiom.
+      // E.g., the following example has the vconflict idiom candidate as the
+      // pair of refs at <347> (load) and <378> (store) because they use the
+      // same DDRef of %540. In order to get correct results for groups of
+      // vconflict idioms, we must enforce a lexical ordering of load/store
+      // for each idiom. This is because vectorized vconflict idiom code will
+      // execute in a non-sequential order, so updates to memory must be done
+      // immediately without any intervening loads to potentially the same
+      // memory. In this case that means the write at <378> would occur first
+      // and could result in illegally updating the memory at <353>.
+      //
+      // LoadRefNode = vconflict load
+      // SinkRefNode = illegal dependence?
+      // CurNode/StoreMemDDRef = vconflict store
+      //
+      // <347> %540 = (%2)[sext.i32.i64((3 * %503))]  -  %539; (LoadRefNode)
+      // <353> %546 = (%2)[sext.i32.i64((3 * %503)) + 1]  -  %545; (SinkRefNode)
+      // <378> (%2)[sext.i32.i64((3 * %503))] = %540; (CurNode/StoreMemDDRef)
+      //
+      if (HLNodeUtils::isInTopSortNumRange(SinkRefNode, LoadRefNode, CurNode))
+        return Mismatch("Illegal flow edge between vconflict load and store");
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected, legality pending "
+                    << "further dependence checking!\n");
   IdiomList.recordVConflictIdiom(StoreInst, LoadRef);
   return true;
+}
+
+// The function tries to add CurNode into a preliminary set of increment-like
+// instructions. The set is being filtered later to a subset of instructions
+// which satisfies compress/expand idiom criteria.
+void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
+
+  HLInst *Inst = dyn_cast<HLInst>(CurNode);
+
+  // We are effectively looking for an instruction that runs conditionally.
+  // Check that Inst does not postdominate loop's first child.
+  if (!Inst || HLNodeUtils::postDominates(Inst, Loop->getFirstChild()))
+    return;
+
+  int64_t Stride;
+  if (!HIRVectorIdioms::isIncrementInst(Inst, Stride) || Stride <= 0)
+    return;
+
+  unsigned Symbase = Inst->getOperandDDRef(0)->getSymbase();
+  LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Increment {sb:" << Symbase
+                    << "}+" << Stride << " detected: ";
+             CurNode->dump());
+
+  CEIdiomCandidates[Symbase].insert(Inst);
+}
+
+SetVector<RegDDRef *>
+HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
+
+  assert(!Increments.empty() &&
+         "At least one increment instruction is expected.");
+
+#ifndef NDEBUG
+  auto Failure = [](const char *Reason, auto *Entity) {
+    LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] " << Reason << ": ");
+    LLVM_DEBUG(Entity->dump());
+    if (std::is_convertible<decltype(Entity), DDRef *>::value ||
+        std::is_convertible<decltype(Entity), CanonExpr *>::value)
+      LLVM_DEBUG(dbgs() << "\n");
+    return SetVector<RegDDRef *>();
+  };
+#else
+  auto Failure = [](...) { return SetVector<RegDDRef *>(); };
+#endif
+
+  // All the instructions of one idiom is expected to be located in the same
+  // branch of a single if statement or in straight line code if outside an
+  // if.
+  HLInst *Increment = Increments.front();
+  auto CheckParent = [&](HLNode *Node) {
+    if (HLIf *IfNode = dyn_cast<HLIf>(Increment->getParent()))
+      return Node->getParent() == IfNode &&
+        IfNode->isThenChild(Node) == IfNode->isThenChild(Increment);
+
+    // Allow cases such as:
+    // label1:
+    //    a[inc] = val;
+    //    inc = inc + 1;
+    // label2:
+    // HIR creation may fail to place such code under an IF and may
+    // end up using labels and gotos for the same. The checks can
+    // be extended to have any straight line code around the increment
+    // but this is left as a TODO when we see a need.
+    // Only allow increment or the node that immediately precedes the
+    // increment for the case where the parent is not an HLIF.
+    return isa<HLInst>(Node) && (Node == Increment ||
+                                 Increment->getPrevNode() == Node);
+  };
+
+  SetVector<RegDDRef *> LoadsStores;
+  for (HLInst *Increment : Increments) {
+
+    if (!CheckParent(Increment))
+      return Failure("Inconsistent parent", Increment->getParent());
+
+    HIRSafeReductionAnalysis *SRA = Increment->getHLNodeUtils()
+                                        .getHIRFramework()
+                                        .getHIRAnalysisProvider()
+                                        .get<HIRSafeReductionAnalysis>();
+    if (SRA && SRA->isSafeReduction(Increment))
+      return Failure("No associated loads/stores found (safe reduction)",
+                     Increment);
+
+    for (DDEdge *E : DDG.outgoing(Increment->getLvalDDRef())) {
+
+      DDRef *SinkRef = E->getSink();
+      HLDDNode *SinkNode = SinkRef->getHLDDNode();
+      HLInst *SinkInst = dyn_cast<HLInst>(SinkNode);
+      if (!SinkInst)
+        return Failure("Dependency is not a HLInst", SinkNode);
+
+      if (Increments.count(SinkInst) > 0)
+        continue;
+
+      if (!CheckParent(SinkInst))
+        return Failure("Inconsistent parent of dependency", SinkInst);
+
+      if (isa<RegDDRef>(SinkRef))
+        // Filter non-increment nodes where index is used directly.
+        // E.g. a[i] = index;
+        return Failure("Unsupported DDRef dependency", SinkInst);
+
+      BlobDDRef *BlobRef = cast<BlobDDRef>(SinkRef);
+      RegDDRef *UseMemRef = BlobRef->getParentDDRef();
+      if (!UseMemRef->isMemRef())
+        return Failure("Unsupported BlobDDRef dependency", SinkInst);
+
+      if (UseMemRef->getNumDimensions() > 1)
+        return Failure("Multidimensional arrays are not supported", UseMemRef);
+
+      CanonExpr *CE = UseMemRef->getDimensionIndex(1);
+      if (CE->hasIV(Loop->getNestingLevel()))
+        return Failure("IV found in UseMemRef", UseMemRef);
+
+      if (!CE->containsStandAloneBlob(BlobRef->getBlobIndex(), true, true))
+        return Failure("Non-standalone blob found", CE);
+
+      for (auto *BRef : UseMemRef->blobs())
+        if (BRef != BlobRef && BRef->isNonLinear())
+          return Failure("Non-linear BlobRef found", BRef);
+
+      HLDDNode *Node = UseMemRef->getHLDDNode();
+      if (HLInst *Inst = dyn_cast<HLInst>(Node))
+        if (IdiomList.isIdiom(Inst))
+          return Failure("Instruction already captured as another idiom", Inst);
+
+      for (DDEdge *E : DDG.outgoing(UseMemRef)) {
+
+        DDRef *SinkRef = E->getSink();
+        if (!DDRefUtils::areEqual(SinkRef, UseMemRef))
+          return Failure("Data-dependency on other memory found", SinkRef);
+
+        HLNode *SinkNode = SinkRef->getHLDDNode();
+        if (!CheckParent(SinkNode))
+          return Failure("Data-dependency in different parents found", SinkRef);
+
+        DDEdge *NonLinBlobEdge = *DDG.incoming_edges_begin(BlobRef);
+        HLDDNode *NonLinBlobDefNode = NonLinBlobEdge->getSrc()->getHLDDNode();
+        if (HLNodeUtils::isInTopSortNumRange(NonLinBlobDefNode, Node, SinkNode))
+          return Failure("Data-dependency on redefined index found", SinkRef);
+      }
+
+      LoadsStores.insert(UseMemRef);
+    }
+  }
+
+  if (LoadsStores.empty())
+    return Failure("No associated loads/stores found", Increment);
+
+  return LoadsStores;
+}
+
+// The function collects compress/expand idioms for further processing.
+// For example:
+//   + DO i1 = 0, zext.i32.i64(%N) + -1, 1
+//   |   if ((%C)[i1] != 0)
+//   |   {
+//   |      (%B)[%j.014] = (%A)[i1];
+//   |      %j.014 = %j.014  +  1;
+//   |   }
+//   + END LOOP
+// There is one increment which would be recognized by tryAddIncrementNode
+// function. To copmplete idiom recognition this increment is linked with store
+// instruction:
+//   (%B)[%j.014] = (%A)[i1]
+// Increment instruction could be rejected in several cases:
+//   - if one of its uses has a different parent instruciton;
+//   - if it is modified in non-incremental expression.
+// Example:
+//   + DO i1 = 0, zext.i32.i64(%N) + -1, 1
+//   |   if ((%C)[i1] != 0)
+//   |   {
+//   |      %1 = (%A)[i1];
+//   |      (%B)[%j.014] = %1;
+//   |      %j.014 = %j.014 + 2;
+//   |      (%B)[%j.014] = %1;
+//   |      %j.014 = 4  *  %j.014;
+//   |   }
+//   + END LOOP
+// Here %j.014 = 4  *  %j.014 expression is not an increment, so previously
+// recognized %j.014 = %j.014 + 2 is rejected.
+void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
+
+  for (auto &Cand : CEIdiomCandidates) {
+
+    // First try to collect load/store instructions associated with the
+    // increments collected earlier.
+    SetVector<HLInst *> &Increments = Cand.second;
+    SetVector<RegDDRef *> LoadsStores = collectLoadsStores(Increments);
+    if (LoadsStores.empty()) {
+      LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Increment rejected: ";
+                 Increments.front()->dump());
+      continue;
+    }
+
+    // If succeeded - the idiom has been recognized, let's add all the
+    // increments to the list of idioms.
+    HLInst *IndexIncFirst = nullptr;
+    for (HLInst *Node : Increments) {
+      if (!IndexIncFirst) {
+        IndexIncFirst = Node;
+        IdiomList.addIdiom(Node, HIRVectorIdioms::CEIndexIncFirst);
+        continue;
+      }
+      IdiomList.addLinked(IndexIncFirst, Node, HIRVectorIdioms::CEIndexIncNext);
+    }
+
+    // And finally adding all the collected load/store instructions to the
+    // idioms list.
+    for (RegDDRef *LoadStore : LoadsStores) {
+
+      HIRVecIdiom IdiomMaster(LoadStore);
+      HIRVectorIdioms::IdiomId IdiomId = LoadStore->isLval()
+                                             ? HIRVectorIdioms::CEStore
+                                             : HIRVectorIdioms::CELoad;
+
+      // For loads we add DDRefs, but HLInsts for stores.
+      if (IdiomId == HIRVectorIdioms::CEStore)
+        IdiomMaster = cast<HLInst>(LoadStore->getHLDDNode());
+
+      IdiomList.addLinked(IndexIncFirst, IdiomMaster, IdiomId);
+      IdiomList.addLinked(IdiomMaster, LoadStore->getDimensionIndex(1),
+                          HIRVectorIdioms::CELdStIndex);
+    }
+  }
 }
 
 // The routine looks for some idiom patterns. If any is recognized, the Node is
@@ -1122,6 +1566,9 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   if (TTI->hasCDI() && VConflictIdiomEnabled && tryVConflictIdiom(Node))
     return;
 
+  if (TTI->hasVLX() && CEIdiomsEnabled)
+    tryAddIncrementNode(Node);
+
   return;
 }
 
@@ -1130,20 +1577,30 @@ void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
                                           const DDGraph &DDG,
                                           HIRSafeReductionAnalysis &SRA,
                                           HLLoop *Loop) {
-  if (MinMaxIndexEnabled || VConflictIdiomEnabled) {
+  if (MinMaxIndexEnabled || VConflictIdiomEnabled || CEIdiomsEnabled) {
     HIRIdiomAnalyzer IdiomAnalyzer(TTI, IList, DDG, SRA, Loop);
     Loop->getHLNodeUtils().visit(IdiomAnalyzer, Loop);
+    if (!Loop->isMultiExit())
+      IdiomAnalyzer.detectCompressExpandIdioms();
+    else
+      LLVM_DEBUG(
+          dbgs() << "[Compress/Expand Idiom] Disabled for multi-exit loops.\n");
     LLVM_DEBUG(IList.dump());
   } else
     LLVM_DEBUG(dbgs() << "Any idiom recognition is disabled\n");
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void HIRVecIdiom::dump() const {
-  if (is<const HLInst*>())
-    get<const HLInst*>()->dump();
-  else
-    get<const DDRef*>()->dump();
+void HIRVecIdiom::dump(raw_ostream &OS) const {
+  if (is<const HLInst *>())
+    get<const HLInst *>()->dump();
+  else if (is<const DDRef *>()) {
+    get<const DDRef *>()->dump();
+    OS << "\n";
+  } else {
+    get<const CanonExpr *>()->dump();
+    OS << "\n";
+  }
 }
 #endif
 

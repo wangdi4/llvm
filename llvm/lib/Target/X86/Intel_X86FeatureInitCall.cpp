@@ -1,6 +1,6 @@
 //====-- Intel_FeatureInitCall.cpp ----------------====
 //
-//      Copyright (c) 2019-2020 Intel Corporation.
+//      Copyright (c) 2019-2022 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -88,7 +88,10 @@ public:
   }
 
   bool isMainFunction(Function &F) {
-    return llvm::StringSwitch<bool>(F.getName())
+    StringRef FName = F.getName();
+    if (F.hasMetadata("llvm.acd.clone"))
+      FName = FName.take_front(FName.find('.'));
+    return llvm::StringSwitch<bool>(FName)
       .Cases("main",
              "MAIN__", true)
       .Cases("wmain",
@@ -234,9 +237,8 @@ public:
         "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}", true);
     CallBase *CallInst = IRB.CreateCall(Asm, Ptr8);
     // Add elementtype attribute for indirect constraints.
-    auto Attr = Attribute::get(
-        F.getContext(), llvm::Attribute::ElementType,
-        cast<llvm::PointerType>(Ptr8->getType())->getElementType());
+    auto Attr = Attribute::get(F.getContext(), llvm::Attribute::ElementType,
+                               IRB.getInt8Ty());
     CallInst->addParamAttr(0, Attr);
 
     // call void @llvm.lifetime.end.p0i8(i64 2, i8* %2)

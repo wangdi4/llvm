@@ -1823,7 +1823,7 @@ cl_err_code NDRangeKernelCommand::Init()
 
     cl_ulong stImplicitSize = m_pDeviceKernel->GetKernelLocalMemSize();
     stImplicitSize += stTotalLocalSize;
-    if (ThrowOOR && stImplicitSize > m_pDevice->GetMaxLocalMemorySize()) {
+    if (stImplicitSize > m_pDevice->GetMaxLocalMemorySize()) {
       LOG_DEBUG("Local memory size (%d) exceeds the maximum size (%d)\n",
                 stImplicitSize, m_pDevice->GetMaxLocalMemorySize());
       res = CL_OUT_OF_RESOURCES;

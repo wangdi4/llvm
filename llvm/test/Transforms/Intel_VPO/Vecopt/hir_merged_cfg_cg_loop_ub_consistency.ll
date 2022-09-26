@@ -16,8 +16,8 @@
 ;       + END LOOP
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n0;v4;s1" -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: _Z3fooPlPS_
 ; CHECK:    BEGIN REGION { modified }
@@ -53,7 +53,7 @@
 ; CHECK:        |      |   (<4 x i64>*)([[TMP0]])[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK:        |      + END LOOP
 ; CHECK:        |
-; CHECK:        |      [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:        |      [[IND_FINAL0:%.*]] = 0 + [[VEC_TC30]]
 ; CHECK:        |      [[DOTVEC40:%.*]] = [[TMP1]] == [[VEC_TC30]]
 ; CHECK:        |      <LVAL-REG> NON-LINEAR <4 x i1> [[DOTVEC40]] {sb:31}
 ; CHECK:        |      <RVAL-REG> NON-LINEAR <4 x i64> [[TMP1]] {sb:9}
@@ -67,7 +67,7 @@
 ; CHECK:        |      }
 ; CHECK:        |      [[MERGE_AFTER_MAIN]]:
 ; CHECK:        |      [[LB_TMP0:%.*]] = [[PHI_TEMP0]]
-; CHECK:        |      + DO i64 i2 = [[LB_TMP0]], [[TMP1]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:        |      + DO i64 i2 = [[LB_TMP0]], [[TMP1]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK:        |      |   ([[TMP0]])[i2] = i2
 ; CHECK:        |      + END LOOP
 ; CHECK:        |

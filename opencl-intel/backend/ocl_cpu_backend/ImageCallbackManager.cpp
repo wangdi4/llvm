@@ -12,15 +12,14 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <assert.h>
-#include <string>
-#include <memory>
 #include "ImageCallbackManager.h"
-#include "ImageCallbackLibrary.h"
-#include "Compiler.h"
 #include "CPUCompiler.h"
-#include "CompilationUtils.h"
-
+#include "Compiler.h"
+#include "ImageCallbackLibrary.h"
+#include "exceptions.h"
+#include <assert.h>
+#include <memory>
+#include <string>
 
 //void RegisterBIFunctions(void);
 
@@ -73,9 +72,6 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig &config,
 
   // Retrieve CPU ID
   cpuId = spCompiler->GetCpuId();
-  // KNL is not supported
-  if (cpuId->GetCPU() == Intel::OpenCL::Utils::CPU_KNL)
-    return true;
 
   // Find library for this platform if it has been built earlier
   ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId->GetCPU());

@@ -154,7 +154,7 @@ template<>Clause<UseDevicePtrItem>::Clause():ClauseID(QUAL_OMP_USE_DEVICE_PTR){}
 template<>Clause<InclusiveItem>   ::Clause():ClauseID(QUAL_OMP_INCLUSIVE){}
 template<>Clause<ExclusiveItem>   ::Clause():ClauseID(QUAL_OMP_EXCLUSIVE){}
 template<>Clause<SubdeviceItem>   ::Clause():ClauseID(QUAL_OMP_SUBDEVICE){}
-template<>Clause<InteropItem>     ::Clause():ClauseID(QUAL_OMP_INIT){}
+template<>Clause<InteropActionItem>::Clause():ClauseID(QUAL_OMP_INIT){}
 template<>Clause<DependItem>      ::Clause():ClauseID(QUAL_OMP_DEPEND_IN){}
 template<>Clause<DepSinkItem>     ::Clause():ClauseID(QUAL_OMP_DEPEND_SINK){}
 template<>Clause<DepSourceItem>   ::Clause():ClauseID(QUAL_OMP_DEPEND_SOURCE){}
@@ -165,6 +165,7 @@ template<>Clause<SizesItem>       ::Clause():ClauseID(QUAL_OMP_SIZES){}
 template<>Clause<LiveinItem>      ::Clause():ClauseID(QUAL_OMP_LIVEIN){}
 template<>Clause<AllocateItem>    ::Clause():ClauseID(QUAL_OMP_ALLOCATE){}
 template<>Clause<DataItem>        ::Clause():ClauseID(QUAL_OMP_DATA){}
+template<>Clause<InteropItem>     ::Clause():ClauseID(QUAL_OMP_INTEROP){}
 
 
 // Print routine for ScheduleClause. Returns true iff something is printed.
@@ -302,7 +303,7 @@ bool ArraySectionInfo::isArraySectionWithVariableLengthOrOffset() const {
 }
 
 // This routine populates PreferList from the Args.
-void InteropItem::populatePreferList(const Use *Args, unsigned NumArgs) {
+void InteropActionItem::populatePreferList(const Use *Args, unsigned NumArgs) {
   setIsPrefer();
   assert(NumArgs != 0 &&
          "prefer_type modifier is not allowed with empty preference-list");

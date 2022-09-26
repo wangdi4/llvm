@@ -53,8 +53,9 @@ void test()
   for(int z2=3; z2<16; ++z2) {
   }
 
+  //CHECK: [[AFOO_ADDR:%.*]] = call i32* @llvm.threadlocal.address.p0i32(i32* @afoo)
   //CHECK: "DIR.OMP.PARALLEL"()
-  //CHECK-SAME: "QUAL.OMP.COPYIN:TYPED"(i32* @afoo, i32 0, i32 1)
+  //CHECK-SAME: "QUAL.OMP.COPYIN:TYPED"(i32* [[AFOO_ADDR]], i32 0, i32 1)
   #pragma omp parallel copyin(afoo)
   {
   }
@@ -109,10 +110,6 @@ void Str::member()
 void test2()
 {
   //CHECK: [[REF_TMP:%ref.tmp.*]] = alloca [[STR:%.*]], align 1
-  //CHECK: [[FOOV:%foov.*]] = alloca [10 x i32], align 16
-  //CHECK: [[D:%d.*]] = alloca double, align 8
-  //CHECK: [[TP1:%.tmp.prefetch.*]] = alloca [10 x i32]*, align 8
-  //CHECK: [[TP2:%.tmp.prefetch.*]] = alloca double*, align 8
 
   //CHECK: "DIR.OMP.PARALLEL"()
   //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"([[STR]]* [[REF_TMP]], [[STR]] zeroinitializer, i32 1)
@@ -121,13 +118,6 @@ void test2()
     Str V0;
     Str V (V0 * 1);
   }
-
-  int foov[10];
-  double d;
-  #pragma omp prefetch data(&foov:1:5) data(&d:1:1)
-  //CHECK: "DIR.OMP.PREFETCH"()
-  //CHECK-SAME: "QUAL.OMP.DATA:TYPED"([10 x i32]** [[TP1]], [10 x i32]* null, i32 1, i64 5)
-  //CHECK-SAME: "QUAL.OMP.DATA:TYPED"(double** [[TP2]], double* null, i32 1, i64 1) ]
 }
 
 //CHECK: define {{.*}}test_fixed_array
@@ -199,11 +189,11 @@ void test_array_sections(unsigned long n, unsigned long m) {
   // Typed array sections arguments are:
   // p# %vla, <type specifier>, i# %number_of_elements, i# %offset_in_elements
 
-//CHECK:    [[SEC_BASE_CAST:%.*]] = ptrtoint [[YT]]* [[Y_ARRAY]] to i64
-//CHECK-NEXT: [[AI:%.*]] = getelementptr inbounds [[YT]], [[YT]]* [[Y_ARRAY]], i64 0, i64 7
+//CHECK: [[AI:%.*]] = getelementptr inbounds [[YT]], [[YT]]* [[Y_ARRAY]], i64 0, i64 7
 //CHECK-NEXT: [[AI1:%.*]] = getelementptr inbounds [42 x [100 x i32]], [42 x [100 x i32]]* [[AI]], i64 0, i64 0
 //CHECK-NEXT: [[ARRAYDECAY:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[AI1]], i64 0, i64 0
 //CHECK-NEXT: [[AI2:%.*]] = getelementptr inbounds i32, i32* [[ARRAYDECAY]], i64 0
+//CHECK-NEXT: [[SEC_BASE_CAST:%.*]] = ptrtoint [[YT]]* [[Y_ARRAY]] to i64
 //CHECK-NEXT: [[SEC_LOWER_CAST:%.*]] = ptrtoint i32* [[AI2]] to i64
 //CHECK-NEXT: [[AI3:%.*]] = getelementptr inbounds [[YT]], [[YT]]* [[Y_ARRAY]], i64 0, i64 7
 //CHECK-NEXT: [[AI4:%.*]] = getelementptr inbounds [42 x [100 x i32]], [42 x [100 x i32]]* [[AI3]], i64 0, i64 5
@@ -229,10 +219,10 @@ void test_array_sections(unsigned long n, unsigned long m) {
   }
 //CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
 
-//CHECK: [[SEC_BASE_CAST:%sec.base.cast.*]] = ptrtoint [[YT]]* [[Y_ARRAY]] to i64
 //CHECK: [[AI:%.*]] = getelementptr inbounds [[YT]], [[YT]]* [[Y_ARRAY]], i64 0, i64 6
 //CHECK: [[AI1:%.*]] = getelementptr inbounds [42 x [100 x i32]], [42 x [100 x i32]]* [[AI]], i64 0, i64 21
 //CHECK: [[AI2:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[AI1]], i64 0, i64 4
+//CHECK: [[SEC_BASE_CAST:%sec.base.cast.*]] = ptrtoint [[YT]]* [[Y_ARRAY]] to i64
 //CHECK: [[SEC_LOWER_CAST:%.*]] = ptrtoint i32* [[AI2]] to i64
 //CHECK: [[TMP0:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
 //CHECK: [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP0]], 4
@@ -254,13 +244,13 @@ for (int i = 0; i < 3; i++) {
 //CHECK: [[TMP15:%.*]] = load i64, i64* [[N_ADDR]], align 8
 //CHECK: [[TMP17:%.*]] = mul nuw i64 1000, [[TMP15]]
 //CHECK: [[VLA:%vla.*]] = alloca i16, i64 [[TMP17]], align 16
-//CHECK: [[SEC_BASE_CAST23:%sec.base.cast.*]] = ptrtoint i16* [[VLA]] to i64
-//CHECK-NEXT: [[TMP20:%.*]] = mul nuw i64 10, [[TMP15]]
+//CHECK: [[TMP20:%.*]] = mul nuw i64 10, [[TMP15]]
 //CHECK-NEXT: [[TMP21:%.*]] = mul nsw i64 50, [[TMP20]]
 //CHECK-NEXT: [[AI24:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i64 [[TMP21]]
 //CHECK-NEXT: [[TMP22:%.*]] = mul nsw i64 5, [[TMP15]]
 //CHECK-NEXT: [[AI25:%.*]] = getelementptr inbounds i16, i16* [[AI24]], i64 [[TMP22]]
 //CHECK-NEXT: [[AI26:%.*]] = getelementptr inbounds i16, i16* [[AI25]], i64 0
+//CHECK-NEXT: [[SEC_BASE_CAST23:%sec.base.cast.*]] = ptrtoint i16* [[VLA]] to i64
 //CHECK-NEXT: [[SEC_LOWER_CAST27:%sec.lower.cast.*]] = ptrtoint i16* [[AI26]] to i64
 //CHECK-NEXT: [[TMP23:%.*]] = load i64, i64* [[N_ADDR]], align 8
 //CHECK-NEXT: [[LB_ADD_LEN:%.*]] = add nsw i64 -1, [[TMP23]]
@@ -289,12 +279,12 @@ for (int i = 0; i < 3; i++) {
 //CHECK: [[TMP49:%.*]] = load i64, i64* [[M_ADDR]], align 8
 //CHECK: [[TMP50:%.*]] = mul nuw i64 11, [[TMP49]]
 //CHECK: [[VLA2:%vla.*]] = alloca [42 x double], i64 [[TMP50]],
-//CHECK: [[SEC_BASE_CAST:%sec.base.cast.*]] = ptrtoint [42 x double]* [[VLA2]] to i64
 //CHECK: [[TMP53:%.*]] = mul nsw i64 4, [[TMP49]]
 //CHECK: [[AI:%.*]] = getelementptr inbounds [42 x double], [42 x double]* [[VLA2]], i64 [[TMP53]]
 //CHECK: [[AI1:%.*]] = getelementptr inbounds [42 x double], [42 x double]* [[AI]], i64 3
 //CHECK: [[TMP54:%.*]] = load i64, i64* [[N_ADDR]], align 8
 //CHECK: [[AI2:%.*]] = getelementptr inbounds [42 x double], [42 x double]* [[AI1]], i64 0, i64 [[TMP54]]
+//CHECK: [[SEC_BASE_CAST:%sec.base.cast.*]] = ptrtoint [42 x double]* [[VLA2]] to i64
 //CHECK: [[SEC_LOWER_CAST:%sec.lower.cast.*]] = ptrtoint double* [[AI2]] to i64
 //CHECK: [[TMP55:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
 //CHECK: [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP55]], 8

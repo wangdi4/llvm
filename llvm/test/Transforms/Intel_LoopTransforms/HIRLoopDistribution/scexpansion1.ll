@@ -1,5 +1,4 @@
-;RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup   -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"   < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -hir-loop-distribute-max-mem=17  -disable-output < %s 2>&1 | FileCheck %s
 ;  Loop Distribution is expected to happen when there are too many
 ;   memory references in the loop
 ;  for (i = 0; i < 99; i++) {
@@ -36,18 +35,22 @@
 ;    |   |   %sub59 = (@B8)[0][64 * i1 + i2]  -  %conv9;
 ;    |   |   (%.TempArray1)[0][i2] = %sub59;
 ;    |   + END LOOP
-;    |   + DO i2 = 0, %min, 1   <DO_LOOP>
-;    |   |   %sub59 = (%.TempArray1)[0][i2];
-;    |   |   (@B8)[0][64 * i1 + i2] = %sub59;
-;    |   |   %conv9 = (%.TempArray)[0][i2];     etc
+;    |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+;    |   |   %conv9 = sitofp.i32.double(64 * i1 + i2);
+;    |   |   %sub63 = (%.TempArray)[0][i2];
+;    |   |   (@B9)[0][64 * i1 + i2] = %sub63;
+;    |   |   (@C1)[0][64 * i1 + i2] = 1.000000e+00;
 ;
 ;  Note: just verify for key HIRs
 ; CHECK: BEGIN REGION
-; CHECK:       DO i1 = 0, 98, 1
-; CHECK:         %conv9 = sitofp.i32.double(i1);
+; CHECK:       DO i1 = 0, 1, 1
+; CHECK:         DO i2 = 0, %min, 1
+; CHECK:         %conv9 = sitofp.i32.double(64 * i1 + i2);
+; CHECK:         END LOOP
+; CHECK:         DO i2 = 0, %min, 1
+; CHECK:         %conv9 = sitofp.i32.double(64 * i1 + i2)
+; CHECK:         END LOOP
 ; CHECK:       END LOOP
-; CHECK:       DO i1 = 0, 98, 1
-; CHECK:         %conv9 = sitofp.i32.double(i1);
 ;
 ;Module Before HIR; ModuleID = 'scexpansion1.c'
 source_filename = "scexpansion1.c"

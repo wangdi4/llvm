@@ -34,7 +34,7 @@ public:
                   llvm::TargetMachine *machine, bool debugInfo,
                   bool useNativeDebugger, bool profiling, bool disableOpt,
                   bool relaxedMath, bool uniformWGSize, bool fpgaEmulator,
-                  bool eyeqEmulator, bool heuristicIR, int APFLevel,
+                  bool heuristicIR,
                   int rtLoopUnrollFactor, bool streamingAlways,
                   unsigned expensiveMemOpts)
       : m_cpuId(cpuId), m_transposeSize(tranposeSize),
@@ -42,8 +42,8 @@ public:
         m_useNativeDebugger(useNativeDebugger), m_profiling(profiling),
         m_disableOpt(disableOpt), m_relaxedMath(relaxedMath),
         m_uniformWGSize(uniformWGSize), m_fpgaEmulator(fpgaEmulator),
-        m_eyeqEmulator(eyeqEmulator), m_dumpHeuristicIR(heuristicIR),
-        m_APFLevel(APFLevel), m_rtLoopUnrollFactor(rtLoopUnrollFactor),
+        m_dumpHeuristicIR(heuristicIR),
+        m_rtLoopUnrollFactor(rtLoopUnrollFactor),
         m_streamingAlways(streamingAlways),
         m_expensiveMemOpts(expensiveMemOpts) {}
 
@@ -59,10 +59,8 @@ public:
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetUniformWGSize() const { return m_uniformWGSize; }
     bool isFpgaEmulator()   const { return m_fpgaEmulator; }
-    bool isEyeQEmulator()   const { return m_eyeqEmulator; }
     int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
-    int  GetAPFLevel() const { return m_APFLevel; }
     bool GetStreamingAlways() const { return m_streamingAlways; }
     bool EnableOCLAA() const;
 
@@ -82,12 +80,8 @@ public:
     bool m_uniformWGSize;
     // Sets whether we are working as fpga emulator
     bool m_fpgaEmulator;
-    // Sets whether we are working as EyeQ emulator
-    bool m_eyeqEmulator;
     // Sets whether the vectorize should output heuristic LL IR inputs
     bool m_dumpHeuristicIR;
-    // Auto prefetch disable options
-    int m_APFLevel;
 
     int m_rtLoopUnrollFactor;
     bool m_streamingAlways;

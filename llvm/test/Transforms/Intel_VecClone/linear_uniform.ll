@@ -7,11 +7,11 @@
 ; CHECK-LABEL: @_ZGVbN4ul_foo
 ; CHECK: entry:
 ; a is a uniform parameter. Similarly to k, space is allocated in the stack and a is stored there.
+; CHECK-NEXT: %alloca.k = alloca i32
+; CHECK-NEXT: store i32 %k, i32* %alloca.k
 ; CHECK-NEXT: %alloca.a = alloca i32*
 ; CHECK-NEXT: store i32* %a, i32** %alloca.a
 ; k is a linear parameter. So, space is allocated in the stack and k is stored there.
-; CHECK-NEXT: %alloca.k = alloca i32
-; CHECK-NEXT: store i32 %k, i32* %alloca.k
 ; CHECK-LABEL: simd.begin.region
 ; CHECK: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: DIR.OMP.SIMD
@@ -26,8 +26,8 @@
 ; CHECK-LABEL: simd.loop.preheader:
 
 ; Load the parameters in simd.loop.preheader which is in the WRN region.
-; CHECK:         [[LOAD_A0:%.*]] = load i32*, i32** [[ALLOCA_A0:%.*]], align 8
-; CHECK-NEXT:    [[LOAD_K0:%.*]] = load i32, i32* [[ALLOCA_K0:%.*]], align 4
+; CHECK:         [[LOAD_K0:%.*]] = load i32, i32* [[ALLOCA_K0:%.*]], align 4
+; CHECK-NEXT:    [[LOAD_A0:%.*]] = load i32*, i32** [[ALLOCA_A0:%.*]], align 8
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.header:

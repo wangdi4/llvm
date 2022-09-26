@@ -76,8 +76,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   |   {
 ; CHECK:       |   |   |   case 1:
 ; CHECK:       |   |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
-; CHECK:       |   |   |      |   %AikBkj = - (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |   |   |      |   %sum = %sum  +  %AikBkj;
+; CHECK:       |   |   |      |   %sum = %sum  -  (%B)[(%M * %K) * i1 + i2 + %M * i4];
 ; CHECK:       |   |   |      + END LOOP
 ; CHECK:       |   |   |      break;
 ; CHECK:       |   |   |   case 2:
@@ -145,7 +144,7 @@ L3:
   %B_ind = add nuw nsw i64 %B_row, %j
   %Bkjp = getelementptr inbounds double, double* %B, i64 %B_ind
   %Bkj = load double, double* %Bkjp
-  %AikBkj = fmul fast double %Aik, %Bkj
+  %AikBkj = fmul nnan nsz arcp afn reassoc double %Aik, %Bkj
   %sum.next = fadd double %sum.L3, %AikBkj
   %k.next = add nuw nsw i64 %k, 1
   %L3.cond = icmp eq i64 %k.next, %K

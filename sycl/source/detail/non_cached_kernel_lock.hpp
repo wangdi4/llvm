@@ -1,14 +1,14 @@
 #pragma once
 
-#include <CL/sycl/detail/common.hpp>
-#include <CL/sycl/detail/locked.hpp>
-#include <CL/sycl/detail/pi.hpp>
+#include <sycl/detail/common.hpp>
+#include <sycl/detail/locked.hpp>
+#include <sycl/detail/pi.hpp>
 
 #include <map>
 #include <mutex>
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace detail {
 
 class NonCachedKernelLock {
@@ -25,5 +25,5 @@ private:
 };
 
 } // namespace detail
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)

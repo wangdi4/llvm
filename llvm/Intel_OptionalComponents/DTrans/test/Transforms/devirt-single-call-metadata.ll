@@ -2,7 +2,6 @@
 ; involves bitcasts with metadata for the DTrans analysis. This case checks the
 ; path where there is only a single devirtualization target for the call.
 
-; RUN: opt < %s -wholeprogramdevirt -whole-program-visibility -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=wholeprogramdevirt -whole-program-visibility -S 2>&1 | FileCheck %s
 
 ; Define the types and global variables required for the devirtualizer.

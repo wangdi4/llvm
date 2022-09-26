@@ -3,7 +3,7 @@
 ; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that the DTrans safety analyzer does not trigger safety settings on
-; landingpad, extractvalue, or resume instructions.
+; landingpad, extractvalue, insertvalue or resume instructions.
 
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i32, i32 }
@@ -24,8 +24,11 @@ good:
 bad:
   %lp = landingpad { i8*, i32 }
         cleanup
-  %v = extractvalue { i8*, i32 } %lp, 0
-  resume { i8*, i32 } %lp
+  %ev1 = extractvalue { i8*, i32 } %lp, 0
+  %ev2 = extractvalue { i8*, i32 } %lp, 1
+  %iv1 = insertvalue { i8*, i32 } undef, i8* %ev1, 0
+  %iv2 = insertvalue { i8*, i32 } %iv1, i32 %ev2, 1
+  resume { i8*, i32 } %iv2
 }
 
 ; CHECK: dtrans-safety-detail: %struct.test01a = type { i32, i32 } :: Has C++ handling

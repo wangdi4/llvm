@@ -462,12 +462,15 @@ entry:
 }
 
 declare !intel.dtrans.func.type !25 dso_local nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
-declare !intel.dtrans.func.type !45 dso_local noalias "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !45 dso_local noalias "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 declare void @llvm.memset.p0i8.i32(i8* nocapture writeonly, i8, i32, i1 immarg)
 declare void @__cxa_rethrow()
-declare !intel.dtrans.func.type !53 dso_local void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !53 dso_local void @free(i8* "intel_dtrans_func_index"="1") #1
 declare !intel.dtrans.func.type !32 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!8, !12, !16, !19, !21}
 

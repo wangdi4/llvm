@@ -230,7 +230,7 @@ bool ArrayTransposeImpl::collectMallocCalls(void) {
   // Returns true if "CInst" is a valid candidate array.
   auto IsCandidateMalloc = [this](CallInst *CInst, const TargetLibraryInfo *TLI,
                                   LoopInfo *LI, Function &F) {
-    if (!isMallocLikeFn(CInst, TLI))
+    if (!IntelMemoryBuiltins::isMallocLikeFn(CInst, TLI))
       return false;
     auto CI = dyn_cast<ConstantInt>(CInst->getArgOperand(0));
     if (!CI)
@@ -430,7 +430,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
         if (isa<ICmpInst>(Ptr))
           continue;
         if (auto CI = dyn_cast<CallInst>(Ptr)) {
-          if (isFreeCall(CI, &GetTLI(*CI->getFunction()))) {
+          if (getFreedOperand(CI, &GetTLI(*CI->getFunction()))) {
             FreeCalls.insert(CI);
             continue;
           }
@@ -580,7 +580,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
   // call-sites.
   for (auto PI : ProcessedInsts) {
     auto CI = dyn_cast<CallInst>(PI);
-    if (!CI || isFreeCall(CI, &GetTLI(*CI->getFunction())))
+    if (!CI || getFreedOperand(CI, &GetTLI(*CI->getFunction())))
       continue;
     Function *Callee = CI->getCalledFunction();
     assert(Callee && "Unexpected indirect call");
@@ -647,7 +647,7 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
 
         case Instruction::Call: {
           auto CI = cast<CallInst>(I);
-          if (!isFreeCall(CI, &GetTLI(*CI->getFunction())))
+          if (!getFreedOperand(CI, &GetTLI(*CI->getFunction())))
             return false;
           break;
         }

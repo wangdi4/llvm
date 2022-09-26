@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; With the old pass manager run, we need to run the aos-to-soa pass followed by
 ; the dynclone pass in order to trigger the analysis of the modified structures
 ; to occur, because it is being lazily recomputed when invalidated by a
@@ -44,7 +46,9 @@ define void @test1(%struct.test01dep* %in) {
   ret void
 }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 ; CHECK-LABEL: LLVMType: %struct.test01 = type { i32, i32, i32, %struct.test01*, %struct.test01dep*, i8* }
 ; CHECK: Safety data: Global pointer

@@ -3,12 +3,12 @@
 ; RUN: opt -enable-new-pm=0 -vplan-vec -mtriple=x86_64-unknown-linux-gnu -mattr=+sse4.2 \
 ; RUN:  -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass \
 ; RUN:  -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 \
-; RUN:  -vplan-enable-new-cfg-merge -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN:  -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -passes='vplan-vec' -mtriple=x86_64-unknown-linux-gnu -mattr=+sse4.2 \
 ; RUN:  -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops \
 ; RUN:  -vplan-print-after-all-zero-bypass -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 \
-; RUN:  -vplan-enable-new-cfg-merge -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN:  -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test inserts two separate all-zero bypasses for two regions using the same block-predicate, but are
 ; split due to other non-predicated code in between the regions.
@@ -93,7 +93,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LASTPRIVATE"(i32* %i.lpriv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

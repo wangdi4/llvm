@@ -888,15 +888,23 @@
 // NO-GLOBAL-LOADS-UNSAFE-NOT: "-mllvm" "-global-loads-unsafe"
 
 // Tests for binary output 'name' check
+// RUN: ln -fs %clang %t_dir/clang-cl
+// Note: use -- in front of the filename so it's not mistaken for an option on
+// filesystems that use slashes for dir separators.
 // RUN: %clang -### --intel -help %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
-// RUN: %clang_cl -### --intel -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// RUN: %clang_cl -### --intel -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK_CL %s
+// RUN: %clang_cl -### --intel --icx -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// RUN: %t_dir/clang-cl -### --intel -help -- %s 2>&1 | FileCheck -check-prefix=HELP-CHECK_CL %s
+// RUN: %t_dir/clang-cl -### --intel --icx -help -- %s 2>&1 | FileCheck -check-prefix=HELP-CHECK %s
 // HELP-CHECK: USAGE: icx [options] file...
+// HELP-CHECK_CL: USAGE: icx-cl [options] file...
 
 // RUN: not %clang -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK %s
 // SUPPORT-CHECK: icx: error: unsupported option '---'
 
-// RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s
-// SUPPORT-CHECK-WIN: icx: warning: unknown argument ignored in clang-cl: '---' [-Wunknown-argument]
+// RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s -DICXNAME=icx-cl
+// RUN: %clang_cl -### --intel --icx --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s -DICXNAME=icx
+// SUPPORT-CHECK-WIN: [[ICXNAME]]: warning: unknown argument ignored in clang-cl: '---' [-Wunknown-argument]
 
 // -fp-model=consistent is equivalent to -fp-model=precise -fimf-arch-consistency=true -no-fma
 // RUN: %clang -### -fp-model=consistent -c %s 2>&1 \
@@ -949,3 +957,28 @@
 // WARN-DEBUG-Od: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
 // NO-WARN-DEBUG-O0-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
 // NO-WARN-DEBUG-Od-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
+
+// -q[no-]opt-assume-counted-loops and /Qopt-assume-counted-loops[-]
+// RUN: %clang -### -qopt-assume-counted-loops %s 2>&1 | FileCheck -check-prefix=ASSUME-COUNTED-LOOPS %s
+// RUN: %clang -### -qopt-assume-counted-loops -qno-opt-assume-counted-loops %s 2>&1 | FileCheck -check-prefix=NO-ASSUME-COUNTED-LOOPS %s
+// RUN: %clang_cl -### /Qopt-assume-counted-loops %s 2>&1 | FileCheck -check-prefix=ASSUME-COUNTED-LOOPS %s
+// RUN: %clang_cl -### /Qopt-assume-counted-loops /Qopt-assume-counted-loops- %s 2>&1 | FileCheck -check-prefix=NO-ASSUME-COUNTED-LOOPS %s
+// ASSUME-COUNTED-LOOPS: "-cc1"{{.*}} "-fassume-counted-loops"
+// NO-ASSUME-COUNTED-LOOPS-NOT: "-fassume-counted-loops"
+
+// ocloc tool check
+// RUN: env PATH= \
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-OCLOC %s
+// RUN: env PATH= \
+// RUN: %clang_cl -### /Qiopenmp /Qopenmp-targets:spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-OCLOC %s
+// CHECK-OCLOC: warning: ocloc tool could not be found and is required for AOT compilation. See: https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html for more information. [-Waot-tool-not-found]
+
+// RUN: rm -rf %t_dir/dummy && mkdir %t_dir/dummy
+// RUN: touch %t_dir/dummy/ocloc
+// RUN: chmod +x %t_dir/dummy/ocloc
+// RUN: env PATH=%t_dir/dummy \
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-OCLOC %s
+// RUN: env PATH=%t_dir/dummy \
+// RUN: %clang_cl -### /Qiopenmp /Qopenmp-targets:spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-OCLOC %s
+// CHECK-NO-OCLOC-NOT: warning: ocloc tool could not be found and is required for AOT compilation. See: https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html for more information. [-Waot-tool-not-found]
+

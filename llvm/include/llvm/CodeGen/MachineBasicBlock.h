@@ -1,4 +1,21 @@
 //===- llvm/CodeGen/MachineBasicBlock.h -------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,6 +34,11 @@
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/iterator_range.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+#include "llvm/CodeGen/Intel_MarkerCount.h"
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBundleIterator.h"
 #include "llvm/IR/DebugLoc.h"
@@ -128,6 +150,12 @@ private:
 
   Optional<uint64_t> IrrLoopHeaderWeight;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  MarkerCount Marker;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   /// Keep track of the physical registers that are livein of the basicblock.
   using LiveInVector = std::vector<RegisterMaskPair>;
   LiveInVector LiveIns;
@@ -143,9 +171,13 @@ private:
   /// Indicate that this basic block is entered via an exception handler.
   bool IsEHPad = false;
 
-  /// Indicate that this basic block is potentially the target of an indirect
-  /// branch.
-  bool AddressTaken = false;
+  /// Indicate that this MachineBasicBlock is referenced somewhere other than
+  /// as predecessor/successor, a terminator MachineInstr, or a jump table.
+  bool MachineBlockAddressTaken = false;
+
+  /// If this MachineBasicBlock corresponds to an IR-level "blockaddress"
+  /// constant, this contains a pointer to that block.
+  BasicBlock *AddressTakenIRBlock = nullptr;
 
   /// Indicate that this basic block needs its symbol be emitted regardless of
   /// whether the flow just falls-through to it.
@@ -216,12 +248,35 @@ public:
   /// Return a formatted string to identify this block and its parent function.
   std::string getFullName() const;
 
-  /// Test whether this block is potentially the target of an indirect branch.
-  bool hasAddressTaken() const { return AddressTaken; }
+  /// Test whether this block is used as as something other than the target
+  /// of a terminator, exception-handling target, or jump table. This is
+  /// either the result of an IR-level "blockaddress", or some form
+  /// of target-specific branch lowering.
+  bool hasAddressTaken() const {
+    return MachineBlockAddressTaken || AddressTakenIRBlock;
+  }
 
-  /// Set this block to reflect that it potentially is the target of an indirect
-  /// branch.
-  void setHasAddressTaken() { AddressTaken = true; }
+  /// Test whether this block is used as something other than the target of a
+  /// terminator, exception-handling target, jump table, or IR blockaddress.
+  /// For example, its address might be loaded into a register, or
+  /// stored in some branch table that isn't part of MachineJumpTableInfo.
+  bool isMachineBlockAddressTaken() const { return MachineBlockAddressTaken; }
+
+  /// Test whether this block is the target of an IR BlockAddress.  (There can
+  /// more than one MBB associated with an IR BB where the address is taken.)
+  bool isIRBlockAddressTaken() const { return AddressTakenIRBlock; }
+
+  /// Retrieves the BasicBlock which corresponds to this MachineBasicBlock.
+  BasicBlock *getAddressTakenIRBlock() const { return AddressTakenIRBlock; }
+
+  /// Set this block to indicate that its address is used as something other
+  /// than the target of a terminator, exception-handling target, jump table,
+  /// or IR-level "blockaddress".
+  void setMachineBlockAddressTaken() { MachineBlockAddressTaken = true; }
+
+  /// Set this block to reflect that it corresponds to an IR-level basic block
+  /// with a BlockAddress.
+  void setAddressTakenIRBlock(BasicBlock *BB) { AddressTakenIRBlock = BB; }
 
   /// Test whether this block must have its label emitted.
   bool hasLabelMustBeEmitted() const { return LabelMustBeEmitted; }
@@ -246,6 +301,7 @@ public:
       MachineInstrBundleIterator<const MachineInstr, true>;
 
   unsigned size() const { return (unsigned)Insts.size(); }
+  bool sizeWithoutDebugLargerThan(unsigned Limit) const;
   bool empty() const { return Insts.empty(); }
 
   MachineInstr       &instr_front()       { return Insts.front(); }
@@ -736,6 +792,15 @@ public:
   /// other block.
   bool isLayoutSuccessor(const MachineBasicBlock *MBB) const;
 
+  /// Return the successor of this block if it has a single successor.
+  /// Otherwise return a null pointer.
+  ///
+  const MachineBasicBlock *getSingleSuccessor() const;
+  MachineBasicBlock *getSingleSuccessor() {
+    return const_cast<MachineBasicBlock *>(
+        static_cast<const MachineBasicBlock *>(this)->getSingleSuccessor());
+  }
+
   /// Return the fallthrough block if the block can implicitly
   /// transfer control to the block after it by falling off the end of
   /// it.  This should return null if it can reach the block after
@@ -1091,6 +1156,13 @@ public:
   void setIrrLoopHeaderWeight(uint64_t Weight) {
     IrrLoopHeaderWeight = Weight;
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  const MarkerCount &getMarkerCount() const { return Marker; }
+  MarkerCount &getMarkerCount() { return Marker; }
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   /// Return probability of the edge from this block to MBB. This method should
   /// NOT be called directly, but by using getEdgeProbability method from

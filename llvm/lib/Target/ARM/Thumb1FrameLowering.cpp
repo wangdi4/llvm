@@ -218,7 +218,7 @@ void Thumb1FrameLowering::emitPrologue(MachineFunction &MF,
         FRSize += 4;
         break;
       }
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case ARM::R8:
     case ARM::R9:
     case ARM::R10:
@@ -226,13 +226,13 @@ void Thumb1FrameLowering::emitPrologue(MachineFunction &MF,
         GPRCS2Size += 4;
         break;
       }
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case ARM::LR:
       if (HasFrameRecordArea) {
         FRSize += 4;
         break;
       }
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case ARM::R4:
     case ARM::R5:
     case ARM::R6:
@@ -368,7 +368,7 @@ void Thumb1FrameLowering::emitPrologue(MachineFunction &MF,
       case ARM::R12:
         if (STI.splitFramePushPop(MF))
           break;
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       case ARM::R0:
       case ARM::R1:
       case ARM::R2:
@@ -955,11 +955,14 @@ static void pushRegsToStack(MachineBasicBlock &MBB,
 }
 
 static void popRegsFromStack(MachineBasicBlock &MBB,
-                             MachineBasicBlock::iterator MI,
+                             MachineBasicBlock::iterator &MI,
                              const TargetInstrInfo &TII,
                              const std::set<Register> &RegsToRestore,
                              const std::set<Register> &AvailableCopyRegs,
                              bool IsVarArg, bool HasV5Ops) {
+  if (RegsToRestore.empty())
+    return;
+
   MachineFunction &MF = *MBB.getParent();
   ARMFunctionInfo *AFI = MF.getInfo<ARMFunctionInfo>();
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
@@ -1183,9 +1186,17 @@ bool Thumb1FrameLowering::restoreCalleeSavedRegisters(
   }
   CopyRegs.insert(UnusedReturnRegs.begin(), UnusedReturnRegs.end());
 
+  // First pop regular spilled regs.
   popRegsFromStack(MBB, MI, TII, SpilledGPRs, CopyRegs, IsVarArg,
                    STI.hasV5TOps());
-  // Only unused return registers can be used as copy regs at this point
+
+  // LR may only be popped into pc, as part of a return sequence.
+  // Check that no other pop instructions are inserted after that.
+  assert((!SpilledGPRs.count(ARM::LR) || FrameRecord.empty()) &&
+         "Can't insert pop after return sequence");
+
+  // Now pop Frame Record regs.
+  // Only unused return registers can be used as copy regs at this point.
   popRegsFromStack(MBB, MI, TII, FrameRecord, UnusedReturnRegs, IsVarArg,
                    STI.hasV5TOps());
 

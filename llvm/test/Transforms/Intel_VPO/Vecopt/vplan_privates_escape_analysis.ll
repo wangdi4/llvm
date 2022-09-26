@@ -5,9 +5,7 @@
 
 ; HIR-run.
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant-hir=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant-hir=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -64,7 +62,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.priv), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_ne.priv), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(i32* %index.lpriv)]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_ne.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(i32* %index.lpriv, i32 0, i32 1)]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
@@ -155,7 +153,7 @@ define void @test_unsafe_addrspacecast() {
   %arr_ne.priv = alloca [1024 x i32], align 4
   br label %simd.begin.region
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv, [1024 x i32]* %arr_ne.priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_ne.priv, i32 0, i32 1024) ]
   br label %simd.loop
 simd.loop:
   %index = phi i64 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.end ]

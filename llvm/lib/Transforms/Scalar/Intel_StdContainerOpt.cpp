@@ -137,6 +137,16 @@ using namespace llvm;
 
 #define DEBUG_TYPE "std-container-opt"
 
+// With a large number of references, it is likely that many of them will
+// be aliased, which BasicAA can already determine. Improving AA accuracy
+// for these large reference sets is unlikely to improve any optimizations.
+// The algorithm is N^3 (similar to matrix-vector multiply) and should
+// be avoided for large N.
+static cl::opt<uint32_t> MaxContainerRefs(
+    "std-cont-max-refs", cl::Hidden, cl::init(250),
+    cl::desc("Max number of std::container references to compute AA for, in "
+             "one function. (default = 250)"));
+
 namespace intel_std_container_opt {
 class BitMatrix {
 private:
@@ -398,6 +408,14 @@ bool StdContainerOpt::run(Function &F) {
   for (Instruction &I : llvm::make_early_inc_range(instructions(F)))
     visit(&I);
 
+  if (ContainerPtrInsns.size() > MaxContainerRefs ||
+      ContainerPtrIterInsns.size() > MaxContainerRefs) {
+    // See comment above
+    LLVM_DEBUG(dbgs() << "std::container AA disabled for function "
+                      << F.getName() << " : too many references");
+    return false;
+  }
+
   return setStdContainPtrMD();
 }
 
@@ -409,6 +427,7 @@ PreservedAnalyses llvm::StdContainerOptPass::run(Function &F,
                                                  FunctionAnalysisManager &AM) {
   auto *AA = &(AM.getResult<AAManager>(F));
   auto *DL = &(F.getParent()->getDataLayout());
+
 
   // the actual implementation
   intel_std_container_opt::StdContainerOpt(AA, DL).run(F);

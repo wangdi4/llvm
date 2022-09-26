@@ -73,6 +73,7 @@
 ///   WRNTaskyieldNode        | #pragma omp taskyield
 ///   WRNInteropNode          | #pragma omp interop
 ///   WRNScopeNode            | #pragma omp scope
+///   WRNGuardMemMotion       | WRN to guard memory motion
 ///   WRNTileNode             | #pragma omp tile
 ///   WRNScanNode             | #pragma omp scan
 ///
@@ -171,19 +172,20 @@ public:
 
   /// Return the ith level of loop in a loop nest. This utility is valid
   /// only if all the loops inside the loop nest up to depth I contains only
-  /// one child loop.
+  /// one child loop. Return nullptr if the nested loop is optimized away.
   Loop *getLoop(unsigned I = 0) const {
     // When I==0, allow Lp to be nullptr (do not assert)
     if (I == 0)
       return Lp;
     Loop *CurLoop = Lp;
     while (I > 0) {
-      assert(!CurLoop->getSubLoops().empty() &&
-             "getLoop(I): cannot have I >= loop_depth");
+      // We are expecting a nested loop but if the loop is not there then
+      // most likely the loop is optimized away.
+      if (CurLoop->getSubLoops().empty())
+        return nullptr;
       CurLoop = CurLoop->getSubLoops()[0];
       I--;
     }
-    assert(CurLoop && "getLoop(I): Loop not found");
     return CurLoop;
   }
   Value *getNormIV(unsigned I=0) const;
@@ -1154,6 +1156,7 @@ private:
   // No need to represent depend clause here; it's moved to the implicit task
   IsDevicePtrClause IsDevicePtr;
   SubdeviceClause Subdevice;
+  InteropClause Interop;
   EXPR Device;
   EXPR Nocontext;
   EXPR Novariants;
@@ -1177,6 +1180,7 @@ protected:
 public:
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,  IsDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,    Subdevice)
+  DEFINE_GETTER(InteropClause,      getInterop,      Interop)
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const override { return Device; }
@@ -1350,6 +1354,7 @@ private:
   int Collapse;
   bool Nogroup;
   WRNLoopInfo WRNLI;
+  bool IsStrict = false;
 
   // These taskloop clauses are also clauses in the parent class WRNTaskNode
   //   SharedClause Shared;
@@ -1376,6 +1381,7 @@ protected:
   void setSchedCode(int N) override { SchedCode = N; }
   void setCollapse(int N) override { Collapse = N; }
   void setNogroup(bool B) override { Nogroup = B; }
+  void setIsStrict(bool B) override { IsStrict = B; }
 
   // Defined in parent class WRNTaskNode
   //   void setDepArray(EXPR E) override { DepArray = E; }
@@ -1398,6 +1404,7 @@ public:
   int getCollapse() const override { return Collapse; }
   int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
   bool getNogroup() const override { return Nogroup; }
+  bool getIsStrict() const override { return IsStrict; }
 
   // Defined in parent class WRNTaskNode
   //   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -1448,6 +1455,8 @@ private:
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
   bool IsAutoVec;
   bool HasVectorAlways;
+  bool HasAligned = false; // SIMD aligned clause was specified
+
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -1473,6 +1482,7 @@ public:
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
   void setIsAutoVec(bool Flag)  override{ IsAutoVec = Flag; }
   void setHasVectorAlways(bool Flag)  override{ HasVectorAlways = Flag; }
+  void setHasAligned(bool Flag) override { HasAligned = Flag; }
   void setEntryHLNode(loopopt::HLNode *E)  override{ EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X)  override{ ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L)  override { HLp = L; }
@@ -1499,6 +1509,7 @@ public:
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
   bool getIsAutoVec() const override{ return IsAutoVec; }
   bool getHasVectorAlways() const override{ return HasVectorAlways; }
+  bool getHasAligned() const override { return HasAligned; }
   loopopt::HLNode *getEntryHLNode() const override{ return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const override{ return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const override{ return HLp; }
@@ -1871,6 +1882,38 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNScope;
+  }
+};
+
+/// WRN for regions that guard memory motion of OMP clause variables.
+class WRNGuardMemMotionNode : public WRegionNode {
+private:
+  LiveinClause Livein;
+#if INTEL_CUSTOMIZATION
+  loopopt::HLNode *EntryHLNode = nullptr; // for HIR only
+  loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
+#endif // INTEL_CUSTOMIZATION
+
+public:
+  WRNGuardMemMotionNode(BasicBlock *BB);
+#if INTEL_CUSTOMIZATION
+  // constructor for HIR representation
+  WRNGuardMemMotionNode(loopopt::HLNode *EntryHLN);
+
+  void setEntryHLNode(loopopt::HLNode *E) override { EntryHLNode = E; }
+  void setExitHLNode(loopopt::HLNode *X) override { ExitHLNode = X; }
+#endif // INTEL_CUSTOMIZATION
+
+  DEFINE_GETTER(LiveinClause, getLivein, Livein)
+
+#if INTEL_CUSTOMIZATION
+  loopopt::HLNode *getEntryHLNode() const override { return EntryHLNode; }
+  loopopt::HLNode *getExitHLNode() const override { return ExitHLNode; }
+#endif // INTEL_CUSTOMIZATION
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNGuardMemMotion;
   }
 };
 

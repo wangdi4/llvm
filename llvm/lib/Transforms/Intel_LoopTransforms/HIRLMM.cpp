@@ -126,7 +126,8 @@ STATISTIC(
 
 MemRefGroup::MemRefGroup(RegDDRef *FirstRef)
     : IsProfitable(false), IsLegal(false), IsAnalyzed(false), HasLoad(false),
-      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false) {
+      HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false),
+      IsInsideLifetimeIntrinsics(false) {
   RefVec.push_back(FirstRef);
 }
 
@@ -594,8 +595,15 @@ bool HIRLMM::processLegalityAndProfitability(const HLLoop *Lp) {
   // Do legal test on any profitable Group
   for (MemRefGroup &Group : MRC) {
 
-    if (Group.isProfitable() && isLegal(Lp, Group)) {
+    bool IsInsideLifetimeIntrinsics = false;
+    if (Group.isProfitable() &&
+        isLegal(Lp, Group, false, &IsInsideLifetimeIntrinsics)) {
       Group.setLegal(true);
+
+      if (IsInsideLifetimeIntrinsics) {
+        Group.setInsideLifetimeIntrinsics();
+      }
+
       Result = true;
     }
   }
@@ -609,7 +617,8 @@ bool HIRLMM::processLegalityAndProfitability(const HLLoop *Lp) {
 static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
                             unsigned LoopLevel,
                             ArrayRef<HLInst *> UnknownAliasingCallInsts,
-                            const MemRefGroup &Group) {
+                            const MemRefGroup &Group,
+                            bool *IsInsideLifetimeIntrinsics = nullptr) {
   bool IsLoad = MemRef->isRval();
   const RegDDRef *OtherMemRef = nullptr;
 
@@ -642,13 +651,20 @@ static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
       }
 
       Intrinsic::ID Id;
-      // We can ignore lifetime start/end intrinsics if they reference some
-      // other base pointer. Can the two base pointers point to the same object?
       if (!IgnoreEdge && OtherInst->isIntrinCall(Id) &&
-          (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end) &&
-          !CanonExprUtils::areEqual(MemRef->getBaseCE(),
-                                    OtherMemRef->getBaseCE())) {
-        IgnoreEdge = true;
+          (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end)) {
+
+        bool EqualBase = CanonExprUtils::areEqual(MemRef->getBaseCE(),
+                                                  OtherMemRef->getBaseCE());
+        if (!EqualBase) {
+          // We can ignore lifetime start/end intrinsics if they reference some
+          // other base pointer. There shouldn't be aliasing issue with these
+          // intrinsics.
+          IgnoreEdge = true;
+        } else if (IsInsideLifetimeIntrinsics) {
+          IgnoreEdge = true;
+          *IsInsideLifetimeIntrinsics = true;
+        }
       }
 
       if (IgnoreEdge) {
@@ -668,9 +684,33 @@ static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
   return true;
 }
 
+// Returns true if the store of the group dominates the loads in the group.
+static bool storeDominatesLoads(const HLLoop *Lp, const MemRefGroup &Group) {
+  if (Group.isStoreOnly()) {
+    return true;
+  }
+
+  const HLNode *LoopTail = Lp->getLastChild();
+
+  // Traverse memrefs in lexical order to check whether we encounter store
+  // before loads.
+  for (const RegDDRef *CurRef : Group) {
+
+    if (CurRef->isRval()) {
+      return false;
+    }
+
+    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail)) {
+      return true;
+    }
+  }
+
+  llvm_unreachable("Inconsistent group!");
+}
+
 // A Group is legal IF&F every Ref is legal within the Group
-bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
-                     bool QueryMode) {
+bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group, bool QueryMode,
+                     bool *IsInsideLifetimeIntrinsics) {
 
   if (DDG.empty()) {
     DDG = HDDA.getGraph(Lp);
@@ -708,9 +748,24 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
     }
   }
 
+  // It is not guaranteed that an alloca whose lifetime.start intrinsic is
+  // inside multi-exit loop will hit the corresponding lifetime.end intrinsic.
+  // This intrinsic is just placed lexically at the end of the loop
+  // (backedge). The alloca might be accessed in the loop exit blocks so we
+  // should give up on using lifetime intrinsics for multi-exit loops. The
+  // LangRef does not guarantee that lifetime.end intrinsic has to be reached.
+  bool IsMultiExit = Lp->isMultiExit();
+
+  // This is a sanity check for handling groups with lifetime intrinsics. If
+  // store doesn't dominate in the group, the alloca is uninitialized. It is
+  // better to not deal with this case.
+  bool AllowLifetimeIntrinsics =
+      (!QueryMode && !IsMultiExit && storeDominatesLoads(Lp, Group));
+
   for (const RegDDRef *Ref : Group) {
-    if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts,
-                         Group)) {
+    if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts, Group,
+                         AllowLifetimeIntrinsics ? IsInsideLifetimeIntrinsics
+                                                 : nullptr)) {
       return false;
     }
   }
@@ -873,35 +928,6 @@ bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
   }
 
   return true;
-}
-
-// Check whether we need a Load in the Loops' preheader:
-// - If there is no load (store-only Group), no need for tmp in prehder
-// - Scan the Group from beginning:
-//  . 1st hit a load: need
-//  . 1st hit a store on dom path: no need
-//
-static bool isLoadNeededInPrehder(HLLoop *Lp, const MemRefGroup &Group) {
-  if (Group.isStoreOnly()) {
-    return false;
-  }
-
-  const HLNode *LoopTail = Lp->getLastChild();
-
-  for (const RegDDRef *CurRef : Group) {
-
-    // If hit a Load 1st, need tmp
-    if (CurRef->isRval()) {
-      return true;
-    }
-
-    // If hit a Store (on dominate path) 1st, no need of tmp
-    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail)) {
-      return false;
-    }
-  }
-
-  llvm_unreachable("Not expect control to reach here\n");
 }
 
 // Check all the LHS MemRef within the parent loop equals to the LoadRef and
@@ -1107,7 +1133,7 @@ bool HIRLMM::sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
 //  -yes: if there is at least 1 store in Group
 //
 // Decide if a load is needed in Loop's preheader
-//  -details in isLoadNeededInPrehder()
+//  -details in storeDominatesLoads()
 //
 // [Do LIMM Promotion]
 //  - Create a load in preheader if needed
@@ -1123,22 +1149,26 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
   HLInst *LoadInPrehdr = nullptr;
 
   bool IsLoadOnly = Group.isLoadOnly();
+  bool IsInsideLifetimeIntrinsics = Group.isInsideLifetimeIntrinsics();
   // Debug: Examine the Loop BEFORE transformation
   // LLVM_DEBUG(Lp->dump(););
 
   // *** Prepare LMM for the Group ***
 
   // Need a Store in postexit: if there is at least 1 store in Group
-  NeedStoreInPostexit = !IsLoadOnly;
+  NeedStoreInPostexit = !IsLoadOnly && !IsInsideLifetimeIntrinsics;
 
   // Need a Load in prehdr: check algorithm for details
-  NeedLoadInPrehdr = IsLoadOnly || isLoadNeededInPrehder(Lp, Group);
+  NeedLoadInPrehdr = !IsInsideLifetimeIntrinsics &&
+                     (IsLoadOnly || !storeDominatesLoads(Lp, Group));
 
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  if (hoistLoadsUsingExistingTemp(Lp, Group, TempRefSet, ORBuilder) ||
-      sinkStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet, ORBuilder)) {
+  if (!IsInsideLifetimeIntrinsics &&
+      (hoistLoadsUsingExistingTemp(Lp, Group, TempRefSet, ORBuilder) ||
+       sinkStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet,
+                                   ORBuilder))) {
     return;
   }
 

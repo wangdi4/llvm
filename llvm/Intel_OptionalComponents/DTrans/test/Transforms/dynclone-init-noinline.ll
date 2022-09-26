@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that noinline is set for "init" call when DynClone
 ; transformation is triggered.
 
@@ -14,12 +16,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Call to init routine will be marked as "noinline".
 define i32 @main() #0 {
 entry:
-; CHECK: call void @init() #1
+; CHECK: call void @init() #2
   call void @init();
   ret i32 0
 }
 ; CHECK: store i8 1, i8* @__Shrink__Happened__
-; CHECK: attributes #1 = { noinline }
+; CHECK: attributes #2 = { noinline }
 
 
 ; This routine is selected as InitRoutine.
@@ -44,4 +46,6 @@ define void @proc1() #0 {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #1
+
+attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

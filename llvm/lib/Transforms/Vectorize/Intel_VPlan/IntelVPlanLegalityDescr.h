@@ -28,6 +28,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLEGALITYDESCR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLEGALITYDESCR_H
 
+#include "llvm/Analysis/IVDescriptors.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include <type_traits>
 
@@ -190,7 +191,7 @@ template <typename Value> class DescrWithAliases : public DescrValue<Value> {
   SmallVector<std::unique_ptr<DescrValue<Value>>, 8> Aliases;
 
 protected:
-  // Required by descendent in IntelVPlanHCFGBuilderHIR.h
+  // Required by descendent in DescrWithInitValue
   DescrWithAliases(Value *RefV, DescrKind K) : DescrValue<Value>(RefV, K) {}
 
 public:
@@ -280,6 +281,127 @@ public:
   }
 };
 
+// Class used to represent descriptors that may have aliases and initvalue.
+template <typename Value>
+class DescrWithInitValue : public DescrWithAliases<Value> {
+  using DescrKind = typename DescrValue<Value>::DescrKind;
+
+  INTEL_INTRODUCE_CUSTOMCOMPARE(Value)
+  // NOTE: InitValue holds only llvm::Values/loopopt::DDRefs for which
+  // VPExternalDefs were created for a descriptor/alias.
+  // llvm::Values/loopopt::DDRefs with VPConstants are not accounted for. Each
+  // descriptor/alias may have multiple updating instructions within the loop.
+  const Value *InitValue;
+
+public:
+  DescrWithInitValue(Value *RefV)
+      : DescrWithAliases<Value>(RefV, DescrKind::DK_WithInitValue),
+        InitValue(nullptr) {}
+
+  // Move constructor
+  DescrWithInitValue(DescrWithInitValue &&Other) = default;
+
+  void setInitValue(Value *Val) { InitValue = Val; }
+  const Value *getInitValue() const { return InitValue; }
+
+  bool isValidAlias() const override {
+    return InitValue && DescrValue<Value>::getUpdateInstructions().size() > 0;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS, unsigned Indent = 0) const override {
+    DescrWithAliases<Value>::print(OS);
+    if (InitValue) {
+      OS.indent(Indent + 2) << "InitValue: ";
+      InitValue->dump();
+      OS << "\n";
+    }
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  static bool classof(const DescrWithAliases<Value> *Descr) {
+    return Descr->getKind() == DescrKind::DK_WithInitValue;
+  }
+
+  static bool classof(const DescrValue<Value> *Descr) {
+    return Descr->getKind() == DescrKind::DK_WithInitValue;
+  }
+};
+
+// Specialized class to represent reduction descriptors specified explicitly
+// via SIMD reduction clause. The reduction's kind and signed datatype
+// information is also stored within this class.
+template <typename Value> class RedDescr : public DescrWithInitValue<Value> {
+private:
+  RecurKind Kind;
+  bool IsSigned;
+
+public:
+  RedDescr(Value *RegV, RecurKind KindV, bool Signed)
+      : DescrWithInitValue<Value>(RegV), Kind(KindV), IsSigned(Signed) {}
+
+  // Move constructor
+  RedDescr(RedDescr &&Other) = default;
+
+  void setKind(RecurKind K) { Kind = K; }
+  RecurKind getKind() const { return Kind; }
+
+  void setIsSigned(bool V) { IsSigned = V; }
+  bool isSigned() const { return IsSigned; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS, unsigned Indent = 0) const override {
+    DescrWithInitValue<Value>::print(OS);
+    OS.indent(Indent + 2) << "RedDescr: ";
+    OS << "{Kind: "
+       << llvm::Instruction::getOpcodeName(
+              RecurrenceDescriptorData::getOpcode(Kind))
+       << ", IsSigned: " << ((isSigned()) ? "1" : "0");
+    OS << "}\n";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+// Specialized class to represent user-defined reduction (UDR) descriptors
+// specified explicitly via SIMD reduction clause.
+template <typename Value> class RedDescrUDR : public RedDescr<Value> {
+private:
+  Function *Combiner = nullptr;
+  Function *Initializer = nullptr;
+  Function *Ctor = nullptr;
+  Function *Dtor = nullptr;
+
+public:
+  RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
+              Function *Ctor, Function *Dtor)
+      : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/),
+        Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
+
+  // Move constructor
+  RedDescrUDR(RedDescrUDR &&Other) = default;
+
+  /// Get combiner function for UDR.
+  Function *getCombiner() const { return Combiner; }
+  /// Get initializer function for UDR.
+  Function *getInitializer() const { return Initializer; }
+  /// Get constructor function for UDR datatype.
+  Function *getCtor() const { return Ctor; }
+  /// Get destructor function for UDR datatype.
+  Function *getDtor() const { return Dtor; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS, unsigned Indent = 0) const override {
+    RedDescr<Value>::print(OS);
+    OS.indent(Indent + 2) << "RedDescrUDR: ";
+    OS << "{Combiner: " << Combiner->getName();
+    OS << ", Initializer: " << (Initializer ? Initializer->getName() : "none");
+    OS << ", Ctor: " << (Ctor ? Ctor->getName() : "none");
+    OS << ", Dtor: " << (Dtor ? Dtor->getName() : "none");
+    OS << "}\n";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 // Specialized class to represent private descriptors specified explicitly via
 // SIMD private clause.
 template <typename Value> class PrivDescr : public DescrWithAliases<Value> {
@@ -296,12 +418,14 @@ public:
 private:
   PrivateKind PrivKind;
   Type *Ty;
+  // Special flag for F90_[NONPOD|DV] incomming directive
+  bool IsF90;
 
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
-  PrivDescr(Value *RegV, Type *Ty, PrivateKind KindV)
+  PrivDescr(Value *RegV, Type *Ty, PrivateKind KindV, bool IsF90)
       : DescrWithAliases<Value>(RegV, DescrKind::DK_WithAliases),
-        PrivKind(KindV), Ty(Ty) {}
+        PrivKind(KindV), Ty(Ty), IsF90(IsF90) {}
 
   // Copy constructor
   PrivDescr(const PrivDescr &Other)
@@ -335,6 +459,8 @@ public:
   bool isCond() const { return PrivKind == PrivateKind::Conditional; }
   /// Check if private is last or conditional last private.
   bool isLast() const { return PrivKind != PrivateKind::NonLast; }
+  /// Check if private if originating from F90_* directive
+  bool isF90() const { return IsF90; }
   /// Check if private is for non-POD data type.
   virtual bool isNonPOD() const { return false; }
   /// Get the private Type.
@@ -360,16 +486,13 @@ template <typename Value> class PrivDescrNonPOD : public PrivDescr<Value> {
   Function *Ctor;
   Function *Dtor;
   Function *CopyAssign;
-  // TODO: Consider moving it to PrivDescr and merge with F90_DV
-  // Special flag for F90_NONPOD incomming directive
-  bool IsF90NonPod;
 
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
-  PrivDescrNonPOD(Value *RegV, Type *Ty, PrivateKind KindV, Function *Ctor,
-                  Function *Dtor, Function *CopyAssign, bool IsF90NonPod)
-      : PrivDescr<Value>(RegV, Ty, KindV), Ctor(Ctor), Dtor(Dtor),
-        CopyAssign(CopyAssign), IsF90NonPod(IsF90NonPod) {
+  PrivDescrNonPOD(Value *RegV, Type *Ty, PrivateKind KindV, bool IsF90,
+                  Function *Ctor, Function *Dtor, Function *CopyAssign)
+      : PrivDescr<Value>(RegV, Ty, KindV, IsF90), Ctor(Ctor), Dtor(Dtor),
+        CopyAssign(CopyAssign) {
     assert(KindV != PrivateKind::Conditional &&
            "Non POD privates cannot be conditional last privates.");
   }
@@ -414,8 +537,6 @@ public:
   Function *getDtor() const { return Dtor; }
   /// Get copy assign function for nonPOD private value.
   Function *getCopyAssign() const { return CopyAssign; }
-  /// Check if non-POD private if originating from F90_NONPOD directive
-  bool isF90NonPod() const { return IsF90NonPod; }
   /// Check if private is for non-POD data type.
   bool isNonPOD() const override { return true; }
 

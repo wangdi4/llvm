@@ -10,41 +10,37 @@
 ; RUN: opt -vector-library=SVML -vplan-vec -verify -S -vplan-force-vf=64 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 ; RUN: opt -vector-library=SVML -vplan-vec -verify -S -vplan-force-vf=128 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=8 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=8 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=16 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=16 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
 
 ; CHECK-LABEL: @test_sinf(
 ; CHECK: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x float> @__svml_sinf1(<1 x float> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_sin(
 ; CHECK: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x double> @__svml_sin1(<1 x double> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_masked_sinf(
 ; FLOAT-LT-512: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> inreg {{%.*}}, <[[VL]] x i32> {{%.*}})
 ; FLOAT-512: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> undef, <[[VL]] x i1> {{%.*}}, <[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x float> @__svml_sinf1(<1 x float> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_masked_sin(
 ; DOUBLE-LT-512: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> inreg {{%.*}}, <[[VL]] x i64> {{%.*}})
 ; DOUBLE-512: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> undef, <[[VL]] x i1> {{%.*}}, <[[VL]] x double> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x double> @__svml_sin1(<1 x double> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_sincosf(
 ; CHECK: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call svml_cc { <1 x float>, <1 x float> } @__svml_sincosf1(<1 x float> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_masked_sincosf(
 ; FLOAT-LT-512: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]]_mask(<[[VL]] x float> inreg {{%.*}}, <[[VL]] x i32> {{%.*}})
 ; FLOAT-512: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]]_mask({ <[[VL]] x float>, <[[VL]] x float> } undef, <[[VL]] x i1> {{%.*}}, <[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call svml_cc { <1 x float>, <1 x float> } @__svml_sincosf1(<1 x float> inreg {{%.*}})
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -56,7 +52,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(float* %a, float* %b) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %b, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -90,7 +86,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(double* %a, double* %b) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(double* %a, double zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(double* %b, double zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -126,7 +122,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -168,7 +164,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -208,7 +204,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(float* %vsin, float* %vcos) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %vsin, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %vcos, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -244,7 +240,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2

@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  -whole-program-assume -internalize -internalize-public-api-list main -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
 
@@ -238,5 +239,8 @@ define i32 @doSomething(%struct.test* %p_test) {
 ; CHECK: %p_test_C = getelementptr %__DFT_struct.test,
 ; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 1
 
-declare i8* @calloc(i64, i64)
-declare void @free(i8*)
+declare i8* @calloc(i64, i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

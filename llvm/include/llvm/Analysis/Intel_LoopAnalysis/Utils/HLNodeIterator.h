@@ -56,10 +56,14 @@
 namespace llvm {
 
 namespace loopopt {
-class ChildNodeIterator
-    : public std::iterator<std::forward_iterator_tag, HLNode *, std::ptrdiff_t,
-                           HLNode *, HLNode *> {
+class ChildNodeIterator {
 public:
+  using iteration_category = std::forward_iterator_tag;
+  using value_type = HLNode *;
+  using difference_type = ptrdiff_t;
+  using pointer = HLNode *;
+  using reference = HLNode *;
+
   using ilist_iter = loopopt::HLContainerTy::iterator;
 
 private:
@@ -349,11 +353,15 @@ namespace loopopt {
 /// by going forward through ilist.
 /// The logic is the same as visitRange(Begin, End)
 template <typename HLPreOrderIteratorClass>
-class HLRangeIteratorImpl
-    : public std::iterator<std::forward_iterator_tag,
-                           loopopt::HLContainerTy::iterator, std::ptrdiff_t,
-                           loopopt::HLContainerTy::iterator, HLNode *> {
+class HLRangeIteratorImpl {
+public:
+  using iteration_category = std::forward_iterator_tag;
+  using value_type = loopopt::HLContainerTy::iterator;
+  using difference_type = std::ptrdiff_t;
+  using pointer = loopopt::HLContainerTy::iterator;
+  using reference = HLNode *;
 
+private:
   using ilist_iter = loopopt::HLContainerTy::iterator;
   using NodeRef = loopopt::HLNode *;
   using df_iter = HLPreOrderIteratorClass;

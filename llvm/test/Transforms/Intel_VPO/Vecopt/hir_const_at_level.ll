@@ -16,13 +16,13 @@ declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i
 define void @fbuild_(i64 %n, i32 %v) local_unnamed_addr #1 {
 ; CHECK:  BEGIN REGION { modified }
 ; Peel
-; CHECK:        |   + DO i2 = 0, 6, 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
+; CHECK:        |   + DO i2 = 0, 6, 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-peel> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK:        |   + END LOOP
 ; Main loop
 ; CHECK:        |   + DO i2 = 7, [[LOOP_UB0:%.*]], 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:        |   + END LOOP
 ; Remai
-; CHECK:        |   + DO i2 = [[LB_TMP0:%.*]], -1 * i1 + [[N0:%.*]] + -3, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <nounroll> <novectorize> <max_trip_count = 7>
+; CHECK:        |   + DO i2 = [[LB_TMP0:%.*]], -1 * i1 + [[N0:%.*]] + -3, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 7>
 ; CHECK:        |   + END LOOP
 ; CHECK:  END REGION
 ;

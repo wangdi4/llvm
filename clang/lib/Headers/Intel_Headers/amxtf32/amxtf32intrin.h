@@ -56,7 +56,7 @@
 /// \headerfile <immintrin.h>
 ///
 /// \code
-/// void __tile_tmmultf32ps(__tile srcdst, __tile a, __tile b);
+/// void __tile_mmultf32ps(__tile srcdst, __tile a, __tile b);
 /// \endcode
 ///
 /// This intrinsic corresponds to the <c> TMMULTF32PS </c> instruction.
@@ -105,11 +105,11 @@
 /// zero_upper_rows(srcdst, srcdst.rows)
 /// zero_tileconfig_start()
 /// \endcode
-#define _tile_tmmultf32ps(srcdst, a, b)                                  \
+#define _tile_mmultf32ps(srcdst, a, b)                                  \
   __builtin_ia32_tmmultf32ps(srcdst, a, b)
 
 /// \code
-/// void __tile_ttmmultf32ps(__tile srcdst, __tile a, __tile b);
+/// void __tile_tmmultf32ps(__tile srcdst, __tile a, __tile b);
 /// \endcode
 ///
 /// This intrinsic corresponds to the <c> TTMMULTF32PS </c> instruction.
@@ -158,11 +158,11 @@
 /// zero_upper_rows(srcdst, srcdst.rows)
 /// zero_tileconfig_start()
 /// \endcode
-#define _tile_ttmmultf32ps(dst, a, b)                                 \
+#define _tile_tmmultf32ps(dst, a, b)                                 \
   __builtin_ia32_ttmmultf32ps(dst, a, b)
 
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_FP19
-_tile_tmmultf32ps_internal(unsigned short m, unsigned short n, unsigned short k,
+_tile_mmultf32ps_internal(unsigned short m, unsigned short n, unsigned short k,
                           _tile1024i dst, _tile1024i src1, _tile1024i src2) {
   return __builtin_ia32_tmmultf32ps_internal(m, n, k, dst, src1, src2);
 }
@@ -181,16 +181,16 @@ _tile_tmmultf32ps_internal(unsigned short m, unsigned short n, unsigned short k,
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_FP19
-static void __tile_tmmultf32ps(__tile1024i *dst, __tile1024i src0,
-                               __tile1024i src1) {
-  dst->tile = _tile_tmmultf32ps_internal(src0.row, src1.col, src0.col,
+static void __tile_mmultf32ps(__tile1024i *dst, __tile1024i src0,
+                              __tile1024i src1) {
+  dst->tile = _tile_mmultf32ps_internal(src0.row, src1.col, src0.col,
                                          dst->tile, src0.tile, src1.tile);
 }
 
 // dst = m x n (srcdest), src1 = k x m, src2 = k x n
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_FP19
-_tile_ttmmultf32ps_internal(unsigned short m, unsigned short n, unsigned short k,
-                          _tile1024i dst, _tile1024i src1, _tile1024i src2) {
+_tile_tmmultf32ps_internal(unsigned short m, unsigned short n, unsigned short k,
+                           _tile1024i dst, _tile1024i src1, _tile1024i src2) {
   return __builtin_ia32_ttmmultf32ps_internal(m, n, k, dst, src1, src2);
 }
 
@@ -209,9 +209,9 @@ _tile_ttmmultf32ps_internal(unsigned short m, unsigned short n, unsigned short k
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_FP19
-static void __tile_ttmmultf32ps(__tile1024i *dst, __tile1024i src0,
+static void __tile_tmmultf32ps(__tile1024i *dst, __tile1024i src0,
                                __tile1024i src1) {
-  dst->tile = _tile_ttmmultf32ps_internal(src0.row, src1.col, src0.col,
+  dst->tile = _tile_tmmultf32ps_internal(src0.row, src1.col, src0.col,
                                          dst->tile, src0.tile, src1.tile);
 }
 

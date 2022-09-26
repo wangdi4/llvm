@@ -64,4 +64,4 @@ OPTION_VALUE(OptXsRingRootArbBalancedRw, "ring-root-arb-balanced-rw", bool);
 OPTION_ENUM(OptXsRounding, "rounding", 2, "ieee", "faithful");
 OPTION_VALUE(OptXsSeed, "seed", int);
 OPTION_VALUE(OptXsTarget, "target", std::string);
-OPTION_VALUE(OptXsGhdl, "ghdl", int);
+OPTION_VALUE_OPTIONAL(OptXsGhdl, "ghdl", std::string);

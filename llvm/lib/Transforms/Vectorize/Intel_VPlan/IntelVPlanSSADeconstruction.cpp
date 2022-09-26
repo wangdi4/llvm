@@ -70,8 +70,14 @@ void VPlanSSADeconstruction::run() {
         // HIR codegen.
         if (isa<VPInductionInit>(Phi.getOperand(0)) ||
             isa<VPInductionInit>(Phi.getOperand(1))) {
-          validateInductionPHI(&Phi, CurrVLoop, Plan);
-          continue;
+          VPInductionInit *IndInit =
+              isa<VPInductionInit>(Phi.getOperand(0))
+                  ? cast<VPInductionInit>(Phi.getOperand(0))
+                  : cast<VPInductionInit>(Phi.getOperand(1));
+          if (IndInit->isMainLoopIV()) {
+            validateInductionPHI(&Phi, CurrVLoop, Plan);
+            continue;
+          }
         }
       }
 

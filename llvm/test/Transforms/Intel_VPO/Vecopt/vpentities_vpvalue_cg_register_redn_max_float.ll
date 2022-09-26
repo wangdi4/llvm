@@ -1,11 +1,6 @@
 ; Test to check VPlan's VPValue-based vector codegen for simple in-register float max reduction.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
-; Fully VPValue-based HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; Mixed HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; CHECK-HIR: Function: foo_float
 ; CHECK-HIR: [[RED_INIT:%red.init*]] = [[INIT:%.*]];
@@ -43,7 +38,7 @@ entry:
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %s.red = alloca float, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX"(float* %s.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(float* %s.red, float zeroinitializer, i32 1) ]
   store float 0xFFF0000000000000, float* %s.red, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body

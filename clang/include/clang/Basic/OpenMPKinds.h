@@ -232,6 +232,22 @@ enum OpenMPBindClauseKind {
   OMPC_BIND_unknown
 };
 
+#if INTEL_COLLAB
+/// Checks if the specified directive if an OpenMP extension.
+/// These use the 'ompx' prefix instead of 'omp'.
+bool isOpenMPExtensionDirective(OpenMPDirectiveKind DKind);
+#endif // INTEL_COLLAB
+
+/// Contains 'interop' data for 'append_args' and 'init' clauses.
+class Expr;
+struct OMPInteropInfo final {
+  OMPInteropInfo(bool IsTarget = false, bool IsTargetSync = false)
+      : IsTarget(IsTarget), IsTargetSync(IsTargetSync) {}
+  bool IsTarget;
+  bool IsTargetSync;
+  llvm::SmallVector<Expr *, 4> PreferTypes;
+};
+
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,
                                    const LangOptions &LangOpts);
 const char *getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind, unsigned Type);

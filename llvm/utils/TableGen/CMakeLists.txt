@@ -36,6 +36,8 @@ add_subdirectory(GlobalISel)
 set(LLVM_LINK_COMPONENTS Support)
 
 add_tablegen(llvm-tblgen LLVM
+  DESTINATION "${LLVM_TOOLS_INSTALL_DIR}"
+  EXPORT LLVM
   AsmMatcherEmitter.cpp
   AsmWriterEmitter.cpp
   AsmWriterInst.cpp
@@ -62,6 +64,7 @@ add_tablegen(llvm-tblgen LLVM
   DFAPacketizerEmitter.cpp
   DirectiveEmitter.cpp
   DisassemblerEmitter.cpp
+  DXILEmitter.cpp
   ExegesisEmitter.cpp
   FastISelEmitter.cpp
   GICombinerEmitter.cpp

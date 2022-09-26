@@ -51,7 +51,7 @@ using namespace llvm;
 #include "X86GenAsmWriter1.inc"
 
 void X86IntelInstPrinter::printRegName(raw_ostream &OS, unsigned RegNo) const {
-  OS << getRegisterName(RegNo);
+  OS << markup("<reg:") << getRegisterName(RegNo) << markup(">");
 }
 
 void X86IntelInstPrinter::printInst(const MCInst *MI, uint64_t Address,
@@ -163,6 +163,19 @@ bool X86IntelInstPrinter::printVecCompareInstr(const MCInst *MI, raw_ostream &OS
   case X86::VCMPPHZrmbi:    case X86::VCMPPHZrmbik:
   case X86::VCMPPHZrrib:    case X86::VCMPPHZrribk:
   case X86::VCMPSHZrrb_Int: case X86::VCMPSHZrrb_Intk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  case X86::VCMPNEPBF16Z128rmi:  case X86::VCMPNEPBF16Z128rri:
+  case X86::VCMPNEPBF16Z256rmi:  case X86::VCMPNEPBF16Z256rri:
+  case X86::VCMPNEPBF16Zrmi:     case X86::VCMPNEPBF16Zrri:
+  case X86::VCMPNEPBF16Z128rmik: case X86::VCMPNEPBF16Z128rrik:
+  case X86::VCMPNEPBF16Z256rmik: case X86::VCMPNEPBF16Z256rrik:
+  case X86::VCMPNEPBF16Zrmik:    case X86::VCMPNEPBF16Zrrik:
+  case X86::VCMPNEPBF16Z128rmbi: case X86::VCMPNEPBF16Z128rmbik:
+  case X86::VCMPNEPBF16Z256rmbi: case X86::VCMPNEPBF16Z256rmbik:
+  case X86::VCMPNEPBF16Zrmbi:    case X86::VCMPNEPBF16Zrmbik:
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
     if (Imm >= 0 && Imm <= 31) {
       OS << '\t';
       printCMPMnemonic(MI, /*IsVCMP*/true, OS);
@@ -212,9 +225,16 @@ bool X86IntelInstPrinter::printVecCompareInstr(const MCInst *MI, raw_ostream &OS
               printwordmem(MI, CurOp++, OS);
             else
               printdwordmem(MI, CurOp++, OS);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+          } else if ((Desc.TSFlags & X86II::OpPrefixMask) == X86II::XD &&
+                     (Desc.TSFlags & X86II::OpMapMask) != X86II::TA) {
+#else // INTEL_FEATURE_ISA_AVX512_BF16_NE
           } else if ((Desc.TSFlags & X86II::OpPrefixMask) == X86II::XD) {
             assert((Desc.TSFlags & X86II::OpMapMask) != X86II::TA &&
                    "Unexpected op map!");
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
             printqwordmem(MI, CurOp++, OS);
           } else if (Desc.TSFlags & X86II::EVEX_L2) {
             printzmmwordmem(MI, CurOp++, OS);
@@ -378,7 +398,7 @@ void X86IntelInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     printRegName(O, Op.getReg());
   } else if (Op.isImm()) {
-    O << formatImm((int64_t)Op.getImm());
+    O << markup("<imm:") << formatImm((int64_t)Op.getImm()) << markup(">");
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     O << "offset ";
@@ -405,7 +425,7 @@ void X86IntelInstPrinter::printMemReference(const MCInst *MI, unsigned Op,
   // If this has a segment register, print it.
   printOptionalSegReg(MI, Op + X86::AddrSegmentReg, O);
 
-  O << '[';
+  O << markup("<mem:") << '[';
 
   bool NeedPlus = false;
   if (BaseReg.getReg()) {
@@ -436,28 +456,28 @@ void X86IntelInstPrinter::printMemReference(const MCInst *MI, unsigned Op,
           DispVal = -DispVal;
         }
       }
-      O << formatImm(DispVal);
+      O << markup("<imm:") << formatImm(DispVal) << markup(">");
     }
   }
 
-  O << ']';
+  O << ']' << markup(">");
 }
 
 void X86IntelInstPrinter::printSrcIdx(const MCInst *MI, unsigned Op,
                                       raw_ostream &O) {
   // If this has a segment register, print it.
   printOptionalSegReg(MI, Op + 1, O);
-  O << '[';
+  O << markup("<mem:") << '[';
   printOperand(MI, Op, O);
-  O << ']';
+  O << ']' << markup(">");
 }
 
 void X86IntelInstPrinter::printDstIdx(const MCInst *MI, unsigned Op,
                                       raw_ostream &O) {
   // DI accesses are always ES-based.
-  O << "es:[";
+  O << "es:" << markup("<mem:") << '[';
   printOperand(MI, Op, O);
-  O << ']';
+  O << ']' << markup(">");
 }
 
 void X86IntelInstPrinter::printMemOffset(const MCInst *MI, unsigned Op,
@@ -467,16 +487,16 @@ void X86IntelInstPrinter::printMemOffset(const MCInst *MI, unsigned Op,
   // If this has a segment register, print it.
   printOptionalSegReg(MI, Op + 1, O);
 
-  O << '[';
+  O << markup("<mem:") << '[';
 
   if (DispSpec.isImm()) {
-    O << formatImm(DispSpec.getImm());
+    O << markup("<imm:") << formatImm(DispSpec.getImm()) << markup(">");
   } else {
     assert(DispSpec.isExpr() && "non-immediate displacement?");
     DispSpec.getExpr()->print(O, &MAI);
   }
 
-  O << ']';
+  O << ']' << markup(">");
 }
 
 void X86IntelInstPrinter::printU8Imm(const MCInst *MI, unsigned Op,
@@ -484,7 +504,8 @@ void X86IntelInstPrinter::printU8Imm(const MCInst *MI, unsigned Op,
   if (MI->getOperand(Op).isExpr())
     return MI->getOperand(Op).getExpr()->print(O, &MAI);
 
-  O << formatImm(MI->getOperand(Op).getImm() & 0xff);
+  O << markup("<imm:") << formatImm(MI->getOperand(Op).getImm() & 0xff)
+    << markup(">");
 }
 
 void X86IntelInstPrinter::printSTiRegOperand(const MCInst *MI, unsigned OpNo,

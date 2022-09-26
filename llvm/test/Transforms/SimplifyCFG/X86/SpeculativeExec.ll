@@ -38,12 +38,13 @@ define float @spec_select_fp1(float %a, float %b, float %c) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
+; may be a branch here
+; CHECK:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
 ; CHECK-NEXT:    [[T3:%.*]] = fadd float [[A:%.*]], 1.000000e+00
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select ninf i1 [[T2]], float [[T3]], float %a
-; CHECK-NEXT:    [[T4:%.*]] = select ninf i1 [[T1]], float [[SPEC_SELECT]], float %b
+; CHECK-NEXT:    [[TMP0:%.*]] = select ninf i1 [[T2]], float [[T3]], float [[A]]
+; may be a branch/phi here
+; CHECK:    [[T5:%.*]] = fsub float [[T4:%.*]], 1.000000e+00
 ; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[T5:%.*]] = fsub float [[T4]], 1.000000e+00
 ; CHECK-NEXT:    ret float [[T5]]
 ;
 entry:

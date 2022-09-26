@@ -917,6 +917,17 @@ bool ReuseFieldImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
     return true;
   };
 
+  auto IsLibFunction = [this](const Function *F,
+    LibFunc LB) {
+      LibFunc LibF;
+      const TargetLibraryInfo &TLI = GetTLI(*F);
+      if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
+        return false;
+      if (LibF != LB)
+        return false;
+      return true;
+  };
+
   for (auto GVUseIt = GV->use_begin(), GVUseE = GV->use_end();
     GVUseIt != GVUseE; ++GVUseIt) {
     auto GVUser = GVUseIt->getUser();
@@ -959,8 +970,6 @@ bool ReuseFieldImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
                 return false;
 
             } else if (auto BitCast = dyn_cast<BitCastInst>(LoadUser)) {
-              Function *F = LI->getFunction();
-
               if (!BitCast->hasOneUser())
                 return false;
 
@@ -968,9 +977,9 @@ bool ReuseFieldImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
               if (!CI)
                 return false;
 
+              auto Callee = CI->getCalledFunction();
               // It's safe if it is just call free.
-              LibFunc Func;
-              if (!GetTLI(*F).getLibFunc(*CI, Func) || Func != LibFunc_free)
+              if (!IsLibFunction(Callee, LibFunc_free))
                 return false;
             } else if (!isa<CmpInst>(LoadUser))
               return false;
@@ -982,11 +991,16 @@ bool ReuseFieldImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
           return false;
         }
       }
-    } else if (auto Caller = dyn_cast<CallInst>(GVUser)) {
-      auto Callee = Caller->getCalledFunction();
+    } else if (auto CI = dyn_cast<CallInst>(GVUser)) {
+      auto Callee = CI->getCalledFunction();
 
       if (Callee->isDeclaration())
         return false;
+
+      // Special checking for variadic function.
+      if (GVPos >= Callee->arg_size())
+        return false;
+
       // FieldAddressTakenCall is active, but the argument
       // doesn't have users.
       if (Callee->getArg(GVPos)->hasNUsesOrMore(1))

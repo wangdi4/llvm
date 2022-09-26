@@ -1,11 +1,7 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -debug-only=vplan-vls-analysis 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -debug-only=vplan-vls-analysis 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     -debug-only=vplan-vls-analysis 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
-; RUN: -debug-only=vplan-vls-analysis 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
-; RUN: -debug-only=vplan-vls-analysis 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: -debug-only=vplan-vls-analysis 2>&1 | FileCheck %s
 ;
 ; REQUIRES: asserts
 

@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  -whole-program-assume -internalize -internalize-public-api-list main -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
 
@@ -60,5 +61,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-NOT: store i64 3, i64* %p_test_B
 
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

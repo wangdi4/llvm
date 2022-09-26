@@ -11,13 +11,19 @@
 // License.
 
 #define NOMINMAX
-
-#include "CPUProgram.h"
+#ifndef WIN32
+#include "cl_amx_syscall.h"
+#endif
 #include "BitCodeContainer.h"
 #include "CPUBlockToKernelMapper.h"
-#include "CompilationUtils.h"
+#include "CPUProgram.h"
 #include "Kernel.h"
 #include "ObjectCodeCache.h"
+#include "cl_sys_info.h"
+
+#include "llvm/ExecutionEngine/Orc/ObjectFileInterface.h"
+#include "llvm/Support/Errc.h"
+#include "llvm/Support/Path.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -39,11 +45,16 @@ void CPUProgram::ReleaseExecutionEngine()
     }
 }
 
-CPUProgram::~CPUProgram()
-{
-    // Freeing the execution engine is sufficient to cleanup all memory in
-    // MCJIT
-    ReleaseExecutionEngine();
+CPUProgram::~CPUProgram() {
+  using llvm_writeout_files_ptr = void (*)(void);
+  if (m_codeProfilingStatus == PROFILING_GCOV) {
+    auto llvm_writeout_files = reinterpret_cast<llvm_writeout_files_ptr>(
+      GetPointerToFunction("llvm_writeout_files"));
+    llvm_writeout_files();
+  }
+  // Freeing the execution engine is sufficient to cleanup all memory in
+  // MCJIT
+  ReleaseExecutionEngine();
 }
 
 void* CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
@@ -138,7 +149,59 @@ cl_dev_err_code CPUProgram::Finalize() {
   // later is available after finalizing object/loading dll if native debugger
   // is enabled on Windows.
   CreateAndSetBlockToKernelMapper();
+
+#ifndef WIN32
+  // Read the HasMatrixCall Property of each kernel and run amx syscall.
+  static llvm::once_flag OnceFlag;
+  for (size_t i = 0; i < m_kernels->GetCount(); ++i) {
+    Kernel *kernel = m_kernels->GetKernel(i);
+    if (kernel->GetKernelProporties()->HasMatrixCall()) {
+      llvm::call_once(OnceFlag, [&] {
+        // we can't emit exception for checking the status of
+        // requestPermXtileData here. Otherwise, for sde users,
+        // requestPermXtileData will fail and lead to exception.
+        Intel::OpenCL::Utils::requestPermXtileData();
+      });
+      break;
+    }
+  }
+#endif
   return CL_DEV_SUCCESS;
+}
+
+void CPUProgram::LoadProfileLib() const {
+  assert(m_LLJIT && "profiling only supports LLJIT now");
+  std::string ClangRuntimePath = Intel::OpenCL::Utils::GetClangRuntimePath();
+  SmallString<128> ProfileLibPath(ClangRuntimePath);
+  llvm::sys::path::append(ProfileLibPath, PROFILE_LIB_NAME);
+
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                      "CL_CONFIG_FORCE_PROFILE_LIB_PATH") &&
+      !Env.empty())
+    ProfileLibPath = Env;
+
+  if (!llvm::sys::fs::exists(ProfileLibPath)) {
+    llvm::logAllUnhandledErrors(
+      llvm::createStringError(llvm::errc::no_such_file_or_directory,
+                              "The program was built with profiling but the "
+                              "clang profile library is not found"),
+      llvm::errs());
+    throw Exceptions::DeviceBackendExceptionBase(
+      "Clang profile library is not found");
+  }
+  auto &JD = m_LLJIT->getMainJITDylib();
+  unique_function<Expected<llvm::orc::MaterializationUnit::Interface>(
+      llvm::orc::ExecutionSession & ES, MemoryBufferRef ObjBuffer)>
+      GetObjFileInterface = llvm::orc::getObjectFileInterface;
+  auto G = llvm::orc::StaticLibraryDefinitionGenerator::Load(
+      m_LLJIT->getObjLinkingLayer(), ProfileLibPath.c_str(),
+      m_LLJIT->getTargetTriple(), std::move(GetObjFileInterface));
+  if (!G) {
+    llvm::logAllUnhandledErrors(std::move(G.takeError()), llvm::errs());
+    throw Exceptions::CompilerException("Failed to load clang profile library");
+  }
+  JD.addGenerator(std::move(*G));
 }
 
 void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)

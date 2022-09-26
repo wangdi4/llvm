@@ -75,8 +75,6 @@ void initializeGlobalISel(PassRegistry&);
 void initializeTarget(PassRegistry&);
 
 #if INTEL_CUSTOMIZATION
-/// Initialize all passes linked into the Coroutines library.
-void initializeCoroutines(PassRegistry&);
 
 /// initializeIntel_LoopAnalysis - Initialize all passes linked into the
 /// Intel_LoopAnalysis library.
@@ -94,9 +92,6 @@ void initializeIntel_OpenCLTransforms(PassRegistry&);
 // Intel_DPCPPKernelTransforms
 void initializeIntel_DPCPPKernelTransforms(PassRegistry&);
 
-void initializeModuleAddressSanitizerLegacyPassPass(PassRegistry &);
-void initializeASanGlobalsMetadataWrapperPassPass(PassRegistry &);
-void initializeAddressSanitizerLegacyPassPass(PassRegistry &);
 void initializeInlineListsPass(PassRegistry&);
 void initializeInlineReportSetupPass(PassRegistry&);
 void initializeInlineReportEmitterPass(PassRegistry&);
@@ -128,7 +123,6 @@ void initializeAnnotation2MetadataLegacyPass(PassRegistry &);
 void initializeAnnotationRemarksLegacyPass(PassRegistry &);
 void initializeOpenMPOptCGSCCLegacyPassPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
-void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
@@ -147,7 +141,6 @@ void initializeBranchProbabilityInfoWrapperPassPass(PassRegistry&);
 void initializeBranchRelaxationPass(PassRegistry&);
 void initializeBreakCriticalEdgesPass(PassRegistry&);
 void initializeBreakFalseDepsPass(PassRegistry&);
-void initializeCanonicalizeAliasesLegacyPassPass(PassRegistry &);
 void initializeCanonicalizeFreezeInLoopsPass(PassRegistry &);
 void initializeCFGOnlyPrinterLegacyPassPass(PassRegistry&);
 void initializeCFGOnlyViewerLegacyPassPass(PassRegistry&);
@@ -160,7 +153,6 @@ void initializeCFIFixupPass(PassRegistry&);
 void initializeCFIInstrInserterPass(PassRegistry&);
 void initializeCFLAndersAAWrapperPassPass(PassRegistry&);
 void initializeCFLSteensAAWrapperPassPass(PassRegistry&);
-void initializeCGProfileLegacyPassPass(PassRegistry &);
 void initializeCallGraphDOTPrinterPass(PassRegistry&);
 void initializeCallGraphPrinterLegacyPassPass(PassRegistry&);
 void initializeCallGraphViewerPass(PassRegistry&);
@@ -172,7 +164,6 @@ void initializeCodeGenPreparePass(PassRegistry&);
 void initializeConstantHoistingLegacyPassPass(PassRegistry&);
 void initializeConstantMergeLegacyPassPass(PassRegistry&);
 void initializeConstraintEliminationPass(PassRegistry &);
-void initializeControlHeightReductionLegacyPassPass(PassRegistry&);
 void initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeGCOVProfilerLegacyPassPass(PassRegistry&); // INTEL
 void initializeCorrelatedValuePropagationPass(PassRegistry&);
@@ -216,8 +207,8 @@ void initializeEarlyTailDuplicatePass(PassRegistry&);
 void initializeEdgeBundlesPass(PassRegistry&);
 void initializeEHContGuardCatchretPass(PassRegistry &);
 void initializeEliminateAvailableExternallyLegacyPassPass(PassRegistry&);
-void initializeEntryExitInstrumenterPass(PassRegistry&);
 void initializeExpandComplexPass(PassRegistry&); // INTEL
+void initializeExpandLargeDivRemLegacyPassPass(PassRegistry&);
 void initializeExpandMemCmpPassPass(PassRegistry&);
 void initializeExpandPostRAPass(PassRegistry&);
 void initializeExpandReductionsPass(PassRegistry&);
@@ -237,7 +228,6 @@ void initializeFoldLoadsToGatherPass(PassRegistry&); // INTEL
 void initializeForceFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeForwardControlFlowIntegrityPass(PassRegistry&);
 void initializeFuncletLayoutPass(PassRegistry&);
-void initializeFunctionImportLegacyPassPass(PassRegistry&);
 void initializeFunctionSpecializationLegacyPassPass(PassRegistry &);
 void initializeFunctionSplittingWrapperPass(PassRegistry&);        // INTEL
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
@@ -255,7 +245,6 @@ void initializeHardwareLoopsPass(PassRegistry&);
 void initializeMIRProfileLoaderPassPass(PassRegistry &);
 void initializeMemProfilerLegacyPassPass(PassRegistry &);
 void initializeHotColdSplittingLegacyPassPass(PassRegistry&);
-void initializeHWAddressSanitizerLegacyPassPass(PassRegistry &); // INTEL
 void initializeIPSCCPLegacyPassPass(PassRegistry&);
 void initializeIRCELegacyPassPass(PassRegistry&);
 void initializeIROutlinerLegacyPassPass(PassRegistry&);
@@ -283,8 +272,6 @@ void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstCountLegacyPassPass(PassRegistry &);
 void initializeInstNamerPass(PassRegistry&);
 void initializeInstSimplifyLegacyPassPass(PassRegistry &);
-void initializeInstrProfilingLegacyPassPass(PassRegistry&);
-void initializeInstrOrderFileLegacyPassPass(PassRegistry&);
 void initializeInstructionCombiningPassPass(PassRegistry&);
 void initializeInstructionSelectPass(PassRegistry&);
 void initializeIntelAdvancedFastCallWrapperPassPass(PassRegistry &); // INTEL
@@ -370,7 +357,6 @@ void initializeLowerSubscriptIntrinsicLegacyPassPass(PassRegistry&); // INTEL
 void initializeLowerIntrinsicsPass(PassRegistry&);
 void initializeLowerInvokeLegacyPassPass(PassRegistry&);
 void initializeLowerSwitchLegacyPassPass(PassRegistry &);
-void initializeLowerTypeTestsPass(PassRegistry&);
 void initializeLowerMatrixIntrinsicsLegacyPassPass(PassRegistry &);
 void initializeLowerMatrixIntrinsicsMinimalLegacyPassPass(PassRegistry &);
 void initializeMIRAddFSDiscriminatorsPass(PassRegistry &);
@@ -418,7 +404,6 @@ void initializeModuleSummaryIndexWrapperPassPass(PassRegistry&);
 void initializeModuloScheduleTestPass(PassRegistry&);
 void initializeMustExecutePrinterPass(PassRegistry&);
 void initializeMustBeExecutedContextPrinterPass(PassRegistry&);
-void initializeNameAnonGlobalLegacyPassPass(PassRegistry&);
 void initializeNaryReassociateLegacyPassPass(PassRegistry&);
 void initializeNewGVNLegacyPassPass(PassRegistry&);
 void initializeObjCARCAAWrapperPassPass(PassRegistry&);
@@ -435,7 +420,6 @@ void initializePGOIndirectCallPromotionLegacyPassPass(PassRegistry&);
 void initializePGOInstrumentationGenLegacyPassPass(PassRegistry&);
 void initializePGOInstrumentationUseLegacyPassPass(PassRegistry&);
 void initializePGOInstrumentationGenCreateVarLegacyPassPass(PassRegistry&);
-void initializePGOMemOPSizeOptLegacyPassPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializePHIEliminationPass(PassRegistry&);
 void initializePartialInlinerLegacyPassPass(PassRegistry&);
@@ -451,7 +435,6 @@ void initializePostDomOnlyViewerWrapperPassPass(PassRegistry &);
 void initializePostDomPrinterWrapperPassPass(PassRegistry &);
 void initializePostDomViewerWrapperPassPass(PassRegistry &);
 void initializePostDominatorTreeWrapperPassPass(PassRegistry&);
-void initializePostInlineEntryExitInstrumenterPass(PassRegistry&);
 void initializePostMachineSchedulerPass(PassRegistry&);
 void initializePostOrderFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializePostRAHazardRecognizerPass(PassRegistry&);
@@ -467,6 +450,11 @@ void initializePromoteLegacyPassPass(PassRegistry&);
 void initializePruneEHPass(PassRegistry&);
 void initializeRABasicPass(PassRegistry&);
 void initializePseudoProbeInserterPass(PassRegistry &);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void initializePseudoMarkerCountInserterPass(PassRegistry &);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 void initializeRAGreedyPass(PassRegistry&);
 void initializeReachingDefAnalysisPass(PassRegistry&);
 void initializeReassociateLegacyPassPass(PassRegistry&);
@@ -498,9 +486,7 @@ void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSROALegacyCGSCCAdaptorPassPass(PassRegistry &); // INTEL
 void initializeSafeStackLegacyPassPass(PassRegistry&);
 void initializeSafepointIRVerifierPass(PassRegistry&);
-void initializeSampleProfileLoaderLegacyPassPass(PassRegistry&);
 void initializeSelectOptimizePass(PassRegistry &);
-void initializeModuleSanitizerCoverageLegacyPassPass(PassRegistry &);
 void initializeScalarEvolutionWrapperPassPass(PassRegistry&);
 void initializeScalarizeMaskedMemIntrinLegacyPassPass(PassRegistry &);
 void initializeScalarizerLegacyPassPass(PassRegistry&);
@@ -563,7 +549,6 @@ void initializeVirtRegMapPass(PassRegistry&);
 void initializeVirtRegRewriterPass(PassRegistry&);
 void initializeWarnMissedTransformationsLegacyPass(PassRegistry &);
 void initializeWasmEHPreparePass(PassRegistry&);
-void initializeWholeProgramDevirtPass(PassRegistry&);
 void initializeWinEHPreparePass(PassRegistry&);
 void initializeWriteBitcodePassPass(PassRegistry&);
 void initializeWriteThinLTOBitcodePass(PassRegistry&);
@@ -851,10 +836,16 @@ void initializeVPOCFGRestructuringPass(PassRegistry&);
 void initializeVPOCFGSimplifyPass(PassRegistry&);
 // VPO Paropt Loop Collapse Pass
 void initializeVPOParoptLoopCollapsePass(PassRegistry&);
+// VPO Paropt Loop Transform Pass
+void initializeVPOParoptLoopTransformPass(PassRegistry&);
 // VPO Paropt Prepare Pass
 void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Pass to restore operands renamed by VPO Paropt Prepare pass
 void initializeVPORestoreOperandsPass(PassRegistry &);
+// VPO Pass to rename operands as part of VPO Paropt Prepare pass
+void initializeVPORenameOperandsPass(PassRegistry &);
+// VPO Pass to guard memory motion of clause variables.
+void initializeVPOParoptGuardMemoryMotionPass(PassRegistry &);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Tpv Transformation

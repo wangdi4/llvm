@@ -13,7 +13,7 @@
 // License.
 
 #include "AsmCompiler.h"
-#include "CompilationUtils.h"
+#include "exceptions.h"
 
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"

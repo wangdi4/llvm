@@ -385,6 +385,12 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
   case VecTagTy::SIMD:
     OS << " <simd-vectorized>";
     break;
+  case VecTagTy::PEEL:
+    OS << " <vector-peel>";
+    break;
+  case VecTagTy::REMAINDER:
+    OS << " <vector-remainder>";
+    break;
   case VecTagTy::NONE:
     break;
   }

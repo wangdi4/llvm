@@ -127,6 +127,15 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always_assert.enable metadata.
   bool VectorizeAlwaysAssertEnable;
 
+  /// Value for llvm.loop.vector_temporal.enable metadata.
+  bool VectorizeTemporalEnable;
+
+  /// Value for llvm.loop.vector_nontemporal.enable metadata.
+  bool VectorizeNonTemporalEnable;
+
+  /// Value for llvm.loop.vector_vectorlength
+  llvm::SmallVector<unsigned, 2> VectorizeLength;
+
   /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
@@ -241,6 +250,8 @@ struct LoopAttributes {
   /// Value for count variant (min/max/avg) and count metadata.
   llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
       SYCLIntelFPGAVariantCount;
+  // Value for llvm.loop.intel.max_reinvocation_delay metadata.
+  llvm::Optional<unsigned> SYCLMaxReinvocationDelayNCycles;
 
   /// llvm.unroll.
   unsigned UnrollCount;
@@ -259,10 +270,6 @@ struct LoopAttributes {
 
   /// Flag for llvm.loop.fusion.disable metatdata.
   bool SYCLNofusionEnable;
-
-  /// Value for fpga_pipeline variant and metadata.
-  llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
-      SYCLIntelFPGAPipeline;
 
   /// Value for whether the loop is required to make progress.
   bool MustProgress;
@@ -491,26 +498,38 @@ public:
 
   /// Set the back flag for ivdep.
   void setIVDepBack() { StagedAttrs.IVDepBack = true; }
-  /// Set next pushed loop  'vector_always.enable'
+  /// Set next pushed loop  'vector.always.enable'
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
   }
-  /// Set next pushed loop  'vector_always.enable'
+  /// Set next pushed loop  'vector.always.enable'
   void setVectorizeAlwaysAssertEnable() {
     StagedAttrs.VectorizeAlwaysAssertEnable = true;
   }
-  /// Set next pushed loop  'vector_aligned.enable'
+  /// Set next pushed loop  'vector.temporal.enable'
+  void setVectorizeTemporalEnable() {
+    StagedAttrs.VectorizeTemporalEnable = true;
+  }
+  /// Set next pushed loop  'vector.nontemporal.enable'
+  void setVectorizeNonTemporalEnable() {
+    StagedAttrs.VectorizeNonTemporalEnable = true;
+  }
+  /// Set the VectorLength for the next loop pushed.
+  void setVectorLength(unsigned C) {
+    StagedAttrs.VectorizeLength.push_back(C);
+  }
+  /// Set next pushed loop  'vector.aligned.enable'
   void setVectorizeAlignedEnable() {
     StagedAttrs.VectorizeAlignedEnable = true;
   }
 
 
-  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  /// Set next pushed loop  'vector.dynamic_aligned.enable'
   void setVectorizeDynamicAlignEnable() {
     StagedAttrs.VectorizeDynamicAlignEnable = true;
   }
 
-  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  /// Set next pushed loop  'vector.nodynamic_aligned.enable'
   void setVectorizeNoDynamicAlignEnable() {
     StagedAttrs.VectorizeNoDynamicAlignEnable = true;
   }
@@ -644,13 +663,13 @@ public:
   /// Set flag of nofusion for the next loop pushed.
   void setSYCLNofusionEnable() { StagedAttrs.SYCLNofusionEnable = true; }
 
-  /// Set variant and value of fpga_pipeline for the next loop pushed.
-  void setSYCLIntelFPGAPipeline(const char *Var, unsigned int Value) {
-    StagedAttrs.SYCLIntelFPGAPipeline.push_back({Var, Value});
-  }
-
   /// Set no progress for the next loop pushed.
   void setMustProgress(bool P) { StagedAttrs.MustProgress = P; }
+
+  /// Set value of max reinvocation delay for the next loop pushed.
+  void setSYCLMaxReinvocationDelayNCycles(unsigned C) {
+    StagedAttrs.SYCLMaxReinvocationDelayNCycles = C;
+  }
 
 private:
   /// Returns true if there is LoopInfo on the stack.

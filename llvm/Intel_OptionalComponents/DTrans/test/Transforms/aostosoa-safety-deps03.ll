@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-outofboundsok=false -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-outofboundsok=false -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 
@@ -28,5 +29,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; CHECK: %__SOA_struct.test01 = type { i64*, i64* }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
 declare i8* @strcpy(i8*, i8*)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

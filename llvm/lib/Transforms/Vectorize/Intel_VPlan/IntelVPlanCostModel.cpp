@@ -159,6 +159,12 @@ Align VPlanTTICostModel::getMemInstAlignment(
   return DL->getABITypeAlign(LoadStore->getValueType());
 }
 
+bool VPlanTTICostModel::isUniformLoadStore(
+  const VPLoadStoreInst *LoadStore) const {
+  assert (Plan->getVPlanDA() && "DA is not established.");
+  return !Plan->getVPlanDA()->isDivergent(*LoadStore->getPointerOperand());
+}
+
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
   assert (Plan->getVPlanDA() && "DA is not established.");
@@ -279,17 +285,20 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
     SetOperandValueFeatures(Op2, Op2VK, Op2VP);
 
   return TTI.getArithmeticInstrCost(Opcode, VecTy,
-    TargetTransformInfo::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
+    TargetTransformInfo::TCK_RecipThroughput, {Op1VK, Op1VP}, {Op2VK, Op2VP});
 }
 
-VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
-  const VPLoadStoreInst *LoadStore, unsigned VF) const {
+VPInstructionCost
+VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                                    unsigned VF, bool GSCostOnly) const {
   Align Alignment = getMemInstAlignment(LoadStore);
-  return getLoadStoreCost(LoadStore, Alignment, VF);
+  return getLoadStoreCost(LoadStore, Alignment, VF, GSCostOnly);
 }
 
-VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
-  const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) const {
+VPInstructionCost
+VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                                    Align Alignment, unsigned VF,
+                                    bool GSCostOnly) const {
   // TODO: VF check in IsMasked might become redundant once a separate VPlan
   // is maintained for VF = 1 meaning that the cost calculation for scalar loop
   // is done over VPlan that doesn't undergo any vector transformations such as
@@ -317,6 +326,30 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
 
   unsigned Opcode = LoadStore->getOpcode();
   unsigned AddrSpace = LoadStore->getPointerAddressSpace();
+
+  if (Opcode == VPInstruction::CompressStore ||
+      Opcode == VPInstruction::CompressStoreNonu ||
+      Opcode == VPInstruction::ExpandLoad ||
+      Opcode == VPInstruction::ExpandLoadNonu)
+    return getCompressExpandLoadStoreCost(LoadStore, VF, GSCostOnly);
+
+  // Special case uniform loads/stores as we issue scalar load/store
+  // instructions for them plus broadcast for loads.
+  if (VF > 1 && isVectorizableTy(OpTy) && isUniformLoadStore(LoadStore)) {
+    VPInstructionCost Cost = IsMasked ?
+      TTI.getMaskedMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace) :
+      getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
+
+    // TODO:
+    // Once SVA is checked during CM the cost of vector->scalar and
+    // scalar->vector conversions is expected to be accounted for each
+    // instructions and the code below should be removed.
+    Cost += (Opcode == Instruction::Load) ?
+      TTI.getShuffleCost(TTI::SK_Broadcast, cast<VectorType>(VecTy)) :
+      TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy, VF - 1);
+
+    return Cost;
+  }
 
   // Call get[Masked]MemoryOpCost() for the following cases.
   // 1. VF = 1 VPlan even for vector OpTy.
@@ -356,6 +389,51 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
     IsMasked, Alignment.value(), AddrSpace);
 }
 
+VPInstructionCost VPlanTTICostModel::getCompressExpandLoadStoreCost(
+    const VPLoadStoreInst *LoadStore, unsigned VF, bool GSCostOnly) const {
+
+  unsigned Opcode = LoadStore->getOpcode();
+  bool UnitStrided = Opcode == VPInstruction::CompressStore ||
+                     Opcode == VPInstruction::ExpandLoad;
+  Type *VecType = getWidenedType(LoadStore->getValueType(), VF);
+
+  VPInstructionCost Cost = 0;
+  if (!UnitStrided)
+    Cost += TTI.getGatherScatterOpCost(
+        Opcode == VPInstruction::CompressStoreNonu ? Instruction::Store
+                                                   : Instruction::Load,
+        VecType, getLoadStoreIndexSize(LoadStore), true,
+        LoadStore->getAlignment().value(), LoadStore->getPointerAddressSpace());
+
+  if (GSCostOnly)
+    return Cost;
+
+  // compress/expand intrinsic cost.
+  Intrinsic::ID IntrinsicId;
+  switch (Opcode) {
+  case VPInstruction::CompressStore:
+    IntrinsicId = Intrinsic::masked_compressstore;
+    break;
+  case VPInstruction::ExpandLoad:
+    IntrinsicId = Intrinsic::masked_expandload;
+    break;
+  case VPInstruction::CompressStoreNonu:
+    IntrinsicId = Intrinsic::x86_avx512_mask_compress;
+    break;
+  case VPInstruction::ExpandLoadNonu:
+    IntrinsicId = Intrinsic::x86_avx512_mask_expand;
+    break;
+  default:
+    llvm_unreachable("Compress/Expand Store/Load opcode is expected.");
+  }
+
+  Cost += TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(IntrinsicId, VecType, {VecType}),
+      TTI::TCK_RecipThroughput);
+
+  return Cost;
+}
+
 VPInstructionCost VPlanTTICostModel::getInsertExtractElementsCost(
   unsigned Opcode, Type *Ty, unsigned VF) {
   assert((Opcode == Instruction::ExtractElement ||
@@ -369,20 +447,15 @@ VPInstructionCost VPlanTTICostModel::getInsertExtractElementsCost(
 }
 
 Intrinsic::ID
-VPlanTTICostModel::getIntrinsicForSVMLCall(
+VPlanTTICostModel::getIntrinsicForLibFuncCall(
   const VPCallInstruction *VPCall) const {
-  assert(VPCall->getVectorizationScenario() ==
-             VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
-         "Expected library function call here.");
-  auto *CalledFunc = VPCall->getCalledFunction();
-  assert(CalledFunc && "Value should not be nullptr!");
-  assert(isSVMLFunction(TLI, CalledFunc->getName(),
-                        VPCall->getVectorLibraryFunc()) &&
-         "Expected SVML function call.");
-  (void)CalledFunc;
 
-  LibFunc Func;
-  if (!TLI->getLibFunc(*VPCall->getUnderlyingCallInst(), Func))
+  assert(VPCall->getCalledFunction() && "Value should not be nullptr!");
+  const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
+  assert(UnderlyingCI && "Underlying call instruction expected here");
+
+  LibFunc Func = NotLibFunc;
+  if (!TLI->getLibFunc(*UnderlyingCI, Func) || !TLI->has(Func))
     return Intrinsic::not_intrinsic;
 
   // Table to provide alternate similar intrinsics for given library function.
@@ -513,6 +586,17 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
 
 VPInstructionCost VPlanTTICostModel::getTTICost(const VPInstruction *VPInst) {
   return getTTICostForVF(VPInst, VF);
+}
+
+VPInstructionCost VPlanTTICostModel::getZTTCost(Type *UBType) const {
+  // Return integer comparison cost + overhead of mispredicted branch.
+  VPInstructionCost JmpOverheadCost = 5;
+
+  VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
+    Instruction::ICmp, UBType, nullptr /* CondTy */,
+    CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+
+  return CmpCost + JmpOverheadCost;
 }
 
 VPInstructionCost VPlanTTICostModel::getAllZeroCheckInstrCost(Type *VecSrcTy,
@@ -751,17 +835,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // If call is expected to be vectorized using SVML then obtain alternate
     // intrinsic version (if available) which will be used for cost computation
     // purpose.
-    if (ID == Intrinsic::not_intrinsic &&
-        VPCall->getVectorizationScenario() ==
-            VPCallInstruction::CallVecScenariosTy::LibraryFunc) {
-      // Filter out SVML function calls, we currently allow some OCL builtins to
-      // be vectorized via LibraryFunc scenario too.
-      auto *CalledFunc = VPCall->getCalledFunction();
-      assert(CalledFunc && "Value should not be nullptr!");
-      if (isSVMLFunction(TLI, CalledFunc->getName(),
-                         VPCall->getVectorLibraryFunc()))
-        ID = getIntrinsicForSVMLCall(VPCall);
-    }
+    if (ID == Intrinsic::not_intrinsic && VPCall->getCalledFunction())
+      ID = getIntrinsicForLibFuncCall(VPCall);
 
     if (ID == Intrinsic::not_intrinsic)
       return VPInstructionCost::getUnknown();
@@ -895,42 +970,492 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case VPInstruction::SMax: {
     assert(VPInst->getNumOperands() == 2 &&
            "Unsupported form of [S|U][Min|Max]");
-    // UMinSeq instruction is lowered as:
-    // %cond.or = (%op1 == 0) || (%op2 == 0)
-    // select %cond.or == true ? 0 : UMin(%op1, %op2)
+    return getIntMinMaxInstCost(
+      Opcode, getWidenedType(VPInst->getOperand(0)->getType(), VF));
+  }
+
+  case VPInstruction::InductionInit: {
+    // Add based InductionInit lowering scheme:
+    // 1. StartValBCast = bcast(StartVal)
+    // 2. StepValBCast = bcast(StepVal)
+    // 3. VectorStep = StepValBCast * [0, 1, .. VF - 1]
+    // 4. RetVal = StartValBCast + VectorStep
     //
-    // Initialize Cost with vanilla UMin/SMin/UMax/SMax cost which is
-    // lowered into select.
-    Type *OpTy = VPInst->getOperand(0)->getType();
-    Type *VecOpTy = getWidenedType(OpTy, VF);
+    // Mul based InductionInit lowering scheme:
+    // 1. StartValBCast = bcast(StartVal)
+    // 2. VectorStep = insert(StepVal, 0)
+    // 3. StepVal = StepVal * StepVal
+    // 4. VectorStep = insert(StepVal, 1)
+    //    ...
+    // VF+1. StepVal = StepVal * StepVal
+    // VF+2. VectorStep = insert(StepVal, VF - 1)
+    // VF+3. RetVal = StartValBCast * VectorStep
+    //
+    // The last operation for RetVal turns into GEP for pointer type
+    // Inductions.
+    //
+    // Note that when StartVal and/or StepVal are constant values some
+    // operations can be folded and result is used inside the loop directly
+    // yielding zero cost of InductionInit instruction.
+    VPInstructionCost Cost = 0;
+    auto *VPInd = cast<VPInductionInit>(VPInst);
+    unsigned Opc = VPInd->getBinOpcode();
+    bool IsAdd = Opc == Instruction::Add || Opc == Instruction::FAdd ||
+                 Opc == Instruction::Sub || Opc == Instruction::FSub ||
+                 Opc == Instruction::GetElementPtr;
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    bool IsPtr = VPInst->getType()->isPointerTy() ||
+                 Opc == Instruction::GetElementPtr;
 
-    // Pick any condition code here frpm possible conditions for operation in
-    // question for the simplicity. We expect the cost doesn't depend on it.
-    VPInstructionCost Cost = TTI.getCmpSelInstrCost(
-      Instruction::Select, VecOpTy, VecOpTy, CmpInst::ICMP_ULT,
-      TTI::TCK_RecipThroughput);
+    auto *StepScalTy = VPInst->getOperand(1)->getType();
+    auto *StepVecTy = getWidenedType(StepScalTy, VF);
+    auto *StartVal = VPInd->getOperand(0);
 
-    // TODO: The entry condition to be extended once more Sequential operations
-    // are introduced.
-    if (Opcode == VPInstruction::UMinSeq) {
-      // Add Cost of extra instructions for Sequential operation.
-      Cost += TTI.getCmpSelInstrCost(
-        Instruction::ICmp, VecOpTy, VecOpTy, CmpInst::ICMP_EQ,
-        TTI::TCK_RecipThroughput) * VPInst->getNumOperands();
+    if (dyn_cast<VPLiveInValue>(StartVal))
+      StartVal = Plan->getExternals().getOriginalIncomingValue(
+                   cast<VPLiveInValue>(StartVal)->getMergeId());
 
-      Type *VecInt1Ty =
-        getWidenedType(Type::getInt1Ty(*Plan->getLLVMContext()), VF);
+    // StartValBCast cost.
+    if (!isa<VPConstant>(StartVal))
+      Cost += TTI.getShuffleCost(TTI::SK_Broadcast,
+                                 getWidenedType(StartVal->getType(), VF));
 
-      // Select is used to implement logical (non commutative) OR operation.
-      Cost += TTI.getCmpSelInstrCost(
-        Instruction::Select, VecInt1Ty, VecInt1Ty, CmpInst::ICMP_EQ,
-        TTI::TCK_RecipThroughput);
-
-      Cost += TTI.getCmpSelInstrCost(
-        Instruction::Select, VecOpTy, VecInt1Ty, CmpInst::ICMP_EQ,
-        TTI::TCK_RecipThroughput);
+    // StepValBCast and VectorStep costs.
+    if (!isa<VPConstant>(VPInd->getOperand(1))) {
+      if (IsAdd)
+        Cost +=
+          TTI.getShuffleCost(TTI::SK_Broadcast, StepVecTy) +
+          TTI.getArithmeticInstrCost(
+            IsFloat ? Instruction::FMul : Instruction::Mul, StepVecTy,
+            TargetTransformInfo::TCK_RecipThroughput);
+      else {
+        for (unsigned Index = 0; Index < VF; Index++)
+          Cost += TTI.getVectorInstrCost(Instruction::InsertElement,
+                                         StepVecTy, Index);
+        Cost += (VF - 1) * TTI.getArithmeticInstrCost(
+          Opc, StepScalTy, TargetTransformInfo::TCK_RecipThroughput);
+      }
     }
 
+    // RetVal cost.
+    if (!isa<VPConstant>(StartVal) || !isa<VPConstant>(VPInd->getOperand(1)))
+      // TODO: TTI interface for GEP cost yet to be implemented.
+      if (!IsPtr)
+        Cost += TTI.getArithmeticInstrCost(
+          Opc, StepVecTy, TargetTransformInfo::TCK_RecipThroughput);
+
+    return Cost;
+  }
+
+  case VPInstruction::InductionInitStep: {
+    // Add based InductionInitStep lowering scheme:
+    // 1. ScaledStep = StepVal * VF
+    // 2. VectorStep = bcast(ScaledStep)
+    //
+    // Mul based InductionInitStep lowering scheme:
+    // 1. ScaledStep = StepVal * StepVal
+    // 2. ScaledStep = ScaledStep * ScaledStep
+    //    ...
+    // Log(VF).   ScaledStep = ScaledStep * ScaledStep
+    // Log(VF)+1. VectorStep = bcast(ScaledStep)
+    //
+    // Note that when StepVal is a constant value the operations are folded
+    // resulting zero cost of InductionInitStep instruction.
+    auto *StepVal = VPInst->getOperand(0);
+    if (isa<VPConstant>(StepVal))
+      return 0;
+
+    VPInstructionCost Cost = 0;
+    auto *VPIndStep = cast<VPInductionInitStep>(VPInst);
+    unsigned Opc = VPIndStep->getBinOpcode();
+    bool IsAdd = Opc == Instruction::Add || Opc == Instruction::FAdd ||
+                 Opc == Instruction::Sub || Opc == Instruction::FSub ||
+                 Opc == Instruction::GetElementPtr;
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    auto *StepScalTy = StepVal->getType();
+
+    // ScaledStep cost.
+    if (IsAdd)
+      Cost += TTI.getArithmeticInstrCost(
+          IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
+          TargetTransformInfo::TCK_RecipThroughput,
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+          {TargetTransformInfo::OK_UniformConstantValue,
+           TargetTransformInfo::OP_PowerOf2});
+    else
+      Cost += TTI.getArithmeticInstrCost(
+        IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
+        TargetTransformInfo::TCK_RecipThroughput) * log2(VF);
+
+    Cost += TTI.getShuffleCost(TTI::SK_Broadcast,
+                               getWidenedType(StepScalTy, VF));
+
+    return Cost;
+  }
+
+  case VPInstruction::InductionFinal: {
+    auto *IndInit = VPInst->getOperand(0);
+    auto *IndInitScalTy = IndInit->getType();
+
+    // One operand - extract from vector
+    if (VPInst->getNumOperands() == 1)
+      return TTI.getShuffleCost(TTI::SK_ExtractSubvector,
+                                getWidenedType(IndInitScalTy, VF), VF - 1);
+
+    VPInstructionCost Cost = 0;
+    // Otherwise (two operands) calculate by formulas
+    //  for post increment liveouts LV = start + step*upper_bound,
+    //  for pre increment liveouts LV = start + step*(upper_bound-1)
+    //
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    unsigned Opc = cast<VPInductionFinal>(VPInst)->getBinOpcode();
+    bool IsPtr = VPInst->getType()->isPointerTy() ||
+                 Opc == Instruction::GetElementPtr;
+
+    unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+    auto *VPIndFinal = cast<VPInductionFinal>(VPInst);
+
+    // The code below to find the loop is copy-pasted from CG routine
+    // VPOCodeGen::vectorizeInductionFinal().
+    VPLoop *L = nullptr;
+    VPBasicBlock *VPIndFinalBB =
+      *VPInst->getParent()->getPredecessors().begin();
+    L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    while (!L) {
+      VPIndFinalBB = *VPIndFinalBB->getPredecessors().begin();
+      L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    }
+    bool ExactUB = L->exactUB();
+    VPCmpInst *Cond = L->getLatchComparison();
+    VPValue *VPTripCnt = nullptr;
+    if (Cond)
+      VPTripCnt = L->isDefOutside(Cond->getOperand(0)) ?
+        Cond->getOperand(0) : Cond->getOperand(1);
+
+    auto *VPStep = VPInst->getOperand(1);
+    auto *VPStepScalTy = VPStep->getType();
+    TargetTransformInfo::OperandValueKind TripCountVK =
+      TargetTransformInfo::OK_AnyValue;
+    VPValue *VPTripCntVal = nullptr;
+
+    // If Cond is nullptr we assume TripCount is known and constant.
+    // !L->getTripCountInfo().IsEstimated is also indication of that
+    // the loop has constant TC even if corresponding to TC VPInstructions
+    // are not found.
+    if (!VPTripCnt || !L->getTripCountInfo().IsEstimated)
+      TripCountVK = TargetTransformInfo::OK_UniformConstantValue;
+    else if (dyn_cast<VPVectorTripCountCalculation>(VPTripCnt))
+      VPTripCntVal = cast<VPInstruction>(VPTripCnt)->getOperand(0);
+
+    if (VPTripCntVal && isa<VPConstant>(VPTripCntVal))
+      TripCountVK = TargetTransformInfo::OK_UniformConstantValue;
+
+    // Take into account +/- 1 adjustments if TC is not constant and they
+    // do not annihilate each other.
+    if (VPTripCntVal && TripCountVK == TargetTransformInfo::OK_AnyValue) {
+      if (VPIndFinal->isLastValPreIncrement() && ExactUB)
+        // Subtruct one.
+        Cost += TTI.getArithmeticInstrCost(
+            Instruction::Sub, VPTripCntVal->getType(),
+            TargetTransformInfo::TCK_RecipThroughput,
+            {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+            {TargetTransformInfo::OK_UniformConstantValue,
+             TargetTransformInfo::OP_None});
+
+      if (!ExactUB && !VPIndFinal->isLastValPreIncrement())
+        // Add one.
+        Cost += TTI.getArithmeticInstrCost(
+            Instruction::Add, VPTripCntVal->getType(),
+            TargetTransformInfo::TCK_RecipThroughput,
+            {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+            {TargetTransformInfo::OK_UniformConstantValue,
+             TargetTransformInfo::OP_None});
+
+      // TODO: int32 -> int64 or other cast are possibly inserted by CG
+      // but it is not cost modelled as CastInst::getCastOpcode() needs
+      // TripCnt Value on input.
+      //
+      // For simplicity we catch the only common case here:
+      // int32 -> int64 cast.
+      if (VPTripCnt->getType()->isIntegerTy(32) &&
+          VPStepScalTy->isIntegerTy(64))
+        Cost += TTI.getCastInstrCost(
+          Instruction::SExt, VPStepScalTy, VPTripCntVal->getType(),
+          TTI::CastContextHint::None);
+    }
+
+    // TODO: Possible PowerOfTwo for known Start/TripCount Values are not
+    // cost modelled properly here.
+
+    TargetTransformInfo::OperandValueKind StepVK =
+      TargetTransformInfo::OK_AnyValue;
+    TargetTransformInfo::OperandValueProperties StepVP =
+      TargetTransformInfo::OP_None;
+
+    TargetTransformInfo::OperandValueKind MultVK =
+      TargetTransformInfo::OK_UniformConstantValue;
+
+    // Model multiply by 1 case by hand as it is common but TTI has no
+    // meaning to model it.
+    bool StepValIsOne = false;
+    if (isa<VPConstant>(VPStep)) {
+      StepVK = TargetTransformInfo::OK_UniformConstantValue;
+      if (const ConstantInt *IntConst =
+          dyn_cast<ConstantInt>(cast<VPConstant>(VPStep)->getConstant())) {
+        if (IntConst->getValue().isOne())
+          StepValIsOne = true;
+        else if (IntConst->getValue().isPowerOf2())
+          StepVP = TargetTransformInfo::OP_PowerOf2;
+      }
+    }
+
+    if (StepVK == TargetTransformInfo::OK_AnyValue ||
+        (TripCountVK == TargetTransformInfo::OK_AnyValue && !StepValIsOne)) {
+      Cost += TTI.getArithmeticInstrCost(
+          StepOpc, VPStepScalTy, TargetTransformInfo::TCK_RecipThroughput,
+          {StepVK, StepVP}, {TripCountVK, TargetTransformInfo::OP_None});
+      MultVK = TargetTransformInfo::OK_AnyValue;
+    }
+
+    TargetTransformInfo::OperandValueKind IndInitVK =
+      TargetTransformInfo::OK_AnyValue;
+
+    if (isa<VPConstant>(IndInit))
+      IndInitVK = TargetTransformInfo::OK_UniformConstantValue;
+
+    if (IndInitVK == TargetTransformInfo::OK_AnyValue ||
+        MultVK == TargetTransformInfo::OK_AnyValue)
+      // TODO: GEP is to be modelled once supported in TTI.
+      if (!IsPtr)
+        Cost += TTI.getArithmeticInstrCost(
+            Opc, IndInitScalTy, TargetTransformInfo::TCK_RecipThroughput,
+            {IndInitVK, TargetTransformInfo::OP_None},
+            {MultVK, TargetTransformInfo::OP_None});
+    return Cost;
+  }
+
+  case VPInstruction::ReductionInit: {
+    VectorType *VTy = getWidenedType(VPInst->getType(), VF);
+    VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VTy);
+    if (VPInst->getNumOperands() > 1) {
+      auto *StartVal = VPInst->getOperand(1);
+      // TODO: The constant folding prediction below might be incorrect when
+      // peeling loop presence and for reminder loop.
+      if (dyn_cast<VPLiveInValue>(StartVal))
+        StartVal = Plan->getExternals().getOriginalIncomingValue(
+          cast<VPLiveInValue>(StartVal)->getMergeId());
+
+      // Predict constant folding.
+      if (!isa<VPConstant>(StartVal))
+        Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VTy, 0);
+    }
+    return Cost;
+  }
+
+  case VPInstruction::ReductionFinal: {
+    auto *VPRedFinal = cast<VPReductionFinal>(VPInst);
+    bool CmpReduction =
+      VPRedFinal->getBinOpcode() == Instruction::ICmp ||
+      VPRedFinal->getBinOpcode() == Instruction::FCmp;
+
+    auto *IDVecTy = getWidenedType(VPRedFinal->getOperand(0)->getType(), VF);
+    Intrinsic::ID Intrin;
+    VPInstructionCost Cost = 0;
+    // Special case Cmp Reduction as it is implemented in CG using OR
+    // reduction.
+    if (CmpReduction) {
+      auto *Op1VecTy = getWidenedType(VPRedFinal->getOperand(1)->getType(), VF);
+      Cost += TTI.getShuffleCost(TTI::SK_Broadcast, Op1VecTy);
+      Cost += TTI.getCmpSelInstrCost(
+        VPRedFinal->getBinOpcode(), IDVecTy, nullptr, /* CondTy */
+        CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+      Intrin = Intrinsic::vector_reduce_or;
+    }
+    else
+      Intrin = VPRedFinal->getVectorReduceIntrinsic();
+
+    bool IsFAddMul = (Intrin == Intrinsic::vector_reduce_fadd ||
+                      Intrin == Intrinsic::vector_reduce_fmul);
+    SmallVector<Type *> ParamTys;
+
+    // TTI expects the second argument of vector type for float add/mul
+    // reduction only.
+    if (VPRedFinal->getNumOperands() > 1 && IsFAddMul)
+      ParamTys.push_back(VPRedFinal->getOperand(1)->getType());
+    ParamTys.push_back(IDVecTy);
+
+    FastMathFlags FMF;
+    if (VPRedFinal->hasFastMathFlags())
+      FMF = VPRedFinal->getFastMathFlags();
+
+    Cost += TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrin, VPInst->getType(), ParamTys, FMF),
+      TTI::TCK_RecipThroughput);
+
+    // Scalar extra operation to allow Acc to make its contribution for
+    // non float add/mul reductions. Float add/mul reductions passes their Acc
+    // as an argument to reduce intrinsics and no additional operation is
+    // issued for them.
+    if (!IsFAddMul && VPRedFinal->getNumOperands() > 1) {
+      if (isIntMinMaxOpcode(VPRedFinal->getBinOpcode()))
+        Cost += getIntMinMaxInstCost(VPRedFinal->getBinOpcode(), IDVecTy);
+      else if (CmpReduction)
+        Cost += TTI.getCmpSelInstrCost(
+          Instruction::Select, VPRedFinal->getOperand(1)->getType(),
+          IntegerType::getInt1Ty(*Plan->getLLVMContext()) /* i1 */,
+          CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+      else
+        Cost += TTI.getArithmeticInstrCost(
+          VPRedFinal->getBinOpcode(), VPInst->getType(),
+          TargetTransformInfo::TCK_RecipThroughput);
+    }
+    return Cost;
+  }
+
+  case VPInstruction::CompressExpandIndexInit:
+    return TTI.getVectorInstrCost(Instruction::InsertElement,
+                                  getWidenedType(VPInst->getType(), VF), 0);
+
+  case VPInstruction::CompressExpandIndexInc: {
+    Type *ElType = VPInst->getType();
+    VectorType *VecType = getWidenedType(ElType, VF);
+    VPInstructionCost Cost = 0;
+    Cost += TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(Intrinsic::vector_reduce_add, ElType,
+                                {VecType}),
+        TTI::TCK_RecipThroughput);
+    Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VecType, 0);
+    return Cost;
+  }
+
+  case VPInstruction::CompressExpandIndex: {
+    VectorType *VecType = getWidenedType(VPInst->getType(), VF);
+    VPInstructionCost Cost = 0;
+    Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecType);
+    Cost += TTI.getArithmeticInstrCost(Instruction::Add, VecType);
+    return Cost;
+  }
+
+  case VPInstruction::CompressExpandMask: {
+    VPInstructionCost Cost = 0;
+    Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
+    Type *MaskTy = FixedVectorType::get(
+        IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
+    Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
+                                 TTI::CastContextHint::None);
+    Cost += TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
+        TTI::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+        Instruction::Shl, IntTy, TargetTransformInfo::TCK_RecipThroughput,
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_None},
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
+    Cost += TTI.getArithmeticInstrCost(
+        Instruction::Xor, IntTy, TargetTransformInfo::TCK_RecipThroughput,
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_None});
+    Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
+                                 TTI::CastContextHint::None);
+    return Cost;
+  }
+
+  case VPInstruction::CompressStore:
+  case VPInstruction::ExpandLoad:
+  case VPInstruction::CompressStoreNonu:
+  case VPInstruction::ExpandLoadNonu:
+    return getCompressExpandLoadStoreCost(cast<VPLoadStoreInst>(VPInst), VF);
+
+  case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalUncond: {
+    auto *OpTy = VPInst->getOperand(0)->getType();
+    auto *VecTy = getWidenedType(OpTy, VF);
+    if (OpTy->isVectorTy())
+      return TTI.getShuffleCost(TTI::SK_ExtractSubvector, VecTy,
+                                None /* Mask */,
+                                TTI::TCK_RecipThroughput, VF - 1 /* Index */,
+                                cast<FixedVectorType>(OpTy));
+    else
+      return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                    VF - 1 /* Index */);
+  }
+
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond: {
+    // An example of pseudo IR generated to finalize conditional last private
+    // entity for VF = 2 follows.
+    //
+    // %priv.final = private-final-c %exit, %idx, %orig
+    // ; Find max index where condition was true
+    // %idx.reduce = llvm.vector.reduce.smax.v2i64(%idx.vec)
+    // ; Identify where max index is set in final vector
+    // %max.idx.cmp = %idx.reduce == %idx.vec
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%max.idx.cmp);
+    // %lane = @llvm.cttz.i2(%bsfintmask,  1);
+    // ; Extract final value and store back to original
+    // %orig = extractelement %exit.vec, %lane
+    //
+    auto *Ty = VPInst->getOperand(1)->getType();
+    auto *VecTy = getWidenedType(Ty, VF);
+    VPInstructionCost Cost = TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrinsic::vector_reduce_smax, Ty, {VecTy}),
+      TTI::TCK_RecipThroughput);
+    Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::ICmp, VecTy, VecTy, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput);
+
+    auto *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
+    auto *IntVFTy = Type::getIntNTy(*Plan->getLLVMContext(), VF);
+
+    Cost += TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrinsic::ctlz, IntVFTy, {IntVFTy, Int1Ty}),
+      TTI::TCK_RecipThroughput);
+    Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                   -1U /* Non-immediate Index */);
+    return Cost;
+  }
+
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem: {
+    auto *VecTy = getWidenedType(VPInst->getOperand(0)->getType(), VF);
+    auto *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
+    auto *IntVFTy = Type::getIntNTy(*Plan->getLLVMContext(), VF);
+
+    VPInstructionCost Cost = TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrinsic::ctlz, IntVFTy, {IntVFTy, Int1Ty}),
+      TTI::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+        Instruction::Sub, IntVFTy, TargetTransformInfo::TCK_RecipThroughput,
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_PowerOf2_PlusMinus1},
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
+    Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                   -1U /* Non-immediate Index */);
+    return Cost;
+  }
+
+  case VPInstruction::VectorTripCountCalculation: {
+    bool PeelLoopExists = VPInst->getNumOperands() > 1;
+    auto *OrigTC = VPInst->getOperand(0);
+    auto *Ty = OrigTC->getType();
+
+    if (isa<VPConstant>(OrigTC))
+      return 0;
+    if (isPowerOf2_32(VF * UF) && !PeelLoopExists)
+      return TTI.getArithmeticInstrCost(
+        Instruction::And, Ty, TargetTransformInfo::TCK_RecipThroughput);
+
+    VPInstructionCost Cost = 0;
+    if (PeelLoopExists)
+      Cost += TTI.getArithmeticInstrCost(
+        Instruction::Sub, Ty, TargetTransformInfo::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+      Instruction::URem, Ty, TargetTransformInfo::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+      Instruction::Sub, Ty, TargetTransformInfo::TCK_RecipThroughput);
     return Cost;
   }
   }
@@ -1087,8 +1612,9 @@ VPInstructionCost VPlanTTICostModel::getNonMaskedMemOpCostAdj(
 VPInstructionCost VPlanTTICostModel::getMemoryOpCost(
     unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, const Instruction *I) const {
-  auto TTICost = TTI.getMemoryOpCost(Opcode, Src, Alignment,
-                                     AddressSpace, CostKind, I);
+  auto TTICost =
+      TTI.getMemoryOpCost(Opcode, Src, Alignment, AddressSpace, CostKind,
+                          {TTI::OK_AnyValue, TTI::OP_None}, I);
   LLVM_DEBUG(dbgs() << "TTICost: " << TTICost << '\n';);
 
   // Return not adjusted scaled up cost for non-vector types.
@@ -1140,6 +1666,48 @@ VPInstructionCost VPlanTTICostModel::getConflictInsnCost(
     llvm_unreachable("Unreachable code during VPCONFLICT handling.");
 }
 
+VPInstructionCost VPlanTTICostModel::getIntMinMaxInstCost(
+  unsigned Opcode, FixedVectorType *VecTy) const
+{
+  assert(isIntMinMaxOpcode(Opcode) &&
+         "Unexpected VPInstruction in getIntMinMaxVPInstCost.");
+
+  // UMinSeq instruction is lowered as:
+  // %cond.or = (%op1 == 0) || (%op2 == 0)
+  // select %cond.or == true ? 0 : UMin(%op1, %op2)
+  //
+  // Initialize Cost with vanilla UMin/SMin/UMax/SMax cost which is
+  // lowered into select.
+  //
+  // Pick any condition code here frpm possible conditions for operation in
+  // question for the simplicity. We expect the cost doesn't depend on it.
+  VPInstructionCost Cost = TTI.getCmpSelInstrCost(
+    Instruction::Select, VecTy, VecTy, CmpInst::ICMP_ULT,
+    TTI::TCK_RecipThroughput);
+
+  // TODO: The entry condition to be extended once more Sequential operations
+  // are introduced.
+  if (Opcode == VPInstruction::UMinSeq) {
+    // Add Cost of extra instructions for Sequential operation.
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::ICmp, VecTy, VecTy, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput) * 2;
+
+    Type *VecInt1Ty =
+      getWidenedType(Type::getInt1Ty(*Plan->getLLVMContext()),
+                     VecTy->getNumElements());
+
+    // Select is used to implement logical (non commutative) OR operation.
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::Select, VecInt1Ty, VecInt1Ty, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput);
+
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::Select, VecTy, VecInt1Ty, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput);
+  }
+  return Cost;
+}
 
 } // namespace vpo
 

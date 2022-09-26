@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -235,7 +236,9 @@ define void @test_bad_cases(%struct.bad.S1* %ps1, %struct.bad.S3* %ps3,
   ret void
 }
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S1 = type { i32, i32, i32 }

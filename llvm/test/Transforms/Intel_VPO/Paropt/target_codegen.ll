@@ -54,7 +54,8 @@ entry:
 attributes #0 = { "may-have-openmp-directive"="true" }
 
 ; Check presence of the outlined target region.
-; CHECK-ALL: define internal void @[[OUTLINEDTARGET]]()
+; CHECK-HST: define internal void @[[OUTLINEDTARGET]]()
+; CHECK-TGT: define weak_odr dso_local void @[[OUTLINEDTARGET]]()
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)

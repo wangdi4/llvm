@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -60,7 +60,6 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
@@ -136,7 +135,6 @@ namespace {
       (void) llvm::createAggressiveInstCombinerPass();
       (void) llvm::createBitTrackingDCEPass();
       (void)llvm::createOpenMPOptCGSCCLegacyPass();
-      (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createAndersensAAWrapperPass();
@@ -183,7 +181,6 @@ namespace {
       (void) llvm::createLibCallsShrinkWrapPass();
       (void) llvm::createCalledValuePropagationPass();
       (void) llvm::createConstantMergePass();
-      (void) llvm::createControlHeightReductionLegacyPass();
       (void) llvm::createCostModelAnalysisPass();
       (void) llvm::createDeadArgEliminationPass();
       (void) llvm::createDeadArgEliminationSYCLPass();
@@ -196,14 +193,11 @@ namespace {
       (void) llvm::createPGOInstrumentationUseLegacyPass();
       (void) llvm::createPGOInstrumentationGenCreateVarLegacyPass();
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
-      (void) llvm::createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createDomOnlyPrinterWrapperPassPass();
       (void) llvm::createDomPrinterWrapperPassPass();
       (void) llvm::createDomOnlyViewerWrapperPassPass();
       (void) llvm::createDomViewerWrapperPassPass();
-      (void) llvm::createInstrProfilingLegacyPass();
-      (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
@@ -288,8 +282,6 @@ namespace {
       (void) llvm::createInstCountPass();
       (void) llvm::createConstantHoistingPass();
       (void) llvm::createCodeGenPreparePass();
-      (void) llvm::createEntryExitInstrumenterPass();
-      (void) llvm::createPostInlineEntryExitInstrumenterPass();
       (void) llvm::createEarlyCSEPass();
       (void) llvm::createGVNHoistPass();
       (void) llvm::createMergedLoadStoreMotionPass();
@@ -306,6 +298,7 @@ namespace {
       (void) llvm::createReversePostOrderFunctionAttrsPass();
       (void) llvm::createMergeFunctionsPass();
       (void) llvm::createMergeICmpsLegacyPass();
+      (void) llvm::createExpandLargeDivRemPass();
       (void) llvm::createExpandMemCmpPass();
       (void) llvm::createExpandVectorPredicationPass();
       (void)llvm::createSYCLLowerWGScopePass();
@@ -528,11 +521,9 @@ namespace {
       (void)llvm::createVFAnalysisLegacyPass();
       (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
       (void)llvm::createVectorVariantFillInLegacyPass();
-      (void)llvm::createVectorVariantLoweringLegacyPass(
-          llvm::VectorVariant::XMM);
-      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VectorVariant::XMM);
-      (void)llvm::createSGSizeCollectorIndirectLegacyPass(
-          llvm::VectorVariant::XMM);
+      (void)llvm::createVectorVariantLoweringLegacyPass(llvm::VFISAKind::SSE);
+      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VFISAKind::SSE);
+      (void)llvm::createSGSizeCollectorIndirectLegacyPass(llvm::VFISAKind::SSE);
       (void)llvm::createTaskSeqAsyncHandlingLegacyPass();
       (void)llvm::createUpdateCallAttrsLegacyPass();
       (void)llvm::createIndirectCallLoweringLegacyPass();
@@ -576,11 +567,20 @@ namespace {
       // VPO Paropt Loop Collapse Pass
       (void) llvm::createVPOParoptLoopCollapsePass();
 
+      // VPO Paropt Loop Transform Pass
+      (void) llvm::createVPOParoptLoopTransformPass();
+
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
 
       // VPO Pass to restore clause opreands renamed by the Prepare pass.
       (void)llvm::createVPORestoreOperandsPass();
+
+      // VPO Pass to rename clause opreands during the Prepare pass.
+      (void)llvm::createVPORenameOperandsPass();
+
+      // VPO Paropt Guard Memory Motion Pass
+      (void) llvm::createVPOParoptGuardMemoryMotionPass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();

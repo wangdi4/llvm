@@ -1121,9 +1121,28 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
                 (CL_RT_MEMOBJ_FORCE_BS & creation_flags) );
         m_pHostPtr = pHostPtr;
 
-        if ((CL_RT_MEMOBJ_FORCE_BS & creation_flags) || (m_user_flags & CL_MEM_USE_HOST_PTR))
-        {
-            m_ptr = m_pHostPtr;
+        // When CL_MEM_USE_HOST_PTR flag is present, we cache buffer content
+        // pointed to by host ptr based on heuristic:
+        //   * CL_DEV_MEM_NOT_CACHE_HOST_PTR_CONTENT flag isn't present.
+        //   * buffer is read only.
+        //   * host ptr isn't aligned to DEV_MAXIMUM_ALIGN.
+        //   * content is middle-sized.
+        // Cache means content is copied from host ptr to internel buffer
+        // pointed to by m_ptr.
+        // Motivation is to improve performance since cache miss may increase
+        // when accessing unaligned host ptr inside kernel.
+        constexpr size_t copySizeLimit = 1024 * 1024 * 1024;
+        bool isMiddleSize = isLargeAllocSize(m_raw_data_size) &&
+                            (m_raw_data_size < copySizeLimit);
+        bool isHostPtrAligned = (reinterpret_cast<uintptr_t>(pHostPtr) &
+                                 (DEV_MAXIMUM_ALIGN - 1)) == 0;
+        bool cacheHostPtrContent =
+            !(m_user_flags & CL_DEV_MEM_NOT_CACHE_HOST_PTR_CONTENT) &&
+            (m_user_flags & CL_MEM_READ_ONLY) && !isHostPtrAligned &&
+            isMiddleSize;
+        if ((CL_RT_MEMOBJ_FORCE_BS & creation_flags) ||
+            ((m_user_flags & CL_MEM_USE_HOST_PTR) && !cacheHostPtrContent)) {
+          m_ptr = m_pHostPtr;
         }
     }
 }

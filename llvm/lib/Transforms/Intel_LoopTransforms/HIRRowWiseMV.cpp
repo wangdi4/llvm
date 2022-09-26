@@ -223,12 +223,17 @@ static ACVec getConvenientVals(unsigned OPC, Type *T) {
 }
 
 /// Determines whether \p Inst has enough fast math flags to allow the
-/// approximate checks used by this pass.
+/// approximate checks used by this pass. None of the individual fast-math flags
+/// are really a good fit for this, but the "unsafe-fp-math" function attribute
+/// (which we also require for this transform) is broad enough to cover this.
+/// The clang driver sets this when all of afn, arecip, ressoc, and nsz are
+/// enabled, so these four flags seem like a reasonable set to check here.
 static bool allowsApproxChecks(const HLInst *Inst) {
   const auto *const FPOp = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
   if (!FPOp)
     return false;
-  return FPOp->isFast();
+  return FPOp->hasApproxFunc() && FPOp->hasAllowReciprocal() &&
+         FPOp->hasAllowReassoc() && FPOp->hasNoSignedZeros();
 }
 
 /// Computes the union of two sets of (sorted) arithmetically convenient values.
@@ -531,12 +536,18 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
       return {};
     }
 
-    // Figure out which field is being accessed.
-    const auto *const FieldIdxC = dyn_cast<ConstantInt>(BaseGEP->getOperand(2));
-    if (!FieldIdxC) {
-      report_fatal_error("Non-constant index in struct access??");
+    // Figure out which field is being accessed. If the GEP does not have a
+    // third operand for the struct index (which can happen with opaque
+    // pointers), this is field zero.
+    unsigned FieldIdx = 0;
+    if (BaseGEP->getNumOperands() > 2) {
+      const auto *const FieldIdxC =
+          dyn_cast<ConstantInt>(BaseGEP->getOperand(2));
+      if (!FieldIdxC) {
+        report_fatal_error("Non-constant index in struct access??");
+      }
+      FieldIdx = FieldIdxC->getLimitedValue();
     }
-    const unsigned FieldIdx = FieldIdxC->getLimitedValue();
 
     // Retrieve the possible values.
     const auto *const LikelyValues =
@@ -634,6 +645,10 @@ static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
 //  %sum = %sum - (%B)[i1 + 32 * i3];
 //
 // Removal %t iff no DDedges in loop and is not live in/out
+//
+// This is the HIR equivalent of the "(-X) + Y --> Y - X" peephole in
+// InstCombinerImpl::visitFAdd; as in InstCombine, no fast math flags are needed
+// to perform this peephole.
 
 static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
   DenseMap<unsigned, HLInst *> FNegCandidates;
@@ -650,7 +665,7 @@ static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
     const RegDDRef *LvalRef = Inst->getLvalDDRef();
 
     // Find Fneg inst: t = - (%B)[i1];
-    if (LLVMInst->getOpcode() == Instruction::FNeg && LLVMInst->isFast()) {
+    if (LLVMInst->getOpcode() == Instruction::FNeg) {
       unsigned SB = LvalRef->getSymbase();
       bool OutsideUses = Loop->isLiveOut(SB) || Loop->isLiveIn(SB);
 
@@ -661,8 +676,7 @@ static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
     }
 
     // Find Fadd inst: %sum = %sum  +  %t;
-    if (LLVMInst->getOpcode() == Instruction::FAdd && LLVMInst->isFast() &&
-        !FNegCandidates.empty()) {
+    if (LLVMInst->getOpcode() == Instruction::FAdd && !FNegCandidates.empty()) {
       unsigned TempOpNum = 0;
       if (DDRefUtils::areEqual(LvalRef, Inst->getOperandDDRef(1))) {
         TempOpNum = 2;
@@ -717,9 +731,11 @@ static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
             ? 1
             : 2;
 
+    FastMathFlags SubFastMathFlags = FAdd->getFastMathFlags();
+    SubFastMathFlags &= FNeg->getFastMathFlags();
     HLInst *const NewFSub = FAdd->getHLNodeUtils().createFPMathBinOp(
         Instruction::FSub, FAdd->removeOperandDDRef(OpNum), NegRef,
-        FastMathFlags::getFast(), "", FAdd->removeLvalDDRef());
+        SubFastMathFlags, "", FAdd->removeLvalDDRef());
 
     HLNodeUtils::replace(FAdd, NewFSub);
     HLNodeUtils::remove(FNeg);

@@ -90,12 +90,20 @@ protected:
                                     std::to_string(ProgramIndex) +
                                     "_[0-9a-f]{16}" + Suffix[I];
       Regex R(FilenamePattern);
-      std::string DumpFilename = findFileInDir(".", R);
-      ASSERT_TRUE(!DumpFilename.empty())
+      std::vector<std::string> DumpFilenames = findFilesInDir(".", R);
+      ASSERT_TRUE(!DumpFilenames.empty())
           << (FilenamePattern + " is not dumped");
-      if (NumPatterns != 0)
-        ASSERT_TRUE(fileContains(DumpFilename, Patterns[I]));
-      m_dumpFilenames.push_back(DumpFilename);
+      if (NumPatterns != 0) {
+        bool contains = llvm::any_of(DumpFilenames, [&](auto &Filename) {
+          return fileContains(Filename, Patterns[I]);
+        });
+        ASSERT_TRUE(contains) << "Pattern \"" << llvm::join(Patterns[I], ";")
+                              << "\" is not found in files "
+                              << llvm::join(DumpFilenames, ";") << "\n";
+        ;
+      }
+      m_dumpFilenames.insert(m_dumpFilenames.end(), DumpFilenames.begin(),
+                             DumpFilenames.end());
     }
   }
 
@@ -113,7 +121,7 @@ protected:
         clBuildProgram(m_program, 1, &m_device, nullptr, nullptr, nullptr);
     ASSERT_OCL_SUCCESS(err, "clBuildProgram");
 
-    validateDumpedFiles(prefix, suffix, patterns);
+    ASSERT_NO_FATAL_FAILURE(validateDumpedFiles(prefix, suffix, patterns));
   }
 
 protected:
@@ -161,11 +169,11 @@ TEST_F(DumpEnvTest, OptIRAsm) {
 
   // Check dumped files contain kernel name and section
   std::vector<std::string> patterns = {m_kernelName};
-  ASSERT_TRUE(fileContains(irFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(irFile, patterns));
   m_dumpFilenames.push_back(irFile);
 
   patterns.push_back("Disassembly of section");
-  ASSERT_TRUE(fileContains(asmFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(asmFile, patterns));
   m_dumpFilenames.push_back(asmFile);
 }
 
@@ -187,11 +195,11 @@ TEST_F(DumpEnvTest, OptIRAsmDebug) {
 
   // Check dumped files contain kernel name and section
   std::vector<std::string> patterns = {m_kernelName};
-  ASSERT_TRUE(fileContains(irFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(irFile, patterns));
   m_dumpFilenames.push_back(irFile);
 
   patterns.push_back("Disassembly of section .debug");
-  ASSERT_TRUE(fileContains(asmFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(asmFile, patterns));
   m_dumpFilenames.push_back(asmFile);
 }
 
@@ -262,13 +270,18 @@ TEST_F(DumpEnvTest, CheckHashSame) {
 
     suffix = {".asm", ".bin"};
     for (auto &s : suffix) {
-      Regex r(prefix + "_2_[0-9a-f]{16}" + s);
-      std::string filename = findFileInDir(".", r);
-      ASSERT_TRUE(!filename.empty()) << ("AOT " + filename + " is not dumped");
-      std::string asmHash = filename.substr(prefix.length() + 3, 16);
-      ASSERT_EQ(hash, asmHash)
-          << ("AOT dump " + filename + " has different hash than " + hash);
-      m_dumpFilenames.push_back(filename);
+      std::string filenamePattern = prefix + "_2_[0-9a-f]{16}" + s;
+      Regex r(filenamePattern);
+      std::vector<std::string> filenames = findFilesInDir(".", r);
+      ASSERT_TRUE(!filenames.empty())
+          << ("AOT " + filenamePattern + " is not dumped");
+      bool found = llvm::any_of(filenames, [&](auto &filename) {
+        return hash == filename.substr(prefix.length() + 3, 16);
+      });
+      ASSERT_TRUE(found) << ("AOT " + filenamePattern + " with hash " + hash +
+                             " is not dumped");
+      m_dumpFilenames.insert(m_dumpFilenames.end(), filenames.begin(),
+                             filenames.end());
     }
   };
   checkAOT();
@@ -278,6 +291,15 @@ TEST_F(DumpEnvTest, CheckHashSame) {
 /// a previous clCreateKernel call.
 TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
   ASSERT_TRUE(SETENV("VOLCANO_EQUALIZER_STATS", "all"));
+  // There is race condition between StatsEqualizerAll and DumpAfterCreateKernel
+  // if CL_CONFIG_DUMP_FILE_NAME_PREFIX is not set, supposing the following
+  // steps happen:
+  //   1. Both tests dump it _eq.ll files. So there are two _eq.ll files.
+  //   2. Both tests find the first _eq.ll file.
+  //   3. Test DumpAfterCreateKernel finishes and the _eq.ll file is deleted.
+  //   4. Test StatsEqualizerAll fails to read the _eq.ll file and test fails.
+  std::string Prefix = "TMP2";
+  ASSERT_TRUE(SETENV("CL_CONFIG_DUMP_FILE_NAME_PREFIX", Prefix.c_str()));
   ASSERT_NO_FATAL_FAILURE(createContext());
   ASSERT_NO_FATAL_FAILURE(createFirstProgram());
 
@@ -291,10 +313,9 @@ TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
   Err = clReleaseKernel(Ker);
   ASSERT_OCL_SUCCESS(Err, "clReleaseKernel");
 
-  std::string Prefix = "framework_test_type";
   std::vector<std::string> Suffix = {"_eq.ll"};
   std::vector<std::vector<std::string>> Patterns = {
-      {m_kernelName, m_kernelName1, "spir_kernel"}};
+      {m_kernelName, "spir_kernel"}};
   ASSERT_NO_FATAL_FAILURE(
       validateDumpedFiles(Prefix, Suffix, Patterns, /*ProgramIndex*/ 1));
 
@@ -309,4 +330,5 @@ TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
       validateDumpedFiles(Prefix, Suffix, Patterns, /*ProgramIndex*/ 2));
 
   ASSERT_TRUE(UNSETENV("VOLCANO_EQUALIZER_STATS"));
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_DUMP_FILE_NAME_PREFIX"));
 }

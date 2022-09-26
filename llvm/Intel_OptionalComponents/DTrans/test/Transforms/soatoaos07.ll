@@ -1,4 +1,5 @@
 ; REQUIRES: system-windows
+; UNSUPPORTED: enable-opaque-pointers
 
 ; This test verifies that SOAToAOS is triggered when IR has specific things
 ; like EH etc.
@@ -489,7 +490,7 @@ entry:
   ret %struct.Arr.0* %this
 }
 
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr
+declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #1
 
 define linkonce_odr dso_local void @"?add@?$Arr@PEAH@@QEAAXAEBQEAH@Z"(%struct.Arr* nocapture %this, i32** nocapture nonnull align 8 dereferenceable(8) %e) {
 entry:
@@ -575,7 +576,7 @@ cleanup:                                          ; preds = %for.cond.cleanup, %
   ret void
 }
 
-declare dso_local void @free(i8* nocapture) local_unnamed_addr
+declare dso_local void @free(i8* nocapture) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #0
@@ -820,3 +821,5 @@ entry:
 }
 
 attributes #0 = { argmemonly nofree nosync nounwind willreturn writeonly }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #2 = { allockind("free") "alloc-family"="malloc" }

@@ -32,7 +32,7 @@ DIR.OMP.SIMD.1338:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.1338
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(float* %cosval), "QUAL.OMP.PRIVATE"(float* %sinval) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(float* %cosval, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %sinval, float 0.000000e+00, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.body

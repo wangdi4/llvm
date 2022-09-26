@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield < %s -debug-only=dtrans-deletefield \
 ; RUN:     -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -disable-output -passes=dtrans-deletefield \

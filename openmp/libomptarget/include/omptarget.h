@@ -138,14 +138,30 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEFAULT
 };
 
+/// This struct contains all of the arguments to a target kernel region launch.
+struct __tgt_kernel_arguments {
+  int32_t Version;    // Version of this struct for ABI compatibility.
+  int32_t NumArgs;    // Number of arguments in each input pointer.
+  void **ArgBasePtrs; // Base pointer of each argument (e.g. a struct).
+  void **ArgPtrs;     // Pointer to the argument data.
+  int64_t *ArgSizes;  // Size of the argument data in bytes.
+  int64_t *ArgTypes;  // Type of the data (e.g. to / from).
+  void **ArgNames;    // Name of the data for debugging, possibly null.
+  void **ArgMappers;  // User-defined mappers, possibly null.
+  int64_t Tripcount;  // Tripcount for the teams / distribute loop, 0 otherwise.
+};
+static_assert(sizeof(__tgt_kernel_arguments) == 64 ||
+                  sizeof(__tgt_kernel_arguments) == 40,
+              "Invalid struct size");
+
 #if INTEL_COLLAB
 struct __tgt_interop_obj {
-  int64_t device_id; // OpenMP device id
-  int64_t device_code; // Encoded device id
-  int32_t is_async; // Whether it is for asynchronous operation
-  void *async_obj; // Pointer to the asynchronous object
-  void (*async_handler)(void *); // Callback function for asynchronous operation
-  int32_t plugin_interface; // Plugin selector
+  int64_t DeviceId; // OpenMP device id
+  int64_t DeviceCode; // Encoded device id
+  int32_t IsAsync; // Whether it is for asynchronous operation
+  void *AsyncObj; // Pointer to the asynchronous object
+  void (*AsyncHandler)(void *); // Callback function for asynchronous operation
+  int32_t PlugInType; // Plugin selector
 };
 #if INTEL_CUSTOMIZATION
 ///
@@ -225,7 +241,7 @@ struct __tgt_interop {
   // to OpenMP 5.1 extension.  Once MKL transitions to use openmp 5.1 interop
   // they will be removed.  Simpler to add here then add it in RTLProperty which
   // require changes in plugin apis which will have to be obsoleted later.
-  __tgt_interop_obj *intel_tmp_ext;
+  __tgt_interop_obj *IntelTmpExt;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -241,7 +257,7 @@ enum InteropPropertyTy : int32_t {
   INTEROP_OFFLOAD_QUEUE,
   INTEROP_PLATFORM_HANDLE,
   INTEROP_CONTEXT =  INTEROP_PLATFORM_HANDLE,
-  INTEROP_DRIVER_HANDLE =  INTEROP_PLATFORM_HANDLE,
+  INTEROP_DRIVER_HANDLE = INTEROP_PLATFORM_HANDLE,
   INTEROP_DEVICE_HANDLE,
   INTEROP_PLUGIN_INTERFACE,
   INTEROP_CONTEXT_HANDLE
@@ -264,6 +280,7 @@ struct __tgt_memory_info {
   (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
 #endif // INTEL_COLLAB
 
+
 /// This struct is a record of an entry point or global. For a function
 /// entry point the size is expected to be zero
 struct __tgt_offload_entry {
@@ -280,6 +297,11 @@ struct __tgt_device_image {
   void *ImageEnd;                    // Pointer to the target code end
   __tgt_offload_entry *EntriesBegin; // Begin of table with all target entries
   __tgt_offload_entry *EntriesEnd;   // End of table (non inclusive)
+};
+
+/// This struct contains information about a given image.
+struct __tgt_image_info {
+  const char *Arch;
 };
 
 /// This struct is a record of all the host code that may be offloaded to a
@@ -300,8 +322,8 @@ struct __tgt_target_table {
 
 #if INTEL_COLLAB
 typedef struct __omp_offloading_fptr_map_t {
-  uint64_t host_ptr; // key
-  uint64_t tgt_ptr;  // value
+  uint64_t HostPtr; // key
+  uint64_t TargetPtr; // value
 } __omp_offloading_fptr_map_t;
 
 #ifdef __cplusplus
@@ -387,102 +409,110 @@ int omp_get_num_devices(void);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
+int omp_get_device_num(void);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_get_initial_device(void);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *omp_target_alloc(size_t size, int device_num);
+void *omp_target_alloc(size_t Size, int DeviceNum);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void omp_target_free(void *device_ptr, int device_num);
+void omp_target_free(void *DevicePtr, int DeviceNum);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_is_present(const void *ptr, int device_num);
+int omp_target_is_present(const void *Ptr, int DeviceNum);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_memcpy(void *dst, const void *src, size_t length,
-                      size_t dst_offset, size_t src_offset, int dst_device,
-                      int src_device);
+int omp_target_memcpy(void *Dst, const void *Src, size_t Length,
+                      size_t DstOffset, size_t SrcOffset, int DstDevice,
+                      int SrcDevice);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_memcpy_rect(void *dst, const void *src, size_t element_size,
-                           int num_dims, const size_t *volume,
-                           const size_t *dst_offsets, const size_t *src_offsets,
-                           const size_t *dst_dimensions,
-                           const size_t *src_dimensions, int dst_device,
-                           int src_device);
+int omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
+                           int NumDims, const size_t *Volume,
+                           const size_t *DstOffsets, const size_t *SrcOffsets,
+                           const size_t *DstDimensions,
+                           const size_t *SrcDimensions, int DstDevice,
+                           int SrcDevice);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_associate_ptr(const void *host_ptr, const void *device_ptr,
-                             size_t size, size_t device_offset, int device_num);
+int omp_target_associate_ptr(const void *HostPtr, const void *DevicePtr,
+                             size_t Size, size_t DeviceOffset, int DeviceNum);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_disassociate_ptr(const void *host_ptr, int device_num);
+int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum);
 
 #if INTEL_COLLAB
-EXTERN
-void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+EXTERN void * omp_get_mapped_ptr(void *HostPtr, int DeviceNum);
 
-EXTERN
-int omp_target_is_accessible(const void *ptr, size_t size, int device_num);
+EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
+                                    int DeviceNum);
 
 /// Explicit target memory allocators
 /// Are we OK with omp_ prefix?
-EXTERN void *omp_target_alloc_device(size_t size, int device_num);
-EXTERN void *omp_target_alloc_host(size_t size, int device_num);
-EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
+EXTERN void *omp_target_alloc_device(size_t Size, int DeviceNum);
+EXTERN void *omp_target_alloc_host(size_t Size, int DeviceNum);
+EXTERN void *omp_target_alloc_shared(size_t Size, int DeviceNum);
 
 /// Get target device context
-EXTERN void *omp_target_get_context(int device_num);
+EXTERN void *omp_target_get_context(int DeviceNum);
 
 /// Set sub-device mode to map OpenMP device ID to sub-device ID at the
 /// specified level. Returns number of sub-devices if the requested mode is
 /// supported and the operation is successful, 0 otherwise.
 /// Calling this routine not from "sequential part" of the OpenMP program
 /// results in undefined behavior.
-EXTERN int omp_set_sub_device(int device_num, int level);
+EXTERN int omp_set_sub_device(int DeviceNum, int Level);
 
 /// Unset sub-device mode.
-EXTERN void omp_unset_sub_device(int device_num);
+EXTERN void omp_unset_sub_device(int DeviceNum);
 
 /// Target memory realloc extension
-EXTERN void *ompx_target_realloc(void *ptr, size_t size, int device_num);
-EXTERN void *ompx_target_realloc_device(void *ptr, size_t size, int device_num);
-EXTERN void *ompx_target_realloc_host(void *ptr, size_t size, int device_num);
-EXTERN void *ompx_target_realloc_shared(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc(void *Ptr, size_t Size, int DeviceNum);
+EXTERN void *ompx_target_realloc_device(void *Ptr, size_t Size, int DeviceNum);
+EXTERN void *ompx_target_realloc_host(void *Ptr, size_t Size, int DeviceNum);
+EXTERN void *ompx_target_realloc_shared(void *Ptr, size_t Size, int DeviceNum);
 
 /// Target memory aligned alloc extension
-EXTERN void *ompx_target_aligned_alloc(
-    size_t align, size_t size, int device_num);
-EXTERN void *ompx_target_aligned_alloc_device(
-    size_t align, size_t size, int device_num);
-EXTERN void *ompx_target_aligned_alloc_host(
-    size_t align, size_t size, int device_num);
-EXTERN void *ompx_target_aligned_alloc_shared(
-    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc(size_t Align, size_t Size,
+                                       int DeviceNum);
+EXTERN void *ompx_target_aligned_alloc_device(size_t Align, size_t Size,
+                                              int DeviceNum);
+EXTERN void *ompx_target_aligned_alloc_host(size_t Align, size_t Size,
+                                            int DeviceNum);
+EXTERN void *ompx_target_aligned_alloc_shared(size_t Align, size_t Size,
+                                              int DeviceNum);
 /// Register/unregister Host Pointer
-EXTERN int ompx_target_register_host_pointer(
-    void *ptr, size_t size, int device_num);
-EXTERN void ompx_target_unregister_host_pointer(
-    void *ptr, int device_num);
+EXTERN int ompx_target_register_host_pointer(void *Ptr, size_t Size,
+                                             int DeviceNum);
+EXTERN void ompx_target_unregister_host_pointer(void *Ptr,
+                                                int DeviceNum);
 
 /// Get number of subdevices supported by the given device ID at the specified
 /// level
-EXTERN int ompx_get_num_subdevices(int device_num, int level);
+EXTERN int ompx_get_num_subdevices(int DeviceNum, int Level);
 
-EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels);
-EXTERN void ompx_kernel_batch_end(int device_num);
+EXTERN void ompx_kernel_batch_begin(int DeviceNum, uint32_t MaxKernels);
+EXTERN void ompx_kernel_batch_end(int DeviceNum);
 
 /// Return OMP device information
-EXTERN int ompx_get_device_info(int device_num, int info_id,
-                                size_t info_size, void *info_value,
-                                size_t *info_size_ret);
+EXTERN int ompx_get_device_info(int DeviceNum, int InfoId, size_t InfoSize,
+                                void *InfoVAlue, size_t *InfoSizeRet);
+
+/// APIs that enable backend optimization when shared memory is used
+EXTERN void *ompx_target_aligned_alloc_shared_with_hint(
+    size_t Align, size_t Size, int AccessHint, int DeviceNum);
+EXTERN int ompx_target_prefetch_shared_mem(
+    size_t NumPtrs, void **Ptrs, size_t *Sizes, int DeviceNum);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
@@ -490,15 +520,15 @@ EXTERN int ompx_get_device_info(int device_num, int info_id,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *llvm_omp_target_alloc_device(size_t size, int device_num);
+void *llvm_omp_target_alloc_device(size_t Size, int DeviceNum);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *llvm_omp_target_alloc_host(size_t size, int device_num);
+void *llvm_omp_target_alloc_host(size_t Size, int DeviceNum);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *llvm_omp_target_alloc_shared(size_t size, int device_num);
+void *llvm_omp_target_alloc_shared(size_t Size, int DeviceNum);
 
 /// Dummy target so we have a symbol for generating host fallback.
 #if INTEL_COLLAB
@@ -510,13 +540,13 @@ void *llvm_omp_target_dynamic_shared_alloc();
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_register_requires(int64_t flags);
+void __tgt_register_requires(int64_t Flags);
 
 /// adds a target shared library to the target execution image
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_register_lib(__tgt_bin_desc *desc);
+void __tgt_register_lib(__tgt_bin_desc *Desc);
 
 /// Initialize all RTLs at once
 #if INTEL_COLLAB
@@ -528,7 +558,7 @@ void __tgt_init_all_rtls();
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_unregister_lib(__tgt_bin_desc *desc);
+void __tgt_unregister_lib(__tgt_bin_desc *Desc);
 
 // creates the host to target data mapping, stores it in the
 // libomptarget.so internal structure (an entry in a stack of data maps) and
@@ -536,35 +566,33 @@ void __tgt_unregister_lib(__tgt_bin_desc *desc);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
-                             void **args_base, void **args, int64_t *arg_sizes,
-                             int64_t *arg_types);
+void __tgt_target_data_begin(int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
+                             void **Args, int64_t *ArgSizes, int64_t *ArgTypes);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
-                                    void **args_base, void **args,
-                                    int64_t *arg_sizes, int64_t *arg_types,
-                                    int32_t depNum, void *depList,
-                                    int32_t noAliasDepNum,
-                                    void *noAliasDepList);
+void __tgt_target_data_begin_nowait(int64_t DeviceId, int32_t ArgNum,
+                                    void **ArgsBase, void **Args,
+                                    int64_t *ArgSizes, int64_t *ArgTypes,
+                                    int32_t DepNum, void *DepList,
+                                    int32_t NoAliasDepNum,
+                                    void *NoAliasDepList);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
-                                    int32_t arg_num, void **args_base,
-                                    void **args, int64_t *arg_sizes,
-                                    int64_t *arg_types,
-                                    map_var_info_t *arg_names,
-                                    void **arg_mappers);
+void __tgt_target_data_begin_mapper(ident_t *Loc, int64_t DeviceId,
+                                    int32_t ArgNum, void **ArgsBase,
+                                    void **Args, int64_t *ArgSizes,
+                                    int64_t *ArgTypes, map_var_info_t *ArgNames,
+                                    void **ArgMappers);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_target_data_begin_nowait_mapper(
-    ident_t *loc, int64_t device_id, int32_t arg_num, void **args_base,
-    void **args, int64_t *arg_sizes, int64_t *arg_types,
-    map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
-    void *depList, int32_t noAliasDepNum, void *noAliasDepList);
+    ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
+    void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
+    void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
+    void *NoAliasDepList);
 
 // passes data from the target, release target memory and destroys the
 // host-target mapping (top entry from the stack of data maps) created by
@@ -572,69 +600,68 @@ void __tgt_target_data_begin_nowait_mapper(
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_end(int64_t device_id, int32_t arg_num, void **args_base,
-                           void **args, int64_t *arg_sizes, int64_t *arg_types);
+void __tgt_target_data_end(int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
+                           void **Args, int64_t *ArgSizes, int64_t *ArgTypes);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
-                                  void **args_base, void **args,
-                                  int64_t *arg_sizes, int64_t *arg_types,
-                                  int32_t depNum, void *depList,
-                                  int32_t noAliasDepNum, void *noAliasDepList);
+void __tgt_target_data_end_nowait(int64_t DeviceId, int32_t ArgNum,
+                                  void **ArgsBase, void **Args,
+                                  int64_t *ArgSizes, int64_t *ArgTypes,
+                                  int32_t DepNum, void *DepList,
+                                  int32_t NoAliasDepNum, void *NoAliasDepList);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
-                                  int32_t arg_num, void **args_base,
-                                  void **args, int64_t *arg_sizes,
-                                  int64_t *arg_types, map_var_info_t *arg_names,
-                                  void **arg_mappers);
+void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
+                                  int32_t ArgNum, void **ArgsBase, void **Args,
+                                  int64_t *ArgSizes, int64_t *ArgTypes,
+                                  map_var_info_t *ArgNames, void **ArgMappers);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_target_data_end_nowait_mapper(
-    ident_t *loc, int64_t device_id, int32_t arg_num, void **args_base,
-    void **args, int64_t *arg_sizes, int64_t *arg_types,
-    map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
-    void *depList, int32_t noAliasDepNum, void *noAliasDepList);
+    ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
+    void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
+    void **ArgMappers, int32_t depNum, void *depList, int32_t NoAliasDepNum,
+    void *NoAliasDepList);
 
 /// passes data to/from the target
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_update(int64_t device_id, int32_t arg_num,
-                              void **args_base, void **args, int64_t *arg_sizes,
-                              int64_t *arg_types);
+void __tgt_target_data_update(int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
+                              void **Args, int64_t *ArgSizes,
+                              int64_t *ArgTypes);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
-                                     void **args_base, void **args,
-                                     int64_t *arg_sizes, int64_t *arg_types,
-                                     int32_t depNum, void *depList,
-                                     int32_t noAliasDepNum,
-                                     void *noAliasDepList);
+void __tgt_target_data_update_nowait(int64_t DeviceId, int32_t ArgNum,
+                                     void **ArgsBase, void **Args,
+                                     int64_t *ArgSizes, int64_t *ArgTypes,
+                                     int32_t DepNum, void *DepList,
+                                     int32_t NoAliasDepNum,
+                                     void *NoAliasDepList);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
-                                     int32_t arg_num, void **args_base,
-                                     void **args, int64_t *arg_sizes,
-                                     int64_t *arg_types,
-                                     map_var_info_t *arg_names,
-                                     void **arg_mappers);
+void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
+                                     int32_t ArgNum, void **ArgsBase,
+                                     void **Args, int64_t *ArgSizes,
+                                     int64_t *ArgTypes,
+                                     map_var_info_t *ArgNames,
+                                     void **ArgMappers);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_target_data_update_nowait_mapper(
-    ident_t *loc, int64_t device_id, int32_t arg_num, void **args_base,
-    void **args, int64_t *arg_sizes, int64_t *arg_types,
-    map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
-    void *depList, int32_t noAliasDepNum, void *noAliasDepList);
+    ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
+    void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
+    void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
+    void *NoAliasDepList);
 
-// Performs the same actions as data_begin in case arg_num is non-zero
-// and initiates run of offloaded region on target platform; if arg_num
+// Performs the same actions as data_begin in case ArgNum is non-zero
+// and initiates run of offloaded region on target platform; if ArgNum
 // is non-zero after the region execution is done it also performs the
 // same action as data_end above. The following types are used; this
 // function returns 0 if it was able to transfer the execution to a
@@ -642,88 +669,27 @@ void __tgt_target_data_update_nowait_mapper(
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int __tgt_target(int64_t device_id, void *host_ptr, int32_t arg_num,
-                 void **args_base, void **args, int64_t *arg_sizes,
-                 int64_t *arg_types);
+int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
+                        int32_t ThreadLimit, void *HostPtr,
+                        __tgt_kernel_arguments *Args);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int __tgt_target_nowait(int64_t device_id, void *host_ptr, int32_t arg_num,
-                        void **args_base, void **args, int64_t *arg_sizes,
-                        int64_t *arg_types, int32_t depNum, void *depList,
-                        int32_t noAliasDepNum, void *noAliasDepList);
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
-                        int32_t arg_num, void **args_base, void **args,
-                        int64_t *arg_sizes, int64_t *arg_types,
-                        map_var_info_t *arg_names, void **arg_mappers);
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int __tgt_target_nowait_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
-                               int32_t arg_num, void **args_base, void **args,
-                               int64_t *arg_sizes, int64_t *arg_types,
-                               map_var_info_t *arg_names, void **arg_mappers,
-                               int32_t depNum, void *depList,
-                               int32_t noAliasDepNum, void *noAliasDepList);
+int __tgt_target_kernel_nowait(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
+                               int32_t ThreadLimit, void *HostPtr,
+                               __tgt_kernel_arguments *Args, int32_t DepNum,
+                               void *DepList, int32_t NoAliasDepNum,
+                               void *NoAliasDepList);
 
 #if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int __tgt_target_teams(int64_t device_id, void *host_ptr, int32_t arg_num,
-                       void **args_base, void **args, int64_t *arg_sizes,
-                       int64_t *arg_types, int32_t num_teams,
-                       int32_t thread_limit);
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
-                              int32_t arg_num, void **args_base, void **args,
-                              int64_t *arg_sizes, int64_t *arg_types,
-                              int32_t num_teams, int32_t thread_limit,
-                              int32_t depNum, void *depList,
-                              int32_t noAliasDepNum, void *noAliasDepList);
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
-                              int32_t arg_num, void **args_base, void **args,
-                              int64_t *arg_sizes, int64_t *arg_types,
-                              map_var_info_t *arg_names, void **arg_mappers,
-                              int32_t num_teams, int32_t thread_limit);
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int __tgt_target_teams_nowait_mapper(
-    ident_t *loc, int64_t device_id, void *host_ptr, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    map_var_info_t *arg_names, void **arg_mappers, int32_t num_teams,
-    int32_t thread_limit, int32_t depNum, void *depList, int32_t noAliasDepNum,
-    void *noAliasDepList);
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-void __kmpc_push_target_tripcount_mapper(ident_t *loc, int64_t device_id,
-                                         uint64_t loop_tripcount);
-
-#if INTEL_COLLAB
-EXTERN
-int32_t __tgt_is_device_available(int64_t device_num, void *device_type);
+EXTERN int32_t __tgt_is_device_available(int64_t DeviceNum, void *DeviceType);
 
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
 // characters. Returns nullptr, if device name cannot be acquired, otherwise,
 // returns a '\0' terminated C string (pointer to Buffer).
 EXTERN char *__tgt_get_device_name(
-    int64_t device_num, char *buffer, size_t buffer_max_size);
+    int64_t DeviceNum, char *Buffer, size_t BufferMaxSize);
 
 // Returns implementation defined RTL name corresponding to the given
 // device number, using provided Buffer. Buffer must be able to hold
@@ -731,40 +697,40 @@ EXTERN char *__tgt_get_device_name(
 // Returns nullptr, if RTL name cannot be acquired, otherwise,
 // returns a '\0' terminated C string (pointer to Buffer).
 EXTERN char *__tgt_get_device_rtl_name(
-    int64_t device_num, char *buffer, size_t buffer_max_size);
+    int64_t DeviceNum, char *Buffer, size_t BufferMaxSize);
 
 // Callback function for asynchronous offloading
-EXTERN void __tgt_offload_proxy_task_complete_ooo(void *);
+EXTERN void __tgt_offload_proxy_task_complete_ooo(void *InteropObj);
 
 // Creates an interop object.
 EXTERN void * __tgt_create_interop_obj(
-    int64_t device_id, bool is_async, void *async_obj);
+    int64_t DeviceId, bool IsAsync, void *AsyncObj);
 
 // Releases an interop object.
-EXTERN int __tgt_release_interop_obj(void *interop_obj);
+EXTERN int __tgt_release_interop_obj(void *InteropObj);
 
 // Create an OpenMP 5.1 interop object.
 EXTERN omp_interop_t __tgt_create_interop(
-    int64_t device_id, int32_t interop_type, int32_t num_prefers,
-    int32_t *prefer_ids);
+    int64_t DeviceId, int32_t InteropType, int32_t NumPrefers,
+    int32_t *PreferIds);
 
 // Release an OpenMP 5.1 interop object.
-EXTERN int __tgt_release_interop(omp_interop_t interop);
+EXTERN int __tgt_release_interop(omp_interop_t Interop);
 
 // Change OpenMP 5.1 interop object to usable state ("use" clause)
-EXTERN int __tgt_use_interop(omp_interop_t interop);
+EXTERN int __tgt_use_interop(omp_interop_t Interop);
 
 // Returns an interop property from the given interop object.
 EXTERN int __tgt_get_interop_property(
-    void *interop_obj, int32_t property_id, void **property_value);
+    void *InteropObj, int32_t PropertyId, void **PropertyValue);
 
 // Update the interop object's property with given property_value.
 EXTERN int __tgt_set_interop_property(
-    void *interop_obj, int32_t property_id, void *property_value);
+    void *InteropObj, int32_t PropertyId, void *PropertyValue);
 
 #if INTEL_CUSTOMIZATION
 // Set code location information
-EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
+EXTERN void __tgt_push_code_location(const char *Loc, void *CodePtrRA);
 #endif // INTEL_CUSTOMIZATION
 
 // Return number of devices
@@ -772,24 +738,24 @@ EXTERN int __tgt_get_num_devices(void);
 
 // Return target memory information
 EXTERN int __tgt_get_target_memory_info(
-    void *interop_obj, int32_t num_ptrs, void *ptrs, void *ptr_info);
+    void *InteropObj, int32_t NumPtrs, void *Ptrs, void *PtrInfo);
 
 // Pass target code build options to plugins.
 // This should be called after __tgt_register_lib().
 // TODO: remove this if we choose to modify device image description.
 EXTERN void __tgt_add_build_options(
-    const char *compile_options, const char *link_options);
+    const char *CompileOptions, const char *LinkOptions);
 
 // Check if reduction scratch is supported
-EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t device_id);
+EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t DeviceId);
 
 // Allocate per-hw-thread reducion scratch
 EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
-    int64_t device_id, size_t obj_size, int32_t alloc_kind);
+    int64_t DeviceId, size_t ObjSize, int32_t AllocKind);
 
 // Free per-hw-thread reduction scratch
 EXTERN void __tgt_target_free_per_hw_thread_scratch(
-    int64_t device_id, void *ptr);
+    int64_t DeviceId, void *Ptr);
 #endif // INTEL_COLLAB
 
 #if INTEL_COLLAB
@@ -800,7 +766,7 @@ void __tgt_set_info_flag(uint32_t);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int __tgt_print_device_info(int64_t device_id);
+int __tgt_print_device_info(int64_t DeviceId);
 #ifdef __cplusplus
 }
 #endif

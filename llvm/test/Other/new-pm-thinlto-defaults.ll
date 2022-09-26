@@ -157,6 +157,7 @@
 ; CHECK-O-NEXT: Running pass: LoopRotatePass
 ; CHECK-O-NEXT: Running pass: LICM
 ; CHECK-O-NEXT: Running pass: SimpleLoopUnswitchPass
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
@@ -165,7 +166,6 @@
 ; CHECK-O-NEXT: Running pass: IndVarSimplifyPass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: LoopFullUnrollPass
-; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running pass: SROAPass on foo
 ; CHECK-Os-NEXT: Running pass: MergedLoadStoreMotionPass
 ; CHECK-Os-NEXT: Running pass: GVNPass
@@ -203,7 +203,10 @@
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
+; CHECK-O-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
+; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}ShouldNotRunFunctionPassesAnalysis
+; CHECK-O-NEXT: Invalidating analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-PRELINK-O-NEXT: Running pass: GlobalOptPass
@@ -290,6 +293,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPODirectiveCleanupPass
 ; end INTEL_CUSTOMIZATION
 
@@ -332,10 +336,11 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSinkPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: DivRemPairsPass
+; CHECK-POSTLINK-O-NEXT: Running pass: TailCallElimPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-POSTLINK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ConstantMergePass
+; CHECK-POSTLINK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: RelLookupTableConverterPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 ; CHECK-O-NEXT:          Running pass: AnnotationRemarksPass on foo

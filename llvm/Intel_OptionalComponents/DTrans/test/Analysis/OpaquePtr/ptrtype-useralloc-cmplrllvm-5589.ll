@@ -24,7 +24,9 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare !intel.dtrans.func.type !16 dso_local void @free(i8* noundef "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !16 dso_local void @free(i8* noundef "intel_dtrans_func_index"="1") #0
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
 
 !llvm.module.flags = !{!0, !1}
 !intel.dtrans.types = !{!2}

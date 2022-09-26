@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @f3_a = dso_local ifunc i8* (...), bitcast (i8* (...)* @f3_b to i8* (...)* ()*)
 
 ; CHECK: ^[[L1:[0-9]]] = gv: (name: "f3_c",
-; CHECK: gv: (name: "f3_a", {{.*}} aliasee: ^[[L1]])
+; CHECK-SAME: live: 1
 ; CHECK: gv: (name: "f3_b", {{.*}} aliasee: ^[[L1]])
 
 ; Function Attrs: noinline nounwind optnone uwtable

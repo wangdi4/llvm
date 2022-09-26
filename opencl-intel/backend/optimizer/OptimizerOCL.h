@@ -46,8 +46,6 @@ private:
 
   llvm::OptimizationLevel Level;
 
-  bool UnrollLoops;
-
   std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 };
 

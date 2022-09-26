@@ -1,3 +1,15 @@
+// Copyright (C) 2014-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // vim:ts=2:sw=2:et:
 // NOTE: common code used in integer built-ins
 
@@ -20,7 +32,7 @@ defvar add_sat_unsigned_code = [{
     return (r < $Arg0VarName) ? ($ReturnType)generic_max_$Arg0BaseType : r;
   }];
 
-defvar clamp_s_impl = [{
+defvar clamp_s_code = [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     $Arg2VecType vec$Arg2VarName = ($Arg2VecType)$Arg2VarName;
     return $Func($Arg0VarName, vec$Arg1VarName, vec$Arg2VarName);
@@ -37,7 +49,7 @@ defvar max_ivector_code = [{
     return ($Arg0VarName > $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }];
 
-defvar max_s_impl =[{
+defvar max_s_code =[{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     return $Func($Arg0VarName, vec$Arg1VarName);
   }];
@@ -46,7 +58,7 @@ defvar min_ivector_code = [{
     return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }];
 
-defvar min_s_impl = [{
+defvar min_s_code = [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     return $Func($Arg0VarName, vec$Arg1VarName);
   }];
@@ -64,6 +76,21 @@ defvar sub_sat_svector_code = [{
 defvar sub_sat_unsigned_code = [{
     $ReturnType r = $Arg0VarName - $Arg1VarName;
     return ($Arg0VarName < r) ? ($Arg0BaseType)0 : r;
+  }];
+
+// masked
+
+// ugentype = f(gentype, mask)
+defvar masked_impl_code_UG_G_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
+    return $Func(m$Arg0VarName);
+  }];
+
+// ugentype = f(gentype, gentype, mask)
+defvar masked_impl_code_UG_G2_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
+    $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF0), $Arg1VarName, $Arg2VarName);
+    return $Func(m$Arg0VarName, m$Arg1VarName);
   }];
 
 /// Common functions

@@ -13,7 +13,6 @@
 // License.
 
 #include "LoopUtils.h"
-#include "CompilationUtils.h"
 #include "OpenclRuntime.h"
 
 #include "llvm/IR/Constants.h"
@@ -24,6 +23,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TypeSize.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace intel {
@@ -208,7 +208,6 @@ void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime * /*rt*/,
   std::set<Function *> pipeFuncs;
   for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit) {
     std::string name = fit->getName().str();
-    using namespace Intel::OpenCL::DeviceBackend;
     if (CompilationUtils::isWorkItemPipeBuiltin(name))
       pipeFuncs.insert(&*fit);
   }

@@ -62,6 +62,7 @@ namespace vpo {
 
 namespace VPOParoptAtomicFreeReduction {
 constexpr StringRef GlobalBufferAttr = "paropt_red_globalbuf";
+constexpr StringRef LocalBufferAttr = "paropt_red_localbuf";
 constexpr StringRef TeamsCounterAttr = "paropt_red_teamscounter";
 constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
 
@@ -193,6 +194,19 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "INSCAN"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
+/// * Operand with a variable number-of-elements when the clause was emitted.
+///   Example:
+///      FullName = "QUAL.OMP.PRIVATE:VARLEN"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "VARLEN"
+///      Id = QUAL_OMP_PRIVATE
+///
+/// * STRICT modifier for GRAINSIZE and NUMTASKS. Example:
+///      FullName = "QUAL.OMP.GRAINSIZE:STRICT"
+///      BaseName = "QUAL.OMP.GRAINSIZE"
+///      Modifier = "STRICT"
+///      Id = QUAL_OMP_GRAINSIZE
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -214,6 +228,7 @@ private:
   bool IsWILocal:1;
   bool IsAllocatable:1;
 #endif // INTEL_CUSTOMIZATION
+  bool IsVarLen:1;
   bool IsAggregate:1;
   bool IsPointer:1;
   bool IsFunctionPointer:1;
@@ -246,6 +261,9 @@ private:
   bool IsInitTargetSync:1;
   bool IsInitPrefer:1;
 
+  // Modidifer for grainsize and numtasks clause of the taskloop construct
+  bool IsStrict : 1;
+
   // Modifier for reduction clause
   bool IsTask:1;
   bool IsInscan:1;
@@ -274,6 +292,7 @@ public:
   void setIsInitTargetSync()       { IsInitTargetSync = true; }
   void setIsInitPrefer()           { IsInitPrefer = true; }
   void setIsTask()                 { IsTask = true; }
+  void setIsStrict()               { IsStrict = true; }
   void setIsInscan()               { IsInscan = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
@@ -281,6 +300,7 @@ public:
   void setIsMapAggrHead()          { IsMapAggrHead = true; }
   void setIsMapAggr()              { IsMapAggr = true; }
   void setIsMapChainLink()         { IsMapChainLink = true; }
+  void setIsVarLen()               { IsVarLen = true; }
   void setIsAggregate()            { IsAggregate = true; }
   void setIsPointer()              { IsPointer = true; }
   void setIsFunctionPointer()      { IsFunctionPointer = true; }
@@ -307,6 +327,7 @@ public:
   bool getIsInitTargetSync() const { return IsInitTargetSync; }
   bool getIsInitPrefer() const { return IsInitPrefer; }
   bool getIsTask() const { return IsTask; }
+  bool getIsStrict() const { return IsStrict; }
   bool getIsInscan() const { return IsInscan; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
@@ -326,6 +347,7 @@ public:
   void setIsAllocatable() { IsAllocatable = true; }
   bool getIsAllocatable() const { return IsAllocatable; }
 #endif // INTEL_CUSTOMIZATION
+  bool getIsVarLen() const { return IsVarLen; }
   bool getIsAggregate() const { return IsAggregate; }
   bool getIsPointer() const { return IsPointer; }
   bool getIsFunctionPointer() const { return IsFunctionPointer; }
@@ -371,6 +393,9 @@ public:
 
     /// Returns the string corresponding to a clause.
     static StringRef getClauseString(int Id);
+
+    /// Returns the string corresponding to a clause, with the "TYPED" modifier.
+    static std::string getTypedClauseString(int Id);
 
     /// Given an enum \p Id for an OpenMP directive, return its
     /// corresponding directive name without the "DIR_OMP_" prefix.

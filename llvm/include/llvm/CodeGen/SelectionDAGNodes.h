@@ -70,6 +70,7 @@
 #include <iterator>
 #include <string>
 #include <tuple>
+#include <utility>
 
 namespace llvm {
 
@@ -134,9 +135,16 @@ bool isBuildVectorOfConstantSDNodes(const SDNode *N);
 /// ConstantFPSDNode or undef.
 bool isBuildVectorOfConstantFPSDNodes(const SDNode *N);
 
+/// Returns true if the specified node is a vector where all elements can
+/// be truncated to the specified element size without a loss in meaning.
+bool isVectorShrinkable(const SDNode *N, unsigned NewEltSize, bool Signed);
+
 /// Return true if the node has at least one operand and all operands of the
 /// specified node are ISD::UNDEF.
 bool allOperandsUndef(const SDNode *N);
+
+/// Return true if the specified node is FREEZE(UNDEF).
+bool isFreezeUndef(const SDNode *N);
 
 } // end namespace ISD
 
@@ -631,6 +639,8 @@ private:
 
   SDNodeFlags Flags;
 
+  uint32_t CFIType = 0;
+
 public:
   /// Unique and persistent id per SDNode in the DAG. Used for debug printing.
   /// We do not place that under `#if LLVM_ENABLE_ABI_BREAKING_CHECKS`
@@ -979,6 +989,9 @@ public:
   /// Clear any flags in this node that aren't also set in Flags.
   /// If Flags is not in a defined state then this has no effect.
   void intersectFlagsWith(const SDNodeFlags Flags);
+
+  void setCFIType(uint32_t Type) { CFIType = Type; }
+  uint32_t getCFIType() const { return CFIType; }
 
   /// Return the number of values defined/returned by this operator.
   unsigned getNumValues() const { return NumValues; }
@@ -1420,6 +1433,8 @@ public:
     case ISD::ATOMIC_LOAD_UMAX:
     case ISD::ATOMIC_LOAD_FADD:
     case ISD::ATOMIC_LOAD_FSUB:
+    case ISD::ATOMIC_LOAD_FMAX:
+    case ISD::ATOMIC_LOAD_FMIN:
     case ISD::ATOMIC_LOAD:
     case ISD::ATOMIC_STORE:
     case ISD::MLOAD:
@@ -1485,6 +1500,8 @@ public:
            N->getOpcode() == ISD::ATOMIC_LOAD_UMAX    ||
            N->getOpcode() == ISD::ATOMIC_LOAD_FADD    ||
            N->getOpcode() == ISD::ATOMIC_LOAD_FSUB    ||
+           N->getOpcode() == ISD::ATOMIC_LOAD_FMAX    ||
+           N->getOpcode() == ISD::ATOMIC_LOAD_FMIN    ||
            N->getOpcode() == ISD::ATOMIC_LOAD         ||
            N->getOpcode() == ISD::ATOMIC_STORE;
   }
@@ -2091,6 +2108,11 @@ public:
                           BitVector &UndefElements) const;
 
   bool isConstant() const;
+
+  /// If this BuildVector is constant and represents the numerical series
+  /// "<a, a+n, a+2n, a+3n, ...>" where a is integer and n is a non-zero integer,
+  /// the value "<a,n>" is returned.
+  Optional<std::pair<APInt, APInt>> isConstantSequence() const;
 
   /// Recast bit data \p SrcBitElements to \p DstEltSizeInBits wide elements.
   /// Undef elements are treated as zero, and entirely undefined elements are

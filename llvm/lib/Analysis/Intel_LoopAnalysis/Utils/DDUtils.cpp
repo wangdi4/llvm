@@ -1475,3 +1475,74 @@ const RegDDRef *DDUtils::getSingleBasePtrLoadRef(const DDGraph &DDG,
 
   return BasePtrLoadRef;
 }
+
+static bool isRedefined(const RegDDRef *TempDef, const DDGraph &DDG) {
+  assert(TempDef->isLval() && TempDef->isTerminalRef() &&
+         "Lval temp ref expected!");
+
+  auto IsOutputEdge = [](const DDEdge *E) -> bool { return E->isOutput(); };
+
+  // We also need to check for incoming edges here because DD does not create
+  // backward output edges for temps.
+  return llvm::any_of(DDG.outgoing(TempDef), IsOutputEdge) ||
+         llvm::any_of(DDG.incoming(TempDef), IsOutputEdge);
+}
+
+/// Looks for FP IVs in the loop and populates their info in \p FPInductions.
+/// Currently recognizes a single FAdd instruction with a loop invariant stride
+/// and no redefinitions as an FP IV but can be extended to handle a chain.
+///
+///  DO i1
+///    A[i1] = t1;
+///    t1 = t1 + 2.5; // FP induction
+///  END DO
+void DDUtils::populateFPInductions(
+    const HLLoop *Lp, const DDGraph &DDG,
+    SmallVectorImpl<FPInductionInfo> &FPInductions) {
+
+  unsigned LoopLevel = Lp->getNestingLevel();
+
+  for (auto &Child : make_range(Lp->child_begin(), Lp->child_end())) {
+
+    const HLInst *Inst = dyn_cast<HLInst>(&Child);
+
+    if (!Inst) {
+      continue;
+    }
+
+    if (Inst->getLLVMInstruction()->getOpcode() != Instruction::FAdd) {
+      continue;
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (!LvalRef->isTerminalRef()) {
+      continue;
+    }
+
+    auto *RvalRef1 = Inst->getOperandDDRef(1);
+    auto *RvalRef2 = Inst->getOperandDDRef(2);
+    const RegDDRef *StrideRef = nullptr;
+
+    // Check that one of the rval refs is the same as lval ref and the other ref
+    // is loop invariant.
+    if (DDRefUtils::areEqual(LvalRef, RvalRef1)) {
+      StrideRef = RvalRef2;
+    } else if (DDRefUtils::areEqual(LvalRef, RvalRef2)) {
+      StrideRef = RvalRef1;
+    } else {
+      continue;
+    }
+
+    if (!StrideRef->isTerminalRef() ||
+        !StrideRef->isStructurallyInvariantAtLevel(LoopLevel)) {
+      continue;
+    }
+
+    // Check that lval is not redefined inside loop.
+    if (isRedefined(LvalRef, DDG))
+      continue;
+
+    FPInductions.push_back({Inst, StrideRef});
+  }
+}

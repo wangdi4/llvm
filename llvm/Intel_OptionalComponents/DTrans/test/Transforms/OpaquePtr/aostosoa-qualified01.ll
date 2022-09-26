@@ -47,7 +47,9 @@ done:
 ; CHECK-OPAQUE: %__SOADT_struct.dep01 = type { i64, i32 }
 ; CHECK-OPAQUE: @__soa_struct.test01 = internal global %__SOA_struct.test01 zeroinitializer
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

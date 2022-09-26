@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -S -whole-program-assume -dtrans-aostosoa 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -passes='dtrans-aostosoa,require<dtransanalysis>' 2>&1 | FileCheck %s
 
@@ -35,4 +36,6 @@ define void @test1(%struct.test02* %in) {
   ret void
 }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

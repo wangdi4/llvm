@@ -80,15 +80,22 @@ public:
   VPInstructionCost getAllZeroCheckInstrCost(Type *VecSrcTy, Type *DestTy);
 
   // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
-  // of Load/Store VPInstruction given VF and Alignment on input.
-  VPInstructionCost getLoadStoreCost(
-    const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) const;
-  // The Cost of Load/Store using underlying IR/HIR Inst Alignment.
+  // of Load/Store VPInstruction given VF and Alignment on input. For
+  // compress-store/expand-load instructions if GSCostOnly parameter is set only
+  // gather/scatter cost will be returned (usual loads/stores are not affected).
   VPInstructionCost getLoadStoreCost(const VPLoadStoreInst *LoadStore,
-                                     unsigned VF) const;
+                                     Align Alignment, unsigned VF,
+                                     bool GSCostOnly = false) const;
+  // The Cost of Load/Store using underlying IR/HIR Inst Alignment. For
+  // compress-store/expand-load instructions if GSCostOnly parameter is set only
+  // gather/scatter cost will be returned (usual loads/stores are not affected).
+  VPInstructionCost getLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                                     unsigned VF,
+                                     bool GSCostOnly = false) const;
 
   const VPlanVector *const Plan;
   const unsigned VF;
+  const unsigned UF;
   const TargetLibraryInfo *const TLI;
   const DataLayout *const DL;
   const TargetTransformInfo &TTI;
@@ -100,6 +107,9 @@ public:
   /// for the base type in case of zero alignment in the underlying IR, so this
   /// method can freely be used even for widening of the \p VPInst.
   Align getMemInstAlignment(const VPLoadStoreInst *LoadStore) const;
+
+  /// \Returns True iff \p VPInst is Uniform load or store.
+  bool isUniformLoadStore(const VPLoadStoreInst *LoadStore) const;
 
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   /// When load/store is strided NegativeStride is set to true if the stride is
@@ -132,10 +142,10 @@ protected:
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
 
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
-                    const TargetTransformInfo *TTIin,
+                    const unsigned UF, const TargetTransformInfo *TTIin,
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
                     VPlanVLSAnalysis *VLSAin)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
+    : Plan(Plan), VF(VF), UF(UF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
       VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // CallVecDecisions analysis invocation.
@@ -158,6 +168,9 @@ protected:
   // manipulate with objects through VPlanTTICostModel type handler.
   ~VPlanTTICostModel() {};
 
+  // Return cost of ZTT check.
+  VPInstructionCost getZTTCost(Type *UBType) const;
+
 private:
   VPlanAlignmentAnalysis VPAA;
 
@@ -170,14 +183,13 @@ private:
   VPInstructionCost getInsertExtractElementsCost(unsigned Opcode,
                                                  Type *Ty, unsigned VF);
 
-  // Get intrinsic corresponding to provided call that is expected to be
-  // vectorized using SVML version. This is purely meant for internal cost
-  // computation purposes and not for general purpose functionality (unlike
-  // llvm::getIntrinsicForCallSite).
+  // Get intrinsic corresponding to provided call. This is purely meant for
+  // internal cost computation purposes and not for general purpose
+  // functionality (unlike llvm::getIntrinsicForCallSite).
   // TODO: This is a temporary solution to avoid CM from choosing inefficient
   // VFs, complete solution would be to introduce a general scheme in TTI to
   // provide costs for different SVML calls. Check JIRA : CMPLRLLVM-23527.
-  Intrinsic::ID getIntrinsicForSVMLCall(const VPCallInstruction *VPCall) const;
+  Intrinsic::ID getIntrinsicForLibFuncCall(const VPCallInstruction *VPCall) const;
 
   // Get Cost for Intrinsic (ID) call.
   VPInstructionCost getIntrinsicInstrCost(
@@ -199,6 +211,23 @@ private:
 
   // Return cost of VPConflictInsn
   VPInstructionCost getConflictInsnCost(unsigned VF, unsigned ElementSizeBits);
+
+  // Predicate to filter out Integer min/max VPInstructions Opcodes.
+  inline bool isIntMinMaxOpcode(unsigned Opcode) const {
+    return Opcode == VPInstruction::SMin || Opcode == VPInstruction::UMin ||
+           Opcode == VPInstruction::UMax || Opcode == VPInstruction::SMax ||
+           Opcode == VPInstruction::UMinSeq;
+  }
+
+  // The cost of Integer min/max idioms.
+  VPInstructionCost getIntMinMaxInstCost(
+    unsigned Opcode, FixedVectorType *VecTy) const;
+
+  // The Cost of Compress/Expand Idiom Load/Store instruction.
+  // If GSCostOnly parameter is set only gather/scatter cost will be returned.
+  VPInstructionCost
+  getCompressExpandLoadStoreCost(const VPLoadStoreInst *LoadStore, unsigned VF,
+                                 bool GSCostOnly = false) const;
 };
 
 // Class HeuristicsList is designed to hold Heuristics objects. It is a
@@ -298,6 +327,10 @@ public:
   virtual VPInstructionCost getLoadStoreCost(
     const VPLoadStoreInst *LoadOrStore,
     Align Alignment, unsigned VF) const = 0;
+
+  /// Return the cost of ZTT check.
+  /// TODO: Consider adding special VPInstruction and placing it in IR.
+  virtual VPInstructionCost getZTTCost(Type *UBType) const = 0;
 };
 
 // Definition of 'Cost Model with Heuristics' template class. As the name
@@ -447,12 +480,13 @@ private:
   // Ctor is private.
   // CM objects should be created using special interface of planner class
   // rather than created directly through the ctor.
-  VPlanCostModelWithHeuristics(const VPlanVector *Plan, const unsigned VF,
+  VPlanCostModelWithHeuristics(const VPlanVector *Plan,
+                               const unsigned VF, const unsigned UF,
                                const TargetTransformInfo *TTI,
                                const TargetLibraryInfo *TLI,
                                const DataLayout *DL,
                                VPlanVLSAnalysis *VLSA = nullptr) :
-    VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
+    VPlanTTICostModel(Plan, VF, UF, TTI, TLI, DL, VLSA),
     HeuristicsListVPInst(this), HeuristicsListVPBlock(this),
     HeuristicsListVPlan(this) {}
 
@@ -464,13 +498,14 @@ protected:
 
   // Protected wrapper around ctor to create unique_ptr and to hide unique_ptr
   // creating code and simplify caller's code.
-  static auto makeUniquePtr(const VPlanVector *Plan, const unsigned VF,
+  static auto makeUniquePtr(const VPlanVector *Plan,
+                            const unsigned VF, const unsigned UF,
                             const TargetTransformInfo *TTI,
                             const TargetLibraryInfo *TLI,
                             const DataLayout *DL,
                             VPlanVLSAnalysis *VLSA = nullptr) {
     std::unique_ptr<VPlanCostModelWithHeuristics> CMPtr(
-      new VPlanCostModelWithHeuristics(Plan, VF, TTI, TLI, DL, VLSA));
+      new VPlanCostModelWithHeuristics(Plan, VF, UF, TTI, TLI, DL, VLSA));
     return CMPtr;
   }
 
@@ -511,7 +546,7 @@ public:
     HeuristicsListVPlan.initForVPlan();
 
     CM_DEBUG(OS, *OS << "Cost Model for VPlan " << Plan->getName() <<
-             " with VF = " <<VF << ":\n";);
+             " with VF = " << VF << ":\n";);
 
     VPInstructionCost PreHdrCost =
         getBlockRangeCost(getVPlanPreLoopBeginEndBlocks(),
@@ -541,6 +576,11 @@ public:
   VPInstructionCost getLoadStoreCost(const VPLoadStoreInst *LoadOrStore,
                                      Align Alignment, unsigned VF) const final {
     return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
+  }
+
+  /// Return the cost of ZTT check.
+  VPInstructionCost getZTTCost(Type *UBType) const final {
+    return VPlanTTICostModel::getZTTCost(UBType);
   }
 };
 

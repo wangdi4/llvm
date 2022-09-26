@@ -1334,7 +1334,7 @@ HLInst *HLNodeUtils::createVectorInsert(RegDDRef *OpRef1, RegDDRef *SubVecRef,
   SmallVector<Type *, 2> Tys = {OpRef1->getDestType(),
                                 SubVecRef->getDestType()};
   Function *F = Intrinsic::getDeclaration(
-      &getModule(), Intrinsic::experimental_vector_insert, Tys);
+      &getModule(), Intrinsic::vector_insert, Tys);
   RegDDRef *IdxRef =
       getDDRefUtils().createConstDDRef(Type::getInt64Ty(getContext()), Idx);
   return createCall(F, {OpRef1, SubVecRef, IdxRef}, Name, LvalRef);
@@ -4714,6 +4714,57 @@ bool HLNodeUtils::areEqualConditions(const HLSwitch *NodeA,
                                      const HLSwitch *NodeB) {
   return DDRefUtils::areEqual(NodeA->getConditionDDRef(),
                               NodeB->getConditionDDRef());
+}
+
+bool HLNodeUtils::areEqualConditions(const HLInst *SelectA,
+                                     const HLInst *SelectB) {
+  assert(isa<SelectInst>(SelectA->getLLVMInstruction()) &&
+         "First argument is not a select instruction");
+  assert(isa<SelectInst>(SelectB->getLLVMInstruction()) &&
+         "Second argument is not a select instruction");
+
+  // Select instructions have 5 DDRef:
+  //   0 -> left hand side
+  //   1 -> compare operand 1
+  //   2 -> compare operand 2
+  //   3 -> result if compare is true
+  //   4 -> result if compare is false
+
+  auto *OP1A = SelectA->getOperandDDRef(1);
+  auto *OP2A = SelectA->getOperandDDRef(2);
+  auto &PredA = SelectA->getPredicate();
+
+  auto *OP1B = SelectB->getOperandDDRef(1);
+  auto *OP2B = SelectB->getOperandDDRef(2);
+  auto &PredB = SelectB->getPredicate();
+
+  return (PredA == PredB && DDRefUtils::areEqual(OP1A, OP1B) &&
+          DDRefUtils::areEqual(OP2A, OP2B));
+}
+
+bool HLNodeUtils::areEqualConditions(const HLIf *If, const HLInst *Select) {
+  assert(isa<SelectInst>(Select->getLLVMInstruction()) &&
+       "Select argument is not a select instruction");
+
+  // NOTE: Select instructions have one condition only, therefore the HLIf
+  // must have one predicate
+  if (If->getNumPredicates() != 1)
+    return false;
+
+  auto *SelOP1 = Select->getOperandDDRef(1);
+  auto *SelOP2 = Select->getOperandDDRef(2);
+  auto &SelPred = Select->getPredicate();
+
+  auto IfPred = If->pred_begin();
+  auto *IfOP1 = If->getLHSPredicateOperandDDRef(IfPred);
+  auto *IfOP2 = If->getRHSPredicateOperandDDRef(IfPred);
+
+  return (*IfPred == SelPred && DDRefUtils::areEqual(IfOP1, SelOP1) &&
+          DDRefUtils::areEqual(IfOP2, SelOP2));
+}
+
+bool HLNodeUtils::areEqualConditions(const HLInst *Select, const HLIf *If) {
+  return areEqualConditions(If, Select);
 }
 
 HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {

@@ -2,8 +2,7 @@
 ; index for conditional last private finalization by
 ; VPLoopEntities framework.
 
-; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
 ; RUN: opt -disable-output %s -vplan-vec -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
 
 define i1 @fuseki(i32 %0, i8* nocapture %board, i64* nocapture %A, i64 %idxprom11.i, i8 %1, i1* %priv) local_unnamed_addr {
@@ -19,7 +18,7 @@ entry:
   br label %for.body5.preheader.i
 
 for.body5.preheader.i:                            ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(i1* %priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i1* %priv, i1 zeroinitializer, i32 1) ]
   br label %for.body5.i
 
 for.body5.i:                                      ; preds = %if.end33.i, %for.body5.preheader.i

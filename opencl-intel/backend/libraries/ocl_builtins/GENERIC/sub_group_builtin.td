@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 defvar khr_shuffle_gentype = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
 
 defvar intel_shuffle_gentype = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
@@ -18,18 +30,6 @@ defvar broadcast_extended_types = [v2i8, v2u8, v2i16, v2u16, v2i32, v2u32, v2i64
                                    v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64];
 
 let VectorAttrs = [KERNEL_CALL_ONCE] in {
-
-let NeedForwardDecl = 1, Types = [ v1u32 ],
-   Attrs = [OVERLOADABLE] in {
-  def get_sub_group_size : OclBuiltin<"get_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_max_sub_group_size : OclBuiltin<"get_max_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_num_sub_groups : OclBuiltin<"get_num_sub_groups", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_enqueued_num_sub_groups : OclBuiltin<"get_enqueued_num_sub_groups", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_sub_group_id : OclBuiltin<"get_sub_group_id", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_sub_group_local_id : OclBuiltin<"get_sub_group_local_id", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def sub_group_barrier : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence), [], [], 1, 0>;
-  def sub_group_barrier_with_scope : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence, memory_scope:$scope), [], [], 1, 0>;
-}
 
 //
 // Ballot (NEO-like)
@@ -86,22 +86,31 @@ Attrs = [OVERLOADABLE] in {
 
   let Types = broadcast_extended_types in {
     def sub_group_broadcast_extended : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id), [], [], 1, 0>;
-    def sub_group_broadcast_assume_uniform_extended : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids), [], [], 1, 0>;
   }
 
   let Types = VFType<broadcast_extended_types, "_avx">.Tout in {
     def sub_group_broadcast_extended_avx : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v4u32:$vec_mask), [], [], 1, 0>;
-    def sub_group_broadcast_assume_uniform_extended_avx : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, v4u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_avx : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, v4u32:$sub_group_local_ids, v4u32:$vec_mask), [], [], 1, 0>;
   }
 
   let Types = VFType<broadcast_extended_types, "_avx2">.Tout in {
     def sub_group_broadcast_extended_avx2 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v8u32:$vec_mask), [], [], 1, 0>;
-    def sub_group_broadcast_assume_uniform_extended_avx2 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, v8u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_avx2 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, v8u32:$sub_group_local_ids, v8u32:$vec_mask), [], [], 1, 0>;
   }
 
   let Types = VFType<broadcast_extended_types, "_avx512">.Tout in {
     def sub_group_broadcast_extended_avx512 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v16u32:$vec_mask), [], [], 1, 0>;
-    def sub_group_broadcast_assume_uniform_extended_avx512 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, v16u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_avx512 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, v16u32:$sub_group_local_ids, v16u32:$vec_mask), [], [], 1, 0>;
+  }
+
+  let Types = VFType<broadcast_extended_types, "_x32">.Tout in {
+    def sub_group_broadcast_extended_x32 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v32u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_x32 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, v32u32:$sub_group_local_ids, v32u32:$vec_mask), [], [], 1, 0>;
+  }
+
+  let Types = VFType<broadcast_extended_types, "_x64">.Tout in {
+    def sub_group_broadcast_extended_x64 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, v64u32:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_extended_x64 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, v64u32:$sub_group_local_ids, v64u32:$vec_mask), [], [], 1, 0>;
   }
 
   let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32,
@@ -173,17 +182,7 @@ Attrs = [OVERLOADABLE] in {
       def sub_group_non_uniform_#func#_#mul : OclBuiltin<"sub_group_non_uniform_"#func#"_mul", (outs gentype:$ret), (ins gentype:$wsrc), [], [], 1, 0>;
     }
   }
-
-  let Types = [ v4i8 , v8i8 , v16i8 ,
-                v4u8 , v8u8 , v16u8 ,
-                v4i16, v8i16, v16i16,
-                v4u16, v8u16, v16u16,
-                v4i32, v8i32, v16i32,
-                v4u32, v8u32, v16u32,
-                v4i64, v8i64, v16i64,
-                v4u64, v8u64, v16u64,
-                v4f32, v8f32, v16f32,
-                v4f64, v8f64, v16f64 ] in {
+  let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1f32, v1i64, v1u64, v1f64], [4,8,16,32,64]>.Tout in {
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       def sub_group_non_uniform_#func#_#mul_vec : OclBuiltin<"sub_group_non_uniform_"#func#"_mul", (outs gentype:$ret), (ins gentype:$wsrc, u32gentype:$vec_mask), [], [], 1, 0>;
     }
@@ -216,7 +215,7 @@ Attrs = [OVERLOADABLE] in {
 
   def khr_sub_group_shuffle_up : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, v1u32:$delta), khr_shuffle_gentype, [], 1, 0>;
   def khr_sub_group_shuffle_down : OclBuiltin<"sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, v1u32:$delta), khr_shuffle_gentype, [], 1, 0>;
-  foreach suffix = ["_avx", "_avx2", "_avx512"] in {
+  foreach suffix = ["_avx", "_avx2", "_avx512", "_x32", "_x64"] in {
       defvar types = VFType<khr_shuffle_gentype, suffix>.Tout;
       defvar delta_mask = !head(VFType<[v1u32], suffix>.Tout);
       def khr_sub_group_shuffle_up#suffix : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, delta_mask:$delta, delta_mask:$vec_mask), types, [], 1, 0>;
@@ -358,344 +357,9 @@ Attrs = [OVERLOADABLE] in {
     def intel_sub_group_block_read_us16_#vf : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16_"#vf, (outs !cast<OclType>("gentype"#!mul(16, vf)):$ret),(ins cgpgentype:$p, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
     def intel_sub_group_block_write_us16_#vf : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16_"#vf, (outs void:$ret), (ins gpgentype:$p, !cast<OclType>("gentype"#!mul(16, vf)):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
   }
-
-  // cl_khr_subgroup_ballot
-  // https://www.khronos.org/registry/OpenCL/specs/3.0-unified/html/OpenCL_Ext.html#cl_khr_subgroup_ballot
-  //
-  // For the sub_group_non_uniform_broadcast and sub_group_broadcast_first
-  // functions, the generic type name gentype may be one of the supported
-  // built-in scalar data types char, uchar, short, ushort, int, uint, long,
-  // ulong, float, double (if double precision is supported), or half (if half
-  // precision is supported).
-  //
-  // For the sub_group_non_uniform_broadcast function, the generic type name
-  // gentype may additionally be one of the supported built-in vector data
-  // types charn, ucharn, shortn, ushortn, intn, uintn, longn, ulongn, floatn,
-  // doublen (if double precision is supported), or halfn (if half precision is
-  // supported).
-  //
-  // TODO: implement
-  // sub_group_non_uniform_broadcast
-  // sub_group_broadcast_first
-  // sub_group_inverse_ballot
-  // sub_group_ballot_bit_extract
-  // sub_group_ballot_bit_count
-  // sub_group_ballot_inclusive_scan
-  // sub_group_ballot_exclusive_scan
-  // sub_group_ballot_find_lsb
-  // sub_group_ballot_find_msb
-  // get_sub_group_eq_mask
-  // get_sub_group_ge_mask
-  // get_sub_group_gt_mask
-  // get_sub_group_le_mask
-  // get_sub_group_lt_mask
-  def sub_group_ballot : OclBuiltin<"sub_group_ballot", (outs v4u32:$ret), (ins gentype:$predicate), [v1i32]>;
-  foreach vf = [4, 8, 16, 32, 64] in {
-    defvar mask_type = !cast<OclType>("v" # vf # "u32");
-    def sub_group_ballot_vf # vf : OclBuiltin<"sub_group_ballot", (outs WidenType<v4u32, vf>.Tout:$ret), (ins gentype:$predicate, mask_type:$vec_mask), [WidenType<v1i32, vf>.Tout]>;
-  }
 }
 
 } // VectorAttrs = [KERNEL_CALL_ONCE]
-
-//
-// Vectorizer table for scalar and vectorized versions of sub group functions
-//
-foreach func_name = [ "sub_group_all", "sub_group_any" ] in {
-  def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1i32>;
-  def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), v4i32>;
-  def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), v8i32>;
-  def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), v16i32>;
-  def func_name#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#"_cell1"),  //scalar
-    nullCell,                            //v2
-    !cast<MapCell>(func_name#"_cell4"),  //v4
-    !cast<MapCell>(func_name#"_cell8"),  //v8
-    !cast<MapCell>(func_name#"_cell16"), //16
-    nullCell],                           //3
-    0,1>;          //not scalarizable, packetizable
-}
-
-foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_reduce_min", "sub_group_reduce_max",
-                      "sub_group_scan_exclusive_add", "sub_group_scan_exclusive_min", "sub_group_scan_exclusive_max",
-                      "sub_group_scan_inclusive_add", "sub_group_scan_inclusive_min", "sub_group_scan_inclusive_max"] in {
-  foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
-    def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
-    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), !cast<OclType>("v4"#base_type)>;
-    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), !cast<OclType>("v8"#base_type)>;
-    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), !cast<OclType>("v16"#base_type)>;
-    def func_name#_#base_type#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#_#base_type#"_cell1"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#_#base_type#"_cell4"),  //v4
-    !cast<MapCell>(func_name#_#base_type#"_cell8"),  //v8
-    !cast<MapCell>(func_name#_#base_type#"_cell16"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-}
-
-foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_reduce_min", "sub_group_reduce_max",
-                      "sub_group_scan_exclusive_add", "sub_group_scan_exclusive_min", "sub_group_scan_exclusive_max",
-                      "sub_group_scan_inclusive_add", "sub_group_scan_inclusive_min", "sub_group_scan_inclusive_max"] in {
-  foreach base_type = [ "i8", "u8", "i16", "u16" ] in {
-    def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name#_cs), !cast<OclType>("v1"#base_type)>;
-    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vec_cs"), !cast<OclType>("v4"#base_type)>;
-    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"vec_cs"), !cast<OclType>("v8"#base_type)>;
-    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"vec_cs"), !cast<OclType>("v16"#base_type)>;
-    def func_name#_#base_type#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#_#base_type#"_cell1"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#_#base_type#"_cell4"),  //v4
-    !cast<MapCell>(func_name#_#base_type#"_cell8"),  //v8
-    !cast<MapCell>(func_name#_#base_type#"_cell16"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-}
-
-foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write"] in {
-  foreach len = [ "1" ] in {
-    def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1u32>;
-    def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), v1u32>;
-    def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), v1u32>;
-    def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), v1u32>;
-    def func_name#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#"_cell1"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#"_cell4"),  //v4
-    !cast<MapCell>(func_name#"_cell8"),  //v8
-    !cast<MapCell>(func_name#"_cell16"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-  foreach len = [ "2", "4", "8" ] in {
-    def func_name#_#len#_cell1  : MapCell<!cast<OclBuiltin>(func_name#len), v1u32>;
-    def func_name#_#len#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), v1u32>;
-    def func_name#_#len#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), v1u32>;
-    def func_name#_#len#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), v1u32>;
-    def func_name#_#len#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#_#len#"_cell1"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#_#len#"_cell4"),  //v4
-    !cast<MapCell>(func_name#_#len#"_cell8"),  //v8
-    !cast<MapCell>(func_name#_#len#"_cell16"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-}
-
-foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write"] in {
-  foreach len = [ "1" ] in {
-    def func_name#_cell1_img  : MapCell<!cast<OclBuiltin>(func_name#"_img"), v1u32>;
-    def func_name#_cell4_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), v1u32>;
-    def func_name#_cell8_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), v1u32>;
-    def func_name#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), v1u32>;
-    def func_name#_vectorized_img : MapRow<[
-    !cast<MapCell>(func_name#"_cell1_img"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#"_cell4_img"),  //v4
-    !cast<MapCell>(func_name#"_cell8_img"),  //v8
-    !cast<MapCell>(func_name#"_cell16_img"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-  foreach len = [ "2", "4", "8" ] in {
-    def func_name#_#len#_cell1_img  : MapCell<!cast<OclBuiltin>(func_name#len#"_img"), v1u32>;
-    def func_name#_#len#_cell4_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), v1u32>;
-    def func_name#_#len#_cell8_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), v1u32>;
-    def func_name#_#len#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), v1u32>;
-    def func_name#_#len#_vectorized_img : MapRow<[
-    !cast<MapCell>(func_name#_#len#"_cell1_img"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#_#len#"_cell4_img"),  //v4
-    !cast<MapCell>(func_name#_#len#"_cell8_img"),  //v8
-    !cast<MapCell>(func_name#_#len#"_cell16_img"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-}
-
-foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write"] in {
-  foreach len = [ "1" ] in {
-    def func_name#_cell1_img_rw  : MapCell<!cast<OclBuiltin>(func_name#"_img_rw"), v1u32>;
-    def func_name#_cell4_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), v1u32>;
-    def func_name#_cell8_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), v1u32>;
-    def func_name#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), v1u32>;
-    def func_name#_vectorized_img_rw : MapRow<[
-    !cast<MapCell>(func_name#"_cell1_img_rw"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#"_cell4_img_rw"),  //v4
-    !cast<MapCell>(func_name#"_cell8_img_rw"),  //v8
-    !cast<MapCell>(func_name#"_cell16_img_rw"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-  foreach len = [ "2", "4", "8" ] in {
-    def func_name#_#len#_cell1_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#"_img_rw"), v1u32>;
-    def func_name#_#len#_cell4_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), v1u32>;
-    def func_name#_#len#_cell8_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), v1u32>;
-    def func_name#_#len#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), v1u32>;
-    def func_name#_#len#_vectorized_img_rw : MapRow<[
-    !cast<MapCell>(func_name#_#len#"_cell1_img_rw"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#_#len#"_cell4_img_rw"),  //v4
-    !cast<MapCell>(func_name#_#len#"_cell8_img_rw"),  //v8
-    !cast<MapCell>(func_name#_#len#"_cell16_img_rw"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-}
-
-foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_write_us"] in {
-  foreach type = [ v1u64, v1u32, v1u16, v1u8 ] in {
-    foreach len = [ "1" ] in {
-      def func_name#!cast<string>(type)#_cell1  : MapCell<!cast<OclBuiltin>(func_name), type>;
-      def func_name#!cast<string>(type)#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), type>;
-      def func_name#!cast<string>(type)#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), type>;
-      def func_name#!cast<string>(type)#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), type>;
-      def func_name#!cast<string>(type)#_vectorized : MapRow<[
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell1"),  //scalar
-      nullCell,
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell4"),  //v4
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell8"),  //v8
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell16"), //16
-      nullCell],
-      0,1>;          //not scalarizable, packetizable
-    }
-    foreach len = [ "2", "4", "8" ] in {
-      def func_name#!cast<string>(type)#_#len#_cell1  : MapCell<!cast<OclBuiltin>(func_name#len), type>;
-      def func_name#!cast<string>(type)#_#len#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), type>;
-      def func_name#!cast<string>(type)#_#len#_vectorized : MapRow<[
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell1"),  //scalar
-      nullCell,
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell4"),  //v4
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell8"),  //v8
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell16"), //16
-      nullCell],
-      0,1>;          //not scalarizable, packetizable
-    }
-  }
-}
-
-foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_write_us"] in {
-  foreach type = [ v1u8, v1u16, v1u32, v1u64 ] in {
-    foreach len = [ "1" ] in {
-      def func_name#!cast<string>(type)#_cell1_img_rw  : MapCell<!cast<OclBuiltin>(func_name#"_img_rw"), type>;
-      def func_name#!cast<string>(type)#_cell4_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), type>;
-      def func_name#!cast<string>(type)#_cell8_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), type>;
-      def func_name#!cast<string>(type)#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), type>;
-      def func_name#!cast<string>(type)#_vectorized_img_rw : MapRow<[
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell1_img_rw"),  //scalar
-      nullCell,
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell4_img_rw"),  //v4
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell8_img_rw"),  //v8
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell16_img_rw"), //16
-      nullCell],
-      0,1>;          //not scalarizable, packetizable
-    }
-    foreach len = [ "2", "4", "8" ] in {
-      def func_name#!cast<string>(type)#_#len#_cell1_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#"_img_rw"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell4_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell8_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), type>;
-      def func_name#!cast<string>(type)#_#len#_vectorized_img_rw : MapRow<[
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell1_img_rw"),  //scalar
-      nullCell,
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell4_img_rw"),  //v4
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell8_img_rw"),  //v8
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell16_img_rw"), //16
-      nullCell],
-      0,1>;          //not scalarizable, packetizable
-    }
-  }
-}
-
-foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_write_us"] in {
-  foreach type = [ v1u8, v1u16, v1u32, v1u64 ] in {
-    foreach len = [ "1" ] in {
-      def func_name#!cast<string>(type)#_cell1_img  : MapCell<!cast<OclBuiltin>(func_name#"_img"), type>;
-      def func_name#!cast<string>(type)#_cell4_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), type>;
-      def func_name#!cast<string>(type)#_cell8_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), type>;
-      def func_name#!cast<string>(type)#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), type>;
-      def func_name#!cast<string>(type)#_vectorized_img : MapRow<[
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell1_img"),  //scalar
-      nullCell,
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell4_img"),  //v4
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell8_img"),  //v8
-      !cast<MapCell>(func_name#!cast<string>(type)#"_cell16_img"), //16
-      nullCell],
-      0,1>;          //not scalarizable, packetizable
-    }
-    foreach len = [ "2", "4", "8" ] in {
-      def func_name#!cast<string>(type)#_#len#_cell1_img : MapCell<!cast<OclBuiltin>(func_name#len#"_img"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell4_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell8_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), type>;
-      def func_name#!cast<string>(type)#_#len#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), type>;
-      def func_name#!cast<string>(type)#_#len#_vectorized_img : MapRow<[
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell1_img"),  //scalar
-      nullCell,
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell4_img"),  //v4
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell8_img"),  //v8
-      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell16_img"), //16
-      nullCell],
-      0,1>;          //not scalarizable, packetizable
-    }
-  }
-}
-
-foreach func_name = [ "intel_sub_group_ballot_igc", "intel_sub_group_ballot" ] in {
-  def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1i32>;
-  def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vf4"), v4i32>;
-  def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"vf8"), v8i32>;
-  def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"vf16"), v16i32>;
-  def func_name#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#"_cell1"),  //scalar
-    nullCell,                            //v2
-    !cast<MapCell>(func_name#"_cell4"),  //v4
-    !cast<MapCell>(func_name#"_cell8"),  //v8
-    !cast<MapCell>(func_name#"_cell16"), //16
-    nullCell],                           //3
-    0,1>;          //not scalarizable, packetizable
-}
-
-foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_shuffle_up", "sub_group_shuffle_down" ] in {
-  foreach base_type = [ "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64" ] in {
-    def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
-    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v4"#base_type)>;
-    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"avx2"), !cast<OclType>("v8"#base_type)>;
-    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"avx512"), !cast<OclType>("v16"#base_type)>;
-    def func_name#_#base_type#_vectorized : MapRow<[
-    !cast<MapCell>(func_name#_#base_type#"_cell1"),  //scalar
-    nullCell,
-    !cast<MapCell>(func_name#_#base_type#"_cell4"),  //v4
-    !cast<MapCell>(func_name#_#base_type#"_cell8"),  //v8
-    !cast<MapCell>(func_name#_#base_type#"_cell16"), //16
-    nullCell],
-    0,1>;          //not scalarizable, packetizable
-  }
-}
-
-foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_shuffle_up", "sub_group_shuffle_down" ] in {
-  foreach base_type = [ "i8", "u8", "i16", "u16", "i32", "u32", "f32", "i64", "u64" ] in {
-    foreach len = [ 2, 3, 4, 8, 16 ] in {
-      def func_name#_#"v"#len#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v"#len#base_type)>;
-      def func_name#_#"v"#len#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v"#!mul(4, len)#base_type)>;
-      def func_name#_#"v"#len#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"avx2"), !cast<OclType>("v"#!mul(8, len)#base_type)>;
-      def func_name#_#"v"#len#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"avx512"), !cast<OclType>("v"#!mul(16, len)#base_type)>;
-      def func_name#_#"v"#len#base_type#_vectorized : MapRow<[
-      !cast<MapCell>(func_name#_#"v"#len#base_type#_cell1),  //scalar
-      nullCell,
-      !cast<MapCell>(func_name#_#"v"#len#base_type#_cell4),  //v4
-      !cast<MapCell>(func_name#_#"v"#len#base_type#_cell8),  //v8
-      !cast<MapCell>(func_name#_#"v"#len#base_type#_cell16), //16
-      nullCell],
-      0,1>;          //not scalarizable, packetizable
-    }
-  }
-}
 
 //
 // AliasMap
@@ -754,7 +418,8 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
 
 let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
-    def sub_group_non_uniform_#func#_#"mul_vect_info" : VectInfo<[], !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec")>;
+    defvar vec_variant = !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec");
+    def sub_group_non_uniform_#func#"_mul_vect_info" : VectInfo<[], !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul"), vec_variant, vec_variant, vec_variant, vec_variant, vec_variant>;
   }
 }
 
@@ -780,8 +445,8 @@ let Types = [v1i32] in {
 }
 let Types = [ v1i32, v1u32, v1i64, v1u64, v1f32, v1f64 ] in {
   let HandleAlias = 0 in {
-    def sub_group_broadcast_vect_info : VectInfo<[], sub_group_broadcast, sub_group_broadcast_vec, sub_group_broadcast_vec, sub_group_broadcast_vec>;
-    def sub_group_broadcast_assume_uniform_vect_info : VectInfo<[], sub_group_broadcast, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec>;
+    def sub_group_broadcast_vect_info : VectInfo<[], sub_group_broadcast, sub_group_broadcast_vec, sub_group_broadcast_vec, sub_group_broadcast_vec, sub_group_broadcast_vec, sub_group_broadcast_vec>;
+    def sub_group_broadcast_assume_uniform_vect_info : VectInfo<[], sub_group_broadcast, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec>;
   }
 
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
@@ -794,8 +459,8 @@ let Types = [ v1i32, v1u32, v1i64, v1u64, v1f32, v1f64 ] in {
 
 let Types = [v1i8, v1u8, v1i16, v1u16] in {
   let HandleAlias = 0 in {
-    def sub_group_broadcast_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs>;
-    def sub_group_broadcast_assume_uniform_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs>;
+    def sub_group_broadcast_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs>;
+    def sub_group_broadcast_assume_uniform_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs>;
   }
 
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
@@ -811,8 +476,10 @@ let Types = [v2i8, v2u8, v2i16, v2u16, v2i32, v2u32, v2i64, v2u64, v2f32, v2f64,
              v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64, v4f32, v4f64,
              v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64,
              v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64] in {
-def sub_group_broadcast_extended_vect_info : VectInfo<[], sub_group_broadcast_extended, sub_group_broadcast_extended_avx, sub_group_broadcast_extended_avx2, sub_group_broadcast_extended_avx512>;
-def sub_group_broadcast_assume_uniform_extended_vect_info : VectInfo<[], sub_group_broadcast_assume_uniform_extended, sub_group_broadcast_assume_uniform_extended_avx, sub_group_broadcast_assume_uniform_extended_avx2, sub_group_broadcast_assume_uniform_extended_avx512>;
+  let HandleAlias = 0 in {
+    def sub_group_broadcast_extended_vect_info : VectInfo<[], sub_group_broadcast_extended, sub_group_broadcast_extended_avx, sub_group_broadcast_extended_avx2, sub_group_broadcast_extended_avx512, sub_group_broadcast_extended_x32, sub_group_broadcast_extended_x64>;
+    def sub_group_broadcast_assume_uniform_extended_vect_info : VectInfo<[], sub_group_broadcast_extended, sub_group_broadcast_assume_uniform_extended_avx, sub_group_broadcast_assume_uniform_extended_avx2, sub_group_broadcast_assume_uniform_extended_avx512, sub_group_broadcast_assume_uniform_extended_x32, sub_group_broadcast_assume_uniform_extended_x64>;
+  }
 }
 let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
              v2i32, v4i32, v8i32, v16i32, v3i32,
@@ -877,9 +544,5 @@ let Types = [v1u8], NeedWidenTypes=0 in {
 let Types = [v1i32] in {
 def intel_sub_group_ballot_vect_info : VectInfo<[], intel_sub_group_ballot, intel_sub_group_ballot_vf4, intel_sub_group_ballot_vf8, intel_sub_group_ballot_vf16>;
 }
-def  khr_sub_group_shuffle_up_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_up, khr_sub_group_shuffle_up_avx, khr_sub_group_shuffle_up_avx2, khr_sub_group_shuffle_up_avx512>;
-def  khr_sub_group_shuffle_down_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_down, khr_sub_group_shuffle_down_avx, khr_sub_group_shuffle_down_avx2, khr_sub_group_shuffle_down_avx512>;
-
-let Types = [v1i32] in {
-def : VectInfo<[], sub_group_ballot, sub_group_ballot_vf4, sub_group_ballot_vf8, sub_group_ballot_vf16, sub_group_ballot_vf32, sub_group_ballot_vf64>;
-}
+def  khr_sub_group_shuffle_up_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_up, khr_sub_group_shuffle_up_avx, khr_sub_group_shuffle_up_avx2, khr_sub_group_shuffle_up_avx512, khr_sub_group_shuffle_up_x32, khr_sub_group_shuffle_up_x64>;
+def  khr_sub_group_shuffle_down_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_down, khr_sub_group_shuffle_down_avx, khr_sub_group_shuffle_down_avx2, khr_sub_group_shuffle_down_avx512, khr_sub_group_shuffle_up_x32, khr_sub_group_shuffle_up_x64>;

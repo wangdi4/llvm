@@ -6,18 +6,14 @@
 define float @expl_reduction_add(float* nocapture %a) {
 ;
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
-; CHECK-NEXT:  VPlan IR for: expl_reduction_add:for.body
+; CHECK-NEXT:  VPlan IR for: expl_reduction_add:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] float* [[VP_X:%.*]] = allocate-priv float*, OrigAlign = 4
-; CHECK-NEXT:     [DA: Div] i8* [[VP_X_BCAST:%.*]] = bitcast float* [[VP_X]]
-; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_X_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
-; CHECK-NEXT:     [DA: Div] float [[VP_XRED_INIT:%.*]] = reduction-init float -0.000000e+00
-; CHECK-NEXT:     [DA: Div] store float [[VP_XRED_INIT]] float* [[VP_X]]
+; CHECK-NEXT:     [DA: Div] float [[VP_ADD7RED_INIT:%.*]] = reduction-init float -0.000000e+00
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Div] float* [[VP_PTR_PHI_IND_INIT:%.*]] = induction-init{getelementptr} float* [[A0:%.*]] i64 1
@@ -27,7 +23,7 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] float [[VP_ADD7:%.*]] = phi  [ float [[VP_XRED_INIT]], [[BB1]] ],  [ float [[VP_ADD:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] float [[VP_ADD7:%.*]] = phi  [ float [[VP_ADD7RED_INIT]], [[BB1]] ],  [ float [[VP_ADD:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] float* [[VP_PTR_PHI:%.*]] = phi  [ float* [[VP_PTR_PHI_IND_INIT]], [[BB1]] ],  [ float* [[VP0:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] float* [[VP0]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 [[VP_PTR_PHI_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Div] float* [[VP_PTR:%.*]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 1
@@ -39,10 +35,7 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Uni] float [[VP_XRED_FINAL:%.*]] = reduction-final{fadd} float [[VP_ADD]] float [[X_PROMOTED0:%.*]]
-; CHECK-NEXT:     [DA: Uni] store float [[VP_XRED_FINAL]] float* [[X0:%.*]]
-; CHECK-NEXT:     [DA: Div] i8* [[VP_X_BCAST:%.*]] = bitcast float* [[VP_X]]
-; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_X_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial]
+; CHECK-NEXT:     [DA: Uni] float [[VP_ADD7RED_FINAL:%.*]] = reduction-final{fadd} float [[VP_ADD]] float [[X_PROMOTED0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] float* [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} float* [[A0]] i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
@@ -70,7 +63,7 @@ entry:
   br label %simd.start
 
 simd.start:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD"(float* %x) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split

@@ -14,6 +14,7 @@ configure_lit_site_cfg(
 get_property(OCL_BUILTIN_LIBS GLOBAL PROPERTY OCL_BUILTIN_LIBS)
 list(APPEND BE_TEST_DEPS
   oclopt
+  ocl-tblgen
   llvm-as
   FileCheck
   OclCpuBackEnd${BUILD_PLATFORM}

@@ -14,18 +14,21 @@
 ; }
 
 ; The test is a version of target_fp_vla_tgt.ll, with the hand-modified change
-; to add a map clause in addition to the private clause on the VLA.
+; to add a map clause in addition to the firstprivate clause on the VLA.
 
 ; CHECK:     collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.val i64 %n.val1 '
-; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr addrspace(4) [[SIZE_ADDR:%n.val.addr.*]]'
-; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr addrspace(4) [[SIZE_ADDR1:%n.val1.addr.*]]'
+; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr addrspace(4) {{%n.val.addr.*}}'
+; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr addrspace(4) {{%n.val1.addr.*}}'
 
-; Check that the kernal function has arguments for the VLA and the captured VLA size.
-; CHECK:     define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(ptr addrspace(1) %vla.ascast, ptr addrspace(1) noalias [[SIZE_ADDR]], ptr addrspace(1) noalias [[SIZE_ADDR1]])
+; Check that the kernel function has arguments for the VLA and the captured VLA size.
+; CHECK:     define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(ptr addrspace(1) %vla.ascast, i64 [[SIZE_ARG:%n.val.*]], i64 [[SIZE_ARG1:%n.val1.*]])
 
 ; Check that no extra local copy is made for the VLA inside the kernel, and the argument passed-in is used directly.
-; CHECK-NOT:   %{{.*}} = alloca i32, {{.*}}
 ; CHECK:       [[VLA_CAST:%.+]] = addrspacecast ptr addrspace(1) %vla.ascast to ptr addrspace(4)
+; CHECK:       [[SIZE_FP1:%n.val1.*fpriv]] = alloca i64, align 8
+; CHECK:       [[SIZE_FP:%n.val.*fpriv]] = alloca i64, align 8
+; CHECK:       store i64 [[SIZE_ARG1]], ptr [[SIZE_FP1]], align 8
+; CHECK:       store i64 [[SIZE_ARG]], ptr [[SIZE_FP]], align 8
 ; CHECK:       call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, ptr addrspace(4) [[VLA_CAST]])
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"

@@ -160,10 +160,10 @@ protected:
     err = clFinish(queue);
     ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";
 
-    err = clReleaseProgram(program);
-    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
     err = clReleaseKernel(kernel);
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseKernel failed";
+    err = clReleaseProgram(program);
+    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
   }
 
   /// Test memcpy
@@ -276,10 +276,10 @@ protected:
       ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";
     }
 
-    err = clReleaseProgram(program);
-    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
     err = clReleaseKernel(kernel);
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseKernel failed";
+    err = clReleaseProgram(program);
+    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
 
     err = m_clMemFreeINTEL(context, foo);
     ASSERT_EQ(err, CL_SUCCESS) << "clMemFreeINTEL failed";
@@ -327,7 +327,12 @@ TEST_P(UsmTest, checkCapacities) {
 
 /// FPGA supports explicit USM, i.e. access to USM buffer allocated on host or
 /// the same device is allowed.
+#ifdef _WIN32
+/// FIXME disabled on windows due to flaky fail [CMPLRLLVM-39465]
+TEST_P(UsmTest, DISABLED_sameDevice) {
+#else
 TEST_P(UsmTest, sameDevice) {
+#endif
   for (cl_device_id device : devices()) {
     cl_context context = createContext(device);
     ASSERT_NE(nullptr, context) << "createContext failed";

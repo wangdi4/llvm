@@ -1,13 +1,9 @@
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=SOA
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=SOA
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=SOA
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=SOA
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=SOA
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=SOA
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=NOSOA
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=NOSOA
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=NOSOA
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=NOSOA
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 | FileCheck %s --check-prefix=NOSOA
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 | FileCheck %s --check-prefix=NOSOA
 ;
 ; SOA transformation for privates is not implemented currently in the VPlan HIR
 ; path. This can lead to performance regressions in cases where we go through
@@ -29,7 +25,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([100 x i64]* %arr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([100 x i64]* %arr, i64 0, i32 100) ]
   br label %for.body
 
 for.body:

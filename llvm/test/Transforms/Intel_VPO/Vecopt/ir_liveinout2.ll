@@ -30,7 +30,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:    Linked values: i32 [[VP_SUM_07:%.*]], i32 [[VP_ADD]], i32 [[VP_SUM_07_RED_INIT:%.*]], i32 [[VP_SUM_07_RED_FINAL:%.*]],
 ; CHECK:       Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:

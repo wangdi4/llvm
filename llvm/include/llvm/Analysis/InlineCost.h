@@ -66,7 +66,7 @@ const int OptMinSizeThreshold = 5;
 const int OptAggressiveThreshold = 250;
 
 // Various magic constants used to adjust heuristics.
-const int InstrCost = 5;
+int getInstrCost();
 const int IndirectCallThreshold = 100;
 const int LoopPenalty = 25;
 const int LastCallToStaticBonus = 15000;
@@ -84,6 +84,8 @@ const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
 
 const char FunctionInlineCostMultiplierAttributeName[] =
     "function-inline-cost-multiplier";
+
+const char MaxInlineStackSizeAttributeName[] = "inline-max-stacksize";
 } // namespace InlineConstants
 
 // The cost-benefit pair computed by cost-benefit analysis.
@@ -148,8 +150,8 @@ namespace InlineReportTypes {
 typedef enum {
    InlrFirst, // Just a marker placed before the first inlining reason
    InlrNoReason,
-   InlrAlwaysInline,
    InlrAlwaysInlineRecursive,
+   InlrAlwaysInline,
    InlrInlineList,
    InlrHotProfile,
    InlrHotCallsite,
@@ -489,6 +491,9 @@ struct InlineParams {
   // Opt Level used for selection of inlining heuristics, not for setting
   // inlining thresholds.
   Optional<unsigned> InlineOptLevel;
+
+  // Indicates whether this is a SYCL device compilation
+  Optional<bool> SYCLOptimizationMode;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use when the callsite is considered hot relative to function
@@ -534,12 +539,13 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
 /// PrepareForLTO and InlineOptLevel flags in InlineParams based on
 /// \p PrepareForLTO and \p InlineOptLevel.
 InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
-                             bool PrepareForLTO, bool InlineOptLevel);
+                             bool PrepareForLTO, bool InlineOptLevel,
+                             bool SYCLOptimizationMode);
 #endif // INTEL_CUSTOMIZATION
 
 /// Return the cost associated with a callsite, including parameter passing
 /// and the call/return instruction.
-int getCallsiteCost(CallBase &Call, const DataLayout &DL);
+int getCallsiteCost(const CallBase &Call, const DataLayout &DL);
 
 /// Get an InlineCost object representing the cost of inlining this
 /// callsite.

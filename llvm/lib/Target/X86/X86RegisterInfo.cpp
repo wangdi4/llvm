@@ -378,6 +378,12 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     if (IsWin64)
       return CSR_Win64_SVML_AVX_SaveList;
     return CSR_Lin64_SVML_AVX_SaveList;
+  case CallingConv::SVML_AVX_AVX_Impl:
+    if (!Is64Bit)
+      return CSR_32_Intel_SVML_SaveList;
+    if (IsWin64)
+      return CSR_Win64_SVML_AVX_SaveList;
+    return CSR_Lin64_SVML_AVX_AVX_Impl_SaveList;
   case CallingConv::SVML_AVX512:
     if (!Is64Bit)
       return CSR_32_Intel_SVML_AVX512_SaveList;
@@ -546,6 +552,12 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     if (IsWin64)
       return CSR_Win64_SVML_AVX_RegMask;
     return CSR_Lin64_SVML_AVX_RegMask;
+  case CallingConv::SVML_AVX_AVX_Impl:
+    if (!Is64Bit)
+      return CSR_32_Intel_SVML_RegMask;
+    if (IsWin64)
+      return CSR_Win64_SVML_AVX_RegMask;
+    return CSR_Lin64_SVML_AVX_AVX_Impl_RegMask;
   case CallingConv::SVML_AVX512:
     if (!Is64Bit)
       return CSR_32_Intel_SVML_AVX512_RegMask;
@@ -1166,3 +1178,23 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
 
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+/// SrcRC and DstRC will be morphed into NewRC if this returns true
+bool X86RegisterInfo::shouldCoalesce(
+    MachineInstr *MI, const TargetRegisterClass *SrcRC, unsigned SubReg,
+    const TargetRegisterClass *DstRC, unsigned DstSubReg,
+    const TargetRegisterClass *NewRC, LiveIntervals &LIS) const {
+  if (MI->getMF()->getTarget().Options.IntelAdvancedOptim &&
+      MI->getMF()->getTarget().getOptLevel() >= CodeGenOpt::Aggressive &&
+      MI->getMF()->getSubtarget().has4KDSB() &&
+      MI->isCopy() && (SubReg || DstSubReg) &&
+      (DstRC->MC->RegSizeInBits != SrcRC->MC->RegSizeInBits) &&
+      (NewRC->MC->RegSizeInBits == 512))
+    // Do not coalesce in the case of a 512-bit subregister copy
+    // Otherwise, RA may spill ZMM instead of YMM/XMM registers
+    // which is more costly, e.g., SPR bandwidth is 3x256bit or 2x512bit
+    return false;
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION

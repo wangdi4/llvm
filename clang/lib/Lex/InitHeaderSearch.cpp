@@ -1,4 +1,21 @@
 //===--- InitHeaderSearch.cpp - Initialize header search paths ------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -246,7 +263,7 @@ void InitHeaderSearch::AddDefaultCIncludePaths(const llvm::Triple &triple,
     case llvm::Triple::Win32:
       if (triple.getEnvironment() != llvm::Triple::Cygnus)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     default:
       // FIXME: temporary hack: hard-coded paths.
       AddPath("/usr/local/include", System, false);
@@ -461,8 +478,13 @@ void InitHeaderSearch::AddDefaultIncludePaths(const LangOptions &Lang,
   if (triple.isOSDarwin()) {
     if (HSOpts.UseStandardSystemIncludes) {
       // Add the default framework include paths on Darwin.
-      AddPath("/System/Library/Frameworks", System, true);
-      AddPath("/Library/Frameworks", System, true);
+      if (triple.isDriverKit()) {
+        AddPath("/System/DriverKit/System/Library/Frameworks", System, true);
+      }
+      else {
+        AddPath("/System/Library/Frameworks", System, true);
+        AddPath("/Library/Frameworks", System, true);
+      }
     }
     return;
   }

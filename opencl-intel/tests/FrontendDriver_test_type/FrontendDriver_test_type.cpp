@@ -72,7 +72,6 @@ TEST_F(ClangCompilerTestType, Test_PassingHeaders)
     desc.pszInputHeadersNames = header_names.data();
     desc.pszOptions = build_options;
     desc.bFpgaEmulator = false;
-    desc.bEyeQEmulator = false;
 
     int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
 
@@ -95,7 +94,6 @@ TEST_F(ClangCompilerTestType, Test_FPAtomics)
     desc.pszInputHeadersNames = nullptr;
     desc.pszOptions = build_options;
     desc.bFpgaEmulator = false;
-    desc.bEyeQEmulator = false;
 
     int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
     ASSERT_EQ(CL_SUCCESS, err) << "Pre-release header is not available." << std::endl
@@ -115,7 +113,6 @@ TEST_F(ClangCompilerTestType, Test_OptNone) {
   desc.pszInputHeadersNames = nullptr;
   desc.pszOptions = build_options;
   desc.bFpgaEmulator = false;
-  desc.bEyeQEmulator = false;
 
   int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
 
@@ -212,7 +209,9 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
         SPIRVOpCapability,  spv::internal::CapabilityJointMatrixINTEL,
         SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
         SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+        SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
         SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+        SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
@@ -288,7 +287,9 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
         SPIRVOpCapability,  spv::internal::CapabilityJointMatrixINTEL,
         SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
         SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+        SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
         SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+        SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
@@ -494,7 +495,9 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
       SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+      SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
@@ -597,8 +600,10 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::internal::CapabilityRuntimeAlignedAttributeINTEL,
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+      SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::CapabilityGroupUniformArithmeticKHR,
+      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL

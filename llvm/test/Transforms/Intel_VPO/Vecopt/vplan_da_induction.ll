@@ -60,7 +60,7 @@ define void @test_induction_strides(i64* %g.arr) {
   %g.arrayidx = getelementptr inbounds i64, i64* %g.arr, i64 0
   br label %simd.begin.region
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv, i32 0, i32 1024) ]
   br label %simd.loop
 simd.loop:
   %iv1 = phi i64 [ 0, %simd.begin.region ], [ %iv1.next, %simd.loop.end]

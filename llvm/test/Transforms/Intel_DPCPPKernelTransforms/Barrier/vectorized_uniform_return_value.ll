@@ -2,7 +2,7 @@
 ; RUN: opt -dpcpp-kernel-barrier -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-barrier -S %s | FileCheck %s
 ; RUN: opt -dpcpp-kernel-barrier -S %s | FileCheck %s
-; checks the result of work_group_reduce_add will be stored into special buffer.
+; Checks the uniform result of work_group_reduce_add will be stored into the alloca (Group-B.2: cross-barrier usage).
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
@@ -38,6 +38,9 @@ entry:
   call void @_Z18work_group_barrierj(i32 1)
   %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult, align 16
   %CallFinalizeWG = call <4 x i32> @_Z32__finalize_work_group_reduce_addDv4_j(<4 x i32> %LoadWGFinalResult)
+; CHECK-LABEL: define dso_local fastcc <4 x i32> @_ZGVbN4v_foo
+; CHECK: [[FINALIZE_RES:%.*]] = call <4 x i32> @_Z32__finalize_work_group_reduce_addDv4_j
+; CHECK-NEXT: store <4 x i32> [[FINALIZE_RES]], <4 x i32>* [[FINALIZE_RES_ADDR:%.*]], align 16
   store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult, align 16
   br label %"Barrier BB4"
 
@@ -47,11 +50,9 @@ entry:
 
 "Barrier BB":                                     ; preds = %"Barrier BB4"
   call void @_Z18work_group_barrierj(i32 1)
-; CHECK-LABEL: define dso_local fastcc <4 x i32> @_ZGVbN4v_foo
-; CHECK-LABEL: LoopBB:
-; CHECK: store <4 x i32> %CallFinalizeWG, <4 x i32>* %{{.*}}
 ; CHECK-LABEL: RetBB:
-; CHECK-NEXT: ret <4 x i32> %CallFinalizeWG
+; CHECK-NEXT: [[LOADED2:%.*]] = load <4 x i32>, <4 x i32>* [[FINALIZE_RES_ADDR]]
+; CHECK-NEXT: ret <4 x i32> [[LOADED2]]
   ret <4 x i32> %CallFinalizeWG
 }
 

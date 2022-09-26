@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
 
@@ -161,5 +162,7 @@ define void @ztest05() {
 ; CHECK:     PostPad:    3
 ; CHECK:     Type: %struct.atest03 = type { i32, i64, i8, i32, i32 }
 
-declare dso_local noalias i8* @malloc(i64)
+declare dso_local noalias i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

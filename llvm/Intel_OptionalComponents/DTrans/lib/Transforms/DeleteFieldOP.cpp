@@ -1116,8 +1116,12 @@ void DeleteFieldOPImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
 }
 
 void DeleteFieldOPImpl::postprocessCall(CallBase *Call) {
+  auto CInfoVec =  DTInfo->getCallInfoVec(Call); 
+  if (!CInfoVec || CInfoVec->size() != 1)
+    return;
   auto *CInfo = DTInfo->getCallInfo(Call);
-  if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
+  assert(CInfo && "Expected unique CInfo");
+  if (isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
   // The number of types in the call element info and the number of types

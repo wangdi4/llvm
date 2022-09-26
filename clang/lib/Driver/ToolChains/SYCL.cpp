@@ -88,10 +88,10 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
   // The llvm-foreach command looks like this:
   // llvm-foreach --in-file-list=a.list --in-replace='{}' -- echo '{}'
   ArgStringList ForeachArgs;
-  std::string OutputFileName(Output.getFilename());
+  std::string OutputFileName(T->getToolChain().getInputFilename(Output));
   ForeachArgs.push_back(C.getArgs().MakeArgString("--out-ext=" + Ext));
   for (auto &I : InputFiles) {
-    std::string Filename(I.getFilename());
+    std::string Filename(T->getToolChain().getInputFilename(I));
     ForeachArgs.push_back(
         C.getArgs().MakeArgString("--in-file-list=" + Filename));
     ForeachArgs.push_back(
@@ -207,14 +207,21 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   // instead of the original object.
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||   // INTEL
       JA.isDeviceOffloading(Action::OFK_OpenMP)) { // INTEL
-    auto isSYCLDeviceLib = [&C](const InputInfo &II) {
+    auto isSYCLDeviceLib = [&C, this](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       StringRef LibPostfix = ".o";
       if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
           C.getDriver().IsCLMode())
         LibPostfix = ".obj";
-      StringRef InputFilename =
-          llvm::sys::path::filename(StringRef(II.getFilename()));
+      std::string FileName = this->getToolChain().getInputFilename(II);
+      StringRef InputFilename = llvm::sys::path::filename(FileName);
+      if (this->getToolChain().getTriple().isNVPTX()) {
+        // Linking SYCL Device libs requires libclc as well as libdevice
+        if ((InputFilename.find("nvidiacl") != InputFilename.npos ||
+             InputFilename.find("libdevice") != InputFilename.npos))
+          return true;
+        LibPostfix = ".cubin";
+      }
       StringRef LibSyclPrefix("libsycl-");
       if (!InputFilename.startswith(LibSyclPrefix) ||
           !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
@@ -262,26 +269,29 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
+      std::string FileName = getToolChain().getInputFilename(II);
+
 #if INTEL_CUSTOMIZATION
       if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
       } else if (II.getType() == types::TY_Tempfilelist) {
 #endif // INTEL_CUSTOMIZATION
+
         // Pass the unbundled list with '@' to be processed.
-        std::string FileName(II.getFilename());
         Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
 #if INTEL_CUSTOMIZATION
       } else if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
 #endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
-        Libs.push_back(II.getFilename());
+        Libs.push_back(C.getArgs().MakeArgString(FileName));
       } else
-        Objs.push_back(II.getFilename());
+        Objs.push_back(C.getArgs().MakeArgString(FileName));
     }
   } else
     for (const auto &II : InputFiles)
-      Objs.push_back(II.getFilename());
+      Objs.push_back(
+          C.getArgs().MakeArgString(getToolChain().getInputFilename(II)));
 
   // Get llvm-link path.
   SmallString<128> ExecPath(C.getDriver().Dir);
@@ -303,8 +313,10 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, None));
   };
 
- // Add an intermediate output file.
-  const char *OutputFileName = Output.getFilename();
+  // Add an intermediate output file.
+  const char *OutputFileName =
+      C.getArgs().MakeArgString(getToolChain().getInputFilename(Output));
+
 #if INTEL_CUSTOMIZATION
   const char *TOutputFileName = OutputFileName;
 
@@ -317,6 +329,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     TOutputFileName = C.addTempFile(C.getArgs().MakeArgString(OMPTempFile));
   }
 #endif // INTEL_CUSTOMIZATION
+
   if (Libs.empty())
     AddLinkCommand(TOutputFileName, Objs, Opts);  //INTEL
   else {
@@ -654,6 +667,291 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
     C.addCommand(std::move(Cmd));
 }
 
+#if INTEL_CUSTOMIZATION
+void SYCL::gen::BackendCompiler::constructOclocConcatCommand(Compilation &C,
+    const JobAction &JA, const InputInfo &Output, const InputInfoList &Inputs,
+    StringRef ExecPath) const {
+  // Construct ocloc concat command.
+  // ocloc concat <input> <input> ... -out <output>
+  ArgStringList CmdArgs{"concat"};
+  InputInfoList ForeachInputs;
+  assert(Inputs.size() >= 2 && "Expecting 2 or more inputs to ocloc concat");
+  for (const auto &II : Inputs) {
+    std::string Filename(II.getFilename());
+    CmdArgs.push_back(C.getArgs().MakeArgString(Filename));
+  }
+  CmdArgs.push_back("-out");
+  CmdArgs.push_back(C.getArgs().MakeArgString(Output.getFilename()));
+
+  const char *Exec = C.getArgs().MakeArgString(ExecPath);
+  auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
+                                       Exec, CmdArgs, None);
+  C.addCommand(std::move(Cmd));
+}
+
+struct OclocInfo {
+  const char *DeviceName;
+  const char *PackageName;
+  const char *Version;
+  SmallVector<int, 8> HexValues;
+};
+
+// The OclocDevices data structure is organized by device name, with the
+// corresponding ocloc split release, version and possible Hex representations
+// of a given device.  This information is gathered from the following:
+// https://github.com/intel/compute-runtime/blob/master/shared/source/dll/devices/devices_base.inl
+// https://github.com/intel/compute-runtime/blob/master/shared/source/dll/devices/devices_additional.inl
+static OclocInfo OclocDevices[] = {
+  { "bdw", "iris", "8.0.0", { 0x1602, 0x160A, 0x1606, 0x160E, 0x160D, 0x1612,
+                              0x161A, 0x1616, 0x161E, 0x161D, 0x1622, 0x162A,
+                              0x1626, 0x162B, 0x162E, 0x162D } },
+  { "skl", "iris", "9.0.9", { 0x1902, 0x190B, 0x190A, 0x1906, 0x190E, 0x1917,
+                              0x1913, 0x1915, 0x1912, 0x191B, 0x191A, 0x1916,
+                              0x191E, 0x191D, 0x1921, 0x9905, 0x192B, 0x192D,
+                              0x192A, 0x1923, 0x1926, 0x1927, 0x1932, 0x193B,
+                              0x193A, 0x193D } },
+  { "kbl", "iris", "9.1.9", { 0x5902, 0x590B, 0x590A, 0x5906, 0x590E, 0x5908,
+                              0x5913, 0x5915, 0x5912, 0x591B, 0x5917, 0x591A,
+                              0x5916, 0x591E, 0x591D, 0x591C, 0x5921, 0x5926,
+                              0x5927, 0x592B, 0x592A, 0x5923, 0x5932, 0x593B,
+                              0x593A, 0x593D } },
+  { "cfl", "iris", "9.2.9", { 0x3E90, 0x3E93, 0x3EA4, 0x3E99, 0x3EA1, 0x3E92,
+                              0x3E9B, 0x3E94, 0x3E91, 0x3E96, 0x3E9A, 0x3EA3,
+                              0x3EA9, 0x3EA0, 0x3E98, 0x3E95, 0x3EA6, 0x3EA7,
+                              0x3EA8, 0x3EA5, 0x3EA2, 0x9B21, 0x9BAA, 0x9BAB,
+                              0x9BAC, 0x9BA0, 0x9BA5, 0x9BA8, 0x9BA4, 0x9BA2,
+                              0x9B41, 0x9BCA, 0x9BCB, 0x9BCC, 0x9BC0, 0x9BC5,
+                              0x9BC8, 0x9BC4, 0x9BC2, 0x9BC6, 0x9BE6,
+                              0x9BF6 } },
+  { "apl", "iris", "9.3.0", { } },
+  { "glk", "iris", "9.4.0", { 0x3184, 0x3185 } },
+  { "whl", "iris", "9.5.0", { } },
+  { "aml", "iris", "9.6.0", { } },
+  { "cml", "iris", "9.7.0", { } },
+  { "icllp", "iris", "11.0.0", { 0xFF05, 0x8A56, 0x8A58, 0x8A5C, 0x8A5A,
+                                 0x8A50, 0x8A52, 0x8A51 } },
+  { "lkf", "iris", "11.1.0", { 0x9840 } },
+  { "ehl", "iris", "11.2.0", { 0x4500, 0x4541, 0x4551, 0x4571, 0x4555, 0x4E51,
+                               0x4E61, 0x4E71, 0x4E55 } },
+  { "tgl", "xe", "", { } },
+  { "tgllp", "xe", "12.0.0", { 0xFF20, 0x9A49, 0x9A40, 0x9A59, 0x9A60,
+                               0x9A68, 0x9A70, 0x9A78 } },
+
+  { "rkl", "xe", "12.1.0", { 0x4C80, 0x4C8A, 0x4C8B, 0x4C8C, 0x4C90,
+                             0x4C9A } },
+  { "adls", "xe", "12.2.0", { 0x4680, 0x4682, 0x4688, 0x468A, 0x4690,
+                              0x4692, 0x4693, 0xA780, 0xA781, 0xA782,
+                              0xA783, 0xA788, 0xA789, 0xA78B } },
+  { "adl-s", "xe", "", { } },
+  { "adlp", "xe", "12.3.0", { 0x46A0, 0x46B0, 0x46A1, 0x46A2, 0x46A3, 0x46A6,
+                              0x46A8, 0x46AA, 0x462A, 0x4626, 0x4628, 0x46B1,
+                              0x46B2, 0x46B3, 0x46C0, 0x46C1, 0x46C2, 0x46C3,
+                              0xA7A0, 0xA720, 0xA7A8, 0xA7A1, 0xA721,
+                              0xA7A9 } },
+  { "adl-p", "xe", "", { } },
+  { "adln", "xe", "12.4.0", { 0x46D0, 0x46D1, 0x46D2 } },
+  { "adl-n", "xe", "", { } },
+  { "dg1", "xe", "12.10.0", { 0x4905, 0x4906, 0x4907, 0x4908 } },
+  { "xehp-sdv", "xe", "12.1.0", { 0x0201, 0x0202, 0x0203, 0x0204, 0x0205,
+                                  0x0206, 0x0207, 0x0208, 0x0209, 0x020A,
+                                  0x020B, 0x020C, 0x020D, 0x020E, 0x020F,
+                                  0x0210 } },
+  { "acm-g10", "xe", "12.55.8", { } },
+  { "acm-g11", "xe", "12.56.0", { } },
+  { "acm-g12", "xe", "12.57.0", { } },
+  { "pvc-sdv", "xe", "12.60.1", { } },
+  { "pvc", "xe", "12.60.7", { 0x0BD0, 0x0BD5, 0x0BD6, 0x0BD7, 0x0BD8,
+                              0x0BD9, 0x0BDA, 0x0BDB} },
+  { "gen9", "xe", "", { } },
+  { "gen11", "xe", "", { } },
+  { "gen12", "xe", "", { } },
+  { "gen12lp", "xe", "", { } },
+  { "xe", "xe", "", { } },
+  { "xe_hp", "xe", "", { } },
+  { "xe_hp_core", "xe", "", { } },
+  { "xe_hpg_core", "dgpu", "", { } },
+  { "dg2", "dgpu", "", { 0x4F80, 0x4F81, 0x4F82, 0x4F83, 0x4F84, 0x4F85,
+                         0x4F86, 0x4F87, 0x4F88, 0x5690, 0x5691, 0x5692,
+                         0x5693, 0x5694, 0x5695, 0x5696, 0x5697, 0x56A3,
+                         0x56A4, 0x56B0, 0x56B1, 0x56B2, 0x56B3, 0x56A0,
+                         0x56A1, 0x56A2, 0x56A5, 0x56A6, 0x56C0, 0x56C1 } }
+};
+static const unsigned numOclocDevices = llvm::array_lengthof(OclocDevices);
+
+static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
+    Compilation &C, const ArgStringList &CmdArgs) {
+  SmallVector<std::pair<StringRef, ArgStringList>, 4> Targets;
+  ArgStringList NewArgs;
+  auto addToOcloc = [&](StringRef OclocTarget, StringRef Arg) {
+    for (auto &Target : Targets) {
+      if (Target.first.equals(OclocTarget)) {
+        Target.second.push_back(C.getArgs().MakeArgString(Arg));
+        return;
+      }
+    }
+    // Target not found, add it here.
+    ArgStringList NewList;
+    NewList.push_back(C.getArgs().MakeArgString(Arg));
+    Targets.push_back(
+        std::make_pair(C.getArgs().MakeArgString(OclocTarget), NewList));
+  };
+  // Capture the argument for '-device'
+  bool DeviceSeen = false;
+  StringRef DeviceArg;
+  for (StringRef Arg : CmdArgs) {
+    if (DeviceSeen) {
+      DeviceArg = Arg;
+      break;
+    }
+    if (Arg.equals("-device"))
+      DeviceSeen = true;
+  }
+  if (DeviceArg.empty())
+    // No -device seen, return an empty vector
+    return Targets;
+
+  // Special case settings where we know exactly what oclocs to populate and
+  // call with specific values.
+  if (DeviceArg.equals("*")) {
+    // -device * implies:
+    //   iris: -device gen9,gen11
+    //     xe: -device *
+    //   dgpu: -device XE_HPG_CORE (for version 1743, use xe-hpg for newer)
+    addToOcloc("iris", "-device");
+    addToOcloc("iris", "gen9,gen11");
+    addToOcloc("xe", "-device");
+    addToOcloc("xe", "*");
+    addToOcloc("dgpu", "-device");
+    addToOcloc("dgpu", "XE_HPG_CORE");
+    return Targets;
+  }
+  if (DeviceArg.equals("gen9") || DeviceArg.equals("gen11")) {
+    addToOcloc("iris", "-device");
+    addToOcloc("iris", DeviceArg);
+    return Targets;
+  }
+
+  // Here we parse the targets, tokenizing via ','
+  SmallVector<StringRef> SplitArgs;
+  // Holding vectors for the device values.
+  // TODO: Improve handling of these - probably can be done a bit more
+  // dynamically instead of fixed vectors.
+  SmallVector<StringRef> Iris;
+  SmallVector<StringRef> Xe;
+  SmallVector<StringRef> Dgpu;
+  DeviceArg.split(SplitArgs, ",");
+  for (auto SingleArg : SplitArgs) {
+    StringRef OclocTarget;
+    // Handle shortened versions.
+    bool CheckShortVersion = true;
+    for (auto Char : SingleArg.str()) {
+      if (!(std::isdigit(Char) || Char == '.')) {
+        CheckShortVersion = false;
+        break;
+      }
+    }
+    // Check for device, version or hex (literal values)
+    for (unsigned int I = 0; I < numOclocDevices && OclocTarget.empty(); I++) {
+      if (SingleArg.equals_insensitive(OclocDevices[I].DeviceName) ||
+          SingleArg.equals_insensitive(OclocDevices[I].Version)) {
+        OclocTarget = OclocDevices[I].PackageName;
+        continue;
+      }
+      for (int HexVal : OclocDevices[I].HexValues) {
+        int Value = 0;
+        if (!SingleArg.getAsInteger(0, Value) && Value == HexVal) {
+          OclocTarget = OclocDevices[I].PackageName;
+          continue;
+        }
+      }
+      // Check for ranges - just match a portion of the string or version
+      // and send that full item to the specific ocloc.  Do not try and split
+      // the ranges (possible future enhancement)
+      if (SingleArg.contains('-') || SingleArg.contains(':')) {
+        if (SingleArg.contains(OclocDevices[I].DeviceName) ||
+            SingleArg.contains(OclocDevices[I].Version)) {
+          OclocTarget = OclocDevices[I].PackageName;
+          continue;
+        }
+      }
+      if (CheckShortVersion &&
+          StringRef(OclocDevices[I].Version).startswith(SingleArg)) {
+        OclocTarget = OclocDevices[I].PackageName;
+        continue;
+      }
+    }
+    if (!OclocTarget.empty()) {
+      if (OclocTarget.equals("iris"))
+        Iris.push_back(SingleArg);
+      if (OclocTarget.equals("xe"))
+        Xe.push_back(SingleArg);
+      if (OclocTarget.equals("dgpu"))
+        Dgpu.push_back(SingleArg);
+    } else {
+      // Arg is not recognized.  We will default to adding to the iris ocloc
+      Iris.push_back(SingleArg);
+    }
+  }
+  auto addDevices = [&](SmallVector<StringRef> DeviceVec, StringRef Target) {
+    if (!DeviceVec.empty()) {
+      SmallString<32> Devices;
+      int I = 0;
+      for (auto DevArg : DeviceVec) {
+        if (I)
+          Devices += ",";
+        Devices += DevArg;
+        I++;
+      }
+      addToOcloc(Target, "-device");
+      addToOcloc(Target, Devices);
+    }
+  };
+  addDevices(Iris, "iris");
+  addDevices(Xe, "xe");
+  addDevices(Dgpu, "dgpu");
+
+  return Targets;
+}
+
+void SYCL::gen::BackendCompiler::constructOclocCommand(Compilation &C,
+    const JobAction &JA, const InputInfo &Output, const InputInfoList &Inputs,
+    const ArgStringList &Args, StringRef ExecPath) const {
+  // Construct ocloc command.
+  // Input Args is expected to be the Args to ocloc, as the calling function
+  // interprets the toolchain args prior to calling this.
+  ArgStringList CmdArgs{"-output", Output.getFilename()};
+  InputInfoList ForeachInputs;
+  for (const auto &II : Inputs) {
+    CmdArgs.push_back("-file");
+    std::string Filename(II.getFilename());
+    if (II.getType() == types::TY_Tempfilelist)
+      ForeachInputs.push_back(II);
+    CmdArgs.push_back(C.getArgs().MakeArgString(Filename));
+  }
+
+  // The next line prevents ocloc from modifying the image name
+  CmdArgs.push_back("-output_no_suffix");
+  CmdArgs.push_back("-spirv_input");
+
+  // Add -Xsycl-target* options.
+  CmdArgs.append(Args);
+
+  const char *Exec = C.getArgs().MakeArgString(ExecPath);
+  auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
+                                       Exec, CmdArgs, None);
+  if (!ForeachInputs.empty()) {
+    Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
+    StringRef ParallelJobs =
+        C.getArgs().getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+    constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
+                                this, "", "out", ParallelJobs);
+  } else
+    C.addCommand(std::move(Cmd));
+}
+#endif // INTEL_CUSTOMIZATION
+
 void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
                                               const JobAction &JA,
                                               const InputInfo &Output,
@@ -663,6 +961,121 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   assert((getToolChain().getTriple().getArch() == llvm::Triple::spir ||
           getToolChain().getTriple().getArch() == llvm::Triple::spir64) &&
          "Unsupported target");
+
+#if INTEL_CUSTOMIZATION
+  // When on Windows, and we have multiple ocloc installations available, we
+  // have to break down which ocloc (or multiple oclocs) we are calling.
+  // This path is only valid for Windows targets and if _all_ of the known
+  // oclocs are found.
+  const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+  bool isMSVC = HostTC->getTriple().isWindowsMSVCEnvironment();
+  bool SplitOcloc = false;
+  std::map<std::string, std::string> OclocDirs;
+  // Allow for this behavior to trigger with --enable-ocloc-split for
+  // testing purposes.
+  if (isMSVC || Args.hasArg(options::OPT_enable_ocloc_split)) {
+    SplitOcloc = true;
+    // mtoguchi
+    std::string OutputFileName(C.getDriver().GetFilePath("ocloc", *HostTC));
+    SmallString<128> OclocDir(C.getDriver().Dir);
+    llvm::sys::path::append(OclocDir, "..", "lib", "ocloc");
+    llvm::sys::path::remove_dots(OclocDir, /*remove_dot_dot=*/ true);
+    if (Args.hasArg(options::OPT_enable_ocloc_split) &&
+        !llvm::sys::fs::exists(OclocDir))
+      OclocDir = C.getDriver().GetFilePath("ocloc", *HostTC);
+    auto addOclocDir = [&OclocDirs, &OclocDir](std::string BaseName) {
+      SmallString<128> OD(OclocDir);
+      llvm::sys::path::append(OD, BaseName, "ocloc.exe");
+      OclocDirs[BaseName] = OD.str();
+    };
+    addOclocDir("iris");
+    addOclocDir("xe");
+    addOclocDir("dgpu");
+    for (auto &Loc : OclocDirs)
+      SplitOcloc &= llvm::sys::fs::exists(Loc.second);
+  }
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
+  const toolchains::SYCLToolChain &TC =
+      static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+  ArgStringList CmdArgs;
+  TC.AddImpliedTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateLinkerTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  // Strip out -cl-no-match-sincospi in case it was used to disable the
+  // default setting.
+  CmdArgs.erase(llvm::remove_if(CmdArgs,
+                                [&](auto Cur) {
+                                  return !strcmp(Cur, "-cl-no-match-sincospi");
+                                }),
+                CmdArgs.end());
+  // Check for -device settings in the CmdArgs, split them out as needed.
+  if (SplitOcloc) {
+    // Determine which ocloc(s) we will be calling.  This will be done by
+    // generating a tuple containing arguments for each set of devices.
+    SmallVector<std::pair<StringRef, ArgStringList>>
+        OclocTargets(getOclocTargets(C, CmdArgs));
+    auto combineArgs = [&CmdArgs](const ArgStringList &DeviceArg)
+                                                      -> ArgStringList {
+      ArgStringList AllArgs;
+      bool SkipNext = false;
+      for (auto Arg : CmdArgs) {
+        if (SkipNext) {
+          SkipNext = false;
+          continue;
+        }
+        if (StringRef(Arg).equals("-device")) {
+          AllArgs.append(DeviceArg);
+          SkipNext = true;
+          continue;
+        }
+        AllArgs.push_back(Arg);
+      }
+      return AllArgs;
+    };
+    if (OclocTargets.size() > 1) {
+      InputInfoList Outputs;
+      for (auto &OclocItem : OclocTargets) {
+        auto OclocDir = OclocDirs.find(OclocItem.first.data());
+        assert(OclocDir != OclocDirs.end() && "Missing ocloc search location");
+        // Create new output temporary file
+        std::string OutputTempFile;
+        OutputTempFile = C.getDriver().GetTemporaryPath(
+            llvm::sys::path::stem(Output.getFilename()).str() + "-ocloc",
+            types::getTypeTempSuffix(Output.getType()));
+        const char *TempOutput = C.addTempFile(
+            C.getArgs().MakeArgString(OutputTempFile));
+        InputInfo OclocOutput(Output.getType(), TempOutput, TempOutput);
+        Outputs.push_back(OclocOutput);
+        constructOclocCommand(C, JA, OclocOutput, Inputs,
+                              combineArgs(OclocItem.second), OclocDir->second);
+      }
+      // perform a concatenation.
+      auto OclocDir = OclocDirs.find(OclocTargets[0].first.data());
+      constructOclocConcatCommand(C, JA, Output, Outputs, OclocDir->second);
+      return;
+    } else if (OclocTargets.size() == 1) {
+      auto OclocItem = OclocTargets[0];
+      auto OclocDir = OclocDirs.find(OclocItem.first.data());
+      assert(OclocDir != OclocDirs.end() && "Missing ocloc search location");
+      constructOclocCommand(C, JA, Output, Inputs,
+                            combineArgs(OclocItem.second),
+                            OclocDir->second);
+      return;
+    }
+  }
+  // Splitting environment not available, do a regular run
+  auto OclocBin = llvm::sys::findProgramByName("ocloc");
+  if (OclocBin.getError())
+    C.getDriver().Diag(diag::warn_drv_aot_tool_not_found)
+                   << "ocloc";
+
+  SmallString<128> ExecPath(
+      getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
+  constructOclocCommand(C, JA, Output, Inputs, CmdArgs, ExecPath);
+#else // INTEL_CUSTOMIZATION
   ArgStringList CmdArgs{"-output", Output.getFilename()};
   InputInfoList ForeachInputs;
   for (const auto &II : Inputs) {
@@ -697,6 +1110,13 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
+
+#if INTEL_CUSTOMIZATION
+  auto OclocBin = llvm::sys::findProgramByName("ocloc");
+  if (OclocBin.getError())
+    C.getDriver().Diag(diag::warn_drv_aot_tool_not_found)
+                   << "ocloc";
+#endif // INTEL_CUSTOMIZATION
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
@@ -710,6 +1130,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
                                 this, "", "out", ParallelJobs);
   } else
     C.addCommand(std::move(Cmd));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void SYCL::x86_64::BackendCompiler::ConstructJob(
@@ -759,7 +1180,7 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
 
 SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
                              const ToolChain &HostTC, const ArgList &Args)
-    : ToolChain(D, Triple, Args), HostTC(HostTC), SYCLInstallation(D) {
+    : ToolChain(D, Triple, Args), HostTC(HostTC) {
   // Lookup binaries into the driver directory, this is used to
   // discover the clang-offload-bundler executable.
   getProgramPaths().push_back(getDriver().Dir);

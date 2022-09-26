@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "Program.h"
+#include "BackendUtils.h"
 #include "BitCodeContainer.h"
-#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "ObjectCodeContainer.h"
-#include "Program.h"
 #include "Serializer.h"
 #include "cache_binary_handler.h"
 #include "cl_device_api.h"
@@ -29,7 +29,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 Program::Program():
     m_pObjectCodeContainer(nullptr),
     m_pIRCodeContainer(nullptr),
-    m_kernels(nullptr)
+    m_kernels(nullptr),
+    m_codeProfilingStatus(PROFILING_NONE)
 {}
 
 Program::~Program()
@@ -128,7 +129,7 @@ void Program::SetGlobalVariables(std::vector<cl_prog_gv> gvs)
 }
 
 void Program::RecordCtorDtors(llvm::Module &M) {
-    CompilationUtils::recordGlobalCtorDtors(M, m_globalCtors, m_globalDtors);
+  BackendUtils::recordGlobalCtorDtors(M, m_globalCtors, m_globalDtors);
 }
 
 void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)
@@ -206,6 +207,10 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 {
     Serializer::SerialString(m_buildLog, ost);
 
+    if (OCL_CACHED_BINARY_VERSION >= 17)
+      // Profiling
+      Serializer::SerialPrimitive<unsigned int>(&m_codeProfilingStatus, ost);
+
     unsigned int kernelsCount = m_kernels->GetCount();
     Serializer::SerialPrimitive<unsigned int>(&kernelsCount, ost);
     for(unsigned int i = 0; i < m_kernels->GetCount(); ++i)
@@ -250,6 +255,13 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     Serializer::DeserialString(m_buildLog, ist);
+
+    if (stats->m_binaryVersion >= 17)
+      // Profiling
+      Serializer::DeserialPrimitive<unsigned int>(&m_codeProfilingStatus, ist);
+
+    if (m_codeProfilingStatus != PROFILING_NONE)
+      LoadProfileLib();
 
     unsigned int kernelsCount = 0;
     Serializer::DeserialPrimitive<unsigned int>(&kernelsCount, ist);

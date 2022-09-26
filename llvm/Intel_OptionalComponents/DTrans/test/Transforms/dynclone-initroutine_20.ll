@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; It verifies that code is generated correctly to initialize/set/
 ; reset/test allocation of unsafe flag correctly for DynClone
 ; transformation even though init routine has two user calls
@@ -86,4 +88,6 @@ define i32 @main() {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #pragma OPENCL EXTENSION cl_khr_fp16: enable
 
 typedef long long32 __attribute__((ext_vector_type(32)));
@@ -124,6 +136,12 @@ typedef ushort ushort24  __attribute__((ext_vector_type(24)));
 typedef ushort ushort48  __attribute__((ext_vector_type(48)));
 typedef ushort ushort96  __attribute__((ext_vector_type(96)));
 typedef ushort ushort192  __attribute__((ext_vector_type(192)));
+
+typedef half half12  __attribute__((ext_vector_type(12)));
+typedef half half24  __attribute__((ext_vector_type(24)));
+typedef half half48  __attribute__((ext_vector_type(48)));
+typedef half half96  __attribute__((ext_vector_type(96)));
+typedef half half192  __attribute__((ext_vector_type(192)));
 
 typedef char char12  __attribute__((ext_vector_type(12)));
 typedef char char24  __attribute__((ext_vector_type(24)));

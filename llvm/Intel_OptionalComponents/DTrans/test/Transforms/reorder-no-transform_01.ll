@@ -4,8 +4,9 @@
 ; for %struct.test2. %struct.test1 doesn't violate any safety checks
 ; to trigger Field-reordering.
 
-;  RUN: opt  < %s -whole-program-assume -S -dtrans-reorderfields | FileCheck %s
-;  RUN: opt  < %s -whole-program-assume -S -passes=dtrans-reorderfields | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
+; RUN: opt  < %s -whole-program-assume -S -dtrans-reorderfields | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK-DAG: %__DFR_struct.test1 = type { i64, i64, i64, i32, i32, i32, i16 }
 ; CHECK-DAG: %struct.test2 = type { i32, i64, i32, i32, i16, i64, i64 }
@@ -58,6 +59,9 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
-declare dso_local noalias i8* @malloc(i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+declare dso_local noalias i8* @malloc(i64) #1
 declare void @foo1(%struct.test2*)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

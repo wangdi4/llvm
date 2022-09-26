@@ -1,4 +1,21 @@
 //===--- Ananas.cpp - Ananas ToolChain Implementations ------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -71,7 +88,7 @@ void ananas::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-export-dynamic");
     if (Args.hasArg(options::OPT_shared)) {
       CmdArgs.push_back("-Bshareable");
-    } else {
+    } else if (!Args.hasArg(options::OPT_r)) {
       Args.AddAllArgs(CmdArgs, options::OPT_pie);
       CmdArgs.push_back("-dynamic-linker");
       CmdArgs.push_back("/lib/ld-ananas.so");
@@ -107,7 +124,7 @@ void ananas::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
-                  D.getLTOMode() == LTOK_Thin);
+                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
   }
 
   AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);

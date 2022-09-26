@@ -30,6 +30,7 @@
 #include "X86InstrFoldTables.h"
 #include "X86InstrInfo.h"
 #include "llvm/ADT/STLExtras.h"
+#include <atomic>
 #include <vector>
 
 using namespace llvm;
@@ -1686,6 +1687,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::UNPCKHPSrr,               X86::UNPCKHPSrm,               TB_ALIGN_16 },
   { X86::UNPCKLPDrr,               X86::UNPCKLPDrm,               TB_ALIGN_16 },
   { X86::UNPCKLPSrr,               X86::UNPCKLPSrm,               TB_ALIGN_16 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VADDNEPBF16Z128rr,        X86::VADDNEPBF16Z128rm,        0 },
+  { X86::VADDNEPBF16Z256rr,        X86::VADDNEPBF16Z256rm,        0 },
+  { X86::VADDNEPBF16Zrr,           X86::VADDNEPBF16Zrm,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VADDPDYrr,                X86::VADDPDYrm,                0 },
   { X86::VADDPDZ128rr,             X86::VADDPDZ128rm,             0 },
   { X86::VADDPDZ256rr,             X86::VADDPDZ256rm,             0 },
@@ -1783,11 +1791,23 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VBROADCASTSSZ128rrkz,     X86::VBROADCASTSSZ128rmkz,     TB_NO_REVERSE },
   { X86::VBROADCASTSSZ256rrkz,     X86::VBROADCASTSSZ256rmkz,     TB_NO_REVERSE },
   { X86::VBROADCASTSSZrrkz,        X86::VBROADCASTSSZrmkz,        TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VCMPNEPBF16Z128rri,         X86::VCMPNEPBF16Z128rmi,         0 },
+  { X86::VCMPNEPBF16Z256rri,         X86::VCMPNEPBF16Z256rmi,         0 },
+  { X86::VCMPNEPBF16Zrri,            X86::VCMPNEPBF16Zrmi,            0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VCMPPDYrri,               X86::VCMPPDYrmi,               0 },
   { X86::VCMPPDZ128rri,            X86::VCMPPDZ128rmi,            0 },
   { X86::VCMPPDZ256rri,            X86::VCMPPDZ256rmi,            0 },
   { X86::VCMPPDZrri,               X86::VCMPPDZrmi,               0 },
   { X86::VCMPPDrri,                X86::VCMPPDrmi,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  //FIXME: missing table for VCMPPH/VCMPNEPBF16, and No table for VCOMISH/VCOMNESBF16
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VCMPPHZ128rri,            X86::VCMPPHZ128rmi,            0 },
   { X86::VCMPPHZ256rri,            X86::VCMPPHZ256rmi,            0 },
   { X86::VCMPPHZrri,               X86::VCMPPHZrmi,               0 },
@@ -1953,6 +1973,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VDBPSADBWZ128rri,         X86::VDBPSADBWZ128rmi,         0 },
   { X86::VDBPSADBWZ256rri,         X86::VDBPSADBWZ256rmi,         0 },
   { X86::VDBPSADBWZrri,            X86::VDBPSADBWZrmi,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VDIVNEPBF16Z128rr,        X86::VDIVNEPBF16Z128rm,        0 },
+  { X86::VDIVNEPBF16Z256rr,        X86::VDIVNEPBF16Z256rm,        0 },
+  { X86::VDIVNEPBF16Zrr,           X86::VDIVNEPBF16Zrm,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VDIVPDYrr,                X86::VDIVPDYrm,                0 },
   { X86::VDIVPDZ128rr,             X86::VDIVPDZ128rm,             0 },
   { X86::VDIVPDZ256rr,             X86::VDIVPDZ256rm,             0 },
@@ -2126,6 +2153,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VMAXCSHZrr,               X86::VMAXCSHZrm,               0 },
   { X86::VMAXCSSZrr,               X86::VMAXCSSZrm,               0 },
   { X86::VMAXCSSrr,                X86::VMAXCSSrm,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMAXNEPBF16Z128rr,        X86::VMAXNEPBF16Z128rm,        0 },
+  { X86::VMAXNEPBF16Z256rr,        X86::VMAXNEPBF16Z256rm,        0 },
+  { X86::VMAXNEPBF16Zrr,           X86::VMAXNEPBF16Zrm,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VMAXPDYrr,                X86::VMAXPDYrm,                0 },
   { X86::VMAXPDZ128rr,             X86::VMAXPDZ128rm,             0 },
   { X86::VMAXPDZ256rr,             X86::VMAXPDZ256rm,             0 },
@@ -2167,6 +2201,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VMINCSHZrr,               X86::VMINCSHZrm,               0 },
   { X86::VMINCSSZrr,               X86::VMINCSSZrm,               0 },
   { X86::VMINCSSrr,                X86::VMINCSSrm,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMINNEPBF16Z128rr,        X86::VMINNEPBF16Z128rm,        0 },
+  { X86::VMINNEPBF16Z256rr,        X86::VMINNEPBF16Z256rm,        0 },
+  { X86::VMINNEPBF16Zrr,           X86::VMINNEPBF16Zrm,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VMINPDYrr,                X86::VMINPDYrm,                0 },
   { X86::VMINPDZ128rr,             X86::VMINPDZ128rm,             0 },
   { X86::VMINPDZ256rr,             X86::VMINPDZ256rm,             0 },
@@ -2242,6 +2283,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #endif // INTEL_CUSTOMIZATION
   { X86::VMPSADBWrri,              X86::VMPSADBWrmi,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMULNEPBF16Z128rr,        X86::VMULNEPBF16Z128rm,        0 },
+  { X86::VMULNEPBF16Z256rr,        X86::VMULNEPBF16Z256rm,        0 },
+  { X86::VMULNEPBF16Zrr,           X86::VMULNEPBF16Zrm,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VMULPDYrr,                X86::VMULPDYrm,                0 },
   { X86::VMULPDZ128rr,             X86::VMULPDZ128rm,             0 },
   { X86::VMULPDZ256rr,             X86::VMULPDZ256rm,             0 },
@@ -3277,6 +3325,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VSQRTSSZr_Int,            X86::VSQRTSSZm_Int,            TB_NO_REVERSE },
   { X86::VSQRTSSr,                 X86::VSQRTSSm,                 0 },
   { X86::VSQRTSSr_Int,             X86::VSQRTSSm_Int,             TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VSUBNEPBF16Z128rr,        X86::VSUBNEPBF16Z128rm,        0 },
+  { X86::VSUBNEPBF16Z256rr,        X86::VSUBNEPBF16Z256rm,        0 },
+  { X86::VSUBNEPBF16Zrr,           X86::VSUBNEPBF16Zrm,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VSUBPDYrr,                X86::VSUBPDYrm,                0 },
   { X86::VSUBPDZ128rr,             X86::VSUBPDZ128rm,             0 },
   { X86::VSUBPDZ256rr,             X86::VSUBPDZ256rm,             0 },
@@ -3345,6 +3400,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::DVPCR2BFRSWrr,            X86::DVPCR2BFRSWrm,                0 },
 #endif // INTEL_FEATURE_ISA_DSPV1
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VADDNEPBF16Z128rrkz,        X86::VADDNEPBF16Z128rmkz,        0 },
+  { X86::VADDNEPBF16Z256rrkz,        X86::VADDNEPBF16Z256rmkz,        0 },
+  { X86::VADDNEPBF16Zrrkz,           X86::VADDNEPBF16Zrmkz,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VADDPDZ128rrkz,             X86::VADDPDZ128rmkz,             0 },
   { X86::VADDPDZ256rrkz,             X86::VADDPDZ256rmkz,             0 },
   { X86::VADDPDZrrkz,                X86::VADDPDZrmkz,                0 },
@@ -3391,6 +3453,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VBROADCASTSSZ128rrk,        X86::VBROADCASTSSZ128rmk,        TB_NO_REVERSE },
   { X86::VBROADCASTSSZ256rrk,        X86::VBROADCASTSSZ256rmk,        TB_NO_REVERSE },
   { X86::VBROADCASTSSZrrk,           X86::VBROADCASTSSZrmk,           TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VCMPNEPBF16Z128rrik,          X86::VCMPNEPBF16Z128rmik,          0 },
+  { X86::VCMPNEPBF16Z256rrik,          X86::VCMPNEPBF16Z256rmik,          0 },
+  { X86::VCMPNEPBF16Zrrik,             X86::VCMPNEPBF16Zrmik,             0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VCMPPDZ128rrik,             X86::VCMPPDZ128rmik,             0 },
   { X86::VCMPPDZ256rrik,             X86::VCMPPDZ256rmik,             0 },
   { X86::VCMPPDZrrik,                X86::VCMPPDZrmik,                0 },
@@ -3420,11 +3489,6 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VCVTNE2PS2BF16Z256rrkz,     X86::VCVTNE2PS2BF16Z256rmkz,     0 },
   { X86::VCVTNE2PS2BF16Zrrkz,        X86::VCVTNE2PS2BF16Zrmkz,        0 },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
-  { X86::VCVTNE2PS2PHZ128rrkz,       X86::VCVTNE2PS2PHZ128rmkz,       0 },
-  { X86::VCVTNE2PS2PHZ256rrkz,       X86::VCVTNE2PS2PHZ256rmkz,       0 },
-  { X86::VCVTNE2PS2PHZrrkz,          X86::VCVTNE2PS2PHZrmkz,          0 },
-#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   { X86::VCVTNEPH2BF16Z128rrk,       X86::VCVTNEPH2BF16Z128rmk,       0 },
   { X86::VCVTNEPH2BF16Z256rrk,       X86::VCVTNEPH2BF16Z256rmk,       0 },
@@ -3514,6 +3578,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VDBPSADBWZ128rrikz,         X86::VDBPSADBWZ128rmikz,         0 },
   { X86::VDBPSADBWZ256rrikz,         X86::VDBPSADBWZ256rmikz,         0 },
   { X86::VDBPSADBWZrrikz,            X86::VDBPSADBWZrmikz,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VDIVNEPBF16Z128rrkz,        X86::VDIVNEPBF16Z128rmkz,        0 },
+  { X86::VDIVNEPBF16Z256rrkz,        X86::VDIVNEPBF16Z256rmkz,        0 },
+  { X86::VDIVNEPBF16Zrrkz,           X86::VDIVNEPBF16Zrmkz,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VDIVPDZ128rrkz,             X86::VDIVPDZ128rmkz,             0 },
   { X86::VDIVPDZ256rrkz,             X86::VDIVPDZ256rmkz,             0 },
   { X86::VDIVPDZrrkz,                X86::VDIVPDZrmkz,                0 },
@@ -4009,6 +4080,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VMAXCPSZ128rrkz,            X86::VMAXCPSZ128rmkz,            0 },
   { X86::VMAXCPSZ256rrkz,            X86::VMAXCPSZ256rmkz,            0 },
   { X86::VMAXCPSZrrkz,               X86::VMAXCPSZrmkz,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMAXNEPBF16Z128rrkz,        X86::VMAXNEPBF16Z128rmkz,        0 },
+  { X86::VMAXNEPBF16Z256rrkz,        X86::VMAXNEPBF16Z256rmkz,        0 },
+  { X86::VMAXNEPBF16Zrrkz,           X86::VMAXNEPBF16Zrmkz,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VMAXPDZ128rrkz,             X86::VMAXPDZ128rmkz,             0 },
   { X86::VMAXPDZ256rrkz,             X86::VMAXPDZ256rmkz,             0 },
   { X86::VMAXPDZrrkz,                X86::VMAXPDZrmkz,                0 },
@@ -4030,6 +4108,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VMINCPSZ128rrkz,            X86::VMINCPSZ128rmkz,            0 },
   { X86::VMINCPSZ256rrkz,            X86::VMINCPSZ256rmkz,            0 },
   { X86::VMINCPSZrrkz,               X86::VMINCPSZrmkz,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMINNEPBF16Z128rrkz,        X86::VMINNEPBF16Z128rmkz,        0 },
+  { X86::VMINNEPBF16Z256rrkz,        X86::VMINNEPBF16Z256rmkz,        0 },
+  { X86::VMINNEPBF16Zrrkz,           X86::VMINNEPBF16Zrmkz,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VMINPDZ128rrkz,             X86::VMINPDZ128rmkz,             0 },
   { X86::VMINPDZ256rrkz,             X86::VMINPDZ256rmkz,             0 },
   { X86::VMINPDZrrkz,                X86::VMINPDZrmkz,                0 },
@@ -4087,6 +4172,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VMPSADBWZ256rrikz,          X86::VMPSADBWZ256rmikz,          0 },
   { X86::VMPSADBWZrrikz,             X86::VMPSADBWZrmikz,             0 },
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMULNEPBF16Z128rrkz,        X86::VMULNEPBF16Z128rmkz,        0 },
+  { X86::VMULNEPBF16Z256rrkz,        X86::VMULNEPBF16Z256rmkz,        0 },
+  { X86::VMULNEPBF16Zrrkz,           X86::VMULNEPBF16Zrmkz,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #endif // INTEL_CUSTOMIZATION
   { X86::VMULPDZ128rrkz,             X86::VMULPDZ128rmkz,             0 },
   { X86::VMULPDZ256rrkz,             X86::VMULPDZ256rmkz,             0 },
@@ -4987,6 +5079,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VSQRTSDZr_Intkz,            X86::VSQRTSDZm_Intkz,            TB_NO_REVERSE },
   { X86::VSQRTSHZr_Intkz,            X86::VSQRTSHZm_Intkz,            TB_NO_REVERSE },
   { X86::VSQRTSSZr_Intkz,            X86::VSQRTSSZm_Intkz,            TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VSUBNEPBF16Z128rrkz,        X86::VSUBNEPBF16Z128rmkz,        0 },
+  { X86::VSUBNEPBF16Z256rrkz,        X86::VSUBNEPBF16Z256rmkz,        0 },
+  { X86::VSUBNEPBF16Zrrkz,           X86::VSUBNEPBF16Zrmkz,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VSUBPDZ128rrkz,             X86::VSUBPDZ128rmkz,             0 },
   { X86::VSUBPDZ256rrkz,             X86::VSUBPDZ256rmkz,             0 },
   { X86::VSUBPDZrrkz,                X86::VSUBPDZrmkz,                0 },
@@ -5020,6 +5119,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
 };
 
 static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VADDNEPBF16Z128rrk,        X86::VADDNEPBF16Z128rmk,        0 },
+  { X86::VADDNEPBF16Z256rrk,        X86::VADDNEPBF16Z256rmk,        0 },
+  { X86::VADDNEPBF16Zrrk,           X86::VADDNEPBF16Zrmk,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VADDPDZ128rrk,             X86::VADDPDZ128rmk,             0 },
   { X86::VADDPDZ256rrk,             X86::VADDPDZ256rmk,             0 },
   { X86::VADDPDZrrk,                X86::VADDPDZrmk,                0 },
@@ -5054,11 +5160,6 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VCVTNE2PS2BF16Z256rrk,     X86::VCVTNE2PS2BF16Z256rmk,     0 },
   { X86::VCVTNE2PS2BF16Zrrk,        X86::VCVTNE2PS2BF16Zrmk,        0 },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_CONVERT
-  { X86::VCVTNE2PS2PHZ128rrk,       X86::VCVTNE2PS2PHZ128rmk,       0 },
-  { X86::VCVTNE2PS2PHZ256rrk,       X86::VCVTNE2PS2PHZ256rmk,       0 },
-  { X86::VCVTNE2PS2PHZrrk,          X86::VCVTNE2PS2PHZrmk,          0 },
-#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
   { X86::VCVTSD2SHZrr_Intk,         X86::VCVTSD2SHZrm_Intk,         TB_NO_REVERSE },
   { X86::VCVTSD2SSZrr_Intk,         X86::VCVTSD2SSZrm_Intk,         TB_NO_REVERSE },
@@ -5069,6 +5170,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VDBPSADBWZ128rrik,         X86::VDBPSADBWZ128rmik,         0 },
   { X86::VDBPSADBWZ256rrik,         X86::VDBPSADBWZ256rmik,         0 },
   { X86::VDBPSADBWZrrik,            X86::VDBPSADBWZrmik,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VDIVNEPBF16Z128rrk,        X86::VDIVNEPBF16Z128rmk,        0 },
+  { X86::VDIVNEPBF16Z256rrk,        X86::VDIVNEPBF16Z256rmk,        0 },
+  { X86::VDIVNEPBF16Zrrk,           X86::VDIVNEPBF16Zrmk,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VDIVPDZ128rrk,             X86::VDIVPDZ128rmk,             0 },
   { X86::VDIVPDZ256rrk,             X86::VDIVPDZ256rmk,             0 },
   { X86::VDIVPDZrrk,                X86::VDIVPDZrmk,                0 },
@@ -5559,6 +5667,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VMAXCPSZ128rrk,            X86::VMAXCPSZ128rmk,            0 },
   { X86::VMAXCPSZ256rrk,            X86::VMAXCPSZ256rmk,            0 },
   { X86::VMAXCPSZrrk,               X86::VMAXCPSZrmk,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMAXNEPBF16Z128rrk,        X86::VMAXNEPBF16Z128rmk,        0 },
+  { X86::VMAXNEPBF16Z256rrk,        X86::VMAXNEPBF16Z256rmk,        0 },
+  { X86::VMAXNEPBF16Zrrk,           X86::VMAXNEPBF16Zrmk,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VMAXPDZ128rrk,             X86::VMAXPDZ128rmk,             0 },
   { X86::VMAXPDZ256rrk,             X86::VMAXPDZ256rmk,             0 },
   { X86::VMAXPDZrrk,                X86::VMAXPDZrmk,                0 },
@@ -5580,6 +5695,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VMINCPSZ128rrk,            X86::VMINCPSZ128rmk,            0 },
   { X86::VMINCPSZ256rrk,            X86::VMINCPSZ256rmk,            0 },
   { X86::VMINCPSZrrk,               X86::VMINCPSZrmk,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMINNEPBF16Z128rrk,        X86::VMINNEPBF16Z128rmk,        0 },
+  { X86::VMINNEPBF16Z256rrk,        X86::VMINNEPBF16Z256rmk,        0 },
+  { X86::VMINNEPBF16Zrrk,           X86::VMINNEPBF16Zrmk,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VMINPDZ128rrk,             X86::VMINPDZ128rmk,             0 },
   { X86::VMINPDZ256rrk,             X86::VMINPDZ256rmk,             0 },
   { X86::VMINPDZrrk,                X86::VMINPDZrmk,                0 },
@@ -5598,6 +5720,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VMPSADBWZ256rrik,          X86::VMPSADBWZ256rmik,          0 },
   { X86::VMPSADBWZrrik,             X86::VMPSADBWZrmik,             0 },
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VMULNEPBF16Z128rrk,        X86::VMULNEPBF16Z128rmk,        0 },
+  { X86::VMULNEPBF16Z256rrk,        X86::VMULNEPBF16Z256rmk,        0 },
+  { X86::VMULNEPBF16Zrrk,           X86::VMULNEPBF16Zrmk,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #endif // INTEL_CUSTOMIZATION
   { X86::VMULPDZ128rrk,             X86::VMULPDZ128rmk,             0 },
   { X86::VMULPDZ256rrk,             X86::VMULPDZ256rmk,             0 },
@@ -6177,6 +6306,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VSQRTSDZr_Intk,            X86::VSQRTSDZm_Intk,            TB_NO_REVERSE },
   { X86::VSQRTSHZr_Intk,            X86::VSQRTSHZm_Intk,            TB_NO_REVERSE },
   { X86::VSQRTSSZr_Intk,            X86::VSQRTSSZm_Intk,            TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  { X86::VSUBNEPBF16Z128rrk,        X86::VSUBNEPBF16Z128rmk,        0 },
+  { X86::VSUBNEPBF16Z256rrk,        X86::VSUBNEPBF16Z256rmk,        0 },
+  { X86::VSUBNEPBF16Zrrk,           X86::VSUBNEPBF16Zrmk,           0 },
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   { X86::VSUBPDZ128rrk,             X86::VSUBPDZ128rmk,             0 },
   { X86::VSUBPDZ256rrk,             X86::VSUBPDZ256rmk,             0 },
   { X86::VSUBPDZrrk,                X86::VSUBPDZrmk,                0 },
@@ -7117,7 +7253,7 @@ const X86MemoryFoldTableEntry *llvm::lookupBroadcastFoldTable(unsigned RegOp,
 namespace {
 
 // This class stores the memory unfolding tables. It is instantiated as a
-// ManagedStatic to lazily init the unfolding table.
+// function scope static variable to lazily init the unfolding table.
 struct X86MemUnfoldTable {
   // Stores memory unfolding tables entries sorted by opcode.
   std::vector<X86MemoryFoldTableEntry> Table;
@@ -7180,11 +7316,10 @@ struct X86MemUnfoldTable {
 };
 }
 
-static ManagedStatic<X86MemUnfoldTable> MemUnfoldTable;
-
 const X86MemoryFoldTableEntry *
 llvm::lookupUnfoldTable(unsigned MemOp) {
-  auto &Table = MemUnfoldTable->Table;
+  static X86MemUnfoldTable MemUnfoldTable;
+  auto &Table = MemUnfoldTable.Table;
   auto I = llvm::lower_bound(Table, MemOp);
   if (I != Table.end() && I->KeyOp == MemOp)
     return &*I;

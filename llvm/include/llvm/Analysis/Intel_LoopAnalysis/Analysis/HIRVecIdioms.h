@@ -20,6 +20,8 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PointerUnion.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+
 namespace llvm {
 namespace loopopt {
 
@@ -108,6 +110,13 @@ public:
     return Iter == IdiomData.end() ? NoIdiom : Iter->second;
   }
 
+  /// Return true if \p ISubj is registered as a compress/expand idiom.
+  bool isCEIdiom(IdiomSubject ISubj) const {
+    IdiomId Id = isIdiom(ISubj);
+    return Id == CEIndexIncFirst || Id == CEIndexIncNext || Id == CEStore ||
+           Id == CELoad || Id == CELdStIndex;
+  }
+
   /// Add \p Linked as an idiom marked with \p Id, and link it to \p Master.
   void addLinked(IdiomSubject Master, IdiomSubject Linked, IdiomId Id) {
     addIdiom(Linked, Id);
@@ -123,6 +132,11 @@ public:
 
   const_iterator begin() const { return IdiomData.begin(); }
   const_iterator end() const { return IdiomData.end(); }
+
+  auto getIdiomsById(IdiomId Id) const {
+    return make_filter_range(make_range(begin(), end()),
+                             [Id](const auto &V) { return V.second == Id; });
+  }
 
   /// Return list of idioms linked to \p Master
   const LinkedIdiomListTy *getLinkedIdioms(IdiomSubject Master) const {
@@ -156,7 +170,7 @@ public:
             for (auto Linked : *LinkedList) {
               auto IdiomCode = isIdiom(Linked);
               OS << StrIndent << getIdiomName(IdiomCode) << ": ";
-              Linked->dump();
+              Linked->dump(OS);
               if (Printed.insert(Linked).second)
                 DumpLinkedIdioms(OS, Linked, Indent + 1);
             }
@@ -167,8 +181,8 @@ public:
         if (!Printed.insert(Idiom.first).second)
           continue;
         OS << getIdiomName(Idiom.second) << ": ";
-        Idiom.first->dump();
-        DumpLinkedIdioms(OS, Idiom.first, 0);
+        Idiom.first->dump(OS);
+        DumpLinkedIdioms(OS, Idiom.first, 1);
       }
   }
 
@@ -215,6 +229,39 @@ public:
            }) != VConflictStoreToLoadMap.end();
   }
 
+  static bool isIncrementInst(const HLInst *Inst, int64_t &Stride) {
+
+    if (Inst->getLLVMInstruction()->getOpcode() != Instruction::Add)
+      return false;
+
+    const RegDDRef *LhsDDRef = Inst->getLvalDDRef();
+    assert(LhsDDRef && "Add instruction expected to have non-null lval DDRef");
+    if (LhsDDRef->isMemRef() || !LhsDDRef->getSrcType()->isIntegerTy())
+      return false;
+
+    assert(Inst->getNumOperands() == 3 &&
+           "Add instruction expected to have 3 operands");
+    const RegDDRef *Op0 = Inst->getOperandDDRef(0);
+    const RegDDRef *Op1 = Inst->getOperandDDRef(1);
+    const RegDDRef *Op2 = Inst->getOperandDDRef(2);
+    if (!Op1->isTerminalRef() || !Op2->isTerminalRef())
+      return false;
+
+    CanonExprUtils &CEU = Op0->getCanonExprUtils();
+    CanonExpr *SumCE =
+        CEU.cloneAndAdd(Op1->getSingleCanonExpr(), Op2->getSingleCanonExpr());
+    if (!SumCE)
+      return false;
+
+    CanonExpr *StrideCE =
+        CEU.cloneAndSubtract(SumCE, Op0->getSingleCanonExpr());
+    if (!StrideCE)
+      return false;
+
+    // TODO: relax the restriction to check for invariant strides.
+    return StrideCE->isIntConstant(&Stride);
+  }
+
 private:
   void insertLinked(IdiomSubject Master, IdiomSubject Linked, IdiomId Id) {
     assert(isValidLink(isIdiom(Master), Id) && "Invalid idiom linking");
@@ -244,18 +291,21 @@ private:
 };
 
 // HIR vector idiom can represent either HLInst or DDRef.
-struct HIRVecIdiom : public PointerUnion<const HLInst *, const DDRef *> {
-  using Base = PointerUnion<const HLInst *, const DDRef *>;
+struct HIRVecIdiom
+    : public PointerUnion<const HLInst *, const DDRef *, const CanonExpr *> {
+  using Base = PointerUnion<const HLInst *, const DDRef *, const CanonExpr *>;
   const HIRVecIdiom *operator->() const { return this; }
   HIRVecIdiom(const HLInst *H) { Base::operator=(H); }
   HIRVecIdiom(const DDRef *D) { Base::operator=(D); }
+  HIRVecIdiom(const CanonExpr *C) { Base::operator=(C); }
   HIRVecIdiom(const Base &U) : Base(U) {}
 
   operator const HLInst *() const { return get<const HLInst *>(); }
   operator const DDRef *() const { return get<const DDRef *>(); }
+  operator const CanonExpr *() const { return get<const CanonExpr *>(); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const;
+  void dump(raw_ostream &OS) const;
 #endif
 };
 
@@ -278,8 +328,9 @@ public:
     case Base::CEStore:
       return Idiom.is<const HLInst *>();
     case Base::CELoad:
-    case Base::CELdStIndex:
       return Idiom.is<const DDRef *>();
+    case Base::CELdStIndex:
+      return Idiom.is<const CanonExpr *>();
     }
     llvm_unreachable("unexpected IdiomId");
     return false;
@@ -294,9 +345,11 @@ using HIRVectorIdioms = VectorIdioms<HIRVecIdiom, HIRVectorIdiomTraits>;
 template <>
 struct DenseMapInfo<loopopt::HIRVecIdiom>
     : public DenseMapInfo<
-          PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *>> {
-  using Base = DenseMapInfo<
-      PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *>>;
+          PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *,
+                       const loopopt::CanonExpr *>> {
+  using Base =
+      DenseMapInfo<PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *,
+                                const loopopt::CanonExpr *>>;
 
   static inline loopopt::HIRVecIdiom getEmptyKey() {
     return Base::getEmptyKey();

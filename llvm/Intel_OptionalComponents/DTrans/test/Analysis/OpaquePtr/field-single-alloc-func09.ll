@@ -35,8 +35,11 @@ define i32 @main() {
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64)
-declare !intel.dtrans.func.type !7 void @free(ptr "intel_dtrans_func_index"="1" nocapture)
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
+declare !intel.dtrans.func.type !7 void @free(ptr "intel_dtrans_func_index"="1" nocapture) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i64 0, i32 1}  ; i64*
 !2 = !{i8 0, i32 1}  ; i8*

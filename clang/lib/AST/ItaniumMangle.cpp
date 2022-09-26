@@ -1681,7 +1681,7 @@ void CXXNameMangler::mangleUnqualifiedName(
         if (!MD->isStatic())
           Arity++;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case DeclarationName::CXXConversionFunctionName:
   case DeclarationName::CXXLiteralOperatorName:
     mangleOperatorName(Name, Arity);
@@ -4017,16 +4017,22 @@ void CXXNameMangler::mangleType(const UnaryTransformType *T) {
   // If this is dependent, we need to record that. If not, we simply
   // mangle it as the underlying type since they are equivalent.
   if (T->isDependentType()) {
-    Out << 'U';
+    Out << "u";
 
+    StringRef BuiltinName;
     switch (T->getUTTKind()) {
-      case UnaryTransformType::EnumUnderlyingType:
-        Out << "3eut";
-        break;
+#define TRANSFORM_TYPE_TRAIT_DEF(Enum, Trait)                                  \
+  case UnaryTransformType::Enum:                                               \
+    BuiltinName = "__" #Trait;                                                 \
+    break;
+#include "clang/Basic/TransformTypeTraits.def"
     }
+    Out << BuiltinName.size() << BuiltinName;
   }
 
+  Out << "I";
   mangleType(T->getBaseType());
+  Out << "E";
 }
 
 void CXXNameMangler::mangleType(const AutoType *T) {
@@ -4720,7 +4726,7 @@ recurse:
         Out << 'E';
         break;
       }
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case UETT_AlignOf:
       Out << 'a';
       MangleAlignofSizeofArg();

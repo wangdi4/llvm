@@ -1250,6 +1250,30 @@ splitRefGroups(RefGroupVecTy &Groups,
   return;
 }
 
+// Returns true if all refs in \p PreOrPostLoopMemRefs have constant distance
+// with some ref in \p LoopMemRefs.
+static bool haveConstantDistance(
+    const HIRRuntimeDD::MemRefGatherer::VectorTy &PreOrPostLoopMemRefs,
+    const HIRRuntimeDD::MemRefGatherer::VectorTy &LoopMemRefs) {
+
+  for (auto *Ref1 : PreOrPostLoopMemRefs) {
+    bool FoundConstDist = false;
+
+    for (auto *Ref2 : LoopMemRefs) {
+      if (DDRefUtils::haveConstDimensionDistances(Ref1, Ref2, false)) {
+        FoundConstDist = true;
+        break;
+      }
+    }
+
+    if (!FoundConstDist) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   RuntimeDDResult Ret = OK;
   Context.Loop = Loop;
@@ -1281,14 +1305,19 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   const HLLoop *InnermostLoop = Loop;
   bool CanLoopBeRelaxed = false;
 
+  bool IsNearPerfect = false;
   if (!Loop->isInnermost() &&
-      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
+      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false,
+                                      &IsNearPerfect) &&
+      !IsNearPerfect) {
     CanLoopBeRelaxed = canLoopBeRelaxed(Loop, InnermostLoop);
 
     if (!CanLoopBeRelaxed) {
       return NON_PERFECT_LOOPNEST;
     }
   }
+
+  Context.InnermostLoop = const_cast<HLLoop *>(InnermostLoop);
 
   bool ConstantTripCount = true;
   uint64_t TotalTripCount = 1;
@@ -1333,16 +1362,55 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   });
 
-  // Gather references which are only inside a loop (no loop bounds,
-  // pre-header and post-exit refs).
-  MemRefGatherer::VectorTy Refs;
-  MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), Refs);
+  MemRefGatherer::VectorTy MemRefs;
+
+  if (!IsNearPerfect) {
+    // Using Loop instead of InnermostLoop to handle 'CanLoopBeRelaxed' case.
+    MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
+                                MemRefs);
+
+  } else {
+    // Gather pre and post innermost loop memrefs separately to do some
+    // validation.
+    MemRefGatherer::VectorTy PreLoopMemRefs;
+    MemRefGatherer::VectorTy LoopMemRefs;
+    MemRefGatherer::VectorTy PostLoopMemRefs;
+
+    const HLLoop *OuterLoop = InnermostLoop->getParentLoop();
+
+    MemRefGatherer::gatherRange(OuterLoop->child_begin(),
+                                InnermostLoop->getIterator(), PreLoopMemRefs);
+    MemRefGatherer::gatherRange(InnermostLoop->pre_begin(),
+                                InnermostLoop->pre_end(), PreLoopMemRefs);
+
+    MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
+                                InnermostLoop->child_end(), LoopMemRefs);
+
+    MemRefGatherer::gatherRange(InnermostLoop->post_begin(),
+                                InnermostLoop->post_end(), PostLoopMemRefs);
+    MemRefGatherer::gatherRange(std::next(InnermostLoop->getIterator()),
+                                OuterLoop->child_end(), PostLoopMemRefs);
+
+    // Give up on near perfect loopnest if any of the pre or post loop memrefs
+    // do not have constant distance with loop body refs as we will not be able
+    // to from valid grouping. We return with 'NON_PERFECT_LOOPNEST' so the
+    // caller can try multiversioning the innermost loop.
+    if (!haveConstantDistance(PreLoopMemRefs, LoopMemRefs) ||
+        !haveConstantDistance(PostLoopMemRefs, LoopMemRefs)) {
+      return NON_PERFECT_LOOPNEST;
+    }
+
+    MemRefs.append(PreLoopMemRefs.begin(), PreLoopMemRefs.end());
+    MemRefs.append(LoopMemRefs.begin(), LoopMemRefs.end());
+    MemRefs.append(PostLoopMemRefs.begin(), PostLoopMemRefs.end());
+  }
+
   LLVM_DEBUG(dbgs() << "[RTDD] Loop references:\n");
-  LLVM_DEBUG(MemRefGatherer::dump(Refs));
+  LLVM_DEBUG(MemRefGatherer::dump(MemRefs));
 
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
-  DDRefIndexGrouping Grouping(Groups, Refs);
+  DDRefIndexGrouping Grouping(Groups, MemRefs);
   DenseMap<unsigned, unsigned> &SplitedGroupsOriginalIndices =
       Context.SplitedGroupsOriginalIndices;
 
@@ -1365,7 +1433,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
              });
 
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
-  Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getIndex(), Tests);
+  Ret = processDDGToGroupPairs(Loop, MemRefs, Grouping.getIndex(), Tests);
 
   if (Ret != OK) {
     return Ret;
@@ -1625,13 +1693,18 @@ HLInst *HIRRuntimeDD::createIntersectionCondition(HLNodeUtils &HNU,
 }
 
 template <typename FuncTy>
-static void applyForLoopnest(HLLoop *OuterLoop, FuncTy Func) {
-  assert(OuterLoop && "OuterLoop should not be nullptr");
+static void applyForLoopnest(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
+                             FuncTy Func) {
+  assert(OutermostLoop && "OutermostLoop should not be nullptr");
+  assert(InnermostLoop && "InnermostLoop should not be nullptr");
 
-  while (OuterLoop) {
-    Func(OuterLoop);
-    OuterLoop = dyn_cast_or_null<HLLoop>(OuterLoop->getFirstChild());
-  }
+  auto *Loop = InnermostLoop;
+  auto *EndLoop = OutermostLoop->getParentLoop();
+
+  do {
+    Func(Loop);
+    Loop = Loop->getParentLoop();
+  } while (Loop != EndLoop);
 }
 
 static Type *getMinimalElementSizeType(const DataLayout &DL,
@@ -1992,19 +2065,20 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
       });
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(MemcheckIf);
-  applyForLoopnest(NoAliasLoop, [&LoopMapper](HLLoop *Loop) {
-    auto MVTag = Loop->getNumber();
-    Loop->setMVTag(MVTag);
+  applyForLoopnest(
+      NoAliasLoop, Context.InnermostLoop, [&LoopMapper](HLLoop *Loop) {
+        auto MVTag = Loop->getNumber();
+        Loop->setMVTag(MVTag);
 
-    HLLoop *ElseCaseLoop = LoopMapper.getMapped(Loop);
-    ElseCaseLoop->setMVTag(MVTag);
-    ElseCaseLoop->markDoNotVectorize();
-    ElseCaseLoop->markDoNotUnroll();
+        HLLoop *ElseCaseLoop = LoopMapper.getMapped(Loop);
+        ElseCaseLoop->setMVTag(MVTag);
+        ElseCaseLoop->markDoNotVectorize();
+        ElseCaseLoop->markDoNotUnroll();
 
-    if (Loop->isInnermost()) {
-      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
-    }
-  });
+        if (Loop->isInnermost()) {
+          HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
+        }
+      });
 }
 
 void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {

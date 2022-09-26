@@ -245,7 +245,8 @@ entry:
 }
 
 
-declare !intel.dtrans.func.type !30 hidden void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !30 hidden void @free(i8* "intel_dtrans_func_index"="1") #0
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
 
 ; CHECK-TRANS: ; Seen dtor.
 ; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged

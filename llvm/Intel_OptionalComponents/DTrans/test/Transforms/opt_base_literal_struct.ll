@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that the base class functionality for type remapping
 ; can handle literal structures.
 

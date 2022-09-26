@@ -1,6 +1,6 @@
 //===-- IntelVPlanCallVecDecisions.h ---------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -26,6 +26,7 @@ namespace llvm {
 
 class TargetTransformInfo;
 class TargetLibraryInfo;
+struct VFInfo;
 
 namespace vpo {
 
@@ -56,10 +57,10 @@ public:
   /// Determine the characteristic type of the vector function as
   /// specified according to the vector function ABI.
   static Type *calcCharacteristicType(VPCallInstruction *VPCallInst,
-                                      VectorVariant &Variant);
+                                      const VFInfo &Variant);
 
   /// \Returns the best simd function variant and its index.
-  llvm::Optional<std::pair<std::unique_ptr<VectorVariant>, unsigned>>
+  llvm::Optional<std::pair<VFInfo, unsigned>>
   matchVectorVariant(const VPCallInstruction *VPCall, bool Masked, unsigned VF,
                      const TargetTransformInfo *TTI);
 
@@ -77,18 +78,10 @@ private:
                    const TargetLibraryInfo *TLI,
                    const TargetTransformInfo *TTI);
 
-  /// Generates a VectorVariant placeholder for TTI so that it can match the
+  /// Generates a VFInfo placeholder for TTI so that it can match the
   /// most appropriate vector variant of the called function \p VPCall.
-  std::unique_ptr<VectorVariant> getVectorVariantForCallParameters(
-      const VPCallInstruction *VPCall,
-      bool Masked,
-      int VF);
-
-  /// Match arguments of VPCall to vector variant parameters. Return score
-  /// based on how well the parameters matched.
-  bool matchAndScoreVariantParameters(const VPCallInstruction *VPCall,
-                                      VectorVariant &Variant, int &Score,
-                                      int &MaxArg);
+  VFInfo getVectorVariantForCallParameters(const VPCallInstruction *VPCall,
+                                           bool Masked, int VF);
 
   VPlanVector &Plan;
 };

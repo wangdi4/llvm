@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -internalize-public-api-list main -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-aostosoa' -internalize-public-api-list main -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
@@ -80,5 +81,8 @@ define void @test02(%struct.test02* %in1) {
 ; CHECK:   store i64 %field2_val, i64* %field1_addr
 ; CHECK:   store i64 %field1_val, i64* %field2_addr
 
-declare i8* @malloc(i64)
-declare i8* @calloc(i64, i64)
+declare i8* @malloc(i64) #0
+declare i8* @calloc(i64, i64) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

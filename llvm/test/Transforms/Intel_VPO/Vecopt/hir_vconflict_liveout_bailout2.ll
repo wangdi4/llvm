@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:      [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %flt;
 ; CHECK-NEXT: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK-NEXT: [VConflict Idiom] Detected!
+; CHECK-NEXT: [VConflict Idiom] Detected, legality pending further dependence checking!
 ; CHECK-NEXT: Idiom List
 ; CHECK-NEXT: VConflictLikeStore: <[[NUM1]]>          (%A)[%0] = %flt;
 

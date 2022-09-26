@@ -66,10 +66,6 @@ entry:
   ret void
 }
 
-declare i1 @__ocl_allOne(i1)
-
-declare i1 @__ocl_allZero(i1)
-
 declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readnone
 
 ; CHECK: declare i32 @_Z12get_local_idj(i32)

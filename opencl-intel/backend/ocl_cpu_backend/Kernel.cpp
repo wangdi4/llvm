@@ -484,7 +484,6 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
     // to dimension
   }
 
-  size_t localNumUniform = 1;
   // Calculate number of work groups and WG size
   for (unsigned int i = 0; i < pKernelUniformImplicitArgs->WorkDim; ++i) {
     assert((m_pProps->IsNonUniformWGSizeSupported() ||
@@ -496,9 +495,8 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
     pKernelUniformImplicitArgs->WGCount[i] = GlbSize / LclSize;
     // In case of non-uniform work-group size there can be a reminder group
     // with size less than size of other groups.
-    pKernelUniformImplicitArgs->WGCount[i] += static_cast<size_t>(0 != GlbSize % LclSize);
-    localNumUniform *=
-      pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i];
+    pKernelUniformImplicitArgs->WGCount[i] +=
+        static_cast<size_t>(0 != GlbSize % LclSize);
   }
 
   size_t barrierSize = m_pProps->GetBarrierBufferSize();
@@ -520,9 +518,23 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
     }
   }
 
-  // barrier buffer is always allocated with the uniform size.
-  m_stackActualSize = barrierSize * localNumUniform +
-                                          localBufferSize + m_stackExtraSize;
+  // The PrepareKernelArgs pass will round-up barrier buffer size to the
+  // multiple of vectorization width, even when (WG_size % SG_size != 0).
+  // So the actual barrier buffer size equals to
+  //   ((LocalSize[0] + VF - 1) / VF) * VF * LocalSize[1] * LocalSize[2]
+  //   * BarrierBufferSizePerWI
+  size_t VF = m_pProps->GetVectorizationWidth();
+  size_t ActualBarrierBufferSize = barrierSize;
+  for (unsigned I = 0; I < MAX_WORK_DIM; ++I) {
+    size_t LocalSize =
+        pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][I];
+    if (I == m_pProps->GetVectorizedDimention())
+      LocalSize = ((LocalSize + VF - 1) / VF) * VF;
+    ActualBarrierBufferSize *= LocalSize;
+  }
+  m_stackActualSize =
+      ActualBarrierBufferSize + localBufferSize + m_stackExtraSize;
+
   // need to decide which entrypoint to run
   const IKernelJITContainer *pScalarJIT = GetKernelJIT(0);
   if (m_pProps->IsVectorizedWithTail()) {

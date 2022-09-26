@@ -1,4 +1,21 @@
 //===- VectorUtilsTest.cpp - VectorUtils tests ------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -710,3 +727,76 @@ TEST_F(VFShapeAPITest, Parameters_InvalidOpenMPLinear) {
   EXPECT_FALSE(validParams(__BUILD_PARAMETERS(VFParamKind::OMP_LinearUValPos)));
 #undef __BUILD_PARAMETERS
 }
+
+#if INTEL_CUSTOMIZATION
+struct VFInfoTest : public testing::Test {
+  using Names = std::pair<std::string, std::string>;
+
+  static Names getNames(VFISAKind Isa, bool Masked, unsigned VF,
+                        std::initializer_list<VFParameter> Params,
+                        StringRef ScalarName, StringRef Alias = "") {
+    auto Info = VFInfo::get(Isa, Masked, VF, ArrayRef<VFParameter>(Params),
+                            ScalarName, Alias);
+    return {Info.FullName, Info.VectorName};
+  }
+
+  static std::string getVectorName(VFISAKind Isa, bool Masked, unsigned VF,
+                                   std::initializer_list<VFParameter> Params,
+                                   StringRef ScalarName) {
+    return getNames(Isa, Masked, VF, Params, ScalarName).second;
+  }
+
+  static Names makeNames(StringRef S1, StringRef S2) { return Names(S1, S2); }
+};
+
+TEST_F(VFInfoTest, encode) {
+  EXPECT_EQ("_ZGVbN4vu_foo",
+            getVectorName(VFISAKind::SSE, false, 4,
+                          {VFParameter{0, VFParamKind::Vector},
+                           VFParameter{1, VFParamKind::OMP_Uniform}},
+                          "foo"));
+
+  EXPECT_EQ("_ZGVcM8ll2RR4LL8UU16_bar",
+            getVectorName(VFISAKind::AVX, true, 8,
+                          {VFParameter{0, VFParamKind::OMP_Linear, 1},
+                           VFParameter{1, VFParamKind::OMP_Linear, 2},
+                           VFParameter{2, VFParamKind::OMP_LinearRef, 1},
+                           VFParameter{3, VFParamKind::OMP_LinearRef, 4},
+                           VFParameter{4, VFParamKind::OMP_LinearVal, 1},
+                           VFParameter{5, VFParamKind::OMP_LinearVal, 8},
+                           VFParameter{6, VFParamKind::OMP_LinearUVal, 1},
+                           VFParameter{7, VFParamKind::OMP_LinearUVal, 16}},
+                          "bar"));
+
+  EXPECT_EQ("_ZGVdN16uls0Rs0Ls0Us0_baz",
+            getVectorName(VFISAKind::AVX2, false, 16,
+                          {VFParameter{0, VFParamKind::OMP_Uniform},
+                           VFParameter{1, VFParamKind::OMP_LinearPos, 0},
+                           VFParameter{2, VFParamKind::OMP_LinearRefPos, 0},
+                           VFParameter{3, VFParamKind::OMP_LinearValPos, 0},
+                           VFParameter{4, VFParamKind::OMP_LinearUValPos, 0}},
+                          "baz"));
+
+  EXPECT_EQ("_ZGVeM32_foo",
+            getVectorName(VFISAKind::AVX512, true, 32, {}, "foo"));
+
+  EXPECT_EQ(makeNames("_ZGVxN2uv_foo(aliased)", "aliased"),
+            getNames(VFISAKind::Unknown, false, 2,
+                     {VFParameter{0, VFParamKind::OMP_Uniform},
+                      VFParameter{1, VFParamKind::Vector}},
+                     "foo", "aliased"));
+
+  EXPECT_EQ(
+      "_ZGVbN1va1ua2la4l2a8ls1a16_foo",
+      getVectorName(VFISAKind::SSE, false, 1,
+                    {
+                        VFParameter{0, VFParamKind::Vector, 0, Align(1)},
+                        VFParameter{1, VFParamKind::OMP_Uniform, 0, Align(2)},
+                        VFParameter{2, VFParamKind::OMP_Linear, 1, Align(4)},
+                        VFParameter{3, VFParamKind::OMP_Linear, 2, Align(8)},
+                        VFParameter{4, VFParamKind::OMP_LinearPos, 1, Align(16)},
+                    },
+                    "foo"));
+}
+
+#endif // INTEL_CUSTOMIZATION

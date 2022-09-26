@@ -9,10 +9,12 @@
 // CHECK: "-cc1" "-triple" "amdgcn-amd-amdhsa"{{.*}}"-emit-llvm-bc"{{.*}}"-target-cpu" "gfx906" "-fcuda-is-device"{{.*}}"-mlink-builtin-bitcode"{{.*}}libomptarget-amdgpu-gfx906.bc"{{.*}}
 // CHECK: llvm-link{{.*}}"-o" "{{.*}}amdgpu-openmp-toolchain-{{.*}}-gfx906-linked-{{.*}}.bc"
 // CHECK: llc{{.*}}amdgpu-openmp-toolchain-{{.*}}-gfx906-linked-{{.*}}.bc" "-mtriple=amdgcn-amd-amdhsa" "-mcpu=gfx906" "-filetype=obj" "-o"{{.*}}amdgpu-openmp-toolchain-{{.*}}-gfx906-{{.*}}.o"
-// CHECK: lld{{.*}}"-flavor" "gnu" "--no-undefined" "-shared" "-o"{{.*}}amdgpu-openmp-toolchain-{{.*}}.out" "{{.*}}amdgpu-openmp-toolchain-{{.*}}-gfx906-{{.*}}.o"
-// CHECK: clang-offload-wrapper{{.*}}"-host" "x86_64-unknown-linux-gnu" "-o" "{{.*}}a-{{.*}}.bc" {{.*}}amdgpu-openmp-toolchain-{{.*}}.out"
+// INTEL_CUSTOMIZATION
+// CHECK: lld{{.*}}"-flavor" "gnu" "--no-undefined" "-shared" "-o"{{.*}}amdgpu-openmp-toolchain-{{.*}}.bc" "{{.*}}amdgpu-openmp-toolchain-{{.*}}-gfx906-{{.*}}.o"
+// CHECK: clang-offload-wrapper{{.*}}"-host" "x86_64-unknown-linux-gnu" "-o" "{{.*}}a-{{.*}}.bc" {{.*}}amdgpu-openmp-toolchain-{{.*}}.bc"
 // CHECK: "-cc1" "-triple" "x86_64-unknown-linux-gnu"{{.*}}"-o" "{{.*}}a-{{.*}}.o" "-x" "ir" "{{.*}}a-{{.*}}.bc"
-// CHECK: ld{{.*}}"-o" "a.out"{{.*}}"{{.*}}amdgpu-openmp-toolchain-{{.*}}.o" "{{.*}}a-{{.*}}.o" "-lomp" "-lomptarget"
+// CHECK: ld{{.*}}"-o" "a.out"{{.*}}"{{.*}}amdgpu-openmp-toolchain-{{.*}}.o" "{{.*}}a-{{.*}}.o"{{.*}} "-liomp5" "-lomptarget"
+// end INTEL_CUSTOMIZATION
 
 // RUN:   %clang -ccc-print-phases --target=x86_64-unknown-linux-gnu -fopenmp -fno-openmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906 %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-PHASES %s
@@ -28,8 +30,10 @@
 // CHECK-PHASES: 8: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (amdgcn-amd-amdhsa)" {7}, ir
 // CHECK-PHASES: 9: backend, {8}, assembler, (device-openmp)
 // CHECK-PHASES: 10: assembler, {9}, object, (device-openmp)
-// CHECK-PHASES: 11: linker, {10}, image, (device-openmp)
-// CHECK-PHASES: 12: offload, "device-openmp (amdgcn-amd-amdhsa)" {11}, image
+// INTEL_CUSTOMIZATION
+// CHECK-PHASES: 11: linker, {10}, ir, (device-openmp)
+// CHECK-PHASES: 12: offload, "device-openmp (amdgcn-amd-amdhsa)" {11}, ir
+// end INTEL_CUSTOMIZATION
 // CHECK-PHASES: 13: clang-offload-wrapper, {12}, ir, (host-openmp)
 // CHECK-PHASES: 14: backend, {13}, assembler, (host-openmp)
 // CHECK-PHASES: 15: assembler, {14}, object, (host-openmp)

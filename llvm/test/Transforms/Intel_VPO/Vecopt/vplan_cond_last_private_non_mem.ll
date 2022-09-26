@@ -63,7 +63,7 @@ entry:
   br label %b1
 
 b1:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(i64* %mm) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i64* %mm, i64 0, i32 1) ]
   br label %for.body
 
 for.body:

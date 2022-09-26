@@ -235,6 +235,7 @@ public:
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+  using UDRList = VPOVectorizationLegality::UDRList;
   using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
   using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
 
@@ -274,7 +275,7 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurValue) {
     Descriptor.clear();
-    const RecurrenceDescriptor &RD = CurValue.second.first;
+    const RecurrenceDescriptor &RD = CurValue.second.RD;
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
@@ -286,10 +287,11 @@ public:
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
-    assertIsSingleElementAlloca(CurValue.second.second);
+    assertIsSingleElementAlloca(CurValue.second.RedVarPtr);
     Descriptor.setAllocaInst(
-        Builder.getOrCreateVPOperand(CurValue.second.second));
+        Builder.getOrCreateVPOperand(CurValue.second.RedVarPtr));
     Descriptor.setLinkPhi(nullptr);
+    Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
   }
 };
 // Conversion functor for in-memory reductions
@@ -320,6 +322,30 @@ public:
     Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
   }
 };
+// Conversion functor for user-defined reductions. Implementation mimics
+// in-memory reduction converter along with capturing
+// initialization/finalization functions.
+class UDRListCvt : public VPEntityConverterBase {
+public:
+  UDRListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+
+  void operator()(ReductionDescr &Descriptor,
+                  const UDRList::value_type &CurValue) {
+    Descriptor.clear();
+    assertIsSingleElementAlloca(CurValue->getRef());
+    VPValue *StartVal = Builder.getOrCreateVPOperand(CurValue->getRef());
+    Descriptor.setStart(StartVal);
+    Descriptor.setKind(CurValue->getKind());
+    auto *AI = cast<AllocaInst>(CurValue->getRef()->stripPointerCasts());
+    Descriptor.setRecType(AI->getAllocatedType());
+    Descriptor.setSigned(false);
+    Descriptor.setAllocaInst(StartVal);
+    Descriptor.setCombiner(CurValue->getCombiner());
+    Descriptor.setInitializer(CurValue->getInitializer());
+    Descriptor.setCtor(CurValue->getCtor());
+    Descriptor.setDtor(CurValue->getDtor());
+  }
+};
 
 // Conversion functor for auto-recognized inductions
 class InductionListCvt : public VPEntityConverterBase {
@@ -346,6 +372,15 @@ public:
     else {
       // Step of induction is variable, populate it later via VPlan
       Descriptor.setStep(nullptr);
+      // Variable step; auto-detected case
+      // Holds auto-detected SCEV returned by IVDescriptor which is later used
+      // by insertInductionVPInstructions to create VPInstructions Eg: (8 *
+      // %step)
+      if (Descriptor.getKind() ==
+          llvm::InductionDescriptorData::IK_PtrInduction) {
+        Descriptor.setStepSCEV(Step);
+        Descriptor.setStepType(Step->getType());
+      }
     }
     if (ID.getInductionBinOp()) {
       Descriptor.setInductionOp(dyn_cast<VPInstruction>(
@@ -419,18 +454,37 @@ public:
     assert(V->getType()->isPointerTy() &&
            "expected pointer type for explicit induction");
     Type *IndTy;
-    int Step;
-    std::tie(IndTy, Step) = CurValue.second;
+    Type *IndPointeeTy;
+    Value *Step;
+    std::tie(IndTy, IndPointeeTy, Step) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
 
     Type *StepTy = IndTy;
-    if (IndTy->isPointerTy()) {
-      // TODO: revisit this once PTR_TO_PTR clause implemented
-      const DataLayout &DL = cast<Instruction>(V)->getModule()->getDataLayout();
-      StepTy = DL.getIntPtrType(IndTy);
+    Descriptor.setStepType(StepTy);
+    if (isa<ConstantInt>(Step)) {
+      int StepInt = cast<ConstantInt>(Step)->getSExtValue();
+      if (IndTy->isPointerTy()) {
+        const DataLayout &DL =
+            cast<Instruction>(V)->getModule()->getDataLayout();
+        StepTy = DL.getIntPtrType(IndTy);
+        if (IndTy->isOpaquePointerTy())
+          StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedSize() * StepInt;
+      }
+      Descriptor.setStep(
+          Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, StepInt)));
+    } else { // Variable step; explicit case
+      if (IndTy->isPointerTy()) {
+        // Storing information in converter, which is then used by
+        // insertInductionVPInstructions to generate VPInstructions
+        const DataLayout &DL =
+            cast<Instruction>(V)->getModule()->getDataLayout();
+        Descriptor.setStepType(DL.getIntPtrType(IndTy));
+        if (IndTy->isOpaquePointerTy())
+          Descriptor.setStepMultiplier(
+              DL.getTypeAllocSize(IndPointeeTy).getFixedSize());
+      }
+      Descriptor.setStep(Builder.getOrCreateVPOperand(Step));
     }
-    Descriptor.setStep(
-        Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, Step)));
 
     Descriptor.setInductionOp(nullptr);
     assertIsSingleElementAlloca(V);
@@ -537,12 +591,12 @@ public:
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
     Descriptor.setAllocatedType(CurValue->getType());
+    Descriptor.setIsF90(CurValue->isF90());
     if (CurValue->isNonPOD()) {
       auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);
       Descriptor.setCtor(NonPODCurValue->getCtor());
       Descriptor.setDtor(NonPODCurValue->getDtor());
       Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
-      Descriptor.setIsF90NonPod(NonPODCurValue->isF90NonPod());
     }
     SmallVector<VPInstruction *, 4> AliasUpdates;
     for (auto *Alias : CurValue->aliases()) {
@@ -626,7 +680,9 @@ void PlainCFGBuilder::convertEntityDescriptors(
   RedCvt->createDescrList(TheLoop,
       Bind(*Legal->getReductionVars(),          ReductionListCvt{*this}),
       Bind(*Legal->getExplicitReductionVars(),  ExplicitReductionListCvt{*this}),
-      Bind(*Legal->getInMemoryReductionVars(),  InMemoryReductionListCvt{*this}));
+      Bind(*Legal->getInMemoryReductionVars(),  InMemoryReductionListCvt{*this}),
+      Bind(*Legal->getUDRVars(),                UDRListCvt{*this}));
+
 
   IndCvt->createDescrList(TheLoop,
       Bind(*Legal->getInductionVars(),          InductionListCvt{*this, Plan, SE}),

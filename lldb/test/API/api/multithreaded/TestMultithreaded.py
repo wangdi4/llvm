@@ -1,7 +1,5 @@
 """Test the lldb public C++ api breakpoint callbacks."""
 
-from __future__ import print_function
-
 # __package__ = "lldbsuite.test"
 
 
@@ -24,8 +22,6 @@ class SBBreakpointCallbackCase(TestBase):
         self.generateSource('test_listener_event_process_state.cpp')
         self.generateSource('test_listener_resume.cpp')
         self.generateSource('test_stop-hook.cpp')
-
-    mydir = TestBase.compute_mydir(__file__)
 
     @skipIfRemote
     @skipIfNoSBHeaders

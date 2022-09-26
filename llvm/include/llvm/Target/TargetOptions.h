@@ -238,7 +238,7 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION
     /// IntelAdvancedOptim - It is set to false by default. This flag
     /// represents whether Intel Advanced optimizations are enabled or
-    /// not (controlled with -x).
+    /// not (controlled with -x or -ax).
     unsigned IntelAdvancedOptim : 1;
 
     /// IntelLibIRCAllowed - When true, this indicates that libirc is

@@ -103,8 +103,7 @@ public:
 
     virtual size_t GetRequiredNumSubGroups() const override;
 
-    virtual size_t GetMaxSubGroupSize(size_t size,
-                                      const size_t *WGSizes) const override;
+    virtual size_t GetMaxSubGroupSize() const override;
 
     /**
      * @returns locals size that would give the desired number of subgroups
@@ -153,6 +152,12 @@ public:
      * body, false otherwise
      */
     virtual bool HasNoBarrierPath() const override;
+
+    /**
+     * @returns true if the specified kernel has amx call in the kernel
+     * body, false otherwise
+     */
+    virtual bool HasMatrixCall() const override;
 
     /**
      * @returns true if the specified kernel has debug info,
@@ -233,8 +238,8 @@ public:
     void SetReqdNumSG(size_t value) { m_reqdNumSG = value; }
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetHasNoBarrierPath(bool value) { m_hasNoBarrierPath = value; }
+    void SetHasMatrixCall(bool value) { m_hasMatrixCall = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
-    void SetUseNativeSubgroups(bool value) { m_useNativeSubgroups = value; }
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
@@ -267,6 +272,7 @@ public:
     bool          GetCanUniteWG() const { return m_canUniteWG; }
     unsigned int  GetVectorizedDimention() const { return m_verctorizeOnDimention;}
     size_t        GetCpuMaxWGSize() const { return m_cpuMaxWGSize; }
+    size_t        GetVectorizationWidth() const { return m_vectorizationWidth; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -279,8 +285,8 @@ public:
 
 protected:
     bool m_hasNoBarrierPath;
+    bool m_hasMatrixCall;
     bool m_hasGlobalSync;
-    bool m_useNativeSubgroups;
     bool m_DAZ;
     Intel::OpenCL::Utils::CPUId
         m_cpuId; // selected cpuId for current kernel codegen

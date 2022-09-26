@@ -573,6 +573,7 @@ Function *WGLoopBoundariesImpl::createLoopBoundariesFunctionDecl() {
   // if inlined.
   auto *CondFunc =
       Function::Create(FTy, GlobalValue::ExternalLinkage, EEFuncName, &M);
+  CondFunc->copyAttributesFrom(F);
   return CondFunc;
 }
 

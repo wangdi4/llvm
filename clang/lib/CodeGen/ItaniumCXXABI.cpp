@@ -694,8 +694,8 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
                            CGM.HasHiddenLTOVisibility(RD);
   bool ShouldEmitWPDInfo =
       CGM.getCodeGenOpts().WholeProgramVTables &&
-      // Don't insert type tests if we are forcing public std visibility.
-      !CGM.HasLTOVisibilityPublicStd(RD);
+      // Don't insert type tests if we are forcing public visibility.
+      !CGM.AlwaysHasLTOVisibilityPublic(RD);
   llvm::Value *VirtualFn = nullptr;
 
   {
@@ -733,8 +733,12 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
       if (ShouldEmitCFICheck || ShouldEmitWPDInfo) {
         llvm::Value *VFPAddr =
             Builder.CreateGEP(CGF.Int8Ty, VTable, VTableOffset);
+        llvm::Intrinsic::ID IID = CGM.HasHiddenLTOVisibility(RD)
+                                      ? llvm::Intrinsic::type_test
+                                      : llvm::Intrinsic::public_type_test;
+
         CheckResult = Builder.CreateCall(
-            CGM.getIntrinsic(llvm::Intrinsic::type_test),
+            CGM.getIntrinsic(IID),
             {Builder.CreateBitCast(VFPAddr, CGF.Int8PtrTy), TypeId});
       }
 
@@ -986,14 +990,16 @@ ItaniumCXXABI::EmitMemberPointerConversion(const CastExpr *E,
     adj = llvm::ConstantInt::get(adj->getType(), offset);
   }
 
-  llvm::Constant *srcAdj = llvm::ConstantExpr::getExtractValue(src, 1);
+  llvm::Constant *srcAdj = src->getAggregateElement(1);
   llvm::Constant *dstAdj;
   if (isDerivedToBase)
     dstAdj = llvm::ConstantExpr::getNSWSub(srcAdj, adj);
   else
     dstAdj = llvm::ConstantExpr::getNSWAdd(srcAdj, adj);
 
-  return llvm::ConstantExpr::getInsertValue(src, dstAdj, 1);
+  llvm::Constant *res = ConstantFoldInsertValueInstruction(src, dstAdj, 1);
+  assert(res != nullptr && "Folding must succeed");
+  return res;
 }
 
 llvm::Constant *
@@ -1876,8 +1882,11 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
     }
   }
 
-  if (VTContext.isRelativeLayout() && !VTable->isDSOLocal())
-    CGVT.GenerateRelativeVTableAlias(VTable, VTable->getName());
+  if (VTContext.isRelativeLayout()) {
+    CGVT.RemoveHwasanMetadata(VTable);
+    if (!VTable->isDSOLocal())
+      CGVT.GenerateRelativeVTableAlias(VTable, VTable->getName());
+  }
 }
 
 bool ItaniumCXXABI::isVirtualOffsetNeededForVTableField(
@@ -2964,7 +2973,7 @@ void CodeGenModule::registerGlobalDtorsWithAtExit() {
     }
 
     CGF.FinishFunction();
-    AddGlobalCtor(GlobalInitFn, Priority, nullptr);
+    AddGlobalCtor(GlobalInitFn, Priority);
   }
 
   if (getCXXABI().useSinitAndSterm())
@@ -3265,14 +3274,16 @@ void ItaniumCXXABI::EmitThreadLocalInitFuncs(
 
     // For a reference, the result of the wrapper function is a pointer to
     // the referenced object.
-    llvm::Value *Val = Var;
+    llvm::Value *Val = Builder.CreateThreadLocalAddress(Var);
+
     if (VD->getType()->isReferenceType()) {
       CharUnits Align = CGM.getContext().getDeclAlign(VD);
-      Val = Builder.CreateAlignedLoad(Var->getValueType(), Var, Align);
+      Val = Builder.CreateAlignedLoad(Var->getValueType(), Val, Align);
     }
     if (Val->getType() != Wrapper->getReturnType())
       Val = Builder.CreatePointerBitCastOrAddrSpaceCast(
           Val, Wrapper->getReturnType(), "");
+
     Builder.CreateRet(Val);
   }
 }
@@ -3464,6 +3475,16 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
                                   Name);
 #endif // INTEL_COLLAB
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    // Type is always a i8*, so emit it as a void ptr.
+    CGM.addDTransInfoToGlobal(
+        CGM.getContext().getPointerType(CGM.getContext().VoidTy), nullptr, GV,
+        GV->getValueType());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
     const CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
     CGM.setGVProperties(GV, RD);
     // Import the typeinfo symbol when all non-inline virtual methods are
@@ -3839,7 +3860,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     }
 
     assert(isa<ObjCInterfaceType>(Ty));
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case Type::ObjCInterface:
     if (cast<ObjCInterfaceType>(Ty)->getDecl()->getSuperClass()) {
@@ -3874,6 +3895,19 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #endif  // INTEL_COLLAB
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (auto *GlobVTable =
+          dyn_cast<llvm::GlobalVariable>(VTable->stripPointerCasts())) {
+    // Type is either a i8* or an alias of unknown type, so emit it as a void
+    // ptr.
+    CGM.addDTransInfoToGlobal(
+        CGM.getContext().getPointerType(CGM.getContext().VoidTy), nullptr,
+        GlobVTable, GlobVTable->getValueType());
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   llvm::Type *PtrDiffTy =
       CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
@@ -4883,7 +4917,7 @@ static void InitCatchParam(CodeGenFunction &CGF,
       switch (CatchType.getQualifiers().getObjCLifetime()) {
       case Qualifiers::OCL_Strong:
         CastExn = CGF.EmitARCRetainNonBlock(CastExn);
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
 
       case Qualifiers::OCL_None:
       case Qualifiers::OCL_ExplicitNone:

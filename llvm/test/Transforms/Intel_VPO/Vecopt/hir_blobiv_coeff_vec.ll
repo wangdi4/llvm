@@ -6,10 +6,8 @@
 ;   for (i = 0; i < 100; i++)
 ;     arr[n * i] = i;
 ; }
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -S -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -S -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -S -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s
 
 ; CHECK:      DO i1 = 0, 99, 4   <DO_LOOP>
 ; CHECK:          (<4 x i32>*)(%arr)[{{.*}}] = {{.*}}

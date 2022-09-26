@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test that identifies if the DTrans padded malloc optimization identified
 ; a malloc function but there is no search loop.
@@ -10,9 +11,9 @@
 
 @globalstruct = internal global %struct.testStruct zeroinitializer, align 8
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
-declare void @free(i8* nocapture)
+declare void @free(i8* nocapture) #1
 
 define internal noalias i8* @mallocFunc(i64) {
   %2 = tail call noalias i8* @malloc(i64 %0)
@@ -28,6 +29,10 @@ define i32 @main() {
     %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
+
 
 ; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc
 ; CHECK: dtrans-paddedmalloc: Identifying alloc functions

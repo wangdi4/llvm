@@ -50,6 +50,7 @@
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionMachO.h"
@@ -83,6 +84,9 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   EmitFPOData =
       Subtarget->isTargetWin32() && MF.getMMI().getModule()->getCodeViewFlag();
 
+  IndCSPrefix =
+      MF.getMMI().getModule()->getModuleFlag("indirect_branch_cs_prefix");
+
   SetupMachineFunction(MF);
 
   if (Subtarget->isTargetCOFF()) {
@@ -106,6 +110,8 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
 
   EmitFPOData = false;
 
+  IndCSPrefix = false;
+
   // We didn't modify anything.
   return false;
 }
@@ -125,6 +131,86 @@ void X86AsmPrinter::emitFunctionBodyEnd() {
     if (auto *XTS =
             static_cast<X86TargetStreamer *>(OutStreamer->getTargetStreamer()))
       XTS->emitFPOEndProc();
+  }
+}
+
+uint32_t X86AsmPrinter::MaskKCFIType(uint32_t Value) {
+  // If the type hash matches an invalid pattern, mask the value.
+  const uint32_t InvalidValues[] = {
+      0xFA1E0FF3, /* ENDBR64 */
+      0xFB1E0FF3, /* ENDBR32 */
+  };
+  for (uint32_t N : InvalidValues) {
+    // LowerKCFI_CHECK emits -Value for indirect call checks, so we must also
+    // mask that. Note that -(Value + 1) == ~Value.
+    if (N == Value || -N == Value)
+      return Value + 1;
+  }
+  return Value;
+}
+
+void X86AsmPrinter::EmitKCFITypePadding(const MachineFunction &MF,
+                                        bool HasType) {
+  // Keep the function entry aligned, taking patchable-function-prefix into
+  // account if set.
+  int64_t PrefixBytes = 0;
+  (void)MF.getFunction()
+      .getFnAttribute("patchable-function-prefix")
+      .getValueAsString()
+      .getAsInteger(10, PrefixBytes);
+
+  // Also take the type identifier into account if we're emitting
+  // one. Otherwise, just pad with nops. The X86::MOV32ri instruction emitted
+  // in X86AsmPrinter::emitKCFITypeId is 5 bytes long.
+  if (HasType)
+    PrefixBytes += 5;
+
+  emitNops(offsetToAlignment(PrefixBytes, MF.getAlignment()));
+}
+
+/// emitKCFITypeId - Emit the KCFI type information in architecture specific
+/// format.
+void X86AsmPrinter::emitKCFITypeId(const MachineFunction &MF) {
+  const Function &F = MF.getFunction();
+  if (!F.getParent()->getModuleFlag("kcfi"))
+    return;
+
+  ConstantInt *Type = nullptr;
+  if (const MDNode *MD = F.getMetadata(LLVMContext::MD_kcfi_type))
+    Type = mdconst::extract<ConstantInt>(MD->getOperand(0));
+
+  // If we don't have a type to emit, just emit padding if needed to maintain
+  // the same alignment for all functions.
+  if (!Type) {
+    EmitKCFITypePadding(MF, /*HasType=*/false);
+    return;
+  }
+
+  // Emit a function symbol for the type data to avoid unreachable instruction
+  // warnings from binary validation tools, and use the same linkage as the
+  // parent function. Note that using local linkage would result in duplicate
+  // symbols for weak parent functions.
+  MCSymbol *FnSym = OutContext.getOrCreateSymbol("__cfi_" + MF.getName());
+  emitLinkage(&MF.getFunction(), FnSym);
+  if (MAI->hasDotTypeDotSizeDirective())
+    OutStreamer->emitSymbolAttribute(FnSym, MCSA_ELF_TypeFunction);
+  OutStreamer->emitLabel(FnSym);
+
+  // Embed the type hash in the X86::MOV32ri instruction to avoid special
+  // casing object file parsers.
+  EmitKCFITypePadding(MF);
+  EmitAndCountInstruction(MCInstBuilder(X86::MOV32ri)
+                              .addReg(X86::EAX)
+                              .addImm(MaskKCFIType(Type->getZExtValue())));
+
+  if (MAI->hasDotTypeDotSizeDirective()) {
+    MCSymbol *EndSym = OutContext.createTempSymbol("cfi_func_end");
+    OutStreamer->emitLabel(EndSym);
+
+    const MCExpr *SizeExp = MCBinaryExpr::createSub(
+        MCSymbolRefExpr::create(EndSym, OutContext),
+        MCSymbolRefExpr::create(FnSym, OutContext), OutContext);
+    OutStreamer->emitELFSize(FnSym, SizeExp);
   }
 }
 
@@ -269,7 +355,7 @@ void X86AsmPrinter::PrintOperand(const MachineInstr *MI, unsigned OpNo,
 void X86AsmPrinter::PrintModifiedOperand(const MachineInstr *MI, unsigned OpNo,
                                          raw_ostream &O, const char *Modifier) {
   const MachineOperand &MO = MI->getOperand(OpNo);
-  if (!Modifier || MO.getType() != MachineOperand::MO_Register)
+  if (!Modifier || !MO.isReg())
     return PrintOperand(MI, OpNo, O);
   if (MI->getInlineAsmDialect() == InlineAsm::AD_ATT)
     O << '%';
@@ -491,7 +577,7 @@ static bool printAsmMRegister(const X86AsmPrinter &P, const MachineOperand &MO,
     break;
   case 'V':
     EmitPercent = false;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case 'q':
     // Print 64-bit register names if 64-bit integer registers are available.
     // Otherwise, print 32-bit register names.
@@ -754,6 +840,10 @@ void X86AsmPrinter::emitStartOfAsmFile(Module &M) {
       Feat00Flags |= 0x4000; // Object also has EHCont.
     }
 
+    if (M.getModuleFlag("ms-kernel")) {
+      Feat00Flags |= 0x40000000; // Object is compiled with /kernel.
+    }
+
     OutStreamer->emitSymbolAttribute(S, MCSA_Global);
     OutStreamer->emitAssignment(
         S, MCConstantExpr::create(Feat00Flags, MMI->getContext()));
@@ -971,7 +1061,7 @@ void X86AsmPrinter::emitNotifyTable(Module &M) {
   // of anchor address structure field for a corresponding anchor.
   int16_t Version = EmitTabV0102 ? 0x0102 : 0x0101;
 
-  OutStreamer->SwitchSection(Notify);
+  OutStreamer->switchSection(Notify);
 
   MCSymbol *NotifyStart = MMI->getContext().getOrCreateSymbol("itt_notify_tab");
   MCSymbol *EntriesStart =

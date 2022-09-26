@@ -34,25 +34,25 @@
 
 static std::string LastErrorMessage;
 
-static wchar_t * utf8_to_wchar(const char *in) {
+static wchar_t *utf8ToWchar(const char *In) {
   // Account for multi-byte chars (up to 4 bytes per char for UTF8)
-  size_t str_len = strnlen_s(in, MAX_PATH*4 + 1);
+  size_t StrLen = strnlen_s(In, MAX_PATH*4 + 1);
 
   // Worst case, every char in the multi-byte coded string can turn into a
   // single wchar_t
-  wchar_t * new_str = (wchar_t *) malloc((str_len + 1) * sizeof(wchar_t));
+  wchar_t *NewStr = (wchar_t *)malloc((StrLen + 1) * sizeof(wchar_t));
 #ifdef OMPTARGET_DEBUG
-  if (!new_str)
-    DP("utf8_to_wchar(): malloc failed\n");
+  if (!NewStr)
+    DP("utf8ToWchar(): malloc failed\n");
 #endif // OMPTARGET_DEBUG
 
-  if (new_str) {
-    int new_str_len = MultiByteToWideChar(CP_UTF8, 0, in, str_len, new_str,
-        str_len + 1);
-    new_str[new_str_len] = 0;
+  if (NewStr) {
+    int NewStrLen = MultiByteToWideChar(CP_UTF8, 0, In, StrLen, NewStr,
+        StrLen + 1);
+    NewStr[NewStrLen] = 0;
   }
 
-  return new_str;
+  return NewStr;
 }
 
 #ifdef __cplusplus
@@ -75,7 +75,7 @@ void *dlopen(const char *File, int Mode) {
     DP("Cannot resolve absolute path of omptarget module\n");
     return NULL;
   }
-  wchar_t *FilePath = utf8_to_wchar(File);
+  wchar_t *FilePath = utf8ToWchar(File);
   std::wstring FullPath(CurrModulePath);
   size_t Loc = FullPath.find_last_of('\\');
   FullPath.replace(Loc + 1, std::wstring::npos, FilePath);
@@ -111,32 +111,32 @@ void *dlopen(const char *File, int Mode) {
   return static_cast<void*>(Ret);
 }
 
-int dlclose(void *handle) {
-  return FreeLibrary(static_cast<HMODULE>(handle));
+int dlclose(void *Handle) {
+  return FreeLibrary(static_cast<HMODULE>(Handle));
 }
 
-void *dlsym(void *handle, const char *name) {
-  void *addr = reinterpret_cast<void *>(
-      GetProcAddress(static_cast<HMODULE>(handle), name));
-  return addr;
+void *dlsym(void *Handle, const char *Name) {
+  void *Addr = reinterpret_cast<void *>(
+      GetProcAddress(static_cast<HMODULE>(Handle), Name));
+  return Addr;
 }
 
 // Covert GetLastError() to string.
 char *dlerror(void) {
   LastErrorMessage.clear();
-  DWORD error = GetLastError();
-  if (error) {
-    LPVOID lpMsgBuf;
-    DWORD bufLen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+  DWORD Error = GetLastError();
+  if (Error) {
+    LPVOID LPMsgBuf;
+    DWORD BufLen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
                                  FORMAT_MESSAGE_ARGUMENT_ARRAY |
                                  FORMAT_MESSAGE_FROM_SYSTEM |
-                                 FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error,
+                                 FORMAT_MESSAGE_IGNORE_INSERTS, NULL, Error,
                                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                                 (LPTSTR) &lpMsgBuf, 0, NULL);
-    if (bufLen) {
-      LPCSTR lpMsgStr = (LPCSTR)lpMsgBuf;
-      LastErrorMessage.assign(lpMsgStr, lpMsgStr+bufLen);
-      LocalFree(lpMsgBuf);
+                                 (LPTSTR) &LPMsgBuf, 0, NULL);
+    if (BufLen) {
+      LPCSTR LPMsgStr = (LPCSTR)LPMsgBuf;
+      LastErrorMessage.assign(LPMsgStr, LPMsgStr + BufLen);
+      LocalFree(LPMsgBuf);
     }
   }
 

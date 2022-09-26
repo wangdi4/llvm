@@ -2,10 +2,8 @@
 ; Test to verify VPlan's functionality and generated vector code for in-memory
 ; binop reduction.
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 
@@ -33,10 +31,12 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; HIR-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
 ; HIR-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP4]]
 ; HIR-NEXT:     float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT]]
-; HIR-NEXT:     float* [[VP6:%.*]] = bitcast i32* [[VP_SUM]]
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP_SUM]]
+; HIR-NEXT:     float* [[VP6:%.*]] = bitcast i32* [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:     float [[VP_LOAD_2:%.*]] = load float* [[VP6]]
 ; HIR-NEXT:     float [[VP7:%.*]] = fadd float [[VP_LOAD_1]] float [[VP_LOAD_2]]
-; HIR-NEXT:     float* [[VP8:%.*]] = bitcast i32* [[VP_SUM]]
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[VP_SUM]]
+; HIR-NEXT:     float* [[VP8:%.*]] = bitcast i32* [[VP_SUBSCRIPT_3]]
 ; HIR-NEXT:     store float [[VP7]] float* [[VP8]]
 ; HIR-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
 ; HIR-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
@@ -150,7 +150,7 @@ entry:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %sum) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %sum, i32 0, i32 1) ]
   br label %for.body
 
 for.body:

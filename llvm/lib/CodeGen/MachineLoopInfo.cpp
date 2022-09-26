@@ -120,6 +120,19 @@ MachineBasicBlock *MachineLoop::findLoopControlBlock() const { // INTEL
 }
 
 DebugLoc MachineLoop::getStartLoc() const {
+
+#if INTEL_CUSTOMIZATION
+  // If we can find loop metadata for this machine loop, try pulling a debug
+  // location out of that before trying machine instructions.
+  if (const MDNode *const LoopID = getLoopID()) {
+    for (const MDOperand &LoopIDOpnd : LoopID->operands()) {
+      if (const auto *const Loc = dyn_cast<DILocation>(LoopIDOpnd)) {
+        return Loc;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Try the pre-header first.
   if (MachineBasicBlock *PHeadMBB = getLoopPreheader())
     if (const BasicBlock *PHeadBB = PHeadMBB->getBasicBlock())

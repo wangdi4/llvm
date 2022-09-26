@@ -1,8 +1,9 @@
 ; This test verifies only candidate selection for field reordering
 ; transformation based on padding heuristic.
 
-;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S 2>&1 | FileCheck %s
-;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields  -S 2>&1 | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
+; RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields  -S 2>&1 | FileCheck %s
 
 ; CHECK: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }
 
@@ -50,4 +51,6 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

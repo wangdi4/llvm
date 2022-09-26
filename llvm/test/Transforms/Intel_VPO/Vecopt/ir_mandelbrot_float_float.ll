@@ -44,7 +44,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.
   br label %DIR.OMP.SIMD.142
 
 DIR.OMP.SIMD.142:                                 ; preds = %DIR.OMP.SIMD.1
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(float* %in_vals_tmp_real.priv.priv), "QUAL.OMP.PRIVATE"(float* %in_vals_tmp_imagine.priv.priv) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.PRIVATE:TYPED"(float* %in_vals_tmp_real.priv.priv, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %in_vals_tmp_imagine.priv.priv, float 0.000000e+00, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.142

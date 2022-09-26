@@ -34,11 +34,17 @@ protected:
   cl_kernel kernel_private;
   cl_mem buffer_private;
   cl_program program_private;
+
+  // In test with disabling master join we allocate 1.5 MB for array, set private
+  // mem size 2MB via environment CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE. Default
+  // stack size is 1MB for windows x86 and x64. And there will be no stack
+  // overflow issue since master thread does not participate in kernel computations
+  // on O0 mode for Windows.
   const std::string programSources =
       "__kernel void test(__global int* o)\n"
       "{\n"
-      "    const int size = (PRI_MEM_SIZE - 1024*1024) / "
-      "sizeof(int);\n" // PRI_MEM_SIZE MB - 1MB of private memory
+      "    const int size = (PRI_MEM_SIZE - 1024*512) / "
+      "sizeof(int);\n" // PRI_MEM_SIZE MB - 0.5MB of private memory
       "    __private volatile int buf[size];\n"
       "    int gid = get_global_id(0);\n"
       "    for (int i = 0; i < size; ++i)\n"
@@ -61,6 +67,8 @@ void DisableMasterJoinTest::setUp() {
   iRet = clGetDeviceIDs(platform_private, gDeviceType, 1, &device_private,
                         nullptr);
   ASSERT_OCL_SUCCESS(iRet, "clGetDeviceIDs");
+  // Set auto memory to false
+  ASSERT_TRUE(SETENV("CL_CONFIG_AUTO_MEMORY", "false"));
 
   cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
                                    (cl_context_properties)platform_private, 0};
@@ -79,9 +87,9 @@ cl_ulong DisableMasterJoinTest::trySetPrivateMemSize(cl_ulong size,
   if (unit.empty() || unit == "B")
     str = std::to_string(size) + "B";
   else if (unit == "K" || unit == "KB")
-    str = std::to_string(size / 1000) + "K";
+    str = std::to_string(size / 1024) + "K";
   else if (unit == "M" || unit == "MB")
-    str = std::to_string(size / 1000000) + "M";
+    str = std::to_string(size / 1024 / 1024) + "M";
   else
     return 0;
   // set env variable to change the default value of private mem size
@@ -95,12 +103,9 @@ cl_ulong DisableMasterJoinTest::trySetPrivateMemSize(cl_ulong size,
 #ifdef _WIN32
 TEST_F(DisableMasterJoinTest, testWithSource) {
   printf("testWithSource\n");
-  // Allocate stack size with size 8MB
-  cl_ulong stackSize = trySetStackSize(STACK_SIZE);
-  ASSERT_NE(stackSize, 0) << "trySetStackSize fail";
 
-  // Set private mem size 16MB
-  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE * 2, "M");
+  // Set private mem size 2MB
+  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(1024 * 1024 * 2, "M");
   ASSERT_NE(expectedPrivateMemSize, 0) << "trySetPrivateMemSize fail";
 
   setUp();
@@ -138,10 +143,7 @@ void DisableMasterJoinTest::buildFromBinary(
 TEST_F(DisableMasterJoinTest, testWithBinary) {
   printf("testWithBinary\n");
 
-  cl_ulong stackSize = trySetStackSize(STACK_SIZE);
-  ASSERT_NE(stackSize, 0) << "trySetStackSize fail";
-
-  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE * 2, "M");
+  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(1024 * 1024 * 2, "M");
   ASSERT_NE(expectedPrivateMemSize, 0) << "trySetPrivateMemSize fail";
 
   setUp();

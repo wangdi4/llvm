@@ -46,6 +46,9 @@ void LoopHintAttr::printPrettyPragma(raw_ostream &OS,
     OS << ' ' << getValueString(Policy);
     return;
 #if INTEL_CUSTOMIZATION
+  } else if (SpellingIndex == Pragma_vector) {
+    OS << ' ' << getOptionName(option) << getValueString(Policy);
+    return;
   } else if (SpellingIndex == Pragma_distribute_point)
     return;
   else if (SpellingIndex == Pragma_nofusion)
@@ -53,8 +56,6 @@ void LoopHintAttr::printPrettyPragma(raw_ostream &OS,
   else if (SpellingIndex == Pragma_fusion)
     return;
   else if (SpellingIndex == Pragma_novector)
-    return;
-  else if (SpellingIndex == Pragma_vector)
     return;
   else if (SpellingIndex == Pragma_force_hyperopt)
     return;
@@ -230,24 +231,24 @@ OMPDeclareTargetDeclAttr::getActiveAttr(const ValueDecl *VD) {
 llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy>
 OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(const ValueDecl *VD) {
   llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
-  if (ActiveAttr.hasValue())
-    return ActiveAttr.getValue()->getMapType();
+  if (ActiveAttr)
+    return ActiveAttr.value()->getMapType();
   return llvm::None;
 }
 
 llvm::Optional<OMPDeclareTargetDeclAttr::DevTypeTy>
 OMPDeclareTargetDeclAttr::getDeviceType(const ValueDecl *VD) {
   llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
-  if (ActiveAttr.hasValue())
-    return ActiveAttr.getValue()->getDevType();
+  if (ActiveAttr)
+    return ActiveAttr.value()->getDevType();
   return llvm::None;
 }
 
 llvm::Optional<SourceLocation>
 OMPDeclareTargetDeclAttr::getLocation(const ValueDecl *VD) {
   llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
-  if (ActiveAttr.hasValue())
-    return ActiveAttr.getValue()->getRange().getBegin();
+  if (ActiveAttr)
+    return ActiveAttr.value()->getRange().getBegin();
   return llvm::None;
 }
 
@@ -285,18 +286,35 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     OS << ")";
   }
 
-  auto PrintInteropTypes = [&OS](InteropType *Begin, InteropType *End) {
-    for (InteropType *I = Begin; I != End; ++I) {
+#if INTEL_COLLAB
+  auto PrintInteropInfo = [&OS, &Policy](OMPInteropInfo *Begin,
+                                         OMPInteropInfo *End) {
+#else // INTEL_COLLAB
+  auto PrintInteropInfo = [&OS](OMPInteropInfo *Begin, OMPInteropInfo *End) {
+#endif // INTEL_COLLAB
+    for (OMPInteropInfo *I = Begin; I != End; ++I) {
       if (I != Begin)
         OS << ", ";
       OS << "interop(";
-      OS << ConvertInteropTypeToStr(*I);
+      OS << getInteropTypeString(I);
+#if INTEL_COLLAB
+      if (!I->PreferTypes.empty()) {
+        OS << ",prefer_type(";
+        StringRef Sep = "";
+        for (const Expr *E : I->PreferTypes) {
+          OS << Sep;
+          E->printPretty(OS, nullptr, Policy);
+          Sep = ",";
+        }
+        OS << ")";
+      }
+#endif // INTEL_COLLAB
       OS << ")";
     }
   };
   if (appendArgs_size()) {
     OS << " append_args(";
-    PrintInteropTypes(appendArgs_begin(), appendArgs_end());
+    PrintInteropInfo(appendArgs_begin(), appendArgs_end());
     OS << ")";
   }
 }

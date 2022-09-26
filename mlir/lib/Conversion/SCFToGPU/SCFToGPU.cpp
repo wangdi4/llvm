@@ -20,7 +20,7 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/GPU/Transforms/ParallelLoopMapper.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
@@ -106,7 +106,7 @@ static Value getOrEmitUpperBound(AffineForOp forOp, OpBuilder &builder) {
 // rewriting infrastructure.
 static LogicalResult checkAffineLoopNestMappableImpl(AffineForOp forOp,
                                                      unsigned numDims) {
-  Region &limit = forOp.region();
+  Region &limit = forOp.getRegion();
   for (unsigned i = 0, e = numDims; i < e; ++i) {
     Operation *nested = &forOp.getBody()->front();
     if (!areValuesDefinedAbove(getLowerBoundOperands(forOp), limit) ||
@@ -320,11 +320,18 @@ static Value deriveStaticUpperBound(Value upperBound,
   }
 
   if (auto minOp = upperBound.getDefiningOp<AffineMinOp>()) {
-    for (const AffineExpr &result : minOp.map().getResults()) {
+    for (const AffineExpr &result : minOp.getMap().getResults()) {
       if (auto constExpr = result.dyn_cast<AffineConstantExpr>()) {
         return rewriter.create<arith::ConstantIndexOp>(minOp.getLoc(),
                                                        constExpr.getValue());
       }
+    }
+  }
+
+  if (auto minOp = upperBound.getDefiningOp<arith::MinSIOp>()) {
+    for (Value operand : {minOp.getLhs(), minOp.getRhs()}) {
+      if (auto staticBound = deriveStaticUpperBound(operand, rewriter))
+        return staticBound;
     }
   }
 
@@ -336,8 +343,8 @@ static Value deriveStaticUpperBound(Value upperBound,
               deriveStaticUpperBound(multiplyOp.getOperand(1), rewriter)
                   .getDefiningOp())) {
         // Assumptions about the upper bound of minimum computations no longer
-        // work if multiplied by a negative value, so abort in this case.
-        if (lhs.value() < 0 || rhs.value() < 0)
+        // work if multiplied by mixed signs, so abort in this case.
+        if (lhs.value() < 0 != rhs.value() < 0)
           return {};
 
         return rewriter.create<arith::ConstantIndexOp>(

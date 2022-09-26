@@ -62,30 +62,6 @@ public:
   VPlanCFGMerger(VPlanVector &P, unsigned V, unsigned U)
       : Plan(P), ExtVals(P.getExternals()), MainVF(V), MainUF(U) {}
 
-  //
-  // Create a simple chain of vectorized loop and scalar remainder.
-  // The following structure of VPBasicBlocks is created, while on input we have
-  // VectorPreheader-LoopBody-ExitBB.
-  //
-  //           VectorTopTest
-  //              /     \
-  //             /    VectorPreheader
-  //            /        |
-  //           +      LoopBody
-  //           |         |
-  //           |      ExitBB
-  //           |         |
-  //           |      RemainderTopTest
-  //           |     /   |
-  //           |    /    |
-  //      RemainderStart |
-  //           |         |
-  //       RemainderLoop +
-  //              \     /
-  //              FinalBB
-  //
-  void createSimpleVectorRemainderChain(Loop *OrigLoop);
-
   // Create a list of VPlan descriptors (along with the needed VPlans) by
   // vectorization scenario \p Scen.
   template <class LoopTy>
@@ -146,25 +122,6 @@ private:
   void updateMergeBlockIncomings(PlanDescr &Descr, VPBasicBlock *MergeBlock,
                                  VPBasicBlock *SplitBlock, bool UseLiveIn);
 
-  // Create scalar remainder for original loop \p OrigLoop, inserting it after
-  // the VPBasicBlock \p InsertAfter. The \p InsertAfter is supposed to be a
-  // merge block (i.e. containing special VPPHINodes).
-  // A block with VPScalarRemainder and VPInstructions to get scalar liveouts is
-  // created and linked as successor to InsertAfter block. VPScalarRemainder
-  // input values are linked to VPPHINodes from InsertAfter block, using VPlan
-  // scalar in/out list. \p FinalBB is the block in VPlan which should be used
-  // to jump from the last basic block of the loop (see FinalBB on the diagram
-  // above). Returns the block created.
-  VPBasicBlock *createScalarRemainder(Loop *OrigLoop, VPBasicBlock *InsertAfter,
-                                      VPBasicBlock *FinalBB);
-
-  // Create a VPBasicBlock with top test for VPlan loop. It's supposed that
-  // VPVectorTripCountCalculation and VPOrigTripCountCalculation are inserted in
-  // the Plan loop preheader. A new block is created, the trip count
-  // instructions are moved to the new block and the top test check is created,
-  // with two successors, loop preheader and \p FallThroughMergeBlock.
-  VPBasicBlock *createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock);
-
   // Create a VPBasicBlock with a check for remaining iterations count after
   // vector loop. It's supposed that VPVectorTripCountCalculation and
   // VPOrigTripCountCalculation are inserted in a block before the \p Plan loop
@@ -174,12 +131,6 @@ private:
   VPBasicBlock *createRemainderTopTest(VPBasicBlock *InsertAfter,
                                        VPBasicBlock *RemPreheader,
                                        VPBasicBlock *FinalMergeBlock);
-
-  // The \p InBlock is supposed to contain VPOrigLiveOut instructions.
-  // \p BB is a merge block, and its VPPHINodes are updated with
-  // incoming pairs {VPOrigValue, InBlock}.
-  void updateMergeBlockByScalarLiveOuts(
-    VPBasicBlock *BB, VPBasicBlock *InBlock);
 
   // Set operands of external uses to merge values from the \p FinalBB.
   void updateExternalUsesOperands(VPBasicBlock *FinalBB);

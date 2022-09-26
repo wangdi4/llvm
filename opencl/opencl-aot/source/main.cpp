@@ -425,9 +425,15 @@ int main(int Argc, char *Argv[]) {
   cl::OptionCategory CatIgnoredAOCOptions(
       "Ignored Options",
       "These aoc flags intended for FPGA hardware flow will be ignored.");
+#define OPTION_VALUE_OPTIONAL(name, flag, type)                                \
+  cl::opt<type> name(flag, cl::cat(CatIgnoredAOCOptions), cl::ReallyHidden,    \
+                     cl::ValueOptional);                                       \
+  IgnoredAOCOptions.insert(&name)
+
 #define OPTION_VALUE(name, flag, type)                                         \
     cl::opt<type> name(flag, cl::cat(CatIgnoredAOCOptions), cl::ReallyHidden); \
     IgnoredAOCOptions.insert(&name)
+
 #define OPTION_ENUM(name, flag, N_opts, ...)                                   \
     cl::opt<EnumClass##N_opts> name(flag, cl::cat(CatIgnoredAOCOptions),       \
                                     EnumVal##N_opts(__VA_ARGS__),              \

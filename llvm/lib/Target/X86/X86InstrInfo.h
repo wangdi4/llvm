@@ -46,8 +46,15 @@ class X86Subtarget;
 namespace X86 {
 
 enum AsmComments {
+#if INTEL_CUSTOMIZATION
   // For instr that was compressed from EVEX to VEX.
-  AC_EVEX_2_VEX = MachineInstr::TAsmComments
+  AC_EVEX_2_VEX = MachineInstr::TAsmComments,
+#if INTEL_FEATURE_MARKERCOUNT
+  // To distinguish prolog from epilog for MARKER_COUNT_FUNCTION
+  AC_PROLOG = AC_EVEX_2_VEX << 1,
+  AC_EPILOG = AC_PROLOG << 1
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Return a pair of condition code for the given predicate and whether
@@ -257,8 +264,7 @@ public:
   unsigned isStoreToStackSlotPostFE(const MachineInstr &MI,
                                     int &FrameIndex) const override;
 
-  bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
-                                         AAResults *AA) const override;
+  bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const override;
   void reMaterialize(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                      Register DestReg, unsigned SubIdx,
                      const MachineInstr &Orig,
@@ -586,7 +592,7 @@ public:
   ArrayRef<std::pair<unsigned, const char *>>
   getSerializableDirectMachineOperandTargetFlags() const override;
 
-  virtual outliner::OutlinedFunction getOutliningCandidateInfo(
+  outliner::OutlinedFunction getOutliningCandidateInfo(
       std::vector<outliner::Candidate> &RepeatedSequenceLocs) const override;
 
   bool isFunctionSafeToOutlineFrom(MachineFunction &MF,

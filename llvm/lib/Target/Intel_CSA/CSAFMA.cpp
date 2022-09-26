@@ -372,7 +372,7 @@ public:
   unsigned parseBasicBlock(const FMAOpcodes &Opcodes, MachineRegisterInfo *MRI);
 
   /// For CSA we do not care about the killed attribute.
-  void setIsKilledAttributeForTerms() override {}
+  void setIsKilledAttributeForTerms(MachineRegisterInfo *MRI) override {}
 
   /// Prints the basic block to the given stream \p OS.
   void print(raw_ostream &OS) const override;

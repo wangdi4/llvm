@@ -64,10 +64,6 @@ entry:
   ret void
 }
 
-declare i1 @__ocl_allOne(i1)
-
-declare i1 @__ocl_allZero(i1)
-
 declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_i(<4 x i32>) nounwind readnone
 
 ; CHECK: declare i32 @_Z29work_group_scan_exclusive_maxiPi(i32, i32*)

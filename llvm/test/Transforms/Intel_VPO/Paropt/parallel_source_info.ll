@@ -1,14 +1,14 @@
-; RUN: opt -parallel-source-info=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=CHECK-NONE
-; RUN: opt -parallel-source-info=1 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=CHECK-FUNC
-; RUN: opt -parallel-source-info=2 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=CHECK-PATH
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=CHECK-DEFAULT
+; RUN: opt -enable-new-pm=0 -parallel-source-info=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=NOINFO
+; RUN: opt -enable-new-pm=0 -parallel-source-info=1 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=FNINFO
+; RUN: opt -enable-new-pm=0 -parallel-source-info=2 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=PATHINFO
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=DEFAULT
 
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -parallel-source-info=0 -S %s | FileCheck %s --check-prefix=CHECK-NONE
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -parallel-source-info=1 -S %s | FileCheck %s --check-prefix=CHECK-FUNC
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -parallel-source-info=2 -S %s | FileCheck %s --check-prefix=CHECK-PATH
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=CHECK-DEFAULT
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -parallel-source-info=0 -S %s | FileCheck %s --check-prefix=NOINFO
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -parallel-source-info=1 -S %s | FileCheck %s --check-prefix=FNINFO
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -parallel-source-info=2 -S %s | FileCheck %s --check-prefix=PATHINFO
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=DEFAULT
 
-; The test was obtained by compiling the C source below with icx -g -fiopenmp
+; Test src:
 ;
 ; int a[100];
 ; void foo() {
@@ -19,16 +19,16 @@
 ; }
 
 ; Check that -parallel-source-info=0 produces no source location info
-; CHECK-NONE:    private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
+; NOINFO:    private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
 
 ; Check that -parallel-source-info=1 has function+line in the source location info
-; CHECK-FUNC:    private unnamed_addr constant [18 x i8] c";unknown;foo;4;4;;"
+; FNINFO:    private unnamed_addr constant [18 x i8] c";unknown;foo;4;4;;"
 
 ; Check that -parallel-source-info=2 has path+function+line in the source location info
-; CHECK-PATH:    private unnamed_addr constant [62 x i8] c";/full/path/of/test/directory/parallel_source_info.c;foo;4;4;;"
+; PATHINFO:    private unnamed_addr constant [62 x i8] c";/full/path/of/test/directory/parallel_source_info.c;foo;4;4;;"
 
-; Check that the default behavior is -parallel-source-info=1
-; CHECK-DEFAULT: private unnamed_addr constant [18 x i8] c";unknown;foo;4;4;;"
+; Check that the default behavior is -parallel-source-info=2
+; DEFAULT:  private unnamed_addr constant [62 x i8] c";/full/path/of/test/directory/parallel_source_info.c;foo;4;4;;"
 
 ; ModuleID = 'parallel_source_info.c'
 source_filename = "parallel_source_info.c"

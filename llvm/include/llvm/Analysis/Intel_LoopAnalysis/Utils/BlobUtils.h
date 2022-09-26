@@ -28,6 +28,7 @@ class SCEV;
 class Constant;
 class ConstantData;
 class ConstantFP;
+class ConstantInt;
 class Function;
 class Module;
 class LLVMContext;
@@ -132,6 +133,11 @@ public:
   /// If blob is constant, sets the return value in Val.
   static bool isConstantIntBlob(BlobTy Blob, int64_t *Val);
 
+  /// Returns true if \p Blob represents an integer constant whose
+  /// type is > 64 bits. The constant is returned in Val if this is
+  /// the case.
+  static bool isConstantLargeIntBlob(BlobTy Blob, ConstantInt **Val = nullptr);
+
   /// Returns true if Blob is a temp.
   static bool isTempBlob(BlobTy Blob);
 
@@ -166,6 +172,10 @@ public:
   /// Returns true if \p Blob represents a metadata.
   /// If blob is metadata, sets the return value in Val.
   static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
+
+  /// Returns true if \p Blob represents a zero extension value.
+  /// If blob is zext, sets the return value in Val.
+  static bool isZeroExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
 
   /// Returns true if \p Blob represents a signed extension value.
   /// If blob is sext, sets the return value in Val.
@@ -345,6 +355,10 @@ public:
   bool getMaxBlobValue(unsigned BlobIndex, int64_t &Val) const {
     return getMaxBlobValue(getBlob(BlobIndex), Val);
   }
+
+  // Returns underlying blob index if there is an extension, or the default
+  // blob index if not applicable.
+  unsigned getUnderlyingExtBlobIndex(unsigned Index);
 };
 
 } // End namespace loopopt

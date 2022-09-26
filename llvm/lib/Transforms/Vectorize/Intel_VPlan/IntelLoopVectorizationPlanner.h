@@ -58,8 +58,6 @@ extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
 extern bool EnableSOAAnalysisHIR;
-extern bool EnableNewCFGMerge;
-extern bool EnableNewCFGMergeHIR;
 extern unsigned DefaultTripCount;
 // Flag to indicate if dynamic peeling is enabled. Flag is set based on
 // appropriate value of command line option for the IR kind being processed.
@@ -370,10 +368,10 @@ public:
   /// Detects and returns the current type of planning.
   virtual PlannerType getPlannerType() const;
 
-  /// Create and return Plan/VF specific CostModel object based on global
+  /// Create and return Plan/VF/UF specific CostModel object based on global
   /// compilation settings such as presence of -x knob in command line.
   std::unique_ptr<VPlanCostModelInterface> createCostModel(
-    const VPlanVector *Plan, unsigned VF) const;
+    const VPlanVector *Plan, unsigned VF, unsigned UF = 1) const;
 
   /// Record CM's decision and dispose of all other VPlans.
   // void setBestPlan(unsigned VF, unsigned UF);
@@ -422,10 +420,10 @@ public:
   }
 
   bool isVecRemainderDisabled() const {
-    return IsVecRemainder.hasValue() ? !IsVecRemainder.getValue() : false;
+    return IsVecRemainder.has_value() ? !IsVecRemainder.value() : false;
   }
   bool isVecRemainderEnforced() const {
-    return IsVecRemainder.getValueOr(false);
+    return IsVecRemainder.value_or(false);
   }
 
   bool isDynAlignEnabled() const { return IsDynAlign; }
@@ -453,8 +451,6 @@ public:
 
   /// Perform VPlan loop unrolling if needed
   virtual bool unroll(VPlanVector &Plan);
-
-  virtual bool isNewCFGMergeEnabled() const { return EnableNewCFGMerge; }
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
@@ -640,12 +636,18 @@ protected:
     VPInstructionCost ScalarIterationCost;
     VPInstructionCost VectorIterationCost;
     VPInstructionCost Speedup;
+    VPInstructionCost LoopOverhead;
 
     VPCostSummary(VPInstructionCost ScalarIterationCost,
                   VPInstructionCost VectorIterationCost,
-                  VPInstructionCost Speedup)
+                  VPInstructionCost Speedup, VPInstructionCost VectorInitFini)
         : ScalarIterationCost(ScalarIterationCost),
-          VectorIterationCost(VectorIterationCost), Speedup(Speedup) {}
+          VectorIterationCost(VectorIterationCost), Speedup(Speedup) {
+      if (VectorIterationCost.isValid() && VectorIterationCost != 0)
+        LoopOverhead = VectorInitFini / VectorIterationCost;
+      else
+        LoopOverhead = VPInstructionCost::getInvalid();
+    }
   };
 
 private:

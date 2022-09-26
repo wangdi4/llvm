@@ -614,6 +614,30 @@ MDNode *LoopInfo::createMetadata(
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.ivdep_back")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
+  // Setting vector temporal
+  if (Attrs.VectorizeTemporalEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.temporal")};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting vector nontemporal
+  if (Attrs.VectorizeNonTemporalEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    Metadata *Vals[] = {
+        MDString::get(Ctx, "llvm.loop.intel.vector.nontemporal")};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting vector vectorlength
+  if (Attrs.VectorizeLength.size() > 0){
+    LLVMContext &Ctx = Header->getContext();
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.intel.vector.vectorlength"));
+    for (auto Length : Attrs.VectorizeLength) {
+      Vals.push_back(ConstantAsMetadata::get(
+          ConstantInt::get(llvm::Type::getInt32Ty(Ctx), Length)));
+    }
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
   // Setting vector always
   if (Attrs.VectorizeAlwaysEnable ||
       Attrs.VectorizeAlwaysAssertEnable) {
@@ -700,7 +724,7 @@ MDNode *LoopInfo::createMetadata(
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (Attrs.GlobalSYCLIVDepInfo.hasValue()) {
+  if (Attrs.GlobalSYCLIVDepInfo.has_value()) {
     EmitIVDepLoopMetadata(Ctx, LoopProperties, *Attrs.GlobalSYCLIVDepInfo);
     // The legacy metadata also needs to be emitted to provide backwards
     // compatibility with any conformant backend. This is done exclusively
@@ -780,11 +804,13 @@ MDNode *LoopInfo::createMetadata(
                             llvm::Type::getInt32Ty(Ctx), VC.second))};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
-
-  for (auto &FP : Attrs.SYCLIntelFPGAPipeline) {
-    Metadata *Vals[] = {MDString::get(Ctx, FP.first),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            llvm::Type::getInt32Ty(Ctx), FP.second))};
+  
+  if (Attrs.SYCLMaxReinvocationDelayNCycles) {
+    Metadata *Vals[] = {
+        MDString::get(Ctx, "llvm.loop.intel.max_reinvocation_delay.count"),
+        ConstantAsMetadata::get(
+          ConstantInt::get(llvm::Type::getInt32Ty(Ctx),
+                           *Attrs.SYCLMaxReinvocationDelayNCycles))};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
 
@@ -801,7 +827,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
-      VectorizeAlwaysAssertEnable(false), VectorizeAlignedEnable(false),
+      VectorizeAlwaysAssertEnable(false),
+      VectorizeTemporalEnable(false), VectorizeNonTemporalEnable(false),
+      VectorizeAlignedEnable(false),
       VectorizeDynamicAlignEnable(false), VectorizeNoDynamicAlignEnable(false),
       VectorizeVecremainderEnable(false), VectorizeNoVecremainderEnable(false),
       LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
@@ -833,6 +861,9 @@ void LoopAttributes::clear() {
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
   VectorizeAlwaysAssertEnable = false;
+  VectorizeTemporalEnable = false;
+  VectorizeNonTemporalEnable = false;
+  VectorizeLength.clear();
   VectorizeAlignedEnable = false;
   VectorizeDynamicAlignEnable = false;
   VectorizeNoDynamicAlignEnable = false;
@@ -856,6 +887,7 @@ void LoopAttributes::clear() {
   SYCLMaxInterleavingNInvocations.reset();
   SYCLSpeculatedIterationsNIterations.reset();
   SYCLIntelFPGAVariantCount.clear();
+  SYCLMaxReinvocationDelayNCycles.reset();
   UnrollCount = 0;
   UnrollAndJamCount = 0;
   VectorizeEnable = LoopAttributes::Unspecified;
@@ -866,7 +898,6 @@ void LoopAttributes::clear() {
   PipelineDisabled = false;
   PipelineInitiationInterval = 0;
   SYCLNofusionEnable = false;
-  SYCLIntelFPGAPipeline.clear();
   MustProgress = false;
 }
 
@@ -898,11 +929,14 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       !Attrs.VectorizeVecremainderEnable &&
       !Attrs.VectorizeNoVecremainderEnable &&
       !Attrs.VectorizeAlwaysAssertEnable &&
+      !Attrs.VectorizeTemporalEnable &&
+      !Attrs.VectorizeNonTemporalEnable &&
+      Attrs.VectorizeLength.size() == 0 &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
       Attrs.VectorizeScalable == LoopAttributes::Unspecified &&
-      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
+      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.has_value() &&
       Attrs.ArraySYCLIVDepInfo.empty() && Attrs.SYCLIInterval == 0 &&
       !Attrs.SYCLMaxConcurrencyNThreads &&
       Attrs.SYCLLoopCoalesceEnable == false &&
@@ -911,6 +945,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       !Attrs.SYCLMaxInterleavingNInvocations &&
       !Attrs.SYCLSpeculatedIterationsNIterations &&
       Attrs.SYCLIntelFPGAVariantCount.empty() && Attrs.UnrollCount == 0 &&
+      !Attrs.SYCLMaxReinvocationDelayNCycles &&
       Attrs.UnrollAndJamCount == 0 && !Attrs.PipelineDisabled &&
       Attrs.PipelineInitiationInterval == 0 &&
       Attrs.VectorizePredicateEnable == LoopAttributes::Unspecified &&
@@ -918,8 +953,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
       Attrs.DistributeEnable == LoopAttributes::Unspecified && !StartLoc &&
-      Attrs.SYCLNofusionEnable == false &&
-      Attrs.SYCLIntelFPGAPipeline.empty() && !EndLoc && !Attrs.MustProgress)
+      Attrs.SYCLNofusionEnable == false && !EndLoc && !Attrs.MustProgress)
     return;
 
   TempLoopID = MDNode::getTemporary(Header->getContext(), None);
@@ -1116,6 +1150,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
@@ -1195,6 +1232,13 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAlwaysAssert:
         setVectorizeAlwaysAssertEnable();
         break;
+      case LoopHintAttr::VectorizeTemporal:
+        setVectorizeTemporalEnable();
+        break;
+      case LoopHintAttr::VectorizeNonTemporal:
+        setVectorizeNonTemporalEnable();
+        break;
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::LoopCount:
@@ -1238,6 +1282,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1285,6 +1332,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1343,6 +1393,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
         break;
+      case LoopHintAttr::VectorizeLength:
+        setVectorLength(ValueInt);
+        break;
       case LoopHintAttr::LoopCount:
         setLoopCount(ValueInt);
         break;
@@ -1369,6 +1422,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::UnrollAndJam:
@@ -1414,6 +1469,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
@@ -1452,8 +1510,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
   // emitted
   // For attribute nofusion:
   // 'llvm.loop.fusion.disable' metadata will be emitted
-  // For attribute fpga_pipeline:
-  // n - 'llvm.loop.intel.pipelining.enable, i32 n' metadata will be emitted
+  // For attribute max_reinvocation_delay:
+  // n - 'llvm.loop.intel.max_reinvocation_delay.count, i32 n' metadata will be
+  // emitted
   for (const auto *A : Attrs) {
     if (const auto *IntelFPGAIVDep = dyn_cast<SYCLIntelFPGAIVDepAttr>(A))
       addSYCLIVDepInfo(Header->getContext(), IntelFPGAIVDep->getSafelenValue(),
@@ -1519,13 +1578,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
     if (isa<SYCLIntelFPGANofusionAttr>(A))
       setSYCLNofusionEnable();
 
-    if (const auto *IntelFPGAPipeline =
-            dyn_cast<SYCLIntelFPGAPipelineAttr>(A)) {
-      const auto *CE = cast<ConstantExpr>(IntelFPGAPipeline->getValue());
-      Optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
-      unsigned int Value = ArgVal->getBoolValue() ? 1 : 0;
-      const char *Var = "llvm.loop.intel.pipelining.enable";
-      setSYCLIntelFPGAPipeline(Var, Value);
+    if (const auto *IntelFPGAMaxReinvocationDelay =
+            dyn_cast<SYCLIntelFPGAMaxReinvocationDelayAttr>(A)) {
+      const auto *CE = cast<ConstantExpr>(
+          IntelFPGAMaxReinvocationDelay->getNExpr());
+      llvm::APSInt ArgVal = CE->getResultAsAPSInt();
+      setSYCLMaxReinvocationDelayNCycles(ArgVal.getSExtValue());
     }
   }
 

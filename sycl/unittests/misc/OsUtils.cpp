@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/os_util.hpp>
 #include <gtest/gtest.h>
+#include <sycl/detail/os_util.hpp>
 
 #ifdef _WIN32
 /// Compare for string equality, but ignore difference between forward slash (/)
@@ -57,7 +57,7 @@ class OsUtilsTest : public ::testing::Test {
 // INTEL_CUSTOMIZATION - temporary disable the test to avoid its failure
 // in xmain nightly on Windows
 TEST_F(OsUtilsTest, DISABLED_getCurrentDSODir) {
-  std::string DSODir = cl::sycl::detail::OSUtil::getCurrentDSODir();
+  std::string DSODir = sycl::detail::OSUtil::getCurrentDSODir();
   ASSERT_TRUE(isSameDir(DSODir.c_str(), SYCL_LIB_DIR)) <<
       "expected: " << SYCL_LIB_DIR << ", got: " << DSODir;
 }

@@ -1,3 +1,15 @@
+// Copyright (C) 2016-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 // AVX-512F math implementation
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,13 +150,11 @@ OclBuiltinImpl ilogb_mask_svml_float = OclBuiltinImpl<ilogb_mask, v32v64f32Types
 OclBuiltinImpl ldexp_mask_svml_float = OclBuiltinImpl<ldexp_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 OclBuiltinImpl pown_mask_svml_float = OclBuiltinImpl<pown_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
 OclBuiltinImpl rootn_mask_svml_float = OclBuiltinImpl<rootn_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
-OclBuiltinImpl nan_mask_svml_float = OclBuiltinImpl<nan_mask, v32v64f32Types, 0, masked_impl_code_FG_UG_M, [["$DEF0", "0"]]>;
 defvar v32v64f64Types = ExpandTypesByVFAndFlatten<[v1f64], [32, 64]>.Tout;
 OclBuiltinImpl ilogb_mask_svml_double = OclBuiltinImpl<ilogb_mask, v32v64f64Types, 0, masked_impl_code_I32_DG_M, [["$DEF0", "1"]]>;
 OclBuiltinImpl ldexp_mask_svml_double = OclBuiltinImpl<ldexp_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 OclBuiltinImpl pown_mask_svml_double = OclBuiltinImpl<pown_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
 OclBuiltinImpl rootn_mask_svml_double = OclBuiltinImpl<rootn_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
-OclBuiltinImpl nan_mask_svml_double = OclBuiltinImpl<nan_mask, v32v64f64Types, 0, masked_impl_code_DG_UG_M, [["$DEF0", "0"]]>;
 
 // native
 
@@ -167,13 +177,22 @@ OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v8f64], 0, [{
     return __ocl_svml_$Target_inv$VecLength($Arg0VarName);
   }]>;
 
+// native sqrt
+OclBuiltinImpl native_sqrt_v16f32_impl = OclBuiltinImpl<native_sqrt, [v16f32], 0, [{
+    return sqrt($Arg0VarName);
+  }]>;
+
+OclBuiltinImpl native_sqrt_v8f64_impl = OclBuiltinImpl<native_sqrt, [v8f64], 0, [{
+    return sqrt($Arg0VarName);
+  }]>;
+
+// native rsqrt
 OclBuiltinImpl native_rsqrt_v16f32_impl = OclBuiltinImpl<native_rsqrt, [v16f32], 0, [{
     return _mm512_rsqrt14_ps($Arg0VarName);
   }]>;
 
-// native rsqrt double8
 OclBuiltinImpl native_rsqrt_svml = OclBuiltinImpl<native_rsqrt, [v8f64], 0, [{
-    return __ocl_svml_$Target_rsqrt$VecLength($Arg0VarName);
+    return _mm512_rsqrt14_pd($Arg0VarName);
   }]>;
 
 OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, [v32f32], 0, svml_native_code_sincos>;

@@ -275,9 +275,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Return true if context was created with fpga emulator extension.
         cl_bool IsFPGAEmulator() { return m_fpgaEmulator; }
 
-        // Return true if context was created with EyeQ emulator extension.
-        cl_bool IsEyeQEmulator() { return m_eyeqEmulator; }
-
         // Return true if context was created with auto memory active.
         cl_bool UseAutoMemory() { return m_useAutoMemory; }
 
@@ -690,7 +687,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_uint                                 m_uiContextPropCount;
 
         cl_bool                                 m_fpgaEmulator;
-        cl_bool                                 m_eyeqEmulator;
 
         cl_bool                                 m_useAutoMemory;
 

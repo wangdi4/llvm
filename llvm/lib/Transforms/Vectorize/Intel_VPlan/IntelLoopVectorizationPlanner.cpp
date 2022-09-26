@@ -33,6 +33,7 @@
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
+#include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
@@ -66,10 +67,6 @@ static cl::opt<unsigned> VPlanSearchLpPtrEqForceVF(
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
-static cl::opt<bool, true>
-    EnableNewCFGMergeOpt("vplan-enable-new-cfg-merge", cl::Hidden,
-                         cl::location(EnableNewCFGMerge),
-                         cl::desc("Enable the new CFG merger."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
     "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
@@ -236,8 +233,6 @@ bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
 bool EnableSOAAnalysisHIR = true;
-bool EnableNewCFGMerge = true;
-bool EnableNewCFGMergeHIR = true;
 bool VPlanEnablePeeling = false;
 bool VPlanEnableGeneralPeeling = true;
 bool EnableIntDivRemBlendWithSafeValue = true;
@@ -292,8 +287,6 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
 #if INTEL_CUSTOMIZATION
     if (ForcedVF > Safelen) {
       // We are bailing out of vectorization if ForcedVF > safelen
-      assert(WRLp && WRLp->isOmpSIMDLoop() &&
-             "safelen is set on a non-OMP SIMD loop.");
       LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
                            "via `#pragma omp simd`\n");
       VFs.push_back(0);
@@ -430,6 +423,35 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   // Check legality of VPlan before proceeding with other transforms/analyses.
   if (!canProcessVPlan(*Plan.get())) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
+    return 0;
+  }
+
+  // If we have non-unit strided compress/expand idioms we are going to call
+  // @llvm.x86.avx512.mask.compress.xxx/@llvm.x86.avx512.mask.expand.xxx
+  // intrinsics. LLVM codegen only supports 128/256/512 total bit width for
+  // them. So we need to make sure that VF*sizeof(element) value is valid.
+  SmallSet<int, 5> CELoadStoreWidths;
+  for (VPCompressExpandIdiom *CEIdiom : LE->vpceidioms()) {
+    if (CEIdiom->getTotalStride() == 1)
+      continue;
+    for (auto LoadStore :
+         concat<VPLoadStoreInst *const>(CEIdiom->loads(), CEIdiom->stores()))
+      CELoadStoreWidths.insert(
+          LoadStore->getValueType()->getPrimitiveSizeInBits());
+  }
+  VFs.erase(std::remove_if(
+                  VFs.begin(), VFs.end(),
+                  [&CELoadStoreWidths](unsigned VF) {
+                    return llvm::any_of(CELoadStoreWidths, [VF](int Width) {
+                      int TotalWidth = VF * Width;
+                      return TotalWidth != 128 && TotalWidth != 256 &&
+                             TotalWidth != 512;
+                    });
+                  }),
+              VFs.end());
+  if (VFs.empty()) {
+    LLVM_DEBUG(dbgs() << "There is no suitable VF for compress/expand idiom "
+                         "vectorization.\n");
     return 0;
   }
 
@@ -642,17 +664,20 @@ LoopVectorizationPlanner::getPlannerType() const {
 
 std::unique_ptr<VPlanCostModelInterface>
 LoopVectorizationPlanner::createCostModel(const VPlanVector *Plan,
-                                          unsigned VF) const {
+                                          unsigned VF, unsigned UF) const {
   // Do not run VLSA for VF = 1
   VPlanVLSAnalysis *VLSACM = VF > 1 ? VLSA : nullptr;
 
   switch (getPlannerType()) {
     case PlannerType::Full:
-      return VPlanCostModelFull::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+      return VPlanCostModelFull::makeUniquePtr(Plan, VF, UF, TTI,
+                                               TLI, DL, VLSACM);
     case PlannerType::LightWeight:
-      return VPlanCostModelLite::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+      return VPlanCostModelLite::makeUniquePtr(Plan, VF, UF, TTI,
+                                               TLI, DL, VLSACM);
     case PlannerType::Base:
-      return VPlanCostModelBase::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+      return VPlanCostModelBase::makeUniquePtr(Plan, VF, UF, TTI,
+                                               TLI, DL, VLSACM);
   }
   llvm_unreachable("Uncovered Planner type in the switch-case above.");
 }
@@ -863,9 +888,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       case VPlanIdioms::SearchLoopStrEq:
         SearchLoopPreferredVF = 32;
         break;
-      case VPlanIdioms::SearchLoopPtrEq:
+      case VPlanIdioms::SearchLoopPtrEq: {
+        // Use higher VF=16 for targets that have 2K or higher DSB size. Check
+        // CMPLRLLVM-38144 for more details.
+        if (TTI->has2KDSB())
+          VPlanSearchLpPtrEqForceVF = 16;
+
         SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
         break;
+      }
       default:
         break;
     }
@@ -974,7 +1005,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     assert(Plan && "Unexpected null VPlan");
 
     // Calculate cost for one iteration of the main loop.
-    auto MainLoopCM = createCostModel(Plan, VF);
+    auto MainLoopCM = createCostModel(Plan, VF, BestUF);
     VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
 
     // Peeling is not supported for non-normalized loops.
@@ -1025,7 +1056,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         isa<VPlanDynamicPeeling>(PeelingVariant) : false;
     VPlanRemainderEvaluator RemainderEvaluator(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
-        PeelEvaluator.getTripCount(), PeelIsDynamic, VF, BestUF);
+        IsTripCountEstimated, PeelEvaluator.getTripCount(), PeelIsDynamic, VF,
+        BestUF);
 
     // Calculate main loop's trip count. Currently, the unroll factor is set to
     // 1 because VPlan's loop unroller is called after selecting the best VF.
@@ -1059,7 +1091,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // is one.
     VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
-        0 /*Peel trip count */, false /*no dynamic peeling*/, VF, BestUF);
+        IsTripCountEstimated, 0 /*Peel trip count */,
+        false /*no dynamic peeling*/, VF, BestUF);
     const decltype(TripCount) MainLoopTripCountWithoutPeel =
         TripCount / (VF * BestUF);
     VPInstructionCost VectorCostWithoutPeel =
@@ -1092,8 +1125,10 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     VPInstructionCost VectorIterationCost =
         GoUnaligned ? MainLoopIterationCostWithoutPeel : MainLoopIterationCost;
     VectorIterationCost = VectorIterationCost / (VF * BestUF);
-    VFCosts.insert(
-        {VF, VPCostSummary(ScalarIterationCost, VectorIterationCost, Speedup)});
+    VPInstructionCost VectorInitFini =
+        GoUnaligned ? MainLoopOverheadWithoutPeel : MainLoopOverhead;
+    VFCosts.insert({VF, VPCostSummary(ScalarIterationCost, VectorIterationCost,
+                                      Speedup, VectorInitFini)});
 
     const char CmpChar = ScalarCost < VectorCost    ? '<'
                          : ScalarCost == VectorCost ? '='
@@ -1255,6 +1290,16 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       OptRptStats.CostModelRemarks.emplace_back(
           15478, std::to_string(CostSummary.Speedup.getFloatValue()));
     }
+    if (CostSummary.LoopOverhead.isValid()) {
+      // Add remark: vectorization support: normalized vectorization overhead
+      OptRptStats.CostModelRemarks.emplace_back(
+          15309, std::to_string(CostSummary.LoopOverhead.getFloatValue()));
+    }
+    if (!IsTripCountEstimated) {
+      // Add remark: using (estimated) scalar loop trip count
+      OptRptStats.CostModelRemarks.emplace_back(15570,
+                                                std::to_string(OrigTripCount));
+    }
   }
 
   return std::make_pair(getBestVF(), getBestVPlan());
@@ -1263,10 +1308,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 void LoopVectorizationPlanner::updateVecScenario(
     VPlanPeelEvaluator const &PE, VPlanRemainderEvaluator const &RE,
     unsigned VF, unsigned UF) {
-  if (!isNewCFGMergeEnabled()) {
-    selectSimplestVecScenario(VF, UF);
-    return;
-  }
   using PeelKind = VPlanPeelEvaluator::PeelLoopKind;
   using RemKind = VPlanRemainderEvaluator::RemainderLoopKind;
   switch (PE.getPeelLoopKind()) {
@@ -1701,15 +1742,25 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   if (!LE)
     return false;
   // Check whether all reductions are supported
-  for (auto Red : LE->vpreductions())
-    if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
-        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
-      return false;
+  for (auto Red : LE->vpreductions()) {
+    // Bailouts for user-defined reductions.
+    if (Red->getRecurrenceKind() == RecurKind::Udr) {
+      // Check if UDR is registerized. This can happen due to hoisting/invariant
+      // code motion done by pre-vectorizer passes. Asserts in debug build to
+      // detect accidental registerization during testing.
+      if (!Red->getRecurrenceStartValue() ||
+          LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
+        LLVM_DEBUG(dbgs() << "LVP: Registerized UDR found.\n");
+        assert(false && "Registerized UDR unexpected.");
+        return false;
+      }
+    }
+  }
 
   // Check whether all header phis are recognized as entities.
   for (auto &Phi : Header->getVPPhis())
     if (!LE->getInduction(&Phi) && !LE->getReduction(&Phi) &&
-        !LE->getPrivate(&Phi)) {
+        !LE->getPrivate(&Phi) && !LE->getCompressExpandIdiom(&Phi)) {
       // Non-entity phi. No other PHIs are expected in loop header since we are
       // working on plain CFG before any transforms.
       LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");
@@ -1730,8 +1781,11 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
     if (auto *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VPI))
       if (AllocaPriv->isSOASafe() && AllocaPriv->isSOAProfitable() &&
           !isSOACodegenSupported() &&
-          AllocaPriv->getAllocatedType()->isArrayTy())
+          AllocaPriv->getAllocatedType()->isArrayTy()) {
+        LLVM_DEBUG(dbgs() << "LVP: Bail out for SOA private not handled in CG\n"
+                          << VPI << "\n");
         return false;
+      }
   }
 
   // All checks passed.
@@ -1777,13 +1831,11 @@ VPlanVector *LoopVectorizationPlanner::getBestVPlan() {
     assert(VF == 1 && "expected VF=1 for scalar VPlan");
     return getVPlanForVF(VF);
   }
-  if (isNewCFGMergeEnabled())
-    // Get either masked or non-masked main VPlan, depending on
-    // selection.
-    return VecScenario.getMain().Kind == SingleLoopVecScenario::LKVector
-               ? getVPlanForVF(VF)
-               : getMaskedVPlanForVF(VF);
-  return getVPlanForVF(VF);
+  // Get either masked or non-masked main VPlan, depending on
+  // selection.
+  return VecScenario.getMain().Kind == SingleLoopVecScenario::LKVector
+           ? getVPlanForVF(VF)
+           : getMaskedVPlanForVF(VF);
 }
 
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
@@ -1808,14 +1860,13 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   std::string Label;
-  if (EnableNewCFGMerge) {
-    CallVecDecisions.runForMergedCFG(TLI, TTI);
-    Label = "CallVecDecisions analysis for merged CFG";
-  } else {
-    CallVecDecisions.runForVF(getBestVF(), TLI, TTI);
-    Label = "CallVecDecisions analysis for VF=" + std::to_string(getBestVF());
-  }
+  CallVecDecisions.runForMergedCFG(TLI, TTI);
+  Label = "CallVecDecisions analysis for merged CFG";
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
+
+  // Transform lib calls (like 'sincos') that need additional processing.
+  VPTransformLibraryCalls VPTransLibCalls(*Plan, *TLI);
+  VPTransLibCalls.transform();
 
   // Compute SVA results for final VPlan which will be used by CG.
   Plan->runSVA(getBestVF());
@@ -1837,8 +1888,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 }
 
 void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF) {
-  if (!EnableNewCFGMerge)
-    return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
   assert(Plan && "No best VPlan found.");
@@ -1846,23 +1895,18 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
   // Run CFGMerger.
-  if (!EnableNewCFGMerge)
-    CFGMerger.createSimpleVectorRemainderChain(TheLoop);
-  else
-    CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
 }
 
 void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
-  if (EnableNewCFGMerge) {
-    assert(getBestVF() > 1 && "Unexpected VF");
+  assert(getBestVF() > 1 && "Unexpected VF");
 
-    VPlanVector *Plan = getBestVPlan();
-    assert(Plan && "No best VPlan found.");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
 
-    VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
-                                *Plan, VPAF);
-  }
+  VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
+                              *Plan, VPAF);
 }
 
 // Return true if the compare and branch sequence guarantees the loop trip count

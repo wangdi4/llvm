@@ -1,4 +1,4 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
@@ -31,22 +31,23 @@ target device_triples = "x86_64"
 define dso_local i32 @main() #0 {
 entry:
   %a = alloca [10 x i32], align 16
-  %array_device = alloca i32*, align 8
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
-  store i32* %arrayidx, i32** %array_device, align 8
-  %0 = load i32*, i32** %array_device, align 8
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %0)
+  %array_device = alloca ptr, align 8
+  %arrayidx = getelementptr inbounds [10 x i32], ptr %a, i64 0, i64 0
+  store ptr %arrayidx, ptr %array_device, align 8
+  %0 = load ptr, ptr %array_device, align 8
+  %call = call i32 (ptr, ...) @printf(ptr @.str, ptr %0)
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %array_device) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
+    "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(ptr %array_device) ]
 
-  %2 = load i32*, i32** %array_device, align 8
-  %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %2) #2
+  %2 = load ptr, ptr %array_device, align 8
+  %call1 = call i32 (ptr, ...) @printf(ptr @.str, ptr %2) #2
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET.DATA"() ]
   ret i32 0
 }
 
-declare dso_local i32 @printf(i8*, ...) #1
+declare dso_local i32 @printf(ptr, ...) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -59,7 +60,5 @@ attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 attributes #2 = { nounwind }
 
 !llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 10.0.0"}

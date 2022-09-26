@@ -1,5 +1,4 @@
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
 ; Cheks if the code with #pragma vector vectorlength(4) (!{!"llvm.loop.vector.vectorlength", i64 4} metadata)

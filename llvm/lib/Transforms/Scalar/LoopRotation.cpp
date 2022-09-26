@@ -100,8 +100,8 @@ PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM,
     MSSAU = MemorySSAUpdater(AR.MSSA);
   bool Changed =
       LoopRotation(&L, &AR.LI, &AR.TTI, &AR.AC, &AR.DT, &AR.SE,
-                   MSSAU.hasValue() ? MSSAU.getPointer() : nullptr, SQ, false,
-                   Threshold, false, PrepareForLTO || PrepareForLTOOption);
+                   MSSAU ? MSSAU.getPointer() : nullptr, SQ, false, Threshold,
+                   false, PrepareForLTO || PrepareForLTOOption);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -183,9 +183,8 @@ public:
                         : MaxHeaderSize;
 
     return LoopRotation(L, LI, TTI, AC, &DT, &SE,
-                        MSSAU.hasValue() ? MSSAU.getPointer() : nullptr, SQ,
-                        false, Threshold, false,
-                        PrepareForLTO || PrepareForLTOOption);
+                        MSSAU ? MSSAU.getPointer() : nullptr, SQ, false,
+                        Threshold, false, PrepareForLTO || PrepareForLTOOption);
   }
 };
 } // end namespace

@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-wrncollection -analyze -debug-only=vpo-wrninfo -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug-only=vpo-wrninfo -S %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 ;
@@ -16,9 +16,11 @@
 ;   }                                       // end parallel
 ; }
 
-; Check that use_device_addr was parsed as a use_device_ptr
-; Check for the debug string.
-; CHECK: USE_DEVICE_PTR clause (size=1): {{.*}}
+; The test IR was hand-modified from the above test to use the qual USE_DEVICE_ADDR
+; instead of USE_DEVICE_PTR.
+
+; Check that use_device_addr was parsed as use_device_ptr.
+; CHECK: USE_DEVICE_PTR clause (size=1): PTR_TO_PTR(ptr %array_device)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -52,7 +54,7 @@ DIR.OMP.PARALLEL.3:                               ; preds = %DIR.OMP.PARALLEL.2
 
 DIR.OMP.TARGET.DATA.4:                            ; preds = %DIR.OMP.PARALLEL.3
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
-    "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(ptr %array_device),
+    "QUAL.OMP.USE_DEVICE_ADDR:PTR_TO_PTR"(ptr %array_device),
     "QUAL.OMP.MAP.TOFROM"(ptr %2, ptr %2, i64 0, i64 64, ptr null, ptr null) ]
   br label %DIR.OMP.TARGET.DATA.5
 

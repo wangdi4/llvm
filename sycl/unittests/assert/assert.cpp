@@ -23,8 +23,8 @@
 #define __SYCL_INTERNAL_API
 // Enable fallback assert
 #define SYCL_ENABLE_FALLBACK_ASSERT 1
-#include <CL/sycl.hpp>
-#include <CL/sycl/backend/opencl.hpp>
+#include <sycl/backend/opencl.hpp>
+#include <sycl/sycl.hpp>
 
 #include <helpers/CommonRedefinitions.hpp>
 #include <helpers/PiImage.hpp>
@@ -39,8 +39,8 @@
 
 class TestKernel;
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace detail {
 template <> struct KernelInfo<TestKernel> {
   static constexpr unsigned getNumParams() { return 0; }
@@ -52,6 +52,7 @@ template <> struct KernelInfo<TestKernel> {
   static constexpr bool isESIMD() { return false; }
   static constexpr bool callsThisItem() { return false; }
   static constexpr bool callsAnyThisFreeFunction() { return false; }
+  static constexpr int64_t getKernelSize() { return 1; }
 };
 
 static constexpr const kernel_param_desc_t Signatures[] = {
@@ -70,10 +71,15 @@ struct KernelInfo<::sycl::detail::__sycl_service_kernel__::AssertInfoCopier> {
   static constexpr bool isESIMD() { return 0; }
   static constexpr bool callsThisItem() { return 0; }
   static constexpr bool callsAnyThisFreeFunction() { return 0; }
+  static constexpr int64_t getKernelSize() {
+    // The AssertInfoCopier service kernel lambda captures an accessor.
+    return sizeof(sycl::accessor<sycl::detail::AssertHappened, 1,
+                                 sycl::access::mode::write>);
+  }
 };
 } // namespace detail
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)
 
 static sycl::unittest::PiImage generateDefaultImage() {
   using namespace sycl::unittest;
@@ -308,7 +314,7 @@ static pi_result redefinedKernelGetInfo(pi_kernel Kernel,
     return PI_SUCCESS;
   }
 
-  if (sycl::info::kernel::function_name == (sycl::info::kernel)ParamName) {
+  if (PI_KERNEL_INFO_FUNCTION_NAME == ParamName) {
     static const char FName[] = "TestFnName";
     if (ParamValue) {
       size_t L = strlen(FName) + 1;
@@ -639,62 +645,6 @@ TEST(Assert, TestInteropKernelFromProgramNegative) {
   sycl::kernel KInterop{CLKernel, Ctx};
 
   Queue.submit([&](sycl::handler &H) { H.single_task(KInterop); });
-
-  EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
-            KernelLaunchCounterBase + 1);
-}
-
-TEST(Assert, TestKernelFromSourceNegative) {
-  sycl::platform Plt{sycl::default_selector()};
-
-  if (Plt.is_host()) {
-    printf("Test is not supported on host, skipping\n");
-    return;
-  }
-
-  const sycl::backend Backend = Plt.get_backend();
-
-  if (Backend == sycl::backend::ext_oneapi_cuda ||
-      Backend == sycl::backend::ext_oneapi_hip ||
-      Backend == sycl::backend::ext_oneapi_level_zero) {
-    printf(
-        "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-    return;
-  }
-
-  sycl::unittest::PiMock Mock{Plt};
-
-  constexpr size_t Size = 16;
-  std::array<int, Size> Data;
-
-  for (size_t I = 0; I < Size; I++) {
-    Data[I] = I;
-  }
-
-  sycl::buffer<int, 1> Buf{Data};
-
-  const sycl::device Dev = Plt.get_devices()[0];
-  sycl::queue Queue{Dev};
-
-  sycl::context Ctx = Queue.get_context();
-
-  setupMockForInterop(Mock, Ctx, Dev);
-
-  sycl::program P{Queue.get_context()};
-  P.build_with_source(R"CLC(
-          kernel void add(global int* data) {
-              int index = get_global_id(0);
-              data[index] = data[index] + 1;
-          }
-      )CLC",
-                      "-cl-fast-relaxed-math");
-
-  Queue.submit([&](sycl::handler &H) {
-    auto Acc = Buf.get_access<sycl::access::mode::read_write>(H);
-
-    H.set_args(Acc);
-    H.parallel_for(Size, P.get_kernel("add"));
-  });
 
   EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
             KernelLaunchCounterBase + 1);

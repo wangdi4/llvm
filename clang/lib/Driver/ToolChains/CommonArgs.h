@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -106,16 +106,19 @@ void SplitDebugInfo(const ToolChain &TC, Compilation &C, const Tool &T,
                     const JobAction &JA, const llvm::opt::ArgList &Args,
                     const InputInfo &Output, const char *OutFile);
 
+#if INTEL_CUSTOMIZATION
 void addLTOOptions(const ToolChain &ToolChain, const llvm::opt::ArgList &Args,
                    llvm::opt::ArgStringList &CmdArgs, const InputInfo &Output,
-                   const InputInfo &Input, bool IsThinLTO);
+                   const InputInfo &Input, bool IsThinLTO, const JobAction &JA);
 
-#if INTEL_CUSTOMIZATION
 void addIntelOptimizationArgs(const ToolChain &TC,
                               const llvm::opt::ArgList &Args,
                               llvm::opt::ArgStringList &CmdArgs,
-                              const InputInfo &Input, bool IsLink);
+                              const InputInfo &Input, bool IsLink,
+                              const JobAction &JA);
 #endif // INTEL_CUSTOMIZATION
+
+const char *RelocationModelName(llvm::Reloc::Model Model);
 
 std::tuple<llvm::Reloc::Model, unsigned, bool>
 ParsePICArgs(const ToolChain &ToolChain, const llvm::opt::ArgList &Args);
@@ -145,7 +148,8 @@ bool addOpenMPRuntime(llvm::opt::ArgStringList &CmdArgs, const ToolChain &TC,
                       bool IsOffloadingHost = false, bool GompNeedsRT = false);
 
 /// Adds Fortran runtime libraries to \p CmdArgs.
-void addFortranRuntimeLibs(llvm::opt::ArgStringList &CmdArgs);
+void addFortranRuntimeLibs(const ToolChain &TC,
+                           llvm::opt::ArgStringList &CmdArgs);
 
 /// Adds the path for the Fortran runtime libraries to \p CmdArgs.
 void addFortranRuntimeLibraryPath(const ToolChain &TC,
@@ -199,8 +203,7 @@ void handleTargetFeaturesGroup(const llvm::opt::ArgList &Args,
                                llvm::opt::OptSpecifier Group);
 
 /// If there are multiple +xxx or -xxx features, keep the last one.
-std::vector<StringRef>
-unifyTargetFeatures(const std::vector<StringRef> &Features);
+SmallVector<StringRef> unifyTargetFeatures(ArrayRef<StringRef> Features);
 
 /// Handles the -save-stats option and returns the filename to save statistics
 /// to.

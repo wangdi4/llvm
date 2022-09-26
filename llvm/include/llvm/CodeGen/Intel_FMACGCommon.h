@@ -367,15 +367,27 @@ public:
 
   /// The last instruction using this term must have <kill> attribute
   /// set for the first operand that is using this term.
-  virtual void setIsKilledAttribute() {
+  virtual void updateIsKilledAttribute(MachineRegisterInfo *MRI) {
     if (!LastUseMI)
       return;
 
     for (MachineOperand &MO : LastUseMI->operands()) {
-      if (MO.isReg() && MO.getReg() == Reg) {
-        MO.setIsKill(true);
-        return;
+      if (!MO.isReg() || MO.getReg() != Reg)
+        continue;
+      // Set <kill> attribute for the last user
+      MO.setIsKill(true);
+      // Unset <kill> attribute for other users
+      for (MachineInstr &User : MRI->use_nodbg_instructions(Reg)) {
+        if (LastUseMI == &User || !User.killsRegister(Reg) ||
+            LastUseMI->getParent() != User.getParent())
+          continue;
+        for (MachineOperand &MO : User.operands())
+          // NOTE: Reg may occur more than one time, e.g
+          // ADD killed %1, killed %1
+          if (MO.isReg() && MO.getReg() == Reg)
+            MO.setIsKill(false);
       }
+      return;
     }
   }
 
@@ -435,9 +447,9 @@ public:
 
   /// The last instruction using this register term must have <kill> attribute
   /// set for the first operand that is using this term.
-  void setIsKilledAttribute() override {
+  void updateIsKilledAttribute(MachineRegisterInfo *MRI) override {
     if (IsEverKilled)
-      FMATerm::setIsKilledAttribute();
+      FMATerm::updateIsKilledAttribute(MRI);
   }
 
   /// Prints the FMA term to the given stream \p OS.
@@ -1001,7 +1013,7 @@ public:
 
   /// Sets the <isKill> attribute to machine operands associated with the
   /// last uses of terms.
-  virtual void setIsKilledAttributeForTerms() = 0;
+  virtual void updateIsKilledAttributeForTerms(MachineRegisterInfo *MRI) = 0;
 
   /// Prints the basic block to the given stream \p OS.
   virtual void print(raw_ostream &OS) const = 0;

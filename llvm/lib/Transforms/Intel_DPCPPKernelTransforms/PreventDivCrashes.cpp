@@ -28,13 +28,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-prevent-div-crashes"
 
-// Add command line to specify EyeQ device behavior
-llvm::cl::opt<bool> OptEyeQDivCrashBehavior(
-    "dpcpp-eyeq-div-crash-behavior", llvm::cl::init(false),
-    llvm::cl::desc(
-        "The flag indicates that bad integer divisions (e.g. 1/0) should behave"
-        "As they would in an EyeQ device"));
-
 namespace llvm {
 /// PreventDivCrashesLegacy pass for legacy pass manager.
 class PreventDivCrashesLegacy : public FunctionPass {
@@ -118,9 +111,6 @@ bool PreventDivCrashesPass::handleDiv() {
   // If one of the above comparisons is true the function replace the divisor
   // with 1, so that we won't crash.
 
-  // For EyeQ devices (for EyeQ bit exactness) return 0 for division by
-  // ConstantZero (Replace dividend by 0 in addition to replacing divisor by 1).
-
   // Example:
   // %div = sdiv i32 %conv2, %conv
 
@@ -132,16 +122,6 @@ bool PreventDivCrashesPass::handleDiv() {
   // %IsDivisorBad        =   or i1 %IsIntegerOverflow, %IsDivisorZero
   // %NewiDvisor          =   select i1 %IsDivisorBad, i32 1, i32 %1
   // %div                 =   sdiv i32 %0, %NewiDvisor
-
-  // For EyeQ devices, it will transfer to:
-  // %IsDivisorNegOne     =   icmp eq i32 %1, -1
-  // %IsDividendMinInt    =   icmp eq i32 %0, -2147483648
-  // %IsIntegerOverflow   =   and i1 %IsDivisorNegOne, %IsDividendMinInt
-  // %IsDivisorZero       =   icmp eq i32 %1, 0
-  // %IsDivisorBad        =   or i1 %IsIntegerOverflow, %IsDivisorZero
-  // %NewDivisor          =   select i1 %IsDivisorBad, i32 1, i32 %1
-  // %NewDividend         =   select i1 %IsDivisorZero, i32 0, i32 %0
-  // %div                 =   sdiv i32 %NewDividend, %NewiDvisor
 
   for (auto *DivInst : DivInstructions) {
     LLVM_DEBUG(dbgs() << "Handle div instruction: " << *DivInst << "\n");
@@ -219,15 +199,6 @@ bool PreventDivCrashesPass::handleDiv() {
 
     // Replace original divisor
     DivInst->setOperand(DIVISOR_POSITION, NewDivisor);
-
-    if (OptEyeQDivCrashBehavior) {
-      // For EyeQ devices:
-      //   %NewDividend = select i1 %IsDivisorZero, %ConstantZero, %Dividend
-      Value *NewDividend = Builder.CreateSelect(IsDivisorZero, ConstantZero,
-                                                Dividend, "NewDividend");
-      // Replace original Dividend
-      DivInst->setOperand(DIVIDEND_POSITION, NewDividend);
-    }
   }
 
   return true;

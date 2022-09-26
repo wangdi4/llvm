@@ -275,10 +275,31 @@ void TBB_ExecutionSchedulers::static_executor(
                                                      TaskLoopBody3D< BlockedRangeNamePrefix ## 3d > > \
     }
 
-                        /* 1D,2D,3D array name */  /* use function */ /* use blocked range class */
-DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_default,     auto_executor,      BlockedRangeByDefaultTBB );
-DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_default, affinity_executor,  BlockedRangeByDefaultTBB );
-DEFINE_EXECUTOR_DIMS_ARRAY( static_block_default,   static_executor,    BlockedRangeByDefaultTBB );
+#define DEFINE_EXECUTOR_DIMS_ARRAY_SPLIT(name, ExecutorFuncName,               \
+                                         BlockedRangeNamePrefix, SplitTy)      \
+  TBB_ExecutionSchedulers::ExecutorFunc                                        \
+      TBB_ExecutionSchedulers::name[MAX_WORK_DIM] = {                          \
+          &TBB_ExecutionSchedulers::ExecutorFuncName<                          \
+              BlockedRangeNamePrefix##1d < SplitTy>,                           \
+          TaskLoopBody1D<BlockedRangeNamePrefix##1d < SplitTy> >>              \
+          ,                                                                    \
+          &TBB_ExecutionSchedulers::ExecutorFuncName<                          \
+              BlockedRangeNamePrefix##2d < SplitTy>,                           \
+          TaskLoopBody2D<BlockedRangeNamePrefix##2d < SplitTy> >>              \
+          ,                                                                    \
+          &TBB_ExecutionSchedulers::ExecutorFuncName<                          \
+              BlockedRangeNamePrefix##3d < SplitTy>,                           \
+          TaskLoopBody3D<BlockedRangeNamePrefix##3d < SplitTy> >> }
+
+/* 1D,2D,3D array name */ /* use function */ /* use blocked range class */
+DEFINE_EXECUTOR_DIMS_ARRAY_SPLIT(auto_block_default, auto_executor,
+                                 BlockedRangeByDefaultTBB, );
+DEFINE_EXECUTOR_DIMS_ARRAY_SPLIT(affinity_block_default, affinity_executor,
+                                 BlockedRangeByDefaultTBB,
+                                 HasProportionalSplit);
+DEFINE_EXECUTOR_DIMS_ARRAY_SPLIT(static_block_default, static_executor,
+                                 BlockedRangeByDefaultTBB,
+                                 HasProportionalSplit);
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_row,         auto_executor,      BlockedRangeByRow );
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_row,     affinity_executor,  BlockedRangeByRow );

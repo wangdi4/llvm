@@ -147,8 +147,8 @@ inline bool isDivisorSpeculationSafeForDivRem(unsigned Opcode, VPValue *Div) {
   if (!Const)
     return false;
 
-  int64_t Val = Const->getSExtValue();
-  return Val != 0 && (!IsSigned || Val != -1);
+  ConstantInt *ConstVal = Const->getConstantInt();
+  return !ConstVal->isZero() && (!IsSigned || !ConstVal->isMinusOne());
 }
 
 /////////// VPValue version of common LLVM load/store utilities ///////////
@@ -274,6 +274,13 @@ inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
   return nullptr;
 }
 
+inline Type *getInt8OrPointerElementTy(Type *ValTy) {
+  assert(ValTy->isPointerTy() && "Expected Pointer type");
+  if (ValTy->isOpaquePointerTy())
+    return Type::getInt8Ty(ValTy->getContext());
+  return ValTy->getPointerElementType();
+}
+
 #if INTEL_CUSTOMIZATION
 // Obtain stride information using loopopt interfaces for the given memory
 // reference MemRef. DDNode specifies the underlying HLDDNode for the
@@ -388,6 +395,35 @@ iterator_range<sese_df_iterator<BlockTy>> sese_depth_first(BlockTy Begin,
                                                            BlockTy End) {
   return make_range(sese_df_begin(Begin, End), sese_df_end(Begin, End));
 }
+
+// Return true if VPInst is equivalent to &ptrOp[0]. Currently, this is
+// the case if we are dealing with a VPSubscriptInst with no dimensions.
+// TODO - the issue can also arise for GEPs and we need to account for
+// the same.
+static bool isSelfAddressOfInst(const VPValue *VPVal) {
+  if (auto *VPSubscrInst = dyn_cast<VPSubscriptInst>(VPVal))
+    return VPSubscrInst->isSelfAddressOfInst();
+
+  return false;
+}
+
+static const VPValue *getPtrThroughCast(const VPValue *Op) {
+  // Look at the pointers only.
+  assert(Op->getType()->isPointerTy() && "expected pointer");
+  while (isa<VPInstruction>(Op)) {
+    auto Inst = cast<VPInstruction>(Op);
+
+    // We also treat SelfAddressOfInst as a no-op cast.
+    if (Inst->getOpcode() != Instruction::BitCast &&
+        Inst->getOpcode() != Instruction::AddrSpaceCast &&
+        !isSelfAddressOfInst(Inst))
+      break;
+    Op = Inst->getOperand(0);
+  }
+
+  return Op;
+}
+
 } // namespace vpo
 } // namespace llvm
 

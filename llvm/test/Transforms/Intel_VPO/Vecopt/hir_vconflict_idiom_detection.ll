@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %add;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -54,11 +54,11 @@ for.body:                                         ; preds = %entry, %for.body
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM3:[0-9]+]]>          (%A)[%0] = %add;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM4:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM5:[0-9]+]]>         (%C)[%0] = %2 + 3;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM6:[0-9]+]]>         %2 = (%C)[%0];
-; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -97,7 +97,7 @@ for.body:                                         ; preds = %entry, %for.body
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM7:[0-9]+]]>          (%A)[sext.i32.i64(%0) + 2] = %add3;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM8:[0-9]+]]>          %1 = (%A)[sext.i32.i64(%0) + 2];
-; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -136,7 +136,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM10:[0-9]+]]>         (%A)[%1] = %2 + 1;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM11:[0-9]+]]>          %2 = (%A)[%1];
-; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -177,6 +177,53 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count27
   br i1 %exitcond.not, label %for.cond.for.cond.cleanup_crit_edge, label %for.body
+}
+
+; <22>               + DO i1 = 0, 1023, 1   <DO_LOOP>
+; <3>                |   %0 = (%B)[i1];
+; <6>                |   %1 = (%A)[%0];
+; <7>                |   %add = %1  +  2.000000e+00;
+; <8>                |   (%A)[%0] = %add;
+; <10>               |   %2 = (%C)[i1];
+; <13>               |   %3 = (%A)[%2];
+; <14>               |   %add9 = %3  +  3.000000e+00;
+; <15>               |   (%A)[%2] = %add9;
+; <22>               + END LOOP
+
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM9:[0-9]+]]>          (%A)[%0] = %add;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM9:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM9:[0-9]+]]>         (%A)[%2] = %add9;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM9:[0-9]+]]>         %3 = (%A)[%2];
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
+
+; Function Attrs: nofree norecurse nounwind uwtable mustprogress
+define dso_local void @_Z4foo7PfPiS0_(float* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C) local_unnamed_addr #0 {
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  ret void
+
+for.body:                                         ; preds = %entry, %for.body
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %0 = load i32, i32* %ptridx, align 4
+  %idxprom1 = sext i32 %0 to i64
+  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
+  %1 = load float, float* %ptridx2, align 4
+  %add = fadd fast float %1, 2.000000e+00
+  store float %add, float* %ptridx2, align 4
+  %ptridx6 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
+  %2 = load i32, i32* %ptridx6, align 4
+  %idxprom7 = sext i32 %2 to i64
+  %ptridx8 = getelementptr inbounds float, float* %A, i64 %idxprom7
+  %3 = load float, float* %ptridx8, align 4
+  %add9 = fadd fast float %3, 3.000000e+00
+  store float %add9, float* %ptridx8, align 4
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
 }
 
 attributes #0 = { nofree norecurse nounwind uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "use-soft-float"="false" }

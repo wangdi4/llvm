@@ -17,7 +17,7 @@
 ;       @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }
@@ -46,7 +46,7 @@
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC90]])
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC50]]
 ; CHECK-NEXT:        [[DOTVEC110:%.*]] = [[N0]] == [[VEC_TC50]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP20]] = [[IND_FINAL0]]
@@ -61,7 +61,7 @@
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
 ; CHECK-NEXT:        [[SUM_070]] = [[PHI_TEMP0]]
 
-; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
 ; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
 ; CHECK-NEXT:        + END LOOP

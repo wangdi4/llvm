@@ -3,7 +3,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2021 Intel Corporation
+ * Copyright (C) 2021-2022 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -66,7 +66,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicsX86.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
@@ -128,7 +127,6 @@ class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
 class VPlanMasked;
 class VPlanScalarPeel;
-class VPRegionLiveOut;
 
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
@@ -406,6 +404,7 @@ class VPInstruction : public VPUser,
   friend class VPCloneUtils;
   friend class VPValueMapper;
   friend class VPLoopEntityList;
+  friend class VPTransformLibraryCall; // Needed for `copyUnderlyingFrom`
   friend class VPValue;
   // FIXME: This is only needed to support buggy mixed HIR codegen. Once we
   // retire it and use full VPValue-based codegen, underlying IR copying won't
@@ -491,9 +490,13 @@ class VPInstruction : public VPUser,
       case Instruction::PHI:
       case Instruction::Select:
       case Instruction::Call:
+      case VPInstruction::TransformLibraryCall:
       case VPInstruction::HIRCopy:
       case VPInstruction::ReductionFinal:
-      case VPInstruction::TreeConflict: {
+      case VPInstruction::ReductionFinalInscan:
+      case VPInstruction::TreeConflict:
+      case VPInstruction::RunningInclusiveReduction:
+      case VPInstruction::RunningExclusiveReduction: {
         // Conservatively return UnknownOperatorFlags if instruction type info
         // is not provided for opcode.
         if (!InstTy)
@@ -595,9 +598,9 @@ public:
     InductionInitStep,
     InductionFinal,
     ReductionInit,
-    ReductionInitScalar, // Initializes scalar inscan reduction accumulator
-                         // with an Identity value.
     ReductionFinal,
+    ReductionFinalUdr, // Custom finalization of UDR. Lowered as sequence of
+                       // calls to combiner function.
     ReductionFinalInscan, // Reduction finalization (noop for scan).
     AllocatePrivate,
     Subscript,
@@ -646,30 +649,24 @@ public:
                            // extract of the item correspnding MSB set in the
                            // mask.
     PrivateFinalArray,
+    PrivateFinalArrayMasked,
     PrivateLastValueNonPOD,
     CompressStore, // generate llvm.masked.compressstore intrinsic, for
                    // unit stride stores
-
     CompressStoreNonu, // generate vcompress intrinsic and masked scatter
                        // mask for scatter: (-1 >> popcnt(exec_mask))
-
     ExpandLoad, // generate llvm.masked.expandload intrinsic, for unit stride
                 // loads
-
     ExpandLoadNonu, // generate masked gather, and vexpand intrinsic mask for
                     // gather: (-1 >> popcnt(exec_mask))
-
     CompressExpandIndexInit,  // placeholder for initial value of index
     CompressExpandIndexFinal, // placeholder for the final value of index
-
     CompressExpandIndex,     // calculate vector of indexes for non-unit stride
                              // compress/expand
-    CompressExpandIndexUnit, // calculate scalar index for unit stride
-                             // compress/expand
-
     CompressExpandIndexInc, // compress/expand index increment
                             // operands: index, stride, mask
                             // generate: index += stride * pocnt(mask);
+    CompressExpandMask, // generate mask for nonu load/store
     PrivateLastValueNonPODMasked,
     GeneralMemOptConflict,
     ConflictInsn,
@@ -695,6 +692,11 @@ public:
                                //           x];
                                // }
     ExtractLastVectorLane,     // Extract a scalar from the lane VF-1.
+    TransformLibraryCall,      // Transformed library call whose scalar
+                               // signature does not match its vectorized
+                               // signature. (e.g. sincos)
+    SOAExtractValue,           // Like LLVM extract value, but specialized for
+                               // when we know the aggregate is in SOA layout
   };
 
 private:
@@ -1312,7 +1314,7 @@ public:
   VPValue *getIncomingValue(const VPBasicBlock *VPBB) const {
     auto Idx = getBlockIndexOrNone(VPBB);
     assert(Idx && "Cannot find value for a given BB.");
-    return getIncomingValue(Idx.getValue());
+    return getIncomingValue(Idx.value());
   }
 
   void setIncomingValue(const unsigned Idx, VPValue *Value) {
@@ -1535,6 +1537,9 @@ protected:
 /// RegDDRef. It also stores explicit type information as that is needed due to
 /// the opaque pointers for the StructOffsets address computation. (dimensional
 /// accesses are computed using explicit strides in bytes).
+///
+/// A VPSubscriptInst is allowed to have zero dimensions. This is used to
+/// represent SelfAddressOf address/memory references such as &baseptr[0].
 class VPSubscriptInst final : public VPInstruction {
 public:
   struct DimInfo {
@@ -1686,6 +1691,10 @@ public:
   static bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == VPInstruction::Subscript;
   }
+
+  /// Return true if the instruction is a SelfAddressOf instruction by
+  /// checking for number of dimensions being zero.
+  bool isSelfAddressOfInst() const { return getNumDimensions() == 0; }
 
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
@@ -1923,7 +1932,7 @@ private:
   /// instruction.
   struct CallVecProperties {
     unsigned VF = 0;
-    VectorVariant *MatchedVecVariant = nullptr;
+    std::unique_ptr<const VFInfo> MatchedVecVariant;
     unsigned MatchedVecVariantIndex = 0;
     Optional<StringRef> VectorLibraryFn = None;
     Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
@@ -1957,7 +1966,7 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void printImpl(raw_ostream &OS) const {
       std::string VecVariantName =
-          MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
+          MatchedVecVariant != nullptr ? MatchedVecVariant->VectorName : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
       OS << "  VecVariantIndex: " << MatchedVecVariantIndex << "\n";
       OS << "  VecIntrinsic: " << Intrinsic::getBaseName(VectorIntrinsic)
@@ -1967,6 +1976,19 @@ private:
       OS << "  PumpFactor: " << PumpFactor << "\n";
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    CallVecProperties clone() const {
+      return CallVecProperties{
+          VF,
+          MatchedVecVariant ? std::make_unique<const VFInfo>(*MatchedVecVariant)
+                            : nullptr,
+          MatchedVecVariantIndex,
+          VectorLibraryFn,
+          VectorIntrinsic,
+          PumpFactor,
+          UseMaskedForUnmasked,
+      };
+    }
   } VecProperties;
 
   enum class CallVecScenarios {
@@ -2004,34 +2026,43 @@ private:
   FunctionType *FnTy;
   const CallInst *OrigCall;
 
-public:
-  using CallVecScenariosTy = CallVecScenarios;
-  using SerializationReasonTy = CallVecProperties::SerializationReason;
-
+protected:
   // Most generic ctor.
-  VPCallInstruction(VPValue *Callee, FunctionType *FnTy,
-                    ArrayRef<VPValue *> ArgList)
-      : VPInstruction(Instruction::Call, FnTy->getReturnType(), ArgList),
-        FnTy(FnTy), OrigCall(nullptr) {
+  VPCallInstruction(unsigned OpCode, VPValue *Callee, FunctionType *FnTy,
+                    ArrayRef<VPValue *> ArgList, const CallInst *OrigCall)
+      : VPInstruction(OpCode, FnTy->getReturnType(), ArgList), FnTy(FnTy),
+        OrigCall(OrigCall) {
     assert(Callee && "Call instruction does not have Callee");
     // Add called value to end of operand list for def-use chain.
     addOperand(Callee);
     resetVecScenario(0 /*Initial VF*/);
+
+    if (OrigCall) {
+      // Check if Call should not be strictly widened i.e. not (re-)vectorized
+      // or serialized.
+      if (OrigCall->hasFnAttr("kernel-uniform-call"))
+        VecScenario = CallVecScenarios::DoNotWiden;
+
+      if (OrigCall->hasFnAttr("unmasked"))
+        VecScenario = CallVecScenarios::UnmaskedWiden;
+    }
   }
+
+public:
+  using CallVecScenariosTy = CallVecScenarios;
+  using SerializationReasonTy = CallVecProperties::SerializationReason;
+
+  // When we have no underlying CallInst.
+  VPCallInstruction(VPValue *Callee, FunctionType *FnTy,
+                    ArrayRef<VPValue *> ArgList)
+      : VPCallInstruction(Instruction::Call, Callee, FnTy, ArgList, nullptr) {}
 
   // If extra information from the underlying CallInst is available.
   VPCallInstruction(VPValue *Callee, ArrayRef<VPValue *> ArgList,
                     const CallInst &OrigCallInst)
-      : VPCallInstruction(Callee, OrigCallInst.getFunctionType(), ArgList) {
-    OrigCall = &OrigCallInst;
-    // Check if Call should not be strictly widened i.e. not (re-)vectorized or
-    // serialized.
-    if (OrigCall->hasFnAttr("kernel-uniform-call"))
-      VecScenario = CallVecScenarios::DoNotWiden;
-
-    if (OrigCall->hasFnAttr("unmasked"))
-      VecScenario = CallVecScenarios::UnmaskedWiden;
-  }
+      : VPCallInstruction(Instruction::Call, Callee,
+                          OrigCallInst.getFunctionType(), ArgList,
+                          &OrigCallInst) {}
 
   /// Helper utility to access underlying CallInst corresponding to this
   /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
@@ -2144,7 +2175,7 @@ public:
       VecScenario = CallVecScenarios::Undefined;
     }
 
-    VecProperties.MatchedVecVariant = nullptr;
+    VecProperties.MatchedVecVariant.reset();
     VecProperties.MatchedVecVariantIndex = 0;
     VecProperties.VectorLibraryFn = None;
     VecProperties.VectorIntrinsic = Intrinsic::not_intrinsic;
@@ -2183,28 +2214,26 @@ public:
 
   // Unmasked widening - the scenario itself is immutable, but some data is
   // VF-dependent.
-  void setUnmaskedVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
+  void setUnmaskedVectorVariant(VFInfo VecVariant,
                                 unsigned VecVariantIndex) {
-    assert(VecVariant && "Can't set null vector variant.");
     assert(VecScenario == CallVecScenarios::UnmaskedWiden &&
            "Inconsistent scenario update.");
-    VecProperties.MatchedVecVariant = VecVariant.release();
+    VecProperties.MatchedVecVariant = std::make_unique<const VFInfo>(VecVariant);
     VecProperties.MatchedVecVariantIndex = VecVariantIndex;
   }
 
   // Vectorization using SIMD vector variant.
-  void setVectorizeWithVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
+  void setVectorizeWithVectorVariant(VFInfo VecVariant,
                                      unsigned VecVariantIndex,
                                      bool UseMaskedForUnmasked = false,
                                      unsigned PumpFactor = 1) {
-    assert(VecVariant && "Can't set null vector variant.");
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
     assert(PumpFactor == 1 || !isKernelCallOnce() &&
                                   "Pumped vectorization of a kernel "
                                   "called-once function is not allowed.");
     VecScenario = CallVecScenarios::VectorVariant;
-    VecProperties.MatchedVecVariant = VecVariant.release();
+    VecProperties.MatchedVecVariant = std::make_unique<const VFInfo>(VecVariant);
     VecProperties.MatchedVecVariantIndex = VecVariantIndex;
     VecProperties.UseMaskedForUnmasked = UseMaskedForUnmasked;
     VecProperties.PumpFactor = PumpFactor;
@@ -2233,14 +2262,14 @@ public:
   StringRef getVectorLibraryFunc() const {
     assert(VecScenario == CallVecScenarios::LibraryFunc &&
            "Can't get VectorLibraryFn for mismatched scenario.");
-    return VecProperties.VectorLibraryFn.getValue();
+    return VecProperties.VectorLibraryFn.value();
   }
   /// Getters for matched vector variant.
-  const VectorVariant *getVectorVariant() const {
+  const VFInfo *getVectorVariant() const {
     assert((VecScenario == CallVecScenarios::VectorVariant ||
             VecScenario == CallVecScenarios::UnmaskedWiden) &&
            "Can't get VectorVariant for mismatched scenario.");
-    return VecProperties.MatchedVecVariant;
+    return VecProperties.MatchedVecVariant.get();
   }
   unsigned getVectorVariantIndex() const {
     return VecProperties.MatchedVecVariantIndex;
@@ -2340,7 +2369,8 @@ public:
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == Instruction::Call;
+    return VPI->getOpcode() == Instruction::Call ||
+           VPI->getOpcode() == VPInstruction::TransformLibraryCall;
   }
 
   static bool classof(const VPValue *V) {
@@ -2367,7 +2397,7 @@ protected:
         getCalledValue(), FnTy, ArrayRef<VPValue *>(op_begin(), op_end() - 1));
     Cloned->OrigCall = getUnderlyingCallInst();
     Cloned->VecScenario = VecScenario;
-    Cloned->VecProperties = VecProperties;
+    Cloned->VecProperties = VecProperties.clone();
     return Cloned;
   }
 };
@@ -2415,6 +2445,8 @@ public:
   // Return lower/upper value ranges for the induction.
   VPValue *getStartVal() const { return StartVal; }
   VPValue *getEndVal() const { return EndVal; }
+  void setIsMainLoopIV(bool V) { IsMainLoopIV = V; }
+  bool isMainLoopIV() const { return IsMainLoopIV; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printDetails(raw_ostream &O) const {
@@ -2433,14 +2465,17 @@ public:
 protected:
   // Clones VPinductionInit.
   virtual VPInductionInit *cloneImpl() const final {
-    return new VPInductionInit(getOperand(0), getOperand(1), StartVal,
-                               EndVal, getBinOpcode());
+    auto *IndTmp = new VPInductionInit(getOperand(0), getOperand(1), StartVal,
+                                       EndVal, getBinOpcode());
+    IndTmp->setIsMainLoopIV(IsMainLoopIV);
+    return IndTmp;
   }
 
 private:
   unsigned BinOpcode;
   VPValue *StartVal;
   VPValue *EndVal;
+  bool IsMainLoopIV = false;
 };
 
 // VPInstruction to initialize vector for induction step.
@@ -2455,6 +2490,9 @@ public:
                       {Step}),
         BinOpcode(Opcode) {}
 
+  void setIsMainLoopIV(bool V) { IsMainLoopIV = V; }
+  bool isMainLoopIV() const { return IsMainLoopIV; }
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::InductionInitStep;
@@ -2467,13 +2505,16 @@ public:
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
 
 protected:
-  // Clones VPInductionInistStep.
+  // Clones VPInductionInitStep.
   virtual VPInductionInitStep *cloneImpl() const final {
-    return new VPInductionInitStep(getOperand(0), getBinOpcode());
+    auto *I = new VPInductionInitStep(getOperand(0), getBinOpcode());
+    I->setIsMainLoopIV(IsMainLoopIV);
+    return I;
   }
 
 private:
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  bool IsMainLoopIV = false;
 };
 
 // VPInstruction for induction last value calculation.
@@ -2568,14 +2609,16 @@ private:
 // perfectly fit this way.
 class VPReductionInit : public VPInstruction {
 public:
-  VPReductionInit(VPValue *Identity, bool UseStart)
+  VPReductionInit(VPValue *Identity, bool UseStart, bool IsScalar = false)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
-                      {Identity}), UsesStartValue(UseStart) {}
+                      {Identity}),
+        UsesStartValue(UseStart), IsScalar(IsScalar) {}
 
   VPReductionInit(VPValue *Identity, VPValue *StartValue,
-                  unsigned Opcode = VPInstruction::ReductionInit)
-      : VPInstruction(Opcode, Identity->getType(),
-                      {Identity, StartValue}), UsesStartValue(true) {}
+                  bool IsScalar = false)
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
+                      {Identity, StartValue}),
+        UsesStartValue(true), IsScalar(IsScalar) {}
 
   /// Return operand that corresponds to the indentity value.
   VPValue *getIdentityOperand() const { return getOperand(0);}
@@ -2590,6 +2633,8 @@ public:
   /// Return true if start value is used in reduction initialization. E.g.
   /// min/max reductions use the start value as identity.
   bool usesStartValue() const { return UsesStartValue; }
+
+  bool isScalar() const { return IsScalar; }
 
   /// Replaces start value with the \p newV
   void replaceStartValue(VPValue *NewVal) {
@@ -2615,30 +2660,18 @@ protected:
   // Clones VPReductionInit.
   virtual VPReductionInit *cloneImpl() const final {
     if (getNumOperands() == 1)
-      return new VPReductionInit(getIdentityOperand(), UsesStartValue);
+      return new VPReductionInit(getIdentityOperand(), UsesStartValue,
+                                 isScalar());
     else if (getNumOperands() == 2)
       return new VPReductionInit(getIdentityOperand(), getStartValueOperand(),
-                                 getOpcode());
+                                 isScalar());
     else
       llvm_unreachable("Too many operands.");
   }
 
 private:
   bool UsesStartValue;
-};
-
-// Initialize a scalar reduction, like inscan reduction.
-// The start value is always used.
-// Identity is not needed, use it for consistency.
-class VPReductionInitScalar : public VPReductionInit {
-public:
-  VPReductionInitScalar(VPValue *Identity, VPValue *StartValue) :
-    VPReductionInit(Identity, StartValue, VPInstruction::ReductionInitScalar) {}
-
-  // Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ReductionInitScalar;
-  }
+  bool IsScalar;
 };
 
 // VPInstruction for reduction last value calculation.
@@ -2682,9 +2715,17 @@ public:
                       {ReducVec, ParentExit, ParentFinal}),
         BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
 
+  /// Constructor for SelectCmp reduction-final
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
+                   VPValue *ChangeValue, bool Sign)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
+                      {ReducVec, StartValue, ChangeValue}),
+        BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ReductionFinal;
+    return V->getOpcode() == VPInstruction::ReductionFinal ||
+           V->getOpcode() == VPInstruction::ReductionFinalInscan;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2702,7 +2743,14 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() == 2 ? getOperand(1) : nullptr;
+    return getNumOperands() == 2
+      || BinOpcode == Instruction::ICmp
+      || BinOpcode == Instruction::FCmp ? getOperand(1) : nullptr;
+  }
+
+  /// Return operand that corresponds to the change value for a SelectCmp.
+  VPValue *getChangeValueOperand() const {
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
   }
 
   /// Return operand that corrresponds to min/max parent vector value.
@@ -2774,7 +2822,12 @@ public:
 protected:
   // Clones VPReductionFinal.
   virtual VPReductionFinal *cloneImpl() const final {
-    if (isMinMaxIndex())
+    if (BinOpcode == Instruction::ICmp || BinOpcode == Instruction::FCmp)
+      // SelectCmp
+      return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
+                                  getStartValueOperand(),
+                                  getChangeValueOperand(), isSigned());
+    else if (isMinMaxIndex())
       return new VPReductionFinal(
           getBinOpcode(), getReducingOperand(), getParentExitValOperand(),
           cast<VPReductionFinal>(getParentFinalValOperand()), isSigned());
@@ -2792,9 +2845,45 @@ private:
   bool IsLinearIndex;
 };
 
+/// Concrete class to represent last value calculation for user-defined
+/// reductions in VPlan.
+class VPReductionFinalUDR : public VPInstruction {
+public:
+  /// Create finalization instruction with its BaseType, operands and UDR object
+  /// combiner function pointer.
+  VPReductionFinalUDR(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                      Function *Combiner)
+      : VPInstruction(VPInstruction::ReductionFinalUdr, BaseTy, Operands),
+        Combiner(Combiner) {
+    assert(Combiner && "Unexpected null Combiner for UDR.");
+  }
 
-/// Finalization of inscan reduction is not required.
-/// Returns the input operand.
+  /// Return the combiner function stored by this instruction
+  Function *getCombiner() const { return Combiner; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::ReductionFinalUdr;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPReductionFinalUDR(getType(), Ops, getCombiner());
+  }
+
+private:
+  Function *Combiner = nullptr;
+};
+
+/// Complicated finalization of inscan reduction is not required,
+/// in fact, the final value resides in the last vector lane.
+/// Returns the input operand's last vector lane.
+/// ExtractLastVectorLane cannot be reused for CFG Merger to work correctly.
 class VPReductionFinalInscan : public VPReductionFinal {
 public:
   VPReductionFinalInscan(unsigned BinOp, VPValue *ReducVec)
@@ -2804,6 +2893,103 @@ public:
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::ReductionFinalInscan;
   }
+};
+
+/// Calculates the value of running inclusive reduction using the binary
+/// operation opcode.
+class VPRunningInclusiveReduction : public VPInstruction {
+public:
+  VPRunningInclusiveReduction(
+    unsigned BinOp, VPValue *Input, VPValue *CarryOver, VPValue *Identity,
+    unsigned OpCode = VPInstruction::RunningInclusiveReduction)
+      : VPInstruction(OpCode, Input->getType(), {Input, CarryOver, Identity}),
+        BinOpcode(BinOp) {}
+
+  unsigned getBinOpcode() const { return BinOpcode; }
+  VPValue *getInputOperand() const { return getOperand(0); }
+  VPValue *getCarryOverOperand() const { return getOperand(1); }
+  VPValue *getIdentityOperand() const { return getOperand(2); }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::RunningInclusiveReduction;
+  }
+
+protected:
+  // Clones VPRunningInclusiveReduction
+  virtual VPRunningInclusiveReduction *cloneImpl() const override {
+    return new VPRunningInclusiveReduction(getBinOpcode(), getInputOperand(),
+                                           getCarryOverOperand(),
+                                           getIdentityOperand(),
+                                           getOpcode());
+  }
+private:
+  unsigned BinOpcode;
+};
+
+/// Calculates the value of running exclusive reduction using the binary
+/// opcode.
+class VPRunningExclusiveReduction : public VPRunningInclusiveReduction {
+public:
+  VPRunningExclusiveReduction(
+    unsigned BinOp, VPValue *Input, VPValue *CarryOver, VPValue *Identity)
+      : VPRunningInclusiveReduction(BinOp, Input, CarryOver, Identity,
+                                    VPInstruction::RunningExclusiveReduction) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::RunningExclusiveReduction;
+  }
+protected:
+  // Clones VPRunningExclusiveReduction.
+  virtual VPRunningExclusiveReduction *cloneImpl() const final {
+    return new VPRunningExclusiveReduction(getBinOpcode(), getInputOperand(),
+                                           getCarryOverOperand(),
+                                           getIdentityOperand());
+  }
+};
+
+template <unsigned InstOpcode>
+class VPCompressExpandInitFinal : public VPInstruction {
+public:
+  VPCompressExpandInitFinal(VPValue *V)
+      : VPInstruction(InstOpcode, V->getType(), {V}) {}
+
+  bool usesStartValue() const {
+    return InstOpcode == VPInstruction::CompressExpandIndexInit;
+  }
+
+  void replaceStartValue(VPValue *V) {
+    assert(usesStartValue() && V && "Can't replace start value");
+    setOperand(0, V);
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == InstOpcode;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    return new VPCompressExpandInitFinal<InstOpcode>(getOperand(0));
+  }
+};
+
+class VPCompressExpandInit
+    : public VPCompressExpandInitFinal<VPInstruction::CompressExpandIndexInit> {
+public:
+  using VPCompressExpandInitFinal::VPCompressExpandInitFinal;
+};
+
+class VPCompressExpandFinal : public VPCompressExpandInitFinal<
+                                  VPInstruction::CompressExpandIndexFinal> {
+public:
+  using VPCompressExpandInitFinal::VPCompressExpandInitFinal;
 };
 
 /// Concrete class for representing a vector of steps of arithmetic progression.
@@ -3379,9 +3565,8 @@ public:
   void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 protected:
-  VPInstruction *cloneImpl() const override {
-    llvm_unreachable("not expected to clone");
-    return nullptr;
+  VPInvSCEVWrapper *cloneImpl() const override {
+    return new VPInvSCEVWrapper(getSCEV(), getType());
   }
 };
 
@@ -3472,12 +3657,14 @@ private:
 // is not supposed to vectorize alloca instructions that appear inside the loop
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
+  // VPLoopEntityList is allowed to set EntityKind.
+  friend class VPLoopEntityList;
+
 public:
-  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment,
-                    bool IsScalar = false)
+  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
       : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
         AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
-        OrigAlignment(OrigAlignment), IsScalar(IsScalar) {}
+        OrigAlignment(OrigAlignment), EntityKind(0) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -3514,27 +3701,31 @@ public:
 
   Type *getAllocatedType() const { return AllocatedTy; }
 
-  /// Return if this is a scalar allocation.
-  bool getIsScalar() const { return IsScalar; }
+  unsigned getEntityKind() const { return EntityKind; }
 
 protected:
 
   VPAllocatePrivate *cloneImpl() const override {
     auto Ret = new VPAllocatePrivate(
-      getType(), getAllocatedType(), getOrigAlignment(), getIsScalar());
+      getType(), getAllocatedType(), getOrigAlignment());
     if (isSOASafe())
       Ret->setSOASafe();
     if (isSOAProfitable())
       Ret->setSOAProfitable();
+    Ret->setEntityKind(getEntityKind());
     return Ret;
   }
+
+private:
+  /// Set the opcode of the Entity related to this Alloca.
+  void setEntityKind(unsigned Kind) { EntityKind = Kind; }
 
 private:
   Type *AllocatedTy;
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;
-  bool IsScalar;
+  unsigned EntityKind;
 };
 
 /// Return index of some active lane. Currently we use the first one but users
@@ -4088,7 +4279,7 @@ public:
   // mapping of the operands [2:] of VPGeneralMemOptConflict and the live-ins of
   // the region.
   VPGeneralMemOptConflict(Type *BaseTy, VPValue *VConflictIndex,
-                          std::unique_ptr<VPRegion> Rgn, VPValue *VConflictLoad,
+                          std::unique_ptr<VPRegion> Rgn,
                           ArrayRef<VPValue *> Params)
       : VPInstruction(VPInstruction::GeneralMemOptConflict, BaseTy, {}),
         Region(std::move(Rgn)), Context(&BaseTy->getContext()) {
@@ -4097,8 +4288,9 @@ public:
     // Region has the instructions of VConflict pattern that should be included
     // in the loop that we generate for optimized general conflict.
     addOperand(Region.get());
-    // Add conflict load as operand.
-    addOperand(VConflictLoad);
+    assert(Params.size() > 0 && isa<VPInstruction>(Params[0]) &&
+           cast<VPInstruction>(Params[0])->getOpcode() == Instruction::Load &&
+           "VConflictLoad is expected to be the third operand.");
     for (auto *P : Params)
       // There is an implicit mapping between the operands [2:] of
       // VPGeneralMemOptConflict and the live-ins of the region.
@@ -4127,8 +4319,8 @@ public:
 
   VPGeneralMemOptConflict *cloneImpl() const override {
     return new VPGeneralMemOptConflict(
-        getType(), getOperand(0), Region->clone(), getOperand(2),
-        ArrayRef<VPValue *>(op_begin() + 3, op_end()));
+        getType(), getConflictIndex(), Region->clone(),
+        ArrayRef<VPValue *>(op_begin() + 2, op_end()));
   }
 
 private:
@@ -4353,6 +4545,45 @@ public:
   }
 };
 
+/// Transformed library call specialization.
+/// This represents a library call that has been transformed in some way. By that
+/// we mean it has:
+///   1. An input signature (the original function call)
+///   2. An output signature (the transformed function call)
+///
+/// Take `sincos` for example:
+///
+///   void sincos(float, float*, float*)
+///   =>
+///   {float, float} __svml_sincos(float)
+///
+class VPTransformLibraryCall final : public VPCallInstruction {
+public:
+  VPTransformLibraryCall(VPCallInstruction &OrigCall, FunctionType *FnTy,
+                         ArrayRef<VPValue *> ArgList)
+      : VPCallInstruction(VPInstruction::TransformLibraryCall,
+                          OrigCall.getCalledValue(), FnTy, ArgList,
+                          OrigCall.getOriginalCall()) {
+    assert(OrigCall.getVectorizationScenario() ==
+               CallVecScenariosTy::LibraryFunc &&
+           "Call being transformed must have library vectorization scenario!");
+    assert(FnTy->getNumParams() == ArgList.size() &&
+           "Transformed function type and arg list must match!");
+    setVectorizeWithLibraryFn(OrigCall.getVectorLibraryFunc(),
+                              OrigCall.getPumpFactor());
+    copyUnderlyingFrom(OrigCall);
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::TransformLibraryCall;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
@@ -4449,6 +4680,9 @@ public:
 
   bool hasExplicitRemainder() const { return ExplicitRemainderUsed; }
   void setExplicitRemainderUsed() { ExplicitRemainderUsed = true; }
+
+  bool getCompressExpandUsed() const { return CompressExpandUsed; }
+  void setCompressExpandUsed() { CompressExpandUsed = true; }
 
   // VPBasicBlock iterator forwarding functions
   iterator begin() { return VPBasicBlocks.begin(); }
@@ -4679,6 +4913,10 @@ private:
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
+
+  /// Flag to indicate that VPlan has compress/expand idiom related
+  /// instructions.
+  bool CompressExpandUsed = false;
 
   /// Flag showing that a new scheme of CG for loops and basic blocks
   /// should be used.

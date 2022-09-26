@@ -1,4 +1,21 @@
 //===--- CloudABI.cpp - CloudABI ToolChain Implementations ------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -76,7 +93,7 @@ void cloudabi::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
-                  D.getLTOMode() == LTOK_Thin);
+                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
   }
 
   AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
@@ -117,6 +134,8 @@ void CloudABI::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
 void CloudABI::AddCXXStdlibLibArgs(const ArgList &Args,
                                    ArgStringList &CmdArgs) const {
   CmdArgs.push_back("-lc++");
+  if (Args.hasArg(options::OPT_fexperimental_library))
+    CmdArgs.push_back("-lc++experimental");
   CmdArgs.push_back("-lc++abi");
   CmdArgs.push_back("-lunwind");
 }

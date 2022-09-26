@@ -10,8 +10,7 @@
 ;   }
 ; }
 ;
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
 ;
 ; HIR Test.
 ; CHECK:      DO i1 = 0, 1023, 4

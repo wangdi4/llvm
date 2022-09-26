@@ -80,26 +80,8 @@ unsigned X86Disassembler::getRegOperandSize(const Record *RegRec) {
 }
 
 unsigned X86Disassembler::getMemOperandSize(const Record *MemRec) {
-  if (MemRec->isSubClassOf("Operand")) {
-    StringRef Name =
-        MemRec->getValueAsDef("ParserMatchClass")->getValueAsString("Name");
-    if (Name == "Mem8")
-      return 8;
-    if (Name == "Mem16")
-      return 16;
-    if (Name == "Mem32")
-      return 32;
-    if (Name == "Mem64")
-      return 64;
-    if (Name == "Mem80")
-      return 80;
-    if (Name == "Mem128")
-      return 128;
-    if (Name == "Mem256")
-      return 256;
-    if (Name == "Mem512")
-      return 512;
-  }
+  if (MemRec->isSubClassOf("X86MemOperand"))
+    return MemRec->getValueAsInt("Size");
 
   llvm_unreachable("Memory operand's size not known!");
 }
@@ -166,6 +148,11 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
   HasEVEX_K = Rec->getValueAsBit("hasEVEX_K");
   HasEVEX_KZ = Rec->getValueAsBit("hasEVEX_Z");
   HasEVEX_B = Rec->getValueAsBit("hasEVEX_B");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  HasEVEX_P10 = Rec->getValueAsBit("hasEVEX_P10");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   IsCodeGenOnly = Rec->getValueAsBit("isCodeGenOnly");
   IsAsmParserOnly = Rec->getValueAsBit("isAsmParserOnly");
   ForceDisassemble = Rec->getValueAsBit("ForceDisassemble");
@@ -235,6 +222,13 @@ void RecognizableInstr::processInstr(DisassemblerTables &tables,
                     (HasEVEX_KZ ? n##_KZ : \
                     (HasEVEX_K? n##_K : (HasEVEX_B ? n##_B : n)))))
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+#define EVEX_KB_P10(n) (HasEVEX_KZ ? n##_KZ_B_P10 : \
+                        (HasEVEX_K ? n##_K_B_P10 : n##_B_P10))
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
+
 InstructionContext RecognizableInstr::insnContext() const {
   InstructionContext insnContext;
 
@@ -243,6 +237,32 @@ InstructionContext RecognizableInstr::insnContext() const {
       errs() << "Don't support VEX.L if EVEX_L2 is enabled: " << Name << "\n";
       llvm_unreachable("Don't support VEX.L if EVEX_L2 is enabled");
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    // AVX256P RC
+    if (EncodeRC && !HasEVEX_P10) {
+      if (HasVEX_W) {
+        if (OpPrefix == X86Local::PD)
+          insnContext = EVEX_KB_P10(IC_EVEX_W_OPSIZE);
+        else if (OpPrefix == X86Local::XS)
+          insnContext = EVEX_KB_P10(IC_EVEX_W_XS);
+        else if (OpPrefix == X86Local::XD)
+          insnContext = EVEX_KB_P10(IC_EVEX_W_XD);
+        else if (OpPrefix == X86Local::PS)
+          insnContext = EVEX_KB_P10(IC_EVEX_W);
+      } else {
+        if (OpPrefix == X86Local::PD)
+          insnContext = EVEX_KB_P10(IC_EVEX_OPSIZE);
+        else if (OpPrefix == X86Local::XS)
+          insnContext = EVEX_KB_P10(IC_EVEX_XS);
+        else if (OpPrefix == X86Local::XD)
+          insnContext = EVEX_KB_P10(IC_EVEX_XD);
+        else if (OpPrefix == X86Local::PS)
+          insnContext = EVEX_KB_P10(IC_EVEX);
+      }
+    } else
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     // VEX_L & VEX_W
     if (!EncodeRC && HasVEX_L && HasVEX_W) {
       if (OpPrefix == X86Local::PD)
@@ -1050,9 +1070,19 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("f64mem",              TYPE_M)
   TYPE("sdmem",               TYPE_M)
   TYPE("FR16X",               TYPE_XMM)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  TYPE("BFR16X",              TYPE_XMM)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   TYPE("FR32",                TYPE_XMM)
   TYPE("FR32X",               TYPE_XMM)
   TYPE("f32mem",              TYPE_M)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  TYPE("bf16mem",             TYPE_M)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   TYPE("f16mem",              TYPE_M)
   TYPE("ssmem",               TYPE_M)
   TYPE("shmem",               TYPE_M)
@@ -1183,6 +1213,11 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("FR128",           ENCODING_IB)
   ENCODING("VR128",           ENCODING_IB)
   ENCODING("VR256",           ENCODING_IB)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  ENCODING("BFR16X",          ENCODING_IB)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_IB)
   ENCODING("FR32X",           ENCODING_IB)
   ENCODING("FR64X",           ENCODING_IB)
@@ -1217,6 +1252,11 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("FR32",            ENCODING_RM)
   ENCODING("FR64X",           ENCODING_RM)
   ENCODING("FR32X",           ENCODING_RM)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  ENCODING("BFR16X",          ENCODING_RM)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_RM)
   ENCODING("VR64",            ENCODING_RM)
   ENCODING("VR256",           ENCODING_RM)
@@ -1269,6 +1309,11 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("VR128X",          ENCODING_REG)
   ENCODING("FR64X",           ENCODING_REG)
   ENCODING("FR32X",           ENCODING_REG)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  ENCODING("BFR16X",          ENCODING_REG)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_REG)
   ENCODING("VR512",           ENCODING_REG)
   ENCODING("VK1",             ENCODING_REG)
@@ -1319,6 +1364,11 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("FR64",            ENCODING_VVVV)
   ENCODING("VR128",           ENCODING_VVVV)
   ENCODING("VR256",           ENCODING_VVVV)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  ENCODING("BFR16X",          ENCODING_VVVV)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_VVVV)
   ENCODING("FR32X",           ENCODING_VVVV)
   ENCODING("FR64X",           ENCODING_VVVV)
@@ -1376,6 +1426,11 @@ RecognizableInstr::memoryEncodingFromString(const std::string &s,
   ENCODING("f512mem",         ENCODING_RM)
   ENCODING("f64mem",          ENCODING_RM)
   ENCODING("f32mem",          ENCODING_RM)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  ENCODING("bf16mem",         ENCODING_RM)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   ENCODING("f16mem",          ENCODING_RM)
   ENCODING("i128mem",         ENCODING_RM)
   ENCODING("i256mem",         ENCODING_RM)

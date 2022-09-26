@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
-// RUN: -fenable-variant-function-pointers -O0 \
+// RUN: -fenable-variant-function-pointers -O0 -no-opaque-pointers \
 // RUN: -fenable-variant-virtual-calls \
 // RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 

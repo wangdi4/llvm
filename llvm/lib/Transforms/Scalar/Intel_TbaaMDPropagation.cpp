@@ -387,7 +387,7 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
       return;
 
     // Check the actual's typename against the formal's typename.
-    if (CallArgType.getValue() != FormalArgType.getValue()) {
+    if (CallArgType.value() != FormalArgType.value()) {
       MismatchedTypes = true;
       break;
     }

@@ -4,8 +4,8 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify lowering of tree conflict right after the transformation.
 
@@ -44,8 +44,7 @@ define dso_local void @foo(float* noalias nocapture noundef %A, i32* nocapture n
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP5:%.*]] = sext i32 [[VP_LOAD]] to i64 (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP5]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_VPCONFLICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0-> )
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_CTLZ:%.*]] = call i64 [[VP_VPCONFLICT_INTRINSIC]] i1 false llvm.ctlz [x 1] (SVAOpBits 0-> 1-> 2-> )
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] i64 [[VP6:%.*]] = sub i64 63 i64 [[VP_CTLZ]] (SVAOpBits 0-> 1-> )

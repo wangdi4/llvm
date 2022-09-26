@@ -1,4 +1,3 @@
-; RUN: opt -argpromotion -inline -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='argpromotion,cgscc(inline)' -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
 
 ; This test does argument promotion and then inlining and dead static

@@ -5,16 +5,11 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
 
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -vplan-enable-new-cfg-merge-hir -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate GatherScatter(GS) penalty being applied to memory
 ; access that are VLS optimized. Subsequent changes will update the
@@ -30,13 +25,13 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB0]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 100, UF = 1
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 100, UF = 1
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP_RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB1]]: base cost: 0
-; CMCHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 0
+; CMCHECK-NEXT:  [[BB1]]: base cost: 2
+; CMCHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 2
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
@@ -44,8 +39,7 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 12 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP5]]
 ; CMCHECK-NEXT:    Cost 12 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] *OVLS*(+6) AdjCost: 18
-; CMCHECK-NEXT:    Cost 12 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 2 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP7:%.*]] = add i64 [[VP5]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP7]]
 ; CMCHECK-NEXT:    Cost 12 for i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] *OVLS*(-12) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP8:%.*]] = add i64 [[VP_LOAD]] i64 [[VP4]]
@@ -53,17 +47,17 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 8 for i1 [[VP9:%.*]] = icmp slt i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 58
-; CMCHECK-NEXT:  Base Cost: 58
+; CMCHECK-NEXT:  [[BB2]]: base cost: 46
+; CMCHECK-NEXT:  Base Cost: 46
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CMCHECK-NEXT:    Cost 3 for i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB3]]: base cost: 0
+; CMCHECK-NEXT:  [[BB3]]: base cost: 3
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
-; CMCHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 4 resulted Cost = 0
+; CMCHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 4 resulted Cost = 3
 ;
 ; HIRCHECK:       Function: foo
 ; HIRCHECK-EMPTY:

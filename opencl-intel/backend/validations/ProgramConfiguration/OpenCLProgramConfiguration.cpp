@@ -244,10 +244,7 @@ DeviceMode OpenCLProgramConfiguration::GetProgramDeviceMode(const string& strDev
     if( strDeviceMode == "fpga-emu" )
         return FPGA_EMU_DEVICE;
 
-    if( strDeviceMode == "eyeq-emu" )
-        return EYEQ_EMU_DEVICE;
-
-    throw Exception::InvalidArgument("device modes other than cpu, fpga-emu or eyeq-emu are not supported");
+    throw Exception::InvalidArgument("device modes other than cpu or fpga-emu are not supported");
 }
 
 ProgramFileType OpenCLProgramConfiguration::GetProgramFileType(const string& strFileType)

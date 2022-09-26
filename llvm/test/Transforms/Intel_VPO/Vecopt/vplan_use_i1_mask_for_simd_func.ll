@@ -50,7 +50,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond58, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE"(i32* %t) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(i32* %t, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %for.end

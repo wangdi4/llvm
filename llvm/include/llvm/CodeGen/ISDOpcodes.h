@@ -915,6 +915,13 @@ enum NodeType {
   STRICT_FP16_TO_FP,
   STRICT_FP_TO_FP16,
 
+  /// BF16_TO_FP, FP_TO_BF16 - These operators are used to perform promotions
+  /// and truncation for bfloat16. These nodes form a semi-softened interface
+  /// for dealing with bf16 (as an i16), which is often a storage-only type but
+  /// has native conversions.
+  BF16_TO_FP,
+  FP_TO_BF16,
+
   /// Perform various unary floating-point operations inspired by libm. For
   /// FPOWI, the result is undefined if if the integer operand doesn't fit into
   /// sizeof(int).
@@ -1220,6 +1227,8 @@ enum NodeType {
   ATOMIC_LOAD_UMAX,
   ATOMIC_LOAD_FADD,
   ATOMIC_LOAD_FSUB,
+  ATOMIC_LOAD_FMAX,
+  ATOMIC_LOAD_FMIN,
 
   // Masked load and store - consecutive vector load and store operations
   // with additional mask operand that prevents memory accesses to the
@@ -1313,6 +1322,16 @@ enum NodeType {
 #if INTEL_CUSTOMIZATION
   COMPLEX_MUL,
 #endif // INTEL_CUSTOMIZATION
+  // The `llvm.experimental.stackmap` intrinsic.
+  // Operands: input chain, glue, <id>, <numShadowBytes>, [live0[, live1...]]
+  // Outputs: output chain, glue
+  STACKMAP,
+
+  // The `llvm.experimental.patchpoint.*` intrinsic.
+  // Operands: input chain, [glue], reg-mask, <id>, <numShadowBytes>, callee,
+  //   <numArgs>, cc, ...
+  // Outputs: [rv], output chain, glue
+  PATCHPOINT,
 
 // Vector Predication
 #define BEGIN_REGISTER_VP_SDNODE(VPSDID, ...) VPSDID,
@@ -1326,13 +1345,13 @@ enum NodeType {
 /// FIRST_TARGET_STRICTFP_OPCODE - Target-specific pre-isel operations
 /// which cannot raise FP exceptions should be less than this value.
 /// Those that do must not be less than this value.
-static const int FIRST_TARGET_STRICTFP_OPCODE = BUILTIN_OP_END + 400;
+static const int FIRST_TARGET_STRICTFP_OPCODE = BUILTIN_OP_END + 500; // INTEL
 
 /// FIRST_TARGET_MEMORY_OPCODE - Target-specific pre-isel operations
 /// which do not reference a specific memory location should be less than
 /// this value. Those that do must not be less than this value, and can
 /// be used with SelectionDAG::getMemIntrinsicNode.
-static const int FIRST_TARGET_MEMORY_OPCODE = BUILTIN_OP_END + 500;
+static const int FIRST_TARGET_MEMORY_OPCODE = BUILTIN_OP_END + 600; // INTEL
 
 /// Whether this is bitwise logic opcode.
 inline bool isBitwiseLogicOp(unsigned Opcode) {
@@ -1501,6 +1520,11 @@ inline unsigned getUnorderedFlavor(CondCode Cond) {
 /// Return the operation corresponding to !(X op Y), where 'op' is a valid
 /// SetCC operation.
 CondCode getSetCCInverse(CondCode Operation, EVT Type);
+
+inline bool isExtOpcode(unsigned Opcode) {
+  return Opcode == ISD::ANY_EXTEND || Opcode == ISD::ZERO_EXTEND ||
+         Opcode == ISD::SIGN_EXTEND;
+}
 
 namespace GlobalISel {
 /// Return the operation corresponding to !(X op Y), where 'op' is a valid

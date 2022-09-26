@@ -293,6 +293,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_SCOPE:
       W = new WRNScopeNode(EntryBB);
       break;
+    case DIR_VPO_GUARD_MEM_MOTION:
+      W = new WRNGuardMemMotionNode(EntryBB);
+      break;
     case DIR_OMP_TILE:
       W = new WRNTileNode(EntryBB, LI);
       break;
@@ -328,6 +331,9 @@ WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
       break;
     case DIR_VPO_AUTO_VEC:
       W = new WRNVecLoopNode(EntryHLNode, true /* auto vec */);
+      break;
+    case DIR_VPO_GUARD_MEM_MOTION:
+      W = new WRNGuardMemMotionNode(EntryHLNode);
       break;
   }
   if (W) {
@@ -1064,6 +1070,10 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
 
   SmallSet<Value *, 16> AlreadyCollected;
 
+  auto isNonPointer = [](Value *V) -> bool {
+    return (V && !isa<PointerType>(V->getType()));
+  };
+
   auto isNonPointerNonConstant = [](Value *V) -> bool {
     if (!V || isa<Constant>(V) || isa<PointerType>(V->getType()))
       return false;
@@ -1071,6 +1081,19 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
   };
 
   auto collectIfNotAlreadyCollected = [&](Value *V) {
+    if (isa<WRNTargetNode>(W)) {
+      // For target constructs, we need to capture the values a
+      // deterministic number of times to avoid mismatch between host
+      // and device compilation. Even if that means capturing the same
+      // value twice. For example, we need to mark %n for collection twice
+      // for the following:
+      //   %vla1 = alloca i32, i64 %n
+      //   %vla2 = alloca i32, i64 %n
+      //   "PRIVATE"(i32* %vla1, i32* %vla2)
+      W->addDirectlyUsedNonPointerValue(V);
+      return;
+    }
+
     if (AlreadyCollected.find(V) != AlreadyCollected.end())
       return;
 
@@ -1080,6 +1103,14 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
 
   auto collectIfNonPointerNonConstant = [&](Value *V) {
     if (!isNonPointerNonConstant(V))
+      return;
+    collectIfNotAlreadyCollected(V);
+  };
+
+  auto collectIfNonPointer = [&](Value *V, bool CollectEvenIfConstant = false) {
+    if (!CollectEvenIfConstant)
+      return collectIfNonPointerNonConstant(V);
+    if (!isNonPointer(V))
       return;
     collectIfNotAlreadyCollected(V);
   };
@@ -1095,14 +1126,23 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     collectIfNotAlreadyCollected(V);
   };
 
-  auto collectSizeIfVLA = [&](Value *V) {
-    // Skip AddrSpaceCastInsts in hope to reach the underlying value.
+  auto collectSizeIfAlloca = [&](Value *V, bool CollectEvenIfConstant = false,
+                                 bool StripPointerCastsToReachAlloca = false) {
+    // Skip Pointer/AddrSpaceCasts in hope to reach the underlying value.
     while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
       V = ASCI->getPointerOperand();
 
-    if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
+    if (StripPointerCastsToReachAlloca)
+      V = V->stripPointerCasts();
+
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
       if (AI->isArrayAllocation())
-        collectIfNonPointerNonConstant(AI->getArraySize());
+        collectIfNonPointer(AI->getArraySize(), CollectEvenIfConstant);
+      else if (CollectEvenIfConstant)
+        collectIfNonPointer(
+            ConstantInt::get(Type::getInt64Ty(V->getContext()), 1),
+            CollectEvenIfConstant);
+    }
   };
 
   auto collectArraySectionBounds = [&](const ArraySectionInfo &ASI) {
@@ -1114,15 +1154,24 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     }
   };
 
+  auto collectEvenIfConstant = [&](Item *I) -> bool {
+    // It's possible for CSE to promote some variables to constants before
+    // Paropt. For target regions, we need to capture such constants to avoid
+    // mismatch between host/device optimization pipelines.
+    return isa<WRNTargetNode>(W) && I->getIsVarLen();
+  };
+
   auto collectTypedNumElementsOrVlaSize = [&](Item *I) {
+    bool CollectEvenIfConstant = collectEvenIfConstant(I);
+
     if (I->getIsTyped()) {
-      collectIfNonPointerNonConstant(I->getNumElements());
+      collectIfNonPointer(I->getNumElements(), CollectEvenIfConstant);
       return;
     }
     // We need to capture VLA size even if it's not currently used
     // in the region because we'll use it for the allocation of
     // the private copy of the clause operand.
-    collectSizeIfVLA(I->getOrig());
+    collectSizeIfAlloca(I->getOrig(), CollectEvenIfConstant);
   };
 
   if (W->canHavePrivate()) {
@@ -1149,7 +1198,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
       else if (RedI->getIsTyped())
         collectIfNonPointerNonConstant(RedI->getArraySectionOffset());
       else
-        collectSizeIfVLA(RedI->getOrig());
+        collectSizeIfAlloca(RedI->getOrig());
     }
   }
 
@@ -1177,8 +1226,20 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     // operands for opaque pointers because the typed clauses required for
     // opaque pointers have explicit usage of the size value, and it is expected
     // to be explicitly captured on any outer construct by the frontends.
-    for (MapItem *MapI : MapClause.items())
-      collectSizeIfVLA(MapI->getOrig());
+    for (MapItem *MapI : MapClause.items()) {
+      // If the map item already has a non-typed private/fp clause, its VLA
+      // size would have been collected by the private/fp clause handling above.
+      if (const PrivateItem *PI = MapI->getInPrivate())
+        if (!PI->getIsTyped())
+          continue;
+
+      if (const FirstprivateItem *FPI = MapI->getInFirstprivate())
+        if (!FPI->getIsTyped())
+          continue;
+
+      collectSizeIfAlloca(MapI->getOrig(), collectEvenIfConstant(MapI),
+                          /*StripPointerCastsToReachAlloca=*/true);
+    }
   }
 
   if (W->canHaveIf())
@@ -1301,6 +1362,46 @@ ReductionItem *WRegionUtils::getReductionItemForInclusiveExclusiveItem(
   assert(Res && "inclusive/exclusive operand has no matching clause on the "
                 "parent construct.");
   return cast<ReductionItem>(Res);
+}
+
+bool WRegionUtils::supportsLocalAtomicFreeReduction(const WRegionNode *W) {
+  if (!WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
+    return false;
+
+  // Presence of KnownNDRange clause should disable atomic-free reduction,
+  // for teams it's handled in fixupKnowNDRange, but for par+loop it'd
+  // be incorrect as well since it may cause spawn of multiple teams w/o
+  // an actual teams clause. Here we also handle of a 'parallel' directive
+  // with an inner 'loop' one with an ndrange clause on the latter.
+  if (W->getIsParLoop())
+    return !W->getWRNLoopInfo().isKnownNDRange();
+
+  if (auto *GW = dyn_cast<WRNGenericLoopNode>(W)) {
+    if (GW->getMappedDir() == DIR_OMP_DISTRIBUTE_PARLOOP ||
+        GW->getMappedDir() == DIR_OMP_PARALLEL_LOOP)
+      return !GW->getWRNLoopInfo().isKnownNDRange();
+  }
+
+  // No constructs other than par/parloop are allowed for local atomic-free
+  // reduction.
+  if (!isa<WRNParallelNode>(W))
+    return false;
+
+  auto WLoopIt =
+      std::find_if(W->getChildren().begin(), W->getChildren().end(),
+                   [](WRegionNode *SW) { return SW->getIsOmpLoop(); });
+  if (WLoopIt != W->getChildren().end() &&
+      (*WLoopIt)->getWRNLoopInfo().isKnownNDRange())
+    return false;
+
+  return true;
+}
+
+bool WRegionUtils::supportsGlobalAtomicFreeReduction(const WRegionNode *W) {
+  if (!WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
+    return false;
+
+  return W->getIsTeams();
 }
 
 #endif // INTEL_COLLAB

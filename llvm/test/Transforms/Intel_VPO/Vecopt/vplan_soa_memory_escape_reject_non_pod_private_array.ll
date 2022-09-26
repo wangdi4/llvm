@@ -5,9 +5,10 @@
 ; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
+
+; FIXME: Test should be updated once support for non-POD private array type will be added.
+; XFAIL: *
 
 ; CHECK: SOA profitability:
 ; CHECK: SOAUnsafe = y3.lpriv
@@ -35,7 +36,7 @@ newFuncRoot:
   br label %omp.inner.for.body.preheader
 
 omp.inner.for.body.preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"([12 x %struct.int_int]* %y3.lpriv, void (%struct.int_int*)* @_ZTS7int_int.omp.def_constr, void (%struct.int_int*)* @_ZTS7int_int.omp.destr), "QUAL.OMP.LINEAR:IV"(i32* %i.priv, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"([12 x %struct.int_int]* %y3.lpriv, %struct.int_int zeroinitializer, i32 12, void (%struct.int_int*)* @_ZTS7int_int.omp.def_constr, void (%struct.int_int*)* @_ZTS7int_int.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.priv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:

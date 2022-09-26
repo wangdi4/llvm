@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -113,9 +113,10 @@ static cl::opt<bool> DisablePartialUnswitch("disable-" OPT_SWITCH "-pu",
                                                      " partial unswitch"));
 
 static cl::opt<bool>
-    KeepLoopnestPerfectOption(OPT_SWITCH "-keep-perfect", cl::init(false),
-                              cl::Hidden,
-                              cl::desc(OPT_DESC " keep loopnests perfect"));
+    EarlyPredicateOptOption(OPT_SWITCH "-early-opt", cl::init(false),
+                            cl::Hidden,
+                            cl::desc(OPT_DESC " with special options during "
+                                     "early pass"));
 
 constexpr unsigned DefaultMaxCasesThreshold = 8;
 
@@ -123,6 +124,28 @@ static cl::opt<unsigned> MaxCasesThreshold(
     OPT_SWITCH "-max-cases-threshold", cl::init(DefaultMaxCasesThreshold),
     cl::Hidden, cl::desc("Don't apply opt predicate in a switch instruction if"
     "the number of cases is larger than this threshold."));
+
+constexpr unsigned DefaultMaxIfsInLoopThreshold = 7;
+
+static cl::opt<unsigned> MaxIfsInLoopThreshold(
+    OPT_SWITCH "-max-ifs-in-loop-threshold",
+    cl::init(DefaultMaxIfsInLoopThreshold), cl::Hidden, cl::desc("Don't apply "
+    "opt predicate in a switch instruction if the number of Ifs in the parent "
+    "loop is larger than this threshold."));
+
+constexpr unsigned DefaultRegionCostThreshold = 3;
+
+static cl::opt<unsigned> RegionCostThreshold(
+    OPT_SWITCH "-max-region-cost", cl::init(DefaultRegionCostThreshold),
+    cl::Hidden, cl::desc("Don't apply opt predicate of an If instruction if "
+    "the number of inner loops is larger than this threshold."));
+
+// Disable converting Select instructions into If/Else to perform unswitching
+static cl::opt<bool> DisableUnswitchSelect("disable-" OPT_SWITCH "-select",
+                                            cl::init(false), cl::Hidden,
+                                            cl::desc("Disable " OPT_DESC
+                                                     " for select "
+                                                     "instructions"));
 
 namespace {
 
@@ -187,26 +210,60 @@ struct PUContext : PUCandidate {
 };
 
 struct HoistCandidate {
+
+  // Enum to handle which type of condition is the candidate
+  enum UnswitchType {
+    If,           // HLIf
+    Switch,       // HLSwitch
+    Select,       // HLInst where the LLVM instruction is a SelectInst
+    Bottom        // Anything else that is not supported
+  };
+
   HLDDNode *Node;
   unsigned Level;
-  bool IsIf;
+  UnswitchType UType;
 
   PUCandidate PUC;
+  bool CreatedFromSelect;
 
   HoistCandidate(HLDDNode *Node, unsigned Level, const PUCandidate &PUC)
-      : Node(Node), Level(Level), IsIf(isa<HLIf>(Node)), PUC(PUC) {}
+      : Node(Node), Level(Level), PUC(PUC), CreatedFromSelect(false) {
+    UType = Bottom;
+    if (isa<HLIf>(Node)) {
+      UType = UnswitchType::If;
+    } else if (isa<HLSwitch>(Node)) {
+      UType = UnswitchType::Switch;
+    } else {
+      auto Inst = cast<HLInst>(Node);
+      assert(isa<SelectInst>(Inst->getLLVMInstruction()) &&
+             "Trying to create a unswitch hoist candidate that is not a "
+             "select instruction");
+      (void) Inst;
+      UType = UnswitchType::Select;
+    }
+  }
 
   HoistCandidate(const HoistCandidate &Orig, HLDDNode *CloneNode,
                  const HLNodeMapper &Mapper)
-      : Node(CloneNode), Level(Orig.Level), IsIf(Orig.IsIf),
-        PUC(Orig.PUC, Mapper) {}
+      : Node(CloneNode), Level(Orig.Level), UType(Orig.UType),
+        PUC(Orig.PUC, Mapper), CreatedFromSelect(Orig.CreatedFromSelect) {}
 
   HoistCandidate() : Level(0) {}
 
-  bool isIf() const { return IsIf; }
+  bool isIf() const { return UType == UnswitchType::If; }
+  bool isSwitch() const { return UType == UnswitchType::Switch; }
+  bool isSelect() const { return UType == UnswitchType::Select; }
+  bool isValidCandidate() const { return UType != UnswitchType::Bottom; }
   HLDDNode *getNode() const { return Node; }
   HLIf *getIf() const { return cast<HLIf>(Node); }
   HLSwitch *getSwitch() const { return cast<HLSwitch>(Node); }
+  HLInst *getSelect() const { return cast<HLInst>(Node); }
+  bool createdFromSelect() const { return CreatedFromSelect; }
+
+  // If the candidate is a Select instruction, then replace the node with an
+  // HLIf and set the candidate's type as UnswitchType::If. This function is
+  // used when converting a Select instruction into If/Else to do unswitching.
+  void convertSelectToIf();
 
   bool operator==(const HoistCandidate &Arg) const { return Node == Arg.Node; }
 
@@ -216,11 +273,17 @@ struct HoistCandidate {
     dbgs() << "{";
     if (isIf()) {
       getIf()->dumpHeader();
-    } else {
+    } else if (isSwitch()) {
       getSwitch()->dumpHeader();
+    } else if (isSelect()) {
+      getSelect()->dump();
+    } else {
+      llvm_unreachable("Trying to print an incorrect hoist candidate");
     }
     dbgs() << ", L: " << Level << ", PU: ";
     PUC.dump();
+    if (CreatedFromSelect)
+      dbgs() << ", S";
     dbgs() << "}";
   }
 #endif
@@ -313,26 +376,33 @@ class HIROptPredicate {
 public:
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                  bool EnablePartialUnswitch, bool KeepLoopnestPerfect)
-      : HIRF(HIRF), DDA(DDA), BU(HIRF.getBlobUtils()),
+                  HIRLoopStatistics &HLS, bool EnablePartialUnswitch,
+                  bool EarlyPredicateOpt)
+      : HIRF(HIRF), DDA(DDA), HLS(HLS), BU(HIRF.getBlobUtils()),
         EnablePartialUnswitch(EnablePartialUnswitch && !DisablePartialUnswitch),
-        KeepLoopnestPerfect(KeepLoopnestPerfect || KeepLoopnestPerfectOption) {}
+        EarlyPredicateOpt(EarlyPredicateOpt || EarlyPredicateOptOption) {}
 
   bool run();
 
 private:
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
+  HIRLoopStatistics &HLS;
   BlobUtils &BU;
 
   bool EnablePartialUnswitch;
-  bool KeepLoopnestPerfect;
+  bool EarlyPredicateOpt;
 
   struct CandidateLookup;
+  struct RegionSizeCalculator;
   class LoopUnswitchNodeMapper;
 
   SmallDenseMap<const HLLoop *, unsigned, 16> ThresholdMap;
   SmallVector<HoistCandidate, 16> Candidates;
+  SmallPtrSet<const HLIf *, 4> OuterLoopIfs;
+
+  // Set used to track which regions has been modified by the optimization.
+  SmallSetVector<const HLRegion *, 16> RegionThresholdSet;
 
   // Opt-report chunk number
   unsigned VNum = 1;
@@ -409,6 +479,12 @@ private:
       HLLoop *TargetLoop,
       const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
       unsigned RemarkID);
+
+  /// Return true if all candidates belong to outer loops. It will be used for
+  /// disabling the GenCode flag since unswitching by itself may not be
+  /// profitable. If another transformation benefits from it, then it will
+  /// enable the GenCode flag.
+  bool mustCodeGen() const;
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD
@@ -493,26 +569,137 @@ static bool isUnswitchDisabled(HLIf *If) { return If->isUnswitchDisabled(); }
 struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLNode *SkipNode;
   HIROptPredicate &Pass;
+  HIRLoopStatistics &HLS;
+  HLLoop *CurrLoop;
   unsigned MinLevel;
   bool TransformLoop;
+  unsigned CostOfRegion;
+  // If we are analyzing a loop, then we are going to keep the first Select
+  // instruction that we found. All other Select instructions will be
+  // candidates if they have the same condition as this one.
+  HLInst *FirstSelectCandidate;
 
-  CandidateLookup(HIROptPredicate &Pass, bool TransformLoop = true,
-                  unsigned MinLevel = 0)
-      : SkipNode(nullptr), Pass(Pass), MinLevel(MinLevel),
-        TransformLoop(TransformLoop) {}
+  CandidateLookup(HIROptPredicate &Pass, HIRLoopStatistics &HLS,
+      HLLoop *CurrLoop = nullptr, bool TransformLoop = true,
+      unsigned MinLevel = 0, unsigned CostOfRegion = 0) : SkipNode(nullptr),
+      Pass(Pass), HLS(HLS), CurrLoop(CurrLoop), MinLevel(MinLevel),
+      TransformLoop(TransformLoop), CostOfRegion(CostOfRegion),
+      FirstSelectCandidate(nullptr) {}
 
   template <typename NodeTy> void visitIfOrSwitch(NodeTy *Node);
   void visit(HLIf *If);
   void visit(HLSwitch *Switch);
-
+  void visit(HLRegion *Reg);
   void visit(HLLoop *Loop);
-
+  void visit(HLInst *Inst);
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
+
+private:
+  bool isCandidateForPerfectLoopNest(
+      SmallVectorImpl<const HLNode *> &ChildNodes);
+};
+
+// Helper structure used to count the number of nested loops in a region.
+// If an HLIf is provided to the constructor then it will collect how many
+// times the same If condition is repeated in the nodes.
+struct
+HIROptPredicate::RegionSizeCalculator final : public HLNodeVisitorBase {
+  HLNode *SkipNode;
+  HIROptPredicate &Pass;
+  unsigned RegionSize;
+  HLIf *IfToCompare;
+  unsigned NumSameIfs;
+  unsigned IfWithElse;
+
+  RegionSizeCalculator(HIROptPredicate &Pass, HLIf *IfToCompare = nullptr)
+      : SkipNode(nullptr), Pass(Pass), RegionSize(0),
+        IfToCompare(IfToCompare), NumSameIfs(0), IfWithElse(0) {}
+
+  void visit(HLLoop *Loop) { RegionSize++; }
+
+  bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
+  void visit(const HLNode *Node) { }
+  void postVisit(const HLNode *Node) {}
+  void visit(HLIf *If) {
+    // If an HLIf was provided to the constructor than count how many times
+    // the same If condition appears in the region
+    if (IfToCompare && HLNodeUtils::areEqualConditions(IfToCompare,If))
+      NumSameIfs++;
+
+    if (If->hasElseChildren())
+      IfWithElse++;
+  }
+
+  unsigned getNumSameIfs() { return NumSameIfs; }
+  unsigned getRegionSize() { return RegionSize; }
+  unsigned getNumOfIfWithElse() { return IfWithElse; }
 };
 } // namespace
+
+// This function will traverse through the candidates that are Select
+// instructions, will convert them into If/Else, and will add the new
+// conditional into the Candidates list for unswitching. For example:
+//
+//   Original Select instruction :
+//     %sel = (operand1 PREDICATE operand2) ? true result : false result
+//
+//   Converted:
+//     if (operand1 PREDICATE operand2)
+//       %sel = true result
+//     else
+//       %sel = false result
+void HoistCandidate::convertSelectToIf() {
+  assert(isSelect() && "Trying to convert a candidate that is not a Select");
+  HLInst *Select = getSelect();
+  auto *Loop = Select->getParentLoop();
+  LLVM_DEBUG({
+    dbgs() << "Candidate for converting Select:\n";
+    Select->dump();
+  });
+
+  auto &HLNU = Loop->getHLNodeUtils();
+  // Create the true instruction
+  auto *RvalRef = Select->removeOperandDDRef(3);
+  auto *LvalRef = Select->removeOperandDDRef(0u);
+  HLInst *TrueInst =
+      RvalRef->isMemRef() ? HLNU.createLoad(RvalRef, "", LvalRef) :
+                            HLNU.createCopyInst(RvalRef, "", LvalRef);
+
+  // Create the false instruction
+  RvalRef = Select->removeOperandDDRef(4);
+  LvalRef = LvalRef->clone();
+  HLInst *FalseInst =
+      RvalRef->isMemRef() ? HLNU.createLoad(RvalRef, "", LvalRef) :
+                            HLNU.createCopyInst(RvalRef, "", LvalRef);
+
+  auto *OP1 = Select->removeOperandDDRef(1);
+  auto *OP2 = Select->removeOperandDDRef(2);
+  auto &Pred = Select->getPredicate();
+  HLIf *NewIf = HLNU.createHLIf(Pred, OP1, OP2);
+  NewIf->setDebugLoc(cast<HLInst>(Node)->getDebugLoc());
+
+  // Update the Select instruction with the new If/Else and set the
+  // children. Basically, create:
+  //
+  // if (operand1 PREDICATE operand2)
+  //   %sel = true result
+  // else
+  //   %sel = false result
+  HLNU.insertAsFirstThenChild(NewIf, TrueInst);
+  HLNU.insertAsFirstElseChild(NewIf, FalseInst);
+  HLNU.replace(Node, NewIf);
+  LLVM_DEBUG({
+    dbgs() << "Into If/Else:\n";
+    NewIf->dump();
+  });
+
+  Node = NewIf;
+  UType = UnswitchType::If;
+  CreatedFromSelect = true;
+}
 
 bool HIROptPredicate::processPUEdge(
     const HLIf *If, DDEdge *Edge, PUContext &PU,
@@ -740,8 +927,7 @@ public:
 
 void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   // Skip bottom test in unknown loops.
-  HLLoop *ParentLoop = If->getParentLoop();
-  if (!ParentLoop || ParentLoop->getBottomTest() == If) {
+  if (!CurrLoop || CurrLoop->getBottomTest() == If) {
     return;
   }
 
@@ -754,8 +940,7 @@ void HIROptPredicate::CandidateLookup::visit(HLSwitch *Switch) {
 
 template <typename NodeTy>
 void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
-  HLLoop *ParentLoop = Node->getParentLoop();
-  if (!ParentLoop) {
+  if (!CurrLoop) {
     return;
   }
 
@@ -773,7 +958,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     // Determine target level to unswitch.
     Level = std::max(Pass.getPossibleDefLevel(Node, PUC), MinLevel);
 
-    if (Level < ParentLoop->getNestingLevel()) {
+    if (Level < CurrLoop->getNestingLevel()) {
       // Check if condition does not depend on both T/F branches at the same
       // time.
       IsCandidate = PUC.isPUCandidate();
@@ -781,20 +966,18 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
       IsCandidate = false;
     }
   } else {
-    Level = ParentLoop->getNestingLevel();
+    Level = CurrLoop->getNestingLevel();
   }
 
-  if (IsCandidate && Pass.KeepLoopnestPerfect && Level != 0) {
+  if (IsCandidate && Pass.EarlyPredicateOpt && Level != 0) {
     // Suppress single level predicate optimization for complete unroll
     // candidates as it may complicate the analysis for unrolling and subsequent
     // passes.
-    // TODO: Should we rename KeepLoopnestPerfect to EarlyPredicateOpt for
-    // better context?
     uint64_t TC;
     bool IsCompleteUnrollCandidate =
-        (ParentLoop->isInnermost() &&
-         (Level == ParentLoop->getNestingLevel() - 1) &&
-         ParentLoop->isConstTripLoop(&TC) && TC < 4);
+        (CurrLoop->isInnermost() &&
+         (Level == CurrLoop->getNestingLevel() - 1) &&
+         CurrLoop->isConstTripLoop(&TC) && TC < 4);
 
     // Check if unswitching breaks the existing loopnest perfectness.
     IsCandidate = !IsCompleteUnrollCandidate &&
@@ -803,7 +986,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
 
   if (IsCandidate && PUC.isPURequired()) {
     // HLIf should be unconditionally executed to unswitch.
-    IsCandidate = HLNodeUtils::postDominates(Node, ParentLoop->getFirstChild());
+    IsCandidate = HLNodeUtils::postDominates(Node, CurrLoop->getFirstChild());
   }
 
   // Check for unsafe calls in branches that can modify the condition.
@@ -812,8 +995,8 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     // Implemented for HLIfs only
     HLIf *If = cast<HLIf>(Node);
     UnsafeCallFinder LoopUnsafe(Node), ThenUnsafe, ElseUnsafe;
-    HLNodeUtils::visitRange(LoopUnsafe, ParentLoop->child_begin(),
-                            ParentLoop->child_end());
+    HLNodeUtils::visitRange(LoopUnsafe, CurrLoop->child_begin(),
+                            CurrLoop->child_end());
     HLNodeUtils::visitRange(ThenUnsafe, If->then_begin(), If->then_end());
     HLNodeUtils::visitRange(ElseUnsafe, If->else_begin(), If->else_end());
     PUC.IsUpdatedInThenBranch = PUC.IsUpdatedInThenBranch ||
@@ -850,7 +1033,8 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
 
   // Collect candidates within HLIf branches.
-  CandidateLookup Lookup(Pass, WillUnswitchParent, Level);
+  CandidateLookup
+      Lookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level, CostOfRegion);
   visitChildren(Lookup, Node);
 
   if (!IsCandidate) {
@@ -913,11 +1097,53 @@ static unsigned countMaxEqualConditions(ArrayRef<const HLNode *> In) {
   return Count;
 }
 
+// Calculate the cost of a region
+void HIROptPredicate::CandidateLookup::visit(HLRegion *Reg) {
+  // NOTE: The cost of a region is the number of nested loops. This is
+  // conservative. We can relax this in the future by computing the size of the
+  // region versus the size of the actual function.
+  RegionSizeCalculator RegionSize(Pass);
+  HLNodeUtils::visit(RegionSize, Reg);
+  CostOfRegion = RegionSize.getRegionSize();
+}
+
+// Return true if the input vector has only one HLNode entry, the node
+// is HLIf, and the definition level is 0
+bool HIROptPredicate::CandidateLookup::isCandidateForPerfectLoopNest(
+    SmallVectorImpl<const HLNode *> &ChildNodes) {
+  if (ChildNodes.size() != 1)
+    return false;
+
+  auto *If = dyn_cast<const HLIf>(ChildNodes[0]);
+  if (!If)
+    return false;
+
+  // Don't allow the unswitch if the cost of the region is larger than
+  // the threshold. There is a chance that the size of the function grows
+  // big enough to produce slowdowns.
+  if (CostOfRegion > RegionCostThreshold)
+    return false;
+
+  PUContext PUC;
+  // Check if the condition can be hoisted to the outermost loop and if
+  // partial unswitch won't be performed. Partial unswitch is disabled
+  // at the moment since we don't want to create a branch with perfect loop
+  // nest and the other branch without prefect loop nest. This is
+  // conservative and can relaxed in the future through profiling and/or
+  // branch analysis.
+  bool Result = Pass.getPossibleDefLevel(If, PUC) == 0 &&
+                               !PUC.isPURequired();
+  if (Result)
+    Pass.OuterLoopIfs.insert(If);
+
+  return Result;
+}
+
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
+
   SkipNode = Loop;
 
   bool TransformCurrentLoop = true;
-
   // Handle innermost loops and outer loops, but only if unswitching can make
   // the loopnest perfectly nested. In this case the loop will have only one
   // child.
@@ -937,18 +1163,255 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
     std::sort(ChildNodes.begin(), ChildNodes.end(), conditionalHLNodeLess);
 
-    if (countMaxEqualConditions(ChildNodes) < 3) {
+    if (countMaxEqualConditions(ChildNodes) < 3 &&
+        !isCandidateForPerfectLoopNest(ChildNodes))
       TransformCurrentLoop = false;
+  }
+
+  // We will only process SIMD loops if the SIMD intrinsics are the only
+  // instructions in the pre-header and post-exit nodes of the loop. The
+  // reason is because they get cloned automatically without handling any
+  // special transformation.
+  if (Loop->isSIMD()) {
+    if (!Loop->isInnermost()) {
+      TransformCurrentLoop = false;
+    } else if (Loop->getNumPreheader() != 1 || Loop->getNumPostexit() != 1) {
+      TransformCurrentLoop = false;
+    } else {
+      auto *PreHeaderInst = cast<HLInst>(Loop->getFirstPreheaderNode());
+      auto *PostExitInst = cast<HLInst>(Loop->getFirstPostexitNode());
+      if (!PreHeaderInst->isSIMDDirective() ||
+          !PostExitInst->isSIMDEndDirective())
+        TransformCurrentLoop = false;
     }
   }
 
-  if (Loop->isSIMD()) {
-    TransformCurrentLoop = false;
-  }
-
-  CandidateLookup Lookup(Pass, TransformCurrentLoop, MinLevel);
+  CandidateLookup
+      Lookup(Pass, HLS, Loop, TransformCurrentLoop, MinLevel, CostOfRegion);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
+}
+
+// If the instruction is a Select instruction, is in the innermost loop and the
+// condition is loop invariant, then add it as a candidate. The Select
+// instruction will be converted into an If/Else which will be unswitched.
+void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
+  if (!isa<SelectInst>(Inst->getLLVMInstruction()) || DisableUnswitchSelect ||
+      Pass.EarlyPredicateOpt || !TransformLoop)
+    return;
+
+  // Current loop should be innermost and a Do loop
+  if (!FirstSelectCandidate) {
+    if (!CurrLoop || !CurrLoop->isInnermost() || !CurrLoop->isDo())
+      return;
+
+    // Check that the immediate parent must be a Loop.
+    auto *CurrParent = Inst->getParent();
+    if (!isa<HLLoop>(CurrParent))
+      return;
+
+    // TODO: We don't support loops with Switch statements at the moment due to
+    // compile time issues. For example,
+    //
+    //    BEGIN REGION { }
+    //          + DO i1 = 0, 99, 1   <DO_LOOP>
+    //          |   switch(%x)
+    //          |   {
+    //          |   case 0:
+    //          |      (%p)[i1] = i1;
+    //          |      break;
+    //          |   case 2:
+    //          |      (%q)[i1] = i1;
+    //          |      break;
+    //          |   default:
+    //          |      (%q)[i1 + 1] = i1;
+    //          |      break;
+    //          |   }
+    //          |   %4 = (%n > 0) ? 0 : 1;
+    //          |   (%p)[i1] = i1 + %4;
+    //          + END LOOP
+    //    END REGION
+    //
+    // The example above contains a Select instruction (%4) that can be optimized
+    // and the result HIR will be the following:
+    //
+    //    BEGIN REGION { modified }
+    //        switch(%x)
+    //        {
+    //        case 0:
+    //           if (%n > 0)
+    //           {
+    //              + DO i1 = 0, 99, 1   <DO_LOOP>
+    //              |   (%p)[i1] = i1;
+    //              |   %6 = 0;
+    //              |   (%p)[i1] = i1 + %6;
+    //              + END LOOP
+    //           }
+    //           else
+    //           {
+    //              + DO i1 = 0, 99, 1   <DO_LOOP>
+    //              |   (%p)[i1] = i1;
+    //              |   %6 = 1;
+    //              |   (%p)[i1] = i1 + %6;
+    //              + END LOOP
+    //           }
+    //           break;
+    //        case 2:
+    //           if (%n > 0)
+    //           {
+    //              + DO i1 = 0, 99, 1   <DO_LOOP>
+    //              |   (%q)[i1] = i1;
+    //              |   %6 = 0;
+    //              |   (%p)[i1] = i1 + %6;
+    //              + END LOOP
+    //           }
+    //           else
+    //           {
+    //              + DO i1 = 0, 99, 1   <DO_LOOP>
+    //              |   (%q)[i1] = i1;
+    //              |   %6 = 1;
+    //              |   (%p)[i1] = i1 + %6;
+    //              + END LOOP
+    //           }
+    //           break;
+    //        default:
+    //           if (%n > 0)
+    //           {
+    //              + DO i1 = 0, 99, 1   <DO_LOOP>
+    //              |   (%q)[i1 + 1] = i1;
+    //              |   %6 = 0;
+    //              |   (%p)[i1] = i1 + %6;
+    //              + END LOOP
+    //           }
+    //           else
+    //           {
+    //              + DO i1 = 0, 99, 1   <DO_LOOP>
+    //              |   (%q)[i1 + 1] = i1;
+    //              |   %6 = 1;
+    //              |   (%p)[i1] = i1 + %6;
+    //              + END LOOP
+    //           }
+    //           break;
+    //        }
+    //  END REGION
+    //
+    // The main problem is that if the cases contain more conditionals, the
+    // region is very big, and/or there is a huge number of cases, then it
+    // produces compile time issues because the opt-predicate will try to
+    // find new opportunities every time the transformation is applied for each
+    // case. For now we are going to disable optimizing the Select instructions
+    // when Switch instructions are in the same loopnest (CMPLRLLVM-39714).
+
+    // Check if the current loop contains any switch
+    auto LoopStats = HLS.getTotalLoopStatistics(CurrLoop);
+    if (LoopStats.hasSwitches())
+      return;
+
+    // If the loop is inside a Switch instruction then it can't be a candidate.
+    // There is a chance that the compile time increses due to the iterative
+    // checks introduced by unswitching a Switch instruction (CMPLRLLVM-39714).
+    HLNode *CurrNode = CurrLoop;
+    while (CurrNode) {
+      if (isa<HLSwitch>(CurrNode))
+        return;
+      CurrNode = CurrNode->getParent();
+    }
+
+    // If the loop has any extra IF then don't proceed with the optimization.
+    // There is a chance that the function grows big enough and it may affect
+    // code alignment.
+    if (LoopStats.hasIfs())
+      return;
+
+    // The transformation will be disabled if there are calls to unsafe
+    // functions. The reason is that we would perform unswitching to enable
+    // legal vectorization, but vectorization can't be applied if there are
+    // calls to unsafe functions.
+    if (LoopStats.hasCallsWithUnsafeSideEffects() ||
+        LoopStats.hasCallsWithUnknownAliasing())
+      return;
+
+    FirstSelectCandidate = Inst;
+  } else if (!HLNodeUtils::areEqualConditions(Inst, FirstSelectCandidate)) {
+    return;
+  }
+
+  // Select instructions have 5 DDRef:
+  //   0 -> left hand side
+  //   1 -> compare operand 1
+  //   2 -> compare operand 2
+  //   3 -> result if compare is true
+  //   4 -> result if compare is false
+
+  auto *LHSSel = Inst->getOperandDDRef(0);
+  if (!LHSSel->isSelfBlob())
+    return;
+
+  // Make sure that the operands in the condition are loop invariant
+  unsigned MaxLevel = 0;
+  unsigned LoopLevel = CurrLoop->getNestingLevel();
+  for (unsigned I = 1; I < 3; I++) {
+    auto *CmpOp = Inst->getOperandDDRef(I);
+
+    // The operand's type can't be vector type. It isn't supported by HLIf.
+    if (CmpOp->getDestType()->isVectorTy())
+      return;
+
+    PUContext PUC;
+    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, CmpOp, PUC);
+    if (DefLevel >= LoopLevel)
+      return;
+
+    MaxLevel = std::max(DefLevel, MaxLevel);
+  }
+
+  // Disable if the LHS is used in the true or false.
+  // TODO: This is conservative. There are cases where it can produce a
+  // temp self assignment, which aren't expected in the HIR. Also, the
+  // Select instruction might be a good candidate for last value computation.
+  // For example:
+  //
+  // * Original loop:
+  //
+  //   + DO i1 = 0, zext.i32.i64(%138) + -1, 1
+  //   |   %397 = (%375 <u 1.000000e-01) ? %397 : 0;
+  //   |   %396 = ((%3)[0].12[i1] <u 1.600000e+01) ? %396 : 1;
+  //   + END LOOP
+  //
+  // Expected transformation:
+  //
+  //   + DO i1 = 0, zext.i32.i64(%138) + -1, 1
+  //   |   %396 = ((%3)[0].12[i1] <u 1.600000e+01) ? %396 : 1;
+  //   + END LOOP
+  //      %397 = (%375 <u 1.000000e-01) ? %397 : 0;
+  //
+  // Notice that the select instruction can be moved out of the loop
+  // (CMPLRLLVM-39738).
+  auto *TrueOP = Inst->getOperandDDRef(3);
+  auto *FalseOP = Inst->getOperandDDRef(4);
+  if (DDRefUtils::areEqual(LHSSel, TrueOP) ||
+      DDRefUtils::areEqual(LHSSel, FalseOP))
+    return;
+
+  PUContext PUC;
+  Pass.Candidates.emplace_back(Inst, MaxLevel, PUC);
+}
+
+bool HIROptPredicate::mustCodeGen() const {
+  if (OuterLoopIfs.empty())
+    return true;
+
+  for (auto Candidate : Candidates) {
+    if (Candidate.isIf()) {
+      auto *If = cast<HLIf>(Candidate.getNode());
+      if (!OuterLoopIfs.contains(If))
+        return true;
+    } else {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void HIROptPredicate::sortCandidates() {
@@ -991,15 +1454,17 @@ bool HIROptPredicate::run() {
 
     LLVM_DEBUG(dbgs() << "Region: " << Region->getNumber() << ":\n");
 
-    CandidateLookup Lookup(*this);
+    CandidateLookup Lookup(*this, HLS);
     HLNodeUtils::visit(Lookup, Region);
     sortCandidates();
 
     LLVM_DEBUG(dumpCandidates());
 
+    bool MustCodeGen = mustCodeGen();
     bool HasMultiexitLoop;
     if (processOptPredicate(HasMultiexitLoop)) {
-      Region->setGenCode();
+      if (MustCodeGen)
+        Region->setGenCode();
       HLNodeUtils::removeRedundantNodes(Region, false);
 
       if (HasMultiexitLoop) {
@@ -1010,6 +1475,7 @@ bool HIROptPredicate::run() {
     clearOptReportState();
     Candidates.clear();
     ThresholdMap.clear();
+    OuterLoopIfs.clear();
   }
 
   return false;
@@ -1146,6 +1612,10 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
   while (!Candidates.empty()) {
     HoistCandidate &Candidate = Candidates.back();
 
+    // There shouldn't be any Candidate set as Bottom.
+    assert(Candidate.isValidCandidate() &&
+           "Invalid instruction selected as candidate");
+
     HLDDNode *PilotIfOrSwitch = Candidate.getNode();
 
     ConditionsAnalyzed++;
@@ -1177,11 +1647,65 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
       continue;
     }
 
+    HLRegion *ParentRegion = TargetLoop->getParentRegion();
+    auto LoopStats = HLS.getTotalLoopStatistics(TargetLoop);
+    bool SkipLoop = false;
+    unsigned NumOfIfs = LoopStats.getNumIfs();
+    if (!RegionThresholdSet.insert(ParentRegion) && Candidate.isIf() &&
+        NumOfIfs > MaxIfsInLoopThreshold) {
+      // If the region was transformed once, the candidate is an If and the
+      // number of If conditions in the loopnest is larger than
+      // MaxIfsInLoopThreshold, then check how many times the candidate
+      // condition repeats in the loopnest. If the number of times repeated
+      // is less than half of the conditionals, and more than 40% of the If
+      // statements have an Else child node in the loop nest, then disable
+      // the current candidate. The reason is that it will introduce a large
+      // number of new candidates which increases the compile time, and many
+      // of these candidates won't necessarily be hoisted to the outermost
+      // loop. Else, if there is a large count of the candidate condition then
+      // it means that most likely the loop was unrolled.
+      RegionSizeCalculator PredCounter(*this, Candidate.getIf());
+      TargetLoop->getHLNodeUtils().visitRange(PredCounter,
+                                              TargetLoop->child_begin(),
+                                              TargetLoop->child_end());
+
+#if INTEL_FEATURE_SW_ADVANCED
+      // TODO: Disabling the If condition (just leaving the computation of
+      // SkipLoop) provides an extra 5% for CPU2017/538.imagick
+      // (CMPLRLLVM-38999).
+#endif // INTEL_FEATURE_SW_ADVANCED
+      if (PredCounter.getNumOfIfWithElse() > ((double)NumOfIfs * 0.4))
+        SkipLoop =
+            (double)PredCounter.getNumSameIfs() < ((double)NumOfIfs / 2.0);
+    }
+
+    if (SkipLoop) {
+      // If the parent loop was converted already and there is a large
+      // number of conditionals, then do not apply it again.
+      LLVM_DEBUG({
+        dbgs() << "Skipping opportunity because the number of Ifs in loop "
+               << "is larger than max allowed ("
+               << LoopStats.getNumIfs()
+               << " > " << MaxIfsInLoopThreshold << ")\n";
+      });
+      Candidates.pop_back();
+      if (Candidate.isIf()) {
+        Candidate.getIf()->setUnswitchDisabled();
+      }
+      continue;
+    }
+
     HIRInvalidationUtils::invalidateBody(ParentLoop);
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(TargetLoop);
 
-    // TODO: check if candidate is defined in preheader
-    TargetLoop->extractZttPreheaderAndPostexit();
+    // If the loop is SIMD then do not extract the pre-header and post-exit
+    // nodes of the loop. We need to duplicate the SIMD intrinsics. This will
+    // only happen if the SIMD intrinsics are part of the loop pre-header and
+    // loop post-exit, and these are the only instructions in both lists.
+    if (!TargetLoop->isSIMD()) {
+      // TODO: check if candidate is defined in preheader
+      TargetLoop->extractZttPreheaderAndPostexit();
+    }
 
     // TransformLoop and its clones.
     transformCandidate(TargetLoop, Candidate);
@@ -1368,8 +1892,18 @@ void HIROptPredicate::transformIf(
   //   END DO
   // }
 
-  // Invariant If condition%s hoisted out of this loop
-  addPredicateOptReportRemark(TargetLoop, IfCandidates, 25423u);
+  // If the If/Else was created from a select instruction then we use a
+  // generic opt-report remark
+  unsigned OptReportRemark = 25423u;
+  for (auto &Candidate : IfCandidates) {
+    if (Candidate.createdFromSelect()) {
+      OptReportRemark = 25422u;
+      break;
+    }
+  }
+
+  // Invariant [If condition%s | Condition%s] hoisted out of this loop
+  addPredicateOptReportRemark(TargetLoop, IfCandidates, OptReportRemark);
 
   // Unswitch every equivalent candidate - a pair of HLIfs. First we handle
   // original If and then its clone. removeOrHoistIf() will move HLIf before
@@ -1502,10 +2036,21 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
             // Have same condition
             ((C.isIf() &&
               HLNodeUtils::areEqualConditions(C.getIf(), Candidate.getIf())) ||
-             (!C.isIf() && HLNodeUtils::areEqualConditions(
+             (C.isSwitch() && HLNodeUtils::areEqualConditions(
                                C.getSwitch(), Candidate.getSwitch()))) &&
           // And are in the same target loop
           HLNodeUtils::contains(TargetLoop, C.getNode(), false);
+
+        // Check if the current candidate is a Select instruction that will be
+        // converted into an If. If so, then collect all the possible equal
+        // conditions
+        if (!IsEquiv && C.Level == Candidate.Level && C.isSelect() &&
+            Candidate.isIf()) {
+          IsEquiv =
+              HLNodeUtils::areEqualConditions(C.getSelect(),
+                                              Candidate.getIf()) &&
+              HLNodeUtils::contains(TargetLoop, C.getSelect(), false);
+        }
 
         if (!IsEquiv) {
           return false;
@@ -1515,13 +2060,24 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
         return !hasEqualParentNode(C.getNode(), TargetLoop);
       };
 
+
+  // The Candidate that is a Select instruction must have a temporary If
+  // at this point, convert it
+  if (Candidate.isSelect())
+    Candidate.convertSelectToIf();
+
   auto EquivCandidatesI = std::stable_partition(
-      Candidates.begin(), Candidates.end(), std::not1(IsEquivCandidate));
+      Candidates.begin(), Candidates.end(), std::not_fn(IsEquivCandidate));
 
   for (auto Iter = EquivCandidatesI, E = Candidates.end(); Iter != E; ++Iter) {
     LLVM_DEBUG(dbgs() << "H: ");
     LLVM_DEBUG(Iter->dump());
     LLVM_DEBUG(dbgs() << "\n");
+
+    // The equivalent candidate that is a Select instruction must have a
+    // temporary If at this point, convert it
+    if (Iter->isSelect())
+      Iter->convertSelectToIf();
 
     // Disable further unswitching in case of pass will be called more than
     // once.
@@ -1720,7 +2276,8 @@ void HIROptPredicate::addPredicateOptReportRemark(
 PreservedAnalyses HIROptPredicatePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                  EnablePartialUnswitch, KeepLoopnestPerfect)
+                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                  EnablePartialUnswitch, EarlyPredicateOpt)
       .run();
 
   return PreservedAnalyses::all();
@@ -1728,15 +2285,15 @@ PreservedAnalyses HIROptPredicatePass::runImpl(
 
 class HIROptPredicateLegacyPass : public HIRTransformPass {
   bool EnablePartialUnswitch;
-  bool KeepLoopnestPerfect;
+  bool EarlyPredicateOpt;
 
 public:
   static char ID;
 
   HIROptPredicateLegacyPass(bool EnablePartialUnswitch = true,
-                            bool KeepLoopnestPerfect = false)
+                            bool EarlyPredicateOpt = false)
       : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch),
-        KeepLoopnestPerfect(KeepLoopnestPerfect) {
+        EarlyPredicateOpt(EarlyPredicateOpt) {
     initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -1757,7 +2314,8 @@ public:
 
     return HIROptPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                            getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                           EnablePartialUnswitch, KeepLoopnestPerfect)
+                           getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+                           EnablePartialUnswitch, EarlyPredicateOpt)
         .run();
   }
 };
@@ -1772,7 +2330,7 @@ INITIALIZE_PASS_END(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
                     false)
 
 FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch,
-                                              bool KeepLoopnestPerfect) {
+                                              bool EarlyPredicateOpt) {
   return new HIROptPredicateLegacyPass(EnablePartialUnswitch,
-                                       KeepLoopnestPerfect);
+                                       EarlyPredicateOpt);
 }

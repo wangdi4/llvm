@@ -19,10 +19,10 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_
 ; CHECK:       for.body.lr.ph:
 ; CHECK:    [[TMP0:%.*]] = load float, float* @fp_inc, align 4
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[INITIND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[INIT0:%.*]], i64 0
-; CHECK-NEXT:    [[INITIND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x float> [[INITIND_START_BCAST_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[IND_STEP_VEC_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[TMP0]], i64 0
 ; CHECK-NEXT:    [[IND_STEP_VEC_SPLAT0:%.*]] = shufflevector <4 x float> [[IND_STEP_VEC_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[INITIND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[INIT0:%.*]], i64 0
+; CHECK-NEXT:    [[INITIND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x float> [[INITIND_START_BCAST_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = fmul fast <4 x float> [[IND_STEP_VEC_SPLAT0]], <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00>
 ; CHECK-NEXT:    [[TMP4:%.*]] = fsub <4 x float> [[INITIND_START_BCAST_SPLAT0]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = fmul float [[TMP0]], 4.000000e+00

@@ -1,4 +1,21 @@
 //===- Coroutines.cpp -----------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,16 +27,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Coroutines.h" // INTEL
 #include "CoroInstr.h"
 #include "CoroInternal.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm-c/Transforms/Coroutines.h" // INTEL
-#include "llvm/Analysis/CallGraphSCCPass.h" // INTEL
-#include "llvm/IR/LegacyPassManager.h" // INTEL
-#include "llvm/InitializePasses.h" // INTEL
-#include "llvm/Transforms/IPO.h" // INTEL
-#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Attributes.h"
@@ -40,57 +50,6 @@
 #include <utility>
 
 using namespace llvm;
-
-#if INTEL_CUSTOMIZATION
-void llvm::initializeCoroutines(PassRegistry &Registry) {
-  initializeCoroEarlyLegacyPass(Registry);
-  initializeCoroSplitLegacyPass(Registry);
-  initializeCoroElideLegacyPass(Registry);
-  initializeCoroCleanupLegacyPass(Registry);
-}
-
-static void addCoroutineOpt0Passes(const PassManagerBuilder &Builder,
-                                   legacy::PassManagerBase &PM) {
-  PM.add(createCoroSplitLegacyPass());
-  PM.add(createCoroElideLegacyPass());
-
-  PM.add(createBarrierNoopPass());
-  PM.add(createCoroCleanupLegacyPass());
-}
-
-static void addCoroutineEarlyPasses(const PassManagerBuilder &Builder,
-                                    legacy::PassManagerBase &PM) {
-  PM.add(createCoroEarlyLegacyPass());
-}
-
-static void addCoroutineScalarOptimizerPasses(const PassManagerBuilder &Builder,
-                                              legacy::PassManagerBase &PM) {
-  PM.add(createCoroElideLegacyPass());
-}
-
-static void addCoroutineSCCPasses(const PassManagerBuilder &Builder,
-                                  legacy::PassManagerBase &PM) {
-  PM.add(createCoroSplitLegacyPass(Builder.OptLevel != 0));
-}
-
-static void addCoroutineOptimizerLastPasses(const PassManagerBuilder &Builder,
-                                            legacy::PassManagerBase &PM) {
-  PM.add(createCoroCleanupLegacyPass());
-}
-
-void llvm::addCoroutinePassesToExtensionPoints(PassManagerBuilder &Builder) {
-  Builder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
-                       addCoroutineEarlyPasses);
-  Builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                       addCoroutineOpt0Passes);
-  Builder.addExtension(PassManagerBuilder::EP_CGSCCOptimizerLate,
-                       addCoroutineSCCPasses);
-  Builder.addExtension(PassManagerBuilder::EP_ScalarOptimizerLate,
-                       addCoroutineScalarOptimizerPasses);
-  Builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                       addCoroutineOptimizerLastPasses);
-}
-#endif // INTEL_CUSTOMIZATION 
 
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
@@ -204,48 +163,6 @@ void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-// FIXME: This code is stolen from CallGraph::addToCallGraph(Function *F), which
-// happens to be private. It is better for this functionality exposed by the
-// CallGraph.
-static void buildCGN(CallGraph &CG, CallGraphNode *Node) {
-  Function *F = Node->getFunction();
-
-  // Look for calls by this function.
-  for (Instruction &I : instructions(F))
-    if (auto *Call = dyn_cast<CallBase>(&I)) {
-      const Function *Callee = Call->getCalledFunction();
-      if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
-        // Indirect calls of intrinsics are not allowed so no need to check.
-        // We can be more precise here by using TargetArg returned by
-        // Intrinsic::isLeaf.
-        Node->addCalledFunction(Call, CG.getCallsExternalNode());
-      else if (!Callee->isIntrinsic())
-        Node->addCalledFunction(Call, CG.getOrInsertFunction(Callee));
-    }
-}
-
-// Rebuild CGN after we extracted parts of the code from ParentFunc into
-// NewFuncs. Builds CGNs for the NewFuncs and adds them to the current SCC.
-void coro::updateCallGraph(Function &ParentFunc, ArrayRef<Function *> NewFuncs,
-                           CallGraph &CG, CallGraphSCC &SCC) {
-  // Rebuild CGN from scratch for the ParentFunc
-  auto *ParentNode = CG[&ParentFunc];
-  ParentNode->removeAllCalledFunctions();
-  buildCGN(CG, ParentNode);
-
-  SmallVector<CallGraphNode *, 8> Nodes(SCC.begin(), SCC.end());
-
-  for (Function *F : NewFuncs) {
-    CallGraphNode *Callee = CG.getOrInsertFunction(F);
-    Nodes.push_back(Callee);
-    buildCGN(CG, Callee);
-  }
-
-  SCC.initialize(Nodes);
-}
-#endif // INTEL_CUSTOMIZATION
-
 static void clear(coro::Shape &Shape) {
   Shape.CoroBegin = nullptr;
   Shape.CoroEnds.clear();
@@ -271,6 +188,7 @@ static CoroSaveInst *createCoroSave(CoroBeginInst *CoroBegin,
 // Collect "interesting" coroutine intrinsics.
 void coro::Shape::buildFrom(Function &F) {
   bool HasFinalSuspend = false;
+  bool HasUnwindCoroEnd = false;
   size_t FinalSuspendIndex = 0;
   clear(*this);
   SmallVector<CoroFrameInst *, 8> CoroFrames;
@@ -342,6 +260,10 @@ void coro::Shape::buildFrom(Function &F) {
         if (auto *AsyncEnd = dyn_cast<CoroAsyncEndInst>(II)) {
           AsyncEnd->checkWellFormed();
         }
+
+        if (CoroEnds.back()->isUnwind())
+          HasUnwindCoroEnd = true;
+
         if (CoroEnds.back()->isFallthrough() && isa<CoroEndInst>(II)) {
           // Make sure that the fallthrough coro.end is the first element in the
           // CoroEnds vector.
@@ -390,11 +312,12 @@ void coro::Shape::buildFrom(Function &F) {
     auto SwitchId = cast<CoroIdInst>(Id);
     this->ABI = coro::ABI::Switch;
     this->SwitchLowering.HasFinalSuspend = HasFinalSuspend;
+    this->SwitchLowering.HasUnwindCoroEnd = HasUnwindCoroEnd;
     this->SwitchLowering.ResumeSwitch = nullptr;
     this->SwitchLowering.PromiseAlloca = SwitchId->getPromise();
     this->SwitchLowering.ResumeEntryBlock = nullptr;
 
-    for (auto AnySuspend : CoroSuspends) {
+    for (auto *AnySuspend : CoroSuspends) {
       auto Suspend = dyn_cast<CoroSuspendInst>(AnySuspend);
       if (!Suspend) {
 #ifndef NDEBUG
@@ -440,7 +363,7 @@ void coro::Shape::buildFrom(Function &F) {
     auto ResultTys = getRetconResultTypes();
     auto ResumeTys = getRetconResumeTypes();
 
-    for (auto AnySuspend : CoroSuspends) {
+    for (auto *AnySuspend : CoroSuspends) {
       auto Suspend = dyn_cast<CoroSuspendRetconInst>(AnySuspend);
       if (!Suspend) {
 #ifndef NDEBUG
@@ -750,27 +673,3 @@ void CoroAsyncEndInst::checkWellFormed() const {
          "match the tail arguments",
          MustTailCallFunc);
 }
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddCoroEarlyPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createCoroEarlyLegacyPass());
-}
-
-void LLVMAddCoroSplitPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createCoroSplitLegacyPass());
-}
-
-void LLVMAddCoroElidePass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createCoroElideLegacyPass());
-}
-
-void LLVMAddCoroCleanupPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createCoroCleanupLegacyPass());
-}
-
-void
-LLVMPassManagerBuilderAddCoroutinePassesToExtensionPoints(LLVMPassManagerBuilderRef PMB) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  addCoroutinePassesToExtensionPoints(*Builder);
-}
-#endif // INTEL_CUSTOMIZATION

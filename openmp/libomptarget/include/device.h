@@ -39,11 +39,11 @@
 #include <mutex>
 #include <set>
 #include <thread>
-#include <vector>
 
 #include "ExclusiveAccess.h"
 #include "omptarget.h"
 #include "rtl.h"
+#include "llvm/ADT/SmallVector.h"
 
 // Forward declarations.
 struct RTLInfoTy;
@@ -264,17 +264,17 @@ struct HostDataToTargetMapKeyTy {
       : KeyValue(HDTT->HstPtrBegin), HDTT(HDTT) {}
   HostDataToTargetTy *HDTT;
 };
-inline bool operator<(const HostDataToTargetMapKeyTy &lhs,
-                      const uintptr_t &rhs) {
-  return lhs.KeyValue < rhs;
+inline bool operator<(const HostDataToTargetMapKeyTy &LHS,
+                      const uintptr_t &RHS) {
+  return LHS.KeyValue < RHS;
 }
-inline bool operator<(const uintptr_t &lhs,
-                      const HostDataToTargetMapKeyTy &rhs) {
-  return lhs < rhs.KeyValue;
+inline bool operator<(const uintptr_t &LHS,
+                      const HostDataToTargetMapKeyTy &RHS) {
+  return LHS < RHS.KeyValue;
 }
-inline bool operator<(const HostDataToTargetMapKeyTy &lhs,
-                      const HostDataToTargetMapKeyTy &rhs) {
-  return lhs.KeyValue < rhs.KeyValue;
+inline bool operator<(const HostDataToTargetMapKeyTy &LHS,
+                      const HostDataToTargetMapKeyTy &RHS) {
+  return LHS.KeyValue < RHS.KeyValue;
 }
 
 struct LookupResult {
@@ -323,8 +323,7 @@ struct PendingCtorDtorListsTy {
 typedef std::map<__tgt_bin_desc *, PendingCtorDtorListsTy>
     PendingCtorsDtorsPerLibrary;
 #if INTEL_COLLAB
-typedef std::vector<std::set<void *>> UsedPtrsTy;
-typedef std::vector<__omp_offloading_fptr_map_t> FnPtrsTy;
+typedef llvm::SmallVector<std::set<void *>> UsedPtrsTy;
 #endif // INTEL_COLLAB
 
 struct DeviceTy {
@@ -357,10 +356,9 @@ struct DeviceTy {
 #if INTEL_COLLAB
   std::map<int32_t, UsedPtrsTy> UsedPtrs;
   std::mutex UsedPtrsMtx;
-  std::map<int32_t, std::vector<void *>> LambdaPtrs;
+  std::map<int32_t, llvm::SmallVector<void *>> LambdaPtrs;
   std::mutex LambdaPtrsMtx;
-  std::mutex FnPtrMapMtx;
-  FnPtrsTy FnPtrs;
+  std::map<uint64_t, uint64_t> FnPtrMap;
 #endif // INTEL_COLLAB
 
   // NOTE: Once libomp gains full target-task support, this state should be
@@ -424,7 +422,7 @@ struct DeviceTy {
 
   // calls to RTL
   int32_t initOnce();
-  __tgt_target_table *load_binary(void *Img);
+  __tgt_target_table *loadBinary(void *Img);
 
   // device memory allocation/deallocation routines
   /// Allocates \p Size bytes on the device, host or shared memory space
@@ -461,22 +459,23 @@ struct DeviceTy {
                         uint64_t LoopTripCount, AsyncInfoTy &AsyncInfo);
 
 #if INTEL_COLLAB
-  int32_t manifest_data_for_region(void *TgtEntryPtr);
-  char *get_device_name(char *Buffer, size_t BufferMaxSize);
-  void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
-  int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
-                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                             int32_t NumTeams, int32_t ThreadLimit,
-                             void *TgtNDLoopDesc);
-  void *get_context_handle();
-  void *data_alloc_managed(int64_t Size);
+  int32_t manifestDataForRegion(void *TgtEntryPtr);
+  char *getDeviceName(char *Buffer, size_t BufferMaxSize);
+  void *dataAllocBase(int64_t Size, void *HstPtrBegin, void *HstPtrBase,
+                      int32_t DedicatedPool = 0);
+  int32_t runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
+                          ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                          int32_t NumTeams, int32_t ThreadLimit,
+                          void *TgtNDLoopDesc);
+  void *getContextHandle();
+  void *dataAllocManaged(int64_t Size);
   int32_t requiresMapping(void *Ptr, int64_t Size);
-  int32_t managed_memory_supported();
+  int32_t managedMemorySupported();
   void *dataRealloc(void *Ptr, size_t Size, int32_t Kind);
   void *dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind);
   bool registerHostPointer(void *ptr, size_t Size);
   bool unregisterHostPointer(void *ptr);
-  int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
+  int32_t getDataAllocInfo(int32_t NumPtrs, void *Ptrs, void *Infos);
   int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
   int32_t getNumSubDevices(int32_t Level);
@@ -507,7 +506,7 @@ struct DeviceTy {
   int32_t commandBatchEnd(int32_t BatchLevel = 1);
   void kernelBatchBegin(uint32_t MaxKernels);
   void kernelBatchEnd(void);
-  int32_t set_function_ptr_map(void);
+  int32_t setFunctionPtrMap(void);
   // Check if reduction scratch is supported
   int32_t supportsPerHWThreadScratch(void);
   // Allocate per-hw-thread reduction scratch
@@ -517,6 +516,10 @@ struct DeviceTy {
   /// Get device information
   int32_t getDeviceInfo(int32_t InfoID, size_t InfoSize, void *InfoValue,
                         size_t *InfoSizeRet);
+  /// Allocate shared memory with hint
+  void *dataAlignedAllocShared(size_t Align, size_t Size, int32_t AccessHint);
+  /// Prefetch shared memory
+  int prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return
@@ -557,7 +560,7 @@ private:
   void deinit();
 };
 
-extern bool device_is_ready(int device_num);
+extern bool deviceIsReady(int DeviceNum);
 
 /// Struct for the data required to handle plugins
 struct PluginManager {
@@ -567,15 +570,19 @@ struct PluginManager {
   /// RTLs identified on the host
   RTLsTy RTLs;
 
+  /// Executable images and information extracted from the input images passed
+  /// to the runtime.
+  std::list<std::pair<__tgt_device_image, __tgt_image_info>> Images;
+
   /// Devices associated with RTLs
-  std::vector<std::unique_ptr<DeviceTy>> Devices;
+  llvm::SmallVector<std::unique_ptr<DeviceTy>> Devices;
   std::mutex RTLsMtx; ///< For RTLs and Devices
 
   /// Translation table retreived from the binary
   HostEntriesBeginToTransTableTy HostEntriesBeginToTransTable;
   std::mutex TrlTblMtx; ///< For Translation Table
   /// Host offload entries in order of image registration
-  std::vector<__tgt_offload_entry *> HostEntriesBeginRegistrationOrder;
+  llvm::SmallVector<__tgt_offload_entry *> HostEntriesBeginRegistrationOrder;
 
   /// Map from ptrs on the host to an entry in the Translation Table
   HostPtrToTableMapTy HostPtrToTableMap;

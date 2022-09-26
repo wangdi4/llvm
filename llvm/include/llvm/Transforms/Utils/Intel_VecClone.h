@@ -1,6 +1,6 @@
 //===-------------- VecClone.h - Class definition -*- C++ -*---------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,7 +20,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -37,6 +36,7 @@ enum InstType {
 
 namespace llvm {
 
+struct VFInfo;
 class ModulePass;
 
 class VecCloneImpl {
@@ -47,19 +47,21 @@ class VecCloneImpl {
 
     /// Set of memory locations to mark as private for the SIMD loop
     SetVector<Value*> PrivateMemory;
-    /// Set of memory locations to mark as uniform for the SIMD loop
-    SetVector<Value*> UniformMemory;
+    /// Set of memory locations to mark as uniform for the SIMD loop. The map
+    /// is from the arg of the function to a pair of values that represent the
+    /// memory location on the stack and the load from that memory.
+    MapVector<Argument*, std::pair<Value*, Value*>>  UniformMemory;
     /// Set of memory locations to mark as linear for the SIMD loop
     /// The non-key value is the stride
     MapVector<Value*, Value*> LinearMemory;
 
     /// \brief Make a copy of the function if it is marked as SIMD.
-    Function *CloneFunction(Function &F, VectorVariant &V,
+    Function *CloneFunction(Function &F, const VFInfo &V,
                             ValueToValueMapTy &Vmap);
 
     /// \brief Take the entry basic block for the function as split off a second
     /// basic block that will form the loop entry.
-    BasicBlock* splitEntryIntoLoop(Function *Clone, VectorVariant &V,
+    BasicBlock *splitEntryIntoLoop(Function *Clone, const VFInfo &V,
                                    BasicBlock *EntryBlock);
 
     /// \brief Take the loop entry basic block and split off a second basic
@@ -81,14 +83,14 @@ class VecCloneImpl {
     /// corresponding to the widened return and the instruction corresponding
     /// to the mask.
     Instruction *widenVectorArgumentsAndReturn(
-        Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
-        BasicBlock *EntryBlock, BasicBlock *LoopHeader,
-        BasicBlock *ReturnBlock, PHINode *Phi, ValueToValueMapTy &VMap);
+        Function *Clone, Function &F, const VFInfo &V, Instruction *&Mask,
+        BasicBlock *EntryBlock, BasicBlock *LoopHeader, BasicBlock *ReturnBlock,
+        PHINode *Phi, ValueToValueMapTy &VMap);
 
     /// Updates users of vector arguments with gep/load of lane element.
     void updateVectorArgumentUses(Function *Clone, Function &OrigFn,
                                   const DataLayout &DL, Argument *Arg,
-                                  BitCastInst *VecArgCast,
+                                  Type *ElemType, Instruction *VecArg,
                                   BasicBlock *EntryBlock,
                                   BasicBlock *LoopHeader, PHINode *Phi);
 
@@ -98,10 +100,8 @@ class VecCloneImpl {
     /// EntryBlock. We process the function arguments from left to right. The
     /// alloca of the most left argument is placed at the top of the EntryBlock.
     Instruction *widenVectorArguments(Function *Clone, Function &OrigFn,
-                                      VectorVariant &V,
-                                      BasicBlock *EntryBlock,
-                                      BasicBlock *LoopHeader,
-                                      PHINode *Phi,
+                                      const VFInfo &V, BasicBlock *EntryBlock,
+                                      BasicBlock *LoopHeader, PHINode *Phi,
                                       ValueToValueMapTy &VMap,
                                       AllocaInst *&LastAlloca);
 
@@ -114,12 +114,16 @@ class VecCloneImpl {
                              AllocaInst *&LastAlloca);
 
     /// Mark memory as uniform for SIMD directives.
-    void processUniformArgs(Function *Clone, VectorVariant &V,
+    void processUniformArgs(Function *Clone, const VFInfo &V,
+                            BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
+
+    /// Mark memory as aligned for SIMD directives.
+    void processAlignedArgs(Function *Clone, const VFInfo &V,
                             BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
 
     /// Update the values of linear arguments by adding the stride before the
     /// use and mark memory and linear for SIMD directives.
-    void processLinearArgs(Function *Clone, VectorVariant &V, PHINode *Phi,
+    void processLinearArgs(Function *Clone, const VFInfo &V, PHINode *Phi,
                            BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
 
     /// \brief Update the instructions in the return basic block to return a
@@ -133,14 +137,14 @@ class VecCloneImpl {
     /// new loop pragmas so that argument information can be transferred to
     /// the loop.
     void insertDirectiveIntrinsics(Module &M, Function *Clone, Function &F,
-                                   VectorVariant &V, BasicBlock *EntryBlock,
+                                   const VFInfo &V, BasicBlock *EntryBlock,
                                    BasicBlock *LoopPreHeader,
                                    BasicBlock *LoopLatch,
                                    BasicBlock *ReturnBlock);
 
     /// \brief Create the basic block indicating the begin of the SIMD loop.
     CallInst *insertBeginRegion(Module &M, Function *Clone, Function &F,
-                                VectorVariant &V, BasicBlock *EntryBlock,
+                                const VFInfo &V, BasicBlock *EntryBlock,
                                 BasicBlock *LoopPreHeader);
 
     /// \brief Create the basic block indicating the end of the SIMD loop.
@@ -167,7 +171,7 @@ class VecCloneImpl {
     /// \brief Utility function that generates instructions that calculate the
     /// stride for a linear argument.
     Value *generateStrideForArgument(Function *Clone, Value *ArgVal,
-                                     Instruction *ParmUser, int Stride,
+                                     Instruction *ParmUser, Value *Stride,
                                      PHINode *Phi);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
@@ -175,7 +179,7 @@ class VecCloneImpl {
     void disableLoopUnrolling(BasicBlock *Latch);
 
 #if INTEL_CUSTOMIZATION
-    /// Filter out unsupported R/U/L/s encodings.
+    /// Filter out unsupported R/U/L encodings.
     /// Can be removed once these encodings are supported.
     void filterUnsupportedVectorVariants(Module &M,
                                          SmallVector<Function *, 8> &DiagList,
@@ -190,7 +194,7 @@ class VecCloneImpl {
     virtual void handleLanguageSpecifics(Function &F, PHINode *Phi,
                                          Function *Clone,
                                          BasicBlock *EntryBlock,
-                                         const VectorVariant &Variant);
+                                         const VFInfo &Variant);
 #endif // INTEL_CUSTOMIZATION
 
   public:

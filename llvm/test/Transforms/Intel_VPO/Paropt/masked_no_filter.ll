@@ -1,27 +1,26 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+
+; Test src:
 ;
-; SRC:
 ; #include <omp.h>
 ; int main() {
 ; #pragma omp masked
-;  { }
+;  { int *a; }
 ; }
-;
-;Front end IR was hand modified because MASKED and FILTER are not yet supported
-;CHECK: %{{.*}} = call i32 @__kmpc_masked(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0)
-;CHECK: call void @__kmpc_end_masked(%struct.ident_t* @{{.*}}, i32 %{{.*}})
 
-; ModuleID = '/tmp/icxsjWoeu.bc'
-source_filename = "test.cpp"
+; CHECK: %{{.*}} = call i32 @__kmpc_masked(ptr @{{.*}}, i32 %{{.*}}, i32 0)
+; CHECK: call void @__kmpc_end_masked(ptr @{{.*}}, i32 %{{.*}})
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
-; Function Attrs: mustprogress noinline norecurse nounwind optnone uwtable
+; Function Attrs: noinline nounwind optnone uwtable
 define dso_local i32 @main() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASKED"()]
+  %a = alloca ptr, align 8
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASKED"() ]
   fence acquire
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.MASKED"() ]
@@ -34,14 +33,12 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-attributes #0 = { mustprogress noinline norecurse nounwind optnone uwtable "frame-pointer"="all" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
+attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
 
 !llvm.module.flags = !{!0, !1, !2, !3}
-!llvm.ident = !{!4}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"openmp", i32 50}
-!2 = !{i32 7, !"uwtable", i32 1}
+!1 = !{i32 7, !"openmp", i32 51}
+!2 = !{i32 7, !"uwtable", i32 2}
 !3 = !{i32 7, !"frame-pointer", i32 2}
-!4 = !{!"clang version 9.0.0"}

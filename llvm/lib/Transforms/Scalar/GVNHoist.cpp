@@ -411,7 +411,7 @@ private:
     RenameStackType RenameStack;
 #endif // INTEL_CUSTOMIZATION
     // Depth first walk on PDom tree to fill the CHIargs at each PDF.
-    for (auto Node : depth_first(Root)) {
+    for (auto *Node : depth_first(Root)) {
       BasicBlock *BB = Node->getBlock();
       if (!BB)
         continue;
@@ -470,7 +470,7 @@ private:
         continue;
       const VNType &VN = R;
       SmallPtrSet<BasicBlock *, 2> VNBlocks;
-      for (auto &I : V) {
+      for (const auto &I : V) {
         BasicBlock *BBI = I->getParent();
         if (!hasEH(BBI))
           VNBlocks.insert(BBI);
@@ -601,7 +601,7 @@ bool GVNHoist::run(Function &F) {
   for (const BasicBlock *BB : depth_first(&F.getEntryBlock())) {
     DFSNumber[BB] = ++BBI;
     unsigned I = 0;
-    for (auto &Inst : *BB)
+    for (const auto &Inst : *BB)
       DFSNumber[&Inst] = ++I;
     TotalI += I; // INTEL
   }
@@ -888,7 +888,7 @@ void GVNHoist::fillRenameStack(BasicBlock *BB, InValuesType &ValueBBs,
 void GVNHoist::fillChiArgs(BasicBlock *BB, OutValuesType &CHIBBs,
                            GVNHoist::RenameStackType &RenameStack) {
   // For each *predecessor* (because Post-DOM) of BB check if it has a CHI
-  for (auto Pred : predecessors(BB)) {
+  for (auto *Pred : predecessors(BB)) {
     auto P = CHIBBs.find(Pred);
     if (P == CHIBBs.end()) {
       continue;

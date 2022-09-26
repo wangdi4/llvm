@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Verify the code extractor does not duplicate the debug compilation unit or
@@ -15,8 +15,6 @@
 ; CHECK-NOT: !DICompileUnit
 ; CHECK-NOT: !DISubprogram
 
-; ModuleID = 'test.bc'
-source_filename = "test.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
@@ -27,8 +25,11 @@ entry:
   br label %DIR.OMP.TARGET.DATA.1
 
 DIR.OMP.TARGET.DATA.1:                            ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"([4096 x i32]* undef, [4096 x i32]* undef, i64 16384, i64 35), "QUAL.OMP.MAP.TOFROM"([2 x i32]* undef, [2 x i32]* undef, i64 8, i64 35), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp23) ]
-  %temp.load24 = load volatile i1, i1* %end.dir.temp23, align 1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
+    "QUAL.OMP.MAP.TOFROM"(ptr undef, ptr undef, i64 16384, i64 35),
+    "QUAL.OMP.MAP.TOFROM"(ptr undef, ptr undef, i64 8, i64 35),
+    "QUAL.OMP.JUMP.TO.END.IF"(ptr %end.dir.temp23) ]
+  %temp.load24 = load volatile i1, ptr %end.dir.temp23, align 1
   br label %DIR.OMP.END.TARGET.DATA.13
 
 DIR.OMP.END.TARGET.DATA.13:                       ; preds = %DIR.OMP.TARGET.DATA.1

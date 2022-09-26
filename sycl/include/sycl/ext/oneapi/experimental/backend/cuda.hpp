@@ -8,13 +8,14 @@
 
 #pragma once
 
-#include <CL/sycl/backend.hpp>
-#include <CL/sycl/context.hpp>
+#include <sycl/backend.hpp>
+#include <sycl/context.hpp>
+#include <sycl/ext/oneapi/experimental/backend/backend_traits_cuda.hpp>
 
 #include <vector>
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace ext {
 namespace oneapi {
 namespace cuda {
@@ -22,6 +23,14 @@ namespace cuda {
 // Implementation of ext_oneapi_cuda::make<device>
 inline __SYCL_EXPORT device make_device(pi_native_handle NativeHandle) {
   return sycl::detail::make_device(NativeHandle, backend::ext_oneapi_cuda);
+}
+
+// Implementation of cuda::has_native_event
+inline __SYCL_EXPORT bool has_native_event(event sycl_event) {
+  if (sycl_event.get_backend() == backend::ext_oneapi_cuda)
+    return get_native<backend::ext_oneapi_cuda>(sycl_event) != nullptr;
+
+  return false;
 }
 
 } // namespace cuda
@@ -44,13 +53,6 @@ inline auto get_native<backend::ext_oneapi_cuda, context>(const context &C)
   return ret;
 }
 
-// Specialisation of non-free context get_native
-template <>
-inline backend_return_t<backend::ext_oneapi_cuda, context>
-context::get_native<backend::ext_oneapi_cuda>() const {
-  return sycl::get_native<backend::ext_oneapi_cuda, context>(*this);
-}
-
 // Specialisation of interop_handles get_native_context
 template <>
 inline backend_return_t<backend::ext_oneapi_cuda, context>
@@ -71,5 +73,25 @@ inline device make_device<backend::ext_oneapi_cuda>(
   return ext::oneapi::cuda::make_device(NativeHandle);
 }
 
+// CUDA event specialization
+template <>
+inline event make_event<backend::ext_oneapi_cuda>(
+    const backend_input_t<backend::ext_oneapi_cuda, event> &BackendObject,
+    const context &TargetContext) {
+  return detail::make_event(detail::pi::cast<pi_native_handle>(BackendObject),
+                            TargetContext, true,
+                            /*Backend*/ backend::ext_oneapi_cuda);
+}
+
+// CUDA queue specialization
+template <>
+inline queue make_queue<backend::ext_oneapi_cuda>(
+    const backend_input_t<backend::ext_oneapi_cuda, queue> &BackendObject,
+    const context &TargetContext, const async_handler Handler) {
+  return detail::make_queue(detail::pi::cast<pi_native_handle>(BackendObject),
+                            TargetContext, nullptr, true, Handler,
+                            /*Backend*/ backend::ext_oneapi_cuda);
+}
+
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)

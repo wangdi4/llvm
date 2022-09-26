@@ -57,7 +57,7 @@ RETURN_TYPE_ENTRY_POINT DebugCommunicator::Run()
         m_server_socket.bind(localhost, m_port);
         m_server_socket.listen();
         m_listen_event.Signal();
-        m_connected_socket = auto_ptr<OclSocket>(m_server_socket.accept());
+        m_connected_socket = unique_ptr<OclSocket>(m_server_socket.accept());
         set_state(CLIENT_CONNECTED);
         m_connect_event.Signal();
         DEBUG_SERVER_LOG("Client connected");

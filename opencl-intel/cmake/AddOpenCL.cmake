@@ -1,3 +1,15 @@
+# Copyright (C) 2017-2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 # Workadound to support both old and new files / directories location
 # This is needed to avoid dependancy on tools team
 
@@ -82,6 +94,7 @@ set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF})
 #   INCLUDE_DIRS     - defines include directories
 #   COMPONENTS       - defines shipping OpenCL libraries to link
 #   LINK_LIBS        - defines rest of libraries to link
+#   INSTALL_PATH     - defines the last element of the install directory.
 #   RC_TEMPLATE      - defines template for .rc files generation on Windows.
 #                      No .rc file generated if omitted.
 #                      Pass 'default' to use the default one.

@@ -545,7 +545,7 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, int64_t StoreStride,
   // general we need to rule out loop-independent dependences too, but this
   // becomes easier if we can reason only about a single IV value.
   bool NoLoopCarriedDeps =
-      findStringMetadataForLoop(L, "llvm.loop.vectorize.ivdep_loop").hasValue();
+      findStringMetadataForLoop(L, "llvm.loop.vectorize.ivdep_loop").has_value();
   LLVM_DEBUG(if (NoLoopCarriedDeps) dbgs() << "  (has ivdep_loop) ");
 
   // SE.getSmallConstantTripCount would seem to be what we want here, but it

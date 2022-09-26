@@ -329,7 +329,7 @@ INLINE void *__kmp_alloc_fetch_add(size_t align, size_t size) {
 #define KMP_MEM_DESC_BUSY_MBLOCK ((ulong)0x1)
 #define KMP_UINT32_MAX (~((uint)0))
 
-INLINE uint __kmp_claim_blocks(kmp_mem_heap_t *heap, uint desc_id,
+INLINE uint __kmp_claim_blocks(global kmp_mem_heap_t *heap, uint desc_id,
                                uint num_blocks) {
   // The last descriptor may have less number of blocks
   uint block_ub = 0;
@@ -356,8 +356,8 @@ INLINE uint __kmp_claim_blocks(kmp_mem_heap_t *heap, uint desc_id,
     desired_bits = desired_bits | KMP_MEM_DESC_BUSY_MBOUND;
   }
 
-  volatile atomic_ulong *desc =
-      (volatile atomic_ulong *)&heap->block_desc[desc_id];
+  volatile global atomic_ulong *desc =
+      (volatile global atomic_ulong *)&heap->block_desc[desc_id];
 
   // Try to claim free blocks with CAS on the free descriptor bits
   for (uint i = 0; i < block_ub; i += num_blocks) {
@@ -376,20 +376,23 @@ INLINE uint __kmp_claim_blocks(kmp_mem_heap_t *heap, uint desc_id,
 }
 
 INLINE void *__kmp_alloc(size_t align, size_t size) {
+  global static volatile atomic_uint total_num_allocs = ATOMIC_VAR_INIT(0);
+  // Use this number to distribute block search
+  uint num_allocs = atomic_fetch_add(&total_num_allocs, 1U);
   void *ret = NULL;
-  kmp_mem_pool_t *pool =
-      (kmp_mem_pool_t *)__omp_spirv_program_data.dyna_mem_pool;
+  global kmp_mem_pool_t *pool =
+      (global kmp_mem_pool_t *)__omp_spirv_program_data.dyna_mem_pool;
   if (!pool)
     return ret;
 
   for (uint i = 0; i < pool->num_heaps; i++) {
-    kmp_mem_heap_t *heap = &pool->heap_desc[i];
+    global kmp_mem_heap_t *heap = &pool->heap_desc[i];
     if (heap->max_size < size)
       continue; // Requires heap with bigger block size
     uint num_blocks = (size + heap->block_size - 1) / heap->block_size;
-    for (uint j = 0; j < heap->num_block_desc;) {
-      // Let different WIs check different descriptor if possible
-      uint k = (j + __kmp_get_global_id()) % heap->num_block_desc;
+    uint block_start = num_allocs % heap->num_block_desc;
+    for (uint j = block_start; j < heap->num_block_desc + block_start;) {
+      uint k = j % heap->num_block_desc;
       uint counter_id = k / KMP_MEM_NUM_DESCS_PER_COUNTER;
       volatile atomic_uint *counter =
           (volatile atomic_uint *)&heap->block_counter[counter_id];

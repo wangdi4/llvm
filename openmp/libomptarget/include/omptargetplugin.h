@@ -37,6 +37,12 @@
 extern "C" {
 #endif
 
+// First method called on the plugin
+int32_t __tgt_rtl_init_plugin();
+
+// Last method called on the plugin
+int32_t __tgt_rtl_deinit_plugin();
+
 // Return the number of available devices of the type supported by the
 // target RTL.
 #if INTEL_COLLAB
@@ -53,6 +59,12 @@ int32_t __tgt_rtl_number_of_devices(void);
 EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image);
+
+// This provides the same functionality as __tgt_rtl_is_valid_binary except we
+// also use additional information to determine if the image is valid. This
+// allows us to determine if an image has a compatible architecture.
+int32_t __tgt_rtl_is_valid_binary_info(__tgt_device_image *Image,
+                                       __tgt_image_info *Info);
 
 // Return an integer other than zero if the data can be exchaned from SrcDevId
 // to DstDevId. If it is data exchangable, the device plugin should provide
@@ -199,7 +211,7 @@ EXTERN
 int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry, void **Args,
                                          ptrdiff_t *Offsets, int32_t NumArgs,
                                          int32_t NumTeams, int32_t ThreadLimit,
-                                         uint64_t loop_tripcount);
+                                         uint64_t LoopTripcount);
 
 // Asynchronous version of __tgt_rtl_run_target_team_region
 #if INTEL_COLLAB
@@ -207,7 +219,7 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_team_region_async(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
-    int32_t NumTeams, int32_t ThreadLimit, uint64_t loop_tripcount,
+    int32_t NumTeams, int32_t ThreadLimit, uint64_t LoopTripcount,
     __tgt_async_info *AsyncInfo);
 
 // Device synchronization. In case of success, return zero. Otherwise, return an
@@ -221,15 +233,15 @@ int32_t __tgt_rtl_synchronize(int32_t ID, __tgt_async_info *AsyncInfo);
 // Manifest target pointers, which are not passed as arguments,
 // to the offloaded entry represented by TgtEntryPtr. The target pointers
 // are passed in TgtPtrs array consisting of NumPtrs pointers.
-EXTERN
-int32_t __tgt_rtl_manifest_data_for_region(int32_t ID, void *TgtEntryPtr,
-                                           void **TgtPtrs, size_t NumPtrs);
+EXTERN int32_t __tgt_rtl_manifest_data_for_region(
+    int32_t ID, void *TgtEntryPtr, void **TgtPtrs, size_t NumPtrs);
 
 // Similar to __tgt_rtl_data_alloc, but additionally specify the base host ptr
 // in case the plugin needs this information.
-EXTERN
-void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
-                                void *HostBase);
+// DedicatedPool forces use of dedicated memory pool.
+EXTERN void *__tgt_rtl_data_alloc_base(
+    int32_t ID, int64_t Size, void *HostPtr, void *HostBase,
+    int32_t DedicatedPool);
 
 // Entry for supporting realloc
 EXTERN void *__tgt_rtl_data_realloc(
@@ -256,12 +268,9 @@ EXTERN char *__tgt_rtl_get_device_name(
 
 // Unlike __tgt_rtl_run_target_team_region, a loop descriptor for
 // multi-dimensional loop is passed to this function.
-EXTERN
-int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,
-                                            void **Args, ptrdiff_t *Offsets,
-                                            int32_t NumArgs, int32_t NumTeams,
-                                            int32_t ThreadLimit,
-                                            void *LoopDesc);
+EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
+    int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
+    int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc);
 
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
@@ -294,14 +303,10 @@ EXTERN void __tgt_rtl_add_build_options(
 // Check if the specified device type is supported
 EXTERN int32_t __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
 
-// Deinit RTL
-EXTERN void __tgt_rtl_deinit(void);
-
 #if INTEL_CUSTOMIZATION
 // Create OpenMP interop with the given interop context
 EXTERN __tgt_interop *__tgt_rtl_create_interop(
-    int32_t ID, int32_t InteropContext, int32_t NumPrefers,
-    int32_t *PreferIDs);
+    int32_t ID, int32_t InteropContext, int32_t NumPrefers, int32_t *PreferIDs);
 
 // Release OpenMP interop
 EXTERN int32_t __tgt_rtl_release_interop(int32_t ID, __tgt_interop *Interop);
@@ -364,6 +369,17 @@ EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t ID, void *Ptr);
 EXTERN int __tgt_rtl_get_device_info(
     int32_t ID, int32_t InfoID, size_t InfoSize, void *InfoVal,
     size_t *InfoSizeRet);
+
+EXTERN int32_t __tgt_rtl_set_function_ptr_map(
+    int32_t ID, uint64_t Size, const __omp_offloading_fptr_map_t *FnPtrs);
+
+// Allocate shared memory with access hint
+EXTERN void *__tgt_rtl_data_aligned_alloc_shared(
+    int32_t ID, size_t Align, size_t Size, int32_t AccessHint);
+
+// Prefetch shared memory
+EXTERN int __tgt_rtl_prefetch_shared_mem(
+    int32_t ID, size_t NumPtrs, void **Ptrs, size_t *Sizes);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);

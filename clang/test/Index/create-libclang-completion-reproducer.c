@@ -1,6 +1,8 @@
 // RUN: rm -rf %t
 // RUN: mkdir %t
-// RUN: env CINDEXTEST_INVOCATION_EMISSION_PATH=%t not c-index-test -code-completion-at=%s:10:1 "-remap-file=%s,%S/Inputs/record-parsing-invocation-remap.c" %s
+// INTEL_CUSTOMIZATION
+// RUN: env CINDEXTEST_INVOCATION_EMISSION_PATH=%t not c-index-test -code-completion-at=%s:10:1 "-remap-file=%s,%S/Inputs/record-parsing-invocation-remap.c" --disable-extra-temp-dir %s
+// end INTEL_CUSTOMIZATION
 // RUN: %clang -cc1gen-reproducer %t/libclang-* -v | FileCheck %s
 
 // Invocation file must be removed by clang:

@@ -149,6 +149,12 @@ struct cl_prog_gv
     void*        pointer;  //!< Address of global variable in program
 };
 
+// This flag indicates that runtime won't cache the buffer contents pointed to
+// host ptr in device memory if CL_MEM_USE_HOST_PTR flag is present in
+// clCreateBuffer.
+// This flag shouldn't conflict with CL_MEM_* macros in CL/cl.h
+#define CL_DEV_MEM_NOT_CACHE_HOST_PTR_CONTENT ((cl_bitfield)1 << 50)
+
 /*! \def _CL_CONTAINER_MASK_
     \brief This structure defines a container that holds binaries or IR of OCL compiled programs
 */
@@ -440,7 +446,6 @@ struct cl_dev_alloc_prop
     bool        mustAllocRawMemory; //!< Device must allocate raw memory for memory object in Runtime
     bool        usedByDMA;          //!< Device may use DMA engine to access memory object
     bool        GLSharing;          //!< Device memory manager can accept GL sub-system memory object handles
-    bool        DXSharing;          //!< Device memory manager can accept DX sub-system memory object handles
 };
 
 /*! \struct cl_dev_cmd_desc

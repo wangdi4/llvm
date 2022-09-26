@@ -65,7 +65,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_bTEActivated(false), m_ppExplicitRootDevices(nullptr),
     m_ppAllDevices(nullptr), m_pDeviceIds(nullptr),
     m_pOriginalDeviceIds(nullptr), m_devTypeMask(0),
-    m_pclContextProperties(nullptr), m_fpgaEmulator(false), m_eyeqEmulator(false),
+    m_pclContextProperties(nullptr), m_fpgaEmulator(false),
     m_useAutoMemory(false), m_pfnNotify(nullptr), m_pUserData(nullptr),
     m_ulMaxMemAllocSize(0), m_MemObjectsHeap(nullptr),
     m_contextModule(contextModule), m_backendLibraryProgram(nullptr)
@@ -207,10 +207,6 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
     {
         m_fpgaEmulator = true;
-    }
-    if (EYEQ_EMU_DEVICE == pOclConfig->GetDeviceMode())
-    {
-        m_eyeqEmulator = true;
     }
 
     m_useAutoMemory = pOclConfig->UseAutoMemory();
@@ -2033,7 +2029,7 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
 
     flags |= CL_MEM_READ_WRITE;
     if (nullptr != userPtr)
-        flags |= CL_MEM_USE_HOST_PTR;
+        flags |= CL_MEM_USE_HOST_PTR | CL_DEV_MEM_NOT_CACHE_HOST_PTR_CONTENT;
 
     // these flags aren't needed anymore
     err = usmBuf->Initialize(flags & ~CL_MEM_ALLOC_WRITE_COMBINED_INTEL,

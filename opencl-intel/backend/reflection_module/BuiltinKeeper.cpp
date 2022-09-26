@@ -1,12 +1,10 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2022 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -181,7 +179,6 @@ BuiltinKeeper::BuiltinKeeper(){
   m_soaStrategy.setTypeMap(&m_fdToRetTy);
   initNullStrategyEntries();
   initSoaStrategyEntries();
-  initHardCodeStrategy();
   //the rest of the functions are versioned by the 'default' strategy, which is
   //to follow the tblgen generated tables
 }
@@ -327,8 +324,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //this function cluster cannot be versioned due the relationals difference in
   //prototype between the scalar versions and the vectorized ones.
   {
-    llvm::StringRef names[] = {"_Z7signbit*", "_Z8isfinite*","_Z5isinf*",
-      "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
+    llvm::StringRef names[] = {"_Z8isfinite*","_Z5isinf*","_Z8isnormal*"};
     StringArray relationals(names);
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(relationals,
@@ -363,27 +359,6 @@ static void convertToRef(const char* from[width::OCL_VERSIONS],
   llvm::StringRef to[width::OCL_VERSIONS]){
   for (unsigned i=0 ; i<width::OCL_VERSIONS ; ++i)
     to[i] = llvm::StringRef(from[i]);
-}
-
-#include "CustomVersionMaping.h"
-
-void BuiltinKeeper::initHardCodeStrategy(){
-  width::V sizes[] = {width::SCALAR, width::TWO, width::THREE, width::FOUR,
-    width::EIGHT, width::SIXTEEN};
-  llvm::ArrayRef<width::V> arrSizes(sizes);
-  size_t SIZE = sizeof(mappings)/(sizeof(mappings[0]));
-  for(size_t i=0 ; i<SIZE ; ++i){
-    m_hardCodedStrategy.assumeResponsability(mappings+i);
-    llvm::StringRef strraw[width::OCL_VERSIONS];
-    convertToRef(mappings[i].names, strraw);
-    llvm::ArrayRef<llvm::StringRef> arr(strraw);
-    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(arr, arrSizes);
-    do{
-      auto pair = pairs.get();
-      PairSW key(std::make_pair(std::string(pair.first), pair.second));
-      m_exceptionsMap.insert(std::make_pair(key, &m_hardCodedStrategy));
-    } while(pairs.next());
-  }
 }
 
 void BuiltinKeeper::addExceptionToWIFunctions (const StringArray& names,

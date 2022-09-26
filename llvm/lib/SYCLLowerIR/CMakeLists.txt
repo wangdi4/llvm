@@ -117,14 +117,17 @@ set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_BINARY_PROP ${LLVMGenXIntrinsics
 
 add_llvm_component_library(LLVMSYCLLowerIR
   ESIMD/LowerESIMD.cpp
+  ESIMD/LowerESIMDKernelProps.cpp
   ESIMD/LowerESIMDVLoadVStore.cpp
   ESIMD/LowerESIMDVecArg.cpp
+  ESIMD/ESIMDUtils.cpp
   ESIMD/ESIMDVerifier.cpp
+  ESIMD/LowerESIMDKernelAttrs.cpp
+  ESIMD/ESIMDOptimizeVecArgCallConv.cpp
   LowerInvokeSimd.cpp
   LowerWGScope.cpp
   LowerWGLocalMemory.cpp
   MutatePrintfAddrspace.cpp
-
   LocalAccessorToSharedMemory.cpp
   GlobalOffset.cpp
   TargetHelpers.cpp

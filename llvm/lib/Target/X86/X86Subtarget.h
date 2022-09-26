@@ -240,7 +240,14 @@ public:
   bool hasSSE42() const { return X86SSELevel >= SSE42; }
   bool hasAVX() const { return X86SSELevel >= AVX; }
   bool hasAVX2() const { return X86SSELevel >= AVX2; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Should change the name to hasEVEX?
+  bool hasAVX512() const { return X86SSELevel >= AVX512 || hasAVX256P(); }
+#else // INTEL_FEATURE_ISA_AVX256P
   bool hasAVX512() const { return X86SSELevel >= AVX512; }
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   bool hasInt256() const { return hasAVX2(); }
   bool hasMMX() const { return X863DNowLevel >= MMX; }
   bool hasThreeDNow() const { return X863DNowLevel >= ThreeDNow; }
@@ -265,7 +272,8 @@ public:
   bool has4KDSB() const override { return DSBSize >= DSB4K; }
   // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
   // (even and odd) that run in parallel every lookup
-  unsigned getDSBWindowSize() const override { return 32; }
+  // In SPR/GLC, DSB widow size is completely 64B.
+  unsigned getDSBWindowSize() const override { return has4KDSB() ? 64 : 32; }
 #endif // INTEL_CUSTOMIZATION
   bool canUseLAHFSAHF() const { return hasLAHFSAHF64() || !is64Bit(); }
   // These are generic getters that OR together all of the thunk types
@@ -327,7 +335,7 @@ public:
   bool isTargetFreeBSD() const { return TargetTriple.isOSFreeBSD(); }
   bool isTargetDragonFly() const { return TargetTriple.isOSDragonFly(); }
   bool isTargetSolaris() const { return TargetTriple.isOSSolaris(); }
-  bool isTargetPS4() const { return TargetTriple.isPS4(); }
+  bool isTargetPS() const { return TargetTriple.isPS(); }
 
   bool isTargetELF() const { return TargetTriple.isOSBinFormatELF(); }
   bool isTargetCOFF() const { return TargetTriple.isOSBinFormatCOFF(); }
@@ -472,6 +480,7 @@ public:
     return TargetSubtargetInfo::ANTIDEP_CRITICAL;
   }
 #if INTEL_CUSTOMIZATION
+  bool enableTargetSchedHeuristics() const override;
   void overrideSchedPolicy(MachineSchedPolicy &Policy,
                            unsigned NumRegionInstrs) const override;
   bool isVEXInstr(MachineInstr &MI) const override;

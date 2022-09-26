@@ -57,7 +57,7 @@
 
 ; The copy-thunk is passed to kmpc_taskloop.
 
-; CHECK: call{{.*}}kmpc_taskloop{{.*}}task_dup
+; CHECK: call{{.*}}kmpc_taskloop_5{{.*}}task_dup
 
 ; Source code:
 ; #include <stdio.h>

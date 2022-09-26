@@ -246,6 +246,16 @@ def X86CmpMaskCC :
       SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<0, i1>,
                        SDTCisVec<1>, SDTCisSameAs<2, 1>,
                        SDTCisSameNumEltsAs<0, 1>, SDTCisVT<3, i8>]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86CmpMaskCC_Int :
+      SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<0, i1>,
+                       SDTCisVec<1>, SDTCisSameAs<2, 1>,
+                       SDTCisSameNumEltsAs<0, 1>, SDTCisVT<3, i32>]>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
+
 def X86MaskCmpMaskCC :
       SDTypeProfile<1, 4, [SDTCisVec<0>, SDTCVecEltisVT<0, i1>,
                        SDTCisVec<1>, SDTCisSameAs<2, 1>,
@@ -262,6 +272,11 @@ def X86any_cmpm    : PatFrags<(ops node:$src1, node:$src2, node:$src3),
                                 (X86cmpm node:$src1, node:$src2, node:$src3)]>;
 def X86cmpmmSAE : SDNode<"X86ISD::CMPMM_SAE", X86MaskCmpMaskCC>;
 def X86cmpms    : SDNode<"X86ISD::FSETCCM",   X86CmpMaskCCScalar>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86cmpm_int    : SDNode<"X86ISD::CMPM_Int",   X86CmpMaskCC_Int>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
 def X86cmpmsSAE : SDNode<"X86ISD::FSETCCM_SAE",   X86CmpMaskCCScalar>;
 
 def X86phminpos: SDNode<"X86ISD::PHMINPOS", 
@@ -631,6 +646,11 @@ def x86vfcmulcShRnd  : SDNode<"X86ISD::VFCMULCSH_RND", SDTFPBinOpRound>;
 
 def X86rsqrt14   : SDNode<"X86ISD::RSQRT14",  SDTFPUnaryOp>;
 def X86rcp14     : SDNode<"X86ISD::RCP14",    SDTFPUnaryOp>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86sqrt14     : SDNode<"X86ISD::SQRT14",  SDTFPUnaryOp>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
 
 // VNNI
 def SDTVnni : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0,1>,
@@ -804,14 +824,17 @@ def X86any_cvtps2ph : PatFrags<(ops node:$src1, node:$src2),
                                [(X86strict_cvtps2ph node:$src1, node:$src2),
                                 (X86cvtps2ph node:$src1, node:$src2)]>;
 
-def X86mcvtps2ph   : SDNode<"X86ISD::MCVTPS2PH",
-                        SDTypeProfile<1, 4, [SDTCVecEltisVT<0, i16>,
-                                             SDTCVecEltisVT<1, f32>,
-                                             SDTCisVT<2, i32>,
-                                             SDTCisSameAs<0, 3>,
-                                             SDTCVecEltisVT<4, i1>,
-                                             SDTCisSameNumEltsAs<1, 4>]> >;
-#if INTEL_CUSTOMIZATION
+def X86cvtps2phSAE : SDNode<"X86ISD::CVTPS2PH_SAE", SDTcvtps2ph>;
+
+def SDTmcvtps2ph : SDTypeProfile<1, 4, [SDTCVecEltisVT<0, i16>,
+                                        SDTCVecEltisVT<1, f32>,
+                                        SDTCisVT<2, i32>,
+                                        SDTCisSameAs<0, 3>,
+                                        SDTCVecEltisVT<4, i1>,
+                                        SDTCisSameNumEltsAs<1, 4>]>;
+def X86mcvtps2ph : SDNode<"X86ISD::MCVTPS2PH", SDTmcvtps2ph>;
+def X86mcvtps2phSAE : SDNode<"X86ISD::MCVTPS2PH_SAE", SDTmcvtps2ph>;
+
 def X86vfpextSAE  : SDNode<"X86ISD::VFPEXT_SAE",
                         SDTypeProfile<1, 1, [SDTCisFP<0>, SDTCisVec<0>,
                                              SDTCisFP<1>, SDTCisVec<1>,
@@ -821,7 +844,6 @@ def X86vfproundRnd: SDNode<"X86ISD::VFPROUND_RND",
                                              SDTCisFP<1>, SDTCisVec<1>,
                                              SDTCisOpSmallerThanOp<0, 1>,
                                              SDTCisVT<2, i32>]>>;
-#endif // INTEL_CUSTOMIZATION
 // cvt fp to bfloat16
 def X86cvtne2ps2bf16 : SDNode<"X86ISD::CVTNE2PS2BF16",
                        SDTypeProfile<1, 2, [SDTCVecEltisVT<0, i16>,
@@ -940,42 +962,49 @@ def X86vaaddf : SDNode<"X86ISD::VAADDF",
                         [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
-def SDTAVX512NECONVERT : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
+def SDTAVX512NECONVERTMASK : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
+                                SDTCisVec<2>, SDTCisPtrTy<3>, SDTCisSameNumEltsAs<0, 2>]>;
+def SDTAVX512NECONVERTMASKZ : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
                                 SDTCisPtrTy<2>, SDTCisSameNumEltsAs<0, 1>]>;
 def X86vcvtneebf162ps : SDNode<"X86ISD::VCVTNEEBF162PS",
-                                SDTAVX512NECONVERT,
+                                SDTAVX512NECONVERTMASK,
                                 [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneebf162psz : SDNode<"X86ISD::VCVTNEEBF162PSZ",
-                                SDTAVX512NECONVERT,
+                                SDTAVX512NECONVERTMASKZ,
                                 [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneeph2ps : SDNode<"X86ISD::VCVTNEEPH2PS",
-                              SDTAVX512NECONVERT,
+                              SDTAVX512NECONVERTMASK,
                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneeph2psz : SDNode<"X86ISD::VCVTNEEPH2PSZ",
-                               SDTAVX512NECONVERT,
+                               SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneobf162ps : SDNode<"X86ISD::VCVTNEOBF162PS",
-                               SDTAVX512NECONVERT,
+                               SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneobf162psz : SDNode<"X86ISD::VCVTNEOBF162PSZ",
-                                SDTAVX512NECONVERT,
+                                SDTAVX512NECONVERTMASKZ,
                                 [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vcvtneoph2ps : SDNode<"X86ISD::VCVTNEOPH2PS", SDTAVX512NECONVERT,
+def X86vcvtneoph2ps : SDNode<"X86ISD::VCVTNEOPH2PS", SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vcvtneoph2psz : SDNode<"X86ISD::VCVTNEOPH2PSZ", SDTAVX512NECONVERT,
+def X86vcvtneoph2psz : SDNode<"X86ISD::VCVTNEOPH2PSZ", SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnebf162ps : SDNode<"X86ISD::VBCSTNEBF162PS", SDTAVX512NECONVERT,
+def X86vbcstnebf162ps : SDNode<"X86ISD::VBCSTNEBF162PS", SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnebf162psz : SDNode<"X86ISD::VBCSTNEBF162PSZ", SDTAVX512NECONVERT,
+def X86vbcstnebf162psz : SDNode<"X86ISD::VBCSTNEBF162PSZ", SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnesh2ps : SDNode<"X86ISD::VBCSTNESH2PS", SDTAVX512NECONVERT,
+def X86vbcstnesh2ps : SDNode<"X86ISD::VBCSTNESH2PS", SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnesh2psz : SDNode<"X86ISD::VBCSTNESH2PSZ", SDTAVX512NECONVERT,
+def X86vbcstnesh2psz : SDNode<"X86ISD::VBCSTNESH2PSZ", SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtne2ps2ph : SDNode<"X86ISD::VCVTNE2PS2PH",
                       SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f16>,
                                            SDTCVecEltisVT<1, f32>,
                                            SDTCisSameAs<1,2>]>>;
+def X86vcvtne2ps2phRnd : SDNode<"X86ISD::VCVTNE2PS2PH_RND",
+                         SDTypeProfile<1, 3, [SDTCVecEltisVT<0, f16>,
+                                              SDTCVecEltisVT<1, f32>,
+                                              SDTCisSameAs<1,2>,
+                                              SDTCisVT<3, i32>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
 def SDTAVX512SATCVT_BF162I_MASK : SDTypeProfile<1, 4, [
@@ -1172,12 +1201,59 @@ def X86vcvttps2iubsMaskSAE
 def X86vcvttps2iubsMaskzSAE
     : SDNode<"X86ISD::VCVTTPS2IUBSMaskZ_SAE", SDTAVX512SATCVT_PS2I_MASKZ_SAE>;
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+def X86vminmax : SDNode<"X86ISD::VMINMAX", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                           SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+def X86vminmaxSae : SDNode<"X86ISD::VMINMAX_SAE", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                            SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+
+def X86vminmaxs : SDNode<"X86ISD::VMINMAXS", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                             SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+def X86vminmaxsSae : SDNode<"X86ISD::VMINMAXS_SAE", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                                    SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86vcmpnepbf16 : SDNode<"X86ISD::VCMPNEPBF16",
+                            SDTypeProfile<1, 4, [SDTCVecEltisVT<0, i1>, SDTCisSameAs<0, 1>, SDTCisVec<0>,
+                                            SDTCisSameAs<0, 3>, SDTCisSameAs<0, 4>, SDTCVecEltisVT<2, i1>,
+                                            SDTCisSameNumEltsAs<0, 2>]>>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+def SDTAVX512REDUCTIONTernary  : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<1, i1>,
+                                  SDTCisVec<2>, SDTCisVec<3>, SDTCisSameNumEltsAs<1, 3>]>;
+def SDTAVX512REDUCTIONBinOp : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCVecEltisVT<1, i1>,
+                                SDTCisVec<2>, SDTCisSameNumEltsAs<1, 2>]>;
+def X86vphraddd : SDNode<"X86ISD::VPHRADDD", SDTAVX512REDUCTIONBinOp>;
+def X86vphraddsd : SDNode<"X86ISD::VPHRADDSD", SDTAVX512REDUCTIONBinOp>;
+def X86vphradd : SDNode<"X86ISD::VPHRADD", SDTAVX512REDUCTIONBinOp>;
+def X86vphradds : SDNode<"X86ISD::VPHRADDS", SDTAVX512REDUCTIONBinOp>;
+def X86vphrand : SDNode<"X86ISD::VPHRAND", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmax : SDNode<"X86ISD::VPHRMAX", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmaxs : SDNode<"X86ISD::VPHRMAXS", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmin : SDNode<"X86ISD::VPHRMIN", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmins : SDNode<"X86ISD::VPHRMINS", SDTAVX512REDUCTIONBinOp>;
+def X86vphror : SDNode<"X86ISD::VPHROR", SDTAVX512REDUCTIONBinOp>;
+def X86vphrxor : SDNode<"X86ISD::VPHRXOR", SDTAVX512REDUCTIONBinOp>;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION2
+def X86vphraaddd :  SDNode<"X86ISD::VPHRAADDD", SDTAVX512REDUCTIONTernary>;
+def X86vphraaddsd : SDNode<"X86ISD::VPHRAADDSD", SDTAVX512REDUCTIONTernary>;
+def X86vphraand :  SDNode<"X86ISD::VPHRAAND", SDTAVX512REDUCTIONTernary>;
+def X86vphramaxs : SDNode<"X86ISD::VPHRAMAXS", SDTAVX512REDUCTIONTernary>;
+def X86vphramin : SDNode<"X86ISD::VPHRAMIN", SDTAVX512REDUCTIONTernary>;
+def X86vphramins : SDNode<"X86ISD::VPHRAMINS", SDTAVX512REDUCTIONTernary>;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION2
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments
 //===----------------------------------------------------------------------===//
 
 // 128-bit load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadv8bf16   : PatFrag<(ops node:$ptr), (v8bf16(load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadv8f16    : PatFrag<(ops node:$ptr), (v8f16 (load node:$ptr))>;
 def loadv4f32    : PatFrag<(ops node:$ptr), (v4f32 (load node:$ptr))>;
 def loadv2f64    : PatFrag<(ops node:$ptr), (v2f64 (load node:$ptr))>;
@@ -1187,6 +1263,11 @@ def loadv8i16    : PatFrag<(ops node:$ptr), (v8i16 (load node:$ptr))>;
 def loadv16i8    : PatFrag<(ops node:$ptr), (v16i8 (load node:$ptr))>;
 
 // 256-bit load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadv16bf16  : PatFrag<(ops node:$ptr), (v16bf16(load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadv16f16   : PatFrag<(ops node:$ptr), (v16f16 (load node:$ptr))>;
 def loadv8f32    : PatFrag<(ops node:$ptr), (v8f32  (load node:$ptr))>;
 def loadv4f64    : PatFrag<(ops node:$ptr), (v4f64  (load node:$ptr))>;
@@ -1196,6 +1277,11 @@ def loadv16i16   : PatFrag<(ops node:$ptr), (v16i16 (load node:$ptr))>;
 def loadv32i8    : PatFrag<(ops node:$ptr), (v32i8  (load node:$ptr))>;
 
 // 512-bit load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadv32bf16  : PatFrag<(ops node:$ptr), (v32bf16(load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadv32f16   : PatFrag<(ops node:$ptr), (v32f16 (load node:$ptr))>;
 def loadv16f32   : PatFrag<(ops node:$ptr), (v16f32 (load node:$ptr))>;
 def loadv8f64    : PatFrag<(ops node:$ptr), (v8f64  (load node:$ptr))>;
@@ -1230,6 +1316,12 @@ def alignedload : PatFrag<(ops node:$ptr), (load node:$ptr), [{
 // NOTE: all 128-bit integer vector loads are promoted to v2i64
 def alignedloadv8f16 : PatFrag<(ops node:$ptr),
                                (v8f16 (alignedload node:$ptr))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def alignedloadv8bf16: PatFrag<(ops node:$ptr),
+                               (v8bf16(alignedload node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def alignedloadv4f32 : PatFrag<(ops node:$ptr),
                                (v4f32 (alignedload node:$ptr))>;
 def alignedloadv2f64 : PatFrag<(ops node:$ptr),
@@ -1245,6 +1337,12 @@ def alignedloadv16i8 : PatFrag<(ops node:$ptr),
 
 // 256-bit aligned load pattern fragments
 // NOTE: all 256-bit integer vector loads are promoted to v4i64
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def alignedloadv16bf16: PatFrag<(ops node:$ptr),
+                                (v16bf16(alignedload node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def alignedloadv16f16 : PatFrag<(ops node:$ptr),
                                 (v16f16 (alignedload node:$ptr))>;
 def alignedloadv8f32  : PatFrag<(ops node:$ptr),
@@ -1260,6 +1358,12 @@ def alignedloadv16i16 : PatFrag<(ops node:$ptr),
 def alignedloadv32i8  : PatFrag<(ops node:$ptr),
                                 (v32i8  (alignedload node:$ptr))>;
 // 512-bit aligned load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def alignedloadv32bf16: PatFrag<(ops node:$ptr),
+                                (v32bf16(alignedload node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def alignedloadv32f16 : PatFrag<(ops node:$ptr),
                                 (v32f16 (alignedload node:$ptr))>;
 def alignedloadv16f32 : PatFrag<(ops node:$ptr),
@@ -1397,6 +1501,14 @@ def X86SubVBroadcastld256 : PatFrag<(ops node:$src),
 // only load a single element.
 // FIXME: We should add more canolicalizing in DAGCombine. Particulary removing
 // the simple_load case.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def sse_load_bf16 : PatFrags<(ops node:$ptr),
+                            [(v8bf16 (simple_load node:$ptr)),
+                             (v8bf16 (X86vzload16 node:$ptr)),
+                             (v8bf16 (scalar_to_vector (loadbf16 node:$ptr)))]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def sse_load_f16 : PatFrags<(ops node:$ptr),
                             [(v8f16 (simple_load node:$ptr)),
                              (v8f16 (X86vzload16 node:$ptr)),
@@ -1410,9 +1522,22 @@ def sse_load_f64 : PatFrags<(ops node:$ptr),
                              (v2f64 (X86vzload64 node:$ptr)),
                              (v2f64 (scalar_to_vector (loadf64 node:$ptr)))]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def sbf16mem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def shmem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
 def ssmem : X86MemOperand<"printdwordmem", X86Mem32AsmOperand>;
 def sdmem : X86MemOperand<"printqwordmem", X86Mem64AsmOperand>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def bf16imm0 : PatLeaf<(bf16 fpimm), [{
+  return N->isExactlyValue(+0.0);
+}]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 def fp16imm0 : PatLeaf<(f16 fpimm), [{
   return N->isExactlyValue(+0.0);

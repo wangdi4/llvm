@@ -1,4 +1,21 @@
 //===- CoroInternal.h - Internal Coroutine interfaces ---------*- C++ -*---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,34 +30,10 @@
 
 #include "CoroInstr.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Coroutines.h" // INTEL
 
 namespace llvm {
 
 class CallGraph;
-class CallGraphSCC;
-class PassRegistry;
-
-void initializeCoroEarlyLegacyPass(PassRegistry &);   // INTEL
-void initializeCoroSplitLegacyPass(PassRegistry &);   // INTEL
-void initializeCoroElideLegacyPass(PassRegistry &);   // INTEL
-void initializeCoroCleanupLegacyPass(PassRegistry &); // INTEL
-
-// CoroEarly pass marks every function that has coro.begin with a string
-// attribute "coroutine.presplit". CoroSplit pass would processes the 
-// function marked as "coroutine.presplit" only.
-//
-// FIXME: Refactor these attributes as LLVM attributes instead of string
-// attributes since these attributes are already used outside LLVM's
-// coroutine module.
-#define CORO_PRESPLIT_ATTR "coroutine.presplit"
-#if INTEL_CUSTOMIZATION
-#define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
-#define UNPREPARED_FOR_SPLIT "0"
-#define PREPARED_FOR_SPLIT "1"
-#define ASYNC_RESTART_AFTER_SPLIT "2"
-#define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
-#endif // INTEL_CUSTOMIZATION
 
 namespace coro {
 
@@ -48,8 +41,6 @@ bool declaresAnyIntrinsic(const Module &M);
 bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
-void updateCallGraph(Function &Caller, ArrayRef<Function *> Funcs, // INTEL
-                     CallGraph &CG, CallGraphSCC &SCC);            // INTEL
 
 /// Recover a dbg.declare prepared by the frontend and emit an alloca
 /// holding a pointer to the coroutine frame.
@@ -138,6 +129,7 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
     unsigned IndexAlign;
     unsigned IndexOffset;
     bool HasFinalSuspend;
+    bool HasUnwindCoroEnd;
   };
 
   struct RetconLoweringStorage {

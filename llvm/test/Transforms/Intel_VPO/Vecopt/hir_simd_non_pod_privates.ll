@@ -3,8 +3,7 @@
 ; and all calls appropriate constructor/destructor to initialize and deallocate
 ; the memory.
 
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Incoming HIR
 ;    BEGIN REGION { }
@@ -52,7 +51,7 @@ entry:
   br i1 %cmp3.not20, label %omp.precond.end, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"(%struct.ClassA* %value.priv, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.ClassA* %value.priv, %struct.ClassA zeroinitializer, i32 1, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
   br label %DIR.OMP.SIMD.128
 
 DIR.OMP.SIMD.128:                                 ; preds = %DIR.OMP.SIMD.1
@@ -147,7 +146,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.END.SIMD.2,
   br label %DIR.OMP.SIMD.115
 
 DIR.OMP.SIMD.115:                                 ; preds = %DIR.OMP.SIMD.1
-  %2 = call token @llvm.directive.region.entry() #5 [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %j.i.linear.iv, i32 1), "QUAL.OMP.PRIVATE"(%"class.std::complex"* %ref.tmp.i.priv) ]
+  %2 = call token @llvm.directive.region.entry() #5 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(%"class.std::complex"* %ref.tmp.i.priv, %"class.std::complex" zeroinitializer, i32 1) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:                             ; preds = %DIR.OMP.SIMD.115, %omp.inner.for.body.i

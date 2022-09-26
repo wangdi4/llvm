@@ -802,8 +802,15 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     break; // F2
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // EVEX_P10
+  uint8_t EVEX_P10 = (TSFlags & X86II::EVEX_P10) ? 1 : 0;
+#else // INTEL_FEATURE_ISA_AVX256P
   // EVEX_U
   uint8_t EVEX_U = 1; // Always '1' so far
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   // EVEX_z
   uint8_t EVEX_z = (HasEVEX_K && (TSFlags & X86II::EVEX_Z)) ? 1 : 0;
@@ -1164,9 +1171,17 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     assert(Encoding == X86II::EVEX && "unknown encoding!");
     // EVEX opcode prefix can have 4 bytes
     //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    // +-----+ +--------------+ +-------------------+ +------------------------+
+    // | 62h | | RXBR' | 0mmm | | W | vvvv |P10| pp | | z | L'L | b | v' | aaa |
+    // +-----+ +--------------+ +-------------------+ +------------------------+
+#else // INTEL_FEATURE_ISA_AVX256P
     // +-----+ +--------------+ +-------------------+ +------------------------+
     // | 62h | | RXBR' | 0mmm | | W | vvvv | U | pp | | z | L'L | b | v' | aaa |
     // +-----+ +--------------+ +-------------------+ +------------------------+
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     assert((VEX_5M & 0x7) == VEX_5M &&
            "More than 3 significant bits in VEX.m-mmmm fields for EVEX!");
 #if INTEL_CUSTOMIZATION
@@ -1180,7 +1195,13 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     emitByte((VEX_R << 7) | (VEX_X << 6) | (VEX_B << 5) | (EVEX_R2 << 4) |
                  VEX_5M,
              OS);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    emitByte((VEX_W << 7) | (VEX_4V << 3) | (EVEX_P10 << 2) | VEX_PP, OS);
+#else // INTEL_FEATURE_ISA_AVX256P
     emitByte((VEX_W << 7) | (VEX_4V << 3) | (EVEX_U << 2) | VEX_PP, OS);
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     if (EncodeRC)
       emitByte((EVEX_z << 7) | (EVEX_rc << 5) | (EVEX_b << 4) | (EVEX_V2 << 3) |
                    EVEX_aaa,
@@ -1481,7 +1502,7 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     OpcodeOffset = MI.getOperand(NumOps - 1).getImm();
     assert(OpcodeOffset < 16 && "Unexpected opcode offset!");
     --NumOps; // Drop the operand from the end.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case X86II::RawFrm:
     emitByte(BaseOpcode + OpcodeOffset, OS);
 

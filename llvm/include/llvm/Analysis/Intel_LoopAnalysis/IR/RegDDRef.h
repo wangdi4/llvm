@@ -79,12 +79,15 @@ public:
   ///   }
   /// }
   ///
-  /// value and reference types are DDRef* in std::iterator
+  /// value and reference types are DDRef*.
   template <typename DDRefIteratorTy>
-  class const_all_ddref_iterator
-      : public std::iterator<std::bidirectional_iterator_tag, const DDRef *,
-                             std::ptrdiff_t, const DDRef *const *,
-                             const DDRef *> {
+  class const_all_ddref_iterator {
+  public:
+    using iteration_category = std::bidirectional_iterator_tag;
+    using value_type = const DDRef *;
+    using difference_type = ptrdiff_t;
+    using pointer = const DDRef *const *;
+    using reference = const DDRef *;
 
     typedef RegDDRef::const_blob_iterator const_blob_iterator;
 
@@ -101,7 +104,7 @@ public:
       return !(operator==(It));
     }
 
-    iterator &operator++() {
+    const_all_ddref_iterator &operator++() {
       // See descriptors in private section
       if (IsRegDDRef) {
         IsRegDDRef = false;
@@ -117,7 +120,7 @@ public:
       return *this;
     }
 
-    iterator &operator--() {
+    const_all_ddref_iterator &operator--() {
       // See descriptors in private section
       if (IsRegDDRef) {
         IsRegDDRef = false;
@@ -132,14 +135,14 @@ public:
       return *this;
     }
 
-    iterator operator++(int) {
-      iterator retval = *this;
+    const_all_ddref_iterator operator++(int) {
+      const_all_ddref_iterator retval = *this;
       ++(*this);
       return retval;
     }
 
-    iterator operator--(int) {
-      iterator retval = *this;
+    const_all_ddref_iterator operator--(int) {
+      const_all_ddref_iterator retval = *this;
       --(*this);
       return retval;
     }
@@ -211,7 +214,10 @@ private:
     bool AddressOf;
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
+    unsigned MaxVecLenAllowed; // Maximum Vector length allowed
     unsigned Alignment;
+    // Extent is passed by Fortran FE to indicate known highest dimsize.
+    unsigned HighestDimNumElements;
     // Set to true for fake pointer DD ref which access type is known.
     bool CanUsePointeeSize;
 
@@ -360,6 +366,10 @@ private:
     assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
 
     GepInfo->DimTypes[DimensionNum - 1] = Ty;
+  }
+
+  void setHighestDimNumElements(unsigned NumElements) {
+    GepInfo->HighestDimNumElements = NumElements;
   }
 
   static Type *getMorePreciseDimensionType(Type *T1, Type *T2);
@@ -666,10 +676,8 @@ public:
     getGEPInfo()->AddressOf = IsAddressOf;
   }
 
-  /// Returns alignment info for this ref.
   unsigned getAlignment() const { return getGEPInfo()->Alignment; }
 
-  /// Sets alignment for this ref.
   void setAlignment(unsigned Align) {
     createGEP();
     getGEPInfo()->Alignment = Align;
@@ -696,6 +704,16 @@ public:
   void setCollapsed(bool CollapseFlag) {
     createGEP();
     getGEPInfo()->IsCollapsed = CollapseFlag;
+  }
+
+  /// Get/Set Max Vector Length Allowed. The field is set by collapsing pass to
+  /// indicate dependence distance for collapsed refs. Value 0 means there is no
+  /// information.
+  unsigned getMaxVecLenAllowed(void) const {
+    return getGEPInfo()->MaxVecLenAllowed;
+  }
+  void setMaxVecLenAllowed(unsigned DepDistance) {
+    getGEPInfo()->MaxVecLenAllowed = DepDistance;
   }
 
   // Get/Set DebugLoc for the Load/Store instruction

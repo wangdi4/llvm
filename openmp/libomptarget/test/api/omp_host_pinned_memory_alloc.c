@@ -1,5 +1,4 @@
-// RUN: %libomptarget-compile-run-and-check-nvptx64-nvidia-cuda
-// REQUIRES: nvptx64-nvidia-cuda
+// RUN: %libomptarget-compile-run-and-check-generic
 
 #include <omp.h>
 #include <stdio.h>
@@ -7,7 +6,11 @@
 int main() {
   const int N = 64;
 
+#if INTEL_CUSTOMIZATION
+  int *hst_ptr = omp_alloc(N * sizeof(int), omp_target_host_mem_alloc);
+#else // INTEL_CUSTOMIZATION
   int *hst_ptr = omp_alloc(N * sizeof(int), llvm_omp_target_host_mem_alloc);
+#endif // INTEL_CUSTOMIZATION
 
   for (int i = 0; i < N; ++i)
     hst_ptr[i] = 2;
@@ -20,7 +23,11 @@ int main() {
   for (int i = 0; i < N; ++i)
     sum += hst_ptr[i];
 
+#if INTEL_CUSTOMIZATION
+  omp_free(hst_ptr, omp_target_shared_mem_alloc);
+#else // INTEL_CUSTOMIZATION
   omp_free(hst_ptr, llvm_omp_target_shared_mem_alloc);
+#endif // INTEL_CUSTOMIZATION
   // CHECK: PASS
   if (sum == N)
     printf("PASS\n");

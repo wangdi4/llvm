@@ -48,10 +48,8 @@
 ; appropriately written to the reduction variable in finalize statements.
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check entities dump and VPlan IR
@@ -62,8 +60,12 @@
 ; CHECK: i64 [[START_LD:%vp.*]] = load i64* [[V1_START]]
 ; CHECK: i64 [[INIT:%vp.*]] = reduction-init i64 0 i64 [[START_LD]]
 ; CHECK: store i64 [[INIT]] i64* [[PRIV]]
-; CHECK: store i64 {{%vp.*}} i64* [[PRIV]]
-; CHECK: store i64 {{%vp.*}} i64* [[PRIV]]
+; CHECK: i64* [[VP_SUBSCRIPT_0:%.*]] = subscript inbounds i64* [[PRIV]]
+; CHECK: i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[PRIV]]
+; CHECK: store i64 {{%vp.*}} i64* [[VP_SUBSCRIPT_1]]
+; CHECK: i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[PRIV]]
+; CHECK: i64* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i64* [[PRIV]]
+; CHECK: store i64 {{%vp.*}} i64* [[VP_SUBSCRIPT_3]]
 ; CHECK: i64 [[PRIV_LOAD:%vp.*]] = load i64* [[PRIV]]
 ; CHECK: i64 [[FINAL:%vp.*]] = reduction-final{u_add} i64 [[PRIV_LOAD]]
 ; CHECK: store i64 [[FINAL]] i64* [[V1_START]]
@@ -84,7 +86,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.123, label %omp.precond.end
 
 DIR.OMP.SIMD.123:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD"(i64* %ret), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(i64* %ret, i64 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.123

@@ -15,7 +15,7 @@
 // RUN: %clang_cl /Wcheck-unicode-security -DFOO -c -### %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK_SECURITY %s
 // CHECK_SECURITY: clang-tidy
-// CHECK_SECURITY-SAME: "--checks=misc-misleading-bidirectional,misc-misleading-identifier,misc-homoglyph"
+// CHECK_SECURITY-SAME: "--checks=misc-misleading-bidirectional,misc-misleading-identifier,misc-confusable-identifiers"
 // CHECK_SECURITY-SAME: "--"
 // CHECK_SECURITY-SAME: "-D FOO" "-c"
 
@@ -40,13 +40,6 @@
 // RUN: %clang_cl /Wcheck-unicode-security -### %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=NO_VECLIB_SECURITY_OPT %s
 // NO_VECLIB_SECURITY_OPT-NOT: clang-tidy{{.*}} .*fveclib
-
-// Intel default cfg file information should not be passed to clang-tidy
-// RUN: %clangxx -Wcheck-unicode-security --intel-config %S/Inputs/empty.cfg -### %s 2>&1 \
-// RUN:   | FileCheck --check-prefix=NO_CONFIG_OPT %s
-// RUN: %clang_cl /Wcheck-unicode-security --intel-config %S/Inputs/empty.cfg -### %s 2>&1 \
-// RUN:   | FileCheck --check-prefix=NO_CONFIG_OPT %s
-// NO_CONFIG_OPT-NOT: clang-tidy{{.*}} {{.*}}--intel-config
 
 // -fsycl needs to be passed to clang-tidy for DPC++
 // RUN: %clangxx -Wcheck-unicode-security -fsycl -### %s 2>&1 \

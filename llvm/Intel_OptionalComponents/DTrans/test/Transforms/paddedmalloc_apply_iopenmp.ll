@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test that identifies if the DTrans padded malloc optimization was applied with -fiopenmp.
 ; In order to apply padded malloc, the optimization must find a malloc function and a search loop.
@@ -12,12 +13,12 @@
 @arr1 = internal global [10 x i32] zeroinitializer, align 16
 @arr2 = internal global [10 x i32] zeroinitializer, align 16
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-declare void @free(i8* nocapture)
+declare void @free(i8* nocapture) #1
 
 ; Malloc function
 define internal noalias i8* @mallocFunc(i64) {
@@ -68,6 +69,10 @@ DIR.OMP.END.PARALLEL.EXIT:
 
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
+
 
 ; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc
 ; CHECK: dtrans-paddedmalloc: Identifying alloc functions

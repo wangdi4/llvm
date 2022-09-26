@@ -411,12 +411,36 @@ static void copyAndReplaceUses(
     WIRV->setWIRelated(Clone, true);
   }
 
+  // Query from CopyToOriginMap and OriginToCopyMap to get the unique copy of
+  // instruction.
+  auto GetTheUniqueCopyOfInst = [&](Instruction *Inst) {
+    assert(Inst && "Inst cannot be null!");
+    // If the user is already a copied instruction, get the original inst.
+    // Otherwise, the lookup will return the instruction itself.
+    auto Iter1 = CopyToOriginMap.find(Inst);
+    if (Iter1 == CopyToOriginMap.end()) {
+      LLVM_DEBUG(Inst->dump());
+      llvm_unreachable("Inst not found in the map!");
+    }
+    auto *OrigInst = Iter1->getSecond();
+    assert(OrigInst && "Inst cannot be null!");
+    // Then find the unique copy that we should use.
+    auto Iter2 = OriginToCopyMap.find(OrigInst);
+    if (Iter2 == OriginToCopyMap.end()) {
+      LLVM_DEBUG(OrigInst->dump());
+      llvm_unreachable("Inst not found in the map!");
+    }
+    auto *TheCopy = Iter2->getSecond();
+    assert(TheCopy && "Inst cannot be null!");
+    return TheCopy;
+  };
+
   // 2. Replace the operand of the original user
   Use *U = Uses.back();
   Instruction *UserInst = cast<Instruction>(U->getUser());
   unsigned OpIdx = U->getOperandNo();
   Instruction *Inst = cast<Instruction>(U->get());
-  UserInst->setOperand(OpIdx, OriginToCopyMap[CopyToOriginMap[Inst]]);
+  UserInst->setOperand(OpIdx, GetTheUniqueCopyOfInst(Inst));
   // TODO: Erasing the dead instruction here can lead to invalid values in
   // CopyToOriginMap and assertion failures. So I just leave dead instructions
   // to DCE pass until there's a better solution.
@@ -426,13 +450,12 @@ static void copyAndReplaceUses(
   // 3. Fix operands for all cloned instructions
   for (auto II = Uses.rbegin() + 1, EE = Uses.rend(); II != EE; ++II) {
     U = *II;
-    UserInst =
-        OriginToCopyMap[CopyToOriginMap[cast<Instruction>(U->getUser())]];
+    UserInst = GetTheUniqueCopyOfInst(cast<Instruction>(U->getUser()));
     if (isa<PHINode>(UserInst))
       continue;
     OpIdx = U->getOperandNo();
     Inst = cast<Instruction>(U->get());
-    UserInst->setOperand(OpIdx, OriginToCopyMap[CopyToOriginMap[Inst]]);
+    UserInst->setOperand(OpIdx, GetTheUniqueCopyOfInst(Inst));
     // if (Inst->use_empty())
     //   Inst->eraseFromParent();
   }

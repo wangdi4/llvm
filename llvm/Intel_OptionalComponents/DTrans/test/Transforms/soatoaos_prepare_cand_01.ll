@@ -7,6 +7,7 @@
 ; RUN: opt < %s -passes=dtrans-soatoaos-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos-prepare -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate
 ; struct. "f1" and "f2" fields in "F" will be considered as candidate vector
@@ -684,6 +685,9 @@ cleanup:                                          ; preds = %entry, %for.end24
 declare dso_local noalias i8* @_Znwm(i64)
 declare dso_local void @_ZdlPv(i8*)
 declare dso_local void @__cxa_rethrow()
-declare dso_local void @free(i8* nocapture)
+declare dso_local void @free(i8* nocapture) #1
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
-declare dso_local noalias i8* @malloc(i64)
+declare dso_local noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

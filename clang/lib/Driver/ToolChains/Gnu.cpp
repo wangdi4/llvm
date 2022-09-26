@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -42,6 +42,8 @@
 #include "clang/Driver/ToolChain.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/FileUtilities.h" // INTEL
+#include "llvm/Support/LineIterator.h"  // INTEL
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VirtualFileSystem.h"
@@ -267,7 +269,7 @@ static bool isArmBigEndian(const llvm::Triple &Triple,
   case llvm::Triple::armeb:
   case llvm::Triple::thumbeb:
     IsBigEndian = true;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case llvm::Triple::arm:
   case llvm::Triple::thumb:
     if (Arg *A = Args.getLastArg(options::OPT_mlittle_endian,
@@ -318,6 +320,10 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
     return "elf32_sparc";
   case llvm::Triple::sparcv9:
     return "elf64_sparc";
+  case llvm::Triple::loongarch32:
+    return "elf32loongarch";
+  case llvm::Triple::loongarch64:
+    return "elf64loongarch";
   case llvm::Triple::mips:
     return "elf32btsmip";
   case llvm::Triple::mipsel:
@@ -556,10 +562,11 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   if (Args.hasArg(options::OPT_qipp_EQ))
     TC.AddIPPLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_qmkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
     TC.AddMKLLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && TC.getDriver().IsDPCPPMode()))
+      ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
+        && TC.getDriver().IsDPCPPMode()))
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qdaal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
@@ -795,6 +802,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const bool HasCRTBeginEndFiles =
       ToolChain.getTriple().hasEnvironment() ||
       (ToolChain.getTriple().getVendor() != llvm::Triple::MipsTechnologies);
+#if INTEL_CUSTOMIZATION
+  // One of the Intel Classic compiler compatibilities is to check the PIE
+  // default of the gcc that the user is using with the compilation.  When
+  // it is PIE default, link in the crt*S objects (but do not set -pie).
+  const bool IsIntelPIE = !IsStatic && ToolChain.detectGCCPIEDefault();
+#endif // INTEL_CUSTOMIZATION
 
   // Use of -fsycl-link creates an archive.
   if (Args.hasArg(options::OPT_fsycl_link_EQ) &&
@@ -859,6 +872,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     D.Diag(diag::err_target_unknown_triple) << Triple.str();
     return;
   }
+  if (Triple.isRISCV())
+    CmdArgs.push_back("-X");
 
   if (Args.hasArg(options::OPT_shared))
     CmdArgs.push_back("-shared");
@@ -869,7 +884,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (Args.hasArg(options::OPT_rdynamic))
       CmdArgs.push_back("-export-dynamic");
 
-    if (!Args.hasArg(options::OPT_shared) && !IsStaticPIE) {
+    if (!Args.hasArg(options::OPT_shared) && !IsStaticPIE &&
+        !Args.hasArg(options::OPT_r)) {
       CmdArgs.push_back("-dynamic-linker");
       CmdArgs.push_back(Args.MakeArgString(Twine(D.DyldPrefix) +
                                            ToolChain.getDynamicLinker(Args)));
@@ -886,7 +902,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (!Args.hasArg(options::OPT_shared)) {
         if (Args.hasArg(options::OPT_pg))
           crt1 = "gcrt1.o";
-        else if (IsPIE)
+        else if (IsPIE || IsIntelPIE) // INTEL
           crt1 = "Scrt1.o";
         else if (IsStaticPIE)
           crt1 = "rcrt1.o";
@@ -921,7 +937,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           crtbegin = isAndroid ? "crtbegin_so.o" : "crtbeginS.o";
         else if (IsStatic)
           crtbegin = isAndroid ? "crtbegin_static.o" : "crtbeginT.o";
-        else if (IsPIE || IsStaticPIE)
+        else if (IsPIE || IsStaticPIE || IsIntelPIE) // INTEL
           crtbegin = isAndroid ? "crtbegin_dynamic.o" : "crtbeginS.o";
         else
           crtbegin = isAndroid ? "crtbegin_dynamic.o" : "crtbegin.o";
@@ -947,7 +963,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
-                  D.getLTOMode() == LTOK_Thin);
+                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
   }
 
   if (Args.hasArg(options::OPT_Z_Xlinker__no_demangle))
@@ -988,12 +1004,13 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasArg(options::OPT_qipp_EQ))
     addIPPLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_qmkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
     addMKLLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qdaal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && D.IsDPCPPMode()))
+      ((Args.hasArg(options::OPT_qmkl_EQ,
+                    options::OPT_qmkl_ilp64_EQ)) && D.IsDPCPPMode()))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qactypes))
     addACTypesLibs(CmdArgs, Args, ToolChain);
@@ -1029,7 +1046,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
-           (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
+           (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ,
+                                           options::OPT_qmkl_ilp64_EQ))) {
     addIntelLib("-limf", ToolChain, CmdArgs, Args);
     CmdArgs.push_back("-lm");
   }
@@ -1039,7 +1057,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // Add libirc to resolve any Intel and libimf references
     addIntelLibirc(ToolChain, CmdArgs, Args);
     // Add -ldl
-    if (Args.hasArg(options::OPT_qmkl_EQ) || D.IsIntelMode())
+    if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ) ||
+                    D.IsIntelMode())
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1058,14 +1077,60 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // to generate executables. As Fortran runtime depends on the C runtime,
   // these dependencies need to be listed before the C runtime below (i.e.
   // AddRuntTimeLibs).
-  //
-  // NOTE: Generating executables by Flang is considered an "experimental"
-  // feature and hence this is guarded with a command line option.
-  // TODO: Make this work unconditionally once Flang is mature enough.
-  if (D.IsFlangMode() && Args.hasArg(options::OPT_flang_experimental_exec)) {
+  if (D.IsFlangMode()) {
     addFortranRuntimeLibraryPath(ToolChain, Args, CmdArgs);
-    addFortranRuntimeLibs(CmdArgs);
+    addFortranRuntimeLibs(ToolChain, CmdArgs);
     CmdArgs.push_back("-lm");
+  }
+
+  // If requested, use a custom linker script to handle very large device code
+  // sections.
+  if (Args.hasArg(options::OPT_fsycl) &&
+      Args.hasFlag(options::OPT_fsycl_link_huge_device_code,
+                   options::OPT_fno_sycl_link_huge_device_code, false)) {
+    // Create temporary linker script. Keep it if save-temps is enabled.
+    const char *LKS;
+    SmallString<256> Name = llvm::sys::path::filename(Output.getFilename());
+    if (C.getDriver().isSaveTempsEnabled()) {
+      llvm::sys::path::replace_extension(Name, "ld");
+      LKS = C.getArgs().MakeArgString(Name.c_str());
+    } else {
+      llvm::sys::path::replace_extension(Name, "");
+      Name = C.getDriver().GetTemporaryPath(Name, "ld");
+      LKS = C.addTempFile(C.getArgs().MakeArgString(Name.c_str()));
+    }
+
+    // Add linker script option to the command.
+    CmdArgs.push_back("-T");
+    CmdArgs.push_back(LKS);
+
+    // If this is not a dry run, create the linker script file.
+    if (!C.getArgs().hasArg(options::OPT__HASH_HASH_HASH)) {
+      std::error_code EC;
+      llvm::raw_fd_ostream ScriptOS(LKS, EC, llvm::sys::fs::OF_None);
+
+      if (EC) {
+        C.getDriver().Diag(clang::diag::err_unable_to_make_temp)
+            << EC.message();
+      } else {
+        ScriptOS
+            << "/*\n"
+               " * This linker script allows huge (>3GB) device code\n"
+               " * sections. It has been auto-generated by the SYCL driver.\n"
+               " */\n"
+               "SECTIONS\n"
+               "{\n"
+               "  . = SEGMENT_START(\"sycl-device-code\", .);\n"
+               "  SYCL_DEVICE_CODE ALIGN(CONSTANT (MAXPAGESIZE)) + (. & "
+               "(CONSTANT (MAXPAGESIZE) - 1)) :\n"
+               "  {\n"
+               "    *(__CLANG_OFFLOAD_BUNDLE__*)\n"
+               "  }\n"
+               "}\n"
+               "INSERT AFTER .bss\n";
+        ScriptOS.close();
+      }
+    }
   }
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_r)) {
@@ -1104,7 +1169,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
       // Use of -qmkl implies pthread
-      if (Args.hasArg(options::OPT_qmkl_EQ))
+      if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
         WantPthread = true;
       // -stdlib=libc++ implies pthread
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
@@ -1138,6 +1203,16 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         if (curStaticLinkState)
           CmdArgs.push_back("-Bstatic");
 #endif // INTEL_CUSTOMIZATION
+      }
+
+      // LLVM support for atomics on 32-bit SPARC V8+ is incomplete, so
+      // forcibly link with libatomic as a workaround.
+      // TODO: Issue #41880 and D118021.
+      if (getToolChain().getTriple().getArch() == llvm::Triple::sparc) {
+        CmdArgs.push_back("--push-state");
+        CmdArgs.push_back("--as-needed");
+        CmdArgs.push_back("-latomic");
+        CmdArgs.push_back("--pop-state");
       }
 
 #if INTEL_CUSTOMIZATION
@@ -1191,7 +1266,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           const char *crtend;
           if (Args.hasArg(options::OPT_shared))
             crtend = isAndroid ? "crtend_so.o" : "crtendS.o";
-          else if (IsPIE || IsStaticPIE)
+          else if (IsPIE || IsStaticPIE || IsIntelPIE) // INTEL
             crtend = isAndroid ? "crtend_android.o" : "crtendS.o";
           else
             crtend = isAndroid ? "crtend_android.o" : "crtend.o";
@@ -1875,7 +1950,7 @@ static bool findMipsMtiMultilibs(const Multilib::flags_list &Flags,
                   {"/../../../../mips-mti-linux-gnu/lib" + M.gccSuffix()});
             });
   }
-  for (auto Candidate : {&MtiMipsMultilibsV1, &MtiMipsMultilibsV2}) {
+  for (auto *Candidate : {&MtiMipsMultilibsV1, &MtiMipsMultilibsV2}) {
     if (Candidate->select(Flags, Result.SelectedMultilib)) {
       Result.Multilibs = *Candidate;
       return true;
@@ -1968,7 +2043,7 @@ static bool findMipsImgMultilibs(const Multilib::flags_list &Flags,
                   {"/../../../../mips-img-linux-gnu/lib" + M.gccSuffix()});
             });
   }
-  for (auto Candidate : {&ImgMultilibsV1, &ImgMultilibsV2}) {
+  for (auto *Candidate : {&ImgMultilibsV1, &ImgMultilibsV2}) {
     if (Candidate->select(Flags, Result.SelectedMultilib)) {
       Result.Multilibs = *Candidate;
       return true;
@@ -2632,8 +2707,8 @@ void Generic_GCC::GCCInstallationDetector::print(raw_ostream &OS) const {
 }
 
 bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
-  if (BiarchSibling.hasValue()) {
-    M = BiarchSibling.getValue();
+  if (BiarchSibling) {
+    M = BiarchSibling.value();
     return true;
   }
   return false;
@@ -2764,6 +2839,10 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
       "i386-redhat-linux6E", "i686-redhat-linux",     "i386-redhat-linux",
       "i586-suse-linux",     "i686-montavista-linux", "i686-gnu",
   };
+
+  static const char *const LoongArch64LibDirs[] = {"/lib64", "/lib"};
+  static const char *const LoongArch64Triples[] = {
+      "loongarch64-linux-gnu", "loongarch64-unknown-linux-gnu"};
 
   static const char *const M68kLibDirs[] = {"/lib"};
   static const char *const M68kTriples[] = {
@@ -3016,6 +3095,11 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
       BiarchLibDirs.append(begin(X32LibDirs), end(X32LibDirs));
       BiarchTripleAliases.append(begin(X32Triples), end(X32Triples));
     }
+    break;
+  // TODO: Handle loongarch32.
+  case llvm::Triple::loongarch64:
+    LibDirs.append(begin(LoongArch64LibDirs), end(LoongArch64LibDirs));
+    TripleAliases.append(begin(LoongArch64Triples), end(LoongArch64Triples));
     break;
   case llvm::Triple::m68k:
     LibDirs.append(begin(M68kLibDirs), end(M68kLibDirs));
@@ -3433,6 +3517,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   case llvm::Triple::csky:
   case llvm::Triple::hexagon:
   case llvm::Triple::lanai:
+  case llvm::Triple::loongarch32:
+  case llvm::Triple::loongarch64:
   case llvm::Triple::m68k:
   case llvm::Triple::mips:
   case llvm::Triple::mipsel:

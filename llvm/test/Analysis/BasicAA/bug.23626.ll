@@ -1,6 +1,5 @@
 ; INTEL
-; FIXME: Enable back after CMPLRLLVM-20241 fixed.
-; R;UN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-darwin13.4.0"

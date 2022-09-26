@@ -582,7 +582,14 @@ bool FMAOpcodesInfo::recognizeInstr(const MachineInstr &MI,
 
     bool EVEX = (TSFlags & X86II::EncodingMask) == X86II::EVEX;
     const FMAOpcodeDesc *OD = findByOpcode(Opcode, OpcodeKind, EVEX);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+    if (!OD)
+      return false;
+#else // INTEL_FEATURE_ISA_AVX512_BF16_NE
     assert(OD != nullptr && "Didn't find in table!");
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
     IsMem = Opcode == OD->MemOpc;
     VT = OD->VT;
     return true;
@@ -967,17 +974,17 @@ public:
   /// having uses that are not recognized as FMAExpr operations.
   unsigned parseBasicBlock(MachineRegisterInfo *MRI);
 
-  /// Sets the <isKill> attribute to machine operands associated with the
+  /// Updates the <isKill> attribute to machine operands associated with the
   /// last uses of terms.
-  void setIsKilledAttributeForTerms() override {
+  void updateIsKilledAttributeForTerms(MachineRegisterInfo *MRI) override {
     for (auto &T : RegisterToFMARegisterTerm)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
     for (auto &T : MIToFMAMemoryTerm)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
     for (auto &T : ZeroTerms)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
     for (auto &T : OneTerms)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
   }
 
   /// Prints the basic block to the given stream \p OS.

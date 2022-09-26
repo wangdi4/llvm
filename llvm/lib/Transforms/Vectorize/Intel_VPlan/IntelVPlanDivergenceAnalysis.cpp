@@ -1082,6 +1082,9 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // Special processing for subscript instructions which could have struct
   // offsets in 0th dimension.
   if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
+    // Return pointer operand shape for SelfAddressOf instruction
+    if (isSelfAddressOfInst(Subscript))
+      return PtrShape;
     ArrayRef<unsigned> ZeroDimOffsets = Subscript->dim(0).StructOffsets;
     if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
       // 0-th dimension index is divergent and we have struct offsets, do not
@@ -1406,9 +1409,6 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
 // Computes vector shape for AllocatePrivate instruction.
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
     const VPAllocatePrivate *AI) {
-  if (AI->getIsScalar())
-    return getUniformVectorShape();
-
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
   Type *PointeeTy = AI->getAllocatedType();
@@ -1438,8 +1438,32 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
     // This could be a VPExternalDef (a non-constant value), i.e., a
     // variable step IV. We should set the shape to be random if we
     // cannot infer the step-size.
-    assert((isa<VPExternalDef>(Step) || isa<VPLiveInValue>(Step)) &&
+#ifndef NDEBUG
+    auto CheckOperands = [&](VPValue *Step) {
+      assert(isa<VPInstruction>(Step) && "Expected an instruction");
+      if (isa<VPInvSCEVWrapper>(Step)) {
+        // TODO: VPInvSCEVWrapper is used to represent auto-detected(by
+        // IVDescriptor) step. Because step has previously been established as
+        // invariant, we return true here. An alternative would be to check for
+        // step operands(as in the case below), but it requires access to LLVM
+        // SE analysis results in DA.
+        return true;
+      } else {
+        VPInstruction *StepInst = cast<VPInstruction>(Step);
+        for (unsigned i = 0; i < StepInst->getNumOperands(); i++) {
+          VPValue *Op = StepInst->getOperand(i);
+          if (!isa<VPExternalDef>(Op) && !isa<VPLiveInValue>(Op) &&
+              !isa<VPConstant>(Op))
+            return false;
+        }
+        return true;
+      }
+      return false;
+    };
+    assert((isa<VPExternalDef>(Step) || isa<VPLiveInValue>(Step) ||
+            CheckOperands(Step)) &&
            "Expect the non-constant to be VPExternalDef or VPLiveInValue.");
+#endif
     return getRandomVectorShape();
   }
 
@@ -1451,28 +1475,25 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
   // If this is a pointer induction, compute the step-size in terms of
   // bytes, using the size of the pointee.
   if (isa<PointerType>(Init->getType())) {
-    unsigned TypeSizeInBytes;
-
     // Handle strides for pointer-inductions appropriately.
     // A 'uniform' pointer-shape indicates that we are dealing with non-private
     // data. Private-data, and its aliases (via casts and GEPs) will have
     // non-'uniform' shape and the stride would be the same as that of 'alloca'
     // given that we are dealing with these instructions in the loop-preheader.
-    if (Init->getBinOpcode() == Instruction::GetElementPtr) {
-      auto InitShape = getVectorShape(*(Init->getOperand(0)));
+    assert((Init->getBinOpcode() == Instruction::GetElementPtr) &&
+           "Invalid binary op in pointer induction-init");
+    auto InitShape = getVectorShape(*(Init->getOperand(0)));
 
-      // We can have strided-shape with unknown-stride. Return random vector
-      // shape in such scenario.
-      if (!InitShape.hasKnownStride())
-        return getRandomVectorShape();
+    // We can have strided-shape with unknown-stride. Return random vector
+    // shape in such scenario.
+    if (!InitShape.hasKnownStride())
+      return getRandomVectorShape();
 
-      TypeSizeInBytes =
-          InitShape.isUniform()
-              ? getTypeSizeInBytes(Init->getType()->getPointerElementType())
-              : InitShape.getStrideVal();
-    } else
-      TypeSizeInBytes =
-          getTypeSizeInBytes(Init->getType()->getPointerElementType());
+    // i8 element type for opaque pointer inductions
+    unsigned TypeSizeInBytes =
+        InitShape.isUniform()
+            ? getTypeSizeInBytes(getInt8OrPointerElementTy(Init->getType()))
+            : InitShape.getStrideVal();
 
     StepInt = TypeSizeInBytes * StepConst->getZExtValue();
   } else
@@ -1546,13 +1567,15 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InductionFinal)
     NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::ReductionInit)
-    NewShape = getRandomVectorShape();
-  else if (Opcode == VPInstruction::ReductionInitScalar)
-    NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::ReductionFinal)
+  else if (Opcode == VPInstruction::ReductionInit) {
+    const VPReductionInit *Init = cast<VPReductionInit>(I);
+    NewShape =
+      Init->isScalar() ? getUniformVectorShape() : getRandomVectorShape();
+  } else if (Opcode == VPInstruction::ReductionFinal)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinalInscan)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinalUdr)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalMasked)
     NewShape = getUniformVectorShape();
@@ -1567,6 +1590,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::PrivateFinalCondMem)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalArray)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateFinalArrayMasked)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueNonPOD)
     NewShape = getUniformVectorShape();
@@ -1619,7 +1644,30 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ExtractLastVectorLane)
     NewShape = getUniformVectorShape();
-  else {
+  else if (Opcode == VPInstruction::CompressStore)
+    NewShape = computeVectorShapeForStoreInst(I);
+  else if (Opcode == VPInstruction::CompressStoreNonu)
+    NewShape = computeVectorShapeForStoreInst(I);
+  else if (Opcode == VPInstruction::ExpandLoad)
+    NewShape = computeVectorShapeForLoadInst(I);
+  else if (Opcode == VPInstruction::ExpandLoadNonu)
+    NewShape = computeVectorShapeForLoadInst(I);
+  else if (Opcode == VPInstruction::CompressExpandIndexInit)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandIndexFinal)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandIndex)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandIndexInc)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandMask)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::InvSCEVWrapper) {
+    // TODO: In this situation, we return uniform based on how InvSCEVWrapper
+    // instructions are currently being used. This has to be reevaluated if how
+    // it is used changes.
+    NewShape = getUniformVectorShape();
+  } else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&

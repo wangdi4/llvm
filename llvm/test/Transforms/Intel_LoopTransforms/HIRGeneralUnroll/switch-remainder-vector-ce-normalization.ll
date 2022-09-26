@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-general-unroll,print<hir>" -disable-output 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-general-unroll,print<hir>" -vplan-force-vf=2 -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we are able to generate a switch remainder by successfully
 ; normalizing the loop containing vector CEs with IV.

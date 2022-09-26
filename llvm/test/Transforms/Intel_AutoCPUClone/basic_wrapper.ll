@@ -7,12 +7,12 @@ target triple = "x86_64-pc-windows-msvc19.29.30133"
 
 ; CHECK:      @__intel_cpu_feature_indicator_x = external global [2 x i64]
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @baz.A(i32 %a) {
+; CHECK-NEXT: define i32 @baz.A(i32 %a) !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %add = add i32 %a, 42
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @foo.A(i32 %a) {
+; CHECK-NEXT: define i32 @foo.A(i32 %a) !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %ret = call i32 @baz.A(i32 33)
 ; CHECK-NEXT:   %add = add i32 %a, %ret
 ; CHECK-NEXT:   ret i32 %add
@@ -23,7 +23,7 @@ target triple = "x86_64-pc-windows-msvc19.29.30133"
 ; CHECK-NEXT:   ret i32 %ret
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @baz.V(i32 %a) #0 {
+; CHECK-NEXT: define i32 @baz.V(i32 %a) #0 !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %add = add i32 %a, 42
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
@@ -47,7 +47,7 @@ target triple = "x86_64-pc-windows-msvc19.29.30133"
 ; CHECK-EMPTY:
 ; CHECK-NEXT: declare dso_local void @__intel_cpu_features_init_x()
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @foo.V(i32 %a) #0 {
+; CHECK-NEXT: define i32 @foo.V(i32 %a) #0 !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %ret = call i32 @baz.V(i32 33)
 ; CHECK-NEXT:   %add = add i32 %a, %ret
 ; CHECK-NEXT:   ret i32 %add

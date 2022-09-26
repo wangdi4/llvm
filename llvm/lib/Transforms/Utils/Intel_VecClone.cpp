@@ -1,6 +1,6 @@
 //=---- Intel_VecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -149,7 +149,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Debug.h"
@@ -167,6 +166,8 @@
 #define DEBUG_TYPE "VecClone"
 
 using namespace llvm;
+
+extern bool Usei1MaskForSimdFunctions;
 
 // Support for future opaque pointers. Will become the only option in future.
 static cl::opt<bool>
@@ -190,12 +191,12 @@ bool VecClone::runOnModule(Module &M) {
 void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        Function *Clone,
                                        BasicBlock *EntryBlock,
-                                       const VectorVariant &Variant) {}
+                                       const VFInfo &Variant) {}
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 #endif // INTEL_CUSTOMIZATION
 
-Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
+Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
                                       ValueToValueMapTy &VMap) {
 
   LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
@@ -204,17 +205,22 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   FunctionType* OrigFunctionType = F.getFunctionType();
   Type *CharacteristicType = calcCharacteristicType(F, V);
 
-  std::vector<VectorKind> ParmKinds = V.getParameters();
+  const auto *VKIt = V.getParameters().begin();
   SmallVector<Type*, 4> ParmTypes;
-  FunctionType::param_iterator ParmIt = OrigFunctionType->param_begin();
-  FunctionType::param_iterator ParmEnd = OrigFunctionType->param_end();
-  std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
-  for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
+  for (auto ParmIt = OrigFunctionType->param_begin(),
+            ParmEnd = OrigFunctionType->param_end();
+       ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
+    Type *ParmType = *ParmIt;
     if (VKIt->isVector()) {
-      unsigned VF = V.getVlen();
-      if (auto *FVT = dyn_cast<FixedVectorType>(*ParmIt))
+      if (ParmType->isIntOrIntVectorTy(1)) {
+        // Promote an `i1` or `<N x i1>` argument to `i8` or `<N x i8>` to
+        // avoid a GEP into `<VF x i1>` when accessing elements.
+        ParmType = ParmType->getWithNewBitWidth(8);
+      }
+      unsigned VF = V.getVF();
+      if (auto *FVT = dyn_cast<FixedVectorType>(ParmType))
         VF *= FVT->getNumElements();
-      ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(), VF));
+      ParmTypes.push_back(FixedVectorType::get(ParmType->getScalarType(), VF));
     } else {
       ParmTypes.push_back(*ParmIt);
     }
@@ -223,11 +229,11 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   if (V.isMasked()) {
     Type *MaskScalarTy = (Usei1MaskForSimdFunctions) ?
       Type::getInt1Ty(F.getContext()) : CharacteristicType;
-    Type *MaskVecTy = FixedVectorType::get(MaskScalarTy, V.getVlen());
+    Type *MaskVecTy = FixedVectorType::get(MaskScalarTy, V.getVF());
     ParmTypes.push_back(MaskVecTy);
   }
 
-  Function* Clone = getOrInsertVectorVariantFunction(&F, V.getVlen(), ParmTypes,
+  Function* Clone = getOrInsertVectorVariantFunction(&F, V.getVF(), ParmTypes,
                                                      &V, V.isMasked());
 
   // Remove vector variant attributes from the original function. They are
@@ -283,7 +289,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   return Clone;
 }
 
-BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
+BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, const VFInfo &V,
                                              BasicBlock *EntryBlock) {
 
   SmallVector<Instruction *, 4> EntryInsts;
@@ -362,10 +368,12 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-void VecCloneImpl::updateVectorArgumentUses(
-    Function *Clone, Function &OrigFn, const DataLayout &DL, Argument *Arg,
-    BitCastInst *VecArgCast, BasicBlock *EntryBlock, BasicBlock *LoopLatch,
-    PHINode *Phi) {
+void VecCloneImpl::updateVectorArgumentUses(Function *Clone, Function &OrigFn,
+                                            const DataLayout &DL, Argument *Arg,
+                                            Type *ElemType, Instruction *VecArg,
+                                            BasicBlock *EntryBlock,
+                                            BasicBlock *LoopLatch,
+                                            PHINode *Phi) {
 
   // This code updates argument users with a gep/load of an element for a
   // specific lane using the loop index.
@@ -382,20 +390,18 @@ void VecCloneImpl::updateVectorArgumentUses(
         LoopLatch->getFirstNonPHI() : User;
 
     GetElementPtrInst *VecGep = nullptr;
-    Type *OrigElemType = OrigFn.getArg(Arg->getArgNo())->getType();
     if (!isa<PHINode>(User))
-      VecGep = GetElementPtrInst::Create(OrigElemType, VecArgCast,
-                                         Phi, VecArgCast->getName() + ".gep",
-                                          InsertPt);
+      VecGep = GetElementPtrInst::Create(ElemType, VecArg, Phi,
+                                         VecArg->getName() + ".gep", InsertPt);
 
     // Otherwise, we need to load the value from the gep first before
     // using it. This effectively loads the particular element from
     // the vector argument.
     if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
       BasicBlock *IncommingBB = PHIUser->getIncomingBlock(U.getOperandNo());
-      VecGep = GetElementPtrInst::Create(
-          OrigElemType, VecArgCast, Phi, VecArgCast->getName() + ".gep",
-          IncommingBB->getTerminator());
+      VecGep = GetElementPtrInst::Create(ElemType, VecArg, Phi,
+                                         VecArg->getName() + ".gep",
+                                         IncommingBB->getTerminator());
     }
     assert(VecGep && "Expect VecGep to be a non-null value.");
     Type *LoadTy = VecGep->getResultElementType();
@@ -403,16 +409,30 @@ void VecCloneImpl::updateVectorArgumentUses(
         LoadTy, VecGep, "vec." + Arg->getName() + ".elem", false /*volatile*/,
         Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
     ArgElemLoad->insertAfter(VecGep);
+
+    Value *ArgValue = ArgElemLoad;
+    Type *OrigArgTy = OrigFn.getArg(Arg->getArgNo())->getType();
+    if (OrigArgTy->isIntOrIntVectorTy(1)) {
+      // If the original arg type was `i1` or `<N x i1>`, we need truncate the
+      // value back to its original type after loads.
+      assert(ElemType->isIntOrIntVectorTy(8) &&
+             "expected element type to be promoted to i8 from i1");
+      TruncInst *TruncatedLoad = new TruncInst(
+          ArgElemLoad, OrigArgTy, ArgElemLoad->getName() + ".trunc");
+      TruncatedLoad->insertAfter(ArgElemLoad);
+      ArgValue = TruncatedLoad;
+    }
+
     // If the user happens to be a return instruction, then the operand
     // of the return is replaced with the load also. This doesn't matter
     // because this instruction is later replaced with the return vector
     // in updateReturnBlockInstructions().
-    User->setOperand(U.getOperandNo(), ArgElemLoad);
+    User->setOperand(U.getOperandNo(), ArgValue);
   }
 }
 
 Instruction *VecCloneImpl::widenVectorArguments(
-    Function *Clone, Function &OrigFn, VectorVariant &V, BasicBlock *EntryBlock,
+    Function *Clone, Function &OrigFn, const VFInfo &V, BasicBlock *EntryBlock,
     BasicBlock *LoopHeader, PHINode *Phi, ValueToValueMapTy &VMap,
     AllocaInst *&LastAlloca) {
 
@@ -424,14 +444,15 @@ Instruction *VecCloneImpl::widenVectorArguments(
 
   const DataLayout &DL = Clone->getParent()->getDataLayout();
   Instruction *Mask = nullptr;
-  ArrayRef<VectorKind> ParmKinds = V.getParameters();
-  Argument *LastArg = &*(Clone->arg_end() - 1);
+  ArrayRef<VFParameter> Parms = V.getParameters();
 
   for (auto ArgIt : enumerate(Clone->args())) {
     Argument *Arg = &ArgIt.value();
 
+    VFParameter Parm = Parms[ArgIt.index()];
+
     // If the original parameter isn't vector, we should not widen it.
-    if (!ParmKinds[ArgIt.index()].isVector())
+    if (!Parm.isVector())
       continue;
 
     // This function is run after the arguments have been already widened!
@@ -440,8 +461,7 @@ Instruction *VecCloneImpl::widenVectorArguments(
     // Some args other than the mask may not have users, but have not been
     // removed as dead. In those cases, just go on to the next argument.
     // There's no need to widen non-mask arguments with no users.
-    bool MaskArg = V.isMasked() && Arg == LastArg;
-
+    bool MaskArg = Parm.isMask();
     if (!MaskArg && Arg->getNumUses() == 0)
       continue;
 
@@ -471,33 +491,47 @@ Instruction *VecCloneImpl::widenVectorArguments(
       VecAlloca->insertBefore(&EntryBlock->front());
     LastAlloca = VecAlloca;
 
-    Type *ArgTy = nullptr;
+    Type *OrigArgTy = nullptr;
     for (const auto &Pair : VMap)
       if (Pair.second == Arg)
-        ArgTy = Pair.first->getType();
+        OrigArgTy = Pair.first->getType();
 
-    // If the argument is a mask, it does not exist in VMap.
-    if (!ArgTy)
-      ArgTy = VecType->getElementType();
-
-    PointerType *ElemTypePtr =
-        PointerType::get(ArgTy, VecAlloca->getType()->getAddressSpace());
-
-    BitCastInst *VecArgCast = nullptr;
-    if (MaskArg) {
-      Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
-      // Mask points to the bitcast of the alloca instruction to element type
-      // pointer. Insert the bitcast after all of the other bitcasts for vector
-      // arguments.
-      Mask->insertBefore(EntryBlock->getTerminator());
+    Type *ElemType = nullptr;
+    if (!OrigArgTy) {
+      // If the argument is a mask, it does not exist in VMap.
+      ElemType = VecType->getElementType();
+    } else if (OrigArgTy->isIntOrIntVectorTy(1)) {
+      // If the original argument type was `i1`, then we promoted it to an
+      // `i8`. Use `i8` as the element type instead, to avoid a GEP into a
+      // `<VF x i1>` when updating the argument's uses.
+      assert(VecType->getElementType()->isIntegerTy(8) &&
+             "expected element type to be promoted to i8 from i1");
+      ElemType = OrigArgTy->getWithNewBitWidth(8);
     } else {
-      VecArgCast = new BitCastInst(VecAlloca, ElemTypePtr,
-                                   "vec." + Arg->getName() + ".cast");
-      VecArgCast->insertBefore(EntryBlock->getTerminator());
+      ElemType = OrigArgTy;
     }
 
-    if (Mask)
-      return Mask;
+    Instruction *VecArg = VecAlloca;
+    if (!VecAlloca->getType()->isOpaquePointerTy()) {
+      PointerType *ElemTypePtr =
+          PointerType::get(ElemType, VecAlloca->getType()->getAddressSpace());
+
+      if (MaskArg) {
+        Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
+        // Mask points to the bitcast of the alloca instruction to element type
+        // pointer. Insert the bitcast after all of the other bitcasts for
+        // vector arguments.
+        Mask->insertBefore(EntryBlock->getTerminator());
+        return Mask;
+      } else {
+        VecArg = new BitCastInst(VecAlloca, ElemTypePtr,
+                                 "vec." + Arg->getName() + ".cast");
+        VecArg->insertBefore(EntryBlock->getTerminator());
+      }
+    }
+
+    if (MaskArg)
+      return VecAlloca;
 
     // Store the vector argument into the new VF-widened alloca.
     Value *ArgValue = cast<Value>(Arg);
@@ -505,8 +539,8 @@ Instruction *VecCloneImpl::widenVectorArguments(
                                      DL.getABITypeAlign(ArgValue->getType()));
     Store->insertBefore(EntryBlock->getTerminator());
 
-    updateVectorArgumentUses(Clone, OrigFn, DL, Arg, VecArgCast, EntryBlock,
-                             LoopHeader, Phi);
+    updateVectorArgumentUses(Clone, OrigFn, DL, Arg, ElemType, VecArg,
+                             EntryBlock, LoopHeader, Phi);
   }
 
   return nullptr;
@@ -532,14 +566,16 @@ Instruction *VecCloneImpl::createWidenedReturn(Function *Clone,
     VecAlloca->insertBefore(&EntryBlock->front());
   LastAlloca = VecAlloca;
 
-  auto *ElemTypePtr =
-      PointerType::get(OrigFuncReturnType,
-                       VecAlloca->getType()->getAddressSpace());
+  if (!VecAlloca->getType()->isOpaquePointerTy()) {
+    auto *ElemTypePtr = PointerType::get(
+        OrigFuncReturnType, VecAlloca->getType()->getAddressSpace());
 
-  BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
-  VecCast->insertBefore(EntryBlock->getTerminator());
+    BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
+    VecCast->insertBefore(EntryBlock->getTerminator());
+    return VecCast;
+  }
 
-  return VecCast;
+  return VecAlloca;
 }
 
 Instruction *VecCloneImpl::widenReturn(Function *Clone, Function &F,
@@ -601,7 +637,7 @@ Instruction *VecCloneImpl::widenReturn(Function *Clone, Function &F,
 }
 
 Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
-    Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
+    Function *Clone, Function &F, const VFInfo &V, Instruction *&Mask,
     BasicBlock *EntryBlock, BasicBlock *LoopHeader, BasicBlock *ReturnBlock,
     PHINode *Phi, ValueToValueMapTy &VMap) {
 
@@ -626,7 +662,9 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
   // Insert the mask argument store to alloca and bitcast if this is a masked
   // variant.
   if (Mask) {
-    Value *MaskVector = Mask->getOperand(0);
+    Value *MaskVector = Mask;
+    if (isa<BitCastInst>(Mask))
+      MaskVector = Mask->getOperand(0);
 
     // MaskArg points to the function's mask argument.
     Function::arg_iterator MaskArg = Clone->arg_end();
@@ -648,7 +686,7 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
 
 Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
                                                Instruction *ArgUser,
-                                               int Stride, PHINode *Phi) {
+                                               Value *Stride, PHINode *Phi) {
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
@@ -658,10 +696,18 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
   if (auto *ArgTy = dyn_cast<PointerType>(Arg->getType())) {
     // For pointer types the stride is specified in bytes!
     if (!ArgTy->isOpaque()) {
+      // For pointer args with variable stride, cast the Stride to the same
+      // type as the loop index Phi.
+      Value *StrideCast = Stride;
+      if (Stride->getType() != Phi->getType()) {
+        StrideCast = Builder.CreateCast(
+            CastInst::getCastOpcode(Stride, false /* SrcIsSigned */,
+                                    Phi->getType(), false /* DestIsSigned */),
+            Stride, Phi->getType(), "stride.cast");
+      }
       // Try to make compute nicely looking without byte arithmetic. Purely for
       // aesthetic purposes.
-      auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride),
-                                    Phi, "stride.mul");
+      auto *Mul = Builder.CreateMul(StrideCast, Phi, "stride.mul");
 
       // Linear updates to pointer arguments involves an address calculation,
       // so use gep. To properly update linear pointers we only need to
@@ -677,29 +723,43 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
 
       return LinearArgGep;
     }
-    auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride), Phi,
-                                  "stride.mul");
+    auto *Mul = Builder.CreateMul(Stride, Phi, "stride.mul");
     auto *Gep = Builder.CreateGEP(Builder.getInt8Ty(), Arg, Mul,
                                   Arg->getName() + ".gep");
     return Gep;
   }
 
-  Value *PhiCast = Phi;
-  if (Arg->getType() != Phi->getType()) {
-    PhiCast = Builder.CreateCast(
-        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */, Arg->getType(),
+  // If Stride is a constant, then it has already been typed appropriately in
+  // processLinearArgs when creating the constant value. However, if Stride is
+  // in a variable then it may need to be cast to the arg type. The decision to
+  // cast here is done because IRBuilder is needed for correct insertion.
+  Value *StrideCast = Stride;
+  if (Stride->getType() != Arg->getType()) {
+    StrideCast = Builder.CreateCast(
+        CastInst::getCastOpcode(Stride, false /* SrcIsSigned */, Arg->getType(),
                                 false /* DestIsSigned */),
-        Phi, Arg->getType(), "phi.cast");
+        Stride, Arg->getType(), "stride.cast");
+  }
+
+  // Cast the loop index to match the stride type for the multiply part of the
+  // stride calculation. Integer stride is calculated as:
+  // arg + loop idx * stride.
+  Value *PhiCast = Phi;
+  if (StrideCast->getType() != Phi->getType()) {
+    PhiCast = Builder.CreateCast(
+        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */,
+                                StrideCast->getType(),
+                                false /* DestIsSigned */),
+        Phi, StrideCast->getType(), "phi.cast");
   }
 
   Value *Mul =
-      Builder.CreateMul(GeneralUtils::getConstantValue(
-                        Arg->getType(), Clone->getContext(), Stride),
-                        PhiCast, "stride.mul");
+      Builder.CreateMul(StrideCast, PhiCast, "stride.mul");
 
   // Floating point strides are not allowed.
   assert(!Arg->getType()->isFloatingPointTy() &&
          "The value should not be floating point!");
+  // At this point, the loop index, stride, and arg types should match.
   auto Add = Builder.CreateAdd(Arg, Mul, "stride.add");
   return Add;
 }
@@ -744,50 +804,68 @@ static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
   }
 }
 
-void VecCloneImpl::processUniformArgs(Function *Clone, VectorVariant &V,
+void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
                                       BasicBlock *EntryBlock,
                                       BasicBlock *LoopPreHeader) {
-  std::vector<VectorKind> ParmKinds = V.getParameters();
+  ArrayRef<VFParameter> Parms = V.getParameters();
   for (Argument &Arg : Clone->args()) {
-    VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
-    if (ParmKind.isUniform()) {
+    if (Parms[Arg.getArgNo()].isUniform()) {
       Value *ArgVal;
       Value *ArgMemory;
       getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
-      UniformMemory.insert(ArgMemory);
+      UniformMemory[&Arg] = std::make_pair(ArgMemory, ArgVal);
     }
   }
 }
 
-void VecCloneImpl::processLinearArgs(Function *Clone, VectorVariant &V,
+void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
                                      PHINode *Phi, BasicBlock *EntryBlock,
                                      BasicBlock *LoopPreHeader) {
   // Add stride to arguments marked as linear. These instructions are added
   // before the arg user and uses are updated accordingly.
-  std::vector<VectorKind> ParmKinds = V.getParameters();
+  ArrayRef<VFParameter> Parms = V.getParameters();
 
   for (Argument &Arg : Clone->args()) {
-    VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
-    if (ParmKind.isLinear()) {
-      // Apparently, we still don't have support for linear variable strides
-      assert(ParmKind.isConstantStrideLinear() &&
-             "Need support for variable stride");
-      int Stride = ParmKind.getStride();
-      if (auto *PtrTy = dyn_cast<PointerType>(Arg.getType()))
-        if (!PtrTy->isOpaque()) {
-          const DataLayout &DL = Clone->getParent()->getDataLayout();
-          unsigned PointeeEltSize =
-              DL.getTypeAllocSize(PtrTy->getPointerElementType());
-          assert(Stride % PointeeEltSize == 0 &&
-                 "Stride is expected to be a multiple of element size!");
-          Stride /= PointeeEltSize;
+    const VFParameter Parm = Parms[Arg.getArgNo()];
+    if (Parm.isLinear()) {
+      Value *StrideVal = nullptr;
+      Value *ArgVal = nullptr;
+      Value *ArgMemory = nullptr;
+      if (Parm.isConstantStrideLinear()) {
+        int Stride = Parm.getStride();
+        if (auto *PtrTy = dyn_cast<PointerType>(Arg.getType())) {
+          // For pointer types with constant stride, the gep index is the same
+          // type as the phi (loop index), which is i32.
+          if (!PtrTy->isOpaque()) {
+            const DataLayout &DL = Clone->getParent()->getDataLayout();
+            unsigned PointeeEltSize =
+                DL.getTypeAllocSize(PtrTy->getPointerElementType());
+            assert(Stride % PointeeEltSize == 0 &&
+                   "Stride is expected to be a multiple of element size!");
+            Stride /= PointeeEltSize;
+          }
+          StrideVal = ConstantInt::get(Phi->getType(), Stride);
+        } else {
+          assert(Arg.getType()->isIntegerTy() &&
+                 "Expected integer type for arg");
+          // For integer types with constant stride, the value of the stride
+          // must be the same type as the arg.
+          StrideVal =
+              GeneralUtils::getConstantValue(Arg.getType(),
+              Clone->getContext(), Stride);
         }
-      Value *StrideVal =
-          ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
-      Value *ArgVal;
-      Value *ArgMemory;
-      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
-      LinearMemory[ArgMemory] = StrideVal;
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        LinearMemory[ArgMemory] = StrideVal;
+      } else if (Parm.isVariableStride()) {
+        // Get the stride value from the argument holding it.
+        int StrideArgPos = Parm.getStrideArgumentPosition();
+        Argument *StrideArg = Clone->getArg(StrideArgPos);
+        StrideVal = UniformMemory[StrideArg].second;
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
+      } else {
+        llvm_unreachable("Unsupported linear modifier");
+      }
 
       // Eventually, this for loop can be removed once we start relying on
       // just marking the allocas as linear and letting VPlan deal with
@@ -796,7 +874,7 @@ void VecCloneImpl::processLinearArgs(Function *Clone, VectorVariant &V,
       for (auto &U:  make_early_inc_range(ArgVal->uses())) {
         auto *User = cast<Instruction>(U.getUser());
         Value *StrideInst =
-            generateStrideForArgument(Clone, ArgVal, User, Stride, Phi);
+            generateStrideForArgument(Clone, ArgVal, User, StrideVal, Phi);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     }
@@ -826,14 +904,16 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // vector was bitcast to a pointer to the element type, we must bitcast to
   // vector before returning.
   // Operand 0 is the actual alloc reference in the bitcast.
-  AllocaInst *Alloca = cast<AllocaInst>(WidenedReturn->getOperand(0));
-  PointerType *PtrVecType =
-      PointerType::get(Clone->getReturnType(),
-                       Alloca->getType()->getAddressSpace());
-  BitCastInst *BitCast =
-    new BitCastInst(WidenedReturn, PtrVecType,
-                    "vec." + WidenedReturn->getName(),
-                    ReturnBlock);
+  Instruction *WidenedSrc = WidenedReturn;
+  if (!WidenedReturn->getType()->isOpaquePointerTy()) {
+    assert(isa<BitCastInst>(WidenedReturn) && "Expected cast instruction");
+    AllocaInst *Alloca = cast<AllocaInst>(WidenedReturn->getOperand(0));
+    PointerType *PtrVecType = PointerType::get(
+        Clone->getReturnType(), Alloca->getType()->getAddressSpace());
+    WidenedSrc =
+        new BitCastInst(WidenedReturn, PtrVecType,
+                        "vec." + WidenedReturn->getName(), ReturnBlock);
+  }
 
   // Return can't be void here due to early exit at the top of this function.
   // Return is expected to be a bitcast instruction because we always create
@@ -846,7 +926,7 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // from above. There doesn't seem to be a good reason to do this extra
   // casting. Leaving for now because this change is NFC.
   LoadInst *VecReturn =
-      new LoadInst(Clone->getReturnType(), BitCast, "vec.ret", ReturnBlock);
+      new LoadInst(Clone->getReturnType(), WidenedSrc, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
   LLVM_DEBUG(dbgs() << "After Return Block Update\n");
@@ -877,11 +957,9 @@ static Type* getMemoryType(Value* Memory) {
 // is emitted in simd.loop.preheader). This is similar to the code emitted by
 // the front-end for simd loops.
 CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
-                                          Function &F, VectorVariant &V,
+                                          Function &F, const VFInfo &V,
                                           BasicBlock *EntryBlock,
                                           BasicBlock *LoopPreHeader) {
-  std::vector<VectorKind> ParmKinds = V.getParameters();
-
   IRBuilder<> Builder(&*EntryBlock->begin());
 
   SmallVector<llvm::OperandBundleDef, 4> OpndBundles;
@@ -908,8 +986,15 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
       return;
     }
 
+    std::string ClauseString = IntrinsicUtils::getClauseString(ClauseId).str();
+    std::string ClauseStringUpdates = "TYPED";
+    if (Ptr->getType()->isOpaquePointerTy() &&
+        ClauseString == "QUAL.OMP.LINEAR") {
+      ClauseStringUpdates += ".PTR_TO_PTR";
+      Ty = llvm::Type::getInt8Ty(Ty->getContext());
+    }
     OpndBundles.push_back(OperandBundleDef{
-        Clause(ClauseId, "TYPED"),
+        Clause(ClauseId, ClauseStringUpdates),
         {Ptr, Constant::getNullValue(Ty),
          ConstantInt::get(Type::getInt32Ty(Ty->getContext()), 1), // #Elts
          Ops...}});
@@ -917,7 +1002,7 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
   // Insert vectorlength directive
   OpndBundles.emplace_back(Clause(QUAL_OMP_SIMDLEN),
-                           Builder.getInt32(V.getVlen()));
+                           Builder.getInt32(V.getVF()));
 
   // Mark linear memory for the SIMD directives
   for (auto LinearMem : LinearMemory) {
@@ -927,9 +1012,11 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   }
   
   // Mark uniform memory for the SIMD directives
-  for (Value *UniformMem : UniformMemory) {
-    Type *UniformTy = getMemoryType(UniformMem);
-    AddTypedClause(QUAL_OMP_UNIFORM, UniformMem, UniformTy);
+  for (auto UniformMem : UniformMemory) {
+    // The alloca for the arg.
+    Value *ArgMemory = UniformMem.second.first;
+    Type *UniformTy = getMemoryType(ArgMemory);
+    AddTypedClause(QUAL_OMP_UNIFORM, ArgMemory, UniformTy);
   }
 
   // Mark private memory for the SIMD directives
@@ -970,7 +1057,7 @@ void VecCloneImpl::insertEndRegion(Module &M, Function *Clone,
 }
 
 void VecCloneImpl::insertDirectiveIntrinsics(Module &M, Function *Clone,
-                                             Function &F, VectorVariant &V,
+                                             Function &F, const VFInfo &V,
                                              BasicBlock *EntryBlock,
                                              BasicBlock *LoopPreHeader,
                                              BasicBlock *LoopLatch,
@@ -1015,8 +1102,14 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
 
   BranchInst::Create(LoopLatch, LoopElseBlock);
 
-  auto *BitCast = cast<BitCastInst>(Mask);
-  auto *Alloca = cast<AllocaInst>(BitCast->getOperand(0));
+  AllocaInst *Alloca = nullptr;
+  if (isa<BitCastInst>(Mask)) {
+    auto *BitCast = cast<BitCastInst>(Mask);
+    Alloca = cast<AllocaInst>(BitCast->getOperand(0));
+  } else {
+    assert(isa<AllocaInst>(Mask) && "Expected alloca inst");
+    Alloca = cast<AllocaInst>(Mask);
+  }
 
   Type *PointeeType =
       cast<VectorType>(Alloca->getAllocatedType())->getElementType();
@@ -1151,8 +1244,7 @@ void VecCloneImpl::filterUnsupportedVectorVariants(
                       Encoding = Encoding.take_front(EncodingEnd);
                       bool Unsupported = Encoding.contains('R') ||
                                          Encoding.contains('U') ||
-                                         Encoding.contains('L') ||
-                                         Encoding.contains('s');
+                                         Encoding.contains('L');
                       return !Unsupported;
                     });
 
@@ -1179,7 +1271,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
 #if INTEL_CUSTOMIZATION
-  // This filtering can be removed once R/U/L/s encodings are supported.
+  // This filtering can be removed once R/U/L encodings are supported.
   SmallVector<Function *, 8> FuncDiagList;
   filterUnsupportedVectorVariants(M, FuncDiagList, ORBuilder);
 
@@ -1196,15 +1288,17 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     if (!doesLoopOptPipelineAllowToRun(Limiter, F))
       continue;
 
-    std::vector<StringRef> Variants = VarIt.second;
+    auto Variants = map_range(VarIt.second, [](StringRef Name) {
+        return VFABI::demangleForVFABI(Name);
+    });
 
-    for (VectorVariant Variant : Variants) {
+    for (const VFInfo &Variant : Variants) {
       // VecClone runs after OCLVecClone. Hence, VecClone will be triggered
       // again for the OpenCL kernels. To prevent this, we do not process
       // functions whose name include the current vector variant name. The
       // vector variant name is a combination of the scalar function name and
       // the Vector ABI encoding.
-      if (Variant.getName() && M.getFunction(*Variant.getName()))
+      if (M.getFunction(Variant.VectorName))
         continue;
 
       // Clone the original function.
@@ -1242,7 +1336,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       PHINode *Phi = createPhiAndBackedgeForLoop(Clone, LoopPreHeader,
                                                  LoopHeader, LoopLatch,
                                                  ReturnBlock,
-                                                 Variant.getVlen());
+                                                 Variant.getVF());
 
       // At this point, we've gathered some parameter information and have
       // restructured the function into an entry block, a set of blocks
@@ -1259,6 +1353,9 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
           Clone, F, Variant, Mask, EntryBlock, LoopHeader, ReturnBlock,
           Phi, VMap);
 
+      // Mark uniform memory for SIMD directives
+      processUniformArgs(Clone, Variant, EntryBlock, LoopPreHeader);
+
       // Update any linear variables with the appropriate stride. This function
       // will insert a mul/add sequence before the use of the argument. For
       // linear pointer arguments, the stride calculation is just a mul
@@ -1269,9 +1366,6 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // calculation involving the stride. Also mark linear memory for SIMD
       // directives.
       processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader);
-
-      // Mark uniform memory for SIMD directives
-      processUniformArgs(Clone, Variant, EntryBlock, LoopPreHeader);
 
       // Remove the old scalar instructions associated with the return and
       // replace with packing instructions.

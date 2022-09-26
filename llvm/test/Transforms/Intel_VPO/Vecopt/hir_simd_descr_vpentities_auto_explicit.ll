@@ -42,10 +42,8 @@
 ; The livein and liveout temps are different for the reductions, thus we are not
 ; able to generate correct code for last value and bailout.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check entities dump and VPlan IR
@@ -79,7 +77,7 @@ entry:
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
   %conv.i = trunc i32 %3 to i8
-  %6 = call token @llvm.directive.region.entry() #2 [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %p0.addr.i), "QUAL.OMP.REDUCTION.ADD"(i32* %p1.addr.i), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %6 = call token @llvm.directive.region.entry() #2 [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %p0.addr.i, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %p1.addr.i, i32 0, i32 1) ]
   %7 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i64 0, i64 3), align 4, !tbaa !7
   %p0.addr.i.promoted = load i32, i32* %p0.addr.i, align 4, !tbaa !7
   %p1.addr.i.promoted = load i32, i32* %p1.addr.i, align 4, !tbaa !7

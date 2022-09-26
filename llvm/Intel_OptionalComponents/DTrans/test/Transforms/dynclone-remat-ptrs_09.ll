@@ -4,8 +4,9 @@
 ; allocation pointer tracking.
 
 ; REQUIRES: asserts
-;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
+; RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
+; RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
 
 ; CHECK: Track uses of AllocCalls Failed
 ; CHECK-NOT: store i8 1, i8* @__Shrink__Happened__
@@ -103,5 +104,7 @@ define void @proc1() {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
 declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

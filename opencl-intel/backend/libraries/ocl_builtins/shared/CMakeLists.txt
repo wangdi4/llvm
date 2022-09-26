@@ -15,14 +15,24 @@ set (TARGET_DIR ${SHARED_RTL_NAME})
 # intermediate directory for OpenCL compilation/link
 set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-list(APPEND CMD_ARGS -gen-ocl-bi )
 # generate OCL builtin implementation
+# TODO: remove this tblgenoclblt invocation when we migrate all builtins to
+# source/main.td
 tblgenoclblt(OCL_TABLEGEN_SOURCE
   ${INTERMEDIATE_OUTPUT_DIR}
   ${TARGET_DIR}
   target-${SHARED_RTL_NAME}.td
   target-${SHARED_RTL_NAME}.cl
-  ${CMD_ARGS}
+  --gen-ocl-bi
+)
+# The newly added builtins are implemented in souce/main.td
+tblgenoclblt(OCL_TABLEGEN_SOURCE
+  ${INTERMEDIATE_OUTPUT_DIR}
+  source
+  main.td
+  target-${SHARED_RTL_NAME}-new.cl
+  # args for ocl-tblgen
+  --gen-ocl-bi --handle-impl-target-inheritance --emit-target-name=${SHARED_RTL_NAME}
 )
 
 # generate shared LL builtin implementations
@@ -45,15 +55,16 @@ set (OUTPUT_FILE ${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION})
 set (PROC core2)
 # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 foreach (FILE ${OCL_TABLEGEN_SOURCE})
-  compile( "${CLANG_CL_COMMON_COMPILER_FLAGS}" TMP_RTL ${PROC} ${FILE} ${INTERMEDIATE_OUTPUT_DIR})
+  compile( "${CLANG_CL_COMMON_COMPILER_FLAGS}" TMP_RTL ${PROC} ${FILE} ${INTERMEDIATE_OUTPUT_DIR} TRUE)
   list (APPEND TMP_FILES ${TMP_RTL})
 endforeach (FILE)
 
 list(APPEND TMP_FILES ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll)
 add_custom_command (OUTPUT ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
-  COMMENT "Linking ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}"
-  COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${SHARED_LL_IMPLS}
-  DEPENDS ${LLVM_LINK} ${TMP_FILES} ${SHARED_LL_IMPLS}
+  COMMENT "Linking and optimizing ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}"
+  COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}_link ${TMP_FILES} ${SHARED_LL_IMPLS}
+  COMMAND ${OPT} ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}_link -O3 -disable-intel-proprietary-opts -o ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
+  DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES} ${SHARED_LL_IMPLS}
   VERBATIM
   )
 

@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
 ; Test src:
@@ -24,29 +24,29 @@ define dso_local void @b() #0 {
 entry:
   br label %outer.bb1
 
-outer.bb1:                                    ; preds = %entry
+outer.bb1:                                        ; preds = %entry
   br i1 false, label %outer.bb2, label %outer.bb3
 
-outer.bb2:                                    ; preds = %outer.bb1
+outer.bb2:                                        ; preds = %outer.bb1
   br label %region.entry
 
-region.entry:                                 ; preds = %outer.bb2
+region.entry:                                     ; preds = %outer.bb2
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASTER"() ]
   br label %body
 
-body:                                         ; preds = %region.entry
+body:                                             ; preds = %region.entry
   fence acquire
   fence release
   br label %region.exit
 
-region.exit:                                  ; preds = %body
+region.exit:                                      ; preds = %body
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.MASTER"() ]
   br label %outer.bb3
 
-outer.bb3:                                    ; preds = %outer.bb1, %region.exit
+outer.bb3:                                        ; preds = %region.exit, %outer.bb1
   br label %exit
 
-exit:                                         ; preds = %outer.bb3
+exit:                                             ; preds = %outer.bb3
   ret void
 }
 

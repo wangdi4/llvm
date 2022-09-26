@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2020 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,6 +17,7 @@
 
 #include "OclBuiltinEmitter.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 #include <algorithm>
@@ -31,11 +32,11 @@ using TVecVec = VecVec<const OclType *>;
 
 struct VectEntry {
   std::vector<std::string> funcNames;
-  static std::vector<VectorKind> vectorKindEncode;
+  static std::vector<VFParameter> vectorKindEncode;
   static bool isMasked;
   static bool kernelCallOnce;
   static unsigned stride;
-  const static VectorVariant::ISAClass isaClass;
+  const static VFISAKind isaClass;
   const static std::string baseName;
 };
 
@@ -82,7 +83,7 @@ public:
   void run(raw_ostream &);
 
 private:
-  void decodeParamKind(StringRef scalarFuncName, StringRef v4FuncName);
+  void decodeParam(StringRef scalarFuncName, StringRef v4FuncName);
   void generateFunctions(const std::vector<const OclBuiltin *> &builtins,
                          const std::vector<const OclType *> &types,
                          const SVecVec &funcNames);

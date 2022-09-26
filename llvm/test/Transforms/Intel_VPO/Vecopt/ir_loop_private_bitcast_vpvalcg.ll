@@ -106,7 +106,7 @@ entry:
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end
 
 omp.precond.then:                                 ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i64* %count, float* %accumulated_occupancy_output, i32 *%a2, float* %accumulated_occupancy_input) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i64* %count, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %accumulated_occupancy_output, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32 *%a2, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %accumulated_occupancy_input, float 0.000000e+00, i32 1) ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %omp.precond.then

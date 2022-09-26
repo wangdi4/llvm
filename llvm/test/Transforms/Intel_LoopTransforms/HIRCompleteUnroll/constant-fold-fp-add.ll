@@ -62,7 +62,7 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add.lcssa = phi double [ %add, %for.body4 ]
-  %add5 = fadd fast double %add.lcssa, %sum.021
+  %add5 = fadd double %add.lcssa, %sum.021
   %inc7 = add nuw nsw i32 %ii.022, 1
   %exitcond23 = icmp eq i32 %inc7, %n
   br i1 %exitcond23, label %for.cond.cleanup.loopexit, label %for.cond1.preheader
@@ -72,7 +72,7 @@ for.body4:                                        ; preds = %for.cond1.preheader
   %sum1.018 = phi double [ 0.000000e+00, %for.cond1.preheader ], [ %add, %for.body4 ]
   %arrayidx = getelementptr inbounds [3 x double], [3 x double]* @_ZL4glob, i64 0, i64 %indvars.iv, !intel-tbaa !2
   %0 = load double, double* %arrayidx, align 8, !tbaa !2
-  %add = fadd fast double %0, %sum1.018
+  %add = fadd double %0, %sum1.018
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

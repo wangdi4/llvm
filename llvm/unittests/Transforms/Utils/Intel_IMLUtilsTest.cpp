@@ -42,33 +42,33 @@ TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {
                 FunctionType::get(
                     VectorType::get(Type::getInt64Ty(Context), 3, false),
                     {VectorType::get(FloatTy, 3, false)}, false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified_256);
 
   EXPECT_EQ(
       getSVMLCallingConvByNameAndType(
           "__ocl_svml_x0_erff1", FunctionType::get(FloatTy, {FloatTy}, false))
-          .getValue(),
+          .value(),
       CallingConv::SVML_Unified_512);
 
   EXPECT_EQ(
       getSVMLCallingConvByNameAndType(
           "__ocl_svml_e9_log2f1", FunctionType::get(FloatTy, {FloatTy}, false))
-          .getValue(),
+          .value(),
       CallingConv::SVML_Unified_256);
 
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
                 "__ocl_svml_l9_asinh4",
                 FunctionType::get(VectorType::get(DoubleTy, 4, false),
                                   {VectorType::get(DoubleTy, 4, false)}, false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified_256);
 
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
                 "__ocl_svml_l9_asinh8",
                 FunctionType::get(VectorType::get(DoubleTy, 8, false),
                                   {VectorType::get(DoubleTy, 8, false)}, false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified_256);
 
   EXPECT_EQ(
@@ -80,14 +80,14 @@ TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {
               {StructType::get(Context, {VectorType::get(DoubleTy, 2, false),
                                          VectorType::get(DoubleTy, 2, false)})},
               false))
-          .getValue(),
+          .value(),
       CallingConv::SVML_Unified);
 
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
                 "__ocl_svml_z0_log1pf2",
                 FunctionType::get(VectorType::get(FloatTy, 8, false),
                                   {VectorType::get(FloatTy, 8, false)}, false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified_512);
 
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
@@ -96,14 +96,14 @@ TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {
                                   {VectorType::get(FloatTy, 2, false),
                                    PointerType::getUnqual(Context)},
                                   false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified_256);
 
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
                 "__ocl_svml_b3_asinh4",
                 FunctionType::get(VectorType::get(DoubleTy, 4, false),
                                   {VectorType::get(DoubleTy, 4, false)}, false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified_512);
 
   EXPECT_EQ(
@@ -129,7 +129,7 @@ TEST_F(IMLUtilsTest, DetermineCSVMLCallConv) {
               StructType::get(Context, {VectorType::get(HalfTy, 8, false),
                                         VectorType::get(HalfTy, 8, false)}),
               {VectorType::get(HalfTy, 8, false)}, false))
-          .getValue(),
+          .value(),
       CallingConv::SVML_Unified);
 
   EXPECT_EQ(
@@ -139,7 +139,7 @@ TEST_F(IMLUtilsTest, DetermineCSVMLCallConv) {
               StructType::get(Context, {VectorType::get(DoubleTy, 2, false),
                                         VectorType::get(DoubleTy, 2, false)}),
               {VectorType::get(DoubleTy, 2, false)}, false))
-          .getValue(),
+          .value(),
       CallingConv::SVML_Unified);
 
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
@@ -150,7 +150,7 @@ TEST_F(IMLUtilsTest, DetermineCSVMLCallConv) {
                      VectorType::get(Type::getInt1Ty(Context), 16, false),
                      VectorType::get(DoubleTy, 8, false)},
                     false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified_512);
 
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
@@ -159,7 +159,7 @@ TEST_F(IMLUtilsTest, DetermineCSVMLCallConv) {
                                   {VectorType::get(FloatTy, 4, false),
                                    VectorType::get(FloatTy, 4, false)},
                                   false))
-                .getValue(),
+                .value(),
             CallingConv::SVML_Unified);
 
   EXPECT_EQ(

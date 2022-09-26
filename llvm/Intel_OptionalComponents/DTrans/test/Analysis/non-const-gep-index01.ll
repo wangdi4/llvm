@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -dtransanalysis -whole-program-assume -dtrans-print-types -dtrans-outofboundsok=false -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="require<dtransanalysis>" -whole-program-assume -dtrans-print-types -dtrans-outofboundsok=false -disable-output < %s 2>&1 | FileCheck %s
 
@@ -57,4 +58,6 @@ entry:
   ret void
 }
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

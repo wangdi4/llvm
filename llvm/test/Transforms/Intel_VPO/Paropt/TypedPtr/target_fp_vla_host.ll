@@ -15,13 +15,14 @@
 ; The test IR is a reduced version of the IR for the above src.
 
 ; Check that the map-type for the VLA (first one) is 161 (PARAM|PRIVATE|TO)
-; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 161, i64 33]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 161, i64 288]
 
 ; Check that we capture vla size and emit a map for the firstprivate VLA on target.
 ; CHECK: define dso_local i32 @main()
 ; CHECK:   [[SIZE_ADDR:%n.val.addr]] = alloca i64, align 8
 ; CHECK:   [[VLA_SIZE_BYTES:%.+]] = mul i64 %n.val, 4
 ; CHECK:   store i64 %n.val, i64* [[SIZE_ADDR]], align 8
+; CHECK:   [[SIZE_ARG:%.+]] = load i64, i64* [[SIZE_ADDR]], align 8
 
 ; CHECK:   [[VLA_CAST:%.+]] = bitcast i32* %vla to i8*
 ; CHECK:   [[BASE_GEP:%.+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
@@ -32,22 +33,24 @@
 ; CHECK:   [[SIZE_GEP:%.+]] = getelementptr inbounds [2 x i64], [2 x i64]* %.offload_sizes, i32 0, i32 0
 ; CHECK:   store i64 [[VLA_SIZE_BYTES]], i64* [[SIZE_GEP]], align 8
 
-; CHECK:   [[SIZE_ADDR_CAST:%.+]] = bitcast i64* [[SIZE_ADDR]] to i8*
+; CHECK:   [[SIZE_ARG_CAST:%.+]] = inttoptr i64 [[SIZE_ARG]] to i8*
 ; CHECK:   [[BASE_GEP1:%.+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 1
-; CHECK:   store i8* [[SIZE_ADDR_CAST]], i8** [[BASE_GEP1]], align 8
+; CHECK:   store i8* [[SIZE_ARG_CAST]], i8** [[BASE_GEP1]], align 8
 ; CHECK:   [[START_GEP1:%.+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_ptrs, i32 0, i32 1
-; CHECK:   [[SIZE_ADDR_CAST1:%.+]] = bitcast i64* [[SIZE_ADDR]] to i8*
-; CHECK:   store i8* [[SIZE_ADDR_CAST1]], i8** [[START_GEP1]], align 8
+; CHECK:   [[SIZE_ARG_CAST1:%.+]] = inttoptr i64 [[SIZE_ARG]] to i8*
+; CHECK:   store i8* [[SIZE_ARG_CAST1]], i8** [[START_GEP1]], align 8
 ; CHECK:   [[SIZE_GEP1:%.+]] = getelementptr inbounds [2 x i64], [2 x i64]* %.offload_sizes, i32 0, i32 1
-; CHECK:   store i64 8, i64* [[SIZE_GEP1]], align 8
+; CHECK:   store i64 0, i64* [[SIZE_GEP1]], align 8
 
 ; Check that the VLA and the captured size is passed in to the outlined function for the target region.
-; CHECK:   call void @__omp_offloading{{.*}}main{{.*}}(i32* %vla, i64* [[SIZE_ADDR]])
+; CHECK:   call void @__omp_offloading{{.*}}main{{.*}}(i32* %vla, i64 [[SIZE_ARG]])
 
 ; Check that the captured VLA size is used in the target region for allocation of the firstprivate VLA.
-; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(i32* %vla, i64* noalias [[SIZE_ADDR]])
-; CHECK:   [[SIZE_VAL:%[^ ]+]] = load i64, i64* [[SIZE_ADDR]], align 8
-; CHECK:   %vla.fpriv = alloca i32, i64 [[SIZE_VAL]], align 16
+; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(i32* %vla, i64 [[SIZE_ARG]])
+; CHECK:   [[SIZE_FP:%n.val.addr.fpriv]] = alloca i64, align 8
+; CHECK:   store i64 [[SIZE_ARG]], i64* [[SIZE_FP]], align 8
+; CHECK:   [[SIZE_FP_VAL:%n.val.*]] = load i64, i64* [[SIZE_FP]], align 8
+; CHECK:   %vla.fpriv = alloca i32, i64 [[SIZE_FP_VAL]], align 16
 
 ; Check that the private copy is used inside the region
 ; CHECK:   %call = call i32 (i8*, ...) @printf({{.*}}, i32* noundef %vla.fpriv)

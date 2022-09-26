@@ -17,6 +17,23 @@
 // end INTEL_CUSTOMIZATION
 //
 //==- RegAllocGreedy.h ------- greedy register allocator  ----------*-C++-*-==//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -33,6 +50,7 @@
 #include "InterferenceCache.h"
 #include "RegAllocBase.h"
 #include "RegAllocEvictionAdvisor.h"
+#include "RegAllocPriorityAdvisor.h"
 #include "SpillPlacement.h"
 #include "SplitKit.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -43,7 +61,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/CalcSpillWeights.h"
 #include "llvm/CodeGen/LiveInterval.h"
 #include "llvm/CodeGen/LiveRangeEdit.h"
@@ -72,7 +89,6 @@ class MachineLoop;
 class MachineLoopInfo;
 class MachineOptimizationRemarkEmitter;
 class MachineOptimizationRemarkMissed;
-class SlotIndex;
 class SlotIndexes;
 class TargetInstrInfo;
 class VirtRegMap;
@@ -167,10 +183,20 @@ public:
   size_t getQueueSize() const { return Queue.size(); }
   // end (interface to eviction advisers)
 
+  // Interface to priority advisers
+  bool getRegClassPriorityTrumpsGlobalness() const {
+    return RegClassPriorityTrumpsGlobalness;
+  }
+  bool getReverseLocalAssignment() const { return ReverseLocalAssignment; }
+  // FIXME: this is unnecessary once priority advisers are created by an
+  // analysis pass, which can fetch the SlotIndexes analysis itself.
+  SlotIndexes *getIndexes() const { return Indexes; }
+  // end (interface to priority advisers)
+
 private:
   // Convenient shortcuts.
   using PQueue = std::priority_queue<std::pair<unsigned, unsigned>>;
-  using SmallLISet = SmallPtrSet<const LiveInterval *, 4>;
+  using SmallLISet = SmallSetVector<const LiveInterval *, 4>;
 
   // We need to track all tentative recolorings so we can roll back any
   // successful and unsuccessful recoloring attempts.
@@ -192,7 +218,6 @@ private:
   EdgeBundles *Bundles;
   SpillPlacement *SpillPlacer;
   LiveDebugVariables *DebugVars;
-  AliasAnalysis *AA;
 
   // state
   std::unique_ptr<Spiller> SpillerInstance;
@@ -200,6 +225,8 @@ private:
   std::unique_ptr<VirtRegAuxInfo> VRAI;
   Optional<ExtraRegInfo> ExtraInfo;
   std::unique_ptr<RegAllocEvictionAdvisor> EvictAdvisor;
+
+  std::unique_ptr<RegAllocPriorityAdvisor> PriorityAdvisor;
 
   // Enum CutOffStage to keep a track whether the register allocation failed
   // because of the cutoffs encountered in last chance recoloring.
@@ -292,6 +319,8 @@ private:
   /// Flags for the live range priority calculation, determined once per
   /// machine function.
   bool RegClassPriorityTrumpsGlobalness;
+
+  bool ReverseLocalAssignment;
 
 public:
   RAGreedy(const RegClassFilterFunc F = allocateAllRegClasses);

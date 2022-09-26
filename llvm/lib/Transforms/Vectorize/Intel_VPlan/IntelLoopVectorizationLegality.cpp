@@ -88,32 +88,6 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
   }
 }
 
-static bool checkCombinerOp(Value *CombinerV, RecurKind Kind) {
-  auto *CombinerInst = dyn_cast<Instruction>(CombinerV);
-  if (!CombinerInst)
-    return false;
-  unsigned Opcode = CombinerInst->getOpcode();
-  switch (Kind) {
-  case RecurKind::FAdd:
-    return Opcode == Instruction::FAdd || Opcode == Instruction::FSub;
-  case RecurKind::Add:
-    return Opcode == Instruction::Add || Opcode == Instruction::Sub;
-  case RecurKind::Mul:
-    return Opcode == Instruction::Mul;
-  case RecurKind::FMul:
-    return Opcode == Instruction::FMul;
-  case RecurKind::And:
-    return Opcode == Instruction::And;
-  case RecurKind::Or:
-    return Opcode == Instruction::Or;
-  case RecurKind::Xor:
-    return Opcode == Instruction::Xor;
-  default:
-    break;
-  }
-  return false;
-}
-
 /// Return \p true if \p Ty or any of the member-type of \p Ty is a scalable
 /// type.
 static bool isOrHasScalableTy(Type *InTy) {
@@ -218,6 +192,10 @@ void VPOVectorizationLegality::dump(raw_ostream &OS) const {
   OS << "\n\nVPOLegality PrivateList:\n";
   for (auto const &Pvt : Privates) {
     Pvt.second->print(OS);
+  }
+  OS << "\n\nVPOLegality UDRList:\n";
+  for (auto const &UDR : UserDefinedReductions) {
+    UDR->print(OS);
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -330,7 +308,7 @@ bool VPOVectorizationLegality::doesReductionUsePhiNodes(
   return (StartV && LoopHeaderPhiNode);
 }
 
-bool VPOVectorizationLegality::isReductionVarUpdatedInTheLoop(
+bool VPOVectorizationLegality::isInMemoryReductionPattern(
     Value *RedVarPtr, Instruction *&CallOrStore) {
   SmallVector<Value *, 4> Users;
   CallOrStore = nullptr;
@@ -553,8 +531,9 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
                             nullptr /*IntermediateStore*/, Kind, FMF, nullptr,
                             StartV->getType(), true /*Signed*/,
                             false /*Ordered*/, CastInsts, -1U);
-    ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
-  } else if (isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse))
+    ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr,
+                                             None /*InscanReductionKind*/};
+  } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse))
     InMemoryReductions[RedVarPtr] =
       {Kind, None /*InscanReductionKind*/, ReductionUse};
 }
@@ -599,21 +578,21 @@ void VPOVectorizationLegality::parseBinOpReduction(
     Value *CombinerV = (ReductionPhi->getIncomingValue(0) == StartV)
                            ? ReductionPhi->getIncomingValue(1)
                            : ReductionPhi->getIncomingValue(0);
-    if (!checkCombinerOp(CombinerV, Kind)) {
-      LLVM_DEBUG(dbgs() << "LV: Combiner op does not match reduction type ");
-      return;
-    }
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    // TODO: make this assert to be a proper bailout in prod.
-    assert(!InscanRedKind && "Registerized inscan reduction is not supported!");
+    if (InscanRedKind) {
+      UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse);
+      // TODO: make this assert to be a proper bailout in prod.
+      assert(UseMemory &&
+             "Fully registerized inscan reduction is not supported!");
+      (void)UseMemory;
+    }
     RecurrenceDescriptor RD(StartV, Combiner, nullptr /*IntermediateStore*/,
                             Kind, FMF, nullptr, ReductionPhi->getType(),
                             true /*Signed*/, false /*Ordered*/, CastInsts, -1U);
-    ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
-  } else if ((UseMemory =
-                  isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse)))
+    ExplicitReductions[ReductionPhi] = {RD, RedVarPtr, InscanRedKind};
+  } else if ((UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse)))
     InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
 
   if (!UsePhi && !UseMemory)
@@ -626,10 +605,13 @@ void VPOVectorizationLegality::addReduction(
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
-  if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
-    return parseMinMaxReduction(RedVarPtr, Kind);
+  // TODO: Support min/max scan reductions as well.
+  if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind)) {
+    parseMinMaxReduction(RedVarPtr, Kind);
+    return;
+  }
 
-  return parseBinOpReduction(RedVarPtr, Kind, InscanRedKind);
+  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
@@ -757,6 +739,12 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           continue;
 
         if (vpo::VPOAnalysisUtils::isBeginDirective(Call)) {
+          // Memory motion guarding directives are inserted for UDRs and will be
+          // removed by VPlan framework.
+          if (vpo::VPOAnalysisUtils::getDirectiveID(Call) ==
+              DIR_VPO_GUARD_MEM_MOTION)
+            continue;
+
           // Most probably DIR.OMP.ORDERED, which we have to support in future.
           // But even any other directive is unexpected here, so be safe.
           LLVM_DEBUG(dbgs()

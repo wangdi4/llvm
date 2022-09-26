@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -dtrans-deletefield-max-struct=1 -debug-only=dtrans-deletefield -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes=dtrans-deletefield -dtrans-deletefield-max-struct=1 -debug-only=dtrans-deletefield -disable-output %s 2>&1 | FileCheck %s
 
@@ -63,5 +64,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK:1:  Triaging will NOT process: %struct.test
 ; CHECK:  Selected for deletion: %struct.other
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

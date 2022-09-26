@@ -1,4 +1,21 @@
 //===-- Host.cpp - Implement OS Host Concept --------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -46,6 +63,9 @@
 #endif
 #ifdef _AIX
 #include <sys/systemcfg.h>
+#endif
+#if defined(__sun__) && defined(__svr4__)
+#include <kstat.h>
 #endif
 
 #define DEBUG_TYPE "host-detection"
@@ -288,7 +308,7 @@ StringRef sys::detail::getHostCPUNameForARM(StringRef ProcCpuinfoContent) {
     switch (Exynos) {
     default:
       // Default by falling through to Exynos M3.
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case 0x1002:
       return "exynos-m3";
     case 0x1003:
@@ -817,6 +837,36 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ALDERLAKE;
       break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+    // Raptorlake:
+    case 0xb7: // Raptorlake desktop
+    case 0xba: // Raptorlake mobile
+      CPU = "raptorlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_RAPTORLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_MTL
+    // Meteorlake:
+    case 0xb5: // Meteorlake N
+    case 0xaa: // Meteorlake P/M
+    case 0xac: // Meteorlake S
+      CPU = "meteorlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_METEORLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+    // Emeraldrapids:
+    case 0xcf:
+      CPU = "emeraldrapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_EMERALDRAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_EMR
+#endif // INTEL_CUSTOMIZATION
+
     // Icelake Xeon:
     case 0x6a:
     case 0x6c:
@@ -831,6 +881,25 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = X86::INTEL_COREI7;
       *Subtype = X86::INTEL_COREI7_SAPPHIRERAPIDS;
       break;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GNR
+    // Graniterapids:
+    case 0xad:
+      CPU = "graniterapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_GRANITERAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+    // Diamondrapids:
+    case 0xd6:
+      CPU = "diamondrapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_DIAMONDRAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft
@@ -1414,6 +1483,111 @@ StringRef sys::getHostCPUName() {
 #endif
 #endif
 }
+#elif defined(__sparc__)
+#if defined(__linux__)
+StringRef sys::detail::getHostCPUNameForSPARC(StringRef ProcCpuinfoContent) {
+  SmallVector<StringRef> Lines;
+  ProcCpuinfoContent.split(Lines, "\n");
+
+  // Look for cpu line to determine cpu name
+  StringRef Cpu;
+  for (unsigned I = 0, E = Lines.size(); I != E; ++I) {
+    if (Lines[I].startswith("cpu")) {
+      Cpu = Lines[I].substr(5).ltrim("\t :");
+      break;
+    }
+  }
+
+  return StringSwitch<const char *>(Cpu)
+      .StartsWith("SuperSparc", "supersparc")
+      .StartsWith("HyperSparc", "hypersparc")
+      .StartsWith("SpitFire", "ultrasparc")
+      .StartsWith("BlackBird", "ultrasparc")
+      .StartsWith("Sabre", " ultrasparc")
+      .StartsWith("Hummingbird", "ultrasparc")
+      .StartsWith("Cheetah", "ultrasparc3")
+      .StartsWith("Jalapeno", "ultrasparc3")
+      .StartsWith("Jaguar", "ultrasparc3")
+      .StartsWith("Panther", "ultrasparc3")
+      .StartsWith("Serrano", "ultrasparc3")
+      .StartsWith("UltraSparc T1", "niagara")
+      .StartsWith("UltraSparc T2", "niagara2")
+      .StartsWith("UltraSparc T3", "niagara3")
+      .StartsWith("UltraSparc T4", "niagara4")
+      .StartsWith("UltraSparc T5", "niagara4")
+      .StartsWith("LEON", "leon3")
+      // niagara7/m8 not supported by LLVM yet.
+      .StartsWith("SPARC-M7", "niagara4" /* "niagara7" */)
+      .StartsWith("SPARC-S7", "niagara4" /* "niagara7" */)
+      .StartsWith("SPARC-M8", "niagara4" /* "m8" */)
+      .Default("generic");
+}
+#endif
+
+StringRef sys::getHostCPUName() {
+#if defined(__linux__)
+  std::unique_ptr<llvm::MemoryBuffer> P = getProcCpuinfoContent();
+  StringRef Content = P ? P->getBuffer() : "";
+  return detail::getHostCPUNameForSPARC(Content);
+#elif defined(__sun__) && defined(__svr4__)
+  char *buf = NULL;
+  kstat_ctl_t *kc;
+  kstat_t *ksp;
+  kstat_named_t *brand = NULL;
+
+  kc = kstat_open();
+  if (kc != NULL) {
+    ksp = kstat_lookup(kc, const_cast<char *>("cpu_info"), -1, NULL);
+    if (ksp != NULL && kstat_read(kc, ksp, NULL) != -1 &&
+        ksp->ks_type == KSTAT_TYPE_NAMED)
+      brand =
+          (kstat_named_t *)kstat_data_lookup(ksp, const_cast<char *>("brand"));
+    if (brand != NULL && brand->data_type == KSTAT_DATA_STRING)
+      buf = KSTAT_NAMED_STR_PTR(brand);
+  }
+  kstat_close(kc);
+
+  return StringSwitch<const char *>(buf)
+      .Case("TMS390S10", "supersparc") // Texas Instruments microSPARC I
+      .Case("TMS390Z50", "supersparc") // Texas Instruments SuperSPARC I
+      .Case("TMS390Z55",
+            "supersparc") // Texas Instruments SuperSPARC I with SuperCache
+      .Case("MB86904", "supersparc") // Fujitsu microSPARC II
+      .Case("MB86907", "supersparc") // Fujitsu TurboSPARC
+      .Case("RT623", "hypersparc")   // Ross hyperSPARC
+      .Case("RT625", "hypersparc")
+      .Case("RT626", "hypersparc")
+      .Case("UltraSPARC-I", "ultrasparc")
+      .Case("UltraSPARC-II", "ultrasparc")
+      .Case("UltraSPARC-IIe", "ultrasparc")
+      .Case("UltraSPARC-IIi", "ultrasparc")
+      .Case("SPARC64-III", "ultrasparc")
+      .Case("SPARC64-IV", "ultrasparc")
+      .Case("UltraSPARC-III", "ultrasparc3")
+      .Case("UltraSPARC-III+", "ultrasparc3")
+      .Case("UltraSPARC-IIIi", "ultrasparc3")
+      .Case("UltraSPARC-IIIi+", "ultrasparc3")
+      .Case("UltraSPARC-IV", "ultrasparc3")
+      .Case("UltraSPARC-IV+", "ultrasparc3")
+      .Case("SPARC64-V", "ultrasparc3")
+      .Case("SPARC64-VI", "ultrasparc3")
+      .Case("SPARC64-VII", "ultrasparc3")
+      .Case("UltraSPARC-T1", "niagara")
+      .Case("UltraSPARC-T2", "niagara2")
+      .Case("UltraSPARC-T2", "niagara2")
+      .Case("UltraSPARC-T2+", "niagara2")
+      .Case("SPARC-T3", "niagara3")
+      .Case("SPARC-T4", "niagara4")
+      .Case("SPARC-T5", "niagara4")
+      // niagara7/m8 not supported by LLVM yet.
+      .Case("SPARC-M7", "niagara4" /* "niagara7" */)
+      .Case("SPARC-S7", "niagara4" /* "niagara7" */)
+      .Case("SPARC-M8", "niagara4" /* "m8" */)
+      .Default("generic");
+#else
+  return "generic";
+#endif
+}
 #else
 StringRef sys::getHostCPUName() { return "generic"; }
 namespace llvm {
@@ -1479,7 +1653,9 @@ int computeHostNumPhysicalCores() {
   }
   return CPU_COUNT(&Enabled);
 }
-#elif defined(__linux__) && defined(__powerpc__)
+#elif defined(__linux__) && defined(__s390x__)
+int computeHostNumPhysicalCores() { return sysconf(_SC_NPROCESSORS_ONLN); }
+#elif defined(__linux__) && !defined(__ANDROID__)
 int computeHostNumPhysicalCores() {
   cpu_set_t Affinity;
   if (sched_getaffinity(0, sizeof(Affinity), &Affinity) == 0)
@@ -1498,8 +1674,6 @@ int computeHostNumPhysicalCores() {
   }
   return -1;
 }
-#elif defined(__linux__) && defined(__s390x__)
-int computeHostNumPhysicalCores() { return sysconf(_SC_NPROCESSORS_ONLN); }
 #elif defined(__APPLE__)
 // Gets the number of *physical cores* on the machine.
 int computeHostNumPhysicalCores() {
@@ -1627,6 +1801,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   bool HasExtLeaf8 = MaxExtLevel >= 0x80000008 &&
                      !getX86CpuIDAndInfo(0x80000008, &EAX, &EBX, &ECX, &EDX);
   Features["clzero"]   = HasExtLeaf8 && ((EBX >> 0) & 1);
+  Features["rdpru"]    = HasExtLeaf8 && ((EBX >> 4) & 1);
   Features["wbnoinvd"] = HasExtLeaf8 && ((EBX >> 9) & 1);
 
   bool HasLeaf7 =

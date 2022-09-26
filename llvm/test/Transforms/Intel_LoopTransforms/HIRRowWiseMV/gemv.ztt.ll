@@ -123,8 +123,8 @@ L2:
   %Aij = load double, double* %Aijp
   %bjp = getelementptr inbounds double, double* %b, i64 %j
   %bj = load double, double* %bjp
-  %Aijbj = fmul fast double %Aij, %bj
-  %sum.next = fadd fast double %sum.L2, %Aijbj
+  %Aijbj = fmul nnan nsz arcp afn reassoc double %Aij, %bj
+  %sum.next = fadd double %sum.L2, %Aijbj
   %j.next = add nuw nsw i64 %j, 1
   %L2.cond = icmp eq i64 %j.next, %M
   br i1 %L2.cond, label %L2.exit, label %L2

@@ -1,4 +1,14 @@
-// vim:ts=2:sw=2:et:
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 // NOTE:
 // this is generic implementations for math functions common for all cpu
@@ -25,13 +35,9 @@ list<OclType> math_shared_types = [v1f32, v2f32, v3f32, v4f32, v8f32,
 list<OclType> math_shared_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 
 list<OclType> math_shared_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout;
-list<OclType> math_half_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f16], [1, 2, 3, 4, 8, 16]>.Tout;
 
 // copysign
 OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, math_shared_types_v1_to_v16, 0, copysign_code>;
-
-// fabs
-OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, math_shared_types_v1_to_v16 # math_half_types_v1_to_v16, 0, fabs_code>;
 
 // OpenCL 2.0 -cl-fast-relaxed-math functions
 // float16 is excluded from shared lib since ssse3 and sse42
@@ -197,9 +203,6 @@ OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, math_shared_types_v1_to_v16,
 // minmag types is a special case, math_shared_types are not used
 // minmag
 OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, math_shared_types_v1_to_v16, 0, minmag_code>;
-
-// nan
-OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, math_shared_types_v1_to_v16, 0, nan_code>;
 
 // nextafter
 OclBuiltinImpl nextafter_svml = OclBuiltinImpl<nextafter, math_shared_types, 0, [{

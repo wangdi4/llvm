@@ -55,13 +55,13 @@ void llvm::printOptionValues(formatted_raw_ostream &OS, unsigned OptLevel,
   OS << "Option Values:\n";
   OS << "  inline-threshold: " << Params.DefaultThreshold << "\n";
   OS << "  inlinehint-threshold: "
-     << (Params.HintThreshold.hasValue() ? Params.HintThreshold.getValue() : 0)
+     << (Params.HintThreshold.has_value() ? Params.HintThreshold.value() : 0)
      << "\n";
   OS << "  inlinecold-threshold: "
-     << (Params.ColdThreshold.hasValue() ? Params.ColdThreshold.getValue() : 0)
+     << (Params.ColdThreshold.has_value() ? Params.ColdThreshold.value() : 0)
      << "\n";
   OS << "  inlineoptsize-threshold: "
-     << (Params.OptSizeThreshold.hasValue() ? Params.OptSizeThreshold.getValue()
+     << (Params.OptSizeThreshold.has_value() ? Params.OptSizeThreshold.value()
                                             : 0)
      << "\n";
   OS << "\n";

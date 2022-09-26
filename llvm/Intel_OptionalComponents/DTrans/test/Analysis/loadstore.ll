@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -internalize -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='internalize,require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
@@ -433,4 +434,6 @@ define void @test29( %struct.test29.b* %sb ) {
 ; This is here to make sure the test above finds the right safety data.
 ; CHECK-LABEL: DTRANS_ArrayInfo
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -345,10 +345,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "induction-final";
   case VPInstruction::ReductionInit:
     return "reduction-init";
-  case VPInstruction::ReductionInitScalar:
-    return "reduction-init-scalar";
   case VPInstruction::ReductionFinal:
     return "reduction-final";
+  case VPInstruction::ReductionFinalUdr:
+    return "reduction-final-udr";
   case VPInstruction::ReductionFinalInscan:
     return "reduction-final-inscan";
   case VPInstruction::AllocatePrivate:
@@ -413,6 +413,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-c-mem";
   case VPInstruction::PrivateFinalArray:
     return "private-final-array";
+  case VPInstruction::PrivateFinalArrayMasked:
+    return "private-final-array-masked";
   case VPInstruction::GeneralMemOptConflict:
     return "vp-general-mem-opt-conflict";
   case VPInstruction::TreeConflict:
@@ -441,16 +443,20 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "compress-expand-index-final";
   case VPInstruction::CompressExpandIndex:
     return "compress-expand-index";
-  case VPInstruction::CompressExpandIndexUnit:
-    return "compress-expand-index-unit";
   case VPInstruction::CompressExpandIndexInc:
     return "compress-expand-index-inc";
+  case VPInstruction::CompressExpandMask:
+    return "compress-expand-mask";
   case VPInstruction::RunningInclusiveReduction:
     return "running-inclusive-reduction";
   case VPInstruction::RunningExclusiveReduction:
     return "running-exclusive-reduction";
   case VPInstruction::ExtractLastVectorLane:
     return "extract-last-vector-lane";
+  case VPInstruction::TransformLibraryCall:
+    return "transform-lib-call";
+  case VPInstruction::SOAExtractValue:
+    return "soa-extract-value";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -555,7 +561,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     cast<VPBlendInst>(this)->printImpl(O);
     break;
   }
-  case Instruction::Call: {
+  case Instruction::Call:
+  case VPInstruction::TransformLibraryCall: {
     cast<VPCallInstruction>(this)->printImpl(O);
     break;
   }
@@ -580,6 +587,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case VPInstruction::Subscript:
     PrintOpcodeWithInBounds(cast<const VPSubscriptInst>(this));
     break;
+  case VPInstruction::ReductionInit: {
+    O << getOpcodeName(getOpcode());
+    if (cast<const VPReductionInit>(this)->isScalar())
+      O << "-scalar";
+    break;
+  }
   case VPInstruction::InductionInit: {
     O << getOpcodeName(getOpcode()) << "{"
       << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode());
@@ -608,12 +621,6 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     }
     O << getOpcodeName(cast<const VPReductionFinal>(this)->getBinOpcode())
       << "}";
-    break;
-  }
-  case VPInstruction::AllocatePrivate: {
-    O << getOpcodeName(getOpcode());
-    if (cast<const VPAllocatePrivate>(this)->getIsScalar())
-      O << "-scalar";
     break;
   }
   case Instruction::ICmp:
@@ -789,6 +796,11 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       auto *Self = cast<VPInductionFinal>(this);
       if (Self->isLastValPreIncrement())
         O << ", LastValPreInc = 1";
+      break;
+    }
+    case VPInstruction::ReductionFinalUdr: {
+      auto *Self = cast<VPReductionFinalUDR>(this);
+      O << ", Combiner: " << Self->getCombiner()->getName();
       break;
     }
     case VPInstruction::VLSLoad: {
@@ -1406,7 +1418,7 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
   // For vector-varant based vectorization, the matched variant function name
   // that will be used by CG is printed.
   case CallVecScenarios::VectorVariant: {
-    O << getVectorVariant()->toString();
+    O << getVectorVariant()->FullName;
     O << " [x " << getPumpFactor() << "]";
     IsMasked = IsMasked || shouldUseMaskedVariantForUnmasked();
     if (IsMasked)
@@ -1422,7 +1434,7 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
   }
   case CallVecScenarios::UnmaskedWiden: {
     if (VecProperties.MatchedVecVariant) {
-      O << getVectorVariant()->toString();
+      O << getVectorVariant()->FullName;
     } else {
       O << "<VecVariant for ";
       CalledValue->printAsOperand(O);
@@ -1683,6 +1695,10 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
 
   // Copy PrintingEnabled flag
   TargetPlan->setPrintingEnabled(isPrintingEnabled());
+
+  // Set CompressExpandUsed if needed.
+  if (getCompressExpandUsed())
+    TargetPlan->setCompressExpandUsed();
 }
 
 VPlanVector *VPlanMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {

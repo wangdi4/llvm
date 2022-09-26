@@ -2,8 +2,8 @@
 ; RUN: opt -vplan-vec -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s
 
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -85,7 +85,8 @@ define i32 @main() {
 ; HIR:       VPlan after emitting masked variant
 ; HIR-NEXT:  VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
 ; HIR:          [DA: Div] i32* [[VP5:%.*]] = allocate-priv i32*, OrigAlign = 4
-; HIR:            [DA: Div] store i32 [[VP11:%.*]] i32* [[VP5]]
+; HIR:            [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP5]]
+; HIR:            [DA: Div] store i32 [[VP11:%.*]] i32* [[VP_SUBSCRIPT_2]]
 ; HIR:          [DA: Div] i32 [[VP15:%.*]] = load i32* [[VP5]]
 ; HIR-NEXT:     [DA: Uni] i32 [[VP16:%.*]] = private-final-masked-mem i32 [[VP15]] i1 [[VP10:%.*]]
 ; HIR-NEXT:     [DA: Uni] store i32 [[VP16]] i32* [[X0]]
@@ -104,7 +105,8 @@ define i32 @main() {
 ;
 ; HIR:            [DA: Div] i1 [[VP19:%.*]] = block-predicate i1 [[VP10]]
 ; HIR-NEXT:       [DA: Div] i32 [[VP11]] = add i32 [[VP8]] i32 1
-; HIR-NEXT:       [DA: Div] store i32 [[VP11]] i32* [[VP5]]
+; HIR:            [DA: Div] i32* [[VP_SUBSCRIPT_2]] = subscript inbounds i32* [[VP5]]
+; HIR-NEXT:       [DA: Div] store i32 [[VP11]] i32* [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:       [DA: Uni] br new_latch
 ;
 ; HIR:           new_latch:
@@ -131,7 +133,7 @@ define i32 @main() {
 ; HIR-NEXT:        [[EXTRACTED_PRIV0:%.*]] = extractelement [[DOTVEC20]],  15
 ; HIR-NEXT:        ([[X0]])[0] = [[EXTRACTED_PRIV0]]
 ;
-; HIR:             + DO i1 = [[PHI_TEMP0:%.*]], 127, 16   <DO_LOOP> <nounroll> <novectorize>
+; HIR:             + DO i1 = [[PHI_TEMP0:%.*]], 127, 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
 ; HIR-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u 128
 ; HIR-NEXT:        |   (<16 x i32>*)([[PRIV_MEM80:%.*]])[0] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1, Mask = @{[[DOTVEC100]]}
 ; HIR-NEXT:        |   [[DOTVEC110:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u 128
@@ -146,14 +148,14 @@ define i32 @main() {
 ; HIR-NEXT:        [[ALL_ZERO_CHECK140:%.*]] = [[CMP130]]
 ; HIR-NEXT:        if ([[CMP130]] == 1)
 ; HIR-NEXT:        {
-; HIR-NEXT:           goto [[BB12]].76
+; HIR-NEXT:           goto [[BB12]].77
 ; HIR-NEXT:        }
 ; HIR-NEXT:        [[BSFINTMASK0:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC100]])
 ; HIR-NEXT:        [[BSF0:%.*]] = @llvm.ctlz.i16([[BSFINTMASK0]],  1)
 ; HIR-NEXT:        [[EXTLANE:%.*]] = 15 - [[BSF0]]
 ; HIR-NEXT:        [[PRIV_EXTRACT0:%.*]] = extractelement [[DOTVEC120]],  [[EXTLANE]]
 ; HIR-NEXT:        ([[X0]])[0] = [[PRIV_EXTRACT0]]
-; HIR-NEXT:        [[BB12]].76:
+; HIR-NEXT:        [[BB12]].77:
 ; HIR-NEXT:        [[PHI_TEMP50:%.*]] = 128
 ; HIR-NEXT:        final.merge.50:
 ; HIR-NEXT:  END REGION
@@ -162,7 +164,7 @@ entry:
   br label %preheader
 
 preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(i32* %x) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %x, i32 0, i32 1) ]
   br label %header
 header:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %latch ]

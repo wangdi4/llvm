@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that CommuteCond transformation is NOT triggered for
 ; this test because FalseValue of %sel1 is true.
 ; Verified that Condition and Truevalue operands of %sel1 are NOT swapped.

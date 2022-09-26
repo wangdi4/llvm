@@ -1,7 +1,5 @@
-; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -S -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -S -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S < %s 2>&1 | FileCheck %s
 
 ;
 ; Test checks that we do not crash during HIR decomposition. The test also
@@ -19,10 +17,10 @@
 ; CHECK-NEXT:     |   [[SERIAL_TEMP:%.*]] = undef;
 ; CHECK-NEXT:     |   [[EXTRACTSUBVEC:%.*]] = shufflevector [[WIDE_INSERT]],  undef,  <i32 0, i32 1, i32 2, i32 3>;
 ; CHECK-NEXT:     |   [[CALL:%.*]] = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128([[EXTRACTSUBVEC]],  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
-; CHECK-NEXT:     |   [[SERIAL_TEMP]] = @llvm.experimental.vector.insert.v16i16.v8i16([[SERIAL_TEMP]],  [[CALL]],  0);
+; CHECK-NEXT:     |   [[SERIAL_TEMP]] = @llvm.vector.insert.v16i16.v8i16([[SERIAL_TEMP]],  [[CALL]],  0);
 ; CHECK-NEXT:     |   [[EXTRACTSUBVEC1:%.*]] = shufflevector [[WIDE_INSERT]],  undef,  <i32 4, i32 5, i32 6, i32 7>;
 ; CHECK-NEXT:     |   [[CALL1:%.*]] = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128([[EXTRACTSUBVEC1]],  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
-; CHECK-NEXT:     |   [[SERIAL_TEMP]] = @llvm.experimental.vector.insert.v16i16.v8i16([[SERIAL_TEMP]],  [[CALL1]],  8);
+; CHECK-NEXT:     |   [[SERIAL_TEMP]] = @llvm.vector.insert.v16i16.v8i16([[SERIAL_TEMP]],  [[CALL1]],  8);
 ; CHECK-NEXT:     |   [[WIDE_EXTRACT:%.*]] = shufflevector [[SERIAL_TEMP]],  undef,  <i32 0, i32 8>;
 ; CHECK-NEXT:     |   (<2 x i16>*)(%bf)[i1] = [[WIDE_EXTRACT]];
 ; CHECK-NEXT:     + END LOOP
@@ -41,7 +39,7 @@ entry:
   br i1 %cmp, label %omp.precond.end, label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body

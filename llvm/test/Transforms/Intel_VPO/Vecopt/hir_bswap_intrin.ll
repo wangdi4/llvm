@@ -10,8 +10,7 @@
 
 ; Test vectorization of intrinsics, specifically bswap in this case.
 
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=8 -vplan-enable-new-cfg-merge-hir=false  < %s 2>&1 -disable-output | FileCheck %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=8 -vplan-enable-new-cfg-merge-hir  < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=8 < %s 2>&1 -disable-output | FileCheck %s
 
 ; CHECK:  DO i1 = 0, {{.*}}, 8   <DO_LOOP>
 ; CHECK-NEXT: [[LD:%.*]] = (<8 x i16>*)(%p)[i1];

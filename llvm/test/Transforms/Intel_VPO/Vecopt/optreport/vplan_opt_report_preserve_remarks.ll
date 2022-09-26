@@ -14,7 +14,7 @@
 ; LOOP END
 
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=low -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -intel-opt-report=low -hir-optreport-emitter -vplan-enable-new-cfg-merge-hir < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -intel-opt-report=low -hir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
 ; CHECK:       LOOP BEGIN at test.cpp (2, 1)
 ; CHECK-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
@@ -59,7 +59,7 @@ omp.precond.end:                                  ; preds = %afterloop.49, %entr
   ret void, !dbg !30
 
 region.0:                                         ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1) ], !dbg !31
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ], !dbg !31
   br label %DIR.OMP.SIMD.1, !dbg !31
 
 DIR.OMP.SIMD.1:                                   ; preds = %region.0

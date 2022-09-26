@@ -302,6 +302,13 @@ static cl::opt<bool> DisableSelectOptimize(
     "disable-select-optimize", cl::init(true), cl::Hidden,
     cl::desc("Disable the select-optimization pass from running"));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+extern cl::opt<bool> MarkPrologEpilog;
+extern cl::opt<bool> MarkLoopHeader;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
 /// Allow standard passes to be disabled by command line options. This supports
 /// simple binary flags that either suppress the pass or do nothing.
 /// i.e. -disable-mypass=false has no effect.
@@ -782,6 +789,17 @@ void TargetPassConfig::addPass(Pass *P) {
   // and shouldn't reference it.
   AnalysisID PassID = P->getPassID();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // Insert pseduo markercount before specified pass
+  if (MarkLoopHeader || MarkPrologEpilog) {
+    InsertPseudoMarkerCount = false;
+    if (PassID == &EarlyTailDuplicateID)
+      InsertPseudoMarkerCount = true;
+  }
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   if (StartBefore == PassID && StartBeforeCount++ == StartBeforeInstanceNum)
     Started = true;
   if (StopBefore == PassID && StopBeforeCount++ == StopBeforeInstanceNum)
@@ -872,7 +890,22 @@ void TargetPassConfig::addCheckDebugPass() {
   PM->add(createCheckDebugMachineModulePass());
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void TargetPassConfig::addInsertPseudoMarkerCountPass() {
+  PM->add(createPseudoMarkerCountInserter());
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
 void TargetPassConfig::addMachinePrePasses(bool AllowDebugify) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  if (InsertPseudoMarkerCount)
+    addInsertPseudoMarkerCountPass();
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   if (AllowDebugify && DebugifyIsSafe &&
       (DebugifyAndStripAll == cl::BOU_TRUE ||
        DebugifyCheckAndStripAll == cl::BOU_TRUE))
@@ -1023,7 +1056,7 @@ void TargetPassConfig::addPassesToHandleExceptions() {
     // pad is shared by multiple invokes and is also a target of a normal
     // edge from elsewhere.
     addPass(createSjLjEHPreparePass(TM));
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case ExceptionHandling::DwarfCFI:
   case ExceptionHandling::ARM:
   case ExceptionHandling::AIX:
@@ -1176,7 +1209,7 @@ bool TargetPassConfig::addISelPasses() {
 
   addPass(createPreISelIntrinsicLoweringPass());
   PM->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
-
+  addPass(createExpandLargeDivRemPass());
   addIRPasses();
   addCodeGenPrepare();
   addPassesToHandleExceptions();

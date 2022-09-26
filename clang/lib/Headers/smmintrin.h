@@ -680,7 +680,7 @@ _mm_stream_load_si128(__m128i const *__V) {
 /// \returns A 128-bit vector of [16 x i8] containing the lesser values.
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */
-#if !defined(__DSPV1_SUPPORTED__)
+#if !defined(__DSPINTRIN_H)
 /* end INTEL_CUSTOMIZATION */
 /* end INTEL_FEATURE_ISA_DSPV1 */
 static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_min_epi8(__m128i __V1,
@@ -815,7 +815,7 @@ static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_max_epu32(__m128i __V1,
 }
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */
-#endif // __DSPV1_SUPPORTED__
+#endif // __DSPINTRIN_H
 /* end INTEL_FEATURE_ISA_DSPV1 */
 /* end INTEL_CUSTOMIZATION */
 

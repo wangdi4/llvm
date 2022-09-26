@@ -146,8 +146,8 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
       if (WideFn->isDeclaration())
         continue;
       LLVM_DEBUG(dbgs() << "Widen function: " << WideFn->getName() << "\n");
-      VectorVariant Variant(WideFn->getName());
-      runOnFunction(*WideFn, Variant.getVlen());
+      VFInfo Variant = VFABI::demangleForVFABI(WideFn->getName());
+      runOnFunction(*WideFn, Variant.getVF());
       auto It = find(KernelRange, Fn);
       if (It != Kernels.end()) {
         Kernels.erase(It);
@@ -570,9 +570,8 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   assert(ParentF->hasFnAttribute(KernelAttribute::VectorVariants) &&
          "Parent function doesn't have vector-variants attribute");
   unsigned EmuSize = 0;
-  if (VectorVariant::isVectorVariant(ParentF->getName())) {
-    VectorVariant ParentVariant(ParentF->getName());
-    EmuSize = ParentVariant.getVlen();
+  if (auto Variant = VFABI::tryDemangleForVFABI(ParentF->getName())) {
+    EmuSize = Variant->getVF();
   } else {
     StringRef ParentVariantStringValue =
         ParentF->getFnAttribute(KernelAttribute::VectorVariants)
@@ -581,8 +580,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
            "Unexpected multiple vector variant string here!");
     LLVM_DEBUG(dbgs() << "  Parent function variant string: "
                       << ParentVariantStringValue << "\n");
-    VectorVariant ParentVariant(ParentVariantStringValue);
-    EmuSize = ParentVariant.getVlen();
+    EmuSize = VFABI::demangleForVFABI(ParentVariantStringValue).getVF();
   }
 
   // Get vector-variants attribute
@@ -596,8 +594,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   StringRef VariantStringValue;
   // Select Variant and emulation size
   for (auto VarStr : VariantStrs) {
-    VectorVariant Var(VarStr);
-    unsigned Vlen = Var.getVlen();
+    unsigned Vlen = VFABI::demangleForVFABI(VarStr).getVF();
     if (Vlen == EmuSize) {
       VariantStringValue = VarStr;
       break;
@@ -621,9 +618,8 @@ void SGValueWidenPass::widenCalls() {
     unsigned Size = 0;
     StringRef VariantStr;
     std::tie(VariantStr, Size) = selectVariantAndEmuSize(CI);
-    VectorVariant Variant(VariantStr);
-    Function *WideFunc =
-        CI->getModule()->getFunction(Variant.getName().getValue());
+    auto Variant = VFABI::demangleForVFABI(VariantStr);
+    Function *WideFunc = CI->getModule()->getFunction(Variant.VectorName);
     assert(WideFunc != nullptr && "No widen function!");
     assert(FuncMap[CI->getCalledFunction()].count(WideFunc) &&
            "Invalid vector variant function!");
@@ -645,12 +641,12 @@ void SGValueWidenPass::widenCalls() {
     }
 
     IRBuilder<> Builder(CI);
-    std::vector<VectorKind> Params = Variant.getParameters();
+    ArrayRef<VFParameter> Params = Variant.Shape.Parameters;
 
     SmallVector<Value *, 4> NewArgs;
     SmallVector<Type *, 4> NewArgTypes;
     for (auto &Pair : enumerate(CI->args())) {
-      VectorKind Param = Params[Pair.index()];
+      VFParameter Param = Params[Pair.index()];
       Value *Arg = Pair.value(), *NewArg = nullptr;
       if (Param.isUniform()) {
         NewArg = getScalarValue(Arg, ParamIP);

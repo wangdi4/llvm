@@ -876,25 +876,40 @@ unsigned getMaxNumExternalThreads() {
 
 bool fileContains(const std::string &Filename,
                   const std::vector<std::string> &Patterns) {
+  bool contains = true;
   std::ifstream IFS(Filename);
   if (!IFS)
-    return false;
+        return false;
   std::stringstream SS;
   SS << IFS.rdbuf();
   std::string Buffer = SS.str();
   for (auto &Pattern : Patterns)
-    if (Buffer.find(Pattern) == std::string::npos)
-      return false;
-  return true;
+        contains = contains && Buffer.find(Pattern) != std::string::npos;
+  return contains;
 }
 
-std::string findFileInDir(const std::string &Dir, const Regex &R) {
+void checkFileContains(const std::string &Filename,
+                       const std::vector<std::string> &Patterns) {
+  std::ifstream IFS(Filename);
+  ASSERT_TRUE(IFS) << "Failed to open file " << Filename;
+  std::stringstream SS;
+  SS << IFS.rdbuf();
+  std::string Buffer = SS.str();
+  for (auto &Pattern : Patterns)
+    ASSERT_NE(Buffer.find(Pattern), std::string::npos)
+        << "Pattern \"" << Pattern << "\" is not found in file " << Filename
+        << "\n";
+}
+
+std::vector<std::string> findFilesInDir(const std::string &Dir,
+                                        const Regex &R) {
+  std::vector<std::string> FileNames;
   std::error_code EC;
   for (sys::fs::directory_iterator I(Dir, EC), E; I != E && !EC;
        I.increment(EC)) {
     StringRef FileName = sys::path::filename(I->path());
     if (R.match(FileName))
-      return FileName.str();
+      FileNames.push_back(FileName.str());
   }
-  return "";
+  return FileNames;
 }

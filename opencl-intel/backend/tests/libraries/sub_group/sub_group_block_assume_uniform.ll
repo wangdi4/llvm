@@ -1,6 +1,6 @@
 ; RUN: llvm-extract %libdir/../clbltfnshared.rtl -rfunc intel_sub_group_block -S -o - | FileCheck %s
 
-; CHECK-DAG: define <4 x i32> @_Z29intel_sub_group_block_read1_4Dv4_PU3AS1KjDv4_j(<4 x i32 addrspace(1)*> %data, <4 x i32> %vec_mask) [[ATTR_RO_128:#[0-9]+]]
+; CHECK-DAG: define <4 x i32> @_Z29intel_sub_group_block_read1_4Dv4_PU3AS1KjDv4_j(<4 x i32 addrspace(1)*> %data, <4 x i32> %vec_mask){{.*}} [[ATTR_RO_128:#[0-9]+]]
 ; CHECK-DAG: call <4 x i32> @_Z29intel_sub_group_block_read1_4PU3AS1KjDv4_j(i32 addrspace(1)* %vecext, <4 x i32> %vec_mask)
 
 ; CHECK-DAG: define <8 x i32> @_Z29intel_sub_group_block_read1_8Dv8_PU3AS1KjDv8_j(<8 x i32 addrspace(1)*> %data, <8 x i32> %vec_mask)
@@ -1890,4 +1890,4 @@
 ; CHECK-DAG: define void @_Z34intel_sub_group_block_write_ul8_64Dv64_14ocl_image2d_rwDv128_iDv512_mDv64_j(<64 x %opencl.image2d_rw_t addrspace(1)*> %img, <128 x i32> %coord, <512 x i64> %data, <64 x i32> %vec_mask)
 ; CHECK-DAG: call void @_Z34intel_sub_group_block_write_ul8_6414ocl_image2d_rwDv2_iDv512_mDv64_j(%opencl.image2d_rw_t addrspace(1)* %img.vecext, <2 x i32> %coord.vecext, <512 x i64> %data, <64 x i32> %vec_mask)
 
-; CHECK-DAG: attributes [[ATTR_RO_128]] = { norecurse nounwind readonly "min-legal-vector-width"="128" }
+; CHECK-DAG: attributes [[ATTR_RO_128]] = { nofree norecurse nounwind readonly "min-legal-vector-width"="128" }

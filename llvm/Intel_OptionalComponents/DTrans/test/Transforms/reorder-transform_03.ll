@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that Field-reordering transformation applied
 ; correctly to sdiv and udiv instructions with constant and non-constant
 ; sizes related to %struct.test.
@@ -54,5 +56,8 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
-declare dso_local noalias i8* @malloc(i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+declare dso_local noalias i8* @malloc(i64) #1
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

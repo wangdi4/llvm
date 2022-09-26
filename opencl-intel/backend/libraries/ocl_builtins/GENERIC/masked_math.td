@@ -32,30 +32,8 @@ list<OclType> math_all_types = [
   v1f64, v2f64, v3f64, v4f64, v8f64, v16f64
 ];
 
-list<OclType> math_half_types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16];
 list<OclType> math_float_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32];
 list<OclType> math_double_types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64];
-
-list<OclType> all_int_types = [
-  v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-  v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-  v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-  v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
-  v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-  v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
-  v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
-  v1u64, v2u64, v3u64, v4u64, v8u64, v16u64
-];
-
-// excluding 64-bit int types
-list<OclType> sub_int_types = [
-  v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-  v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-  v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-  v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
-  v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-  v1u32, v2u32, v3u32, v4u32, v8u32, v16u32
-];
 
 list<OclType> all_types = [
   v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -96,7 +74,6 @@ OclBuiltinImpl exp_mask_svml = OclBuiltinImpl<exp_mask, math_all_types, 0, maske
 OclBuiltinImpl exp2_mask_svml = OclBuiltinImpl<exp2_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl exp10_mask_svml = OclBuiltinImpl<exp10_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl expm1_mask_svml = OclBuiltinImpl<expm1_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl fabs_mask_svml = OclBuiltinImpl<fabs_mask, math_all_types # math_half_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl floor_mask_svml = OclBuiltinImpl<floor_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl lgamma_mask_svml = OclBuiltinImpl<lgamma_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "4.2"]]>;
 OclBuiltinImpl log_mask_svml = OclBuiltinImpl<log_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "4.2"]]>;
@@ -336,90 +313,3 @@ OclBuiltinImpl rootn_mask_svml_double = OclBuiltinImpl<rootn_mask, math_double_t
 // extended native
 OclBuiltinImpl native_pown_mask_svml_double = OclBuiltinImpl<native_pown_mask, math_double_types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
 OclBuiltinImpl native_rootn_mask_svml_double = OclBuiltinImpl<native_rootn_mask, math_double_types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
-
-// generated cl code example: nan float
-// float2 __attribute__((const)) __attribute__((overloadable)) nan(uint2 x, float2 mask)
-// {
-//   uint2 mx = select((uint2)(0), x, as_int2(mask));
-//   return nan(mx);
-// }
-OclBuiltinImpl nan_mask_svml_float = OclBuiltinImpl<nan_mask, math_float_types, 0, masked_impl_code_FG_UG_M, [["$DEF0", "0"]]>;
-
-// generated cl code example: nan double
-// double2 __attribute__((const)) __attribute__((overloadable)) nan(ulong2 x, double2 mask)
-// {
-//   ulong2 mx = select((ulong2)(0), x, as_long2(mask));
-//   return nan(mx);
-// }
-OclBuiltinImpl nan_mask_svml_double = OclBuiltinImpl<nan_mask, math_double_types, 0, masked_impl_code_DG_UG_M, [["$DEF0", "0"]]>;
-
-// Integer builtins
-// ugentype = f(gentype, mask)
-defvar masked_impl_code_UG_G_M = [{
-    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
-    return $Func(m$Arg0VarName);
-  }];
-
-// generated cl code example: abs
-// uchar3 __attribute__((const)) __attribute__((overloadable)) abs(char3 x, uchar3 mask)
-// {
-//   char3 mx = select((char3)(0), x, mask);
-//   return abs(mx);
-// }
-OclBuiltinImpl abs_mask_svml = OclBuiltinImpl<abs_mask, all_int_types, 0, masked_impl_code_UG_G_M, [["$DEF0", "0"]]>;
-
-// ugentype = f(gentype, gentype, mask)
-defvar masked_impl_code_UG_G2_M = [{
-    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
-    $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF0), $Arg1VarName, $Arg2VarName);
-    return $Func(m$Arg0VarName, m$Arg1VarName);
-  }];
-
-// generated cl code example: abs_diff
-// ushort3 __attribute__((const)) __attribute__((overloadable)) abs_diff(short3 x, short3 y, ushort3 mask)
-// {
-//   short3 mx = select((short3)(0), x, mask);
-//   short3 my = select((short3)(0), y, mask);
-//   return abs_diff(mx, my);
-// }
-OclBuiltinImpl abs_diff_mask_svml = OclBuiltinImpl<abs_diff_mask, all_int_types, 0, masked_impl_code_UG_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-
-// generated cl code example: abs_sat
-// char3 __attribute__((const)) __attribute__((overloadable)) add_sat(char3 x, char3 y, char3 mask)
-// {
-//   char3 mx = bitselect((char3)(0), x, mask);
-//   char3 my = bitselect((char3)(0), y, mask);
-//   return add_sat(mx, my);
-// }
-OclBuiltinImpl add_sat_mask_svml = OclBuiltinImpl<add_sat_mask, all_int_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl hadd_mask_svml = OclBuiltinImpl<hadd_mask, all_int_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl rhadd_mask_svml = OclBuiltinImpl<rhadd_mask, all_int_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl clz_mask_svml = OclBuiltinImpl<clz_mask, all_int_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl mad_hi_mask_svml = OclBuiltinImpl<mad_hi_mask, all_int_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
-OclBuiltinImpl mad_sat_mask_svml = OclBuiltinImpl<mad_sat_mask, all_int_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
-OclBuiltinImpl mul_hi_mask_svml = OclBuiltinImpl<mul_hi_mask, all_int_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl rotate_mask_svml = OclBuiltinImpl<rotate_mask, all_int_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl sub_sat_mask_svml = OclBuiltinImpl<sub_sat_mask, all_int_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-
-// generated cl code example: upsample
-// short16 __attribute__((const)) __attribute__((overloadable)) upsample(char16 hi, uchar16 lo, short16 mask)
-// {
-//   short16 ret = upsample(hi, lo);
-//   return ret & mask;
-// }
-OclBuiltinImpl upsample_mask_svml = OclBuiltinImpl<upsample_mask, sub_int_types, 0, [{
-    $ReturnType ret = $Func($Arg0VarName, $Arg1VarName);
-    return ret & $Arg2VarName;
-  }]>;
-
-// Common builtins
-OclBuiltinImpl clamp_mask_svml = OclBuiltinImpl<clamp_mask, all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
-OclBuiltinImpl max_mask_svml = OclBuiltinImpl<max_mask, all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl min_mask_svml = OclBuiltinImpl<min_mask, all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-
-OclBuiltinImpl degrees_mask_svml = OclBuiltinImpl<degrees_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl mix_mask_svml = OclBuiltinImpl<mix_mask, math_all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
-OclBuiltinImpl radians_mask_svml = OclBuiltinImpl<radians_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl step_mask_svml = OclBuiltinImpl<step_mask, math_all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "1"], ["$DEF1", "0"]]>;
-OclBuiltinImpl smoothstep_mask_svml = OclBuiltinImpl<smoothstep_mask, math_all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "1"], ["$DEF1", "2"], ["$DEF2", "0"]]>;
-OclBuiltinImpl sign_mask_svml = OclBuiltinImpl<sign_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;

@@ -16,10 +16,8 @@
 ; two loads with stride 2. Test loads from multi dimensional array.
 ;
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -disable-output -print-after=hir-vplan-vec  < %s 2>&1  -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -disable-output -print-after=hir-vplan-vec  < %s 2>&1  -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -disable-output -print-after=hir-vplan-vec  < %s 2>&1  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -disable-output < %s 2>&1 | FileCheck %s
 ; CHECK:      DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:   %.vls.load = (<8 x i32>*)(@arr)[0][i1][0];
 ; CHECK-NEXT:   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;

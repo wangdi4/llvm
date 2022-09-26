@@ -298,6 +298,7 @@ namespace {
     Register traceCopies(Register VirtReg) const;
     Register traceCopyChain(Register Reg) const;
 
+    bool shouldAllocateRegister(const Register Reg) const;
     int getStackSpaceFor(Register VirtReg);
     void spill(MachineBasicBlock::iterator Before, Register VirtReg,
                MCPhysReg AssignedReg, bool Kill, bool LiveOut);
@@ -316,6 +317,12 @@ char RegAllocFast::ID = 0;
 
 INITIALIZE_PASS(RegAllocFast, "regallocfast", "Fast Register Allocator", false,
                 false)
+
+bool RegAllocFast::shouldAllocateRegister(const Register Reg) const {
+  assert(Register::isVirtualRegister(Reg));
+  const TargetRegisterClass &RC = *MRI->getRegClass(Reg);
+  return ShouldAllocateClass(*TRI, RC);
+}
 
 void RegAllocFast::setPhysRegState(MCPhysReg PhysReg, unsigned NewState) {
   for (MCRegUnitIterator UI(PhysReg, TRI); UI.isValid(); ++UI)
@@ -376,7 +383,16 @@ bool RegAllocFast::mayLiveOut(Register VirtReg) {
   // If this block loops back to itself, it is necessary to check whether the
   // use comes after the def.
   if (MBB->isSuccessor(MBB)) {
-    SelfLoopDef = MRI->getUniqueVRegDef(VirtReg);
+    // Find the first def in the self loop MBB.
+    for (const MachineInstr &DefInst : MRI->def_instructions(VirtReg)) {
+      if (DefInst.getParent() != MBB) {
+        MayLiveAcrossBlocks.set(Register::virtReg2Index(VirtReg));
+        return true;
+      } else {
+        if (!SelfLoopDef || dominates(*MBB, DefInst.getIterator(), SelfLoopDef))
+          SelfLoopDef = &DefInst;
+      }
+    }
     if (!SelfLoopDef) {
       MayLiveAcrossBlocks.set(Register::virtReg2Index(VirtReg));
       return true;
@@ -847,6 +863,8 @@ void RegAllocFast::allocVirtRegUndef(MachineOperand &MO) {
   assert(MO.isUndef() && "expected undef use");
   Register VirtReg = MO.getReg();
   assert(Register::isVirtualRegister(VirtReg) && "Expected virtreg");
+  if (!shouldAllocateRegister(VirtReg))
+    return;
 
   LiveRegMap::const_iterator LRI = findLiveVirtReg(VirtReg);
   MCPhysReg PhysReg;
@@ -872,6 +890,8 @@ void RegAllocFast::allocVirtRegUndef(MachineOperand &MO) {
 /// (tied or earlyclobber) that may interfere with preassigned uses.
 void RegAllocFast::defineLiveThroughVirtReg(MachineInstr &MI, unsigned OpNum,
                                             Register VirtReg) {
+  if (!shouldAllocateRegister(VirtReg))
+    return;
   LiveRegMap::iterator LRI = findLiveVirtReg(VirtReg);
   if (LRI != LiveVirtRegs.end()) {
     MCPhysReg PrevReg = LRI->PhysReg;
@@ -905,6 +925,8 @@ void RegAllocFast::defineLiveThroughVirtReg(MachineInstr &MI, unsigned OpNum,
 void RegAllocFast::defineVirtReg(MachineInstr &MI, unsigned OpNum,
                                  Register VirtReg, bool LookAtPhysRegUses) {
   assert(VirtReg.isVirtual() && "Not a virtual register");
+  if (!shouldAllocateRegister(VirtReg))
+    return;
   MachineOperand &MO = MI.getOperand(OpNum);
   LiveRegMap::iterator LRI;
   bool New;
@@ -955,6 +977,8 @@ void RegAllocFast::defineVirtReg(MachineInstr &MI, unsigned OpNum,
 void RegAllocFast::useVirtReg(MachineInstr &MI, unsigned OpNum,
                               Register VirtReg) {
   assert(VirtReg.isVirtual() && "Not a virtual register");
+  if (!shouldAllocateRegister(VirtReg))
+    return;
   MachineOperand &MO = MI.getOperand(OpNum);
   LiveRegMap::iterator LRI;
   bool New;
@@ -979,8 +1003,13 @@ void RegAllocFast::useVirtReg(MachineInstr &MI, unsigned OpNum,
     Register Hint;
     if (MI.isCopy() && MI.getOperand(1).getSubReg() == 0) {
       Hint = MI.getOperand(0).getReg();
-      assert(Hint.isPhysical() &&
-             "Copy destination should already be assigned");
+      if (Hint.isVirtual()) {
+        assert(!shouldAllocateRegister(Hint));
+        Hint = Register();
+      } else {
+        assert(Hint.isPhysical() &&
+               "Copy destination should already be assigned");
+      }
     }
     allocVirtReg(MI, *LRI, Hint, false);
     if (LRI->Error) {
@@ -1088,6 +1117,8 @@ void RegAllocFast::addRegClassDefCounts(std::vector<unsigned> &RegClassDefCounts
   assert(RegClassDefCounts.size() == TRI->getNumRegClasses());
 
   if (Reg.isVirtual()) {
+    if (!shouldAllocateRegister(Reg))
+      return;
     const TargetRegisterClass *OpRC = MRI->getRegClass(Reg);
     for (unsigned RCIdx = 0, RCIdxEnd = TRI->getNumRegClasses();
          RCIdx != RCIdxEnd; ++RCIdx) {
@@ -1148,6 +1179,8 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) {
     if (MO.isReg()) {
       Register Reg = MO.getReg();
       if (Reg.isVirtual()) {
+        if (!shouldAllocateRegister(Reg))
+          continue;
         if (MO.isDef()) {
           HasDef = true;
           HasVRegDef = true;
@@ -1211,7 +1244,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) {
           }
 
           if (MO.isDef()) {
-            if (Reg.isVirtual())
+            if (Reg.isVirtual() && shouldAllocateRegister(Reg))
               DefOperandIndexes.push_back(I);
 
             addRegClassDefCounts(RegClassDefCounts, Reg);
@@ -1301,6 +1334,10 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) {
       Register Reg = MO.getReg();
       if (!Reg)
         continue;
+      if (Reg.isVirtual()) {
+        assert(!shouldAllocateRegister(Reg));
+        continue;
+      }
       assert(Reg.isPhysical());
       if (MRI->isReserved(Reg))
         continue;
@@ -1347,7 +1384,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) {
     if (!MO.isReg() || !MO.isUse())
       continue;
     Register Reg = MO.getReg();
-    if (!Reg.isVirtual())
+    if (!Reg.isVirtual() || !shouldAllocateRegister(Reg))
       continue;
 
     if (MO.isUndef()) {
@@ -1374,7 +1411,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) {
       if (!MO.isReg() || !MO.isUse())
         continue;
       Register Reg = MO.getReg();
-      if (!Reg.isVirtual())
+      if (!Reg.isVirtual() || !shouldAllocateRegister(Reg))
         continue;
 
       assert(MO.isUndef() && "Should only have undef virtreg uses left");
@@ -1397,6 +1434,10 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) {
       Register Reg = MO.getReg();
       if (!Reg)
         continue;
+      if (Reg.isVirtual()) {
+        assert(!shouldAllocateRegister(Reg));
+        continue;
+      }
       assert(Reg.isPhysical() && "should have register assigned");
 
       // We sometimes get odd situations like:
@@ -1426,6 +1467,8 @@ void RegAllocFast::handleDebugValue(MachineInstr &MI) {
   // mostly constants and frame indices.
   for (Register Reg : MI.getUsedDebugRegs()) {
     if (!Register::isVirtualRegister(Reg))
+      continue;
+    if (!shouldAllocateRegister(Reg))
       continue;
 
     // Already spilled to a stackslot?
@@ -1467,7 +1510,7 @@ void RegAllocFast::handleBundle(MachineInstr &MI) {
         continue;
 
       Register Reg = MO.getReg();
-      if (!Reg.isVirtual())
+      if (!Reg.isVirtual() || !shouldAllocateRegister(Reg))
         continue;
 
       DenseMap<Register, MCPhysReg>::iterator DI;
@@ -1489,7 +1532,7 @@ bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
   RegUnitStates.assign(TRI->getNumRegUnits(), regFree);
   assert(LiveVirtRegs.empty() && "Mapping not cleared from last block?");
 
-  for (auto &LiveReg : MBB.liveouts())
+  for (const auto &LiveReg : MBB.liveouts())
     setPhysRegState(LiveReg.PhysReg, regPreAssigned);
 
   Coalesced.clear();
@@ -1595,8 +1638,7 @@ FunctionPass *llvm::createFastRegisterAllocator() {
   return new RegAllocFast();
 }
 
-FunctionPass *llvm::createFastRegisterAllocator(
-  std::function<bool(const TargetRegisterInfo &TRI,
-                     const TargetRegisterClass &RC)> Ftor, bool ClearVirtRegs) {
+FunctionPass *llvm::createFastRegisterAllocator(RegClassFilterFunc Ftor,
+                                                bool ClearVirtRegs) {
   return new RegAllocFast(Ftor, ClearVirtRegs);
 }

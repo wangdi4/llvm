@@ -889,9 +889,9 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
       break;
     case CL_DEV_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE:
     {
-        const size_t* pInVal = (const size_t*)input_value;
-        const size_t  dim    = input_value_size/sizeof(size_t);
-        ullValue = pKernelProps->GetMaxSubGroupSize(dim, pInVal);
+        // For CPU implementation, the max subgroup size is independent of
+        // NDRange.
+        ullValue = pKernelProps->GetMaxSubGroupSize();
         stValSize = sizeof(size_t);
         break;
     }

@@ -2,17 +2,13 @@
 ; REQUIRES: asserts
 ; RUN: opt -disable-output -vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKPCFG
 ; RUN: opt -disable-output -vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKVPE
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRVPE
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
 
 ; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKPCFG
 ; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKVPE
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRVPE
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
 
 ; Test debug location information on VPlan at specific points of vectorizer pipeline
 ; Original code source lines:
@@ -89,19 +85,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECKVPE-NEXT:      DbgLoc:
 ; CHECKVPE:         [[BB1]]: # preds: [[BB0]]
-; CHECKVPE-NEXT:     i32* [[VP_S_RED:%.*]] = allocate-priv i32*, OrigAlign = 4
-; CHECKVPE-NEXT:      DbgLoc:
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i8* [[VP_S_RED_BCAST:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
-; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i32 [[VP_S_REDRED_INIT:%.*]] = reduction-init i32 0 i32 [[S_RED_PROMOTED0:%.*]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     store i32 [[VP_S_REDRED_INIT]] i32* [[VP_S_RED]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -152,15 +136,6 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     i32 [[VP_S_REDRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD1]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0:%.*]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i8* [[VP_S_RED_BCAST1:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
-; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
@@ -192,7 +167,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRPCFG-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-EMPTY:
+; CHECKHIRPCFG-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB:%.*]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     call i64 4 i8* [[VP7]] void (i64, i8*)* @llvm.lifetime.start.p0i8
@@ -207,7 +185,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:     i32 [[VP4]] = add i32 [[VP3]] i32 [[VP_LOAD]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0]]
+; CHECKHIRPCFG-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0]]
+; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-EMPTY:
+; CHECKHIRPCFG-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     call i64 4 i8* [[VP8]] void (i64, i8*)* @llvm.lifetime.end.p0i8
@@ -259,7 +240,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRVPE-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-EMPTY:
+; CHECKHIRVPE-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB:%.*]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     call i64 4 i8* [[VP7]] void (i64, i8*)* @llvm.lifetime.start.p0i8
@@ -274,7 +258,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     i32 [[VP4]] = add i32 [[VP3]] i32 [[VP_LOAD]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0]]
+; CHECKHIRVPE-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0]]
+; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-EMPTY:
+; CHECKHIRVPE-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     call i64 4 i8* [[VP8]] void (i64, i8*)* @llvm.lifetime.end.p0i8
@@ -315,7 +302,7 @@ DIR.OMP.SIMD.120:
   br label %DIR.OMP.SIMD.1, !dbg !112
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.120
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1) ], !dbg !113
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ], !dbg !113
   br label %DIR.OMP.SIMD.2, !dbg !113
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

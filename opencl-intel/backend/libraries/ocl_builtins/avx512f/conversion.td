@@ -150,6 +150,21 @@ OclBuiltinImpl avx512_convert_u32_rtp_fpexpand = OclBuiltinImpl<convert_u32_rtp,
     return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
+// 32-bit floating output
+// default rounding mode
+/*****************************************************************\
+ * convert_float:                                              *
+ *   floatn convert_floatn (gentypen x)                          *
+\*****************************************************************/
+
+OclBuiltinImpl avx_cvt_v16f32_v16i32 = OclBuiltinImpl<convert_f32,[v16i32], 0, [{
+    return as_$ReturnType(_mm512_cvtepi32_ps( __builtin_astype($Arg0VarName,__m512i)));
+  }]>;
+
+OclBuiltinImpl avx_cvt_v16f32_v16u32 = OclBuiltinImpl<convert_f32,[v16u32], 0, [{
+    return as_$ReturnType(_mm512_cvtepu32_ps( __builtin_astype($Arg0VarName,__m512i)));
+  }]>;
+
 // rtz rounding mode
 /*****************************************************************\
  * convert_float_rtz:                                              *

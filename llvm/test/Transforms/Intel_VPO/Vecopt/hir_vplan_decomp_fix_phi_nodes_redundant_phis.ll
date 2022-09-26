@@ -27,10 +27,8 @@
 ; in node <42>. However both reach definitions are the same "null" values and this
 ; redundant PHI can be removed and replaced.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=1 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=1 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
@@ -60,11 +58,13 @@ define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-NEXT:     br i1 [[VP2]], [[BB6:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:       store i32 0 i32* null
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* null
+; CHECK-NEXT:       store i32 0 i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB6]], [[BB5]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP7]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP7]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP4]] i64 100
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB7:BB[0-9]+]]

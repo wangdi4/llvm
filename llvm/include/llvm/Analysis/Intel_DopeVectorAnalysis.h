@@ -16,6 +16,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
@@ -180,7 +181,7 @@ public:
       else if (SIV && (*SIV != CI->getZExtValue()))
         return false;
     }
-    return SIV.hasValue();
+    return SIV.has_value();
   }
 
   void addFieldAddr(Value *V, bool IsNotForDVCP = false) {
@@ -261,6 +262,14 @@ public:
   void print(raw_ostream &OS) const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  // Return true if the input value V is a load instruction, or a store
+  // instruction where the pointer operand is Pointer.
+  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
+  bool isAddrNotForDVCP(Value* Addr) const {
+    return NotForDVCPFieldAddr.contains(Addr);
+  }
+
+
 private:
   bool IsBottom;
   bool IsRead;
@@ -301,10 +310,6 @@ private:
   // there is a chance for multiple pointers could access the current field.
   // The default value is false.
   bool AllowMultipleFieldAddresses;
-
-  // Return true if the input value V is a load instruction, or a store
-  // instruction where the pointer operand is Pointer.
-  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
 };
 
 // This class is for analyzing the uses of all the fields that make up a dope
@@ -335,26 +340,33 @@ public:
   // the fields listed in this enumeration.
   enum DopeVectorRankFields { DVR_Extent, DVR_Stride, DVR_LowerBound };
 
-  DopeVectorAnalyzer(Value *DVObject,
+  DopeVectorAnalyzer(Value *DVObject, const Type *DVTy = nullptr,
     std::function<const TargetLibraryInfo &(Function &F)> *GetTLI = nullptr) :
     DVObject(DVObject), GetTLI(GetTLI) {
-    assert(
+    if (DVObject->getContext().supportsTypedPointers()) {
+      assert(
         DVObject->getType()->isPointerTy() &&
         DVObject->getType()->getPointerElementType()->isStructTy() &&
         DVObject->getType()->getPointerElementType()->getStructNumElements() ==
-            7 &&
+              7 &&
         DVObject->getType()
             ->getPointerElementType()
             ->getContainedType(6)
             ->isArrayTy() &&
         "Invalid type for dope vector object");
+      if (!DVTy)
+        DVTy = DVObject->getType()->getPointerElementType();
+    } else {
+      if (!DVTy)
+        DVTy = inferPtrElementType(*DVObject);
+      assert(DVTy && DVTy->isStructTy() && DVTy->getStructNumElements() == 7 &&
+          DVTy->getContainedType(DV_PerDimensionArray)->isArrayTy() && 
+          "Invalid type for dope vector object");
+    }
 
     // The rank of the dope vector can be determined by the array length of
     // array that is the last field of the dope vector.
-    Rank = DVObject->getType()
-        ->getPointerElementType()
-        ->getContainedType(6)
-        ->getArrayNumElements();
+    Rank = DVTy->getContainedType(DV_PerDimensionArray)->getArrayNumElements();
 
     // Set as invalid, until analyzed.
     IsValid = false;

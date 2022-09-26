@@ -73,9 +73,9 @@ declare void @__kmpc_for_static_fini(ptr, i32) local_unnamed_addr
 ; Function Attrs: noinline nounwind uwtable
 define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split17(ptr nocapture readonly %tid, ptr nocapture readnone %bid, ptr nocapture readonly %p, ptr nocapture readonly %.omp.lb, ptr nocapture readonly %q, ptr nocapture readonly %.omp.ub) {
 ; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split17(ptr nocapture readonly %tid, ptr nocapture readnone %bid, ptr nocapture readonly %p, i64 [[LBVAL:%.*]], i64 [[QVAL:%.*]], i64 [[UBVAL:%.*]])
-; CHECK:   %0 = trunc i64 [[LBVAL]] to i32
+; CHECK:   %0 = trunc i64 [[UBVAL]] to i32
 ; CHECK:   %1 = bitcast i64 [[QVAL]] to double
-; CHECK:   %2 = trunc i64 [[UBVAL]] to i32
+; CHECK:   %2 = trunc i64 [[LBVAL]] to i32
 newFuncRoot:
   %is.last = alloca i32, align 4
   %lower.bnd = alloca i32, align 4

@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_amx_sparse
-// RUN: %clang_cc1 %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-sparse \
+// RUN: %clang_cc1 -no-opaque-pointers %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-sparse \
 // RUN: -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>

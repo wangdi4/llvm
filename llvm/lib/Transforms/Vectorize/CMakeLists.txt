@@ -24,6 +24,7 @@ add_llvm_component_library(LLVMVectorize
   VectorCombine.cpp
   VPlan.cpp
   VPlanHCFGBuilder.cpp
+  VPlanRecipes.cpp
   VPlanSLP.cpp
   VPlanTransforms.cpp
   VPlanVerifier.cpp
@@ -66,6 +67,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanScalVecAnalysis.cpp
   Intel_VPlan/IntelVPlanSSADeconstruction.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
+  Intel_VPlan/IntelVPTransformLibraryCalls.cpp
   Intel_VPlan/IntelVPlanValueTracking.cpp
   Intel_VPlan/IntelVPlanVConflictTransformation.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp

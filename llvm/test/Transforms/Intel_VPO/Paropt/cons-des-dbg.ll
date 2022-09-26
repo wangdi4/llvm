@@ -1,31 +1,31 @@
 ; RUN: opt -S -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
-; CHECK: %non_pod_of_A.priv ={{.*}} !dbg [[DBG:![0-9]+]]
-; CHECK: call {{.*}}omp.def_constr{{.*}} !dbg [[DBG]]
-; CHECK: call {{.*}}omp.destr{{.*}} !dbg [[DBG]]
 
 ; The constructor and destructor calls that are created by privatization of the
 ; structure, did not have debug position info.
 
-;struct NP
-;{
-;  NP();
-;  NP(const NP &);
-;  NP &operator=(const NP &);
-;  ~NP();
-;};
+; Test src:
 ;
-;struct A
-;{
-;  NP non_pod_of_A;
-;  int func_of_A();
-;};
+; struct NP {
+;   NP();
+;   NP(const NP &);
+;   NP &operator=(const NP &);
+;   ~NP();
+; };
 ;
-;int A::func_of_A() {
-;#pragma omp parallel private(non_pod_of_A)
-;  {}
-;  return 0;
-;}
+; struct A {
+;   NP non_pod_of_A;
+;   int func_of_A();
+; };
+;
+; int A::func_of_A() {
+; #pragma omp parallel private(non_pod_of_A)
+;   {}
+;   return 0;
+; }
 
+; CHECK: %non_pod_of_A.priv ={{.*}} !dbg [[DBG:![0-9]+]]
+; CHECK: call {{.*}}omp.def_constr{{.*}} !dbg [[DBG]]
+; CHECK: call {{.*}}omp.destr{{.*}} !dbg [[DBG]]
  
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -34,19 +34,20 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.NP = type { i8 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @_ZN1A9func_of_AEv(%struct.A* %this) #0 align 2 !dbg !7 {
+define dso_local i32 @_ZN1A9func_of_AEv(ptr %this) #0 align 2 !dbg !7 {
 entry:
-  %this.addr = alloca %struct.A*, align 8
-  store %struct.A* %this, %struct.A** %this.addr, align 8, !tbaa !35
-  call void @llvm.dbg.declare(metadata %struct.A** %this.addr, metadata !33, metadata !DIExpression()), !dbg !39
-  %this1 = load %struct.A*, %struct.A** %this.addr, align 8
-  %non_pod_of_A = getelementptr inbounds %struct.A, %struct.A* %this1, i32 0, i32 0, !dbg !40, !intel-tbaa !42
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE:NONPOD"(%struct.NP* %non_pod_of_A, %struct.NP* (%struct.NP*)* @_ZTS2NP.omp.def_constr, void (%struct.NP*)* @_ZTS2NP.omp.destr) ], !dbg !45
+  %this.addr = alloca ptr, align 8
+  store ptr %this, ptr %this.addr, align 8, !tbaa !35
+  call void @llvm.dbg.declare(metadata ptr %this.addr, metadata !33, metadata !DIExpression()), !dbg !39
+  %this1 = load ptr, ptr %this.addr, align 8
+  %non_pod_of_A = getelementptr inbounds %struct.A, ptr %this1, i32 0, i32 0, !dbg !40, !intel-tbaa !42
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr %non_pod_of_A, %struct.NP zeroinitializer, i32 1, ptr @_ZTS2NP.omp.def_constr, ptr @_ZTS2NP.omp.destr) ], !dbg !45
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ], !dbg !45
   ret i32 0, !dbg !46
 }
 
-; Function Attrs: nounwind readnone speculatable willreturn
+; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind
@@ -56,34 +57,34 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: uwtable
-define internal %struct.NP* @_ZTS2NP.omp.def_constr(%struct.NP* %0) #3 section ".text.startup" !dbg !47 {
+define internal ptr @_ZTS2NP.omp.def_constr(ptr %0) #3 section ".text.startup" !dbg !47 {
 entry:
-  %.addr = alloca %struct.NP*, align 8
-  store %struct.NP* %0, %struct.NP** %.addr, align 8, !tbaa !52
-  call void @llvm.dbg.declare(metadata %struct.NP** %.addr, metadata !50, metadata !DIExpression()), !dbg !54
-  %1 = load %struct.NP*, %struct.NP** %.addr, align 8
-  call void @_ZN2NPC1Ev(%struct.NP* %1), !dbg !55
-  ret %struct.NP* %1, !dbg !55
+  %.addr = alloca ptr, align 8
+  store ptr %0, ptr %.addr, align 8, !tbaa !52
+  call void @llvm.dbg.declare(metadata ptr %.addr, metadata !50, metadata !DIExpression()), !dbg !54
+  %1 = load ptr, ptr %.addr, align 8
+  call void @_ZN2NPC1Ev(ptr %1), !dbg !55
+  ret ptr %1, !dbg !55
 }
 
-declare dso_local void @_ZN2NPC1Ev(%struct.NP*) unnamed_addr #4
+declare dso_local void @_ZN2NPC1Ev(ptr) unnamed_addr #4
 
 ; Function Attrs: uwtable
-define internal void @_ZTS2NP.omp.destr(%struct.NP* %0) #3 section ".text.startup" !dbg !56 {
+define internal void @_ZTS2NP.omp.destr(ptr %0) #3 section ".text.startup" !dbg !56 {
 entry:
-  %.addr = alloca %struct.NP*, align 8
-  store %struct.NP* %0, %struct.NP** %.addr, align 8, !tbaa !52
-  call void @llvm.dbg.declare(metadata %struct.NP** %.addr, metadata !58, metadata !DIExpression()), !dbg !59
-  %1 = load %struct.NP*, %struct.NP** %.addr, align 8
-  call void @_ZN2NPD1Ev(%struct.NP* %1) #2
+  %.addr = alloca ptr, align 8
+  store ptr %0, ptr %.addr, align 8, !tbaa !52
+  call void @llvm.dbg.declare(metadata ptr %.addr, metadata !58, metadata !DIExpression()), !dbg !59
+  %1 = load ptr, ptr %.addr, align 8
+  call void @_ZN2NPD1Ev(ptr %1) #2
   ret void
 }
 
 ; Function Attrs: nounwind
-declare dso_local void @_ZN2NPD1Ev(%struct.NP*) unnamed_addr #5
+declare dso_local void @_ZN2NPD1Ev(ptr) unnamed_addr #5
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind readnone speculatable willreturn }
+attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
 attributes #2 = { nounwind }
 attributes #3 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #4 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

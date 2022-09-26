@@ -5,8 +5,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-hir-decomposer -vplan-force-vf=2 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-hir-decomposer -vplan-force-vf=2 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-hir-decomposer -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
@@ -29,8 +28,7 @@ define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
+; CHECK-NEXT:     float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     float [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] float [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -98,9 +96,9 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[C0:%.*]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds i32* [[C0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_C0]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -179,9 +177,7 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = add i64 [[VP6]] i64 2
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 2
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -258,8 +254,7 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -337,8 +332,7 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -354,8 +348,7 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX_1:%.*]] = sext i32 [[VP_LOAD_2]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX_1]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     i64 [[VP10:%.*]] = sext i32 [[VP_LOAD_2]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP10]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP_VCONFLICT_INDEX_1]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT_1:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX_1]] void [[VP_CONFLICT_REGION_1:%.*]] i32 [[VP_LOAD_3]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -441,8 +434,7 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -453,12 +445,10 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 100
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX_1:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX_1]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i64 [[VP9:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP9]]
-; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT_1:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX_1]] void [[VP_CONFLICT_REGION_1:%.*]] i32 [[VP_LOAD_2]] -> VConflictRegion {
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT_1:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION_1:%.*]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0_1:%.*]]
@@ -547,8 +537,7 @@ define dso_local void @foo7(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -626,8 +615,7 @@ define dso_local void @foo8(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none

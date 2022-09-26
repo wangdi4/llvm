@@ -23,6 +23,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_UTILS_POSTDOMINANCEFRONTIER_H
 
 #include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/Analysis/DominanceFrontierImpl.h"
 #include "llvm/Analysis/PostDominators.h"
 
 namespace llvm {
@@ -45,34 +46,74 @@ public:
                                                  const DomTreeNode *Node) {
     // Loop over CFG successors to calculate DFlocal[Node]
     BasicBlock *BB = Node->getBlock();
-    DomSetType &S = this->Frontiers[BB]; // The new set to fill in...
     if (DT.root_size() == 0)
-      return S;
+      return this->Frontiers[BB];
 
-    if (BB) {
-      for (auto *P : predecessors(BB)) {
-        // Does Node immediately dominate this predecessor?
-        DomTreeNode *SINode = DT[P];
-        if (SINode && SINode->getIDom() != Node)
-          S.insert(P);
+    DomSetType *Result = nullptr;
+
+    std::vector<DFCalculateWorkObject<BlockT>> WorkList;
+    SmallPtrSet<BlockT *, 32> Visited;
+
+    WorkList.emplace_back(BB, nullptr, Node, nullptr);
+    do {
+      DFCalculateWorkObject<BlockT> *CurrentW = &WorkList.back();
+      assert(CurrentW && "missing work object.");
+
+      BlockT *CurrentBB = CurrentW->currentBB;
+      BlockT *ParentBB = CurrentW->parentBB;
+      const DomTreeNode *CurrentNode = CurrentW->Node;
+      const DomTreeNode *ParentNode = CurrentW->parentNode;
+      assert(CurrentNode && "Invalid work object. Missing current Node");
+
+      DomSetType &S = this->Frontiers[CurrentBB]; // The new set to fill in...
+      if (CurrentBB) {
+        // Visit each block only once.
+        if (Visited.insert(CurrentBB).second) {
+          // Loop over CFG predecessors to calculate DFLocal[CurrentNode]
+          for (auto *P : predecessors(CurrentBB)) {
+            // Does Node immediately dominate this predecessor?
+            DomTreeNode *SINode = DT[P];
+            if (SINode && SINode->getIDom() != CurrentNode)
+              S.insert(P);
+          }
+        }
       }
-    }
-    // At this point, S is DFlocal.  Now we union in DFup's of our children...
-    // Loop through and visit the nodes that Node immediately dominates (Node's
-    // children in the IDomTree)
-    //
-    for (DomTreeNode::const_iterator NI = Node->begin(), NE = Node->end();
-         NI != NE; ++NI) {
-      DomTreeNode *IDominee = *NI;
-      const DomSetType &ChildDF = calculate(DT, IDominee);
-      typename DomSetType::const_iterator CDFI = ChildDF.begin(),
-                                          CDFE = ChildDF.end();
-      for (; CDFI != CDFE; ++CDFI) {
-        if (!DT.properlyDominates(Node, DT[*CDFI]))
-          S.insert(*CDFI);
+
+      // At this point, S is DFlocal.  Now we union in DFup's of our children...
+      // Loop through and visit the nodes that Node immediately dominates
+      // (Node's children in the IDomTree)
+      bool VisitChild = false;
+      for (DomTreeNode::const_iterator NI = CurrentNode->begin(),
+                                       NE = CurrentNode->end();
+           NI != NE; ++NI) {
+        DomTreeNode *IDominee = *NI;
+        BasicBlock *ChildBB = IDominee->getBlock();
+        if (Visited.count(ChildBB) == 0) {
+          WorkList.emplace_back(ChildBB, CurrentBB, IDominee, CurrentNode);
+          VisitChild = true;
+        }
       }
-    }
-    return S;
+
+      // If all children are visited or there isn't any child then pop this
+      // block from the worklist.
+      if (!VisitChild) {
+        if (!ParentBB) {
+          Result = &S;
+          break;
+        }
+
+        typename DomSetType::const_iterator CDFI = S.begin(), CDFE = S.end();
+        DomSetType &ParentSet = this->Frontiers[ParentBB];
+        for (; CDFI != CDFE; ++CDFI) {
+          if (!DT.properlyDominates(ParentNode, DT[*CDFI]))
+            ParentSet.insert(*CDFI);
+        }
+        WorkList.pop_back();
+      }
+
+    } while (!WorkList.empty());
+
+    return *Result;
   }
 };
 

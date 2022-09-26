@@ -43,7 +43,10 @@ using namespace InlineReportTypes;
 
 // Return 'true' if 'F' is a huge function. In particular, huge functions
 // are less preferred for inlining, even if there is only one callsite.
-extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC);
+extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,
+                           const TargetTransformInfo &CalleeTTI,
+                           bool PrepareForLTO, bool LinkForLTO,
+                           bool IsSYCLHost, bool IsSYCLDevice);
 
 // Return 'true' if 'TI' is an Instruction used in a 'forgivableCondition'.
 // A function which would be a single basic block except for the forgivable

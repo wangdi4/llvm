@@ -11,7 +11,7 @@ define void @foo() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 -2147483648 BinOp: i32 [[VP_ADD3:%.*]] = add i32 [[VP_STOREMERGE10:%.*]] i32 [[VP_STOREMERGE10_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP_STOREMERGE10]], i32 [[VP_ADD3]], i32 [[VP_STOREMERGE10_IND_INIT:%.*]], i32 [[VP_STOREMERGE10_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP_STOREMERGE10]], i32 [[VP_ADD3]], i32 [[VP_STOREMERGE10_IND_INIT:%.*]], i32 [[VP_STOREMERGE10_IND_INIT_STEP]], i32 [[VP_STOREMERGE10_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory
@@ -78,7 +78,7 @@ define void @foo() {
 ; CHECK-NEXT:      Live-Out:   [[STOREMERGE100]] = phi i32 [ [[ADD30]], [[OMP_INNER_FOR_INC0]] ], [ 0, [[ENTRY0]] ]
 ;
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* @arr), "QUAL.OMP.LASTPRIVATE"(i32* @i) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* @arr, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* @i, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %entry

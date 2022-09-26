@@ -45,10 +45,8 @@
 ; + END LOOP
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Check decomposed VPInstructions
@@ -61,9 +59,7 @@
 ; CHECK-NEXT: store i32 [[ADD1]] i32* [[GEPC]]
 ; CHECK-NEXT: i32* [[GEPD:%vp.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[IV]]
 ; CHECK-NEXT: i32 [[D_I1:%vp.*]] = load i32* [[GEPD]]
-; CHECK-NEXT: i32 [[MUL2:%vp.*]] = mul i32 {{.*}} i32 2
-; CHECK-NEXT: i32 [[ADD2:%vp.*]] = add i32 [[PHI]] i32 [[MUL2]]
-; CHECK-NEXT: i32 [[ADD3:%vp.*]] = add i32 [[ADD2]] i32 [[D_I1]]
+; CHECK-NEXT: i32 [[ADD3:%vp.*]] = add i32 [[ADD1]] i32 [[D_I1]]
 ; CHECK-NEXT: i64 [[SEXT:%vp.*]] = sext i32 [[ADD3]] to i64
 ; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp sgt i64 [[IV:%vp.*]] i64 [[SEXT]]
 ; CHECK-NEXT: i32 [[SEL:%vp.*]] = select i1 [[CMP]] i32 [[PHI]] i32 [[D_I1]]

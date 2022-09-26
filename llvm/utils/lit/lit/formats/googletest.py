@@ -172,6 +172,8 @@ class GoogleTest(TestFormat):
                     res.append(l)
             assert False, f'gtest did not report the result for ' + test_name
 
+        found_failed_test = False
+
         with open(test.gtest_json_file, encoding='utf-8') as f:
             jf = json.load(f)
 
@@ -188,6 +190,7 @@ class GoogleTest(TestFormat):
                     header = f"Script:\n--\n%s --gtest_filter=%s\n--\n" % (
                         ' '.join(cmd), testname)
                     if 'failures' in testinfo:
+                        found_failed_test = True
                         output += header
                         test_out = get_test_stdout(testname)
                         if test_out:
@@ -198,6 +201,12 @@ class GoogleTest(TestFormat):
                     elif result != 'COMPLETED':
                         output += header
                         output += 'unresolved test result\n'
+
+        # In some situations, like running tests with sanitizers, all test passes but
+        # the shard could still fail due to memory issues.
+        if not found_failed_test:
+            output += f"\n{out}\n--\nexit: {exitCode}\n--\n"
+
         return lit.Test.FAIL, output
 
     def prepareCmd(self, cmd):
@@ -235,9 +244,15 @@ class GoogleTest(TestFormat):
 
             start_time = test.result.start or 0.0
 
+            has_failure_in_shard = False
+
             # Load json file to retrieve results.
             with open(test.gtest_json_file, encoding='utf-8') as f:
-                testsuites = json.load(f)['testsuites']
+                try:
+                    testsuites = json.load(f)['testsuites']
+                except json.JSONDecodeError as e:
+                    raise RuntimeError("Failed to parse json file: " +
+                                       test.gtest_json_file + "\n" + e.doc)
                 for testcase in testsuites:
                     for testinfo in testcase['testsuite']:
                         # Ignore disabled tests.
@@ -257,6 +272,7 @@ class GoogleTest(TestFormat):
                         if testinfo['result'] == 'SKIPPED':
                             returnCode = lit.Test.SKIPPED
                         elif 'failures' in testinfo:
+                            has_failure_in_shard = True
                             returnCode = lit.Test.FAIL
                             output = header
                             for fail in testinfo['failures']:
@@ -277,5 +293,14 @@ class GoogleTest(TestFormat):
                         selected_tests.append(subtest)
                         discovered_tests.append(subtest)
             os.remove(test.gtest_json_file)
+
+            # INTEL_CUSTOMIZATION
+            # Don't report shutdown failures in OpenCL runtime tests until
+            # CMPLRLLVM-35668 is fixed.
+            if not has_failure_in_shard and test.isFailure() \
+               and getattr(test.config, 'opencl_report_shutdown_failure', True):
+            # end INTEL_CUSTOMIZATION
+                selected_tests.append(test)
+                discovered_tests.append(test)
 
         return selected_tests, discovered_tests

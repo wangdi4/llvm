@@ -1,7 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
-; Check that SIMD loop will not be unswitched by hir-opt-predicate.
+; Check that SIMD loop will not be unswitched by hir-opt-predicate because
+; the directives aren't a loop pre-header nor loop post-exit instructions.
 
 ; BEGIN REGION { }
 ;       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]

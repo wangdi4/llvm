@@ -61,9 +61,7 @@ typedef SmallVector<InputInfo, 4> InputInfoList;
 
 class Command;
 class Compilation;
-class JobList;
 class JobAction;
-class SanitizerArgs;
 class ToolChain;
 
 /// Describes the kind of LTO mode selected via -f(no-)?lto(=.*)? options.
@@ -183,6 +181,11 @@ public:
 
   /// User directory for config files.
   std::string UserConfigDir;
+
+#if INTEL_CUSTOMIZATION
+  /// Base temporary directory.
+  std::string BaseTempDir;
+#endif // INTEL_CUSTOMIZATION
 
   /// A prefix directory used to emulate a limited subset of GCC's '-Bprefix'
   /// functionality.
@@ -593,10 +596,10 @@ public:
 
   /// PrintHelp - Print the help text.
   ///
-#if INTEL_CUSTOMIZATION
   /// \param Args - arguments used to control help information
-  void PrintHelp(const llvm::opt::ArgList &Args) const;
+  void PrintHelp(bool ShowHidden) const;
 
+#if INTEL_CUSTOMIZATION
   /// Intel Print formating.
   unsigned IntelPrintOptions : 1;
 
@@ -664,6 +667,12 @@ public:
   /// Returns the default name for linked images (e.g., "a.out").
   const char *getDefaultImageName() const;
 
+  // Creates a temp file with $Prefix-%%%%%%.$Suffix
+  const char *CreateTempFile(Compilation &C, StringRef Prefix, StringRef Suffix,
+                             bool MultipleArchs = false,
+                             StringRef BoundArch = {},
+                             types::ID Type = types::TY_Nothing) const;
+
   /// GetNamedOutputPath - Return the name to use for the output of
   /// the action \p JA. The result is appended to the compilation's
   /// list of temporary or result files, as appropriate.
@@ -695,6 +704,13 @@ public:
   /// GetTemporaryDirectory - Return the pathname of a temporary directory to
   /// use as part of compilation; the directory will have the given prefix.
   std::string GetTemporaryDirectory(StringRef Prefix) const;
+
+#if INTEL_CUSTOMIZATION
+  /// GetUserOnlyTemporaryDirectory - Return the pathname of a temporary
+  /// directory to use as part of compilation; the directory will have the
+  /// given prefix and created with user only read/write priviledges.
+  std::string GetUserOnlyTemporaryDirectory(StringRef Prefix) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Return the pathname of the pch file in clang-cl mode.
   std::string GetClPchPath(Compilation &C, StringRef BaseName) const;
@@ -781,9 +797,9 @@ private:
   std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const;
 
 #if INTEL_CUSTOMIZATION
-  /// Specific to DPC++, specialization function for setting the option flags
-  /// to handle dpcpp behaviors on Windows.
-  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksDpcpp(
+  /// Specific to Intel, specialization function for setting the option flags
+  /// to handle icx/dpcpp behaviors on Windows.
+  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksIntel(
       bool IsClCompatMode, bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 
@@ -801,6 +817,10 @@ private:
   bool OffloadStaticLibSeen = false;
 
   void setOffloadStaticLibSeen() { OffloadStaticLibSeen = true; }
+
+  /// Use the new offload driver for OpenMP
+  bool UseNewOffloadingDriver = false;
+  void setUseNewOffloadingDriver() { UseNewOffloadingDriver = true; }
 
   /// FPGA Emulation Mode.  By default, this is true due to the fact that
   /// an external option setting is required to target hardware.
@@ -827,6 +847,10 @@ private:
   /// Returns true if an offload static library is found.
   bool checkForOffloadStaticLib(Compilation &C,
                                 llvm::opt::DerivedArgList &Args) const;
+
+  /// Checks for any mismatch of targets and provided input binaries.
+  void checkForOffloadMismatch(Compilation &C,
+                               llvm::opt::DerivedArgList &Args) const;
 
   /// Track filename used for the FPGA dependency info.
   mutable llvm::StringMap<const std::string> FPGATempDepFiles;
@@ -866,6 +890,9 @@ public:
   static bool getDefaultModuleCachePath(SmallVectorImpl<char> &Result);
 
   bool getOffloadStaticLibSeen() const { return OffloadStaticLibSeen; };
+
+  /// getUseNewOffloadingDriver - use the new offload driver for OpenMP.
+  bool getUseNewOffloadingDriver() const { return UseNewOffloadingDriver; };
 
   /// addFPGATempDepFile - Add a file to be added to the bundling step of
   /// an FPGA object.

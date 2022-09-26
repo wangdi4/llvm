@@ -34,4 +34,6 @@ int		clFreeHeapPointer(ClHeap hHeap, void* ptr);
 int     clHeapMarkSafeForDMA( void* start, size_t size );
 int	    clHeapUnmarkSafeForDMA( void* start, size_t size );
 
+/// Return true if size is considered as large for memory allocation.
+bool isLargeAllocSize(size_t size);
 }}}

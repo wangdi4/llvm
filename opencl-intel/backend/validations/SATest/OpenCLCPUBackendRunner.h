@@ -52,14 +52,14 @@ namespace Validation
                          const IProgramConfiguration *programConfig,
                          const IRunComponentConfiguration *runConfig) override;
 
-        /// @brief Load the Volcano output from the file.
+        /// @brief Load the output from the file.
         /// @param [OUT] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
         virtual void LoadOutput(IRunResult *pRunResult,
                                 const IProgramConfiguration *pConfig) override {
         }
 
-        /// @brief Store the Volcano output to the file.
+        /// @brief Store the output to the file.
         /// @param [IN] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
         virtual void

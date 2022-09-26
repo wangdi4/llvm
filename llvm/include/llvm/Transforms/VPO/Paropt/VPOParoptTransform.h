@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -101,38 +101,6 @@ enum DeviceArch : uint64_t {
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 
-enum TgtOffloadMappingFlags : uint64_t {
-  TGT_MAP_TO = 0x01,
-  // instructs the runtime to copy the host data to the device.
-  TGT_MAP_FROM = 0x02,
-  // instructs the runtime to copy the device data to the host.
-  TGT_MAP_ALWAYS = 0x04,
-  // forces the copying regardless of the reference
-  // count associated with the map.
-  TGT_MAP_DELETE = 0x08,
-  // forces the unmapping of the object in a target data.
-  TGT_MAP_PTR_AND_OBJ = 0x10,
-  // forces the runtime to map the pointer variable as
-  // well as the pointee variable.
-  TGT_MAP_TARGET_PARAM = 0x20,
-  // instructs the runtime that it is the first
-  // occurrence of this mapped variable within this construct.
-  TGT_MAP_RETURN_PARAM = 0x40,
-  // instructs the runtime to return the base
-  // device address of the mapped variable.
-  TGT_MAP_PRIVATE = 0x80,
-  // informs the runtime that the variable is a private variable.
-  TGT_MAP_LITERAL = 0x100,
-  // instructs the runtime to forward the value to target construct.
-  TGT_MAP_IMPLICIT = 0x200,
-  TGT_MAP_CLOSE = 0x400,
-  // The close map-type-modifier is a hint to the runtime to
-  // allocate memory close to the target device.
-  TGT_MAP_ND_DESC = 0x800,
-  // indicates that the parameter is loop descriptor struct.
-  TGT_MAP_MEMBER_OF = 0xffff000000000000
-};
-
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 typedef std::pair<Type*, Value*> ElementTypeAndNumElements;
@@ -210,6 +178,14 @@ public:
 
   bool isModeOmpNoFECollapse() { return Mode & vpo::OmpNoFECollapse; }
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
+
+  PointerType *getDefaultPointerType() {
+        assert(F && "Function cannot be null.");
+        const Module *M = F->getParent();
+        assert(M && "Function is not in a module?");
+        unsigned AS = M ? WRegionUtils::getDefaultAS(M) : 0;
+        return PointerType::get(M->getContext(), AS);
+  }
 
 #if INTEL_CUSTOMIZATION
   /// Interfaces for data sharing optimization.
@@ -431,8 +407,11 @@ private:
   /// A copy constructor or copy-assign function \p Cctor will be used if
   /// given.
   /// \p IsByRef will insert an extra load to dereference the \p From pointer.
+  /// If \p NumElements is provided, then it is used as the number of elements.
+  /// Otherwise, it will be obtained from \p I.
   void genCopyByAddr(Item *I, Value *To, Value *From, Instruction *InsertPt,
-                     Function *Cctor = nullptr, bool IsByRef = false);
+                     Function *Cctor = nullptr, bool IsByRef = false,
+                     Value *NumElements = nullptr);
 
   /// For array constructor/destructor/copy assignment/copy constructor loop,
   /// get the base address of the array, number of elements, and element type.
@@ -477,9 +456,12 @@ private:
 
   /// Generate code for calling constructor/destructor/copy assignment/copy
   /// constructor for privatized variables including scalar and arrays.
+  /// If \p NumElements is provided, then it is used as the number of elements.
+  /// Otherwise, it will be obtained from \p I.
   void genPrivatizationInitOrFini(Item *I, Function *Fn, FunctionKind FuncKind,
                                   Value *DestVal, Value *SrcVal,
-                                  Instruction *InsertPt, DominatorTree *DT);
+                                  Instruction *InsertPt, DominatorTree *DT,
+                                  Value *NumElements = nullptr);
 
   /// If any item is a VLA or a variable length array section, a stacksave is
   /// inserted at the begining of the region and a restore is inserted at the
@@ -490,10 +472,26 @@ private:
   /// Loops over every item of every clause. If any item is a VLA or a variable
   /// length array section, it creates an empty entry block and sets the VLA
   /// alloca insertPt to the terminator of this newly created entry block.
+#if INTEL_CUSTOMIZATION
+  /// If \p OnlyCountReductionF90DVsAsVLAs is \b true, F90_DVs in other clause
+  /// items like private, firstprivate, etc., won't be considered for the
+  /// purpose of this function.
+  bool setInsertionPtForVlaAllocas(WRegionNode *W,
+                                   bool OnlyCountReductionF90DVsAsVLAs = true);
+#else
   bool setInsertionPtForVlaAllocas(WRegionNode *W);
+#endif
 
   /// returns true if the input item is either a Vla or a Vla Section.
+#if INTEL_CUSTOMIZATION
+  /// If \p OnlyCountReductionF90DVsAsVLAs is \b true, F90_DVs in other clause
+  /// items like private, firstprivate, etc., won't be considered for the
+  /// purpose of this function.
+  static bool getIsVlaOrVlaSection(Item *I,
+                                   bool OnlyCountReductionF90DVsAsVLAs = true);
+#else
   static bool getIsVlaOrVlaSection(Item *I);
+#endif
 
   /// Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W,
@@ -529,8 +527,13 @@ private:
   /// WRNTaskLoopNode WRegion
   bool addFirstprivateForNormalizedUB(WRegionNode *W);
 
-  /// Generate code for firstprivate variables
-  bool genFirstPrivatizationCode(WRegionNode *W);
+  /// Generate code for firstprivate variables.
+  /// If \p OnlyParoptGeneratedFPForNonPtrCaptures is true, then Only those
+  /// Firtstprivate items are handled that were added to capture non-pointers to
+  /// be passed into the region.
+  /// \see captureAndAddCollectedNonPointerValuesToSharedClause() for details.
+  bool genFirstPrivatizationCode(
+      WRegionNode *W, bool OnlyParoptGeneratedFPForNonPtrCaptures = false);
 
   /// Generate code for lastprivate variables
   bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB,
@@ -656,7 +659,12 @@ private:
   // Create maps for private/firstprivate VLAs in W, (if not already present).
   bool addMapForPrivateAndFPVLAs(WRNTargetNode *W);
 
-  bool addFastGlobalRedBufMap(WRegionNode *W);
+  /// Add globals for atomic-free GPU reduction global buffers, one per
+  /// reduction item of reduction clause that \p W has (if any), performing all
+  /// necessary checks before that. These globals are going to be turned into
+  /// the kernel arguments by CodeExtractor, staying globals just on the host
+  /// side. This function os only supposed to be called at the prepare pass.
+  bool createAtomicFreeReductionBuffers(WRegionNode *W);
 
   // Convert 'IS_DEVICE_PTR' clauses in W to MAP, and 'IS_DEVICE_PTR:PTR_TO_PTR'
   // clauses to MAP + PRIVATE.
@@ -717,6 +725,10 @@ private:
   void genReductionUdrInit(ReductionItem *RedI, Value *ReductionVar,
                            Value *ReductionValueLoc, Type *ScalarTy,
                            IRBuilder<> &Builder);
+
+  /// Generate the inscan reduction initialization.
+  Value *genReductionInscanInit(Type *ScalarTy, Value *ReductionVar,
+                                IRBuilder<> &Builder);
 
   /// Generate the reduction intialization instructions.
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
@@ -824,11 +836,14 @@ private:
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
-  /// reduction update code.
+  /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
+  /// means that \p RedI has no extra by-ref related loads that may require
+  /// special hoisting when atomic-free reduction is used. (default = false)
   bool genReductionScalarFini(WRegionNode *W, ReductionItem *RedI,
                               Value *ReductionVar, Value *ReductionValueLoc,
                               Type *ScalarTy, IRBuilder<> &Builder,
-                              DominatorTree *DT);
+                              DominatorTree *DT,
+                              bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction operator with the given arguments \p Rhs1
   /// and \p Rhs2 and the operator in \p RedI.
@@ -906,7 +921,7 @@ private:
   bool genTaskInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                        StructType *&KmpSharedTy, Value *&LastIterGep);
 
-  /// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
+  /// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop_5 and the
   /// corresponding outlined function
   bool genTaskGenericCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
                           StructType *KmpSharedTy, AllocaInst *LBPtr,
@@ -1072,7 +1087,7 @@ private:
                                       Instruction *InsertBefore);
 
   /// Save the loop lower upper bound, upper bound and stride for the use
-  /// by the call __kmpc_taskloop
+  /// by the call __kmpc_taskloop_5
   void genLoopInitCodeForTaskLoop(WRegionNode *W, AllocaInst *&LBPtr,
                                   AllocaInst *&UBPtr, AllocaInst *&STPtr);
 
@@ -1147,8 +1162,16 @@ private:
   /// Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
 
+  /// Reset the value of NumElements of VLA (including array section) for TYPED
+  /// clauses in private, firstprivate, lastprivate, in_reduction, and
+  /// task_reduction  to be empty.
+  void resetTypedNumElementsInOmpClauses(WRegionNode *W);
+
   /// Reset the expression value in private clause to be empty.
   void resetValueInPrivateClause(WRegionNode *W);
+
+  /// Reset the expression value in livein clause to be empty.
+  void resetValueInLiveinClause(WRegionNode *W);
 
   /// Reset the expression value in Subdevice clause to be empty.
   void resetValueInSubdeviceClause(WRegionNode* W);
@@ -1590,48 +1613,6 @@ private:
   /// \endcode
   bool genCancellationBranchingCode(WRegionNode *W);
 
-  /// @}
-
-  /// Rename operands of various clauses by replacing them with a
-  /// store-then-load, and adding operand-address pair to the entry directive.
-  /// This renaming is done to prevent CSE/Instcombine transformations which
-  /// break OpenMP semantics by combining/recomputing bitcasts/GEPs across
-  /// region boundaries.
-  /// This renaming is done for operands to private, firstprivate, lastprivate,
-  /// reduction, shared, and map clauses.
-  ///
-  /// This renaming is done in the vpo-paropt-prepare phase, and is undone
-  /// in the vpo-paropt-restore phase beofore the vpo-paropt transformation
-  /// pass.
-  ///
-  /// The IR before and after this renaming looks like:
-  ///
-  /// \code
-  ///            Before                   |            After
-  ///          ---------------------------+---------------------------
-  ///                                     |   store i32* %y, i32** %y.addr
-  ///                                     |
-  ///   %1 = begin_region[... %y...]      |   %1 = begin_region[... %y...
-  ///                                     |        "QUAL.OMP.OPERAND.ADDR"
-  ///                                     |         (i32* %y,i32** %y.addr)]
-  ///                                     |
-  ///                                     |   %y1 = load i32*, i32** %y.addr
-  ///                                     |
-  ///   ...                               |   ...
-  ///   <%y used inside the region>       |   <%y1 used inside the region>
-  ///                                     |
-  ///                                     |
-  ///   end_region(%1)                    |   end_region(%1)
-  /// \endcode
-  ///
-  /// In the region, `%y1` is used to replace all uses of `$y`. If there is no
-  /// use of `%y` inside the region, then the load `%y` is not emitted.
-  /// The operand-addr pair in the auxiliary clause `QUAL.OMP.OPERAND.ADDR` is
-  /// used to undo the renaming in the VPORestoreOperandsPass.
-  /// \see VPOUtils::restoreOperands() for details on how the renaming is
-  /// undone and the original operands are restored.
-  bool renameOperandsUsingStoreThenLoad(WRegionNode *W);
-
   /// For non-pointer values which will be used directly inside the outlined
   /// region for \p W, rename them using store-then-load, and mark the pointer
   /// where they are stored, as shared on the region's directive. This is done
@@ -1678,8 +1659,8 @@ private:
   ///                                   | ; the IR is not modified.
   /// \endcode
   ///
-  /// If \p W is for a target construct, `QUAL.OMP.MAP.TO` is used instead of
-  /// `QUAL.OMP.SHARED` for `%size2`.
+  /// If \p W is for a target construct, `QUAL.OMP.FIRSTPRIVATE` is used instead
+  /// of `QUAL.OMP.SHARED` for `%size2`.
   /// \see WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion() for
   /// more details.
   bool captureAndAddCollectedNonPointerValuesToSharedClause(WRegionNode *W);
@@ -1694,55 +1675,6 @@ private:
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag,
                          bool IsTargetKernelArg) const;
-
-  /// Create a pointer, store address of \p V to the pointer, and replace uses
-  /// of \p V with a load from that pointer.
-  ///
-  /// \code
-  ///   %v = alloca i32
-  ///   ...
-  ///   %v.addr = alloca i32*
-  ///   ...
-  ///   store i32* %v, i32** %v.addr
-  ///   ; <InsertPtForStore>
-  ///
-  ///   +- <EntryBB>:
-  ///   | ...
-  ///   | %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
-  ///   | ...
-  ///   | %v1 = load i32*, i32** %v.addr
-  ///   +-
-  ///   ...
-  ///   ; Replace uses of %v with %v1
-  ///   ...
-  /// \endcode
-  ///
-  /// If \p ReplaceUses is \b true (default), then original uses or %v are
-  /// replaced with %v1.
-  ///
-  /// If \p EmitLoadEvenIfNoUses is \b true, then %v1 is emitted even if there
-  /// is no use of original %v in the region, otherwise not (default).
-  ///
-  /// If \p InsertLoadInBeginningOfEntryBB is \b true, the load `%v1` is
-  /// inserted in the beginning on EntryBB (BBlock containing `%0`), and the
-  /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
-  /// `v1` is inserted at the end of EntryBB.
-  ///
-  /// If \p SelectAllocaInsertPtBasedOnParentWRegion is \b true, then the
-  /// insertion point for `%v.addr` is determined based on whether a parent
-  /// WRegion would eventually be outlined, otherwise, the end of the Function's
-  /// entry block is used.
-  ///
-  /// If \p CastToAddrSpaceGeneric is \b true, then `%v.addr` is casted to
-  /// address space generic (4) before doing the store/load.
-  ///
-  /// \returns the pointer where \p V is stored (`%v.addr` above).
-  Value *replaceWithStoreThenLoad(
-      WRegionNode *W, Value *V, Instruction *InsertPtForStore,
-      bool ReplaceUses = true, bool EmitLoadEvenIfNoUses = false,
-      bool InsertLoadInBeginningOfEntryBB = false,
-      bool SelectAllocaInsertPtBasedOnParentWRegion = false,
-      bool CastToAddrSpaceGeneric = false);
 
   /// If \p I is a call to @llvm.launder.invariant.group, then return
   /// the CallInst*. Otherwise, return nullptr.
@@ -2286,8 +2218,11 @@ private:
   void processNeedDevicePtr(WRegionNode *W, CallInst *VariantCall,
                             StringRef &NeedDevicePtrStr);
 
-  /// Emit code to handle depend clause for dispatch
-  void genDependForDispatch(WRegionNode *W, CallInst *VariantCall);
+  /// Emit code to handle depend clause for dispatch. If \p SupportOMPTTracing
+  /// is true, also emit the runtime calls __kmpc_omp_task_begin/complete__if0
+  /// which are used only for OMPT tracing.
+  void genDependForDispatch(WRegionNode *W, CallInst *VariantCall,
+                            bool SupportOMPTTracing = true);
 
   /// Emit code for the OMP5.1 \b dispatch construct
   bool genDispatchCode(WRegionNode *W);
@@ -2312,6 +2247,11 @@ private:
   /// clause, then the method will collapse the loop nest accordingly.
   /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
+
+  /// If the given region is an OpenMP loop transformation tile construct,
+  /// then the method will tile the loop nest accordingly.
+  /// Otherwise, it will do nothing.
+  bool tileOmpLoops(WRegionNode *W);
 
   /// For SPIR-V target propagate simdlen() from SIMD loops
   /// to the enclosing target region. If there are multiple

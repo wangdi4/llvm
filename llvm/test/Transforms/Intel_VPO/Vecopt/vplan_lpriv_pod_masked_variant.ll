@@ -2,8 +2,8 @@
 ; RUN: opt -vplan-vec -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s  2>&1 | FileCheck %s
 
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-print-after-final-cond-transform -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-print-after-final-cond-transform -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir < %s  2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-print-after-final-cond-transform -vplan-enable-masked-variant-hir < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-print-after-final-cond-transform -vplan-enable-masked-variant-hir < %s  2>&1 | FileCheck %s --check-prefix=HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -157,7 +157,7 @@ define i32 @main() {
 ;
 ; HIR:             [[X0:%.*]] = extractelement [[LIVEOUTCOPY40]],  15
 ;
-; HIR:             + DO i1 = [[PHI_TEMP20:%.*]], 127, 16   <DO_LOOP> <nounroll> <novectorize>
+; HIR:             + DO i1 = [[PHI_TEMP20:%.*]], 127, 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
 ; HIR-NEXT:        |   [[DOTVEC150:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u 128
 ; HIR-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC150]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1 : [[PHI_TEMP0:%.*]];
 ; HIR-NEXT:        |   [[DOTVEC160:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u 128
@@ -172,14 +172,14 @@ define i32 @main() {
 ; HIR-NEXT:        [[PHI_TEMP190:%.*]] = [[PHI_TEMP0]]
 ; HIR-NEXT:        if ([[CMP170]] == 1)
 ; HIR-NEXT:        {
-; HIR-NEXT:           goto [[BB12:BB[0-9]+]].77
+; HIR-NEXT:           goto [[BB12:BB[0-9]+]].78
 ; HIR-NEXT:        }
 ; HIR-NEXT:        [[BSFINTMASK0:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC150]])
 ; HIR-NEXT:        [[BSF0:%.*]] = @llvm.ctlz.i16([[BSFINTMASK0]],  1)
 ; HIR-NEXT:        [[EXTLANE:%.*]] = 15 - [[BSF0]]
 ; HIR-NEXT:        [[PHI_TEMP0]] = extractelement [[SELECT0]],  [[EXTLANE]]
 ; HIR-NEXT:        [[PHI_TEMP190]] = [[PHI_TEMP0]]
-; HIR-NEXT:        [[BB12]].77:
+; HIR-NEXT:        [[BB12]].78:
 ; HIR-NEXT:        [[X0]] = [[PHI_TEMP190]]
 ; HIR-NEXT:        [[PHI_TEMP80:%.*]] = [[PHI_TEMP190]]
 ; HIR-NEXT:        [[PHI_TEMP100:%.*]] = 128
@@ -191,7 +191,7 @@ entry:
   br label %preheader
 
 preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(i32* %xp)]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %xp, i32 0, i32 1)]
   br label %header
 header:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %latch ]

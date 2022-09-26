@@ -173,6 +173,7 @@ define i1 @test13(i32 %C) {
 define i1 @test14(i32 %C) {
 ; CHECK-LABEL: @test14(
 ; begin INTEL_CUSTOMIZATION
+; trunc vs. add
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[C:%.*]] to i8
 ; CHECK-NEXT:    [[MEMCHR_BITS:%.*]] = icmp eq i8 [[TMP1]], 31
 ; end INTEL_CUSTOMIZATION

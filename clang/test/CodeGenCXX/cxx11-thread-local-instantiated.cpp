@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -emit-llvm %s -o - -triple x86_64-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -std=c++11 -emit-llvm %s -o - -triple x86_64-linux-gnu | FileCheck %s
 
 // PR48030
 
@@ -17,7 +17,8 @@ S *current() { return TLS<S>::mData; };
 
 // CHECK-LABEL: define weak_odr hidden {{.*}} @_ZTWN3TLSI1SE5mDataE() {{.*}} comdat {
 // CHECK: call void @_ZTHN3TLSI1SE5mDataE()
-// CHECK: ret {{.*}} @_ZN3TLSI1SE5mDataE
+// CHECK: [[TLSmData_ADDR:%[^ ]+]] = call ptr @llvm.threadlocal.address.p0(ptr @_ZN3TLSI1SE5mDataE)
+// CHECK: ret {{.*}} [[TLSmData_ADDR]]
 
 // Unlike for a global, the global initialization function must not be in a
 // COMDAT with the variable, because it is referenced from the _ZTH function

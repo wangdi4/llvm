@@ -32,6 +32,7 @@
 #define LLVM_CLANG_BASIC_TARGETINFO_H
 
 #include "clang/Basic/AddressSpaces.h"
+#include "clang/Basic/BitmaskEnum.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/LangOptions.h"
@@ -69,12 +70,14 @@ class MacroBuilder;
 namespace Builtin { struct Info; }
 
 enum class FloatModeKind {
-  NoFloat = 255,
-  Float = 0,
-  Double,
-  LongDouble,
-  Float128,
-  Ibm128
+  NoFloat = 0,
+  Half = 1 << 0,
+  Float = 1 << 1,
+  Double = 1 << 2,
+  LongDouble = 1 << 3,
+  Float128 = 1 << 4,
+  Ibm128 = 1 << 5,
+  LLVM_MARK_AS_BITMASK_ENUM(Ibm128)
 };
 
 /// Fields controlling how types are laid out in memory; these may need to
@@ -92,6 +95,7 @@ struct TransferrableTargetInfo {
   unsigned char LargeArrayMinWidth, LargeArrayAlign;
   unsigned char LongWidth, LongAlign;
   unsigned char LongLongWidth, LongLongAlign;
+  unsigned char Int128Align;
 
   // Fixed point bit widths
   unsigned char ShortAccumWidth, ShortAccumAlign;
@@ -239,7 +243,7 @@ protected:
   mutable VersionTuple PlatformMinVersion;
 
   unsigned HasAlignMac68kSupport : 1;
-  unsigned RealTypeUsesObjCFPRet : 3;
+  unsigned RealTypeUsesObjCFPRetMask : llvm::BitWidth<FloatModeKind>;
   unsigned ComplexLongDoubleUsesFP2Ret : 1;
 
   unsigned HasBuiltinMSVaList : 1;
@@ -486,6 +490,9 @@ public:
   /// 'unsigned long long' for this target, in bits.
   unsigned getLongLongWidth() const { return LongLongWidth; }
   unsigned getLongLongAlign() const { return LongLongAlign; }
+
+  /// getInt128Align() - Returns the alignment of Int128.
+  unsigned getInt128Align() const { return Int128Align; }
 
   /// getShortAccumWidth/Align - Return the size of 'signed short _Accum' and
   /// 'unsigned short _Accum' for this target, in bits.
@@ -908,7 +915,7 @@ public:
   /// Check whether the given real type should use the "fpret" flavor of
   /// Objective-C message passing on this target.
   bool useObjCFPRetForRealType(FloatModeKind T) const {
-    return RealTypeUsesObjCFPRet & (1 << (int)T);
+    return (int)((FloatModeKind)RealTypeUsesObjCFPRetMask & T);
   }
 
   /// Check whether _Complex long double should use the "fp2ret" flavor
@@ -924,6 +931,8 @@ public:
   virtual bool useFP16ConversionIntrinsics() const {
     return true;
   }
+
+  virtual bool shouldEmitFloat16WithExcessPrecision() const { return false; }
 
   /// Specify if mangling based on address space map should be used or
   /// not for language specific address spaces
@@ -1375,7 +1384,9 @@ public:
   bool supportsMultiVersioning() const { return getTriple().isX86(); }
 
   /// Identify whether this target supports IFuncs.
-  bool supportsIFunc() const { return getTriple().isOSBinFormatELF(); }
+  bool supportsIFunc() const {
+    return getTriple().isOSBinFormatELF() && !getTriple().isOSFuchsia();
+  }
 
   // Validate the contents of the __builtin_cpu_supports(const char*)
   // argument.

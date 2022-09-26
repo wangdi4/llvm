@@ -1,4 +1,21 @@
 //===- CoroCleanup.cpp - Coroutine Cleanup Pass ---------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -112,8 +129,8 @@ static bool declaresCoroCleanupIntrinsics(const Module &M) {
   return coro::declaresIntrinsics(
       M, {"llvm.coro.alloc", "llvm.coro.begin", "llvm.coro.subfn.addr",
           "llvm.coro.free", "llvm.coro.id", "llvm.coro.id.retcon",
-          "llvm.coro.id.retcon.once", "llvm.coro.async.size.replace",
-          "llvm.coro.async.resume"});
+          "llvm.coro.id.async", "llvm.coro.id.retcon.once",
+          "llvm.coro.async.size.replace", "llvm.coro.async.resume"});
 }
 
 PreservedAnalyses CoroCleanupPass::run(Module &M,
@@ -134,43 +151,3 @@ PreservedAnalyses CoroCleanupPass::run(Module &M,
 
   return PreservedAnalyses::none();
 }
-
-#if INTEL_CUSTOMIZATION
-namespace {
-
-struct CoroCleanupLegacy : FunctionPass {
-  static char ID; // Pass identification, replacement for typeid
-
-  CoroCleanupLegacy() : FunctionPass(ID) {
-    initializeCoroCleanupLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  std::unique_ptr<Lowerer> L;
-
-  // This pass has work to do only if we find intrinsics we are going to lower
-  // in the module.
-  bool doInitialization(Module &M) override {
-    if (declaresCoroCleanupIntrinsics(M))
-      L = std::make_unique<Lowerer>(M);
-    return false;
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (L)
-      return L->lower(F);
-    return false;
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    if (!L)
-      AU.setPreservesAll();
-  }
-  StringRef getPassName() const override { return "Coroutine Cleanup"; }
-};
-}
-
-char CoroCleanupLegacy::ID = 0;
-INITIALIZE_PASS(CoroCleanupLegacy, "coro-cleanup",
-                "Lower all coroutine related intrinsics", false, false)
-
-Pass *llvm::createCoroCleanupLegacyPass() { return new CoroCleanupLegacy(); }
-#endif // INTEL_CUSTOMIZATION

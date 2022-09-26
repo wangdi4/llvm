@@ -13,9 +13,9 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -24,7 +24,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 
-using namespace llvm::NameMangleAPI;
+using namespace llvm;
+using namespace NameMangleAPI;
 
 namespace llvm {
 
@@ -175,7 +176,7 @@ const StringRef NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX =
     "sub_group_insert_rowslice_to_matrix";
 } // namespace
 
-static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
+static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info", cl::Hidden,
                                             cl::desc("Builtin VectInfo list"),
                                             cl::value_desc("filename"));
 
@@ -345,7 +346,6 @@ bool isGlobalOffset(StringRef S) {
 }
 
 StringRef nameGetBaseGID() { return NAME_GET_BASE_GID; }
-
 bool isGetSpecialBuffer(StringRef S) { return S == NAME_GET_SPECIAL_BUFFER; }
 
 bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
@@ -601,6 +601,8 @@ std::string getPipeName(PipeKind Kind) {
   return Name;
 }
 
+bool isPipeBuiltin(StringRef Name) { return getPipeKind(Name); }
+
 Type *getArrayElementType(const ArrayType *ArrTy) {
   Type *ElemTy = ArrTy->getElementType();
   while (auto *InnerArrayTy = dyn_cast<ArrayType>(ElemTy))
@@ -719,7 +721,7 @@ std::string appendWorkGroupFinalizePrefix(StringRef S) {
 }
 
 std::string removeWorkGroupFinalizePrefix(StringRef S) {
-  assert(hasWorkGroupFinalizePrefix(S) && "expected finilize prefix");
+  assert(hasWorkGroupFinalizePrefix(S) && "expected finalize prefix");
   reflection::FunctionDescriptor FD = demangle(S);
   FD.Name = FD.Name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
   std::string FuncName = mangle(FD);
@@ -1317,7 +1319,7 @@ static void replaceScalarKernelInMetadata(Function *ScalarFunc,
   std::string ScalarFuncName = ScalarFunc->getName().str();
   assert(ScalarFuncName.find(Suffix.str()) == std::string::npos &&
          "Invalid scalar function name having suffix!");
-  assert(!VectorVariant::isVectorVariant(ScalarFuncName) &&
+  assert(!VFInfo::isVectorVariant(ScalarFuncName) &&
          "Expect scalar function but it's vector variant.");
   std::string ScalarFuncNameWithSuffix =
       addSuffixInFunctionName(ScalarFuncName, Suffix);
@@ -1340,16 +1342,15 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
   std::string NewFName = NewF->getName().str();
   assert(NewFName.find(Suffix.str()) == std::string::npos &&
          "Invalid vectorized function name having suffix!");
-  assert(VectorVariant::isVectorVariant(NewFName) &&
-         "Expect vector variant but it's not.");
 
-  VectorVariant Variant(NewFName);
-  std::string ScalarFuncName = Variant.getBaseName();
-  Function *ScalarFunc = NewF->getParent()->getFunction(ScalarFuncName);
+  Optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
+  assert(Variant.hasValue() && "Expect vector variant but it's not.");
+
+  Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);
   if (ScalarFunc == nullptr)
     return;
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
-  if (!Variant.isMasked()) {
+  if (!Variant->isMasked()) {
     if (KIMD.VectorizedKernel.hasValue()) {
       assert(KIMD.VectorizedKernel.get() == OldF &&
              "Invalid vectorized masked function!");
@@ -1444,7 +1445,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // with original name of F function (now it's name of NewF function) with NewF
   // function name in the metadata for vectorized kernel, masked kernel and
   // scalar kernel
-  if (VectorVariant::isVectorVariant(NewF->getName().str()))
+  if (VFInfo::isVectorVariant(NewF->getName().str()))
     replaceVectorizedKernelInMetadata(F, NewF, Suffix);
   else
     replaceScalarKernelInMetadata(NewF, Suffix);
@@ -1630,7 +1631,6 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
   if (!UseTLSGlobals)
     ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
 
-  unsigned int LocalMemCount = 0;
   unsigned int CurrentOffset = 0;
   Function::arg_iterator arg_it = F->arg_begin();
   for (unsigned i = 0; i < ArgsCount; ++i) {
@@ -1794,7 +1794,6 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
         break;
       case 3: // Local Address space
         CurArg.Ty = KRNL_ARG_PTR_LOCAL;
-        ++LocalMemCount;
         break;
 
       default:
@@ -2025,18 +2024,14 @@ static void pushSGBlockBuiltinDivergentVectInfo(
       reflection::width::NONE};
   std::string VectorMangleName = NameMangleAPI::mangle(VectorFunc);
 
-  // Get vector variant string repr
-  llvm::VectorVariant Variant{
-      llvm::VectorVariant::ISAClass::XMM,
-      true,
-      VF,
-      std::vector<VectorKind>(v_num, VectorKind::vector()),
-      ScalarMangleName,
-      VectorMangleName};
+  std::vector<llvm::VFParamKind> ParamKinds(v_num, llvm::VFParamKind::Vector);
+
+  auto Variant = VFInfo::get(llvm::VFISAKind::SSE, true, VF, ParamKinds,
+                             ScalarMangleName, VectorMangleName);
 
   ExtendedVectInfos.push_back({ScalarMangleName,
                                std::string(KernelAttribute::CallOnce),
-                               Variant.toString()});
+                               std::move(Variant.FullName)});
 }
 
 static void pushSGBlockBuiltinDivergentVectInfo(
@@ -2694,6 +2689,107 @@ void patchNotInlinedTIDUserFunc(
   // Erase the functions since they're replaced with the ones patched.
   for (Function *OldF : FuncsToPatch)
     OldF->eraseFromParent();
+}
+
+bool getDebugFlagFromMetadata(Module *M) {
+  if (llvm::NamedMDNode *CompileOptsNamed =
+          M->getNamedMetadata("opencl.compiler.options")) {
+
+    llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
+        cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
+
+    for (llvm::MDString *Opt : CompileOpts) {
+      if (Opt->getString() == "-g") {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool hasFDivWithFastFlag(Module *M) {
+  for (Function &F : *M)
+    for (BasicBlock &B : F)
+      for (Instruction &I : B)
+        if (I.getOpcode() == Instruction::FDiv && I.isFast())
+          return true;
+
+  return false;
+}
+
+const char *ImageTypeNames[] = {"opencl.image1d_ro_t",
+                                "opencl.image1d_array_ro_t",
+                                "opencl.image1d_wo_t",
+                                "opencl.image1d_array_wo_t",
+                                "opencl.image1d_rw_t",
+                                "opencl.image1d_array_rw_t",
+                                "opencl.image2d_ro_t",
+                                "opencl.image1d_buffer_ro_t",
+                                "opencl.image2d_wo_t",
+                                "opencl.image1d_buffer_wo_t",
+                                "opencl.image2d_rw_t",
+                                "opencl.image1d_buffer_rw_t",
+                                "opencl.image2d_array_ro_t",
+                                "opencl.image2d_depth_ro_t",
+                                "opencl.image2d_array_wo_t",
+                                "opencl.image2d_depth_wo_t",
+                                "opencl.image2d_array_rw_t",
+                                "opencl.image2d_depth_rw_t",
+                                "opencl.image2d_array_depth_ro_t",
+                                "opencl.image2d_msaa_ro_t",
+                                "opencl.image2d_array_depth_wo_t",
+                                "opencl.image2d_msaa_wo_t",
+                                "opencl.image2d_array_depth_rw_t",
+                                "opencl.image2d_msaa_rw_t",
+                                "opencl.image2d_array_msaa_ro_t",
+                                "opencl.image2d_msaa_depth_ro_t",
+                                "opencl.image2d_array_msaa_wo_t",
+                                "opencl.image2d_msaa_depth_wo_t",
+                                "opencl.image2d_array_msaa_rw_t",
+                                "opencl.image2d_msaa_depth_rw_t",
+                                "opencl.image2d_array_msaa_depth_ro_t",
+                                "opencl.image3d_ro_t",
+                                "opencl.image2d_array_msaa_depth_wo_t",
+                                "opencl.image3d_wo_t",
+                                "opencl.image2d_array_msaa_depth_rw_t",
+                                "opencl.image3d_rw_t"};
+
+bool isImagesUsed(const Module &M) {
+  for (unsigned i = 0, e = sizeof(ImageTypeNames) / sizeof(ImageTypeNames[0]);
+       i < e; ++i) {
+    if (StructType::getTypeByName(M.getContext(), ImageTypeNames[i]))
+      return true;
+  }
+
+  return false;
+}
+
+bool getOptDisableFlagFromMetadata(Module *M) {
+  if (NamedMDNode *CompileOptsNamed =
+          M->getNamedMetadata("opencl.compiler.options")) {
+
+    MDTupleTypedArrayWrapper<MDString> CompileOpts(
+        cast<MDTuple>(CompileOptsNamed->getOperand(0)));
+
+    for (MDString *Opt : CompileOpts) {
+      if (Opt->getString() == "-cl-opt-disable") {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool isBlockInvocationKernel(Function *F) {
+  // TODO: Is there a better way to detect block invoke kernel?
+  // And can this be replaced with the same function in BlockUtils.cpp?
+  if (F->getName().contains("_block_invoke_") &&
+      F->getName().endswith("_kernel_separated_args"))
+    return true;
+
+  return false;
 }
 
 } // end namespace CompilationUtils

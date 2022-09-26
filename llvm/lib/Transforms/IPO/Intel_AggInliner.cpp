@@ -1,6 +1,6 @@
 //===--------------- Intel_AggInliner.cpp --------------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -423,13 +423,15 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
     if (F.isDeclaration() || F.isIntrinsic())
       continue;
 
-    const StringRef FName = F.getName();
+    StringRef FName = F.getName();
     // Instead of using general isMainEntryPoint/getMainFunction to allow
     // multiple variants of “main”, allowing only “main” variant for now.
     // “norecurse” attribute is checked for all routines including “main”.
     // Currently, “norecurse” attribute is set for only “main” variant. Skip
     // unused functions besides "main" since we already checked for
     // WholeProgramSafe.
+    if (F.hasMetadata("llvm.acd.clone"))
+      FName = FName.take_front(FName.find('.'));
     if (FName != "main" && F.hasNUses(0))
       continue;
 
@@ -578,7 +580,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
       if (isa<DbgInfoIntrinsic>(&I))
         continue;
       if (auto *Call = dyn_cast<CallBase>(&I))
-        if (!isFreeCall(Call, &TLI))
+        if (!getFreedOperand(Call, &TLI))
           return false;
     }
     return true;

@@ -15,6 +15,19 @@
 include "GENERIC/code_conversion.td"
 include "GENERIC/code_conversion_sat_common.td"
 include "GENERIC/code_expand_promote_common.td"
+include "GENERIC/code_float_common.td"
 include "GENERIC/code_integer_common.td"
 include "GENERIC/code_math.td"
 include "GENERIC/code_relational.td"
+
+defvar ret_zero_code = [{
+  return 0;
+}];
+
+defvar ret_void_code = [{
+  return;
+}];
+
+defvar ret_arg0_code = [{
+  return $Arg0VarName;
+}];

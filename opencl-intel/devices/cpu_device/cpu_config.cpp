@@ -11,6 +11,7 @@
 // License.
 
 #include "cpu_config.h"
+#include "cl_env.h"
 #include "ocl_supported_extensions.h"
 #include "opencl_c_features.h"
 
@@ -107,8 +108,6 @@ VectorizerType CPUDeviceConfig::GetVectorizerType() const
 
     if ("vpo" == VType) {
         return VPO_VECTORIZER;
-    } else if ("volcano" == VType) {
-        return VOLCANO_VECTORIZER;
     }
     return DEFAULT_VECTORIZER;
 }
@@ -132,9 +131,13 @@ bool CPUDeviceConfig::IsSpirSupported() const
     return true;
 }
 
+bool CPUDeviceConfig::IsHalfSupported() const {
+  std::string Env;
+  return Intel::OpenCL::Utils::getEnvVar(Env,
+                                         "CL_CONFIG_CPU_EXPERIMENTAL_FP16");
+}
+
 bool CPUDeviceConfig::IsDoubleSupported() const {
-  if (EYEQ_EMU_DEVICE == GetDeviceMode())
-    return false;
   // Keep original logic
   // disabled on Atom
   if (BRAND_INTEL_ATOM == CPUDetect::GetInstance()->GetHostCPUBrandFamily())
@@ -176,9 +179,9 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
     m_extensions.reserve(48);
 
 #define GET_EXT_VER(name, major, minor, patch)                                 \
-    m_extensionsName.append(std::string(name) + std::string(" "));             \
-    m_extensions.emplace_back(                                                 \
-        cl_name_version{CL_MAKE_VERSION(major, minor, patch), name})
+  (m_extensionsName.append(std::string(name) + std::string(" ")),              \
+   m_extensions.emplace_back(                                                  \
+       cl_name_version{CL_MAKE_VERSION(major, minor, patch), name}))
 
     GET_EXT_VER(OCL_EXT_KHR_SPIRV_LINKONCE_ODR, 1, 0, 0);
 
@@ -193,20 +196,6 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
         GET_EXT_VER(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
         GET_EXT_VER(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
         GET_EXT_VER(OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, 1, 0, 0);
-
-        return m_extensions;
-    }
-
-    if (EYEQ_EMU_DEVICE == GetDeviceMode())
-    {
-        GET_EXT_VER(OCL_EXT_KHR_ICD, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_BASE_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_INTEL_MEM_CHANNEL_PROPERTY, 1, 0, 0);
 
         return m_extensions;
     }
@@ -253,23 +242,27 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
   GET_EXT_VER(OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD, 1, 0, 0);
   GET_EXT_VER(OCL_EXT_INTEL_VEC_LEN_HINT, 1, 0, 0);
 #ifndef _WIN32
-    GET_EXT_VER(OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES, 1, 0, 0);
+  GET_EXT_VER(OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES, 1, 0, 0);
 #endif
-    // SPIR extension
-    if (IsSpirSupported())
-        GET_EXT_VER(OCL_EXT_KHR_SPIR, 1, 0, 0);
+  // SPIR extension
+  if (IsSpirSupported())
+    GET_EXT_VER(OCL_EXT_KHR_SPIR, 1, 0, 0);
 
-    // double floating point extension
-    if (IsDoubleSupported())
-        GET_EXT_VER(OCL_EXT_KHR_FP64, 1, 0, 0);
+  // double floating point extension
+  if (IsDoubleSupported())
+    GET_EXT_VER(OCL_EXT_KHR_FP64, 1, 0, 0);
 
-    // OpenCL 2.0 extensions
-    if (OPENCL_VERSION_2_0 <= GetOpenCLVersion())
-        GET_EXT_VER(OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, 1, 0, 0);
+  // half floating point extension
+  if (IsHalfSupported())
+    GET_EXT_VER(OCL_EXT_KHR_FP16, 1, 0, 0);
+
+  // OpenCL 2.0 extensions
+  if (OPENCL_VERSION_2_0 <= GetOpenCLVersion())
+    GET_EXT_VER(OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, 1, 0, 0);
 
 #undef GET_EXT_VER
 
-    return m_extensions;
+  return m_extensions;
 }
 
 const std::vector<cl_name_version>&

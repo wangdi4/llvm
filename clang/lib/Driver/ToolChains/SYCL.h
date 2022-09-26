@@ -120,6 +120,18 @@ public:
                     const InputInfo &Output, const InputInfoList &Inputs,
                     const llvm::opt::ArgList &TCArgs,
                     const char *LinkingOutput) const override;
+#if INTEL_CUSTOMIZATION
+private:
+  void constructOclocConcatCommand(Compilation &C, const JobAction &JA,
+                                   const InputInfo &Output,
+                                   const InputInfoList &Inputs,
+                                   llvm::StringRef BaseDir) const;
+  void constructOclocCommand(Compilation &C, const JobAction &JA,
+                             const InputInfo &Output,
+                             const InputInfoList &Inputs,
+                             const llvm::opt::ArgStringList &Args,
+                             llvm::StringRef BaseDir) const;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace gen
@@ -178,7 +190,7 @@ public:
 
   bool useIntegratedAs() const override { return true; }
   bool isPICDefault() const override { return false; }
-  bool isPIEDefault(const llvm::opt::ArgList &Args) const override {\
+  bool isPIEDefault(const llvm::opt::ArgList &Args) const override {
     return false;
   }
   bool isPICDefaultForced() const override { return false; }
@@ -198,9 +210,7 @@ public:
       const llvm::opt::ArgList &Args,
       llvm::opt::ArgStringList &CC1Args) const override;
 
-
   const ToolChain &HostTC;
-  const SYCLInstallationDetector SYCLInstallation;
 
 protected:
   Tool *buildBackendCompiler() const override;

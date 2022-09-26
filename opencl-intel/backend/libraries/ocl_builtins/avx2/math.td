@@ -1,4 +1,14 @@
-// vim:ts=2:sw=2:et:
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // AVX2 math implementation
@@ -10,11 +20,8 @@
 
 defvar v32v64FTypes = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
 defvar v32v64F32Types = ExpandTypesByVFAndFlatten<[v1f32], [32, 64]>.Tout;
-defvar v32v64F16Types = ExpandTypesByVFAndFlatten<[v1f16], [32, 64]>.Tout;
 
 OclBuiltinImpl copysign_v32v64_impl = OclBuiltinImpl<copysign, v32v64FTypes, 0, copysign_code>;
-
-OclBuiltinImpl fabs_v32v64_impl = OclBuiltinImpl<fabs, v32v64FTypes # v32v64F16Types, 0, fabs_code>;
 
 OclBuiltinImpl fdim_v32v64_impl = OclBuiltinImpl<fdim, v32v64FTypes, 0, fdim_code_vec>;
 
@@ -45,8 +52,6 @@ OclBuiltinImpl mad_v32v64_impl = OclBuiltinImpl<mad, v32v64FTypes, 0, mad_code>;
 OclBuiltinImpl maxmag_v32v64_impl = OclBuiltinImpl<maxmag, v32v64FTypes, 0, maxmag_code>;
 
 OclBuiltinImpl minmag_v32v64_impl = OclBuiltinImpl<minmag, v32v64FTypes, 0, minmag_code>;
-
-OclBuiltinImpl nan_v32v64_impl = OclBuiltinImpl<nan, v32v64FTypes, 0, nan_code>;
 
 OclBuiltinImpl native_fdim_impl = OclBuiltinImpl<native_fdim, v32v64FTypes, 0, native_fdim_code>;
 

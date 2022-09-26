@@ -118,6 +118,7 @@ class OpenMPLateOutliner {
     bool IV = false;
     bool Typed = false;
     bool Fptr = false;
+    bool VarLen = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -170,6 +171,8 @@ class OpenMPLateOutliner {
         addSeparated("TYPED");
       if (Fptr)
         addSeparated("FPTR");
+      if (VarLen)
+        addSeparated("VARLEN");
     }
 
   public:
@@ -197,6 +200,7 @@ class OpenMPLateOutliner {
     void setIV() { IV = true; }
     void setTyped() { Typed = true; }
     void setFptr() { Fptr = true; }
+    void setVarLen() { VarLen = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {
@@ -217,8 +221,6 @@ class OpenMPLateOutliner {
     ICK_inreduction,
     ICK_normalized_iv,
     ICK_normalized_ub,
-    // A firstprivate specified with an implicit OMPFirstprivateClause.
-    ICK_specified_firstprivate,
     ICK_livein,
     ICK_unknown
   };
@@ -276,8 +278,8 @@ class OpenMPLateOutliner {
 
   // Add an argument that is the result of emitting an Expr.
   void addArg(const Expr *E, bool IsRef = false, bool IsTyped = false,
-              bool NeedsTypedElements = true,
-              llvm::Type *ElementType = nullptr);
+              bool NeedsTypedElements = true, llvm::Type *ElementType = nullptr,
+              bool ArraySecUsesBase = true);
 
   // Add through the Expr with 'typed' arguments.
   void addTypedArg(const Expr *E, bool IsRef = false,
@@ -285,7 +287,8 @@ class OpenMPLateOutliner {
 
   void addFenceCalls(bool IsBegin);
   bool isAllowedClauseForDirectiveFull(OpenMPDirectiveKind DKind,
-                                       OpenMPClauseKind CK);
+                                       OpenMPClauseKind CK,
+                                       ImplicitClauseKind ICK);
   void getApplicableDirectives(OpenMPClauseKind CK,
                                ImplicitClauseKind ICK,
                                SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
@@ -362,6 +365,8 @@ class OpenMPLateOutliner {
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
+  void emitOMPOmpxMonotonicClause(const OMPOmpxMonotonicClause *);
+  void emitOMPOmpxOverlapClause(const OMPOmpxOverlapClause *);
   void emitOMPDataClause(const OMPDataClause *);
   void emitOMPFilterClause(const OMPFilterClause *);
   void emitOMPBindClause(const OMPBindClause *);
@@ -385,6 +390,7 @@ class OpenMPLateOutliner {
   void emitOMPNovariantsClause(const OMPNovariantsClause *);
   void emitOMPNocontextClause(const OMPNocontextClause *);
 #if INTEL_CUSTOMIZATION
+  void emitOMPOmpxAssertClause(const OMPOmpxAssertClause *);
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
 #endif // INTEL_FEATURE_CSA
@@ -393,6 +399,7 @@ class OpenMPLateOutliner {
   void emitOMPFullClause(const OMPFullClause *Cl);
   void emitOMPPartialClause(const OMPPartialClause *Cl);
   void emitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *Cl);
+  void emitOMPInteropClause(const OMPInteropClause *);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
                                             bool IsUDR = false);
@@ -444,7 +451,8 @@ class OpenMPLateOutliner {
     }
   };
   std::set<const VarDecl *, VarCompareTy> VarRefs;
-  llvm::DenseSet<const VarDecl *> FirstPrivateVars;
+  llvm::DenseSet<const VarDecl *> DispatchExplicitVars;
+  llvm::DenseSet<const VarDecl *> DependIteratorVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 #if INTEL_CUSTOMIZATION
   llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
@@ -476,6 +484,10 @@ public:
                                                            ".map.ptr.tmp");
       if (MT.second->getType()->isReferenceType())
         A.setRemovedReference();
+      if (auto *DI = CGF.getDebugInfo())
+        if (CGF.CGM.getCodeGenOpts().hasReducedDebugInfo())
+          (void)DI->EmitDeclareOfAutoVariable(MT.second, A.getPointer(),
+                                              CGF.Builder);
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
       CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
@@ -543,8 +555,22 @@ public:
   void emitImplicit(llvm::Value *V, llvm::Type *ElementType,
                     ImplicitClauseKind K, bool Handled = false);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
-  void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
-  void addFirstPrivateVars(const VarDecl *VD) { FirstPrivateVars.insert(VD); }
+  void addVariableRef(const VarDecl *VD) {
+    // Don't create references to iterator variables. These are
+    // handled with temps and Values instead.
+    if (DependIteratorVars.find(VD) != DependIteratorVars.end())
+      return;
+    VarRefs.insert(VD);
+  }
+  void addDispatchExplicitVar(const VarDecl *VD) {
+    DispatchExplicitVars.insert(VD);
+  }
+  void addDependIteratorVar(const VarDecl *VD) {
+    DependIteratorVars.insert(VD);
+  }
+  bool isDispatchExplicitVar(const VarDecl *VD) {
+    return DispatchExplicitVars.find(VD) != DispatchExplicitVars.end();
+  }
   void addValueDef(llvm::Value *V, llvm::Type *ElemTy) {
     llvm::WeakTrackingVH VH = V;
     DefinedValues.push_back({VH, ElemTy});
@@ -563,6 +589,15 @@ public:
       llvm::SmallVector<OpenMPClauseKind, 2> CKs = {CK};
       ExplicitRefs.insert({VD,CKs});
     }
+  }
+  bool isExplicitForIsDevicePtr(const VarDecl *V) {
+    const auto &It = ExplicitRefs.find(V);
+    if (It == ExplicitRefs.end())
+      return false;
+    for (auto &CK : (*It).second)
+      if (CK == llvm::omp::OMPC_is_device_ptr)
+        return true;
+    return false;
   }
   bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
   void setInsertPoint() {
@@ -691,8 +726,11 @@ public:
   void recordValueSuppression(llvm::Value *V) override {
     Outliner.addValueSuppress(V);
   }
-  void recordFirstPrivateVars(const VarDecl *VD) override {
-    Outliner.addFirstPrivateVars(VD);
+  void recordDispatchExplicitVar(const VarDecl *VD) override {
+    Outliner.addDispatchExplicitVar(VD);
+  }
+  void recordDependIteratorVar(const VarDecl *VD) override {
+    Outliner.addDependIteratorVar(VD);
   }
   bool inTargetVariantDispatchRegion() override {
     return Outliner.getCurrentDirectiveKind() ==
@@ -700,6 +738,14 @@ public:
   }
   bool inDispatchRegion() override {
     return Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_dispatch;
+  }
+
+  bool inNestedTargetConstruct() override {
+    if (Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_target)
+      return true;
+    if (!OldCSI)
+      return false;
+    return OldCSI->inNestedTargetConstruct();
   }
 
   void enterTryStmt() override { ++TryStmts; }

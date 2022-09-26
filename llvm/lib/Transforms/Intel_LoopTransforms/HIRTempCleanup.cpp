@@ -188,9 +188,15 @@ public:
   }
 
   unsigned getSymbase() const { return getDDRef()->getSymbase(); }
-  unsigned getRvalSymbase() const {
+
+  unsigned getRvalTempSymbase() const {
     assert(!isLoad() && "Attempt to access load temp's rval symbase!");
     return DefInst->getBlobUtils().getTempBlobSymbase(getRvalBlobIndex());
+  }
+
+  unsigned getLoadSymbase() const {
+    assert(isLoad() && "Please use getRvalTempSymbase() instead!");
+    return getRvalDDRef()->getSymbase();
   }
 
   // Replaces liveout temp by its copy in the Node represented by \p UseRef. It
@@ -356,15 +362,30 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   // Blob could have been propagated to the temp lval by parser. Replace
   // it there as well.
   if (LvalRef && LvalRef->isTerminalRef()) {
-    LvalRef->replaceTempBlob(LvalBlobIndex, RvalBlobIndex);
-    LvalRef->makeConsistent();
+    unsigned UseLvalBlobIndex =
+        LvalRef->getBlobUtils().findTempBlobIndex(LvalRef->getSymbase());
+
+    // Do not allow recursive definitions like the following as they don't make
+    // sense:
+    //
+    // t1 = smax(t1, t2);
+    // <LVAL-REG>: NON-LINEAR i32 smax(t1, t2)
+    //
+    // Instead we make t1 a self blob.
+    if (UseLvalBlobIndex == RvalBlobIndex) {
+      LvalRef->makeSelfBlob();
+
+    } else {
+      LvalRef->replaceTempBlob(LvalBlobIndex, RvalBlobIndex);
+      LvalRef->makeConsistent();
+    }
   }
 
   // Replace lval symbase by rval symbase as livein.
   auto *DefLoop = getDefLoop();
   auto *UseLoop = isa<HLLoop>(UseNode) ? cast<HLLoop>(UseNode)
                                        : UseRef->getLexicalParentLoop();
-  unsigned RvalSymbase = getRvalSymbase();
+  unsigned RvalSymbase = getRvalTempSymbase();
   unsigned LvalSymbase = getSymbase();
 
   auto LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
@@ -594,7 +615,6 @@ class TempSubstituter final : public HLNodeVisitorBase {
   HIRFramework *HIRF;
   SmallPtrSet<HLInst *, 8> MovedRvalDefs;
   SmallVector<TempInfo, 32> CandidateTemps;
-  bool SIMDDirSeen;
   bool HasEmptyNodes;
 
 private:
@@ -624,7 +644,7 @@ private:
 
 public:
   TempSubstituter(HIRFramework *HIRF)
-      : HIRF(HIRF), SIMDDirSeen(false), HasEmptyNodes(false) {}
+      : HIRF(HIRF), HasEmptyNodes(false) {}
 
   /// Adds/updates temp candidates.
   void visit(HLInst *Inst);
@@ -784,10 +804,19 @@ void TempSubstituter::visit(HLDDNode *Node) {
 void TempSubstituter::updateTempCandidates(HLInst *HInst) {
 
   bool InvalidateLoads = false;
-  auto Inst = HInst->getLLVMInstruction();
+  bool InvalidateAliasingLoadsOnly = false;
+  auto *Inst = HInst->getLLVMInstruction();
+  auto *Call = dyn_cast<CallInst>(Inst);
 
   if (Inst->mayWriteToMemory()) {
-    InvalidateLoads = true;
+    assert((Call || isa<StoreInst>(Inst)) &&
+           "Unexpected instruction which writes to memory!");
+
+    if (!Call || !Call->onlyAccessesInaccessibleMemory()) {
+      InvalidateLoads = true;
+    }
+
+    InvalidateAliasingLoadsOnly = (!Call || Call->onlyAccessesArgMemory());
   }
 
   unsigned LvalBlobIndex = HInst->getLvalBlobIndex();
@@ -803,7 +832,28 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
     }
 
     if (InvalidateLoads && Temp.isLoad()) {
-      Temp.markNonSubstitutableOrInvalid(HInst);
+
+      if (InvalidateAliasingLoadsOnly) {
+        unsigned LoadSB = Temp.getLoadSymbase();
+
+        if (!Call) {
+          if (HInst->getLvalDDRef()->getSymbase() == LoadSB) {
+            Temp.markNonSubstitutableOrInvalid(HInst);
+          }
+        } else {
+          for (auto *FakeMemRef :
+               make_range(HInst->fake_ddref_begin(), HInst->fake_ddref_end())) {
+            if (FakeMemRef->isLval() && (FakeMemRef->getSymbase() == LoadSB)) {
+              Temp.markNonSubstitutableOrInvalid(HInst);
+              break;
+            }
+          }
+        }
+
+      } else {
+        Temp.markNonSubstitutableOrInvalid(HInst);
+      }
+
       continue;
     }
 
@@ -828,7 +878,7 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
           auto LCALoop =
               HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, TempLoop);
 
-          auto NewSymbase = Temp.getRvalSymbase();
+          auto NewSymbase = Temp.getRvalTempSymbase();
 
           while (TempLoop != LCALoop) {
             TempLoop->addLiveOutTemp(NewSymbase);
@@ -893,10 +943,6 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
 }
 
 void TempSubstituter::visit(HLInst *HInst) {
-  if (HInst->isSIMDDirective()) {
-    SIMDDirSeen = true;
-  }
-
   // 1. Visit the DDRefs of the instruction for substitution opportunity.
   visit(cast<HLDDNode>(HInst));
 
@@ -931,15 +977,6 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
     auto Parent = Temp.getDefInst()->getParent();
 
     if (Temp.isLoad()) {
-      // Suppress temp substitution for regions with simd loops as explicit
-      // reduction recognition fails otherwise. This is a workaround until
-      // we can change explicit reduction recognition to work without relying
-      // on underlying LLVM IR. Since temp cleanup is run currently at start
-      // of HIR framework pass, we only bail out for explicit SIMD cases.
-      if (SIMDDirSeen) {
-        continue;
-      }
-
       // Load temp is substituted once we have traversed the entire region and
       // determined that it has a single use.
       Temp.substituteInUseRef(MovedRvalDefs);
@@ -949,7 +986,7 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       Temp.processInnerLoopUses(nullptr);
 
       unsigned Symbase = Temp.getSymbase();
-      unsigned NewSymbase = Temp.getRvalSymbase();
+      unsigned NewSymbase = Temp.getRvalTempSymbase();
       HLLoop *ParentLoop = Temp.getDefLoop();
       HLLoop *LCALoop = nullptr;
       bool SkipLiveouts = false;
@@ -1009,7 +1046,6 @@ void TempSubstituter::substituteTemps(HLRegion *Reg) {
   }
 
   // Restore flags.
-  SIMDDirSeen = false;
   HasEmptyNodes = false;
 }
 

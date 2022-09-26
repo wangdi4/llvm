@@ -544,12 +544,10 @@ OclBuiltinImpl sse42_cvt_f32_u8u16 = OclBuiltinImpl<convert_f32,
   }]>;
 
 OclBuiltinImpl sse42_cvt_f32_i32_promote = OclBuiltinImpl<convert_f32, [v1i32], 0, Promote_default>;
-  
+
 OclBuiltinImpl sse42_cvt_v4f32_v4i32 = OclBuiltinImpl<convert_f32,[v4i32], 0, [{
     return as_$ReturnType(_mm_cvtepi32_ps( __builtin_astype($Arg0VarName,__m128i)));
   }]>;
-  
-OclBuiltinImpl sse42_cvt_f32_i32_i64_expand = OclBuiltinImpl<convert_f32,[v16i32], 0, Expand_default>;
 
 OclBuiltinImpl sse42_cvt_v1f32_v1u32 = OclBuiltinImpl<convert_f32, [v1u32], 0, [{
     int tlo, thi;
@@ -570,8 +568,6 @@ OclBuiltinImpl sse42_cvt_v4f32_v4u32 = OclBuiltinImpl<convert_f32,[v4u32, v8u32]
     fhi = convert_$ReturnType(thi);
     return mad(($ReturnType)65536.0f, fhi, flo);
   }]>;
-
-OclBuiltinImpl sse42_cvt_f32_u32_u64_expand = OclBuiltinImpl<convert_f32,[v16u32], 0, Expand_default>;
 
 OclBuiltinImpl sse42_cvt_f32_i64 = OclBuiltinImpl<convert_f32,
                                             [v1i64, v4i64], 0, [{

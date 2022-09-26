@@ -4,15 +4,10 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIRCHECK
-;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate issue with VLS group cost being applied twice to stores in
 ; the group. This happens the first time when we see a new store group. The
@@ -30,9 +25,9 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB0]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 100, UF = 1
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 100, UF = 1
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB1]]: base cost: 0
 ; CMCHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 0
@@ -42,17 +37,16 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[ARR0:%.*]] i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 12 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*(-12) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
-; CMCHECK-NEXT:    Cost 12 for i64 [[VP4:%.*]] = mul i64 2 i64 [[VP0]]
-; CMCHECK-NEXT:    Cost 2 for i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP5:%.*]] = add i64 [[VP2]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[ARR0]] i64 [[VP5]]
 ; CMCHECK-NEXT:    Cost 12 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*(+8) AdjCost: 20
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 8 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 58
-; CMCHECK-NEXT:  Base Cost: 58
+; CMCHECK-NEXT:  [[BB2]]: base cost: 46
+; CMCHECK-NEXT:  Base Cost: 46
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB3]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]

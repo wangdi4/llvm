@@ -12,10 +12,8 @@
 ;     return s;
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-print-after-vpentity-instrs -vplan-enable-inmemory-entities -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -72,11 +70,13 @@ define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP_SRED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = mul i32 [[VP_LOAD]] i32 [[VP10]]
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP11]] i32 [[VP6]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_S]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP_S]]
+; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i32 [[VP9]] i32 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -106,7 +106,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.114, label %omp.precond.end
 
 DIR.OMP.SIMD.114:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
   %ptr.addr.promoted = load i32*, i32** %ptr.addr, align 8, !tbaa !2
   %c.promoted = load i8, i8* %c, align 1, !tbaa !8
   %.pre = load i32, i32* %s, align 4, !tbaa !6
@@ -188,11 +188,13 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP_SRED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = mul i32 [[VP_LOAD]] i32 [[VP10]]
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP11]] i32 [[VP6]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_S]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP_S]]
+; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i32 [[VP9]] i32 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -225,7 +227,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.114, label %omp.precond.end
 
 DIR.OMP.SIMD.114:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
   %ptr.addr.promoted = load i32*, i32** %ptr.addr, align 8, !tbaa !2
   %c.promoted = load i8, i8* %c, align 1, !tbaa !8
   %.pre = load i32, i32* %s, align 4, !tbaa !6

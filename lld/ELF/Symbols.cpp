@@ -281,8 +281,8 @@ void Symbol::extract() const {
 }
 
 uint8_t Symbol::computeBinding() const {
-  if ((visibility != STV_DEFAULT && visibility != STV_PROTECTED) ||
-      versionId == VER_NDX_LOCAL)
+  auto v = visibility();
+  if ((v != STV_DEFAULT && v != STV_PROTECTED) || versionId == VER_NDX_LOCAL)
     return STB_LOCAL;
   if (binding == STB_GNU_UNIQUE && !config->gnuUnique)
     return STB_GLOBAL;
@@ -321,7 +321,7 @@ void elf::printTraceSymbol(const Symbol &sym, StringRef name) {
 
 static void recordWhyExtract(const InputFile *reference,
                              const InputFile &extracted, const Symbol &sym) {
-  driver->whyExtract.emplace_back(toString(reference), &extracted, sym);
+  ctx->whyExtractRecords.emplace_back(toString(reference), &extracted, sym);
 }
 
 void elf::maybeWarnUnorderableSymbol(const Symbol *sym) {
@@ -361,7 +361,7 @@ bool elf::computeIsPreemptible(const Symbol &sym) {
 
   // Only symbols with default visibility that appear in dynsym can be
   // preempted. Symbols with protected visibility cannot be preempted.
-  if (!sym.includeInDynsym() || sym.visibility != STV_DEFAULT)
+  if (!sym.includeInDynsym() || sym.visibility() != STV_DEFAULT)
     return false;
 
   // At this point copy relocations have not been created yet, so any
@@ -384,14 +384,6 @@ bool elf::computeIsPreemptible(const Symbol &sym) {
   return true;
 }
 
-static uint8_t getMinVisibility(uint8_t va, uint8_t vb) {
-  if (va == STV_DEFAULT)
-    return vb;
-  if (vb == STV_DEFAULT)
-    return va;
-  return std::min(va, vb);
-}
-
 // Merge symbol properties.
 //
 // When we have many symbols of the same name, we choose one of them,
@@ -402,8 +394,10 @@ void Symbol::mergeProperties(const Symbol &other) {
     exportDynamic = true;
 
   // DSO symbols do not affect visibility in the output.
-  if (!other.isShared())
-    visibility = getMinVisibility(visibility, other.visibility);
+  if (!other.isShared() && other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+  }
 }
 
 #if INTEL_CUSTOMIZATION
@@ -445,7 +439,7 @@ void Symbol::resolveUndefined(const Undefined &other) {
   //
   // If this is a non-weak defined symbol in a discarded section, override the
   // existing undefined symbol for better error message later.
-  if ((isShared() && other.visibility != STV_DEFAULT) ||
+  if ((isShared() && other.visibility() != STV_DEFAULT) ||
       (isUndefined() && other.binding != STB_WEAK && other.discardedSecIdx)) {
     replace(other);
     return;
@@ -529,8 +523,8 @@ void Symbol::resolveUndefined(const Undefined &other) {
     // definition. this->file needs to be saved because in the case of LTO it
     // may be reset to nullptr or be replaced with a file named lto.tmp.
     if (backref && !isWeak())
-      driver->backwardReferences.try_emplace(this,
-                                             std::make_pair(other.file, file));
+      ctx->backwardReferences.try_emplace(this,
+                                          std::make_pair(other.file, file));
     return;
   }
 
@@ -755,7 +749,7 @@ void Symbol::resolveLazy(const LazyObject &other) {
   // should be extracted as the canonical definition instead.
   if (LLVM_UNLIKELY(isCommon()) && elf::config->fortranCommon &&
       other.file->shouldExtractForCommon(getName())) {
-    driver->backwardReferences.erase(this);
+    ctx->backwardReferences.erase(this);
     replace(other);
     other.extract();
     return;
@@ -764,7 +758,7 @@ void Symbol::resolveLazy(const LazyObject &other) {
   if (!isUndefined()) {
     // See the comment in resolveUndefined().
     if (isDefined())
-      driver->backwardReferences.erase(this);
+      ctx->backwardReferences.erase(this);
     return;
   }
 
@@ -791,7 +785,7 @@ void Symbol::resolveShared(const SharedSymbol &other) {
       cast<CommonSymbol>(this)->size = other.size;
     return;
   }
-  if (visibility == STV_DEFAULT && (isUndefined() || isLazy())) {
+  if (visibility() == STV_DEFAULT && (isUndefined() || isLazy())) {
     // An undefined symbol with non default visibility must be satisfied
     // in the same DSO.
     uint8_t bind = binding;

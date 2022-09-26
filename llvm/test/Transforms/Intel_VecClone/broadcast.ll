@@ -1,7 +1,7 @@
 ; Check broadcast of a constant. The store of the constant should be moved inside of the loop.
 
-; RUN: opt -vec-clone -S < %s | FileCheck %s
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vec-clone -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4_foo
 ; CHECK: simd.loop.header:
@@ -17,4 +17,4 @@ entry:
   ret i32 99
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4_,_ZGVbN4_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4_foo,_ZGVbN4_foo" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

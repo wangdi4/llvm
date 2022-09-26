@@ -209,7 +209,7 @@ define void @test_embree(i64 %0, %"GPU_AABB" addrspace(1)* %1) {
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %4
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i64* %alloca.) ]
+%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca., i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region

@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test is to verify that the DTrans base class cloning/remapping of
 ; functions does not cause the debug information to fail the module verifier.
 ; In this test the function that originally contained the local variable

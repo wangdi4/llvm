@@ -39,12 +39,15 @@ void llvm::initializeVPOTransforms(PassRegistry &Registry) {
   initializeVPOParoptApplyConfigPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeVPOParoptLoopCollapsePass(Registry);
+  initializeVPOParoptLoopTransformPass(Registry);
   initializeVPOParoptPreparePass(Registry);
   initializeVPOParoptPass(Registry);
   initializeVPOParoptTpvPass(Registry);
   initializeVPOParoptLowerSimdPass(Registry);
 
   initializeVPORestoreOperandsPass(Registry);
+  initializeVPORenameOperandsPass(Registry);
+  initializeVPOParoptGuardMemoryMotionPass(Registry);
   initializeVPOCFGRestructuringPass(Registry);
   initializeVPOCFGSimplifyPass(Registry);
 }

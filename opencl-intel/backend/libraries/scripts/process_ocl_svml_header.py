@@ -4,6 +4,7 @@
 
 
 import argparse
+from collections import defaultdict
 from operator import itemgetter
 import re
 import sys
@@ -17,14 +18,30 @@ def main():
     parser.add_argument('inputfile', type=str)
     parser.add_argument('--outputfile', required=True,
                         help='Output filename')
+    parser.add_argument('--generate-shared-header',
+                        default=False, action='store_true')
     parser.add_argument('--debug', default=False, action='store_true')
     args = parser.parse_args()
 
     global DEBUG
     DEBUG = args.debug
 
-    process_file(args.inputfile, args.outputfile)
+    process_file(args.inputfile, args.outputfile, args.generate_shared_header)
 
+
+# map shortname to target
+shortname_target = {
+    'z1': 'amx',
+    'z0': 'avx512',
+    'l9': 'avx2',
+    'e9': 'avx',
+    'h8': 'sse',
+    'x1': 'amx',
+    'x0': 'avx512',
+    's9': 'avx2',
+    'g9': 'avx',
+    'n8': 'sse'
+}
 
 # map shortname to calling convention
 shortname_cc = {
@@ -81,7 +98,7 @@ def get_cc_attr(cc):
     return '__attribute__((intel_ocl_bicc{}))'.format(cc)
 
 
-def process_file(inputfile, outputfile):
+def process_file(inputfile, outputfile, generate_shared_header):
     with open(inputfile, 'r') as f:
         lines = f.readlines()
     # collect declaration entries
@@ -91,8 +108,18 @@ def process_file(inputfile, outputfile):
     while i < n:
         line = lines[i].strip()
         ok, return_type, shortname, funcname, params = parse_declaration(line)
-        # check calling convention
         if ok:
+            # remove type ISA suffixes
+            return_type = materialize_type(return_type)
+            params = materialize_type(params)
+            # skip decls containing 'double1x2' like types
+            if 'x' in return_type or 'x' in params:
+                i += 1
+                continue
+            # fix wrong types
+            return_type, params = fix_types(funcname, return_type, params)
+
+            # check calling convention
             if i + 1 < n and lines[i+1].strip().startswith('#pragma linkage'):
                 cc = shortname_cc.get(shortname, '')
             else:
@@ -102,6 +129,8 @@ def process_file(inputfile, outputfile):
             declarations.append((return_type, shortname, funcname, params, cc))
         i += 1
 
+    if generate_shared_header:
+        declarations = filter_shared_decls(declarations)
     emit_declarations(declarations, outputfile)
 
 
@@ -122,6 +151,27 @@ def fix_types(funcname, return_type, params):
     return return_type, params
 
 
+def filter_shared_decls(declarations):
+    """
+    Filter function declarations that exist for all targets. Alter the
+    shortname to 'shared', and alter cc to '__attribute__((intel_ocl_bicc))'.
+    This is used to generate __ocl_svml_shared_* declarations that are later
+    replaced by BuiltinImport pass.
+    """
+    func_target_map = defaultdict(set)
+    func_data = {}
+    for return_type, shortname, funcname, params, _ in declarations:
+        func_target_map[funcname].add(shortname_target[shortname])
+        if funcname not in func_data:
+            func_data[funcname] = (return_type, params)
+        else:
+            assert(func_data[funcname] == (return_type, params))
+
+    return [(func_data[funcname][0], "shared", funcname, func_data[funcname][1], 'sse')
+            for funcname, targets in func_target_map.items()
+            if targets == {"sse", "avx", "avx2", "avx512", "amx"}]
+
+
 def emit_declarations(declarations, outputfile):
     # sort declartions by funcname, cc
     declarations.sort(key=itemgetter(2, 4))
@@ -131,16 +181,6 @@ def emit_declarations(declarations, outputfile):
         f.write(copyright_header)
         f.write(typedefs)
         for return_type, shortname, funcname, params, cc in declarations:
-            # remove type ISA suffixes
-            return_type = materialize_type(return_type)
-            params = materialize_type(params)
-            # skip decls containing 'double1x2' like types
-            if 'x' in return_type or 'x' in params:
-                continue
-
-            # fix wrong types
-            return_type, params = fix_types(funcname, return_type, params)
-
             # build attributes
             attr = (const_attr + ' ') if is_const(params) else ''
             attr += get_cc_attr(cc)

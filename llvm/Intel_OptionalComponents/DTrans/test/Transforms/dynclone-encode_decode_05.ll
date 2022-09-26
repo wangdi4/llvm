@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that simple DynClone is triggered but not Reencoding
 ; transformation because this test has more than 8 large constants.
 ; Verifies that simple DynClone is triggered and __DYN_encoder/__DYN_decoder
@@ -88,4 +90,6 @@ entry:
   ret i32 0
 }
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

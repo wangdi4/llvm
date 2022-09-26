@@ -11,7 +11,7 @@ entry:
   br label %SIMD.BEGIN
 
 SIMD.BEGIN:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE"([1024 x i32]* %priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %priv, i32 0, i32 1024) ]
   br label %for.body
 
 for.body:

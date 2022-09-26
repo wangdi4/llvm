@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-temp-cleanup -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-enable-general-peeling-hir -vplan-force-vf=4 -hir-details -print-after=hir-vplan-vec -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-temp-cleanup -hir-vplan-vec -vplan-enable-general-peeling-hir -vplan-force-vf=4 -hir-details -print-after=hir-vplan-vec -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; When initializing required live-in temps before the scalar remainder loop,
 ; the initialized temps were not being converted to self blobs. As a result,
@@ -26,13 +26,8 @@
 ; CHECK:              + DO i64 i1 = %lb.tmp, %N + -1, 1   <DO_LOOP>
 ; CHECK:              |   if (i1 == %N + -1)
 ; CHECK:              |   {
-; CHECK:              |      %4 = (%lp)[%N + -1];
-; CHECK:              |      <LVAL-REG> NON-LINEAR i64 %4 {sb:15}
-
-; CHECK:              |      %3 = %4;
-; CHECK:              |      <LVAL-REG> NON-LINEAR i64 %4 {sb:3}
-; CHECK:              |         <BLOB> NON-LINEAR i64 %4 {sb:15}
-; CHECK:              |      <RVAL-REG> NON-LINEAR i64 %4 {sb:15}
+; CHECK:              |      %3 = (%lp)[%N + -1];
+; CHECK:              |      <LVAL-REG> NON-LINEAR i64 %3 {sb:3}
 ; CHECK:              |   }
 ; CHECK:              + END LOOP
 ;
@@ -45,7 +40,7 @@ entry:
   br i1 %cmp, label %omp.precond.end, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(i64* %lpriv.lpriv), "QUAL.OMP.LINEAR:IV"(i64* %l1.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i64* %lpriv.lpriv, i64 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.126
 
 DIR.OMP.SIMD.126:                                 ; preds = %DIR.OMP.SIMD.1

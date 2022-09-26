@@ -1,6 +1,9 @@
 VERS1.0 {
   global:
+    __tgt_rtl_init_plugin;
+    __tgt_rtl_deinit_plugin;
     __tgt_rtl_is_valid_binary;
+    __tgt_rtl_is_valid_binary_info;
     __tgt_rtl_is_data_exchangable;
     __tgt_rtl_number_of_devices;
     __tgt_rtl_init_requires;
@@ -38,7 +41,6 @@ VERS1.0 {
     __tgt_rtl_pop_subdevice;
     __tgt_rtl_add_build_options;
     __tgt_rtl_is_supported_device;
-    __tgt_rtl_deinit;
     __tgt_rtl_create_interop;
     __tgt_rtl_release_interop;
     __tgt_rtl_use_interop;
@@ -60,6 +62,10 @@ VERS1.0 {
     __tgt_rtl_alloc_per_hw_thread_scratch;
     __tgt_rtl_free_per_hw_thread_scratch;
     __tgt_rtl_get_device_info;
+    __tgt_rtl_register_host_pointer;
+    __tgt_rtl_unregister_host_pointer;
+    __tgt_rtl_data_aligned_alloc_shared;
+    __tgt_rtl_prefetch_shared_mem;
 # end INTEL_COLLAB
     __tgt_rtl_register_lib;
     __tgt_rtl_unregister_lib;

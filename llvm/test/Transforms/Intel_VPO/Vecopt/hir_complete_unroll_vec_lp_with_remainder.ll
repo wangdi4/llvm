@@ -12,16 +12,14 @@
 ;       @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
 ; END REGION
 
-; RUN: opt -enable-new-pm=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK:                BEGIN REGION { modified }
 ; CHECK-NEXT:                 (<4 x i64>*)(%A)[0] = <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:                 (<4 x i64>*)(%A)[4] = <i64 0, i64 1, i64 2, i64 3> + 4;
 
-; CHECK:                      + DO i1 = 8, 9, 1   <DO_LOOP> <novectorize>
+; CHECK:                      + DO i1 = 8, 9, 1   <DO_LOOP> <vector-remainder> <novectorize>
 ; CHECK-NEXT:                 |   (%A)[i1] = i1;
 ; CHECK-NEXT:                 + END LOOP
 ; CHECK-NEXT:           END REGION

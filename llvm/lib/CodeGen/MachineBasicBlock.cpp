@@ -55,6 +55,14 @@ using namespace llvm;
 
 #define DEBUG_TYPE "codegen"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    MBBOptReportOpt("mbb-optreport-opt",
+                    cl::desc("Trying to maintain better MBB->BB mapping when "
+                             "creating new BB in splitting critical edge."),
+                    cl::init(true), cl::Hidden);
+#endif
+
 static cl::opt<bool> PrintSlotIndexes(
     "print-slotindexes",
     cl::desc("When printing machine IR, annotate instructions and blocks with "
@@ -422,6 +430,13 @@ void MachineBasicBlock::print(raw_ostream &OS, ModuleSlotTracker &MST,
     HasLineAttributes = true;
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  if (auto K = getMarkerCount())
+    OS << " ; " << static_cast<std::string>(K) << "\n";
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   if (!livein_empty() && MRI.tracksLiveness()) {
     if (Indexes) OS << '\t';
     OS.indent(2) << "liveins: ";
@@ -468,7 +483,7 @@ void MachineBasicBlock::print(raw_ostream &OS, ModuleSlotTracker &MST,
   if (IrrLoopHeaderWeight && IsStandalone) {
     if (Indexes) OS << '\t';
     OS.indent(2) << "; Irreducible loop header weight: "
-                 << IrrLoopHeaderWeight.getValue() << '\n';
+                 << IrrLoopHeaderWeight.value() << '\n';
   }
 }
 
@@ -493,6 +508,28 @@ void MachineBasicBlock::printName(raw_ostream &os, unsigned printNameFlags,
   os << "bb." << getNumber();
   bool hasAttributes = false;
 
+  auto PrintBBRef = [&](const BasicBlock *bb) {
+    os << "%ir-block.";
+    if (bb->hasName()) {
+      os << bb->getName();
+    } else {
+      int slot = -1;
+
+      if (moduleSlotTracker) {
+        slot = moduleSlotTracker->getLocalSlot(bb);
+      } else if (bb->getParent()) {
+        ModuleSlotTracker tmpTracker(bb->getModule(), false);
+        tmpTracker.incorporateFunction(*bb->getParent());
+        slot = tmpTracker.getLocalSlot(bb);
+      }
+
+      if (slot == -1)
+        os << "<ir-block badref>";
+      else
+        os << slot;
+    }
+  };
+
   if (printNameFlags & PrintNameIr) {
     if (const auto *bb = getBasicBlock()) {
       if (bb->hasName()) {
@@ -500,29 +537,21 @@ void MachineBasicBlock::printName(raw_ostream &os, unsigned printNameFlags,
       } else {
         hasAttributes = true;
         os << " (";
-
-        int slot = -1;
-
-        if (moduleSlotTracker) {
-          slot = moduleSlotTracker->getLocalSlot(bb);
-        } else if (bb->getParent()) {
-          ModuleSlotTracker tmpTracker(bb->getModule(), false);
-          tmpTracker.incorporateFunction(*bb->getParent());
-          slot = tmpTracker.getLocalSlot(bb);
-        }
-
-        if (slot == -1)
-          os << "<ir-block badref>";
-        else
-          os << (Twine("%ir-block.") + Twine(slot)).str();
+        PrintBBRef(bb);
       }
     }
   }
 
   if (printNameFlags & PrintNameAttributes) {
-    if (hasAddressTaken()) {
+    if (isMachineBlockAddressTaken()) {
       os << (hasAttributes ? ", " : " (");
-      os << "address-taken";
+      os << "machine-block-address-taken";
+      hasAttributes = true;
+    }
+    if (isIRBlockAddressTaken()) {
+      os << (hasAttributes ? ", " : " (");
+      os << "ir-block-address-taken ";
+      PrintBBRef(getAddressTakenIRBlock());
       hasAttributes = true;
     }
     if (isEHPad()) {
@@ -932,6 +961,10 @@ bool MachineBasicBlock::isLayoutSuccessor(const MachineBasicBlock *MBB) const {
   return std::next(I) == MachineFunction::const_iterator(MBB);
 }
 
+const MachineBasicBlock *MachineBasicBlock::getSingleSuccessor() const {
+  return Successors.size() == 1 ? Successors[0] : nullptr;
+}
+
 MachineBasicBlock *MachineBasicBlock::getFallThrough() {
   MachineFunction::iterator Fallthrough = getIterator();
   ++Fallthrough;
@@ -1034,6 +1067,10 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
   const BasicBlock *BaseBB = getBasicBlock(); // INTEL
 
 #if INTEL_CUSTOMIZATION
+  // When MBBOptReportOpt is false, we revert to upstream behavior.
+  if (!MBBOptReportOpt) {
+    BaseBB = nullptr;
+  }
   // To be able to access opt-reports from MIR, we need a valid and
   // reasonable MBB->BB mapping.  Here we try to figure out which
   // of the two BasicBlocks (this and Succ) has to be considered
@@ -1051,7 +1088,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
   // we put the new MachineBasicBlock into the outer Loop.  Thus,
   // we want to map the new MachineBasicBlock to 'this' MachineBasicBlock's
   // BasicBlock.
-  if (MachineLoopInfo *MLI = P.getAnalysisIfAvailable<MachineLoopInfo>())
+  else if (MachineLoopInfo *MLI = P.getAnalysisIfAvailable<MachineLoopInfo>())
     // If 'this' block is not in a Loop, then the new block is not either,
     // so we map the new block to the BasicBlock corresponding to 'this'
     // block.
@@ -1093,7 +1130,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
         BaseBB = Succ->getBasicBlock();
       }
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock(BaseBB); // INTEL
   MF->insert(std::next(MachineFunction::iterator(this)), NMBB);
@@ -1513,7 +1550,7 @@ MachineBasicBlock::getSuccProbability(const_succ_iterator Succ) const {
     // ditribute the complemental of the sum to each unknown probability.
     unsigned KnownProbNum = 0;
     auto Sum = BranchProbability::getZero();
-    for (auto &P : Probs) {
+    for (const auto &P : Probs) {
       if (!P.isUnknown()) {
         Sum += P;
         KnownProbNum++;
@@ -1696,6 +1733,16 @@ MachineBasicBlock::liveout_iterator MachineBasicBlock::liveout_begin() const {
   }
 
   return liveout_iterator(*this, ExceptionPointer, ExceptionSelector, false);
+}
+
+bool MachineBasicBlock::sizeWithoutDebugLargerThan(unsigned Limit) const {
+  unsigned Cntr = 0;
+  auto R = instructionsWithoutDebug(begin(), end());
+  for (auto I = R.begin(), E = R.end(); I != E; ++I) {
+    if (++Cntr > Limit)
+      return true;
+  }
+  return false;
 }
 
 const MBBSectionID MBBSectionID::ColdSectionID(MBBSectionID::SectionType::Cold);

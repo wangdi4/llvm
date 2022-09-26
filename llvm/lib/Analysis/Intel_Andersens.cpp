@@ -288,6 +288,13 @@ static const char *(Andersens_No_Side_Effects_Intrinsics[]) = {
   nullptr      
 };
 
+// Table contains fortran's io library calls.
+//
+static const char *(Andersens_Fortran_No_Side_Effects_Intrinsics[]) = {
+  "for_read_seq_lis", "for_read_seq_lis_xmit",
+  nullptr
+};
+
 // Table contains memcpy like lib calls
 //
 static const char *(Andersens_Memcpy_Intrinsics[]) = {
@@ -1446,14 +1453,6 @@ bool AndersensAAResult::mayEscape(const MemoryLocation &Loc) {
 // Get a printable name for the ModRef result.
 static const char *getModRefResultStr(ModRefInfo R) {
   switch (R) {
-  case ModRefInfo::Must:
-    return "Must";
-  case ModRefInfo::MustRef:
-    return "MustRef";
-  case ModRefInfo::MustMod:
-    return "MustMod";
-  case ModRefInfo::MustModRef:
-    return "MustModRef";
   case ModRefInfo::NoModRef:
     return "NoModRef";
   case ModRefInfo::Ref:
@@ -1483,8 +1482,7 @@ AndersensAAResult::getModRefInfo(const CallBase *Call,
    }
 
    if (R != ModRefInfo::NoModRef) {
-       ModRefInfo Others = AAResultBase::getModRefInfo(Call, LocA, AAQI);
-       R = intersectModRef(R, Others);
+       R &= AAResultBase::getModRefInfo(Call, LocA, AAQI);
    }
 
    if (PrintAndersModRefQueries) {
@@ -2010,6 +2008,12 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
   // Model wrappers of vsprintf as library function calls for points-to.
   if (VSPrintfWrappers.count(F) ||
       findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics))
+    return true;
+
+  // Ignore no side effect fortran calls
+  if (F->isFortran() &&
+      findNameInTable(F->getName(),
+                      Andersens_Fortran_No_Side_Effects_Intrinsics))
     return true;
 
   // VARARG node is created for every Vararg function. VARARG node is
@@ -4955,7 +4959,7 @@ private:
     bool addModRef(const Value *V, ModRefInfo mask = ModRefInfo::ModRef) {
       auto &Info = Map[const_cast<Value *>(V)];
       auto Prev = Info;
-      Info = unionModRef(Info, mask);
+      Info |= mask;
       return Prev != Info;
     }
 
@@ -4973,7 +4977,7 @@ private:
     void printMR(raw_ostream &O, ModRefInfo mask) const {
       O << "  {\n";
       for (auto I = Map.begin(), E = Map.end(); I != E; ++I)
-        if (isModOrRefSet(intersectModRef(I->second, mask)))
+        if (isModOrRefSet(I->second & mask))
           O << *I->first << "\n";
 
       O << "  }\n";
@@ -5097,10 +5101,10 @@ private:
 
     bool addModRef(const Value *V, ModRefInfo mask) {
       if (isModBottom())
-        mask = clearMod(mask);
+        mask &= ModRefInfo::Ref;
 
       if (isRefBottom())
-        mask = clearRef(mask);
+        mask &= ModRefInfo::Mod;
 
       if (isNoModRef(mask))
         return false;
@@ -5156,7 +5160,7 @@ private:
         for (auto I = AndersenModRefInfo.Map.begin(),
                   E = AndersenModRefInfo.Map.end();
              I != E; ++I)
-          I->second = clearMod(I->second);
+          I->second &= ModRefInfo::Ref;
     }
 
     void setRefBottom(BottomReasonsEnum Reason) {
@@ -5168,7 +5172,7 @@ private:
         for (auto I = AndersenModRefInfo.Map.begin(),
                   E = AndersenModRefInfo.Map.end();
              I != E; ++I)
-          I->second = clearRef(I->second);
+          I->second &= ModRefInfo::Mod;
     }
 
     // Check if the mod set is BOTTOM
@@ -5902,7 +5906,7 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
       changed = true;
     }
 
-    MergeMask = clearMod(MergeMask);
+    MergeMask &= ModRefInfo::Ref;
   }
 
   if (Src->isRefBottom()) {
@@ -5911,7 +5915,7 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
       changed = true;
     }
 
-    MergeMask = clearRef(ModRefInfo::Ref);
+    MergeMask &= ModRefInfo::Mod;
   }
 
   if (isNoModRef(MergeMask)) {
@@ -5939,7 +5943,7 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
   for (auto I = Src->AndersenModRefInfo.Map.begin(),
             E = Src->AndersenModRefInfo.Map.end();
        I != E; ++I) {
-    ModRefInfo Intersection = intersectModRef(I->second, MergeMask);
+    ModRefInfo Intersection = I->second & MergeMask;
     if (!isNoModRef(Intersection))
       changed |= Dest->addModRef(I->first, Intersection);
   }
@@ -6229,12 +6233,13 @@ unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
   // arguments starting from the format string can be treated as read-only.
 
   if (ArgCount > StringPos) {
-    const Value *Object =
-        getUnderlyingObject(Call->getArgOperand(StringPos));
+    const Value *Object = getUnderlyingObject(Call->getArgOperand(StringPos));
     if (auto *GV = dyn_cast<GlobalVariable>(Object)) {
-      // Check if the global variable is a constant char array.
+      // Check if the global variable has a definition that is a constant char
+      // array.
       llvm::Type *GVElemType = GV->getValueType();
-      if (GV->isConstant() && GVElemType->isArrayTy() &&
+      if (GV->hasExactDefinition() && GV->isConstant() &&
+          GVElemType->isArrayTy() &&
           GVElemType->getArrayElementType()->isIntegerTy(8)) {
         auto Array = dyn_cast<ConstantDataArray>(GV->getInitializer());
         if (Array && Array->isString()) {
@@ -6283,9 +6288,9 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
     // For functions marked GMOD/GREF, go conservative since we don't have a
     // model of what may be accessed.
     if (LibFuncModel & LFMR_GMOD)
-      Result = unionModRef(Result, ModRefInfo::Mod);
+      Result |= ModRefInfo::Mod;
     if (LibFuncModel & LFMR_GREF)
-      Result = unionModRef(Result, ModRefInfo::Ref);
+      Result |= ModRefInfo::Ref;
     if (Result == ModRefInfo::ModRef) {
       DEBUG_WITH_TYPE("imr-query",
                       dbgs() << "  LibFunc Result=ModRef based on GMod/GRef\n");
@@ -6319,7 +6324,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       if (AR == AliasResult::NoAlias)
         continue;
 
-      Result = unionModRef(Result, ModRefInfo::Ref);
+      Result |= ModRefInfo::Ref;
 
       // If the argument is for a printf-like function after the string
       // constant that is not using %n, then there is no modification to the
@@ -6335,7 +6340,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
           F->hasParamAttribute(ArgNo, Attribute::ReadOnly))
         continue;
 
-      Result = unionModRef(Result, ModRefInfo::Mod);
+      Result |= ModRefInfo::Mod;
       DEBUG_WITH_TYPE(
           "imr-query",
           dbgs() << "  LibFunc Result=ModRef after checking argument number "
@@ -6608,10 +6613,10 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
 
   // Clear the bits to form a minimum status, if possible.
   if (!FR->FunctionReadsMemory())
-    Result = clearRef(Result);
+    Result &= ModRefInfo::Mod;
 
   if (!FR->FunctionWritesMemory())
-    Result = clearMod(Result);
+    Result &= ModRefInfo::Ref;
 
   if (!isa<GlobalValue>(Object)) {
     DEBUG_WITH_TYPE(
