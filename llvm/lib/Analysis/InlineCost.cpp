@@ -661,6 +661,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   /// for speculative "expected profit" of the inlining decision.
   int Threshold = 0;
 
+  /// The amount of StaticBonus applied.
+  int StaticBonusApplied = 0;
+
   /// Attempt to evaluate indirect calls to boost its inline cost.
   const bool BoostIndirectCalls;
 
@@ -1283,6 +1286,7 @@ public:
   virtual ~InlineCostCallAnalyzer() = default;
   int getThreshold() const { return Threshold; }
   int getCost() const { return Cost; }
+  int getStaticBonusApplied() const { return StaticBonusApplied; }
   Optional<CostBenefitPair> getCostBenefitPair() { return CostBenefit; }
 #if INTEL_CUSTOMIZATION
   int getEarlyExitThreshold() const { return EarlyExitThreshold; }
@@ -2237,12 +2241,19 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (OnlyOneCallAndLocalLinkage) {
     Cost -= LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (isSoleCallToLocalFunction(Call, F)) {
+    Cost -= LastCallToStaticBonus;
+    StaticBonusApplied = LastCallToStaticBonus;
+  }
+>>>>>>> e2398a4d7cfc0415c63cc13792bda80045c7c803
 }
 
 bool CallAnalyzer::visitCmpInst(CmpInst &I) {
@@ -3437,10 +3448,15 @@ InlineCost llvm::getInlineCost(
 
 #if INTEL_CUSTOMIZATION
   if (CA.wasDecidedByCostThreshold())
+<<<<<<< HEAD
     return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
         ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
         CA.getEarlyExitThreshold());
 #endif // INTEL_CUSTOMIZATION
+=======
+    return InlineCost::get(CA.getCost(), CA.getThreshold(),
+                           CA.getStaticBonusApplied());
+>>>>>>> e2398a4d7cfc0415c63cc13792bda80045c7c803
 
   // No details on how the decision was made, simply return always or never.
   return ShouldInline.isSuccess()
