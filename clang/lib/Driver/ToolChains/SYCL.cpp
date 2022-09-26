@@ -994,6 +994,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
     for (auto &Loc : OclocDirs)
       SplitOcloc &= llvm::sys::fs::exists(Loc.second);
   }
+  StringRef Device = JA.getOffloadingArch();
   Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
@@ -1001,7 +1002,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   TC.AddImpliedTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
   TC.TranslateBackendTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, Device);
   TC.TranslateLinkerTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   // Strip out -cl-no-match-sincospi in case it was used to disable the

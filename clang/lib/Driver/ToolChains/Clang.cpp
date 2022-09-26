@@ -10319,41 +10319,6 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     }
     addRunTimeWrapperOpts(C, OffloadingKind, TCArgs, WrapperArgs,
                           getToolChain(), JA); // INTEL
-    // Grab any Target specific options that need to be added to the wrapper
-    // information.
-    ArgStringList BuildArgs;
-    auto createArgString = [&](const char *Opt) {
-      if (BuildArgs.empty())
-        return;
-      SmallString<128> AL;
-      for (const char *A : BuildArgs) {
-        if (AL.empty()) {
-          AL = A;
-          continue;
-        }
-        AL += " ";
-        AL += A;
-      }
-      WrapperArgs.push_back(C.getArgs().MakeArgString(Twine(Opt) + AL));
-    };
-    const toolchains::SYCLToolChain &TC =
-              static_cast<const toolchains::SYCLToolChain &>(getToolChain());
-    // TODO: Consider separating the mechanisms for:
-    // - passing standard-defined options to AOT/JIT compilation steps;
-    // - passing AOT-compiler specific options.
-    // This would allow retaining standard language options in the
-    // image descriptor, while excluding tool-specific options that
-    // have been known to confuse RT implementations.
-    if (TC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
-      // Only store compile/link opts in the image descriptor for the SPIR-V
-      // target; AOT compilation has already been performed otherwise.
-      TC.AddImpliedTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs, JA);
-      TC.TranslateBackendTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs);
-      createArgString("-compile-opts=");
-      BuildArgs.clear();
-      TC.TranslateLinkerTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs);
-      createArgString("-link-opts=");
-    }
 
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
