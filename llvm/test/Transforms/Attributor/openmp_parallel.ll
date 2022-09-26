@@ -31,7 +31,6 @@ define dso_local void @func(float* nocapture %a, float* %b, i32 %N) local_unname
 ; TUNIT-NEXT:    call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* noundef nonnull align 8 dereferenceable(24) @[[GLOB2]], i32 noundef 3, void (i32*, i32*, ...)* noundef bitcast (void (i32*, i32*, i32*, float**, float**)* @.omp_outlined. to void (i32*, i32*, ...)*), i32* noalias nocapture nofree nonnull readnone align 4 dereferenceable(4) undef, float** noalias nocapture nofree noundef nonnull readonly align 8 dereferenceable(8) [[A_ADDR]], float** noalias nocapture nofree noundef nonnull readonly align 8 dereferenceable(8) [[B_ADDR]])
 ; TUNIT-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; IS__CGSCC_NPM: Function Attrs: nounwind uwtable
 ; IS__CGSCC_NPM-LABEL: define {{[^@]+}}@func
 ; IS__CGSCC_NPM-SAME: (float* nocapture nofree [[A:%.*]], float* nofree [[B:%.*]], i32 [[N:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
@@ -44,20 +43,6 @@ define dso_local void @func(float* nocapture %a, float* %b, i32 %N) local_unname
 ; IS__CGSCC_NPM-NEXT:    store i32 199, i32* [[N_ADDR]], align 4
 ; IS__CGSCC_NPM-NEXT:    call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* noundef nonnull align 8 dereferenceable(24) @[[GLOB2]], i32 noundef 3, void (i32*, i32*, ...)* noundef bitcast (void (i32*, i32*, i32*, float**, float**)* @.omp_outlined. to void (i32*, i32*, ...)*), i32* noalias nofree noundef nonnull readonly align 4 dereferenceable(4) [[N_ADDR]], float** noalias nofree noundef nonnull readonly align 8 dereferenceable(8) [[A_ADDR]], float** noalias nofree noundef nonnull readonly align 8 dereferenceable(8) [[B_ADDR]])
 ; IS__CGSCC_NPM-NEXT:    ret void
-=======
-; CGSCC: Function Attrs: nounwind uwtable
-; CGSCC-LABEL: define {{[^@]+}}@func
-; CGSCC-SAME: (float* nocapture nofree [[A:%.*]], float* nofree [[B:%.*]], i32 [[N:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
-; CGSCC-NEXT:  entry:
-; CGSCC-NEXT:    [[A_ADDR:%.*]] = alloca float*, align 8
-; CGSCC-NEXT:    [[B_ADDR:%.*]] = alloca float*, align 8
-; CGSCC-NEXT:    [[N_ADDR:%.*]] = alloca i32, align 4
-; CGSCC-NEXT:    store float* [[A]], float** [[A_ADDR]], align 8
-; CGSCC-NEXT:    store float* [[B]], float** [[B_ADDR]], align 8
-; CGSCC-NEXT:    store i32 199, i32* [[N_ADDR]], align 4
-; CGSCC-NEXT:    call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* noundef nonnull align 8 dereferenceable(24) @[[GLOB2]], i32 noundef 3, void (i32*, i32*, ...)* noundef bitcast (void (i32*, i32*, i32*, float**, float**)* @.omp_outlined. to void (i32*, i32*, ...)*), i32* nofree noundef nonnull readonly align 4 dereferenceable(4) [[N_ADDR]], float** nofree noundef nonnull readonly align 8 dereferenceable(8) [[A_ADDR]], float** nofree noundef nonnull readonly align 8 dereferenceable(8) [[B_ADDR]])
-; CGSCC-NEXT:    ret void
->>>>>>> 846709b287abe541fcad42e5a54d37a41dae3f67
 ;
 entry:
   %a.addr = alloca float*, align 8
