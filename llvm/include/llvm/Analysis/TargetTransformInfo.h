@@ -955,8 +955,12 @@ public:
   };
 
   /// Additional properties of an operand's values.
-  enum OperandValueProperties { OP_None = 0, OP_PowerOf2 = 1, // INTEL
-                                OP_PowerOf2_PlusMinus1 = 2 }; // INTEL
+  enum OperandValueProperties {
+    OP_None = 0,
+    OP_PowerOf2 = 1,
+    OP_NegatedPowerOf2 = 2,
+    OP_PowerOf2_PlusMinus1 = 3, // INTEL
+  };
 
   // Describe the values an operand can take.  We're in the process
   // of migrating uses of OperandValueKind and OperandValueProperties
@@ -973,6 +977,9 @@ public:
     }
     bool isPowerOf2() const {
       return Properties == OP_PowerOf2;
+    }
+    bool isNegatedPowerOf2() const {
+      return Properties == OP_NegatedPowerOf2;
     }
 
 #if INTEL_CUSTOMIZATION
