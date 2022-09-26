@@ -50,9 +50,11 @@
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_ADVANCED
 ; CHECK-O: Running pass: IntelIPOPrefetchPass on [module]
 ; CHECK-O: Running pass: IntelFoldWPIntrinsicPass on [module]
 ; CHECK-O: Running pass: IPCloningPass on [module]
+; end INTEL_FEATURE_SW_ADVANCED
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
