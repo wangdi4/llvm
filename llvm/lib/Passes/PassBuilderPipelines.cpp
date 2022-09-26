@@ -87,6 +87,7 @@
 #include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h"
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h"
+#include "llvm/Transforms/Scalar/LoopStrengthReduce.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -555,6 +556,7 @@ extern cl::opt<bool> RunPreLoopOptVPOPasses;
 extern cl::opt<bool> RunPostLoopOptVPOPasses;
 extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
 extern cl::opt<bool> EnableVPOParoptTargetInline;
+extern cl::opt<bool> EnableEarlyLSR;
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -2549,6 +2551,18 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // result too early.
   OptimizePM.addPass(LoopSinkPass());
 
+#if INTEL_CUSTOMIZATION
+  // Loop Strength Reduction (LSR). Disabled by default.
+  if (PTO.DisableIntelProprietaryOpts && EnableEarlyLSR) {
+    LoopPassManager LPM;
+    LPM.addPass(LoopStrengthReducePass());
+    OptimizePM.addPass(
+        createFunctionToLoopPassAdaptor(std::move(LPM),
+                                        /*UseMemorySSA=*/false,
+                                        /*UseBlockFrequencyInfo=*/false));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // And finally clean up LCSSA form before generating code.
   OptimizePM.addPass(InstSimplifyPass());
 
@@ -3618,4 +3632,3 @@ AAManager PassBuilder::buildDefaultAAPipeline() {
 
   return AA;
 }
-
