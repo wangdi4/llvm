@@ -810,13 +810,10 @@ TargetTransformInfo::getOperandInfo(const Value *V) {
           OpProps = OP_PowerOf2_PlusMinus1;
         if (CI->getValue().isPowerOf2())
           OpProps = OP_PowerOf2;
-<<<<<<< HEAD
-      }
-#endif
-=======
         else if (CI->getValue().isNegatedPowerOf2())
           OpProps = OP_NegatedPowerOf2;
->>>>>>> a6e9141505c5b8925c4f69efc85fa4d9be8073f3
+      }
+#endif
     } else if (const auto *CDS = dyn_cast<ConstantDataSequential>(V)) {
       bool AllPow2 = true, AllNegPow2 = true;
       for (unsigned I = 0, E = CDS->getNumElements(); I != E; ++I) {
