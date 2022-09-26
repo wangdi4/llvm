@@ -3084,7 +3084,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // keep one copy of each constant.
   MPM.addPass(ConstantMergePass());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   if (DTransEnabled) {
@@ -3099,8 +3098,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // Remove unused arguments from functions.
   MPM.addPass(DeadArgumentEliminationPass());
 
-=======
->>>>>>> 1c530500ab86f823df8d5ec1ec9f97ec4772418b
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
   // simplification opportunities, and both can propagate functions through
   // function pointers.  When this happens, we often have to resolve varargs
