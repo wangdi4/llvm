@@ -15,6 +15,7 @@ if (SYCL_ENABLE_XPTI_TRACING)
   endif()
 endif()
 
+<<<<<<< HEAD
 # TODO: move each tool in its own sub-directory
 add_executable(get_device_count_by_type get_device_count_by_type.cpp)
 add_dependencies(get_device_count_by_type
@@ -69,3 +70,5 @@ if(SYCL_BUILD_PI_HIP)
     PRIVATE
     ${SYCL_BUILD_PI_HIP_INCLUDE_DIR})
 endif()
+=======
+>>>>>>> 60c634cc07ca9c7fd84e54a2a7643b7922075272
