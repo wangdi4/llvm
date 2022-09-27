@@ -1007,7 +1007,9 @@ void PrintPassInstrumentation::registerCallbacks(
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &) {}
 void OptBisectInstrumentation::registerCallbacks(
-    PassInstrumentationCallbacks &) {}
+    PassInstrumentationCallbacks &) {
+  (void)this->HasWrittenIR;
+}
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PreservedCFGCheckerInstrumentation::CFG::CFG(const Function *F,
