@@ -1924,15 +1924,23 @@ Instruction *InstCombinerImpl::visitFPTrunc(FPTruncInst &FPT) {
     Type *LHSMinType = getMinimumFPType(BO->getOperand(0));
     Type *RHSMinType = getMinimumFPType(BO->getOperand(1));
 #if INTEL_CUSTOMIZATION
-    // When this binary operator has fast math flag, we can eliminate some
-    // float-double casts at a cost of precision loss. For example, we can
-    // transform:
+    // The algorithm works by recognizing that LHS and RHS can be truncated
+    // without losing precision.
+    // The fptrunc is "pushed" into the operands and may be removed later.
+    //
+    // When this binary operator has a fast math flag and 1 side is constant,
+    // we can force the constant C to be truncated, even if it may lose
+    // precision.
     //     %a = fpext float %x to double
     //     %b = fadd fast double %a, C (a 64-bit fp-constant)
     //     %c = fptrunc double %b to float
-    // into:
-    //     %c = fadd fast float %x, C' (32-bit representation of C)
-    // Same for fsub, fmul and fdiv.
+    // =>
+    //     %a = fpext float %x to double
+    //     %t = fptrunc double %a to float
+    //     %c = fadd fast float %t, C' (32-bit representation of C)
+    // Same for fsub, fmul and fdiv. frem may cause FP errors.
+    // Set the preferred type of "C" to the fptrunc type.
+    Value *SqrtOp = nullptr;
     if (BO->getFastMathFlags().isFast() && FPT.getType()->isFloatTy() &&
         BO->getOpcode() != Instruction::FRem) {
       if (isa<ConstantFP>(BO->getOperand(1)) &&
@@ -1941,6 +1949,26 @@ Instruction *InstCombinerImpl::visitFPTrunc(FPTruncInst &FPT) {
       else if (isa<ConstantFP>(BO->getOperand(0)) &&
                LHSMinType->isDoubleTy() && RHSMinType->isFloatTy())
         LHSMinType = FPT.getType();
+      // Recognize "fdiv" in (float)(C / sqrt.f64((double)f)):
+      //
+      // %conv = fpext float %f to double
+      // %0 = call fast double @llvm.sqrt.f64(double %conv)
+      // %div = fdiv fast double <C>, %0
+      // %conv1 = fptrunc double %div to float
+      //
+      // For this pattern, we force %0 to be recognized as float, which will
+      // push up the fptrunc and generate "fpext/sqrt/fptrunc". Later, the
+      // sqrt.f64 will be converted to sqrt.f32 by SimplifyLibCalls.
+      // We do not try to force "C", as the combined error may be too high.
+      else if (BO->getType()->isDoubleTy() &&
+               match(BO, m_FDiv(m_ConstantFP(), m_Intrinsic<Intrinsic::sqrt>(
+                                                    m_Value(SqrtOp))))) {
+        auto *Sqrt = cast<IntrinsicInst>(BO->getOperand(1));
+        if (Sqrt->getFastMathFlags().isFast() &&
+            hasUnsafeFPMathAttrSet(*Sqrt) &&
+            getMinimumFPType(SqrtOp)->isFloatTy())
+          RHSMinType = FPT.getType();
+      }
     }
 #endif
     unsigned OpWidth = BO->getType()->getFPMantissaWidth();
@@ -2070,6 +2098,10 @@ Instruction *InstCombinerImpl::visitFPTrunc(FPTruncInst &FPT) {
     case Intrinsic::round:
     case Intrinsic::roundeven:
     case Intrinsic::trunc: {
+#if INTEL_CUSTOMIZATION
+      // Note: SimplifyLibCalls also seems to do this optimization.
+      // Check on it before adding more intrinsics.
+#endif // INTEL_CUSTOMIZATION
       Value *Src = II->getArgOperand(0);
       if (!Src->hasOneUse())
         break;

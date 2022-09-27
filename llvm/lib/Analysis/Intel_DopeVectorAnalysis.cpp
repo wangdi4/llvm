@@ -4069,8 +4069,12 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
     } else if (auto *CB = dyn_cast<CallBase>(U)) {
       // This is needed in the opaque pointer case because we cannot 
       // find the DV allocate function through bitcasts.
-      if (isOpaquePtr && !GlobalDVInfo->hasAllocSite()) {
+      if (isOpaquePtr) {
         if (isCallToAllocFunction(CB, GetTLI)) {
+          if (GlobalDVInfo->hasAllocSite()) {
+            getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+            break;
+          }
           GlobalDVInfo->addAllocSite(CB);
           continue;
         }

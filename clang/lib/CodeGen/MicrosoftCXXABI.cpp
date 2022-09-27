@@ -883,6 +883,10 @@ public:
         llvm::FunctionType::get(CGM.VoidTy, Args, /*isVarArg=*/false);
     llvm::FunctionCallee Throw =
         CGM.CreateRuntimeFunction(FTy, "_CxxThrowException");
+#if INTEL_CUSTOMIZATION
+    if (auto *Fn = dyn_cast<llvm::Function>(Throw.getCallee()))
+      Fn->setDoesNotReturn();
+#endif // INTEL_CUSTOMIZATION
     // _CxxThrowException is stdcall on 32-bit x86 platforms.
     if (CGM.getTarget().getTriple().getArch() == llvm::Triple::x86) {
       if (auto *Fn = dyn_cast<llvm::Function>(Throw.getCallee()))
@@ -2503,6 +2507,10 @@ void MicrosoftCXXABI::registerGlobalDtor(CodeGenFunction &CGF, const VarDecl &D,
 
   if (D.getTLSKind())
     return emitGlobalDtorWithTLRegDtor(CGF, D, Dtor, Addr);
+
+  // HLSL doesn't support atexit.
+  if (CGM.getLangOpts().HLSL)
+    return CGM.AddCXXDtorEntry(Dtor, Addr);
 
   // The default behavior is to use atexit.
   CGF.registerGlobalDtorWithAtExit(D, Dtor, Addr);

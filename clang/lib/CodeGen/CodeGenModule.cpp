@@ -1307,13 +1307,20 @@ void CodeGenModule::setGlobalVisibility(llvm::GlobalValue *GV,
   // or set explicitly.
   LinkageInfo LV = D->getLinkageAndVisibility();
   if (GV->hasDLLExportStorageClass() || GV->hasDLLImportStorageClass()) {
-    // Reject explicit non-default visibility on dllexport/dllimport.
-    if (LV.isVisibilityExplicit() && LV.getVisibility() != DefaultVisibility)
+    // Reject incompatible dlllstorage and visibility annotations.
+    if (!LV.isVisibilityExplicit())
+      return;
+    if (GV->hasDLLExportStorageClass()) {
+      if (LV.getVisibility() == HiddenVisibility)
+        getDiags().Report(D->getLocation(),
+                          diag::err_hidden_visibility_dllexport);
+    } else if (LV.getVisibility() != DefaultVisibility) {
       getDiags().Report(D->getLocation(),
-                        diag::err_non_default_visibility_dllstorage)
-          << (GV->hasDLLExportStorageClass() ? "dllexport" : "dllimport");
+                        diag::err_non_default_visibility_dllimport);
+    }
     return;
   }
+
   if (LV.isVisibilityExplicit() || getLangOpts().SetVisibilityForExternDecls ||
       !GV->isDeclarationForLinker())
     GV->setVisibility(GetLLVMVisibility(LV.getVisibility()));

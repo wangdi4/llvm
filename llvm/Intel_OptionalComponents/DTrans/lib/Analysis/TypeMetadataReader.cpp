@@ -17,11 +17,11 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "dtrans-typemetadatareader"
 
@@ -171,27 +171,30 @@ bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
         MDToStruct.insert(std::make_pair(MD, DTStTy));
     }
 
-  if (!StrictCheck || !EnableStrictCheck) {
-    // Create DTransStructType objects for any structures lacking metadata that
-    // do not contain pointer types. These types can be created directly from
-    // the llvm::StructType object because there are no unknown pointer types
-    // within them.
-    DenseMap<llvm::StructType *, DTransStructType *> LLVMToDTransTypeMap;
-    for (auto &KV : TypeRecoveryState)
-      if (KV.second == MS_RecoveryNotNeeded && KV.first->hasName()) {
-        auto *DTy = cast<DTransStructType>(TM.getOrCreateSimpleType(KV.first));
-        assert(DTy && "Could not create DTransType for structure");
-        LLVMToDTransTypeMap[KV.first] = DTy;
-      }
-
-    // All structure types required should have been created by now. Populate
-    // the ones that did not have metadata. This needs to be done after the type
-    // creation to ensure any nested structures have been created before we
-    // begin populating.
-    for (auto &KV : LLVMToDTransTypeMap) {
-      populateDTransStructTypeFromLLVMType(KV.first, KV.second);
-      TypeRecoveryState[KV.first] = MS_RecoveryComplete;
+  // Create DTransStructType objects for any structures lacking metadata that
+  // do not contain pointer types. These types can be created directly from
+  // the llvm::StructType object because there are no unknown pointer types
+  // within them. Creating the here will allow detection of any metadata that
+  // does not agree with the IR on these types.
+  DenseMap<llvm::StructType *, DTransStructType *> LLVMToDTransTypeMap;
+  for (auto &KV : TypeRecoveryState)
+    if (KV.second == MS_RecoveryNotNeeded && KV.first->hasName()) {
+      auto *DTy = cast<DTransStructType>(TM.getOrCreateSimpleType(KV.first));
+      assert(DTy && "Could not create DTransType for structure");
+      LLVMToDTransTypeMap[KV.first] = DTy;
     }
+
+  // All DTrans structure types required should have been created by now, either
+  // because the DTrans metadata referred to them, or because it was a simple
+  // structure that does not involve pointer types. Populate
+  // the ones that did not need metadata. This needs to be done after the type
+  // creation to ensure any nested structures have been created before we
+  // begin populating. The map 'LLVMToDTransTypeMap' only contains the simple
+  // structure types that do not involve pointers, so iterate through all of
+  // them.
+  for (auto &KV : LLVMToDTransTypeMap) {
+    populateDTransStructTypeFromLLVMType(KV.first, KV.second);
+    TypeRecoveryState[KV.first] = MS_RecoveryComplete;
   }
 
   // Process all of the structure types to populate the structure bodies.
@@ -1056,7 +1059,7 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     dbgs() << DEBUG_TYPE << ": All structures types "
-           << (AllResolved ? "" : " NOT ") << "populated\n";
+           << (AllResolved ? "" : "NOT ") << "populated\n";
 
     bool Ok = checkModule(M);
     dbgs() << DEBUG_TYPE << ": " << (Ok ? "NO " : "")

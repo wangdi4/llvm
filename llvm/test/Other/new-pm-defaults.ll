@@ -87,6 +87,12 @@
 ; RUN:     -passes='default<O3>' -hot-cold-split -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-O3,CHECK-O23SZ,%llvmcheckext,CHECK-HOT-COLD-SPLIT
 
+; INTEL_CUSTOMIZATION
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
+; RUN:     -passes='default<O3>' -enable-early-lsr -disable-intel-proprietary-opts -S  %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefixes=CHECK-EARLY-LSR
+; end INTEL_CUSTOMIZATION
+
 ; Suppress FileCheck --allow-unused-prefixes=false diagnostics.
 ; CHECK-Oz: {{^}}
 
@@ -367,6 +373,11 @@
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
 ; CHECK-LTO-NEXT: Running analysis: BlockFrequencyAnalysis ;INTEL
 ; CHECK-LTO-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-EARLY-LSR: Running pass: LoopSinkPass
+; CHECK-EARLY-LSR: Running pass: LoopStrengthReducePass ;INTEL
+; CHECK-EARLY-LSR: Running pass: InstSimplifyPass
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: TailCallElimPass

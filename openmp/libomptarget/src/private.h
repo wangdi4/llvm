@@ -50,6 +50,8 @@ extern bool checkDeviceAndCtors(int64_t &DeviceID, ident_t *Loc);
 extern bool isOffloadDisabled(); // INTEL_COLLAB
 extern void *targetAllocExplicit(size_t Size, int DeviceNum, int Kind,
                                  const char *Name);
+extern void targetFreeExplicit(void *DevicePtr, int DeviceNum, int Kind,
+                               const char *Name);
 
 // This structure stores information of a mapped memory region.
 struct MapComponentInfoTy {

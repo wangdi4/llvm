@@ -29,6 +29,7 @@
 #include "clang/Driver/InputInfo.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
+#include "llvm/ADT/STLArrayExtras.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -808,7 +809,7 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
   }
   if (DeviceArg.empty())
     // No -device seen, return an empty vector
-    return Targets;
+    return std::move(Targets);
 
   // Special case settings where we know exactly what oclocs to populate and
   // call with specific values.
@@ -823,12 +824,12 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
     addToOcloc("xe", "*");
     addToOcloc("dgpu", "-device");
     addToOcloc("dgpu", "XE_HPG_CORE");
-    return Targets;
+    return std::move(Targets);
   }
   if (DeviceArg.equals("gen9") || DeviceArg.equals("gen11")) {
     addToOcloc("iris", "-device");
     addToOcloc("iris", DeviceArg);
-    return Targets;
+    return std::move(Targets);
   }
 
   // Here we parse the targets, tokenizing via ','
@@ -910,7 +911,7 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
   addDevices(Xe, "xe");
   addDevices(Dgpu, "dgpu");
 
-  return Targets;
+  return std::move(Targets);
 }
 
 void SYCL::gen::BackendCompiler::constructOclocCommand(Compilation &C,

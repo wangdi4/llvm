@@ -504,10 +504,6 @@ bool TargetTransformInfo::hasDivRemOp(Type *DataType, bool IsSigned) const {
   return TTIImpl->hasDivRemOp(DataType, IsSigned);
 }
 
-unsigned TargetTransformInfo::maxLegalDivRemBitWidth() const {
-  return TTIImpl->maxLegalDivRemBitWidth();
-}
-
 bool TargetTransformInfo::hasVolatileVariant(Instruction *I,
                                              unsigned AddrSpace) const {
   return TTIImpl->hasVolatileVariant(I, AddrSpace);

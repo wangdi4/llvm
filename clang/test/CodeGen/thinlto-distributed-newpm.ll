@@ -87,7 +87,7 @@
 ; CHECK-O: Running pass: LowerConstantIntrinsicsPass on main
 ; CHECK-O: Running pass: LoopSimplifyPass on main
 ; CHECK-O: Running pass: LCSSAPass on main
-; CHECK-O: Running pass: LoopRotatePass on Loop at depth 1 containing: %b
+; CHECK-O: Running pass: LoopRotatePass on b
 ; CHECK-O: Running pass: LoopDistributePass on main
 ; CHECK-O: Running pass: InjectTLIMappings on main
 ; CHECK-O: Running pass: LoopVectorizePass on main
@@ -103,7 +103,7 @@
 ; CHECK-O: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
 ; CHECK-O: Running pass: LoopSimplifyPass on main
 ; CHECK-O: Running pass: LCSSAPass on main
-; CHECK-O: Running pass: LICMPass on Loop at depth 1 containing: %b
+; CHECK-O: Running pass: LICMPass on b
 ; CHECK-O: Running pass: AlignmentFromAssumptionsPass on main
 ; CHECK-O: Running pass: LoopSinkPass on main
 ; CHECK-O: Running pass: InstSimplifyPass on main

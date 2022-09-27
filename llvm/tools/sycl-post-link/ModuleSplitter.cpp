@@ -417,9 +417,10 @@ ModuleDesc extractSubModule(const ModuleDesc &MD,
 // The function produces a copy of input LLVM IR module M with only those entry
 // points that are specified in ModuleEntryPoints vector.
 ModuleDesc extractCallGraph(const ModuleDesc &MD,
-                            EntryPointGroup &&ModuleEntryPoints) {
+                            EntryPointGroup &&ModuleEntryPoints,
+                            const CallGraph &CG) {
   SetVector<const GlobalValue *> GVs;
-  collectFunctionsToExtract(GVs, ModuleEntryPoints, CallGraph{MD.getModule()});
+  collectFunctionsToExtract(GVs, ModuleEntryPoints, CG);
   collectGlobalVarsToExtract(GVs, MD.getModule());
 
   ModuleDesc SplitM = extractSubModule(MD, GVs, std::move(ModuleEntryPoints));
@@ -475,11 +476,15 @@ public:
 class ModuleSplitter : public ModuleSplitterBase {
 public:
   ModuleSplitter(ModuleDesc &&MD, EntryPointGroupVec &&GroupVec)
-      : ModuleSplitterBase(std::move(MD), std::move(GroupVec)) {}
+      : ModuleSplitterBase(std::move(MD), std::move(GroupVec)),
+        CG(Input.getModule()) {}
 
   ModuleDesc nextSplit() override {
-    return extractCallGraph(Input, nextGroup());
+    return extractCallGraph(Input, nextGroup(), CG);
   }
+
+private:
+  CallGraph CG;
 };
 
 #if INTEL_COLLAB
