@@ -28,6 +28,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"                    // INTEL
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h" // INTEL
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
@@ -79,6 +80,11 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
     return;
   }
 
+  Module *M = Resolver->getParent();
+  std::string ResolverPtrName = Resolver->getName().str() + "_ptr";
+  GlobalValue *ResolverPtr = M->getNamedValue(ResolverPtrName);
+  Builder.CreateStore(FuncToReturn, ResolverPtr);
+
   SmallVector<Value *, 10> Args;
   for_each(Resolver->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
 
@@ -90,6 +96,49 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
     Builder.CreateRetVoid();
   else
     Builder.CreateRet(Result);
+}
+
+static void emitResolverPtrTest(Function *Resolver, IRBuilderBase &Builder) {
+
+  Module *M = Resolver->getParent();
+  std::string ResolverPtrName = Resolver->getName().str() + "_ptr";
+
+  GlobalVariable *ResolverPtr =
+      new GlobalVariable(*M, Resolver->getFunctionType()->getPointerTo(), false,
+                         GlobalValue::InternalLinkage,
+                         Constant::getNullValue(Resolver->getFunctionType()->getPointerTo()),
+                         ResolverPtrName);
+  ResolverPtr->setDSOLocal(true);
+
+  auto ResolverPtrVal = Builder.CreateAlignedLoad(Resolver->getFunctionType()->getPointerTo(),
+                                                  ResolverPtr, MaybeAlign(8));
+
+  Value *CmpResult = Builder.CreateICmpNE(ResolverPtrVal,
+                                          Constant::getNullValue(Resolver->getType()),
+                                          "ptr_compare");
+
+  auto &Ctx = Resolver->getContext();
+  BasicBlock *ThenBlock = BasicBlock::Create(Ctx, "resolver_then", Resolver);
+  BasicBlock *ElseBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver);
+
+  Builder.CreateCondBr(CmpResult, ThenBlock, ElseBlock);
+
+  Builder.SetInsertPoint(ThenBlock);
+
+  SmallVector<Value *, 10> Args;
+  for_each(Resolver->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
+
+  CallInst *Result =
+      Builder.CreateCall(FunctionCallee(Resolver->getFunctionType(), ResolverPtrVal), Args);
+  Result->setTailCall();
+  Result->setCallingConv(Resolver->getCallingConv());
+
+  if (Resolver->getReturnType()->isVoidTy())
+    Builder.CreateRetVoid();
+  else
+    Builder.CreateRet(Result);
+
+  Builder.SetInsertPoint(ElseBlock);
 }
 
 void llvm::emitMultiVersionResolver(
@@ -106,6 +155,10 @@ void llvm::emitMultiVersionResolver(
 
   IRBuilder<> Builder(CurBlock, CurBlock->begin());
 #if INTEL_CUSTOMIZATION
+  if (!UseIFunc) {
+    emitResolverPtrTest(Resolver, Builder);
+    CurBlock = Builder.GetInsertBlock();
+  }
   if (UseLibIRC)
     llvm::X86::emitCpuFeaturesInit(Builder);
   else
@@ -190,13 +243,17 @@ static Value *emitInit(IRBuilderBase &Builder, StringRef FuncName) {
 
   F->setDSOLocal(true);
   F->setDLLStorageClass(GlobalValue::DefaultStorageClass);
+
+  if (shouldUseIntelFeaturesInitCallConv(FuncName))
+    F->setCallingConv(CallingConv::Intel_Features_Init);
+
   return Builder.CreateCall(F);
 }
 Value *llvm::X86::emitCPUInit(IRBuilderBase &Builder) {
   return emitInit(Builder, "__cpu_indicator_init");
 }
 void llvm::X86::emitCpuFeaturesInit(IRBuilderBase &Builder) {
-  emitInit(Builder, "__intel_cpu_features_init_x");
+  emitInit(Builder, "__intel_cpu_features_init");
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -288,7 +345,7 @@ Value *llvm::X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
 
   Type *Ty = ArrayType::get(Builder.getInt64Ty() , 2);
   Value *IndicatorPtr = getOrCreateGlobal(
-      Builder, "__intel_cpu_feature_indicator_x", Ty, false /*SetDSOLocal*/);
+      Builder, "__intel_cpu_feature_indicator", Ty, false /*SetDSOLocal*/);
 
   Value *RollingResult = nullptr;
   for (unsigned CurPage = 0; CurPage < Pages.size(); ++CurPage) {

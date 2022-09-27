@@ -102,6 +102,7 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
 
   Resolver = Function::Create(Fn.getFunctionType(), Fn.getLinkage(),
                               OrigName, Fn.getParent());
+  Resolver->setCallingConv(Fn.getCallingConv());
   Resolver->setVisibility(Fn.getVisibility());
   Resolver->setDSOLocal(Fn.isDSOLocal());
 
@@ -147,9 +148,6 @@ static bool cloneFunctions(Module &M,
 
   const Triple TT{M.getTargetTriple()};
 
-  if (TT.isOSWindows())
-    return false;
-
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
            std::tuple</*Resolver*/ GlobalValue *, /*Dispatch*/ GlobalValue *,
@@ -166,10 +164,10 @@ static bool cloneFunctions(Module &M,
   // Multiversion functions marked for auto cpu dispatching.
   for (Function &Fn : M) {
 
-    if (Fn.isDeclaration() || Fn.hasOptNone())
+    if (!Fn.hasMetadata("llvm.auto.cpu.dispatch"))
       continue;
 
-    if (!Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+    if (Fn.isDeclaration() || Fn.hasOptNone())
       continue;
 
     // Skip available externally functions as they will be removed anyway.
@@ -219,6 +217,13 @@ static bool cloneFunctions(Module &M,
         GetTLI(Fn).getLibFunc(Fn.getName(), LF)) {
       continue;
     }
+
+    // Use wrapper based resolvers on Windows.
+    bool UseWrapperBasedResolver = TT.isOSWindows();
+
+    // Skip multiversioning variable argument functions w/ wrapper based resolvers.
+    if (UseWrapperBasedResolver && Fn.isVarArg())
+      continue;
 
     MDNode *AutoCPUDispatchMD = Fn.getMetadata("llvm.auto.cpu.dispatch");
     LLVM_DEBUG(dbgs() << Fn.getName() << ": " << *AutoCPUDispatchMD << "\n");
@@ -302,7 +307,7 @@ static bool cloneFunctions(Module &M,
 
     Function* Resolver = nullptr;
     GlobalValue* Dispatcher = nullptr;
-    if (TT.isOSWindows())
+    if (UseWrapperBasedResolver)
       emitWrapperBasedResolver(Fn, OrigName, MVOptions, Resolver, Dispatcher);
     else
       emitIFuncBasedResolver(Fn, OrigName, MVOptions, Resolver, Dispatcher);
