@@ -1775,8 +1775,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     Inliner = nullptr;
   }
 
-  PM.add(createPruneEHPass());   // Remove dead EH info.
-
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
   if (AttributorRun & AttributorRunOption::CGSCC)
     PM.add(createAttributorCGSCCLegacyPass());
