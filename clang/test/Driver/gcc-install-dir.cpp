@@ -9,6 +9,9 @@
 // ARCH_I686-SAME: {{^}} "-internal-isystem" "[[SYSROOT:[^"]+]]/usr/lib/gcc/i686-pc-linux-gnu/11.1.0/../../../../include/c++/11.1.0/i686-pc-linux-gnu"
 // ARCH_I686:      "-L
 // ARCH_I686-SAME: {{^}}[[SYSROOT]]/usr/lib/gcc/i686-pc-linux-gnu/11.1.0"
+// INTEL_CUSTOMIZATION
+// ARCH_I686-SAME: {{^}} "-L[[SYSROOT]]/usr/lib/gcc/i686-pc-linux-gnu/11.1.0/../../.."
+// end INTEL_CUSTOMIZATION
 // ARCH_I686-SAME: {{^}} "-L[[SYSROOT]]/lib"
 // ARCH_I686-SAME: {{^}} "-L[[SYSROOT]]/usr/lib"
 
