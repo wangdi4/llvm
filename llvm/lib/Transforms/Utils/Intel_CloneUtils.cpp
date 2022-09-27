@@ -1,6 +1,6 @@
 //===------ Intel_CloneUtils.cpp - Utilities for Cloning -----===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -348,7 +348,8 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
   // Validate the form of the recursive progression.
   User *U = *Arg.user_begin();
   auto SR = dyn_cast<Instruction>(U);
-  if (!SR || SR->getOpcode() != Instruction::SRem)
+  if (!SR || (SR->getOpcode() != Instruction::SRem &&
+              SR->getOpcode() != Instruction::URem))
     return false;
   if (TestCountForConstant) {
     auto CIR = dyn_cast<ConstantInt>(SR->getOperand(1));
