@@ -129,10 +129,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   LowerWGLocalMemory.cpp
   MutatePrintfAddrspace.cpp
   SYCLPropagateAspectsUsage.cpp
-<<<<<<< HEAD
-=======
 
->>>>>>> 060c3c2b043d5aa7174d443870493ec33d443d9f
   LocalAccessorToSharedMemory.cpp
   GlobalOffset.cpp
   TargetHelpers.cpp
