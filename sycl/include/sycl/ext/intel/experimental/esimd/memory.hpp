@@ -1085,7 +1085,11 @@ lsc_scatter(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 #endif
 }
 
+<<<<<<< HEAD
 /// USM pointer transposed scatter with 1 channel.
+=======
+/// USM pointer transposed scatter with 1 channel..
+>>>>>>> 060c3c2b043d5aa7174d443870493ec33d443d9f
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_store.ugm
 ///
