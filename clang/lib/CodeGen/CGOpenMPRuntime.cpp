@@ -9059,6 +9059,10 @@ private:
               llvm::Constant::getNullValue(CGF.Int64Ty));
           UseDeviceDataCombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM);
           UseDeviceDataCombinedInfo.Mappers.push_back(nullptr);
+#if INTEL_COLLAB
+          UseDeviceDataCombinedInfo.VarChain.push_back(
+              std::make_pair(cast_or_null<VarDecl>(VD), false));
+#endif  // INTEL_COLLAB
         };
 
     auto &&MapInfoGen =
@@ -9137,42 +9141,6 @@ private:
               }
             }
           }
-<<<<<<< HEAD
-          if (Found)
-            continue;
-        }
-
-        // We didn't find any match in our map information - generate a zero
-        // size array section - if the pointer is a struct member we defer this
-        // action until the whole struct has been processed.
-        if (isa<MemberExpr>(IE)) {
-          // Insert the pointer into Info to be processed by
-          // generateInfoForComponentList. Because it is a member pointer
-          // without a pointee, no entry will be generated for it, therefore
-          // we need to generate one after the whole struct has been processed.
-          // Nonetheless, generateInfoForComponentList must be called to take
-          // the pointer into account for the calculation of the range of the
-          // partial struct.
-          InfoGen(nullptr, Other, Components, OMPC_MAP_unknown, llvm::None,
-                  llvm::None, /*ReturnDevicePointer=*/false, C->isImplicit(),
-                  nullptr);
-          DeferredInfo[nullptr].emplace_back(IE, VD, /*ForDeviceAddr=*/false);
-        } else {
-          llvm::Value *Ptr =
-              CGF.EmitLoadOfScalar(CGF.EmitLValue(IE), IE->getExprLoc());
-          UseDevicePtrCombinedInfo.Exprs.push_back(VD);
-          UseDevicePtrCombinedInfo.BasePointers.emplace_back(Ptr, VD);
-          UseDevicePtrCombinedInfo.Pointers.push_back(Ptr);
-          UseDevicePtrCombinedInfo.Sizes.push_back(
-              llvm::Constant::getNullValue(CGF.Int64Ty));
-          UseDevicePtrCombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM);
-          UseDevicePtrCombinedInfo.Mappers.push_back(nullptr);
-#if INTEL_COLLAB
-          UseDevicePtrCombinedInfo.VarChain.push_back(
-              std::make_pair(cast_or_null<VarDecl>(VD), false));
-#endif  // INTEL_COLLAB
-=======
->>>>>>> 30cc712eb6f23a5c7beaae669bf2ab6beede7f20
         }
         return Found;
       }
@@ -9219,71 +9187,10 @@ private:
           continue;
         VD = cast<ValueDecl>(VD->getCanonicalDecl());
         const Expr *IE = std::get<1>(L).back().getAssociatedExpression();
-<<<<<<< HEAD
-        // If the first component is a member expression, we have to look into
-        // 'this', which maps to null in the map of map information. Otherwise
-        // look directly for the information.
-        auto It = Info.find(isa<MemberExpr>(IE) ? nullptr : VD);
-
-        // We potentially have map information for this declaration already.
-        // Look for the first set of components that refer to it.
-        if (It != Info.end()) {
-          bool Found = false;
-          for (auto &Data : It->second) {
-            auto *CI = llvm::find_if(Data, [VD](const MapInfo &MI) {
-              return MI.Components.back().getAssociatedDeclaration() == VD;
-            });
-            // If we found a map entry, signal that the pointer has to be
-            // returned and move on to the next declaration.
-            if (CI != Data.end()) {
-              CI->ReturnDevicePointer = true;
-              Found = true;
-              break;
-            }
-          }
-          if (Found)
-            continue;
-        }
-
-        // We didn't find any match in our map information - generate a zero
-        // size array section - if the pointer is a struct member we defer this
-        // action until the whole struct has been processed.
-        if (isa<MemberExpr>(IE)) {
-          // Insert the pointer into Info to be processed by
-          // generateInfoForComponentList. Because it is a member pointer
-          // without a pointee, no entry will be generated for it, therefore
-          // we need to generate one after the whole struct has been processed.
-          // Nonetheless, generateInfoForComponentList must be called to take
-          // the pointer into account for the calculation of the range of the
-          // partial struct.
-          InfoGen(nullptr, Other, std::get<1>(L), OMPC_MAP_unknown, llvm::None,
-                  llvm::None, /*ReturnDevicePointer=*/false, C->isImplicit(),
-                  nullptr, nullptr, /*ForDeviceAddr=*/true);
-          DeferredInfo[nullptr].emplace_back(IE, VD, /*ForDeviceAddr=*/true);
-        } else {
-          llvm::Value *Ptr;
-          if (IE->isGLValue())
-            Ptr = CGF.EmitLValue(IE).getPointer(CGF);
-          else
-            Ptr = CGF.EmitScalarExpr(IE);
-          CombinedInfo.Exprs.push_back(VD);
-          CombinedInfo.BasePointers.emplace_back(Ptr, VD);
-          CombinedInfo.Pointers.push_back(Ptr);
-          CombinedInfo.Sizes.push_back(
-              llvm::Constant::getNullValue(CGF.Int64Ty));
-          CombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM);
-          CombinedInfo.Mappers.push_back(nullptr);
-#if INTEL_COLLAB
-          CombinedInfo.VarChain.push_back(
-              std::make_pair(cast_or_null<VarDecl>(VD), false));
-#endif  // INTEL_COLLAB
-        }
-=======
         if (IsMapInfoExist(CGF, VD, IE, /*IsDevAddr=*/true))
           continue;
         MapInfoGen(CGF, IE, VD, Components, C->isImplicit(),
                    /*IsDevAddr=*/true);
->>>>>>> 30cc712eb6f23a5c7beaae669bf2ab6beede7f20
       }
     }
 
