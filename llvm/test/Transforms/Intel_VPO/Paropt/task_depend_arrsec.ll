@@ -1,6 +1,11 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
+; UNSUPPORTED: enable-opaque-pointers
+
+; DPEND QUALs are now obsolete. The frontends emit DEPARRAY QUALs now.
+; See task_deparray.ll for example.
+
 ; #include <stdio.h>
 ; #include <omp.h>
 ;

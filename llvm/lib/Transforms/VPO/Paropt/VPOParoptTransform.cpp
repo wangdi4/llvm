@@ -3205,7 +3205,8 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   Value *NumElems = nullptr;
   Type *ElemTy = nullptr;
   std::tie(ElemTy, NumElems, std::ignore) = VPOParoptUtils::getItemInfo(RedI);
-  bool IsArraySection = RedI->getIsArraySection() || ElemTy->isArrayTy();
+  bool IsArrayOrArraySection =
+      RedI->getIsArraySection() || ElemTy->isArrayTy() || NumElems;
   // NOTE: this is required to get proper NumElements since
   // getItemInfo isn't currently able to that for array section items
   // not represented with ARRSECT modifier (typically full-sized arrsecs)
@@ -3215,7 +3216,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       genPrivAggregatePtrInfo(ElemTy, NumElems, RedI->getNew(), Builder);
   bool GenTreeUpdate =
       AtomicFreeRedLocalBufSize > 0 &&
-      (!IsArraySection || (NumElems && isa<ConstantInt>(NumElems)));
+      (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems));
 
   // Local reduction stage requires a temporary buffer when tree pattern is
   // enabled in order to keep its temporary results there (see local_buf in the
@@ -3256,7 +3257,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
                                      {Indices});
   };
 
-  if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArraySection) {
+  if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArrayOrArraySection) {
     if (GenTreeUpdate) {
       assert(AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier &&
              "No existing tree update barrier found");
@@ -3295,7 +3296,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   auto *SizeTy = cast<IntegerType>(GeneralUtils::getSizeTTy(F));
   auto *UpdateBB = RedStore->getParent();
   // reusing existing loop isn't supported for local updates yet
-  if (!IsArraySection)
+  if (!IsArrayOrArraySection)
     AtomicFreeRedLocalUpdateInfos[W].UpdateBB = UpdateBB;
 
   // For array section case the input IR expected here is as following:
@@ -3318,7 +3319,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   auto *EntryBB = UpdateBB->getSinglePredecessor();
   assert(EntryBB);
   auto *ExitBB = UpdateBB->getSingleSuccessor();
-  if (IsArraySection) {
+  if (IsArrayOrArraySection) {
     assert(!ExitBB);
     ExitBB = EntryBB->getTerminator()->getSuccessor(0);
   }
@@ -3333,18 +3334,18 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
     SmallVector<Value *, 1> Arg;
     LocalSize = VPOParoptUtils::genOCLGenericCall(
         "_Z22__spirv_WorkgroupSize_xv", SizeTy, Arg,
-        (IsArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
+        (IsArrayOrArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
     LocalId = VPOParoptUtils::genSPIRVLocalIdCall(0, LocalSize);
   } else {
     LocalSize = VPOParoptUtils::genOCLGenericCall(
         "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
-        (IsArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
+        (IsArrayOrArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
     LocalId = VPOParoptUtils::genOCLGenericCall(
         "_Z12get_local_idj", SizeTy, Builder.getInt32(0), LocalSize);
   }
 
   auto *HeaderBB =
-      SplitBlock((IsArraySection ? EntryBB : UpdateBB),
+      SplitBlock((IsArrayOrArraySection ? EntryBB : UpdateBB),
                  LocalSize->getNextNode(), DT, LI, nullptr, "", true);
   HeaderBB->setName("atomic.free.red.local.update.update.header");
 
@@ -3353,9 +3354,9 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   if (GenTreeUpdate) {
     UsedLocalTreeReduction.insert(WTarget);
     auto *PreheaderBB = HeaderBB->getSinglePredecessor();
-    assert(PreheaderBB || !IsArraySection);
+    assert(PreheaderBB || !IsArrayOrArraySection);
     auto *InsertPt =
-        (IsArraySection ? PreheaderBB : EntryBB)->getTerminator();
+        (IsArrayOrArraySection ? PreheaderBB : EntryBB)->getTerminator();
     Builder.SetInsertPoint(InsertPt);
 
     LocalSize->moveBefore(InsertPt);
@@ -3378,7 +3379,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       return V;
     };
     IVInit = cast<Instruction>(RoundToPow2(IVInit));
-    if (!IsArraySection) {
+    if (!IsArrayOrArraySection) {
       LocalPtr = GenLocalBufGEP(RedI, LocalId);
       Rhs1->setOperand(0, LocalPtr);
       auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
@@ -3394,14 +3395,14 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
                                                     spirv::WorkgroupMemory)},
         Builder.GetInsertBlock()->getTerminator());
     EntryBarrierCI->getCalledFunction()->setConvergent();
-    if (!IsArraySection)
+    if (!IsArrayOrArraySection)
       AtomicFreeRedLocalUpdateInfos[W].EntryBarrier = EntryBarrierCI;
   }
 
   Builder.SetInsertPoint(HeaderBB, HeaderBB->begin());
   auto *IVPhi = Builder.CreatePHI(SizeTy, 0);
 
-  if (IsArraySection)
+  if (IsArrayOrArraySection)
     Builder.SetInsertPoint(UpdateBB);
   else
     Builder.SetInsertPoint(UpdateBB->getTerminator());
@@ -3423,14 +3424,14 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   BarrierCI->getCalledFunction()->setConvergent();
 
   // NOTE: consider using SplitBlockAndInsertIfThenElse
-  if (IsArraySection)
+  if (IsArrayOrArraySection)
     Builder.CreateBr(ExitBB);
   auto *LatchBB = SplitBlock(UpdateBB, BarrierCI, DT, LI);
   LatchBB->setName("atomic.free.red.local.update.update.latch");
-  if (IsArraySection)
+  if (IsArrayOrArraySection)
     EntryBB->getTerminator()->setSuccessor(0, LatchBB);
 
-  auto *ThreadIdCheckBB = (IsArraySection ? EntryBB : UpdateBB);
+  auto *ThreadIdCheckBB = (IsArrayOrArraySection ? EntryBB : UpdateBB);
   Builder.SetInsertPoint(ThreadIdCheckBB->getFirstNonPHI());
   Instruction *ShouldUpdate = cast<CmpInst>(
       Builder.CreateCmp(GenTreeUpdate ? CmpInst::Predicate::ICMP_ULT
@@ -3454,10 +3455,12 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   if (GenTreeUpdate) {
     Builder.SetInsertPoint(UpdateBB->getFirstNonPHI());
     auto *NumElemsCasted =
-        IsArraySection ? Builder.CreateZExtOrTrunc(NumElems, IVPhi->getType())
-                       : NumElems;
-    auto *LocalPtrOffset =
-        IsArraySection ? Builder.CreateMul(NumElemsCasted, IVPhi) : IVPhi;
+        IsArrayOrArraySection
+            ? Builder.CreateZExtOrTrunc(NumElems, IVPhi->getType())
+            : NumElems;
+    auto *LocalPtrOffset = IsArrayOrArraySection
+                               ? Builder.CreateMul(NumElemsCasted, IVPhi)
+                               : IVPhi;
     auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
         RedStore->getOperand(0)->getType(), LocalPtr, LocalPtrOffset);
     Rhs2->setOperand(0, LocalPtrPlus);
@@ -3484,11 +3487,11 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
 
   LatchBB->getTerminator()->setSuccessor(0, HeaderBB);
 
-  Builder.SetInsertPoint(IsArraySection ? UpdateBB : ExitBB);
+  Builder.SetInsertPoint(IsArrayOrArraySection ? UpdateBB : ExitBB);
 
   // Final write-back for array section is done in genRedAggregateInitOrFini,
   // here we handle scalars only
-  if (!IsArraySection) {
+  if (!IsArrayOrArraySection) {
     AtomicFreeRedLocalUpdateInfos[W].IVPhi = IVPhi;
     AtomicFreeRedLocalUpdateInfos[W].LocalId = LocalId;
     AtomicFreeRedLocalUpdateInfos[W].ExitBB = ExitBB;
@@ -3575,7 +3578,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   Value *NumElements = nullptr;
   std::tie(RedElemType, NumElements, std::ignore) =
       VPOParoptUtils::getItemInfo(RedI);
-  bool IsArraySection = RedI->getIsArraySection() || RedElemType->isArrayTy();
+  bool IsArrayOrArraySection =
+      RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
   LoadInst *Init = RedSumPhi ?
       Builder.CreateLoad(RedElemType, RedStore->getPointerOperand(), "init") : nullptr;
 
@@ -3603,13 +3607,14 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     assert(EntryBB);
     AtomicFreeRedGlobalUpdateInfos[W].EntryBB = EntryBB;
     auto *ExitBB = UpdateBB->getUniqueSuccessor();
-    if (IsArraySection) {
+    if (IsArrayOrArraySection) {
       assert(!ExitBB);
       ExitBB = EntryBB->getTerminator()->getSuccessor(0);
     }
-    Builder.SetInsertPoint(IsArraySection ? EntryBB : UpdateBB);
+    Builder.SetInsertPoint(IsArrayOrArraySection ? EntryBB : UpdateBB);
 
-    auto *StartPoint = IsArraySection ? EntryBB->getFirstNonPHI() : RedValToLoad;
+    auto *StartPoint =
+        IsArrayOrArraySection ? EntryBB->getFirstNonPHI() : RedValToLoad;
 
     MapClause &MapC = WTarget->getMap();
     auto TeamsCntrIt = std::find_if(
@@ -3693,9 +3698,11 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     HeaderBB = cast<BranchInst>(CntrCheckBB->getTerminator())->getSuccessor(1);
 
     BasicBlock *Preheader = CntrCheckBB;
-    auto GenerateLoop = [&Builder, &W, &Preheader, this, &ExitBB, IsArraySection,
+    auto GenerateLoop = [&Builder, &W, &Preheader, this, &ExitBB,
+                         IsArrayOrArraySection,
                          &DT](Value *CmpValue, Instruction *StartPt,
-                              BasicBlock *IVIncInsertBB, BasicBlock::iterator IVIncInsertPt) {
+                              BasicBlock *IVIncInsertBB,
+                              BasicBlock::iterator IVIncInsertPt) {
       Builder.SetInsertPoint(StartPt);
       auto *HeaderBB = StartPt->getParent();
       auto *IdxPhi = Builder.CreatePHI(Builder.getInt64Ty(), 0);
@@ -3705,7 +3712,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       Builder.SetInsertPoint(IVIncInsertBB, IVIncInsertPt);
       auto *IdxInc =
           cast<Instruction>(Builder.CreateAdd(IdxPhi, Builder.getInt64(1)));
-      if (IsArraySection)
+      if (IsArrayOrArraySection)
         Builder.CreateBr(HeaderBB);
       auto *LatchBB = SplitBlock(
           IdxInc->getParent(),
@@ -3739,17 +3746,17 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   } else {
     IdxPhi = AtomicFreeRedGlobalUpdateInfos.lookup(W).IVPhi;
     HeaderBB = IdxPhi->getParent();
-    if (IsArraySection) {
+    if (IsArrayOrArraySection)
       Builder.CreateBr(AtomicFreeRedGlobalUpdateInfos.lookup(W).LatchBB);
-    } else {
-      RedStore->moveBefore(HeaderBB->getTerminator()->getSuccessor(0)->getTerminator());
-    }
+    else
+      RedStore->moveBefore(
+          HeaderBB->getTerminator()->getSuccessor(0)->getTerminator());
   }
   auto *LatchBB = AtomicFreeRedGlobalUpdateInfos.lookup(W).LatchBB;
   // For scalars we need to store the SumPhi value to the actual result location.
   // For array sections it's done within the update loop already
   Builder.SetInsertPoint(LatchBB->getFirstNonPHI());
-  if (!IsArraySection) {
+  if (!IsArrayOrArraySection) {
     BasicBlock *StoreBB = nullptr;
     if (!AtomicFreeRedGlobalUpdateInfos.lookup(W).ScalarUpdateBB) {
       RedStore->moveBefore(LatchBB->getTerminator());
@@ -3783,7 +3790,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   // Replacing LatchBB with ItemExitBB
   AtomicFreeRedGlobalUpdateInfos[W].UpdateBB->getTerminator()->setSuccessor(
       0, ItemExitBB);
-  if (IsArraySection)
+  if (IsArrayOrArraySection)
     AtomicFreeRedGlobalUpdateInfos[W]
         .UpdateBB->getTerminator()
         ->getSuccessor(1)
@@ -3809,7 +3816,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   auto *PtrUseToFix = RedValToLoad;
   auto *PtrToCheck = PtrInitToReplace;
   if (auto *SrcPHI = dyn_cast<PHINode>(PtrInitToReplace)) {
-    assert(IsArraySection);
+    assert(IsArrayOrArraySection);
     PtrUseToFix = SrcPHI;
     PtrToCheck = SrcPHI->getIncomingValue(0);
     PtrInitToReplace = PtrToCheck;
@@ -3820,11 +3827,11 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     Builder.SetInsertPoint(HeaderBB->getTerminator());
     auto *GepPtr = GepToSkip->getPointerOperand();
     Value *Idx = IdxPhi;
-    if (IsArraySection)
+    if (IsArrayOrArraySection)
       Idx = Builder.CreateMul(Idx, NumElements);
     auto *GlobalGep = Builder.CreateGEP(GepToSkip->getSourceElementType(), GepPtr, Idx);
     // TODO: consider cloning the exisitng addrspacecast
-    if (IsArraySection)
+    if (IsArrayOrArraySection)
       GlobalGep = Builder.CreateAddrSpaceCast(
           GlobalGep, PointerType::get(RedElemType, vpo::ADDRESS_SPACE_GENERIC));
     PtrUseToFix->replaceUsesOfWith(PtrToCheck, GlobalGep);
@@ -3844,7 +3851,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   // For array sections pointers increments and end condition should be inserted
   // at the end of the section loop.
   auto *StoreBB = cast<BranchInst>(HeaderBB->getTerminator())->getSuccessor(0);
-  Builder.SetInsertPoint(IsArraySection ? UpdateBB : StoreBB);
+  Builder.SetInsertPoint(IsArrayOrArraySection ? UpdateBB : StoreBB);
   return false;
 }
 
@@ -3953,21 +3960,24 @@ bool VPOParoptTransform::genReductionScalarFini(
   }
 
   Type *RedElemType = nullptr;
-  std::tie(RedElemType, std::ignore, std::ignore) =
+  Value *NumElements = nullptr;
+  std::tie(RedElemType, NumElements, std::ignore) =
       VPOParoptUtils::getItemInfo(RedI);
 
-  bool IsArraySection = RedI->getIsArraySection() || RedElemType->isArrayTy();
+  bool IsArrayOrArraySection =
+      RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
 
   // TODO: support using existing update loops for array sections
   bool UseExistingLocalLoop = UseLocalUpdates &&
                               AtomicFreeRedLocalUpdateInfos.count(W) &&
-                              !IsArraySection;
+                              !IsArrayOrArraySection;
   bool UseExistingGlobalLoop = UseGlobalUpdates &&
                                AtomicFreeRedGlobalUpdateInfos.count(W);
   if (isTargetSPIRV() &&
       ((UseLocalUpdates && !UseExistingLocalLoop) ||
        (UseGlobalUpdates && !UseExistingGlobalLoop)) &&
-      !Builder.GetInsertBlock()->front().isTerminator() && !IsArraySection) {
+      !Builder.GetInsertBlock()->front().isTerminator() &&
+      !IsArrayOrArraySection) {
     // The reduction generation code below assumes that BB which Builder
     // is inserting instruction into doesn't have any code that isn't supposed
     // to be within the newly generated reduction loop, that's why
@@ -3996,7 +4006,7 @@ bool VPOParoptTransform::genReductionScalarFini(
                           ->front());
     Builder.SetInsertPoint(
         AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB->getTerminator());
-  } else if (UseExistingGlobalLoop && !IsArraySection) {
+  } else if (UseExistingGlobalLoop && !IsArrayOrArraySection) {
     if (HasByRefLoad)
       HandleByRefArg(
           &AtomicFreeRedGlobalUpdateInfos.lookup(W).EntryBB->front());
@@ -4004,7 +4014,8 @@ bool VPOParoptTransform::genReductionScalarFini(
         AtomicFreeRedGlobalUpdateInfos.lookup(W).UpdateBB->getTerminator());
   }
 
-  PHINode *SumPhi = !IsArraySection ? PHINode::Create(RedElemType, 0) : nullptr;
+  PHINode *SumPhi =
+      !IsArrayOrArraySection ? PHINode::Create(RedElemType, 0) : nullptr;
 
   // For simd inscan the calculated reduction is the final value.
   if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan()) {
@@ -5102,12 +5113,10 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                               true, DT, true);
     return;
   }
-
+#endif // INTEL_CUSTOMIZATION
   bool isArraySection = RedI->getIsArraySection() || AllocaTy->isArrayTy();
-
   IRBuilder<> Builder(InsertPt);
 
-#endif // INTEL_CUSTOMIZATION
   if (isArraySection || NumElements) {
     genRedAggregateInitOrFini(W, RedI, NewV, NeedSrc ? OldV : nullptr, InsertPt,
                               true, DT, true);
@@ -5438,7 +5447,7 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
       if (RedI->getIsArraySection()) {
         // Replace size with NewSize loaded above
         VPOParoptUtils::replaceUsesInFunction(
-            FnFastRed, RedI->getArraySectionInfo().getSize(), NewSize);
+            FnFastRed, RedI->getArraySectionNumElements(), NewSize);
       } else {
         // Replace size with NewSize loaded above
         VPOParoptUtils::replaceUsesInFunction(
@@ -5487,8 +5496,7 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
         VPOParoptUtils::getItemInfo(RedI);
 
     if (RedI->getIsArraySection()) {
-      ArraySectionInfo *ArrSecInfo = &RedI->getArraySectionInfo();
-      Value *ArrSecSize = ArrSecInfo->getSize();
+      Value *ArrSecSize = RedI->getArraySectionNumElements();
       if (!isa<ConstantInt>(ArrSecSize)) {
         GlobalVariable *GVArrSecSize =
             VPOParoptUtils::storeIntToThreadLocalGlobal(ArrSecSize, InsertPt,
@@ -6380,8 +6388,8 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 // For array sections, generate a base + offset GEP corresponding to the
 // section's starting address.
 Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
-    Value *Orig, const ArraySectionInfo &ArrSecInfo,
-    Instruction *InsertBefore) {
+    Value *Orig, Type *ArraySectionElementTy, Value *ArraySectionOffset,
+    bool ArraySectionBaseIsPointer, Instruction *InsertBefore) {
 
   // Example for an array section on a pointer to an array:
   //
@@ -6400,11 +6408,14 @@ Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
   Value *BeginAddr = Orig;
   IRBuilder<> Builder(InsertBefore);
 
-  if (ArrSecInfo.getBaseIsPointer()) {
-    // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
-    BeginAddr = Builder.CreateLoad(
-        BeginAddr->getType()->getPointerElementType(), BeginAddr,
-        BeginAddr->getName() + ".load"); //                               (1)
+  if (ArraySectionBaseIsPointer) {
+    Type *BeginAddrTy = BeginAddr->getType();
+    Type *BeginAddrPointeeTy =
+        BeginAddrTy->isOpaquePointerTy()
+            ? getDefaultPointerType()
+            : BeginAddrTy->getNonOpaquePointerElementType();
+    BeginAddr = Builder.CreateLoad(BeginAddrPointeeTy, BeginAddr,
+                                   BeginAddr->getName() + ".load"); //    (1)
   }
 
   assert(BeginAddr && isa<PointerType>(BeginAddr->getType()) &&
@@ -6416,12 +6427,12 @@ Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
   BeginAddr = Builder.CreateBitCast(
       BeginAddr,
       PointerType::get(
-          ArrSecInfo.getElementType(),
+          ArraySectionElementTy,
           cast<PointerType>(BeginAddrPointerTy)->getAddressSpace()),
       BeginAddr->getName() + ".cast"); //                                 (2)
-  BeginAddr = Builder.CreateGEP(ArrSecInfo.getElementType(), BeginAddr,
-                                ArrSecInfo.getOffset(),
-                                BeginAddr->getName() + ".plus.offset"); //(3)
+  BeginAddr =
+      Builder.CreateGEP(ArraySectionElementTy, BeginAddr, ArraySectionOffset,
+                        BeginAddr->getName() + ".plus.offset"); //        (3)
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Gep for array section opnd '";
              Orig->printAsOperand(dbgs()); dbgs() << "':: ";
@@ -6439,9 +6450,8 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
   bool IsArraySection = RedI.getIsArraySection();
 
   if (IsArraySection) {
-    const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
-    NumElements = ArrSecInfo.getSize();
-    DestElementTy = ArrSecInfo.getElementType();
+    NumElements = RedI.getArraySectionNumElements();
+    DestElementTy = RedI.getArraySectionElementType();;
     DestArrayBegin = AI;
   } else {
 #if INTEL_CUSTOMIZATION
@@ -6516,9 +6526,8 @@ void VPOParoptTransform::genAggrReductionSrcDstInfo(
   //   static int (*yarrptr)[3][4][5];
   //   #pragma omp parallel for reduction(+:yarrptr[3][1][2:2][1:3])
   //
-  const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
-  NumElements = ArrSecInfo.getSize();          // 6 for the above example
-  DestElementTy = ArrSecInfo.getElementType(); // i32 for the above example
+  NumElements = RedI.getArraySectionNumElements();  // 6 for the above case
+  DestElementTy = RedI.getArraySectionElementType(); // i32 for the above case
 
   SrcElementTy = DestElementTy;
   SrcArrayBegin = SrcVal;
@@ -6541,7 +6550,8 @@ void VPOParoptTransform::genAggrReductionSrcDstInfo(
     DestArrayBegin = Builder.CreateBitCast(DestVal, SrcArrayBeginTy);
   else
     DestArrayBegin = VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
-        DestVal, ArrSecInfo, InsertPt);
+        DestVal, DestElementTy, RedI.getArraySectionOffset(),
+        RedI.getArraySectionBaseIsPointer(), InsertPt);
 }
 
 void VPOParoptTransform::computeArraySectionTypeOffsetSize(
@@ -6577,6 +6587,9 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   if (ArraySectionDims.empty())
     return;
 
+  assert(!Orig->getType()->isOpaquePointerTy() &&
+         "Opaque pointer operands should have typed clauses.");
+
   if (isa<WRNVecLoopNode>(W) &&
       ArrSecInfo.isArraySectionWithVariableLengthOrOffset()) {
     assert(W->getVlaAllocaInsertPt() &&
@@ -6587,11 +6600,11 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   IRBuilder<> Builder(InsertPt);
 
   Type *CITy = Orig->getType();
-  Type *ElemTy = CITy->getPointerElementType();
+  Type *ElemTy = CITy->getNonOpaquePointerElementType();
 
   if (IsByRef)
     // Strip away one pointer for by-refs.
-    ElemTy = ElemTy->getPointerElementType();
+    ElemTy = ElemTy->getNonOpaquePointerElementType();
 
   bool BaseIsPointer = false;
   if (isa<PointerType>(ElemTy)) {
@@ -6609,7 +6622,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
     // reach the base element type (i32 for yptr) or the array type ([10 x i32]
     // for yarrptr).
     BaseIsPointer = true;
-    ElemTy = ElemTy->getPointerElementType();
+    ElemTy = ElemTy->getNonOpaquePointerElementType();
   }
 
   // At this point, ElemTy is the base element type for 1D array sections. For
@@ -6707,7 +6720,7 @@ VPOParoptTransform::getClauseItemReplacementValue(const Item *ClauseI,
                         cast<ReductionItem>(ClauseI)->getIsArraySection();
 
   if (IsArraySection) {
-    ReplacementVal = VPOParoptTransform::getArrSecReductionItemReplacementValue(
+    ReplacementVal = getArrSecReductionItemReplacementValue(
         *(cast<ReductionItem>(ClauseI)), InsertPt);
   } else {
     ReplacementVal = ClauseI->getNew();
@@ -6762,14 +6775,14 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
 
   IRBuilder<> Builder(InsertPt);
   Value *NewRedInst = RedI.getNew();
-  const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
-  Value *Offset = ArrSecInfo.getOffset();
+  Type *ElementType = RedI.getArraySectionElementType();
+  Value *Offset = RedI.getArraySectionOffset();
   Value *NegOffset = Builder.CreateNeg(Offset, "neg.offset");
   Value *NewMinusOffset =
-      Builder.CreateGEP(ArrSecInfo.getElementType(), NewRedInst, NegOffset,
+      Builder.CreateGEP(ElementType, NewRedInst, NegOffset,
                         NewRedInst->getName() + ".minus.offset"); //      (1)
 
-  if (!ArrSecInfo.getBaseIsPointer()) {
+  if (!RedI.getArraySectionBaseIsPointer()) {
     // To replace uses of original %y ( [10 x i32]* with %y.new.minus.offset
     // (i32*), we need to create a bitcast to the type of $y. For by-refs,
     // we create this cast to the pointee of the original item.
@@ -6777,10 +6790,11 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
     // FIXME: Orig and New may have incompatible addrspaces here.
     //        It is impossible to trigger that situation now, but
     //        we will probably have to deal with it sometime.
-    Type *OrigArrayType =
-        RedI.getIsByRef()
-            ? Orig->getType()->getPointerElementType()
-            : Orig->getType();
+    Type *OrigArrayType = Orig->getType();
+    if (RedI.getIsByRef())
+      OrigArrayType = OrigArrayType->isOpaquePointerTy()
+                          ? getDefaultPointerType()
+                          : OrigArrayType->getNonOpaquePointerElementType();
     return Builder.CreateBitCast(NewMinusOffset, OrigArrayType,
                                  NewMinusOffset->getName());
   }
@@ -6825,7 +6839,10 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
   Value *Orig = RedI.getOrig();
   PointerType *OrigPtrTy = cast<PointerType>(Orig->getType());
   if (RedI.getIsByRef())
-    OrigPtrTy = cast<PointerType>(OrigPtrTy->getPointerElementType());
+    OrigPtrTy =
+        OrigPtrTy->isOpaque()
+            ? getDefaultPointerType()
+            : cast<PointerType>(OrigPtrTy->getNonOpaquePointerElementType());
 
   PointerType *ReplacementType = PointerType::getWithSamePointeeType(
       OrigPtrTy, NewMinusOffsetAddr->getType()->getAddressSpace());
@@ -9381,17 +9398,16 @@ bool VPOParoptTransform::getIsVlaOrVlaSection(
 #else
 bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
 #endif // INTEL_CUSTOMIZATION
+  if (isa<ReductionItem>(I) && cast<ReductionItem>(I)->getIsArraySection())
+    return cast<ReductionItem>(I)
+        ->getIsArraySectionWithVariableLengthOrOffset();
+
   if (I->getIsTyped()) {
     Value *NumElements = I->getNumElements();
     assert(NumElements &&
            "Unexpected: no num elements for explicitly-typed clause item.");
     return !isa<ConstantInt>(NumElements);
   }
-
-  if (isa<ReductionItem>(I) && cast<ReductionItem>(I)->getIsArraySection())
-    return cast<ReductionItem>(I)
-        ->getArraySectionInfo()
-        .isArraySectionWithVariableLengthOrOffset();
 
   Value *NumElements = nullptr;
   std::tie(std::ignore, NumElements, std::ignore) =

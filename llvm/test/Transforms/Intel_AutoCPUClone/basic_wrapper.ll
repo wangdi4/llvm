@@ -1,9 +1,9 @@
 ; RUN: opt -auto-cpu-clone < %s -S | FileCheck %s
 ; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
 
-; CHECK:      @baz_ptr = internal global i32 (i32)* null
+; CHECK:      @baz.ptr = internal global i32 (i32)* null
 ; CHECK-NEXT: @__intel_cpu_feature_indicator = external global [2 x i64]
-; CHECK-NEXT: @foo_ptr = internal global i32 (i32)* null
+; CHECK-NEXT: @foo.ptr = internal global i32 (i32)* null
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @baz.A(i32 %a) #0 !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %add = add i32 %a, 42
@@ -28,7 +28,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @baz(i32 %0) #0 {
 ; CHECK-NEXT: resolver_entry:
-; CHECK-NEXT:   %1 = load i32 (i32)*, i32 (i32)** @baz_ptr, align 8
+; CHECK-NEXT:   %1 = load i32 (i32)*, i32 (i32)** @baz.ptr, align 8
 ; CHECK-NEXT:   %ptr_compare = icmp ne i32 (i32)* %1, null
 ; CHECK-NEXT:   br i1 %ptr_compare, label %resolver_then, label %resolver_else
 ; CHECK-EMPTY:
@@ -44,12 +44,12 @@
 ; CHECK-NEXT:   br i1 %cpu_feature_check, label %resolver_return, label %resolver_else
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_else
-; CHECK-NEXT:   store i32 (i32)* @baz.V, i32 (i32)** @baz_ptr, align 8
+; CHECK-NEXT:   store i32 (i32)* @baz.V, i32 (i32)** @baz.ptr, align 8
 ; CHECK-NEXT:   %3 = tail call i32 @baz.V(i32 %0)
 ; CHECK-NEXT:   ret i32 %3
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else1:                                   ; preds = %resolver_else
-; CHECK-NEXT:   store i32 (i32)* @baz.A, i32 (i32)** @baz_ptr, align 8
+; CHECK-NEXT:   store i32 (i32)* @baz.A, i32 (i32)** @baz.ptr, align 8
 ; CHECK-NEXT:   %4 = tail call i32 @baz.A(i32 %0)
 ; CHECK-NEXT:   ret i32 %4
 ; CHECK-NEXT: }
@@ -64,7 +64,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @foo(i32 %0) #0 {
 ; CHECK-NEXT: resolver_entry:
-; CHECK-NEXT:   %1 = load i32 (i32)*, i32 (i32)** @foo_ptr, align 8
+; CHECK-NEXT:   %1 = load i32 (i32)*, i32 (i32)** @foo.ptr, align 8
 ; CHECK-NEXT:   %ptr_compare = icmp ne i32 (i32)* %1, null
 ; CHECK-NEXT:   br i1 %ptr_compare, label %resolver_then, label %resolver_else
 ; CHECK-EMPTY:
@@ -80,12 +80,12 @@
 ; CHECK-NEXT:   br i1 %cpu_feature_check, label %resolver_return, label %resolver_else
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_else
-; CHECK-NEXT:   store i32 (i32)* @foo.V, i32 (i32)** @foo_ptr, align 8
+; CHECK-NEXT:   store i32 (i32)* @foo.V, i32 (i32)** @foo.ptr, align 8
 ; CHECK-NEXT:   %3 = tail call i32 @foo.V(i32 %0)
 ; CHECK-NEXT:   ret i32 %3
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else1:                                   ; preds = %resolver_else
-; CHECK-NEXT:   store i32 (i32)* @foo.A, i32 (i32)** @foo_ptr, align 8
+; CHECK-NEXT:   store i32 (i32)* @foo.A, i32 (i32)** @foo.ptr, align 8
 ; CHECK-NEXT:   %4 = tail call i32 @foo.A(i32 %0)
 ; CHECK-NEXT:   ret i32 %4
 ; CHECK-NEXT: }

@@ -1193,10 +1193,10 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
       // reduction support.
       if (RedI->getIsTyped())
         collectIfNonPointerNonConstant(RedI->getNumElements());
-      if (RedI->getIsArraySection())
+      if (RedI->getIsArraySection() && !RedI->getIsTyped())
         collectArraySectionBounds(RedI->getArraySectionInfo());
       else if (RedI->getIsTyped())
-        collectIfNonPointerNonConstant(RedI->getArraySectionOffset());
+        collectIfNonPointerNonConstant(RedI->getArraySectionOffsetFromIR());
       else
         collectSizeIfAlloca(RedI->getOrig());
     }

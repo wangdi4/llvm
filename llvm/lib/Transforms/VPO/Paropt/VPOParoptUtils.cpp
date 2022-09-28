@@ -7210,9 +7210,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
                                     &AddrSpace]() -> bool {
     if (const ReductionItem *RedI = dyn_cast<ReductionItem>(I))
       if (RedI->getIsArraySection()) {
-        const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-        ElementType = ArrSecInfo.getElementType();
-        NumElements = ArrSecInfo.getSize();
+        ElementType = RedI->getArraySectionElementType();
+        NumElements = RedI->getArraySectionNumElements();
         auto *ItemTy = RedI->getOrig()->getType();
         assert(isa<PointerType>(ItemTy) &&
                "Array section item has to have pointer type.");
@@ -7254,7 +7253,7 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     if (!I->getIsCptr() || !Orig->getType()->isOpaquePointerTy())
       return false;
 
-    // A PTR_TO_PTR clause operand's pointee type is a named struct with one
+    // A CPTR clause operand's pointee type is a named struct with one
     // integer that's the same size as the size of a pointer.
     //   %cptr = type {i64} ; for x86_64 architecture
     //   "USE_DEVICE_PTR:CPTR"(%cptr* %p)
@@ -7268,11 +7267,11 @@ VPOParoptUtils::getItemInfo(const Item *I) {
   };
 #endif // INTEL_CUSTOMIZATION
 
-  if (!getItemInfoIfTyped() && !getItemInfoIfOpaquePtrToPtr() &&
+  if (!getItemInfoIfArraySection() && !getItemInfoIfTyped() &&
 #if INTEL_CUSTOMIZATION
       !getItemInfoIfOpaqueCPtr() &&
 #endif // INTEL_CUSTOMIZATION
-      !getItemInfoIfArraySection()) {
+      !getItemInfoIfOpaquePtrToPtr()) {
     // OPAQUEPOINTER: this code must be removed, when we switch
     //                to TYPED clauses.
     Type *OrigElemTy = I->getOrig()->getType();
@@ -7458,8 +7457,6 @@ bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
 #endif // INTEL_CUSTOMIZATION
 
   if (RedI->getIsArraySection()) {
-    const auto &ArrSecInfo = RedI->getArraySectionInfo();
-
     // computeArraySectionTypeOffsetSize() may insert computations
     // before the target region, if an array section dimension's
     // lower bound or/and size is not constant. Since the dimension
@@ -7468,7 +7465,13 @@ bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
     // We need more sophisticated code here to be able to do that
     // correctly. For now just support array sections with constant
     // section specifiers.
-    if (ArrSecInfo.isArraySectionWithVariableLengthOrOffset())
+    // TODO: Check if we can keep atomic-free reduction for typed array sections
+    // with variable length/offset.
+#if INTEL_CUSTOMIZATION
+    // Currently, CFE never sends constant offset/offset with typed clauses.
+    // The size/offset computation always happens in the IR. CMPLRLLVM-39762.
+#endif // INTEL_CUSTOMIZATION
+    if (RedI->getIsArraySectionWithVariableLengthOrOffset())
       return false;
   }
 

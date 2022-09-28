@@ -294,6 +294,14 @@ public:
   /// hasUnknownAliasing() below.
   static bool hasUnsafeSideEffects(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
+
+    // Do not consider assume like intrinsics as unsafe insts.
+    auto *Intrin = dyn_cast<IntrinsicInst>(Call);
+
+    if (Intrin && Intrin->isAssumeLikeIntrinsic()) {
+      return false;
+    }
+
     return Call->mayThrow() ||
            (!Call->doesNotAccessMemory() && !Call->onlyAccessesArgMemory());
   }

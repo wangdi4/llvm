@@ -853,11 +853,11 @@ bool VPOParoptTransform::genTaskLoopInitCode(
                   isTargetSPIRV() ? vpo::ADDRESS_SPACE_GENERIC : 0),
               ThunkSharedVal, OrigName + ".shr.deref");
 
-        if (RedI->getIsArraySection()) {
-          const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+        if (RedI->getIsArraySection())
           ThunkSharedVal = genBasePlusOffsetGEPForArraySection(
-              ThunkSharedVal, ArrSecInfo, &*Builder.GetInsertPoint());
-        }
+              ThunkSharedVal, RedI->getArraySectionElementType(),
+              RedI->getArraySectionOffset(),
+              RedI->getArraySectionBaseIsPointer(), &*Builder.GetInsertPoint());
 
         Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
             W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
@@ -1571,8 +1571,9 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
 
     if (DepI->getIsArraySection()) {
       const ArraySectionInfo &ArrSecInfo = DepI->getArraySectionInfo();
-      BasePtr =
-          genBasePlusOffsetGEPForArraySection(Orig, ArrSecInfo, InsertBefore);
+      BasePtr = genBasePlusOffsetGEPForArraySection(
+          Orig, ArrSecInfo.getElementType(), ArrSecInfo.getOffset(),
+          ArrSecInfo.getBaseIsPointer(), InsertBefore);
       Value *NumElements = ArrSecInfo.getSize();
       Value *ElementSize = Builder.getIntN(
           DL.getPointerSizeInBits(),
@@ -1684,11 +1685,11 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
               isTargetSPIRV() ? vpo::ADDRESS_SPACE_GENERIC : 0),
           RedIBase, NamePrefix + Twine(".orig.deref"));
 
-    if (RedI->getIsArraySection()) {
-      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-      RedIBase = genBasePlusOffsetGEPForArraySection(RedIBase, ArrSecInfo,
-                                                     InsertBefore);
-    }
+    if (RedI->getIsArraySection())
+      RedIBase = genBasePlusOffsetGEPForArraySection(
+          RedIBase, RedI->getArraySectionElementType(),
+          RedI->getArraySectionOffset(), RedI->getArraySectionBaseIsPointer(),
+          InsertBefore);
     Builder.CreateStore(Builder.CreateBitCast(RedIBase, Type::getInt8PtrTy(C)),
                         Gep);
 
