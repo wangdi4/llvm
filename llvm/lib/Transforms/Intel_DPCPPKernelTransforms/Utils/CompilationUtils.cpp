@@ -1344,7 +1344,7 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
          "Invalid vectorized function name having suffix!");
 
   Optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
-  assert(Variant.hasValue() && "Expect vector variant but it's not.");
+  assert(Variant.has_value() && "Expect vector variant but it's not.");
 
   Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);
   if (ScalarFunc == nullptr)

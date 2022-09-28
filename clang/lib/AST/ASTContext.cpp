@@ -12922,6 +12922,13 @@ static QualType getCommonNonSugarTypeNode(ASTContext &Ctx, const Type *X,
                                : &ASTContext::getWritePipeType;
     return (Ctx.*MP)(getCommonElementType(Ctx, PX, PY));
   }
+#if INTEL_CUSTOMIZATION
+  case Type::Channel: {
+    const auto *CX = cast<ChannelType>(X), *CY = cast<ChannelType>(Y);
+    auto MP = &ASTContext::getChannelType;
+    return (Ctx.*MP)(getCommonElementType(Ctx, CX, CY));
+  }
+#endif // INTEL_CUSTOMIZATION
   case Type::TemplateTypeParm: {
     const auto *TX = cast<TemplateTypeParmType>(X),
                *TY = cast<TemplateTypeParmType>(Y);
@@ -12969,6 +12976,9 @@ static QualType getCommonSugarTypeNode(ASTContext &Ctx, const Type *X,
     CANONICAL_TYPE(ObjCObject)
     CANONICAL_TYPE(ObjCObjectPointer)
     CANONICAL_TYPE(Pipe)
+#if INTEL_CUSTOMIZATION
+    CANONICAL_TYPE(Channel)
+#endif // INTEL_CUSTOMIZATION
     CANONICAL_TYPE(Pointer)
     CANONICAL_TYPE(Record)
     CANONICAL_TYPE(RValueReference)
