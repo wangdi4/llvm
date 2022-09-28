@@ -597,7 +597,6 @@ TEST(Assert, TestInteropKernelNegative) {
 TEST(Assert, TestInteropKernelFromProgramNegative) {
   sycl::unittest::PiMock Mock;
   sycl::platform Plt = Mock.getPlatform();
->>>>>>> 9a59ef58a5af7f0877c1ae7a9f1b5b977fb5b281
 
   const sycl::device Dev = Plt.get_devices()[0];
   sycl::context Ctx{Dev};
