@@ -219,7 +219,9 @@ private:
   const HLNode *SkipNode;
 };
 
-IVSegment::IVSegment(const RefGroupTy &Group, bool IsWrite) : IsWrite(IsWrite) {
+IVSegment::IVSegment(const RefGroupTy &Group, bool IsWrite,
+                     bool IsContiguous) : IsWrite(IsWrite),
+                     IsContiguous(IsContiguous) {
   // Allow dummy IVSegments based on empty groups.
   if (Group.empty()) {
     BaseCE = nullptr;
@@ -236,7 +238,8 @@ IVSegment::IVSegment(const RefGroupTy &Group, bool IsWrite) : IsWrite(IsWrite) {
 
 IVSegment::IVSegment(IVSegment &&Segment)
     : Lower(std::move(Segment.Lower)), Upper(std::move(Segment.Upper)),
-      BaseCE(std::move(Segment.BaseCE)), IsWrite(std::move(Segment.IsWrite)) {
+      BaseCE(std::move(Segment.BaseCE)), IsWrite(std::move(Segment.IsWrite)),
+      IsContiguous(std::move(Segment.IsContiguous)) {
 
   Segment.Lower = nullptr;
   Segment.Upper = nullptr;
@@ -417,6 +420,104 @@ static bool sortRefsInGroups(RefGroupVecTy &Groups,
   return UnsortedGroups.empty();
 }
 
+// Return true if the input group of RegDDRefs are accessing the memory
+// contiguously within the input loop. For example, assume the group contains
+// the following RegDDRefs:
+//
+//   (%A)[4 * i1 + sext.i32.i64(%t)]
+//   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
+//   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
+//   (%A)[4 * i1 + sext.i32.i64(%t) + 3]
+//
+// The IV coefficient for the innermost loop (i1) is 4. The group have 4
+// entries, all the entries have the same base canon expr, the RegDDRefs
+// are accessing entries from 0 to 3, and the distance between each RegDDRef
+// is 1. This means that the entries in the group represents an access to
+// the memory that is contiguous.
+static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
+                                             const HLLoop *InnermostLoop) {
+
+  if (Group.empty())
+    return false;
+
+  assert(InnermostLoop && "Analyzing group without innermost loop");
+  assert(InnermostLoop->isInnermost() &&
+         "Input loop is not the innermost loop");
+
+  // This is restricted for groups with more than 1 entry
+  if (Group.size() == 1)
+    return false;
+
+  RegDDRef *FirstRef = Group.front();
+  bool IsLoad = FirstRef->isRval();
+  auto &DDRU = FirstRef->getDDRefUtils();
+  auto &CEU = FirstRef->getCanonExprUtils();
+  auto Level = InnermostLoop->getNestingLevel();
+  uint64_t LoadStoreSize = CEU.getTypeSizeInBytes(FirstRef->getDestType());
+
+  // The IV coefficient will be the expected number of contiguous access
+  const CanonExpr *CE = FirstRef->getDimensionIndex(1);
+  unsigned IVBlobIndex;
+  int64_t ExpectedContiguousAccessMatches;
+  CE->getIVCoeff(Level, &IVBlobIndex, &ExpectedContiguousAccessMatches);
+  if (IVBlobIndex != InvalidBlobIndex)
+    return false;
+
+  if (ExpectedContiguousAccessMatches < 2)
+    return false;
+
+  RegDDRef *PrevRef = FirstRef;
+  int64_t NumContiguousAccessMatches = 1;
+  for (unsigned I = 1, E = Group.size(); I < E; I++) {
+    RegDDRef *Ref = Group[I];
+
+    // All members of the group must have the same number of dimensions and the
+    // same base CE.
+    assert(FirstRef->getNumDimensions() == Ref->getNumDimensions() &&
+           "Number of dimensions are different");
+    assert(CanonExprUtils::areEqual(FirstRef->getBaseCE(), Ref->getBaseCE()) &&
+           "Base canon expr are different");
+
+    // We are going to trace only the Refs that are loads or stores if they
+    // match the first entry.
+    // NOTE: Perhaps we can expand this in the future to check both cases in
+    // one group.
+    if (Ref->isRval() != IsLoad)
+      continue;
+
+    int64_t DistanceInBytes = 0;
+    if (!DDRU.getConstByteDistance(Ref, PrevRef, &DistanceInBytes, true))
+      return false;
+
+    if (DistanceInBytes == 0)
+      continue;
+
+    if ((uint64_t) DistanceInBytes != LoadStoreSize)
+      return false;
+
+    NumContiguousAccessMatches++;
+
+    // Number of entries found must be at least the same as the expected number
+    // of entries.
+    //
+    // NOTE: Perhaps this condition can be relaxed in the future to enable gaps.
+    // For example, assume that the only RegDDRefs in the group are:
+    //
+    //   (%A)[4 * i1 + sext.i32.i64(%t)]
+    //   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
+    //   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
+    //
+    // In this case, the coefficient is 4 but we only found 3 entries. There is
+    // a gap of 1.
+    if (NumContiguousAccessMatches == ExpectedContiguousAccessMatches)
+      return true;
+
+    PrevRef = Ref;
+  }
+
+  return false;
+}
+
 RuntimeDDResult
 IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
                               const HLLoop *InnermostLoop) const {
@@ -468,7 +569,7 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // usually result in gather/scatter generation.
       // For Loop Interchange we treat them as profitable.
       if (!DisableCostModel && OuterLoop == InnermostLoop &&
-          (!(IVConstCoeff == 1 ||
+          (!(IVConstCoeff == 1 || IsContiguous ||
              // -1 is allowed for memcpy recognition
              (IVConstCoeff == -1 && OuterLoop->getNumChildren() <= 2)) ||
            IVBlobIndex != InvalidBlobIndex)) {
@@ -1547,7 +1648,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
         std::any_of(Groups[I].begin(), Groups[I].end(),
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
 
-    IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup);
+    bool IsContiguousGroup =
+        isGroupAccessingContiguousMemory(Groups[I], InnermostLoop);
+    IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
+                            IsContiguousGroup);
 
     // Check every segment for the applicability
     Ret = IVSegments.back().isSegmentSupported(Loop, InnermostLoop);
