@@ -34,6 +34,7 @@ public:
     SearchLoop,
     SearchLoopStrEq,
     SearchLoopPtrEq,
+    SearchLoopValueCmp,
     // End of search loop idioms
   };
 
@@ -51,6 +52,7 @@ public:
   static bool isAnySearchLoop(const VPlanIdioms::Opcode Opcode) {
     return Opcode == VPlanIdioms::SearchLoopStrEq ||
            Opcode == VPlanIdioms::SearchLoopPtrEq ||
+           Opcode == VPlanIdioms::SearchLoopValueCmp ||
            Opcode == VPlanIdioms::SearchLoop;
   }
 
@@ -58,11 +60,14 @@ private:
   static bool isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block);
   static Opcode isStrEqSearchLoop(const VPBasicBlock *Block,
                                   const bool AllowMemorySpeculation);
-  static Opcode isPtrEqSearchLoop(const VPBasicBlock *Block,
-                                  const bool AllowMemorySpeculation,
-                                  loopopt::RegDDRef *&PeelArrayRef);
-  static bool checkPtrEqThenNodes(const loopopt::HLIf *If,
-                                  const loopopt::RegDDRef *ListItemRef);
+  static Opcode isSearchLoopNeedingPeeling(const VPBasicBlock *Block,
+                                           const bool AllowMemorySpeculation,
+                                           loopopt::RegDDRef *&PeelArrayRef,
+                                           const VPlanIdioms::Opcode Idiom);
+  static bool checkThenNodes(const loopopt::HLIf *If,
+                             const loopopt::RegDDRef *ListItemRef,
+                             const loopopt::CanonExpr *PredLhsIndex,
+                             const VPlanIdioms::Opcode Idiom);
   static bool isSafeExitBlockForSearchLoop(const VPBasicBlock *Block);
 };
 } // namespace vpo
