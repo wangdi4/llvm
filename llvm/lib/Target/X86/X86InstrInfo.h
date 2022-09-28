@@ -174,6 +174,38 @@ class X86InstrInfo final : public X86GenInstrInfo {
 public:
   explicit X86InstrInfo(X86Subtarget &STI);
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-40015: we fix this precision issue with prohibiting specific
+  // global FMA in spec_omp2012all/370 by matching the FMA shape and FMA
+  // expression's user.
+  bool IsBadForOMP2012(MachineInstr *FMAMI, unsigned Shape,
+                       bool DisableGFMAForOMP2012) const override {
+    if (!DisableGFMAForOMP2012)
+      return false;
+    MachineRegisterInfo *MRI = &FMAMI->getMF()->getRegInfo();
+    // Check Shape is exactly 0xd5
+    if (Shape != 213)
+      return false;
+    // check FMAExpr's only use is VMOVSDZmr and the first operand is killed.
+    // e.g. VMOVSDZmr killed %429:gr64, 8, %99:gr64_nosp, -16, $noreg, killed
+    // %428:fr64x
+    if (FMAMI->getNumDefs() != 1)
+      return false;
+    for (auto &Def : FMAMI->defs()) {
+      auto DefReg = Def.getReg();
+      if (!MRI->hasOneUse(DefReg))
+        return false;
+      for (const MachineInstr &UseInst : MRI->use_nodbg_instructions(DefReg)) {
+        if (UseInst.getOpcode() != X86::VMOVSDZmr)
+          return false;
+        if (UseInst.operands_begin()->isKill() != true)
+          return false;
+      }
+    }
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should
   /// always be able to get register info as well (through this method).
