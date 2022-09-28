@@ -586,13 +586,13 @@ private:
 
   /// For array sections, generate a base + offset GEP corresponding to the
   /// section's starting address. \p Orig is the base of the array section
-  /// coming from the frontend, \p ArrSecInfo is the data structure containg the
-  /// starting offset, size and stride for various dimensions of the section.
+  /// coming from the frontend.
   /// The generated GEP is inserted before \p InsertBefore.
-  static Value *
-  genBasePlusOffsetGEPForArraySection(Value *Orig,
-                                      const ArraySectionInfo &ArrSecInfo,
-                                      Instruction *InsertBefore);
+  Value *genBasePlusOffsetGEPForArraySection(Value *Orig,
+                                             Type *ArraySectionElementTy,
+                                             Value *ArraySectionOffset,
+                                             bool ArraySectionBaseIsPointer,
+                                             Instruction *InsertBefore);
 
   /// \name Reduction Specific Functions
   /// {@
@@ -689,15 +689,13 @@ private:
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
   /// some Instructions, which is done \b before \p InsertPt.
-  static Value *getClauseItemReplacementValue(const Item *I,
-                                              Instruction *InsertPt);
+  Value *getClauseItemReplacementValue(const Item *I, Instruction *InsertPt);
 
   /// Return the Value to replace the occurrences of the original Array Section
   /// Reduction operand inside the body of the associated WRegion. It may need
   /// to emit some Instructions, which is done \b before \p InsertPt.
-  static Value *
-  getArrSecReductionItemReplacementValue(ReductionItem const &RedI,
-                                         Instruction *InsertPt);
+  Value *getArrSecReductionItemReplacementValue(ReductionItem const &RedI,
+                                                Instruction *InsertPt);
 
   /// Generate the reduction initialization code.
   void genReductionInit(WRegionNode *W, ReductionItem *RedI,

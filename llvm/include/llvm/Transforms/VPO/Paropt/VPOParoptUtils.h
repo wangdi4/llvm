@@ -2423,6 +2423,110 @@ public:
   /// NumElements is the number of elements, in case I's Orig is an array, \b
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
+  /// Some examples of input clauses and their output element-type/num-elements,
+  /// returned by this function are:
+  ///
+  ///  \code
+  ///
+  ///  short x, &xr = x, *xp, *&xpr = xp;
+  ///  short y[10], &yr = y, (*yp)[10], (*&ypr)[10] = yp;
+  ///
+  ///  #pragma omp ... private(x, xr, xp, xpr, y, yr, yp, ypr)
+  ///  #pragma omp ... reduction(+:xp[2:5], xpr[2:5], y[2:5],
+  ///                              yr[2:5], yp[0][2:5], ypr[0][2:5])
+  ///  #pragma omp ... linear(xp, xpr, yp, ypr: 3)
+  ///  #pragma omp ... use_device_ptr(xp)
+  ///
+  /// Clause                                        | ElementType | NumElements
+  /// ----------------------------------------------+-------------+-------------
+  /// PRIVATE:TYPED(i16* %x, i16 0, i64 1)          | i16         | nullptr
+  /// PRIVATE:BYREF.TYPED(i16** %xr, i16 0, i64 1)  | i16         | nullptr
+  /// PRIVATE:TYPED(i16** %xp, i16* null, i64 1)    | i16*        | nullptr
+  /// PRIVATE:BYREF.TYPED(i16*** %xpr,              | i16*        | nullptr
+  ///                     i16* null,                |             |
+  ///                     i64 1)                    |             |
+  /// PRIVATE:TYPED([10 x i16]* %y, i16 0, i64 10)  | i16         | i64 10
+  /// PRIVATE:BYREF.TYPED([10 x i16]** %yr,         | i16         | i64 10
+  ///                     i16 0,                    |             |
+  ///                     i64 10)                   |             |
+  /// PRIVATE:TYPED([10 x i16]** %yp,               | [10 x i16]* | nullptr
+  ///               [10 x i16]* null,               |             |
+  ///               I64 1)                          |             |
+  /// PRIVATE:BYREF.TYPED([10 x i16]*** %ypr,       | [10 x i16]* | nullptr
+  ///                     [10 x i16]* null,         |             |
+  ///                     i64 1)                    | [10 x i16]* | nullptr
+  /// RED.ADD:ARRSECT.PTR_TO_PTR.TYPED(i16** %xp,   | i16         | i64 5
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT.PTR_TO_PTR.BYREF.TYPED(       | i16         | i64 5
+  ///                                  i16*** %xpr, |             |
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT:TYPED([10 x i16]* %y,         | i16         | i64 5
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT:BYREF.TYPED([10 x i16]** %yr, | i16         | i64 5
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT:PTR_TO_PTR.TYPED(             | i16         | i64 5
+  ///                         [10 x i16]** %yp,     |             |
+  ///                         i16 0,                |             |
+  ///                         i64 5,                |             |
+  ///                         i64 2)                |             |
+  /// RED.ADD:ARRSECT:PTR_TO_PTR.BYREF.TYPED(       | i16         | i64 5
+  ///                         [10 x i16]*** %yr,    |             |
+  ///                         i16 0,                |             |
+  ///                         i64 5,                |             |
+  ///                         i64 2)                |             |
+  /// LINEAR:PTR_TO_PTR.TYPED(i16** %xp,            | i16*        | nullptr
+  ///                         i16 0,                |             |
+  ///                         i64 1,                |             |
+  ///                         i64 3)                |             |
+  /// LINEAR:PTR_TO_PTR.BYREF.TYPED(i16*** %xpr,    | i16*        | nullptr
+  ///                               i16 0,          |             |
+  ///                               i64 1,          |             |
+  ///                               i64 3)          |             |
+  /// LINEAR:PTR_TO_PTR.TYPED(                      | [10 x i16]* | nullptr
+  ///                   [10 x i16]** %yp,           |             |
+  ///                   [10 x i16] zeroinitializer, |             |
+  ///                   i64 1,                      |             |
+  ///                   i64 3)                      |             |
+  /// LINEAR:PTR_TO_PTR.BYREF.TYPED(                | [10 x i16]* | nullptr
+  ///                   [10 x i16]*** %ypr,         |             |
+  ///                   [10 x i16] zeroinitializer, |             |
+  ///                   i64 1,                      |             |
+  ///                   i64 3)                      |             |
+  /// USE_DEVICE_PTR:PTR_TO_PTR.TYPED(i16** %xp,    | i16*        | nullptr
+  ///                                 i16 0,        |             |
+  ///                                 i64 1)        |             |
+  /// USE_DEVICE_PTR:PTR_TO_PTR(ptr %xp)            | ptr         | nullptr
+  /// NORMALIZD.IV:TYPED(ptr %omp.iv, i32 0)        | i32         | nullptr
+  ///
+#if INTEL_CUSTOMIZATION
+  /// Some Fortran specific examples include:
+  ///  integer(kind=2) :: a(:)
+  ///  type(c_ptr) :: cp
+  ///
+  ///  !$omp ... private(a)
+  ///  !$omp ... use_device_ptr(cp)
+  ///
+  /// Clause                                        | ElementType | NumElements
+  /// ----------------------------------------------+-------------+-------------
+  ///  PRIVATE:F90_DV.TYPED(%QNCA* %a,              | %QNCA       | nullptr
+  ///                       %QNCA zeroinitializer,  |             |
+  ///                       i16 0)                  |             |
+  ///  USE_DEVICE_PTR:CPTR.TYPED(                   | %CPTR       | nullptr
+  ///                       %CPTR* %cp,             |             |
+  ///                       %CPTR zeroinitializer,  |             |
+  ///                       i64 1)                  |             |
+  ///  USE_DEVICE_PTR:CPTR(ptr %cp)                 | ptr         | nullptr
+  ///
+#endif // INTEL_CUSTOMIZATION
+  /// \endcode
   static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
 #if INTEL_CUSTOMIZATION
 

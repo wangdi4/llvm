@@ -960,12 +960,14 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
-    if (ClauseInfo.getIsArraySection())
-      // TODO: OPAQUEPOINTER: Need typed use_device_addr/has_device_addr
-      // to handle array sections?
+    if (ClauseInfo.getIsArraySection()) {
+      // With opaque pointers, the frontend should convert a
+      // "USE_DEVICE_ADDR:ARRSECT" into "MAP + USE_DEVICE_ADDR".
       if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
-        if (isa<PointerType>(PtrTy->getPointerElementType()))
+        if (!PtrTy->isOpaquePointerTy() &&
+            isa<PointerType>(PtrTy->getNonOpaquePointerElementType()))
           IsPointerToPointer = true;
+    }
   } else if (ClauseID == QUAL_OMP_HAS_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_IS_DEVICE_PTR;
   }
@@ -1344,13 +1346,13 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
     DI->setIsIn(IsIn);
     DI->setIsByRef(ClauseInfo.getIsByRef());
     if (IsArraySection)
-      DI->setArraySectionOffset(Args[3]);
+      DI->setArraySectionOffsetFromIR(Args[3]);
 
     // FIXME: ArraySectionInfo should be removed, when we switch
     //        to TYPED clauses completely.
     ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
     ArrSecInfo.setSize(DI->getNumElements());
-    ArrSecInfo.setOffset(DI->getArraySectionOffset());
+    ArrSecInfo.setOffset(DI->getArraySectionOffsetFromIR());
     ArrSecInfo.setElementType(DI->getOrigItemElementTypeFromIR());
 
     // FIXME: set this based on PTR_TO_PTR modifier.
@@ -1504,6 +1506,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsUnsigned(IsUnsigned);
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
+    RI->setIsPointerToPointer(ClauseInfo.getIsPointerToPointer());
     RI->setIsByRef(ClauseInfo.getIsByRef());
     if (InscanIdx) {
       RI->setIsInscan(true);
@@ -1522,9 +1525,17 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       // combiner and initializer at the end.
 
       RI->setIsTyped(true);
-      RI->setOrigItemElementTypeFromIR(Args[1]->getType());
+      Type *Arg1Ty = Args[1]->getType();
+      if (RI->getIsPointerToPointer()) {
+        unsigned AS =
+            WRegionUtils::getDefaultAS(getEntryDirective()->getModule());
+        RI->setOrigItemElementTypeFromIR(PointerType::get(Arg1Ty, AS));
+        RI->setPointeeElementTypeFromIR(Arg1Ty);
+      } else {
+        RI->setOrigItemElementTypeFromIR(Arg1Ty);
+      }
       RI->setNumElements(Args[2]);
-      RI->setArraySectionOffset(Args[3]);
+      RI->setArraySectionOffsetFromIR(Args[3]);
 
       if (ReductionKind == ReductionItem::WRNReductionUdr) {
         assert(NumArgs == 8 &&
@@ -1560,9 +1571,8 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         RI->setInitializer(
             dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
       }
+      ArrSecInfo.populateArraySectionDims(Args, NumArgs);
     }
-
-    ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
@@ -1617,7 +1627,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         } else
 #endif // INTEL_CUSTOMIZATION
         RI->setNumElements(Args[I + 2]);
-        RI->setArraySectionOffset(
+        RI->setArraySectionOffsetFromIR(
             Constant::getNullValue(Type::getInt32Ty(Ctxt)));
         I += 2;
       }
