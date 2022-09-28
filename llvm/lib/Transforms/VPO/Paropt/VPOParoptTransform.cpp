@@ -10247,12 +10247,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(
        SchedKind == WRNScheduleOrderedStaticEven) ?
           ConstantInt::get(IndValTy, 1) : W->getSchedule().getChunkExpr();
 
-  if (!isa<Constant>(ChunkVal) && !isa<WRNWksLoopNode>(W)) {
-    resetValueInOmpClauseGeneric(W, ChunkVal);
-    ChunkVal = VPOParoptUtils::cloneInstructions(ChunkVal, PHTerm);
-    PHBuilder.SetInsertPoint(PHTerm);
-  }
-
   LLVM_DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
   AllocaInst *TeamIsLast = nullptr;
