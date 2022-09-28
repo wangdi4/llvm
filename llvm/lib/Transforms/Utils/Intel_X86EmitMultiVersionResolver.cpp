@@ -81,9 +81,9 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
   }
 
   Module *M = Resolver->getParent();
-  std::string ResolverPtrName = Resolver->getName().str() + "_ptr";
+  std::string ResolverPtrName = Resolver->getName().str() + ".ptr";
   GlobalValue *ResolverPtr = M->getNamedValue(ResolverPtrName);
-  Builder.CreateStore(FuncToReturn, ResolverPtr);
+  Builder.CreateAlignedStore(FuncToReturn, ResolverPtr, MaybeAlign(8));
 
   SmallVector<Value *, 10> Args;
   for_each(Resolver->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
@@ -101,20 +101,17 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
 static void emitResolverPtrTest(Function *Resolver, IRBuilderBase &Builder) {
 
   Module *M = Resolver->getParent();
-  std::string ResolverPtrName = Resolver->getName().str() + "_ptr";
+  std::string ResolverPtrName = Resolver->getName().str() + ".ptr";
 
+  Type *ResolverPtrType = Resolver->getFunctionType()->getPointerTo();
   GlobalVariable *ResolverPtr =
-      new GlobalVariable(*M, Resolver->getFunctionType()->getPointerTo(), false,
-                         GlobalValue::InternalLinkage,
-                         Constant::getNullValue(Resolver->getFunctionType()->getPointerTo()),
-                         ResolverPtrName);
+      new GlobalVariable(*M, ResolverPtrType, false, GlobalValue::InternalLinkage,
+                         Constant::getNullValue(ResolverPtrType), ResolverPtrName);
   ResolverPtr->setDSOLocal(true);
 
-  auto ResolverPtrVal = Builder.CreateAlignedLoad(Resolver->getFunctionType()->getPointerTo(),
-                                                  ResolverPtr, MaybeAlign(8));
+  auto ResolverPtrVal = Builder.CreateAlignedLoad(ResolverPtrType, ResolverPtr, MaybeAlign(8));
 
-  Value *CmpResult = Builder.CreateICmpNE(ResolverPtrVal,
-                                          Constant::getNullValue(Resolver->getType()),
+  Value *CmpResult = Builder.CreateICmpNE(ResolverPtrVal, Constant::getNullValue(ResolverPtrType),
                                           "ptr_compare");
 
   auto &Ctx = Resolver->getContext();
