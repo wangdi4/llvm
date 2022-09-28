@@ -1102,6 +1102,19 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
       return;
     }
 
+    // Do another around of temporal locality check by taking aliasing into
+    // account. We do this after the legality check as it requires DDGraph which
+    // is built during legality check.
+    // TODO: refine unroll factor during legality check using dependencies
+    // carried by Lp and pass the refined factor here.
+    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true, true,
+                                              &HUAJ.DDA)) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll & jam as aliasing prevents us from "
+                           "exploiting temporal locality!\n");
+      HUAJ.throttle(Lp);
+      return;
+    }
+
     if (isNonProfitablePattern(Lp)) {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll & jam for non-profitable pattern!\n");
