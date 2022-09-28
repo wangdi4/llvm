@@ -621,6 +621,21 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       for (auto *DI : DIs)
         DI->eraseFromParent();
   }
+  if (BasicBlock *FirstBB = OldToNewSyncBBMap[&F][&F.getEntryBlock()]) {
+    // Find llvm.dbg.value intrinsics referencing arguments and hoist them
+    // to the newly created entry block
+    TinyPtrVector<DbgVariableIntrinsic*> HoistedDVIs;
+    auto IsArgument = [](Value *V) -> bool { return isa<Argument>(V); };
+    for (Instruction &I : *FirstBB) {
+      if (auto *DVI = dyn_cast<DbgVariableIntrinsic>(&I)) {
+        if (llvm::all_of(DVI->location_ops(), IsArgument))
+          HoistedDVIs.push_back(DVI);
+      }
+    }
+    Instruction *InsertionPoint = &F.getEntryBlock().front();
+    for (DbgVariableIntrinsic *DVI : HoistedDVIs)
+      DVI->moveBefore(InsertionPoint);
+  }
   DIB.finalize();
 }
 
