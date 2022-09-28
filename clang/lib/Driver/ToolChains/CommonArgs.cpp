@@ -695,6 +695,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                                          Path));
   }
 
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   // Pass an option to enable/disable the new pass manager.
   if (auto *A = Args.getLastArg(options::OPT_flegacy_pass_manager,
@@ -705,6 +706,15 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       CmdArgs.push_back("-plugin-opt=new-pass-manager");
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  // This controls whether or not we perform JustMyCode instrumentation.
+  if (Args.hasFlag(options::OPT_fjmc, options::OPT_fno_jmc, false)) {
+    if (ToolChain.getEffectiveTriple().isOSBinFormatELF())
+      CmdArgs.push_back("-plugin-opt=-enable-jmc-instrument");
+    else
+      D.Diag(clang::diag::warn_drv_fjmc_for_elf_only);
+  }
+>>>>>>> 54967c01d2bb6daa1959865d9a780678e652419d
 
   // Setup statistics file output.
   SmallString<128> StatsFile = getStatsFileName(Args, Output, Input, D);
