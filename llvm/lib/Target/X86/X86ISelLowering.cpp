@@ -25686,8 +25686,8 @@ static SDValue EmitAVX512Test(SDValue Op0, SDValue Op1, ISD::CondCode CC,
   // since result of 'concat_vect(a,b)' will be deleted or sunk if it is not
   // used in current BB. And concat_vect (KSHIFTLBri, KUNPCKBWrr..., 4 latency,
   // p5) is more expensive operation than or (KORBrr, 1 latency, p0).
-  if (Op0.getOpcode() == ISD::CONCAT_VECTORS && Op0.hasOneUse()
-      && ((CC == ISD::SETEQ || CC == ISD::SETNE) && isNullConstant(Op1))) {
+  if (KTestable && Op0.getOpcode() == ISD::CONCAT_VECTORS && Op0.hasOneUse() &&
+      ((CC == ISD::SETEQ || CC == ISD::SETNE) && isNullConstant(Op1))) {
     if (Op0.getNumOperands() == 2) {
       SDValue LHS = Op0.getOperand(0);
       SDValue RHS = Op0.getOperand(1);
