@@ -196,6 +196,14 @@ if (INTEL_CUSTOMIZATION)
 
     message(STATUS "omp.h found: ${LIBOMP_OMP_H_FILE}")
   endif()
+
+  # Enable debug information
+  if(WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi")
+    add_link_options("/DEBUG")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+  endif()
 endif(INTEL_CUSTOMIZATION)
 
 # Build target agnostic offloading library.
