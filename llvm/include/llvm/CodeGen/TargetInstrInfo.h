@@ -127,19 +127,17 @@ public:
     return Opc <= TargetOpcode::GENERIC_OP_END;
   }
 
-<<<<<<< HEAD
   static bool isGenericAtomicRMWOpcode(unsigned Opc) {
     return Opc >= TargetOpcode::GENERIC_ATOMICRMW_OP_START &&
            Opc <= TargetOpcode::GENERIC_ATOMICRMW_OP_END;
   }
-=======
+
 #if INTEL_CUSTOMIZATION
   virtual bool IsBadForOMP2012(MachineInstr *FMAMI, unsigned Shape,
                                bool DisableGFMAForOMP2012) const {
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 488114cc094a6e34063dacb7c38556e970b69da8
 
   /// Given a machine instruction descriptor, returns the register
   /// class constraint for OpNum, or NULL.
