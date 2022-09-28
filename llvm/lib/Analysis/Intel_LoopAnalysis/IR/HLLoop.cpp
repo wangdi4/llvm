@@ -2099,8 +2099,9 @@ void HLLoop::undefInitializeUnconditionalLiveoutTemps() {
 
 HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   assert(!isUnknown() && isNormalized() && "Unsupported loop for peeling.");
+  unsigned LoopLevel = getNestingLevel();
   assert(PeelArrayRef && PeelArrayRef->isMemRef() &&
-         PeelArrayRef->isLinearAtLevel(getNestingLevel()) &&
+         PeelArrayRef->isLinearAtLevel(LoopLevel) &&
          "Unsupported PeelArrayRef.");
 
   auto &CEU = getCanonExprUtils();
@@ -2137,8 +2138,9 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   // %alignment = &(%arr)[0] & (needed_alignment - 1)
   // Here %arr is array that we align access to via the peel loop.
   RegDDRef *PeelArrayBaseRef = PeelArrayRef->clone();
-  PeelArrayBaseRef->replaceIVByConstant(getNestingLevel(), 0);
+  PeelArrayBaseRef->replaceIVByConstant(LoopLevel, 0);
   PeelArrayBaseRef->setAddressOf(true);
+  PeelArrayBaseRef->makeConsistent({}, LoopLevel - 1);
   HLInst *PeelArrayBaseCast =
       HNU.createPtrToInt(IntTy, PeelArrayBaseRef, "arr.base.cast");
   PeelLoopInsts.push_back(*PeelArrayBaseCast);
@@ -2184,8 +2186,6 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   PeelLoop->addLiveInTemp(PeelFactorSym);
 
   // Updates to cloned peel loop.
-  unsigned LoopLevel = getNestingLevel();
-
   // Upper bound of peel loop will be PeelFactor-1
   auto *PeelLpUB = PeelFactorMin->getLvalDDRef()->clone();
   auto *PeelLpUBCanonExpr = PeelLpUB->getSingleCanonExpr();

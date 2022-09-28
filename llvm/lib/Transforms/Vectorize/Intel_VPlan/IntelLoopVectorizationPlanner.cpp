@@ -897,6 +897,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
         break;
       }
+      case VPlanIdioms::SearchLoopValueCmp:
+        // Intentional fall-through.
       default:
         break;
     }

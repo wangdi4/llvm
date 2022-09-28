@@ -1106,12 +1106,14 @@ void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2) &&
       (EnableFirstIterPeelMEVec || EnablePeelMEVec) && isSearchLoop() &&
       (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq ||
-       getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq);
+       getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq ||
+       getSearchLoopType() == VPlanIdioms::SearchLoopValueCmp);
 
   if (isSearchLoop() &&
-      getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq) {
+      (getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq
+       || getSearchLoopType() == VPlanIdioms::SearchLoopValueCmp)) {
     assert(SearchLoopPeelArrayRef &&
-           "StructPtrEq search loop does not have peel array ref.\n");
+           "PtrEq or ValueCmp search loop does not have peel array ref.\n");
   }
 
   // We cannot peel any iteration of the loop when the trip count is constant
@@ -2567,7 +2569,7 @@ void VPOCodeGenHIR::handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto) {
     assert(LvalRef->isNonLinear() &&
            "Unsupported live-out: expected non-linear LvalDDRef!");
     (void)LvalRef;
-    // All linear live-outs for the SearchLoopStructPtrEq idiom are known to be
+    // All linear live-outs for the SearchLoopPtrEq idiom are known to be
     // strictly inside the if-then block of mask check. Hence we know that mask
     // is non-zero for such live-out instructions.
     handleLiveOutLinearInEarlyExit(
