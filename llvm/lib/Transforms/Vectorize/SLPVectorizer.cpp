@@ -143,7 +143,7 @@ static cl::opt<int>
 namespace llvm {
 namespace slpvectorizer {
 // Enable the formation of Multi-Nodes.
-static bool EnableMultiNodeSLP = true;
+static bool EnableMultiNodeSLP = false;
 // Enable the formation of Multi-Nodes - new design.
 // The design is based on a skeleton published by the original author
 // at https://reviews.llvm.org/D63661 but was substantially reworked.
@@ -151,7 +151,7 @@ static bool EnableMultiNodeSLP = true;
 // it had bugs and did not support some essential features of the legacy
 // implementation. Hence some comments and scheduler related part of new
 // implementation retained from the published patch.
-static bool EnableMultiNode = false;
+static bool EnableMultiNode = true;
 } // namespace slpvectorizer.
 } // namespace llvm.
 
