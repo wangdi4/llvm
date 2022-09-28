@@ -99,7 +99,7 @@ static const bool UseMultipleCmdlistBarriers = [] {
   const char *UseMultipleCmdlistBarriersFlag =
       std::getenv("SYCL_PI_LEVEL_ZERO_USE_MULTIPLE_COMMANDLIST_BARRIERS");
   if (!UseMultipleCmdlistBarriersFlag)
-    return false;
+    return true;
   return std::stoi(UseMultipleCmdlistBarriersFlag) > 0;
 }();
 
