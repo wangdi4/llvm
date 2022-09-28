@@ -118,6 +118,7 @@ class HIRLoopFusion {
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
   HIRLoopStatistics &HLS;
+  HIRSafeReductionAnalysis &SRA;
 
   template <bool PreLoop>
   bool generatePreOrPostLoops(HLNode *AnchorNode, ArrayRef<unsigned> Indices,
@@ -132,8 +133,9 @@ class HIRLoopFusion {
   void runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range);
 
 public:
-  HIRLoopFusion(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS)
-      : HIRF(HIRF), DDA(DDA), HLS(HLS) {}
+  HIRLoopFusion(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
+                HIRSafeReductionAnalysis &SRA)
+      : HIRF(HIRF), DDA(DDA), HLS(HLS), SRA(SRA) {}
 
   bool run();
 };
@@ -634,7 +636,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
   LLVM_DEBUG(dbgs() << "Loop count: " << LV.getLoopCount() << "\n");
 
   // Shrink range to [FirstLoop, LastLoop] by getting LV.getLoopRange().
-  FuseGraph FG = FuseGraph::create(DDA, HLS, ParentNode, LV.getLoopRange());
+  FuseGraph FG =
+      FuseGraph::create(DDA, HLS, SRA, ParentNode, LV.getLoopRange());
 
   LLVM_DEBUG(dbgs() << "\nFinal Fusion Graph dump:\n");
   LLVM_DEBUG(FG.dump());
@@ -756,7 +759,8 @@ PreservedAnalyses HIRLoopFusionPass::runImpl(llvm::Function &F,
                                              llvm::FunctionAnalysisManager &AM,
                                              HIRFramework &HIRF) {
   HIRLoopFusion(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                AM.getResult<HIRLoopStatisticsAnalysis>(F))
+                AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                AM.getResult<HIRSafeReductionAnalysisPass>(F))
       .run();
 
   return PreservedAnalyses::all();
@@ -775,6 +779,7 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   }
 
   bool runOnFunction(Function &F) override {
@@ -784,7 +789,8 @@ public:
 
     return HIRLoopFusion(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                          getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                         getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+                         getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+                         getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
         .run();
   }
 };
@@ -795,6 +801,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopFusionLegacyPass, OPT_SWITCH, OPT_DESC, false,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopFusionLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIRLoopFusionPass() {

@@ -22,6 +22,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 
 #include <list>
 #include <queue>
@@ -136,6 +137,7 @@ private:
 
   HIRDDAnalysis &DDA;
   HIRLoopStatistics &HLS;
+  HIRSafeReductionAnalysis &SRA;
 
   VertexContainerTy Vertex;
 
@@ -298,8 +300,9 @@ private:
   void dumpNodeSet(const NodeMapTy &Container) const;
   void dumpNodeRawMap(const NodeMapTy &Map) const;
 
-  FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
-            HLNode *ParentNode, HLNodeRangeTy Children);
+  FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
+            HIRSafeReductionAnalysis &SRA, DDGraph DDG, HLNode *ParentNode,
+            HLNodeRangeTy Children);
 
   void verifyDependentMaps(StringRef Title, const NodeMapTy &BaseMap,
                            const NodeMapTy &CheckMap, bool ReverseEdges,
@@ -307,7 +310,8 @@ private:
 
 public:
   static FuseGraph create(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
-                          HLNode *ParentNode, HLNodeRangeTy Range);
+                          HIRSafeReductionAnalysis &SRA, HLNode *ParentNode,
+                          HLNodeRangeTy Range);
 
   LLVM_DUMP_METHOD
   void dump() const;

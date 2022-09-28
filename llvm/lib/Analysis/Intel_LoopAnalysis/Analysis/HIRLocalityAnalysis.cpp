@@ -41,6 +41,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -767,8 +768,43 @@ void HIRLoopLocality::sortedLocalityLoops(
   std::sort(SortedLoops.begin(), SortedLoops.end(), Comp);
 }
 
+template <bool IsIncoming>
+static bool hasEdgeOutsideGroup(const RegDDRef *FirstRef,
+                                const HIRLoopLocality::RefGroupTy &CurGroup,
+                                DDGraph DDG, unsigned Level) {
+
+  for (auto *Edge :
+       IsIncoming ? DDG.incoming(FirstRef) : DDG.outgoing(FirstRef)) {
+    if (Edge->getDV().isIndepFromLevel(Level)) {
+      continue;
+    }
+
+    auto *OtherRef =
+        cast<RegDDRef>(IsIncoming ? Edge->getSrc() : Edge->getSink());
+
+    if (std::none_of(CurGroup.begin(), CurGroup.end(),
+                     [=](const RegDDRef *Ref) { return Ref == OtherRef; })) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/// Returns true if \p CurGroup has edges to a ref outside the group.
+/// Aliasing invalidates temporal locality analysis.
+static bool aliasesWithAnotherGroup(const HIRLoopLocality::RefGroupTy &CurGroup,
+                                    DDGraph DDG, unsigned Level) {
+
+  auto *FirstRef = CurGroup.front();
+
+  // For simplicity just check the edges of first ref.
+  return hasEdgeOutsideGroup<true>(FirstRef, CurGroup, DDG, Level) ||
+         hasEdgeOutsideGroup<false>(FirstRef, CurGroup, DDG, Level);
+}
+
 unsigned HIRLoopLocality::getTemporalLocalityImpl(
-    const HLLoop *Lp, unsigned ReuseThreshold,
+    const HLLoop *Lp, HIRDDAnalysis *HDDA, unsigned ReuseThreshold,
     TemporalLocalityType LocalityType, bool IgnoreConditionalRefs,
     bool IgnoreEqualRefs, bool CheckPresence) {
   assert(Lp && " Loop parameter is null!");
@@ -790,6 +826,8 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
   unsigned NumTemporal = 0;
   bool NeedInvariant = (LocalityType & TemporalLocalityType::Invariant);
   bool NeedReuse = (LocalityType & TemporalLocalityType::Reuse);
+  bool ComputedGraph = false;
+  DDGraph DDG;
 
   for (auto &RefVec : RefGroups) {
     if (CheckPresence && NumTemporal != 0) {
@@ -802,6 +840,17 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
     bool IsInvariant = PrevRef->isStructurallyInvariantAtLevel(Level, true);
     if (IsInvariant && !NeedInvariant) {
       continue;
+    }
+
+    if (HDDA) {
+      if (!ComputedGraph) {
+        DDG = HDDA->getGraph(Lp);
+        ComputedGraph = true;
+      }
+
+      if (aliasesWithAnotherGroup(RefVec, DDG, Level)) {
+        continue;
+      }
     }
 
     // Ideally, we should check that ref post-dominates the first child of

@@ -44,6 +44,7 @@ class HLNode;
 class HLLoop;
 class DDRefUtils;
 class HIRFramework;
+class HIRDDAnalysis;
 
 class HIRLoopLocality : public HIRAnalysis {
 public:
@@ -162,7 +163,7 @@ private:
   void printLocalityInfo(raw_ostream &OS, const HLLoop *L) const;
 
   /// Implements getTemporalLocality().
-  static unsigned getTemporalLocalityImpl(const HLLoop *Lp,
+  static unsigned getTemporalLocalityImpl(const HLLoop *Lp, HIRDDAnalysis *HDDA,
                                           unsigned ReuseThreshold,
                                           TemporalLocalityType LocalityType,
                                           bool IgnoreConditionalRefs,
@@ -192,32 +193,41 @@ public:
   /// \p ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
+  /// If \p HDDA is not null, will also take aliasing into account to compute
+  /// locality.
   static bool hasTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
                                   bool IgnoreConditionalRefs,
-                                  bool IgnoreEqualRefs) {
+                                  bool IgnoreEqualRefs,
+                                  HIRDDAnalysis *HDDA = nullptr) {
     return getTemporalLocalityImpl(
-        Lp, ReuseThreshold, TemporalLocalityType::Both, IgnoreConditionalRefs,
-        IgnoreEqualRefs, true);
+        Lp, HDDA, ReuseThreshold, TemporalLocalityType::Both,
+        IgnoreConditionalRefs, IgnoreEqualRefs, true);
   }
 
   /// Returns a number which represents the instances of temporal (invariant +
   /// reuse) locality inside \p Lp using \p ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
+  /// If \p HDDA is not null, will also take aliasing into account to compute
+  /// locality.
   static unsigned getTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
                                       bool IgnoreConditionalRefs,
-                                      bool IgnoreEqualRefs) {
+                                      bool IgnoreEqualRefs,
+                                      HIRDDAnalysis *HDDA = nullptr) {
     return getTemporalLocalityImpl(
-        Lp, ReuseThreshold, TemporalLocalityType::Both, IgnoreConditionalRefs,
-        IgnoreEqualRefs, false);
+        Lp, HDDA, ReuseThreshold, TemporalLocalityType::Both,
+        IgnoreConditionalRefs, IgnoreEqualRefs, false);
   }
 
   /// Returns true if loop has any temporal invariant locality.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
+  /// If \p HDDA is not null, will also take aliasing into account to compute
+  /// locality.
   static bool hasTemporalInvariantLocality(const HLLoop *Lp,
-                                           bool IgnoreConditionalRefs) {
-    return getTemporalLocalityImpl(Lp, 0, TemporalLocalityType::Invariant,
+                                           bool IgnoreConditionalRefs,
+                                           HIRDDAnalysis *HDDA = nullptr) {
+    return getTemporalLocalityImpl(Lp, HDDA, 0, TemporalLocalityType::Invariant,
                                    IgnoreConditionalRefs, true, true);
   }
 
@@ -225,9 +235,12 @@ public:
   /// locality in \p Lp.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
+  /// If \p HDDA is not null, will also take aliasing into account to compute
+  /// locality.
   static unsigned getTemporalInvariantLocality(const HLLoop *Lp,
-                                               bool IgnoreConditionalRefs) {
-    return getTemporalLocalityImpl(Lp, 0, TemporalLocalityType::Invariant,
+                                               bool IgnoreConditionalRefs,
+                                               HIRDDAnalysis *HDDA = nullptr) {
+    return getTemporalLocalityImpl(Lp, HDDA, 0, TemporalLocalityType::Invariant,
                                    IgnoreConditionalRefs, true, false);
   }
 
@@ -235,26 +248,32 @@ public:
   /// ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
+  /// If \p HDDA is not null, will also take aliasing into account to compute
+  /// locality.
   static bool hasTemporalReuseLocality(const HLLoop *Lp,
                                        unsigned ReuseThreshold,
                                        bool IgnoreConditionalRefs,
-                                       bool IgnoreEqualRefs) {
+                                       bool IgnoreEqualRefs,
+                                       HIRDDAnalysis *HDDA = nullptr) {
     return getTemporalLocalityImpl(
-        Lp, ReuseThreshold, TemporalLocalityType::Reuse, IgnoreConditionalRefs,
-        IgnoreEqualRefs, true);
+        Lp, HDDA, ReuseThreshold, TemporalLocalityType::Reuse,
+        IgnoreConditionalRefs, IgnoreEqualRefs, true);
   }
 
   /// Returns a number which represents the instances of temporal reuse locality
   /// in \p Lp using \p ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
+  /// If \p HDDA is not null, will also take aliasing into account to compute
+  /// locality.
   static unsigned getTemporalReuseLocality(const HLLoop *Lp,
                                            unsigned ReuseThreshold,
                                            bool IgnoreConditionalRefs,
-                                           bool IgnoreEqualRefs) {
+                                           bool IgnoreEqualRefs,
+                                           HIRDDAnalysis *HDDA = nullptr) {
     return getTemporalLocalityImpl(
-        Lp, ReuseThreshold, TemporalLocalityType::Reuse, IgnoreConditionalRefs,
-        IgnoreEqualRefs, false);
+        Lp, HDDA, ReuseThreshold, TemporalLocalityType::Reuse,
+        IgnoreConditionalRefs, IgnoreEqualRefs, false);
   }
 
   /// Populates \p TemporalGroups with memref groups which have temporal
