@@ -1,11 +1,8 @@
 ; RUN: opt -auto-cpu-clone < %s -S | FileCheck %s
 ; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
 
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:      @__intel_cpu_feature_indicator = external global [2 x i64]
-; CHECK-NEXT: @llvm.compiler.used = appending global [2 x i8*] [i8* bitcast (i32 (i32)* @baz to i8*), i8* bitcast (i32 (i32)* @foo to i8*)], section "llvm.metadata"
 ; CHECK-EMPTY:
 ; CHECK-NEXT: @baz = ifunc i32 (i32), i32 (i32)* ()* @baz.resolver
 ; CHECK-NEXT: @foo = ifunc i32 (i32), i32 (i32)* ()* @foo.resolver
@@ -72,6 +69,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: attributes #0 = { "advanced-optim"="false" }
 ; CHECK-NEXT: attributes #1 = { "advanced-optim"="true" "loopopt-pipeline"="full" "target-cpu"="haswell" "target-features"="+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+movbe,+popcnt,+f16c,+avx,+fma,+bmi,+lzcnt,+avx2" "tune-cpu"="haswell" }
 
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @baz(i32 %a) !llvm.auto.cpu.dispatch !1 {
   %add = add i32 %a, 42

@@ -15,7 +15,6 @@
 
 
 ; CHECK: @__intel_cpu_feature_indicator = external global [2 x i64]
-; CHECK: @llvm.compiler.used = appending global [2 x i8*] [i8* bitcast (i32 (i32, ...)* @_Z3bariz to i8*), i8* bitcast (i32 ()* @main to i8*)],
 ; CHECK: @_Z3bariz = dso_local ifunc i32 (i32, ...), i32 (i32, ...)* ()* @_Z3bariz.resolver
 ; CHECK: @main = dso_local ifunc i32 (), i32 ()* ()* @main.resolver
 
