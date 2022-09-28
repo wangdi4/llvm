@@ -1830,62 +1830,55 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   auto PrivNonPODCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
   auto CEIdiomCvt = std::make_unique<Converter<CompressExpandIdiomDescr>>(Plan);
 
-  for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
-       LoopDescr != End; ++LoopDescr) {
-    HLLoop *HL = LoopDescr->second;
-    Legal->getSRA()->computeSafeReductionChains(HL);
-    const SafeRedInfoList &SRCL = Legal->getSRA()->getSafeRedInfoList(HL);
+  HLLoop *HL = TheLoop;
+  Legal->getSRA()->computeSafeReductionChains(HL);
+  const SafeRedInfoList &SRCL = Legal->getSRA()->getSafeRedInfoList(HL);
 
-    LLVM_DEBUG(
-        dbgs() << "Found the following auto-recognized reductions in the loop "
-                  "with header ";
-        dbgs() << LoopDescr->first->getName() << "\n";
-        for (auto &SafeRedInfo : SRCL)
-          for (auto &HlInst : SafeRedInfo.Chain) {
-            const VPInstruction *Inst =
-                cast<VPInstruction>(Decomposer.getVPValueForNode(HlInst));
-            Inst->dump();
-          }
-    );
+  // clang-format off
+  LLVM_DEBUG(
+      dbgs() << "Found the following auto-recognized reductions in the loop\n";
+      for (auto &SafeRedInfo : SRCL)
+        for (auto &HlInst : SafeRedInfo.Chain) {
+          const VPInstruction *Inst =
+              cast<VPInstruction>(Decomposer.getVPValueForNode(HlInst));
+          Inst->dump();
+      });
+  // clang-format on
 
-    auto Bind = [](auto &&Range, auto &&Converter) {
-      return std::make_pair(std::ref(Range), std::move(Converter));
-    };
+  auto Bind = [](auto &&Range, auto &&Converter) {
+    return std::make_pair(std::ref(Range), std::move(Converter));
+  };
 
-    const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
+  const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
 
-    // clang-format off
-    RedCvt->createDescrList(HL,
-      Bind(make_range(ReductionInputIteratorHIR(true, SRCL),
-                      ReductionInputIteratorHIR(false, SRCL)),
-           ReductionListCvt<ReductionInputIteratorHIR>{Decomposer}),
-      Bind(Legal->getReductions(), ExplicitReductionListCvt{Decomposer}),
-      Bind(make_range(MinMaxIdiomsInputIteratorHIR(true, *Idioms),
-                      MinMaxIdiomsInputIteratorHIR(false, *Idioms)),
-           ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}),
-      Bind(Legal->getUDRs(), ExplicitReductionListCvt{Decomposer}));
+  // clang-format off
+  RedCvt->createDescrList(HL,
+    Bind(make_range(ReductionInputIteratorHIR(true, SRCL),
+                    ReductionInputIteratorHIR(false, SRCL)),
+         ReductionListCvt<ReductionInputIteratorHIR>{Decomposer}),
+    Bind(Legal->getReductions(), ExplicitReductionListCvt{Decomposer}),
+    Bind(make_range(MinMaxIdiomsInputIteratorHIR(true, *Idioms),
+                    MinMaxIdiomsInputIteratorHIR(false, *Idioms)),
+         ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}),
+    Bind(Legal->getUDRs(), ExplicitReductionListCvt{Decomposer}));
 
-    IndCvt->createDescrList(HL,
-      Bind(Decomposer.getInductions(HL), InductionListCvt{Decomposer}),
-      // TODO: ArrayRef-based empty slice here serves as a stub because
-      // LinearListCvt is not working correctly. Fix it when the converter
-      // is fixed.
-      Bind(Legal->getLinears(), LinearListCvt{Decomposer}));
+  IndCvt->createDescrList(HL,
+    Bind(Decomposer.getInductions(HL), InductionListCvt{Decomposer}),
+    Bind(Legal->getLinears(), LinearListCvt{Decomposer}));
 
-    PrivCvt->createDescrList(HL,
-      Bind(Legal->getPrivates(), PrivatesListCvt{Decomposer}));
+  PrivCvt->createDescrList(HL,
+    Bind(Legal->getPrivates(), PrivatesListCvt{Decomposer}));
 
-    PrivNonPODCvt->createDescrList(HL,
-      Bind(Legal->getNonPODPrivates(), PrivatesListCvt{Decomposer}));
-    // clang-format on
+  PrivNonPODCvt->createDescrList(HL,
+    Bind(Legal->getNonPODPrivates(), PrivatesListCvt{Decomposer}));
+  // clang-format on
 
-    const HIRVectorIdioms *VecIdioms = Legal->getVectorIdioms(HL);
-    CEIdiomCvt->createDescrList(
-        HL, Bind(map_range(
-                     VecIdioms->getIdiomsById(HIRVectorIdioms::CEIndexIncFirst),
+  const HIRVectorIdioms *VecIdioms = Legal->getVectorIdioms(HL);
+  CEIdiomCvt->createDescrList(
+      HL,
+      Bind(map_range(VecIdioms->getIdiomsById(HIRVectorIdioms::CEIndexIncFirst),
                      [](const auto &Pair) { return Pair.first; }),
-                 CompressExpandIdiomListCvt(Decomposer, VecIdioms)));
-  }
+           CompressExpandIdiomListCvt(Decomposer, VecIdioms)));
   CvtVec.emplace_back(std::move(RedCvt));
   CvtVec.emplace_back(std::move(IndCvt));
   CvtVec.emplace_back(std::move(PrivCvt));
