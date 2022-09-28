@@ -916,11 +916,8 @@ void AggressiveInstCombinerLegacyPass::getAnalysisUsage(
   AU.addPreserved<BasicAAWrapperPass>();
   AU.addPreserved<DominatorTreeWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
-<<<<<<< HEAD
   AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-=======
   AU.addRequired<AAResultsWrapperPass>();
->>>>>>> 3b49a9fcf6931d347923e7993308fb4e275c7fb6
 }
 
 bool AggressiveInstCombinerLegacyPass::runOnFunction(Function &F) {
