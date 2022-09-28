@@ -292,6 +292,14 @@ public:
 
   bool isPtrToIntOrFloat(dtrans::FieldInfo &FI);
 
+  // Interface routine to get possible targets of given function pointer 'FP'.
+  // It computes all possible targets of 'FP' using the field single value
+  // analysis and adds valid targets to 'Targets' vector. Returns' false' if
+  // there are any unknown/invalid targets.
+  //
+  bool GetFuncPointerPossibleTargets(Value *FP, std::vector<Value *> &Targets,
+                                     CallBase *, bool);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
   void printCallInfo();
