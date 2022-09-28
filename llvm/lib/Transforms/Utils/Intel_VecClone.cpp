@@ -146,6 +146,8 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -764,6 +766,45 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
   return Add;
 }
 
+// Emit debug intrinsics to describe parameters in the clone.
+static void emitDebugForParameter(Value *ArgValue, AllocaInst *Alloca,
+                                  LoadInst *Load) {
+  Function *Clone = cast<Argument>(ArgValue)->getParent();
+  DISubprogram *CloneSP = Clone->getSubprogram();
+  if (!CloneSP)
+    return; // No debug information in the clone.
+
+  // Debug intrinsics referencing the original argument have been rewritten
+  // to point to the "Load" instruction by emitLoadStoreForParameter().
+  SmallVector<DbgVariableIntrinsic *, 1> DVIs;
+  findDbgUsers(DVIs, Load);
+  if (DVIs.empty())
+    return; // No debug information found for the parameter.
+
+  // Ignore variables described by llvm.dbg.declare intrinsics.
+  auto IsDbgDeclare =
+      [](DbgVariableIntrinsic *I) -> bool { return isa<DbgDeclareInst>(I); };
+  if (llvm::any_of(DVIs, IsDbgDeclare))
+    return;
+
+  Module *M = Clone->getParent();
+  DICompileUnit *Unit = CloneSP->getUnit();
+  DIBuilder DIB (*M, true, Unit);
+
+  SmallPtrSet<DILocalVariable *, 1> VariableSet;
+  for (DbgVariableIntrinsic *DVI : DVIs) {
+    DILocalVariable *DV = DVI->getVariable();
+    DIExpression    *DE = DVI->getExpression();
+    DILocation      *DL = DVI->getDebugLoc().get();
+
+    // Emit only one debug intrinsic per-variable per-parameter.
+    if (DVI->getNumVariableLocationOps() == 1 && !VariableSet.contains(DV)) {
+      DIB.insertDbgValueIntrinsic(ArgValue, DV, DE, DL, Alloca);
+      VariableSet.insert(DV);
+    }
+  }
+}
+
 // Emits store and load of \p ArgValue and replaces all uses of \p ArgValue with
 // the load.
 static LoadInst* emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
@@ -777,6 +818,9 @@ static LoadInst* emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
   // we emit the store.
   Builder.SetInsertPoint(Alloca->getNextNode());
   Builder.CreateStore(ArgValue, Alloca);
+
+  // Emit debug information into the entry block for the parameters.
+  emitDebugForParameter(ArgValue, Alloca, Load);
 
   return Load;
 }
