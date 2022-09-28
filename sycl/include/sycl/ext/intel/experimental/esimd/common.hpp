@@ -25,12 +25,8 @@
 
 #pragma once
 
-<<<<<<< HEAD
-#include <sycl/ext/intel/esimd/common.hpp>
-=======
 #include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
 #include <sycl/ext/intel/esimd/native/common.hpp>
->>>>>>> 4d2c63253c46a6c7daa361149a76a290534c28c6
 #include <sycl/ext/intel/esimd/xmx/common.hpp>
 
 #include <cstdint>
