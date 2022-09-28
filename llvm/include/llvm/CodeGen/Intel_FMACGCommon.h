@@ -30,6 +30,7 @@
 #include "llvm/CodeGen/Intel_FMACommon.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/Support/raw_ostream.h"
 #include <list>
@@ -46,6 +47,7 @@ class FMAExprSP;
 class FMADag;
 class FMAPerfDesc;
 class FMAPatterns;
+class TargetInstrInfo;
 
 /// This class provides the methods returning output streams
 /// for debug messages which can be turned ON/OFF depending
