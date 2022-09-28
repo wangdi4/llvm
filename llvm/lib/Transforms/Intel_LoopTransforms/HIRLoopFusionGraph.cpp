@@ -1268,6 +1268,7 @@ void FuseGraph::constructDirectedEdges(
     bool IsInnermost = SrcLoop && SrcLoop->isInnermost() &&
                        (SrcLoop->getNestingLevel() == Level);
 
+    bool SafeRedComputed = false;
     for (DDRef *Ref : Refs) {
       // Collect Directed Dependency Edges
       for (const DDEdge *DDEdge : DDG.outgoing(Ref)) {
@@ -1275,16 +1276,48 @@ void FuseGraph::constructDirectedEdges(
         // found.
         if (!SkipVecProfitabilityCheck && IsInnermost &&
             DDEdge->preventsVectorization(Level)) {
-
-          LLVM_DEBUG(dbgs() << "\nDDEdge preventing vectorization found: ");
-          LLVM_DEBUG(DDEdge->print(dbgs()));
+          HLNode *SrcNodeExact = DDEdge->getSrc()->getHLDDNode();
+          HLInst *SrcInst = dyn_cast<HLInst>(SrcNodeExact);
 
           HLNode *DstNodeExact = DDEdge->getSink()->getHLDDNode();
+          HLInst *DstInst = dyn_cast<HLInst>(DstNodeExact);
           HLNode *DstNode = HLNodeUtils::getImmediateChildContainingNode(
               ParentNode, DstNodeExact);
+
+          // Skip vectorization preventing edge:
+          // 1. if it goes out of the loop
+          // 2. to allow vectorizer's idiom:
+          //   a) src and sink are part of the same select instruction to allow
+          //      vectorizer's idiom
+          //   b) src is in one select inst and sink is in the previous select
+          //      instruction to allow vectorizer's idiom
+          // 4. if this is a flow edge caused by Safe Reduction expression.
           if (SrcNode == DstNode) {
-            FuseNode &SrcFuseNode = Vertex[SrcNumber];
-            SrcFuseNode.setVectorizable(false);
+            bool SameInst = SrcNodeExact == DstNodeExact;
+            bool IsSrcSelect =
+                SrcInst && isa<SelectInst>(SrcInst->getLLVMInstruction());
+            bool IsDstSelect =
+                DstInst && isa<SelectInst>(DstInst->getLLVMInstruction());
+            bool SameSelectInst = SameInst && IsSrcSelect;
+            bool SubseqSelectInsts =
+                (SrcNodeExact->getPrevNode() == DstNodeExact) && IsSrcSelect &&
+                IsDstSelect;
+            if (!SafeRedComputed) {
+              SafeRedComputed = true;
+              SRA.computeSafeReductionChains(SrcLoop);
+            }
+            bool SafeReductionNode = false;
+            if (DDEdge->isFlow()) {
+              auto *SRI = SRA.getSafeRedInfo(SrcInst);
+               SafeReductionNode = SRI && !SRI->HasUnsafeAlgebra;
+            }
+
+            if (!SameSelectInst && !SubseqSelectInsts && !SafeReductionNode) {
+              FuseNode &SrcFuseNode = Vertex[SrcNumber];
+              SrcFuseNode.setVectorizable(false);
+              LLVM_DEBUG(dbgs() << "\nDDEdge preventing vectorization found: ");
+              LLVM_DEBUG(DDEdge->print(dbgs()));
+            }
           }
         }
 
@@ -1516,9 +1549,10 @@ void FuseGraph::weightedFusion() {
   }
 }
 
-FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
+FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
+                     HIRSafeReductionAnalysis &SRA, DDGraph DDG,
                      HLNode *ParentNode, HLNodeRangeTy Children)
-    : DDA(DDA), HLS(HLS) {
+    : DDA(DDA), HLS(HLS), SRA(SRA) {
   LLVM_DEBUG(dbgs() << "Fusion Graph initialization\n");
   LLVM_DEBUG(dbgs() << "DDG for the node <" << ParentNode->getNumber()
                     << ">:\n");
@@ -1548,7 +1582,8 @@ FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
 }
 
 FuseGraph FuseGraph::create(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
-                            HLNode *ParentNode, HLNodeRangeTy Range) {
+                            HIRSafeReductionAnalysis &SRA, HLNode *ParentNode,
+                            HLNodeRangeTy Range) {
   assert(Range.begin()->getParent() == ParentNode &&
          "Nodes in Range should be children of ParentNode");
 
@@ -1566,7 +1601,7 @@ FuseGraph FuseGraph::create(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
     }
   }
 
-  return FuseGraph(DDA, HLS, DDG, ParentNode, Range);
+  return FuseGraph(DDA, HLS, SRA, DDG, ParentNode, Range);
 }
 
 void FuseGraph::dumpNodeSet(const NodeMapTy &Container) const {
