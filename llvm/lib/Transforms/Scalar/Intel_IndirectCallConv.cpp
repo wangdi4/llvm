@@ -49,6 +49,7 @@
 
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -82,8 +83,10 @@ namespace {
 struct IndirectCallConvImpl {
 #if INTEL_FEATURE_SW_DTRANS
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo,
-                       DTransAnalysisInfo *DTransInfo)
-      : AnderPointsTo(AnderPointsTo), DTransInfo(DTransInfo){};
+                       DTransAnalysisInfo *DTransInfo,
+                       dtransOP::DTransSafetyInfo *DTransSI)
+      : AnderPointsTo(AnderPointsTo), DTransInfo(DTransInfo),
+        DTransSI(DTransSI){};
 #else // INTEL_FEATURE_SW_DTRANS
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo)
       : AnderPointsTo(AnderPointsTo){};
@@ -97,7 +100,10 @@ struct IndirectCallConvImpl {
 private:
   AndersensAAResult *AnderPointsTo;
 #if INTEL_FEATURE_SW_DTRANS
+  // Used with legacy DTransAnalysis pass
   DTransAnalysisInfo *DTransInfo;
+  // Used with DTransSafetyAnalyzer for opaque pointers pass
+  dtransOP::DTransSafetyInfo *DTransSI;
 #endif // INTEL_FEATURE_SW_DTRANS
 };
 } // namespace
@@ -199,11 +205,22 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   bool TraceOn = false;
   LLVM_DEBUG( TraceOn = true; );
 #if INTEL_FEATURE_SW_DTRANS
+  // Try the legacy DTransAnalysis. This path will be removed after the compiler
+  // is fully transitioned to opaque pointers. When opaque pointers are in use,
+  // useDTransAnalysis will always return 'false.
   if (DTransInfo && DTransInfo->useDTransAnalysis()) {
     if (DTransInfo->GetFuncPointerPossibleTargets(
             call_fptr, PossibleTargets, Call, TraceOn))
       IsComplete = AndersensAAResult::AndersenSetResult::Complete;
   }
+  // Try the DTransSafetyAnalyzer. This path gets used when opaque pointers
+  // are in use.
+  if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
+    if (DTransSI && DTransSI->useDTransSafetyAnalysis()) {
+      if (DTransSI->GetFuncPointerPossibleTargets(call_fptr, PossibleTargets,
+                                                  Call, TraceOn))
+        IsComplete = AndersensAAResult::AndersenSetResult::Complete;
+    }
 #endif // INTEL_FEATURE_SW_DTRANS
   if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete &&
       AnderPointsTo)
@@ -580,7 +597,11 @@ bool IndirectCallConvLegacyPass::runOnFunction(Function &F) {
       (UseDTrans || IndCallConvForceDTrans)
           ? &getAnalysis<DTransAnalysisWrapper>().getDTransInfo(*F.getParent())
           : nullptr;
-  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo);
+  // Just pass 'nullptr' for the DTransSafetyInfo parameter because the
+  // compiler is no longer using the legacy pass manager, and this code will be
+  // removed, so there is no point in extending it to support the opaque pointer
+  // case.
+  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo, nullptr);
 #else // INTEL_FEATURE_SW_DTRANS
   IndirectCallConvImpl ImplObj(AnderPointsTo);
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -596,9 +617,13 @@ PreservedAnalyses IndirectCallConvPass::run(Module& M,
   auto *DTransInfo = (UseDTrans || IndCallConvForceDTrans)
                          ? &MAM.getResult<DTransAnalysis>(M)
                          : nullptr;
-  if (!AnderPointsTo && !DTransInfo)
+  auto *DTransSI = (!M.getContext().supportsTypedPointers() &&
+                    (UseDTrans || IndCallConvForceDTrans))
+                       ? &MAM.getResult<dtransOP::DTransSafetyAnalyzer>(M)
+                       : nullptr;
+  if (!AnderPointsTo && !DTransInfo && !DTransSI)
     return PreservedAnalyses::all();
-  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo);
+  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo, DTransSI);
 #else // INTEL_FEATURE_SW_DTRANS
   if (!AnderPointsTo)
     return PreservedAnalyses::all();

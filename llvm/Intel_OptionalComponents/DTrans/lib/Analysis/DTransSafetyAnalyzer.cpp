@@ -49,6 +49,9 @@
 // Debug type for verbose C-rule compatibility testing
 #define DTRANS_CRC "dtrans-crc"
 
+// Debug type for field single value indirect call specialization targets
+#define DEBUG_FSV_TARGETS "dtrans-fsv-targets"
+
 // Print the result for structures with fields that are arrays with constant
 // entries
 #define ARRAYS_WITH_CONST_ENTRIES "dtrans-arrays-with-const-entries"
@@ -7952,6 +7955,49 @@ bool DTransSafetyInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
   return TyInfo->testSafetyData(Conditions);
 }
 
+bool DTransSafetyInfo::GetFuncPointerPossibleTargets(
+    Value *FP, std::vector<Value *> &Targets, CallBase *, bool) {
+  Targets.clear();
+
+  DEBUG_WITH_TYPE(DEBUG_FSV_TARGETS, {
+    dbgs() << "FSV ICS: Analyzing";
+    FP->dump();
+  });
+  auto LI = dyn_cast<LoadInst>(FP);
+  if (!LI)
+    return false;
+
+  std::pair<dtrans::StructInfo *, uint64_t> Res = getInfoFromLoad(LI);
+  if (!Res.first) {
+    DEBUG_WITH_TYPE(DEBUG_FSV_TARGETS, dbgs() << "FSV ICS: INCOMPLETE\n"
+                                              << "Inst " << *FP << "\n"
+                                              << "Target List is NULL\n");
+    return false;
+  }
+
+  dtrans::FieldInfo &FI = Res.first->getField(Res.second);
+  bool IsIncomplete = !FI.isValueSetComplete();
+  for (auto *C : FI.values()) {
+    if (auto F = dyn_cast<Function>(C))
+      Targets.push_back(F);
+    else if (!C->isZeroValue())
+      IsIncomplete = true;
+  }
+  DEBUG_WITH_TYPE(DEBUG_FSV_TARGETS, {
+    dbgs() << "FSV ICS: " << (!IsIncomplete ? "COMPLETE\n" : "INCOMPLETE\n")
+           << "Load " << *LI << "\n";
+    if (Targets.empty())
+      dbgs() << "Target List is NULL\n";
+    else {
+      dbgs() << "Target List:\n ";
+      for (auto *F : Targets)
+        dbgs() << "  " << F->getName() << "\n";
+    }
+  });
+
+  return !IsIncomplete;
+}
+
 // Set 'SawFortran' if there is a Fortran function. This will disable
 // settings like DTransOutOfBoundsOK.
 void DTransSafetyInfo::checkLanguages(Module &M) {
@@ -8250,16 +8296,35 @@ DTransSafetyInfo::getInfoFromLoad(LoadInst *Load) {
   if (!Load)
     return std::make_pair(nullptr, 0);
 
-  auto GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
-  auto StructField = getStructField(GEP);
-  if (!StructField.first)
+  if (auto *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand())) {
+    auto StructField = getStructField(GEP);
+    if (!StructField.first)
+      return std::make_pair(nullptr, 0);
+
+    dtrans::StructInfo *StInfo = getStructInfo(StructField.first);
+    if (!StInfo)
+      return std::make_pair(nullptr, 0);
+
+    return std::make_pair(StInfo, StructField.second);
+  }
+
+  // Fall back handle an element zero access that does not have a GEP.
+  ValueTypeInfo *PtrOpInfo = PtrAnalyzer->getValueTypeInfo(Load, 0);
+  if (!PtrOpInfo)
     return std::make_pair(nullptr, 0);
 
-  dtrans::StructInfo *StInfo = getStructInfo(StructField.first);
+  DTransType *DTy = PtrAnalyzer->getDominantType(*PtrOpInfo, ValueTypeInfo::VAT_Decl);
+  if (!DTy ||
+      !(DTy->isPointerTy() && DTy->getPointerElementType()->isStructTy()))
+    return std::make_pair(nullptr, 0);
+
+  auto *STy =
+      cast<llvm::StructType>(DTy->getPointerElementType()->getLLVMType());
+  dtrans::StructInfo *StInfo = getStructInfo(STy);
   if (!StInfo)
     return std::make_pair(nullptr, 0);
 
-  return std::make_pair(StInfo, StructField.second);
+  return std::make_pair(StInfo, 0);
 }
 
 // Interface routine to check if the field that is supposed to be loaded in the
