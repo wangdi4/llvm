@@ -7347,22 +7347,40 @@ SmallVector<OffloadEntry *, 8> VPOParoptUtils::loadOffloadMetadata(
       return cast<Function>(V->getValue());
     };
 
+    auto &&getRegionNumAndFlags = [&, Node]() -> std::pair<uint64_t, uint64_t> {
+      // To handle cases where multiple target regions are present in the same
+      // line in user code, the frontend may
+      // send the region kind metadata with either 6 or 7 entries:
+      //    6 entries: RegionNum is implictily 0, Entry 6 is for Flags.
+      //    7 entries: Entry 6 is for RegionNum, Entry 7 is for Flags.
+      //
+      // RegionNum is non-zero when the region is not the first target region in
+      // that line in user code. See target_region_num_suffix.ll for reference.
+      if (Node->getNumOperands() < 8)
+        return {0, getMDInt(6)};
+      return {getMDInt(6), getMDInt(7)};
+    };
+
     switch (getMDInt(0)) {
       case OffloadEntry::EntryKind::RegionKind: {
+        assert((Node->getNumOperands() == 7 || Node->getNumOperands() == 8) &&
+               "Unexpected number of operands in RegionKind offload metadata.");
         auto Device = getMDInt(1u);
         auto File = getMDInt(2u);
         auto Parent = getMDString(3u);
         auto Line = getMDInt(4u);
         auto Idx = getMDInt(5u);
-        auto Flags = getMDInt(6u);
+        const auto& [RegionNum, Flags] = getRegionNumAndFlags();
 
         switch (Flags) {
           case RegionEntry::Region: {
             // Compose name.
             SmallString<128u> Name;
-            llvm::raw_svector_ostream(Name) << "__omp_offloading"
-              << llvm::format("_%x", Device) << llvm::format("_%x_", File)
-              << Parent << "_l" << Line;
+            llvm::raw_svector_ostream(Name)
+                << "__omp_offloading" << llvm::format("_%x", Device)
+                << llvm::format("_%x_", File) << Parent << "_l" << Line
+                << (RegionNum > 0 ? "." + Twine(RegionNum) : "");
+
             addEntry(new RegionEntry(Name, Flags), Idx);
             Name.clear();
             break;
