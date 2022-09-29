@@ -475,11 +475,6 @@ static bool processFunction(Function *F) {
   }
   // Optimize the function.
   Function *NewF = optimizeFunction(F, OptimizeableParams, NewParamTs);
-<<<<<<< HEAD
-
-  // Optimize calls to the function.
-  for (auto *U : F->users()) {
-=======
 
   // Copy users to a separate container, to enable safe eraseFromParent
   // within optimizeCall.
@@ -488,7 +483,6 @@ static bool processFunction(Function *F) {
 
   // Optimize calls to the function.
   for (auto *U : FUsers) {
->>>>>>> 539b760c248d2ec789cfcef07da6fea183cc4a65
     auto *Call = cast<CallInst>(U);
     assert(Call->getCalledFunction() == F);
     optimizeCall(Call, NewF, OptimizeableParams);
