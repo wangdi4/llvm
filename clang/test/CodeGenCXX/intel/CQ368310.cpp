@@ -8,7 +8,7 @@ type1 foo2();
 };
 
 template<class T>
-X<T>::type1 X<T>::foo2() // expected-warning {{missing 'typename' prior to dependent type name 'X<T>::type1'}}
+X<T>::type1 X<T>::foo2() // expected-warning {{missing 'typename'}}
 {
    type1 t;
    return t;
@@ -16,8 +16,8 @@ X<T>::type1 X<T>::foo2() // expected-warning {{missing 'typename' prior to depen
 
 template<typename T>
 void bar(int) {
-  typedef T::type1 value_type; // expected-warning {{missing 'typename' prior to dependent type name 'T::type1'}}
-  X<T>::type1 var; // expected-warning {{missing 'typename' prior to dependent type name 'X<T>::type1'}}
+  typedef T::type1 value_type; // expected-warning {{missing 'typename'}}
+  X<T>::type1 var; // expected-warning {{missing 'typename'}}
 }
 
 // CHECK-LABEL: @main
