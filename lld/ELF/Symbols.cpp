@@ -730,19 +730,13 @@ void Symbol::resolveCommon(const CommonSymbol &other) {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
 void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
   if(compare(other, otherName))
 #endif // INTEL_CUSTOMIZATION
-    replace(other);
-=======
-void Symbol::resolveDefined(const Defined &other) {
-  if (shouldReplace(other))
     other.overwrite(*this);
->>>>>>> 7a58dd1046a8052619d173b769f32f2df3aafbe8
 }
 
 void Symbol::resolveLazy(const LazyObject &other) {
