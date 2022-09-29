@@ -400,35 +400,11 @@ void Symbol::mergeProperties(const Symbol &other) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-// We include the real name of the other symbol since there is a chance that
-// the symbol was created without a name.
-void Symbol::resolve(const Symbol &other, StringRef otherName) {
-#endif // INTEL_CUSTOMIZATION
-  mergeProperties(other);
-
-  switch (other.kind()) {
-  case Symbol::UndefinedKind:
-    resolveUndefined(cast<Undefined>(other));
-    break;
-  case Symbol::CommonKind:
-    resolveCommon(cast<CommonSymbol>(other));
-    break;
-  case Symbol::DefinedKind:
-    resolveDefined(cast<Defined>(other), otherName);                 // INTEL
-    break;
-  case Symbol::LazyObjectKind:
-    resolveLazy(cast<LazyObject>(other));
-    break;
-  case Symbol::SharedKind:
-    resolveShared(cast<SharedSymbol>(other));
-    break;
-  case Symbol::PlaceholderKind:
-    llvm_unreachable("bad symbol kind");
+void Symbol::resolve(const Undefined &other) {
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
   }
-}
-
-void Symbol::resolveUndefined(const Undefined &other) {
   // An undefined symbol with non default visibility must be satisfied
   // in the same DSO.
   //
@@ -698,7 +674,13 @@ void Symbol::checkDuplicate(const Defined &other) const {
                     other.value);
 }
 
-void Symbol::resolveCommon(const CommonSymbol &other) {
+void Symbol::resolve(const CommonSymbol &other) {
+  if (other.exportDynamic)
+    exportDynamic = true;
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+  }
   if (isDefined() && !isWeak()) {
     if (config->warnCommon)
       warn("common " + getName() + " is overridden");
@@ -733,13 +715,19 @@ void Symbol::resolveCommon(const CommonSymbol &other) {
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
-void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
+void Symbol::resolve(const Defined &other, StringRef otherName) {
+  if (other.exportDynamic)
+    exportDynamic = true;
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+  }
   if(compare(other, otherName))
-#endif // INTEL_CUSTOMIZATION
     other.overwrite(*this);
+#endif // INTEL_CUSTOMIZATION
 }
 
-void Symbol::resolveLazy(const LazyObject &other) {
+void Symbol::resolve(const LazyObject &other) {
   if (isPlaceholder()) {
     other.overwrite(*this);
     return;
@@ -778,7 +766,8 @@ void Symbol::resolveLazy(const LazyObject &other) {
     recordWhyExtract(oldFile, *file, *this);
 }
 
-void Symbol::resolveShared(const SharedSymbol &other) {
+void Symbol::resolve(const SharedSymbol &other) {
+  exportDynamic = true;
   if (isPlaceholder()) {
     other.overwrite(*this);
     return;
