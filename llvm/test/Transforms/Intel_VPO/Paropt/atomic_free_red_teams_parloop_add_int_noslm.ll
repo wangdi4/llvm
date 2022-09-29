@@ -48,7 +48,7 @@
 ; CHECK: %.new = load i32, ptr addrspace(3) @.broadcast.ptr.__local, align 4
 ; CHECK: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
 ; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %.new, %[[NUM_GROUPS_TRUNC]]
-; CHECK: %[[CNTR_AND_MT_CHECK:[^,]+]] = or i1 %[[CNTR_CHECK]]
+; CHECK: %[[CNTR_AND_MT_CHECK:[^,]+]] = select i1 %[[CNTR_CHECK]]
 ; CHECK: br i1 %[[CNTR_AND_MT_CHECK]], label [[EXIT_BB:[^,]+]], label %atomic.free.red.global.update.header
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi i64

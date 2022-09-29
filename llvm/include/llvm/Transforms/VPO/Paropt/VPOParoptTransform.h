@@ -792,7 +792,7 @@ private:
   /// Generate global update loop for atomic-free GPU reduction
   bool genAtomicFreeReductionGlobalFini(
       WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
-      Value *ReductionValueLoc, Instruction *RedValToLoad, PHINode *RedSumPhi,
+      Instruction *RedVarToLoad, Instruction *RedValToLoad, PHINode *RedSumPhi,
       bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate code for the aligned clause.
