@@ -24,6 +24,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include <cmath>
 #include <numeric>
 
 using namespace llvm;

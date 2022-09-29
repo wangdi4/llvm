@@ -28,6 +28,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/PostDominanceFrontier.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/Predicator.h"
+#include <cmath>
 
 using namespace llvm;
 using namespace CompilationUtils;
