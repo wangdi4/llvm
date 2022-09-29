@@ -15,7 +15,6 @@
 
 
 ; CHECK: @__intel_cpu_feature_indicator = external global [2 x i64]
-; CHECK: @llvm.compiler.used = appending global [2 x ptr] [ptr @_Z3bariz, ptr @main], section "llvm.metadata"
 ; CHECK: @_Z3bariz = dso_local ifunc i32 (i32, ...), ptr @_Z3bariz.resolver
 ; CHECK: @main = dso_local ifunc i32 (), ptr @main.resolver
 

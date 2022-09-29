@@ -8,7 +8,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; the same linkage so that multiversioned symbols from different TUs don't
 ; clash.
 
-; CHECK-DAG: @llvm.compiler.used = {{.*}} @bar
 ; CHECK-DAG: @foo = internal ifunc i32 (i32), i32 (i32)* ()* @foo.resolver
 ; CHECK-DAG: define internal i32 (i32)* @foo.resolver()
 ; CHECK-DAG: define internal i32 @foo.A(i32 %a)

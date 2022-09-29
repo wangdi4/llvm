@@ -135,31 +135,6 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 template <int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N>
-    __esimd_bf_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw sycl::feature_not_supported();
-  return {};
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<float, N>
-__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N> src)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw sycl::feature_not_supported();
-  return {};
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-template <int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
 __esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -775,60 +750,6 @@ __esimd_dpasw_nosrc0(__ESIMD_DNS::vector_type_t<T1, N1> src1,
   return __ESIMD_DNS::vector_type_t<T, N>();
 }
 #endif // !__SYCL_DEVICE_ONLY__
-
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
-template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint16_t, N>
-__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else  // !__SYCL_DEVICE_ONLY__
-{
-  throw sycl::feature_not_supported();
-  return __ESIMD_DNS::vector_type_t<uint16_t, N>();
-}
-#endif // !__SYCL_DEVICE_ONLY__
-
-template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<float, N>
-__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<uint16_t, N> src)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else  // !__SYCL_DEVICE_ONLY__
-{
-  throw sycl::feature_not_supported();
-  return __ESIMD_DNS::vector_type_t<float, N>();
-}
-#endif // !__SYCL_DEVICE_ONLY__
-
-template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
-__esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else  // !__SYCL_DEVICE_ONLY__
-{
-  throw sycl::feature_not_supported();
-  return __ESIMD_DNS::vector_type_t<uint32_t, N>();
-}
-#endif // !__SYCL_DEVICE_ONLY__
-
-template <int N, typename DstType, typename SrcType>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
-__esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else  // !__SYCL_DEVICE_ONLY__
-{
-  throw sycl::feature_not_supported();
-  return __ESIMD_DNS::vector_type_t<DstType, N>();
-}
-#endif // !__SYCL_DEVICE_ONLY__
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 #undef __ESIMD_raw_vec_t
 #undef __ESIMD_cpp_vec_t

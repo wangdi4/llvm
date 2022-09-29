@@ -3,7 +3,6 @@
 
 
 ; CHECK:      @__intel_cpu_feature_indicator = external global [2 x i64]
-; CHECK-NEXT: @llvm.compiler.used = appending global [2 x ptr] [ptr @baz, ptr @foo], section "llvm.metadata"
 ; CHECK-EMPTY:
 ; CHECK-NEXT: @baz = ifunc i32 (i32), ptr @baz.resolver
 ; CHECK-NEXT: @foo = ifunc i32 (i32), ptr @foo.resolver

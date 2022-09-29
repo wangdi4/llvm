@@ -6,7 +6,6 @@
 ; clash.
 
 
-; CHECK-DAG: @llvm.compiler.used = {{.*}} @bar
 ; CHECK-DAG: @foo = internal ifunc i32 (i32), ptr @foo.resolver
 ; CHECK-DAG: define internal ptr @foo.resolver()
 ; CHECK-DAG: define internal i32 @foo.A(i32 %a)
