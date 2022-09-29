@@ -7477,6 +7477,7 @@ def fnative_half_arguments_and_returns : Flag<["-"], "fnative-half-arguments-and
   HelpText<"Use the native __fp16 type for arguments and returns (and skip ABI-specific lowering)">,
   MarshallingInfoFlag<LangOpts<"NativeHalfArgsAndReturns">>,
   ImpliedByAnyOf<[open_cl.KeyPath, render_script.KeyPath, hlsl.KeyPath]>;
+<<<<<<< HEAD
 def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-returns">,
   HelpText<"Allow function arguments and returns of type half">,
   MarshallingInfoFlag<LangOpts<"HalfArgsAndReturns">>,
@@ -7578,6 +7579,8 @@ def show_import_processing : Flag<["-"], "show-import-processing">,
   Flags<[CC1Option, NoArgumentUnused]>,
   MarshallingInfoFlag<LangOpts<"ShowImportProcessing">>;
 // endif INTEL_CUSTOMIZATION
+=======
+>>>>>>> 123064dc397d478a636ba1c5960d41ad381036a0
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">,
   Values<"cdecl,fastcall,stdcall,vectorcall,regcall">,
