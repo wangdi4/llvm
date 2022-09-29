@@ -2638,13 +2638,8 @@ private:
       Actions.startOpenMPLoop();
     if (getLangOpts().CPlusPlus)
       return Tok.is(tok::kw_using) ||
-<<<<<<< HEAD
-             isCXXSimpleDeclaration(/*AllowForRangeDecl=*/true); //***INTEL
-    return isDeclarationSpecifier(true);
-=======
              isCXXSimpleDeclaration(/*AllowForRangeDecl=*/true);
     return isDeclarationSpecifier(ImplicitTypenameContext::No, true);
->>>>>>> 4848f3bf2ff5ec57a8e2b8d3676c947dcf0fd735
   }
 
   /// Determine whether this is a C++1z for-range-identifier.
