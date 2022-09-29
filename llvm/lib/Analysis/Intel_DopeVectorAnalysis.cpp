@@ -2372,6 +2372,20 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
                         SetVector<Value *> &ValueChecked) -> bool {
     // GEP should be accessing dope vector fields
     if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+      if (!V->getType()->getContext().supportsTypedPointers()) {
+        if (GEP->hasAllZeroIndices() && GEP->hasOneUser()) {
+          // It can be a call to allocate/deallocate function in opaque
+          // pointers case.
+          if (auto Call = dyn_cast<CallBase>(GEP->user_back())) {
+            if (isCallToAllocFunction(Call, GetTLI)) {
+              if (!AllowCheckForAllocSite)
+                return false;
+              NestedDV->addAllocSite(Call);
+              return true;
+            }
+          }
+        }
+      }
       if (!CollectAccessFromGEP(GEP, 0, GetTLI))
         return false;
     } else if (auto *BC = dyn_cast<BitCastOperator>(U)) {
@@ -2391,12 +2405,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
     } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
       // It can be a call to allocate/deallocate function in opaque
       // pointers case.
-      if(!V->getType()->getContext().supportsTypedPointers()) {
-          if (isCallToAllocFunction(Call, GetTLI)) {
-            if (!AllowCheckForAllocSite)
-              return false;
-            NestedDV->addAllocSite(Call);
-            return true;
+      if (!V->getType()->getContext().supportsTypedPointers()) {
+        if (isCallToAllocFunction(Call, GetTLI)) {
+          if (!AllowCheckForAllocSite)
+            return false;
+          NestedDV->addAllocSite(Call);
+          return true;
         }
       }
       // Other calls should only load data
@@ -2522,7 +2536,11 @@ GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
     DVField->analyzeUses();
     if (DVField->getIsBottom())
       return false;
-  } else if (DVFieldType > DopeVectorFieldType::DV_PerDimensionArray) {
+  } else {
+    // A DV_ExtentBase could appear as a DV_PerDimensionArray, since
+    // the DV_ExtentBase is at index 0.
+    if (DVFieldType == DopeVectorFieldType::DV_PerDimensionArray)
+      DVFieldType = DopeVectorFieldType::DV_ExtentBase;
     // If the GEPOperator directly accesses the extent, stride or lower bound
     // fields, then it means that the array entry should be accessed by a
     // subscript. We need to collect the subscript and check where the
@@ -2582,11 +2600,6 @@ GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
       if (LowerBoundField->getIsBottom())
         return false;
     }
-  } else {
-    // NOTE: If the DVFieldType is DV_PerDimensionArray it means that the
-    // extent, stride and lower bound are being accessed. We may need
-    // to extend the data colection to support this operation.
-    return false;
   }
 
   return true;
@@ -3796,6 +3809,41 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
     }
   }
 }
+
+extern bool FindDVTypeName(const StringRef &Name,
+                           unsigned &StartIndex,
+                           unsigned &Size,
+                           bool &IsPointer) {
+  const std::string QNCAPrefix = "QNCA_a0$";
+  const std::string RankPrefix = "$rank";
+  if (!Name.startswith(QNCAPrefix))
+    return false;
+  auto SIdx = QNCAPrefix.size();
+  auto EIdx = Name.rfind(RankPrefix);
+  if (EIdx == StringRef::npos)
+    return false;
+  bool FoundPointer = false;
+  if (EIdx > SIdx && Name[EIdx-1] == '*') {
+    --EIdx;
+    FoundPointer = true;
+  }
+  if (EIdx > SIdx && Name[SIdx] == '%') {
+    ++SIdx;
+  }
+  if (EIdx > SIdx && Name[SIdx] =='"') {
+    ++SIdx;
+    if (EIdx > SIdx && Name[EIdx-1] =='"') {
+      --EIdx;
+    }
+    else
+      return false;
+  }
+  StartIndex = SIdx;
+  Size = EIdx - SIdx;
+  IsPointer = FoundPointer;
+  return true;
+}
+
 // The function parses Fortran QNCA encoded dope vector types when the type
 // is a struct type. With opaque pointers the pointer to data has no type and
 // the type of element is inferred from QNCA type name.
@@ -3805,40 +3853,17 @@ static std::unique_ptr<std::tuple<Type*, unsigned>>
 parseQNCAStructDopeVectorElementType(const StructType* Ty) {
   if (!Ty)
     return nullptr;
-
-  const std::string QNCAPrefix = "QNCA_a0$";
-  const std::string RankPrefix = "$rank";
-
-  const StringRef &name = Ty->getStructName();
-  if (!name.startswith(QNCAPrefix))
-    return nullptr;
-  auto SIdx = QNCAPrefix.size();
-  auto EIdx = name.rfind(RankPrefix);
-  if (EIdx == StringRef::npos)
-    return nullptr;
-  bool isPointer = false;
-  if (EIdx > SIdx && name[EIdx-1] == '*') {
-    --EIdx;
-    isPointer = true;
-  }
-  if (EIdx > SIdx && name[SIdx] == '%') {
-    ++SIdx;
-  }
-  if (EIdx > SIdx && name[SIdx] =='"') {
-    ++SIdx;
-    if (EIdx > SIdx && name[EIdx-1] =='"') {
-      --EIdx;
-    }
-    else
-      return nullptr;
-  }
-
-  const auto ETName = name.substr(SIdx, EIdx-SIdx);
+  unsigned SIdx = 0;
+  unsigned Size = 0;
+  bool IsPointer = false; 
+  const StringRef &Name = Ty->getStructName();
+  if (!FindDVTypeName(Name, SIdx, Size, IsPointer))
+    return nullptr; 
+  const auto ETName = Name.substr(SIdx, Size);
   Type *ETy = StructType::getTypeByName(Ty->getContext(), ETName);
   if (!ETy)
     return nullptr;
-
-  unsigned PtrLevel = (!isPointer)?0u:1u;
+  unsigned PtrLevel = (!IsPointer)? 0u : 1u;
   auto Res = std::make_unique<std::tuple<Type*, unsigned>>(ETy, PtrLevel);
   return std::move(Res);
 }

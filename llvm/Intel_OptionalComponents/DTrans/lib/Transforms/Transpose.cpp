@@ -1186,6 +1186,50 @@ private:
   // - Variable uses zero initializer or has no initializer
   void IdentifyCandidates(Module &M) {
 
+    auto TestString = [](const StringRef &Name, unsigned StartIndex,
+                        unsigned Size, const char MatchString[]) -> bool {
+      return Name.substr(StartIndex, Size).equals(MatchString);
+    };
+
+    auto GetElemTypeSize = [&TestString](const DataLayout &DL,
+                                         LLVMContext &C,
+                                         DopeVectorInfo *DVI,
+                                         llvm::Type *&ElemType,
+                                         uint64_t &ElemSize) -> bool {
+      // For the typed pointer case, 'ElemType' should not be nullptr.
+      if (ElemType) {
+        if (!ElemType->isIntegerTy() && !ElemType->isFloatingPointTy())
+          return false;
+        ElemSize = DL.getTypeStoreSize(ElemType);
+        return true;
+      }
+      // For the opaque pointer case, we will not have the pointer type in
+      // the IR, use the struct name to get it. Handle a few important cases
+      // for now.
+      unsigned StartIndex = 0;
+      unsigned Size = 0;
+      bool IsPointer = false;
+      const StringRef &Name = DVI->getLLVMStructType()->getStructName();
+      if (FindDVTypeName(Name, StartIndex, Size, IsPointer) && IsPointer) {
+        if (TestString(Name, StartIndex, Size, "i32")) {
+          ElemType = llvm::Type::getInt32Ty(C);
+          ElemSize = DL.getTypeStoreSize(ElemType);
+          return true;
+        }
+        if (TestString(Name, StartIndex, Size, "float")) {
+          ElemType = llvm::Type::getFloatTy(C);
+          ElemSize = DL.getTypeStoreSize(ElemType);
+          return true;
+        }
+        if (TestString(Name, StartIndex, Size, "double")) {
+          ElemType = llvm::Type::getDoubleTy(C);
+          ElemSize = DL.getTypeStoreSize(ElemType);
+          return true;
+        }
+      }
+      return false;
+    };
+
     // Return 'true' if 'DVI' with the given 'ArrayRank' and 'ElemType'
     // is a good candidate for transpose because:
     //   (1) Its lower bounds are all 1.
@@ -1194,15 +1238,15 @@ private:
     // When we return 'true', set the dimensions of the array in
     // 'ArrayLength', and set the 'ElemSize'.
     //
-    auto IsGoodCandidate = [](DopeVectorInfo *DVI, const DataLayout &DL,
-                              uint32_t ArrayRank, llvm::Type *ElemType,
-                              SmallVector<uint64_t, 4> &ArrayLength,
-                              uint64_t &ElemSize) -> bool {
+    auto IsGoodCandidate =
+        [&GetElemTypeSize](
+            DopeVectorInfo *DVI, const DataLayout &DL, LLVMContext &C,
+            uint32_t ArrayRank, llvm::Type *&ElemType,
+            SmallVector<uint64_t, 4> &ArrayLength, uint64_t &ElemSize) -> bool {
       if (ArrayRank <= 1 || ArrayRank >= FortranMaxRank)
         return false;
-      if (!ElemType->isIntegerTy() && !ElemType->isFloatingPointTy())
+      if (!GetElemTypeSize(DL, C, DVI, ElemType, ElemSize))
         return false;
-      ElemSize = DL.getTypeStoreSize(ElemType);
       for (uint32_t I = 0; I < ArrayRank; ++I) {
         auto Extent = DVI->getDopeVectorField(DV_ExtentBase, I);
         if (!Extent)
@@ -1246,7 +1290,7 @@ private:
                                   const DataLayout &DL) -> bool {
       uint32_t ArrayRank = 0;
       llvm::Type *ElemType = nullptr;
-
+      LLVMContext &C = GV->getParent()->getContext();
       if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank, &ElemType))
         return false;
       // In the future, it may be possible to transform some of the nested
@@ -1270,7 +1314,7 @@ private:
             continue;
           SmallVector<uint64_t, 4> NVArrayLength;
           uint64_t NVElemSize = 0;
-          if (!IsGoodCandidate(NestDVI, DL, NVArrayRank, NVElemType,
+          if (!IsGoodCandidate(NestDVI, DL, C, NVArrayRank, NVElemType,
                                NVArrayLength, NVElemSize))
             continue;
           TransposeCandidate Candidate(GV, NVArrayRank, NVArrayLength,
@@ -1283,7 +1327,8 @@ private:
       DopeVectorInfo *DVI = GlobDV.getGlobalDopeVectorInfo();
       SmallVector<uint64_t, 4> ArrayLength;
       uint64_t ElemSize = 0;
-      if (!IsGoodCandidate(DVI, DL, ArrayRank, ElemType, ArrayLength, ElemSize))
+      if (!IsGoodCandidate(DVI, DL, C, ArrayRank,
+                           ElemType, ArrayLength, ElemSize))
         return true;
       TransposeCandidate Candidate(GV, ArrayRank, ArrayLength, ElemSize,
                                    ElemType, DVI);

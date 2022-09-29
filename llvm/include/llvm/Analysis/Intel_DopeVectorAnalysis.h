@@ -1166,6 +1166,19 @@ extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
 //
 extern Argument *isIPOPropagatable(const Value *V, const User *U);
 
+// Parse the StructTypeName of a dope vector type and if it is recognized,
+// return 'true' and set 'StartIndex' to where the type name starts, set
+// 'Size' to the number of characters in the type name and set 'IsPointer'
+// to true if it is recognized as a pointer type (which it should be).
+// For example, if 'Name" is "QNCA_a0$double*$rank2$", then FindDVTypeName()
+// returns true, and sets 'StartIndex' to 8, sets 'Size' to 6, and sets
+// 'IsPointer' to 'true', because the type name is "double".
+//
+extern bool FindDVTypeName(const StringRef &Name,
+                           unsigned &StartIndex,
+                           unsigned &Size,
+                           bool &IsPointer);
+
 } // end namespace dvanalysis
 
 } // end namespace llvm
