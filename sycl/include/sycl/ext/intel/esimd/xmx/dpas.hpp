@@ -65,19 +65,14 @@ template <dpas_argument_type T> constexpr int dpas_bitsize_from_precision() {
     return 4;
   else if constexpr (T == dpas_argument_type::u8 || T == dpas_argument_type::s8)
     return 8;
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
   else if constexpr (T == dpas_argument_type::bf8)
     return 8;
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-  else if constexpr (T == dpas_argument_type::BF16 ||
-                     T == dpas_argument_type::FP16)
-=======
   else if constexpr (T == dpas_argument_type::bf16 ||
                      T == dpas_argument_type::fp16)
->>>>>>> 8f0960e5a63ac5a967ad5b4c44d1dc1567cfe1ea
     return 16;
   else if constexpr (T == dpas_argument_type::tf32)
     return 32;
@@ -172,7 +167,6 @@ constexpr int verify_parameters_and_deduce_exec_size() {
                     " Result |   C   |   B  |  A  \n"
                     " f, hf  | f, hf |  hf  |  hf \n");
     }
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
   } else if constexpr (APrecision == dpas_argument_type::BF8) {
@@ -186,12 +180,8 @@ constexpr int verify_parameters_and_deduce_exec_size() {
                   " f,hf,bf|f,hf,bf|  bf8 |  bf8      \n");
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-  } else if constexpr (APrecision == dpas_argument_type::BF16 ||
-                       BPrecision == dpas_argument_type::BF16) {
-=======
   } else if constexpr (APrecision == dpas_argument_type::bf16 ||
                        BPrecision == dpas_argument_type::bf16) {
->>>>>>> 8f0960e5a63ac5a967ad5b4c44d1dc1567cfe1ea
     using bfloat16 = sycl::ext::oneapi::experimental::bfloat16;
     if constexpr (ExecutionSize == 8) {
       static_assert(APrecision == BPrecision &&
