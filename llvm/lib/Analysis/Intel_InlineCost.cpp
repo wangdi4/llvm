@@ -1144,6 +1144,9 @@ static bool preferDTransToInlining(CallBase &CB, bool PrepareForLTO) {
   if (!DTransInlineHeuristics)
     return false;
 
+  if (CB.hasFnAttr("noinline-dtrans"))
+    return true;
+
   // The callee was marked as candidate to suppress inlining.
   if (Function *Callee = CB.getCalledFunction())
     if (Callee->hasFnAttribute("noinline-dtrans"))
