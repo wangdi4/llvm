@@ -25689,6 +25689,7 @@ static SDValue EmitAVX512Test(SDValue Op0, SDValue Op1, ISD::CondCode CC,
     return DAG.getNode(X86ISD::KTEST, dl, MVT::i32, LHS, RHS);
   }
 
+#if INTEL_CUSTOMIZATION
   // Transform cmp(concat_vect(a,b), 0) to kortest(a, b)
   // since result of 'concat_vect(a,b)' will be deleted or sunk if it is not
   // used in current BB. And concat_vect (KSHIFTLBri, KUNPCKBWrr..., 4 latency,
@@ -25759,6 +25760,8 @@ static SDValue EmitAVX512Test(SDValue Op0, SDValue Op1, ISD::CondCode CC,
         }
       }
   }
+#endif // INTEL_CUSTOMIZATION
+
   // If the input is an OR, we can combine it's operands into the KORTEST.
   SDValue LHS = Op0;
   SDValue RHS = Op0;
