@@ -15,7 +15,7 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -36,6 +36,7 @@
 #include <limits>
 #include <list>
 #include <mutex>
+#include <map>
 #include <set>
 #include <string>
 #include <sstream>
@@ -54,7 +55,9 @@
 
 #include "elf_light.h"
 #include "omptargetplugin.h"
+#if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
+#endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
 #ifdef _WIN32
 #include "intel_win_dlfcn.h"
@@ -86,6 +89,12 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 /// Default staging buffer count
 #define LEVEL0_STAGING_BUFFER_COUNT 64
 
+#ifndef EXTRACT_BITS
+// MSB=63, LSB=0
+#define EXTRACT_BITS(I64, HIGH, LOW)                                           \
+  (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
+#endif
+
 // Subdevice utilities
 // Device encoding (MSB=63, LSB=0)
 // 63..63: Has subdevice
@@ -111,6 +120,7 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
       : (Kind == TARGET_ALLOC_SHARED ? "shared memory"                         \
       : (Kind == TARGET_ALLOC_DEVICE ? "device memory" : "unknown memory")))
 
+#if INTEL_CUSTOMIZATION
 #ifdef _WIN32
 // TODO: enable again if XDEPS-3027 is resolved
 #define LEVEL0_KERNEL_BEGIN(ID)
@@ -138,6 +148,7 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
     }                                                                          \
   } while (0)
 #endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -167,6 +178,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4600, // ADLS
     }
   },
+#if INTEL_CUSTOMIZATION
   {
     DeviceArch_XeHP, {
       0x0200, // ATS
@@ -180,8 +192,10 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4F00, 0x5600 // DG2/ATS-M
     }
   }
+#endif // INTEL_CUSTOMIZATION
 };
 
+#if INTEL_CUSTOMIZATION
 /// Interop support
 namespace L0Interop {
   // Library needed to convert interop object into a sycl interop object
@@ -336,6 +350,7 @@ namespace L0Interop {
      SyclWrapper.create_sycl_interop(Interop);
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Tentative enumerators used with ompx_get_device_info() and the data type
 /// ompx_devinfo_name, char[N],
@@ -436,6 +451,7 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
 /// Command batch manager
 class CommandBatchTy {
   struct MemCopyTy {
@@ -491,6 +507,7 @@ public:
 
   bool isActive() { return State > 0; }
 };
+#endif // INTEL_CUSTOMIZATION
 
 struct KernelBatchTy {
   uint32_t MaxCommands = 0;
@@ -786,8 +803,10 @@ class TLSTy {
   /// Staging buffer
   StagingBufferTy StagingBuffer;
 
+#if INTEL_CUSTOMIZATION
   /// Batch manager
   CommandBatchTy CommandBatch;
+#endif // INTEL_CUSTOMIZATION
 
   /// Subdevice encoding
   int64_t SubDeviceCode = 0;
@@ -849,7 +868,9 @@ public:
 
   StagingBufferTy &getStagingBuffer() { return StagingBuffer; }
 
+#if INTEL_CUSTOMIZATION
   CommandBatchTy &getCommandBatch() { return CommandBatch; }
+#endif // INTEL_CUSTOMIZATION
 
   void setCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
     CmdLists[ID] = CmdList;
@@ -964,6 +985,7 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
 struct DynamicMemHeapTy {
   /// Base address memory is allocated from
   uintptr_t AllocBase = 0;
@@ -1007,6 +1029,7 @@ struct ProgramDataTy {
   void *DynamicMemPool = nullptr;
   int TeamsThreadLimit = 0;
 };
+#endif // INTEL_CUSTOMIZATION
 
 /// Level Zero program that can contain multiple modules.
 class LevelZeroProgramTy {
@@ -1048,11 +1071,13 @@ class LevelZeroProgramTy {
   /// Kernel info added by compiler
   std::unordered_map<ze_kernel_handle_t, KernelInfoTy> KernelInfo;
 
+#if INTEL_CUSTOMIZATION
   /// Program data copied to device
   ProgramDataTy PGMData;
 
   /// Cached address of the program data on device
   void *PGMDataPtr = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   /// Module that contains global data including device RTL
   ze_module_handle_t GlobalModule = nullptr;
@@ -1113,6 +1138,7 @@ public:
   /// Build kernels from all modules.
   int32_t buildKernels();
 
+#if INTEL_CUSTOMIZATION
   /// Initialize program data on device.
   int32_t initProgramData();
 
@@ -1121,6 +1147,7 @@ public:
 
   /// Initialize dynamic memory pool for device.
   void *initDynamicMemPool();
+#endif // INTEL_CUSTOMIZATION
 
   /// Return the pointer to the offload table.
   __tgt_target_table *getTablePtr() { return &Table; }
@@ -1446,6 +1473,7 @@ struct RTLOptionTy {
   /// Global num teams obtained from host runtime
   uint32_t NumTeams = 0;
 
+#if INTEL_CUSTOMIZATION
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = (1 << 20);
 
@@ -1453,6 +1481,7 @@ struct RTLOptionTy {
   /// 0: atomic_add with no free()
   /// 1: pool-based allocator with free() support
   uint32_t KernelDynamicMemoryMethod = 1;
+#endif // INTEL_CUSTOMIZATION
 
   /// Staging buffer size
   size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
@@ -1460,9 +1489,11 @@ struct RTLOptionTy {
   /// Staging buffer count
   size_t StagingBufferCount = LEVEL0_STAGING_BUFFER_COUNT;
 
+#if INTEL_CUSTOMIZATION
   /// Command batch support
   int32_t CommandBatchLevel = 0;
   int32_t CommandBatchCount = INT32_MAX;
+#endif // INTEL_CUSTOMIZATION
 
   /// Copy engine option
   /// 0: disabled, 1: main, 2: link, 3: all (default)
@@ -1753,12 +1784,14 @@ struct RTLOptionTy {
       }
     }
 
+#if INTEL_CUSTOMIZATION
     // Target image dump
     if ((Env = readEnvVar("LIBOMPTARGET_DUMP_TARGET_IMAGE",
                           "LIBOMPTARGET_SAVE_TEMPS"))) {
       if (parseBool(Env) == 1)
         Flags.DumpTargetImage = 1;
     }
+#endif // INTEL_CUSTOMIZATION
 
     // Global default target memory that overrides device-specific default
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM"))) {
@@ -1805,6 +1838,7 @@ struct RTLOptionTy {
         ForcedKernelWidth = Value;
     }
 
+#if INTEL_CUSTOMIZATION
     // Dynamic memory size
     // LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>[,<Method>]
     if ((Env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
@@ -1845,6 +1879,7 @@ struct RTLOptionTy {
         KernelDynamicMemorySize = Size << 20;
       }
     }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
@@ -1888,6 +1923,7 @@ struct RTLOptionTy {
       StagingBufferSize = SizeInKB << 10;
     }
 
+#if INTEL_CUSTOMIZATION
     // LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Type>[,<Count>]
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH"))) {
       std::string Value(Env);
@@ -1918,6 +1954,7 @@ struct RTLOptionTy {
         DP("Disabled command batching due to unknown input \"%s\".\n", Env);
       }
     }
+#endif // INTEL_CUSTOMIZATION
 
     // LIBOMPTARGET_LEVEL_ZERO_USE_MULTIPLE_COMPUTE_QUEUES=<Bool>
     if ((Env =
@@ -2116,7 +2153,7 @@ class MemAllocatorTy {
           NumUsedSlots++;
           return reinterpret_cast<void *>(Base + Slot * ChunkSize);
         }
-        for (auto I = 0; I < NumSlots; I++) {
+        for (uint32_t I = 0; I < NumSlots; I++) {
           if (UsedSlots[I])
             continue;
           UsedSlots[I] = true;
@@ -2803,8 +2840,10 @@ struct RTLDeviceInfoTy {
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
 
+#if INTEL_CUSTOMIZATION
   /// Number of active kernel launches for each device
   std::vector<uint32_t> NumActiveKernels;
+#endif // INTEL_CUSTOMIZATION
 
   /// Whether each device is initialized
   std::vector<bool> Initialized;
@@ -2818,8 +2857,10 @@ struct RTLDeviceInfoTy {
   /// Memory allocator for each L0 devices
   std::map<ze_device_handle_t, MemAllocatorTy> MemAllocator;
 
+#if INTEL_CUSTOMIZATION
   /// GITS function address for notifying indirect accesses
   void *GitsIndirectAllocationOffsets = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   /// function addresses for registering and unregistering host pointer
   /// and testing if a host malloced pointer is registered
@@ -3018,68 +3059,70 @@ struct RTLDeviceInfoTy {
     getTLS()->setSubDeviceCode(Code);
   }
 
- //  Prototype for Register and unRegister functions from zex_driver.h
- //
- //  ze_result_t ZE_APICALL
- //  zexDriverImportExternalPointer(
- //    ze_driver_handle_t hDriver,
- //    void *ptr,
- //    size_t size
- //  );
- //
- //  ze_result_t ZE_APICALL
- //  zexDriverReleaseImportedPointer(
- //    ze_driver_handle_t hDriver,
- //    void *ptr
- //  );
- //
- // ze_result_t ZE_APICALL
- // zexDriverGetHostPointerBaseAddress(
- //   ze_driver_handle_t hDriver,
- //   void *ptr,
- //   void **baseAddress
- // );
+  // Prototype for Register and unRegister functions from zex_driver.h
+  //
+  // ze_result_t ZE_APICALL
+  // zexDriverImportExternalPointer(
+  //   ze_driver_handle_t hDriver,
+  //   void *ptr,
+  //   size_t size
+  // );
+  //
+  // ze_result_t ZE_APICALL
+  // zexDriverReleaseImportedPointer(
+  //   ze_driver_handle_t hDriver,
+  //   void *ptr
+  // );
+  //
+  // ze_result_t ZE_APICALL
+  // zexDriverGetHostPointerBaseAddress(
+  //   ze_driver_handle_t hDriver,
+  //   void *ptr,
+  //   void **baseAddress
+  // );
 
-   bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
-      if (RegisterHostPointer) {
-        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
-        auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
-        DP("Registering Host Pointer: " DPxMOD " Size  %zu\n", DPxPTR(Ptr), Size);
-        return  (Fn(Driver, Ptr, Size) == ZE_RESULT_SUCCESS);
+  bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
+    if (RegisterHostPointer) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
+      auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
+      DP("Registering Host Pointer: " DPxMOD " Size %zu\n", DPxPTR(Ptr), Size);
+        return (Fn(Driver, Ptr, Size) == ZE_RESULT_SUCCESS);
+    }
+    return false;
+  }
+
+  bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
+    if (UnRegisterHostPointer) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
+      auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
+      DP("UnRegistering Host Pointer: " DPxMOD " \n", DPxPTR(Ptr));
+      ze_result_t RC = Fn(Driver, Ptr);
+      if (RC == ZE_RESULT_SUCCESS)
+        return true;
+    }
+    DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
+    return false;
+  }
+
+  bool getHostPointerBaseAddress(int32_t DeviceId, void *Ptr) {
+    if (GetHostPointerBaseAddress) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
+      auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
+      void *BaseAddress = NULL;
+      ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
+      if (RC == ZE_RESULT_SUCCESS) {
+        DP("Host Pointer: " DPxMOD " is registered with BaseAddress: " DPxMOD
+           "\n", DPxPTR(Ptr),DPxPTR(BaseAddress));
+        return true;
       }
-      return false;
-   }
+    }
+    return false;
+  }
 
-   bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
-      if (UnRegisterHostPointer) {
-        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
-        auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
-        DP("UnRegistering Host Pointer: " DPxMOD " \n", DPxPTR(Ptr));
-        ze_result_t RC = Fn(Driver, Ptr);
-        if ( RC == ZE_RESULT_SUCCESS)
-           return true;
-      }
-      DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
-      return false;
-   }
-
-   bool getHostPointerBaseAddress(int32_t DeviceId, void *Ptr) {
-      if (GetHostPointerBaseAddress) {
-        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
-        auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
-        void *BaseAddress = NULL;
-        ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
-        if ( RC == ZE_RESULT_SUCCESS) {
-          DP("Host Pointer: " DPxMOD " is registered with BaseAddress : " DPxMOD " \n",
-                         DPxPTR(Ptr),DPxPTR(BaseAddress));
-          return true;
-        }
-      }
-      return false;
-   }
-
+#if INTEL_CUSTOMIZATION
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
+#endif // INTEL_CUSTOMIZATION
 
   /// Get kernel indirect access flags
   ze_kernel_indirect_access_flags_t getKernelIndirectAccessFlags(
@@ -3261,46 +3304,46 @@ static ze_module_handle_t createModule(
     ze_context_handle_t Context, ze_device_handle_t Device,
     const char *FileName, const char *Flags, ze_module_format_t Format) {
   // Resolve full path using the location of the plugin
-  std::string fullPath;
+  std::string FullPath;
 #ifdef _WIN32
-  char rtlPath[_MAX_PATH];
-  HMODULE rtlModule = nullptr;
+  char RTLPath[_MAX_PATH];
+  HMODULE RTLModule = nullptr;
   if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCSTR) &DebugLevel, &rtlModule)) {
+                          (LPCSTR) &DebugLevel, &RTLModule)) {
     DP("Error: module creation failed -- cannot resolve full path\n");
     return nullptr;
   }
-  if (!GetModuleFileNameA(rtlModule, rtlPath, sizeof(rtlPath))) {
+  if (!GetModuleFileNameA(RTLModule, RTLPath, sizeof(RTLPath))) {
     DP("Error: module creation failed -- cannot resolve full path\n");
     return nullptr;
   }
-  fullPath = rtlPath;
+  FullPath = RTLPath;
 #else // !defined(_WIN32)
-  Dl_info rtlInfo;
-  if (!dladdr(&DebugLevel, &rtlInfo)) {
+  Dl_info RTLInfo;
+  if (!dladdr(&DebugLevel, &RTLInfo)) {
     DP("Error: module creation failed -- cannot resolve full path\n");
     return nullptr;
   }
-  fullPath = rtlInfo.dli_fname;
+  FullPath = RTLInfo.dli_fname;
 #endif // !defined(_WIN32)
-  size_t split = fullPath.find_last_of("/\\");
-  fullPath.replace(split + 1, std::string::npos, FileName);
+  size_t Split = FullPath.find_last_of("/\\");
+  FullPath.replace(Split + 1, std::string::npos, FileName);
 
   // Now read from the full path
-  std::ifstream ifs(fullPath.c_str(), std::ios::binary);
+  std::ifstream IFS(FullPath.c_str(), std::ios::binary);
   // Ignore files that are not supported.
-  if (!ifs.good())
+  if (!IFS.good())
     return nullptr;
-  ifs.seekg(0, ifs.end);
-  size_t size = static_cast<size_t>(ifs.tellg());
-  ifs.seekg(0);
-  std::vector<char> image(size);
-  if (!ifs.read(image.data(), size)) {
-    DP("Error: module creation failed -- cannot read %s\n", fullPath.c_str());
+  IFS.seekg(0, IFS.end);
+  size_t Size = static_cast<size_t>(IFS.tellg());
+  IFS.seekg(0);
+  std::vector<char> Image(Size);
+  if (!IFS.read(image.data(), Size)) {
+    DP("Error: module creation failed -- cannot read %s\n", FullPath.c_str());
     return nullptr;
   }
-  return createModule(Context, Device, size, (uint8_t *)image.data(), Flags,
+  return createModule(Context, Device, Size, (uint8_t *)Image.data(), Flags,
                       Format);
 }
 #endif // ENABLE_LIBDEVICE_LINKING
@@ -3371,10 +3414,12 @@ static uint64_t getDeviceArch(uint32_t L0DeviceId) {
 static bool isDiscrete(uint32_t L0DeviceId) {
   switch (L0DeviceId & 0xFF00) {
   case 0x4900: // DG1
+#if INTEL_CUSTOMIZATION
   case 0x0200: // ATS SDV
   case 0x0B00: // PVC
   case 0x4F00: // DG2/ATS-M
   case 0x5600: // DG2/ATS-M
+#endif // INTEL_CUSTOMIZATION
     return true;
   default:
     return false;
@@ -3403,10 +3448,12 @@ static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
     if (!DeviceInfo->Initialized[i])
       continue;
+#if INTEL_CUSTOMIZATION
     if (OMPT_ENABLED) {
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
+#endif // INTEL_CUSTOMIZATION
     DeviceInfo->Mutexes[i].lock();
 
     if (DeviceInfo->Option.Flags.UseImmCmdList)
@@ -3624,11 +3671,13 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
+#if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
   }
+#endif // INTEL_CUSTOMIZATION
 
   ScopedTimerTy Timer(DeviceId, "DataWrite (Host to Device)");
 
@@ -3668,11 +3717,13 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
+#if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
   }
+#endif // INTEL_CUSTOMIZATION
 
   ScopedTimerTy Timer(DeviceId, "DataRead (Device to Host)");
 
@@ -4196,6 +4247,7 @@ static int32_t runTargetTeamRegion(
   DP("Number of teams = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupCounts.groupCountX, GroupCounts.groupCountY, GroupCounts.groupCountZ);
 
+#if INTEL_CUSTOMIZATION
   if (OMPT_ENABLED) {
     // Push current work size
     size_t FinalNumTeams = GroupCounts.groupCountX * GroupCounts.groupCountY *
@@ -4203,6 +4255,7 @@ static int32_t runTargetTeamRegion(
     size_t FinalThreadLimit = GroupSizes[0] * GroupSizes[1] * GroupSizes[2];
     OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Protect from kernel preparation to submission as kernels are shared.
   std::unique_lock<std::mutex> KernelLock(DeviceInfo->KernelMutexes[RootId]);
@@ -4215,6 +4268,7 @@ static int32_t runTargetTeamRegion(
       CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, Kernel, I, Size, TgtArgs[I]);
       DP("Kernel ByVal argument %" PRId32
          " was set successfully for device %s.\n", I, SubIdStr);
+      (void)SubIdStr; // silence warning
     } else if (TgtOffsets[I] == (std::numeric_limits<ptrdiff_t>::max)()) {
       // Offset equal to MAX(ptrdiff_t) means that the argument
       // must be passed as literal, and the offset should be ignored.
@@ -4232,20 +4286,24 @@ static int32_t runTargetTeamRegion(
   }
 
   auto Flags = DeviceInfo->getKernelIndirectAccessFlags(Kernel, RootId);
+#if INTEL_CUSTOMIZATION
   // Kernel dynamic memory is also indirect access
   if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
     Flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+#endif // INTEL_CUSTOMIZATION
   CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, Kernel, Flags);
   DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(Flags));
 
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
                    GroupSizes[2]);
 
+#if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueLaunchKernel(SubId, Kernel, &GroupCounts, KernelLock);
   }
+#endif // INTEL_CUSTOMIZATION
 
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
@@ -4289,7 +4347,9 @@ static int32_t runTargetTeamRegion(
                      &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
     CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+#if INTEL_CUSTOMIZATION
     LEVEL0_KERNEL_BEGIN(RootId);
+#endif // INTEL_CUSTOMIZATION
     CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
                          DeviceInfo->Mutexes[SubId], CmdQueue, 1, &CmdList,
                          nullptr);
@@ -4300,7 +4360,9 @@ static int32_t runTargetTeamRegion(
       KernelTimer.updateDeviceTime(Event);
       DeviceInfo->EventPool.releaseEvent(Event);
     }
+#if INTEL_CUSTOMIZATION
     LEVEL0_KERNEL_END(RootId);
+#endif // INTEL_CUSTOMIZATION
   }
 
   DP("Executed kernel entry " DPxMOD " on device %s\n", DPxPTR(TgtEntryPtr),
@@ -4309,6 +4371,7 @@ static int32_t runTargetTeamRegion(
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t CommandBatchTy::begin(int32_t ID) {
   if (State < 0 || (DeviceId >= 0 && ID != DeviceId)) {
     DP("Invalid command batching state\n");
@@ -4517,6 +4580,7 @@ int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
 
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Get kernel indirect access flags
 ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
@@ -4688,14 +4752,14 @@ int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
       if (ClearAdvice != UINT32_MAX) {
         auto CmdList = getLinkCopyCmdList(DeviceId);
         auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
-        CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Ptr,
+        CALL_ZE_RET_FAIL(zeCommandListAppendMemAdvise, CmdList, Device, Ptr,
                          Info->Size,
                          static_cast<ze_memory_advice_t>(ClearAdvice));
-        CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
-        CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
+        CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+        CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
                          &CmdList, nullptr);
-        CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-        CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+        CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+        CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
       }
     }
   }
@@ -4922,8 +4986,10 @@ int32_t RTLDeviceInfoTy::findDevices() {
   DP("Found %" PRIu32 " root devices, %" PRIu32 " total devices.\n",
      NumRootDevices, NumDevices);
   DP("List of devices (DeviceID[.SubID[.CCSID]])\n");
-  for (auto &Str : DeviceIdStr)
+  for (auto &Str : DeviceIdStr) {
     DP("-- %s\n", Str.c_str());
+    (void)Str; // silence warning
+  }
 
   if (DebugLevel > 0)
     reportDeviceInfo();
@@ -4933,7 +4999,9 @@ int32_t RTLDeviceInfoTy::findDevices() {
   KernelProperties.resize(NumDevices);
   Initialized.resize(NumDevices);
   Context = createContext(Driver);
+#if INTEL_CUSTOMIZATION
   NumActiveKernels.resize(NumRootDevices, 0);
+#endif // INTEL_CUSTOMIZATION
   BatchCmdQueues.resize(NumRootDevices);
   ImmCmdLists.resize(NumDevices);
   GlobalModules.resize(NumDevices);
@@ -4950,8 +5018,10 @@ int32_t RTLDeviceInfoTy::findDevices() {
   CALL_ZE_RET_ZERO(zeDriverGetApiVersion, Driver, &DriverAPIVersion);
   DP("Driver API version is %" PRIx32 "\n", DriverAPIVersion);
 
+#if INTEL_CUSTOMIZATION
   // Supported interop properties
   L0Interop::printInteropProperties();
+#endif // INTEL_CUSTOMIZATION
 
   // Check driver extensions.
   uint32_t NumExtensions = 0;
@@ -4963,32 +5033,36 @@ int32_t RTLDeviceInfoTy::findDevices() {
     CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, Driver,
                      &NumExtensions, Extensions.data());
     DP("Found driver extensions:\n");
-    for (auto &E : Extensions)
+    for (auto &E : Extensions) {
       DP("-- %s\n", E.name);
+      (void)E; // silence warning
+    }
   }
 
-  // Look up GITS notification function
   ze_result_t Rc;
+#if INTEL_CUSTOMIZATION
+  // Look up GITS notification function
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zeGitsIndirectAllocationOffsets", &GitsIndirectAllocationOffsets);
   if (Rc != ZE_RESULT_SUCCESS)
     GitsIndirectAllocationOffsets = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   // Look up Driver Import and Release  External Pointer
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zexDriverImportExternalPointer", &RegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
-     RegisterHostPointer = nullptr;
+    RegisterHostPointer = nullptr;
 
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zexDriverReleaseImportedPointer", &UnRegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
-     UnRegisterHostPointer = nullptr;
+    UnRegisterHostPointer = nullptr;
 
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zexDriverGetHostPointerBaseAddress", &GetHostPointerBaseAddress);
   if (Rc != ZE_RESULT_SUCCESS)
-     GetHostPointerBaseAddress  = nullptr;
+    GetHostPointerBaseAddress  = nullptr;
 
   return NumRootDevices;
 }
@@ -5019,6 +5093,7 @@ void RTLDeviceInfoTy::reportDeviceInfo() {
     DP("-- Global memory size (bytes)   : %" PRIu64 "\n", MPR.totalSize);
     DP("-- Cache size (bytes)           : %" PRIu64 "\n", MCPR.cacheSize);
     DP("-- Max clock frequency (MHz)    : %" PRIu32 "\n", DPR.coreClockRate);
+    (void)CPR; (void)MPR; (void)MCPR; (void)NumEUs; // silence warning
   }
 }
 
@@ -5040,7 +5115,7 @@ void RTLDeviceInfoTy::initMemAllocator(int32_t DeviceId) {
                          std::forward_as_tuple(Context, Device, Option,
                                                SupportsLargeMem, true));
   }
-  if (DeviceId < NumRootDevices && SubDeviceIds[DeviceId].size() > 0) {
+  if (DeviceId < (int32_t)NumRootDevices && SubDeviceIds[DeviceId].size() > 0) {
     for (auto SubId : SubDeviceIds[DeviceId][0])
       initMemAllocator(SubId);
   }
@@ -5069,10 +5144,12 @@ int32_t LevelZeroProgramTy::addModule(
     return OFFLOAD_SUCCESS;
 
   std::string BuildOptions(CommonBuildOptions);
+#if INTEL_CUSTOMIZATION
   // Add required flag to enable dynamic linking. We can do this only if the
   // module does not contain any kernels or globals.
   // FIXME: module build with "-library-compilation" does not work on iGPU now.
   // Keep the device check until XDEPS-3954 is resolved.
+#endif // INTEL_CUSTOMIZATION
   if (IsLibModule)
     BuildOptions += " -library-compilation ";
 
@@ -5768,7 +5845,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
     }
   }
 
-  for (auto I = 0; I < NumEntries; I++) {
+  for (size_t I = 0; I < NumEntries; I++) {
     auto Size = Image->EntriesBegin[I].size;
     auto *Name = Image->EntriesBegin[I].name;
 
@@ -5817,6 +5894,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
     std::string KernelName(Name);
     auto K = ModuleKernels.find(KernelName);
     if (K == ModuleKernels.end()) {
+#if INTEL_CUSTOMIZATION
       if (Image->EntriesBegin[I].flags & OMP_DECLARE_TARGET_FPTR) {
         // Return device function ptr for entires marked as
         // OMP_DECLARE_TARGET_FPTR and inherit flags from the host entry.
@@ -5825,7 +5903,9 @@ int32_t LevelZeroProgramTy::buildKernels() {
         DP("Returning device function pointer " DPxMOD
            " for host function pointer " DPxMOD "\n",
            DPxPTR(Entries[I].addr), DPxPTR(Image->EntriesBegin[I].addr));
-      } else {
+      } else
+#endif // INTEL_CUSTOMIZATION
+      {
         // If a kernel was deleted by optimizations (e.g. DCE), then
         // zeCreateKernel will fail. We expect that such a kernel
         // will never be actually invoked.
@@ -5868,12 +5948,14 @@ int32_t LevelZeroProgramTy::buildKernels() {
         KernelProperties.Width = KPrefGRPSize.preferredMultiple;
 #endif
       if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
+#if INTEL_CUSTOMIZATION
         // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
+#endif // INTEL_CUSTOMIZATION
         KernelProperties.Width =
             (std::max)(KernelProperties.Width, 2 * KernelProperties.SIMDWidth);
       }
     }
-    DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, "
+    DP("Kernel %zu: Entry = " DPxMOD ", Name = %s, "
        "NumArgs = %" PRIu32 ", Handle = " DPxMOD "\n", I,
        DPxPTR(Image->EntriesBegin[I].addr), Image->EntriesBegin[I].name,
        KP.numKernelArgs, DPxPTR(Kernels[I]));
@@ -5894,6 +5976,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_CUSTOMIZATION
 /// High-level description of new dynamic memory allocator.
 /// We use a list of heaps each of which can serve 6 different allocation sizes
 /// and list of block descriptors that store the state of each blocks in the
@@ -6053,6 +6136,7 @@ int32_t LevelZeroProgramTy::resetProgramData() {
                                     sizeof(PGMData), nullptr /* Timer */,
                                     true /* Locked */);
 }
+#endif // INTEL_CUSTOMIZATION
 
 ///
 /// Common plugin interface
@@ -6088,10 +6172,11 @@ int32_t __tgt_rtl_number_of_devices() {
   if (NumDevices <= 0)
     return 0;
 
-  if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_TOP)
+  if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_TOP) {
     DP("Returning %" PRIu32 " top-level devices\n", NumDevices);
-  else
+  } else {
     DP("Returning %" PRIu32 " devices including sub-devices\n", NumDevices);
+  }
 
   return NumDevices;
 }
@@ -6106,8 +6191,10 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->initMemAllocator(DeviceId);
 
+#if INTEL_CUSTOMIZATION
   // Create command queue early to address performance regression reported in
   // CMPLRLIBS-33758.
+#endif // INTEL_CUSTOMIZATION
   auto Q = DeviceInfo->getCmdQueue(DeviceId);
   (void)Q;
 
@@ -6120,10 +6207,12 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->Initialized[DeviceId] = true;
 
+#if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
                 DeviceInfo->DeviceProperties[DeviceId].name,
                 DeviceInfo->Devices[DeviceId],
                 omptLookupEntries, OmptDocument);
+#endif // INTEL_CUSTOMIZATION
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
   return OFFLOAD_SUCCESS;
@@ -6138,6 +6227,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
   size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
 
   DP("Expecting to have %zu entries defined\n", NumEntries);
+  (void)NumEntries; // silence warning
 
   auto &Option = DeviceInfo->Option;
   std::string CompilationOptions(Option.CompilationOptions + " " +
@@ -6166,9 +6256,11 @@ __tgt_target_table *__tgt_rtl_load_binary(
   if (RC != OFFLOAD_SUCCESS)
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
   RC = Program.initProgramData();
   if (RC != OFFLOAD_SUCCESS)
     return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   auto *Table = Program.getTablePtr();
 
@@ -6181,6 +6273,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
             DeviceInfo->KernelProperties[DeviceId];
   }
 
+#if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_load, DeviceId,
                 "" /* filename */,
                 -1 /* offset_in_file */,
@@ -6189,6 +6282,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
                 Table->EntriesBegin /* host_addr */,
                 nullptr /* device_addr */,
                 0 /* module_id */);
+#endif // INTEL_CUSTOMIZATION
 
   return Table;
 }
@@ -6234,9 +6328,11 @@ int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
 
 int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
                                 void *DstPtr, int64_t Size) {
+#if INTEL_CUSTOMIZATION
   // TODO: D2D copy with copy engine is slower than using the default queue as
   // reported in CMPLRLIBS-33721. Use the default queue for now until we find
   // different result.
+#endif // INTEL_CUSTOMIZATION
   auto cmdList = DeviceInfo->getCmdList(DstId);
   auto cmdQueue = DeviceInfo->getCmdQueue(DstId);
 
@@ -6253,11 +6349,13 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
 }
 
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
+#if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueMemFree(DeviceId, TgtPtr);
   }
+#endif // INTEL_CUSTOMIZATION
   return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
 
@@ -6425,11 +6523,12 @@ void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
 
 int32_t __tgt_rtl_push_subdevice(int64_t DeviceIds) {
   // Unsupported subdevice request is ignored
-  if (!isValidSubDevice(DeviceIds))
+  if (!isValidSubDevice(DeviceIds)) {
     DP("Warning: Invalid subdevice encoding " DPxMOD " is ignored\n",
        DPxPTR(DeviceIds));
-  else
+  } else {
     DeviceInfo->setSubDeviceCode(DeviceIds);
+  }
   return OFFLOAD_SUCCESS;
 }
 
@@ -6463,6 +6562,7 @@ int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   return ret;
 }
 
+#if INTEL_CUSTOMIZATION
 __tgt_interop *__tgt_rtl_create_interop(
     int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
     int32_t *PreferIDs) {
@@ -6646,6 +6746,7 @@ const char *__tgt_rtl_get_interop_rc_desc(int32_t DeviceId, int32_t RetCode) {
   // TODO: decide implementation-defined return code.
   return nullptr;
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t __tgt_rtl_get_num_sub_devices(int32_t DeviceId, int32_t Level) {
   int32_t ret = 0;
@@ -6676,6 +6777,7 @@ int32_t __tgt_rtl_is_accessible_addr_range(int32_t DeviceId, const void *Ptr,
     return 0;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_notify_indirect_access(int32_t DeviceId, const void *Ptr,
                                          size_t Offset) {
   using FnTy = void(*)(void *, uint32_t, size_t *);
@@ -6688,6 +6790,7 @@ int32_t __tgt_rtl_notify_indirect_access(int32_t DeviceId, const void *Ptr,
   }
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t __tgt_rtl_is_private_arg_on_host(
     int32_t DeviceId, const void *TgtEntryPtr, uint32_t Idx) {
@@ -6707,6 +6810,7 @@ int32_t __tgt_rtl_is_private_arg_on_host(
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_command_batch_begin(int32_t DeviceId, int32_t BatchLevel) {
   // Do not try command batching in these cases
   // -- Integrated devices
@@ -6730,6 +6834,7 @@ int32_t __tgt_rtl_command_batch_end(int32_t DeviceId, int32_t BatchLevel) {
 
   return getTLS()->getCommandBatch().end();
 }
+#endif // INTEL_CUSTOMIZATION
 
 void __tgt_rtl_kernel_batch_begin(int32_t DeviceId, uint32_t MaxKernels) {
   DeviceInfo->beginKernelBatch(DeviceId, MaxKernels);
@@ -6739,6 +6844,7 @@ void __tgt_rtl_kernel_batch_end(int32_t DeviceId) {
   DeviceInfo->endKernelBatch(DeviceId);
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_set_function_ptr_map(
     int32_t DeviceId, uint64_t Size,
     const __omp_offloading_fptr_map_t *FnPtrs) {
@@ -6834,6 +6940,7 @@ void *__tgt_rtl_alloc_per_hw_thread_scratch(
 void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
   DeviceInfo->dataDelete(DeviceId, Ptr);
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
                                   size_t InfoSize, void *InfoValue,
@@ -7020,4 +7127,4 @@ int32_t __tgt_rtl_prefetch_shared_mem(int32_t DeviceId, size_t NumPtrs,
 
   return OFFLOAD_SUCCESS;
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB

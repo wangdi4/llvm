@@ -15,7 +15,7 @@
  * License.
  */
 /* end INTEL_CUSTOMIZATION */
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -990,7 +990,7 @@ TRACE_FN_DEF(zeModuleGetKernelNames)(
   Fn(ZE_RESULT_ERROR_UNKNOWN)
 
 #define CASE_TO_STRING(Num) case Num: return #Num;
-static const char *getZeErrorName(int32_t Error) {
+const char *getZeErrorName(int32_t Error) {
   switch (Error) {
     FOREACH_ZE_ERROR_CODE(CASE_TO_STRING)
   default:
@@ -999,4 +999,4 @@ static const char *getZeErrorName(int32_t Error) {
 }
 
 #endif // !defined(RTL_TRACE_H)
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
