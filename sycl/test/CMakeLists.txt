@@ -57,16 +57,11 @@ add_lit_testsuite(check-sycl-spirv "Running device-agnostic SYCL regression test
   ARGS ${RT_TEST_ARGS}
   PARAMS "SYCL_TRIPLE=spir64-unknown-unknown"
   DEPENDS ${SYCL_TEST_DEPS}
-  EXCLUDE_FROM_CHECK_ALL
   )
 
 add_custom_target(check-sycl)
 add_dependencies(check-sycl check-sycl-spirv)
 set_target_properties(check-sycl PROPERTIES FOLDER "SYCL tests")
-
-if (TARGET check-all)
-  add_dependencies(check-all check-sycl)
-endif()
 
 if(SYCL_BUILD_PI_CUDA)
   add_lit_testsuite(check-sycl-ptx "Running device-agnostic SYCL regression tests for NVidia PTX"
@@ -74,7 +69,6 @@ if(SYCL_BUILD_PI_CUDA)
     ARGS ${RT_TEST_ARGS}
     PARAMS "SYCL_TRIPLE=nvptx64-nvidia-cuda;SYCL_PLUGIN=cuda"
     DEPENDS ${SYCL_TEST_DEPS}
-    EXCLUDE_FROM_CHECK_ALL
   )
 
   add_custom_target(check-sycl-cuda)
@@ -90,7 +84,6 @@ if(SYCL_BUILD_PI_HIP)
       ARGS ${RT_TEST_ARGS}
       PARAMS "SYCL_TRIPLE=nvptx64-nvidia-cuda;SYCL_PLUGIN=hip"
       DEPENDS ${SYCL_TEST_DEPS}
-      EXCLUDE_FROM_CHECK_ALL
     )
 
     add_dependencies(check-sycl-hip check-sycl-hip-ptx)
@@ -100,7 +93,6 @@ if(SYCL_BUILD_PI_HIP)
       ARGS ${RT_TEST_ARGS}
       PARAMS "SYCL_TRIPLE=amdgcn-amd-amdhsa;SYCL_PLUGIN=hip"
       DEPENDS ${SYCL_TEST_DEPS}
-      EXCLUDE_FROM_CHECK_ALL
     )
 
     add_dependencies(check-sycl-hip check-sycl-hip-gcn)
