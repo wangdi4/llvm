@@ -400,6 +400,7 @@ void Symbol::mergeProperties(const Symbol &other) {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
@@ -425,10 +426,13 @@ void Symbol::resolve(const Symbol &other, StringRef otherName) {
     break;
   case Symbol::PlaceholderKind:
     llvm_unreachable("bad symbol kind");
+=======
+void Symbol::resolve(const Undefined &other) {
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+>>>>>>> 9e6840ccbae5c8e34e6aaa417b8e6cf4a60facf3
   }
-}
-
-void Symbol::resolveUndefined(const Undefined &other) {
   // An undefined symbol with non default visibility must be satisfied
   // in the same DSO.
   //
@@ -698,7 +702,13 @@ void Symbol::checkDuplicate(const Defined &other) const {
                     other.value);
 }
 
-void Symbol::resolveCommon(const CommonSymbol &other) {
+void Symbol::resolve(const CommonSymbol &other) {
+  if (other.exportDynamic)
+    exportDynamic = true;
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+  }
   if (isDefined() && !isWeak()) {
     if (config->warnCommon)
       warn("common " + getName() + " is overridden");
@@ -730,16 +740,27 @@ void Symbol::resolveCommon(const CommonSymbol &other) {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
 void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
   if(compare(other, otherName))
 #endif // INTEL_CUSTOMIZATION
+=======
+void Symbol::resolve(const Defined &other) {
+  if (other.exportDynamic)
+    exportDynamic = true;
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+  }
+  if (shouldReplace(other))
+>>>>>>> 9e6840ccbae5c8e34e6aaa417b8e6cf4a60facf3
     other.overwrite(*this);
 }
 
-void Symbol::resolveLazy(const LazyObject &other) {
+void Symbol::resolve(const LazyObject &other) {
   if (isPlaceholder()) {
     other.overwrite(*this);
     return;
@@ -778,7 +799,8 @@ void Symbol::resolveLazy(const LazyObject &other) {
     recordWhyExtract(oldFile, *file, *this);
 }
 
-void Symbol::resolveShared(const SharedSymbol &other) {
+void Symbol::resolve(const SharedSymbol &other) {
+  exportDynamic = true;
   if (isPlaceholder()) {
     other.overwrite(*this);
     return;
