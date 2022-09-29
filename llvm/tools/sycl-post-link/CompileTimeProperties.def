@@ -19,6 +19,7 @@ SYCL_COMPILE_TIME_PROPERTY("sycl-implement-in-csr", 6149, DecorValueTy::boolean)
 
 // The corresponding SPIR-V OpCodes for kernel pointer/arg properties
 // are documented in the
+//https://github.com/intel-innersource/applications.fpga.oneapi.internal.fpga-extension-specs/blob/1ddd1379c0696511dcffd0f41ac2bdbd327d21c1/SPV_INTEL_fpga_kernel_argument_properties.asciidoc
 SYCL_COMPILE_TIME_PROPERTY("sycl-buffer-location", 5921, DecorValueTy::uint32)
 SYCL_COMPILE_TIME_PROPERTY("sycl-conduit",         6175, DecorValueTy::boolean)
 SYCL_COMPILE_TIME_PROPERTY("sycl-register-map",    6176, DecorValueTy::boolean)
