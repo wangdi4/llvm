@@ -1494,12 +1494,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(InlineListsPass());
   if (RunVPOParopt && EnableVPOParoptTargetInline)
     MPM.addPass(VPOParoptTargetInlinePass());
-#if INTEL_FEATURE_SW_DTRANS
-  if (PrepareForLTO && DTransEnabled) {
-    MPM.addPass(dtrans::DTransForceInlinePass());
-    MPM.addPass(dtransOP::DTransForceInlineOPPass());
-  }
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   MPM.addPass(CoroEarlyPass());
 
@@ -1638,6 +1632,15 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM),
                                                 PTO.EagerlyInvalidateAnalyses));
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (PrepareForLTO && DTransEnabled) {
+    MPM.addPass(dtrans::DTransForceInlinePass());
+    MPM.addPass(dtransOP::DTransForceInlineOPPass());
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Add all the requested passes for instrumentation PGO, if requested.
   if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
