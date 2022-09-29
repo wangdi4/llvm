@@ -527,10 +527,9 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
         LowerBound = CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/true);
       else
         LowerBound = CGF.EmitLValue(E);
+      if (!ArraySecUsesBase)
+        addArg(LowerBound.getPointer(CGF), /*Handled=*/true);
     }
-
-    if (!ArraySecUsesBase)
-      addArg(LowerBound.getPointer(CGF), /*Handled=*/true);
 
     if (IsTyped) {
       const Expr *Base = getArraySectionBase(E);
