@@ -407,11 +407,6 @@ void Symbol::resolve(const Symbol &other, StringRef otherName) {
 #endif // INTEL_CUSTOMIZATION
   mergeProperties(other);
 
-  if (isPlaceholder()) {
-    replace(other);
-    return;
-  }
-
   switch (other.kind()) {
   case Symbol::UndefinedKind:
     resolveUndefined(cast<Undefined>(other));
@@ -439,7 +434,7 @@ void Symbol::resolveUndefined(const Undefined &other) {
   //
   // If this is a non-weak defined symbol in a discarded section, override the
   // existing undefined symbol for better error message later.
-  if ((isShared() && other.visibility() != STV_DEFAULT) ||
+  if (isPlaceholder() || (isShared() && other.visibility() != STV_DEFAULT) ||
       (isUndefined() && other.binding != STB_WEAK && other.discardedSecIdx)) {
     replace(other);
     return;
@@ -745,6 +740,11 @@ void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
 }
 
 void Symbol::resolveLazy(const LazyObject &other) {
+  if (isPlaceholder()) {
+    replace(other);
+    return;
+  }
+
   // For common objects, we want to look for global or weak definitions that
   // should be extracted as the canonical definition instead.
   if (LLVM_UNLIKELY(isCommon()) && elf::config->fortranCommon &&
@@ -779,6 +779,10 @@ void Symbol::resolveLazy(const LazyObject &other) {
 }
 
 void Symbol::resolveShared(const SharedSymbol &other) {
+  if (isPlaceholder()) {
+    replace(other);
+    return;
+  }
   if (isCommon()) {
     // See the comment in resolveCommon() above.
     if (other.size > cast<CommonSymbol>(this)->size)

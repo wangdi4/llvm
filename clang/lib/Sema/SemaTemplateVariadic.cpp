@@ -880,6 +880,7 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   const DeclSpec &DS = D.getDeclSpec();
   switch (DS.getTypeSpecType()) {
   case TST_typename:
+  case TST_typeof_unqualType:
   case TST_typeofType:
 #define TRANSFORM_TYPE_TRAIT_DEF(_, Trait) case TST_##Trait:
 #include "clang/Basic/TransformTypeTraits.def"
@@ -890,6 +891,7 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
     break;
   }
 
+  case TST_typeof_unqualExpr:
   case TST_typeofExpr:
   case TST_decltype:
   case TST_bitint:

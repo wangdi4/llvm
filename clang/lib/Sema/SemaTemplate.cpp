@@ -6274,7 +6274,7 @@ bool UnnamedLocalNoLinkageFinder::VisitTypeOfExprType(const TypeOfExprType*) {
 }
 
 bool UnnamedLocalNoLinkageFinder::VisitTypeOfType(const TypeOfType* T) {
-  return Visit(T->getUnderlyingType());
+  return Visit(T->getUnmodifiedType());
 }
 
 bool UnnamedLocalNoLinkageFinder::VisitDecltypeType(const DecltypeType*) {

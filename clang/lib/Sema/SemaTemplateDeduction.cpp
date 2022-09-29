@@ -6007,8 +6007,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
 
   case Type::TypeOf:
     if (!OnlyDeduced)
-      MarkUsedTemplateParameters(Ctx,
-                                 cast<TypeOfType>(T)->getUnderlyingType(),
+      MarkUsedTemplateParameters(Ctx, cast<TypeOfType>(T)->getUnmodifiedType(),
                                  OnlyDeduced, Depth, Used);
     break;
 
