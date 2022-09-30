@@ -80,6 +80,10 @@ cl_err_code ContextModule::Initialize(ocl_entry_points * pOclEntryPoints, ocl_gp
 cl_err_code ContextModule::Release(  bool bTerminate )
 {
     m_bIsTerminating = bTerminate;
+    // FIXME: This is a workaround to manually release kernels/programs. We
+    // need to remove them once the shutdown process is re-enabled.
+    RemoveAllKernels(true);
+    RemoveAllPrograms(true);
     return CL_SUCCESS;
 }
 
