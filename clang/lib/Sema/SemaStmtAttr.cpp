@@ -667,7 +667,6 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
           S.getLangOpts().HLS ||
           (S.getLangOpts().OpenCL &&
            S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment());
-    bool IntelCompat = S.getLangOpts().IntelCompat;
     if (HLSCompat) {
       return handleHLSIVDepAttr(S, A);
     } /* if */
@@ -682,12 +681,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     } else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "back") {
       SetHints(LoopHintAttr::IVDepBack, LoopHintAttr::Enable);
     } else {
-      if (HLSCompat && IntelCompat)
-        SetHints(LoopHintAttr::IVDepHLSIntel, LoopHintAttr::Enable);
-      else if (HLSCompat)
-        SetHints(LoopHintAttr::IVDepHLS, LoopHintAttr::Enable);
-      else
-        SetHints(LoopHintAttr::IVDep, LoopHintAttr::Enable);
+      SetHints(LoopHintAttr::IVDep, LoopHintAttr::Enable);
     }
   } else if (PragmaName == "ii_at_most") {
     SetHints(LoopHintAttr::IIAtMost, LoopHintAttr::Numeric);

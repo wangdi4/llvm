@@ -1746,7 +1746,7 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
       if (CGM.getLangOpts().OpenMPLateOutline &&
           !CGM.getLangOpts().OpenMPIsDevice) {
         llvm::GlobalVariable *OGV =
-            dyn_cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobal(VD));
+            cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobal(VD));
         OGV->setTargetDeclare(false);
         GV->setInitializer(OGV);
       } else
@@ -8181,7 +8181,7 @@ public:
       QualType PTy = OASE->getBase()->getType();
       BP = Address(
              CGF.EmitScalarExpr(OASE->getBase()),
-             CGF.ConvertTypeForMem(PTy->getAs<PointerType>()->getPointeeType()),
+             CGF.ConvertTypeForMem(PTy->castAs<PointerType>()->getPointeeType()),
              CGF.getContext().getTypeAlignInChars(PTy));
 #endif  // INTEL_COLLAB
     } else if ((AE && isa<CXXThisExpr>(AE->getBase()->IgnoreParenImpCasts())) ||

@@ -478,7 +478,7 @@ public:
                              ImplicitMap[VD] == ICK_linear_lastprivate);
   }
   void privatizeMappedPointers(CodeGenFunction::OMPPrivateScope &PrivateScope) {
-    for (auto MT : MapTemps) {
+    for (const auto &MT : MapTemps) {
       llvm::Type *Ty = MT.first->getType();
       Address A = CGF.CreateDefaultAlignTempAlloca(Ty, MT.second->getName() +
                                                            ".map.ptr.tmp");

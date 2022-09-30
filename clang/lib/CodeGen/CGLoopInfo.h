@@ -66,21 +66,6 @@ struct LoopAttributes {
   LVEnableState VectorizeEnable;
 
 #if INTEL_CUSTOMIZATION
-  /// Value for llvm.loop.coalesce.enable metadata.
-  bool LoopCoalesceEnable;
-
-  /// Value for llvm.loop.coalesce.count metadata.
-  unsigned LoopCoalesceCount;
-
-  /// Value for llvm.loop.ii.count metadata.
-  unsigned IICount;
-
-  /// Value for llvm.loop.max_concurrency.count metadata.
-  unsigned MaxConcurrencyCount;
-
-  /// Value for llvm.loop.max_interleaving.count metadata.
-  unsigned MaxInterleavingCount;
-
   /// Value for llvm.loop.vectorize.ivdep_back metadata.
   bool IVDepEnable;
 
@@ -100,14 +85,8 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.ii.at.least.count metadata.
   unsigned IIAtLeast;
 
-  /// Value for llvm.loop.intel.speculated.iterations.count metadata.
-  int SpeculatedIterations;
-
   /// Value for llvm.loop.intel.min.ii.at.target.fmax metadata.
   bool MinIIAtTargetFmaxEnable;
-
-  /// Value for llvm.loop.intel.pipelining.disable metadata.
-  bool DisableLoopPipeliningEnable;
 
   /// Value for llvm.loop.intel.[hyperopt|nohyperopt] metadata.
   LVEnableState ForceHyperoptEnable;
@@ -431,27 +410,6 @@ public:
   void setParallel(bool Enable = true) { StagedAttrs.IsParallel = Enable; }
 
 #if INTEL_CUSTOMIZATION
-  /// Set the next pushed loop 'coalesce.enable'
-  void setLoopCoalesceEnable() {
-    StagedAttrs.LoopCoalesceEnable = true;
-  }
-
-  /// Set the coalesce count for the next loop pushed.
-  void setLoopCoalesceCount(unsigned C) { StagedAttrs.LoopCoalesceCount = C; }
-
-  /// Set the ii count for the next loop pushed.
-  void setIICount(unsigned C) { StagedAttrs.IICount = C; }
-
-  /// Set the max_concurrency count for the next loop pushed.
-  void setMaxConcurrencyCount(unsigned C) {
-    StagedAttrs.MaxConcurrencyCount = C;
-  }
-
-  /// Set the max_interleaving count for the next loop pushed.
-  void setMaxInterleavingCount(unsigned C) {
-    StagedAttrs.MaxInterleavingCount = C;
-  }
-
   /// Set flag for three types of plain #pragma ivdep
   void setIVDepEnable() { StagedAttrs.IVDepEnable = true; }
   void setIVDepHLSEnable() { StagedAttrs.IVDepHLSEnable = true; }
@@ -467,18 +425,9 @@ public:
   /// Set II_AT_LEAST for the next loop pushed.
   void setIIAtLeast(unsigned C) { StagedAttrs.IIAtLeast = C; }
 
-  /// Set SpeculatedIterations for the next loop pushed.
-  void setSpeculatedIterations(unsigned C) {
-    StagedAttrs.SpeculatedIterations = C;
-  }
   /// Set the next pushed loop MinIIAtTargetFmaxEnable
   void setMinIIAtTargetFmaxEnable() {
     StagedAttrs.MinIIAtTargetFmaxEnable = true;
-  }
-
-  /// Set the next pushed loop DisableLoopPipeliningEnable
-  void setDisableLoopPipeliningEnable() {
-    StagedAttrs.DisableLoopPipeliningEnable = true;
   }
 
   /// Set the next pushed loop 'force_hyperopt/force_no_hyperopt'
