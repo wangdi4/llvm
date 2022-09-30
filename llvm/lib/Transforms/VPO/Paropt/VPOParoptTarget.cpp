@@ -241,7 +241,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   }
 }
 
-// Replace printf() calls in F with _Z18__spirv_ocl_printfPU3AS2ci()
+// Replace printf() calls in F with _Z18__spirv_ocl_printfPU3AS2cz()
 void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
                                                      Function *OCLPrintfDecl,
                                                      Function *F) {
@@ -277,7 +277,7 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
       //   @.str.as2 = private target_declare addrspace(2) constant [25 x i8]
       //       c"..."
       //
-      //   call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //   call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz(
       //       i8 addrspace(2)* getelementptr inbounds
       //       ([25 x i8], [25 x i8] addrspace(2)* @.str.as2, i64 0, i64 0)
       //       , ...)

@@ -1401,7 +1401,7 @@ bool HIROptPredicate::mustCodeGen() const {
   if (OuterLoopIfs.empty())
     return true;
 
-  for (auto Candidate : Candidates) {
+  for (auto &Candidate : Candidates) {
     if (Candidate.isIf()) {
       auto *If = cast<HLIf>(Candidate.getNode());
       if (!OuterLoopIfs.contains(If))

@@ -68,7 +68,7 @@ entry:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_4:[^ ,]+]]
 ; CHECK: [[IF_MASTER_4]]:
-; CHECK: {{[^ ]+}} = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(2)* @.str{{.*}}, i64 0, i64 0), i32 [[NT2_NEW]])
+; CHECK: {{[^ ]+}} = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(2)* @.str{{.*}}, i64 0, i64 0), i32 [[NT2_NEW]])
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 
 

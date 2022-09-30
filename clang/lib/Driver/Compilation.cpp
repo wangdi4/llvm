@@ -210,7 +210,7 @@ bool Compilation::CleanupFileList(const TempFileList &Files,
     Success &= CleanupFile(File.first, IssueErrors);
   }
 #if INTEL_CUSTOMIZATION
-  if (Files.size())
+  if (!ForDiagnostics)
     // Remove the base temporary directory after the files have been cleaned up.
     Success &= CleanupFile(TheDriver.BaseTempDir.c_str(), IssueErrors);
 #endif // INTEL_CUSTOMIZATION

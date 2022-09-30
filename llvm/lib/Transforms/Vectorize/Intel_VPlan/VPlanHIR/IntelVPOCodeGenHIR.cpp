@@ -1508,7 +1508,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     HLInstCounter InstCounter;
     HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
                             OrigLoop->child_end());
-    if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold)
+    if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold || TripCount == VF)
       HIRTransformUtils::completeUnroll(MainLoop);
   }
 
