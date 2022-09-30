@@ -705,6 +705,14 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
       LI1->getPointerAddressSpace() != LI2->getPointerAddressSpace())
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // This optimization is not type-aware; we can only use it as-is on opaque
+  // pointers. We could fix it later to add bitcasts, etc.
+  if (!LI1->getPointerOperandType()->isOpaquePointerTy() ||
+      !LI2->getPointerOperandType()->isOpaquePointerTy())
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   // Check if Loads come from same BB.
   if (LI1->getParent() != LI2->getParent())
     return false;
@@ -807,6 +815,12 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
 static bool foldConsecutiveLoads(Instruction &I, const DataLayout &DL,
                                  TargetTransformInfo &TTI, AliasAnalysis &AA) {
   LoadOps LOps;
+
+#if INTEL_CUSTOMIZATION
+  // This optimization is not type-aware; we can only use it as-is on opaque
+  // pointers. Checked in foldLoadsRecursive.
+#endif // INTEL_CUSTOMIZATION
+
   if (!foldLoadsRecursive(&I, LOps, DL, AA) || !LOps.FoundRoot)
     return false;
 
