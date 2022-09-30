@@ -123,15 +123,6 @@ device select_device(DSelectorInvocableType DeviceSelectorInvocable,
     return *res;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  throw sycl::runtime_error(
-      "No device of requested type available. Please check "
-      "https://software.intel.com/content/www/us/en/develop/articles/"
-      "intel-oneapi-dpcpp-system-requirements.html",
-      PI_ERROR_DEVICE_NOT_FOUND);
-#endif // INTEL_CUSTOMIZATION
-=======
   auto Selector = DeviceSelectorInvocable.target<int (*)(const sycl::device &)>();
   if ((Selector && *Selector == gpu_selector_v)
           || DeviceSelectorInvocable.target<sycl::gpu_selector>()) {
@@ -151,9 +142,17 @@ device select_device(DSelectorInvocableType DeviceSelectorInvocable,
                               "'info::device_type::accelerator' available.",
                               PI_ERROR_DEVICE_NOT_FOUND);
   }
+
+#if INTEL_CUSTOMIZATION
+  throw sycl::runtime_error(
+      "No device of requested type available. Please check "
+      "https://software.intel.com/content/www/us/en/develop/articles/"
+      "intel-oneapi-dpcpp-system-requirements.html",
+      PI_ERROR_DEVICE_NOT_FOUND);
+#else
   throw sycl::runtime_error("No device of requested type available.",
                             PI_ERROR_DEVICE_NOT_FOUND);
->>>>>>> 6b83ad7cc730b676bfe9b1ab1721d9940526c379
+#endif // INTEL_CUSTOMIZATION
 }
 
 // select_device(selector)
