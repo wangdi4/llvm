@@ -554,6 +554,10 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     if (DI) {
       DIExpression *Expr =
           DIExpression::prepend(DI->getExpression(), DIExpression::DerefBefore);
+      // byval argument are passed by value on the stack. It is represented as a
+      // pointer. We need to dereference its pointer type.
+      if (auto A = dyn_cast<Argument>(V); A && A->hasByValAttr())
+        Expr = DIExpression::prepend(Expr, DIExpression::DerefBefore);
       DIB.insertDeclare(AddrAI, DI->getVariable(), Expr,
                         DI->getDebugLoc().get(), AddrAI->getNextNode());
     }
