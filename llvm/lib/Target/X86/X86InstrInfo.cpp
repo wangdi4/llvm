@@ -113,6 +113,39 @@ X86InstrInfo::X86InstrInfo(X86Subtarget &STI)
       Subtarget(STI), RI(STI.getTargetTriple()) {
 }
 
+#if INTEL_CUSTOMIZATION
+// CMPLRLLVM-40015: we fix this precision issue with prohibiting specific
+// global FMA in spec_omp2012all/370 by matching the FMA shape and FMA
+// expression's user.
+bool X86InstrInfo::IsBadForOMP2012(MachineInstr *FMAMI, unsigned Shape,
+                                   bool DisableGFMAForOMP2012) const {
+  if (!DisableGFMAForOMP2012)
+    return false;
+  MachineRegisterInfo *MRI = &FMAMI->getMF()->getRegInfo();
+  // Check Shape is exactly 0xd5
+  if (Shape != 213)
+    return false;
+  // check FMAExpr's only use is VMOVSDZmr and the first operand is killed.
+  // e.g. VMOVSDZmr killed %429:gr64, 8, %99:gr64_nosp, -16, $noreg, killed
+  // %428:fr64x
+  if (FMAMI->getNumDefs() != 1)
+    return false;
+  for (auto &Def : FMAMI->defs()) {
+    auto DefReg = Def.getReg();
+    if (!MRI->hasOneUse(DefReg))
+      return false;
+    for (const MachineInstr &UseInst : MRI->use_nodbg_instructions(DefReg)) {
+      if ((UseInst.getOpcode() != X86::VMOVSDZmr && Subtarget.hasAVX512()) ||
+          (UseInst.getOpcode() != X86::VMOVSDmr && !Subtarget.hasAVX512()))
+        return false;
+      if (UseInst.operands_begin()->isKill() != true)
+        return false;
+    }
+  }
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool
 X86InstrInfo::isCoalescableExtInstr(const MachineInstr &MI,
                                     Register &SrcReg, Register &DstReg,
