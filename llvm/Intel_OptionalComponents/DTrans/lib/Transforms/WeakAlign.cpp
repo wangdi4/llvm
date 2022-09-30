@@ -739,11 +739,19 @@ bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
   if (!IsAlignmentCheck(Op, &AlignedPtr, &AlignAmount))
     return false;
 
+  // TODO: We may need to relax this to only specific conditions in the future
+  // by including making use of the pointer type analyzer, or some type
+  // inference to check what type is using used in the alignment check. For
+  // now, we can go conservative on any pointer seen when using opaque pointers,
+  // because the pattern does not currently show up in the case of interest.
+  if (AlignedPtr->getType()->isOpaquePointerTy())
+    return false;
+
+  // TODO: The code from here to the 'return true' statement should be remvoved
+  // when typed pointers are no longer used.
   assert(AlignedPtr->getType()->isPointerTy() && "Expected pointer value");
-  // TODO: Yet another case that special processing will be needed once opaque
-  // pointers are enabled.
   auto *StructTy = dyn_cast<llvm::StructType>(
-      AlignedPtr->getType()->getPointerElementType());
+      AlignedPtr->getType()->getNonOpaquePointerElementType());
   if (!StructTy || StructTy->isOpaque())
     return false;
 
@@ -789,11 +797,6 @@ bool WeakAlignPass::runImpl(
     Module &M,
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
     WholeProgramInfo &WPInfo) {
-  if (dtrans::shouldRunOpaquePointerPasses(M)) {
-    LLVM_DEBUG(
-        dbgs() << "weak-align inhibited: opaque pointer passes in use\n");
-    return false;
-  }
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(
         dbgs() << "DTRANS Weak Align: inhibited -- not whole program safe");
