@@ -98,6 +98,10 @@ static bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 /// allocates memory (e.g., new).
 static bool isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
+/// Tests if function 'F' is identified as one that allocates memory (e.g.,
+/// malloc, calloc, new, ...).
+static bool isAllocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+
 /// Tests if a function is a call or invoke to a library function that
 /// frees memory (e.g., free).
 static bool isFreeFn(const Function *F, const TargetLibraryInfo *TLI);
@@ -110,11 +114,6 @@ static bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
 /// All functions except calloc return -1 as a second argument.
 static std::pair<unsigned, unsigned>
 getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
-
-/// Returns 'true' if the LibFunc is contained within the list of library
-/// functions that are known to allocate memory. The list is maintained
-/// within MemoryBuiltins.cpp as 'AllocationFnData'.
-static bool isAllocationLibFunc(LibFunc LF);
 };
 
 #endif // INTEL_CUSTOMIZATION
