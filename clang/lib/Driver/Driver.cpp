@@ -1732,7 +1732,6 @@ bool Driver::loadConfigFiles() {
 }
 
 bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (CLOptions && IsIntelMode()) {
     // Process any user defined .cfg files via environment variables.
@@ -1778,14 +1777,12 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
   // Disable default config if CLANG_NO_DEFAULT_CONFIG is set to a non-empty
   // value.
   if (const char *NoConfigEnv = ::getenv("CLANG_NO_DEFAULT_CONFIG")) {
     if (*NoConfigEnv)
       return false;
   }
->>>>>>> 924996e0a011eb833a72d2a2cac9b40fa8a42e34
   if (CLOptions && CLOptions->hasArg(options::OPT_no_default_config))
     return false;
 
