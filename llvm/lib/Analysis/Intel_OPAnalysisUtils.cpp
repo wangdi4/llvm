@@ -100,7 +100,10 @@ inferPtrElementTypeX(Value *V, DenseMap<const Value *, Optional<Type *>> &M) {
 
   if (auto AI = dyn_cast<AllocaInst>(V))
     return M[V] = AI->getAllocatedType();
-  
+
+  if (auto SI = dyn_cast<SubscriptInst>(V))
+    return M[V] = SI->getElementType();
+
   auto Ty = AnyTy;
 
   for (auto &Use : V->uses()) {

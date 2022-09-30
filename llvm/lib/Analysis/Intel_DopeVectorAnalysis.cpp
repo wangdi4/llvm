@@ -3469,7 +3469,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         return false;
 
       bool Opaque = !BC->getType()->getContext().supportsTypedPointers();
-      auto *Ty = (Opaque) ? inferPtrElementType(*BC)
+      auto *Ty = (Opaque) ? inferPtrElementType(*(BC->getOperand(0)))
                           : SrcTy->getNonOpaquePointerElementType();
 
       if (!Ty)
