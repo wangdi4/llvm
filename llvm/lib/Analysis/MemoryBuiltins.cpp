@@ -305,14 +305,6 @@ llvm::IntelMemoryBuiltins::getAllocSizeArgumentIndices(const Value *I,
 
   return std::make_pair(Res->FstParam, Res->SndParam);
 }
-
-/// Checks if \p LF is in the AllocationFnData list.
-bool llvm::IntelMemoryBuiltins::isAllocationLibFunc(LibFunc LF) {
-  auto Fns = makeArrayRef(AllocationFnData);
-  return std::any_of(
-    Fns.begin(), Fns.end(),
-    [&LF](std::pair<LibFunc, AllocFnsTy> Elem) { return Elem.first == LF; });
-}
 #endif // INTEL_CUSTOMIZATION
 
 static AllocFnKind getAllocFnKind(const Value *V) {
@@ -416,6 +408,14 @@ bool llvm::IntelMemoryBuiltins::isNewLikeFn(const Value *V, const TargetLibraryI
 /// allocates memory (e.g., new).
 bool llvm::IntelMemoryBuiltins::isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
   return getAllocationDataForFunction(F, OpNewLike, TLI).has_value();
+}
+
+/// Tests if function 'F' is identified as one that allocates memory (e.g.,
+/// malloc, calloc, new, ...).
+bool llvm::IntelMemoryBuiltins::isAllocLikeFn(const Function *F,
+                                              const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, AllocLike, TLI).has_value() ||
+         checkFnAllocKind(F, AllocFnKind::Alloc | AllocFnKind::Realloc);
 }
 
 /// Tests if a function is a call or invoke to free() (specifically).
