@@ -38,6 +38,7 @@
 
 #include "Intel_DTrans/Transforms/DTransNormalizeOP.h"
 
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
@@ -91,24 +92,15 @@ public:
 
 class DTransNormalizeImpl {
 public:
-  bool run(Module &M, DTransNormalizeOPPass::GetTLIFn GetTLI) {
+  DTransNormalizeImpl(Module &M, PtrTypeAnalyzer &PtrAnalyzer,
+                      TypeMetadataReader &MDReader, DTransAllocCollector &DTAC,
+                      DTransNormalizeOPPass::GetTLIFn GetTLI)
+      : M(M), PtrAnalyzer(PtrAnalyzer), MDReader(MDReader), DTAC(DTAC),
+        GetTLI(GetTLI) {}
+
+  bool run() {
+
     LLVMContext &Ctx = M.getContext();
-    const DataLayout &DL = M.getDataLayout();
-    std::unique_ptr<DTransTypeManager> TM =
-        std::make_unique<DTransTypeManager>(Ctx);
-    std::unique_ptr<TypeMetadataReader> MDReader =
-        std::make_unique<TypeMetadataReader>(*TM);
-    if (!MDReader->initialize(M)) {
-      LLVM_DEBUG(
-          dbgs() << "DTransSafetyInfo: Type metadata reader did not find "
-                    "structure type metadata\n");
-      return false;
-    }
-
-    PtrAnalyzer =
-        std::make_unique<PtrTypeAnalyzer>(Ctx, *TM, *MDReader, DL, GetTLI);
-    PtrAnalyzer->run(M);
-
     Zero32 = ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 0);
     ZeroPtrSizedInt = ConstantInt::get(
         llvm::Type::getIntNTy(Ctx, M.getDataLayout().getPointerSizeInBits()),
@@ -121,10 +113,16 @@ public:
           checkPointer(I, getLoadStorePointerOperand(I));
         else if (auto PHIN = dyn_cast<PHINode>(I))
           checkPHI(PHIN);
+        else if (auto *Ret = dyn_cast<ReturnInst>(I))
+          checkReturnInst(Ret);
+        else if (auto *GEPI = dyn_cast<GetElementPtrInst>(I))
+          checkGEPInst(GEPI);
       }
     }
 
-    if (InstructionsToGepify.empty() && PHIsToGepify.empty())
+    if (InstructionsToGepify.empty() && PHIsToGepify.empty() &&
+        ReturnsToGepify.empty() && PHIReturnsGepify.empty() &&
+        GEPsToGepify.empty())
       return false;
 
     for (auto &KV : InstructionsToGepify)
@@ -133,17 +131,32 @@ public:
     for (auto &KV : PHIsToGepify)
       gepifyPHI(KV.first, KV.second);
 
+    for (auto &KV : ReturnsToGepify)
+      gepifyReturn(KV.first, KV.second);
+
+    for (auto &KV : PHIReturnsGepify)
+      gepifyPHIReturn(KV.first, KV.second);
+
+    for (auto &KV : GEPsToGepify)
+      gepifyGEPI(KV.first, KV.second);
+
     return true;
   }
 
 private:
+  Module &M;
+  PtrTypeAnalyzer &PtrAnalyzer;
+  TypeMetadataReader &MDReader;
+  DTransAllocCollector &DTAC;
+  DTransNormalizeOPPass::GetTLIFn GetTLI;
+
   static bool isCompilerConstantData(Value *V) { return isa<ConstantData>(V); }
 
   void checkPointer(Instruction *I, Value *Ptr) {
     if (isCompilerConstantData(Ptr))
       return;
 
-    ValueTypeInfo *PtrInfo = PtrAnalyzer->getValueTypeInfo(Ptr);
+    ValueTypeInfo *PtrInfo = PtrAnalyzer.getValueTypeInfo(Ptr);
     assert(PtrInfo &&
            "PtrTypeAnalyzer failed to construct ValueTypeInfo for load "
            "pointer operand");
@@ -152,7 +165,7 @@ private:
       return;
 
     PtrTypeAnalyzer::ElementZeroInfo Info =
-        PtrAnalyzer->getElementZeroPointer(I);
+        PtrAnalyzer.getElementZeroPointer(I);
     DTransType *Ty = Info.Ty;
     if (!Ty)
       return;
@@ -190,6 +203,56 @@ private:
     }
   }
 
+  GetElementPtrInst *createGEPToAccessZeroElement(Value *Ptr, DTransType *DTy) {
+    SmallVector<Value *, 2> IdxList;
+    IdxList.push_back(ZeroPtrSizedInt);
+    IdxList.push_back(Zero32);
+    auto *I = cast<Instruction>(Ptr);
+    GetElementPtrInst *NewGEP = NewGEPInsts[I];
+    if (!NewGEP) {
+      Instruction *NextI;
+      if (isa<CallBase>(I)) {
+        NextI = I->getNextNonDebugInstruction();
+      } else {
+        assert(isa<PHINode>(I) && "Expected PHINode");
+        NextI = I->getParent()->getFirstNonPHI();
+      }
+      NewGEP = GetElementPtrInst::Create(DTy->getLLVMType(), I, IdxList,
+                                         "dtnorm", NextI);
+      NewGEPInsts[I] = NewGEP;
+    }
+    return NewGEP;
+  }
+
+  void gepifyPHIReturn(
+      PHINode *PHI,
+      SetVector<std::pair<unsigned, DTransType *>> &ValueToDTransTyMap) {
+    for (auto &Entry : ValueToDTransTyMap) {
+      Value *Ptr = PHI->getIncomingValue(Entry.first);
+      GetElementPtrInst *NewGEP =
+          createGEPToAccessZeroElement(Ptr, Entry.second);
+      LLVM_DEBUG(dbgs() << "Replacing incoming value in: " << *PHI
+                        << "\nWith: " << *NewGEP << "\n");
+      PHI->replaceUsesOfWith(Ptr, NewGEP);
+    }
+  }
+
+  void gepifyReturn(ReturnInst *RetI, DTransType *DTy) {
+    Value *Ptr = RetI->getReturnValue();
+    GetElementPtrInst *NewGEP = createGEPToAccessZeroElement(Ptr, DTy);
+    RetI->replaceUsesOfWith(Ptr, NewGEP);
+    LLVM_DEBUG(dbgs() << "Replacing return value in: " << *RetI
+                      << "\nWith: " << *NewGEP << "\n");
+  }
+
+  void gepifyGEPI(GetElementPtrInst *GEPI, DTransType *DTy) {
+    Value *Ptr = GEPI->getPointerOperand();
+    GetElementPtrInst *NewGEP = createGEPToAccessZeroElement(Ptr, DTy);
+    GEPI->replaceUsesOfWith(Ptr, NewGEP);
+    LLVM_DEBUG(dbgs() << "Replacing pointer operand in: " << *GEPI
+                      << "\nWith: " << *NewGEP << "\n");
+  }
+
   void checkPHI(PHINode *PHIN) {
 
     auto GetCandidateType = [this](Value *V) -> Type * {
@@ -220,7 +283,8 @@ private:
     };
 
     auto TestAndInsert = [this, SimpleStructGEPI](PHINode *PHIN, unsigned Num,
-                                                  Value *GEPI0, Type *Ty) -> bool {
+                                                  Value *GEPI0,
+                                                  Type *Ty) -> bool {
       if (auto ATy0 = dyn_cast_or_null<ArrayType>(SimpleStructGEPI(GEPI0)))
         if (auto ATy1 = dyn_cast<ArrayType>(Ty))
           if (ATy0 == ATy1) {
@@ -230,6 +294,9 @@ private:
           }
       return false;
     };
+
+    if (checkPHIReturn(PHIN))
+      return;
 
     if (PHIN->getNumIncomingValues() != 2)
       return;
@@ -249,6 +316,340 @@ private:
       return;
   }
 
+  // If return type of "F" is pointer to struct, this function returns
+  // type of the struct.
+  Type *getFunctionReturnPointeeTy(Function *F) {
+    DTransType *DType = MDReader.getDTransTypeFromMD(F);
+    if (!DType)
+      return nullptr;
+    auto *FnType = cast<DTransFunctionType>(DType);
+    DTransType *DRetTy = FnType->getReturnType();
+    if (!DRetTy->isPointerTy())
+      return nullptr;
+    auto DTStTy = dyn_cast<DTransStructType>(DRetTy->getPointerElementType());
+    if (!DTStTy)
+      return nullptr;
+    return DTStTy->getLLVMType();
+  }
+
+  // For given AllocPtrInfo, checks that only DomTy and its sub-object are
+  // aliases and returns sub-object alias type. Ex: For example, given the
+  // types:
+  //   %struct.derived = type { %struct.base }
+  //
+  // Let us assume input alias set of of AllocPtrInfo:
+  //  %struct.derived*, %struct.base*, i8*
+  //
+  // When DomTy is %struct.derived*, this function returns %struct.base*.
+  DTransType *getSubObjAliasTy(ValueTypeInfo &AllocPtrInfo, DTransType *DomTy) {
+
+    // Returns true of DTy is pointer to integer type.
+    auto IsIntPointer = [](DTransType *DTy) {
+      DTransType *Base = DTy;
+      while (Base->isPointerTy())
+        Base = Base->getPointerElementType();
+      if (Base->isIntegerTy())
+        return true;
+      return false;
+    };
+
+    DTransType *SubObjStTy = nullptr;
+    // Check if DomTy is pointer to struct.
+    if (!DomTy->isPointerTy())
+      return nullptr;
+    auto DomSty = dyn_cast<DTransStructType>(DomTy->getPointerElementType());
+    if (!DomSty)
+      return nullptr;
+    if (!DomSty->indexValid(0u))
+      return nullptr;
+
+    for (auto *AliasTy :
+         AllocPtrInfo.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      if (!AliasTy->isPointerTy())
+        return nullptr;
+      DTransType *BTy = AliasTy->getPointerElementType();
+      // Skip pointer to non-aggregate types.
+      if (IsIntPointer(BTy))
+        continue;
+      auto SubObjTy = dyn_cast<DTransStructType>(BTy);
+      if (!SubObjTy)
+        return nullptr;
+      if (AliasTy == DomTy)
+        continue;
+      // Check if SubObjTy is sub-object of DomTy at offset 0.
+      DTransType *ElementZeroTy = DomSty->getFieldType(0);
+      auto ElementZeroSty = dyn_cast<DTransStructType>(ElementZeroTy);
+      if (!ElementZeroSty || !SubObjTy->compare(*ElementZeroSty))
+        return nullptr;
+      if (SubObjStTy)
+        return nullptr;
+      SubObjStTy = AliasTy;
+    }
+    return SubObjStTy;
+  }
+
+  // Returns true if %Val is an allocation call and "UsedTy" doesn't match with
+  // dominant aggregate type of %Val.
+  //
+  // Ex: For example, given the types:
+  //   %struct.derived = type { %struct.base }
+  //
+  // Let us assume alias set of %Val is %struct.derived* and %struct.base*.
+  //
+  //  %Val = AllocCall();
+  //   ...
+  //  %p = getelementptr %struct.base, ptr %Val, 0, 2
+  //
+  // Return true for this example as %Val is used as %struct.base.
+  //
+  bool isNormalizedGEPNeeded(Value *Val, Type *UsedTy,
+                             DTransType **DomStTyPtr) {
+    auto Call = dyn_cast<CallInst>(Val);
+    if (!Call)
+      return false;
+    ValueTypeInfo *PtrInfo = PtrAnalyzer.getValueTypeInfo(Val);
+    if (!PtrInfo)
+      return false;
+    if (PtrInfo->getUnhandled() || PtrInfo->getDependsOnUnhandled())
+      return false;
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    dtrans::AllocKind AKind = DTAC.getAllocFnKind(Call, TLI);
+    if (AKind == dtrans::AK_NotAlloc)
+      return false;
+    DTransType *DomTy = PtrAnalyzer.getDominantAggregateUsageType(*PtrInfo);
+    if (!DomTy)
+      return false;
+    // Normalization is not needed if UsedTy is same as DomTy.
+    DTransType *DomStTy = DomTy->getPointerElementType();
+    if (DomStTy->getLLVMType() == UsedTy)
+      return false;
+    DTransType *ATy = getSubObjAliasTy(*PtrInfo, DomTy);
+    // Check if SubObj type is used.
+    if (!ATy || ATy->getPointerElementType()->getLLVMType() != UsedTy)
+      return false;
+    *DomStTyPtr = DomStTy;
+    return true;
+  }
+
+  // Check if (GEP, 0, 0) is needed if return value is memory allocation
+  // pointer. Example: From:
+  //   %struct.derived = type { %struct.base }
+  //   @foo() {
+  //      %i = tail call ptr @Alloc(i64 0, ptr null)
+  //      call void @Ctor1(ptr %i)
+  //      ret ptr %i
+  //   }
+  //   Let us assume aliases of %i are %struct.base* and %struct.derived* and
+  //   return type of foo is %struct.base*.
+  //
+  // To:
+  //   %struct.derived = type { %struct.base }
+  //   @foo() {
+  //      %i = tail call ptr @Alloc(i64 0, ptr null)
+  //      call void @Ctor1(ptr %i)
+  //      %dtnorm = getelementptr %%struct.derived, ptr %i, i64 0, i32 0
+  //      ret ptr %dtnorm
+  //   }
+  //
+  void checkReturnInst(ReturnInst *Ret) {
+    Value *RetVal = Ret->getReturnValue();
+    if (!RetVal || isCompilerConstantData(RetVal))
+      return;
+    Type *StTy = getFunctionReturnPointeeTy(Ret->getFunction());
+    if (!StTy)
+      return;
+
+    DTransType *DomStTy;
+    if (!isNormalizedGEPNeeded(RetVal, StTy, &DomStTy))
+      return;
+    ReturnsToGepify.insert({Ret, DomStTy});
+  }
+
+  // Check if (GEP, 0, 0) is needed if return value is PHI where all incoming
+  // value of PHI are memory allocation calls.
+  //
+  // Example:
+  // From:
+  //   %struct.derived = type { %struct.base }
+  //   @foo() {
+  //     %i = tail call ptr @Alloc(i64 0, ptr null)
+  //     invoke void @Ctor1(ptr %i)
+  //     ...
+  //     %i5 = phi ptr [ %i, %bb1 ], [ null, %bb ]
+  //     ret ptr %i5
+  //   }
+  //   Let us assume aliases of %i are %struct.base* and %struct.derived* and
+  //   return type of foo is %struct.base*.
+  //
+  // To:
+  //   %struct.derived = type { %struct.base }
+  //   @foo() {
+  //     %i = tail call ptr @Alloc(i64 0, ptr null)
+  //     %dtnorm = getelementptr %struct.derived, ptr %i, i64 0, i32 0
+  //     invoke void @Ctor1(ptr %i)
+  //     ...
+  //     %i5 = phi ptr [ %dtnorm, %bb1 ], [ null, %bb ]
+  //     ret ptr %i5
+  //   }
+  bool checkPHIReturn(PHINode *PHIN) {
+    if (!PHIN->hasOneUse())
+      return false;
+    auto *RetI = dyn_cast<ReturnInst>(*PHIN->user_begin());
+    if (!RetI)
+      return false;
+    ValueTypeInfo *PtrInfo = PtrAnalyzer.getValueTypeInfo(PHIN);
+    if (!PtrInfo)
+      return false;
+    if (PtrInfo->getUnhandled() || PtrInfo->getDependsOnUnhandled())
+      return false;
+
+    Type *StTy = getFunctionReturnPointeeTy(PHIN->getFunction());
+    if (!StTy)
+      return false;
+
+    SetVector<std::pair<unsigned, DTransType *>> ValueToDomTyMap;
+    SmallPtrSet<CallBase *, 8> AllocCallsSet;
+
+    for (unsigned I = 0; I < PHIN->getNumIncomingValues(); I++) {
+      Value *Val = PHIN->getIncomingValue(I);
+      if (isCompilerConstantData(Val))
+        continue;
+      DTransType *DomTy;
+      if (!isNormalizedGEPNeeded(Val, StTy, &DomTy))
+        return false;
+
+      ValueToDomTyMap.insert({I, DomTy});
+      AllocCallsSet.insert(cast<CallBase>(Val));
+    }
+    // Makes sure allocation calls are not duplicated.
+    if (ValueToDomTyMap.size() == 0 ||
+        AllocCallsSet.size() != ValueToDomTyMap.size())
+      return false;
+    auto &ValueToDomSet = PHIReturnsGepify[PHIN];
+    for (const auto &Entry : ValueToDomTyMap)
+      ValueToDomSet.insert(Entry);
+    return true;
+  }
+
+  // Check if (GEP, 0, 0) is needed if return value is PHI where all incoming
+  // value of PHI are memory allocation calls.
+  //
+  // Example 1:
+  // From:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //     %i = getelementptr inbounds %"DOMParser", ptr %arg, i64 0, i32 1
+  //     %i1 = tail call ptr @Alloc(i64 40, ptr null)
+  //     %i2 = getelementptr inbounds %struct.base, ptr %i1, i64 0, i32 1
+  //     ...
+  //   }
+  //   Let us assume aliases of %i are %struct.base* and %struct.derived*.
+  //
+  // To:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //     %i = getelementptr inbounds %"DOMParser", ptr %arg, i64 0, i32 1
+  //     %i1 = tail call ptr @Alloc(i64 40, ptr null)
+  //     %dtnorm = getelementptr %struct.derived, ptr %i1, i64 0, i32 0
+  //     %i2 = getelementptr inbounds %struct.base, ptr %dtnorm, i64 0, i32 1
+  //     ...
+  //   }
+  //
+  // Example 2:
+  // From:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //   bb1:
+  //     %i = getelementptr inbounds %Parser, ptr %arg, i64 0, i32 1
+  //     %i2 = load ptr, ptr %i, align 8
+  //     br i1 false, label %bb3, label %bb5
+  //
+  //   bb3:
+  //     %i4 = tail call ptr @Alloc(i64 40, ptr null)
+  //     store ptr %i4, ptr %i, align 8
+  //     br label %bb5
+  //
+  //   bb5:
+  //     %i6 = phi ptr [ %i4, %bb3 ], [ %i2, %bb1 ]
+  //     %i7 = getelementptr inbounds %struct.base, ptr %i6, i64 0, i32 2
+  //       ...
+  //   }
+  //   Let us assume aliases of %i are %struct.base* and %struct.derived*.
+  //
+  // To:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //   bb1:
+  //     %i = getelementptr inbounds %Parser, ptr %arg, i64 0, i32 1
+  //     %i2 = load ptr, ptr %i, align 8
+  //     br i1 false, label %bb3, label %bb5
+  //
+  //   bb3:
+  //     %i4 = tail call ptr @Alloc(i64 40, ptr null)
+  //     store ptr %i4, ptr %i, align 8
+  //     br label %bb5
+  //
+  //   bb5:
+  //     %i6 = phi ptr [ %i4, %bb3 ], [ %i2, %bb1 ]
+  //     %dtnorm = getelementptr %struct.derived, ptr %i6, i64 0, i32 0
+  //     %i7 = getelementptr inbounds %struct.base, ptr %dtnorm, i64 0, i32 2
+  //     ...
+  //   }
+  void checkGEPInst(GetElementPtrInst *GEPI) {
+    DTransType *DomTy;
+    if (GEPI->getNumIndices() != 2)
+      return;
+    Value *Val = GEPI->getPointerOperand();
+    Type *StTy = GEPI->getSourceElementType();
+    if (!isa<StructType>(StTy))
+      return;
+    if (isNormalizedGEPNeeded(Val, StTy, &DomTy)) {
+      GEPsToGepify.insert({GEPI, DomTy});
+      return;
+    }
+    auto *PHI = dyn_cast<PHINode>(Val);
+    if (!PHI)
+      return;
+
+    bool AllocFound = false;
+    DTransType *PHIValTy = nullptr;
+    for (unsigned I = 0; I < PHI->getNumIncomingValues(); I++) {
+      Value *Val = PHI->getIncomingValue(I);
+      if (isNormalizedGEPNeeded(Val, StTy, &DomTy)) {
+        // Allow only single allocation.
+        if (AllocFound)
+          return;
+        AllocFound = true;
+      } else {
+        // For non-allocation values, makes sure there is only
+        // one alais type.
+        ValueTypeInfo *Info = PtrAnalyzer.getValueTypeInfo(Val);
+        if (!Info)
+          return;
+        if (Info->getUnhandled() || Info->getDependsOnUnhandled())
+          return;
+        auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+        if (UseAliases.size() != 1)
+          return;
+        DTransType *AliasTy = *UseAliases.begin();
+        if (!AliasTy->isPointerTy())
+          return;
+        DomTy = AliasTy->getPointerElementType();
+        if (!isa<DTransStructType>(DomTy))
+          return;
+      }
+      // Makes sure types of all incoming values are same.
+      if (!PHIValTy)
+        PHIValTy = DomTy;
+      else if (PHIValTy != DomTy)
+        return;
+    }
+    if (!AllocFound)
+      return;
+    GEPsToGepify.insert({GEPI, DomTy});
+  }
+
   void gepifyPHI(PHINode *PHIN, unsigned Num) {
     auto GEPI = dyn_cast<GetElementPtrInst>(PHIN->getIncomingValue(Num));
     if (!GEPI)
@@ -261,18 +662,24 @@ private:
     IdxList.push_back(ZeroPtrSizedInt);
     IdxList.push_back(Zero32);
     auto *GEP = GetElementPtrInst::Create(Ty, GEPI, IdxList, "dtnorm",
-        GEPI->getNextNonDebugInstruction());
+                                          GEPI->getNextNonDebugInstruction());
     PHIN->replaceUsesOfWith(PHIN->getIncomingValue(Num), GEP);
   }
 
   ConstantInt *Zero32 = nullptr;
   ConstantInt *ZeroPtrSizedInt = nullptr;
 
-  std::unique_ptr<PtrTypeAnalyzer> PtrAnalyzer;
   SetVector<std::tuple<Instruction *, DTransType *, unsigned int>>
       InstructionsToGepify;
   SmallDenseMap<PHINode *, Type *> PHIType;
   SetVector<std::pair<PHINode *, unsigned>> PHIsToGepify;
+  SetVector<std::pair<ReturnInst *, DTransType *>> ReturnsToGepify;
+  SmallDenseMap<PHINode *, SetVector<std::pair<unsigned, DTransType *>>>
+      PHIReturnsGepify;
+  SetVector<std::pair<GetElementPtrInst *, DTransType *>> GEPsToGepify;
+
+  // This is used to reuse GEP instruction if it is already one.
+  SmallDenseMap<Instruction *, GetElementPtrInst *> NewGEPInsts;
 };
 
 } // end anonymous namespace
@@ -305,8 +712,22 @@ bool dtransOP::DTransNormalizeOPPass::runImpl(Module &M,
   if (!WPInfo.isWholeProgramSafe())
     return false;
 
-  DTransNormalizeImpl Impl;
-  return Impl.run(M, GetTLI);
+  LLVMContext &Ctx = M.getContext();
+  const DataLayout &DL = M.getDataLayout();
+  DTransTypeManager TM(M.getContext());
+  TypeMetadataReader MDReader(TM);
+  if (!MDReader.initialize(M)) {
+    LLVM_DEBUG(dbgs() << "DTransSafetyInfo: Type metadata reader did not find "
+                         "structure type metadata\n");
+    return false;
+  }
+  DTransAllocCollector DTAC(MDReader, GetTLI);
+  DTAC.populateAllocDeallocTable(M);
+  PtrTypeAnalyzer PtrAnalyzer(Ctx, TM, MDReader, DL, GetTLI);
+  PtrAnalyzer.run(M);
+
+  DTransNormalizeImpl Impl(M, PtrAnalyzer, MDReader, DTAC, GetTLI);
+  return Impl.run();
 }
 
 char DTransNormalizeOPWrapper::ID = 0;
