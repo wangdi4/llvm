@@ -2037,50 +2037,78 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
   return (PredBB == AllocaBB);
 }
 
-// Returns true if \p StoreRef is a store which looks like a candidate for
-// memset/memcpy and has no use within the region.
-static bool isMemIdiomStore(const RegDDRef *StoreRef, const HLLoop *OuterLoop) {
-  if (!StoreRef->isLval()) {
-    return false;
-  }
+// Returns true if \p MemRef looks like a candidate for memset/memcpy/collapsing
+// and has no use within the region.
+static bool isIdiomaticMemRef(const RegDDRef *MemRef, const HLLoop *OuterLoop,
+                              bool *IsCollapsingCandidate) {
+  auto *Node = MemRef->getHLDDNode();
 
-  auto *Inst = cast<HLInst>(StoreRef->getHLDDNode());
-
-  if (!isa<StoreInst>(Inst->getLLVMInstruction())) {
-    return false;
-  }
-
-  auto *ParentLoop = Inst->getParentLoop();
+  auto *ParentLoop = Node->getParentLoop();
 
   // Approximate checks to determine whether there is a use of store inside
   // region after the current loop without actually traversing the HIR.
   if (!ParentLoop->isInnermost() || ParentLoop->hasPostexit()) {
     return false;
   }
+
+  bool IsLval = MemRef->isLval();
   auto *PerfectLoopnestParent =
       HLNodeUtils::getHighestAncestorForPerfectLoopNest(ParentLoop);
 
+  unsigned Level = ParentLoop->getNestingLevel();
+
   if (PerfectLoopnestParent) {
     // Allow unrolling of entire perfect loopnest.
-    // Collapsing + memset/memcpy is more profitable than complete unrolling of
-    // partial perfect loopnests.
     if (HLNodeUtils::contains(OuterLoop, PerfectLoopnestParent)) {
       return false;
+    }
+
+    // Collapsing + memset/memcpy/vectorization is more profitable than complete
+    // unrolling of partial perfect loopnests.
+    //
+    // Check the following to detect collapsing candidate-
+    //
+    // a. Ref has atleast 2 dimensions that are contiguous.
+    // b. Lowest dimension index is a standalone IV of innermost loop.
+    // c. Number of elements in the lowest dimension are the same as the trip
+    // count of the loop.
+    //
+    // This implies that the lowest dimension can be collapsed with the higher
+    // one.
+    unsigned IVLevel;
+    uint64_t TripCnt;
+
+    if ((MemRef->getNumDimensions() > 1) &&
+        MemRef->getTrailingStructOffsets(2).empty() &&
+        MemRef->getDimensionIndex(1)->isStandAloneIV(true, &IVLevel) &&
+        (IVLevel == Level) && ParentLoop->isConstTripLoop(&TripCnt) &&
+        (MemRef->getNumDimensionElements(1) == TripCnt)) {
+      *IsCollapsingCandidate = true;
+      return true;
     }
 
     // This check assumes that allocas can be optimized away by scalar-opt even
     // if complete unroller's cost model wasn't able to determine its
     // profitability.
     // TODO: Treat noalias pointers like alloca for profitability.
-  } else if (StoreRef->accessesAlloca() ||
-             (ParentLoop != ParentLoop->getParentRegion()->getLastChild())) {
+  } else if (IsLval &&
+             (MemRef->accessesAlloca() ||
+              (ParentLoop != ParentLoop->getParentRegion()->getLastChild()))) {
     return false;
   }
 
-  unsigned Level = ParentLoop->getNestingLevel();
+  // Only analyze store ref for memset/memcpy.
+  if (!IsLval) {
+    return false;
+  }
+
+  auto *Inst = cast<HLInst>(Node);
+  if (!isa<StoreInst>(Inst->getLLVMInstruction())) {
+    return false;
+  }
 
   bool IsNegStride = false;
-  if (!StoreRef->isUnitStride(Level, IsNegStride)) {
+  if (!MemRef->isUnitStride(Level, IsNegStride)) {
     return false;
   }
 
@@ -2170,6 +2198,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
       GEPCost += (UniqueOccurences * AddressCost);
       GEPSavings += (GEPInfo.TotalOccurences * NumAddressSimplifications);
 
+      bool IsCollapsingCandidate = false;
+
       // This ref can be hoisted outside the unrolled loop so we add extra
       // savings.
       if (GEPInfo.DDIndependentInUnrolledLoop) {
@@ -2179,10 +2209,14 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
         GEPSavings += (GEPSavingsMultiplier *
                        (float) UniqueOccurences * (float) BaseCost);
 
-      } else if (HCU.IsPreVec && isMemIdiomStore(Ref, OuterLoop)) {
+      } else if (HCU.IsPreVec &&
+                 isIdiomaticMemRef(Ref, OuterLoop, &IsCollapsingCandidate)) {
         // Add extra cost for memset/memcpy like stores in pre-vec pass so that
-        // the loops are left for idiom recognition/vectorizer pass to process.
-        GEPCost += (UniqueOccurences * BaseCost);
+        // the loops are left for idiom recognition/collapsing/vectorizer pass
+        // to process. Add extra cost to collpasing candidates to counter
+        // savings from address simplifications.
+        unsigned ExtraCost = BaseCost + (IsCollapsingCandidate ? BaseCost : 0);
+        GEPCost += (UniqueOccurences * ExtraCost);
       }
 
       if (IsMemRef) {
