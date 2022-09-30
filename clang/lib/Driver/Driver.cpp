@@ -10219,7 +10219,6 @@ Driver::getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const {
   return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 std::pair<unsigned, unsigned>
 Driver::getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
@@ -10263,7 +10262,9 @@ bool clang::driver::isOptimizationLevelFast(const Driver &D,
   if (D.IsIntelMode() && Args.hasArgNoClaim(options::OPT_Ofast))
     return true;
 #endif // INTEL_CUSTOMIZATION
-=======
+  return Args.hasFlag(options::OPT_Ofast, options::OPT_O_Group, false);
+}
+
 const char *Driver::getExecutableForDriverMode(DriverMode Mode) {
   switch (Mode) {
   case GCCMode:
@@ -10281,11 +10282,6 @@ const char *Driver::getExecutableForDriverMode(DriverMode Mode) {
   }
 
   llvm_unreachable("Unhandled Mode");
-}
-
-bool clang::driver::isOptimizationLevelFast(const ArgList &Args) {
->>>>>>> d4ba822150a3ce25e42bf1abb65e9f4d1c5b1893
-  return Args.hasFlag(options::OPT_Ofast, options::OPT_O_Group, false);
 }
 
 bool clang::driver::isObjectFile(std::string FileName) {
