@@ -88,15 +88,21 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     // If mask is all ones, use unmasked load.
     uint64_t ElementMask = (cast<OVLSLoad>(I))->getMask();
     bool NeedMask = false;
+#if !defined(NDEBUG)
     uint32_t NumElemsInALoad = 0;
+#endif // !NDEBUG
     uint64_t EMask = ElementMask;
     while (EMask != 0) {
       NeedMask |= !(EMask & 1); // 0 in mask
       EMask = EMask >> 1;
+#if !defined(NDEBUG)
       NumElemsInALoad++;
+#endif // !NDEBUG
     }
+#if !defined(NDEBUG)
     assert(NumElemsInALoad == VLSType.getNumElements() &&
            "unexpected OVLS type/mask");
+#endif // !NDEBUG
 
     InstructionCost AddrCost = TTI.getAddressComputationCost(VecTy);
     InstructionCost LoadCost;
