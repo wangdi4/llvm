@@ -4,10 +4,13 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-post-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that the first loop is not unrolled because the alloca stores are used in the second loop which is vectorized and we assume that scalar alloca stores cannot be propagated to vector loads.
+; Note that the second loop is now completely unrolled after vectorization.
 
 ; CHECK: DO i1 = 0, 3, 1
 
-; CHECK: DO i1 = 0, 3, 4
+; CHECK: REGION { modified }
+; CHECK-NOT: DO i1 = 0, 3, 4
+; CHECK:               %.vec = (<4 x i32>*)([[I:%.*]])[0][0][0];
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
