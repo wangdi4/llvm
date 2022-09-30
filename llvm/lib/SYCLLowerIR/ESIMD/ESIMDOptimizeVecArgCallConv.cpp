@@ -478,7 +478,11 @@ static bool processFunction(Function *F) {
 
   // Copy users to a separate container, to enable safe eraseFromParent
   // within optimizeCall.
+<<<<<<< HEAD
   SmallVector<User*> FUsers;
+=======
+  SmallVector<User *> FUsers;
+>>>>>>> 86f709c34b5e37f07f129708561b468c4dcb8bb4
   std::copy(F->users().begin(), F->users().end(), std::back_inserter(FUsers));
 
   // Optimize calls to the function.
