@@ -349,7 +349,11 @@ public:
   /// If the specified pointer "may" (or must) alias one of the members in the
   /// set return the appropriate AliasResult. Otherwise return NoAlias.
   AliasResult aliasesPointer(const Value *Ptr, LocationSize Size,
+#ifdef INTEL_CUSTOMIZATION
                              const AAMDNodes &AAInfo, AAResults &AA) const;
+#else
+                             const AAMDNodes &AAInfo, BatchAAResults &AA) const;
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 
   /// Check if alias set aliases with another alias set.
