@@ -299,7 +299,7 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
 // Create the corresponding decl for OCL printf called from offload kernels:
 //
 //   declare dso_local spir_func i32
-//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)*, ...)
+//     @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)*, ...)
 //
 // Save the former in \b PrintfDecl and the latter in \b OCLPrintfDecl
 // in the \b VPOParoptModuleTransform class.
@@ -315,7 +315,7 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
   // Get the function prototype from the module symbol table.
   // If absent, create and insert it into the symbol table first.
   FunctionCallee FnC =
-      M.getOrInsertFunction("_Z18__spirv_ocl_printfPU3AS2ci", FnTy);
+      M.getOrInsertFunction("_Z18__spirv_ocl_printfPU3AS2cz", FnTy);
   OCLPrintfDecl = cast<Function>(FnC.getCallee());
   OCLPrintfDecl->copyAttributesFrom(PrintfDecl);
 
