@@ -13574,6 +13574,7 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
       E->getCallOperator()->getEndLoc(),
       NewCallOpTSI->getTypeLoc().castAs<FunctionProtoTypeLoc>().getParams(),
       E->getCallOperator()->getConstexprKind(),
+      E->getCallOperator()->getStorageClass(),
       E->getCallOperator()->getTrailingRequiresClause());
 
   LSI->CallOperator = NewCallOperator;

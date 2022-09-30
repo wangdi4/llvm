@@ -1035,6 +1035,10 @@ static bool isValidVisibilityForLinkage(unsigned V, unsigned L) {
   return !GlobalValue::isLocalLinkage((GlobalValue::LinkageTypes)L) ||
          (GlobalValue::VisibilityTypes)V == GlobalValue::DefaultVisibility;
 }
+static bool isValidDLLStorageClassForLinkage(unsigned S, unsigned L) {
+  return !GlobalValue::isLocalLinkage((GlobalValue::LinkageTypes)L) ||
+         (GlobalValue::DLLStorageClassTypes)S == GlobalValue::DefaultStorageClass;
+}
 
 // If there was an explicit dso_local, update GV. In the absence of an explicit
 // dso_local we keep the default value.
@@ -1093,6 +1097,10 @@ bool LLParser::parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
   if (!isValidVisibilityForLinkage(Visibility, L))
     return error(NameLoc,
                  "symbol with local linkage must have default visibility");
+
+  if (!isValidDLLStorageClassForLinkage(DLLStorageClass, L))
+    return error(NameLoc,
+                 "symbol with local linkage cannot have a DLL storage class");
 
   Type *Ty;
   LocTy ExplicitTypeLoc = Lex.getLoc();
@@ -1291,6 +1299,10 @@ bool LLParser::parseGlobal(const std::string &Name, LocTy NameLoc,
   if (!isValidVisibilityForLinkage(Visibility, Linkage))
     return error(NameLoc,
                  "symbol with local linkage must have default visibility");
+
+  if (!isValidDLLStorageClassForLinkage(DLLStorageClass, Linkage))
+    return error(NameLoc,
+                 "symbol with local linkage cannot have a DLL storage class");
 
   unsigned AddrSpace;
   bool IsConstant, IsExternallyInitialized;
@@ -5782,6 +5794,10 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine) {
   if (!isValidVisibilityForLinkage(Visibility, Linkage))
     return error(LinkageLoc,
                  "symbol with local linkage must have default visibility");
+
+  if (!isValidDLLStorageClassForLinkage(DLLStorageClass, Linkage))
+    return error(LinkageLoc,
+                 "symbol with local linkage cannot have a DLL storage class");
 
   if (!FunctionType::isValidReturnType(RetType))
     return error(RetTypeLoc, "invalid function return type");

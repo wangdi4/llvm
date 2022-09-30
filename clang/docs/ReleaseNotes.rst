@@ -368,7 +368,7 @@ C++ Language Changes in Clang
 C++20 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 - Support capturing structured bindings in lambdas
-  (`P1091R3 <https://wg21.link/p1091r3>`_ and `P1381R1 <https://wg21.link/P1381R1>`).
+  (`P1091R3 <https://wg21.link/p1091r3>`_ and `P1381R1 <https://wg21.link/P1381R1>`_).
   This fixes issues `Issue 52720 <https://github.com/llvm/llvm-project/issues/52720>`_,
   `Issue 54300 <https://github.com/llvm/llvm-project/issues/54300>`_,
   `Issue 54301 <https://github.com/llvm/llvm-project/issues/54301>`_,
@@ -409,6 +409,7 @@ C++2b Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
 - Support label at end of compound statement (`P2324 <https://wg21.link/p2324r2>`_).
+- Implemented `P1169R4: static operator() <https://wg21.link/P1169R4>`_.
 
 CUDA/HIP Language Changes in Clang
 ----------------------------------
