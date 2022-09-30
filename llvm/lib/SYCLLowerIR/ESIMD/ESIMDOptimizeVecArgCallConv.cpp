@@ -454,20 +454,19 @@ static bool processFunction(Function *F) {
   }
   // Optimize the function.
   Function *NewF = optimizeFunction(F, OptimizeableParams, NewParamTs);
-  // Copy users to a separate container, to enable safe eraseFromParent.
-  SmallVector<User *> FUsers;
+
+  // Copy users to a separate container, to enable safe eraseFromParent
+  // within optimizeCall.
+  SmallVector<User*> FUsers;
   std::copy(F->users().begin(), F->users().end(), std::back_inserter(FUsers));
 
   // Optimize calls to the function.
-  // Iterate over FUsers, to enable safe eraseFromParent in optimizeCall.
   for (auto *U : FUsers) {
     auto *Call = cast<CallInst>(U);
     assert(Call->getCalledFunction() == F);
     optimizeCall(Call, NewF, OptimizeableParams);
   }
-  std::string Name = F->getName().str();
-  F->eraseFromParent();
-  NewF->setName(Name);
+  NewF->takeName(F);
   return true;
 }
 
@@ -485,13 +484,18 @@ ESIMDOptimizeVecArgCallConvPass::run(Module &M, ModuleAnalysisManager &MAM) {
   }
 #endif // DEBUG_OPT_VEC_ARG_CALL_CONV
 
-  SmallVector<Function *, 16> Funcs;
-  std::for_each(M.begin(), M.end(), [&](Function &F) { Funcs.push_back(&F); });
+  SmallVector<Function *, 16> ToErase;
 
-  // Iterate over Funcs, to enable safe eraseFromParent in processFunction.
-  for (Function *F : Funcs) {
-    Modified &= processFunction(F);
+  for (Function &F : M) {
+    const bool FReplaced = processFunction(&F);
+    Modified &= FReplaced;
+
+    if (FReplaced) {
+      ToErase.push_back(&F);
+    }
   }
+  std::for_each(ToErase.begin(), ToErase.end(),
+                [](Function *F) { F->eraseFromParent(); });
 #ifdef DEBUG_OPT_VEC_ARG_CALL_CONV
   {
     std::error_code EC;
