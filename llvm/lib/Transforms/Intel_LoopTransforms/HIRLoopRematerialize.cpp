@@ -1,6 +1,6 @@
 //===- HIRLoopRematerialize.cpp - Implements Loop Rematerialize  ---------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -372,7 +372,7 @@ bool SequenceChecker::isBlobsMathchedForReroll(const CanonExpr *CE1,
 
   const CanonExpr *CEs[2] = {CE1, CE2};
   for (int I = 0; I < 2; I++) {
-    for (auto Blob : make_range(CEs[I]->blob_begin(), CEs[I]->blob_end())) {
+    for (auto &Blob : make_range(CEs[I]->blob_begin(), CEs[I]->blob_end())) {
       CoeffIDs[I].push_back(std::make_pair(Blob.Coeff, Blob.Index));
     }
   }
@@ -731,7 +731,7 @@ private:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void dumpMap(const MapCEToDistTy &MapCEToDist) {
-  for (auto I : MapCEToDist) {
+  for (auto &I : MapCEToDist) {
     (I.first)->dump(1);
     dbgs() << " = dist => ";
     dbgs() << I.second << "\n";
@@ -1104,7 +1104,7 @@ bool dependencyCheck(DDGraph G, const VecSeedInfoTy &VecSeedInfo, unsigned II) {
   // of the next II seeds, incorrect WAR (i.e. not exisiting in the original
   // code) dedpendencies are added.
 
-  auto IsInLaterIterations = [VecSeedInfo, II](const HLNode *Node) {
+  auto IsInLaterIterations = [&VecSeedInfo, II](const HLNode *Node) {
     for (auto &Info :
          make_range(std::next(VecSeedInfo.begin(), II), VecSeedInfo.end())) {
       for (auto &NodeInLater : Info.TrackedUpwardInsts) {
@@ -1199,7 +1199,7 @@ void collectInstsForNewLoopBody(const VecSeedInfoTy &VecSeedInfo, unsigned II,
                                 VecNodesTy &NewLoopInsts) {
   // Use II seeds' tracked insts.
   // These NewLoopInsts will be the body of a newly materialized loop.
-  for (auto Info :
+  for (auto &Info :
        make_range(VecSeedInfo.begin(), std::next(VecSeedInfo.begin(), II))) {
     NewLoopInsts.insert(NewLoopInsts.end(), Info.TrackedUpwardInsts.begin(),
                         Info.TrackedUpwardInsts.end());

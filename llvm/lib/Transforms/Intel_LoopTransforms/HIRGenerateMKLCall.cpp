@@ -1,6 +1,6 @@
 //===----- HIRGenerateMKLCall.cpp - Implements MKL Call transformation ----===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -130,7 +130,7 @@ typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 class HIRGenerateMKLCall {
 public:
   HIRGenerateMKLCall(HIRFramework &HIRF, HIRLoopStatistics &HLS)
-      : HIRF(HIRF), HLS(HLS) {}
+      :  DopeVectorType(nullptr), HIRF(HIRF), HLS(HLS) {}
 
   bool run();
   StructType *DopeVectorType;
@@ -691,6 +691,7 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
   Type *IntType = Type::getIntNTy(
       Context, CEU.getTypeSizeInBits(MatrixRefs[0]->getBaseType()));
   createDopeVectorType(Context, IntType);
+  assert(DopeVectorType && "Dope vector type not created");
 
   SmallVector<RegDDRef *, 8> CallArgs;
   SmallVector<unsigned, 4> LevelsAtStoreRef = getIVLevels(MatrixRefs[0]);
