@@ -1436,7 +1436,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
                          .getBaseElementType(ElemType)
                          .getNonReferenceType();
         if (ElemType->isVectorType())
-          ElemType = ElemType->getAs<VectorType>()->getElementType();
+          ElemType = ElemType->castAs<VectorType>()->getElementType();
         if (ElemType->isUnsignedIntegerType())
           CSB.setUnsigned();
       }
@@ -2166,7 +2166,6 @@ public:
         !VD->getType()->isPointerType()) {
       PresumedLoc PLoc = CGF.getContext().getSourceManager().getPresumedLoc(
           E->getExprLoc());
-      const auto *VD = dyn_cast<VarDecl>(dyn_cast<DeclRefExpr>(E)->getDecl());
       unsigned Line = PLoc.getLine();
       unsigned Column = PLoc.getColumn();
       std::string Name = VD->getNameAsString();
@@ -2282,7 +2281,7 @@ getExprLocation(llvm::SmallVector<const Expr *> MapVarExprs,
 static void
 getMapReportInfo(OpenMPLateOutliner &O, const OMPExecutableDirective &Dir,
                  CodeGenFunction &CGF, ImplicitParamDecl *CXXABIThisDecl,
-                 SmallVector<CGOpenMPRuntime::LOMapInfo, 4> Info,
+                 const SmallVector<CGOpenMPRuntime::LOMapInfo, 4> &Info,
                  llvm::MapVector<const VarDecl *, std::string> *FPInfos) {
   const Stmt *S = Dir.getCapturedStmt(OMPD_target)->getCapturedStmt();
   ExprVarRefFinder Finder(CGF, FPInfos);
@@ -3266,10 +3265,8 @@ bool OpenMPLateOutliner::shouldSkipExplicitClause(OpenMPClauseKind Kind) {
   }
   if (isImplicitTaskgroup(OMPD_taskgroup)) {
     return Kind != OMPC_reduction &&
-           !isAllowedClauseForDirective(
-               CurrentDirectiveKind,
-               Kind == OMPC_reduction ? OMPC_task_reduction : Kind,
-               CGF.getLangOpts().OpenMP);
+           !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
+                                        CGF.getLangOpts().OpenMP);
   }
   return !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
                                       CGF.getLangOpts().OpenMP);

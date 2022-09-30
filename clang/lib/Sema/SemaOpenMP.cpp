@@ -6259,12 +6259,11 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
         });
 
     if (TileClause) {
-      for (auto *CollapseClause :
-           OMPExecutableDirective::getClausesOfKind<OMPCollapseClause>(
-               Clauses)) {
-        Diag(CollapseClause->getBeginLoc(),
+      auto CollapseClauses =
+          OMPExecutableDirective::getClausesOfKind<OMPCollapseClause>(Clauses);
+      if (CollapseClauses.begin() != CollapseClauses.end()) {
+        Diag((*CollapseClauses.begin())->getBeginLoc(),
              diag::warn_collapse_ignored_with_tile);
-        break;
       }
 
       // Create an implicit 'collapse' clause matching the 'tile' clause.
@@ -20877,7 +20876,7 @@ static bool actOnOMPReductionKindClause(
     }
 #if INTEL_CUSTOMIZATION
     if (S.getLangOpts().OpenMPLateOutline && Type->isVectorType())
-      Type = Type->getAs<VectorType>()->getElementType();
+      Type = Type->castAs<VectorType>()->getElementType();
 #endif  // INTEL_CUSTOMIZATION
     auto *VD = dyn_cast<VarDecl>(D);
 

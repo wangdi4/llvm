@@ -23222,7 +23222,7 @@ static std::string createMangledSIMDName(const FunctionProtoType *ProtoType,
   Out << VLen;
 
   for (auto ParamType : ProtoType->getParamTypes()) {
-    const auto *PTy = ParamType->getAs<RecordType>();
+    const auto *PTy = ParamType->castAs<RecordType>();
     Out << llvm::StringSwitch<char>(PTy->getDecl()->getName())
                .Case("uniform", 'u')
                .Case("linear", 'l')
