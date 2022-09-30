@@ -79,3 +79,8 @@ else:
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
+
+# It is not realistically possible to account for all options that could
+# possibly be present in system and user configuration files, so disable
+# default configs for the test runs.
+config.environment["CLANG_NO_DEFAULT_CONFIG"] = "1"
