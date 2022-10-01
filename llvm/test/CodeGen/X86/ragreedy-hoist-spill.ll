@@ -256,15 +256,9 @@ define i8* @SyFgets(ptr %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    movl $83969, %eax ## imm = 0x14801
 ; CHECK-NEXT:    btl %ebx, %eax
 ; CHECK-NEXT:    jae LBB0_49
-<<<<<<< HEAD
-; CHECK-NEXT:  ## %bb.23: ## %while.end1465
-; CHECK-NEXT:    xorl %ebp, %ebp
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rbx ## 8-byte Reload
-=======
 ; CHECK-NEXT:  ## %bb.23:
 ; CHECK-NEXT:    xorl %ebx, %ebx
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %r14 ## 8-byte Reload
->>>>>>> 189900eb149bb55ae3787346f57c1ccbdc50fb3c
 ; CHECK-NEXT:  LBB0_47: ## %if.then1477
 ; CHECK-NEXT:    movl $1, %edx
 ; CHECK-NEXT:    callq _write

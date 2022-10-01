@@ -120,40 +120,14 @@ define void @load_i64_stride2_vf4(ptr %in.vec, ptr %out.vec0, ptr %out.vec1) nou
 define void @load_i64_stride2_vf8(ptr %in.vec, ptr %out.vec0, ptr %out.vec1) nounwind {
 ; SSE-LABEL: load_i64_stride2_vf8:
 ; SSE:       # %bb.0:
-<<<<<<< HEAD
-; SSE-NEXT:    movaps (%rdi), %xmm0 ;INTEL
-; SSE-NEXT:    movaps 16(%rdi), %xmm8
-; SSE-NEXT:    movaps 32(%rdi), %xmm2 ;INTEL
-; SSE-NEXT:    movaps 48(%rdi), %xmm9
-; SSE-NEXT:    movaps 80(%rdi), %xmm10
-=======
 ; SSE-NEXT:    movaps (%rdi), %xmm0
 ; SSE-NEXT:    movaps 16(%rdi), %xmm1
 ; SSE-NEXT:    movaps 32(%rdi), %xmm2
 ; SSE-NEXT:    movaps 48(%rdi), %xmm3
 ; SSE-NEXT:    movaps 80(%rdi), %xmm4
->>>>>>> 189900eb149bb55ae3787346f57c1ccbdc50fb3c
 ; SSE-NEXT:    movaps 64(%rdi), %xmm5
 ; SSE-NEXT:    movaps 112(%rdi), %xmm6
 ; SSE-NEXT:    movaps 96(%rdi), %xmm7
-<<<<<<< HEAD
-; SSE-NEXT:    movaps %xmm7, %xmm1
-; SSE-NEXT:    movlhps {{.*#+}} xmm1 = xmm1[0],xmm11[0]
-; SSE-NEXT:    movaps %xmm5, %xmm3
-; SSE-NEXT:    movlhps {{.*#+}} xmm3 = xmm3[0],xmm10[0]
-; SSE-NEXT:    movaps %xmm2, %xmm4 ;INTEL
-; SSE-NEXT:    unpckhpd {{.*#+}} xmm4 = xmm4[1],xmm9[1]
-; SSE-NEXT:    movaps %xmm0, %xmm6 ;INTEL
-; SSE-NEXT:    unpckhpd {{.*#+}} xmm6 = xmm6[1],xmm8[1]
-; SSE-NEXT:    unpckhpd {{.*#+}} xmm7 = xmm7[1],xmm11[1] ;INTEL
-; SSE-NEXT:    unpckhpd {{.*#+}} xmm5 = xmm5[1],xmm10[1] ;INTEL
-; SSE-NEXT:    movlhps {{.*#+}} xmm2 = xmm2[0],xmm9[0] ;INTEL
-; SSE-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm8[0] ;INTEL
-; SSE-NEXT:    movaps %xmm3, 32(%rsi)
-; SSE-NEXT:    movaps %xmm0, (%rsi)
-; SSE-NEXT:    movaps %xmm1, 48(%rsi)
-; SSE-NEXT:    movaps %xmm2, 16(%rsi)
-=======
 ; SSE-NEXT:    movaps %xmm7, %xmm8
 ; SSE-NEXT:    movlhps {{.*#+}} xmm8 = xmm8[0],xmm6[0]
 ; SSE-NEXT:    movaps %xmm5, %xmm9
@@ -170,7 +144,6 @@ define void @load_i64_stride2_vf8(ptr %in.vec, ptr %out.vec0, ptr %out.vec1) nou
 ; SSE-NEXT:    movaps %xmm11, (%rsi)
 ; SSE-NEXT:    movaps %xmm8, 48(%rsi)
 ; SSE-NEXT:    movaps %xmm10, 16(%rsi)
->>>>>>> 189900eb149bb55ae3787346f57c1ccbdc50fb3c
 ; SSE-NEXT:    movaps %xmm5, 32(%rdx)
 ; SSE-NEXT:    movaps %xmm0, (%rdx)
 ; SSE-NEXT:    movaps %xmm7, 48(%rdx)

@@ -63,8 +63,6 @@ define <3 x i8> @test_char_div(<3 x i8> %num, <3 x i8> %div) {
 ; CHECK-NEXT:    cbtw ;INTEL
 ; CHECK-NEXT:    idivb %cl
 ; CHECK-NEXT:    movl %eax, %ecx
-<<<<<<< HEAD
-; CHECK-NEXT:    movd %xmm1, %edx ;INTEL
 ; CHECK-NEXT:    movd %xmm0, %eax ;INTEL
 ; CHECK-NEXT:    cbtw ;INTEL
 ; CHECK-NEXT:    idivb %dl ;INTEL
@@ -79,17 +77,6 @@ define <3 x i8> @test_char_div(<3 x i8> %num, <3 x i8> %div) {
 ; CHECK-NEXT:    pinsrb $1, %eax, %xmm0 ;INTEL
 ; CHECK-NEXT:    movzbl %cl, %eax ;INTEL
 ; CHECK-NEXT:    pinsrb $2, %eax, %xmm0 ;INTEL
-=======
-; CHECK-NEXT:    movsbl %sil, %eax
-; CHECK-NEXT:    idivb %r8b
-; CHECK-NEXT:    movl %eax, %esi
-; CHECK-NEXT:    movsbl %dl, %eax
-; CHECK-NEXT:    idivb %r9b
-; CHECK-NEXT:    movl %eax, %edi
-; CHECK-NEXT:    movl %ecx, %eax
-; CHECK-NEXT:    movl %esi, %edx
-; CHECK-NEXT:    movl %edi, %ecx
->>>>>>> 189900eb149bb55ae3787346f57c1ccbdc50fb3c
 ; CHECK-NEXT:    retq
   %div.r = sdiv <3 x i8> %num, %div
   ret <3 x i8>  %div.r
@@ -103,7 +90,6 @@ define <3 x i8> @test_uchar_div(<3 x i8> %num, <3 x i8> %div) {
 ; CHECK-NEXT:    movzbl %al, %eax ;INTEL
 ; CHECK-NEXT:    divb %cl
 ; CHECK-NEXT:    movl %eax, %ecx
-<<<<<<< HEAD
 ; CHECK-NEXT:    movd %xmm1, %edx ;INTEL
 ; CHECK-NEXT:    movd %xmm0, %eax ;INTEL
 ; CHECK-NEXT:    movzbl %al, %eax ;INTEL
@@ -119,17 +105,6 @@ define <3 x i8> @test_uchar_div(<3 x i8> %num, <3 x i8> %div) {
 ; CHECK-NEXT:    pinsrb $1, %eax, %xmm0 ;INTEL
 ; CHECK-NEXT:    movzbl %cl, %eax ;INTEL
 ; CHECK-NEXT:    pinsrb $2, %eax, %xmm0 ;INTEL
-=======
-; CHECK-NEXT:    movzbl %sil, %eax
-; CHECK-NEXT:    divb %r8b
-; CHECK-NEXT:    movl %eax, %esi
-; CHECK-NEXT:    movzbl %dl, %eax
-; CHECK-NEXT:    divb %r9b
-; CHECK-NEXT:    movl %eax, %edi
-; CHECK-NEXT:    movl %ecx, %eax
-; CHECK-NEXT:    movl %esi, %edx
-; CHECK-NEXT:    movl %edi, %ecx
->>>>>>> 189900eb149bb55ae3787346f57c1ccbdc50fb3c
 ; CHECK-NEXT:    retq
   %div.r = udiv <3 x i8> %num, %div
   ret <3 x i8>  %div.r

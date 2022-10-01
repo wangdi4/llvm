@@ -9,7 +9,6 @@ define void @test(i1 %c, ptr %p, ptr noalias %p2) nounwind {
 ; CHECK-NEXT:    pushq %rbp
 ; CHECK-NEXT:    pushq %r14
 ; CHECK-NEXT:    pushq %rbx
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    movq %rdx, %r14
 ; CHECK-NEXT:    movl %edi, %ebp
@@ -39,21 +38,6 @@ define void @test(i1 %c, ptr %p, ptr noalias %p2) nounwind {
 ; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
 ; CHECK-NEXT:  .LBB0_5: # %latch
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    movq %rdx, %rbx
-; CHECK-NEXT:    movl %edi, %ebp
-; CHECK-NEXT:    movq (%rsi), %r14
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
-; CHECK-NEXT:  .LBB0_1: # %split.3
-; CHECK-NEXT:    testb $1, %bpl
-; CHECK-NEXT:    je .LBB0_3
-; CHECK-NEXT:  # %bb.2: # %clobber
-; CHECK-NEXT:    callq clobber@PLT
-; CHECK-NEXT:  .LBB0_3: # %sink
-; CHECK-NEXT:    movq %r14, (%rbx)
-; CHECK-NEXT:  .LBB0_4: # %latch
->>>>>>> 189900eb149bb55ae3787346f57c1ccbdc50fb3c
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
