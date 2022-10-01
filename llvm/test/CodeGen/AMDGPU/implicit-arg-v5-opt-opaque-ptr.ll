@@ -5,7 +5,7 @@
 define amdgpu_kernel void @get_local_size_x_opaque_pointer(i16 addrspace(1)* %out) #0 {
 ; GCN-LABEL: @get_local_size_x_opaque_pointer(
 ; GCN-NEXT:    [[IMPLICITARG_PTR:%.*]] = tail call ptr addrspace(4) @llvm.amdgcn.implicitarg.ptr()
-; GCN-NEXT:    [[GEP_LOCAL_SIZE:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[IMPLICITARG_PTR]], i64 12
+; GCN-NEXT:    [[GEP_LOCAL_SIZE:%.*]] = getelementptr inbounds i16, ptr addrspace(4) [[IMPLICITARG_PTR]], i64 6  ;INTEL
 ; GCN-NEXT:    [[LOCAL_SIZE:%.*]] = load i16, ptr addrspace(4) [[GEP_LOCAL_SIZE]], align 4
 ; GCN-NEXT:    store i16 [[LOCAL_SIZE]], ptr addrspace(1) [[OUT:%.*]], align 2
 ; GCN-NEXT:    ret void
@@ -25,7 +25,7 @@ define amdgpu_kernel void @get_local_size_x_opaque_pointer(i16 addrspace(1)* %ou
 define amdgpu_kernel void @get_local_size_y_opaque_pointer(i16 addrspace(1)* %out) #0 {
 ; GCN-LABEL: @get_local_size_y_opaque_pointer(
 ; GCN-NEXT:    [[IMPLICITARG_PTR:%.*]] = tail call ptr addrspace(4) @llvm.amdgcn.implicitarg.ptr()
-; GCN-NEXT:    [[GEP_LOCAL_SIZE:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[IMPLICITARG_PTR]], i64 14
+; GCN-NEXT:    [[GEP_LOCAL_SIZE:%.*]] = getelementptr inbounds i16, ptr addrspace(4) [[IMPLICITARG_PTR]], i64 7  ;INTEL
 ; GCN-NEXT:    [[LOCAL_SIZE:%.*]] = load i16, ptr addrspace(4) [[GEP_LOCAL_SIZE]], align 2
 ; GCN-NEXT:    store i16 [[LOCAL_SIZE]], ptr addrspace(1) [[OUT:%.*]], align 2
 ; GCN-NEXT:    ret void
@@ -46,7 +46,7 @@ define amdgpu_kernel void @get_local_size_y_opaque_pointer(i16 addrspace(1)* %ou
 define amdgpu_kernel void @get_local_size_z_opaque_pointer(i16 addrspace(1)* %out) #0 {
 ; GCN-LABEL: @get_local_size_z_opaque_pointer(
 ; GCN-NEXT:    [[IMPLICITARG_PTR:%.*]] = tail call ptr addrspace(4) @llvm.amdgcn.implicitarg.ptr()
-; GCN-NEXT:    [[GEP_LOCAL_SIZE:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[IMPLICITARG_PTR]], i64 16
+; GCN-NEXT:    [[GEP_LOCAL_SIZE:%.*]] = getelementptr inbounds i16, ptr addrspace(4) [[IMPLICITARG_PTR]], i64 8  ;INTEL
 ; GCN-NEXT:    [[LOCAL_SIZE:%.*]] = load i16, ptr addrspace(4) [[GEP_LOCAL_SIZE]], align 4
 ; GCN-NEXT:    store i16 [[LOCAL_SIZE]], ptr addrspace(1) [[OUT:%.*]], align 2
 ; GCN-NEXT:    ret void
