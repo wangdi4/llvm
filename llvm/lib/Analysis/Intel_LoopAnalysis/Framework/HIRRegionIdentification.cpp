@@ -120,6 +120,10 @@ static cl::opt<bool>
                         cl::desc("Print statistics used by the cost model to "
                                  "decide whether to build HIR region"));
 
+static cl::opt<bool> AllowLargeIntegers(
+    "hir-allow-large-integers", cl::init(false), cl::Hidden,
+    cl::desc("Option to allow integers greater than 64 bits in HIR"));
+
 STATISTIC(RegionCount, "Number of regions created");
 
 AnalysisKey HIRRegionIdentificationAnalysis::Key;
@@ -589,6 +593,18 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
     // such CG fails for this type so we need to disallow it.
     printOptReportRemark(Lp, Inst, "x86_amx type is not supported.");
     return false;
+  }
+
+  if (!AllowLargeIntegers) {
+    auto *IntType = dyn_cast<IntegerType>(Ty);
+    // Integer type greater than 64 bits not supported. This is mainly to
+    // throttle 128 bit integers.
+    if (IntType && (IntType->getPrimitiveSizeInBits() > 64)) {
+      printOptReportRemark(
+          Lp, Inst,
+          "Integer types greater than 64 bits currently not supported.");
+      return false;
+    }
   }
 
   return true;
