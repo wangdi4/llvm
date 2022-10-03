@@ -6763,6 +6763,8 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
       return;
   }
 
+  const TargetInfo &TI = S.getASTContext().getTargetInfo();
+
   // Assemble the list of required features.
   SmallVector<StringRef, 8> ReqFeatures;
   if (auto BuiltinID = Callee->getBuiltinID(true)) {
@@ -6773,10 +6775,10 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
       StringRef(FeatureStr).split(ReqFeatures, ',');
     }
   } else if (const auto *TA = Callee->getAttr<TargetAttr>()){
-    ParsedTargetAttr ParsedInfo = TA->parse();
+    ParsedTargetAttr ParsedInfo = TI.parseTargetAttr(TA->getFeaturesStr());
 
     // Setting the CPU isn't supported for target promoting.
-    if (!ParsedInfo.Architecture.empty())
+    if (!ParsedInfo.CPU.empty())
       return;
     TA->getAddedFeatures(ReqFeatures);
   }
@@ -6786,7 +6788,6 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
     return;
 
   // Figure out which features we currently have.
-  const TargetInfo &TI = S.getASTContext().getTargetInfo();
   std::vector<std::string> Features(TI.getTargetOpts().Features);
 
   if (const auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
