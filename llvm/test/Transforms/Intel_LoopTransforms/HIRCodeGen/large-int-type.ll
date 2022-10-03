@@ -1,4 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-cg" < %s -force-hir-cg -S 2>&1 | FileCheck %s
+; RUN: opt -hir-allow-large-integers -passes="hir-ssa-deconstruction,print<hir>,hir-cg" < %s -force-hir-cg -S 2>&1 | FileCheck %s
+; RUN: opt -hir-allow-large-integers=false -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s --check-prefix=NO-LARGE-INT
 
 ; Verify that HIR is formed for loop containing integer types than 64 bits and
 ; we succesfully generate code for it.
@@ -12,6 +13,12 @@
 
 ; CHECK: region.0:
 ; CHECK: store i64 0, i64* %i1.i64
+
+
+; Verify that the region is suppressed without the option.
+
+; NO-LARGE-INT-NOT: BEGIN REGION
+; NO-LARGE-INT-NOT: DO i1
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

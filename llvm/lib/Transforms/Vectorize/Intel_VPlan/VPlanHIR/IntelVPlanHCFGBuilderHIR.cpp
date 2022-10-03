@@ -1468,7 +1468,7 @@ public:
                   const InductionList::value_type &CurValue) {
     VPDecomposerHIR::VPInductionHIR *ID = CurValue.get();
     Descriptor.setInductionOp(ID->getUpdateInstr());
-    Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
+    Descriptor.setIndOpcode(VPInduction::UnknownOpcode);
     Type *IndTy = Descriptor.getInductionOp()->getType();
     VPInduction::InductionKind Kind;
     std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);

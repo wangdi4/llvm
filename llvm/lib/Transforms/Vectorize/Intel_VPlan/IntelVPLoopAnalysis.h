@@ -297,16 +297,17 @@ class VPInduction
   friend class VPLoopEntityList;
 
 public:
+  static const unsigned UnknownOpcode = 0;
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
               int StepMultiplier, Type *StepTy, const SCEV *StepSCEV,
               VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
-              bool IsMemOnly = false,
-              unsigned int Opc = Instruction::BinaryOpsEnd)
+              bool IsMemOnly = false, unsigned Opc = UnknownOpcode)
       : VPLoopEntity(Induction, IsMemOnly),
         InductionDescriptorTempl(Start, K, InductionOp), Step(Step),
         StepMultiplier(StepMultiplier), StepTy(StepTy), StepSCEV(StepSCEV),
         StartVal(StartVal), EndVal(EndVal), IndOpcode(Opc) {
-    assert((getInductionBinOp() || IndOpcode != Instruction::BinaryOpsEnd) &&
+    assert((getInductionBinOp() || Instruction::isBinaryOp(IndOpcode) ||
+            IndOpcode == Instruction::GetElementPtr) &&
            "Induction opcode should be set");
   }
 
@@ -1428,7 +1429,7 @@ public:
     StartVal = nullptr;
     EndVal = nullptr;
     InductionOp = nullptr;
-    IndOpcode = Instruction::BinaryOpsEnd;
+    IndOpcode = VPInduction::UnknownOpcode;
     IsExplicitInduction = false;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
@@ -1467,7 +1468,7 @@ private:
   VPValue *StartVal = nullptr;
   VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;
-  unsigned IndOpcode = Instruction::BinaryOpsEnd;
+  unsigned IndOpcode = VPInduction::UnknownOpcode;
   bool IsExplicitInduction = false;
 };
 
