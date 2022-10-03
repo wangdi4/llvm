@@ -577,10 +577,11 @@ static void printOptReportRemark(const Loop *Lp, const Instruction *Inst,
 
 bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
                                           const Instruction *Inst,
-                                          const Loop *Lp) {
+                                          const Loop *Lp,
+                                          bool IsLastIndexedType) {
   assert(Ty && "Type is null!");
 
-  if (IsGEPRelated && isa<VectorType>(Ty)) {
+  if (IsGEPRelated && !IsLastIndexedType && isa<VectorType>(Ty)) {
     printOptReportRemark(Lp, Inst,
                          "GEP related vector types currently not supported.");
 
@@ -638,10 +639,13 @@ bool HIRRegionIdentification::containsUnsupportedTy(
   unsigned OperandNum = 2;
   for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E;
        ++I, ++OperandNum) {
+
+    bool IsLastIndexedType = (std::next(I) == E);
+
     auto *IType = I.getIndexedType();
     assert(IType && "Indexed type is missing");
 
-    if (!isSupported(IType, true, GEPInst, Lp)) {
+    if (!isSupported(IType, true, GEPInst, Lp, IsLastIndexedType)) {
       return true;
     }
 
