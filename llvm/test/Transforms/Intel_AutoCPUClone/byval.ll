@@ -1,8 +1,5 @@
-; RUN: opt -auto-cpu-clone < %s -S | FileCheck %s
-; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
-
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+; RUN: opt -opaque-pointers -auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; Trying to add byval to the ifunc would result in
 ;
@@ -10,33 +7,33 @@ target triple = "x86_64-unknown-linux-gnu"
 ;
 ; So that *seems* to be fine.
 
-; CHECK-DAG: @foo = ifunc i32 (%struct*), i32 (%struct*)* ()* @foo.resolver
-; CHECK-DAG: define i32 @foo.A(%struct* byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
-; CHECK-DAG: define i32 @foo.b(%struct* byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
-; CHECK-DAG: define i32 (%struct*)* @foo.resolver()
-; CHECK-DAG: ret i32 (%struct*)* @foo.b
-; CHECK-DAG: ret i32 (%struct*)* @foo.A
+; CHECK-DAG: @foo = ifunc i32 (ptr), ptr @foo.resolver
+; CHECK-DAG: define i32 @foo.A(ptr byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
+; CHECK-DAG: define i32 @foo.b(ptr byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
+; CHECK-DAG: define ptr @foo.resolver()
+; CHECK-DAG: ret ptr @foo.b
+; CHECK-DAG: ret ptr @foo.A
+
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 %struct = type { i32 }
 
-define i32 @foo(%struct* byval(%struct) %s) !llvm.auto.cpu.dispatch !1 {
-  %gep = getelementptr %struct, %struct *%s, i32 0, i32 0
-  %f = load i32, i32 *%gep
+define i32 @foo(ptr byval(%struct) %s) !llvm.auto.cpu.dispatch !0 {
+  %gep = getelementptr %struct, ptr %s, i32 0, i32 0
+  %f = load i32, ptr %gep, align 4
   %add = add i32 %f, 42
   ret i32 %add
 }
 
 define i32 @bar(i32 %a) {
-  %s = alloca %struct
-  %gep = getelementptr %struct, %struct *%s, i32 0, i32 0
-  store i32 %a, i32 *%gep
-  %ret = call i32 @foo(%struct* byval(%struct) %s)
+  %s = alloca %struct, align 8
+  %gep = getelementptr %struct, ptr %s, i32 0, i32 0
+  store i32 %a, ptr %gep, align 4
+  %ret = call i32 @foo(ptr byval(%struct) %s)
   ret i32 %ret
 }
 
-
-attributes #0 = { "target-features"="+sse4.2" }
-
-!0 = !{!"auto-cpu-dispatch-target", !"skylake"}
-
-!1 = !{!0}
+!0 = !{!1}
+!1 = !{!"auto-cpu-dispatch-target", !"skylake"}
