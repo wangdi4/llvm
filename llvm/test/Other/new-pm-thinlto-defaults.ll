@@ -244,6 +244,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopRotatePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopDeletionPass
+<<<<<<< HEAD
 
 ; INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: VecClonePass
@@ -300,6 +301,12 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptReportOptionsAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionInfoAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionCollectionAnalysis
+=======
+; CHECK-POSTLINK-O-NEXT: Running pass: LoopDistributePass
+; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running pass: InjectTLIMappings
+; CHECK-POSTLINK-O-NEXT: Running pass: LoopVectorizePass
+>>>>>>> 7c0ff64b0f760e364e59a37f983d87835a8c23a1
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
@@ -319,7 +326,6 @@
 ; CHECK-POSTLINK-Os-NEXT: Running pass: InjectTLIMappings
 ; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
-; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-POSTLINK-O2-NEXT: Running pass: SLPVectorizerPass
