@@ -141,9 +141,9 @@ int main() {
 //HOST: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr %d, ptr @_ZTS1D.omp.copy_constr, ptr @_ZTS1D.omp.destr)
 //HOST-SAME: "QUAL.OMP.MAP.TO"(ptr [[d]], ptr %d, i64 %30, i64 161, ptr null, ptr null)
-//HOST-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr [[d]], ptr [[VT18]], i32 8, i64 281474976710673, ptr null, ptr null)
-//HOST-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr [[d]], ptr [[VT19]], i32 8, i64 281474976710673, ptr null, ptr null)
-//HOST-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr [[d]], ptr [[VT21]], i32 8, i64 281474976710673, ptr null, ptr null)
+//HOST-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[d]], ptr [[VT18]], i32 8, i64 281474976711440, ptr null, ptr null)
+//HOST-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[d]], ptr [[VT19]], i32 8, i64 281474976711440, ptr null, ptr null)
+//HOST-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[d]], ptr [[VT21]], i32 8, i64 281474976711440, ptr null, ptr null)
 //HOST: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
 //HOST: [[VT29:%[^,]+]] = load ptr, ptr [[X]]
 //HOST: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.UPDATE
@@ -192,9 +192,9 @@ int main() {
 //TARG: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr addrspace(4) [[da]], ptr @_ZTS1D.omp.copy_constr, ptr @_ZTS1D.omp.destr)
 //TARG-SAME: "QUAL.OMP.MAP.TO"(ptr addrspace(4) [[da]], ptr addrspace(4) [[da]], i64 %40, i64 161, ptr null, ptr null)
-//TARG-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT18]], i32 8, i64 281474976710673, ptr null, ptr null)
-//TARG-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT19]], i32 8, i64 281474976710673, ptr null, ptr null)
-//TARG-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT21]], i32 8, i64 281474976710673, ptr null, ptr null)
+//TARG-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT18]], i32 8, i64 281474976711440, ptr null, ptr null)
+//TARG-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT19]], i32 8, i64 281474976711440, ptr null, ptr null)
+//TARG-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT21]], i32 8, i64 281474976711440, ptr null, ptr null)
 //TARG: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
 //TARG: [[VT18:%vtable.*]] = load ptr addrspace(4), ptr addrspace(4) [[X]]
 //TARG: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.UPDATE
