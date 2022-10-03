@@ -1149,6 +1149,7 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::ROTL:
   case ISD::ROTR:
   case ISD::COMPLEX_MUL: // INTEL
+  case ISD::VP_FCOPYSIGN:
     SplitVecRes_BinOp(N, Lo, Hi);
     break;
   case ISD::FMA: case ISD::VP_FMA:
@@ -4018,6 +4019,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::VP_FDIV:
   case ISD::VP_FREM:
   case ISD::COMPLEX_MUL: // INTEL
+  case ISD::VP_FCOPYSIGN:
     Res = WidenVecRes_Binary(N);
     break;
 
