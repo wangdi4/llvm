@@ -1644,6 +1644,11 @@ bool llvm::LowerDbgDeclare(Function &F) {
         } else if (BitCastInst *BI = dyn_cast<BitCastInst>(U)) {
           if (BI->getType()->isPointerTy())
             WorkList.push_back(BI);
+#if INTEL_CUSTOMIZATION
+        } else if (AddrSpaceCastInst *CI = dyn_cast<AddrSpaceCastInst>(U)) {
+          if (CI->getType()->isPointerTy())
+            WorkList.push_back(CI);
+#endif // INTEL_CUSTOMIZATION
         }
       }
     }
