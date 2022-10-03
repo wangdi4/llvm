@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 cmake_minimum_required(VERSION 3.13.4)
 
 add_custom_target(libspirv-builtins COMMENT "Build libspirv builtins")
@@ -375,6 +392,13 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
                 # Enable SPIR-V builtin function declarations, so they don't
                 # have to be explicity declared in the soruce.
                 list( APPEND flags -Xclang -fdeclare-spirv-builtins)
+
+                if (INTEL_CUSTOMIZATION)
+                        # disabling opts to be able to generate IR in
+                        # proprietary build
+                        # SHELL: is a workaround for -Xclang de-duplication
+                        list( APPEND flags "SHELL:-Xclang -disable-intel-proprietary-opts")
+                endif (INTEL_CUSTOMIZATION)
 
 		add_libclc_builtin_set(libspirv-${arch_suffix}
 			TRIPLE ${t}
