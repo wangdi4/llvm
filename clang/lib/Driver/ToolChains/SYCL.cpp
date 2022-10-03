@@ -465,7 +465,13 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   llvm::Triple CPUTriple("spir64_x86_64");
+<<<<<<< HEAD
   TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs, JA); // INTEL
+=======
+#if INTEL_CUSTOMIZATION
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs, JA);
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> d3129761aacb778d3c7028a7f94991426f7abc48
   // Add the target args passed in
 #if INTEL_CUSTOMIZATION
   TC.TranslateBackendTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs);
@@ -634,7 +640,11 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
 #if INTEL_CUSTOMIZATION
   // Add any implied arguments before user defined arguments.
   TC.AddImpliedTargetArgs(
+<<<<<<< HEAD
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA); // INTEL
+=======
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
+>>>>>>> d3129761aacb778d3c7028a7f94991426f7abc48
 
   // Add -Xsycl-target* options.
   TC.TranslateBackendTargetArgs(
@@ -1166,9 +1176,15 @@ StringRef SYCL::gen::resolveGenDevice(StringRef DeviceName) {
   return Device;
 }
 
+<<<<<<< HEAD
 StringRef SYCL::gen::getGenDeviceMacro(StringRef DeviceName) {
   SmallString<64> Macro;
   StringRef Ext = llvm::StringSwitch<StringRef>(DeviceName)
+=======
+SmallString<64> SYCL::gen::getGenDeviceMacro(StringRef DeviceName) {
+  SmallString<64> Macro;
+  SmallString<12> Ext = llvm::StringSwitch<StringRef>(DeviceName)
+>>>>>>> d3129761aacb778d3c7028a7f94991426f7abc48
                       .Case("bdw", "BDW")
                       .Case("skl", "SKL")
                       .Case("kbl", "KBL")
@@ -1384,12 +1400,14 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
   }
 }
 
-#if INTEL_CUSTOMIZATION
 void SYCLToolChain::AddImpliedTargetArgs(
     Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
     const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
     const JobAction &JA) const {
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> d3129761aacb778d3c7028a7f94991426f7abc48
   // Current implied args are for debug information and disabling of
   // optimizations.  They are passed along to the respective areas as follows:
   //  FPGA and default device:  -g -cl-opt-disable
@@ -1554,7 +1572,12 @@ void SYCLToolChain::TranslateLinkerTargetArgs(
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
+<<<<<<< HEAD
         options::OPT_Xopenmp_linker, options::OPT_Xopenmp_linker_EQ, StringRef());
+=======
+        options::OPT_Xopenmp_linker, options::OPT_Xopenmp_linker_EQ,
+        StringRef());
+>>>>>>> d3129761aacb778d3c7028a7f94991426f7abc48
   else
     // Handle -Xsycl-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
