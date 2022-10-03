@@ -44,14 +44,11 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
 #if INTEL_COLLAB
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #endif // INTEL_COLLAB
-=======
 #include "llvm/Analysis/MemoryProfileInfo.h"
->>>>>>> 43417d815937e7d241dd536267a57f0cdcd25c09
 #include "llvm/Analysis/ObjCARCAnalysisUtils.h"
 #include "llvm/Analysis/ObjCARCUtil.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -111,14 +108,11 @@
 #define DEBUG_TYPE "inline-function"
 
 using namespace llvm;
-<<<<<<< HEAD
 using namespace InlineReportTypes; // INTEL
 #if INTEL_COLLAB
 using namespace llvm::vpo;
 #endif // INTEL_COLLAB
-=======
 using namespace llvm::memprof;
->>>>>>> 43417d815937e7d241dd536267a57f0cdcd25c09
 using ProfileCount = Function::ProfileCount;
 
 static cl::opt<bool>
