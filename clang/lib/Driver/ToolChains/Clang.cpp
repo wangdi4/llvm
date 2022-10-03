@@ -10261,12 +10261,8 @@ static void addRunTimeWrapperOpts(Compilation &C,
   if (TT.getSubArch() == llvm::Triple::NoSubArch) {
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
-<<<<<<< HEAD
-    const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(), DeviceOffloadKind);
-=======
     const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(),
                                                 DeviceOffloadKind);
->>>>>>> d3129761aacb778d3c7028a7f94991426f7abc48
     SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-compile-opts=");
@@ -10448,11 +10444,6 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       DeviceKind = A->getOffloadingDeviceKind();
       DeviceTC = TC;
     });
-<<<<<<< HEAD
-    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC, JA); // INTEL
-
-=======
->>>>>>> d3129761aacb778d3c7028a7f94991426f7abc48
 #if INTEL_CUSTOMIZATION
     addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC, JA);
 
