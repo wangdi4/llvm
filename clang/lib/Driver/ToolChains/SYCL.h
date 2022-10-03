@@ -135,7 +135,7 @@ private:
 };
 
 StringRef resolveGenDevice(StringRef DeviceName);
-StringRef getGenDeviceMacro(StringRef DeviceName);
+SmallString<64> getGenDeviceMacro(StringRef DeviceName);
 
 } // end namespace gen
 

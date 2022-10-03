@@ -465,7 +465,9 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   llvm::Triple CPUTriple("spir64_x86_64");
-  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs, JA); // INTEL
+#if INTEL_CUSTOMIZATION
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs, JA);
+#endif // INTEL_CUSTOMIZATION
   // Add the target args passed in
 #if INTEL_CUSTOMIZATION
   TC.TranslateBackendTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs);
@@ -634,7 +636,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
 #if INTEL_CUSTOMIZATION
   // Add any implied arguments before user defined arguments.
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA); // INTEL
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
 
   // Add -Xsycl-target* options.
   TC.TranslateBackendTargetArgs(
@@ -1166,9 +1168,9 @@ StringRef SYCL::gen::resolveGenDevice(StringRef DeviceName) {
   return Device;
 }
 
-StringRef SYCL::gen::getGenDeviceMacro(StringRef DeviceName) {
+SmallString<64> SYCL::gen::getGenDeviceMacro(StringRef DeviceName) {
   SmallString<64> Macro;
-  StringRef Ext = llvm::StringSwitch<StringRef>(DeviceName)
+  SmallString<12> Ext = llvm::StringSwitch<StringRef>(DeviceName)
                       .Case("bdw", "BDW")
                       .Case("skl", "SKL")
                       .Case("kbl", "KBL")
@@ -1384,12 +1386,10 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
   }
 }
 
-#if INTEL_CUSTOMIZATION
 void SYCLToolChain::AddImpliedTargetArgs(
     Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
     const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
     const JobAction &JA) const {
-#endif // INTEL_CUSTOMIZATION
   // Current implied args are for debug information and disabling of
   // optimizations.  They are passed along to the respective areas as follows:
   //  FPGA and default device:  -g -cl-opt-disable
@@ -1554,7 +1554,8 @@ void SYCLToolChain::TranslateLinkerTargetArgs(
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
-        options::OPT_Xopenmp_linker, options::OPT_Xopenmp_linker_EQ, StringRef());
+        options::OPT_Xopenmp_linker, options::OPT_Xopenmp_linker_EQ,
+        StringRef());
   else
     // Handle -Xsycl-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
