@@ -9632,6 +9632,34 @@ public:
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  class HoistedFieldChecker final
+      : public ConstStmtVisitor<HoistedFieldChecker, void> {
+    llvm::SmallDenseSet<const FieldDecl *, 4> FDs;
+    bool Hoisted = false;
+  public:
+    HoistedFieldChecker(CodeGenFunction &CGF, const OMPExecutableDirective *D) {
+      if (auto *LD = dyn_cast<OMPLoopDirective>(D)) {
+        if (CGF.LoopBoundsHaveBeenHoisted(LD)) {
+          Hoisted = true;
+          Visit(LD->getBody());
+        }
+      }
+    }
+    void VisitMemberExpr(const MemberExpr *E) {
+      if (auto *FD = dyn_cast<FieldDecl>(E->getMemberDecl()))
+        FDs.insert(FD);
+    }
+    void VisitStmt(const Stmt *S) {
+      for (const Stmt *C : S->children())
+        if (C)
+          Visit(C);
+    }
+    bool isFieldUsed(const FieldDecl *FD) { return FDs.find(FD) != FDs.end(); }
+    bool hasHoistedBounds() { return Hoisted; }
+  };
+#endif // INTEL_CUSTOMIZATION
+
   /// Generate the base pointers, section pointers, sizes, map types, and
   /// mappers associated to a given capture (all included in \a CombinedInfo).
   void generateInfoForCapture(const CapturedStmt::Capture *Cap,
@@ -9889,6 +9917,9 @@ public:
           /*ForDeviceAddr=*/false, VD, VarRef, OverlappedComponents);
       IsFirstComponentList = false;
     }
+#if INTEL_CUSTOMIZATION
+    HoistedFieldChecker HFC(CGF, CurExecDir);
+#endif // INTEL_CUSTOMIZATION
     // Go through other elements without overlapped elements.
     for (const MapData &L : DeclComponentLists) {
       OMPClauseMappableExprCommon::MappableExprComponentListRef Components;
@@ -9899,6 +9930,16 @@ public:
       const Expr *VarRef;
       std::tie(Components, MapType, MapModifiers, IsImplicit, Mapper, VarRef) =
           L;
+#if INTEL_CUSTOMIZATION
+      if (!VD && CGF.CGM.getLangOpts().OpenMPLateOutline &&
+          CGF.hasOMPSpirTarget() && HFC.hasHoistedBounds())
+        // Skip mapping fields not used in body when hoisting occurred.
+        if (auto *ME = dyn_cast<MemberExpr>(
+                Components.rbegin()->getAssociatedExpression()))
+          if (auto *FD = dyn_cast<FieldDecl>(ME->getMemberDecl()))
+            if (!HFC.isFieldUsed(FD))
+              continue;
+#endif // INTEL_CUSTOMIZATION
       auto It = OverlappedData.find(&L);
       if (It == OverlappedData.end())
         generateInfoForComponentList(MapType, MapModifiers, llvm::None,
@@ -9917,6 +9958,10 @@ public:
     bool IsImplicit = true;
     // Do the default mapping.
     if (CI.capturesThis()) {
+#if INTEL_CUSTOMIZATION
+      if (CGF.CGM.getLangOpts().OpenMPLateOutline)
+        return;
+#endif // INTEL_CUSTOMIZATION
       CombinedInfo.Exprs.push_back(nullptr);
       CombinedInfo.BasePointers.push_back(CV);
       CombinedInfo.Pointers.push_back(CV);
@@ -10442,7 +10487,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
               MappableExprsHandler::OMP_MAP_TARGET_PARAM |
               MappableExprsHandler::OMP_MAP_TO;
       }
-      CurInfo.VarChain.push_back(std::make_pair(VD, false));
+      if (CurInfo.BasePointers.size() > 0)
+        CurInfo.VarChain.push_back(std::make_pair(VD, false));
       for (int I = 1, E = CurInfo.BasePointers.size() +
                           CombinedInfo.BasePointers.size() - SaveSize;
            I < E; ++I)

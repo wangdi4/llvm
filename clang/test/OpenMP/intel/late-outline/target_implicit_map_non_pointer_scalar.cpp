@@ -11,8 +11,6 @@ class A
   void dowork (void)
   {
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %this1
-// CHECK-NOT: "QUAL.OMP.MAP.TOFROM"(double* %scalar3
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
     #pragma omp target firstprivate(scalar)
     {

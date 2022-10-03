@@ -100,23 +100,16 @@ class A {
     #pragma omp target map(a)
       for (int i = 0; i < nlocal; i++)
          *a = 10;
-    //TARG: Pass:{{.*}}openmp
-    //TARG: Name:{{.*}}Region
-    //TARG: DebugLoc: { File: '{{.*}}omp-opt-report-implicit-map.cpp',
-    //TARG: Line: 110, Column: 5
-    //TARG: Function:{{.*}}zoo
-    //TARG: Args:
-    //TARG: ' "this" has an implicit clause: "map(tofrom : this[:1])" because "this" this keyword is referenced within the construct at line:[111:22]'
     #pragma omp target
        printf("%p\n",this);
     int m = 0;
     //TARG: Pass:{{.*}}openmp
     //TARG: Name:{{.*}}Region
     //TARG: DebugLoc: { File: '{{.*}}omp-opt-report-implicit-map.cpp',
-    //TARG: Line: 120, Column: 5
+    //TARG: Line: 113, Column: 5
     //TARG: Function:{{.*}}zoo
     //TARG: Args:
-    //TARG: ' "m" has an implicit clause: "firstprivate(m)" because "m" is a scalar variable referenced within the construct at line:[121:8]'
+    //TARG: ' "m" has an implicit clause: "firstprivate(m)" because "m" is a scalar variable referenced within the construct at line:[114:8]'
     #pragma omp target
        m++;
   }
@@ -126,12 +119,10 @@ class A {
     //TARG: Pass:{{.*}}openmp
     //TARG: Name:{{.*}}Region
     //TARG: DebugLoc: { File: '{{.*}}omp-opt-report-implicit-map.cpp',
-    //TARG: Line: 135, Column: 5
+    //TARG: Line: 126, Column: 5
     //TARG: Function:{{.*}}_ZN1AC2Ev
     //TARG: Args:
-    //TARG: ' "this" has an implicit clause: "map(tofrom : this[:1])" because "this" this keyword is referenced within the construct at line:[125:28]'
-    //TARG: Args:
-    //TARG: ' "lambda" has an implicit clause: "map(tofrom : lambda)" because "lambda" is a non-scalar variable referenced within the construct at line:[136:5]'
+    //TARG: ' "lambda" has an implicit clause: "map(tofrom : lambda)" because "lambda" is a non-scalar variable referenced within the construct at line:[127:5]'
     #pragma omp target
     lambda();
   }
