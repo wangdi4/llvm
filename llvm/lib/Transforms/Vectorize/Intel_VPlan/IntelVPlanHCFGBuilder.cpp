@@ -385,7 +385,7 @@ public:
     if (ID.getInductionBinOp()) {
       Descriptor.setInductionOp(dyn_cast<VPInstruction>(
           Builder.getOrCreateVPOperand(ID.getInductionBinOp())));
-      Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
+      Descriptor.setIndOpcode(VPInduction::UnknownOpcode);
     } else {
       assert(Descriptor.getStartPhi() &&
              "Induction descriptor does not have starting PHI.");

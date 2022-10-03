@@ -319,7 +319,7 @@ unsigned VPReduction::getReductionOpcode(RecurKind K) {
 
 unsigned int VPInduction::getInductionOpcode() const {
   // If the opode was set explicitly return it.
-  if (IndOpcode != Instruction::BinaryOpsEnd)
+  if (IndOpcode != VPInduction::UnknownOpcode)
     return IndOpcode;
 
   // Otherwise get opcode from instruction.
@@ -1451,12 +1451,13 @@ static bool isConsistentInductionUpdate(const VPInstruction *Inst,
                                         unsigned BinOpc, const VPValue *Step) {
   // Check whether update operator is consistent with induction definition,
   // i.e. it has the declared opcode and induction step as operand.
-  // For auto-recognized inductions the BinOpc is set to BinaryOpsEnd
+  // For auto-recognized inductions the BinOpc is set to UnknownOpcode
   // so we have special check for that.
   // TODO: It's better to have the BinOpc set for auto-recognized inductions
   // as well. This is planned for implementation in the fix for CMPLRLLVM-11590.
-  bool IsAutoRecognizedInduction = BinOpc == Instruction::BinaryOpsEnd;
-  return Instruction::isBinaryOp(Inst->getOpcode()) &&
+  bool IsAutoRecognizedInduction = BinOpc == VPInduction::UnknownOpcode;
+  return (Instruction::isBinaryOp(Inst->getOpcode()) ||
+          Inst->getOpcode() == Instruction::GetElementPtr) &&
          (IsAutoRecognizedInduction || Inst->getOpcode() == BinOpc) &&
          Inst->getOperandIndex(Step) != -1;
 }
@@ -1488,8 +1489,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       Start = V;
     }
 
-    Instruction::BinaryOps Opc =
-        static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
+    unsigned Opc = Induction->getInductionOpcode();
     StringRef Name;
     if (AI)
       Name = AI->getName();
@@ -1574,9 +1574,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       Builder.setCurrentDebugLocation(
           PostExit->getTerminator()->getDebugLocation());
 
-    unsigned OpT = static_cast<unsigned>(Opc);
-    bool IsExtract = OpT != Instruction::Add && OpT != Instruction::FAdd &&
-                     OpT != Instruction::GetElementPtr;
+    bool IsExtract = Opc != Instruction::Add && Opc != Instruction::FAdd &&
+                     Opc != Instruction::GetElementPtr;
     VPValue *Exit = Induction->getIsMemOnly()
                         ? Builder.createLoad(Ty, PrivateMem)
                         : ExitInstr;
@@ -2395,8 +2394,9 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     unsigned int Opc = Ind->getInductionOpcode();
     Type *Ty = Ind->getStartValue()->getType();
 
-    if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
-        Opc == Instruction::GetElementPtr) {
+    if (Ty->isPointerTy()) {
+      assert(Opc == Instruction::GetElementPtr &&
+             "GEP opcode expected for pointer induction.");
       Type *ElementType = nullptr;
       ElementType = getInt8OrPointerElementTy(Phi->getType());
       auto *GEP =
