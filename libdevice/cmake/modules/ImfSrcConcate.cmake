@@ -51,6 +51,7 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/exp10_s_la.cpp
                                imf/intel/erfc_s_la.cpp
                                imf/intel/erfcinv_s_la.cpp
+                               imf/intel/norm_s_ep.cpp
                                imf/intel/norm3d_s_la.cpp
                                imf/intel/nextafter_s_xa.cpp
                                imf/intel/modf_s_xa.cpp
@@ -68,7 +69,9 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/sinpi_s_ha.cpp
                                imf/intel/sinh_s_la.cpp
                                imf/intel/sincos_s_ha.cpp
+                               imf/intel/sincospi_s_la.cpp
                                imf/intel/round_s_xa.cpp
+                               imf/intel/rnorm_s_ep.cpp
                                imf/intel/rnorm4d_s_la.cpp
                                imf/intel/rnorm3d_s_la.cpp
                                imf/intel/rhypot_s_la.cpp
@@ -79,6 +82,7 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/tgamma_s_la.cpp
                                imf/intel/tanh_s_ha.cpp
                                imf/intel/cdfnorm_s_la.cpp
+                               imf/intel/cdfnorminv_s_la.cpp
                                imf/intel/erfcx_s_la.cpp
                                imf/intel/hypot_s_la.cpp
                                imf/intel/isfinite_s_xa.cpp
@@ -140,12 +144,14 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/modf_d_xa.cpp
                                imf/intel/nan_d_xa.cpp
                                imf/intel/nextafter_d_xa.cpp
+                               imf/intel/norm_d_ep.cpp
                                imf/intel/norm3d_d_la.cpp
                                imf/intel/norm4d_d_la.cpp
                                imf/intel/pow_d_la.cpp
                                imf/intel/remainder_d_xa.cpp
                                imf/intel/remquo_d_xa.cpp
                                imf/intel/rhypot_d_la.cpp
+                               imf/intel/rnorm_d_ep.cpp
                                imf/intel/rnorm3d_d_la.cpp
                                imf/intel/rnorm4d_d_la.cpp
                                imf/intel/round_d_xa.cpp
@@ -158,6 +164,8 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/sinpi_d_ha.cpp
                                imf/intel/tan_d_ha.cpp
                                imf/intel/tanh_d_ha.cpp
+                               imf/intel/tgamma_d_ep.cpp
+                               imf/intel/lgamma_d_ep.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp64.cpp)
 
