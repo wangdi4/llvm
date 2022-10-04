@@ -1,6 +1,6 @@
 //===-- DDTests.h - Data dependence testing between two DDRefs --*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -550,7 +550,7 @@ class DDTest {
   unsigned MaxLevels = 0;
   bool NoCommonNest = false;
 
-  HLLoop *DeepestLoop;
+  HLLoop *DeepestLoop = nullptr;
   ///  LCALoop, corrsponding to LCALoopLevel
   HLLoop *LCALoop = nullptr;
 
