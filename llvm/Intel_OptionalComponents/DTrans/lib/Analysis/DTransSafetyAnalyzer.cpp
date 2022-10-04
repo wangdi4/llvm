@@ -2924,7 +2924,7 @@ public:
 
       auto *TI = DTInfo.getTypeInfo(ParentTy);
       assert(TI && "visitModule() should create all TypeInfo objects");
-      auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI);
+      auto *ParentStInfo = cast<dtrans::StructInfo>(TI);
       TypeSize FieldSize = DL.getTypeSizeInBits(
           ParentStInfo->getField(ElementNum).getLLVMType());
       if (getLangRuleOutOfBoundsOK() || AccessSize > FieldSize) {
@@ -3743,7 +3743,7 @@ public:
         return false;
 
       // FIXME: extend to handle left over parameters and var-arg.
-      for (auto Pair : zip(FT1->args(), FT2->args())) {
+      for (const auto &Pair : zip(FT1->args(), FT2->args())) {
         auto *PT1 = std::get<0>(Pair);
         auto *PT2 = std::get<1>(Pair);
         if (!typesMayBeCRuleCompatibleX(PT1, PT2, Tstack, IgnorePointees))
@@ -5345,7 +5345,7 @@ public:
         if (analyzeMemfuncStructureMemberParam(
                 I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDescVec,
                 IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue))
-          for (auto RegionDesc : RegionDescVec) {
+          for (const auto &RegionDesc : RegionDescVec) {
             createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
             if (RegionDescVec.size() > 1)
               setBaseTypeInfoSafetyData(RegionDesc.first,
@@ -5365,7 +5365,7 @@ public:
                                                    Instruction *I) {
         auto &ElementPointees =
             PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
-        for (auto PointeePair : ElementPointees)
+        for (const auto &PointeePair : ElementPointees)
           if (isa<DTransArrayType>(PointeePair.first)) {
             auto &ElementOfTypes = PointeePair.second.getElementOf();
             for (auto &ElementOfPair : ElementOfTypes)
@@ -5462,7 +5462,7 @@ public:
               /*PrePadBytes=*/0, SetSize, RegionDescVec,
               IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue)) {
 
-        for (auto RegionDesc : RegionDescVec) {
+        for (const auto &RegionDesc : RegionDescVec) {
           createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
           if (RegionDescVec.size() > 1)
             setBaseTypeInfoSafetyData(RegionDesc.first,
@@ -5560,12 +5560,12 @@ public:
                                                    Instruction *I) {
         auto &ElementPointees =
             PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
-        for (auto PointeePair : ElementPointees) {
+        for (const auto &PointeePair : ElementPointees) {
           setBaseTypeInfoSafetyData(PointeePair.first, Data, Reason, I);
           if (getLangRuleOutOfBoundsOK() &&
               isa<DTransArrayType>(PointeePair.first)) {
             auto &ElementOfTypes = PointeePair.second.getElementOf();
-            for (auto &ElementOfPair : ElementOfTypes)
+            for (const auto &ElementOfPair : ElementOfTypes)
               if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first))
                 setBaseTypeInfoSafetyData(StTy, Data, Reason, I);
           }
@@ -6069,7 +6069,7 @@ public:
     if (analyzePartialStructUse(DL, StructTy, FieldNum, PrePadBytes, SetSize,
                                 /*AllowRecurse=*/true, RegionDescVec)) {
       bool FirstTime = true;
-      for (auto RegionDesc : RegionDescVec) {
+      for (const auto &RegionDesc : RegionDescVec) {
         // If not all members of the structure were set, mark it as a partial
         // write.
         if (!RegionDesc.second.IsCompleteAggregate) {
@@ -6294,7 +6294,7 @@ public:
     // Check whether the address of a field is being returned
     if (Info->pointsToSomeElement()) {
       bool MismatchedType = false;
-      for (auto PointeePair :
+      for (const auto &PointeePair :
            Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
         dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair.first);
         assert(ParentTI && "visitModule() should create all TypeInfo objects");
@@ -6718,7 +6718,7 @@ private:
     }
 
     // All related types where collected correctly
-    for (auto Pair : AliasesStructsMap)
+    for (const auto &Pair : AliasesStructsMap)
       if (!Pair.second)
         return false;
 
@@ -7463,7 +7463,7 @@ private:
   // Create a MemfuncCallInfo object that will store the details about a safe
   // memset call.
   void createMemsetCallInfo(Instruction &I, DTransType *ElemTy,
-                            dtrans::MemfuncRegion &RegionDesc) {
+                            const dtrans::MemfuncRegion &RegionDesc) {
     // Add this to our type info list.
     dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
         &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
@@ -7482,8 +7482,8 @@ private:
   // memcpy/memmove call.
   void createMemcpyOrMemmoveCallInfo(Instruction &I, DTransType *ElemTy,
                                      dtrans::MemfuncCallInfo::MemfuncKind Kind,
-                                     dtrans::MemfuncRegion &RegionDescDest,
-                                     dtrans::MemfuncRegion &RegionDescSrc) {
+                                     const dtrans::MemfuncRegion &RegionDescDest,
+                                     const dtrans::MemfuncRegion &RegionDescSrc) {
     // Add this to our type info list.
     dtrans::MemfuncCallInfo *MCI =
         DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
@@ -7688,7 +7688,7 @@ private:
   DTransSafetyLogger &Log;
 
   // Set at the start of each visitFunction call.
-  BlockFrequencyInfo *BFI;
+  BlockFrequencyInfo *BFI = nullptr;
 
   // Set of external functions that are address taken.
   DenseSet<Function *> ExternalAddressTakenFunctions;
@@ -7896,7 +7896,7 @@ void DTransSafetyInfo::reset() {
   // DTransSafetyInfo owns the TypeInfo objects in the TypeInfoMap.
   // The DTransType pointers are owned by the DTransTypeManager, and
   // will be cleaned up when that object is reset.
-  for (auto Entry : TypeInfoMap) {
+  for (const auto &Entry : TypeInfoMap) {
     switch (Entry.second->getTypeInfoKind()) {
     case dtrans::TypeInfo::NonAggregateInfo:
       delete cast<dtrans::NonAggregateTypeInfo>(Entry.second);
@@ -8424,8 +8424,8 @@ void DTransSafetyInfo::printCallInfo() {
                          unsigned, dtrans::CallInfo *>>
       Entries;
 
-  for (auto CIVec : call_info_entries())
-    for (auto &E : enumerate(CIVec)) {
+  for (const auto &CIVec : call_info_entries())
+    for (const auto &E : enumerate(CIVec)) {
       auto *CI = E.value();
       Instruction *I = CI->getInstruction();
       std::string InstStr;
@@ -8532,7 +8532,7 @@ void DTransSafetyInfo::printArraysWithConstantEntriesInformation() {
   std::sort(StructsWithData.begin(), StructsWithData.end(),
             SortingStructsFunction());
 
-  for (auto Pair : StructsWithData) {
+  for (const auto &Pair : StructsWithData) {
     auto STInfo = Pair.first;
     auto FieldsVect = Pair.second;
 
@@ -8554,7 +8554,7 @@ void DTransSafetyInfo::printArraysWithConstantEntriesInformation() {
       }
 
       std::vector<Constant *> Entries(ArrTy->getNumElements());
-      for (auto Pair : FI.getArrayConstantEntries()) {
+      for (const auto &Pair : FI.getArrayConstantEntries()) {
         auto Index = cast<ConstantInt>(Pair.first);
         unsigned IndexInt = Index->getZExtValue();
         Entries[IndexInt] = Pair.second;

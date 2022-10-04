@@ -4062,7 +4062,7 @@ private:
       // %x contains a pointer alias type and an element pointee of a structure,
       // but %z is just being updated to be the pointee type from %x.
       if (DerefLevel == DerefType::DT_SameType)
-        for (auto PointeePair : SrcInfo->getElementPointeeSet(Kind))
+        for (const auto &PointeePair : SrcInfo->getElementPointeeSet(Kind))
           LocalChanged |= DestInfo->addElementPointee(Kind, PointeePair);
 
       return LocalChanged;

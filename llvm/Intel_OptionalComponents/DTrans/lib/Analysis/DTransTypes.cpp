@@ -1,6 +1,6 @@
 //===-----------DTransTypes.cpp - Type model for DTrans -------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -516,29 +516,29 @@ DTransTypeManager::~DTransTypeManager() {
   // objects because there is no enforced ordering when running the destructors
   // because all objects are being deleted.
 
-  for (auto P : TypeInfoMap)
+  for (const auto &P : TypeInfoMap)
     DeleteType(P.second);
   TypeInfoMap.clear();
 
-  for (auto P : PointerTypeInfoMap)
+  for (const auto &P : PointerTypeInfoMap)
     DeleteType(P.second);
   PointerTypeInfoMap.clear();
 
   // The following cases can invoke 'delete' directly on the object because each
   // container only hold a single type, which is known at compile time.
-  for (auto &P : ArrayTypeInfoMap)
+  for (const auto &P : ArrayTypeInfoMap)
     delete P.second;
   ArrayTypeInfoMap.clear();
 
-  for (auto &P : VecTypeInfoMap)
+  for (const auto &P : VecTypeInfoMap)
     delete P.second;
   VecTypeInfoMap.clear();
 
-  for (auto &FTyNode : FunctionTypeNodes)
+  for (const auto &FTyNode : FunctionTypeNodes)
     delete FTyNode.getFunctionType();
   FunctionTypeNodes.clear();
 
-  for (auto &P : StructTypeInfoMap)
+  for (const auto &P : StructTypeInfoMap)
     delete P.second;
   StructTypeInfoMap.clear();
   AllDTransTypes.clear();
@@ -634,7 +634,7 @@ DTransStructType *DTransTypeManager::getStructType(StringRef Name) const {
 DTransStructType *DTransTypeManager::getOrCreateLiteralStructType(
     LLVMContext &Ctx, ArrayRef<DTransType *> FieldTypes) {
   SmallVector<DTransFieldMember, 8> Fields;
-  for (auto FTy : FieldTypes)
+  for (const auto &FTy : FieldTypes)
     Fields.push_back(DTransFieldMember(FTy));
 
   // Create a temporary instance of the literal struct type that can be used
@@ -693,7 +693,7 @@ DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
   auto *NewDTFnTy = new DTransFunctionType(Ctx, ParamTypes.size(), IsVarArg);
   NewDTFnTy->setReturnType(DTRetTy);
   unsigned AI = 0;
-  for (auto ParamTy : ParamTypes)
+  for (const auto &ParamTy : ParamTypes)
     NewDTFnTy->setArgType(AI++, ParamTy);
 
   DTransFunctionTypeNode *NewN =
