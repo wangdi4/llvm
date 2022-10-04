@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking -hir-loop-blocking-no-delinear < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -hir-loop-blocking-no-delinear -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking -hir-loop-blocking-no-delinear < %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -hir-loop-blocking-no-delinear -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 
 ; Check the blocking doesn't happen because it is trivially clear that blocking doesn't help.
 ; - Innerloop is already unit-strided.

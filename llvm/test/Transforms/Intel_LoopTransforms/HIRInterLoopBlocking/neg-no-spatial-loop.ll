@@ -1,5 +1,5 @@
-; RUN: opt -disable-hir-inter-loop-blocking=false -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-hir-inter-loop-blocking=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit 2>&1 < %s | FileCheck %s
+; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit 2>&1 < %s | FileCheck %s
 ; REQUIRES: asserts
 
 ; memrefs are all in the shape of array[0][i2+1]. All dimension 2s do not have IV. Thus, no spatial loop corresponds to the dimension 2. We bail out without transformation.

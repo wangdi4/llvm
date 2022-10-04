@@ -84,6 +84,7 @@ public:
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRArraySectionAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -97,6 +98,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRArraySectionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(HIRCrossLoopArrayContractionLegacyPass, OPT_SWITCH,
                     OPT_DESC, false, false)
 
@@ -110,6 +112,7 @@ class HIRCrossLoopArrayContraction {
   HIRDDAnalysis &DDA;
   HIRArraySectionAnalysis &ASA;
   HIRLoopStatistics &HLS;
+  TargetTransformInfo &TTI;
   bool IsMultiJob;
 
   // Set of loops which we will run PostProcessors on.
@@ -121,8 +124,10 @@ class HIRCrossLoopArrayContraction {
 public:
   HIRCrossLoopArrayContraction(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                                HIRArraySectionAnalysis &ASA,
-                               HIRLoopStatistics &HLS, bool IsMultiJob)
-      : HIRF(HIRF), DDA(DDA), ASA(ASA), HLS(HLS), IsMultiJob(IsMultiJob) {}
+                               HIRLoopStatistics &HLS, TargetTransformInfo &TTI,
+                               bool IsMultiJob)
+      : HIRF(HIRF), DDA(DDA), ASA(ASA), HLS(HLS), TTI(TTI),
+        IsMultiJob(IsMultiJob) {}
 
   bool run();
 
@@ -259,6 +264,10 @@ bool HIRCrossLoopArrayContraction::run() {
                          .getValueAsString()
                          .equals("alderlake");
   if (!IsMultiJob && !IsAlderLake) {
+    return false;
+  }
+
+  if (!TTI.isLibIRCAllowed()) {
     return false;
   }
 
@@ -1789,7 +1798,9 @@ bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
              getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(), IsMultiJob)
+             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+             getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
+             IsMultiJob)
       .run();
 }
 
@@ -1798,7 +1809,7 @@ PreservedAnalyses HIRCrossLoopArrayContractionPass::runImpl(
   HIRCrossLoopArrayContraction(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                                AM.getResult<HIRArraySectionAnalysisPass>(F),
                                AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                               IsMultiJob)
+                               AM.getResult<TargetIRAnalysis>(F), IsMultiJob)
       .run();
   return PreservedAnalyses::all();
 }
