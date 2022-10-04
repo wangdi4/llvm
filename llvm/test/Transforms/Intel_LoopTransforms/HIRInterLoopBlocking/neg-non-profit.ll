@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-hir-inter-loop-blocking=false -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-hir-inter-loop-blocking=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit 2>&1 < %s | FileCheck %s
+; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit 2>&1 < %s | FileCheck %s
 
 ; Verify the loop is not be affected by inter loop blocking.
 ; The input is not a profitable candidate because of "C" array, which are defs in both spatial loops.

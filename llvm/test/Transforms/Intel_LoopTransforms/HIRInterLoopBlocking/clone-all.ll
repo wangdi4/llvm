@@ -1,5 +1,7 @@
-; RUN: opt -disable-hir-inter-loop-blocking=false -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-hir-inter-loop-blocking=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
+; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
+; RUN: opt -disable-hir-inter-loop-blocking=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s --check-prefix=NOLIBIRC
+
 
 ; Verify that non-load instructions can be cloned before by-strip loops as needed
 
@@ -147,6 +149,10 @@
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
+
+; Verify that transformation is not triggered without libIRC.
+
+; NOLIBIRC-NOT: modified
 
 ;Module Before HIR
 ; ModuleID = 'blob-index-inner.f90'
