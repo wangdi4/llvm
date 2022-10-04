@@ -226,6 +226,13 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
     const loopopt::DDRef *HIRTemp = !IsMainLoopIV
                                         ? cast<VPBlob>(HIROperand)->getBlob()
                                         : OrigLoop->getUpperDDRef();
+    // Create a RegDDRef in case the live in/out is a BlobDDRef.
+    // Later in CG we expect the live in/outs to be RegDDRefs only.
+    if (!dyn_cast<loopopt::RegDDRef>(HIRTemp)) {
+      const loopopt::BlobDDRef *BlobRef = cast<loopopt::BlobDDRef>(HIRTemp);
+      HIRTemp = BlobRef->getDDRefUtils().createScalarRegDDRef(
+        BlobRef->getSymbase(), BlobRef->getSingleCanonExpr()->clone());
+    }
     LLVM_DEBUG(dbgs() << "HIR addOriginalLiveInOut: "
                       << "HIRTemp: ";
                HIRTemp->dump();
