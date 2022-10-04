@@ -764,6 +764,27 @@ bool sortPtrAccesses(ArrayRef<Value *> VL, Type *ElemTy, const DataLayout &DL,
 bool isConsecutiveAccess(Value *A, Value *B, const DataLayout &DL,
                          ScalarEvolution &SE, bool CheckType = true);
 
+#ifndef INTEL_CUSTOMIZATION
+class LoopAccessInfoManager {
+  /// The cache.
+  DenseMap<Loop *, std::unique_ptr<LoopAccessInfo>> LoopAccessInfoMap;
+
+  // The used analysis passes.
+  ScalarEvolution &SE;
+  AAResults &AA;
+  DominatorTree &DT;
+  LoopInfo &LI;
+  const TargetLibraryInfo *TLI = nullptr;
+
+public:
+  LoopAccessInfoManager(ScalarEvolution &SE, AAResults &AA, DominatorTree &DT,
+                        LoopInfo &LI, const TargetLibraryInfo *TLI)
+      : SE(SE), AA(AA), DT(DT), LI(LI), TLI(TLI) {}
+
+  const LoopAccessInfo &getInfo(Loop &L);
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// This analysis provides dependence information for the memory accesses
 /// of a loop.
 ///
@@ -819,9 +840,15 @@ class LoopAccessAnalysis
   static AnalysisKey Key;
 
 public:
+#ifdef INTEL_CUSTOMIZATION
   typedef LoopAccessInfo Result;
 
   Result run(Loop &L, LoopAnalysisManager &AM, LoopStandardAnalysisResults &AR);
+#else
+  typedef LoopAccessInfoManager Result;
+
+  Result run(Function &F, FunctionAnalysisManager &AM);
+#endif // INTEL_CUSTOMIZATION
 };
 
 inline Instruction *MemoryDepChecker::Dependence::getSource(

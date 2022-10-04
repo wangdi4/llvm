@@ -371,8 +371,9 @@ PreservedAnalyses LoopVersioningPass::run(Function &F,
                                           FunctionAnalysisManager &AM) {
   auto &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
   auto &LI = AM.getResult<LoopAnalysis>(F);
-  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F); // INTEL
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+#ifdef INTEL_CUSTOMIZATION
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
@@ -383,6 +384,12 @@ PreservedAnalyses LoopVersioningPass::run(Function &F,
                                       TLI, TTI, nullptr, nullptr, nullptr};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
+#else
+  LoopAccessInfoManager &LAIs = AM.getResult<LoopAccessAnalysis>(F);
+  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
+    return LAIs.getInfo(L);
+  };
+#endif // INTEL_CUSTOMIZATION
 
   if (runImpl(&LI, GetLAA, &DT, &SE))
     return PreservedAnalyses::none();

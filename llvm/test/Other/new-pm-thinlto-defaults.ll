@@ -319,7 +319,6 @@
 ; CHECK-POSTLINK-Os-NEXT: Running pass: InjectTLIMappings
 ; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
-; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-POSTLINK-O2-NEXT: Running pass: SLPVectorizerPass

@@ -2714,6 +2714,18 @@ void LoopAccessInfo::print(raw_ostream &OS, unsigned Depth) const {
   PSE->print(OS, Depth);
 }
 
+#ifndef INTEL_CUSTOMIZATION
+const LoopAccessInfo &LoopAccessInfoManager::getInfo(Loop &L) {
+  auto I = LoopAccessInfoMap.insert({&L, nullptr});
+
+  if (I.second)
+    I.first->second =
+        std::make_unique<LoopAccessInfo>(&L, &SE, TLI, &AA, &DT, &LI);
+
+  return *I.first->second;
+}
+#endif // INTEL_CUSTOMIZATION
+
 LoopAccessLegacyAnalysis::LoopAccessLegacyAnalysis() : FunctionPass(ID) {
   initializeLoopAccessLegacyAnalysisPass(*PassRegistry::getPassRegistry());
 }
@@ -2757,6 +2769,16 @@ void LoopAccessLegacyAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
 }
+
+#ifndef INTEL_CUSTOMIZATION
+LoopAccessInfoManager LoopAccessAnalysis::run(Function &F,
+                                              FunctionAnalysisManager &AM) {
+  return LoopAccessInfoManager(
+      AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
+      AM.getResult<DominatorTreeAnalysis>(F), AM.getResult<LoopAnalysis>(F),
+      &AM.getResult<TargetLibraryAnalysis>(F));
+}
+#endif // INTEL_CUSTOMIZATION
 
 char LoopAccessLegacyAnalysis::ID = 0;
 static const char laa_name[] = "Loop Access Analysis";

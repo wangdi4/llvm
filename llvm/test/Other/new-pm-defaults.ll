@@ -343,7 +343,6 @@
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
-; CHECK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass

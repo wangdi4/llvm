@@ -1044,6 +1044,7 @@ PreservedAnalyses LoopDistributePass::run(Function &F,
   auto &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
+#ifdef INTEL_CUSTOMIZATION
   // We don't directly need these analyses but they're required for loop
   // analyses so provide them below.
   auto &AA = AM.getResult<AAManager>(F);
@@ -1058,6 +1059,11 @@ PreservedAnalyses LoopDistributePass::run(Function &F,
                                       TLI, TTI, nullptr, nullptr, nullptr};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
+#else
+  LoopAccessInfoManager &LAIs = AM.getResult<LoopAccessAnalysis>(F);
+  std::function<const LoopAccessInfo &(Loop &)> GetLAA =
+      [&](Loop &L) -> const LoopAccessInfo & { return LAIs.getInfo(L); };
+#endif // INTEL_CUSTOMIZATION
 
   bool Changed = runImpl(F, &LI, &DT, &SE, &ORE, GetLAA);
   if (!Changed)
