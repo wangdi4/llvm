@@ -155,6 +155,10 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     if (Inst->getOpcode() == VPInstruction::Not)
       continue;
 
+    // Declare loop as unsafe if any instruction does not have underlying IR.
+    if (!Inst->HIR().getUnderlyingNode())
+      return VPlanIdioms::Unsafe;
+
     // FIXME: Without proper decomposition we have to parse predicates of
     // underlying IR.
     // Ideally, it's enough to visit all BBs and check safety for loads and
@@ -283,6 +287,10 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
 
     if (Inst->getOpcode() == VPInstruction::Not)
       continue;
+
+    // Declare loop as unsafe if any instruction does not have underlying IR.
+    if (!Inst->HIR().getUnderlyingNode())
+      return VPlanIdioms::Unsafe;
 
     // FIXME: Without proper decomposition we have to parse predicates of
     // underlying IR
