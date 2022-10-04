@@ -69,8 +69,8 @@ struct maxburst_key {
 };
 
 struct wait_request_key {
-  template<bool K>
-  using value_t = property_value<wait_request_key, std::integral_constant<bool, K>>;
+  template<int K>
+  using value_t = property_value<wait_request_key, std::integral_constant<int, K>>;
 };
 
 
@@ -91,7 +91,7 @@ template<int N>
 inline constexpr latency_key::value_t<N> latency;
 template<int N>
 inline constexpr maxburst_key::value_t<N> maxburst;
-template<bool Enable>
+template<int Enable>
 inline constexpr wait_request_key::value_t<Enable> wait_request;
 
 template<read_write_mode_enum Mode>
@@ -242,10 +242,10 @@ struct PropertyMetaInfo<maxburst_key::value_t<N>> {
   static constexpr const char *name = "sycl-maxburst";
   static constexpr int value = N;
 };
-template <bool Enable>
+template <int Enable>
 struct PropertyMetaInfo<wait_request_key::value_t<Enable>> {
   static constexpr const char *name = "sycl-wait-request";
-  static constexpr bool value = Enable;
+  static constexpr int value = Enable;
 };
 template <read_write_mode_enum Mode>
 struct PropertyMetaInfo<read_write_mode_key::value_t<Mode>> {
@@ -264,31 +264,31 @@ struct is_property_compatible : std::false_type {};
 
 template<typename T, int N>
 struct is_property_compatible<T, buffer_location_key::value_t<N>> 
-    : std::conditional_t<std::is_pointer<T>::value, std::true_type, std::false_type> {};
+    : std::bool_constant<std::is_pointer<T>::value> {};
 
 template<typename T, int W>
 struct is_property_compatible<T, awidth_key::value_t<W>> 
-    : std::conditional_t<std::is_pointer<T>::value, std::true_type, std::false_type> {};
+    : std::bool_constant<std::is_pointer<T>::value> {};
 
 template<typename T, int W>
 struct is_property_compatible<T, dwidth_key::value_t<W>> 
-    : std::conditional_t<std::is_pointer<T>::value, std::true_type, std::false_type> {};
+    : std::bool_constant<std::is_pointer<T>::value> {};
 
 template<typename T, int N>
 struct is_property_compatible<T, latency_key::value_t<N>> 
-    : std::conditional_t<std::is_pointer<T>::value, std::true_type, std::false_type> {};
+    : std::bool_constant<std::is_pointer<T>::value> {};
 
 template<typename T, read_write_mode_enum Mode>
 struct is_property_compatible<T, read_write_mode_key::value_t<Mode>> 
-    : std::conditional_t<std::is_pointer<T>::value, std::true_type, std::false_type> {};
+    : std::bool_constant<std::is_pointer<T>::value> {};
 
 template<typename T, int N>
 struct is_property_compatible<T, maxburst_key::value_t<N>> 
-    : std::conditional_t<std::is_pointer<T>::value, std::true_type, std::false_type> {};
+    : std::bool_constant<std::is_pointer<T>::value> {};
 
-template<typename T, bool Enable>
+template<typename T, int Enable>
 struct is_property_compatible<T, wait_request_key::value_t<Enable>> 
-    : std::conditional_t<std::is_pointer<T>::value, std::true_type, std::false_type> {};
+    : std::bool_constant<std::is_pointer<T>::value> {};
 
 // 'register_map',  'conduit',  'stable' are common properties for pointers 
 // and non pointers; 

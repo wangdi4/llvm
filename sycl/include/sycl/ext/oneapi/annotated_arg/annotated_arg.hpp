@@ -75,13 +75,24 @@ public:
   annotated_arg(const T& _obj) : obj(_obj) {};
 
   operator T&() {
-    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of device_global to T")
+    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of annotated_arg to T")
     return obj;
   }
   operator const T&() const {
-    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of device_global to T")
+    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of annotated_arg to T")
     return obj;
   }
+
+  // template<typename RelayT = T, typename = std::enable_if_t<std::is_pointer<RelayT>::value>>
+  // std::remove_pointer_t<RelayT> operator [](std::ptrdiff_t idx) {
+  //   __SYCL_HOST_NOT_SUPPORTED("operator[] on an annotated_arg")
+  //   return obj[idx];
+  // }
+
+  // auto operator [](std::ptrdiff_t idx) {
+  //   __SYCL_HOST_NOT_SUPPORTED("operator[] on an annotated_arg")
+  //   return obj[idx];
+  // }
 
   inline T& get() {
     __SYCL_HOST_NOT_SUPPORTED("get()")
