@@ -15,7 +15,9 @@ namespace llvm {
 
 class LPMUpdater;
 class Loop;
+#ifndef INTEL_CUSTOMIZATION
 class Function;
+#endif // INTEL_CUSTOMIZATION
 class raw_ostream;
 
 /// Printer pass for the \c LoopAccessInfo results.
@@ -25,7 +27,12 @@ class LoopAccessInfoPrinterPass
 
 public:
   explicit LoopAccessInfoPrinterPass(raw_ostream &OS) : OS(OS) {}
+#ifdef INTEL_CUSTOMIZATION
+  PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
+                        LoopStandardAnalysisResults &AR, LPMUpdater &U);
+#else
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // End llvm namespace

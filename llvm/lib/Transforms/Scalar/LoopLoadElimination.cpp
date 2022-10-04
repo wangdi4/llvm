@@ -756,17 +756,32 @@ PreservedAnalyses LoopLoadEliminationPass::run(Function &F,
   if (LI.empty())
     return PreservedAnalyses::all();
   auto &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F); // INTEL
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F); // INTEL
+  auto &AA = AM.getResult<AAManager>(F); // INTEL
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   auto *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
+#ifndef INTEL_CUSTOMIZATION
   LoopAccessInfoManager &LAIs = AM.getResult<LoopAccessAnalysis>(F);
+#endif //  INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+  auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
+  bool Changed = eliminateLoadsAcrossLoops(
+      F, LI, DT, BFI, PSI, &SE, &AC, [&](Loop &L) -> const LoopAccessInfo & {
+        LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,      SE,
+                                          TLI, TTI, nullptr, nullptr, nullptr};
+        return LAM.getResult<LoopAccessAnalysis>(L, AR);
+      });
+#else
   bool Changed = eliminateLoadsAcrossLoops(
       F, LI, DT, BFI, PSI, &SE, &AC,
       [&](Loop &L) -> const LoopAccessInfo & { return LAIs.getInfo(L); });
+#endif // INTEL_CUSTOMIZATION
 
   if (!Changed)
     return PreservedAnalyses::all();

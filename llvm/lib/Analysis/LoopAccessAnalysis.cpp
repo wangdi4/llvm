@@ -2714,6 +2714,7 @@ void LoopAccessInfo::print(raw_ostream &OS, unsigned Depth) const {
   PSE->print(OS, Depth);
 }
 
+#ifndef INTEL_CUSTOMIZATION
 const LoopAccessInfo &LoopAccessInfoManager::getInfo(Loop &L) {
   auto I = LoopAccessInfoMap.insert({&L, nullptr});
 
@@ -2723,6 +2724,7 @@ const LoopAccessInfo &LoopAccessInfoManager::getInfo(Loop &L) {
 
   return *I.first->second;
 }
+#endif // INTEL_CUSTOMIZATION
 
 LoopAccessLegacyAnalysis::LoopAccessLegacyAnalysis() : FunctionPass(ID) {
   initializeLoopAccessLegacyAnalysisPass(*PassRegistry::getPassRegistry());
@@ -2768,6 +2770,7 @@ void LoopAccessLegacyAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
 }
 
+#ifndef INTEL_CUSTOMIZATION
 LoopAccessInfoManager LoopAccessAnalysis::run(Function &F,
                                               FunctionAnalysisManager &AM) {
   return LoopAccessInfoManager(
@@ -2775,6 +2778,7 @@ LoopAccessInfoManager LoopAccessAnalysis::run(Function &F,
       AM.getResult<DominatorTreeAnalysis>(F), AM.getResult<LoopAnalysis>(F),
       &AM.getResult<TargetLibraryAnalysis>(F));
 }
+#endif // INTEL_CUSTOMIZATION
 
 char LoopAccessLegacyAnalysis::ID = 0;
 static const char laa_name[] = "Loop Access Analysis";
@@ -2788,6 +2792,11 @@ INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_END(LoopAccessLegacyAnalysis, LAA_NAME, laa_name, false, true)
 
 AnalysisKey LoopAccessAnalysis::Key;
+
+LoopAccessInfo LoopAccessAnalysis::run(Loop &L, LoopAnalysisManager &AM,
+                                       LoopStandardAnalysisResults &AR) {
+  return LoopAccessInfo(&L, &AR.SE, &AR.TLI, &AR.AA, &AR.DT, &AR.LI);
+}
 
 namespace llvm {
 
