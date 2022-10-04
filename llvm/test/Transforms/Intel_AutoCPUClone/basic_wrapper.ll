@@ -6,18 +6,18 @@
 ; CHECK-NEXT: @__intel_cpu_feature_indicator = external global [2 x i64]
 ; CHECK-NEXT: @foo.ptr = internal global ptr null
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @baz.A(i32 %a) #0 !llvm.acd.clone !0 {
+; CHECK-NEXT: define i32 @baz.A(i32 %a) #0 comdat !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %add = add i32 %a, 42
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @foo.A(i32 %a) #0 !llvm.acd.clone !0 {
+; CHECK-NEXT: define i32 @foo.A(i32 %a) #0 comdat !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %ret = call i32 @baz.A(i32 33)
 ; CHECK-NEXT:   %add = add i32 %a, %ret
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @bar(i32 %a) #0 {
+; CHECK-NEXT: define i32 @bar(i32 %a) #0 comdat {
 ; CHECK-NEXT:   %ret = call i32 @foo(i32 42)
 ; CHECK-NEXT:   ret i32 %ret
 ; CHECK-NEXT: }
@@ -98,18 +98,22 @@
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc19.29.30133"
 
-define i32 @baz(i32 %a) !llvm.auto.cpu.dispatch !0 {
+$baz = comdat any
+$foo = comdat any
+$bar = comdat any
+
+define i32 @baz(i32 %a) comdat !llvm.auto.cpu.dispatch !0 {
   %add = add i32 %a, 42
   ret i32 %add
 }
 
-define i32 @foo(i32 %a) !llvm.auto.cpu.dispatch !0 {
+define i32 @foo(i32 %a) comdat !llvm.auto.cpu.dispatch !0 {
   %ret = call i32 @baz(i32 33)
   %add = add i32 %a, %ret
   ret i32 %add
 }
 
-define i32 @bar(i32 %a) {
+define i32 @bar(i32 %a) comdat {
   %ret = call i32 @foo(i32 42)
   ret i32 %ret
 }
