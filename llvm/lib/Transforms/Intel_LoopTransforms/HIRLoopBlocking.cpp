@@ -2231,6 +2231,10 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
 
 bool HIRLoopBlocking::run(bool ForPragma) {
 
+  if (!TTI.isLibIRCAllowed()) {
+    return false;
+  }
+
   // Collect innermost loops first
   // Many of collections of data can be applied because we are
   // working on perfect or near-perfect loop
