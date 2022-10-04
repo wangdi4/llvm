@@ -1711,16 +1711,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
             FTy.getParamType(1)->isIntegerTy());
 
-<<<<<<< HEAD
   case LibFunc_msvc_std_basic_ostream_vector_deleting_dtor:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
             FTy.getParamType(1)->isIntegerTy());
-=======
-  unsigned IntBits = getIntSize();
-  unsigned SizeTBits = getSizeTSize(M);
-  unsigned Idx = 0;
->>>>>>> 66fcdfca4d4587fcf93e15859e330ce5d671de82
 
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
@@ -5645,12 +5639,8 @@ case LibFunc_under_commit:
     break;
   }
 
-  // FIXME: There is no guarantee that sizeof(size_t) is equal to
-  // sizeof(int*) for every target. So the assumption used here to derive
-  // the SizeTBits based on the size of an integer pointer in address space
-  // zero isn't always valid.
   unsigned IntBits = getIntSize();
-  unsigned SizeTBits = M.getDataLayout().getPointerSizeInBits(/*AddrSpace=*/0);
+  unsigned SizeTBits = getSizeTSize(M);
   unsigned Idx = 0;
 
   // Iterate over the type ids in the function prototype, matching each
