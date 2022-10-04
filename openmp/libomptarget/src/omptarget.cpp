@@ -1761,6 +1761,11 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
           TgtPtrBegin = HstPtrBegin;
           TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
         }
+      } else if (!TPR.isPresent() && !TPR.isHostPointer()) {
+        // Current getTgtPtrBegin retains the original host pointer if matching
+        // device pointer is not found, but we cannot pass it as kernel
+        // argument.
+        TgtPtrBegin = nullptr;
       }
 #else // INTEL COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)
