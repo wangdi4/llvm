@@ -310,7 +310,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
                   ? (InputFile *)createObjFile(p.first, path, true)
                   : make<BitcodeFile>(p.first, path, p.second, true);
           if (lazyFile->isGNULTOFile)
-            ctx->lazyGNULTOFiles.push_back(lazyFile);
+            ctx.lazyGNULTOFiles.push_back(lazyFile);
           else
             files.push_back(lazyFile);
         } else {
@@ -366,7 +366,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
                              ? (InputFile*)createObjFile(p.first, path, true)
                              : make<BitcodeFile>(p.first, path, p.second, true);
         if (lazyFile->isGNULTOFile)
-          ctx->lazyGNULTOFiles.push_back(lazyFile);
+          ctx.lazyGNULTOFiles.push_back(lazyFile);
         else
           files.push_back(lazyFile);
       }
@@ -412,7 +412,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     {
       auto *objFile = createObjFile(mbref, "", inLib);
       if (objFile->isGNULTOFile)
-        ctx->gnuLTOFiles.push_back(objFile);
+        ctx.gnuLTOFiles.push_back(objFile);
       else
         files.push_back(objFile);
     }
@@ -1834,13 +1834,13 @@ void LinkerDriver::createFiles(opt::InputArgList &args) {
 
 #if INTEL_CUSTOMIZATION
   // Process the GNU LTO files
-  if (!ctx->gnuLTOFiles.empty())
-    finalizeGNULTO(ctx->gnuLTOFiles, /* isLazyFile */ false);
+  if (!ctx.gnuLTOFiles.empty())
+    finalizeGNULTO(ctx.gnuLTOFiles, /* isLazyFile */ false);
 
   // If there are GNU LTO files in archives then we need to do a partial
   // linking in order to preserve the the lazy symbols.
-  if (!ctx->lazyGNULTOFiles.empty())
-    finalizeGNULTO(ctx->lazyGNULTOFiles, /* isLazyFile */ true);
+  if (!ctx.lazyGNULTOFiles.empty())
+    finalizeGNULTO(ctx.lazyGNULTOFiles, /* isLazyFile */ true);
 #endif // INTEL_CUSTOMIZATION
 
   if (files.empty() && !hasInput && errorCount() == 0)
