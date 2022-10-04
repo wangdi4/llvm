@@ -43,8 +43,6 @@ namespace llvm {
   //
   ImmutablePass *createObjCARCAAWrapperPass();
 
-  FunctionPass *createPAEvalPass();
-
   //===--------------------------------------------------------------------===//
   //
   /// createLazyValueInfoPass - This creates an instance of the LazyValueInfo
