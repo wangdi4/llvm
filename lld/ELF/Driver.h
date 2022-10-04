@@ -26,13 +26,13 @@
 #ifndef LLD_ELF_DRIVER_H
 #define LLD_ELF_DRIVER_H
 
-#include "LTO.h"
 #include "lld/Common/LLVM.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 
 namespace lld::elf {
+<<<<<<< HEAD
 class InputFile;
 
 extern std::unique_ptr<class LinkerDriver> driver;
@@ -79,6 +79,8 @@ public:
   SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
 };
 
+=======
+>>>>>>> f596d82385a0fdf45543fb4266dc9832f4b64d8d
 // Parses command line options.
 class ELFOptTable : public llvm::opt::OptTable {
 public:

@@ -32,7 +32,7 @@
 // linker path or library paths) for each host OS.
 //
 // I don't think implicit default values are useful because they are
-// usually explicitly specified by the compiler driver. They can even
+// usually explicitly specified by the compiler ctx.driver. They can even
 // be harmful when you are doing cross-linking. Therefore, in LLD, we
 // simply trust the compiler driver to pass all required options and
 // don't try to make effort on our side.
@@ -44,6 +44,7 @@
 #include "ICF.h"
 #include "InputFiles.h"
 #include "InputSection.h"
+#include "LTO.h"
 #include "LinkerScript.h"
 #include "MarkLive.h"
 #include "OutputSections.h"
@@ -94,7 +95,6 @@ using namespace lld::elf;
 
 ConfigWrapper elf::config;
 Ctx elf::ctx;
-std::unique_ptr<LinkerDriver> elf::driver;
 
 static void setConfigs(opt::InputArgList &args);
 static void readConfigs(opt::InputArgList &args);
@@ -107,6 +107,7 @@ void elf::errorOrWarn(const Twine &msg) {
 }
 
 void Ctx::reset() {
+  driver = LinkerDriver();
   memoryBuffers.clear();
   objectFiles.clear();
   sharedFiles.clear();
@@ -150,7 +151,6 @@ bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
                                  "--error-limit=0 to see all errors)";
 
   config = ConfigWrapper();
-  driver = std::make_unique<LinkerDriver>();
   script = std::make_unique<LinkerScript>();
 
   symAux.emplace_back();
@@ -160,7 +160,7 @@ bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
 
   config->progName = args[0];
 
-  driver->linkerMain(args);
+  elf::ctx.driver.linkerMain(args);
 
   return errorCount() == 0;
 }
@@ -2267,7 +2267,7 @@ static void writeArchiveStats() {
   for (BitcodeFile *file : ctx.bitcodeFiles)
     if (file->archiveName.size())
       ++extracted[CachedHashStringRef(file->archiveName)];
-  for (std::pair<StringRef, unsigned> f : driver->archiveFiles) {
+  for (std::pair<StringRef, unsigned> f : ctx.driver.archiveFiles) {
     unsigned &v = extracted[CachedHashString(f.first)];
     os << f.second << '\t' << v << '\t' << f.first << '\n';
     // If the archive occurs multiple times, other instances have a count of 0.
