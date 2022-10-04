@@ -3464,8 +3464,6 @@ private:
     // specific details.
     bool canExtendTowards(ArrayRef<Value *> VL) const {
       auto &&HasExternalUsesToMultiNode = [this](ArrayRef<Value *> VL) {
-        assert((!R.getTreeEntry(VL[0]) || R.getTreeEntry(VL[0])->Idx != 0) &&
-               "This VL is at the root!");
         for (Value *Scalar : VL) {
           if (any_of(Scalar->users(), [this](User *U) {
                 // If a user is not in a vectorizable tree, it is definitely not

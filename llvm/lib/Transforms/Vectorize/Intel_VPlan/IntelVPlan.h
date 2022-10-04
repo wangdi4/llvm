@@ -2485,7 +2485,7 @@ private:
 // Other binary operations are not induction-compatible.
 class VPInductionInitStep : public VPInstruction {
 public:
-  VPInductionInitStep(VPValue *Step, Instruction::BinaryOps Opcode)
+  VPInductionInitStep(VPValue *Step, unsigned Opcode)
       : VPInstruction(VPInstruction::InductionInitStep, Step->getType(),
                       {Step}),
         BinOpcode(Opcode) {}
@@ -2502,7 +2502,7 @@ public:
   static inline bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
-  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+  unsigned getBinOpcode() const { return BinOpcode; }
 
 protected:
   // Clones VPInductionInitStep.
@@ -2513,7 +2513,7 @@ protected:
   }
 
 private:
-  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  unsigned BinOpcode = VPInduction::UnknownOpcode;
   bool IsMainLoopIV = false;
 };
 
@@ -2535,7 +2535,7 @@ public:
 
   /// Constructor to calculate using close-form (start+step*rounded_tc). The
   /// rounded trip count is known at code generation.
-  VPInductionFinal(VPValue *Start, VPValue *Step, Instruction::BinaryOps Opcode)
+  VPInductionFinal(VPValue *Start, VPValue *Step, unsigned Opcode)
       : VPInstruction(VPInstruction::InductionFinal, Start->getType(),
                       {Start, Step}),
         BinOpcode(Opcode) {}
@@ -2571,7 +2571,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+  unsigned getBinOpcode() const { return BinOpcode; }
 
   /// Return true if start value is used in induction last value calculation.
   bool usesStartValue() const { return false; }
@@ -2596,7 +2596,7 @@ protected:
 private:
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
-  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  unsigned BinOpcode = VPInduction::UnknownOpcode;
 };
 
 // VPInstruction for reduction initialization.

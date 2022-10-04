@@ -85,7 +85,7 @@ void DTransImmutableInfo::addStructFieldInfo(
 
     // We need to sort the map to prevent any non-deterministic result.
     SmallVector<std::pair<Constant*, Constant*>, 2> TempVect;
-    for (auto Pair : ConstEntriesInArray)
+    for (const auto &Pair : ConstEntriesInArray)
       if (Pair.second)
         TempVect.push_back(std::make_pair(Pair.first, Pair.second));
 

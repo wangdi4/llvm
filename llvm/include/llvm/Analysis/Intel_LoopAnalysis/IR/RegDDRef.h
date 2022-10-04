@@ -771,6 +771,12 @@ public:
     return isTerminalRef() && getSingleCanonExpr()->isFPConstant(Val);
   }
 
+  /// Returns true if this RegDDRef represents a vector of constant FP values.
+  /// Put the underlying LLVM Value in Val.
+  bool isFPVectorConstant(Constant **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isFPVectorConstant(Val);
+  }
+
   /// Returns true if this RegDDRef represents a vector of constants.
   /// Put the underlying LLVM Value in Val
   bool isConstantVector(Constant **Val = nullptr) const {

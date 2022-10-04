@@ -9561,8 +9561,12 @@ public:
         continue;
       MappableExprsHandler::OpenMPOffloadMappingFlags Type =
           MappableExprsHandler::OMP_MAP_MEMBER_OF |
-          MappableExprsHandler::OMP_MAP_PTR_AND_OBJ |
-          MappableExprsHandler::OMP_MAP_TO;
+          MappableExprsHandler::OMP_MAP_PTR_AND_OBJ;
+      if (VD && isFirstPrivateDecls(VD))
+        Type |= MappableExprsHandler::OMP_MAP_IMPLICIT |
+                 MappableExprsHandler::OMP_MAP_LITERAL;
+      else
+        Type |= MappableExprsHandler::OMP_MAP_TO;
       CurInfo.Exprs.emplace_back(VD ? VD : CurInfo.Exprs[0]);
       CurInfo.BasePointers.push_back(BP);
       CurInfo.Pointers.push_back(VPtrValue);

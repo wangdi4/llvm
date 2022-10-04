@@ -528,7 +528,7 @@ bool MemManageCandidateInfo::isStringObjectType(DTransType *Ty) {
 
   auto *FirstElem =
       dyn_cast_or_null<DTransStructType>(StructTy->getFieldType(0));
-  if (FirstElem->getNumFields() != NumStringObjectElems + 1)
+  if (!FirstElem || FirstElem->getNumFields() != NumStringObjectElems + 1)
     return false;
 
   // Don't allow any field types except structure or double in the first

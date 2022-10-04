@@ -1,8 +1,9 @@
-; RUN: opt -auto-cpu-clone < %s -S | FileCheck %s
-; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; The test checks that functions that have linkonce or weak linkage are not
 ; multiversioned.
+
 
 ; CHECK: define weak_odr dso_local i32 @_Z3foo_weak_odrv(i32 %a)
 ; CHECK-NOT: @_Z3foo_weak_odrv.A(i32 %a)
@@ -23,6 +24,7 @@
 ; CHECK-NOT: @_Z3foo_linkonce_odrv.A(i32 %a)
 ; CHECK-NOT: @_Z3foo_linkonce_odrv.X(i32 %a)
 ; CHECK-NOT: @_Z3foo_linkonce_odrv.resolver(i32 %a)
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

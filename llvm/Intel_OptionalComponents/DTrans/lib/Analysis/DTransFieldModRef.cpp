@@ -1405,7 +1405,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::populateResults(
       ++FieldNum;
     }
 
-    for (auto It : IndirectFieldReaders) {
+    for (const auto &It : IndirectFieldReaders) {
       llvm::StructType *StTy = It.first.first;
       size_t FieldNum = It.first.second;
       if (FMRResult.isCandidate(StTy, FieldNum))

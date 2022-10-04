@@ -120,6 +120,10 @@ static cl::opt<bool>
                         cl::desc("Print statistics used by the cost model to "
                                  "decide whether to build HIR region"));
 
+static cl::opt<bool> AllowLargeIntegers(
+    "hir-allow-large-integers", cl::init(false), cl::Hidden,
+    cl::desc("Option to allow integers greater than 64 bits in HIR"));
+
 STATISTIC(RegionCount, "Number of regions created");
 
 AnalysisKey HIRRegionIdentificationAnalysis::Key;
@@ -573,10 +577,11 @@ static void printOptReportRemark(const Loop *Lp, const Instruction *Inst,
 
 bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
                                           const Instruction *Inst,
-                                          const Loop *Lp) {
+                                          const Loop *Lp,
+                                          bool IsLastIndexedType) {
   assert(Ty && "Type is null!");
 
-  if (IsGEPRelated && isa<VectorType>(Ty)) {
+  if (IsGEPRelated && !IsLastIndexedType && isa<VectorType>(Ty)) {
     printOptReportRemark(Lp, Inst,
                          "GEP related vector types currently not supported.");
 
@@ -589,6 +594,18 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
     // such CG fails for this type so we need to disallow it.
     printOptReportRemark(Lp, Inst, "x86_amx type is not supported.");
     return false;
+  }
+
+  if (!AllowLargeIntegers) {
+    auto *IntType = dyn_cast<IntegerType>(Ty);
+    // Integer type greater than 64 bits not supported. This is mainly to
+    // throttle 128 bit integers.
+    if (IntType && (IntType->getPrimitiveSizeInBits() > 64)) {
+      printOptReportRemark(
+          Lp, Inst,
+          "Integer types greater than 64 bits currently not supported.");
+      return false;
+    }
   }
 
   return true;
@@ -622,10 +639,13 @@ bool HIRRegionIdentification::containsUnsupportedTy(
   unsigned OperandNum = 2;
   for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E;
        ++I, ++OperandNum) {
+
+    bool IsLastIndexedType = (std::next(I) == E);
+
     auto *IType = I.getIndexedType();
     assert(IType && "Indexed type is missing");
 
-    if (!isSupported(IType, true, GEPInst, Lp)) {
+    if (!isSupported(IType, true, GEPInst, Lp, IsLastIndexedType)) {
       return true;
     }
 

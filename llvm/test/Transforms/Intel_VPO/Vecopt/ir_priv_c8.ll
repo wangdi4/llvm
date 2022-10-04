@@ -29,7 +29,6 @@ define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i32* [[VP0:%.*]] = phi  [ i32* [[VP__IND_INIT]], [[BB1]] ],  [ i32* [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP__OMP_IV_LOCAL_011:%.*]] = phi  [ i32 [[VP__OMP_IV_LOCAL_011_IND_INIT]], [[BB1]] ],  [ i32 [[VP_ADD2:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP1]] = getelementptr inbounds i32* [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP0]] i64 1
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = load i32* [[VP0]]
 ; CHECK-NEXT:     i32 [[VP_ADD2]] = add i32 [[VP__OMP_IV_LOCAL_011]] i32 [[VP__OMP_IV_LOCAL_011_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD2]] i32 [[VP_VECTOR_TRIP_COUNT]]

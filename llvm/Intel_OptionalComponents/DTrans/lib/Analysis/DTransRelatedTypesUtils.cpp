@@ -83,7 +83,7 @@ RelatedTypesSDHandler::RelatedTypesSDHandler() {
       {dtrans::UnsafePointerStoreRelatedTypes,
        dtrans::UnsafePointerStore});
 
-  for (auto Pair : RelatedSDToOriginalSDMap)
+  for (const auto &Pair : RelatedSDToOriginalSDMap)
     AllRelatedTypesSafety |= Pair.first;
 
 }
@@ -95,7 +95,7 @@ RelatedTypesSDHandler::RelatedTypesSDHandler() {
 dtrans::SafetyData RelatedTypesSDHandler::computeRelatedTypesSafetyData(
     dtrans::TypeInfo *TI) {
   dtrans::SafetyData Result = dtrans::NoIssues;
-  for (auto Pair : RelatedSDToOriginalSDMap) {
+  for (const auto &Pair : RelatedSDToOriginalSDMap) {
     if (TI->testSafetyData(Pair.second))
       Result |= Pair.first;
   }
@@ -112,7 +112,7 @@ void RelatedTypesSDHandler::revertSafetyDataToOriginal(
   if (SDToConvert == dtrans::NoIssues)
     return;
 
-  for (auto Pair : RelatedSDToOriginalSDMap) {
+  for (const auto &Pair : RelatedSDToOriginalSDMap) {
     if (SDToConvert & Pair.first) {
       if (!TI->testSafetyData(Pair.first))
         continue;
@@ -128,7 +128,7 @@ void RelatedTypesSDHandler::revertSafetyDataToOriginal(
 // disable them, and turn on BadCasting and BadMemFuncManipulation.
 void RelatedTypesSDHandler::revertAllSafetyDataToOriginal(
     dtrans::TypeInfo *TI) {
-  for (auto Pair : RelatedSDToOriginalSDMap) {
+  for (const auto &Pair : RelatedSDToOriginalSDMap) {
     if (!TI->testSafetyData(Pair.first))
       continue;
     TI->resetSafetyData(Pair.first);
@@ -174,7 +174,7 @@ void RelatedTypesSDHandler::convertSafetyDataCascade(
 
   // Cascade the conversion
   if (auto *StructTy = dyn_cast<DTransStructType>(CurrTy)) {
-    for (auto Field : StructTy->elements()) {
+    for (const auto &Field : StructTy->elements()) {
       DTransType *FieldTy = Field.getType();
       if (!FieldTy)
         continue;
@@ -510,7 +510,7 @@ void DTransRelatedTypesUtils::analyzeFieldsWithArrayConstantEntries(
     if (FromFieldMap.empty())
       return;
 
-    for (auto Pair : FromFieldMap) {
+    for (const auto &Pair : FromFieldMap) {
       Constant *Index = Pair.first;
       Constant *Value = Pair.second;
 
