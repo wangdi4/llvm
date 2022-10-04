@@ -2775,7 +2775,8 @@ private:
 
     DTransType *DType = nullptr;
     Function *Target = dtrans::getCalledFunction(*Call);
-    if (Call->isIndirectCall())
+    // Use type on original indirect call for Devirt's specialized calls.
+    if (Call->isIndirectCall() || Call->getMetadata("_Intel.Devirt.Call"))
       DType = MDReader.getDTransTypeFromMD(Call);
     else if (Target)
       DType = MDReader.getDTransTypeFromMD(Target);
