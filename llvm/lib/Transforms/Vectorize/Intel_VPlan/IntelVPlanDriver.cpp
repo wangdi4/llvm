@@ -1258,13 +1258,9 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
   auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
-  auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
-  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI, *SE,
-                                      *TLI, *TTI, BFI, nullptr /* BPI */,
-                                      nullptr /* MemorySSA */};
-    return LAM.getResult<LoopAccessAnalysis>(L, AR);
-  };
+  LoopAccessInfoManager &LAIs = AM.getResult<LoopAccessAnalysis>(F);
+    std::function<const LoopAccessInfo &(Loop &)> GetLAA =
+        [&](Loop &L) -> const LoopAccessInfo & { return LAIs.getInfo(L); };
 
   if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
                     TLI, BFI, nullptr, nullptr))
