@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1580,7 +1580,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Populate DelinearizedGroupIndices with indexes where
     // DelinearizedGroups[I] is not empty.
-    for (auto Group : enumerate(DelinearizedGroups)) {
+    for (auto &Group : enumerate(DelinearizedGroups)) {
       if (!Group.value().empty()) {
         Context.DelinearizedGroupIndices.push_back(Group.index());
       }
@@ -2195,7 +2195,7 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
 
   // The splited group should have the same ScopeId as its original group.
   // Thus, we need to merge the split group back to the original group.
-  for (auto Idx : SplitedGroupsOriginalIndices) {
+  for (auto &Idx : SplitedGroupsOriginalIndices) {
     unsigned GroupId = Idx.first;
     unsigned OriginalId = Idx.second;
     Groups[OriginalId].append(Groups[GroupId].begin(), Groups[GroupId].end());

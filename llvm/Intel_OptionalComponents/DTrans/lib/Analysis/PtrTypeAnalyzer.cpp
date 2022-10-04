@@ -2775,7 +2775,8 @@ private:
 
     DTransType *DType = nullptr;
     Function *Target = dtrans::getCalledFunction(*Call);
-    if (Call->isIndirectCall())
+    // Use type on original indirect call for Devirt's specialized calls.
+    if (Call->isIndirectCall() || Call->getMetadata("_Intel.Devirt.Call"))
       DType = MDReader.getDTransTypeFromMD(Call);
     else if (Target)
       DType = MDReader.getDTransTypeFromMD(Target);
@@ -4062,7 +4063,7 @@ private:
       // %x contains a pointer alias type and an element pointee of a structure,
       // but %z is just being updated to be the pointee type from %x.
       if (DerefLevel == DerefType::DT_SameType)
-        for (auto PointeePair : SrcInfo->getElementPointeeSet(Kind))
+        for (const auto &PointeePair : SrcInfo->getElementPointeeSet(Kind))
           LocalChanged |= DestInfo->addElementPointee(Kind, PointeePair);
 
       return LocalChanged;

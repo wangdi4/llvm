@@ -1,5 +1,5 @@
 //===- DDTests.cpp - Data dependence testing between two DDRefs -----------===//
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -905,6 +905,7 @@ void Dependences::dump(raw_ostream &OS) const {
       if (II != Levels) {
         OS << " ";
       }
+      Splitable |= isSplitable(II);
     }
     OS << ")\n";
 
@@ -5671,7 +5672,7 @@ bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
   // to be supported. But multiple levels vectorization is not
   // currently generated
   for (; II >= 1; --II, Lp = Lp->getParentLoop()) {
-    if (Lp->hasVectorizeIVDepPragma()) {
+    if (Lp && Lp->hasVectorizeIVDepPragma()) {
       IVDEPFound = true;
       if (!SameBase) {
         // Do not change the result if it was already better than '='

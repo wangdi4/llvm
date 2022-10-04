@@ -173,7 +173,7 @@ void dtrans::FieldWithConstantArray::printFieldFull() {
     dbgs() << " No constant data found";
   } else {
     dbgs() << "\n";
-    for (auto ConstantEntry : ConstantEntries) {
+    for (const auto &ConstantEntry : ConstantEntries) {
       if (ConstantEntry.second)
         dbgs() << "      Index: " << *ConstantEntry.first
                << "      Value: " << *ConstantEntry.second << "\n";
@@ -208,7 +208,7 @@ void dtrans::FieldWithConstantArray::printFieldSimple() {
     dbgs() << " No constant data found";
   } else {
     dbgs() << "\n";
-    for (auto ConstantEntry : ConstantEntries) {
+    for (const auto &ConstantEntry : ConstantEntries) {
       if (ConstantEntry.second)
         dbgs() << "      Index: " << *ConstantEntry.first
                << "      Value: " << *ConstantEntry.second << "\n";
@@ -1068,7 +1068,7 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
   // we can't handle at the moment.
   auto DisableAll = [&StructsWithConstArrays, I]() {
     (void)I;
-    for (auto StructData : StructsWithConstArrays) {
+    for (const auto &StructData : StructsWithConstArrays) {
       StructData.second->clean();
       delete StructData.second;
     }
@@ -1491,7 +1491,7 @@ insertConstantData(DTransAnalysisInfo *DTInfo,
   if (!DTInfo || StructsWithConstArrays.empty())
     return;
 
-  for (auto &Struct : StructsWithConstArrays) {
+  for (const auto &Struct : StructsWithConstArrays) {
     if (Struct.second->isStructureDisabled())
       continue;
 
@@ -1505,7 +1505,7 @@ insertConstantData(DTransAnalysisInfo *DTInfo,
       unsigned FieldNum = Field->getFieldNumber()->getZExtValue();
       auto &FieldInfo = STInfo->getField(FieldNum);
       bool DataInserted = false;
-      for (auto ConstEntry : Field->getConstantEntires()) {
+      for (const auto &ConstEntry : Field->getConstantEntires()) {
         if (ConstEntry.first && ConstEntry.second) {
           DataInserted = true;
           FieldInfo.addConstantEntryIntoTheArray(
@@ -1538,7 +1538,7 @@ void printResults(DenseMap<llvm::StructType *, StructWithArrayFields *>
 
   dbgs() << "\n";
   bool NoStructs = false;
-  for (auto Struct : StructsWithConstArrays) {
+  for (const auto &Struct : StructsWithConstArrays) {
     if (Struct.second->isStructureDisabled() && !PrintAll)
       continue;
     Struct.second->printStructureSimple(PrintAll);

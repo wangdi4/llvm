@@ -983,7 +983,7 @@ bool dtrans::FieldInfo::isFieldAnArrayWithConstEntries() {
     return false;
 
   // If all entries are nullptr then we don't have any information
-  for (auto Pair : ArrayWithConstEntriesMap)
+  for (const auto &Pair : ArrayWithConstEntriesMap)
     if (Pair.second)
       return true;
 
@@ -1002,7 +1002,7 @@ void dtrans::FieldInfo::generateArraysWithConstInmmutableData() {
   assert(ArrayWithConstEntriesMap.empty() &&
          "Incorrect arrays with constant entries data collection");
 
-  for (auto Pair : ArrayConstEntries)
+  for (const auto &Pair : ArrayConstEntries)
     if (Pair.second)
       ArrayWithConstEntriesMap.insert({Pair.first, Pair.second});
 }
@@ -1253,7 +1253,7 @@ dtrans::FreeCallInfo *CallInfoManager::createFreeCallInfo(Instruction *I,
 dtrans::MemfuncCallInfo *
 CallInfoManager::createMemfuncCallInfo(Instruction *I,
                                        dtrans::MemfuncCallInfo::MemfuncKind MK,
-                                       dtrans::MemfuncRegion &MR) {
+                                       const dtrans::MemfuncRegion &MR) {
   dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR);
   addCallInfo(I, Info);
   return Info;
@@ -1261,7 +1261,7 @@ CallInfoManager::createMemfuncCallInfo(Instruction *I,
 
 dtrans::MemfuncCallInfo *CallInfoManager::createMemfuncCallInfo(
     Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2) {
+    const dtrans::MemfuncRegion &MR1, const dtrans::MemfuncRegion &MR2) {
   dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR1, MR2);
   addCallInfo(I, Info);
   return Info;
@@ -1303,8 +1303,8 @@ void CallInfoManager::replaceCallInfoInstruction(dtrans::CallInfo *Info,
 }
 
 void CallInfoManager::reset() {
-  for (auto Info : CallInfoMap)
-    for (auto CallInfo : Info.second)
+  for (const auto &Info : CallInfoMap)
+    for (const auto &CallInfo : Info.second)
       destructCallInfo(CallInfo);
   CallInfoMap.clear();
 }

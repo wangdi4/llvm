@@ -40,6 +40,7 @@
 
 #include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
@@ -117,12 +118,14 @@ public:
           checkReturnInst(Ret);
         else if (auto *GEPI = dyn_cast<GetElementPtrInst>(I))
           checkGEPInst(GEPI);
+        else if (auto *CB = dyn_cast<CallBase>(I))
+          checkCallBase(CB);
       }
     }
 
     if (InstructionsToGepify.empty() && PHIsToGepify.empty() &&
         ReturnsToGepify.empty() && PHIReturnsGepify.empty() &&
-        GEPsToGepify.empty())
+        GEPsToGepify.empty() && CallBaseArgsGepify.empty())
       return false;
 
     for (auto &KV : InstructionsToGepify)
@@ -139,6 +142,9 @@ public:
 
     for (auto &KV : GEPsToGepify)
       gepifyGEPI(KV.first, KV.second);
+
+    for (auto &KV : CallBaseArgsGepify)
+      gepifyCallBaseArgs(KV.first, KV.second);
 
     return true;
   }
@@ -207,19 +213,23 @@ private:
     SmallVector<Value *, 2> IdxList;
     IdxList.push_back(ZeroPtrSizedInt);
     IdxList.push_back(Zero32);
-    auto *I = cast<Instruction>(Ptr);
-    GetElementPtrInst *NewGEP = NewGEPInsts[I];
+    GetElementPtrInst *NewGEP = NewGEPInsts[Ptr];
     if (!NewGEP) {
       Instruction *NextI;
-      if (isa<CallBase>(I)) {
-        NextI = I->getNextNonDebugInstruction();
+      if (isa<CallBase>(Ptr)) {
+        NextI = cast<CallBase>(Ptr)->getNextNonDebugInstruction();
+      } else if (isa<PHINode>(Ptr)) {
+        NextI = cast<PHINode>(Ptr)->getParent()->getFirstNonPHI();
       } else {
-        assert(isa<PHINode>(I) && "Expected PHINode");
-        NextI = I->getParent()->getFirstNonPHI();
+        assert(isa<Argument>(Ptr) && "Expected Argument");
+        NextI = cast<Argument>(Ptr)
+                    ->getParent()
+                    ->getEntryBlock()
+                    .getFirstNonPHIOrDbg();
       }
-      NewGEP = GetElementPtrInst::Create(DTy->getLLVMType(), I, IdxList,
+      NewGEP = GetElementPtrInst::Create(DTy->getLLVMType(), Ptr, IdxList,
                                          "dtnorm", NextI);
-      NewGEPInsts[I] = NewGEP;
+      NewGEPInsts[Ptr] = NewGEP;
     }
     return NewGEP;
   }
@@ -234,6 +244,19 @@ private:
       LLVM_DEBUG(dbgs() << "Replacing incoming value in: " << *PHI
                         << "\nWith: " << *NewGEP << "\n");
       PHI->replaceUsesOfWith(Ptr, NewGEP);
+    }
+  }
+
+  void gepifyCallBaseArgs(
+      CallBase *CB,
+      SetVector<std::pair<unsigned, DTransType *>> &ValueToDTransTyMap) {
+    for (auto &Entry : ValueToDTransTyMap) {
+      Value *Ptr = CB->getArgOperand(Entry.first);
+      GetElementPtrInst *NewGEP =
+          createGEPToAccessZeroElement(Ptr, Entry.second);
+      LLVM_DEBUG(dbgs() << "Replacing incoming value in: " << *CB
+                        << "\nWith: " << *NewGEP << "\n");
+      CB->setArgOperand(Entry.first, NewGEP);
     }
   }
 
@@ -357,10 +380,10 @@ private:
     // Check if DomTy is pointer to struct.
     if (!DomTy->isPointerTy())
       return nullptr;
-    auto DomSty = dyn_cast<DTransStructType>(DomTy->getPointerElementType());
-    if (!DomSty)
+    auto DomStTy = dyn_cast<DTransStructType>(DomTy->getPointerElementType());
+    if (!DomStTy)
       return nullptr;
-    if (!DomSty->indexValid(0u))
+    if (!DomStTy->indexValid(0u))
       return nullptr;
 
     for (auto *AliasTy :
@@ -371,15 +394,10 @@ private:
       // Skip pointer to non-aggregate types.
       if (IsIntPointer(BTy))
         continue;
-      auto SubObjTy = dyn_cast<DTransStructType>(BTy);
-      if (!SubObjTy)
-        return nullptr;
       if (AliasTy == DomTy)
         continue;
-      // Check if SubObjTy is sub-object of DomTy at offset 0.
-      DTransType *ElementZeroTy = DomSty->getFieldType(0);
-      auto ElementZeroSty = dyn_cast<DTransStructType>(ElementZeroTy);
-      if (!ElementZeroSty || !SubObjTy->compare(*ElementZeroSty))
+      // Check if BTy is sub-object of DomTy at offset 0.
+      if (!isSubObject(DomStTy, BTy))
         return nullptr;
       if (SubObjStTy)
         return nullptr;
@@ -650,6 +668,130 @@ private:
     GEPsToGepify.insert({GEPI, DomTy});
   }
 
+  // Returns pointee if DTy points to a struct.
+  DTransType *getPointeeDTransStructTy(DTransType *DTy) {
+    if (!DTy || !DTy->isPointerTy())
+      return nullptr;
+    DTransType *PTy = DTy->getPointerElementType();
+    if (!isa<DTransStructType>(PTy))
+      return nullptr;
+    return PTy;
+  }
+
+  // Get argument type from DType if possible.
+  DTransType *getArgumentTypeFromDType(DTransType *DType, unsigned Idx) {
+    if (!DType)
+      return nullptr;
+    auto *FnType = dyn_cast<DTransFunctionType>(DType);
+    if (!FnType || Idx >= FnType->getNumArgs() || FnType->isVarArg())
+      return nullptr;
+    return FnType->getArgType(Idx);
+  }
+
+  // Get argument type of Callee if possible.
+  DTransType *getCalleeArgumentType(CallBase *CB, unsigned Idx) {
+    Function *F = dtrans::getCalledFunction(*CB);
+    if (F && (F->isDeclaration() || Idx >= F->arg_size()))
+      return nullptr;
+
+    DTransType *DType = nullptr;
+    if (CB->isIndirectCall() || CB->getMetadata("_Intel.Devirt.Call"))
+      DType = MDReader.getDTransTypeFromMD(CB);
+    else if (F)
+      DType = MDReader.getDTransTypeFromMD(F);
+    return getArgumentTypeFromDType(DType, Idx);
+  }
+
+  // Returns true if SUbTy is sub-object of DomTy at offset 0.
+  bool isSubObject(DTransType *DomTy, DTransType *SubTy) {
+    auto *DomStTy = dyn_cast<DTransStructType>(DomTy);
+    auto *SubSty = dyn_cast<DTransStructType>(SubTy);
+    if (!DomStTy || !SubSty)
+      return false;
+    DTransType *ElementZeroTy = DomStTy->getFieldType(0);
+    auto *ElementZeroStTy = dyn_cast<DTransStructType>(ElementZeroTy);
+    if (!ElementZeroStTy || !SubSty->compare(*ElementZeroStTy))
+      return false;
+    return true;
+  }
+
+  // Check if (GEP, 0, 0) is needed for arguments of calls.
+  //
+  // Example 1:
+  // From:
+  //   %derived = type { %base }
+  //   @foo(ptr %arg) {
+  //     %i1 = tail call ptr @bar(ptr %arg)
+  //     ...
+  //   }
+  //   Let us assume type of 1st argument of foo is %derived* and type of
+  //   1st argument of bar is base*.
+  //
+  // To:
+  //   %derived = type { %base }
+  //   @foo(ptr %arg) {
+  //     %denorm = getelementptr inbounds %derived, ptr %arg, i64 0, i32 0
+  //     %i1 = tail call ptr @bar(ptr %denorm)
+  //     ...
+  //   }
+  //
+  // Example 2:
+  // From:
+  //   %derived = type { %base }
+  //   @foo(ptr %arg) {
+  //     %i1 = tail call ptr @Alloc(i64 40, ptr null)
+  //     ...
+  //     tail call ptr @bar(ptr %i1)
+  //     ...
+  //   }
+  //   Let us assume aliases of %i1 are %base* and %derived* and
+  //   type of 1st argument of bar is %base*.
+  //
+  // To:
+  //   %derived = type { %base }
+  //   @foo(ptr %arg) {
+  //     %i1 = tail call ptr @Alloc(i64 40, ptr null)
+  //     %denorm = getelementptr inbounds %derived, ptr %i1, i64 0, i32 0
+  //     ...
+  //     tail call ptr @bar(ptr %denorm)
+  //     ...
+  //   }
+  void checkCallBase(CallBase *CB) {
+    SetVector<std::pair<unsigned, DTransType *>> ValueToDomTyMap;
+    unsigned NumArg = CB->arg_size();
+    Function *F = CB->getFunction();
+    for (unsigned AI = 0; AI < NumArg; ++AI) {
+      Value *ArgVal = CB->getArgOperand(AI);
+      if (!ArgVal->getType()->isPointerTy())
+        continue;
+      DTransType *ArgUsedTy = getCalleeArgumentType(CB, AI);
+      DTransType *ArgUsedStTy = getPointeeDTransStructTy(ArgUsedTy);
+      if (!ArgUsedStTy)
+        continue;
+      DTransType *DomStTy;
+      if (auto *Arg = dyn_cast<Argument>(ArgVal)) {
+        unsigned ArgNo = Arg->getArgNo();
+        DTransType *ArgDeclTy =
+            getArgumentTypeFromDType(MDReader.getDTransTypeFromMD(F), ArgNo);
+        DTransType *ArgDeclStTy = getPointeeDTransStructTy(ArgDeclTy);
+        if (!ArgDeclStTy)
+          continue;
+        if (!isSubObject(ArgDeclStTy, ArgUsedStTy))
+          continue;
+
+        ValueToDomTyMap.insert({AI, ArgDeclStTy});
+      } else if (isNormalizedGEPNeeded(ArgVal, ArgUsedStTy->getLLVMType(),
+                                       &DomStTy)) {
+        ValueToDomTyMap.insert({AI, DomStTy});
+      }
+    }
+    if (ValueToDomTyMap.size() == 0)
+      return;
+    auto &ValueToDomSet = CallBaseArgsGepify[CB];
+    for (const auto &Entry : ValueToDomTyMap)
+      ValueToDomSet.insert(Entry);
+  }
+
   void gepifyPHI(PHINode *PHIN, unsigned Num) {
     auto GEPI = dyn_cast<GetElementPtrInst>(PHIN->getIncomingValue(Num));
     if (!GEPI)
@@ -677,9 +819,11 @@ private:
   SmallDenseMap<PHINode *, SetVector<std::pair<unsigned, DTransType *>>>
       PHIReturnsGepify;
   SetVector<std::pair<GetElementPtrInst *, DTransType *>> GEPsToGepify;
+  SmallDenseMap<CallBase *, SetVector<std::pair<unsigned, DTransType *>>>
+      CallBaseArgsGepify;
 
   // This is used to reuse GEP instruction if it is already one.
-  SmallDenseMap<Instruction *, GetElementPtrInst *> NewGEPInsts;
+  SmallDenseMap<Value *, GetElementPtrInst *> NewGEPInsts;
 };
 
 } // end anonymous namespace
