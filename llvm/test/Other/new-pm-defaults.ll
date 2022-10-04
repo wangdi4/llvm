@@ -327,7 +327,7 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: BlockFrequencyAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: BranchProbabilityAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: PostDominatorTreeAnalysis
-; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
+; CHECK-DEFAULT-NEXT:  Running analysis: LoopAccessAnalysis
 ; CHECK-DEFAULT-NEXT:  Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-DEFAULT-NEXT:  Running pass: AlwaysInlinerPass
 ; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
@@ -335,21 +335,14 @@
 ; END INTEL_CUSTOMIZATION
 
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; InjectTLIMappings invocation is in sync with SLPVectorizerPass
+; CHECK-LTO-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-O2-NEXT: Running pass: InjectTLIMappings
 ; CHECK-O3-NEXT: Running pass: InjectTLIMappings
 ; CHECK-Os-NEXT: Running pass: InjectTLIMappings
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
-=======
-; CHECK-O-NEXT: Running analysis: LoopAccessAnalysis on foo
-; CHECK-O-NEXT: Running pass: InjectTLIMappings
-; CHECK-O-NEXT: Running pass: LoopVectorizePass
-; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis
-; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis
->>>>>>> 7c0ff64b0f760e364e59a37f983d87835a8c23a1
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -375,6 +368,7 @@
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-DEFAULT-NEXT: Running analysis: MemorySSAAnalysis on foo ;INTEL
+; CHECK-DEFAULT-NEXT: Running analysis: InnerAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running pass: LICMPass
 ; CHECK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
