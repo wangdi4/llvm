@@ -1390,11 +1390,14 @@ void VPDecomposerHIR::addFPInductionsForLoop(HLLoop *HLp) {
     const HLInst *DefInst = FPIV.DefInst;
     const RegDDRef *StrideRef = FPIV.StrideRef;
     auto *BinOp = cast<VPInstruction>(getVPValueForNode(DefInst));
-    ConstantFP *ConstStep = nullptr;
+    ConstantFP *ConstScalStep = nullptr;
+    Constant *ConstVecStep = nullptr;
     VPValue *Step = nullptr;
     // Step can be constant or loop invariant external value.
-    if (StrideRef->isFPConstant(&ConstStep))
-      Step = getVPValueForConst(ConstStep);
+    if (StrideRef->isFPConstant(&ConstScalStep))
+      Step = getVPValueForConst(ConstScalStep);
+    else if (StrideRef->isFPVectorConstant(&ConstVecStep))
+      Step = getVPValueForConst(ConstVecStep);
     else
       Step = getVPExternalDefForDDRef(StrideRef);
     VPValue *Start = getVPExternalDefForDDRef(DefInst->getLvalDDRef());

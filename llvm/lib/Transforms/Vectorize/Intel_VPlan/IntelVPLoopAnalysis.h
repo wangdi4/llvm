@@ -1401,7 +1401,8 @@ public:
       return std::make_pair(Instruction::GetElementPtr,
                             InductionDescriptor::IK_PtrInduction);
     } else {
-      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
+      assert(IndTy->getScalarType()->isFloatingPointTy() &&
+             "unexpected induction type");
       return std::make_pair(Instruction::FAdd,
                             InductionDescriptor::IK_FpInduction);
     }
