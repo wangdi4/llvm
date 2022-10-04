@@ -10734,19 +10734,9 @@ PreservedAnalyses LoopVectorizePass::run(Function &F,
     auto &DB = AM.getResult<DemandedBitsAnalysis>(F);
     auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
-#ifdef INTEL_CUSTOMIZATION
-    auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
-    std::function<const LoopAccessInfo &(Loop &)> GetLAA =
-        [&](Loop &L) -> const LoopAccessInfo & {
-      LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,      SE,
-                                        TLI, TTI, nullptr, nullptr, nullptr};
-      return LAM.getResult<LoopAccessAnalysis>(L, AR);
-    };
-#else
     LoopAccessInfoManager &LAIs = AM.getResult<LoopAccessAnalysis>(F);
     std::function<const LoopAccessInfo &(Loop &)> GetLAA =
         [&](Loop &L) -> const LoopAccessInfo & { return LAIs.getInfo(L); };
-#endif // INTEL_CUSTOMIZATION
     auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
     ProfileSummaryInfo *PSI =
         MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());

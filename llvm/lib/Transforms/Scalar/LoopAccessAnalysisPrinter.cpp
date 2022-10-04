@@ -7,32 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/LoopAccessAnalysisPrinter.h"
-#ifndef INTEL_CUSTOMIZATION
 #include "llvm/ADT/PriorityWorklist.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
-#ifndef INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/LoopUtils.h"
-#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
 #define DEBUG_TYPE "loop-accesses"
 
-#ifdef INTEL_CUSTOMIZATION
-PreservedAnalyses
-LoopAccessInfoPrinterPass::run(Loop &L, LoopAnalysisManager &AM,
-                               LoopStandardAnalysisResults &AR, LPMUpdater &) {
-  Function &F = *L.getHeader()->getParent();
-  auto &LAI = AM.getResult<LoopAccessAnalysis>(L, AR);
-  OS << "Loop access info in function '" << F.getName() << "':\n";
-  OS.indent(2) << L.getHeader()->getName() << ":\n";
-  LAI.print(OS, 4);
-  return PreservedAnalyses::all();
-}
-
-#else
 PreservedAnalyses LoopAccessInfoPrinterPass::run(Function &F,
                                                  FunctionAnalysisManager &AM) {
   auto &LAIs = AM.getResult<LoopAccessAnalysis>(F);
@@ -48,4 +31,3 @@ PreservedAnalyses LoopAccessInfoPrinterPass::run(Function &F,
   }
   return PreservedAnalyses::all();
 }
-#endif // INTEL_CUSTOMIZATION

@@ -671,15 +671,9 @@ PreservedAnalyses LoopVersioningLICMPass::run(Loop &L, LoopAnalysisManager &AM,
   const Function *F = L.getHeader()->getParent();
   OptimizationRemarkEmitter ORE(F);
 
-#ifdef INTEL_CUSTOMIZATION
-  auto GetLAI = [&](Loop *L) -> const LoopAccessInfo & {
-    return AM.getResult<LoopAccessAnalysis>(*L, LAR);
-  };
-#else
   LoopAccessInfoManager LAIs(*SE, *AA, *DT, *LI, nullptr);
   std::function<const LoopAccessInfo &(Loop *)> GetLAI =
       [&](Loop *L) -> const LoopAccessInfo & { return LAIs.getInfo(*L); };
-#endif // INTEL_CUSTOMIZATION
   if (!LoopVersioningLICM(AA, SE, &ORE, GetLAI).runOnLoop(&L, LI, DT))
     return PreservedAnalyses::all();
   return getLoopPassPreservedAnalyses();
