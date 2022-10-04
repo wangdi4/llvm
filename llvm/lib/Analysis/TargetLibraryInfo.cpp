@@ -1711,10 +1711,16 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
             FTy.getParamType(1)->isIntegerTy());
 
+<<<<<<< HEAD
   case LibFunc_msvc_std_basic_ostream_vector_deleting_dtor:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
             FTy.getParamType(1)->isIntegerTy());
+=======
+  unsigned IntBits = getIntSize();
+  unsigned SizeTBits = getSizeTSize(M);
+  unsigned Idx = 0;
+>>>>>>> 66fcdfca4d4587fcf93e15859e330ce5d671de82
 
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
@@ -5857,6 +5863,22 @@ unsigned TargetLibraryInfoImpl::getWCharSize(const Module &M) const {
       M.getModuleFlag("wchar_size")))
     return cast<ConstantInt>(ShortWChar->getValue())->getZExtValue();
   return 0;
+}
+
+unsigned TargetLibraryInfoImpl::getSizeTSize(const Module &M) const {
+  // There is really no guarantee that sizeof(size_t) is equal to sizeof(int*).
+  // If that isn't true then it should be possible to derive the SizeTTy from
+  // the target triple here instead and do an early return.
+
+  // Historically LLVM assume that size_t has same size as intptr_t (hence
+  // deriving the size from sizeof(int*) in address space zero). This should
+  // work for most targets. For future consideration: DataLayout also implement
+  // getIndexSizeInBits which might map better to size_t compared to
+  // getPointerSizeInBits. Hard coding address space zero here might be
+  // unfortunate as well. Maybe getDefaultGlobalsAddressSpace() or
+  // getAllocaAddrSpace() is better.
+  unsigned AddressSpace = 0;
+  return M.getDataLayout().getPointerSizeInBits(AddressSpace);
 }
 
 TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass()
