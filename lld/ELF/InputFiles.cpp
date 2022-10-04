@@ -375,7 +375,7 @@ InputFile::getGNULinkOnceSectionForSymbol(StringRef symbolName) {
   StringRef linkOnceName;
   bool sectionFound = false;
 
-  for (auto pair : symtab->gnuLinkOnceGroups) {
+  for (auto pair : symtab.gnuLinkOnceGroups) {
     if (this != pair.second)
       continue;
 
@@ -1117,7 +1117,7 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
     if (isalpha(name[gnuLinkOnceSize]) &&
         name[gnuLinkOnceSize + 1] == '.') {
       bool isNew =
-          symtab->gnuLinkOnceGroups.try_emplace(CachedHashStringRef(name),
+          symtab.gnuLinkOnceGroups.try_emplace(CachedHashStringRef(name),
                                                 this).second;
       if (!isNew)
         return &InputSection::discarded;
