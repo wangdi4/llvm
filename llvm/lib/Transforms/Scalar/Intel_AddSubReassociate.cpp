@@ -538,7 +538,7 @@ Value *CanonForm::generateCode(Instruction *IP, bool GenTopZero) const {
   Res = BottomI;
 
   // Check if it's legal to omit generation of top "zero".
-  if (!GenTopZero && TopI->isCommutative()) {
+  if (!GenTopZero && TopI && TopI->isCommutative()) {
     // Reconnect operand #1 of TopI to appropriate location and remove TopI.
     if (PrevI != nullptr)
       PrevI->setOperand(0, TopI->getOperand(1));
