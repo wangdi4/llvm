@@ -258,6 +258,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     readLinkerScript(mbref);
     return;
   case file_magic::archive: {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Parse an archive file that is a member of an archive (nested archives).
     // This is similar to what the community does when parsing an archive since
@@ -324,8 +325,11 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     };
 #endif // INTEL_CUSTOMIZATION
 
+=======
+    auto members = getArchiveMembers(mbref);
+>>>>>>> c171250e3802e52dba4bc3f5c1cb15a1ce29aeac
     if (inWholeArchive) {
-      for (const auto &p : getArchiveMembers(mbref)) {
+      for (const std::pair<MemoryBufferRef, uint64_t> &p : members) {
         if (isBitcode(p.first))
           files.push_back(make<BitcodeFile>(p.first, path, p.second, false));
         else
@@ -334,7 +338,6 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
       return;
     }
 
-    auto members = getArchiveMembers(mbref);
     archiveFiles.emplace_back(path, members.size());
 
     // Handle archives and --start-lib/--end-lib using the same code path. This
