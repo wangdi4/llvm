@@ -25,7 +25,7 @@ StringSet<> SIMDIntrinsicChecker::HandleableOpBundleNames = {
     "DIR.OMP.SIMD",           "QUAL.OMP.LINEAR:IV",
     "QUAL.OMP.REDUCTION.ADD", "QUAL.OMP.NORMALIZED.IV",
     "QUAL.OMP.NORMALIZED.UB", "QUAL.OMP.LIVEIN",
-    "QUAL.OMP.LIVEIN:F90_DV"};
+    "QUAL.OMP.LIVEIN:F90_DV", "QUAL.OMP.ALIGNED:PTR_TO_PTR"};
 
 SIMDIntrinsicChecker::SIMDIntrinsicChecker(const HLInst *DirSIMD,
                                            const HLLoop *Loop)
