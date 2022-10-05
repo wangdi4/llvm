@@ -68,7 +68,11 @@ public:
 
     DTransTypeManager TM(M.getContext());
     TypeMetadataReader Reader(TM);
-    Reader.initialize(M);
+    // We are intentionally ignoring the return value from the initialize call
+    // here because is just reading the elements that have DTrans type metadata
+    // without trying to interpret the types, so it is ok if there is incomplete
+    // metadata.
+    (void)Reader.initialize(M);
 
     // Find all the structure types used in the IR to collect which
     // DTransStructTypes will need to be preserved when generating a new
@@ -151,7 +155,7 @@ private:
       // that can be referenced from them.
       if (auto *FTy = dyn_cast<FunctionType>(BaseType)) {
         Worklist.push_back(FTy->getReturnType());
-        for (auto ParmTy : FTy->params())
+        for (const auto &ParmTy : FTy->params())
           Worklist.push_back(ParmTy);
       } else if (auto *StTy = dyn_cast<StructType>(BaseType)) {
         if (StTy->hasName()) {

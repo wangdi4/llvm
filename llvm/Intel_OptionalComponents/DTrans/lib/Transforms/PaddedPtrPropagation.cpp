@@ -446,7 +446,7 @@ public:
   bool empty() { return FieldMap.empty(); }
 
   ~StructFieldTracker() {
-    for (auto II : FieldMap) {
+    for (const auto &II : FieldMap) {
       delete II.second;
     }
   }
@@ -482,7 +482,7 @@ public:
       : DTInfo(DTInfo), PaddedMallocData(DTInfo) {}
 
   ~PaddedPtrPropImpl() {
-    for (auto Entry : FuncPadInfoMap) {
+    for (const auto &Entry : FuncPadInfoMap) {
       delete Entry.second;
     }
   }
@@ -574,7 +574,7 @@ void PaddedPtrPropImpl<InfoClass>::propagateInFunction(
   // Build initial workset from the consumers of values having known padding
   // If the user has padding already assigned to it, skip it.
   SetVector<Value *> WorkSet;
-  for (auto PMEntry : FPInfo.ValuePaddingMap) {
+  for (const auto &PMEntry : FPInfo.ValuePaddingMap) {
     assert(PMEntry.second >= 0 && "Negative padding value is not allowed");
     for (auto *U : PMEntry.first->users()) {
       // User already has padding assigned to it
@@ -718,7 +718,7 @@ bool PaddedPtrPropImpl<InfoClass>::emit() {
 
   for (auto &FIMEntry : FuncPadInfoMap) {
     auto &FPInfo = *(FIMEntry.second);
-    for (auto PVMEntry : FPInfo.ValuePaddingMap) {
+    for (const auto &PVMEntry : FPInfo.ValuePaddingMap) {
       Value *V = PVMEntry.first;
       int Padding = PVMEntry.second;
       if (Padding <= 0)
