@@ -2840,25 +2840,14 @@ bool isKnownNonZero(const Value *V, const APInt &DemandedElts, unsigned Depth,
         DemandedVecElts = APInt::getOneBitSet(NumElts, CIdx->getZExtValue());
       return isKnownNonZero(Vec, DemandedVecElts, Depth, Q);
     }
-<<<<<<< HEAD
   }
   // Freeze
   else if (const FreezeInst *FI = dyn_cast<FreezeInst>(V)) {
     auto *Op = FI->getOperand(0);
-    if (isKnownNonZero(Op, Depth, Q) &&
-        isGuaranteedNotToBePoison(Op, Q.AC, Q.CxtI, Q.DT, Depth))
-      return true;
+    return (isKnownNonZero(Op, Depth, Q) &&
+        isGuaranteedNotToBePoison(Op, Q.AC, Q.CxtI, Q.DT, Depth));
   } else if (const auto *II = dyn_cast<IntrinsicInst>(V)) {
     if (II->getIntrinsicID() == Intrinsic::vscale)
-=======
-    break;
-  case Instruction::Freeze:
-    return isKnownNonZero(I->getOperand(0), Depth, Q) &&
-           isGuaranteedNotToBePoison(I->getOperand(0), Q.AC, Q.CxtI, Q.DT,
-                                     Depth);
-  case Instruction::Call:
-    if (cast<CallInst>(I)->getIntrinsicID() == Intrinsic::vscale)
->>>>>>> 45dec8f5fdd82cf1ed456b0fa860774a26c0acca
       return true;
   }
 
