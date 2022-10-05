@@ -10,18 +10,13 @@ declare void @llvm.memcpy.p0.p0.i64(ptr nocapture, ptr nocapture, i64, i1) nounw
 %struct.test1 = type { float }
 
 ; CHECK: @test
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Changed s/i32/float/g due to code in InstCOmbineCAlls.cpp:
 ; IsGoodStructMemcpy/InstCombinerImpl::GenStructFieldsCopyFromMemcpy
 ;
-; CHECK: %[[LOAD:.*]] = load float, float* %{{.*}}, align 4, !tbaa !0
-; CHECK: store float %[[LOAD:.*]], float* %{{.*}}, align 4, !tbaa !0
+; CHECK: %[[LOAD:.*]] = load float, ptr %{{.*}}, align 4, !tbaa !0
+; CHECK: store float %[[LOAD:.*]], ptr %{{.*}}, align 4, !tbaa !0
 ; END INTEL_CUSTOMIZATION
-=======
-; CHECK: %[[LOAD:.*]] = load i32, ptr %{{.*}}, align 4, !tbaa !0
-; CHECK: store i32 %[[LOAD:.*]], ptr %{{.*}}, align 4, !tbaa !0
->>>>>>> 4ab40eca080965c65802710e39adbb78c4ce7bde
 ; CHECK: ret
 define void @test1(ptr nocapture %a, ptr nocapture %b) {
 entry:
