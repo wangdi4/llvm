@@ -501,7 +501,7 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
       return false;
     }
 
-    const RegDDRef *LVal = BlobNode ? BlobNode->getLvalDDRef() : nullptr;
+    const RegDDRef *LVal = BlobNode->getLvalDDRef();
     if (!LVal || LVal->getSymbase() != RVal->getSymbase()) {
       continue;
     }
@@ -795,7 +795,7 @@ void HIRLoopDistribution::replaceWithArrayTemp(
     if (!Candidate.isTempRequired()) {
       HLInst *SrcInst = cast<HLInst>(Candidate.SrcRefs.front()->getHLDDNode());
 
-      for (auto DstCand : Candidate.DstRefs) {
+      for (auto &DstCand : Candidate.DstRefs) {
         HLNode *DstNode = DstCand.FirstNode;
 
         if (DstCand.IsTempRedefined) {
@@ -831,7 +831,7 @@ void HIRLoopDistribution::replaceWithArrayTemp(
     // Insert tx = TEMP[i]
     assert(TmpArrayRef && "Temp Store missing");
 
-    for (auto DstRefPair : Candidate.DstRefs) {
+    for (auto &DstRefPair : Candidate.DstRefs) {
       DDRef *DstRef = DstRefPair.Ref;
 
       // Prepare LVal for the load from temp array. SinkRef could be
@@ -913,7 +913,7 @@ getPreheaderLoopIndex(HLLoop *Loop,
 
   // Iterate through loop nodes and return the first loop which uses preheader
   // temp.
-  for (auto List : enumerate(DistributedLoops)) {
+  for (auto &List : enumerate(DistributedLoops)) {
     unsigned LoopIndex = List.index();
 
     // We are already at the last loop, just return its index.
@@ -1005,7 +1005,7 @@ void HIRLoopDistribution::distributeLoop(
   unsigned PreheaderLoopIndex =
       getPreheaderLoopIndex(Loop, DistributedLoops, DistCostModel);
 
-  for (auto List : enumerate(DistributedLoops)) {
+  for (auto &List : enumerate(DistributedLoops)) {
     // Each PiBlockList forms a new loop
     // Clone Empty Loop. Copy preheader for 1st loop and
     // postexit for last loop

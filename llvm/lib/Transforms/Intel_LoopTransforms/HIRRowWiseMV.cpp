@@ -710,7 +710,7 @@ static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
   DDGraph DDG = DDA.getGraph(Loop);
 
   // Check for DDEdge between Inst Pair and do replacement
-  for (auto Pair : CandidatePairs) {
+  for (auto &Pair : CandidatePairs) {
     HLInst *FNeg = Pair.first;
     HLInst *FAdd = Pair.second;
 

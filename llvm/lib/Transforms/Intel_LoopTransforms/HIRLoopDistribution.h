@@ -87,14 +87,14 @@ public:
 
       dbgs() << " (sb:" << getSymbase();
       dbgs() << ") (";
-      for (auto SrcRef : enumerate(SrcRefs)) {
+      for (auto &SrcRef : enumerate(SrcRefs)) {
         dbgs() << SrcRef.value()->getHLDDNode()->getNumber();
         if (SrcRef.index() != SrcRefs.size() - 1) {
           dbgs() << ",";
         }
       }
       dbgs() << ") -> (";
-      for (auto DstRef : enumerate(DstRefs)) {
+      for (auto &DstRef : enumerate(DstRefs)) {
         dbgs() << DstRef.value().Ref->getHLDDNode()->getNumber();
         if (DstRef.index() != DstRefs.size() - 1) {
           dbgs() << ",";
