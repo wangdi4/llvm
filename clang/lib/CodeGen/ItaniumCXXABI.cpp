@@ -453,11 +453,7 @@ public:
     ItaniumCXXABI(CGM, /*UseARMMethodPtrABI=*/true,
                   /*UseARMGuardVarABI=*/true) {}
 
-  bool HasThisReturn(GlobalDecl GD) const override {
-    return (isa<CXXConstructorDecl>(GD.getDecl()) || (
-              isa<CXXDestructorDecl>(GD.getDecl()) &&
-              GD.getDtorType() != Dtor_Deleting));
-  }
+  bool constructorsAndDestructorsReturnThis() const override { return true; }
 
   void EmitReturnFromThunk(CodeGenFunction &CGF, RValue RV,
                            QualType ResTy) override;
@@ -488,11 +484,7 @@ public:
       : ItaniumCXXABI(CGM) {}
 
 private:
-  bool HasThisReturn(GlobalDecl GD) const override {
-    return isa<CXXConstructorDecl>(GD.getDecl()) ||
-           (isa<CXXDestructorDecl>(GD.getDecl()) &&
-            GD.getDtorType() != Dtor_Deleting);
-  }
+  bool constructorsAndDestructorsReturnThis() const override { return true; }
 };
 
 class WebAssemblyCXXABI final : public ItaniumCXXABI {
@@ -506,11 +498,7 @@ public:
                                       llvm::Value *Exn) override;
 
 private:
-  bool HasThisReturn(GlobalDecl GD) const override {
-    return isa<CXXConstructorDecl>(GD.getDecl()) ||
-           (isa<CXXDestructorDecl>(GD.getDecl()) &&
-            GD.getDtorType() != Dtor_Deleting);
-  }
+  bool constructorsAndDestructorsReturnThis() const override { return true; }
   bool canCallMismatchedFunctionType() const override { return false; }
 };
 
