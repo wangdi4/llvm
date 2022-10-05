@@ -159,6 +159,38 @@ private:
   static bool isCompilerConstantData(Value *V) { return isa<ConstantData>(V); }
 
   void checkPointer(Instruction *I, Value *Ptr) {
+
+    // Check if (GEP, 0, 0) is really needed and return true if not needed.
+    auto IsNormalizationNotNeeded = [&](Value *Ptr) {
+      // Let us assume %arg is a pointer to ValueVectorOf. Checks if
+      // (GEP, 0, 0) is needed for "%i".
+      // %ValueVectorOf = type { i8, i32, i32, ptr, ptr }
+      //
+      // define void @foo(ptr %arg) {
+      //   %i = getelementptr %ValueVectorOf, ptr %arg, i64 0, i32 0
+      //   store i8 0, ptr %i, align 8
+      //   ...
+      // }
+
+      if (auto *GEPI = dyn_cast<GetElementPtrInst>(Ptr)) {
+        if (!GEPI->hasAllZeroIndices())
+          return false;
+        if (auto *Arg = dyn_cast<Argument>(GEPI->getPointerOperand())) {
+          unsigned ArgNo = Arg->getArgNo();
+          DTransType *ArgDeclTy = getArgumentTypeFromDType(
+              MDReader.getDTransTypeFromMD(Arg->getParent()), ArgNo);
+          DTransType *ArgDeclStTy = getPointeeDTransStructTy(ArgDeclTy);
+          if (ArgDeclStTy &&
+              ArgDeclStTy->getLLVMType() == GEPI->getSourceElementType() &&
+              !cast<DTransStructType>(ArgDeclStTy)
+                   ->getFieldType(0)
+                   ->isAggregateType())
+            return true;
+        }
+      }
+      return false;
+    };
+
     if (isCompilerConstantData(Ptr))
       return;
 
@@ -180,6 +212,9 @@ private:
          cast<DTransStructType>(Ty)->getNumContainedElements() == 0) ||
         (Ty->isArrayTy() &&
          cast<DTransArrayType>(Ty)->getNumContainedElements() == 0))
+      return;
+
+    if (IsNormalizationNotNeeded(Ptr))
       return;
 
     InstructionsToGepify.insert({I, Info.Ty, Info.Depth});
