@@ -367,6 +367,7 @@ namespace L0Interop {
 /// ompx_devinfo_global_mem_size, size_t
 /// ompx_devinfo_global_mem_cache_size, size_t
 /// ompx_devinfo_max_clock_frequency, uint32_t
+/// ompx_devinfo_plugin_name, char[N]
 /// We always need same definition in omp.h.
 enum {
   ompx_devinfo_name = 0,
@@ -382,7 +383,8 @@ enum {
   ompx_devinfo_local_mem_size,
   ompx_devinfo_global_mem_size,
   ompx_devinfo_global_mem_cache_size,
-  ompx_devinfo_max_clock_frequency
+  ompx_devinfo_max_clock_frequency,
+  ompx_devinfo_plugin_name
 };
 
 /// Staging buffer
@@ -6970,11 +6972,12 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
   auto &MemProp = DeviceInfo->MemoryProperties[DeviceId];
   auto &CacheProp = DeviceInfo->CacheProperties[DeviceId];
   auto &IDStr = DeviceInfo->DeviceIdStr[DeviceId];
-  void *InfoSrc = nullptr;
+  const void *InfoSrc = nullptr;
   size_t SizeRet = 0;
   int32_t TileID = 0;
   int32_t CCSID = 0;
   uint32_t NumEUs = 0;
+  const char *PlugInName = GETNAME(level_zero);
 
   auto IDStrToSubID = [&IDStr](uint32_t Level) {
     std::vector<int32_t> IDs;
@@ -7052,6 +7055,10 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
     InfoSrc = &DeviceProp.coreClockRate;
     SizeRet = sizeof(uint32_t);
     break;
+  case ompx_devinfo_plugin_name:
+    InfoSrc = PlugInName;
+    SizeRet = strlen(PlugInName) + 1;
+    break;
   default:
     DP("Unknown device info requested\n");
     return OFFLOAD_FAIL;
@@ -7064,7 +7071,7 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
       DP("Cannot copy device info due to insufficient output buffer\n");
       return OFFLOAD_FAIL;
     }
-    std::copy_n(static_cast<char *>(InfoSrc), SizeRet,
+    std::copy_n(static_cast<const char *>(InfoSrc), SizeRet,
                 static_cast<char *>(InfoValue));
   } else {
     return OFFLOAD_FAIL;
