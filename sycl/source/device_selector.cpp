@@ -123,36 +123,36 @@ device select_device(DSelectorInvocableType DeviceSelectorInvocable,
     return *res;
   }
 
-  auto Selector = DeviceSelectorInvocable.target<int (*)(const sycl::device &)>();
-  if ((Selector && *Selector == gpu_selector_v)
-          || DeviceSelectorInvocable.target<sycl::gpu_selector>()) {
-    throw sycl::runtime_error(
-        "No device of requested type 'info::device_type::gpu' available.",
-        PI_ERROR_DEVICE_NOT_FOUND);
-  }
-  if ((Selector && *Selector == cpu_selector_v)
-          || DeviceSelectorInvocable.target<sycl::cpu_selector>()) {
-    throw sycl::runtime_error(
-        "No device of requested type 'info::device_type::cpu' available.",
-        PI_ERROR_DEVICE_NOT_FOUND);
-  }
-  if ((Selector && *Selector == accelerator_selector_v)
-          || DeviceSelectorInvocable.target<sycl::accelerator_selector>()) {
-    throw sycl::runtime_error("No device of requested type "
-                              "'info::device_type::accelerator' available.",
-                              PI_ERROR_DEVICE_NOT_FOUND);
-  }
+  std::string Message;
+  constexpr const char Prefix[] = "No device of requested type ";
+  constexpr const char Cpu[] = "'info::device_type::cpu' ";
+  constexpr const char Gpu[] = "'info::device_type::gpu' ";
+  constexpr const char Acc[] = "'info::device_type::accelerator' ";
+  constexpr const char Suffix[] = "available.";
+  constexpr auto ReserveSize = sizeof(Prefix) + sizeof(Suffix) + sizeof(Acc);
+  Message.reserve(ReserveSize);
+  Message += Prefix;
 
+  auto Selector =
+      DeviceSelectorInvocable.target<int (*)(const sycl::device &)>();
+  if ((Selector && *Selector == gpu_selector_v) ||
+      DeviceSelectorInvocable.target<sycl::gpu_selector>()) {
+    Message += Gpu;
+  } else if ((Selector && *Selector == cpu_selector_v) ||
+             DeviceSelectorInvocable.target<sycl::cpu_selector>()) {
+    Message += Cpu;
+  } else if ((Selector && *Selector == accelerator_selector_v) ||
+             DeviceSelectorInvocable.target<sycl::accelerator_selector>()) {
+    Message += Acc;
+  }
+  Message += Suffix;
 #if INTEL_CUSTOMIZATION
-  throw sycl::runtime_error(
-      "No device of requested type available. Please check "
-      "https://software.intel.com/content/www/us/en/develop/articles/"
-      "intel-oneapi-dpcpp-system-requirements.html",
-      PI_ERROR_DEVICE_NOT_FOUND);
-#else
-  throw sycl::runtime_error("No device of requested type available.",
-                            PI_ERROR_DEVICE_NOT_FOUND);
+  constexpr const char OneAPINote[] =
+      " Please check https://software.intel.com/content/www/us/en/develop/"
+      "articles/intel-oneapi-dpcpp-system-requirements.html";
+  Message += OneAPINote;
 #endif // INTEL_CUSTOMIZATION
+  throw sycl::runtime_error(Message, PI_ERROR_DEVICE_NOT_FOUND);
 }
 
 // select_device(selector)
