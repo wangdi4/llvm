@@ -1841,7 +1841,8 @@ static SmallPtrSet<const BasicBlock *, 16> recomputeLoopBlockSet(Loop &L,
 /// referenced).
 static bool rebuildLoopAfterUnswitch(Loop &L, ArrayRef<BasicBlock *> ExitBlocks,
                                      LoopInfo &LI,
-                                     SmallVectorImpl<Loop *> &HoistedLoops) {
+                                     SmallVectorImpl<Loop *> &HoistedLoops,
+                                     ScalarEvolution *SE) {
   auto *PH = L.getLoopPreheader();
 
   // Compute the actual parent loop from the exit blocks. Because we may have
@@ -2034,6 +2035,8 @@ static bool rebuildLoopAfterUnswitch(Loop &L, ArrayRef<BasicBlock *> ExitBlocks,
       LI.removeLoop(llvm::find(LI, &L));
     // markLoopAsDeleted for L should be triggered by the caller (it is typically
     // done by using the UnswitchCB callback).
+    if (SE)
+      SE->forgetBlockAndLoopDispositions();
     LI.destroy(&L);
     return false;
   }
@@ -2401,7 +2404,8 @@ static void unswitchNontrivialInvariants(
     MSSAU->getMemorySSA()->verifyMemorySSA();
 
   SmallVector<Loop *, 4> HoistedLoops;
-  bool IsStillLoop = rebuildLoopAfterUnswitch(L, ExitBlocks, LI, HoistedLoops);
+  bool IsStillLoop =
+      rebuildLoopAfterUnswitch(L, ExitBlocks, LI, HoistedLoops, SE);
 
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
