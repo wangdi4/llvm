@@ -6785,7 +6785,15 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
     // Resume the recursion towards the operands of the multinode.
     for (unsigned OpIdx : VisitingOrder) {
       const MultiNode::OperandInfo Op = CurrMultiNode.getOperandInfo(OpIdx);
-      buildTree_rec(Op.Scalars, Depth + 1, Op.EdgeInfo);
+      // At this point the multi-node may be reordered or may not.
+      // One of reasons for not reordering operands is when we find it
+      // unprofitable. It is important to note that in that case the multi-node
+      // internally may stay reordered. For that reason we must not use
+      // Op.Scalars as an operand vector to continue recursion. Instead, we want
+      // to take that vector directly from the vectorizable tree entry because
+      // we keep it in sync with our ordering decision.
+      buildTree_rec(Op.EdgeInfo.UserTE->getOperand(Op.EdgeInfo.EdgeIdx),
+                    Depth + 1, Op.EdgeInfo);
     }
 
     for (const MultiNode::OperandInfo &Op :
