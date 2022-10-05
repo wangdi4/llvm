@@ -1254,6 +1254,9 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
   if (W->canHaveDistSchedule())
     collectIfNonPointerNonConstant(W->getDistSchedule().getChunkExpr());
 
+  if (W->canHaveSchedule())
+    collectIfNonPointerNonConstant(W->getSchedule().getChunkExpr());
+
   LLVM_DEBUG(
       const auto &CollectedVals = W->getDirectlyUsedNonPointerValues();
       if (CollectedVals.empty()) {
