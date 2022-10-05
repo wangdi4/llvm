@@ -3130,7 +3130,6 @@ def fno_iopenmp : Flag<["-"], "fno-iopenmp">, Group<f_Group>, Flags<[NoArgumentU
 #if INTEL_CUSTOMIZATION
 def static_openmp: Flag<["-"], "static-openmp">,
   HelpText<"Use the static host OpenMP runtime while linking.">;
-<<<<<<< HEAD
 def qopenmp_simd: Flag<["-"], "qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_iopenmp_simd>;
@@ -3145,8 +3144,6 @@ def qopenmp_link_EQ : Joined<["-"], "qopenmp-link=">,
   "libraries. Default is dynamic.">;
 def qopenmp_target_simd : Flag<["-"], "qopenmp-target-simd">, Alias<fopenmp_target_simd>;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 4c6d5fc684a097e121b5baf2c0dbd0178e8a11e6
 def offload_new_driver : Flag<["--"], "offload-new-driver">, Flags<[CC1Option]>, Group<f_Group>,
   MarshallingInfoFlag<LangOpts<"OffloadingNewDriver">>, HelpText<"Use the new driver for offloading compilation.">;
 def no_offload_new_driver : Flag<["--"], "no-offload-new-driver">, Flags<[CC1Option]>, Group<f_Group>,
