@@ -5739,7 +5739,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   //    specified in append_args. This implementation also invokes a
   //    runtime that is more efficient at handling asynchronous execution
   //    (ie when NOWAIT is specified):
-  //     B1. Call  __kpmc_get_current_task and __tgt_get_interop_obj
+  //     B1. Call  __kmpc_get_current_task and __tgt_get_interop_obj
   //         to create interop objs.
   //     B2. Processing of need_device_ptr is the same in both versions.
   //     B3. Call __kmpc_omp_wait_deps to handle DEPEND, but not
@@ -5764,7 +5764,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
 
     if (!CurrentTask) { // Emit call to __kmpc_get_current_task
       CurrentTask = VPOParoptUtils::genCall(
-          "__kpmc_get_current_task", Int8PtrTy, {Tid}, {Int32Ty}, ThenTerm);
+          "__kmpc_get_current_task", Int8PtrTy, {Tid}, {Int32Ty}, ThenTerm);
       CurrentTask->setName("current.task");
     }
   };
