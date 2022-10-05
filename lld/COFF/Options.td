@@ -379,8 +379,6 @@ class IntelLLDWarnMessageArgs<string name> : P_priv<name> {
   OptionGroup Group = intelLLDWarnMessageGroup;
 }
 
-def assemblydebug : IntelLLDWarnMessage<"assemblydebug">;
-def assemblydebug_args : IntelLLDWarnMessageArgs<"assemblydebug">;
 def assemblymodule : IntelLLDWarnMessageArgs<"assemblymodule">;
 def assemblyresource : IntelLLDWarnMessageArgs<"assemblyresource">;
 def clrimagetype : IntelLLDWarnMessageArgs<"clrimagetype">;
