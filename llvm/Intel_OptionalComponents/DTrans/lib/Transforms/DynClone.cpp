@@ -246,10 +246,6 @@ public:
   FieldData(uint64_t Align, uint64_t Size, unsigned Index)
       : Align(Align), Size(Size), Index(Index) {}
 
-  // Copy constructor:
-  FieldData(const FieldData &FD)
-      : Align(FD.Align), Size(FD.Size), Index(FD.Index) {}
-
   // Sort fields based on below compare function to avoid gaps between fields.
   //    Ascending order based on Alignment, then
   //    Ascending order based on Size, then
@@ -1261,7 +1257,7 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
 
   // Print collected large constant values for candidate fields.
   DEBUG_WITH_TYPE(REENCODING, {
-    for (auto CPair : CandidateFields) {
+    for (const auto &CPair : CandidateFields) {
       if (DynFieldConstValueMap[CPair].empty()) {
         dbgs() << "Candidate Field has no large const values.\n";
         printDynField(dbgs(), CPair);
@@ -1298,12 +1294,15 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
       continue;
     }
     set_union(AllDepFieldsSet, It->second);
-    LLVM_DEBUG(dbgs() << "      Candidate Field:";
-               printDynField(dbgs(), It->first); for (auto &SetField
-                                                      : It->second) {
-                 dbgs() << "        ";
-                 printDynField(dbgs(), SetField);
-               } dbgs() << "\n";);
+    LLVM_DEBUG({
+      dbgs() << "      Candidate Field:";
+      printDynField(dbgs(), It->first);
+      for (auto &SetField : It->second) {
+        dbgs() << "        ";
+        printDynField(dbgs(), SetField);
+      }
+      dbgs() << "\n";
+    });
 
     // (Reencoding) We start from adding a first field and its dependents to the
     // field equivalence set. Later if current field or its dependents are in
@@ -1315,7 +1314,7 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
       FirstField = false;
     } else {
       bool HasCommonMembers = FieldEquivSet.count(CPair);
-      for (auto DF : It->second)
+      for (const auto &DF : It->second)
         if (FieldEquivSet.count(DF)) {
           HasCommonMembers = true;
           break;
@@ -2417,7 +2416,7 @@ bool DynCloneImpl<InfoClass>::verifyCallsInInitRoutine(void) {
   // instruction of \p F. It checks if \p F is in set of functions,
   // which have any reference to candidate struct.
   auto HasAnyAccessToCandidateStruct = [&](Function *F) {
-    for (auto TPair : TypeAccessedInFunctions) {
+    for (const auto &TPair : TypeAccessedInFunctions) {
       if (!isCandidateStruct(TPair.first))
         continue;
       if (TPair.second.count(F) != 0)
@@ -2517,7 +2516,7 @@ bool DynCloneImpl<InfoClass>::verifyCallsInInitRoutine(void) {
 
   // Return false if any user call in InitRoutine has access to
   // candidate struct.
-  for (auto FPair : UserCallFuncs)
+  for (const auto &FPair : UserCallFuncs)
     if (HasAnyAccessToCandidateStruct(FPair.first))
       return false;
 
@@ -2530,7 +2529,7 @@ bool DynCloneImpl<InfoClass>::verifyCallsInInitRoutine(void) {
   // ComplexPtrStores. A user call in InitRoutine is treated as unsafe
   // if it has any access to locations of SimplePtrStores or ComplexPtrStores.
   // Collect unsafe calls here.
-  for (auto FPair : UserCallFuncs)
+  for (const auto &FPair : UserCallFuncs)
     if (HasAnyAccessToPtrStoredLocs(FPair.first, AllSimplePtrStoreLocSet))
       UnsafeUserFunction.insert(FPair.first);
   auto UnsafeCount = UnsafeUserFunction.size();
@@ -3267,8 +3266,8 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
 
     // Add instruction to reset the flag before unsafe calls.
-    for (auto CIInst : RuntimeCheckUnsafeCalls)
-      SI = new StoreInst(ConstantInt::get(FlagType, 0), AI, CIInst);
+    for (auto *CIInst : RuntimeCheckUnsafeCalls)
+      (void)new StoreInst(ConstantInt::get(FlagType, 0), AI, CIInst);
 
     // Already proved that all allocations are in same basicblock.
     // Just add an instruction before first calloc to set the flag.
@@ -3381,7 +3380,7 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
   //       store i64 %d.sel3, i64* %d.max
   //       store i64 %g1, i64* %F1, align 8
   //
-  for (auto StInst : RuntimeCheckStores) {
+  for (auto *StInst : RuntimeCheckStores) {
     auto StElem = DTInfo.getStoreElement(StInst);
     LLVM_DEBUG(dbgs() << "    Find min and max for " << *StInst << "\n");
     auto It =
@@ -3931,7 +3930,7 @@ bool DynCloneImpl<InfoClass>::createCallGraphClone(void) {
 
   FunctionSet CandidateAccessRoutines;
   // TODO: Move the below checks before generating any runtime checks.
-  for (auto TPair : TypeAccessedInFunctions) {
+  for (const auto &TPair : TypeAccessedInFunctions) {
     if (!isCandidateStruct(TPair.first))
       continue;
     FunctionSet FSet = TPair.second;
@@ -4504,7 +4503,7 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
           // Otherwise - mark the load and all corresponding stores as not a
           // candidate for encoding.
           LP.second = false;
-          for (auto SI : StoresWithNoEncoding)
+          for (auto *SI : StoresWithNoEncoding)
             StoresToProcess[SI] = false;
         }
       }
