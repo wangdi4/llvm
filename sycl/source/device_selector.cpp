@@ -145,34 +145,14 @@ device select_device(DSelectorInvocableType DeviceSelectorInvocable,
              DeviceSelectorInvocable.target<sycl::accelerator_selector>()) {
     Message += Acc;
   }
-<<<<<<< HEAD
-  if ((Selector && *Selector == cpu_selector_v)
-          || DeviceSelectorInvocable.target<sycl::cpu_selector>()) {
-    throw sycl::runtime_error(
-        "No device of requested type 'info::device_type::cpu' available.",
-        PI_ERROR_DEVICE_NOT_FOUND);
-  }
-  if ((Selector && *Selector == accelerator_selector_v)
-          || DeviceSelectorInvocable.target<sycl::accelerator_selector>()) {
-    throw sycl::runtime_error("No device of requested type "
-                              "'info::device_type::accelerator' available.",
-                              PI_ERROR_DEVICE_NOT_FOUND);
-  }
-
-#if INTEL_CUSTOMIZATION
-  throw sycl::runtime_error(
-      "No device of requested type available. Please check "
-      "https://software.intel.com/content/www/us/en/develop/articles/"
-      "intel-oneapi-dpcpp-system-requirements.html",
-      PI_ERROR_DEVICE_NOT_FOUND);
-#else
-  throw sycl::runtime_error("No device of requested type available.",
-                            PI_ERROR_DEVICE_NOT_FOUND);
-#endif // INTEL_CUSTOMIZATION
-=======
   Message += Suffix;
+#if INTEL_CUSTOMIZATION
+  constexpr const char OneAPINote[] =
+      " Please check https://software.intel.com/content/www/us/en/develop/"
+      "articles/intel-oneapi-dpcpp-system-requirements.html";
+  Message += OneAPINote;
+#endif // INTEL_CUSTOMIZATION
   throw sycl::runtime_error(Message, PI_ERROR_DEVICE_NOT_FOUND);
->>>>>>> 143db5ea37773e48bfe452f0978a06c8ab1ecd7c
 }
 
 // select_device(selector)
