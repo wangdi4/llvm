@@ -69,7 +69,7 @@ entry:
 ; CHECK-LABEL: test1_with_nowait
 ; CHECK-LABEL: if.then:
 ; BBlock "if.then" has the code for the variant call
-; CHECK: [[TASK1:%[^ ]+]] = call ptr @__kpmc_get_current_task(i32 %my.tid{{.*}})
+; CHECK: [[TASK1:%[^ ]+]] = call ptr @__kmpc_get_current_task(i32 %my.tid{{.*}})
 ; CHECK: [[IOP1:%[^ ]+]] = call ptr @__tgt_get_interop_obj(ptr @.kmpc_loc{{.*}}, i32 1, i32 3, ptr @.prefer.list{{.*}}, i64 0, i32 %my.tid{{.*}}, ptr [[TASK1]])
 ; CHECK: call void @_Z7foo_gpuiPv(i32 123, ptr [[IOP1]])
 
@@ -115,7 +115,7 @@ entry:
 
 ; CHECK-LABEL: test2_with_depend
 ; CHECK-LABEL: if.then:
-; CHECK: [[TASK2:%[^ ]+]] = call ptr @__kpmc_get_current_task(i32 %my.tid{{.*}})
+; CHECK: [[TASK2:%[^ ]+]] = call ptr @__kmpc_get_current_task(i32 %my.tid{{.*}})
 ; CHECK: [[IOP2:%[^ ]+]] = call ptr @__tgt_get_interop_obj(ptr @.kmpc_loc{{.*}}, i32 1, i32 3, ptr @.prefer.list{{.*}}, i64 0, i32 %my.tid{{.*}}, ptr [[TASK2]])
 
 ; For the DEPEND clause emit call to __kmpc_omp_wait_deps but not the task_begin/complete_if0 calls
