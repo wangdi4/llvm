@@ -482,6 +482,8 @@ template <> struct DenseMapInfo<AACacheLoc> {
   }
 };
 
+class AAResults;
+
 /// This class stores info we want to provide to or retain within an alias
 /// query. By default, the root query is stateless and starts with a freshly
 /// constructed info object. Specific alias analyses can use this query info to
@@ -509,6 +511,11 @@ public:
     /// Whether this is a definitive (non-assumption) result.
     bool isDefinitive() const { return NumAssumptionUses < 0; }
   };
+
+  // Alias analysis result aggregration using which this query is performed.
+  // Can be used to perform recursive queries.
+  AAResults &AAR;
+
   using AliasCacheT = SmallDenseMap<LocPair, CacheEntry, 8>;
   AliasCacheT AliasCache;
 
@@ -517,8 +524,8 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   // Remember if this is a "loopCarriedAlias" query.
   const bool NeedLoopCarried = false;
-  AAQueryInfo(CaptureInfo *CI, bool LoopCarried)
-      : CI(CI), NeedLoopCarried(LoopCarried) {}
+  AAQueryInfo(AAResults &AAR, CaptureInfo *CI, bool LoopCarried)
+      : AAR(AAR), CI(CI), NeedLoopCarried(LoopCarried) {}
 #endif // INTEL_CUSTOMIZATION
 
   /// Query depth used to distinguish recursive queries.
@@ -532,13 +539,13 @@ public:
   /// assumption is disproven.
   SmallVector<AAQueryInfo::LocPair, 4> AssumptionBasedResults;
 
-  AAQueryInfo(CaptureInfo *CI) : CI(CI) {}
+  AAQueryInfo(AAResults &AAR, CaptureInfo *CI) : AAR(AAR), CI(CI) {}
 
   /// Create a new AAQueryInfo based on this one, but with the cache cleared.
   /// This is used for recursive queries across phis, where cache results may
   /// not be valid.
   AAQueryInfo withEmptyCache() {
-    AAQueryInfo NewAAQI(CI, NeedLoopCarried); // INTEL
+    AAQueryInfo NewAAQI(AAR, CI, NeedLoopCarried); // INTEL
     NewAAQI.Depth = Depth;
     return NewAAQI;
   }
@@ -549,9 +556,9 @@ class SimpleAAQueryInfo : public AAQueryInfo {
   SimpleCaptureInfo CI;
 
 public:
-  SimpleAAQueryInfo() : AAQueryInfo(&CI) {}
-  SimpleAAQueryInfo(bool LoopCarried)    // INTEL
-      : AAQueryInfo(&CI, LoopCarried) {} // INTEL
+  SimpleAAQueryInfo(AAResults &AAR) : AAQueryInfo(AAR, &CI) {}
+  SimpleAAQueryInfo(AAResults &AAR, bool LoopCarried)    // INTEL
+      : AAQueryInfo(AAR, &CI, LoopCarried) {}            // INTEL
 };
 
 class BatchAAResults;
@@ -566,11 +573,6 @@ public:
 #if INTEL_CUSTOMIZATION
   // Do opt-level based initialization for each AAResult.
   void setupWithOptLevel(unsigned OptLevel);
-
-  // Sets the AAResults pointer of underlying AAs to this object.
-  // This is required to restore the connection after LoopOpt's AA
-  // pipeline breaks it.
-  void setAAResultsPtr();
 #endif // INTEL_CUSTOMIZATION
 
   /// Register a specific AA result.
@@ -906,7 +908,7 @@ public:
   /// helpers above.
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc) {
-    SimpleAAQueryInfo AAQIP;
+    SimpleAAQueryInfo AAQIP(*this);
     return getModRefInfo(I, OptLoc, AAQIP);
   }
 
@@ -923,7 +925,7 @@ public:
   /// passed in here.
   ModRefInfo getSizedModRefInfo(const Instruction *I, LocationSize Size,
                                 const MemoryLocation &Loc) {
-    SimpleAAQueryInfo AAQIP;
+    SimpleAAQueryInfo AAQIP(*this);
     return getModRefInfo(I, Loc, AAQIP, Size);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -943,7 +945,7 @@ public:
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc,
                                 DominatorTree *DT) {
-    SimpleAAQueryInfo AAQIP;
+    SimpleAAQueryInfo AAQIP(*this);
     return callCapturesBefore(I, MemLoc, DT, AAQIP);
   }
 
@@ -984,7 +986,6 @@ public:
     return canInstructionRangeModRef(I1, I2, MemoryLocation(Ptr, Size), Mode);
   }
 
-private:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI);
 #if INTEL_CUSTOMIZATION
@@ -1031,6 +1032,7 @@ private:
   FunctionModRefBehavior getModRefBehavior(const CallBase *Call,
                                            AAQueryInfo &AAQI);
 
+private:
   class Concept;
 
   template <typename T> class Model;
@@ -1058,8 +1060,8 @@ class BatchAAResults {
   SimpleCaptureInfo SimpleCI;
 
 public:
-  BatchAAResults(AAResults &AAR) : AA(AAR), AAQI(&SimpleCI) {}
-  BatchAAResults(AAResults &AAR, CaptureInfo *CI) : AA(AAR), AAQI(CI) {}
+  BatchAAResults(AAResults &AAR) : AA(AAR), AAQI(AAR, &SimpleCI) {}
+  BatchAAResults(AAResults &AAR, CaptureInfo *CI) : AA(AAR), AAQI(AAR, CI) {}
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return AA.alias(LocA, LocB, AAQI);
@@ -1118,9 +1120,6 @@ class AAResults::Concept {
 public:
   virtual ~Concept() = 0;
 
-  /// An update API used internally by the AAResults to provide
-  /// a handle back to the top level aggregation.
-  virtual void setAAResults(AAResults *NewAAR) = 0;
 #if INTEL_CUSTOMIZATION
   /// Do opt-level based initialization for each AAResult.
   virtual void setupWithOptLevel(unsigned OptLevel) = 0;
@@ -1203,12 +1202,8 @@ template <typename AAResultT> class AAResults::Model final : public Concept {
   AAResultT &Result;
 
 public:
-  explicit Model(AAResultT &Result, AAResults &AAR) : Result(Result) {
-    Result.setAAResults(&AAR);
-  }
+  explicit Model(AAResultT &Result, AAResults &AAR) : Result(Result) {}
   ~Model() override = default;
-
-  void setAAResults(AAResults *NewAAR) override { Result.setAAResults(NewAAR); }
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI) override {
@@ -1286,122 +1281,13 @@ public:
 /// use virtual anywhere, the CRTP base class does static dispatch to the
 /// derived type passed into it.
 template <typename DerivedT> class AAResultBase {
-  // Expose some parts of the interface only to the AAResults::Model
-  // for wrapping. Specifically, this allows the model to call our
-  // setAAResults method without exposing it as a fully public API.
-  friend class AAResults::Model<DerivedT>;
-
-  /// A pointer to the AAResults object that this AAResult is
-  /// aggregated within. May be null if not aggregated.
-  AAResults *AAR = nullptr;
-
-  /// Helper to dispatch calls back through the derived type.
-  DerivedT &derived() { return static_cast<DerivedT &>(*this); }
-
-  /// A setter for the AAResults pointer, which is used to satisfy the
-  /// AAResults::Model contract.
-  void setAAResults(AAResults *NewAAR) { AAR = NewAAR; }
-
 protected:
-  /// This proxy class models a common pattern where we delegate to either the
-  /// top-level \c AAResults aggregation if one is registered, or to the
-  /// current result if none are registered.
-  class AAResultsProxy {
-    AAResults *AAR;
-    DerivedT &CurrentResult;
-
-  public:
-    AAResultsProxy(AAResults *AAR, DerivedT &CurrentResult)
-        : AAR(AAR), CurrentResult(CurrentResult) {}
-
-    AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                      AAQueryInfo &AAQI) {
-      return AAR ? AAR->alias(LocA, LocB, AAQI)
-                 : CurrentResult.alias(LocA, LocB, AAQI);
-    }
-
-    bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                                bool OrLocal) {
-      return AAR ? AAR->pointsToConstantMemory(Loc, AAQI, OrLocal)
-                 : CurrentResult.pointsToConstantMemory(Loc, AAQI, OrLocal);
-    }
-#if INTEL_CUSTOMIZATION
-    // Do opt-level based initialization for each AAResult.
-    void setupWithOptLevel(unsigned OptLevel) {
-      if (AAR)
-        AAR->setupWithOptLevel(OptLevel);
-    }
-
-    // Returns true if the given value V is escaped.
-    bool escapes(const Value *V) 
-    {
-      return AAR ? AAR->escapes(V) : CurrentResult.escapes(V);
-    }
-
-    // The main low level interface for clients concerned with loop-carried
-    // semantics. If both LocA and LocB have UnknownSize, it returns an alias
-    // analysis result which is true not only for any program point, but also
-    // for any two program points. This is a stronger assertion than that
-    // provided by alias(); in particular, it is strong enough to preclude a
-    // dependence through memory. Note that if one or both locations have a
-    // precise size, however, the semantics are only as strong as the normal
-    // alias() interface and precision may be worse.
-    AliasResult loopCarriedAlias(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB,
-                                 AAQueryInfo &AAQI) {
-      assert(AAQI.NeedLoopCarried &&
-             "Unexpectedly missing loopCarried query flag");
-      return AAR ? AAR->loopCarriedAlias(LocA, LocB, AAQI)
-                 : CurrentResult.loopCarriedAlias(LocA, LocB, AAQI);
-    }
-#endif // INTEL_CUSTOMIZATION
-
-    ModRefInfo getArgModRefInfo(const CallBase *Call, unsigned ArgIdx) {
-      return AAR ? AAR->getArgModRefInfo(Call, ArgIdx)
-                 : CurrentResult.getArgModRefInfo(Call, ArgIdx);
-    }
-
-    FunctionModRefBehavior getModRefBehavior(const CallBase *Call,
-                                             AAQueryInfo &AAQI) {
-      return AAR ? AAR->getModRefBehavior(Call, AAQI)
-                 : CurrentResult.getModRefBehavior(Call, AAQI);
-    }
-
-    FunctionModRefBehavior getModRefBehavior(const Function *F) {
-      return AAR ? AAR->getModRefBehavior(F) : CurrentResult.getModRefBehavior(F);
-    }
-
-    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
-                             AAQueryInfo &AAQI) {
-      return AAR ? AAR->getModRefInfo(Call, Loc, AAQI)
-                 : CurrentResult.getModRefInfo(Call, Loc, AAQI);
-    }
-
-    ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
-                             AAQueryInfo &AAQI) {
-      return AAR ? AAR->getModRefInfo(Call1, Call2, AAQI)
-                 : CurrentResult.getModRefInfo(Call1, Call2, AAQI);
-    }
-  };
-
   explicit AAResultBase() = default;
 
   // Provide all the copy and move constructors so that derived types aren't
   // constrained.
   AAResultBase(const AAResultBase &Arg) {}
   AAResultBase(AAResultBase &&Arg) {}
-
-  /// Get a proxy for the best AA result set to query at this time.
-  ///
-  /// When this result is part of a larger aggregation, this will proxy to that
-  /// aggregation. When this result is used in isolation, it will just delegate
-  /// back to the derived class's implementation.
-  ///
-  /// Note that callers of this need to take considerable care to not cause
-  /// performance problems when they use this routine, in the case of a large
-  /// number of alias analyses being aggregated, it can be expensive to walk
-  /// back across the chain.
-  AAResultsProxy getBestAAResults() { return AAResultsProxy(AAR, derived()); }
 
 public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
