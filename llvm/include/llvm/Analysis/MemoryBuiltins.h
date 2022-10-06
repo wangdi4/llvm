@@ -73,6 +73,50 @@ bool isAllocationFn(const Value *V, const TargetLibraryInfo *TLI);
 bool isAllocationFn(const Value *V,
                     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory similar to malloc or calloc.
+bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory (either malloc, calloc, or strdup like).
+bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+
+/// Tests if a function is a call or invoke to a library function that
+/// reallocates memory (e.g., realloc).
+bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// If this is a call to a realloc function, return the reallocated operand.
+Value *getReallocatedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
+
+//===----------------------------------------------------------------------===//
+//  free Call Utility Functions.
+//
+
+/// isLibFreeFunction - Returns true if the function is a builtin free()
+bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
+
+#if INTEL_CUSTOMIZATION
+/// isLibDeleteFunction - Returns true if the function is a builtin delete()
+bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
+
+/// If this if a call to a free function, return the freed operand.
+/// Skip IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
+Value *getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
+                       bool CheckNoBuiltin = true);
+
+/// isDeleteCall - Returns non-null if the value is a call to the
+/// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
+/// false (dtrans).
+const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI,
+                             bool CheckNoBuiltin = true);
+
+inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
+                              bool CheckNoBuiltin = true) {
+  return const_cast<CallInst *>(
+      isDeleteCall((const Value *) I, TLI, CheckNoBuiltin));
+}
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_CUSTOMIZATION
 
 class IntelMemoryBuiltins {
@@ -116,54 +160,6 @@ static std::pair<unsigned, unsigned>
 getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 };
 
-#endif // INTEL_CUSTOMIZATION
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory via new.
-bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory similar to malloc or calloc.
-bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory (either malloc, calloc, or strdup like).
-bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
-/// Tests if a function is a call or invoke to a library function that
-/// reallocates memory (e.g., realloc).
-bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
-
-/// If this is a call to a realloc function, return the reallocated operand.
-Value *getReallocatedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
-
-//===----------------------------------------------------------------------===//
-//  free Call Utility Functions.
-//
-
-/// isLibFreeFunction - Returns true if the function is a builtin free()
-bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
-
-#if INTEL_CUSTOMIZATION
-/// isLibDeleteFunction - Returns true if the function is a builtin delete()
-bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
-
-/// If this if a call to a free function, return the freed operand.
-/// Skip IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
-Value *getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
-                       bool CheckNoBuiltin = true);
-
-/// isDeleteCall - Returns non-null if the value is a call to the
-/// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
-/// false (dtrans).
-const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI,
-                             bool CheckNoBuiltin = true);
-
-inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
-                              bool CheckNoBuiltin = true) {
-  return const_cast<CallInst *>(
-      isDeleteCall((const Value *) I, TLI, CheckNoBuiltin));
-}
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -271,7 +267,7 @@ using SizeOffsetType = std::pair<APInt, APInt>;
 /// Evaluate the size and offset of an object pointed to by a Value*
 /// statically. Fails if size or offset are not known at compile time.
 class ObjectSizeOffsetVisitor
-    : public InstVisitor<ObjectSizeOffsetVisitor, SizeOffsetType> {
+  : public InstVisitor<ObjectSizeOffsetVisitor, SizeOffsetType> {
   const DataLayout &DL;
   const TargetLibraryInfo *TLI;
   ObjectSizeOpts Options;
@@ -313,11 +309,11 @@ public:
   SizeOffsetType visitExtractValueInst(ExtractValueInst &I);
   SizeOffsetType visitGlobalAlias(GlobalAlias &GA);
   SizeOffsetType visitGlobalVariable(GlobalVariable &GV);
-  SizeOffsetType visitIntToPtrInst(IntToPtrInst &);
+  SizeOffsetType visitIntToPtrInst(IntToPtrInst&);
   SizeOffsetType visitLoadInst(LoadInst &I);
-  SizeOffsetType visitPHINode(PHINode &);
+  SizeOffsetType visitPHINode(PHINode&);
   SizeOffsetType visitSelectInst(SelectInst &I);
-  SizeOffsetType visitUndefValue(UndefValue &);
+  SizeOffsetType visitUndefValue(UndefValue&);
   SizeOffsetType visitInstruction(Instruction &I);
 
 private:
@@ -335,7 +331,7 @@ using SizeOffsetEvalType = std::pair<Value *, Value *>;
 /// Evaluate the size and offset of an object pointed to by a Value*.
 /// May create code to compute the result at run-time.
 class ObjectSizeOffsetEvaluator
-    : public InstVisitor<ObjectSizeOffsetEvaluator, SizeOffsetEvalType> {
+  : public InstVisitor<ObjectSizeOffsetEvaluator, SizeOffsetEvalType> {
   using BuilderTy = IRBuilder<TargetFolder, IRBuilderCallbackInserter>;
   using WeakEvalType = std::pair<WeakTrackingVH, WeakTrackingVH>;
   using CacheMapTy = DenseMap<const Value *, WeakEvalType>;
@@ -386,7 +382,7 @@ public:
   SizeOffsetEvalType visitExtractElementInst(ExtractElementInst &I);
   SizeOffsetEvalType visitExtractValueInst(ExtractValueInst &I);
   SizeOffsetEvalType visitGEPOperator(GEPOperator &GEP);
-  SizeOffsetEvalType visitIntToPtrInst(IntToPtrInst &);
+  SizeOffsetEvalType visitIntToPtrInst(IntToPtrInst&);
   SizeOffsetEvalType visitLoadInst(LoadInst &I);
   SizeOffsetEvalType visitPHINode(PHINode &PHI);
   SizeOffsetEvalType visitSelectInst(SelectInst &I);
