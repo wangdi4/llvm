@@ -210,11 +210,6 @@ public:
   OptReportBuilder &getORBuilder() { return ORBuilder; }
 
   HIRAnalysisProvider &getHIRAnalysisProvider() { return AnalysisProvider; }
-
-  // Restores connection of underlying alias analyses to the original AAResults
-  // pointer in codegen. This is needed because HIRDDAnalysis's AA pipeline
-  // overwrites the AAResults pointer field.
-  void restoreOriginalAAResults();
 };
 
 class HIRFrameworkAnalysis : public AnalysisInfoMixin<HIRFrameworkAnalysis> {

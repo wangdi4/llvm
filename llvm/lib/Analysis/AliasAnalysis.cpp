@@ -105,17 +105,7 @@ static const bool EnableAATrace = false;
 AAResults::AAResults(AAResults &&Arg)
     : TLI(Arg.TLI), AAs(std::move(Arg.AAs)), AADeps(std::move(Arg.AADeps)) {}
 
-<<<<<<< HEAD
-AAResults::~AAResults() {
-// FIXME; It would be nice to at least clear out the pointers back to this
-// aggregation here, but we end up with non-nesting lifetimes in the legacy
-// pass manager that prevent this from working. In the legacy pass manager
-// we'll end up with dangling references here in some cases.
-#if 0
-  for (auto &AA : AAs)
-    AA->setAAResults(nullptr);
-#endif
-}
+AAResults::~AAResults() {}
 #if INTEL_CUSTOMIZATION
 
 // Do opt-level based initialization for each AAResult.
@@ -124,15 +114,7 @@ void AAResults::setupWithOptLevel(unsigned OptLevel) {
     AA->setupWithOptLevel(OptLevel);
 }
 
-void AAResults::setAAResultsPtr() {
-  for (auto &AA : AAs)
-    AA->setAAResults(this);
-}
-
 #endif // INTEL_CUSTOMIZATION
-=======
-AAResults::~AAResults() {}
->>>>>>> c5bf452022a50002d9f2d5310e8eb33515e86166
 
 bool AAResults::invalidate(Function &F, const PreservedAnalyses &PA,
                            FunctionAnalysisManager::Invalidator &Inv) {
@@ -215,7 +197,7 @@ bool AAResults::escapes(const Value *V) {
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB) {
-  SimpleAAQueryInfo AAQIP(/*NeedLoopCarried*/ true);
+  SimpleAAQueryInfo AAQIP(*this, /*NeedLoopCarried*/ true);
   return loopCarriedAlias(LocA, LocB, AAQIP);
 }
 

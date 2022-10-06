@@ -1093,7 +1093,7 @@ ModRefInfo BasicAAResult::getDirectiveModRefInfo(const CallBase *Call,
     for (const Use &U : BU.Inputs) {
       Value *V = U;
       if (V->getType()->isPointerTy()) {
-        AliasResult AR = getBestAAResults().alias(
+        AliasResult AR = AAQI.AAR.alias(
             MemoryLocation::getBeforeOrAfter(V), Loc, AAQI);
         if (AR != AliasResult::NoAlias)
           return ModRefInfo::ModRef;
@@ -1346,7 +1346,6 @@ AliasResult BasicAAResult::aliasGEP(
 
   // For GEPs with identical offsets, we can preserve the size and AAInfo
   // when performing the alias check on the underlying objects.
-<<<<<<< HEAD
   if (DecompGEP1.Offset == 0 &&
       DecompGEP1.Base == UnderlyingV1 && // INTEL
       DecompGEP2.Base == UnderlyingV2 && // INTEL
@@ -1354,11 +1353,11 @@ AliasResult BasicAAResult::aliasGEP(
 #if INTEL_CUSTOMIZATION
     AliasResult PreciseBaseAlias = AliasResult::MayAlias;
     if (AAQI.NeedLoopCarried)
-      PreciseBaseAlias = getBestAAResults().loopCarriedAlias(
+      PreciseBaseAlias = AAQI.AAR.loopCarriedAlias(
           MemoryLocation(DecompGEP1.Base, V1Size),
           MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     else
-      PreciseBaseAlias = getBestAAResults().alias(
+      PreciseBaseAlias = AAQI.AAR.alias(
           MemoryLocation(DecompGEP1.Base, V1Size),
           MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     return PreciseBaseAlias;
@@ -1369,24 +1368,14 @@ AliasResult BasicAAResult::aliasGEP(
 #if INTEL_CUSTOMIZATION
   AliasResult BaseAlias = AliasResult::MayAlias;
   if (AAQI.NeedLoopCarried)
-    BaseAlias = getBestAAResults().loopCarriedAlias(
+    BaseAlias = AAQI.AAR.loopCarriedAlias(
         MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
         MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
   else
-    BaseAlias = getBestAAResults().alias(
+    BaseAlias = AAQI.AAR.alias(
         MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
         MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (DecompGEP1.Offset == 0 && DecompGEP1.VarIndices.empty())
-    return AAQI.AAR.alias(MemoryLocation(DecompGEP1.Base, V1Size),
-                          MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
-
-  // Do the base pointers alias?
-  AliasResult BaseAlias =
-      AAQI.AAR.alias(MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
-                     MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
->>>>>>> c5bf452022a50002d9f2d5310e8eb33515e86166
 
   // If we get a No or May, then return it immediately, no amount of analysis
   // will improve this situation.
@@ -1815,24 +1804,18 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // with a new AAQueryInfo.
   AAQueryInfo NewAAQI = AAQI.withEmptyCache();
   AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   AliasResult Alias = AliasResult::MayAlias;
   if (UseAAQI->NeedLoopCarried)
-    Alias = getBestAAResults().loopCarriedAlias(
+    Alias = AAQI.AAR.loopCarriedAlias(
         MemoryLocation(V2, V2Size),
         MemoryLocation(V1Srcs[0], PNSize), *UseAAQI);
   else
-    Alias = getBestAAResults().alias(
+    Alias = AAQI.AAR.alias(
       MemoryLocation(V1Srcs[0], PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
 #endif // INTEL_CUSTOMIZATION
-=======
-
-  AliasResult Alias = AAQI.AAR.alias(MemoryLocation(V1Srcs[0], PNSize),
-                                     MemoryLocation(V2, V2Size), *UseAAQI);
->>>>>>> c5bf452022a50002d9f2d5310e8eb33515e86166
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
@@ -1848,19 +1831,15 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   for (unsigned i = 1, e = V1Srcs.size(); i != e; ++i) {
     Value *V = V1Srcs[i];
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     AliasResult ThisAlias = AliasResult::MayAlias;
     if (UseAAQI->NeedLoopCarried)
-      ThisAlias = getBestAAResults().loopCarriedAlias(
+      ThisAlias = AAQI.AAR.loopCarriedAlias(
             MemoryLocation(V2, V2Size),
             MemoryLocation(V, PNSize), *UseAAQI);
     else
-       ThisAlias = getBestAAResults().alias(
-=======
-    AliasResult ThisAlias = AAQI.AAR.alias(
->>>>>>> c5bf452022a50002d9f2d5310e8eb33515e86166
-        MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
+       ThisAlias = AAQI.AAR.alias(
+           MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
 #endif // INTEL_CUSTOMIZATION
     Alias = MergeAliasResults(ThisAlias, Alias);
     if (Alias == AliasResult::MayAlias)

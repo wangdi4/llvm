@@ -8,6 +8,7 @@
 
 #include "llvm/Analysis/AliasAnalysisEvaluator.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"   // INTEL
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
@@ -24,11 +25,13 @@ namespace {
 
 class TBAATest : public testing::Test {
 protected:
-  TBAATest() : M("TBAATest", C), MD(C) {}
+  TBAATest() : M("TBAATest", C), MD(C), TLI(TLII) {}
 
   LLVMContext C;
   Module M;
   MDBuilder MD;
+  TargetLibraryInfoImpl TLII;
+  TargetLibraryInfo TLI;
   TypeBasedAAResult TBAA;   // INTEL
 };
 
@@ -139,7 +142,8 @@ TEST_F(TBAATest, checkTBAACommutativity) {
   const MemoryLocation Loc1 = MemoryLocation::get(SI);
   const MemoryLocation Loc2 = MemoryLocation::get(LI);
 
-  SimpleAAQueryInfo AAQIP;
+  AAResults AAR(TLI);
+  SimpleAAQueryInfo AAQIP(AAR);
   auto AliasResult1 = TBAA.alias(Loc1, Loc2, AAQIP);
   auto AliasResult2 = TBAA.alias(Loc2, Loc1, AAQIP);
 

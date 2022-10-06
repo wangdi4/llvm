@@ -465,8 +465,6 @@ bool HIRCodeGen::run() {
   // No longer need to suppress scalar optimizations.
   HIRF.getFunction().resetPreLoopOpt();
 
-  HIRF.restoreOriginalAAResults();
-
   return Transformed;
 }
 

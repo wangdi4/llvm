@@ -838,5 +838,3 @@ bool HIRFramework::isLiveinCopy(const HLInst *HInst) {
 bool HIRFramework::isLiveoutCopy(const HLInst *HInst) {
   return PhaseParser->isLiveoutCopy(HInst);
 }
-
-void HIRFramework::restoreOriginalAAResults() { AA.setAAResultsPtr(); }
