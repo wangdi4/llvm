@@ -1037,7 +1037,7 @@ private:
 
   template <typename T> class Model;
 
-  template <typename T> friend class AAResultBase;
+  friend class AAResultBase;
 
   const TargetLibraryInfo &TLI;
 
@@ -1267,8 +1267,7 @@ public:
   }
 };
 
-/// A CRTP-driven "mixin" base class to help implement the function alias
-/// analysis results concept.
+/// A base class to help implement the function alias analysis results concept.
 ///
 /// Because of the nature of many alias analysis implementations, they often
 /// only implement a subset of the interface. This base class will attempt to
@@ -1276,11 +1275,10 @@ public:
 /// of the interface where possible, and otherwise provide conservatively
 /// correct fallback implementations.
 ///
-/// Implementors of an alias analysis should derive from this CRTP, and then
+/// Implementors of an alias analysis should derive from this class, and then
 /// override specific methods that they wish to customize. There is no need to
-/// use virtual anywhere, the CRTP base class does static dispatch to the
-/// derived type passed into it.
-template <typename DerivedT> class AAResultBase {
+/// use virtual anywhere.
+class AAResultBase {
 protected:
   explicit AAResultBase() = default;
 

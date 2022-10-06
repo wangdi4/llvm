@@ -29,8 +29,8 @@
 namespace llvm {
 
 /// An AAResult providing alias queries.
-class DPCPPAAResult : public AAResultBase<DPCPPAAResult> {
-  friend AAResultBase<DPCPPAAResult>;
+class DPCPPAAResult : public AAResultBase {
+  friend AAResultBase;
 
 public:
   DPCPPAAResult();
