@@ -894,6 +894,7 @@ bool MemManageTransImpl::categorizeFunctions() {
 
   // Detect MemManageFKind for each interface function.
   unsigned NumInterfacefunctions = 0;
+  (void)NumInterfacefunctions;
   for (auto F : Cand->interface_functions()) {
     NumInterfacefunctions++;
     MemManageFKind FKind = CategorizeFunctionUsingSignature(F);

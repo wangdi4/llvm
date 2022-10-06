@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.cpp --------------------------------------------===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -81,6 +81,7 @@ void VPlanVerifier::verifyLoops(
 #endif
 
   unsigned BBNum = 0;
+  (void)BBNum;
   for (const VPBasicBlock *VPBB : depth_first(&Plan->getEntryBlock())) {
     verifyBlock(VPBB);
     ++BBNum;

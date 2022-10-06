@@ -1966,6 +1966,7 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   LLVM_DEBUG(dbgs() << "\n");
 
   ++ExactSIVapplications;
+  (void)Level;
   assert(0 < Level && Level <= CommonLevels && "Level out of range");
   Level--;
   Result.Consistent = false;
