@@ -504,8 +504,8 @@ CallInst *VPOParoptAtomics::genAtomicCall(WRegionNode *W,
     Function *F = B->getParent();
     Module *M = F->getParent();
     AtomicCall = VPOParoptUtils::genCall(M, Name, ReturnTy, Args, nullptr);
-    VPOParoptUtils::setFuncCallingConv(AtomicCall, M);
     assert(AtomicCall && "Generated Atomic call for GPU offloading is null.");
+    VPOParoptUtils::setFuncCallingConv(AtomicCall, M);
   }
   return AtomicCall;
 }
