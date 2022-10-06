@@ -99,7 +99,7 @@ omp.precond.then:                                 ; preds = %entry
   %3 = load i32, i32* %.capture_expr.1, align 4
   store i32 %3, i32* %.omp.ub, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[OUTLINED_FUNC:@.+]] to void (i32*, i32*, ...)*), float* %B, float* %A,
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[OUTLINED_FUNC:@.+]] to void (i32*, i32*, ...)*), float* %B, float* %A,
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(float** %A.addr) ]
   %5 = load i32, i32* %.omp.lb, align 4
@@ -166,7 +166,7 @@ entry:
   store float* %B, float** %B.addr, align 8
   store i32 %N, i32* %N.addr, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64)* [[OUTLINED_GOO:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B,
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, float*, i64)* [[OUTLINED_GOO:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B,
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(i32* %N.addr), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.), "QUAL.OMP.PRIVATE"(i32* %tmp) ]
   %1 = load i32, i32* %N.addr, align 4
@@ -274,7 +274,7 @@ omp.precond.then:                                 ; preds = %entry
   %3 = load i32, i32* %.capture_expr.1, align 4
   store i32 %3, i32* %.omp.ub, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, i64, i64)* [[OUTLINED_BAR1:@.+]] to void (i32*, i32*, ...)*), float* %A,
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, i64, i64)* [[OUTLINED_BAR1:@.+]] to void (i32*, i32*, ...)*), float* %A,
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(float** %A.addr) ]
   %5 = load i32, i32* %.omp.lb, align 4
@@ -336,7 +336,7 @@ omp.precond.then17:                               ; preds = %omp.precond.end
   %16 = load i32, i32* %.capture_expr.9, align 4
   store i32 %16, i32* %.omp.ub20, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, i64, i64)* [[OUTLINED_BAR2:@.+]] to void (i32*, i32*, ...)*), float* %A,
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, i64, i64)* [[OUTLINED_BAR2:@.+]] to void (i32*, i32*, ...)*), float* %A,
 
   %17 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb19), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv18), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub20), "QUAL.OMP.PRIVATE"(i32* %i25), "QUAL.OMP.SHARED"(float** %A.addr) ]
   %18 = load i32, i32* %.omp.lb19, align 4
@@ -423,7 +423,7 @@ omp.precond.then:                                 ; preds = %entry
   %5 = load i32, i32* %.capture_expr.1, align 4
   store i32 %5, i32* %.omp.ub, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 6, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64, i64, i64)* [[OUTLINED_CAR:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B, i64 4651317697086436147, i64 4672034252792424038,
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 6, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, float*, i64, i64, i64, i64)* [[OUTLINED_CAR:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B, i64 4651317697086436147, i64 4672034252792424038,
 
   %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"([2 x float]* %C), "QUAL.OMP.SHARED"([2 x float]* %D), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
   %7 = load i32, i32* %.omp.lb, align 4
@@ -497,7 +497,7 @@ entry:
   store float* %B, float** %B.addr, align 8
   store i32 %N, i32* %N.addr, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_teams({{.*}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64)* [[OUTLINED_BAZ_TEAMS:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B, i64 %{{.+}})
+; CHECK: call {{.*}} @__kmpc_fork_teams({{.*}}, i32 3, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, float*, i64)* [[OUTLINED_BAZ_TEAMS:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B, i64 %{{.+}})
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(i32* %N.addr), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.0), "QUAL.OMP.PRIVATE"(i32* %tmp) ]
   %1 = load i32, i32* %N.addr, align 4
@@ -603,7 +603,7 @@ entry:
   store i32 %K, i32* %K.addr, align 4
   store float 3.000000e+00, float* %X, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_teams({{.+}}, i32 5, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64, i64)* [[NESTED_PRIVATE_TEAMS:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B, i64 %{{.+}}, i64 %{{.+}}, i64 1077936128)
+; CHECK: call {{.*}} @__kmpc_fork_teams({{.+}}, i32 5, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, float*, i64, i64, i64)* [[NESTED_PRIVATE_TEAMS:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B, i64 %{{.+}}, i64 %{{.+}}, i64 1077936128)
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(i32* %N.addr), "QUAL.OMP.SHARED"(i32* %K.addr), "QUAL.OMP.SHARED"(float* %X), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.0), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.7), "QUAL.OMP.PRIVATE"(i32* %.omp.iv17), "QUAL.OMP.PRIVATE"(i32* %.omp.lb18), "QUAL.OMP.PRIVATE"(i32* %.omp.ub19), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.5), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.6), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.4), "QUAL.OMP.PRIVATE"(i32* %.omp.iv34), "QUAL.OMP.PRIVATE"(i32* %.omp.lb35), "QUAL.OMP.PRIVATE"(i32* %.omp.ub36), "QUAL.OMP.PRIVATE"(i32* %I41), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.3), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %tmp9), "QUAL.OMP.PRIVATE"(i32* %tmp25) ]
   %1 = load i32, i32* %N.addr, align 4
@@ -868,7 +868,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK: }
 
 ; CHECK: define internal void [[OUTLINED_BAZ_TEAMS]](i32* nocapture readnone %tid, i32* nocapture readnone %bid, float* nocapture writeonly [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}) #{{[0-9]+}} {
-; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[OUTLINED_BAZ_LOOP]] to void (i32*, i32*, ...)*), float* [[ABASE]], float* [[BBASE]], i64 0, i64 %{{.+}})
+; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[OUTLINED_BAZ_LOOP]] to void (i32*, i32*, ...)*), float* [[ABASE]], float* [[BBASE]], i64 0, i64 %{{.+}})
 ; CHECK: }
 
 ; CHECK: define internal void [[NESTED_PRIVATE_LOOP2:@.+]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
@@ -890,7 +890,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK: }
 
 ; CHECK: define internal void [[NESTED_PRIVATE_TEAMS]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
-; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 5, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64, i64)* [[NESTED_PRIVATE_LOOP1]] to void (i32*, i32*, ...)*), float* [[ABASE]], float* [[BBASE]], i64 1077936128, i64 0, i64 %{{.+}})
-; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, i64, i64, i64)* [[NESTED_PRIVATE_LOOP2]] to void (i32*, i32*, ...)*), float* [[ABASE]], i64 %{{.+}}, i64 0, i64 %{{.+}})
+; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 5, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, float*, i64, i64, i64)* [[NESTED_PRIVATE_LOOP1]] to void (i32*, i32*, ...)*), float* [[ABASE]], float* [[BBASE]], i64 1077936128, i64 0, i64 %{{.+}})
+; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, i64, i64, i64)* [[NESTED_PRIVATE_LOOP2]] to void (i32*, i32*, ...)*), float* [[ABASE]], i64 %{{.+}}, i64 0, i64 %{{.+}})
 ; CHECK: }
 
