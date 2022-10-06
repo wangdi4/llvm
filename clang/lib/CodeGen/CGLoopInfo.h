@@ -66,6 +66,8 @@ struct LoopAttributes {
   LVEnableState VectorizeEnable;
 
 #if INTEL_CUSTOMIZATION
+  /// Value for llvm.loop.vectorize.enable metadata.
+  bool IntelSimdVectorizeEnable;
   /// Value for llvm.loop.vectorize.ivdep_back metadata.
   bool IVDepEnable;
 
@@ -410,6 +412,11 @@ public:
   void setParallel(bool Enable = true) { StagedAttrs.IsParallel = Enable; }
 
 #if INTEL_CUSTOMIZATION
+  /// Set the next pushed loop 'vectorize.enable'
+  void setIntelSimdVectorizeEnable() {
+    StagedAttrs.IntelSimdVectorizeEnable = true;
+  }
+
   /// Set flag for three types of plain #pragma ivdep
   void setIVDepEnable() { StagedAttrs.IVDepEnable = true; }
   void setIVDepHLSEnable() { StagedAttrs.IVDepHLSEnable = true; }

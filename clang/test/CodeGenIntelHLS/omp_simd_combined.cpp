@@ -11,7 +11,7 @@ void bar(int i);
 void foo_unroll()
 {
   //CHECK: [[TK2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.SIMD
-  //CHECK: br{{.*}}!llvm.loop [[MD2:![0-9]+]]
+  //CHECK: br{{.*}}!llvm.loop [[MD3:![0-9]+]]
   //CHECK: call void @llvm.directive.region.exit(token [[TK2]]){{.*}}END.SIMD
   #pragma omp simd simdlen(16)
   #pragma unroll 4
@@ -29,10 +29,11 @@ void foo_ivdep()
   for (int i=0;i<64;++i) { bar(i); }
 }
 
-//CHECK: [[MD2]] = distinct !{[[MD2]], [[MD3:![0-9]+]], [[MD4:![0-9]+]]}
-//CHECK: [[MD3]] = !{!"llvm.loop.vectorize.enable", i1 true}
-//CHECK: [[MD6:![0-9]+]] = distinct !{[[MD6]], [[MD7:![0-9]+]], [[MD8:![0-9]+]]}
-//CHECK: [[MD8]] = !{!"llvm.loop.unroll.count", i32 4}
+//CHECK: [[MD3]] = distinct !{[[MD3]], [[MD4:![0-9]+]], [[MD5:![0-9]+]]}
+//CHECK: [[MD4]] = !{!"llvm.loop.vectorize.enable", i1 true}
+//CHECK-NOT !{!"llvm.loop.vectorize.enable", i1 true}
+//CHECK-NOT !{!"llvm.loop.isvectorized"}
+//CHECK: [[MD5]] = !{!"llvm.loop.unroll.count", i32 4}
 
-//CHECK: [[MDIV1]] = distinct !{[[MDIV1]], [[MDIV1A:![0-9]+]], [[MD3]]}
+//CHECK: [[MDIV1]] = distinct !{[[MDIV1]], [[MD4]], [[MDIV1A:![0-9]+]]}
 //CHECK: [[MDIV1A]] = !{!"llvm.loop.ivdep.safelen", i32 4}
