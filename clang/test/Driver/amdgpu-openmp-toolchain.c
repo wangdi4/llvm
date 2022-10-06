@@ -16,10 +16,12 @@
 // CHECK: ld{{.*}}"-o" "a.out"{{.*}}"{{.*}}amdgpu-openmp-toolchain-{{.*}}.o" "{{.*}}a-{{.*}}.o"{{.*}} "-liomp5" "-lomptarget"
 // end INTEL_CUSTOMIZATION
 
-// RUN:   %clang -ccc-print-phases --target=x86_64-unknown-linux-gnu -fopenmp -fno-openmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906 %s 2>&1 \
+// INTEL_CUSTOMIZATION
+// RUN:   %clang -ccc-print-phases --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-new-driver -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906 %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-PHASES %s
+// end INTEL_CUSTOMIZATION
 // phases
-// CHECK-PHASES: 0: input, "{{.*}}amdgpu-openmp-toolchain.c", c, (host-openmp)
+// CHECK-PHASES: 0: input, "[[INPUT:.+]]", c, (host-openmp)
 // CHECK-PHASES: 1: preprocessor, {0}, cpp-output, (host-openmp)
 // CHECK-PHASES: 2: compiler, {1}, ir, (host-openmp)
 // CHECK-PHASES: 3: input, "[[INPUT]]", c, (device-openmp)
