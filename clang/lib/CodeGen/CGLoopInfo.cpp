@@ -548,6 +548,15 @@ MDNode *LoopInfo::createMetadata(
         Ctx, {MDString::get(Ctx, "llvm.loop.parallel_accesses"), AccGroup}));
   }
 #if INTEL_CUSTOMIZATION
+  // Setting loop vectorize
+  if (Attrs.IntelSimdVectorizeEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.vectorize.enable"));
+    Vals.push_back(ConstantAsMetadata::get(
+        ConstantInt::get(llvm::Type::getInt1Ty(Ctx), 1)));
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
   if (Attrs.IIAtMost > 0) {
     LLVMContext &Ctx = Header->getContext();
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.ii.at.most.count"),
@@ -822,6 +831,7 @@ MDNode *LoopInfo::createMetadata(
 LoopAttributes::LoopAttributes(bool IsParallel)
     : IsParallel(IsParallel), VectorizeEnable(LoopAttributes::Unspecified),
 #if INTEL_CUSTOMIZATION
+      IntelSimdVectorizeEnable(false),
       IVDepEnable(false), IVDepHLSEnable(false), IVDepHLSIntelEnable(false),
       IVDepCount(0), IIAtMost(0), IIAtLeast(0), MinIIAtTargetFmaxEnable(false),
       ForceHyperoptEnable(LoopAttributes::Unspecified),
@@ -848,6 +858,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
 void LoopAttributes::clear() {
   IsParallel = false;
 #if INTEL_CUSTOMIZATION
+  IntelSimdVectorizeEnable = false;
   IIAtMost = 0;
   IIAtLeast = 0;
   MinIIAtTargetFmaxEnable = false;
@@ -915,6 +926,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
 
   if (!Attrs.IsParallel && Attrs.VectorizeWidth == 0 &&
 #if INTEL_CUSTOMIZATION
+      !Attrs.IntelSimdVectorizeEnable &&
       Attrs.IVDepCount == 0 &&
       Attrs.IIAtMost == 0 && Attrs.IIAtLeast == 0 &&
       !Attrs.MinIIAtTargetFmaxEnable &&

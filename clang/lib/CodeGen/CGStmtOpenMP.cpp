@@ -8495,8 +8495,8 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
 #endif // INTEL_CUSTOMIZATION
       {
         if (isOpenMPSimdDirective(Kind)) {
-          LoopStack.setVectorizeEnable();
 #if INTEL_CUSTOMIZATION
+          LoopStack.setIntelSimdVectorizeEnable();
           if (S.hasClausesOfKind<OMPOmpxAssertClause>())
             LoopStack.setVectorizeAlwaysAssertEnable();
 #endif // INTEL_CUSTOMIZATION
