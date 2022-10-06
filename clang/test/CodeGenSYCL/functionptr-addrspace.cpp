@@ -7,9 +7,7 @@ __attribute__((sycl_kernel)) void kernel_single_task(const Func &kernelFunc) {
   kernelFunc();
 }
 
-// INTEL_CUSTOMIZATION
 // CHECK: define dso_local spir_func{{.*}}invoke_function{{.*}}(i32 ()* nocapture noundef %fptr, i32 addrspace(4)* nocapture noundef %ptr)
-// end INTEL_CUSTOMIZATION
 void invoke_function(int (*fptr)(), int *ptr) {}
 
 int f() { return 0; }
