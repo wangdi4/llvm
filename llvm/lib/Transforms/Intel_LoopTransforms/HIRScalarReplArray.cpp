@@ -147,13 +147,13 @@ static cl::opt<bool> HIRScalarReplArrayLoopNest(
     "hir-scalarrepl-array-loopnest", cl::init(false), cl::Hidden,
     cl::desc("Enable HIR scalar replacament of references for the loop nest"));
 
-STATISTIC(NumGroupsOnScalarTypes,
+STATISTIC(NumGroupsOnScalarLoops,
           "Number of HIR Scalar Replacement of Array (HSRA) Performed On "
-          "Scalar Type(s)");
+          "Scalar Loop(s)");
 
-STATISTIC(NumGroupsOnVectorTypes,
+STATISTIC(NumGroupsOnVectorLoops,
           "Number of HIR Scalar Replacement of Array (HSRA) Performed On "
-          "Vector Type(s)");
+          "Vector Loop(s)");
 
 #ifndef NDEBUG
 LLVM_DUMP_METHOD void RefTuple::print(bool NewLine) const {
@@ -306,13 +306,13 @@ static bool isMinIndexWithinBounds(const RegDDRef *MemRef, const HLLoop *Lp) {
 }
 
 /// Returns true if the min index load can be safely hoisted to the preheader.
-static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp,
-                                 bool HasForwardGotos) {
+static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp) {
   unsigned LoopLevel = Lp->getNestingLevel();
 
   int64_t DepDist = 0;
   auto *FirstRef = Group[0];
 
+  auto *FirstChild = Lp->getFirstChild();
   // Any min index memref which is unconditionally executed within the loop does
   // the job.
   for (auto *MemRef : Group) {
@@ -325,9 +325,7 @@ static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp,
       break;
     }
 
-    // This is a cheaper post-domination check.
-    // TODO: replace by HLNodeUtils::postDominates()
-    if (!HasForwardGotos && isa<HLLoop>(MemRef->getHLDDNode()->getParent())) {
+    if (HLNodeUtils::postDominates(MemRef->getHLDDNode(), FirstChild)) {
       return true;
     }
   }
@@ -356,11 +354,14 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
     }
   }
 
-  if (!canHoistMinLoadIndex(Group, Lp, HasForwardGotos)) {
+  if (!canHoistMinLoadIndex(Group, Lp)) {
     return false;
   }
 
   MaxDepDist = getMaxDepDist(Group, LoopLevel);
+
+  assert((!isVectorLoop() || MaxDepDist == 0) &&
+         "unexpected group with non-zero distance in vector loop");
 
   if (NumLoads != 0) {
     MaxLoadIndex = getMaxLoadIndex(Group, LoopLevel, MaxDepDist);
@@ -375,23 +376,6 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
     return false;
   }
 
-  // Relax conditions over a loop's stride test:
-  // -allow vector type memref(s) over a unit-stride loop:
-  IsVectorTy = Group[0]->getDestType()->isVectorTy();
-  int64_t StrideConst = 0;
-  bool IsLoopUnitStride = false;
-  if (Lp->getStrideDDRef()->isIntConstant(&StrideConst) && (StrideConst == 1)) {
-    IsLoopUnitStride = true;
-  }
-
-  // On non-unit stride loops, only support group(s) with vector-type memref(s)
-  // without inter-iteration dependency.
-  if (!IsLoopUnitStride && IsVectorTy) {
-    if (MaxDepDist != 0) {
-      return false;
-    }
-  }
-
   // Create a partially filled RefTuple and save it into RefTupleVec.
   // E.g. (A[i], -1, nullptr)
   for (auto *MemRef : Group) {
@@ -402,10 +386,11 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
 }
 
 MemRefGroup::MemRefGroup(HIRScalarReplArray &HSRA, HLLoop *Lp,
-                         const RefGroupTy &Group)
+                         const RefGroupTy &Group, bool IsVectorLoop)
     : HSRA(HSRA), Lp(Lp), NumLoads(0), NumStores(0),
       LoopLevel(Lp->getNestingLevel()), IsValid(true), HasRWGap(false),
-      MaxLoadIndex(-1), MinStoreIndex(-1), MaxStoreDist(0), IsVectorTy(false) {
+      MaxLoadIndex(-1), MinStoreIndex(-1), MaxStoreDist(0),
+      IsVectorLoop(IsVectorLoop) {
 
   if (!createRefTuple(Group)) {
     IsValid = false;
@@ -672,7 +657,7 @@ void MemRefGroup::handleTemps(void) {
 
   // Create all TmpRef(s), and push them into TmpV
   for (unsigned Idx = 0; Idx < getNumTemps(); ++Idx) {
-    StringRef TempName = IsVectorTy ? "scalarepl.vec" : "scalarepl";
+    StringRef TempName = isVectorLoop() ? "scalarepl.vec" : "scalarepl";
     RegDDRef *TmpRef = HNU.createTemp(DestType, TempName);
     TmpV.push_back(TmpRef);
   }
@@ -962,9 +947,9 @@ void MemRefGroup::print(bool NewLine) {
   // Symbase:
   FOS << ", Symbase: " << Symbase << ", ";
 
-  // IsVectorTy:
-  StringRef VectorTyMsg = IsVectorTy ? " VectorTy " : "Not VectorTy ";
-  FOS << ", " << VectorTyMsg;
+  // IsVectorLoop:
+  StringRef VectorLoopMsg = isVectorLoop() ? " VectorLoop " : "Not VectorLoop ";
+  FOS << ", " << VectorLoopMsg;
 
   // Print MaxLoadIndex: if available
   FOS << "MaxLoadIndex: ";
@@ -1214,10 +1199,24 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
 }
 
 bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
+
+  bool IsVectorLoop = false;
+  int64_t StrideConst = 0;
+  if (Lp->getStrideDDRef()->isIntConstant(&StrideConst) && (StrideConst > 1)) {
+    IsVectorLoop = true;
+  }
+
   // Collect and group RegDDRefs:Don't sort the groups
+  // For vector loops, only form groups out of identical refs because we do not
+  // perform loop-carried scalar replacement. Creating groups with non-zero
+  // distance can suppress opportunities for loop-independant scalar
+  // replacement. For example, in the following load-only group we won't be able
+  // to eliminate redundant load-
+  // {(<4 x double>*)(%A)[i1], (<4 x double>*)(%A)[i1], (<4 x
+  // double>*)(%A)[i1+1]}
   RefGroupVecTy Groups;
   HIRLoopLocality::populateTemporalLocalityGroups(
-      Lp, HIRScalarReplArrayDepDistThreshold, Groups);
+      Lp, IsVectorLoop ? 0 : HIRScalarReplArrayDepDistThreshold, Groups);
   LLVM_DEBUG(DDRefGrouping::dump(Groups));
 
   // Examine each individual group, validate it, and save only the good ones.
@@ -1230,7 +1229,7 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
       continue;
     }
 
-    MemRefGroup MRG(*this, Lp, Group);
+    MemRefGroup MRG(*this, Lp, Group, IsVectorLoop);
 
     // Constructor performs sanity checks and populates the structure.
     if (!MRG.isValid()) {
@@ -1307,10 +1306,10 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
   doPostLoopProc(Lp, MRG);
   doInLoopProc(Lp, MRG);
 
-  if (MRG.isVectorType()) {
-    ++NumGroupsOnVectorTypes;
+  if (MRG.isVectorLoop()) {
+    ++NumGroupsOnVectorLoops;
   } else {
-    ++NumGroupsOnScalarTypes;
+    ++NumGroupsOnScalarLoops;
   }
 
   LLVM_DEBUG(FOS << "AFTER doTransform(.):\n"; Lp->dump(););
