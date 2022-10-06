@@ -186,6 +186,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
       if (!V)
         continue;
       unsigned LoadCount = 0;
+      (void)LoadCount;
       // Replace all loads of the lower bound, stride, or extent from the
       // specific dimension with constants, if we have determined them to
       // be constant.
@@ -360,6 +361,7 @@ static bool propagateFieldConstant(DopeVectorFieldUse *DVField) {
 
   bool Change = false;
   unsigned LoadCount = 0;
+  (void)LoadCount;
   for(auto *LI : DVField->loads()) {
     if (DVField->isNotForDVCPLoad(LI)) {
       LLVM_DEBUG({
