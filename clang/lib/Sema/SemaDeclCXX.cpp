@@ -5801,8 +5801,9 @@ void Sema::MarkVirtualBaseDestructorsReferenced(
       continue;
 
     CXXDestructorDecl *Dtor = LookupDestructor(BaseClassDecl);
-<<<<<<< HEAD
-    assert(Dtor && "No dtor found for BaseClassDecl!");
+    // Dtor might still be missing, e.g because it's invalid.
+    if (!Dtor)
+      continue;
 #if INTEL_CUSTOMIZATION
     // CQ#376362: "Classic" icc allows private destructors in base classes and
     // so should we.
@@ -5820,11 +5821,6 @@ void Sema::MarkVirtualBaseDestructorsReferenced(
       }
     } else
 #endif // INTEL_CUSTOMIZATION
-=======
-    // Dtor might still be missing, e.g because it's invalid.
-    if (!Dtor)
-      continue;
->>>>>>> adab08ecf2bdeb84dc7d2009d4c0c13617db9c58
     if (CheckDestructorAccess(
             ClassDecl->getLocation(), Dtor,
             PDiag(diag::err_access_dtor_vbase)
