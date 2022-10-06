@@ -1,5 +1,5 @@
-; RUN: opt -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; Check that we can handle outlining a parallel region like this:
 
@@ -32,7 +32,7 @@
 ; CHECK-NEXT: %arg1 = phi i1 [ true, %b1 ], [ false, %{{[^ ]+}} ]
 
 ; Check that an outlined function is created for the parallel region.
-; CHECK-LABEL: define internal void @foo.b0{{[^ ]*}}(i32* %tid, i32* %bid)
+; CHECK-LABEL: define internal void @foo.b0{{[^ ]*}}(ptr %tid, ptr %bid)
 ; CHECK: b0:
 ; CHECK-NEXT: br i1 true, label %b2, label %b3
 ; CHECK: b2:
@@ -49,7 +49,7 @@ define dso_local void @foo() #0 {
 entry:
   br label %b0
 
-b0:
+b0:                                               ; preds = %entry
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
   br i1 true, label %b2, label %b3
 
@@ -59,16 +59,16 @@ b1:                                               ; No predecessors!
 b2:                                               ; preds = %b0
   br label %b3
 
-b3:                                               ; preds = %b0, %b1, %b2
+b3:                                               ; preds = %b2, %b1, %b0
   %arg = phi i1 [ true, %b1 ], [ true, %b2 ], [ false, %b0 ]
   call void @_Z3barb(i1 zeroext %arg) #1
   br label %b4
 
-b4:
+b4:                                               ; preds = %b3
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   br label %b5
 
-b5:                                               ; preds = %b1, %b4
+b5:                                               ; preds = %b4, %b1
   %arg1 = phi i1 [ true, %b1 ], [ false, %b4 ]
   call void @_Z3bazb(i1 zeroext %arg1) #1
   ret void

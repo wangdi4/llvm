@@ -7932,9 +7932,13 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     // attribute.
     if (SCSpec == DeclSpec::SCS_static && !R.isConstant(Context) &&
         !isTypeDecoratedWithDeclAttribute<SYCLGlobalVariableAllowedAttr>(
-            NewVD->getType()))
+            NewVD->getType())) {
       SYCLDiagIfDeviceCode(D.getIdentifierLoc(), diag::err_sycl_restrict)
           << Sema::KernelNonConstStaticDataVariable;
+      if (getLangOpts().IntelFPGA)
+        SYCLDiagIfDeviceCode(D.getIdentifierLoc(),
+                             diag::note_intel_fpga_future_support);
+    }
   }
 
   switch (D.getDeclSpec().getConstexprSpecifier()) {

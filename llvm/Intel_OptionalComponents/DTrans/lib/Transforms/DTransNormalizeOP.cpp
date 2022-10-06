@@ -741,7 +741,7 @@ private:
   bool isSubObject(DTransType *DomTy, DTransType *SubTy) {
     auto *DomStTy = dyn_cast<DTransStructType>(DomTy);
     auto *SubSty = dyn_cast<DTransStructType>(SubTy);
-    if (!DomStTy || !SubSty)
+    if (!DomStTy || !SubSty || DomStTy->getNumFields() == 0)
       return false;
     DTransType *ElementZeroTy = DomStTy->getFieldType(0);
     auto *ElementZeroStTy = dyn_cast<DTransStructType>(ElementZeroTy);

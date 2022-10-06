@@ -550,6 +550,7 @@ public:
     // search BBs using heuristic:
     SmallVector<BasicBlockInfo, 4> ResultBBIVec;
     unsigned BBCount = 0;
+    (void)BBCount;
 
     for (auto &BBI : BBIVec) {
       // ^= is a relaxed comparator for BBInfo type,

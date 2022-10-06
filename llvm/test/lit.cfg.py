@@ -308,6 +308,8 @@ if config.have_tf_aot:
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 
+llvm_config.feature_config([('--opaque-ptr-mode', {'ON': 'enable-opaque-pointers'})])
+
 if config.enable_proto_bor:
     config.available_features.add("proto_bor")
 # end INTEL_CUSTOMIZATION
