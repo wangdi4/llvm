@@ -2881,11 +2881,6 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     // "partition_by_affinity_domain" and "next_partitionable" but if that
     // doesn't seem to be a good fit we could look at adding a more descriptive
     // partitioning type.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SHARED_SW_ADVANCED
-    // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/239.
-#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
     struct {
       pi_device_partition_property Arr[2];
     } PartitionProperties = {{PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN, 0}};
@@ -3066,11 +3061,6 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
         size_t{Device->ZeDeviceImageProperties->maxImageArraySlices});
   // Handle SIMD widths.
   // TODO: can we do better than this?
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SHARED_SW_ADVANCED
-    // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/239
-#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
   case PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_CHAR:
   case PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_CHAR:
     return ReturnValue(Device->ZeDeviceProperties->physicalEUSimdWidth / 1);
@@ -3106,11 +3096,6 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   }
   case PI_DEVICE_INFO_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS: {
     // TODO: Not supported yet. Needs to be updated after support is added.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SHARED_SW_ADVANCED
-    // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/338
-#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
     return ReturnValue(pi_bool{false});
   }
   case PI_DEVICE_INFO_SUB_GROUP_SIZES_INTEL: {
@@ -5735,14 +5720,6 @@ pi_result piEventGetInfo(pi_event Event, pi_event_info ParamName,
       }
     }
 
-    // TODO: We don't know if the status is queued, submitted or running.
-    //       For now return "running", as others are unlikely to be of
-    //       interest.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SHARED_SW_ADVANCED
-    //       https://gitlab.devtools.intel.com/one-api/level_zero/issues/243
-#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
     // Level Zero has a much more explicit notion of command submission than
     // OpenCL. It doesn't happen unless the user submits a command list. We've
     // done it just above so the status is at least PI_EVENT_RUNNING.
@@ -5828,11 +5805,6 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
   case PI_PROFILING_INFO_COMMAND_QUEUED:
   case PI_PROFILING_INFO_COMMAND_SUBMIT:
     // TODO: Support these when Level Zero supported is added.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SHARED_SW_ADVANCED
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373
-#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
     return ReturnValue(uint64_t{0});
   default:
     zePrint("piEventGetProfilingInfo: not supported ParamName\n");
@@ -7499,11 +7471,6 @@ static pi_result enqueueMemImageCommandHelper(
       return Result;
 
       // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SHARED_SW_ADVANCED
-      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303
-#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
       // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
     PI_ASSERT(DstMem->isImage(), PI_ERROR_INVALID_MEM_OBJECT);
