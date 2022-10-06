@@ -2,9 +2,8 @@
 ; INTEL_CUSTOMIZATION
 ; enable OP
 ; RUN: opt --opaque-pointers -instcombine -S < %s | FileCheck %s
-; RRZZUN: opt --opaque-pointers -debugify-each -instcombine -S < %s | FileCheck %s
+; RUN: opt --opaque-pointers -debugify-each -instcombine -S < %s | FileCheck %s
 ; end INTEL_CUSTOMIZATION
-
 ; These are both direct calls, but make sure instcombine leaves the casts
 ; alone.
 
