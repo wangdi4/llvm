@@ -306,13 +306,13 @@ static bool isMinIndexWithinBounds(const RegDDRef *MemRef, const HLLoop *Lp) {
 }
 
 /// Returns true if the min index load can be safely hoisted to the preheader.
-static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp,
-                                 bool HasForwardGotos) {
+static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp) {
   unsigned LoopLevel = Lp->getNestingLevel();
 
   int64_t DepDist = 0;
   auto *FirstRef = Group[0];
 
+  auto *FirstChild = Lp->getFirstChild();
   // Any min index memref which is unconditionally executed within the loop does
   // the job.
   for (auto *MemRef : Group) {
@@ -325,9 +325,7 @@ static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp,
       break;
     }
 
-    // This is a cheaper post-domination check.
-    // TODO: replace by HLNodeUtils::postDominates()
-    if (!HasForwardGotos && isa<HLLoop>(MemRef->getHLDDNode()->getParent())) {
+    if (HLNodeUtils::postDominates(MemRef->getHLDDNode(), FirstChild)) {
       return true;
     }
   }
@@ -356,7 +354,7 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
     }
   }
 
-  if (!canHoistMinLoadIndex(Group, Lp, HasForwardGotos)) {
+  if (!canHoistMinLoadIndex(Group, Lp)) {
     return false;
   }
 
