@@ -455,6 +455,19 @@ Enables/disables using immediate command list for kernel submission.
 
 **Default**: Disabled
 
+``LIBOMPTARGET_LEVEL_ZERO_REDUCTION_POOL=<PoolInfo>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <PoolInfo> := <AllocMax>[,<Capacity>[,<PoolSize>]]
+  <AllocMax> := positive integer, max allocation size in MB
+  <Capacity> := positive integer, number of allocations from a single block
+  <PoolSize> := positive integer, max pool size in MB
+
+Controls how dedicated reduction scratch pool is configured.
+
+**Default**: Equivalent to ``<PooInfo>=256,8,8192``
+
 Plugin OpenCL
 -------------
 
