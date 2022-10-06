@@ -1570,7 +1570,7 @@ bool PGOUseFunc::readMemprof(IndexedInstrProfReader *PGOReader) {
       if (AllocInfoIter != LocHashToAllocInfo.end()) {
         // Only consider allocations via new, to reduce unnecessary metadata,
         // since those are the only allocations that will be targeted initially.
-        if (!isNewLikeFn(CI, &FuncInfo.TLI))
+        if (!IntelMemoryBuiltins::isNewLikeFn(CI, &FuncInfo.TLI))
           continue;
         // We may match this instruction's location list to multiple MIB
         // contexts. Add them to a Trie specialized for trimming the contexts to
