@@ -422,6 +422,27 @@ public:
     return Plan->getVPExternalDefForDDRef(Ref);
   }
 
+  VPExternalDef *getVPExternalDefForCanonExpr(const loopopt::CanonExpr *CE,
+                                              const loopopt::RegDDRef *Ref) {
+    return Plan->getVPExternalDefForCanonExpr(CE, Ref);
+  }
+
+  VPExternalDef *getVPExternalDefForVariableStride(const loopopt::DDRef *Ref) {
+    if (Ref->isNonDecomposable()) {
+      // This is a simple terminal ref, unitary blob, etc.
+      return getVPExternalDefForDDRef(Ref, false /*MustBeLiveIn*/);
+    } else {
+      // Can be a more complicated expr containing conversions.
+      // Ref can be safely cast to RegDDRef here because LinearDescr
+      // objects are created with Step as RegDDRef. The constructor
+      // converts them to DDRef.
+      const auto *StepRegDDRef = cast<RegDDRef>(Ref);
+      return getVPExternalDefForCanonExpr(
+                 StepRegDDRef->getSingleCanonExpr(), StepRegDDRef);
+    }
+    return nullptr;
+  }
+
   VPExternalDef *getVPExternalDefForSIMDDescr(const loopopt::DDRef *Ref) {
     bool IsSIMDDescr = HIRLegality.getReductionDescr(Ref) != nullptr ||
                        HIRLegality.getLinearDescr(Ref) != nullptr ||
@@ -431,8 +452,11 @@ public:
             HIRLegality.getLinearDescr(Ref)) {
       // Create a VPExternalDef for variable stride DDRef
       const DDRef *StepDDRef = LinDescr->Step;
-      if (!StepDDRef->getSingleCanonExpr()->isConstant())
-        Plan->getVPExternalDefForDDRef(StepDDRef);
+      if (!StepDDRef->getSingleCanonExpr()->isConstant()) {
+        auto *StrideExtDef = getVPExternalDefForVariableStride(StepDDRef);
+        assert(StrideExtDef && "Could not get external def for stride");
+        (void)StrideExtDef;
+      }
     }
     assert(IsSIMDDescr && "DDRef is not a SIMD entity descriptor.");
     (void)IsSIMDDescr;
