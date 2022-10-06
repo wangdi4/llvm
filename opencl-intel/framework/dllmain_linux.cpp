@@ -29,7 +29,8 @@
 #include "ocl_event.h"
 
 __attribute__ ((constructor)) static void dll_init(void);
-__attribute__ ((destructor)) static void dll_fini(void);
+// As far as possible let dll_fini be called last
+__attribute__ ((destructor(100))) static void dll_fini(void);
 
 using namespace Intel::OpenCL::Framework;
 
@@ -62,11 +63,8 @@ void dll_fini(void)
 {
     Intel::OpenCL::Utils::FrameworkUserLogger::Destroy();
     Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
-// Disable it to avoid conflict with atexit() callback.
-#if 0
     // release the framework proxy object
     Intel::OpenCL::Framework::FrameworkProxy::Destroy();
-#endif
 #ifdef _DEBUG
     FiniSharedPts();
 #endif
