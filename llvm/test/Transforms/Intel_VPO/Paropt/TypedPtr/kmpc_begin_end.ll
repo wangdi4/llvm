@@ -15,6 +15,9 @@
 ; RUN: opt -vpo-paropt -S -mtriple=x86_64-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
 ; RUN: opt -passes='vpo-paropt' -S -mtriple=x86_64-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
 
+; INTEL_CUSTOMIZATION
+; UNSUPPORTED: enable-opaque-pointers
+; end INTEL_CUSTOMIZATION
 
 ; extern void bar();
 ;
