@@ -1,8 +1,9 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
+; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Original code:
 ; NOTE: intel.dtrans.types metadata was added manually below.
@@ -11,8 +12,8 @@
 ;  ;
 ;}
 
-; CHECK: %struct.ident_t = type { i32, i32, i32, i32, ptr }
-; CHECK: declare{{.*}}!intel.dtrans.func.type ![[FMD:[0-9]+]] void @__kmpc_fork_call(ptr, i32, ptr, ...)
+; CHECK: %struct.ident_t = type { i32, i32, i32, i32, i8* }
+; CHECK: declare{{.*}}!intel.dtrans.func.type ![[FMD:[0-9]+]] void @__kmpc_fork_call(%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...)
 ; CHECK: !intel.dtrans.types = !{![[TYMD:[0-9]+]]}
 ; CHECK: ![[TYMD]] = !{!"S", %struct.ident_t zeroinitializer, i32 5, ![[I32MD:[0-9]+]],
 ; CHECK-SAME: ![[I32MD]], ![[I32MD]], ![[I32MD]], ![[I8PTRMD:[0-9]+]]}

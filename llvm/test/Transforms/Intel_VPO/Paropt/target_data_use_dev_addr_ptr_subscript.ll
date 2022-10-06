@@ -1,9 +1,8 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 
-; UNSUPPORTED: enable-opaque-pointers
-
 ; INTEL_CUSTOMIZATION
+; UNSUPPORTED: enable-opaque-pointers
 ; CMPLRLLVM-39172
 ; end INTEL_CUSTOMIZATION
 ; For array-sections on use_device_addr clause, FE should not generate ARRSECT
