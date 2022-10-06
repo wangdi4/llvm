@@ -78,13 +78,14 @@ struct MemRefGroup {
                          //         0   1    2      3    4    5
                          //             ^StLB                 ^StUB
                          // MaxStoreDist is 5-1 = 4
-  bool IsVectorTy;
+  bool IsVectorLoop;
 
-  MemRefGroup(HIRScalarReplArray &HSR, HLLoop *Lp, const RefGroupTy &Group);
+  MemRefGroup(HIRScalarReplArray &HSR, HLLoop *Lp, const RefGroupTy &Group,
+              bool IsVectorLoop);
 
   // Getters + Setters
   bool isValid() const { return IsValid; }
-  bool isVectorType() const { return IsVectorTy; }
+  bool isVectorLoop() const { return IsVectorLoop; }
 
   unsigned getNumTemps(void) const { return MaxDepDist + 1; }
 
