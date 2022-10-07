@@ -142,17 +142,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles) &&
       !C.getDriver().IsCLMode() && !C.getDriver().IsFlangMode()) {
     if (Args.hasArg(options::OPT_fsycl) && !Args.hasArg(options::OPT_nolibsycl))
-<<<<<<< HEAD
-      if (Args.hasArg(options::OPT_g_Flag))
-        CmdArgs.push_back("-defaultlib:msvcrtd");
-      else
-        CmdArgs.push_back("-defaultlib:msvcrt");
+      CmdArgs.push_back("-defaultlib:msvcrt");
 #if INTEL_CUSTOMIZATION
     else {
-=======
-      CmdArgs.push_back("-defaultlib:msvcrt");
-    else
->>>>>>> ebf6c5978cca731af907913961231769efbab007
       CmdArgs.push_back("-defaultlib:libcmt");
       if (getToolChain().CheckAddIntelLib("libm", Args) &&
           getToolChain().CheckAddIntelLib("libimf", Args))

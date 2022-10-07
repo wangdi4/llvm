@@ -171,15 +171,10 @@ llvm::StringRef getLTOParallelism(const llvm::opt::ArgList &Args,
 
 bool areOptimizationsEnabled(const llvm::opt::ArgList &Args);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool isUseSeparateSections(const Driver &D, const llvm::Triple &Triple);
 #endif // INTEL_CUSTOMIZATION
-=======
 bool isDependentLibAdded(const llvm::opt::ArgList &Args, StringRef Lib);
-
-bool isUseSeparateSections(const llvm::Triple &Triple);
->>>>>>> ebf6c5978cca731af907913961231769efbab007
 
 /// \p EnvVar is split by system delimiter for environment variables.
 /// If \p ArgName is "-I", "-L", or an empty string, each entry from \p EnvVar
