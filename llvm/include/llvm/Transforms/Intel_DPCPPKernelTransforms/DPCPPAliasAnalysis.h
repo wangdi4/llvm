@@ -30,7 +30,6 @@ namespace llvm {
 
 /// An AAResult providing alias queries.
 class DPCPPAAResult : public AAResultBase {
-  friend AAResultBase;
 
 public:
   DPCPPAAResult();

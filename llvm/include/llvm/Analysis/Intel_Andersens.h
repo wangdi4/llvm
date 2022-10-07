@@ -67,7 +67,6 @@ class IntelModRef;
 /// This focuses on handling aliasing properties using Andersens points-to.
 class AndersensAAResult : public AAResultBase,
                           private InstVisitor<AndersensAAResult> {
-  friend AAResultBase;
   friend IntelModRefImpl;
 
   struct BitmapKeyInfo {
