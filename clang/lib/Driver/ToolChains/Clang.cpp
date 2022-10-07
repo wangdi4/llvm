@@ -5415,6 +5415,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     // Forward -fsycl-default-sub-group-size if in SYCL mode.
     Args.AddLastArg(CmdArgs, options::OPT_fsycl_default_sub_group_size);
+
+    // Add any predefined macros associated with intel_gpu* type targets
+    // passed in with -fsycl-targets
+    if (RawTriple.isSPIR() &&
+        RawTriple.getSubArch() == llvm::Triple::SPIRSubArch_gen) {
+      StringRef Device = JA.getOffloadingArch();
+      if (!Device.empty())
+        CmdArgs.push_back(Args.MakeArgString(
+            Twine("-D") + SYCL::gen::getGenDeviceMacro(Device)));
+    }
+    if (RawTriple.isSPIR() &&
+        RawTriple.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
+      CmdArgs.push_back("-D__SYCL_TARGET_INTEL_X86_64__");
   }
 #if INTEL_CUSTOMIZATION
   if (enableFuncPointers) {
@@ -10128,7 +10141,8 @@ static void addRunTimeWrapperOpts(Compilation &C,
                                   Action::OffloadKind DeviceOffloadKind,
                                   const llvm::opt::ArgList &TCArgs,
                                   ArgStringList &CmdArgs,
-                                  const ToolChain &TC) {
+                                  const ToolChain &TC,
+                                  const JobAction &JA) {
   // Grab any Target specific options that need to be added to the wrapper
   // information.
   ArgStringList BuildArgs;
@@ -10158,8 +10172,9 @@ static void addRunTimeWrapperOpts(Compilation &C,
   if (TT.getSubArch() == llvm::Triple::NoSubArch) {
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
-    const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(), DeviceOffloadKind);
-    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
+    const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(),
+                                                DeviceOffloadKind);
+    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
@@ -10222,7 +10237,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
         WrapperArgs.push_back(C.getArgs().MakeArgString("--emit-reg-funcs=0"));
     }
     addRunTimeWrapperOpts(C, OffloadingKind, TCArgs, WrapperArgs,
-                          getToolChain()); // INTEL
+                          getToolChain(), JA); // INTEL
 
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
@@ -10340,9 +10355,9 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       DeviceKind = A->getOffloadingDeviceKind();
       DeviceTC = TC;
     });
-    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC); // INTEL
-
 #if INTEL_CUSTOMIZATION
+    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC, JA);
+
     if (Inputs[I].getType() == types::TY_Tempfiletable ||
         Inputs[I].getType() == types::TY_Tempfilelist)
       // wrapper actual input files are passed via the batch job file table:
