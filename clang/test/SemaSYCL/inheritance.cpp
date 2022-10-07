@@ -73,11 +73,6 @@ int main() {
 // CHECK-NEXT: DeclRefExpr {{.*}} lvalue ParmVar {{.*}} '_arg__base' 'base'
 
 // second_base contains pointers and therefore the ParamVar is a new generated
-<<<<<<< HEAD
-// type. Default construct this class and initialize second_base via memcpy in
-// body statements.
-// CHECK-NEXT: CXXConstructExpr {{.*}} 'second_base':'second_base' 'void () noexcept'
-=======
 // type. Perform a copy of the corresponding kernel parameter via
 // reinterpret_cast.
 // CHECK-NEXT: CXXConstructExpr {{.*}} 'second_base':'second_base' 'void (const second_base &) noexcept'
@@ -86,7 +81,6 @@ int main() {
 // CHECK-NEXT: CXXReinterpretCastExpr {{.*}} 'second_base *' reinterpret_cast<second_base *> <BitCast>
 // CHECK-NEXT: UnaryOperator {{.*}} '__generated_second_base *' prefix '&' cannot overflow
 // CHECK-NEXT: DeclRefExpr {{.*}} '__generated_second_base' lvalue ParmVar {{.*}} '_arg__base' '__generated_second_base'
->>>>>>> 9bf0f7d614a9527d5382c27d5ed593092c630db8
 
 // third_base contains special type accessor. Therefore it is decomposed and it's
 // data members are copied from corresponding ParamVar
@@ -101,23 +95,6 @@ int main() {
 // CHECK-NEXT: ImplicitCastExpr {{.*}} 'int' <LValueToRValue>
 // CHECK-NEXT: DeclRefExpr {{.*}} lvalue ParmVar {{.*}} '_arg_a' 'int'
 
-<<<<<<< HEAD
-// Check kernel body for call to __builtin_memcpy to initialize second_base 
-// CHECK: CallExpr {{.*}} 'void *'
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'void *(*)(void *, const void *, {{.*}}) noexcept' <BuiltinFnToFnPtr>
-// CHECK-NEXT: DeclRefExpr {{.*}} Function {{.*}} '__builtin_memcpy' 'void *(void *, const void *, {{.*}}) noexcept'
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'void *' <BitCast>
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'second_base *' <LValueToRValue>
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'second_base *' lvalue <DerivedToBase (second_base)>
-// CHECK-NEXT: UnaryOperator {{.*}} 'derived *' prefix '&' cannot overflow
-// CHECK-NEXT: DeclRefExpr {{.*}} 'derived' lvalue Var {{.*}} 'derived' 'derived'
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'const void *' <BitCast>
-// CHECK-NEXT: UnaryOperator {{.*}} '__generated_second_base *' prefix '&' cannot overflow
-// CHECK-NEXT: DeclRefExpr {{.*}} '__generated_second_base' lvalue ParmVar {{.*}} '_arg__base' '__generated_second_base'
-// CHECK-NEXT: IntegerLiteral {{.*}} 8
-
-=======
->>>>>>> 9bf0f7d614a9527d5382c27d5ed593092c630db8
 // Check kernel body for call to __init function of accessor
 // CHECK: CXXMemberCallExpr
 // CHECK-NEXT: MemberExpr {{.*}} lvalue .__init

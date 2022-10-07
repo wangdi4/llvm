@@ -1922,27 +1922,10 @@ public:
       CollectionStack.back() = true;
       PointerStack.pop_back();
     } else if (PointerStack.pop_back_val()) {
-<<<<<<< HEAD
-      // FIXME: Stop triggering decomposition for non-trivial types with
-      // pointers
-      if (RD->isTrivial()) {
-        PointerStack.back() = true;
-        if (!RD->hasAttr<SYCLGenerateNewTypeAttr>())
-          RD->addAttr(
-              SYCLGenerateNewTypeAttr::CreateImplicit(SemaRef.getASTContext()));
-      } else {
-        // We are visiting a non-trivial type with pointer.
-        CollectionStack.back() = true;
-        if (!RD->hasAttr<SYCLRequiresDecompositionAttr>())
-          RD->addAttr(SYCLRequiresDecompositionAttr::CreateImplicit(
-              SemaRef.getASTContext()));
-      }
-=======
       PointerStack.back() = true;
       if (!RD->hasAttr<SYCLGenerateNewTypeAttr>())
         RD->addAttr(
             SYCLGenerateNewTypeAttr::CreateImplicit(SemaRef.getASTContext()));
->>>>>>> 9bf0f7d614a9527d5382c27d5ed593092c630db8
     }
     return true;
   }
@@ -1969,27 +1952,10 @@ public:
       CollectionStack.back() = true;
       PointerStack.pop_back();
     } else if (PointerStack.pop_back_val()) {
-<<<<<<< HEAD
-      // FIXME: Stop triggering decomposition for non-trivial types with
-      // pointers
-      if (RD->isTrivial()) {
-        PointerStack.back() = true;
-        if (!RD->hasAttr<SYCLGenerateNewTypeAttr>())
-          RD->addAttr(
-              SYCLGenerateNewTypeAttr::CreateImplicit(SemaRef.getASTContext()));
-      } else {
-        // We are visiting a non-trivial type with pointer.
-        CollectionStack.back() = true;
-        if (!RD->hasAttr<SYCLRequiresDecompositionAttr>())
-          RD->addAttr(SYCLRequiresDecompositionAttr::CreateImplicit(
-              SemaRef.getASTContext()));
-      }
-=======
       PointerStack.back() = true;
       if (!RD->hasAttr<SYCLGenerateNewTypeAttr>())
         RD->addAttr(
             SYCLGenerateNewTypeAttr::CreateImplicit(SemaRef.getASTContext()));
->>>>>>> 9bf0f7d614a9527d5382c27d5ed593092c630db8
     }
     return true;
   }
@@ -2017,175 +1983,8 @@ public:
         FD->addAttr(SYCLRequiresDecompositionAttr::CreateImplicit(
             SemaRef.getASTContext()));
       CollectionStack.back() = true;
-<<<<<<< HEAD
     }
     return true;
-  }
-};
-
-// This visitor is used to traverse a non-decomposed record/array to
-// generate a new type corresponding to this record/array.
-class SyclKernelPointerHandler : public SyclKernelFieldHandler {
-  llvm::SmallVector<CXXRecordDecl *, 8> ModifiedRecords;
-  SmallVector<CXXBaseSpecifier *, 8> ModifiedBases;
-
-  IdentifierInfo *getModifiedName(IdentifierInfo *Id) {
-    std::string Name =
-        Id ? (Twine("__generated_") + Id->getName()).str() : "__generated_";
-    return &SemaRef.getASTContext().Idents.get(Name);
-  }
-
-  // Create Decl for the new type we are generating.
-  // The fields (and base classes) of this record will be generated as
-  // the visitor traverses kernel object record fields.
-  void createNewType(const CXXRecordDecl *RD) {
-    auto *ModifiedRD = CXXRecordDecl::Create(
-        SemaRef.getASTContext(), RD->getTagKind(),
-        const_cast<DeclContext *>(RD->getDeclContext()), SourceLocation(),
-        SourceLocation(), getModifiedName(RD->getIdentifier()));
-    ModifiedRD->startDefinition();
-    ModifiedRecords.push_back(ModifiedRD);
-  }
-
-  // Create and add FieldDecl for FieldTy to generated record.
-  void addField(const FieldDecl *FD, QualType FieldTy) {
-    assert(!ModifiedRecords.empty() &&
-           "ModifiedRecords should have at least 1 record");
-    ASTContext &Ctx = SemaRef.getASTContext();
-    auto *Field = FieldDecl::Create(
-        Ctx, ModifiedRecords.back(), SourceLocation(), SourceLocation(),
-        getModifiedName(FD->getIdentifier()), FieldTy,
-        Ctx.getTrivialTypeSourceInfo(FieldTy, SourceLocation()), /*BW=*/nullptr,
-        /*Mutable=*/false, ICIS_NoInit);
-    Field->setAccess(FD->getAccess());
-    // Add generated field to generated record.
-    ModifiedRecords.back()->addDecl(Field);
-  }
-
-  void createBaseSpecifier(const CXXRecordDecl *Parent, const CXXRecordDecl *RD,
-                           const CXXBaseSpecifier &BS) {
-    TypeSourceInfo *TInfo = SemaRef.getASTContext().getTrivialTypeSourceInfo(
-        QualType(RD->getTypeForDecl(), 0), SourceLocation());
-    CXXBaseSpecifier *ModifiedBase = SemaRef.CheckBaseSpecifier(
-        const_cast<CXXRecordDecl *>(Parent), SourceRange(), BS.isVirtual(),
-        BS.getAccessSpecifier(), TInfo, SourceLocation());
-    ModifiedBases.push_back(ModifiedBase);
-  }
-
-  CXXRecordDecl *getGeneratedNewRecord(const CXXRecordDecl *OldBaseDecl) {
-    // At this point we have finished generating fields for the new
-    // class corresponding to OldBaseDecl. Pop out the generated
-    // record.
-    CXXRecordDecl *ModifiedRD = ModifiedRecords.pop_back_val();
-    ModifiedRD->completeDefinition();
-    // Check the 'old' class for base classes.
-    // Set bases classes for newly generated class if it has any.
-    if (OldBaseDecl->getNumBases() > 0) {
-      SmallVector<CXXBaseSpecifier *, 8> BasesForGeneratedClass;
-      for (size_t I = 0; I < OldBaseDecl->getNumBases(); ++I)
-        BasesForGeneratedClass.insert(BasesForGeneratedClass.begin(),
-                                      ModifiedBases.pop_back_val());
-      ModifiedRD->setBases(BasesForGeneratedClass.data(),
-                           OldBaseDecl->getNumBases());
-=======
->>>>>>> 9bf0f7d614a9527d5382c27d5ed593092c630db8
-    }
-    return ModifiedRD;
-  }
-
-public:
-  static constexpr const bool VisitInsideSimpleContainersWithPointer = true;
-  SyclKernelPointerHandler(Sema &S, const CXXRecordDecl *RD)
-      : SyclKernelFieldHandler(S) {
-    createNewType(RD);
-  }
-
-  bool enterStruct(const CXXRecordDecl *, FieldDecl *, QualType Ty) final {
-    createNewType(Ty->getAsCXXRecordDecl());
-    return true;
-  }
-
-  bool leaveStruct(const CXXRecordDecl *, FieldDecl *FD, QualType Ty) final {
-    CXXRecordDecl *ModifiedRD = getGeneratedNewRecord(Ty->getAsCXXRecordDecl());
-
-    // Add this record as a field of it's parent record.
-    if (!ModifiedRecords.empty())
-      addField(FD, QualType(ModifiedRD->getTypeForDecl(), 0));
-    return true;
-  }
-
-  bool enterStruct(const CXXRecordDecl *, const CXXBaseSpecifier &,
-                   QualType Ty) final {
-    createNewType(Ty->getAsCXXRecordDecl());
-    return true;
-  }
-
-  bool leaveStruct(const CXXRecordDecl *Parent, const CXXBaseSpecifier &BS,
-                   QualType Ty) final {
-    CXXRecordDecl *ModifiedRD = getGeneratedNewRecord(Ty->getAsCXXRecordDecl());
-
-    // Create CXXBaseSpecifier for this generated class.
-    createBaseSpecifier(Parent, ModifiedRD, BS);
-    return true;
-  }
-
-  bool handlePointerType(FieldDecl *FD, QualType FieldTy) final {
-    QualType PointeeTy = FieldTy->getPointeeType();
-    Qualifiers Quals = PointeeTy.getQualifiers();
-    LangAS AS = Quals.getAddressSpace();
-    // Leave global_device and global_host address spaces as is to help FPGA
-    // device in memory allocations.
-    if (!PointeeTy->isFunctionType() && AS != LangAS::sycl_global_device &&
-        AS != LangAS::sycl_global_host)
-      Quals.setAddressSpace(LangAS::sycl_global);
-    PointeeTy = SemaRef.getASTContext().getQualifiedType(
-        PointeeTy.getUnqualifiedType(), Quals);
-    QualType ModTy = SemaRef.getASTContext().getPointerType(PointeeTy);
-    addField(FD, ModTy);
-    return true;
-    // We do not need to wrap pointers since this is a pointer inside
-    // non-decomposed struct.
-  }
-
-  bool handleScalarType(FieldDecl *FD, QualType FieldTy) final {
-    addField(FD, FieldTy);
-    return true;
-  }
-
-  bool handleUnionType(FieldDecl *FD, QualType FieldTy) final {
-    return handleScalarType(FD, FieldTy);
-  }
-
-  bool handleNonDecompStruct(const CXXRecordDecl *, FieldDecl *FD,
-                             QualType Ty) final {
-    addField(FD, Ty);
-    return true;
-  }
-
-  bool handleNonDecompStruct(const CXXRecordDecl *Parent,
-                             const CXXBaseSpecifier &BS, QualType Ty) final {
-    createBaseSpecifier(Parent, Ty->getAsCXXRecordDecl(), BS);
-    return true;
-  }
-
-  bool handleSimpleArrayType(FieldDecl *FD, QualType Ty) final {
-    addField(FD, Ty);
-    return true;
-  }
-
-  // FIXME: Array of pointers/ array of types containing pointers
-  // will be handled in a follow-up PR. Currently they continue to
-  // trigger decomposition.
-
-public:
-  QualType getNewType() {
-    CXXRecordDecl *ModifiedRD = ModifiedRecords.pop_back_val();
-    ModifiedRD->completeDefinition();
-
-    if (!ModifiedBases.empty())
-      ModifiedRD->setBases(ModifiedBases.data(), ModifiedBases.size());
-
-    return QualType(ModifiedRD->getTypeForDecl(), 0);
   }
 };
 
@@ -3257,25 +3056,6 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
     addFieldInit(FD, Ty, ParamRef);
   }
 
-<<<<<<< HEAD
-  Expr *addDerivedToBaseCastExpr(const CXXRecordDecl *RD,
-                                 const CXXBaseSpecifier &BS,
-                                 Expr *LocalCloneRef) {
-    CXXCastPath BasePath;
-    QualType DerivedTy(RD->getTypeForDecl(), 0);
-    QualType BaseTy = BS.getType();
-    SemaRef.CheckDerivedToBaseConversion(DerivedTy, BaseTy, KernelCallerSrcLoc,
-                                         SourceRange(), &BasePath,
-                                         /*IgnoreBaseAccess*/ true);
-    auto Cast = ImplicitCastExpr::Create(
-        SemaRef.Context, SemaRef.Context.getPointerType(BaseTy),
-        CK_DerivedToBase, LocalCloneRef,
-        /* CXXCastPath=*/&BasePath, VK_LValue, FPOptionsOverride());
-    return Cast;
-  }
-
-=======
->>>>>>> 9bf0f7d614a9527d5382c27d5ed593092c630db8
   Expr *createGetAddressOf(Expr *E) {
     return UnaryOperator::Create(SemaRef.Context, E, UO_AddrOf,
                                  SemaRef.Context.getPointerType(E->getType()),
@@ -3283,64 +3063,6 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
                                  false, SemaRef.CurFPFeatureOverrides());
   }
 
-<<<<<<< HEAD
-  Expr *buildMemCpyCall(Expr *From, Expr *To, QualType T) {
-    // Compute the size of the memory buffer to be copied.
-    QualType SizeType = SemaRef.Context.getSizeType();
-    llvm::APInt Size(SemaRef.Context.getTypeSize(SizeType),
-                     SemaRef.Context.getTypeSizeInChars(T).getQuantity());
-
-    LookupResult R(SemaRef, &SemaRef.Context.Idents.get("__builtin_memcpy"),
-                   KernelCallerSrcLoc, Sema::LookupOrdinaryName);
-    SemaRef.LookupName(R, SemaRef.TUScope, true);
-
-    FunctionDecl *MemCpy = R.getAsSingle<FunctionDecl>();
-
-    assert(MemCpy && "__builtin_memcpy should be found");
-
-    ExprResult MemCpyRef =
-        SemaRef.BuildDeclRefExpr(MemCpy, SemaRef.Context.BuiltinFnTy,
-                                 VK_PRValue, KernelCallerSrcLoc, nullptr);
-
-    assert(MemCpyRef.isUsable() && "Builtin reference cannot fail");
-
-    Expr *CallArgs[] = {To, From,
-                        IntegerLiteral::Create(SemaRef.Context, Size, SizeType,
-                                               KernelCallerSrcLoc)};
-    ExprResult Call =
-        SemaRef.BuildCallExpr(/*Scope=*/nullptr, MemCpyRef.get(),
-                              KernelCallerSrcLoc, CallArgs, KernelCallerSrcLoc);
-
-    assert(!Call.isInvalid() && "Call to __builtin_memcpy cannot fail!");
-    return Call.getAs<Expr>();
-  }
-
-  // Adds default initializer for generated type and creates
-  // a call to __builtin_memcpy to initialize local clone from
-  // kernel argument.
-  void handleGeneratedType(FieldDecl *FD, QualType Ty) {
-    addFieldInit(FD, Ty, None,
-                 InitializationKind::CreateDefault(KernelCallerSrcLoc));
-    addFieldMemberExpr(FD, Ty);
-    Expr *ParamRef = createGetAddressOf(createParamReferenceExpr());
-    Expr *LocalCloneRef = createGetAddressOf(MemberExprBases.back());
-    Expr *MemCpyCallExpr = buildMemCpyCall(ParamRef, LocalCloneRef, Ty);
-    BodyStmts.push_back(MemCpyCallExpr);
-    removeFieldMemberExpr(FD, Ty);
-  }
-
-  // Adds default initializer for generated base and creates
-  // a call to __builtin_memcpy to initialize the base of local clone
-  // from kernel argument.
-  void handleGeneratedType(const CXXRecordDecl *RD, const CXXBaseSpecifier &BS,
-                           QualType Ty) {
-    addBaseInit(BS, Ty, InitializationKind::CreateDefault(KernelCallerSrcLoc));
-    Expr *ParamRef = createGetAddressOf(createParamReferenceExpr());
-    Expr *LocalCloneRef = createGetAddressOf(MemberExprBases.back());
-    LocalCloneRef = addDerivedToBaseCastExpr(RD, BS, LocalCloneRef);
-    Expr *MemCpyCallExpr = buildMemCpyCall(ParamRef, LocalCloneRef, Ty);
-    BodyStmts.push_back(MemCpyCallExpr);
-=======
   Expr *createDerefOp(Expr *E) {
     return UnaryOperator::Create(SemaRef.Context, E, UO_Deref,
                                  E->getType()->getPointeeType(), VK_LValue,
@@ -3381,7 +3103,6 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
     InitializationKind InitKind =
         InitializationKind::CreateCopy(KernelCallerSrcLoc, KernelCallerSrcLoc);
     addBaseInit(BS, Ty, InitKind, Initializer);
->>>>>>> 9bf0f7d614a9527d5382c27d5ed593092c630db8
   }
 
   MemberExpr *buildMemberExpr(Expr *Base, ValueDecl *Member) {
