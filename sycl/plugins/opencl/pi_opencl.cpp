@@ -941,7 +941,6 @@ pi_result piKernelGetSubGroupInfo(pi_kernel kernel, pi_device device,
     pi_result pi_ret_err =
         piDeviceGetInfo(device, PI_DEVICE_INFO_MAX_WORK_ITEM_DIMENSIONS,
                         sizeof(pi_uint32), &max_dims, nullptr);
-<<<<<<< HEAD
     if (pi_ret_err != PI_SUCCESS)
       return pi_ret_err;
     std::shared_ptr<size_t[]> WGSizes{new size_t[max_dims]};
@@ -950,16 +949,6 @@ pi_result piKernelGetSubGroupInfo(pi_kernel kernel, pi_device device,
                         max_dims * sizeof(size_t), WGSizes.get(), nullptr);
     if (pi_ret_err != PI_SUCCESS)
       return pi_ret_err;
-=======
-    if (pi_ret_err != PI_SUCCESS)
-      return pi_ret_err;
-    std::shared_ptr<size_t[]> WGSizes{new size_t[max_dims]};
-    pi_ret_err =
-        piDeviceGetInfo(device, PI_DEVICE_INFO_MAX_WORK_ITEM_SIZES,
-                        max_dims * sizeof(size_t), WGSizes.get(), nullptr);
-    if (pi_ret_err != PI_SUCCESS)
-      return pi_ret_err;
->>>>>>> 6e4b9da3868dda8be9e73542d0e5aea6b53bcfac
     for (size_t i = 1; i < max_dims; ++i)
       WGSizes.get()[i] = 1;
     implicit_input_value = std::move(WGSizes);
