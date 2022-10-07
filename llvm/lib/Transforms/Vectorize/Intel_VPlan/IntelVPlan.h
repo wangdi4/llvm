@@ -2792,6 +2792,7 @@ public:
     case Instruction::Mul:
       return Intrinsic::vector_reduce_mul;
     case Instruction::FMul:
+    case Instruction::FDiv:
       return Intrinsic::vector_reduce_fmul;
     case Instruction::And:
       return Intrinsic::vector_reduce_and;
