@@ -120,7 +120,7 @@ FPValueRange FPValueRangeAnalysis::processEntry(Value *V) {
     if (LVI)
       IntRange = LVI->getConstantRange(CI->getOperand(0), CI);
 
-    APFloat Lower(Semantics), Upper(Semantics);
+    APFloat Lower(Semantics,0), Upper(Semantics,0);
     bool Signed = isa<SIToFPInst>(V);
     Lower.convertFromAPInt(Signed ? IntRange.getSignedMin()
                                   : IntRange.getUnsignedMin(),

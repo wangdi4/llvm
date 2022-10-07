@@ -376,10 +376,11 @@ define amdgpu_ps <2 x float> @extract_elt0_elt1_buffer_load_format_v4f32(<4 x i3
 define double @extract01_bitcast_buffer_load_format_v4f32(i32 %arg) #0 {
 ; CHECK-LABEL: @extract01_bitcast_buffer_load_format_v4f32(
 ; CHECK-NEXT:    [[VAR:%.*]] = call <2 x float> @llvm.amdgcn.buffer.load.format.v2f32(<4 x i32> undef, i32 [[ARG:%.*]], i32 16, i1 false, i1 false)
-; CHECK-NEXT:    [[TMP1:%.*]] = shufflevector <2 x float> [[VAR]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
-; CHECK-NEXT:    [[VAR1:%.*]] = bitcast <4 x float> [[TMP1]] to <2 x double>
-; CHECK-NEXT:    [[VAR2:%.*]] = extractelement <2 x double> [[VAR1]], i64 0
-; CHECK-NEXT:    ret double [[VAR2]]
+; INTEL_CUSTOMIZATION
+; extend-bitcast-extract is just "bitcast"
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x float> [[VAR]] to double
+; CHECK-NEXT:    ret double [[TMP1]]
+; end INTEL_CUSTOMIZATION
 ;
   %var = call <4 x float> @llvm.amdgcn.buffer.load.format.v4f32(<4 x i32> undef, i32 %arg, i32 16, i1 false, i1 false) #3
   %var1 = bitcast <4 x float> %var to <2 x double>

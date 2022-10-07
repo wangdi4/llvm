@@ -2128,9 +2128,9 @@ class MemAllocatorTy {
       /// Base address of this block
       uintptr_t Base = 0;
       /// Size of the block
-      uint32_t Size = 0;
+      size_t Size = 0;
       /// Supported allocation size by this block
-      uint32_t ChunkSize = 0;
+      size_t ChunkSize = 0;
       /// Total number of slots
       uint32_t NumSlots = 0;
       /// Number of slots in use
@@ -2140,7 +2140,7 @@ class MemAllocatorTy {
       /// Marker for the currently used slots
       std::vector<bool> UsedSlots;
 
-      BlockTy(void *_Base, uint32_t _Size, uint32_t _ChunkSize) {
+      BlockTy(void *_Base, size_t _Size, size_t _ChunkSize) {
         Base = reinterpret_cast<uintptr_t>(_Base);
         Size = _Size;
         ChunkSize = _ChunkSize;

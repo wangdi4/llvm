@@ -2528,6 +2528,7 @@ public:
       : ScalarEvolution(F, TLI, AC, DT, LI), OrigSE(F, TLI, AC, DT, LI),
         AssumeIRImmutability(AssumeIRImmutability) {
     IsScoped = true;
+    BTCLoop = nullptr;
   }
 
   ScalarEvolution &getOrigSE() { return OrigSE; }

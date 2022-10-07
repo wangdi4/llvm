@@ -13634,6 +13634,7 @@ ScalarEvolution::computeConstantDifference(const SCEV *More,
     // Check if the ranges are the same.
     if (std::equal(MoreOps.begin(), MoreOps.end(), LessOps.begin(),
                    LessOps.end())) {
+      assert(C1 != nullptr || C2 != nullptr);
       if (!C1)
         return C2->getAPInt();
       if (!C2)
