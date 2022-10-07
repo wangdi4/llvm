@@ -10094,7 +10094,7 @@ static void emitNonContiguousDescriptor(
         DimsAddr, CGM.Int8PtrTy, CGM.Int8Ty);
     llvm::Value *P = CGF.Builder.CreateConstInBoundsGEP2_32(
         llvm::ArrayType::get(CGM.VoidPtrTy, Info.NumberOfPtrs),
-        Info.PointersArray, 0, I);
+        Info.RTArgs.PointersArray, 0, I);
     Address PAddr(P, CGM.VoidPtrTy, CGF.getPointerAlign());
     CGF.Builder.CreateStore(DAddr.getPointer(), PAddr);
     ++L;
@@ -10172,13 +10172,13 @@ static void emitOffloadingArrays(
         Ctx.VoidPtrTy, PointerNumAP, nullptr, ArrayType::Normal,
         /*IndexTypeQuals=*/0);
 
-    Info.BasePointersArray =
+    Info.RTArgs.BasePointersArray =
         CGF.CreateMemTemp(PointerArrayType, ".offload_baseptrs").getPointer();
-    Info.PointersArray =
+    Info.RTArgs.PointersArray =
         CGF.CreateMemTemp(PointerArrayType, ".offload_ptrs").getPointer();
     Address MappersArray =
         CGF.CreateMemTemp(PointerArrayType, ".offload_mappers");
-    Info.MappersArray = MappersArray.getPointer();
+    Info.RTArgs.MappersArray = MappersArray.getPointer();
 
     // If we don't have any VLA types or other types that require runtime
     // evaluation, we can use a constant array for the map sizes, otherwise we
@@ -10207,7 +10207,7 @@ static void emitOffloadingArrays(
       QualType SizeArrayType = Ctx.getConstantArrayType(
           Int64Ty, PointerNumAP, nullptr, ArrayType::Normal,
           /*IndexTypeQuals=*/0);
-      Info.SizesArray =
+      Info.RTArgs.SizesArray =
           CGF.CreateMemTemp(SizeArrayType, ".offload_sizes").getPointer();
     } else {
       auto *SizesArrayInit = llvm::ConstantArray::get(
@@ -10231,9 +10231,9 @@ static void emitOffloadingArrays(
                     CGM.getNaturalTypeAlignment(Ctx.getIntTypeForBitwidth(
                         /*DestWidth=*/64, /*Signed=*/false))),
             CGF.getTypeSize(SizeArrayType));
-        Info.SizesArray = Buffer.getPointer();
+        Info.RTArgs.SizesArray = Buffer.getPointer();
       } else {
-        Info.SizesArray = SizesArrayGbl;
+        Info.RTArgs.SizesArray = SizesArrayGbl;
       }
     }
 
@@ -10245,12 +10245,12 @@ static void emitOffloadingArrays(
         CGM.getOpenMPRuntime().getName({"offload_maptypes"});
     auto *MapTypesArrayGbl =
         OMPBuilder.createOffloadMaptypes(Mapping, MaptypesName);
-    Info.MapTypesArray = MapTypesArrayGbl;
+    Info.RTArgs.MapTypesArray = MapTypesArrayGbl;
 
     // The information types are only built if there is debug information
     // requested.
     if (CGM.getCodeGenOpts().getDebugInfo() == codegenoptions::NoDebugInfo) {
-      Info.MapNamesArray = llvm::Constant::getNullValue(
+      Info.RTArgs.MapNamesArray = llvm::Constant::getNullValue(
           llvm::Type::getInt8Ty(CGF.Builder.getContext())->getPointerTo());
     } else {
       auto fillInfoMap = [&](MappableExprsHandler::MappingExprInfo &MapExpr) {
@@ -10262,7 +10262,7 @@ static void emitOffloadingArrays(
           CGM.getOpenMPRuntime().getName({"offload_mapnames"});
       auto *MapNamesArrayGbl =
           OMPBuilder.createOffloadMapnames(InfoMap, MapnamesName);
-      Info.MapNamesArray = MapNamesArrayGbl;
+      Info.RTArgs.MapNamesArray = MapNamesArrayGbl;
     }
 
     // If there's a present map type modifier, it must not be applied to the end
@@ -10278,7 +10278,7 @@ static void emitOffloadingArrays(
       if (EndMapTypesDiffer) {
         MapTypesArrayGbl =
             OMPBuilder.createOffloadMaptypes(Mapping, MaptypesName);
-        Info.MapTypesArrayEnd = MapTypesArrayGbl;
+        Info.RTArgs.MapTypesArrayEnd = MapTypesArrayGbl;
       }
     }
 
@@ -10286,7 +10286,7 @@ static void emitOffloadingArrays(
       llvm::Value *BPVal = *CombinedInfo.BasePointers[I];
       llvm::Value *BP = CGF.Builder.CreateConstInBoundsGEP2_32(
           llvm::ArrayType::get(CGM.VoidPtrTy, Info.NumberOfPtrs),
-          Info.BasePointersArray, 0, I);
+          Info.RTArgs.BasePointersArray, 0, I);
       BP = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
           BP, BPVal->getType()->getPointerTo(/*AddrSpace=*/0));
       Address BPAddr(BP, BPVal->getType(),
@@ -10301,7 +10301,7 @@ static void emitOffloadingArrays(
       llvm::Value *PVal = CombinedInfo.Pointers[I];
       llvm::Value *P = CGF.Builder.CreateConstInBoundsGEP2_32(
           llvm::ArrayType::get(CGM.VoidPtrTy, Info.NumberOfPtrs),
-          Info.PointersArray, 0, I);
+          Info.RTArgs.PointersArray, 0, I);
       P = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
           P, PVal->getType()->getPointerTo(/*AddrSpace=*/0));
       Address PAddr(P, PVal->getType(), Ctx.getTypeAlignInChars(Ctx.VoidPtrTy));
@@ -10310,7 +10310,7 @@ static void emitOffloadingArrays(
       if (RuntimeSizes.test(I)) {
         llvm::Value *S = CGF.Builder.CreateConstInBoundsGEP2_32(
             llvm::ArrayType::get(CGM.Int64Ty, Info.NumberOfPtrs),
-            Info.SizesArray,
+            Info.RTArgs.SizesArray,
             /*Idx0=*/0,
             /*Idx1=*/I);
         Address SAddr(S, CGM.Int64Ty, Ctx.getTypeAlignInChars(Int64Ty));
@@ -10340,6 +10340,7 @@ static void emitOffloadingArrays(
   emitNonContiguousDescriptor(CGF, CombinedInfo, Info);
 }
 
+<<<<<<< HEAD
 namespace {
 /// Additional arguments for emitOffloadingArraysArgument function.
 struct ArgumentsOptions {
@@ -10534,6 +10535,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
 }
 #endif // INTEL_COLLAB
 
+=======
+>>>>>>> 4627cef1134f99f3802a5ebfe26188d2c66da22f
 /// Check for inner distribute directive.
 static const OMPExecutableDirective *
 getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
@@ -11284,26 +11287,32 @@ void CGOpenMPRuntime::emitTargetCall(
     // weren't referenced within the construct.
 #if INTEL_COLLAB
     MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
     TargetDataInfo Info;
+=======
+
+    CGOpenMPRuntime::TargetDataInfo Info;
+>>>>>>> 4627cef1134f99f3802a5ebfe26188d2c66da22f
     // Fill up the arrays and create the arguments.
     emitOffloadingArrays(CGF, CombinedInfo, Info, OMPBuilder);
-    emitOffloadingArraysArgument(
-        CGF, Info.BasePointersArray, Info.PointersArray, Info.SizesArray,
-        Info.MapTypesArray, Info.MapNamesArray, Info.MappersArray, Info,
-        {/*ForEndCall=*/false});
+    bool EmitDebug =
+        CGF.CGM.getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo;
+    OMPBuilder.emitOffloadingArraysArgument(CGF.Builder, Info.RTArgs, Info,
+                                            EmitDebug,
+                                            /*ForEndCall=*/false);
 
     InputInfo.NumberOfTargetItems = Info.NumberOfPtrs;
-    InputInfo.BasePointersArray =
-        Address(Info.BasePointersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
-    InputInfo.PointersArray =
-        Address(Info.PointersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
+    InputInfo.BasePointersArray = Address(Info.RTArgs.BasePointersArray,
+                                          CGF.VoidPtrTy, CGM.getPointerAlign());
+    InputInfo.PointersArray = Address(Info.RTArgs.PointersArray, CGF.VoidPtrTy,
+                                      CGM.getPointerAlign());
     InputInfo.SizesArray =
-        Address(Info.SizesArray, CGF.Int64Ty, CGM.getPointerAlign());
+        Address(Info.RTArgs.SizesArray, CGF.Int64Ty, CGM.getPointerAlign());
     InputInfo.MappersArray =
-        Address(Info.MappersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
-    MapTypesArray = Info.MapTypesArray;
-    MapNamesArray = Info.MapNamesArray;
+        Address(Info.RTArgs.MappersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
+    MapTypesArray = Info.RTArgs.MapTypesArray;
+    MapNamesArray = Info.RTArgs.MapNamesArray;
     if (RequiresOuterTask)
       CGF.EmitOMPTargetTaskBasedDirective(D, ThenGen, InputInfo);
     else
@@ -12112,7 +12121,8 @@ void CGOpenMPRuntime::emitNumTeamsClause(CodeGenFunction &CGF,
 
 void CGOpenMPRuntime::emitTargetDataCalls(
     CodeGenFunction &CGF, const OMPExecutableDirective &D, const Expr *IfCond,
-    const Expr *Device, const RegionCodeGenTy &CodeGen, TargetDataInfo &Info) {
+    const Expr *Device, const RegionCodeGenTy &CodeGen,
+    CGOpenMPRuntime::TargetDataInfo &Info) {
   if (!CGF.HaveInsertPoint())
     return;
 
@@ -12136,15 +12146,11 @@ void CGOpenMPRuntime::emitTargetDataCalls(
     emitOffloadingArrays(CGF, CombinedInfo, Info, OMPBuilder,
                          /*IsNonContiguous=*/true);
 
-    llvm::Value *BasePointersArrayArg = nullptr;
-    llvm::Value *PointersArrayArg = nullptr;
-    llvm::Value *SizesArrayArg = nullptr;
-    llvm::Value *MapTypesArrayArg = nullptr;
-    llvm::Value *MapNamesArrayArg = nullptr;
-    llvm::Value *MappersArrayArg = nullptr;
-    emitOffloadingArraysArgument(CGF, BasePointersArrayArg, PointersArrayArg,
-                                 SizesArrayArg, MapTypesArrayArg,
-                                 MapNamesArrayArg, MappersArrayArg, Info);
+    llvm::OpenMPIRBuilder::TargetDataRTArgs RTArgs;
+    bool EmitDebug =
+        CGF.CGM.getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo;
+    OMPBuilder.emitOffloadingArraysArgument(CGF.Builder, RTArgs, Info,
+                                            EmitDebug);
 
     // Emit device ID if any.
     llvm::Value *DeviceID = nullptr;
@@ -12164,12 +12170,12 @@ void CGOpenMPRuntime::emitTargetDataCalls(
     llvm::Value *OffloadingArgs[] = {RTLoc,
                                      DeviceID,
                                      PointerNum,
-                                     BasePointersArrayArg,
-                                     PointersArrayArg,
-                                     SizesArrayArg,
-                                     MapTypesArrayArg,
-                                     MapNamesArrayArg,
-                                     MappersArrayArg};
+                                     RTArgs.BasePointersArray,
+                                     RTArgs.PointersArray,
+                                     RTArgs.SizesArray,
+                                     RTArgs.MapTypesArray,
+                                     RTArgs.MapNamesArray,
+                                     RTArgs.MappersArray};
     CGF.EmitRuntimeCall(
         OMPBuilder.getOrCreateRuntimeFunction(
             CGM.getModule(), OMPRTL___tgt_target_data_begin_mapper),
@@ -12186,16 +12192,12 @@ void CGOpenMPRuntime::emitTargetDataCalls(
                                                 PrePostActionTy &) {
     assert(Info.isValid() && "Invalid data environment closing arguments.");
 
-    llvm::Value *BasePointersArrayArg = nullptr;
-    llvm::Value *PointersArrayArg = nullptr;
-    llvm::Value *SizesArrayArg = nullptr;
-    llvm::Value *MapTypesArrayArg = nullptr;
-    llvm::Value *MapNamesArrayArg = nullptr;
-    llvm::Value *MappersArrayArg = nullptr;
-    emitOffloadingArraysArgument(CGF, BasePointersArrayArg, PointersArrayArg,
-                                 SizesArrayArg, MapTypesArrayArg,
-                                 MapNamesArrayArg, MappersArrayArg, Info,
-                                 {/*ForEndCall=*/true});
+    llvm::OpenMPIRBuilder::TargetDataRTArgs RTArgs;
+    bool EmitDebug =
+        CGF.CGM.getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo;
+    OMPBuilder.emitOffloadingArraysArgument(CGF.Builder, RTArgs, Info,
+                                            EmitDebug,
+                                            /*ForEndCall=*/true);
 
     // Emit device ID if any.
     llvm::Value *DeviceID = nullptr;
@@ -12215,12 +12217,12 @@ void CGOpenMPRuntime::emitTargetDataCalls(
     llvm::Value *OffloadingArgs[] = {RTLoc,
                                      DeviceID,
                                      PointerNum,
-                                     BasePointersArrayArg,
-                                     PointersArrayArg,
-                                     SizesArrayArg,
-                                     MapTypesArrayArg,
-                                     MapNamesArrayArg,
-                                     MappersArrayArg};
+                                     RTArgs.BasePointersArray,
+                                     RTArgs.PointersArray,
+                                     RTArgs.SizesArray,
+                                     RTArgs.MapTypesArray,
+                                     RTArgs.MapNamesArray,
+                                     RTArgs.MappersArray};
     CGF.EmitRuntimeCall(
         OMPBuilder.getOrCreateRuntimeFunction(
             CGM.getModule(), OMPRTL___tgt_target_data_end_mapper),
@@ -12418,27 +12420,28 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     MappableExprsHandler MEHandler(D, CGF);
     MEHandler.generateAllInfo(CombinedInfo);
 
-    TargetDataInfo Info;
+    CGOpenMPRuntime::TargetDataInfo Info;
     // Fill up the arrays and create the arguments.
     emitOffloadingArrays(CGF, CombinedInfo, Info, OMPBuilder,
                          /*IsNonContiguous=*/true);
     bool RequiresOuterTask = D.hasClausesOfKind<OMPDependClause>() ||
                              D.hasClausesOfKind<OMPNowaitClause>();
-    emitOffloadingArraysArgument(
-        CGF, Info.BasePointersArray, Info.PointersArray, Info.SizesArray,
-        Info.MapTypesArray, Info.MapNamesArray, Info.MappersArray, Info,
-        {/*ForEndCall=*/false});
+    bool EmitDebug =
+        CGF.CGM.getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo;
+    OMPBuilder.emitOffloadingArraysArgument(CGF.Builder, Info.RTArgs, Info,
+                                            EmitDebug,
+                                            /*ForEndCall=*/false);
     InputInfo.NumberOfTargetItems = Info.NumberOfPtrs;
-    InputInfo.BasePointersArray =
-        Address(Info.BasePointersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
-    InputInfo.PointersArray =
-        Address(Info.PointersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
+    InputInfo.BasePointersArray = Address(Info.RTArgs.BasePointersArray,
+                                          CGF.VoidPtrTy, CGM.getPointerAlign());
+    InputInfo.PointersArray = Address(Info.RTArgs.PointersArray, CGF.VoidPtrTy,
+                                      CGM.getPointerAlign());
     InputInfo.SizesArray =
-        Address(Info.SizesArray, CGF.Int64Ty, CGM.getPointerAlign());
+        Address(Info.RTArgs.SizesArray, CGF.Int64Ty, CGM.getPointerAlign());
     InputInfo.MappersArray =
-        Address(Info.MappersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
-    MapTypesArray = Info.MapTypesArray;
-    MapNamesArray = Info.MapNamesArray;
+        Address(Info.RTArgs.MappersArray, CGF.VoidPtrTy, CGM.getPointerAlign());
+    MapTypesArray = Info.RTArgs.MapTypesArray;
+    MapNamesArray = Info.RTArgs.MapNamesArray;
     if (RequiresOuterTask)
       CGF.EmitOMPTargetTaskBasedDirective(D, ThenGen, InputInfo);
     else
@@ -14189,7 +14192,8 @@ void CGOpenMPSIMDRuntime::emitNumTeamsClause(CodeGenFunction &CGF,
 
 void CGOpenMPSIMDRuntime::emitTargetDataCalls(
     CodeGenFunction &CGF, const OMPExecutableDirective &D, const Expr *IfCond,
-    const Expr *Device, const RegionCodeGenTy &CodeGen, TargetDataInfo &Info) {
+    const Expr *Device, const RegionCodeGenTy &CodeGen,
+    CGOpenMPRuntime::TargetDataInfo &Info) {
   llvm_unreachable("Not supported in SIMD-only mode");
 }
 
