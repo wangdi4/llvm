@@ -42,7 +42,9 @@
 // This normally would've been -24 (8 bytes for the virtual call/base offset, 8
 // bytes for the offset to top, and 8 bytes for the RTTI pointer), but since all
 // components in the vtable are halved to 4 bytes, the offset is halved to -12.
-// CHECK-NEXT:   [[vbase_offset_ptr:%[a-z0-9.]+]] = getelementptr i8, ptr [[vtable]], i64 -12
+// INTEL_CUSTOMIZATION
+// CHECK-NEXT:   [[vbase_offset_ptr:%[a-z0-9.]+]] = getelementptr i32, ptr [[vtable]], i64 -3
+// end INTEL_CUSTOMIZATION
 
 // CHECK-NEXT:   [[vbase_offset:%[a-z0-9.]+]] = load i32, ptr [[vbase_offset_ptr]], align 4
 // CHECK-NEXT:   [[vbase_offset2:%.+]] = sext i32 [[vbase_offset]] to i64
