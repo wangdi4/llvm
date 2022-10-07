@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-// RUN: %clang_cc1 -no-opaque-pointers -triple i386-unknown-unknown -fopenmp %s -emit-llvm -mllvm -sccp-enable-callbacks=false -mllvm -sccp-solver-enable-callbacks=false -o - -disable-llvm-optzns | FileCheck %s --check-prefix=RUN1 ;INTEL
-=======
-// RUN: %clang_cc1 -triple i386-unknown-unknown -fopenmp %s -emit-llvm -o - -disable-llvm-optzns | FileCheck %s --check-prefix=RUN1
->>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
+// RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-unknown -fopenmp %s -emit-llvm -mllvm -sccp-enable-callbacks=false -mllvm -sccp-solver-enable-callbacks=false -o - -disable-llvm-optzns | FileCheck %s --check-prefix=RUN1 ;INTEL
 
 // RUN1-DAG: @broker0({{[^#]*#[0-9]+}} !callback ![[cid0:[0-9]+]]
 __attribute__((callback(1, 2))) void *broker0(void *(*callee)(void *), void *payload) {

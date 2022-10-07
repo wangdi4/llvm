@@ -1,12 +1,8 @@
-<<<<<<< HEAD
 // INTEL -- It is necessary to disable TBAAPROP here to avoid a problem in sroa
 //          wherein it deletes nonnull attributes from arguments when updating
 //          calls to lifetime.start.  This is entirely benign, but it cause
 //          the test to report a failure.
-// RUN: %clang_cc1 -no-opaque-pointers -O1 -triple x86_64-none-linux-gnu -emit-llvm -debug-info-kind=line-tables-only -mllvm -enable-tbaa-prop=0  %s -o - | FileCheck %s --check-prefix=CHECK --check-prefix=LIFETIME
-=======
-// RUN: %clang_cc1 -O1 -triple x86_64-none-linux-gnu -emit-llvm -debug-info-kind=line-tables-only %s -o - | FileCheck %s --check-prefix=CHECK --check-prefix=LIFETIME
->>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
+// RUN: %clang_cc1 -opaque-pointers -O1 -triple x86_64-none-linux-gnu -emit-llvm -debug-info-kind=line-tables-only -mllvm -enable-tbaa-prop=0  %s -o - | FileCheck %s --check-prefix=CHECK --check-prefix=LIFETIME
 
 // We shouldn't have markers at -O0 or with msan.
 // RUN: %clang_cc1 -O0 -triple x86_64-none-linux-gnu -emit-llvm -debug-info-kind=line-tables-only %s -o - | FileCheck %s

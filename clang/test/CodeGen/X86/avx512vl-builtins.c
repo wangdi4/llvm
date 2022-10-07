@@ -1,13 +1,9 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // INTEL_FEATURE_ISA_DSPV1
 // XFAIL: intel_feature_isa_dspv1
 // end INTEL_FEATURE_ISA_DSPV1
-// RUN: %clang_cc1 -no-opaque-pointers -flax-vector-conversions=none -ffreestanding %s -fexperimental-new-pass-manager -triple=x86_64-apple-darwin -target-feature +avx512f -target-feature +avx512vl -emit-llvm -o - -Wall -Werror -Wsign-conversion | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -flax-vector-conversions=none -ffreestanding %s -fexperimental-new-pass-manager -triple=x86_64-apple-darwin -target-feature +avx512f -target-feature +avx512vl -emit-llvm -o - -Wall -Werror -Wsign-conversion | FileCheck %s
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_cc1 -flax-vector-conversions=none -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avx512f -target-feature +avx512vl -emit-llvm -o - -Wall -Werror -Wsign-conversion | FileCheck %s
->>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
 
 #include <immintrin.h>
 
