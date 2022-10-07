@@ -400,6 +400,7 @@ class OpenMPLateOutliner {
   void emitOMPPartialClause(const OMPPartialClause *Cl);
   void emitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *Cl);
   void emitOMPInteropClause(const OMPInteropClause *);
+  void emitOMPNeedDevicePtrClause(const OMPNeedDevicePtrClause *);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
                                             bool IsUDR = false);

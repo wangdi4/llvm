@@ -3185,7 +3185,8 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
         CKind = OMPC_unknown;
 #endif //INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-      if (!getLangOpts().OpenMPLateOutline && CKind == OMPC_interop)
+      if (!getLangOpts().OpenMPLateOutline &&
+          (CKind == OMPC_interop || CKind == OMPC_need_device_ptr))
         CKind = OMPC_unknown;
 #endif // INTEL_COLLAB
       if (HasImplicitClause) {
@@ -3421,6 +3422,39 @@ OMPClause *Parser::ParseOpenMPSizesClause() {
   return Actions.ActOnOpenMPSizesClause(
       ValExprs, ClauseNameLoc, T.getOpenLocation(), T.getCloseLocation());
 }
+
+#if INTEL_COLLAB
+OMPClause *Parser::ParseOpenMPNeedDevicePtrClause() {
+  SourceLocation ClauseNameLoc = ConsumeToken();
+  SmallVector<Expr *, 4> ValExprs;
+
+  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
+  if (T.consumeOpen()) {
+    Diag(Tok, diag::err_expected) << tok::l_paren;
+    return nullptr;
+  }
+
+  while (true) {
+    ExprResult Val = ParseConstantExpression();
+    if (!Val.isUsable()) {
+      T.skipToEnd();
+      return nullptr;
+    }
+
+    ValExprs.push_back(Val.get());
+
+    if (Tok.is(tok::r_paren) || Tok.is(tok::annot_pragma_openmp_end))
+      break;
+
+    ExpectAndConsume(tok::comma);
+  }
+
+  T.consumeClose();
+
+  return Actions.ActOnOpenMPNeedDevicePtrClause(
+      ValExprs, ClauseNameLoc, T.getOpenLocation(), T.getCloseLocation());
+}
+#endif // INTEL_COLLAB
 
 OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
   SourceLocation Loc = Tok.getLocation();
@@ -3768,6 +3802,11 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 
     Clause = ParseOpenMPSizesClause();
     break;
+#if INTEL_COLLAB
+  case OMPC_need_device_ptr:
+    Clause = ParseOpenMPNeedDevicePtrClause();
+    break;
+#endif // INTEL_COLLAB
   case OMPC_uses_allocators:
     Clause = ParseOpenMPUsesAllocatorClause(DKind);
     break;

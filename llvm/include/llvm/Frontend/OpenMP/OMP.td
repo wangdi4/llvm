@@ -385,6 +385,9 @@ def OMPC_OmpxPlaces : Clause<"ompx_places"> {
 def OMPC_Data : Clause<"data"> {
   let clangClass = "OMPDataClause";
 }
+def OMPC_NeedDevicePtr : Clause<"need_device_ptr"> {
+  let clangClass = "OMPNeedDevicePtrClause";
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 def OMPC_tile : Clause<"tile"> {
@@ -2114,6 +2117,7 @@ def OMP_EndDeclareVariant : Directive<"end declare variant"> {}
 def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
   let allowedClauses = [
     VersionedClause<OMPC_Device>,
+    VersionedClause<OMPC_NeedDevicePtr, 51>,
     VersionedClause<OMPC_Subdevice>,
     VersionedClause<OMPC_OmpxPlaces>,
     VersionedClause<OMPC_UseDevicePtr>,
@@ -2197,6 +2201,7 @@ def OMP_dispatch : Directive<"dispatch"> {
     VersionedClause<OMPC_IsDevicePtr>,
 #if INTEL_COLLAB
     VersionedClause<OMPC_Interop, 51>,
+    VersionedClause<OMPC_NeedDevicePtr, 51>,
 #endif // INTEL_COLLAB
     VersionedClause<OMPC_HasDeviceAddr, 51>,
     VersionedClause<OMPC_NoWait>,

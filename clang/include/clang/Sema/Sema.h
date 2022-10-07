@@ -12056,6 +12056,11 @@ public:
                                    SourceLocation StartLoc,
                                    SourceLocation LParenLoc,
                                    SourceLocation EndLoc);
+  /// Called on well-formed 'need_device_ptr' clause.
+  OMPClause *ActOnOpenMPNeedDevicePtrClause(ArrayRef<Expr *> ArgExprs,
+                                            SourceLocation StartLoc,
+                                            SourceLocation LParenLoc,
+                                            SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Called on well-formed 'tile' clause.
