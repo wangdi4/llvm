@@ -892,7 +892,7 @@ Loop8
 
   // Create new 32bit sink i9: Trunc
   // Replace the second use of %I9_32bit with new sink 32bit i9: Trunc
-  Instruction *I9_32bit_user = dyn_cast<Instruction>(*Second);
+  Instruction *I9_32bit_user = cast<Instruction>(*Second);
   for (unsigned Op = 0, NumOps = I9_32bit_user->getNumOperands();
       Op != NumOps; ++Op) {
     if (I9_32bit_user->getOperand(Op) == I9_32bit) {

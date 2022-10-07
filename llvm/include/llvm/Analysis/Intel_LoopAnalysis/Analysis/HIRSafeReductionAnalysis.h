@@ -187,7 +187,8 @@ class HIRSafeReductionAnalysis : public HIRAnalysis {
 
   void identifySafeReductionChain(const HLLoop *Loop, DDGraph DDG);
   bool isValidSR(const RegDDRef *LRef, const HLLoop *Loop, HLInst **SinkInst,
-                 DDRef **SinkDDRef, unsigned ReductionOpCode, DDGraph DDG);
+                 DDRef **SinkDDRef, unsigned ReductionOpCode, DDGraph DDG,
+                 unsigned FirstRvalSB);
 
   // Perform  SafeReducton Analysis
   void identifySafeReduction(const HLLoop *Loop);

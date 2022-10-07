@@ -1382,7 +1382,8 @@ PHINode *PREProfitableWithPaddedMalloc(LoadInst *Load) {
   if (!PaddedMallocGenerated(*(Load->getModule())))
     return nullptr;
 
-  if (!isa<GEPOperator>(Load->getPointerOperand()))
+  GEPOperator *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
+  if (!GEP)
     return nullptr;
 
   // Aggressive PRE may cause live range extension outside of loops, hard
@@ -1390,7 +1391,6 @@ PHINode *PREProfitableWithPaddedMalloc(LoadInst *Load) {
   if (Load->getParent()->getParent()->isPreLoopOpt())
     return nullptr;
 
-  GEPOperator *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
   if (GEP->getNumIndices() == 1) {
     auto *GEPIdx = GEP->getOperand(1);
     // skip 1 cast
