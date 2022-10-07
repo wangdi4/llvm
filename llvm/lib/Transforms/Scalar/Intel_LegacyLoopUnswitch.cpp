@@ -196,9 +196,9 @@ namespace {
   };
 
   class LoopUnswitch : public LoopPass {
-    LoopInfo *LI;  // Loop information
-    LPPassManager *LPM;
-    AssumptionCache *AC;
+    LoopInfo *LI = nullptr;  // Loop information
+    LPPassManager *LPM = nullptr;
+    AssumptionCache *AC = nullptr;
 
     // Used to check if second loop needs processing after
     // rewriteLoopBodyWithConditionConstant rewrites first loop.
@@ -217,7 +217,7 @@ namespace {
     BasicBlock *LoopHeader = nullptr;
     BasicBlock *LoopPreheader = nullptr;
 
-    bool SanitizeMemory;
+    bool SanitizeMemory = false;
     SimpleLoopSafetyInfo SafetyInfo;
 
     // LoopBlocks contains all of the basic blocks of the loop, including the
@@ -232,7 +232,7 @@ namespace {
 #if INTEL_CUSTOMIZATION
     // Helper for generating optimization reports.
     OptReportBuilder ORBuilder;
-    TargetLibraryInfo *TLI;
+    TargetLibraryInfo *TLI = nullptr;
 #endif // INTEL CUSTOMIZATION
 
   public:

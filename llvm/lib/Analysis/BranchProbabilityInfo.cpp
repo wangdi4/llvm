@@ -1605,6 +1605,9 @@ void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LoopI,
   computeEestimateBlockWeight(F, DT, PDT);
 
 #if INTEL_CUSTOMIZATION
+  // CurrentDT is modified temporarily for the utilities we call later.
+  // It's reset back to null so the local reference does not escape.
+  // coverity[escape]
   CurrentDT = DT;
   enableAbnormalDeepLoopHeuristics = TTI && TTI->isAdvancedOptEnabled(
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);

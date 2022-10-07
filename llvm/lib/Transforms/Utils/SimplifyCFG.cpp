@@ -3701,7 +3701,7 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
 
       if (FCmpNum == 0)
         return false;
-
+      assert(OperandIndex != -1 && "FCmp pattern mismatch");
       NextSelect = Operands[OperandIndex];
     }
     return true;
@@ -8235,8 +8235,10 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
 #if INTEL_CUSTOMIZATION
   // Try to eliminate cases that have the same results as the default case
   // and no side effects.
-  if (EliminateRedundantCases(SI, DTU))
-    return simplifyCFG(BB, TTI, DTU, Options) | true;
+  if (EliminateRedundantCases(SI, DTU)) {
+    simplifyCFG(BB, TTI, DTU, Options);
+    return true;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Try to transform the switch into an icmp and a branch.
