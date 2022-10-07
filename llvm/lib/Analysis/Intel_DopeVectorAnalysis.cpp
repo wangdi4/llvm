@@ -218,14 +218,14 @@ Optional<unsigned int> getArgumentPosition(const CallBase &CI,
 
 // Return true if the input CallBase is a call to a function that allocates
 // memory (e.g. for_alloc_allocate_handle)
-static bool isCallToAllocFunction(CallBase *Call,
+static bool isCallToAllocFunction(const CallBase *Call,
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   if (!Call || !Call->getCalledFunction())
     return false;
 
-  Function *F = Call->getCalledFunction();
-  Function *Caller = Call->getFunction();
+  const Function *F = Call->getCalledFunction();
+  const Function *Caller = Call->getFunction();
 
   LibFunc TheLibFunc;
   const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(Caller));
@@ -429,7 +429,7 @@ bool DopeVectorFieldUse::analyzeLoadOrStoreInstruction(Value *V,
 
 // Traverse through the users of a field address and check where they are used
 // for loading or storing data.
-void DopeVectorFieldUse::analyzeUses() {
+void DopeVectorFieldUse::analyzeUses(CallBase *CB) {
   if (IsBottom)
     return;
 
@@ -438,11 +438,14 @@ void DopeVectorFieldUse::analyzeUses() {
 
   for (auto *FAddr : FieldAddr) {
     bool IsNotForDVCP = NotForDVCPFieldAddr.contains(FAddr);
-    for (auto *U : FAddr->users())
+    for (auto *U : FAddr->users()) {
+      if (U == CB)
+        continue;
       if (!analyzeLoadOrStoreInstruction(U, FAddr, IsNotForDVCP)) {
-          IsBottom = true;
-          break;
+        IsBottom = true;
+        break;
       }
+    }
   }
 }
 
@@ -815,7 +818,9 @@ DopeVectorAnalyzer::checkArrayPointerUses(SubscriptInstSet *SubscriptCalls) {
 static bool analyzeUplevelCallArg(uint32_t ArrayRank,
                                   SubscriptInstSet *SubscriptCalls, Function &F,
                                   uint64_t ArgPos, uint64_t FieldNum,
-                                  SmallPtrSetImpl<const Function *> &Visited);
+                                  SmallPtrSetImpl<const Function *> &Visited,
+                                  std::function<const TargetLibraryInfo
+                                      &(Function &F)> &GetTLI);
 
 // This checks the uses of an uplevel variable for safety. Safe uses are:
 // - If \p DVObject is non-null, we are analyzing the function that
@@ -836,7 +841,9 @@ static bool analyzeUplevelVar(uint32_t ArrayRank,
                               SubscriptInstSet *SubscriptCalls,
                               const Function &F, UplevelDVField &Uplevel,
                               Value *DVObject,
-                              SmallPtrSetImpl<const Function *> &Visited) {
+                              SmallPtrSetImpl<const Function *> &Visited,
+                              std::function<const TargetLibraryInfo
+                                  &(Function &F)> &GetTLI) {
   if (!Visited.insert(&F).second)
     return true;
 
@@ -912,7 +919,7 @@ static bool analyzeUplevelVar(uint32_t ArrayRank,
       assert(I && "Expected instruction\n");
 
       if (auto *LI = dyn_cast<LoadInst>(I)) {
-        DopeVectorAnalyzer DVA(LI);
+        DopeVectorAnalyzer DVA(LI, nullptr, GetTLI);
         DVA.analyze(false);
         if (!DVA.analyzeDopeVectorUseInFunction(F, SubscriptCalls))
           return false;
@@ -932,7 +939,7 @@ static bool analyzeUplevelVar(uint32_t ArrayRank,
   // Check all the functions that take the uplevel variable.
   for (auto &FuncArg : FuncsWithUplevelParams)
     if (!analyzeUplevelCallArg(ArrayRank, SubscriptCalls, *FuncArg.first,
-                               FuncArg.second, FieldNum, Visited))
+                               FuncArg.second, FieldNum, Visited, GetTLI))
       return false;
 
   return true;
@@ -945,7 +952,9 @@ static bool analyzeUplevelVar(uint32_t ArrayRank,
 static bool analyzeUplevelCallArg(uint32_t ArrayRank,
                                   SubscriptInstSet *SubscriptCalls, Function &F,
                                   uint64_t ArgPos, uint64_t FieldNum,
-                                  SmallPtrSetImpl<const Function *> &Visited) {
+                                  SmallPtrSetImpl<const Function *> &Visited,
+                                  std::function<const TargetLibraryInfo
+                                      &(Function &F)> &GetTLI) {
   if (F.isDeclaration())
     return false;
 
@@ -959,7 +968,7 @@ static bool analyzeUplevelCallArg(uint32_t ArrayRank,
   // so pass 'nullptr' for the DVObject.
   UplevelDVField LocalUplevel(FormalArg, FieldNum);
   if (!analyzeUplevelVar(ArrayRank, SubscriptCalls, F, LocalUplevel, nullptr,
-                         Visited))
+                         Visited, GetTLI))
     return false;
 
   return true;
@@ -1024,7 +1033,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   GetElementPtrInst *StrideBase = nullptr;
   GetElementPtrInst *LowerBoundBase = nullptr;
 
-  bool AllocSiteFound = false;
+  CallBase *AllocSiteFound = nullptr;
   bool PtrAddressInitFound = false;
   for (auto *DVUser : DVObject->users()) {
     LLVM_DEBUG(dbgs() << "  DV user: " << *DVUser << "\n");
@@ -1090,7 +1099,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
         StrideBase = GEP;
         break;
       }
-    } else if (const auto *CI = dyn_cast<CallInst>(DVUser)) {
+    } else if (auto *CI = dyn_cast<CallBase>(DVUser)) {
       if (IsLocalDV) {
         LLVM_DEBUG(dbgs() << "Dope vector used in call when it was expected "
                           << "to be local to the function: " << *CI << "\n");
@@ -1117,6 +1126,17 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
 
       // Save the function for later analysis.
       FuncsWithDVParam.insert({F, *ArgPos});
+      if (!F->getContext().supportsTypedPointers()) {
+        if (isCallToAllocFunction(CI, GetTLI)) {
+          if (AllocSiteFound) {
+            LLVM_DEBUG(dbgs() << "Multiple allocations for dope vector "
+                              << "object\n" << *DVUser << "\n");
+            setInvalid();
+            return;
+          }
+          AllocSiteFound = CI;
+        }
+      }
     } else if (auto *SI = dyn_cast<StoreInst>(DVUser)) {
       // Check if the store is saving the dope vector object into an uplevel
       // var. Save the variable and field number for later analysis. (The
@@ -1142,14 +1162,14 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
       setInvalid();
       return;
     } else if (auto *BI = dyn_cast<BitCastInst>(DVUser)) {
-      if (!IsLocalDV || !GetTLI) {
+      if (!IsLocalDV) {
         LLVM_DEBUG(dbgs() << "Unsupported use of dope vector object\n"
                         << *DVUser << "\n");
         setInvalid();
         return;
       }
 
-      bool BCForAlloc = bitCastUsedForAllocation(BI, *GetTLI);
+      CallBase *BCForAlloc = bitCastUsedForAllocation(BI, GetTLI);
       bool BCForInit = bitCastUsedForInit(BI, DVObject);
 
       if (!BCForAlloc && !BCForInit) {
@@ -1167,7 +1187,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
           return;
         }
 
-        AllocSiteFound = true;
+        AllocSiteFound = BCForAlloc;
       }
 
       if (BCForInit) {
@@ -1224,7 +1244,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   // will need to analyze all the writes to the field to be sure the expected
   // value is being stored. For other fields, we may not need to collect all
   // the loads and stores, but for now, collect them all.
-  PtrAddr.analyzeUses();
+  PtrAddr.analyzeUses(AllocSiteFound);
   ElementSizeAddr.analyzeUses();
   CodimAddr.analyzeUses();
   FlagsAddr.analyzeUses();
@@ -1582,7 +1602,7 @@ DopeVectorAnalyzer::analyzeDopeVectorUseInFunction(const Function &F,
   UplevelDVField Uplevel = getUplevelVar();
   SmallPtrSet<const Function *, 16> Visited;
   if (Uplevel.first && !analyzeUplevelVar(getRank(), SubscriptCalls, F, Uplevel,
-                                          getDVObject(), Visited))
+                                          getDVObject(), Visited, GetTLI))
     return false;
   return true;
 }
@@ -1799,8 +1819,9 @@ void DopeVectorInfo::validateDopeVector(Value *CopyFromPtr) {
     // combination of load and store instructions that are handling pointers.
     // In that case we need to prove that both dope vectors point to the same
     // data and the information is constant across the whole program.
-    if (AllocSites.empty())
+    if (AllocSites.empty()) {
       return false;
+    }
 
     StoreInst *SI = *Field.stores().begin();
     Instruction *AllocSiteInst = cast<Instruction>(AllocSites[0]);
@@ -2372,22 +2393,36 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
                         SetVector<Value *> &ValueChecked) -> bool {
     // GEP should be accessing dope vector fields
     if (auto *GEP = dyn_cast<GEPOperator>(U)) {
-      if (!V->getType()->getContext().supportsTypedPointers()) {
-        if (GEP->hasAllZeroIndices() && GEP->hasOneUser()) {
+      if (V->getType()->getContext().supportsTypedPointers()) {
+        if (!CollectAccessFromGEP(GEP, 0, GetTLI))
+          return false;
+      } else {
+        if (GEP->hasAllZeroIndices()) {
           // It can be a call to allocate/deallocate function in opaque
           // pointers case.
-          if (auto Call = dyn_cast<CallBase>(GEP->user_back())) {
-            if (isCallToAllocFunction(Call, GetTLI)) {
-              if (!AllowCheckForAllocSite)
-                return false;
-              NestedDV->addAllocSite(Call);
-              return true;
+          bool HasAnotherUse = false;
+          for (User *UU : GEP->users()) {
+            if (auto Call = dyn_cast<CallBase>(UU)) {
+              if (isCallToAllocFunction(Call, GetTLI)) {
+                if (!AllowCheckForAllocSite)
+                  return false;
+                NestedDV->addAllocSite(Call);
+              } else {
+                HasAnotherUse = true;
+              }
+            } else {
+              HasAnotherUse = true;
             }
           }
+          if (HasAnotherUse) {
+            if (!CollectAccessFromGEP(GEP, 0, GetTLI))
+              return false;
+          }
+          return true;
+        } else if (!CollectAccessFromGEP(GEP, 0, GetTLI)) {
+          return false;
         }
       }
-      if (!CollectAccessFromGEP(GEP, 0, GetTLI))
-        return false;
     } else if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // BitCast should be only used for allocating data
       if (IsNullDVBitCast(BC, DL)) {
@@ -2467,7 +2502,7 @@ void DopeVectorInfo::identifyPtrAddrSubs(SubscriptInstSet &SIS) {
 // Analyze that all the dope vector fields are used to load and store data
 void NestedDopeVectorInfo::analyzeNestedDopeVector() {
 
-  PtrAddr.analyzeUses();
+  PtrAddr.analyzeUses(uniqueCallAllocSite());
   ElementSizeAddr.analyzeUses();
   CodimAddr.analyzeUses();
   FlagsAddr.analyzeUses();
@@ -2532,8 +2567,9 @@ GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
       return false;
 
     DVField->addFieldAddr(GEP);
-
-    DVField->analyzeUses();
+    CallBase *CB = DVFieldType == DopeVectorFieldType::DV_ArrayPtr ?
+        GlobalDVInfo->uniqueCallAllocSite() : nullptr;
+    DVField->analyzeUses(CB);
     if (DVField->getIsBottom())
       return false;
   } else {
@@ -3307,17 +3343,20 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     auto CI2 = dyn_cast<ConstantInt>(SI->getStride());
     if (!CI2 || CI2->getZExtValue() != 16)
       return nullptr;
-    auto GEPI1 = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
-    if (!GEPI1 || GEPI1->getNumIndices() != 2 || !GEPI1->hasAllZeroIndices())
-      return nullptr;
-    auto CI4 = dyn_cast<ConstantInt>(SI->getIndex());
-    if (!CI4)
-      return nullptr;
-    auto AI = dyn_cast<AllocaInst>(GEPI1->getPointerOperand());
+    Value *W = SI->getPointerOperand();
+    if (auto GEPI1 = dyn_cast<GetElementPtrInst>(W)) {
+      if (!GEPI1 || GEPI1->getNumIndices() != 2 || !GEPI1->hasAllZeroIndices())
+        return nullptr;
+      W = GEPI1->getPointerOperand();
+    }
+    auto AI = dyn_cast<AllocaInst>(W);
     if (!AI)
       return nullptr;
     auto ATy = dyn_cast<ArrayType>(AI->getAllocatedType());
     if (!ATy)
+      return nullptr;
+    auto CI4 = dyn_cast<ConstantInt>(SI->getIndex());
+    if (!CI4)
       return nullptr;
     if (CI4->getZExtValue() > ATy->getNumElements())
       return nullptr;
@@ -3332,31 +3371,61 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   };
 
   //
+  // Return 'true' if the 'SI' has 'V' as its pointer operand
+  // and its users are GetPointerElemetInsts which are the
+  // pointer operand to a store. This is a sufficient condition
+  // that 'SI' does not index outside the variable 'AI'
+  // referenced in 'IsSafeLocalStoreAssignment'. This could be
+  // generalized if useful.
+  //
+  auto IsOKSubscript = [](SubscriptInst *SI, Value *V) -> bool {
+    if (SI->getPointerOperand() != V)
+      return false;
+    for (User *U : SI->users()) {
+      auto GEPI = dyn_cast<GetElementPtrInst>(U);
+      if (!GEPI || GEPI->getPointerOperand() != SI || !GEPI->hasOneUser())
+        return false;
+      auto StI = dyn_cast<StoreInst>(GEPI->user_back());
+      if (!StI)
+        return false;
+    }
+    return true;
+  };
+
+  //
   // Return 'true' if 'SI' is a safe store. This means it is assigned only
   // to a local variable and then passed to a libFunc which will use the
   // value it points to. Therefore, the stored value does not escape.
   //
   auto IsSafeLocalStoreAssignment = [&](StoreInst *SI) -> bool {
      AllocaInst *AI = IsAddressInLocalConcatTable(SI->getPointerOperand());
-     if (!AI || AI->getNumUses() > 2)
+     if (!AI || AI->getNumUses() > 5)
        return false;
-     for (User *U : AI->users()) {
-       // The path from the StoreInst to the AllocaInst in
-       // IsAddressInLocalConcatTable() can be ignored, as it has already
-       // been analyzed in that function. It terminates in a GetElementPtrInst.
-       if (isa<GetElementPtrInst>(U))
-         continue;
-       Value *W = AI;
-       Value *V = U;
-       if (auto BC = dyn_cast<BitCastInst>(V)) {
-         if (!BC->hasOneUser())
+     using Item = std::pair<Value *, Value *>;
+     SmallVector<Item, 16> Worklist;
+     for (User *U : AI->users())
+       Worklist.push_back({AI, U});
+     while (!Worklist.empty()) {
+       Item IT = Worklist.pop_back_val();
+       Value *W = IT.first;
+       Value *V = IT.second;
+       if (auto GEP0 = dyn_cast<GetElementPtrInst>(V)) {
+         if (!GEP0->hasAllZeroIndices())
            return false;
-         W = BC;
-         V = BC->user_back();
-       }
-       auto CB = dyn_cast<CallBase>(V);
-       if (!CB || !IsSafeLibFuncForConcat(CB, W))
+         for (User *UU : GEP0->users())
+           Worklist.push_back({GEP0, UU});
+       } else if (auto BC = dyn_cast<BitCastInst>(V)) {
+         for (User *UU : BC->users())
+           Worklist.push_back({BC, UU});
+       } else if (auto SI = dyn_cast<SubscriptInst>(V)) {
+         if (!IsOKSubscript(SI, W))
+           return false;
+       } else if (auto CB = dyn_cast<CallBase>(V)) {
+         if (!IsSafeLibFuncForConcat(CB, W))
+           return false;
+       } else {
          return false;
+       }
      }
      return true;
   };

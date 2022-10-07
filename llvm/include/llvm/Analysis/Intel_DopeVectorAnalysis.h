@@ -189,7 +189,7 @@ public:
     // value should access the current field.
     if (!AllowMultipleFieldAddresses &&
         !FieldAddr.empty() && FieldAddr[0] != V)
-        IsBottom = true;
+      IsBottom = true;
     FieldAddr.insert(V);
     if (IsNotForDVCP)
       NotForDVCPFieldAddr.insert(V);
@@ -215,8 +215,9 @@ public:
   }
 
   // Collect the load and store instructions that use the field address. Set the
-  // field to Bottom if there are any unsupported uses.
-  void analyzeUses();
+  // field to Bottom if there are any unsupported uses. Exclude 'CB' from the
+  // testing, if not 'nullptr'.
+  void analyzeUses(CallBase *CB = nullptr);
 
   // Collect the load and store instructions that access the field address
   // through a subscript.
@@ -340,8 +341,8 @@ public:
   // the fields listed in this enumeration.
   enum DopeVectorRankFields { DVR_Extent, DVR_Stride, DVR_LowerBound };
 
-  DopeVectorAnalyzer(Value *DVObject, const Type *DVTy = nullptr,
-    std::function<const TargetLibraryInfo &(Function &F)> *GetTLI = nullptr) :
+  DopeVectorAnalyzer(Value *DVObject, const Type *DVTy,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
     DVObject(DVObject), GetTLI(GetTLI) {
     if (DVObject->getContext().supportsTypedPointers()) {
       assert(
@@ -661,7 +662,7 @@ private:
   // them.
   UplevelDVField Uplevel;
 
-  std::function<const TargetLibraryInfo &(Function &F)> *GetTLI;
+  std::function<const TargetLibraryInfo &(Function &F)> &GetTLI;
 };
 
 // Helper class to handle all the information related to one dope vector.
@@ -750,6 +751,18 @@ public:
 
   // Return true if one or more allocation sites were found
   bool hasAllocSite() const { return AllocSites.size(); }
+
+  // Return the unique AllcSite which is a CallBase, if there is one.
+  CallBase *uniqueCallAllocSite() {
+    CallBase *UCB = nullptr;
+    for (auto AS : AllocSites)
+      if (auto CB = dyn_cast<CallBase>(AS))
+        if (!UCB)
+          UCB = CB;
+        else
+          return nullptr;
+     return UCB;
+  }
 
   // Get the type that represents the current dope vector
   StructType *getLLVMStructType() { return LLVMDVType; }

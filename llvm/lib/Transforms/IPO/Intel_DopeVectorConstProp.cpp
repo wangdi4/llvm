@@ -68,7 +68,9 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
                                    const Type *ElementType,
                                    SmallVectorImpl<Optional<uint64_t>> &LB,
                                    SmallVectorImpl<Optional<uint64_t>> &ST,
-                                   SmallVectorImpl<Optional<uint64_t>> &EX) {
+                                   SmallVectorImpl<Optional<uint64_t>> &EX,
+                                   std::function<const TargetLibraryInfo &
+                                      (Function &F)> &GetTLI) {
 
   // Map 'V' to its potential integer constant value.
   auto OValue = [](Value *V) -> Optional<uint64_t> {
@@ -123,7 +125,7 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
     if (ArRank != ArrayRank || ElemType != ElementType)
       return false;
     // Use the dope analyzer to get the value of the dope vector constants.
-    DopeVectorAnalyzer DVAActual(V);
+    DopeVectorAnalyzer DVAActual(V, nullptr, GetTLI);
     DVAActual.analyze(true);
     bool IsValid = DVAActual.getIsValid();
     if (!IsValid)
@@ -571,7 +573,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
           else
             dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
         });
-        DopeVectorAnalyzer DVAFormal(&Arg, Ty);
+        DopeVectorAnalyzer DVAFormal(&Arg, Ty, GetTLI);
         DVAFormal.analyze(false);
         bool IsValid = DVAFormal.getIsValid();
         LLVM_DEBUG(dbgs() << (IsValid ? "VALID" : "NOT VALID") << "\n");
@@ -587,7 +589,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
         SmallVector<Optional<uint64_t>, 3> Stride;
         SmallVector<Optional<uint64_t>, 3> Extent;
         if (!hasDopeVectorConstants(F, Arg, ArRank, ElemType,
-            LowerBound, Stride, Extent)) {
+            LowerBound, Stride, Extent, GetTLI)) {
           LLVM_DEBUG(dbgs() << "NO CONSTANT DOPE VECTOR FIELDS\n");
           continue;
         }
@@ -646,7 +648,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
           dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
       });
 
-      DopeVectorAnalyzer DVALocal(AllocI, Ty, &GetTLI);
+      DopeVectorAnalyzer DVALocal(AllocI, Ty, GetTLI);
       DVALocal.analyze(/*ForCreation*/ true, /*IsLocal*/ true);
       bool IsValid = DVALocal.getIsValid();
       LLVM_DEBUG(dbgs() << "    ANALYSIS RESULT: "
