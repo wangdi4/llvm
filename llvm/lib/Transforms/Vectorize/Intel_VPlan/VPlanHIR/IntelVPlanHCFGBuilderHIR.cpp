@@ -1,6 +1,6 @@
 //===-- IntelVPlanHCFGBuilderHIR.cpp --------------------------------------===//
 //
-//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -1146,6 +1146,7 @@ private:
       RKind = RecurKind::Add;
       break;
     case Instruction::FMul:
+    case Instruction::FDiv:
       RKind = RecurKind::FMul;
       break;
     case Instruction::Mul:
@@ -1832,7 +1833,20 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
 
   HLLoop *HL = TheLoop;
   Legal->getSRA()->computeSafeReductionChains(HL);
-  const SafeRedInfoList &SRCL = Legal->getSRA()->getSafeRedInfoList(HL);
+
+  // NOTE: Although all the entries in the list are considered safe reductions,
+  // not all entries are safe for the vectorizer. For example, division with
+  // integers can produce problems due to truncation.
+  SafeRedInfoList SRCL;
+  for (auto &SRI : Legal->getSRA()->getSafeRedInfoList(HL)) {
+    switch(SRI.OpCode) {
+    case Instruction::SDiv:
+    case Instruction::UDiv:
+      break;
+    default:
+      SRCL.push_back(SRI);
+    }
+  }
 
   // clang-format off
   LLVM_DEBUG(

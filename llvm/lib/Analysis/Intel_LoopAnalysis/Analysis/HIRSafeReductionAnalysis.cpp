@@ -1,6 +1,6 @@
 //===---- HIRSafeReductionAnalysis.cpp - Identify Safe Reduction Chain ----===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -318,10 +318,17 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
     if (!(*SinkInst)->isReductionOp(&ReductionOpCode)) {
       return false;
     }
+
     if ((ReductionOpCode == Instruction::FSub ||
-         ReductionOpCode == Instruction::Sub) &&
+         ReductionOpCode == Instruction::Sub ||
+         ReductionOpCode == Instruction::SDiv ||
+         ReductionOpCode == Instruction::UDiv ||
+         ReductionOpCode == Instruction::FDiv) &&
         (*SinkDDRef) == (*SinkInst)->getOperandDDRef(2)) {
       // S = .. - S, we bail out
+      //
+      // Also, bail out for division operations if they aren't in the form of
+      // t1 = t1 / x
       return false;
     }
     if (!isValidMixOfOpcodes(ReductionOpCode, ReductionOpCodeSave)) {
