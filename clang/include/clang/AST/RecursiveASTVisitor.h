@@ -3310,6 +3310,14 @@ RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
   return true;
 }
 
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPNeedDevicePtrClause(
+    OMPNeedDevicePtrClause *C) {
+  for (Expr *E : C->getArgsRefs())
+    TRY_TO(TraverseStmt(E));
+  return true;
+}
+
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 template <typename Derived>

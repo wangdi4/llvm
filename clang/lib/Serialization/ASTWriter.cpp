@@ -6291,6 +6291,13 @@ void OMPClauseWriter::VisitOMPDataClause(OMPDataClause *C) {
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }
+
+void OMPClauseWriter::VisitOMPNeedDevicePtrClause(OMPNeedDevicePtrClause *C) {
+  Record.push_back(C->getNumArgs());
+  for (Expr *Arg : C->getArgsRefs())
+    Record.AddStmt(Arg);
+  Record.AddSourceLocation(C->getLParenLoc());
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseWriter::VisitOMPOmpxAssertClause(OMPOmpxAssertClause *) {}

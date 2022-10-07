@@ -10938,12 +10938,77 @@ StmtResult Sema::ActOnOpenMPSectionDirective(Stmt *AStmt,
                                      DSAStack->isCancelRegion());
 }
 
+static Expr *getDirectCallExpr(Expr *E) {
+  E = E->IgnoreParenCasts()->IgnoreImplicit();
+  if (auto *CE = dyn_cast<CallExpr>(E))
+    if (CE->getDirectCallee())
+      return E;
+  return nullptr;
+}
+
 #if INTEL_COLLAB
+static void
+checkNeedDevicePtrClauseArgumentsBound(Sema &S, unsigned NumArgs,
+                                       ArrayRef<OMPClause *> Clauses) {
+  for (const auto *NDPC :
+       OMPExecutableDirective::getClausesOfKind<OMPNeedDevicePtrClause>(
+           Clauses)) {
+    llvm::APSInt Result;
+    ExprResult ICE;
+    for (Expr *ArgExpr : NDPC->getArgsRefs()) {
+      ICE =
+          S.VerifyIntegerConstantExpression(ArgExpr, &Result, Sema::AllowFold);
+      if (!ICE.isInvalid() && Result.getExtValue() > NumArgs) {
+        S.Diag(ArgExpr->getExprLoc(),
+               diag::err_omp_need_device_ptr_clause_arg_out_of_bound)
+            << Result.getExtValue() << NumArgs << (NumArgs < 2 ? 0 : 1);
+      }
+    }
+  }
+}
+
 StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
     ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
     SourceLocation EndLoc) {
   if (!AStmt)
     return StmtError();
+
+  Stmt *S = cast<CapturedStmt>(AStmt)->getCapturedStmt();
+  if (!CurContext->isDependentContext()) {
+    if (auto *CS = dyn_cast<CompoundStmt>(S))
+      S = CS->body_front();
+
+    auto *E = dyn_cast_or_null<Expr>(S);
+    if (!E) {
+      Diag(AStmt->getBeginLoc(),
+           diag::err_omp_target_variant_dispatch_statement_call);
+      return StmtError();
+    }
+
+    E = E->IgnoreParenCasts()->IgnoreImplicit();
+    Expr *TargetCall = nullptr;
+
+    if (auto *BO = dyn_cast<BinaryOperator>(E)) {
+      if (BO->getOpcode() == BO_Assign)
+        TargetCall = getDirectCallExpr(BO->getRHS());
+    } else {
+      if (auto *COCE = dyn_cast<CXXOperatorCallExpr>(E))
+        if (COCE->getOperator() == OO_Equal)
+          TargetCall = getDirectCallExpr(COCE->getArg(1));
+      if (!TargetCall)
+        TargetCall = getDirectCallExpr(E);
+    }
+
+    if (!TargetCall) {
+      Diag(E->getBeginLoc(),
+           diag::err_omp_target_variant_dispatch_statement_call);
+      return StmtError();
+    }
+
+    auto *CE = cast<CallExpr>(TargetCall);
+    unsigned NumArgs = CE->getNumArgs();
+    checkNeedDevicePtrClauseArgumentsBound(*this, NumArgs, Clauses);
+  }
 
   setFunctionHasBranchProtectedScope();
 
@@ -10958,14 +11023,6 @@ StmtResult Sema::ActOnOpenMPPrefetchDirective(ArrayRef<OMPClause *> Clauses,
        Context, StartLoc, EndLoc, Clauses);
 }
 #endif // INTEL_COLLAB
-
-static Expr *getDirectCallExpr(Expr *E) {
-  E = E->IgnoreParenCasts()->IgnoreImplicit();
-  if (auto *CE = dyn_cast<CallExpr>(E))
-    if (CE->getDirectCallee())
-      return E;
-  return nullptr;
-}
 
 StmtResult Sema::ActOnOpenMPDispatchDirective(ArrayRef<OMPClause *> Clauses,
                                               Stmt *AStmt,
@@ -11009,6 +11066,12 @@ StmtResult Sema::ActOnOpenMPDispatchDirective(ArrayRef<OMPClause *> Clauses,
       return StmtError();
     }
     TargetCallLoc = TargetCall->getExprLoc();
+
+#if INTEL_COLLAB
+    auto *CE = cast<CallExpr>(TargetCall);
+    unsigned NumArgs = CE->getNumArgs();
+    checkNeedDevicePtrClauseArgumentsBound(*this, NumArgs, Clauses);
+#endif // INTEL_COLLAB
   }
 
   setFunctionHasBranchProtectedScope();
@@ -25490,6 +25553,21 @@ StmtResult Sema::ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
   setFunctionHasBranchProtectedScope();
 
   return OMPScopeDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
+}
+
+OMPClause *Sema::ActOnOpenMPNeedDevicePtrClause(ArrayRef<Expr *> ArgExprs,
+                                                SourceLocation StartLoc,
+                                                SourceLocation LParenLoc,
+                                                SourceLocation EndLoc) {
+  for (Expr *ArgExpr : ArgExprs) {
+    ExprResult Arg = VerifyPositiveIntegerConstantInClause(
+        ArgExpr, OMPC_need_device_ptr, /*StrictlyPositive=*/true);
+    if (!Arg.isUsable())
+      return nullptr;
+  }
+
+  return OMPNeedDevicePtrClause::Create(Context, StartLoc, LParenLoc, EndLoc,
+                                        ArgExprs);
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

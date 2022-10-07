@@ -9880,6 +9880,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_data:
     C = OMPDataClause::CreateEmpty(Context, Record.readInt());
     break;
+  case llvm::omp::OMPC_need_device_ptr:
+    C = OMPNeedDevicePtrClause::CreateEmpty(Context, Record.readInt());
+    break;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case llvm::omp::OMPC_ompx_assert:
@@ -10267,6 +10270,12 @@ void OMPClauseReader::VisitOMPDataClause(OMPDataClause *C) {
   for (unsigned i = 0; i != NumVars; ++i)
     Vars.push_back(Record.readSubExpr());
   C->setVarRefs(Vars);
+}
+
+void OMPClauseReader::VisitOMPNeedDevicePtrClause(OMPNeedDevicePtrClause *C) {
+  for (Expr *&E : C->getArgsRefs())
+    E = Record.readSubExpr();
+  C->setLParenLoc(Record.readSourceLocation());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

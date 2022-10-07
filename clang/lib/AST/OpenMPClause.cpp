@@ -141,6 +141,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_collapse:
 #if INTEL_COLLAB
   case OMPC_data:
+  case OMPC_need_device_ptr:
 #endif // INTEL_COLLAB`
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
@@ -282,6 +283,9 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_use_device_addr:
   case OMPC_is_device_ptr:
   case OMPC_has_device_addr:
+#if INTEL_COLLAB
+  case OMPC_need_device_ptr:
+#endif
   case OMPC_unified_address:
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:
@@ -1648,6 +1652,26 @@ OMPDataClause *OMPDataClause::CreateEmpty(const ASTContext &C, unsigned N) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
   return new (Mem) OMPDataClause(N);
 }
+
+OMPNeedDevicePtrClause *OMPNeedDevicePtrClause::Create(const ASTContext &C,
+                                                       SourceLocation StartLoc,
+                                                       SourceLocation LParenLoc,
+                                                       SourceLocation EndLoc,
+                                                       ArrayRef<Expr *> Args) {
+  OMPNeedDevicePtrClause *Clause = CreateEmpty(C, Args.size());
+  Clause->setLocStart(StartLoc);
+  Clause->setLParenLoc(LParenLoc);
+  Clause->setLocEnd(EndLoc);
+  Clause->setArgsRefs(Args);
+  return Clause;
+}
+
+OMPNeedDevicePtrClause *OMPNeedDevicePtrClause::CreateEmpty(const ASTContext &C,
+                                                            unsigned NumArgs) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumArgs));
+  return new (Mem) OMPNeedDevicePtrClause(NumArgs);
+}
+
 #endif // INTEL_COLLAB
 
 OMPInclusiveClause *OMPInclusiveClause::Create(const ASTContext &C,
@@ -1884,6 +1908,19 @@ void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
     OS << ":";
   }
   VisitOMPClauseList(Node, Hint ? ' ' : '(');
+  OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPNeedDevicePtrClause(
+    OMPNeedDevicePtrClause *Node) {
+  OS << "need_device_ptr(";
+  bool First = true;
+  for (auto *Arg : Node->getArgsRefs()) {
+    if (!First)
+      OS << ", ";
+    Arg->printPretty(OS, nullptr, Policy, 0);
+    First = false;
+  }
   OS << ")";
 }
 #endif // INTEL_COLLAB

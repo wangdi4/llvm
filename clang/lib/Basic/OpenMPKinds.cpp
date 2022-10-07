@@ -218,6 +218,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_unknown:
 #if INTEL_COLLAB
   case OMPC_subdevice:
+  case OMPC_need_device_ptr:
 #endif // INTEL_COLLAB
   case OMPC_threadprivate:
   case OMPC_if:
@@ -545,6 +546,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     }
     llvm_unreachable("Invalid OpenMP 'allocate' clause modifier");
   case OMPC_interop:
+  case OMPC_need_device_ptr:
 #endif // INTEL_COLLAB
   case OMPC_collapse:
   case OMPC_tile:    // INTEL

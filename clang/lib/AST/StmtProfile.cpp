@@ -505,6 +505,13 @@ void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
     Profiler->VisitStmt(Hint);
   VisitOMPClauseList(C);
 }
+
+void OMPClauseProfiler::VisitOMPNeedDevicePtrClause(
+    const OMPNeedDevicePtrClause *C) {
+  for (auto *E : C->getArgsRefs())
+    if (E)
+      Profiler->VisitExpr(E);
+}
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION

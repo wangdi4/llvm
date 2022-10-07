@@ -2503,6 +2503,8 @@ void OpenMPLateOutliner::emitOMPOmpxMonotonicClause(
                          : CGF.Builder.getInt32(0));
   }
 }
+void OpenMPLateOutliner::emitOMPNeedDevicePtrClause(
+    const OMPNeedDevicePtrClause *C) {}
 #endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPBindClause(const OMPBindClause *Cl) {

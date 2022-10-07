@@ -2366,6 +2366,12 @@ void OMPClauseEnqueue::VisitOMPDataClause(const OMPDataClause *C) {
   VisitOMPClauseList(C);
   Visitor->AddStmt(C->getHint());
 }
+
+void OMPClauseEnqueue::VisitOMPNeedDevicePtrClause(
+    const OMPNeedDevicePtrClause *C) {
+  for (auto E : C->getArgsRefs())
+    Visitor->AddStmt(E);
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseEnqueue::VisitOMPTileClause(const OMPTileClause *C) {
