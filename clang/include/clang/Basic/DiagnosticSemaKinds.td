@@ -11249,6 +11249,14 @@ def err_omp_interop_var_multiple_actions : Error<
 def err_omp_dispatch_statement_call
     : Error<"statement after '#pragma omp dispatch' must be a direct call"
             " to a target function or an assignment to one">;
+#if INTEL_COLLAB
+def err_omp_target_variant_dispatch_statement_call
+    : Error<"statement after '#pragma omp target variant dispatch' must be a" 
+            " direct call to a target function or an assignment to one">;
+def err_omp_need_device_ptr_clause_arg_out_of_bound
+    : Error<"'need_device_ptr' specifies argument '%0' but call has only %1" 
+            " argument%select{|s}2">;
+#endif // INTEL_COLLAB
 def err_omp_unroll_full_variable_trip_count : Error<
   "loop to be fully unrolled must have a constant trip count">;
 def note_omp_directive_here : Note<"'%0' directive found here">;

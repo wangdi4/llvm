@@ -3614,6 +3614,10 @@ private:
   /// nullptr.
   ///
   OMPClause *ParseOpenMPDataClause(bool ParseOnly);
+  
+  /// Parses the 'need_device_ptr' clause of a '#pragma omp dispatch'  and 
+  /// '#pragma omp target variant dispatch' directive.
+  OMPClause *ParseOpenMPNeedDevicePtrClause();
 #endif // INTEL_COLLAB
 
   /// Parses and creates OpenMP 5.0 iterators expression:

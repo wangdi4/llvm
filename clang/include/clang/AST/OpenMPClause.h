@@ -1131,6 +1131,104 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_data;
   }
 };
+
+/// This represents an 'need_device_ptr' clause for the '#pragma omp dispatch'
+/// and '#pragma omp target variant dispatch' directive.
+///
+/// \code
+/// #pragma omp dispatch need_device_ptr(1, 2)
+/// \endcode
+/// In this example directive '#pragma omp dispatch' has a need_device_ptr
+/// clause with two integer values 1 and 2.
+///
+class OMPNeedDevicePtrClause final
+    : public OMPClause,
+      private llvm::TrailingObjects<OMPNeedDevicePtrClause, Expr *> {
+  friend class OMPClauseReader;
+  friend class llvm::TrailingObjects<OMPNeedDevicePtrClause, Expr *>;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// Number of arguments in the clause.
+  unsigned NumArgs;
+
+  /// Build an empty clause.
+  explicit OMPNeedDevicePtrClause(int NumArgs)
+      : OMPClause(llvm::omp::OMPC_need_device_ptr, SourceLocation(),
+                  SourceLocation()),
+        NumArgs(NumArgs) {}
+
+public:
+  /// Build a 'need_device_ptr' AST node.
+  ///
+  /// \param C         Context of the AST.
+  /// \param StartLoc  Location of the 'need_device_ptr' identifier.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc    Location of ')'.
+  /// \param Args     Content of the clause.
+  static OMPNeedDevicePtrClause *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
+         SourceLocation EndLoc, ArrayRef<Expr *> Args);
+
+  /// Build an empty 'need_device_ptr' AST node for deserialization.
+  ///
+  /// \param C     Context of the AST.
+  /// \param NumArgs Number of items in the clause.
+  static OMPNeedDevicePtrClause *CreateEmpty(const ASTContext &C,
+                                             unsigned NumArgs);
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Returns the number of list items.
+  unsigned getNumArgs() const { return NumArgs; }
+
+  /// Returns the argument list expressions.
+  MutableArrayRef<Expr *> getArgsRefs() {
+    return MutableArrayRef<Expr *>(static_cast<OMPNeedDevicePtrClause *>(this)
+                                       ->template getTrailingObjects<Expr *>(),
+                                   NumArgs);
+  }
+  ArrayRef<Expr *> getArgsRefs() const {
+    return ArrayRef<Expr *>(static_cast<const OMPNeedDevicePtrClause *>(this)
+                                ->template getTrailingObjects<Expr *>(),
+                            NumArgs);
+  }
+
+  /// Sets the argument list expressions.
+  void setArgsRefs(ArrayRef<Expr *> VL) {
+    assert(VL.size() == NumArgs);
+    std::copy(VL.begin(), VL.end(),
+              static_cast<OMPNeedDevicePtrClause *>(this)
+                  ->template getTrailingObjects<Expr *>());
+  }
+
+  child_range children() {
+    MutableArrayRef<Expr *> Args = getArgsRefs();
+    return child_range(reinterpret_cast<Stmt **>(Args.begin()),
+                       reinterpret_cast<Stmt **>(Args.end()));
+  }
+  const_child_range children() const {
+    ArrayRef<Expr *> Args = getArgsRefs();
+    return const_child_range(reinterpret_cast<Stmt *const *>(Args.begin()),
+                             reinterpret_cast<Stmt *const *>(Args.end()));
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_need_device_ptr;
+  }
+};
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION

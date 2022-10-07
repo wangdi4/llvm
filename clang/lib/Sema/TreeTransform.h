@@ -1732,6 +1732,18 @@ public:
     return getSema().ActOnOpenMPOmpxPlacesClause(Modifier, Start, Length,
                                                  Stride, StartLoc, EndLoc);
   }
+
+  /// Build a new OpenMP 'need_device_ptr' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPNeedDevicePtrClause(ArrayRef<Expr *> Args,
+                                           SourceLocation StartLoc,
+                                           SourceLocation LParenLoc,
+                                           SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPNeedDevicePtrClause(Args, StartLoc, LParenLoc,
+                                                    EndLoc);
+  }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Build a new OpenMP 'tile' clause.
@@ -9775,6 +9787,27 @@ TreeTransform<Derived>::TransformOMPDataClause(OMPDataClause *C) {
   }
   return getDerived().RebuildOMPDataClause(Hint, VarList, C->getBeginLoc(),
                                            C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *TreeTransform<Derived>::TransformOMPNeedDevicePtrClause(
+    OMPNeedDevicePtrClause *C) {
+  SmallVector<Expr *, 4> TransformedArgs;
+  TransformedArgs.reserve(C->getNumArgs());
+  bool Changed = false;
+  for (Expr *E : C->getArgsRefs()) {
+    ExprResult T = getDerived().TransformExpr(E);
+    if (T.isInvalid())
+      return nullptr;
+    if (E != T.get())
+      Changed = true;
+    TransformedArgs.push_back(T.get());
+  }
+
+  if (!Changed && !getDerived().AlwaysRebuild())
+    return C;
+  return RebuildOMPNeedDevicePtrClause(TransformedArgs, C->getBeginLoc(),
+                                       C->getLParenLoc(), C->getEndLoc());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
