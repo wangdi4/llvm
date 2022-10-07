@@ -97,13 +97,14 @@ public:
   TransposeCandidate(GlobalVariable *GV, uint32_t ArrayRank,
                      SmallVector<uint64_t, 4> &ArrayLength,
                      uint64_t ElementSize, llvm::Type *ElementType,
+                     dtrans::TransposeTLIType GetTLI,
                      DopeVectorInfo *DVI = nullptr,
                      Optional<uint64_t> NestedFieldNum = None)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
 #endif
-        ElementType(ElementType), IsGlobalDV(DVI),
+        ElementType(ElementType), GetTLI(GetTLI), IsGlobalDV(DVI),
         NestedFieldNumber(NestedFieldNum), IsValid(false), IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
@@ -355,7 +356,8 @@ public:
       return false;
 
     // Collect the use of the dope vector pointer.
-    std::unique_ptr<DopeVectorAnalyzer> DVA(new DopeVectorAnalyzer(DVObject));
+    std::unique_ptr<DopeVectorAnalyzer> DVA(
+        new DopeVectorAnalyzer(DVObject, nullptr, GetTLI));
     DVA->analyze(/*ForCreation = */ true);
     DEBUG_WITH_TYPE(DEBUG_DOPE_VECTORS, {
       dbgs() << "Analysis of potential dope vector:\n";
@@ -484,7 +486,7 @@ public:
     std::advance(Args, ArgPos);
     Argument *FormalArg = &(*Args);
 
-    DopeVectorAnalyzer DVA(FormalArg);
+    DopeVectorAnalyzer DVA(FormalArg, nullptr, GetTLI);
     DVA.analyze(/*ForCreation = */ false);
     if (!DVA.analyzeDopeVectorUseInFunction(F, &DVSubscriptCalls))
       return false;
@@ -902,6 +904,8 @@ private:
   // Element type in the array
   llvm::Type *ElementType;
 
+  dtrans::TransposeTLIType GetTLI;
+
   // 'true' if the candidate is represented by a global dope vector
   bool IsGlobalDV;
 
@@ -1318,7 +1322,7 @@ private:
                                NVArrayLength, NVElemSize))
             continue;
           TransposeCandidate Candidate(GV, NVArrayRank, NVArrayLength,
-                                       NVElemSize, NVElemType, NestDVI,
+                                       NVElemSize, NVElemType, GetTLI, NestDVI,
                                        NestDVI->getFieldNum());
           Candidates.push_back(Candidate);
         }
@@ -1331,7 +1335,7 @@ private:
                            ElemType, ArrayLength, ElemSize))
         return true;
       TransposeCandidate Candidate(GV, ArrayRank, ArrayLength, ElemSize,
-                                   ElemType, DVI);
+                                   ElemType, GetTLI, DVI);
       Candidates.push_back(Candidate);
       return true;
     };
@@ -1380,8 +1384,8 @@ private:
             (ElemType->isIntegerTy() || ElemType->isFloatingPointTy())) {
           LLVM_DEBUG(dbgs() << "Adding candidate: " << GV << "\n");
           uint64_t ElemSize = DL.getTypeStoreSize(ElemType);
-          TransposeCandidate Candidate(&GV, Dimensions, ArrayLength, ElemSize,
-                                       ElemType);
+          TransposeCandidate Candidate(&GV, Dimensions, ArrayLength,
+                                       ElemSize, ElemType, GetTLI);
           Candidates.push_back(Candidate);
         }
       }

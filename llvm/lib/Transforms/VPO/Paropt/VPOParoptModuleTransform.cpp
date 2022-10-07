@@ -825,6 +825,22 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     if (IsFETargetDeclare) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
                         << ": IsFETargetDeclare == true\n");
+      // For fopenmp-target-simd we need to process not only outlined functions
+      // (i.e. target regions) but also functions which satisfy IsFETargetDeclare
+      // (see its comment above) because they may be called from some kernel
+      // and not have any WRegion to be processed by Paropt transforms and hence
+      // not getting any MD to tell ParoptLowerSimd pass to take care of such function.
+      if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
+        if (!IsBETargetDeclare) {
+          assert(!F.getMetadata("omp_simd_kernel"));
+          F.setMetadata("omp_declare_target_simd_function",
+                        MDNode::get(F.getContext(), {}));
+          Metadata *AttrMDArgs[] = {ConstantAsMetadata::get(
+              ConstantInt::get(IntegerType::getInt32Ty(F.getContext()), 1))};
+          F.setMetadata("intel_reqd_sub_group_size",
+                        MDNode::get(F.getContext(), AttrMDArgs));
+        }
+      }
       continue;
     }
 
