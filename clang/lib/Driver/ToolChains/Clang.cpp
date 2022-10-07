@@ -6703,11 +6703,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         << LDArg->getAsString(Args);
 #endif // INTEL_CUSTOMIZATION
 
-  // Add debug macro for debug library usage when using non-cl driver on
-  // Windows as we are using the debug sycld.lib with -g
+  // Add the sycld debug library when --dependent-lib=msvcrtd is used from
+  // the command line.  This is to allow for CMake based builds using the
+  // Linux based driver on Windows to correctly pull in the expected debug
+  // library.
   if (!D.IsCLMode() && TC.getTriple().isWindowsMSVCEnvironment() &&
-      Args.hasArg(options::OPT_fsycl) && Args.hasArg(options::OPT_g_Flag))
-    CmdArgs.push_back("-D_DEBUG");
+      Args.hasArg(options::OPT_fsycl)) {
+    if (isDependentLibAdded(Args, "msvcrtd"))
+      CmdArgs.push_back("--dependent-lib=sycl" SYCL_MAJOR_VERSION "d");
+  }
 
   DwarfFissionKind DwarfFission = DwarfFissionKind::None;
   renderDebugOptions(TC, D, RawTriple, Args, EmitCodeView,
