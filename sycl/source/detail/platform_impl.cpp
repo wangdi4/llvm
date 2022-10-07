@@ -30,11 +30,8 @@
 #include <detail/global_handler.hpp>
 #include <detail/platform_impl.hpp>
 #include <detail/platform_info.hpp>
-<<<<<<< HEAD
 #include <detail/force_device.hpp>    // INTEL
-=======
 #include <sycl/detail/iostream_proxy.hpp>
->>>>>>> 28d0cd3aa19c0e76eeea00dcdd4cae8bc637336d
 #include <sycl/device.hpp>
 
 #include <algorithm>
