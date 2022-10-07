@@ -1430,7 +1430,8 @@ VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
 
   // TODO. Check whether the current block dominates latch. If not
   // then we need a phi in the latch.
-  assert(DomTree.dominates(NewExit->getParent(), Loop.getLoopLatch()) &&
+  assert(Loop.getLoopLatch() &&
+         DomTree.dominates(NewExit->getParent(), Loop.getLoopLatch()) &&
          "Unsupported non-dominating update");
   StartPhi->addIncoming(NewExit, Loop.getLoopLatch());
   const auto *LatchCmp = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
