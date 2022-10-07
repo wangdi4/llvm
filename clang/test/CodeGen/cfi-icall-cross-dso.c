@@ -1,37 +1,53 @@
+<<<<<<< HEAD
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-unknown-linux -O1 -fno-inline \
 // INTEL_CUSTOMIZATION
 // RUN:   -fexperimental-new-pass-manager \
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang_cc1 -triple x86_64-unknown-linux -O1 -fno-inline \
+>>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK --check-prefix=CHECK-DIAG \
 // RUN:       --check-prefix=ITANIUM --check-prefix=ITANIUM-DIAG \
 // RUN:       %s
 
+<<<<<<< HEAD
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-unknown-linux -O1 -fno-inline \
 // INTEL_CUSTOMIZATION
 // RUN:   -fexperimental-new-pass-manager \
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang_cc1 -triple x86_64-unknown-linux -O1 -fno-inline \
+>>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso -fsanitize-trap=cfi-icall \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK \
 // RUN:       --check-prefix=ITANIUM --check-prefix=ITANIUM-TRAP \
 // RUN:       %s
 
+<<<<<<< HEAD
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-pc-windows-msvc -O1 -fno-inline \
 // INTEL_CUSTOMIZATION
 // RUN:   -fexperimental-new-pass-manager \
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -O1 -fno-inline \
+>>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK --check-prefix=CHECK-DIAG \
 // RUN:       --check-prefix=MS --check-prefix=MS-DIAG \
 // RUN:       %s
 
+<<<<<<< HEAD
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-pc-windows-msvc -O1 -fno-inline \
 // INTEL_CUSTOMIZATION
 // RUN:   -fexperimental-new-pass-manager \
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -O1 -fno-inline \
+>>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso -fsanitize-trap=cfi-icall \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK \
@@ -43,13 +59,13 @@
 // CHECK-DIAG: @[[DATA:.*]] = private unnamed_addr global {{.*}}@[[SRC]]{{.*}}@[[TYPE]]
 
 
-// ITANIUM: call i1 @llvm.type.test(i8* %{{.*}}, metadata !"_ZTSFvE"), !nosanitize
-// ITANIUM-DIAG: call void @__cfi_slowpath_diag(i64 6588678392271548388, i8* %{{.*}}, {{.*}}@[[DATA]]{{.*}}) {{.*}}, !nosanitize
-// ITANIUM-TRAP: call void @__cfi_slowpath(i64 6588678392271548388, i8* %{{.*}}) {{.*}}, !nosanitize
+// ITANIUM: call i1 @llvm.type.test(ptr %{{.*}}, metadata !"_ZTSFvE"), !nosanitize
+// ITANIUM-DIAG: call void @__cfi_slowpath_diag(i64 6588678392271548388, ptr %{{.*}}, {{.*}}@[[DATA]]{{.*}}) {{.*}}, !nosanitize
+// ITANIUM-TRAP: call void @__cfi_slowpath(i64 6588678392271548388, ptr %{{.*}}) {{.*}}, !nosanitize
 
-// MS: call i1 @llvm.type.test(i8* %{{.*}}, metadata !"?6AX@Z"), !nosanitize
-// MS-DIAG: call void @__cfi_slowpath_diag(i64 4195979634929632483, i8* %{{.*}}, {{.*}}@[[DATA]]{{.*}}) {{.*}}, !nosanitize
-// MS-TRAP: call void @__cfi_slowpath(i64 4195979634929632483, i8* %{{.*}}) {{.*}}, !nosanitize
+// MS: call i1 @llvm.type.test(ptr %{{.*}}, metadata !"?6AX@Z"), !nosanitize
+// MS-DIAG: call void @__cfi_slowpath_diag(i64 4195979634929632483, ptr %{{.*}}, {{.*}}@[[DATA]]{{.*}}) {{.*}}, !nosanitize
+// MS-TRAP: call void @__cfi_slowpath(i64 4195979634929632483, ptr %{{.*}}) {{.*}}, !nosanitize
 
 // ITANIUM-DIAG: declare void @__cfi_slowpath_diag(
 // ITANIUM-TRAP: declare void @__cfi_slowpath(

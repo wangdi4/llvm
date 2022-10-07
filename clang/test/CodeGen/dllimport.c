@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -triple i686-windows-msvc   -fms-extensions -emit-llvm -std=c11 -O0 -o - %s | FileCheck --check-prefix=CHECK --check-prefix=MS %s
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -triple x86_64-windows-msvc -fms-extensions -emit-llvm -std=c11 -O0 -o - %s | FileCheck --check-prefix=CHECK --check-prefix=MS %s
@@ -6,6 +7,14 @@
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -triple i686-windows-msvc   -fms-extensions -emit-llvm -std=c11 -O1 -fno-inline -o - %s | FileCheck --check-prefix=O1 --check-prefix=MO1 %s
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -triple i686-windows-gnu    -fms-extensions -emit-llvm -std=c11 -O1 -fno-inline -o - %s | FileCheck --check-prefix=O1 --check-prefix=GO1 %s
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang_cc1 -triple i686-windows-msvc   -fms-extensions -emit-llvm -std=c11 -O0 -o - %s | FileCheck --check-prefix=CHECK --check-prefix=MS %s
+// RUN: %clang_cc1 -triple x86_64-windows-msvc -fms-extensions -emit-llvm -std=c11 -O0 -o - %s | FileCheck --check-prefix=CHECK --check-prefix=MS %s
+// RUN: %clang_cc1 -triple i686-windows-gnu    -fms-extensions -emit-llvm -std=c11 -O0 -o - %s | FileCheck --check-prefix=CHECK --check-prefix=GNU %s
+// RUN: %clang_cc1 -triple x86_64-windows-gnu  -fms-extensions -emit-llvm -std=c11 -O0 -o - %s | FileCheck --check-prefix=CHECK --check-prefix=GNU %s
+// RUN: %clang_cc1 -triple i686-windows-msvc   -fms-extensions -emit-llvm -std=c11 -O1 -fno-inline -o - %s | FileCheck --check-prefix=O1 --check-prefix=MO1 %s
+// RUN: %clang_cc1 -triple i686-windows-gnu    -fms-extensions -emit-llvm -std=c11 -O1 -fno-inline -o - %s | FileCheck --check-prefix=O1 --check-prefix=GO1 %s
+>>>>>>> 8a0ea77cf85dd17f4de3f59ad3937f64f9571af9
 
 #define JOIN2(x, y) x##y
 #define JOIN(x, y) JOIN2(x, y)
@@ -79,7 +88,7 @@ int functionScope(void) {
 __declspec(dllimport) void decl(void);
 
 // Initialize use_decl with the address of the thunk.
-// CHECK-DAG: @use_decl = dso_local global void ()* @decl
+// CHECK-DAG: @use_decl = dso_local global ptr @decl
 void (*use_decl)(void) = &decl;
 
 // Import inline function.
