@@ -75,11 +75,6 @@ namespace {
 /// it receives an alias query. Useful for testing that a particular AA result
 /// is reached.
 struct TestCustomAAResult : AAResultBase {
-<<<<<<< HEAD
-  friend AAResultBase;
-
-=======
->>>>>>> 8d569e638b9e960b4ab635d780e60e8fa0b049f7
   std::function<void()> CB;
 
   explicit TestCustomAAResult(std::function<void()> CB)
