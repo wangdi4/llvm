@@ -675,7 +675,7 @@ void Tree::removeTreeFromIR() {
 Value *Tree::generateCode() {
   Instruction *OldRoot = getRoot();
   Value *Res = CanonForm::generateCode(OldRoot, !SimplifyTrunks);
-  assert(isa<Instruction>(Res) && "Tree root must be an instruction");
+  assert(Res && isa<Instruction>(Res) && "Tree root must be a non-NULL instruction");
 
   Instruction *NewRoot = cast<Instruction>(Res);
 

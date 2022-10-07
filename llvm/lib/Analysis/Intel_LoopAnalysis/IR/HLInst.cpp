@@ -1,6 +1,6 @@
 //===-------- HLInst.cpp - Implements the HLInst class --------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -580,6 +580,9 @@ bool HLInst::isValidReductionOpCode(unsigned OpCode) {
   case Instruction::Or:
   case Instruction::Xor:
   case Instruction::Select:
+  case Instruction::SDiv:
+  case Instruction::UDiv:
+  case Instruction::FDiv:
     return true;
   default:
     return false;
@@ -777,10 +780,13 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty,
     break;
 
   case Instruction::FMul:
+  case Instruction::FDiv:
     RDKind = RecurKind::FMul;
     break;
 
   case Instruction::Mul:
+  case Instruction::SDiv:
+  case Instruction::UDiv:
     RDKind = RecurKind::Mul;
     break;
 
