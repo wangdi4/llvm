@@ -3873,6 +3873,7 @@ void InnerLoopVectorizer::fixFixedOrderRecurrence(
   Builder.SetInsertPoint(&*LoopScalarPreHeader->begin());
   PHINode *Phi = cast<PHINode>(PhiR->getUnderlyingValue());
   auto *Start = Builder.CreatePHI(Phi->getType(), 2, "scalar.recur.init");
+  assert(PhiR->getStartValue() && "Phi start value cannot be null"); // INTEL
   auto *ScalarInit = PhiR->getStartValue()->getLiveInIRValue();
   for (auto *BB : predecessors(LoopScalarPreHeader)) {
     auto *Incoming = BB == LoopMiddleBlock ? ExtractForScalar : ScalarInit;
