@@ -121,10 +121,6 @@ if (DEFINED LIBOMPTARGET_AMDGCN_GFXLIST)
   set(amdgpu_mcpus ${LIBOMPTARGET_AMDGCN_GFXLIST})
 endif()
 
-# Activate RTL message dumps if requested by the user.
-set(LIBOMPTARGET_DEVICE_DEBUG FALSE CACHE BOOL
-  "Activate DeviceRTL debug messages.")
-
 set(include_files
   ${include_directory}/Configuration.h
   ${include_directory}/Debug.h
@@ -175,12 +171,6 @@ set(bc_flags -S -x c++ -std=c++17 -fvisibility=hidden
              ${LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL}
 )
 # end INTEL_CUSTOMIZATION
-
-if(${LIBOMPTARGET_DEVICE_DEBUG})
-  list(APPEND bc_flags -DOMPTARGET_DEBUG=-1)
-else()
-  list(APPEND bc_flags -DOMPTARGET_DEBUG=0)
-endif()
 
 if(INTEL_CUSTOMIZATION)
   list(APPEND bc_flags -Xclang -disable-intel-proprietary-opts)
