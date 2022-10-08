@@ -172,19 +172,10 @@ set(bc_flags -S -x c++ -std=c++17 -fvisibility=hidden
 )
 # end INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-if(${LIBOMPTARGET_DEVICE_DEBUG})
-  list(APPEND bc_flags -DOMPTARGET_DEBUG=-1)
-else()
-  list(APPEND bc_flags -DOMPTARGET_DEBUG=0)
-endif()
-
 if(INTEL_CUSTOMIZATION)
   list(APPEND bc_flags -Xclang -disable-intel-proprietary-opts)
 endif(INTEL_CUSTOMIZATION)
 
-=======
->>>>>>> defe072010ac365981f7e95ce07cccc4b64ebaba
 # first create an object target
 add_library(omptarget.devicertl.all_objs OBJECT IMPORTED)
 function(compileDeviceRTLLibrary target_cpu target_name target_triple)
