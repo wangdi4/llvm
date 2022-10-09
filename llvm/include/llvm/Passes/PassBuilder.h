@@ -412,7 +412,6 @@ public:
   /// returns false.
   Error parseAAPipeline(AAManager &AA, StringRef PipelineText);
 
-<<<<<<< HEAD
   /// Returns true if the pass name is the name of an alias analysis pass.
   bool isAAPassName(StringRef PassName);
 
@@ -459,8 +458,6 @@ public:
                                OptimizationLevel Level);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> f3a928e2334a4e8e3f09406f2ce7e1cbac520f95
   /// Print pass names.
   void printPassNames(raw_ostream &OS);
 
