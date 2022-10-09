@@ -27,11 +27,10 @@ namespace llvm {
 
 /// Checks all vectorization factor related issues for kernels.
 /// The flow is:
-/// 1. hasMultipleVFConstraints(): Check whether there is more than one VF
-///    constraint. If more than one of ForceVF, intel_vec_len_hint
-///    and intel_reqd_sub_group_size is defined, emit a VFAnalysisDiagInfo of
-///    VFKD_ConstraintConflict kind, which should be handled outside the
-///    optimizer.
+/// 1. hasConflictVFConstraints(): Check whether there are multiple VF
+///    constraints and their values are conflicting. If true, emit a
+///    VFAnalysisDiagInfo of VFKD_ConstraintConflict kind, which should be
+///    handled outside the optimizer.
 /// 2. deduceVF(): Deduce initial VF according to given constraints. Initial
 ///    means this VF may be fallbacked. Currently just let intel_vec_len_hint
 ///    can be fallbacked.
@@ -81,7 +80,8 @@ private:
   /// - ForceVF
   /// - "intel_vec_len_hint" metadata
   /// - "intel_reqd_sub_group_size" metadata
-  bool hasMultipleVFConstraints(Function *Kernel);
+  /// and their values are different.
+  bool hasConflictVFConstraints(Function *Kernel);
 
   /// Return deduced VF according to the given constriant.
   /// - HeuristicVF Heuristic VF computed by WeightedInstCountAnalysis.
