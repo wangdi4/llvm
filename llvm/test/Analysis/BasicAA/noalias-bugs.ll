@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt -S -basic-aa -dse < %s | FileCheck %s
+; RUN: opt -S -aa-pipeline=basic-aa -dse < %s | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -S -basic-aa -dse | FileCheck %s
-=======
-; RUN: opt -S -aa-pipeline=basic-aa -dse < %s | FileCheck %s
->>>>>>> d3d84654467e03640a26fcae651a5d2d0e98541a
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
