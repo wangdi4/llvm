@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -licm -disable-output
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -disable-output
+=======
+; RUN: opt < %s -aa-pipeline=basic-aa -licm -disable-output
+>>>>>>> d3d84654467e03640a26fcae651a5d2d0e98541a
 target datalayout = "E-p:32:32"
 target triple = "powerpc-unknown-linux-gnu"
 
