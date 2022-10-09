@@ -27,6 +27,7 @@ set(DD_SOURCES
   dd_interceptors.cpp
   )
 
+<<<<<<< HEAD
 if (INTEL_CUSTOMIZATION)
   # Workaround for CMPLRLLVM-9960: dd_interceptors.cc redefines
   # realpath(), which is defined in bits/stdlib.h under
@@ -36,6 +37,12 @@ if (INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 set(DD_LINKLIBS ${SANITIZER_CXX_ABI_LIBRARIES} ${SANITIZER_COMMON_LINK_LIBS})
+=======
+set(DD_LINKLIBS
+  ${COMPILER_RT_UNWINDER_LINK_LIBS}
+  ${SANITIZER_CXX_ABI_LIBRARIES}
+  ${SANITIZER_COMMON_LINK_LIBS})
+>>>>>>> 826693e2b0ff1db7665809fa6e97b23071ff6627
 
 append_list_if(COMPILER_RT_HAS_LIBDL dl DD_LINKLIBS)
 append_list_if(COMPILER_RT_HAS_LIBRT rt DD_LINKLIBS)
