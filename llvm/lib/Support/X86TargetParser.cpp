@@ -225,11 +225,10 @@ constexpr FeatureBitset FeaturesTigerlake =
     FeatureCLWB | FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
 constexpr FeatureBitset FeaturesSapphireRapids =
     FeaturesICLServer | FeatureAMX_BF16 | FeatureAMX_INT8 | FeatureAMX_TILE |
-<<<<<<< HEAD
-    FeatureAVX512BF16 | FeatureAVX512FP16 | FeatureAVX512VP2INTERSECT |
-    FeatureAVXVNNI | FeatureCLDEMOTE | FeatureENQCMD | FeatureMOVDIR64B |
-    FeatureMOVDIRI | FeaturePTWRITE | FeatureSERIALIZE | FeatureSHSTK |
-    FeatureTSXLDTRK | FeatureUINTR | FeatureWAITPKG;
+    FeatureAVX512BF16 | FeatureAVX512FP16 | FeatureAVXVNNI | FeatureCLDEMOTE |
+    FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
+    FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
+    FeatureWAITPKG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256
 #define ENABLE_ISA_AVX256
@@ -434,12 +433,6 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // ENABLE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
-=======
-    FeatureAVX512BF16 | FeatureAVX512FP16 | FeatureAVXVNNI | FeatureCLDEMOTE |
-    FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
-    FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
-    FeatureWAITPKG;
->>>>>>> 566c277c64f8f76d8911aa5fd931903a357ed7be
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
