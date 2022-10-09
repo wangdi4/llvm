@@ -1,4 +1,4 @@
-; RUN: opt < %s -basic-aa -licm -disable-output
+; RUN: opt < %s -aa-pipeline=basic-aa -licm -disable-output
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -disable-output
 	%struct..apr_array_header_t = type { i32*, i32, i32, i32, i8* }

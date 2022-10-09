@@ -1,4 +1,4 @@
-; RUN: opt < %s -basic-aa -gvn -disable-output
+; RUN: opt < %s -aa-pipeline=basic-aa -gvn -disable-output
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -disable-output
 ; PR2395

@@ -1,4 +1,4 @@
-; RUN: opt -basic-aa -licm -S < %s
+; RUN: opt -aa-pipeline=basic-aa -licm -S < %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -S
 ; PR9931
