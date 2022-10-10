@@ -263,8 +263,9 @@ public:
 
   /// Traces back \p Inst's operands to a phi in \p Lp's header block which
   /// would act as loop's IV. Returns null if no such instruction is found.
-  const PHINode *findIVDefInHeader(const Loop &Lp,
-                                   const Instruction *Inst) const;
+  const PHINode *
+  findIVDefInHeader(const Loop &Lp, const Instruction *Inst,
+                    SmallPtrSetImpl<const Instruction *> &VisitedInsts) const;
 };
 
 class HIRRegionIdentificationAnalysis

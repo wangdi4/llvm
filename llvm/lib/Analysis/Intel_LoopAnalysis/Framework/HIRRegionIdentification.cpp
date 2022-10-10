@@ -1820,15 +1820,19 @@ static const Loop *getOutermostParentLoop(const Loop *Lp) {
   return ParLp;
 }
 
-const PHINode *
-HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
-                                           const Instruction *Inst) const {
+const PHINode *HIRRegionIdentification::findIVDefInHeader(
+    const Loop &Lp, const Instruction *Inst,
+    SmallPtrSetImpl<const Instruction *> &VisitedInsts) const {
 
   // Is this a phi node in the loop header?
   if (Inst->getParent() == Lp.getHeader()) {
     if (auto *Phi = dyn_cast<PHINode>(Inst)) {
       return Phi;
     }
+  }
+
+  if (!VisitedInsts.insert(Inst).second) {
+    return nullptr;
   }
 
   for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
@@ -1845,7 +1849,7 @@ HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
         continue;
       }
 
-      auto *IVNode = findIVDefInHeader(Lp, OpInst);
+      auto *IVNode = findIVDefInHeader(Lp, OpInst, VisitedInsts);
 
       if (IVNode) {
         return IVNode;
@@ -1955,7 +1959,13 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   // We have to perform this check after irreducible check inside
   // areBBlocksGenerable() above or we can get into an infinite cycle.
-  auto *IVDef = findIVDefInHeader(Lp, LatchCmpInst);
+  SmallPtrSet<const Instruction *, 16> VisitedInsts;
+
+  // We only need to check for large integer type IVDef when large integers are
+  // allowed in general.
+  const PHINode *IVDef = AllowLargeIntegers
+                             ? findIVDefInHeader(Lp, LatchCmpInst, VisitedInsts)
+                             : nullptr;
 
   if (IVDef) {
     auto *IVTy = dyn_cast<IntegerType>(IVDef->getType());

@@ -234,7 +234,9 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto *IVNode = HIRCr.getRI().findIVDefInHeader(*Lp, cast<Instruction>(Cond));
+  SmallPtrSet<const Instruction *, 16> VisitedInsts;
+  auto *IVNode = HIRCr.getRI().findIVDefInHeader(*Lp, cast<Instruction>(Cond),
+                                                 VisitedInsts);
 
   auto *IVType = IVNode ? IVNode->getType() : nullptr;
 
