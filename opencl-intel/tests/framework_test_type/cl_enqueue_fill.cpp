@@ -168,6 +168,7 @@ void OCLEnvTest::TestFillWithLargePattern(cl_mem buffer1, size_t bufferSize, con
 	}
 	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
 	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
+        EXPECT_EQ((size_t)0, countFillErrors);
 }
 
 TEST_F(EnqueueFillTest, Buffer)
