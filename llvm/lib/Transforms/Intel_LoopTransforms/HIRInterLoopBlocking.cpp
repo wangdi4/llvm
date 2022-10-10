@@ -1400,6 +1400,17 @@ bool InnermostLoopAnalyzer::canCalcDimInfo(
 
   auto DimInfoPred = RelaxedMode ? DimInfoCompPredRelaxed : DimInfoCompPred;
 
+  if (!analyzeDims(RepDefRef, DimInfos)) {
+    LLVM_DEBUG(dbgs() << "CalcDimInfo failed 2\n");
+    return false;
+  }
+
+  unsigned InnermostLevel = InnermostLoop->getNestingLevel();
+  unsigned RefDefNumDims = DimInfos.size();
+
+  if (RefDefNumDims < (InnermostLevel - OutermostLoopLevel))
+    return false;
+
   for (auto OneGroup : Groups) {
 
     auto *FirstRef = OneGroup.front();
@@ -1472,11 +1483,6 @@ bool InnermostLoopAnalyzer::canCalcDimInfo(
     }
 
   } // end Groups
-
-  if (!analyzeDims(RepDefRef, DimInfos)) {
-    LLVM_DEBUG(dbgs() << "CalcDimInfo failed 2\n");
-    return false;
-  }
 
   return true;
 }
