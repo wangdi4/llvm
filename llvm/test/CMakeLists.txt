@@ -188,10 +188,6 @@ if(INTEL_CUSTOMIZATION)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
-if(TARGET llvm-go)
-  set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} llvm-go)
-endif()
-
 if(TARGET LTO)
   set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} LTO)
 endif()
