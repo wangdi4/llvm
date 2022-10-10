@@ -397,7 +397,8 @@ static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
 }
 
 RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
-                                                    RegDDRef *TempRef) {
+                                                    RegDDRef *TempRef,
+                                                    unsigned OrigLoopLevel) {
 
   // Generates  TEMP[i] = tx
   //  tx may be from assignments of this form:
@@ -408,13 +409,14 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
 
   auto ArrTy = ArrayType::get(TempRef->getDestType(), StripmineSize);
 
-  AllocaBlobIdx = HNU.createAlloca(ArrTy, RegionNode, ".TempArray");
+  unsigned AllocaBlobIdx =
+      HNU.createAlloca(ArrTy, Lp->getParentRegion(), ".TempArray");
 
   RegDDRef *TmpArrayRef = HNU.getDDRefUtils().createMemRef(ArrTy, AllocaBlobIdx);
 
   auto IVType = Lp->getIVType();
   CanonExpr *FirstCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
-  FirstCE->addIV(LoopLevel, 0, 1);
+  FirstCE->addIV(OrigLoopLevel, 0, 1);
 
   //  Create constant of 0
   CanonExpr *SecondCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
@@ -789,7 +791,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 }
 
 void HIRLoopDistribution::replaceWithArrayTemp(
-    unsigned LoopCount, ArrayRef<ScalarExpansion::Candidate> Candidates) {
+    unsigned OrigLoopLevel, ArrayRef<ScalarExpansion::Candidate> Candidates) {
 
   for (auto &Candidate : Candidates) {
     if (!Candidate.isTempRequired()) {
@@ -821,7 +823,7 @@ void HIRLoopDistribution::replaceWithArrayTemp(
       HLLoop *Lp = SrcRef->getLexicalParentLoop();
 
       if (!TmpArrayRef) {
-        TmpArrayRef = createTempArrayStore(Lp, SrcRef);
+        TmpArrayRef = createTempArrayStore(Lp, SrcRef, OrigLoopLevel);
       } else {
         insertTempArrayStore(Lp, SrcRef, TmpArrayRef->clone(),
                              SrcRef->getHLDDNode());
@@ -990,9 +992,8 @@ void HIRLoopDistribution::distributeLoop(
 
   TempArraySB.clear();
   HLLoop *LoopNode;
-
-  RegionNode = Loop->getParentRegion();
-  LoopLevel = Loop->getNestingLevel();
+  unsigned LoopLevel = Loop->getNestingLevel();
+  HLRegion *RegionNode = Loop->getParentRegion();
 
   bool ShouldStripmine =
       SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize);
@@ -1059,7 +1060,7 @@ void HIRLoopDistribution::distributeLoop(
   }
 
   if (SCEX.isScalarExpansionRequired()) {
-    replaceWithArrayTemp(LoopCount, SCEX.getCandidates());
+    replaceWithArrayTemp(LoopLevel, SCEX.getCandidates());
 
     // For constant trip count <= StripmineSize, no stripmine is done
     if (ShouldStripmine) {

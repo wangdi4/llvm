@@ -191,9 +191,6 @@ private:
   HIRLoopLocality &HLL;
 
   DistHeuristics DistCostModel;
-  unsigned AllocaBlobIdx;
-  unsigned LoopLevel;
-  HLRegion *RegionNode;
   HLLoop *NewLoops[MaxDistributedLoop];
   SmallVector<unsigned, 12> TempArraySB;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
@@ -242,7 +239,8 @@ private:
                       bool ForDirective);
 
   // Create TEMP[i] = temp and insert
-  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef);
+  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
+                                 unsigned OrigLoopLevel);
 
   // Insert an assignment TEMP[i] = temp after DDNode
   void insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
@@ -255,7 +253,7 @@ private:
                            HLNode *Node, bool TempRefined);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
-  void replaceWithArrayTemp(unsigned LoopCount,
+  void replaceWithArrayTemp(unsigned OrigLoopLevel,
                             ArrayRef<ScalarExpansion::Candidate> Candidates);
 
   // After calling Stripmining util, temp iv coeffs need to fixed
