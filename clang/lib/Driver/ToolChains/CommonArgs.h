@@ -171,6 +171,8 @@ llvm::StringRef getLTOParallelism(const llvm::opt::ArgList &Args,
 
 bool areOptimizationsEnabled(const llvm::opt::ArgList &Args);
 
+bool isDependentLibAdded(const llvm::opt::ArgList &Args, StringRef Lib);
+
 #if INTEL_CUSTOMIZATION
 bool isUseSeparateSections(const Driver &D, const llvm::Triple &Triple);
 #endif // INTEL_CUSTOMIZATION

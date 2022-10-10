@@ -41,7 +41,7 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %r.014 = phi <4 x float> [ %start, %for.body.preheader ], [ %conv1, %for.body ]
-  %conv1 = fadd <4 x float> %r.014, <float 1.800000e+01, float 2.000000e+01, float 2.200000e+01, float 0.000000e+00>
+  %conv1 = fadd reassoc <4 x float> %r.014, <float 1.800000e+01, float 2.000000e+01, float 2.200000e+01, float 0.000000e+00>
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
