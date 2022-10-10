@@ -4509,6 +4509,10 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     return false;
   }
 
+  if (!TTI.isLibIRCAllowed()) {
+    return false;
+  }
+
   // Strictly for lit-tests
   if (ForceTestDriver)
     return testDriver(HIRF, HASA, DDA, TTI, HLS, F).run();

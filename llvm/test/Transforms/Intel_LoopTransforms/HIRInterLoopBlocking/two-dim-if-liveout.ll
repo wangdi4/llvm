@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -hir-inter-loop-blocking-force-test -print-after=hir-inter-loop-blocking -hir-create-function-level-region -hir-details < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -hir-inter-loop-blocking-force-test -hir-create-function-level-region -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -hir-inter-loop-blocking-force-test -print-after=hir-inter-loop-blocking -hir-create-function-level-region -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -hir-inter-loop-blocking-force-test -hir-create-function-level-region -hir-details < %s 2>&1 | FileCheck %s
 
 ; Verify that  ByStripLoops have right liveOut info.
 
