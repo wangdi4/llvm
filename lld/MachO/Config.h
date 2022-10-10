@@ -223,7 +223,7 @@ struct Configuration {
   SymtabPresence localSymbolsPresence = SymtabPresence::All;
   SymbolPatterns localSymbolPatterns;
 
-  bool zeroModTime = false;
+  bool zeroModTime = true;
 
   llvm::StringRef osoPrefix;
 
