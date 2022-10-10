@@ -1508,7 +1508,13 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     HLInstCounter InstCounter;
     HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
                             OrigLoop->child_end());
-    if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold || TripCount == VF)
+    // In general, we can always unroll a loop that iterates exactly once.
+    // However, we currently only permit this within an outer loop.  See
+    // CMPLRLLVM-40696 for a case where this is necessary.  If SLP is
+    // integrated with loop vectorization, we may be able to relax this
+    // in the future.
+    if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold
+        || (TripCount == VF && OrigLoop->getNestingLevel() > 1))
       HIRTransformUtils::completeUnroll(MainLoop);
   }
 
