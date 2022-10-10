@@ -26,11 +26,6 @@
     #define IMATHLIBD_API
 #endif
 
-// _LIB_VERSIONIMF_TYPE is not supported starting from Ubuntu 18
-#ifndef _LIB_VERSIONIMF_TYPE
-    #define _LIB_VERSIONIMF_TYPE
-#endif
-
 // This class is exported from the imathLibd.dll
 class IMATHLIBD_API CimathLibd {
 public:
