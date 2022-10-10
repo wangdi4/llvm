@@ -46,7 +46,8 @@ define amdgpu_kernel void @break_loop(i32 %arg) #0 {
 ; GCN-NEXT:    s_or_b64 s[4:5], s[4:5], exec
 ; GCN-NEXT:    s_cmp_gt_i32 s6, -1
 ; GCN-NEXT:    s_cbranch_scc0 .LBB0_3
-; GCN-NEXT:  ; %bb.2: ; in Loop: Header=BB0_1 Depth=1
+; GCN-NEXT:  ; %bb.2: ; %bb1
+; GCN-NEXT:    ; in Loop: Header=BB0_1 Depth=1
 ; GCN-NEXT:    ; implicit-def: $sgpr6
 ; GCN-NEXT:    s_branch .LBB0_4
 ; GCN-NEXT:  .LBB0_3: ; %bb4

@@ -166,7 +166,8 @@ define amdgpu_kernel void @kernel(i32 addrspace(1)* %arg1.global, i1 %tmp3.i.i, 
 ; GLOBALNESS1-NEXT:    s_cselect_b64 s[6:7], -1, 0
 ; GLOBALNESS1-NEXT:    s_cbranch_execnz .LBB1_8
 ; GLOBALNESS1-NEXT:    s_branch .LBB1_23
-; GLOBALNESS1-NEXT:  .LBB1_7: ; in Loop: Header=BB1_4 Depth=1
+; GLOBALNESS1-NEXT:  .LBB1_7: ; %NodeBlock
+; GLOBALNESS1-NEXT:    ; in Loop: Header=BB1_4 Depth=1
 ; GLOBALNESS1-NEXT:    s_mov_b64 s[6:7], 0
 ; GLOBALNESS1-NEXT:    ; implicit-def: $sgpr4_sgpr5
 ; GLOBALNESS1-NEXT:    s_branch .LBB1_23
@@ -307,7 +308,8 @@ define amdgpu_kernel void @kernel(i32 addrspace(1)* %arg1.global, i1 %tmp3.i.i, 
 ; GLOBALNESS1-NEXT:    s_cselect_b64 s[6:7], -1, 0
 ; GLOBALNESS1-NEXT:    s_and_b64 vcc, exec, s[6:7]
 ; GLOBALNESS1-NEXT:    s_cbranch_vccnz .LBB1_9
-; GLOBALNESS1-NEXT:  .LBB1_24: ; in Loop: Header=BB1_4 Depth=1
+; GLOBALNESS1-NEXT:  .LBB1_24: ; %Flow16
+; GLOBALNESS1-NEXT:    ; in Loop: Header=BB1_4 Depth=1
 ; GLOBALNESS1-NEXT:    s_mov_b64 s[6:7], -1
 ; GLOBALNESS1-NEXT:    ; implicit-def: $vgpr0_vgpr1_vgpr2_vgpr3_vgpr4_vgpr5_vgpr6_vgpr7_vgpr8_vgpr9_vgpr10_vgpr11_vgpr12_vgpr13_vgpr14_vgpr15_vgpr16_vgpr17_vgpr18_vgpr19_vgpr20_vgpr21_vgpr22_vgpr23_vgpr24_vgpr25_vgpr26_vgpr27_vgpr28_vgpr29_vgpr30_vgpr31
 ; GLOBALNESS1-NEXT:    s_branch .LBB1_3
@@ -552,7 +554,8 @@ define amdgpu_kernel void @kernel(i32 addrspace(1)* %arg1.global, i1 %tmp3.i.i, 
 ; GLOBALNESS0-NEXT:    s_cselect_b64 s[6:7], -1, 0
 ; GLOBALNESS0-NEXT:    s_cbranch_execnz .LBB1_8
 ; GLOBALNESS0-NEXT:    s_branch .LBB1_23
-; GLOBALNESS0-NEXT:  .LBB1_7: ; in Loop: Header=BB1_4 Depth=1
+; GLOBALNESS0-NEXT:  .LBB1_7: ; %NodeBlock
+; GLOBALNESS0-NEXT:    ; in Loop: Header=BB1_4 Depth=1
 ; GLOBALNESS0-NEXT:    s_mov_b64 s[6:7], 0
 ; GLOBALNESS0-NEXT:    ; implicit-def: $sgpr4_sgpr5
 ; GLOBALNESS0-NEXT:    s_branch .LBB1_23
@@ -693,7 +696,8 @@ define amdgpu_kernel void @kernel(i32 addrspace(1)* %arg1.global, i1 %tmp3.i.i, 
 ; GLOBALNESS0-NEXT:    s_cselect_b64 s[6:7], -1, 0
 ; GLOBALNESS0-NEXT:    s_and_b64 vcc, exec, s[6:7]
 ; GLOBALNESS0-NEXT:    s_cbranch_vccnz .LBB1_9
-; GLOBALNESS0-NEXT:  .LBB1_24: ; in Loop: Header=BB1_4 Depth=1
+; GLOBALNESS0-NEXT:  .LBB1_24: ; %Flow16
+; GLOBALNESS0-NEXT:    ; in Loop: Header=BB1_4 Depth=1
 ; GLOBALNESS0-NEXT:    s_mov_b64 s[6:7], -1
 ; GLOBALNESS0-NEXT:    ; implicit-def: $vgpr0_vgpr1_vgpr2_vgpr3_vgpr4_vgpr5_vgpr6_vgpr7_vgpr8_vgpr9_vgpr10_vgpr11_vgpr12_vgpr13_vgpr14_vgpr15_vgpr16_vgpr17_vgpr18_vgpr19_vgpr20_vgpr21_vgpr22_vgpr23_vgpr24_vgpr25_vgpr26_vgpr27_vgpr28_vgpr29_vgpr30_vgpr31
 ; GLOBALNESS0-NEXT:    s_branch .LBB1_3
