@@ -131,14 +131,9 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
   Dispatcher->setVisibility(Fn.getVisibility());
   Dispatcher->setDSOLocal(Fn.isDSOLocal());
 
-  if (Fn.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage &&
-      Fn.getLinkage() != GlobalValue::LinkageTypes::PrivateLinkage)
-    appendToCompilerUsed(*(Fn.getParent()), {Dispatcher});
-
   emitMultiVersionResolver(Resolver, MVOptions, true /*UseIFunc*/,
                            true /*UseLibIRC*/);
 
-  // TODO: Comdat?
   // TODO: CodeGenModule::SetCommonAttributes ?
 }
 
@@ -300,9 +295,22 @@ static bool cloneFunctions(Module &M,
       continue;
 
     std::string OrigName = Fn.getName().str();
-    Fn.setName(OrigName + ".A");                            // "generic" suffix.
-    MVOptions.emplace_back(&Fn, "", ArrayRef<StringRef>()); // generic.
+    Fn.setName(OrigName + ".A"); // "generic" suffix.
 
+    // Since we are renaming the function, any comdats with the same name must
+    // also be renamed. This is required when targeting COFF, as the comdat name
+    // must match one of the names of the symbols in the comdat.
+    if (Comdat *C = Fn.getComdat()) {
+      if (C->getName() == OrigName) {
+        Comdat *NewC = M.getOrInsertComdat(OrigName + ".A");
+        NewC->setSelectionKind(C->getSelectionKind());
+        for (GlobalObject &GO : M.global_objects())
+          if (GO.getComdat() == C)
+            GO.setComdat(NewC);
+      }
+    }
+
+    MVOptions.emplace_back(&Fn, "", ArrayRef<StringRef>()); // generic.
     stable_sort(MVOptions, libIRCMVResolverOptionComparator);
 
     Function* Resolver = nullptr;
