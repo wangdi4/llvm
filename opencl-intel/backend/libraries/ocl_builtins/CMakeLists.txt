@@ -151,35 +151,26 @@ endfunction( compile )
 # add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR C_FILES ...FILES... )
 #
 #   OUTPUT_FILE_VAR             - output, contains generated library (rtl file)
-#   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
 #   CLANG_COMPILE_FLAGS         - compiler flags
 #   TARGET_NAME                 - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
 #   TARGET_DIR                  - directory of target-*.td file
 #   ARCH                        - target SIMD arch type
 #   PROC                        - target CPU
 #   USE_OPT                     - Optimize output library with llvm opt tool
-#   ENABLE_PRECOMPILE           - enable precompiling (to native machine code)
 #   OUTPUT_DIR                  - output directory for the intermediate files
 #   C_FILES                     - input file list to compile as C99 (may be set to "IGNORE")
 #   FILES                       - input file list to compile as OpenCL C 2.0
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMPILE_FLAGS TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR C_FILES )
-
-  if (${ARGC} LESS 10)
-    message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
-  endif ()
-
+function(add_ocl_library OUTPUT_FILE_VAR CLANG_COMPILE_FLAGS TARGET_NAME TARGET_DIR ARCH PROC USE_OPT OUTPUT_DIR C_FILES FILES)
   set (TMP_LINKED_RTL ${TARGET_NAME}_linked_tmp)
   set (TMP_LINKED_RTL_OUTPUT ${OUTPUT_DIR}/${TMP_LINKED_RTL}${OCL_OUTPUT_EXTENSION})
 
   set (OUTPUT_FILE ${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
-  set(LIBRARY_OUTPUT_FILE ${OCL_LIBRARY_TARGET_NAME}${OCL_OUTPUT_EXTENSION})
-  set(PRECOMPILED_OUTPUT_FILE ${OCL_LIBRARY_TARGET_NAME}${ARCH}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 
-  foreach (FILE ${ARGN})
+  foreach (FILE ${FILES})
     compile( "${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR} TRUE)
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
@@ -196,70 +187,84 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
   endif()
 
   if(${USE_OPT})
-    # link OpenCL image callback library (adding also intrinsic BI IR )
-    add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt
-      COMMENT "Linking ${OUTPUT_FILE}_noopt"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${TMP_FILES}
-      DEPENDS ${LLVM_LINK} ${TMP_FILES}
-      VERBATIM
-      )
-    # link shared rtl and particular BI rtl
-    # image callback rtl must be linked with built-ins RTL statically, we have two built-ins rtls: shared (clbltfnshared.rtl)
-    # and particular lib (for  example, clbltfnl9.rtl), but image optimizer takes only one runtime lib as argument, so we have to
-    # link clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to temporary TMP_LINKED_RTL_OUTPUT and then
-    # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
-    # We also allow symbols from target-specific rtl (e.g. clbltfnl9.rtl) to override defined symbol in shared rtl.
-    #
-    add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
-      COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} --override=${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
-      DEPENDS ${LLVM_LINK} ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${TARGET_NAME_SHARED}
-      VERBATIM
-      )
-    set (RTL_TO_LINK ${TMP_LINKED_RTL_OUTPUT})
-
-    add_custom_command(OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
-      COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -infer-address-spaces -dpcpp-kernel-builtin-lib=${RTL_TO_LINK} -dpcpp-kernel-cpu-prefix=${ARCH} -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst -verify -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas -O3 -disable-intel-proprietary-opts -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
-      DEPENDS ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
-      VERBATIM
-      )
-
-    # link with kernel rtl
-    add_custom_command (OUTPUT ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
-      COMMENT "Linking ${OUTPUT_FILE}_opt with ${KERNEL_RTL}"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}_opt ${KERNEL_RTL}
-      DEPENDS ${LLVM_LINK} ${OUTPUT_DIR}/${OUTPUT_FILE}_opt ${KERNEL_RTL}
-      VERBATIM
-      )
-  else()
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
-      COMMENT "Linking and optimizing ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}"
+      COMMENT "Linking and optimizing ${OUTPUT_FILE}"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_link ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_link -O3 -disable-intel-proprietary-opts -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       VERBATIM
-      )
+    )
+  else()
+    # link OpenCL image callback library (adding also intrinsic BI IR )
+    set(OUTPUT_FILE ${OUTPUT_FILE}_noopt)
+    add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
+      COMMENT "Linking ${OUTPUT_FILE}"
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES}
+      DEPENDS ${LLVM_LINK} ${TMP_FILES}
+      VERBATIM
+    )
   endif()
 
-  # compile the rtl file to native objects
-  if(${ENABLE_PRECOMPILE})
-    add_custom_command(OUTPUT ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE}
-      COMMENT "Building static object ${PRECOMPILED_OUTPUT_FILE}"
-      COMMAND ${LLC} ${LLC_PARAMS} -mcpu=${PROC} -o
-              ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE} <
-              ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
-      DEPENDS ${LLC} ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
-      VERBATIM
-      )
-  endif(${ENABLE_PRECOMPILE})
-
-  set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
-  set (${PRECOMPILED_OUTPUT_FILE_VAR} ${PRECOMPILED_OUTPUT_FILE} PARENT_SCOPE)
-
+  set(${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)
 endfunction( add_ocl_library )
+
+# optimize and compile the rtl file to native objects
+#   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
+#   TARGET_NAME                 - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
+#   BI_LIB_NAME                 - builtin lib target name
+#   ARCH                        - target SIMD arch type
+#   PROC                        - target CPU
+#   UNOPTIMIZED_LIB             - un-optimized lib generated by add_ocl_library
+#   OUTPUT_DIR                  - output directory for the intermediate files
+function(compile_rtl_to_obj PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME BI_LIB_NAME ARCH PROC UNOPTIMIZED_LIB OUTPUT_DIR)
+  set(TMP_LINKED_RTL ${TARGET_NAME}_linked_tmp)
+  set(TMP_LINKED_RTL_OUTPUT ${OUTPUT_DIR}/${TMP_LINKED_RTL}${OCL_OUTPUT_EXTENSION})
+
+  set(OUTPUT_FILE ${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
+  set(LIBRARY_OUTPUT_FILE ${OCL_LIBRARY_TARGET_NAME}${OCL_OUTPUT_EXTENSION})
+  set(PRECOMPILED_OUTPUT_FILE ${OCL_LIBRARY_TARGET_NAME}${ARCH}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
+
+  # link shared rtl and particular BI rtl
+  # image callback rtl must be linked with built-ins RTL statically, we have two built-ins rtls: shared (clbltfnshared.rtl)
+  # and particular lib (for  example, clbltfnl9.rtl), but image optimizer takes only one runtime lib as argument, so we have to
+  # link clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to temporary TMP_LINKED_RTL_OUTPUT and then
+  # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
+  # We also allow symbols from target-specific rtl (e.g. clbltfnl9.rtl) to override defined symbol in shared rtl.
+  add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
+    COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
+    COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} --override=${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
+    DEPENDS ${LLVM_LINK} ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
+    VERBATIM
+  )
+
+  add_custom_command(OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
+    COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
+    COMMAND ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB} -infer-address-spaces -dpcpp-kernel-builtin-lib=${TMP_LINKED_RTL_OUTPUT} -dpcpp-kernel-cpu-prefix=${ARCH} -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst -verify -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
+    COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas -O3 -disable-intel-proprietary-opts -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
+    DEPENDS ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB} ${TMP_LINKED_RTL_OUTPUT}
+    VERBATIM
+  )
+
+  # link with kernel rtl
+  add_custom_command (OUTPUT ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
+    COMMENT "Linking ${OUTPUT_FILE}_opt with ${KERNEL_RTL}"
+    COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}_opt ${KERNEL_RTL}
+    DEPENDS ${LLVM_LINK} ${OUTPUT_DIR}/${OUTPUT_FILE}_opt ${KERNEL_RTL}
+    VERBATIM
+  )
+
+  add_custom_command(OUTPUT ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE}
+    COMMENT "Building static object ${PRECOMPILED_OUTPUT_FILE}"
+    COMMAND ${LLC} ${LLC_PARAMS} -mcpu=${PROC} -o
+            ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE} <
+            ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
+    DEPENDS ${LLC} ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
+    VERBATIM
+  )
+
+  set(${PRECOMPILED_OUTPUT_FILE_VAR} ${PRECOMPILED_OUTPUT_FILE} PARENT_SCOPE)
+endfunction(compile_rtl_to_obj)
 
 #
 # Install SVML library (and SDE library) for given CPU arch
@@ -354,26 +359,52 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB IGNORE "${CLANG_CL_COMMON_COMPILER_FLAGS}" ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})
+  add_ocl_library(OUTPUT_OCL_LIB "${CLANG_CL_COMMON_COMPILER_FLAGS}" ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" "${OCL_20_SOURCE_FILES}")
 
-  # Build .o files out of OCL image callbacks rtl file and kernel rtl file.
-  # Copy to install directory
-  add_ocl_library(IGNORE OUTPUT_OCL_LIBRARY_OBJ "${CLANG_CL_CBK_COMPILER_FLAGS}" ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
+  # Sub-level target for ${OUTPUT_OCL_LIB}.
+  # This target doesn't depends on TARGET_NAME_SHARED, so it can be built earlier.
+  set(OPTIMIZED_LIB_TARGE_NAME ${TARGET_NAME}_optimized)
+  add_custom_target(${OPTIMIZED_LIB_TARGE_NAME} ALL
+    DEPENDS ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB}
+    VERBATIM
+  )
+  add_dependencies(${OPTIMIZED_LIB_TARGE_NAME} ${CLANG} ${LLVM_LINK} ${OPT})
+  set_target_properties(${OPTIMIZED_LIB_TARGE_NAME} PROPERTIES
+                        FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
+
+  set(TOP_TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB})
+
+  if(PREBUILD_IMAGE_LIBRARY)
+    # build .rtl file out of image callback OCL code (by clang)
+    add_ocl_library(UNOPTIMIZED_LIB "${CLANG_CL_CBK_COMPILER_FLAGS}" ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} FALSE ${INTERMEDIATE_OUTPUT_DIR} IGNORE "${OCL_IMAGE_CALLBACK_SOURCE_FILE}")
+
+    # Sub-level target for ${UNOPTIMIZED_LIB}
+    # This target doesn't depend on TARGET_NAME_SHARED, so it can be built earlier.
+    set(UNOPTIMIZED_LIB_TARGE_NAME ${TARGET_NAME}_unoptimized)
+    add_custom_target(${UNOPTIMIZED_LIB_TARGE_NAME} ALL
+      DEPENDS ${INTERMEDIATE_OUTPUT_DIR}/${UNOPTIMIZED_LIB}
+      VERBATIM
+    )
+    add_dependencies(${UNOPTIMIZED_LIB_TARGE_NAME} ${CLANG} ${LLVM_LINK} ${OPT})
+    set_target_properties(${UNOPTIMIZED_LIB_TARGE_NAME} PROPERTIES
+                          FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
+
+    # Build .o files out of OCL image callbacks rtl file and kernel rtl file.
+    compile_rtl_to_obj(OUTPUT_OCL_LIBRARY_OBJ ${TARGET_NAME}_img_cbk ${TARGET_NAME} ${ARCH} ${PROC} ${UNOPTIMIZED_LIB} ${INTERMEDIATE_OUTPUT_DIR})
+
+    # depend on prebuilt library so it gets built.
+    list(APPEND TOP_TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIBRARY_OBJ})
+  endif()
 
   # copy SVML (and SDE) libaries to install directory
   install_svml( ${ARCH} )
 
   # Unconditional dependent targets
-  set (TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_OUTPUT_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
-
-  # If prebuilt library is built, depend on it so it gets built.
-  if( PREBUILD_IMAGE_LIBRARY )
-    set (TARGET_DEPENDENCIES ${TARGET_DEPENDENCIES} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIBRARY_OBJ}) 
-  endif( PREBUILD_IMAGE_LIBRARY)
+  list(APPEND TOP_TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
 
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${OCL_ALL_TD_FILES} ${OCL_CLANG_HEADER_DIR}
+    DEPENDS ${TOP_TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${OCL_ALL_TD_FILES} ${OCL_CLANG_HEADER_DIR}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_20_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
@@ -381,7 +412,8 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
-  add_dependencies(${TARGET_NAME} ${OCL_TBLGEN} ${OCL_LIBRARY_TARGET_NAME} ${OPT})
+  # only top-level target depends on TARGET_NAME_SHARED
+  add_dependencies(${TARGET_NAME} ${OCL_TBLGEN} ${OCL_LIBRARY_TARGET_NAME} ${TARGET_NAME_SHARED} ${OPTIMIZED_LIB_TARGE_NAME} ${UNOPTIMIZED_LIB_TARGE_NAME} ${OPT})
 
   set_property(GLOBAL APPEND PROPERTY OCL_BUILTIN_LIBS ${TARGET_NAME})
 
@@ -390,6 +422,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     set (INSTALL_LIST ${INSTALL_LIST} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIBRARY_OBJ})
   endif (PREBUILD_IMAGE_LIBRARY)
 
+  # Copy to install directory
   install_to (${INSTALL_LIST} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-builtins)
 
 endfunction( create_target)
@@ -481,8 +514,9 @@ set(RTL_SHARED ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_PREFIX}shared.rtl)
 add_custom_target(clbltpipe_target
   DEPENDS clbltpipe.obj)
 
+add_dependencies(clbltpipe_target ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED})
+
 add_custom_command(OUTPUT clbltpipe.obj
-  DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
   DEPENDS pipes.cl pipes-info.cl pipes-internal.h pipes-defines.h
   DEPENDS ${CLANG} process-intrin-headers
 
