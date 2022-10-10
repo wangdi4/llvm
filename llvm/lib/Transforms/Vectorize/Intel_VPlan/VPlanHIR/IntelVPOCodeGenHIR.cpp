@@ -7352,7 +7352,8 @@ void VPOCodeGenHIR::scalarizePredicatedUniformInst(const VPInstruction *VPInst,
   if (VPInst->getOpcode() == Instruction::Load)
     generateUniformScalarLoad(cast<VPLoadStoreInst>(VPInst));
   else
-    generateHIR(VPInst, nullptr /*Mask*/, false /*Widen*/, 0 /*Lane*/);
+    generateHIR(VPInst, nullptr /*Mask*/, false /*Widen*/, 0 /*Lane*/,
+                false /* OnlyExistingScalarOps */);
 
   // Get l-val that scalar HLInst produces, if any.
   RegDDRef *ScalarRef = getScalRefForVPVal(VPInst, 0 /*Lane*/);
