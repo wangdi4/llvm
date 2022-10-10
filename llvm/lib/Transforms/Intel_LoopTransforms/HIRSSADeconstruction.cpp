@@ -1046,7 +1046,7 @@ void HIRSSADeconstruction::processNonLoopRegionLiveouts() {
 
       for (auto UserIt = Inst.user_begin(), EndIt = Inst.user_end();
            UserIt != EndIt;) {
-
+        assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
         auto *UserInst = cast<Instruction>(*UserIt);
 
         Use &LiveoutUse = UserIt.getUse();

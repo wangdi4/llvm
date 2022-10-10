@@ -1042,7 +1042,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                 {
                     NEATPlugIn *pNeat = localNEATs[0];
 
-                    for(uint32_t i=0, cntNeat=0;i<localList.size();++i)
+                    for(uint32_t i=0;i<localList.size();++i)
                     {
                         const GlobalVariable * GV = localList[i];
                         const Type *GlobalType =
@@ -1056,7 +1056,6 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                             "__local variable:\n " << *GV << "\n");
                         // zero WI allocate space
                         pNeat->getOrEmitGlobalVariable(GV);
-                        cntNeat++;
                     }
                 } // if(m_bUseNEAT)
 
