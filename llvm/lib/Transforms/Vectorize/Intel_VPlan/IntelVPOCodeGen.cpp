@@ -33,6 +33,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include <numeric>
 #include <tuple>
 
@@ -429,6 +430,9 @@ void VPOCodeGen::finalizeLoop() {
   VPBasicBlock *VHeader = (*VPLI->begin())->getHeader();
   LoopVectorBody = cast<BasicBlock>(getScalarValue(VHeader, 0));
   LoopVectorBody->setName("vector.body");
+
+  if (LoopHasUDRs)
+    eraseGuardMemMotionDirsFromScalarLoops();
 
   // Anchor point to emit/lower remarks from VPLoops to outgoing llvm::Loops.
   // This should be done before LoopInfo gets invalidated/recomputed.
@@ -886,6 +890,23 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
       Phi->setIncomingBlock(OrigUse->getOperandNo(), Builder.GetInsertBlock());
   }
   OrigLoopUsed = true;
+}
+
+void VPOCodeGen::eraseGuardMemMotionDirsFromScalarLoops() {
+  for (auto &PairIt : OutgoingScalarLoopHeaders) {
+    Loop *ScalarLp = nullptr;
+    if (auto *ScalarRem = dyn_cast<VPScalarRemainder>(PairIt.first))
+      ScalarLp = ScalarRem->getLoop();
+    else if (auto *ScalarPeel = dyn_cast<VPScalarPeel>(PairIt.first))
+      ScalarLp = ScalarPeel->getLoop();
+    else
+      assert(false && "Unexpected instruction in OutgoingScalarLoopHeaders.");
+
+    for (auto *BB : ScalarLp->getBlocks()) {
+      VPOUtils::stripDirectives(
+          *BB, {DIR_VPO_GUARD_MEM_MOTION, DIR_VPO_END_GUARD_MEM_MOTION});
+    }
+  }
 }
 
 static bool isOpcodeCGSVADriven(VPInstruction *VPInst) {
@@ -1544,6 +1565,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::ReductionFinalUdr: {
+    LoopHasUDRs = true;
+
     // Call combiner for each pointer in private memory and accumulate the
     // results in original variable corresponding to the UDR.
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);

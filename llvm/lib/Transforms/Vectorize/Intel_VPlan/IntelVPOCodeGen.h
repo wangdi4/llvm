@@ -722,6 +722,11 @@ private:
   /// that the peel loop will be executed at run-time.
   VPlanPeelingVariant *getGuaranteedPeeling() const;
 
+  /// Erase VPO.GUARD.MEM.MOTION directives from outgoing scalar loops. These
+  /// directives were inserted by Paropt for vectorizer, so we should not
+  /// preserve them after VPlan codegen.
+  void eraseGuardMemMotionDirsFromScalarLoops();
+
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
@@ -735,6 +740,9 @@ private:
   bool IsOmpSIMD;
 
   FatalErrorHandlerTy FatalErrorHandler;
+
+  // True if loop has any UDR variables.
+  bool LoopHasUDRs = false;
 };
 
 } // namespace vpo
