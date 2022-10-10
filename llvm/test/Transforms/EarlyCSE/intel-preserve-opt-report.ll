@@ -1,4 +1,3 @@
-; RUN: opt -early-cse-memssa -S %s | FileCheck %s
 ; RUN: opt -passes='early-cse<memssa>' -S %s | FileCheck %s
 ;
 ; Original test src:

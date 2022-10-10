@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -scoped-noalias-aa -inline -early-cse-memssa -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -aa-pipeline="scoped-noalias-aa" -passes='cgscc(inline),early-cse<memssa>' -S < %s 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-35874: Check that when multiple levels of inlining are applied
