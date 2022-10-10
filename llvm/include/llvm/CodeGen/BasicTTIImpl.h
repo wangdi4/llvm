@@ -64,6 +64,7 @@
 #include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -302,6 +303,11 @@ public:
 
   unsigned getAssumedAddrSpace(const Value *V) const {
     return getTLI()->getTargetMachine().getAssumedAddrSpace(V);
+  }
+
+  bool isSingleThreaded() const {
+    return getTLI()->getTargetMachine().Options.ThreadModel ==
+           ThreadModel::Single;
   }
 
   std::pair<const Value *, unsigned>
