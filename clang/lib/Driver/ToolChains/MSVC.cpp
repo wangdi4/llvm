@@ -160,9 +160,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       Args.hasArg(options::OPT_fsycl_host_compiler_EQ)) {
     CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
                                          TC.getDriver().Dir + "/../lib"));
-    if (Args.hasArg(options::OPT_g_Flag))
-      CmdArgs.push_back("-defaultlib:sycl" SYCL_MAJOR_VERSION "d.lib");
-    else
+    // When msvcrtd is added via --dependent-lib, we add the sycld
+    // equivalent.  Do not add the -defaultlib as it conflicts.
+    if (!isDependentLibAdded(Args, "msvcrtd"))
       CmdArgs.push_back("-defaultlib:sycl" SYCL_MAJOR_VERSION ".lib");
     CmdArgs.push_back("-defaultlib:sycl-devicelib-host.lib");
   }
