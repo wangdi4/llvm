@@ -1,7 +1,5 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: %oclopt -simplifycfg %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -simplifycfg -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: opt -passes=simplifycfg -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=simplifycfg -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass SimplifyCFG does not duplicate function
@@ -20,9 +18,7 @@
 ; CHECK-NOT: call void @foo
 ; CHECK: declare void @foo(i64) #1
 
-
 @Buff = internal addrspace(3) global [128 x float] zeroinitializer, align 16
-
 
 define void @bar(i1 %x, i1 %y, float addrspace(1)* noalias nocapture %out) #0 {
 BB_0:
@@ -53,11 +49,7 @@ BB_83:                                      ; preds = %BB_79, %BB_0
   ret void
 }
 
-
-
-
 declare void @foo(i64) #1 
-
 
 attributes #0 = { nounwind }
 attributes #1 = { noduplicate }

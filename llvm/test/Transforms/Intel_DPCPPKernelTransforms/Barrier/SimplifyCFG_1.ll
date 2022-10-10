@@ -1,10 +1,9 @@
-; RUN: %oclopt -dpcpp-kernel-add-function-attrs -simplifycfg -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -dpcpp-kernel-add-function-attrs -simplifycfg -verify -S < %s | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-add-function-attrs,simplifycfg -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-add-function-attrs,simplifycfg -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass SimplifyCFG does not add new barrier instructions.
-;; The case: kernel with call to internal function with barrier instructions
-;;           (just before if()/if()-else basic blocks)
+;; The case: kernel with barrier instructions (just before if()/if()-else basic blocks)
 ;; Related CQ ticket: CSSD100007107
 ;; TODO: reduce this test
 ;; The expected result:
@@ -12,14 +11,14 @@
 ;;*****************************************************************************
 
 ; CHECK: @spmv_csr_vector_kernel
-; CHECK-NOT: call void @foo(i64 1)
-; CHECK: call void @foo(i64 1)
-; CHECK: call void @foo(i64 1)
-; CHECK: call void @foo(i64 1)
-; CHECK: call void @foo(i64 1)
-; CHECK: call void @foo(i64 1)
-; CHECK: call void @foo(i64 1)
-; CHECK-NOT: call void @foo(i64 1)
+; CHECK-NOT: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK-NOT: call void @_Z7barrierj(i64 1)
 ; CHECK: !sycl.kernels
 
 ; ModuleID = 'Program'
@@ -28,18 +27,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @opencl_spmv_csr_vector_kernel_local_partialSums = internal addrspace(3) global [128 x float] zeroinitializer, align 16
 
-
 declare i64 @_Z13get_global_idj(i32)
-
-
-
 
 define void @spmv_csr_vector_kernel(float addrspace(1)* noalias nocapture %val, float addrspace(1)* noalias nocapture %vec, i32 addrspace(1)* noalias nocapture %cols, i32 addrspace(1)* noalias nocapture %rowDelimiters, i32 %dim, float addrspace(1)* noalias nocapture %out) nounwind {
   %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind
   %2 = trunc i64 %1 to i32
   %3 = and i32 %2, 31
   %4 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind
-  %5 = tail call i64 @_Z12get_group_idj(i32 0) nounwind
+  %5 = tail call i64 @get_group_id(i32 0) nounwind
   %6 = shl i64 %4, 27
   %7 = ashr i64 %6, 32
   %8 = mul i64 %7, %5
@@ -94,7 +89,7 @@ bb.nph:                                           ; preds = %16
 ._crit_edge:                                      ; preds = %26, %16
   %mySum.0.lcssa = phi float [ 0.000000e+000, %16 ], [ %33, %26 ]
   store volatile float %mySum.0.lcssa, float addrspace(3)* %14, align 4
-  tail call void @foo(i64 1) nounwind
+  tail call void @_Z7barrierj(i64 1) nounwind
   %35 = icmp ult i32 %3, 16
   br i1 %35, label %36, label %43
 
@@ -109,7 +104,7 @@ bb.nph:                                           ; preds = %16
   br label %43
 
 ; <label>:43                                      ; preds = %36, %._crit_edge
-  tail call void @foo(i64 1) nounwind
+  tail call void @_Z7barrierj(i64 1) nounwind
   %44 = icmp ult i32 %3, 8
   br i1 %44, label %45, label %52
 
@@ -124,7 +119,7 @@ bb.nph:                                           ; preds = %16
   br label %52
 
 ; <label>:52                                      ; preds = %45, %43
-  tail call void @foo(i64 1) nounwind
+  tail call void @_Z7barrierj(i64 1) nounwind
   %53 = icmp ult i32 %3, 4
   br i1 %53, label %54, label %61
 
@@ -139,7 +134,7 @@ bb.nph:                                           ; preds = %16
   br label %61
 
 ; <label>:61                                      ; preds = %54, %52
-  tail call void @foo(i64 1) nounwind
+  tail call void @_Z7barrierj(i64 1) nounwind
   %62 = icmp ult i32 %3, 2
   br i1 %62, label %63, label %70
 
@@ -154,7 +149,7 @@ bb.nph:                                           ; preds = %16
   br label %70
 
 ; <label>:70                                      ; preds = %63, %61
-  tail call void @foo(i64 1) nounwind
+  tail call void @_Z7barrierj(i64 1) nounwind
   %71 = icmp eq i32 %3, 0
   br i1 %71, label %72, label %79
 
@@ -170,7 +165,7 @@ bb.nph:                                           ; preds = %16
 
 ; <label>:79                                      ; preds = %72, %70
   %.pr = phi i1 [ %71, %72 ], [ false, %70 ]
-  tail call void @foo(i64 1) nounwind
+  tail call void @_Z7barrierj(i64 1) nounwind
   br i1 %.pr, label %80, label %83
 
 ; <label>:80                                      ; preds = %79
@@ -183,20 +178,11 @@ bb.nph:                                           ; preds = %16
   ret void
 }
 
-
-
-
-define void @foo(i64 %x) nounwind {
-  tail call void @_Z7barrierj(i64 %x) nounwind;
-  ret void;
-}
-
-
 declare i64 @_Z12get_local_idj(i32)
 
 declare i64 @_Z14get_local_sizej(i32)
 
-declare i64 @_Z12get_group_idj(i32)
+declare i64 @get_group_id(i32)
 
 declare void @_Z7barrierj(i64)
 
