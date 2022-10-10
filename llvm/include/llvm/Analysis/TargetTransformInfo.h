@@ -390,6 +390,8 @@ public:
 
   unsigned getAssumedAddrSpace(const Value *V) const;
 
+  bool isSingleThreaded() const;
+
   std::pair<const Value *, unsigned>
   getPredicatedAddrSpace(const Value *V) const;
 
@@ -1735,6 +1737,7 @@ public:
   virtual bool
   canHaveNonUndefGlobalInitializerInAddressSpace(unsigned AS) const = 0;
   virtual unsigned getAssumedAddrSpace(const Value *V) const = 0;
+  virtual bool isSingleThreaded() const = 0;
   virtual std::pair<const Value *, unsigned>
   getPredicatedAddrSpace(const Value *V) const = 0;
   virtual Value *rewriteIntrinsicWithAddressSpace(IntrinsicInst *II,
@@ -2166,6 +2169,8 @@ public:
   unsigned getAssumedAddrSpace(const Value *V) const override {
     return Impl.getAssumedAddrSpace(V);
   }
+
+  bool isSingleThreaded() const override { return Impl.isSingleThreaded(); }
 
   std::pair<const Value *, unsigned>
   getPredicatedAddrSpace(const Value *V) const override {
