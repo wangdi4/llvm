@@ -8,9 +8,7 @@
 
 ; CHECK: DO i1 = 0, 3, 1
 
-; CHECK: REGION { modified }
-; CHECK-NOT: DO i1 = 0, 3, 4
-; CHECK:               %.vec = (<4 x i32>*)([[I:%.*]])[0][0][0];
+; CHECK: DO i1 = 0, 3, 4
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
