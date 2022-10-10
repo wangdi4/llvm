@@ -67,11 +67,6 @@ int main() {
 // CHECK: %[[PARAM_TO_PTR:.*]] = bitcast %struct.base addrspace(4)* %[[ARG_BASE]] to i8 addrspace(4)*
 // CHECK: call void @llvm.memcpy.p4i8.p4i8.i64(i8 addrspace(4)* align 8 %[[BASE_TO_PTR]], i8 addrspace(4)* align 4 %[[PARAM_TO_PTR]], i64 12, i1 false)
 
-// Initialize field 'a'
-// CHECK: %[[GEP_A:[a-zA-Z0-9]+]] = getelementptr inbounds %struct.derived, %struct.derived addrspace(4)* %[[LOCAL_OBJECT]], i32 0, i32 3
-// CHECK: %[[LOAD_A:[0-9]+]] = load i32, i32 addrspace(4)* %[[ARG_A]], align 4
-// CHECK: store i32 %[[LOAD_A]], i32 addrspace(4)* %[[GEP_A]]
-
 // Initialize 'second_base' subobject
 // First, derived-to-base cast with offset:
 // CHECK: %[[DERIVED_PTR:.*]] = bitcast %struct.derived addrspace(4)* %[[LOCAL_OBJECT]] to i8 addrspace(4)*

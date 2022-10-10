@@ -158,6 +158,12 @@ cl::opt<unsigned> llvm::SetLicmMssaNoAccForPromotionCap(
              "number of accesses allowed to be present in a loop in order to "
              "enable memory promotion."));
 
+#if INTEL_CUSTOMIZATION
+cl::opt<bool> LICMUpdateHoistedDebugInfo(
+    "licm-update-hoisted-debug-info", cl::Hidden, cl::init(false),
+    cl::desc("Update (by clearing) debug info for hoisted instructions"));
+#endif // INTEL_CUSTOMIZATION
+
 static bool inSubLoop(BasicBlock *BB, Loop *CurLoop, LoopInfo *LI);
 static bool isNotUsedOrFreeInLoop(const Instruction &I, const Loop *CurLoop,
                                   const LoopSafetyInfo *SafetyInfo,
@@ -1755,10 +1761,12 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
     moveInstructionBefore(I, *Dest->getTerminator(), *SafetyInfo, MSSAU, SE);
 
 #if INTEL_CUSTOMIZATION
-  // INTEL - Maintain the original (correct) source correlation. Hoisting
-  //         the instruction does not invalidate the source correlation.
-  // I.updateLocationAfterHoist();
+  // By default we maintain the original source correlation. This preservces
+  // inline debug information and provides more accurate information for
+  // tools like VTune.
+  if (LICMUpdateHoistedDebugInfo)
 #endif // INTEL_CUSTOMIZATION
+  I.updateLocationAfterHoist();
 
   if (isa<LoadInst>(I))
     ++NumMovedLoads;
