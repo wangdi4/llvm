@@ -1474,6 +1474,9 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
       MainLoop->markDoNotUnroll();
   }
 
+  if (LoopHasUDRs)
+    eraseGuardMemMotionDirsFromScalarLoops();
+
   // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
   // is done always except for search loops. This should be done before
   // complete unroll optimization below since that would lead to loss of vector
@@ -4169,6 +4172,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ReductionFinalUdr: {
+    LoopHasUDRs = true;
     // Call combiner for each pointer in private memory and accumulate the
     // results in original DDRef corresponding to the UDR.
     auto *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
@@ -7796,6 +7800,31 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
       EmitScalarLpVPIRemarks(RemLp);
     else
       EmitScalarLpVPIRemarks(cast<VPScalarPeelHIR>(ScalarLpVPI));
+  }
+}
+
+void VPOCodeGenHIR::eraseGuardMemMotionDirsFromScalarLoops() {
+  for (auto *ScalarHLp : OutgoingScalarHLLoops) {
+    HLNode *GuardBegin = nullptr;
+    HLNode *GuardEnd = nullptr;
+
+    for (auto C = ScalarHLp->child_begin(); C != ScalarHLp->child_end(); ++C) {
+      if (auto *HInst = dyn_cast<HLInst>(&*C)) {
+        if (auto *Call = HInst->getCallInst()) {
+          int DirID = VPOAnalysisUtils::getDirectiveID(Call);
+          if (DirID == DIR_VPO_GUARD_MEM_MOTION)
+            GuardBegin = HInst;
+          else if (DirID == DIR_VPO_END_GUARD_MEM_MOTION)
+            GuardEnd = HInst;
+        }
+      }
+    }
+
+    // Remove the end directive first to avoid use-after-delete errors.
+    if (GuardEnd)
+      HLNodeUtils::remove(GuardEnd);
+    if (GuardBegin)
+      HLNodeUtils::remove(GuardBegin);
   }
 }
 } // end namespace llvm

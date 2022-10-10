@@ -815,6 +815,9 @@ private:
   // True if tree conflict lowering was done
   bool TreeConflictsLowered = false;
 
+  // True if loop has any UDR variables.
+  bool LoopHasUDRs = false;
+
   // Tracker to collect info about loops emitted by CFGMerger.
   MergedCFGInfo &CFGInfo;
 
@@ -1214,6 +1217,11 @@ private:
   // scalar loops don't have VPLoops in CFG. Explore alternative approaches for
   // such loops.
   void emitRemarksForScalarLoops();
+
+  /// Erase VPO.GUARD.MEM.MOTION directives from outgoing scalar loops. These
+  /// directives were inserted by Paropt for vectorizer, so we should not
+  /// preserve them after VPlan codegen.
+  void eraseGuardMemMotionDirsFromScalarLoops();
 
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to
