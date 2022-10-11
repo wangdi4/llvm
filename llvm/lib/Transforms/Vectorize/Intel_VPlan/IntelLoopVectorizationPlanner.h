@@ -444,6 +444,10 @@ public:
   /// the second operand with 1.
   void blendWithSafeValue(void);
 
+  /// Go through all VPLoadStoreInst in all masked mode VPlans and disable
+  /// -1-stride optimization.
+  void disableNegOneStrideOptInMaskedModeVPlans();
+
   /// Return Loop Unroll Factor either forced by option or pragma
   /// or advised by optimizations.
   /// \p Forced indicates that Unroll Factor is forced.

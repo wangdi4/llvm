@@ -197,8 +197,9 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       return true;
     }
 
+    bool IsNegOnePtr = false;
     if (isVectorizableLoadStore(Inst) &&
-        DA->isUnitStridePtr(Ptr, LoadStore->getValueType())) {
+        DA->isUnitStrideLoadStore(LoadStore, IsNegOnePtr)) {
       // For a vectorizable unit-stride access, pointer will be scalar in
       // nature, specifically requiring first lane value.
       setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);

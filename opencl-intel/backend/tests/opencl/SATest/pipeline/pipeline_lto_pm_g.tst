@@ -55,13 +55,13 @@
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: DeduceMaxWGDimPass
+; CHECK:      Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK:      Running analysis: VFAnalysis
 ; CHECK:      Running analysis: WeightedInstCountAnalysis
 ; CHECK:      Running pass: VectorVariantLowering
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
 ; CHECK-NEXT: Running pass: SGSizeCollectorPass
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
@@ -69,8 +69,8 @@
 ; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Invalidating analysis: VFAnalysis
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
+; CHECK-NEXT: Invalidating analysis: VFAnalysis
 ; CHECK-NEXT: Invalidating analysis: VectorizationDimensionAnalysis
 ; CHECK-NEXT: Running pass: VectorVariantFillIn
 ; CHECK-NEXT: Running pass: UpdateCallAttrs
