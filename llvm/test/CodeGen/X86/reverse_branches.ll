@@ -46,7 +46,7 @@ define i32 @test_branches_order() uwtable ssp {
 ; CHECK-NEXT:    ## =>This Loop Header: Depth=1
 ; CHECK-NEXT:    ## Child Loop BB0_3 Depth 2
 ; CHECK-NEXT:    cmpl $999, %ebx ## imm = 0x3E7
-; CHECK-NEXT:    jg LBB0_7
+; CHECK-NEXT:    jg LBB0_8
 ; CHECK-NEXT:  ## %bb.2: ## %for.cond1.preheader
 ; CHECK-NEXT:    ## in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    movl $-1, %ebp
@@ -93,8 +93,8 @@ define i32 @test_branches_order() uwtable ssp {
 ; CHECK-NEXT:    xorl %edi, %edi
 ; CHECK-NEXT:    jmp LBB0_11
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  LBB0_14: ## %exit
-; CHECK-NEXT:    ## in Loop: Header=BB0_10 Depth=2
+; CHECK-NEXT:  LBB0_15: ## %exit
+; CHECK-NEXT:    ## in Loop: Header=BB0_11 Depth=2
 ; CHECK-NEXT:    addq %rsi, %r8
 ; CHECK-NEXT:    incq %rdi
 ; CHECK-NEXT:    decq %rsi
@@ -106,9 +106,9 @@ define i32 @test_branches_order() uwtable ssp {
 ; CHECK-NEXT:    ## => This Loop Header: Depth=2
 ; CHECK-NEXT:    ## Child Loop BB0_13 Depth 3
 ; CHECK-NEXT:    cmpl $999, %edi ## imm = 0x3E7
-; CHECK-NEXT:    jg LBB0_15
-; CHECK-NEXT:  ## %bb.11: ## %for.body20
-; CHECK-NEXT:    ## in Loop: Header=BB0_10 Depth=2
+; CHECK-NEXT:    jg LBB0_17
+; CHECK-NEXT:  ## %bb.12: ## %for.body20
+; CHECK-NEXT:    ## in Loop: Header=BB0_11 Depth=2
 ; CHECK-NEXT:    movq $-1000, %r8 ## imm = 0xFC18
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  LBB0_13: ## %do.body.i
@@ -116,11 +116,11 @@ define i32 @test_branches_order() uwtable ssp {
 ; CHECK-NEXT:    ## Parent Loop BB0_11 Depth=2
 ; CHECK-NEXT:    ## => This Inner Loop Header: Depth=3
 ; CHECK-NEXT:    cmpb $120, 1000(%rdx,%r8)
-; CHECK-NEXT:    je LBB0_14
-; CHECK-NEXT:  ## %bb.13: ## %do.cond.i
-; CHECK-NEXT:    ## in Loop: Header=BB0_12 Depth=3
+; CHECK-NEXT:    je LBB0_15
+; CHECK-NEXT:  ## %bb.14: ## %do.cond.i
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=3
 ; CHECK-NEXT:    incq %r8
-; CHECK-NEXT:    jne LBB0_12
+; CHECK-NEXT:    jne LBB0_13
 ; CHECK-NEXT:  LBB0_5: ## %if.then
 ; CHECK-NEXT:    leaq L_str4(%rip), %rdi
 ; CHECK-NEXT:    callq _puts

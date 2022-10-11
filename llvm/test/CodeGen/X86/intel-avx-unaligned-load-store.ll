@@ -11,9 +11,9 @@ define void @test_256_load(double* nocapture %d, float* nocapture %f, <4 x i64>*
 ; CHECK_SSE-NEXT:    pushq %r14
 ; CHECK_SSE-NEXT:    pushq %rbx
 ; CHECK_SSE-NEXT:    subq $96, %rsp
-; CHECK_SSE-NEXT:    movq %rdx, %r14
-; CHECK_SSE-NEXT:    movq %rsi, %r15
-; CHECK_SSE-NEXT:    movq %rdi, %rbx
+; CHECK_SSE-NEXT:    movq %rdx, %rbx
+; CHECK_SSE-NEXT:    movq %rsi, %r14
+; CHECK_SSE-NEXT:    movq %rdi, %r15
 ; CHECK_SSE-NEXT:    movaps (%rdx), %xmm4
 ; CHECK_SSE-NEXT:    movaps %xmm4, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; CHECK_SSE-NEXT:    movaps 16(%rdx), %xmm5
@@ -28,17 +28,17 @@ define void @test_256_load(double* nocapture %d, float* nocapture %f, <4 x i64>*
 ; CHECK_SSE-NEXT:    movaps %xmm1, (%rsp) # 16-byte Spill
 ; CHECK_SSE-NEXT:    callq dummy@PLT
 ; CHECK_SSE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
-; CHECK_SSE-NEXT:    movaps %xmm0, (%rbx)
-; CHECK_SSE-NEXT:    movaps (%rsp), %xmm0 # 16-byte Reload
-; CHECK_SSE-NEXT:    movaps %xmm0, 16(%rbx)
-; CHECK_SSE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; CHECK_SSE-NEXT:    movaps %xmm0, (%r15)
-; CHECK_SSE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
+; CHECK_SSE-NEXT:    movaps (%rsp), %xmm0 # 16-byte Reload
 ; CHECK_SSE-NEXT:    movaps %xmm0, 16(%r15)
 ; CHECK_SSE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; CHECK_SSE-NEXT:    movaps %xmm0, (%r14)
 ; CHECK_SSE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; CHECK_SSE-NEXT:    movaps %xmm0, 16(%r14)
+; CHECK_SSE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
+; CHECK_SSE-NEXT:    movaps %xmm0, (%rbx)
+; CHECK_SSE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
+; CHECK_SSE-NEXT:    movaps %xmm0, 16(%rbx)
 ; CHECK_SSE-NEXT:    addq $96, %rsp
 ; CHECK_SSE-NEXT:    popq %rbx
 ; CHECK_SSE-NEXT:    popq %r14
@@ -51,9 +51,9 @@ define void @test_256_load(double* nocapture %d, float* nocapture %f, <4 x i64>*
 ; CHECK_AVX-NEXT:    pushq %r14
 ; CHECK_AVX-NEXT:    pushq %rbx
 ; CHECK_AVX-NEXT:    subq $96, %rsp
-; CHECK_AVX-NEXT:    movq %rdx, %r14
-; CHECK_AVX-NEXT:    movq %rsi, %r15
-; CHECK_AVX-NEXT:    movq %rdi, %rbx
+; CHECK_AVX-NEXT:    movq %rdx, %rbx
+; CHECK_AVX-NEXT:    movq %rsi, %r14
+; CHECK_AVX-NEXT:    movq %rdi, %r15
 ; CHECK_AVX-NEXT:    vmovups (%rdi), %ymm0 # AlignMOV convert to UnAlignMOV
 ; CHECK_AVX-NEXT:    vmovups %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; CHECK_AVX-NEXT:    vmovups (%rsi), %ymm1 # AlignMOV convert to UnAlignMOV
@@ -62,11 +62,11 @@ define void @test_256_load(double* nocapture %d, float* nocapture %f, <4 x i64>*
 ; CHECK_AVX-NEXT:    vmovups %ymm2, (%rsp) # 32-byte Spill
 ; CHECK_AVX-NEXT:    callq dummy@PLT
 ; CHECK_AVX-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
-; CHECK_AVX-NEXT:    vmovups %ymm0, (%rbx) # AlignMOV convert to UnAlignMOV
-; CHECK_AVX-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
 ; CHECK_AVX-NEXT:    vmovups %ymm0, (%r15) # AlignMOV convert to UnAlignMOV
-; CHECK_AVX-NEXT:    vmovups (%rsp), %ymm0 # 32-byte Reload
+; CHECK_AVX-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
 ; CHECK_AVX-NEXT:    vmovups %ymm0, (%r14) # AlignMOV convert to UnAlignMOV
+; CHECK_AVX-NEXT:    vmovups (%rsp), %ymm0 # 32-byte Reload
+; CHECK_AVX-NEXT:    vmovups %ymm0, (%rbx) # AlignMOV convert to UnAlignMOV
 ; CHECK_AVX-NEXT:    addq $96, %rsp
 ; CHECK_AVX-NEXT:    popq %rbx
 ; CHECK_AVX-NEXT:    popq %r14
