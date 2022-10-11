@@ -110,22 +110,26 @@ public:
     for (auto &F : M) {
       for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
         Instruction *I = &*It;
-        if (isa<LoadInst>(I) || isa<StoreInst>(I))
-          checkPointer(I, getLoadStorePointerOperand(I));
-        else if (auto PHIN = dyn_cast<PHINode>(I))
+        if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
+          bool NormalizedPtr = checkPointer(I, getLoadStorePointerOperand(I));
+          if (!NormalizedPtr)
+            checkStoredValue(I);
+        } else if (auto PHIN = dyn_cast<PHINode>(I)) {
           checkPHI(PHIN);
-        else if (auto *Ret = dyn_cast<ReturnInst>(I))
+        } else if (auto *Ret = dyn_cast<ReturnInst>(I)) {
           checkReturnInst(Ret);
-        else if (auto *GEPI = dyn_cast<GetElementPtrInst>(I))
+        } else if (auto *GEPI = dyn_cast<GetElementPtrInst>(I)) {
           checkGEPInst(GEPI);
-        else if (auto *CB = dyn_cast<CallBase>(I))
+        } else if (auto *CB = dyn_cast<CallBase>(I)) {
           checkCallBase(CB);
+        }
       }
     }
 
     if (InstructionsToGepify.empty() && PHIsToGepify.empty() &&
         ReturnsToGepify.empty() && PHIReturnsGepify.empty() &&
-        GEPsToGepify.empty() && CallBaseArgsGepify.empty())
+        GEPsToGepify.empty() && CallBaseArgsGepify.empty() &&
+        StoreValueGepify.empty())
       return false;
 
     for (auto &KV : InstructionsToGepify)
@@ -146,6 +150,9 @@ public:
     for (auto &KV : CallBaseArgsGepify)
       gepifyCallBaseArgs(KV.first, KV.second);
 
+    for (auto &KV : StoreValueGepify)
+      gepifyStoreValue(KV.first, KV.second);
+
     return true;
   }
 
@@ -158,7 +165,7 @@ private:
 
   static bool isCompilerConstantData(Value *V) { return isa<ConstantData>(V); }
 
-  void checkPointer(Instruction *I, Value *Ptr) {
+  bool checkPointer(Instruction *I, Value *Ptr) {
 
     // Check if (GEP, 0, 0) is really needed and return true if not needed.
     auto IsNormalizationNotNeeded = [&](Value *Ptr) {
@@ -192,7 +199,7 @@ private:
     };
 
     if (isCompilerConstantData(Ptr))
-      return;
+      return false;
 
     ValueTypeInfo *PtrInfo = PtrAnalyzer.getValueTypeInfo(Ptr);
     assert(PtrInfo &&
@@ -200,24 +207,25 @@ private:
            "pointer operand");
 
     if (PtrInfo->getUnhandled() || PtrInfo->getDependsOnUnhandled())
-      return;
+      return false;
 
     PtrTypeAnalyzer::ElementZeroInfo Info =
         PtrAnalyzer.getElementZeroPointer(I);
     DTransType *Ty = Info.Ty;
     if (!Ty)
-      return;
+      return false;
 
     if ((Ty->isStructTy() &&
          cast<DTransStructType>(Ty)->getNumContainedElements() == 0) ||
         (Ty->isArrayTy() &&
          cast<DTransArrayType>(Ty)->getNumContainedElements() == 0))
-      return;
+      return false;
 
     if (IsNormalizationNotNeeded(Ptr))
-      return;
+      return false;
 
     InstructionsToGepify.insert({I, Info.Ty, Info.Depth});
+    return true;
   }
 
   void gepify(Instruction *I, DTransType *Ty, unsigned int Depth) {
@@ -308,6 +316,21 @@ private:
     GetElementPtrInst *NewGEP = createGEPToAccessZeroElement(Ptr, DTy);
     GEPI->replaceUsesOfWith(Ptr, NewGEP);
     LLVM_DEBUG(dbgs() << "Replacing pointer operand in: " << *GEPI
+                      << "\nWith: " << *NewGEP << "\n");
+  }
+
+  // A New (GEP, 0, 0) is created for each use of allocation in different
+  // store instruction and will not try to reuse by saving them in NewGEPInsts.
+  void gepifyStoreValue(StoreInst *SI, DTransType *DTy) {
+    SmallVector<Value *, 2> IdxList;
+    IdxList.push_back(ZeroPtrSizedInt);
+    IdxList.push_back(Zero32);
+
+    GetElementPtrInst *NewGEP = GetElementPtrInst::Create(
+        DTy->getLLVMType(), SI->getValueOperand(), IdxList, "dtnorm", SI);
+
+    SI->setOperand(0, NewGEP);
+    LLVM_DEBUG(dbgs() << "Replacing return value in: " << *SI
                       << "\nWith: " << *NewGEP << "\n");
   }
 
@@ -455,11 +478,15 @@ private:
   //
   // Return true for this example as %Val is used as %struct.base.
   //
-  bool isNormalizedGEPNeeded(Value *Val, Type *UsedTy,
-                             DTransType **DomStTyPtr) {
-    auto Call = dyn_cast<CallInst>(Val);
+  bool isNormalizedGEPNeeded(Value *Val, Type *UsedTy, DTransType **DomStTyPtr,
+                             bool AllowInvoke = false) {
+    auto Call = dyn_cast<CallBase>(Val);
     if (!Call)
       return false;
+
+    if (!isa<CallInst>(Call) && !(AllowInvoke && isa<InvokeInst>(Call)))
+      return false;
+
     ValueTypeInfo *PtrInfo = PtrAnalyzer.getValueTypeInfo(Val);
     if (!PtrInfo)
       return false;
@@ -827,6 +854,65 @@ private:
       ValueToDomSet.insert(Entry);
   }
 
+  // Check (GEP, 0, 0) is needed if stored value is memory allocation
+  // pointer. Example: From:
+  //   %struct.derived = type { %struct.base }
+  //   %struct.test = { i32, %struct.base* }
+  //   @foo(ptr %a) {
+  //      %i = tail call ptr @Alloc(i64 16, ptr null)
+  //      call void @Ctor1(ptr %i)
+  //      ...
+  //      %p = getelementptr inbounds %struct.test, ptr %a, i64 0, i32 1
+  //      store ptr %i, ptr %p
+  //   }
+  //   Let us assume aliases of %i are %struct.base* and %struct.derived* and
+  //   %p is alias to %struct.base* only.
+  //
+  // To:
+  //   %struct.derived = type { %struct.base }
+  //   %struct.test = { i32, %struct.base* }
+  //   @foo(ptr %a) {
+  //      %i = tail call ptr @Alloc(i64 16, ptr null)
+  //      call void @Ctor1(ptr %i)
+  //      ...
+  //      %p = getelementptr inbounds %struct.test, ptr %a, i64 0, i32 1
+  //      %dtnorm = getelementptr %%struct.derived, ptr %i, i64 0, i32 0
+  //      store ptr %dtnorm, ptr %p
+  //   }
+  //
+  void checkStoredValue(Instruction *I) {
+    auto *SI = dyn_cast<StoreInst>(I);
+    if (!SI)
+      return;
+    Value *Ptr = SI->getPointerOperand();
+    Value *Val = SI->getValueOperand();
+    if (isCompilerConstantData(Ptr) || isCompilerConstantData(Val))
+      return;
+    // Check if pointer operand has single alias type that points to a struct.
+    ValueTypeInfo *Info = PtrAnalyzer.getValueTypeInfo(Ptr);
+    if (!Info || Info->getUnhandled() || Info->getDependsOnUnhandled())
+      return;
+    auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+    if (UseAliases.size() != 1)
+      return;
+    DTransType *AliasTy = *UseAliases.begin();
+    if (!AliasTy->isPointerTy())
+      return;
+    DTransType *PtrStTy = AliasTy->getPointerElementType();
+    if (!PtrStTy->isPointerTy())
+      return;
+    DTransType *StTy = PtrStTy->getPointerElementType();
+    if (!isa<DTransStructType>(StTy))
+      return;
+
+    // Check (GEP, 0, 0) is needed for value operand.
+    DTransType *DomStTy;
+    if (!isNormalizedGEPNeeded(Val, StTy->getLLVMType(), &DomStTy,
+                               /* AllowInvoke */ true))
+      return;
+    StoreValueGepify[SI] = DomStTy;
+  }
+
   void gepifyPHI(PHINode *PHIN, unsigned Num) {
     auto GEPI = dyn_cast<GetElementPtrInst>(PHIN->getIncomingValue(Num));
     if (!GEPI)
@@ -856,6 +942,7 @@ private:
   SetVector<std::pair<GetElementPtrInst *, DTransType *>> GEPsToGepify;
   SmallDenseMap<CallBase *, SetVector<std::pair<unsigned, DTransType *>>>
       CallBaseArgsGepify;
+  SmallDenseMap<StoreInst *, DTransType *> StoreValueGepify;
 
   // This is used to reuse GEP instruction if it is already one.
   SmallDenseMap<Value *, GetElementPtrInst *> NewGEPInsts;
