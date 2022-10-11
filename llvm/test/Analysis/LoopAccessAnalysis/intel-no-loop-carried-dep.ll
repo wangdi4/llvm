@@ -1,4 +1,4 @@
-; RUN: opt -tbaa -loop-accesses -analyze -enable-new-pm=0 < %s | FileCheck %s
+; RUN: opt -aa-pipeline=tbaa -passes='print<access-info>' -disable-output < %s | FileCheck %s
 ;
 ; We expect there exist only one anti-dep in this loop.
 ;
