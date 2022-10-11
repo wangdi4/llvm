@@ -11,6 +11,7 @@
 
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -97,6 +98,8 @@ void VPlanCallVecDecisions::reset() {
 
 VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     const VPCallInstruction *VPCall, bool Masked, int VF) {
+  auto VPAA = VPlanAlignmentAnalysis(*Plan.getVPSE(), *Plan.getVPVT(), VF);
+
   auto *DA = Plan.getVPlanDA();
   SmallVector<VFParameter, 8> Parameters;
   auto SkippedArgs = VPCall->isIntelIndirectCall() ? 1 : 0;
@@ -122,6 +125,11 @@ VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     } else {
       llvm_unreachable("Invalid parameter kind");
     }
+
+    // If the call arg is a pointer, use alignment analysis to try to obtain a
+    // known alignment for matching against variants with aligned params.
+    if (CallArg->getType()->isPointerTy())
+      Parameters.back().Alignment = VPAA.tryGetKnownAlignment(CallArg, VPCall);
   }
 
   Function *F = VPCall->getCalledFunction();

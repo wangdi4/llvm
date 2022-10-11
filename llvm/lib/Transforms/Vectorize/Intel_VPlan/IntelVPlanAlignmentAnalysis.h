@@ -298,6 +298,13 @@ public:
   /// peeling is unknown.
   Align getAlignment(VPLoadStoreInst &Memref);
 
+  /// Try to compute an alignment for pointer \p Val, with an optional
+  /// instruction context \val CtxI. If a known alignment can be extracted using
+  /// value tracking, it is returned. Otherwise, no alignment is returned.
+  /// Asserts that Val is a pointer.
+  MaybeAlign tryGetKnownAlignment(const VPValue *Val,
+                                  const VPInstruction *CtxI) const;
+
 private:
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
                                    VPlanStaticPeeling &SP) const;

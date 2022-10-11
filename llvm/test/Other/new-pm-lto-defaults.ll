@@ -119,8 +119,10 @@
 ; CHECK-O1-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O1-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
+; CHECK-O1-NEXT: Running pass: AlignmentFromAssumptionsPass
+; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O1-NEXT: Running analysis: LoopAnalysis
+; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpSimdIfPass
 ; CHECK-O1-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O1-NEXT: Running pass: LowerSwitchPass
 ; CHECK-O1-NEXT: Running analysis: LazyValueAnalysis
@@ -129,7 +131,6 @@
 ; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
 ; CHECK-O1-NEXT: Running analysis: WRegionInfoAnalysis
 ; CHECK-O1-NEXT: Running analysis: WRegionCollectionAnalysis
-; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O1-NEXT: Running analysis: AAManager
 ; CHECK-O1-NEXT: Running analysis: BasicAA
 ; CHECK-O1-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -293,8 +294,10 @@
 ; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-O23SZ-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
+; CHECK-O23SZ-NEXT: Running pass: AlignmentFromAssumptionsPass
+; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis
+; CHECK-O23SZ-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LowerSwitchPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
@@ -303,7 +306,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
 ; CHECK-O23SZ-NEXT: Running analysis: WRegionInfoAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: WRegionCollectionAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager
 ; CHECK-O23SZ-NEXT: Running analysis: BasicAA
 ; CHECK-O23SZ-NEXT: Running analysis: XmainOptLevelAnalysis

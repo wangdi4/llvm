@@ -32,6 +32,7 @@ public:
       : MainLoop(MainLoop), DL(&DL), AC(AC), DT(DT) {}
 
   KnownBits getKnownBits(VPlanSCEV *Expr, const VPInstruction *CtxI) override;
+  KnownBits getKnownBits(const VPValue *Val, const VPInstruction *CtxI) override;
 
 private:
   KnownBits getKnownBitsImpl(VPlanAddRecHIR *Expr);

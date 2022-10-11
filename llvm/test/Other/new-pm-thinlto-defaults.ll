@@ -258,8 +258,10 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
+; CHECK-POSTLINK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
+; CHECK-POSTLINK-O-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis
+; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerSwitchPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LazyValueAnalysis
@@ -268,7 +270,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionInfoAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionCollectionAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AAManager
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BasicAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: XmainOptLevelAnalysis

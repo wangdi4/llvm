@@ -91,7 +91,7 @@ class VecCloneImpl {
     void updateVectorArgumentUses(Function *Clone, Function &OrigFn,
                                   const DataLayout &DL, Argument *Arg,
                                   Type *ElemType, Instruction *VecArg,
-                                  BasicBlock *EntryBlock,
+                                  MaybeAlign Align, BasicBlock *EntryBlock,
                                   BasicBlock *LoopHeader, PHINode *Phi);
 
     /// \brief Widen the function arguments to vector types. This function
@@ -115,10 +115,6 @@ class VecCloneImpl {
 
     /// Mark memory as uniform for SIMD directives.
     void processUniformArgs(Function *Clone, const VFInfo &V,
-                            BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
-
-    /// Mark memory as aligned for SIMD directives.
-    void processAlignedArgs(Function *Clone, const VFInfo &V,
                             BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
 
     /// Update the values of linear arguments by adding the stride before the

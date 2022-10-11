@@ -157,11 +157,15 @@ std::string llvm::VFInfo::encodeFromParts(VFISAKind Isa, bool Mask, unsigned VF,
 namespace scores {
 // Scalar2VectorScore represents either a uniform or linear match with
 // vector.
-static constexpr unsigned Scalar2VectorScore = 2;
-static constexpr unsigned Uniform2UniformScore = 3;
-static constexpr unsigned UniformPtr2UniformPtrScore = 4;
-static constexpr unsigned Vector2VectorScore = 4;
-static constexpr unsigned Linear2LinearScore = 4;
+static constexpr int Scalar2VectorScore = 2;
+static constexpr int Uniform2UniformScore = 3;
+static constexpr int UniformPtr2UniformPtrScore = 4;
+static constexpr int Vector2VectorScore = 4;
+static constexpr int Linear2LinearScore = 4;
+
+static constexpr int Aligned2AlignedScore = 4;
+static constexpr int Unaligned2UnalignedScore = 4;
+static constexpr int Aligned2UnalignedScore = 3;
 
 // Indicate that a match was not found for a particular variant when doing
 // caller/callee variant matching.
@@ -172,33 +176,41 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
 
   // 'V1' refers to the variant for the call. Match parameters with 'V2',
   // which represents some available variant.
-  ArrayRef<VFParameter> Params = V1.getParameters();
-  ArrayRef<VFParameter> OtherParams = V2.getParameters();
+  ArrayRef<VFParameter> Caller = V1.getParameters();
+  ArrayRef<VFParameter> Callee = V2.getParameters();
 
-  assert(Params.size() == OtherParams.size() &&
-         "Number of parameters do not match");
+  assert(Caller.size() == Callee.size() && "Number of parameters do not match");
 
   Function *F = M->getFunction(V1.ScalarName);
   assert(F && "Function not found in module");
 
   LLVM_DEBUG(dbgs() << "Attempting parameter matching of " << V1.prefix()
                     << " with " << V2.prefix() << "\n");
-  int ParamScore = 0;
 
-  std::vector<int> ArgScores;
-  unsigned ArgIdx = (F->getName().startswith("__intel_indirect_call")) ? 1 : 0;
-  for (unsigned I = 0; I < OtherParams.size(); ++I, ++ArgIdx) {
+  unsigned ArgStart = (F->getName().startswith("__intel_indirect_call")) ? 1 : 0;
+
+  auto ScoreParamAlignment = [&](unsigned I) {
+    if (Caller[I].isAligned() && Callee[I].isAligned()) {
+      if (Caller[I].getAlignment() < Callee[I].getAlignment())
+        return NoMatch;
+      return Aligned2AlignedScore;
+    }
+    if (!Caller[I].isAligned() && Callee[I].isAligned()) {
+      return NoMatch;
+    }
+    if (Caller[I].isAligned() && !Callee[I].isAligned()) {
+      return Aligned2UnalignedScore;
+    }
+    return Unaligned2UnalignedScore;
+  };
+
+  auto ScoreParamKind = [&](unsigned I) {
     // Linear and uniform arguments can always safely be put into vectors, but
     // reduce score in those cases because scalar is optimal.
-    int ArgScore;
-    if (OtherParams[I].isVector()) {
-      if (Params[I].isVector())
-        ArgScore = Vector2VectorScore;
-      else
-        ArgScore = Scalar2VectorScore; // uniform/linear -> vector
-      ArgScores.push_back(ArgScore);
-      ParamScore += ArgScore;
-      continue;
+    if (Callee[I].isVector()) {
+      if (Caller[I].isVector())
+        return Vector2VectorScore;
+      return Scalar2VectorScore; // uniform/linear -> vector
     }
 
     // linear->linear matches occur when:
@@ -206,32 +218,44 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
     // 2) caller side arg is recognized by DA as linear with constant stride
     //    and available variant is variable integer strided.
     // 3) both args are linear with variable stride.
-    if (OtherParams[I].isLinear() && Params[I].isLinear()) {
-      if ((OtherParams[I].isConstantStrideLinear() && // Case #1
-           Params[I].isConstantStrideLinear() &&
-           OtherParams[I].getStride() == Params[I].getStride()) ||
-          OtherParams[I].isVariableStride()) {        // Cases #2 and #3
-        ArgScore = Linear2LinearScore;
-        ArgScores.push_back(ArgScore);
-        ParamScore += ArgScore;
-        continue;
+    if (Callee[I].isLinear() && Caller[I].isLinear()) {
+      if ((Callee[I].isConstantStrideLinear() && // Case #1
+           Caller[I].isConstantStrideLinear() &&
+           Callee[I].getStride() == Caller[I].getStride()) ||
+          Callee[I].isVariableStride()) {        // Cases #2 and #3
+        return Linear2LinearScore;
       }
     }
 
-    if (OtherParams[I].isUniform() && Params[I].isUniform()) {
+    if (Callee[I].isUniform() && Caller[I].isUniform()) {
       // Uniform ptr arguments are more beneficial for performance, so weight
       // them accordingly.
-      if (isa<PointerType>(F->getArg(ArgIdx)->getType()))
-        ArgScore = UniformPtr2UniformPtrScore;
-      else
-        ArgScore = Uniform2UniformScore;
-      ArgScores.push_back(ArgScore);
-      ParamScore += ArgScore;
-      continue;
+      if (isa<PointerType>(F->getArg(ArgStart + I)->getType()))
+        return UniformPtr2UniformPtrScore;
+      return Uniform2UniformScore;
     }
 
     LLVM_DEBUG(dbgs() << "Arg did not match variant parameter!\n");
     return NoMatch;
+  };
+
+  int TotalScore = 0;
+  std::vector<int> ArgScores;
+  for (unsigned I = 0; I < Callee.size(); ++I) {
+    int ArgScore = 0;
+
+    int AlignScore = ScoreParamAlignment(I);
+    if (AlignScore == NoMatch)
+      return NoMatch;
+    ArgScore += AlignScore;
+
+    int KindScore = ScoreParamKind(I);
+    if (KindScore == NoMatch)
+      return NoMatch;
+    ArgScore += KindScore;
+
+    ArgScores.push_back(ArgScore);
+    TotalScore += ArgScore;
   }
 
   LLVM_DEBUG(dbgs() << "Args matched variant parameters\n");
@@ -239,8 +263,8 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
   MaxArg =
       std::max_element(ArgScores.begin(), ArgScores.end()) - ArgScores.begin();
   LLVM_DEBUG(dbgs() << "MaxArg: " << MaxArg << "\n");
-  LLVM_DEBUG(dbgs() << "Score: " << ParamScore << "\n");
-  return ParamScore;
+  LLVM_DEBUG(dbgs() << "Score: " << TotalScore << "\n");
+  return TotalScore;
 }
 } // namespace scores
 

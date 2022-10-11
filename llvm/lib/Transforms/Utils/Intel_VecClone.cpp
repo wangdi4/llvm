@@ -285,6 +285,20 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);
 
+  /// Add the 'align' attribute to any params with specified alignment.
+  for (auto &It : enumerate(Clone->args())) {
+    Argument &Arg = It.value();
+
+    MaybeAlign ParamAlign = V.getParameters()[It.index()].Alignment;
+    if (!ParamAlign)
+      continue;
+
+    assert(Arg.getType()->isPtrOrPtrVectorTy() &&
+           "Can only align ptr or ptr-of-vec params");
+    Arg.addAttr(Attribute::get(Clone->getContext(), Attribute::Alignment,
+                               ParamAlign->value()));
+  }
+
   LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
   LLVM_DEBUG(Clone->dump());
 
@@ -370,12 +384,20 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-void VecCloneImpl::updateVectorArgumentUses(Function *Clone, Function &OrigFn,
-                                            const DataLayout &DL, Argument *Arg,
-                                            Type *ElemType, Instruction *VecArg,
-                                            BasicBlock *EntryBlock,
-                                            BasicBlock *LoopLatch,
-                                            PHINode *Phi) {
+static AssumeInst *insertAlignmentAssumption(IRBuilder<> &Builder,
+                                             Value *AlignedVal, Align ArgAlign,
+                                             const DataLayout &DL) {
+  CallInst *Assume =
+      Builder.CreateAlignmentAssumption(DL, AlignedVal, ArgAlign.value());
+  Assume->setMetadata("intel.vecclone.align.assume",
+                      MDNode::get(Builder.getContext(), {}));
+  return cast<AssumeInst>(Assume);
+}
+
+void VecCloneImpl::updateVectorArgumentUses(
+    Function *Clone, Function &OrigFn, const DataLayout &DL, Argument *Arg,
+    Type *ElemType, Instruction *VecArg, MaybeAlign ArgAlign,
+    BasicBlock *EntryBlock, BasicBlock *LoopLatch, PHINode *Phi) {
 
   // This code updates argument users with a gep/load of an element for a
   // specific lane using the loop index.
@@ -406,11 +428,19 @@ void VecCloneImpl::updateVectorArgumentUses(Function *Clone, Function &OrigFn,
                                          IncommingBB->getTerminator());
     }
     assert(VecGep && "Expect VecGep to be a non-null value.");
+
     Type *LoadTy = VecGep->getResultElementType();
-    LoadInst *ArgElemLoad = new LoadInst(
-        LoadTy, VecGep, "vec." + Arg->getName() + ".elem", false /*volatile*/,
-        Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
+    LoadInst *ArgElemLoad =
+        new LoadInst(LoadTy, VecGep, "vec." + Arg->getName() + ".elem",
+                     false /*volatile*/, DL.getABITypeAlign(LoadTy));
     ArgElemLoad->insertAfter(VecGep);
+
+    if (ArgAlign) {
+      // If the argument had specified alignment, insert an assumption on the
+      // element load to propagate this to downstream uses.
+      IRBuilder<> Builder(ArgElemLoad->getNextNode());
+      insertAlignmentAssumption(Builder, ArgElemLoad, *ArgAlign, DL);
+    }
 
     Value *ArgValue = ArgElemLoad;
     Type *OrigArgTy = OrigFn.getArg(Arg->getArgNo())->getType();
@@ -536,13 +566,12 @@ Instruction *VecCloneImpl::widenVectorArguments(
       return VecAlloca;
 
     // Store the vector argument into the new VF-widened alloca.
-    Value *ArgValue = cast<Value>(Arg);
-    StoreInst *Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
-                                     DL.getABITypeAlign(ArgValue->getType()));
+    StoreInst *Store = new StoreInst(Arg, VecAlloca, false /*volatile*/,
+                                     DL.getABITypeAlign(Arg->getType()));
     Store->insertBefore(EntryBlock->getTerminator());
 
     updateVectorArgumentUses(Clone, OrigFn, DL, Arg, ElemType, VecArg,
-                             EntryBlock, LoopHeader, Phi);
+                             Parm.Alignment, EntryBlock, LoopHeader, Phi);
   }
 
   return nullptr;
@@ -807,13 +836,22 @@ static void emitDebugForParameter(Value *ArgValue, AllocaInst *Alloca,
 
 // Emits store and load of \p ArgValue and replaces all uses of \p ArgValue with
 // the load.
-static LoadInst* emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
+static LoadInst *emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
+                                           MaybeAlign ArgAlign,
                                            BasicBlock *LoopPreHeader) {
   // Emit the load in the simd.loop.preheader block.
   IRBuilder<> Builder(&*LoopPreHeader->begin());
   LoadInst *Load = Builder.CreateLoad(Alloca->getAllocatedType(), Alloca,
                                       "load." + ArgValue->getName());
   ArgValue->replaceAllUsesWith(Load);
+
+  if (ArgAlign) {
+    // If the argument is aligned, we need to insert an alignment assumption on
+    // the loaded value, so this alignment gets propagated downstream.
+    insertAlignmentAssumption(Builder, Load, *ArgAlign,
+                              Load->getModule()->getDataLayout());
+  }
+
   // After updating the uses of the function argument with its stack variable,
   // we emit the store.
   Builder.SetInsertPoint(Alloca->getNextNode());
@@ -833,8 +871,8 @@ static LoadInst* emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
 // the loop. This approach helps simplify the implementation because
 // we don't have to distinguish between opt levels.
 static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
-                                 BasicBlock *LoopPreHeader, Value* &ArgVal,
-                                 Value* &ArgMemory) {
+                                 BasicBlock *LoopPreHeader, MaybeAlign ArgAlign,
+                                 Value *&ArgVal, Value *&ArgMemory) {
   ArgVal = &Arg;
   ArgMemory = &Arg;
   // TODO:  Should it be !hasPointeeInMemoryValueAttr() instead?
@@ -843,7 +881,7 @@ static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
     AllocaInst *ArgAlloca = Builder.CreateAlloca(Arg.getType(), nullptr,
                                                  "alloca." + Arg.getName());
     ArgVal = emitLoadStoreForParameter(cast<AllocaInst>(ArgAlloca), ArgVal,
-                                       LoopPreHeader);
+                                       ArgAlign, LoopPreHeader);
     ArgMemory = ArgAlloca;
   }
 }
@@ -853,10 +891,12 @@ void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
                                       BasicBlock *LoopPreHeader) {
   ArrayRef<VFParameter> Parms = V.getParameters();
   for (Argument &Arg : Clone->args()) {
-    if (Parms[Arg.getArgNo()].isUniform()) {
+    const VFParameter Parm = Parms[Arg.getArgNo()];
+    if (Parm.isUniform()) {
       Value *ArgVal;
       Value *ArgMemory;
-      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                           ArgVal, ArgMemory);
       UniformMemory[&Arg] = std::make_pair(ArgMemory, ArgVal);
     }
   }
@@ -898,14 +938,16 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
               GeneralUtils::getConstantValue(Arg.getType(),
               Clone->getContext(), Stride);
         }
-        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                             ArgVal, ArgMemory);
         LinearMemory[ArgMemory] = StrideVal;
       } else if (Parm.isVariableStride()) {
         // Get the stride value from the argument holding it.
         int StrideArgPos = Parm.getStrideArgumentPosition();
         Argument *StrideArg = Clone->getArg(StrideArgPos);
         StrideVal = UniformMemory[StrideArg].second;
-        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                             ArgVal, ArgMemory);
         LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
       } else {
         llvm_unreachable("Unsupported linear modifier");
@@ -917,6 +959,14 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       // new instructions for the stride and updating users.
       for (auto &U:  make_early_inc_range(ArgVal->uses())) {
         auto *User = cast<Instruction>(U.getUser());
+
+        if (Parm.isAligned()) {
+          // Skip the alignment assumption we added
+          auto *Assume = dyn_cast<AssumeInst>(User);
+          if (Assume && Assume->hasMetadata("intel.vecclone.align.assume"))
+            continue;
+        }
+
         Value *StrideInst =
             generateStrideForArgument(Clone, ArgVal, User, StrideVal, Phi);
         User->setOperand(U.getOperandNo(), StrideInst);
