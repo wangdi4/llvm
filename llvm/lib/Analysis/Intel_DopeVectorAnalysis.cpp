@@ -1100,13 +1100,26 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
         break;
       }
     } else if (auto *CI = dyn_cast<CallBase>(DVUser)) {
+
+      if (!CI->getContext().supportsTypedPointers()) {
+        if (isCallToAllocFunction(CI, GetTLI)) {
+          if (AllocSiteFound) {
+            LLVM_DEBUG(dbgs() << "Multiple allocations for dope vector "
+                              << "object\n" << *DVUser << "\n");
+            setInvalid();
+            return;
+          }
+          AllocSiteFound = CI;
+          continue;
+        }
+      }
+
       if (IsLocalDV) {
         LLVM_DEBUG(dbgs() << "Dope vector used in call when it was expected "
                           << "to be local to the function: " << *CI << "\n");
         setInvalid();
         return;
       }
-
 
       Function *F = CI->getCalledFunction();
       if (!F) {
@@ -1126,17 +1139,15 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
 
       // Save the function for later analysis.
       FuncsWithDVParam.insert({F, *ArgPos});
-      if (!F->getContext().supportsTypedPointers()) {
-        if (isCallToAllocFunction(CI, GetTLI)) {
-          if (AllocSiteFound) {
-            LLVM_DEBUG(dbgs() << "Multiple allocations for dope vector "
-                              << "object\n" << *DVUser << "\n");
-            setInvalid();
-            return;
-          }
-          AllocSiteFound = CI;
-        }
+    } else if (auto *LI = dyn_cast<LoadInst>(DVUser)) {
+      if (LI->getContext().supportsTypedPointers() ||
+          !PtrAddr.analyzeLoadOrStoreInstruction(LI, DVObject, false)) {
+        LLVM_DEBUG(dbgs() << "Unsupported dope vector passed to load\n"
+                          << *LI << "\n");
+        setInvalid();
+        return;
       }
+
     } else if (auto *SI = dyn_cast<StoreInst>(DVUser)) {
       // Check if the store is saving the dope vector object into an uplevel
       // var. Save the variable and field number for later analysis. (The
@@ -1156,11 +1167,14 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
           }
         }
       }
+      if (SI->getContext().supportsTypedPointers() || 
+          !PtrAddr.analyzeLoadOrStoreInstruction(SI, DVObject, false)) {
+        LLVM_DEBUG(dbgs() << "Unsupported dope vector passed to store\n"
+                          << *SI << "\n");
+        setInvalid();
+        return;
+      }
 
-      LLVM_DEBUG(dbgs() << "Unsupported StoreInst using dope vector object\n"
-                        << *DVUser << "\n");
-      setInvalid();
-      return;
     } else if (auto *BI = dyn_cast<BitCastInst>(DVUser)) {
       if (!IsLocalDV) {
         LLVM_DEBUG(dbgs() << "Unsupported use of dope vector object\n"

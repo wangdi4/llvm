@@ -1,11 +1,9 @@
-; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -debug-only=dopevectorconstprop -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
 
-; This test case checks that dope vector constant propagation did not
-; happen for assumed shape arrays that are using inside local functions.
-; The reason is that the dope vectors are passed to another function. It
-; was created from the following example, but a call to @external_function
-; was added.
+; This test case checks that dope vector constant propagation happens
+; for assumed shape arrays that are using inside local functions. This
+; is the same test case as local_dvcp05.ll, but it checks the IR. It
+; was created from the following example:
 
 ; subroutine assumedshape_arrs()
 ;   implicit none
@@ -28,23 +26,18 @@
 ;
 ; end subroutine assumedshape_arrs
 
-; CHECK: FUNCTION assumedshape_arrs_ DOES NOT HAVE LOCAL LINKAGE
-; CHECK:   LOCAL DV FOUND:   %"assumedshape_arrs_$ARRAY_ADD" = alloca %"QNCA_a0$float*$rank3$", align 8
-; CHECK:     RANK: 3
-; CHECK:     TYPE: <UNKNOWN ELEMENT TYPE>
-; CHECK:     ANALYSIS RESULT: NOT VALID
-; CHECK:   LOCAL DV FOUND:   %"assumedshape_arrs_$ARRAY_TARGET" = alloca %"QNCA_a0$float*$rank3$", align 8
-; CHECK:     RANK: 3
-; CHECK:     TYPE: <UNKNOWN ELEMENT TYPE>
-; CHECK:     ANALYSIS RESULT: NOT VALID
-; CHECK:   LOCAL DV FOUND:   %"assumedshape_arrs_$ARRAY_SOURCE" = alloca %"QNCA_a0$float*$rank3$", align 8
-; CHECK:     RANK: 3
-; CHECK:     TYPE: <UNKNOWN ELEMENT TYPE>
-; CHECK:     ANALYSIS RESULT: NOT VALID
-
 ; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop
 
-source_filename = "/tmp/ifxDtVxlK.i90"
+; It is similar to local_dvcp01_ir.ll, but bitcasts have been eliminated because
+; they are generally optimized out when we have opaque pointers.
+
+; CHECK: %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 2560, ptr elementtype(float) %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31", i64 %indvars.iv518)
+; CHECK:     %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 2560, ptr elementtype(float) %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46", i64 %indvars.iv518)
+; CHECK:     %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 2560, ptr elementtype(float) %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61", i64 %indvars.iv518)
+; CHECK:     %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31[]", i64 %indvars.iv515)
+; CHECK:     %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46[]", i64 %indvars.iv515)
+; CHECK:     %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61[]", i64 %indvars.iv515)
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -60,44 +53,38 @@ alloca_0:
   %fetch.1.fca.1.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 1
   %fetch.1.fca.2.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 2
   %fetch.1.fca.3.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 3
-  %0 = bitcast ptr %"assumedshape_arrs_$ARRAY_ADD" to ptr
-  store i64 0, ptr %0, align 8
+  store i64 0, ptr %"assumedshape_arrs_$ARRAY_ADD", align 8
   %fetch.1.fca.4.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 4
   %fetch.1.fca.5.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 5
   %fetch.1.fca.6.0.0.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 0
   %fetch.1.fca.6.0.1.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 1
   %fetch.1.fca.6.0.2.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 2
   %fetch.2.fca.0.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 0
-  %1 = getelementptr inbounds i64, ptr %fetch.1.fca.5.gep, i64 1
-  %2 = bitcast ptr %1 to ptr
-  call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(72) %2, i8 0, i64 72, i1 false)
+  %i1 = getelementptr inbounds i64, ptr %fetch.1.fca.5.gep, i64 1
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(72) %i1, i8 0, i64 72, i1 false)
   %fetch.2.fca.1.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 1
   %fetch.2.fca.2.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 2
   %fetch.2.fca.3.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 3
-  %3 = bitcast ptr %"assumedshape_arrs_$ARRAY_TARGET" to ptr
-  store i64 0, ptr %3, align 8
+  store i64 0, ptr %"assumedshape_arrs_$ARRAY_TARGET", align 8
   %fetch.2.fca.4.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 4
   %fetch.2.fca.5.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 5
   %fetch.2.fca.6.0.0.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 0
   %fetch.2.fca.6.0.1.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 1
   %fetch.2.fca.6.0.2.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 2
   %fetch.3.fca.0.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 0
-  %4 = getelementptr inbounds i64, ptr %fetch.2.fca.5.gep, i64 1
-  %5 = bitcast ptr %4 to ptr
-  call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(72) %5, i8 0, i64 72, i1 false)
+  %i4 = getelementptr inbounds i64, ptr %fetch.2.fca.5.gep, i64 1
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(72) %i4, i8 0, i64 72, i1 false)
   %fetch.3.fca.1.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 1
   %fetch.3.fca.2.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 2
   %fetch.3.fca.3.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 3
-  %6 = bitcast ptr %"assumedshape_arrs_$ARRAY_SOURCE" to ptr
-  store i64 0, ptr %6, align 8
+  store i64 0, ptr %"assumedshape_arrs_$ARRAY_SOURCE", align 8
   %fetch.3.fca.4.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 4
   %fetch.3.fca.5.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 5
   %fetch.3.fca.6.0.0.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 0
   %fetch.3.fca.6.0.1.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 1
   %fetch.3.fca.6.0.2.gep = getelementptr inbounds %"QNCA_a0$float*$rank3$", ptr %"assumedshape_arrs_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 2
-  %7 = getelementptr inbounds i64, ptr %fetch.3.fca.5.gep, i64 1
-  %8 = bitcast ptr %7 to ptr
-  call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(72) %8, i8 0, i64 72, i1 false)
+  %i7 = getelementptr inbounds i64, ptr %fetch.3.fca.5.gep, i64 1
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(72) %i7, i8 0, i64 72, i1 false)
   store i64 0, ptr %fetch.3.fca.5.gep, align 8
   store i64 4, ptr %fetch.3.fca.1.gep, align 8
   store i64 3, ptr %fetch.3.fca.4.gep, align 8
@@ -121,8 +108,7 @@ alloca_0:
   %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.spacing$[]175" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %fetch.3.fca.6.0.1.gep, i32 2)
   store i64 2560, ptr %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.spacing$[]175", align 8
   store i64 1610612869, ptr %fetch.3.fca.3.gep, align 8
-  %"(i8**)assumedshape_arrs_$ARRAY_SOURCE.addr_a0$$" = bitcast ptr %"assumedshape_arrs_$ARRAY_SOURCE" to ptr
-  %func_result = call i32 @for_alloc_allocatable_handle(i64 327680, ptr nonnull %"(i8**)assumedshape_arrs_$ARRAY_SOURCE.addr_a0$$", i32 393218, ptr null) #5
+  %func_result = call i32 @for_alloc_allocatable_handle(i64 327680, ptr nonnull %"assumedshape_arrs_$ARRAY_SOURCE", i32 393218, ptr null) #5
   store i64 0, ptr %fetch.2.fca.5.gep, align 8
   store i64 4, ptr %fetch.2.fca.1.gep, align 8
   store i64 3, ptr %fetch.2.fca.4.gep, align 8
@@ -146,8 +132,7 @@ alloca_0:
   %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.spacing$44[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %fetch.2.fca.6.0.1.gep, i32 2)
   store i64 2560, ptr %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.spacing$44[]", align 8
   store i64 1610612869, ptr %fetch.2.fca.3.gep, align 8
-  %"(i8**)assumedshape_arrs_$ARRAY_TARGET.addr_a0$$" = bitcast ptr %"assumedshape_arrs_$ARRAY_TARGET" to ptr
-  %func_result60 = call i32 @for_alloc_allocatable_handle(i64 327680, ptr nonnull %"(i8**)assumedshape_arrs_$ARRAY_TARGET.addr_a0$$", i32 393218, ptr null) #5
+  %func_result60 = call i32 @for_alloc_allocatable_handle(i64 327680, ptr nonnull %"assumedshape_arrs_$ARRAY_TARGET", i32 393218, ptr null) #5
   store i64 0, ptr %fetch.1.fca.5.gep, align 8
   store i64 4, ptr %fetch.1.fca.1.gep, align 8
   store i64 3, ptr %fetch.1.fca.4.gep, align 8
@@ -171,8 +156,7 @@ alloca_0:
   %"assumedshape_arrs_$ARRAY_ADD.dim_info$.spacing$110[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %fetch.1.fca.6.0.1.gep, i32 2)
   store i64 2560, ptr %"assumedshape_arrs_$ARRAY_ADD.dim_info$.spacing$110[]", align 8
   store i64 1610612869, ptr %fetch.1.fca.3.gep, align 8
-  %"(i8**)assumedshape_arrs_$ARRAY_ADD.addr_a0$$" = bitcast ptr %"assumedshape_arrs_$ARRAY_ADD" to ptr
-  %func_result128 = call i32 @for_alloc_allocatable_handle(i64 327680, ptr nonnull %"(i8**)assumedshape_arrs_$ARRAY_ADD.addr_a0$$", i32 393218, ptr null) #5
+  %func_result128 = call i32 @for_alloc_allocatable_handle(i64 327680, ptr nonnull %"assumedshape_arrs_$ARRAY_ADD", i32 393218, ptr null) #5
   %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31" = load ptr, ptr %fetch.3.fca.0.gep, align 8
   %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.lower_bound$[]_fetch.32" = load i64, ptr %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.lower_bound$[]153", align 8
   %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.spacing$[]_fetch.34" = load i64, ptr %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.spacing$[]172", align 8
@@ -191,9 +175,6 @@ alloca_0:
   %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.lower_bound$[]_fetch.65" = load i64, ptr %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.lower_bound$22[]", align 8
   %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.spacing$[]_fetch.67" = load i64, ptr %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.spacing$44[]", align 8
   %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.lower_bound$[]_fetch.68" = load i64, ptr %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.lower_bound$30[]", align 8
-  %9 = bitcast ptr %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31" to ptr
-  %10 = bitcast ptr %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61" to ptr
-  %11 = bitcast ptr %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46" to ptr
   br label %bb1
 
 bb1:                                              ; preds = %bb8, %alloca_0
@@ -234,24 +215,23 @@ bb8:                                              ; preds = %bb12
   br i1 %exitcond520.not, label %bb4, label %bb1
 
 bb4:                                              ; preds = %bb8
-  tail call void (...) @extern_func_(ptr %"assumedshape_arrs_$ARRAY_ADD", ptr %"assumedshape_arrs_$ARRAY_TARGET", ptr %"assumedshape_arrs_$ARRAY_SOURCE")
   %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83" = load i64, ptr %fetch.3.fca.3.gep, align 8
   %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83.tr" = trunc i64 %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83" to i32
-  %12 = shl i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83.tr", 1
-  %or.29 = and i32 %12, 6
-  %13 = lshr i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83.tr", 3
-  %int_zext295 = and i32 %13, 256
-  %14 = lshr i64 %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83", 15
-  %15 = trunc i64 %14 to i32
-  %int_zext299 = and i32 %15, 31457280
-  %int_zext301 = and i32 %15, 33554432
+  %i12 = shl i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83.tr", 1
+  %or.29 = and i32 %i12, 6
+  %i13 = lshr i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83.tr", 3
+  %int_zext295 = and i32 %i13, 256
+  %i14 = lshr i64 %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83", 15
+  %i15 = trunc i64 %i14 to i32
+  %int_zext299 = and i32 %i15, 31457280
+  %int_zext301 = and i32 %i15, 33554432
   %or.30 = or i32 %int_zext295, %or.29
   %or.32 = or i32 %or.30, %int_zext299
   %or.33 = or i32 %or.32, %int_zext301
   %or.34 = or i32 %or.33, 393216
   %"assumedshape_arrs_$ARRAY_SOURCE.reserved$303_fetch.84" = load i64, ptr %fetch.3.fca.5.gep, align 8
   %"(i8*)assumedshape_arrs_$ARRAY_SOURCE.reserved$303_fetch.84$" = inttoptr i64 %"assumedshape_arrs_$ARRAY_SOURCE.reserved$303_fetch.84" to ptr
-  %func_result305 = tail call i32 @for_dealloc_allocatable_handle(ptr nonnull %9, i32 %or.34, ptr %"(i8*)assumedshape_arrs_$ARRAY_SOURCE.reserved$303_fetch.84$") #5
+  %func_result305 = tail call i32 @for_dealloc_allocatable_handle(ptr nonnull %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31", i32 %or.34, ptr %"(i8*)assumedshape_arrs_$ARRAY_SOURCE.reserved$303_fetch.84$") #5
   %rel.4 = icmp eq i32 %func_result305, 0
   br i1 %rel.4, label %bb_new14_then, label %bb15_endif
 
@@ -262,25 +242,25 @@ bb_new14_then:                                    ; preds = %bb4
   br label %bb15_endif
 
 bb15_endif:                                       ; preds = %bb_new14_then, %bb4
-  %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$380_fetch.106509" = phi ptr [ %9, %bb4 ], [ null, %bb_new14_then ]
+  %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$380_fetch.106509" = phi ptr [ %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31", %bb4 ], [ null, %bb_new14_then ]
   %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105" = phi i64 [ %"assumedshape_arrs_$ARRAY_SOURCE.flags$289_fetch.83", %bb4 ], [ %and.64, %bb_new14_then ]
   %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91" = load i64, ptr %fetch.2.fca.3.gep, align 8
   %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91.tr" = trunc i64 %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91" to i32
-  %16 = shl i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91.tr", 1
-  %or.37 = and i32 %16, 6
-  %17 = lshr i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91.tr", 3
-  %int_zext326 = and i32 %17, 256
-  %18 = lshr i64 %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91", 15
-  %19 = trunc i64 %18 to i32
-  %int_zext330 = and i32 %19, 31457280
-  %int_zext332 = and i32 %19, 33554432
+  %i16 = shl i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91.tr", 1
+  %or.37 = and i32 %i16, 6
+  %i17 = lshr i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91.tr", 3
+  %int_zext326 = and i32 %i17, 256
+  %i18 = lshr i64 %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91", 15
+  %i19 = trunc i64 %i18 to i32
+  %int_zext330 = and i32 %i19, 31457280
+  %int_zext332 = and i32 %i19, 33554432
   %or.38 = or i32 %int_zext326, %or.37
   %or.40 = or i32 %or.38, %int_zext330
   %or.41 = or i32 %or.40, %int_zext332
   %or.42 = or i32 %or.41, 393216
   %"assumedshape_arrs_$ARRAY_TARGET.reserved$334_fetch.92" = load i64, ptr %fetch.2.fca.5.gep, align 8
   %"(i8*)assumedshape_arrs_$ARRAY_TARGET.reserved$334_fetch.92$" = inttoptr i64 %"assumedshape_arrs_$ARRAY_TARGET.reserved$334_fetch.92" to ptr
-  %func_result336 = tail call i32 @for_dealloc_allocatable_handle(ptr nonnull %10, i32 %or.42, ptr %"(i8*)assumedshape_arrs_$ARRAY_TARGET.reserved$334_fetch.92$") #5
+  %func_result336 = tail call i32 @for_dealloc_allocatable_handle(ptr nonnull %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61", i32 %or.42, ptr %"(i8*)assumedshape_arrs_$ARRAY_TARGET.reserved$334_fetch.92$") #5
   %rel.5 = icmp eq i32 %func_result336, 0
   br i1 %rel.5, label %bb_new17_then, label %bb17_endif
 
@@ -291,25 +271,25 @@ bb_new17_then:                                    ; preds = %bb15_endif
   br label %bb17_endif
 
 bb17_endif:                                       ; preds = %bb_new17_then, %bb15_endif
-  %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$409_fetch.113511" = phi ptr [ %10, %bb15_endif ], [ null, %bb_new17_then ]
+  %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$409_fetch.113511" = phi ptr [ %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61", %bb15_endif ], [ null, %bb_new17_then ]
   %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112" = phi i64 [ %"assumedshape_arrs_$ARRAY_TARGET.flags$320_fetch.91", %bb15_endif ], [ %and.80, %bb_new17_then ]
   %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99" = load i64, ptr %fetch.1.fca.3.gep, align 8
   %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99.tr" = trunc i64 %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99" to i32
-  %20 = shl i32 %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99.tr", 1
-  %or.45 = and i32 %20, 6
-  %21 = lshr i32 %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99.tr", 3
-  %int_zext357 = and i32 %21, 256
-  %22 = lshr i64 %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99", 15
-  %23 = trunc i64 %22 to i32
-  %int_zext361 = and i32 %23, 31457280
-  %int_zext363 = and i32 %23, 33554432
+  %i20 = shl i32 %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99.tr", 1
+  %or.45 = and i32 %i20, 6
+  %i21 = lshr i32 %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99.tr", 3
+  %int_zext357 = and i32 %i21, 256
+  %i22 = lshr i64 %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99", 15
+  %i23 = trunc i64 %i22 to i32
+  %int_zext361 = and i32 %i23, 31457280
+  %int_zext363 = and i32 %i23, 33554432
   %or.46 = or i32 %int_zext357, %or.45
   %or.48 = or i32 %or.46, %int_zext361
   %or.49 = or i32 %or.48, %int_zext363
   %or.50 = or i32 %or.49, 393216
   %"assumedshape_arrs_$ARRAY_ADD.reserved$365_fetch.100" = load i64, ptr %fetch.1.fca.5.gep, align 8
   %"(i8*)assumedshape_arrs_$ARRAY_ADD.reserved$365_fetch.100$" = inttoptr i64 %"assumedshape_arrs_$ARRAY_ADD.reserved$365_fetch.100" to ptr
-  %func_result367 = tail call i32 @for_dealloc_allocatable_handle(ptr nonnull %11, i32 %or.50, ptr %"(i8*)assumedshape_arrs_$ARRAY_ADD.reserved$365_fetch.100$") #5
+  %func_result367 = tail call i32 @for_dealloc_allocatable_handle(ptr nonnull %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46", i32 %or.50, ptr %"(i8*)assumedshape_arrs_$ARRAY_ADD.reserved$365_fetch.100$") #5
   %rel.6 = icmp eq i32 %func_result367, 0
   br i1 %rel.6, label %bb_new20_then, label %bb19_endif
 
@@ -320,7 +300,7 @@ bb_new20_then:                                    ; preds = %bb17_endif
   br label %bb19_endif
 
 bb19_endif:                                       ; preds = %bb_new20_then, %bb17_endif
-  %"assumedshape_arrs_$ARRAY_ADD.addr_a0$438_fetch.120513" = phi ptr [ %11, %bb17_endif ], [ null, %bb_new20_then ]
+  %"assumedshape_arrs_$ARRAY_ADD.addr_a0$438_fetch.120513" = phi ptr [ %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46", %bb17_endif ], [ null, %bb_new20_then ]
   %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119" = phi i64 [ %"assumedshape_arrs_$ARRAY_ADD.flags$351_fetch.99", %bb17_endif ], [ %and.96, %bb_new20_then ]
   %and.97 = and i64 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105", 1
   %rel.7 = icmp eq i64 %and.97, 0
@@ -328,14 +308,14 @@ bb19_endif:                                       ; preds = %bb_new20_then, %bb1
 
 dealloc.list.then21:                              ; preds = %bb19_endif
   %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105.tr" = trunc i64 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105" to i32
-  %24 = shl i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105.tr", 1
-  %int_zext384 = and i32 %24, 4
-  %25 = lshr i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105.tr", 3
-  %int_zext388 = and i32 %25, 256
-  %26 = lshr i64 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105", 15
-  %27 = trunc i64 %26 to i32
-  %int_zext392 = and i32 %27, 31457280
-  %int_zext394 = and i32 %27, 33554432
+  %i24 = shl i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105.tr", 1
+  %int_zext384 = and i32 %i24, 4
+  %i25 = lshr i32 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105.tr", 3
+  %int_zext388 = and i32 %i25, 256
+  %i26 = lshr i64 %"assumedshape_arrs_$ARRAY_SOURCE.flags$378_fetch.105", 15
+  %i27 = trunc i64 %i26 to i32
+  %int_zext392 = and i32 %i27, 31457280
+  %int_zext394 = and i32 %i27, 33554432
   %or.53 = or i32 %int_zext388, %int_zext384
   %or.55 = or i32 %or.53, %int_zext392
   %or.56 = or i32 %or.55, %int_zext394
@@ -357,14 +337,14 @@ dealloc.list.end22:                               ; preds = %bb_new25_then, %dea
 
 dealloc.list.then26:                              ; preds = %dealloc.list.end22
   %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112.tr" = trunc i64 %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112" to i32
-  %28 = shl i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112.tr", 1
-  %int_zext413 = and i32 %28, 4
-  %29 = lshr i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112.tr", 3
-  %int_zext417 = and i32 %29, 256
-  %30 = lshr i64 %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112", 15
-  %31 = trunc i64 %30 to i32
-  %int_zext421 = and i32 %31, 31457280
-  %int_zext423 = and i32 %31, 33554432
+  %i28 = shl i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112.tr", 1
+  %int_zext413 = and i32 %i28, 4
+  %i29 = lshr i32 %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112.tr", 3
+  %int_zext417 = and i32 %i29, 256
+  %i30 = lshr i64 %"assumedshape_arrs_$ARRAY_TARGET.flags$407_fetch.112", 15
+  %i31 = trunc i64 %i30 to i32
+  %int_zext421 = and i32 %i31, 31457280
+  %int_zext423 = and i32 %i31, 33554432
   %or.60 = or i32 %int_zext417, %int_zext413
   %or.62 = or i32 %or.60, %int_zext421
   %or.63 = or i32 %or.62, %int_zext423
@@ -386,14 +366,14 @@ dealloc.list.end27:                               ; preds = %bb_new30_then, %dea
 
 dealloc.list.then31:                              ; preds = %dealloc.list.end27
   %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119.tr" = trunc i64 %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119" to i32
-  %32 = shl i32 %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119.tr", 1
-  %int_zext442 = and i32 %32, 4
-  %33 = lshr i32 %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119.tr", 3
-  %int_zext446 = and i32 %33, 256
-  %34 = lshr i64 %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119", 15
-  %35 = trunc i64 %34 to i32
-  %int_zext450 = and i32 %35, 31457280
-  %int_zext452 = and i32 %35, 33554432
+  %i32 = shl i32 %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119.tr", 1
+  %int_zext442 = and i32 %i32, 4
+  %i33 = lshr i32 %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119.tr", 3
+  %int_zext446 = and i32 %i33, 256
+  %i34 = lshr i64 %"assumedshape_arrs_$ARRAY_ADD.flags$436_fetch.119", 15
+  %i35 = trunc i64 %i34 to i32
+  %int_zext450 = and i32 %i35, 31457280
+  %int_zext452 = and i32 %i35, 33554432
   %or.67 = or i32 %int_zext446, %int_zext442
   %or.69 = or i32 %or.67, %int_zext450
   %or.70 = or i32 %or.69, %int_zext452
@@ -424,20 +404,18 @@ declare i32 @for_dealloc_allocatable_handle(ptr nocapture readonly, i32, ptr) lo
 ; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
-declare void @extern_func_(...) local_unnamed_addr
-
 ; Function Attrs: nounwind readnone speculatable
 declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #3
 
 ; Function Attrs: nounwind readnone speculatable
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #3
 
-; Function Attrs: argmemonly nofree nounwind willreturn writeonly
+; Function Attrs: argmemonly nocallback nofree nounwind willreturn writeonly
 declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #4
 
 attributes #0 = { nofree nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="non-leaf" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
 attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
 attributes #2 = { nofree "intel-lang"="fortran" }
 attributes #3 = { nounwind readnone speculatable }
-attributes #4 = { argmemonly nofree nounwind willreturn writeonly }
+attributes #4 = { argmemonly nocallback nofree nounwind willreturn writeonly }
 attributes #5 = { nounwind }
