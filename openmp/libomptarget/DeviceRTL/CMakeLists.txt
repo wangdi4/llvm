@@ -187,13 +187,9 @@ function(compileDeviceRTLLibrary target_cpu target_name target_triple)
     get_filename_component(outfile ${src} NAME)
     set(outfile "${outfile}-${target_cpu}.bc")
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Reverted e82e07d74a7d9 temporarily.
-    add_custom_command(OUTPUT ${outfile}
-=======
     add_custom_target(${outfile}
->>>>>>> 053e894106beb534ec27010b960ee58031a2fdb8
       COMMAND ${CLANG_TOOL}
       ${bc_flags}
       -Xclang -target-cpu -Xclang ${target_cpu}
