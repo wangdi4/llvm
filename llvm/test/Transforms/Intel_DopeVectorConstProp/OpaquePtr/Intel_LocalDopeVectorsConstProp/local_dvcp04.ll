@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -opaque-pointers -disable-output -debug-only=dopevectorconstprop -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; This test case checks that dope vector constant propagation did not
