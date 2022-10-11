@@ -2181,3 +2181,25 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
       ProcessVPlan(*Pair.second.MaskedModeLoop);
   }
 }
+
+void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
+  SmallPtrSet<VPlan *, 2> Visited;
+
+  auto ProcessVPlan = [&Visited](VPlan &P) -> void {
+    if (!Visited.insert(&P).second)
+      return;
+    for (auto &Inst :
+         make_filter_range(vpinstructions(&P), [](const VPInstruction &Inst) {
+           return isa<VPLoadStoreInst>(Inst);
+         }))
+      cast<VPLoadStoreInst>(Inst).disableNegOneOpt();
+  };
+
+  for (auto &Pair : VPlans) {
+    if (Pair.first == 1) // VF
+      continue;
+
+    if (Pair.second.MaskedModeLoop)
+      ProcessVPlan(*Pair.second.MaskedModeLoop);
+  }
+}

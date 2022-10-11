@@ -168,9 +168,7 @@ bool VPlanTTICostModel::isUniformLoadStore(
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
   assert (Plan->getVPlanDA() && "DA is not established.");
-  return Plan->getVPlanDA()->isUnitStridePtr(LoadStore->getPointerOperand(),
-                                             LoadStore->getValueType(),
-                                             NegativeStride);
+  return Plan->getVPlanDA()->isUnitStrideLoadStore(LoadStore, NegativeStride);
 }
 
 unsigned VPlanTTICostModel::getLoadStoreIndexSize(
