@@ -9,6 +9,16 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;
+
+; Check the proper optreport is emitted for Loop Interchange.
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=medium %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:     remark #25445: Loop Interchange not done due to: Data Dependencies{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
+
 ; ModuleID = 'interchange2.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
