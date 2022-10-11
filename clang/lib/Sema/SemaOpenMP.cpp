@@ -19823,7 +19823,7 @@ bool Sema::isUnsupportedVLAType(QualType Ty, SourceLocation ELoc) {
   if (LangOpts.OpenMPLateOutline && !Context.getTargetInfo().isVLASupported() &&
       !Ty->isAnyPointerType() && Ty->isVariablyModifiedType() &&
       isOpenMPNestingTeamsDirective(DSAStack->getCurrentDirective())) {
-    targetDiag(ELoc, diag::err_vla_unsupported);
+    targetDiag(ELoc, diag::err_vla_unsupported) << 0;
     return true;
   }
   return false;
