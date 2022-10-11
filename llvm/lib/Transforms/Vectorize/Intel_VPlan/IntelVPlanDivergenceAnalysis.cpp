@@ -204,6 +204,17 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
   return isUnitStridePtr(Ptr, AccessType, IsNegOneStride);
 }
 
+bool VPlanDivergenceAnalysis::isUnitStrideLoadStore(
+    const VPLoadStoreInst *LdSt, bool &IsNegOneStride) const {
+  bool Ret = isUnitStridePtr(LdSt->getPointerOperand(), LdSt->getValueType(),
+                             IsNegOneStride);
+  if (IsNegOneStride && !LdSt->isNegOneOptEnabled()) {
+    IsNegOneStride = false;
+    return false;
+  }
+  return Ret;
+}
+
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
                                               Type *AccessType,
                                               bool &IsNegOneStride) const {

@@ -49,6 +49,7 @@
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: DeduceMaxWGDimPass
+; CHECK:      Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 
 ; CHECK-NOT:  Running pass: VecClonePass

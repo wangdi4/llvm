@@ -124,6 +124,7 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 
 ; CHECK:      Running pass: DeduceMaxWGDimPass
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 
 ; CHECK:      Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass

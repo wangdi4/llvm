@@ -59,6 +59,7 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Dead Code Elimination
 ; CHECK-NEXT:       Simplify the CFG
+; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     DeduceMaxWGDimLegacy
 ; CHECK-NOT:      DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
