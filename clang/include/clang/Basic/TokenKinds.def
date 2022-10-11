@@ -491,9 +491,9 @@ TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
 ALIAS("_Quad"    , __float128       , 0)
 #endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
-TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)
+TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYALL)
 TYPE_TRAIT_1(__is_trivially_destructible, IsTriviallyDestructible, KEYCXX)
-TYPE_TRAIT_1(__is_nothrow_destructible, IsNothrowDestructible, KEYMS)
+TYPE_TRAIT_1(__is_nothrow_destructible, IsNothrowDestructible, KEYALL)
 TYPE_TRAIT_2(__is_nothrow_assignable, IsNothrowAssignable, KEYCXX)
 TYPE_TRAIT_N(__is_constructible, IsConstructible, KEYCXX)
 TYPE_TRAIT_N(__is_nothrow_constructible, IsNothrowConstructible, KEYCXX)
@@ -549,6 +549,11 @@ KEYWORD(__builtin_base_type, KEYSYCL)
 
 // Clang-only C++ Type Traits
 TYPE_TRAIT_1(__is_trivially_relocatable, IsTriviallyRelocatable, KEYCXX)
+TYPE_TRAIT_1(__is_bounded_array, IsBoundedArray, KEYCXX)
+TYPE_TRAIT_1(__is_unbounded_array, IsUnboundedArray, KEYCXX)
+TYPE_TRAIT_1(__is_nullptr, IsNullPointer, KEYCXX)
+TYPE_TRAIT_1(__is_scoped_enum, IsScopedEnum, KEYCXX)
+TYPE_TRAIT_1(__is_referenceable, IsReferenceable, KEYCXX)
 TYPE_TRAIT_2(__reference_binds_to_temporary, ReferenceBindsToTemporary, KEYCXX)
 
 // Embarcadero Expression Traits
