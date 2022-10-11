@@ -418,7 +418,8 @@ INLINE void *__kmp_alloc(size_t align, size_t size) {
 }
 
 INLINE void __kmp_dealloc(void *ptr) {
-  uintptr_t ptrint = (uintptr_t)ptr;
+  intptr_t ptrint = (intptr_t)ptr;
+
   kmp_mem_pool_t *pool =
       (kmp_mem_pool_t *)__omp_spirv_program_data.dyna_mem_pool;
   if (!pool || !ptrint)
@@ -426,10 +427,10 @@ INLINE void __kmp_dealloc(void *ptr) {
 
   for (uint i = 0; i < pool->num_heaps; i++) {
     kmp_mem_heap_t *heap = (kmp_mem_heap_t *)&pool->heap_desc[i];
-    if (ptrint < heap->alloc_base)
-      return; // Invalid pointer range
-    uintptr_t heap_ub = heap->alloc_base + pool->heap_size;
-    if (ptrint >= heap_ub)
+
+    intptr_t heap_lb = (intptr_t)heap->alloc_base;
+    intptr_t heap_ub = heap_lb + pool->heap_size;
+    if (ptrint < heap_lb || ptrint >= heap_ub)
       continue; // Memory does not belong to this heap
 
     // Obtain block descriptor ID and offset
