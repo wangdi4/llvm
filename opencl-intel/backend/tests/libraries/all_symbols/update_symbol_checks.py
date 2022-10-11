@@ -33,7 +33,7 @@ def rtl_name(target):
 def generate_all(llvm_nm_binary, lib_dir, output_dir):
     # shared.rtl
     generate(llvm_nm_binary, os.path.join(lib_dir, os.pardir,
-             rtl_name('shared')), os.path.join(output_dir, 'shared.ll'), '%libdir/../{}'.format(rtl_name('shared')), False)
+             rtl_name('shared')), os.path.join(output_dir, 'shared.ll'), '%libdir/../{}'.format(rtl_name('shared')))
 
     for shortname, target in TARGET_MAP.items():
         generate(llvm_nm_binary, os.path.join(lib_dir, rtl_name(shortname)), os.path.join(
