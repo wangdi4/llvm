@@ -2761,21 +2761,6 @@ static int CalculateUnswitchCostMultiplier(
   return CostMultiplier;
 }
 
-<<<<<<< HEAD
-static bool unswitchBestCondition(
-    Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
-#if INTEL_CUSTOMIZATION
-    AAResults &AA, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
-#endif // INTEL CUSTOMIZATION
-    function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
-    ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
-    function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
-  // Collect all invariant conditions within this loop (as opposed to an inner
-  // loop which would be handled when visiting that inner loop).
-  SmallVector<std::pair<Instruction *, TinyPtrVector<Value *>>, 4>
-      UnswitchCandidates;
-
-=======
 static bool collectUnswitchCandidates(
     SmallVectorImpl<std::pair<Instruction *, TinyPtrVector<Value *> > > &
         UnswitchCandidates,
@@ -2783,7 +2768,6 @@ static bool collectUnswitchCandidates(
     const Loop &L, const LoopInfo &LI, AAResults &AA,
     const MemorySSAUpdater *MSSAU) {
   assert(UnswitchCandidates.empty() && "Should be!");
->>>>>>> 91aa9097ae52c39c0b077faf03ab58af0ee15d2d
   // Whether or not we should also collect guards in the loop.
   bool CollectGuards = false;
   if (UnswitchGuards) {
@@ -2863,7 +2847,11 @@ static bool collectUnswitchCandidates(
 
 static bool unswitchBestCondition(
     Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
-    AAResults &AA, TargetTransformInfo &TTI,
+    AAResults &AA,
+#if INTEL_CUSTOMIZATION
+    TargetLibraryInfo &TLI,
+#endif // INTEL CUSTOMIZATION
+    TargetTransformInfo &TTI,
     function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
     ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
     function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
