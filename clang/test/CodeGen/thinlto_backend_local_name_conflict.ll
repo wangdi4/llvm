@@ -5,11 +5,13 @@
 ; REQUIRES: x86-registered-target
 
 ; Do setup work for all below tests: generate bitcode and combined index
-; RUN: opt -module-summary -module-hash %s -o %t.bc
-; RUN: opt -module-summary -module-hash %p/Inputs/thinlto_backend_local_name_conflict1.ll -o %t2.bc
-; RUN: opt -module-summary -module-hash %p/Inputs/thinlto_backend_local_name_conflict2.ll -o %t3.bc
-; RUN: llvm-lto -thinlto-action=thinlink -o %t4.bc %t.bc %t2.bc %t3.bc
-; RUN: llvm-lto -thinlto-action=distributedindexes -exported-symbol=main -thinlto-index=%t4.bc %t.bc
+; INTEL_CUSTOMIZATION
+; RUN: opt -opaque-pointers -module-summary -module-hash %s -o %t.bc
+; RUN: opt -opaque-pointers -module-summary -module-hash %p/Inputs/thinlto_backend_local_name_conflict1.ll -o %t2.bc
+; RUN: opt -opaque-pointers -module-summary -module-hash %p/Inputs/thinlto_backend_local_name_conflict2.ll -o %t3.bc
+; RUN: llvm-lto -opaque-pointers -thinlto-action=thinlink -o %t4.bc %t.bc %t2.bc %t3.bc
+; RUN: llvm-lto -opaque-pointers -thinlto-action=distributedindexes -exported-symbol=main -thinlto-index=%t4.bc %t.bc
+; end INTEL_CUSTOMIZATION
 
 ; This module will import a() and b() which should cause the read only copy
 ; of baz from each of those modules to be imported. Check that the both are

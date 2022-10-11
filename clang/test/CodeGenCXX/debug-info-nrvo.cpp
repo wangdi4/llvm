@@ -1,9 +1,11 @@
-// RUN: %clangxx -target x86_64-unknown-unknown -g \
+// INTEL_CUSTOMIZATION
+// RUN: %clangxx -Xclang -opaque-pointers -target x86_64-unknown-unknown -g \
 // RUN:   %s -emit-llvm -S -o - | FileCheck %s
 
-// RUN: %clangxx -target x86_64-unknown-unknown -g \
+// RUN: %clangxx -Xclang -opaque-pointers -target x86_64-unknown-unknown -g \
 // RUN:   -fno-elide-constructors %s -emit-llvm -S -o - | \
 // RUN:   FileCheck %s -check-prefix=NOELIDE
+// end INTEL_CUSTOMIZATION
 
 struct Foo {
   Foo() = default;

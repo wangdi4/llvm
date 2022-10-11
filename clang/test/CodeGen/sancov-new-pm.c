@@ -1,6 +1,8 @@
 // Test that SanitizerCoverage works under the new pass manager.
-// RUN: %clang -target x86_64-linux-gnu -fsanitize=fuzzer %s -S -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-O0
-// RUN: %clang -target x86_64-linux-gnu -fsanitize=fuzzer %s -O2 -S -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-O2
+// INTEL_CUSTOMIZATION
+// RUN: %clang -Xclang -opaque-pointers -target x86_64-linux-gnu -fsanitize=fuzzer %s -S -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-O0
+// RUN: %clang -Xclang -opaque-pointers -target x86_64-linux-gnu -fsanitize=fuzzer %s -O2 -S -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-O2
+// end INTEL_CUSTOMIZATION
 
 extern void *memcpy(void *, const void *, unsigned long);
 extern int printf(const char *restrict, ...);
