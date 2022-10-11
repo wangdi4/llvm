@@ -1,7 +1,6 @@
 ; RUN: opt -opaque-pointers -auto-cpu-clone < %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
-; XFAIL: *
-
+; X
 
 ; CHECK:      @baz.ptr = internal global ptr null
 ; CHECK-NEXT: @__intel_cpu_feature_indicator = external global [2 x i64]

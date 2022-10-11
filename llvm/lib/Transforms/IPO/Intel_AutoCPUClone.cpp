@@ -142,6 +142,8 @@ static bool cloneFunctions(Module &M,
                            function_ref<TargetTransformInfo &(Function &)> GetTTI) {
 
   const Triple TT{M.getTargetTriple()};
+  if (TT.isOSWindows())
+    return false;
 
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
