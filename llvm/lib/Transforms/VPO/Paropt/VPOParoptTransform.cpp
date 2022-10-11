@@ -7762,8 +7762,14 @@ bool VPOParoptTransform::addFirstprivateForNormalizedUB(WRegionNode *W) {
     Value *V = L.getNormUB(i);
     FirstprivateClause &FP = W->getFpriv();
     FP.add(V);
-    LLVM_DEBUG(dbgs() << "addFirstprivateForNormalizedUB: Created Firstprivate "
-                         "Clause for NormalizedUB Var: "
+    FirstprivateItem *FPI = FP.back();
+    IntegerType *I64Ty =
+        Type::getInt64Ty(W->getEntryBBlock()->getParent()->getContext());
+    FPI->setIsTyped(true);
+    FPI->setNumElements(ConstantInt::get(I64Ty, 1));
+    FPI->setOrigItemElementTypeFromIR(L.getNormUBElemTy(i));
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Created Firstprivate Clause for NormalizedUB Var: "
                       << *V << "\n");
   }
   return true;
