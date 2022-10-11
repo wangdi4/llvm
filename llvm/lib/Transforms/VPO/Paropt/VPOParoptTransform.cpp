@@ -12988,8 +12988,10 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
       Value *NewCopyPrivInst =
           genPrivatizationAlloca(CprivI, InsertPt, ".cp.priv");
       genLprivFini(CprivI, NewCopyPrivInst, DstLoad, InsertPt); // (16)
-      NewCopyPrivInst->replaceAllUsesWith(SrcLoad);
-      cast<AllocaInst>(NewCopyPrivInst)->eraseFromParent();
+      auto *NewCopyPrivAllocaInst =
+          cast<AllocaInst>(NewCopyPrivInst->stripPointerCasts());
+      NewCopyPrivAllocaInst->replaceAllUsesWith(SrcLoad);
+      NewCopyPrivAllocaInst->eraseFromParent();
       continue;
     }
 
