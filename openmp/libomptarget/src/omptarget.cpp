@@ -1751,7 +1751,14 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
         TgtPtrBegin = TPR.TargetPointer;
         TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
       }
-      if (!TgtPtrBegin) {
+      if ((HstPtrBegin == TgtPtrBegin) &&
+          !TPR.isPresent() && !TPR.isHostPointer()) {
+        // Current getTgtPtrBegin retains the original host pointer if matching
+        // device pointer is not found. We need to keep the host pointer as is
+        // if it is found in the function pointer map, set it to null otherwise
+        // since our backend cannot take host pointer as a kernel pointer
+        // argument.
+
         // Check if the host pointer is a function pointer from declare target
         // indirect. We have an option to get host or device function pointer as
         // target argument, but use host pointer for now.
@@ -1760,12 +1767,9 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
           // Pass function pointer as literal kernel argument
           TgtPtrBegin = HstPtrBegin;
           TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
+        } else {
+          TgtPtrBegin = nullptr;
         }
-      } else if (!TPR.isPresent() && !TPR.isHostPointer()) {
-        // Current getTgtPtrBegin retains the original host pointer if matching
-        // device pointer is not found, but we cannot pass it as kernel
-        // argument.
-        TgtPtrBegin = nullptr;
       }
 #else // INTEL COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)
