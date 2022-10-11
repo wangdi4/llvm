@@ -22,13 +22,27 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+const Instruction *
+VPlanValueTrackingLLVM::tryToGetUnderlyingInst(const VPInstruction *VPInst) {
+  // FIXME: CtxI == NULL should probably mean the entry to the main loop.
+  return (VPInst && VPInst->isUnderlyingIRValid())
+             ? cast<Instruction>(VPInst->getUnderlyingValue())
+             : nullptr;
+}
+
 KnownBits VPlanValueTrackingLLVM::getKnownBits(VPlanSCEV *Expr,
                                                const VPInstruction *CtxI) {
-  // FIXME: CtxI == NULL should probably mean the entry to the main loop.
-  auto *UnderCtxI = (CtxI && CtxI->isUnderlyingIRValid())
-                        ? cast<Instruction>(CtxI->getUnderlyingValue())
-                        : nullptr;
-  return getKnownBitsImpl(VPSE->toSCEV(Expr), UnderCtxI);
+  return getKnownBitsImpl(VPSE->toSCEV(Expr), tryToGetUnderlyingInst(CtxI));
+}
+
+KnownBits VPlanValueTrackingLLVM::getKnownBits(const VPValue *Val,
+                                               const VPInstruction *CtxI) {
+  unsigned BitWidth = DL->getTypeSizeInBits(Val->getType());
+  Value *Underlying = Val->getUnderlyingValue();
+  if (!Underlying) {
+    return KnownBits(BitWidth);
+  }
+  return getKnownBitsImpl(Underlying, tryToGetUnderlyingInst(CtxI));
 }
 
 KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const SCEV *Scev,
@@ -81,4 +95,9 @@ KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const SCEV *Scev,
   }
 
   return KnownBits(BitWidth);
+}
+
+KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const Value *Val,
+                                                   const Instruction *CtxI) {
+  return computeKnownBits(Val, *DL, 0, AC, CtxI, DT);
 }

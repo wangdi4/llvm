@@ -16,10 +16,11 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
+#include "IntelVPAlignAssumeCleanup.h"
 #include "IntelVPMemRefTransform.h"
-#include "IntelVPTransformLibraryCalls.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
+#include "IntelVPTransformLibraryCalls.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
@@ -476,6 +477,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
+
+  VPAlignAssumeCleanup Cleanup(*Plan);
+  Cleanup.transform();
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
@@ -1613,6 +1617,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
+
+  VPAlignAssumeCleanup Cleanup(*Plan);
+  Cleanup.transform();
 
   bool TreeConflictsLowered = false;
 

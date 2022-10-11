@@ -8,10 +8,10 @@
 ; MaxArg should be 0 since the highest score for a parameter is the 1st one, the
 ; uniform pointer argument.
 
-; CHECK-LABEL: Attempting parameter matching of _ZGVxN2ulu_ with _ZGVdN2uvu_
+; CHECK-LABEL: Attempting parameter matching of _ZGVxN2ua16lu_ with _ZGVdN2uvu_
 ; CHECK-NEXT: Args matched variant parameters
 ; CHECK: MaxArg: 0
-; CHECK-NEXT: Score: 9
+; CHECK-NEXT: Score: 20
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Matched call to: _ZGVdN2uvu_
 

@@ -79,6 +79,8 @@ class VPValue {
   friend class VPLoopEntityList;
   friend class IndirectCallCodeGenerator;
   friend class VPLiveInOutCreator;
+  friend class VPlanValueTrackingLLVM;
+  friend class VPlanValueTrackingHIR;
 
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
