@@ -2361,6 +2361,8 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
     // accessing elem[i] within the inserted simd loop. This makes DD testing
     // harder, so run CSE here to do some clean-up before HIR construction.
     FPM.addPass(EarlyCSEPass());
+    // Propagate any alignment assumptions.
+    FPM.addPass(AlignmentFromAssumptionsPass());
   }
 
   // Restore potentially renamed UDR operands before LoopOpt and VPlan

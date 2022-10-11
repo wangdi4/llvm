@@ -21,6 +21,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCALLVECDECISIONS_H
 
 #include "IntelVPlan.h"
+#include "IntelVPlanAlignmentAnalysis.h"
 
 namespace llvm {
 

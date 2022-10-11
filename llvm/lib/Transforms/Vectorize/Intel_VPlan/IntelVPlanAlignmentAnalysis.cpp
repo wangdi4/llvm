@@ -448,6 +448,22 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
   llvm_unreachable("Unsupported peeling variant");
 }
 
+MaybeAlign
+VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
+                                             const VPInstruction *CtxI) const {
+  assert(Val->getType()->isPointerTy() &&
+         "Can only get alignment for pointer values!");
+
+  // See if we can obtain the value's alignment from its known bits.
+  KnownBits KB = VPVT->getKnownBits(Val, CtxI);
+  if (!KB.isUnknown()) {
+    return Align{1ULL << KB.countMinTrailingZeros()};
+  }
+
+  // Otherwise, assume no known alignment
+  return None;
+}
+
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     const VPLoadStoreInst &Memref, VPlanStaticPeeling &SP) const {
   Align AlignFromIR = Memref.getAlignment();
