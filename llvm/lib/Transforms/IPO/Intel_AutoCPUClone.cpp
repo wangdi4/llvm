@@ -327,6 +327,16 @@ static bool cloneFunctions(Module &M,
     std::string FnAttr = GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false";
     Fn.addFnAttr("advanced-optim", FnAttr);
     Resolver->addFnAttr("advanced-optim", FnAttr);
+
+    if (Fn.hasFnAttribute("tune-cpu"))
+      Resolver->addFnAttr(Fn.getFnAttribute("tune-cpu"));
+
+    if (Fn.hasFnAttribute("target-cpu"))
+      Resolver->addFnAttr(Fn.getFnAttribute("target-cpu"));
+
+    if (Fn.hasFnAttribute("target-features"))
+      Resolver->addFnAttr(Fn.getFnAttribute("target-features"));
+
     Changed = true;
   }
 
