@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DeduceMaxWGDim.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -42,11 +43,13 @@ public:
   bool runOnModule(Module &M) override {
     BuiltinLibInfo *BLI =
         &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    return Impl.runImpl(M, BLI->getRuntimeService());
+    CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+    return Impl.runImpl(M, BLI->getRuntimeService(), CG);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
+    AU.addRequired<CallGraphWrapperPass>();
     // Only modifies metadata.
     AU.setPreservesAll();
   }
@@ -60,6 +63,7 @@ INITIALIZE_PASS_BEGIN(
     DeduceMaxWGDimLegacy, DEBUG_TYPE,
     "Deduce the maximum WG dimemsion that needs to be executed", false, false)
 INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_END(DeduceMaxWGDimLegacy, DEBUG_TYPE,
                     "Deduce the maximum WG dimemsion that needs to be executed",
                     false, false)
@@ -68,43 +72,33 @@ ModulePass *llvm::createDeduceMaxWGDimLegacyPass() {
   return new DeduceMaxWGDimLegacy();
 }
 
-bool DeduceMaxWGDimPass::runImpl(Module &M, RuntimeService &RTS) {
-  LoopUtils::fillAtomicBuiltinUsers(M, RTS, ForbiddenFuncUsers);
-  LoopUtils::fillInternalFuncUsers(M, ForbiddenFuncUsers);
-  LoopUtils::fillWorkItemPipeBuiltinUsers(M, ForbiddenFuncUsers);
-  LoopUtils::fillPrintfs(M, ForbiddenFuncUsers);
-
-  // Run on all scalar kernels.
-  bool Changed = false;
-  FuncSet Kernels = getAllKernels(M);
-  for (auto *F : Kernels)
-    if (!F->hasOptNone())
-      Changed |= runOnFunction(*F);
-
-  return Changed;
-}
-
-bool DeduceMaxWGDimPass::runOnFunction(Function &F) {
-  if (ForbiddenFuncUsers.contains(&F))
-    return false;
-
+static bool runOnFunction(Function &F, CallGraph &CG) {
   // If we have subgroups, then at least one vector iteration is expected,
   // it can't be achieved without a loop.
   auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
   if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get())
     return false;
 
-  SmallVector<CallInst *, 8> TIDCalls;
-  LoopUtils::getAllCallInFunc(mangledGetGID(), &F, TIDCalls);
-  LoopUtils::getAllCallInFunc(mangledGetLID(), &F, TIDCalls);
-
   int MaxDim = -1;
-  for (auto *I : TIDCalls) {
-    auto *Dim = dyn_cast<ConstantInt>(I->getOperand(0));
-    // If dimension argument is not a constant, fail.
-    if (!Dim)
-      return false;
-    MaxDim = std::max(MaxDim, int(Dim->getZExtValue()));
+  std::string GID = mangledGetGID();
+  std::string LID = mangledGetLID();
+
+  CallGraphNode *N = CG[&F];
+  for (auto It = df_begin(N), E = df_end(N); It != E; ++It) {
+    for (const auto &Pair : **It) {
+      if (!Pair.first)
+        continue;
+      auto *Callee = Pair.second->getFunction();
+      if (!Callee)
+        continue;
+      StringRef CalleeName = Callee->getName();
+      if (CalleeName != GID && CalleeName != LID)
+        continue;
+
+      const auto *CI = cast<CallInst>(*Pair.first);
+      auto *Dim = cast<ConstantInt>(CI->getOperand(0));
+      MaxDim = std::max(MaxDim, int(Dim->getZExtValue()));
+    }
   }
 
   // No point in saying that kernel needs 3D.
@@ -116,10 +110,28 @@ bool DeduceMaxWGDimPass::runOnFunction(Function &F) {
   return true;
 }
 
+bool DeduceMaxWGDimPass::runImpl(Module &M, RuntimeService &RTS,
+                                 CallGraph &CG) {
+  FuncSet ForbiddenFuncUsers;
+  LoopUtils::fillAtomicBuiltinUsers(M, RTS, ForbiddenFuncUsers);
+  LoopUtils::fillWorkItemPipeBuiltinUsers(M, ForbiddenFuncUsers);
+  LoopUtils::fillPrintfs(M, ForbiddenFuncUsers);
+
+  // Run on all scalar kernels.
+  bool Changed = false;
+  FuncSet Kernels = getAllKernels(M);
+  for (auto *F : Kernels)
+    if (!F->hasOptNone() && !ForbiddenFuncUsers.contains(F))
+      Changed |= runOnFunction(*F, CG);
+
+  return Changed;
+}
+
 PreservedAnalyses DeduceMaxWGDimPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
   BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
-  (void)runImpl(M, BLI->getRuntimeService());
+  CallGraph &CG = AM.getResult<CallGraphAnalysis>(M);
+  (void)runImpl(M, BLI->getRuntimeService(), CG);
   // Only modifies metadata.
   return PreservedAnalyses::all();
 }
