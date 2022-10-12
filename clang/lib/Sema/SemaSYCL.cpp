@@ -960,9 +960,25 @@ class SingleDeviceFunctionTracker {
   void Init() {
     CallGraphNode *KernelNode = Parent.getNodeForKernel(SYCLKernel);
     llvm::SmallVector<FunctionDecl *> CallStack;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     VisitCallNode(KernelNode, GetFDFromNode(KernelNode), nullptr, CallStack);
 #endif // INTEL_CUSTOMIZATION
+=======
+    VisitCallNode(KernelNode, GetFDFromNode(KernelNode), CallStack);
+
+    // Always inline the KernelBody in the kernel entry point. For ESIMD
+    // inlining is handled later down the pipeline.
+    if (KernelBody &&
+        Parent.SemaRef.getLangOpts().SYCLForceInlineKernelLambda &&
+        !KernelBody->hasAttr<NoInlineAttr>() &&
+        !KernelBody->hasAttr<AlwaysInlineAttr>() &&
+        !KernelBody->hasAttr<SYCLSimdAttr>()) {
+      KernelBody->addAttr(AlwaysInlineAttr::CreateImplicit(
+          KernelBody->getASTContext(), {}, AttributeCommonInfo::AS_Keyword,
+          AlwaysInlineAttr::Keyword_forceinline));
+    }
+>>>>>>> b91b732783fb1cabac6652945deb9e6662480960
   }
 
 public:
