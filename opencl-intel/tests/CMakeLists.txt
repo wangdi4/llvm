@@ -1,3 +1,15 @@
+# Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 # The conformance tests must be compiled with the headers located in
 # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}
 # Therefore, it must be added to the include directories only after
@@ -102,6 +114,9 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
 )
 
+# An umbrella target for all OpenCL runtime tests.
+umbrella_lit_testsuite_begin(check-ocl-runtime)
+
 # Unittests
 add_subdirectory( test_utils )
 include_directories( test_utils/export )
@@ -131,29 +146,6 @@ if (INCLUDE_CMRT)
   endif (NOT BUILD_X64)
 endif(INCLUDE_CMRT)
 
-# Main unittests target
-
-list(APPEND RUNTIME_UNITTESTS
-  framework_test_type
-  tbb_native_test_type
-  task_executor_test_type
-  FrontendDriver_test_type
-  cpu_device_test_type
-  backend_test_type
-  name_mangling_test_type
-  metadata_api_test_type
-  subgroup_test_type
-  bi_test_type
-)
-if (NOT ${ADDR} STREQUAL "32")
-  list(APPEND RUNTIME_UNITTESTS fpga_test_type )
-endif (NOT ${ADDR} STREQUAL "32")
-
-add_lit_testsuite(check-ocl-runtime "Running the OpenCL Runtime unittests"
-  ${CMAKE_CURRENT_BINARY_DIR}
-  PARAMS ${RT_TEST_PARAMS}
-  DEPENDS ${RUNTIME_UNITTESTS} ${OCL_RT_TEST_DEPS}
-  ARGS ${RT_TEST_ARGS}
-)
+umbrella_lit_testsuite_end(check-ocl-runtime)
 
 set_target_properties(check-ocl-runtime PROPERTIES FOLDER "Tests")
