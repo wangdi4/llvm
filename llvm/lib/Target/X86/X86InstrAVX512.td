@@ -16055,6 +16055,15 @@ defm VPHRXORW : avx512_reduction_2op_mb<0x4f, "vphrxorw", avx512vl_i16_info,
                 avx512vl_i16_info, X86vphrxor>, T_MAP5PS, VEX_W;
 defm VPHRXORDQ : avx512_reduction_2op_dq<0x47, "vphrxordq">;
 defm VPHRXORQQ : avx512_reduction_2op_qq<0x47, "vphrxorqq">;
+
+let Predicates = [HasAVX512REDUCTION] in {
+  def : Pat<(i64 (vecreduce_add (v8i64 VR512:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRADDQZrr VR512:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_add (v4i64 VR256:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRADDQZ256rr VR256:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_add (v2i64 VR128:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRADDQZ128rr VR128:$src), GR64))>;
+}
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION2
 multiclass avx512_reduction2_3op_packed<bits<8> opc, string OpcodeStr,

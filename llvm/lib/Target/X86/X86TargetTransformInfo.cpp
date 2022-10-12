@@ -6441,6 +6441,28 @@ bool X86TTIImpl::isLegalMaskedCompressStore(Type *DataTy) {
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+bool X86TTIImpl::shouldExpandReduction(const IntrinsicInst *II) const {
+  if (!ST->hasAVX512REDUCTION())
+    return true;
+  switch (II->getIntrinsicID()) {
+  default:
+    return true;
+  // These reductions have equivalent in avx512-reduction
+  case Intrinsic::vector_reduce_add:
+  // TODO
+  // case Intrinsic::vector_reduce_and:
+  // case Intrinsic::vector_reduce_or:
+  // case Intrinsic::vector_reduce_xor:
+  // case Intrinsic::vector_reduce_smax:
+  // case Intrinsic::vector_reduce_smin:
+  // case Intrinsic::vector_reduce_umax:
+  // case Intrinsic::vector_reduce_umin:
+    return false;
+  }
+}
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+
 bool X86TTIImpl::isIntelAdvancedOptimEnabled() const {
   const TargetMachine &TM = getTLI()->getTargetMachine();
   return TM.Options.IntelAdvancedOptim;
