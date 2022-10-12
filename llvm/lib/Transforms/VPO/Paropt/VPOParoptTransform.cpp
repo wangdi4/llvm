@@ -8288,6 +8288,13 @@ bool VPOParoptTransform::genLastPrivatizationCode(
         FirstprivateItem FprivI(Orig);
         FprivI.setNew(LprivI->getNew());
         FprivI.setIsByRef(LprivI->getIsByRef());
+        if (LprivI->getIsTyped()) {
+          FprivI.setIsTyped(true);
+          FprivI.setOrigItemElementTypeFromIR(
+              LprivI->getOrigItemElementTypeFromIR());
+          FprivI.setNumElements(LprivI->getNumElements());
+        }
+
         // We do not care about CopyConstructor of the fake firstprivate
         // item, because conditional lastprivate may only reference
         // a scalar variable (potentially, by reference).
