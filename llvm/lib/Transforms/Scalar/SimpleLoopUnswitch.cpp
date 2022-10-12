@@ -2078,8 +2078,8 @@ void visitDomSubTree(DominatorTree &DT, BasicBlock *BB, CallableT Callable) {
 
 static void unswitchNontrivialInvariants(
     Loop &L, Instruction &TI, ArrayRef<Value *> Invariants,
-    SmallVectorImpl<BasicBlock *> &ExitBlocks, IVConditionInfo &PartialIVInfo,
-    DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
+    IVConditionInfo &PartialIVInfo, DominatorTree &DT, LoopInfo &LI,
+    AssumptionCache &AC,
     function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
     ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
     function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
@@ -2160,6 +2160,8 @@ static void unswitchNontrivialInvariants(
   // furthest up our loopnest which can be mutated, which we will use below to
   // update things.
   Loop *OuterExitL = &L;
+  SmallVector<BasicBlock *, 4> ExitBlocks;
+  L.getUniqueExitBlocks(ExitBlocks);
   for (auto *ExitBB : ExitBlocks) {
     Loop *NewOuterExitL = LI.getLoopFor(ExitBB);
     if (!NewOuterExitL) {
@@ -2605,10 +2607,9 @@ static InstructionCost computeDomSubtreeCost(
 ///
 /// It also makes all relevant DT and LI updates, so that all structures are in
 /// valid state after this transform.
-static BranchInst *
-turnGuardIntoBranch(IntrinsicInst *GI, Loop &L,
-                    SmallVectorImpl<BasicBlock *> &ExitBlocks,
-                    DominatorTree &DT, LoopInfo &LI, MemorySSAUpdater *MSSAU) {
+static BranchInst *turnGuardIntoBranch(IntrinsicInst *GI, Loop &L,
+                                       DominatorTree &DT, LoopInfo &LI,
+                                       MemorySSAUpdater *MSSAU) {
   SmallVector<DominatorTree::UpdateType, 4> DTUpdates;
   LLVM_DEBUG(dbgs() << "Turning " << *GI << " into a branch.\n");
   BasicBlock *CheckBB = GI->getParent();
@@ -2634,9 +2635,6 @@ turnGuardIntoBranch(IntrinsicInst *GI, Loop &L,
   GuardedBlock->setName("guarded");
   CheckBI->getSuccessor(1)->setName("deopt");
   BasicBlock *DeoptBlock = CheckBI->getSuccessor(1);
-
-  // We now have a new exit block.
-  ExitBlocks.push_back(CheckBI->getSuccessor(1));
 
   if (MSSAU)
     MSSAU->moveAllAfterSpliceBlocks(CheckBB, GuardedBlock, GI);
@@ -2855,7 +2853,7 @@ struct NonTrivialUnswitchCandidate {
 };
 } // end anonymous namespace.
 
-static bool isSafeToClone(const Loop &L) {
+static bool isSafeForNoNTrivialUnswitching(Loop &L, LoopInfo &LI) {
   if (!L.isSafeToClone())
     return false;
   for (auto *BB : L.blocks())
@@ -2868,6 +2866,33 @@ static bool isSafeToClone(const Loop &L) {
           return false;
       }
     }
+
+  // Check if there are irreducible CFG cycles in this loop. If so, we cannot
+  // easily unswitch non-trivial edges out of the loop. Doing so might turn the
+  // irreducible control flow into reducible control flow and introduce new
+  // loops "out of thin air". If we ever discover important use cases for doing
+  // this, we can add support to loop unswitch, but it is a lot of complexity
+  // for what seems little or no real world benefit.
+  LoopBlocksRPO RPOT(&L);
+  RPOT.perform(&LI);
+  if (containsIrreducibleCFG<const BasicBlock *>(RPOT, LI))
+    return false;
+
+  SmallVector<BasicBlock *, 4> ExitBlocks;
+  L.getUniqueExitBlocks(ExitBlocks);
+  // We cannot unswitch if exit blocks contain a cleanuppad/catchswitch
+  // instruction as we don't know how to split those exit blocks.
+  // FIXME: We should teach SplitBlock to handle this and remove this
+  // restriction.
+  for (auto *ExitBB : ExitBlocks) {
+    auto *I = ExitBB->getFirstNonPHI();
+    if (isa<CleanupPadInst>(I) || isa<CatchSwitchInst>(I)) {
+      LLVM_DEBUG(dbgs() << "Cannot unswitch because of cleanuppad/catchswitch "
+                           "in exit block\n");
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -3038,33 +3063,6 @@ static bool unswitchBestCondition(
                                  PartialIVCondBranch, L, LI, AA, MSSAU))
     return false;
 
-  // Check if there are irreducible CFG cycles in this loop. If so, we cannot
-  // easily unswitch non-trivial edges out of the loop. Doing so might turn the
-  // irreducible control flow into reducible control flow and introduce new
-  // loops "out of thin air". If we ever discover important use cases for doing
-  // this, we can add support to loop unswitch, but it is a lot of complexity
-  // for what seems little or no real world benefit.
-  LoopBlocksRPO RPOT(&L);
-  RPOT.perform(&LI);
-  if (containsIrreducibleCFG<const BasicBlock *>(RPOT, LI))
-    return false;
-
-  SmallVector<BasicBlock *, 4> ExitBlocks;
-  L.getUniqueExitBlocks(ExitBlocks);
-
-  // We cannot unswitch if exit blocks contain a cleanuppad/catchswitch
-  // instruction as we don't know how to split those exit blocks.
-  // FIXME: We should teach SplitBlock to handle this and remove this
-  // restriction.
-  for (auto *ExitBB : ExitBlocks) {
-    auto *I = ExitBB->getFirstNonPHI();
-    if (isa<CleanupPadInst>(I) || isa<CatchSwitchInst>(I)) {
-      LLVM_DEBUG(dbgs() << "Cannot unswitch because of cleanuppad/catchswitch "
-                           "in exit block\n");
-      return false;
-    }
-  }
-
   LLVM_DEBUG(
       dbgs() << "Considering " << UnswitchCandidates.size()
              << " non-trivial loop invariant conditions for unswitching.\n");
@@ -3085,8 +3083,8 @@ static bool unswitchBestCondition(
 
   // If the best candidate is a guard, turn it into a branch.
   if (isGuard(Best.TI))
-    Best.TI = turnGuardIntoBranch(cast<IntrinsicInst>(Best.TI), L, ExitBlocks,
-                                   DT, LI, MSSAU);
+    Best.TI =
+        turnGuardIntoBranch(cast<IntrinsicInst>(Best.TI), L, DT, LI, MSSAU);
 #if INTEL_CUSTOMIZATION
   if (unswitchingMayAffectPerfectLoopnest(LI, L, Best.TI, TLI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L.getHeader()->getName()
@@ -3101,9 +3099,8 @@ static bool unswitchBestCondition(
 #endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = " << Best.Cost
                     << ") terminator: " << *Best.TI << "\n");
-  unswitchNontrivialInvariants(L, *Best.TI, Best.Invariants, ExitBlocks,
-                               PartialIVInfo, DT, LI, AC, UnswitchCB, SE, MSSAU,
-                               DestroyLoopCB);
+  unswitchNontrivialInvariants(L, *Best.TI, Best.Invariants, PartialIVInfo, DT,
+                               LI, AC, UnswitchCB, SE, MSSAU, DestroyLoopCB);
   return true;
 }
 
@@ -3181,8 +3178,8 @@ unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
     return false;
   }
 
-  // Skip non-trivial unswitching for loops that cannot be cloned.
-  if (!isSafeToClone(L))
+  // Perform legality checks.
+  if (!isSafeForNoNTrivialUnswitching(L, LI))
     return false;
 
   // For non-trivial unswitching, because it often creates new loops, we rely on
