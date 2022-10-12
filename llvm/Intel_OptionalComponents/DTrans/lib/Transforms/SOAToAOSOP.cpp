@@ -643,7 +643,7 @@ bool SOAToAOSOPTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
   unsigned Cnt = 0;
   bool UnknownSeen = false;
-  for (auto Tuple :
+  for (const auto &Tuple :
        zip_first(methodsets(), fields(), elements(), ArrayFieldOffsets)) {
     ++Cnt;
 
@@ -759,7 +759,7 @@ bool SOAToAOSOPTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     assert(Running.size() == Pivot.size() &&
            "Missing checks in array method classification");
     GlobalNumberState GNS;
-    for (auto Pair : zip(Pivot, Running)) {
+    for (const auto &Pair : zip(Pivot, Running)) {
       auto *F = std::get<0>(Pair);
       auto *O = std::get<1>(Pair);
       FunctionComparator CmpFunc(F, O, &GNS);

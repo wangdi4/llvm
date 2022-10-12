@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -882,7 +882,7 @@ private:
     if (Call1->getParent() != Call2->getParent())
       return false;
 
-    for (auto P : zip_first(Call1->args(), Call2->args())) {
+    for (const auto &P : zip_first(Call1->args(), Call2->args())) {
       auto *A1 = std::get<0>(P).get();
       auto *A2 = std::get<1>(P).get();
       if (A1 == A2)
@@ -947,8 +947,8 @@ private:
     SmallPtrSet<const Instruction *, 4> KnownInsts;
     auto CallPivot = CSs[0];
     auto OffPivot = Offsets[0];
-    for (auto P : zip(make_range(CSs.begin() + 1, CSs.end()),
-                      make_range(Offsets.begin() + 1, Offsets.end())))
+    for (const auto &P : zip(make_range(CSs.begin() + 1, CSs.end()),
+                             make_range(Offsets.begin() + 1, Offsets.end())))
       if (!compareAppendCallSites(CallPivot, std::get<0>(P), OffPivot,
                                   std::get<1>(P)))
         return false;
@@ -1084,7 +1084,7 @@ private:
     } else
       return false;
 
-    for (auto PA : zip_first(Call1->args(), Call2->args())) {
+    for (const auto &PA : zip_first(Call1->args(), Call2->args())) {
       auto *A1 = std::get<0>(PA).get();
       auto *A2 = std::get<1>(PA).get();
       if (Args.count(A1)) {
@@ -1368,7 +1368,7 @@ private:
     DenseMap<const Value *, const Value *> ValueRemapper;
     ValueRemapper[FreePtr1] = FreePtr2;
     // Compare cleanup BBs.
-    for (auto P : zip_first(*BB1, *BB2)) {
+    for (const auto &P : zip_first(*BB1, *BB2)) {
       auto &I1 = std::get<0>(P);
       auto &I2 = std::get<1>(P);
 
@@ -1401,7 +1401,7 @@ private:
         continue;
       }
 
-      for (auto PO : zip_first(I1.operands(), I2.operands())) {
+      for (const auto &PO : zip_first(I1.operands(), I2.operands())) {
         auto *Op1 = std::get<0>(PO).get();
         auto *Op2 = std::get<1>(PO).get();
         if (Op1 != Op2 && ValueRemapper[Op1] != Op2)
@@ -1411,7 +1411,7 @@ private:
       if (I1.getNumUses() != I2.getNumUses())
         return false;
 
-      for (auto PU : zip_first(I1.uses(), I2.uses())) {
+      for (const auto &PU : zip_first(I1.uses(), I2.uses())) {
         auto *U1 = dyn_cast<Instruction>(std::get<0>(PU).getUser());
         auto *U2 = dyn_cast<Instruction>(std::get<1>(PU).getUser());
         if (!U1 || !U2)
@@ -1450,7 +1450,7 @@ private:
     //  - memory interface access (relying on fact it is only copied around);
     //  - second parameter in copy-ctor should be derived from 2nd argument.
     bool ThisArg = true;
-    for (auto P : zip_first(Call1->args(), Call2->args())) {
+    for (const auto &P : zip_first(Call1->args(), Call2->args())) {
       auto *A1 = std::get<0>(P).get()->stripPointerCasts();
       auto *A2 = std::get<1>(P).get()->stripPointerCasts();
 
@@ -1498,8 +1498,8 @@ private:
     auto CallPivot = CtorCSs[0];
     auto OffPivot = Offsets[0];
 
-    for (auto P : zip(make_range(CtorCSs.begin() + 1, CtorCSs.end()),
-                      make_range(Offsets.begin() + 1, Offsets.end()))) {
+    for (const auto &P : zip(make_range(CtorCSs.begin() + 1, CtorCSs.end()),
+                             make_range(Offsets.begin() + 1, Offsets.end()))) {
       const CallBase *Call = std::get<0>(P);
       auto Off = std::get<1>(P);
       if (!compareCtorCalls(CallPivot, Call, OffPivot, Off, false))
@@ -1524,8 +1524,8 @@ private:
     if (CallPivot->arg_size() != 2)
       return false;
 
-    for (auto P : zip(make_range(CCtorCSs.begin() + 1, CCtorCSs.end()),
-                      make_range(Offsets.begin() + 1, Offsets.end()))) {
+    for (const auto &P : zip(make_range(CCtorCSs.begin() + 1, CCtorCSs.end()),
+                             make_range(Offsets.begin() + 1, Offsets.end()))) {
       const CallBase *Call = std::get<0>(P);
       auto Off = std::get<1>(P);
       if (!compareCtorCalls(CallPivot, Call, OffPivot, Off, true))
@@ -1614,8 +1614,8 @@ private:
     const CallBase *CallPivot = DtorCSs[0];
     auto OffPivot = Offsets[0];
 
-    for (auto P : zip(make_range(DtorCSs.begin() + 1, DtorCSs.end()),
-                      make_range(Offsets.begin() + 1, Offsets.end()))) {
+    for (const auto &P : zip(make_range(DtorCSs.begin() + 1, DtorCSs.end()),
+                             make_range(Offsets.begin() + 1, Offsets.end()))) {
       const CallBase *Call = std::get<0>(P);
       auto Off = std::get<1>(P);
       if (!compareDtorCalls(CallPivot, Call, OffPivot, Off))
@@ -2246,11 +2246,8 @@ public:
     // No instruction removed.
     for (auto *I : InstsToTransform.ArrayInstToTransform)
       if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
-        const Value *OldPtr = nullptr;
-        if (auto *L = dyn_cast<LoadInst>(I))
-          OldPtr = L->getPointerOperand();
-        else if (auto *SI = dyn_cast<StoreInst>(I))
-          OldPtr = SI->getPointerOperand();
+        const Value *OldPtr = getLoadStorePointerOperand(I);
+        assert(OldPtr && "Load/Store must have pointer operand");
 
         if (isBitCastLikeGep(DL, OldPtr))
           continue;
