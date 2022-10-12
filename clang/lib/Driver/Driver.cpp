@@ -7515,14 +7515,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     }
   }
 
-<<<<<<< HEAD
-  // Builder to be used to build offloading actions.
-  OffloadingActionBuilder OffloadBuilder(C, Args, Inputs);
-
-  // TODO: Do not use the new offloading driver at this time. Offloading
-  // support for spir64 targets is not in place with this new path.
-=======
->>>>>>> 92d012b2a668096d3bd6ea13c585b157f1f82509
   bool UseNewOffloadingDriver =
       (C.isOffloadingHostKind(Action::OFK_OpenMP) &&
        Args.hasFlag(options::OPT_fopenmp_new_driver,
@@ -7672,16 +7664,11 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
   // With static fat archives we need to create additional steps for
   // generating dependence objects for device link actions.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if ((!LinkerInputs.empty() || HasIntelSYCLPerflib(C, Args)) &&
       C.getDriver().getOffloadStaticLibSeen())
 #endif // INTEL_CUSTOMIZATION
-    OffloadBuilder.addDeviceLinkDependenciesFromHost(LinkerInputs);
-=======
-  if (!LinkerInputs.empty() && C.getDriver().getOffloadStaticLibSeen())
     OffloadBuilder->addDeviceLinkDependenciesFromHost(LinkerInputs);
->>>>>>> 92d012b2a668096d3bd6ea13c585b157f1f82509
 
   OffloadBuilder->unbundleStaticArchives(C, Args, PL);
 
