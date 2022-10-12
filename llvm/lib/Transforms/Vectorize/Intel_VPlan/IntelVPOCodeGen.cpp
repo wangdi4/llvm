@@ -2053,11 +2053,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
   case VPInstruction::RunningInclusiveReduction: {
     auto RunningReduction = cast<VPRunningInclusiveReduction>(VPInst);
-    vectorizeRunningInclusiveReduction(RunningReduction);
+    VPWidenMap[RunningReduction] = vectorizeRunningReduction(RunningReduction);
     return;
   }
   case VPInstruction::RunningExclusiveReduction: {
-    llvm_unreachable("RunningExclusiveReduction is not implemented yet!");
+    auto RunningReduction = cast<VPRunningExclusiveReduction>(VPInst);
+    VPWidenMap[RunningReduction] = vectorizeRunningReduction(RunningReduction);
     return;
   }
   case VPInstruction::ExtractLastVectorLane: {
@@ -4152,10 +4153,16 @@ void VPOCodeGen::vectorizePrivateFinalUncond(VPInstruction *VPInst) {
   VPScalarMap[VPInst][0] = Ret;
 }
 
-void VPOCodeGen::vectorizeRunningInclusiveReduction(
-    VPRunningInclusiveReduction *RunningReduction) {
-  // Here and below examples are for a case of integer sum reduction, VF = 4.
+template<class RunningReductionTy>
+Value *VPOCodeGen::vectorizeRunningReduction(
+    RunningReductionTy *RunningReduction) {
   // Operation as follows.
+  // <4 x Ty> running-exclusive-reduction(<4 x Ty> vx, Ty x) {
+  // return [vx2 + vx1 + vx0 + x,
+  //         vx1 + vx0 + x,
+  //         vx0 + x,
+  //         x];
+  //
   // <4 x Ty> running-inclusive-reduction(<4 x Ty> vx, Ty x) {
   //   return [vx3 + vx2 + vx1 + vx0 + x,
   //           vx2 + vx1 + vx0 + x,
@@ -4163,7 +4170,17 @@ void VPOCodeGen::vectorizeRunningInclusiveReduction(
   //           vx0 + x];
   //  }
 
-  // This can be optimized since some of the additions are repeated across
+  Value *Input = getVectorValue(RunningReduction->getInputOperand());
+  Value *CarryOver = getVectorValue(RunningReduction->getCarryOverOperand());
+  Value *IdentityValue = getVectorValue(RunningReduction->getIdentityOperand());
+  auto BinOpCode =
+    static_cast<Instruction::BinaryOps>(RunningReduction->getBinOpcode());
+
+  FastMathFlags FMF;
+  if (RunningReduction->hasFastMathFlags())
+    FMF = RunningReduction->getFastMathFlags();
+
+  // Routine can be optimized since some of the additions are repeated across
   // different vector lanes. The following approach asks for 2 shuffles and
   // 2 additions.
   // %shuf1 = shufflevector %vx, zeroinitalizer, <4, 0, 1, 2>
@@ -4190,22 +4207,14 @@ void VPOCodeGen::vectorizeRunningInclusiveReduction(
   // on the second step we displace VF / 2 ** 1 = 2 elements.
   // We need only log(VF) = 2 steps to complete scan reduction.
   //
-  Value *Input = getVectorValue(RunningReduction->getInputOperand());
-  Value *CarryOver = getVectorValue(RunningReduction->getCarryOverOperand());
-  Value *IdentityValue = getVectorValue(RunningReduction->getIdentityOperand());
-
   unsigned Step = 1;
   unsigned Steps = Log2_64(VF);
   unsigned i = 0, j = 1;
   Value *LastReduced = Input;
-  auto BinOpCode =
-    static_cast<Instruction::BinaryOps>(RunningReduction->getBinOpcode());
 
-  // Utility to set FastMathFlags for generated instructions.
-  auto SetFastMathFlags = [RunningReduction](Value *V) {
-    if (isa<FPMathOperator>(V) && RunningReduction->hasFastMathFlags())
-      cast<Instruction>(V)->setFastMathFlags(
-        RunningReduction->getFastMathFlags());
+  auto SetFastMathFlags = [=](Value *V) {
+    if (isa<FPMathOperator>(V))
+      cast<Instruction>(V)->setFastMathFlags(FMF);
   };
 
   while (Step <= Steps) {
@@ -4232,12 +4241,22 @@ void VPOCodeGen::vectorizeRunningInclusiveReduction(
     SetFastMathFlags(LastReduced);
   }
 
+  if (std::is_same<RunningReductionTy, VPRunningExclusiveReduction>::value) {
+    // Exclusive scan is different from inclusive with an additional shuffle.
+    // [x0, x1, x2, x3] -> [identity_value, x0, x1, x2]
+    SmallVector<int, 8> ShufMask;
+    ShufMask.push_back(VF); // Pick one element from Identity vector.
+    for (unsigned k = 0; k < VF - 1; k++)
+      ShufMask.push_back(k);
+    LastReduced =
+      Builder.CreateShuffleVector(LastReduced, IdentityValue, ShufMask);
+  }
+
   // Reduce with the carry-over value from the previous iteration.
   LastReduced = Builder.CreateBinOp(BinOpCode, LastReduced, CarryOver);
   SetFastMathFlags(LastReduced);
 
-  VPWidenMap[RunningReduction] = LastReduced;
-  return;
+  return LastReduced;
 }
 
 void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
