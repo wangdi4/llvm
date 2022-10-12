@@ -453,6 +453,11 @@ include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
 add_subdirectory(externals)
 
+# An umbrella target for all tests inside current folder.
+if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
+  umbrella_lit_testsuite_begin(check-ocl-all)
+endif()
+
 # Compiler
 add_subdirectory( FrontendDriver )
 
@@ -478,24 +483,10 @@ if (OPENCL_RT_INCLUDE_TESTS)
     add_subdirectory( tests )
 endif (OPENCL_RT_INCLUDE_TESTS)
 
-# An umbrella target for all tests under LIT infra.
-# Add a global check rule now that all subdirectories have been traversed
-# and we know the total set of lit testsuites.
-get_property(LLVM_ALL_LIT_TESTSUITES GLOBAL PROPERTY LLVM_ALL_LIT_TESTSUITES)
-get_property(LLVM_ALL_LIT_PARAMS GLOBAL PROPERTY LLVM_ALL_LIT_PARAMS)
-get_property(LLVM_ALL_LIT_DEPENDS GLOBAL PROPERTY LLVM_ALL_LIT_DEPENDS)
-get_property(LLVM_ALL_LIT_EXTRA_ARGS GLOBAL PROPERTY LLVM_ALL_LIT_EXTRA_ARGS)
-get_property(LLVM_ALL_ADDITIONAL_TEST_TARGETS
-             GLOBAL PROPERTY LLVM_ALL_ADDITIONAL_TEST_TARGETS)
-get_property(LLVM_ALL_ADDITIONAL_TEST_DEPENDS
-             GLOBAL PROPERTY LLVM_ALL_ADDITIONAL_TEST_DEPENDS)
-add_lit_target(check-ocl-all
-  "Running all OpenCL regression tests"
-  ${LLVM_ALL_LIT_TESTSUITES}
-  PARAMS ${LLVM_ALL_LIT_PARAMS}
-  DEPENDS ${LLVM_ALL_LIT_DEPENDS} ${LLVM_ALL_ADDITIONAL_TEST_TARGETS}
-  ARGS ${LLVM_ALL_LIT_EXTRA_ARGS}
-  )
+if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
+  umbrella_lit_testsuite_end(check-ocl-all)
+  set_target_properties(check-ocl-all PROPERTIES FOLDER "Tests")
+endif()
 
 if (NOT OPENCL_INTREE_BUILD)
   set(INTEL_DEPLOY_COMPONENTS
