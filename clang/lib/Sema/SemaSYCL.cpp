@@ -963,6 +963,18 @@ class SingleDeviceFunctionTracker {
 #if INTEL_CUSTOMIZATION
     VisitCallNode(KernelNode, GetFDFromNode(KernelNode), nullptr, CallStack);
 #endif // INTEL_CUSTOMIZATION
+
+    // Always inline the KernelBody in the kernel entry point. For ESIMD
+    // inlining is handled later down the pipeline.
+    if (KernelBody &&
+        Parent.SemaRef.getLangOpts().SYCLForceInlineKernelLambda &&
+        !KernelBody->hasAttr<NoInlineAttr>() &&
+        !KernelBody->hasAttr<AlwaysInlineAttr>() &&
+        !KernelBody->hasAttr<SYCLSimdAttr>()) {
+      KernelBody->addAttr(AlwaysInlineAttr::CreateImplicit(
+          KernelBody->getASTContext(), {}, AttributeCommonInfo::AS_Keyword,
+          AlwaysInlineAttr::Keyword_forceinline));
+    }
   }
 
 public:

@@ -361,6 +361,7 @@ LANGOPT(EnableVariantFunctionPointers, 1, 0, "Allow function pointers with vecto
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(SYCLStdLayoutKernelParams, 1, 0, "Enable standard layout requirement for SYCL kernel parameters")
 LANGOPT(SYCLUnnamedLambda , 1, 0, "Allow unnamed lambda SYCL kernels")
+LANGOPT(SYCLForceInlineKernelLambda , 1, 0, "Force inline SYCL kernel lambdas in entry point")
 LANGOPT(SYCLESIMDForceStatelessMem, 1, 0, "Make accessors use USM memory in ESIMD kernels")
 ENUM_LANGOPT(SYCLVersion  , SYCLMajorVersion, 2, SYCL_None, "Version of the SYCL standard used")
 LANGOPT(DeclareSPIRVBuiltins, 1, 0, "Declare SPIR-V builtin functions")

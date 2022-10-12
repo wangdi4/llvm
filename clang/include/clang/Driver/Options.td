@@ -3448,6 +3448,12 @@ defm sycl_unnamed_lambda
 // if INTEL_CUSTOMIZATION
           BothFlags<[CC1Option, CoreOption, DpcppOption], " unnamed SYCL lambda kernels">>;
 // endif // INTEL_CUSTOMIZATION
+defm sycl_force_inline_kernel_lambda
+    : BoolFOption<
+          "sycl-force-inline-kernel-lambda", LangOpts<"SYCLForceInlineKernelLambda">,
+          DefaultTrue,
+          PosFlag<SetTrue, [], "Allow">, NegFlag<SetFalse, [], "Disallow">,
+          BothFlags<[CC1Option, CoreOption], " force inline SYCL kernels lambda in entry point">>;
 def fsycl_help_EQ : Joined<["-"], "fsycl-help=">,
   Flags<[NoXarchOption, CoreOption, DpcppOption]>, HelpText<"Emit help information from the "
   "related offline compilation tool. Valid values: all, fpga, gen, x86_64.">,
