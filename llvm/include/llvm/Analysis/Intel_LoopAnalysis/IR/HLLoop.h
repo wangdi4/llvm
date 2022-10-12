@@ -255,9 +255,6 @@ protected:
   /// Return true if the specified directive is attached to the loop.
   const HLInst *getDirective(int DirectiveID) const;
 
-  /// Returns underlying LLVM loop.
-  const Loop *getLLVMLoop() const { return OrigLoop; }
-
   /// Adds a pair of {level-factor} info specified in the blocking pragma for
   /// this loop.
   void addBlockingPragmaLevelAndFactor(int Level, RegDDRef *Factor) {
@@ -483,6 +480,9 @@ public:
   const RegDDRef *getStrideDDRef() const {
     return const_cast<HLLoop *>(this)->getStrideDDRef();
   }
+
+  /// Returns underlying LLVM loop.
+  const Loop *getLLVMLoop() const { return OrigLoop; }
 
   /// Sets the underlying LLVM Loop.
   void setLLVMLoop(const Loop *LLVMLoop) { OrigLoop = LLVMLoop; }
