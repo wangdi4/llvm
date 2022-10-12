@@ -2360,6 +2360,13 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::STORE, MVT::v4f16, Custom);
     }
   }
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+  if (!Subtarget.useSoftFloat() && Subtarget.hasAVX512REDUCTION()) {
+    for (auto VT : { MVT::v2i64, MVT::v4i64, MVT::v8i64 })
+      setOperationAction(ISD::VECREDUCE_ADD, VT, Legal);
+  }
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   if (!Subtarget.useSoftFloat() && Subtarget.hasAVXCOMPRESS()) {
     for (auto VT : { MVT::v16i8, MVT::v32i8, MVT::v8i16, MVT::v16i16 })
