@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -internalize -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt < %s -whole-program-assume -passes='internalize,require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies correct handling of load and store instructions by the

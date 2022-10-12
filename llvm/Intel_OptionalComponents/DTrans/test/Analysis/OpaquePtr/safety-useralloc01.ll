@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -dtrans-print-callinfo -disable-output %s 2>&1 | FileCheck %s
+
 ; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-print-callinfo -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that calls to a user allocation/free wrappers are treated as being safe

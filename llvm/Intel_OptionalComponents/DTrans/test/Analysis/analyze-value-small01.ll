@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -whole-program-assume -dtransanalysis -indirectcallconv -disable-output -debug-only=dtransanalysis,dtrans-lpa < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -disable-output -debug-only=dtransanalysis,dtrans-lpa < %s 2>&1 | FileCheck %s
 
 ; Check that the -debug-only=dtransanalysis,dtrans-lpa does not print out
