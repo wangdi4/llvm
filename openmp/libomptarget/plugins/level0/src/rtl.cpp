@@ -4781,13 +4781,16 @@ void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
   // Initialize immediate command list
   ze_command_queue_desc_t QueueDesc = {
     ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-    ComputeOrdinals[DeviceId].first, 0, 0,
+    ComputeOrdinals[DeviceId].first, ComputeIndices[DeviceId], 0,
     ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
   };
   ze_command_list_handle_t CmdList;
   CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
                    &QueueDesc, &CmdList);
   ImmCmdLists[DeviceId] = CmdList;
+  DP("Created an IMM command list " DPxMOD " (Ordinal: %" PRIu32
+     ", Index: %" PRIu32 ") for device %s.\n", DPxPTR(CmdList),
+     QueueDesc.ordinal, QueueDesc.index, DeviceIdStr[DeviceId].c_str());
   // For subdevices
   for (auto &SubLevel : SubDeviceIds[DeviceId]) {
     for (auto SubId : SubLevel) {
@@ -4796,6 +4799,9 @@ void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
       CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[SubId],
                        &QueueDesc, &CmdList);
       ImmCmdLists[SubId] = CmdList;
+      DP("Created an IMM command list " DPxMOD " (Ordinal: %" PRIu32
+         ", Index: %" PRIu32 ") for internal device %s.\n", DPxPTR(CmdList),
+         QueueDesc.ordinal, QueueDesc.index, DeviceIdStr[SubId].c_str());
     }
   }
 }
