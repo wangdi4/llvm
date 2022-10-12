@@ -1554,8 +1554,8 @@ public:
         Decomposer.getVPValueForConst(ConstantInt::get(IndTy, Stride)));
     } else {
       auto *StrideExtDef =
-          Decomposer.getVPExternalDefForDDRef(CurrValue.Step,
-                                              false /* MustBeLiveIn */);
+        Decomposer.getVPExternalDefForVariableStride(CurrValue.Step);
+      assert(StrideExtDef && "Could not get external def for stride");
       Descriptor.setStep(StrideExtDef);
     }
 
