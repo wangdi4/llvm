@@ -174,7 +174,17 @@ TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vUOi", "n", "ptwrite")
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
 TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+TARGET_BUILTIN(__builtin_ia32_tdpbhf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+TARGET_BUILTIN(__builtin_ia32_tdphbf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+TARGET_BUILTIN(__builtin_ia32_tdphf8ps, "vIUcIUcIUc", "n", "amx-fp8")
 #endif // INTEL_FEATURE_ISA_AMX_FP8
+
+#if INTEL_FEATURE_ISA_AMX_FP8_FUTURE
+TARGET_BUILTIN(__builtin_ia32_ttdpbf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+TARGET_BUILTIN(__builtin_ia32_ttdpbhf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+TARGET_BUILTIN(__builtin_ia32_ttdphbf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+TARGET_BUILTIN(__builtin_ia32_ttdphf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+#endif // INTEL_FEATURE_ISA_AMX_FP8_FUTURE
 
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
 TARGET_BUILTIN(__builtin_ia32_tmovadvise_load, "vIUcvC*zIc", "n", "amx-memadvise")

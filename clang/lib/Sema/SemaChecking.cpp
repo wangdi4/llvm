@@ -5466,8 +5466,18 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
 #if INTEL_FEATURE_ISA_AMX_FP8
   case X86::BI__builtin_ia32_tdpbf8ps:
+  case X86::BI__builtin_ia32_tdpbhf8ps:
+  case X86::BI__builtin_ia32_tdphbf8ps:
+  case X86::BI__builtin_ia32_tdphf8ps:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
 #endif // INTEL_FEATURE_ISA_AMX_FP8
+#if INTEL_FEATURE_ISA_AMX_FP8_FUTURE
+  case X86::BI__builtin_ia32_ttdpbf8ps:
+  case X86::BI__builtin_ia32_ttdpbhf8ps:
+  case X86::BI__builtin_ia32_ttdphbf8ps:
+  case X86::BI__builtin_ia32_ttdphf8ps:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
+#endif // INTEL_FEATURE_ISA_AMX_FP8_FUTURE
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
   case X86::BI__builtin_ia32_tmovadvise_load:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0);

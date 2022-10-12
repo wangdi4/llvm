@@ -5589,8 +5589,47 @@ let TargetPrefix = "x86" in {
               Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
                         [ImmArg<ArgIndex<0>>,
                          ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_tdpbhf8ps : ClangBuiltin<"__builtin_ia32_tdpbhf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_tdphbf8ps : ClangBuiltin<"__builtin_ia32_tdphbf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_tdphf8ps : ClangBuiltin<"__builtin_ia32_tdphf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_FP8
+
+#if INTEL_FEATURE_ISA_AMX_FP8_FUTURE
+let TargetPrefix = "x86" in {
+  def int_x86_ttdpbf8ps : ClangBuiltin<"__builtin_ia32_ttdpbf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_ttdpbhf8ps : ClangBuiltin<"__builtin_ia32_ttdpbhf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_ttdphbf8ps : ClangBuiltin<"__builtin_ia32_ttdphbf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_ttdphf8ps : ClangBuiltin<"__builtin_ia32_ttdphf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<ArgIndex<0>>,
+                         ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_FP8_FUTURE
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 //===----------------------------------------------------------------------===//
