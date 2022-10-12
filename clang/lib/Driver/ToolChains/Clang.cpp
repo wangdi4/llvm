@@ -5522,7 +5522,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-sycl-std=2020");
     }
 
-<<<<<<< HEAD
+    if (!Args.hasFlag(options::OPT_fsycl_force_inline_kernel_lambda,
+                      options::OPT_fno_sycl_force_inline_kernel_lambda, true))
+      CmdArgs.push_back("-fno-sycl-force-inline-kernel-lambda");
+
 #if INTEL_CUSTOMIZATION
     if (Args.hasArg(options::OPT_fsycl_host_compiler_EQ)) {
       if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
@@ -5535,14 +5538,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     } else if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
                              options::OPT_fno_sycl_unnamed_lambda, true))
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (!Args.hasFlag(options::OPT_fsycl_force_inline_kernel_lambda,
-                      options::OPT_fno_sycl_force_inline_kernel_lambda, true))
-      CmdArgs.push_back("-fno-sycl-force-inline-kernel-lambda");
-
-    if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
-                      options::OPT_fno_sycl_unnamed_lambda, true))
->>>>>>> b91b732783fb1cabac6652945deb9e6662480960
       CmdArgs.push_back("-fno-sycl-unnamed-lambda");
 
     // Add the Unique ID prefix
