@@ -3,7 +3,6 @@
 
 ; Test that checks if Whole Program isn't safe
 
-; RUN: opt -dtransanalysis -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
 
 define void @foo(i32 %n) local_unnamed_addr {

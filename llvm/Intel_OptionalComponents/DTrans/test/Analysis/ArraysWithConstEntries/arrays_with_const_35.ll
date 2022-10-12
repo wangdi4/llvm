@@ -1,7 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries-verbose -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries-verbose -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that arrays with constant entries doesn't

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt  < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-print-callinfo -dtrans-safetyanalyzer -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt  < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-print-callinfo -passes='require<dtrans-safetyanalyzer>' -disable-output 2>&1 | FileCheck %s
 
 ; Test call info collection for special kinds of user allocation and free functions.

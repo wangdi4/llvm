@@ -5,7 +5,6 @@
 ; mismatched argument safety data for cases where it should be pointer
 ; carried.
 
-; RUN: opt < %s -disable-output -whole-program-assume -internalize -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -whole-program-assume -passes="internalize,require<dtransanalysis>" -dtrans-print-types 2>&1 | FileCheck %s
 
 ; Test that mismatched argumnet use is carried through pointers when call bitcasts

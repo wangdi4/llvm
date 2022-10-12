@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN:  opt < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-usecrulecompat -disable-output -debug-only=dtrans-crc 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-usecrulecompat -disable-output -debug-only=dtrans-crc 2>&1 | FileCheck %s
 
 ; Check that %struct._ZTS2S1.S1 and %struct._ZTS2S2.S2 are recognized as

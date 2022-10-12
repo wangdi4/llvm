@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=true -dtrans-fieldmodrefop-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=true -passes='require<dtrans-fieldmodrefop-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
 
 ; This test is to check the getModRefInfo interface results that indicates

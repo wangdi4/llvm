@@ -1,7 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat=true -dtrans-fieldmodrefop-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-TYPED %s
+
 ; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat=true -passes='require<dtrans-fieldmodrefop-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-TYPED %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat=true -dtrans-fieldmodrefop-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-OPAQUE %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=false -dtrans-usecrulecompat=true -passes='require<dtrans-fieldmodrefop-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-OPAQUE %s
 
 ; Test mod/ref query results for a function call that makes an indirect

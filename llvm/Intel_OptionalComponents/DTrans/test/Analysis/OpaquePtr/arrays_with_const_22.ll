@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-outofboundsok=false -disable-output -dtrans-print-immutable-types  2>&1 | FileCheck %s
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -disable-output -dtrans-print-immutable-types  2>&1 | FileCheck %s
 
 ; This test case checks that the information for arrays with constant entries

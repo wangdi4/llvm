@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -dtransanalysis -debug-only=dtrans-lpa-results -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtrans-lpa-results -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that -dtrans-lpa-results trace reports the LPA results

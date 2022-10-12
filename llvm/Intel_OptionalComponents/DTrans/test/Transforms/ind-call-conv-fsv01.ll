@@ -1,5 +1,5 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -dtransanalysis -indirectcallconv < %s -S 2>&1 | FileCheck %s
+
 ; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -passes=indirectcallconv < %s  -S 2>&1 | FileCheck %s
 
 ; Check that field single value indirect call specialization will specialize

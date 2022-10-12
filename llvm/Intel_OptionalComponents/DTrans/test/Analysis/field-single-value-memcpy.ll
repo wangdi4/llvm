@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -whole-program-assume  -passes="require<dtransanalysis>" -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that Single Value info is present even if there is a bad memfunc size
