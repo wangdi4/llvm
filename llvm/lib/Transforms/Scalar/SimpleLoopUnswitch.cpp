@@ -2855,8 +2855,23 @@ struct NonTrivialUnswitchCandidate {
 };
 } // end anonymous namespace.
 
-static Optional<NonTrivialUnswitchCandidate>
-findBestNonTrivialUnswitchCandidate(
+static bool isSafeToClone(const Loop &L) {
+  if (!L.isSafeToClone())
+    return false;
+  for (auto *BB : L.blocks())
+    for (auto &I : *BB) {
+      if (I.getType()->isTokenTy() && I.isUsedOutsideOfBlock(BB))
+        return false;
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+        assert(!CB->cannotDuplicate() && "Checked by L.isSafeToClone().");
+        if (CB->isConvergent())
+          return false;
+      }
+    }
+  return true;
+}
+
+static NonTrivialUnswitchCandidate findBestNonTrivialUnswitchCandidate(
     ArrayRef<std::pair<Instruction *, TinyPtrVector<Value *> > >
         UnswitchCandidates, const Loop &L, const DominatorTree &DT,
     const LoopInfo &LI, AssumptionCache &AC, const TargetTransformInfo &TTI,
@@ -2885,13 +2900,6 @@ findBestNonTrivialUnswitchCandidate(
     for (auto &I : *BB) {
       if (EphValues.count(&I))
         continue;
-
-      if (I.getType()->isTokenTy() && I.isUsedOutsideOfBlock(BB))
-        return None;
-      if (auto *CB = dyn_cast<CallBase>(&I))
-        if (CB->isConvergent() || CB->cannotDuplicate())
-          return None;
-
       Cost += TTI.getInstructionCost(&I, CostKind);
     }
     assert(Cost >= 0 && "Must not have negative costs!");
@@ -3061,29 +3069,26 @@ static bool unswitchBestCondition(
       dbgs() << "Considering " << UnswitchCandidates.size()
              << " non-trivial loop invariant conditions for unswitching.\n");
 
-  Optional<NonTrivialUnswitchCandidate> Best =
-      findBestNonTrivialUnswitchCandidate(UnswitchCandidates, L, DT, LI, AC,
-                                          TTI, PartialIVInfo);
-  if (!Best)
-    return false;
+  NonTrivialUnswitchCandidate Best = findBestNonTrivialUnswitchCandidate(
+      UnswitchCandidates, L, DT, LI, AC, TTI, PartialIVInfo);
 
-  assert(Best->TI && "Failed to find loop unswitch candidate");
+  assert(Best.TI && "Failed to find loop unswitch candidate");
 
-  if (Best->Cost >= UnswitchThreshold) {
-    LLVM_DEBUG(dbgs() << "Cannot unswitch, lowest cost found: " << Best->Cost
+  if (Best.Cost >= UnswitchThreshold) {
+    LLVM_DEBUG(dbgs() << "Cannot unswitch, lowest cost found: " << Best.Cost
                       << "\n");
     return false;
   }
 
-  if (Best->TI != PartialIVCondBranch)
+  if (Best.TI != PartialIVCondBranch)
     PartialIVInfo.InstToDuplicate.clear();
 
   // If the best candidate is a guard, turn it into a branch.
-  if (isGuard(Best->TI))
-    Best->TI = turnGuardIntoBranch(cast<IntrinsicInst>(Best->TI), L, ExitBlocks,
+  if (isGuard(Best.TI))
+    Best.TI = turnGuardIntoBranch(cast<IntrinsicInst>(Best.TI), L, ExitBlocks,
                                    DT, LI, MSSAU);
 #if INTEL_CUSTOMIZATION
-  if (unswitchingMayAffectPerfectLoopnest(LI, L, Best->TI, TLI)) {
+  if (unswitchingMayAffectPerfectLoopnest(LI, L, Best.TI, TLI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L.getHeader()->getName()
                       << ", loopnest may be perfect\n");
     return false;
@@ -3094,9 +3099,9 @@ static bool unswitchBestCondition(
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
-  LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = " << Best->Cost
-                    << ") terminator: " << *Best->TI << "\n");
-  unswitchNontrivialInvariants(L, *Best->TI, Best->Invariants, ExitBlocks,
+  LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = " << Best.Cost
+                    << ") terminator: " << *Best.TI << "\n");
+  unswitchNontrivialInvariants(L, *Best.TI, Best.Invariants, ExitBlocks,
                                PartialIVInfo, DT, LI, AC, UnswitchCB, SE, MSSAU,
                                DestroyLoopCB);
   return true;
@@ -3177,7 +3182,7 @@ unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
   }
 
   // Skip non-trivial unswitching for loops that cannot be cloned.
-  if (!L.isSafeToClone())
+  if (!isSafeToClone(L))
     return false;
 
   // For non-trivial unswitching, because it often creates new loops, we rely on
