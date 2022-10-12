@@ -1,7 +1,6 @@
-; RUN: opt < %s -disable-basic-aa -cfl-steens-aa -aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
-; INTEL
-; RUN: opt < %s -convert-to-subscript -S | opt -disable-basic-aa -cfl-steens-aa -aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
+; INTEL
+; RUN: opt < %s -convert-to-subscript -S | opt -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
 ; When merging MustAlias and PartialAlias, merge to PartialAlias
 ; instead of MayAlias.
 

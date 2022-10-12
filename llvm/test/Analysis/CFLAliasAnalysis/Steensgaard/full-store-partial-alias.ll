@@ -2,8 +2,9 @@
 ; RUN: opt -S -aa-pipeline=tbaa -passes=gvn < %s | FileCheck %s
 ; Adapted from the BasicAA full-store-partial-alias.ll test.
 ; INTEL
-; RUN: opt -S < %s -convert-to-subscript | opt -S -disable-basic-aa -tbaa -cfl-steens-aa -gvn | FileCheck -check-prefix=CFLSteensAA %s
-; RUN: opt -S < %s -convert-to-subscript | opt -S -disable-basic-aa -tbaa -gvn | FileCheck %s
+; RUN: opt -S < %s -convert-to-subscript | opt -S -aa-pipeline=tbaa,cfl-steens-aa -passes=gvn | FileCheck -check-prefix=CFLSteensAA %s
+; INTEL
+; RUN: opt -S < %s -convert-to-subscript | opt -S -aa-pipeline=tbaa -passes=gvn | FileCheck %s
 
 ; CFL AA could notice that the store stores to the entire %u object,
 ; so the %tmp5 load is PartialAlias with the store and suppress TBAA.
