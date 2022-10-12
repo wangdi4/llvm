@@ -2847,60 +2847,6 @@ static bool collectUnswitchCandidates(
   return !UnswitchCandidates.empty();
 }
 
-<<<<<<< HEAD
-static bool unswitchBestCondition(
-    Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
-    AAResults &AA,
-#if INTEL_CUSTOMIZATION
-    TargetLibraryInfo &TLI,
-#endif // INTEL CUSTOMIZATION
-    TargetTransformInfo &TTI,
-    function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
-    ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
-    function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
-  // Collect all invariant conditions within this loop (as opposed to an inner
-  // loop which would be handled when visiting that inner loop).
-  SmallVector<std::pair<Instruction *, TinyPtrVector<Value *> >, 4>
-  UnswitchCandidates;
-  IVConditionInfo PartialIVInfo;
-  Instruction *PartialIVCondBranch = nullptr;
-  // If we didn't find any candidates, we're done.
-  if (!collectUnswitchCandidates(UnswitchCandidates, PartialIVInfo,
-                                 PartialIVCondBranch, L, LI, AA, MSSAU))
-    return false;
-
-  // Check if there are irreducible CFG cycles in this loop. If so, we cannot
-  // easily unswitch non-trivial edges out of the loop. Doing so might turn the
-  // irreducible control flow into reducible control flow and introduce new
-  // loops "out of thin air". If we ever discover important use cases for doing
-  // this, we can add support to loop unswitch, but it is a lot of complexity
-  // for what seems little or no real world benefit.
-  LoopBlocksRPO RPOT(&L);
-  RPOT.perform(&LI);
-  if (containsIrreducibleCFG<const BasicBlock *>(RPOT, LI))
-    return false;
-
-  SmallVector<BasicBlock *, 4> ExitBlocks;
-  L.getUniqueExitBlocks(ExitBlocks);
-
-  // We cannot unswitch if exit blocks contain a cleanuppad/catchswitch
-  // instruction as we don't know how to split those exit blocks.
-  // FIXME: We should teach SplitBlock to handle this and remove this
-  // restriction.
-  for (auto *ExitBB : ExitBlocks) {
-    auto *I = ExitBB->getFirstNonPHI();
-    if (isa<CleanupPadInst>(I) || isa<CatchSwitchInst>(I)) {
-      LLVM_DEBUG(dbgs() << "Cannot unswitch because of cleanuppad/catchswitch "
-                           "in exit block\n");
-      return false;
-    }
-  }
-
-  LLVM_DEBUG(
-      dbgs() << "Considering " << UnswitchCandidates.size()
-             << " non-trivial loop invariant conditions for unswitching.\n");
-
-=======
 namespace {
 struct NonTrivialUnswitchCandidate {
   Instruction *TI = nullptr;
@@ -2915,7 +2861,6 @@ findBestNonTrivialUnswitchCandidate(
         UnswitchCandidates, const Loop &L, const DominatorTree &DT,
     const LoopInfo &LI, AssumptionCache &AC, const TargetTransformInfo &TTI,
     const IVConditionInfo &PartialIVInfo) {
->>>>>>> 421728b40c54aa3c3bcdf73dd44591503ecdaa23
   // Given that unswitching these terminators will require duplicating parts of
   // the loop, so we need to be able to model that cost. Compute the ephemeral
   // values and set up a data structure to hold per-BB costs. We cache each
@@ -3068,6 +3013,9 @@ findBestNonTrivialUnswitchCandidate(
 static bool unswitchBestCondition(
     Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
     AAResults &AA, TargetTransformInfo &TTI,
+#if INTEL_CUSTOMIZATION
+    TargetLibraryInfo &TLI,
+#endif // INTEL CUSTOMIZATION
     function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
     ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
     function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
@@ -3131,12 +3079,11 @@ static bool unswitchBestCondition(
     PartialIVInfo.InstToDuplicate.clear();
 
   // If the best candidate is a guard, turn it into a branch.
-<<<<<<< HEAD
-  if (isGuard(BestUnswitchTI))
-    BestUnswitchTI = turnGuardIntoBranch(cast<IntrinsicInst>(BestUnswitchTI), L,
-                                         ExitBlocks, DT, LI, MSSAU);
+  if (isGuard(Best->TI))
+    Best->TI = turnGuardIntoBranch(cast<IntrinsicInst>(Best->TI), L, ExitBlocks,
+                                   DT, LI, MSSAU);
 #if INTEL_CUSTOMIZATION
-  if (unswitchingMayAffectPerfectLoopnest(LI, L, BestUnswitchTI, TLI)) {
+  if (unswitchingMayAffectPerfectLoopnest(LI, L, Best->TI, TLI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L.getHeader()->getName()
                       << ", loopnest may be perfect\n");
     return false;
@@ -3147,23 +3094,11 @@ static bool unswitchBestCondition(
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
-  LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = "
-                    << BestUnswitchCost << ") terminator: " << *BestUnswitchTI
-                    << "\n");
-  unswitchNontrivialInvariants(L, *BestUnswitchTI, BestUnswitchInvariants,
-                               ExitBlocks, PartialIVInfo, DT, LI, AC,
-                               UnswitchCB, SE, MSSAU, DestroyLoopCB);
-=======
-  if (isGuard(Best->TI))
-    Best->TI = turnGuardIntoBranch(cast<IntrinsicInst>(Best->TI), L, ExitBlocks,
-                                   DT, LI, MSSAU);
-
   LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = " << Best->Cost
                     << ") terminator: " << *Best->TI << "\n");
   unswitchNontrivialInvariants(L, *Best->TI, Best->Invariants, ExitBlocks,
                                PartialIVInfo, DT, LI, AC, UnswitchCB, SE, MSSAU,
                                DestroyLoopCB);
->>>>>>> 421728b40c54aa3c3bcdf73dd44591503ecdaa23
   return true;
 }
 
@@ -3254,7 +3189,7 @@ unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
   // Try to unswitch the best invariant condition. We prefer this full unswitch to
   // a partial unswitch when possible below the threshold.
 #if INTEL_CUSTOMIZATION
-  if (unswitchBestCondition(L, DT, LI, AC, AA, TLI, TTI, UnswitchCB, SE, MSSAU,
+  if (unswitchBestCondition(L, DT, LI, AC, AA, TTI, TLI, UnswitchCB, SE, MSSAU,
 #endif // INTEL_CUSTOMIZATION
                             DestroyLoopCB))
     return true;
