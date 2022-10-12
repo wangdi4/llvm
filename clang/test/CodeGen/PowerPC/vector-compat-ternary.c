@@ -1,15 +1,3 @@
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -opaque-pointers -target-feature +altivec -target-feature +vsx \
-// RUN:   -faltivec-src-compat=mixed -triple powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
-// RUN: not %clang_cc1 -opaque-pointers -target-feature +altivec -target-feature +vsx \
-// RUN:   -faltivec-src-compat=gcc -triple powerpc-unknown-unknown -S -emit-llvm %s -o - 2>&1 | FileCheck %s --check-prefix=ERROR
-// RUN: %clang_cc1 -opaque-pointers -target-feature +altivec -target-feature +vsx \
-// RUN:   -faltivec-src-compat=xl -triple powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang -Xclang -opaque-pointers -mcpu=pwr8 -faltivec-src-compat=xl --target=powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang -Xclang -opaque-pointers -mcpu=pwr9 -faltivec-src-compat=xl --target=powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
-// end INTEL_CUSTOMIZATION
-=======
 // INTEL RUN: %clang_cc1 -opaque-pointers -target-feature +altivec -target-feature +vsx \
 // INTEL RUN:   -faltivec-src-compat=mixed -triple powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
 // INTEL RUN: not %clang_cc1 -opaque-pointers -target-feature +altivec -target-feature +vsx \
@@ -18,7 +6,6 @@
 // INTEL RUN:   -faltivec-src-compat=xl -triple powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
 // INTEL RUN: %clang -Xclang -opaque-pointers -mcpu=pwr8 -faltivec-src-compat=xl --target=powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
 // INTEL RUN: %clang -Xclang -opaque-pointers -mcpu=pwr9 -faltivec-src-compat=xl --target=powerpc-unknown-unknown -S -emit-llvm %s -o - | FileCheck %s
->>>>>>> 4b49e7e9598858a7bd0f2bd4bdb0ad17e2413ecd
 
 // CHECK-LABEL: @ui8(
 // CHECK:         [[A_ADDR:%.*]] = alloca <16 x i8>, align 16

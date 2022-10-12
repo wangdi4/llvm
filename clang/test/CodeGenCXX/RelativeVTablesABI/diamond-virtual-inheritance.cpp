@@ -1,13 +1,7 @@
 // Diamond virtual inheritance.
 // This should cover virtual inheritance, construction vtables, and VTTs.
 
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -opaque-pointers %s -triple=aarch64-unknown-fuchsia -O1 -S -o - -emit-llvm -fhalf-no-semantic-interposition | FileCheck %s
-// end INTEL_CUSTOMIZATION
-=======
 // INTEL RUN: %clang_cc1 -opaque-pointers %s -triple=aarch64-unknown-fuchsia -O1 -S -o - -emit-llvm -fhalf-no-semantic-interposition | FileCheck %s
->>>>>>> 4b49e7e9598858a7bd0f2bd4bdb0ad17e2413ecd
 
 // Class A contains a vtable ptr, then int, then padding
 

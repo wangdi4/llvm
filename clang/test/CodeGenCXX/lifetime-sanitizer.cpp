@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// RUN: %clang -Xclang -opaque-pointers -w -target x86_64-linux-gnu -S -emit-llvm -o - -fno-exceptions -O0 \
-// RUN:     -Xclang -disable-llvm-passes %s | FileCheck %s -check-prefixes=CHECK \
-// RUN:      --implicit-check-not=llvm.lifetime
-// RUN: %clang -Xclang -opaque-pointers -w -target x86_64-linux-gnu -S -emit-llvm -o - -fno-exceptions -O0 \
-// RUN:     -fsanitize=address -fsanitize-address-use-after-scope \
-// RUN:     -Xclang -disable-llvm-passes %s | FileCheck %s -check-prefixes=CHECK,LIFETIME
-// RUN: %clang -Xclang -opaque-pointers -w -target x86_64-linux-gnu -S -emit-llvm -o - -fno-exceptions -O0 \
-// RUN:     -fsanitize=memory -Xclang -disable-llvm-passes %s | \
-// RUN:     FileCheck %s -check-prefixes=CHECK,LIFETIME
-// RUN: %clang -Xclang -opaque-pointers -w -target aarch64-linux-gnu -S -emit-llvm -o - -fno-exceptions -O0 \
-// RUN:     -fsanitize=hwaddress -Xclang -disable-llvm-passes %s | \
-// RUN:     FileCheck %s -check-prefixes=CHECK,LIFETIME
-// end INTEL_CUSTOMIZATION
-=======
 // INTEL RUN: %clang -Xclang -opaque-pointers -w -target x86_64-linux-gnu -S -emit-llvm -o - -fno-exceptions -O0 \
 // INTEL RUN:     -Xclang -disable-llvm-passes %s | FileCheck %s -check-prefixes=CHECK \
 // INTEL RUN:      --implicit-check-not=llvm.lifetime
@@ -26,7 +10,6 @@
 // INTEL RUN: %clang -Xclang -opaque-pointers -w -target aarch64-linux-gnu -S -emit-llvm -o - -fno-exceptions -O0 \
 // INTEL RUN:     -fsanitize=hwaddress -Xclang -disable-llvm-passes %s | \
 // INTEL RUN:     FileCheck %s -check-prefixes=CHECK,LIFETIME
->>>>>>> 4b49e7e9598858a7bd0f2bd4bdb0ad17e2413ecd
 
 extern int bar(char *A, int n);
 
