@@ -390,9 +390,9 @@ private:
   /// Vectorize unconditional last private final value calculation.
   void vectorizePrivateFinalUncond(VPInstruction *VPInst);
 
-  /// Vectorize running inclusive reduction.
-  void vectorizeRunningInclusiveReduction(
-    VPRunningInclusiveReduction *InscanRed);
+  // Vectorize running inclusive/exclusive reduction.
+  template <class RunningReductionTy>
+  Value* vectorizeRunningReduction(RunningReductionTy *InscanRed);
 
   /// Vectorize extract last vector lane instruction.
   Value *vectorizeExtractLastVectorLane(VPInstruction *VPInst);

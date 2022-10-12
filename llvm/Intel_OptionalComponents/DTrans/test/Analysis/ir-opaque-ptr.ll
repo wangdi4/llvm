@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
 
 ; Test that the legacy DTransAnalysis pass does not run the analysis

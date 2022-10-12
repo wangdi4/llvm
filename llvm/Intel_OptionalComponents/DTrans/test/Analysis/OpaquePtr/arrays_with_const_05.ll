@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-outofboundsok=true -disable-output -debug-only=dtrans-arrays-with-const-entries 2>&1 | FileCheck %s
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-arrays-with-const-entries 2>&1 | FileCheck %s
 
 ; This test case checks that entries 0 and 1 in the field 1 for

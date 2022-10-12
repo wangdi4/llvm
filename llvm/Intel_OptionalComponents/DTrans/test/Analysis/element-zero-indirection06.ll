@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -whole-program-assume  -dtransanalysis -debug-only=dtrans-lpa-results -disable-output %s 2>&1 | FileCheck %s
+
 ; RUN: opt -whole-program-assume  -passes='require<dtransanalysis>' -debug-only=dtrans-lpa-results -disable-output %s 2>&1 | FileCheck %s
 
 ; Test dominant type resolution when the pointer type information contains 3

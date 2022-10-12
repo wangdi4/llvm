@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -disable-output -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -disable-output -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
 
 

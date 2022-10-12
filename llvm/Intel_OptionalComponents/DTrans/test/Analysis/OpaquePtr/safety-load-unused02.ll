@@ -1,7 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-identify-unused-values=false -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+
 ; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-identify-unused-values=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-identify-unused-values=true -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-identify-unused-values=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that a whole structure load does not set the 'UnusedValue' flag on fields.

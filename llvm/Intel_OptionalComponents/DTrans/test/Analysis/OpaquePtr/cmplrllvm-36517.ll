@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-outofboundsok=false -disable-output %s
 ; RUN: opt -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=false -disable-output %s
 
 ; Test that loading a pointer value from a location that the
