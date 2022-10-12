@@ -307,6 +307,9 @@ public:
   bool isLegalMaskedExpandLoad(Type *DataType);
   bool isLegalMaskedCompressStore(Type *DataType);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+  bool shouldExpandReduction(const IntrinsicInst *II) const;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
   bool isIntelAdvancedOptimEnabled() const;
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool isLibIRCAllowed() const;
