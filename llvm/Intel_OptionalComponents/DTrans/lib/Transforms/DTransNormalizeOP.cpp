@@ -320,14 +320,21 @@ private:
   }
 
   // A New (GEP, 0, 0) is created for each use of allocation in different
-  // store instruction and will not try to reuse by saving them in NewGEPInsts.
+  // store instruction and will not try to reuse by saving them in NewGEPInsts
+  // only when value operand of store is InvokeInst.
   void gepifyStoreValue(StoreInst *SI, DTransType *DTy) {
-    SmallVector<Value *, 2> IdxList;
-    IdxList.push_back(ZeroPtrSizedInt);
-    IdxList.push_back(Zero32);
+    Value *Val = SI->getValueOperand();
+    GetElementPtrInst *NewGEP;
+    if (isa<InvokeInst>(Val)) {
+      SmallVector<Value *, 2> IdxList;
+      IdxList.push_back(ZeroPtrSizedInt);
+      IdxList.push_back(Zero32);
 
-    GetElementPtrInst *NewGEP = GetElementPtrInst::Create(
-        DTy->getLLVMType(), SI->getValueOperand(), IdxList, "dtnorm", SI);
+      NewGEP = GetElementPtrInst::Create(
+          DTy->getLLVMType(), SI->getValueOperand(), IdxList, "dtnorm", SI);
+    } else {
+      NewGEP = createGEPToAccessZeroElement(Val, DTy);
+    }
 
     SI->setOperand(0, NewGEP);
     LLVM_DEBUG(dbgs() << "Replacing return value in: " << *SI
@@ -546,6 +553,51 @@ private:
     ReturnsToGepify.insert({Ret, DomStTy});
   }
 
+  // Get dominant type for PHI if there is one. PHI is used
+  // as "UsedStTy".
+  DTransType *getPHIDominantType(PHINode *PHI, Type *UsedStTy) {
+    bool AllocFound = false;
+    DTransType *PHIValTy = nullptr;
+    DTransType *DomTy = nullptr;
+    for (unsigned I = 0; I < PHI->getNumIncomingValues(); I++) {
+      Value *Val = PHI->getIncomingValue(I);
+      if (isCompilerConstantData(Val))
+        continue;
+      if (isNormalizedGEPNeeded(Val, UsedStTy, &DomTy)) {
+        // Allow only single allocation.
+        if (AllocFound)
+          return nullptr;
+        AllocFound = true;
+      } else {
+        // For non-allocation values, makes sure there is only
+        // one alias type.
+        ValueTypeInfo *Info = PtrAnalyzer.getValueTypeInfo(Val);
+        if (!Info)
+          return nullptr;
+        if (Info->getUnhandled() || Info->getDependsOnUnhandled())
+          return nullptr;
+        auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+        if (UseAliases.size() != 1)
+          return nullptr;
+        DTransType *AliasTy = *UseAliases.begin();
+        if (!AliasTy->isPointerTy())
+          return nullptr;
+        DomTy = AliasTy->getPointerElementType();
+        if (!isa<DTransStructType>(DomTy))
+          return nullptr;
+      }
+
+      // Makes sure types of all incoming values are same.
+      if (!PHIValTy)
+        PHIValTy = DomTy;
+      else if (PHIValTy != DomTy)
+        return nullptr;
+    }
+    if (!AllocFound)
+      return nullptr;
+    return PHIValTy;
+  }
+
   // Check if (GEP, 0, 0) is needed if return value is PHI where all incoming
   // value of PHI are memory allocation calls.
   //
@@ -692,40 +744,8 @@ private:
     if (!PHI)
       return;
 
-    bool AllocFound = false;
-    DTransType *PHIValTy = nullptr;
-    for (unsigned I = 0; I < PHI->getNumIncomingValues(); I++) {
-      Value *Val = PHI->getIncomingValue(I);
-      if (isNormalizedGEPNeeded(Val, StTy, &DomTy)) {
-        // Allow only single allocation.
-        if (AllocFound)
-          return;
-        AllocFound = true;
-      } else {
-        // For non-allocation values, makes sure there is only
-        // one alais type.
-        ValueTypeInfo *Info = PtrAnalyzer.getValueTypeInfo(Val);
-        if (!Info)
-          return;
-        if (Info->getUnhandled() || Info->getDependsOnUnhandled())
-          return;
-        auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
-        if (UseAliases.size() != 1)
-          return;
-        DTransType *AliasTy = *UseAliases.begin();
-        if (!AliasTy->isPointerTy())
-          return;
-        DomTy = AliasTy->getPointerElementType();
-        if (!isa<DTransStructType>(DomTy))
-          return;
-      }
-      // Makes sure types of all incoming values are same.
-      if (!PHIValTy)
-        PHIValTy = DomTy;
-      else if (PHIValTy != DomTy)
-        return;
-    }
-    if (!AllocFound)
+    DomTy = getPHIDominantType(PHI, StTy);
+    if (!DomTy)
       return;
     GEPsToGepify.insert({GEPI, DomTy});
   }
@@ -818,6 +838,48 @@ private:
   //     tail call ptr @bar(ptr %denorm)
   //     ...
   //   }
+  //
+  // Example 3:
+  // From:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //   bb1:
+  //     %i = getelementptr inbounds %Parser, ptr %arg, i64 0, i32 1
+  //     %i2 = load ptr, ptr %i, align 8
+  //     br i1 false, label %bb3, label %bb5
+  //
+  //   bb3:
+  //     %i4 = tail call ptr @Alloc(i64 40, ptr null)
+  //     store ptr %i4, ptr %i, align 8
+  //     br label %bb5
+  //
+  //   bb5:
+  //     %i6 = phi ptr [ %i4, %bb3 ], [ %i2, %bb1 ]
+  //     bar(ptr %i6)
+  //       ...
+  //   }
+  //   Let us assume aliases of %i6 are %struct.base* and %struct.derived* and
+  //   argument type of bar is %struct.base**.
+  //
+  // To:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //   bb1:
+  //     %i = getelementptr inbounds %Parser, ptr %arg, i64 0, i32 1
+  //     %i2 = load ptr, ptr %i, align 8
+  //     br i1 false, label %bb3, label %bb5
+  //
+  //   bb3:
+  //     %i4 = tail call ptr @Alloc(i64 40, ptr null)
+  //     store ptr %i4, ptr %i, align 8
+  //     br label %bb5
+  //
+  //   bb5:
+  //     %i6 = phi ptr [ %i4, %bb3 ], [ %i2, %bb1 ]
+  //     %dtnorm = getelementptr %struct.derived, ptr %i6, i64 0, i32 0
+  //     bar(ptr %dtnorm)
+  //     ...
+  //   }
   void checkCallBase(CallBase *CB) {
     SetVector<std::pair<unsigned, DTransType *>> ValueToDomTyMap;
     unsigned NumArg = CB->arg_size();
@@ -845,6 +907,12 @@ private:
       } else if (isNormalizedGEPNeeded(ArgVal, ArgUsedStTy->getLLVMType(),
                                        &DomStTy)) {
         ValueToDomTyMap.insert({AI, DomStTy});
+      } else if (auto *PHI = dyn_cast<PHINode>(ArgVal)) {
+        DTransType *ExpectedTy =
+            getPHIDominantType(PHI, ArgUsedStTy->getLLVMType());
+        if (!ExpectedTy)
+          continue;
+        ValueToDomTyMap.insert({AI, ExpectedTy});
       }
     }
     if (ValueToDomTyMap.size() == 0)
@@ -855,7 +923,9 @@ private:
   }
 
   // Check (GEP, 0, 0) is needed if stored value is memory allocation
-  // pointer. Example: From:
+  // pointer.
+  // Example 1:
+  // From:
   //   %struct.derived = type { %struct.base }
   //   %struct.test = { i32, %struct.base* }
   //   @foo(ptr %a) {
@@ -880,6 +950,47 @@ private:
   //      store ptr %dtnorm, ptr %p
   //   }
   //
+  // Example 2:
+  // From:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //   bb1:
+  //     %i = getelementptr inbounds %Parser, ptr %arg, i64 0, i32 1
+  //     %i2 = load ptr, ptr %i, align 8
+  //     br i1 false, label %bb3, label %bb5
+  //
+  //   bb3:
+  //     %i4 = tail call ptr @Alloc(i64 40, ptr null)
+  //     store ptr %i4, ptr %i, align 8
+  //     br label %bb5
+  //
+  //   bb5:
+  //     %i6 = phi ptr [ %i4, %bb3 ], [ %i2, %bb1 ]
+  //     store ptr %i6, %p
+  //       ...
+  //   }
+  //   Let us assume aliases of %i6 are %struct.base* and %struct.derived* and
+  //   alias of %p is %struct.base**.
+  //
+  // To:
+  //   %struct.derived = type { %struct.base }
+  //   @foo(ptr %arg) {
+  //   bb1:
+  //     %i = getelementptr inbounds %Parser, ptr %arg, i64 0, i32 1
+  //     %i2 = load ptr, ptr %i, align 8
+  //     br i1 false, label %bb3, label %bb5
+  //
+  //   bb3:
+  //     %i4 = tail call ptr @Alloc(i64 40, ptr null)
+  //     store ptr %i4, ptr %i, align 8
+  //     br label %bb5
+  //
+  //   bb5:
+  //     %i6 = phi ptr [ %i4, %bb3 ], [ %i2, %bb1 ]
+  //     %dtnorm = getelementptr %struct.derived, ptr %i6, i64 0, i32 0
+  //     store ptr %dtnorm, %p
+  //     ...
+  //   }
   void checkStoredValue(Instruction *I) {
     auto *SI = dyn_cast<StoreInst>(I);
     if (!SI)
@@ -907,9 +1018,16 @@ private:
 
     // Check (GEP, 0, 0) is needed for value operand.
     DTransType *DomStTy;
-    if (!isNormalizedGEPNeeded(Val, StTy->getLLVMType(), &DomStTy,
-                               /* AllowInvoke */ true))
-      return;
+    if (auto *PHI = dyn_cast<PHINode>(Val)) {
+      DomStTy = getPHIDominantType(PHI, StTy->getLLVMType());
+      if (!DomStTy)
+        return;
+    } else {
+      if (!isNormalizedGEPNeeded(Val, StTy->getLLVMType(), &DomStTy,
+                                 /* AllowInvoke */ true))
+        return;
+    }
+
     StoreValueGepify[SI] = DomStTy;
   }
 
