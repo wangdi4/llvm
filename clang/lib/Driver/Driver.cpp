@@ -7515,17 +7515,26 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     }
   }
 
+<<<<<<< HEAD
   // Builder to be used to build offloading actions.
   OffloadingActionBuilder OffloadBuilder(C, Args, Inputs);
 
   // TODO: Do not use the new offloading driver at this time. Offloading
   // support for spir64 targets is not in place with this new path.
+=======
+>>>>>>> 92d012b2a668096d3bd6ea13c585b157f1f82509
   bool UseNewOffloadingDriver =
       (C.isOffloadingHostKind(Action::OFK_OpenMP) &&
        Args.hasFlag(options::OPT_fopenmp_new_driver,
                     options::OPT_no_offload_new_driver, false)) || // INTEL
       Args.hasFlag(options::OPT_offload_new_driver,
                    options::OPT_no_offload_new_driver, false);
+
+  // Builder to be used to build offloading actions.
+  std::unique_ptr<OffloadingActionBuilder> OffloadBuilder =
+      !UseNewOffloadingDriver
+          ? std::make_unique<OffloadingActionBuilder>(C, Args, Inputs)
+          : nullptr;
 
   // Construct the actions to perform.
   HeaderModulePrecompileJobAction *HeaderModuleAction = nullptr;
@@ -7550,14 +7559,14 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     // Use the current host action in any of the offloading actions, if
     // required.
     if (!UseNewOffloadingDriver)
-      if (OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args))
+      if (OffloadBuilder->addHostDependenceToDeviceActions(Current, InputArg, Args))
         break;
 
     for (phases::ID Phase : PL) {
 
       // Add any offload action the host action depends on.
       if (!UseNewOffloadingDriver)
-        Current = OffloadBuilder.addDeviceDependencesToHostAction(
+        Current = OffloadBuilder->addDeviceDependencesToHostAction(
             Current, InputArg, Phase, PL.back(), FullPL);
       if (!Current)
         break;
@@ -7635,7 +7644,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       // Use the current host action in any of the offloading actions, if
       // required.
       if (!UseNewOffloadingDriver)
-        if (OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args))
+        if (OffloadBuilder->addHostDependenceToDeviceActions(Current, InputArg, Args))
           break;
 
       // Try to build the offloading actions and add the result as a dependency
@@ -7653,23 +7662,28 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
     // Add any top level actions generated for offloading.
     if (!UseNewOffloadingDriver)
-      OffloadBuilder.appendTopLevelActions(Actions, Current, InputArg);
+      OffloadBuilder->appendTopLevelActions(Actions, Current, InputArg);
     else if (Current)
       Current->propagateHostOffloadInfo(C.getActiveOffloadKinds(),
                                         /*BoundArch=*/nullptr);
   }
 
-  OffloadBuilder.appendTopLevelLinkAction(Actions);
+  OffloadBuilder->appendTopLevelLinkAction(Actions);
 
   // With static fat archives we need to create additional steps for
   // generating dependence objects for device link actions.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if ((!LinkerInputs.empty() || HasIntelSYCLPerflib(C, Args)) &&
       C.getDriver().getOffloadStaticLibSeen())
 #endif // INTEL_CUSTOMIZATION
     OffloadBuilder.addDeviceLinkDependenciesFromHost(LinkerInputs);
+=======
+  if (!LinkerInputs.empty() && C.getDriver().getOffloadStaticLibSeen())
+    OffloadBuilder->addDeviceLinkDependenciesFromHost(LinkerInputs);
+>>>>>>> 92d012b2a668096d3bd6ea13c585b157f1f82509
 
-  OffloadBuilder.unbundleStaticArchives(C, Args, PL);
+  OffloadBuilder->unbundleStaticArchives(C, Args, PL);
 
   // For an FPGA archive, we add the unbundling step above to take care of
   // the device side, but also unbundle here to extract the host side
@@ -7706,7 +7720,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       if (auto *IA = dyn_cast<InputAction>(UnbundlerInput)) {
         std::string FileName = IA->getInputArg().getAsString(Args);
         Arg *InputArg = MakeInputArg(Args, getOpts(), FileName);
-        OffloadBuilder.addHostDependenceToDeviceActions(UnbundlerInput,
+        OffloadBuilder->addHostDependenceToDeviceActions(UnbundlerInput,
                                                         InputArg, Args);
       }
     }
@@ -7718,12 +7732,12 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     Arg *FinalPhaseArg;
     if (getFinalPhase(Args, &FinalPhaseArg) == phases::Link)
       if (!UseNewOffloadingDriver)
-        OffloadBuilder.appendDeviceLinkActions(Actions);
+        OffloadBuilder->appendDeviceLinkActions(Actions);
   }
 
   if (!LinkerInputs.empty()) {
     if (!UseNewOffloadingDriver)
-      OffloadBuilder.makeHostLinkAction(LinkerInputs);
+      OffloadBuilder->makeHostLinkAction(LinkerInputs);
     types::ID LinkType(types::TY_Image);
     if (Args.hasArg(options::OPT_fsycl_link_EQ))
       LinkType = types::TY_Archive;
@@ -7740,7 +7754,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       LA = C.MakeAction<LinkJobAction>(LinkerInputs, LinkType);
     }
     if (!UseNewOffloadingDriver)
-      LA = OffloadBuilder.processHostLinkAction(LA);
+      LA = OffloadBuilder->processHostLinkAction(LA);
     Actions.push_back(LA);
   }
 
