@@ -1,4 +1,5 @@
 // REQUIRES: x86-registered-target
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang -Xclang -opaque-pointers -S -emit-llvm -ffp-model=fast -emit-llvm %s -o - \
 // RUN: | FileCheck %s --check-prefixes=CHECK,CHECK-FAST
@@ -16,6 +17,23 @@
 // RUN: %clang -Xclang -opaque-pointers -S -emit-llvm -ffp-model=precise -ffast-math \
 // RUN: %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-FAST1
 // end INTEL_CUSTOMIZATION
+=======
+// INTEL RUN: %clang -Xclang -opaque-pointers -S -emit-llvm -ffp-model=fast -emit-llvm %s -o - \
+// INTEL RUN: | FileCheck %s --check-prefixes=CHECK,CHECK-FAST
+
+// INTEL RUN: %clang -Xclang -opaque-pointers -S -emit-llvm -ffp-model=precise %s -o - \
+// INTEL RUN: | FileCheck %s --check-prefixes=CHECK,CHECK-PRECISE
+
+// INTEL RUN: %clang -Xclang -opaque-pointers -S -emit-llvm -ffp-model=strict %s -o - \
+// INTEL RUN: -target x86_64 | FileCheck %s --check-prefixes=CHECK,CHECK-STRICT
+
+// INTEL RUN: %clang -Xclang -opaque-pointers -S -emit-llvm -ffp-model=strict -ffast-math \
+// INTEL RUN: -target x86_64 %s -o - | FileCheck %s \
+// INTEL RUN: --check-prefixes CHECK,CHECK-STRICT-FAST
+
+// INTEL RUN: %clang -Xclang -opaque-pointers -S -emit-llvm -ffp-model=precise -ffast-math \
+// INTEL RUN: %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-FAST1
+>>>>>>> 4b49e7e9598858a7bd0f2bd4bdb0ad17e2413ecd
 
 float mymuladd(float x, float y, float z) {
   // CHECK: define{{.*}} float @mymuladd

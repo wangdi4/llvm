@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang -Xclang -opaque-pointers -std=c++11 --target=aarch64-arm--eabi -S -emit-llvm %s -o - | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-AARCH64
 // end INTEL_CUSTOMIZATION
+=======
+// INTEL RUN: %clang -Xclang -opaque-pointers -std=c++11 --target=aarch64-arm--eabi -S -emit-llvm %s -o - | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-AARCH64
+>>>>>>> 4b49e7e9598858a7bd0f2bd4bdb0ad17e2413ecd
 
 /*  Various contexts where type _Float16 can appear. */
 

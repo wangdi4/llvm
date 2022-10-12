@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clangxx -Xclang -opaque-pointers -target x86_64-unknown-unknown -g \
 // RUN:   %s -emit-llvm -S -o - | FileCheck %s
@@ -6,6 +7,14 @@
 // RUN:   -fno-elide-constructors %s -emit-llvm -S -o - | \
 // RUN:   FileCheck %s -check-prefix=NOELIDE
 // end INTEL_CUSTOMIZATION
+=======
+// INTEL RUN: %clangxx -Xclang -opaque-pointers -target x86_64-unknown-unknown -g \
+// INTEL RUN:   %s -emit-llvm -S -o - | FileCheck %s
+
+// INTEL RUN: %clangxx -Xclang -opaque-pointers -target x86_64-unknown-unknown -g \
+// INTEL RUN:   -fno-elide-constructors %s -emit-llvm -S -o - | \
+// INTEL RUN:   FileCheck %s -check-prefix=NOELIDE
+>>>>>>> 4b49e7e9598858a7bd0f2bd4bdb0ad17e2413ecd
 
 struct Foo {
   Foo() = default;

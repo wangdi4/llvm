@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clangxx -Xclang -opaque-pointers -target x86_64-apple-darwin10 %s -flto -S -o - |\
 // RUN:   FileCheck --check-prefix=CHECK-NO-KEXT %s
 // RUN: %clangxx -Xclang -opaque-pointers -target x86_64-apple-darwin10 %s -fapple-kext -flto -S -o - |\
 // RUN:   FileCheck --check-prefix=CHECK-KEXT %s
 // end INTEL_CUSTOMIZATION
+=======
+// INTEL RUN: %clangxx -Xclang -opaque-pointers -target x86_64-apple-darwin10 %s -flto -S -o - |\
+// INTEL RUN:   FileCheck --check-prefix=CHECK-NO-KEXT %s
+// INTEL RUN: %clangxx -Xclang -opaque-pointers -target x86_64-apple-darwin10 %s -fapple-kext -flto -S -o - |\
+// INTEL RUN:   FileCheck --check-prefix=CHECK-KEXT %s
+>>>>>>> 4b49e7e9598858a7bd0f2bd4bdb0ad17e2413ecd
 
 // CHECK-NO-KEXT-NOT: _GLOBAL__D_a
 // CHECK-NO-KEXT: @is_hosted ={{.*}} global
