@@ -38603,9 +38603,19 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
-  case X86::PTDPBF8PS: {
+  case X86::PTDPBF8PS:
+  case X86::PTDPBHF8PS:
+  case X86::PTDPHBF8PS:
+  case X86::PTDPHF8PS: {
     const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc = X86::TDPBF8PS;
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTDPBF8PS:  Opc = X86::TDPBF8PS; break;
+    case X86::PTDPBHF8PS: Opc = X86::TDPBHF8PS; break;
+    case X86::PTDPHBF8PS: Opc = X86::TDPHBF8PS; break;
+    case X86::PTDPHF8PS:  Opc = X86::TDPHF8PS; break;
+    }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
@@ -38617,6 +38627,31 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FP8
+#if INTEL_FEATURE_ISA_AMX_FP8_FUTURE
+  case X86::PTTDPBF8PS:
+  case X86::PTTDPBHF8PS:
+  case X86::PTTDPHBF8PS:
+  case X86::PTTDPHF8PS: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTTDPBF8PS:  Opc = X86::TTDPBF8PS; break;
+    case X86::PTTDPBHF8PS: Opc = X86::TTDPBHF8PS; break;
+    case X86::PTTDPHBF8PS: Opc = X86::TTDPHBF8PS; break;
+    case X86::PTTDPHF8PS:  Opc = X86::TTDPHF8PS; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_FP8_FUTURE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::PTADDPS:
   case X86::PTANDND:
