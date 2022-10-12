@@ -1,7 +1,5 @@
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux -flto -flto-unit -fvirtual-function-elimination -fwhole-program-vtables -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang -Xclang -opaque-pointers -target x86_64-unknown-linux -flto -fvirtual-function-elimination -fno-virtual-function-elimination -fwhole-program-vtables -S -emit-llvm -o - %s | FileCheck %s -check-prefix=NOVFE
-// end INTEL_CUSTOMIZATION
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux -flto -flto-unit -fvirtual-function-elimination -fwhole-program-vtables -emit-llvm -o - %s | FileCheck %s
+// INTEL RUN: %clang -Xclang -opaque-pointers -target x86_64-unknown-linux -flto -fvirtual-function-elimination -fno-virtual-function-elimination -fwhole-program-vtables -S -emit-llvm -o - %s | FileCheck %s -check-prefix=NOVFE
 
 struct __attribute__((visibility("default"))) A {
   virtual void foo();
