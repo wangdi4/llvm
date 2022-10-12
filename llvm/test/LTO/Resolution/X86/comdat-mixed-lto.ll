@@ -15,12 +15,7 @@
 ; that testglobfunc was dropped to available_externally. Otherwise we would
 ; have linker multiply defined errors as it is no longer in a comdat and
 ; would clash with the copy from this module.
-<<<<<<< HEAD
 ; RUN: llvm-dis -opaque-pointers %t3.0.0.preopt.bc -o - | FileCheck %s
-; CHECK: define internal void @__cxx_global_var_init() section ".text.startup" {
-; CHECK: define available_externally dso_local void @testglobfunc() section ".text.startup" {
-=======
-; RUN: llvm-dis %t3.0.0.preopt.bc -o - | FileCheck %s
 
 ; CHECK: @llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @__cxx_global_var_init, ptr @C }]
 ; CHECK: @C = available_externally dso_local global %"class.Test::ptr" zeroinitializer, align 4
@@ -36,7 +31,6 @@
 ; CHECK2: @C = available_externally dso_local global %"class.Test::ptr" zeroinitializer, align 4
 ; CHECK2: declare dso_local void @__cxx_global_var_init() section ".text.startup"
 ; CHECK2: define available_externally dso_local void @testglobfunc() section ".text.startup" {
->>>>>>> 8ef3fd8d59ba0100bc6e83350ab1e978536aa531
 
 ; ModuleID = 'comdat-mixed-lto.o'
 source_filename = "comdat-mixed-lto.cpp"
