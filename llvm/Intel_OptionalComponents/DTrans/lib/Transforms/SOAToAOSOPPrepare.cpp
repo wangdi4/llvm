@@ -259,6 +259,15 @@ public:
     if (NewCandI)
       delete NewCandI;
   }
+
+  // Define these functions as unavailable due to resources being managed by the
+  // destructor.
+  SOAToAOSPrepCandidateInfo(const SOAToAOSPrepCandidateInfo &) = delete;
+  SOAToAOSPrepCandidateInfo(SOAToAOSPrepCandidateInfo &&) = delete;
+  SOAToAOSPrepCandidateInfo &
+  operator=(const SOAToAOSPrepCandidateInfo &) = delete;
+  SOAToAOSPrepCandidateInfo &operator=(SOAToAOSPrepCandidateInfo &&) = delete;
+
   bool isCandidateField(DTransType *, unsigned);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printCandidateInfo();

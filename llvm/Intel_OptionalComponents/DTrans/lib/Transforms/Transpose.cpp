@@ -214,7 +214,7 @@ public:
     if (!CollectPairs(GV, Pairs)) {
       IsValid = false;
     } else {
-      for (auto Pair : Pairs) {
+      for (const auto &Pair : Pairs) {
         Value *Base = Pair.first;
         User *U = Pair.second;
         // Now check the users of the pointer address for safety

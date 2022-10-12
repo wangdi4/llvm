@@ -145,7 +145,7 @@ bool SOAToAOSOPLayoutInfo::populateLayoutInformation(DTransType *DTy) {
     HasVT = false;
     unsigned NoDataPointerFields = 0;
     unsigned ElemDataPointerFields = 0;
-    for (auto DEM : DSTy->elements()) {
+    for (const auto &DEM : DSTy->elements()) {
 
       auto *DETy = DEM.getType();
       if (!DETy)
@@ -311,7 +311,7 @@ bool SOAToAOSOPLayoutInfo::populateLayoutInformation(DTransType *DTy) {
       if (S1->getNumFields() != S->getNumFields())
         return FALSE("array structures have different number of fields.");
 
-      for (auto Pair : zip_first(S->elements(), S1->elements())) {
+      for (const auto &Pair : zip_first(S->elements(), S1->elements())) {
         auto &EM = std::get<1>(Pair);
         auto *E = EM.getType();
 
@@ -373,7 +373,7 @@ bool SOAToAOSOPCFGInfo::populateCFGInformation(Module &M,
 
       // Tolerating linear search, because ArrayFieldOffsets.size() is very
       // small.
-      for (auto Pair : zip_first(fields(), methodsets()))
+      for (const auto &Pair : zip_first(fields(), methodsets()))
         if (ThisTy == std::get<0>(Pair)) {
           if (!IsValidMethod(F))
             return FALSE("array method has no definition or is vararg.");
@@ -389,7 +389,7 @@ bool SOAToAOSOPCFGInfo::populateCFGInformation(Module &M,
     }
   }
 
-  for (auto Triple : zip_first(methodsets(), elements(), fields())) {
+  for (const auto &Triple : zip_first(methodsets(), elements(), fields())) {
     if (std::get<0>(Triple)->size() > MaxNumMethods)
       return FALSE("array has too many method to process.");
 

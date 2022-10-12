@@ -1269,7 +1269,7 @@ bool ResolveTypesImpl::identifyEquivalentAndCompatibleTypes(
     SmallPtrSetImpl<StructType *> &ExternTypes,
     EquivalenceClasses<StructType *> &CompatibleTypes) {
   bool TypesRemapped = false;
-  for (auto Entry : CandidateTypeSets) {
+  for (const auto &Entry : CandidateTypeSets) {
     StructType *BaseTy = Entry.first;
 
     // Don't try to remap types with external uses. We didn't check the base
