@@ -1017,6 +1017,7 @@ _storebe_i64(void * __P, long long __D) {
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXFP8__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxfp8intrin.h>
+#include <Intel_amxfp8futureintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FP8 */
