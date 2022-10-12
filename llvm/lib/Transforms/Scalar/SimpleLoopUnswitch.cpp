@@ -3083,9 +3083,8 @@ static bool unswitchBestCondition(
 
   // If the best candidate is a guard, turn it into a branch.
   if (isGuard(Best.TI))
-<<<<<<< HEAD
-    Best.TI = turnGuardIntoBranch(cast<IntrinsicInst>(Best.TI), L, ExitBlocks,
-                                   DT, LI, MSSAU);
+    Best.TI =
+        turnGuardIntoBranch(cast<IntrinsicInst>(Best.TI), L, DT, LI, MSSAU);
 #if INTEL_CUSTOMIZATION
   if (unswitchingMayAffectPerfectLoopnest(LI, L, Best.TI, TLI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L.getHeader()->getName()
@@ -3098,11 +3097,6 @@ static bool unswitchBestCondition(
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-    Best.TI =
-        turnGuardIntoBranch(cast<IntrinsicInst>(Best.TI), L, DT, LI, MSSAU);
-
->>>>>>> fbad5fdc03d90988999b54eb630a9d509098d58d
   LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = " << Best.Cost
                     << ") terminator: " << *Best.TI << "\n");
   unswitchNontrivialInvariants(L, *Best.TI, Best.Invariants, PartialIVInfo, DT,
