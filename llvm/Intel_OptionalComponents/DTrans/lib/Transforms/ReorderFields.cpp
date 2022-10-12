@@ -1,6 +1,6 @@
 //===---------------- ReorderFields.cpp - DTransReorderFieldsPass ---------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1165,14 +1165,14 @@ bool ReorderFieldsImpl::findInclusiveStructType(
                       << "QualifiedStTypeV <: " << QualifiedStTypeV.size()
                       << ">\n";
                unsigned Count = 0;
-               for (auto StTy: QualifiedStTypeV) {
+               for (auto *StTy : QualifiedStTypeV) {
                  dbgs() << Count++ << " : " << *StTy << "\n";
                }
              });
   std::copy(QualifiedStTypeV.begin(), QualifiedStTypeV.end(),
             std::back_inserter(DerivedInclusiveStructTypeV));
 
-  for (auto StTy: QualifiedStTypeV) {
+  for (auto *StTy: QualifiedStTypeV) {
     LLVM_DEBUG(dbgs() << *StTy << "\n";);
     findInclusiveStructType(StTy, DerivedInclusiveStructTypeV);
   }
@@ -1182,7 +1182,7 @@ bool ReorderFieldsImpl::findInclusiveStructType(
                       << "DerivedInclusiveStructTypeV <: "
                       << DerivedInclusiveStructTypeV.size() << ">\n";
                unsigned Count = 0;
-               for (auto StTy: DerivedInclusiveStructTypeV) {
+               for (auto *StTy: DerivedInclusiveStructTypeV) {
                  dbgs() << Count++ << " : " << *StTy << "\n";
                }
              });
@@ -1375,13 +1375,12 @@ static bool isAdvancedStructType(TypeInfo *TI) {
   StructType *StructT = cast<StructType>(StInfo->getLLVMType());
 
   // Reject any struct type with a vector-type or array-type field:
-  if (StructT && std::any_of(StructT->element_begin(), StructT->element_end(),
-                             isArrayOrVectTy))
+  if (std::any_of(StructT->element_begin(), StructT->element_end(),
+                  isArrayOrVectTy))
     return false;
 
   // Expect the struct to have DTransReorderFieldsNumFieldsAdvPrecise (20) fields
-  if (StructT
-      && StructT->getNumElements() != DTransReorderFieldsNumFieldsAdvPrecise)
+  if (StructT->getNumElements() != DTransReorderFieldsNumFieldsAdvPrecise)
     return false;
 
   // Expect the struct to have 12 integer types, 5 struct types and
