@@ -9225,8 +9225,8 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
   Plan->disableValue2VPValue();
 
   VPlanTransforms::optimizeInductions(*Plan, *PSE.getSE());
-  VPlanTransforms::sinkScalarOperands(*Plan);
   VPlanTransforms::removeDeadRecipes(*Plan);
+  VPlanTransforms::sinkScalarOperands(*Plan);
   VPlanTransforms::mergeReplicateRegions(*Plan);
   VPlanTransforms::removeRedundantExpandSCEVRecipes(*Plan);
 
