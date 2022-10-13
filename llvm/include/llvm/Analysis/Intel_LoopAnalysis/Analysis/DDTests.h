@@ -254,6 +254,18 @@ private:
   friend class DDTest;
 };
 
+struct DirectionVectorInfo {
+  DirectionVector ForwardDV;
+  DirectionVector BackwardDV;
+  DistanceVector ForwardDistV;
+  DistanceVector BackwardDistV;
+  // Is set to true if the temp dependence is not cross-iteration dependence.
+  bool IsLoopIndepDepTemp = false;
+  // Is set to true if the dependence can be eliminated by peeling first
+  // iteration of innermost loop.
+  bool FirstIterPeelingRemovesDep = false;
+};
+
 /// DDtest - This class is the main dependence-analysis driver.
 ///
 
@@ -293,10 +305,7 @@ class DDTest {
 
   bool findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
                         const DirectionVector &InputDV,
-                        DirectionVector &ForwardDV, DirectionVector &BackwardDV,
-                        DistanceVector &ForwardDistV,
-                        DistanceVector &BackwardDistV,
-                        bool *IsLoopIndepDepTemp);
+                        DirectionVectorInfo &DVInfo);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
