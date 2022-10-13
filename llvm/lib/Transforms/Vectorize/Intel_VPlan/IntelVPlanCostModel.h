@@ -29,6 +29,8 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/SaveAndRestore.h"
 
+extern cl::opt<bool> CMPrintAnalysis;
+
 namespace llvm {
 class DataLayout;
 class TargetTransformInfo;
@@ -390,7 +392,10 @@ private:
     VPInstructionCost TTICost = getTTICost(VPInst);
 
     CM_DEBUG(OS, *OS << "  Cost " << TTICost << " for ";
-             VPInst->printWithoutAnalyses(*OS););
+             if (CMPrintAnalysis)
+               VPInst->print(*OS);
+             else
+               VPInst->printWithoutAnalyses(*OS););
 
     VPInstructionCost AdjCost = applyHeuristics(HeuristicsListVPInst, VPInst,
                                                 TTICost, OS);
