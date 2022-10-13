@@ -1,8 +1,8 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
-; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
-; RUN: opt -S -convert-to-subscript < %s | opt -function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
-; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
+; RUN: opt -opaque-pointers -function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
+; RUN: opt -opaque-pointers -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
+; RUN: opt -opaque-pointers -S -convert-to-subscript < %s | opt -function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
+; RUN: opt -opaque-pointers -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
 
 @g = global ptr null		; <ptr> [#uses=1]
@@ -304,40 +304,32 @@ define i1 @nocaptureInboundsGEPICmpRev(ptr %x) {
   ret i1 %2
 }
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
-; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
-; FNATTR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
-define i1 @captureGEPICmp(i32* %x) {
-  %1 = getelementptr i32, i32* %x, i32 5
-  %2 = bitcast i32* %1 to i8*
-  %3 = icmp eq i8* %2, null
+; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmp(ptr readnone %x)
+; FNATTR-SUBSCRIPT: define i1 @captureGEPICmp(ptr nocapture readnone %x)
+define i1 @captureGEPICmp(ptr %x) {
+  %1 = getelementptr i32, ptr %x, i32 5
+  %2 = bitcast ptr %1 to ptr
+  %3 = icmp eq ptr %2, null
   ret i1 %3
 }
 
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
-; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
-; FNATTR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
-define i1 @captureGEPICmpRev(i32* %x) {
-  %1 = getelementptr i32, i32* %x, i32 5
-  %2 = bitcast i32* %1 to i8*
-  %3 = icmp eq i8* null, %2
+; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(ptr readnone %x)
+; FNATTR-SUBSCRIPT: define i1 @captureGEPICmpRev(ptr nocapture readnone %x)
+define i1 @captureGEPICmpRev(ptr %x) {
+  %1 = getelementptr i32, ptr %x, i32 5
+  %2 = bitcast ptr %1 to ptr
+  %3 = icmp eq ptr null, %2
   ret i1 %3
 }
 ; end INTEL_CUSTOMIZATION
 
-; FNATTR: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
-define i1 @nocaptureDereferenceableOrNullICmp(i32* dereferenceable_or_null(4) %x) {
-  %1 = bitcast i32* %x to i8*
-  %2 = icmp eq i8* %1, null
-  ret i1 %2
-=======
 ; FNATTR: define i1 @nocaptureDereferenceableOrNullICmp(ptr nocapture readnone dereferenceable_or_null(4) %x)
 define i1 @nocaptureDereferenceableOrNullICmp(ptr dereferenceable_or_null(4) %x) {
   %1 = icmp eq ptr %x, null
   ret i1 %1
->>>>>>> e74390cc9616417c3741af75f8eb19fdc5cd589f
 }
 
 ; FNATTR: define i1 @captureDereferenceableOrNullICmp(ptr readnone dereferenceable_or_null(4) %x)
