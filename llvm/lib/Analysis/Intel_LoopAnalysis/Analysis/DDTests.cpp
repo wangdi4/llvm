@@ -5895,11 +5895,7 @@ void DDTest::setDVForCollapsedRefs(DirectionVector &BackwardDV,
 
 bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
                               const DirectionVector &InputDV,
-                              DirectionVector &ForwardDV,
-                              DirectionVector &BackwardDV,
-                              DistanceVector &ForwardDistV,
-                              DistanceVector &BackwardDistV,
-                              bool *IsLoopIndepDepTemp) {
+                              DirectionVectorInfo &DVInfo) {
 
   // This interface is created to facilitate the building of DDG when forward or
   // backward  edges are needed.
@@ -5927,8 +5923,6 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   // the argument after InputDV indicates calling to rebuild DDG
   auto Result = depends(SrcDDRef, DstDDRef, InputDV, true, AssumeLoopFusion);
 
-  *IsLoopIndepDepTemp = false;
-
   if (Result == nullptr) {
     LLVM_DEBUG(dbgs() << "\nIs Independent!\n");
     return false;
@@ -5937,6 +5931,11 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   unsigned Levels = Result->getLevels();
+
+  auto &ForwardDV = DVInfo.ForwardDV;
+  auto &BackwardDV = DVInfo.BackwardDV;
+  auto &ForwardDistV = DVInfo.ForwardDistV;
+  auto &BackwardDistV = DVInfo.BackwardDistV;
 
   // DVs and DistVs must always be smaller than the constructed capacity, so
   // this should not result in reallocations.
@@ -6074,7 +6073,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
         // Most Transformations would have to scan and drop this kind
         // of Anti Dep
 
-        *IsLoopIndepDepTemp = true;
+        DVInfo.IsLoopIndepDepTemp = true;
       } else if (IsAnti) {
         // b)    = x ;
         //     x =  ;
@@ -6137,6 +6136,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   if (IsCollapsedWithBackwardDep) {
     setDVForCollapsedRefs(BackwardDV, *Result, Levels);
   } else if (Result->isPeelFirst(Levels) && Result->isReversed()) {
+    DVInfo.FirstIterPeelingRemovesDep = true;
     setDVForPeelFirstAndReversed(ForwardDV, BackwardDV, *Result, Levels);
   } else if (BiDirection) {
     setDVForBiDirection(ForwardDV, BackwardDV, *Result, Levels, LTGTLevel);

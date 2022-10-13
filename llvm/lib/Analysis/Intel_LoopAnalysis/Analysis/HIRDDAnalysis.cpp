@@ -612,19 +612,11 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
             !isEdgeValid(Ref1, Ref2)) {
           DDTest DT(*AAR, Node->getHLNodeUtils());
           DirectionVector InputDV;
-          DirectionVector OutputDVForward;
-          DirectionVector OutputDVBackward;
-          DistanceVector OutputDistVForward;
-          DistanceVector OutputDistVBackward;
+          DirectionVectorInfo DVInfo;
 
-          bool IsLoopIndepDepTemp = false;
-          // TODO this is incorrect, we need a direction vector of
-          //= = * for 3rd level inermost loops
           InputDV.setAsInput();
 
-          bool Dependent = DT.findDependencies(
-              Ref1, Ref2, InputDV, OutputDVForward, OutputDVBackward,
-              OutputDistVForward, OutputDistVBackward, &IsLoopIndepDepTemp);
+          bool Dependent = DT.findDependencies(Ref1, Ref2, InputDV, DVInfo);
 
           //  Sample code to check output:
           //  first check IsDependent
@@ -648,19 +640,21 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
           //  for checking distance -2, otherwise something is invalid
           //  flow (< > >) (2 -2 -1)
 
-          if (Dependent && OutputDVForward[0] != DVKind::NONE &&
+          if (Dependent && DVInfo.ForwardDV[0] != DVKind::NONE &&
               (NeededEdgeType & ConstructDDEdgeType::Forward)) {
-            DDEdge Edge = DDEdge(Ref1, Ref2, OutputDVForward,
-                                 OutputDistVForward, IsLoopIndepDepTemp);
+            DDEdge Edge =
+                DDEdge(Ref1, Ref2, DVInfo.ForwardDV, DVInfo.ForwardDistV,
+                       DVInfo.IsLoopIndepDepTemp);
             // LLVM_DEBUG(dbgs() << "Got edge of :");
             // LLVM_DEBUG(Edge.dump());
             DDG.addEdge(std::move(Edge));
           }
 
-          if (Dependent && OutputDVBackward[0] != DVKind::NONE &&
+          if (Dependent && DVInfo.BackwardDV[0] != DVKind::NONE &&
               (NeededEdgeType & ConstructDDEdgeType::Backward)) {
             DDEdge Edge =
-                DDEdge(Ref2, Ref1, OutputDVBackward, OutputDistVBackward);
+                DDEdge(Ref2, Ref1, DVInfo.BackwardDV, DVInfo.BackwardDistV,
+                       false, DVInfo.FirstIterPeelingRemovesDep);
             // LLVM_DEBUG(dbgs() << "Got back edge of :");
             // LLVM_DEBUG(Edge.dump());
             DDG.addEdge(std::move(Edge));
