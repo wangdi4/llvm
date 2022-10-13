@@ -52,10 +52,6 @@ namespace detail {
 static int getDevicePreference(const device &Device) {
   int Score = 0;
 
-  // No preferences for host devices.
-  if (Device.is_host())
-    return Score;
-
   // Strongly prefer devices with available images.
   auto &program_manager = sycl::detail::ProgramManager::getInstance();
   if (program_manager.hasCompatibleImage(Device))
@@ -176,12 +172,6 @@ __SYCL_EXPORT int default_selector_v(const device &dev) {
   if (dev.is_cpu())
     Score += 300;
 
-#ifdef INTEL_CUSTOMIZATION
-  if (detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get())
-#endif // INTEL_CUSTOMIZATION
-    if (dev.is_host())
-      Score += 100;
-
   // Since we deprecate SYCL_BE and SYCL_DEVICE_TYPE,
   // we should not disallow accelerator to be chosen.
   // But this device type gets the lowest heuristic point.
@@ -224,6 +214,13 @@ __SYCL_EXPORT int accelerator_selector_v(const device &dev) {
   return Score;
 }
 
+int host_selector::operator()(const device &dev) const {
+  // Host device has been removed and host_selector has been deprecated, so this
+  // should never be able to select a device.
+  std::ignore = dev;
+  return detail::REJECT_DEVICE_SCORE;
+}
+
 // -------------- SYCL 1.2.1
 
 // SYCL 1.2.1 device_selector class and sub-classes
@@ -246,23 +243,6 @@ int cpu_selector::operator()(const device &dev) const {
 
 int accelerator_selector::operator()(const device &dev) const {
   return accelerator_selector_v(dev);
-}
-
-int host_selector::operator()(const device &dev) const {
-  int Score = detail::REJECT_DEVICE_SCORE;
-#ifdef INTEL_CUSTOMIZATION
-  bool ShouldSelect =
-      detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get() ||
-              detail::get_forced_type() == info::device_type::host
-          ? dev.is_host()
-          : dev.is_cpu();
-  if (ShouldSelect)
-#endif // INTEL_CUSTOMIZATION
-  {
-    Score = 1000;
-    Score += detail::getDevicePreference(dev);
-  }
-  return Score;
 }
 
 namespace ext {
