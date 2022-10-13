@@ -101,21 +101,13 @@ EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop) {
   SyclWrapperObj->ZeQueue = ZeQueue;
   ze_command_queue_handle_t ZeQueueT =
       static_cast<ze_command_queue_handle_t>(ZeQueue);
-<<<<<<< HEAD
 
-  SyclWrapperObj->SyclQueue =
-      sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(
-          {ZeQueueT, SyclWrapperObj->SyclDevice,
-           sycl::ext::oneapi::level_zero::ownership::keep},
-          SyclWrapperObj->SyclContext);
-=======
   sycl::backend_input_t<sycl::backend::ext_oneapi_level_zero, sycl::queue>
       QueueInteropInput =  { ZeQueueT, SyclWrapperObj->SyclDevice,
                              sycl::ext::oneapi::level_zero::ownership::keep };
   SyclWrapperObj->SyclQueue =
       sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(
           QueueInteropInput, SyclWrapperObj->SyclContext);
->>>>>>> 877c57c23605b94adbc00c28af8f0b274e57f81e
 
   SyclWrapperObj->interop = interop;
   SyclWrappers.push_back(SyclWrapperObj);
