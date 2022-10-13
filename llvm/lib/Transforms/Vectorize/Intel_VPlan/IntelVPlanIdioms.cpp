@@ -387,16 +387,20 @@ VPlanIdioms::isSearchLoopNeedingPeeling(const VPBasicBlock *Block,
     // LHS of predicate matched, save for later checks.
     ListItemRef = PredLhs;
 
+    const HLLoop *IfParLoop = If->getParentLoop();
+    assert(IfParLoop && "Expected the HLIf to have a valid parent-loop");
+    HLNodeUtils &HNU = IfParLoop->getHLNodeUtils();
+    CanonExprUtils &CEU = HNU.getCanonExprUtils();
+    const RegDDRef *LoopUB = IfParLoop->getUpperDDRef();
+    assert(LoopUB && "Cannot find UB DDRef of loop.");
+    unsigned LoopUBTypeSize = CEU.getTypeSizeInBytes(LoopUB->getDestType());
+
     if (CheckPtrEq) {
       // Check that struct pointer size is same as loop bound's size.
-      const HLLoop *IfParLoop = If->getParentLoop();
-      assert(IfParLoop && "Expected the HLIf to have a valid parent-loop");
-      HLNodeUtils &HNU = IfParLoop->getHLNodeUtils();
-      CanonExprUtils &CEU = HNU.getCanonExprUtils();
+      // TODO: It would be good to relax this at some point.  See the TODO
+      // in HLLoop::generatePeelLoop().  We can miss opportunities when
+      // the pointer type is i64 and the LoopUB is i32, for example.
       unsigned PtrSize = CEU.getTypeSizeInBytes(PredLhsType);
-      const RegDDRef *LoopUB = IfParLoop->getUpperDDRef();
-      assert(LoopUB && "Cannot find UB DDRef of loop.");
-      unsigned LoopUBTypeSize = CEU.getTypeSizeInBytes(LoopUB->getDestType());
 
       if (PtrSize != LoopUBTypeSize) {
         LLVM_DEBUG(dbgs() << "        Array ref to peel "; ListItemRef->dump();
@@ -417,6 +421,22 @@ VPlanIdioms::isSearchLoopNeedingPeeling(const VPBasicBlock *Block,
         LLVM_DEBUG(dbgs() << "        RegDDRef "; PredLhs->dump();
                    dbgs() << " is not an array access.\n");
         return VPlanIdioms::Unsafe;
+      }
+
+      // Check that the size of a pointer to an array element is the same
+      // as the loop bound's size, when the loop bound isn't constant.
+      // TODO: It would be good to relax this at some point.  See the TODO
+      // in HLLoop::generatePeelLoop().  We can miss opportunities when
+      // the pointer type is i64 and the LoopUB is i32, for example.
+      if (!LoopUB->isIntConstant()) {
+        const CanonExpr *PeelArrayBase = ListItemRef->getBaseCE();
+        if (CEU.getTypeSizeInBits(PeelArrayBase->getSrcType())
+            != LoopUBTypeSize) {
+          LLVM_DEBUG(dbgs() << "        Array ref to peel ";
+                     ListItemRef->dump();
+                     dbgs() << " is not same size as loop bounds.\n");
+          return VPlanIdioms::Unsafe;
+        }
       }
 
       // The rightmost index is the expected search value.
