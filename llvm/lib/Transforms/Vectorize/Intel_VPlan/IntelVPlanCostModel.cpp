@@ -38,6 +38,11 @@ static cl::opt<unsigned>
                     cl::Hidden,
                     cl::desc("Defines size of a cache line (in bytes)"));
 
+cl::opt<bool>
+    CMPrintAnalysis("vplan-cm-print-analysis", cl::init(false), cl::Hidden,
+                    cl::desc("Dump analysis avaiable for instruction in "
+                             "Cost Model dumps."));
+
 // Cost of the store should be 1.5x greater than the cost of a load.
 // Store has two stages: allocate/read cache line(s) and place data to it. The
 // load reads data from cache line(s). Moving the data to the cache buffer is
