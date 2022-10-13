@@ -53,8 +53,8 @@ define void @_Z3fooPlS_(i32* nocapture noundef writeonly %lp1) {
 ; CHECK:             %.vec10 = (<4 x i32>*)(%priv.mem)[0];
 ; CHECK-NEXT:        %cast.crd = trunc.i64.i32(100);
 ; CHECK-NEXT:        %1 = 2  *  %cast.crd;
-; CHECK-NEXT:        %ind.final = %.unifload  +  %1;
-; CHECK-NEXT:        (%l2.linear)[0] = %ind.final;
+; CHECK-NEXT:        %.unifload = %.unifload  +  %1;
+; CHECK-NEXT:        (%l2.linear)[0] = %.unifload;
 ; CHECK-NEXT:  END REGION
 ;
 DIR.OMP.SIMD.1:
