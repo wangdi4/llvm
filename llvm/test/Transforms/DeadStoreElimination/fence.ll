@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -S -basic-aa -dse < %s | FileCheck %s
-=======
 ; RUN: opt -S -passes=dse < %s | FileCheck %s
->>>>>>> f497a00da968b0ff90d8c98caa184d14b9a92495
 
 ; We conservative choose to prevent dead store elimination
 ; across release or stronger fences.  It's not required 

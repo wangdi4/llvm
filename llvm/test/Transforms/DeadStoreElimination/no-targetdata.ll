@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -dse -S < %s | FileCheck %s
-=======
 ; RUN: opt -passes=dse -S < %s | FileCheck %s
->>>>>>> f497a00da968b0ff90d8c98caa184d14b9a92495
 
 declare void @llvm.memcpy.p0.p0.i64(ptr nocapture, ptr nocapture, i64, i1) nounwind
 
