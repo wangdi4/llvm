@@ -52,15 +52,7 @@ std::vector<device> device::get_devices(info::device_type deviceType) {
   std::vector<device> devices;
   detail::device_filter_list *FilterList =
       detail::SYCLConfig<detail::SYCL_DEVICE_FILTER>::get();
-<<<<<<< HEAD
-  detail::ods_target_list *OdsTargetList =
-      detail::SYCLConfig<detail::ONEAPI_DEVICE_SELECTOR>::get();
-
-  info::device_type forced_type =
-      detail::get_forced_type(); // almost always ::all
-=======
   info::device_type forced_type = detail::get_forced_type();
->>>>>>> af0fe5e5975d6e18da8760fda9c9ff150f62d43c
   // Exclude devices which do not match requested device type
   if (detail::match_types(deviceType, forced_type)) {
     detail::force_type(deviceType, forced_type);
@@ -77,8 +69,6 @@ std::vector<device> device::get_devices(info::device_type deviceType) {
       // with the filter specification.
       backend platformBackend = plt.get_backend();
       if (FilterList && !FilterList->backendCompatible(platformBackend))
-        continue;
-      if (OdsTargetList && !OdsTargetList->backendCompatible(platformBackend))
         continue;
 
       std::vector<device> found_devices(plt.get_devices(deviceType));

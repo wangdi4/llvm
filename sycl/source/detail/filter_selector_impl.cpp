@@ -76,12 +76,7 @@ filter create_filter(const std::string &Input) {
       Result.Backend = backend::ext_oneapi_cuda;
     } else if (Token == "hip" && !Result.Backend) {
       Result.Backend = backend::ext_oneapi_hip;
-<<<<<<< HEAD
     } else if (std::regex_match(Token, IntegerExpr) && !Result.DeviceNum) {
-=======
-      Result.HasBackend = true;
-    } else if (std::regex_match(Token, IntegerExpr) && !Result.HasDeviceNum) {
->>>>>>> af0fe5e5975d6e18da8760fda9c9ff150f62d43c
       try {
         Result.DeviceNum = std::stoi(Token);
       } catch (std::logic_error &) {
@@ -117,11 +112,7 @@ int filter_selector_impl::operator()(const device &Dev) const {
     bool DeviceTypeOK = true;
     bool DeviceNumOK = true;
 
-<<<<<<< HEAD
     if (Filter.Backend) {
-=======
-    if (Filter.HasBackend) {
->>>>>>> af0fe5e5975d6e18da8760fda9c9ff150f62d43c
       backend BE = sycl::detail::getSyclObjImpl(Dev)->getPlugin().getBackend();
       // Backend is okay if the filter BE is set 'all'.
       if (Filter.Backend.value() == backend::all)

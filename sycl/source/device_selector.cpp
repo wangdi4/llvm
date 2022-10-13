@@ -254,10 +254,6 @@ int host_selector::operator()(const device &dev) const {
   // Host device has been removed and host_selector has been deprecated, so this
   // should never be able to select a device.
   std::ignore = dev;
-<<<<<<< HEAD
-  traceDeviceSelector("info::device_type::host");
-=======
->>>>>>> af0fe5e5975d6e18da8760fda9c9ff150f62d43c
   return detail::REJECT_DEVICE_SCORE;
 }
 
