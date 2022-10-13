@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -S -basic-aa -slp-vectorizer < %s | FileCheck %s
-=======
 ; RUN: opt -S -passes=slp-vectorizer < %s | FileCheck %s
->>>>>>> 3be72f402925b99adbec4a2ee5bacdf76ba6c8d1
 target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
 target triple = "arm64-apple-ios5.0.0"
 
