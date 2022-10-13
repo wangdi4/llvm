@@ -51,23 +51,23 @@ private:
   DirectionVector DV;
   DistanceVector DistVector;
   bool IsLoopIndepDepTemp;
+  bool FirstIterPeelingRemovesDep;
 
 public:
-  DDEdge() {
-    Src = Sink = nullptr;
-    IsLoopIndepDepTemp = false;
-  }
   DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DirectionVector &DirV,
-         const DistanceVector &DistV, bool IsLoopIndepDepTempIn = false)
-      : Src(SrcRef), Sink(SinkRef), DV(DirV), DistVector(DistV) {
-    IsLoopIndepDepTemp = IsLoopIndepDepTempIn;
-  }
+         const DistanceVector &DistV, bool IsLoopIndepDepTemp = false,
+         bool FirstIterPeelingRemovesDep = false)
+      : Src(SrcRef), Sink(SinkRef), DV(DirV), DistVector(DistV),
+        IsLoopIndepDepTemp(IsLoopIndepDepTemp),
+        FirstIterPeelingRemovesDep(FirstIterPeelingRemovesDep) {}
 
   DepType getEdgeType() const;
 
   DDRef *getSrc() const { return Src; }
   DDRef *getSink() const { return Sink; }
   bool isLoopIndependentDepTemp() const { return IsLoopIndepDepTemp; }
+
+  bool firstIterPeelingRemovesDep() const { return FirstIterPeelingRemovesDep; }
 
   // Returns direction vector of the edge.
   const DirectionVector &getDV() const { return DV; }

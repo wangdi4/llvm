@@ -165,7 +165,13 @@ void DDEdge::print(raw_ostream &OS) const {
   assert(DV.size() == DistVector.size());
   DV.print(FOS);
   DistVector.print(FOS);
+
+  if (FirstIterPeelingRemovesDep) {
+    FOS << " FirstIterPeelingRemovesDep";
+  }
+
   FOS << " \n";
+
   // todo
 }
 
