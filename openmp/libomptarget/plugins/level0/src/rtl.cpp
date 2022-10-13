@@ -59,11 +59,9 @@
 #include "omptarget-tools.h"
 #endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
-#ifdef _WIN32
-#include "intel_win_dlfcn.h"
-#endif
 
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/DynamicLibrary.h"
 
 /// Host runtime routines being used
 extern "C" {
@@ -286,68 +284,66 @@ namespace L0Interop {
          IprTypeDescs[I]);
   }
 
-  struct SyclWrapperTY{
+  struct SyclWrapperTy {
+    bool WrapApiValid = false;
+    typedef void *(get_sycl_interop_ty)(void*);
+    typedef void  (create_sycl_interop_ty)(omp_interop_t);
+    typedef void  (delete_sycl_interop_ty)(omp_interop_t);
+    typedef void  (delete_all_sycl_interop_ty)();
 
-     bool WrapApiValid;
-     typedef void *(get_sycl_interop_ty)(void*);
-     typedef void  (create_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_all_sycl_interop_ty)();
+    get_sycl_interop_ty        *get_sycl_interop        = nullptr;
+    create_sycl_interop_ty     *create_sycl_interop     = nullptr;
+    delete_sycl_interop_ty     *delete_sycl_interop     = nullptr;
+    delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
 
-     get_sycl_interop_ty        *get_sycl_interop        = nullptr;
-     create_sycl_interop_ty     *create_sycl_interop     = nullptr;
-     delete_sycl_interop_ty     *delete_sycl_interop     = nullptr;
-     delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
-
-  }SyclWrapper;
+    std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
+  } SyclWrapper;
 
   /// Wrap interop object as a SYCl object
   static void wrapInteropSycl(__tgt_interop * Interop) {
+    static std::once_flag Flag{};
 
-     static std::once_flag Flag{};
-     std::call_once(Flag, []() {
-       SyclWrapper.WrapApiValid = true;
-       void *dynlib_handle = dlopen(L0Interop::SyclWrapName, RTLD_NOW);
-       if (!dynlib_handle) {
-          // Library does not exist or cannot be found.
-          const char *ErrorStr = dlerror();
-          if (!ErrorStr)
-            ErrorStr = "";
-          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName,
-             ErrorStr);
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       DP("loaded library '%s': \n", L0Interop::SyclWrapName);
-       if(!(*((void **)&SyclWrapper.get_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_get_interop"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.create_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_create_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_all_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-     });
+    std::call_once(Flag, []() {
+      std::string ErrMsg;
+      auto DynLib = std::make_unique<llvm::sys::DynamicLibrary>(
+          llvm::sys::DynamicLibrary::getPermanentLibrary(
+              L0Interop::SyclWrapName, &ErrMsg));
 
-     if (!SyclWrapper.WrapApiValid) {
-       DP("SyclWrapper API is invalid\n");
-       return;
-     }
+      if (!DynLib->isValid()) {
+        DP("Unable to load library '%s': %s!\n",
+           L0Interop::SyclWrapName, ErrMsg.c_str());
+        return;
+      }
 
-     // Call to replace L0 info with Sycl info.
-     SyclWrapper.create_sycl_interop(Interop);
+      DP("Loaded library '%s': \n", L0Interop::SyclWrapName);
+
+      if (!(*((void **)&SyclWrapper.get_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_get_interop")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.create_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_create_interop_wrapper")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.delete_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_delete_interop_wrapper")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_delete_all_interop_wrapper")))
+        return;
+
+      SyclWrapper.WrapApiValid = true;
+      SyclWrapper.LibHandle = std::move(DynLib);
+    });
+
+    if (!SyclWrapper.WrapApiValid) {
+      DP("SyclWrapper API is invalid\n");
+      return;
+    }
+
+    // Call to replace L0 info with Sycl info.
+    SyclWrapper.create_sycl_interop(Interop);
   }
 }
 #endif // INTEL_CUSTOMIZATION
