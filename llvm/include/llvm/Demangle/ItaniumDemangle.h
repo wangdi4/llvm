@@ -44,13 +44,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
-<<<<<<< HEAD
+#include <new>
 // INTEL_CUSTOMIZATION
 #include <string>
 // end INTEL_CUSTOMIZATION
-=======
-#include <new>
->>>>>>> 702d937f1e1d42892ab43d1b591f5041ce2f4e78
 #include <utility>
 
 DEMANGLE_NAMESPACE_BEGIN
