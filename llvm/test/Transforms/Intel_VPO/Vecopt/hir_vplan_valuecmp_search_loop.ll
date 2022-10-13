@@ -105,3 +105,39 @@ for.end:
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind readonly willreturn uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 
+; The following variant uses an unknown trip count whose size differs from
+; that of a pointer to the array elements.  We can't vectorize in this case,
+; at least for now.
+
+define i32 @_Z6searchii(i32 %v, i32 %n) #0 {
+; CHECK-LABEL:  *** IR Dump After vpo::VPlanDriverHIRPass ***
+; CHECK-NEXT:  Function: _Z6searchii
+; CHECK-NOT:  BEGIN REGION { modified }
+entry:
+  %nmod = sext i32 %n to i64
+  br label %land.rhs
+
+land.rhs:
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
+  %arrayidx = getelementptr inbounds [8192 x i32], [8192 x i32]* @b, i64 0, i64 %indvars.iv
+  %0 = load i32, i32* %arrayidx, align 4
+  %cmp1.not = icmp sgt i32 %0, %v
+  br i1 %cmp1.not, label %for.end.split.loop.exit8, label %for.inc
+
+for.inc:
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %nmod
+  br i1 %exitcond.not, label %for.end.loopexit, label %land.rhs
+
+for.end.split.loop.exit8:
+  %indvars.iv.lcssa = phi i64 [ %indvars.iv, %land.rhs ]
+  %1 = trunc i64 %indvars.iv.lcssa to i32
+  br label %for.end
+
+for.end.loopexit:
+  br label %for.end
+
+for.end:
+  %newsize.0.lcssa = phi i32 [ %1, %for.end.split.loop.exit8 ], [ %n, %for.end.loopexit ]
+  ret i32 %newsize.0.lcssa
+}
