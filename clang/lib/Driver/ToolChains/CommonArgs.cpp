@@ -542,14 +542,10 @@ bool tools::isUseSeparateSections(const Driver &D,
 #if INTEL_CUSTOMIZATION
 void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                           ArgStringList &CmdArgs, const InputInfo &Output,
-<<<<<<< HEAD
                           const InputInfo &Input, bool IsThinLTO,
                           const JobAction &JA) {
 #endif // INTEL_CUSTOMIZATION
-=======
-                          const InputInfo &Input, bool IsThinLTO) {
   const bool IsOSAIX = ToolChain.getTriple().isOSAIX();
->>>>>>> ec94f372d1c13b40029519a50184258d4de24a13
   const char *Linker = Args.MakeArgString(ToolChain.GetLinkerPath());
   const Driver &D = ToolChain.getDriver();
   if (llvm::sys::path::filename(Linker) != "ld.lld" &&
@@ -572,7 +568,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 #endif
 
 #if INTEL_CUSTOMIZATION
-    const char * PluginName = "LLVMgold";
+    PluginName = "LLVMgold";
     if (D.IsIntelMode())
       PluginName = "icx-lto";
     SmallString<1024> Plugin(ToolChain.getDriver().Dir);
@@ -584,20 +580,12 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                             Twine(PluginName) + Twine(Suffix));
 #else // INTEL_CUSTOMIZATION
     SmallString<1024> Plugin;
-<<<<<<< HEAD
-    llvm::sys::path::native(
-        Twine(D.Dir) + "/../" CLANG_INSTALL_LIBDIR_BASENAME "/LLVMgold" +
-            Suffix,
-        Plugin);
-#endif // INTEL_CUSTOMIZATION
-    CmdArgs.push_back(Args.MakeArgString(Plugin));
-=======
     llvm::sys::path::native(Twine(D.Dir) +
                                 "/../" CLANG_INSTALL_LIBDIR_BASENAME +
                                 PluginName + Suffix,
                             Plugin);
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back(Args.MakeArgString(Twine(PluginPrefix) + Plugin));
->>>>>>> ec94f372d1c13b40029519a50184258d4de24a13
   }
 
   const char *PluginOptPrefix = IsOSAIX ? "-bplugin_opt:" : "-plugin-opt=";
