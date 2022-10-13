@@ -44,11 +44,8 @@
 #include "clang/AST/Randstruct.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
-<<<<<<< HEAD
 #include "clang/Basic/TargetBuiltins.h" // INTEL
-=======
 #include "clang/Basic/HLSLRuntime.h"
->>>>>>> 19a0a56749110dc92b39f583e46779ff23aceeba
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
