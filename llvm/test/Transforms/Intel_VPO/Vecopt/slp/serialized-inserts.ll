@@ -96,7 +96,7 @@ define void @foo() {
 ; FORCE-VECT-NEXT:    [[TMP8:%.*]] = insertelement <8 x i8> [[TMP7]], i8 [[D27]], i32 3
 ; FORCE-VECT-NEXT:    [[TMP9:%.*]] = insertelement <8 x i8> [[TMP8]], i8 [[D66]], i32 4
 ; FORCE-VECT-NEXT:    [[TMP10:%.*]] = shufflevector <2 x i8> [[TMP2]], <2 x i8> poison, <8 x i32> <i32 0, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; FORCE-VECT-NEXT:    [[TMP11:%.*]] = shufflevector <8 x i8> [[TMP9]], <8 x i8> [[TMP10]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 6, i32 7>
+; FORCE-VECT-NEXT:    [[TMP11:%.*]] = shufflevector <8 x i8> [[TMP9]], <8 x i8> [[TMP10]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 undef, i32 undef>
 ; FORCE-VECT-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i8> [[TMP11]], <8 x i8> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 1, i32 4, i32 5>
 ; FORCE-VECT-NEXT:    [[TMP12:%.*]] = shufflevector <2 x i8> [[TMP0]], <2 x i8> [[TMP2]], <8 x i32> <i32 1, i32 undef, i32 2, i32 undef, i32 3, i32 undef, i32 undef, i32 undef>
 ; FORCE-VECT-NEXT:    [[TMP13:%.*]] = insertelement <8 x i8> [[TMP12]], i8 [[D27]], i32 1
