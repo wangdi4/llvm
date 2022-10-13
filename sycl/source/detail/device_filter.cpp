@@ -363,10 +363,19 @@ bool device_filter_list::deviceTypeCompatible(info::device_type DeviceType) {
 }
 
 bool device_filter_list::deviceNumberCompatible(int DeviceNum) {
+<<<<<<< HEAD
   return std::any_of(
       FilterList.begin(), FilterList.end(), [&](device_filter &Filter) {
         return (!Filter.DeviceNum) || (Filter.DeviceNum.value() == DeviceNum);
       });
+=======
+  for (const device_filter &Filter : FilterList) {
+    int FilterDevNum = Filter.DeviceNum;
+    if (!Filter.HasDeviceNum || FilterDevNum == DeviceNum)
+      return true;
+  }
+  return false;
+>>>>>>> af0fe5e5975d6e18da8760fda9c9ff150f62d43c
 }
 
 } // namespace detail
