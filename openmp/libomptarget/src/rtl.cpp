@@ -40,20 +40,14 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
-#if INTEL_CUSTOMIZATION
-// FIXME: temporary solution for LIBDL on Windows.
-#ifdef _WIN32
-#include <windows.h>
-#include <intel_win_dlfcn.h>
-#else  // !_WIN32
-#include <dlfcn.h>
-#endif // !_WIN32
-#include "xpti_registry.h"
-#else  // INTEL_CUSTOMIZATION
-#include <dlfcn.h>
-#endif  // INTEL_CUSTOMIZATION
 #include <mutex>
 #include <string>
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#include "xpti_registry.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -304,12 +298,6 @@ void RTLsTy::loadRTLs() {
 
     if (!DynLibrary->isValid()) {
       // Library does not exist or cannot be found.
-#if INTEL_COLLAB
-      const char *DLError = dlerror();
-      DP("Unable to load library '%s': %s!\n", Name, DLError ? DLError : "");
-#else // INTEL_COLLAB
-      DP("Unable to load library '%s': %s!\n", Name, dlerror());
-#endif // INTEL_COLLAB
       DP("Unable to load library '%s': %s!\n", Name, ErrMsg.c_str());
       continue;
     }
@@ -415,9 +403,35 @@ void RTLsTy::loadRTLs() {
     *((void **)&R.data_exchange_async) =
         DynLibrary->getAddressOfSymbol("__tgt_rtl_data_exchange_async");
     *((void **)&R.is_data_exchangable) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_is_data_exchangable");
+    *((void **)&R.register_lib) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_register_lib");
+    *((void **)&R.unregister_lib) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_unregister_lib");
+    *((void **)&R.supports_empty_images) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_supports_empty_images");
+    *((void **)&R.set_info_flag) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_set_info_flag");
+    *((void **)&R.print_device_info) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_print_device_info");
+    *((void **)&R.create_event) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_create_event");
+    *((void **)&R.record_event) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_record_event");
+    *((void **)&R.wait_event) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_wait_event");
+    *((void **)&R.sync_event) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_sync_event");
+    *((void **)&R.destroy_event) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_destroy_event");
+    *((void **)&R.release_async_info) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_release_async_info");
+    *((void **)&R.init_async_info) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_init_async_info");
+    *((void **)&R.init_device_info) =
+        DynLibrary->getAddressOfSymbol("__tgt_rtl_init_device_info");
 
 #if INTEL_COLLAB
-DynLibrary->getAddressOfSymbol("__tgt_rtl_deinit_plugin");
     #define SET_OPTIONAL_INTERFACE(entry, name)                                \
       do {                                                                     \
         if ((*((void **)&R.entry) =                                            \
@@ -478,34 +492,6 @@ DynLibrary->getAddressOfSymbol("__tgt_rtl_deinit_plugin");
       R.init_ompt(OmptGlobal);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
-
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_is_data_exchangable");
-    *((void **)&R.register_lib) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_register_lib");
-    *((void **)&R.unregister_lib) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_unregister_lib");
-    *((void **)&R.supports_empty_images) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_supports_empty_images");
-    *((void **)&R.set_info_flag) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_set_info_flag");
-    *((void **)&R.print_device_info) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_print_device_info");
-    *((void **)&R.create_event) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_create_event");
-    *((void **)&R.record_event) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_record_event");
-    *((void **)&R.wait_event) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_wait_event");
-    *((void **)&R.sync_event) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_sync_event");
-    *((void **)&R.destroy_event) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_destroy_event");
-    *((void **)&R.release_async_info) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_release_async_info");
-    *((void **)&R.init_async_info) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_init_async_info");
-    *((void **)&R.init_device_info) =
-        DynLibrary->getAddressOfSymbol("__tgt_rtl_init_device_info");
 
     R.LibraryHandler = std::move(DynLibrary);
   }
