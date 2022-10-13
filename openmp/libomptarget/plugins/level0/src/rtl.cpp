@@ -59,11 +59,9 @@
 #include "omptarget-tools.h"
 #endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
-#ifdef _WIN32
-#include "intel_win_dlfcn.h"
-#endif
 
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/DynamicLibrary.h"
 
 /// Host runtime routines being used
 extern "C" {
@@ -286,68 +284,66 @@ namespace L0Interop {
          IprTypeDescs[I]);
   }
 
-  struct SyclWrapperTY{
+  struct SyclWrapperTy {
+    bool WrapApiValid = false;
+    typedef void *(get_sycl_interop_ty)(void*);
+    typedef void  (create_sycl_interop_ty)(omp_interop_t);
+    typedef void  (delete_sycl_interop_ty)(omp_interop_t);
+    typedef void  (delete_all_sycl_interop_ty)();
 
-     bool WrapApiValid;
-     typedef void *(get_sycl_interop_ty)(void*);
-     typedef void  (create_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_all_sycl_interop_ty)();
+    get_sycl_interop_ty        *get_sycl_interop        = nullptr;
+    create_sycl_interop_ty     *create_sycl_interop     = nullptr;
+    delete_sycl_interop_ty     *delete_sycl_interop     = nullptr;
+    delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
 
-     get_sycl_interop_ty        *get_sycl_interop        = nullptr;
-     create_sycl_interop_ty     *create_sycl_interop     = nullptr;
-     delete_sycl_interop_ty     *delete_sycl_interop     = nullptr;
-     delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
-
-  }SyclWrapper;
+    std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
+  } SyclWrapper;
 
   /// Wrap interop object as a SYCl object
   static void wrapInteropSycl(__tgt_interop * Interop) {
+    static std::once_flag Flag{};
 
-     static std::once_flag Flag{};
-     std::call_once(Flag, []() {
-       SyclWrapper.WrapApiValid = true;
-       void *dynlib_handle = dlopen(L0Interop::SyclWrapName, RTLD_NOW);
-       if (!dynlib_handle) {
-          // Library does not exist or cannot be found.
-          const char *ErrorStr = dlerror();
-          if (!ErrorStr)
-            ErrorStr = "";
-          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName,
-             ErrorStr);
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       DP("loaded library '%s': \n", L0Interop::SyclWrapName);
-       if(!(*((void **)&SyclWrapper.get_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_get_interop"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.create_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_create_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_all_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-     });
+    std::call_once(Flag, []() {
+      std::string ErrMsg;
+      auto DynLib = std::make_unique<llvm::sys::DynamicLibrary>(
+          llvm::sys::DynamicLibrary::getPermanentLibrary(
+              L0Interop::SyclWrapName, &ErrMsg));
 
-     if (!SyclWrapper.WrapApiValid) {
-       DP("SyclWrapper API is invalid\n");
-       return;
-     }
+      if (!DynLib->isValid()) {
+        DP("Unable to load library '%s': %s!\n",
+           L0Interop::SyclWrapName, ErrMsg.c_str());
+        return;
+      }
 
-     // Call to replace L0 info with Sycl info.
-     SyclWrapper.create_sycl_interop(Interop);
+      DP("Loaded library '%s': \n", L0Interop::SyclWrapName);
+
+      if (!(*((void **)&SyclWrapper.get_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_get_interop")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.create_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_create_interop_wrapper")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.delete_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_delete_interop_wrapper")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_delete_all_interop_wrapper")))
+        return;
+
+      SyclWrapper.WrapApiValid = true;
+      SyclWrapper.LibHandle = std::move(DynLib);
+    });
+
+    if (!SyclWrapper.WrapApiValid) {
+      DP("SyclWrapper API is invalid\n");
+      return;
+    }
+
+    // Call to replace L0 info with Sycl info.
+    SyclWrapper.create_sycl_interop(Interop);
   }
 }
 #endif // INTEL_CUSTOMIZATION
@@ -1324,13 +1320,69 @@ struct RTLFlagsTy {
       Reserved(0) {}
 };
 
+/// Loop descriptor
+struct TgtLoopDescTy {
+  int64_t Lb = 0;     // The lower bound of the i-th loop
+  int64_t Ub = 0;     // The upper bound of the i-th loop
+  int64_t Stride = 0; // The stride of the i-th loop
+};
+
+struct TgtNDRangeDescTy {
+  int32_t NumLoops = 0;       // Number of loops/dimensions
+  int32_t DistributeDim = 0;  // Dimensions lower than this one
+                              // must end up in one WG
+  TgtLoopDescTy Levels[3];    // Up to 3 loops
+};
+
 /// Kernel properties.
 struct KernelPropertiesTy {
   const char *Name = nullptr;
   uint32_t Width = 0;
   uint32_t SIMDWidth = 0;
   uint32_t MaxThreadGroupSize = 0;
-  ze_kernel_indirect_access_flags_t IndirectAccessFlags = 0;
+
+  /// Cached input parameters used in the previous launch
+  TgtNDRangeDescTy LoopDesc;
+  int32_t NumTeams = -1;
+  int32_t ThreadLimit = -1;
+
+  /// Cached parameters used in the previous launch
+  ze_kernel_indirect_access_flags_t IndirectAccessFlags = UINT32_MAX;
+  uint32_t GroupSizes[3] = {0, 0, 0};
+  ze_group_count_t GroupCounts{0, 0, 0};
+
+  std::mutex Mtx;
+
+  static constexpr TgtNDRangeDescTy LoopDescInit;
+
+  /// Check if we can reuse group parameters.
+  bool reuseGroupParams(
+      const TgtNDRangeDescTy *LoopDescPtr, const int32_t _NumTeams,
+      const int32_t _ThreadLimit, uint32_t *_GroupSizes,
+      ze_group_count_t &_GroupCounts) {
+    if (!LoopDescPtr && memcmp(&LoopDescInit, &LoopDesc, sizeof(LoopDesc)))
+      return false;
+    if (LoopDescPtr && memcmp(LoopDescPtr, &LoopDesc, sizeof(LoopDesc)))
+      return false;
+    if (_NumTeams != NumTeams || _ThreadLimit != ThreadLimit)
+      return false;
+    // Found matching input parameters.
+    std::copy_n(GroupSizes, 3, _GroupSizes);
+    _GroupCounts = GroupCounts;
+    return true;
+  }
+
+  /// Update cached group parameters.
+  void cacheGroupParams(
+      const TgtNDRangeDescTy *LoopDescPtr, const int32_t _NumTeams,
+      const int32_t _ThreadLimit, const uint32_t *_GroupSizes,
+      const ze_group_count_t &_GroupCounts) {
+    LoopDesc = LoopDescPtr ? *LoopDescPtr : LoopDescInit;
+    NumTeams = _NumTeams;
+    ThreadLimit = _ThreadLimit;
+    std::copy_n(_GroupSizes, 3, GroupSizes);
+    GroupCounts = _GroupCounts;
+  }
 };
 
 /// Common event pool used in the plugin. This event pool assumes all evnets
@@ -2859,8 +2911,10 @@ struct RTLDeviceInfoTy {
   std::vector<std::vector<ze_module_handle_t>> GlobalModules;
 
   /// Internally defined/used kernel properties
-  std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
-      KernelProperties;
+  std::unordered_map<ze_kernel_handle_t, KernelPropertiesTy> KernelProperties;
+
+  /// Common indirect access flags for devices
+  std::vector<ze_kernel_indirect_access_flags_t> IndirectAccessFlags;
 
 #if INTEL_CUSTOMIZATION
   /// Number of active kernel launches for each device
@@ -2875,6 +2929,9 @@ struct RTLDeviceInfoTy {
 
   /// For kernel preparation
   std::unique_ptr<std::mutex[]> KernelMutexes;
+
+  /// Global RTL mutex
+  std::mutex RTLMutex;
 
   /// Memory allocator for each L0 devices
   std::map<ze_device_handle_t, MemAllocatorTy> MemAllocator;
@@ -3141,14 +3198,22 @@ struct RTLDeviceInfoTy {
     return false;
   }
 
+  // Return kernel properties for the specified kernel. Empty properties will be
+  // created and returned if one does not exist.
+  KernelPropertiesTy &getKernelProperties(ze_kernel_handle_t Kernel) {
+    std::lock_guard<std::mutex> Lock(RTLMutex);
+    return KernelProperties[Kernel];
+  }
+
 #if INTEL_CUSTOMIZATION
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
 #endif // INTEL_CUSTOMIZATION
 
-  /// Get kernel indirect access flags
-  ze_kernel_indirect_access_flags_t getKernelIndirectAccessFlags(
-      ze_kernel_handle_t Kernel, uint32_t DeviceId);
+  /// Set kernel indirect access flags for kernel invocation
+  int32_t setKernelIndirectAccessFlags(ze_kernel_handle_t Kernel,
+                                       KernelPropertiesTy &KernelPR,
+                                       uint32_t DeviceId);
 
   /// Enqueue copy command
   int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, const void *Src,
@@ -3189,20 +3254,6 @@ struct RTLDeviceInfoTy {
   /// Initialize immediate command lists
   void initImmCmdList(int32_t DeviceId);
 };
-
-/// Loop descriptor
-typedef struct {
-  int64_t Lb;     // The lower bound of the i-th loop
-  int64_t Ub;     // The upper bound of the i-th loop
-  int64_t Stride; // The stride of the i-th loop
-} TgtLoopDescTy;
-
-typedef struct {
-  int32_t NumLoops;        // Number of loops/dimensions
-  int32_t DistributeDim;   // Dimensions lower than this one
-                           // must end up in one WG
-  TgtLoopDescTy Levels[3]; // Up to 3 loops
-} TgtNDRangeDescTy;
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
 
@@ -3651,6 +3702,15 @@ static int32_t appendDeviceProperties(
   DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
   DeviceInfo->AllocKinds.push_back(getAllocKinds(properties.deviceId));
 
+  // Set common indirect access flags for the device
+  auto &AllocKind = DeviceInfo->AllocKinds.back();
+  ze_kernel_indirect_access_flags_t Flags = (AllocKind == TARGET_ALLOC_DEVICE)
+      ? ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE
+      : ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+  if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
+    Flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+  DeviceInfo->IndirectAccessFlags.push_back(Flags);
+
   CALL_ZE_RET_FAIL(zeDeviceGetComputeProperties, Device, &computeProperties);
   DeviceInfo->ComputeProperties.push_back(computeProperties);
 
@@ -3815,12 +3875,11 @@ static uint64_t computeThreadsNeeded(
 
 static int32_t decideLoopKernelGroupArguments(
     int32_t DeviceId, uint32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
-    ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
-    ze_group_count_t &GroupCounts) {
+    ze_kernel_handle_t Kernel, const KernelPropertiesTy &KernelPR,
+    uint32_t *GroupSizes, ze_group_count_t &GroupCounts) {
 
   auto &ComputePR = DeviceInfo->ComputeProperties[DeviceId];
   uint32_t MaxGroupSize = ComputePR.maxTotalGroupSize;
-  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
   DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelPR.SIMDWidth);
   DP("Preferred team size is multiple of %" PRIu32 "\n", KernelPR.Width);
 
@@ -4019,8 +4078,8 @@ static int32_t decideLoopKernelGroupArguments(
 
 static void decideKernelGroupArguments(
     int32_t DeviceId, uint32_t NumTeams, uint32_t ThreadLimit,
-    ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
-    ze_group_count_t &GroupCounts) {
+    ze_kernel_handle_t Kernel, const KernelPropertiesTy &KernelPR,
+    uint32_t *GroupSizes, ze_group_count_t &GroupCounts) {
 
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
   if (!KInfo) {
@@ -4041,7 +4100,6 @@ static void decideKernelGroupArguments(
   DPI("NumSubslices: %" PRIu32 "\n", NumSubslices);
   DPI("NumThreadsPerEU: %" PRIu32 "\n", NumThreadsPerEU);
   DPI("TotalEUs: %" PRIu32 "\n", NumEUsPerSubslice * NumSubslices);
-  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
   uint32_t KernelWidth = KernelPR.Width;
   uint32_t SIMDWidth = KernelPR.SIMDWidth;
   DP("Assumed kernel SIMD width is %" PRIu32 "\n", SIMDWidth);
@@ -4244,20 +4302,37 @@ static int32_t runTargetTeamRegion(
     REPORT("Failed to invoke deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
-  ScopedTimerTy KernelTimer(SubId, "Kernel ",
-                            DeviceInfo->KernelProperties[RootId][Kernel].Name);
+
+  auto &KernelPR = DeviceInfo->getKernelProperties(Kernel);
+
+  ScopedTimerTy KernelTimer(SubId, "Kernel ", KernelPR.Name);
+
+  // Protect from kernel preparation to submission as kernels are shared.
+  std::unique_lock<std::mutex> KernelLock(KernelPR.Mtx);
 
   // Decide group sizes and counts
   uint32_t GroupSizes[3];
   ze_group_count_t GroupCounts;
-  if (LoopDesc) {
-    auto RC = decideLoopKernelGroupArguments(SubId, (uint32_t)ThreadLimit,
-        (TgtNDRangeDescTy *)LoopDesc, Kernel, GroupSizes, GroupCounts);
-    if (RC != OFFLOAD_SUCCESS)
-      return OFFLOAD_FAIL;
-  } else {
-    decideKernelGroupArguments(SubId, (uint32_t )NumTeams,
-        (uint32_t)ThreadLimit, Kernel, GroupSizes, GroupCounts);
+
+  // Check if we can reuse previous group parameters
+  bool GroupParamsReused = KernelPR.reuseGroupParams(
+      (TgtNDRangeDescTy *)LoopDesc, NumTeams, ThreadLimit, GroupSizes,
+      GroupCounts);
+
+  if (!GroupParamsReused) {
+    if (LoopDesc) {
+      auto RC = decideLoopKernelGroupArguments(
+          SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
+          KernelPR, GroupSizes, GroupCounts);
+      if (RC != OFFLOAD_SUCCESS)
+        return OFFLOAD_FAIL;
+    } else {
+      decideKernelGroupArguments(
+          SubId, (uint32_t )NumTeams, (uint32_t)ThreadLimit, Kernel, KernelPR,
+          GroupSizes, GroupCounts);
+    }
+    KernelPR.cacheGroupParams((TgtNDRangeDescTy *)LoopDesc, NumTeams,
+                              ThreadLimit, GroupSizes, GroupCounts);
   }
 
 #if INTEL_INTERNAL_BUILD
@@ -4278,9 +4353,6 @@ static int32_t runTargetTeamRegion(
     OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
   }
 #endif // INTEL_CUSTOMIZATION
-
-  // Protect from kernel preparation to submission as kernels are shared.
-  std::unique_lock<std::mutex> KernelLock(DeviceInfo->KernelMutexes[RootId]);
 
   // Set arguments
   auto *KernelInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
@@ -4307,17 +4379,12 @@ static int32_t runTargetTeamRegion(
     }
   }
 
-  auto Flags = DeviceInfo->getKernelIndirectAccessFlags(Kernel, RootId);
-#if INTEL_CUSTOMIZATION
-  // Kernel dynamic memory is also indirect access
-  if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
-    Flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-#endif // INTEL_CUSTOMIZATION
-  CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, Kernel, Flags);
-  DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(Flags));
+  DeviceInfo->setKernelIndirectAccessFlags(Kernel, KernelPR, RootId);
 
-  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
-                   GroupSizes[2]);
+  if (!GroupParamsReused) {
+    CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
+                     GroupSizes[2]);
+  }
 
 #if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
@@ -4354,8 +4421,9 @@ static int32_t runTargetTeamRegion(
     // previous branch.
     DP("Using immediate command list for kernel submission.\n");
     auto Event = DeviceInfo->EventPool.getEvent();
-    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList,
-                     Kernel, &GroupCounts, Event, 0, nullptr);
+    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel,
+                         DeviceInfo->Mutexes[SubId], CmdList, Kernel,
+                         &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
     if (DeviceInfo->Option.Flags.EnableProfile)
@@ -4475,7 +4543,7 @@ int32_t CommandBatchTy::commit(bool Always) {
     if (Kernel) {
       double DeviceTime = Profile->getEventTime(KernelEvent);
       std::string KernelName = "Kernel ";
-      KernelName += DeviceInfo->KernelProperties[DeviceId][Kernel].Name;
+      KernelName += DeviceInfo->getKernelProperties(Kernel).Name;
       if (NumCopyTo > 0 || NumCopyFrom > 0) {
         // Batch includes copy and kernel launch
         BatchTime -= DeviceTime;
@@ -4604,25 +4672,25 @@ int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// Get kernel indirect access flags
-ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
-    ze_kernel_handle_t Kernel, uint32_t DeviceId) {
-  // Kernel-dependent flags
-  auto KernelFlags = KernelProperties[DeviceId][Kernel].IndirectAccessFlags;
+/// Set kernel indirect access flags for kernel invocation
+int32_t RTLDeviceInfoTy::setKernelIndirectAccessFlags(
+    ze_kernel_handle_t Kernel, KernelPropertiesTy &KernelPR,
+    uint32_t DeviceId) {
+  auto &PrevFlags = KernelPR.IndirectAccessFlags;
 
-  // Tracking of individually "map" variables is disabled.
-  // Unconditionally set indirect memory access, may be an overkill
-  // for now.  Future level0 would auto detect which memory is
-  // needs to be resident
-  KernelFlags |= (AllocKinds[DeviceId] == TARGET_ALLOC_DEVICE) ?
-                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE :
-                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+  ze_kernel_indirect_access_flags_t Flags = 0;
+  Flags |= MemAllocator.at(nullptr).getIndirectFlags();
+  Flags |= MemAllocator.at(Devices[DeviceId]).getIndirectFlags();
 
-  // Other flags due to users' memory allocation
-  KernelFlags |= MemAllocator.at(nullptr).getIndirectFlags();
-  KernelFlags |= MemAllocator.at(Devices[DeviceId]).getIndirectFlags();
+  if (PrevFlags != Flags) {
+    // Combine with common access flags
+    auto FinalFlags = IndirectAccessFlags[DeviceId] | Flags;
+    CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, Kernel, FinalFlags);
+    DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(FinalFlags));
+    PrevFlags = Flags;
+  }
 
-  return KernelFlags;
+  return OFFLOAD_SUCCESS;
 }
 
 /// Enqueue memory copy
@@ -5024,7 +5092,6 @@ int32_t RTLDeviceInfoTy::findDevices() {
 
   // Prepare space for internal data
   Programs.resize(NumDevices);
-  KernelProperties.resize(NumDevices);
   Initialized.resize(NumDevices);
   Context = createContext(Driver);
 #if INTEL_CUSTOMIZATION
@@ -5952,9 +6019,9 @@ int32_t LevelZeroProgramTy::buildKernels() {
       return OFFLOAD_FAIL;
     }
 
-    // Retrieve kernel properties
-    auto &KernelProperties = DeviceInfo->KernelProperties[DeviceId][Kernels[I]];
-    KernelProperties.Name = Name;
+    // Retrieve and cache kernel properties.
+    auto &KernelPR = DeviceInfo->getKernelProperties(Kernels[I]);
+    KernelPR.Name = Name;
     ze_kernel_properties_t KP{ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, nullptr};
 #ifndef _WIN32
     // TODO: enable on Windows when this becomes buildable
@@ -5965,22 +6032,21 @@ int32_t LevelZeroProgramTy::buildKernels() {
 #endif
     CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
     if (DeviceInfo->Option.ForcedKernelWidth > 0) {
-      KernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
+      KernelPR.Width = DeviceInfo->Option.ForcedKernelWidth;
     } else {
-      KernelProperties.SIMDWidth = KP.maxSubgroupSize;
-      KernelProperties.Width = KP.maxSubgroupSize;
+      KernelPR.SIMDWidth = KP.maxSubgroupSize;
+      KernelPR.Width = KP.maxSubgroupSize;
       // Here we try to match OpenCL kernel property
       // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE for "Width".
 #ifndef _WIN32
       if (KP.pNext)
-        KernelProperties.Width = KPrefGRPSize.preferredMultiple;
+        KernelPR.Width = KPrefGRPSize.preferredMultiple;
 #endif
       if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
 #if INTEL_CUSTOMIZATION
         // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
 #endif // INTEL_CUSTOMIZATION
-        KernelProperties.Width =
-            (std::max)(KernelProperties.Width, 2 * KernelProperties.SIMDWidth);
+        KernelPR.Width = (std::max)(KernelPR.Width, 2 * KernelPR.SIMDWidth);
       }
     }
     DP("Kernel %zu: Entry = " DPxMOD ", Name = %s, "
@@ -5989,10 +6055,10 @@ int32_t LevelZeroProgramTy::buildKernels() {
        KP.numKernelArgs, DPxPTR(Kernels[I]));
 #if 0
     // Enable this with 0.95.55 Level Zero.
-    KernelProperties.MaxThreadGroupSize =
+    KernelPR.MaxThreadGroupSize =
         kernelProperties.maxSubgroupSize * kernelProperties.maxNumSubgroups;
 #else
-    KernelProperties.MaxThreadGroupSize =
+    KernelPR.MaxThreadGroupSize =
         (std::numeric_limits<uint32_t>::max)();
 #endif
   }
@@ -6291,15 +6357,6 @@ __tgt_target_table *__tgt_rtl_load_binary(
 #endif // INTEL_CUSTOMIZATION
 
   auto *Table = Program.getTablePtr();
-
-  // Handle subdevice clause
-  if ((uint32_t)DeviceId < DeviceInfo->NumRootDevices) {
-    for (auto &SubIdList : DeviceInfo->SubDeviceIds[DeviceId])
-      for (auto SubId : SubIdList)
-        // Use root module while copying kernel properties from root.
-        DeviceInfo->KernelProperties[SubId] =
-            DeviceInfo->KernelProperties[DeviceId];
-  }
 
 #if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_load, DeviceId,
