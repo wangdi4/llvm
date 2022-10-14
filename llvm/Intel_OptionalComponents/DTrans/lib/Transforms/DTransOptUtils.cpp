@@ -1,6 +1,6 @@
 //===- DTransOptUtils.cpp - Common utility functions for DTrans transforms-===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -85,7 +85,8 @@ replaceSizeValue(Instruction *BaseI,
     assert(SizeOpIdx == 1 && "Unexpected size operand for shl");
     auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
     uint64_t ConstShift = ConstVal->getLimitedValue();
-    assert((((1ull << ConstShift) % OrigSize) == 0ull) &&
+    assert((!ConstVal->isNegative() && ConstShift < 64 &&
+            ((1ull << ConstShift) % OrigSize) == 0ull) &&
            "Size shift left handling in multiplier search is broken");
     uint64_t Multiplier = (1ull << ConstShift) / OrigSize;
 

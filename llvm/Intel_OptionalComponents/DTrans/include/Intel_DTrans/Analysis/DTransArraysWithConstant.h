@@ -1,6 +1,6 @@
 //===----  DTransArraysWithConstant.h - Arrays with constant entries  -----===//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -168,7 +168,7 @@ private:
 
   // Return true if at least one entry in ConstantEntries is not nullptr
   bool hasAtLeastOneConstantEntry() {
-    for (auto Entry : ConstantEntries)
+    for (const auto &Entry : ConstantEntries)
       if (Entry.second)
         return true;
     return false;
