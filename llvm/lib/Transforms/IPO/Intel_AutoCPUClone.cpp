@@ -55,7 +55,7 @@ static std::string getTargetFeatures(StringRef TargetCpu) {
   ListSeparator LS(",");
   std::string TargetFeaturesStr;
   raw_string_ostream TargetFeatures(TargetFeaturesStr);
-  for (auto Feature : CPUFeatures)
+  for (auto &Feature : CPUFeatures)
     TargetFeatures << LS << "+" << Feature;
 
   return TargetFeatures.str();
