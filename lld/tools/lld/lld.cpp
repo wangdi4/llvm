@@ -243,7 +243,7 @@ static unsigned inTestVerbosity() {
   return v;
 }
 
-int main(int argc, const char **argv) {
+int lld_main(int argc, char **argv) {
   InitLLVM x(argc, argv);
   sys::Process::UseANSIEscapeCodes(true);
 
@@ -256,7 +256,8 @@ int main(int argc, const char **argv) {
   // Not running in lit tests, just take the shortest codepath with global
   // exception handling and no memory cleanup on exit.
   if (!inTestVerbosity())
-    return lldMain(argc, argv, llvm::outs(), llvm::errs());
+    return lldMain(argc, const_cast<const char **>(argv), llvm::outs(),
+                   llvm::errs());
 
   Optional<int> mainRet;
   CrashRecoveryContext::Enable();
@@ -266,7 +267,8 @@ int main(int argc, const char **argv) {
     inTestOutputDisabled = (i != 1);
 
     // Execute one iteration.
-    auto r = safeLldMain(argc, argv, llvm::outs(), llvm::errs());
+    auto r = safeLldMain(argc, const_cast<const char **>(argv), llvm::outs(),
+                         llvm::errs());
     if (!r.canRunAgain)
       exitLld(r.ret); // Exit now, can't re-execute again.
 
