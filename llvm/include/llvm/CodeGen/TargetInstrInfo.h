@@ -133,8 +133,8 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
-  virtual bool IsBadForOMP2012(MachineInstr *FMAMI, unsigned Shape,
-                               bool DisableGFMAForOMP2012) const {
+  virtual bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
+                                       bool DisableGFMAForPrecision) const {
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
