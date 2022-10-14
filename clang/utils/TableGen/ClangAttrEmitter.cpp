@@ -1310,6 +1310,13 @@ namespace {
       OS << "      }\n";
     }
 
+    void writeValue(raw_ostream &OS) const override {
+      OS << "\";\n";
+      OS << "    get" << getUpperName()
+         << "()->printPretty(OS, nullptr, Policy);\n";
+      OS << "    OS << \"";
+    }
+
     void writeDump(raw_ostream &OS) const override {}
 
     void writeDumpChildren(raw_ostream &OS) const override {
