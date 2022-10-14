@@ -1510,7 +1510,16 @@ void DDUtils::populateFPInductions(
       continue;
     }
 
-    if (Inst->getLLVMInstruction()->getOpcode() != Instruction::FAdd) {
+    auto *LLVMInst = Inst->getLLVMInstruction();
+
+    if (LLVMInst->getOpcode() != Instruction::FAdd) {
+      continue;
+    }
+
+    // Check that the instruction has reassoc flag.
+    if (!LLVMInst->hasAllowReassoc()) {
+      LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                           "(FP induction with reassoc flag off)\n");
       continue;
     }
 
