@@ -954,7 +954,7 @@ Function *WholeProgramInfo::getMainFunction() {
 
   Function *Main = nullptr;
 
-  for (auto Name : WPUtils->getMainNames()) {
+  for (auto &Name : WPUtils->getMainNames()) {
     Main = M->getFunction(Name);
 
     if (Main)

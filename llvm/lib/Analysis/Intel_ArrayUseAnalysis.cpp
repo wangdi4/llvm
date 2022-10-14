@@ -277,7 +277,7 @@ public:
     bool Changed;
     do {
       Changed = false;
-      for (auto BB : post_order(&F)) {
+      for (auto &BB : post_order(&F)) {
         ArrayRangeInfo In = ArrayRangeInfo::empty();
         for (auto Succ : successors(BB)) {
           In = In.unionWith(LiveIns[Succ], SE);

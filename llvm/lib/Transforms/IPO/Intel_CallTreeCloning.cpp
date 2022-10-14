@@ -847,7 +847,7 @@ public:
 
   // Reset the Cnt (counter) to 0 for each Node in Nodes list
   void resetTraversalState() {
-    for (auto X : Nodes)
+    for (auto &X : Nodes)
       X.resetTraversalState();
   }
 
@@ -988,7 +988,7 @@ void print_node_set(const std::string &Msg,
                     std::set<DCGNode *, CompareDCGNodePtr> Nodes) {
   dbgs() << Msg << "\n";
 
-  for (const auto X : Nodes)
+  for (const auto *X : Nodes)
     dbgs() << X->toString() << " ";
 
   dbgs() << "\n";
@@ -1122,7 +1122,7 @@ public:
 
   // Check: any ParamIndxSet has Idx?
   bool haveIndex(const unsigned Idx) {
-    for (auto S : *this)
+    for (auto &S : *this)
       if (S.haveIndex(Idx))
         return true;
     return false;
@@ -2150,7 +2150,7 @@ struct MVFunctionInfo {
   }
 
   void set(SetOfParamIndSets &SPsets) {
-    for (auto S : SPsets)
+    for (auto &S : SPsets)
       Psets.insert(S);
   }
 
@@ -3239,7 +3239,7 @@ bool PostProcessor::doCollection(void) {
   (void)Count;
 
   // - Populate Functions LeafSeeds into ExtSeedFunctions:
-  for (auto Item : LeafSeeds) {
+  for (auto &Item : LeafSeeds) {
     Function *F = Item.first;
     if (!ExtSeedFunctions[F])
       ExtSeedFunctions[F] = true;
