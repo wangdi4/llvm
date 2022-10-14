@@ -120,7 +120,7 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
   // The list consists of records separated by ';'
   SmallVector<StringRef, 8> ListRecords;
   Option.split(ListRecords, ';');
-  for (auto ListRecord : ListRecords) {
+  for (auto &ListRecord : ListRecords) {
     // Each record should be in the form of [caller,]callee[,line]
     SmallVector<StringRef, 3> RecordItem;
     StringRef Caller = "", Callee = "";

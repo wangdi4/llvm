@@ -132,6 +132,12 @@ public:
     const SOAToAOSOPStructMethodsCheckDebugResult *get() const;
     // Prevent default dtor creation while type is incomplete.
     ~Ignore();
+
+    // This class is using unique_ptr, so it does not make sense to allow
+    // copying or assignment.
+    Ignore(const Ignore &Other) = delete;
+    Ignore &operator=(const Ignore &) = delete;
+    Ignore &operator=(Ignore &&) = delete;
   };
   typedef Ignore Result;
 

@@ -599,7 +599,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
 
   LLVM_DEBUG({
     dbgs() << "        All collected pointer aliases: \n";
-    for (auto Pair : MallocPtrIncrAliases) {
+    for (auto &Pair : MallocPtrIncrAliases) {
       dbgs() << "    Pointer: " << *Pair.first << "  Offset: " << Pair.second
              << "\n";
     }
@@ -759,7 +759,7 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
 
   LLVM_DEBUG({
     dbgs() << "    All collected pointer aliases: \n";
-    for (auto Pair : FunctionMemRefs) {
+    for (auto &Pair : FunctionMemRefs) {
       dbgs() << "            MemRefs in " << Pair.first->getName() << "\n";
       for (auto II : Pair.second)
         dbgs() << "            " << *II << "\n";
@@ -1101,7 +1101,7 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
   //
   SmallSet<int64_t, 1> SignZeroExtMultipliers;
 
-  for (auto Pair : FunctionMemRefs) {
+  for (auto &Pair : FunctionMemRefs) {
     Function *F = Pair.first;
     LLVM_DEBUG(dbgs() << " Processing MemRefs in " << F->getName() << ":\n");
     ScalarEvolution &SE = (GetSE)(*F);
@@ -1566,7 +1566,7 @@ const SCEV *ArrayTransposeImpl::fixSCEVExpr(const SCEV *S, const SCEV *BasePtr,
 // Apply transformations to all memory references.
 // SCEVExpander is used to generate transposed memory references.
 void ArrayTransposeImpl::transformMemRefs(void) {
-  for (auto Pair : FunctionMemRefs) {
+  for (auto &Pair : FunctionMemRefs) {
     Function *F = Pair.first;
     LLVM_DEBUG(dbgs() << " Transforming MemRefs in " << F->getName() << ":\n");
     ScalarEvolution &SE = (GetSE)(*F);
