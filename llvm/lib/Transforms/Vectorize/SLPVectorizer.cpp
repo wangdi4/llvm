@@ -9326,10 +9326,9 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       InstructionCost ScalarLdCost = VecTy->getNumElements() * ScalarEltCost;
       InstructionCost VecLdCost;
       if (E->State == TreeEntry::Vectorize) {
-<<<<<<< HEAD
-        VecLdCost = TTI->getMemoryOpCost(Instruction::Load, VecTy, Alignment, 0,
-                                         CostKind,
-                                         {TTI::OK_AnyValue, TTI::OP_None}, VL0);
+        VecLdCost =
+            TTI->getMemoryOpCost(Instruction::Load, VecTy, Alignment, 0,
+                                 CostKind, TTI::OperandValueInfo(), VL0);
 #if INTEL_CUSTOMIZATION
         // Cost modeling for split-load.
         if (!E->SplitLoadGroups.empty()) {
@@ -9351,10 +9350,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           } while (NumElems > 1);
         }
 #endif // INTEL_CUSTOMIZATION
-=======
-        VecLdCost =
-            TTI->getMemoryOpCost(Instruction::Load, VecTy, Alignment, 0,
-                                 CostKind, TTI::OperandValueInfo(), VL0);
         for (Value *V : VL) {
           auto *VI = cast<LoadInst>(V);
           // Add the costs of scalar GEP pointers, to be removed from the code.
@@ -9366,7 +9361,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           ScalarLdCost += TTI->getArithmeticInstrCost(Instruction::Add,
                                                       Ptr->getType(), CostKind);
         }
->>>>>>> c787986cddce230e8ca28a773166b5773449bcb9
       } else {
         assert(E->State == TreeEntry::ScatterVectorize && "Unknown EntryState");
         Align CommonAlignment = Alignment;
