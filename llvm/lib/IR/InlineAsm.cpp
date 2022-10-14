@@ -76,15 +76,6 @@ FunctionType *InlineAsm::getFunctionType() const {
   return FTy;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-void InlineAsm::collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const {
-  StringRef AsmStr(AsmString);
-  AsmStrs.clear();
-  AsmStr.split(AsmStrs, "\n\t", -1, false);
-}
-#endif // INTEL_CUSTOMIZATION
-=======
 void InlineAsm::collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const {
   StringRef AsmStr(AsmString);
   AsmStrs.clear();
@@ -97,7 +88,6 @@ void InlineAsm::collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const {
     return;
   AsmStr.split(AsmStrs, "\n\t", -1, false);
 }
->>>>>>> aad013de41c0c9289d6315ef141358b70e7dc3fd
 
 /// Parse - Analyze the specified string (e.g. "==&{eax}") and fill in the
 /// fields in this structure.  If the constraint string is not understood,

@@ -102,11 +102,7 @@ public:
 
   const std::string &getAsmString() const { return AsmString; }
   const std::string &getConstraintString() const { return Constraints; }
-<<<<<<< HEAD
-  void collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const; // INTEL
-=======
   void collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const;
->>>>>>> aad013de41c0c9289d6315ef141358b70e7dc3fd
 
   /// This static method can be used by the parser to check to see if the
   /// specified constraint string is legal for the type.

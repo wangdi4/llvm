@@ -330,7 +330,6 @@ public:
                                            unsigned PhysReg) const {
     return false;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual bool isVEXInstr(MachineInstr &MI) const {
     return false;
@@ -344,7 +343,6 @@ public:
                                    MachineBasicBlock::iterator E) const {
   }
 #endif // INTEL_CUSTOMIZATION
-=======
 
   /// Classify a global function reference. This mainly used to fetch target
   /// special flags for lowering a function address. For example mark a function
@@ -353,7 +351,6 @@ public:
   classifyGlobalFunctionReference(const GlobalValue *GV) const {
     return 0;
   }
->>>>>>> aad013de41c0c9289d6315ef141358b70e7dc3fd
 };
 
 } // end namespace llvm

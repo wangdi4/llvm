@@ -33894,7 +33894,62 @@ static SDValue LowerCVTPS2PH(SDValue Op, SelectionDAG &DAG) {
   return DAG.getNode(ISD::CONCAT_VECTORS, dl, VT, Lo, Hi);
 }
 
-<<<<<<< HEAD
+static StringRef getInstrStrFromOpNo(const SmallVectorImpl<StringRef> &AsmStrs,
+                                     unsigned OpNo) {
+  const APInt Operand(32, OpNo);
+  std::string OpNoStr = llvm::toString(Operand, 10, false);
+  std::string Str(" $");
+
+  std::string OpNoStr1(Str + OpNoStr);             // e.g. " $1" (OpNo=1)
+  std::string OpNoStr2(Str + "{" + OpNoStr + ":"); // With modifier, e.g. ${1:P}
+
+  auto I = StringRef::npos;
+  for (auto &AsmStr : AsmStrs) {
+    // Match the OpNo string. We should match exactly to exclude match
+    // sub-string, e.g. "$12" contain "$1"
+    if (AsmStr.endswith(OpNoStr1))
+      I = AsmStr.size() - OpNoStr1.size();
+
+    // Get the index of operand in AsmStr.
+    if (I == StringRef::npos)
+      I = AsmStr.find(OpNoStr1 + ",");
+    if (I == StringRef::npos)
+      I = AsmStr.find(OpNoStr2);
+
+    if (I == StringRef::npos)
+      continue;
+
+    assert(I > 0 && "Unexpected inline asm string!");
+    // Remove the operand string and label (if exsit).
+    // For example:
+    // ".L__MSASMLABEL_.${:uid}__l:call dword ptr ${0:P}"
+    // ==>
+    // ".L__MSASMLABEL_.${:uid}__l:call dword ptr "
+    // ==>
+    // "call dword ptr "
+    auto TmpStr = AsmStr.substr(0, I);
+    I = TmpStr.rfind(':');
+    if (I == StringRef::npos)
+      return TmpStr;
+
+    assert(I < TmpStr.size() && "Unexpected inline asm string!");
+    auto Asm = TmpStr.drop_front(I + 1);
+    return Asm;
+  }
+
+  return StringRef();
+}
+
+bool X86TargetLowering::isInlineAsmTargetBranch(
+    const SmallVectorImpl<StringRef> &AsmStrs, unsigned OpNo) const {
+  StringRef InstrStr = getInstrStrFromOpNo(AsmStrs, OpNo);
+
+  if (InstrStr.contains("call"))
+    return true;
+
+  return false;
+}
+
 #if INTEL_CUSTOMIZATION
 bool X86TargetLowering::CustomLowerComplexMultiply(Type *FloatTy) const {
   auto VecTy = cast<FixedVectorType>(FloatTy);
@@ -33973,67 +34028,6 @@ static SDValue LowerInlineAsm(SDValue Op, SelectionDAG &DAG) {
   return Op;
 }
 
-=======
->>>>>>> aad013de41c0c9289d6315ef141358b70e7dc3fd
-static StringRef getInstrStrFromOpNo(const SmallVectorImpl<StringRef> &AsmStrs,
-                                     unsigned OpNo) {
-  const APInt Operand(32, OpNo);
-  std::string OpNoStr = llvm::toString(Operand, 10, false);
-  std::string Str(" $");
-
-<<<<<<< HEAD
-  std::string OpNoStr1(Str + OpNoStr); // e.g. " $1" (OpNo=1)
-  std::string OpNoStr2(Str + "{" + OpNoStr + ":"); // With modifier, e.g. ${1:P}
-
-  for (auto &AsmStr : AsmStrs) {
-    // Match the OpNo string. We should match exactly to exclude match
-    // sub-string, e.g. "$12" contain "$1"
-    if (AsmStr.contains(OpNoStr1 + ",") || AsmStr.endswith(OpNoStr1) ||
-        AsmStr.contains(OpNoStr2))
-      return AsmStr;
-=======
-  std::string OpNoStr1(Str + OpNoStr);             // e.g. " $1" (OpNo=1)
-  std::string OpNoStr2(Str + "{" + OpNoStr + ":"); // With modifier, e.g. ${1:P}
-
-  auto I = StringRef::npos;
-  for (auto &AsmStr : AsmStrs) {
-    // Match the OpNo string. We should match exactly to exclude match
-    // sub-string, e.g. "$12" contain "$1"
-    if (AsmStr.endswith(OpNoStr1))
-      I = AsmStr.size() - OpNoStr1.size();
-
-    // Get the index of operand in AsmStr.
-    if (I == StringRef::npos)
-      I = AsmStr.find(OpNoStr1 + ",");
-    if (I == StringRef::npos)
-      I = AsmStr.find(OpNoStr2);
-
-    if (I == StringRef::npos)
-      continue;
-
-    assert(I > 0 && "Unexpected inline asm string!");
-    // Remove the operand string and label (if exsit).
-    // For example:
-    // ".L__MSASMLABEL_.${:uid}__l:call dword ptr ${0:P}"
-    // ==>
-    // ".L__MSASMLABEL_.${:uid}__l:call dword ptr "
-    // ==>
-    // "call dword ptr "
-    auto TmpStr = AsmStr.substr(0, I);
-    I = TmpStr.rfind(':');
-    if (I == StringRef::npos)
-      return TmpStr;
-
-    assert(I < TmpStr.size() && "Unexpected inline asm string!");
-    auto Asm = TmpStr.drop_front(I + 1);
-    return Asm;
->>>>>>> aad013de41c0c9289d6315ef141358b70e7dc3fd
-  }
-
-  return StringRef();
-}
-
-<<<<<<< HEAD
 bool X86TargetLowering::hasExtraIndirectConstraint(
     const SmallVectorImpl<StringRef> &AsmStrs, unsigned OpNo) const {
   if (!isPositionIndependent() ||
@@ -34043,21 +34037,11 @@ bool X86TargetLowering::hasExtraIndirectConstraint(
   StringRef InstrStr = getInstrStrFromOpNo(AsmStrs, OpNo);
 
   if (InstrStr.startswith("call") || InstrStr.startswith("jmp"))
-=======
-bool X86TargetLowering::isInlineAsmTargetBranch(
-    const SmallVectorImpl<StringRef> &AsmStrs, unsigned OpNo) const {
-  StringRef InstrStr = getInstrStrFromOpNo(AsmStrs, OpNo);
-
-  if (InstrStr.contains("call"))
->>>>>>> aad013de41c0c9289d6315ef141358b70e7dc3fd
     return true;
 
   return false;
 }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> aad013de41c0c9289d6315ef141358b70e7dc3fd
 
 /// Provide custom lowering hooks for some operations.
 SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
