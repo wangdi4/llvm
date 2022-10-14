@@ -99,7 +99,7 @@ public:
         CurrentCallInstReport(nullptr), CurrentCallee(nullptr) {};
 
   virtual ~InlineReportBuilder(void) {
-    for (auto IRCBEntry : IRCallbackMap)
+    for (auto &IRCBEntry : IRCallbackMap)
       delete IRCBEntry.second;
 
     IRCallbackMap.clear();

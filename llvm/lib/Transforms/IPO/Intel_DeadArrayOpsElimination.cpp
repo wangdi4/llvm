@@ -212,7 +212,7 @@ void DeadArrayOpsElimImpl::parseOption() {
     SmallVector<StringRef, 8> ListCandidates;
     OptRef.split(ListCandidates, ';');
 
-    for (auto UserCand : ListCandidates) {
+    for (auto &UserCand : ListCandidates) {
 
       SmallVector<StringRef, 2> CandItem;
       UserCand.split(CandItem, ',');

@@ -451,7 +451,7 @@ void IPDeadArgElimination::analyzeArguments() {
   // results to prevent computing the same.
   SetVector<Argument *> DeadArraysArgsSet;
 
-  for (auto Pair : DeadArgsCandidatesMap) {
+  for (auto &Pair : DeadArgsCandidatesMap) {
     for (auto *Arg : Pair.second) {
       // If the argument is in DeadArraysArgsSet then it means that it was
       // computed already
@@ -633,7 +633,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
 
     SmallVector<std::pair<unsigned, MDNode *>, 1> MDsCall;
     Call.getAllMetadata(MDsCall);
-    for (auto MD : MDsCall)
+    for (auto &MD : MDsCall)
       NewCall->setMetadata(MD.first, MD.second);
 
     getInlineReport()->replaceCallBaseWithCallBase(&Call, NewCall);
@@ -695,7 +695,7 @@ bool IPDeadArgElimination::applyTransformation() {
   // elimination. We won't delete them until all the functions are transformed
   // since multiple functions can use the argument.
   SetVector<Value *> DeadActualVect;
-  for (auto Pair : DeadArraysArgResult)
+  for (auto &Pair : DeadArraysArgResult)
     Changed |= removeDeadArgs(Pair.first, Pair.second, DeadActualVect);
 
   LLVM_DEBUG(dbgs() << "    Total functions modified: "
@@ -771,7 +771,7 @@ bool IPDeadArgElimination::runImpl(WholeProgramInfo &WPInfo) {
   LLVM_DEBUG({
     dbgs() << "  Candidates after analysis: " << DeadArraysArgResult.size()
            << "\n";
-    for (auto Pair : DeadArraysArgResult) {
+    for (auto &Pair : DeadArraysArgResult) {
       dbgs() << "    Function: " << Pair.first->getName() << "\n";
       for (auto *Arg : Pair.second)
         dbgs() << "      Arg[" << Arg->getArgNo() << "]: " << *Arg << "\n";
