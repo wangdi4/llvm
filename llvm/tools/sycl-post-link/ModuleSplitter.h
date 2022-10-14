@@ -255,7 +255,7 @@ getSplitterByMode(ModuleDesc &&MD, IRSplitMode Mode,
 #endif // INTEL_COLLAB
 
 std::unique_ptr<ModuleSplitterBase>
-getESIMDDoubleGRFSplitter(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
+getDoubleGRFSplitter(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
 
 #ifndef NDEBUG
 void dumpEntryPoints(const EntryPointSet &C, const char *msg = "", int Tab = 0);
