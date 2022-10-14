@@ -482,11 +482,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
           .getFixedSize();
 
-  // TODO: We're losing out on being able to vectorize vconflict idioms at
-  // VF=16 for i32 types because the conflict index is always represented
-  // as i64. Look into preserving the original VPValue for the index as
-  // live-in to VPGeneralMemOptConflict.
-  for (auto &VPInst : vpinstructions(Plan.get()))
+  for (auto &VPInst : vpinstructions(Plan.get())) {
+    // TODO: We're losing out on being able to vectorize vconflict idioms at
+    // VF=16 for i32 types because the conflict index is always represented
+    // as i64. Look into preserving the original VPValue for the index as
+    // live-in to VPGeneralMemOptConflict.
     if (auto *VPConflict = dyn_cast<VPGeneralMemOptConflict>(&VPInst)) {
       // Filter out all VFs if tree conflict region does not meet certain
       // criteria.
@@ -565,7 +565,54 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                  }),
                   VFs.end());
       }
+
+      continue;
     }
+
+    // We have known precision issues when we have a reciprocal sqrt being
+    // used with imf-accuracy-bits set to 14. To workaround these precision
+    // issues, we avoid remainder vectorization when we see a call to sqrt
+    // intrinsic for double type whose only uses are as the second operand
+    // of a fdiv.
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(&VPInst)) {
+      if (!VPCall->getType()->isDoubleTy())
+        continue;
+
+      Function *ScalarF = VPCall->getCalledFunction();
+      if (!ScalarF)
+        continue;
+
+      if (ScalarF->getIntrinsicID() != Intrinsic::sqrt)
+        continue;
+
+      if (!VPCall->getOrigCallAttrs().hasFnAttr("imf-accuracy-bits-sqrt"))
+        continue;
+
+      StringRef AccuracyBitsStr = VPCall->getOrigCallAttrs()
+                                      .getFnAttr("imf-accuracy-bits-sqrt")
+                                      .getValueAsString();
+      double AccuracyBitsValue = 0;
+      if (AccuracyBitsStr.empty() ||
+          AccuracyBitsStr.getAsDouble(AccuracyBitsValue) ||
+          AccuracyBitsValue != 14)
+        continue;
+
+      if (all_of(VPCall->users(), [&](const VPUser *U) {
+            auto *UserInst = dyn_cast<VPInstruction>(U);
+            if (!UserInst)
+              return false;
+            if (UserInst->getOpcode() != Instruction::FDiv)
+              return false;
+            if (UserInst->getOperand(1) != VPCall)
+              return false;
+            return true;
+          })) {
+        LLVM_DEBUG(
+            dbgs() << "Disabling remainder vectorization for FP precision\n");
+        disableVecRemainder();
+      }
+    }
+  }
 
   // When we force VF to have a special value, VFs vector has only one value.
   // Therefore, we have to check if we removed the only value that was in VFs.

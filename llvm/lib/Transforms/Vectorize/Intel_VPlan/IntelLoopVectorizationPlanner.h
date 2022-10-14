@@ -419,6 +419,8 @@ public:
     IsDynAlign = readDynAlignEnabled();
   }
 
+  void disableVecRemainder() { IsVecRemainder = false; }
+
   bool isVecRemainderDisabled() const {
     return IsVecRemainder.has_value() ? !IsVecRemainder.value() : false;
   }
@@ -544,7 +546,8 @@ protected:
   MDNode *VectorlengthMD;
 
   /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
-  /// if it was set on the loop otherwise is None.
+  /// if it was set on the loop or false if forced by disableVecRemainder call.
+  /// Otherwise, it is None.
   Optional<bool> IsVecRemainder;
 
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
