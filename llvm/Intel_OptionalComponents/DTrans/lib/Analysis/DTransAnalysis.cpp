@@ -3067,7 +3067,7 @@ public:
                                                   dtrans::MismatchedArgUse);
         }
       } else {
-        for (auto Pair : zip(F->args(), Call.args()))
+        for (const auto &Pair : zip(F->args(), Call.args()))
           if (!SpecialArguments.count(std::get<1>(Pair)))
             checkArgTypeMismatch(&Call, F, &std::get<0>(Pair),
                                  std::get<1>(Pair));
@@ -9319,6 +9319,9 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
 
 DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
+  if (this == &Other)
+    return *this;
+
   reset();
   TypeInfoMap = std::move(Other.TypeInfoMap);
   CIM = std::move(Other.CIM);

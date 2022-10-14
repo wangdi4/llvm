@@ -337,7 +337,10 @@ const Value *ClassInfo::computeMultiplier(const Value *V, int64_t *MulPtr) {
       auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
       if (!ConstVal)
         return nullptr;
-      *MulPtr = *MulPtr * ((int64_t)1 << ConstVal->getLimitedValue());
+      uint64_t ShiftAmount = ConstVal->getLimitedValue();
+      if (ConstVal->isNegative() || ShiftAmount >= 64)
+        return nullptr;
+      *MulPtr = *MulPtr * ((int64_t)1 << ShiftAmount);
       Visited.insert(BO);
     } else if (OpC == Instruction::Mul) {
       auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
