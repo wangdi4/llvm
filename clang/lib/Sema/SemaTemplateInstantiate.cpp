@@ -735,7 +735,7 @@ void Sema::PrintInstantiationStack() {
       TemplateDecl *Template = cast<TemplateDecl>(Active->Template);
       SmallString<128> TemplateArgsStr;
       llvm::raw_svector_ostream OS(TemplateArgsStr);
-      Template->printName(OS);
+      Template->printName(OS, getPrintingPolicy());
       printTemplateArgumentList(OS, Active->template_arguments(),
                                 getPrintingPolicy());
       Diags.Report(Active->PointOfInstantiation,
@@ -801,7 +801,7 @@ void Sema::PrintInstantiationStack() {
 
       SmallString<128> TemplateArgsStr;
       llvm::raw_svector_ostream OS(TemplateArgsStr);
-      FD->printName(OS);
+      FD->printName(OS, getPrintingPolicy());
       printTemplateArgumentList(OS, Active->template_arguments(),
                                 getPrintingPolicy());
       Diags.Report(Active->PointOfInstantiation,
@@ -966,7 +966,7 @@ void Sema::PrintInstantiationStack() {
       }
       SmallString<128> TemplateArgsStr;
       llvm::raw_svector_ostream OS(TemplateArgsStr);
-      cast<NamedDecl>(Active->Entity)->printName(OS);
+      cast<NamedDecl>(Active->Entity)->printName(OS, getPrintingPolicy());
       if (!isa<FunctionDecl>(Active->Entity)) {
         printTemplateArgumentList(OS, Active->template_arguments(),
                                   getPrintingPolicy());

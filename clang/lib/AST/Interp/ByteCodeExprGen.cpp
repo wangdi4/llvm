@@ -220,6 +220,12 @@ bool ByteCodeExprGen<Emitter>::VisitBinaryOperator(const BinaryOperator *BO) {
       if (!this->emitStore(*T, BO))
         return false;
       return DiscardResult ? this->emitPopPtr(BO) : true;
+    case BO_And:
+      return Discard(this->emitBitAnd(*T, BO));
+    case BO_Or:
+      return Discard(this->emitBitOr(*T, BO));
+    case BO_LAnd:
+    case BO_LOr:
     default:
       return this->bail(BO);
     }
@@ -345,6 +351,37 @@ bool ByteCodeExprGen<Emitter>::VisitArrayInitIndexExpr(
 template <class Emitter>
 bool ByteCodeExprGen<Emitter>::VisitOpaqueValueExpr(const OpaqueValueExpr *E) {
   return this->visit(E->getSourceExpr());
+}
+
+template <class Emitter>
+bool ByteCodeExprGen<Emitter>::VisitAbstractConditionalOperator(
+    const AbstractConditionalOperator *E) {
+  const Expr *Condition = E->getCond();
+  const Expr *TrueExpr = E->getTrueExpr();
+  const Expr *FalseExpr = E->getFalseExpr();
+
+  LabelTy LabelEnd = this->getLabel();   // Label after the operator.
+  LabelTy LabelFalse = this->getLabel(); // Label for the false expr.
+
+  if (!this->visit(Condition))
+    return false;
+  if (!this->jumpFalse(LabelFalse))
+    return false;
+
+  if (!this->visit(TrueExpr))
+    return false;
+  if (!this->jump(LabelEnd))
+    return false;
+
+  this->emitLabel(LabelFalse);
+
+  if (!this->visit(FalseExpr))
+    return false;
+
+  this->fallthrough(LabelEnd);
+  this->emitLabel(LabelEnd);
+
+  return true;
 }
 
 template <class Emitter> bool ByteCodeExprGen<Emitter>::discard(const Expr *E) {
@@ -785,18 +822,6 @@ bool ByteCodeExprGen<Emitter>::visitInitializer(const Expr *Initializer) {
 }
 
 template <class Emitter>
-bool ByteCodeExprGen<Emitter>::getPtrVarDecl(const VarDecl *VD, const Expr *E) {
-  // Generate a pointer to the local, loading refs.
-  if (Optional<unsigned> Idx = getGlobalIdx(VD)) {
-    if (VD->getType()->isReferenceType())
-      return this->emitGetGlobalPtr(*Idx, E);
-    else
-      return this->emitGetPtrGlobal(*Idx, E);
-  }
-  return this->bail(VD);
-}
-
-template <class Emitter>
 llvm::Optional<unsigned>
 ByteCodeExprGen<Emitter>::getGlobalIdx(const VarDecl *VD) {
   if (VD->isConstexpr()) {
@@ -1044,7 +1069,6 @@ bool ByteCodeExprGen<Emitter>::VisitUnaryOperator(const UnaryOperator *E) {
 template <class Emitter>
 bool ByteCodeExprGen<Emitter>::VisitDeclRefExpr(const DeclRefExpr *E) {
   const auto *Decl = E->getDecl();
-  bool IsReference = Decl->getType()->isReferenceType();
   bool FoundDecl = false;
 
   if (auto It = Locals.find(Decl); It != Locals.end()) {
@@ -1075,7 +1099,7 @@ bool ByteCodeExprGen<Emitter>::VisitDeclRefExpr(const DeclRefExpr *E) {
   // References are implemented using pointers, so when we get here,
   // we have a pointer to a pointer, which we need to de-reference once.
   if (FoundDecl) {
-    if (IsReference) {
+    if (Decl->getType()->isReferenceType()) {
       if (!this->emitLoadPopPtr(E))
         return false;
     }
