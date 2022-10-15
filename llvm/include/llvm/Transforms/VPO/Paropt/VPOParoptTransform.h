@@ -328,8 +328,14 @@ private:
   };
   /// BBs that perform updates within the atomic-free reduction loops.
   DenseMap<WRegionNode *, LocalUpdateInfo> AtomicFreeRedLocalUpdateInfos;
-  DenseMap<WRegionNode *, GlobalUpdateInfo> AtomicFreeRedGlobalUpdateInfos;
+  // For different types of reditems we generate different types
+  // of update loops (serial and parallel) that's why that info
+  // is being kept separate
+  DenseMap<WRegionNode *, GlobalUpdateInfo>
+      AtomicFreeRedGlobalSerialUpdateInfos;
+  DenseMap<WRegionNode *, GlobalUpdateInfo> AtomicFreeRedGlobalParUpdateInfos;
   DenseSet<WRNTargetNode *> UsedLocalTreeReduction;
+  DenseMap<WRegionNode *, BasicBlock *> CntrCheckBBs;
 
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.

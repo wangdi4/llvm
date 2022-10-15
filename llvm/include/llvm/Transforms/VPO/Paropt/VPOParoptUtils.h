@@ -1966,6 +1966,15 @@ public:
   ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
   static CallInst *genSPIRVLocalIdCall(int Dim, Instruction *InsertPt);
 
+  /// Generate a call to get number of groups for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_xv
+  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_yv
+  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z14get_num_groupsj
+  static CallInst *genNumGroupsCall(int Dim, Instruction *InsertPt);
+
   /// Set the calling convention for \p CI.
   /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
   /// set C calling convention.
