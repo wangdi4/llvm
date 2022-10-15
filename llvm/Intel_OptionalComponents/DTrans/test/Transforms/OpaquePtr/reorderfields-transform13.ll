@@ -2,8 +2,8 @@
 ; correctly to sdiv and udiv instructions with constant and non-constant sizes
 ; related to %struct.T, which a structure nested within it is transformed.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-reorderfieldop-enable-legal-test=0 -S -dtrans-reorderfieldsop | FileCheck %s
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-reorderfieldop-enable-legal-test=0 -S -passes=dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-reorderfieldop-enable-legal-test=0 -S -dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-reorderfieldop-enable-legal-test=0 -S -passes=dtrans-reorderfieldsop | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

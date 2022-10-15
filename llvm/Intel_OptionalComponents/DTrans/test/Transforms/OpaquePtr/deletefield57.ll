@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
-; RUN: opt -opaque-pointers -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that metadata type attachment for a global variable gets updated when
 ; its type is changed due to deleting a field from the structure stored within

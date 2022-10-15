@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the index arguments of GEP instructions are correctly
 ; updated when they are accessing a field within a fixed array of a structure

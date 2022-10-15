@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -disable-output -dtrans-normalizeop -padded-pointer-prop-op -padded-pointer-info < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -whole-program-assume -disable-output -padded-pointer-info -passes="module(dtrans-normalizeop),padded-pointer-prop-op" < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -dtrans-normalizeop -padded-pointer-prop-op -padded-pointer-info < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -padded-pointer-info -passes="module(dtrans-normalizeop),padded-pointer-prop-op" < %s 2>&1 | FileCheck %s
 
 ; Checks merging of the padding of function arguments
 

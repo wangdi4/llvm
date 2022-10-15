@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers -disable-output -dtrans-force-inline-op -inline -inline-report=0xe807 -prepare-for-lto -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost < %s 2>&1 | FileCheck -check-prefix=CHECK-SUPP %s
-; RUN: opt -opaque-pointers -disable-output -dtrans-force-inline-op -inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain < %s 2>&1 | FileCheck -check-prefix=CHECK-NINL %s
-; RUN: opt -opaque-pointers -disable-output -passes='module(dtrans-force-inline-op),cgscc(inline)' -inline-report=0xe807 -prepare-for-lto -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost < %s 2>&1 | FileCheck -check-prefix=CHECK-SUPP %s
-; RUN: opt -opaque-pointers -disable-output -passes='module(dtrans-force-inline-op),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain < %s 2>&1 | FileCheck -check-prefix=CHECK-NINL %s
+; RUN: opt -opaque-pointers -disable-output -dtrans-force-inline-op -inline -inline-report=0xe807 -prepare-for-lto -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost < %s 2>&1 | FileCheck -check-prefix=CHECK-SUPP %s
+; RUN: opt -opaque-pointers -disable-output -dtrans-force-inline-op -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain < %s 2>&1 | FileCheck -check-prefix=CHECK-NINL %s
+; RUN: opt -opaque-pointers -disable-output -passes='module(dtrans-force-inline-op),cgscc(inline)' -inline-report=0xe807 -prepare-for-lto -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost < %s 2>&1 | FileCheck -check-prefix=CHECK-SUPP %s
+; RUN: opt -opaque-pointers -disable-output -passes='module(dtrans-force-inline-op),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain < %s 2>&1 | FileCheck -check-prefix=CHECK-NINL %s
 
 ; CHECK-SUPP: _ZN3ArrIPiEC2EiP3Mem {{.*}}preferred for
 ; CHECK-SUPP: _ZN3ArrIPvEC2EiP3Mem {{.*}}preferred for

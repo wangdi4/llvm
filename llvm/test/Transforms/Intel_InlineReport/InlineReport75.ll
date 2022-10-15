@@ -1,8 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt -inline -disable-output -inline-report=0xe807 -dtrans-inline-heuristics -pre-lto-inline-cost < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=inline -disable-output -inline-report=0xe807 -dtrans-inline-heuristics -pre-lto-inline-cost < %s 2>&1 | FileCheck %s
+; RUN: opt -inline -disable-output -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=inline -disable-output -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost < %s 2>&1 | FileCheck %s
 
 ; Ensure that inlining of
 ; _ZN3pov12Ray_In_BoundEPNS_10Ray_StructEPNS_13Object_StructE

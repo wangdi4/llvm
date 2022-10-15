@@ -1,20 +1,20 @@
 ; This test verifies that SOAToAOS is triggered when member functions have
 ; llvm.assume and llvm.type.test intrinsic calls.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -dtrans-soatoaosop                                  \
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop                                  \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false              \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:  2>&1 | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -passes=dtrans-soatoaosop                           \
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                           \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false              \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:  2>&1 | FileCheck %s
 
-; RUN: opt < %s -opaque-pointers -S -whole-program-assume                                  \
+; RUN: opt < %s -opaque-pointers -S -whole-program-assume -intel-libirc-allowed                                  \
 ; RUN:          -dtrans-soatoaosop -dtrans-soatoaosop-size-heuristic=false              \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-OP %s
-; RUN: opt < %s -opaque-pointers -S -whole-program-assume                                      \
+; RUN: opt < %s -opaque-pointers -S -whole-program-assume -intel-libirc-allowed                                      \
 ; RUN:          -passes=dtrans-soatoaosop -dtrans-soatoaosop-size-heuristic=false              \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-OP %s

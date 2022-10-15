@@ -1,5 +1,7 @@
-; RUN: opt < %s -S -whole-program-assume -dtrans-annotator-cleaner 2>&1 | FileCheck %s
-; RUN: opt < %s -S -whole-program-assume -passes=dtrans-annotator-cleaner 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-annotator-cleaner 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-annotator-cleaner 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the DTrans annotator cleaner removes the
 ; DTrans specific metadata and ptr annotations.

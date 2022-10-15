@@ -1,9 +1,11 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
 
 ; Test type recovery for function definitions with and without metadata
 

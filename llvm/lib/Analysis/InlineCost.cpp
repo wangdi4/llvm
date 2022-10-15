@@ -2010,7 +2010,7 @@ bool CallAnalyzer::allowSizeGrowth(CallBase &Call) {
     return false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
-  else if (intelCallTerminatesUnreachable(Call))
+  else if (intelCallTerminatesUnreachable(Call, TTI.isLibIRCAllowed()))
     return false;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
@@ -2202,7 +2202,11 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     } else if (PSI) {
       // Use callee's global profile information only if we have no way of
       // determining this via callsite information.
-      if (PSI->isFunctionEntryHot(&Callee)) {
+#if INTEL_CUSTOMIZATION
+      bool IsLibIRCAllowed = TTI.isLibIRCAllowed();
+      bool IgnoreAttribute = DTransInlineHeuristics && IsLibIRCAllowed;
+      if (PSI->isFunctionEntryHot(&Callee, IgnoreAttribute)) {
+#endif // INTEL_CUSTOMIZATION
         LLVM_DEBUG(dbgs() << "Hot callee.\n");
         // If callsite hotness can not be determined, we may still know
         // that the callee is hot and treat it as a weaker hint for threshold
@@ -3694,8 +3698,8 @@ InlineCostAnnotationPrinterPass::run(Function &F,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
-extern bool intelEnableInlineDeferral(void) {
-  return InlineForXmain && DTransInlineHeuristics;
+extern bool intelEnableInlineDeferral(bool IsLibIRCAllowed) {
+  return InlineForXmain && DTransInlineHeuristics && IsLibIRCAllowed;
 }
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION

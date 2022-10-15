@@ -1,11 +1,11 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers -enable-new-pm=0 -inline -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -opaque-pointers -enable-new-pm=0 -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -dtrans-inline-heuristics -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test checks that the two calls to _ZN12cMessageHeap11removeFirstEv and
 ; the calls to _ZN12cMessageHeap7shiftupEi inside
@@ -40,6 +40,8 @@
 ; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
 ; CHECK-NEW: INLINE: _ZN12cMessageHeap11removeFirstEv{{.*}}Callee has single callsite and local linkage
 ; CHECK-NEW: INLINE: _ZN12cMessageHeap7shiftupEi
+
+target triple = "x86_64-unknown-linux-gnu"
 
 %class.cSimulation = type { %class.cNoncopyableOwnedObject.base, i32, i32, ptr, i32, ptr, ptr, ptr, ptr, i32, ptr, ptr, %class.SimTime, i64, ptr, ptr, ptr, %class.cMessageHeap }
 %class.cNoncopyableOwnedObject.base = type { %class.cOwnedObject.base }

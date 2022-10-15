@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three;meminittrimdown:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three;meminittrimdown:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
 
 ; The test checks '-dtrans-nosafetychecks-list=' option functionality. This options allows ignoring safety check violations for types.
 

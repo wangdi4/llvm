@@ -9,13 +9,13 @@
 
 ; Make sure bar1, bar2 and bar3 are not inlined without "aggressive inline
 ; analysis" by using "-inline-threshold=-50".
-; RUN: opt -opaque-pointers < %s -inline -inline-threshold=-50 -whole-program-assume -S | FileCheck  --check-prefix=CHECK-NO-AGG-INL %s
-; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -inline-threshold=-50 -whole-program-assume -S | FileCheck  --check-prefix=CHECK-NO-AGG-INL %s
+; RUN: opt -opaque-pointers < %s -inline -inline-threshold=-50 -whole-program-assume -intel-libirc-allowed -S | FileCheck  --check-prefix=CHECK-NO-AGG-INL %s
+; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -inline-threshold=-50 -whole-program-assume -intel-libirc-allowed -S | FileCheck  --check-prefix=CHECK-NO-AGG-INL %s
 
 ; Make sure bar1, bar2 and bar3 are inlined with "aggressive inliner"
 ; even though "-inline-threshold=-50" option is used.
-; RUN: opt -opaque-pointers < %s -agginliner -inline -inline-threshold=-50 -whole-program-assume -S | FileCheck --check-prefix=CHECK-WITH-AGG-INL %s
-; RUN: opt -opaque-pointers < %s -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -whole-program-assume -S | FileCheck --check-prefix=CHECK-WITH-AGG-INL %s
+; RUN: opt -opaque-pointers < %s -agginliner -inline -inline-threshold=-50 -whole-program-assume -intel-libirc-allowed -S | FileCheck --check-prefix=CHECK-WITH-AGG-INL %s
+; RUN: opt -opaque-pointers < %s -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -whole-program-assume -intel-libirc-allowed -S | FileCheck --check-prefix=CHECK-WITH-AGG-INL %s
 
 ; Checks for without agg-inl
 ; CHECK-NO-AGG-INL: call void @bar1

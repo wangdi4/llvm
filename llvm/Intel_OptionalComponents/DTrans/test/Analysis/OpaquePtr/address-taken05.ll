@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test two structs with different size floating-point fields.
 ; Check that AddressTaken is set on MYSTRUCT, as MYSTRUCTX is a compatible

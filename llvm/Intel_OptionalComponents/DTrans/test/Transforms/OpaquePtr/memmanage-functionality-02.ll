@@ -10,7 +10,7 @@
 ; DestroyObject    : ?destroyObject@?$ReusableArenaAllocator@VXStringCached@xalanc_1_10@@@xalanc_1_10@@QEAA_NPEAVXStringCached@2@@Z
 
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -dtrans-memmanageop-ignore-soa-heur -whole-program-assume -enable-intel-advanced-opts -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -dtrans-memmanageop-ignore-soa-heur -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: MemManageTransOP transformation:
 ; CHECK: Considering candidate: %"class..?AVXStringCachedAllocator@xalanc_1_10@@.xalanc_1_10::XStringCachedAllocator"

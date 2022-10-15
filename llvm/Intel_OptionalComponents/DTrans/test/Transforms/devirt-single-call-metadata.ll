@@ -2,6 +2,8 @@
 ; involves bitcasts with metadata for the DTrans analysis. This case checks the
 ; path where there is only a single devirtualization target for the call.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt < %s -passes=wholeprogramdevirt -whole-program-visibility -S 2>&1 | FileCheck %s
 
 ; Define the types and global variables required for the devirtualizer.

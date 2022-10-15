@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -disable-output -whole-program-assume -dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -whole-program-assume -passes=dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
 
 ; In this test, llvm.assume is used in a pattern similar to the expected form
 ; for checking pointer alignment, but the mask value is not a pointer

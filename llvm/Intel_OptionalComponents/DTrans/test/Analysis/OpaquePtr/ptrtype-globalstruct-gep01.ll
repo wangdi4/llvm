@@ -1,5 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-outofboundsok=false -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Following the change to perform constant folding on GEP.x.0.0 to eliminate GEP
 ; operators, analysis of the effective types is complicated when a PHI or select

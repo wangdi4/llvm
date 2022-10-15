@@ -1,6 +1,6 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -S -whole-program-assume -dtrans-weakalign -dtrans-weakalign-heur-override=false 2>&1 | FileCheck %s
-; RUN: opt < %s -S -whole-program-assume -passes=dtrans-weakalign -dtrans-weakalign-heur-override=false 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-weakalign -dtrans-weakalign-heur-override=false 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-weakalign -dtrans-weakalign-heur-override=false 2>&1 | FileCheck %s
 
 ; Test that the mallopt call gets inserted at the start of main when
 ; all the safety checks and heuristics pass.

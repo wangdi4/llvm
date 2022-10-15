@@ -1,4 +1,6 @@
-; RUN: opt -opaque-pointers -whole-program-assume -intel-ind-call-force-dtrans -passes=indirectcallconv -intel-ind-call-conv-max-target=3 -S < %s  2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -intel-ind-call-force-dtrans -passes=indirectcallconv -intel-ind-call-conv-max-target=3 -S < %s  2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that the first indirect call in @main is specialized to @foo and
 ; then @baz, and then @baf.

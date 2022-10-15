@@ -2,8 +2,8 @@
 ; is applied to struct.test and a new struct is created with a
 ; different layout.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -dtrans-reorderfieldsop | FileCheck %s
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -passes=dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
 
 ; CHECK: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }
 ; CHECK-NOT: %struct.test = type { i32, i64, i32, i32, i16, i64, i64 }

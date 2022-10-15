@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -passes=dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies the DTrans eliminate read-only field access pass.
 ; First IF basic block doesn't meet the criteria.

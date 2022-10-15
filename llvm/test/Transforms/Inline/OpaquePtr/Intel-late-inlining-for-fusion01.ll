@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN:  opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe886 -S  | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
+; RUN: opt -opaque-pointers -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN:  opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe886 -S  | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
+; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
 
 ; Test link compile step loop fusion heuristic
 
@@ -66,6 +66,8 @@
 ; CHECK-META: define void @MAIN__
 ; CHECK-META: call void @foo_
 ; CHECK-META: define void @baz_
+
+target triple = "x86_64-unknown-linux-gnu"
 
 @"foo_$D" = internal global [100 x [100 x [100 x float]]] zeroinitializer, align 16
 @"foo_$C" = internal global [100 x [100 x [100 x float]]] zeroinitializer, align 16

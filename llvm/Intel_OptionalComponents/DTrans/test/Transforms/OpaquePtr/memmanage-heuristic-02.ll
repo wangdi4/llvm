@@ -2,7 +2,7 @@
 ; memory management can be detected as a small constant.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: MemManageTransOP transformation:
 ; CHECK:   Failed: BlockSize heuristic

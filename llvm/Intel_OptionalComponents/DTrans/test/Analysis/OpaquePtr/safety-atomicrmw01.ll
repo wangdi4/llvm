@@ -1,5 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that a structure type that is used, or has the address of a field member
 ; used as the pointer operand of a 'atomicrmw' instruction gets marked as

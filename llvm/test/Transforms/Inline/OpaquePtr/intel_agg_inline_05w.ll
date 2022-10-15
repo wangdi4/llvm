@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers < %s -whole-program-assume -agginliner -inline -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -agginliner -inline -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='module(agginliner),cgscc(inline)' -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
 
 ; Check the trace results for the HugeMallocGlobalPointersHeuristic aggressive
 ; inlining heuristic.

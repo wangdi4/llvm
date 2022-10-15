@@ -1,10 +1,12 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that verifies that padded malloc wasn't applied because there was
 ; no search loop and no use of malloc.
 
-; RUN: opt -disable-verify -debug-only=dtrans-paddedmalloc -whole-program-assume -passes='lto<O2>' %s -enable-npm-dtrans 2>&1 | FileCheck %s
+; RUN: opt -disable-verify -debug-only=dtrans-paddedmalloc -whole-program-assume -intel-libirc-allowed -passes='lto<O2>' %s -enable-npm-dtrans 2>&1 | FileCheck %s
 
 declare void @bar() local_unnamed_addr
 

@@ -83,8 +83,8 @@
 ; is inlined because it is an extracted recursive call. It is the same test
 ; case as intel_simple_partial_inline_and_inline.ll, but for opaque pointers.
 ;
-; RUN: opt < %s -opaque-pointers -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt < %s -opaque-pointers -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt < %s -opaque-pointers -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt < %s -opaque-pointers -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
 ; CHECK: Candidates for partial inlining: 1
 ; CHECK:     _Z3fooP4Node
@@ -98,6 +98,7 @@
 
 ; ModuleID = 'intel_simple_partial_inline_and_inline.ll'
 source_filename = "intel_simple_partial_inline_and_inline.ll"
+target triple = "x86_64-unknown-linux-gnu"
 
 %struct.Node = type { i32, ptr }
 

@@ -3,18 +3,18 @@
 ; This test verifies that SOAToAOS is triggered when IR has specific things
 ; like EH etc.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -dtrans-soatoaosop                  \
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop                  \
 ; RUN:          -enable-intel-advanced-opts -mattr=+avx2                     \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -passes=dtrans-soatoaosop           \
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop           \
 ; RUN:          -enable-intel-advanced-opts -mattr=+avx2                     \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false | FileCheck %s
 
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -dtrans-soatoaosop \
+; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                    \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                      \
 ; RUN:          2>&1 | FileCheck --check-prefix=CHECK-OP %s
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume                    \
+; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed                    \
 ; RUN:          -passes=dtrans-soatoaosop                                    \
 ; RUN:          -enable-intel-advanced-opts -mattr=+avx2                     \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                      \
