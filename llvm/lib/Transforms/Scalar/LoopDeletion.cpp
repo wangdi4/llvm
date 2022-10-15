@@ -304,9 +304,8 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
         break;
 
       if (Instruction *I = dyn_cast<Instruction>(incoming)) {
-<<<<<<< HEAD
-        bool InstrMoved = false;
-        if (!L->makeLoopInvariant(I, InstrMoved, Preheader->getTerminator())) {
+        if (!L->makeLoopInvariant(I, Changed, Preheader->getTerminator(),
+                                  /*MSSAU=*/nullptr, &SE)) {
 #if INTEL_CUSTOMIZATION
           // p = pstart;
           // {
@@ -422,10 +421,6 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
             continue; // keep checking other live values
           }
 #endif // INTEL_CUSTOMIZATION
-=======
-        if (!L->makeLoopInvariant(I, Changed, Preheader->getTerminator(),
-                                  /*MSSAU=*/nullptr, &SE)) {
->>>>>>> 16cf666bb7f574bc56cc0a5caf859de7c1c22704
           AllEntriesInvariant = false;
           break;
         }
