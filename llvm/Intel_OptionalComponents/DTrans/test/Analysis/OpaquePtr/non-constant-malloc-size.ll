@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 
-; RUN: opt -passes="require<dtrans-safetyanalyzer>" -whole-program-assume -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="require<dtrans-safetyanalyzer>" -whole-program-assume -intel-libirc-allowed -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test checks that malloc calls with non-constant sizes for cases
 ; where the analysis tries to trace the allocation size through a
