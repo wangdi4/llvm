@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies that BadCasting is not set for parent struct
 ; (i.e %DOMDocumentImpl) even though expected type (%DOMNode*) and used
