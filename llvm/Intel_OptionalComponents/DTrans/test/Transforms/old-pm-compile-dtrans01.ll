@@ -3,6 +3,8 @@
 ; Test passes run under -enable-dtrans in the compile step in the old pass manager
 ;
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -enable-new-pm=0 -O0 -disable-output -disable-verify -enable-dtrans -debug-pass=Executions -prepare-for-lto %s 2>&1 | FileCheck %s --check-prefixes=CHECK-OLDPM-O0
 
 ; These passes should not be enabled at -O0

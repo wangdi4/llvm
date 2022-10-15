@@ -1,6 +1,6 @@
 ; This test verifies only candidate selection for field reusing
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Reuse field: looking for candidate structure field.
 ; CHECK: LLVM Type: %struct.test

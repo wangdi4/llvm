@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
 
 ; This test case checks that the base-padded relationship between
 ; %struct.test.b.base and %struct.test.b is set, but the relationship between

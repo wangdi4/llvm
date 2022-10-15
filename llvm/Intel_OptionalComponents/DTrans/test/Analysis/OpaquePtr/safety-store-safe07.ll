@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output %s 2>&1 | FileCheck -match-full-lines %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -dtransop-allow-typed-pointers -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output %s 2>&1 | FileCheck -match-full-lines %s
 
 ; Verify storing to element zero of a structure that is contained within an array
 ; using the address of an array element results in the field being set as "Written"

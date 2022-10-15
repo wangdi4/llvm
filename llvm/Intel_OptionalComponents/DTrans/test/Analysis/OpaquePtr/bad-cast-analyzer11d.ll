@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
 
 ; This test case tests the bad cast analyzer on a case where an alloc store
 ; to the candidate field is passed to a function argument which can use it as

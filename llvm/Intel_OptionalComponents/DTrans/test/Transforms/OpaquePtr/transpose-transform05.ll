@@ -1,5 +1,7 @@
 ; This test is to verify the IR modifications done by the Transpose transformation.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test is similar to transpose-transform01.ll, but uses the new form of
 ; uplevel type names.
 

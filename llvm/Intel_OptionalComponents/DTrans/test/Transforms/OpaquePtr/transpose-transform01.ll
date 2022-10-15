@@ -1,5 +1,7 @@
 ; This test is to verify the IR modifications done by the Transpose transformation.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -opaque-pointers < %s -S -dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -passes=dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
 

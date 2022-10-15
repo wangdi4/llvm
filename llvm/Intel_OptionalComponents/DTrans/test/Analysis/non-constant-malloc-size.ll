@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt -passes="require<dtransanalysis>" -whole-program-assume -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -passes="require<dtransanalysis>" -whole-program-assume -intel-libirc-allowed -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test checks that malloc call with non-constant size is parsed correctly.
 

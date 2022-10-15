@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  -whole-program-assume -internalize -internalize-public-api-list main -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt  -whole-program-assume -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -intel-libirc-allowed -internalize -internalize-public-api-list main -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -intel-libirc-allowed -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test case checks that delete fields pass runs correctly when there is
 ; a base-named type but there is no use across the whole module. From the

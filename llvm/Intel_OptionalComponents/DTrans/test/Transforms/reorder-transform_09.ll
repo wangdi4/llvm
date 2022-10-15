@@ -1,7 +1,9 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
-; RUN: opt -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; Field reordering should not be performed for new/delete.
 ; CHECK-NOT: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }

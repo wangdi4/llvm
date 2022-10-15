@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -agginliner -inline -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-27769: Check that aggressive inlining analysis identifies
 ; memory allocation routine and then triggers aggressive inlining.

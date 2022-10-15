@@ -7,6 +7,8 @@
 ; RUN:   -debug-pass-manager -passes='lto-pre-link<O0>' %s 2>&1 | FileCheck %s \
 ; RUN:   --check-prefixes=CHECK-NEWPM-O0
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; These passes should not be enabled at -O0
 
 ; CHECK-NEWPM-O0-NOT: Running pass: FunctionRecognizerPass on foo

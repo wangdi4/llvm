@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that "bad pointer manipulation for related types" is set for
 ; the types when the size of a vector is used to allocate a new memory space.

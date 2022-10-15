@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
-; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes %s | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that we correctly handle the case where an outer type,
 ; which is not being remapped, is correctly updated when one of its elements

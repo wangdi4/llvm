@@ -4,7 +4,7 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; CHECK:  %i = load ptr, ptr @b, align 8, !tbaa !42
 ; CHECK:    LocalPointerInfo: CompletelyAnalyzed

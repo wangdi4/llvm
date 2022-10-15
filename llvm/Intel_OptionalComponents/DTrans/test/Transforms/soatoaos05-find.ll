@@ -1,7 +1,7 @@
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-deps          \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output -debug-only=dtrans-soatoaos-deps          \
 ; RUN:          -passes='internalize,require<dtransanalysis>,require<soatoaos-approx>'            \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP %s
-; RUN: opt < %s -whole-program-assume -disable-output                                           \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                           \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
 ; RUN:          -passes='internalize,require<dtransanalysis>,require<soatoaos-approx>,require<soatoaos-struct-methods>' \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
@@ -9,7 +9,7 @@
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
 ; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
-; RUN: opt -S < %s -whole-program-assume                                                        \
+; RUN: opt -S < %s -whole-program-assume -intel-libirc-allowed                                                        \
 ; RUN:          -passes='internalize,soatoaos-struct-methods-transform'                                       \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
 ; RUN:          -dtrans-optbase-process-function-declaration                                    \

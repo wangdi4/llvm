@@ -5,8 +5,8 @@
 ; instruction for a case that is not computing the distance between two
 ; structure pointers.
 
-; RUN: opt  -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
-; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
+; RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields | FileCheck %s
+; RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }
 ; CHECK-NOT: %struct.test = type { i32, i64, i32, i32, i16, i64, i64 }

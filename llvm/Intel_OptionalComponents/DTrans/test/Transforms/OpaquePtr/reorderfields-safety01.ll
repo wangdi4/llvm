@@ -2,8 +2,8 @@
 ; a structure as candidate due to safety conditions.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-reorderfieldsop -debug-only=dtrans-reorderfieldsop -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume -passes=dtrans-reorderfieldsop -debug-only=dtrans-reorderfieldsop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-reorderfieldsop -debug-only=dtrans-reorderfieldsop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-reorderfieldsop -debug-only=dtrans-reorderfieldsop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Rejecting struct.test based on safety data
 

@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -enable-new-pm=0 -wholeprogramanalysis -inline -inline-report=0xe807 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -inline-expose-local-arrays-min-args=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
-; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -inline-report=0xe807 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -inline-expose-local-arrays-min-args=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0xe886 -dtrans-inline-heuristics -inline-expose-local-arrays-min-args=2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -dtrans-inline-heuristics -inline-expose-local-arrays-min-args=2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -enable-new-pm=0 -wholeprogramanalysis -inline -inline-report=0xe807 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -inline-report=0xe807 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that mycopy_ was NOT inlined according to the 'Exposes local arrays'
 ; inline heuristic, because mycopy_ does not have enough callsites.

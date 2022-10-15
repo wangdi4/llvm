@@ -1,5 +1,7 @@
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -dtrans-reorderfieldsop | FileCheck %s
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -passes=dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the reordering transformation is NOT applied to
 ; struct.test because a memory write is done to the first field of the structure

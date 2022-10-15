@@ -1,22 +1,22 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                                       \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                                       \
 ; RUN: -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                    \
 ; RUN:        -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays                                            \
 ; RUN:        -dtrans-soatoaosop-ignore-funcs=_ZN10MemManager8allocateEl                                        \
 ; RUN:        2>&1 | FileCheck %s
-; RUN: opt -S < %s -dtransop-allow-typed-pointers -whole-program-assume                                                                    \
+; RUN: opt -S < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed                                                                    \
 ; RUN:        -passes=soatoaosop-arrays-methods-transform                                                     \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                    \
 ; RUN:        -dtrans-soatoaosop-ignore-funcs=_ZN10MemManager8allocateEl                                        \
 ; RUN:        | FileCheck --check-prefix=CHECK-MOD %s
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                       \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                                       \
 ; RUN: -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                    \
 ; RUN:        -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays                                            \
 ; RUN:        -dtrans-soatoaosop-ignore-funcs=_ZN10MemManager8allocateEl                                        \
 ; RUN:        2>&1 | FileCheck --check-prefix=CHECK-OP %s
-; RUN: opt -S < %s -opaque-pointers -whole-program-assume                                                                    \
+; RUN: opt -S < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed                                                                    \
 ; RUN:        -passes=soatoaosop-arrays-methods-transform                                                     \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                    \
 ; RUN:        -dtrans-soatoaosop-ignore-funcs=_ZN10MemManager8allocateEl                                        \

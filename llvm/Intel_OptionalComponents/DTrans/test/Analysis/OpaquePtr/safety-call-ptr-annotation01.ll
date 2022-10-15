@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types < %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -dtransop-allow-typed-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types < %s 2>&1 | FileCheck %s
 
 ; Test that calls to @llvm.ptr.annotation.p0i64 do not trigger safety flags on
 ; the structure types.

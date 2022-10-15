@@ -4,7 +4,9 @@
 ; "_ZN1FC2Ev" to reproduce the crash. The nullptr access was reported by
 ; klocworks.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                      \
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                      \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr.0                                                                \
@@ -14,7 +16,7 @@
 ; RUN:          -dtrans-soatoaosop-array-ctor=_ZN3ArrIPfEC2Ei                                                             \
 ; RUN:          2>/dev/null
 
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                    \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr.0                                                                \

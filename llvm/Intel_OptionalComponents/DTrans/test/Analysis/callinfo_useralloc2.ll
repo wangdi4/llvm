@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
 
 ; Regression test for CMPLRLLVM-31233 to ensure that the pattern matching
 ; of the user allocation function does not result in an infinite loop.

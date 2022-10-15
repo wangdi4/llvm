@@ -6,7 +6,7 @@
 ; This test case is similar to paddedmalloc_apply.ll, but also explicitly
 ; exercises the dtrans-safetyanalyzer and -padded-pointer-prop-op.
 
-; RUN: opt -opaque-pointers -whole-program-assume < %s -passes='require<dtrans-safetyanalyzer>,padded-pointer-prop-op,dtrans-paddedmallocop' -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed < %s -passes='require<dtrans-safetyanalyzer>,padded-pointer-prop-op,dtrans-paddedmallocop' -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc
 ; CHECK: dtrans-paddedmalloc: Identifying alloc functions

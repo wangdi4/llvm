@@ -6,8 +6,8 @@
 ; foo1 is NOT inlined, even though it contains the calls to bar1, bar2, and
 ; bar3.
 
-; RUN: opt -opaque-pointers < %s -agginliner -inline -inline-threshold=-50 -whole-program-assume -S | FileCheck %s
-; RUN: opt -opaque-pointers < %s -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -whole-program-assume -S | FileCheck %s
+; RUN: opt -opaque-pointers < %s -agginliner -inline -inline-threshold=-50 -whole-program-assume -intel-libirc-allowed -S | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -whole-program-assume -intel-libirc-allowed -S | FileCheck %s
 
 ; Checks for with agg-inl
 ; CHECK: call void @foo1

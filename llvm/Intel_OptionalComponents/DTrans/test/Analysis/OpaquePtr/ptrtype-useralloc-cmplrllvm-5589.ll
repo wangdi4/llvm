@@ -1,8 +1,10 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -dtrans-ptrtypeanalyzertest 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -passes=dtrans-ptrtypeanalyzertest 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest 2>&1 | FileCheck %s
 ; CHECK: Analyzing for user free function: mybadfree
 ; CHECK: Not user free function: mybadfree - Unsupported function signature
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that the function @mybadfree is not recognized as a user alloc
 ; because the value freed is not the value used in the argument to

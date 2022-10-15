@@ -1,6 +1,6 @@
 ; This test try to check fields intersect function, the 1-th field's same value fields should be { 1 3 4 }, but 3-th and 4-th field's same value fields should be { 3, 4 }, so the result of intersect should be { 3, 4 }.
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:Reused structure: %struct.test
 ; CHECK-NEXT:    Field mapping are (From:To): { 3:3 4:3 }

@@ -1,9 +1,11 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=true -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_T
+target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_F
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_T
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_F
 
 ; Test that storing the address of a field to memory results in "Field address taken memory"
 ; being cascaded and pointer carried only when "-dtrans-outofboundsok=true",

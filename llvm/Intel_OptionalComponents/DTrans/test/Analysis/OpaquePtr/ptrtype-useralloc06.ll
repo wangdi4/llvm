@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -dtrans-ptrtypeanalyzertest < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -passes=dtrans-ptrtypeanalyzertest < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest < %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that the user allocation and free functions from 557.xz are recognized
 ; when the IR is in the expected form following the DTrans eliminate read-only

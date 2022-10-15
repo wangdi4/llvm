@@ -1,12 +1,14 @@
-; RUN: opt < %s -disable-output -dtrans-force-inline -inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-SUPP %s
+; RUN: opt < %s -disable-output -dtrans-force-inline -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-SUPP %s
 ; All options
-;   -dtrans-inline-heuristics
+;   -dtrans-inline-heuristics -intel-libirc-allowed
 ;   -inline-for-xmain
 ;   -pre-lto-inline-cost
 ;   are required
-; RUN: opt < %s -disable-output -dtrans-force-inline -inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefix=CHECK-NINL %s
-; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-SUPP %s
-; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefix=CHECK-NINL %s
+; RUN: opt < %s -disable-output -dtrans-force-inline -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain 2>&1 | FileCheck --check-prefix=CHECK-NINL %s
+; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-SUPP %s
+; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain 2>&1 | FileCheck --check-prefix=CHECK-NINL %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-SUPP: _ZN3ArrIPiEC2EiP3Mem {{.*}}preferred for
 ; CHECK-SUPP: _ZN3ArrIPvEC2EiP3Mem {{.*}}preferred for

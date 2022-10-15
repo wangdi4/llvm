@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -enable-new-pm=0 -inline -dtrans-inline-heuristics -inline-report=0xe807 -inline-prof-instr-hot-percentage=50 -inline-prof-instr-hot-count=2 -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -passes='require<profile-summary>,inline' -dtrans-inline-heuristics -inline-report=0xe807 -inline-prof-instr-hot-percentage=50 -inline-prof-instr-hot-count=2 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -enable-new-pm=0 -inline -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -inline-prof-instr-hot-percentage=50 -inline-prof-instr-hot-count=2 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes='require<profile-summary>,inline' -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -inline-prof-instr-hot-percentage=50 -inline-prof-instr-hot-count=2 -S 2>&1 | FileCheck %s
 
 ; Test that only one of the the two hottest calls is inlined as a hot call
 ; because even though inline-prof-instr-hot-count=2
@@ -14,6 +14,8 @@
 ; CHECK-NOT: INLINE: bar{{.*}}Callsite has hot profile
 ; CHECK-NOT: INLINE: baz{{.*}}Callsite has hot profile
 ; CHECK: INLINE: booz{{.*}}Callsite has hot profile
+
+target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @bar() local_unnamed_addr !prof !31 {
 entry:

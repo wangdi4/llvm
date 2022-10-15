@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 ; RUN: opt -opaque-pointers -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test checks that a mismatch between the DTrans type metadata
 ; and the actual type of a structure in the IR is detected by the
 ; type metadata reader.
