@@ -3,6 +3,8 @@
 ; RUN: opt -opaque-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-OPAQUE
 ; RUN: opt -opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-OPAQUE
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that global variables get their type changed when types are remapped
 ; for cases with pointer types within the structure.
 

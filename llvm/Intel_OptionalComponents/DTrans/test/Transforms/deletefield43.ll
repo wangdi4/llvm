@@ -1,8 +1,10 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume -passes="dtrans-deletefield" -debug-only=dtrans-deletefield -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-deletefield -debug-only=dtrans-deletefield -S 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes="dtrans-deletefield" -debug-only=dtrans-deletefield -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -debug-only=dtrans-deletefield -S 2>&1 | FileCheck %s
 
 ; This test verifies that the DTrans delete-fields optimization removes the entry 0 of
 ; @glob_A since it isn't used, and the GEP for %x was updated correctly. The structure

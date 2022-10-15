@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -passes="dtrans-deletefield" -debug-only=dtrans-deletefield -dtrans-print-types -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-print-types -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes="dtrans-deletefield" -debug-only=dtrans-deletefield -dtrans-print-types -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-print-types -S 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that no unused fields are removed from a dope vector.
 

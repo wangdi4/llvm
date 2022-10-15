@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 ; RUN: opt -opaque-pointers -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test checks that the DTrans type metadata reader can reconstruct
 ; missing types for types that do not involve any pointers when metadata
 ; is missing, and there are nested structure types.

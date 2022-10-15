@@ -298,6 +298,7 @@ void WholeProgramInfo::analyzeModule() {
   wholeProgramAllExternsAreIntrins();
 
   computeIsAdvancedOptEnabled();
+  computeIsLibIRCAllowedEverywhere();
 }
 
 // This analysis depends on TargetLibraryInfo and TargetTransformInfo.
@@ -906,6 +907,21 @@ void WholeProgramInfo::computeIsAdvancedOptEnabled() {
   });
 }
 
+void WholeProgramInfo::computeIsLibIRCAllowedEverywhere() {
+  IsLibIRCAllowedEverywhere = true;
+  for (Function &F : *M) {
+    if (F.isDeclaration())
+      continue;
+    TargetTransformInfo &TTI = GTTI(F);
+    if (!TTI.isLibIRCAllowed()) {
+      IsLibIRCAllowedEverywhere = false;
+      if (!WholeProgramAdvanceOptTrace)
+        return;
+      LLVM_DEBUG(dbgs() << "LibIRC not allowed on " << F.getName() << "\n");
+    }
+  }
+}
+
 // Return true if TTI->isAdvancedOptEnabled(AO) is true for all Functions
 // in the LTO unit which have IR.
 bool WholeProgramInfo::isAdvancedOptEnabled(
@@ -946,6 +962,11 @@ bool WholeProgramInfo::isWholeProgramRead() {
 // assumption flag for executable was turned on.
 bool WholeProgramInfo::isLinkedAsExecutable() {
   return WPUtils->getLinkingExecutable() || AssumeWholeProgramExecutable;
+}
+
+// Returns 'true' if use of LibIRC is allowed for all functions with IR.
+bool WholeProgramInfo::isLibIRCAllowedEverywhere() {
+  return IsLibIRCAllowedEverywhere;
 }
 
 // Return the Function* that points to "main" or any of its forms,

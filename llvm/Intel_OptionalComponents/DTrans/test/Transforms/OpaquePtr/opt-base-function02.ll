@@ -3,6 +3,8 @@
 ; RUN: opt -opaque-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 ; RUN: opt -opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that the remapping process for a function also causes
 ; the metadata type information to be updated with the remapped
 ; types.

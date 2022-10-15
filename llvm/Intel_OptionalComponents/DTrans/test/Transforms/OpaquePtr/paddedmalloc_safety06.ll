@@ -3,8 +3,8 @@
 ; Test that verifies that padded malloc wasn't applied because there was
 ; no search loop and no use of malloc.
 
-; RUN: opt -opaque-pointers < %s -whole-program-assume -debug-only=dtrans-paddedmalloc -dtrans-paddedmallocop -padded-pointer-prop-op -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -debug-only=dtrans-paddedmalloc -passes="dtrans-paddedmallocop,padded-pointer-prop-op" -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -debug-only=dtrans-paddedmalloc -dtrans-paddedmallocop -padded-pointer-prop-op -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -debug-only=dtrans-paddedmalloc -passes="dtrans-paddedmallocop,padded-pointer-prop-op" -S 2>&1 | FileCheck %s
 
 ; CHECK:      dtrans-paddedmalloc: Trace for DTrans Padded Malloc
 ; CHECK-NEXT:   dtrans-paddedmalloc: Padded malloc disabled

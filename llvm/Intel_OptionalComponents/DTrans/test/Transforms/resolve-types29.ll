@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN:  opt < %s -S -o - -whole-program-assume -dtrans-resolvetypes 2>&1 | FileCheck %s
-; RUN:  opt < %s -S -o - -whole-program-assume -passes=dtrans-resolvetypes 2>&1 | FileCheck %s
+; RUN:  opt < %s -S -o - -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes 2>&1 | FileCheck %s
+; RUN:  opt < %s -S -o - -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the dtrans::ResolveTypes didn't combine the types
 ; since one of the types is used in a dllexport function. This is the same

@@ -5,7 +5,9 @@
 ; This test should apply the field deletion and AOS-to-SOA transformations,
 ; which should cause the analysis to be invalidated after these passes run.
 
-; RUN: opt -disable-verify -enable-npm-dtrans -dtransop-allow-typed-pointers  -debug-pass-manager -whole-program-assume -passes='lto<O2>' -internalize-public-api-list main -S  %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -disable-verify -enable-npm-dtrans -dtransop-allow-typed-pointers  -debug-pass-manager -whole-program-assume -intel-libirc-allowed -passes='lto<O2>' -internalize-public-api-list main -S  %s 2>&1 | FileCheck %s
 
 ; CHECK: Running pass: dtransOP::CommuteCondOPPass on [module]
 ; CHECK: Running analysis: dtransOP::DTransSafetyAnalyzer on [module]

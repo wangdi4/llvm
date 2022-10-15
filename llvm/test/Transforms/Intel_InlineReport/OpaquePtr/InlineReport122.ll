@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefix=CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8c6  < %s -S | opt -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=0xf8c6 -S | opt -passes='inlinereportemitter' -inline-report=0xf8c6 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -opaque-pointers < %s -dtrans-inline-heuristics -intel-libirc-allowed -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefix=CHECK-CL
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8c6  < %s -S | opt -dtrans-inline-heuristics -intel-libirc-allowed -passes='cgscc(inline)' -inline-report=0xf8c6 -S | opt -passes='inlinereportemitter' -inline-report=0xf8c6 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
-; Check that foo() is not inlined when -dtrans-inline-heuristics is specified,
+; Check that foo() is not inlined when -dtrans-inline-heuristics -intel-libirc-allowed is specified,
 ; because it ends in an unreachable instruction. NOTE: The check for '>1'
 ; ensures that inlining was inhibited because the threshold was reduced to 1.
 
@@ -32,6 +32,8 @@
 ; CHECK-MD-LABEL: define internal void @foo(
 ; CHECK-MD: tail call void @exit(
 ; CHECK-MD: unreachable
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noreturn
 declare dso_local void @exit(i32 noundef) #0

@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
-; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes %s | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the dtrans::ResolveTypes correctly combines
 ; types that are nested within other structures when the base-named type

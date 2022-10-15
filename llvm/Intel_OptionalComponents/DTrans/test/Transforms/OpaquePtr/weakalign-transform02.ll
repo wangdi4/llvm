@@ -1,4 +1,4 @@
-; RUN: opt < %s -opaque-pointers -S -whole-program-assume -passes=dtrans-weakalign -dtrans-weakalign-heur-override=true 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-weakalign -dtrans-weakalign-heur-override=true 2>&1 | FileCheck %s
 
 ; Test that the mallopt call gets inserted at the start of main when
 ; the safety checks pass, and heuristics are being ignored.

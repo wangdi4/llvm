@@ -4,6 +4,8 @@
 ; RUN: opt -opaque-pointers -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 ; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test the ability to create new LLVM and DTrans types for the types selected by
 ; the transformation and by the base class converting the dependent types. This
 ; test is being developed before the IR gets rewritten to use the new types,

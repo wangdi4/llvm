@@ -1,5 +1,7 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test is to verify that the DTrans base class cloning/remapping of
 ; functions does not cause the debug information to fail the module verifier
 ; for cases involving inlined functions. In this test, the function test01
@@ -15,29 +17,29 @@
 
 ; Old pass manager
 ; RUN: sed -e s/^.DO_CLONE_INLINEE:// %s | sed s/^.DO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 ; RUN: sed -e s/^.NO_CLONE_INLINEE:// %s | sed s/^.DO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 ; RUN: sed -e s/^.DO_CLONE_INLINEE:// %s | sed s/^.NO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 ; RUN: sed -e s/^.NO_CLONE_INLINEE:// %s | sed s/^.NO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 ; New pass manager
 ; RUN: sed -e s/^.DO_CLONE_INLINEE:// %s | sed s/^.DO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 ; RUN: sed -e s/^.NO_CLONE_INLINEE:// %s | sed s/^.DO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 ; RUN: sed -e s/^.DO_CLONE_INLINEE:// %s | sed s/^.NO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 ; RUN: sed -e s/^.NO_CLONE_INLINEE:// %s | sed s/^.NO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
+; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
 %struct.network = type { i64, %struct.node*, %struct.arc* }
 %struct.node = type { i64 }

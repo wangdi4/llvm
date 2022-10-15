@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -dtransop-allow-typed-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
 
 ; This test verifies that a getelementptr instruction tagged with metadata
 ; that explicitly marks the type results in the safety analyzer using that

@@ -1,7 +1,7 @@
 ; This test verifies that intel_dtrans_type metadata is correctly set to
 ; newly created variables like __Devirt* by wholeprogramdevirt pass.
 
-; RUN: opt < %s -opaque-pointers -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -whole-program-assume  2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -whole-program-assume -intel-libirc-allowed  2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -1,5 +1,7 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S 2>&1 | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test checks that the DTrans delete field pass handles updating
 ; global variable initializers when fields are deleted from both the

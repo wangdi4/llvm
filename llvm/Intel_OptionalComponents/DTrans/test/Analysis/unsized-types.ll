@@ -1,5 +1,7 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -passes='require<dtransanalysis>'  -disable-output %s 2>/dev/null
 
 ; This test verifies that DTransAnalysis shouldn't compfail when processing

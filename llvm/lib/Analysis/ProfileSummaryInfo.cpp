@@ -112,14 +112,15 @@ Optional<uint64_t> ProfileSummaryInfo::getProfileCount(
 /// Returns true if the function's entry is hot. If it returns false, it
 /// either means it is not hot or it is unknown whether it is hot or not (for
 /// example, no profile data is available).
-bool ProfileSummaryInfo::isFunctionEntryHot(const Function *F) const {
 #if INTEL_CUSTOMIZATION
+bool ProfileSummaryInfo::isFunctionEntryHot(const Function *F,
+                                            bool IgnoreAttribute) const {
   // Make this consistent with ProfileSummaryInfo::isFunctionEntryCold
   if (!F)
     return false;
   // CMPLRLLVM-37160: Even though the attribute may be set by the user,
   // it does not benefit all benchmarks.
-  if (!DTransInlineHeuristics && F->hasFnAttribute(Attribute::Hot))
+  if (!IgnoreAttribute && F->hasFnAttribute(Attribute::Hot))
     return true;
   if (!hasProfileSummary())
     return false;

@@ -3,8 +3,10 @@
 ; global variables are not recognized as opaque pointer types by the verifier
 ; yet.
 
-; RUN: opt -S -opaque-pointers -whole-program-assume -dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
-; RUN: opt -S -opaque-pointers -whole-program-assume -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA conversion when the type is selected based
 ; on the safety and heuristic qualifications.

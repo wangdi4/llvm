@@ -1,8 +1,10 @@
 ; This test checks that integer-to-ptr won't cause a segmentation
 ; fault during DTrans with whole program analysis and LTO.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -enable-dtrans=true -exported-symbol=main -whole-program-assume -o %t2 %t1
+; RUN: llvm-lto -enable-dtrans=true -exported-symbol=main -whole-program-assume -intel-libirc-allowed -o %t2 %t1
 
 define i32 @add(i32 %a) {
 entry:

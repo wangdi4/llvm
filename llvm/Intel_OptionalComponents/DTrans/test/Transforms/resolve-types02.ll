@@ -1,9 +1,11 @@
-; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes \
+; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes \
 ; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
-; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes \
+; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes \
 ; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Verify that types which are similar but not compatible or equivalent are
 ; not incorrectly merged.

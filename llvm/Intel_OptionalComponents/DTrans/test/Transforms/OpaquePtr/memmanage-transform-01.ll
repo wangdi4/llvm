@@ -12,7 +12,7 @@
 ; This test just checks for transformed code but doesn’t check for any
 ; debug messages.
 
-; RUN: opt < %s -S -opaque-pointers -passes=dtrans-memmanagetransop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop 2>&1 | FileCheck %s
+; RUN: opt < %s -S -opaque-pointers -passes=dtrans-memmanagetransop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop 2>&1 | FileCheck %s
 
 ; CHECK: define hidden void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb
 ; CHECK-NOT: store i16 %arg2, ptr %i
