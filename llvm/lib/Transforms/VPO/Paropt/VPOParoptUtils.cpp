@@ -1390,6 +1390,40 @@ CallInst *VPOParoptUtils::genSPIRVLocalIdCall(int Dim,
             GeneralUtils::getSizeTTy(F), Arg, InsertPt);
 }
 
+// Generate a call to get number of groups the dimension provided
+CallInst *VPOParoptUtils::genNumGroupsCall(int Dim, Instruction *InsertPt) {
+  assert((Dim >= 0 && Dim < 3) && "Invalid dimentional index ");
+
+  CallInst *Res;
+  Function *F = InsertPt->getFunction();
+
+  std::string FName;
+  SmallVector<Value *, 1> Arg;
+  if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
+    // target-simd uses SPIRV builtins
+    switch (Dim) {
+    case 0:
+      FName = "_Z29__spirv_NumWorkgroups_xv";
+      break;
+    case 1:
+      FName = "_Z29__spirv_NumWorkgroups_yv";
+      break;
+    case 2:
+      FName = "_Z29__spirv_NumWorkgroups_zv";
+      break;
+    default:
+      break;
+    }
+  } else {
+    FName = "_Z14get_num_groupsj";
+    Arg.push_back(
+        ConstantInt::get(IntegerType::get(InsertPt->getContext(), 32), Dim));
+  }
+  Res = VPOParoptUtils::genOCLGenericCall(FName, GeneralUtils::getSizeTTy(F),
+                                          Arg, InsertPt);
+  return Res;
+}
+
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
 // set C calling convention.
 void VPOParoptUtils::setFuncCallingConv(CallInst *CI, Module *M) {

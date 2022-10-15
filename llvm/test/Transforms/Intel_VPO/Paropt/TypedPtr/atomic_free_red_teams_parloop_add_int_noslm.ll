@@ -1,5 +1,5 @@
-; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-red-local-buf-size=0  -vpo-paropt-atomic-free-reduction-par-global=false -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-red-local-buf-size=0  -vpo-paropt-atomic-free-reduction-par-global=false -S %s | FileCheck %s
 
 
 ;
@@ -57,12 +57,17 @@ target device_triples = "spir64"
 ; CHECK: %.new = load i32, i32 addrspace(3)* @.broadcast.ptr.__local, align 4
 ; CHECK: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
 ; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %.new, %[[NUM_GROUPS_TRUNC]]
-; CHECK: %[[CNTR_AND_MT_CHECK:[^,]+]] = select i1 %[[CNTR_CHECK]]
-; CHECK: br i1 %[[CNTR_AND_MT_CHECK]], label [[EXIT_BB:[^,]+]], label %atomic.free.red.global.update.header
+; CHECK: br i1 %[[CNTR_CHECK]], label [[EXIT_BB:[^,]+]], label
+; CHECK: call spir_func i64 @_Z12get_local_idj(i32 0)
+; CHECK: call spir_func i64 @_Z12get_local_idj(i32 1)
+; CHECK: call spir_func i64 @_Z12get_local_idj(i32 2)
+; CHECK: %[[MT_CHECK:[^,]+]] = xor i1 %is.master.thread, true
+; CHECK: br i1 %[[MT_CHECK]], label [[EXIT_BB]], label %atomic.free.red.global.update.header
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi i64
 ; CHECK: %[[SUM_PHI:[^,]+]] = phi i32
-; CHECK: %[[EXIT_COND:[^,]+]] = icmp uge i64 %[[IDX_PHI]], %[[NUM_GROUPS]]
+; CHECK: %[[NUM_GROUPS1:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+; CHECK: %[[EXIT_COND:[^,]+]] = icmp uge i64 %[[IDX_PHI]], %[[NUM_GROUPS1]]
 ; CHECK: %[[GLOBAL_GEP:[^,]+]] = getelementptr i32, i32 addrspace(1)* %red_buf, i64 %[[IDX_PHI]]
 ; CHECK: br i1 %[[EXIT_COND]], label %atomic.free.red.global.update.store, label %atomic.free.red.global.update.body
 ; CHECK-LABEL: atomic.free.red.global.update.body:
