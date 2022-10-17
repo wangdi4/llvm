@@ -369,6 +369,12 @@ public:
   void moveTripCountInfoFrom(VPBasicBlock *OtherBB) {
     TCInfo = std::move(OtherBB->TCInfo);
   }
+  void copyTripCountInfoFrom(VPBasicBlock *OtherBB) {
+    if (OtherBB->TCInfo)
+      this->TCInfo = std::make_unique<TripCountInfo>(*OtherBB->TCInfo);
+    else
+      this->TCInfo = nullptr;
+  }
 
   VPBranchInst *getTerminator();
   const VPBranchInst *getTerminator() const;
