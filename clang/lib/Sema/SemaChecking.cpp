@@ -5238,9 +5238,6 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfcmulcsh_mask:
   case X86::BI__builtin_ia32_vfcmulcph512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-  case X86::BI__builtin_ia32_vdpphps512_mask:
-#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   case X86::BI__builtin_ia32_vcvt2ps2ph512_mask:
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT

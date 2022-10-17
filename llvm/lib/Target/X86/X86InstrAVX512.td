@@ -14644,47 +14644,35 @@ let Uses = [MXCSR] in {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-multiclass avx512_vdpd_round<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                                 X86FoldableSchedWrite sched,
-                                 X86VectorVTInfo _> {
-  let Constraints = "$src1 = $dst", Uses = [MXCSR] in
-  defm rb: AVX512_maskable_3src<opc, MRMSrcReg, _, (outs _.RC:$dst),
-          (ins _.RC:$src2, _.RC:$src3, AVX512RC:$rc),
-          OpcodeStr, "$rc, $src3, $src2", "$src2, $src3, $rc",
-          (_.VT ( OpNode _.RC:$src2, _.RC:$src3, _.RC:$src1, (i32 timm:$rc)))>,
-          EVEX_4V, EVEX_B, EVEX_RC, Sched<[sched]>;
-}
-
 multiclass avx512_vdpd_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
                           X86FoldableSchedWrite sched, X86VectorVTInfo _> {
-  let Constraints = "$src1 = $dst", Uses = [MXCSR] in {
+  let Constraints = "$src1 = $dst" in {
   defm r: AVX512_maskable_3src<opc, MRMSrcReg, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.RC:$src3),
           OpcodeStr, "$src3, $src2", "$src2, $src3",
-          (_.VT (OpNode _.RC:$src2, _.RC:$src3, _.RC:$src1))>,
+          (_.VT (OpNode _.RC:$src1, _.RC:$src2, _.RC:$src3))>,
           EVEX_4V, Sched<[sched]>;
 
   defm m: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.MemOp:$src3),
           OpcodeStr, "$src3, $src2", "$src2, $src3",
-          (_.VT (OpNode _.RC:$src2, (_.LdFrag addr:$src3), _.RC:$src1))>,
+          (_.VT (OpNode _.RC:$src1, _.RC:$src2, (_.LdFrag addr:$src3)))>,
           EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
 
   defm mb: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
            (ins _.RC:$src2, _.ScalarMemOp:$src3),
            OpcodeStr,   !strconcat("${src3}", _.BroadcastStr,", $src2"),
            !strconcat("$src2, ${src3}", _.BroadcastStr ),
-           (OpNode _.RC:$src2,
-           (_.VT (_.BroadcastLdFrag addr:$src3)), _.RC:$src1)>,
+           (OpNode _.RC:$src1, _.RC:$src2,
+           (_.VT (_.BroadcastLdFrag addr:$src3)))>,
            EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold]>;
   }
 }
 
 multiclass avx512_vdpd_common<bits<8> opc, string OpcodeStr, X86SchedWriteWidths sched,
-                              SDNode OpNode, SDNode OpNodeRnd, AVX512VLVectorVTInfo _> {
+                              SDNode OpNode, AVX512VLVectorVTInfo _> {
   let Predicates = [HasAVX512VNNIFP16] in {
     defm Z      : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.ZMM, _.info512>,
-                  avx512_vdpd_round<opc, OpcodeStr, OpNodeRnd, sched.ZMM, _.info512>,
                               EVEX_V512, EVEX_CD8<32, CD8VF>;
   }
   let Predicates = [HasAVX512VNNIFP16, HasVLX] in {
@@ -14697,7 +14685,7 @@ multiclass avx512_vdpd_common<bits<8> opc, string OpcodeStr, X86SchedWriteWidths
 
 defm VDPPHPS : avx512_vdpd_common<0x52, "vdpphps",
                            SchedWriteCvtPD2PS, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
-                           X86vdpphps, X86vdpphpsRnd, avx512vl_f32_info>, T8PS;
+                           X86vdpphps, avx512vl_f32_info>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 let Constraints = "$src1 = $dst" in

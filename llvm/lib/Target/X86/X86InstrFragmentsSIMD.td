@@ -881,12 +881,6 @@ def X86vdpphps : SDNode<"X86ISD::VDPPHPS",
                                          SDTCVecEltisVT<1, f32>,
                                          SDTCisSameAs<1,2>,
                                          SDTCisSameAs<1,3>]>>;
-def X86vdpphpsRnd : SDNode<"X86ISD::VDPPHPS_RND",
-                       SDTypeProfile<1, 4, [SDTCVecEltisVT<0, f32>,
-                                            SDTCVecEltisVT<1, f32>,
-                                            SDTCisSameAs<1,2>,
-                                            SDTCisSameAs<1,3>,
-                                            SDTCisVT<4, i32>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 def X86vpdpbssd  : SDNode<"X86ISD::VPDPBSSD",  SDTVnni>;
