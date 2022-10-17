@@ -1,0 +1,11 @@
+--- !ParoptConfig
+Kernels:
+  - Name: Z4main_l3
+    RegisterAllocMode: small
+  - Name: Z4main_l6
+    RegisterAllocMode: large
+  - Name: Z4main_l9
+    RegisterAllocMode: auto
+  - Name: Z4main_l12
+    RegisterAllocMode: default
+

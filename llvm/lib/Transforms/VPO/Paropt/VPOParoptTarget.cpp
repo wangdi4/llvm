@@ -688,7 +688,16 @@ Function *VPOParoptTransform::finalizeKernelFunction(
     uint8_t KernelSimdWidth = VPC->getKernelSPMDSIMDWidth(NFn->getName());
     if (KernelSimdWidth > 0)
       SimdWidth = KernelSimdWidth;
+    vpo::RegisterAllocationMode RegisterAllocMode =
+        VPC->getRegisterAllocMode(NFn->getName());
+    if (RegisterAllocMode != RegisterAllocationMode::DEFAULT) {
+      Metadata *AttrMDArgs[] = {ConstantAsMetadata::get(
+          Builder.getInt32(static_cast<int>(RegisterAllocMode)))};
+      NFn->setMetadata("RegisterAllocMode",
+                       MDNode::get(NFn->getContext(), AttrMDArgs));
+    }
   }
+
 #endif // INTEL_CUSTOMIZATION
   if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
     SimdWidth = 1;
