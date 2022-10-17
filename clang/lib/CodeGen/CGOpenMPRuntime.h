@@ -523,6 +523,7 @@ private:
   QualType KmpDimTy;
   /// Entity that registers the offloading constants that were emitted so
   /// far.
+<<<<<<< HEAD
   class OffloadEntriesInfoManagerTy {
     CodeGenModule &CGM;
 
@@ -801,6 +802,9 @@ private:
 #endif // INTEL_COLLAB
   };
   OffloadEntriesInfoManagerTy OffloadEntriesInfoManager;
+=======
+  llvm::OffloadEntriesInfoManager OffloadEntriesInfoManager;
+>>>>>>> dd3d8ddb5f65ff73441276d7dec744c81e3bf9ca
 
   bool ShouldMarkAsGlobal = true;
   /// List of the emitted declarations.
