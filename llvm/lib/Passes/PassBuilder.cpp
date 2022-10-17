@@ -405,6 +405,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerializePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRerollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversalPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLowerSmallMemsetMemcpyPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUBPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"

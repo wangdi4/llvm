@@ -4654,14 +4654,16 @@ StringRef VPOParoptTransform::getVariantInfo(
     DeviceArchs = 0;
     for (unsigned I = 0; I < Arch.size(); ++I) {
       if (Arch[I] == "gen")
-        DeviceArchs |=
-            DeviceArch_Gen9 | DeviceArch_XeLP | DeviceArch_XeHP; // 0x7
+        DeviceArchs |= DeviceArch_Gen9 | DeviceArch_XeLP | DeviceArch_XeHP |
+                       DeviceArch_XeHPG;  // 0xf
       else if (Arch[I] == "gen9")
         DeviceArchs |= DeviceArch_Gen9;   // 0x1
       else if (Arch[I] == "XeLP")
         DeviceArchs |= DeviceArch_XeLP;   // 0x2
       else if (Arch[I] == "XeHP")
         DeviceArchs |= DeviceArch_XeHP;   // 0x4
+      else if (Arch[I] == "XeHPG")
+        DeviceArchs |= DeviceArch_XeHPG;  // 0x8
       else if (Arch[I] == "x86_64")
         DeviceArchs |= DeviceArch_x86_64; // 0x100
     }

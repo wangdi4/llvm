@@ -30,7 +30,7 @@
 ; "construct" field is after the "arch" field for the first variant, and there
 ; is no "arch" field for the second.
 
-; CHECK: getVariantInfo: Found variant function: foo_gpu and device bits 0x0007 for construct 'target_variant_dispatch'
+; CHECK: getVariantInfo: Found variant function: foo_gpu and device bits 0x000F for construct 'target_variant_dispatch'
 ; CHECK: genTargetVariantDispatchCode: Found variant function name: foo_gpu
 ; CHECK: getVariantInfo: Found variant function: foo_gpu with no device arch specified for construct 'dispatch'
 ; CHECK: genDispatchCode: Found variant function name: foo_gpu ; need_device_ptr: T ; interop: targetsync

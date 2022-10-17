@@ -20,7 +20,7 @@
 ; Check for is_device_available call
 ; CHECK: %[[DEFAULT_DEVICE:[^ ]+]] = call i32 @omp_get_default_device()
 ; CHECK: %[[DEFAULT_DEVICE_CAST:[^ ]+]] = zext i32 %[[DEFAULT_DEVICE]] to i64
-; CHECK: %[[IS_AVAILABLE:[^ ]+]] = call i32 @__tgt_is_device_available(i64 %[[DEFAULT_DEVICE_CAST]], i8* inttoptr (i64 7 to i8*))
+; CHECK: %[[IS_AVAILABLE:[^ ]+]] = call i32 @__tgt_is_device_available(i64 %[[DEFAULT_DEVICE_CAST]], i8* inttoptr (i64 15 to i8*))
 ; CHECK: %[[DISPATCH:[^ ]+]] = icmp ne i32 %[[IS_AVAILABLE]], 0
 
 ; CHECK: br i1 %[[DISPATCH]], label %[[VARIANT:[^ ,]+]], label %[[BASE:[^ ,]+]]
