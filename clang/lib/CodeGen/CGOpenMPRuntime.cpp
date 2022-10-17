@@ -3098,220 +3098,6 @@ enum KmpTaskTFields {
 };
 } // anonymous namespace
 
-<<<<<<< HEAD
-bool CGOpenMPRuntime::OffloadEntriesInfoManagerTy::empty() const {
-  return OffloadEntriesTargetRegion.empty() &&
-         OffloadEntriesDeviceGlobalVar.empty();
-}
-
-/// Initialize target region entry.
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    initializeTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-                                    StringRef ParentName, unsigned LineNum,
-                                    unsigned Order) {
-  assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                             "only required for the device "
-                                             "code generation.");
-  OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] =
-      OffloadEntryInfoTargetRegion(Order, /*Addr=*/nullptr, /*ID=*/nullptr,
-                                   OMPTargetRegionEntryTargetRegion);
-  ++OffloadingEntriesNum;
-}
-
-#if INTEL_COLLAB
-int CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-#else
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-#endif // INTEL_COLLAB
-    registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-                                  StringRef ParentName, unsigned LineNum,
-                                  llvm::Constant *Addr, llvm::Constant *ID,
-                                  OMPTargetRegionEntryKind Flags) {
-  // If we are emitting code for a target, the entry is already initialized,
-  // only has to be registered.
-  if (CGM.getLangOpts().OpenMPIsDevice) {
-    // This could happen if the device compilation is invoked standalone.
-    if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum))
-#if INTEL_COLLAB
-      return -1;
-#else
-      return;
-#endif // INTEL_COLLAB
-
-    auto &Entry =
-        OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
-    Entry.setAddress(Addr);
-    Entry.setID(ID);
-    Entry.setFlags(Flags);
-  } else {
-    if (Flags ==
-            OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion &&
-        hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum,
-                                 /*IgnoreAddressId*/ true))
-#if INTEL_COLLAB
-      return -1;
-#else
-      return;
-#endif // INTEL_COLLAB
-    assert(!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum) &&
-           "Target region entry already registered!");
-    OffloadEntryInfoTargetRegion Entry(OffloadingEntriesNum, Addr, ID, Flags);
-    OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
-    ++OffloadingEntriesNum;
-  }
-#if INTEL_COLLAB
-  auto &E = OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
-  return E.getOrder();
-#endif // INTEL_COLLAB
-}
-
-bool CGOpenMPRuntime::OffloadEntriesInfoManagerTy::hasTargetRegionEntryInfo(
-    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
-    bool IgnoreAddressId) const {
-  auto PerDevice = OffloadEntriesTargetRegion.find(DeviceID);
-  if (PerDevice == OffloadEntriesTargetRegion.end())
-    return false;
-  auto PerFile = PerDevice->second.find(FileID);
-  if (PerFile == PerDevice->second.end())
-    return false;
-  auto PerParentName = PerFile->second.find(ParentName);
-  if (PerParentName == PerFile->second.end())
-    return false;
-  auto PerLine = PerParentName->second.find(LineNum);
-  if (PerLine == PerParentName->second.end())
-    return false;
-  // Fail if this entry is already registered.
-  if (!IgnoreAddressId &&
-      (PerLine->second.getAddress() || PerLine->second.getID()))
-    return false;
-  return true;
-}
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::actOnTargetRegionEntriesInfo(
-    const OffloadTargetRegionEntryInfoActTy &Action) {
-  // Scan all target region entries and perform the provided action.
-  for (const auto &D : OffloadEntriesTargetRegion)
-    for (const auto &F : D.second)
-      for (const auto &P : F.second)
-        for (const auto &L : P.second)
-          Action(D.first, F.first, P.first(), L.first, L.second);
-}
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    initializeDeviceGlobalVarEntryInfo(StringRef Name,
-                                       OMPTargetGlobalVarEntryKind Flags,
-                                       unsigned Order) {
-  assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                             "only required for the device "
-                                             "code generation.");
-  OffloadEntriesDeviceGlobalVar.try_emplace(Name, Order, Flags);
-  ++OffloadingEntriesNum;
-}
-
-#if INTEL_COLLAB
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order) {
-  assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                             "only required for the device "
-                                             "code generation.");
-  OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn IFn(Order);
-  OffloadEntriesDeviceIndirectFn[Name.str()] = IFn;
-  ++OffloadingEntriesNum;
-}
-#endif  // INTEL_COLLAB
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    registerDeviceGlobalVarEntryInfo(StringRef VarName, llvm::Constant *Addr,
-                                     CharUnits VarSize,
-                                     OMPTargetGlobalVarEntryKind Flags,
-                                     llvm::GlobalValue::LinkageTypes Linkage) {
-  if (CGM.getLangOpts().OpenMPIsDevice) {
-    // This could happen if the device compilation is invoked standalone.
-    if (!hasDeviceGlobalVarEntryInfo(VarName))
-      return;
-    auto &Entry = OffloadEntriesDeviceGlobalVar[VarName];
-    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(VarName)) {
-      if (Entry.getVarSize().isZero()) {
-        Entry.setVarSize(VarSize);
-        Entry.setLinkage(Linkage);
-      }
-      return;
-    }
-    Entry.setVarSize(VarSize);
-    Entry.setLinkage(Linkage);
-    Entry.setAddress(Addr);
-  } else {
-    if (hasDeviceGlobalVarEntryInfo(VarName)) {
-      auto &Entry = OffloadEntriesDeviceGlobalVar[VarName];
-      assert(Entry.isValid() && Entry.getFlags() == Flags &&
-             "Entry not initialized!");
-      if (Entry.getVarSize().isZero()) {
-        Entry.setVarSize(VarSize);
-        Entry.setLinkage(Linkage);
-      }
-      return;
-    }
-    OffloadEntriesDeviceGlobalVar.try_emplace(
-        VarName, OffloadingEntriesNum, Addr, VarSize, Flags, Linkage);
-    ++OffloadingEntriesNum;
-  }
-}
-
-#if INTEL_COLLAB
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    registerDeviceIndirectFnEntryInfo(StringRef FnName, llvm::Constant *Addr) {
-  if (CGM.getLangOpts().OpenMPIsDevice) {
-    // This could happen if the device compilation is invoked standalone.
-    if (!hasDeviceIndirectFnEntryInfo(FnName))
-      return;
-    auto &Entry = OffloadEntriesDeviceIndirectFn[FnName.str()];
-    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(FnName))
-      return;
-    Entry.setAddress(Addr);
-  } else {
-    OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn IFn(
-        OffloadingEntriesNum, Addr);
-    OffloadEntriesDeviceIndirectFn[FnName.str()] = IFn;
-    ++OffloadingEntriesNum;
-  }
-}
-
-StringRef CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
-  for (auto &E : OffloadEntriesDeviceGlobalVar) {
-    if (Addr == E.getValue().getAddress())
-      return E.getKey();
-  }
-  return "";
-}
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    updateDeviceGlobalVarEntryInfoAddr(StringRef Name, llvm::Constant *Addr) {
-  auto &Entry = OffloadEntriesDeviceGlobalVar[Name];
-  Entry.setAddress(Addr, /*Force=*/true);
-}
-#endif // INTEL_COLLAB
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    actOnDeviceGlobalVarEntriesInfo(
-        const OffloadDeviceGlobalVarEntryInfoActTy &Action) {
-  // Scan all target region entries and perform the provided action.
-  for (const auto &E : OffloadEntriesDeviceGlobalVar)
-    Action(E.getKey(), E.getValue());
-}
-
-#if INTEL_COLLAB
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    actOnDeviceIndirectFnEntriesInfo(
-        const OffloadDeviceIndirectFnEntryInfoActTy &Action) {
-  // Scan all target region entries and perform the provided action.
-  for (const auto &E : OffloadEntriesDeviceIndirectFn)
-    Action(E.first, E.second);
-}
-#endif // INTEL_COLLAB
-
-=======
->>>>>>> dd3d8ddb5f65ff73441276d7dec744c81e3bf9ca
 void CGOpenMPRuntime::createOffloadEntry(
     llvm::Constant *ID, llvm::Constant *Addr, uint64_t Size, int32_t Flags,
     llvm::GlobalValue::LinkageTypes Linkage) {
@@ -3413,20 +3199,13 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   // Create function that emits metadata for each device global variable entry;
   auto &&DeviceGlobalVarMetadataEmitter =
-<<<<<<< HEAD
       [&C, &OrderedEntries, &GetMDInt, &GetMDString,
 #if INTEL_COLLAB
        &CGM = CGM,
 #endif  // INTEL_COLLAB
        MD](StringRef MangledName,
-           const OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceGlobalVar
+           const llvm::OffloadEntriesInfoManager::OffloadEntryInfoDeviceGlobalVar
                &E) {
-=======
-      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD](
-          StringRef MangledName,
-          const llvm::OffloadEntriesInfoManager::OffloadEntryInfoDeviceGlobalVar
-              &E) {
->>>>>>> dd3d8ddb5f65ff73441276d7dec744c81e3bf9ca
         // Generate metadata for global variables. Each entry of this metadata
         // contains:
         // - Entry 0 -> Kind of this type of metadata (1).
@@ -3465,7 +3244,7 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   auto DeviceIndirectFnMetadataEmitter =
       [&C, &OrderedEntries, &GetMDInt, &GetMDString,
        MD](StringRef MangledName,
-           const OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn
+           const llvm::OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn
                &E) {
         // Generate metadata for indirect functions. Each entry of this
         // metadata contains:
@@ -3642,10 +3421,11 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
           /*Order=*/GetMDInt(3));
       break;
 #if INTEL_COLLAB
-    case OffloadEntriesInfoManagerTy::OffloadEntryInfo::
+    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
         OffloadingEntryInfoIndirectFn:
       OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
-          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2));
+          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2),
+          CGM.getLangOpts().OpenMPIsDevice);
       break;
 #endif // INTEL_COLLAB
     }
@@ -6659,7 +6439,8 @@ int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
   // Register the information for the entry associated with this target region.
   int Index = OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
       DeviceID, FileID, ParentName, Line, nullptr, nullptr,
-      OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion);
+      llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion,
+      CGM.getLangOpts().OpenMPIsDevice);
   if (Index == -1)
     CGM.Error(D.getBeginLoc(),
               "multiple target regions at same the location is not supported");
@@ -11714,8 +11495,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 
   if (*Res == OMPDeclareTargetDeclAttr::MT_To &&
       !HasRequiresUnifiedSharedMemory) {
-<<<<<<< HEAD
-    Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo;
+    Flags = llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo;
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutlineTarget &&
@@ -11727,9 +11507,6 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
       VarName = ItaniumMangledName;
     } else
 #endif // INTEL_COLLAB
-=======
-    Flags = llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo;
->>>>>>> dd3d8ddb5f65ff73441276d7dec744c81e3bf9ca
     VarName = CGM.getMangledName(VD);
     if (VD->hasDefinition(CGM.getContext()) != VarDecl::DeclarationOnly) {
       VarSize =
@@ -11792,7 +11569,8 @@ void CGOpenMPRuntime::registerTargetIndirectFn(StringRef FnName,
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
-  OffloadEntriesInfoManager.registerDeviceIndirectFnEntryInfo(FnName, Addr);
+  OffloadEntriesInfoManager.registerDeviceIndirectFnEntryInfo(
+      FnName, Addr, CGM.getLangOpts().OpenMPIsDevice);
 }
 
 void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
@@ -11801,9 +11579,9 @@ void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
   OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
-      VarName, Addr, CGM.getPointerSize(),
-      OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo,
-      llvm::GlobalValue::ExternalLinkage);
+      VarName, Addr, CGM.getPointerSize().getQuantity(),
+      llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo,
+      llvm::GlobalValue::ExternalLinkage, CGM.getLangOpts().OpenMPIsDevice);
 }
 #endif // INTEL_COLLAB
 

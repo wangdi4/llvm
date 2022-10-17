@@ -4706,7 +4706,11 @@ void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
   ++OffloadingEntriesNum;
 }
 
+#if INTEL_COLLAB
+int OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
+#else
 void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
+#endif // INTEL_COLLAB
     unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
     Constant *Addr, Constant *ID, OMPTargetRegionEntryKind Flags,
     bool IsDevice) {
@@ -4715,7 +4719,11 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
   if (IsDevice) {
     // This could happen if the device compilation is invoked standalone.
     if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum))
+#if INTEL_COLLAB
+      return -1;
+#else
       return;
+#endif // INTEL_COLLAB
     auto &Entry =
         OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
     Entry.setAddress(Addr);
@@ -4725,13 +4733,21 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
     if (Flags == OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion &&
         hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum,
                                  /*IgnoreAddressId*/ true))
+#if INTEL_COLLAB
+      return -1;
+#else
       return;
+#endif // INTEL_COLLAB
     assert(!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum) &&
            "Target region entry already registered!");
     OffloadEntryInfoTargetRegion Entry(OffloadingEntriesNum, Addr, ID, Flags);
     OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
     ++OffloadingEntriesNum;
   }
+#if INTEL_COLLAB
+  auto &E = OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+  return E.getOrder();
+#endif // INTEL_COLLAB
 }
 
 bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
@@ -4772,6 +4788,18 @@ void OffloadEntriesInfoManager::initializeDeviceGlobalVarEntryInfo(
   ++OffloadingEntriesNum;
 }
 
+#if INTEL_COLLAB
+void OffloadEntriesInfoManager::initializeDeviceIndirectFnEntryInfo(
+    StringRef Name, unsigned Order, bool IsDevice) {
+  assert(IsDevice && "Initialization of entries is "
+                     "only required for the device "
+                     "code generation.");
+  OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn IFn(Order);
+  OffloadEntriesDeviceIndirectFn[Name.str()] = IFn;
+  ++OffloadingEntriesNum;
+}
+#endif // INTEL_COLLAB
+
 void OffloadEntriesInfoManager::registerDeviceGlobalVarEntryInfo(
     StringRef VarName, Constant *Addr, int64_t VarSize,
     OMPTargetGlobalVarEntryKind Flags, GlobalValue::LinkageTypes Linkage,
@@ -4808,12 +4836,56 @@ void OffloadEntriesInfoManager::registerDeviceGlobalVarEntryInfo(
   }
 }
 
+#if INTEL_COLLAB
+void OffloadEntriesInfoManager::registerDeviceIndirectFnEntryInfo(
+    StringRef FnName, llvm::Constant *Addr, bool IsDevice) {
+  if (IsDevice) {
+    // This could happen if the device compilation is invoked standalone.
+    if (!hasDeviceIndirectFnEntryInfo(FnName))
+      return;
+    auto &Entry = OffloadEntriesDeviceIndirectFn[FnName.str()];
+    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(FnName))
+      return;
+    Entry.setAddress(Addr);
+  } else {
+    OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn IFn(
+        OffloadingEntriesNum, Addr);
+    OffloadEntriesDeviceIndirectFn[FnName.str()] = IFn;
+    ++OffloadingEntriesNum;
+  }
+}
+
+StringRef OffloadEntriesInfoManager::getNameOfOffloadEntryDeviceGlobalVar(
+    llvm::Constant *Addr) {
+  for (auto &E : OffloadEntriesDeviceGlobalVar) {
+    if (Addr == E.getValue().getAddress())
+      return E.getKey();
+  }
+  return "";
+}
+
+void OffloadEntriesInfoManager::updateDeviceGlobalVarEntryInfoAddr(
+    StringRef Name, llvm::Constant *Addr) {
+  auto &Entry = OffloadEntriesDeviceGlobalVar[Name];
+  Entry.setAddress(Addr, /*Force=*/true);
+}
+#endif // INTEL_COLLAB
+
 void OffloadEntriesInfoManager::actOnDeviceGlobalVarEntriesInfo(
     const OffloadDeviceGlobalVarEntryInfoActTy &Action) {
   // Scan all target region entries and perform the provided action.
   for (const auto &E : OffloadEntriesDeviceGlobalVar)
     Action(E.getKey(), E.getValue());
 }
+
+#if INTEL_COLLAB
+void OffloadEntriesInfoManager::actOnDeviceIndirectFnEntriesInfo(
+    const OffloadDeviceIndirectFnEntryInfoActTy &Action) {
+  // Scan all target region entries and perform the provided action.
+  for (const auto &E : OffloadEntriesDeviceIndirectFn)
+    Action(E.first, E.second);
+}
+#endif // INTEL_COLLAB
 
 void CanonicalLoopInfo::collectControlBlocks(
     SmallVectorImpl<BasicBlock *> &BBs) {
