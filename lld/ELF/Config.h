@@ -456,13 +456,10 @@ struct Ctx {
   SmallVector<BinaryFile *, 0> binaryFiles;
   SmallVector<BitcodeFile *, 0> bitcodeFiles;
   SmallVector<BitcodeFile *, 0> lazyBitcodeFiles;
-<<<<<<< HEAD
   SmallVector<InputFile *, 0> gnuLTOFiles;  // INTEL
   SmallVector<InputFile *, 0> lazyGNULTOFiles;  // INTEL
-=======
   SmallVector<InputSectionBase *, 0> inputSections;
   SmallVector<EhInputSection *, 0> ehInputSections;
->>>>>>> 14f996dca8a2b5b17d6917528bfd9ee71ba6192a
   // Duplicate symbol candidates.
   SmallVector<DuplicateSymbol, 0> duplicates;
   // Symbols in a non-prevailing COMDAT group which should be changed to an
