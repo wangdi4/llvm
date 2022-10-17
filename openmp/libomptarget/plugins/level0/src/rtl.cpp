@@ -1353,7 +1353,7 @@ struct KernelPropertiesTy {
 
   std::mutex Mtx;
 
-  static constexpr TgtNDRangeDescTy LoopDescInit;
+  static constexpr TgtNDRangeDescTy LoopDescInit = {};
 
   /// Check if we can reuse group parameters.
   bool reuseGroupParams(
