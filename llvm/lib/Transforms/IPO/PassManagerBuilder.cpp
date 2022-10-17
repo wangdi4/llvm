@@ -201,9 +201,9 @@ cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam", cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Enable Unroll And Jam Pass"));
 
-cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(false),
-                                       cl::Hidden,
-                                       cl::desc("Enable the LoopFlatten Pass"));
+cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(true),
+                                cl::Hidden,
+                                cl::desc("Enable the LoopFlatten Pass"));
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
