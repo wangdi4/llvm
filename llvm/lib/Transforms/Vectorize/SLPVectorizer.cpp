@@ -9471,11 +9471,11 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           // Cost of all loads.
           unsigned Size = std::get<1>(E->SplitLoadGroups.back());
           unsigned NumElems = E->SplitLoadGroups.size();
-          VecLdCost =
-              NumElems * TTI->getMemoryOpCost(
-                             Instruction::Load,
-                             FixedVectorType::get(ScalarTy, Size), Alignment, 0,
-                             CostKind, {TTI::OK_AnyValue, TTI::OP_None}, VL0);
+          VecLdCost = NumElems *
+                      TTI->getMemoryOpCost(Instruction::Load,
+                                           FixedVectorType::get(ScalarTy, Size),
+                                           Alignment, 0, CostKind,
+                                           TTI::OperandValueInfo(), VL0);
           // Cost of shuffles.
           do {
             Size *= 2;
