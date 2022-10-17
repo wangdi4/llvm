@@ -3,10 +3,7 @@
 ; RUN: llvm-profdata merge %S/Inputs/cspgo.proftext -o %t.profdata
 ; RUN: opt < %s -passes='default<O2>' -disable-preinline -pgo-instrument-entry=false -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S | FileCheck %s --check-prefix=PGOSUMMARY
 ; RUN: opt < %s -O2 -disable-preinline -pgo-instrument-entry=false -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S | FileCheck %s --check-prefix=PGOSUMMARY
-
-; This test run uses pass which behavior is not designed for the old pass manager.
-; Force opt to check only NewPM behavior till the moment when it is enabled by default.
-; RUN: opt < %s -enable-new-pm=1 -O2 -disable-preinline -pgo-instrument-entry=false -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S -cspgo-kind=cspgo-instr-use-pipeline| FileCheck %s --check-prefix=CSPGOSUMMARY
+; RUN: opt < %s -O2 -disable-preinline -pgo-instrument-entry=false -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S -cspgo-kind=cspgo-instr-use-pipeline| FileCheck %s --check-prefix=CSPGOSUMMARY
 
 ; INTEL CUSTOMIZATION: This test fails in xmain.  JR CMPLRLLVM-8686
 ; There are two issues that prevent this test from working in xmain:
