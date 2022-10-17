@@ -175,11 +175,10 @@ public:
   explicit X86InstrInfo(X86Subtarget &STI);
 
 #if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-40015: we fix this precision issue with prohibiting specific
-  // global FMA in spec_omp2012all/370 by matching the FMA shape and FMA
-  // expression's user.
-  bool IsBadForOMP2012(MachineInstr *FMAMI, unsigned Shape,
-                       bool DisableGFMAForOMP2012) const override;
+  // CMPLRLLVM-40015: Skip doing FMA for some expressions to accommodate
+  // precision tolerance.
+  bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
+                               bool DisableGFMAForPrecision) const override;
 #endif // INTEL_CUSTOMIZATION
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
