@@ -201,10 +201,9 @@ cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam", cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Enable Unroll And Jam Pass"));
 
-<<<<<<< HEAD
-cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(false),
-                                       cl::Hidden,
-                                       cl::desc("Enable the LoopFlatten Pass"));
+cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(true),
+                                cl::Hidden,
+                                cl::desc("Enable the LoopFlatten Pass"));
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
@@ -390,11 +389,6 @@ cl::opt<bool>
     EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
                        cl::desc("Run the early jump threading pass"));
 #endif // INTEL_CUSTOMIZATION
-=======
-cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(true),
-                                cl::Hidden,
-                                cl::desc("Enable the LoopFlatten Pass"));
->>>>>>> 233659c7ae9b83b64a9f739d340736bca39c3d2e
 
 cl::opt<bool> EnableDFAJumpThreading("enable-dfa-jump-thread",
                                      cl::desc("Enable DFA jump threading."),
