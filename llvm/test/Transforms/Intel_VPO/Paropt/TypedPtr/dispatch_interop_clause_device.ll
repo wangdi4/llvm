@@ -23,7 +23,7 @@
 ; When both interop clause and device clause are specified, use the device num
 ; from the device(2) clause. Do not extract the device num from the interop obj
 ; CHECK-NOT: omp_get_interop_int
-; CHECK: call i32 @__tgt_is_device_available(i64 2, i8* inttoptr (i64 7 to i8*))
+; CHECK: call i32 @__tgt_is_device_available(i64 2, i8* inttoptr (i64 15 to i8*))
 
 ; Check that the interop obj '%i0' is passed to the variant function
 ; CHECK-DAG:  call void @_Z7foo_gpuiPv(i32 123, i8* %i0)

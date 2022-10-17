@@ -31,7 +31,7 @@
 ; Check for is_device_available call
 ; CHECK: [[DEFAULT_DEVICE:%[^ ]+]] = call i32 @omp_get_default_device()
 ; CHECK: [[DEFAULT_DEVICE_CAST:%[^ ]+]] = zext i32 [[DEFAULT_DEVICE]] to i64
-; CHECK: call i32 @__tgt_is_device_available(i64 [[DEFAULT_DEVICE_CAST]], i8* inttoptr (i64 7 to i8*))
+; CHECK: call i32 @__tgt_is_device_available(i64 [[DEFAULT_DEVICE_CAST]], i8* inttoptr (i64 15 to i8*))
 
 ; Check that the maps are created on loads of use_device_ptr operands.
 ; CHECK: [[A_LOAD:%[^ ]+]] = load float*, float** [[A_CAST]], align 8
