@@ -153,6 +153,29 @@ uint64_t VPOParoptConfig::getKernelNumTeams(StringRef Name) const {
   return KC->NumTeams;
 }
 
+vpo::RegisterAllocationMode
+VPOParoptConfig::getRegisterAllocMode(StringRef Name) const {
+  auto KC = getKernelConfig(Name);
+  if (!KC)
+    return vpo::RegisterAllocationMode::DEFAULT;
+
+  return KC->RegisterAllocMode;
+}
+
+namespace llvm {
+namespace yaml {
+
+template <> struct ScalarEnumerationTraits<vpo::RegisterAllocationMode> {
+  static void enumeration(IO &io, vpo::RegisterAllocationMode &value) {
+    io.enumCase(value, "auto", vpo::RegisterAllocationMode::AUTO);
+    io.enumCase(value, "small", vpo::RegisterAllocationMode::SMALL);
+    io.enumCase(value, "large", vpo::RegisterAllocationMode::LARGE);
+    io.enumCase(value, "default", vpo::RegisterAllocationMode::DEFAULT);
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
 // YAML IO mappings.
 void MappingTraits<vpo::KernelConfig>::mapping(
     IO &IO, vpo::KernelConfig &KernelConfig) {
@@ -160,6 +183,8 @@ void MappingTraits<vpo::KernelConfig>::mapping(
   IO.mapOptional("SPMDSIMDWidth", KernelConfig.SPMDSIMDWidth, 0);
   IO.mapOptional("ThreadLimit", KernelConfig.ThreadLimit, 0);
   IO.mapOptional("NumTeams", KernelConfig.NumTeams, 0);
+  IO.mapOptional("RegisterAllocMode", KernelConfig.RegisterAllocMode,
+                 vpo::RegisterAllocationMode::DEFAULT);
 }
 
 void MappingTraits<vpo::Config>::mapping(
