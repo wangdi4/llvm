@@ -2257,9 +2257,14 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
 void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
   SmallPtrSet<VPlan *, 2> Visited;
 
-  auto ProcessVPlan = [&Visited](VPlan &P) -> void {
+  auto ProcessVPlan = [&Visited](VPlanMasked &P) -> void {
     if (!Visited.insert(&P).second)
       return;
+    // Don't disable optimization if TC is unknown.
+    VPLoop *L = P.getMainLoop(true /*StrictCheck*/);
+    if (L->getTripCountInfo().IsEstimated)
+      return;
+
     for (auto &Inst :
          make_filter_range(vpinstructions(&P), [](const VPInstruction &Inst) {
            return isa<VPLoadStoreInst>(Inst);
