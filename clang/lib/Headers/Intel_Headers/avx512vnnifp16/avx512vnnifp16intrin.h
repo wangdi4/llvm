@@ -7,9 +7,9 @@
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
@@ -46,54 +46,30 @@
 #define __AVX512VNNIFP16INTRIN_H
 
 /* Define the default attributes for the functions in this file. */
-#define __DEFAULT_FN_ATTRS512 \
-  __attribute__((__always_inline__, __nodebug__, \
-  __target__("avx512vnnifp16"), __min_vector_width__(512)))
+#define __DEFAULT_FN_ATTRS512                                                  \
+  __attribute__((__always_inline__, __nodebug__, __target__("avx512vnnifp16"), \
+                 __min_vector_width__(512)))
 
-/* FIXME: For now the operand order is inconsistent with the instruction.
- * We need to be consistent with gcc when upstream. */
-
-static __inline__ __m512 __DEFAULT_FN_ATTRS512
-_mm512_vdpphps_ps( __m512 __W, __m512h __A, __m512h __B) {
-  return (__m512)__builtin_ia32_vdpphps512_mask((__v16sf)__W,(__v16sf)__A,
-                                                (__v16sf)__B, (__mmask16)-1,
-                                                _MM_FROUND_CUR_DIRECTION);
+// TODO: We need to be consistent about operand order with gcc when upstream.
+static __inline__ __m512 __DEFAULT_FN_ATTRS512 _mm512_dpph_ps(__m512 __W,
+                                                              __m512h __A,
+                                                              __m512h __B) {
+  return (__m512)__builtin_ia32_vdpphps512((__v16sf)__W, (__v16sf)__A,
+                                           (__v16sf)__B);
 }
 
 static __inline__ __m512 __DEFAULT_FN_ATTRS512
-_mm512_mask_vdpphps_ps( __m512 __W, __mmask16 __U, __m512h __A, __m512h __B) {
-  return (__m512)__builtin_ia32_vdpphps512_mask((__v16sf)__A,(__v16sf)__B,
-                                                (__v16sf)__W, (__mmask16)__U,
-                                                _MM_FROUND_CUR_DIRECTION);
+_mm512_mask_dpph_ps(__m512 __W, __mmask16 __U, __m512h __A, __m512h __B) {
+  return (__m512)__builtin_ia32_selectps_512(
+      (__mmask16)__U, (__v16sf)_mm512_dpph_ps(__W, __A, __B), (__v16sf)__W);
 }
 
 static __inline__ __m512 __DEFAULT_FN_ATTRS512
-_mm512_maskz_vdpphps_ps( __mmask16 __U, __m512 __W, __m512h __A, __m512h __B) {
-  return (__m512)__builtin_ia32_vdpphps512_maskz((__v16sf)__A,(__v16sf)__B,
-                                                 (__v16sf)__W, (__mmask16)__U,
-                                                 _MM_FROUND_CUR_DIRECTION);
+_mm512_maskz_dpph_ps(__mmask16 __U, __m512 __W, __m512h __A, __m512h __B) {
+  return (__m512)__builtin_ia32_selectps_512(
+      (__mmask16)__U, (__v16sf)_mm512_dpph_ps(__W, __A, __B),
+      (__v16sf)_mm512_setzero_ps());
 }
-
-#define _mm512_vdpphps_round_ps(W, A, B, R) \
-  (__m512) __builtin_ia32_vdpphps512_mask((__v16sf)(__m512h) (A), \
-                                          (__v16sf)(__m512h) (B), \
-                                          (__v16sf)(__m512h) (W), \
-                                          (__mmask16)-1, \
-                                          (int)(R))
-
-#define _mm512_mask_vdpphps_round_ps(W, U, A, B, R) \
-  (__m512) __builtin_ia32_vdpphps512_mask((__v16sf)(__m512h) (A), \
-                                          (__v16sf)(__m512h) (B), \
-                                          (__v16sf)(__m512h) (W), \
-                                          (__mmask16) (U), \
-                                          (int)(R))
-
-#define _mm512_maskz_vdpphps_round_ps(U, W, A, B, R) \
-  (__m512) __builtin_ia32_vdpphps512_maskz((__v16sf)(__m512h) (A), \
-                                           (__v16sf)(__m512h) (B), \
-                                           (__v16sf)(__m512h) (W), \
-                                           (__mmask16) (U), \
-                                           (int)(R))
 
 #undef __DEFAULT_FN_ATTRS512
 

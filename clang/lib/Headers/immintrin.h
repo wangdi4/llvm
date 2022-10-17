@@ -483,7 +483,7 @@ typedef struct __tile1024i_str {
 #include <avx512vnnifp16/avx512vnnifp16intrin.h>
 #endif
 #if defined(__AVX512VL__) && defined(__AVX512VNNIFP16__)
-#include <avx512vnnifp16/avx512vldotprodphpsintrin.h>
+#include <avx512vnnifp16/avx512vlvnnifp16intrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_VNNI_FP16 */
 /* end INTEL_CUSTOMIZATION */

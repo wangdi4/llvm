@@ -52,12 +52,12 @@
   __attribute__((__always_inline__, __nodebug__, __target__("avxdotprodphps"), __min_vector_width__(128)))
 
 static __inline__ __m128 __DEFAULT_FN_ATTRS128
-_mm_vdpphps_ps( __m128 __W, __m128h __A, __m128h __B) {
+_mm_dpph_ps( __m128 __W, __m128h __A, __m128h __B) {
   return (__m128)__builtin_ia32_vdpphps128((__v4sf)__W, (__v4sf)__A, (__v4sf)__B);
 }
 
 static __inline__ __m256 __DEFAULT_FN_ATTRS256
-_mm256_vdpphps_ps(__m256 __W, __m256h __A, __m256h __B) {
+_mm256_dpph_ps(__m256 __W, __m256h __A, __m256h __B) {
   return (__m256)__builtin_ia32_vdpphps256((__v8sf)__W, (__v8sf)__A, (__v8sf)__B);
 }
 
