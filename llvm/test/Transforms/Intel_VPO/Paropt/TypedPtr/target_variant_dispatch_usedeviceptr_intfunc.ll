@@ -19,7 +19,7 @@
 ; }
 
 ; Expected IR: when -vpo-paropt-use-raw-dev-ptr=true
-;  %available = call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* inttoptr (i64 7 to i8*))
+;  %available = call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* inttoptr (i64 15 to i8*))
 ;  %dispatch = icmp ne i32 %available, 0
 ;  br i1 %dispatch, label %variant.call, label %base.call
 ;
@@ -50,7 +50,7 @@
 ; }
 
 ;Is device ready?
-; CHECK: call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* inttoptr (i64 7 to i8*))
+; CHECK: call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* inttoptr (i64 15 to i8*))
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne
 ; CHECK: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 ;
