@@ -3,14 +3,14 @@
 
 #include <immintrin.h>
 
-// CHECK-LABEL: @test_mm_vdpphps_ps(
+// CHECK-LABEL: @test_mm_dpph_ps(
 // CHECK:     call <4 x float> @llvm.x86.avx2.vdpphps.128
-__m128 test_mm_vdpphps_ps(__m128 __W, __m128h __A, __m128h __B) {
-  return _mm_vdpphps_ps(__W, __A, __B);
+__m128 test_mm_dpph_ps(__m128 __W, __m128h __A, __m128h __B) {
+  return _mm_dpph_ps(__W, __A, __B);
 }
 
-// CHECK-LABEL: @test_mm256_vdpphps_ps(
+// CHECK-LABEL: @test_mm256_dpph_ps(
 // CHECK:     call <8 x float> @llvm.x86.avx2.vdpphps.256
-__m256 test_mm256_vdpphps_ps(__m256 __W, __m256h __A, __m256h __B) {
-  return _mm256_vdpphps_ps(__W, __A, __B);
+__m256 test_mm256_dpph_ps(__m256 __W, __m256h __A, __m256h __B) {
+  return _mm256_dpph_ps(__W, __A, __B);
 }

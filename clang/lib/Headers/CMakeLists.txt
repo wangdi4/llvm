@@ -170,7 +170,7 @@ intel_add_file(INTEL_HEADERS
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VNNI_FP16
   Intel_Headers/avx512vnnifp16/avx512vnnifp16intrin.h
-  Intel_Headers/avx512vnnifp16/avx512vldotprodphpsintrin.h
+  Intel_Headers/avx512vnnifp16/avx512vlvnnifp16intrin.h
   )
 # end INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 # INTEL_FEATURE_ISA_AVX512_CONVERT

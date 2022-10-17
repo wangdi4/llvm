@@ -2030,38 +2030,11 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-  def int_x86_avx512_mask_vdpphps_128
-      : ClangBuiltin<"__builtin_ia32_vdpphps128_mask">,
-        Intrinsic<[llvm_v4f32_ty],
-                  [llvm_v4f32_ty, llvm_v4f32_ty, llvm_v4f32_ty, llvm_i8_ty],
-                  [IntrNoMem]>;
-  def int_x86_avx512_maskz_vdpphps_128
-      : ClangBuiltin<"__builtin_ia32_vdpphps128_maskz">,
-        Intrinsic<[llvm_v4f32_ty],
-                  [llvm_v4f32_ty, llvm_v4f32_ty, llvm_v4f32_ty, llvm_i8_ty],
-                  [IntrNoMem]>;
-  def int_x86_avx512_mask_vdpphps_256
-      : ClangBuiltin<"__builtin_ia32_vdpphps256_mask">,
-        Intrinsic<[llvm_v8f32_ty],
-                  [llvm_v8f32_ty, llvm_v8f32_ty, llvm_v8f32_ty, llvm_i8_ty],
-                  [IntrNoMem]>;
-  def int_x86_avx512_maskz_vdpphps_256
-      : ClangBuiltin<"__builtin_ia32_vdpphps256_maskz">,
-        Intrinsic<[llvm_v8f32_ty],
-                  [llvm_v8f32_ty, llvm_v8f32_ty, llvm_v8f32_ty, llvm_i8_ty],
-                  [IntrNoMem]>;
-  def int_x86_avx512_mask_vdpphps_512
-      : ClangBuiltin<"__builtin_ia32_vdpphps512_mask">,
+  def int_x86_avx512_vdpphps_512
+      : ClangBuiltin<"__builtin_ia32_vdpphps512">,
         Intrinsic<[llvm_v16f32_ty],
-                  [llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty, llvm_i16_ty,
-                  llvm_i32_ty],
-                  [IntrNoMem, ImmArg<ArgIndex<4>>]>;
-  def int_x86_avx512_maskz_vdpphps_512
-      : ClangBuiltin<"__builtin_ia32_vdpphps512_maskz">,
-        Intrinsic<[llvm_v16f32_ty],
-                  [llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty, llvm_i16_ty,
-                  llvm_i32_ty],
-                  [IntrNoMem, ImmArg<ArgIndex<4>>]>;
+                  [llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty],
+                  [IntrNoMem]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   def int_x86_avx512_vpdpbssd_512
