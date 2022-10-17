@@ -6597,7 +6597,7 @@ static bool isPackExpansionArgExist(CallExpr *Call) {
       Ty = Ty->getPointeeType();
     if (const SubstTemplateTypeParmType *ST =
             dyn_cast<SubstTemplateTypeParmType>(Ty))
-      if (ST->getReplacedParameter()->containsUnexpandedParameterPack())
+      if (ST->getReplacedParameter()->isPackExpansion())
         return true;
   }
   return false;
