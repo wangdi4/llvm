@@ -26,8 +26,11 @@
 
 #define SRC_HALF
 #define DST_QUAD
+#ifdef __INTEL_LLVM_COMPILER
+#define COMPILER_RT_HAS_FLOAT16
+#endif
 #include "fp_extend_impl.inc"
 
-COMPILER_RT_ABI long double __extendhftf2(uint16_t a) {
+COMPILER_RT_ABI long double __extendhftf2(src_t a) {
   return __extendXfYf2__(a);
 }

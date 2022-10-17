@@ -254,14 +254,14 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("__gnu_f2h_ieee", __gnu_f2h_ieee)
     REGISTER_BI_FUNCTION("__gnu_h2f_ieee", __gnu_h2f_ieee)
     REGISTER_BI_FUNCTION("__truncdfhf2", __truncdfhf2)
-#ifndef _WIN32
     REGISTER_BI_FUNCTION("__truncsfhf2", __truncsfhf2)
+    REGISTER_BI_FUNCTION("__extendhfsf2", __extendhfsf2)
+#ifndef _WIN32
     REGISTER_BI_FUNCTION("__trunctfhf2", __trunctfhf2)
     REGISTER_BI_FUNCTION("__trunctfsf2", __trunctfsf2)
     REGISTER_BI_FUNCTION("__trunctfdf2", __trunctfdf2)
     REGISTER_BI_FUNCTION("__extendsftf2", __extendsftf2)
     REGISTER_BI_FUNCTION("__extenddftf2", __extenddftf2)
-    REGISTER_BI_FUNCTION("__extendhfsf2", __extendhfsf2)
     REGISTER_BI_FUNCTION("__extendhftf2", __extendhftf2)
 #endif
 #if defined(_WIN64) && defined(__clang__)

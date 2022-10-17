@@ -1,3 +1,17 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2022 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //=== lib/fp_trunc.h - high precision -> low precision conversion *- C -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -50,10 +64,20 @@ typedef uint32_t dst_rep_t;
 static const int dstSigBits = 23;
 
 #elif defined DST_HALF
+#ifdef COMPILER_RT_HAS_FLOAT16
+typedef _Float16 dst_t;
+#else
 typedef uint16_t dst_t;
+#endif
 typedef uint16_t dst_rep_t;
 #define DST_REP_C UINT16_C
 static const int dstSigBits = 10;
+
+#elif defined DST_BFLOAT
+typedef __bf16 dst_t;
+typedef uint16_t dst_rep_t;
+#define DST_REP_C UINT16_C
+static const int dstSigBits = 7;
 
 #else
 #error Destination should be single precision or double precision!
