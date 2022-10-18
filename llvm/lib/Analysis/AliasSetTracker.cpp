@@ -81,15 +81,9 @@ void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST,
     PointerRec *R = AS.getSomePointer();
 
     // If the pointers are not a must-alias pair, this set becomes a may alias.
-<<<<<<< HEAD
-    if (queryAA(AA, MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()), // INTEL
-                 MemoryLocation(R->getValue(), R->getSize(), R->getAAInfo())) !=
-        AliasResult::MustAlias)
-=======
     if (!BatchAA.isMustAlias(
             MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()),
             MemoryLocation(R->getValue(), R->getSize(), R->getAAInfo())))
->>>>>>> d06131fda21ebbd9caadac79215e0e12b20b390c
       Alias = SetMayAlias;
   }
 
@@ -336,10 +330,10 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
     if (AS.Forward)
       continue;
 
+    BatchAAResults BatchAA(AA);
 #if INTEL_CUSTOMIZATION
     AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, AA);
 #else
-    BatchAAResults BatchAA(AA);
     AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, BatchAA);
 #endif // INTEL_CUSTOMIZATION
     if (AR == AliasResult::NoAlias)
