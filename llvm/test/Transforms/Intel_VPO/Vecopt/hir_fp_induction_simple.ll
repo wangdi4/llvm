@@ -109,7 +109,7 @@ define dso_local noundef float @_Z3subPfi(float* nocapture noundef readonly %A, 
 ; CHECK-NEXT:        %ind.final = 0  +  %vec.tc6;
 ; CHECK-NEXT:        %cast.crd = sitofp.i64.float(%vec.tc6);
 ; CHECK-NEXT:        %1 = 1.000000e+00  *  %cast.crd;
-; CHECK-NEXT:        %ind.final19 = %r.014  +  %1;
+; CHECK-NEXT:        %r.014 = %r.014  +  %1;
 ; CHECK:       END REGION
 ;
 entry:

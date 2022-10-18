@@ -4412,9 +4412,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         }
         assert(!VPInst->getType()->isPointerTy() &&
                "Pointer type is not supported.");
+        // Write last value back to original temp, if it's not a constant.
+        auto *IndFinalLval =
+            Start->getSymbase() == ConstantSymbase ? nullptr : Start->clone();
         HLInst *LastValInst = HLNodeUtilities.createBinaryHLInst(
             static_cast<Instruction::BinaryOps>(Opc), Start, MulRef,
-            "ind.final");
+            "ind.final", IndFinalLval);
         addInstUnmasked(LastValInst);
         LastValue = LastValInst->getLvalDDRef()->clone();
       }
