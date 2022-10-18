@@ -1312,14 +1312,23 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   // as the PHI, and if there are no stores between the phi and load.
   Align MaxAlign;
   uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
+<<<<<<< HEAD
   APInt MaxSize(APWidth, 0);
   bool HasLoad = false;
+=======
+  Type *LoadType = nullptr;
+  for (User *U : PN.users()) {
+    LoadInst *LI = dyn_cast<LoadInst>(U);
+    if (!LI || !LI->isSimple())
+      return false;
+>>>>>>> 6219ec07c6f8d1ead51beca7cf21fbf2323c51d7
 
   for (const auto *U : PN.users()) {
     // It is very common to have loads following GEPs. This code supports those
     // cases (one such example can be found in intel-phi-gep.ll).
     // It also supports recursive traversal of phi users.
 
+<<<<<<< HEAD
     if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
       return false;
 
@@ -1327,8 +1336,29 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   }
 
   if (!HasLoad)
+=======
+    if (LoadType) {
+      if (LoadType != LI->getType())
+        return false;
+    } else {
+      LoadType = LI->getType();
+    }
+
+    // Ensure that there are no instructions between the PHI and the load that
+    // could store.
+    for (BasicBlock::iterator BBI(PN); &*BBI != LI; ++BBI)
+      if (BBI->mayWriteToMemory())
+        return false;
+
+    MaxAlign = std::max(MaxAlign, LI->getAlign());
+  }
+
+  if (!LoadType)
+>>>>>>> 6219ec07c6f8d1ead51beca7cf21fbf2323c51d7
     return false;
 #endif // INTEL_CUSTOMIZATION
+
+  APInt LoadSize = APInt(APWidth, DL.getTypeStoreSize(LoadType).getFixedSize());
 
   // We can only transform this if it is safe to push the loads into the
   // predecessor blocks. The only thing to watch out for is that we can't put
@@ -1351,7 +1381,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     // If this pointer is always safe to load, or if we can prove that there
     // is already a load in the block, then we can move the load to the pred
     // block.
-    if (isSafeToLoadUnconditionally(InVal, MaxAlign, MaxSize, DL, TI))
+    if (isSafeToLoadUnconditionally(InVal, MaxAlign, LoadSize, DL, TI))
       continue;
 
     return false;
