@@ -63,8 +63,8 @@ static cl::opt<bool> PrintLoopCarriedAliasSets(
 #endif // INTEL_CUSTOMIZATION
 
 /// mergeSetIn - Merge the specified alias set into this alias set.
-///
-void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST) {
+void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST,
+                          BatchAAResults &BatchAA) {
   assert(!AS.Forward && "Alias set is already forwarding!");
   assert(!Forward && "This set is a forwarding set!!");
 
@@ -77,14 +77,19 @@ void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST) {
     // Check that these two merged sets really are must aliases.  Since both
     // used to be must-alias sets, we can just check any pointer from each set
     // for aliasing.
-    AliasAnalysis &AA = AST.getAliasAnalysis();
     PointerRec *L = getSomePointer();
     PointerRec *R = AS.getSomePointer();
 
     // If the pointers are not a must-alias pair, this set becomes a may alias.
+<<<<<<< HEAD
     if (queryAA(AA, MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()), // INTEL
                  MemoryLocation(R->getValue(), R->getSize(), R->getAAInfo())) !=
         AliasResult::MustAlias)
+=======
+    if (!BatchAA.isMustAlias(
+            MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()),
+            MemoryLocation(R->getValue(), R->getSize(), R->getAAInfo())))
+>>>>>>> d06131fda21ebbd9caadac79215e0e12b20b390c
       Alias = SetMayAlias;
   }
 
@@ -348,7 +353,7 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
       FoundSet = &AS;
     } else {
       // Otherwise, we must merge the sets.
-      FoundSet->mergeSetIn(AS, *this);
+      FoundSet->mergeSetIn(AS, *this, BatchAA);
     }
   }
 
@@ -366,7 +371,7 @@ AliasSet *AliasSetTracker::findAliasSetForUnknownInst(Instruction *Inst) {
       FoundSet = &AS;
     } else {
       // Otherwise, we must merge the sets.
-      FoundSet->mergeSetIn(AS, *this);
+      FoundSet->mergeSetIn(AS, *this, BatchAA);
     }
   }
   return FoundSet;
@@ -646,6 +651,7 @@ AliasSet &AliasSetTracker::mergeAllAliasSets() {
   AliasAnyAS->Access = AliasSet::ModRefAccess;
   AliasAnyAS->AliasAny = true;
 
+  BatchAAResults BatchAA(AA);
   for (auto *Cur : ASVector) {
     // If Cur was already forwarding, just forward to the new AS instead.
     AliasSet *FwdTo = Cur->Forward;
@@ -657,7 +663,7 @@ AliasSet &AliasSetTracker::mergeAllAliasSets() {
     }
 
     // Otherwise, perform the actual merge.
-    AliasAnyAS->mergeSetIn(*Cur, *this);
+    AliasAnyAS->mergeSetIn(*Cur, *this, BatchAA);
   }
 
   return *AliasAnyAS;
