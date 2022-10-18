@@ -95,12 +95,13 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI) {
         VPOAnalysisUtils::getClauseString(QUAL_OMP_LIVEIN);
 
     for (ReductionItem *Item : VecNode->getRed().items()) {
-      // Guarding is needed only for UDR variables.
-      if (Item->getType() == ReductionItem::WRNReductionUdr) {
+      // Guarding is needed only for UDR variables or inscan reductions.
+      if (Item->getType() == ReductionItem::WRNReductionUdr ||
+          Item->getIsInscan()) {
         if (!GuardDirective)
           GuardDirective = VPOUtils::getOrCreateLoopGuardForMemMotion(Lp);
 
-        // Add the UDR variable as QUAL.OMP.LIVEIN operand to the directive.
+        // Add the variable as QUAL.OMP.LIVEIN operand to the directive.
         LiveinBundles.push_back({LiveInClauseString, {Item->getOrig()}});
         Changed = true;
       }
