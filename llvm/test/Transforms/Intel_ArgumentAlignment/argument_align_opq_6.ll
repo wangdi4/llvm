@@ -1,6 +1,6 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 
-; RUN: opt < %s -opaque-pointers -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1
 
 ; This test checks that a function's argument is always aligned by a specific
@@ -21,7 +21,7 @@
 ; ModuleID = 'argument_align_6.ll'
 source_filename = "argument_align_6.ll"
 
-declare noalias ptr @calloc(i64, i64)
+declare noalias ptr @calloc(i64, i64) #0
 
 define internal fastcc void @foo(ptr %0, i64 %1) {
 entry:
@@ -55,3 +55,5 @@ entry:
   tail call fastcc void @foo(ptr %2, i64 %1)
   ret void
 }
+
+attributes #0 = { inaccessiblememonly mustprogress nofree nounwind willreturn allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }

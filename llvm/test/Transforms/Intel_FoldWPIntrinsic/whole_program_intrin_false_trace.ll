@@ -1,4 +1,4 @@
-; REQUIRES: assert, intel_feature_sw_dtrans
+; REQUIRES: asserts, intel_feature_sw_dtrans
 
 ; Tests if the intrinsic llvm.intel.wholeprogramsafe was converted correctly
 ; into false since there is no whole program safe. Also, the debug trace was
