@@ -2529,27 +2529,7 @@ public:
   };
 
   bool handlePointerType(FieldDecl *FD, QualType FieldTy) final {
-<<<<<<< HEAD
-    // USM allows to use raw pointers instead of buffers/accessors, but these
-    // pointers point to the specially allocated memory. For pointer fields,
-    // except for function pointer fields, we add a kernel argument with the
-    // same type as field but global address space, because OpenCL requires it.
-    // Function pointers should have program address space. This is set in
-    // CodeGen.
-    QualType PointeeTy = FieldTy->getPointeeType();
-    Qualifiers Quals = PointeeTy.getQualifiers();
-    LangAS AS = Quals.getAddressSpace();
-    // Leave global_device and global_host address spaces as is to help FPGA
-    // device in memory allocations.
-    if (!PointeeTy->isFunctionType() && AS != LangAS::sycl_global_device &&
-        AS != LangAS::sycl_global_host)
-      Quals.setAddressSpace(LangAS::sycl_global);
-    PointeeTy = SemaRef.getASTContext().getQualifiedType(
-        PointeeTy.getUnqualifiedType(), Quals);
-    QualType ModTy = SemaRef.getASTContext().getPointerType(PointeeTy);
-=======
     QualType ModTy = ModifyAddressSpace(SemaRef, FieldTy);
->>>>>>> 650e7113c70ccb1c01a6c6cdf36542d9b7054ba9
     // When the kernel is generated, struct type kernel arguments are
     // decomposed; i.e. the parameters of the kernel are the fields of the
     // struct, and not the struct itself. This causes an error in the backend
