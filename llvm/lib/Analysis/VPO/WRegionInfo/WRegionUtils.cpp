@@ -339,6 +339,7 @@ WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
   if (W) {
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
+    W->setEntryDirective(Call);
     W->getClausesFromOperandBundles(Call, cast<HLInst>(EntryHLNode));
   }
   return W;
