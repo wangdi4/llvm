@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the argument alignment didn't pass the analysis process
 ; and prints the proper debug messages.
 ; This test is same as argument_align_4.ll except "null" is also stored into
