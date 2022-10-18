@@ -171,34 +171,9 @@ private:
       }
     };
 
-    assert(
-        (std::count_if(WRLp->getChildren().begin(), WRLp->getChildren().end(),
-                       [](const WRegionNode *WRNode) {
-                         return isa<WRNScanNode>(WRNode);
-                       }) <= 1) &&
-        "Not more than one scan region is expected!");
-    DenseMap<uint64_t, InscanReductionKind> InscanReductionMap;
-    // Locate the scan region if present.
-    WRNScanNode *WRScan = nullptr;
-    for (auto WRNode : WRLp->getChildren())
-      if (WRNScanNode *WRSc = dyn_cast<WRNScanNode>(WRNode)) {
-        WRScan = WRSc;
-        break;
-      }
-    if (WRScan) {
-      for (const InclusiveItem *Item : WRScan->getInclusive().items()) {
-        InscanReductionMap.insert(
-            {Item->getInscanIdx(), InscanReductionKind::Inclusive});
-      }
-      for (const ExclusiveItem *Item : WRScan->getExclusive().items()) {
-        InscanReductionMap.insert(
-            {Item->getInscanIdx(), InscanReductionKind::Exclusive});
-      }
-    }
-
     for (ReductionItem *Item : WRLp->getRed().items())
       if (!IsSupportedReduction(Item) ||
-          !visitReduction(Item, InscanReductionMap))
+          !visitReduction(Item, WRLp))
         return false;
     return true;
   }
@@ -348,7 +323,7 @@ private:
   /// Register explicit reduction variable
   /// Return true if successfully consumed.
   bool visitReduction(const ReductionItem *Item,
-                      DenseMap<uint64_t, InscanReductionKind> &InscanMap) {
+                      const WRNVecLoopNode *WRLp) {
     if (!forceComplexTyReductionVec() && Item->getIsComplex())
       return bailout(BailoutReason::ComplexTyReduction);
 
@@ -371,9 +346,10 @@ private:
       addReduction(Val, Item->getCombiner(), Item->getInitializer(),
                    Item->getConstructor(), Item->getDestructor());
     } else if (Item->getIsInscan()) {
-      assert(InscanMap.count(Item->getInscanIdx()) &&
-             "The inscan item must be present in the separating pragma");
-      addReduction(Val, Kind, InscanMap[Item->getInscanIdx()]);
+      addReduction(Val, Kind, isa<InclusiveItem>(
+          WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp, Item)) ?
+                   InscanReductionKind::Inclusive :
+                   InscanReductionKind::Exclusive);
     } else
       addReduction(Val, Kind, None);
     return true;
