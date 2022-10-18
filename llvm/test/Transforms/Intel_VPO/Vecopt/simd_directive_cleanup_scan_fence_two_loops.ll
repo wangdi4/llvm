@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-force-vf=4 -vplan-force-inscan-reduction-vectorization=true -VPODirectiveCleanup -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec,vpo-directive-cleanup" -vplan-force-vf=4 -vplan-force-inscan-reduction-vectorization=true -S < %s 2>&1 | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -22,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;;     D[i] = x;
 ;; }
 
-; CHECK-LABEL:   DIR.OMP.END.SCAN{{.*}}:
+; CHECK-LABEL:   vector.body{{.*}}:
 ; CHECK-NOT:       fence acq_rel
 ; CHECK:           br
 
@@ -30,7 +29,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:           fence acq_rel
 ; CHECK:           br
 
-; CHECK-LABEL:  DIR.OMP.END.SCAN{{.*}}:
+; CHECK-LABEL:  vector.body{{.*}}:
 ; CHECK-NOT:       fence acq_rel
 ; CHECK:           br
 
@@ -52,14 +51,24 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 
 DIR.OMP.SIMD.194:                                 ; preds = %DIR.OMP.SIMD.1
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
+  br label %DIR.OMP.SIMD.wide_tc
+
+DIR.OMP.SIMD.wide_tc:                             ; preds = %DIR.OMP.SIMD.194
+  %wide.trip.count = zext i32 %N to i64
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.426
+
+DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.wide_tc, %DIR.VPO.END.GUARD.MEM.MOTION.4
+  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.wide_tc ], [ %indvars.iv.next, %DIR.VPO.END.GUARD.MEM.MOTION.4 ]
+  br label %DIR.VPO.GUARD.MEM.MOTION.2
+
+DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
+  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
   br label %DIR.OMP.SIMD.2
 
-DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.194
-  %wide.trip.count = zext i32 %N to i64
+DIR.OMP.SIMD.2:                                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
   br label %DIR.OMP.END.SCAN.392
 
-DIR.OMP.END.SCAN.392:                             ; preds = %DIR.OMP.SIMD.2, %DIR.OMP.END.SCAN.695
-  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %DIR.OMP.END.SCAN.695 ]
+DIR.OMP.END.SCAN.392:                             ; preds = %DIR.OMP.SIMD.2
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
   %1 = trunc i64 %indvars.iv to i32
   store i32 %1, ptr %i.linear.iv, align 4
@@ -90,11 +99,18 @@ DIR.OMP.END.SCAN.695:                             ; preds = %DIR.OMP.END.SCAN.5
   store float %5, ptr %arrayidx7, align 4
   call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
-  br i1 %exitcond.not, label %DIR.OMP.SCAN.11.lr.ph, label %DIR.OMP.END.SCAN.392
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
-DIR.OMP.SCAN.11.lr.ph:                            ; preds = %DIR.OMP.END.SCAN.695
-  %.lcssa98 = phi float [ %5, %DIR.OMP.END.SCAN.695 ]
+DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.695
+  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.4
+
+DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
+  br i1 %exitcond.not, label %DIR.OMP.SCAN.11.lr.ph, label %DIR.VPO.END.GUARD.MEM.MOTION.426
+
+DIR.OMP.SCAN.11.lr.ph:                            ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.4
+  %.lcssa98 = phi float [ %5, %DIR.VPO.END.GUARD.MEM.MOTION.4 ]
   br label %DIR.OMP.END.SIMD.796
 
 DIR.OMP.END.SIMD.796:                             ; preds = %DIR.OMP.SCAN.11.lr.ph
@@ -111,10 +127,17 @@ fence.block:                                      ; preds = %DIR.OMP.END.SIMD.8
 
 DIR.OMP.SIMD.9:                                   ; preds = %fence.block
   %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red74, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i22.linear.iv, i32 0, i32 1, i32 1) ]
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.4260
+
+DIR.VPO.END.GUARD.MEM.MOTION.4260:                ; preds = %DIR.OMP.SIMD.9, %DIR.VPO.END.GUARD.MEM.MOTION.40
+  %indvars.iv87 = phi i64 [ 0, %DIR.OMP.SIMD.9 ], [ %indvars.iv.next88, %DIR.VPO.END.GUARD.MEM.MOTION.40 ]
+  br label %DIR.VPO.GUARD.MEM.MOTION.20
+
+DIR.VPO.GUARD.MEM.MOTION.20:                      ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.4260
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red74) ]
   br label %DIR.OMP.END.SCAN.6
 
-DIR.OMP.END.SCAN.6:                               ; preds = %DIR.OMP.SIMD.9, %DIR.OMP.END.SCAN.13
-  %indvars.iv87 = phi i64 [ 0, %DIR.OMP.SIMD.9 ], [ %indvars.iv.next88, %DIR.OMP.END.SCAN.13 ]
+DIR.OMP.END.SCAN.6:                               ; preds = %DIR.VPO.GUARD.MEM.MOTION.20
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i22.linear.iv)
   %8 = trunc i64 %indvars.iv87 to i32
   store i32 %8, ptr %i22.linear.iv, align 4
@@ -145,11 +168,18 @@ DIR.OMP.END.SCAN.13:                              ; preds = %DIR.OMP.END.SCAN.12
   store float %12, ptr %arrayidx29, align 4
   call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i22.linear.iv)
   %indvars.iv.next88 = add nuw nsw i64 %indvars.iv87, 1
-  %exitcond91.not = icmp eq i64 %indvars.iv.next88, %wide.trip.count
-  br i1 %exitcond91.not, label %DIR.OMP.END.SIMD.7, label %DIR.OMP.END.SCAN.6
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.80
 
-DIR.OMP.END.SIMD.7:                               ; preds = %DIR.OMP.END.SCAN.13
-  %.lcssa = phi float [ %12, %DIR.OMP.END.SCAN.13 ]
+DIR.VPO.END.GUARD.MEM.MOTION.80:                  ; preds = %DIR.OMP.END.SCAN.13
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.40
+
+DIR.VPO.END.GUARD.MEM.MOTION.40:                  ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.80
+  %exitcond91.not = icmp eq i64 %indvars.iv.next88, %wide.trip.count
+  br i1 %exitcond91.not, label %DIR.OMP.END.SIMD.7, label %DIR.VPO.END.GUARD.MEM.MOTION.4260
+
+DIR.OMP.END.SIMD.7:                               ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.40
+  %.lcssa = phi float [ %12, %DIR.VPO.END.GUARD.MEM.MOTION.40 ]
   br label %DIR.OMP.END.SIMD.14
 
 DIR.OMP.END.SIMD.14:                              ; preds = %DIR.OMP.END.SIMD.7

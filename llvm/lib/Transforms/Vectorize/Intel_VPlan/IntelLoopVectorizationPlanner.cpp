@@ -1815,17 +1815,19 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
   if (!LE)
     return false;
-  // Check whether all reductions are supported
+  // Check whether all reductions are supported.
   for (auto Red : LE->vpreductions()) {
-    // Bailouts for user-defined reductions.
-    if (Red->getRecurrenceKind() == RecurKind::Udr) {
-      // Check if UDR is registerized. This can happen due to hoisting/invariant
-      // code motion done by pre-vectorizer passes. Asserts in debug build to
-      // detect accidental registerization during testing.
+    // Bailouts for user-defined reductions and scans.
+    if ((Red->getRecurrenceKind() == RecurKind::Udr) ||
+        isa<VPInscanReduction>(Red)) {
+      // Check if UDR/Scan is registerized. This can happen due to
+      // hoisting/invariant code motion done by pre-vectorizer passes.
+      // Asserts in debug build to detect accidental registerization during
+      // testing.
       if (!Red->getRecurrenceStartValue() ||
           LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
-        LLVM_DEBUG(dbgs() << "LVP: Registerized UDR found.\n");
-        assert(false && "Registerized UDR unexpected.");
+        LLVM_DEBUG(dbgs() << "LVP: Registerized UDR/Scan found.\n");
+        assert(false && "Registerized UDR/Scan unexpected.");
         return false;
       }
     }
