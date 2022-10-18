@@ -111,7 +111,7 @@ define dso_local i32 @enable_opt(i64 %N) local_unnamed_addr #0 {
 ; ======== remainder body
 ; CHECK:       VPlannedBB19:
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds [1029 x i32], <16 x [1029 x i32]*> <[1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b, [1029 x i32]* @b>, <16 x i64> zeroinitializer, <16 x i64> [[VEC_PHI180:%.*]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0i32(<16 x i32*> [[MM_VECTORGEP0]], i32 4, <16 x i1> [[TMP19:%.*]], <16 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0i32(<16 x i32*> [[MM_VECTORGEP0]], i32 4, <16 x i1> [[TMP19:%.*]], <16 x i32> poison)
 ; CHECK-NEXT:    [[SCALAR_GEP200:%.*]] = getelementptr inbounds [1029 x i32], [1029 x i32]* @a, i64 0, i64 [[UNI_PHI150:%.*]]
 ; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[SCALAR_GEP200]] to <16 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i32.p0v16i32(<16 x i32> [[WIDE_MASKED_GATHER0]], <16 x i32>* [[TMP20]], i32 16, <16 x i1> [[TMP19]])
