@@ -55,6 +55,7 @@ class VPLoopEntityList;
 class VPAllocatePrivate;
 class VPInductionInit;
 class VPInductionInitStep;
+class VPLoadStoreInst;
 #endif // INTEL_CUSTOMIZATION
 
 class VPDominatorTree;
@@ -212,6 +213,12 @@ public:
   /// \p IsNegOneStride is set to true if stride is -1 and false otherwise.
   bool isUnitStridePtr(const VPValue *VPPtr, Type *AccessType,
                        bool &IsNegOneStride) const;
+
+  /// Return \p true if the given load/store is unit-strided (stride == 1 or
+  /// stride == -1 and optimization for stride -1 is allowed). \p IsNegOneStride
+  /// is set to true if stride is -1 and false otherwise.
+  bool isUnitStrideLoadStore(const VPLoadStoreInst *VPLoadStore,
+                             bool &IsNegOneStride) const;
 
   /// Return true if the given variable has a SOA VectorShape.
   bool isSOAShape(const VPValue *Val) const;

@@ -463,6 +463,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // Transform masked integer div/rem before CM.
   LVP.blendWithSafeValue();
 
+  LVP.disableNegOneStrideOptInMaskedModeVPlans();
+
   unsigned VF;
   VPlanVector *Plan;
   std::tie(VF, Plan) = LVP.selectBestPlan();
@@ -1591,6 +1593,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // Transform masked integer div/rem before CM.
   LVP.blendWithSafeValue();
+
+  LVP.disableNegOneStrideOptInMaskedModeVPlans();
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF;

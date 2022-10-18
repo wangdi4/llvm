@@ -1873,6 +1873,7 @@ public:
     Cloned->setVolatile(isVolatile());
     Cloned->setSyncScopeID(getSyncScopeID());
     Cloned->MDs = MDs;
+    Cloned->IsNegOneOptEnabled = IsNegOneOptEnabled;
     // AddressSCEV cannot be propagated to the Cloned VPlan. VPlanSCEV may refer
     // to VPInstructions, therefore it cannot be used in a different VPlan.
     // AddressSCEVs in the cloned VPlan are recomputed after a new VPSE instance
@@ -1880,11 +1881,22 @@ public:
     return Cloned;
   }
 
+  // Return true if optimization of -1-strided load/store into unit-stride +
+  // shufle is enabled. We disable it for masked mode loops as that may cause
+  // incorrect accesses when negative indexes are zero-extended.
+  bool isNegOneOptEnabled() const { return IsNegOneOptEnabled; }
+
+  // Disable optimization of -1-strided load/store into unit-stride + shufle.
+  void disableNegOneOpt() { IsNegOneOptEnabled = false; }
+
 private:
   // Captures alignment of underlying access.
   Align Alignment;
   AtomicOrdering Ordering = AtomicOrdering::NotAtomic;
   bool IsVolatile = false;
+  // Flag whether optimization of -1-strided load/store into unit-stride + shufle
+  // is enabled.
+  bool IsNegOneOptEnabled = true;
   SyncScope::ID SSID = SyncScope::SingleThread;
   VPlanSCEV *AddressSCEV = nullptr; //< VPlanSCEV for pointer operand
   MDNodesTy MDs;

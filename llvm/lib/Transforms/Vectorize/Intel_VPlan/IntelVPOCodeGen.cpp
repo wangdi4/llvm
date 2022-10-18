@@ -2832,8 +2832,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
 
   // Try to handle consecutive loads.
   bool IsNegOneStride = false;
-  bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
-      Ptr, VPLoad->getValueType(), IsNegOneStride);
+  bool ConsecutiveStride =
+      Plan->getVPlanDA()->isUnitStrideLoadStore(VPLoad, IsNegOneStride);
   if (ConsecutiveStride) {
     bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
     VPWidenMap[VPLoad] = vectorizeUnitStrideLoad(VPLoad, IsNegOneStride, IsPvtPtr);
@@ -2962,8 +2962,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
 
   // Try to handle consecutive stores.
   bool IsNegOneStride = false;
-  bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
-      Ptr, VPStore->getValueType(), IsNegOneStride);
+  bool ConsecutiveStride =
+      Plan->getVPlanDA()->isUnitStrideLoadStore(VPStore, IsNegOneStride);
   if (ConsecutiveStride) {
     // TODO: VPVALCG: Special handling for mask value is also needed for
     // conditional last privates.

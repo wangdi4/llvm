@@ -2179,3 +2179,30 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
       ProcessVPlan(*Pair.second.MaskedModeLoop);
   }
 }
+
+void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
+  SmallPtrSet<VPlan *, 2> Visited;
+
+  auto ProcessVPlan = [&Visited](VPlanMasked &P) -> void {
+    if (!Visited.insert(&P).second)
+      return;
+    // Don't disable optimization if TC is unknown.
+    VPLoop *L = P.getMainLoop(true /*StrictCheck*/);
+    if (L->getTripCountInfo().IsEstimated)
+      return;
+
+    for (auto &Inst :
+         make_filter_range(vpinstructions(&P), [](const VPInstruction &Inst) {
+           return isa<VPLoadStoreInst>(Inst);
+         }))
+      cast<VPLoadStoreInst>(Inst).disableNegOneOpt();
+  };
+
+  for (auto &Pair : VPlans) {
+    if (Pair.first == 1) // VF
+      continue;
+
+    if (Pair.second.MaskedModeLoop)
+      ProcessVPlan(*Pair.second.MaskedModeLoop);
+  }
+}
