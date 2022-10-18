@@ -238,7 +238,7 @@
 // FP_MODEL_FAST_INTEL: "-menable-no-infs"
 // FP_MODEL_FAST_INTEL: "-menable-no-nans"
 // FP_MODEL_FAST_INTEL: "-fapprox-func"
-// FP_MODEL_FAST_INTEL: "-menable-unsafe-fp-math"
+// FP_MODEL_FAST_INTEL: "-funsafe-math-optimizations"
 // FP_MODEL_FAST_INTEL: "-fno-signed-zeros"
 // FP_MODEL_FAST_INTEL: "-mreassociate"
 // FP_MODEL_FAST_INTEL: "-freciprocal-math"
