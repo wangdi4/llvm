@@ -115,6 +115,13 @@ static cl::opt<bool> EnableForceEmitMemoryFormBasicShuffle(
     cl::desc("Forcely emitting vmov{sl,sh,d}dup from memory."), cl::init(false),
     cl::Hidden);
 
+static cl::opt<bool> NoReciprocalForShortVector(
+    "no-reciprocal-for-short-vector",
+    cl::desc(
+        "Do not optimize short vector divisions to reciprocals. Improves "
+        "accuracy with no performance penalty on some microarchitectures."),
+    cl::init(false), cl::Hidden);
+
 // Returns true if a calling convention has potentially overlap between it's
 // callee-saved registers and registers used for argument passing. In this case,
 // if a register is used for argument passing, it shouldn't be treated as a
@@ -24781,7 +24788,10 @@ SDValue X86TargetLowering::getRecipEstimate(SDValue Op, SelectionDAG &DAG,
   // along with FMA, this could be a throughput win.
 
   if ((VT == MVT::f32 && Subtarget.hasSSE1()) ||
-      (VT == MVT::v4f32 && Subtarget.hasSSE1()) ||
+#if INTEL_CUSTOMIZATION
+      (VT == MVT::v4f32 && Subtarget.hasSSE1() &&
+       !NoReciprocalForShortVector) ||
+#endif // INTEL_CUSTOMIZATION
       (VT == MVT::v8f32 && Subtarget.hasAVX()) ||
       (VT == MVT::v16f32 && Subtarget.useAVX512Regs())) {
     // Enable estimate codegen with 1 refinement step for vector division.
