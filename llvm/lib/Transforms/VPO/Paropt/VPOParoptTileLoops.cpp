@@ -27,6 +27,64 @@
 /// VPOParoptTileLoops.cpp handles omp tile pragma.
 ///
 //===----------------------------------------------------------------------===//
+#if INTEL_CUSTOMIZATION
+///
+/// Handles fortran pragma !$omp tile sizes (num).
+///
+/// For example, given a loop
+///
+/// - before tiling
+/// \code
+///  !$omp tile sizes(S)
+///  do I = 0, N
+/// \endcode
+///
+/// - after tiling (interim code before normalization of the floor loop)
+/// \code
+///   do II = 0, N, S
+///      do I = II, min(II + S - 1, N)
+/// \endcode
+///
+/// - after normalization of floor loop
+/// \code
+///   do II = 0, N/S                          <-- floor loop
+///      do I = II * S, min(II*S + S - 1, N)  <-- tile loop
+/// \endcode
+///
+/// The by-strip loop introduced by tiling is called a floor loop and the loop
+/// iterates within a tile is called a tile loop.
+///
+/// Notice we always make the floor loop to be normalized. Depending on tile
+/// pragmas in the input floor loop can be a target of subsequent tiling. Since
+/// we always normalize floor loops, this simplifies the implementation.
+///
+/// All the floor loops introduced from a tile pragma are added as outer loops
+/// of the original outermost loop of the tile pragma. For example,
+///
+/// - before tiling
+/// \code
+///  !$omp tile sizes(S1, S2, S3)
+///  do I = 0, N
+///   do J = 0, M
+///    do K = 0, L
+/// \endcode
+///
+/// - after tiling
+/// \code
+///  do II = 0, N/S1 <-- floor loop
+///   do JJ = 0, M/S2 <-- floor loop
+///    do KK = 0, L/S3 <-- floor loop
+///     do I = II*S1, ..
+///      do J = JJ*S2, ..
+///       do K = KK*S3, ..
+/// \endcode
+///
+/// This pass works on non-rotated loops, where loop header is the loop exiting
+/// block. When a floor loop is added as a parent of a loop, the loop's header
+/// exits to its floor loop's latch, which jumps back to floor loop's header.
+//
+//===----------------------------------------------------------------------===//
+#endif // INTEL_CUSTOMIZATION
 
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptAtomics.h"
