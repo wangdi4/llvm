@@ -1474,7 +1474,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
       MainLoop->markDoNotUnroll();
   }
 
-  if (LoopHasUDRs)
+  if (LoopHasUDRsOrInscan)
     eraseGuardMemMotionDirsFromScalarLoops();
 
   // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
@@ -4172,7 +4172,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ReductionFinalUdr: {
-    LoopHasUDRs = true;
+    LoopHasUDRsOrInscan = true;
     // Call combiner for each pointer in private memory and accumulate the
     // results in original DDRef corresponding to the UDR.
     auto *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
