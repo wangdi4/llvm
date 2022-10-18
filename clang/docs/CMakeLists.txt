@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -142,7 +142,15 @@ if (LLVM_ENABLE_SPHINX)
       add_custom_command(TARGET docs-clang-html POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy
         "${CMAKE_CURRENT_SOURCE_DIR}/LibASTMatchersReference.html"
-        "${CMAKE_CURRENT_BINARY_DIR}/html/LibASTMatchersReference.html")
+        "${CMAKE_CURRENT_BINARY_DIR}/html/LibASTMatchersReference.html"
+# INTEL_CUSTOMIZATION
+        COMMAND "${CMAKE_COMMAND}" -E copy
+        "${CLANG_SOURCE_DIR}/www/c_status.html"
+        "${CMAKE_CURRENT_BINARY_DIR}/html/c_status.html"
+        COMMAND "${CMAKE_COMMAND}" -E copy
+        "${CLANG_SOURCE_DIR}/www/cxx_status.html"
+        "${CMAKE_CURRENT_BINARY_DIR}/html/cxx_status.html")
+# end INTEL_CUSTOMIZATION
 
       # Generated files
       gen_rst_file_from_td(AttributeReference.rst -gen-attr-docs ../include/clang/Basic/Attr.td docs-clang-html)
