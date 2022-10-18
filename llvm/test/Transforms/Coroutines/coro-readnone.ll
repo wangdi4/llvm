@@ -55,7 +55,11 @@ diff:
 }
 
 ; CHECK_SPLITTED-LABEL: normal_function(
-; CHECK_SPLITTED-NEXT: entry
+; INTEL_CUSTOMIZATION
+; In llorg, the label is called 'entry', but in xmain it is 'common.ret', because it is renamed
+; by the JumpSplitting pass that is only present in xmain.
+; CHECK_SPLITTED-NEXT: common.ret:
+; end INTEL_CUSTOMIZATION
 ; CHECK_SPLITTED-NEXT:   call i32 @readnone_func()
 ; CHECK_SPLITTED-NEXT:   call void @print_same()
 ; CHECK_SPLITTED-NEXT:   ret i1 true
