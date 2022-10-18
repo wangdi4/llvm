@@ -430,7 +430,7 @@ VPlanIdioms::isSearchLoopNeedingPeeling(const VPBasicBlock *Block,
       // the pointer type is i64 and the LoopUB is i32, for example.
       if (!LoopUB->isIntConstant()) {
         const CanonExpr *PeelArrayBase = ListItemRef->getBaseCE();
-        if (CEU.getTypeSizeInBits(PeelArrayBase->getSrcType())
+        if (CEU.getTypeSizeInBytes(PeelArrayBase->getSrcType())
             != LoopUBTypeSize) {
           LLVM_DEBUG(dbgs() << "        Array ref to peel ";
                      ListItemRef->dump();
