@@ -1123,6 +1123,7 @@ private:
   EXPR Device;
   SubdeviceClause Subdevice;
   bool Nowait = false;
+  CallInst *Call = nullptr; // The dispatch call; set in Paropt codegen
 
 public:
   WRNTargetVariantNode(BasicBlock *BB);
@@ -1130,6 +1131,7 @@ public:
 protected:
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+  void setCall(CallInst *CI) override { Call = CI; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
@@ -1137,6 +1139,7 @@ public:
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
+  CallInst *getCall() const override { return Call; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;

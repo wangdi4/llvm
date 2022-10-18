@@ -5168,6 +5168,34 @@ void VPOParoptTransform::getAndReplaceDevicePtrs(WRegionNode *W,
   useUpdatedUseDevicePtrsInTgtDataRegion(W, VariantCall); //                (B)
 }
 
+// Find the dispatch call in the dispatch construct,
+// remove its QUAL_OMP_DISPATCH_CALL marker, and save it with W->setCall()
+static bool findDispatchCall(WRegionNode *W) {
+  bool found = false;
+  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
+    if (found)
+      break;
+    for (Instruction &I : *BB) {
+      if (auto *CI = dyn_cast<CallInst>(&I)) {
+        CallInst *NewCI =
+            VPOUtils::removeOpenMPClausesFromCall(CI, {QUAL_OMP_DISPATCH_CALL});
+        if (NewCI != CI) {
+          // CI was the dispatch call, now replaced by
+          // NewCI which has QUAL_OMP_DISPATCH_CALL removed
+          W->setCall(NewCI);
+          found = true;
+          break;
+        }
+      }
+    }
+  }
+  //TODO: remove the check for WRNDispatchNode in the assert below
+  //      once TARGET VARIANT DISPATCH also has the the base call always
+  //      marked with QUAL_OMP_DISPATCH_CALL
+  assert((!isa<WRNDispatchNode>(W) || found) && "Dispatch call not found");
+  return found;
+}
+
 /// Gen code for the target variant dispatch construct
 ///
 /// Case 1. No use_device_ptr clause:
@@ -5279,20 +5307,32 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
   llvm::Optional<uint64_t> InteropPosition =
       llvm::None;            // position of interop arg in variant call
+
   CallInst *BaseCall = nullptr;
-  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
-    for (Instruction &I : *BB) {
-      if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
-        BaseCall = TempCallInst;
-        VariantName = getVariantInfo(W, BaseCall, MatchConstruct, DeviceArchs,
-                                     InteropPosition);
-        if (!VariantName.empty()) {
-          break;
+
+  // find the dispatch call and remove its QUAL_OMP_DISPATCH_CALL OB from IR
+  findDispatchCall(W);
+  BaseCall = W->getCall();
+  if (BaseCall) {
+    VariantName = getVariantInfo(W, BaseCall, MatchConstruct, DeviceArchs,
+                                 InteropPosition);
+  } else {
+    // TODO: remove this ELSE part and the IF-check above when the
+    //       dispatch call is always marked with "QUAL.OMP.DISPATCH.CALL".
+    for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
+      for (Instruction &I : *BB) {
+        if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
+          BaseCall = TempCallInst;
+          VariantName = getVariantInfo(W, BaseCall, MatchConstruct, DeviceArchs,
+                                       InteropPosition);
+          if (!VariantName.empty()) {
+            break;
+          }
         }
       }
+      if (!VariantName.empty())
+        break;
     }
-    if (!VariantName.empty())
-      break;
   }
 
   auto emitRemark = [&](const StringRef &Message) {
@@ -5565,31 +5605,6 @@ void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDependForDispatch\n");
-}
-
-// Find the dispatch call in the dispatch construct,
-// remove its QUAL_OMP_DISPATCH_CALL marker, and save it with W->setCall()
-static bool findDispatchCall(WRegionNode *W) {
-  bool found = false;
-  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
-    if (found)
-      break;
-    for (Instruction &I : *BB) {
-      if (auto *CI = dyn_cast<CallInst>(&I)) {
-        CallInst *NewCI =
-            VPOUtils::removeOpenMPClausesFromCall(CI, {QUAL_OMP_DISPATCH_CALL});
-        if (NewCI != CI) {
-          // CI was the dispatch call, now replaced by
-          // NewCI which has QUAL_OMP_DISPATCH_CALL removed
-          W->setCall(NewCI);
-          found = true;
-          break;
-        }
-      }
-    }
-  }
-  assert(found && "Dispatch call not found");
-  return found;
 }
 
 // The input InteropStr is a string for a comma-separated list of items,
