@@ -628,12 +628,23 @@ DTransType *TypeMetadataReader::decodeMDNode(MDNode *MD) {
   if (Ty->isStructTy())
     return decodeMDStructRefNode(MD);
 
-  auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1));
-  assert(PtrLevelMD && "Expected metadata constant");
-  unsigned PtrLevel = cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
+  if (Ty->isPointerTy()) {
+    // Abort compilation on assertion enabled builds.
+    llvm_unreachable("Pointer type is not allowed in DTrans metadata");
+    return nullptr;
+  }
 
+  auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1));
+  if (!PtrLevelMD || !isa<ConstantInt>(PtrLevelMD->getValue())) {
+    llvm_unreachable("Expected metadata constant");
+    return nullptr;
+  }
+  unsigned PtrLevel = cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
   auto *SimpleType = DTransAtomicType::get(TM, Ty);
-  assert(SimpleType && "Type was not first class type");
+  if (!SimpleType) {
+    llvm_unreachable("Type was not first class type");
+    return nullptr;
+  }
 
   DTransType *Result = createPointerToLevel(SimpleType, PtrLevel);
   cacheMDDecoding(MD, Result);
