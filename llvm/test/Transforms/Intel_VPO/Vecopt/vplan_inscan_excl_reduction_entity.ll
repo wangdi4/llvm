@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ;
 ; CHECK-LABEL:  VPlan after initial VPlan transforms:
-; CHECK-NEXT:  VPlan IR for: _Z3fooPfS_:DIR.OMP.END.SCAN.2.#{{[0-9]+}}
+; CHECK-NEXT:  VPlan IR for: _Z3fooPfS_:DIR.VPO.END.GUARD.MEM.MOTION.426.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
@@ -69,30 +69,39 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = phi  [ i32 [[VP_I_LINEAR_IV_IND_INIT]], [[BB2]] ],  [ i32 [[VP5:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     store i32 [[VP4]] ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     store float 0.000000e+00 ptr [[VP_X_RED]]
+; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i32 [[VP0]] = trunc i64 [[VP_INDVARS_IV]] to i32
 ; CHECK-NEXT:     store i32 [[VP0]] ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     float [[VP6:%.*]] = load ptr [[VP_X_RED]]
 ; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     store float [[VP6]] ptr [[VP_ARRAYIDX]]
-; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
+; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB0]]
-; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     float [[VP_LOAD_2:%.*]] = load ptr [[VP_X_RED]]
 ; CHECK-NEXT:     float [[VP_EXCL_SCAN:%.*]] = running-exclusive-reduction float [[VP_LOAD_2]] float [[VP_INSCAN_ACCUM]] float 0.000000e+00
 ; CHECK-NEXT:     store float [[VP_EXCL_SCAN]] ptr [[VP_X_RED]]
 ; CHECK-NEXT:     float [[VP7:%.*]] = extract-last-vector-lane float [[VP_EXCL_SCAN]]
 ; CHECK-NEXT:     float [[VP8:%.*]] = extract-last-vector-lane float [[VP_LOAD_2]]
 ; CHECK-NEXT:     float [[VP3]] = fadd float [[VP7]] float [[VP8]]
-; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
+; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:     br [[BB3]]
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:     br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB6]]
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = load ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     i64 [[VP_IDXPROM1:%.*]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:     ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_IDXPROM1]]
@@ -102,11 +111,17 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     store float [[VP_ADD3]] ptr [[VP_X_RED]]
 ; CHECK-NEXT:     call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     br [[BB10:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
+; CHECK-NEXT:     br [[BB11:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB11]]: # preds: [[BB10]]
 ; CHECK-NEXT:     i32 [[VP5]] = add i32 [[VP4]] i32 [[VP_I_LINEAR_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB0]]
+; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB12:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
+; CHECK-NEXT:    [[BB12]]: # preds: [[BB11]]
 ; CHECK-NEXT:     float [[VP_X_REDINSCAN_RED_FINAL]] = reduction-final-inscan float [[VP3]]
 ; CHECK-NEXT:     store float [[VP_X_REDINSCAN_RED_FINAL]] ptr [[X_RED0]]
 ; CHECK-NEXT:     call i64 4 ptr [[VP_X_RED]] ptr @llvm.lifetime.end.p0
@@ -116,9 +131,9 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     store i32 [[VP_I_LINEAR_IV_IND_FINAL]] ptr [[I_LINEAR_IV0]]
 ; CHECK-NEXT:     call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     float [[VP_ADD3_PRIV_FINAL]] = private-final-uc float [[VP_ADD3]]
-; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
+; CHECK-NEXT:     br [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:    [[BB13]]: # preds: [[BB12]]
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -134,10 +149,20 @@ DIR.OMP.SIMD.1:
 
 DIR.OMP.SIMD.126:                                 ; preds = %DIR.OMP.SIMD.1
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.426
+
+DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.126, %DIR.VPO.END.GUARD.MEM.MOTION.4
+  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.126 ], [ %indvars.iv.next, %DIR.VPO.END.GUARD.MEM.MOTION.4 ]
+  br label %DIR.VPO.GUARD.MEM.MOTION.2
+
+DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
+  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  br label %DIR.OMP.SIMD.139
+
+DIR.OMP.SIMD.139:                                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
   br label %DIR.OMP.END.SCAN.2
 
-DIR.OMP.END.SCAN.2:                               ; preds = %DIR.OMP.SIMD.126, %DIR.OMP.END.SCAN.228
-  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.126 ], [ %indvars.iv.next, %DIR.OMP.END.SCAN.228 ]
+DIR.OMP.END.SCAN.2:                               ; preds = %DIR.OMP.SIMD.139
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
   %1 = trunc i64 %indvars.iv to i32
   store i32 %1, ptr %i.linear.iv, align 4
@@ -168,11 +193,18 @@ DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
   store float %add3, ptr %x.red, align 4
   call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.8
+
+DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.228
+  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.4
+
+DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
-  br i1 %exitcond.not, label %DIR.OMP.END.SIMD.6, label %DIR.OMP.END.SCAN.2
+  br i1 %exitcond.not, label %DIR.OMP.END.SIMD.6, label %DIR.VPO.END.GUARD.MEM.MOTION.426
 
 DIR.OMP.END.SIMD.6:                               ; preds = %DIR.OMP.END.SCAN.228
-  %add3.lcssa = phi float [ %add3, %DIR.OMP.END.SCAN.228 ]
+  %add3.lcssa = phi float [ %add3, %DIR.VPO.END.GUARD.MEM.MOTION.4 ]
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.6

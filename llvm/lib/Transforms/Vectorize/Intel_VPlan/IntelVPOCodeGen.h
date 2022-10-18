@@ -741,8 +741,8 @@ private:
 
   FatalErrorHandlerTy FatalErrorHandler;
 
-  // True if loop has any UDR variables.
-  bool LoopHasUDRs = false;
+  // True if loop has any UDR variables and/or inscan reductions.
+  bool LoopHasUDRsOrInscan = false;
 };
 
 } // namespace vpo
