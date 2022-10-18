@@ -22,7 +22,7 @@ int test1() {
 // CHECK:   }
 // CHECK:   static constexpr const char* getFunctionName() {
 // CHECK: #ifndef NDEBUG
-// CHECK:     return "";
+// CHECK:     return "class (lambda at {{.*}}code_location.cpp:11:50)";
 // CHECK: #else
 // CHECK:     return "";
 // CHECK: #endif
@@ -214,7 +214,7 @@ int test5() {
 // CHECK:   }
 // CHECK:   static constexpr const char* getFunctionName() {
 // CHECK: #ifndef NDEBUG
-// CHECK:     return "NS::";
+// CHECK:     return "NS::class (lambda at {{.*}}code_location.cpp:202:50)";
 // CHECK: #else
 // CHECK:     return "";
 // CHECK: #endif
