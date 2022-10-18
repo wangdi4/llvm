@@ -9,11 +9,11 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -vplan-use-padding-info=false \
-; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s
+; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=VALUECMP_RECOGNIZED-CHECK %s
 
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     -vplan-use-padding-info=false \
-; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s
+; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=VALUECMP_RECOGNIZED-CHECK %s
 ; end INTEL_FEATURE_SW_DTRANS
 ;
 ; REQUIRES: asserts
@@ -22,8 +22,20 @@
 
 ; WAS_RECOGNIZED-CHECK: Search loop was recognized.
 
+; Note: Prior to adding the ValueCmp idiom, setting -vplan-use-padding-info
+; to false caused this search loop not to be recognized.  Otherwise the
+; StrEq idiom was recognized.  Now, however, the ValueCmp idiom will be
+; recognized even if StrEq fails, because ValueCmp requires loop peeling
+; and therefore the -vplan-use-padding-info setting doesn't matter.
+
 ; INTEL_FEATURE_SW_DTRANS
-; WAS_NOT_RECOGNIZED-CHECK: Search loop idiom was not recognized.
+; VALUECMP_RECOGNIZED-CHECK: RegDDRef (%a)[i1] is unsafe.
+; VALUECMP_RECOGNIZED-CHECK: PredicateTy 33 is unsafe.
+; VALUECMP_RECOGNIZED-CHECK: PtrEq: Pred:33
+; VALUECMP_RECOGNIZED-CHECK: PredLhs:{al:1}(LINEAR i8* %a)[LINEAR i64 i1] inbounds  !tbaa !4 {sb:13}
+; VALUECMP_RECOGNIZED-CHECK: PredRhs:LINEAR i8 %val {sb:10}
+; VALUECMP_RECOGNIZED-CHECK: ValueCmp loop has PeelArray:(%a)[i1]
+; VALUECMP_RECOGNIZED-CHECK: Search loop was recognized.
 ; end INTEL_FEATURE_SW_DTRANS
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
