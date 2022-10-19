@@ -299,6 +299,27 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
                                ParamAlign->value()));
   }
 
+  // Mark the vector function as having side-effects. This will prevent
+  // downstream optimizations from doing code motion/elimination optimizations
+  // around private memory for vector of pointer operands. The problem is that
+  // when a ptr arg is widened, underlying AA/ModRef can longer reason about
+  // aliasing properties due to the type change. E.g., once
+  // call <4 x i32> @_ZGVbN4v_f_plus_one_(i32* nonnull %3)
+  // becomes:
+  // call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull %3)
+  // type checking on pointer no longer works and causes AA to return non-
+  // conservative results (i.e., NoModRef). This also affects things like
+  // MemorySSA from being able to stop at the closest dominating defining
+  // memory access since that also uses getModRefInfo. There will undoubtably
+  // be many other places where AA/ModRef is used. Also, this solution was
+  // made in favor of changes in AA because it seemed much simpler and less
+  // intrusive to do. These attributes must also be removed in
+  // getOrInsertVectorVariantFunction() because it's possible that the function
+  // is only declared and we won't make it here. The declared only function
+  // will be created from VPlan calling getOrInsertVectorVariantFunction().
+  Clone->removeFnAttr(Attribute::ReadOnly);
+  Clone->removeFnAttr(Attribute::ArgMemOnly);
+
   LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
   LLVM_DEBUG(Clone->dump());
 
