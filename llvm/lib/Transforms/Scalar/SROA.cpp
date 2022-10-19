@@ -1232,8 +1232,8 @@ findCommonType(AllocaSlices::const_iterator B, AllocaSlices::const_iterator E,
 ///  - Inst and PN are in the same block
 ///  - And, there are no stores between PN and Inst.
 static bool isLiveAtPHI(const Instruction * Inst,
-                        const PHINode &PN,
-                        Align &MaxAlign, APInt &MaxSize) {
+                        const PHINode &PN, Type *&LoadType,
+                        Align &MaxAlign) {
   if (!Inst || Inst->getParent() != PN.getParent())
     return false;
 
@@ -1247,6 +1247,13 @@ static bool isLiveAtPHI(const Instruction * Inst,
     if (!LI || !LI->isSimple())
       return false;
 
+    if (LoadType) {
+      if (LoadType != LI->getType())
+        return false;
+    } else {
+      LoadType = LI->getType();
+    }
+
     // Ensure that there are no instructions between the PHI and the load that
     // could store.
     for (BasicBlock::const_iterator BBI(PN); &*BBI != LI; ++BBI)
@@ -1258,7 +1265,6 @@ static bool isLiveAtPHI(const Instruction * Inst,
     uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
     uint64_t Size = DL.getTypeStoreSize(LI->getType()).getFixedSize();
     MaxAlign = std::max(MaxAlign, Align(LI->getAlign()));
-    MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
 
     return true;
   }
@@ -1271,7 +1277,7 @@ static bool isLiveAtPHI(const Instruction * Inst,
       return false;
 
     for (const auto *U : GEP->users()) {
-      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
+      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, LoadType, MaxAlign))
         return false;
 
       HasUser = true;
@@ -1312,23 +1318,23 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   // as the PHI, and if there are no stores between the phi and load.
   Align MaxAlign;
   uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
-  APInt MaxSize(APWidth, 0);
-  bool HasLoad = false;
+  Type *LoadType = nullptr;
 
   for (const auto *U : PN.users()) {
     // It is very common to have loads following GEPs. This code supports those
     // cases (one such example can be found in intel-phi-gep.ll).
     // It also supports recursive traversal of phi users.
 
-    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
+    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, LoadType, MaxAlign))
       return false;
 
-    HasLoad = true;
   }
 
-  if (!HasLoad)
+  if (!LoadType)
     return false;
 #endif // INTEL_CUSTOMIZATION
+
+  APInt LoadSize = APInt(APWidth, DL.getTypeStoreSize(LoadType).getFixedSize());
 
   // We can only transform this if it is safe to push the loads into the
   // predecessor blocks. The only thing to watch out for is that we can't put
@@ -1351,7 +1357,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     // If this pointer is always safe to load, or if we can prove that there
     // is already a load in the block, then we can move the load to the pred
     // block.
-    if (isSafeToLoadUnconditionally(InVal, MaxAlign, MaxSize, DL, TI))
+    if (isSafeToLoadUnconditionally(InVal, MaxAlign, LoadSize, DL, TI))
       continue;
 
     return false;
