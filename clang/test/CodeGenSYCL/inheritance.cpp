@@ -76,4 +76,7 @@ int main() {
 // CHECK: %[[GEP_A:[a-zA-Z0-9]+]] = getelementptr inbounds %struct.derived, ptr addrspace(4) %[[LOCAL_OBJECT]], i32 0, i32 3
 // CHECK: %[[LOAD_A:[0-9]+]] = load i32, ptr addrspace(4) %[[ARG_A]], align 4
 // CHECK: store i32 %[[LOAD_A]], ptr addrspace(4) %[[GEP_A]]
+<<<<<<< HEAD
 
+=======
+>>>>>>> 6284f9e5a2dfcd9fb57d4e7c30827dfccfba6d5c

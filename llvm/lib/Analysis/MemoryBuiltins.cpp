@@ -337,7 +337,11 @@ bool llvm::isAllocationFn(
 bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, OpNewLike, TLI).has_value();
 }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+#endif
+>>>>>>> 6284f9e5a2dfcd9fb57d4e7c30827dfccfba6d5c
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).

@@ -2,6 +2,7 @@
 // The contents of this test checks for the following PVC+ features:
 // bfloat16 <-> float conversions
 // REQUIRES: intel_feature_esimd_embargo
+// UNSUPPORTED: linux
 
 // Checks host+device compilation
 // RUN: %clangxx -fsycl -fsyntax-only %s
