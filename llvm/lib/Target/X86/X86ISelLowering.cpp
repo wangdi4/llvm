@@ -34153,19 +34153,6 @@ static SDValue LowerInlineAsm(SDValue Op, SelectionDAG &DAG) {
   return Op;
 }
 
-bool X86TargetLowering::hasExtraIndirectConstraint(
-    const SmallVectorImpl<StringRef> &AsmStrs, unsigned OpNo) const {
-  if (!isPositionIndependent() ||
-      !Subtarget.getTargetTriple().isOSBinFormatELF())
-    return false;
-
-  StringRef InstrStr = getInstrStrFromOpNo(AsmStrs, OpNo);
-
-  if (InstrStr.startswith("call") || InstrStr.startswith("jmp"))
-    return true;
-
-  return false;
-}
 #endif // INTEL_CUSTOMIZATION
 
 /// Provide custom lowering hooks for some operations.

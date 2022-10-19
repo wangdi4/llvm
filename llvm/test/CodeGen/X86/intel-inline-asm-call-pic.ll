@@ -27,60 +27,43 @@
 define void @foo() nounwind {
 ; CHECK-LABEL: foo:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    subq $40, %rsp
-; CHECK-NEXT:    movq func@GOTPCREL(%rip), %rcx
-; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq sfunc(%rip), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq GV@GOTPCREL(%rip), %rdx
+; CHECK-NEXT:    pushq %rax
+; CHECK-NEXT:    movq GV@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq func@GOTPCREL(%rip), %rdx
 ; CHECK-NEXT:    #APP
 ; CHECK-EMPTY:
 
 ;   call func
-; CHECK-NEXT:    callq *{{[0-9]+}}(%rsp)
-
+; CHECK-NEXT:    callq func@PLT
 ;   jmp func
-; CHECK-NEXT:    jmpq *{{[0-9]+}}(%rsp)
-
+; CHECK-NEXT:    jmpq *(%rdx)
 ;   call sfunc
-; CHECK-NEXT:    callq *{{[0-9]+}}(%rsp)
-
+; CHECK-NEXT:    callq sfunc
 ;   jmp sfunc
-; CHECK-NEXT:    jmpq *{{[0-9]+}}(%rsp)
-
+; CHECK-NEXT:    jmp sfunc
 ;   mov rax, func
-; CHECK-NEXT:    movq (%rcx), %rax
-
+; CHECK-NEXT:    movq (%rdx), %rax
 ;   mov rax, sfunc
 ; CHECK-NEXT:    movq sfunc(%rip), %rax
-
 ;   mov rax, GV
-; CHECK-NEXT:    movq (%rdx), %rax
-
+; CHECK-NEXT:    movq (%rcx), %rax
 ;   lea rax, func
-; CHECK-NEXT:    leaq (%rcx), %rax
-
+; CHECK-NEXT:    leaq (%rdx), %rax
 ;   lea rax, sfunc
 ; CHECK-NEXT:    leaq sfunc(%rip), %rax
-
 ;   lea rax, GV
-; CHECK-NEXT:    leaq (%rdx), %rax
-
+; CHECK-NEXT:    leaq (%rcx), %rax
 ;   add rax, func
-; CHECK-NEXT:    addq (%rcx), %rax
-
+; CHECK-NEXT:    addq (%rdx), %rax
 ;   add rax, sfunc
 ; CHECK-NEXT:    addq sfunc(%rip), %rax
-
 ;   add rax, GV
-; CHECK-NEXT:    addq (%rdx), %rax
-
+; CHECK-NEXT:    addq (%rcx), %rax
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    addq $40, %rsp
+; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    retq
+
 entry:
   tail call void asm sideeffect inteldialect "call qword ptr ${0:P}\0A\09jmp qword ptr ${1:P}\0A\09call qword ptr ${2:P}\0A\09jmp qword ptr ${3:P}\0A\09mov rax, qword ptr $4\0A\09mov rax, qword ptr $5\0A\09mov rax, $6\0A\09lea rax, qword ptr $7\0A\09lea rax, qword ptr $8\0A\09lea rax, $9\0A\09add rax, qword ptr $10\0A\09add rax, qword ptr $11\0A\09add rax, $12", "*m,*m,*m,*m,*m,*m,*m,*m,*m,*m,*m,*m,*m,~{flags},~{rax},~{dirflag},~{fpsr},~{flags}"(void (...)* nonnull elementtype(void (...)) @func, void (...)* nonnull elementtype(void (...)) @func, void (...)* elementtype(void (...)) bitcast (void ()* @sfunc to void (...)*), void (...)* elementtype(void (...)) bitcast (void ()* @sfunc to void (...)*), void (...)* nonnull elementtype(void (...)) @func, void (...)* elementtype(void (...)) bitcast (void ()* @sfunc to void (...)*), i64* nonnull elementtype(i64) @GV, void (...)* nonnull elementtype(void (...)) @func, void (...)* elementtype(void (...)) bitcast (void ()* @sfunc to void (...)*), i64* nonnull elementtype(i64) @GV, void (...)* nonnull elementtype(void (...)) @func, void (...)* elementtype(void (...)) bitcast (void ()* @sfunc to void (...)*), i64* nonnull elementtype(i64) @GV)
   ret void
@@ -89,12 +72,6 @@ entry:
 declare void @func(...)
 
 define internal void @sfunc() {
-; CHECK-LABEL: sfunc:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    retq
-; CHECK-PIC-LABEL: sfunc:
-; CHECK-PIC:       # %bb.0: # %entry
-; CHECK-PIC-NEXT:    retq
 entry:
   ret void
 }

@@ -1649,8 +1649,6 @@ namespace llvm {
 
     bool CustomLowerComplexMultiply(Type *FloatTy) const override;
 
-    bool hasExtraIndirectConstraint(const SmallVectorImpl<StringRef> &AsmStrs,
-                                    unsigned OpNo) const override;
 #endif // INTEL_CUSTOMIZATION
 
     bool isInlineAsmTargetBranch(const SmallVectorImpl<StringRef> &AsmStrs,

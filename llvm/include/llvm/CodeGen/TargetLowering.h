@@ -3585,13 +3585,6 @@ public:
   /// legal.  It is frequently not legal in PIC relocation models.
   virtual bool isOffsetFoldingLegal(const GlobalAddressSDNode *GA) const;
 
-#if INTEL_CUSTOMIZATION
-  virtual bool
-  hasExtraIndirectConstraint(const SmallVectorImpl<StringRef> &AsmStrs,
-                             unsigned OpNo) const {
-    return false;
-  }
-#endif // INTEL_CUSTOMIZATION
   /// Return true if the operand with index OpNo corresponding to a target
   /// branch, for example, in following case
   ///

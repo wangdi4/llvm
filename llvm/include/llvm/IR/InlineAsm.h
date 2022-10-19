@@ -34,7 +34,6 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/SmallVector.h" // INTEL
 #include "llvm/IR/Value.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cassert>
