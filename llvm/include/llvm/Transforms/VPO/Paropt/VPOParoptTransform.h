@@ -97,7 +97,8 @@ enum DeviceArch : uint64_t {
   DeviceArch_None   = 0,
   DeviceArch_Gen9   = 0x0001,
   DeviceArch_XeLP   = 0x0002, // DG1
-  DeviceArch_XeHP   = 0x0004, // ATS
+  DeviceArch_XeHP   = 0x0004, // ATS, PVC
+  DeviceArch_XeHPG  = 0x0008, // DG2, ATS-M
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 

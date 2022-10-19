@@ -33,7 +33,7 @@
 ; Here, iop is 'i8* %i0'
 
 ; CHECK: [[DEVICE:%[^ ]+]] = call i64 @omp_get_interop_int(i8* %i0, i32 -5, i32* null)
-; CHECK: call i32 @__tgt_is_device_available(i64 [[DEVICE]], i8* inttoptr (i64 7 to i8*))
+; CHECK: call i32 @__tgt_is_device_available(i64 [[DEVICE]], i8* inttoptr (i64 15 to i8*))
 
 ; Check that the interop obj '%i0' is passed to the variant function
 ; CHECK-DAG:  call void @_Z7foo_gpuiPv(i32 123, i8* %i0)
