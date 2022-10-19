@@ -9469,52 +9469,10 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     return GetCostDiff(GetScalarCost, GetVectorCost);
   }
   case Instruction::Load: {
-<<<<<<< HEAD
-    // Cost of wide load - cost of scalar loads.
-    Align Alignment = cast<LoadInst>(VL0)->getAlign();
-    InstructionCost ScalarEltCost =
-        TTI->getMemoryOpCost(Instruction::Load, ScalarTy, Alignment, 0,
-                             CostKind, {TTI::OK_AnyValue, TTI::OP_None}, VL0);
-    if (NeedToShuffleReuses) {
-      CommonCost -= (EntryVF - VL.size()) * ScalarEltCost;
-    }
-    InstructionCost ScalarLdCost = VecTy->getNumElements() * ScalarEltCost;
-    InstructionCost VecLdCost;
-    if (E->State == TreeEntry::Vectorize) {
-      VecLdCost = TTI->getMemoryOpCost(Instruction::Load, VecTy, Alignment, 0,
-                                       CostKind, TTI::OperandValueInfo(), VL0);
-#if INTEL_CUSTOMIZATION
-      // Cost modeling for split-load.
-      if (!E->SplitLoadGroups.empty()) {
-        // Cost of all loads.
-        unsigned Size = std::get<1>(E->SplitLoadGroups.back());
-        unsigned NumElems = E->SplitLoadGroups.size();
-        VecLdCost = NumElems *
-                    TTI->getMemoryOpCost(
-                        Instruction::Load, FixedVectorType::get(ScalarTy, Size),
-                        Alignment, 0, CostKind, TTI::OperandValueInfo(), VL0);
-        // Cost of shuffles.
-        do {
-          Size *= 2;
-          NumElems /= 2;
-          VecLdCost += NumElems * TTI->getShuffleCost(
-                                      TargetTransformInfo::SK_PermuteTwoSrc,
-                                      FixedVectorType::get(ScalarTy, Size));
-        } while (NumElems > 1);
-      }
-#endif // INTEL_CUSTOMIZATION
-
-      for (Value *V : VL) {
-        auto *VI = cast<LoadInst>(V);
-        // Add the costs of scalar GEP pointers, to be removed from the code.
-        if (VI == VL0)
-          continue;
-=======
     auto GetScalarCost = [=](unsigned Idx) {
       auto *VI = cast<LoadInst>(VL[Idx]);
       InstructionCost GEPCost = 0;
       if (VI != VL0) {
->>>>>>> f12fb91188b836e1bddb36bacbbdb8e4ab70b9b6
         auto *Ptr = dyn_cast<GetElementPtrInst>(VI->getPointerOperand());
         if (Ptr && Ptr->hasOneUse() && !Ptr->hasAllConstantIndices())
           GEPCost = TTI->getArithmeticInstrCost(Instruction::Add,
@@ -9532,6 +9490,28 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         VecLdCost = TTI->getMemoryOpCost(
             Instruction::Load, VecTy, LI0->getAlign(),
             LI0->getPointerAddressSpace(), CostKind, TTI::OperandValueInfo());
+#if INTEL_CUSTOMIZATION
+        // Cost modeling for split-load.
+        if (!E->SplitLoadGroups.empty()) {
+          // Cost of all loads.
+          unsigned Size = std::get<1>(E->SplitLoadGroups.back());
+          unsigned NumElems = E->SplitLoadGroups.size();
+          Align Alignment = cast<LoadInst>(VL0)->getAlign();
+          VecLdCost = NumElems *
+                      TTI->getMemoryOpCost(Instruction::Load,
+                                           FixedVectorType::get(ScalarTy, Size),
+                                           Alignment, 0, CostKind,
+                                           TTI::OperandValueInfo(), VL0);
+          // Cost of shuffles.
+          do {
+            Size *= 2;
+            NumElems /= 2;
+            VecLdCost += NumElems * TTI->getShuffleCost(
+                                        TargetTransformInfo::SK_PermuteTwoSrc,
+                                        FixedVectorType::get(ScalarTy, Size));
+          } while (NumElems > 1);
+        }
+#endif // INTEL_CUSTOMIZATION
       } else {
         assert(E->State == TreeEntry::ScatterVectorize && "Unknown EntryState");
         Align CommonAlignment = LI0->getAlign();
@@ -9658,29 +9638,19 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
                                          TTI::CastContextHint::None, CostKind);
       }
       SmallVector<int> Mask;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      // If tree entry is a MultiNode trunk with frontiers and reordering
-      // modified any opcodes this will build the alternate mask taking into
-      // account these overrides.
-      // This could be a much better glue up if buildShuffleEntryMask was
-      // a TreeEntry member.
-      if (!E->buildAltShuffleMask(Mask))
-#endif // INTEL_CUSTOMIZATION
-      buildShuffleEntryMask(
-          E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
-          [E](Instruction *I) {
-            assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
-            return I->getOpcode() == E->getAltOpcode();
-          },
-          Mask);
-      CommonCost = TTI->getShuffleCost(TargetTransformInfo::SK_PermuteTwoSrc,
-=======
       if (E->ReuseShuffleIndices.empty()) {
         VecCost +=
             TTI->getShuffleCost(TargetTransformInfo::SK_Select, FinalVecTy);
       } else {
         SmallVector<int> Mask;
+#if INTEL_CUSTOMIZATION
+        // If tree entry is a MultiNode trunk with frontiers and reordering
+        // modified any opcodes this will build the alternate mask taking into
+        // account these overrides.
+        // This could be a much better glue up if buildShuffleEntryMask was
+        // a TreeEntry member.
+      if (!E->buildAltShuffleMask(Mask))
+#endif  // INTEL_CUSTOMIZATION
         buildShuffleEntryMask(
             E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
             [E](Instruction *I) {
@@ -9689,7 +9659,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
             },
             Mask);
         VecCost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteTwoSrc,
->>>>>>> f12fb91188b836e1bddb36bacbbdb8e4ab70b9b6
                                        FinalVecTy, Mask);
       }
       return VecCost;
