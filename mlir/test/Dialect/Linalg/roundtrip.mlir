@@ -6,8 +6,6 @@
 // Test that we can lower all the way to LLVM without crashing, don't check results here.
 // DISABLED: mlir-opt %s --convert-linalg-to-llvm -o=/dev/null 2>&1
 
-// CHECK: #[[$strided3DT:.*]] = affine_map<(d0, d1, d2)[s0, s1, s2] -> (d2 * s1 + s0 + d1 * s2 + d0)>
-
 func.func @views(%arg0: index) {
   %c0 = arith.constant 0 : index
   %0 = arith.muli %arg0, %arg0 : index
@@ -70,12 +68,12 @@ func.func @fill_view(%arg0: memref<?xf32, strided<[1], offset: ?>>, %arg1: f32) 
 // -----
 
 func.func @transpose(%arg0: memref<?x?x?xf32, strided<[?, ?, 1], offset: ?>>) {
-  %0 = memref.transpose %arg0 (i, j, k) -> (k, j, i) : memref<?x?x?xf32, strided<[?, ?, 1], offset: ?>> to memref<?x?x?xf32, affine_map<(d0, d1, d2)[s0, s1, s2] -> (d2 * s1 + s0 + d1 * s2 + d0)>>
+  %0 = memref.transpose %arg0 (i, j, k) -> (k, j, i) : memref<?x?x?xf32, strided<[?, ?, 1], offset: ?>> to memref<?x?x?xf32, strided<[1, ?, ?], offset: ?>>
   return
 }
 // CHECK-LABEL: func @transpose
 //       CHECK:   memref.transpose %{{.*}} ([[i:.*]], [[j:.*]], [[k:.*]]) -> ([[k]], [[j]], [[i]]) :
-//  CHECK-SAME:      memref<?x?x?xf32, strided<[?, ?, 1], offset: ?>> to memref<?x?x?xf32, #[[$strided3DT]]>
+//  CHECK-SAME:      memref<?x?x?xf32, strided<[?, ?, 1], offset: ?>> to memref<?x?x?xf32, strided<[1, ?, ?], offset: ?>>
 
 // -----
 
@@ -368,3 +366,39 @@ func.func @mixed_parallel_reduced_results(%arg0 : tensor<?x?x?xf32>,
 }
 // CHECK-LABEL: func @mixed_parallel_reduced_results
 //       CHECK:     linalg.generic
+
+// -----
+
+func.func @reduce(%input: tensor<16x32x64xf32>,
+                     %init: tensor<16x64xf32>) -> tensor<16x64xf32> {
+  %reduce = linalg.reduce
+      ins(%input:tensor<16x32x64xf32>)
+      outs(%init:tensor<16x64xf32>)
+      dimensions = [1]
+      (%in: f32, %out: f32) {
+        %0 = arith.addf %in, %out: f32
+        linalg.yield %0: f32
+      }
+  func.return %reduce : tensor<16x64xf32>
+}
+// CHECK-LABEL: func @reduce
+//       CHECK:     linalg.reduce
+
+// -----
+
+func.func @variadic_reduce(%input1: tensor<16x32x64xf32>,
+    %init1: tensor<16x64xf32>, %input2: tensor<16x32x64xi64>,
+    %init2: tensor<16x64xi64>)  -> (tensor<16x64xf32>, tensor<16x64xi64>) {
+  %reduce, %reduce2 = linalg.reduce
+      ins(%input1, %input2 : tensor<16x32x64xf32>, tensor<16x32x64xi64>)
+      outs(%init1, %init2 : tensor<16x64xf32>, tensor<16x64xi64>)
+      dimensions = [1]
+      (%in1: f32, %in2: i64, %out1: f32, %out2: i64) {
+        %0 = arith.addf %in1, %out1: f32
+        %1 = arith.addi %in2, %out2: i64
+        linalg.yield %0, %1: f32, i64
+      }
+  func.return %reduce, %reduce2 : tensor<16x64xf32>, tensor<16x64xi64>
+}
+// CHECK-LABEL: func @variadic_reduce
+//       CHECK:     linalg.reduce

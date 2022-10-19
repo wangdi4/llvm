@@ -30,9 +30,9 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB8]]
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[VEC_PHI10:%.*]] = phi <2 x ptr> [ [[MM_VECTORGEP]], [[VPLANNEDBB4]] ], [ [[MM_VECTORGEP9]], [[VPLANNEDBB3]] ]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[VEC_PHI10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[VEC_PHI10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[MM_VECTORGEP11:%.*]] = getelementptr inbounds i64, <2 x ptr> [[VEC_PHI10]], <2 x i64> [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER12:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[MM_VECTORGEP11]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER12:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[MM_VECTORGEP11]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024

@@ -2,6 +2,7 @@
 // The contents of this test checks for the following PVC+ features:
 //  fp32<->bf8 and fp32->tf32 convertion
 // REQUIRES: intel_feature_esimd_embargo
+// UNSUPPORTED: linux
 
 // Checks host+device compilation
 // RUN: %clangxx -fsycl -fsyntax-only %s

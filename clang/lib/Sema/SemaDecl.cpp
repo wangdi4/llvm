@@ -342,12 +342,12 @@ static ParsedType buildNamedType(Sema &S, const CXXScopeSpec *SS, QualType T,
 /// opaque pointer (actually a QualType) corresponding to that
 /// type. Otherwise, returns NULL.
 ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
-                             Scope *S, CXXScopeSpec *SS,
-                             bool isClassName, bool HasTrailingDot,
-                             ParsedType ObjectTypePtr,
+                             Scope *S, CXXScopeSpec *SS, bool isClassName,
+                             bool HasTrailingDot, ParsedType ObjectTypePtr,
                              bool IsCtorOrDtorName,
                              bool WantNontrivialTypeSourceInfo,
                              bool IsClassTemplateDeductionContext,
+                             ImplicitTypenameContext AllowImplicitTypename,
                              IdentifierInfo **CorrectedII) {
   // FIXME: Consider allowing this outside C++1z mode as an extension.
   bool AllowDeducedTemplate = IsClassTemplateDeductionContext &&
@@ -374,17 +374,33 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
         //
         // We therefore do not perform any name lookup if the result would
         // refer to a member of an unknown specialization.
-        if (!isClassName && !IsCtorOrDtorName)
+        // In C++2a, in several contexts a 'typename' is not required. Also
+        // allow this as an extension.
+        if (AllowImplicitTypename == ImplicitTypenameContext::No &&
+            !isClassName && !IsCtorOrDtorName)
           return nullptr;
+        bool IsImplicitTypename = !isClassName && !IsCtorOrDtorName;
+        if (IsImplicitTypename) {
+          SourceLocation QualifiedLoc = SS->getRange().getBegin();
+          if (getLangOpts().CPlusPlus20)
+            Diag(QualifiedLoc, diag::warn_cxx17_compat_implicit_typename);
+          else
+            Diag(QualifiedLoc, diag::ext_implicit_typename)
+                << SS->getScopeRep() << II.getName()
+                << FixItHint::CreateInsertion(QualifiedLoc, "typename ");
+        }
 
         // We know from the grammar that this name refers to a type,
         // so build a dependent node to describe the type.
         if (WantNontrivialTypeSourceInfo)
-          return ActOnTypenameType(S, SourceLocation(), *SS, II, NameLoc).get();
+          return ActOnTypenameType(S, SourceLocation(), *SS, II, NameLoc,
+                                   (ImplicitTypenameContext)IsImplicitTypename)
+              .get();
 
         NestedNameSpecifierLoc QualifierLoc = SS->getWithLocInContext(Context);
-        QualType T = CheckTypenameType(ETK_None, SourceLocation(), QualifierLoc,
-                                       II, NameLoc);
+        QualType T =
+            CheckTypenameType(IsImplicitTypename ? ETK_Typename : ETK_None,
+                              SourceLocation(), QualifierLoc, II, NameLoc);
         return ParsedType::make(T);
       }
 
@@ -1299,7 +1315,7 @@ ExprResult Sema::ActOnNameClassifiedAsNonType(Scope *S, const CXXScopeSpec &SS,
   Result.resolveKind();
 
   bool ADL = UseArgumentDependentLookup(SS, Result, NextToken.is(tok::l_paren));
-  return BuildDeclarationNameExpr(SS, Result, ADL);
+  return BuildDeclarationNameExpr(SS, Result, ADL, /*AcceptInvalidDecl=*/true);
 }
 
 ExprResult Sema::ActOnNameClassifiedAsOverloadSet(Scope *S, Expr *E) {
@@ -4189,10 +4205,9 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
         // The old declaration provided a function prototype, but the
         // new declaration does not. Merge in the prototype.
         assert(!OldProto->hasExceptionSpec() && "Exception spec in C");
-        SmallVector<QualType, 16> ParamTypes(OldProto->param_types());
-        NewQType =
-            Context.getFunctionType(NewFuncType->getReturnType(), ParamTypes,
-                                    OldProto->getExtProtoInfo());
+        NewQType = Context.getFunctionType(NewFuncType->getReturnType(),
+                                           OldProto->getParamTypes(),
+                                           OldProto->getExtProtoInfo());
         New->setType(NewQType);
         New->setHasInheritedPrototype();
 
@@ -6060,6 +6075,7 @@ static bool RebuildDeclaratorInCurrentInstantiation(Sema &S, Declarator &D,
   switch (DS.getTypeSpecType()) {
   case DeclSpec::TST_typename:
   case DeclSpec::TST_typeofType:
+  case DeclSpec::TST_typeof_unqualType:
 #define TRANSFORM_TYPE_TRAIT_DEF(_, Trait) case DeclSpec::TST_##Trait:
 #include "clang/Basic/TransformTypeTraits.def"
   case DeclSpec::TST_atomic: {
@@ -6085,6 +6101,7 @@ static bool RebuildDeclaratorInCurrentInstantiation(Sema &S, Declarator &D,
   }
 
   case DeclSpec::TST_decltype:
+  case DeclSpec::TST_typeof_unqualExpr:
   case DeclSpec::TST_typeofExpr: {
     Expr *E = DS.getRepAsExpr();
     ExprResult Result = S.RebuildExprInCurrentInstantiation(E);
@@ -7266,6 +7283,9 @@ static bool shouldConsiderLinkage(const VarDecl *VD) {
     return true;
   if (DC->isRecord())
     return false;
+  if (DC->getDeclKind() == Decl::HLSLBuffer)
+    return false;
+
   if (isa<RequiresExprBodyDecl>(DC))
     return false;
   llvm_unreachable("Unexpected context");
@@ -10305,6 +10325,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       NewFD->dropAttr<SectionAttr>();
   }
 
+  // Apply an implicit StrictGuardStackCheckAttr if #pragma strict_gs_check is
+  // active.
+  if (StrictGuardStackCheckStack.CurrentValue && D.isFunctionDefinition() &&
+      !NewFD->hasAttr<StrictGuardStackCheckAttr>())
+    NewFD->addAttr(StrictGuardStackCheckAttr::CreateImplicit(
+        Context, PragmaClangTextSection.PragmaLocation,
+        AttributeCommonInfo::AS_Pragma));
+
   // Apply an implicit CodeSegAttr from class declspec or
   // apply an implicit SectionAttr from #pragma code_seg if active.
   if (!NewFD->hasAttr<CodeSegAttr>()) {
@@ -10685,16 +10713,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     Diag(NewFD->getLocation(),
          diag::err_attribute_overloadable_no_prototype)
       << NewFD;
-
-    // Turn this into a variadic function with no parameters.
-    const auto *FT = NewFD->getType()->castAs<FunctionType>();
-    FunctionProtoType::ExtProtoInfo EPI(
-        Context.getDefaultCallingConvention(true, false));
-    EPI.Variadic = true;
-    EPI.ExtInfo = FT->getExtInfo();
-
-    QualType R = Context.getFunctionType(FT->getReturnType(), None, EPI);
-    NewFD->setType(R);
+    NewFD->dropAttr<OverloadableAttr>();
   }
 
   // If there's a #pragma GCC visibility in scope, and this isn't a class
@@ -10792,6 +10811,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   }
 
   if (getLangOpts().CPlusPlus) {
+    // Precalculate whether this is a friend function template with a constraint
+    // that depends on an enclosing template, per [temp.friend]p9.
+    if (isFriend && FunctionTemplate &&
+        FriendConstraintsDependOnEnclosingTemplate(NewFD))
+      NewFD->setFriendConstraintRefersToEnclosingTemplate(true);
+
     if (FunctionTemplate) {
       if (NewFD->isInvalidDecl())
         FunctionTemplate->setInvalidDecl();
@@ -12239,6 +12264,7 @@ void Sema::CheckHLSLEntryPoint(FunctionDecl *FD) {
   for (const auto *Param : FD->parameters()) {
     if (!Param->hasAttr<HLSLAnnotationAttr>()) {
       // FIXME: Handle struct parameters where annotations are on struct fields.
+      // See: https://github.com/llvm/llvm-project/issues/57875
       Diag(FD->getLocation(), diag::err_hlsl_missing_semantic_annotation);
       Diag(Param->getLocation(), diag::note_previous_decl) << Param;
       FD->setInvalidDecl();
@@ -12715,7 +12741,10 @@ QualType Sema::deduceVarTypeFromInitializer(VarDecl *VDecl,
                                     Type.getQualifiers());
 
   QualType DeducedType;
-  if (DeduceAutoType(TSI, DeduceInit, DeducedType) == DAR_Failed) {
+  TemplateDeductionInfo Info(DeduceInit->getExprLoc());
+  TemplateDeductionResult Result =
+      DeduceAutoType(TSI->getTypeLoc(), DeduceInit, DeducedType, Info);
+  if (Result != TDK_Success && Result != TDK_AlreadyDiagnosed) {
     if (!IsInitCapture)
       DiagnoseAutoDeductionFailure(VDecl, DeduceInit);
     else if (isa<InitListExpr>(Init))

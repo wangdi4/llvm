@@ -86,7 +86,7 @@ define i32 @predicated_sdiv_masked_load(i32* %a, i32* %b, i32 %x, i1 %c) {
 ; INTEL_CUSTOMIZATION
 ; GATHER-LABEL: @scalarize_and_sink_gather
 ; GATHER:      vector.body:
-; GATHER:        [[T0:%.+]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %{{.*}}, i32 4, <8 x i1> %{{.*}}, <8 x i32> undef)
+; GATHER:        [[T0:%.+]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %{{.*}}, i32 4, <8 x i1> %{{.*}}, <8 x i32> poison)
 ; GATHER-LABEL: pred.udiv.if:                                     ; preds = %vector.body
 ; GATHER-NEXT:   [[EXT:%.+]] = extractelement <8 x i32> [[T0]], i32 0
 ; GATHER-NEXT:   [[UDIV:%.+]] = udiv i32 [[EXT]], %x

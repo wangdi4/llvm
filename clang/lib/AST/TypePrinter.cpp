@@ -1147,7 +1147,7 @@ void TypePrinter::printTypedefAfter(const TypedefType *T, raw_ostream &OS) {}
 
 void TypePrinter::printTypeOfExprBefore(const TypeOfExprType *T,
                                         raw_ostream &OS) {
-  OS << "typeof ";
+  OS << (T->isUnqual() ? "typeof_unqual " : "typeof ");
   if (T->getUnderlyingExpr())
     T->getUnderlyingExpr()->printPretty(OS, nullptr, Policy);
   spaceBeforePlaceHolder(OS);
@@ -1157,8 +1157,8 @@ void TypePrinter::printTypeOfExprAfter(const TypeOfExprType *T,
                                        raw_ostream &OS) {}
 
 void TypePrinter::printTypeOfBefore(const TypeOfType *T, raw_ostream &OS) {
-  OS << "typeof(";
-  print(T->getUnderlyingType(), OS, StringRef());
+  OS << (T->isUnqual() ? "typeof_unqual(" : "typeof(");
+  print(T->getUnmodifiedType(), OS, StringRef());
   OS << ')';
   spaceBeforePlaceHolder(OS);
 }

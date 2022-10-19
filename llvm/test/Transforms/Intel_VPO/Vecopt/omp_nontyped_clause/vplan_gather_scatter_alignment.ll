@@ -23,7 +23,7 @@ define void @_ZGVdN2u_test_vector(i8 %uni) {
 ; CHECK:    [[TMP1:%.*]] = bitcast <2 x <4 x i8>*> [[MM_VECTORGEP0]] to <2 x i8*>
 ; CHECK:    [[VECBASEPTR_0:%.*]] = shufflevector <2 x i8*> [[TMP1]], <2 x i8*> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:    [[ELEMBASEPTR_0:%.*]] = getelementptr i8, <8 x i8*> [[VECBASEPTR_0]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK:    [[WIDE_MASKED_GATHER0:%.*]] = call <8 x i8> @llvm.masked.gather.v8i8.v8p0i8(<8 x i8*> [[ELEMBASEPTR_0]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i8> undef)
+; CHECK:    [[WIDE_MASKED_GATHER0:%.*]] = call <8 x i8> @llvm.masked.gather.v8i8.v8p0i8(<8 x i8*> [[ELEMBASEPTR_0]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i8> poison)
 
 ; CHECK:    [[TMP2:%.*]] = bitcast <2 x <4 x i8>*> [[MM_VECTORGEP30]] to <2 x i8*>
 ; CHECK:    [[VECBASEPTR_40:%.*]] = shufflevector <2 x i8*> [[TMP2]], <2 x i8*> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
@@ -67,7 +67,7 @@ define void @_ZGVdN2u_test_scalar(i8 %uni) {
 ; CHECK:  vector.body:
 ; CHECK:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds [2 x i32], <2 x [2 x i32]*> [[SPRIVATESTORAGE_SRC_VEC_BASE_ADDR0]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK:    [[MM_VECTORGEP30:%.*]] = getelementptr inbounds [2 x i32], <2 x [2 x i32]*> [[SPRIVATESTORAGE_DST_VEC_BASE_ADDR0]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
-; CHECK:    [[WIDE_MASKED_GATHER0:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[MM_VECTORGEP0]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; CHECK:    [[WIDE_MASKED_GATHER0:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[MM_VECTORGEP0]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> poison)
 ; CHECK:    call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> [[WIDE_MASKED_GATHER0]], <2 x i32*> [[MM_VECTORGEP30]], i32 4, <2 x i1> <i1 true, i1 true>)
 entry:
   %sPrivateStorage.src = alloca [2 x i32], align 4

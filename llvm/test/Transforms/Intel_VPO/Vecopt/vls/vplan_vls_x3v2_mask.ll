@@ -48,7 +48,7 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK:         [[SCALAR_GEP0:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[DST0:%.*]], i64 [[UNI_PHI40:%.*]]
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds <2 x i32>, <4 x <2 x i32>*> [[BROADCAST_SPLAT0:%.*]], <4 x i64> [[VEC_PHI0:%.*]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x <2 x i32>*> [[MM_VECTORGEP0]] to <4 x i32*>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP1:%.*]] = and <4 x i32> [[WIDE_MASKED_GATHER0]], <i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <4 x i32> [[TMP1]], zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = xor <4 x i1> [[TMP2]], <i1 true, i1 true, i1 true, i1 true>
@@ -58,7 +58,7 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SRC0:%.*]], i64 [[UNI_PHI40]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP60]] to <16 x i64>*
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i1> [[TMP3]], <4 x i1> zeroinitializer, <16 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i64> @llvm.masked.load.v16i64.p0v16i64(<16 x i64>* [[TMP4]], i32 4, <16 x i1> [[TMP5]], <16 x i64> undef)
+; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i64> @llvm.masked.load.v16i64.p0v16i64(<16 x i64>* [[TMP4]], i32 4, <16 x i1> [[TMP5]], <16 x i64> poison)
 ; CHECK-NEXT:    [[VP_SRC_0_VAL0:%.*]] = shufflevector <16 x i64> [[VLS_LOAD0]], <16 x i64> [[VLS_LOAD0]], <4 x i32> <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i64> [[VP_SRC_0_VAL0]] to <8 x i32>
 ; CHECK-NEXT:    [[VP_SRC_1_VAL0:%.*]] = shufflevector <16 x i64> [[VLS_LOAD0]], <16 x i64> [[VLS_LOAD0]], <4 x i32> <i32 1, i32 4, i32 7, i32 10>

@@ -258,7 +258,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.cond.
 define dso_local void @maskedSetElement(<4 x float>* %vec, float %val, i32* %arr) {
 ; CHECK-LABEL: @maskedSetElement(
 ; CHECK:       vector.body:
-; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> undef)
+; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> poison)
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_6:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:         [[TMP7:%.*]] = srem <2 x i32> [[WIDE_MASKED_LOAD6:%.*]], <i32 4, i32 4>
@@ -348,7 +348,7 @@ DIR.OMP.END.SIMD.3:
 define dso_local float @maskedGetElement(<4 x float>* %vec, float %val, i32 %i) {
 ; CHECK-LABEL: @maskedGetElement(
 ; CHECK:       vector.body:
-; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> undef)
+; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> poison)
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_7:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:         [[TMP7:%.*]] = select <2 x i1> [[TMP5:%.*]], <2 x i32> [[TMP3:%.*]], <2 x i32> <i32 1, i32 1>

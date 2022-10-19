@@ -669,7 +669,7 @@ CallInst *IRBuilderBase::CreateMaskedLoad(Type *Ty, Value *Ptr, Align Alignment,
   assert(PtrTy->isOpaqueOrPointeeTypeMatches(Ty) && "Wrong element type");
   assert(Mask && "Mask should not be all-ones (null)");
   if (!PassThru)
-    PassThru = UndefValue::get(Ty);
+    PassThru = PoisonValue::get(Ty);
   Type *OverloadedTypes[] = { Ty, PtrTy };
   Value *Ops[] = {Ptr, getInt32(Alignment.value()), Mask, PassThru};
   return CreateMaskedIntrinsic(Intrinsic::masked_load, Ops,
@@ -733,7 +733,7 @@ CallInst *IRBuilderBase::CreateMaskedGather(Type *Ty, Value *Ptrs,
         VectorType::get(Type::getInt1Ty(Context), NumElts));
 
   if (!PassThru)
-    PassThru = UndefValue::get(Ty);
+    PassThru = PoisonValue::get(Ty);
 
   Type *OverloadedTypes[] = {Ty, PtrsTy};
   Value *Ops[] = {Ptrs, getInt32(Alignment.value()), Mask, PassThru};
@@ -795,7 +795,7 @@ CallInst *IRBuilderBase::CreateMaskedExpandLoad(Type *Ty, Value *Ptr,
   (void)PtrTy;
   assert(Mask && "Mask should not be all-ones (null)");
   if (!PassThru)
-    PassThru = UndefValue::get(Ty);
+    PassThru = PoisonValue::get(Ty);
   Type *OverloadedTypes[] = {Ty};
   Value *Ops[] = {Ptr, Mask, PassThru};
   return CreateMaskedIntrinsic(Intrinsic::masked_expandload, Ops,

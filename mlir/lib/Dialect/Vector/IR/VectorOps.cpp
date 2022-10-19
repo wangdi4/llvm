@@ -13,8 +13,8 @@
 
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/Arithmetic/Utils/Utils.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
@@ -1631,81 +1631,6 @@ static void populateFromInt64AttrArray(ArrayAttr arrayAttr,
 }
 
 //===----------------------------------------------------------------------===//
-// ExtractMapOp
-//===----------------------------------------------------------------------===//
-
-void ExtractMapOp::build(OpBuilder &builder, OperationState &result,
-                         Value vector, ValueRange ids,
-                         ArrayRef<int64_t> multiplicity,
-                         AffineMap permutationMap) {
-  assert(ids.size() == multiplicity.size() &&
-         ids.size() == permutationMap.getNumResults());
-  assert(permutationMap.isProjectedPermutation());
-  VectorType type = vector.getType().cast<VectorType>();
-  SmallVector<int64_t, 4> newShape(type.getShape().begin(),
-                                   type.getShape().end());
-  for (unsigned i = 0, e = permutationMap.getNumResults(); i < e; i++) {
-    AffineExpr expr = permutationMap.getResult(i);
-    auto dim = expr.cast<AffineDimExpr>();
-    newShape[dim.getPosition()] = newShape[dim.getPosition()] / multiplicity[i];
-  }
-  VectorType resultType = VectorType::get(newShape, type.getElementType());
-  ExtractMapOp::build(builder, result, resultType, vector, ids);
-}
-
-LogicalResult ExtractMapOp::verify() {
-  if (getSourceVectorType().getRank() != getResultType().getRank())
-    return emitOpError("expected source and destination vectors of same rank");
-  unsigned numId = 0;
-  for (unsigned i = 0, e = getSourceVectorType().getRank(); i < e; ++i) {
-    if (getSourceVectorType().getDimSize(i) % getResultType().getDimSize(i) !=
-        0)
-      return emitOpError("source vector dimensions must be a multiple of "
-                         "destination vector dimensions");
-    if (getSourceVectorType().getDimSize(i) != getResultType().getDimSize(i))
-      numId++;
-  }
-  if (numId != getIds().size())
-    return emitOpError("expected number of ids must match the number of "
-                       "dimensions distributed");
-  return success();
-}
-
-OpFoldResult ExtractMapOp::fold(ArrayRef<Attribute> operands) {
-  auto insert = getVector().getDefiningOp<vector::InsertMapOp>();
-  if (insert == nullptr || getType() != insert.getVector().getType() ||
-      getIds() != insert.getIds())
-    return {};
-  return insert.getVector();
-}
-
-void ExtractMapOp::getMultiplicity(SmallVectorImpl<int64_t> &multiplicity) {
-  assert(multiplicity.empty());
-  for (unsigned i = 0, e = getSourceVectorType().getRank(); i < e; i++) {
-    if (getSourceVectorType().getDimSize(i) != getResultType().getDimSize(i))
-      multiplicity.push_back(getSourceVectorType().getDimSize(i) /
-                             getResultType().getDimSize(i));
-  }
-}
-
-template <typename MapOp>
-AffineMap calculateImplicitMap(MapOp op) {
-  SmallVector<AffineExpr, 4> perm;
-  // Check which dimension have a multiplicity greater than 1 and associated
-  // them to the IDs in order.
-  for (unsigned i = 0, e = op.getSourceVectorType().getRank(); i < e; i++) {
-    if (op.getSourceVectorType().getDimSize(i) !=
-        op.getResultType().getDimSize(i))
-      perm.push_back(getAffineDimExpr(i, op.getContext()));
-  }
-  auto map = AffineMap::get(op.getSourceVectorType().getRank(), 0, perm,
-                            op.getContext());
-  return map;
-}
-
-AffineMap ExtractMapOp::map() { return calculateImplicitMap(*this); }
-
-//===----------------------------------------------------------------------===//
 // FmaOp
 //===----------------------------------------------------------------------===//
 
@@ -2132,30 +2057,6 @@ OpFoldResult vector::InsertOp::fold(ArrayRef<Attribute> operands) {
     return getSource();
   return {};
 }
-
-//===----------------------------------------------------------------------===//
-// InsertMapOp
-//===----------------------------------------------------------------------===//
-
-LogicalResult InsertMapOp::verify() {
-  if (getSourceVectorType().getRank() != getResultType().getRank())
-    return emitOpError("expected source and destination vectors of same rank");
-  unsigned numId = 0;
-  for (unsigned i = 0, e = getResultType().getRank(); i < e; i++) {
-    if (getResultType().getDimSize(i) % getSourceVectorType().getDimSize(i) !=
-        0)
-      return emitOpError(
-          "destination vector size must be a multiple of source vector size");
-    if (getResultType().getDimSize(i) != getSourceVectorType().getDimSize(i))
-      numId++;
-  }
-  if (numId != getIds().size())
-    return emitOpError("expected number of ids must match the number of "
-                       "dimensions distributed");
-  return success();
-}
-
-AffineMap InsertMapOp::map() { return calculateImplicitMap(*this); }
 
 //===----------------------------------------------------------------------===//
 // InsertStridedSliceOp
@@ -3266,6 +3167,21 @@ void TransferReadOp::getEffects(
                          SideEffects::DefaultResource::get());
 }
 
+/// Returns true if all rank reduced in the given `extractOp` happen in leading
+/// dimensions earlier than last `trailingRank` dimensions.
+static bool areAllRankReducedLeadingDim(tensor::ExtractSliceOp extractOp,
+                                        unsigned trailingRank) {
+  // If no ranks are reduced at all, it's a degenerated case; always true.
+  if (extractOp.getSourceType().getRank() == extractOp.getType().getRank())
+    return true;
+
+  RankedTensorType inferredType = extractOp.inferResultType(
+      extractOp.getSourceType(), extractOp.getMixedOffsets(),
+      extractOp.getMixedSizes(), extractOp.getMixedStrides());
+  return extractOp.getType().getShape().take_back(trailingRank) ==
+         inferredType.getShape().take_back(trailingRank);
+}
+
 namespace {
 /// Fold transfer_reads of a tensor.extract_slice op. E.g.:
 ///
@@ -3320,18 +3236,11 @@ public:
     // ```
     // For this, check the trailing `vectorRank` dims of the extract_slice
     // result tensor match the trailing dims of the inferred result tensor.
+    if (!areAllRankReducedLeadingDim(extractOp, extractOp.getType().getRank()))
+      return failure();
+
     int64_t rankReduced =
         extractOp.getSourceType().getRank() - extractOp.getType().getRank();
-    int64_t vectorRank = xferOp.getVectorType().getRank();
-    RankedTensorType inferredDestTensorType =
-        tensor::ExtractSliceOp::inferResultType(
-            extractOp.getSourceType(), extractOp.getMixedOffsets(),
-            extractOp.getMixedSizes(), extractOp.getMixedStrides());
-    auto actualDestTensorShape = extractOp.getType().getShape();
-    if (rankReduced > 0 &&
-        actualDestTensorShape.take_back(vectorRank) !=
-            inferredDestTensorType.getShape().take_back(vectorRank))
-      return failure();
 
     SmallVector<Value> newIndices;
     // In case this is a rank-reducing ExtractSliceOp, copy rank-reduced

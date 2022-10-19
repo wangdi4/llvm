@@ -123,6 +123,7 @@
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cstdlib> // ::getenv
 #include <map>
 #include <memory>
 #include <utility>
@@ -398,11 +399,17 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
     unsigned DiagID;
     auto ArgString = A->getAsString(Args);
     std::string Nearest;
-    if (getOpts().findNearest(
-          ArgString, Nearest, IncludedFlagsBitmask, ExcludedFlagsBitmask) > 1) {
-      DiagID = IsCLMode() ? diag::warn_drv_unknown_argument_clang_cl
-                          : diag::err_drv_unknown_argument;
-      Diags.Report(DiagID) << ArgString;
+    if (getOpts().findNearest(ArgString, Nearest, IncludedFlagsBitmask,
+                              ExcludedFlagsBitmask) > 1) {
+      if (getOpts().findNearest(ArgString, Nearest, options::CC1Option) == 0 &&
+          !IsCLMode()) {
+        DiagID = diag::err_drv_unknown_argument_with_suggestion;
+        Diags.Report(DiagID) << ArgString << "-Xclang " + Nearest;
+      } else {
+        DiagID = IsCLMode() ? diag::warn_drv_unknown_argument_clang_cl
+                            : diag::err_drv_unknown_argument;
+        Diags.Report(DiagID) << ArgString;
+      }
     } else {
       DiagID = IsCLMode()
                    ? diag::warn_drv_unknown_argument_clang_cl_with_suggestion
@@ -962,36 +969,38 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 
   // If target is MIPS adjust the target triple
   // accordingly to provided ABI name.
-  A = Args.getLastArg(options::OPT_mabi_EQ);
-  if (A && Target.isMIPS()) {
-    StringRef ABIName = A->getValue();
-    if (ABIName == "32") {
-      Target = Target.get32BitArchVariant();
-      if (Target.getEnvironment() == llvm::Triple::GNUABI64 ||
-          Target.getEnvironment() == llvm::Triple::GNUABIN32)
-        Target.setEnvironment(llvm::Triple::GNU);
-    } else if (ABIName == "n32") {
-      Target = Target.get64BitArchVariant();
-      if (Target.getEnvironment() == llvm::Triple::GNU ||
-          Target.getEnvironment() == llvm::Triple::GNUABI64)
-        Target.setEnvironment(llvm::Triple::GNUABIN32);
-    } else if (ABIName == "64") {
-      Target = Target.get64BitArchVariant();
-      if (Target.getEnvironment() == llvm::Triple::GNU ||
-          Target.getEnvironment() == llvm::Triple::GNUABIN32)
-        Target.setEnvironment(llvm::Triple::GNUABI64);
+  if (Target.isMIPS()) {
+    if ((A = Args.getLastArg(options::OPT_mabi_EQ))) {
+      StringRef ABIName = A->getValue();
+      if (ABIName == "32") {
+        Target = Target.get32BitArchVariant();
+        if (Target.getEnvironment() == llvm::Triple::GNUABI64 ||
+            Target.getEnvironment() == llvm::Triple::GNUABIN32)
+          Target.setEnvironment(llvm::Triple::GNU);
+      } else if (ABIName == "n32") {
+        Target = Target.get64BitArchVariant();
+        if (Target.getEnvironment() == llvm::Triple::GNU ||
+            Target.getEnvironment() == llvm::Triple::GNUABI64)
+          Target.setEnvironment(llvm::Triple::GNUABIN32);
+      } else if (ABIName == "64") {
+        Target = Target.get64BitArchVariant();
+        if (Target.getEnvironment() == llvm::Triple::GNU ||
+            Target.getEnvironment() == llvm::Triple::GNUABIN32)
+          Target.setEnvironment(llvm::Triple::GNUABI64);
+      }
     }
   }
 
   // If target is RISC-V adjust the target triple according to
   // provided architecture name
-  A = Args.getLastArg(options::OPT_march_EQ);
-  if (A && Target.isRISCV()) {
-    StringRef ArchName = A->getValue();
-    if (ArchName.startswith_insensitive("rv32"))
-      Target.setArch(llvm::Triple::riscv32);
-    else if (ArchName.startswith_insensitive("rv64"))
-      Target.setArch(llvm::Triple::riscv64);
+  if (Target.isRISCV()) {
+    if ((A = Args.getLastArg(options::OPT_march_EQ))) {
+      StringRef ArchName = A->getValue();
+      if (ArchName.startswith_insensitive("rv32"))
+        Target.setArch(llvm::Triple::riscv32);
+      else if (ArchName.startswith_insensitive("rv64"))
+        Target.setArch(llvm::Triple::riscv64);
+    }
   }
 
   return Target;
@@ -1594,10 +1603,28 @@ static bool searchForFile(SmallVectorImpl<char> &FilePath,
   return false;
 }
 
+static void appendOneArg(InputArgList &Args, const Arg *Opt,
+                         const Arg *BaseArg) {
+  // The args for config files or /clang: flags belong to different InputArgList
+  // objects than Args. This copies an Arg from one of those other InputArgLists
+  // to the ownership of Args.
+  unsigned Index = Args.MakeIndex(Opt->getSpelling());
+  Arg *Copy = new llvm::opt::Arg(Opt->getOption(), Args.getArgString(Index),
+                                 Index, BaseArg);
+  Copy->getValues() = Opt->getValues();
+  if (Opt->isClaimed())
+    Copy->claim();
+  Copy->setOwnsValues(Opt->getOwnsValues());
+  Opt->setOwnsValues(false);
+  Args.append(Copy);
+}
+
 bool Driver::readConfigFile(StringRef FileName) {
   // Try reading the given file.
   SmallVector<const char *, 32> NewCfgArgs;
-  if (!llvm::cl::readConfigFile(FileName, Saver, NewCfgArgs, getVFS())) {
+  llvm::cl::ExpansionContext ExpCtx(Alloc, llvm::cl::tokenizeConfigFile);
+  ExpCtx.setVFS(&getVFS());
+  if (!ExpCtx.readConfigFile(FileName, NewCfgArgs)) {
     Diag(diag::err_drv_cannot_read_config_file) << FileName;
     return true;
   }
@@ -1605,32 +1632,38 @@ bool Driver::readConfigFile(StringRef FileName) {
   // Read options from config file.
   llvm::SmallString<128> CfgFileName(FileName);
   llvm::sys::path::native(CfgFileName);
-  ConfigFile = std::string(CfgFileName);
   bool ContainErrors;
-  CfgOptions = std::make_unique<InputArgList>(
+  std::unique_ptr<InputArgList> NewOptions = std::make_unique<InputArgList>(
       ParseArgStrings(NewCfgArgs, IsCLMode(), ContainErrors));
-  if (ContainErrors) {
-    CfgOptions.reset();
+  if (ContainErrors)
     return true;
-  }
 
-  if (CfgOptions->hasArg(options::OPT_config)) {
-    CfgOptions.reset();
+  if (NewOptions->hasArg(options::OPT_config)) {
     Diag(diag::err_drv_nested_config_file);
     return true;
   }
 
   // Claim all arguments that come from a configuration file so that the driver
   // does not warn on any that is unused.
-  for (Arg *A : *CfgOptions)
+  for (Arg *A : *NewOptions)
     A->claim();
+
+  if (!CfgOptions)
+    CfgOptions = std::move(NewOptions);
+  else {
+    // If this is a subsequent config file, append options to the previous one.
+    for (auto *Opt : *NewOptions) {
+      const Arg *BaseArg = &Opt->getBaseArg();
+      if (BaseArg == Opt)
+        BaseArg = nullptr;
+      appendOneArg(*CfgOptions, Opt, BaseArg);
+    }
+  }
+  ConfigFiles.push_back(std::string(CfgFileName));
   return false;
 }
 
-bool Driver::loadConfigFile() {
-  std::string CfgFileName;
-  bool FileSpecifiedExplicitly = false;
-
+bool Driver::loadConfigFiles() {
   // Process options that change search path for config files.
   if (CLOptions) {
     if (CLOptions->hasArg(options::OPT_config_system_dir_EQ)) {
@@ -1653,25 +1686,21 @@ bool Driver::loadConfigFile() {
     }
   }
 
-  // First try to find config file specified in command line.
+  // Prepare list of directories where config file is searched for.
+  StringRef CfgFileSearchDirs[] = {UserConfigDir, SystemConfigDir, Dir};
+
+  // First try to load configuration from the default files, return on error.
+  if (loadDefaultConfigFiles(CfgFileSearchDirs))
+    return true;
+
+  // Then load configuration files specified explicitly.
+  llvm::SmallString<128> CfgFilePath;
   if (CLOptions) {
-    std::vector<std::string> ConfigFiles =
-        CLOptions->getAllArgValues(options::OPT_config);
-    if (ConfigFiles.size() > 1) {
-      if (!llvm::all_equal(ConfigFiles)) {
-        Diag(diag::err_drv_duplicate_config);
-        return true;
-      }
-    }
-
-    if (!ConfigFiles.empty()) {
-      CfgFileName = ConfigFiles.front();
-      assert(!CfgFileName.empty());
-
+    for (auto CfgFileName : CLOptions->getAllArgValues(options::OPT_config)) {
       // If argument contains directory separator, treat it as a path to
       // configuration file.
       if (llvm::sys::path::has_parent_path(CfgFileName)) {
-        SmallString<128> CfgFilePath(CfgFileName);
+        CfgFilePath = CfgFileName;
         if (llvm::sys::path::is_relative(CfgFilePath)) {
           if (getVFS().makeAbsolute(CfgFilePath))
             return true;
@@ -1682,13 +1711,27 @@ bool Driver::loadConfigFile() {
             return true;
           }
         }
-        return readConfigFile(CfgFilePath);
+      } else if (!searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName,
+                                getVFS())) {
+        // Report an error that the config file could not be found.
+        Diag(diag::err_drv_config_file_not_found) << CfgFileName;
+        for (const StringRef &SearchDir : CfgFileSearchDirs)
+          if (!SearchDir.empty())
+            Diag(diag::note_drv_config_file_searched_in) << SearchDir;
+        return true;
       }
 
-      FileSpecifiedExplicitly = true;
+      // Try to read the config file, return on error.
+      if (readConfigFile(CfgFilePath))
+        return true;
     }
   }
 
+  // No error occurred.
+  return false;
+}
+
+bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
 #if INTEL_CUSTOMIZATION
   if (CLOptions && IsIntelMode()) {
     // Process any user defined .cfg files via environment variables.
@@ -1734,90 +1777,82 @@ bool Driver::loadConfigFile() {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // If config file is not specified explicitly, try to deduce configuration
-  // from executable name. For instance, an executable 'armv7l-clang' will
-  // search for config file 'armv7l-clang.cfg'.
-  if (CfgFileName.empty() && !ClangNameParts.TargetPrefix.empty())
-    CfgFileName = ClangNameParts.TargetPrefix + '-' + ClangNameParts.ModeSuffix;
-
-  if (CfgFileName.empty())
+  // Disable default config if CLANG_NO_DEFAULT_CONFIG is set to a non-empty
+  // value.
+  if (const char *NoConfigEnv = ::getenv("CLANG_NO_DEFAULT_CONFIG")) {
+    if (*NoConfigEnv)
+      return false;
+  }
+  if (CLOptions && CLOptions->hasArg(options::OPT_no_default_config))
     return false;
 
-  // Determine architecture part of the file name, if it is present.
-  StringRef CfgFileArch = CfgFileName;
-  size_t ArchPrefixLen = CfgFileArch.find('-');
-  if (ArchPrefixLen == StringRef::npos)
-    ArchPrefixLen = CfgFileArch.size();
-  llvm::Triple CfgTriple;
-  CfgFileArch = CfgFileArch.take_front(ArchPrefixLen);
-  CfgTriple = llvm::Triple(llvm::Triple::normalize(CfgFileArch));
-  if (CfgTriple.getArch() == llvm::Triple::ArchType::UnknownArch)
-    ArchPrefixLen = 0;
+  std::string RealMode = getExecutableForDriverMode(Mode);
+  std::string Triple;
 
-  if (!StringRef(CfgFileName).endswith(".cfg"))
-    CfgFileName += ".cfg";
-
-  // If config file starts with architecture name and command line options
-  // redefine architecture (with options like -m32 -LE etc), try finding new
-  // config file with that architecture.
-  SmallString<128> FixedConfigFile;
-  size_t FixedArchPrefixLen = 0;
-  if (ArchPrefixLen) {
-    // Get architecture name from config file name like 'i386.cfg' or
-    // 'armv7l-clang.cfg'.
-    // Check if command line options changes effective triple.
-    llvm::Triple EffectiveTriple = computeTargetTriple(*this,
-                                             CfgTriple.getTriple(), *CLOptions);
-    if (CfgTriple.getArch() != EffectiveTriple.getArch()) {
-      FixedConfigFile = EffectiveTriple.getArchName();
-      FixedArchPrefixLen = FixedConfigFile.size();
-      // Append the rest of original file name so that file name transforms
-      // like: i386-clang.cfg -> x86_64-clang.cfg.
-      if (ArchPrefixLen < CfgFileName.size())
-        FixedConfigFile += CfgFileName.substr(ArchPrefixLen);
-    }
+  // If name prefix is present, no --target= override was passed via CLOptions
+  // and the name prefix is not a valid triple, force it for backwards
+  // compatibility.
+  if (!ClangNameParts.TargetPrefix.empty() &&
+      computeTargetTriple(*this, "/invalid/", *CLOptions).str() ==
+          "/invalid/") {
+    llvm::Triple PrefixTriple{ClangNameParts.TargetPrefix};
+    if (PrefixTriple.getArch() == llvm::Triple::UnknownArch ||
+        PrefixTriple.isOSUnknown())
+      Triple = PrefixTriple.str();
   }
 
-  // Prepare list of directories where config file is searched for.
-  StringRef CfgFileSearchDirs[] = {UserConfigDir, SystemConfigDir, Dir};
+  // Otherwise, use the real triple as used by the driver.
+  if (Triple.empty()) {
+    llvm::Triple RealTriple =
+        computeTargetTriple(*this, TargetTriple, *CLOptions);
+    Triple = RealTriple.str();
+    assert(!Triple.empty());
+  }
 
-  // Try to find config file. First try file with corrected architecture.
+  // Search for config files in the following order:
+  // 1. <triple>-<mode>.cfg using real driver mode
+  //    (e.g. i386-pc-linux-gnu-clang++.cfg).
+  // 2. <triple>-<mode>.cfg using executable suffix
+  //    (e.g. i386-pc-linux-gnu-clang-g++.cfg for *clang-g++).
+  // 3. <triple>.cfg + <mode>.cfg using real driver mode
+  //    (e.g. i386-pc-linux-gnu.cfg + clang++.cfg).
+  // 4. <triple>.cfg + <mode>.cfg using executable suffix
+  //    (e.g. i386-pc-linux-gnu.cfg + clang-g++.cfg for *clang-g++).
+
+  // Try loading <triple>-<mode>.cfg, and return if we find a match.
   llvm::SmallString<128> CfgFilePath;
-  if (!FixedConfigFile.empty()) {
-    if (searchForFile(CfgFilePath, CfgFileSearchDirs, FixedConfigFile,
-                      getVFS()))
-      return readConfigFile(CfgFilePath);
-    // If 'x86_64-clang.cfg' was not found, try 'x86_64.cfg'.
-    FixedConfigFile.resize(FixedArchPrefixLen);
-    FixedConfigFile.append(".cfg");
-    if (searchForFile(CfgFilePath, CfgFileSearchDirs, FixedConfigFile,
-                      getVFS()))
-      return readConfigFile(CfgFilePath);
-  }
-
-  // Then try original file name.
+  std::string CfgFileName = Triple + '-' + RealMode + ".cfg";
   if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
     return readConfigFile(CfgFilePath);
 
-  // Finally try removing driver mode part: 'x86_64-clang.cfg' -> 'x86_64.cfg'.
-  if (!ClangNameParts.ModeSuffix.empty() &&
-      !ClangNameParts.TargetPrefix.empty()) {
-    CfgFileName.assign(ClangNameParts.TargetPrefix);
-    CfgFileName.append(".cfg");
+  bool TryModeSuffix = !ClangNameParts.ModeSuffix.empty() &&
+                       ClangNameParts.ModeSuffix != RealMode;
+  if (TryModeSuffix) {
+    CfgFileName = Triple + '-' + ClangNameParts.ModeSuffix + ".cfg";
     if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
       return readConfigFile(CfgFilePath);
   }
 
-  // Report error but only if config file was specified explicitly, by option
-  // --config. If it was deduced from executable name, it is not an error.
-  if (FileSpecifiedExplicitly) {
-    Diag(diag::err_drv_config_file_not_found) << CfgFileName;
-    for (const StringRef &SearchDir : CfgFileSearchDirs)
-      if (!SearchDir.empty())
-        Diag(diag::note_drv_config_file_searched_in) << SearchDir;
-    return true;
+  // Try loading <mode>.cfg, and return if loading failed.  If a matching file
+  // was not found, still proceed on to try <triple>.cfg.
+  CfgFileName = RealMode + ".cfg";
+  if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS())) {
+    if (readConfigFile(CfgFilePath))
+      return true;
+  } else if (TryModeSuffix) {
+    CfgFileName = ClangNameParts.ModeSuffix + ".cfg";
+    if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()) &&
+        readConfigFile(CfgFilePath))
+      return true;
   }
 
+  // Try loading <triple>.cfg and return if we find a match.
+  CfgFileName = Triple + ".cfg";
+  if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
+    return readConfigFile(CfgFilePath);
+
+  // If we were unable to find a config file deduced from executable name,
+  // that is not an error.
   return false;
 }
 
@@ -1845,27 +1880,12 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
   // Try parsing configuration file.
   if (!ContainsError)
-    ContainsError = loadConfigFile();
+    ContainsError = loadConfigFiles();
   bool HasConfigFile = !ContainsError && (CfgOptions.get() != nullptr);
 
   // All arguments, from both config file and command line.
   InputArgList Args = std::move(HasConfigFile ? std::move(*CfgOptions)
                                               : std::move(*CLOptions));
-
-  // The args for config files or /clang: flags belong to different InputArgList
-  // objects than Args. This copies an Arg from one of those other InputArgLists
-  // to the ownership of Args.
-  auto appendOneArg = [&Args](const Arg *Opt, const Arg *BaseArg) {
-    unsigned Index = Args.MakeIndex(Opt->getSpelling());
-    Arg *Copy = new llvm::opt::Arg(Opt->getOption(), Args.getArgString(Index),
-                                   Index, BaseArg);
-    Copy->getValues() = Opt->getValues();
-    if (Opt->isClaimed())
-      Copy->claim();
-    Copy->setOwnsValues(Opt->getOwnsValues());
-    Opt->setOwnsValues(false);
-    Args.append(Copy);
-  };
 
   if (HasConfigFile)
     for (auto *Opt : *CLOptions) {
@@ -1874,7 +1894,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
       const Arg *BaseArg = &Opt->getBaseArg();
       if (BaseArg == Opt)
         BaseArg = nullptr;
-      appendOneArg(Opt, BaseArg);
+      appendOneArg(Args, Opt, BaseArg);
     }
 
   // In CL mode, look for any pass-through arguments
@@ -1893,7 +1913,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
       if (!ContainsError)
         for (auto *Opt : *CLModePassThroughOptions) {
-          appendOneArg(Opt, nullptr);
+          appendOneArg(Args, Opt, nullptr);
         }
     }
   }
@@ -2750,8 +2770,8 @@ void Driver::PrintVersion(const Compilation &C, raw_ostream &OS) const {
   // Print out the install directory.
   OS << "InstalledDir: " << InstalledDir << '\n';
 
-  // If configuration file was used, print its path.
-  if (!ConfigFile.empty())
+  // If configuration files were used, print their paths.
+  for (auto ConfigFile : ConfigFiles)
     OS << "Configuration file: " << ConfigFile << '\n';
 }
 
@@ -4220,7 +4240,7 @@ class OffloadingActionBuilder final {
 
     /// Update the state to include the provided host action \a HostAction as a
     /// dependency of the current device action. By default it is inactive.
-    virtual ActionBuilderReturnCode addDeviceDepences(Action *HostAction) {
+    virtual ActionBuilderReturnCode addDeviceDependences(Action *HostAction) {
       return ABRT_Inactive;
     }
 
@@ -4319,7 +4339,7 @@ class OffloadingActionBuilder final {
                           OffloadingActionBuilder &OAB)
         : DeviceActionBuilder(C, Args, Inputs, OFKind, OAB) {}
 
-    ActionBuilderReturnCode addDeviceDepences(Action *HostAction) override {
+    ActionBuilderReturnCode addDeviceDependences(Action *HostAction) override {
       // While generating code for CUDA, we only depend on the host input action
       // to trigger the creation of all the CUDA device actions.
 
@@ -4389,18 +4409,21 @@ class OffloadingActionBuilder final {
           return ABRT_Inactive;
 
         CudaDeviceActions.clear();
-        if (auto *IA = dyn_cast<InputAction>(UA->getInputs().back())) {
-          std::string FileName = IA->getInputArg().getAsString(Args);
-          // Check if the type of the file is the same as the action. Do not
-          // unbundle it if it is not. Do not unbundle .so files, for example,
-          // which are not object files.
-          if (IA->getType() == types::TY_Object &&
-              (!llvm::sys::path::has_extension(FileName) ||
-               types::lookupTypeForExtension(
-                   llvm::sys::path::extension(FileName).drop_front()) !=
-                   types::TY_Object))
-            return ABRT_Inactive;
-        }
+        auto *IA = cast<InputAction>(UA->getInputs().back());
+        std::string FileName = IA->getInputArg().getAsString(Args);
+        // Check if the type of the file is the same as the action. Do not
+        // unbundle it if it is not. Do not unbundle .so files, for example,
+        // which are not object files. Files with extension ".lib" is classified
+        // as TY_Object but they are actually archives, therefore should not be
+        // unbundled here as objects. They will be handled at other places.
+        const StringRef LibFileExt = ".lib";
+        if (IA->getType() == types::TY_Object &&
+            (!llvm::sys::path::has_extension(FileName) ||
+             types::lookupTypeForExtension(
+                 llvm::sys::path::extension(FileName).drop_front()) !=
+                 types::TY_Object ||
+             llvm::sys::path::extension(FileName) == LibFileExt))
+          return ABRT_Inactive;
 
         for (auto Arch : GpuArchList) {
           CudaDeviceActions.push_back(UA);
@@ -5023,7 +5046,7 @@ class OffloadingActionBuilder final {
       return ABRT_Success;
     }
 
-    ActionBuilderReturnCode addDeviceDepences(Action *HostAction) override {
+    ActionBuilderReturnCode addDeviceDependences(Action *HostAction) override {
 
       // If this is an input action replicate it for each OpenMP toolchain.
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
@@ -5248,7 +5271,7 @@ class OffloadingActionBuilder final {
         auto *DeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(
                 DeviceLibsInputAction);
-        addDeviceDepences(DeviceLibsUnbundleAction);
+        addDeviceDependences(DeviceLibsUnbundleAction);
         DeviceLinkObjects.push_back(DeviceLibsUnbundleAction);
       };
       bool addOmpLibs = false;
@@ -5741,7 +5764,7 @@ class OffloadingActionBuilder final {
       return ABRT_Success;
     }
 
-    ActionBuilderReturnCode addDeviceDepences(Action *HostAction) override {
+    ActionBuilderReturnCode addDeviceDependences(Action *HostAction) override {
 
       // If this is an input action replicate it for each SYCL toolchain.
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
@@ -5870,7 +5893,7 @@ class OffloadingActionBuilder final {
             C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
         auto *SYCLDeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
-        addDeviceDepences(SYCLDeviceLibsUnbundleAction);
+        addDeviceDependences(SYCLDeviceLibsUnbundleAction);
 
         auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
             SYCLDeviceLibsUnbundleAction, types::TY_Tempfilelist);
@@ -6969,7 +6992,7 @@ public:
       if (!SB->isValid())
         continue;
 
-      auto RetCode = SB->addDeviceDepences(HostAction);
+      auto RetCode = SB->addDeviceDependences(HostAction);
 
       // Host dependences for device actions are not compatible with that same
       // action being ignored.
@@ -8027,7 +8050,7 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
     Action *PackagerAction =
         C.MakeAction<OffloadPackagerJobAction>(OffloadActions, types::TY_Image);
     DDep.add(*PackagerAction, *C.getSingleOffloadToolChain<Action::OFK_Host>(),
-             nullptr, Action::OFK_None);
+             nullptr, C.getActiveOffloadKinds());
   }
 
   // If we are unable to embed a single device output into the host, we need to
@@ -10247,6 +10270,25 @@ bool clang::driver::isOptimizationLevelFast(const Driver &D,
     return true;
 #endif // INTEL_CUSTOMIZATION
   return Args.hasFlag(options::OPT_Ofast, options::OPT_O_Group, false);
+}
+
+const char *Driver::getExecutableForDriverMode(DriverMode Mode) {
+  switch (Mode) {
+  case GCCMode:
+    return "clang";
+  case GXXMode:
+    return "clang++";
+  case CPPMode:
+    return "clang-cpp";
+  case CLMode:
+    return "clang-cl";
+  case FlangMode:
+    return "flang";
+  case DXCMode:
+    return "clang-dxc";
+  }
+
+  llvm_unreachable("Unhandled Mode");
 }
 
 bool clang::driver::isObjectFile(std::string FileName) {

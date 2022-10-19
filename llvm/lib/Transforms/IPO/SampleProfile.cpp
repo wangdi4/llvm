@@ -1239,12 +1239,12 @@ bool SampleProfileLoader::tryInlineCandidate(
 
   InlineFunctionInfo IFI(nullptr, GetAC);
   IFI.UpdateProfile = false;
-  if (!InlineFunction(CB, IFI).isSuccess())
+#if INTEL_CUSTOMIZATION
+  InlineResult IR = InlineFunction(CB, IFI, nullptr, nullptr,
+                                   /*MergeAttributes=*/true);
+#endif // INTEL_CUSTOMIZATION
+  if (!IR.isSuccess())
     return false;
-
-  // Merge the attributes based on the inlining.
-  AttributeFuncs::mergeAttributesForInlining(*BB->getParent(),
-                                             *CalledFunction);
 
   // The call to InlineFunction erases I, so we can't pass it here.
   emitInlinedIntoBasedOnCost(*ORE, DLoc, BB, *CalledFunction, *BB->getParent(),

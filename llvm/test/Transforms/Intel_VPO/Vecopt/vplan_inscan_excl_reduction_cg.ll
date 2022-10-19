@@ -103,7 +103,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[WIDE_LOAD110:%.*]] = load <4 x i32>, ptr [[I_LINEAR_IV_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP17:%.*]] = sext <4 x i32> [[WIDE_LOAD110]] to <4 x i64>
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds float, <4 x ptr> [[BROADCAST_SPLAT130]], <4 x i64> [[TMP17]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> [[MM_VECTORGEP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x float> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> [[MM_VECTORGEP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x float> poison)
 ; CHECK-NEXT:    [[WIDE_LOAD140:%.*]] = load <4 x float>, ptr [[X_RED_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP18:%.*]] = fadd fast <4 x float> [[WIDE_LOAD140]], [[WIDE_MASKED_GATHER0]]
 ; CHECK-NEXT:    store <4 x float> [[TMP18]], ptr [[X_RED_VEC0]], align 4

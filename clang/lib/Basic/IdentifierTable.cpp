@@ -126,11 +126,12 @@ namespace {
     KEYMSCOMPAT   = 0x400000,
     KEYSYCL       = 0x800000,
     KEYCUDA       = 0x1000000,
+    KEYHLSL       = 0x2000000,
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
-    KEYFLOAT128   = 0x2000000,
-    KEYMSASM      = 0x4000000,
-    KEYOPENCLCHANNEL =  0x8000000,
+    KEYFLOAT128   = 0x4000000,
+    KEYMSASM      = 0x8000000,
+    KEYOPENCLCHANNEL =  0x10000000,
     KEYMAX      = KEYOPENCLCHANNEL, // The maximum key
     KEYINTELALL = KEYFLOAT128 | KEYMSASM | KEYOPENCLCHANNEL,
 #endif // INTEL_CUSTOMIZATION
@@ -222,6 +223,8 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
     return LangOpts.isSYCL() || LangOpts.SYCLIsDevice ? KS_Enabled : KS_Unknown;
   case KEYCUDA:
     return LangOpts.CUDA ? KS_Enabled : KS_Unknown;
+  case KEYHLSL:
+    return LangOpts.HLSL ? KS_Enabled : KS_Unknown;
   case KEYNOCXX:
     // This is enabled in all non-C++ modes, but might be enabled for other
     // reasons as well.

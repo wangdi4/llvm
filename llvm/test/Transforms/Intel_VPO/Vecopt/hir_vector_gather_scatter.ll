@@ -38,7 +38,7 @@
 ; CHECK-NEXT:    store <8 x float*> [[DOTREPLICATED_ELTS5]], <8 x float*>* [[T20:%.*]], align 64
 ; CHECK-NEXT:    [[T20_:%.*]] = load <8 x float*>, <8 x float*>* [[T20]], align 64
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, <8 x float*> [[T20_]], <8 x i64> <i64 0, i64 1, i64 0, i64 1, i64 0, i64 1, i64 0, i64 1>
-; CHECK-NEXT:    [[TMP6:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
+; CHECK-NEXT:    [[TMP6:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison)
 
 ; CHECK:         [[TMP11:%.*]] = getelementptr inbounds %"struct.std::complex", <4 x %"struct.std::complex"*> [[DOTSPLAT7:%.*]], <4 x i64> [[TMP10:%.*]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = bitcast <4 x %"struct.std::complex"*> [[TMP11]] to <4 x float*>

@@ -815,6 +815,7 @@ __ESIMD_API void lsc_prefetch(const T *p) {
   constexpr uint16_t _AddressScale = 1;
   constexpr int _ImmOffset = 0;
   constexpr lsc_data_size _DS = detail::finalize_data_size<T, DS>();
+
   static_assert(
       _DS == lsc_data_size::u32 || _DS == lsc_data_size::u64,
       "Transposed prefetch is supported only for data size u32 or u64");
@@ -823,6 +824,7 @@ __ESIMD_API void lsc_prefetch(const T *p) {
       detail::lsc_data_order::transpose;
   constexpr int N = 1;
   __ESIMD_NS::simd_mask<N> pred = 1;
+
   __ESIMD_NS::simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
   __esimd_lsc_prefetch_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
                                  _VS, _Transposed, N>(pred.data(),

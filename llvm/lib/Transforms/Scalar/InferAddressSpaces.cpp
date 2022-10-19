@@ -598,6 +598,7 @@ static Value *operandWithNewAddressSpaceOrCreateUndef(
         cast<PointerType>(Operand->getType()), NewAS);
     auto *NewI = new AddrSpaceCastInst(Operand, NewPtrTy);
     NewI->insertBefore(Inst);
+    NewI->setDebugLoc(Inst->getDebugLoc());
     return NewI;
   }
 
@@ -825,6 +826,7 @@ Value *InferAddressSpacesImpl::cloneValueWithNewAddressSpace(
       if (NewI->getParent() == nullptr) {
         NewI->insertBefore(I);
         NewI->takeName(I);
+        NewI->setDebugLoc(I->getDebugLoc());
       }
     }
     return NewV;

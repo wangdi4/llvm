@@ -5825,6 +5825,98 @@ TEST_F(FormatTest, IndentPreprocessorDirectives) {
                Style);
 }
 
+TEST_F(FormatTest, FormatAlignInsidePreprocessorElseBlock) {
+  FormatStyle Style = getLLVMStyle();
+  Style.AlignConsecutiveAssignments.Enabled = true;
+  Style.AlignConsecutiveDeclarations.Enabled = true;
+
+  // Test with just #if blocks.
+  verifyFormat("void f1() {\n"
+               "#if 1\n"
+               "  int foo    = 1;\n"
+               "  int foobar = 2;\n"
+               "#endif\n"
+               "}\n"
+               "#if 1\n"
+               "int baz = 3;\n"
+               "#endif\n"
+               "void f2() {\n"
+               "#if 1\n"
+               "  char *foobarbaz = \"foobarbaz\";\n"
+               "  int   quux      = 4;\n"
+               "}",
+               Style);
+
+  // Test with just #else blocks.
+  verifyFormat("void f1() {\n"
+               "#if 1\n"
+               "#else\n"
+               "  int foo    = 1;\n"
+               "  int foobar = 2;\n"
+               "#endif\n"
+               "}\n"
+               "#if 1\n"
+               "#else\n"
+               "int baz = 3;\n"
+               "#endif\n"
+               "void f2() {\n"
+               "#if 1\n"
+               "#else\n"
+               "  char *foobarbaz = \"foobarbaz\";\n"
+               "  int   quux      = 4;\n"
+               "}",
+               Style);
+
+  // Test with a mix of #if and #else blocks.
+  verifyFormat("void f1() {\n"
+               "#if 1\n"
+               "#else\n"
+               "  int foo    = 1;\n"
+               "  int foobar = 2;\n"
+               "#endif\n"
+               "}\n"
+               "#if 1\n"
+               "int baz = 3;\n"
+               "#endif\n"
+               "void f2() {\n"
+               "#if 1\n"
+               "#else\n"
+               "  // prevent alignment with #else in f1\n"
+               "  char *foobarbaz = \"foobarbaz\";\n"
+               "  int   quux      = 4;\n"
+               "}",
+               Style);
+
+  // Test with nested #if and #else blocks.
+  verifyFormat("void f1() {\n"
+               "#if 1\n"
+               "#else\n"
+               "#if 2\n"
+               "#else\n"
+               "  int foo    = 1;\n"
+               "  int foobar = 2;\n"
+               "#endif\n"
+               "#endif\n"
+               "}\n"
+               "#if 1\n"
+               "#else\n"
+               "#if 2\n"
+               "int baz = 3;\n"
+               "#endif\n"
+               "#endif\n"
+               "void f2() {\n"
+               "#if 1\n"
+               "#if 2\n"
+               "#else\n"
+               "  // prevent alignment with #else in f1\n"
+               "  char *foobarbaz = \"foobarbaz\";\n"
+               "  int   quux      = 4;\n"
+               "#endif\n"
+               "#endif\n"
+               "}",
+               Style);
+}
+
 TEST_F(FormatTest, FormatHashIfNotAtStartOfLine) {
   verifyFormat("{\n  { a #c; }\n}");
 }
@@ -5993,6 +6085,16 @@ TEST_F(FormatTest, LayoutStatementsAroundPreprocessorDirectives) {
                          ");\n"
                          "#else\n"
                          "#endif");
+
+  // Verify that indentation is correct when there is an `#if 0` with an
+  // `#else`.
+  verifyFormat("#if 0\n"
+               "{\n"
+               "#else\n"
+               "{\n"
+               "#endif\n"
+               "  x;\n"
+               "}");
 }
 
 TEST_F(FormatTest, GraciouslyHandleIncorrectPreprocessorConditions) {
@@ -9854,6 +9956,10 @@ TEST_F(FormatTest, UnderstandsTemplateParameters) {
   verifyFormat("Constructor(A... a) : a_(X<A>{std::forward<A>(a)}...) {}");
   verifyFormat("< < < < < < < < < < < < < < < < < < < < < < < < < < < < < <");
   verifyFormat("some_templated_type<decltype([](int i) { return i; })>");
+
+  verifyFormat("#define FOO(typeName, realClass)                           \\\n"
+               "  { #typeName, foo<FooType>(new foo<realClass>(#typeName)) }",
+               getLLVMStyleWithColumns(60));
 }
 
 TEST_F(FormatTest, UnderstandsShiftOperators) {
@@ -25034,6 +25140,7 @@ TEST_F(FormatTest, Cpp20ModulesSupport) {
   verifyFormat("export module foo.bar;", Style);
   verifyFormat("export module foo.bar:baz;", Style);
   verifyFormat("export import <string_view>;", Style);
+  verifyFormat("export import <Foo/Bar>;", Style);
 
   verifyFormat("export type_name var;", Style);
   verifyFormat("template <class T> export using A = B<T>;", Style);
@@ -25367,27 +25474,18 @@ TEST_F(FormatTest, InsertBraces) {
 
   verifyFormat("do {\n"
                "#if 0\n"
-               " if (a) {\n"
-               "#else\n"
-               "  if (b) {\n"
-               "#endif\n"
-               "}\n"
-               "}\n"
-               "while (0)\n"
-               "  ;",
-               Style);
-  // TODO: Replace the test above with the one below after #57539 is fixed.
-#if 0
-  verifyFormat("do {\n"
-               "#if 0\n"
-               "  if (a) {\n"
                "#else\n"
                "  if (b) {\n"
                "#endif\n"
                "  }\n"
                "} while (0);",
                Style);
-#endif
+
+  Style.RemoveBracesLLVM = true;
+  verifyFormat("if (a) //\n"
+               "  return b;",
+               Style);
+  Style.RemoveBracesLLVM = false;
 
   Style.ColumnLimit = 15;
 
@@ -26005,6 +26103,17 @@ TEST_F(FormatTest, RemoveBraces) {
   verifyFormat("if !consteval {\n"
                "  g();\n"
                "}",
+               Style);
+
+  verifyFormat("while (0)\n"
+               "  if (a)\n"
+               "    return b;\n"
+               "return a;",
+               "while (0) {\n"
+               "  if (a) {\n"
+               "    return b;\n"
+               "}}\n"
+               "return a;",
                Style);
 
   Style.ColumnLimit = 65;

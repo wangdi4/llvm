@@ -214,6 +214,10 @@ public:
 
   void emitXCOFFRefDirective(StringRef Name) override;
 
+  void emitXCOFFExceptDirective(const MCSymbol *Symbol, MCSymbol *Trap,
+                                unsigned Lang, unsigned Reason,
+                                unsigned FunctionSize, bool hasDebug) override;
+
   void emitELFSize(MCSymbol *Symbol, const MCExpr *Value) override;
   void emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
                         unsigned ByteAlignment) override;
@@ -960,6 +964,17 @@ void MCAsmStreamer::emitXCOFFRenameDirective(const MCSymbol *Name,
 
 void MCAsmStreamer::emitXCOFFRefDirective(StringRef Name) {
   OS << "\t.ref " << Name;
+  EmitEOL();
+}
+
+void MCAsmStreamer::emitXCOFFExceptDirective(const MCSymbol *Symbol,
+                                             MCSymbol *Trap, unsigned Lang,
+                                             unsigned Reason,
+                                             unsigned FunctionSize,
+                                             bool hasDebug) {
+  OS << "\t.except\t";
+  Symbol->print(OS, MAI);
+  OS << ", " << Lang << ", " << Reason;
   EmitEOL();
 }
 

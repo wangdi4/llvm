@@ -3899,10 +3899,19 @@ static bool cannotBeOrderedLessThanZeroImpl(const Value *V,
   // Unsigned integers are always nonnegative.
   case Instruction::UIToFP:
     return true;
-  case Instruction::FMul:
   case Instruction::FDiv:
-    // X * X is always non-negative or a NaN.
     // X / X is always exactly 1.0 or a NaN.
+    if (I->getOperand(0) == I->getOperand(1) &&
+        (!SignBitOnly || cast<FPMathOperator>(I)->hasNoNaNs()))
+      return true;
+
+    // Set SignBitOnly for RHS, because X / -0.0 is -Inf (or NaN).
+    return cannotBeOrderedLessThanZeroImpl(I->getOperand(0), TLI, SignBitOnly,
+                                           Depth + 1) &&
+           cannotBeOrderedLessThanZeroImpl(I->getOperand(1), TLI,
+                                           /*SignBitOnly*/ true, Depth + 1);
+  case Instruction::FMul:
+    // X * X is always non-negative or a NaN.
     if (I->getOperand(0) == I->getOperand(1) &&
         (!SignBitOnly || cast<FPMathOperator>(I)->hasNoNaNs()))
       return true;
@@ -5016,15 +5025,17 @@ bool llvm::onlyUsedByVarAnnot(const Value *V) {
 
 bool llvm::isSafeToSpeculativelyExecute(const Instruction *Inst,
                                         const Instruction *CtxI,
+                                        AssumptionCache *AC,
                                         const DominatorTree *DT,
                                         const TargetLibraryInfo *TLI) {
   return isSafeToSpeculativelyExecuteWithOpcode(Inst->getOpcode(), Inst, CtxI,
-                                                DT, TLI);
+                                                AC, DT, TLI);
 }
 
 bool llvm::isSafeToSpeculativelyExecuteWithOpcode(
     unsigned Opcode, const Instruction *Inst, const Instruction *CtxI,
-    const DominatorTree *DT, const TargetLibraryInfo *TLI) {
+    AssumptionCache *AC, const DominatorTree *DT,
+    const TargetLibraryInfo *TLI) {
 #ifndef NDEBUG
   if (Inst->getOpcode() != Opcode) {
     // Check that the operands are actually compatible with the Opcode override.
@@ -5082,9 +5093,9 @@ bool llvm::isSafeToSpeculativelyExecuteWithOpcode(
     if (mustSuppressSpeculation(*LI))
       return false;
     const DataLayout &DL = LI->getModule()->getDataLayout();
-    return isDereferenceableAndAlignedPointer(
-        LI->getPointerOperand(), LI->getType(), LI->getAlign(), DL, CtxI, DT,
-        TLI);
+    return isDereferenceableAndAlignedPointer(LI->getPointerOperand(),
+                                              LI->getType(), LI->getAlign(), DL,
+                                              CtxI, AC, DT, TLI);
   }
   case Instruction::Call: {
     auto *CI = dyn_cast<const CallInst>(Inst);

@@ -337,19 +337,3 @@
 // RUN:   | FileCheck --check-prefix=CHECK-NO-FPOV-WORKAROUND-OVERRIDE %s
 // CHECK-NO-FPOV-WORKAROUND-OVERRIDE: "-cc1"
 // CHECK-NO-FPOV-WORKAROUND-OVERRIDE-NOT: "strict-float-cast-overflow"
-
-// INTEL_CUSTOMIZATION
-// Intel mode sets -ffp-contract=fast by default, which should not cause the warning of -ffp-contract overriding
-// RUN: %clang -### --intel -fno-fast-math -c %s 2>&1 \
-// RUN:   | FileCheck --check-prefix=CHECK-NO-FFP-CONTRACT-OVERRIDING-WARNING %s
-// RUN: %clang -### --intel -ffast-math -fno-fast-math -c %s 2>&1 \
-// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
-// RUN: %clang -### --intel -ffp-model=fast -fno-fast-math -c %s 2>&1 \
-// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
-// RUN: %clang -### --intel -Ofast -fno-fast-math -c %s 2>&1 \
-// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
-// RUN: %clang -### --intel -ffp-contract=fast -fno-fast-math -c %s 2>&1 \
-// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
-// CHECK-NO-FFP-CONTRACT-OVERRIDING-WARNING-NOT: warning: overriding '-ffp-contract=fast' option with '-ffp-contract=on'
-// CHECK-FFP-CONTRACT-OVERRIDING-WARNING: warning: overriding '-ffp-contract=fast' option with '-ffp-contract=on'
-// end INTEL_CUSTOMIZATION

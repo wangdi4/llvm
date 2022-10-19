@@ -346,10 +346,15 @@ inline void setHLLoopMD(loopopt::HLLoop *Lp, const char *SzAddMD) {
 // Add a new depth-first iterator (sese_df_iterator) for traversing the blocks
 // of SESE region.
 template <typename BlockTy>
-class sese_df_iterator
-    : public std::iterator<std::forward_iterator_tag, BlockTy> {
+class sese_df_iterator {
 
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = BlockTy;
+  using difference_type = std::ptrdiff_t;
+  using pointer = BlockTy*;
+  using reference = BlockTy&;
+
   sese_df_iterator(df_iterator<BlockTy> Iter, BlockTy End)
       : Iter(Iter), End(End) {}
 

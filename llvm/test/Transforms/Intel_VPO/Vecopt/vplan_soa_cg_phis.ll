@@ -33,7 +33,7 @@ define void @merge_uniform_soa_geps() {
 ; CHECK-NEXT:    [[UNI_PHI8:%.*]] = phi <2 x i64>* [ [[SOA_SCALAR_GEP5]], [[VPLANNEDBB4]] ], [ [[SOA_SCALAR_GEP7]], [[VPLANNEDBB3]] ]
 ; CHECK-NEXT:    [[WIDE_LOAD9:%.*]] = load <2 x i64>, <2 x i64>* [[UNI_PHI8]], align 4
 ; CHECK-NEXT:    [[SOA_VECTORGEP:%.*]] = getelementptr inbounds <2 x i64>, <2 x i64>* [[UNI_PHI8]], <2 x i64> [[WIDE_LOAD9]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[SOA_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[SOA_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
@@ -112,9 +112,9 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB8]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[VEC_PHI10:%.*]] = phi <2 x i64*> [ [[SOA_VECTORGEP]], [[VPLANNEDBB4]] ], [ [[SOA_VECTORGEP9]], [[VPLANNEDBB3]] ]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI10]], <2 x i64> [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER11:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER11:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
@@ -192,9 +192,9 @@ define void @merge_str_soa_geps() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[VEC_PHI8:%.*]] = phi <2 x i64*> [ [[MM_VECTORGEP5]], [[VPLANNEDBB4]] ], [ [[MM_VECTORGEP7]], [[VPLANNEDBB3]] ]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI8]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI8]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[MM_VECTORGEP9:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI8]], <2 x i64> [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER10:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP9]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER10:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP9]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
@@ -281,9 +281,9 @@ define void @merge_aos_soa_geps() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB7]]
 ; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    [[VEC_PHI9:%.*]] = phi <2 x i64*> [ [[MM_VECTORGEP8]], [[VPLANNEDBB4]] ], [ [[MM_VECTORGEP6]], [[VPLANNEDBB5]] ]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI9]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI9]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[MM_VECTORGEP10:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI9]], <2 x i64> [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER11:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER11:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024

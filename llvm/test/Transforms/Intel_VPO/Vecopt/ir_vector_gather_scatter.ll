@@ -21,7 +21,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x <4 x i32>*> [[MM_VECTORGEP]] to <4 x i32*>
 ; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <4 x i32*> [[TMP0]], <4 x i32*> undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3>
 ; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <16 x i32*> [[VECBASEPTR_]], <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0i32(<16 x i32*> [[ELEMBASEPTR_]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0i32(<16 x i32*> [[ELEMBASEPTR_]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x i32> poison)
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <16 x i32> [[WIDE_MASKED_GATHER]], <i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i64> [[VEC_PHI]], <i64 3, i64 3, i64 3, i64 3>
 ; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP2]]

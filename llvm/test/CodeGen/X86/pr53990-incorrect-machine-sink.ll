@@ -9,11 +9,9 @@ define void @test(i1 %c, ptr %p, ptr noalias %p2) nounwind {
 ; CHECK-NEXT:    pushq %rbp
 ; CHECK-NEXT:    pushq %r14
 ; CHECK-NEXT:    pushq %rbx
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    movq %rdx, %r14
+; CHECK-NEXT:    movq %rdx, %rbx
 ; CHECK-NEXT:    movl %edi, %ebp
-; CHECK-NEXT:    movq (%rsi), %rbx
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    movq (%rsi), %r14
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
 ; INTEL_CUSTOMIZATION
@@ -28,12 +26,10 @@ define void @test(i1 %c, ptr %p, ptr noalias %p2) nounwind {
 ; CHECK-NEXT:    je .LBB0_4
 ; CHECK-NEXT:  # %bb.3: # %clobber
 ; CHECK-NEXT:    # in Loop: Header=BB0_2 Depth=1
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    callq clobber@PLT
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  .LBB0_4: # %sink
 ; CHECK-NEXT:    # in Loop: Header=BB0_2 Depth=1
-; CHECK-NEXT:    movq %rbx, (%r14)
+; CHECK-NEXT:    movq %r14, (%rbx)
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
 ; CHECK-NEXT:  .LBB0_5: # %latch

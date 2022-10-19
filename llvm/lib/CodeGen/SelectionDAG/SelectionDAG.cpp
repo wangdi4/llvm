@@ -312,11 +312,23 @@ bool ISD::isBuildVectorOfConstantFPSDNodes(const SDNode *N) {
 
 bool ISD::isVectorShrinkable(const SDNode *N, unsigned NewEltSize,
                              bool Signed) {
-  if (N->getOpcode() != ISD::BUILD_VECTOR)
-    return false;
+  assert(N->getValueType(0).isVector() && "Expected a vector!");
 
   unsigned EltSize = N->getValueType(0).getScalarSizeInBits();
   if (EltSize <= NewEltSize)
+    return false;
+
+  if (N->getOpcode() == ISD::ZERO_EXTEND) {
+    return (N->getOperand(0).getValueType().getScalarSizeInBits() <=
+            NewEltSize) &&
+           !Signed;
+  }
+  if (N->getOpcode() == ISD::SIGN_EXTEND) {
+    return (N->getOperand(0).getValueType().getScalarSizeInBits() <=
+            NewEltSize) &&
+           Signed;
+  }
+  if (N->getOpcode() != ISD::BUILD_VECTOR)
     return false;
 
   for (const SDValue &Op : N->op_values()) {
@@ -10807,6 +10819,67 @@ bool llvm::isOneConstant(SDValue V) {
 bool llvm::isMinSignedConstant(SDValue V) {
   ConstantSDNode *Const = dyn_cast<ConstantSDNode>(V);
   return Const != nullptr && Const->isMinSignedValue();
+}
+
+bool llvm::isNeutralConstant(unsigned Opcode, SDNodeFlags Flags, SDValue V,
+                             unsigned OperandNo) {
+  // NOTE: The cases should match with IR's ConstantExpr::getBinOpIdentity().
+  // TODO: Target-specific opcodes could be added.
+  if (auto *Const = isConstOrConstSplat(V)) {
+    switch (Opcode) {
+    case ISD::ADD:
+    case ISD::OR:
+    case ISD::XOR:
+    case ISD::UMAX:
+      return Const->isZero();
+    case ISD::MUL:
+      return Const->isOne();
+    case ISD::AND:
+    case ISD::UMIN:
+      return Const->isAllOnes();
+    case ISD::SMAX:
+      return Const->isMinSignedValue();
+    case ISD::SMIN:
+      return Const->isMaxSignedValue();
+    case ISD::SUB:
+    case ISD::SHL:
+    case ISD::SRA:
+    case ISD::SRL:
+      return OperandNo == 1 && Const->isZero();
+    case ISD::UDIV:
+    case ISD::SDIV:
+      return OperandNo == 1 && Const->isOne();
+    }
+  } else if (auto *ConstFP = isConstOrConstSplatFP(V)) {
+    switch (Opcode) {
+    case ISD::FADD:
+      return ConstFP->isZero() &&
+             (Flags.hasNoSignedZeros() || ConstFP->isNegative());
+    case ISD::FSUB:
+      return OperandNo == 1 && ConstFP->isZero() &&
+             (Flags.hasNoSignedZeros() || !ConstFP->isNegative());
+    case ISD::FMUL:
+      return ConstFP->isExactlyValue(1.0);
+    case ISD::FDIV:
+      return OperandNo == 1 && ConstFP->isExactlyValue(1.0);
+    case ISD::FMINNUM:
+    case ISD::FMAXNUM: {
+      // Neutral element for fminnum is NaN, Inf or FLT_MAX, depending on FMF.
+      EVT VT = V.getValueType();
+      const fltSemantics &Semantics = SelectionDAG::EVTToAPFloatSemantics(VT);
+      APFloat NeutralAF = !Flags.hasNoNaNs()
+                              ? APFloat::getQNaN(Semantics)
+                              : !Flags.hasNoInfs()
+                                    ? APFloat::getInf(Semantics)
+                                    : APFloat::getLargest(Semantics);
+      if (Opcode == ISD::FMAXNUM)
+        NeutralAF.changeSign();
+
+      return ConstFP->isExactlyValue(NeutralAF);
+    }
+    }
+  }
+  return false;
 }
 
 SDValue llvm::peekThroughBitcasts(SDValue V) {

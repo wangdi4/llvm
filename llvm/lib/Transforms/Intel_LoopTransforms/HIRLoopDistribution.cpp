@@ -1440,7 +1440,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
     PiBlock *SrcBlk = *N;
 
-    bool NoOutgoingDeps = llvm::empty(PGraph->outgoing(SrcBlk));
+    bool NoOutgoingDeps = PGraph->outgoing(SrcBlk).empty();
     // If this current block has sparse array reduction instructions,
     // we need to break the recurrence before this block so that sparse array
     // reductions can be distributed into another separate loop.

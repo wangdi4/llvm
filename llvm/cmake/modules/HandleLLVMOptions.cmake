@@ -389,15 +389,12 @@ if( LLVM_ENABLE_LLD )
 endif()
 
 if( LLVM_USE_LINKER )
-  set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-  set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fuse-ld=${LLVM_USE_LINKER}")
+  append("-fuse-ld=${LLVM_USE_LINKER}"
+    CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
   check_cxx_source_compiles("int main() { return 0; }" CXX_SUPPORTS_CUSTOM_LINKER)
   if ( NOT CXX_SUPPORTS_CUSTOM_LINKER )
     message(FATAL_ERROR "Host compiler does not support '-fuse-ld=${LLVM_USE_LINKER}'")
   endif()
-  set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
-  append("-fuse-ld=${LLVM_USE_LINKER}"
-    CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
 endif()
 
 if( LLVM_ENABLE_PIC )
@@ -842,9 +839,6 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   add_flag_if_supported("-Wno-write-strings" NO_WRITE_STRINGS)
   add_flag_if_supported("-Wno-array-bounds" NO_ARRAY_BOUNDS)
   add_flag_if_supported("-Wno-pessimizing-move" NO_PESSIMIZING_MOVE)
-  # Temporarily disable warning for using deprecated declarations
-  # util LoopOpt/VPO support c++17.
-  add_flag_if_supported("-Wno-deprecated-declarations" NO_DEPRECATED_DECLARATIONS)
 #endif // INTEL_CUSTOMIZATION
 
   # Disable -Wclass-memaccess, a C++-only warning from GCC 8 that fires on

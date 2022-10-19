@@ -122,6 +122,7 @@ removeDuplicateDevices(const std::vector<device> &Devs) {
       Devs.begin(), Devs.end(), compareDevices);
   std::vector<device> UniqueDevices(UniqueDeviceSet.begin(),
                                     UniqueDeviceSet.end());
+
   return UniqueDevices;
 }
 

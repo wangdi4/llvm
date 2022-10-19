@@ -224,7 +224,7 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[VP_VEC_PHI12:%.*]] = phi <2 x ptr> [ [[VECTOR_GEP4]], [[VPlannedBB2]] ], [ [[VP_MM_VECTORGEP22:%.*]], [[VPlannedBB18]] ]
 ; CHECK-NEXT:   store <2 x ptr> [[VP_VEC_PHI12]], ptr [[K2_VEC]], align 1
 ; CHECK-NEXT:   [[WIDE_LOAD:%.*]] = load <2 x ptr>, ptr [[K2_VEC]], align 4
-; CHECK-NEXT:   [[WIDE_MASKED_GATHER:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[WIDE_LOAD]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; CHECK-NEXT:   [[WIDE_MASKED_GATHER:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[WIDE_LOAD]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> poison)
 ; CHECK-NEXT:   [[SCALAR_GEP:%.*]] = getelementptr inbounds [10 x i32], ptr @x, i64 0, i64 [[VP_UNI_PHI6]]
 ; CHECK-NEXT:   store <2 x i32> [[WIDE_MASKED_GATHER]], ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:   %6 = add <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>

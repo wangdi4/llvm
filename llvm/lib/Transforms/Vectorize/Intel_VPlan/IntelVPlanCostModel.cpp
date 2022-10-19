@@ -23,6 +23,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/SaveAndRestore.h"
 
+#include <cmath>
 #include <numeric>
 
 #define DEBUG_TYPE "vplan-cost-model"

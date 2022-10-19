@@ -960,7 +960,7 @@ __esimd_lsc_load_stateless(__ESIMD_DNS::simd_mask_storage_t<N> pred,
       continue;
     }
 
-    constexpr uint MASK = loadstoreAlignMask<Ty, VS, DS, N>();
+    constexpr unsigned MASK = loadstoreAlignMask<Ty, VS, DS, N>();
     constexpr int ChanlCount = __ESIMD_EDNS::to_int<VS>();
 
     int ByteDistance = 0;
@@ -1190,7 +1190,7 @@ __ESIMD_INTRIN void __esimd_lsc_store_stateless(
       continue;
     }
 
-    constexpr uint MASK = loadstoreAlignMask<Ty, VS, DS, N>();
+    constexpr unsigned MASK = loadstoreAlignMask<Ty, VS, DS, N>();
     constexpr int ChanlCount = __ESIMD_EDNS::to_int<VS>();
 
     int ByteDistance = 0;
@@ -1667,7 +1667,7 @@ __esimd_lsc_xatomic_stateless_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
       continue;
     }
 
-    constexpr uint MASK = loadstoreAlignMask<Ty, VS, DS, N>();
+    constexpr unsigned MASK = loadstoreAlignMask<Ty, VS, DS, N>();
     constexpr int ChanlCount = __ESIMD_EDNS::to_int<VS>();
 
     int ByteDistance = 0;
@@ -1740,7 +1740,7 @@ __esimd_lsc_xatomic_stateless_1(
       continue;
     }
 
-    constexpr uint MASK = loadstoreAlignMask<Ty, VS, DS, N>();
+    constexpr unsigned MASK = loadstoreAlignMask<Ty, VS, DS, N>();
     constexpr int ChanlCount = __ESIMD_EDNS::to_int<VS>();
 
     int ByteDistance = 0;
@@ -1865,7 +1865,7 @@ __esimd_lsc_xatomic_stateless_2(
       continue;
     }
 
-    constexpr uint MASK = loadstoreAlignMask<Ty, VS, DS, N>();
+    constexpr unsigned MASK = loadstoreAlignMask<Ty, VS, DS, N>();
     constexpr int ChanlCount = __ESIMD_EDNS::to_int<VS>();
 
     int ByteDistance = 0;

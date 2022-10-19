@@ -83,9 +83,9 @@ int template_test() {
 //DUMP: OMPTargetDirective {{.*}}
 //DUMP: OMPIn_reductionClause {{.*}}
 //DUMP: DeclRefExpr {{.*}} 'double':'double' lvalue Var {{.*}} 'foo' 'double':'double'
-//DUMP: CompoundAssignOperator {{.*}} 'double':'double' lvalue '-=' ComputeLHSTy='double' ComputeResultTy='double'
+//DUMP: CompoundAssignOperator {{.*}} 'double':'double' lvalue '-=' ComputeLHSTy='double':'double' ComputeResultTy='double':'double'
 //DUMP: DeclRefExpr {{.*}} 'double':'double' lvalue Var {{.*}} 'foo' 'double':'double'
-//DUMP: ImplicitCastExpr {{.*}} 'double' <IntegralToFloating>
+//DUMP: ImplicitCastExpr {{.*}} 'double':'double' <IntegralToFloating>
 //DUMP: SubstNonTypeTemplateParmExpr {{.*}} 'unsigned int'
 //DUMP: NonTypeTemplateParmDecl {{.*}} referenced 'unsigned int' depth 0 index 1 size
 //DUMP: IntegerLiteral {{.*}} 'unsigned int' 1

@@ -153,6 +153,7 @@ struct Configuration {
   bool timeTraceEnabled = false;
   bool dataConst = false;
   bool dedupLiterals = true;
+  bool deadStripDuplicates = false;
   bool omitDebugInfo = false;
   bool warnDylibInstallName = false;
   bool ignoreOptimizationHints = false;
@@ -223,6 +224,8 @@ struct Configuration {
   bool zeroModTime = false;
 
   llvm::StringRef osoPrefix;
+
+  std::vector<llvm::StringRef> dyldEnvs;
 
   llvm::MachO::Architecture arch() const { return platformInfo.target.Arch; }
 

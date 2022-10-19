@@ -37,7 +37,7 @@ define void @foo(i1* %arri1, i7* %arri7 ) {
 ; LLVM-CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; LLVM-CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
 ; LLVM-CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i1, <4 x i1*> [[BROADCAST_SPLAT0]], <4 x i64> [[VEC_PHI0]]
-; LLVM-CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i1> @llvm.masked.gather.v4i1.v4p0i1(<4 x i1*> [[MM_VECTORGEP0]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i1> undef)
+; LLVM-CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i1> @llvm.masked.gather.v4i1.v4p0i1(<4 x i1*> [[MM_VECTORGEP0]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i1> poison)
 ; LLVM-CHECK-NEXT:    [[TMP0:%.*]] = sext <4 x i1> [[WIDE_MASKED_GATHER0]] to <4 x i7>
 ; LLVM-CHECK-NEXT:    [[MM_VECTORGEP50:%.*]] = getelementptr inbounds i7, <4 x i7*> [[BROADCAST_SPLAT40]], <4 x i64> [[VEC_PHI0]]
 ; LLVM-CHECK-NEXT:    call void @llvm.masked.scatter.v4i7.v4p0i7(<4 x i7> [[TMP0]], <4 x i7*> [[MM_VECTORGEP50]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)

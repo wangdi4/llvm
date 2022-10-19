@@ -60,6 +60,7 @@ class AllocaInst;
 class AssumptionCache; // INTEL
 class AtomicCmpXchgInst;
 class AtomicRMWInst;
+class AssumptionCache;
 class BasicBlock;
 class BranchInst;
 class CallInst;
@@ -207,7 +208,6 @@ private:
   const TargetMachine &TM;
   ScalarEvolution *SCEV;          // INTEL
   const TargetTransformInfo *TTI; // INTEL
-  AssumptionCache *AC;            // INTEL
   const DominatorTree *DT;        // INTEL
   LoopInfo* LPI;                  // INTEL
 public:
@@ -217,6 +217,7 @@ public:
 
   SelectionDAG &DAG;
   AAResults *AA = nullptr;
+  AssumptionCache *AC = nullptr;
   const TargetLibraryInfo *LibInfo;
 
   class SDAGSwitchLowering : public SwitchCG::SwitchLowering {
@@ -598,10 +599,14 @@ private:
   void visitIntrinsicCall(const CallInst &I, unsigned Intrinsic);
   void visitTargetIntrinsic(const CallInst &I, unsigned Intrinsic);
   void visitConstrainedFPIntrinsic(const ConstrainedFPIntrinsic &FPI);
-  void visitVPLoadGather(const VPIntrinsic &VPIntrin, EVT VT,
-                         SmallVector<SDValue, 7> &OpValues, bool IsGather);
-  void visitVPStoreScatter(const VPIntrinsic &VPIntrin,
-                           SmallVector<SDValue, 7> &OpValues, bool IsScatter);
+  void visitVPLoad(const VPIntrinsic &VPIntrin, EVT VT,
+                   SmallVector<SDValue, 7> &OpValues);
+  void visitVPStore(const VPIntrinsic &VPIntrin,
+                    SmallVector<SDValue, 7> &OpValues);
+  void visitVPGather(const VPIntrinsic &VPIntrin, EVT VT,
+                     SmallVector<SDValue, 7> &OpValues);
+  void visitVPScatter(const VPIntrinsic &VPIntrin,
+                      SmallVector<SDValue, 7> &OpValues);
   void visitVPStridedLoad(const VPIntrinsic &VPIntrin, EVT VT,
                           SmallVectorImpl<SDValue> &OpValues);
   void visitVPStridedStore(const VPIntrinsic &VPIntrin,

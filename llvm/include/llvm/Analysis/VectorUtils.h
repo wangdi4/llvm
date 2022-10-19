@@ -183,7 +183,7 @@ struct VFParameter {
   }
 
   /// Is the parameter aligned?
-  bool isAligned() const { return Alignment.hasValue(); }
+  bool isAligned() const { return Alignment.has_value(); }
 
   /// Get the stride associated with a linear parameter.
   int getStride() const {

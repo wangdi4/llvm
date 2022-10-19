@@ -466,6 +466,11 @@ if("lld" IN_LIST LLVM_ENABLE_PROJECTS)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS lld)
 endif()
 
+if("libclc" IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl-toolchain libspirv-builtins)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins)
+endif()
+
 # Build and install lld as part of the sycl-toolchain if available
 if("lld" IN_LIST LLVM_ENABLE_PROJECTS)
   add_dependencies(sycl-toolchain lld)

@@ -2000,14 +2000,12 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
   case llvm::Triple::thumbeb:
     // Use the effective triple, which takes into account the deployment target.
     AddARMTargetArgs(EffectiveTriple, Args, CmdArgs, KernelOrKext);
-    CmdArgs.push_back("-fallow-half-arguments-and-returns");
     break;
 
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_32:
   case llvm::Triple::aarch64_be:
     AddAArch64TargetArgs(Args, CmdArgs);
-    CmdArgs.push_back("-fallow-half-arguments-and-returns");
     break;
 
   case llvm::Triple::loongarch32:
@@ -2421,6 +2419,10 @@ void Clang::AddRISCVTargetArgs(const ArgList &Args,
   CmdArgs.push_back(ABIName.data());
 
   SetRISCVSmallDataLimit(getToolChain(), Args, CmdArgs);
+
+  if (!Args.hasFlag(options::OPT_mimplicit_float,
+                    options::OPT_mno_implicit_float, true))
+    CmdArgs.push_back("-no-implicit-float");
 
   if (const Arg *A = Args.getLastArg(options::OPT_mtune_EQ)) {
     CmdArgs.push_back("-tune-cpu");
@@ -3041,12 +3043,13 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   // CUDA and HIP don't rely on the frontend to pass an ffp-contract option.
   // If one wasn't given by the user, don't pass it here.
   StringRef FPContract;
+  StringRef LastSeenFfpContractOption;
+  bool SeenFfastMathOption = false;
   if (!JA.isDeviceOffloading(Action::OFK_Cuda) &&
       !JA.isOffloading(Action::OFK_HIP))
     FPContract = "on";
   bool StrictFPModel = false;
 #if INTEL_CUSTOMIZATION
-  bool isFPContractFastByDefault = false;
   // In Intel mode, the default settings should be equivalent to fp-model fast
   if (D.IsIntelMode()) {
     HonorINFs = false;
@@ -3066,7 +3069,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
     }
     FPContract = "fast";
-    isFPContractFastByDefault = true;
   }
 #endif // INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArg(options::OPT_flimited_precision_EQ)) {
@@ -3244,14 +3246,10 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         // -ffp-model=precise sets PreciseFPModel to on and Val to
         // "precise". FPContract is set.
         ;
-#if INTEL_CUSTOMIZATION
-      } else if (Val.equals("on") || Val.equals("off")) {
+      } else if (Val.equals("fast") || Val.equals("on") || Val.equals("off")) {
         FPContract = Val;
-      } else if (Val.equals("fast")) {
-        FPContract = Val;
-        isFPContractFastByDefault = false;
+        LastSeenFfpContractOption = Val;
       } else
-#endif // INTEL_CUSTOMIZATION
         D.Diag(diag::err_drv_unsupported_option_argument)
            << A->getOption().getName() << Val;
       break;
@@ -3352,10 +3350,10 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       // If fast-math is set then set the fp-contract mode to fast.
       FPContract = "fast";
 #if INTEL_CUSTOMIZATION
-      isFPContractFastByDefault = false;
       DenormalFPMath = llvm::DenormalMode::getPreserveSign();
       DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
 #endif // INTEL_CUSTOMIZATION
+      SeenFfastMathOption = true;
       break;
     case options::OPT_fno_fast_math:
       HonorINFs = true;
@@ -3372,16 +3370,12 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFPMath = DefaultDenormalFPMath;
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
       if (!JA.isDeviceOffloading(Action::OFK_Cuda) &&
-          !JA.isOffloading(Action::OFK_HIP))
-        if (FPContract == "fast") {
+          !JA.isOffloading(Action::OFK_HIP)) {
+        if (LastSeenFfpContractOption != "") {
+          FPContract = LastSeenFfpContractOption;
+        } else if (SeenFfastMathOption)
           FPContract = "on";
-#if INTEL_CUSTOMIZATION
-          if (!isFPContractFastByDefault)
-            D.Diag(clang::diag::warn_drv_overriding_flag_option)
-                << "-ffp-contract=fast"
-                << "-ffp-contract=on";
-#endif // INTEL_CUSTOMIZATION
-        }
+      }
       break;
 
 #if INTEL_CUSTOMIZATION
@@ -3883,12 +3877,14 @@ static void RenderHLSLOptions(const ArgList &Args, ArgStringList &CmdArgs,
                                          options::OPT_disable_llvm_passes,
                                          options::OPT_fnative_half_type,
                                          options::OPT_hlsl_entrypoint};
-
+  if (!types::isHLSL(InputType))
+    return;
   for (const auto &Arg : ForwardedArguments)
     if (const auto *A = Args.getLastArg(Arg))
       A->renderAsInput(Args, CmdArgs);
   // Add the default headers if dxc_no_stdinc is not set.
-  if (!Args.hasArg(options::OPT_dxc_no_stdinc))
+  if (!Args.hasArg(options::OPT_dxc_no_stdinc) &&
+      !Args.hasArg(options::OPT_nostdinc))
     CmdArgs.push_back("-finclude-default-header");
 }
 
@@ -4767,6 +4763,11 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
     }
   }
 
+  if (const Arg *A = Args.getLastArg(options::OPT_gsrc_hash_EQ)) {
+    StringRef v = A->getValue();
+    CmdArgs.push_back(Args.MakeArgString("-gsrc-hash=" + v));
+  }
+
   if (Args.hasFlag(options::OPT_fdebug_ranges_base_address,
                    options::OPT_fno_debug_ranges_base_address, false)) {
     CmdArgs.push_back("-fdebug-ranges-base-address");
@@ -5128,6 +5129,79 @@ void Clang::ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
                                        HostCompileArgs, None);
 
   C.addCommand(std::move(Cmd));
+}
+
+static void ProcessVSRuntimeLibrary(const ArgList &Args,
+                                    ArgStringList &CmdArgs,
+                                    const ToolChain &TC) {
+  unsigned RTOptionID = options::OPT__SLASH_MT;
+
+  if (Args.hasArg(options::OPT__SLASH_LDd))
+    // The /LDd option implies /MTd. The dependent lib part can be overridden,
+    // but defining _DEBUG is sticky.
+    RTOptionID = options::OPT__SLASH_MTd;
+
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_M_Group))
+    RTOptionID = A->getOption().getID();
+
+  if (Arg *A = Args.getLastArg(options::OPT_fms_runtime_lib_EQ)) {
+    RTOptionID = llvm::StringSwitch<unsigned>(A->getValue())
+                     .Case("static", options::OPT__SLASH_MT)
+                     .Case("static_dbg", options::OPT__SLASH_MTd)
+                     .Case("dll", options::OPT__SLASH_MD)
+                     .Case("dll_dbg", options::OPT__SLASH_MDd)
+                     .Default(options::OPT__SLASH_MT);
+  }
+
+  bool isSPIR = TC.getTriple().isSPIR();
+  StringRef FlagForCRT;
+  switch (RTOptionID) {
+  case options::OPT__SLASH_MD:
+    if (Args.hasArg(options::OPT__SLASH_LDd))
+      CmdArgs.push_back("-D_DEBUG");
+    if (!isSPIR) {
+      CmdArgs.push_back("-D_MT");
+      CmdArgs.push_back("-D_DLL");
+    }
+    FlagForCRT = "--dependent-lib=msvcrt";
+    break;
+  case options::OPT__SLASH_MDd:
+    CmdArgs.push_back("-D_DEBUG");
+    if (!isSPIR) {
+      CmdArgs.push_back("-D_MT");
+      CmdArgs.push_back("-D_DLL");
+    }
+    FlagForCRT = "--dependent-lib=msvcrtd";
+    break;
+  case options::OPT__SLASH_MT:
+    if (Args.hasArg(options::OPT__SLASH_LDd))
+      CmdArgs.push_back("-D_DEBUG");
+    if (!isSPIR)
+      CmdArgs.push_back("-D_MT");
+    CmdArgs.push_back("-flto-visibility-public-std");
+    FlagForCRT = "--dependent-lib=libcmt";
+    break;
+  case options::OPT__SLASH_MTd:
+    CmdArgs.push_back("-D_DEBUG");
+    if (!isSPIR)
+      CmdArgs.push_back("-D_MT");
+    CmdArgs.push_back("-flto-visibility-public-std");
+    FlagForCRT = "--dependent-lib=libcmtd";
+    break;
+  default:
+    llvm_unreachable("Unexpected option ID.");
+  }
+
+  if (Args.hasArg(options::OPT_fms_omit_default_lib)) {
+    CmdArgs.push_back("-D_VC_NODEFAULTLIB");
+  } else {
+    CmdArgs.push_back(FlagForCRT.data());
+
+    // This provides POSIX compatibility (maps 'open' to '_open'), which most
+    // users want.  The /Za flag to cl.exe turns this off, but it's not
+    // implemented in clang.
+    CmdArgs.push_back("--dependent-lib=oldnames");
+  }
 }
 
 void Clang::ConstructJob(Compilation &C, const JobAction &JA,
@@ -5986,8 +6060,20 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Set the main file name, so that debug info works even with
   // -save-temps.
   CmdArgs.push_back("-main-file-name");
-  CmdArgs.push_back(getBaseInputName(Args, Input));
+  if (!IsSYCL || Args.hasArg(options::OPT_fno_sycl_use_footer)) {
+    CmdArgs.push_back(getBaseInputName(Args, Input));
+  } else {
+    SmallString<256> AbsPath = llvm::StringRef(Input.getBaseInput());
+    D.getVFS().makeAbsolute(AbsPath);
+    CmdArgs.push_back(
+        Args.MakeArgString(llvm::sys::path::filename(Input.getBaseInput())));
+    CmdArgs.push_back("-fsycl-use-main-file-name");
+  }
 
+  if (IsSYCL || Args.hasArg(options::OPT_fsycl_footer_path_EQ)) {
+    CmdArgs.push_back("-full-main-file-name");
+    CmdArgs.push_back(Input.getBaseInput());
+  }
   // Some flags which affect the language (via preprocessor
   // defines).
   if (Args.hasArg(options::OPT_static))
@@ -6506,17 +6592,24 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -fasynchronous-unwind-tables and -fnon-call-exceptions interact in more
   // complicated ways.
   auto SanitizeArgs = TC.getSanitizerArgs(Args);
+
+  bool IsAsyncUnwindTablesDefault =
+      TC.getDefaultUnwindTableLevel(Args) == ToolChain::UnwindTableLevel::Asynchronous;
+  bool IsSyncUnwindTablesDefault =
+      TC.getDefaultUnwindTableLevel(Args) == ToolChain::UnwindTableLevel::Synchronous;
+
   bool AsyncUnwindTables = Args.hasFlag(
       options::OPT_fasynchronous_unwind_tables,
       options::OPT_fno_asynchronous_unwind_tables,
-      (TC.IsUnwindTablesDefault(Args) || SanitizeArgs.needsUnwindTables()) &&
+      (IsAsyncUnwindTablesDefault || SanitizeArgs.needsUnwindTables()) &&
           !Freestanding);
-  bool UnwindTables = Args.hasFlag(options::OPT_funwind_tables,
-                                   options::OPT_fno_unwind_tables, false);
+  bool UnwindTables =
+      Args.hasFlag(options::OPT_funwind_tables, options::OPT_fno_unwind_tables,
+                   IsSyncUnwindTablesDefault && !Freestanding);
   if (AsyncUnwindTables)
     CmdArgs.push_back("-funwind-tables=2");
   else if (UnwindTables)
-    CmdArgs.push_back("-funwind-tables=1");
+     CmdArgs.push_back("-funwind-tables=1");
 
   // Prepare `-aux-target-cpu` and `-aux-target-feature` unless
   // `--gpu-use-aux-triple-only` is specified.
@@ -7005,11 +7098,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     Args.AddLastArg(CmdArgs, options::OPT_ftrigraphs,
                     options::OPT_fno_trigraphs);
-
-    // HIP headers has minimum C++ standard requirements. Therefore set the
-    // default language standard.
-    if (IsHIP)
-      CmdArgs.push_back(IsWindowsMSVC ? "-std=c++14" : "-std=c++11");
   }
 
   // GCC's behavior for -Wwrite-strings is a bit strange:
@@ -7618,8 +7706,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #endif // INTEL_CUSTOMIZATION
   // Forward hlsl options to -cc1
-  if (C.getDriver().IsDXCMode())
-    RenderHLSLOptions(Args, CmdArgs, InputType);
+  RenderHLSLOptions(Args, CmdArgs, InputType);
 
   if (IsHIP) {
     if (Args.hasFlag(options::OPT_fhip_new_launch_api,
@@ -7723,6 +7810,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fcoroutines-ts");
   }
 
+  if (Args.hasFlag(options::OPT_fcoro_aligned_allocation,
+                   options::OPT_fno_coro_aligned_allocation, false) &&
+      types::isCXX(InputType))
+    CmdArgs.push_back("-fcoro-aligned-allocation");
+
   Args.AddLastArg(CmdArgs, options::OPT_fdouble_square_bracket_attributes,
                   options::OPT_fno_double_square_bracket_attributes);
 
@@ -7790,6 +7882,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                                      options::OPT_fno_ms_extensions, true)));
   if (IsMSVCCompat)
     CmdArgs.push_back("-fms-compatibility");
+
+  if (Triple.isWindowsMSVCEnvironment() && !D.IsCLMode() &&
+      Args.hasArg(options::OPT_fms_runtime_lib_EQ))
+    ProcessVSRuntimeLibrary(Args, CmdArgs, TC);
 
   // Handle -fgcc-version, if present.
   VersionTuple GNUCVer;
@@ -8752,7 +8848,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-faddrsig");
 
   if ((Triple.isOSBinFormatELF() || Triple.isOSBinFormatMachO()) &&
-      (EH || AsyncUnwindTables || UnwindTables ||
+      (EH || UnwindTables || AsyncUnwindTables ||
        DebugInfoKind != codegenoptions::NoDebugInfo))
     CmdArgs.push_back("-D__GCC_HAVE_DWARF2_CFI_ASM=1");
 
@@ -9189,7 +9285,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     llvm_unreachable("Unexpected option ID.");
   }
 
-  if (Args.hasArg(options::OPT__SLASH_Zl)) {
+  if (Args.hasArg(options::OPT_fms_omit_default_lib)) {
     CmdArgs.push_back("-D_VC_NODEFAULTLIB");
   } else {
     CmdArgs.push_back(FlagForCRT.data());
@@ -9270,6 +9366,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     }
 #endif // INTEL_CUSTOMIZATION
   }
+  ProcessVSRuntimeLibrary(Args, CmdArgs, getToolChain());
 
   if (Arg *ShowIncludes =
           Args.getLastArg(options::OPT__SLASH_showIncludes,

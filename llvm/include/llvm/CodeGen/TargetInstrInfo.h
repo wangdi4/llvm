@@ -127,6 +127,11 @@ public:
     return Opc <= TargetOpcode::GENERIC_OP_END;
   }
 
+  static bool isGenericAtomicRMWOpcode(unsigned Opc) {
+    return Opc >= TargetOpcode::GENERIC_ATOMICRMW_OP_START &&
+           Opc <= TargetOpcode::GENERIC_ATOMICRMW_OP_END;
+  }
+
 #if INTEL_CUSTOMIZATION
   virtual bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
                                        bool DisableGFMAForPrecision) const {

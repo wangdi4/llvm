@@ -145,9 +145,9 @@ static cl::opt<unsigned> InlinerAttributeWindow(
 namespace llvm {
 
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
-                            AAResults *CalleeAAR, bool InsertLifetime,
-                            Function *ForwardVarArgsTo) {
-  return InlineFunction(CB, IFI, nullptr, nullptr, CalleeAAR, InsertLifetime,
+                            bool MergeAttributes, AAResults *CalleeAAR,
+                            bool InsertLifetime, Function *ForwardVarArgsTo) {
+  return InlineFunction(CB, IFI, nullptr, nullptr, MergeAttributes, CalleeAAR, InsertLifetime,
                         ForwardVarArgsTo);
 }
 
@@ -2321,6 +2321,7 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
 llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                         InlineReport *IR,     // INTEL
                                         InlineReportBuilder *MDIR, // INTEL
+                                        bool MergeAttributes,
                                         AAResults *CalleeAAR,
                                         bool InsertLifetime,
                                         Function *ForwardVarArgsTo) {
@@ -3128,6 +3129,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // Since we are now done with the return instruction, delete it also.
     Returns[0]->eraseFromParent();
 
+    if (MergeAttributes)
+      AttributeFuncs::mergeAttributesForInlining(*Caller, *CalledFunc);
+
     // We are now done with the inlining.
     return InlineResult::success();
   }
@@ -3290,6 +3294,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       PHI->eraseFromParent();
     }
   }
+
+  if (MergeAttributes)
+    AttributeFuncs::mergeAttributesForInlining(*Caller, *CalledFunc);
 
   return InlineResult::success();
 }

@@ -1,5 +1,6 @@
 // INTEL_FEATURE_ESIMD_EMBARGO
 // REQUIRES: intel_feature_esimd_embargo
+// UNSUPPORTED: linux
 // RUN: %clangxx -fsycl -c -fsycl-device-only -Xclang -emit-llvm %s -o %t
 
 #include <CL/sycl.hpp>

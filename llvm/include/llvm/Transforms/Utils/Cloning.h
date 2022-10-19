@@ -261,37 +261,14 @@ public:
   }
 };
 
-/// This function inlines the called function into the basic
-/// block of the caller.  This returns false if it is not possible to inline
-/// this call.  The program is still in a well defined state if this occurs
-/// though.
-///
-/// Note that this only does one level of inlining.  For example, if the
-/// instruction 'call B' is inlined, and 'B' calls 'C', then the call to 'C' now
-/// exists in the instruction stream.  Similarly this will inline a recursive
-/// function by one level.
-///
-/// Note that while this routine is allowed to cleanup and optimize the
-/// *inlined* code to minimize the actual inserted code, it must not delete
-/// code in the caller as users of this routine may have pointers to
-/// instructions in the caller that need to remain stable.
-///
-/// If ForwardVarArgsTo is passed, inlining a function with varargs is allowed
-/// and all varargs at the callsite will be passed to any calls to
-/// ForwardVarArgsTo. The caller of InlineFunction has to make sure any varargs
-/// are only used by ForwardVarArgsTo.
-InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
-                            AAResults *CalleeAAR = nullptr,
-                            bool InsertLifetime = true,
-                            Function *ForwardVarArgsTo = nullptr);
-
 #if INTEL_CUSTOMIZATION
 /// The Intel version computes the InlineReason indicating the principal
 /// reason the function was or was not inlined.
 ///
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
-                            InlineReport *IR,
-                            InlineReportBuilder *MDIR,
+                            InlineReport *IR = nullptr,
+                            InlineReportBuilder *MDIR = nullptr,
+                            bool MergeAttributes = false,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true,
                             Function *ForwardVarArgsTo = nullptr);

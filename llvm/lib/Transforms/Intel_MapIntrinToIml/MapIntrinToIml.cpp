@@ -888,10 +888,10 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
           getSVMLIDivOrRemFuncName(BinOp->getOpcode(), VecTy);
       auto Variant = searchX86SVMLVariantWithMinVL(
           TTI, FuncName, ScalarBitWidth, LogicalVL, false, &I);
-      if (!Variant.hasValue())
+      if (!Variant.has_value())
         continue;
-      StringRef VariantFuncName = Variant.getValue().first;
-      unsigned TargetVL = Variant.getValue().second;
+      StringRef VariantFuncName = Variant.value().first;
+      unsigned TargetVL = Variant.value().second;
 
       VectorType *LegalVecTy =
           FixedVectorType::get(VecTy->getScalarType(), TargetVL);
@@ -1232,9 +1232,9 @@ bool MapIntrinToImlImpl::runImpl() {
     // 1) an appropriate math library function is not found through querying
     //    the function selection interface.
     // 2) the pass is running in stress testing mode.
-    if (Variant.hasValue() && !RunSvmlStressMode) {
-      StringRef VariantFuncName = Variant.getValue().first;
-      unsigned TargetVL = Variant.getValue().second;
+    if (Variant.has_value() && !RunSvmlStressMode) {
+      StringRef VariantFuncName = Variant.value().first;
+      unsigned TargetVL = Variant.value().second;
       LLVM_DEBUG(dbgs() << "Function Variant: " << VariantFuncName << "\n\n");
 
       // Original arguments to the vector call.

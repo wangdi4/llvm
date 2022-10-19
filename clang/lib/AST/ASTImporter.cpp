@@ -1376,16 +1376,17 @@ ExpectedType ASTNodeImporter::VisitTypeOfExprType(const TypeOfExprType *T) {
   ExpectedExpr ToExprOrErr = import(T->getUnderlyingExpr());
   if (!ToExprOrErr)
     return ToExprOrErr.takeError();
-
-  return Importer.getToContext().getTypeOfExprType(*ToExprOrErr);
+  return Importer.getToContext().getTypeOfExprType(
+      *ToExprOrErr,
+      T->isUnqual() ? TypeOfKind::Unqualified : TypeOfKind::Qualified);
 }
 
 ExpectedType ASTNodeImporter::VisitTypeOfType(const TypeOfType *T) {
-  ExpectedType ToUnderlyingTypeOrErr = import(T->getUnderlyingType());
+  ExpectedType ToUnderlyingTypeOrErr = import(T->getUnmodifiedType());
   if (!ToUnderlyingTypeOrErr)
     return ToUnderlyingTypeOrErr.takeError();
-
-  return Importer.getToContext().getTypeOfType(*ToUnderlyingTypeOrErr);
+  return Importer.getToContext().getTypeOfType(*ToUnderlyingTypeOrErr,
+      T->isUnqual() ? TypeOfKind::Unqualified : TypeOfKind::Qualified);
 }
 
 ExpectedType ASTNodeImporter::VisitUsingType(const UsingType *T) {
@@ -1536,7 +1537,7 @@ ExpectedType ASTNodeImporter::VisitSubstTemplateTypeParmType(
     return ToReplacementTypeOrErr.takeError();
 
   return Importer.getToContext().getSubstTemplateTypeParmType(
-      *ReplacedOrErr, ToReplacementTypeOrErr->getCanonicalType());
+      *ReplacedOrErr, *ToReplacementTypeOrErr, T->getPackIndex());
 }
 
 ExpectedType ASTNodeImporter::VisitSubstTemplateTypeParmPackType(
@@ -3707,6 +3708,8 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
   ToFunction->setDefaulted(D->isDefaulted());
   ToFunction->setExplicitlyDefaulted(D->isExplicitlyDefaulted());
   ToFunction->setDeletedAsWritten(D->isDeletedAsWritten());
+  ToFunction->setFriendConstraintRefersToEnclosingTemplate(
+      D->FriendConstraintRefersToEnclosingTemplate());
   ToFunction->setRangeEnd(ToEndLoc);
 
   // Set the parameters.

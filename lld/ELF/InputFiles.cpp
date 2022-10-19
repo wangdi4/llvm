@@ -1174,8 +1174,7 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
               "' has invalid alignment: " + Twine(value));
       hasCommonSyms = true;
       sym->resolve(
-          CommonSymbol{this, StringRef(), binding, stOther, type,      // INTEL
-                       value, size}, sym->getName());                  // INTEL
+          CommonSymbol{this, StringRef(), binding, stOther, type, value, size});
       continue;
     }
 
@@ -1194,7 +1193,7 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     const Elf_Sym &eSym = eSyms[i];
     Symbol *sym = symbols[i];
     sym->resolve(Undefined{this, StringRef(), eSym.getBinding(), eSym.st_other,
-                           eSym.getType()}, sym->getName());           // INTEL
+                           eSym.getType()});
     sym->isUsedInRegularObj = true;
     sym->referenced = true;
   }
@@ -1208,6 +1207,7 @@ void ObjFile<ELFT>::initSectionsAndLocalSyms(bool ignoreComdats) {
   if (!firstGlobal)
     return;
   SymbolUnion *locals = makeThreadLocalN<SymbolUnion>(firstGlobal);
+  memset(locals, 0, sizeof(SymbolUnion) * firstGlobal);
 
   ArrayRef<Elf_Sym> eSyms = this->getELFSyms<ELFT>();
   for (size_t i = 0, end = firstGlobal; i != end; ++i) {
@@ -1238,6 +1238,7 @@ void ObjFile<ELFT>::initSectionsAndLocalSyms(bool ignoreComdats) {
     else
       new (symbols[i]) Defined(this, name, STB_LOCAL, eSym.st_other, type,
                                eSym.st_value, eSym.st_size, sec);
+    symbols[i]->partition = 1;
     symbols[i]->isUsedInRegularObj = true;
   }
 }
@@ -1763,7 +1764,7 @@ createBitcodeSymbol(Symbol *&sym, const std::vector<bool> &keptComdats,
   int c = objSym.getComdatIndex();
   if (objSym.isUndefined() || (c != -1 && !keptComdats[c])) {
     Undefined newSym(&f, StringRef(), binding, visibility, type);
-    sym->resolve(newSym, name);                                        // INTEL
+    sym->resolve(newSym);
     sym->referenced = true;
     return;
   }
@@ -1771,7 +1772,7 @@ createBitcodeSymbol(Symbol *&sym, const std::vector<bool> &keptComdats,
   if (objSym.isCommon()) {
     sym->resolve(CommonSymbol{&f, StringRef(), binding, visibility, STT_OBJECT,
                               objSym.getCommonAlignment(),
-                              objSym.getCommonSize()}, name);          // INTEL
+                              objSym.getCommonSize()});
   } else {
     Defined newSym(&f, StringRef(), binding, visibility, type, 0, 0, nullptr);
     if (objSym.canBeOmittedFromSymbolTable())
@@ -1809,7 +1810,7 @@ void BitcodeFile::parseLazy() {
     if (!irSym.isUndefined()) {
       StringRef name = saver().save(irSym.getName());                  // INTEL
       auto *sym = symtab.insert(name);                                 // INTEL
-      sym->resolve(LazyObject{*this}, name);                           // INTEL
+      sym->resolve(LazyObject{*this});
       symbols[i] = sym;
     }
 }
@@ -1894,7 +1895,7 @@ template <class ELFT> void ObjFile<ELFT>::parseLazy() {
   // exit from the loop early.
   for (Symbol *sym : makeArrayRef(symbols).slice(firstGlobal))
     if (sym) {
-      sym->resolve(LazyObject{*this}, sym->getName());                 // INTEL
+      sym->resolve(LazyObject{*this});
       if (!lazy)
         return;
     }

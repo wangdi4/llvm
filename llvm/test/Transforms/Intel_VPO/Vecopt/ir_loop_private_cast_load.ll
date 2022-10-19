@@ -12,7 +12,7 @@ define void @foo(i32* nocapture %arr) {
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32*> [[PRIV_VEC_BASE_ADDR:%.*]] to <4 x i8*>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i8> @llvm.masked.gather.v4i8.v4p0i8(<4 x i8*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i8> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i8> @llvm.masked.gather.v4i8.v4p0i8(<4 x i8*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i8> poison)
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i32 [[TMP2]], 100

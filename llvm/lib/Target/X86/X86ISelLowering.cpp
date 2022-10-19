@@ -5141,9 +5141,7 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   SmallVector<SDValue, 8> Ops;
 
   if (!IsSibcall && isTailCall && !IsMustTail) {
-    Chain = DAG.getCALLSEQ_END(Chain,
-                               DAG.getIntPtrConstant(NumBytesToPop, dl, true),
-                               DAG.getIntPtrConstant(0, dl, true), InFlag, dl);
+    Chain = DAG.getCALLSEQ_END(Chain, NumBytesToPop, 0, InFlag, dl);
     InFlag = Chain.getValue(1);
   }
 
@@ -5284,10 +5282,7 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // Returns a flag for retval copy to use.
   if (!IsSibcall) {
-    Chain = DAG.getCALLSEQ_END(Chain,
-                               DAG.getIntPtrConstant(NumBytesToPop, dl, true),
-                               DAG.getIntPtrConstant(NumBytesForCalleeToPop, dl,
-                                                     true),
+    Chain = DAG.getCALLSEQ_END(Chain, NumBytesToPop, NumBytesForCalleeToPop,
                                InFlag, dl);
     InFlag = Chain.getValue(1);
   }
@@ -21407,9 +21402,7 @@ X86TargetLowering::LowerGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const {
     Chain = DAG.getCALLSEQ_START(Chain, 0, 0, DL);
     SDValue Args[] = { Chain, Offset };
     Chain = DAG.getNode(X86ISD::TLSCALL, DL, NodeTys, Args);
-    Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(0, DL, true),
-                               DAG.getIntPtrConstant(0, DL, true),
-                               Chain.getValue(1), DL);
+    Chain = DAG.getCALLSEQ_END(Chain, 0, 0, Chain.getValue(1), DL);
 
     // TLSCALL will be codegen'ed as call. Inform MFI that function has calls.
     MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
@@ -27042,8 +27035,7 @@ X86TargetLowering::LowerDYNAMIC_STACKALLOC(SDValue Op,
     Result = SP;
   }
 
-  Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(0, dl, true),
-                             DAG.getIntPtrConstant(0, dl, true), SDValue(), dl);
+  Chain = DAG.getCALLSEQ_END(Chain, 0, 0, SDValue(), dl);
 
   SDValue Ops[2] = {Result, Chain};
   return DAG.getMergeValues(Ops, dl);
@@ -52241,7 +52233,7 @@ static SDValue combineOr(SDNode *N, SelectionDAG &DAG,
 
     if (Cond.getOpcode() == X86ISD::SETCC && Cond.hasOneUse()) {
       if (auto *CN = dyn_cast<ConstantSDNode>(N1)) {
-        unsigned Val = CN->getZExtValue();
+        uint64_t Val = CN->getZExtValue();
         if (Val == 1 || Val == 2 || Val == 3 || Val == 4 || Val == 7 || Val == 8) {
           X86::CondCode CCode = (X86::CondCode)Cond.getConstantOperandVal(0);
           CCode = X86::GetOppositeBranchCondition(CCode);
@@ -61926,12 +61918,12 @@ bool X86TargetLowering::supportSwiftError() const {
 }
 
 /// Returns true if stack probing through a function call is requested.
-bool X86TargetLowering::hasStackProbeSymbol(MachineFunction &MF) const {
+bool X86TargetLowering::hasStackProbeSymbol(const MachineFunction &MF) const {
   return !getStackProbeSymbolName(MF).empty();
 }
 
 /// Returns true if stack probing through inline assembly is requested.
-bool X86TargetLowering::hasInlineStackProbe(MachineFunction &MF) const {
+bool X86TargetLowering::hasInlineStackProbe(const MachineFunction &MF) const {
 
   // No inline stack probe for Windows, they have their own mechanism.
   if (Subtarget.isOSWindows() ||
@@ -61949,7 +61941,7 @@ bool X86TargetLowering::hasInlineStackProbe(MachineFunction &MF) const {
 /// Returns the name of the symbol used to emit stack probes or the empty
 /// string if not applicable.
 StringRef
-X86TargetLowering::getStackProbeSymbolName(MachineFunction &MF) const {
+X86TargetLowering::getStackProbeSymbolName(const MachineFunction &MF) const {
   // Inline Stack probes disable stack probe call
   if (hasInlineStackProbe(MF))
     return "";
@@ -61972,7 +61964,7 @@ X86TargetLowering::getStackProbeSymbolName(MachineFunction &MF) const {
 }
 
 unsigned
-X86TargetLowering::getStackProbeSize(MachineFunction &MF) const {
+X86TargetLowering::getStackProbeSize(const MachineFunction &MF) const {
   // The default stack probe size is 4096 if the function has no stackprobesize
   // attribute.
   unsigned StackProbeSize = 4096;

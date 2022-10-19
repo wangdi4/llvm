@@ -5109,8 +5109,7 @@ PrepareTailCall(SelectionDAG &DAG, SDValue &InFlag, SDValue &Chain,
   Chain = EmitTailCallStoreFPAndRetAddr(DAG, Chain, LROp, FPOp, SPDiff, dl);
 
   // Emit callseq_end just before tailcall node.
-  Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, dl, true),
-                             DAG.getIntPtrConstant(0, dl, true), InFlag, dl);
+  Chain = DAG.getCALLSEQ_END(Chain, NumBytes, 0, InFlag, dl);
   InFlag = Chain.getValue(1);
 }
 
@@ -5621,9 +5620,7 @@ SDValue PPCTargetLowering::FinishCall(
                             ? NumBytes
                             : 0;
 
-  Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, dl, true),
-                             DAG.getIntPtrConstant(BytesCalleePops, dl, true),
-                             Glue, dl);
+  Chain = DAG.getCALLSEQ_END(Chain, NumBytes, BytesCalleePops, Glue, dl);
   Glue = Chain.getValue(1);
 
   return LowerCallResult(Chain, Glue, CFlags.CallConv, CFlags.IsVarArg, Ins, dl,
@@ -12001,7 +11998,7 @@ PPCTargetLowering::emitEHSjLjLongJmp(MachineInstr &MI,
   return MBB;
 }
 
-bool PPCTargetLowering::hasInlineStackProbe(MachineFunction &MF) const {
+bool PPCTargetLowering::hasInlineStackProbe(const MachineFunction &MF) const {
   // If the function specifically requests inline stack probes, emit them.
   if (MF.getFunction().hasFnAttribute("probe-stack"))
     return MF.getFunction().getFnAttribute("probe-stack").getValueAsString() ==
@@ -12009,7 +12006,7 @@ bool PPCTargetLowering::hasInlineStackProbe(MachineFunction &MF) const {
   return false;
 }
 
-unsigned PPCTargetLowering::getStackProbeSize(MachineFunction &MF) const {
+unsigned PPCTargetLowering::getStackProbeSize(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = Subtarget.getFrameLowering();
   unsigned StackAlign = TFI->getStackAlignment();
   assert(StackAlign >= 1 && isPowerOf2_32(StackAlign) &&
@@ -16228,6 +16225,24 @@ void PPCTargetLowering::LowerAsmOperandForConstraint(SDValue Op,
 
   // Handle standard constraint letters.
   TargetLowering::LowerAsmOperandForConstraint(Op, Constraint, Ops, DAG);
+}
+
+void PPCTargetLowering::CollectTargetIntrinsicOperands(const CallInst &I,
+                                              SmallVectorImpl<SDValue> &Ops,
+                                              SelectionDAG &DAG) const {
+  if (I.getNumOperands() <= 1)
+    return;
+  if (!isa<ConstantSDNode>(Ops[1].getNode()))
+    return;
+  auto IntrinsicID = cast<ConstantSDNode>(Ops[1].getNode())->getZExtValue();
+  if (IntrinsicID != Intrinsic::ppc_tdw && IntrinsicID != Intrinsic::ppc_tw &&
+      IntrinsicID != Intrinsic::ppc_trapd && IntrinsicID != Intrinsic::ppc_trap)
+    return;
+
+  if (I.hasMetadata("annotation")) {
+    MDNode *MDN = I.getMetadata("annotation");
+    Ops.push_back(DAG.getMDNode(MDN));
+  }
 }
 
 // isLegalAddressingMode - Return true if the addressing mode represented

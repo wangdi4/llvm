@@ -290,6 +290,8 @@ define dso_local void @NestedFor64(i32* %ar, i64 %n, i64 %m, i64 %o) #0 {
 ; CHECK-LABEL: @NestedFor64(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP3:%.*]] = icmp slt i64 0, [[N:%.*]]
+; INTEL_CUSTOMIZATION
+; xmain doesn't merge branches here..
 ; CHECK-NEXT:    br i1 [[CMP3]], label [[FOR_BODY_LR_PH:%.*]], label [[FOR_END17:%.*]]
 ; CHECK:       for.body.lr.ph:
 ; CHECK-NEXT:    [[CMP41:%.*]] = icmp slt i64 0, [[M:%.*]]
@@ -297,6 +299,7 @@ define dso_local void @NestedFor64(i32* %ar, i64 %n, i64 %m, i64 %o) #0 {
 ; CHECK-NEXT:    [[CONV14:%.*]] = trunc i64 [[MUL13]] to i32
 ; CHECK-NEXT:    br i1 [[CMP41]], label [[FOR_BODY_US_PREHEADER:%.*]], label [[FOR_END17]]
 ; CHECK:       for.body.us.preheader:
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP0:%.*]] = mul i64 [[O]], [[M]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i64 [[TMP0]] to i32
 ; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[O]] to i32

@@ -167,11 +167,11 @@ tools.extend([
     'llvm-modextract', 'llvm-nm', 'llvm-objcopy', 'llvm-objdump', 'llvm-otool',
     'llvm-pdbutil', 'llvm-profdata', 'llvm-profgen', 'llvm-ranlib', 'llvm-rc', 'llvm-readelf',
     'llvm-readobj', 'llvm-remark-size-diff', 'llvm-rtdyld', 'llvm-sim',
-    'llvm-size', 'llvm-split', 'llvm-stress', 'llvm-strings', 'llvm-strip',
+    'llvm-size', 'llvm-spirv', 'llvm-split', 'llvm-stress', 'llvm-strings', 'llvm-strip',
     'llvm-tblgen', 'llvm-tapi-diff', 'llvm-undname', 'llvm-windres',
     'llvm-c-test', 'llvm-cxxfilt', 'llvm-xray', 'yaml2obj', 'obj2yaml',
     'yaml-bench', 'verify-uselistorder', 'bugpoint', 'llc', 'llvm-symbolizer',
-    'opt', 'sancov', 'sanstats', 'llvm-remarkutil'])
+    'opt', 'sancov', 'sanstats', 'llvm-remarkutil', 'spirv-to-ir-wrapper'])
 
 # The following tools are optional
 tools.extend([
@@ -456,8 +456,9 @@ if 'darwin' == sys.platform:
         if 'hw.optional.fma: 1' in result:
             config.available_features.add('fma3')
 
-# .debug_frame is not emitted for targeting Windows x64, arm64, or AIX.
-if not re.match(r'^(x86_64|arm64|powerpc|powerpc64).*-(windows-gnu|windows-msvc|aix)', config.target_triple):
+# .debug_frame is not emitted for targeting Windows x64, aarch64/arm64, AIX, or Apple Silicon Mac.
+if not re.match(r'^(x86_64|aarch64|arm64|powerpc|powerpc64).*-(windows-gnu|windows-msvc|aix)', config.target_triple) \
+    and not re.match(r'^arm64(e)?-apple-(macos|darwin)', config.target_triple):
     config.available_features.add('debug_frame')
 
 if config.have_libxar:

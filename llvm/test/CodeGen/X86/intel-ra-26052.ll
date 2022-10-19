@@ -37,183 +37,178 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
 ; CHECK-NEXT:    .cfi_offset %r14, -32
 ; CHECK-NEXT:    .cfi_offset %r15, -24
 ; CHECK-NEXT:    movq (%rdi), %rax
-; CHECK-NEXT:    movq %rax, 80(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq %rax, 96(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    movq 32(%rdi), %rax
 ; CHECK-NEXT:    movq %rax, 48(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    movq 64(%rdi), %rax
-; CHECK-NEXT:    movq %rax, 16(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq %rax, 32(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    movq 96(%rdi), %rax
-; CHECK-NEXT:    movq %rsp, %rcx
+; CHECK-NEXT:    movq %rsp, %r9
 ; CHECK-NEXT:    addq $15, %rax
 ; CHECK-NEXT:    andq $-16, %rax
-; CHECK-NEXT:    subq %rax, %rcx
-; CHECK-NEXT:    movq %rcx, %rsp
-; CHECK-NEXT:    movl 136(%rdi), %r10d
-; CHECK-NEXT:    movl 144(%rdi), %r15d
-; CHECK-NEXT:    movl 152(%rdi), %r14d
-; CHECK-NEXT:    movq 216(%rdi), %rdx
-; CHECK-NEXT:    imulq 224(%rdi), %rdx
-; CHECK-NEXT:    imulq 232(%rdi), %rdx
-; CHECK-NEXT:    shlq $7, %rdx
-; CHECK-NEXT:    leaq (%rdx,%rdx,4), %rax
-; CHECK-NEXT:    movq %rsp, %rdx
-; CHECK-NEXT:    subq %rax, %rdx
-; CHECK-NEXT:    andq $-128, %rdx
-; CHECK-NEXT:    movq %rdx, %rsp
-; CHECK-NEXT:    movq (%rsi), %rax
-; CHECK-NEXT:    movq %rax, 64(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movq 8(%rsi), %r13
-; CHECK-NEXT:    leaq 1(%rax), %rsi
+; CHECK-NEXT:    subq %rax, %r9
+; CHECK-NEXT:    movq %r9, %rsp
+; CHECK-NEXT:    movl 136(%rdi), %r11d
+; CHECK-NEXT:    movl %r11d, 64(%rbx) # 4-byte Spill
+; CHECK-NEXT:    movl 144(%rdi), %r13d
+; CHECK-NEXT:    movl 152(%rdi), %edx
+; CHECK-NEXT:    movq 216(%rdi), %r10
+; CHECK-NEXT:    imulq 224(%rdi), %r10
+; CHECK-NEXT:    imulq 232(%rdi), %r10
+; CHECK-NEXT:    shlq $7, %r10
+; CHECK-NEXT:    leaq (%r10,%r10,4), %r15
+; CHECK-NEXT:    movq %rsp, %r10
+; CHECK-NEXT:    subq %r15, %r10
+; CHECK-NEXT:    andq $-128, %r10
+; CHECK-NEXT:    movq %r10, %rsp
+; CHECK-NEXT:    movq (%rsi), %rcx
+; CHECK-NEXT:    movq %rcx, 80(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq 8(%rsi), %rax
+; CHECK-NEXT:    movq %rax, 112(%rbx) # 8-byte Spill
+; CHECK-NEXT:    leaq 1(%rcx), %r15
+; CHECK-NEXT:    xorl %esi, %esi
+; CHECK-NEXT:    cmpq %r15, 264(%rdi)
+; CHECK-NEXT:    sete %sil
+; CHECK-NEXT:    leaq 1(%rax), %r15
 ; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    cmpq %rsi, 264(%rdi)
+; CHECK-NEXT:    cmpq %r15, 272(%rdi)
 ; CHECK-NEXT:    sete %al
-; CHECK-NEXT:    leaq 1(%r13), %r12
-; CHECK-NEXT:    xorl %r9d, %r9d
-; CHECK-NEXT:    cmpq %r12, 272(%rdi)
-; CHECK-NEXT:    sete %r9b
-; CHECK-NEXT:    testl %r14d, %r14d
-; CHECK-NEXT:    movl $1, %esi
-; CHECK-NEXT:    movl %r14d, %r8d
-; CHECK-NEXT:    cmovel %esi, %r8d
-; CHECK-NEXT:    cmpl $-2147483648, %r10d # imm = 0x80000000
+; CHECK-NEXT:    testl %edx, %edx
+; CHECK-NEXT:    movl $1, %ecx
+; CHECK-NEXT:    movl %edx, %r8d
+; CHECK-NEXT:    cmovel %ecx, %r8d
+; CHECK-NEXT:    cmpl $-2147483648, %r11d # imm = 0x80000000
 ; CHECK-NEXT:    movl %r8d, %r12d
-; CHECK-NEXT:    cmovel %esi, %r12d
-; CHECK-NEXT:    cmpl $-2147483648, %r15d # imm = 0x80000000
-; CHECK-NEXT:    cmovnel %r8d, %esi
-; CHECK-NEXT:    cmpl $-1, %r14d
-; CHECK-NEXT:    movq 88(%rdi), %r11
-; CHECK-NEXT:    movq %r11, 352(%rbx)
-; CHECK-NEXT:    movq 56(%rdi), %r14
-; CHECK-NEXT:    movq %r14, 344(%rbx)
+; CHECK-NEXT:    cmovel %ecx, %r12d
+; CHECK-NEXT:    cmpl $-2147483648, %r13d # imm = 0x80000000
+; CHECK-NEXT:    cmovnel %r8d, %ecx
+; CHECK-NEXT:    cmpl $-1, %edx
+; CHECK-NEXT:    movq 88(%rdi), %r14
+; CHECK-NEXT:    movq %r14, 352(%rbx)
+; CHECK-NEXT:    movq 56(%rdi), %r15
+; CHECK-NEXT:    movq %r15, 344(%rbx)
+; CHECK-NEXT:    leaq (%rsi,%rsi,2), %rdx
+; CHECK-NEXT:    movq 216(%rdi,%rdx,8), %rsi
 ; CHECK-NEXT:    leaq (%rax,%rax,2), %rax
-; CHECK-NEXT:    movq 216(%rdi,%rax,8), %rax
-; CHECK-NEXT:    movq %rax, 128(%rbx) # 8-byte Spill
-; CHECK-NEXT:    leaq (%r9,%r9,2), %rax
 ; CHECK-NEXT:    movq 224(%rdi,%rax,8), %rax
-; CHECK-NEXT:    movq %rax, 120(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movq 24(%rdi), %r9
-; CHECK-NEXT:    movq %r9, 336(%rbx)
+; CHECK-NEXT:    movq %rax, 136(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq 24(%rdi), %r11
+; CHECK-NEXT:    movq %r11, 336(%rbx)
 ; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vmovups %xmm0, 360(%rbx)
 ; CHECK-NEXT:    cmovnel %r8d, %r12d
-; CHECK-NEXT:    cmovnel %r8d, %esi
-; CHECK-NEXT:    movl %r10d, %eax
-; CHECK-NEXT:    movq %rdx, %r10
+; CHECK-NEXT:    cmovnel %r8d, %ecx
+; CHECK-NEXT:    movl 64(%rbx), %eax # 4-byte Reload
 ; CHECK-NEXT:    cltd
 ; CHECK-NEXT:    idivl %r12d
+; CHECK-NEXT:    movq %rsi, %r12
 ; CHECK-NEXT:    movl %eax, %edi
-; CHECK-NEXT:    movl %r15d, %eax
+; CHECK-NEXT:    movl %r13d, %eax
 ; CHECK-NEXT:    cltd
-; CHECK-NEXT:    idivl %esi
+; CHECK-NEXT:    idivl %ecx
 ; CHECK-NEXT:    movl %eax, %esi
 ; CHECK-NEXT:    movl $128, %eax
 ; CHECK-NEXT:    xorl %edx, %edx
 ; CHECK-NEXT:    idivl %r8d
 ; CHECK-NEXT:    # kill: def $eax killed $eax def $rax
-; CHECK-NEXT:    imull 64(%rbx), %eax # 4-byte Folded Reload
-; CHECK-NEXT:    movq %rax, 208(%rbx) # 8-byte Spill
-; CHECK-NEXT:    shlq $4, %r9
-; CHECK-NEXT:    addq 80(%rbx), %r9 # 8-byte Folded Reload
-; CHECK-NEXT:    movq %r9, 280(%rbx) # 8-byte Spill
+; CHECK-NEXT:    imull 80(%rbx), %eax # 4-byte Folded Reload
+; CHECK-NEXT:    movq %rax, 216(%rbx) # 8-byte Spill
+; CHECK-NEXT:    shlq $4, %r11
+; CHECK-NEXT:    addq 96(%rbx), %r11 # 8-byte Folded Reload
+; CHECK-NEXT:    movq %r11, 280(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq %r10, %r11
 ; CHECK-NEXT:    movl $64, %eax
 ; CHECK-NEXT:    xorl %edx, %edx
 ; CHECK-NEXT:    idivl %r8d
 ; CHECK-NEXT:    # kill: def $eax killed $eax def $rax
+; CHECK-NEXT:    shlq $4, %r15
+; CHECK-NEXT:    addq 48(%rbx), %r15 # 8-byte Folded Reload
+; CHECK-NEXT:    leal (,%rdi,8), %r8d
+; CHECK-NEXT:    subl %edi, %r8d
 ; CHECK-NEXT:    shlq $4, %r14
-; CHECK-NEXT:    addq 48(%rbx), %r14 # 8-byte Folded Reload
-; CHECK-NEXT:    leal (,%rdi,8), %r9d
-; CHECK-NEXT:    subl %edi, %r9d
-; CHECK-NEXT:    shlq $4, %r11
-; CHECK-NEXT:    addq 16(%rbx), %r11 # 8-byte Folded Reload
-; CHECK-NEXT:    movq %r11, 296(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movq %rax, %r11
+; CHECK-NEXT:    addq 32(%rbx), %r14 # 8-byte Folded Reload
+; CHECK-NEXT:    movq %r14, 304(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq %rax, %r14
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    shll $6, %eax
-; CHECK-NEXT:    movq %rax, 200(%rbx) # 8-byte Spill
-; CHECK-NEXT:    shll $5, %r13d
-; CHECK-NEXT:    movq %r13, 216(%rbx) # 8-byte Spill
-; CHECK-NEXT:    leal (%rdi,%rdi), %edx
-; CHECK-NEXT:    leal (%rdx,%rdx,2), %r8d
-; CHECK-NEXT:    movslq %edx, %rax
+; CHECK-NEXT:    movq %rax, 184(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq 112(%rbx), %rax # 8-byte Reload
+; CHECK-NEXT:    shll $5, %eax
+; CHECK-NEXT:    movq %rax, 112(%rbx) # 8-byte Spill
+; CHECK-NEXT:    leal (%rdi,%rdi), %ecx
+; CHECK-NEXT:    leal (%rcx,%rcx,2), %edx
+; CHECK-NEXT:    movslq %ecx, %rax
 ; CHECK-NEXT:    movq %rax, 272(%rbx) # 8-byte Spill
-; CHECK-NEXT:    leal (%rdi,%rdi,2), %edx
-; CHECK-NEXT:    movslq %edx, %rax
+; CHECK-NEXT:    leal (%rdi,%rdi,2), %ecx
+; CHECK-NEXT:    movslq %ecx, %rax
 ; CHECK-NEXT:    movq %rax, 264(%rbx) # 8-byte Spill
-; CHECK-NEXT:    leal (,%rdi,4), %edx
-; CHECK-NEXT:    movslq %edx, %rax
+; CHECK-NEXT:    leal (,%rdi,4), %ecx
+; CHECK-NEXT:    movslq %ecx, %rax
 ; CHECK-NEXT:    movq %rax, 256(%rbx) # 8-byte Spill
-; CHECK-NEXT:    leal (%rdi,%rdi,4), %edx
-; CHECK-NEXT:    movslq %edx, %rax
+; CHECK-NEXT:    leal (%rdi,%rdi,4), %ecx
+; CHECK-NEXT:    movslq %ecx, %rax
 ; CHECK-NEXT:    movq %rax, 248(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movslq %r8d, %rax
+; CHECK-NEXT:    movslq %edx, %rax
 ; CHECK-NEXT:    movq %rax, 240(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movslq %r9d, %rax
+; CHECK-NEXT:    movslq %r8d, %rax
 ; CHECK-NEXT:    movq %rax, 232(%rbx) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    movq %rax, 16(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movslq %r11d, %rax
-; CHECK-NEXT:    movq %rax, 288(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movq %rdi, 184(%rbx) # 8-byte Spill
+; CHECK-NEXT:    xorl %r13d, %r13d
+; CHECK-NEXT:    movslq %r14d, %rax
+; CHECK-NEXT:    movq %rax, 296(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq %rdi, 168(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    movslq %edi, %rax
 ; CHECK-NEXT:    movq %rax, 224(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    leal (%rsi,%rsi,2), %eax
-; CHECK-NEXT:    leal (%rsi,%rsi), %edx
-; CHECK-NEXT:    leaq 608(%r10), %rdi
-; CHECK-NEXT:    movq %rdi, 8(%rbx) # 8-byte Spill
-; CHECK-NEXT:    xorl %r9d, %r9d
-; CHECK-NEXT:    xorl %r13d, %r13d
+; CHECK-NEXT:    leal (%rsi,%rsi), %edi
+; CHECK-NEXT:    addq $608, %r10 # imm = 0x260
+; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:    xorl %ecx, %ecx
+; CHECK-NEXT:    movq %r11, 144(%rbx) # 8-byte Spill
 ; CHECK-NEXT:  .LBB0_1: # =>This Loop Header: Depth=1
 ; CHECK-NEXT:    # Child Loop BB0_3 Depth 2
-; CHECK-NEXT:    # Child Loop BB0_15 Depth 3
-; CHECK-NEXT:    # Child Loop BB0_16 Depth 4
 ; CHECK-NEXT:    # Child Loop BB0_9 Depth 3
-; CHECK-NEXT:    movq %rdx, 136(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movl %eax, 44(%rbx) # 4-byte Spill
-; CHECK-NEXT:    movq %r10, %rdx
-; CHECK-NEXT:    movq 208(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    leal (%rax,%r9), %r10d
-; CHECK-NEXT:    movl %r10d, (%rdx,%r13)
-; CHECK-NEXT:    movq %r11, 112(%rbx) # 8-byte Spill
-; CHECK-NEXT:    leal (%r10,%r11), %r8d
-; CHECK-NEXT:    movq 16(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    movl %edi, %r11d
-; CHECK-NEXT:    shll $7, %r11d
-; CHECK-NEXT:    leal (%r11,%r9), %eax
-; CHECK-NEXT:    movslq %eax, %r15
-; CHECK-NEXT:    shlq $4, %r15
-; CHECK-NEXT:    leaq (%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 8(%rdx,%r13)
-; CHECK-NEXT:    leaq 256(%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 16(%rdx,%r13)
-; CHECK-NEXT:    leaq 512(%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 24(%rdx,%r13)
-; CHECK-NEXT:    leaq 768(%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 32(%rdx,%r13)
-; CHECK-NEXT:    leaq 1024(%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 40(%rdx,%r13)
-; CHECK-NEXT:    leaq 1280(%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 48(%rdx,%r13)
-; CHECK-NEXT:    leaq 1536(%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 56(%rdx,%r13)
-; CHECK-NEXT:    leaq 1792(%rcx,%r15), %rax
-; CHECK-NEXT:    movq %rax, 64(%rdx,%r13)
-; CHECK-NEXT:    movslq %r11d, %rax
-; CHECK-NEXT:    movq %rax, 72(%rdx,%r13)
+; CHECK-NEXT:    # Child Loop BB0_10 Depth 4
+; CHECK-NEXT:    # Child Loop BB0_16 Depth 3
+; CHECK-NEXT:    movq %r10, 120(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movq %rdi, 128(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movl %eax, 28(%rbx) # 4-byte Spill
+; CHECK-NEXT:    movq %r14, 152(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    movq 216(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    leal (%rax,%rdi,8), %eax
-; CHECK-NEXT:    movl %eax, 80(%rdx,%r13)
-; CHECK-NEXT:    imull 184(%rbx), %eax # 4-byte Folded Reload
-; CHECK-NEXT:    addl %r9d, %eax
-; CHECK-NEXT:    movslq %eax, %r11
-; CHECK-NEXT:    movl $3, 48(%rbx) # 4-byte Folded Spill
-; CHECK-NEXT:    vxorps %xmm8, %xmm8, %xmm8
-; CHECK-NEXT:    vxorps %xmm9, %xmm9, %xmm9
-; CHECK-NEXT:    vxorps %xmm10, %xmm10, %xmm10
-; CHECK-NEXT:    vxorps %xmm11, %xmm11, %xmm11
-; CHECK-NEXT:    vxorps %xmm12, %xmm12, %xmm12
-; CHECK-NEXT:    vxorps %xmm13, %xmm13, %xmm13
-; CHECK-NEXT:    vxorps %xmm14, %xmm14, %xmm14
-; CHECK-NEXT:    vxorps %xmm15, %xmm15, %xmm15
+; CHECK-NEXT:    leal (%rax,%rdx), %r8d
+; CHECK-NEXT:    movl %r8d, (%r11,%rcx)
+; CHECK-NEXT:    leal (%r8,%r14), %edi
+; CHECK-NEXT:    movl %r13d, %eax
+; CHECK-NEXT:    shll $7, %eax
+; CHECK-NEXT:    movq %r11, %r10
+; CHECK-NEXT:    leal (%rax,%rdx), %r11d
+; CHECK-NEXT:    movslq %r11d, %r11
+; CHECK-NEXT:    shlq $4, %r11
+; CHECK-NEXT:    leaq (%r9,%r11), %r14
+; CHECK-NEXT:    movq %r14, 8(%r10,%rcx)
+; CHECK-NEXT:    leaq 256(%r9,%r11), %r14
+; CHECK-NEXT:    movq %r14, 16(%r10,%rcx)
+; CHECK-NEXT:    leaq 512(%r9,%r11), %r14
+; CHECK-NEXT:    movq %r14, 24(%r10,%rcx)
+; CHECK-NEXT:    leaq 768(%r9,%r11), %r14
+; CHECK-NEXT:    movq %r14, 32(%r10,%rcx)
+; CHECK-NEXT:    leaq 1024(%r9,%r11), %r14
+; CHECK-NEXT:    movq %r14, 40(%r10,%rcx)
+; CHECK-NEXT:    leaq 1280(%r9,%r11), %r14
+; CHECK-NEXT:    movq %r14, 48(%r10,%rcx)
+; CHECK-NEXT:    leaq 1536(%r9,%r11), %r14
+; CHECK-NEXT:    movq %r14, 56(%r10,%rcx)
+; CHECK-NEXT:    movq 152(%rbx), %r14 # 8-byte Reload
+; CHECK-NEXT:    leaq 1792(%r9,%r11), %r11
+; CHECK-NEXT:    movq %r11, 64(%r10,%rcx)
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, 72(%r10,%rcx)
+; CHECK-NEXT:    movq 112(%rbx), %rax # 8-byte Reload
+; CHECK-NEXT:    leal (%rax,%r13,8), %eax
+; CHECK-NEXT:    movl %eax, 80(%r10,%rcx)
+; CHECK-NEXT:    imull 168(%rbx), %eax # 4-byte Folded Reload
+; CHECK-NEXT:    addl %edx, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movl $3, 32(%rbx) # 4-byte Folded Spill
 ; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
@@ -222,577 +217,549 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
 ; CHECK-NEXT:    vxorps %xmm5, %xmm5, %xmm5
 ; CHECK-NEXT:    vxorps %xmm6, %xmm6, %xmm6
 ; CHECK-NEXT:    vxorps %xmm7, %xmm7, %xmm7
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    vxorps %xmm8, %xmm8, %xmm8
+; CHECK-NEXT:    vxorps %xmm9, %xmm9, %xmm9
+; CHECK-NEXT:    vxorps %xmm10, %xmm10, %xmm10
+; CHECK-NEXT:    vxorps %xmm11, %xmm11, %xmm11
+; CHECK-NEXT:    vxorps %xmm12, %xmm12, %xmm12
+; CHECK-NEXT:    vxorps %xmm13, %xmm13, %xmm13
+; CHECK-NEXT:    vxorps %xmm14, %xmm14, %xmm14
+; CHECK-NEXT:    vxorps %xmm15, %xmm15, %xmm15
+; CHECK-NEXT:    xorl %r11d, %r11d
 ; CHECK-NEXT:    jmp .LBB0_3
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB0_2: # in Loop: Header=BB0_3 Depth=2
-; CHECK-NEXT:    movl 632(%r13,%r10), %r8d
-; CHECK-NEXT:    movq 624(%r13,%r10), %r11
-; CHECK-NEXT:    vmovaps 608(%r13,%r10), %xmm8
-; CHECK-NEXT:    vmovaps 592(%r13,%r10), %xmm9
-; CHECK-NEXT:    vmovaps 576(%r13,%r10), %xmm10
-; CHECK-NEXT:    vmovaps 560(%r13,%r10), %xmm11
-; CHECK-NEXT:    vmovaps 544(%r13,%r10), %xmm12
-; CHECK-NEXT:    vmovaps 528(%r13,%r10), %xmm13
-; CHECK-NEXT:    vmovaps 512(%r13,%r10), %xmm14
-; CHECK-NEXT:    vmovaps 496(%r13,%r10), %xmm15
-; CHECK-NEXT:    vmovaps 480(%r13,%r10), %xmm0
-; CHECK-NEXT:    vmovaps 464(%r13,%r10), %xmm1
-; CHECK-NEXT:    vmovaps 448(%r13,%r10), %xmm2
-; CHECK-NEXT:    vmovaps 432(%r13,%r10), %xmm3
-; CHECK-NEXT:    vmovaps 416(%r13,%r10), %xmm4
-; CHECK-NEXT:    vmovaps 400(%r13,%r10), %xmm5
-; CHECK-NEXT:    vmovaps 384(%r13,%r10), %xmm6
-; CHECK-NEXT:    vmovaps 368(%r13,%r10), %xmm7
-; CHECK-NEXT:    movq %r10, %rdx
-; CHECK-NEXT:    movl 364(%r13,%r10), %r10d
+; CHECK-NEXT:    movq 144(%rbx), %r10 # 8-byte Reload
+; CHECK-NEXT:    movl 632(%rcx,%r10), %edi
+; CHECK-NEXT:    movq 624(%rcx,%r10), %rax
+; CHECK-NEXT:    vmovaps 608(%rcx,%r10), %xmm0
+; CHECK-NEXT:    vmovaps 592(%rcx,%r10), %xmm1
+; CHECK-NEXT:    vmovaps 576(%rcx,%r10), %xmm2
+; CHECK-NEXT:    vmovaps 560(%rcx,%r10), %xmm3
+; CHECK-NEXT:    vmovaps 544(%rcx,%r10), %xmm4
+; CHECK-NEXT:    vmovaps 528(%rcx,%r10), %xmm5
+; CHECK-NEXT:    vmovaps 512(%rcx,%r10), %xmm6
+; CHECK-NEXT:    vmovaps 496(%rcx,%r10), %xmm7
+; CHECK-NEXT:    vmovaps 480(%rcx,%r10), %xmm8
+; CHECK-NEXT:    vmovaps 464(%rcx,%r10), %xmm9
+; CHECK-NEXT:    vmovaps 448(%rcx,%r10), %xmm10
+; CHECK-NEXT:    vmovaps 432(%rcx,%r10), %xmm11
+; CHECK-NEXT:    vmovaps 416(%rcx,%r10), %xmm12
+; CHECK-NEXT:    vmovaps 400(%rcx,%r10), %xmm13
+; CHECK-NEXT:    vmovaps 384(%rcx,%r10), %xmm14
+; CHECK-NEXT:    vmovaps 368(%rcx,%r10), %xmm15
+; CHECK-NEXT:    movl 364(%rcx,%r10), %r8d
 ; CHECK-NEXT:  .LBB0_3: # Parent Loop BB0_1 Depth=1
 ; CHECK-NEXT:    # => This Loop Header: Depth=2
-; CHECK-NEXT:    # Child Loop BB0_15 Depth 3
-; CHECK-NEXT:    # Child Loop BB0_16 Depth 4
 ; CHECK-NEXT:    # Child Loop BB0_9 Depth 3
-; CHECK-NEXT:    movl %eax, 360(%r13,%rdx)
-; CHECK-NEXT:    movl %r8d, 356(%r13,%rdx)
-; CHECK-NEXT:    movl %r10d, 352(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm7, 336(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm6, 320(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm5, 304(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm4, 288(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm3, 272(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm2, 256(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm1, 240(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm0, 224(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm15, 208(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm14, 192(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm13, 176(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm12, 160(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm11, 144(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm10, 128(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm9, 112(%r13,%rdx)
-; CHECK-NEXT:    vmovaps %xmm8, 96(%r13,%rdx)
-; CHECK-NEXT:    movq %r11, 88(%r13,%rdx)
-; CHECK-NEXT:    movq %r11, %rax
+; CHECK-NEXT:    # Child Loop BB0_10 Depth 4
+; CHECK-NEXT:    # Child Loop BB0_16 Depth 3
+; CHECK-NEXT:    movl %r11d, 360(%rcx,%r10)
+; CHECK-NEXT:    movl %edi, 356(%rcx,%r10)
+; CHECK-NEXT:    movl %r8d, 352(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm15, 336(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm14, 320(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm13, 304(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm12, 288(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm11, 272(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm10, 256(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm9, 240(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm8, 224(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm7, 208(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm6, 192(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm5, 176(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm4, 160(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm3, 144(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm2, 128(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm1, 112(%rcx,%r10)
+; CHECK-NEXT:    vmovaps %xmm0, 96(%rcx,%r10)
+; CHECK-NEXT:    movq %rax, 88(%rcx,%r10)
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    movq 280(%rbx), %r8 # 8-byte Reload
+; CHECK-NEXT:    vmovaps (%r8,%rdi), %xmm0
+; CHECK-NEXT:    movq 8(%rcx,%r10), %rdi
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi)
+; CHECK-NEXT:    movq 224(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    addq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps (%r8,%rdi), %xmm0
+; CHECK-NEXT:    movq 16(%rcx,%r10), %rdi
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi)
+; CHECK-NEXT:    movq 272(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    addq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps (%r8,%rdi), %xmm0
+; CHECK-NEXT:    movq 24(%rcx,%r10), %rdi
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi)
+; CHECK-NEXT:    movq 264(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    addq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps (%r8,%rdi), %xmm0
+; CHECK-NEXT:    movq 32(%rcx,%r10), %rdi
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi)
+; CHECK-NEXT:    movq 256(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    addq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps (%r8,%rdi), %xmm0
+; CHECK-NEXT:    movq 40(%rcx,%r10), %rdi
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi)
+; CHECK-NEXT:    movq 248(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    addq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps (%r8,%rdi), %xmm0
+; CHECK-NEXT:    movq 48(%rcx,%r10), %rdi
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi)
+; CHECK-NEXT:    movq 240(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    addq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps (%r8,%rdi), %xmm0
+; CHECK-NEXT:    movq 56(%rcx,%r10), %rdi
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi)
+; CHECK-NEXT:    addq 232(%rbx), %rax # 8-byte Folded Reload
 ; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    movq 280(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps (%rdi,%rax), %xmm0
-; CHECK-NEXT:    movq 8(%r13,%rdx), %rax
+; CHECK-NEXT:    vmovaps (%r8,%rax), %xmm0
+; CHECK-NEXT:    movq 64(%rcx,%r10), %rax
 ; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    movq 224(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    addq %r11, %rax
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    vmovaps (%rdi,%rax), %xmm0
-; CHECK-NEXT:    movq 16(%r13,%rdx), %rax
-; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    movq 272(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    addq %r11, %rax
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    vmovaps (%rdi,%rax), %xmm0
-; CHECK-NEXT:    movq 24(%r13,%rdx), %rax
-; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    movq 264(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    addq %r11, %rax
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    vmovaps (%rdi,%rax), %xmm0
-; CHECK-NEXT:    movq 32(%r13,%rdx), %rax
-; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    movq 256(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    addq %r11, %rax
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    vmovaps (%rdi,%rax), %xmm0
-; CHECK-NEXT:    movq 40(%r13,%rdx), %rax
-; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    movq 248(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    addq %r11, %rax
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    vmovaps (%rdi,%rax), %xmm0
-; CHECK-NEXT:    movq 48(%r13,%rdx), %rax
-; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    movq 240(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    addq %r11, %rax
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    vmovaps (%rdi,%rax), %xmm0
-; CHECK-NEXT:    movq 56(%r13,%rdx), %rax
-; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    addq 232(%rbx), %r11 # 8-byte Folded Reload
-; CHECK-NEXT:    shlq $4, %r11
-; CHECK-NEXT:    vmovaps (%rdi,%r11), %xmm0
-; CHECK-NEXT:    movq 64(%r13,%rdx), %rax
-; CHECK-NEXT:    vmovaps %xmm0, (%rax)
-; CHECK-NEXT:    incq %r9
-; CHECK-NEXT:    cmpq 128(%rbx), %r9 # 8-byte Folded Reload
-; CHECK-NEXT:    movq %rdx, %r10
+; CHECK-NEXT:    incq %rdx
+; CHECK-NEXT:    cmpq %r12, %rdx
+; CHECK-NEXT:    movq %r10, %r11
 ; CHECK-NEXT:    jae .LBB0_5
 ; CHECK-NEXT:  # %bb.4: # in Loop: Header=BB0_3 Depth=2
-; CHECK-NEXT:    movq 112(%rbx), %r11 # 8-byte Reload
-; CHECK-NEXT:    movl 44(%rbx), %eax # 4-byte Reload
+; CHECK-NEXT:    movl 28(%rbx), %eax # 4-byte Reload
+; CHECK-NEXT:    movq 128(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    movq 120(%rbx), %r10 # 8-byte Reload
 ; CHECK-NEXT:    jmp .LBB0_7
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB0_5: # in Loop: Header=BB0_3 Depth=2
-; CHECK-NEXT:    movq 16(%rbx), %rdx # 8-byte Reload
-; CHECK-NEXT:    incq %rdx
-; CHECK-NEXT:    cmpq 120(%rbx), %rdx # 8-byte Folded Reload
-; CHECK-NEXT:    movq 112(%rbx), %r11 # 8-byte Reload
-; CHECK-NEXT:    movl 44(%rbx), %eax # 4-byte Reload
-; CHECK-NEXT:    jae .LBB0_14
+; CHECK-NEXT:    incq %r13
+; CHECK-NEXT:    cmpq 136(%rbx), %r13 # 8-byte Folded Reload
+; CHECK-NEXT:    movl 28(%rbx), %eax # 4-byte Reload
+; CHECK-NEXT:    movq 128(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    movq 120(%rbx), %r10 # 8-byte Reload
+; CHECK-NEXT:    jae .LBB0_8
 ; CHECK-NEXT:  # %bb.6: # in Loop: Header=BB0_3 Depth=2
-; CHECK-NEXT:    movq %rdx, 16(%rbx) # 8-byte Spill
-; CHECK-NEXT:    xorl %r9d, %r9d
+; CHECK-NEXT:    xorl %edx, %edx
 ; CHECK-NEXT:  .LBB0_7: # in Loop: Header=BB0_3 Depth=2
-; CHECK-NEXT:    movq 136(%rbx), %rdx # 8-byte Reload
-; CHECK-NEXT:    addq $640, %r13 # imm = 0x280
-; CHECK-NEXT:    cmpl $3, 48(%rbx) # 4-byte Folded Reload
-; CHECK-NEXT:    jne .LBB0_8
+; CHECK-NEXT:    addq $640, %rcx # imm = 0x280
+; CHECK-NEXT:    cmpl $3, 32(%rbx) # 4-byte Folded Reload
+; CHECK-NEXT:    jne .LBB0_16
 ; CHECK-NEXT:    jmp .LBB0_1
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_14: # in Loop: Header=BB0_3 Depth=2
+; CHECK-NEXT:  .LBB0_8: # in Loop: Header=BB0_3 Depth=2
+; CHECK-NEXT:    movq %r12, 288(%rbx) # 8-byte Spill
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    movq %rax, 160(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    movq %rax, 176(%rbx) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    movq %rax, 192(%rbx) # 8-byte Spill
 ; CHECK-NEXT:    xorl %edx, %edx
-; CHECK-NEXT:    jmp .LBB0_15
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_20: # in Loop: Header=BB0_15 Depth=3
-; CHECK-NEXT:    movq %rax, 192(%rbx) # 8-byte Spill
-; CHECK-NEXT:    addq $640, %rdx # imm = 0x280
-; CHECK-NEXT:  .LBB0_15: # Parent Loop BB0_1 Depth=1
-; CHECK-NEXT:    # Parent Loop BB0_3 Depth=2
-; CHECK-NEXT:    # => This Loop Header: Depth=3
-; CHECK-NEXT:    # Child Loop BB0_16 Depth 4
-; CHECK-NEXT:    movl 352(%rdx,%r10), %r15d
-; CHECK-NEXT:    movq 200(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    addl %r15d, %eax
-; CHECK-NEXT:    movl %eax, 364(%rdx,%r10)
-; CHECK-NEXT:    movq %rdx, %rax
-; CHECK-NEXT:    orq $96, %rax
-; CHECK-NEXT:    vmovaps (%r10,%rax), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, 144(%rbx) # 16-byte Spill
-; CHECK-NEXT:    movq %rdx, %rax
-; CHECK-NEXT:    orq $112, %rax
-; CHECK-NEXT:    vmovaps (%r10,%rax), %xmm1
-; CHECK-NEXT:    vmovaps 128(%rdx,%r10), %xmm5
-; CHECK-NEXT:    vmovaps 144(%rdx,%r10), %xmm14
-; CHECK-NEXT:    vmovaps 160(%rdx,%r10), %xmm15
-; CHECK-NEXT:    vmovaps 176(%rdx,%r10), %xmm9
-; CHECK-NEXT:    vmovaps 192(%rdx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, 80(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 208(%rdx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, 160(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 224(%rdx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, 48(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 240(%rdx,%r10), %xmm12
-; CHECK-NEXT:    vmovaps 256(%rdx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, 16(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 272(%rdx,%r10), %xmm13
-; CHECK-NEXT:    vmovaps 288(%rdx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, 96(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 304(%rdx,%r10), %xmm6
-; CHECK-NEXT:    vmovaps 320(%rdx,%r10), %xmm7
-; CHECK-NEXT:    vmovaps 336(%rdx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, 64(%rbx) # 16-byte Spill
-; CHECK-NEXT:    movl 356(%rdx,%r10), %r13d
-; CHECK-NEXT:    movq %rdx, 304(%rbx) # 8-byte Spill
-; CHECK-NEXT:    orq $72, %rdx
-; CHECK-NEXT:    movq %rdx, 312(%rbx) # 8-byte Spill
-; CHECK-NEXT:    movl $112, %eax
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_16: # Parent Loop BB0_1 Depth=1
-; CHECK-NEXT:    # Parent Loop BB0_3 Depth=2
-; CHECK-NEXT:    # Parent Loop BB0_15 Depth=3
-; CHECK-NEXT:    # => This Inner Loop Header: Depth=4
-; CHECK-NEXT:    movslq %r15d, %r9
-; CHECK-NEXT:    movq %r9, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm3
-; CHECK-NEXT:    leal (%r9,%rsi), %edx
-; CHECK-NEXT:    movslq %edx, %r15
-; CHECK-NEXT:    movq %r15, %r8
-; CHECK-NEXT:    shlq $4, %r8
-; CHECK-NEXT:    movslq %r13d, %r11
-; CHECK-NEXT:    movq %r11, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm4
-; CHECK-NEXT:    movq %r10, %r12
-; CHECK-NEXT:    movq 312(%rbx), %rdx # 8-byte Reload
-; CHECK-NEXT:    movq (%r10,%rdx), %r10
-; CHECK-NEXT:    addq %rax, %r10
-; CHECK-NEXT:    shlq $4, %r10
-; CHECK-NEXT:    vmovaps %xmm5, %xmm0
-; CHECK-NEXT:    vbroadcastss -1792(%rcx,%r10), %xmm8
-; CHECK-NEXT:    vmovaps 64(%rbx), %xmm2 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm2 = (xmm3 * xmm8) + xmm2
-; CHECK-NEXT:    vmovaps %xmm2, 64(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm4 * xmm8) + xmm7
-; CHECK-NEXT:    vmovaps %xmm7, 320(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps %xmm5, %xmm7
-; CHECK-NEXT:    vbroadcastss -1536(%rcx,%r10), %xmm0
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm3 * xmm0) + xmm6
-; CHECK-NEXT:    vmovaps 96(%rbx), %xmm5 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm4 * xmm0) + xmm5
-; CHECK-NEXT:    vbroadcastss -1280(%rcx,%r10), %xmm0
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm3 * xmm0) + xmm13
-; CHECK-NEXT:    vmovaps 16(%rbx), %xmm2 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm2 = (xmm4 * xmm0) + xmm2
-; CHECK-NEXT:    vmovaps %xmm2, 16(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -1024(%rcx,%r10), %xmm0
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm3 * xmm0) + xmm12
-; CHECK-NEXT:    vmovaps %xmm12, %xmm11
-; CHECK-NEXT:    vmovaps 48(%rbx), %xmm2 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm2 = (xmm4 * xmm0) + xmm2
-; CHECK-NEXT:    vmovaps %xmm2, 48(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -768(%rcx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps 160(%rbx), %xmm10 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm3 * xmm0) + xmm10
-; CHECK-NEXT:    vmovaps 80(%rbx), %xmm2 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm2 = (xmm4 * xmm0) + xmm2
-; CHECK-NEXT:    vmovaps %xmm2, 80(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps %xmm4, %xmm2
-; CHECK-NEXT:    vbroadcastss -512(%rcx,%r10), %xmm0
-; CHECK-NEXT:    vmovaps %xmm9, %xmm4
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm3 * xmm0) + xmm4
-; CHECK-NEXT:    vmovaps %xmm4, %xmm9
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm2 * xmm0) + xmm15
-; CHECK-NEXT:    vbroadcastss -256(%rcx,%r10), %xmm0
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm3 * xmm0) + xmm14
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm2 * xmm0) + xmm7
-; CHECK-NEXT:    vmovaps %xmm7, 96(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss (%rcx,%r10), %xmm0
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm1 = (xmm0 * xmm3) + xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm4
-; CHECK-NEXT:    vmovaps (%r14,%r8), %xmm1
-; CHECK-NEXT:    leal (%r11,%rsi), %edx
-; CHECK-NEXT:    movslq %edx, %r13
-; CHECK-NEXT:    movq %r13, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vmovaps 144(%rbx), %xmm3 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm2 * xmm0) + xmm3
-; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm0
-; CHECK-NEXT:    movq 136(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    leal (%rdi,%r9), %edx
-; CHECK-NEXT:    movslq %edx, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vbroadcastss -1788(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vmovaps 64(%rbx), %xmm8 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm8 = (xmm1 * xmm2) + xmm8
-; CHECK-NEXT:    vmovaps 320(%rbx), %xmm7 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm0 * xmm2) + xmm7
-; CHECK-NEXT:    vbroadcastss -1532(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm1 * xmm2) + xmm6
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
-; CHECK-NEXT:    vbroadcastss -1276(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm1 * xmm2) + xmm13
-; CHECK-NEXT:    vmovaps 16(%rbx), %xmm12 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm0 * xmm2) + xmm12
-; CHECK-NEXT:    vbroadcastss -1020(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm1 * xmm2) + xmm11
-; CHECK-NEXT:    vmovaps %xmm11, 144(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 48(%rbx), %xmm11 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm0 * xmm2) + xmm11
-; CHECK-NEXT:    vbroadcastss -764(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm1 * xmm2) + xmm10
-; CHECK-NEXT:    vmovaps %xmm10, 160(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 80(%rbx), %xmm10 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm0 * xmm2) + xmm10
-; CHECK-NEXT:    vbroadcastss -508(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm9 = (xmm1 * xmm2) + xmm9
-; CHECK-NEXT:    vmovaps %xmm9, 64(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm0 * xmm2) + xmm15
-; CHECK-NEXT:    vbroadcastss -252(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm1 * xmm2) + xmm14
-; CHECK-NEXT:    vmovaps 96(%rbx), %xmm9 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm9 = (xmm0 * xmm2) + xmm9
-; CHECK-NEXT:    vmovaps %xmm9, 96(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss 4(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm1) + xmm4
-; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm1
-; CHECK-NEXT:    leal (%rdi,%r11), %edx
-; CHECK-NEXT:    movslq %edx, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm2) + xmm3
-; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm0
-; CHECK-NEXT:    movl 44(%rbx), %edi # 4-byte Reload
-; CHECK-NEXT:    addl %edi, %r9d
-; CHECK-NEXT:    movslq %r9d, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vbroadcastss -1784(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm8 = (xmm1 * xmm2) + xmm8
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm0 * xmm2) + xmm7
-; CHECK-NEXT:    vbroadcastss -1528(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm1 * xmm2) + xmm6
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
-; CHECK-NEXT:    vbroadcastss -1272(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm1 * xmm2) + xmm13
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm0 * xmm2) + xmm12
-; CHECK-NEXT:    vmovaps %xmm12, 16(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -1016(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vmovaps 144(%rbx), %xmm12 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm1 * xmm2) + xmm12
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm0 * xmm2) + xmm11
-; CHECK-NEXT:    vmovaps %xmm11, 48(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -760(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vmovaps 160(%rbx), %xmm11 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm1 * xmm2) + xmm11
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm0 * xmm2) + xmm10
-; CHECK-NEXT:    vmovaps %xmm10, 80(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -504(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vmovaps 64(%rbx), %xmm9 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm9 = (xmm1 * xmm2) + xmm9
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm0 * xmm2) + xmm15
-; CHECK-NEXT:    vbroadcastss -248(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm1 * xmm2) + xmm14
-; CHECK-NEXT:    vmovaps 96(%rbx), %xmm10 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm0 * xmm2) + xmm10
-; CHECK-NEXT:    vbroadcastss 8(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm1) + xmm4
-; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm1
-; CHECK-NEXT:    addl %edi, %r11d
-; CHECK-NEXT:    movslq %r11d, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm2) + xmm3
-; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm0
-; CHECK-NEXT:    vbroadcastss -1780(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm8 = (xmm1 * xmm2) + xmm8
-; CHECK-NEXT:    vmovaps %xmm8, 64(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm0 * xmm2) + xmm7
-; CHECK-NEXT:    vbroadcastss -1524(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm1 * xmm2) + xmm6
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
-; CHECK-NEXT:    vmovaps %xmm5, 96(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -1268(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm1 * xmm2) + xmm13
-; CHECK-NEXT:    vmovaps 16(%rbx), %xmm5 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
-; CHECK-NEXT:    vmovaps %xmm5, 16(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -1012(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm1 * xmm2) + xmm12
-; CHECK-NEXT:    vmovaps 48(%rbx), %xmm5 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
-; CHECK-NEXT:    vmovaps %xmm5, 48(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -756(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vmovaps %xmm11, %xmm5
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm1 * xmm2) + xmm5
-; CHECK-NEXT:    vmovaps %xmm5, 160(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vmovaps 80(%rbx), %xmm5 # 16-byte Reload
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
-; CHECK-NEXT:    vmovaps %xmm5, 80(%rbx) # 16-byte Spill
-; CHECK-NEXT:    vbroadcastss -500(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vmovaps %xmm9, %xmm5
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm1 * xmm2) + xmm5
-; CHECK-NEXT:    vmovaps %xmm5, %xmm9
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm0 * xmm2) + xmm15
-; CHECK-NEXT:    vbroadcastss -244(%rcx,%r10), %xmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm1 * xmm2) + xmm14
-; CHECK-NEXT:    vmovaps %xmm10, %xmm5
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
-; CHECK-NEXT:    vbroadcastss 12(%rcx,%r10), %xmm2
-; CHECK-NEXT:    movq %r12, %r10
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm1) + xmm4
-; CHECK-NEXT:    vmovaps %xmm4, %xmm1
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm2) + xmm3
-; CHECK-NEXT:    vmovaps %xmm3, 144(%rbx) # 16-byte Spill
-; CHECK-NEXT:    addl %esi, %r15d
-; CHECK-NEXT:    addl %esi, %r15d
-; CHECK-NEXT:    addl %esi, %r15d
-; CHECK-NEXT:    addl %esi, %r13d
-; CHECK-NEXT:    addl %esi, %r13d
-; CHECK-NEXT:    addl %esi, %r13d
-; CHECK-NEXT:    incq %rax
-; CHECK-NEXT:    cmpq $128, %rax
-; CHECK-NEXT:    jne .LBB0_16
-; CHECK-NEXT:  # %bb.17: # in Loop: Header=BB0_15 Depth=3
-; CHECK-NEXT:    movq 304(%rbx), %rdx # 8-byte Reload
-; CHECK-NEXT:    vmovaps 64(%rbx), %xmm0 # 16-byte Reload
-; CHECK-NEXT:    vmovaps %xmm0, 368(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm7, 384(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm6, 400(%r10,%rdx)
-; CHECK-NEXT:    vmovaps 96(%rbx), %xmm0 # 16-byte Reload
-; CHECK-NEXT:    vmovaps %xmm0, 416(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm13, 432(%r10,%rdx)
-; CHECK-NEXT:    vmovaps 16(%rbx), %xmm0 # 16-byte Reload
-; CHECK-NEXT:    vmovaps %xmm0, 448(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm12, 464(%r10,%rdx)
-; CHECK-NEXT:    vmovaps 48(%rbx), %xmm0 # 16-byte Reload
-; CHECK-NEXT:    vmovaps %xmm0, 480(%r10,%rdx)
-; CHECK-NEXT:    vmovaps 160(%rbx), %xmm0 # 16-byte Reload
-; CHECK-NEXT:    vmovaps %xmm0, 496(%r10,%rdx)
-; CHECK-NEXT:    vmovaps 80(%rbx), %xmm0 # 16-byte Reload
-; CHECK-NEXT:    vmovaps %xmm0, 512(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm9, 528(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm15, 544(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm14, 560(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm5, 576(%r10,%rdx)
-; CHECK-NEXT:    vmovaps %xmm1, 592(%r10,%rdx)
-; CHECK-NEXT:    vmovaps 144(%rbx), %xmm0 # 16-byte Reload
-; CHECK-NEXT:    vmovaps %xmm0, 608(%r10,%rdx)
-; CHECK-NEXT:    movq %rdx, %rax
-; CHECK-NEXT:    orq $88, %rax
-; CHECK-NEXT:    movq (%r10,%rax), %rax
-; CHECK-NEXT:    addq 288(%rbx), %rax # 8-byte Folded Reload
-; CHECK-NEXT:    movq %rax, 624(%r10,%rdx)
-; CHECK-NEXT:    movl 356(%r10,%rdx), %eax
-; CHECK-NEXT:    addl 200(%rbx), %eax # 4-byte Folded Reload
-; CHECK-NEXT:    movl %eax, 632(%r10,%rdx)
-; CHECK-NEXT:    movq 192(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    incq %rax
-; CHECK-NEXT:    cmpq 128(%rbx), %rax # 8-byte Folded Reload
-; CHECK-NEXT:    jb .LBB0_20
-; CHECK-NEXT:  # %bb.18: # in Loop: Header=BB0_15 Depth=3
-; CHECK-NEXT:    movq 176(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    incq %rdi
-; CHECK-NEXT:    movq %rdi, %rax
-; CHECK-NEXT:    movq %rdi, 176(%rbx) # 8-byte Spill
-; CHECK-NEXT:    cmpq 120(%rbx), %rdi # 8-byte Folded Reload
-; CHECK-NEXT:    movq 112(%rbx), %r11 # 8-byte Reload
-; CHECK-NEXT:    jae .LBB0_22
-; CHECK-NEXT:  # %bb.19: # in Loop: Header=BB0_15 Depth=3
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    jmp .LBB0_20
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_22: # in Loop: Header=BB0_3 Depth=2
-; CHECK-NEXT:    movl $1, 48(%rbx) # 4-byte Folded Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    movq %rax, 16(%rbx) # 8-byte Spill
-; CHECK-NEXT:    xorl %r9d, %r9d
-; CHECK-NEXT:    xorl %r13d, %r13d
-; CHECK-NEXT:  .LBB0_8: # in Loop: Header=BB0_3 Depth=2
-; CHECK-NEXT:    movq 8(%rbx), %rdx # 8-byte Reload
-; CHECK-NEXT:    movq 296(%rbx), %r12 # 8-byte Reload
-; CHECK-NEXT:    movq 8(%rbx), %r15 # 8-byte Reload
 ; CHECK-NEXT:    jmp .LBB0_9
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_12: # in Loop: Header=BB0_9 Depth=3
-; CHECK-NEXT:    movq %rax, 16(%rbx) # 8-byte Spill
-; CHECK-NEXT:    xorl %r9d, %r9d
-; CHECK-NEXT:  .LBB0_13: # in Loop: Header=BB0_9 Depth=3
-; CHECK-NEXT:    addq $640, %r13 # imm = 0x280
+; CHECK-NEXT:  .LBB0_14: # in Loop: Header=BB0_9 Depth=3
+; CHECK-NEXT:    movq %rax, 176(%rbx) # 8-byte Spill
+; CHECK-NEXT:    addq $640, %rdx # imm = 0x280
 ; CHECK-NEXT:  .LBB0_9: # Parent Loop BB0_1 Depth=1
 ; CHECK-NEXT:    # Parent Loop BB0_3 Depth=2
-; CHECK-NEXT:    # => This Inner Loop Header: Depth=3
-; CHECK-NEXT:    movl -248(%rdx,%r13), %eax
-; CHECK-NEXT:    addl %r11d, %eax
-; CHECK-NEXT:    cmpl 184(%rbx), %eax # 4-byte Folded Reload
-; CHECK-NEXT:    jl .LBB0_2
-; CHECK-NEXT:  # %bb.10: # in Loop: Header=BB0_9 Depth=3
-; CHECK-NEXT:    movslq -528(%rdx,%r13), %rax
-; CHECK-NEXT:    movslq %esi, %rdx
-; CHECK-NEXT:    imulq %rax, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rax # 8-byte Reload
-; CHECK-NEXT:    movslq -608(%rax,%r13), %rax
-; CHECK-NEXT:    addq %rdx, %rax
-; CHECK-NEXT:    leal (%rax,%r11), %r8d
-; CHECK-NEXT:    leal (%rax,%rsi), %edx
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -240(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rax)
-; CHECK-NEXT:    movslq %edx, %rax
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    vmovaps -208(%r15,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -176(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -144(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -112(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -80(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -48(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    movq 8(%rbx), %rdx # 8-byte Reload
-; CHECK-NEXT:    vmovaps -16(%rdx,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rax)
-; CHECK-NEXT:    movslq %r8d, %rax
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -224(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -192(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -160(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -128(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -96(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -64(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    movq %rax, %rdx
-; CHECK-NEXT:    shlq $4, %rdx
-; CHECK-NEXT:    movq 8(%rbx), %rdi # 8-byte Reload
-; CHECK-NEXT:    vmovaps -32(%rdi,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rdx)
-; CHECK-NEXT:    movq 8(%rbx), %rdx # 8-byte Reload
-; CHECK-NEXT:    addl %esi, %eax
-; CHECK-NEXT:    cltq
-; CHECK-NEXT:    shlq $4, %rax
-; CHECK-NEXT:    vmovaps (%rdx,%r13), %xmm0
-; CHECK-NEXT:    vmovaps %xmm0, (%r12,%rax)
-; CHECK-NEXT:    incq %r9
-; CHECK-NEXT:    cmpq 128(%rbx), %r9 # 8-byte Folded Reload
-; CHECK-NEXT:    jb .LBB0_13
-; CHECK-NEXT:  # %bb.11: # in Loop: Header=BB0_9 Depth=3
-; CHECK-NEXT:    movq 16(%rbx), %rax # 8-byte Reload
+; CHECK-NEXT:    # => This Loop Header: Depth=3
+; CHECK-NEXT:    # Child Loop BB0_10 Depth 4
+; CHECK-NEXT:    movl 352(%rdx,%r11), %r12d
+; CHECK-NEXT:    movq 184(%rbx), %rax # 8-byte Reload
+; CHECK-NEXT:    addl %r12d, %eax
+; CHECK-NEXT:    movl %eax, 364(%rdx,%r11)
+; CHECK-NEXT:    movq %rdx, %rax
+; CHECK-NEXT:    orq $96, %rax
+; CHECK-NEXT:    vmovaps (%r11,%rax), %xmm5
+; CHECK-NEXT:    movq %rdx, %rax
+; CHECK-NEXT:    orq $112, %rax
+; CHECK-NEXT:    vmovaps (%r11,%rax), %xmm9
+; CHECK-NEXT:    vmovaps 128(%rdx,%r11), %xmm7
+; CHECK-NEXT:    vmovaps 144(%rdx,%r11), %xmm8
+; CHECK-NEXT:    vmovaps 160(%rdx,%r11), %xmm10
+; CHECK-NEXT:    vmovaps 176(%rdx,%r11), %xmm11
+; CHECK-NEXT:    vmovaps 192(%rdx,%r11), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, 32(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 208(%rdx,%r11), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, 64(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 224(%rdx,%r11), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, 80(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 240(%rdx,%r11), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, 48(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 256(%rdx,%r11), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, 96(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 272(%rdx,%r11), %xmm12
+; CHECK-NEXT:    vmovaps 288(%rdx,%r11), %xmm13
+; CHECK-NEXT:    vmovaps 304(%rdx,%r11), %xmm14
+; CHECK-NEXT:    vmovaps 320(%rdx,%r11), %xmm15
+; CHECK-NEXT:    vmovaps 336(%rdx,%r11), %xmm6
+; CHECK-NEXT:    movl 356(%rdx,%r11), %edi
+; CHECK-NEXT:    movq %rdx, %rax
+; CHECK-NEXT:    orq $72, %rax
+; CHECK-NEXT:    movq %rax, 312(%rbx) # 8-byte Spill
+; CHECK-NEXT:    movl $112, %eax
+; CHECK-NEXT:    movl 28(%rbx), %r10d # 4-byte Reload
+; CHECK-NEXT:    movq 128(%rbx), %rcx # 8-byte Reload
+; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  .LBB0_10: # Parent Loop BB0_1 Depth=1
+; CHECK-NEXT:    # Parent Loop BB0_3 Depth=2
+; CHECK-NEXT:    # Parent Loop BB0_9 Depth=3
+; CHECK-NEXT:    # => This Inner Loop Header: Depth=4
+; CHECK-NEXT:    movslq %r12d, %r13
+; CHECK-NEXT:    movq %r13, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps (%r15,%r8), %xmm3
+; CHECK-NEXT:    leal (%r13,%rsi), %r8d
+; CHECK-NEXT:    movslq %r8d, %r12
+; CHECK-NEXT:    movq %r12, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    movslq %edi, %r14
+; CHECK-NEXT:    movq %r14, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps (%r15,%rdi), %xmm2
+; CHECK-NEXT:    movq 144(%rbx), %rdi # 8-byte Reload
+; CHECK-NEXT:    movq 312(%rbx), %r11 # 8-byte Reload
+; CHECK-NEXT:    movq (%rdi,%r11), %r11
+; CHECK-NEXT:    addq %rax, %r11
+; CHECK-NEXT:    shlq $4, %r11
+; CHECK-NEXT:    vbroadcastss -1792(%r9,%r11), %xmm0
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm3 * xmm0) + xmm6
+; CHECK-NEXT:    vmovaps %xmm6, 320(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm2 * xmm0) + xmm15
+; CHECK-NEXT:    vbroadcastss -1536(%r9,%r11), %xmm0
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm3 * xmm0) + xmm14
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm2 * xmm0) + xmm13
+; CHECK-NEXT:    vbroadcastss -1280(%r9,%r11), %xmm0
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm3 * xmm0) + xmm12
+; CHECK-NEXT:    vmovaps 96(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm0) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 96(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -1024(%r9,%r11), %xmm0
+; CHECK-NEXT:    vmovaps 48(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm3 * xmm0) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 48(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 80(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm0) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 80(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -768(%r9,%r11), %xmm0
+; CHECK-NEXT:    vmovaps 64(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm3 * xmm0) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 64(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 32(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm0) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 32(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -512(%r9,%r11), %xmm0
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm3 * xmm0) + xmm11
+; CHECK-NEXT:    vmovaps %xmm11, 192(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm2 * xmm0) + xmm10
+; CHECK-NEXT:    vbroadcastss -256(%r9,%r11), %xmm0
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm8 = (xmm3 * xmm0) + xmm8
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm2 * xmm0) + xmm7
+; CHECK-NEXT:    vbroadcastss (%r9,%r11), %xmm0
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm9 = (xmm0 * xmm3) + xmm9
+; CHECK-NEXT:    vmovaps (%r15,%r8), %xmm1
+; CHECK-NEXT:    leal (%r14,%rsi), %edi
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    movq %rdi, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm2 * xmm0) + xmm5
+; CHECK-NEXT:    vmovaps (%r15,%r8), %xmm0
+; CHECK-NEXT:    leal (%rcx,%r13), %r8d
+; CHECK-NEXT:    movslq %r8d, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vbroadcastss -1788(%r9,%r11), %xmm4
+; CHECK-NEXT:    vmovaps 320(%rbx), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm2 = (xmm1 * xmm4) + xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm0 * xmm4) + xmm15
+; CHECK-NEXT:    vbroadcastss -1532(%r9,%r11), %xmm4
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm1 * xmm4) + xmm14
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm0 * xmm4) + xmm13
+; CHECK-NEXT:    vbroadcastss -1276(%r9,%r11), %xmm4
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm1 * xmm4) + xmm12
+; CHECK-NEXT:    vmovaps 96(%rbx), %xmm6 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm0 * xmm4) + xmm6
+; CHECK-NEXT:    vmovaps %xmm6, 96(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -1020(%r9,%r11), %xmm4
+; CHECK-NEXT:    vmovaps 48(%rbx), %xmm3 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm1 * xmm4) + xmm3
+; CHECK-NEXT:    vmovaps %xmm3, 48(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 80(%rbx), %xmm3 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm4) + xmm3
+; CHECK-NEXT:    vbroadcastss -764(%r9,%r11), %xmm4
+; CHECK-NEXT:    vmovaps 64(%rbx), %xmm6 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm1 * xmm4) + xmm6
+; CHECK-NEXT:    vmovaps %xmm6, 64(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 32(%rbx), %xmm6 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm0 * xmm4) + xmm6
+; CHECK-NEXT:    vmovaps %xmm6, 32(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -508(%r9,%r11), %xmm4
+; CHECK-NEXT:    vmovaps 192(%rbx), %xmm6 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm1 * xmm4) + xmm6
+; CHECK-NEXT:    vmovaps %xmm6, 192(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm0 * xmm4) + xmm10
+; CHECK-NEXT:    vbroadcastss -252(%r9,%r11), %xmm4
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm8 = (xmm1 * xmm4) + xmm8
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm0 * xmm4) + xmm7
+; CHECK-NEXT:    vbroadcastss 4(%r9,%r11), %xmm4
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm9 = (xmm4 * xmm1) + xmm9
+; CHECK-NEXT:    vmovaps (%r15,%r8), %xmm1
+; CHECK-NEXT:    leal (%rcx,%r14), %r8d
+; CHECK-NEXT:    movslq %r8d, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm4) + xmm5
+; CHECK-NEXT:    vmovaps (%r15,%r8), %xmm0
+; CHECK-NEXT:    addl %r10d, %r13d
+; CHECK-NEXT:    movslq %r13d, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vbroadcastss -1784(%r9,%r11), %xmm4
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm2 = (xmm1 * xmm4) + xmm2
+; CHECK-NEXT:    vmovaps %xmm2, %xmm6
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm0 * xmm4) + xmm15
+; CHECK-NEXT:    vbroadcastss -1528(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm1 * xmm2) + xmm14
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm0 * xmm2) + xmm13
+; CHECK-NEXT:    vbroadcastss -1272(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm1 * xmm2) + xmm12
+; CHECK-NEXT:    vmovaps 96(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm0 * xmm2) + xmm4
+; CHECK-NEXT:    vbroadcastss -1016(%r9,%r11), %xmm2
+; CHECK-NEXT:    vmovaps 48(%rbx), %xmm11 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm1 * xmm2) + xmm11
+; CHECK-NEXT:    vmovaps %xmm11, 48(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm2) + xmm3
+; CHECK-NEXT:    vmovaps %xmm3, 80(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -760(%r9,%r11), %xmm2
+; CHECK-NEXT:    vmovaps 64(%rbx), %xmm3 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm1 * xmm2) + xmm3
+; CHECK-NEXT:    vmovaps 32(%rbx), %xmm11 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm0 * xmm2) + xmm11
+; CHECK-NEXT:    vmovaps %xmm11, 32(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -504(%r9,%r11), %xmm2
+; CHECK-NEXT:    vmovaps 192(%rbx), %xmm11 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm1 * xmm2) + xmm11
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm0 * xmm2) + xmm10
+; CHECK-NEXT:    vbroadcastss -248(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm8 = (xmm1 * xmm2) + xmm8
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm0 * xmm2) + xmm7
+; CHECK-NEXT:    vbroadcastss 8(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm9 = (xmm2 * xmm1) + xmm9
+; CHECK-NEXT:    vmovaps (%r15,%r8), %xmm1
+; CHECK-NEXT:    addl %r10d, %r14d
+; CHECK-NEXT:    movslq %r14d, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
+; CHECK-NEXT:    vmovaps (%r15,%r8), %xmm0
+; CHECK-NEXT:    vbroadcastss -1780(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm1 * xmm2) + xmm6
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm15 = (xmm0 * xmm2) + xmm15
+; CHECK-NEXT:    vbroadcastss -1524(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm14 = (xmm1 * xmm2) + xmm14
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm13 = (xmm0 * xmm2) + xmm13
+; CHECK-NEXT:    vbroadcastss -1268(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm12 = (xmm1 * xmm2) + xmm12
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm0 * xmm2) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 96(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -1012(%r9,%r11), %xmm2
+; CHECK-NEXT:    vmovaps 48(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm1 * xmm2) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 48(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 80(%rbx), %xmm4 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm0 * xmm2) + xmm4
+; CHECK-NEXT:    vmovaps %xmm4, 80(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -756(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm1 * xmm2) + xmm3
+; CHECK-NEXT:    vmovaps %xmm3, 64(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vmovaps 32(%rbx), %xmm3 # 16-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm2) + xmm3
+; CHECK-NEXT:    vmovaps %xmm3, 32(%rbx) # 16-byte Spill
+; CHECK-NEXT:    vbroadcastss -500(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm11 = (xmm1 * xmm2) + xmm11
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm10 = (xmm0 * xmm2) + xmm10
+; CHECK-NEXT:    vbroadcastss -244(%r9,%r11), %xmm2
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm8 = (xmm1 * xmm2) + xmm8
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm7 = (xmm0 * xmm2) + xmm7
+; CHECK-NEXT:    vbroadcastss 12(%r9,%r11), %xmm2
+; CHECK-NEXT:    movq 144(%rbx), %r11 # 8-byte Reload
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm9 = (xmm2 * xmm1) + xmm9
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm5 = (xmm0 * xmm2) + xmm5
+; CHECK-NEXT:    addl %esi, %r12d
+; CHECK-NEXT:    addl %esi, %r12d
+; CHECK-NEXT:    addl %esi, %r12d
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    addl %esi, %edi
 ; CHECK-NEXT:    incq %rax
-; CHECK-NEXT:    cmpq 120(%rbx), %rax # 8-byte Folded Reload
-; CHECK-NEXT:    jb .LBB0_12
+; CHECK-NEXT:    cmpq $128, %rax
+; CHECK-NEXT:    jne .LBB0_10
+; CHECK-NEXT:  # %bb.11: # in Loop: Header=BB0_9 Depth=3
+; CHECK-NEXT:    vmovaps %xmm6, 368(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm15, 384(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm14, 400(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm13, 416(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm12, 432(%r11,%rdx)
+; CHECK-NEXT:    vmovaps 96(%rbx), %xmm0 # 16-byte Reload
+; CHECK-NEXT:    vmovaps %xmm0, 448(%r11,%rdx)
+; CHECK-NEXT:    vmovaps 48(%rbx), %xmm0 # 16-byte Reload
+; CHECK-NEXT:    vmovaps %xmm0, 464(%r11,%rdx)
+; CHECK-NEXT:    vmovaps 80(%rbx), %xmm0 # 16-byte Reload
+; CHECK-NEXT:    vmovaps %xmm0, 480(%r11,%rdx)
+; CHECK-NEXT:    vmovaps 64(%rbx), %xmm0 # 16-byte Reload
+; CHECK-NEXT:    vmovaps %xmm0, 496(%r11,%rdx)
+; CHECK-NEXT:    vmovaps 32(%rbx), %xmm0 # 16-byte Reload
+; CHECK-NEXT:    vmovaps %xmm0, 512(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm11, 528(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm10, 544(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm8, 560(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm7, 576(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm9, 592(%r11,%rdx)
+; CHECK-NEXT:    vmovaps %xmm5, 608(%r11,%rdx)
+; CHECK-NEXT:    movq %rdx, %rax
+; CHECK-NEXT:    orq $88, %rax
+; CHECK-NEXT:    movq (%r11,%rax), %rax
+; CHECK-NEXT:    addq 296(%rbx), %rax # 8-byte Folded Reload
+; CHECK-NEXT:    movq %rax, 624(%r11,%rdx)
+; CHECK-NEXT:    movl 356(%r11,%rdx), %eax
+; CHECK-NEXT:    addl 184(%rbx), %eax # 4-byte Folded Reload
+; CHECK-NEXT:    movl %eax, 632(%r11,%rdx)
+; CHECK-NEXT:    movq 176(%rbx), %rax # 8-byte Reload
+; CHECK-NEXT:    incq %rax
+; CHECK-NEXT:    movq 288(%rbx), %r12 # 8-byte Reload
+; CHECK-NEXT:    cmpq %r12, %rax
+; CHECK-NEXT:    jb .LBB0_14
+; CHECK-NEXT:  # %bb.12: # in Loop: Header=BB0_9 Depth=3
+; CHECK-NEXT:    movq 160(%rbx), %rcx # 8-byte Reload
+; CHECK-NEXT:    incq %rcx
+; CHECK-NEXT:    movq %rcx, %rax
+; CHECK-NEXT:    movq %rcx, 160(%rbx) # 8-byte Spill
+; CHECK-NEXT:    cmpq 136(%rbx), %rcx # 8-byte Folded Reload
+; CHECK-NEXT:    movq 152(%rbx), %r14 # 8-byte Reload
+; CHECK-NEXT:    movq 120(%rbx), %r10 # 8-byte Reload
+; CHECK-NEXT:    jae .LBB0_15
+; CHECK-NEXT:  # %bb.13: # in Loop: Header=BB0_9 Depth=3
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    jmp .LBB0_14
+; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  .LBB0_15: # in Loop: Header=BB0_3 Depth=2
+; CHECK-NEXT:    movl $1, 32(%rbx) # 4-byte Folded Spill
+; CHECK-NEXT:    xorl %r13d, %r13d
+; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:    xorl %ecx, %ecx
+; CHECK-NEXT:    jmp .LBB0_16
+; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  .LBB0_19: # in Loop: Header=BB0_16 Depth=3
+; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:  .LBB0_20: # in Loop: Header=BB0_16 Depth=3
+; CHECK-NEXT:    addq $640, %rcx # imm = 0x280
+; CHECK-NEXT:  .LBB0_16: # Parent Loop BB0_1 Depth=1
+; CHECK-NEXT:    # Parent Loop BB0_3 Depth=2
+; CHECK-NEXT:    # => This Inner Loop Header: Depth=3
+; CHECK-NEXT:    movl -248(%r10,%rcx), %r11d
+; CHECK-NEXT:    addl %r14d, %r11d
+; CHECK-NEXT:    cmpl 168(%rbx), %r11d # 4-byte Folded Reload
+; CHECK-NEXT:    jl .LBB0_2
+; CHECK-NEXT:  # %bb.17: # in Loop: Header=BB0_16 Depth=3
+; CHECK-NEXT:    movslq -528(%r10,%rcx), %rax
+; CHECK-NEXT:    movslq %esi, %rdi
+; CHECK-NEXT:    imulq %rax, %rdi
+; CHECK-NEXT:    movslq -608(%r10,%rcx), %r8
+; CHECK-NEXT:    addq %rdi, %r8
+; CHECK-NEXT:    leal (%r8,%r14), %eax
+; CHECK-NEXT:    leal (%r8,%rsi), %edi
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps -240(%r10,%rcx), %xmm0
+; CHECK-NEXT:    movq 304(%rbx), %r11 # 8-byte Reload
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%r8)
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    movq %rdi, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps -208(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%r8)
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    movq %rdi, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps -176(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%r8)
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    movq %rdi, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps -144(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%r8)
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    movq %rdi, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps -112(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%r8)
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    movq %rdi, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps -80(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%r8)
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    movq %rdi, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    vmovaps -48(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%r8)
+; CHECK-NEXT:    addl %esi, %edi
+; CHECK-NEXT:    movslq %edi, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -16(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -224(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -192(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -160(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -128(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -96(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -64(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    movq %rax, %rdi
+; CHECK-NEXT:    shlq $4, %rdi
+; CHECK-NEXT:    vmovaps -32(%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rdi)
+; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    cltq
+; CHECK-NEXT:    shlq $4, %rax
+; CHECK-NEXT:    vmovaps (%r10,%rcx), %xmm0
+; CHECK-NEXT:    vmovaps %xmm0, (%r11,%rax)
+; CHECK-NEXT:    incq %rdx
+; CHECK-NEXT:    cmpq %r12, %rdx
+; CHECK-NEXT:    jb .LBB0_20
+; CHECK-NEXT:  # %bb.18: # in Loop: Header=BB0_16 Depth=3
+; CHECK-NEXT:    incq %r13
+; CHECK-NEXT:    cmpq 136(%rbx), %r13 # 8-byte Folded Reload
+; CHECK-NEXT:    jb .LBB0_19
 ; CHECK-NEXT:  # %bb.21:
 ; CHECK-NEXT:    leaq -40(%rbp), %rsp
 ; CHECK-NEXT:    popq %rbx

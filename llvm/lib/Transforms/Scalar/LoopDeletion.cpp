@@ -303,7 +303,7 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
       if (!AllOutgoingValuesSame)
         break;
 
-      if (Instruction *I = dyn_cast<Instruction>(incoming))
+      if (Instruction *I = dyn_cast<Instruction>(incoming)) {
         if (!L->makeLoopInvariant(I, Changed, Preheader->getTerminator())) {
 #if INTEL_CUSTOMIZATION
           // p = pstart;
@@ -423,11 +423,17 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
           AllEntriesInvariant = false;
           break;
         }
+        if (Changed) {
+          // Moving I to a different location may change its block disposition,
+          // so invalidate its SCEV.
+          SE.forgetValue(I);
+        }
+      }
     }
   }
 
   if (Changed)
-    SE.forgetLoopDispositions(L);
+    SE.forgetLoopDispositions();
 
   if (!AllEntriesInvariant || !AllOutgoingValuesSame)
     return false;

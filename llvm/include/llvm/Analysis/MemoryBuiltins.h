@@ -162,7 +162,6 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 
 #endif // INTEL_CUSTOMIZATION
 
-
 //===----------------------------------------------------------------------===//
 //  Properties of allocation functions
 //

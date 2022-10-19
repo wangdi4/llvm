@@ -779,7 +779,7 @@ static OclocInfo OclocDevices[] = {
                          0x56A4, 0x56B0, 0x56B1, 0x56B2, 0x56B3, 0x56A0,
                          0x56A1, 0x56A2, 0x56A5, 0x56A6, 0x56C0, 0x56C1 } }
 };
-static const unsigned numOclocDevices = llvm::array_lengthof(OclocDevices);
+static const unsigned numOclocDevices = std::size(OclocDevices);
 
 static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
     Compilation &C, const ArgStringList &CmdArgs) {

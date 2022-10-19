@@ -12,7 +12,7 @@ define void @test(float* %arg) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <8 x float*> poison, float* [[ARG:%.*]], i32 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x float*> [[TMP0]], <8 x float*> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr float, <8 x float*> [[SHUFFLE]], <8 x i64> <i64 0, i64 1, i64 2, i64 4, i64 5, i64 6, i64 8, i64 9>
-; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP1]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
+; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP1]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison)
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast float* [[I1]] to <8 x float>*
 ; CHECK-NEXT:    store <8 x float> [[TMP2]], <8 x float>* [[TMP3]], align 16
 ; CHECK-NEXT:    ret void

@@ -64,7 +64,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    [[TMP24:%.*]] = trunc <2 x i64> [[VEC_PHI220]] to <2 x i32>
 ; CHECK-NEXT:    [[SCALAR_GEP250:%.*]] = getelementptr inbounds float, float* [[A0:%.*]], i64 [[UNI_PHI210]]
 ; CHECK-NEXT:    [[TMP25:%.*]] = bitcast float* [[SCALAR_GEP250]] to <2 x float>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0v2f32(<2 x float>* [[TMP25]], i32 4, <2 x i1> [[TMP23]], <2 x float> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0v2f32(<2 x float>* [[TMP25]], i32 4, <2 x i1> [[TMP23]], <2 x float> poison)
 ; CHECK-NEXT:    [[WIDE_LOAD260:%.*]] = load <2 x float>, <2 x float>* [[DOTVEC0]], align 4
 ; CHECK-NEXT:    [[TMP26:%.*]] = fadd fast <2 x float> [[WIDE_LOAD260]], [[WIDE_MASKED_LOAD0]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0v2f32(<2 x float> [[TMP26]], <2 x float>* [[DOTVEC0]], i32 4, <2 x i1> [[TMP23]])

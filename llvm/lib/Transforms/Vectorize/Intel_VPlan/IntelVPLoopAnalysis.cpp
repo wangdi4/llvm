@@ -3378,9 +3378,9 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
     }
     // Replace original descriptor with alias if available.
     if (!V && HasAlias) {
-      Start = Alias.getValue().Start;
+      Start = Alias.value().Start;
       V = Start;
-      UpdateVPInsts = Alias.getValue().UpdateVPInsts;
+      UpdateVPInsts = Alias.value().UpdateVPInsts;
     }
     for (auto User : V->users())
       if (auto Instr = dyn_cast<VPPHINode>(User))

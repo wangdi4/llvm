@@ -1328,17 +1328,23 @@ static std::string serializeXRayInstrumentationBundle(const XRayInstrSet &S) {
 
 // Set the profile kind using fprofile-instrument-use-path.
 static void setPGOUseInstrumentor(CodeGenOptions &Opts,
-                                  const Twine &ProfileName) {
+                                  const Twine &ProfileName,
+                                  DiagnosticsEngine &Diags) {
   auto ReaderOrErr = llvm::IndexedInstrProfReader::create(ProfileName);
-  // In error, return silently and let Clang PGOUse report the error message.
   if (auto E = ReaderOrErr.takeError()) {
-    llvm::consumeError(std::move(E));
-    Opts.setProfileUse(CodeGenOptions::ProfileClangInstr);
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                            "Error in reading profile %0: %1");
+    llvm::handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
+      Diags.Report(DiagID) << ProfileName.str() << EI.message();
+    });
     return;
   }
   std::unique_ptr<llvm::IndexedInstrProfReader> PGOReader =
     std::move(ReaderOrErr.get());
-  if (PGOReader->isIRLevelProfile()) {
+  // Currently memprof profiles are only added at the IR level. Mark the profile
+  // type as IR in that case as well and the subsequent matching needs to detect
+  // which is available (might be one or both).
+  if (PGOReader->isIRLevelProfile() || PGOReader->hasMemoryProfile()) {
     if (PGOReader->hasCSIRLevelProfile())
       Opts.setProfileUse(CodeGenOptions::ProfileCSIRInstr);
     else
@@ -1762,7 +1768,7 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
   }
 
   if (!Opts.ProfileInstrumentUsePath.empty())
-    setPGOUseInstrumentor(Opts, Opts.ProfileInstrumentUsePath);
+    setPGOUseInstrumentor(Opts, Opts.ProfileInstrumentUsePath, Diags);
 
   if (const Arg *A = Args.getLastArg(OPT_ftime_report, OPT_ftime_report_EQ)) {
     Opts.TimePasses = true;

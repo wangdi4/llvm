@@ -253,7 +253,6 @@ namespace {
       (void) llvm::createPAEvalPass();
       (void) llvm::createPromoteMemoryToRegisterPass();
       (void) llvm::createDemoteRegisterToMemoryPass();
-      (void) llvm::createPruneEHPass();
       (void)llvm::createPostDomOnlyPrinterWrapperPassPass();
       (void)llvm::createPostDomPrinterWrapperPassPass();
       (void)llvm::createPostDomOnlyViewerWrapperPassPass();

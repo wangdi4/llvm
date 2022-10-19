@@ -37,7 +37,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK:         [[SCALAR_GEP0:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[ARY0:%.*]], i64 [[DOTEXTRACT_0_0:%.*]]
 ; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr <4 x i32>, <4 x i32>* [[SCALAR_GEP0]], i64 -1
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP50]] to <16 x i128>*
-; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i128> @llvm.masked.load.v16i128.p0v16i128(<16 x i128>* [[TMP1]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i128> undef)
+; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i128> @llvm.masked.load.v16i128.p0v16i128(<16 x i128>* [[TMP1]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i128> poison)
 ; CHECK-NEXT:    [[VP_L20:%.*]] = shufflevector <16 x i128> [[VLS_LOAD0]], <16 x i128> [[VLS_LOAD0]], <4 x i32> <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i128> [[VP_L20]] to <16 x i32>
 ; CHECK-NEXT:    [[VP_L00:%.*]] = shufflevector <16 x i128> [[VLS_LOAD0]], <16 x i128> [[VLS_LOAD0]], <4 x i32> <i32 1, i32 4, i32 7, i32 10>

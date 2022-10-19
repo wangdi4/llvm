@@ -400,48 +400,19 @@ void Symbol::mergeProperties(const Symbol &other) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-// We include the real name of the other symbol since there is a chance that
-// the symbol was created without a name.
-void Symbol::resolve(const Symbol &other, StringRef otherName) {
-#endif // INTEL_CUSTOMIZATION
-  mergeProperties(other);
-
-  if (isPlaceholder()) {
-    replace(other);
-    return;
+void Symbol::resolve(const Undefined &other) {
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
   }
-
-  switch (other.kind()) {
-  case Symbol::UndefinedKind:
-    resolveUndefined(cast<Undefined>(other));
-    break;
-  case Symbol::CommonKind:
-    resolveCommon(cast<CommonSymbol>(other));
-    break;
-  case Symbol::DefinedKind:
-    resolveDefined(cast<Defined>(other), otherName);                 // INTEL
-    break;
-  case Symbol::LazyObjectKind:
-    resolveLazy(cast<LazyObject>(other));
-    break;
-  case Symbol::SharedKind:
-    resolveShared(cast<SharedSymbol>(other));
-    break;
-  case Symbol::PlaceholderKind:
-    llvm_unreachable("bad symbol kind");
-  }
-}
-
-void Symbol::resolveUndefined(const Undefined &other) {
   // An undefined symbol with non default visibility must be satisfied
   // in the same DSO.
   //
   // If this is a non-weak defined symbol in a discarded section, override the
   // existing undefined symbol for better error message later.
-  if ((isShared() && other.visibility() != STV_DEFAULT) ||
+  if (isPlaceholder() || (isShared() && other.visibility() != STV_DEFAULT) ||
       (isUndefined() && other.binding != STB_WEAK && other.discardedSecIdx)) {
-    replace(other);
+    other.overwrite(*this);
     return;
   }
 
@@ -703,7 +674,13 @@ void Symbol::checkDuplicate(const Defined &other) const {
                     other.value);
 }
 
-void Symbol::resolveCommon(const CommonSymbol &other) {
+void Symbol::resolve(const CommonSymbol &other) {
+  if (other.exportDynamic)
+    exportDynamic = true;
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+  }
   if (isDefined() && !isWeak()) {
     if (config->warnCommon)
       warn("common " + getName() + " is overridden");
@@ -727,30 +704,41 @@ void Symbol::resolveCommon(const CommonSymbol &other) {
     // files were linked into a shared object first should not change the
     // regular rule that picks the largest st_size.
     uint64_t size = s->size;
-    replace(other);
+    other.overwrite(*this);
     if (size > cast<CommonSymbol>(this)->size)
       cast<CommonSymbol>(this)->size = size;
   } else {
-    replace(other);
+    other.overwrite(*this);
   }
 }
 
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
-void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
+void Symbol::resolve(const Defined &other, StringRef otherName) {
+  if (other.exportDynamic)
+    exportDynamic = true;
+  if (other.visibility() != STV_DEFAULT) {
+    uint8_t v = visibility(), ov = other.visibility();
+    setVisibility(v == STV_DEFAULT ? ov : std::min(v, ov));
+  }
   if(compare(other, otherName))
+    other.overwrite(*this);
 #endif // INTEL_CUSTOMIZATION
-    replace(other);
 }
 
-void Symbol::resolveLazy(const LazyObject &other) {
+void Symbol::resolve(const LazyObject &other) {
+  if (isPlaceholder()) {
+    other.overwrite(*this);
+    return;
+  }
+
   // For common objects, we want to look for global or weak definitions that
   // should be extracted as the canonical definition instead.
   if (LLVM_UNLIKELY(isCommon()) && elf::config->fortranCommon &&
       other.file->shouldExtractForCommon(getName())) {
     ctx->backwardReferences.erase(this);
-    replace(other);
+    other.overwrite(*this);
     other.extract();
     return;
   }
@@ -766,7 +754,7 @@ void Symbol::resolveLazy(const LazyObject &other) {
   // Symbols.h for the details.
   if (isWeak()) {
     uint8_t ty = type;
-    replace(other);
+    other.overwrite(*this);
     type = ty;
     binding = STB_WEAK;
     return;
@@ -778,7 +766,12 @@ void Symbol::resolveLazy(const LazyObject &other) {
     recordWhyExtract(oldFile, *file, *this);
 }
 
-void Symbol::resolveShared(const SharedSymbol &other) {
+void Symbol::resolve(const SharedSymbol &other) {
+  exportDynamic = true;
+  if (isPlaceholder()) {
+    other.overwrite(*this);
+    return;
+  }
   if (isCommon()) {
     // See the comment in resolveCommon() above.
     if (other.size > cast<CommonSymbol>(this)->size)
@@ -789,7 +782,7 @@ void Symbol::resolveShared(const SharedSymbol &other) {
     // An undefined symbol with non default visibility must be satisfied
     // in the same DSO.
     uint8_t bind = binding;
-    replace(other);
+    other.overwrite(*this);
     binding = bind;
   } else if (traced)
     printTraceSymbol(other, getName());
