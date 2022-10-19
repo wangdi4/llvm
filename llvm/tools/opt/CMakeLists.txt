@@ -60,13 +60,9 @@ add_llvm_tool(opt
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
   NewPMDriver.cpp
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_PassPrinters.cpp
 # end INTEL_CUSTOMIZATION
-  PrintSCC.cpp
-=======
->>>>>>> 743087fb6306dd03b1aaf2bdb9c877390649bc77
   opt.cpp
 
   DEPENDS
