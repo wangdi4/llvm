@@ -12634,7 +12634,8 @@ static QualType checkArithmeticOrEnumeralCompare(Sema &S, ExprResult &LHS,
 
 #if INTEL_CUSTOMIZATION
   // Check for comparisons to INF and NaN when in ffast-math mode.
-  if (Type->hasFloatingRepresentation())
+  if (Type->hasFloatingRepresentation() &&
+      S.getLangOpts().isIntelCompat(LangOptions::ExplicitComparisonToNaNOrINF))
     S.CheckInfNaNFloatComparison(Loc, LHS.get(), RHS.get(), Opc);
 #endif // INTEL_CUSTOMIZATION
 
