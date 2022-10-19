@@ -507,7 +507,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD void dump(bool PrintDetail = false) {
+  LLVM_DUMP_METHOD void dump(bool PrintDetail = false) const {
     dbgs() << "BasicBlockInfo:\n"
            << "\t#BBIndex: " << BBIndex << "\n"
            << "\t#NumInst: " << NumInst << "\n"
@@ -976,13 +976,13 @@ public:
 
   LLVM_DUMP_METHOD void dumpPrefetchPositions(void) {
     dbgs() << "Prefetch Position(s): " << PrefetchPositions.size() << "\n";
-    for (auto &Pair : PrefetchPositions) {
+    for (const auto &Pair : PrefetchPositions) {
       Function *F = Pair.first;
       auto &PosDesVec = Pair.second;
       dbgs() << F->getName() << "(): -> \n";
 
       unsigned Count = 0;
-      for (auto &PosDes : PosDesVec) {
+      for (const auto &PosDes : PosDesVec) {
         dbgs() << "\t" << Count++;
         PosDes.dump();
       }
@@ -1395,7 +1395,7 @@ bool IPOPrefetcher::isDominateProper(void) {
   // Collect all prefetch hosts:
   SmallVector<Function *, 4> PrefetchHosts;
 
-  for (auto &Pair : PrefetchPositions) {
+  for (const auto &Pair : PrefetchPositions) {
     Function *F = Pair.first;
     LLVM_DEBUG(dbgs() << "Function: " << F->getName() << "() : \n";);
     PrefetchHosts.push_back(F);
@@ -1879,7 +1879,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   // Clone metadata from the old function, including debug info descriptor.
   SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
   F->getAllMetadata(MDs);
-  for (auto &MD : MDs)
+  for (const auto &MD : MDs)
     NF->addMetadata(MD.first, *MD.second);
 
   // Delete the old function
@@ -2409,12 +2409,12 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
   LLVM_DEBUG({ dumpPrefetchPositions(); });
   IRBuilder<> Builder(M.getContext());
 
-  for (auto &Pair : PrefetchPositions) {
+  for (const auto &Pair : PrefetchPositions) {
     Function *F = Pair.first;
     auto &BBIVec = Pair.second;
     Function *Caller = F;
 
-    for (auto &BBI : BBIVec) {
+    for (const auto &BBI : BBIVec) {
       // Identify the insert position
       BasicBlock::iterator It(BBI.getBasicBlock()->getFirstNonPHIOrDbg(true));
       if (It == BBI.getBasicBlock()->end())

@@ -1122,7 +1122,7 @@ public:
 
   // Check: any ParamIndxSet has Idx?
   bool haveIndex(const unsigned Idx) {
-    for (auto &S : *this)
+    for (const auto &S : *this)
       if (S.haveIndex(Idx))
         return true;
     return false;
@@ -3239,7 +3239,7 @@ bool PostProcessor::doCollection(void) {
   (void)Count;
 
   // - Populate Functions LeafSeeds into ExtSeedFunctions:
-  for (auto &Item : LeafSeeds) {
+  for (const auto &Item : LeafSeeds) {
     Function *F = Item.first;
     if (!ExtSeedFunctions[F])
       ExtSeedFunctions[F] = true;
