@@ -63,7 +63,6 @@ add_llvm_tool(opt
 # INTEL_CUSTOMIZATION
   Intel_PassPrinters.cpp
 # end INTEL_CUSTOMIZATION
-  PrintSCC.cpp
   opt.cpp
 
   DEPENDS
