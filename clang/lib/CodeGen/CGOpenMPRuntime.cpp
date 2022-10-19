@@ -1987,6 +1987,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_ctor"), FI, Loc, false,
           llvm::GlobalValue::WeakODRLinkage);
+      Fn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
+
 #if INTEL_COLLAB
       if (CGM.getLangOpts().OpenMPLateOutline)
         Fn->setLinkage(llvm::Function::ExternalLinkage);
@@ -2057,6 +2059,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_dtor"), FI, Loc, false,
           llvm::GlobalValue::WeakODRLinkage);
+      Fn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
+
 #if INTEL_COLLAB
       if (CGM.getLangOpts().OpenMPLateOutline)
         Fn->setLinkage(llvm::Function::ExternalLinkage);
@@ -6611,6 +6615,7 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
     OutlinedFnID = llvm::ConstantExpr::getBitCast(OutlinedFn, CGM.Int8PtrTy);
     OutlinedFn->setLinkage(llvm::GlobalValue::WeakODRLinkage);
     OutlinedFn->setDSOLocal(false);
+    OutlinedFn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
     if (CGM.getTriple().isAMDGCN())
       OutlinedFn->setCallingConv(llvm::CallingConv::AMDGPU_KERNEL);
   } else {
