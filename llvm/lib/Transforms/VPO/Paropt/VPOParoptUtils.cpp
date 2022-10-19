@@ -6832,8 +6832,10 @@ Function *VPOParoptUtils::genOutlineFunction(
     DT->recalculate(*F);
   }
 
+#ifndef NDEBUG
   if (EnableOutlineVerification)
     DT->verify(DominatorTree::VerificationLevel::Fast);
+#endif // NDEBUG
 
   // Set up the calling convention used by OpenMP runtime library.
   setFuncCallingConv(CallSite, CallSite->getModule());
