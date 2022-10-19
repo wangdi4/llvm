@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -objc-arc -S < %s | FileCheck %s
+=======
+>>>>>>> 7676817ecde5776cd2378703757dba0da0bf90a9
 ; RUN: opt -aa-pipeline=basic-aa -passes=objc-arc -S < %s | FileCheck %s
 
 target datalayout = "e-p:64:64:64"

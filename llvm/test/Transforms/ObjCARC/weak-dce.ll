@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -S -basic-aa -objc-arc < %s | FileCheck %s
+=======
+; RUN: opt -S -passes=objc-arc < %s | FileCheck %s
+>>>>>>> 7676817ecde5776cd2378703757dba0da0bf90a9
 ; rdar://11434915
 
 ; Delete the weak calls and replace them with just the net retain.
