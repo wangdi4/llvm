@@ -59,33 +59,35 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:           goto [[MERGE_BLK2:merge.blk[0-9]+]].73
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK1]].42:
-; CHECK-NEXT:        [[TGU290:%.*]] = [[N0]]  /u  2
-; CHECK-NEXT:        [[VEC_TC300:%.*]] = [[TGU290]]  *  2
-; CHECK-NEXT:        [[RED_INIT310:%.*]] = 0.000000e+00
-; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP90]] + <i64 0, i64 1>
-; CHECK-NEXT:        [[PHI_TEMP320:%.*]] = [[RED_INIT310]]
-; CHECK-NEXT:        [[LOOP_UB340:%.*]] = [[VEC_TC300]]  -  1
-; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB340]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
-; CHECK-NEXT:        |   [[DOTVEC350:%.*]] = (<2 x float>*)([[A0]])[i1]
-; CHECK-NEXT:        |   [[DOTVEC360:%.*]] = [[DOTVEC350]]  +  [[PHI_TEMP320]]
-; CHECK-NEXT:        |   [[PHI_TEMP320]] = [[DOTVEC360]]
+; CHECK-NEXT:        [[DOTVEC290:%.*]] = [[N0]] + -1  +  1
+; CHECK-NEXT:        [[DOTSCAL0:%.*]] = [[N0]] + -1  +  1
+; CHECK-NEXT:        [[TGU300:%.*]] = [[N0]]  /u  2
+; CHECK-NEXT:        [[VEC_TC310:%.*]] = [[TGU300]]  *  2
+; CHECK-NEXT:        [[RED_INIT320:%.*]] = 0.000000e+00
+; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP90]]  +  <i64 0, i64 1>
+; CHECK-NEXT:        [[PHI_TEMP330:%.*]] = [[RED_INIT320]]
+; CHECK-NEXT:        [[LOOP_UB350:%.*]] = [[VEC_TC310]]  -  1
+; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB350]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK-NEXT:        |   [[DOTVEC360:%.*]] = (<2 x float>*)([[A0]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC370:%.*]] = [[DOTVEC360]]  +  [[PHI_TEMP330]]
+; CHECK-NEXT:        |   [[PHI_TEMP330]] = [[DOTVEC370]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v2f32([[PHI_TEMP70]],  [[DOTVEC360]])
-; CHECK-NEXT:        [[IND_FINAL390:%.*]] = 0 + [[VEC_TC300]]
+; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v2f32([[PHI_TEMP70]],  [[DOTVEC370]])
+; CHECK-NEXT:        [[IND_FINAL400:%.*]] = 0  +  [[VEC_TC310]]
 ; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL390]]
+; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL400]]
 ; CHECK-NEXT:        [[MERGE_BLK2]].73:
-; CHECK-NEXT:        [[TGU420:%.*]] = [[N0]]  /u  2
-; CHECK-NEXT:        [[VEC_TC430:%.*]] = [[TGU420]]  *  2
-; CHECK-NEXT:        [[DOTVEC440:%.*]] = [[N0]] == [[VEC_TC430]]
+; CHECK-NEXT:        [[TGU430:%.*]] = [[N0]]  /u  2
+; CHECK-NEXT:        [[VEC_TC440:%.*]] = [[TGU430]]  *  2
+; CHECK-NEXT:        [[DOTVEC450:%.*]] = [[N0]] == [[VEC_TC440]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[PHI_TEMP240]]
 ; CHECK-NEXT:        [[PHI_TEMP20]] = [[PHI_TEMP260]]
-; CHECK-NEXT:        [[PHI_TEMP470:%.*]] = [[PHI_TEMP240]]
-; CHECK-NEXT:        [[PHI_TEMP490:%.*]] = [[PHI_TEMP260]]
-; CHECK-NEXT:        [[EXTRACT_0_510:%.*]] = extractelement [[DOTVEC440]],  0
-; CHECK-NEXT:        if ([[EXTRACT_0_510]] == 1)
+; CHECK-NEXT:        [[PHI_TEMP480:%.*]] = [[PHI_TEMP240]]
+; CHECK-NEXT:        [[PHI_TEMP500:%.*]] = [[PHI_TEMP260]]
+; CHECK-NEXT:        [[EXTRACT_0_520:%.*]] = extractelement [[DOTVEC450]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_520]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto final.merge.110
+; CHECK-NEXT:           goto final.merge.112
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].31:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
@@ -94,9 +96,9 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
 ; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[PHI_TEMP470]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP490]] = [[N0]] + -1
-; CHECK-NEXT:        final.merge.110:
+; CHECK:             [[PHI_TEMP480]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP500]] = [[N0]] + -1
+; CHECK-NEXT:        final.merge.112:
 ; CHECK-NEXT:  END REGION
 ;
 entry:
