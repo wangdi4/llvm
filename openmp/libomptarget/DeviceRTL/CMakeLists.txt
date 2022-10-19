@@ -69,25 +69,6 @@ else()
   return()
 endif()
 
-# INTEL_CUSTOMIZATION
-# Community commit e82e07d74a7d9 will cause build fail, revert it temporarily
-# and wait for code owner to resolve this issue.
-# TODO: This part needs to be refined when libomptarget is going to support
-# Windows!
-# TODO: This part can also be removed if we can change the clang driver to make
-# it support device only compilation.
-if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64")
-  set(aux_triple x86_64-unknown-linux-gnu)
-elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ppc64le")
-  set(aux_triple powerpc64le-unknown-linux-gnu)
-elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64")
-  set(aux_triple aarch64-unknown-linux-gnu)
-else()
-  libomptarget_say("Not building DeviceRTL: unknown host arch: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
-  return()
-endif()
-# end INTEL_CUSTOMIZATION
-
 set(devicertl_base_directory ${CMAKE_CURRENT_SOURCE_DIR})
 set(include_directory ${devicertl_base_directory}/include)
 set(source_directory ${devicertl_base_directory}/src)
@@ -158,23 +139,15 @@ set(link_extract_flag --func='__keep_alive' --delete)
 set (LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL "${LIBOMPTARGET_LLVM_INCLUDE_DIRS}")
 list(TRANSFORM LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL PREPEND "-I")
 
-# INTEL_CUSTOMIZATION
-# Reverted e82e07d74a7d9 temporarily.
 # Set flags for LLVM Bitcode compilation.
-set(bc_flags -S -x c++ -std=c++17 -fvisibility=hidden
-              ${clang_opt_flags}
-             -Xclang -emit-llvm-bc
-             -Xclang -aux-triple -Xclang ${aux_triple}
-             -fopenmp -fopenmp-cuda-mode -Xclang -fopenmp-is-device
+set(bc_flags -c -emit-llvm -std=c++17 -fvisibility=hidden
+              ${clang_opt_flags} --offload-device-only
+             -nocudalib -nogpulib -nostdinc
+             -fopenmp -fopenmp-cuda-mode
              -I${include_directory}
              -I${devicertl_base_directory}/../include
              ${LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL}
 )
-# end INTEL_CUSTOMIZATION
-
-if(INTEL_CUSTOMIZATION)
-  list(APPEND bc_flags -Xclang -disable-intel-proprietary-opts)
-endif(INTEL_CUSTOMIZATION)
 
 # first create an object target
 add_library(omptarget.devicertl.all_objs OBJECT IMPORTED)
@@ -187,19 +160,16 @@ function(compileDeviceRTLLibrary target_cpu target_name target_triple)
     get_filename_component(outfile ${src} NAME)
     set(outfile "${outfile}-${target_cpu}.bc")
 
-# INTEL_CUSTOMIZATION
-# Reverted e82e07d74a7d9 temporarily.
     add_custom_target(${outfile}
       COMMAND ${CLANG_TOOL}
       ${bc_flags}
-      -Xclang -target-cpu -Xclang ${target_cpu}
+      --offload-arch=${target_cpu}
       ${target_bc_flags}
       ${infile} -o ${outfile}
       DEPENDS ${infile} ${include_files}
       COMMENT "Building LLVM bitcode ${outfile}"
       VERBATIM
     )
-#end INTEL_CUSTOMIZATION
     if("${CLANG_TOOL}" STREQUAL "$<TARGET_FILE:clang>")
       # Add a target-level dependency to ensure that clang is up-to-date.
       # By default, add_custom_target only builds clang if the
@@ -301,8 +271,6 @@ function(compileDeviceRTLLibrary target_cpu target_name target_triple)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${bclib_name} DESTINATION "${OPENMP_INSTALL_LIBDIR}")
 endfunction()
 
-# INTEL_CUSTOMIZATION
-# Reverted e82e07d74a7d9 temporarily.
 # Generate a Bitcode library for all the compute capabilities the user requested
 add_custom_target(omptarget.devicertl.nvptx)
 foreach(sm ${nvptx_sm_list})
@@ -313,13 +281,10 @@ add_custom_target(omptarget.devicertl.amdgpu)
 foreach(mcpu ${amdgpu_mcpus})
   compileDeviceRTLLibrary(${mcpu} amdgpu amdgcn-amd-amdhsa -fopenmp-targets=amdgcn-amd-amdhsa)
 endforeach()
-# end INTEL_CUSTOMIZATION
 
-if(NOT INTEL_CUSTOMIZATION)
 # Archive all the object files generated above into a static library
 add_library(omptarget.devicertl STATIC)
 set_target_properties(omptarget.devicertl PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(omptarget.devicertl PRIVATE omptarget.devicertl.all_objs)
 
 install(TARGETS omptarget.devicertl ARCHIVE DESTINATION ${OPENMP_INSTALL_LIBDIR})
-endif(NOT INTEL_CUSTOMIZATION)
