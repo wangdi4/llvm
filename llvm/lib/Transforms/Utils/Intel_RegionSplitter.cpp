@@ -149,7 +149,7 @@ bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region) {
     }
   }
 
-  for (auto &E : SplitEdges) {
+  for (const auto &E : SplitEdges) {
     SplitEdge(E.first, E.second);
   }
 

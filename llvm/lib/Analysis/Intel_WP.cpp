@@ -975,7 +975,7 @@ Function *WholeProgramInfo::getMainFunction() {
 
   Function *Main = nullptr;
 
-  for (auto &Name : WPUtils->getMainNames()) {
+  for (const auto &Name : WPUtils->getMainNames()) {
     Main = M->getFunction(Name);
 
     if (Main)
