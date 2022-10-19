@@ -646,7 +646,7 @@ define i32 @loadCombine_4consecutive_3241(ptr %p) {
 define i32 @loadCombine_4consecutive_3412(ptr %p) {
 ; CHECK-LABEL: @loadCombine_4consecutive_3412(
 ; CHECK-NEXT:    [[P1:%.*]] = getelementptr i8, ptr [[P:%.*]], i64 1
-; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[P]], i64 2
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr i16, ptr [[P]], i64 1
 ; CHECK-NEXT:    [[L1:%.*]] = load i8, ptr [[P]], align 1
 ; CHECK-NEXT:    [[L2:%.*]] = load i8, ptr [[P1]], align 1
 ; CHECK-NEXT:    [[L3:%.*]] = load i16, ptr [[P2]], align 1
@@ -685,7 +685,7 @@ define i32 @loadCombine_4consecutive_3412(ptr %p) {
 define i32 @loadCombine_4consecutive_3421(ptr %p) {
 ; CHECK-LABEL: @loadCombine_4consecutive_3421(
 ; CHECK-NEXT:    [[P1:%.*]] = getelementptr i8, ptr [[P:%.*]], i64 1
-; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[P]], i64 2
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr i16, ptr [[P]], i64 1
 ; CHECK-NEXT:    [[L1:%.*]] = load i8, ptr [[P]], align 1
 ; CHECK-NEXT:    [[L2:%.*]] = load i8, ptr [[P1]], align 1
 ; CHECK-NEXT:    [[L3:%.*]] = load i16, ptr [[P2]], align 1
@@ -900,7 +900,7 @@ define i32 @loadCombine_4consecutive_4231(ptr %p) {
 define i32 @loadCombine_4consecutive_4312(ptr %p) {
 ; CHECK-LABEL: @loadCombine_4consecutive_4312(
 ; CHECK-NEXT:    [[P1:%.*]] = getelementptr i8, ptr [[P:%.*]], i64 1
-; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[P]], i64 2
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr i16, ptr [[P]], i64 1
 ; CHECK-NEXT:    [[L1:%.*]] = load i8, ptr [[P]], align 1
 ; CHECK-NEXT:    [[L2:%.*]] = load i8, ptr [[P1]], align 1
 ; CHECK-NEXT:    [[L3:%.*]] = load i16, ptr [[P2]], align 1
@@ -939,7 +939,7 @@ define i32 @loadCombine_4consecutive_4312(ptr %p) {
 define i32 @loadCombine_4consecutive_4321(ptr %p) {
 ; CHECK-LABEL: @loadCombine_4consecutive_4321(
 ; CHECK-NEXT:    [[P1:%.*]] = getelementptr i8, ptr [[P:%.*]], i64 1
-; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[P]], i64 2
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr i16, ptr [[P]], i64 1
 ; CHECK-NEXT:    [[L1:%.*]] = load i8, ptr [[P]], align 1
 ; CHECK-NEXT:    [[L2:%.*]] = load i8, ptr [[P1]], align 1
 ; CHECK-NEXT:    [[L3:%.*]] = load i16, ptr [[P2]], align 1
