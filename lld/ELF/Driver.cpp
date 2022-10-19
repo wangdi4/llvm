@@ -2066,7 +2066,7 @@ void LinkerDriver::doGNULTOLinking(
   files.push_back(createObjFile(mbref, "", isLazyFile));
 
   // Remove temporary files
-  for (auto &tempFile : tempsVector) {
+  for (const auto &tempFile : tempsVector) {
     if (sys::fs::remove(tempFile)) {
 #ifndef NDEBUG
       warn("Issue while removing GNU LTO file: " + tempFile);
