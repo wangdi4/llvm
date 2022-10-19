@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that %struct.test.a and %struct.test.a.base are NOT
 ; mapped together since there is a memcpy is not using the correct size.

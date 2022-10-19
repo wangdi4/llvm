@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -whole-program-assume  -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -whole-program-assume  -passes="require<dtransanalysis>" -dtrans-print-types -dtrans-outofboundsok=true -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed  -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed  -passes="require<dtransanalysis>" -dtrans-print-types -dtrans-outofboundsok=true -disable-output < %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Checks that the constant value set of the non-address-taken fields
 ; in the structure changes to 'incomplete' under DTransOutOfBoundsOK=true.

@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
-; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
+; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
+; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Verify that the resolve types pass gets inhibited when opaque pointers are
 ; used, rather than crashing. The resolve types pass is deprecated and will

@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies allocation call info collection for the transforms from
 ; memory allocation calls.

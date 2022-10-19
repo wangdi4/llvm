@@ -1,9 +1,11 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield < %s -debug-only=dtrans-deletefield \
+; RUN: opt  -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -dtrans-deletefield < %s -debug-only=dtrans-deletefield \
 ; RUN:     -disable-output 2>&1 | FileCheck %s
-; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -disable-output -passes=dtrans-deletefield \
+; RUN: opt  -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -disable-output -passes=dtrans-deletefield \
 ; RUN:     -debug-only=dtrans-deletefield %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the dtrans delete pass does not try to transform
 ; structures that do not meet the necessary safety conditions.

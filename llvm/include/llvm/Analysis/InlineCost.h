@@ -643,7 +643,7 @@ public:
 // Return 'true' if inlining deferral should be performed even when the
 // community default is 'false'.
 
-extern bool intelEnableInlineDeferral(void);
+extern bool intelEnableInlineDeferral(bool IsLibIRCAllowed);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 

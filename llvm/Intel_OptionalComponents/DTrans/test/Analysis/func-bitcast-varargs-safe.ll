@@ -1,8 +1,10 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies that a bitcast of a function pointer in a call instruction with var args
 ; is handled as a bitcast of the arguments.

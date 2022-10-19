@@ -5,6 +5,8 @@
 ; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline  -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Check that without -dtrans-inline-heuristics that @foo, which has a dynamic
 ; alloca, is not inlined.
 

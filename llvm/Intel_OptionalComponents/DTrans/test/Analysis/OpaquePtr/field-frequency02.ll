@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume  -dtrans-safetyanalyzer -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed  -dtrans-safetyanalyzer -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
 
 
 ; This test verifies that frequencies of field accesses are computed from

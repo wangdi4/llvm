@@ -2,8 +2,8 @@
 ; of byte-flattened GEPs on a structure that contains nested instances of the
 ; structure being reordered.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -dtrans-reorderfieldsop -dtrans-reorderfieldop-enable-applicable-test=0 -dtrans-reorderfieldop-enable-legal-test=0 | FileCheck %s
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -passes=dtrans-reorderfieldsop -dtrans-reorderfieldop-enable-applicable-test=0 -dtrans-reorderfieldop-enable-legal-test=0 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfieldsop -dtrans-reorderfieldop-enable-applicable-test=0 -dtrans-reorderfieldop-enable-legal-test=0 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop -dtrans-reorderfieldop-enable-applicable-test=0 -dtrans-reorderfieldop-enable-legal-test=0 | FileCheck %s
 
 ; CHECK: %__DFR_struct.S = type { %struct.S0, i32, i64, i64, i16, i16, i32, i64, i64, ptr, ptr, ptr, i32, i32, %struct.S0, %struct.S0, %struct.S0, %struct.S0, i32, i16 }
 

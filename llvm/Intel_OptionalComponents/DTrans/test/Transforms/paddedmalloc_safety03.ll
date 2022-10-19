@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that identifies that the DTrans padded malloc optimization didn't
 ; apply the optimization since it didn't find a malloc function, even
 ; though a search loop is available.
 
-; RUN: opt -whole-program-assume < %s -dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
-; RUN: opt -whole-program-assume < %s -passes=dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 

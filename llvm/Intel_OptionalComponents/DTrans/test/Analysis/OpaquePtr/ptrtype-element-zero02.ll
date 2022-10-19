@@ -1,5 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-outofboundsok=false -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test pointer type collection when indexing into an element zero type of a
 ; structure using a pointer to the structure type. In the case where the field

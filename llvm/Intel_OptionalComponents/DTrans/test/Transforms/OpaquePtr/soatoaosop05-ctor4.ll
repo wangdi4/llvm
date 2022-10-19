@@ -2,7 +2,9 @@
 ; can't be merged since the calls (@Not_Ctor1 and @Not_Ctor2) are not
 ; constructor calls.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                      \
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                      \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
@@ -13,7 +15,7 @@
 ; RUN:          -dtrans-soatoaosop-array-ctor=_ZN3ArrIPfEC2Ei                                                             \
 ; RUN:       2>&1 | FileCheck %s
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                    \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                                    \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \

@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that the legacy DTransAnalysis pass does not run the analysis
 ; using getPointerElementType when the compiler is using opaque pointers.

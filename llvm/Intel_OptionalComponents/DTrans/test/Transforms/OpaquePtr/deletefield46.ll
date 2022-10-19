@@ -1,5 +1,7 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S 2>&1 | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that the memcpy sizes are adjusted for cases of nested structures when
 ; fields are deleted from both the outer and inner structures.

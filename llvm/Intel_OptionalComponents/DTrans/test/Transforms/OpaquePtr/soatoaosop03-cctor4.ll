@@ -7,12 +7,12 @@
 ; REQUIRES: system-windows
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -disable-output \
 ; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>'  \
 ; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
 ; RUN:    -debug-only=dtrans-soatoaosop 2>&1 | FileCheck %s
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output \
 ; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>'  \
 ; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
 ; RUN:    -debug-only=dtrans-soatoaosop 2>&1 | FileCheck %s

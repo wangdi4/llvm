@@ -6,7 +6,9 @@
 ; to exclude the use of the dtrans option for builds that exclude dtrans, the
 ; test must be separate.
 
-; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume -intel-libirc-allowed    \
 ; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
 ; RUN:     -S  %s -enable-npm-dtrans                                    \
 ; RUN:     2>&1                                                         \

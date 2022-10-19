@@ -2,8 +2,8 @@
 ; this test because the FalseValue of %sel1 is true.
 ; Verify that Condition and Truevalue operands of %sel1 are NOT swapped.
 
-;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic -S 2>&1 | FileCheck %s
-;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic  -S 2>&1 | FileCheck %s
+;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic -S 2>&1 | FileCheck %s
+;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic  -S 2>&1 | FileCheck %s
 
 ; CHECK: %sel1 = select i1 %cmp1, i1 %cmp2, i1 true
 ; CHECK-NOT: %sel1 = select i1 %cmp2, i1 %cmp1, i1 true

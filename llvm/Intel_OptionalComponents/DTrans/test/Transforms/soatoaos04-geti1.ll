@@ -1,9 +1,9 @@
-; RUN: opt < %s -whole-program-assume -disable-output                                                       \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                                       \
 ; RUN: -passes='require<dtransanalysis>,require<soatoaos-approx>,function(require<soatoaos-array-methods>)' \
 ; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
 ; RUN:        -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays                                            \
 ; RUN:        2>&1 | FileCheck %s
-; RUN: opt -S < %s -whole-program-assume                                                                    \
+; RUN: opt -S < %s -whole-program-assume -intel-libirc-allowed                                                                    \
 ; RUN:        -passes=soatoaos-arrays-methods-transform                                                     \
 ; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
 ; RUN:        | FileCheck --check-prefix=CHECK-MOD %s

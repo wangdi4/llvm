@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test checks that the argument regexe_t is marked as system object
 ; since it is used in a libfunc.
 
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt  < %s -whole-program-assume  -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
 
 %struct.regex_t = type { i32, i64, i8*, %struct.re_guts* }
 %struct.re_guts = type { i32, i64*, i32, i32, %struct.cset*, i8*, i32, i64, i64, i64, i32, i32, i32, i32, i8*, i8*, i32, i64, i32, i64, [1 x i8] }

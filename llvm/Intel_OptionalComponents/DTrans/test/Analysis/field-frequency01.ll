@@ -3,8 +3,8 @@
 ; This test verifies that frequencies of field accesses are computed as
 ; expected when BlockFrequencyInfo is not used (i.e -dtrans-ignore-bfi=true).
 
-; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -dtrans-ignore-bfi=true -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-ignore-bfi=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -dtransanalysis -dtrans-print-types -dtrans-ignore-bfi=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-ignore-bfi=true -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

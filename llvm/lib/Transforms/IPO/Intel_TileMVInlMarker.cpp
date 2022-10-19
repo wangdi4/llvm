@@ -1732,7 +1732,8 @@ bool TileMVInlMarker::runImpl() {
   // Checks for whole program and AVX2 to limit scope.
   auto TTIOptLvl = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!TileCandidateTest &&
-      (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLvl))) {
+      (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLvl) ||
+       !WPInfo->isLibIRCAllowedEverywhere())) {
     //
     // I have removed the test !WPInfo->isWholeProgramSafe() for now as we
     // are not yet achieving whole program. I will add it back in once we are.

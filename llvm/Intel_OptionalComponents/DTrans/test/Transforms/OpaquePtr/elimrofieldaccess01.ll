@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers < %s -whole-program-assume -dtrans-elim-ro-field-access-op -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes=dtrans-elim-ro-field-access-op -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-elim-ro-field-access-op -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes=dtrans-elim-ro-field-access-op -S 2>&1 | FileCheck %s
 
 ; This test verifies the DTrans eliminate read-only field access pass.
 

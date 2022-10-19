@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN:  opt < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-usecrulecompat -disable-output -debug-only=dtrans-crc 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-usecrulecompat -disable-output -debug-only=dtrans-crc 2>&1 | FileCheck %s
+; RUN:  opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-usecrulecompat -disable-output -debug-only=dtrans-crc 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-usecrulecompat -disable-output -debug-only=dtrans-crc 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that %struct._ZTS2S1.S1 and %struct._ZTS2S2.S2 are not recognized as
 ; compatible using the c-rule.

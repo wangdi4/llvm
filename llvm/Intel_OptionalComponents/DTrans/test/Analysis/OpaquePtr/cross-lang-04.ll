@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -dtrans-safetyanalyzer  -dtrans-usecrulecompat -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>'  -dtrans-usecrulecompat -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer  -dtrans-usecrulecompat -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>'  -dtrans-usecrulecompat -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Test two structs with different numbers of elements.
 ; Check that AddressTaken is NOT set on MYSTRUCT and MYSTRUCTX as the C-rule

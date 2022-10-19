@@ -1,46 +1,48 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: sed -e s/^.new64:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64 %s
-; RUN: sed -e s/^.newa64:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
-; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
-; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -dtrans-print-types -o - 2>&1 | FileCheck --check-prefix=CHECK-types64nt %s
-; RUN: sed -e s/^.newa64nt:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
-; RUN: sed -e s/^.new64al:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64al %s
-; RUN: sed -e s/^.newa64al:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
-; RUN: sed -e s/^.new64alnt:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
-; RUN: sed -e s/^.newa64alnt:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
-; RUN: sed -e s/^.newa64alnt:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -dtrans-print-types -o - 2>&1 | FileCheck --check-prefix=CHECK-types64alnt %s
+target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: sed -e s/^.new64:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64 %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.newa64:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
 ; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
 ; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -dtrans-print-types -S -o - 2>&1 | FileCheck --check-prefix=CHECK-types64nt %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -dtrans-print-types -o - 2>&1 | FileCheck --check-prefix=CHECK-types64nt %s
 ; RUN: sed -e s/^.newa64nt:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
 ; RUN: sed -e s/^.new64al:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64al %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64al %s
 ; RUN: sed -e s/^.newa64al:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
 ; RUN: sed -e s/^.new64alnt:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
 ; RUN: sed -e s/^.newa64alnt:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
 ; RUN: sed -e s/^.newa64alnt:// %s | \
-; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -dtrans-print-types -S -o - 2>&1 | FileCheck --check-prefix=CHECK-types64alnt %s
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -dtrans-identify-unused-values=false -S -dtrans-print-types -o - 2>&1 | FileCheck --check-prefix=CHECK-types64alnt %s
+
+; RUN: sed -e s/^.new64:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64 %s
+; RUN: sed -e s/^.newa64:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
+; RUN: sed -e s/^.new64nt:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN: sed -e s/^.new64nt:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -dtrans-print-types -S -o - 2>&1 | FileCheck --check-prefix=CHECK-types64nt %s
+; RUN: sed -e s/^.newa64nt:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
+; RUN: sed -e s/^.new64al:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64al %s
+; RUN: sed -e s/^.newa64al:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64al %s
+; RUN: sed -e s/^.new64alnt:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
+; RUN: sed -e s/^.newa64alnt:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
+; RUN: sed -e s/^.newa64alnt:// %s | \
+; RUN:      opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefield -dtrans-identify-unused-values=false -dtrans-print-types -S -o - 2>&1 | FileCheck --check-prefix=CHECK-types64alnt %s
 
 ; This test verifies that the dtrans delete pass correctly transforms new/delete routines.
 

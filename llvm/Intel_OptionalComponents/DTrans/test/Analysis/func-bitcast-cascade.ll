@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test verifies the DTrans analysis behavavior for cascading the
 ; mismatched argument safety data for cases where it should be pointer
 ; carried.
 
-; RUN: opt < %s -disable-output -whole-program-assume -internalize -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -whole-program-assume -passes="internalize,require<dtransanalysis>" -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -internalize -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -passes="internalize,require<dtransanalysis>" -dtrans-print-types 2>&1 | FileCheck %s
 
 ; Test that mismatched argumnet use is carried through pointers when call bitcasts
 ; the structure pointer to a type known not to match

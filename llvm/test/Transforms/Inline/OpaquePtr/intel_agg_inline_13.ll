@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -agginliner -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='module(agginliner)' -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -agginliner -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='module(agginliner)' -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This is same as intel_agg_inline_12.ll except non-constant index is
 ; used for the GEP instruction in LBM_allocateGrid.

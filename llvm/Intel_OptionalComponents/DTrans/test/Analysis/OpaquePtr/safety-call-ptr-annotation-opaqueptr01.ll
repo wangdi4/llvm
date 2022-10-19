@@ -1,10 +1,12 @@
 ; REQUIRES: asserts
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; TODO: Remove the -opaque-pointers option. It is currently needed
 ; because global variables are not recognized as being opaque pointers yet.
 
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types < %s 2>&1 | FileCheck %s
 
 ; Test that calls to @llvm.ptr.annotation.p0 do not trigger safety flags on
 ; the structure types when using opaque pointers.

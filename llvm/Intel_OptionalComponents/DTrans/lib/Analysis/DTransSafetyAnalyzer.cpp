@@ -7797,6 +7797,10 @@ void DTransSafetyInfo::analyzeModule(
     LLVM_DEBUG(dbgs() << "  DTransSafetyInfo: Not Whole Program Safe\n");
     return;
   }
+  if (!WPInfo.isLibIRCAllowedEverywhere()) {
+    LLVM_DEBUG(dbgs() << "  DTransSafetyInfo: Not LibIRC allowed everywhere\n");
+    return;
+  }
 
   PtrAnalyzer =
       std::make_unique<PtrTypeAnalyzer>(Ctx, *TM, *MDReader, DL, GetTLI);

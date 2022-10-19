@@ -137,7 +137,7 @@ extern bool intelNotHotCallee(Function &F, bool PrepareForLTO);
 // used to catch the important cases of prohibiting inlining that we don't
 // want to lose when we move from the old to the new pass manager. 
 
-extern bool intelCallTerminatesUnreachable(CallBase &CB);
+extern bool intelCallTerminatesUnreachable(CallBase &CB, bool IsLibIRCAllowed);
 
 } // end namespace llvm
 #endif // LLVM_ANALYSIS_INTELINLINECOST_H

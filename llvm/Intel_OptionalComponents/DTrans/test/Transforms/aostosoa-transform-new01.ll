@@ -1,21 +1,23 @@
 ; UNSUPPORTED: enable-opaque-pointers
 ; RUN: sed -e s/^.malloc:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc %s
 ; RUN: sed -e s/^.malloc-exc:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc-exc %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc-exc %s
 ; RUN: sed -e s/^.new64:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64 %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64nt %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: sed -e s/^.malloc:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc %s
 ; RUN: sed -e s/^.malloc-exc:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc-exc %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc-exc %s
 ; RUN: sed -e s/^.new64:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64 %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.new64nt:// %s | \
-; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-new64nt %s
 
 ; No C++ handling
 ; CHECK-malloc:  %__SOA_struct.test

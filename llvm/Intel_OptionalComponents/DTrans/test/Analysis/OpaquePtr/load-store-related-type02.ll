@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
 
 ; This test case checks that "Bad casting (related types) -- Pointer type
 ; for field load/store contains related types" and "Mismatched element access

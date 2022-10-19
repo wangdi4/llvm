@@ -1,11 +1,13 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-threshold=10 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -inline-threshold=10 %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
+; RUN: opt -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -dtrans-inline-heuristics -inline-threshold=10 -S | opt -inlinereportemitter -inline-report=0xe886 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -dtrans-inline-heuristics -inline-threshold=10 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -S | opt -inlinereportemitter -inline-report=0xe886 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test checks that the functions _ZN12cMessageHeap12removeFirst*Ev
 ; and _ZN12cMessageHeap7shiftupEi do not inline because they do not pass

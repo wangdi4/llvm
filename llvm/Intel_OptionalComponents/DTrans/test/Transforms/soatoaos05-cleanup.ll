@@ -1,8 +1,8 @@
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-deps          \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output -debug-only=dtrans-soatoaos-deps          \
 ; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>'                      \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP %s
-; RUN: opt < %s -whole-program-assume -disable-output                                           \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                           \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
 ; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>,require<soatoaos-struct-methods>' \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
@@ -14,7 +14,7 @@
 ; RUN:          -dtrans-soatoaos-array-dtor="ValueVectorOf<IC_Field*>::~ValueVectorOf()"            \
 ; RUN:          -dtrans-soatoaos-array-dtor="ValueVectorOf<DatatypeValidator*>::~ValueVectorOf()"   \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
-; RUN: opt -S < %s -whole-program-assume                                                        \
+; RUN: opt -S < %s -whole-program-assume -intel-libirc-allowed                                                        \
 ; RUN:          -passes=soatoaos-struct-methods-transform                                       \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
 ; RUN:          -dtrans-optbase-process-function-declaration                                    \

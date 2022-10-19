@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; TODO: The -opaque-pointers option should not be necessary for this test
 ; because it is written with fully opaque pointers, but currently the way the
 ; DTransOptOPBase class resolves whether opaque pointers are in use is not from
 ; checking if any opaque pointers exist in the IR, but based on this flag.
 
-; RUN: opt -S -opaque-pointers -whole-program-assume -dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
-; RUN: opt -S -opaque-pointers -whole-program-assume -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA conversion of an allocation of the type being
 ; transformed. Uses calloc with constant arguments, and uses the result

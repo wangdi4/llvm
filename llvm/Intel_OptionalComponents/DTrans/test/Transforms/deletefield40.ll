@@ -2,8 +2,10 @@
 ; structures. For this case, the fields 0 and 2 in %struct.B will be deleted
 ; even if it is enclosed in %struct.A.
 
-; RUN: opt < %s -whole-program-assume -passes="internalize,dtrans-deletefield" -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -internalize -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes="internalize,dtrans-deletefield" -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -internalize -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers

@@ -1,7 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -inline -dtrans-inline-heuristics -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -passes=inline -dtrans-inline-heuristics -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -inline -dtrans-inline-heuristics -intel-libirc-allowed -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes=inline -dtrans-inline-heuristics -intel-libirc-allowed -S 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that intel_profx counts on invokes are propagated correctly after
 ; inlining.

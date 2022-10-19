@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test partial write of an inner structure with memset. Ensure that both the
 ; outer and inner structure are marked 'Multi-struct memfunc' to inhibit

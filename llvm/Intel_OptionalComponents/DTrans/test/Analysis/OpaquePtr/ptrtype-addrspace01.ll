@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta -disable-output %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test checks that the pointer type analyzer detects pointers that
 ; are not in the default address space, as those types are not supported

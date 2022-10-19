@@ -1,5 +1,7 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test DTrans integration in the new pass manager.
 ;
 ; Ideally, we'd like to have this test integrated with the main test for the
@@ -8,7 +10,7 @@
 ; test must be separate.
 
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
+; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume -intel-libirc-allowed    \
 ; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
 ; RUN:     -S  %s -enable-npm-dtrans                                    \
 ; RUN:     2>&1                                                         \

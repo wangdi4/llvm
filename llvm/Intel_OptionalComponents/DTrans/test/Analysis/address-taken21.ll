@@ -1,0 +1,36 @@
+; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -whole-program-assume -debug-only=dtransanalysis -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
+
+; Check that DTransAnalysis did not run because LibIRC was not allowed everywhere
+
+; CHECK: Running DTransAnalysisInfo::analyzeModule
+; CHECK: dtrans: LibIRC not allowed everywhere ... DTransAnalysis didn't run
+
+%struct.MYSTRUCT = type { i32, i32 }
+%struct.MYSTRUCTX = type { i32, i32 }
+
+@myarg = internal dso_local global %struct.MYSTRUCT { i32 3, i32 5 }, align 4
+@fp = internal dso_local global i32 (%struct.MYSTRUCT*)* null, align 8
+
+define dso_local i32 @target1(%struct.MYSTRUCT* %arg) {
+  %my1 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %arg, i32 0, i32 0
+  %t1 = load i32, i32* %my1, align 4
+  ret i32 %t1
+}
+
+define dso_local i32 @target2(%struct.MYSTRUCTX* %arg) {
+entry:
+  %my2 = getelementptr inbounds %struct.MYSTRUCTX, %struct.MYSTRUCTX* %arg, i32 0, i32 1
+  %t1 = load i32, i32* %my2, align 4
+  ret i32 %t1
+}
+
+define dso_local i32 @main() #0 {
+  %t0 = load i32 (%struct.MYSTRUCT*)*, i32 (%struct.MYSTRUCT*)** @fp, align 8
+  %call = call i32 %t0(%struct.MYSTRUCT* @myarg)
+  ret i32 %call
+}

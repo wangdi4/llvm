@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -passes="internalize,dtrans-deletefield" -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -internalize -dtrans-deletefield -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes="internalize,dtrans-deletefield" -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -internalize -dtrans-deletefield -S 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that all unused fields are deleted and GEPs are updated.
 ; Fields (A:0) and (A:2) should stay.

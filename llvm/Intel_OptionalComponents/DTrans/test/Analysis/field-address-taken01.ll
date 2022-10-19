@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume  -dtrans-outofboundsok=false -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume  -dtrans-outofboundsok=false -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -dtrans-outofboundsok=false -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -dtrans-outofboundsok=false -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that the OUTERSTRUCT is marked Field Address Taken Call, with the first
 ; field specifically AddressTaken, and that the INNERSTRUCT is not Field

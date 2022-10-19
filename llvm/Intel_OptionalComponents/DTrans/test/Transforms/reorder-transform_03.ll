@@ -4,8 +4,8 @@
 ; correctly to sdiv and udiv instructions with constant and non-constant
 ; sizes related to %struct.test.
 
-;  RUN: opt  -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
-;  RUN: opt  -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

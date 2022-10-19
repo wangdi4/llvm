@@ -1,7 +1,9 @@
-; RUN: opt -dtrans-inline-heuristics -inline < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
-; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
-; RUN: opt -dtrans-inline-heuristics -inline -inline-report=0xe847 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
-; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=0xe847 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
+; RUN: opt -dtrans-inline-heuristics -intel-libirc-allowed -inline < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
+; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
+; RUN: opt -dtrans-inline-heuristics -intel-libirc-allowed -inline -inline-report=0xe847 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
+; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe847 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; ------------------------------------------------------------------------------------------------------------------
 ; Function Description                                                  | Inline Heuristic                         |

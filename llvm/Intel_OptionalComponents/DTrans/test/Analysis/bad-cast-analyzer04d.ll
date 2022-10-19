@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
 
 ; Test that the bad casting analyzer does not do anything because it has
 ; no structure which qualifies as a candidate root type.

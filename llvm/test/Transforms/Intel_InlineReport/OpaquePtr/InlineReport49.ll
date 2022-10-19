@@ -1,6 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -enable-new-pm=0 -inline -dtrans-inline-heuristics -inline-report=0xe807 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -enable-new-pm=0 -inline -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -S 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that with the old pass manager, that:
 ;   (1) the first call to foo() is inlined because it is to a linkonce ODR

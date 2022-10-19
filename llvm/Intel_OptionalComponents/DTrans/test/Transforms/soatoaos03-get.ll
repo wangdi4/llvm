@@ -1,18 +1,20 @@
-; RUN: opt < %s -whole-program-assume -disable-output                                                           \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                                           \
 ; RUN:    -passes='require<dtransanalysis>,require<soatoaos-approx>,function(require<soatoaos-array-methods>)'  \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
 ; RUN:    -debug-only=dtrans-soatoaos \
 ; RUN:  2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -disable-output                                                           \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                                           \
 ; RUN:    -passes='require<dtransanalysis>,require<soatoaos-approx>,function(require<soatoaos-array-methods>)'  \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
 ; RUN:    -debug-only=dtrans-soatoaos-arrays \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
-; RUN: opt -S < %s -whole-program-assume                                                                        \
+; RUN: opt -S < %s -whole-program-assume -intel-libirc-allowed                                                                        \
 ; RUN:    -passes=soatoaos-arrays-methods-transform -dtrans-soatoaos-base-ptr-off=3                             \
 ; RUN:  | FileCheck --check-prefix=CHECK-MOD %s
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
+
+target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; CHECK-MOD-DAG: %__SOA_struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], %__SOA_EL_struct.Arr.0*, i32, [4 x i8] }>

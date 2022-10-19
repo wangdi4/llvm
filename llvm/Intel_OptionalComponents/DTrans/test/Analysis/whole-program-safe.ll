@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that checks if Whole Program is safe
 
-; RUN: opt -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output %s 2>&1 \
+; RUN: opt -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtransanalysis -disable-output %s 2>&1 \
 ; RUN:    | FileCheck -allow-empty %s
 
-; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output %s 2>&1 \
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output %s 2>&1 \
 ; RUN:    | FileCheck -allow-empty %s
 
 

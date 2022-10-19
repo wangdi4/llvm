@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-outofboundsok=false -disable-output -dtrans-print-immutable-types  2>&1 | FileCheck %s
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -disable-output -dtrans-print-immutable-types  2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-outofboundsok=false -disable-output -dtrans-print-immutable-types  2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -disable-output -dtrans-print-immutable-types  2>&1 | FileCheck %s
 
 ; This test case checks that the information for arrays with constant entries
 ; was printed correctly for the DTrans immutable analysis. In this case we are

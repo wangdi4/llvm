@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -S -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01a | FileCheck %s
-; RUN: opt < %s -S -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01a  | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01a | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01a  | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that type information used to inform DTrans analysis
 ; about types gets remapped when the type names is changed by a DTrans

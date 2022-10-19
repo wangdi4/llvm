@@ -8,8 +8,10 @@
 ; This is same as intel_agg_inline_11.ll except it has unused function
 ; @UnusedFoo that is not marked with "norecurse".
 ;
-; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -agginliner -inline -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 
 ; CHECK: define{{.*}}@main

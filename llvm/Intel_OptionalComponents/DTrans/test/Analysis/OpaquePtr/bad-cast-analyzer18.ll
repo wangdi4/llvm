@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -dtrans-safetyanalyzer -debug-only=dtrans-bca -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-bca -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -debug-only=dtrans-bca -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-bca -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test case tests the bad cast analyzer on a case which removes bad
 ; casting, unsafe pointer stores, and mismatched element accesses, but requires
