@@ -1922,22 +1922,38 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     if (StorePtr != DstGEP)
       return false;
     CallBase *CtorCB = nullptr;
+    CallBase *FreeCB = nullptr;
     for (auto *U : StoreValue->users()) {
       if (U == SI)
         continue;
+      auto *CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        return false;
+      auto *Info = DTInfo.getCallInfo(CB);
+      if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
+        if (FreeCB)
+          return false;
+	FreeCB = CB;
+        continue;
+      }
       // Make sure dest vector doesn't have any other uses except CtorCB
       // and the store instruction.
       if (CtorCB)
         return false;
-      CtorCB = dyn_cast<CallBase>(U);
-      if (!CtorCB)
-        return false;
+      CtorCB = CB;
     }
     if (!CtorCB)
       return false;
     if (CtorCB->getArgOperand(0) != StoreValue)
       return false;
 
+    // If StoreValue is used by "free", makes sure "free" is used in
+    // UnwindDest of CtorCB.
+    if (FreeCB) {
+      auto *II = dyn_cast<InvokeInst>(CtorCB);
+      if (!II || II->getUnwindDest() != FreeCB->getParent())
+        return false;
+    }
     // Make sure there are no other instructions between constructor
     // call and the loop.
     BasicBlock *PredBB = PreCondBB->getSinglePredecessor();
@@ -2497,6 +2513,8 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
   AllocaInst *Alloca =
       new AllocaInst(AppendFunc->getArg(1)->getType(), 0, nullptr, "",
                      &*(CallerF->getEntryBlock().getFirstInsertionPt()));
+  MDNode *NewMD = DTFuncTy->getArgType(1)->createMetadataReference();
+  DTransTypeMetadataBuilder::addDTransMDNode(*Alloca, NewMD);
   StoreInst *StoreI = new StoreInst(CB->getArgOperand(1), Alloca, CB);
   (void)StoreI;
   DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE, {

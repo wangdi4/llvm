@@ -3733,6 +3733,9 @@ StoreInst *ClassInfo::getFlagFieldStoreInstInCtor() {
     if (!G || !isa<StructType>(G->getSourceElementType()) ||
         G->getNumIndices() != 2)
       continue;
+    // Makes sure the field is accessed from "this" pointer.
+    if (G->getPointerOperand() != CtorF->getArg(0))
+      continue;
     int32_t GIdx = cast<ConstantInt>(G->getOperand(2))->getLimitedValue();
     if (GIdx != FFI)
       continue;
