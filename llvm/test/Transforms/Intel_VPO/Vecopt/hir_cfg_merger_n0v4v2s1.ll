@@ -192,7 +192,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP10]] = add i64 [[VP1]] i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP11]] = vector-trip-count i64 [[VP10]], UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP11]] = vector-trip-count i64 [[VP3]], UF = 1
 ; CHECK-NEXT:         [DA: Div] i32 [[VP12]] = reduction-init i32 0 i32 [[VP27]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP13]] = induction-init{add} i64 [[VP28]] i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP14]] = induction-init-step{add} i64 1
