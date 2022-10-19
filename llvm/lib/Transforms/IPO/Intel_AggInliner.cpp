@@ -816,7 +816,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
       InlineCallsInFunction[AccessFunction].insert(CB);
     }
   }
-  for (auto &TPair : InlineCallsInFunction) {
+  for (const auto &TPair : InlineCallsInFunction) {
     LLVM_DEBUG(dbgs() << "  Function: " << TPair.first->getName() << "\n");
     if (TPair.second.size() > MaxNumInlineCalls) {
       LLVM_DEBUG(
