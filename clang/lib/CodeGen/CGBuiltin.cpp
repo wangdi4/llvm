@@ -14437,18 +14437,6 @@ static Value *EmitX86CvtF16ToFloatExpr(CodeGenFunction &CGF,
   return Res;
 }
 
-// Convert a BF16 to a float.
-static Value *EmitX86CvtBF16ToFloatExpr(CodeGenFunction &CGF,
-                                        const CallExpr *E,
-                                        ArrayRef<Value *> Ops) {
-  llvm::Type *Int32Ty = CGF.Builder.getInt32Ty();
-  Value *ZeroExt = CGF.Builder.CreateZExt(Ops[0], Int32Ty);
-  Value *Shl = CGF.Builder.CreateShl(ZeroExt, 16);
-  llvm::Type *ResultType = CGF.ConvertType(E->getType());
-  Value *BitCast = CGF.Builder.CreateBitCast(Shl, ResultType);
-  return BitCast;
-}
-
 Value *CodeGenFunction::EmitX86CpuIs(StringRef CPUStr) {
 
   llvm::Type *Int32Ty = Builder.getInt32Ty();
@@ -15995,6 +15983,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectph_128:
   case X86::BI__builtin_ia32_selectph_256:
   case X86::BI__builtin_ia32_selectph_512:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
   case X86::BI__builtin_ia32_selectpbf16_128:
@@ -16002,6 +15991,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectpbf16_512:
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #endif // INTEL_CUSTOMIZATION
+=======
+  case X86::BI__builtin_ia32_selectpbf_128:
+  case X86::BI__builtin_ia32_selectpbf_256:
+  case X86::BI__builtin_ia32_selectpbf_512:
+>>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
   case X86::BI__builtin_ia32_selectps_128:
   case X86::BI__builtin_ia32_selectps_256:
   case X86::BI__builtin_ia32_selectps_512:
@@ -16015,6 +16009,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectsh_128:
+  case X86::BI__builtin_ia32_selectsbf_128:
   case X86::BI__builtin_ia32_selectss_128:
   case X86::BI__builtin_ia32_selectsd_128: {
     Value *A = Builder.CreateExtractElement(Ops[1], (uint64_t)0);
@@ -16932,7 +16927,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86CvtF16ToFloatExpr(*this, Ops, ConvertType(E->getType()));
   }
 
-// AVX512 bf16 intrinsics
+  // AVX512 bf16 intrinsics
   case X86::BI__builtin_ia32_cvtneps2bf16_128_mask: {
     Ops[2] = getMaskVecValue(
         *this, Ops[2],
@@ -16941,7 +16936,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(CGM.getIntrinsic(IID), Ops);
   }
   case X86::BI__builtin_ia32_cvtsbf162ss_32:
-    return EmitX86CvtBF16ToFloatExpr(*this, E, Ops);
+    return Builder.CreateFPExt(Ops[0], Builder.getFloatTy());
 
   case X86::BI__builtin_ia32_cvtneps2bf16_256_mask:
   case X86::BI__builtin_ia32_cvtneps2bf16_512_mask: {
