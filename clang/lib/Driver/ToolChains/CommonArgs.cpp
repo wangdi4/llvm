@@ -568,7 +568,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 #endif
 
 #if INTEL_CUSTOMIZATION
-    PluginName = "LLVMgold";
+    PluginName = IsOSAIX ? "libLTO" : "LLVMgold";
     if (D.IsIntelMode())
       PluginName = "icx-lto";
     SmallString<1024> Plugin(ToolChain.getDriver().Dir);
