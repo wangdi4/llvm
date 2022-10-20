@@ -223,6 +223,11 @@ static cl::list<ForceVFTy, bool /* Use internal storage */, VPlanLoopVFParser>
             "vector factors for multiple loops."));
 static int VPlanOrderNumber = 0;
 
+static cl::opt<bool>
+    DtransDisableVecRemainder("dtrans-disable-vec-rem", cl::init(false),
+                              cl::Hidden,
+                              cl::desc("Disable remainder loop vectorization"));
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -256,6 +261,11 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
 }
 #endif // INTEL_CUSTOMIZATION
+
+bool LoopVectorizationPlanner::isVecRemainderDisabled() const {
+  return DtransDisableVecRemainder ||
+         (IsVecRemainder.has_value() ? !IsVecRemainder.value() : false);
+}
 
 int LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);

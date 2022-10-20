@@ -421,9 +421,8 @@ public:
 
   void disableVecRemainder() { IsVecRemainder = false; }
 
-  bool isVecRemainderDisabled() const {
-    return IsVecRemainder.has_value() ? !IsVecRemainder.value() : false;
-  }
+  bool isVecRemainderDisabled() const;
+
   bool isVecRemainderEnforced() const {
     return IsVecRemainder.value_or(false);
   }

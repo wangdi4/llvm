@@ -869,6 +869,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption("-dtrans-outofboundsok=false");
       addllvmOption("-dtrans-usecrulecompat=true");
       addllvmOption("-dtrans-inline-heuristics=true");
+      if (MLTVal == "4")
+        addllvmOption("-dtrans-disable-vec-rem=true");
 #endif // INTEL_FEATURE_SW_DTRANS
 #if INTEL_FEATURE_SW_ADVANCED
       addllvmOption("-dtrans-partial-inline=true");
