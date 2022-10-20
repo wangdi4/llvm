@@ -770,5 +770,9 @@ def warn_drv_aot_tool_not_found : Warning<"%0 tool could not be found and is req
   "See: https://www.intel.com/content/www/us/en/develop/documentation/"
   "oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html"
   " for more information.">, InGroup<DiagGroup<"aot-tool-not-found">>;
+def warn_drv_cxx_input_with_cc: Warning<
+  "Use of '%0' with a C++ source input file '%1' will not link with required C++ library. "
+  "Use 'icpx' for C++ source compilation and link">,
+  InGroup<DiagGroup<"incompatible-compiler">>;
 #endif // INTEL_CUSTOMIZATION
 }

@@ -3658,6 +3658,14 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
     Arg *A = MakeInputArg(Args, Opts, "-");
     Inputs.push_back(std::make_pair(types::TY_C, A));
   }
+#if INTEL_CUSTOMIZATION
+  if ((getFinalPhase(Args) == phases::Link) && CCCIsCC())
+    for (auto Ins : Inputs) {
+      if (types::isCXX(Ins.first))
+        Diag(clang::diag::warn_drv_cxx_input_with_cc)
+            << Name << llvm::sys::path::filename((Ins.second)->getAsString(Args));
+    }
+#endif // INTEL_CUSTOMIZATION
 }
 
 static bool runBundler(const SmallVectorImpl<StringRef> &BundlerArgs,
