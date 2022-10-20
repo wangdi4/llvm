@@ -453,6 +453,8 @@ let Uses = [EAX, ECX, EDX] in
 def WRMSRNS : I<0x01, MRM_C6, (outs), (ins), "wrmsrns", []>, PS;
 #endif // INTEL_FEATURE_ISA_WRMSRNS
 #endif // INTEL_CUSTOMIZATION
+let Uses = [EAX, ECX, EDX] in
+def WRMSRNS : I<0x01, MRM_C6, (outs), (ins), "wrmsrns", []>, PS;
 let Defs = [EAX, EDX], Uses = [ECX] in
 def RDMSR : I<0x32, RawFrm, (outs), (ins), "rdmsr", []>, TB;
 
