@@ -2494,6 +2494,7 @@ static void rollBackSubdeviceAllocation(cl_dev_subdevice_id* IN subdevice_ids, c
     for (cl_uint j = 0; j < num_successfully_allocated; ++j)
     {
           cl_dev_internal_subdevice_id* pSubdeviceId = static_cast<cl_dev_internal_subdevice_id*>(subdevice_ids[j]);
+          assert((pSubdeviceId != nullptr) && "Invalid subdevice id!");
           if (nullptr != pSubdeviceId->legal_core_ids)
         {
             delete[] pSubdeviceId->legal_core_ids;

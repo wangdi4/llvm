@@ -681,43 +681,51 @@ float half2float( cl_ushort us )
 
 void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize)
 {
-    if (szPatternSize > sizeof(long long) || szBufferSize < sizeof(long long))
-    {
-        // for long patterns do memcpy
-        for (size_t offset=0 ; offset < szBufferSize ; offset += szPatternSize)
-        {        
-            // using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
-            memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
-        }
+  assert((szBufferSize >= szPatternSize) &&
+         "Buffer size is less than pattern size.\n");
+  assert((szBufferSize % szPatternSize == 0) &&
+         "Buffer size is not integer multiple of pattern size.\n");
+  if (szPatternSize > sizeof(long long) || szBufferSize < sizeof(long long)) {
+    // for long patterns do memcpy
+    for (size_t offset = 0; offset < szBufferSize; offset += szPatternSize) {
+      // using memcpy intentionally, because MEMCPY_S has too much overhead in
+      // this loop
+      memcpy((char *)pBuffer + offset, pPattern, szPatternSize);
     }
-    else if (szPatternSize > 1)
-    {
-        // for patterns the size of long long or smaller (but not a single byte) do direct assignments and save the overhead of calling memcpy
-        long long llPatten = 0;
-        for (size_t i = 0; i < sizeof(llPatten) / szPatternSize; i++)
-        {
-            // using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
-            memcpy((char*)&llPatten + i * szPatternSize, pPattern, szPatternSize);
-        }
-        for (size_t offset = 0; offset < (szBufferSize % sizeof(llPatten) == 0 ? szBufferSize : szBufferSize - sizeof(llPatten)); offset += sizeof(llPatten))
-        {
-            *(long long*)((char*)pBuffer + offset) = llPatten;
-        }
-        // deal with the reminder
-        if (szBufferSize % sizeof(llPatten) != 0)
-        {
-            for (size_t offset = szBufferSize - szBufferSize % sizeof(llPatten); offset < szBufferSize; offset += szPatternSize)
-            {
-                // using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
-                memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
-            }            
-        }
+  } else if (szPatternSize > 1) {
+    // for patterns the size of long long or smaller (but not a single byte) do
+    // direct assignments and save the overhead of calling memcpy
+    long long llPattern = 0;
+    assert((sizeof(llPattern) % szPatternSize == 0) &&
+           "sizeof(long long) is not integer multiple of pattern size.\n");
+    for (size_t i = 0; i < sizeof(llPattern) / szPatternSize; i++) {
+      // using memcpy intentionally, because MEMCPY_S has too much overhead in
+      // this loop
+      memcpy((char *)&llPattern + i * szPatternSize, pPattern, szPatternSize);
     }
-    else
-    {
-        // for single-byte patterns memset is the fastest
-        memset(pBuffer, ((const char *)pPattern)[0], szBufferSize);
+    for (size_t offset = 0; offset < (szBufferSize % sizeof(llPattern) == 0
+                                          ? szBufferSize
+                                          : szBufferSize - sizeof(llPattern));
+         offset += sizeof(llPattern)) {
+      *(long long *)((char *)pBuffer + offset) = llPattern;
     }
+    // deal with the remainder
+    if (szBufferSize % sizeof(llPattern) != 0) {
+      assert(((szBufferSize % sizeof(llPattern)) >= szPatternSize) &&
+             "Remainder is less than pattern size.\n");
+      assert(((szBufferSize % sizeof(llPattern)) % szPatternSize == 0) &&
+             "Remainder is not integer multiple of pattern size.\n");
+      for (size_t offset = szBufferSize - szBufferSize % sizeof(llPattern);
+           offset < szBufferSize; offset += szPatternSize) {
+        // using memcpy intentionally, because MEMCPY_S has too much
+        // overhead in this loop
+        memcpy((char *)pBuffer + offset, pPattern, szPatternSize);
+      }
+    }
+  } else {
+    // for single-byte patterns memset is the fastest
+    memset(pBuffer, ((const char *)pPattern)[0], szBufferSize);
+  }
 }
 
 std::string GetConfigFilePath() {
