@@ -1,11 +1,6 @@
 // RUN: %libomptarget-compile-generic && env LIBOMPTARGET_DEBUG=1 %libomptarget-run-generic 2>&1 | %fcheck-generic
 // REQUIRES: libomptarget-debug
 
-<<<<<<< HEAD
-#include <stdio.h> // INTEL_CUSTOMIZATION
-#include <stdlib.h>
-=======
->>>>>>> 586fc5999bb7466451ebf4ce9183717679144304
 #include <stdio.h>
 #include <stdlib.h>
 
