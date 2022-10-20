@@ -1876,6 +1876,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["avxvnni"]    = HasLeaf7Subleaf1 && ((EAX >> 4) & 1) && HasAVXSave;
   Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1) && HasAVX512Save;
   Features["hreset"]     = HasLeaf7Subleaf1 && ((EAX >> 22) & 1);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHI
 // TODO: CPUID bit is TBD.
@@ -1884,6 +1885,9 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
 // TODO: CPUID bit is TBD.
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
+=======
+  Features["prefetchi"]  = HasLeaf7Subleaf1 && ((EDX >> 14) & 1);
+>>>>>>> 62ca79102cf9646aa9ed0dac7f018432a68eedf1
 
   bool HasLeafD = MaxLevel >= 0xd &&
                   !getX86CpuIDAndInfoEx(0xd, 0x1, &EAX, &EBX, &ECX, &EDX);

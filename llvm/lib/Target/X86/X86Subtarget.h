@@ -264,7 +264,8 @@ public:
     // We implicitly enable these when we have a write prefix supporting cache
     // level OR if we have prfchw, but don't already have a read prefetch from
     // 3dnow.
-    return hasSSE1() || (hasPRFCHW() && !hasThreeDNow()) || hasPREFETCHWT1();
+    return hasSSE1() || (hasPRFCHW() && !hasThreeDNow()) || hasPREFETCHWT1() ||
+           hasPREFETCHI();
   }
 #if INTEL_CUSTOMIZATION
   bool hasDSB() const override { return DSBSize > NoDSB; }

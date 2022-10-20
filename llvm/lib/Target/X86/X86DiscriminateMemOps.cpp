@@ -90,6 +90,7 @@ public:
 
 bool IsPrefetchOpcode(unsigned Opcode) {
   return Opcode == X86::PREFETCHNTA || Opcode == X86::PREFETCHT0 ||
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHI
          Opcode == X86::PREFETCHIT0 || Opcode == X86::PREFETCHIT1 ||
@@ -99,6 +100,10 @@ bool IsPrefetchOpcode(unsigned Opcode) {
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
          Opcode == X86::PREFETCHT1 || Opcode == X86::PREFETCHT2;
+=======
+         Opcode == X86::PREFETCHT1 || Opcode == X86::PREFETCHT2 ||
+         Opcode == X86::PREFETCHIT0 || Opcode == X86::PREFETCHIT1;
+>>>>>>> 62ca79102cf9646aa9ed0dac7f018432a68eedf1
 }
 } // end anonymous namespace
 
