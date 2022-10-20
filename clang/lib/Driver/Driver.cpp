@@ -1587,6 +1587,37 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   //
 }
 
+#if INTEL_CUSTOMIZATION
+/// Looks the given directories for the specified file.
+///
+/// \param[out] FilePath File path, if the file was found.
+/// \param[in]  Dirs Directories used for the search.
+/// \param[in]  FileName Name of the file to search for.
+/// \return True if file was found.
+///
+/// Looks for file specified by FileName sequentially in directories specified
+/// by Dirs.
+///
+static bool searchForFile(SmallVectorImpl<char> &FilePath,
+                          ArrayRef<StringRef> Dirs, StringRef FileName,
+                          llvm::vfs::FileSystem &FS) {
+  SmallString<128> WPath;
+  for (const StringRef &Dir : Dirs) {
+    if (Dir.empty())
+      continue;
+    WPath.clear();
+    llvm::sys::path::append(WPath, Dir, FileName);
+    llvm::sys::path::native(WPath);
+    auto Status = FS.status(WPath);
+    if (Status && Status->getType() == llvm::sys::fs::file_type::regular_file) {
+      FilePath = std::move(WPath);
+      return true;
+    }
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void appendOneArg(InputArgList &Args, const Arg *Opt,
                          const Arg *BaseArg) {
   // The args for config files or /clang: flags belong to different InputArgList
@@ -1718,8 +1749,7 @@ bool Driver::loadConfigFiles() {
   return false;
 }
 
-<<<<<<< HEAD
-bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
+bool Driver::loadDefaultConfigFiles(llvm::cl::ExpansionContext &ExpCtx) {
 #if INTEL_CUSTOMIZATION
   if (CLOptions && IsIntelMode()) {
     // Process any user defined .cfg files via environment variables.
@@ -1736,7 +1766,7 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
                       .Default("");
     if (Optional<std::string> EnvVarValue =
             llvm::sys::Process::GetEnv(EnvVar)) {
-      if (!readConfigFile(*EnvVarValue)) {
+      if (!readConfigFile(*EnvVarValue, ExpCtx)) {
         // The default .cfg file can be empty, allow for more config
         // processing if it is.
         if (CfgOptions.get()->size() > 0)
@@ -1753,7 +1783,7 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
       SmallString<128> AltDir(Dir);
       llvm::sys::path::append(AltDir, "..", "bin");
       if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase, getVFS())) {
-        if (!readConfigFile(CfgFilePath)) {
+        if (!readConfigFile(CfgFilePath, ExpCtx)) {
           // The default .cfg file can be empty, allow for more config
           // processing if it is.
           if (CfgOptions.get()->size() > 0)
@@ -1765,9 +1795,6 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
-bool Driver::loadDefaultConfigFiles(llvm::cl::ExpansionContext &ExpCtx) {
->>>>>>> 0dec5e164f9d289b6e576655c7cf21a3dd0389f8
   // Disable default config if CLANG_NO_DEFAULT_CONFIG is set to a non-empty
   // value.
   if (const char *NoConfigEnv = ::getenv("CLANG_NO_DEFAULT_CONFIG")) {
