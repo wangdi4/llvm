@@ -1,6 +1,7 @@
 // RUN: %clangxx -fsycl -Xclang -verify %s -Xclang -verify-ignore-unexpected=note,warning -o %t.out -std=c++17
 // RUN: %t.out
 // expected-no-diagnostics
+// UNSUPPORTED: windows
 
 // This test performs basic checks of has_known_identity and known_identity
 // type traits.
