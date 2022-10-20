@@ -6588,7 +6588,7 @@ static bool checkVariantList(Sema &S, const Expr *VariantArg,
 }
 
 // Used to prevent checking of SIMD variant builtin special arguments
-// with unexpanded packs. Only the first three arguments are considered since
+// with parameter packs. Only the first three arguments are considered since
 // any additional are normal call arguments.
 static bool isPackExpansionArgExist(CallExpr *Call) {
   for (unsigned int I = 0; I < std::min<unsigned>(Call->getNumArgs(), 3); I++) {
@@ -6597,7 +6597,7 @@ static bool isPackExpansionArgExist(CallExpr *Call) {
       Ty = Ty->getPointeeType();
     if (const SubstTemplateTypeParmType *ST =
             dyn_cast<SubstTemplateTypeParmType>(Ty))
-      if (ST->getReplacedParameter()->isPackExpansion())
+      if (ST->getReplacedParameter()->isParameterPack())
         return true;
   }
   return false;
