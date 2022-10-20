@@ -447,17 +447,14 @@ def LLDT16m : I<0x00, MRM2m, (outs), (ins i16mem:$src),
 let SchedRW = [WriteSystem] in {
 let Uses = [EAX, ECX, EDX] in
 def WRMSR : I<0x30, RawFrm, (outs), (ins), "wrmsr", []>, TB;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_WRMSRNS
 let Uses = [EAX, ECX, EDX] in
 def WRMSRNS : I<0x01, MRM_C6, (outs), (ins), "wrmsrns", []>, PS;
 #endif // INTEL_FEATURE_ISA_WRMSRNS
 #endif // INTEL_CUSTOMIZATION
-=======
 let Uses = [EAX, ECX, EDX] in
 def WRMSRNS : I<0x01, MRM_C6, (outs), (ins), "wrmsrns", []>, PS;
->>>>>>> 3ee58e2f355f8fdb8e0fe29dc366c8833fafa7d3
 let Defs = [EAX, EDX], Uses = [ECX] in
 def RDMSR : I<0x32, RawFrm, (outs), (ins), "rdmsr", []>, TB;
 
