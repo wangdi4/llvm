@@ -5288,31 +5288,27 @@ let TargetPrefix = "x86" in {
   def int_x86_avx512bf16_dpbf16ps_512:
               ClangBuiltin<"__builtin_ia32_dpbf16ps_512">,
               Intrinsic<[llvm_v16f32_ty],
-<<<<<<< HEAD
-              [llvm_v16f32_ty, llvm_v16i32_ty, llvm_v16i32_ty], [IntrNoMem]>;
+              [llvm_v16f32_ty, llvm_v32bf16_ty, llvm_v32bf16_ty], [IntrNoMem]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_BF16
   def int_x86_avx2bf16_cvtne2ps2bf16_128:
               ClangBuiltin<"__builtin_ia32_cvtne2ps2bf16vex128">,
-              Intrinsic<[llvm_v8i16_ty], [llvm_v4f32_ty, llvm_v4f32_ty],
+              Intrinsic<[llvm_v8bf16_ty], [llvm_v4f32_ty, llvm_v4f32_ty],
               [IntrNoMem]>;
   def int_x86_avx2bf16_cvtne2ps2bf16_256:
               ClangBuiltin<"__builtin_ia32_cvtne2ps2bf16vex256">,
-              Intrinsic<[llvm_v16i16_ty], [llvm_v8f32_ty, llvm_v8f32_ty],
+              Intrinsic<[llvm_v16bf16_ty], [llvm_v8f32_ty, llvm_v8f32_ty],
               [IntrNoMem]>;
   def int_x86_avx2bf16_dpbf16ps_128:
               ClangBuiltin<"__builtin_ia32_dpbf16psvex128">,
               Intrinsic<[llvm_v4f32_ty],
-              [llvm_v4f32_ty, llvm_v4i32_ty, llvm_v4i32_ty], [IntrNoMem]>;
+              [llvm_v4f32_ty, llvm_v8bf16_ty, llvm_v8bf16_ty], [IntrNoMem]>;
   def int_x86_avx2bf16_dpbf16ps_256:
               ClangBuiltin<"__builtin_ia32_dpbf16psvex256">,
               Intrinsic<[llvm_v8f32_ty],
-              [llvm_v8f32_ty, llvm_v8i32_ty, llvm_v8i32_ty], [IntrNoMem]>;
+              [llvm_v8f32_ty, llvm_v16bf16_ty, llvm_v16bf16_ty], [IntrNoMem]>;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
-=======
-              [llvm_v16f32_ty, llvm_v32bf16_ty, llvm_v32bf16_ty], [IntrNoMem]>;
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 }
 
 //===----------------------------------------------------------------------===//

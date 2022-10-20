@@ -1243,11 +1243,6 @@ def X86vphramins : SDNode<"X86ISD::VPHRAMINS", SDTAVX512REDUCTIONTernary>;
 //===----------------------------------------------------------------------===//
 
 // 128-bit load pattern fragments
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def loadv8bf16   : PatFrag<(ops node:$ptr), (v8bf16(load node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 def loadv8f16    : PatFrag<(ops node:$ptr), (v8f16 (load node:$ptr))>;
 def loadv8bf16   : PatFrag<(ops node:$ptr), (v8bf16 (load node:$ptr))>;
 def loadv4f32    : PatFrag<(ops node:$ptr), (v4f32 (load node:$ptr))>;
@@ -1258,11 +1253,6 @@ def loadv8i16    : PatFrag<(ops node:$ptr), (v8i16 (load node:$ptr))>;
 def loadv16i8    : PatFrag<(ops node:$ptr), (v16i8 (load node:$ptr))>;
 
 // 256-bit load pattern fragments
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def loadv16bf16  : PatFrag<(ops node:$ptr), (v16bf16(load node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 def loadv16f16   : PatFrag<(ops node:$ptr), (v16f16 (load node:$ptr))>;
 def loadv16bf16  : PatFrag<(ops node:$ptr), (v16bf16 (load node:$ptr))>;
 def loadv8f32    : PatFrag<(ops node:$ptr), (v8f32  (load node:$ptr))>;
@@ -1273,11 +1263,6 @@ def loadv16i16   : PatFrag<(ops node:$ptr), (v16i16 (load node:$ptr))>;
 def loadv32i8    : PatFrag<(ops node:$ptr), (v32i8  (load node:$ptr))>;
 
 // 512-bit load pattern fragments
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def loadv32bf16  : PatFrag<(ops node:$ptr), (v32bf16(load node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 def loadv32f16   : PatFrag<(ops node:$ptr), (v32f16 (load node:$ptr))>;
 def loadv32bf16  : PatFrag<(ops node:$ptr), (v32bf16 (load node:$ptr))>;
 def loadv16f32   : PatFrag<(ops node:$ptr), (v16f32 (load node:$ptr))>;
@@ -1313,17 +1298,8 @@ def alignedload : PatFrag<(ops node:$ptr), (load node:$ptr), [{
 // NOTE: all 128-bit integer vector loads are promoted to v2i64
 def alignedloadv8f16 : PatFrag<(ops node:$ptr),
                                (v8f16 (alignedload node:$ptr))>;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def alignedloadv8bf16: PatFrag<(ops node:$ptr),
-                               (v8bf16(alignedload node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
 def alignedloadv8bf16 : PatFrag<(ops node:$ptr),
                                 (v8bf16 (alignedload node:$ptr))>;
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 def alignedloadv4f32 : PatFrag<(ops node:$ptr),
                                (v4f32 (alignedload node:$ptr))>;
 def alignedloadv2f64 : PatFrag<(ops node:$ptr),
@@ -1339,12 +1315,6 @@ def alignedloadv16i8 : PatFrag<(ops node:$ptr),
 
 // 256-bit aligned load pattern fragments
 // NOTE: all 256-bit integer vector loads are promoted to v4i64
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def alignedloadv16bf16: PatFrag<(ops node:$ptr),
-                                (v16bf16(alignedload node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 def alignedloadv16f16 : PatFrag<(ops node:$ptr),
                                 (v16f16 (alignedload node:$ptr))>;
 def alignedloadv16bf16 : PatFrag<(ops node:$ptr),
@@ -1362,12 +1332,6 @@ def alignedloadv16i16 : PatFrag<(ops node:$ptr),
 def alignedloadv32i8  : PatFrag<(ops node:$ptr),
                                 (v32i8  (alignedload node:$ptr))>;
 // 512-bit aligned load pattern fragments
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def alignedloadv32bf16: PatFrag<(ops node:$ptr),
-                                (v32bf16(alignedload node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 def alignedloadv32f16 : PatFrag<(ops node:$ptr),
                                 (v32f16 (alignedload node:$ptr))>;
 def alignedloadv32bf16 : PatFrag<(ops node:$ptr),

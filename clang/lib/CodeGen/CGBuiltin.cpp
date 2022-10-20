@@ -15983,19 +15983,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectph_128:
   case X86::BI__builtin_ia32_selectph_256:
   case X86::BI__builtin_ia32_selectph_512:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_BF16_NE
-  case X86::BI__builtin_ia32_selectpbf16_128:
-  case X86::BI__builtin_ia32_selectpbf16_256:
-  case X86::BI__builtin_ia32_selectpbf16_512:
-#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#endif // INTEL_CUSTOMIZATION
-=======
   case X86::BI__builtin_ia32_selectpbf_128:
   case X86::BI__builtin_ia32_selectpbf_256:
   case X86::BI__builtin_ia32_selectpbf_512:
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
   case X86::BI__builtin_ia32_selectps_128:
   case X86::BI__builtin_ia32_selectps_256:
   case X86::BI__builtin_ia32_selectps_512:
@@ -16003,11 +15993,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectpd_256:
   case X86::BI__builtin_ia32_selectpd_512:
     return EmitX86Select(*this, Ops[0], Ops[1], Ops[2]);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_BF16_NE
-  case X86::BI__builtin_ia32_selectsbf16_128:
-#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectsh_128:
   case X86::BI__builtin_ia32_selectsbf_128:
   case X86::BI__builtin_ia32_selectss_128:

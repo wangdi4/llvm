@@ -70,31 +70,11 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
 
   string EltTypeName = !cast<string>(EltVT);
   // Size of the element type in bits, e.g. 32 for v16i32.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-  string EltSizeName = !subst("i", "", !subst("f", "", !subst("b", "", EltTypeName)));
-#else // INTEL_FEATURE_ISA_BF16_BASE
-  string EltSizeName = !subst("i", "", !subst("f", "", EltTypeName));
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-  int EltSize = EltVT.Size;
-
-  // "i" for integer types and "f" for floating-point types
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-  string TypeVariantName = !subst("b", "", !subst(EltSizeName, "", EltTypeName));
-#else // INTEL_FEATURE_ISA_BF16_BASE
-  string TypeVariantName = !subst(EltSizeName, "", EltTypeName);
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
   string EltSizeName = !subst("i", "", !subst("f", "", !subst("b", "", EltTypeName)));
   int EltSize = EltVT.Size;
 
   // "i" for integer types and "f" for floating-point types
   string TypeVariantName = !subst("b", "", !subst(EltSizeName, "", EltTypeName));
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 
   // Size of RC in bits, e.g. 512 for VR512.
   int Size = VT.Size;
@@ -103,23 +83,10 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   X86MemOperand MemOp = !cast<X86MemOperand>(TypeVariantName # Size # "mem");
   X86MemOperand ScalarMemOp = !cast<X86MemOperand>(!subst("b", "", EltTypeName) # "mem");
   // FP scalar memory operand for intrinsics - ssmem/sdmem.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-  Operand IntScalarMemOp = !if (!eq (EltTypeName, "bf16"), !cast<Operand>("sbf16mem"),
-                           !if (!eq (EltTypeName, "f16"), !cast<Operand>("shmem"),
-                           !if (!eq (EltTypeName, "f32"), !cast<Operand>("ssmem"),
-                           !if (!eq (EltTypeName, "f64"), !cast<Operand>("sdmem"), ?))));
-#else // INTEL_FEATURE_ISA_BF16_BASE
   Operand IntScalarMemOp = !if (!eq (EltTypeName, "f16"), !cast<Operand>("shmem"),
                            !if (!eq (EltTypeName, "bf16"), !cast<Operand>("shmem"),
                            !if (!eq (EltTypeName, "f32"), !cast<Operand>("ssmem"),
-<<<<<<< HEAD
-                           !if (!eq (EltTypeName, "f64"), !cast<Operand>("sdmem"), ?)));
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
                            !if (!eq (EltTypeName, "f64"), !cast<Operand>("sdmem"), ?))));
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 
   // Load patterns
   PatFrag LdFrag = !cast<PatFrag>("load" # VTName);
@@ -129,23 +96,10 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   PatFrag ScalarLdFrag = !cast<PatFrag>("load" # !subst("b", "", EltTypeName));
   PatFrag BroadcastLdFrag = !cast<PatFrag>("X86VBroadcastld" # EltSizeName);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-  PatFrags ScalarIntMemFrags = !if (!eq (EltTypeName, "f16"), !cast<PatFrags>("sse_load_f16"),
-                               !if (!eq (EltTypeName, "bf16"), !cast<PatFrags>("sse_load_bf16"),
-                               !if (!eq (EltTypeName, "f32"), !cast<PatFrags>("sse_load_f32"),
-                               !if (!eq (EltTypeName, "f64"), !cast<PatFrags>("sse_load_f64"), ?))));
-#else // INTEL_FEATURE_ISA_BF16_BASE
   PatFrags ScalarIntMemFrags = !if (!eq (EltTypeName, "f16"), !cast<PatFrags>("sse_load_f16"),
                                !if (!eq (EltTypeName, "bf16"), !cast<PatFrags>("sse_load_f16"),
                                !if (!eq (EltTypeName, "f32"), !cast<PatFrags>("sse_load_f32"),
-<<<<<<< HEAD
-                               !if (!eq (EltTypeName, "f64"), !cast<PatFrags>("sse_load_f64"), ?)));
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
                                !if (!eq (EltTypeName, "f64"), !cast<PatFrags>("sse_load_f64"), ?))));
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 
   // The string to specify embedded broadcast in assembly.
   string BroadcastStr = "{1to" # NumElts # "}";
@@ -158,43 +112,16 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   SubRegIndex SubRegIdx = !if (!eq (Size, 128), sub_xmm,
                           !if (!eq (Size, 256), sub_ymm, ?));
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-  Domain ExeDomain = !if (!eq (EltTypeName, "f32"), SSEPackedSingle,
-                     !if (!eq (EltTypeName, "f64"), SSEPackedDouble,
-                     !if (!eq (EltTypeName, "f16"), SSEPackedSingle, // FIXME?
-<<<<<<< HEAD
-                     SSEPackedInt)));
-#else // INTEL_FEATURE_ISA_BF16_BASE
   Domain ExeDomain = !if (!eq (EltTypeName, "f32"), SSEPackedSingle,
                      !if (!eq (EltTypeName, "f64"), SSEPackedDouble,
                      !if (!eq (EltTypeName, "f16"), SSEPackedSingle, // FIXME?
                      !if (!eq (EltTypeName, "bf16"), SSEPackedSingle, // FIXME?
                      SSEPackedInt))));
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
-                     !if (!eq (EltTypeName, "bf16"), SSEPackedSingle, // FIXME?
-                     SSEPackedInt))));
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
   RegisterClass FRC = !if (!eq (EltTypeName, "f32"), FR32X,
                       !if (!eq (EltTypeName, "f16"), FR16X,
-                      !if (!eq (EltTypeName, "bf16"), BFR16X,
-                      FR64X)));
-#else // INTEL_FEATURE_ISA_BF16_BASE
-  RegisterClass FRC = !if (!eq (EltTypeName, "f32"), FR32X,
-                      !if (!eq (EltTypeName, "f16"), FR16X,
-<<<<<<< HEAD
-                      FR64X));
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
                       !if (!eq (EltTypeName, "bf16"), FR16X,
                       FR64X)));
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 
   dag ImmAllZerosV = (VT immAllZerosV);
 
@@ -207,14 +134,9 @@ def v32i16_info : X86VectorVTInfo<32, i16, VR512, "w">;
 def v16i32_info : X86VectorVTInfo<16, i32, VR512, "d">;
 def v8i64_info  : X86VectorVTInfo<8,  i64, VR512, "q">;
 def v32f16_info : X86VectorVTInfo<32, f16, VR512, "ph">;
-def v32bf16_info: X86VectorVTInfo<32, bf16, VR512, "pbf">;
+def v32bf16_info: X86VectorVTInfo<32, bf16, VR512, "pbf16">; // INTEL
 def v16f32_info : X86VectorVTInfo<16, f32, VR512, "ps">;
 def v8f64_info  : X86VectorVTInfo<8,  f64, VR512, "pd">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def v32bf16_info : X86VectorVTInfo<32, bf16, VR512, "pbf16">;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 
 // "x" in v32i8x_info means RC = VR256X
 def v32i8x_info  : X86VectorVTInfo<32,  i8, VR256X, "b">;
@@ -222,40 +144,25 @@ def v16i16x_info : X86VectorVTInfo<16, i16, VR256X, "w">;
 def v8i32x_info  : X86VectorVTInfo<8,  i32, VR256X, "d">;
 def v4i64x_info  : X86VectorVTInfo<4,  i64, VR256X, "q">;
 def v16f16x_info : X86VectorVTInfo<16, f16, VR256X, "ph">;
-def v16bf16x_info: X86VectorVTInfo<16, bf16, VR256X, "pbf">;
+def v16bf16x_info: X86VectorVTInfo<16, bf16, VR256X, "pbf16">; // INTEL
 def v8f32x_info  : X86VectorVTInfo<8,  f32, VR256X, "ps">;
 def v4f64x_info  : X86VectorVTInfo<4,  f64, VR256X, "pd">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def v16bf16x_info : X86VectorVTInfo<16, bf16, VR256X, "pbf16">;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 
 def v16i8x_info  : X86VectorVTInfo<16,  i8, VR128X, "b">;
 def v8i16x_info  : X86VectorVTInfo<8,  i16, VR128X, "w">;
 def v4i32x_info  : X86VectorVTInfo<4,  i32, VR128X, "d">;
 def v2i64x_info  : X86VectorVTInfo<2,  i64, VR128X, "q">;
 def v8f16x_info  : X86VectorVTInfo<8,  f16, VR128X, "ph">;
-def v8bf16x_info : X86VectorVTInfo<8,  bf16, VR128X, "pbf">;
+def v8bf16x_info : X86VectorVTInfo<8,  bf16, VR128X, "pbf16">; // INTEL
 def v4f32x_info  : X86VectorVTInfo<4,  f32, VR128X, "ps">;
 def v2f64x_info  : X86VectorVTInfo<2,  f64, VR128X, "pd">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def v8bf16x_info  : X86VectorVTInfo<8,  bf16, VR128X, "pbf16">;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 
 // We map scalar types to the smallest (128-bit) vector type
 // with the appropriate element type. This allows to use the same masking logic.
 def i32x_info    : X86VectorVTInfo<1,  i32, GR32, "si">;
 def i64x_info    : X86VectorVTInfo<1,  i64, GR64, "sq">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def bf16x_info   : X86VectorVTInfo<1,  bf16, VR128X, "sbf16">;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 def f16x_info    : X86VectorVTInfo<1,  f16, VR128X, "sh">;
-def bf16x_info   : X86VectorVTInfo<1,  bf16, VR128X, "sbf">;
+def bf16x_info   : X86VectorVTInfo<1,  bf16, VR128X, "sbf16">; // INTEL
 def f32x_info    : X86VectorVTInfo<1,  f32, VR128X, "ss">;
 def f64x_info    : X86VectorVTInfo<1,  f64, VR128X, "sd">;
 
@@ -274,12 +181,6 @@ def avx512vl_i32_info : AVX512VLVectorVTInfo<v16i32_info, v8i32x_info,
                                              v4i32x_info>;
 def avx512vl_i64_info : AVX512VLVectorVTInfo<v8i64_info, v4i64x_info,
                                              v2i64x_info>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-def avx512vl_bf16_info : AVX512VLVectorVTInfo<v32bf16_info, v16bf16x_info,
-                                             v8bf16x_info>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 def avx512vl_f16_info : AVX512VLVectorVTInfo<v32f16_info, v16f16x_info,
                                              v8f16x_info>;
 def avx512vl_bf16_info : AVX512VLVectorVTInfo<v32bf16_info, v16bf16x_info,
@@ -4216,18 +4117,9 @@ let Predicates = [HasBWI, NoVLX] in {
 
   defm : mask_move_lowering<"VMOVDQU16Z", v8f16x_info, v32f16_info>;
   defm : mask_move_lowering<"VMOVDQU16Z", v16f16x_info, v32f16_info>;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-  defm : mask_move_lowering<"VMOVDQU16Z", v8bf16x_info, v32bf16_info>;
-  defm : mask_move_lowering<"VMOVDQU16Z", v16bf16x_info, v32bf16_info>;
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
 
   defm : mask_move_lowering<"VMOVDQU16Z", v8bf16x_info, v32bf16_info>;
   defm : mask_move_lowering<"VMOVDQU16Z", v16bf16x_info, v32bf16_info>;
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 }
 
 let Predicates = [HasAVX512] in {
@@ -13842,14 +13734,9 @@ multiclass avx512_binop_all2<bits<8> opc, string OpcodeStr,
 let ExeDomain = SSEPackedSingle in
 defm VCVTNE2PS2BF16 : avx512_binop_all2<0x72, "vcvtne2ps2bf16",
                                         SchedWriteCvtPD2PS, //FIXME: Should be SchedWriteCvtPS2BF
-<<<<<<< HEAD
-                                        avx512vl_f32_info, avx512vl_i16_info,
+                                        avx512vl_f32_info, avx512vl_bf16_info,
                                         X86cvtne2ps2bf16, HasBF16, 0>, T8XD, // INTEL
                                         NotEVEX2VEXConvertible; // INTEL
-=======
-                                        avx512vl_f32_info, avx512vl_bf16_info,
-                                        X86cvtne2ps2bf16, HasBF16, 0>, T8XD;
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 
 // Truncate Float to BFloat16
 multiclass avx512_cvtps2bf16<bits<8> opc, string OpcodeStr,
@@ -13968,14 +13855,9 @@ multiclass avx512_dpbf16ps_sizes<bits<8> opc, string OpcodeStr, SDNode OpNode,
 
 let ExeDomain = SSEPackedSingle in
 defm VDPBF16PS : avx512_dpbf16ps_sizes<0x52, "vdpbf16ps", X86dpbf16ps, SchedWriteFMA,
-<<<<<<< HEAD
-                                       avx512vl_f32_info, avx512vl_i32_info,
+                                       avx512vl_f32_info, avx512vl_bf16_info,
                                        HasBF16>, T8XS, EVEX_CD8<32, CD8VF>, // INTEL
                                        NotEVEX2VEXConvertible; // INTEL
-=======
-                                       avx512vl_f32_info, avx512vl_bf16_info,
-                                       HasBF16>, T8XS, EVEX_CD8<32, CD8VF>;
->>>>>>> bc1819389fb4701cdeba5e093278e32dd668d6d5
 
 //===----------------------------------------------------------------------===//
 // AVX512FP16
