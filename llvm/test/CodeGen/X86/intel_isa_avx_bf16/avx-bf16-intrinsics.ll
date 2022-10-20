@@ -5,7 +5,7 @@
 ; RUN: llc < %s -mtriple=i686-unknown-unknown -mattr=+avxbf16,+avx512vl,+avx512bf16 --show-mc-encoding | FileCheck %s --check-prefixes=AVX512-X86
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avxbf16,,+avx512vl,+avx512bf16 --show-mc-encoding | FileCheck %s --check-prefixes=AVX512-X64
 
-declare <8 x i16> @llvm.x86.avx2bf16.cvtne2ps2bf16.128(<4 x float>, <4 x float>)
+declare <8 x bfloat> @llvm.x86.avx2bf16.cvtne2ps2bf16.128(<4 x float>, <4 x float>)
 
 define <2 x i64> @test_mm_cvtne2ps2bf16_128(<4 x float> %A, <4 x float> %B) {
 ; AVX-X86-LABEL: test_mm_cvtne2ps2bf16_128:
@@ -28,12 +28,12 @@ define <2 x i64> @test_mm_cvtne2ps2bf16_128(<4 x float> %A, <4 x float> %B) {
 ; AVX512-X64-NEXT:    vcvtne2ps2bf16 %xmm1, %xmm0, %xmm0 # encoding: [0x62,0xf2,0x7f,0x08,0x72,0xc1]
 ; AVX512-X64-NEXT:    retq # encoding: [0xc3]
 entry:
-  %0 = tail call <8 x i16> @llvm.x86.avx2bf16.cvtne2ps2bf16.128(<4 x float> %A, <4 x float> %B)
-  %1 = bitcast <8 x i16> %0 to <2 x i64>
+  %0 = tail call <8 x bfloat> @llvm.x86.avx2bf16.cvtne2ps2bf16.128(<4 x float> %A, <4 x float> %B)
+  %1 = bitcast <8 x bfloat> %0 to <2 x i64>
   ret <2 x i64> %1
 }
 
-declare <16 x i16> @llvm.x86.avx2bf16.cvtne2ps2bf16.256(<8 x float>, <8 x float>)
+declare <16 x bfloat> @llvm.x86.avx2bf16.cvtne2ps2bf16.256(<8 x float>, <8 x float>)
 
 define <4 x i64> @test_mm256_cvtne2ps2bf16_256(<8 x float> %A, <8 x float> %B) {
 ; AVX-X86-LABEL: test_mm256_cvtne2ps2bf16_256:
@@ -56,14 +56,14 @@ define <4 x i64> @test_mm256_cvtne2ps2bf16_256(<8 x float> %A, <8 x float> %B) {
 ; AVX512-X64-NEXT:    vcvtne2ps2bf16 %ymm1, %ymm0, %ymm0 # encoding: [0x62,0xf2,0x7f,0x28,0x72,0xc1]
 ; AVX512-X64-NEXT:    retq # encoding: [0xc3]
 entry:
-  %0 = tail call <16 x i16> @llvm.x86.avx2bf16.cvtne2ps2bf16.256(<8 x float> %A, <8 x float> %B)
-  %1 = bitcast <16 x i16> %0 to <4 x i64>
+  %0 = tail call <16 x bfloat> @llvm.x86.avx2bf16.cvtne2ps2bf16.256(<8 x float> %A, <8 x float> %B)
+  %1 = bitcast <16 x bfloat> %0 to <4 x i64>
   ret <4 x i64> %1
 }
 
-declare <4 x float> @llvm.x86.avx2bf16.dpbf16ps.128(<4 x float>, <4 x i32>, <4 x i32>)
+declare <4 x float> @llvm.x86.avx2bf16.dpbf16ps.128(<4 x float>, <8 x bfloat>, <8 x bfloat>)
 
-define <4 x float> @test_mm_dpbf16ps_128(<4 x float> %E, <4 x i32> %A, <4 x i32> %B) {
+define <4 x float> @test_mm_dpbf16ps_128(<4 x float> %E, <8 x bfloat> %A, <8 x bfloat> %B) {
 ; AVX-X86-LABEL: test_mm_dpbf16ps_128:
 ; AVX-X86:       # %bb.0: # %entry
 ; AVX-X86-NEXT:    {vex} vdpbf16ps %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x72,0x52,0xc2]
@@ -84,13 +84,13 @@ define <4 x float> @test_mm_dpbf16ps_128(<4 x float> %E, <4 x i32> %A, <4 x i32>
 ; AVX512-X64-NEXT:    vdpbf16ps %xmm2, %xmm1, %xmm0 # encoding: [0x62,0xf2,0x76,0x08,0x52,0xc2]
 ; AVX512-X64-NEXT:    retq # encoding: [0xc3]
 entry:
-  %0 = tail call <4 x float> @llvm.x86.avx2bf16.dpbf16ps.128(<4 x float> %E, <4 x i32> %A, <4x i32> %B)
+  %0 = tail call <4 x float> @llvm.x86.avx2bf16.dpbf16ps.128(<4 x float> %E, <8 x bfloat> %A, <8 x bfloat> %B)
   ret <4 x float> %0
 }
 
-declare <8 x float> @llvm.x86.avx2bf16.dpbf16ps.256(<8 x float>, <8 x i32>, <8 x i32>)
+declare <8 x float> @llvm.x86.avx2bf16.dpbf16ps.256(<8 x float>, <16 x bfloat>, <16 x bfloat>)
 
-define <8 x float> @test_mm256_dpbf16ps_256(<8 x float> %E, <8 x i32> %A, <8 x i32> %B) {
+define <8 x float> @test_mm256_dpbf16ps_256(<8 x float> %E, <16 x bfloat> %A, <16 x bfloat> %B) {
 ; AVX-X86-LABEL: test_mm256_dpbf16ps_256:
 ; AVX-X86:       # %bb.0: # %entry
 ; AVX-X86-NEXT:    {vex} vdpbf16ps %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x76,0x52,0xc2]
@@ -111,6 +111,6 @@ define <8 x float> @test_mm256_dpbf16ps_256(<8 x float> %E, <8 x i32> %A, <8 x i
 ; AVX512-X64-NEXT:    vdpbf16ps %ymm2, %ymm1, %ymm0 # encoding: [0x62,0xf2,0x76,0x28,0x52,0xc2]
 ; AVX512-X64-NEXT:    retq # encoding: [0xc3]
 entry:
-  %0 = tail call <8 x float> @llvm.x86.avx2bf16.dpbf16ps.256(<8 x float> %E, <8 x i32> %A, <8 x i32> %B)
+  %0 = tail call <8 x float> @llvm.x86.avx2bf16.dpbf16ps.256(<8 x float> %E, <16 x bfloat> %A, <16 x bfloat> %B)
   ret <8 x float> %0
 }
