@@ -400,6 +400,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRecPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchangePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopPeelingPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerializePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRerollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversalPass.h"

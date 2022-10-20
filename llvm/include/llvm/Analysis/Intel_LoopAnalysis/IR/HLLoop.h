@@ -710,6 +710,13 @@ public:
   reverse_child_iterator child_rend() { return pre_rbegin(); }
   const_reverse_child_iterator child_rend() const { return pre_rbegin(); }
 
+  iterator_range<child_iterator> children() {
+    return make_range(child_begin(), child_end());
+  }
+  iterator_range<const_child_iterator> children() const {
+    return make_range(child_begin(), child_end());
+  }
+
   /// Children acess methods
 
   /// Returns the first child if it exists, otherwise returns null.

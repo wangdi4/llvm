@@ -1756,6 +1756,18 @@ bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex, bool AllowConversion,
   return Found;
 }
 
+bool CanonExpr::containsTempBlob(unsigned TempBlobIndex) const {
+  SmallVector<unsigned, 8> TempIndices;
+
+  collectTempBlobIndices(TempIndices);
+
+  return std::any_of(
+      TempIndices.begin(), TempIndices.end(), [&](unsigned BlobIndex) {
+        return (BlobIndex == TempBlobIndex);
+      });
+}
+
+
 bool CanonExpr::isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs) const {
   assert(CanonExpr::isValidLoopLevel(Level) &&
          "Cannot compute invariance without a valid loop level");

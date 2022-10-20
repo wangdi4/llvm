@@ -461,6 +461,9 @@ public:
   bool containsStandAloneBlob(unsigned BlobIndex, bool AllowConversion = true,
                               bool AllowExtStandAloneBlob = false) const;
 
+  /// Returns true if \p TempBlobIndex is present somewhere in the CanonExpr.
+  bool containsTempBlob(unsigned TempBlobIndex) const;
+
   /// Returns true if the CanonExpr is a unitary blob. A unitary blob is a
   /// single (non-nested) standalone blob.
   bool isUnitaryBlob() const;
