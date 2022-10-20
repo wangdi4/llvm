@@ -5644,7 +5644,7 @@ bool IntelModRefImpl::isResolvableCallee(const Function *F) const {
 
   // If the function does not touch memory, then any calls to it do not
   // matter.
-  if (Ander->getModRefBehavior(F).doesNotAccessMemory())
+  if (Ander->getMemoryEffects(F).doesNotAccessMemory())
     return true;
 
   // treat some llvm intrinsics as not-modifying memory.
