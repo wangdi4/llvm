@@ -153,7 +153,7 @@ using SCCNodeSet = SmallSetVector<Function *, 8>;
 static MemoryEffects checkFunctionMemoryAccess(Function &F, bool ThisBody,
                                                AAResults &AAR,
                                                const SCCNodeSet &SCCNodes) {
-  MemoryEffects OrigME = AAR.getModRefBehavior(&F);
+  MemoryEffects OrigME = AAR.getMemoryEffects(&F);
   if (OrigME.doesNotAccessMemory())
     // Already perfect!
     return OrigME;
@@ -184,7 +184,7 @@ static MemoryEffects checkFunctionMemoryAccess(Function &F, bool ThisBody,
       if (!Call->hasOperandBundles() && Call->getCalledFunction() &&
           SCCNodes.count(Call->getCalledFunction()))
         continue;
-      MemoryEffects CallME = AAR.getModRefBehavior(Call);
+      MemoryEffects CallME = AAR.getMemoryEffects(Call);
 
       // If the call doesn't access memory, we're done.
       if (CallME.doesNotAccessMemory())

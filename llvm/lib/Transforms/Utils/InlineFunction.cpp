@@ -1425,7 +1425,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
 
         IsFuncCall = true;
         if (CalleeAAR) {
-          MemoryEffects ME = CalleeAAR->getModRefBehavior(Call);
+          MemoryEffects ME = CalleeAAR->getMemoryEffects(Call);
 
           // We'll retain this knowledge without additional metadata.
           if (ME.onlyAccessesInaccessibleMem())
