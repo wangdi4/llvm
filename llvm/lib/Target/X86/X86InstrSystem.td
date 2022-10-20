@@ -472,6 +472,11 @@ def PBNDKB : I<0x01, MRM_C7, (outs), (ins), "pbndkb", []>, PS;
 #endif // INTEL_FEATURE_ISA_PBNDKB
 #endif // INTEL_CUSTOMIZATION
 
+let Uses = [RSI, RDI, RCX], Predicates = [In64BitMode] in {
+def WRMSRLIST : I<0x01, MRM_C6, (outs), (ins), "wrmsrlist", []>, XS;
+def RDMSRLIST : I<0x01, MRM_C6, (outs), (ins), "rdmsrlist", []>, XD;
+}
+
 let Defs = [RAX, RDX], Uses = [ECX] in
 def RDPMC : I<0x33, RawFrm, (outs), (ins), "rdpmc", []>, TB;
 
