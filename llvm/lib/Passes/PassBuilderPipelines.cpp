@@ -502,7 +502,6 @@ extern cl::opt<bool> EnableLoadCoalescing;
 extern cl::opt<bool> EnableSROAAfterSLP;
 #endif // INTEL_CUSTOMIZATION
 namespace llvm {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> EnableHandlePragmaVectorAligned;
 // Andersen AliasAnalysis
@@ -514,9 +513,6 @@ extern cl::opt<LoopOptMode> RunLoopOpts;
 extern cl::opt<bool> EnableTbaaProp;
 #endif // INTEL_CUSTOMIZATION
 extern cl::opt<bool> ExtraVectorizerPasses;
-
-=======
->>>>>>> ab8257ca0e9389d39c081d7bb8bd4afceb2215cc
 extern cl::opt<unsigned> MaxDevirtIterations;
 extern cl::opt<bool> EnableConstraintElimination;
 extern cl::opt<bool> EnableFunctionSpecialization;
