@@ -85,6 +85,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         ${OPENMP_PTHREAD_LIB}
         "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
 
+<<<<<<< HEAD
         NO_INSTALL_RPATH
       )
       endif(INTEL_CUSTOMIZATION)
@@ -116,6 +117,36 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
     else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
       libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
     endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
+=======
+      NO_INSTALL_RPATH
+    )
+
+    # Install plugin under the lib destination folder.
+    install(TARGETS "omptarget.rtl.${tmachine_libname}"
+      LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+    set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES
+      INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/.."
+      CXX_VISIBILITY_PRESET protected)
+
+    target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
+      ${LIBOMPTARGET_INCLUDE_DIR}
+      ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
+
+    list(APPEND LIBOMPTARGET_TESTED_PLUGINS
+      "omptarget.rtl.${tmachine_libname}")
+
+    # Report to the parent scope that we are building a plugin.
+    set(LIBOMPTARGET_SYSTEM_TARGETS
+      "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-oldDriver" PARENT_SCOPE)
+    set(LIBOMPTARGET_SYSTEM_TARGETS
+      "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-LTO" PARENT_SCOPE)
+    set(LIBOMPTARGET_TESTED_PLUGINS
+      "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
+
+  else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
+    libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
+  endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
+>>>>>>> 429d3d4e9d8dd9f8a07c5304b7d840395521c882
 else()
   libomptarget_say("Not building ${tmachine_name} offloading plugin: machine not found in the system.")
 endif()
