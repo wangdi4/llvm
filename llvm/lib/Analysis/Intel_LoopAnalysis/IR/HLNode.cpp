@@ -444,3 +444,34 @@ void HLNode::swapProfileData() {
   setProfileData(
       HLNodeUtils::swapProfMetadata(HNU.getContext(), getProfileData()));
 }
+
+bool HLNode::isUnconditionallyExecutedinRegion(
+    SmallPtrSetImpl<const HLNode *> const &IgnoreSet) const {
+  assert(isAttached() && "Node expected to be in Region!\n");
+
+  // TODO: can extend to ignore nodes using HNU.areEqualConditions
+  HLNode *Node = getParent();
+  while (!isa<HLRegion>(Node)) {
+    if (IgnoreSet.count(Node)) {
+      Node = Node->getParent();
+      continue;
+    }
+
+    if (isa<HLSwitch>(Node)) {
+      return false;
+    }
+
+    auto *IfNode = dyn_cast<HLIf>(Node);
+    if (IfNode && !IfNode->getMVTag()) {
+      return false;
+    }
+
+    if (auto *Loop = dyn_cast<HLLoop>(Node)) {
+      if (Loop->hasZtt()) {
+        return false;
+      }
+    }
+    Node = Node->getParent();
+  }
+  return true;
+}

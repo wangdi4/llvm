@@ -2129,6 +2129,7 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;
   HLIf *MemcheckIf = createMasterCondition(Context, Nodes, NewLiveinSymbases);
+  MemcheckIf->setMVTag(NoAliasLoop->getNumber());
 
   HLNodeUtils::insertBefore(NoAliasLoop, &Nodes);
   HLNodeUtils::insertBefore(NoAliasLoop, MemcheckIf);
