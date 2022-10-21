@@ -1,5 +1,7 @@
 ; This test verifies that SOAToAOS is triggered when member functions have
 ; llvm.assume and llvm.type.test intrinsic calls.
+; This test also verifies that metadata is generated for newly created
+; element type (i.e %__SOADT_EL_class.F).
 
 ; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop                                  \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false              \
@@ -183,6 +185,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-OP-DAG: %__SOADT_class.F = type { ptr, i64, ptr  }
 ; CHECK-OP-DAG: %__SOADT_AR_struct.Arr = type { i32, ptr, i32, ptr, i8 }
 ; CHECK-OP-DAG: %__SOADT_EL_class.F = type { ptr, ptr }
+
+; CHECK-OP: !llvm.dbg.cu
+; CHECK-OP: !intel.dtrans.types{{.*}}![[MD1:[0-9]+]]{{.*}}
+; CHECK-OP: [[MD1]] = !{!"S", %__SOADT_EL_class.F zeroinitializer, i32 2, ![[MD2:[0-9]+]], ![[MD3:[0-9]+]]}
+; CHECK-OP: ![[MD2]] = !{i32 0, i32 1}
+; CHECK-OP: ![[MD3]] = !{float 0.000000e+00, i32 1}
+
 
 @v1 = global i32 20, align 4, !dbg !0
 @v2 = global i32 30, align 4, !dbg !13
