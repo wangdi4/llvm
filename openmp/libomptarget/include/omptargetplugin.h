@@ -239,10 +239,9 @@ EXTERN int32_t __tgt_rtl_manifest_data_for_region(
 
 // Similar to __tgt_rtl_data_alloc, but additionally specify the base host ptr
 // in case the plugin needs this information.
-// DedicatedPool forces use of dedicated memory pool.
+// AllocOpt is used to indicate where the memory should be allocated.
 EXTERN void *__tgt_rtl_data_alloc_base(
-    int32_t ID, int64_t Size, void *HostPtr, void *HostBase,
-    int32_t DedicatedPool);
+    int32_t ID, int64_t Size, void *HostPtr, void *HostBase, int32_t AllocOpt);
 
 // Entry for supporting realloc
 EXTERN void *__tgt_rtl_data_realloc(
