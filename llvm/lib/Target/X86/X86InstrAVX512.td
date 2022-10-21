@@ -5397,6 +5397,9 @@ def VMOVZPQILo2PQIZrr : AVX512XSI<0x7E, MRMSrcReg, (outs VR128X:$dst),
 }
 
 let Predicates = [HasAVX512] in {
+  def : Pat<(v4i32 (scalar_to_vector (i32 (anyext GR8:$src)))),
+            (VMOVDI2PDIZrr (i32 (INSERT_SUBREG (i32 (IMPLICIT_DEF)),
+                                              GR8:$src, sub_8bit)))>;
   def : Pat<(v4i32 (X86vzmovl (v4i32 (scalar_to_vector GR32:$src)))),
             (VMOVDI2PDIZrr GR32:$src)>;
 
@@ -12587,6 +12590,24 @@ let Predicates = [HasVPINSRVPEXTR, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
 #endif // INTEL_CUSTOMIZATION
+let Predicates = [HasAVX512, NoBWI] in {
+  def : Pat<(X86pinsrb VR128:$src1,
+                       (i32 (anyext (i8 (bitconvert v8i1:$src2)))),
+                       timm:$src3),
+            (VPINSRBrr VR128:$src1, (i32 (COPY_TO_REGCLASS VK8:$src2, GR32)),
+                       timm:$src3)>;
+}
+
+let Predicates = [HasBWI] in {
+  def : Pat<(X86pinsrb VR128:$src1, (i32 (anyext (i8 GR8:$src2))), timm:$src3),
+            (VPINSRBZrr VR128:$src1, (INSERT_SUBREG (i32 (IMPLICIT_DEF)),
+                        GR8:$src2, sub_8bit), timm:$src3)>;
+  def : Pat<(X86pinsrb VR128:$src1,
+                       (i32 (anyext (i8 (bitconvert v8i1:$src2)))),
+                       timm:$src3),
+            (VPINSRBZrr VR128:$src1, (i32 (COPY_TO_REGCLASS VK8:$src2, GR32)),
+                        timm:$src3)>;
+}
 
 // Always select FP16 instructions if available.
 let Predicates = [HasBWI], AddedComplexity = -10 in {
