@@ -5322,7 +5322,7 @@ def mno_amx_avx512_cvtrow : Flag<["-"], "mno-amx-avx512-cvtrow">, Group<m_x86_Fe
 #endif // INTEL_CUSTOMIZATION
 def mamx_bf16 : Flag<["-"], "mamx-bf16">, Group<m_x86_Features_Group>;
 def mno_amx_bf16 : Flag<["-"], "mno-amx-bf16">, Group<m_x86_Features_Group>;
-def mtamx_int8 : Flag<["-"], "mamx-int8">, Group<m_x86_Features_Group>;
+def mamx_int8 : Flag<["-"], "mamx-int8">, Group<m_x86_Features_Group>;
 def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
 def mno_amx_tile : Flag<["-"], "mno-amx-tile">, Group<m_x86_Features_Group>;
@@ -8296,7 +8296,7 @@ def : CLFlag<"Qmno-amx-avx512-cvtrow">, Alias<mno_amx_avx512_cvtrow>;
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
 def : CLFlag<"Qmamx-bf16">, Alias<mamx_bf16>;
 def : CLFlag<"Qmno-amx-bf16">, Alias<mno_amx_bf16>;
-def : CLFlag<"Qmamx-int8">, Alias<mtamx_int8>;
+def : CLFlag<"Qmamx-int8">, Alias<mamx_int8>;
 def : CLFlag<"Qmno-amx-int8">, Alias<mno_amx_int8>;
 def : CLFlag<"Qmamx-tile">, Alias<mamx_tile>;
 def : CLFlag<"Qmno-amx-tile">, Alias<mno_amx_tile>;
