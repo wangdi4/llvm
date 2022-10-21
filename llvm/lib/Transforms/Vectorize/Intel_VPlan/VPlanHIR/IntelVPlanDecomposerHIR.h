@@ -137,7 +137,7 @@ private:
   // Internal helper to obtain the ambiguous sink DDRef corresponding to a
   // tracked symbase for which empty PHIs were created.
   loopopt::DDRef *getDDRefForTrackedSymbase(unsigned Sym) const {
-    for (auto KeyVal : PhisToFix) {
+    for (const auto &KeyVal : PhisToFix) {
       if (Sym == KeyVal.first.second)
         return KeyVal.second.second;
     }

@@ -1465,7 +1465,7 @@ public:
     assert(!getNumOperands() &&
            "GEP instruction already has operands before base pointer.");
     addOperand(Ptr);
-    for (auto Idx : IdxList)
+    for (const auto &Idx : IdxList)
       addOperand(Idx);
     assert(cast<PointerType>(getOperand(0)->getType()->getScalarType())
                ->isOpaqueOrPointeeTypeMatches(SourceElementType) &&
@@ -1854,7 +1854,7 @@ public:
       << ", SSID: " << static_cast<unsigned>(getSyncScopeID()) << "\n";
     if (!MDs.empty()) {
       O << "    NonDbgMDs -\n";
-      for (auto MDPair : MDs) {
+      for (const auto &MDPair : MDs) {
         O << "      ";
         MDPair.second->print(O);
         O << "\n";

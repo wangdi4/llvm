@@ -674,7 +674,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
           return false;
 
         for (const CanonExpr *CE : Ref->canons()) {
-          for (auto BlobIt : CE->blobs()) {
+          for (const auto &BlobIt : CE->blobs()) {
             const BlobTy Blob = CE->getBlobUtils().getBlob(BlobIt.Index);
             // Not hoistable either.
             if (BlobUtils::mayContainUDivByZero(Blob))
@@ -1413,7 +1413,7 @@ private:
       TempVector.push_back({MainCurrent->first, HIRVectorIdioms::MinOrMax});
       auto *LinkedList = IdiomList.getLinkedIdioms(MainCurrent->first);
       if (LinkedList)
-        for (auto Linked : *LinkedList) {
+        for (const auto &Linked : *LinkedList) {
           HIRVectorIdioms::IdiomId Id = IdiomList.isIdiom(Linked);
           TempVector.push_back({Linked, Id});
         }

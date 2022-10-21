@@ -1121,8 +1121,8 @@ void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
   // vectorizing that loop with such a VF * UF.
   uint64_t TripCount = 0;
   bool IsTCValidForPeeling =
-      OrigLoop->isConstTripLoop(&TripCount) && TripCount <= VF * UF ? false
-                                                                    : true;
+      OrigLoop->isConstTripLoop(&TripCount) && TripCount <= (uint64_t)VF * (uint64_t)UF ? false
+                                                                                          : true;
   if (SearchLoopNeedsPeeling && !IsTCValidForPeeling)
     LLVM_DEBUG(dbgs() << "Can't peel loop : VF(" << VF << ") * UF(" << UF
                       << ") >= TC(" << TripCount << ")!\n");
@@ -2145,7 +2145,7 @@ void VPOCodeGenHIR::propagateMetadata(RegDDRef *NewRef, const MDSource *SrcMD) {
   // Start out by clearing all non-debug related metadata.
   RegDDRef::MDNodesTy MDs;
   NewRef->getAllMetadataOtherThanDebugLoc(MDs);
-  for (auto It : MDs) {
+  for (const auto &It : MDs) {
     LLVM_DEBUG(dbgs() << "Cleared metadata kind: " << It.first << "\n");
     NewRef->setMetadata(It.first, nullptr);
   }
@@ -7712,7 +7712,7 @@ void VPOCodeGenHIR::eliminateRedundantGotosLabels(void) {
   HLNodeUtils::eliminateRedundantGotos(GotosVector, RequiredLabels);
 
   // Eliminate redundant labels.
-  for (auto It : VPBBLabelMap) {
+  for (const auto &It : VPBBLabelMap) {
     auto *Label = It.second;
     if (!RequiredLabels.count(Label))
       HLNodeUtils::remove(Label);
@@ -7794,10 +7794,10 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
     auto EmitScalarLpVPIRemarks = [this, ScalarHLp](auto *LpVPI) {
-      for (auto R : LpVPI->getOriginRemarks())
+      for (const auto &R : LpVPI->getOriginRemarks())
         ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
 
-      for (auto R : LpVPI->getGeneralRemarks())
+      for (const auto &R : LpVPI->getGeneralRemarks())
         ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
     };
 

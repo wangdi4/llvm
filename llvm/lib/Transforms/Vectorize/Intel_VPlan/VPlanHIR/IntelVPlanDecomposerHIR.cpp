@@ -1386,7 +1386,7 @@ void VPDecomposerHIR::addFPInductionsForLoop(HLLoop *HLp) {
   assert(IndList && "List for auto-recognized induction descriptors missing.");
   // Add each FP IV into the list of auto-recognized inductions tracked by
   // decomposer.
-  for (auto FPIV : LoopFPIVs) {
+  for (const auto &FPIV : LoopFPIVs) {
     const HLInst *DefInst = FPIV.DefInst;
     const RegDDRef *StrideRef = FPIV.StrideRef;
     auto *BinOp = cast<VPInstruction>(getVPValueForNode(DefInst));
@@ -1627,7 +1627,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   // For using blocks we can reuse information available in the PhiToFix map,
   // since we know that Decomposer adds an empty PHI node only for an ambiguous
   // use of the Symbase
-  for (auto PhiMapIt : PhisToFix) {
+  for (const auto &PhiMapIt : PhisToFix) {
     unsigned Sym = PhiMapIt.first.second;
     assert(TrackedSymbases.count(Sym) && "Untracked symbase in PhisToFix.");
     SymbaseUsingBlocks[Sym].insert(PhiMapIt.first.first);
@@ -1670,9 +1670,9 @@ void VPDecomposerHIR::addIDFPhiNodes() {
       OS << "]\n";
     }
     OS << "\nSymbaseUsingBlocks:\n";
-    for (auto MapIt : SymbaseUsingBlocks) {
+    for (const auto &MapIt : SymbaseUsingBlocks) {
       OS << "Symbase " << MapIt.first << " -> [";
-      for (auto B : MapIt.second) {
+      for (const auto &B : MapIt.second) {
         OS << " " << B->getName() << " ";
       }
       OS << "]\n";
@@ -1701,7 +1701,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
     // NOTE: SymLiveInBlocks can be empty for cases when DDG is inaccurate and
     // we place a unnecessary PHI node
-    for (auto LIB : SymLiveInBlocks) {
+    for (const auto &LIB : SymLiveInBlocks) {
       LLVM_DEBUG(dbgs() << "VPDecomp: " << LIB->getName()
                         << " is a live-in block for the tracked symbase " << Sym
                         << "\n");
@@ -1786,7 +1786,7 @@ void VPDecomposerHIR::fixPhiNodes() {
   // accurate since there could be post-dominating VPInstructions updating the
   // same Symbase. This will however be handled by fixExternalUses transform at
   // end of decomposer.
-  for (auto PhiIt : PhisToFix) {
+  for (const auto &PhiIt : PhisToFix) {
     unsigned Sym = PhiIt.first.second;
     if (OutermostHLp->isLiveOut(Sym)) {
       VPPHINode *Phi = PhiIt.second.first;
@@ -1804,7 +1804,7 @@ void VPDecomposerHIR::fixPhiNodes() {
 
   // 1. Make sure that all new PHI nodes added by decomposition are moved to the
   // top of the VPBB
-  for (auto PHIMapIt : PhiToSymbaseMap)
+  for (const auto &PHIMapIt : PhiToSymbaseMap)
     movePhiToFront(PHIMapIt.first);
 
   // 2. Set the incoming values of all tracked Symbases to their ExternalDef
@@ -1855,7 +1855,7 @@ void VPDecomposerHIR::fixPhiNodes() {
 
   // TODO: validate correctness of the PHI nodes after fixing, also set their
   // master VPI's HIR to valid (VPPhi->HIR().getMaster()->HIR().setValid())
-  for (auto PhiMapIt : PhisToFix) {
+  for (const auto &PhiMapIt : PhisToFix) {
     VPPHINode *FixedPhi = PhiMapIt.second.first;
 
     // This fixed PHI node might have an empty/null incoming value from one of

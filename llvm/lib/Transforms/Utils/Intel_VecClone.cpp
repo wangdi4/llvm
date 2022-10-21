@@ -243,7 +243,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   // trying to clone the function again in case the pass is called more than
   // once.
   AttributeMask AB;
-  for (auto Attr : getVectorVariantAttributes(F)) {
+  for (const auto &Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }
 
@@ -499,7 +499,7 @@ Instruction *VecCloneImpl::widenVectorArguments(
   Instruction *Mask = nullptr;
   ArrayRef<VFParameter> Parms = V.getParameters();
 
-  for (auto ArgIt : enumerate(Clone->args())) {
+  for (const auto &ArgIt : enumerate(Clone->args())) {
     Argument *Arg = &ArgIt.value();
 
     VFParameter Parm = Parms[ArgIt.index()];
@@ -1120,14 +1120,14 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
                            Builder.getInt32(V.getVF()));
 
   // Mark linear memory for the SIMD directives
-  for (auto LinearMem : LinearMemory) {
+  for (const auto &LinearMem : LinearMemory) {
     Type *LinearTy = getMemoryType(LinearMem.first);
     AddTypedClause(QUAL_OMP_LINEAR, LinearMem.first, LinearTy,
                    LinearMem.second);
   }
   
   // Mark uniform memory for the SIMD directives
-  for (auto UniformMem : UniformMemory) {
+  for (const auto &UniformMem : UniformMemory) {
     // The alloca for the arg.
     Value *ArgMemory = UniformMem.second.first;
     Type *UniformTy = getMemoryType(ArgMemory);
@@ -1397,7 +1397,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
   MapVector<Function *, std::vector<StringRef>> FunctionsToVectorize;
   getFunctionsToVectorize(M, FunctionsToVectorize);
 
-  for (auto VarIt : FunctionsToVectorize) {
+  for (const auto &VarIt : FunctionsToVectorize) {
     Function& F = *(VarIt.first);
 
     if (!doesLoopOptPipelineAllowToRun(Limiter, F))

@@ -575,7 +575,7 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
     FMF = VPCall->getFastMathFlags();
 
   SmallVector<Type *> ParamTys;
-  for (auto Arg : enumerate(VPCall->arg_operands())) {
+  for (const auto &Arg : enumerate(VPCall->arg_operands())) {
     Type *Ty = MaybeVectorizeType(
         Plan->getVPlanSVA()->operandNeedsVectorCode(VPCall, Arg.index()),
         Arg.value()->getType(), VF);
