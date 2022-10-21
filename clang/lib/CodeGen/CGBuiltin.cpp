@@ -3385,12 +3385,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Locality = (E->getNumArgs() > 2) ? EmitScalarExpr(E->getArg(2)) :
       llvm::ConstantInt::get(Int32Ty, 3);
     Value *Data = llvm::ConstantInt::get(Int32Ty, 1);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
-    if (E->getNumArgs() > 3)
-      Data = EmitScalarExpr(E->getArg(3));
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
     Function *F = CGM.getIntrinsic(Intrinsic::prefetch, Address->getType());
     return RValue::get(Builder.CreateCall(F, {Address, RW, Locality, Data}));
   }

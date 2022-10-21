@@ -1086,15 +1086,7 @@ def HasSGX       : Predicate<"Subtarget->hasSGX()">;
 def HasRDSEED    : Predicate<"Subtarget->hasRDSEED()">;
 def HasSSEPrefetch : Predicate<"Subtarget->hasSSEPrefetch()">;
 def NoSSEPrefetch : Predicate<"!Subtarget->hasSSEPrefetch()">;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
 def HasPREFETCHI : Predicate<"Subtarget->hasPREFETCHI()">;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
-=======
-def HasPREFETCHI : Predicate<"Subtarget->hasPREFETCHI()">;
->>>>>>> 62ca79102cf9646aa9ed0dac7f018432a68eedf1
 def HasPrefetchW : Predicate<"Subtarget->hasPrefetchW()">;
 def HasPREFETCHWT1 : Predicate<"Subtarget->hasPREFETCHWT1()">;
 #if INTEL_CUSTOMIZATION
@@ -3370,17 +3362,6 @@ let Predicates = [HasPREFETCHST2], SchedRW = [WriteLoad] in
   def PREFETCHST2 : I<0x18, MRM4m, (outs), (ins i8mem:$src),
     "prefetchst2\t$src", [(prefetch addr:$src, (i32 2), (i32 1), (i32 1))]>, TB;
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
-#if INTEL_FEATURE_ISA_PREFETCHI
-//===----------------------------------------------------------------------===//
-// PREFETCHIT0 and PREFETCHIT1 Instructions
-//
-let Predicates = [HasPREFETCHI], SchedRW = [WriteLoad] in {
-  def PREFETCHIT0 : I<0x18, MRM7m, (outs), (ins i8mem:$src),
-    "prefetchit0\t$src", [(prefetch addr:$src, (i32 1), (i32 3), (i32 0))]>, TB;
-  def PREFETCHIT1 : I<0x18, MRM6m, (outs), (ins i8mem:$src),
-    "prefetchit1\t$src", [(prefetch addr:$src, (i32 1), (i32 2), (i32 0))]>, TB;
-}
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

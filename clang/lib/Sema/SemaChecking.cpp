@@ -9685,23 +9685,8 @@ ExprResult Sema::SemaConvertVectorExpr(Expr *E, TypeSourceInfo *TInfo,
 bool Sema::SemaBuiltinPrefetch(CallExpr *TheCall) {
   unsigned NumArgs = TheCall->getNumArgs();
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
-  if (NumArgs > 4)
-    return Diag(TheCall->getEndLoc(),
-                diag::err_typecheck_call_too_many_args_at_most)
-           << 0 /*function call*/ << 4 << NumArgs << TheCall->getSourceRange();
-  // FIXME: Combine the check to the loop when upstream.
-  if (NumArgs == 4) {
-    if (SemaBuiltinConstantArgRange(TheCall, 3, 0, 1))
-      return true;
-    --NumArgs;
-  }
-#else // INTEL_FEATURE_ISA_PREFETCHI
   if (checkArgCountAtMost(*this, TheCall, 3))
     return true;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
 
   // Argument 0 is checked for us and the remaining arguments must be
   // constant integers.

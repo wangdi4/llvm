@@ -5357,10 +5357,6 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
           cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
           "invalid arguments to llvm.prefetch", Call);
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
-#if INTEL_FEATURE_ISA_PREFETCHI
-    Check(cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue() < 2,
-          "invalid arguments to llvm.prefetch", Call);
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #else // INTEL_CUSTOMIZATION
     Check(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 2,
           "rw argument to llvm.prefetch must be 0-1", Call);

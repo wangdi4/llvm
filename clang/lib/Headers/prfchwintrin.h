@@ -96,52 +96,6 @@ _m_prefetchs(volatile const void *__P)
 }
 #endif
 /* end INTEL_FEATURE_ISA_PREFETCHST2 */
-
-/* INTEL_FEATURE_ISA_PREFETCHI */
-#if defined(__PREFETCHI__)
-/// Loads an instruction sequence containing the specified memory address into
-///    all level cache.
-///
-///    Note that the effect of this intrinsic is dependent on the processor
-///    implementation.
-///
-/// \headerfile <x86intrin.h>
-///
-/// This intrinsic corresponds to the \c PREFETCHIT0 instruction.
-///
-/// \param __P
-///    A pointer specifying the memory address to be prefetched.
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_m_prefetchit0(volatile const void *__P)
-{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcast-qual"
-  __builtin_prefetch ((const void*)__P, 1, 3 /* _MM_HINT_T0 */, 0 /* inst */);
-#pragma clang diagnostic pop
-}
-
-/// Loads an instruction sequence containing the specified memory address into
-///    all but the first-level cache.
-///
-///    Note that the effect of this intrinsic is dependent on the processor
-///    implementation.
-///
-/// \headerfile <x86intrin.h>
-///
-/// This intrinsic corresponds to the \c PREFETCHIT1 instruction.
-///
-/// \param __P
-///    A pointer specifying the memory address to be prefetched.
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_m_prefetchit1(volatile const void *__P)
-{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcast-qual"
-  __builtin_prefetch ((const void*)__P, 1, 2 /* _MM_HINT_T1 */, 0 /* inst */);
-#pragma clang diagnostic pop
-}
-#endif
-/* end INTEL_FEATURE_ISA_PREFETCHI */
 /* end INTEL_CUSTOMIZATION */
 
 #endif /* __PRFCHWINTRIN_H */
