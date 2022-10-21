@@ -5758,7 +5758,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   //     A2. Processing of need_device_ptr is the same in both versions.
   //     A3. Call __kmpc_omp_wait_deps, __kmpc_omp_task_begin_if0,
   //         and __kmpc_omp_task_complete_if0 to handle DEPEND.
-  //     A4. Does not call __tgt_target_sync for NOWAIT.
+  //     A4. Does not call __tgt_target_sync.
   //
   // B. DispatchCodegenVersion > 0 is for the newer implementation that
   //    supports creation of interop obj that honors the prefer_type
@@ -5770,7 +5770,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   //     B2. Processing of need_device_ptr is the same in both versions.
   //     B3. Call __kmpc_omp_wait_deps to handle DEPEND, but not
   //         __kmpc_omp_task_begin_if0 and  __kmpc_omp_task_complete_if0.
-  //     B4. Call __tgt_target_sync for NOWAIT.
+  //     B4. Call __tgt_target_sync if NOWAIT is not specified.
   Instruction *ThenTerm, *ElseTerm;
   VPOParoptUtils::buildCFGForIfClause(Available, ThenTerm, ElseTerm, InsertPt, DT);
 
@@ -5848,10 +5848,10 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   bool SupportOMPTTracing = (DispatchCodegenVersion == 0);
   genDependForDispatch(W, VariantCall, SupportOMPTTracing);
 
-  // (B4) If DispatchCodegenVersion > 0 and the NOWAIT clause is specified,
+  // (B4) If DispatchCodegenVersion > 0 and the NOWAIT clause is not specified,
   // emit a call to
   //   __tgt_target_sync(loc, gtid, CurrentTask, nullptr);
-  if (DispatchCodegenVersion > 0 && W->getNowait()) {
+  if (DispatchCodegenVersion > 0 && !W->getNowait()) {
     LoadTidAndCurrentTask();
     VPOParoptUtils::genTgtTargetSync(W, IdentTy, Tid, CurrentTask, ThenTerm);
   }

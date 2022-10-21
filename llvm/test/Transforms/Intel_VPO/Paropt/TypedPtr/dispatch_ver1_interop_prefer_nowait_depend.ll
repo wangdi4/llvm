@@ -72,8 +72,8 @@ entry:
 ; CHECK: [[IOP1:%[^ ]+]] = call i8* @__tgt_get_interop_obj(%struct.ident_t* @.kmpc_loc{{.*}}, i32 1, i32 3, i8* bitcast ([3 x i32]* @.prefer.list{{.*}} to i8*), i64 0, i32 %my.tid{{.*}}, i8* [[TASK1]])
 ; CHECK: call void @_Z7foo_gpuiPv(i32 123, i8* [[IOP1]])
 
-; Since NOWAIT is specified, emit the __tgt_target_sync call after the variant call
-; CHECK: call void @__tgt_target_sync(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, i8* [[TASK1]], i8* null)
+; Since NOWAIT is specified, do not emit the __tgt_target_sync call after the variant call
+; CHECK-NEXT: br label %if.end
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.DISPATCH"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TASK"() ]
@@ -125,8 +125,8 @@ entry:
 
 ; CHECK: call void @_Z7foo_gpuiPv(i32 123, i8* [[IOP2]])
 
-; Since NOWAIT is not specified don't emit call to __tgt_target_sync
-; CHECK-NOT: call void @__tgt_target_sync
+; Since NOWAIT is not specified, emit the __tgt_target_sync call after the variant call
+; CHECK-NEXT: call void @__tgt_target_sync(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, i8* [[TASK2]], i8* null)
 
   call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.DISPATCH"() ]
   call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.TASK"() ]
