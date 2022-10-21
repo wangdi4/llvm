@@ -98,10 +98,6 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
             DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX}
             RUNTIME COMPONENT llvm-level0-ompplugin
             DESTINATION bin)
-    if(WIN32)
-      install(FILES $<TARGET_PDB_FILE:omptarget.rtl.level0>
-          DESTINATION bin COMPONENT llvm-level0-ompplugin)
-    endif(WIN32)
 
     add_dependencies(omptarget.rtl.level0 libomptarget-libiomp-file)
     else(INTEL_CUSTOMIZATION)
