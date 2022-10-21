@@ -12557,7 +12557,6 @@ defm VPINSRWZ : avx512_insert_elt_bw<0xC4, "vpinsrw", X86pinsrw, v8i16x_info,
 defm VPINSRDZ : avx512_insert_elt_dq<0x22, "vpinsrd", v4i32x_info, GR32>;
 defm VPINSRQZ : avx512_insert_elt_dq<0x22, "vpinsrq", v2i64x_info, GR64>, VEX_W;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 let Predicates = [HasBWI], AddedComplexity = -10 in {
@@ -12591,7 +12590,6 @@ let Predicates = [HasVPINSRVPEXTR, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
 #endif // INTEL_CUSTOMIZATION
-=======
 let Predicates = [HasAVX512, NoBWI] in {
   def : Pat<(X86pinsrb VR128:$src1,
                        (i32 (anyext (i8 (bitconvert v8i1:$src2)))),
@@ -12610,7 +12608,6 @@ let Predicates = [HasBWI] in {
             (VPINSRBZrr VR128:$src1, (i32 (COPY_TO_REGCLASS VK8:$src2, GR32)),
                         timm:$src3)>;
 }
->>>>>>> 889911ec268a342ec5da0e343eda85233fb62f5a
 
 // Always select FP16 instructions if available.
 let Predicates = [HasBWI], AddedComplexity = -10 in {
