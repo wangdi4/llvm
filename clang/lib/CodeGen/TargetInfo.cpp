@@ -132,7 +132,7 @@ static ABIArgInfo classifyOpenCL(QualType Ty, ASTContext &Context) {
     return ABIArgInfo::getIndirect(Context.getTypeAlignInChars(RT),
                                    /*ByVal=*/false);
 
-  if (Ty->isPromotableIntegerType())
+  if (Context.isPromotableIntegerType(Ty))
     return ABIArgInfo::getExtend(Ty);
 
   return ABIArgInfo::getDirect();
