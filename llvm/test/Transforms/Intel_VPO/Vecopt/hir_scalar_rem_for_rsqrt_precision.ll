@@ -1,11 +1,11 @@
-; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=DOLOOPCHECK
+; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-peel-rem-strip=0 -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-peel-rem-strip=0 -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=DOLOOPCHECK
 ;
 ; LIT test to check that we do not vectorize remainder loops with call to sqrt
 ; intrinsic when the only use(s) of the call result occur in a FDIV instruction
 ; as the second operand and where the number of accuracy bits are set to 14.
 ; This is a workaround to avoid precision issues in FP computation in benchmarks.
-; 
+;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

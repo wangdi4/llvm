@@ -69,6 +69,12 @@ static cl::opt<bool> EnableBlobCoeffVec(
     "enable-blob-coeff-vec", cl::init(true), cl::Hidden,
     cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
+static cl::opt<bool>
+    EnablePeelRemStrip("vplan-enable-peel-rem-strip", cl::init(true),
+                        cl::Hidden,
+                        cl::desc("Enable stripping peel and remainder loops "
+                                 "which are known to have one iteration."));
+
 static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(true),
                                       cl::Hidden,
                                       cl::desc("Enable VLS code generation"));
@@ -1034,6 +1040,8 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
       // Both peel and main loops have been dealt with - we are dealing with
       // remainder loop now.
       setRemVF(VF);
+      assert(!VecRemVPLoop && "Expect only one vector remainder vploop");
+      VecRemVPLoop = VPLp;
       HLoop->setVecTag(HLLoop::VecTagTy::REMAINDER);
     }
 
@@ -1516,6 +1524,10 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   // Remove the OrigLoop for merged CFG approach or if remainder is not needed.
   if ((!isSearchLoop() && OrigLoop->isAttached()) || !NeedRemainderLoop)
     HLNodeUtils::remove(OrigLoop);
+
+  if (EnablePeelRemStrip && !NeedPeelLoop && VecRemVPLoop && UF == 1 &&
+      MainVF == RemVF)
+    VPLoopHLLoopMap[VecRemVPLoop]->replaceByFirstIteration(true, true);
 }
 
 // This function replaces scalar math lib calls in the remainder loop with

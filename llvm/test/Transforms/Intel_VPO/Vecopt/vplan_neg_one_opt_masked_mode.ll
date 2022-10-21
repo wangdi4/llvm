@@ -1,7 +1,7 @@
 ; Test to check that we don't perform -1-stride optimization in masked mode loop
 
-; RUN: opt -disable-output %s -vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-vec-scenario="n0;v16;m16" -print-after=vplan-vec 2>&1 | FileCheck %s
-; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-vec-scenario="n0;v16;m16" -print-after=hir-vplan-vec 2>&1 | FileCheck %s -check-prefixes=HIR
+; RUN: opt -disable-output %s -vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-vec-scenario="n0;v16;m16" -vplan-enable-peel-rem-strip=0 -print-after=vplan-vec 2>&1 | FileCheck %s
+; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-vec-scenario="n0;v16;m16" -vplan-enable-peel-rem-strip=0 -print-after=hir-vplan-vec 2>&1 | FileCheck %s -check-prefixes=HIR
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

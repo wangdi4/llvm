@@ -692,6 +692,9 @@ private:
   // Current topmost VPLoop
   const VPLoop *CurTopVPLoop = nullptr;
 
+  // Vector remainder VPLoop
+  const VPLoop *VecRemVPLoop = nullptr;
+
   // Mask value to add for instructions being added to MainLoop
   RegDDRef *CurMaskValue;
 
