@@ -72,7 +72,7 @@ public:
 #endif
   }
 
-  MemInstGroup(const MemInstGroup &G) = delete;
+  MemInstGroup(const MemInstGroup &) = delete;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Unique ID for debugging.

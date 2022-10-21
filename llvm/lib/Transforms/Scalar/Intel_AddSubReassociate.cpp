@@ -547,6 +547,7 @@ Value *CanonForm::generateCode(Instruction *IP, bool GenTopZero) const {
 
     TopI->eraseFromParent();
   } else {
+    assert(TopI && "TopI cannot be null");
     // Set operand #0 of TopI to "zero".
     TopI->setOperand(0, getIdentityValue(TopI->getType(), TopI->getOpcode()));
   }
@@ -965,7 +966,7 @@ bool AddSubReassociate::memCanonicalizeGroup(Group &G,
 // defined via stack of aliases. Need to find some way to untie this knot,
 // likely via redesigning data structures for intermediate representation.
 template <typename T>
-LLVM_DUMP_METHOD void dumpHistTableElem(const T TableElem) {
+LLVM_DUMP_METHOD void dumpHistTableElem(const T &TableElem) {
   // Fisrt print a value (leaf) of interest.
   auto *V = cast<Value>(TableElem.first);
   dbgs().indent(2);
