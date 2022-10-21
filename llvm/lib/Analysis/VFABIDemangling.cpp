@@ -289,6 +289,7 @@ ParseRet tryParseAlign(StringRef &ParseString, MaybeAlign &Alignment) { // INTEL
 
   return ParseRet::None;
 }
+
 #ifndef NDEBUG
 // Verify the assumtion that all vectors in the signature of a vector
 // function have the same number of elements.
@@ -309,7 +310,6 @@ bool verifyAllVectorsHaveSameWidth(FunctionType *Signature) {
     return (EC == VTy->getElementCount());
   });
 }
-
 #endif // NDEBUG
 
 // Extract the VectorizationFactor from a given function signature,
