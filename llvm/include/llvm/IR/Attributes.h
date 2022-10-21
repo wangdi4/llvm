@@ -59,6 +59,7 @@ class AttributeSetNode;
 class FoldingSetNodeID;
 class Function;
 class LLVMContext;
+class MemoryEffects;
 class Type;
 
 enum class AllocFnKind : uint64_t {
@@ -269,6 +270,9 @@ public:
 
   // Returns the allocator function kind.
   AllocFnKind getAllocKind() const;
+
+  /// Returns memory effects.
+  MemoryEffects getMemoryEffects() const;
 
   /// The Attribute is converted to a string of equivalent mnemonic. This
   /// is, presumably, for writing out the mnemonics for the assembly writer.
@@ -1263,6 +1267,9 @@ public:
 
   // This turns the allocator kind into the form used internally in Attribute.
   AttrBuilder &addAllocKindAttr(AllocFnKind Kind);
+
+  /// Add memory effect attribute.
+  AttrBuilder &addMemoryAttr(MemoryEffects ME);
 
   ArrayRef<Attribute> attrs() const { return Attrs; }
 
