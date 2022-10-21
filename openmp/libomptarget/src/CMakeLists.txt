@@ -94,10 +94,6 @@ if(INTEL_CUSTOMIZATION)
       DESTINATION "${OPENMP_INSTALL_LIBDIR}"
       RUNTIME COMPONENT omptarget DESTINATION bin
       ARCHIVE COMPONENT omptarget DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-  if(WIN32)
-    install(FILES $<TARGET_PDB_FILE:omptarget>
-        DESTINATION bin COMPONENT omptarget)
-  endif(WIN32)
 
   # llvm_update_compile_flags properly disables exceptions, so the system
   # headers (which may use EH, e.g MSVC's xlocale) can be properly compiled.

@@ -567,24 +567,13 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
         // optimization level options. Thus, users are not aware of most
         // optimization are disabled, which may take considerable time to
         // track down compilation issues.
-        // To improve user experience, warn users in this scenario. And this
-        // warning is emitted only when all warnings are allowed (-Wall).
+        // To improve user experience, warn users in this scenario.
         if (Arg *A = Args.getLastArgNoClaim(options::OPT_g_Group,
                                             options::OPT_intel_debug_Group,
                                             options::OPT__SLASH_Z7)) {
-          bool warningAllowed = false;
-          if (!Args.hasArgNoClaim(options::OPT_w)) { // -w disables all warnings
-            if (Args.hasArgNoClaim(options::OPT_Wall))
-              warningAllowed = true;
-            else if (IsCLMode())
-              for (auto& str : Args.getAllArgValues(options::OPT_W_Joined))
-                if (str == "all") {
-                  warningAllowed = true;
-                  break;
-                }
-          }
-          if (warningAllowed)
-            Diag(clang::diag::warn_use_of_debug_turn_off_optimization_level)
+            Diags.setSeverity(diag::remark_use_of_debug_turn_off_optimization_level,
+                      diag::Severity::Remark, {});
+            Diag(clang::diag::remark_use_of_debug_turn_off_optimization_level)
                 << A->getSpelling().split('=').first
                 << (IsCLMode() ? "/Od" : "-O0");
         }
