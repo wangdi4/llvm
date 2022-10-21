@@ -607,7 +607,12 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       PointerTpr = Device.getTargetPointer(
           HstPtrBase, HstPtrBase, sizeof(void *), /*HstPtrName=*/nullptr,
           /*HasFlagTo=*/false, /*HasFlagAlways=*/false, IsImplicit, UpdateRef,
+#if INTEL_COLLAB
+          HasCloseModifier, HasPresentModifier, HasHoldModifier,
+          /*UseHostMem*/false, AsyncInfo);
+#else // INTEL_COLLAB
           HasCloseModifier, HasPresentModifier, HasHoldModifier, AsyncInfo);
+#endif // INTEL_COLLAB
       PointerTgtPtrBegin = PointerTpr.TargetPointer;
       IsHostPtr = PointerTpr.Flags.IsHostPointer;
       if (!PointerTgtPtrBegin) {
@@ -631,10 +636,20 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 
     const bool HasFlagTo = ArgTypes[I] & OMP_TGT_MAPTYPE_TO;
     const bool HasFlagAlways = ArgTypes[I] & OMP_TGT_MAPTYPE_ALWAYS;
+#if INTEL_COLLAB
+    const bool UseHostMem = HasFlagTo &&
+        (ArgTypes[I] & OMP_TGT_MAPTYPE_FROM) &&
+        (ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM) &&
+        (ArgTypes[I] & OMP_TGT_MAPTYPE_HOST_MEM);
+#endif // INTEL_COLLAB
     auto TPR = Device.getTargetPointer(
         HstPtrBegin, HstPtrBase, DataSize, HstPtrName, HasFlagTo, HasFlagAlways,
         IsImplicit, UpdateRef, HasCloseModifier, HasPresentModifier,
+#if INTEL_COLLAB
+        HasHoldModifier, UseHostMem, AsyncInfo);
+#else // INTEL_COLLAB
         HasHoldModifier, AsyncInfo);
+#endif // INTEL_COLLAB
     void *TgtPtrBegin = TPR.TargetPointer;
     IsHostPtr = TPR.Flags.IsHostPointer;
     // If data_size==0, then the argument could be a zero-length pointer to
@@ -1405,8 +1420,7 @@ public:
              const map_var_info_t HstPtrName = nullptr,
 #if INTEL_COLLAB
              const bool AllocImmediately = false,
-             bool PassInHostMem = false,
-             const bool UseDedicatedPool = false) {
+             bool PassInHostMem = false, int32_t AllocOpt = ALLOC_OPT_NONE) {
 #else // INTEL_COLLAB
              const bool AllocImmediately = false) {
 #endif // INTEL_COLLAB
@@ -1444,9 +1458,8 @@ public:
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate ||
         AllocImmediately) {
 #if INTEL_COLLAB
-      TgtPtr = Device.dataAllocBase(ArgSize, HstPtr,
-                                    (void *)((intptr_t)HstPtr + ArgOffset),
-                                    UseDedicatedPool);
+      TgtPtr = Device.dataAllocBase(
+          ArgSize, HstPtr, (void *)((intptr_t)HstPtr + ArgOffset), AllocOpt);
 #else
       TgtPtr = Device.allocData(ArgSize, HstPtr);
 #endif // INTEL_COLLAB
@@ -1719,13 +1732,17 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
           return OFFLOAD_FAIL;
         }
       }
-      const bool UseDedicatedPool = ArgTypes[I] & OMP_TGT_MAPTYPE_CLOSE;
+      int32_t AllocOpt = ALLOC_OPT_NONE;
+      if (ArgTypes[I] & OMP_TGT_MAPTYPE_CLOSE)
+        AllocOpt = ALLOC_OPT_REDUCTION_SCRATCH;
+      else if (ArgTypes[I] & OMP_TGT_MAPTYPE_ZERO_INIT_MEM)
+        AllocOpt = ALLOC_OPT_REDUCTION_COUNTER;
 #endif // INTEL_COLLAB
       Ret = PrivateArgumentManager.addArg(
           HstPtrBegin, ArgSizes[I], TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
 #if INTEL_COLLAB
           TgtArgs.size(), HstPtrName, AllocImmediately, PassInHostMem,
-          UseDedicatedPool);
+          AllocOpt);
 #else // INTEL_COLLAB
           TgtArgs.size(), HstPtrName, AllocImmediately);
 #endif // INTEL_COLLAB

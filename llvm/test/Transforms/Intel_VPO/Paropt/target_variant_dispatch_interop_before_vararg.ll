@@ -1,8 +1,8 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-put-interop-after-vararg=false -S <%s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-put-interop-after-vararg=false -S <%s | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
 
 ; Check that target variant dispatch with interop works with vararg functions.
-; This test is for the "-vpo-paropt-put-interop-after-vararg=false" behavior.
+; This test is for the (default) "-vpo-paropt-put-interop-after-vararg=false" behavior.
 ; The interop obj is expected to be the last explicit formal parameter in the
 ; variant function's declaration. In the variant function call the interop obj
 ; must be inserted into the corresponding position among the actual arguments.

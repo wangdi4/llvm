@@ -236,7 +236,12 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     void *HstPtrBegin, void *HstPtrBase, int64_t Size,
     map_var_info_t HstPtrName, bool HasFlagTo, bool HasFlagAlways,
     bool IsImplicit, bool UpdateRefCount, bool HasCloseModifier,
+#if INTEL_COLLAB
+    bool HasPresentModifier, bool HasHoldModifier, bool UseHostMem,
+    AsyncInfoTy &AsyncInfo) {
+#else // INTEL_COLLAB
     bool HasPresentModifier, bool HasHoldModifier, AsyncInfoTy &AsyncInfo) {
+#endif // INTEL_COLLAB
   HDTTMapAccessorTy HDTTMap = HostDataToTargetMap.getExclusiveAccessor();
 
   void *TargetPointer = nullptr;
@@ -331,7 +336,9 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     // If it is not contained and Size > 0, we should create a new entry for it.
     IsNew = true;
 #if INTEL_COLLAB
-    uintptr_t Ptr = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase);
+    int32_t AllocOpt = UseHostMem ? ALLOC_OPT_HOST_MEM : ALLOC_OPT_NONE;
+    uintptr_t Ptr = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase,
+                                             AllocOpt);
 #else // INTEL_COLLAB
     uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
 #endif // INTEL_COLLAB
@@ -872,7 +879,7 @@ char *DeviceTy::getDeviceName(char *Buffer, size_t BufferMaxSize) {
 }
 
 void *DeviceTy::dataAllocBase(int64_t Size, void *HstPtrBegin,
-                              void *HstPtrBase, int32_t DedicatedPool) {
+                              void *HstPtrBase, int32_t AllocOpt) {
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
@@ -880,7 +887,7 @@ void *DeviceTy::dataAllocBase(int64_t Size, void *HstPtrBegin,
   void *Ret = nullptr;
   if (RTL->data_alloc_base)
     Ret = RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase,
-                               DedicatedPool);
+                               AllocOpt);
   else
     Ret = RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin, TARGET_ALLOC_DEFAULT);
 #if INTEL_CUSTOMIZATION

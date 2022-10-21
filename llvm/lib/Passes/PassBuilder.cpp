@@ -434,6 +434,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnestPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTempArrayTranspose.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
