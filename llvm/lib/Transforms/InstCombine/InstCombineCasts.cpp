@@ -1529,6 +1529,9 @@ static bool hasOneLoadStoreUser(const GetElementPtrInst *CI) {
       return false;
     I = CastI->user_back();
   }
+  // tolerate one more GEP in the sequence (sext,gep,gep,load)
+  if (isa<GetElementPtrInst>(I))
+    I = I->user_back();
   if (isa<LoadInst>(I) || isa<StoreInst>(I))
     return true;
   return false;
@@ -1544,6 +1547,7 @@ static bool hasOneGEPLoadStoreUser(const Instruction &CI) {
   const auto *GEP = dyn_cast<GetElementPtrInst>(I);
   if (!GEP)
     return false;
+
   if (hasOneLoadStoreUser(GEP))
     return true;
   return false;
