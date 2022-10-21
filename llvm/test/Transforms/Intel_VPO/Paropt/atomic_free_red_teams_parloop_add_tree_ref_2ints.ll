@@ -19,9 +19,9 @@
 ; CHECK: %[[REF_PTR1:[^,]+]] = alloca ptr addrspace(4)
 ; CHECK: %[[REF_PTR:[^,]+]] = alloca ptr addrspace(4)
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf.1
+; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %red_buf.1
 ; CHECK: store ptr addrspace(4) addrspacecast (ptr addrspace(3) @[[LOCAL_PTR1:[^,]+]] to ptr addrspace(4)), ptr %[[REF_PTR1]]
-; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf
+; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %red_buf
 ; CHECK: store ptr addrspace(4) addrspacecast (ptr addrspace(3) @[[LOCAL_PTR:[^,]+]] to ptr addrspace(4)), ptr %[[REF_PTR]]
 ; CHECK-LABEL: omp.loop.exit:
 ; CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP{{[0-9.]*}}:

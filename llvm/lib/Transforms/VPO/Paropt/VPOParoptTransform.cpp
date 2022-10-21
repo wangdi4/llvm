@@ -6250,7 +6250,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           if (RedI->getIsArraySection())
             Indices.push_back(Builder.getInt32(0));
           GlobalBufToReplaceWith =
-              Builder.CreateGEP(GlobalBuf->getValueType(), GlobalBuf, Indices);
+              Builder.CreateInBoundsGEP(GlobalBuf->getValueType(), GlobalBuf,
+                                        Indices, "team.buf.baseptr");
           // VPOParoptTransform::getArrSecReductionItemReplacementValue expects
           // arrsec reditem ptr to have addrspace GENERIC.
           // For non-arrsec cases it's also necessary when there are
@@ -7180,8 +7181,21 @@ static void genPrivatizationDebug(WRegionNode *W,
     DILocation *Location = ODVI->getDebugLoc().get();
     DIExpression *Expression = ODVI->getExpression();
 
-    if (auto *GV = dyn_cast_or_null<GlobalVariable>(
-          NewPrivValue->stripPointerCasts())) {
+    auto *GV = dyn_cast_or_null<GlobalVariable>(
+          NewPrivValue->stripPointerCasts());
+
+    if (!GV) {
+      // Should not generate new DILocalVar for reduction global buffer GEP
+      // as it is a temporary location for intermediate reduction results and
+      // should not be observable by debugger.
+      if (auto *GepBaseGV = dyn_cast_or_null<GlobalVariable>(
+              NewPrivValue->stripInBoundsOffsets()))
+        if (GepBaseGV->hasAttribute(
+                VPOParoptAtomicFreeReduction::GlobalBufferAttr))
+          GV = GepBaseGV;
+    }
+
+    if (GV) {
       // Locate the compilation unit where the global variables are stored.
       // The CU must be valid unless the IR is malformed.
       CU = Variable->getScope()->getSubprogram()->getUnit();

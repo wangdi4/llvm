@@ -17,8 +17,8 @@
 
 ; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}({{.*}}ptr addrspace(1) %[[RED_LOCAL_BUF:red_local_buf.*]], ptr addrspace(1) %[[RED_LOCAL_BUF1:red_local_buf.*]], ptr addrspace(1) %[[RED_GLOBAL_BUF:red_buf.*]], ptr addrspace(1) %[[RED_GLOBAL_BUF1:red_buf.*]], ptr
 ; CHECK: call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF1]]
-; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]]
+; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_GLOBAL_BUF1]]
+; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]]
 ; CHECK-LABEL: omp.loop.exit:
 ; CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP{{[0-9.]*}}:
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
