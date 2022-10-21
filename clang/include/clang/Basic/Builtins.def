@@ -524,12 +524,12 @@ BUILTIN(__builtin_islessgreater , "i.", "Fnct")
 BUILTIN(__builtin_isunordered   , "i.", "Fnct")
 
 // Unary FP classification
-<<<<<<< HEAD
-BUILTIN(__builtin_fpclassify, "iiiiii.", "Fnct")
-BUILTIN(__builtin_isfinite,   "i.", "Fnct")
-BUILTIN(__builtin_isinf,      "i.", "Fnct")
-BUILTIN(__builtin_isinf_sign, "i.", "Fnct")
-BUILTIN(__builtin_isnan,      "i.", "Fnct")
+BUILTIN(__builtin_fpclassify, "iiiiii.", "FnctE")
+BUILTIN(__builtin_isfinite,   "i.", "FnctE")
+BUILTIN(__builtin_isinf,      "i.", "FnctE")
+BUILTIN(__builtin_isinf_sign, "i.", "FnctE")
+BUILTIN(__builtin_isnan,      "i.", "FnctE")
+BUILTIN(__builtin_isnormal,   "i.", "FnctE")
 #if INTEL_CUSTOMIZATION
 BUILTIN(__builtin_isnanf,      "if", "Fnc")
 BUILTIN(__builtin_isnanl,      "iLd", "Fnc")
@@ -539,15 +539,6 @@ BUILTIN(__builtin_finite,   "i.", "Fnct")
 BUILTIN(__builtin_finitef,   "if", "Fnc")
 BUILTIN(__builtin_finitel,   "iLd", "Fnc")
 #endif // INTEL_CUSTOMIZATION
-BUILTIN(__builtin_isnormal,   "i.", "Fnct")
-=======
-BUILTIN(__builtin_fpclassify, "iiiiii.", "FnctE")
-BUILTIN(__builtin_isfinite,   "i.", "FnctE")
-BUILTIN(__builtin_isinf,      "i.", "FnctE")
-BUILTIN(__builtin_isinf_sign, "i.", "FnctE")
-BUILTIN(__builtin_isnan,      "i.", "FnctE")
-BUILTIN(__builtin_isnormal,   "i.", "FnctE")
->>>>>>> 5b567637e22bfa128514a5a9de7f3296423e8acd
 
 // FP signbit builtins
 BUILTIN(__builtin_signbit, "i.", "Fnct")
@@ -1172,13 +1163,9 @@ LANGBUILTIN(_alloca, "v*z", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 // CQ#373187: __assume is always enabled in ICC mode.
-LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(__assume, "vb",  "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(__annotation,     "wC*.","n", ALL_MS_LANGUAGES)
-<<<<<<< HEAD
-=======
-LANGBUILTIN(__assume,         "vb",  "nE", ALL_MS_LANGUAGES)
->>>>>>> 5b567637e22bfa128514a5a9de7f3296423e8acd
 LANGBUILTIN(_bittest,                "UcNiC*Ni", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_bittestandcomplement,   "UcNi*Ni", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_bittestandreset,        "UcNi*Ni", "n", ALL_MS_LANGUAGES)
@@ -1273,32 +1260,19 @@ LANGBUILTIN(__popcnt16, "UsUs",   "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt,   "UiUi",   "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt64, "UWiUWi", "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(_ReturnAddress, "v*", "n", ALL_MS_LANGUAGES)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // CMPLRS-4684: In icc, these builtins are availble on Linux as well.
-LANGBUILTIN(_rotl8,  "UcUcUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotl16, "UsUsUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotl,   "UiUii",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_lrotl,  "ULiULii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotl64, "UWiUWii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotr8,  "UcUcUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotr16, "UsUsUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotr,   "UiUii",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_lrotr,  "ULiULii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotr64, "UWiUWii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl8,  "UcUcUc",    "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl16, "UsUsUc",    "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl,   "UiUii",     "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_lrotl,  "ULiULii",   "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl64, "UWiUWii",   "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr8,  "UcUcUc",    "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr16, "UsUsUc",    "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr,   "UiUii",     "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_lrotr,  "ULiULii",   "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr64, "UWiUWii",   "nE", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
-=======
-LANGBUILTIN(_rotl8,  "UcUcUc",    "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotl16, "UsUsUc",    "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotl,   "UiUii",     "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_lrotl,  "ULiULii",   "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotl64, "UWiUWii",   "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr8,  "UcUcUc",    "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr16, "UsUsUc",    "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr,   "UiUii",     "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_lrotr,  "ULiULii",   "nE", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr64, "UWiUWii",   "nE", ALL_MS_LANGUAGES)
->>>>>>> 5b567637e22bfa128514a5a9de7f3296423e8acd
 LANGBUILTIN(__va_start,       "vc**.", "nt", ALL_MS_LANGUAGES)
 LANGBUILTIN(__fastfail, "vUi",    "nr", ALL_MS_LANGUAGES)
 
@@ -2064,7 +2038,7 @@ BUILTIN(__builtin_ms_va_copy, "vc*&c*&", "n")
 LANGBUILTIN(__arithmetic_fence, "v.", "tE", ALL_LANGUAGES)
 
 #if INTEL_CUSTOMIZATION
-LANGBUILTIN(__fence, "v.", "t", ALL_LANGUAGES)
+LANGBUILTIN(__fence, "v.", "tE", ALL_LANGUAGES)
 #endif // INTEL_CUSTOMIZATION
 
 // Builtins for Intel FPGA
