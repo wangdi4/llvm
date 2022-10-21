@@ -1799,7 +1799,6 @@ example:
     a new pointer for the original function, which means that code that depends
     on function-pointer identity can break. So, any function annotated with
     ``jumptable`` must also be ``unnamed_addr``.
-<<<<<<< HEAD
 .. INTEL_CUSTOMIZATION
 ``"loopopt-pipeline"``
     This attribute tells the optimizer to run loopopt framework passes for this
@@ -1812,7 +1811,6 @@ example:
 
     If this attribute is not specified, the default is ``"none"``.
 .. END INTEL_CUSTOMIZATION
-=======
 ``memory(...)``
     This attribute specifies the possible memory effects of the call-site or
     function. It allows specifying the possible access kinds (``none``,
@@ -1853,7 +1851,6 @@ example:
     ``CallSiteEffects & (FunctionEffects | OperandBundleEffects)``. Thus, the
     call-site annotation takes precedence over the potential effects described
     by either the function annotation or the operand bundles.
->>>>>>> 9d9de5a5df05df1abbd35351ded9c74cf4fc5ba6
 ``minsize``
     This attribute suggests that optimization passes and code generator
     passes make choices that keep the code size of this function as small
