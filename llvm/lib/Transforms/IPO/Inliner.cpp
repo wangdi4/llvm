@@ -713,6 +713,11 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
         // Removing the node for callee from the call graph and delete it.
         ILIC->invalidateFunction(Callee); // INTEL
+#if INTEL_CUSTOMIZATION
+        Function *F = CalleeNode->getFunction();
+        IR->removeFunctionReference(*F);
+        MDIR->removeFunctionReference(*F);
+#endif // INTEL_CUSTOMIZATION
         delete CG.removeFunctionFromModule(CalleeNode);
         ++NumDeleted;
       }
@@ -848,6 +853,11 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
       std::unique(FunctionsToRemove.begin(), FunctionsToRemove.end()),
       FunctionsToRemove.end());
   for (CallGraphNode *CGN : FunctionsToRemove) {
+#if INTEL_CUSTOMIZATION
+    Function *F = CGN->getFunction();
+    getInlineReport()->removeFunctionReference(*F);
+    getMDInlineReport()->removeFunctionReference(*F);
+#endif // INTEL_CUSTOMIZATION
     delete CG.removeFunctionFromModule(CGN);
     ++NumDeleted;
   }
