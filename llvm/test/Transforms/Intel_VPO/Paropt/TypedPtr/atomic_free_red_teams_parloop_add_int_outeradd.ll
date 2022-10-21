@@ -26,7 +26,7 @@ target device_triples = "spir64"
 @.str = private unnamed_addr addrspace(1) constant [4 x i8] c"%d\0A\00", align 1
 
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, i32 addrspace(1)* %red_buf, i64 %[[GROUP_ID]]
+; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr inbounds i32, i32 addrspace(1)* %red_buf, i64 %[[GROUP_ID]]
 ; CHECK: %[[OLD_VAL:[^,]+]] = load i32, i32 addrspace(3)* @[[LOCAL_PTR:[^,]+]]
 ; CHECK: %[[NEW_VAL:[^,]+]] = add nsw i32 %[[OLD_VAL]], 10
 ; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(3)* @[[LOCAL_PTR]]

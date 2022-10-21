@@ -15,7 +15,7 @@
 ; }
 
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf, i64 %[[GROUP_ID]]
+; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %red_buf, i64 %[[GROUP_ID]]
 ; CHECK: %[[LOCAL_SUM_GEP_AC:[^,]+]] = addrspacecast ptr addrspace(1) %[[LOCAL_SUM_GEP]] to ptr addrspace(4)
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
