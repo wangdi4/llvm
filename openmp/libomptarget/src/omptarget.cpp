@@ -218,10 +218,8 @@ static int initLibrary(DeviceTy &Device) {
 #if INTEL_COLLAB
   if (Device.FnPtrMap.size() > 0) {
     Rc = Device.setFunctionPtrMap();
-    if (Rc != OFFLOAD_SUCCESS) {
-      Device.PendingGlobalsMtx.unlock();
+    if (Rc != OFFLOAD_SUCCESS)
       return Rc;
-    }
   }
 #endif // INTEL_COLLAB
   /*

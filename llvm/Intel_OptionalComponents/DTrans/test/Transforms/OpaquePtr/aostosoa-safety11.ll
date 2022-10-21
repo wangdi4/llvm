@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 ; RUN: opt -dtransop-allow-typed-pointers -disable-output -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

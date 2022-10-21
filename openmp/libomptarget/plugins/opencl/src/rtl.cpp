@@ -634,7 +634,7 @@ class OpenCLProgramTy {
   bool IsBinary = false;
 
   /// Target table
-  __tgt_target_table Table;
+  __tgt_target_table Table{nullptr, nullptr};
 
   /// Target entries
   std::vector<__tgt_offload_entry> Entries;
