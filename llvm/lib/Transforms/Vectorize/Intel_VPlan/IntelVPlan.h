@@ -1465,7 +1465,7 @@ public:
     assert(!getNumOperands() &&
            "GEP instruction already has operands before base pointer.");
     addOperand(Ptr);
-    for (auto Idx : IdxList)
+    for (const auto &Idx : IdxList)
       addOperand(Idx);
     assert(cast<PointerType>(getOperand(0)->getType()->getScalarType())
                ->isOpaqueOrPointeeTypeMatches(SourceElementType) &&

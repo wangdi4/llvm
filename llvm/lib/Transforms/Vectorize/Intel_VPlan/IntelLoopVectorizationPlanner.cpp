@@ -1453,7 +1453,7 @@ void LoopVectorizationPlanner::predicate() {
     PredicatedVPlans.insert(VPlan);
   };
 
-  for (auto It : VPlans) {
+  for (const auto &It : VPlans) {
     if (It.first == 1)
       continue; // Ignore Scalar VPlan;
     VPlanVector *MainPlan = It.second.MainPlan.get();

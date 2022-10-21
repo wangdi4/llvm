@@ -616,7 +616,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   // scalar remainder at front while others before the anchor. So the scalar
   // remainder is inserted in CFG first.
   auto AnchorIter = PlanDescrs.begin();
-  for (auto Rem : Scen.remainders())
+  for (const auto &Rem : Scen.remainders())
     switch (Rem.Kind) {
     case LK::LKNone:
       break;
@@ -660,7 +660,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PlanDescrs.size() && MergeNewPlansDumpControl.dumpPlain()) {
     dbgs() << "List of VPlans added for merging:\n";
-    for (auto P : PlanDescrs)
+    for (const auto &P : PlanDescrs)
       P.dump();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -1650,7 +1650,7 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
                                   ExtVals.getOrCreateOptRptStatsForLoop(L));
 
     // Add all of the blocks in L to the new loop.
-    for (auto BB : L->getBlocks())
+    for (const auto &BB : L->getBlocks())
       if (SrcLI->getLoopFor(BB) == L)
         NewLoop->addBasicBlockToLoop(BB, *DestLI);
     return NewLoop;
@@ -1667,7 +1667,7 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
 
 void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
   using LT = CfgMergerPlanDescr::LoopType;
-  for (auto P : Plans) {
+  for (const auto &P : Plans) {
     if (P.Type == LT::LTMain)
       continue;
     // Move blocks from inner VPlan into main VPlan.

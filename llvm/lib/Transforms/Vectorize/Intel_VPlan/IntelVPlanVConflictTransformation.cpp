@@ -423,7 +423,7 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
       TreeConflicts[TreeConflict] = Pred;
     }
 
-  for (auto TreeConflictItem : TreeConflicts) {
+  for (const auto &TreeConflictItem : TreeConflicts) {
     VPTreeConflict *TreeConflict = TreeConflictItem.first;
     assert(TreeConflict->getNumUsers() == 1 &&
            cast<VPInstruction>(*TreeConflict->users().begin())->getOpcode() ==
