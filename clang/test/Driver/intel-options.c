@@ -941,22 +941,18 @@
 // CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP: "-fopenmp-declare-target-scalar-defaultmap-firstprivate"
 
 // Warn users most optimizations are disabled when using debug options (-g, -debug, /Z7) without adding explicit -O options.
-// RUN: %clang -### --intel -g -Wall %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=WARN-DEBUG-O0 %s
-// RUN: %clang -### --intel -g %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=NO-WARN-DEBUG-O0 %s
-// RUN: %clang -### --intel -debug -Wall %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=WARN-DEBUG-O0 %s
-// RUN: %clang -### --intel -debug=all -Wall %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=WARN-DEBUG-O0 %s
-// RUN: %clang -### --intel -debug %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
-// RUN: %clang -### --intel -debug=all %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
-// RUN: %clang_cl -### --intel /Z7 /Wall %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=WARN-DEBUG-Od %s
-// RUN: %clang_cl -### --intel /Z7 %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=NO-WARN-DEBUG-Od %s
-// RUN: %clang -### --intel -g -O2 -Wall %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=NO-WARN-DEBUG-O0 %s
-// RUN: %clang -### --intel -debug -O2 -Wall %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
-// RUN: %clang -### --intel -debug=all -Wall -O2 %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
-// RUN: %clang_cl -### --intel /Z7 /O2 /Wall %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=NO-WARN-DEBUG-Od %s
-// WARN-DEBUG-O0: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
-// WARN-DEBUG-Od: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
-// NO-WARN-DEBUG-O0-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
-// NO-WARN-DEBUG-Od-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
+// RUN: %clang -### --intel -g %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=REMARK-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=REMARK-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug=all %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=REMARK-DEBUG-O0 %s
+// RUN: %clang_cl -### --intel /Z7 %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=REMARK-DEBUG-Od %s
+// RUN: %clang -### --intel -g -O2 %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=NO-REMARK-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug -O2 %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-REMARK-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug=all -O2 %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-REMARK-DEBUG-O0 %s
+// RUN: %clang_cl -### --intel /Z7 /O2 %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=NO-REMARK-DEBUG-Od %s
+// REMARK-DEBUG-O0: remark: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
+// REMARK-DEBUG-Od: remark: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
+// NO-REMARK-DEBUG-O0-NOT: remark: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
+// NO-REMARK-DEBUG-Od-NOT: remark: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
 
 // -q[no-]opt-assume-counted-loops and /Qopt-assume-counted-loops[-]
 // RUN: %clang -### -qopt-assume-counted-loops %s 2>&1 | FileCheck -check-prefix=ASSUME-COUNTED-LOOPS %s
