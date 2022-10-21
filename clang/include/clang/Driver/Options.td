@@ -8296,7 +8296,7 @@ def : CLFlag<"Qmno-amx-avx512-cvtrow">, Alias<mno_amx_avx512_cvtrow>;
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
 def : CLFlag<"Qmamx-bf16">, Alias<mamx_bf16>;
 def : CLFlag<"Qmno-amx-bf16">, Alias<mno_amx_bf16>;
-def : CLFlag<"Qmamx-int8">, Alias<mtamx_int8>;
+def : CLFlag<"Qmamx-int8">, Alias<mamx_int8>;
 def : CLFlag<"Qmno-amx-int8">, Alias<mno_amx_int8>;
 def : CLFlag<"Qmamx-tile">, Alias<mamx_tile>;
 def : CLFlag<"Qmno-amx-tile">, Alias<mno_amx_tile>;
