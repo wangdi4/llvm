@@ -1052,7 +1052,7 @@ class LevelZeroProgramTy {
   int32_t DeviceId = 0;
 
   /// Target table
-  __tgt_target_table Table;
+  __tgt_target_table Table{nullptr, nullptr};
 
   /// Target entries
   std::vector<__tgt_offload_entry> Entries;
@@ -6745,7 +6745,8 @@ int32_t __tgt_rtl_get_interop_property_value(
   switch (Ipr) {
   case L0Interop::device_num_eus:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = DeviceProperties.numEUsPerSubslice *
+      *static_cast<intptr_t *>(Value) =
+          static_cast<intptr_t>(DeviceProperties.numEUsPerSubslice) *
           DeviceProperties.numSubslicesPerSlice *
           DeviceProperties.numSlices;
     else
