@@ -2318,7 +2318,7 @@ public:
         // When routine is not cloned, original "Append" call is replaced
         // by new "Append" function. ReverseVMap is used to get original
         // "Append" function.
-        Function *OrgF = IsCloned ? FCalled : ReverseVMap[FCalled];
+	Function *OrgF = IsCloned ? FCalled : ReverseVMap.lookup(FCalled);
         if (OrgF && std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
                               OrgF) != CSInfo.Appends.end())
           // See compareAllAppendCallSites, appends should be in a single

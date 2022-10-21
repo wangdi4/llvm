@@ -23,7 +23,12 @@
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | FileCheck --check-prefix=CHECK-OP %s
-; REQUIRES: x86_64-linux
+; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
+; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
+; RUN:          -dtrans-soatoaos-size-heuristic=false                   \
+; RUN:       | %lli
+; REQUIRES: system-linux
+
 
 ; -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays,dtrans-soatoaosop-struct
 

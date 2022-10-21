@@ -1749,6 +1749,10 @@ public:
         assert(!isa<PHINode>(U.getUser()) &&
                "PHINode should be element of ElementPtrGEP");
 
+	// Skip processing PHI value here if used in BasePtrInst (i.e not accessing
+	// elements).
+	if (InstsToTransform.BasePtrInst.count(cast<Instruction>(U.getUser())))
+          continue;
         auto *NewU = cast<Instruction>((Value *)VMap[U.getUser()]);
         if (Copy)
           NewU = cast<Instruction>(OrigToCopy.find(NewU)->second);
