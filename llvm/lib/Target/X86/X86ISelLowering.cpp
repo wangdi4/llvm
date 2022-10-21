@@ -569,14 +569,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
-  if (Subtarget.hasPREFETCHI() || Subtarget.hasSSEPrefetch()
-      || Subtarget.hasThreeDNow())
-#else // INTEL_FEATURE_ISA_PREFETCHI
   if (Subtarget.hasSSEPrefetch() || Subtarget.hasThreeDNow())
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
 
   setOperationAction(ISD::ATOMIC_FENCE  , MVT::Other, Custom);

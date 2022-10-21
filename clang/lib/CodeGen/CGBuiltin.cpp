@@ -3385,12 +3385,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Locality = (E->getNumArgs() > 2) ? EmitScalarExpr(E->getArg(2)) :
       llvm::ConstantInt::get(Int32Ty, 3);
     Value *Data = llvm::ConstantInt::get(Int32Ty, 1);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
-    if (E->getNumArgs() > 3)
-      Data = EmitScalarExpr(E->getArg(3));
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
     Function *F = CGM.getIntrinsic(Intrinsic::prefetch, Address->getType());
     return RValue::get(Builder.CreateCall(F, {Address, RW, Locality, Data}));
   }
@@ -17293,6 +17287,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     static constexpr int Mask[] = {0, 5, 6, 7};
     return Builder.CreateShuffleVector(Call, Ops[2], Mask);
   }
+  case X86::BI__builtin_ia32_prefetchi:
+    return Builder.CreateCall(
+        CGM.getIntrinsic(Intrinsic::prefetch, Ops[0]->getType()),
+        {Ops[0], llvm::ConstantInt::get(Int32Ty, 0), Ops[1],
+         llvm::ConstantInt::get(Int32Ty, 0)});
   }
 }
 

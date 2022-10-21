@@ -354,11 +354,9 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasCLWB = true;
     } else if (Feature == "+wbnoinvd") {
       HasWBNOINVD = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
     } else if (Feature == "+prefetchi") {
       HasPREFETCHI = true;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
     } else if (Feature == "+prefetchst2") {
       HasPREFETCHST2 = true;
@@ -1135,11 +1133,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__SHSTK__");
   if (HasSGX)
     Builder.defineMacro("__SGX__");
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
   if (HasPREFETCHI)
     Builder.defineMacro("__PREFETCHI__");
-#endif // INTEL_FEATURE_ISA_PREFETCHI
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
   if (HasPREFETCHST2)
     Builder.defineMacro("__PREFETCHST2__");
@@ -1748,10 +1744,8 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("pconfig", true)
       .Case("pku", true)
       .Case("popcnt", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
       .Case("prefetchi", true)
-#endif // INTEL_FEATURE_ISA_PREFETCHI
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
       .Case("prefetchst2", true)
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
@@ -2215,10 +2209,8 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("pconfig", HasPCONFIG)
       .Case("pku", HasPKU)
       .Case("popcnt", HasPOPCNT)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
       .Case("prefetchi", HasPREFETCHI)
-#endif // INTEL_FEATURE_ISA_PREFETCHI
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
       .Case("prefetchst2", HasPREFETCHST2)
 #endif // INTEL_FEATURE_ISA_PREFETCHST2

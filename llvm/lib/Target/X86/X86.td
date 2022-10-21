@@ -156,17 +156,15 @@ def FeaturePFI      : SubtargetFeature<"avx512pf", "HasPFI", "true",
                       "Enable AVX-512 PreFetch Instructions",
                                       [FeatureAVX512]>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
-def FeaturePREFETCHI  : SubtargetFeature<"prefetchi", "HasPREFETCHI",
-                                   "true",
-                                   "Prefetch instruction with T0 or T1 Hint">;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_PREFETCHST2
 def FeaturePREFETCHST2  : SubtargetFeature<"prefetchst2", "HasPREFETCHST2",
                                    "true",
                                    "Prefetch with Intent to Shared and T2 Hint">;
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
+def FeaturePREFETCHI  : SubtargetFeature<"prefetchi", "HasPREFETCHI",
+                                   "true",
+                                   "Prefetch instruction with T0 or T1 Hint">;
 def FeaturePREFETCHWT1  : SubtargetFeature<"prefetchwt1", "HasPREFETCHWT1",
                                    "true",
                                    "Prefetch with Intent to Write and T1 Hint">;
@@ -1393,9 +1391,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AMX_FP16
                                                   FeatureAMXFP16,
 #endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_PREFETCHI
                                                   FeaturePREFETCHI
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // ENABLE_CPU_GNR
 #if INTEL_FEATURE_CPU_GNR
   ];
@@ -1540,9 +1536,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AMX_FP16
     FeatureAMXFP16,
 #endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_PREFETCHI
     FeaturePREFETCHI,
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA,
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -1726,9 +1720,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> MTLAdditionalFeatures = [
 #endif // INTEL_FEATURE_CPU_MTL
 #ifdef ENABLE_CPU_MTL
-#if INTEL_FEATURE_ISA_PREFETCHI
                                                   FeaturePREFETCHI
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // ENABLE_CPU_MTL
 #if INTEL_FEATURE_CPU_MTL
   ];

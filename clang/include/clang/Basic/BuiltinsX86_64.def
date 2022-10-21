@@ -498,6 +498,8 @@ LANGBUILTIN(write_pipe, "i.", "tn", INTEL_FPGA_PIPE1X)
 #undef LANGBUILTIN
 #endif // INTEL_CUSTOMIZATION
 
+TARGET_BUILTIN(__builtin_ia32_prefetchi, "vvC*Ui", "nc", "prefetchi")
+
 #undef BUILTIN
 #undef TARGET_BUILTIN
 #undef TARGET_HEADER_BUILTIN
