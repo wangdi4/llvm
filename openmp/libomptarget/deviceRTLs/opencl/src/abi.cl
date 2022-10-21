@@ -498,4 +498,29 @@ EXTERN void __kmpc_free(int gtid, void *ptr, omp_allocator_handle_t al) {
     __kmp_dealloc(ptr);
 }
 
+/// Check if the team_done_counter reached num_teams
+EXTERN bool __kmpc_team_reduction_ready(int *team_done_counter, int num_teams) {
+  volatile global atomic_int *counter =
+      (volatile global atomic_int *)team_done_counter;
+  int prev_count = atomic_fetch_add(counter, 1);
+  return (prev_count + 1) == num_teams;
+}
+
+/// Let the first team check if the team_done_counter reached num_teams
+EXTERN bool __kmpc_team_reduction_ready_teamzero(int* team_done_counter,
+                                                 int num_teams) {
+  volatile global atomic_int *counter =
+      (volatile global atomic_int *)team_done_counter;
+  int prev_count = atomic_fetch_add(counter, 1);
+
+  if (__kmp_get_group_id() != 0)
+    return false;
+
+  int count = prev_count + 1;
+  while (count != num_teams) {
+    count = atomic_load(counter);
+  }
+
+  return true;
+}
 #endif // INTEL_COLLAB

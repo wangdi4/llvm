@@ -1,6 +1,6 @@
 //=== --------- Intel_InlineReiortSetup.cpp - Inlining Report Setup ------=== //
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -139,7 +139,7 @@ InlineReportTreeNode::insertNewChild(Instruction *CallI, unsigned InsertAt,
       Reason = NinlrExtern;
     CSIR = new CallSiteInliningReport(CB, nullptr, Reason);
     CallI->setMetadata(CallSiteTag, CSIR->get());
-    MDIR.addCallback(CallI, CSIR->get());
+    MDIR.addCallback(CallI);
   }
 
   // Update list of callsites for parent inlining report metadata
@@ -435,7 +435,7 @@ static bool verifyFunctionInliningReport(Function *F,
     } else {
       FunctionCallSites[0]->setMetadata(CallSiteTag,
                                         IRCallSites[0]->InlineReport);
-      MDIR.addCallback(FunctionCallSites[0], IRCallSites[0]->InlineReport);
+      MDIR.addCallback(FunctionCallSites[0]);
     }
 
     for (I = 1; (I < IRCallSites.size()) && (I < FCSSize); ++I) {
@@ -443,7 +443,7 @@ static bool verifyFunctionInliningReport(Function *F,
                                   IRCallSites[I]->InlineReport)) {
         FunctionCallSites[I]->setMetadata(CallSiteTag,
                                           IRCallSites[I]->InlineReport);
-        MDIR.addCallback(FunctionCallSites[I], IRCallSites[I]->InlineReport);
+        MDIR.addCallback(FunctionCallSites[I]);
         continue;
       }
       unsigned InsertAt = 0;
@@ -497,13 +497,13 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
       CallSiteInliningReport *CSIR =
           new CallSiteInliningReport(CB, nullptr, Reason);
       CB->setMetadata(CallSiteTag, CSIR->get());
-      MDIR.addCallback(&I, CSIR->get());
+      MDIR.addCallback(&I);
       CSs.push_back(CSIR->get());
     }
   }
   FunctionInliningReport *NewFIR =
       new FunctionInliningReport(F, &CSs, false /*isDead*/);
-  MDIR.addCallback(F, NewFIR->get());
+  MDIR.addCallback(F);
   return NewFIR->get();
 }
 
@@ -544,7 +544,7 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
 
       // Now verify and re-connect callsites metadata if needed.
       if (verifyFunctionInliningReport(F, MDIR)) {
-        MDIR.addCallback(F, FIR);
+        MDIR.addCallback(F);
         LLVM_DEBUG(dbgs() << "MDIR setup: verification successful for "
                           << F->getName() << '\n');
         return FIR;

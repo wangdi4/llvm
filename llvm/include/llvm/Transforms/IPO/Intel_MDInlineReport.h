@@ -133,7 +133,7 @@ public:
       return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
-    addCallback(NewCall, NewCall->getMetadata(MDInliningReport::CallSiteTag));
+    addCallback(NewCall);
   }
 
   // Update the 'OldCall' to 'NewCall' in the ActiveInlinedCalls.
@@ -144,10 +144,47 @@ public:
       if (ActiveInlinedCalls[I] == OldCall) {
         ActiveInlinedCalls[I] = NewCall;
         removeCallback(OldCall);
-        addCallback(NewCall,
-                    NewCall->getMetadata(MDInliningReport::CallSiteTag));
+        addCallback(NewCall);
         break;
       }
+  }
+
+  // Indicate that 'CB' has been eliminated as dead code with the
+  // indicated reason.
+  void removeCallBaseReference(CallBase &CB,
+                               InlineReason Reason =
+                                   InlineReportTypes::NinlrDeleted) {
+    MDNode *MDIR = CB.getMetadata(MDInliningReport::CallSiteTag);
+    if (MDIR && CurrentCallInstr != &CB)
+      if (auto *CSIR = dyn_cast<MDTuple>(MDIR)) {
+        LLVMContext &Ctx = MDIR->getContext();
+        std::string ReasonStr = "reason: ";
+        ReasonStr.append(std::to_string(Reason));
+        auto ReasonMD =
+            MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
+        CSIR->replaceOperandWith(MDInliningReport::CSMDIR_InlineReason,
+                                 ReasonMD);
+        CB.setMetadata(MDInliningReport::CallSiteTag, nullptr);
+      } 
+    // If necessary, remove any reference in the ActiveInlinedCalls
+    for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
+      if (ActiveInlinedCalls[II] == &CB)
+        ActiveInlinedCalls[II] = nullptr;
+  }
+
+  // Indicate that 'F' has been eliminated as a dead static function.
+  void removeFunctionReference(Function &F) {
+    MDNode *MDIR = F.getMetadata(MDInliningReport::FunctionTag);
+    if (!MDIR)
+      return;
+    if (auto *FIR = dyn_cast<MDTuple>(MDIR)) {
+      LLVMContext &Ctx = MDIR->getContext();
+      std::string IsDeadStr = "isDead: ";
+      IsDeadStr.append(std::to_string(true));
+      auto IsDeadMD =
+          MDNode::get(Ctx, llvm::MDString::get(Ctx, IsDeadStr));
+      FIR->replaceOperandWith(MDInliningReport::FMDIR_IsDead, IsDeadMD);
+    }  
   }
 
   // Setup initial values for the single inlining step
@@ -213,52 +250,23 @@ private:
   ///
   class InliningReportCallback : public CallbackVH {
     InlineReportBuilder *IRB;
-    MDNode *MDIR;
     void deleted() override {
-      if (isa<Instruction>(getValPtr())) {
+      assert(IRB);
+      if (auto CB = dyn_cast<CallBase>(getValPtr())) {
         /// Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
-        Instruction *I = cast<Instruction>(getValPtr());
-        if (IRB) {
-          if (IRB->CurrentCallInstr != I && MDIR)
-            if (auto *CSIR = dyn_cast<MDTuple>(MDIR)) {
-              LLVMContext &Ctx = MDIR->getContext();
-              std::string ReasonStr = "reason: ";
-              ReasonStr.append(std::to_string(InlineReportTypes::NinlrDeleted));
-              auto ReasonMD =
-                  MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
-              CSIR->replaceOperandWith(MDInliningReport::CSMDIR_InlineReason,
-                                       ReasonMD);
-              if (I->getMetadata(MDInliningReport::CallSiteTag))
-                I->setMetadata(MDInliningReport::CallSiteTag, nullptr);
-            }
-          // If necessary, remove any reference in the ActiveInlinedCalls
-          for (unsigned II = 0, E = IRB->ActiveInlinedCalls.size(); II < E;
-               ++II)
-            if (IRB->ActiveInlinedCalls[II] == I) {
-              IRB->ActiveInlinedCalls[II] = nullptr;
-            }
-        }
-      } else if (isa<Function>(getValPtr())) {
+        IRB->removeCallBaseReference(*CB);
+      } else if (auto F = dyn_cast<Function>(getValPtr())) {
         /// Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
-        if (MDIR) {
-          if (auto *FIR = dyn_cast<MDTuple>(MDIR)) {
-            LLVMContext &Ctx = MDIR->getContext();
-            std::string IsDeadStr = "isDead: ";
-            IsDeadStr.append(std::to_string(true));
-            auto IsDeadMD =
-                MDNode::get(Ctx, llvm::MDString::get(Ctx, IsDeadStr));
-            FIR->replaceOperandWith(MDInliningReport::FMDIR_IsDead, IsDeadMD);
-          }
-        }
+        IRB->removeFunctionReference(*F);
       }
       setValPtr(nullptr);
     }
 
   public:
-    InliningReportCallback(Value *V, InlineReportBuilder *IRBPtr, MDNode *MD)
-        : CallbackVH(V), IRB(IRBPtr), MDIR(MD) {};
+    InliningReportCallback(Value *V, InlineReportBuilder *IRBPtr)
+        : CallbackVH(V), IRB(IRBPtr) {};
 
     void updateIRBuilder(InlineReportBuilder *NewIRB) { IRB = NewIRB; }
     InlineReportBuilder* getIRBuilder() { return IRB; }
@@ -269,10 +277,10 @@ private:
 
 public:
   // Add callback for function or instruction.
-  void addCallback(Value *V, MDNode *MDIR) {
-    if (!V || !MDIR || IRCallbackMap.count(V))
+  void addCallback(Value *V) {
+    if (!V || IRCallbackMap.count(V))
       return;
-    InliningReportCallback *IRCB = new InliningReportCallback(V, this, MDIR);
+    InliningReportCallback *IRCB = new InliningReportCallback(V, this);
     IRCallbackMap.insert({V, IRCB});
   }
 

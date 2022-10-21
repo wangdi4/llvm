@@ -818,6 +818,9 @@ EXTERN void __kmpc_reduction_add_double(const uint id, const uint size,
                                         void *local_result, void *output);
 #endif // HAVE_FP64_SUPPORT
 
+EXTERN bool __kmpc_team_reduction_ready(int *team_done_counter, int num_teams);
+EXTERN bool __kmpc_team_reduction_ready_teamzero(int *team_done_counter,
+                                                 int num_teams);
 
 ///
 /// Dynamic memory allocation support
