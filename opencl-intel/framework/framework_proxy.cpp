@@ -443,8 +443,8 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const
 // FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy() {
-// Disable it to avoid conflict with atexit() callback.
-#if 0
+#ifdef _WIN32
+  // Disable it on linux to avoid conflict with atexit() callback.
   if (Instance()->NeedToDisableAPIsAtShutdown()) {
     // If this function is being called during process shutdown AND we
     // should just disable external APIs. Do not delete or release
@@ -453,11 +453,12 @@ void FrameworkProxy::Destroy() {
       Instance()->Release(true);
   } else
     Instance()->Release(true);
-#endif
+#else
   // FIXME: Now sycl shutdown process is executed after ocl so that the ocl
   // resources will not be released indeed. This is a workaround to make sure
   // that the user's programs are finally released.
   Instance()->m_pContextModule->Release(true);
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

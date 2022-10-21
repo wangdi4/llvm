@@ -107,6 +107,14 @@ if (LLVM_ENABLE_DOXYGEN)
 endif()
 endif()
 
+# INTEL_CUSTOMIZATION
+# Add c_status.html and cxx_status.html to deploy list
+install(FILES ${CLANG_SOURCE_DIR}/www/c_status.html ${CLANG_SOURCE_DIR}/www/cxx_status.html
+  DESTINATION doc/html
+  COMPONENT clang-docs
+)
+# end INTEL_CUSTOMIZATION
+
 function (gen_rst_file_from_td output_file td_option source docs_target)
   if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
     message(FATAL_ERROR "Cannot find source file: ${source} in ${CMAKE_CURRENT_SOURCE_DIR}")

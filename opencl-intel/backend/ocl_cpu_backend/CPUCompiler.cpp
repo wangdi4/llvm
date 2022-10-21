@@ -138,6 +138,9 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
             llvm::JITEventListener::createIntelJITEventListener());
     }
 
+    m_pGDBJITRegistrationListener.reset(
+        llvm::JITEventListener::createNewGDBRegistrationListenerInstance());
+
     // Initialize asm parsers to support inline assembly
     llvm::InitializeAllAsmParsers();
 }
@@ -256,8 +259,8 @@ CPUCompiler::CreateLLJIT(llvm::Module *M,
     llvm::orc::RTDyldObjectLinkingLayer &LL =
         static_cast<llvm::orc::RTDyldObjectLinkingLayer &>(
             LLJIT->getObjLinkingLayer());
-    LL.registerJITEventListener(
-        *llvm::JITEventListener::createGDBRegistrationListener());
+    if (m_pGDBJITRegistrationListener)
+        LL.registerJITEventListener(*m_pGDBJITRegistrationListener);
     if (m_pVTuneListener)
         LL.registerJITEventListener(*m_pVTuneListener);
 
