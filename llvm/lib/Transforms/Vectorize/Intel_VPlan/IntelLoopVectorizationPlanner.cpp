@@ -926,7 +926,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   VecScenario.resetRemainders();
 
   if (ForcedVF > 0) {
-    if (ForcedVF * BestUF > TripCount) {
+    if ((uint64_t)ForcedVF * (uint64_t)BestUF > TripCount) {
       LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because ForcedVF("
                         << ForcedVF << ") * BestUF(" << BestUF
                         << ") > TripCount(" << TripCount << ")\n");
@@ -995,7 +995,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
       }
 
-      if (SearchLoopPreferredVF * BestUF > TripCount) {
+      if ((uint64_t)SearchLoopPreferredVF * (uint64_t)BestUF > TripCount) {
         LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because "
                    << "SearchLoopPreferredVF(" << SearchLoopPreferredVF
                    << ") * BestUF(" << BestUF << ") > TripCount("
@@ -1072,7 +1072,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   //    is selected.
   for (unsigned VF : getVectorFactors()) {
     assert(hasVPlanForVF(VF) && "expected non-null VPlan");
-    if (TripCount < VF * BestUF)
+    if (TripCount < (uint64_t)VF * (uint64_t)BestUF)
       continue; // FIXME: Consider masked low trip later.
 
     VPlanVector *Plan = getVPlanForVF(VF);

@@ -1510,7 +1510,7 @@ void VPlanCFGMerger::moveOrigUBToBegin() {
 void VPlanCFGMerger::copyDA(std::list<PlanDescr> &Plans) {
   using LT = CfgMergerPlanDescr::LoopType;
   VPlanDivergenceAnalysis *DA = Plan.getVPlanDA();
-  for (auto P : Plans) {
+  for (const auto &P : Plans) {
     if (P.Type == LT::LTMain)
       continue;
 

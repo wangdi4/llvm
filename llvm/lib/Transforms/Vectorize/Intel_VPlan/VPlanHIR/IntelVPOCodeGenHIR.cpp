@@ -1121,8 +1121,8 @@ void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
   // vectorizing that loop with such a VF * UF.
   uint64_t TripCount = 0;
   bool IsTCValidForPeeling =
-      OrigLoop->isConstTripLoop(&TripCount) && TripCount <= VF * UF ? false
-                                                                    : true;
+      OrigLoop->isConstTripLoop(&TripCount) && TripCount <= (uint64_t)VF * (uint64_t)UF ? false
+                                                                                          : true;
   if (SearchLoopNeedsPeeling && !IsTCValidForPeeling)
     LLVM_DEBUG(dbgs() << "Can't peel loop : VF(" << VF << ") * UF(" << UF
                       << ") >= TC(" << TripCount << ")!\n");

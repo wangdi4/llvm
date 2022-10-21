@@ -909,7 +909,7 @@ void HeuristicPsadbw::apply(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
-  for (auto PatternInstructionsEl : PsadbwPatternInsts) {
+  for (const auto &PatternInstructionsEl : PsadbwPatternInsts) {
     const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
     SinglePatternInstsSet PatternInstructions = PatternInstructionsEl.second;
 

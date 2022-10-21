@@ -687,7 +687,7 @@ void VPlanAllZeroBypass::insertAllZeroBypasses(
                           VPLI, AllZeroBypassRegionsFinal);
   Plan.computePDT();
   PDT = Plan.getPDT();
-  for (auto BypassRegion : AllZeroBypassRegionsFinal) {
+  for (const auto &BypassRegion : AllZeroBypassRegionsFinal) {
     (void)BypassRegion;
     assert(PDT->dominates(BypassRegion.second, BypassRegion.first) &&
            "Region exit does not post-dominate region entry");

@@ -1854,7 +1854,7 @@ public:
       << ", SSID: " << static_cast<unsigned>(getSyncScopeID()) << "\n";
     if (!MDs.empty()) {
       O << "    NonDbgMDs -\n";
-      for (auto MDPair : MDs) {
+      for (const auto &MDPair : MDs) {
         O << "      ";
         MDPair.second->print(O);
         O << "\n";
