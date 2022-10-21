@@ -86,6 +86,8 @@ private:
 
     std::unique_ptr<llvm::ExecutionEngine> m_pExecEngine;
 
+    std::unique_ptr<llvm::JITEventListener> m_pGDBJITRegistrationListener;
+
     std::unique_ptr<llvm::JITEventListener> m_pVTuneListener;
 };
 
