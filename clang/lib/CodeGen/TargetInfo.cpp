@@ -132,7 +132,7 @@ static ABIArgInfo classifyOpenCL(QualType Ty, ASTContext &Context) {
     return ABIArgInfo::getIndirect(Context.getTypeAlignInChars(RT),
                                    /*ByVal=*/false);
 
-  if (Ty->isPromotableIntegerType())
+  if (Context.isPromotableIntegerType(Ty))
     return ABIArgInfo::getExtend(Ty);
 
   return ABIArgInfo::getDirect();
@@ -246,7 +246,7 @@ static llvm::Type *getVAListElementType(CodeGenFunction &CGF) {
 }
 
 bool ABIInfo::isPromotableIntegerTypeForABI(QualType Ty) const {
-  if (Ty->isPromotableIntegerType())
+  if (getContext().isPromotableIntegerType(Ty))
     return true;
 
   if (const auto *EIT = Ty->getAs<BitIntType>())
@@ -4891,7 +4891,7 @@ bool AIXABIInfo::isPromotableTypeForABI(QualType Ty) const {
     Ty = EnumTy->getDecl()->getIntegerType();
 
   // Promotable integer types are required to be promoted by the ABI.
-  if (Ty->isPromotableIntegerType())
+  if (getContext().isPromotableIntegerType(Ty))
     return true;
 
   if (!Is64Bit)
