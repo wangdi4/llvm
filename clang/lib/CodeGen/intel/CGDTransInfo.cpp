@@ -188,6 +188,45 @@ public:
                                     llvm::Type *LLVMType) {
     return CreateFunctionTypeMD(CallInfo, LLVMType);
   }
+
+  // used when we have an inalloca object that needs to be created and have its
+  // information generated correctly.
+  llvm::MDNode *AddInAllocaLiteral(ArrayRef<QualType> ClangTypes,
+                                   llvm::StructType *ST) {
+    assert(ST->isLiteral());
+
+    RecordDecl *RD = CGM.getContext().buildImplicitRecord("");
+    RD->startDefinition();
+    unsigned Idx = 0;
+
+    for (QualType Ty : ClangTypes) {
+      if (ST->getElementType(Idx)->isArrayTy()) {
+        // Arrays shouldn't be legal as parameters, so if one shows up here, it
+        // is padding.
+        assert(!Ty->isArrayType());
+        QualType FieldTy = FixupPaddingType(ST->getElementType(Idx));
+        FieldDecl *FD = FieldDecl::Create(
+            CGM.getContext(), RD, SourceLocation{}, SourceLocation{},
+            /*IdentifierInfo*/ nullptr, FieldTy, /*TInfo*/ nullptr,
+            /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+        FD->setAccess(AS_public);
+        RD->addDecl(FD);
+        ++Idx;
+      }
+
+      FieldDecl *FD = FieldDecl::Create(
+          CGM.getContext(), RD, SourceLocation{}, SourceLocation{},
+          /*IdentifierInfo*/ nullptr, Ty, /*TInfo*/ nullptr,
+          /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+      FD->setAccess(AS_public);
+      RD->addDecl(FD);
+      ++Idx;
+    }
+    RD->completeDefinition();
+    llvm::Metadata *MD = CreateStructMD(CGM.getContext().getRecordType(RD), ST,
+                                        /*InitExpr=*/nullptr);
+    return cast<llvm::MDNode>(MD);
+  }
 };
 } // namespace
 
@@ -306,6 +345,14 @@ CodeGenModule::addDTransInfoToFunc(const CodeGenTypes::DTransFuncInfo &FuncInfo,
                                               std::to_string(++NodeIdx)));
       Attachments.push_back(
           Generator.AddFieldInfo(Ty, Func->getArg(Idx)->getType()));
+    } else if (Idx == FuncInfo.InAllocaIdx) {
+      // InAlloca is always a pointer to a literal of type, so we need to
+      // materialize that here.
+      Func->addParamAttr(Idx,
+                         llvm::Attribute::get(Ctx, "intel_dtrans_func_index",
+                                              std::to_string(++NodeIdx)));
+      Attachments.push_back(Generator.AddInAllocaLiteral(
+          FuncInfo.InAllocaTypes, FuncInfo.InAllocaStruct));
     }
     ++Idx;
   }

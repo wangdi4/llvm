@@ -1924,13 +1924,32 @@ static void handleDTransStructInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
 
 static void addInallocaToDTransFuncInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
                                         CodeGenTypes::DTransFuncInfo *DFI,
-                                        llvm::StructType *ST, llvm::Type *ArgTy,
-                                        unsigned Idx, QualType Ty) {
+                                        llvm::StructType *ST,
+                                        unsigned InAllocaIdx,
+                                        const CGFunctionInfo &FuncInfo) {
   if (!CGT.getCodeGenOpts().EmitDTransInfo || !DFI)
     return;
-  // An Inalloca parameter is always just a pointer to the original type.
-  DFI->Params.resize(std::max(DFI->Params.size(), static_cast<size_t>(Idx + 1)));
-  DFI->Params[Idx] = CGM.getContext().getPointerType(Ty);
+  assert(ST->isLiteral());
+  // An inalloca parameter llvm parameter is a literal struct (with potential
+  // padding) that contains all types marked inalloca in the parameters list.
+  // There is speical handling in CGDTransInfo.cpp to handle these types, so
+  // just add them to the collection appropriately.
+
+  DFI->InAllocaIdx = InAllocaIdx;
+  DFI->InAllocaStruct = ST;
+  // Put in an empty type so that we visit this later.
+  DFI->Params.resize(
+      std::max(DFI->Params.size(),
+               static_cast<size_t>(InAllocaIdx + 1)));
+  DFI->Params[InAllocaIdx] = QualType{};
+
+  CGFunctionInfo::const_arg_iterator it = FuncInfo.arg_begin(),
+                                     ie = it + FuncInfo.getNumRequiredArgs();
+  for (; it != ie; ++it) {
+    const ABIArgInfo &Arg = it->info;
+    if (Arg.getKind() == ABIArgInfo::InAlloca)
+      DFI->InAllocaTypes.push_back(it->type);
+  }
 }
 
 static void addSRetToDTransFuncInfo(CodeGenTypes &CGT,
@@ -2156,10 +2175,8 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     ArgTypes[IRFunctionArgs.getInallocaArgNo()] = ArgStruct->getPointerTo();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-    QualType Ret = FI.getReturnType();
     addInallocaToDTransFuncInfo(*this, CGM, DFI, ArgStruct,
-                                ArgTypes[IRFunctionArgs.getInallocaArgNo()],
-                                IRFunctionArgs.getInallocaArgNo(), Ret);
+                                IRFunctionArgs.getInallocaArgNo(), FI);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
