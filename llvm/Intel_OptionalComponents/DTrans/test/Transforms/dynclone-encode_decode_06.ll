@@ -3,7 +3,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-;  RUN: opt < %s -dtrans-dynclone-shrunken-type-width=16 -dtrans-dynclone-sign-shrunken-int-type=false -disable-output -debug-only=dtrans-dynclone-reencoding -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -internalize -dtrans-dynclone 2>&1 | FileCheck %s
 ;  RUN: opt < %s -dtrans-dynclone-shrunken-type-width=16 -dtrans-dynclone-sign-shrunken-int-type=false -disable-output -debug-only=dtrans-dynclone-reencoding -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes='internalize,dtrans-dynclone' 2>&1 | FileCheck %s
 
 ; This test is to verify that constant collection for re-encoding collects constants

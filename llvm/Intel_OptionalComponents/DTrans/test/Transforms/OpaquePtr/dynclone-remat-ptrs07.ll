@@ -2,7 +2,6 @@
 ; track uses of memory allocation, which are stored in array fields of
 ; AOSTOSOA global variable.
 
-;  RUN: opt < %s -dtransop-allow-typed-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-dyncloneop 2>&1 | FileCheck %s
 ;  RUN: opt < %s -dtransop-allow-typed-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop 2>&1 | FileCheck %s
 
 ; CHECK: store i8 1, i8* @__Shrink__Happened__

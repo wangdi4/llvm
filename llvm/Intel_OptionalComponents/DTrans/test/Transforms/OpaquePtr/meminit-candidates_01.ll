@@ -4,9 +4,7 @@
 ; Makes sure Unused_declare_ZN4Arr1IPfEC2Ev is not considered as member
 ; function of %struct._ZTS4Arr1IPfE.Arr1 since it is unused prototype.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -dtransop-allow-typed-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
