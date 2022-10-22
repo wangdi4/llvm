@@ -2,7 +2,6 @@
 ; when -call-tree-clone-max-direct-callsites is set explicitly.
 
 ; RUN: opt < %s -passes='module(call-tree-clone)' -call-tree-clone-max-direct-callsites=10 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | FileCheck %s
-; RUN: opt < %s -call-tree-clone -call-tree-clone-max-direct-callsites=10 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | FileCheck %s
 
 ; CHECK:"foo|_.6.5.11"
 ; CHECK:"bar|_.5.6"

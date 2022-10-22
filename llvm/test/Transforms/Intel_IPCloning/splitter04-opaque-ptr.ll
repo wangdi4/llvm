@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt < %s -opaque-pointers -ip-cloning -force-ip-manyreccalls-splitting -debug-only=ipcloning -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes='module(ip-cloning)' -force-ip-manyreccalls-splitting -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Revision of splitter01.ll after 20220613 pulldown

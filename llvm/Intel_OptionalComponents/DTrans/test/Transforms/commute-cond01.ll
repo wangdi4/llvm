@@ -4,7 +4,6 @@
 ; this test when -dtrans-commute-cond-ignore-heuristic is passed.
 ; Verified that the operands of %and1 are swapped.
 
-;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-commutecond -dtrans-commute-cond-ignore-heuristic -S 2>&1 | FileCheck %s
 ;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecond -dtrans-commute-cond-ignore-heuristic  -S 2>&1 | FileCheck %s
 
 ; CHECK: %and1 = and i1 %cmp2, %cmp1

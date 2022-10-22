@@ -5,7 +5,6 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes="dtrans-deletefield" -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers

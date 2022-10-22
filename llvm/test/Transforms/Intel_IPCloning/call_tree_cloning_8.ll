@@ -1,7 +1,6 @@
 ; Checks that the Call Tree Cloning transformation clones expected function with !dbg metadata
 
 ; RUN: opt < %s -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-do-mv=false -S | FileCheck %s
-; RUN: opt < %s -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-do-mv=false -S | FileCheck %s
 
 ; CHECK:call fastcc void @"foo.1|7"(), !dbg !61
 ;                                      ^^^^^^^^

@@ -1,4 +1,3 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

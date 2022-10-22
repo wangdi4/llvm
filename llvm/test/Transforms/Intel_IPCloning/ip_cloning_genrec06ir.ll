@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -S -ip-cloning -ip-cloning-after-inl -ip-cloning-ivdep-min=2 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes='module(post-inline-ip-cloning)' -ip-cloning-ivdep-min=2 2>&1 | FileCheck %s
 
 ; Check that a clone candidate is found for fft991cy_ due to deep constant

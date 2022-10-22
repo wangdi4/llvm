@@ -5,7 +5,6 @@
 ; and number of possible constant values for the field is less than 4.
 ; Verified that operands of %and1 are swapped by the transformation.
 
-;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-commutecond 2>&1 | FileCheck %s
 ;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecond 2>&1 | FileCheck %s
 
 ; CHECK: define i32 @proc2

@@ -2,7 +2,6 @@
 ; to trim down capacity values that are passed to constructors of
 ; Arr and Arr1.
 
-; RUN: opt < %s -opaque-pointers -S -dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -S -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate

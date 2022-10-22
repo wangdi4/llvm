@@ -6,7 +6,6 @@
 ; This test is same as commute-cond01.ll except
 ; -dtrans-commute-cond-ignore-heuristic option not passed.
 
-;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-commutecond -S 2>&1 | FileCheck %s
 ;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecond -S 2>&1 | FileCheck %s
 
 ; CHECK: %and1 = and i1 %cmp1, %cmp2

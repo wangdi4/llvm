@@ -1,7 +1,6 @@
 ; Checks that the Multi-Versioning (MV) transformation creates MV function as expected for -march=core-avx2 tuning
 
 ; RUN: opt < %s -opaque-pointers -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
-; RUN: opt < %s -opaque-pointers -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
 
 ; Checks the multi-version (MV) function on get_ref() has proper code generation
 

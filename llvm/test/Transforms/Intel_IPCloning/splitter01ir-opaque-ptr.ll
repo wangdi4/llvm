@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -ip-cloning -force-ip-manyreccalls-splitting -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning)' -force-ip-manyreccalls-splitting -S 2>&1 | FileCheck %s
 
 ; Test for splitting part of inlining and splitting for many recursive calls
