@@ -2389,9 +2389,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+  if (!Subtarget.useSoftFloat() && (
 #if INTEL_FEATURE_ISA_AVX_BF16
-  if (!Subtarget.useSoftFloat() &&
-      (Subtarget.hasAVXBF16() || Subtarget.hasBF16())) {
+        Subtarget.hasAVXBF16() ||
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+        Subtarget.hasBF16())) {
     addRegisterClass(MVT::v8bf16, &X86::VR128XRegClass);
     addRegisterClass(MVT::v16bf16, &X86::VR256XRegClass);
     // We set the type action of bf16 to TypeSoftPromoteHalf, but we don't
@@ -2408,7 +2410,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     }
     addLegalFPImmediate(APFloat::getZero(APFloat::BFloat()));
   }
-#endif // INTEL_FEATURE_ISA_AVX_BF16
 
   if (!Subtarget.useSoftFloat() && Subtarget.hasBF16()) {
     addRegisterClass(MVT::v32bf16, &X86::VR512RegClass);
