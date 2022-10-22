@@ -7,7 +7,6 @@
 ; This test expects "bar" function is cloned two times.
 
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-loop-heuristic -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-loop-heuristic -S 2>&1 | FileCheck %s
 
 ; CHECK: tail call fastcc void @bar.

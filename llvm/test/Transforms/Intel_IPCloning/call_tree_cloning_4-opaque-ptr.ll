@@ -1,7 +1,6 @@
 ; Checks that the Call Tree Cloning transformation clones expected functions,
 
 ; RUN: opt < %s -opaque-pointers -passes='module(call-tree-clone)'  -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S | FileCheck %s
-; RUN: opt < %s -opaque-pointers -call-tree-clone  -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S | FileCheck %s
 
 ; Expect the call on foo(4) is turned into a specialized call as foo.1(4)
 ; CHECK:"foo.1|4"

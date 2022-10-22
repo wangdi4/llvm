@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -ip-gen-cloning-force-on-callback-cloning -S -debug-only=ipcloning 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -ip-gen-cloning-force-on-callback-cloning -S -debug-only=ipcloning 2>&1 | FileCheck %s
 
 ; Check that callback cloning does NOT happen, because there are no parameters

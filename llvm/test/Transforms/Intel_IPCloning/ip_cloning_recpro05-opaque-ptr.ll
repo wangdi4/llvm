@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
 
 ; Various checks for conditions where a function can fail to be recognized
