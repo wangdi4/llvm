@@ -135,6 +135,9 @@ parseKernelArgumentInfos(Function *F) {
       // kernel_arg_type might not exist for a SYCL kernel.
       // Decode from the kernel argument itself.
       raw_string_ostream OS(TypeName);
+      // FIXME: Type::print function is empty in release build, so TypeName will
+      // be empty string. We need to look for solution to get type name although
+      // empty string may not lead to stability issue.
       Arg->getType()->print(OS, /*IsForDebug*/ false, /*NoDetails*/ true);
       OS.flush();
     }
