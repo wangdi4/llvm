@@ -516,6 +516,8 @@ CPU_SPECIFIC("knm", "knm", 'j', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse
 #if INTEL_CUSTOMIZATION
 CPU_SPECIFIC_ALIAS_ADDITIONAL("skylake-avx512", "skylake_avx512")
 CPU_SPECIFIC_ALIAS_ADDITIONAL("corei7-avx", "sandybridge")
+CPU_SPECIFIC_ALIAS_ADDITIONAL("corei7", "core_i7_sse4_2")
+CPU_SPECIFIC_ALIAS_ADDITIONAL("penryn", "core_2_duo_sse4_1")
 CPU_SPECIFIC_ALIAS_ADDITIONAL("core-avx2", "haswell")
 CPU_SPECIFIC_ALIAS_ADDITIONAL("core-avx-i", "ivybridge")
 
