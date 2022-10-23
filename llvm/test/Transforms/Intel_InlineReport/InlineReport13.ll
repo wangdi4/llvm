@@ -1,10 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -new-double-callsite-inlining-heuristics=true -inline -inline-report=0xe807 -inline-threshold=2000< %s -S 2>&1 | FileCheck %s
 ; RUN: opt -new-double-callsite-inlining-heuristics=true -passes='cgscc(inline)' -inline-report=0xe807 -inline-threshold=2000< %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -new-double-callsite-inlining-heuristics=true -inline-report=0xe886 -inline-threshold=2000 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -new-double-callsite-inlining-heuristics=true -inline-report=0xe886 -inline-threshold=2000 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; CHECK: Callee has double callsite and local linkage

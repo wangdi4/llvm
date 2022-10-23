@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -O3 -inline-report=0xe807 -inline-threshold=-100 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes='default<O3>' -inline-report=0xe807 -inline-threshold=-100 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='default<O3>' -inline-report=0xe886 -inline-threshold=-100 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
 

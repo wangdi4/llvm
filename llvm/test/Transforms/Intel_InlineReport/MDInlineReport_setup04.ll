@@ -1,4 +1,3 @@
-; RUN: opt -inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that verification passes if all callsites and functions have metadata attached even if callsites are shuffled.

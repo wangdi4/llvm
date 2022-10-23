@@ -1,12 +1,8 @@
 ; Inline report
-; RUN: opt -inline -inline-report=0x7 < %s -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0x7 < %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -inline -inline-report=0x207 < %s -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0x207 < %s -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0x286 < %s -S | opt -inline -inline-report=0x286 -S | opt -inlinereportemitter -inline-report=0x286 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0x286 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x286 -S | opt -passes='inlinereportemitter' -inline-report=0x286 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
 
 ; This test checks that setting DontSkipIntrin bit in the -inline-report option

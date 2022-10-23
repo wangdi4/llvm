@@ -1,6 +1,4 @@
-; RUN: opt -opaque-pointers < %s -disable-output -inline -simplifycfg -inline-report=0xe807 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -disable-output -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -simplifycfg -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),simplifycfg' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; Check that when an invoke is converted to a call (as is the case for

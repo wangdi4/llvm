@@ -1,6 +1,4 @@
-; RUN: opt -opaque-pointers < %s -inline -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe807 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt -opaque-pointers < %s -passes='cgscc(inline),module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe807 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe886 | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that multiversioned callsites appear in the inlining report, when

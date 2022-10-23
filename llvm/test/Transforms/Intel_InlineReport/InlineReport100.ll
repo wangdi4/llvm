@@ -1,7 +1,5 @@
-; RUN: opt -inline -inline-report=0xf859 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 
 ; This tests the setting for the inline report with -qopt-report=3

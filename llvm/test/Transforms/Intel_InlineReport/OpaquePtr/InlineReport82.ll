@@ -1,6 +1,4 @@
-; RUN: opt -opaque-pointers < %s -S -inline -pre-lto-inline-cost -inline-report=0xe807 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -passes='cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -pre-lto-inline-cost -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
 
 ; Check results for type #1 double external callsite inlining heuristic
