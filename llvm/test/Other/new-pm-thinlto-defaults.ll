@@ -310,6 +310,9 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPODirectiveCleanupPass
 ; end INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_ADVANCED
+; CHECK-POSTLINK-O-NEXT: Running pass: TightLoopEmitterPass
+; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopDistributePass
 ; INTEL_CUSTOMIZATION

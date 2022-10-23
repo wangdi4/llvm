@@ -830,6 +830,9 @@ FUNCTION_PASS("dpcpp-kernel-prevent-div-crashes", PreventDivCrashesPass())
 FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())
 FUNCTION_PASS("dpcpp-kernel-add-nt-attr", AddNTAttrPass())
 FUNCTION_PASS("dpcpp-kernel-sin-cos-fold", SinCosFoldPass())
+#if INTEL_FEATURE_SW_ADVANCED
+FUNCTION_PASS("tight-loop-emitter", TightLoopEmitterPass())
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_PASS("print<vpo-wrncollection>",

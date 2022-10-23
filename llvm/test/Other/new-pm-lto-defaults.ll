@@ -172,6 +172,9 @@
 ; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-O1-NEXT: Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_ADVANCED
+; CHECK-O1-NEXT: Running pass: TightLoopEmitterPass
+; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-O1-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorConstPropPass ;INTEL
@@ -352,6 +355,10 @@
 ; CHECK-O23SZ-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-O23SZ-NEXT: Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_ADVANCED
+; CHECK-O23SZ-NEXT: Running pass: TightLoopEmitterPass
+; end INTEL_FEATURE_SW_ADVANCED
+
 
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
 ; INTEL_CUSTOMIZATION

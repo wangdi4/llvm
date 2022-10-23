@@ -152,14 +152,17 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"
+#include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"
+#include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
+#include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h"
+#include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h"
+#include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h"
+#include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h"
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Scalar/Intel_TightLoopEmitter.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
-#include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
-#include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"         // INTEL
-#include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #if !INTEL_COLLAB
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
@@ -2403,6 +2406,10 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
   // that loopopt and vectorizer might have missed.
   if (RunVPOOpt)
     addVPOPasses(MPM, FPM, Level, /*RunVec=*/true, /*Simplify=*/true);
+
+#if INTEL_FEATURE_SW_ADVANCED
+  FPM.addPass(TightLoopEmitterPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   if (IntelOptReportEmitter == OptReportOptions::IR)
     FPM.addPass(OptReportEmitterPass());
