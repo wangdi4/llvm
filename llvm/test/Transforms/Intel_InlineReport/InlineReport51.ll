@@ -1,8 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -disable-output -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe807 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
 ; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; Check that the inlining report produces a single MAIN_ with six functions

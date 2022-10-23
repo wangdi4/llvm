@@ -1,8 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -S -inline -inline-report=0xe807 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
 ; RUN: opt < %s -S -passes='cgscc(inline)' -inline-report=0xe807 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -S -inline -inline-report=0xe886 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -S -passes='cgscc(inline)' -inline-report=0xe886 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
 
 ; Check that rpassm_ is inlined by the double callsite external function

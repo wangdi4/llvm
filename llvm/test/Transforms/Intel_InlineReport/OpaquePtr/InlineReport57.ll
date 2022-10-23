@@ -1,6 +1,4 @@
-; RUN: opt -opaque-pointers -enable-new-pm=0 -inline -inline-report=0xec07 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-BEFORE %s
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xec07 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-BEFORE %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xec86 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xec86 -S | opt -inlinereportemitter -inline-report=0xec86 -S 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-AFTER %s
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xec86 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xec86 -S | opt -passes='inlinereportemitter' -inline-report=0xec86 -S 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-AFTER %s
 
 ; Check that when 0x400 bit is selected in the inlining report, that the

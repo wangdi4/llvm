@@ -1,8 +1,6 @@
 ; Inline report
-; RUN: opt -inline -inline-report=1 < %s -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -disable-output 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0x80 < %s -S | opt -inline -inline-report=0x80 -S | opt -inlinereportemitter -inline-report=0x80 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0x80 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x80 -S | opt -passes='inlinereportemitter' -inline-report=0x80 -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that metadata-based inline report correctly handles

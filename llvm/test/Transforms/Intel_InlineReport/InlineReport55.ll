@@ -1,6 +1,4 @@
-; RUN: opt -enable-new-pm=0 -inline -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -S < %s  2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-MOLD %s 
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-MOLD %s
 
 ; CHECK-OLD: COMPILE FUNC: bf_musttail

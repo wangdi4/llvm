@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt -opaque-pointers -inline -disable-output -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=inline -disable-output -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost < %s 2>&1 | FileCheck %s
 
 ; Ensure that inlining of

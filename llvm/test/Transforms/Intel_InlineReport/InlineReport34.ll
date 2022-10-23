@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -enable-new-pm=0 -ip-cloning -ip-gen-cloning-force-enable-dtrans -inline -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 
