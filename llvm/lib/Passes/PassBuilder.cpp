@@ -237,15 +237,18 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"
+#include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"
+#include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
+#include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h"
+#include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h"
+#include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h"
+#include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h"
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Scalar/Intel_TightLoopEmitter.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Scalar/Intel_TransformFPGAReg.h"
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
-#include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
-#include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"         // INTEL
-#include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_TransformFPGAReg.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
