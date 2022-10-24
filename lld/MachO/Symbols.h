@@ -231,12 +231,8 @@ public:
 
   static bool classof(const Symbol *s) { return s->kind() == UndefinedKind; }
 
-<<<<<<< HEAD
   RefState refState; // INTEL
-=======
-  RefState refState : 2;
   bool wasBitcodeSymbol;
->>>>>>> b9457330266e12364e8949939f899135c41d88b3
 };
 
 // On Unix, it is traditionally allowed to write variable definitions without
