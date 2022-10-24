@@ -245,11 +245,12 @@ namespace {
       (void) llvm::createLowerInvokePass();
       (void) llvm::createLowerSwitchPass();
       (void) llvm::createNaryReassociatePass();
-      (void) llvm::createObjCARCAAWrapperPass();
+#if INTEL_CUSTOMIZATION
+	  (void) llvm::createObjCARCAAWrapperPass();
       (void) llvm::createObjCARCAPElimPass();
       (void) llvm::createObjCARCExpandPass();
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createObjCARCContractPass();
-      (void) llvm::createObjCARCOptPass();
       (void) llvm::createPromoteMemoryToRegisterPass();
       (void) llvm::createDemoteRegisterToMemoryPass();
       (void)llvm::createPostDomOnlyPrinterWrapperPassPass();

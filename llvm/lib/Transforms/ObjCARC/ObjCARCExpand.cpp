@@ -29,9 +29,9 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/PassRegistry.h"
+#include "llvm/InitializePasses.h"    // INTEL
+#include "llvm/Pass.h"                // INTEL
+#include "llvm/PassRegistry.h"        // INTEL
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -89,6 +89,7 @@ static bool runImpl(Function &F) {
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
 /// Early ARC transformations.
 class ObjCARCExpand : public FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override;
@@ -100,8 +101,10 @@ public:
     initializeObjCARCExpandPass(*PassRegistry::getPassRegistry());
   }
 };
+#endif // INTEL_CUSTOMIZATION
 } // namespace
 
+#if INTEL_CUSTOMIZATION
 char ObjCARCExpand::ID = 0;
 INITIALIZE_PASS(ObjCARCExpand, "objc-arc-expand", "ObjC ARC expansion", false,
                 false)
@@ -113,6 +116,7 @@ void ObjCARCExpand::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool ObjCARCExpand::runOnFunction(Function &F) { return runImpl(F); }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses ObjCARCExpandPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {

@@ -58,8 +58,8 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
+#include "llvm/InitializePasses.h"    // INTEL
+#include "llvm/Pass.h"                // INTEL
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -580,6 +580,7 @@ class ObjCARCOpt {
     bool hasCFGChanged() const { return CFGChanged; }
 };
 
+#if INTEL_CUSTOMIZATION
 /// The main ARC optimization pass.
 class ObjCARCOptLegacyPass : public FunctionPass {
 public:
@@ -600,8 +601,10 @@ public:
 private:
   ObjCARCOpt OCAO;
 };
+#endif // INTEL_CUSTOMIZATION
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
 char ObjCARCOptLegacyPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(ObjCARCOptLegacyPass, "objc-arc", "ObjC ARC optimization",
@@ -616,6 +619,7 @@ void ObjCARCOptLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ObjCARCAAWrapperPass>();
   AU.addRequired<AAResultsWrapperPass>();
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Turn objc_retainAutoreleasedReturnValue into objc_retain if the operand is
 /// not a return value.

@@ -44,8 +44,10 @@ void initializeTransformUtils(PassRegistry&);
 /// Initialize all passes linked into the ScalarOpts library.
 void initializeScalarOpts(PassRegistry&);
 
+#if INTEL_CUSTOMIZATION
 /// Initialize all passes linked into the ObjCARCOpts library.
 void initializeObjCARCOpts(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 
 /// Initialize all passes linked into the Vectorize library.
 void initializeVectorization(PassRegistry&);
@@ -407,11 +409,15 @@ void initializeMustExecutePrinterPass(PassRegistry&);
 void initializeMustBeExecutedContextPrinterPass(PassRegistry&);
 void initializeNaryReassociateLegacyPassPass(PassRegistry&);
 void initializeNewGVNLegacyPassPass(PassRegistry&);
+#if INTEL_CUSTOMIZATION
 void initializeObjCARCAAWrapperPassPass(PassRegistry&);
 void initializeObjCARCAPElimPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 void initializeObjCARCContractLegacyPassPass(PassRegistry &);
+#if INTEL_CUSTOMIZATION
 void initializeObjCARCExpandPass(PassRegistry&);
 void initializeObjCARCOptLegacyPassPass(PassRegistry &);
+#endif // INTEL_CUSTOMIZATION
 void initializeOptimizationRemarkEmitterWrapperPassPass(PassRegistry&);
 void initializeOptimizePHIsPass(PassRegistry&);
 void initializePEIPass(PassRegistry&);

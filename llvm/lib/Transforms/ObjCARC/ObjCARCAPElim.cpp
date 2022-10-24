@@ -29,8 +29,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
+#include "llvm/InitializePasses.h"     // INTEL
+#include "llvm/Pass.h"                 // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/ObjCARC.h"
@@ -147,6 +147,7 @@ bool runImpl(Module &M) {
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
 /// Autorelease pool elimination.
 class ObjCARCAPElim : public ModulePass {
   void getAnalysisUsage(AnalysisUsage &AU) const override;
@@ -158,8 +159,11 @@ public:
     initializeObjCARCAPElimPass(*PassRegistry::getPassRegistry());
   }
 };
+#endif // INTEL_CUSTOMIZATION
+
 } // namespace
 
+#if INTEL_CUSTOMIZATION
 char ObjCARCAPElim::ID = 0;
 INITIALIZE_PASS(ObjCARCAPElim, "objc-arc-apelim",
                 "ObjC ARC autorelease pool elimination", false, false)
@@ -175,6 +179,7 @@ bool ObjCARCAPElim::runOnModule(Module &M) {
     return false;
   return runImpl(M);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses ObjCARCAPElimPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!runImpl(M))

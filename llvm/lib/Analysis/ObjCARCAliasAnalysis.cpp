@@ -138,6 +138,7 @@ ObjCARCAAResult ObjCARCAA::run(Function &F, FunctionAnalysisManager &AM) {
   return ObjCARCAAResult(F.getParent()->getDataLayout());
 }
 
+#if INTEL_CUSTOMIZATION
 char ObjCARCAAWrapperPass::ID = 0;
 INITIALIZE_PASS(ObjCARCAAWrapperPass, "objc-arc-aa",
                 "ObjC-ARC-Based Alias Analysis", false, true)
@@ -163,3 +164,4 @@ bool ObjCARCAAWrapperPass::doFinalization(Module &M) {
 void ObjCARCAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
 }
+#endif // INTEL_CUSTOMIZATION
