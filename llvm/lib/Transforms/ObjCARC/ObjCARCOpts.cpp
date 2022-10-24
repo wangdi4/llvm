@@ -58,6 +58,8 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"    // INTEL
+#include "llvm/Pass.h"                // INTEL
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -577,7 +579,47 @@ class ObjCARCOpt {
     void releaseMemory();
     bool hasCFGChanged() const { return CFGChanged; }
 };
+
+#if INTEL_CUSTOMIZATION
+/// The main ARC optimization pass.
+class ObjCARCOptLegacyPass : public FunctionPass {
+public:
+  ObjCARCOptLegacyPass() : FunctionPass(ID) {
+    initializeObjCARCOptLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool doInitialization(Module &M) override {
+    OCAO.init(M);
+    return false;
+  }
+  bool runOnFunction(Function &F) override {
+    return OCAO.run(F, getAnalysis<AAResultsWrapperPass>().getAAResults());
+  }
+  void releaseMemory() override { OCAO.releaseMemory(); }
+  static char ID;
+
+private:
+  ObjCARCOpt OCAO;
+};
+#endif // INTEL_CUSTOMIZATION
 } // end anonymous namespace
+
+#if INTEL_CUSTOMIZATION
+char ObjCARCOptLegacyPass::ID = 0;
+
+INITIALIZE_PASS_BEGIN(ObjCARCOptLegacyPass, "objc-arc", "ObjC ARC optimization",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
+INITIALIZE_PASS_END(ObjCARCOptLegacyPass, "objc-arc", "ObjC ARC optimization",
+                    false, false)
+
+Pass *llvm::createObjCARCOptPass() { return new ObjCARCOptLegacyPass(); }
+
+void ObjCARCOptLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<ObjCARCAAWrapperPass>();
+  AU.addRequired<AAResultsWrapperPass>();
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Turn objc_retainAutoreleasedReturnValue into objc_retain if the operand is
 /// not a return value.

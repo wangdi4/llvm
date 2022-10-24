@@ -33,6 +33,9 @@ LLVM_C_EXTERN_C_BEGIN
 void LLVMInitializeCore(LLVMPassRegistryRef R);
 void LLVMInitializeTransformUtils(LLVMPassRegistryRef R);
 void LLVMInitializeScalarOpts(LLVMPassRegistryRef R);
+#if INTEL_CUSTOMIZATION
+void LLVMInitializeObjCARCOpts(LLVMPassRegistryRef R);
+#endif // INTEL_CUSTOMIZATION
 void LLVMInitializeVectorization(LLVMPassRegistryRef R);
 void LLVMInitializeInstCombine(LLVMPassRegistryRef R);
 void LLVMInitializeAggressiveInstCombiner(LLVMPassRegistryRef R);

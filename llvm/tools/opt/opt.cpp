@@ -547,6 +547,9 @@ int main(int argc, char **argv) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeScalarOpts(Registry);
+#if INTEL_CUSTOMIZATION
+  initializeObjCARCOpts(Registry);
+#endif // INTEL_CUSTOMIZATION
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);

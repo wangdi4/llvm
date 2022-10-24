@@ -13,13 +13,37 @@
 //===----------------------------------------------------------------------===//
 
 #include "ObjCARC.h"
+#include "llvm-c/Initialization.h"  // INTEL
 #include "llvm/Analysis/ObjCARCUtil.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/InitializePasses.h"  // INTEL
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+
+#if INTEL_CUSTOMIZATION
+namespace llvm {
+  class PassRegistry;
+}
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::objcarc;
+
+#if INTEL_CUSTOMIZATION
+/// initializeObjCARCOptsPasses - Initialize all passes linked into the
+/// ObjCARCOpts library.
+void llvm::initializeObjCARCOpts(PassRegistry &Registry) {
+  initializeObjCARCAAWrapperPassPass(Registry);
+  initializeObjCARCAPElimPass(Registry);
+  initializeObjCARCExpandPass(Registry);
+  initializeObjCARCContractLegacyPassPass(Registry);
+  initializeObjCARCOptLegacyPassPass(Registry);
+}
+
+void LLVMInitializeObjCARCOpts(LLVMPassRegistryRef R) {
+  initializeObjCARCOpts(*unwrap(R));
+}
+#endif // INTEL_CUSTOMIZATION
 
 CallInst *objcarc::createCallInstWithColors(
     FunctionCallee Func, ArrayRef<Value *> Args, const Twine &NameStr,

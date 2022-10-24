@@ -302,7 +302,9 @@ add_llvm_component_library(LLVMCodeGen
   Intel_MapIntrinToIml
 # end INTEL_CUSTOMIZATION
   MC
+# INTEL_CUSTOMIZATION
   ObjCARC
+# end INTEL_CUSTOMIZATION
   ProfileData
   Scalar
   Support
