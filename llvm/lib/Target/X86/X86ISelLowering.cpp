@@ -45539,7 +45539,6 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
       Op, DemandedBits, DemandedElts, DAG, Depth);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // TODO: This may be worth open sourcing in some form. Since it only effects
 // codegen for Intel CPUs until other vendors implement AVX512.
@@ -45557,7 +45556,7 @@ bool isBitcastUsedBySetcc(SDNode *BitCast) {
   return false;
 }
 #endif
-=======
+
 bool X86TargetLowering::isGuaranteedNotToBeUndefOrPoisonForTargetNode(
     SDValue Op, const APInt &DemandedElts, const SelectionDAG &DAG,
     bool PoisonOnly, unsigned Depth) const {
@@ -45598,7 +45597,6 @@ bool X86TargetLowering::canCreateUndefOrPoisonForTargetNode(
       Op, DemandedElts, DAG, PoisonOnly, ConsiderFlags, Depth);
 }
 
->>>>>>> c175d880a4694a66bc8be8a0e5ce333fbc14cf47
 bool X86TargetLowering::isSplatValueForTargetNode(SDValue Op,
                                                   const APInt &DemandedElts,
                                                   APInt &UndefElts,
