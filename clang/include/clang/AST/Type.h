@@ -2298,6 +2298,8 @@ public:
   /// Check if the type is the CUDA device builtin texture type.
   bool isCUDADeviceBuiltinTextureType() const;
 
+  bool isRVVType() const;
+
   /// Return the implicit lifetime for this type, which must not be dependent.
   Qualifiers::ObjCLifetime getObjCARCImplicitLifetime() const;
 
@@ -7293,6 +7295,14 @@ inline bool Type::isChannelType() const {
 inline bool Type::isOpenCLSpecificType() const {
   return isSamplerT() || isEventT() || isImageType() || isClkEventT() ||
          isQueueT() || isReserveIDT() || isPipeType() || isOCLExtOpaqueType();
+}
+
+inline bool Type::isRVVType() const {
+#define RVV_TYPE(Name, Id, SingletonId) \
+  isSpecificBuiltinType(BuiltinType::Id) ||
+  return
+#include "clang/Basic/RISCVVTypes.def"
+    false; // end of boolean or operation.
 }
 
 inline bool Type::isTemplateTypeParmType() const {
