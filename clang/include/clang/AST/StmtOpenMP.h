@@ -2180,6 +2180,13 @@ public:
 class OMPTargetVariantDispatchDirective : public OMPExecutableDirective {
   friend class ASTStmtReader;
   friend class OMPExecutableDirective;
+
+  /// The location of the target-call.
+  SourceLocation TargetCallLoc;
+
+  /// Set the location of the target-call.
+  void setTargetCallLoc(SourceLocation Loc) { TargetCallLoc = Loc; }
+
   /// Build directive with the given start and end location.
   ///
   /// \param StartLoc Starting location of the directive kind.
@@ -2209,7 +2216,8 @@ public:
   ///
   static OMPTargetVariantDispatchDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+         SourceLocation TargetCallLoc);
 
   /// Creates an empty directive with the place for \a NumClauses
   /// clauses.
@@ -2219,6 +2227,9 @@ public:
   ///
   static OMPTargetVariantDispatchDirective *
   CreateEmpty(const ASTContext &C, unsigned NumClauses, EmptyShell);
+
+  /// Return location of target-call.
+  SourceLocation getTargetCallLoc() const { return TargetCallLoc; }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTargetVariantDispatchDirectiveClass;
