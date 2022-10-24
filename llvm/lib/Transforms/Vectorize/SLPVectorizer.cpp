@@ -7494,17 +7494,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
        BB &&
        sortPtrAccesses(VL, UserTreeIdx.UserTE->getMainOp()->getType(), *DL, *SE,
                        SortedIndices));
-<<<<<<< HEAD
 
-  if (allConstant(VL) || isSplat(VL) ||
+  if (!AreAllSameInsts || allConstant(VL) || isSplat(VL) ||
       (!IsScatterVectorizeUserTE && !allSameBlock(VL)) || !AreAllSameInsts ||
       (S.getOpcode() &&
        isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
-=======
-  if (!AreAllSameInsts || allConstant(VL) || isSplat(VL) ||
-      (isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(
-           S.OpValue) &&
->>>>>>> da4e0f7ac58711ddeaf86943ae82c1928e26801f
        !all_of(VL, isVectorLikeInstWithConstOps)) ||
 #endif // INTEL_CUSTOMIZATION
       NotProfitableForVectorization(VL)) {
