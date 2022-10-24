@@ -6,7 +6,6 @@
 ; indicate s_qsort is Qsort function and used high index for %perm is 60.
 ; Note that the functions don't have any valid IR or meaning.
 
-; RUN: opt < %s -S -opaque-pointers -deadarrayopselimination -dead-array-ops-functions="s_qsort,60" -whole-program-assume  2>&1 | FileCheck %s
 ; RUN: opt < %s -S -opaque-pointers -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,60" -whole-program-assume 2>&1 | FileCheck %s
 
 ; Checks that s_qsort is cloned and 3rd argument is added to s_qsort call

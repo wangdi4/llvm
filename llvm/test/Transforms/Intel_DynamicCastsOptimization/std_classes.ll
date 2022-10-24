@@ -1,4 +1,3 @@
-; RUN: opt < %s -S -optimize-dyn-casts | FileCheck %s
 ; RUN: opt < %s -S -passes=optimize-dyn-casts | FileCheck %s
 
 ; Even when whole program is detected there could be library classes from
