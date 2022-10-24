@@ -90,14 +90,14 @@ define hidden <8 x i1> @fun16x16_512(<16 x i8> %input0, <16 x i8> %input1, <16 x
   ; X64-NEXT:   [[COPY2:%[0-9]+]]:vr128x = COPY $xmm1
   ; X64-NEXT:   [[COPY3:%[0-9]+]]:vr128x = COPY $xmm0
   ; X64-NEXT:   [[VMOVDQA64Z128rm:%[0-9]+]]:vr128x = VMOVDQA64Z128rm $rip, 1, $noreg, %const.0, $noreg :: (load (s128) from constant-pool)
-  ; X64-NEXT:   [[VPSHUFBZ128rr:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY]], [[VMOVDQA64Z128rm]]
+  ; X64-NEXT:   [[VPSHUFBZ128rr:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY1]], [[VMOVDQA64Z128rm]]
   ; X64-NEXT:   [[VPMOVZXBWZ256rr:%[0-9]+]]:vr256x = VPMOVZXBWZ256rr killed [[VPSHUFBZ128rr]]
-  ; X64-NEXT:   [[VPSHUFBZ128rr1:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY2]], [[VMOVDQA64Z128rm]]
+  ; X64-NEXT:   [[VPSHUFBZ128rr1:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY3]], [[VMOVDQA64Z128rm]]
   ; X64-NEXT:   [[VPMOVZXBWZ256rr1:%[0-9]+]]:vr256x = VPMOVZXBWZ256rr killed [[VPSHUFBZ128rr1]]
   ; X64-NEXT:   [[VPSUBDZ256rr:%[0-9]+]]:vr256x = VPSUBDZ256rr killed [[VPMOVZXBWZ256rr1]], killed [[VPMOVZXBWZ256rr]]
-  ; X64-NEXT:   [[VPSHUFBZ128rr2:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY1]], [[VMOVDQA64Z128rm]]
+  ; X64-NEXT:   [[VPSHUFBZ128rr2:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY]], [[VMOVDQA64Z128rm]]
   ; X64-NEXT:   [[VPMOVZXBWZ256rr2:%[0-9]+]]:vr256x = VPMOVZXBWZ256rr killed [[VPSHUFBZ128rr2]]
-  ; X64-NEXT:   [[VPSHUFBZ128rr3:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY3]], [[VMOVDQA64Z128rm]]
+  ; X64-NEXT:   [[VPSHUFBZ128rr3:%[0-9]+]]:vr128x = VPSHUFBZ128rr [[COPY2]], [[VMOVDQA64Z128rm]]
   ; X64-NEXT:   [[VPMOVZXBWZ256rr3:%[0-9]+]]:vr256x = VPMOVZXBWZ256rr killed [[VPSHUFBZ128rr3]]
   ; X64-NEXT:   [[VPSUBDZ256rr1:%[0-9]+]]:vr256x = VPSUBDZ256rr killed [[VPMOVZXBWZ256rr3]], killed [[VPMOVZXBWZ256rr2]]
   ; X64-NEXT:   [[VMOVDQA64Z256rm:%[0-9]+]]:vr256x = VMOVDQA64Z256rm $rip, 1, $noreg, %const.1, $noreg :: (load (s256) from constant-pool)
@@ -127,7 +127,7 @@ define hidden <8 x i1> @fun16x16_512(<16 x i8> %input0, <16 x i8> %input1, <16 x
   ; X64-NEXT:   [[VPSUBDZ256rr7:%[0-9]+]]:vr256 = VPSUBDZ256rr [[VPBLENDDYrri2]], [[VPERMDZ256rr4]]
   ; X64-NEXT:   [[VPBLENDDYrri4:%[0-9]+]]:vr256 = VPBLENDDYrri killed [[VPADDDZ256rr5]], killed [[VPSUBDZ256rr7]], -86
   ; X64-NEXT:   [[VPBLENDDYrri5:%[0-9]+]]:vr256 = VPBLENDDYrri killed [[VPADDDZ256rr4]], killed [[VPSUBDZ256rr6]], -86
-  ; X64-NEXT:   [[VPCMPDZ256rri:%[0-9]+]]:vk8 = VPCMPDZ256rri killed [[VPBLENDDYrri5]], killed [[VPBLENDDYrri4]], 0
+  ; X64-NEXT:   [[VPCMPDZ256rri:%[0-9]+]]:vk8 = VPCMPDZ256rri killed [[VPBLENDDYrri4]], killed [[VPBLENDDYrri5]], 0
   ; X64-NEXT:   [[VPMOVM2WZ128rr:%[0-9]+]]:vr128x = VPMOVM2WZ128rr killed [[VPCMPDZ256rri]]
   ; X64-NEXT:   $xmm0 = COPY [[VPMOVM2WZ128rr]]
   ; X64-NEXT:   RET 0, $xmm0
@@ -316,13 +316,13 @@ define hidden <4 x i1> @fun8x4(<8 x i8> %input0, <8 x i8> %input1, <8 x i8> %inp
   ; X64-NEXT:   [[VPSUBDZ256rr4:%[0-9]+]]:vr256 = VPSUBDZ256rr [[VPSHUFDZ256ri3]], [[VPBLENDDYrri]]
   ; X64-NEXT:   [[VPSUBDZ256rr5:%[0-9]+]]:vr256 = VPSUBDZ256rr [[VPSHUFDZ256ri2]], [[VPBLENDDYrri1]]
   ; X64-NEXT:   [[VPBLENDDYrri2:%[0-9]+]]:vr256 = VPBLENDDYrri killed [[VPADDDZ256rr3]], killed [[VPSUBDZ256rr5]], -52
-  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri2]], 1
-  ; X64-NEXT:   [[COPY8:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri2]].sub_xmm
   ; X64-NEXT:   [[VPBLENDDYrri3:%[0-9]+]]:vr256 = VPBLENDDYrri killed [[VPADDDZ256rr2]], killed [[VPSUBDZ256rr4]], -52
-  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr1:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri3]], 1
-  ; X64-NEXT:   [[COPY9:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri3]].sub_xmm
-  ; X64-NEXT:   [[VPADDDZ128rr:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY9]], killed [[VEXTRACTI32x4Z256rr1]]
-  ; X64-NEXT:   [[VPADDDZ128rr1:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY8]], killed [[VEXTRACTI32x4Z256rr]]
+  ; X64-NEXT:   [[COPY8:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri3]].sub_xmm
+  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri3]], 1
+  ; X64-NEXT:   [[COPY9:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri2]].sub_xmm
+  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr1:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri2]], 1
+  ; X64-NEXT:   [[VPADDDZ128rr:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY8]], killed [[VEXTRACTI32x4Z256rr]]
+  ; X64-NEXT:   [[VPADDDZ128rr1:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY9]], killed [[VEXTRACTI32x4Z256rr1]]
   ; X64-NEXT:   [[VPCMPEQDrr:%[0-9]+]]:vr128 = VPCMPEQDrr killed [[VPADDDZ128rr]], killed [[VPADDDZ128rr1]]
   ; X64-NEXT:   $xmm0 = COPY [[VPCMPEQDrr]]
   ; X64-NEXT:   RET 0, $xmm0
@@ -420,13 +420,13 @@ define hidden <4 x i1> @fun8x4_1(<16 x i8> %input0, <16 x i8> %input1, <16 x i8>
   ; X64-NEXT:   [[VPSUBDZ256rr4:%[0-9]+]]:vr256 = VPSUBDZ256rr [[VPSHUFDZ256ri3]], [[VPBLENDDYrri]]
   ; X64-NEXT:   [[VPSUBDZ256rr5:%[0-9]+]]:vr256 = VPSUBDZ256rr [[VPSHUFDZ256ri2]], [[VPBLENDDYrri1]]
   ; X64-NEXT:   [[VPBLENDDYrri2:%[0-9]+]]:vr256 = VPBLENDDYrri killed [[VPADDDZ256rr3]], killed [[VPSUBDZ256rr5]], -52
-  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri2]], 1
-  ; X64-NEXT:   [[COPY4:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri2]].sub_xmm
   ; X64-NEXT:   [[VPBLENDDYrri3:%[0-9]+]]:vr256 = VPBLENDDYrri killed [[VPADDDZ256rr2]], killed [[VPSUBDZ256rr4]], -52
-  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr1:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri3]], 1
-  ; X64-NEXT:   [[COPY5:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri3]].sub_xmm
-  ; X64-NEXT:   [[VPADDDZ128rr:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY5]], killed [[VEXTRACTI32x4Z256rr1]]
-  ; X64-NEXT:   [[VPADDDZ128rr1:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY4]], killed [[VEXTRACTI32x4Z256rr]]
+  ; X64-NEXT:   [[COPY4:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri3]].sub_xmm
+  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri3]], 1
+  ; X64-NEXT:   [[COPY5:%[0-9]+]]:vr128x = COPY [[VPBLENDDYrri2]].sub_xmm
+  ; X64-NEXT:   [[VEXTRACTI32x4Z256rr1:%[0-9]+]]:vr128x = VEXTRACTI32x4Z256rr [[VPBLENDDYrri2]], 1
+  ; X64-NEXT:   [[VPADDDZ128rr:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY4]], killed [[VEXTRACTI32x4Z256rr]]
+  ; X64-NEXT:   [[VPADDDZ128rr1:%[0-9]+]]:vr128 = VPADDDZ128rr killed [[COPY5]], killed [[VEXTRACTI32x4Z256rr1]]
   ; X64-NEXT:   [[VPCMPEQDrr:%[0-9]+]]:vr128 = VPCMPEQDrr killed [[VPADDDZ128rr]], killed [[VPADDDZ128rr1]]
   ; X64-NEXT:   $xmm0 = COPY [[VPCMPEQDrr]]
   ; X64-NEXT:   RET 0, $xmm0
