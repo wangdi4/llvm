@@ -399,6 +399,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasHRESET = true;
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
+    } else if (Feature == "+amx-fp16") {
+      HasAMXFP16 = true;
     } else if (Feature == "+amx-int8") {
       HasAMXINT8 = true;
     } else if (Feature == "+amx-tile") {
@@ -1178,6 +1180,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXINT8__");
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
+<<<<<<< HEAD
   Builder.defineMacro("__AMX_SUPPORTED__");
 #if INTEL_FEATURE_ISA_AMX_FP8
   if (HasAMXFP8)
@@ -1510,6 +1513,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (HasAMXFP16)
+    Builder.defineMacro("__AMXFP16__");
+>>>>>>> 661881d43633c00e1ba2ec0ebbc1806d81ad9a11
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
   if (HasSERIALIZE)
@@ -1624,6 +1631,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("adx", true)
       .Case("aes", true)
       .Case("amx-bf16", true)
+      .Case("amx-fp16", true)
       .Case("amx-int8", true)
       .Case("amx-tile", true)
 #if INTEL_CUSTOMIZATION
@@ -1941,6 +1949,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("adx", HasADX)
       .Case("aes", HasAES)
       .Case("amx-bf16", HasAMXBF16)
+      .Case("amx-fp16", HasAMXFP16)
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #if INTEL_CUSTOMIZATION
