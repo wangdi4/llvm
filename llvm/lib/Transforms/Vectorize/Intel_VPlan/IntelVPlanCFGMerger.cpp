@@ -1326,6 +1326,10 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
         // Create the needed trip count checks after VPlan when needed.
         // See Check6, Check7 on the diagram above.
         createTCCheckAfter(P, *std::prev(Iter, 1));
+
+        VPVectorTripCountCalculation *VectorUB = findVectorUB(*P.Plan);
+        VectorUB->setOperand(0, OrigUB);
+
         if (P.isNonMaskedVecRemainder()) {
           auto *SingleSucc = P.LastBB->getSingleSuccessor();
           assert(SingleSucc && "Non-null successor expected.");
