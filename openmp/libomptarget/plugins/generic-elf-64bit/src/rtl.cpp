@@ -526,6 +526,15 @@ int32_t __tgt_rtl_set_function_ptr_map(
     int32_t ID, uint64_t Size, const __omp_offloading_fptr_map_t *FnPtrs) {
   return OFFLOAD_SUCCESS;
 }
+
+void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HstPtr,
+                                void *HstBase, int32_t AllocOpt) {
+  void *TgtPtr = __tgt_rtl_data_alloc(ID, Size, HstPtr, TARGET_ALLOC_DEFAULT);
+  // Handle new map type forcing zero initialization
+  if (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER)
+    (void)memset(TgtPtr, 0, Size);
+  return TgtPtr;
+}
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

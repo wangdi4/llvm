@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 include "GENERIC/ll_generation/definition.td"
 
 // sub_group_ballot vector implementations
@@ -31,4 +43,44 @@ foreach vf = [4, 8, 16, 32, 64] in {
     ret {RetType} %broadcast
   }], [Macro<"VF", !cast<string>(vf)>, Macro<"EXT_INDEX", JoinIndices<ext_index>.Tout>, Macro<"BROADCAST_INDEX", JoinIndices<broadcast_index>.Tout>], predicate_mangle # mask_mangle>;
 } // foreach vf
+}
+
+// sub_group_reduce_add vector implementations of half type
+// e.g. vf=16: sub_group_reduce_add(int16 src, uint16 vec_mask)
+let EmitMangledName = true,
+    FuncAttrs = ["readnone", "willreturn", "nounwind"] in {
+  defvar reduce_add_builtin = "sub_group_reduce_add";
+  defvar reduce_add_builtin_non_uniform = "sub_group_non_uniform_reduce_add";
+  defvar reduce_add_ir_code =
+    [{
+      %usrc = bitcast <{VF} x half> %src to <{VF} x i16>
+      %uvec_mask = trunc <{VF} x i32> %vec_mask to <{VF} x i16>
+      %umask_src = and <{VF} x i16> %usrc, %uvec_mask
+      %mask_src = bitcast <{VF} x i16> %umask_src to <{VF} x half>
+      %sum = call half @llvm.vector.reduce.fadd.v{VF}f16(half 0xH0000, <{VF} x half> %mask_src)
+      %vsum = insertelement <{VF} x half> poison, half %sum, i64 0
+      %result = shufflevector <{VF} x half> %vsum, <{VF} x half> poison, <{VF} x i32> zeroinitializer
+      ret {RetType} %result
+    }];
+
+  foreach vf = [4, 8, 16, 32, 64] in {
+    defvar ret_type = !cast<VectorType>("v" # vf # "f16");
+    defvar src_type = !cast<VectorType>("v" # vf # "f16");
+    defvar mask_type = !cast<VectorType>("v" # vf # "i32");
+
+    defvar src_mangle = MangleVectorType<src_type, /*signed*/true>.ret;
+    defvar mask_mangle = MangleVectorType<mask_type, /*signed*/false>.ret;
+
+    defvar func_name = "llvm.vector.reduce.fadd.v" # vf #f16;
+    defvar start_type = !cast<FloatType>("f16");
+    defvar value_type = !cast<VectorType>("v" # vf # "f16");
+    defvar llvm_ret_type = start_type;
+    let EmitMangledName = false in
+      def func_name # vf : LLDeclare<func_name, [start_type, value_type], llvm_ret_type, "">;
+
+    defm reduce_add_builtin # vf : LLDefine<reduce_add_builtin, [Value<src_type, "src">, Value<mask_type, "vec_mask">], ret_type,
+      reduce_add_ir_code, [Macro<"VF", !cast<string>(vf)>], src_mangle # mask_mangle>;
+    defm reduce_add_builtin_non_uniform # vf : LLDefine<reduce_add_builtin_non_uniform, [Value<src_type, "src">, Value<mask_type, "vec_mask">], ret_type,
+      reduce_add_ir_code, [Macro<"VF", !cast<string>(vf)>], src_mangle # mask_mangle>;
+  }
 }
