@@ -1,4 +1,4 @@
-; RUN: opt < %s -aa-pipeline=basic-aa -gvn -instcombine -S 2>&1 | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn,instcombine -S 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -basic-aa -gvn -instcombine -S 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -instcombine -S 2>&1 | FileCheck %s

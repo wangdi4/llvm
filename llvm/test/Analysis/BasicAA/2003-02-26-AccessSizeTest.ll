@@ -2,7 +2,7 @@
 ; is performed.  It is not legal to delete the second load instruction because
 ; the value computed by the first load instruction is changed by the store.
 
-; RUN: opt < %s -aa-pipeline=basic-aa -gvn -instcombine -S | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn,instcombine -S | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -instcombine -S | FileCheck %s
 

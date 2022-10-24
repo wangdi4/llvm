@@ -2,8 +2,8 @@
 ; This testcase tests for various features the basicaa test should be able to
 ; determine, as noted in the comments.
 
-; RUN: opt < %s -aa-pipeline=basic-aa -gvn -instcombine -dce -S | FileCheck %s --check-prefixes=CHECK,NO_ASSUME
-; RUN: opt < %s -aa-pipeline=basic-aa -gvn -instcombine -dce --enable-knowledge-retention -S | FileCheck %s --check-prefixes=CHECK,USE_ASSUME
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn,instcombine,dce -S | FileCheck %s --check-prefixes=CHECK,NO_ASSUME
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn,instcombine,dce --enable-knowledge-retention -S | FileCheck %s --check-prefixes=CHECK,USE_ASSUME
 ; INTEL_CUSTOMIZATION
 ; FIXME: Add CHECKs for convert-to-subscript case
 ;  opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -instcombine -dce -S | FileCheck %s --check-prefix=SUBSCRIPT

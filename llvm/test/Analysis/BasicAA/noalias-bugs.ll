@@ -1,4 +1,4 @@
-; RUN: opt -S -aa-pipeline=basic-aa -dse < %s | FileCheck %s
+; RUN: opt -S -aa-pipeline=basic-aa -passes=dse < %s | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -S -basic-aa -dse | FileCheck %s
 
