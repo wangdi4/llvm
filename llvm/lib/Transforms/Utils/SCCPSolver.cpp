@@ -1326,6 +1326,8 @@ void SCCPInstVisitor::handleCallOverdefined(CallBase &CB) {
     for (const Use &A : CB.args()) {
       if (A.get()->getType()->isStructTy())
         return markOverdefined(&CB); // Can't handle struct args.
+      if (A.get()->getType()->isMetadataTy())
+        continue;                    // Carried in CB, not allowed in Operands.
       ValueLatticeElement State = getValueState(A);
 
       if (State.isUnknownOrUndef())
