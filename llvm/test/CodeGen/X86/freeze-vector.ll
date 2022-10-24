@@ -12,3 +12,27 @@ define <4 x i32> @freeze_insert_subvector(<8 x i32> %a0) nounwind {
   %z = shufflevector <8 x i32> %y, <8 x i32> poison, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   ret <4 x i32> %z
 }
+
+define <4 x i32> @freeze_pshufd(<4 x i32> %a0) nounwind {
+; CHECK-LABEL: freeze_pshufd:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,2,1,0]
+; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,2,1,0]
+; CHECK-NEXT:    ret{{[l|q]}}
+  %x = shufflevector <4 x i32> %a0, <4 x i32> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
+  %y = freeze <4 x i32> %x
+  %z = shufflevector <4 x i32> %y, <4 x i32> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
+  ret <4 x i32> %z
+}
+
+define <4 x float> @freeze_permilps(<4 x float> %a0) nounwind {
+; CHECK-LABEL: freeze_permilps:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,2,1,0]
+; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,2,1,0]
+; CHECK-NEXT:    ret{{[l|q]}}
+  %x = shufflevector <4 x float> %a0, <4 x float> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
+  %y = freeze <4 x float> %x
+  %z = shufflevector <4 x float> %y, <4 x float> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
+  ret <4 x float> %z
+}
