@@ -24,7 +24,73 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-local-buffer-analysis"
 
-void LocalBufferInfo::updateLocalsMap(GlobalValue *LocalVal, User *U) {
+namespace llvm {
+
+class LocalBufferInfoImpl {
+public:
+  LocalBufferInfoImpl(Module *M, CallGraph *CG);
+
+  using TUsedLocals = LocalBufferInfo::TUsedLocals;
+
+  const TUsedLocals &getDirectLocals(Function *F) { return LocalUsageMap[F]; }
+
+  size_t getDirectLocalsSize(Function *F) { return DirectLocalSizeMap[F]; }
+
+  size_t getLocalsSize(Function *F) { return LocalSizeMap[F]; }
+
+private:
+  void analyze(CallGraph *CG);
+
+  /// Adds the given local value to the set of used locals of all functions
+  /// that are using the given user directly. It recursively searches the first
+  /// useres (and users of a users) that are functions.
+  /// \param LocalVal local value (which is represented by a global value
+  /// with address space 3).
+  /// \param U direct user of pLocalVal.
+  void updateLocalsMap(GlobalValue *LocalVal, User *U);
+
+  /// Goes over all local values in the module and over all their direct users
+  /// and maps between functions and the local values they use.
+  /// \param M the module which need to go over its local values.
+  void updateDirectLocals(Module &M);
+
+  /// calculate direct local sizes used by functions in the module.
+  void calculateDirectLocalsSize();
+
+  /// Iterate all functions in module by postorder traversal, and for each
+  /// function, add direct local sizes with the max size of local buffer needed
+  /// by all of callees.
+  void calculateLocalsSize(CallGraph *CG);
+
+  /// A mapping between function pointer and the set of local values the
+  /// function uses directly.
+  using TUsedLocalsMap = LocalBufferInfo::TUsedLocalsMap;
+
+  /// A mapping between function pointer and the local buffer size that the
+  /// function uses.
+  using TLocalSizeMap = DenseMap<Function *, size_t>;
+
+  /// The llvm module this pass needs to update.
+  Module *M;
+
+  /// Map between function and the local values it uses directly.
+  TUsedLocalsMap LocalUsageMap;
+
+  /// Map between function and the local buffer size.
+  TLocalSizeMap LocalSizeMap;
+
+  /// Map between function and the local buffer size for local values used
+  /// directly by this function.
+  TLocalSizeMap DirectLocalSizeMap;
+};
+
+} // namespace llvm
+
+LocalBufferInfoImpl::LocalBufferInfoImpl(Module *M, CallGraph *CG) : M(M) {
+  analyze(CG);
+}
+
+void LocalBufferInfoImpl::updateLocalsMap(GlobalValue *LocalVal, User *U) {
   // Instruction, Operator and Constant are the only possible subtypes of U
   if (isa<Instruction>(U)) {
     Instruction *I = cast<Instruction>(U);
@@ -53,7 +119,7 @@ void LocalBufferInfo::updateLocalsMap(GlobalValue *LocalVal, User *U) {
   }
 }
 
-void LocalBufferInfo::updateDirectLocals(Module &M) {
+void LocalBufferInfoImpl::updateDirectLocals(Module &M) {
   // Get a list of all the global values in the module
   Module::GlobalListType &Globals = M.getGlobalList();
 
@@ -80,7 +146,7 @@ void LocalBufferInfo::updateDirectLocals(Module &M) {
   } // Find globals done.
 }
 
-void LocalBufferInfo::calculateDirectLocalsSize() {
+void LocalBufferInfoImpl::calculateDirectLocalsSize() {
   DataLayout DL(M);
   for (auto &F : *M) {
     size_t DirectLocalSize = 0;
@@ -102,13 +168,13 @@ void LocalBufferInfo::calculateDirectLocalsSize() {
   }
 }
 
-void LocalBufferInfo::calculateLocalsSize(CallGraph *CG) {
+void LocalBufferInfoImpl::calculateLocalsSize(CallGraph *CG) {
   calculateDirectLocalsSize();
   CompilationUtils::calculateMemorySizeWithPostOrderTraversal(
       *CG, DirectLocalSizeMap, LocalSizeMap);
 }
 
-void LocalBufferInfo::analyzeModule(CallGraph *CG) {
+void LocalBufferInfoImpl::analyze(CallGraph *CG) {
   LocalUsageMap.clear();
   LocalSizeMap.clear();
   DirectLocalSizeMap.clear();
@@ -119,14 +185,41 @@ void LocalBufferInfo::analyzeModule(CallGraph *CG) {
   calculateLocalsSize(CG);
 }
 
+LocalBufferInfo::LocalBufferInfo(Module *M, CallGraph *CG) {
+  Impl.reset(new LocalBufferInfoImpl(M, CG));
+}
+
+LocalBufferInfo::LocalBufferInfo(LocalBufferInfo &&Other) {
+  Impl = std::move(Other.Impl);
+}
+
+LocalBufferInfo &LocalBufferInfo::operator=(LocalBufferInfo &&Other) {
+  Impl = std::move(Other.Impl);
+  return *this;
+}
+
+LocalBufferInfo::~LocalBufferInfo() = default;
+
+const LocalBufferInfo::TUsedLocals &
+LocalBufferInfo::getDirectLocals(Function *F) {
+  return Impl->getDirectLocals(F);
+}
+
+size_t LocalBufferInfo::getDirectLocalsSize(Function *F) {
+  return Impl->getDirectLocalsSize(F);
+}
+
+size_t LocalBufferInfo::getLocalsSize(Function *F) {
+  return Impl->getLocalsSize(F);
+}
+
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey LocalBufferAnalysis::Key;
 
 LocalBufferInfo LocalBufferAnalysis::run(Module &M,
                                          AnalysisManager<Module> &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
-  LocalBufferInfo WPAResult(&M);
-  WPAResult.analyzeModule(CG);
+  LocalBufferInfo WPAResult(&M, CG);
 
   return WPAResult;
 }
@@ -145,8 +238,7 @@ LocalBufferAnalysisLegacy::LocalBufferAnalysisLegacy() : ModulePass(ID) {
 
 bool LocalBufferAnalysisLegacy::runOnModule(Module &M) {
   CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  LocalBufferInfo *LBAResult = new LocalBufferInfo(&M);
-  LBAResult->analyzeModule(CG);
+  LocalBufferInfo *LBAResult = new LocalBufferInfo(&M, CG);
 
   Result.reset(LBAResult);
 
