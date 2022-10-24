@@ -387,11 +387,8 @@ if(SYCL_INCLUDE_TESTS)
         "Can't build SYCL tests without LLVM_INCLUDE_TESTS enabled.")
   endif()
   if(EXISTS ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include/gtest/gtest.h)
-    # INTEL_CUSTOMIZATION
-    # Disable SYCL unittests while we investigate the issue.
-    # add_subdirectory(unittests)
-    # list(APPEND SYCL_TEST_DEPS SYCLUnitTests)
-    # end INTEL_CUSTOMIZATION
+    add_subdirectory(unittests)
+    list(APPEND SYCL_TEST_DEPS SYCLUnitTests)
   endif()
   add_subdirectory(test)
 endif()
