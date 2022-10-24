@@ -1478,17 +1478,6 @@ void Instruction::addAnnotationMetadata(StringRef Name) {
 
 AAMDNodes Instruction::getAAMetadata() const {
   AAMDNodes Result;
-<<<<<<< HEAD
-  Result.TBAA = getMetadata(LLVMContext::MD_tbaa);
-  Result.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
-  Result.Scope = getMetadata(LLVMContext::MD_alias_scope);
-  Result.NoAlias = getMetadata(LLVMContext::MD_noalias);
-#if INTEL_CUSTOMIZATION
-  Result.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
-
-  Result.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
-#endif // INTEL_CUSTOMIZATION
-=======
   // Not using Instruction::hasMetadata() because we're not interested in
   // DebugInfoMetadata.
   if (Value::hasMetadata()) {
@@ -1498,7 +1487,11 @@ AAMDNodes Instruction::getAAMetadata() const {
     Result.Scope = Info.lookup(LLVMContext::MD_alias_scope);
     Result.NoAlias = Info.lookup(LLVMContext::MD_noalias);
   }
->>>>>>> f2e4ba0e3d40b9f3d5630dcda5e82b1a98f28410
+#if INTEL_CUSTOMIZATION
+  Result.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
+
+  Result.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
+#endif // INTEL_CUSTOMIZATION
   return Result;
 }
 
