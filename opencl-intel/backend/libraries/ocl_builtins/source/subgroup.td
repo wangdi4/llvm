@@ -257,6 +257,33 @@ defvar convert2float_code =
     float$VecLength result = $func(temp, $Arg1VarName);
     return convert_half$VecLength(result);
   }];
+defvar scan_exclusive_add_code =
+  [{
+    half$VecLength helper;
+    helper[0] = 0;
+    if (vec_mask[0] == 0)
+      src[0] = 0;
+    for (int i = 1; i < $VecLength; ++i) {
+      if (vec_mask[i] != 0)
+        src[i] += src[i-1];
+      else
+        src[i] = src[i-1];
+      helper[i] = src[i-1];
+    }
+    return helper;
+  }];
+defvar scan_inclusive_add_code =
+  [{
+    if (vec_mask[0] == 0)
+      src[0] = 0;
+    for (int i = 1; i < $VecLength; ++i) {
+      if (vec_mask[i] != 0)
+        src[i] += src[i-1];
+      else
+        src[i] = src[i-1];
+    }
+    return src;
+  }];
 
 // scalar
 foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
@@ -265,14 +292,23 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
     def : OclBuiltinImpl<builtin, builtin.Types, /*IsDeclOnly*/false, ret_arg0_code>, SHARED;
   }
 }
+
 // vectorized
-foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
-  foreach vf = [4, 8, 16, 32, 64] in {
-    foreach op = ["add", "min", "max", "mul"] in {
+foreach vf = [4, 8, 16, 32, 64] in {
+  foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+    foreach op = ["min", "max", "mul"] in {
       defvar builtin_add = !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf"#vf);
       def : OclBuiltinImpl<builtin_add, builtin_add.Types, /*IsDeclOnly*/false, convert2float_code, [["$func", "sub_group_"#func#"_"#op]]>, SHARED;
     }
   }
+  // vectorized reduce/scan add
+  defvar builtin_add = !cast<OclBuiltin>("sub_group_reduce_add_vf"#vf);
+  // implement half type reduce add with llvm ir in ll_subgroup_impl.td
+  def : OclBuiltinImpl<builtin_add, builtin_add.Types, /*IsDeclOnly*/true, [{}]>, SHARED;
+  defvar builtin_inclu_add = !cast<OclBuiltin>("sub_group_scan_inclusive_add_vf"#vf);
+  def : OclBuiltinImpl<builtin_inclu_add, builtin_inclu_add.Types, /*IsDeclOnly*/false, scan_inclusive_add_code>, SHARED;
+  defvar builtin_exclu_add = !cast<OclBuiltin>("sub_group_scan_exclusive_add_vf"#vf);
+  def : OclBuiltinImpl<builtin_exclu_add, builtin_exclu_add.Types, /*IsDeclOnly*/false, scan_exclusive_add_code>, SHARED;
 }
 
 // VectInfos
