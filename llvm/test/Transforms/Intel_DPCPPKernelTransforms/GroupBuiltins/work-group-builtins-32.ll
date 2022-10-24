@@ -844,9 +844,6 @@ declare <64 x i32> @_Z14work_group_anyDv64_iPS_(<64 x i32> %predicate, <64 x i32
 declare <64 x i32> @_Z19work_group_any_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
 
 ; Function Attrs: nounwind readnone
-declare i32 @_Z20work_group_broadcastim(i32 %src, i64 %local_id) #3
-
-; Function Attrs: nounwind readnone
 declare i32 @_Z20work_group_broadcastij(i32 %src, i32 %local_id) #3
 
 ; Function Attrs: nounwind readnone
@@ -1349,6 +1346,510 @@ declare <32 x double> @_Z20work_group_broadcastDv32_djjPS_(<32 x double> %src, i
 
 ; Function Attrs: nounwind
 declare <64 x double> @_Z20work_group_broadcastDv64_djjPS_(<64 x double> %src, i32 %linear_local_id, i32 %linear_id, <64 x double>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z31__finalize_work_group_broadcastij(i32 %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_ij(<4 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_ij(<8 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_ij(<16 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_ij(<32 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_ij(<64 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z31__finalize_work_group_broadcastjj(i32 %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_jj(<4 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_jj(<8 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_jj(<16 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_jj(<32 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_jj(<64 x i32> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z31__finalize_work_group_broadcastlj(i64 %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_lj(<4 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_lj(<8 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_lj(<16 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_lj(<32 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_lj(<64 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z31__finalize_work_group_broadcastmj(i64 %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_mj(<4 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_mj(<8 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_mj(<16 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_mj(<32 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_mj(<64 x i64> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare float @_Z31__finalize_work_group_broadcastfj(float %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z31__finalize_work_group_broadcastDv4_fj(<4 x float> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z31__finalize_work_group_broadcastDv8_fj(<8 x float> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x float> @_Z31__finalize_work_group_broadcastDv16_fj(<16 x float> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x float> @_Z31__finalize_work_group_broadcastDv32_fj(<32 x float> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x float> @_Z31__finalize_work_group_broadcastDv64_fj(<64 x float> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare double @_Z31__finalize_work_group_broadcastdj(double %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x double> @_Z31__finalize_work_group_broadcastDv4_dj(<4 x double> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x double> @_Z31__finalize_work_group_broadcastDv8_dj(<8 x double> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x double> @_Z31__finalize_work_group_broadcastDv16_dj(<16 x double> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x double> @_Z31__finalize_work_group_broadcastDv32_dj(<32 x double> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x double> @_Z31__finalize_work_group_broadcastDv64_dj(<64 x double> %src, i32 %local_id) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z31__finalize_work_group_broadcastijj(i32 %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_ijj(<4 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_ijj(<8 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_ijj(<16 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_ijj(<32 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_ijj(<64 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z31__finalize_work_group_broadcastjjj(i32 %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_jjj(<4 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_jjj(<8 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_jjj(<16 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_jjj(<32 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_jjj(<64 x i32> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z31__finalize_work_group_broadcastljj(i64 %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_ljj(<4 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_ljj(<8 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_ljj(<16 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_ljj(<32 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_ljj(<64 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z31__finalize_work_group_broadcastmjj(i64 %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_mjj(<4 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_mjj(<8 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_mjj(<16 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_mjj(<32 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_mjj(<64 x i64> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare float @_Z31__finalize_work_group_broadcastfjj(float %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z31__finalize_work_group_broadcastDv4_fjj(<4 x float> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z31__finalize_work_group_broadcastDv8_fjj(<8 x float> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x float> @_Z31__finalize_work_group_broadcastDv16_fjj(<16 x float> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x float> @_Z31__finalize_work_group_broadcastDv32_fjj(<32 x float> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x float> @_Z31__finalize_work_group_broadcastDv64_fjj(<64 x float> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare double @_Z31__finalize_work_group_broadcastdjj(double %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x double> @_Z31__finalize_work_group_broadcastDv4_djj(<4 x double> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x double> @_Z31__finalize_work_group_broadcastDv8_djj(<8 x double> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x double> @_Z31__finalize_work_group_broadcastDv16_djj(<16 x double> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x double> @_Z31__finalize_work_group_broadcastDv32_djj(<32 x double> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x double> @_Z31__finalize_work_group_broadcastDv64_djj(<64 x double> %src, i32 %local_id_x, i32 %local_id_y) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z31__finalize_work_group_broadcastimjj(i32 %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_ijjj(<4 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_ijjj(<8 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_ijjj(<16 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_ijjj(<32 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_ijjj(<64 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z31__finalize_work_group_broadcastjjjj(i32 %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_jjjj(<4 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_jjjj(<8 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_jjjj(<16 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_jjjj(<32 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_jjjj(<64 x i32> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z31__finalize_work_group_broadcastljjj(i64 %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_ljjj(<4 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_ljjj(<8 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_ljjj(<16 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_ljjj(<32 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_ljjj(<64 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z31__finalize_work_group_broadcastmjjj(i64 %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_mjjj(<4 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_mjjj(<8 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_mjjj(<16 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_mjjj(<32 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_mjjj(<64 x i64> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare float @_Z31__finalize_work_group_broadcastfjjj(float %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z31__finalize_work_group_broadcastDv4_fjjj(<4 x float> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z31__finalize_work_group_broadcastDv8_fjjj(<8 x float> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x float> @_Z31__finalize_work_group_broadcastDv16_fjjj(<16 x float> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x float> @_Z31__finalize_work_group_broadcastDv32_fjjj(<32 x float> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x float> @_Z31__finalize_work_group_broadcastDv64_fjjj(<64 x float> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare double @_Z31__finalize_work_group_broadcastdjjj(double %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x double> @_Z31__finalize_work_group_broadcastDv4_djjj(<4 x double> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x double> @_Z31__finalize_work_group_broadcastDv8_djjj(<8 x double> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x double> @_Z31__finalize_work_group_broadcastDv16_djjj(<16 x double> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x double> @_Z31__finalize_work_group_broadcastDv32_djjj(<32 x double> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x double> @_Z31__finalize_work_group_broadcastDv64_djjj(<64 x double> %src, i32 %local_id_x, i32 %local_id_y, i32 %local_id_z) #3
+
+; Function Attrs: nounwind
+declare signext i8 @_Z31__finalize_work_group_broadcastcjjPc(i8 signext %src, i32 %linear_local_id, i32 %linear_id, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z31__finalize_work_group_broadcastDv4_cjjPS_(<4 x i8> %src, i32 %linear_local_id, i32 %linear_id, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z31__finalize_work_group_broadcastDv8_cjjPS_(<8 x i8> %src, i32 %linear_local_id, i32 %linear_id, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z31__finalize_work_group_broadcastDv16_cjjPS_(<16 x i8> %src, i32 %linear_local_id, i32 %linear_id, <16 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i8> @_Z31__finalize_work_group_broadcastDv32_cjjPS_(<32 x i8> %src, i32 %linear_local_id, i32 %linear_id, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z31__finalize_work_group_broadcastDv64_cjjPS_(<64 x i8> %src, i32 %linear_local_id, i32 %linear_id, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i8 @_Z31__finalize_work_group_broadcasthjjPh(i8 zeroext %src, i32 %linear_local_id, i32 %linear_id, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z31__finalize_work_group_broadcastDv4_hjjPS_(<4 x i8> %src, i32 %linear_local_id, i32 %linear_id, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z31__finalize_work_group_broadcastDv8_hjjPS_(<8 x i8> %src, i32 %linear_local_id, i32 %linear_id, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z31__finalize_work_group_broadcastDv16_hjjPS_(<16 x i8> %src, i32 %linear_local_id, i32 %linear_id, <16 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i8> @_Z31__finalize_work_group_broadcastDv32_hjjPS_(<32 x i8> %src, i32 %linear_local_id, i32 %linear_id, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z31__finalize_work_group_broadcastDv64_hjjPS_(<64 x i8> %src, i32 %linear_local_id, i32 %linear_id, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare signext i16 @_Z31__finalize_work_group_broadcastsjjPs(i16 signext %src, i32 %linear_local_id, i32 %linear_id, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z31__finalize_work_group_broadcastDv4_sjjPS_(<4 x i16> %src, i32 %linear_local_id, i32 %linear_id, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z31__finalize_work_group_broadcastDv8_sjjPS_(<8 x i16> %src, i32 %linear_local_id, i32 %linear_id, <8 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i16> @_Z31__finalize_work_group_broadcastDv16_sjjPS_(<16 x i16> %src, i32 %linear_local_id, i32 %linear_id, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z31__finalize_work_group_broadcastDv32_sjjPS_(<32 x i16> %src, i32 %linear_local_id, i32 %linear_id, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z31__finalize_work_group_broadcastDv64_sjjPS_(<64 x i16> %src, i32 %linear_local_id, i32 %linear_id, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i16 @_Z31__finalize_work_group_broadcasttjjPt(i16 zeroext %src, i32 %linear_local_id, i32 %linear_id, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z31__finalize_work_group_broadcastDv4_tjjPS_(<4 x i16> %src, i32 %linear_local_id, i32 %linear_id, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z31__finalize_work_group_broadcastDv8_tjjPS_(<8 x i16> %src, i32 %linear_local_id, i32 %linear_id, <8 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i16> @_Z31__finalize_work_group_broadcastDv16_tjjPS_(<16 x i16> %src, i32 %linear_local_id, i32 %linear_id, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z31__finalize_work_group_broadcastDv32_tjjPS_(<32 x i16> %src, i32 %linear_local_id, i32 %linear_id, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z31__finalize_work_group_broadcastDv64_tjjPS_(<64 x i16> %src, i32 %linear_local_id, i32 %linear_id, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z31__finalize_work_group_broadcastijjPi(i32 %src, i32 %linear_local_id, i32 %linear_id, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_ijjPS_(<4 x i32> %src, i32 %linear_local_id, i32 %linear_id, <4 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_ijjPS_(<8 x i32> %src, i32 %linear_local_id, i32 %linear_id, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_ijjPS_(<16 x i32> %src, i32 %linear_local_id, i32 %linear_id, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_ijjPS_(<32 x i32> %src, i32 %linear_local_id, i32 %linear_id, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_ijjPS_(<64 x i32> %src, i32 %linear_local_id, i32 %linear_id, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z31__finalize_work_group_broadcastjjjPj(i32 %src, i32 %linear_local_id, i32 %linear_id, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z31__finalize_work_group_broadcastDv4_jjjPS_(<4 x i32> %src, i32 %linear_local_id, i32 %linear_id, <4 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i32> @_Z31__finalize_work_group_broadcastDv8_jjjPS_(<8 x i32> %src, i32 %linear_local_id, i32 %linear_id, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z31__finalize_work_group_broadcastDv16_jjjPS_(<16 x i32> %src, i32 %linear_local_id, i32 %linear_id, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z31__finalize_work_group_broadcastDv32_jjjPS_(<32 x i32> %src, i32 %linear_local_id, i32 %linear_id, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z31__finalize_work_group_broadcastDv64_jjjPS_(<64 x i32> %src, i32 %linear_local_id, i32 %linear_id, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z31__finalize_work_group_broadcastljjPl(i64 %src, i32 %linear_local_id, i32 %linear_id, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_ljjPS_(<4 x i64> %src, i32 %linear_local_id, i32 %linear_id, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_ljjPS_(<8 x i64> %src, i32 %linear_local_id, i32 %linear_id, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_ljjPS_(<16 x i64> %src, i32 %linear_local_id, i32 %linear_id, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_ljjPS_(<32 x i64> %src, i32 %linear_local_id, i32 %linear_id, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_ljjPS_(<64 x i64> %src, i32 %linear_local_id, i32 %linear_id, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z31__finalize_work_group_broadcastmjjPm(i64 %src, i32 %linear_local_id, i32 %linear_id, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z31__finalize_work_group_broadcastDv4_mjjPS_(<4 x i64> %src, i32 %linear_local_id, i32 %linear_id, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z31__finalize_work_group_broadcastDv8_mjjPS_(<8 x i64> %src, i32 %linear_local_id, i32 %linear_id, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z31__finalize_work_group_broadcastDv16_mjjPS_(<16 x i64> %src, i32 %linear_local_id, i32 %linear_id, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z31__finalize_work_group_broadcastDv32_mjjPS_(<32 x i64> %src, i32 %linear_local_id, i32 %linear_id, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z31__finalize_work_group_broadcastDv64_mjjPS_(<64 x i64> %src, i32 %linear_local_id, i32 %linear_id, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare float @_Z31__finalize_work_group_broadcastfjjPf(float %src, i32 %linear_local_id, i32 %linear_id, float* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x float> @_Z31__finalize_work_group_broadcastDv4_fjjPS_(<4 x float> %src, i32 %linear_local_id, i32 %linear_id, <4 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x float> @_Z31__finalize_work_group_broadcastDv8_fjjPS_(<8 x float> %src, i32 %linear_local_id, i32 %linear_id, <8 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x float> @_Z31__finalize_work_group_broadcastDv16_fjjPS_(<16 x float> %src, i32 %linear_local_id, i32 %linear_id, <16 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x float> @_Z31__finalize_work_group_broadcastDv32_fjjPS_(<32 x float> %src, i32 %linear_local_id, i32 %linear_id, <32 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x float> @_Z31__finalize_work_group_broadcastDv64_fjjPS_(<64 x float> %src, i32 %linear_local_id, i32 %linear_id, <64 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare double @_Z31__finalize_work_group_broadcastdjjPd(double %src, i32 %linear_local_id, i32 %linear_id, double* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x double> @_Z31__finalize_work_group_broadcastDv4_djjPS_(<4 x double> %src, i32 %linear_local_id, i32 %linear_id, <4 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x double> @_Z31__finalize_work_group_broadcastDv8_djjPS_(<8 x double> %src, i32 %linear_local_id, i32 %linear_id, <8 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x double> @_Z31__finalize_work_group_broadcastDv16_djjPS_(<16 x double> %src, i32 %linear_local_id, i32 %linear_id, <16 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x double> @_Z31__finalize_work_group_broadcastDv32_djjPS_(<32 x double> %src, i32 %linear_local_id, i32 %linear_id, <32 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x double> @_Z31__finalize_work_group_broadcastDv64_djjPS_(<64 x double> %src, i32 %linear_local_id, i32 %linear_id, <64 x double>* %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z21work_group_reduce_addi(i32 %src) #3

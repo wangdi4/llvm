@@ -16,75 +16,40 @@
 #include "llvm/Pass.h"
 
 namespace llvm {
+class LocalBufferInfoImpl;
 
 // It handles actual analysis and results of local buffer analysis.
 class LocalBufferInfo {
+  std::unique_ptr<LocalBufferInfoImpl> Impl;
+
 public:
   /// A set of local values used by a function
-  typedef SmallPtrSet<llvm::GlobalValue *, 16> TUsedLocals;
+  using TUsedLocals = SmallPtrSet<llvm::GlobalValue *, 16>;
 
   /// A mapping between function pointer and the set of local values the
   /// function uses directly.
-  typedef DenseMap<const llvm::Function *, TUsedLocals> TUsedLocalsMap;
+  using TUsedLocalsMap = DenseMap<const llvm::Function *, TUsedLocals>;
 
-  LocalBufferInfo(Module *M) { this->M = M; }
-
-  void analyzeModule(CallGraph *CG);
+  LocalBufferInfo(Module *M, CallGraph *CG);
+  LocalBufferInfo(LocalBufferInfo &&Other);
+  LocalBufferInfo &operator=(LocalBufferInfo &&Other);
+  ~LocalBufferInfo();
 
   /// Returns the set of local values used directly by the given function
   /// \param F a function for which should return the local values that
   /// were used by it directly.
   /// \returns the set of local values used directly by the given function.
-  const TUsedLocals &getDirectLocals(Function *F) { return LocalUsageMap[F]; }
+  const TUsedLocals &getDirectLocals(Function *F);
 
   /// Returns the size of local buffer used directly by the given function.
   /// \param F given function.
   /// \returns the size of local buffer used directly by the given function.
-  size_t getDirectLocalsSize(Function *F) { return DirectLocalSizeMap[F]; }
+  size_t getDirectLocalsSize(Function *F);
 
   /// Returns the size of local buffer used by the given function.
   /// \param F given function.
   /// \returns the size of local buffer used by the given function.
-  size_t getLocalsSize(Function *F) { return LocalSizeMap[F]; }
-
-private:
-  /// Adds the given local value to the set of used locals of all functions
-  /// that are using the given user directly. It recursively searches the first
-  /// useres (and users of a users) that are functions.
-  /// \param LocalVal local value (which is represented by a global value
-  /// with address space 3).
-  /// \param U direct user of pLocalVal.
-  void updateLocalsMap(GlobalValue *LocalVal, User *U);
-
-  /// Goes over all local values in the module and over all their direct users
-  /// and maps between functions and the local values they use.
-  /// \param M the module which need to go over its local values.
-  void updateDirectLocals(Module &M);
-
-  /// calculate direct local sizes used by functions in the module.
-  void calculateDirectLocalsSize();
-
-  /// Iterate all functions in module by postorder traversal, and for each
-  /// function, add direct local sizes with the max size of local buffer needed
-  /// by all of callees.
-  void calculateLocalsSize(CallGraph *CG);
-
-  /// A mapping between function pointer and the local buffer size that the
-  /// function uses.
-  typedef DenseMap<Function *, size_t> TLocalSizeMap;
-
-  /// The llvm module this pass needs to update.
-  Module *M;
-
-  /// Map between function and the local values it uses directly.
-  TUsedLocalsMap LocalUsageMap;
-
-  /// Map between function and the local buffer size.
-  TLocalSizeMap LocalSizeMap;
-
-  /// Map between function and the local buffer size for local values used
-  /// directly by this function.
-  TLocalSizeMap DirectLocalSizeMap;
+  size_t getLocalsSize(Function *F);
 };
 
 /// Provide information about the local values each function uses directly.

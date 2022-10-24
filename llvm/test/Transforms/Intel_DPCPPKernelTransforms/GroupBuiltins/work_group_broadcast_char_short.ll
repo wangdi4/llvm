@@ -17,6 +17,6 @@ define void @test() {
 
 ;; Instructions inserted by GroupBuiltin should not have debug info
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-11: WARNING
+; DEBUGIFY-COUNT-13: WARNING
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS
