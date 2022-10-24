@@ -577,18 +577,15 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     // 5. Create barrier() call immediately AFTER per-WI call.
     (void)Utils.createBarrier(WGCallInst);
 
-    // 6. For uniform & vectorized WG function (less broadcast WG) - finalize
+    // 6. For uniform & vectorized WG function - finalize
     // the result
-    if (isWorkGroupUniform(FuncName) && !IsBroadcast &&
-        RetType->isVectorTy()) {
+    if (isWorkGroupUniform(FuncName) && RetType->isVectorTy()) {
 
       // a. Load 'alloca' value of the accumulated result.
       LoadInst *LoadResult = new LoadInst(Result->getAllocatedType(), Result,
                                           "LoadWGFinalResult", WGCallInst);
 
       // b. Create finalization function object:
-      SmallVector<Value *, 8> Params;
-      Params.push_back(LoadResult);
       // Remangle with unique name (derived from original WG function name)
       // [Note that the signature is as of original WG function]
       std::string FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
@@ -601,14 +598,16 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
                              "identified in the module");
 
       // c. Create call to finalization function object.
-      if (Params.size() < FinalizeFunc->arg_size()) {
-        auto *DummyMask =
-            UndefValue::get((FinalizeFunc->arg_end() - 1)->getType());
-        Params.push_back(DummyMask);
-      }
+      SmallVector<Value *, 8> Params;
+      assert(LoadResult->getType() == FinalizeFunc->arg_begin()->getType() &&
+             "First arg type of finalize helper doesn't match!");
+      Params.push_back(LoadResult);
+      // Create dummy (unused) undef args.
+      for (auto I = FinalizeFunc->arg_begin() + 1, E = FinalizeFunc->arg_end();
+           I != E; ++I)
+        Params.push_back(UndefValue::get(I->getType()));
       CallInst *FinalizeCall =
-          CallInst::Create(FinalizeFunc, ArrayRef<Value *>(Params),
-                           "CallFinalizeWG", WGCallInst);
+          CallInst::Create(FinalizeFunc, Params, "CallFinalizeWG", WGCallInst);
       assert(FinalizeCall && "Couldn't create CALL instruction!");
 
       NewCall = FinalizeCall;
