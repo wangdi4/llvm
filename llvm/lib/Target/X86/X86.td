@@ -232,7 +232,7 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
 def FeatureNEBF16    : SubtargetFeature<"avx512bf16ne", "HasNEBF16", "true",
                            "Support bfloat16 floating point without exceptions",
-                           [FeatureFP16]>;
+                           [FeatureFP16, FeatureBF16]>;
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT8
 def FeatureAVXVNNIINT8  : SubtargetFeature<"avxvnniint8",
