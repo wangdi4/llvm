@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt < %s -aa-pipeline=basic-aa -licm -disable-output
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -disable-output
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -disable-output
-=======
-; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -disable-output
->>>>>>> ec9ccb1668f60ae29e2f6c9627142f5ebfe15080
 	%struct..apr_array_header_t = type { i32*, i32, i32, i32, i8* }
 	%struct..apr_table_t = type { %struct..apr_array_header_t, i32, [32 x i32], [32 x i32] }
 

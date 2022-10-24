@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt < %s -aa-pipeline=basic-aa -dse -S | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=dse -S | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -dse -S | FileCheck %s
-=======
-; RUN: opt < %s -aa-pipeline=basic-aa -passes=dse -S | FileCheck %s
->>>>>>> ec9ccb1668f60ae29e2f6c9627142f5ebfe15080
 
 define void @test({i32,i32 }* %P) {
 ; CHECK: store i32 0, i32* %X
