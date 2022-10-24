@@ -311,7 +311,6 @@ namespace {
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addUsedIfAvailable<LiveStacks>();
-      AU.addUsedIfAvailable<LiveVariables>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
