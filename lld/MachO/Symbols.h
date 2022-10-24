@@ -150,6 +150,10 @@ public:
 
   uint64_t getVA() const override;
 
+  // Returns the object file that this symbol was defined in. This value differs
+  // from `getFile()` if the symbol originated from a bitcode file.
+  ObjFile *getObjectFile() const;
+
   std::string getSourceLocation();
 
   // Ensure this symbol's pointers to InputSections point to their canonical
@@ -216,8 +220,10 @@ enum class RefState : uint8_t { Unreferenced = 0, Weak = 1, Strong = 2 };
 
 class Undefined : public Symbol {
 public:
-  Undefined(StringRefZ name, InputFile *file, RefState refState)
-      : Symbol(UndefinedKind, name, file), refState(refState) {
+  Undefined(StringRefZ name, InputFile *file, RefState refState,
+            bool wasBitcodeSymbol)
+      : Symbol(UndefinedKind, name, file), refState(refState),
+        wasBitcodeSymbol(wasBitcodeSymbol) {
     assert(refState != RefState::Unreferenced);
   }
 
@@ -225,7 +231,12 @@ public:
 
   static bool classof(const Symbol *s) { return s->kind() == UndefinedKind; }
 
+<<<<<<< HEAD
   RefState refState; // INTEL
+=======
+  RefState refState : 2;
+  bool wasBitcodeSymbol;
+>>>>>>> b9457330266e12364e8949939f899135c41d88b3
 };
 
 // On Unix, it is traditionally allowed to write variable definitions without
