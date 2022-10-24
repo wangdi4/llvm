@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -memdep -gvn < %s
+=======
+; RUN: opt -passes=gvn < %s
+>>>>>>> ec9ccb1668f60ae29e2f6c9627142f5ebfe15080
 
 define void @__memdep_requires_dominator_tree(i32* nocapture %bufUInt, i32* nocapture %pattern) nounwind {
 entry:

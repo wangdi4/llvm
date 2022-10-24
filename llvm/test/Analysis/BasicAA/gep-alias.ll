@@ -1,7 +1,11 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -aa-pipeline=basic-aa -gvn -instcombine -S 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -basic-aa -gvn -instcombine -S 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -instcombine -S 2>&1 | FileCheck %s
+=======
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn,instcombine -S 2>&1 | FileCheck %s
+>>>>>>> ec9ccb1668f60ae29e2f6c9627142f5ebfe15080
 
 target datalayout = "e-p:32:32:32-p1:16:16:16-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:128:128"
 

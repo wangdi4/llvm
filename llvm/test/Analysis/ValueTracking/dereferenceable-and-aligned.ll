@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -licm -S | FileCheck %s
 ; INTEL
 ; RUN: opt -S -convert-to-subscript < %s | opt -S -licm | FileCheck %s
+=======
+; RUN: opt < %s -passes=licm -S | FileCheck %s
+>>>>>>> ec9ccb1668f60ae29e2f6c9627142f5ebfe15080
 
 target datalayout = "e-p:32:32-p1:64:64-p4:64:64"
 
