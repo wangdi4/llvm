@@ -4883,6 +4883,9 @@ Sema::CheckConceptTemplateId(const CXXScopeSpec &SS,
                                 /*UpdateArgsWithConversions=*/false))
     return ExprError();
 
+  auto *CSD = ImplicitConceptSpecializationDecl::Create(
+      Context, NamedConcept->getDeclContext(), NamedConcept->getLocation(),
+      Converted);
   ConstraintSatisfaction Satisfaction;
   bool AreArgsDependent =
       TemplateSpecializationType::anyDependentTemplateArguments(*TemplateArgs,
@@ -4890,6 +4893,10 @@ Sema::CheckConceptTemplateId(const CXXScopeSpec &SS,
   MultiLevelTemplateArgumentList MLTAL;
   MLTAL.addOuterTemplateArguments(NamedConcept, Converted);
   LocalInstantiationScope Scope(*this);
+
+  EnterExpressionEvaluationContext EECtx{
+      *this, ExpressionEvaluationContext::ConstantEvaluated, CSD};
+
   if (!AreArgsDependent &&
       CheckConstraintSatisfaction(
           NamedConcept, {NamedConcept->getConstraintExpr()}, MLTAL,
@@ -4898,10 +4905,11 @@ Sema::CheckConceptTemplateId(const CXXScopeSpec &SS,
           Satisfaction))
     return ExprError();
 
-  return ConceptSpecializationExpr::Create(Context,
+  return ConceptSpecializationExpr::Create(
+      Context,
       SS.isSet() ? SS.getWithLocInContext(Context) : NestedNameSpecifierLoc{},
       TemplateKWLoc, ConceptNameInfo, FoundDecl, NamedConcept,
-      ASTTemplateArgumentListInfo::Create(Context, *TemplateArgs), Converted,
+      ASTTemplateArgumentListInfo::Create(Context, *TemplateArgs), CSD,
       AreArgsDependent ? nullptr : &Satisfaction);
 }
 
