@@ -182,11 +182,10 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
 /// DoPromotion - This method actually performs the promotion of the specified
 /// arguments, and returns the new function.  At this point, we know that it's
 /// safe to do so.
-static Function *
-doPromotion(Function *F, FunctionAnalysisManager &FAM,
-            const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>>
-                &ArgsToPromote, bool isCallback) { // INTEL
-  getInlineReport()->initFunctionClosure(F); // INTEL
+static Function *doPromotion(
+    Function *F, FunctionAnalysisManager &FAM,
+    const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
+    bool isCallback) { // INTEL
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
   FunctionType *FTy = F->getFunctionType();
@@ -237,8 +236,9 @@ doPromotion(Function *F, FunctionAnalysisManager &FAM,
   NF->copyMetadata(F, 0);
 
 #if INTEL_CUSTOMIZATION
-        getInlineReport()->replaceFunctionWithFunction(F, NF);
-        getMDInlineReport()->replaceFunctionWithFunction(F, NF);
+  getInlineReport()->initFunctionClosure(F);
+  getInlineReport()->replaceFunctionWithFunction(F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 #endif // INTEL_CUSTOMIZATION
 
   // The new function will have the !dbg metadata copied from the original
