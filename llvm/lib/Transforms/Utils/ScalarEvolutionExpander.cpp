@@ -61,14 +61,6 @@ cl::opt<unsigned> llvm::SCEVCheapExpansionBudget(
 
 using namespace PatternMatch;
 
-#if INTEL_COLLAB
-static bool isTargetSPIRV(Function *F) {
-  Triple TargetTriple(F->getParent()->getTargetTriple());
-  return TargetTriple.getArch() == Triple::ArchType::spir ||
-         TargetTriple.getArch() == Triple::ArchType::spir64;
-}
-
-#endif // INTEL_COLLAB
 /// ReuseOrCreateCast - Arrange for there to be a cast of V to Ty at IP,
 /// reusing an existing cast if a suitable one (= dominating IP) exists, or
 /// creating a new one.
@@ -1719,10 +1711,6 @@ Value *SCEVExpander::expandMinMaxExpr(const SCEVNAryExpr *S,
                                       bool IsSequential) {
   Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
   Type *Ty = LHS->getType();
-#if INTEL_COLLAB
-  assert(Builder.GetInsertBlock());
-  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
-#endif // INTEL_COLLAB
   if (IsSequential)
     LHS = Builder.CreateFreeze(LHS);
   for (int i = S->getNumOperands() - 2; i >= 0; --i) {
@@ -1730,11 +1718,7 @@ Value *SCEVExpander::expandMinMaxExpr(const SCEVNAryExpr *S,
     if (IsSequential && i != 0)
       RHS = Builder.CreateFreeze(RHS);
     Value *Sel;
-#if INTEL_COLLAB
-    if (Ty->isIntegerTy() && !isSPIRV)
-#else
     if (Ty->isIntegerTy())
-#endif // INTEL_COLLAB
       Sel = Builder.CreateIntrinsic(IntrinID, {Ty}, {LHS, RHS},
                                     /*FMFSource=*/nullptr, Name);
     else {
