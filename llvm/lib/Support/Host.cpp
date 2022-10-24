@@ -1875,6 +1875,10 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
       MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
   Features["avxvnni"]    = HasLeaf7Subleaf1 && ((EAX >> 4) & 1) && HasAVXSave;
   Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1) && HasAVX512Save;
+<<<<<<< HEAD
+=======
+  Features["amx-fp16"]   = HasLeaf7Subleaf1 && ((EAX >> 21) & 1) && HasAMXSave;
+>>>>>>> 363047bef1dfd554165fcfc71176a124034d6288
   Features["hreset"]     = HasLeaf7Subleaf1 && ((EAX >> 22) & 1);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
