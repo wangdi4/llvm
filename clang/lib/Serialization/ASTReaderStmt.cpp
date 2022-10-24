@@ -2387,6 +2387,7 @@ void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
   // The NumClauses field was read in ReadStmtFromStream.
   Record.skipInts(1);
   VisitOMPExecutableDirective(D);
+  D->setTargetCallLoc(Record.readSourceLocation());
 }
 
 void ASTStmtReader::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {

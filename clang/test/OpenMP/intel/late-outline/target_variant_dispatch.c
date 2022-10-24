@@ -67,15 +67,15 @@ int main() {
 
   #pragma omp target
   {
-    //CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
+    //CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH{{.*}}
     #pragma omp target variant dispatch use_device_ptr(aaa, bbb) nowait
-    //CHECK: call{{.*}}foo
+    //CHECK: call{{.*}}foo{{.*}}[ "QUAL.OMP.DISPATCH.CALL"() ]
     rrr = foo(aaa, bbb);
     //CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
 
     //CHECK: [[T2:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
     #pragma omp target variant dispatch use_device_ptr(aaa, bbb) nowait
-    //CHECK: call{{.*}}foo_another
+    //CHECK: call{{.*}}foo_another{{.*}}[ "QUAL.OMP.DISPATCH.CALL"() ]
     rrr = foo_another(aaa, bbb);
     //CHECK: region.exit(token [[T2]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
 
@@ -83,7 +83,7 @@ int main() {
     A avar;
     //CPP: [[T3:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
     #pragma omp target variant dispatch use_device_ptr(aaa, bbb) nowait
-    //CPP: call{{.*}}member
+    //CPP: call{{.*}}member{{.*}}[ "QUAL.OMP.DISPATCH.CALL"() ]
     rrr = avar.member(aaa, bbb);
     //CPP: region.exit(token [[T3]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
 #endif
@@ -91,7 +91,7 @@ int main() {
   #pragma omp target variant dispatch device(0) nowait
   {
     //CHECK: [[T4:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
-    //CHECK: call{{.*}}foo0
+    //CHECK: call{{.*}}foo0{{.*}}[ "QUAL.OMP.DISPATCH.CALL"() ]
     foo0();
     //CHECK: region.exit(token [[T4]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
   }

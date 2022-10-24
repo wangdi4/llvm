@@ -10973,7 +10973,9 @@ StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
   if (!AStmt)
     return StmtError();
 
+  SourceLocation TargetCallLoc;
   Stmt *S = cast<CapturedStmt>(AStmt)->getCapturedStmt();
+
   if (!CurContext->isDependentContext()) {
     if (auto *CS = dyn_cast<CompoundStmt>(S))
       S = CS->body_front();
@@ -11004,6 +11006,7 @@ StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
            diag::err_omp_target_variant_dispatch_statement_call);
       return StmtError();
     }
+    TargetCallLoc = TargetCall->getExprLoc();
 
     auto *CE = cast<CallExpr>(TargetCall);
     unsigned NumArgs = CE->getNumArgs();
@@ -11012,8 +11015,8 @@ StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
 
   setFunctionHasBranchProtectedScope();
 
-  return OMPTargetVariantDispatchDirective::Create(Context, StartLoc, EndLoc,
-                                                   Clauses, AStmt);
+  return OMPTargetVariantDispatchDirective::Create(
+      Context, StartLoc, EndLoc, Clauses, AStmt, TargetCallLoc);
 }
 
 StmtResult Sema::ActOnOpenMPPrefetchDirective(ArrayRef<OMPClause *> Clauses,

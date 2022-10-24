@@ -603,9 +603,11 @@ OMPSectionDirective *OMPSectionDirective::CreateEmpty(const ASTContext &C,
 #if INTEL_COLLAB
 OMPTargetVariantDispatchDirective *OMPTargetVariantDispatchDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt) {
+    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    SourceLocation TargetCallLoc) {
   auto *Dir = createDirective<OMPTargetVariantDispatchDirective>(
       C, Clauses, AssociatedStmt, /*NumChildren=*/0, StartLoc, EndLoc);
+  Dir->setTargetCallLoc(TargetCallLoc);
   return Dir;
 }
 
