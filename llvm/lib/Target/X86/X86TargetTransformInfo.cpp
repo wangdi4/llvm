@@ -5146,6 +5146,32 @@ X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
 }
 
 #if INTEL_CUSTOMIZATION
+InstructionCost X86TTIImpl::getFMACostSavings(Type *Ty, FastMathFlags FMF) {
+
+  if (!FMF.allowContract())
+    return 0;
+
+  // Savings = Cost(FMul) + Cost(FAdd) - Cost(FMA).
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  InstructionCost MulCost =
+      getArithmeticInstrCost(Instruction::FMul, Ty, CostKind);
+  InstructionCost AddCost =
+      getArithmeticInstrCost(Instruction::FAdd, Ty, CostKind);
+
+  Intrinsic::ID ID = Intrinsic::fmuladd;
+  SmallVector<Type *, 2> Tys;
+  Tys.push_back(Ty);
+  Tys.push_back(Ty);
+  ArrayRef<Type *> ArgTys(Tys);
+  IntrinsicCostAttributes CostAttrs(ID, Ty, ArgTys);
+  InstructionCost FMACost = getIntrinsicInstrCost(CostAttrs, CostKind);
+
+  InstructionCost Savings = MulCost + AddCost - FMACost;
+  if (Savings < 0)
+    Savings = 0;
+  return Savings;
+}
+
 InstructionCost
 X86TTIImpl::getSerializationCost(Type *EltTy, unsigned NumElts,
                                  InstructionCost BuildVecCost) const {
