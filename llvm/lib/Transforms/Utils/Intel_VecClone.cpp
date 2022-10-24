@@ -205,7 +205,13 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   LLVM_DEBUG(F.dump());
 
   FunctionType* OrigFunctionType = F.getFunctionType();
-  Type *CharacteristicType = calcCharacteristicType(F, V);
+  Type *CharacteristicType = nullptr;
+  // IGC requires device versions of Intel math functions to have
+  // masks of i32 elements
+  if (F.getName().startswith("__svml_device"))
+    CharacteristicType = IntegerType::getInt32Ty(F.getContext());
+  else
+    CharacteristicType = calcCharacteristicType(F, V);
 
   const auto *VKIt = V.getParameters().begin();
   SmallVector<Type*, 4> ParmTypes;
