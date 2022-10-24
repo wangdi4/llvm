@@ -5322,8 +5322,6 @@ def mno_amx_avx512_cvtrow : Flag<["-"], "mno-amx-avx512-cvtrow">, Group<m_x86_Fe
 #endif // INTEL_CUSTOMIZATION
 def mamx_bf16 : Flag<["-"], "mamx-bf16">, Group<m_x86_Features_Group>;
 def mno_amx_bf16 : Flag<["-"], "mno-amx-bf16">, Group<m_x86_Features_Group>;
-def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
-def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
 def mamx_int8 : Flag<["-"], "mamx-int8">, Group<m_x86_Features_Group>;
 def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
