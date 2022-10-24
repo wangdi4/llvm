@@ -177,9 +177,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         /// Clear m_isFinalized in the case that program is built again.
         void ClearFinalizedFlag();
 
-        std::vector<std::string>& getWithSourceKernelName(){
-            return m_WithSourceKernelName;
+        std::vector<std::string>& getKernelsWithArgsInfo(){
+            return m_KernelsWithArgsInfo;
         }
+
+        bool getIsSpir() { return BinaryIsSpir; }
+
+        void setIsSpir() { BinaryIsSpir = true; }
 
 	protected:
 		virtual ~Program();
@@ -205,7 +209,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		std::atomic_flag m_afAutorunKernelsLaunched;
 
-		std::vector<std::string> m_WithSourceKernelName;
+		std::vector<std::string> m_KernelsWithArgsInfo;
 
 	private:
 
@@ -214,5 +218,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
                 volatile bool m_isFinalized;
                 std::mutex m_finalizeMutex;
+
+		bool BinaryIsSpir = false;
 	};
 }}}

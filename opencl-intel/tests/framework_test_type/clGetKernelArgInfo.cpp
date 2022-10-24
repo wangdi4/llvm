@@ -481,6 +481,64 @@ void clGetKernelArgInfoNotAvailableTest() {
     ASSERT_OCL_SUCCESS(Err, "clReleaseContext");
 }
 
+void clGetKernelArgInfoAvailableWithBinaryTest() {
+    printf("---------------------------------------\n");
+    printf("clGetKernelArgInfoAvailableWithBinary\n");
+    printf("---------------------------------------\n");
+    cl_device_id Device = NULL;
+    cl_int BinaryStatus;
+    cl_context Ctx;
+    cl_platform_id Platform = 0;
+    cl_program ProgramB = 0;
+
+    cl_int Err = clGetPlatformIDs(1, &Platform, nullptr);
+    ASSERT_OCL_SUCCESS(Err, "clGetPlatformIDs");
+
+    cl_context_properties Props[3] = {CL_CONTEXT_PLATFORM,
+                                        (cl_context_properties)Platform, 0};
+    Err = clGetDeviceIDs(Platform, gDeviceType, 1, &Device, NULL);
+    ASSERT_OCL_SUCCESS(Err, "clGetDeviceIDs");
+
+    // create context
+    Ctx = clCreateContext(Props, 1, &Device, NULL, NULL, &Err);
+    ASSERT_OCL_SUCCESS(Err, "clCreateContext");
+
+    // read bitcode
+    std::ifstream BitcodeFile(get_exe_dir() + "test.bc", std::fstream::binary);
+    std::vector<char> Bitcode(std::istreambuf_iterator<char>(BitcodeFile), {});
+    size_t FileSize = Bitcode.size();
+    unsigned char *Binaries[] = {
+        reinterpret_cast<unsigned char *>(Bitcode.data())};
+
+    // create program with binary
+    ProgramB = clCreateProgramWithBinary(
+        Ctx, 1, &Device, &FileSize, const_cast<const unsigned char **>(Binaries),
+        &BinaryStatus, &Err);
+    ASSERT_OCL_SUCCESS(Err, "clCreateProgramWithBinary");
+
+    // build program
+    Err = clBuildProgram(ProgramB, 1, &Device, "-x spir", NULL, NULL);
+    ASSERT_OCL_SUCCESS(Err, "clBuildProgram");
+    
+    // create kernel
+    cl_kernel KernelB = clCreateKernel(ProgramB, "test_hostptr", &Err);
+    ASSERT_OCL_SUCCESS(Err, "clCreateKernel");
+
+    // Arg Type Qualifier
+    cl_kernel_arg_type_qualifier ArgTypeQualifierB = 0;
+    Err = clGetKernelArgInfo(KernelB, 0, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
+                            sizeof(cl_kernel_arg_address_qualifier),
+                            &ArgTypeQualifierB, nullptr);
+    ASSERT_OCL_EQ(Err, CL_SUCCESS, "clGetKernelArgInfo");
+
+    Err = clReleaseKernel(KernelB);
+    ASSERT_OCL_SUCCESS(Err, "clReleaseKernel");
+    Err = clReleaseProgram(ProgramB);
+    ASSERT_OCL_SUCCESS(Err, "clReleaseProgram");
+    Err = clReleaseContext(Ctx);
+    ASSERT_OCL_SUCCESS(Err, "clReleaseContext");
+}
+
 void clGetKernelArgInfoAfterLinkTest() {
   printf("---------------------------------------\n");
   printf("clGetKernelArgInfAfterLinkTest\n");
@@ -536,7 +594,7 @@ void clGetKernelArgInfoAfterLinkTest() {
   ASSERT_OCL_SUCCESS(Err, "clCreateProgramWithBinary");
 
   // compiler program built from binary
-  Err = clCompileProgram(ProgramBinary, 1, &Device, "-cl-std=CL2.0", 0, NULL,
+  Err = clCompileProgram(ProgramBinary, 1, &Device, "-cl-std=CL2.0 -x spir", 0, NULL,
                          NULL, NULL, NULL);
   ASSERT_OCL_SUCCESS(Err, "clCompileProgram");
 
@@ -559,7 +617,7 @@ void clGetKernelArgInfoAfterLinkTest() {
   Err = clGetKernelArgInfo(KernelBinary, 0, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
                            sizeof(cl_kernel_arg_address_qualifier),
                            &ArgTypeQualifierBinary, nullptr);
-  ASSERT_OCL_EQ(Err, CL_KERNEL_ARG_INFO_NOT_AVAILABLE, "clGetKernelArgInfo");
+  ASSERT_OCL_EQ(Err, CL_SUCCESS, "clGetKernelArgInfo");
 
   cl_kernel_arg_type_qualifier ArgTypeQualifierSource = 0;
   Err = clGetKernelArgInfo(KernelSource, 0, CL_KERNEL_ARG_ADDRESS_QUALIFIER,

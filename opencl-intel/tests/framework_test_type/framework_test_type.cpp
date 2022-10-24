@@ -190,6 +190,10 @@ TEST(FrameworkTestType, Test_clGetKernelArgInfoNotAvailableTest) {
     clGetKernelArgInfoNotAvailableTest();
 }
 
+TEST(FrameworkTestType, Test_clGetKernelArgInfoAvailableWithBinaryTest) {
+    clGetKernelArgInfoAvailableWithBinaryTest();
+}
+
 TEST(FrameworkTestType, Test_clGetKernelArgInfoAfterLinkTest) {
     clGetKernelArgInfoAfterLinkTest();
 }

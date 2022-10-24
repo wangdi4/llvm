@@ -17,6 +17,7 @@
 #include "program.h"
 #include "fe_compiler.h"
 #include "program_for_link.h"
+#include "program_with_binary.h"
 #include "program_with_source.h"
 #include "sampler.h"
 #include "cl_shared_ptr.hpp"
@@ -812,10 +813,10 @@ cl_err_code Kernel::CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& 
     // set the kernel prototype for the current kernel based on its information
     if (NULL != pDeviceKernel)
     {
-        auto Begin = m_pProgram->getWithSourceKernelName().begin();
-        auto End = m_pProgram->getWithSourceKernelName().end();
+        auto Begin = m_pProgram->getKernelsWithArgsInfo().begin();
+        auto End = m_pProgram->getKernelsWithArgsInfo().end();
         if (std::find(Begin, End, m_sKernelPrototype.m_szKernelName) != End)
-            m_KernelBuiltWithSource = true;
+            m_isArgInfoAvailable = true;
 
         SetKernelPrototype(pDeviceKernel->GetPrototype(), maxArgBufferSize, maxArgumentBufferAlignment);
         SetKernelArgumentInfo(pDeviceKernel);
@@ -1322,13 +1323,22 @@ cl_err_code Kernel::GetKernelArgInfo (    cl_uint argIndx,
     size_t stParamSize;
     const void* pValue;
 
+    // Kernel argument information is only available if the program object
+    // is created with clCreateProgramWithSource and the program executable
+    // is built with the -cl-kernel-arg-info option
+    // Or if program is created with clCreateProgramWithBinary and
+    // program is built with the -cl-kernel-arg-info and --x spir options
     const SharedPtr<ProgramWithSource> &ProgramSource =
         GetProgram().DynamicCast<ProgramWithSource>();
+    const SharedPtr<ProgramWithBinary> &ProgramBinary =
+        GetProgram().DynamicCast<ProgramWithBinary>();
     const SharedPtr<ProgramForLink> &ProgramLink =
         GetProgram().DynamicCast<ProgramForLink>();
-    if (!ProgramLink && !ProgramSource)
+    if (!ProgramLink && !ProgramSource && !ProgramBinary)
         return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
-    if (ProgramLink && !m_KernelBuiltWithSource)
+    if (ProgramBinary && !ProgramBinary->getIsSpir())
+        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+    if (ProgramLink && !m_isArgInfoAvailable)
         return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
 
     if ( m_vArgumentsInfo.empty() )
