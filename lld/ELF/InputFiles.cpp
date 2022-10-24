@@ -1299,7 +1299,7 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
       continue;
     }
 
-    if (binding == STB_WEAK)
+    if (sym.binding == STB_WEAK || binding == STB_WEAK)
       continue;
 
 #if INTEL_CUSTOMIZATION
