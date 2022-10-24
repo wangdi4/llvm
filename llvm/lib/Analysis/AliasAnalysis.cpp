@@ -965,7 +965,6 @@ INITIALIZE_PASS_DEPENDENCY(CFLAndersAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(CFLSteensAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass) // INTEL
@@ -1011,9 +1010,6 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
 #endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass =
-          getAnalysisIfAvailable<objcarc::ObjCARCAAWrapperPass>())
-    AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
@@ -1049,7 +1045,6 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
-  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
@@ -1082,9 +1077,6 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
     AAR.addAAResult(WrapperPass->getResult());
 #endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass =
-          P.getAnalysisIfAvailable<objcarc::ObjCARCAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
@@ -1184,7 +1176,6 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
-  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
   AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
