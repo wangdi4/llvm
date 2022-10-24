@@ -2,10 +2,6 @@
 
 ; FIXME: These were broken when swapping to MSSA(?). So currently XFAIL:ed.
 ; XFAIL: *
-<<<<<<< HEAD
-; RUN: opt < %s -basic-aa -dse -S | FileCheck %s
-=======
->>>>>>> 51b93d5af7dc71d404445d74be84f2ed5414a851
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=dse -S | FileCheck %s
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
