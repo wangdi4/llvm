@@ -28,6 +28,7 @@
 #include <cl_local_array.h>
 #include "program_with_il.h"
 #include "program_with_source.h"
+#include "program_with_binary.h"
 #include <cl_synch_objects.h>
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
@@ -276,10 +277,9 @@ void CompileTask::Cancel()
     SetComplete(CL_BUILD_ERROR);
 }
 
-static void getAllKernelNamesFromSource(SharedPtr<Program> *ppInputLinkProgs,
-                                        char *AllKernelNames,
-                                        unsigned int numInputPrograms,
-                                        vector<string> &WithSourceKernelNames) {
+static void getNamesOfAllKernelsWithArgsInfo(
+        SharedPtr<Program> *ppInputLinkProgs, char *AllKernelNames,
+        unsigned int numInputPrograms, vector<string> &KernelNamesVec) {
     // Names between input programs are separated by ';'
     // Names in a program are separated by ','
     vector<string> ProgKernelNames;
@@ -287,12 +287,14 @@ static void getAllKernelNamesFromSource(SharedPtr<Program> *ppInputLinkProgs,
     assert(ProgKernelNames.size() >= numInputPrograms);
 
     for (unsigned int I = 0; I < numInputPrograms; ++I)
-        if (ppInputLinkProgs[I].DynamicCast<ProgramWithSource>()) {
-            vector<string> KernelNames;
-            SplitString(ProgKernelNames[I], ',', KernelNames);
-            WithSourceKernelNames.insert(WithSourceKernelNames.end(),
-                                         KernelNames.begin(), KernelNames.end());
-        }
+        if (ppInputLinkProgs[I].DynamicCast<ProgramWithSource>() ||
+            (ppInputLinkProgs[I].DynamicCast<ProgramWithBinary>() &&
+            ppInputLinkProgs[I]->getIsSpir())) {
+        vector<string> KernelNames;
+        SplitString(ProgKernelNames[I], ',', KernelNames);
+        KernelNamesVec.insert(KernelNamesVec.end(), KernelNames.begin(),
+                            KernelNames.end());
+    }
 }
 
 LinkTask::LinkTask(_cl_context_int*             context,
@@ -373,11 +375,11 @@ bool LinkTask::Execute()
                                    pKernelNames.getOutPtr());
     }
 
-    // filter to get all kernels name which come from ProgramWithSource
+    // filter to get all kernels name which can get ArgsInfo
     if (useInputPrograms)
-        getAllKernelNamesFromSource(m_ppPrograms, pKernelNames.get(),
-                                    m_uiNumPrograms,
-                                    m_pProg->getWithSourceKernelName());
+        getNamesOfAllKernelsWithArgsInfo(m_ppPrograms, pKernelNames.get(),
+                                         m_uiNumPrograms,
+                                         m_pProg->getKernelsWithArgsInfo());
 
     if (0 == uiOutBinarySize)
     {
@@ -898,6 +900,9 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
         }
         delete[] szUnrecognizedOptions;
     }
+
+    if (buildOptions.find("-x spir") != std::string::npos)
+        program->setIsSpir();
 
     bool bNeedToBuild = false;
 
@@ -1475,6 +1480,9 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
         }
         delete[] szUnrecognizedOptions;
     }
+
+    if (buildOptions.find("-x spir") != std::string::npos)
+        program->setIsSpir();
 
     bool bNeedToBuild = false;
 

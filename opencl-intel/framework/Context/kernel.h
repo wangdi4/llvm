@@ -531,7 +531,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         mutable Intel::OpenCL::Utils::OclReaderWriterLock   m_rwlockUsm;
         std::vector<SharedPtr<USMBuffer> >      m_nonArgUsmBufs;
         std::map<cl_uint, USMBuffer*>           m_usmArgs;
-	bool m_KernelBuiltWithSource = false;
+	bool m_isArgInfoAvailable = false;
 
     private:
 

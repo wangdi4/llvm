@@ -112,6 +112,7 @@ bool ClkEventAsKernelArg();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
 void clGetKernelArgInfoNotAvailableTest();
+void clGetKernelArgInfoAvailableWithBinaryTest();
 void clGetKernelArgInfoAfterLinkTest();
 void clSetKernelArgInvalidArgSizeTest();
 bool ShutdownFromChildThread();
