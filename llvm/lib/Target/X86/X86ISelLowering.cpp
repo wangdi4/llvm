@@ -59014,8 +59014,13 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
     unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
     SDValue Extract;
     if (UI->getValueType(0).getVectorNumElements() == 8) {
-      //  t36: v8i32 = extract_subvector t34, Constant:i64<0>
-      //  t39: v8i32 = extract_subvector t34, Constant:i64<8>
+      //  From:
+      //  t4: v16i32 = vector_shuffle<0,17,2,19,4,21,6,23,8,25,10,27,12,29,14,31> [ORD=52] t2, t3
+      //  t5: v8i32 = extract_subvector [ORD=53] t4, Constant:i64<0>
+      //  t6: v8i32 = extract_subvector [ORD=54] t4, Constant:i64<8>
+      //  to
+      //  t5_new: v8i32 = vector_shuffle<0,9,2,11,4,13,6,15> [ORD=53] t2_low, t3_low
+      //  t6_new: v8i32 = vector_shuffle<0,9,2,11,4,13,6,15> [ORD=54] t2_high, t3_high
       switch (IdxVal) {
       default:
         llvm_unreachable("Idx can only be 0, 8");
@@ -59026,6 +59031,11 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
         Extract = LowHi.second;
         break;
       }
+      // Though Extract is created/splitted from N(shuffle), it replaces
+      // *UI(extract_subvector) SDNode. So its IROrder and SDLoc should be
+      // updated from *UI.
+      Extract->setIROrder((*UI)->getIROrder()); //Update from 52 to 53/54
+      Extract->setDebugLoc((*UI)->getDebugLoc());
       DCI.CombineTo(*UI, Extract);
     } else if (UI->getValueType(0).getVectorNumElements() == 4) {
       //  t36: v4i32 = extract_subvector t34, Constant:i64<0>
@@ -59033,7 +59043,7 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
       //  t39: v4i32 = extract_subvector t34, Constant:i64<8>
       //  t36: v4i32 = extract_subvector t34, Constant:i64<12>
       EVT QuaterVT = UI->getValueType(0);
-      SDLoc dl(N);
+      SDLoc dl(*UI);
       switch (IdxVal) {
       default:
         llvm_unreachable("Idx can only be 0, 4, 8, 12");
