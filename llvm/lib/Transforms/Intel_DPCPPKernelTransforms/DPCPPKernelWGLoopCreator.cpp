@@ -142,7 +142,7 @@ private:
   /// TLS global local IDs.
   GlobalVariable *LocalIds = nullptr;
 
-  /// Number of WG dimensions.
+  /// Number of WG dimensions of current kernel.
   unsigned NumDim = MAX_WORK_DIM;
 
   /// The dimension by which we vectorize (usually 0).
@@ -479,9 +479,14 @@ void WGLoopCreatorImpl::patchNotInlinedFuncs(FuncSet &KernelAndSyncFuncs,
       LIDArg = It->second.second;
     }
 
+    KernelInternalMetadataAPI KIMD(Caller);
+    unsigned NumDims = KIMD.MaxWGDimensions.hasValue()
+                           ? KIMD.MaxWGDimensions.get()
+                           : MAX_WORK_DIM;
+
     // TODO only do the stores once.
     Builder.SetInsertPoint(CI);
-    for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+    for (unsigned Dim = 0; Dim < NumDims; ++Dim) {
       auto *LIDCall = LoopUtils::getWICall(&M, mangledGetLID(), IndTy, Dim, CI,
                                            Twine("lid") + Twine(Dim));
       Builder.CreateStore(LIDCall, LIDs[Dim]);
