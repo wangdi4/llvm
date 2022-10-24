@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -sink -S | FileCheck %s
+=======
+; RUN: opt < %s -passes=sink -S | FileCheck %s
+>>>>>>> 51b93d5af7dc71d404445d74be84f2ed5414a851
 ; RUN: opt < %s -aa-pipeline='basic-aa' -passes='sink' -S | FileCheck %s
 
 @A = external global i32
