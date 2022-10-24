@@ -6,7 +6,6 @@
 ; This test is the same as argument_alignment_1.ll, but checks that the debug
 ; messages are printed correctly.
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment  -disable-output  2>&1
 
 ; CHECK: Candidates for argument alignment: 1

@@ -8,7 +8,6 @@
 ; call in "foo".
 ; Note that the functions don't have any valid IR or meaning.
 
-; RUN: opt < %s -S -opaque-pointers -deadarrayopselimination -whole-program-assume 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -opaque-pointers -passes='module(deadarrayopselimination)' -whole-program-assume 2>&1 | FileCheck %s
 
 ; Checks that s_qsort is cloned and 3rd argument is added to s_qsort call

@@ -1394,18 +1394,16 @@ public:
   InstructionCost getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                                         TTI::TargetCostKind CostKind) const;
 
-#ifdef INTEL_COLLAB
-  /// \returns The cost savings from using a floating-point contract
-  /// instead of separate multiply and add/subtract.
-  InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF) const;
-#endif // INTEL_COLLAB
-
   /// \returns The cost of Call instructions.
   InstructionCost getCallInstrCost(
       Function *F, Type *RetTy, ArrayRef<Type *> Tys,
       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency) const;
 
 #if INTEL_CUSTOMIZATION
+  /// \returns The cost savings from using a floating-point contract
+  /// instead of separate multiply and add/subtract.
+  InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF) const;
+
   /// \returns Heuristic cost to be added when a vector of type \p EltTy
   /// and \p NumElts elements is constructed at cost \p BuildVecCost.
   // A vector may be built from a long chain of inserts and shuffles
@@ -2013,6 +2011,7 @@ public:
                                            ArrayRef<Type *> Tys,
                                            TTI::TargetCostKind CostKind) = 0;
 #if INTEL_CUSTOMIZATION
+  virtual InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF) = 0;
   virtual InstructionCost
   getSerializationCost(Type *EltTy, unsigned NumElts,
                        InstructionCost BuildVecCost) = 0;
@@ -2681,6 +2680,11 @@ public:
     return Impl.getCallInstrCost(F, RetTy, Tys, CostKind);
   }
 #if INTEL_CUSTOMIZATION
+
+  InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF) override {
+    return Impl.getFMACostSavings(Ty, FMF);
+  }
+
   InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
                                        InstructionCost BuildVecCost) override {
     return Impl.getSerializationCost(EltTy, NumElts, BuildVecCost);

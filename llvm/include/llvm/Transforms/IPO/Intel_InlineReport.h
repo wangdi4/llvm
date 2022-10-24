@@ -641,6 +641,15 @@ private:
 /// Get the single, active classic inlining report.
 InlineReport *getInlineReport();
 
-} // namespace llvm
+class InlineReportPass : public PassInfoMixin<InlineReportPass> {
+  static char PassID;
+
+public:
+  InlineReportPass(void);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+};
+
+} // end namespace llvm
+
 
 #endif

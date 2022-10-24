@@ -271,6 +271,7 @@ public:
                                        int64_t Scale, unsigned AddrSpace) const;
 
 #if INTEL_CUSTOMIZATION
+  InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF);
   InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
                                        InstructionCost BuildVecCost) const;
 #endif // INTEL_CUSTOMIZATION

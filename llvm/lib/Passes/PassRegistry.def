@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -280,6 +280,9 @@ MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("inliner-wrapper", ModuleInlinerWrapperPass())
 MODULE_PASS("inliner-ml-advisor-release", ModuleInlinerWrapperPass(getInlineParams(), true, {}, InliningAdvisorMode::Release, 0))
 MODULE_PASS("print<inline-advisor>", InlineAdvisorAnalysisPrinterPass(dbgs()))
+#if INTEL_CUSTOMIZATION
+MODULE_PASS("print<inline-report>", InlineReportPass())
+#endif // INTEL_CUSTOMIZATION
 MODULE_PASS("inliner-wrapper-no-mandatory-first", ModuleInlinerWrapperPass(
   getInlineParams(),
   false))

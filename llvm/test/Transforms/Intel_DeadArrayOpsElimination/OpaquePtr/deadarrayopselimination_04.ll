@@ -9,7 +9,6 @@
 ; This test is same as  deadarrayopselimination_01.ll.
 ; Note that the functions don't have any valid IR or meaning.
 
-; RUN: opt < %s  -opaque-pointers -deadarrayopselimination -dead-array-ops-functions="s_qsort,491" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s  -opaque-pointers -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,491" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:   User Candidate: s_qsort  491

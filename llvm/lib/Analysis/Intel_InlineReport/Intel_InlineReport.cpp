@@ -1077,3 +1077,13 @@ InlineReport *llvm::getInlineReport() {
   return SavedInlineReport;
 }
 
+InlineReportPass::InlineReportPass(void) {}
+
+char InlineReportPass::PassID;
+
+PreservedAnalyses InlineReportPass::run(Module &M, ModuleAnalysisManager &AM) {
+  for (Function &F : M)
+    getInlineReport()->initFunction(&F);
+  getInlineReport()->print();
+  return PreservedAnalyses::all();
+}
