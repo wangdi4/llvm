@@ -2,7 +2,6 @@
 ; be triggered because "resize" member function is called from functions
 ; other than "add" function.
 
-; RUN: opt < %s -dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts

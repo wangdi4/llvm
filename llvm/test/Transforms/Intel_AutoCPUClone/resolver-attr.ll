@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -auto-cpu-clone < %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; This lit test checks that a resolver function carries the same target-cpu,

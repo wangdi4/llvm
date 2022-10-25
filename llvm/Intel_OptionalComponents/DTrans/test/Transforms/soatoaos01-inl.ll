@@ -1,10 +1,8 @@
-; RUN: opt < %s -disable-output -dtrans-force-inline -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-SUPP %s
 ; All options
 ;   -dtrans-inline-heuristics -intel-libirc-allowed
 ;   -inline-for-xmain
 ;   -pre-lto-inline-cost
 ;   are required
-; RUN: opt < %s -disable-output -dtrans-force-inline -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain 2>&1 | FileCheck --check-prefix=CHECK-NINL %s
 ; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-SUPP %s
 ; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline),cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain 2>&1 | FileCheck --check-prefix=CHECK-NINL %s
 

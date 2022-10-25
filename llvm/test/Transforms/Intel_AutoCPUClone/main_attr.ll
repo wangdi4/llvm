@@ -1,5 +1,3 @@
-
-; RUN: opt -opaque-pointers -auto-cpu-clone -function-attrs -inline < %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone,function-attrs,inline < %s -S | FileCheck %s
 
 ; The test checks that main()'s versions have their attributes modified/updated

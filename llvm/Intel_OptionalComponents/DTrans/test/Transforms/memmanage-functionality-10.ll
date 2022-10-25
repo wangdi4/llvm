@@ -21,7 +21,6 @@
 ; the load instructions in the blocks at labels 242 and 496 of the DestroyObject
 ; function have been changed.
 ;
-; RUN: opt < %s -dtrans-memmanagetrans -dtrans-memmanage-ignore-soa-heur=true -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-memmanagetrans -dtrans-memmanage-ignore-soa-heur=true -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
