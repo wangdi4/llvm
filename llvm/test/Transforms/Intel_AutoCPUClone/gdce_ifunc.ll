@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -auto-cpu-clone -inline -globaldce < %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone,inline,globaldce < %s -S | FileCheck %s
 
 

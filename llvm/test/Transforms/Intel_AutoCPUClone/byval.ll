@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -auto-cpu-clone < %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; Trying to add byval to the ifunc would result in

@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -auto-cpu-clone < %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; Calling convention on functions/calls must be consistent after the
