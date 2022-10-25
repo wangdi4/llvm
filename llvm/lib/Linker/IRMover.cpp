@@ -1829,7 +1829,7 @@ void TypeMapTy::updateDTransTypeManager() {
   // find the corresponding DTransStructureType. The map constructed in
   // DTransSrcStructsMap uses the pointer to the structure type rather
   // than the structure name.
-  for (auto StructPair : DTransSrcStructsMap->getDtransStructMap()) {
+  for (auto &StructPair : DTransSrcStructsMap->getDtransStructMap()) {
     if (!StructPair.second)
       continue;
 

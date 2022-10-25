@@ -375,7 +375,11 @@ InputFile::getGNULinkOnceSectionForSymbol(StringRef symbolName) {
   StringRef linkOnceName;
   bool sectionFound = false;
 
+<<<<<<< HEAD
   for (auto pair : symtab.gnuLinkOnceGroups) {
+=======
+  for (auto &pair : symtab->gnuLinkOnceGroups) {
+>>>>>>> d3f3925a5836f05f7c73a81a8e0dc1981f34d897
     if (this != pair.second)
       continue;
 
@@ -1358,7 +1362,7 @@ static bool isNonCommonDef(ELFKind ekind, MemoryBufferRef mb, StringRef symName,
   obj->init();
   StringRef stringtable = obj->getStringTable();
 
-  for (auto sym : obj->template getGlobalELFSyms<ELFT>()) {
+  for (auto &sym : obj->template getGlobalELFSyms<ELFT>()) {      // INTEL
     Expected<StringRef> name = sym.getName(stringtable);
     if (name && name.get() == symName)
       return sym.isDefined() && sym.getBinding() == STB_GLOBAL &&

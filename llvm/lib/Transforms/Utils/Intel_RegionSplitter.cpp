@@ -149,7 +149,7 @@ bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region) {
     }
   }
 
-  for (auto E : SplitEdges) {
+  for (auto &E : SplitEdges) {
     SplitEdge(E.first, E.second);
   }
 
@@ -217,7 +217,7 @@ bool RegionSplitter::isSingleEntrySingleExit(SplinterRegionT &Region) {
     // Check for entry points into the region, other than the initial
     // block.
     if (BB != EntryBlock) {
-      for (auto Pred : predecessors(BB)) {
+      for (auto *Pred : predecessors(BB)) {
         if (!Region.count(Pred)) {
           return false;
         }
