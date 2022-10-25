@@ -414,12 +414,9 @@ def FeatureAMXAVX512     : SubtargetFeature<"amx-avx512", "HasAMXAVX512", "true"
                                       [FeatureAMXTILE]>;
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
 def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
                                       "Support AMX amx-fp16 instructions",
                                       [FeatureAMXTILE]>;
-
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def FeatureAMXMEMORY2     : SubtargetFeature<"amx-memory2", "HasAMXMEMORY2", "true",
@@ -1388,9 +1385,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> GNRAdditionalFeatures = [
 #endif // INTEL_FEATURE_CPU_GNR
 #ifdef ENABLE_CPU_GNR
-#if INTEL_FEATURE_ISA_AMX_FP16
                                                   FeatureAMXFP16,
-#endif // INTEL_FEATURE_ISA_AMX_FP16
                                                   FeaturePREFETCHI
 #endif // ENABLE_CPU_GNR
 #if INTEL_FEATURE_CPU_GNR
@@ -1533,9 +1528,7 @@ def ProcessorFeatures {
 // FIXME: Need to add AVX512-BF16-NE
 #endif // INTEL_FEATURE_ISA_AVX256
 #ifdef ENABLE_ISA_AVX256
-#if INTEL_FEATURE_ISA_AMX_FP16
     FeatureAMXFP16,
-#endif // INTEL_FEATURE_ISA_AMX_FP16
     FeaturePREFETCHI,
 #if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA,

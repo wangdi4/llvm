@@ -1115,6 +1115,7 @@ def HasCX8       : Predicate<"Subtarget->hasCX8()">;
 def HasCX16      : Predicate<"Subtarget->hasCX16()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
@@ -1126,9 +1127,6 @@ def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
 def HasAMXAVX512   : Predicate<"Subtarget->hasAMXAVX512()">;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def HasAMXMEMORY2    : Predicate<"Subtarget->hasAMXMEMORY2()">;
@@ -1309,6 +1307,7 @@ def HasAVX512NECONVERTFP8 : Predicate<"Subtarget->hasAVX512NECONVERTFP8()">;
 def HasAVX512VNNIFP8 : Predicate<"Subtarget->hasAVX512VNNIFP8()">;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
+def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
 def HasHRESET    : Predicate<"Subtarget->hasHRESET()">;

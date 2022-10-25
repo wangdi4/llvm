@@ -194,9 +194,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAMXTRANSPOSE = false;
   bool HasAMXAVX512 = false;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-  bool HasAMXFP16 = false;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   bool HasAMXMEMORY2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
@@ -375,6 +372,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVX256P = false;
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+  bool HasAMXFP16 = false;
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker
   bool HasHRESET = false;
