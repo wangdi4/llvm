@@ -576,7 +576,6 @@ class ObjCARCOpt {
   public:
     void init(Module &M);
     bool run(Function &F, AAResults &AA);
-    void releaseMemory();
     bool hasCFGChanged() const { return CFGChanged; }
 };
 
@@ -2523,10 +2522,6 @@ bool ObjCARCOpt::run(Function &F, AAResults &AA) {
   LLVM_DEBUG(dbgs() << "\n");
 
   return Changed;
-}
-
-void ObjCARCOpt::releaseMemory() {
-  PA.clear();
 }
 
 /// @}
