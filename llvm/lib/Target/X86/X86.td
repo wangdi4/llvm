@@ -417,6 +417,7 @@ def FeatureAMXAVX512     : SubtargetFeature<"amx-avx512", "HasAMXAVX512", "true"
 def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
                                       "Support AMX amx-fp16 instructions",
                                       [FeatureAMXTILE]>;
+<<<<<<< HEAD
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def FeatureAMXMEMORY2     : SubtargetFeature<"amx-memory2", "HasAMXMEMORY2", "true",
@@ -660,6 +661,10 @@ def FeatureAVX512VNNIFP8 :
                        [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
+=======
+def FeatureCMPCCXADD : SubtargetFeature<"cmpccxadd", "HasCMPCCXADD", "true",
+                                        "Support CMPCCXADD instructions">;
+>>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
 def FeatureINVPCID : SubtargetFeature<"invpcid", "HasINVPCID", "true",
                                       "Invalidate Process-Context Identifier">;
 def FeatureSGX     : SubtargetFeature<"sgx", "HasSGX", "true",

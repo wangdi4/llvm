@@ -373,6 +373,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   bool HasAMXFP16 = false;
+  bool HasCMPCCXADD = false;
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker
   bool HasHRESET = false;

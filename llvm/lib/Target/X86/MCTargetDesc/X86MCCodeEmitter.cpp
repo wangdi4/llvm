@@ -833,9 +833,13 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   switch (TSFlags & X86II::FormMask) {
   default:
     llvm_unreachable("Unexpected form in emitVEXOpcodePrefix!");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case X86II::MRMDestMem4VOp3:
   case X86II::MRMDestMem4VOp2FSIB: {
+=======
+  case X86II::MRMDestMem4VOp3CC: {
+>>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
     //  MemAddr, src1(ModR/M), src2(VEX_4V)
     unsigned BaseRegEnc = getX86RegEncoding(MI, MemOperand + X86::AddrBaseReg);
     VEX_B = ~(BaseRegEnc >> 3) & 1;
@@ -845,6 +849,7 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 
     CurOp += X86::AddrNumOperands;
 
+<<<<<<< HEAD
     unsigned RegEnc = getX86RegEncoding(MI, CurOp++);
     VEX_R = ~(RegEnc >> 3) & 1;
     EVEX_R2 = ~(RegEnc >> 4) & 1;
@@ -864,6 +869,15 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     break;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+    unsigned RegEnc = getX86RegEncoding(MI, ++CurOp);
+    VEX_R = ~(RegEnc >> 3) & 1;
+
+    unsigned VRegEnc = getX86RegEncoding(MI, CurOp++);
+    VEX_4V = ~VRegEnc & 0xf;
+    break;
+  }
+>>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
   case X86II::MRM_C0:
   case X86II::RawFrm:
   case X86II::PrefixByte:
@@ -1558,6 +1572,7 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     CurOp = SrcRegNum + 1;
     break;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case X86II::MRMDestReg4VOp3: {
     emitByte(BaseOpcode, OS);
@@ -1585,6 +1600,17 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     break;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  case X86II::MRMDestMem4VOp3CC: {
+    unsigned CC = MI.getOperand(8).getImm();
+    emitByte(BaseOpcode + CC, OS);
+    unsigned SrcRegNum = CurOp + X86::AddrNumOperands;
+    emitMemModRMByte(MI, CurOp + 1, getX86RegNum(MI.getOperand(0)), TSFlags,
+                    HasREX, StartByte, OS, Fixups, STI, false);
+    CurOp = SrcRegNum + 3; // skip reg, VEX_V4 and CC
+    break;
+  }
+>>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
   case X86II::MRMDestMemFSIB:
   case X86II::MRMDestMem: {
     emitByte(BaseOpcode, OS);
