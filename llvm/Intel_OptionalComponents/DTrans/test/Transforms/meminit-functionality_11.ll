@@ -5,7 +5,6 @@
 ; CMPLRLLVM-36359: This test is same as meminit-functionality_09.ll except
 ; llvm.umax.i32 is used instead of SelectInst in resize member functions.
 ;
-; RUN: opt < %s -dtrans-meminit-recognize-all -dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown,dtrans-soatoaosclassinfo -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -dtrans-meminit-recognize-all -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown,dtrans-soatoaosclassinfo -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts

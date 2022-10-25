@@ -1,4 +1,3 @@
-; RUN: opt < %s -O3 -prepare-for-lto -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='lto-pre-link<O3>' -S 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

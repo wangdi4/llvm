@@ -5,7 +5,6 @@
 ; candidate for MemManageTrans.
 
 
-; RUN: opt < %s -disable-output -dtrans-force-inline -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
 
 
