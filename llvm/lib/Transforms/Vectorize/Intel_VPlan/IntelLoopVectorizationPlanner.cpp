@@ -688,6 +688,11 @@ void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
+  // Note that dynamic alignment for peeling is strictly opt-in by design.
+  // This is a deliberate difference between xmain and mainline compilers,
+  // driven by negative experience in icc.  It's difficult to ensure
+  // consistent gains, and it complicates cost modeling for the main and
+  // remainder loops.
   bool EnableDP = isDynAlignEnabled();
   if (!VPlanEnableGeneralPeeling && !EnableDP)
     return;
