@@ -6126,7 +6126,7 @@ public:
               /*PrePadBytes=*/0, SetSize, RegionDescVec, FWT_ExistingValue)) {
         // The call is safe, and affects the region described in RegionDesc
         bool FirstTime = true;
-        for (auto RegionDesc : RegionDescVec) {
+        for (const auto &RegionDesc : RegionDescVec) {
           createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
                                         /*RegionDescDest=*/RegionDesc.second,
                                         /*RegionDescSrc=*/RegionDesc.second);
@@ -7944,6 +7944,9 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
 DTransSafetyInfo::~DTransSafetyInfo() { reset(); }
 
 DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
+  if (this == &Other)
+    return *this;
+
   reset();
   TM = std::move(Other.TM);
   MDReader = std::move(Other.MDReader);

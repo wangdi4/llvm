@@ -206,7 +206,8 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
                                           PatternMatch::m_Value(RHS)))) {
     uint64_t Shift = 0;
     if (isValueConstant(RHS, &Shift))
-      return (uint64_t(1) << Shift) % Size == 0;
+      if (Shift < 64 && !(cast<ConstantInt>(RHS)->isNegative()))
+        return (uint64_t(1) << Shift) % Size == 0;
     return false;
   }
   // Handle sext and zext
@@ -2257,6 +2258,11 @@ bool dtrans::traceNonConstantValue(Value *InVal, uint64_t ElementSize,
   if (!match(AddOp, m_Shl(m_Value(ShlOp), m_ConstantInt(ShlC))) &&
       !match(AddOp, m_Mul(m_Value(ShlOp), m_ConstantInt(MulC))) &&
       !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(ShlOp))))
+    return false;
+
+  // A left shift by a negative value will be undefined behavior, so should
+  // return that the size is unknown.
+  if (ShlC && ShlC->isNegative())
     return false;
 
   // Second operand of the shl or mul expected to be function argument.

@@ -11,6 +11,7 @@
 %struct.S4 = type { i32, [0 x i8] }
 %struct.S5 = type { i32, [4 x i8] }
 %struct.S6 = type { i32, [4 x i8] }
+%struct.S7 = type { i32, [4 x i8] }
 
 @g_S1 = external dso_local global %struct.S1*, align 8
 @g_S2 = external dso_local global %struct.S2*, align 8
@@ -18,6 +19,7 @@
 @g_S4 = external dso_local global %struct.S4*, align 8
 @g_S5 = external dso_local global %struct.S5*, align 8
 @g_S6 = external dso_local global %struct.S6*, align 8
+@g_S7 = external dso_local global %struct.S7*, align 8
 
 ; Check the type with the single i32 field and a malloc with size which doesn't fit into the structure type.
 define dso_local void @foo1(i64 %n) {
@@ -79,6 +81,16 @@ define dso_local void @foo6(i64 %n) {
   ret void
 }
 
+; Check the type with a shift amount that is not valid for tracing the alloc size.
+define dso_local void @foo7(i64 %n) {
+  entry:
+  %shl = shl i64 %n, -1
+  %add = add i64 %shl, 8
+  %call = tail call noalias i8* @malloc(i64 %add)
+  store i8* %call, i8** bitcast (%struct.S7** @g_S7 to i8**), align 8
+  ret void
+}
+
 declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #1
 
 define dso_local i32 @bar1() local_unnamed_addr #0 {
@@ -89,6 +101,7 @@ define dso_local i32 @bar1() local_unnamed_addr #0 {
   call void @foo4(i64 2)
   call void @foo5(i64 1)
   call void @foo6(i64 1)
+  call void @foo7(i64 1)
 
   ret i32 0
 }
@@ -101,6 +114,7 @@ define dso_local i32 @bar2() local_unnamed_addr #0 {
   call void @foo4(i64 5)
   call void @foo5(i64 2)
   call void @foo6(i64 2)
+  call void @foo7(i64 2)
   ret i32 0
 }
 
@@ -124,3 +138,5 @@ attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="
 ; CHECK:  LLVMType: %struct.S6 = type { i32, [4 x i8] }
 ; CHECK:  Safety data: Complex alloc size
 
+; CHECK:  LLVMType: %struct.S7 = type { i32, [4 x i8] }
+; CHECK:  Safety data: Bad alloc size
