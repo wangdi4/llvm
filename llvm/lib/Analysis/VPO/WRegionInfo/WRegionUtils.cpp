@@ -339,6 +339,7 @@ WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
   if (W) {
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
+    W->setEntryDirective(Call);
     W->getClausesFromOperandBundles(Call, cast<HLInst>(EntryHLNode));
   }
   return W;
@@ -1334,11 +1335,11 @@ WRegionUtils::getInclusiveExclusiveItemForReductionItem(
     return nullptr;
 
   const WRegionNode *WScanParent = W;
-  auto MemGuargNodeIt = llvm::find_if(W->getChildren(), [](WRegionNode *Cur) {
+  auto MemGuardNodeIt = llvm::find_if(W->getChildren(), [](WRegionNode *Cur) {
     return isa<WRNGuardMemMotionNode>(Cur);
   });
-  if (MemGuargNodeIt != W->getChildren().end())
-    WScanParent = *MemGuargNodeIt;
+  if (MemGuardNodeIt != W->getChildren().end())
+    WScanParent = *MemGuardNodeIt;
   auto ScanNodeIt =
       llvm::find_if(WScanParent->getChildren(),
                     [](WRegionNode *Cur) { return isa<WRNScanNode>(Cur); });

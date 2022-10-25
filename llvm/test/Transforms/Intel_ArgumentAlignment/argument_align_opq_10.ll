@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the argument alignment runs correctly when alloca
 ; instruction is used as memory allocation.
 

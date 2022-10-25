@@ -189,7 +189,7 @@ extern cl::opt<uint32_t> AtomicFreeRedLocalBufSize;
 extern cl::opt<uint32_t> AtomicFreeRedGlobalBufSize;
 
 static cl::opt<bool> AtomicFreeReductionParallelGlobal(
-    "vpo-paropt-atomic-free-reduction-par-global", cl::Hidden, cl::init(false),
+    "vpo-paropt-atomic-free-reduction-par-global", cl::Hidden, cl::init(true),
     cl::desc("Parallelize global stage of atomic-free reduction"));
 
 static cl::opt<bool> EmitTargetPrivCtorDtors(

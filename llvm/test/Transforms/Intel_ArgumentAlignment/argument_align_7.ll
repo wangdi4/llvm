@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the argument alignment identifies that there is no
 ; no whole program safe and prints the proper debug messages.
 
