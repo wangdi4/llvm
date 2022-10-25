@@ -1,15 +1,17 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test verifies that the base class clones functions which have parameter
 ; types or return values modified as a result of replacing types.
-; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a,struct.type02a 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -S -passes='internalize,dtrans-optbasetest' -dtrans-optbasetest-typelist=struct.type01a,struct.type02a 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -internalize -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a,struct.type02a 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes='internalize,dtrans-optbasetest' -dtrans-optbasetest-typelist=struct.type01a,struct.type02a 2>&1 | FileCheck %s
 
 ; Test when base class is used without dtrans analysis parameter to
 ; be sure all the types and dependent types are found without relying
 ; on the analysis pass.
-; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a,struct.type02a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -S -passes='internalize,dtrans-optbasetest' -dtrans-optbasetest-typelist=struct.type01a,struct.type02a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -internalize -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a,struct.type02a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes='internalize,dtrans-optbasetest' -dtrans-optbasetest-typelist=struct.type01a,struct.type02a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
 
 %struct.type01a = type { i32, i32, i32 }
 %struct.type01b = type { i32, %struct.type01a* }

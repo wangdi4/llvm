@@ -1,20 +1,22 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -inline -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)'  -inline-report=0xe886 -dtrans-inline-heuristics -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)'  -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; Test for inlining heuristic for stack computations.  All calls to @mypushptr
 ; should be inlined and the inlining report should report "Inlining for stack
 ; computations" in all cases of inlining @mypushptr, excpet for the last where
 ; it should report "Callee has single callsite and local linkage".
 
-; This also tests that when -dtrans-inline-heuristics is enabled, inline
+; This also tests that when -dtrans-inline-heuristics -intel-libirc-allowed is enabled, inline
 ; deferral is performed, even in the new pass manager. Inline deferral is
 ; required to get all calls @mypushptr inlined.
+
+target triple = "x86_64-unknown-linux-gnu"
 
 %union.any = type { i8* }
 

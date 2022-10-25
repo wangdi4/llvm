@@ -1,9 +1,11 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output 2>&1 | FileCheck --check-prefix=CHECK --check-prefix=OOB_OFF %s
+target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-outofboundsok=true -dtrans-print-types -disable-output 2>&1 | FileCheck --check-prefix=CHECK --check-prefix=OOB_ON %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output 2>&1 | FileCheck --check-prefix=CHECK --check-prefix=OOB_OFF %s
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -dtrans-outofboundsok=true -dtrans-print-types -disable-output 2>&1 | FileCheck --check-prefix=CHECK --check-prefix=OOB_ON %s
 
 
 ; Test setting field member property "mismatched element access" when field is

@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that both structures are marked as partial writes.
 ; For %struct._ZTS7test_01.test_01, field 0 and field 1 are 'Bottom Alloc

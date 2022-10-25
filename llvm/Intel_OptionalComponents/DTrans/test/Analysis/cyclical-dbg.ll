@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -debug-only=dtransanalysis,dtrans-lpa,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -debug-only=dtransanalysis,dtrans-lpa,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
 
 
 ; test01 has a cyclic dependency between PHI nodes

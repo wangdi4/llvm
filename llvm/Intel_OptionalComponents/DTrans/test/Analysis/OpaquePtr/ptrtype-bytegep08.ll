@@ -1,8 +1,10 @@
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -dtrans-pta-emit-combined-sets=false < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -dtrans-pta-emit-combined-sets=false < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -dtrans-pta-emit-combined-sets=false < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -dtrans-pta-emit-combined-sets=false < %s 2>&1 | FileCheck %s
 
 ; Verify that the byte-flattened GEP defined by %i29 resolves to a member of
 ; the nested element type, even though the pointer %i4 is used to represent

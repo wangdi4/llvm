@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -dtrans-deletefield-max-struct=1 -debug-only=dtrans-deletefield -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes=dtrans-deletefield -dtrans-deletefield-max-struct=1 -debug-only=dtrans-deletefield -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -dtrans-deletefield -dtrans-deletefield-max-struct=1 -debug-only=dtrans-deletefield -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -passes=dtrans-deletefield -dtrans-deletefield-max-struct=1 -debug-only=dtrans-deletefield -disable-output %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the -dtrans-deletefield-max-structure triaging
 ; flag can be used to control the number of structures that have fields

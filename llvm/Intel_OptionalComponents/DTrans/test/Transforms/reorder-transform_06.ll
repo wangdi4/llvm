@@ -4,8 +4,8 @@
 ; correctly to memmov/memcpy/memset with constant and non-constant
 ; sizes related to %struct.test.
 
-;  RUN: opt  < %s -whole-program-assume -S -dtrans-reorderfields | FileCheck %s
-;  RUN: opt  < %s -whole-program-assume -S -passes=dtrans-reorderfields | FileCheck %s
+;  RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfields | FileCheck %s
 
 
 

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
 
 ; In this test, llvm.assume is used in a pattern similar to the expected form
 ; for checking pointer alignment, but the structure is 4 bytes long so

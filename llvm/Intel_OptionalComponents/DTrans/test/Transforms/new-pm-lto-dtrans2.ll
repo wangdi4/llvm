@@ -1,5 +1,7 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test DTrans integration in the new pass manager.
 ;
 ; Test that the DTrans analysis results get invalidated with the
@@ -7,7 +9,7 @@
 ; This test should apply the field deletion and AOS-to-SOA transformations,
 ; which should cause the analysis to be invalidated after these passes run.
 
-; RUN: opt -disable-verify -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -enable-npm-dtrans -debug-pass-manager -whole-program-assume -passes='lto<O2>' -internalize-public-api-list main -S  %s 2>&1 | FileCheck %s
+; RUN: opt -disable-verify -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -enable-npm-dtrans -debug-pass-manager -whole-program-assume -intel-libirc-allowed -passes='lto<O2>' -internalize-public-api-list main -S  %s 2>&1 | FileCheck %s
 
 ; CHECK: Running pass: dtrans::CommuteCondPass on [module]
 ; CHECK: Running analysis: DTransAnalysis on [module]

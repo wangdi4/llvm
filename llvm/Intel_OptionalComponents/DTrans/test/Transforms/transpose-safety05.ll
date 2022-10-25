@@ -2,6 +2,8 @@
 ; loaded from a dope vector in called functions when tracing values
 ; through PHI and select instructions.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Run the test with all uses of the dope vector being supported.
 ; RUN: sed -e s/.TEST_SAFE_SELECT:// %s | sed -e s/.TEST_SAFE_PHI:// | opt -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 ; RUN: sed -e s/.TEST_SAFE_SELECT:// %s | sed -e s/.TEST_SAFE_PHI:// | opt -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s

@@ -5,17 +5,9 @@
 // CHECK: encoding: [0x62,0xf2,0x64,0x48,0x52,0xd4]
                vdpphps %zmm4, %zmm3, %zmm2
 
-// CHECK:      vdpphps {rn-sae}, %zmm4, %zmm3, %zmm2
-// CHECK: encoding: [0x62,0xf2,0x64,0x18,0x52,0xd4]
-               vdpphps {rn-sae}, %zmm4, %zmm3, %zmm2
-
 // CHECK:      vdpphps %zmm4, %zmm3, %zmm2 {%k7}
 // CHECK: encoding: [0x62,0xf2,0x64,0x4f,0x52,0xd4]
                vdpphps %zmm4, %zmm3, %zmm2 {%k7}
-
-// CHECK:      vdpphps {rz-sae}, %zmm4, %zmm3, %zmm2 {%k7} {z}
-// CHECK: encoding: [0x62,0xf2,0x64,0xff,0x52,0xd4]
-               vdpphps {rz-sae}, %zmm4, %zmm3, %zmm2 {%k7} {z}
 
 // CHECK:      vdpphps  268435456(%esp,%esi,8), %zmm3, %zmm2
 // CHECK: encoding: [0x62,0xf2,0x64,0x48,0x52,0x94,0xf4,0x00,0x00,0x00,0x10]

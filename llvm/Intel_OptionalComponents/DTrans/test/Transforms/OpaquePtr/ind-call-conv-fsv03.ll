@@ -1,4 +1,6 @@
-; RUN: opt -opaque-pointers -whole-program-assume  -intel-ind-call-force-dtrans -passes=indirectcallconv -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed  -intel-ind-call-force-dtrans -passes=indirectcallconv -S < %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that field single value indirect call specialization will specialize
 ; when the indirect call is done through a GEPOperator, even when the struct

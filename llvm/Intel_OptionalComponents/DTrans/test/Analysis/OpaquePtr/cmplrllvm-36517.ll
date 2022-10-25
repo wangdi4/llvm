@@ -1,4 +1,6 @@
-; RUN: opt -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=false -disable-output %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=false -disable-output %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that loading a pointer value from a location that the
 ; pointer type analyzer did not identify as a pointer location

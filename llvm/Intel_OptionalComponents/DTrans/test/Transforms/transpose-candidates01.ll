@@ -2,6 +2,8 @@
 ; This test verifies initial candidate selection for the transpose
 ; transformation.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt < %s -disable-output -dtrans-transpose -debug-only=dtrans-transpose 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose 2>&1 | FileCheck %s
 

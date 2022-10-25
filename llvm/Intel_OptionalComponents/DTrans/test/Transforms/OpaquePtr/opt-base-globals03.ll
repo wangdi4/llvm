@@ -1,6 +1,8 @@
 ; RUN: opt -dtransop-allow-typed-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s
 ; RUN: opt -dtransop-allow-typed-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that global variables get their type changed when types are remapped
 ; for cases that do not involve pointers. In this case, there are non-zero
 ; initializers that also need to be updated.

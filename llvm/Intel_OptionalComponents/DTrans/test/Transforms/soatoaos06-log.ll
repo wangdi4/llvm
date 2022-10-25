@@ -1,25 +1,27 @@
-; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -dtrans-soatoaos -disable-output         \
+; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaos -disable-output         \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                       \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays,dtrans-soatoaos-struct           \
 ; RUN:  2>&1 | FileCheck %s
-; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -dtrans-soatoaos -disable-output         \
+; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaos -disable-output         \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                       \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
 ; RUN:          -debug-only=dtrans-soatoaos-deps                                                    \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
-; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -passes=dtrans-soatoaos -disable-output  \
+; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaos -disable-output  \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                       \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays,dtrans-soatoaos-struct           \
 ; RUN:  2>&1 | FileCheck %s
-; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -passes=dtrans-soatoaos -disable-output  \
+; RUN: opt < %S/soatoaos06-exe.ll -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaos -disable-output  \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                       \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
 ; RUN:          -debug-only=dtrans-soatoaos-deps                                                    \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that approximations work as expected.
 ; CHECK-DEP-WF-NOT: ; {{.*}}Unknown{{.*}}Dep

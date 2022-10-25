@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis 2>&1 | FileCheck %s
 
 ; This test case gets a Bad casting safety violation for %struct.mycoder1
 ; because %struct.mycoder1 is used in a bitcast not associated with an alloc

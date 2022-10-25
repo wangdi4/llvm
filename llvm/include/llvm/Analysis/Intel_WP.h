@@ -51,6 +51,9 @@ private:
   bool IsAdvancedOptEnabled
       [TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels];
 
+  // Set to 'true' if LibIRC is enabled for all functions with IR.
+  bool IsLibIRCAllowedEverywhere;
+
   // True if the definition of main is seen in the IR
   bool MainDefSeen;
 
@@ -82,6 +85,9 @@ private:
 
   // Compute the values of IsAdvancedOptEnabled[].
   void computeIsAdvancedOptEnabled();
+
+  // Compute the value of IsLibIRCAllowedEverywhere.
+  void computeIsLibIRCAllowedEverywhere();
 
   // Given a GlobalAlias GA, return true if the alias was resolved, else return
   // false. An alias is identified as resolved if:
@@ -190,6 +196,9 @@ public:
   bool isAdvancedOptEnabled(TargetTransformInfo::AdvancedOptLevel AO);
 
   void wholeProgramAllExternsAreIntrins();
+
+  // Returns 'true' if use of LibIRC is allowed for all functions with IR.
+  bool isLibIRCAllowedEverywhere();
 
   // Return the information collected from the linker
   WholeProgramUtils *getWholeProgramLinkerUtils() { return WPUtils; }

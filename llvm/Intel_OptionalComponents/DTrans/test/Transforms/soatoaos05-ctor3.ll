@@ -1,12 +1,14 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; CMPLRLLVM-9285 & CMPLRLLVM-9343 (Klocworks issue): SOAToAOS shouldn't
 ; crash when it doesn't find use of stored pointer as Call instruction
 ; (constructor). Commenting out "call void @_ZN3ArrIPiEC2Ei()" call in
 ; "_ZN1FC2Ev" to reproduce the crash. The nullptr access was reported by
 ; klocworks.
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                   \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                                                   \
 ; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>,require<soatoaos-struct-methods>'             \
 ; RUN:          -dtrans-soatoaos-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaos-array-type=struct.Arr.0                                                                \

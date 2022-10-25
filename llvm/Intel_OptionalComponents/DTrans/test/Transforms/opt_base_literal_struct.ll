@@ -1,12 +1,14 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test verifies that the base class functionality for type remapping
 ; can handle literal structures.
 
-; RUN: opt  < %s -S -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 | FileCheck %s
-; RUN: opt  < %s -S -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 | FileCheck %s
-; RUN: opt  < %s -S -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 -dtrans-optbasetest-use-analysis=false | FileCheck %s
-; RUN: opt  < %s -S -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 -dtrans-optbasetest-use-analysis=false | FileCheck %s
+; RUN: opt  < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 | FileCheck %s
+; RUN: opt  < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 | FileCheck %s
+; RUN: opt  < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 -dtrans-optbasetest-use-analysis=false | FileCheck %s
+; RUN: opt  < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01,struct.test02,struct.test03 -dtrans-optbasetest-use-analysis=false | FileCheck %s
 
 ; Test global/constant initializers which use literal structure type.
 %struct.test01 = type { i32, i32, i32 }

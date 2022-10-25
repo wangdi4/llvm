@@ -6,7 +6,7 @@
 ; at the time of the dtrans-force-inline-op transformation when using
 ; opaque pointers.
 
-; RUN: opt < %s -opaque-pointers -S -passes='module(dtrans-force-inline-op),cgscc(inline)' -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -S -passes='module(dtrans-force-inline-op),cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 
 ; CHECK: define {{.*}} @_ZN11xalanc_1_1022XStringCachedAllocatorC2ERN11xercesc_2_713MemoryManagerEt
 ; CHECK: call {{.*}} @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb

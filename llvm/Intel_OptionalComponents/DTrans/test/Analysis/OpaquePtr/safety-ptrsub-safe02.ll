@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the collection of type information for pointer subtraction cases that are
 ; safe for transformations which may require updating an operand that represents

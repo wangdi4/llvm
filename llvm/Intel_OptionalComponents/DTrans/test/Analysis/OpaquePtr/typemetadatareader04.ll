@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -dtrans-typemetadatareader -dtrans-typemetadatareader-errors -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-errors -disable-output < %s 2>&1 | FileCheck %s
 

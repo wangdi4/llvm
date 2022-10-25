@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt -disable-output -whole-program-assume -passes='require<dtransanalysis>' -dtrans-outofboundsok=false -dtrans-usecrulecompat=true -dtrans-print-types %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-outofboundsok=false -dtrans-usecrulecompat=true -dtrans-print-types %s 2>&1 | FileCheck %s
 
 ; Regression test for CMPLRLLVM-27935.
 ;

@@ -1,5 +1,7 @@
 ; RUN: llvm-link  -opaque-pointers -S %s %S/Inputs/link-ctors-metadata-03a.ll | FileCheck %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; @llvm.global_ctors doesn't have intel_dtrans_type metadata. Tests that
 ; intel_dtrans_type metadata is ignored when intel_dtrans_type metadata is
 ; missing on some of the definitions of @llvm.global_ctors.

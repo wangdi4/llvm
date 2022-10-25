@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -passes='require<dtransanalysis>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtransanalysis>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s
 
 ; This test case is the same as arrays_with_const_01.ll, the only difference is
 ; that it checks if the information collected was added into the immutable

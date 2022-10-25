@@ -280,6 +280,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerializePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRerollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversalPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLowerSmallMemsetMemcpyPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUBPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"
@@ -2237,9 +2238,11 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRMinMaxRecognitionPass());
     FPM.addPass(HIRIdentityMatrixIdiomRecognitionPass());
 
-    if (Level.getSizeLevel() == 0)
+    if (Level.getSizeLevel() == 0) {
+      FPM.addPass(HIRLowerSmallMemsetMemcpyPass());
       FPM.addPass(HIRPreVecCompleteUnrollPass(Level.getSpeedupLevel(),
                                               !PTO.LoopUnrolling));
+    }
 
     if (ThroughputModeOpt != ThroughputMode::SingleJob)
       FPM.addPass(HIRConditionalLoadStoreMotionPass());

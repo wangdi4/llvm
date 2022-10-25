@@ -1,21 +1,23 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                            \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -disable-output                            \
 ; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
 ; RUN:    -dtrans-soatoaosop-base-ptr-off=2                                                                     \
 ; RUN:    -debug-only=dtrans-soatoaosop-arrays,dtrans-soatoaosop                                                \
 ; RUN:  2>&1 | FileCheck %s
-; RUN: opt -S < %s -dtransop-allow-typed-pointers -whole-program-assume                                         \
+; RUN: opt -S < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed                                         \
 ; RUN:    -passes=soatoaosop-arrays-methods-transform -dtrans-soatoaosop-base-ptr-off=2                         \
 ; RUN:  | FileCheck --check-prefix=CHECK-MOD %s
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                          \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                          \
 ; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
 ; RUN:    -dtrans-soatoaosop-base-ptr-off=2                                                                     \
 ; RUN:    -debug-only=dtrans-soatoaosop-arrays,dtrans-soatoaosop                                                \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-OP %s
-; RUN: opt -S < %s -opaque-pointers -whole-program-assume                                                       \
+; RUN: opt -S < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed                                                       \
 ; RUN:    -passes=soatoaosop-arrays-methods-transform -dtrans-soatoaosop-base-ptr-off=2                         \
 ; RUN:  | FileCheck --check-prefix=CHECK-OP-MOD %s
 ; REQUIRES: asserts
+
+target triple = "x86_64-unknown-linux-gnu"
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

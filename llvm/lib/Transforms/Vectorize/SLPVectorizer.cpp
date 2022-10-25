@@ -1027,6 +1027,24 @@ static bool isUsedOutsideBlock(Value *V) {
          });
 }
 
+#if INTEL_CUSTOMIZATION
+// Few notes w.r.t. the following pair of predicates:
+// doesNotNeedToBeScheduled - for single scalar instruction
+// doesNotNeedToSchedule - for set of scalar instructions
+// the core discrepancy between the two is that one ANDs conditions
+// while the other ORs. And that already hit once (see comment in "schedule"
+// template). Another probable issue with the on a set predicate is that it
+// called early, before we even know the set can become a multi-node root.
+// So its predicate may be based on operands before reordering.
+// If that is a single-node multinode that does not seem to be a problem as
+// reordering will not occur across instruction's boundary.
+// If that a multi-node with 2 or more trunk nodes that seems to be not a
+// problem too. All the nodes after the root are guaranteed to be scheduled and
+// since multi-node reordering does track updates for def-use chain that should
+// result in dependency counters updated correctly during pre-scheduling.
+// Actual scheduling then takes operands directly from vectorization tree entry.
+#endif // INTEL_CUSTOMIZATION
+
 /// Checks if the specified value does not require scheduling. It does not
 /// require scheduling if all operands and all users do not need to be scheduled
 /// in the current basic block.
@@ -2366,6 +2384,12 @@ public:
            "Erased more instructions than block holds?");
     return BB->size() - NumErasedInsts;
   }
+
+  /// \returns actual users of instruction \p I if it was affected by
+  /// current Multi-Node operands reordering, or None otherwise.
+  ArrayRef<Instruction *> getDefUseOverride(Instruction *I) {
+    return CurrMultiNode.getDefUseOverride(I);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// Checks if the instruction was already analyzed for being possible
@@ -2530,6 +2554,63 @@ private:
       /// being built only for the purpose of path steering.
       bool DisableReordering = false;
 
+      /// Keep track of actual uses during operands reordering.
+      DenseMap<Instruction *, SmallVector<Instruction *>> DefUseOverride;
+
+      /// A helper method to update DefUseOverride map.
+      /// \p I is former operand of frontier instruction \p FI.
+      /// If there is no entry for I in DefUseOverride yet, it will be created.
+      void removeUse(Instruction *FI, Instruction *I) {
+        auto It = DefUseOverride.find(I);
+        if (It != DefUseOverride.end()) {
+          auto UIt = find(It->second, FI);
+          if (UIt != It->second.end())
+            It->second.erase(UIt);
+          return;
+        }
+
+        SmallVector<Instruction *> Users;
+        for (User *U : I->users())
+          Users.push_back(cast<Instruction>(U));
+        auto UIt = find(Users, FI);
+        if (UIt != Users.end())
+          Users.erase(UIt);
+        DefUseOverride[I] = Users;
+      }
+
+      /// A helper method to update DefUseOverride map.
+      /// \p I is new operand of frontier instruction \p FI.
+      /// If there is no entry for I in DefUseOverride yet, it will be created.
+      void addUse(Instruction *FI, Instruction *I) {
+        auto It = DefUseOverride.find(I);
+        if (It != DefUseOverride.end()) {
+          It->second.push_back(FI);
+          return;
+        }
+
+        SmallVector<Instruction *> Users;
+        for (User *U : I->users())
+          Users.push_back(cast<Instruction>(U));
+        Users.push_back(FI);
+        DefUseOverride[I] = Users;
+      }
+
+      /// Update def-use override map for two operands being swapped.
+      /// The update must be done before swapping the operands.
+      void UpdateDefUseOverride(LeafData &Op1, LeafData &Op2) {
+        if (Op1.getLeaf() == Op2.getLeaf())
+          return;
+
+        if (auto *I1 = dyn_cast<Instruction>(Op1.getLeaf())) {
+          removeUse(Op1.getFrontier(), I1);
+          addUse(Op2.getFrontier(), I1);
+        }
+        if (auto *I2 = dyn_cast<Instruction>(Op2.getLeaf())) {
+          removeUse(Op2.getFrontier(), I2);
+          addUse(Op1.getFrontier(), I2);
+        }
+      }
+
       /// Swap the operand at \p OpIdx1 with that one at \p OpIdx2.
       void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
         if (OpIdx1 == OpIdx2)
@@ -2543,6 +2624,9 @@ private:
 
         assert((Op1.getLeaf() != Op2.getLeaf() || InvertOpcodes) &&
                "Why reordering?");
+
+        UpdateDefUseOverride(Op1, Op2);
+
         // i. Swap the leaf values.
         Op1.swapLeafWith(Op2);
         // ii. Swap the opcode.
@@ -2970,6 +3054,7 @@ private:
       /// Clears the data.
       void clear() {
         Leaves.clear();
+        DefUseOverride.clear();
         DisableReordering = false;
       }
 
@@ -3086,7 +3171,19 @@ private:
         int FinalScore = getScore();
         LLVM_DEBUG(dbgs() << "SLP: MultiNode:  orginal score " << OrigScore
                           << ", final score " << FinalScore << " \n");
+
         return FinalScore >= OrigScore;
+      }
+
+      /// \returns actual users of instruction \p I if it was affected by
+      /// operands reordering, or None otherwise.
+      ArrayRef<Instruction *> getDefUseOverride(Instruction *I) {
+        auto It = DefUseOverride.find(I);
+        if (It != DefUseOverride.end()) {
+          assert(!It->second.empty() && "Override with no users?");
+          return makeArrayRef(It->second);
+        }
+        return None;
       }
     };
 
@@ -3556,6 +3653,14 @@ private:
     void clearTrunks() {
       RootTE = nullptr;
       MultiNodeTEs.clear();
+    }
+
+    /// \returns actual users of instruction \p I if it was affected by
+    /// this Multi-Node operands reordering.
+    ArrayRef<Instruction *> getDefUseOverride(Instruction *I) {
+      if (!doneCodeGen())
+        return None;
+      return Operands.getDefUseOverride(I);
     }
 
     /// Clears all data.
@@ -4772,7 +4877,9 @@ private:
     /// Marks an instruction as scheduled and puts all dependent ready
     /// instructions into the ready-list.
     template <typename ReadyListType>
-    void schedule(ScheduleData *SD, ReadyListType &ReadyList) {
+#if INTEL_CUSTOMIZATION
+    void schedule(ScheduleData *SD, ReadyListType &ReadyList, BoUpSLP *SLP) {
+#endif // INTEL_CUSTOMIZATION
       SD->IsScheduled = true;
       LLVM_DEBUG(dbgs() << "SLP:   schedule " << *SD << "\n");
 
@@ -4801,10 +4908,57 @@ private:
           });
         };
 
+#if INTEL_CUSTOMIZATION
+        // The problem here is that TE may not be set for a bundle while its
+        // operands might be reordered. So the comment on the "else" side of
+        // the "if" below saying operands are not reordered is wrong.
+        // Since on community side reordering is limited within single
+        // instruction only they do not see this problem. The problem also
+        // related to discrepancy between these two predicate functions (see
+        // also an additional comment at their definitions)
+        // doesNotNeedToBeScheduled - for single scalar instruction
+        // doesNotNeedToSchedule - for set of scalar instructions
+        // The problem is that for-a-set predicate may return "no need" while
+        // for a single instruction from that same set answer may be different.
+        // Lets consider this case:
+        //  %i1 = sext ...
+        //  %i2 = add  %e, %i1
+        //  %i3 = add  %i2, -1      ; no uses in this block
+        //  %i4 = ...
+        //  %i5 = sext ...
+        //  %i6 = add  %i5, %d
+        //  %i7 = add  %i6, -2      ; no uses in this block
+        //  br ...
+        //   Pair {%i3,%i7} formed multi-node root and next tree entry was
+        //   pair {%i2,%i6} - also the multi-node trunk. For the pair
+        //   {%i3,%i7} it was returned that it does not need scheduling
+        //   (because all uses are outside of the block) so next scheduled pair
+        //   was {%i2,%i6}. And it does require scheduling. It means that
+        //   scheduling region (which includes all the instructions between the
+        //   two) now includes %i3. Pre-scheduler then makes query for every
+        //   instruction in the region whether it needs to be scheduled and
+        //   this time for %3 the answer was "does require".
+        //   Hence scheduling data was added for the single instruction.
+        //   But assumption here is that if it is a single instruction being
+        //   scheduled, the scalar is not a part of vectorizable tree. The
+        //   assumption is wrong. If {%i3,%i7} were scheduled the bundle would
+        //   have set TE for each bundle member.
+        //   Multi-node ended up reordering its operands across instruction
+        //   boundaries so actual operands could only be taken from the
+        //   vectorization tree node.
+#endif // INTEL_CUSTOMIZATION
         // If BundleMember is a vector bundle, its operands may have been
         // reordered during buildTree(). We therefore need to get its operands
         // through the TreeEntry.
-        if (TreeEntry *TE = BundleMember->TE) {
+#if INTEL_CUSTOMIZATION
+        TreeEntry *TE = BundleMember->TE;
+        if (!TE) {
+          TE = SLP->getTreeEntry(BundleMember->Inst);
+          if (TE && TE->MultiNodeRoot == -1)
+            TE = nullptr;
+        }
+        if (TE) {
+#endif // INTEL_CUSTOMIZATION
           // Need to search for the lane since the tree entry can be reordered.
           int Lane = std::distance(TE->Scalars.begin(),
                                    find(TE->Scalars, BundleMember->Inst));
@@ -4931,9 +5085,6 @@ private:
     Optional<ScheduleData *>
     tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
                       const InstructionsState &S);
-
-    /// Schedule all ready bundles.
-    void scheduleReady();
 
     /// Un-bundles a group of instructions.
     void cancelScheduling(ArrayRef<Value *> VL, Value *OpValue);
@@ -6813,20 +6964,6 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
   // We've just built a MultiNode if we have a non-empty multinode
   // and we are back at the root.
   if (CurrMultiNode.numOfTrunks() > 0 && TE == CurrMultiNode.getRoot()) {
-    // This is rather ugly, but I don't see a cleaner way.
-    // The problem is that even after calling trySchedule(Bundle),
-    // 'Bundle' is not actually scheduled, only its successors are. This
-    // results in some of the nodes of a multinode (the ones closer to the
-    // root) being scheduled, while others not. Scheduled instructions
-    // have their predecessors dependence edges updated. This causes a
-    // problem after reordering, because some of these dependence counters
-    // may be updated twice. With scheduleReady() we force-schedule all
-    // the ready bundles (that is all of the bundles of the multinode)
-    // before we do the reordering, in order to avoid this double
-    // increment of the dependence counters.
-    // Another alternative is to unschedule and reschedule the nodes.
-    BS.scheduleReady();
-
     SmallVector<unsigned,2> VisitingOrder;
     if (CurrMultiNode.reorderOperands(VisitingOrder)) {
       // We update the operands of the TreeEntries
@@ -12299,7 +12436,7 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
       ScheduleData *Picked = ReadyInsts.pop_back_val();
       assert(Picked->isSchedulingEntity() && Picked->isReady() &&
              "must be ready to schedule");
-      schedule(Picked, ReadyInsts);
+      schedule(Picked, ReadyInsts, SLP); // INTEL
     }
   };
 
@@ -12350,16 +12487,6 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
   }
   return Bundle;
 }
-
-#if INTEL_CUSTOMIZATION
-void BoUpSLP::BlockScheduling::scheduleReady() {
-  while (!ReadyInsts.empty()) {
-    ScheduleData *pickedSD = ReadyInsts.pop_back_val();
-    if (pickedSD->isSchedulingEntity() && pickedSD->isReady())
-      schedule(pickedSD, ReadyInsts);
-  }
-}
-#endif // INTEL_CUSTOMIZATION
 
 void BoUpSLP::BlockScheduling::cancelScheduling(ArrayRef<Value *> VL,
                                                 Value *OpValue) {
@@ -12559,6 +12686,21 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
           if (!DestBundle->hasValidDependencies())
             WorkList.push_back(DestBundle);
         }
+#if INTEL_CUSTOMIZATION
+      } else if (ArrayRef<Instruction *> OverrideUses =
+                     SLP->getDefUseOverride(BundleMember->Inst);
+                 !OverrideUses.empty()) {
+        for (Instruction *U : OverrideUses) {
+          if (ScheduleData *UseSD = getScheduleData(U)) {
+            BundleMember->Dependencies++;
+            ScheduleData *DestBundle = UseSD->FirstInBundle;
+            if (!DestBundle->IsScheduled)
+              BundleMember->incrementUnscheduledDeps(1);
+            if (!DestBundle->hasValidDependencies())
+              WorkList.push_back(DestBundle);
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
       } else {
         for (User *U : BundleMember->Inst->users()) {
           if (ScheduleData *UseSD = getScheduleData(cast<Instruction>(U))) {
@@ -12786,7 +12928,7 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
       LastScheduledInst = pickedInst;
     }
 
-    BS->schedule(picked, ReadyInsts);
+    BS->schedule(picked, ReadyInsts, this); // INTEL
   }
 
   // Check that we didn't break any of our invariants.

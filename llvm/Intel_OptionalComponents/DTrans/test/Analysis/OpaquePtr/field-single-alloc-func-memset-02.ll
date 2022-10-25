@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers -whole-program-assume -passes="require<dtrans-safetyanalyzer>" -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes="require<dtrans-safetyanalyzer>" -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that 'Bad mem func' is recorded as a safety check violation and
 ; fields are set to 'Bottom Alloc Func' when a write across field

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types < %s 2>&1
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types < %s 2>&1
 
 ; Test the DTrans safety analyzer when a GEP that addresses a field within a
 ; structure by using an offset that is a multiple of the size of a pointer,

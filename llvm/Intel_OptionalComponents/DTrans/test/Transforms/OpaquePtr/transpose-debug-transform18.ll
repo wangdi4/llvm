@@ -2,6 +2,8 @@
 ; RUN: opt -opaque-pointers < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -dtrans-transpose  -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Check that physpropmod_mp_physprop_ field 0 is transposed even though field 1
 ; is a variable of type real and passed down the call chain to an external C
 ; routine which treats it as a pointer to a character array, as long as

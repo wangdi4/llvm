@@ -1,7 +1,9 @@
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
-; RUN: opt -opaque-pointers -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the DTrans delete field pass correctly transforms
 ; a global variable that is a pointer to types being changed. Also, checks that

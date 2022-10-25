@@ -180,12 +180,18 @@ llvm::InlineCost static getDefaultInlineAdvice(
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
                          ILIC, WPI);                                   // INTEL
   };
+#if INTEL_CUSTOMIZATION
+  Function &Callee = *CB.getCalledFunction();
+  auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
+  bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
+  (void) IsLibIRCAllowed;
+#endif // INTEL_CUSTOMIZATION
   return llvm::shouldInline(
       CB, GetInlineCost, ORE,
 #if INTEL_CUSTOMIZATION
       Params.EnableDeferral.value_or(EnableInlineDeferral)
 #if INTEL_FEATURE_SW_ADVANCED
-          || intelEnableInlineDeferral()
+          || intelEnableInlineDeferral(IsLibIRCAllowed)
 #endif // INTEL_FEATURE_SW_ADVANCED
       );
 #endif // INTEL_CUSTOMIZATION

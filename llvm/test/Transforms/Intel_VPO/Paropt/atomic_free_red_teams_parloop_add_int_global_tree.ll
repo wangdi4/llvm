@@ -24,13 +24,14 @@
 ; CHECK: store i32 %[[UPD_CNTR]], ptr addrspace(3) @.broadcast.ptr.__local, align 4
 ; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
 ; CHECK: %.new = load i32, ptr addrspace(3) @.broadcast.ptr.__local, align 4
-; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
 ; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %.new, %[[NUM_GROUPS_TRUNC]]
+; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: br i1 %[[CNTR_CHECK]], label [[EXIT_BB:[^,]+]], label %atomic.free.red.global.update.header
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi i64
-; CHECK: %[[EXIT_COND:[^,]+]] = icmp uge i64 %[[IDX_PHI]], %[[NUM_GROUPS]]
+; CHECK: %[[NUM_GROUPS1:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+; CHECK: %[[EXIT_COND:[^,]+]] = icmp uge i64 %[[IDX_PHI]], %[[NUM_GROUPS1]]
 ; CHECK: %[[LOCAL_ID0:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: %[[GLOBAL_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]], i64 %[[LOCAL_ID0]]
 ; CHECK: %[[GLOBAL_GEP_OFF:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[GLOBAL_GEP]], i64 %[[IDX_PHI]]
@@ -43,7 +44,7 @@
 ; CHECK: %[[ID_AND_OFF:[^,]+]] = and i64 %[[LOCAL_ID]], %[[OFF_2_1]]
 ; CHECK: %[[ID_TST:[^,]+]] = icmp ne i64 %[[ID_AND_OFF]], 0
 ; CHECK: %[[ID_OFF:[^,]+]] = add i64 %[[LOCAL_ID]], %[[IDX_PHI]]
-; CHECK: %[[ID_OFF_TEST:[^,]+]] = icmp uge i64 %[[ID_OFF]], %[[NUM_GROUPS]]
+; CHECK: %[[ID_OFF_TEST:[^,]+]] = icmp uge i64 %[[ID_OFF]], %[[NUM_GROUPS1]]
 ; CHECK: %[[TREE_UPDATE_TST:[^,]+]] = select i1 %[[ID_TST]], i1 true, i1 %[[ID_OFF_TEST]]
 ; CHECK: br i1 %[[TREE_UPDATE_TST]], label %atomic.free.red.global.update.latch, label %atomic.free.red.global.update.body
 
@@ -56,7 +57,9 @@
 ; CHECK-NEXT: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
 ; CHECK: br label %atomic.free.red.global.update.header
 ; CHECK-LABEL: atomic.free.red.global.update.store:
-; CHECK: %[[RESULT:[^,]+]] = load i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]]
+; CHECK: %[[INIT:[^,]+]] = load i32, ptr addrspace(1) %[[RESULT_PTR:[^,]+]]
+; CHECK: %[[TREE_RESULT:[^,]+]] = load i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]]
+; CHECK: %[[RESULT:[^,]+]] = add i32 %[[TREE_RESULT]], %[[INIT]]
 ; CHECK: store i32 %[[RESULT]], ptr addrspace(1) %[[RESULT_PTR]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"

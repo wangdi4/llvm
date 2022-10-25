@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-weakalign -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
 
 ; Test that weak align gets inhibited when @llvm.assume is used on a case
 ; involving pointer types.

@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt -passes='internalize,require<dtransanalysis>,require<wholeprogram>' -whole-program-assume -dtrans-print-types -dtrans-outofboundsok=true -disable-output %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -passes='internalize,require<dtransanalysis>,require<wholeprogram>' -whole-program-assume -intel-libirc-allowed -dtrans-print-types -dtrans-outofboundsok=true -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies that constantexpr bitcasts involving global variables
 ; are properly analyzed.

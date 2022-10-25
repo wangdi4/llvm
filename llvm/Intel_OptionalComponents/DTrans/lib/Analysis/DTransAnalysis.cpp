@@ -9600,6 +9600,11 @@ bool DTransAnalysisInfo::analyzeModule(
                       << "DTransAnalysis didn't run\n");
     return false;
   }
+  if (!WPInfo.isLibIRCAllowedEverywhere()) {
+    LLVM_DEBUG(dbgs() << "dtrans: LibIRC not allowed everywhere ... "
+                      << "DTransAnalysis didn't run\n");
+    return false;
+  }
 
   setCallGraphStats(M);
   buildRelatedTypesMap(M);

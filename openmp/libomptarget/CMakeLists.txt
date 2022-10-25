@@ -204,6 +204,16 @@ if (INTEL_CUSTOMIZATION)
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
   endif()
+
+  # Remove unnecessary definitions that cause IP scan hits
+  get_directory_property(OLD_DEF COMPILE_DEFINITIONS)
+  foreach(DEF ${OLD_DEF})
+    string(FIND "${DEF}" "INTEL_FEATURE" FOUND_LOC)
+    if(FOUND_LOC EQUAL -1)
+      list(APPEND NEW_DEF ${DEF})
+    endif()
+  endforeach()
+  set_property(DIRECTORY PROPERTY COMPILE_DEFINITIONS ${NEW_DEF})
 endif(INTEL_CUSTOMIZATION)
 
 # Build target agnostic offloading library.

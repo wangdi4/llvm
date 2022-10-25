@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 
-; RUN: opt < %s -whole-program-assume  -passes="require<dtransanalysis>" -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes="require<dtransanalysis>" -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies identification of calls to malloc that infer the type of
 ; allocation based on the storage of the allocated memory into a field member

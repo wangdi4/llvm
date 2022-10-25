@@ -1,5 +1,7 @@
 ; REQUIRES: asserts
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that checks the safety analysis is not run when the input is not
 ; marked as Whole Program Safe
 

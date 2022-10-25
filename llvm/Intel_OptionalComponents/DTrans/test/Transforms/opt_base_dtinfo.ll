@@ -1,5 +1,7 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test is run without forcing whole-program to be on to verify
 ; the DTrans optimization base class does not perform type transformation
 ; unless the dtrans analysis has analyzed the module. This is necessary

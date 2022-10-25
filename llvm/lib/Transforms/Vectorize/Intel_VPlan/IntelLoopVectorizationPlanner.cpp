@@ -131,6 +131,15 @@ static LoopVPlanDumpControl
     BlendWithSafeValueDumpControl("blend-with-safe-value",
                                  "blend integer div/rem with safe value");
 
+// The following two options are used together to temporarily disable
+// vectorization for loops that have both properties.
+static cl::opt<unsigned> NumGathersThreshold(
+    "vplan-num-gathers-threshold", cl::init(20), cl::Hidden,
+    cl::desc("Threshold of gathers used for disabling vectorization."));
+
+static cl::opt<unsigned> NumVConflictThreshold(
+  "vplan-num-vconflict-threshold", cl::init(3), cl::Hidden,
+  cl::desc("Threshold of vconflict idioms used for disabling vectorization."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
@@ -482,11 +491,20 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
           .getFixedSize();
 
+  unsigned NumVConflictIdioms = 0;
+  unsigned NumGathers = 0;
   for (auto &VPInst : vpinstructions(Plan.get())) {
     // TODO: We're losing out on being able to vectorize vconflict idioms at
     // VF=16 for i32 types because the conflict index is always represented
     // as i64. Look into preserving the original VPValue for the index as
     // live-in to VPGeneralMemOptConflict.
+    if (auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst)) {
+      if (LoadStore->getOpcode() == Instruction::Load &&
+          !Plan->getVPlanDA()->isUnitStridePtr(LoadStore->getPointerOperand(),
+                                               LoadStore->getValueType())) {
+        ++NumGathers;
+      }
+    }
     if (auto *VPConflict = dyn_cast<VPGeneralMemOptConflict>(&VPInst)) {
       // Filter out all VFs if tree conflict region does not meet certain
       // criteria.
@@ -534,6 +552,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
           getReductionUpdateOp(VPConflict, InsnInVConflictRegion);
       assert(RednUpdateOp && "Could not find reduction update op");
       if (!Plan->getVPlanDA()->isUniform(*RednUpdateOp)) {
+        ++NumVConflictIdioms;
         unsigned PermuteSize =
             RednUpdateOp->getType()->getPrimitiveSizeInBits();
         MaxVF = MaxVecRegSize / PermuteSize;
@@ -613,6 +632,12 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       }
     }
   }
+
+  // TODO: workaround fix for CMPLRLLVM-38438, which is a 4% perf regression
+  // for namd. Further investigation is required, filed CMPLRLLVM-40940.
+  if (NumGathers >= NumGathersThreshold &&
+      NumVConflictIdioms >= NumVConflictThreshold)
+    VFs.clear();
 
   // When we force VF to have a special value, VFs vector has only one value.
   // Therefore, we have to check if we removed the only value that was in VFs.
@@ -2232,9 +2257,14 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
 void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
   SmallPtrSet<VPlan *, 2> Visited;
 
-  auto ProcessVPlan = [&Visited](VPlan &P) -> void {
+  auto ProcessVPlan = [&Visited](VPlanMasked &P) -> void {
     if (!Visited.insert(&P).second)
       return;
+    // Don't disable optimization if TC is unknown.
+    VPLoop *L = P.getMainLoop(true /*StrictCheck*/);
+    if (L->getTripCountInfo().IsEstimated)
+      return;
+
     for (auto &Inst :
          make_filter_range(vpinstructions(&P), [](const VPInstruction &Inst) {
            return isa<VPLoadStoreInst>(Inst);

@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -dtrans-elim-ro-field-access-op -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes=dtrans-elim-ro-field-access-op -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-elim-ro-field-access-op -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes=dtrans-elim-ro-field-access-op -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies the DTrans eliminate read-only field access pass.
 ; First IF basic block doesn't meet the criteria.

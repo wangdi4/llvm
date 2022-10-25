@@ -97,7 +97,8 @@ enum DeviceArch : uint64_t {
   DeviceArch_None   = 0,
   DeviceArch_Gen9   = 0x0001,
   DeviceArch_XeLP   = 0x0002, // DG1
-  DeviceArch_XeHP   = 0x0004, // ATS
+  DeviceArch_XeHP   = 0x0004, // ATS, PVC
+  DeviceArch_XeHPG  = 0x0008, // DG2, ATS-M
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 
@@ -328,8 +329,14 @@ private:
   };
   /// BBs that perform updates within the atomic-free reduction loops.
   DenseMap<WRegionNode *, LocalUpdateInfo> AtomicFreeRedLocalUpdateInfos;
-  DenseMap<WRegionNode *, GlobalUpdateInfo> AtomicFreeRedGlobalUpdateInfos;
+  // For different types of reditems we generate different types
+  // of update loops (serial and parallel) that's why that info
+  // is being kept separate
+  DenseMap<WRegionNode *, GlobalUpdateInfo>
+      AtomicFreeRedGlobalSerialUpdateInfos;
+  DenseMap<WRegionNode *, GlobalUpdateInfo> AtomicFreeRedGlobalParUpdateInfos;
   DenseSet<WRNTargetNode *> UsedLocalTreeReduction;
+  DenseMap<WRegionNode *, BasicBlock *> CntrCheckBBs;
 
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.

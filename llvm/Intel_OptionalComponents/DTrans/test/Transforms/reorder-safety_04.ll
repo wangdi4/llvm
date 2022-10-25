@@ -1,7 +1,9 @@
 ; UNSUPPORTED: enable-opaque-pointers
 
-;  RUN: opt  -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
-;  RUN: opt  -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; This test verifies that the reordering transformation is NOT applied to
 ; struct.test because a memory write is done to the first field of the structure

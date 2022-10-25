@@ -89,6 +89,7 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
   std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
   ClonedBlock->setName(Name);
   ClonedBlock->setFrequency(Block->getFrequency());
+  ClonedBlock->copyTripCountInfoFrom(Block);
   Parent->insertBefore(ClonedBlock, InsertBefore);
 
   for (auto &Inst : *Block) {

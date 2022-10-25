@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -passes=dtrans-weakalign 2>&1 | FileCheck %s
+; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-weakalign 2>&1 | FileCheck %s
 
 ; Test that the transformation occurs when there is a safe use of the
 ; @llvm.assume intrinsic call for checking that a value is non-null.

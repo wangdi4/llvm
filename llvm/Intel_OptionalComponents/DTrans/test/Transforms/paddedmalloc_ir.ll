@@ -3,11 +3,13 @@
 ; global counter and the interface correctly, and modified the malloc
 ; function successfully.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -dtrans-paddedmalloc -dtrans-test-paddedmalloc -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes=dtrans-paddedmalloc -dtrans-test-paddedmalloc  -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
-; RUN: opt < %s -whole-program-assume -passes="dtrans-paddedmalloc,padded-pointer-prop" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-paddedmalloc -dtrans-test-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes=dtrans-paddedmalloc -dtrans-test-paddedmalloc  -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes="dtrans-paddedmalloc,padded-pointer-prop" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
 
 %struct.testStruct = type { i8* }
 

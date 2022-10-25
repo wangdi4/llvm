@@ -2,7 +2,9 @@
 ; can't be merged since the calls (@Not_Ctor1 and @Not_Ctor2) are not
 ; constructor calls.
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                   \
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                                                   \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                                                      \
 ; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>,require<soatoaos-struct-methods>'             \
 ; RUN:          -dtrans-soatoaos-array-type=struct.Arr                                                                  \

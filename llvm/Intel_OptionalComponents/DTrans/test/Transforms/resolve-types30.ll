@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN:  opt < %s -S -o - -whole-program-assume -dtrans-resolvetypes 2>&1 | FileCheck %s
-; RUN:  opt < %s -S -o - -whole-program-assume -passes=dtrans-resolvetypes 2>&1 | FileCheck %s
+; RUN:  opt < %s -S -o - -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes 2>&1 | FileCheck %s
+; RUN:  opt < %s -S -o - -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test checks that resolve types pass works correctly when a type is used with
 ; a llvm.intel.subscript function. The types must be merged and the function name

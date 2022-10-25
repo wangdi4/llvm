@@ -19,7 +19,7 @@
 ; }
 
 ; Expected IR:
-;  %4 = call i32 @__tgt_is_device_available(i64 %3, ptr inttoptr (i64 7 to ptr))
+;  %4 = call i32 @__tgt_is_device_available(i64 %3, ptr inttoptr (i64 15 to ptr))
 ;  %available = icmp ne i32 %4, 0
 ;  br i1 %dispatch, label %variant.call, label %base.call
 ;
@@ -52,7 +52,7 @@
 ; }
 
 ;Is device ready?
-; CHECK: call i32 @__tgt_is_device_available(i64 %{{.*}}, ptr inttoptr (i64 7 to ptr))
+; CHECK: call i32 @__tgt_is_device_available(i64 %{{.*}}, ptr inttoptr (i64 15 to ptr))
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne
 ; CHECK: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 ;

@@ -1,5 +1,7 @@
 ; RUN: llvm-link  -opaque-pointers -S %s %S/Inputs/link-ctors-metadata-01a.ll | FileCheck %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Tests that intel_dtrans_type metadata is not ignored when merging in
 ; global appending variables that have DTrans metadata attachments.
 

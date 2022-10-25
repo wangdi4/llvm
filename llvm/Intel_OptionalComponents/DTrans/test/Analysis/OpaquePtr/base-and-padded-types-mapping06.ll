@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -dtrans-test-padded-structs-analyzer 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -dtrans-test-padded-structs-analyzer 2>&1 | FileCheck %s
 
 ; This test verifies that %struct.test.a and %struct.test.a.base are mapped
 ; but the padded field is marked as dirty. The reason is because there is

@@ -1,8 +1,8 @@
 ; This test verifies that the field reordering transformation is applied
 ; correctly to GEP and calloc instructions related to %struct.test.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -dtrans-reorderfieldsop | FileCheck %s
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -S -passes=dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
 
 ; CHECK-LABEL: define void @foo
 ; CHECK: getelementptr inbounds %__DFR_struct.test, ptr %tp, i64 0, i32 3

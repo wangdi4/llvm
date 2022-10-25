@@ -3,6 +3,8 @@
 ; case where the result of a subscript call gets put into a
 ; PHINode. (CMPLRLLVM-27761)
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -opaque-pointers < %s -S -dtrans-transpose 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -passes=dtrans-transpose 2>&1 | FileCheck %s
 

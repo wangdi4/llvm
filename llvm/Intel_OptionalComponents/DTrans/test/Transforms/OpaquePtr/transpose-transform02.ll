@@ -1,6 +1,8 @@
 ; This test is to verify the complete transpose candidate
 ; selection/profitability/transformation implementation.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -opaque-pointers < %s -S -dtrans-transpose 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -passes=dtrans-transpose 2>&1 | FileCheck %s
 

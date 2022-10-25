@@ -6,7 +6,7 @@
 ; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics=false -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-META %s
 
 ; Test link compile step loop fusion heuristic does not engage because
-; -dtrans-inline-heuristics=false.
+; -dtrans-inline-heuristics=false
 
 ; Checks for old pass manager with old inline report
 

@@ -14,7 +14,7 @@
 ; RUN: llvm-profdata merge %S/../Inputs/soatoaos01-inlpgo.proftext -o %t.profdata
 
 ; New pass manager
-; RUN: opt -opaque-pointers -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost -enable-npm-dtrans %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
+; RUN: opt -opaque-pointers -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost -enable-npm-dtrans %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
 ; RUN: opt -opaque-pointers -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -inline-for-xmain -pre-lto-inline-cost -enable-npm-dtrans %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
 
 ; CHECK-DTRANS-DAG: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPiEC2EiP3Mem

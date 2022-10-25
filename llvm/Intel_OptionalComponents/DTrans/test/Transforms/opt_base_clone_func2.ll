@@ -1,6 +1,8 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -S -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies that the base class updates the parameter attribute types
 ; on the cloned function when the type used is remapped. Specifically, the

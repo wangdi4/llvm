@@ -2,8 +2,8 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; INTEL CUSTOMIZATION:
 
-; RUN: opt -opaque-pointers -inline -inline-threshold=20 -inlining-for-deep-ifs=true -dtrans-inline-heuristics -inlining-min-if-depth=4 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-threshold=20 -inlining-for-deep-ifs=true -dtrans-inline-heuristics -inlining-min-if-depth=4 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -inline -inline-threshold=20 -inlining-for-deep-ifs=true -dtrans-inline-heuristics -intel-libirc-allowed -inlining-min-if-depth=4 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-threshold=20 -inlining-for-deep-ifs=true -dtrans-inline-heuristics -intel-libirc-allowed -inlining-min-if-depth=4 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
 
 ; Test checks 'deeply nested IFs' inlining heuristic.
 

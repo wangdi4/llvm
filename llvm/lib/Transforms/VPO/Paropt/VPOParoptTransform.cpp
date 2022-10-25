@@ -3621,9 +3621,20 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
   bool UseParallelReduction =
       AtomicFreeReductionParallelGlobal && !IsArrayOrArraySection;
-  LoadInst *Init = RedSumPhi ?
-      Builder.CreateLoad(RedElemType, RedStore->getPointerOperand(), "init") : nullptr;
-
+  // The original value stored in the reduction variable, serves as incoming
+  // value of the serial loop result phi or being explicitly reduced with the
+  // parallel loop result
+  LoadInst *Init = !IsArrayOrArraySection
+                       ? Builder.CreateLoad(
+                             RedElemType, RedStore->getPointerOperand(), "init")
+                       : nullptr;
+  auto &UpdateInfos = UseParallelReduction
+                          ? AtomicFreeRedGlobalParUpdateInfos
+                          : AtomicFreeRedGlobalSerialUpdateInfos;
+  // Teams counter check needs to be generated only once, no matter
+  // loop of which type is currently being generated
+  bool NeedsTeamsCounter = !AtomicFreeRedGlobalParUpdateInfos.count(W) &&
+                           !AtomicFreeRedGlobalSerialUpdateInfos.count(W);
   if (!UseExistingUpdateLoop) {
     // (Just as for the local update)
     // For array section case the input IR expected here is as following:
@@ -3646,69 +3657,81 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
     auto *EntryBB = UpdateBB->getSinglePredecessor();
     assert(EntryBB);
-    AtomicFreeRedGlobalUpdateInfos[W].EntryBB = EntryBB;
+    UpdateInfos[W].EntryBB = EntryBB;
     auto *ExitBB = UpdateBB->getUniqueSuccessor();
     if (IsArrayOrArraySection) {
       assert(!ExitBB);
       ExitBB = EntryBB->getTerminator()->getSuccessor(0);
     }
     Builder.SetInsertPoint(IsArrayOrArraySection ? EntryBB : UpdateBB);
-
     auto *StartPoint =
         IsArrayOrArraySection ? EntryBB->getFirstNonPHI() : RedValLoad;
+    BasicBlock *Preheader = nullptr;
 
-    MapClause &MapC = WTarget->getMap();
-    auto TeamsCntrIt = std::find_if(
-        MapC.items().begin(), MapC.items().end(), [](vpo::MapItem *MItem) {
-          return isa<GlobalVariable>(MItem->getOrig()) &&
-                 cast<GlobalVariable>(MItem->getOrig())
-                     ->hasAttribute(
-                         VPOParoptAtomicFreeReduction::TeamsCounterAttr);
-        });
-    assert(TeamsCntrIt != MapC.items().end() && "No teams counter found");
-    auto *GlobalCounter = cast<GlobalVariable>((*TeamsCntrIt)->getOrig());
+    if (NeedsTeamsCounter) {
+      assert(!CntrCheckBBs.count(W) &&
+             "Teams counter check block already exists!");
+      MapClause &MapC = WTarget->getMap();
+      auto TeamsCntrIt = std::find_if(
+          MapC.items().begin(), MapC.items().end(), [](vpo::MapItem *MItem) {
+            return isa<GlobalVariable>(MItem->getOrig()) &&
+                   cast<GlobalVariable>(MItem->getOrig())
+                       ->hasAttribute(
+                           VPOParoptAtomicFreeReduction::TeamsCounterAttr);
+          });
+      assert(TeamsCntrIt != MapC.items().end() && "No teams counter found");
+      auto *GlobalCounter = cast<GlobalVariable>((*TeamsCntrIt)->getOrig());
 
-    Builder.SetInsertPoint(StartPoint);
+      Builder.SetInsertPoint(StartPoint);
 
-    auto *OldCntr = Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
-    auto *NewCntr = Builder.CreateAdd(OldCntr, Builder.getInt32(1));
-    Builder.CreateStore(NewCntr, GlobalCounter);
-    Instruction *CntrToCheck =
-        Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
+      auto *OldCntr = Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
+      auto *NewCntr = Builder.CreateAdd(OldCntr, Builder.getInt32(1));
+      Builder.CreateStore(NewCntr, GlobalCounter);
+      Instruction *CntrToCheck =
+          Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
 
-    auto *LocalCntr = Builder.CreateAlloca(CntrToCheck->getType());
-    Builder.CreateStore(CntrToCheck, LocalCntr);
-    auto *CntrCheckBB = SplitBlock(StartPoint->getParent(), StartPoint, DT, LI);
-    auto *AtomicUpdate = VPOParoptAtomics::handleAtomicCaptureInBlock(
-        W, OldCntr->getParent(), nullptr, nullptr, true);
-    assert(AtomicUpdate && "No atomic was generated for global teams counter");
-    assert(AtomicUpdate->hasOneUse());
-    cast<Instruction>(*AtomicUpdate->users().begin())->eraseFromParent();
-    LocalCntr->eraseFromParent();
-    AtomicUpdate->moveBefore(StartPoint);
-    CntrToCheck = AtomicUpdate;
+      auto *LocalCntr = Builder.CreateAlloca(CntrToCheck->getType());
+      Builder.CreateStore(CntrToCheck, LocalCntr);
+      auto *CntrCheckBB =
+          SplitBlock(StartPoint->getParent(), StartPoint, DT, LI);
+      auto *AtomicUpdate = VPOParoptAtomics::handleAtomicCaptureInBlock(
+          W, OldCntr->getParent(), nullptr, nullptr, true);
+      assert(AtomicUpdate &&
+             "No atomic was generated for global teams counter");
+      assert(AtomicUpdate->hasOneUse());
+      cast<Instruction>(*AtomicUpdate->users().begin())->eraseFromParent();
+      LocalCntr->eraseFromParent();
+      AtomicUpdate->moveBefore(StartPoint);
+      CntrToCheck = AtomicUpdate;
 
-    CntrCheckBB->setName("counter_check");
+      CntrCheckBB->setName("counter_check");
 
-    Builder.SetInsertPoint(StartPoint);
+      CntrCheckBBs[W] = CntrCheckBB;
 
-    Value *NumGroups0;
-    if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
-      SmallVector<Value *, 1> Arg;
-      NumGroups0 = VPOParoptUtils::genOCLGenericCall(
-          "_Z29__spirv_NumWorkgroups_xv", GeneralUtils::getSizeTTy(F), Arg,
-          CntrToCheck);
+      Builder.SetInsertPoint(StartPoint);
+
+      auto *NumGroups0 = VPOParoptUtils::genNumGroupsCall(0, CntrToCheck);
+      auto *NumGroupsCall = cast<Instruction>(
+          Builder.CreateTrunc(NumGroups0, Builder.getInt32Ty()));
+
+      auto *GroupCmp = Builder.CreateICmpNE(CntrToCheck, NumGroupsCall);
+
+      SplitBlockAndInsertIfThen(GroupCmp, StartPoint, false, nullptr, DT, LI,
+                                ExitBB);
+      HeaderBB =
+          cast<BranchInst>(CntrCheckBB->getTerminator())->getSuccessor(1);
+      StartPoint = &HeaderBB->front();
+      Preheader = CntrCheckBB;
     } else {
-      NumGroups0 = VPOParoptUtils::genOCLGenericCall(
-          "_Z14get_num_groupsj", GeneralUtils::getSizeTTy(F),
-          Builder.getInt32(0), CntrToCheck);
+      // When a second loop (parallel after serial or vice versa) is generated
+      // the original counter check 'false' branch needs to be adjusted
+      // as the original ExitBB is not an actual exit anymore
+      CntrCheckBBs.lookup(W)->getTerminator()->setSuccessor(0, ExitBB);
     }
-    auto *NumGroupsCall = cast<Instruction>(
-        Builder.CreateTrunc(NumGroups0, Builder.getInt32Ty()));
 
-    auto *GroupCmp = Builder.CreateICmpNE(CntrToCheck, NumGroupsCall);
-    Value *LocalId0 = nullptr;
+    Instruction *LocalId0 = nullptr;
 
+    Builder.SetInsertPoint(StartPoint);
     // Depending on AtomicFreeReductionParallelGlobal option value
     // final cross-team reduction is either parallel or serial,
     // so for the former MTT should not be generated
@@ -3717,14 +3740,14 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
       Value *MasterCheckPredicate = nullptr;
       for (unsigned Dim = 0; Dim < 3; ++Dim) {
-        Value *LocalId = nullptr;
+        Instruction *LocalId = nullptr;
         if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
-          LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, NumGroupsCall);
+          LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, StartPoint);
         } else {
           auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
           LocalId = VPOParoptUtils::genOCLGenericCall(
               "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), {Arg},
-              NumGroupsCall);
+              StartPoint);
         }
         if (!LocalId0)
           LocalId0 = LocalId;
@@ -3741,28 +3764,49 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
       MasterCheckPredicate->setName("is.master.thread");
       auto *NotMasterCheckPredicate = Builder.CreateNot(MasterCheckPredicate);
-      GroupCmp = Builder.CreateLogicalOr(GroupCmp, NotMasterCheckPredicate);
+
+      Preheader = StartPoint->getParent();
+
+      SplitBlockAndInsertIfThen(NotMasterCheckPredicate, StartPoint, false,
+                                nullptr, DT, LI, ExitBB);
     } else {
+      if (!Preheader)
+        Preheader = StartPoint->getParent()->getSinglePredecessor();
+      assert(Preheader);
       LocalId0 = VPOParoptUtils::genOCLGenericCall(
           "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
-          {Builder.getInt32(0)}, NumGroupsCall);
+          {Builder.getInt32(0)}, Preheader->getTerminator());
+      VPOParoptUtils::genCall(
+          "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
+          {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+           ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+           ConstantInt::get(Builder.getInt32Ty(),
+                            spirv::SequentiallyConsistent |
+                                spirv::WorkgroupMemory)},
+          LocalId0);
     }
 
-    SplitBlockAndInsertIfThen(GroupCmp, StartPoint, false, nullptr, DT, LI,
-                              ExitBB);
-    HeaderBB = cast<BranchInst>(CntrCheckBB->getTerminator())->getSuccessor(1);
+    // TODO: add IR snippets to this comment
+    // Preheader is:
+    //  - CounterCheckBB, if NeedsTeamsCounter==true
+    //  - MTT block, if IsArrayOrArraySection==true (means a serial loop is
+    //      being created when a parallel one already exists)
+    //  - parallel/serial loop exit block, otherwise
+    HeaderBB = cast<BranchInst>(Preheader->getTerminator())
+                   ->getSuccessor(
+                       (NeedsTeamsCounter || IsArrayOrArraySection) ? 1 : 0);
 
-    BasicBlock *Preheader = CntrCheckBB;
     auto GenerateLoop = [&Builder, W, Preheader, this, ExitBB,
-                         IsArrayOrArraySection,
-                         NumGroups0, &DT, LocalId0,
-                         UseParallelReduction](
-                            Value *CmpValue, Instruction *StartPt,
-                            BasicBlock *IVIncInsertBB,
+                         IsArrayOrArraySection, &DT, LocalId0,
+                         UseParallelReduction, &UpdateInfos](
+                            Instruction *StartPt, BasicBlock *IVIncInsertBB,
                             BasicBlock::iterator IVIncInsertPt) {
       Builder.SetInsertPoint(StartPt);
       auto *HeaderBB = StartPt->getParent();
       auto *IdxPhi = Builder.CreatePHI(Builder.getInt64Ty(), 0);
+
+      Instruction *CmpValue = VPOParoptUtils::genNumGroupsCall(0, StartPt);
+
       auto *ExitCond =
           cast<Instruction>(Builder.CreateICmpUGE(IdxPhi, CmpValue));
 
@@ -3791,13 +3835,14 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
         auto *SplitPt = &BodyBB->front();
         BodyBB->setName("atomic.free.red.global.update.tree.header");
         Builder.SetInsertPoint(SplitPt);
+
         Value *Cond = nullptr;
         auto *Off2 = Builder.CreateShl(IdxPhi, Builder.getInt64(1));
         auto *Off2Dec = Builder.CreateSub(Off2, Builder.getInt64(1));
         auto *Off2And = Builder.CreateAnd(LocalId0, Off2Dec);
         Cond = Builder.CreateICmpNE(Off2And, Builder.getInt64(0));
         auto *AbsOff = Builder.CreateAdd(LocalId0, IdxPhi);
-        auto *Cond2 = Builder.CreateICmpUGE(AbsOff, NumGroups0);
+        auto *Cond2 = Builder.CreateICmpUGE(AbsOff, CmpValue);
         Cond = Builder.CreateLogicalOr(Cond, Cond2);
         SplitBlockAndInsertIfThen(Cond, SplitPt, false, nullptr, DT, LI,
                                   LatchBB);
@@ -3824,45 +3869,45 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       BodyBB->setName("atomic.free.red.global.update.body");
       LatchBB->setName("atomic.free.red.global.update.latch");
 
-      AtomicFreeRedGlobalUpdateInfos[W].UpdateBB = BodyBB;
-      AtomicFreeRedGlobalUpdateInfos[W].LatchBB = LatchBB;
-      AtomicFreeRedGlobalUpdateInfos[W].IVPhi = IdxPhi;
-      AtomicFreeRedGlobalUpdateInfos[W].ExitBB = ExitBB;
+      UpdateInfos[W].UpdateBB = BodyBB;
+      UpdateInfos[W].LatchBB = LatchBB;
+      UpdateInfos[W].IVPhi = IdxPhi;
+      UpdateInfos[W].ExitBB = ExitBB;
       return IdxPhi;
     };
 
     IdxPhi =
-        GenerateLoop(NumGroups0, StartPoint, RedStore->getParent(),
+        GenerateLoop(StartPoint, RedStore->getParent(),
                      RedI->getIsArraySection() ? RedStore->getParent()->end()
                                                : RedStore->getIterator());
 
     Builder.SetInsertPoint(HeaderBB, HeaderBB->getTerminator()->getIterator());
   } else {
-    IdxPhi = AtomicFreeRedGlobalUpdateInfos.lookup(W).IVPhi;
+    IdxPhi = UpdateInfos.lookup(W).IVPhi;
     HeaderBB = IdxPhi->getParent();
     if (IsArrayOrArraySection)
-      Builder.CreateBr(AtomicFreeRedGlobalUpdateInfos.lookup(W).LatchBB);
+      Builder.CreateBr(UpdateInfos.lookup(W).LatchBB);
     else
       RedStore->moveBefore(
           HeaderBB->getTerminator()->getSuccessor(0)->getTerminator());
   }
-  auto *LatchBB = AtomicFreeRedGlobalUpdateInfos.lookup(W).LatchBB;
+  auto *LatchBB = UpdateInfos.lookup(W).LatchBB;
   // For scalars we need to store the SumPhi value to the actual result location.
   // For array sections it's done within the update loop already
   Builder.SetInsertPoint(LatchBB->getFirstNonPHI());
   if (!IsArrayOrArraySection) {
     BasicBlock *StoreBB = nullptr;
-    if (!AtomicFreeRedGlobalUpdateInfos.lookup(W).ScalarUpdateBB) {
+    if (!UpdateInfos.lookup(W).ScalarUpdateBB) {
       RedStore->moveBefore(LatchBB->getTerminator());
       StoreBB = SplitBlock(LatchBB, RedStore, DT, LI);
       StoreBB->setName("atomic.free.red.global.update.store");
       LatchBB->getTerminator()->setSuccessor(0, HeaderBB);
       IdxPhi->setIncomingBlock(1, LatchBB);
-      StoreBB->getTerminator()->setSuccessor(0, AtomicFreeRedGlobalUpdateInfos.lookup(W).ExitBB);
+      StoreBB->getTerminator()->setSuccessor(0, UpdateInfos.lookup(W).ExitBB);
       HeaderBB->getTerminator()->setSuccessor(0, StoreBB);
-      AtomicFreeRedGlobalUpdateInfos[W].ScalarUpdateBB = StoreBB;
+      UpdateInfos[W].ScalarUpdateBB = StoreBB;
     } else {
-      StoreBB = AtomicFreeRedGlobalUpdateInfos.lookup(W).ScalarUpdateBB;
+      StoreBB = UpdateInfos.lookup(W).ScalarUpdateBB;
       RedStore->moveBefore(StoreBB->getTerminator());
     }
   }
@@ -3882,10 +3927,9 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   //  BodyBB:
   //   br done, LatchBB, BodyBB
   // Replacing LatchBB with ItemExitBB
-  AtomicFreeRedGlobalUpdateInfos[W].UpdateBB->getTerminator()->setSuccessor(
-      0, ItemExitBB);
+  UpdateInfos[W].UpdateBB->getTerminator()->setSuccessor(0, ItemExitBB);
   if (IsArrayOrArraySection)
-    AtomicFreeRedGlobalUpdateInfos[W]
+    UpdateInfos[W]
         .UpdateBB->getTerminator()
         ->getSuccessor(1)
         ->getTerminator()
@@ -3959,8 +4003,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       auto *LocalOffGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
                                             GlobalGep, IdxPhi);
       RedVarLoad->setOperand(0, LocalOffGep);
-      Builder.SetInsertPoint(
-          AtomicFreeRedGlobalUpdateInfos[W].UpdateBB->getTerminator());
+      RedVarLoad->setName("tree_load_off");
+      Builder.SetInsertPoint(UpdateInfos[W].UpdateBB->getTerminator());
       auto *PartSumSt = Builder.CreateStore(RedStore->getOperand(0), GlobalGep);
       PartSumSt->setMetadata(
           VPOParoptAtomicFreeReduction::GlobalStoreMD,
@@ -3968,12 +4012,16 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
                       ConstantAsMetadata::get(Builder.getInt32(1))));
 
       Builder.SetInsertPoint(RedStore);
-      auto *Res = Builder.CreateLoad(GepToSkip->getSourceElementType(), GepPtr);
+      Value *Res = Builder.CreateLoad(GepToSkip->getSourceElementType(), GepPtr,
+                                      "tree_load");
+      assert(Init && "no old value loaded for parallel cross-team reduction");
+      Init->moveBefore(cast<Instruction>(Res));
+      Res = genReductionScalarOp(RedI, Builder, RedElemType, Res, Init);
       RedStore->setOperand(0, Res);
     }
   }
 
-  AtomicFreeRedGlobalUpdateInfos[W].UpdateBB = ItemExitBB;
+  UpdateInfos[W].UpdateBB = ItemExitBB;
 
   if (RedSumPhi)
     RedStore->setOperand(0, RedSumPhi);
@@ -4111,8 +4159,12 @@ bool VPOParoptTransform::genReductionScalarFini(
   bool UseExistingLocalLoop = UseLocalUpdates &&
                               AtomicFreeRedLocalUpdateInfos.count(W) &&
                               !IsArrayOrArraySection;
-  bool UseExistingGlobalLoop = UseGlobalUpdates &&
-                               AtomicFreeRedGlobalUpdateInfos.count(W);
+  bool UseExistingGlobalLoop =
+      UseGlobalUpdates &&
+      ((AtomicFreeReductionParallelGlobal && !IsArrayOrArraySection)
+           ? AtomicFreeRedGlobalParUpdateInfos
+           : AtomicFreeRedGlobalSerialUpdateInfos)
+          .count(W);
   if (isTargetSPIRV() &&
       ((UseLocalUpdates && !UseExistingLocalLoop) ||
        (UseGlobalUpdates && !UseExistingGlobalLoop)) &&
@@ -4139,6 +4191,7 @@ bool VPOParoptTransform::genReductionScalarFini(
   // is handled right above where we check that no previously generated loop
   // exists, while here we handle only the opposite case.
   bool HasByRefLoad = RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV;
+
   if (UseExistingLocalLoop) {
     if (HasByRefLoad)
       HandleByRefArg(&AtomicFreeRedLocalUpdateInfos.lookup(W)
@@ -4149,9 +4202,17 @@ bool VPOParoptTransform::genReductionScalarFini(
   } else if (UseExistingGlobalLoop && !IsArrayOrArraySection) {
     if (HasByRefLoad)
       HandleByRefArg(
-          &AtomicFreeRedGlobalUpdateInfos.lookup(W).EntryBB->front());
+          &((AtomicFreeReductionParallelGlobal && !IsArrayOrArraySection)
+                ? AtomicFreeRedGlobalParUpdateInfos
+                : AtomicFreeRedGlobalSerialUpdateInfos)
+               .lookup(W)
+               .EntryBB->front());
     Builder.SetInsertPoint(
-        AtomicFreeRedGlobalUpdateInfos.lookup(W).UpdateBB->getTerminator());
+        ((AtomicFreeReductionParallelGlobal && !IsArrayOrArraySection)
+             ? AtomicFreeRedGlobalParUpdateInfos
+             : AtomicFreeRedGlobalSerialUpdateInfos)
+            .lookup(W)
+            .UpdateBB->getTerminator());
   }
 
   PHINode *SumPhi =
@@ -4313,13 +4374,20 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
 
 #endif // INTEL_CUSTOMIZATION
 
+  bool IsArrayOrArraySection =
+      RedI->getIsArraySection() || AllocaTy->isArrayTy() || NumElements;
   // Generate local to global mem copy if necessary
   // Required for correct atomic free reduction's global update
   // in presence of SLM or tree local update
+  auto &UpdateInfos =
+      ((AtomicFreeReductionParallelGlobal && !IsArrayOrArraySection)
+           ? AtomicFreeRedGlobalParUpdateInfos
+           : AtomicFreeRedGlobalSerialUpdateInfos);
+
   if (LocalRedVar) {
-    bool GlobalLoopExists = AtomicFreeRedGlobalUpdateInfos.count(W) > 0;
+    bool GlobalLoopExists = UpdateInfos.count(W) > 0;
     if (GlobalLoopExists)
-      Builder.SetInsertPoint(AtomicFreeRedGlobalUpdateInfos.lookup(W).EntryBB->getTerminator());
+      Builder.SetInsertPoint(UpdateInfos.lookup(W).EntryBB->getTerminator());
     auto *LocalLoad = Builder.CreateLoad(AllocaTy, LocalRedVar);
     assert(AtomicFreeRedGlobalBufs.count(RedI));
     Builder.CreateStore(LocalLoad, NewV);
@@ -4327,9 +4395,9 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
       Builder.SetInsertPoint(InsertPt);
   }
 
-  if (RedI->getIsArraySection() || AllocaTy->isArrayTy() || NumElements) {
-    if (W->getIsTeams() && AtomicFreeRedGlobalUpdateInfos.count(W))
-      InsertPt = AtomicFreeRedGlobalUpdateInfos.lookup(W).UpdateBB->getFirstNonPHI();
+  if (IsArrayOrArraySection) {
+    if (W->getIsTeams() && UpdateInfos.count(W))
+      InsertPt = UpdateInfos.lookup(W).UpdateBB->getFirstNonPHI();
     return genRedAggregateInitOrFini(W, RedI, NewV, OldV, InsertPt, false, DT,
                                      NoNeedToOffsetOrDerefOldV);
   }
@@ -4479,12 +4547,12 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     BodyBB = SplitBlock(EntryBB, SplitPt, DT, LI);
     BodyBB->setName((IsInit ? "red.init.body" : "red.update.body") + BBNameSuffix);
 
-    if (AtomicFreeRedGlobalUpdateInfos.count(W) &&
+    if (AtomicFreeRedGlobalSerialUpdateInfos.count(W) &&
 #ifdef INTEL_CUSTOMIZATION
         !RedI->getIsF90DopeVector() &&
 #endif // INTEL_CUSTOMIZATION
         !IsInit) {
-      DoneBB = AtomicFreeRedGlobalUpdateInfos.lookup(W).LatchBB;
+      DoneBB = AtomicFreeRedGlobalSerialUpdateInfos.lookup(W).LatchBB;
     } else {
       DoneBB = SplitBlock(BodyBB, BodyBB->getTerminator(), DT, LI);
       DoneBB->setName((IsInit ? "red.init.done" : "red.update.done") +

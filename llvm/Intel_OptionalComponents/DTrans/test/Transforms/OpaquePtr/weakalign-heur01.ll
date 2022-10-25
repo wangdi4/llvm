@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-weakalign -dtrans-weakalign-heur-override=false -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-weakalign -dtrans-weakalign-heur-override=false -debug-only=dtrans-weakalign 2>&1 | FileCheck %s
 
 ; Test that the weak alignment transform is inhibited if the heuristic
 ; that checks for an SOA-to-AOS function fails to find a routine.

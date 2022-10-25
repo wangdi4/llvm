@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -enable-new-pm=0 -inline -dtrans-inline-heuristics -inline-report=0xe807 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -enable-new-pm=0 -inline -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -S 2>&1 | FileCheck %s
 
 ; Check that with the old pass manager, the first call to foo() is not inlined
 ; because it is cold, while the second is inlined, because it is hot.
@@ -13,6 +13,7 @@
 ; CHECK: foo{{.*}}Callsite has cold profile
 ; CHECK: INLINE: foo{{.*}}<<Callsite has hot profile>>
 
+target triple = "x86_64-unknown-linux-gnu"
 @myglobal = dso_local local_unnamed_addr global i32 0, align 4
 
 ; Function Attrs: nounwind uwtable

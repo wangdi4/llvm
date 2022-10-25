@@ -5,7 +5,9 @@
 ; instruction in %b20 block has extra clause.
 ; Dtors: _ZN3ArrIPiED2Ev, _ZN3ArrIPfED2Ev and _ZN3ArrIPsED2Ev
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                   \
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                                                   \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                                                      \
 ; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>,require<soatoaos-struct-methods>'             \
 ; RUN:          -dtrans-soatoaos-array-type=struct.Arr                                                                  \

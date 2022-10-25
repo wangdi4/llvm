@@ -684,7 +684,7 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
   assert((szBufferSize >= szPatternSize) &&
          "Buffer size is less than pattern size.\n");
   assert((szBufferSize % szPatternSize == 0) &&
-         "Buffer size is not integer multiply of pattern size.\n");
+         "Buffer size is not integer multiple of pattern size.\n");
   if (szPatternSize > sizeof(long long) || szBufferSize < sizeof(long long)) {
     // for long patterns do memcpy
     for (size_t offset = 0; offset < szBufferSize; offset += szPatternSize) {
@@ -697,7 +697,7 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
     // direct assignments and save the overhead of calling memcpy
     long long llPattern = 0;
     assert((sizeof(llPattern) % szPatternSize == 0) &&
-           "sizeof(long long) is not integer multiply of pattern size.\n");
+           "sizeof(long long) is not integer multiple of pattern size.\n");
     for (size_t i = 0; i < sizeof(llPattern) / szPatternSize; i++) {
       // using memcpy intentionally, because MEMCPY_S has too much overhead in
       // this loop
@@ -714,7 +714,7 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
       assert(((szBufferSize % sizeof(llPattern)) >= szPatternSize) &&
              "Remainder is less than pattern size.\n");
       assert(((szBufferSize % sizeof(llPattern)) % szPatternSize == 0) &&
-             "Remainder is not integer multiply of pattern size.\n");
+             "Remainder is not integer multiple of pattern size.\n");
       for (size_t offset = szBufferSize - szBufferSize % sizeof(llPattern);
            offset < szBufferSize; offset += szPatternSize) {
         // using memcpy intentionally, because MEMCPY_S has too much

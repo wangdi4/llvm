@@ -482,8 +482,9 @@ InliningLoopInfoCache::~InliningLoopInfoCache() {
 // Return a profile count for 'Call' using 'PSI' if one exists.
 //
 static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
-                                              CallBase &Call) {
-  if (!DTransInlineHeuristics)
+                                              CallBase &Call,
+                                              bool IsLibIRCAllowed) {
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return None;
   if (!PSI || !PSI->hasInstrumentationProfile())
     return None;
@@ -499,7 +500,8 @@ static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
 //
 // Return the threshold over which a callsite is considered hot.
 //
-static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M) {
+static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M,
+                                        bool IsLibIRCAllowed) {
   static bool ComputedThreshold = false;
   static uint64_t Threshold = 0;
   if (ComputedThreshold)
@@ -513,7 +515,8 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M) {
       auto CB = dyn_cast<CallBase>(U);
       if (!CB)
         continue;
-      Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB);
+      Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB,
+                                                         IsLibIRCAllowed);
       if (ProfCount == None)
         continue;
       uint64_t NewValue = ProfCount.value();
@@ -541,12 +544,13 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M) {
 // hot callsites during the 'PrepareForLTO' phase.
 //
 static bool isProfInstrumentHotCallSite(CallBase &CB, ProfileSummaryInfo *PSI,
-                                        bool PrepareForLTO) {
-  if (!DTransInlineHeuristics || PrepareForLTO)
+                                        bool PrepareForLTO,
+                                        bool IsLibIRCAllowed) {
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed) || PrepareForLTO)
     return false;
   Module *M = CB.getParent()->getParent()->getParent();
-  uint64_t Threshold = profInstrumentThreshold(PSI, M);
-  Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB);
+  uint64_t Threshold = profInstrumentThreshold(PSI, M, IsLibIRCAllowed);
+  Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB, IsLibIRCAllowed);
   if (ProfCount == None)
     return false;
   return ProfCount.value() >= Threshold;
@@ -603,8 +607,9 @@ extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,
                            bool IsSYCLDevice) {
   if (!InlineForXmain)
     return false;
+  bool IsLibIRCAllowed = TTI.isLibIRCAllowed();
   if (F->hasLinkOnceODRLinkage() && !IsSYCLHost && !IsSYCLDevice &&
-      !DTransInlineHeuristics) {
+      !(DTransInlineHeuristics && IsLibIRCAllowed)) {
       if (!PrepareForLTO && !LinkForLTO) {
         if (F->size() > HugeODRFunctionBasicBlockCount)
           return true;
@@ -613,7 +618,7 @@ extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,
           return true;
       }
   }
-  if (!DTransInlineHeuristics)
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   size_t ArgSize = F->arg_size();
   if (ArgSize < HugeFunctionArgCount)
@@ -727,7 +732,7 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   //  store i32 4, i32* %34, align 4
   //  %35 = load i32, i32* %34, align 4
   //
-  auto IsSimpleAlloca = [](AllocaInst &I) {
+  auto IsSimpleAlloca = [](AllocaInst &I, bool IsLibIRCAllowed) {
     Type *Ty = I.getAllocatedType();
     if (!Ty->isPointerTy() && !Ty->isIntegerTy())
       return false;
@@ -755,7 +760,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
       } else if (auto CB = dyn_cast<CallBase>(U)) {
         if (!CB->isLifetimeStartOrEnd())
           CallOrLoadSeen = true;
-      } else if (DTransInlineHeuristics && isa<LoadInst>(U)) {
+      } else if (DTransInlineHeuristics && IsLibIRCAllowed &&
+          isa<LoadInst>(U)) {
         CallOrLoadSeen = true;
       } else {
         return false;
@@ -803,7 +809,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // allocated on the stack. We don't want to inhibiting inlining under
   // special circumstances. These include when we are running DTrans and
   // when we are compiling with -O3 -flto -xCORE-AVX2 on the link step.
-  if (DTransInlineHeuristics ||
+  bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
+  if ((DTransInlineHeuristics && IsLibIRCAllowed) ||
       passesMinimalSmallAppConditions(
           CandidateCall, CalleeTTI, WPI, Params.LinkForLTO.value_or(false),
           Params.InlineOptLevel.value_or(false))) {
@@ -812,11 +819,11 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         return true;
     if (IsInFirstOMPOutlineBlock(I))
       return true;
-    if (IsSimpleAlloca(I))
+    if (IsSimpleAlloca(I, IsLibIRCAllowed))
       return true;
     // Tolerate a dynamic alloca representing a character array. This can
     // be generalized if we find it useful.
-    if (DTransInlineHeuristics)
+    if (DTransInlineHeuristics && IsLibIRCAllowed)
        if (auto ATy = dyn_cast<ArrayType>(I.getAllocatedType()))
          if (ATy->getElementType()->isIntegerTy(8) &&
              ATy->getNumElements() <= DynAllocaMaxCharArraySize)
@@ -1100,7 +1107,8 @@ static bool preferMultiversioningToInlining(
     return false;
 
   // Quick tests:
-  if (!DTransInlineHeuristics)
+  bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
@@ -1137,11 +1145,12 @@ static bool preferMultiversioningToInlining(
 // to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile
 // step of an LTO compilation.
 //
-static bool preferDTransToInlining(CallBase &CB, bool PrepareForLTO) {
+static bool preferDTransToInlining(CallBase &CB, bool PrepareForLTO,
+                                   bool IsLibIRCAllowed) {
   if (!PrepareForLTO)
     return false;
 
-  if (!DTransInlineHeuristics)
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
 
   if (CB.hasFnAttr("noinline-dtrans"))
@@ -1187,7 +1196,8 @@ static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
 // manipulation of stack instructions.
 //
 static bool preferNotToInlineForStackComputations(Function *F,
-                                                  TargetLibraryInfo *TLI) {
+                                                  TargetLibraryInfo *TLI,
+                                                  bool IsLibIRCAllowed) {
   //
   // Returns 'true' if the Function *F has no arguments.
   //
@@ -1293,7 +1303,7 @@ static bool preferNotToInlineForStackComputations(Function *F,
   //
   static Function *WorthyFunction = nullptr;
   static SmallPtrSet<Function *, 32> FunctionsTestedFail;
-  if (!F || !TLI || !DTransInlineHeuristics)
+  if (!F || !TLI || !(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   if (WorthyFunction)
     return WorthyFunction == F;
@@ -1315,9 +1325,12 @@ static bool preferNotToInlineForStackComputations(Function *F,
 // both the compile and link step.
 //
 static bool preferNotToInlineForStackComputations(CallBase &CB,
-                                                  TargetLibraryInfo *TLI) {
-  return preferNotToInlineForStackComputations(CB.getCaller(), TLI) ||
-         preferNotToInlineForStackComputations(CB.getCalledFunction(), TLI);
+                                                  TargetLibraryInfo *TLI,
+                                                  bool IsLibIRCAllowed) {
+  return preferNotToInlineForStackComputations(CB.getCaller(), TLI,
+                                               IsLibIRCAllowed) ||
+         preferNotToInlineForStackComputations(CB.getCalledFunction(), TLI,
+                                               IsLibIRCAllowed);
 }
 
 //
@@ -1327,7 +1340,8 @@ static bool preferNotToInlineForStackComputations(CallBase &CB,
 //
 static bool
 preferNotToInlineForSwitchComputations(CallBase &CB,
-                                       InliningLoopInfoCache &ILIC) {
+                                       InliningLoopInfoCache &ILIC,
+                                       bool IsLibIRCAllowed) {
   //
   // Return 'true' if the called function of the Callsite CB is a small
   // function whose basic blocks that end in a ReturnInst return the
@@ -1428,7 +1442,7 @@ preferNotToInlineForSwitchComputations(CallBase &CB,
   static Function *WorthyFunction = nullptr;
   static SmallPtrSet<Function *, 32> FunctionsTestedFail;
   Function *Caller = CB.getCaller();
-  if (!DTransInlineHeuristics)
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   if (WorthyFunction == Caller)
     return true;
@@ -1462,6 +1476,7 @@ static bool preferNotToInlineForRecProgressionClone(Function *Callee) {
 //
 static bool
 preferToDelayInlineDecision(Function *Caller, bool PrepareForLTO,
+                            bool IsLibIRCAllowed,
                             SmallPtrSetImpl<Function *> *QueuedCallers) {
 
   // Try to return a pointer to a GEP instruction which tests if a structure
@@ -1532,7 +1547,7 @@ preferToDelayInlineDecision(Function *Caller, bool PrepareForLTO,
     return true;
   };
 
-  if (!DTransInlineHeuristics)
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   if (IsDelayInlineCaller(Caller, PrepareForLTO)) {
     if (!PrepareForLTO)
@@ -1586,6 +1601,7 @@ constexpr static unsigned CopyArrElemsMinimumLoopDepth = 2;
 constexpr static unsigned CopyArrElemsMinimumFields = 6;
 
 static bool preferToDelayInlineForCopyArrElems(CallBase &CB, bool PrepareForLTO,
+                                               bool IsLibIRCAllowed,
                                                InliningLoopInfoCache &ILIC) {
 
   // Returns true if type of the first argument of "F" is pointer to struct.
@@ -1716,7 +1732,7 @@ static bool preferToDelayInlineForCopyArrElems(CallBase &CB, bool PrepareForLTO,
         return true;
       };
 
-  if (!PrepareForLTO || !DTransInlineHeuristics)
+  if (!PrepareForLTO || !(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   auto *Callee = CB.getCalledFunction();
   // Must have the IR for the callee.
@@ -1826,8 +1842,9 @@ static bool preferPartialInlineOutlinedFunc(Function *Callee) {
 }
 
 static bool preferToIntelPartialInline(Function &F, bool PrepareForLTO,
+                                       bool IsLibIRCAllowed,
                                        InliningLoopInfoCache &ILIC) {
-  if (!PrepareForLTO || !DTransInlineHeuristics)
+  if (!PrepareForLTO || !(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   LoopInfoFuncType GetLoopInfo = [&ILIC](Function &F) -> LoopInfo & {
     return *(ILIC.getLI(&F));
@@ -1885,8 +1902,9 @@ static bool hasLoopOptInhibitingEHInstOutsideLoop(Function *F,
 // to the loop in which 'CB' appears.
 //
 static bool preferNotToInlineEHIntoLoop(CallBase &CB,
+                                        bool IsLibIRCAllowed,
                                         InliningLoopInfoCache &ILIC) {
-  if (!DTransInlineHeuristics)
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   Function *Callee = CB.getCalledFunction();
   // Return false if CB is marked as prefer-inline-dtrans
@@ -1905,10 +1923,12 @@ extern Optional<InlineResult> intelWorthNotInlining(
     InliningLoopInfoCache *ILIC, SmallPtrSetImpl<Function *> *QueuedCallers,
     InlineReasonVector &NoReasonVector) {
   bool PrepareForLTO = Params.PrepareForLTO.value_or(false);
+  bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
   Function *Callee = CandidateCall.getCalledFunction();
   if (!Callee || !InlineForXmain)
     return None;
-  Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall);
+  Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall,
+                                                     IsLibIRCAllowed);
   if (ProfCount && ProfCount.value() == 0) {
     if (!Callee->hasLinkOnceODRLinkage())
       return InlineResult::failure("not profitable")
@@ -1922,20 +1942,22 @@ extern Optional<InlineResult> intelWorthNotInlining(
                                       PrepareForLTO))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrPreferMultiversioning);
-  if (preferDTransToInlining(CandidateCall, PrepareForLTO))
+  if (preferDTransToInlining(CandidateCall, PrepareForLTO, IsLibIRCAllowed))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrPreferSOAToAOS);
-  if (preferNotToInlineForStackComputations(CandidateCall, TLI))
+  if (preferNotToInlineForStackComputations(CandidateCall, TLI,
+                                            IsLibIRCAllowed))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrStackComputations);
-  if (preferNotToInlineForSwitchComputations(CandidateCall, *ILIC))
+  if (preferNotToInlineForSwitchComputations(CandidateCall, *ILIC,
+                                             IsLibIRCAllowed))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrSwitchComputations);
   if (preferNotToInlineForRecProgressionClone(Callee))
     return InlineResult::failure("recursive").setIntelInlReason(NinlrRecursive);
 
   if (preferToDelayInlineDecision(CandidateCall.getCaller(), PrepareForLTO,
-                                  QueuedCallers)) {
+                                  IsLibIRCAllowed, QueuedCallers)) {
     if (PrepareForLTO)
       return InlineResult::failure("not profitable")
           .setIntelInlReason(NinlrDelayInlineDecision);
@@ -1944,16 +1966,18 @@ extern Optional<InlineResult> intelWorthNotInlining(
           .setIntelInlReason(NinlrDelayInlineDecisionLTO);
   }
 
-  if (preferToDelayInlineForCopyArrElems(CandidateCall, PrepareForLTO, *ILIC))
+  if (preferToDelayInlineForCopyArrElems(CandidateCall, PrepareForLTO,
+                                         IsLibIRCAllowed, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
   if (preferPartialInlineOutlinedFunc(Callee))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrPreferPartialInline);
-  if (preferToIntelPartialInline(*Callee, PrepareForLTO, *ILIC))
+  if (preferToIntelPartialInline(*Callee, PrepareForLTO, IsLibIRCAllowed,
+                                 *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
-  if (preferNotToInlineEHIntoLoop(CandidateCall, *ILIC))
+  if (preferNotToInlineEHIntoLoop(CandidateCall, IsLibIRCAllowed, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrCalleeHasExceptionHandling);
   if (CandidateCall.getCaller() == Callee &&
@@ -2782,8 +2806,9 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
   // CMPLRLLVM-22909: Limit the size of the application to which the
   // !PrepareForLTO heuristic can be applied to save compile time.
   //
+  bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
   Module *M = CB.getFunction()->getParent();
-  if (!PrepareForLTO && (!DTransInlineHeuristics ||
+  if (!PrepareForLTO && (!(DTransInlineHeuristics && IsLibIRCAllowed) ||
       !IsSmallApp(M, FusionSmallAppFunctionLimit))) {
     LLVM_DEBUG(llvm::dbgs() << "IC: No inlining for fusion. "
                                "Large app or not advanced opt enabled.");
@@ -3020,11 +3045,12 @@ static int deepestIfInDomTree(DominatorTree *DT) {
 static bool worthInliningForDeeplyNestedIfs(CallBase &CB,
                                             InliningLoopInfoCache &ILIC,
                                             bool IsCallerRecursive,
-                                            bool PrepareForLTO) {
+                                            bool PrepareForLTO,
+                                            bool IsLibIRCAllowed) {
   // Heuristic is enabled if option is unset and it is first inliner run
   // (on PrepareForLTO phase) OR if option is set to true.
   // CMPLRLLVM-34251: Put this heuristic under DTransInlineHeuristics test
-  if (!DTransInlineHeuristics ||
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed) ||
       ((InliningForDeeplyNestedIfs != cl::BOU_UNSET) ||
       !PrepareForLTO) && (InliningForDeeplyNestedIfs != cl::BOU_TRUE))
     return false;
@@ -3200,7 +3226,8 @@ static bool worthInliningForAddressComputations(CallBase &CB,
 //
 static bool worthInliningForStackComputations(Function *F,
                                               TargetLibraryInfo *TLI,
-                                              bool PrepareForLTO) {
+                                              bool PrepareForLTO,
+                                              bool IsLibIRCAllowed) {
 
   //
   // Return 'true' if Function *F passes the argument test.  We are looking
@@ -3314,7 +3341,7 @@ static bool worthInliningForStackComputations(Function *F,
   //
   static Function *WorthyFunction = nullptr;
   static SmallPtrSet<Function *, 32> FunctionsTestedFail;
-  if (!TLI || !DTransInlineHeuristics || PrepareForLTO)
+  if (!TLI || !(DTransInlineHeuristics && IsLibIRCAllowed) || PrepareForLTO)
     return false;
   if (WorthyFunction)
     return WorthyFunction == F;
@@ -3337,9 +3364,9 @@ static bool worthInliningForStackComputations(Function *F,
 // if the caller should be inlined.
 //
 static bool worthInliningSingleBasicBlockWithStructTest(
-    Function *Callee, bool PrepareForLTO,
+    Function *Callee, bool PrepareForLTO, bool IsLibIRCAllowed,
     SmallPtrSetImpl<Function *> *QueuedCallers) {
-  if (PrepareForLTO || !DTransInlineHeuristics)
+  if (PrepareForLTO || !(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   return QueuedCallers->count(Callee);
 }
@@ -3361,11 +3388,12 @@ static bool worthInliningForRecProgressionClone(Function *Callee) {
 // it is to find the callees.
 //
 static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
-                                                         bool PrepareForLTO) {
+                                                         bool PrepareForLTO,
+                                                         bool IsLibIRCAllowed) {
   static SmallPtrSet<Function *, 3> Candidates;
   static bool ScannedFunctions = false;
   static bool SawPreferPartialInlineOutlinedFunc = false;
-  if (PrepareForLTO || !DTransInlineHeuristics)
+  if (PrepareForLTO || !(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   if (ScannedFunctions)
     return SawPreferPartialInlineOutlinedFunc && Candidates.count(&F);
@@ -3438,13 +3466,14 @@ static bool preferPartialInlineInlinedClone(Function *Callee) {
 // heuristic below.
 //
 static bool worthInliningFunctionPassedDummyArgs(Function &F,
-                                                 bool PrepareForLTO) {
+                                                 bool PrepareForLTO,
+                                                 bool IsLibIRCAllowed) {
   assert(DummyArgsMinSeriesLength <= DummyArgsMinArgCount &&
          "Series length must not exceed minimum arg count");
   assert(DummyArgsMinSeriesMatch <= DummyArgsMinSeriesLength &&
          "Series match must not exceed series length");
   static SmallPtrSet<Function *, 3> FunctionsTestedPass;
-  if (PrepareForLTO || !DTransInlineHeuristics)
+  if (PrepareForLTO || !(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   if (FunctionsTestedPass.count(&F))
     return true;
@@ -3506,9 +3535,11 @@ static bool worthInliningFunctionPassedDummyArgs(Function &F,
 // in a switch instruction.
 //
 static bool worthInliningCallSitePassedDummyArgs(CallBase &CB,
-                                                 bool PrepareForLTO) {
+                                                 bool PrepareForLTO,
+                                                 bool IsLibIRCAllowed) {
   Function *Callee = CB.getCalledFunction();
-  if (!worthInliningFunctionPassedDummyArgs(*Callee, PrepareForLTO))
+  if (!worthInliningFunctionPassedDummyArgs(*Callee, PrepareForLTO,
+                                             IsLibIRCAllowed))
     return false;
   for (User *U : CB.users())
     if (dyn_cast<SwitchInst>(U))
@@ -3563,10 +3594,11 @@ static bool isSpecialArrayStructArg(Argument &Arg) {
 // the functions once and memorize the first such candidate to save compile
 // time.
 //
-static bool worthInliningForArrayStructArgs(CallBase &CB, bool PrepareForLTO) {
+static bool worthInliningForArrayStructArgs(CallBase &CB, bool PrepareForLTO,
+                                            bool IsLibIRCAllowed) {
   static bool ScannedFunctions = false;
   static Function *WorthyCallee = nullptr;
-  if (!DTransInlineHeuristics)
+  if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   if (!ScannedFunctions) {
     Module *M = CB.getParent()->getParent()->getParent();
@@ -3736,9 +3768,10 @@ static bool worthInliningForSmallApp(CallBase &CB,
 // function level region in Loop Opt.
 //
 static bool preferFunctionLevelRegion(Function *F, bool PrepareForLTO,
+                                      bool IsLibIRCAllowed,
                                       WholeProgramInfo *WPI) {
-  if (!F || PrepareForLTO  || !DTransInlineHeuristics || !WPI ||
-      !F->hasOneUse())
+  if (!F || PrepareForLTO  || !(DTransInlineHeuristics && IsLibIRCAllowed) ||
+      !WPI || !F->hasOneUse())
     return false;
   auto CB = dyn_cast<CallBase>(*(F->user_begin()));
   if (!CB)
@@ -3848,6 +3881,7 @@ static bool isLocalArrayExposureCandidate(Argument &Arg) {
 //
 static void localArrayExposureAnalysis(Module &M,
                                        bool PrepareForLTO,
+                                       bool IsLibIRCAllowed,
                                        WholeProgramInfo *WPI) {
   //
   // Return 'true' if 'F' meets some minimum criteria for being marked
@@ -3895,7 +3929,7 @@ static void localArrayExposureAnalysis(Module &M,
   //
   // Test some very minimal conditions.
   //
-  if (PrepareForLTO || !DTransInlineHeuristics ||
+  if (PrepareForLTO || !(DTransInlineHeuristics && IsLibIRCAllowed) ||
       !WPI || !WPI->isWholeProgramRead())
     return;
 
@@ -3939,11 +3973,13 @@ static void localArrayExposureAnalysis(Module &M,
 //
 static bool worthInliningExposesLocalArrays(Function &F,
                                             bool PrepareForLTO,
+                                            bool IsLibIRCAllowed,
                                             WholeProgramInfo *WPI) {
   static bool RanArgAnalysis = false;
   // Run the analysis only once at the beginning of inline analysis.
   if (!RanArgAnalysis) {
-    localArrayExposureAnalysis(*(F.getParent()), PrepareForLTO, WPI);
+    localArrayExposureAnalysis(*(F.getParent()), PrepareForLTO,
+                               IsLibIRCAllowed, WPI);
     RanArgAnalysis = true;
   }
   return F.hasFnAttribute("prefer-expose-local-arrays");
@@ -4122,11 +4158,12 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
                               WholeProgramInfo *WPI, bool IsCallerRecursive) {
   bool PrepareForLTO = Params.PrepareForLTO.value_or(false);
   bool LinkForLTO = Params.LinkForLTO.value_or(false);
+  bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
   unsigned InlineOptLevel = Params.InlineOptLevel.value_or(0);
   Function *F = CB.getCalledFunction();
   if (!F)
     return 0;
-  if (isProfInstrumentHotCallSite(CB, PSI, PrepareForLTO)) {
+  if (isProfInstrumentHotCallSite(CB, PSI, PrepareForLTO, IsLibIRCAllowed)) {
     YesReasonVector.push_back(InlrHotProfile);
     return -InlineConstants::InliningHeuristicBonus;
   }
@@ -4151,13 +4188,13 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   if (worthInliningForFusion(CB, TLI, CalleeTTI, *ILIC, PrepareForLTO)) {
     YesReasonVector.push_back(InlrForFusion);
     Function *Caller = CB.getCaller();
-    if (preferFunctionLevelRegion(Caller, PrepareForLTO, WPI))
+    if (preferFunctionLevelRegion(Caller, PrepareForLTO, IsLibIRCAllowed, WPI))
       if (!Caller->hasFnAttribute("prefer-function-level-region"))
         Caller->addFnAttr("prefer-function-level-region");
     return -InlineConstants::InliningHeuristicBonus;
   }
   if (worthInliningForDeeplyNestedIfs(CB, *ILIC, IsCallerRecursive,
-                                      PrepareForLTO)) {
+                                      PrepareForLTO, IsLibIRCAllowed)) {
     YesReasonVector.push_back(InlrDeeplyNestedIfs);
     return -InlineConstants::InliningHeuristicBonus;
   }
@@ -4165,12 +4202,14 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
     YesReasonVector.push_back(InlrAddressComputations);
     return -InlineConstants::InliningHeuristicBonus;
   }
-  if (worthInliningForStackComputations(F, TLI, PrepareForLTO)) {
+  if (worthInliningForStackComputations(F, TLI, PrepareForLTO,
+                                        IsLibIRCAllowed)) {
     YesReasonVector.push_back(InlrStackComputations);
     return -InlineConstants::InliningHeuristicBonus;
     ;
   }
   if (worthInliningSingleBasicBlockWithStructTest(F, PrepareForLTO,
+                                                  IsLibIRCAllowed,
                                                   QueuedCallers)) {
     YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
     return -InlineConstants::InliningHeuristicBonus;
@@ -4180,7 +4219,8 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
     YesReasonVector.push_back(InlrRecProClone);
     return -InlineConstants::InliningHeuristicBonus;
   }
-  if (preferPartialInlineHasExtractedRecursiveCall(*F, PrepareForLTO)) {
+  if (preferPartialInlineHasExtractedRecursiveCall(*F, PrepareForLTO,
+                                                   IsLibIRCAllowed)) {
     YesReasonVector.push_back(InlrHasExtractedRecursiveCall);
     return -InlineConstants::InliningHeuristicBonus;
   }
@@ -4188,11 +4228,12 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
     YesReasonVector.push_back(InlrPreferPartialInline);
     return -InlineConstants::InliningHeuristicBonus;
   }
-  if (worthInliningCallSitePassedDummyArgs(CB, PrepareForLTO)) {
+  if (worthInliningCallSitePassedDummyArgs(CB, PrepareForLTO,
+                                           IsLibIRCAllowed)) {
     YesReasonVector.push_back(InlrPassedDummyArgs);
     return -InlineConstants::InliningHeuristicBonus;
   }
-  if (worthInliningForArrayStructArgs(CB, PrepareForLTO)) {
+  if (worthInliningForArrayStructArgs(CB, PrepareForLTO, IsLibIRCAllowed)) {
     YesReasonVector.push_back(InlrArrayStructArgs);
     return -InlineConstants::InliningHeuristicBonus;
   }
@@ -4217,7 +4258,8 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
     YesReasonVector.push_back(InlrHasSmallAppBudget);
     return -InlineConstants::InliningHeuristicBonus;
   }
-  if (worthInliningExposesLocalArrays(*F, PrepareForLTO, WPI)) {
+  if (worthInliningExposesLocalArrays(*F, PrepareForLTO, IsLibIRCAllowed,
+                                      WPI)) {
     YesReasonVector.push_back(InlrExposesLocalArrays);
     return -InlineConstants::InliningHeuristicBonus;
   }
@@ -4259,11 +4301,12 @@ extern bool intelNotHotCallee(Function &F, bool PrepareForLTO) {
   return false;
 }
 
-extern bool intelCallTerminatesUnreachable(CallBase &CB) {
+extern bool intelCallTerminatesUnreachable(CallBase &CB,
+                                           bool IsLibIRCAllowed) {
   Function *F = CB.getCalledFunction();
   if (!F)
     return false;
-  return DTransInlineHeuristics && F->size() == 1 &&
+  return (DTransInlineHeuristics && IsLibIRCAllowed) && F->size() == 1 &&
       isa<UnreachableInst>(F->getEntryBlock().getTerminator());
 }
 #endif // INTEL_FEATURE_SW_ADVANCED

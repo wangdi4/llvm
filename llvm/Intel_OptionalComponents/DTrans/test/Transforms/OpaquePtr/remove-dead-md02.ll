@@ -1,6 +1,8 @@
 ; RUN: opt -dtransop-allow-typed-pointers -S -remove-dead-dtranstypemetadata %s | FileCheck %s
 ; RUN: opt -opaque-pointers -S -remove-dead-dtranstypemetadata %s | FileCheck %s
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Test that when removing dead DTrans type metadata, types used in
 ; GEP operators are maintained becuased these types may be different
 ; than the type the variable was declared as.

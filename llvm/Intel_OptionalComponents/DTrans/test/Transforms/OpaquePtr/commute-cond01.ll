@@ -2,8 +2,8 @@
 ; this test when -dtrans-commute-cond-ignore-heuristic is passed.
 ; Verified that the operands of %and1 are swapped.
 
-;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic -S 2>&1 | FileCheck %s
-;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic  -S 2>&1 | FileCheck %s
+;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic -S 2>&1 | FileCheck %s
+;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic  -S 2>&1 | FileCheck %s
 
 ; CHECK: %and1 = and i1 %cmp2, %cmp1
 ; CHECK-NOT: %and1 = and i1 %cmp1, %cmp2

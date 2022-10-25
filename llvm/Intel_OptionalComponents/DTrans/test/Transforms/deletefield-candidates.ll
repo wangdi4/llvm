@@ -1,35 +1,37 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
 ; RUN: sed -e s/.T1:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK1 %s
 ; RUN: sed -e s/.T2:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK1 %s
 ; RUN: sed -e s/.T2:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK2 %s
 ; RUN: sed -e s/.T2:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK2 %s
 ; RUN: sed -e s/.T3:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK3 %s
 ; RUN: sed -e s/.T3:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK3 %s
 ; RUN: sed -e s/.T4:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK4 %s
 ; RUN: sed -e s/.T4:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false  -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK4 %s
 ; RUN: sed -e s/.T5:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK5 %s
 ; RUN: sed -e s/.T5:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -passes=dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK5 %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; This test verifies only the candidate structure selection of the
 ; dtrans delete fields pass. Safety condition checks are verified elsewhere.

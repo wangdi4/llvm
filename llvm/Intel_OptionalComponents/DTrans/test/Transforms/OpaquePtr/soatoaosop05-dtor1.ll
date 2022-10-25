@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                      \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                      \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
@@ -9,7 +9,7 @@
 ; RUN:          -dtrans-soatoaosop-array-dtor=_ZN3ArrIPfED2Ev                                                             \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                    \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                                    \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
@@ -20,6 +20,8 @@
 ; RUN:          -dtrans-soatoaosop-array-dtor=_ZN3ArrIPfED2Ev                                                             \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; REQUIRES: asserts
+
+target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %class.F = type { %struct.Arr*, %struct.Arr.0* }
