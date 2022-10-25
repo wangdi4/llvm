@@ -6409,7 +6409,6 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_reducesh_mask:
     i = 4; l = 0; u = 255;
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
   case X86::BI__builtin_ia32_vec_ext_v64qi:
@@ -6438,17 +6437,12 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     break;
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
 #if INTEL_FEATURE_ISA_CMPCCXADD
-=======
->>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
   case X86::BI__builtin_ia32_cmpccxadd32:
   case X86::BI__builtin_ia32_cmpccxadd64:
     i = 3; l = 0; u = 15;
     break;
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_CMPCCXADD
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
   }
 
   // Note that we don't force a hard error on the range check here, allowing

@@ -123,15 +123,11 @@ namespace X86Local {
     RawFrmImm16   = 8,
     AddCCFrm      = 9,
     PrefixByte    = 10,
-<<<<<<< HEAD
     MRMDestMemImm8      = 16, // INTEL
     MRMDestReg4VOp3     = 17, // INTEL
     MRMDestMem4VOp3     = 18, // INTEL
     MRMDestMem4VOp2FSIB = 19, // INTEL
     MRMSrcMem4VOp3FSIB  = 20, // INTEL
-=======
-    MRMDestMem4VOp3CC = 20,
->>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
     MRMr0          = 21,
     MRMSrcMemFSIB  = 22,
     MRMDestMemFSIB = 23,

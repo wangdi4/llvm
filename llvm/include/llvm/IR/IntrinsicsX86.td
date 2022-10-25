@@ -5555,7 +5555,6 @@ let TargetPrefix = "x86" in {
               Intrinsic<[llvm_anyvector_ty], [llvm_x86amx_ty], [IntrNoMem]>;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
 let TargetPrefix = "x86" in {
@@ -5607,7 +5606,6 @@ let TargetPrefix = "x86" in {
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 //===----------------------------------------------------------------------===//
-<<<<<<< HEAD
 // AMX_FUTURE - Intel AMX_FUTURE extensions
 let TargetPrefix = "x86" in {
   // Reduce
@@ -5858,7 +5856,6 @@ def int_x86_cmpccxadd64
                 [llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty, llvm_i32_ty],
                 [IntrArgMemOnly, ImmArg<ArgIndex<3>>]>;
 }
->>>>>>> fdac4c4e92e5a83ac5e4fa6d1d2970c0c4df8fa8
 //===----------------------------------------------------------------------===//
 // AMX_LNC - Intel LNC AMX extensions
 let TargetPrefix = "x86" in {
