@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,intel_feature_sw_dtrans,asserts
-; RUN: opt < %s -opaque-pointers -enable-dtrans -functionrecognizer -debug-only=functionrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -enable-dtrans -passes='function(functionrecognizer)' -debug-only=functionrecognizer -S 2>&1 | FileCheck %s
 
 ; Test that @cost_compare is recognized as a qsort compare.

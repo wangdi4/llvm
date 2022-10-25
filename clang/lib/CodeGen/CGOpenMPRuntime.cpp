@@ -8204,7 +8204,7 @@ public:
           LowestElem = LB =
               Address(CGF.EmitScalarExpr(OASE->getBase()),
                       CGF.ConvertTypeForMem(
-                          PTy->getAs<PointerType>()->getPointeeType()),
+                          PTy->castAs<PointerType>()->getPointeeType()),
                       CGF.getContext().getTypeAlignInChars(PTy));
 #endif  // INTEL_COLLAB
         } else if (IsMemberReference) {
