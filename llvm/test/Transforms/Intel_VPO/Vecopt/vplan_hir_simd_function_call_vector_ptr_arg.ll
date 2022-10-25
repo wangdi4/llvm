@@ -1,12 +1,12 @@
-; RUN: opt -passes="vec-clone,hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-cg,sroa,gvn" -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -print-after=gvn -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-cg,sroa,gvn" -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -print-after=gvn -S < %s 2>&1 | FileCheck %s
 
 ; Test that shows the loop getting vectorized with VF=4 and unrolled by two
-; with calls to a vector function with a vector of ptr arg. GVN ends up making 
-; an illegal transformation by eliminating one of the calls and storing undef
-; to private memory. Once the arg ptr type is widened to vector of pointers,
-; analyses such as AA/ModRef and MemorySSA can no longer correctly reason
-; about aliasing and MemoryDefs. E.g., they do checks on isPointerTy(), etc.
-; Therefore, since many transformations rely on the accuracy of this
+; with calls to a declared only vector function with a vector of ptr arg. GVN
+; ends up making an illegal transformation by eliminating one of the calls and
+; storing undef to private memory. Once the arg ptr type is widened to vector
+; of pointers, analyses such as AA/ModRef and MemorySSA can no longer correctly
+; reason about aliasing and MemoryDefs. E.g., they do checks on isPointerTy(),
+; etc. Therefore, since many transformations rely on the accuracy of this
 ; information, many illegal transformations can occur.
 
 ; CHECK-LABEL: Function: MAIN__
@@ -23,9 +23,6 @@
 ; CHECK-NEXT:       (<4 x i32>*)(%TEST_ARRAY)[4] = %_ZGVbN4v_f_plus_one_;
 ; CHECK-NEXT: END REGION
 
-; FIXME - GVN eliminates the second vector function call and stores the
-;         result from the first call to the next 4 elements in the array.
-
 ; CHECK-LABEL: define void @MAIN__(i32* %TEST_ARRAY)
 ; CHECK:         region.0:
 ; CHECK-NEXT:      %1 = bitcast <4 x i32>* %priv.mem to i32*
@@ -41,7 +38,8 @@
 ; CHECK-NEXT:      %6 = bitcast i32* %5 to <4 x i32>*
 ; CHECK-NEXT:      %gepload3 = load <4 x i32>, <4 x i32>* %6, align 4
 ; CHECK-NEXT:      store <4 x i32> %gepload3, <4 x i32>* %priv.mem, align 4
-; CHECK-NEXT:      store <4 x i32> %4, <4 x i32>* %6, align 4
+; CHECK-NEXT:      %7 = call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull %3)
+; CHECK-NEXT:      store <4 x i32> %7, <4 x i32>* %6, align 4
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
