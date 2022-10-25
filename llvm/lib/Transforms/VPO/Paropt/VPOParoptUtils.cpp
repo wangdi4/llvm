@@ -147,13 +147,14 @@ static cl::opt<bool> KeepBlocksOrder(
 
 // When the function in the TARGET VARIANT DISPATCH construct is variadic,
 // controls where the interop obj is inserted in the variant call:
-//   flag = true:  as the last argument (default, for backward compatibility).
-//   flag = false: after the fixed arguments but before the vararg arguments;
-//                 this behavior matches that of OMP5.1 DISPATCH construct.
+//   flag = true:  as the last argument (compatible with old implementation).
+//   flag = false: (default) after the fixed arguments but before the
+//                 vararg arguments; this behavior matches that of
+//                 OMP5.1 DISPATCH construct.
 // Note that this flag doesn't affect OMP5.1 DISPATCH.
 static cl::opt<bool> PutInteropAfterVararg(
     "vpo-paropt-put-interop-after-vararg", cl::Hidden,
-    cl::init(true),
+    cl::init(false),
     cl::desc(
         "Put interop after last arg in a variant dispatch variadic function."));
 
