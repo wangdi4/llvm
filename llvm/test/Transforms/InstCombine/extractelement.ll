@@ -756,8 +756,13 @@ define i8 @bitcast_scalar_index0_use(i64 %x) {
 
 define i1 @bit_extract_cmp(i64 %x) {
 ; LE64-LABEL: @bit_extract_cmp(
-; LE64-NEXT:    [[TMP1:%.*]] = and i64 [[X:%.*]], 9223372032559808512
-; LE64-NEXT:    [[R:%.*]] = icmp eq i64 [[TMP1]], 0
+; INTEL_CUSTOMIZATION
+; preserve fcmp, support denormal round-down.
+; LE64-NEXT:    [[EXTELT_OFFSET:%.*]] = lshr i64 [[X:%.*]], 32
+; LE64-NEXT:    [[TMP1:%.*]] = trunc i64 [[EXTELT_OFFSET]] to i32
+; LE64-NEXT:    [[E:%.*]] = bitcast i32 [[TMP1]] to float
+; LE64-NEXT:    [[R:%.*]] = fcmp oeq float [[E]], 0.000000e+00
+; end INTEL_CUSTOMIZATION
 ; LE64-NEXT:    ret i1 [[R]]
 ;
 ; LE128-LABEL: @bit_extract_cmp(
@@ -767,8 +772,12 @@ define i1 @bit_extract_cmp(i64 %x) {
 ; LE128-NEXT:    ret i1 [[R]]
 ;
 ; BE64-LABEL: @bit_extract_cmp(
-; BE64-NEXT:    [[TMP1:%.*]] = and i64 [[X:%.*]], 2147483647
-; BE64-NEXT:    [[R:%.*]] = icmp eq i64 [[TMP1]], 0
+; INTEL_CUSTOMIZATION
+; preserve fcmp, support denormal round-down.
+; BE64-NEXT:    [[TMP1:%.*]] = trunc i64 [[X:%.*]] to i32
+; BE64-NEXT:    [[E:%.*]] = bitcast i32 [[TMP1]] to float
+; BE64-NEXT:    [[R:%.*]] = fcmp oeq float [[E]], 0.000000e+00
+; end INTEL_CUSTOMIZATION
 ; BE64-NEXT:    ret i1 [[R]]
 ;
 ; BE128-LABEL: @bit_extract_cmp(

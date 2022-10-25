@@ -1215,9 +1215,12 @@ define i1 @fneg_une_swap(float %p) {
 
 define i1 @bitcast_eq0(i32 %x) {
 ; CHECK-LABEL: @bitcast_eq0(
-; CHECK-NEXT:    [[TMP1:%.*]] = and i32 [[X:%.*]], 2147483647
-; CHECK-NEXT:    [[R:%.*]] = icmp eq i32 [[TMP1]], 0
+; INTEL_CUSTOMIZATION
+; we don't convert fcmp to icmp, it breaks cmp with denormals
+; CHECK-NEXT:    [[F:%.*]] = bitcast i32 [[X:%.*]] to float
+; CHECK-NEXT:    [[R:%.*]] = fcmp oeq float [[F]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[R]]
+; end INTEL_CUSTOMIZATION
 ;
   %f = bitcast i32 %x to float
   %r = fcmp oeq float %f, 0.0
@@ -1226,8 +1229,11 @@ define i1 @bitcast_eq0(i32 %x) {
 
 define <2 x i1> @bitcast_ne0(<2 x i32> %x) {
 ; CHECK-LABEL: @bitcast_ne0(
-; CHECK-NEXT:    [[TMP1:%.*]] = and <2 x i32> [[X:%.*]], <i32 2147483647, i32 2147483647>
-; CHECK-NEXT:    [[R:%.*]] = icmp ne <2 x i32> [[TMP1]], zeroinitializer
+; INTEL_CUSTOMIZATION
+; we don't convert fcmp to icmp, it breaks cmp with denormals
+; CHECK-NEXT:    [[F:%.*]] = bitcast <2 x i32> [[X:%.*]] to <2 x float>
+; CHECK-NEXT:    [[R:%.*]] = fcmp une <2 x float> [[F]], zeroinitializer
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret <2 x i1> [[R]]
 ;
   %f = bitcast <2 x i32> %x to <2 x float>
