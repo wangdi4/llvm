@@ -815,8 +815,8 @@ private:
   // True if tree conflict lowering was done
   bool TreeConflictsLowered = false;
 
-  // True if loop has any UDR variables.
-  bool LoopHasUDRs = false;
+  // True if loop has any UDR variables and/or inscan reductions.
+  bool LoopHasUDRsOrInscan = false;
 
   // Tracker to collect info about loops emitted by CFGMerger.
   MergedCFGInfo &CFGInfo;
