@@ -81,10 +81,6 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
             DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX}
             RUNTIME COMPONENT llvm-opencl-ompplugin
             DESTINATION bin)
-    if(WIN32)
-      install(FILES $<TARGET_PDB_FILE:omptarget.rtl.opencl>
-          DESTINATION bin COMPONENT llvm-opencl-ompplugin)
-    endif(WIN32)
     else(INTEL_CUSTOMIZATION)
     install(TARGETS omptarget.rtl.opencl
             LIBRARY DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX})
