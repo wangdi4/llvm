@@ -264,8 +264,14 @@ if (CMAKE_CXX_FLAGS MATCHES "-fprofile-arcs" AND CMAKE_CXX_FLAGS MATCHES "-ftest
 endif()
 
 # Libirc is not ready when running lit tests, so we disable using it.
-string(APPEND CMAKE_C_FLAGS " -i_no-use-libirc")
-string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
+if(MSVC)
+  # Using MSVC-like command-line arguments
+  string(APPEND CMAKE_C_FLAGS " /Q_no-use-libirc")
+  string(APPEND CMAKE_CXX_FLAGS " /Q_no-use-libirc")
+else()
+  string(APPEND CMAKE_C_FLAGS " -i_no-use-libirc")
+  string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
+endif()
 # end INTEL_CUSTOMIZATION
 
 option(COMPILER_RT_USE_LLVM_UNWINDER "Use the LLVM unwinder." OFF)
@@ -712,6 +718,22 @@ if (CMAKE_LINKER MATCHES "link.exe$")
   # the whole compiler-rt project.
   set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /IGNORE:4221")
 endif()
+
+
+# INTEL_CUSTOMIZATION
+# For JIRA: CMPLRLLVM-40765
+# ORC have some code that give warnings for our warning level, suppress
+# those to avoid turning into error.
+# TODO: Remove suppressions if upstream code fix those warnings
+# 
+# Suppress unwanted warnings.
+# Place this just above first add_subdirectory(), making add options appear
+# at the end of flags, because -Wno-XXX should after -Werror for clang to
+# take effect.
+append_string_if(LLVM_ENABLE_WERROR -Wno-pointer-bool-conversion CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+append_string_if(LLVM_ENABLE_WERROR -Wno-multichar CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+append_string_if(LLVM_ENABLE_WERROR -Wno-unused-variable CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+# end INTEL_CUSTOMIZATION
 
 add_subdirectory(include)
 

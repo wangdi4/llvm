@@ -32,9 +32,10 @@ using namespace llvm;
 static cl::opt<int> FMADbgLevel("global-fma-debug-level",
                                 cl::desc("Control the amount of debug output."),
                                 cl::init(-1), cl::Hidden);
-static cl::opt<bool> DisableGFMAForOMP2012("disable-x86-global-fma-for-omp2012",
-                                    cl::desc("Disable X86 Global FMA for omp2012"),
-                                    cl::init(false), cl::Hidden);
+static cl::opt<bool> DisableGFMAForPrecision(
+    "disable-x86-global-fma-selectively",
+    cl::desc("Disable X86 Global FMA selectively"), cl::init(false),
+    cl::Hidden);
 
 raw_ostream &FMADbg::dbgs() {
   return (FMADbgLevel & FMADbg::Main) ? ::dbgs() : nulls();
@@ -887,10 +888,11 @@ GlobalFMA::getDagForExpression(FMAExpr &Expr, bool CanChangeExpr) const {
   LLVM_DEBUG(FMADbg::match() << "Computed SP is: " << *SP);
   LLVM_DEBUG(FMADbg::match() << "SHAPE: " << format_hex(SP->Shape, 2) << "\n");
 
-  // Disable Global FMA for OMP2012 in some situation
+  // Disable Global FMA in some situation
   const TargetInstrInfo *TII =
       Expr.getMI()->getMF()->getSubtarget().getInstrInfo();
-  if (TII->IsBadForOMP2012(Expr.getMI(), SP->Shape, DisableGFMAForOMP2012))
+  if (TII->shouldSkipFMA4Precision(Expr.getMI(), SP->Shape,
+                                   DisableGFMAForPrecision))
     return nullptr;
 
   auto Dag = Patterns->getDagForBestSPMatch(*SP);

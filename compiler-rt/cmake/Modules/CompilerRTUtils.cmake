@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 include(CMakePushCheckState)
 include(CheckSymbolExists)
 
@@ -134,6 +152,13 @@ macro(test_target_arch arch def)
                   COMPILE_DEFINITIONS "${TARGET_${arch}_CFLAGS} ${FLAG_NO_EXCEPTIONS}"
                   OUTPUT_VARIABLE TARGET_${arch}_OUTPUT)
       set(CMAKE_EXE_LINKER_FLAGS ${SAVED_CMAKE_EXE_LINKER_FLAGS})
+    
+      # INTEL_CUSTOMIZATION
+      # If try_compile failed, print output for better debug
+      if(NOT ${CAN_TARGET_${arch}})
+        message(WARNING "Cannot compile for ${arch}:\n${TARGET_${arch}_OUTPUT}")
+      endif()
+      # end INTEL_CUSTOMIZATION
     endif()
   endif()
   if(${CAN_TARGET_${arch}})

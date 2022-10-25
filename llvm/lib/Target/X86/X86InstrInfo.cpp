@@ -114,12 +114,11 @@ X86InstrInfo::X86InstrInfo(X86Subtarget &STI)
 }
 
 #if INTEL_CUSTOMIZATION
-// CMPLRLLVM-40015: we fix this precision issue with prohibiting specific
-// global FMA in spec_omp2012all/370 by matching the FMA shape and FMA
-// expression's user.
-bool X86InstrInfo::IsBadForOMP2012(MachineInstr *FMAMI, unsigned Shape,
-                                   bool DisableGFMAForOMP2012) const {
-  if (!DisableGFMAForOMP2012)
+// CMPLRLLVM-40015: Skip doing FMA for some expressions to accommodate precision
+// tolerance.
+bool X86InstrInfo::shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
+                                           bool DisableGFMAForPrecision) const {
+  if (!DisableGFMAForPrecision)
     return false;
   MachineRegisterInfo *MRI = &FMAMI->getMF()->getRegInfo();
   // Check Shape is exactly 0xd5
