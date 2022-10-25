@@ -10649,6 +10649,11 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         TCArgs.MakeArgString("--out-file-list=" + OutputFileName));
     ForeachArgs.push_back(
         TCArgs.MakeArgString("--out-replace=" + OutputFileName));
+#if INTEL_CUSTOMIZATION
+    auto TmpDir =
+        TCArgs.MakeArgString(Twine("--out-dir=") + C.getDriver().BaseTempDir);
+    ForeachArgs.push_back(TmpDir);
+#endif // INTEL_CUSTOMIZATION
     StringRef ParallelJobs =
 #if INTEL_CUSTOMIZATION
         TCArgs.getLastArgValue(JA.isDeviceOffloading(Action::OFK_SYCL)
