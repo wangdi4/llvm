@@ -1651,7 +1651,7 @@ public:
   }
 
   unsigned getNumArgs() const {
-    return getTypePtr()->getNumArgs();
+    return getTypePtr()->template_arguments().size();
   }
 
   void setArgLocInfo(unsigned i, TemplateArgumentLocInfo AI) {
@@ -1663,7 +1663,8 @@ public:
   }
 
   TemplateArgumentLoc getArgLoc(unsigned i) const {
-    return TemplateArgumentLoc(getTypePtr()->getArg(i), getArgLocInfo(i));
+    return TemplateArgumentLoc(getTypePtr()->template_arguments()[i],
+                               getArgLocInfo(i));
   }
 
   SourceLocation getTemplateNameLoc() const {
@@ -1698,12 +1699,12 @@ public:
     setTemplateNameLoc(Loc);
     setLAngleLoc(Loc);
     setRAngleLoc(Loc);
-    initializeArgLocs(Context, getNumArgs(), getTypePtr()->getArgs(),
+    initializeArgLocs(Context, getTypePtr()->template_arguments(),
                       getArgInfos(), Loc);
   }
 
-  static void initializeArgLocs(ASTContext &Context, unsigned NumArgs,
-                                const TemplateArgument *Args,
+  static void initializeArgLocs(ASTContext &Context,
+                                ArrayRef<TemplateArgument> Args,
                                 TemplateArgumentLocInfo *ArgInfos,
                                 SourceLocation Loc);
 
@@ -2205,7 +2206,7 @@ public:
   }
 
   unsigned getNumArgs() const {
-    return getTypePtr()->getNumArgs();
+    return getTypePtr()->getTypeConstraintArguments().size();
   }
 
   void setArgLocInfo(unsigned i, TemplateArgumentLocInfo AI) {
@@ -2481,7 +2482,7 @@ public:
   }
 
   unsigned getNumArgs() const {
-    return getTypePtr()->getNumArgs();
+    return getTypePtr()->template_arguments().size();
   }
 
   void setArgLocInfo(unsigned i, TemplateArgumentLocInfo AI) {
@@ -2493,7 +2494,8 @@ public:
   }
 
   TemplateArgumentLoc getArgLoc(unsigned i) const {
-    return TemplateArgumentLoc(getTypePtr()->getArg(i), getArgLocInfo(i));
+    return TemplateArgumentLoc(getTypePtr()->template_arguments()[i],
+                               getArgLocInfo(i));
   }
 
   SourceRange getLocalSourceRange() const {
