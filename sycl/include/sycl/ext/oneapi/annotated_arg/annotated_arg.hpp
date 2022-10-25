@@ -25,11 +25,36 @@
       Op " is not supported on host device.");
 #endif
 
+#ifdef __SYCL_DEVICE_ONLY__
+#define __OPENCL_GLOBAL_AS__ __attribute__((opencl_global))
+#ifdef __ENABLE_USM_ADDR_SPACE__
+#define __OPENCL_GLOBAL_DEVICE_AS__ __attribute__((opencl_global_device))
+#define __OPENCL_GLOBAL_HOST_AS__ __attribute__((opencl_global_host))
+#else
+#define __OPENCL_GLOBAL_DEVICE_AS__ __attribute__((opencl_global))
+#define __OPENCL_GLOBAL_HOST_AS__ __attribute__((opencl_global))
+#endif // __ENABLE_USM_ADDR_SPACE__
+#define __OPENCL_LOCAL_AS__ __attribute__((opencl_local))
+#define __OPENCL_CONSTANT_AS__ __attribute__((opencl_constant))
+#define __OPENCL_PRIVATE_AS__ __attribute__((opencl_private))
+#else
+#define __OPENCL_GLOBAL_AS__
+#define __OPENCL_GLOBAL_DEVICE_AS__
+#define __OPENCL_GLOBAL_HOST_AS__
+#define __OPENCL_LOCAL_AS__
+#define __OPENCL_CONSTANT_AS__
+#define __OPENCL_PRIVATE_AS__
+#endif
+
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace ext {
 namespace oneapi {
 namespace experimental {
+
+// template <typename T, bool IsP> struct select_type {};
+// template <typename T> struct select_type<T, true> { using type = __OPENCL_GLOBAL_AS__ T;};
+// template <typename T> struct select_type<T, false> { using type = T;};
 
 template <typename T, typename PropertyListT = detail::empty_properties_t>
 class annotated_arg {
@@ -42,17 +67,21 @@ class annotated_arg {
 // of properties.
 template <typename T, typename... Props>
 class __SYCL_SPECIAL_CLASS annotated_arg<T, detail::properties_t<Props...>> {
-
   using property_list_t = detail::properties_t<Props...>;
 
-  T obj;
+  // using CondT = typename std::conditional<std::is_pointer<T>::value, __OPENCL_GLOBAL_AS__ T, T>::type;
+
+  // std::conditional<std::is_pointer<T>::value, , T> obj;
+  // CondT obj;
+  __OPENCL_GLOBAL_AS__ T *obj;
+
   #ifdef __SYCL_DEVICE_ONLY__
     void __init(
       [[__sycl_detail__::add_ir_attributes_kernel_parameter(
           detail::PropertyMetaInfo<Props>::name...,
           detail::PropertyMetaInfo<Props>::value...
       )]]
-      T _obj) {
+      __OPENCL_GLOBAL_AS__ T* _obj) {
         obj = _obj;
     }
   #endif
@@ -67,12 +96,13 @@ public:
                 "Property list is invalid.");
 
   // Check compability of each property values in the property list
-  static_assert(check_property_list<T, Props...>::value,
-                "property list contains invalid property.");
+  // static_assert(check_property_list<T, Props...>::value,
+  //               "property list contains invalid property.");
 
   annotated_arg() = default;
   annotated_arg(const annotated_arg&) = default;
-  annotated_arg(const T& _obj) : obj(_obj) {};
+  // annotated_arg(const __OPENCL_GLOBAL_AS__ T &_obj) : obj(_obj) {};
+  annotated_arg(T *_obj) : obj((__OPENCL_GLOBAL_AS__ T*)_obj) {};
 
   operator T&() {
     __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of annotated_arg to T")
@@ -94,14 +124,23 @@ public:
   //   return obj[idx];
   // }
 
-  inline T& get() {
+  // inline T& get() {
+  //   __SYCL_HOST_NOT_SUPPORTED("get()")
+  //   return obj;
+  // }
+  // inline const T& get() const {
+  //   __SYCL_HOST_NOT_SUPPORTED("get()")
+  //   return obj;
+  // }
+
+  inline T* get() const {
     __SYCL_HOST_NOT_SUPPORTED("get()")
     return obj;
   }
-  inline const T& get() const {
-    __SYCL_HOST_NOT_SUPPORTED("get()")
-    return obj;
-  }
+  // inline const T* get() const {
+  //   __SYCL_HOST_NOT_SUPPORTED("get()")
+  //   return obj;
+  // }
 
   template <typename PropertyT> static constexpr bool has_property() {
     return property_list_t::template has_property<PropertyT>();
