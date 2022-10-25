@@ -57940,28 +57940,74 @@ static SDValue combinePseudoVxi16Add(SDNode *N, SelectionDAG &DAG,
 
   SDLoc dl(N);
   // TODO this can be unified depend on element number.
-  //VT == MVT::v16i32
-  // add (sub (shl A, 16), (add (or ((shl B, 16), C)))), D)
-  // -->
-  // sub(<A, D>, <B, C>)
-  SDValue Low0 = DAG.getVectorShuffle(
-    MVT::v16i8, dl, D, A,
-    {0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23});
+  SDValue Low0, Low1, Hi0, Hi1;
+  if (A.getOpcode() == ISD::CONCAT_VECTORS &&
+      D.getOpcode() == ISD::CONCAT_VECTORS &&
+      B.getOpcode() == ISD::CONCAT_VECTORS &&
+      C.getOpcode() == ISD::CONCAT_VECTORS) {
+    // Transfor from:
+    // t1/t3: v8i8 = ...
+    // t2/t4: v8i8 = ...
+    // t5: v16i8  = concat_vector t1, t2
+    // t6: v16i8  = concat_vector t3, t4
+    // t7: v16i8 = vector_shuffle<0,16,1,17,2,18,3,19,4,20,5,21,6,22,7,23>
+    //                           t5, t6
+    // t8: v16i8 = vector_shuffle<8,24,9,25,10,26,11,27,12,28,13,29,14,30,15,31>
+    //                           t5, t6
+    //
+    // to:
+    // t7: v16i8 = vector_shuffle<0,8,1,9,2,10,3,11,4,12,5,13,6,14,7,15> t1, t3
+    // t8: v16i8 = vector_shuffle<0,8,1,9,2,10,3,11,4,12,5,13,6,14,7,15> t2, t4
+    //
+    // This transform could help save two VPUNPCKLBW
+    SDValue A0 = A.getOperand(0);
+    SDValue A1 = A.getOperand(1);
+
+    SDValue D0 = D.getOperand(0);
+    SDValue D1 = D.getOperand(1);
+
+    SDValue B0 = B.getOperand(0);
+    SDValue B1 = B.getOperand(1);
+
+    SDValue C0 = C.getOperand(0);
+    SDValue C1 = C.getOperand(1);
+    SDValue ConCat;
+    ConCat = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, D0, A0);
+    Low0 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, ConCat, ConCat,
+        {0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15});
+    ConCat = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, C0, B0);
+    Low1 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, ConCat, ConCat,
+        {0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15});
+    ConCat = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, D1, A1);
+    Hi0 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, ConCat, ConCat,
+        {0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15});
+    ConCat = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, C1, B1);
+    Hi1 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, ConCat, ConCat,
+        {0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15});
+  } else {
+    Low0 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, D, A,
+        {0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23});
+    Low1 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, C, B,
+        {0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23});
+    Hi0 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, D, A,
+        {8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31});
+    Hi1 = DAG.getVectorShuffle(
+        MVT::v16i8, dl, C, B,
+        {8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31});
+  }
   Low0 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Low0);
   Low0 = DAG.getBitcast(MVT::v8i32, Low0);
-  SDValue Low1 = DAG.getVectorShuffle(
-    MVT::v16i8, dl, C, B,
-    {0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23});
   Low1 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Low1);
   Low1 = DAG.getBitcast(MVT::v8i32, Low1);
-  SDValue Hi0 = DAG.getVectorShuffle(
-    MVT::v16i8, dl, D, A,
-    {8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31});
   Hi0 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Hi0);
   Hi0 = DAG.getBitcast(MVT::v8i32, Hi0);
-  SDValue Hi1 = DAG.getVectorShuffle(
-    MVT::v16i8, dl, C, B,
-    {8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31});
   Hi1 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Hi1);
   Hi1 = DAG.getBitcast(MVT::v8i32, Hi1);
 
@@ -58582,7 +58628,9 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
     SDLoc dl(N);
     EVT HalfVT = V0Low->getValueType(0);
     SDValue Low = DAG.getNode(N->getOpcode(), dl, HalfVT, V0Low, V1Low);
+    Low->setFlags(N->getFlags());
     SDValue Hi = DAG.getNode(N->getOpcode(), dl, HalfVT, V0Hi, V1Hi);
+    Hi->setFlags(N->getFlags());
 
     return std::pair<SDValue, SDValue>{Low, Hi}; // return its splitted TWO nodes
   };
@@ -58686,8 +58734,14 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
     unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
     SDValue Extract;
     if (UI->getValueType(0).getVectorNumElements() == 8) {
-      //  t36: v8i32 = extract_subvector t34, Constant:i64<0>
-      //  t39: v8i32 = extract_subvector t34, Constant:i64<8>
+      //  From:
+      //  t4: v16i32 =
+      //  vector_shuffle<0,17,2,19,4,21,6,23,8,25,10,27,12,29,14,31> [ORD=52]
+      //  t2, t3 t5: v8i32 = extract_subvector [ORD=53] t4, Constant:i64<0> t6:
+      //  v8i32 = extract_subvector [ORD=54] t4, Constant:i64<8> to t5_new:
+      //  v8i32 = vector_shuffle<0,9,2,11,4,13,6,15> [ORD=53] t2_low, t3_low
+      //  t6_new: v8i32 = vector_shuffle<0,9,2,11,4,13,6,15> [ORD=54] t2_high,
+      //  t3_high
       switch (IdxVal) {
       default:
         llvm_unreachable("Idx can only be 0, 8");
@@ -58698,6 +58752,11 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
         Extract = LowHi.second;
         break;
       }
+      // Though Extract is created/splitted from N(shuffle), it replaces
+      // *UI(extract_subvector) SDNode. So its IROrder and SDLoc should be
+      // updated from *UI.
+      Extract->setIROrder((*UI)->getIROrder()); // Update from 52 to 53/54
+      Extract->setDebugLoc((*UI)->getDebugLoc());
       DCI.CombineTo(*UI, Extract);
     } else if (UI->getValueType(0).getVectorNumElements() == 4) {
       //  t36: v4i32 = extract_subvector t34, Constant:i64<0>
@@ -58705,7 +58764,7 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
       //  t39: v4i32 = extract_subvector t34, Constant:i64<8>
       //  t36: v4i32 = extract_subvector t34, Constant:i64<12>
       EVT QuaterVT = UI->getValueType(0);
-      SDLoc dl(N);
+      SDLoc dl(*UI);
       switch (IdxVal) {
       default:
         llvm_unreachable("Idx can only be 0, 4, 8, 12");
