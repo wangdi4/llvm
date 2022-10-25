@@ -4635,7 +4635,83 @@ static bool extractPredSuccWeights(BranchInst *PBI, BranchInst *BI,
     return false;
   }
 }
+#if INTEL_CUSTOMIZATION
+/// Returns \p Val as BinaryOperator if it is an add instruction that looks like
+/// this-
+///
+/// %t = add %i, 1
+static const BinaryOperator *getIfAddOneInst(const Value *Val) {
+  auto *Add = dyn_cast<BinaryOperator>(Val);
 
+  if (!Add || Add->getOpcode() != Instruction::Add)
+    return nullptr;
+
+  // Restricting to common case of IV stride of 1
+  // Assumes instruction is in canonical form so we only check operand 1.
+  if (!match(Add->getOperand(1), m_One()))
+    return nullptr;
+
+  return Add;
+}
+
+/// Returns true if \p Val is a Phi with two operands and one of the operands is
+/// an add inst which uses the phi. Essentially, we are checking for a def-use
+/// cycle like this-
+///
+/// %iv = phi [ 0, %entry ], [ %iv.inc, %loop ]
+/// %iv.inc = add %iv, 1
+static bool isLikelyIVPhi(const Value *Val,
+                          const BinaryOperator *KnownIVUpdate = nullptr) {
+  auto *IVPhi = dyn_cast<PHINode>(Val);
+
+  if (!IVPhi || IVPhi->getNumOperands() != 2)
+    return false;
+
+  for (const Value *Op : IVPhi->operands()) {
+
+    if (KnownIVUpdate) {
+      if (KnownIVUpdate == Op)
+        return true;
+
+    } else if (auto *OpInst = getIfAddOneInst(Op)) {
+      if (OpInst->getOperand(0) == IVPhi)
+        return true;
+    }
+  }
+
+  return false;
+}
+
+/// Returns true if \p Val is an add inst in a def-use cycle with a phi.
+static bool isLikelyIVUpdateInst(const Value *Val) {
+
+  auto *Add = getIfAddOneInst(Val);
+
+  if (!Add)
+    return false;
+
+  return isLikelyIVPhi(Add->getOperand(0), Add);
+}
+
+/// Returns true if \p BranchCond looks like something like this-
+/// %i + 1 <cmp> %n
+///
+/// This kind of condition is typically used to exit a countable loop.
+///
+/// Unfortunately, SimplifyCFG currently does not use DominateTree otherwise we
+/// could make a more precise check.
+static bool isLikelyCountableLoopExitCond(const Value *BranchCond) {
+  auto *CmpInst = dyn_cast<ICmpInst>(BranchCond);
+
+  if (!CmpInst)
+    return false;
+
+  return isLikelyIVPhi(CmpInst->getOperand(0)) ||
+         isLikelyIVUpdateInst(CmpInst->getOperand(0)) ||
+         isLikelyIVPhi(CmpInst->getOperand(1)) ||
+         isLikelyIVUpdateInst(CmpInst->getOperand(1));
+}
+#endif // INTEL_CUSTOMIZATION
 /// Determine if the two branches share a common destination and deduce a glue
 /// that joins the branches' conditions to arrive at the common destination if
 /// that would be profitable.
@@ -4658,7 +4734,14 @@ shouldFoldCondBranchesToCommonDestination(BranchInst *BI, BranchInst *PBI,
         BranchProbability::getBranchProbability(PTWeight, PTWeight + PFWeight);
     Likely = TTI->getPredictableBranchThreshold();
   }
-
+#if INTEL_CUSTOMIZATION
+  // Do not merge countable loop's exit condition with others as this will make
+  // the loop non-countable.
+  if (BI->getParent()->getParent()->isPreLoopOpt() &&
+      isLikelyCountableLoopExitCond(BI->getCondition())) {
+    return None;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (PBI->getSuccessor(0) == BI->getSuccessor(0)) {
     // Speculate the 2nd condition unless the 1st is probably true.
     if (PBITrueProb.isUnknown() || PBITrueProb < Likely)
