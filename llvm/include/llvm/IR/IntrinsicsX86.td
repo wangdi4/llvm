@@ -5842,6 +5842,20 @@ let TargetPrefix = "x86" in {
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 
 #if INTEL_FEATURE_ISA_AMX_LNC
+=======
+let TargetPrefix = "x86" in {
+def int_x86_cmpccxadd32
+    : ClangBuiltin<"__builtin_ia32_cmpccxadd32">,
+      Intrinsic<[llvm_i32_ty],
+                [llvm_ptr_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+                [IntrArgMemOnly, ImmArg<ArgIndex<3>>]>;
+
+def int_x86_cmpccxadd64
+    : ClangBuiltin<"__builtin_ia32_cmpccxadd64">,
+      Intrinsic<[llvm_i64_ty],
+                [llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty, llvm_i32_ty],
+                [IntrArgMemOnly, ImmArg<ArgIndex<3>>]>;
+}
 //===----------------------------------------------------------------------===//
 // AMX_LNC - Intel LNC AMX extensions
 let TargetPrefix = "x86" in {
