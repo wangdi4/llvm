@@ -137,6 +137,14 @@ add_sycl_plugin(esimd_emulator
     sycl
 )
 
+# INTEL_CUSTOMIZATION
+if (NOT WIN32)
+  # Force linking with the default platform C++ runtime, same as libsycl.so is
+  # linked with, to avoid potential crashes due to different object layout.
+  intel_clear_stdlib()
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_dependencies(pi_esimd_emulator cm-emu)
 
 set_target_properties(pi_esimd_emulator PROPERTIES LINKER_LANGUAGE CXX)
