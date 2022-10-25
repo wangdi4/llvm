@@ -71,11 +71,7 @@ event queue_impl::memset(const std::shared_ptr<detail::queue_impl> &Self,
   {
     // We need to submit command and update the last event under same lock if we
     // have in-order queue.
-<<<<<<< HEAD
     auto ScopeLock = isInOrder() ? std::unique_lock<std::mutex>(MLastEventMtx)
-=======
-    auto ScopeLock = isInOrder() ? std::unique_lock(MLastEventMtx)
->>>>>>> 3e51d989eab2e6cda551948a99bc7d2821b7abe7
                                  : std::unique_lock<std::mutex>();
     // If the last submitted command in the in-order queue is host_task then
     // wait for it before submitting usm command.
@@ -117,11 +113,7 @@ event queue_impl::memcpy(const std::shared_ptr<detail::queue_impl> &Self,
   {
     // We need to submit command and update the last event under same lock if we
     // have in-order queue.
-<<<<<<< HEAD
     auto ScopeLock = isInOrder() ? std::unique_lock<std::mutex>(MLastEventMtx)
-=======
-    auto ScopeLock = isInOrder() ? std::unique_lock(MLastEventMtx)
->>>>>>> 3e51d989eab2e6cda551948a99bc7d2821b7abe7
                                  : std::unique_lock<std::mutex>();
     // If the last submitted command in the in-order queue is host_task then
     // wait for it before submitting usm command.
@@ -164,11 +156,7 @@ event queue_impl::mem_advise(const std::shared_ptr<detail::queue_impl> &Self,
   {
     // We need to submit command and update the last event under same lock if we
     // have in-order queue.
-<<<<<<< HEAD
     auto ScopeLock = isInOrder() ? std::unique_lock<std::mutex>(MLastEventMtx)
-=======
-    auto ScopeLock = isInOrder() ? std::unique_lock(MLastEventMtx)
->>>>>>> 3e51d989eab2e6cda551948a99bc7d2821b7abe7
                                  : std::unique_lock<std::mutex>();
     // If the last submitted command in the in-order queue is host_task then
     // wait for it before submitting usm command.
