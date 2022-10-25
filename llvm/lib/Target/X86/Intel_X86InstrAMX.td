@@ -1276,28 +1276,6 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
 
 // end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
-// INTEL_FEATURE_ISA_AMX_FP16
-
-//AMX-FP16
-let Predicates = [HasAMXFP16, In64BitMode] in {
-  let SchedRW = [WriteSystem] in {
-    let Constraints = "$src1 = $dst" in {
-      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs TILE:$dst),
-                        (ins TILE:$src1, TILE:$src2, TILE:$src3),
-                        "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        []>, VEX_4V, T8XD;
-    }
-    let  usesCustomInserter = 1 in {
-      def PTDPFP16PS : PseudoI<(outs), (ins u8imm:$src1,
-                               u8imm:$src2, u8imm:$src3),
-                               [(int_x86_tdpfp16ps timm:$src1,
-                                 timm:$src2, timm:$src3)]>;
-    }
-  }
-} // HasAMXTILE, HasAMXFP16
-
-// end INTEL_FEATURE_ISA_AMX_FP16
-
 #if INTEL_FEATURE_ISA_AMX_TILE2
 let Predicates = [HasAMXTILE2, In64BitMode] in {
     def TILEMOV : I<0x4b, MRMSrcReg, (outs TILE:$dst),

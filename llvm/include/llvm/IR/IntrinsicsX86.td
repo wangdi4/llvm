@@ -5606,7 +5606,6 @@ let TargetPrefix = "x86" in {
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 //===----------------------------------------------------------------------===//
-<<<<<<< HEAD
 // AMX_FUTURE - Intel AMX_FUTURE extensions
 let TargetPrefix = "x86" in {
   // Reduce

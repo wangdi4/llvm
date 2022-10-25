@@ -5365,10 +5365,6 @@ def mamx_avx512 : Flag<["-"], "mamx-avx512">, Group<m_x86_Features_Group>;
 def mno_amx_avx512 : Flag<["-"], "mno-amx-avx512">, Group<m_x86_Features_Group>;
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
-def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 
 #if INTEL_FEATURE_ISA_AMX_TF32
 def mamx_tf32 : Flag<["-"], "mamx-tf32">, Group<m_x86_Features_Group>;
@@ -8334,10 +8330,8 @@ def : CLFlag<"Qmno-amx-transpose">, Alias<mno_amx_transpose>;
 def : CLFlag<"Qmamx-avx512">, Alias<mamx_avx512>;
 def : CLFlag<"Qmno-amx-avx512">, Alias<mno_amx_avx512>;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
 def : CLFlag<"Qmamx-fp16">, Alias<mamx_fp16>;
 def : CLFlag<"Qmno-amx-fp16">, Alias<mno_amx_fp16>;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_TF32
 def : CLFlag<"Qmamx-tf32">, Alias<mamx_tf32>;
 def : CLFlag<"Qmno-amx-tf32">, Alias<mno_amx_tf32>;

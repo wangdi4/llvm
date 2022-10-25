@@ -1119,15 +1119,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_TILE_EVEX */
 
-/* INTEL_FEATURE_ISA_AMX_FP16 */
-#if defined(__AMXFP16_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXFP16__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxfp16intrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_AMX_FP16 */
-
 /* INTEL_FEATURE_ISA_AMX_CONVERT */
 #if defined(__AMXCONVERT_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

@@ -236,9 +236,7 @@ constexpr FeatureBitset FeaturesSapphireRapids =
 constexpr FeatureBitset FeaturesCommonAVX256 =
 #endif // INTEL_FEATURE_ISA_AVX256
 #ifdef ENABLE_ISA_AVX256
-#if INTEL_FEATURE_ISA_AMX_FP16
     FeatureAMX_FP16 |
-#endif // INTEL_FEATURE_ISA_AMX_FP16
     FeaturePREFETCHI |
 #if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA |
@@ -303,9 +301,7 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 constexpr FeatureBitset FeaturesGraniteRapids =
 #endif // INTEL_FEATURE_CPU_GNR
 #ifdef ENABLE_CPU_GNR
-#if INTEL_FEATURE_ISA_AMX_FP16
     FeatureAMX_FP16 |
-#endif // INTEL_FEATURE_ISA_AMX_FP16
     FeaturePREFETCHI |
 #endif // ENABLE_CPU_GNR
 #if INTEL_FEATURE_CPU_GNR
@@ -896,10 +892,6 @@ constexpr FeatureBitset ImpliedFeaturesAVX512CONVERT = FeatureAVX512F |
     FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
     FeatureAVXCONVERT | FeatureAVX512BF16;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AMX_FP16
-constexpr FeatureBitset ImpliedFeaturesAMX_FP16 = FeatureAMX_TILE |
-    FeatureAVX512FP16;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 constexpr FeatureBitset ImpliedFeaturesAMX_REDUCE = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY = FeatureAMX_TILE;

@@ -302,11 +302,6 @@ TARGET_BUILTIN(__builtin_ia32_tilemovex, "V16fIUcV4f", "n", "amx-avx512")
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
-#if INTEL_FEATURE_ISA_AMX_FP16
-// AMX_FP16 FP16
-TARGET_BUILTIN(__builtin_ia32_tdpfp16ps, "vIUcIUcIUc", "n", "amx-fp16")
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 TARGET_BUILTIN(__builtin_ia32_tbroadcastrowd, "vIUcvC*", "n", "amx-memory2")
 TARGET_BUILTIN(__builtin_ia32_tstorehd, "vv*zIUc", "n", "amx-memory2")

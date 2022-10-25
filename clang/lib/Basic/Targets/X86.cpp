@@ -433,10 +433,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-avx512") {
       HasAMXAVX512 = true;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-    } else if (Feature == "+amx-fp16") {
-      HasAMXFP16 = true;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
     } else if (Feature == "+amx-memory2") {
       HasAMXMEMORY2 = true;
@@ -1647,9 +1643,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-transpose", true)
       .Case("amx-avx512", true)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-      .Case("amx-fp16", true)
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
       .Case("amx-memory2", true)
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
@@ -1964,9 +1957,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-transpose", HasAMXTRANSPOSE)
       .Case("amx-avx512", HasAMXAVX512)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-      .Case("amx-fp16", HasAMXFP16)
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
       .Case("amx-memory2", HasAMXMEMORY)
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
