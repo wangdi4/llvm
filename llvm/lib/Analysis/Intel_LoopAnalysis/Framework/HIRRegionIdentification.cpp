@@ -330,6 +330,32 @@ static bool isLoopWithDirective(const Loop &Lp,
   return true;
 }
 
+template <typename iterator>
+static bool areAdjacentLoopIters(iterator Begin, iterator End, const Loop *Lp1,
+                                 const Loop *Lp2) {
+
+  for (auto LoopIt = Begin; LoopIt != End; ++LoopIt) {
+    if (*LoopIt == Lp1) {
+      return *(LoopIt + 1) == Lp2;
+    }
+  }
+
+  llvm_unreachable("Lp1 not found in iterator range!");
+}
+
+// Returns true if \p Lp1 and \p Lp2 are adjacent sibling loops, i.e. there are
+// no loop in between them.
+static bool areAdjacentLoops(const Loop *Lp1, const Loop *Lp2,
+                             const Loop *ParentLoop, LoopInfo &LI) {
+
+  if (ParentLoop) {
+    return areAdjacentLoopIters(ParentLoop->begin(), ParentLoop->end(), Lp1,
+                                Lp2);
+  }
+
+  return areAdjacentLoopIters(LI.rbegin(), LI.rend(), Lp1, Lp2);
+}
+
 void HIRRegionIdentification::computeLoopSpansForFusion(
     const SmallVectorImpl<const Loop *> &Loops,
     SmallVectorImpl<LoopSpanTy> &Spans) {
@@ -351,14 +377,12 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
       continue;
     }
 
-    const Loop *Lp1Parent = Lp1->getParentLoop();
-
-    if (isLoopWithDirective(*Lp1)) {
+    auto *Lp1EB = Lp1->getExitBlock();
+    if (!Lp1EB) {
       continue;
     }
 
-    auto *Lp1EB = Lp1->getExitBlock();
-    if (!Lp1EB) {
+    if (isLoopWithDirective(*Lp1)) {
       continue;
     }
 
@@ -366,6 +390,8 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
     if (isa<SCEVCouldNotCompute>(Lp1TC)) {
       continue;
     }
+
+    const Loop *Lp1Parent = Lp1->getParentLoop();
 
     for (int J = I + 1; J < E; ++J) {
       auto *Lp2 = Loops[J];
@@ -377,11 +403,17 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
         break;
       }
 
-      if (isLoopWithDirective(*Lp2)) {
+      if (!Lp2->getExitBlock()) {
         break;
       }
 
-      if (!Lp2->getExitBlock()) {
+      // This is to catch the case where there are non-generable loops between
+      // two generable loops.
+      if (!areAdjacentLoops(CurSpan.first.back(), Lp2, Lp1Parent, LI)) {
+        break;
+      }
+
+      if (isLoopWithDirective(*Lp2)) {
         break;
       }
 
