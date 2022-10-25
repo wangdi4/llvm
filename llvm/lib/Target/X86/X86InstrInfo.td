@@ -1115,7 +1115,6 @@ def HasCX8       : Predicate<"Subtarget->hasCX8()">;
 def HasCX16      : Predicate<"Subtarget->hasCX16()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
