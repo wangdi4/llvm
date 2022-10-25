@@ -375,11 +375,7 @@ InputFile::getGNULinkOnceSectionForSymbol(StringRef symbolName) {
   StringRef linkOnceName;
   bool sectionFound = false;
 
-<<<<<<< HEAD
-  for (auto pair : symtab.gnuLinkOnceGroups) {
-=======
-  for (auto &pair : symtab->gnuLinkOnceGroups) {
->>>>>>> d3f3925a5836f05f7c73a81a8e0dc1981f34d897
+  for (auto &pair : symtab.gnuLinkOnceGroups) {
     if (this != pair.second)
       continue;
 
