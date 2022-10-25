@@ -7263,7 +7263,7 @@ def warn_left_shift_always : Warning<
   InGroup<TautologicalConstantCompare>;
 // if INTEL_CUSTOMIZATION
 def warn_fast_floating_point_eq : Warning<
-  "comparison with %0 always evaluates to false in fast floating point modes">,
+  "explicit comparison with %0 in fast floating point mode">,
   InGroup<TautologicalConstantCompare>;
 // endif INTEL_CUSTOMIZATION
 

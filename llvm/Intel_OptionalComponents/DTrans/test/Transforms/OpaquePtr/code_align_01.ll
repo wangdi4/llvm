@@ -1,6 +1,5 @@
 ; This test verifies that alignment of "bar" is increased to 64.
 ;
-; RUN: opt < %s -opaque-pointers -dtrans-codealignop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes=dtrans-codealignop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

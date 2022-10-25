@@ -1,6 +1,4 @@
-; RUN: opt < %s -inline -enable-new-pm=0 -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt < %s -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -inlinereportsetup -inline-report=0xf8c6 < %s -S | opt -inline -S -enable-new-pm=0 -inline-report=0xf8c6 -S | opt -inlinereportemitter -inline-report=0xf8c6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8c6 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8c6 -S | opt -passes='inlinereportemitter' -inline-report=0xef8c6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that bar is inlined into foo and then baz is inlined in bar when

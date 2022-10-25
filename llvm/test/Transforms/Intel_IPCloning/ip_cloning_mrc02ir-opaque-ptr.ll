@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -S -ip-cloning -ip-manyreccalls-splitting=false 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false 2>&1 | FileCheck %s
 
 ; Check that foo is not selected for cloning as a "many recursive calls"

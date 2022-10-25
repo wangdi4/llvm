@@ -1299,9 +1299,16 @@ bool CanonExpr::canMultiplyNumeratorByConstant(int64_t Val) const {
   }
 
   if (Val == -1) {
-    // Can multiply numerator if CE is not a zero extension and if the
+    // Can multiply numerator if CE is not a zero/sign extension and if the
     // division is signed.
-    return !isZExt() && (getDenominator() == 1 || isSignedDiv());
+
+    // Multiplication by -1 overflows for signed min values.
+    // Restricting the fix to small types to minimize performance impact.
+    bool IsSmallSrcType =
+        (getSrcType()->getScalarType()->getPrimitiveSizeInBits() < 32);
+
+    return !isZExt() && (!isSExt() || !IsSmallSrcType) &&
+           (getDenominator() == 1 || isSignedDiv());
   }
 
   return canMultiplyNumeratorByUnknown();
@@ -1748,6 +1755,18 @@ bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex, bool AllowConversion,
 
   return Found;
 }
+
+bool CanonExpr::containsTempBlob(unsigned TempBlobIndex) const {
+  SmallVector<unsigned, 8> TempIndices;
+
+  collectTempBlobIndices(TempIndices);
+
+  return std::any_of(
+      TempIndices.begin(), TempIndices.end(), [&](unsigned BlobIndex) {
+        return (BlobIndex == TempBlobIndex);
+      });
+}
+
 
 bool CanonExpr::isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs) const {
   assert(CanonExpr::isValidLoopLevel(Level) &&

@@ -733,12 +733,12 @@ public:
   void recordDependIteratorVar(const VarDecl *VD) override {
     Outliner.addDependIteratorVar(VD);
   }
-  bool inTargetVariantDispatchRegion() override {
-    return Outliner.getCurrentDirectiveKind() ==
-           llvm::omp::OMPD_target_variant_dispatch;
-  }
   bool inDispatchRegion() override {
-    return Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_dispatch;
+    if (Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_dispatch ||
+        Outliner.getCurrentDirectiveKind() ==
+            llvm::omp::OMPD_target_variant_dispatch)
+      return true;
+    return false;
   }
 
   bool inNestedTargetConstruct() override {

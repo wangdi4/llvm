@@ -704,18 +704,18 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       if (MA->getBasePtr() != MA->getSectionPtr())
         return false;
 
-      auto Size = dyn_cast<ConstantInt>(MA->getSize());
+      auto *Size = dyn_cast<ConstantInt>(MA->getSize());
       if (!Size)
         return false;
 
-      Type *ItemTy = nullptr;
-      Value *NumElements = nullptr;
-      // TODO: this will stop working with opaque pointers, because
-      //       we do not plan to have type information for MAP clauses yet.
-      std::tie(ItemTy, NumElements, std::ignore) =
-          VPOParoptUtils::getItemInfo(MI);
-      if (NumElements)
+      auto *AI = cast<AllocaInst>(MI->getOrig());
+      const auto &[ItemTy, NumElements] =
+          VPOUtils::getTypedClauseInfoForAlloca(AI);
+
+      if (NumElements && (!isa<ConstantInt>(NumElements) ||
+                          !cast<ConstantInt>(NumElements)->isOne()))
         return false;
+
       TypeSize ElemSize =
           F->getParent()->getDataLayout().getTypeAllocSize(ItemTy);
       if (Size->getValue() != ElemSize)

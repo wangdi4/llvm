@@ -1,7 +1,6 @@
 ; Checks that the Call Tree Cloning transformation clones expected functions,
 
 ; RUN: opt < %s -opaque-pointers -passes='module(call-tree-clone)' -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | FileCheck %s
-; RUN: opt < %s -opaque-pointers -call-tree-clone -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | FileCheck %s
 
 ; CHECK:"foo|_.6.5.11"
 ; CHECK:"bar|_.5.6"

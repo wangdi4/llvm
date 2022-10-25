@@ -51,7 +51,9 @@ declare i32 @_Z20work_group_broadcastij(i32, i32)
 ; CHECK-NOT: call <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32> %1, i32 2)
 ; CHECK-NEXT: CallWGForItem = call <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32> %1, i32 2, i32 %WIcall, <4 x i32>* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: store <4 x i32> %CallWGForItem, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
+; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult, align 16
+; CHECK-NEXT: %CallFinalizeWG = call <4 x i32> @_Z31__finalize_work_group_broadcastDv4_ij(<4 x i32> %LoadWGFinalResult, i32 undef)
+; CHECK: store <4 x i32> %CallFinalizeWG, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
 
 define void @__Vectorized_.wg_test_broadcast(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
 entry:

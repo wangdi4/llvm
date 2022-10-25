@@ -1,6 +1,4 @@
-; RUN: opt <%s -S -inline -inline-report=0xe807 2>&1 | FileCheck %s
 ; RUN: opt <%s -S -passes='cgscc(inline)' -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-25615: Check that inlining report does not crash when printed

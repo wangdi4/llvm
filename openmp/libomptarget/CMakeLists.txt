@@ -198,10 +198,7 @@ if (INTEL_CUSTOMIZATION)
   endif()
 
   # Enable debug information
-  if(WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi")
-    add_link_options("/DEBUG")
-  else()
+  if(NOT WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
   endif()
 

@@ -2344,7 +2344,8 @@ public:
       //  2. %l has single use in GetElementPtrInst.
       //  3. Type of %l is pointer to struct (ExpectedTy).
       //  4. %l is used as different type in %g (UsedTy).
-      //  5. Both ExpectedTy and UsedTy are related types.
+      //  5. Both ExpectedTy and UsedTy are related types or
+      //     Expected type is at zero element of used type.
       //
       // Case 2: Handling of stores
       //  %DOMDocumentImpl = type <{ i64, ptr }>  // {64, %DOMElement*}
@@ -2387,7 +2388,8 @@ public:
         return GetPointeeStType(AliasTy->getPointerElementType());
       };
 
-      // Returns true if ExpectedTy and UsedTy are related types.
+      // Returns true if ExpectedTy and UsedTy are related types or
+      // ExpectedTy is at zero offset of UsedTy.
       auto AreTypesRelated = [&](DTransStructType *UsedTy,
                                  DTransStructType *ExpectedTy) {
         if (UsedTy->getNumFields() == 0)
@@ -2396,6 +2398,8 @@ public:
         auto *ElementZeroStTy = dyn_cast<DTransStructType>(ElementZeroTy);
         if (!ElementZeroStTy)
           return false;
+        if (ElementZeroStTy == ExpectedTy)
+          return true;
         dtrans::TypeInfo *TI = DTInfo.getTypeInfo(ElementZeroStTy);
         auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TI);
         if (!StInfo || !StInfo->getRelatedType())

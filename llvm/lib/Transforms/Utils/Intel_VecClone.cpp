@@ -205,7 +205,13 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   LLVM_DEBUG(F.dump());
 
   FunctionType* OrigFunctionType = F.getFunctionType();
-  Type *CharacteristicType = calcCharacteristicType(F, V);
+  Type *CharacteristicType = nullptr;
+  // IGC requires device versions of Intel math functions to have
+  // masks of i32 elements
+  if (F.getName().startswith("__svml_device"))
+    CharacteristicType = IntegerType::getInt32Ty(F.getContext());
+  else
+    CharacteristicType = calcCharacteristicType(F, V);
 
   const auto *VKIt = V.getParameters().begin();
   SmallVector<Type*, 4> ParmTypes;
@@ -243,7 +249,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   // trying to clone the function again in case the pass is called more than
   // once.
   AttributeMask AB;
-  for (auto Attr : getVectorVariantAttributes(F)) {
+  for (const auto &Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }
 
@@ -298,6 +304,27 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
     Arg.addAttr(Attribute::get(Clone->getContext(), Attribute::Alignment,
                                ParamAlign->value()));
   }
+
+  // Mark the vector function as having side-effects. This will prevent
+  // downstream optimizations from doing code motion/elimination optimizations
+  // around private memory for vector of pointer operands. The problem is that
+  // when a ptr arg is widened, underlying AA/ModRef can longer reason about
+  // aliasing properties due to the type change. E.g., once
+  // call <4 x i32> @_ZGVbN4v_f_plus_one_(i32* nonnull %3)
+  // becomes:
+  // call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull %3)
+  // type checking on pointer no longer works and causes AA to return non-
+  // conservative results (i.e., NoModRef). This also affects things like
+  // MemorySSA from being able to stop at the closest dominating defining
+  // memory access since that also uses getModRefInfo. There will undoubtably
+  // be many other places where AA/ModRef is used. Also, this solution was
+  // made in favor of changes in AA because it seemed much simpler and less
+  // intrusive to do. These attributes must also be removed in
+  // getOrInsertVectorVariantFunction() because it's possible that the function
+  // is only declared and we won't make it here. The declared only function
+  // will be created from VPlan calling getOrInsertVectorVariantFunction().
+  Clone->removeFnAttr(Attribute::ReadOnly);
+  Clone->removeFnAttr(Attribute::ArgMemOnly);
 
   LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
   LLVM_DEBUG(Clone->dump());
@@ -478,7 +505,7 @@ Instruction *VecCloneImpl::widenVectorArguments(
   Instruction *Mask = nullptr;
   ArrayRef<VFParameter> Parms = V.getParameters();
 
-  for (auto ArgIt : enumerate(Clone->args())) {
+  for (const auto &ArgIt : enumerate(Clone->args())) {
     Argument *Arg = &ArgIt.value();
 
     VFParameter Parm = Parms[ArgIt.index()];
@@ -1099,14 +1126,14 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
                            Builder.getInt32(V.getVF()));
 
   // Mark linear memory for the SIMD directives
-  for (auto LinearMem : LinearMemory) {
+  for (const auto &LinearMem : LinearMemory) {
     Type *LinearTy = getMemoryType(LinearMem.first);
     AddTypedClause(QUAL_OMP_LINEAR, LinearMem.first, LinearTy,
                    LinearMem.second);
   }
   
   // Mark uniform memory for the SIMD directives
-  for (auto UniformMem : UniformMemory) {
+  for (const auto &UniformMem : UniformMemory) {
     // The alloca for the arg.
     Value *ArgMemory = UniformMem.second.first;
     Type *UniformTy = getMemoryType(ArgMemory);
@@ -1376,7 +1403,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
   MapVector<Function *, std::vector<StringRef>> FunctionsToVectorize;
   getFunctionsToVectorize(M, FunctionsToVectorize);
 
-  for (auto VarIt : FunctionsToVectorize) {
+  for (const auto &VarIt : FunctionsToVectorize) {
     Function& F = *(VarIt.first);
 
     if (!doesLoopOptPipelineAllowToRun(Limiter, F))

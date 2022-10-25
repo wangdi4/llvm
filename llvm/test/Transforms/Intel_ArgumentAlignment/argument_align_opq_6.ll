@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -opaque-pointers -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1
 
 ; This test checks that a function's argument is always aligned by a specific

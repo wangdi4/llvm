@@ -1,8 +1,6 @@
 ; Inline report
-; RUN: opt -inline -inline-report=0x2803 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0x2803 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0x2882 < %s -S | opt -inline -inline-report=0x2882 -S | opt -inlinereportemitter -inline-report=0x2882 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0x2882 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x2882 -S | opt -passes='inlinereportemitter' -inline-report=0x2882 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 
 ; Generated with clang -c -S -emit-llvm sm1.c

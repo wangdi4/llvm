@@ -4,7 +4,6 @@
 ; specialization.
 
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt < %s -ip-cloning -ip-specialization-cloning -debug-only=ipcloning  -disable-output  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -debug-only=ipcloning  -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: ClonedCall[

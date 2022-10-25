@@ -407,7 +407,7 @@ def warn_ignored_clang_option : Warning<"the flag '%0' has been deprecated and w
 def warn_drv_deprecated_driver_use_driver_opt : Warning<
   "use of '%0' is deprecated and will be removed in a future release. "
   "Use '%1 %2'">, InGroup<Deprecated>;
-def warn_use_of_debug_turn_off_optimization_level : Warning<
+def remark_use_of_debug_turn_off_optimization_level : Remark<
   "Note that use of '%0' without any optimization-level option will turn off "
   "most compiler optimizations similar to use of '%1'">,
   InGroup<DebugDisablesOptimization>;
@@ -770,5 +770,9 @@ def warn_drv_aot_tool_not_found : Warning<"%0 tool could not be found and is req
   "See: https://www.intel.com/content/www/us/en/develop/documentation/"
   "oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html"
   " for more information.">, InGroup<DiagGroup<"aot-tool-not-found">>;
+def warn_drv_cxx_input_with_cc: Warning<
+  "Use of '%0' with a C++ source input file '%1' will not link with required C++ library. "
+  "Use 'icpx' for C++ source compilation and link">,
+  InGroup<DiagGroup<"incompatible-compiler">>;
 #endif // INTEL_CUSTOMIZATION
 }

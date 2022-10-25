@@ -1,5 +1,4 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -whole-program-assume -intel-libirc-allowed -internalize -internalize-public-api-list main -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

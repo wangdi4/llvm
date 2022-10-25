@@ -438,9 +438,25 @@ static void GetPointerToArrayDims(Argument *Arg, unsigned &SizeInBytes,
 //   Callee:       call void @llvm.lifetime.end(i64 8, i8* %10) #9
 //
 // We also handle the opaque pointer case where there are no bitcasts.
+// In this case, the alloca may have an array type, while the store
+// has a scalar type.
 //
 static StoreInst *isStartAddressOfPackedArrayOnStack(AllocaInst *AI,
                                                      Value *PV) {
+
+  // Return the integer bit width of 'Ty' if it is an integer type
+  // or an array of integer types. If it is not, return 0.
+  auto IntegerBitWidth = [](Type *Ty) -> uint64_t {
+    uint64_t Result = 1;
+    while (auto ATy = dyn_cast<ArrayType>(Ty)) {
+      Result *= ATy->getNumElements();
+      Ty = ATy->getElementType();
+    }
+    if (auto ITy = dyn_cast<IntegerType>(Ty))
+      return Result * ITy->getBitWidth();
+    return 0;
+  };
+
   StoreInst *StInst = nullptr;
   for (User *U : AI->users()) {
 
@@ -484,9 +500,16 @@ static StoreInst *isStartAddressOfPackedArrayOnStack(AllocaInst *AI,
   if (!isa<Constant>(ValOp))
     return nullptr;
 
-  if (ValOp->getType() != AI->getAllocatedType())
-    return nullptr;
+  if (ValOp->getType() == AI->getAllocatedType())
+    return StInst;
 
+  // Handle the case where the alloca and store value are
+  // both integers of the same size.
+  uint64_t ValOpIntegerBitWidth = IntegerBitWidth(ValOp->getType());
+  if (ValOpIntegerBitWidth == 0)
+    return nullptr;
+  if (IntegerBitWidth(AI->getAllocatedType()) != ValOpIntegerBitWidth)
+    return nullptr;
   return StInst;
 }
 
@@ -554,6 +577,9 @@ static GlobalVariable *isSpecializationGVCandidate(Value *V, Instruction *I) {
 //
 //  GlobAddr:     @t.CM_THREE
 //
+// We also handle the case where some GEP(X,0,0)s may be absent, which is
+// present when we have opaque pointers.
+//
 static GlobalVariable *
     isStartAddressOfGlobalArrayCopyOnStack(GetElementPtrInst *GEPI) {
   // First, check it is starting array address on stack
@@ -563,35 +589,39 @@ static GlobalVariable *
   if (!GEPI->hasAllZeroIndices())
     return nullptr;
 
-  const Value *AUse = nullptr;
   Type *GEPType = GEPI->getSourceElementType();
   if (GEPType != AI->getAllocatedType())
     return nullptr;
 
-  // Get another use of AllocaInst other than the one that
-  // is passed to Call
-  AUse = nullptr;
-  for (const User *U : AI->users()) {
+  // Get another use, AUseGEPI, of AllocaInst other than the one that
+  // is passed to Call, if it is present.
+  GetElementPtrInst *AUseGEPI = nullptr;
+  SmallVector<User *, 16> Worklist;
+  for (User *U : AI->users()) {
     // Ignore if it is the arg that is passed to call.
     if (U == GEPI)
       continue;
-    // More than one use is noticed
-    if (AUse)
-      return nullptr;
-    AUse = U;
+    if (auto XGEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (!XGEPI->hasAllZeroIndices())
+        return nullptr;
+      if (GEPType != XGEPI->getSourceElementType())
+        return nullptr;
+      AUseGEPI = XGEPI;
+    } else {
+      Worklist.push_back(U);
+    }
   }
-  if (!AUse)
-    return nullptr;
-  const GetElementPtrInst *MemCpySrc = dyn_cast<GetElementPtrInst>(AUse);
-  if (!MemCpySrc)
-    return nullptr;
-  if (!MemCpySrc->hasAllZeroIndices())
-    return nullptr;
-  if (GEPType != MemCpySrc->getSourceElementType())
-    return nullptr;
-
+  // Gather up all of the users of AUseGEPI or of AI, when AUseGEPI is
+  // not present.
+  if (AUseGEPI) {
+    if (!Worklist.empty())
+      return nullptr;
+    for (User *U : AUseGEPI->users())
+      Worklist.push_back(U);
+  }
   GlobalVariable *GlobAddr = nullptr;
-  for (const User *U : AUse->users()) {
+  while (!Worklist.empty()) {
+    User *U = Worklist.pop_back_val();
     auto User = dyn_cast<CallInst>(U);
     if (!User)
       return nullptr;
@@ -605,25 +635,32 @@ static GlobalVariable *
       return nullptr;
 
     // Process Memcpy here
-    if (User->getArgOperand(0) != AUse)
-      return nullptr;
+    if (AUseGEPI) {
+      if (User->getArgOperand(0) != AUseGEPI)
+        return nullptr;
+    } else {
+      if (User->getArgOperand(0) != AI)
+        return nullptr;
+    }
     Value *Dst = User->getArgOperand(1);
-    auto *MemCpyDst = dyn_cast<GEPOperator>(Dst);
-    if (!MemCpyDst)
-      return nullptr;
-    if (!MemCpyDst->hasAllZeroIndices())
-      return nullptr;
-    if (GEPType != MemCpyDst->getSourceElementType())
-      return nullptr;
-    if (MemCpyDst->getNumIndices() != MemCpySrc->getNumIndices())
-      return nullptr;
+    if (AUseGEPI) {
+      auto *MemCpyDst = dyn_cast<GEPOperator>(Dst);
+      if (!MemCpyDst)
+        return nullptr;
+      if (!MemCpyDst->hasAllZeroIndices())
+        return nullptr;
+      if (GEPType != MemCpyDst->getSourceElementType())
+        return nullptr;
+      if (MemCpyDst->getNumIndices() != AUseGEPI->getNumIndices())
+        return nullptr;
+      Dst = MemCpyDst->getOperand(0);
+    }
     Value *MemCpySize = User->getArgOperand(2);
-
     // Make sure there is only one memcpy
     if (GlobAddr)
       return nullptr;
 
-    GlobAddr = isSpecializationGVCandidate(MemCpyDst->getOperand(0), GEPI);
+    GlobAddr = isSpecializationGVCandidate(Dst, GEPI);
     if (!GlobAddr)
       return nullptr;
 
@@ -649,6 +686,15 @@ static bool isSpecializationCloningSpecialConst(Value *V, PHINode *Arg) {
   Value *PropVal = nullptr;
   if (auto GEPI = dyn_cast<GetElementPtrInst>(V)) {
     PropVal = isStartAddressOfGlobalArrayCopyOnStack(GEPI);
+    if (!PropVal) {
+      if (!GEPI->hasAllZeroIndices())
+        return false;
+      Value *PV = GEPI->getPointerOperand();
+      if (auto AI = dyn_cast<AllocaInst>(PV))
+        PropVal = isStartAddressOfPackedArrayOnStack(AI, GEPI);
+      if (!PropVal)
+        return false;
+    }
   } else {
     Value *PV = Arg;
     Value *W = V;

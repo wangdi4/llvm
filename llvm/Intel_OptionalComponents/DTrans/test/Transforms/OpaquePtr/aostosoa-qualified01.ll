@@ -1,6 +1,4 @@
-; RUN: opt -S -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -S -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 ; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 target triple = "x86_64-unknown-linux-gnu"

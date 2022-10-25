@@ -3,7 +3,6 @@
 ; cloned functions. This test is based on ip_cloning_2.ll.
 
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-loop-heuristic -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-loop-heuristic -S 2>&1 | FileCheck %s
 
 @F_1 = external local_unnamed_addr global [100 x i32], align 16

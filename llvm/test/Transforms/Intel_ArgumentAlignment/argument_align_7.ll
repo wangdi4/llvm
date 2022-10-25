@@ -4,7 +4,6 @@
 
 ; This test is the same as argument_align_3.ll.
 
-; RUN: opt < %s -intel-argument-alignment -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=intel-argument-alignment -debug-only=intel-argument-alignment -disable-output 2>&1
 
 ; CHECK: Candidates for argument alignment: 0

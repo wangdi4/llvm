@@ -2218,7 +2218,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
       PM.add(createHIRConditionalTempSinkingPass());
       PM.add(createHIROptPredicatePass(OptLevel == 3, true));
-
       INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
       if (OptLevel > 2) {
         PM.add(createHIRLMMPass(true));
@@ -2306,7 +2305,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
       PM.add(createHIROptVarPredicatePass());
       PM.add(createHIROptPredicatePass(OptLevel == 3, false));
-
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {

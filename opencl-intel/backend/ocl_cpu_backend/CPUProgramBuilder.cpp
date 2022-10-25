@@ -123,18 +123,22 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
 
 bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
-  const char *pCachedObject =
-      (const char *)(pProgram->GetObjectCodeContainer()->GetCode());
-  size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
-  assert(pCachedObject && "Object Code Container is null");
+  ObjectCodeContainer *objCC = pProgram->GetObjectCodeContainer();
+  assert(objCC && "Object code container is null");
+  const char *pCachedObject = (const char *)(objCC->GetCode());
+  size_t cacheSize = objCC->GetCodeSize();
+  assert(pCachedObject && "Object code is null");
 
   // get sizes
   CacheBinaryReader reader(pCachedObject, cacheSize);
   size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
   size_t irSize = reader.GetSectionSize(g_irSectionName);
   size_t objectSize = reader.GetSectionSize(g_objSectionName);
-  pProgram->m_binaryVersion = *((const unsigned int *)reader.GetSectionData(
-      Intel::OpenCL::ELFUtils::g_objVerSectionName));
+
+  const unsigned int *versionBuffer =
+      (const unsigned int *)reader.GetSectionData(g_objVerSectionName);
+  assert(versionBuffer && "Version Buffer is null");
+  pProgram->m_binaryVersion = *versionBuffer;
 
   // get the buffers entries
   const char *bitCodeBuffer =

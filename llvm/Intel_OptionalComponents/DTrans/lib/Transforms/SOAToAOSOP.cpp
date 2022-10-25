@@ -283,6 +283,13 @@ private:
         }
         NewLLVMElement->setBody(LLVMElements);
         NewDTElement->setBody(DTElements);
+
+        // Create Metadata for new element type that is not mapped to any
+        // existing types.
+        NamedMDNode *DTMDTypes = TypeMetadataReader::getDTransTypesMetadata(M);
+	assert(DTMDTypes && "Expected non-null DTMDTypes");
+        DTMDTypes->addOperand(
+            NewDTElement->createMetadataStructureDescriptor());
       }
 
       {

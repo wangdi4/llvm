@@ -1,10 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -inline -inline-threshold=15 -inline-report=0xe807 < %s -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -disable-output 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -inline-threshold=15 -S | opt -inlinereportemitter -inline-report=0xe886 -inline-threshold=15 -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; CQ378383: Test to see that a single branch with a test for a global against

@@ -1,10 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; Inline report
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -enable-new-pm=0 -inline -ip-cloning -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -opaque-pointers -passes='cgscc(inline),module(ip-cloning)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck  --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -ip-cloning -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),module(ip-cloning)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
 
 ; Test that @mynoclone is inlined even though it is a potential candidate

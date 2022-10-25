@@ -334,6 +334,9 @@
 ; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
 ; CHECK-DEFAULT-NEXT:  Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_ADVANCED
+; CHECK-DEFAULT-NEXT:  Running pass: TightLoopEmitterPass
+; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
 ; INTEL_CUSTOMIZATION

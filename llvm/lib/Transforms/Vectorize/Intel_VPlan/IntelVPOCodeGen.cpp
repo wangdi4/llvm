@@ -2267,7 +2267,7 @@ void VPOCodeGen::predicateInstructions() {
   //  %20 = phi <2 x i32> [ %14, %pred.sdiv.continue ], [ %19, %pred.sdiv.if54 ]
   //  %predphi = select <2 x i1> %8, <2 x i32> %20, <2 x i32> %5
 
-  for (auto KV : PredicatedInstructions) {
+  for (const auto &KV : PredicatedInstructions) {
     BasicBlock::iterator I(KV.first);
     BasicBlock *Head = I->getParent();
     auto *BB = SplitBlock(Head, &*std::next(I), DT, LI);
@@ -4798,10 +4798,10 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
     auto EmitScalarLpVPIRemarks = [this, ScalarLp](auto *LpVPI) {
-      for (auto R : LpVPI->getOriginRemarks())
+      for (const auto &R : LpVPI->getOriginRemarks())
         ORBuilder(*ScalarLp, *LI).addOrigin(R.RemarkID);
 
-      for (auto R : LpVPI->getGeneralRemarks())
+      for (const auto &R : LpVPI->getGeneralRemarks())
         ORBuilder(*ScalarLp, *LI)
             .addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
     };

@@ -634,7 +634,7 @@ class OpenCLProgramTy {
   bool IsBinary = false;
 
   /// Target table
-  __tgt_target_table Table;
+  __tgt_target_table Table{nullptr, nullptr};
 
   /// Target entries
   std::vector<__tgt_offload_entry> Entries;
@@ -4631,8 +4631,17 @@ int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
 
 // Allocate a base buffer with the given information.
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase, int32_t CachedPool) {
-  return dataAlloc(DeviceId, Size, HstPtr, HstBase, false);
+                                void *HstBase, int32_t AllocOpt) {
+  void *TgtPtr = dataAlloc(DeviceId, Size, HstPtr, HstBase, false);
+
+  // Handle new map type forcing zero initialization
+  if (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER) {
+    std::vector<char> ZeroInit(Size, 0);
+    int32_t RC = submitData(DeviceId, TgtPtr, ZeroInit.data(), Size);
+    if (RC != OFFLOAD_SUCCESS)
+      return nullptr;
+  }
+  return TgtPtr;
 }
 
 // Allocate a managed memory object.

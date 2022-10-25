@@ -260,7 +260,7 @@ VPInstruction *VPlanLoopCFU::tryRematerializeLiveOut(VPLoop *VPL,
   VPBuilder().setInsertPointFirstNonPhi(Exit).insert(Rematerialized);
   Plan.getVPlanDA()->markDivergent(*Rematerialized);
 
-  for (auto It : LiveOutOps)
+  for (const auto &It : LiveOutOps)
     Rematerialized->replaceUsesOfWith(It.first, It.second);
 
   LLVM_DEBUG(dbgs() << "Rematerialized " << *LiveOut << " in\n"

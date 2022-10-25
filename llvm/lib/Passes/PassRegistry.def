@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -280,6 +280,9 @@ MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("inliner-wrapper", ModuleInlinerWrapperPass())
 MODULE_PASS("inliner-ml-advisor-release", ModuleInlinerWrapperPass(getInlineParams(), true, {}, InliningAdvisorMode::Release, 0))
 MODULE_PASS("print<inline-advisor>", InlineAdvisorAnalysisPrinterPass(dbgs()))
+#if INTEL_CUSTOMIZATION
+MODULE_PASS("print<inline-report>", InlineReportPass())
+#endif // INTEL_CUSTOMIZATION
 MODULE_PASS("inliner-wrapper-no-mandatory-first", ModuleInlinerWrapperPass(
   getInlineParams(),
   false))
@@ -802,7 +805,9 @@ FUNCTION_PASS("hir-conditional-temp-sinking", loopopt::HIRConditionalTempSinking
 FUNCTION_PASS("hir-memory-reduction-sinking", loopopt::HIRMemoryReductionSinkingPass())
 FUNCTION_PASS("hir-rowwise-mv", loopopt::HIRRowWiseMVPass())
 FUNCTION_PASS("hir-cond-ldst-motion", loopopt::HIRConditionalLoadStoreMotionPass())
+FUNCTION_PASS("hir-temp-array-transpose", loopopt::HIRTempArrayTransposePass())
 FUNCTION_PASS("hir-min-max-blob-to-select", loopopt::HIRMinMaxBlobToSelectPass())
+FUNCTION_PASS("hir-loop-peeling", loopopt::HIRLoopPeelingPass())
 FUNCTION_PASS("hir-lower-small-memset-memcpy", loopopt::HIRLowerSmallMemsetMemcpyPass())
 #if INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("unaligned-nontemporal", NontemporalStorePass())
@@ -832,6 +837,9 @@ FUNCTION_PASS("dpcpp-kernel-prevent-div-crashes", PreventDivCrashesPass())
 FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())
 FUNCTION_PASS("dpcpp-kernel-add-nt-attr", AddNTAttrPass())
 FUNCTION_PASS("dpcpp-kernel-sin-cos-fold", SinCosFoldPass())
+#if INTEL_FEATURE_SW_ADVANCED
+FUNCTION_PASS("tight-loop-emitter", TightLoopEmitterPass())
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_PASS("print<vpo-wrncollection>",

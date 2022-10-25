@@ -302,7 +302,7 @@ void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
   Ops.push_back(CSIR->get());
   MDNode *NewCSs = MDTuple::getDistinct(Ctx, Ops);
   CallerMDTuple->replaceOperandWith(FMDIR_CSs, NewCSs);
-  addCallback(CB, CSIR->get());
+  addCallback(CB);
 }  
 
 void InlineReportBuilder::deleteFunctionBody(Function *F) {
@@ -469,13 +469,11 @@ void InlineReportBuilder::beginFunction(Function *F) {
   FIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
   // Add callbacks to the Function and CallBases if they do not already have
   // them.
-  addCallback(F, FIR);
-  for (auto &I : instructions(*F)) {
-    if (auto CB = dyn_cast<CallBase>(&I)) {
-      if (Metadata *CSMD = CB->getMetadata(CallSiteTag))
-        addCallback(CB, cast<MDTuple>(CSMD));
-    }
-  }
+  addCallback(F);
+  for (auto &I : instructions(*F))
+    if (auto CB = dyn_cast<CallBase>(&I))
+      if (CB->getMetadata(CallSiteTag))
+        addCallback(CB);
 }
 
 // The main goal of beginSCC() and beginFunction() routines is to fill in the
@@ -625,7 +623,7 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
     std::set<MDTuple *>::iterator It = LeafMDIR.find(NewMetadata);
     if (It != LeafMDIR.end())
       LeafMDIR.erase(It);
-    addCallback(NewI, NewMetadata);
+    addCallback(NewI);
   }
 
   // All leaf callsites which we expected to appear in the inlined code, but
@@ -714,7 +712,7 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   OldFIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
   NewFunction->setMetadata(FunctionTag, OldFIR);
   removeCallback(OldFunction);
-  addCallback(NewFunction, OldFIR);
+  addCallback(NewFunction);
 }
 
 // Copy the call metadata from 'OldCall' to 'NewCall' and update the callbacks
@@ -741,7 +739,7 @@ void InlineReportBuilder::replaceCallBaseWithCallBase(CallBase *OldCall,
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
   OldCallMDIR->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
   //  Add a callback for NewCall
-  addCallback(NewCall, OldCallMDIR);
+  addCallback(NewCall);
   // Move the inline report builder from the old to the new callback
   // information if it is available
   copyAndUpdateIRBuilder(OldCall, NewCall);
@@ -802,7 +800,7 @@ void InlineReportBuilder::cloneCallBaseToCallBase(CallBase *OldCall,
   MDNode *NewCSs = MDTuple::getDistinct(Ctx, Ops);
   CallerMDTuple->replaceOperandWith(FMDIR_CSs, NewCSs);
   // Add a callback for the new call.
-  addCallback(NewCall, NewCallMDIR);
+  addCallback(NewCall);
 }
 
 void InlineReportBuilder::setCalledFunction(CallBase *CB, Function *F) {
@@ -849,7 +847,7 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   NewFunctionMDTuple->replaceOperandWith(FMDIR_LinkageStr, LinkageMD);
   NewFunction->setMetadata(FunctionTag, NewFunctionMDTuple);
   // Add a callback for the clone. 
-  addCallback(NewFunction, NewFunctionMDTuple);
+  addCallback(NewFunction);
   // Update the clone's list of callsites. 
   Module *M = OldFunction->getParent();
   NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);

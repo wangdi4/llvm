@@ -3589,11 +3589,12 @@ FieldDecl *CGLateOutlineOpenMPRegionInfo::getThisFieldDecl() const {
 }
 
 bool CGLateOutlineOpenMPRegionInfo::isDispatchTargetCall(SourceLocation Loc) {
-  if (!inDispatchRegion())
-    return false;
-  const auto *DispatchD = cast<OMPDispatchDirective>(&D);
-  const SourceLocation TLoc = DispatchD->getTargetCallLoc();
-  return Loc.getRawEncoding() == TLoc.getRawEncoding();
+  if (auto *DispatchD = dyn_cast<OMPDispatchDirective>(&D))
+    return Loc.getRawEncoding() ==
+           DispatchD->getTargetCallLoc().getRawEncoding();
+  if (auto *TVDD = dyn_cast<OMPTargetVariantDispatchDirective>(&D))
+    return Loc.getRawEncoding() == TVDD->getTargetCallLoc().getRawEncoding();
+  return false;
 }
 static OpenMPDirectiveKind
 nextDirectiveKind(const OMPExecutableDirective &Directive,

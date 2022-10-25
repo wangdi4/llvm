@@ -442,9 +442,11 @@ public:
       }
   }
 
-  // Indicate that the CallSite whose CallBase is 'CB' has been
-  // eliminated as dead code.
-  void removeCallSiteReference(CallBase &CB) {
+  // Indicate that 'CB' has been eliminated as dead code with the
+  // indicated reason.
+  void removeCallBaseReference(CallBase &CB,
+                               InlineReportTypes::InlineReason Reason =
+                                   InlineReportTypes::NinlrDeleted) {
     if (!isClassicIREnabled())
       return;
     if (ActiveInlineCallBase != &CB) {
@@ -453,7 +455,7 @@ public:
         InlineReportCallSite *IRCS = MapIt->second;
         IRCallBaseCallSiteMap.erase(MapIt);
         IRCS->setCall(nullptr);
-        IRCS->setReason(InlineReportTypes::NinlrDeleted);
+        IRCS->setReason(Reason);
       }
     }
     // If necessary, remove any reference in the ActiveInlinedCalls
@@ -462,8 +464,7 @@ public:
         ActiveInlinedCalls[II] = nullptr;
   }
 
-  // Indicate that the Function 'F' has been eliminated as a dead static
-  // function.
+  // Indicate that 'F' has been eliminated as a dead static function.
   void removeFunctionReference(Function &F) {
     if (!isClassicIREnabled())
       return;
@@ -559,15 +560,13 @@ private:
     InlineReport *IR;
     void deleted() override {
       assert(IR);
-      if (isa<CallBase>(getValPtr())) {
+      if (auto CB = dyn_cast<CallBase>(getValPtr())) {
         /// Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
-        auto CB = cast<CallBase>(getValPtr());
-        IR->removeCallSiteReference(*CB);
-      } else if (isa<Function>(getValPtr())) {
+        IR->removeCallBaseReference(*CB);
+      } else if (auto F = dyn_cast<Function>(getValPtr())) {
         /// Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
-        Function *F = cast<Function>(getValPtr());
         IR->removeFunctionReference(*F);
       }
       setValPtr(nullptr);
@@ -642,6 +641,15 @@ private:
 /// Get the single, active classic inlining report.
 InlineReport *getInlineReport();
 
-} // namespace llvm
+class InlineReportPass : public PassInfoMixin<InlineReportPass> {
+  static char PassID;
+
+public:
+  InlineReportPass(void);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+};
+
+} // end namespace llvm
+
 
 #endif

@@ -124,7 +124,7 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
-target device_triples = "x86_64-pc-linux-gnu"
+target device_triples = "x86_64"
 
 define dso_local float @test1() {
 ; CHECK-LABEL: @test1(
@@ -132,15 +132,21 @@ entry:
   %A = alloca float, align 4
   %B = alloca float, align 4
   %C = alloca float, align 4
-  store float 1.000000e+01, float* %A, align 4
-  store float 1.100000e+01, float* %B, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(float* %C, float* %C, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.MAP.TO"(float* %A, float* %A, i64 4, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(float* %B, float* %B, i64 4, i64 35, i8* null, i8* null) ]
-  %1 = load float, float* %A, align 4
-  %2 = load float, float* %B, align 4
+  store float 1.000000e+01, ptr %A, align 4
+  store float 1.100000e+01, ptr %B, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.FROM"(ptr %C, ptr %C, i64 4, i64 34, ptr null, ptr null), ; MAP type: 34 = 0x22 = TARGET_PARAM (0x20) | FROM (0x2)
+    "QUAL.OMP.MAP.TO"(ptr %A, ptr %A, i64 4, i64 33, ptr null, ptr null), ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
+    "QUAL.OMP.MAP.TOFROM"(ptr %B, ptr %B, i64 4, i64 35, ptr null, ptr null) ] ; MAP type: 35 = 0x23 = TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
+
+  %1 = load float, ptr %A, align 4
+  %2 = load float, ptr %B, align 4
   %add = fadd fast float %1, %2
-  store float %add, float* %C, align 4
+  store float %add, ptr %C, align 4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  %3 = load float, float* %C, align 4
+
+  %3 = load float, ptr %C, align 4
   ret float %3
 }
 
@@ -150,24 +156,37 @@ entry:
   %D = alloca i32, align 4
   %E = alloca i32, align 4
   %F = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TO"(i32* %E, i32* %E, i64 4, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(i32* %F, i32* %F, i64 4, i64 35, i8* null, i8* null), "QUAL.OMP.MAP.FROM"(i32* %D, i32* %D, i64 4, i64 2, i8* null, i8* null) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* %D), "QUAL.OMP.SHARED"(i32* %E), "QUAL.OMP.SHARED"(i32* %F) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1),
+    "QUAL.OMP.MAP.TO"(ptr %E, ptr %E, i64 4, i64 33, ptr null, ptr null), ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
+    "QUAL.OMP.MAP.TOFROM"(ptr %F, ptr %F, i64 4, i64 35, ptr null, ptr null), ; MAP type: 35 = 0x23 = TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
+    "QUAL.OMP.MAP.FROM"(ptr %D, ptr %D, i64 4, i64 2, ptr null, ptr null) ] ; MAP type: 2 = 0x2 = FROM (0x2)
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %D, i32 0, i32 1),
+    "QUAL.OMP.SHARED:TYPED"(ptr %E, i32 0, i32 1),
+    "QUAL.OMP.SHARED:TYPED"(ptr %F, i32 0, i32 1) ]
+
 ; CHECK:   call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
-; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null), "QUAL.OMP.SHARED"(i32* null)
-; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %E), "QUAL.OMP.PRIVATE"(i32* %F)
-  store i32 10, i32* %D, align 4
-  %2 = load i32, i32* %E, align 4
-  %3 = load i32, i32* %F, align 4
+; CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr null, i32 0, i32 1),
+; CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr null, i32 0, i32 1),
+; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %E, i32 0, i32 1),
+; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %F, i32 0, i32 1) ]
+
+  store i32 10, ptr %D, align 4
+  %2 = load i32, ptr %E, align 4
+  %3 = load i32, ptr %F, align 4
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
   ret void
 }
 
 declare token @llvm.directive.region.entry()
-
 declare void @llvm.directive.region.exit(token)
 
 !omp_offload.info = !{!0, !1}
 
-!0 = !{i32 0, i32 52, i32 -683357548, !"_Z5test1", i32 5, i32 0, i32 0}
-!1 = !{i32 0, i32 52, i32 -683357548, !"_Z5test2", i32 12, i32 1, i32 0}
+!0 = !{i32 0, i32 66313, i32 50002634, !"_Z5test2", i32 12, i32 1, i32 0}
+!1 = !{i32 0, i32 66313, i32 50002634, !"_Z5test1", i32 5, i32 0, i32 0}

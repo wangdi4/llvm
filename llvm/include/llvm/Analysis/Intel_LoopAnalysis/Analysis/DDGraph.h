@@ -285,6 +285,18 @@ public:
     return std::distance(outgoing_edges_begin(Ref), outgoing_edges_end(Ref));
   };
 
+  bool hasIncomingEdges(const DDRef *Ref) const {
+    return (incoming_edges_begin(Ref) != incoming_edges_end(Ref));
+  }
+
+  bool hasOutgoingEdges(const DDRef *Ref) const {
+    return (outgoing_edges_begin(Ref) != outgoing_edges_end(Ref));
+  }
+
+  bool hasIncomingOrOutgoingEdges(const DDRef *Ref) const {
+    return hasIncomingEdges(Ref) || hasOutgoingEdges(Ref);
+  }
+
   // Single edge going out of this DDRef.
   bool singleEdgeGoingOut(const DDRef *LRef);
 

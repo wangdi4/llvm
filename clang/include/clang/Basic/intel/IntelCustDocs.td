@@ -1987,6 +1987,49 @@ _rotl8 _rotl16 _rotl _lrotl _rrotl64 _rotr8 _rotr16 _rotr _lrotr _rotr64.
   }];
 }
 
+def ExplicitComparisonToNaNOrINFDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-36410";
+  let Owner = "zahiraam";
+  let Default = 1;
+  let Content = [{
+Clang doesn't diagnose when comparing a floating-point number to Infinity or
+NaN, even in fast math mode. In ICX fast math mode is enabled by default. With this
+some optimizations may remove explicit comparisons to NaN and Infinity. This
+result in getting incorrect results. We are adding this diagnostic to warn the
+user that the code contains explicit comparison to NaN and Infinity either by value
+(NaN/INF) or by function (isnan/isinf).
+
+Syntax:
+
+.. code-block:: c
+
+ int foo(float a) {
+  volatile int i;
+  i = a == INFINITY;
+  return 0;
+}
+
+.. code-block:: console
+
+   $ clang -cc1 t1.c
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility -fintel-compatibility-enable=ExplicitComparisonToNaNOrINF t1.c
+   t1.cpp:10:9: warning: explicit comparison with infinity in fast floating point mode [-Wtautological-constant-compare]
+  i = a == INFINITY;
+      ~ ^  ~~~~~~~~
+  1 warning generated.
+  $
+  }];
+  let UserContent = [{
+Generate a warning when comparing a floating-point number to Infinity or NaN
+in fast math mode.
+  }];
+}
+
 // Optimization
 
 def FakeLoadDocs : Documentation {

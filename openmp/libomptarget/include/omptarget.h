@@ -96,6 +96,12 @@ enum tgt_map_type {
   // the structured region
   // This is an OpenMP extension for the sake of OpenACC support.
   OMP_TGT_MAPTYPE_OMPX_HOLD       = 0x2000,
+#if INTEL_COLLAB
+  // use zero initialized device memory
+  OMP_TGT_MAPTYPE_ZERO_INIT_MEM   = 0x4000,
+  // allocate memory in host USM
+  OMP_TGT_MAPTYPE_HOST_MEM        = 0x8000,
+#endif // INTEL_COLLAB
   // descriptor for non-contiguous target-update
   OMP_TGT_MAPTYPE_NON_CONTIG      = 0x100000000000,
   // member of struct, member given by [16 MSBs] - 1
@@ -137,6 +143,15 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_SHARED,
   TARGET_ALLOC_DEFAULT
 };
+
+#if INTEL_COLLAB
+enum AllocOptionTy : int32_t {
+  ALLOC_OPT_NONE = 0,
+  ALLOC_OPT_REDUCTION_SCRATCH = 1,
+  ALLOC_OPT_REDUCTION_COUNTER = 2,
+  ALLOC_OPT_HOST_MEM = 3
+};
+#endif // INTEL_COLLAB
 
 /// This struct contains all of the arguments to a target kernel region launch.
 struct __tgt_kernel_arguments {

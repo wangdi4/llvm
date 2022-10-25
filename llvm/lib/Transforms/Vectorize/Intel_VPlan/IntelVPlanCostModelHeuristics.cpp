@@ -461,7 +461,7 @@ VPInstructionCost HeuristicSpillFill::operator()(
       // serialized load/store is implemented with.
       NumberLiveValuesCur += TranslateVPInstRPToHWRP(InstCost.getInt64Value());
 
-    LLVM_DEBUG(auto LVNs = make_second_range(LiveValues);
+    LLVM_DEBUG(const auto &LVNs = make_second_range(LiveValues);
                dbgs() << "RP = " << NumberLiveValuesCur << ", LV# = " <<
                llvm::count_if(LVNs, [](int Elem) -> bool {
                    return Elem != 0;
@@ -851,7 +851,7 @@ void HeuristicPsadbw::apply(
   // PSADBW cost in terms of number of intructions.
   VPInstructionCost PsadbwCost = 1;
 
-  for (auto PatternInstructionsEl : PsadbwPatternInsts) {
+  for (const auto &PatternInstructionsEl : PsadbwPatternInsts) {
     const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
     SinglePatternInstsSet PatternInstructions = PatternInstructionsEl.second;
     // Sum up costs of all instructions within PatternInstructions.
@@ -909,7 +909,7 @@ void HeuristicPsadbw::apply(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
-  for (auto PatternInstructionsEl : PsadbwPatternInsts) {
+  for (const auto &PatternInstructionsEl : PsadbwPatternInsts) {
     const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
     SinglePatternInstsSet PatternInstructions = PatternInstructionsEl.second;
 

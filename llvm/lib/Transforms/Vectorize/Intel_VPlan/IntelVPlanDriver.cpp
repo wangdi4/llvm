@@ -616,8 +616,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     // VPlanOptReportBuilder framework.
     unsigned GatherCount = 0;
     unsigned ScatterCount = 0;
-    for (auto Block : VCodeGen.getMainLoop()->getBlocks())
-      if (auto BB = dyn_cast<BasicBlock>(Block))
+    for (const auto &Block : VCodeGen.getMainLoop()->getBlocks())
+      if (const auto &BB = dyn_cast<BasicBlock>(Block))
         for (auto &Inst : *BB)
           if (auto IntrinInst = dyn_cast<IntrinsicInst>(&Inst)) {
             Intrinsic::ID ID = IntrinInst->getIntrinsicID();
@@ -799,7 +799,7 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
   }
 
   bool ModifiedFunc = false;
-  for (auto It : LoopsToVectorize) {
+  for (const auto &It : LoopsToVectorize) {
     Loop *Lp = LI->getLoopFor(It.first);
     LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
     LLVM_DEBUG(It.second->dump());

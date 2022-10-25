@@ -401,7 +401,12 @@ struct DeviceTy {
                    map_var_info_t HstPtrName, bool HasFlagTo,
                    bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
                    bool HasCloseModifier, bool HasPresentModifier,
+#if INTEL_COLLAB
+                   bool HasHoldModifier, bool UseHostMem,
+                   AsyncInfoTy &AsyncInfo);
+#else // INTEL_COLLAB
                    bool HasHoldModifier, AsyncInfoTy &AsyncInfo);
+#endif // INTEL_COLLAB
 
   /// Return the target pointer for \p HstPtrBegin in \p HDTTMap. The accessor
   /// ensures exclusive access to the HDTT map.
@@ -469,7 +474,7 @@ struct DeviceTy {
   int32_t manifestDataForRegion(void *TgtEntryPtr);
   char *getDeviceName(char *Buffer, size_t BufferMaxSize);
   void *dataAllocBase(int64_t Size, void *HstPtrBegin, void *HstPtrBase,
-                      int32_t DedicatedPool = 0);
+                      int32_t AllocOpt = ALLOC_OPT_NONE);
   int32_t runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                           ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                           int32_t NumTeams, int32_t ThreadLimit,

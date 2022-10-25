@@ -196,9 +196,9 @@ void VPlanLoopUnroller::run() {
 
   // Replace uses of live-outs with the last unrolling part clone of them.
   VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[UF - 2];
-  for (auto It : LiveOutExtUsers)
+  for (const auto &It : LiveOutExtUsers)
     It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
-  for (auto It : LiveOutInstUsers)
+  for (const auto &It : LiveOutInstUsers)
     It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
 
 

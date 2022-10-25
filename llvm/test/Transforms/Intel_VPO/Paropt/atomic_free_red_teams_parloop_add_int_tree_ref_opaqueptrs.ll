@@ -21,7 +21,7 @@
 ; CHECK: %[[SUM:sumref.map.ptr.tmp.ascast.red]] = alloca i32
 ; CHECK: %[[SUM_REF:sumref.map.ptr.tmp.ascast.red.ascast.ref]] = alloca ptr addrspace(4)
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf
+; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %red_buf
 ; CHECK: store ptr addrspace(4) addrspacecast (ptr addrspace(3) @[[LOCAL_PTR:[^,]+]] to ptr addrspace(4)), ptr %[[REF_PTR]]
 ; CHECK: %[[SUM_CAST:sumref.map.ptr.tmp.ascast.red.ascast]] = addrspacecast ptr %[[SUM]] to ptr addrspace(4)
 ; CHECK: store ptr addrspace(4) %[[SUM_CAST]], ptr %[[SUM_REF]]

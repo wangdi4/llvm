@@ -5,7 +5,6 @@
 ; function address constants, which are passed as 2nd argument at
 ; call-sites of _Z3fooiPFbiiE.
 
-; RUN: opt -opaque-pointers < %s -ip-cloning -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  -opaque-pointers < %s -passes='module(ip-cloning)' -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Cloned call:

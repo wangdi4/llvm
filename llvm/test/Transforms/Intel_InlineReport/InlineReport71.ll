@@ -1,6 +1,4 @@
-; RUN: opt -O3 -inline-report=0xe807 -disable-output < %s 2>&1 | FileCheck %s
 ; Disabled for [CMPLRLLVM-25349]: opt -passes='default<O3>' -inline-report=0xe807 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -O3 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='default<O3>' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
 
 ; Check that by default at -O3, the standard and metadata inlining reports

@@ -2243,28 +2243,31 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_signbitf:
   case Builtin::BI__builtin_signbitl:
 #if INTEL_CUSTOMIZATION
-    switch (BuiltinID) {
-    default:
-      break;
-    case Builtin::BI__builtin_isinf:
-    case Builtin::BI__builtin_isinff:
-    case Builtin::BI__builtin_isinfl:
-    case Builtin::BI__builtin_isinf_sign: {
-      FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
-      if (FPO.getNoHonorInfs())
-        Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
-            << "infinity" << TheCall->getSourceRange();
-      break;
-    }
-    case Builtin::BI__builtin_isnan:
-    case Builtin::BI__builtin_isnanf:
-    case Builtin::BI__builtin_isnanl: {
-      FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
-      if (FPO.getNoHonorNaNs() && !getLangOpts().HonorNaNCompares)
-        Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
-            << "NaN" << TheCall->getSourceRange();
-      break;
-    }
+    if (getLangOpts().isIntelCompat(
+            LangOptions::ExplicitComparisonToNaNOrINF)) {
+      switch (BuiltinID) {
+      default:
+        break;
+      case Builtin::BI__builtin_isinf:
+      case Builtin::BI__builtin_isinff:
+      case Builtin::BI__builtin_isinfl:
+      case Builtin::BI__builtin_isinf_sign: {
+        FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
+        if (FPO.getNoHonorInfs())
+          Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
+              << "infinity" << TheCall->getSourceRange();
+        break;
+      }
+      case Builtin::BI__builtin_isnan:
+      case Builtin::BI__builtin_isnanf:
+      case Builtin::BI__builtin_isnanl: {
+        FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
+        if (FPO.getNoHonorNaNs() && !getLangOpts().HonorNaNCompares)
+          Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
+              << "NaN" << TheCall->getSourceRange();
+        break;
+      }
+      }
     }
 #endif // INTEL_CUSTOMIZATION
     if (SemaBuiltinFPClassification(TheCall, 1))
@@ -7272,7 +7275,8 @@ bool Sema::CheckFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   CheckAbsoluteValueFunction(TheCall, FDecl);
   CheckMaxUnsignedZero(TheCall, FDecl);
 #if INTEL_CUSTOMIZATION
-  CheckInfNaNFunction(TheCall, FDecl);
+  if (getLangOpts().isIntelCompat(LangOptions::ExplicitComparisonToNaNOrINF))
+    CheckInfNaNFunction(TheCall, FDecl);
 #endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().ObjC)

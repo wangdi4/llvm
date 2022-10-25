@@ -755,6 +755,10 @@ public:
                                        InstructionCost BuildVecCost) const {
     return 0;
   }
+
+  InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF) const {
+    return 0;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Assume that we have a register of the right size for the type.
