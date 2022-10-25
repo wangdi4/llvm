@@ -2206,6 +2206,14 @@ static Instruction *simplifySplatGEPIndex(GetElementPtrInst &GEP,
 }
 #endif
 
+#if INTEL_CUSTOMIZATION
+// True if Ty is an opaque pointer or vector of opaque pointers.
+bool isOpaqueScalarPtrType(Type *Ty) {
+  auto *PtrTy = dyn_cast<PointerType>(Ty->getScalarType());
+  return PtrTy && PtrTy->isOpaque();
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
                                              GEPOperator *Src) {
   // Combine Indices - If the source pointer to this getelementptr instruction
@@ -2265,8 +2273,18 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // it doesn't violate def-use relations or contradict with loop invariant
   // swap above. This allows more potential applications of constant-indexed GEP
   // optimizations below.
+#if INTEL_CUSTOMIZATION
+  // The xform below only works in the general case of opaque pointers.
+  // %i = gep struct, struct* %p, i32 1   // a[1], element of array of struct
+  // gep struct, struct* %i, i32 0, i32 1 // element of struct
+  // If %p is not homogenous memory, we cannot interchange the GEPs, as
+  // the struct type cannot be overlaid
+  // onto the result of GEP 0, 1 (which is an array of single element type).
+  // Needs a bitcast, or a check for homogeneous types.
+#endif // INTEL_CUSTOMIZATION
   if (ShouldCanonicalizeSwap && Src->hasOneUse() &&
       Src->getPointerOperandType() == GEP.getPointerOperandType() &&
+      isOpaqueScalarPtrType(Src->getPointerOperandType()) && // INTEL
       Src->getType()->isVectorTy() == GEP.getType()->isVectorTy() &&
       !isa<GlobalValue>(Src->getPointerOperand())) {
     // When swapping, GEP with all constant indices are more prioritized than
