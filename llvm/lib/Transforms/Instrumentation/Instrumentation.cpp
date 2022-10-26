@@ -118,7 +118,6 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializePGOIndirectCallPromotionLegacyPassPass(Registry); // INTEL
   initializeMemorySanitizerLegacyPassPass(Registry); // INTEL
   initializeThreadSanitizerLegacyPassPass(Registry); // INTEL
-  initializeDataFlowSanitizerLegacyPassPass(Registry);
 }
 
 /// LLVMInitializeInstrumentation - C binding for

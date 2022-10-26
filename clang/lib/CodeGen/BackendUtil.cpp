@@ -394,13 +394,6 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
   PM.add(createThreadSanitizerLegacyPassPass());
 }
 
-static void addDataFlowSanitizerPass(const PassManagerBuilder &Builder,
-                                     legacy::PassManagerBase &PM) {
-  const PassManagerBuilderWrapper &BuilderWrapper =
-      static_cast<const PassManagerBuilderWrapper&>(Builder);
-  const LangOptions &LangOpts = BuilderWrapper.getLangOpts();
-  PM.add(createDataFlowSanitizerLegacyPassPass(LangOpts.NoSanitizeFiles));
-}
 #endif // INTEL_CUSTOMIZATION
 
 static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
@@ -796,13 +789,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                            addThreadSanitizerPass);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                            addThreadSanitizerPass);
-  }
-
-  if (LangOpts.Sanitize.has(SanitizerKind::DataFlow)) {
-    PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                           addDataFlowSanitizerPass);
-    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                           addDataFlowSanitizerPass);
   }
 
   // Set up the per-function pass manager.
