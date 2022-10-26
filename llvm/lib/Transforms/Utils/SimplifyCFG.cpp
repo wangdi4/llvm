@@ -228,21 +228,6 @@ STATISTIC(NumInvokes,
 STATISTIC(NumInvokesMerged, "Number of invokes that were merged together");
 STATISTIC(NumInvokeSetsFormed, "Number of invoke sets that were formed");
 
-namespace llvm {
-
-void SimplifyCFGCostTracker::updateNumBonusInsts(BasicBlock *BB,
-                                                 unsigned InstCount) {
-  auto Loc = NumBonusInsts.find(BB);
-  if (Loc == NumBonusInsts.end())
-    Loc = NumBonusInsts.insert({BB, 0}).first;
-  Loc->second = Loc->second + InstCount;
-}
-unsigned SimplifyCFGCostTracker::getNumBonusInsts(BasicBlock *BB) {
-  return NumBonusInsts.lookup(BB);
-}
-
-} // namespace llvm
-
 namespace {
 
 // The first field contains the value that the switch produces when a certain
@@ -279,10 +264,6 @@ class SimplifyCFGOpt {
   ArrayRef<WeakVH> LoopHeaders;
   const SimplifyCFGOptions &Options;
   bool Resimplify;
-  // Accumulates number of bonus instructions due to merging basic blocks
-  // of common destination.
-  SimplifyCFGCostTracker *CostTracker;
-  std::unique_ptr<SimplifyCFGCostTracker> LocalCostTracker;
 
   Value *isValueEqualityComparison(Instruction *TI);
   BasicBlock *GetValueEqualityComparisonCases(
@@ -330,15 +311,8 @@ class SimplifyCFGOpt {
 public:
   SimplifyCFGOpt(const TargetTransformInfo &TTI, DomTreeUpdater *DTU,
                  const DataLayout &DL, ArrayRef<WeakVH> LoopHeaders,
-                 const SimplifyCFGOptions &Opts,
-                 SimplifyCFGCostTracker *CostTracker_)
+                 const SimplifyCFGOptions &Opts)
       : TTI(TTI), DTU(DTU), DL(DL), LoopHeaders(LoopHeaders), Options(Opts) {
-    // Cannot do this with member initializer list since LocalCostTracker is not
-    // initialized there yet.
-    CostTracker = CostTracker_
-                      ? CostTracker_
-                      : (LocalCostTracker.reset(new SimplifyCFGCostTracker()),
-                         LocalCostTracker.get());
     assert((!DTU || !DTU->hasPostDomTree()) &&
            "SimplifyCFG is not yet capable of maintaining validity of a "
            "PostDomTree, so don't ask for it.");
@@ -3635,9 +3609,7 @@ static Value *createLogicalOp(IRBuilderBase &Builder,
 //
 // This trasformation will combine two blocks in one,
 // so put the optimization here.
-static bool foldReductionBlockWithVectorization(
-                      BranchInst *BI,
-                      SimplifyCFGCostTracker &CostTracker) {
+static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   struct Group {
     GetElementPtrInst *BVIndexPtr[2];
     LoadInst *BVIndexVal[2];
@@ -4148,7 +4120,7 @@ static bool foldReductionBlockWithVectorization(
       return false;
 
   // Combine current BB with CmpZero block.
-  if (!FoldBranchToCommonDest(CmpZeroTerm, CostTracker, nullptr, nullptr, nullptr, 4))
+  if (!FoldBranchToCommonDest(CmpZeroTerm, nullptr, nullptr, nullptr, 4))
     return false;
 
   // Start to transform.
@@ -4926,9 +4898,8 @@ static bool isVectorOp(Instruction &I) {
 /// If this basic block is simple enough, and if a predecessor branches to us
 /// and one of our successors, fold the block into the predecessor and use
 /// logical operations to pick the right destination.
-bool llvm::FoldBranchToCommonDest(BranchInst *BI,
-                                  SimplifyCFGCostTracker &CostTracker,
-                                  DomTreeUpdater *DTU, MemorySSAUpdater *MSSAU,
+bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
+                                  MemorySSAUpdater *MSSAU,
                                   const TargetTransformInfo *TTI,
                                   unsigned BonusInstThreshold) {
   // If this block ends with an unconditional branch,
@@ -5080,6 +5051,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI,
   // as "bonus instructions", and only allow this transformation when the
   // number of the bonus instructions we'll need to create when cloning into
   // each predecessor does not exceed a certain threshold.
+  unsigned NumBonusInsts = 0;
   bool SawVectorOp = false;
   const unsigned PredCount = Preds.size();
   for (Instruction &I : *BB) {
@@ -5098,13 +5070,12 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI,
     // predecessor. Ignore free instructions.
     if (!TTI || TTI->getInstructionCost(&I, CostKind) !=
                     TargetTransformInfo::TCC_Free) {
-      for (auto PredBB : Preds) {
-        CostTracker.updateNumBonusInsts(PredBB, PredCount);
-        // Early exits once we reach the limit.
-        if (CostTracker.getNumBonusInsts(PredBB) >
-            BonusInstThreshold * BranchFoldToCommonDestVectorMultiplier)
-          return false;
-      }
+      NumBonusInsts += PredCount;
+
+      // Early exits once we reach the limit.
+      if (NumBonusInsts >
+          BonusInstThreshold * BranchFoldToCommonDestVectorMultiplier)
+        return false;
     }
 
     auto IsBCSSAUse = [BB, &I](Use &U) {
@@ -5118,12 +5089,10 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI,
     if (!all_of(I.uses(), IsBCSSAUse))
       return false;
   }
-  for (auto PredBB : Preds) {
-    if (CostTracker.getNumBonusInsts(PredBB) >
-        BonusInstThreshold *
-            (SawVectorOp ? BranchFoldToCommonDestVectorMultiplier : 1))
-      return false;
-  }
+  if (NumBonusInsts >
+      BonusInstThreshold *
+          (SawVectorOp ? BranchFoldToCommonDestVectorMultiplier : 1))
+    return false;
 
   // Ok, we have the budget. Perform the transformation.
   for (BasicBlock *PredBlock : Preds) {
@@ -8566,7 +8535,7 @@ bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
   // branches to us and our successor, fold the comparison into the
   // predecessor and use logical operations to update the incoming value
   // for PHI nodes in common successor.
-  if (FoldBranchToCommonDest(BI, *CostTracker, DTU, /*MSSAU=*/nullptr, &TTI,
+  if (FoldBranchToCommonDest(BI, DTU, /*MSSAU=*/nullptr, &TTI,
                              Options.BonusInstThreshold))
     return requestResimplify();
   return false;
@@ -8636,7 +8605,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   // foldReductionBlockWithVectorization support AVX2 or above.
   if (TTI.isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
-    if (foldReductionBlockWithVectorization(BI, *CostTracker))
+    if (foldReductionBlockWithVectorization(BI))
       return true;
   } else if (foldFcmpLadder(BI)) {
     return true;
@@ -8646,7 +8615,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   // If this basic block is ONLY a compare and a branch, and if a predecessor
   // branches to us and one of our successors, fold the comparison into the
   // predecessor and use logical operations to pick the right destination.
-  if (FoldBranchToCommonDest(BI, *CostTracker, DTU, /*MSSAU=*/nullptr, &TTI,
+  if (FoldBranchToCommonDest(BI, DTU, /*MSSAU=*/nullptr, &TTI,
                              Options.BonusInstThreshold))
     return requestResimplify();
 
@@ -8969,9 +8938,8 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
 
 bool llvm::simplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
                        DomTreeUpdater *DTU, const SimplifyCFGOptions &Options,
-                       ArrayRef<WeakVH> LoopHeaders,
-                       SimplifyCFGCostTracker *CostTracker) {
+                       ArrayRef<WeakVH> LoopHeaders) {
   return SimplifyCFGOpt(TTI, DTU, BB->getModule()->getDataLayout(), LoopHeaders,
-                        Options, CostTracker)
+                        Options)
       .run(BB);
 }
