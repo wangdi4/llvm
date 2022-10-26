@@ -617,12 +617,28 @@ bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
   Intrinsic::ID Id;
 
   if (isIntrinCall(Id)) {
-    if (IsMin && (Id == Intrinsic::minnum || Id == Intrinsic::minimum)) {
-      return true;
+    if (IsMin) {
+      switch (Id) {
+      case Intrinsic::minnum:
+      case Intrinsic::minimum:
+      case Intrinsic::smin:
+      case Intrinsic::umin:
+        return true;
+      default:
+        break;
+      }
     }
 
-    if (IsMax && (Id == Intrinsic::maxnum || Id == Intrinsic::maximum)) {
-      return true;
+    if (IsMax) {
+      switch (Id) {
+      case Intrinsic::maxnum:
+      case Intrinsic::maximum:
+      case Intrinsic::smax:
+      case Intrinsic::umax:
+        return true;
+      default:
+        break;
+      }
     }
 
     return false;
