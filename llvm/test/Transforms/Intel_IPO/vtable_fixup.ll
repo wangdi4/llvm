@@ -1,4 +1,3 @@
-; RUN: opt -vtable-fixup -S %s | FileCheck %s
 ; RUN: opt -passes=vtable-fixup -S %s | FileCheck %s
 
 ; Original code:

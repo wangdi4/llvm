@@ -4,6 +4,8 @@
 ; into false since the whole program analysis didn't run. Also, the intrinsic
 ; llvm.intel.wholeprogramsafe should be removed.
 
+; Opt driver forces this pass to go through the legacy pass manager
+; For more details, check function 'shouldForceLegacyPM' in opt.cpp
 ; RUN: opt < %s -pre-isel-intrinsic-lowering -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
