@@ -101,7 +101,8 @@ void EmitAttributes(RecordKeeper &RK, raw_ostream &OS);
 void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS); //TODO: VEC to COLLAB
+void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS,
+                      bool IsDevice = false); // TODO: VEC to COLLAB
 void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS);
 void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);
 #if INTEL_FEATURE_CSA
