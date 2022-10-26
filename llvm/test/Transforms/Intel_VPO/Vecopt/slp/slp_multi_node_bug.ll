@@ -1,4 +1,3 @@
-; RUN: opt < %s -mtriple=i386 -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -S -mcpu=core-avx2 -slp-threshold=-10 | FileCheck %s
 ; RUN: opt < %s -mtriple=i386 -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -S -mcpu=core-avx2 -slp-threshold=-10 | FileCheck %s
 
 ; Test case exposing build of a broken MultiNode (MN).
