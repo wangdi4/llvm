@@ -181,7 +181,6 @@ int main(int argc, char **argv) {
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
   initializeAggressiveInstCombine(Registry);
-  initializeInstrumentation(Registry);
   initializeTarget(Registry);
 
 #if INTEL_CUSTOMIZATION

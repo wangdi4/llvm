@@ -105,6 +105,7 @@ Comdat *llvm::getOrCreateFunctionComdat(Function &F, Triple &T) {
   return C;
 }
 
+<<<<<<< HEAD
 /// initializeInstrumentation - Initialize all passes in the TransformUtils
 /// library.
 void llvm::initializeInstrumentation(PassRegistry &Registry) {
@@ -125,3 +126,5 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
 void LLVMInitializeInstrumentation(LLVMPassRegistryRef R) {
   initializeInstrumentation(*unwrap(R));
 }
+=======
+>>>>>>> ef37504879eecab1af98c70888bee0be403b9c60

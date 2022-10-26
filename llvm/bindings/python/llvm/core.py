@@ -475,9 +475,6 @@ def register_library(library):
     library.LLVMInitializeIPO.argtypes = [PassRegistry]
     library.LLVMInitializeIPO.restype = None
 
-    library.LLVMInitializeInstrumentation.argtypes = [PassRegistry]
-    library.LLVMInitializeInstrumentation.restype = None
-
     library.LLVMInitializeAnalysis.argtypes = [PassRegistry]
     library.LLVMInitializeAnalysis.restype = None
 
@@ -634,7 +631,6 @@ def initialize_llvm():
     lib.LLVMInitializeVectorization(p)
     lib.LLVMInitializeInstCombine(p)
     lib.LLVMInitializeIPO(p)
-    lib.LLVMInitializeInstrumentation(p)
     lib.LLVMInitializeAnalysis(p)
     lib.LLVMInitializeCodeGen(p)
     lib.LLVMInitializeTarget(p)
