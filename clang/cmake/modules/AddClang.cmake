@@ -55,11 +55,16 @@ macro(set_clang_windows_version_resource_properties name)
       VERSION_MAJOR ${DPCPP_VERSION_MAJOR}
       VERSION_MINOR ${DPCPP_VERSION_MINOR}
       VERSION_PATCHLEVEL ${CLANG_VERSION_PATCHLEVEL}
+<<<<<<< HEAD
       VERSION_STRING "${DPCPP_VERSION_MAJOR} (${DPCPP_VERSION_MINOR})"
       PRODUCT_VERSION "${DPCPP_VERSION_STR}"
       PRODUCT_NAME "${DPCPP_PRODUCT_NAME}"
 #end INTEL_CUSTOMIZATION
     )
+=======
+      VERSION_STRING "${CLANG_VERSION}"
+      PRODUCT_NAME "clang")
+>>>>>>> 3a3603ff99ffd7dd7c8d166ba6d15078e33a5f71
   endif()
 endmacro()
 
