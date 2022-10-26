@@ -76,6 +76,13 @@ filter create_filter(const std::string &Input) {
       Result.Backend = backend::ext_oneapi_cuda;
     } else if (Token == "hip" && !Result.Backend) {
       Result.Backend = backend::ext_oneapi_hip;
+<<<<<<< HEAD
+=======
+      Result.HasBackend = true;
+    } else if (Token == "esimd_emulator" && !Result.HasBackend) {
+      Result.Backend = backend::ext_intel_esimd_emulator;
+      Result.HasBackend = true;
+>>>>>>> 19df064ae7438d728d2182ff18af2ba06e09d66b
     } else if (std::regex_match(Token, IntegerExpr) && !Result.DeviceNum) {
       try {
         Result.DeviceNum = std::stoi(Token);
