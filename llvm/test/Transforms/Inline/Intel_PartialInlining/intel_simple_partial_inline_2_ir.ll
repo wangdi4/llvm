@@ -10,7 +10,6 @@
 ; This test case has 2 arguments that could jump to the exit block, but only
 ; one argument is used for computing the loop.
 
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
 
 ; Check that the call site of foo was replaced with foo.1

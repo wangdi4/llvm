@@ -28,7 +28,6 @@
 ;   return foo(List);
 ; }
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -debug-only=intel_partialinline 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -debug-only=intel_partialinline 2>&1 | FileCheck %s
 
 ; CHECK: No candidates for partial inlining

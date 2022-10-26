@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers < %s -S -intel-libirc-allowed=false -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -tile-candidate-mark=false -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -intel-libirc-allowed=false -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -tile-candidate-mark=false -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that we gave up on TMVINL because -intel-libirc-allowed=false

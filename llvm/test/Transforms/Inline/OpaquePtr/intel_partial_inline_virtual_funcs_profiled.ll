@@ -6,7 +6,6 @@
 ; does not crash when attempting to partial inline devirtualized functions
 ; when profiling information is being used.
 
-; RUN: opt -opaque-pointers < %s -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -partial-inliner -S  | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -passes=partial-inliner -S  | FileCheck %s
 
 %"class.Base" = type { ptr }

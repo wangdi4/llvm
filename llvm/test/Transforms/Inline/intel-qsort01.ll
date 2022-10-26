@@ -1,4 +1,3 @@
-; RUN: opt < %s -inline -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='cgscc(inline)' -S 2>&1 | FileCheck %s
 
 ; Ensure that @spec-qsort and the indirect calls through %cmp retain their

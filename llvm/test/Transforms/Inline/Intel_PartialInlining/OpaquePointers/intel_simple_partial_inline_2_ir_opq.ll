@@ -11,7 +11,6 @@
 ; one argument is used for computing the loop. It is the same test case as
 ; intel_simple_partial_inline_2_ir.ll, but it checks for opaque pointers.
 
-; RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
 
 ; Check that the call site of foo was replaced with foo.1

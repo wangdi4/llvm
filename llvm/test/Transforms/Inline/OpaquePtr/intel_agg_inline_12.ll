@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -agginliner -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='module(agginliner)' -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
 
 ; Verifies that LBM_allocateGrid is recognized as malloc routine.
