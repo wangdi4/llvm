@@ -1681,6 +1681,10 @@ MachineInstr *X86InstrInfo::convertToThreeAddress(MachineInstr &MI,
       MIB.add(ImplicitOp);
 
     NewMI = addOffset(MIB, -Imm);
+
+    // Add kills if classifyLEAReg created a new register.
+    if (LV && SrcReg != Src.getReg())
+      LV->getVarInfo(SrcReg).Kills.push_back(NewMI);
     break;
   }
 
@@ -1784,6 +1788,7 @@ MachineInstr *X86InstrInfo::convertToThreeAddress(MachineInstr &MI,
               .add(MI.getOperand(5))
               .add(MI.getOperand(6))
               .add(MI.getOperand(7));
+    NumRegOperands = 4;
     break;
   }
 
