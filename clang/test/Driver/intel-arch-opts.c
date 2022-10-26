@@ -50,14 +50,6 @@
 // RUN:  | FileCheck -check-prefixes=ARCH-ATOMSSSE3 %s
 // ARCH-ATOMSSSE3: "-target-cpu" "atom"
 
-// RUN: %clang_cl -### -c /arch:MIC-AVX512 %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=ARCH-MICAVX512 %s
-// ARCH-MICAVX512: "-target-cpu" "knl"
-
-// RUN: %clang_cl -### -c /arch:KNM %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=ARCH-KNM %s
-// ARCH-KNM: "-target-cpu" "knm"
-
 // RUN: %clang_cl -### -c /arch:SKYLAKE %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=ARCH-SKYLAKE %s
 // RUN: %clang_cl -### -c /arch:KABYLAKE %s 2>&1 \
