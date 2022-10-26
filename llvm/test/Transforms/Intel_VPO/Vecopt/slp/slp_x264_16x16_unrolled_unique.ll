@@ -1,4 +1,3 @@
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -mtriple=x86_64 -mcpu=skylake-avx512 -mattr=-prefer-256-bit -S | FileCheck %s -check-prefix=16WIDE
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -mattr=-prefer-256-bit -S | FileCheck %s -check-prefix=16WIDE
 
 define internal i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i_pix1, i8* nocapture readonly %pix2, i32 %i_pix2) {
