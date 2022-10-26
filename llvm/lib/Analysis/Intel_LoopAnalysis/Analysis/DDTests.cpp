@@ -2289,21 +2289,36 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     return false;
   }
 
+  // if SrcCoeff doesn't divide Delta, then no dependence
+  if (Delta->isIntConstant() && !isRemainderZero(Delta, ConstCoeff)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
+  // check that Delta/SrcCoeff < 0
+  if (HLNodeUtils::isKnownNegative(
+          ((CoeffValue < 0) ? getNegative(Delta) : Delta), CurLoop)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
   const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta = nullptr;
+  const CanonExpr *AbsDelta = nullptr;
   if (HLNodeUtils::isKnownNonNegative(Delta, CurLoop)) {
-    NewDelta = Delta;
+    AbsDelta = Delta;
   } else if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
-    NewDelta = getNegative(Delta);
+    AbsDelta = getNegative(Delta);
   } else {
     // Coeff not known to be positive or negative.
     return false;
   }
 
   // check that Delta/SrcCoeff < iteration count
-  // really check NewDelta < count*AbsCoeff
+  // really check AbsDelta < count*AbsCoeff
   if (!CurLoop->isUnknown()) {
     const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -2314,12 +2329,12 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
       return false;
     }
 
-    if (isKnownPredicate(CmpInst::ICMP_SGT, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_SGT, AbsDelta, Product)) {
       ++WeakZeroSIVindependence;
       ++WeakZeroSIVsuccesses;
       return true;
     }
-    if (isKnownPredicate(CmpInst::ICMP_EQ, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_EQ, AbsDelta, Product)) {
       // dependences caused by last iteration
       if (Level < CommonLevels) {
         Result.DV[Level].Direction &= DVKind::LE;
@@ -2330,22 +2345,6 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     }
   }
 
-  // check that Delta/SrcCoeff >= 0
-  // really check that NewDelta >= 0
-  if (HLNodeUtils::isKnownNegative(NewDelta, CurLoop)) {
-    // No dependence, newDelta < 0
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
-
-  // if SrcCoeff doesn't divide Delta, then no dependence
-  int64_t k1;
-  if (Delta->isIntConstant(&k1) && !isRemainderZero(Delta, ConstCoeff)) {
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
   return false;
 }
 
@@ -2418,28 +2417,42 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
     return false; // dependences caused by first iteration
   }
 
-  int64_t K1;
-
+  int64_t CoeffValue;
   const CanonExpr *ConstCoeff = SrcCoeff;
-
-  if (ConstCoeff->isIntConstant(&K1)) {
+  if (!(SrcCoeff->isIntConstant(&CoeffValue))) {
     return false;
   }
+
+  // if SrcCoeff doesn't divide Delta, then no dependence
+  if (Delta->isIntConstant() && !isRemainderZero(Delta, ConstCoeff)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
+  // check that Delta/SrcCoeff < 0
+  if (HLNodeUtils::isKnownNegative(
+          ((CoeffValue < 0) ? getNegative(Delta) : Delta), CurLoop)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
   const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta = nullptr;
+  const CanonExpr *AbsDelta = nullptr;
   if (HLNodeUtils::isKnownNonNegative(Delta, CurLoop)) {
-    NewDelta = Delta;
+    AbsDelta = Delta;
   } else if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
-    NewDelta = getNegative(Delta);
+    AbsDelta = getNegative(Delta);
   } else {
     // Coeff not known to be positive or negative.
     return false;
   }
 
   // check that Delta/SrcCoeff < iteration count
-  // really check NewDelta < count*AbsCoeff
+  // really check AbsDelta < count*AbsCoeff
   if (!CurLoop->isUnknown()) {
     const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -2449,12 +2462,12 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
       return false;
     }
 
-    if (isKnownPredicate(CmpInst::ICMP_SGT, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_SGT, AbsDelta, Product)) {
       ++WeakZeroSIVindependence;
       ++WeakZeroSIVsuccesses;
       return true;
     }
-    if (isKnownPredicate(CmpInst::ICMP_EQ, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_EQ, AbsDelta, Product)) {
       // dependences caused by last iteration
       if (Level < CommonLevels) {
         Result.DV[Level].Direction &= DVKind::GE;
@@ -2465,26 +2478,6 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
     }
   }
 
-  // check that Delta/SrcCoeff >= 0
-  // really check that NewDelta >= 0
-  if (HLNodeUtils::isKnownNegative(NewDelta, CurLoop)) {
-    // No dependence, newDelta < 0
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
-
-  // if SrcCoeff doesn't divide Delta, then no dependence
-
-  if (!(Delta->isIntConstant(&K1))) {
-    return false;
-  }
-
-  if (!isRemainderZero(Delta, ConstCoeff)) {
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
   return false;
 }
 
