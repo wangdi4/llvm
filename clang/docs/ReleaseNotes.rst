@@ -604,6 +604,12 @@ X86 Support in Clang
 - Switch ``AVX512-BF16`` intrinsics types from ``short`` to ``__bf16``.
 - Add support for ``PREFETCHI`` instructions.
 
+WebAssembly Support in Clang
+----------------------------
+
+The -mcpu=generic configuration now enables sign-ext and mutable-globals. These
+proposals are standardized and available in all major engines.
+
 DWARF Support in Clang
 ----------------------
 
