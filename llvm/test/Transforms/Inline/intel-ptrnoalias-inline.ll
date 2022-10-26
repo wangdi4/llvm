@@ -1,4 +1,3 @@
-; RUN: opt -inline < %s -S -o - | FileCheck %s
 ; RUN: opt -passes=inline < %s -S -o - | FileCheck %s
 
 ; Check that "ptrnoalias" on arguments will be converted into

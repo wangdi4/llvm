@@ -2111,7 +2111,7 @@ if (INTEL_CUSTOMIZATION)
       xdev-dpcpp xdev-icx xdev-icpx xdev-ifx xdev-fpp xdev-xfortcom
       xdev-fort-target-rtl xdev-compilervars xdev-il0-llvm-common-headers
       xdev-il0-llvm-common-lib xdev-support-scripts xdev-cmake-scripts
-      xdev-compiler-conf
+      xdev-compiler-conf xdev-docs
       # OpenMP components
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper

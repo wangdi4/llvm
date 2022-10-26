@@ -4,7 +4,6 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt < %s -agginliner -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: AggInl: SingleAccessFunctionGlobalVarHeuristic

@@ -59,6 +59,10 @@ set(LLVM_TARGET_DEFINITIONS Intel_SVML.td) # TODO: VEC to COLLAB
 tablegen(LLVM Intel_SVML.gen -gen-svml)
 add_public_tablegen_target(intel_svml_gen)
 
+set(LLVM_TARGET_DEFINITIONS Intel_SVML_Device.td)
+tablegen(LLVM Intel_SVML_Device.gen -gen-svml-device)
+add_public_tablegen_target(intel_svml_device_gen)
+
 set(LLVM_TARGET_DEFINITIONS Intel_Libmvec.td)
 tablegen(LLVM Intel_Libmvec.gen -gen-libmvec)
 add_public_tablegen_target(intel_libmvec_gen)

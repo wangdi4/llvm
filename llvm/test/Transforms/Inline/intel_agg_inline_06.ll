@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-threshold=-50 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-threshold=-50 -S 2>&1 | FileCheck %s
 
 ; Check the IR to ensure that there are no calls to the functions we expect

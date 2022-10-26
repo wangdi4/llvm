@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -agginliner -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='module(agginliner)' -debug-only=agginliner -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s
 
 ; This is same as intel_agg_inline_12.ll except non-constant index is

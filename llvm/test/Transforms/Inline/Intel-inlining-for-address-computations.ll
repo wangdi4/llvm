@@ -2,7 +2,6 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; INTEL CUSTOMIZATION:
 
-; RUN: opt -inline -inlining-for-address-computations -inlining-for-ac-min-arg-refs=4 -inlining-for-ac-loop-depth=2 -inline-threshold=40 -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inlining-for-address-computations -inlining-for-ac-min-arg-refs=4 -inlining-for-ac-loop-depth=2 -inline-threshold=40 -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
 
 ; Test checks that inlining happens for second bar() call site. The inlining would help optimize multiple address comptutations.

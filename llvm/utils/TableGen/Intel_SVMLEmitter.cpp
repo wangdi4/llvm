@@ -15,7 +15,8 @@
 /// This tablegen backend is responsible for emitting the set of SVML variants.
 ///
 ///  External interfaces:
-///      void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS);
+///      void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS, bool
+///      IsDevice);
 ///
 // ===--------------------------------------------------------------------=== //
 
@@ -38,11 +39,12 @@ class SVMLVariantsEmitter {
 
 private:
   void emitSVMLVariants(raw_ostream &OS);
+  void emitSVMLDeviceVariants(raw_ostream &OS);
 
 public:
   SVMLVariantsEmitter(RecordKeeper &R) : Records(R) {}
 
-  void run(raw_ostream &OS);
+  void run(raw_ostream &OS, bool IsDevice);
 };
 } // End anonymous namespace
 
@@ -395,14 +397,74 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }
 
-void SVMLVariantsEmitter::run(raw_ostream &OS) {
-  emitSVMLVariants(OS);
+void SVMLVariantsEmitter::emitSVMLDeviceVariants(raw_ostream &OS) {
+  assert(Records.getClass("SvmlVariants") &&
+         "SvmlVariants class not found in target description file!");
+
+  std::vector<Record *> SvmlVariants =
+      Records.getAllDerivedDefinitions("SvmlVariants");
+
+  OS << "#ifdef GET_SVML_VARIANTS\n";
+  OS << "#define FIXED(NL) ElementCount::getFixed(NL)\n";
+
+  for (auto SvmlVariant : SvmlVariants) {
+    // TODO: enable SIMD32 once it's supported by SPIR-V
+    unsigned SIMDSizes[] = {
+        8, 16,
+        // 32
+    };
+
+    for (auto SIMDSize : SIMDSizes) {
+      auto FuncName = SvmlVariant->getName();
+      auto ArgsNum = SvmlVariant->getValueAsInt("Args");
+      bool HasIntrin = SvmlVariant->getValueAsBit("hasIntrinsic");
+
+      auto EmitVariant = [ArgsNum, SIMDSize, &OS](const StringRef Name,
+                                                  bool IsIntrinsic,
+                                                  bool Is64Bit, bool IsMasked) {
+        OS << "{\"";
+        if (IsIntrinsic)
+          OS << "llvm.";
+        OS << Name;
+        if (IsIntrinsic)
+          OS << (Is64Bit ? ".f64" : ".f32");
+        else if (!Is64Bit)
+          OS << "f";
+        OS << "\", \"_ZGVx" << (IsMasked ? "M" : "N") << SIMDSize;
+        for (int i = 0; i < ArgsNum; ++i) {
+          // TODO: support other argument types when necessary
+          OS << 'v';
+        }
+        OS << "___svml_device_" << Name;
+        if (!Is64Bit)
+          OS << "f";
+        OS << "\", FIXED(" << SIMDSize << "), " << (IsMasked ? "true" : "false")
+           << "},\n";
+      };
+
+      for (bool Is64Bit : {true, false}) {
+        for (bool IsMasked : {true, false}) {
+          EmitVariant(FuncName, false, Is64Bit, IsMasked);
+          if (HasIntrin)
+            EmitVariant(FuncName, true, Is64Bit, IsMasked);
+        }
+      }
+    }
+  }
+  OS << "#endif // GET_SVML_VARIANTS\n\n";
+}
+
+void SVMLVariantsEmitter::run(raw_ostream &OS, bool IsDevice) {
+  if (IsDevice)
+    emitSVMLDeviceVariants(OS);
+  else
+    emitSVMLVariants(OS);
 }
 
 namespace llvm {
 
-void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS) {
-  SVMLVariantsEmitter(RK).run(OS);
+void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS, bool IsDevice) {
+  SVMLVariantsEmitter(RK).run(OS, IsDevice);
 }
 
 } // End llvm namespace

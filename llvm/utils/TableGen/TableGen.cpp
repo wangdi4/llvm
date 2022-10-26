@@ -66,7 +66,8 @@ enum ActionType {
   GenDirectives,
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  GenSVMLVariants,     // TODO: VEC to COLLAB
+  GenSVMLVariants, // TODO: VEC to COLLAB
+  GenSVMLDeviceVariants,
   GenLibmvecVariants,
   GenMAPatterns,
 #if INTEL_FEATURE_CSA
@@ -155,6 +156,8 @@ cl::opt<ActionType> Action(
 #if INTEL_CUSTOMIZATION
         clEnumValN(GenSVMLVariants, "gen-svml", // VEC to COLLAB
                    "Generate SVML variant function names"),
+        clEnumValN(GenSVMLDeviceVariants, "gen-svml-device",
+                   "Generate OMP SIMD versions of SVML variant function names"),
         clEnumValN(GenLibmvecVariants, "gen-libmvec",
                    "Generate Libmvec variant function names"),
         clEnumValN(GenMAPatterns, "gen-ma-patterns",
@@ -295,6 +298,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
 #if INTEL_CUSTOMIZATION
   case GenSVMLVariants:  // TODO: VEC to COLLAB
     EmitSVMLVariants(Records, OS);
+    break;
+  case GenSVMLDeviceVariants:
+    EmitSVMLVariants(Records, OS, true);
     break;
   case GenLibmvecVariants:
     EmitLibmvecVariants(Records, OS);

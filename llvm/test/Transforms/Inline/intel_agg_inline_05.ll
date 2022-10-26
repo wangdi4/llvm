@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -agginliner -inline -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
 
 ; Check the trace results for the HugeMallocGlobalPointersHeuristic aggressive

@@ -73,7 +73,6 @@
 ; This test checks that the IR was generated correctly after combining the
 ; partial inlining with full inlining.
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -S 2>&1 | FileCheck %s
 
 ; Check that foo was marked as "prefer-partial-inline-outlined-func"
