@@ -1281,9 +1281,34 @@ private:
         // reductions. For other reductions predicate is undefined.
         auto Pred = PredicateTy::BAD_ICMP_PREDICATE;
         if (Opcode == Instruction::Select) {
-          Pred = isa<SelectInst>((*RedCurrent)->getLLVMInstruction())
-                     ? (*RedCurrent)->getPredicate().Kind
-                     : PredicateTy::FIRST_FCMP_PREDICATE;
+          if (isa<SelectInst>((*RedCurrent)->getLLVMInstruction())) {
+            Pred = (*RedCurrent)->getPredicate().Kind;
+          } else if (auto *IC = (*RedCurrent)->getIntrinCall()) {
+            auto Id = IC->getIntrinsicID();
+            switch (Id) {
+            case Intrinsic::minnum:
+            case Intrinsic::minimum:
+            case Intrinsic::maxnum:
+            case Intrinsic::maximum:
+              // Set predicate as floating point
+              Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+              break;
+            case Intrinsic::smin:
+            case Intrinsic::smax:
+              // Set predicate as signed integer
+              Pred = PredicateTy::ICMP_SGT;
+              break;
+            case Intrinsic::umin:
+            case Intrinsic::umax:
+              // Set predicate as unsigned integer
+              Pred = PredicateTy::ICMP_UGT;
+              break;
+            default:
+              llvm_unreachable("Unsupported intrinsic for reduction");
+            }
+          } else {
+            Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+          }
         }
 
         Descriptor.fillReductionKinds(
