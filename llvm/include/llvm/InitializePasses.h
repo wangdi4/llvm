@@ -178,15 +178,11 @@ void initializeDAESYCLPass(PassRegistry&);
 void initializeDCELegacyPassPass(PassRegistry&);
 void initializeDFAJumpThreadingLegacyPassPass(PassRegistry &);
 void initializeDSELegacyPassPass(PassRegistry&);
-<<<<<<< HEAD
-void initializeDataFlowSanitizerLegacyPassPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> a527bda520f01174178eaddccf52124ac1b2473f
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDebugifyMachineModulePass(PassRegistry &);
 void initializeDelinearizationPass(PassRegistry&);
