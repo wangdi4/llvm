@@ -3,7 +3,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 

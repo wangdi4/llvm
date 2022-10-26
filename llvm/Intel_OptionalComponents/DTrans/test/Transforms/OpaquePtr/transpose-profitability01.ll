@@ -3,7 +3,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 @test_var01 = internal global [16 x [16 x [16 x i32]]] zeroinitializer

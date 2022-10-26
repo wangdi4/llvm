@@ -6,7 +6,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; This test is similar to transpose-safety06.ll, but uses the new form of
 ; uplevel type names.
 
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 
 ; Variation to test that invalidates the candidate.

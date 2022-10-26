@@ -3,7 +3,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -S -dtrans-transpose 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes=dtrans-transpose 2>&1 | FileCheck %s
 
 

@@ -1,5 +1,4 @@
 ; REQUIRES; asserts
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check that physpropmod_mp_physprop_ field 0 is a valid and profitable

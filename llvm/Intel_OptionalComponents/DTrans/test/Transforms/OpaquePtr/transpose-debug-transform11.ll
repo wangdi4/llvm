@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -disable-output -dtrans-transpose -debug-only=dtrans-transpose-transform  2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 
 ; Check that physpropmod_mp_physprop_ fields 0 and 2 are both transposed
