@@ -166,6 +166,7 @@ cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
 
 extern cl::opt<bool> AtomicFreeReduction;
 extern cl::opt<bool> AtomicFreeReductionUseSLM;
+extern cl::opt<bool> AtomicFreeRedUseFPTeamsCounter;
 
 // Reset the value in the Map clause to be empty.
 //
@@ -848,13 +849,31 @@ static CallInst *getCriticalEndCall(CallInst *CallI) {
   return nullptr;
 }
 
-/// This function ignores special instructions with side effect.
+// Add "paropt_guarded_by_thread_check" metadata to the Instruction to mark that
+// it is already guarded by a check to ensure that only one thread executes it.
+void VPOParoptTransform::markAsGuardedByThreadCheck(Instruction *I) {
+  LLVMContext &C = I->getContext();
+  Constant *One = ConstantInt::get(Type::getInt32Ty(C), 1);
+  I->setMetadata(GuardedByThreadCheckMDStr,
+                 MDNode::get(C, ConstantAsMetadata::get(One)));
+}
+
+// Return true if the Instruction has metadata indicating that it is already
+// guarded by a check to ensure that only one thread executes it.
+bool VPOParoptTransform::isGuardedByThreadCheck(const Instruction *I) {
+  return I->hasMetadata(GuardedByThreadCheckMDStr);
+}
+
+/// Returns true for instructions that can be ignored by
+/// guardSideEffectStatements(), even if they have side effects.
 /// Returns true if the call instruction is a special call.
 /// Returns true if the call instruction is a intrinsic call, except for memcpy
 /// intrinsic, the destination operand is not allocated locally in the thread.
 /// Returns true if the store address is an alloca instruction,
-/// that is allocated locally in the thread.
-static bool ignoreSpecialOperands(const Instruction *I) {
+/// that is allocated locally in the thread, or if it has already been marked as
+/// being executed under its own master thread check.
+bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
+    const Instruction *I) {
   //   Ignore calls to the following OpenCL functions
   const std::set<std::string> IgnoreCalls = {
       "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
@@ -902,10 +921,11 @@ static bool ignoreSpecialOperands(const Instruction *I) {
     const Value *RootPointer = StorePointer->stripInBoundsOffsets();
     LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer << "\n");
 
+    // Ignore stores that are already guarded by master-thread checks. e.g.
     // atomic-free reduction implementation's global update loop
-    // is executed only by a master thread of a single team
-    // so no guarding required
-    if (StoreI->hasMetadata(VPOParoptAtomicFreeReduction::GlobalStoreMD))
+    // is executed only by the master thread of a single team
+    // so no additional guarding is required.
+    if (isGuardedByThreadCheck(StoreI))
       return true;
 
     // We must not guard stores through private pointers. The store must
@@ -1305,7 +1325,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (TargetDirectiveExit == &I)
         break;
       if (I.mayThrow() || I.mayWriteToMemory()) {
-        if (ignoreSpecialOperands(&I))
+        if (ignoreWhenGuardingSideEffectStatements(&I))
           continue;
 
         LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
@@ -3011,7 +3031,13 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
   if (NeedsGlobalBuffer) {
     Type *CounterTy = Type::getInt32Ty(F->getContext());
     uint64_t Size = DL.getTypeSizeInBits(CounterTy) / 8;
-    uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_TO;
+    // The teams_counter can either be made firstprivate (using MAP_TO), or we
+    // can ask the runtime to allocate it from a zero-initialized memory pool,
+    // to avoid host-to-device transfer associated with the MAP_TO.
+    uint64_t MapType =
+        TGT_MAP_PRIVATE | TGT_MAP_TARGET_PARAM |
+        (AtomicFreeRedUseFPTeamsCounter ? TGT_MAP_TO
+                                        : TGT_MAP_USE_ZERO_INIT_MEM);
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
     Value *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);

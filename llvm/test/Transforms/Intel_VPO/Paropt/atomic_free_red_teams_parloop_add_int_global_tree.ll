@@ -61,6 +61,7 @@
 ; CHECK: %[[TREE_RESULT:[^,]+]] = load i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]]
 ; CHECK: %[[RESULT:[^,]+]] = add i32 %[[TREE_RESULT]], %[[INIT]]
 ; CHECK: store i32 %[[RESULT]], ptr addrspace(1) %[[RESULT_PTR]]
+; CHECK-NEXT: store i32 0, ptr addrspace(1) %[[TEAMS_COUNTER_PTR]], align 4
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
