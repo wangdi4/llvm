@@ -3609,9 +3609,7 @@ static Value *createLogicalOp(IRBuilderBase &Builder,
 //
 // This trasformation will combine two blocks in one,
 // so put the optimization here.
-static bool foldReductionBlockWithVectorization(
-                      BranchInst *BI,
-                      SimplifyCFGCostTracker &CostTracker) {
+static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   struct Group {
     GetElementPtrInst *BVIndexPtr[2];
     LoadInst *BVIndexVal[2];
@@ -4122,7 +4120,7 @@ static bool foldReductionBlockWithVectorization(
       return false;
 
   // Combine current BB with CmpZero block.
-  if (!FoldBranchToCommonDest(CmpZeroTerm, CostTracker, nullptr, nullptr, nullptr, 4))
+  if (!FoldBranchToCommonDest(CmpZeroTerm, nullptr, nullptr, nullptr, 4))
     return false;
 
   // Start to transform.
@@ -8607,7 +8605,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   // foldReductionBlockWithVectorization support AVX2 or above.
   if (TTI.isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
-    if (foldReductionBlockWithVectorization(BI, *CostTracker))
+    if (foldReductionBlockWithVectorization(BI))
       return true;
   } else if (foldFcmpLadder(BI)) {
     return true;
