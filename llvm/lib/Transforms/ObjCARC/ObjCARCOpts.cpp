@@ -594,7 +594,6 @@ public:
   bool runOnFunction(Function &F) override {
     return OCAO.run(F, getAnalysis<AAResultsWrapperPass>().getAAResults());
   }
-  void releaseMemory() override { OCAO.releaseMemory(); }
   static char ID;
 
 private:
