@@ -1,4 +1,3 @@
-; RUN: opt < %s -basic-aa -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -S -mtriple=x86_64 -mcpu=skylake-avx512 | FileCheck %s
 ; RUN: opt < %s -basic-aa -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -S -mtriple=x86_64 -mcpu=skylake-avx512 | FileCheck %s
 
 ; This is a test for PSLP. It checks whether the 8x4 loop in x264 gets vectorized.

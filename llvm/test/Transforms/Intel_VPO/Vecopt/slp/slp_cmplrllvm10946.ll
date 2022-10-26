@@ -1,4 +1,3 @@
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=100 -S | FileCheck %s
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=100 -S | FileCheck %s
 
 ; Test case reproduces situation when Multi-Node is being built and
