@@ -52,10 +52,145 @@ namespace ext {
 namespace oneapi {
 namespace experimental {
 
-// template <typename T, bool IsP> struct select_type {};
-// template <typename T> struct select_type<T, true> { using type = __OPENCL_GLOBAL_AS__ T;};
-// template <typename T> struct select_type<T, false> { using type = T;};
 
+template <typename T, typename PropertyListT = detail::empty_properties_t, typename Enable = void>
+class annotated_arg {
+  // This should always fail when instantiating the unspecialized version.
+  static_assert(is_property_list<PropertyListT>::value,
+                "Property list is invalid.");
+};
+
+// Partial specialization for pointer type
+template <typename T, typename... Props>
+class __SYCL_SPECIAL_CLASS annotated_arg<T, detail::properties_t<Props...>, typename std::enable_if<std::is_pointer<T>::value>::type> {
+  using property_list_t = detail::properties_t<Props...>;
+  using UnderlyingT = typename std::remove_pointer<T>::type;
+  __OPENCL_GLOBAL_AS__ UnderlyingT *ptr;
+
+  #ifdef __SYCL_DEVICE_ONLY__
+    void __init(
+      [[__sycl_detail__::add_ir_attributes_kernel_parameter(
+          detail::PropertyMetaInfo<Props>::name...,
+          detail::PropertyMetaInfo<Props>::value...
+      )]]
+      __OPENCL_GLOBAL_AS__ UnderlyingT* _ptr) {
+        ptr = _ptr;
+    }
+  #endif
+
+public:
+  static_assert(std::is_trivially_destructible<T>::value,
+                "Type T must be trivially destructible.");
+  static_assert(is_property_list<property_list_t>::value,
+                "Property list is invalid.");
+
+  annotated_arg() = default;
+  // annotated_arg(const annotated_arg&) = default;
+  annotated_arg(UnderlyingT *_ptr) : ptr((__OPENCL_GLOBAL_AS__ UnderlyingT*)_ptr) {};
+
+  operator T&() {
+    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of annotated_arg to T")
+    return ptr;
+  }
+  operator const T&() const {
+    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of annotated_arg to T")
+    return ptr;
+  }
+
+  // template<typename RelayT = T, typename = std::enable_if_t<std::is_pointer<RelayT>::value>>
+  // std::remove_pointer_t<RelayT> operator [](std::ptrdiff_t idx) {
+  //   __SYCL_HOST_NOT_SUPPORTED("operator[] on an annotated_arg")
+  //   return ptr[idx];
+  // }
+
+  // auto operator [](std::ptrdiff_t idx) {
+  //   __SYCL_HOST_NOT_SUPPORTED("operator[] on an annotated_arg")
+  //   return ptr[idx];
+  // }
+
+  // inline T& get() {
+  //   __SYCL_HOST_NOT_SUPPORTED("get()")
+  //   return ptr;
+  // }
+  // inline const T& get() const {
+  //   __SYCL_HOST_NOT_SUPPORTED("get()")
+  //   return ptr;
+  // }
+
+  inline T get() const {
+    __SYCL_HOST_NOT_SUPPORTED("get()")
+    return ptr;
+  }
+
+  template <typename PropertyT> static constexpr bool has_property() {
+    return property_list_t::template has_property<PropertyT>();
+  }
+
+  template <typename PropertyT> static constexpr auto get_property() {
+    return property_list_t::template get_property<PropertyT>();
+  }
+};
+
+// Partial specialization for non-pointer type
+template <typename T, typename... Props>
+class __SYCL_SPECIAL_CLASS annotated_arg <T, detail::properties_t<Props...>, typename std::enable_if<!std::is_pointer<T>::value>::type> {
+  using property_list_t = detail::properties_t<Props...>;
+
+  T obj;
+
+  #ifdef __SYCL_DEVICE_ONLY__
+    void __init(
+      [[__sycl_detail__::add_ir_attributes_kernel_parameter(
+          detail::PropertyMetaInfo<Props>::name...,
+          detail::PropertyMetaInfo<Props>::value...
+      )]]
+      T _obj) {
+        obj = _obj;
+    }
+  #endif
+
+public:
+  // T should be trivially copy constructible to be device copyable
+  static_assert(std::is_trivially_copy_constructible<T>::value,
+                "Type T must be trivially copy constructable.");
+  static_assert(std::is_trivially_destructible<T>::value,
+                "Type T must be trivially destructible.");
+  static_assert(is_property_list<property_list_t>::value,
+                "Property list is invalid.");
+
+  annotated_arg() = default;
+  annotated_arg(const annotated_arg&) = default;
+  annotated_arg(const T &_obj) : obj(_obj) {};
+
+  operator T&() {
+    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of annotated_arg to T")
+    return obj;
+  }
+  operator const T&() const {
+    __SYCL_HOST_NOT_SUPPORTED("Implicit conversion of annotated_arg to T")
+    return obj;
+  }
+
+  inline T& get() {
+    __SYCL_HOST_NOT_SUPPORTED("get()")
+    return obj;
+  }
+  inline const T& get() const {
+    __SYCL_HOST_NOT_SUPPORTED("get()")
+    return obj;
+  }
+
+  template <typename PropertyT> static constexpr bool has_property() {
+    return property_list_t::template has_property<PropertyT>();
+  }
+
+  template <typename PropertyT> static constexpr auto get_property() {
+    return property_list_t::template get_property<PropertyT>();
+  }
+};
+
+
+/*
 template <typename T, typename PropertyListT = detail::empty_properties_t>
 class annotated_arg {
   // This should always fail when instantiating the unspecialized version.
@@ -68,12 +203,7 @@ class annotated_arg {
 template <typename T, typename... Props>
 class __SYCL_SPECIAL_CLASS annotated_arg<T, detail::properties_t<Props...>> {
   using property_list_t = detail::properties_t<Props...>;
-
-  // using CondT = typename std::conditional<std::is_pointer<T>::value, __OPENCL_GLOBAL_AS__ T, T>::type;
-
-  // std::conditional<std::is_pointer<T>::value, , T> obj;
-  // CondT obj;
-  __OPENCL_GLOBAL_AS__ T *obj;
+  // using CondT = std::conditional<std::is_pointer<T>::value, __OPENCL_GLOBAL_AS__ UnderlyingT, T>::type;
 
   #ifdef __SYCL_DEVICE_ONLY__
     void __init(
@@ -150,6 +280,7 @@ public:
     return property_list_t::template get_property<PropertyT>();
   }
 };
+*/
 
 } // namespace experimental
 } // namespace oneapi
