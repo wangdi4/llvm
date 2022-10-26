@@ -1842,18 +1842,12 @@ public:
   /// This is ONLY needed for DEVICE compilation.
   void initializeTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
                                        unsigned Order);
-<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Register target region entry. Return the entry's order in the table.
-  int registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+  int registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
 #else
-  void registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-#endif // INTEL_COLLAB
-                                     StringRef ParentName, unsigned LineNum,
-=======
-  /// Register target region entry.
   void registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
->>>>>>> 3d0e9edd8e53fb72e85084f4170513159212839a
+#endif // INTEL_COLLAB
                                      Constant *Addr, Constant *ID,
                                      OMPTargetRegionEntryKind Flags,
                                      bool IsDevice);

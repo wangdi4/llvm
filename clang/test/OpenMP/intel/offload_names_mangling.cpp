@@ -75,35 +75,35 @@ void foo() {
 // CHECK-HOST-DAG: define{{.*}}void @"?foo@@YAXXZ"
 
 // CHECK-HOST: !omp_offload.info = !{!{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}}
-// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_ctor"
-// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_dtor"
-// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_ctor"
-// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_dtor"
+// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_ctor"
+// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_dtor"
+// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_ctor"
+// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_dtor"
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z3foov"
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1C1Ev"
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1D1Ev"
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c2",{{.*}}ptr @"?c2@@3VC2@@A"
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c1",{{.*}}ptr @"?c1@@3VC1@@A"
 
-// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_ctor
+// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_ctor
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C1C1Ev
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C1C2Ev
-// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_dtor
+// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_dtor
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C1D1Ev
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C1D2Ev
-// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_ctor
+// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_ctor
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C2C1Ev
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C2C2Ev
-// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_dtor
+// CHECK-TARG-DAG: define{{.*}}void @__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_dtor
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C2D1Ev
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C2D2Ev
 // CHECK-TARG-DAG: define{{.*}}void @_Z3foov
 
 // CHECK-TARG: !omp_offload.info = !{!{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}, !{{[0-9]+}}}
-// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_ctor"
-// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_dtor"
-// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_ctor"
-// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_dtor"
+// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_ctor"
+// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_dtor"
+// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_ctor"
+// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"__omp_offloading_{{[a-f0-9]+}}_{{[a-f0-9]+}}_c2_l63_dtor"
 // CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z3foov"
 // CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1C1Ev"
 // CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1D1Ev"
