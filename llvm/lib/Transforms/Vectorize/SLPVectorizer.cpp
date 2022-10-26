@@ -199,23 +199,15 @@ static cl::opt<uint32_t>
     MaxSplitLoads("max-split-load", cl::init(4), cl::Hidden,
                   cl::desc("Max number of split-load groups."));
 
-/// Perform operand reordering across chains of binary operations
-/// (which we refer to as MultiNodes). This option enables the new design.
-/// Older design is controlled by EnableMultiNodeOpt. During transition
-/// period both implementations can be executed but only one shall be enabled.
-static cl::opt<bool, true> EnableNewMultiNodeOpt(
-    "slp-multinode", cl::Hidden, cl::location(EnableMultiNode),
-    cl::desc("Enable MultiNode with operand reordering across them"));
-
 // Enable the formation of Multi-Nodes.
 // Please refer to the following paper for more details on Multi-Nodes.
 // "Look-Ahead SLP: Auto-vectorization in the Presence of Commutative
 // Operations, V. Porpodas, R.C.O. Rocha, L.F.W. Góes, CGO'18."
 // https://doi.org/10.1145/3168807
-static cl::opt<bool, true>
-    EnableMultiNodeOpt("slp-multinode-legacy", cl::Hidden,
-                       cl::location(EnableMultiNodeSLP),
-                       cl::desc("Enable Multi-Node SLP"));
+// Perform operand reordering across chains of binary operations.
+static cl::opt<bool, true> EnableNewMultiNodeOpt(
+    "slp-multinode", cl::Hidden, cl::location(EnableMultiNode),
+    cl::desc("Enable MultiNode with operand reordering across them"));
 
 // This is a work-around to avoid compilation time explosion caused by
 // re-scheduling the vectorizableTree. In a future implementation this should be

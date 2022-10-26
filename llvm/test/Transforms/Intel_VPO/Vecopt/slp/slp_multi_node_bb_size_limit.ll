@@ -1,5 +1,3 @@
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=250 -S | FileCheck %s -check-prefix=CHECK_LO_LIMIT
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=400 -S | FileCheck %s -check-prefix=CHECK_HI_LIMIT
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=250 -S | FileCheck %s -check-prefix=CHECK_LO_LIMIT
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=400 -S | FileCheck %s -check-prefix=CHECK_HI_LIMIT
 

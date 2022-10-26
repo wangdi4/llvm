@@ -1,4 +1,3 @@
-; RUN: opt -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -S -mtriple=x86_64 -mcpu=skylake-avx512 < %s | FileCheck %s
 ; RUN: opt -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -S -mtriple=x86_64 -mcpu=skylake-avx512 < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
