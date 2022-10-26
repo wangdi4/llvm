@@ -2,9 +2,7 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; INTEL CUSTOMIZATION:
 
-; RUN: opt -opaque-pointers -inline -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-EARLY,CHECK-OLD %s
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-EARLY,CHECK-NEW %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-LATE %s
 ; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-LATE %s
 
 ; Test checks that inlining happens for all foo() call sites. The inlining is

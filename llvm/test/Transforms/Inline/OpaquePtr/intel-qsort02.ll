@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers < %s -inline -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -S 2>&1 | FileCheck %s
 
 ; Test that @spec-qsort loses its function recognizer attribute after

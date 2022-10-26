@@ -1,4 +1,3 @@
-; RUN: opt -inline < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='inline' < %s -S 2>&1 | FileCheck %s
 
 ; CQ378383: Test to see that a single branch with a test for a global against

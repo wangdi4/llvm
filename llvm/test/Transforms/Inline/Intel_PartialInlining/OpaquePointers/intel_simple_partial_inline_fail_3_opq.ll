@@ -31,7 +31,6 @@
 ; This is the same test case intel_simple_partial_inline_fail_3.ll, but it
 ; checks for opaque pointers.
 ;
-; RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -debug-only=intel_partialinline 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -debug-only=intel_partialinline 2>&1 | FileCheck %s
 
 ; CHECK: No candidates for partial inlining

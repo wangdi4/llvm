@@ -7,11 +7,6 @@
 
 ; Makes sure "copy_inside_array" call in "foo" is not inlined when
 ; -pre-lto-inline-cost is passed.
-; RUN: opt < %s -disable-output -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
-; Same as above except using metadata
-; RUN: opt < %s -disable-output -inlinereportsetup -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost -inlinereportemitter 2>&1 | FileCheck %s
-
-; New PM command
 ; RUN: opt < %s -disable-output  -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost  2>&1 | FileCheck %s
 ; Same as above except using metadata
 ; RUN: opt < %s -disable-output -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s

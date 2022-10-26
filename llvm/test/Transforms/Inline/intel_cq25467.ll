@@ -1,6 +1,4 @@
-; RUN: opt < %s -S -function-attrs -inline -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
 ; RUN: opt < %s -S -passes='function-attrs,cgscc(inline)' -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -function-attrs -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='function-attrs,cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
 
 ; Check that the calls to stmxcsr and ldmcscr are still in the IR after

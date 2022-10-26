@@ -1,7 +1,6 @@
 ; Test multi-versioning with various combinations of def-use chains in
 ; bool closure.
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -multiversioning -multiversioning-threshold=2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -passes=multiversioning -multiversioning-threshold=2 -S 2>&1 | FileCheck %s
 
 %struct.S = type { i8 }

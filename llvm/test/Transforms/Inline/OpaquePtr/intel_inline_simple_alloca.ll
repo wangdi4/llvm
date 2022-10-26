@@ -3,11 +3,6 @@
 ; This test verifies that foo is inlined even though it has dynamic alloca
 ; instructions.
 
-; RUN: opt -opaque-pointers < %s -S -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain 2>&1 | FileCheck %s
-; Same as above except using metadata
-; RUN: opt -opaque-pointers < %s -S -inlinereportsetup -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -inlinereportemitter 2>&1 | FileCheck %s
-
-; New PM command
 ; RUN: opt -opaque-pointers < %s -S -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain  2>&1 | FileCheck %s
 ; Same as above except using metadata
 ; RUN: opt -opaque-pointers < %s -S -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain 2>&1 | FileCheck %s

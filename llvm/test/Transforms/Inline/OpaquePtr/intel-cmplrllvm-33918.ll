@@ -1,6 +1,4 @@
 ; INTEL_FEATURE_SW_ADVANCED
-; RUN: opt -enable-new-pm=0 -inline -disable-inlined-alloca-merging=true -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OFF %s
-; RUN: opt -enable-new-pm=0 -inline -disable-inlined-alloca-merging=false -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-ON %s
 ; RUN: opt -passes='cgscc(inline)' -inlined-alloca-merging-npm=false -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OFF %s
 ; RUN: opt -passes='cgscc(inline)' -inlined-alloca-merging-npm=true -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-ON %s
 

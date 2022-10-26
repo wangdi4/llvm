@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -inline < %s -S -o - | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=inline < %s -S -o - | FileCheck %s
 
 ; Check that "ptrnoalias" on actual arguments in the call site will be converted into
