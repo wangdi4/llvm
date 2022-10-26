@@ -5,7 +5,6 @@
 ; without whole program safe.
 
 
-; RUN: opt < %s -intel-fold-wp-intrinsic -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic)' -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()

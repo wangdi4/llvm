@@ -1,4 +1,3 @@
-; RUN: opt -arg-noalias-prop -S %s | FileCheck %s
 ; RUN: opt -aa-pipeline=basic-aa -passes=arg-noalias-prop -S %s | FileCheck %s
 
 ; ArgNoAliasProp runs on an entire Module and must take care to request the
