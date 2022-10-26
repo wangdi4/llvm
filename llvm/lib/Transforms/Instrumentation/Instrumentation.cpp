@@ -111,6 +111,7 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializeMemProfilerLegacyPassPass(Registry);
   initializeModuleMemProfilerLegacyPassPass(Registry);
   initializeBoundsCheckingLegacyPassPass(Registry);
+<<<<<<< HEAD
   initializeFunctionSplittingWrapperPass(Registry); // INTEL
   initializeGCOVProfilerLegacyPassPass(Registry);
   initializePGOInstrumentationGenLegacyPassPass(Registry); // INTEL
@@ -119,6 +120,8 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializeMemorySanitizerLegacyPassPass(Registry); // INTEL
   initializeThreadSanitizerLegacyPassPass(Registry); // INTEL
   initializeDataFlowSanitizerLegacyPassPass(Registry);
+=======
+>>>>>>> a527bda520f01174178eaddccf52124ac1b2473f
 }
 
 /// LLVMInitializeInstrumentation - C binding for
