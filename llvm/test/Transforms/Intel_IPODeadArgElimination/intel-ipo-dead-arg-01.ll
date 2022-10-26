@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination  %s -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination  %s -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination removes

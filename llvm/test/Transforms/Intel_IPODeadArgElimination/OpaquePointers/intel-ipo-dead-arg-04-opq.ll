@@ -1,9 +1,7 @@
 ; Inline report
-; RUN: opt -opaque-pointers -inline -intel-ipo-dead-arg-elimination -inline-report=0xe807   < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe807   < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
 
 ; Inline report with metadata
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s  -S | opt -opaque-pointers -inline -intel-ipo-dead-arg-elimination -inline-report=0xe886  -S | opt -opaque-pointers  -inlinereportemitter -inline-report=0xe886  -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s  -S | opt -opaque-pointers -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe886  -S | opt -opaque-pointers -passes='inlinereportemitter' -inline-report=0xe886  -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
 
 ; This test case checks that the inlining report is preserved after simplified

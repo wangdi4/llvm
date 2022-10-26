@@ -5,7 +5,6 @@
 ; printed correctly. This test is the same as whole_program_intrin_true.ll.
 
 
-; RUN: opt < %s -intel-fold-wp-intrinsic -whole-program-assume -debug-only=intel-fold-wp-intrinsic -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic)' -whole-program-assume -debug-only=intel-fold-wp-intrinsic -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
