@@ -1,6 +1,4 @@
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-paddedmallocop -dtrans-test-paddedmalloc -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-paddedmallocop -dtrans-test-paddedmalloc  -S 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-paddedmallocop -padded-pointer-prop-op -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes="dtrans-paddedmallocop,padded-pointer-prop-op" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
 
 ; Check for padded malloc counter

@@ -1,4 +1,3 @@
-; RUN: opt < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers

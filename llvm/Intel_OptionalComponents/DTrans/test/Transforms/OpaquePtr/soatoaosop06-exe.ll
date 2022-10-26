@@ -1,11 +1,3 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop                                        \
-; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
-; RUN:       | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop                                       \
-; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
-; RUN:       | %lli
 ; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
@@ -15,10 +7,6 @@
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | %lli
 ;
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop                                        \
-; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
-; RUN:       | FileCheck --check-prefix=CHECK-OP %s
 ; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \

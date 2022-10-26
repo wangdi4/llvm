@@ -4,15 +4,10 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Run the test with all uses of the dope vector being supported.
-; RUN: opt -opaque-pointers < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
+; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 
 ; Use the same basic framework, but with instructions in the called function
 ; that should invalidate the candidate based on the dope vector analysis
-; RUN: sed -e s/.TEST_WRITE1:// %s | opt -opaque-pointers -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
-; RUN: sed -e s/.TEST_CAST:// %s | opt -opaque-pointers -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
-; RUN: sed -e s/.TEST_WRITE2:// %s | opt -opaque-pointers -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
-; RUN: sed -e s/.TEST_CALL:// %s | opt -opaque-pointers -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
-
 ; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 ; RUN: sed -e s/.TEST_WRITE1:// %s | opt -opaque-pointers -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 ; RUN: sed -e s/.TEST_CAST:// %s | opt -opaque-pointers -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s

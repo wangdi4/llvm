@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -disable-output -dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 
 ; Check that main_$MYA and main_$MYB get transposed, because their rank 0 index

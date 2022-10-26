@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dtrans-transpose -debug-only=dtrans-transpose-transform  2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 
 ; Check that the array through which the indirect subscripting is occurring is

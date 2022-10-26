@@ -1,7 +1,6 @@
 ; This test verifies that the field reordering transformation is applied
 ; correctly to byte flattened GEP instructions related to %struct.test.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfieldsop | FileCheck %s
 ;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

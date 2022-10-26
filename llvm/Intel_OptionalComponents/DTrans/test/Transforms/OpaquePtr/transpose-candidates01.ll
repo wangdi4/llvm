@@ -4,7 +4,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers < %s -disable-output -dtrans-transpose -debug-only=dtrans-transpose 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose 2>&1 | FileCheck %s
 
 ; CHECK-NOT: Adding candidate: @test_var1

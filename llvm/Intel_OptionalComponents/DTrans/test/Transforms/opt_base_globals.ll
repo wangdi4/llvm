@@ -7,22 +7,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; that need to be remapped to new types due to type replacement get
 ; remapped correctly.
 
-; Test with legacy pass manager
-; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -internalize -S -dtrans-optbasetest \
-; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a \
-; RUN: 2>&1 | FileCheck %s
-
-; Test with new pass manager
 ; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes='internalize,dtrans-optbasetest' \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a \
 ; RUN: 2>&1 | FileCheck %s
 
 ; Run tests without supplying dtrans analysis info to the base class
-; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -internalize -S -dtrans-optbasetest \
-; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a -dtrans-optbasetest-use-analysis=false \
-; RUN: 2>&1 | FileCheck %s
-
-; Test with new pass manager
 ; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes='internalize,dtrans-optbasetest' \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a -dtrans-optbasetest-use-analysis=false \
 ; RUN: 2>&1 | FileCheck %s

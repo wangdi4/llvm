@@ -1,7 +1,6 @@
 ; This test verifies that the field reordering transformation is applied
 ; correctly to GEP and calloc instructions related to %struct.test.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfieldsop | FileCheck %s
 ;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
 
 ; CHECK-LABEL: define void @foo

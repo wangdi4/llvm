@@ -17,7 +17,6 @@
 ; to cMessage type in cpu2017/520-omnetpp.
 ;
 
-;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
 ;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
 
 ; CHECK: %__DFR_struct.S = type { %struct.S0, i32, i64, i16, i16, i16, i64, i64, i64, i8*, i32*, i16*, i32, i32, %struct.S0, %struct.S0, %struct.S0, %struct.S0, i32, i32 }

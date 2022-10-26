@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields | FileCheck %s
 ; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; Field reordering should not be performed for new/delete.

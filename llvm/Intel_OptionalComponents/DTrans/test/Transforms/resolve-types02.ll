@@ -1,5 +1,3 @@
-; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes \
-; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
 ; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes \
 ; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts

@@ -4,10 +4,6 @@
 ; This test verifies that SOAToAOS is triggered when IR has specific things
 ; like EH etc.
 
-; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaos                     \
-; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                     \
-; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false \
-; RUN:       | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaos              \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                     \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false \
