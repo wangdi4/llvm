@@ -64,8 +64,6 @@ public:
   /// provided device selector.
   ///
   /// \param DeviceSelector is an instance of a SYCL 1.2.1 device_selector
-  __SYCL2020_DEPRECATED("SYCL 1.2.1 device selectors are deprecated. Please "
-                        "use SYCL 2020 device selectors instead.")
   explicit platform(const device_selector &DeviceSelector);
 
 #if __cplusplus >= 201703L

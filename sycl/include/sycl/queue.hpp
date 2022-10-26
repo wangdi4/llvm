@@ -167,8 +167,6 @@ public:
   ///
   /// \param DeviceSelector is an instance of a SYCL 1.2.1 device_selector.
   /// \param PropList is a list of properties for queue construction.
-  __SYCL2020_DEPRECATED("SYCL 1.2.1 device selectors are deprecated. Please "
-                        "use SYCL 2020 device selectors instead.")
   queue(const device_selector &DeviceSelector,
         const property_list &PropList = {})
       : queue(DeviceSelector.select_device(), async_handler{}, PropList) {}
@@ -179,8 +177,6 @@ public:
   /// \param DeviceSelector is an instance of SYCL 1.2.1 device_selector.
   /// \param AsyncHandler is a SYCL asynchronous exception handler.
   /// \param PropList is a list of properties for queue construction.
-  __SYCL2020_DEPRECATED("SYCL 1.2.1 device selectors are deprecated. Please "
-                        "use SYCL 2020 device selectors instead.")
   queue(const device_selector &DeviceSelector,
         const async_handler &AsyncHandler, const property_list &PropList = {})
       : queue(DeviceSelector.select_device(), AsyncHandler, PropList) {}
@@ -207,8 +203,6 @@ public:
   /// \param SyclContext is an instance of SYCL context.
   /// \param DeviceSelector is an instance of SYCL device selector.
   /// \param PropList is a list of properties for queue construction.
-  __SYCL2020_DEPRECATED("SYCL 1.2.1 device selectors are deprecated. Please "
-                        "use SYCL 2020 device selectors instead.")
   queue(const context &SyclContext, const device_selector &DeviceSelector,
         const property_list &PropList = {});
 
@@ -220,8 +214,6 @@ public:
   /// \param DeviceSelector is an instance of SYCL device selector.
   /// \param AsyncHandler is a SYCL asynchronous exception handler.
   /// \param PropList is a list of properties for queue construction.
-  __SYCL2020_DEPRECATED("SYCL 1.2.1 device selectors are deprecated. Please "
-                        "use SYCL 2020 device selectors instead.")
   queue(const context &SyclContext, const device_selector &DeviceSelector,
         const async_handler &AsyncHandler, const property_list &PropList = {});
 
