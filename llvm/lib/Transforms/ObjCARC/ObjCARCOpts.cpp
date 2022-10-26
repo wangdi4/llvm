@@ -576,7 +576,6 @@ class ObjCARCOpt {
   public:
     void init(Module &M);
     bool run(Function &F, AAResults &AA);
-    void releaseMemory();
     bool hasCFGChanged() const { return CFGChanged; }
 };
 
@@ -595,7 +594,6 @@ public:
   bool runOnFunction(Function &F) override {
     return OCAO.run(F, getAnalysis<AAResultsWrapperPass>().getAAResults());
   }
-  void releaseMemory() override { OCAO.releaseMemory(); }
   static char ID;
 
 private:
@@ -2523,10 +2521,6 @@ bool ObjCARCOpt::run(Function &F, AAResults &AA) {
   LLVM_DEBUG(dbgs() << "\n");
 
   return Changed;
-}
-
-void ObjCARCOpt::releaseMemory() {
-  PA.clear();
 }
 
 /// @}
