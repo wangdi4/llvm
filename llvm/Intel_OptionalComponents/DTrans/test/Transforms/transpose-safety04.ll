@@ -4,7 +4,6 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Run the test with all uses of the dope vector being supported.
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 

@@ -5,7 +5,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; This test is similar to transpose-transform01.ll, but uses the new form of
 ; uplevel type names.
 
-; RUN: opt < %s -S -dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes=dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
 
 %TEST02.uplevel_type = type { { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* }

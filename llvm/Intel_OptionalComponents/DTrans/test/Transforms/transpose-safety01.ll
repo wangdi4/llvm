@@ -5,7 +5,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This test also tests the internal option -dtrans-transpose-min-dim
 
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-min-dim=3 -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-min-dim=3 -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 

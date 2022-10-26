@@ -1,7 +1,6 @@
 ; This test verifies that struct.test is not selected as candidate
 ; due to reordering restrictions since struct.test has vector type.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-reorderfieldsop -S 2>&1 | FileCheck %s
 ;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-reorderfieldsop -S 2>&1 | FileCheck %s
 
 ; Note: Rejecting struct.test because reorder-field pass won't support any

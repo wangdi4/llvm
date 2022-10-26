@@ -8,7 +8,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; because the base class relies on information about the types collected
 ; during analysis.
 
-; RUN: opt < %s -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01 | FileCheck %s
 ; RUN: opt < %s -S -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01 | FileCheck %s
 
 ; CHECK-NOT: %__DTT_struct.test01 = type { i32, i32, i32 }

@@ -4,7 +4,6 @@
 ; correctly to struct that has a field of another type that is being
 ; transformed by field-reorder.
 
-;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields | FileCheck %s
 ;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK-DAG: %__DFR_struct.test01 = type { i64, i64, %__DFR_struct.test02*, i32, i32, i32, i16 }

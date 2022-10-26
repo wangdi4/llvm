@@ -1,5 +1,5 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-TYPED
-; RUN: opt -opaque-pointers -S -remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -dtransop-allow-typed-pointers -S -passes=remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-TYPED
+; RUN: opt -opaque-pointers -S -passes=remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 target triple = "x86_64-unknown-linux-gnu"
 

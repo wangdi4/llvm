@@ -3,11 +3,7 @@
 ; This test verifies that SOAToAOS is triggered when member functions have
 ; llvm.assume and llvm.type.test intrinsic calls.
 
-; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaos                                  \
-; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false              \
-; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
-; RUN:  2>&1 | FileCheck %s
-; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaos                           \
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaos     \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false              \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:  2>&1 | FileCheck %s

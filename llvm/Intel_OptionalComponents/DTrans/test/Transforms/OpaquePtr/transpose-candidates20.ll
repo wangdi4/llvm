@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check that field 1 of physpropmod_mp_physprop_ is determined to be a valid candidate for transpose

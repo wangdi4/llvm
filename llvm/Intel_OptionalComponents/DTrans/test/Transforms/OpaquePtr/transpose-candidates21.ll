@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check that with -dtrans-outofboundsok=true, we get no transpose candidates

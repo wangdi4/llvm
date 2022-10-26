@@ -2,10 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.MyStruct -o %t %s
-; RUN:   grep "DILocalVariable(name: \"x\"" %t | count 1
-; RUN:   grep "DILocalVariable(name: \"y\"" %t | count 1
-; RUN:   grep "DILocalVariable(name: \"z\"" %t | count 1
 ; RUN: opt -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.MyStruct -o %t %s
 ; RUN:   grep "DILocalVariable(name: \"x\"" %t | count 1
 ; RUN:   grep "DILocalVariable(name: \"y\"" %t | count 1

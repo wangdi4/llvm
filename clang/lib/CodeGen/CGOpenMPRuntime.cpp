@@ -7761,9 +7761,6 @@ public:
   bool isFirstPrivateDecls(const VarDecl *VD) const {
     return FirstPrivateDecls.count(VD);
   }
-  bool isHasDevAddrsMap(const ValueDecl *VD) const{
-    return HasDevAddrsMap.count(VD);
-  }
 #endif // INTEL_COLLAB
   /// Generate the base pointers, section pointers, sizes, map type bits, and
   /// user-defined mappers (all included in \a CombinedInfo) for the provided
@@ -9007,10 +9004,6 @@ private:
       MapCombinedInfoTy CurInfo;
       const Decl *D = Data.first;
       const ValueDecl *VD = cast_or_null<ValueDecl>(D);
-#if INTEL_COLLAB
-      if (CGF.CGM.getLangOpts().OpenMPLateOutline && isHasDevAddrsMap(VD))
-        continue;
-#endif  // INTEL_COLLAB
       for (const auto &M : Data.second) {
         for (const MapInfo &L : M) {
           assert(!L.Components.empty() &&
@@ -10174,10 +10167,6 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         continue;
       }
 
-      if ((CI->capturesThis() && MEHandler.isHasDevAddrsMap(nullptr)) ||
-          (!CI->capturesThis() &&
-           MEHandler.isHasDevAddrsMap(CI->getCapturedVar())))
-        continue;
       MappableExprsHandler::MapCombinedInfoTy CurInfo;
       MappableExprsHandler::StructRangeInfoTy PartialStruct;
 
