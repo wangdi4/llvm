@@ -3,7 +3,6 @@
 ; Test that identifies that the DTrans padded malloc optimization
 ; didn't find a malloc function.
 
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed < %s -dtrans-paddedmallocop -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-paddedmallocop -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc

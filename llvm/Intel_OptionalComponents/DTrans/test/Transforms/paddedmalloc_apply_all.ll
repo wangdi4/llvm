@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; This test case is similar to paddedmalloc_apply.ll, but also explicitly
 ; exercises dtransanalysis and -padded-pointer-prop.
 
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>,padded-pointer-prop,dtrans-paddedmalloc' -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>,padded-pointer-prop,dtrans-paddedmalloc' -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 

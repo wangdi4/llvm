@@ -5,9 +5,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -passes=dtrans-paddedmalloc -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -passes="dtrans-paddedmalloc,padded-pointer-prop" -S 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
