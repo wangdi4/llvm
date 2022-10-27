@@ -7259,7 +7259,12 @@ Instruction *InstCombinerImpl::visitFCmpInst(FCmpInst &I) {
 
   // Ignore signbit of bitcasted int when comparing equality to FP 0.0:
   // fcmp oeq/une (bitcast X), 0.0 --> (and X, SignMaskC) ==/!= 0
-  if (match(Op1, m_PosZeroFP()) &&
+#if INTEL_CUSTOMIZATION
+    // The transformation below does not account DAZ setting, which can be
+    // changed dynamically, during program execution, and possible NaNs.
+    // Switching it off for now.
+#endif
+  if (0 && match(Op1, m_PosZeroFP()) && // INTEL
       match(Op0, m_OneUse(m_BitCast(m_Value(X)))) &&
       X->getType()->isVectorTy() == OpType->isVectorTy() &&
       X->getType()->getScalarSizeInBits() == OpType->getScalarSizeInBits()) {
