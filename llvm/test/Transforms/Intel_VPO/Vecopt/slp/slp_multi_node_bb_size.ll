@@ -1,4 +1,4 @@
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=300 -S | FileCheck %s
+; RUN: opt < %s -passes=slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=300 -S | FileCheck %s
 
 ; Check that we vectorize Multi-Node with vector length 8 even with lowered basic block size limit
 

@@ -1,4 +1,4 @@
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=100 -S | FileCheck %s
+; RUN: opt < %s -passes=slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=100 -S | FileCheck %s
 
 ; Test case reproduces situation when Multi-Node is being built and
 ; an instruction operands defs turned out in different basic block.

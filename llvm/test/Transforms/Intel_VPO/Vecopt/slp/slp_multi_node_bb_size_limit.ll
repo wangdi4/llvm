@@ -1,5 +1,5 @@
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=250 -S | FileCheck %s -check-prefix=CHECK_LO_LIMIT
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=400 -S | FileCheck %s -check-prefix=CHECK_HI_LIMIT
+; RUN: opt < %s -passes=slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=250 -S | FileCheck %s -check-prefix=CHECK_LO_LIMIT
+; RUN: opt < %s -passes=slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=400 -S | FileCheck %s -check-prefix=CHECK_HI_LIMIT
 
 ; This test tries to limit building MultiNodes via lowering maximum BB
 ; size allowed for the optimization. Basic block labeled lp.1248 is processed first and
