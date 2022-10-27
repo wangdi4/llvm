@@ -36,32 +36,33 @@ namespace llvm {
 namespace vpo {
 
 enum TgtMapTypes : uint64_t {
-  TGT_MAP_TO = 0x01,
   // instructs the runtime to copy the host data to the device.
-  TGT_MAP_FROM = 0x02,
+  TGT_MAP_TO = 0x01,
   // instructs the runtime to copy the device data to the host.
-  TGT_MAP_ALWAYS = 0x04,
+  TGT_MAP_FROM = 0x02,
   // forces the copying regardless of the reference
   // count associated with the map.
-  TGT_MAP_DELETE = 0x08,
+  TGT_MAP_ALWAYS = 0x04,
   // forces the unmapping of the object in a target data.
-  TGT_MAP_PTR_AND_OBJ = 0x10,
+  TGT_MAP_DELETE = 0x08,
   // forces the runtime to map the pointer variable as
   // well as the pointee variable.
-  TGT_MAP_TARGET_PARAM = 0x20,
+  TGT_MAP_PTR_AND_OBJ = 0x10,
   // instructs the runtime that it is the first
   // occurrence of this mapped variable within this construct.
-  TGT_MAP_RETURN_PARAM = 0x40,
+  TGT_MAP_TARGET_PARAM = 0x20,
   // instructs the runtime to return the base
   // device address of the mapped variable.
-  TGT_MAP_PRIVATE = 0x80,
+  TGT_MAP_RETURN_PARAM = 0x40,
   // informs the runtime that the variable is a private variable.
-  TGT_MAP_LITERAL = 0x100,
+  TGT_MAP_PRIVATE = 0x80,
   // instructs the runtime to forward the value to target construct.
+  TGT_MAP_LITERAL = 0x100,
+  // Mapping is implicit.
   TGT_MAP_IMPLICIT = 0x200,
-  TGT_MAP_CLOSE = 0x400,
   // The close map-type-modifier is a hint to the runtime to
   // allocate memory close to the target device.
+  TGT_MAP_CLOSE = 0x400,
   TGT_MAP_ND_DESC = 0x800,
   // runtime error if not already allocated
   TGT_MAP_PRESENT = 0x1000,
@@ -69,6 +70,13 @@ enum TgtMapTypes : uint64_t {
   // the structured region
   // This is an OpenMP extension for the sake of OpenACC support.
   TGT_MAP_OMPX_HOLD = 0x2000,
+  // Use a zero-initialized memory for the allocation. Currently limited to use
+  // with a PRIVATE map-type. The user is expected to reset it to 0 before
+  // unmapping.
+  TGT_MAP_USE_ZERO_INIT_MEM = 0x4000,
+  // Use host USM (which is also device accessible) for the map, instead of
+  // device memory.
+  TGT_MAP_USE_HOST_MEM = 0x8000,
   // descriptor for non-contiguous target-update
   TGT_MAP_NON_CONTIG = 0x100000000000,
   // member of struct, member given by [16 MSBs] - 1
