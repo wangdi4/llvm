@@ -4717,8 +4717,10 @@ TemplateDeclInstantiator::SubstTemplateParams(TemplateParameterList *L) {
 
 TemplateParameterList *
 Sema::SubstTemplateParams(TemplateParameterList *Params, DeclContext *Owner,
-                          const MultiLevelTemplateArgumentList &TemplateArgs) {
+                          const MultiLevelTemplateArgumentList &TemplateArgs,
+                          bool EvaluateConstraints) {
   TemplateDeclInstantiator Instantiator(*this, Owner, TemplateArgs);
+  Instantiator.setEvaluateConstraints(EvaluateConstraints);
   return Instantiator.SubstTemplateParams(Params);
 }
 

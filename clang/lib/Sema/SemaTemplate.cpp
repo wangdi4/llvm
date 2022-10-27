@@ -5734,7 +5734,8 @@ bool Sema::CheckTemplateArgument(
     Params =
         SubstTemplateParams(Params, CurContext,
                             MultiLevelTemplateArgumentList(
-                                Template, SugaredConverted, /*Final=*/true));
+                                Template, SugaredConverted, /*Final=*/true),
+                            /*EvaluateConstraints=*/false);
     if (!Params)
       return true;
   }
