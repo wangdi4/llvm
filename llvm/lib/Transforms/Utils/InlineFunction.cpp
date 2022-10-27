@@ -28,6 +28,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
@@ -1079,6 +1084,9 @@ static void PropagateOperandBundles(Function::iterator InlinedBB,
 
     Instruction *NewInst = CallBase::Create(I, OpBundles, I);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    dtransOP::DTransTypeMetadataPropagator::copyDTransMetadata(NewInst, I);
+#endif // INTEL_FEATURE_SW_DTRANS
     if (IR && IR->isClassicIREnabled())
       IR->updateActiveCallSiteTarget(I, NewInst);
     if (MDIR && MDIR->isMDIREnabled())
