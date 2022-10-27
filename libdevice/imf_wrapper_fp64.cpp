@@ -378,7 +378,6 @@ double __imf_copysign(double x, double y) {
   return __devicelib_imf_copysign(x, y);
 }
 
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 // float64 devicelib API's
 DEVICE_EXTERN_C_INLINE
@@ -649,7 +648,7 @@ DEVICE_EXTERN_C_INLINE
 double __imf_lgamma (double x) { return __devicelib_imf_lgamma (x); }
 
 #endif
-=======
+
 DEVICE_EXTERN_C_INLINE
 _iml_half_internal __devicelib_imf_double2half(double);
 
@@ -657,5 +656,4 @@ DEVICE_EXTERN_C_INLINE
 _iml_half_internal __imf_double2half(double x) {
   return __devicelib_imf_double2half(x);
 }
->>>>>>> 599b1b96e80d479fe669b4e3bfecb794fa8c850c
 #endif // __LIBDEVICE_IMF_ENABLED__
