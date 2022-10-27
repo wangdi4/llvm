@@ -86,8 +86,9 @@
 ; CHECK: add i64 %[[IDX_PHI]], 1
 ; CHECK: br label %atomic.free.red.global.update.header
 ; CHECK-LABEL: atomic.free.red.global.update.store:
-; CHECK: store i32 %[[SUM_PHI]], ptr addrspace(4) %
-; CHECK: store i32 %[[SUM_PHI1]], ptr addrspace(4) %
+; CHECK:         store i32 %[[SUM_PHI]], ptr addrspace(4) %
+; CHECK-NEXT:    store i32 0, ptr addrspace(1) %teams_counter, align 4, !paropt_guarded_by_thread_check !60
+; CHECK-NEXT:    store i32 %[[SUM_PHI1]], ptr addrspace(4) %
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

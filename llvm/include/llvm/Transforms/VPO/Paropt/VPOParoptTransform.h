@@ -102,6 +102,9 @@ enum DeviceArch : uint64_t {
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 
+constexpr StringRef GuardedByThreadCheckMDStr =
+    "paropt_guarded_by_thread_check";
+
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 typedef std::pair<Type*, Value*> ElementTypeAndNumElements;
@@ -801,6 +804,13 @@ private:
       WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
       Instruction *RedVarToLoad, Instruction *RedValToLoad, PHINode *RedSumPhi,
       bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
+
+  // Insert code to Reset the teams_counter to zero when generating code for
+  // the global (teams) stage of atomic-free reduction.
+  void resetTeamsCounterAfterCopyingBackRedItem(GlobalVariable *TeamsCounter,
+                                                bool IsArrayOrArraySection,
+                                                StoreInst *CopyoutStore,
+                                                BasicBlock *CopyoutLoopHeader);
 
   /// Generate code for the aligned clause.
   bool genAlignedCode(WRegionNode *W);
@@ -1993,6 +2003,24 @@ private:
   /// modified.
   bool simplifyLastprivateClauses(WRegionNode *W);
 #endif // INTEL_CUSTOMIZATION
+
+  /// Add "paropt_guarded_by_thread_check" metadata to the Instruction \p I to
+  /// mark that it is already is guarded by a check like `if (thread_id == xyz)`
+  /// to ensure that only one thread executes it. So, it can be ignored when
+  /// adding master-thread checks in guardSideEffectStatements().
+  /// TODO: We should add a way to drop this metadata after
+  /// guardSideEffectStatements() is done.
+  static void markAsGuardedByThreadCheck(Instruction *I);
+
+  /// Return true if the Instruction \p I has metadata indicating that it is
+  /// already guarded by a thread-check like `if (thread_id == xyz)` to ensure
+  /// that only one thread executes it.
+  static bool isGuardedByThreadCheck(const Instruction *I);
+
+  // Returns true if the instruction should be ignored when guarding
+  // side-effect statements with master-thread checks, even if it has
+  // side-effects.
+  static bool ignoreWhenGuardingSideEffectStatements(const Instruction *I);
 
   /// Guard each instruction that has a side effect with master thread id
   /// check, so that only the master thread (id == 0) in the team executes

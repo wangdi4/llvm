@@ -60,8 +60,14 @@
 ; CHECK-LABEL: counter_check:
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI_GLOBAL:[^,]+]] = phi i64
+; CHECK: %[[NUM_TEAMS_0:.*]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+; CHECK: %[[GLOBAL_UPDATE_DONE:.*]] = icmp uge i64 %{{.*}}, %[[NUM_TEAMS_0]]
 ; CHECK: %[[GLOBAL_OFFSET:[^,]+]] = mul i64 %[[IDX_PHI_GLOBAL]], 1
 ; CHECK: %[[GLOBAL_BUF_BASE:[^,]+]] = getelementptr [1 x i32], ptr addrspace(1) %[[GLOBAL_BUF:[^,]+]], i64 %[[GLOBAL_OFFSET]]
+; CHECK: br i1 %[[GLOBAL_UPDATE_DONE]], label %counter.reset, label %atomic.free.red.global.update.body
+; CHECK-LABEL: counter.reset:
+; CHECK: store i32 0, ptr addrspace(1) %teams_counter, align 4
+; CHECK: br label %red.update.done
 ; CHECK-LABEL: atomic.free.red.global.update.body:
 ; CHECK-LABEL: red.update.body:
 ; CHECK: %[[DST_PTR_GLOBAL:[^,]+]] = phi ptr addrspace(1)
