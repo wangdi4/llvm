@@ -4396,7 +4396,7 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
 
     case UnresolvedModuleRef::Affecting:
       if (ResolvedMod)
-        Unresolved.Mod->AffectingModules.insert(ResolvedMod);
+        Unresolved.Mod->AffectingClangModules.insert(ResolvedMod);
       continue;
 
     case UnresolvedModuleRef::Export:
