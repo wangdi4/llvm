@@ -1928,7 +1928,7 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
           std::max(Layout.getNonVirtualSize(), Layout.getDataSize());
     }
 
-    if (IsMsStruct && !FieldPacked) { //***INTEL
+    if (IsMsStruct) {
       // If MS bitfield layout is required, figure out what type is being
       // laid out and align the field to the width of that type.
 
