@@ -280,6 +280,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRecPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchangePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopPeelingPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerializePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRerollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversalPass.h"
@@ -2251,8 +2252,10 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     if (ThroughputModeOpt != ThroughputMode::SingleJob)
       FPM.addPass(HIRConditionalLoadStoreMotionPass());
 
-    if (Level.getSizeLevel() == 0)
+    if (Level.getSizeLevel() == 0) {
       FPM.addPass(HIRMemoryReductionSinkingPass());
+      FPM.addPass(HIRLoopPeelingPass());
+    }
 
     FPM.addPass(HIRLMMPass());
     // Convert compare functions (e.g. smax) into Select instructions
