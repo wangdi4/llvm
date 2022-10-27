@@ -1563,23 +1563,23 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         }
         case( CL_DEVICE_NAME):
         {
-            const char* name = NULL;
-            auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
-            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
-              return CL_DEV_INVALID_VALUE;
-            switch (deviceMode) {
-            case CPU_DEVICE:
-              name = CPUDetect::GetInstance()->GetHostCPUBrandString();
-              if (!strcmp("", name)) {
-                name = "Unknown CPU";
-              }
-              break;
-            case FPGA_EMU_DEVICE:
-              name = "Intel(R) FPGA Emulation Device";
-              break;
+          std::string name;
+          auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+          if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
+            return CL_DEV_INVALID_VALUE;
+          switch (deviceMode) {
+          case CPU_DEVICE:
+            name = CPUDetect::GetInstance()->GetHostCPUBrandString();
+            if (name.empty()) {
+              name = "Unknown CPU";
+            }
+            break;
+          case FPGA_EMU_DEVICE:
+            name = "Intel(R) FPGA Emulation Device";
+            break;
             }
 
-            *pinternalRetunedValueSize = strlen(name) + 1;
+            *pinternalRetunedValueSize = name.length() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1587,7 +1587,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, name);
+              STRCPY_S((char *)paramVal, valSize, name.c_str());
             }
 
             return CL_DEV_SUCCESS;

@@ -206,7 +206,7 @@ public:
   }
 
   const std::string &GetCPUName() const { return m_CPUString; }
-  const char *GetHostCPUBrandString() const { return m_HostCPUBrandString; }
+  std::string GetHostCPUBrandString() const { return m_HostCPUBrandString; }
   std::string GetCPUArchShortName() const { return CPUArchStr.at(m_CPUArch); }
   ECPUBrandFamily GetHostCPUBrandFamily() { return m_HostCPUBrand; }
   ECPU GetCPU() const { return m_CPUArch; }
@@ -276,7 +276,7 @@ private:
   llvm::StringMap<bool> m_CPUFeatures;
   ECPUBrandFamily m_HostCPUBrand; // host CPU brand
   std::string m_HostCPUString;
-  const char *m_HostCPUBrandString;
+  std::string m_HostCPUBrandString;
   llvm::StringMap<bool> m_HostCPUFeatures;
   static CPUDetect *Instance;
   static struct Deleter {
