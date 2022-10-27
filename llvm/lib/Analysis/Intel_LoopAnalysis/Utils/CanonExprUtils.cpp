@@ -662,6 +662,18 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   return true;
 }
 
+void CanonExprUtils::replaceStandAloneBlobByCanonExpr(CanonExpr *CE1,
+                                                      unsigned BlobIndex,
+                                                      const CanonExpr *CE2) {
+  assert(CE1->containsStandAloneBlob(BlobIndex) &&
+         "Blob is not standalone in CE1!");
+  assert(CE2->getDenominator() == 1 && "Cannot handle CE2 with denominator!");
+
+  CE1->removeBlob(BlobIndex);
+
+  CanonExprUtils::add(CE1, CE2, true);
+}
+
 bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
                                                const CanonExpr *CE2,
                                                unsigned LoopLevel,

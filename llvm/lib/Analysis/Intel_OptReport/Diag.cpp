@@ -462,7 +462,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25484, "Distribute point pragma not processed: Unsupported constructs in loops"},
     {25485, "Distribute point pragma not processed: Loop is too complex"},
     {25486, "Distribute point pragma not processed: Too many Distribute points"},
-    {25487, "LOOP WAS MATERIALIZED"},
+    {25487, "Loop peeled to eliminate data dependence"},
     {25488, "LOOP WAS REROLLED"},
     {25489, "MEMOP WAS GENERATED FOR THIS LOOP"},
     {25490, "LOOP STMTS WERE REORDERED"},

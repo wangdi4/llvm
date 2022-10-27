@@ -544,6 +544,10 @@ public:
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
   bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
 
+  /// Returns true if the trip count of the loop is likely to be <= \p
+  /// SmallTCThreshold. Default of 0 means using the default threshold.
+  bool hasLikelySmallTripCount(unsigned SmallTCThreshold = 0) const;
+
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {
     auto StrideRef = getStrideDDRef();
