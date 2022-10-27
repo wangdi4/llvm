@@ -6739,17 +6739,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
        BB &&
        sortPtrAccesses(VL, UserTreeIdx.UserTE->getMainOp()->getType(), *DL, *SE,
                        SortedIndices));
-<<<<<<< HEAD
-
   if (!AreAllSameInsts || allConstant(VL) || isSplat(VL) ||
-      (!IsScatterVectorizeUserTE && !allSameBlock(VL)) || !AreAllSameInsts ||
-      (S.getOpcode() &&
-       isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
-=======
-  if (allConstant(VL) || isSplat(VL) || !AreAllSameInsts ||
       (isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(
            S.OpValue) &&
->>>>>>> 3c1fb945d57c14d31bf33fb3aa89310d2b0a1084
        !all_of(VL, isVectorLikeInstWithConstOps)) ||
       NotProfitableForVectorization(VL)) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O, small shuffle. \n");
