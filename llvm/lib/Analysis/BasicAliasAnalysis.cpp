@@ -72,6 +72,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/KnownBits.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -1528,12 +1529,12 @@ AliasResult BasicAAResult::aliasGEP(
   } else if (DecompGEP1.VarIndices.size() == 2) {
     // VarIndex = Scale*V0 + (-Scale)*V1.
     // If V0 != V1 then abs(VarIndex) >= abs(Scale).
-    // Check that VisitedPhiBBs is empty, to avoid reasoning about
+    // Check that MayBeCrossIteration is false, to avoid reasoning about
     // inequality of values across loop iterations.
     const VariableGEPIndex &Var0 = DecompGEP1.VarIndices[0];
     const VariableGEPIndex &Var1 = DecompGEP1.VarIndices[1];
     if (Var0.Scale == -Var1.Scale && Var0.Val.TruncBits == 0 &&
-        Var0.Val.hasSameCastsAs(Var1.Val) && VisitedPhiBBs.empty() &&
+        Var0.Val.hasSameCastsAs(Var1.Val) && !MayBeCrossIteration &&
         isKnownNonEqual(Var0.Val.V, Var1.Val.V, DL, &AC, /* CxtI */ nullptr,
                         DT))
       MinAbsVarIndex = Var0.Scale.abs();
@@ -1777,6 +1778,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     PNSize = LocationSize::beforeOrAfterPointer();
 
   // In the recursive alias queries below, we may compare values from two
+<<<<<<< HEAD
   // different loop iterations. Keep track of visited phi blocks, which will
   // be used when determining value equivalence.
   bool BlockInserted = VisitedPhiBBs.insert(PN->getParent()).second;
@@ -1817,6 +1819,19 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     Alias = AAQI.AAR.alias(
       MemoryLocation(V1Srcs[0], PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
 #endif // INTEL_CUSTOMIZATION
+=======
+  // different loop iterations.
+  SaveAndRestore<bool> SavedMayBeCrossIteration(MayBeCrossIteration, true);
+
+  // If we enabled the MayBeCrossIteration flag, alias analysis results that
+  // have been cached earlier may no longer be valid. Perform recursive queries
+  // with a new AAQueryInfo.
+  AAQueryInfo NewAAQI = AAQI.withEmptyCache();
+  AAQueryInfo *UseAAQI = !SavedMayBeCrossIteration.get() ? &NewAAQI : &AAQI;
+
+  AliasResult Alias = AAQI.AAR.alias(MemoryLocation(V1Srcs[0], PNSize),
+                                     MemoryLocation(V2, V2Size), *UseAAQI);
+>>>>>>> 6c269a3f89edde33a472d53ed017c1adfb62afcb
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
@@ -2267,34 +2282,29 @@ AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
 
 /// Check whether two Values can be considered equivalent.
 ///
-/// In addition to pointer equivalence of \p V1 and \p V2 this checks whether
-/// they can not be part of a cycle in the value graph by looking at all
-/// visited phi nodes an making sure that the phis cannot reach the value. We
-/// have to do this because we are looking through phi nodes (That is we say
+/// If the values may come from different cycle iterations, this will also
+/// check that the values are not part of cycle. We have to do this because we
+/// are looking through phi nodes, that is we say
 /// noalias(V, phi(VA, VB)) if noalias(V, VA) and noalias(V, VB).
 bool BasicAAResult::isValueEqualInPotentialCycles(const Value *V,
                                                   const Value *V2) {
   if (V != V2)
     return false;
 
+  if (!MayBeCrossIteration)
+    return true;
+
+  // Non-instructions and instructions in the entry block cannot be part of
+  // a loop.
   const Instruction *Inst = dyn_cast<Instruction>(V);
-  if (!Inst)
+  if (!Inst || Inst->getParent()->isEntryBlock())
     return true;
 
-  if (VisitedPhiBBs.empty())
-    return true;
-
-  if (VisitedPhiBBs.size() > MaxNumPhiBBsValueReachabilityCheck)
-    return false;
-
-  // Make sure that the visited phis cannot reach the Value. This ensures that
-  // the Values cannot come from different iterations of a potential cycle the
-  // phi nodes could be involved in.
-  for (const auto *P : VisitedPhiBBs)
-    if (isPotentiallyReachable(&P->front(), Inst, nullptr, DT))
-      return false;
-
-  return true;
+  // Check whether the instruction is part of a cycle, by checking whether the
+  // block can (non-trivially) reach itself.
+  BasicBlock *BB = const_cast<BasicBlock *>(Inst->getParent());
+  SmallVector<BasicBlock *> Succs(successors(BB));
+  return !isPotentiallyReachableFromMany(Succs, BB, nullptr, DT);
 }
 
 /// Computes the symbolic difference between two de-composed GEPs.
