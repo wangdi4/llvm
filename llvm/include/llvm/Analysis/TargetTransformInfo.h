@@ -1630,6 +1630,10 @@ public:
   bool preferPredicatedReductionSelect(unsigned Opcode, Type *Ty,
                                        ReductionFlags Flags) const;
 
+  /// Return true if the loop vectorizer should consider vectorizing an
+  /// otherwise scalar epilogue loop.
+  bool preferEpilogueVectorization() const;
+
   /// \returns True if the target wants to expand the given reduction intrinsic
   /// into a shuffle sequence.
   bool shouldExpandReduction(const IntrinsicInst *II) const;
@@ -2088,6 +2092,8 @@ public:
                                      ReductionFlags) const = 0;
   virtual bool preferPredicatedReductionSelect(unsigned Opcode, Type *Ty,
                                                ReductionFlags) const = 0;
+  virtual bool preferEpilogueVectorization() const = 0;
+
   virtual bool shouldExpandReduction(const IntrinsicInst *II) const = 0;
   virtual unsigned getGISelRematGlobalCost() const = 0;
   virtual unsigned getMinTripCountTailFoldingThreshold() const = 0;
@@ -2848,6 +2854,10 @@ public:
                                        ReductionFlags Flags) const override {
     return Impl.preferPredicatedReductionSelect(Opcode, Ty, Flags);
   }
+  bool preferEpilogueVectorization() const override {
+    return Impl.preferEpilogueVectorization();
+  }
+
   bool shouldExpandReduction(const IntrinsicInst *II) const override {
     return Impl.shouldExpandReduction(II);
   }

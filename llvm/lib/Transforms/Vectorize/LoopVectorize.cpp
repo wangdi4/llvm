@@ -5549,6 +5549,11 @@ bool LoopVectorizationCostModel::isEpilogueVectorizationProfitable(
   // as register pressure, code size increase and cost of extra branches into
   // account. For now we apply a very crude heuristic and only consider loops
   // with vectorization factors larger than a certain value.
+
+  // Allow the target to opt out entirely.
+  if (!TTI.preferEpilogueVectorization())
+    return false;
+
   // We also consider epilogue vectorization unprofitable for targets that don't
   // consider interleaving beneficial (eg. MVE).
   if (TTI.getMaxInterleaveFactor(VF.getKnownMinValue()) <= 1)
