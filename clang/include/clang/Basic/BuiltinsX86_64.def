@@ -416,13 +416,6 @@ TARGET_BUILTIN(__builtin_ia32_movget64, "ULLiULLiC*", "n", "gprmovget")
 TARGET_BUILTIN(__builtin_ia32_movget64b64, "ULLiV16UiC*", "nV:512:", "movget64b")
 #endif // INTEL_FEATURE_ISA_MOVGET64B
 
-#if INTEL_FEATURE_ISA_RAO_INT
-TARGET_BUILTIN(__builtin_ia32_aadd64, "vv*SLLi", "n", "raoint")
-TARGET_BUILTIN(__builtin_ia32_aand64, "vv*SLLi", "n", "raoint")
-TARGET_BUILTIN(__builtin_ia32_aor64, "vv*SLLi", "n", "raoint")
-TARGET_BUILTIN(__builtin_ia32_axor64, "vv*SLLi", "n", "raoint")
-#endif // INTEL_FEATURE_ISA_RAO_INT
-
 #if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
 // TODO rename these "amx-avx512-cvtrow" --> "amx-avx512" according to LNC-EAS-06-29-2021-SPEC.
 TARGET_BUILTIN(__builtin_ia32_tcvtrowd2pse_internal, "V16fUsUsV256iUi", "n", "amx-avx512-cvtrow")

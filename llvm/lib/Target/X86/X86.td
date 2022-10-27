@@ -491,11 +491,6 @@ def FeatureMOVGET64B : SubtargetFeature<"movget64b", "HasMOVGET64B", "true",
                                         "Support MOVGET64B instructions",
                                         [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",
-                                     "Support RAO-INT instructions",
-                                     []>;
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 def FeatureAVXRAOINT : SubtargetFeature<"avxraoint", "HasAVXRAOINT", "true",
                                         "Support AVX-RAO-INT instructions",
@@ -1499,9 +1494,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
                                                   FeatureVPINSRVPEXTR,
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
-#if INTEL_FEATURE_ISA_RAO_INT
                                                   FeatureRAOINT,
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_FP
                                                   FeatureAVXRAOFP,
 #endif // INTEL_FEATURE_ISA_AVX_RAO_FP
