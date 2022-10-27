@@ -238,6 +238,7 @@ X86_FEATURE       (XSAVEC,          "xsavec")
 X86_FEATURE       (XSAVEOPT,        "xsaveopt")
 X86_FEATURE       (XSAVES,          "xsaves")
 X86_FEATURE       (HRESET,          "hreset")
+X86_FEATURE       (RAOINT,          "raoint")
 X86_FEATURE       (AVX512FP16,      "avx512fp16")
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
@@ -335,9 +336,6 @@ X86_FEATURE       (GPRMOVGET,     "gprmovget")
 #if INTEL_FEATURE_ISA_MOVGET64B
 X86_FEATURE       (MOVGET64B,     "movget64b")
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-X86_FEATURE       (RAOINT,        "raoint")
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 X86_FEATURE       (AVXRAOINT,     "avxraoint")
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT

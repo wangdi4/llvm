@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_rao_int
 // RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK:      aadd qword ptr [rbp + 8*r14 + 268435456], r9
@@ -192,4 +191,3 @@
 // CHECK:      axor dword ptr [edx - 2048], ebx
 // CHECK: encoding: [0x67,0xf3,0x0f,0x38,0xfc,0x9a,0x00,0xf8,0xff,0xff]
                axor dword ptr [edx - 2048], ebx
-

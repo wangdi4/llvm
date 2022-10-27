@@ -252,12 +252,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/movget64b/movget64bintrin.h
   )
 # end INTEL_FEATURE_ISA_MOVGET64B
-# INTEL_FEATURE_ISA_RAO_INT
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_RAO_INT
-  Intel_Headers/raoint/raointintrin.h
-  )
-# end INTEL_FEATURE_ISA_RAO_INT
 # INTEL_FEATURE_ISA_AVX_RAO_INT
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_RAO_INT
@@ -628,6 +622,7 @@ set(x86_files
   prfchiintrin.h
   prfchwintrin.h
   ptwriteintrin.h
+  raointintrin.h
   rdpruintrin.h
   rdseedintrin.h
   rtmintrin.h

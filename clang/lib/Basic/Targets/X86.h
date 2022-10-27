@@ -264,9 +264,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_MOVGET64B
   bool HasMOVGET64B = false;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-  bool HasRAOINT = false;
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
   bool HasAVXRAOINT = false;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
@@ -369,6 +366,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #endif // INTEL_CUSTOMIZATION
   bool HasAMXFP16 = false;
   bool HasCMPCCXADD = false;
+  bool HasRAOINT = false;
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker
   bool HasHRESET = false;

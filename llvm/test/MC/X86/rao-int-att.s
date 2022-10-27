@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_rao_int
 // RUN: llvm-mc -triple i686-unknown-unknown --show-encoding %s | FileCheck %s
 
 // CHECK:      aaddl  %ebx, 268435456(%esp,%esi,8)
@@ -96,4 +95,3 @@
 // CHECK:      axorl  %ebx, -2048(%edx)
 // CHECK: encoding: [0xf3,0x0f,0x38,0xfc,0x9a,0x00,0xf8,0xff,0xff]
                axorl  %ebx, -2048(%edx)
-

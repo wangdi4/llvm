@@ -1185,9 +1185,6 @@ def HasGPRMOVGET : Predicate<"Subtarget->hasGPRMOVGET()">;
 #if INTEL_FEATURE_ISA_MOVGET64B
 def HasMOVGET64B : Predicate<"Subtarget->hasMOVGET64B()">;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-def HasRAOINT : Predicate<"Subtarget->hasRAOINT()">;
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 def HasAVXRAOINT : Predicate<"Subtarget->hasAVXRAOINT()">;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
@@ -1312,6 +1309,7 @@ def HasAVX512VNNIFP8 : Predicate<"Subtarget->hasAVX512VNNIFP8()">;
 def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
 def HasCMPCCXADD : Predicate<"Subtarget->hasCMPCCXADD()">;
 def HasKL        : Predicate<"Subtarget->hasKL()">;
+def HasRAOINT    : Predicate<"Subtarget->hasRAOINT()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
 def HasHRESET    : Predicate<"Subtarget->hasHRESET()">;
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
@@ -3609,9 +3607,6 @@ include "Intel_X86InstrAMX.td"
 #if INTEL_FEATURE_ISA_GPR_MOVGET
 include "Intel_X86InstrMOVGET.td"
 #endif // INTEL_FEATURE_ISA_GPR_MOVGET
-#if INTEL_FEATURE_ISA_RAO_INT
-include "Intel_X86InstrRAOINT.td"
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_XUCC
 include "Intel_X86XuCC.td"
 #endif // INTEL_FEATURE_XUCC
@@ -3619,6 +3614,9 @@ include "Intel_X86XuCC.td"
 include "Intel_X86InstrAVX256P.td"
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+
+// RAO-INT instructions
+include "X86InstrRAOINT.td"
 
 // System instructions.
 include "X86InstrSystem.td"

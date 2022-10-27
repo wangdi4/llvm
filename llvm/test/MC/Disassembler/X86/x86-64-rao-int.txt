@@ -1,6 +1,3 @@
-// REQUIRES: intel_feature_isa_rao_int
-
-# isadb version: 7569fb9fdc978356804fc786c548f16d31c9b725
 # RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s --check-prefixes=ATT
 # RUN: llvm-mc --disassemble %s -triple=x86_64 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
 
@@ -195,4 +192,3 @@
 # ATT:        axorl  %ebx, -2048(%edx)
 # INTEL:      axor dword ptr [edx - 2048], ebx
 0x67,0xf3,0x0f,0x38,0xfc,0x9a,0x00,0xf8,0xff,0xff
-

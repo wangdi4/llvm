@@ -6020,24 +6020,6 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       return true;
     }
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_RAO_INT
-    case Intrinsic::x86_aadd32:
-    case Intrinsic::x86_aadd64:
-    case Intrinsic::x86_aand32:
-    case Intrinsic::x86_aand64:
-    case Intrinsic::x86_aor32:
-    case Intrinsic::x86_aor64:
-    case Intrinsic::x86_axor32:
-    case Intrinsic::x86_axor64: {
-      Info.opc = ISD::INTRINSIC_VOID;
-      Info.ptrVal = I.getArgOperand(0);
-      Info.memVT = MVT::getVT(I.getArgOperand(1)->getType());
-      Info.align = Align(Info.memVT.getScalarSizeInBits() / 8);
-      // FIXME: Should we set these flags?
-      Info.flags |= MachineMemOperand::MOStore | MachineMemOperand::MOLoad;
-      return true;
-    }
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX512_RAO_INT
     case Intrinsic::x86_mask_vpaaddd128:
     case Intrinsic::x86_mask_vpaaddd256:
@@ -6210,6 +6192,23 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.opc = ISD::INTRINSIC_W_CHAIN;
       Info.ptrVal = I.getArgOperand(0);
       unsigned Size = I.getType()->getScalarSizeInBits();
+      Info.memVT = EVT::getIntegerVT(I.getType()->getContext(), Size);
+      Info.align = Align(Size);
+      Info.flags |= MachineMemOperand::MOLoad | MachineMemOperand::MOStore |
+                    MachineMemOperand::MOVolatile;
+      return true;
+    }
+    case Intrinsic::x86_aadd32:
+    case Intrinsic::x86_aadd64:
+    case Intrinsic::x86_aand32:
+    case Intrinsic::x86_aand64:
+    case Intrinsic::x86_aor32:
+    case Intrinsic::x86_aor64:
+    case Intrinsic::x86_axor32:
+    case Intrinsic::x86_axor64: {
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.ptrVal = I.getArgOperand(0);
+      unsigned Size = I.getArgOperand(1)->getType()->getScalarSizeInBits();
       Info.memVT = EVT::getIntegerVT(I.getType()->getContext(), Size);
       Info.align = Align(Size);
       Info.flags |= MachineMemOperand::MOLoad | MachineMemOperand::MOStore |
@@ -29770,6 +29769,44 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
           MVT::i32, MMO);
       return Operation;
     }
+    case Intrinsic::x86_aadd32:
+    case Intrinsic::x86_aadd64:
+    case Intrinsic::x86_aand32:
+    case Intrinsic::x86_aand64:
+    case Intrinsic::x86_aor32:
+    case Intrinsic::x86_aor64:
+    case Intrinsic::x86_axor32:
+    case Intrinsic::x86_axor64: {
+      SDLoc DL(Op);
+      SDValue Chain = Op.getOperand(0);
+      SDValue Op1 = Op.getOperand(2);
+      SDValue Op2 = Op.getOperand(3);
+      MVT VT = Op2.getSimpleValueType();
+      unsigned Opc = 0;
+      switch (IntNo) {
+      default:
+        llvm_unreachable("Unknown Intrinsic");
+      case Intrinsic::x86_aadd32:
+      case Intrinsic::x86_aadd64:
+        Opc = X86ISD::AADD;
+        break;
+      case Intrinsic::x86_aand32:
+      case Intrinsic::x86_aand64:
+        Opc = X86ISD::AAND;
+        break;
+      case Intrinsic::x86_aor32:
+      case Intrinsic::x86_aor64:
+        Opc = X86ISD::AOR;
+        break;
+      case Intrinsic::x86_axor32:
+      case Intrinsic::x86_axor64:
+        Opc = X86ISD::AXOR;
+        break;
+      }
+      MachineMemOperand *MMO = cast<MemSDNode>(Op)->getMemOperand();
+      return DAG.getMemIntrinsicNode(Opc, DL, Op->getVTList(),
+                                     {Chain, Op1, Op2}, VT, MMO);
+    }
     }
     return SDValue();
   }
@@ -32984,17 +33021,8 @@ static SDValue LowerATOMIC_FENCE(SDValue Op, const X86Subtarget &Subtarget,
 
   // The only fence that needs an instruction is a sequentially-consistent
   // cross-thread fence.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_RAO_INT
-  // FIXME: We shouldn't insert fence instruction when target using LOCK
-  // instructions in some cases.
-  if ((FenceOrdering == AtomicOrdering::SequentiallyConsistent &&
-      FenceSSID == SyncScope::System) || Subtarget.hasRAOINT()) {
-#else // INTEL_FEATURE_ISA_RAO_INT
   if (FenceOrdering == AtomicOrdering::SequentiallyConsistent &&
       FenceSSID == SyncScope::System) {
-#endif // INTEL_FEATURE_ISA_RAO_INT
-#endif // INTEL_CUSTOMIZATION
     if (Subtarget.hasMFence())
       return DAG.getNode(X86ISD::MFENCE, dl, MVT::Other, Op.getOperand(0));
 
@@ -33512,23 +33540,6 @@ static SDValue lowerAtomicArith(SDValue N, SelectionDAG &DAG,
   unsigned Opc = N->getOpcode();
   MVT VT = N->getSimpleValueType(0);
   SDLoc DL(N);
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_RAO_INT
-  // Even we don't have ROA sub instruction, we also prefer to use
-  // (atomic_load_add p, -v) instead of (atomic_load_sub p, v).
-  // FIXME: Do this in instruction selection.
-  if (Subtarget.hasRAOINT() && Subtarget.hasMFence()) {
-    // We only support No-data-return operations currently.
-    if (Opc == ISD::ATOMIC_LOAD_SUB && !N->hasAnyUseOfValue(0) &&
-        (VT == MVT::i32 || VT == MVT::i64)) {
-      RHS = DAG.getNode(ISD::SUB, DL, VT, DAG.getConstant(0, DL, VT), RHS);
-      return DAG.getAtomic(ISD::ATOMIC_LOAD_ADD, DL, VT, Chain, LHS, RHS,
-                           AN->getMemOperand());
-    }
-  }
-#endif // INTEL_FEATURE_ISA_RAO_INT
-#endif // INTEL_CUSTOMIZATION
 
   // We can lower atomic_load_add into LXADD. However, any other atomicrmw op
   // can only be lowered when the result is unused.  They should have already
@@ -35567,6 +35578,10 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(LBTS)
   NODE_NAME_CASE(LBTC)
   NODE_NAME_CASE(LBTR)
+  NODE_NAME_CASE(AADD)
+  NODE_NAME_CASE(AOR)
+  NODE_NAME_CASE(AXOR)
+  NODE_NAME_CASE(AAND)
   NODE_NAME_CASE(VZEXT_MOVL)
   NODE_NAME_CASE(VZEXT_LOAD)
   NODE_NAME_CASE(VEXTRACT_STORE)
@@ -62317,35 +62332,6 @@ X86TargetLowering::getStackProbeSize(const MachineFunction &MF) const {
         .getAsInteger(0, StackProbeSize);
   return StackProbeSize;
 }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_RAO_INT
-// FIXME: Should we reimplement emitLeadingFence and emitTrailingFence according
-// to http://www.cl.cam.ac.uk/~pes20/cpp/cpp0xmappings.html?
-bool X86TargetLowering::shouldInsertFencesForAtomic(
-    const Instruction *I) const {
-  auto RMWI = dyn_cast<AtomicRMWInst>(I);
-  if (!RMWI)
-    return false;
-
-  // If the target support RAO-INT and the result is unused, it have a chance
-  // lowering to RAO-INT instructions. Because these instructions uses a
-  // weakly-ordered memory consistency model, a fencing operation should be
-  // used.
-  AtomicRMWInst::BinOp Op = RMWI->getOperation();
-  if (Op == AtomicRMWInst::Or || Op == AtomicRMWInst::Xor ||
-      Op == AtomicRMWInst::And || Op == AtomicRMWInst::Add ||
-      Op == AtomicRMWInst::Sub) {
-    Type *OpTy = RMWI->getOperand(1)->getType();
-    // For now we only support operand type with i32 or i64.
-    if ((OpTy->isIntegerTy(32) || OpTy->isIntegerTy(64)) && RMWI->hasNUses(0))
-      // RAO should be the first choice when target support MFENCE.
-      return Subtarget.hasRAOINT() && Subtarget.hasMFence();
-  }
-  return false;
-}
-#endif // INTEL_FEATURE_ISA_RAO_INT
-#endif // INTEL_CUSTOMIZATION
 
 Align X86TargetLowering::getPrefLoopAlignment(MachineLoop *ML) const {
   if (ML->isInnermost() &&

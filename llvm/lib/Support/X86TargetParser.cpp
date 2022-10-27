@@ -410,9 +410,7 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
     FeatureVPINSR_VPEXTR |
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
-#if INTEL_FEATURE_ISA_RAO_INT
     FeatureRAOINT |
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_FP
     FeatureAVXRAOFP |
 #endif // INTEL_FEATURE_ISA_AVX_RAO_FP
@@ -941,9 +939,6 @@ constexpr FeatureBitset ImpliedFeaturesGPRMOVGET = {};
 #if INTEL_FEATURE_ISA_MOVGET64B
 constexpr FeatureBitset ImpliedFeaturesMOVGET64B = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 constexpr FeatureBitset ImpliedFeaturesAVXRAOINT = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
@@ -1054,6 +1049,7 @@ constexpr FeatureBitset ImpliedFeaturesAMX_FP8 = FeatureAMX_TILE;
 #endif // INTEL_CUSTOMIZATION
 constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
 constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = {};
+constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
 constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
 // Key Locker Features

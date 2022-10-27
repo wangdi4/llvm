@@ -535,10 +535,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+movget64b") {
       HasMOVGET64B = true;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-    } else if (Feature == "+raoint") {
-      HasRAOINT = true;
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
     } else if (Feature == "+avxraoint") {
       HasAVXRAOINT = true;
@@ -662,6 +658,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+cmpccxadd") {
       HasCMPCCXADD = true;
+    } else if (Feature == "+raoint") {
+      HasRAOINT = true;
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
     } else if (Feature == "+serialize") {
@@ -1334,11 +1332,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__MOVGET64B__");
   Builder.defineMacro("__MOVGET64B_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-  if (HasRAOINT)
-    Builder.defineMacro("__RAOINT__");
-  Builder.defineMacro("__RAOINT_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
   if (HasAVXRAOINT)
     Builder.defineMacro("__AVXRAOINT__");
@@ -1496,6 +1489,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFP16__");
   if (HasCMPCCXADD)
     Builder.defineMacro("__CMPCCXADD__");
+  if (HasRAOINT)
+    Builder.defineMacro("__RAOINT__");
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
   if (HasSERIALIZE)
@@ -1738,6 +1733,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("prefetchwt1", true)
       .Case("prfchw", true)
       .Case("ptwrite", true)
+      .Case("raoint", true)
       .Case("rdpid", true)
       .Case("rdpru", true)
       .Case("rdrnd", true)
@@ -1810,9 +1806,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_MOVGET64B
       .Case("movget64b", true)
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-      .Case("raoint", true)
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
       .Case("avxraoint", true)
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
@@ -2046,9 +2039,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_MOVGET64B
       .Case("movget64b", HasMOVGET64B)
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-      .Case("raoint", HasRAOINT)
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
       .Case("avxraoint", HasAVXRAOINT)
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
@@ -2192,6 +2182,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("prefetchwt1", HasPREFETCHWT1)
       .Case("prfchw", HasPRFCHW)
       .Case("ptwrite", HasPTWRITE)
+      .Case("raoint", HasRAOINT)
       .Case("rdpid", HasRDPID)
       .Case("rdpru", HasRDPRU)
       .Case("rdrnd", HasRDRND)
