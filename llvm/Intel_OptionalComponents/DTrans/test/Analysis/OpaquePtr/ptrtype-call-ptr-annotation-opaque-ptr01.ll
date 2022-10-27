@@ -5,7 +5,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; TODO: Remove the -opaque-pointers option. It is currently needed
 ; because global variables are not recognized as being opaque pointers yet.
 
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test that calls to @llvm.ptr.annotation.p0 are analyzed as producing a
