@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_cmpccxadd
 // RUN: llvm-mc -triple x86_64 -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK: cmpbexadd dword ptr [rbp + 8*r14 + 268435456], ecx, eax

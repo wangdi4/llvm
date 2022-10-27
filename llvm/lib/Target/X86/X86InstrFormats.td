@@ -45,11 +45,12 @@ def RawFrmImm8    : Format<7>;
 def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
-def MRMDestMemImm8      : Format<16>; //INTEL
-def MRMDestReg4VOp3     : Format<17>; //INTEL
-def MRMDestMem4VOp3     : Format<18>; //INTEL
-def MRMDestMem4VOp2FSIB : Format<19>; //INTEL
-def MRMSrcMem4VOp3FSIB  : Format<20>; //INTEL
+def MRMDestMemImm8      : Format<15>; //INTEL
+def MRMDestReg4VOp3     : Format<16>; //INTEL
+def MRMDestMem4VOp3     : Format<17>; //INTEL
+def MRMDestMem4VOp2FSIB : Format<18>; //INTEL
+def MRMSrcMem4VOp3FSIB  : Format<19>; //INTEL
+def MRMDestMem4VOp3CC : Format<20>;
 def MRMr0          : Format<21>;
 def MRMSrcMemFSIB  : Format<22>;
 def MRMDestMemFSIB : Format<23>;

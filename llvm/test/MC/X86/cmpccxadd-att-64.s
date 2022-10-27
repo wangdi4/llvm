@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_cmpccxadd
 // RUN: llvm-mc -triple x86_64 --show-encoding %s | FileCheck %s
 
 // CHECK: cmpbexadd  %eax, %ecx, 268435456(%rbp,%r14,8)

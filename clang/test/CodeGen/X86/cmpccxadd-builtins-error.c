@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_cmpccxadd
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +cmpccxadd  -emit-llvm -fsyntax-only -verify
 
