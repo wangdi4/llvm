@@ -7,11 +7,11 @@
 ; PSLP then added padding and updates vectorization tree entries
 ; that are users of current tree entry. But because it is the tree root it does
 ; not have any users down the tree. It crashed due to failure to check that fact.
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S | FileCheck %s -check-prefix=INTADV
+; RUN: opt < %s -passes=slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64 -mcpu=skylake-avx512 -S | FileCheck %s -check-prefix=INTADV
 
 ; This run line is not strictly necessary to reproduce the original issue.
 ; But it actually demonstrates difference in behavior with disabled intel-advanced-opts.
-; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S | FileCheck %s
+; RUN: opt < %s -passes=slp-vectorizer -mtriple=x86_64 -mcpu=skylake-avx512 -S | FileCheck %s
 
 @c = dso_local local_unnamed_addr global i32 0, align 4
 @e = dso_local local_unnamed_addr global i32 0, align 4
