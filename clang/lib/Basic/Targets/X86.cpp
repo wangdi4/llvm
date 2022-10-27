@@ -662,6 +662,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+cmpccxadd") {
       HasCMPCCXADD = true;
+    } else if (Feature == "+raoint") {
+      HasRAOINT = true;
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
     } else if (Feature == "+serialize") {
@@ -1496,6 +1498,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFP16__");
   if (HasCMPCCXADD)
     Builder.defineMacro("__CMPCCXADD__");
+  if (HasRAOINT)
+    Builder.defineMacro("__RAOINT__");
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
   if (HasSERIALIZE)
@@ -1738,6 +1742,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("prefetchwt1", true)
       .Case("prfchw", true)
       .Case("ptwrite", true)
+      .Case("raoint", true)
       .Case("rdpid", true)
       .Case("rdpru", true)
       .Case("rdrnd", true)
@@ -2192,6 +2197,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("prefetchwt1", HasPREFETCHWT1)
       .Case("prfchw", HasPRFCHW)
       .Case("ptwrite", HasPTWRITE)
+      .Case("raoint", HasRAOINT)
       .Case("rdpid", HasRDPID)
       .Case("rdpru", HasRDPRU)
       .Case("rdrnd", HasRDRND)

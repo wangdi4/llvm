@@ -927,6 +927,13 @@ namespace llvm {
     LBTC,
     LBTR,
 
+    /// RAO arithmetic instructions.
+    /// OUTCHAIN = AADD(INCHAIN, PTR, RHS)
+    AADD,
+    AOR,
+    AXOR,
+    AAND,
+
     // Load, scalar_to_vector, and zero extend.
     VZEXT_LOAD,
 
