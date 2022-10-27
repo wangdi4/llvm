@@ -6,7 +6,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 
 ; Variation to test that invalidates the candidate.
-; RUN: sed -e s/.TEST_CAST:// %s | opt -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 ; RUN: sed -e s/.TEST_CAST:// %s | opt -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 
 

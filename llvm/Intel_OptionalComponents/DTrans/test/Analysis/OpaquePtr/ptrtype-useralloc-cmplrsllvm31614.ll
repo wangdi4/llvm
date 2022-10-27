@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -debug-only=dtrans-alloc-collector -dtrans-ptrtypeanalyzertest -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -debug-only=dtrans-alloc-collector -passes=dtrans-ptrtypeanalyzertest -disable-output 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

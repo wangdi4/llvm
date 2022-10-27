@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -debug-only=dtrans-alloc-collector -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest 2>&1 | FileCheck %s
 ; CHECK: Analyzing for user free function: mybadfree
 ; CHECK: Not user free function: mybadfree - Unsupported function signature

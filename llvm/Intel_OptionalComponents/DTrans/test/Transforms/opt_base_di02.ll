@@ -15,20 +15,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; based on whether the function signature changes. This test will run for
 ; each of the permutations for the two functions based on the 'sed' substitutions.
 
-; Old pass manager
-; RUN: sed -e s/^.DO_CLONE_INLINEE:// %s | sed s/^.DO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; RUN: sed -e s/^.NO_CLONE_INLINEE:// %s | sed s/^.DO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; RUN: sed -e s/^.DO_CLONE_INLINEE:// %s | sed s/^.NO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; RUN: sed -e s/^.NO_CLONE_INLINEE:// %s | sed s/^.NO_CLONE_INLINER:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; New pass manager
 ; RUN: sed -e s/^.DO_CLONE_INLINEE:// %s | sed s/^.DO_CLONE_INLINER:// | \
 ; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 
