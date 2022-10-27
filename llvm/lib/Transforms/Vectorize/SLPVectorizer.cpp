@@ -143,8 +143,6 @@ static cl::opt<int>
 namespace llvm {
 namespace slpvectorizer {
 // Enable the formation of Multi-Nodes.
-static bool EnableMultiNodeSLP = false;
-// Enable the formation of Multi-Nodes - new design.
 // The design is based on a skeleton published by the original author
 // at https://reviews.llvm.org/D63661 but was substantially reworked.
 // "skeleton" word used here because the version published was incomplete,
@@ -216,18 +214,10 @@ static cl::opt<unsigned> MaxBBSizeForMultiNodeSLP(
     "max-bb-size-for-multi-node-slp", cl::init(4096), cl::Hidden,
     cl::desc("The maximum BB size for which multi-node SLP should kick in."));
 
-static cl::opt<bool> MultiNodeVerifierChecks(
-    "multi-node-verifier-checks", cl::init(false), cl::Hidden,
-    cl::desc("Enables *very* frequent calls to the function verifier."));
-
 static cl::opt<unsigned> MultiNodeSizeLimit(
     "multi-node-size-limit", cl::init(4), cl::Hidden,
     cl::desc(
         "Keep complexity down by not growing a multi-node larger than this"));
-
-static cl::opt<unsigned> MaxNumOfMultiNodesPerTree(
-    "max-multi-nodes-per-tree", cl::init(2), cl::Hidden,
-    cl::desc("Workaround for broken save/restore scheduled instrs"));
 
 // Enable swapping of frontier instructions. This allows for better reordering
 // of the Multi-Node's leaves.
@@ -265,7 +255,6 @@ static cl::opt<bool> DotMultiNode(
     "dot-slp-multi-node", cl::Hidden,
     cl::desc("Dump DOT files with MultiNodes before applying their reorder"));
 #endif
-
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -1115,12 +1104,6 @@ public:
   /// A negative number means that this is profitable.
   InstructionCost getTreeCost(ArrayRef<Value *> VectorizedVals = None);
 
-#if INTEL_CUSTOMIZATION
- /// If \p Vectorized is false restore IR to the original condition, reverting
- /// changes made by Multi-Node reordering. Otherwise reset Multi-Node state.
-  void cleanupMultiNodeReordering(bool Vectorized);
-#endif // INTEL_CUSTOMIZATION
-
   /// Construct a vectorizable tree that starts at \p Roots, ignoring users for
   /// the purpose of scheduling and extraction in the \p UserIgnoreLst.
   void buildTree(ArrayRef<Value *> Roots,
@@ -1162,9 +1145,6 @@ public:
     InstrElementSize.clear();
 #if INTEL_CUSTOMIZATION
     CurrMultiNode.reset();
-    assert(!CurrentMultiNode && MultiNodes.empty() &&
-           "Multi-Node state has not been cleared");
-    AllMultiNodeValues.clear();
 #endif // INTEL_CUSTOMIZATION
     UserIgnoreList = nullptr;
   }
@@ -3173,9 +3153,8 @@ private:
         }
 
         // Perform the code transformation only if it leads to a better score.
-        // TODO: We would ideally update CurrentMultiNode and get rid of
-        // getScore(). But this is not so easy as CurrentMultiNode does not
-        // contain pointers.
+        // TODO: We would ideally update current MultiNode and get rid of
+        // getScore().
         int FinalScore = getScore();
         LLVM_DEBUG(dbgs() << "SLP: MultiNode:  orginal score " << OrigScore
                           << ", final score " << FinalScore << " \n");
@@ -3196,16 +3175,6 @@ private:
     };
 
   public:
-    // Backup information is stored in BackupMap.
-    // Multi-Node operand index OpI and Lane pair used as a key for searching
-    // backup data. We store the original instruction and its original operand
-    // value. Sibling (if exists) points to another MultiNode operand index (at
-    // the same lane) sharing frontier instruction.
-    struct BackupData {
-      Instruction *OrigFrontier;
-      Value *OrigOperand;
-      Optional<int> Sibling;
-    };
     // Keeps a vector of scalar values and the edge info for an operand,
     // the basic information to continue recursion into buildTree_rec.
     struct OperandInfo {
@@ -3219,14 +3188,6 @@ private:
   private:
     /// Set if we used new order for code generation.
     bool DoneCodeGen = false;
-    /// Holds data to restore LLVM IR to the original state if VTree
-    /// was not vectorized for whatever reason.
-    DenseMap<std::pair<int /*OpI*/, int /*Lane*/>, BackupData> BackupMap;
-
-    /// Save the instruction position to undo the scheduling that happens before
-    /// the Multi-Node reordering.
-    SmallVector<std::pair<Instruction * /*I*/, Instruction * /*NextI*/>, 16>
-        InstrPositionBeforeScheduling;
 
     /// The indices of the TreeEntries that make up a Multi-Node.
     SmallVector<int, 8> MultiNodeTEs;
@@ -3239,66 +3200,6 @@ private:
     /// NOTE: We cannot safely deduce this from Leaves, because Leaves contains
     /// leaves, not trunks. By the time we reach the leaves it is too late.
     unsigned NumLanes = 0;
-
-    /// Data used for path steering.
-    /// Path steering helps buildTree_rec() follow the best path through the
-    /// Multi-Node. The 'best' means towards its operand with highest score.
-    /// Scores are collected during multi-node operands reordering.
-    /// buildTree_rec() normally processes tree entry operands in order.
-    /// To steer we check a lane 0 instruction. If the instruction is found
-    /// in the set then we first visit right operand of a tree entry.
-    DenseSet<Value *> SteeringData;
-
-    /// Populate steering data along path from the best score operand towards
-    /// Multi-node root.
-    /// For example, given the following Multi-Node with Op3 evaluated with
-    /// highest score. We therefore make sure that the path T3->T2->Op3
-    /// is taken, tag T3 node as one where we need to process its right
-    /// operand first:
-    /// \verbatim
-    ///        Best Score
-    ///           |
-    ///           v
-    ///  Op1 Op2 Op3 Op4
-    /// +--\-/----\-/--+
-    /// |  T1     T2   |
-    /// |    \   /     |
-    /// |     T3       |
-    /// +------|-------+
-    /// \endverbatim
-    ///
-    void steerPath(int BestOp) {
-      auto GetOperandIndex = [](Instruction *I, Value *Op) {
-        for (int Idx = 0, E = I->getNumOperands(); Idx != E; ++Idx)
-          if (I->getOperand(Idx) == Op)
-            return Idx;
-        llvm_unreachable("'Op' not an operand of 'I' !");
-      };
-      auto getUser = [this](Instruction *I) -> Instruction * {
-        for (User *U : I->users()) {
-          if (const TreeEntry *TE = R.getTreeEntry(U))
-            return cast<Instruction>(TE->Scalars[0]);
-          assert(R.getTreeEntry(I) == getRoot() &&
-                 "If no users found, 'I' must be the root of the MultiNode");
-        }
-        // Return null if 'I' is at the root of the MultiNode.
-        return nullptr;
-      };
-
-      // Populate steering data. We use an instruction at lane 0 for marking a
-      // node for steering. Follow path towards the MultiNode root, tagging an
-      // instruction if an operand is the second one.
-      Instruction *I = getData(BestOp, 0).getFrontier();
-      Value *Operand = I->getOperand(getData(BestOp, 0).getOperandNum());
-      Value *VL0 = getRoot()->Scalars[0];
-      while (Operand != VL0 && I) {
-        assert(Operand != I && "Self referencing instruction?");
-        if (GetOperandIndex(I, Operand) == 1)
-          SteeringData.insert(I);
-        Operand = I;
-        I = getUser(I);
-      }
-    }
 
     const BoUpSLP &R;
     MNOperands Operands;
@@ -3333,24 +3234,6 @@ private:
       });
     }
 
-    // Do actual update of the original frontier with the new one having
-    // "effective" (inversed) opcode. The "effective" opcode is one the
-    // Frontier gets after Multi-Node operands reordered to maintain the
-    // original math semantics. Instead of moving instructions around, the
-    // original instruction is being removed and replaced with new one.
-    static Instruction *updateFrontierOpcode(Instruction *OrigI) {
-      auto NewOpc = static_cast<Instruction::BinaryOps>(
-          getInverseOpcode(OrigI->getOpcode()).value());
-      Instruction *NewI =
-          BinaryOperator::Create(NewOpc, OrigI->getOperand(0),
-                                 OrigI->getOperand(1), OrigI->getName(), OrigI);
-      NewI->copyIRFlags(OrigI);
-      OrigI->replaceAllUsesWith(NewI);
-      OrigI->removeFromParent();
-      OrigI->dropAllReferences();
-      return NewI;
-    }
-
     unsigned getNumLanes() const { return NumLanes; }
     unsigned getNumOperands() const { return Operands.getNumOperands(); }
 
@@ -3359,9 +3242,6 @@ private:
 
     using LeafData = MNOperands::LeafData;
 
-    LeafData &getData(unsigned OpIdx, unsigned Lane) {
-      return Operands.getData(OpIdx, Lane);
-    }
     const LeafData &getData(unsigned OpIdx, unsigned Lane) const {
       return Operands.getData(OpIdx, Lane);
     }
@@ -3407,101 +3287,6 @@ private:
     void lock() { Locked = true; }
     bool isLocked() const { return Locked; }
 
-    // If operands were reordered and/or frontier opcode was updated
-    // this routine saves original values into BackupMap.
-    // return false when the MultiNode operand has not been changed by
-    // reordering.
-    Optional<BackupData> saveBackupData(int OpI, int Lane) {
-      auto Key = std::make_pair(OpI, Lane);
-      // First check for back up entry entered via sibling
-      if (BackupMap.count(Key))
-        return BackupMap[Key];
-
-      const LeafData &Op = getData(OpI, Lane);
-      Instruction *Frontier = Op.getFrontier();
-      Optional<int> Sibling = None;
-      if (Op.getInvertFrontierOpcode()) {
-        // lookup for possible sibling operand
-        for (int I : seq<int>(0, getNumOperands())) {
-          if (I == OpI)
-            continue;
-          if (getData(I, Lane).getFrontier() == Frontier) {
-            assert(!Sibling.has_value() && "More than one sibling match!");
-            Sibling = I;
-#ifdef NDEBUG
-            break;
-#endif
-          }
-        }
-      } else if (Op.getFrontier()->getOperand(Op.getOperandNum()) ==
-                 Op.getLeaf()) {
-        return None;
-      }
-
-      if (Sibling) {
-        auto SiblingKey = std::make_pair(*Sibling, Lane);
-        // If we already have entry for sibling it means that we have visited
-        // the operand earlier. Do not update its backup data as the frontier
-        // does not already have the original operand on that place. Only update
-        // its sibling information.
-        if (BackupMap.count(SiblingKey)) {
-          BackupMap[SiblingKey].Sibling = OpI;
-        } else {
-          const LeafData &SiblingOp = getData(*Sibling, Lane);
-          BackupMap[SiblingKey] = BackupData{
-              SiblingOp.getFrontier(),
-              SiblingOp.getFrontier()->getOperand(SiblingOp.getOperandNum()),
-              OpI};
-        }
-      }
-
-      BackupData Data = {Op.getFrontier(),
-                         Op.getFrontier()->getOperand(Op.getOperandNum()),
-                         Sibling};
-      BackupMap[Key] = Data;
-      return Data;
-    }
-
-    Optional<BackupData> getBackupData(int OpI, int Lane) {
-      auto Key = std::make_pair(OpI, Lane);
-      // First check for back up entry entered via sibling
-      if (!BackupMap.count(Key))
-        return None;
-      return BackupMap[Key];
-    }
-
-    /// Perform Multi-Node operand reordering. Returns true if we found a better
-    /// order than current one.
-    ///
-    /// A1  B1  C2  A2
-    ///  \ /     \ /
-    ///   +   C1  +   B2
-    ///    \ /     \ /
-    ///     +       +
-    bool findMultiNodeOrder() {
-      // Early exit if no more than one operand.
-      if (getNumOperands() <= 1)
-        return false;
-      // When reordering we collect operands scores.
-      // That will help to steer SLP through the multi-node.
-      SmallVector<int> OperandScores(getNumOperands(), 0);
-
-      LLVM_DEBUG(dbgs() << "SLP: MultiNode: calculating best operands order.\n");
-      LLVM_DEBUG(dump());
-      bool DoCodeGen = Operands.reorder(getRoot()->Idx, OperandScores);
-
-      if (EnablePathSteering) {
-        // Find the highest non-zero score operand and steer SLP vectorizer
-        // to follow best score path first.
-
-        auto MaxScore =
-            std::max_element(OperandScores.begin(), OperandScores.end());
-        if (*MaxScore > 0)
-          steerPath(std::distance(OperandScores.begin(), MaxScore));
-      }
-      return DoCodeGen;
-    }
-
     /// Perform Multi-Node operand reordering.
     bool reorderOperands(SmallVectorImpl<unsigned> &VisitingOrder) {
       VisitingOrder.clear();
@@ -3542,19 +3327,8 @@ private:
       return DoCodeGen;
     }
 
-    bool visitRightOperandFirst(const Value *V) const {
-      return SteeringData.count(V);
-    }
-
     void disableReordering() { Operands.disableReordering(); }
 
-    // Undo the code motion that moves all frontier nodes towards the root.
-    void undoMultiNodeScheduling();
-    /// Save the instruction position before the scheduling code motion.
-    /// This is used by undoMultiNodeScheduling().
-    void saveBeforeSchedInstrPosition(Instruction *I, Instruction *NextI) {
-      InstrPositionBeforeScheduling.emplace_back(I, NextI);
-    }
     /// \returns true if \p Idx is an TreeEntry index that belongs to this
     /// Multi-Node.
     bool containsTrunk(int Idx) const {
@@ -3658,10 +3432,6 @@ private:
     }
     /// \returns the number of trunk nodes in this Multi-Node.
     unsigned numOfTrunks() const { return MultiNodeTEs.size(); }
-    void clearTrunks() {
-      RootTE = nullptr;
-      MultiNodeTEs.clear();
-    }
 
     /// \returns actual users of instruction \p I if it was affected by
     /// this Multi-Node operands reordering.
@@ -3683,7 +3453,6 @@ private:
       setCodeGenState(false);
     }
 
-    const SmallVectorImpl<int> &getTrunks() const { return MultiNodeTEs; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void dump() const;
     /// MultiNode data structures has two pieces. First, a list of TreeEntries
@@ -3718,23 +3487,6 @@ private:
     void dumpDot() const;
 #endif
   };
-
-  /// List of all created Multi-Nodes.
-  SmallVector<MultiNode, 4> MultiNodes;
-  /// Keep track of all the Multi-Node values since ever.
-  SmallPtrSet<Value *, 8> AllMultiNodeValues;
-  /// Keep track of all the Multi-Node leaves since ever.
-  SmallPtrSet<Value *, 16> AllMultiNodeLeaves;
-  /// Current Multi-Node we are building.
-  MultiNode *CurrentMultiNode = nullptr;
-  /// This is set to true if we are in the process of building a Multi-Node.
-  bool BuildingMultiNode = false;
-
-  bool visitRightOperandFirst(const Value *V) const {
-    if (!CurrentMultiNode)
-      return false;
-    return CurrentMultiNode->visitRightOperandFirst(V);
-  }
 #endif // INTEL_CUSTOMIZATION
   /// Check if the operands on the edges \p Edges of the \p UserTE allows
   /// reordering (i.e. the operands can be reordered because they have only one
@@ -4028,30 +3780,6 @@ private:
 
   public:
 #if INTEL_CUSTOMIZATION
-    /// Replace operand values with new values. This is ugly but we need it for
-    /// updating the operands with the newly generated instructions (in order to
-    /// reverse their opcode).
-    // TODO: This should be removed once we switch to new design where
-    // underlying IR is not modified for applying operands reordering.
-    void remapOperands(const DenseMap<Value *, Value *> &RemapMap) {
-      for (unsigned OpIdx = 0, OpE = Operands.size(); OpIdx != OpE; ++OpIdx)
-        for (unsigned i = 0, e = Operands[OpIdx].size(); i != e; ++i) {
-          auto it = RemapMap.find(Operands[OpIdx][i]);
-          if (it != RemapMap.end())
-            Operands[OpIdx][i] = it->second;
-        }
-    }
-
-    /// Replace scalar values with the new ones according to the map.
-    // See also remapOperands TODO which is perfectly applicable here too.
-    void remapScalars(const DenseMap<Value *, Value *> &RemapMap) {
-      for (int Lane : seq<int>(0, Scalars.size())) {
-        auto it = RemapMap.find(Scalars[Lane]);
-        if (it != RemapMap.end())
-          Scalars[Lane] = it->second;
-      }
-    }
-
     unsigned getScalarOpcode(int Lane) const {
       auto *I = cast<Instruction>(Scalars[Lane]);
       if (InvertScalarOpcode.empty() || !InvertScalarOpcode.test(Lane))
@@ -4415,18 +4143,6 @@ private:
     assert(((!Bundle && EntryState == TreeEntry::NeedToGather) ||
             (Bundle && EntryState != TreeEntry::NeedToGather)) &&
            "Need to vectorize gather entry?");
-#if INTEL_CUSTOMIZATION
-    // If we cannot proceed in adding a new tree entry, then add the leaf nodes
-    // to the Multi-Node and return.
-    // FIXME: this should not be inside newTreeEntry.
-    if (EnableMultiNodeSLP && BuildingMultiNode &&
-        EntryState == TreeEntry::NeedToGather &&
-        CurrentMultiNode->isLegalOperandToReorder(VL)) {
-      CurrentMultiNode->appendOperand(VL, UserTreeIdx);
-      AllMultiNodeLeaves.insert(VL.begin(), VL.end());
-      return nullptr;
-    }
-#endif // INTEL_CUSTOMIZATION
     VectorizableTree.push_back(std::make_unique<TreeEntry>(VectorizableTree));
     TreeEntry *Last = VectorizableTree.back().get();
     Last->Idx = VectorizableTree.size() - 1;
@@ -4493,10 +4209,6 @@ private:
   LLVM_DUMP_METHOD void dumpVectorizableTree() const {
     for (unsigned Id = 0, IdE = VectorizableTree.size(); Id != IdE; ++Id) {
       VectorizableTree[Id]->dump();
-#if INTEL_CUSTOMIZATION
-      if (visitRightOperandFirst(VectorizableTree[Id]->Scalars[0]))
-        dbgs() << "PathSteering: right to left\n";
-#endif // INTEL_CUSTOMIZATION
       dbgs() << "\n";
     }
   }
@@ -4715,18 +4427,6 @@ private:
       }
     }
 
-#if INTEL_CUSTOMIZATION
-    /// Updates the instructions pointed to by the whole bundle, based on the
-    /// mapping in \p RemapMap.
-    void remapInsts(DenseMap<Value *, Value *> &RemapMap) {
-      for (ScheduleData *Bundle = this; Bundle; Bundle = Bundle->NextInBundle) {
-          auto it = RemapMap.find(Bundle->Inst);
-          if (it != RemapMap.end())
-            Bundle->Inst = cast<Instruction>(it->second);
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-
     Instruction *Inst = nullptr;
 
     /// Opcode of the current instruction in the schedule data.
@@ -4831,24 +4531,6 @@ private:
       // in the new region yet.
       ++SchedulingRegionID;
     }
-
-#if INTEL_CUSTOMIZATION
-    // Clear the scheduler's state.
-    void deepClear() {
-      ScheduleDataChunks.clear();
-      ChunkSize = BB->size();
-      ChunkPos = ChunkSize;
-      ScheduleDataMap.clear();
-      ExtraScheduleDataMap.clear();
-      ReadyInsts.clear();
-      ScheduleStart = nullptr;
-      ScheduleEnd = nullptr;
-      FirstLoadStoreInRegion = nullptr;
-      LastLoadStoreInRegion = nullptr;
-      ScheduleRegionSize = 0;
-      ScheduleRegionSizeLimit = ScheduleRegionSizeBudget;
-    }
-#endif // INTEL_CUSTOMIZATION
 
     ScheduleData *getScheduleData(Instruction *I) {
       if (BB != I->getParent())
@@ -5174,46 +4856,10 @@ private:
     int SchedulingRegionID = 1;
   };
 #if INTEL_CUSTOMIZATION
-private:
-
-  /// Remove all entries in VectorizableTree after the Multi-Node.
-  void clearVTreeAfterMultiNode(const MultiNode *MN);
-
-  /// Replay scheduler state up to the MultiNode root VTree entry.
-  /// Return scheduler bundle for the entry.
-  Optional<ScheduleData *> rebuildBSStateUntilMultiNode(const MultiNode *MN);
-
-  /// Builds the TreeEntries for a Multi-Node.
-  void buildTreeMultiNode_rec(const InstructionsState &S,
-                              Optional<ScheduleData *> Bundle,
-                              ArrayRef<Value *> VL, int NextDepth,
-                              const EdgeInfo &UserTreeIdx,
-                              ArrayRef<int> ReuseShuffleIndices);
-
   /// \returns true if any value is already a part of the tree.
   bool alreadyInTrunk(ArrayRef<Value *> VL) const {
-    return llvm::any_of(VL,
-                        [this](Value *V) -> bool { return getTreeEntry(V); });
+    return any_of(VL, [this](Value *V) -> bool { return getTreeEntry(V); });
   }
-
-  /// Update the IR instructions:
-  /// replace and/or reorder operands as per CurrentMultiNode state.
-  /// The original values saved in CurrentMultiNode to be used when/if undo the
-  /// reordering later.
-  /// Updates \p Bundle if needed.
-  void applyReorderedOperands(ScheduleData *Bundle);
-
-  /// Apply the operand reordering found during /p findMultiNodeOrder. Updates
-  /// \p Bundle if needed.
-  void applyMultiNodeOrder(ScheduleData *Bundle);
-
-  /// Perform operand reordering for the Multi-Node. Note: Updates \p VL and
-  /// also updates the instructions in \p Bundle if needed.
-  void reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
-                                ScheduleData *Bundle);
-
-  /// Move all Multi-Node instructions to the root of the Multi-Node.
-  void scheduleMultiNodeInstrs();
 #endif // INTEL_CUSTOMIZATION
 
   /// Attaches the BlockScheduling structures to basic blocks.
@@ -5369,54 +5015,6 @@ template <> struct DOTGraphTraits<BoUpSLP *> : public DefaultDOTGraphTraits {
 };
 
 } // end namespace llvm
-
-#if INTEL_CUSTOMIZATION
-void BoUpSLP::cleanupMultiNodeReordering(bool Vectorized) {
-  if (!EnableMultiNodeSLP)
-    return;
-  CurrentMultiNode = nullptr;
-  if (Vectorized) {
-    MultiNodes.clear();
-    return;
-  }
-  for (MultiNode &MNode : reverse(MultiNodes)) {
-    // 1. Restore affected instructions to their original state
-    for (int OpI : seq<int>(0, MNode.getNumOperands())) {
-      for (int Lane : seq<int>(0, MNode.getNumLanes())) {
-        Optional<MultiNode::BackupData> Data = MNode.getBackupData(OpI, Lane);
-        if (!Data)
-          continue;
-        MultiNode::LeafData &Op = MNode.getData(OpI, Lane);
-        Instruction *Frontier = Op.getFrontier();
-        Instruction *OrigFrontier = Data->OrigFrontier;
-        if (Frontier != OrigFrontier && !OrigFrontier->getParent()) {
-          OrigFrontier->insertBefore(Frontier);
-          Frontier->replaceAllUsesWith(OrigFrontier);
-          for (int I : seq<int>(0, Frontier->getNumOperands()))
-            OrigFrontier->setOperand(I, Frontier->getOperand(I));
-          Frontier->eraseFromParent();
-          Op.setFrontier(OrigFrontier);
-          if (Data->Sibling)
-            MNode.getData(*Data->Sibling, Lane).setFrontier(OrigFrontier);
-          Frontier = OrigFrontier;
-        }
-        Value *OrigOperand = Data->OrigOperand;
-        int OpNum = Op.getOperandNum();
-        assert(Frontier->getParent() && "Frontier has been erased!");
-        if (OrigOperand != Frontier->getOperand(OpNum))
-          Frontier->setOperand(OpNum, OrigOperand);
-      }
-    }
-
-    // 2. Restore the instruction position before scheduling.
-    MNode.undoMultiNodeScheduling();
-    // Reset CG state since all the changes were reverted.
-    MNode.setCodeGenState(false);
-  }
-
-  MultiNodes.clear();
-}
-#endif // INTEL_CUSTOMIZATION
 
 BoUpSLP::~BoUpSLP() {
   SmallVector<WeakTrackingVH> DeadInsts;
@@ -6558,333 +6156,6 @@ void BoUpSLP::buildExternalUses(
 }
 
 #if INTEL_CUSTOMIZATION
-// Undo the instruction reordering performed before MultiNodeReordering, the one
-// that moves the instructions towards the root of the Multi-Node.
-void BoUpSLP::MultiNode::undoMultiNodeScheduling() {
-  for (const auto &Pair : reverse(InstrPositionBeforeScheduling)) {
-    Instruction *I = Pair.first;
-    Instruction *NextI = Pair.second;
-    assert(I && NextI && I->getParent() &&
-           I->getParent() == NextI->getParent() &&
-           "Illegal instruction state. Unlinked from  BasicBlock?");
-    I->moveBefore(NextI);
-  }
-}
-
-void BoUpSLP::clearVTreeAfterMultiNode(const MultiNode *MN) {
-  // Remove all entries from VectorizableTree[] from MultiNode root onwards.
-  int TreeSize = VectorizableTree.size();
-  // 1. Clear entries from ScalarToTreeEntry/MustGather
-  for (const TreeEntry *TE :
-       map_range(seq(MN->getRoot()->Idx, TreeSize),
-                 [this](int I) { return VectorizableTree[I].get(); })) {
-    if (TE->State == TreeEntry::NeedToGather)
-      for (Value *V : TE->Scalars)
-        MustGather.erase(V);
-    else
-      for (Value *V : TE->Scalars)
-        ScalarToTreeEntry.erase(V);
-  }
-  // 2. Remove entries from VectorizableTree[]
-  VectorizableTree.pop_back_n(TreeSize - MN->getRoot()->Idx);
-}
-
-Optional<BoUpSLP::ScheduleData *>
-BoUpSLP::rebuildBSStateUntilMultiNode(const MultiNode *MN) {
-  auto &&GetBS = [this](Instruction *I) {
-    BasicBlock *BB = I->getParent();
-    assert(BB && "detouched instruction");
-    BlockScheduling *BS = BlocksSchedules[BB].get();
-    return BS;
-  };
-
-  // 0. Clear all BS
-  for (auto &Pair : BlocksSchedules)
-    Pair.second->deepClear();
-
-  // 1.  Replay the state of the Block Scheduler from VTree[0] until
-  // VTree[UntilIdx-1].
-  Optional<ScheduleData *> Bundle = {None};
-
-  for (const TreeEntry *TE :
-       map_range(seq_inclusive(0, MN->getRoot()->Idx),
-                 [this](int I) { return VectorizableTree[I].get(); })) {
-    if (TE->State == TreeEntry::NeedToGather)
-      continue;
-    auto *VL0 = cast<Instruction>(TE->Scalars[0]);
-    InstructionsState S = getSameOpcode(TE->Scalars);
-    Bundle = GetBS(VL0)->tryScheduleBundle(TE->Scalars, this, S);
-    assert(Bundle.has_value() &&
-           "TE not checked for scheduling in buildTree_rec()?");
-  }
-  return Bundle;
-}
-
-/// We move all Multi-Node trunk (frontier) instructions to the root, so that
-/// operand reordering can take place without any scheduling problems (e.g.,
-/// def-after-use). We perform this code motion in a bottom-up breadth-first
-/// fashion, starting from the root of the Multi-Node.
-
-/// For example, consider a single lane of a MultiNode {T0, T1} with leaves
-/// {L1, L2, L3}:
-///
-/// L1 L2
-/// | /
-/// T1 L3
-/// | /
-/// T0
-///
-/// The actual ordering in the BB could be like this: L1, L2, T1, L3, T0
-/// If we need to swap L1 and L3, then this is illegal, because L3 follows T1,
-/// so we get a def-after-use problem. If we re-schedule all the trunk nodes
-/// back-to-back before we perform any reordering, then the problem goes away,
-/// because all uses will follow the leaves: L1, L2, L3, T1, T0
-void BoUpSLP::scheduleMultiNodeInstrs() {
-  if (CurrentMultiNode->numOfTrunks() <= 1)
-    return;
-  const TreeEntry *RootTE = CurrentMultiNode->getRoot();
-  int Lanes = RootTE->Scalars.size();
-
-  // The 'Destination' holds the destination position where the scheduled
-  // instruction should be moved to. We need one destination per lane, which is
-  // why we are using a vector.
-  SmallVector<Instruction *, 4> Destination(Lanes);
-  for (int L = 0; L != Lanes; ++L)
-    Destination[L] = cast<Instruction>(RootTE->Scalars[L]);
-
-  std::list<TreeEntry *> TEWorklist;
-  ArrayRef<int> Trunks = CurrentMultiNode->getTrunks();
-  // Start with the first multi-node non-root TreeEntry (Trunks[0] is the root).
-  TEWorklist.push_back(VectorizableTree[Trunks[1]].get());
-
-  // Iterate until we are done with all TEs of the multi node.
-  while (!TEWorklist.empty()) {
-    TreeEntry *TE = TEWorklist.front();
-    assert(TE->State == TreeEntry::Vectorize && "Not vectorizable ?");
-    assert(int(TE->Scalars.size()) == Lanes && "Broken TE?");
-    TEWorklist.pop_front();
-
-    // Move all TE instrs before Destination, and update the Destination.
-    for (int L = 0; L != Lanes; ++L) {
-      if (auto *I = dyn_cast<Instruction>(TE->Scalars[L])) {
-        // We need to restore the original instruction position.
-        CurrentMultiNode->saveBeforeSchedInstrPosition(I, I->getNextNode());
-
-        // Perform the actual code motion.
-        I->moveBefore(Destination[L]);
-        // 'I' becomes the new destination for 'Lane'.
-        Destination[L] = I;
-      }
-    }
-
-    // Push predecessor TEs into the worklist.
-    if (auto *I0 = dyn_cast<Instruction>(TE->Scalars[0])) {
-      for (unsigned N = 0; N != I0->getNumOperands(); ++N) {
-        Value *OpV = I0->getOperand(N);
-        TreeEntry *OpTE = getTreeEntry(OpV);
-        if (OpTE && CurrentMultiNode->containsTrunk(OpTE->Idx))
-          TEWorklist.push_back(OpTE);
-      }
-    }
-  }
-#ifdef EXPENSIVE_CHECKS
-  if (MultiNodeVerifierChecks)
-    assert(!verifyFunction(*F, &dbgs()));
-#endif // EXPENSIVE_CHECKS
-}
-
-void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
-  DenseMap<Value *, Value *> RemapMap;
-  for (int OpI : seq<int>(0, CurrentMultiNode->getNumOperands())) {
-    for (int Lane : seq<int>(0, CurrentMultiNode->getNumLanes())) {
-
-      Optional<MultiNode::BackupData> Data =
-          CurrentMultiNode->saveBackupData(OpI, Lane);
-      if (!Data)
-        continue;
-      Instruction *OrigFrontier = Data->OrigFrontier;
-
-      MultiNode::LeafData &Op = CurrentMultiNode->getData(OpI, Lane);
-      // 1. Check if we first need to update the opcode.
-      // We replace frontier when its opcode needs to be inversed and if
-      // it has not been replaced via sibling earlier.
-      if (Op.getInvertFrontierOpcode() && Op.getFrontier() == OrigFrontier) {
-        Instruction *NewFrontier =
-            MultiNode::updateFrontierOpcode(OrigFrontier);
-        Op.setFrontier(NewFrontier);
-
-        if (Data->Sibling) {
-          MultiNode::LeafData &SiblingOp =
-              CurrentMultiNode->getData(*Data->Sibling, Lane);
-          SiblingOp.setFrontier(NewFrontier);
-        }
-
-        // Update VectorizableTree data structures to reflect the instruction
-        // changes.
-
-        // Update TreeEntry.Scalars[]
-        for (int TEIdx : CurrentMultiNode->getTrunks()) {
-          TreeEntry &TE = *VectorizableTree[TEIdx].get();
-          for (int Lane : seq<int>(0, TE.Scalars.size())) {
-            Value *V = TE.Scalars[Lane];
-            if (V == OrigFrontier)
-              TE.Scalars[Lane] = NewFrontier;
-          }
-        }
-
-        // Update ScalarToTreeEntry
-        TreeEntry *TE = getTreeEntry(OrigFrontier);
-        assert(TE && "Hmm frontier not in VTree?");
-
-        ScalarToTreeEntry.erase(OrigFrontier);
-        ScalarToTreeEntry[NewFrontier] = TE;
-
-        RemapMap[OrigFrontier] = NewFrontier;
-      }
-
-      // 2. Update the operands if needed.
-      Instruction *FrontierI = Op.getFrontier();
-      int OpNum = Op.getOperandNum();
-      if (FrontierI->getOperand(OpNum) != Op.getLeaf()) {
-        // Update the operand to reflect the current state.
-        FrontierI->setOperand(OpNum, Op.getLeaf());
-      }
-    }
-  }
-#ifdef EXPENSIVE_CHECKS
-  if (MultiNodeVerifierChecks)
-    assert(!verifyFunction(*F, &dbgs()));
-#endif // EXPENSIVE_CHECKS
-
-  // Update the TreeEntries
-  for (const auto &TEPtr : VectorizableTree) {
-    TEPtr->remapOperands(RemapMap);
-    // At the time when MultiNode implementation was added if a scalar was used
-    // in any NeedToGather node it could not be vectorized. But the restriction
-    // has been lifted later. So we may need to update such nodes.
-    // This is only applicable to a case when any of scalar instructions that
-    // belong to MultiNode root have their opcode reversed as a result of
-    // MultiNode operands reordering (non-root trunk nodes are limited with
-    // single-use rule hence reordering is disabled if the condition is not
-    // met). We don't scan non-NeedToGather nodes as a scalar can only be
-    // vectorized once and its "vector" node has already been updated.
-    if (TEPtr->State == TreeEntry::NeedToGather)
-      TEPtr->remapScalars(RemapMap);
-  }
-  // Update the instructions in Bundle if required.
-  if (Bundle)
-    Bundle->remapInsts(RemapMap);
-
-  CurrentMultiNode->setCodeGenState(true);
-}
-
-// Perform the operand reordering according to 'BestGroups'.
-void BoUpSLP::applyMultiNodeOrder(ScheduleData *Bundle) {
-  assert(CurrentMultiNode->getNumOperands() > 1 && "Nothing to reorder.");
-  LLVM_DEBUG(CurrentMultiNode->dump());
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DotMultiNode)
-    CurrentMultiNode->dumpDot();
-#endif
-
-  // Cluster Multi-Node instructions at the root to avoid scheduling isseus.
-  scheduleMultiNodeInstrs();
-
-  // Update the instruction operands.
-  applyReorderedOperands(Bundle);
-
-  // Take note of all Multi-Node instructions to avoid overlapping Multi-Nodes.
-  for (int TEIdx : CurrentMultiNode->getTrunks())
-    for (Value *V : VectorizableTree[TEIdx]->Scalars)
-      AllMultiNodeValues.insert(V);
-}
-
-void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
-                                       ScheduleData *Bundle) {
-#ifdef EXPENSIVE_CHECKS
-  if (MultiNodeVerifierChecks)
-    assert(!verifyFunction(*F, &dbgs()));
-#endif // EXPENSIVE_CHECKS
-
-  // Perform the frontier reordering using the look-ahead heuristic.
-  if (CurrentMultiNode->findMultiNodeOrder()) {
-    applyMultiNodeOrder(Bundle);
-#ifdef EXPENSIVE_CHECKS
-    if (MultiNodeVerifierChecks)
-      assert(!verifyFunction(*F, &dbgs()));
-#endif // EXPENSIVE_CHECKS
-  }
-
-  // Update VL to be the root of the Multi-Node.
-  VL = CurrentMultiNode->getRoot()->Scalars;
-
-#ifdef EXPENSIVE_CHECKS
-  if (MultiNodeVerifierChecks)
-    assert(!verifyFunction(*F, &dbgs()));
-#endif // EXPENSIVE_CHECKS
-}
-
-// Return true if we have finished building the Multi-Node, false otherwise.
-void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
-                                     Optional<ScheduleData *> Bundle,
-                                     ArrayRef<Value *> VL,
-                                     int NextDepth, const EdgeInfo &UserTreeIdx,
-                                     ArrayRef<int> ReuseShuffleIndices) {
-  TreeEntry *NewTE = newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndices);
-  assert(NewTE && "Invalid MultiNode trunk TE");
-
-  // Initialize current Multi-Node if this is the root.
-  if (CurrentMultiNode->numOfTrunks() == 0)
-    CurrentMultiNode->init(NewTE);
-
-  CurrentMultiNode->appendTrunk(NewTE->Idx);
-
-  // Point to the root of the MultiNode.
-  NewTE->MultiNodeRoot = CurrentMultiNode->getRoot()->Idx;
-
-  // Now we can continue the buildTree_rec()  recursion.
-  // Reorder operands (if possible) based on the default shallow reordering that
-  // only checks the immediate predecessors.
-
-  VLOperands Ops(VL, *DL, *SE, *this);
-  unsigned OpNum = cast<Instruction>(VL[0])->getNumOperands();
-  // We need to set the operands of the TE, otherwise the scheduler fails to
-  // schedule VL.
-  for (unsigned OpIdx = 0; OpIdx != OpNum; ++OpIdx) {
-    const ValueList &OpVL = Ops.getVL(OpIdx);
-    NewTE->setOperand(OpIdx, OpVL);
-  }
-
-  // TODO: This is a workaround. Currently we don't add a MultiNode leaf
-  // if its values are already in trunk. The problem is that if the
-  // skipped leaf is a good permutation, while the one in the trunk is a bad
-  // one, then the good leaf is not visited at all.
-  // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
-  // sure it is safe to remove it.
-  SmallVector<unsigned> VisitingOrder(OpNum);
-  if (BuildTreeOrderReverse)
-    std::iota(VisitingOrder.rbegin(), VisitingOrder.rend(), 0);
-  else
-    std::iota(VisitingOrder.begin(), VisitingOrder.end(), 0);
-
-  for (unsigned OpIdx : VisitingOrder) {
-    struct EdgeInfo EI(NewTE, OpIdx);
-    Ops.getAPOVec(EI.APOs, OpIdx);
-
-    if (CurrentMultiNode->getRoot() != NewTE) {
-      unsigned NumLanes = VL.size();
-      assert(UserTreeIdx.APOs.size() == NumLanes && "APOs out of sync");
-
-      // Compute APOs for given path
-      for (unsigned Lane = 0; Lane != NumLanes; ++Lane)
-        if (UserTreeIdx.APOs[Lane])
-            EI.APOs[Lane] ^= true;
-    }
-    const ValueList &OpVL = Ops.getVL(OpIdx);
-    buildTree_rec(OpVL, NextDepth, EI);
-  }
-}
-
 // Building the CurrMultiNode changes the way we do the recursion.
 // Originally, we used to do a DFS towards the definitions.
 // When building the MultiNode we change the recursion towards nodes that
@@ -6998,6 +6269,10 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
         FrontierTE->setOperand(Op.EdgeInfo.EdgeIdx, Op.Scalars);
       }
       CurrMultiNode.setCodeGenState(true);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (DotMultiNode)
+        CurrMultiNode.dumpDot();
+#endif
     }
 
     // Recursion should continue without any active Multinode.
@@ -7296,14 +6571,8 @@ static bool isAlternateInstruction(const Instruction *I,
                                    const Instruction *MainOp,
                                    const Instruction *AltOp);
 
-#if INTEL_CUSTOMIZATION
-void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
+void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
                             const EdgeInfo &UserTreeIdx) {
-  // Since we are updating VL, we need a non-readonly VL, so create a copy.
-  // TODO: Any better way of doing this?
-  SmallVector<Value *> VL(
-      iterator_range<ArrayRef<Value *>::iterator>(VL_.begin(), VL_.end()));
-#endif // INTEL_CUSTOMIZATION
   assert((allConstant(VL) || allSameType(VL)) && "Invalid types!");
 
   SmallVector<int> ReuseShuffleIndicies;
@@ -7330,14 +6599,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       ReuseShuffleIndicies.clear();
     } else {
       LLVM_DEBUG(dbgs() << "SLP: Shuffle for reused scalars.\n");
-#if INTEL_CUSTOMIZATION
-      // When we are building MultiNode it is important to not compress
-      // initial scalars even if there are duplicates because MN leaf
-      // operands must have same width as trunk nodes.
-      // MultiNode reordering may change original set of scalars so that
-      // all scalar operands may even become unique.
-      if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
-#endif // INTEL_CUSTOMIZATION
+      if (NumUniqueScalarValues <= 1 ||
           (UniquePositions.size() == 1 && all_of(UniqueValues,
                                                  [](Value *V) {
                                                    return isa<UndefValue>(V) ||
@@ -7461,19 +6723,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   bool IsScatterVectorizeUserTE =
       UserTreeIdx.UserTE &&
       UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize;
-#if INTEL_CUSTOMIZATION
-  // Customization note.
-  // The condition for AreAllSameInsts in community code was added specifically
-  // for handling gather load operands case but the problem is that logically
-  // it is too tied with generic cases. For multi-node support we do not bail
-  // out when S.getOpcode() does not return a valid opcode. But for gather
-  // load operands we should do that - that functionality added in community
-  // and we are not supposed to modify its behavior. We differentiate between
-  // these cases with ProcessingScatterOperands flag.
-
   bool AreAllSameInsts =
-      !IsScatterVectorizeUserTE || (S.getOpcode() && allSameBlock(VL)) ||
-      (S.OpValue->getType()->isPointerTy() && VL.size() > 2 &&
+      (S.getOpcode() && allSameBlock(VL)) ||
+      (S.OpValue->getType()->isPointerTy() && IsScatterVectorizeUserTE &&
+       VL.size() > 2 &&
        all_of(VL,
               [&BB](Value *V) {
                 auto *I = dyn_cast<GetElementPtrInst>(V);
@@ -7486,13 +6739,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
        BB &&
        sortPtrAccesses(VL, UserTreeIdx.UserTE->getMainOp()->getType(), *DL, *SE,
                        SortedIndices));
+<<<<<<< HEAD
 
   if (!AreAllSameInsts || allConstant(VL) || isSplat(VL) ||
       (!IsScatterVectorizeUserTE && !allSameBlock(VL)) || !AreAllSameInsts ||
       (S.getOpcode() &&
        isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
+=======
+  if (allConstant(VL) || isSplat(VL) || !AreAllSameInsts ||
+      (isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(
+           S.OpValue) &&
+>>>>>>> 3c1fb945d57c14d31bf33fb3aa89310d2b0a1084
        !all_of(VL, isVectorLikeInstWithConstOps)) ||
-#endif // INTEL_CUSTOMIZATION
       NotProfitableForVectorization(VL)) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O, small shuffle. \n");
     if (TryToFindDuplicates(S))
@@ -7616,19 +6874,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
   BlockScheduling &BS = *BSRef;
 
-#if INTEL_CUSTOMIZATION
-  bool MultiNodeCompatibleInstructions = MultiNode::hasCompatibleOpcodes(VL);
-
-  // tryScheduleBundle() fails to schedule bundles with phi-nodes in some of the
-  // lanes. We therefore check S.Opcode and bail out early.
-  if (!S.getOpcode() &&
-      (!EnableMultiNodeSLP || !MultiNodeCompatibleInstructions)) {
-    LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
-    newTreeEntry(VL, None, S, UserTreeIdx, ReuseShuffleIndicies);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   Optional<ScheduleData *> Bundle = BS.tryScheduleBundle(VL, this, S);
 #ifdef EXPENSIVE_CHECKS
   // Make sure we didn't break any internal invariants
@@ -7644,121 +6889,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     return;
   }
   LLVM_DEBUG(dbgs() << "SLP: We are able to schedule this bundle.\n");
-
-#if INTEL_CUSTOMIZATION
-  if (EnableMultiNodeSLP) {
-    // If we are already building a Multi-Node.
-    // Try to continue the buildTree recursion in order to grow the Multi-Node.
-    if (BuildingMultiNode) {
-      // Already in Multi-Node, skip.
-      if (AllMultiNodeLeaves.count(VL[0])) {
-        BS.cancelScheduling(VL, VL0);
-        return;
-      }
-      // Check if we should stop growing the Multi-Node
-      if (!CurrentMultiNode->canExtendTowards(VL)) {
-        // VL may probably be a leaf node.
-        if (CurrentMultiNode->isLegalOperandToReorder(VL)) {
-          CurrentMultiNode->appendOperand(VL, UserTreeIdx);
-          AllMultiNodeLeaves.insert(VL.begin(), VL.end());
-        }
-
-        BS.cancelScheduling(VL, VL0);
-        return;
-      }
-      // HACK: MultiNode reorder can't happen if its effect is effectively
-      // "multiplied" by being used multiple times. Path steering is
-      // still OK though.
-      if (!all_of(VL, [](const Value *V) { return V->hasOneUse(); }))
-        CurrentMultiNode->disableReordering();
-
-      buildTreeMultiNode_rec(S, Bundle, VL, Depth + 1, UserTreeIdx,
-                             ReuseShuffleIndicies);
-      return;
-    }
-
-    // No Multi-Node is being built, try to see if we can build one.
-    bool CanBeginNewMultiNode =
-        MultiNodeCompatibleInstructions &&
-        getBlockSize(VL0->getParent()) <= MaxBBSizeForMultiNodeSLP &&
-        // Disable overlapping Multi-Nodes
-        llvm::none_of(
-            VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
-        // Allow no more than this many multi-nodes per tree.
-        // TODO: This is a workaround for the broken save/undo
-        // instruction scheduling.
-        MultiNodes.size() < MaxNumOfMultiNodesPerTree;
-
-    if (CanBeginNewMultiNode) {
-      // Allocate space for the new CurrentMultiNode.
-      MultiNodes.emplace_back(*DL,*SE,*this, *DT);
-      CurrentMultiNode = &MultiNodes.back();
-
-      // We are building a new Multi-Node, so clean any existing data.
-      AllMultiNodeLeaves.clear();
-
-      // This VL looks promising for a Multi-Node, start building it.
-      BuildingMultiNode = true;
-      buildTreeMultiNode_rec(S, Bundle, VL, Depth + 1, UserTreeIdx,
-                             ReuseShuffleIndicies);
-
-      // TODO: If the MultiNode has a single operand, then no reordering will
-      // take place. We should skip reordering and free the MultiNode.
-
-      // We are now at the root of the Multi-Node.
-      // The Multi-Node has been built, so reorder the leaves and cleanup.
-      // This is where the bulk of the reordering work is done.
-      if (CurrentMultiNode->numOfTrunks() > 1)
-        reorderMultiNodeOperands(VL, Bundle.value());
-
-#ifndef NDEBUG
-      auto &&GetBundleVL = [](const Optional<BoUpSLP::ScheduleData *> &Bundle) {
-        ValueList VL;
-        if (Bundle)
-          for (ScheduleData *Member = Bundle.value(); Member;
-               Member = Member->NextInBundle)
-            VL.push_back(Member->Inst);
-        return VL;
-      };
-      ValueList BeforeUpdateVL = GetBundleVL(Bundle);
-#endif
-      // Roll-back the scheduler and VectorizableTree to the state before the
-      // Multi-Node formation. buildTree_rec() will continue with the root VL.
-      Bundle = rebuildBSStateUntilMultiNode(CurrentMultiNode);
-
-#ifndef NDEBUG
-      ValueList AfterUpdateVL = GetBundleVL(Bundle);
-      assert(AfterUpdateVL == BeforeUpdateVL &&
-             "Scheduled scalars do not match");
-#endif
-      clearVTreeAfterMultiNode(CurrentMultiNode);
-
-      // Update 'S'
-      VL0 = cast<Instruction>(VL[0]);
-      S = getSameOpcode(VL);
-
-      BuildingMultiNode = false;
-      // Fall-thru if we are finished with the Multi-Node and need to
-      // continue in buildTree_rec() as usual.
-
-      if (CurrentMultiNode->getNumOperands() > 0) {
-        // Cleanup
-        CurrentMultiNode->clearTrunks();
-      } else {
-        // No reorderable operands, de-allocate the space.
-        MultiNodes.pop_back_n(1);
-        CurrentMultiNode = nullptr;
-      }
-    }
-  }
-  assert(!BuildingMultiNode && "This should be unreachable.");
-
-  if (!S.getOpcode()) {
-    LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
-    newTreeEntry(VL, None, S, UserTreeIdx);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   unsigned ShuffleOrOp = S.isAltShuffle() ?
                 (unsigned) Instruction::ShuffleVector : S.getOpcode();
@@ -8063,11 +7193,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       }
       TE->setOperand(0, Left);
       TE->setOperand(1, Right);
-
-#if INTEL_CUSTOMIZATION
-      buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0});
-      buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1});
-#endif // INTEL_CUSTOMIZATION
+      buildTree_rec(Left, Depth + 1, {TE, 0});
+      buildTree_rec(Right, Depth + 1, {TE, 1});
       return;
     }
     case Instruction::Select:
@@ -8111,20 +7238,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (isa<BinaryOperator>(VL0) && VL0->isCommutative()) {
         ValueList Left, Right;
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
-        TE->setOperand(0, Left);
-        TE->setOperand(1, Right);
-
 #if INTEL_CUSTOMIZATION
         assert(!TE->hasOpcodeOverride() && "Reordering may be invalid");
-        // Path steering.
-        if (visitRightOperandFirst(VL[0])) {
-          buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1});
-          buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0});
-        } else {
-          buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0});
-          buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1});
-        }
 #endif // INTEL_CUSTOMIZATION
+        TE->setOperand(0, Left);
+        TE->setOperand(1, Right);
+        buildTree_rec(Left, Depth + 1, {TE, 0});
+        buildTree_rec(Right, Depth + 1, {TE, 1});
         return;
       }
 
@@ -8469,18 +7589,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             Right.push_back(RHS);
           }
         }
-        TE->setOperand(0, Left);
-        TE->setOperand(1, Right);
 #if INTEL_CUSTOMIZATION
         assert(!TE->hasOpcodeOverride() && "Reordering may be invalid");
-        if (visitRightOperandFirst(VL[0])) {
-          buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1});
-          buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0});
-        } else {
-          buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0});
-          buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1});
-        }
 #endif // INTEL_CUSTOMIZATION
+        TE->setOperand(0, Left);
+        TE->setOperand(1, Right);
+        buildTree_rec(Left, Depth + 1, {TE, 0});
+        buildTree_rec(Right, Depth + 1, {TE, 1});
         return;
       }
 
@@ -11030,7 +10145,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
   // or CurrMultiNode stays empty.
   bool IsPartOfMultiNode =
       MultiNode::getInverseOpcode(VL0->getOpcode()).has_value() &&
-      (any_of(MultiNodes, HasVL0InTrunk) || HasVL0InTrunk(CurrMultiNode));
+      HasVL0InTrunk(CurrMultiNode);
 #endif // INTEL_CUSTOMIZATION
   switch (ShuffleOrOp) {
     case Instruction::PHI: {
@@ -12243,7 +11358,6 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   Builder.ClearInsertionPoint();
   InstrElementSize.clear();
 
-  cleanupMultiNodeReordering(/*Vectorized=*/true); // INTEL
   return VectorizableTree[0]->VectorizedValue;
 }
 
@@ -13595,15 +12709,8 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
 
 #if INTEL_CUSTOMIZATION
   if (!TTI->isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
-    EnableMultiNodeSLP = false;
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2))
     EnableMultiNode = false;
-  }
-  // Only one MultiNode implementation can be enabled at a time. If new design
-  // is enabled we just switch off the legacy implementation.
-  if (EnableMultiNode)
-    EnableMultiNodeSLP = false;
-
 #endif // INTEL_CUSTOMIZATION
 
   // If the target claims to have no vector registers don't attempt
@@ -13706,7 +12813,6 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
     return true;
   }
 
-  R.cleanupMultiNodeReordering(/*Vectorized=*/false); // INTEL
   return false;
 }
 
@@ -14103,11 +13209,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
         I += VF - 1;
         NextInst = I + 1;
         Changed = true;
-#if INTEL_CUSTOMIZATION
-      } else {
-        R.cleanupMultiNodeReordering(/*Vectorized=*/false);
       }
-#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -15034,7 +14136,6 @@ public:
                    << ore::NV("Threshold", -SLPCostThreshold);
           });
 
-          V.cleanupMultiNodeReordering(/*Vectorized=*/false); // INTEL
           if (!AdjustReducedVals())
             V.analyzedReductionVals(VL);
           continue;
