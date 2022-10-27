@@ -438,13 +438,14 @@ define i64 @test_neg_shl_sub(i64 %a, i64 %b) {
 
 define i64 @test_neg_shl_sub_extra_use1(i64 %a, i64 %b, ptr %p) {
 ; CHECK-LABEL: @test_neg_shl_sub_extra_use1(
+; INTEL_CUSTOMIZATION
+; xmain prefers to use shl/sub 0 instead of mul -X
 ; CHECK-NEXT:    [[SUB:%.*]] = sub i64 [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    store i64 [[SUB]], ptr [[P:%.*]], align 8
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[MUL:%.*]] = shl i64 [[SUB]], 2
 ; CHECK-NEXT:    [[NEG:%.*]] = sub i64 0, [[MUL]]
-; CHECK-NEXT:    ret i64 [[NEG]]
 ; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    ret i64 [[NEG]]
 ;
   %sub = sub i64 %a, %b
   store i64 %sub, ptr %p
@@ -2127,8 +2128,13 @@ define i8 @demand_low_bits_uses_commute(i8 %x, i8 %y, i8 %z) {
 
 define i8 @shrink_sub_from_constant_lowbits(i8 %x) {
 ; CHECK-LABEL: @shrink_sub_from_constant_lowbits(
-; CHECK-NEXT:    [[X000_NEG:%.*]] = mul i8 [[X:%.*]], -8
-; CHECK-NEXT:    ret i8 [[X000_NEG]]
+; INTEL_CUSTOMIZATION
+; xmain will correctly generate sub i8 0 from demanded bits analysis
+; but will not change shl to mul.
+; CHECK-NEXT:    [[X000:%.*]] = shl i8 [[X:%.*]], 3
+; CHECK-NEXT:    [[SUB:%.*]] = sub i8 0, [[X000]]
+; CHECK-NEXT:    ret i8 [[SUB]]
+; end INTEL_CUSTOMIZATION
 ;
   %x000 = shl i8 %x, 3   ; 3 low bits are known zero
   %sub = sub i8 7, %x000
@@ -2203,9 +2209,12 @@ define i8 @demand_sub_from_variable_lowbits(i8 %x, i8 %y) {
 
 define i8 @demand_sub_from_variable_lowbits2(i8 %x, i8 %y) {
 ; CHECK-LABEL: @demand_sub_from_variable_lowbits2(
-; CHECK-NEXT:    [[X0000:%.*]] = shl i8 [[X:%.*]], 4
-; CHECK-NEXT:    [[SUB:%.*]] = sub nuw nsw i8 [[Y:%.*]], [[X0000]]
-; CHECK-NEXT:    [[R:%.*]] = lshr i8 [[SUB]], 4
+; INTEL_CUSTOMIZATION
+; xmain doesn't always get rid of and masks, they don't bother codegen
+; CHECK-NEXT:    [[SUB1:%.*]] = lshr i8 [[Y:%.*]], 4
+; CHECK-NEXT:    [[Y2:%.*]] = sub i8 [[SUB1]], [[X:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = and i8 [[Y2]], 15
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
   %x0000 = shl i8 %x, 4   ; 4 low bits are known zero
@@ -2219,10 +2228,13 @@ define i8 @demand_sub_from_variable_lowbits2(i8 %x, i8 %y) {
 
 define i8 @demand_sub_from_variable_lowbits3(i8 %x, i8 %y) {
 ; CHECK-LABEL: @demand_sub_from_variable_lowbits3(
-; CHECK-NEXT:    [[X0000:%.*]] = shl i8 [[X:%.*]], 4
-; CHECK-NEXT:    [[Y00000:%.*]] = and i8 [[Y:%.*]], -32
-; CHECK-NEXT:    [[SUB:%.*]] = sub i8 [[Y00000]], [[X0000]]
-; CHECK-NEXT:    [[R:%.*]] = lshr exact i8 [[SUB]], 4
+; INTEL_CUSTOMIZATION
+; and => lshr exact is not done in xmain (hard to vectorize)
+; CHECK-NEXT:    [[Y00000:%.*]] = lshr i8 [[Y:%.*]], 4
+; CHECK-NEXT:    [[SUB1:%.*]] = and i8 [[Y00000]], 14
+; CHECK-NEXT:    [[Y000002:%.*]] = sub i8 [[SUB1]], [[X:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = and i8 [[Y000002]], 15
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
   %x0000 = shl i8 %x, 4   ; 4 low bits are known zero
