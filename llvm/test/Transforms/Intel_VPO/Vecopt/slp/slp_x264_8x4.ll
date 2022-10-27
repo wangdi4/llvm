@@ -1,8 +1,6 @@
-; RUN: opt < %s -basic-aa -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -S -mtriple=x86_64 -mcpu=skylake-avx512 | FileCheck %s
+; RUN: opt < %s -passes=slp-vectorizer -enable-intel-advanced-opts -slp-multinode -S -mtriple=x86_64 -mcpu=skylake-avx512 | FileCheck %s
 
 ; This is a test for PSLP. It checks whether the 8x4 loop in x264 gets vectorized.
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 @i_pix1 = local_unnamed_addr global i32 4, align 4
 @i_pix2 = local_unnamed_addr global i32 4, align 4
