@@ -1778,14 +1778,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     PNSize = LocationSize::beforeOrAfterPointer();
 
   // In the recursive alias queries below, we may compare values from two
-<<<<<<< HEAD
-  // different loop iterations. Keep track of visited phi blocks, which will
-  // be used when determining value equivalence.
-  bool BlockInserted = VisitedPhiBBs.insert(PN->getParent()).second;
-  auto _ = make_scope_exit([&]() {
-    if (BlockInserted)
-      VisitedPhiBBs.erase(PN->getParent());
-  });
+  // different loop iterations.
+  SaveAndRestore<bool> SavedMayBeCrossIteration(MayBeCrossIteration, true);
 
 #if INTEL_CUSTOMIZATION
   // aliasGEP must be more conservative when called from aliasPHI, because
@@ -1799,14 +1793,13 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // checks on both value and size.
   // Therefore we can improve compile time for deep phi->gep->phi->gep cases by
   // passing the real cache. (CMPLRLLVM-25048)
-  (void)BlockInserted;
   AAQueryInfo *UseAAQI = &AAQI;
 #else
-  // If we inserted a block into VisitedPhiBBs, alias analysis results that
+  // If we enabled the MayBeCrossIteration flag, alias analysis results that
   // have been cached earlier may no longer be valid. Perform recursive queries
   // with a new AAQueryInfo.
   AAQueryInfo NewAAQI = AAQI.withEmptyCache();
-  AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
+  AAQueryInfo *UseAAQI = !SavedMayBeCrossIteration.get() ? &NewAAQI : &AAQI;
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1819,19 +1812,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     Alias = AAQI.AAR.alias(
       MemoryLocation(V1Srcs[0], PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
 #endif // INTEL_CUSTOMIZATION
-=======
-  // different loop iterations.
-  SaveAndRestore<bool> SavedMayBeCrossIteration(MayBeCrossIteration, true);
-
-  // If we enabled the MayBeCrossIteration flag, alias analysis results that
-  // have been cached earlier may no longer be valid. Perform recursive queries
-  // with a new AAQueryInfo.
-  AAQueryInfo NewAAQI = AAQI.withEmptyCache();
-  AAQueryInfo *UseAAQI = !SavedMayBeCrossIteration.get() ? &NewAAQI : &AAQI;
-
-  AliasResult Alias = AAQI.AAR.alias(MemoryLocation(V1Srcs[0], PNSize),
-                                     MemoryLocation(V2, V2Size), *UseAAQI);
->>>>>>> 6c269a3f89edde33a472d53ed017c1adfb62afcb
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
