@@ -1661,7 +1661,7 @@ public:
                                         Decl *AssociatedDecl, unsigned Index,
                                         Optional<unsigned> PackIndex) const;
   QualType getSubstTemplateTypeParmPackType(Decl *AssociatedDecl,
-                                            unsigned Index,
+                                            unsigned Index, bool Final,
                                             const TemplateArgument &ArgPack);
 
   QualType
@@ -2247,7 +2247,8 @@ public:
                                             Optional<unsigned> PackIndex) const;
   TemplateName getSubstTemplateTemplateParmPack(const TemplateArgument &ArgPack,
                                                 Decl *AssociatedDecl,
-                                                unsigned Index) const;
+                                                unsigned Index,
+                                                bool Final) const;
 
   enum GetBuiltinTypeError {
     /// No error
