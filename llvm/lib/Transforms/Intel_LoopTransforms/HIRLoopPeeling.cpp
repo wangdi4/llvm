@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 // This pass performs peeling on loops to eliminate data dependencies preventing
-// optimizations like vectorization.
+// optimizations like vectorization. Currently, we only peel first iteration.
 //
 // 1) Peelable dependency
 //
@@ -28,7 +28,7 @@
 // This eliminates backward flow dependency A[i1] -> A[0] which would prevent
 // vectorization.
 //
-// 2) Backward substitutible load
+// 2) Backward substitutable load
 //
 // DO i1 = 0, %N
 //  A[i1] = %t
@@ -49,7 +49,7 @@
 // This eliminates backward flow dependency %t -> %t which would prevent
 // vectorization.
 //
-// 2) Backward substitutible linear temp
+// 2) Backward substitutable linear temp
 //
 // DO i1 = 0, %N
 //  A[i1] = %t
@@ -77,8 +77,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
@@ -99,17 +100,18 @@ static cl::opt<bool>
 static cl::opt<unsigned> NumNodeThreshold(
     "hir-loop-peeling-num-node-threshold", cl::init(30), cl::Hidden,
     cl::desc("Threshold for number of nodes inside loop body"));
+
 namespace {
 struct TempInfo {
-  RegDDRef *TempDef;
+  HLInst *DefInst;
   SmallVector<DDRef *, 4> Uses;
 
-  TempInfo(RegDDRef *TempDef, SmallVector<DDRef *, 4> &Uses)
-      : TempDef(TempDef), Uses(Uses) {}
+  TempInfo(HLInst *DefInst, SmallVector<DDRef *, 4> &Uses)
+      : DefInst(DefInst), Uses(Uses) {}
 };
 
 struct PeelingInfo {
-  SmallVector<TempInfo, 3> SubstitutibleTemps;
+  SmallVector<TempInfo, 3> SubstitutableTemps;
 };
 
 class HIRLoopPeeling {
@@ -126,6 +128,8 @@ public:
   void run();
 
   bool isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo);
+
+  void peelLoop(HLLoop *Lp, PeelingInfo &PeelInfo);
 };
 
 } // namespace
@@ -133,6 +137,15 @@ public:
 static bool canBackwardSubstitute(const HLInst *Inst, const RegDDRef *LvalRef,
                                   unsigned LoopLevel, DDGraph DDG,
                                   bool *IsLinear) {
+
+  // Check if forward dependencies prevent substitution.
+  // TODO: add check for incoming output edges when extending to handle control
+  // flow.
+  for (auto *Edge : DDG.outgoing(LvalRef)) {
+    if (Edge->isForwardDep()) {
+      return false;
+    }
+  }
 
   // Looking for a candidate like: t = A[i1]
   if (isa<LoadInst>(Inst->getLLVMInstruction())) {
@@ -157,13 +170,11 @@ static bool canBackwardSubstitute(const HLInst *Inst, const RegDDRef *LvalRef,
   }
 
   // Looking for a candidate like: t = i1+1;
-  if (!LvalRef->isTerminalRef()) {
-    return false;
-  }
-
   auto *TempCE = LvalRef->getSingleCanonExpr();
 
-  if ((TempCE->getDenominator() != 1) || !TempCE->isLinearAtLevel(LoopLevel)) {
+  if ((TempCE->getDenominator() != 1) ||
+      (TempCE->getSrcType() != TempCE->getDestType()) ||
+      !TempCE->isLinearAtLevel(LoopLevel)) {
     LLVM_DEBUG(dbgs() << "Temp cannot be structually backward substituted!\n");
     return false;
   }
@@ -186,7 +197,7 @@ static bool isMergeableUse(unsigned TempIndex, const DDRef *UseRef) {
 
   unsigned NumDims = UseRegRef->getNumDimensions();
 
-  for (unsigned I = 1; I < NumDims; ++I) {
+  for (unsigned I = 1; I <= NumDims; ++I) {
     // IV is not allowed in lower/stride so we cannot substitute linear temp.
     if (UseRegRef->getDimensionLower(I)->containsTempBlob(TempIndex) ||
         UseRegRef->getDimensionStride(I)->containsTempBlob(TempIndex)) {
@@ -206,7 +217,12 @@ static bool isMergeableUse(unsigned TempIndex, const DDRef *UseRef) {
 
 bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
 
-  if (!Lp->isDo() || !Lp->isNormalized()) {
+  if (!Lp->isDo() || !Lp->isNormalized() || Lp->isSIMD() ||
+      Lp->hasVectorizeDisablingPragma()) {
+    return false;
+  }
+
+  if (Lp->hasLikelySmallTripCount()) {
     return false;
   }
 
@@ -246,7 +262,7 @@ bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
 
     bool IsLinear = false;
     bool IsPeelingCandidate = false;
-    bool IsSubstitutible = false;
+    bool IsSubstitutable = false;
     unsigned TempIndex = InvalidBlobIndex;
 
     SmallVector<DDRef *, 4> UseRefs;
@@ -265,8 +281,12 @@ bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
         continue;
       }
 
-      if (!IsSubstitutible) {
-        IsSubstitutible =
+      if (!LvalRef->isTerminalRef()) {
+        return false;
+      }
+
+      if (!IsSubstitutable) {
+        IsSubstitutable =
             canBackwardSubstitute(Inst, LvalRef, LoopLevel, DDG, &IsLinear);
 
         if (IsLinear) {
@@ -275,7 +295,7 @@ bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
         }
       }
 
-      if (IsSubstitutible) {
+      if (IsSubstitutable) {
         auto *UseRef = Edge->getSink();
 
         if (IsLinear && !isMergeableUse(TempIndex, UseRef)) {
@@ -306,15 +326,15 @@ bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
     }
 
     if (IsPeelingCandidate) {
-      if (IsSubstitutible) {
-        LLVM_DEBUG(dbgs() << "Backward substitutible "
+      if (IsSubstitutable) {
+        LLVM_DEBUG(dbgs() << "Backward substitutable "
                           << (IsLinear ? "linear" : "load")
                           << " temp found!\n");
 
         assert(!UseRefs.empty() &&
-               "Uses cannot be empty for backward substitutible temps!");
+               "Uses cannot be empty for backward substitutable temps!");
 
-        PeelInfo.SubstitutibleTemps.emplace_back(LvalRef, UseRefs);
+        PeelInfo.SubstitutableTemps.emplace_back(Inst, UseRefs);
 
       } else {
         LLVM_DEBUG(dbgs() << "Peelable dependency found!\n");
@@ -325,6 +345,166 @@ bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
   }
 
   return FoundPeelableCandidates;
+}
+
+static void replaceLinearTempInUse(unsigned TempIndex, RegDDRef *LinearTemp,
+                                   DDRef *UseRef) {
+
+  RegDDRef *UseRegRef = isa<BlobDDRef>(UseRef)
+                            ? cast<BlobDDRef>(UseRef)->getParentDDRef()
+                            : cast<RegDDRef>(UseRef);
+  bool Replaced = false;
+  (void)Replaced;
+
+  for (unsigned I = 1, NumDims = UseRegRef->getNumDimensions(); I <= NumDims;
+       I++) {
+    auto *IndexCE = UseRegRef->getDimensionIndex(I);
+
+    if (!IndexCE->containsTempBlob(TempIndex)) {
+      continue;
+    }
+
+    Replaced = true;
+    CanonExprUtils::replaceStandAloneBlobByCanonExpr(
+        IndexCE, TempIndex, LinearTemp->getSingleCanonExpr());
+  }
+
+  assert(Replaced && "Could not find temp to replace!");
+
+  UseRegRef->makeConsistent(LinearTemp);
+}
+
+/// Inserts first definition of substitutable temps before loop by replacing
+/// loop IV by 0. This is needed for correct code generation in case original
+/// loop's trip count is 1.
+static void intializeLiveoutSubstitutableTemps(HLLoop *Lp,
+                                               PeelingInfo &PeelInfo) {
+
+  /// For constant trip count loops, rest of the loop body will definitely
+  /// execute so the last temp definition will be in loop postexit.
+  if (Lp->isConstTripLoop()) {
+    return;
+  }
+
+  unsigned LoopLevel = Lp->getNestingLevel();
+
+  for (auto &Temp : PeelInfo.SubstitutableTemps) {
+    unsigned LvalSymbase = Temp.DefInst->getLvalDDRef()->getSymbase();
+
+    if (!Lp->isLiveOut(LvalSymbase)) {
+      continue;
+    }
+
+    auto *TempInit = Temp.DefInst->clone();
+
+    if (!isa<LoadInst>(Temp.DefInst->getLLVMInstruction())) {
+      TempInit->getLvalDDRef()->makeSelfBlob(true);
+    }
+
+    for (auto OpRef : make_range(TempInit->rval_op_ddref_begin(),
+                                 TempInit->rval_op_ddref_end())) {
+      OpRef->replaceIVByConstant(LoopLevel, 0);
+      OpRef->makeConsistent({}, LoopLevel - 1);
+    }
+
+    HLNodeUtils::insertBefore(Lp, TempInit);
+  }
+}
+
+/// Replaces loop IV by \p TripCountCE in \p LiveoutTempDef and inserts it as \p
+/// Lp's first postexit node.
+static void insertLiveoutDefToPostexit(HLInst *LiveoutTempDef, HLLoop *Lp,
+                                       const CanonExpr *TripCountCE) {
+  unsigned LoopLevel = Lp->getNestingLevel();
+  bool HasSignedIV = Lp->hasSignedIV();
+
+  const SmallVector<const RegDDRef *, 1> Aux = {Lp->getUpperDDRef()};
+
+  for (auto OpRef : make_range(LiveoutTempDef->rval_op_ddref_begin(),
+                               LiveoutTempDef->rval_op_ddref_end())) {
+    DDRefUtils::replaceIVByCanonExpr(OpRef, LoopLevel, TripCountCE,
+                                     HasSignedIV);
+    OpRef->makeConsistent(Aux, LoopLevel - 1);
+
+  }
+
+  HLNodeUtils::insertAsFirstPostexitNode(Lp, LiveoutTempDef);
+}
+
+void HIRLoopPeeling::peelLoop(HLLoop *Lp, PeelingInfo &PeelInfo) {
+
+  // Remove all temp candidates as they don't need to be updated (by replacing
+  // i1 by i1+1) when peeling the loop.
+  for (auto &Temp : PeelInfo.SubstitutableTemps) {
+    HLNodeUtils::remove(Temp.DefInst);
+  }
+
+  auto *FirstIterLoop = Lp->peelFirstIteration();
+
+  FirstIterLoop->replaceByFirstIteration();
+
+  intializeLiveoutSubstitutableTemps(Lp, PeelInfo);
+
+  auto *TripCountCE = Lp->getTripCountCanonExpr();
+
+  // We process in reverse order to maintain lexical ordering of substitutable
+  // temps.
+  for (auto &TempInfo : make_range(PeelInfo.SubstitutableTemps.rbegin(),
+                                   PeelInfo.SubstitutableTemps.rend())) {
+
+    auto *DefInst = TempInfo.DefInst;
+    auto *LvalRef = DefInst->getLvalDDRef();
+    unsigned LvalSymbase = LvalRef->getSymbase();
+
+    // Temp is no longer livein after backwards substitution.
+    Lp->removeLiveInTemp(LvalSymbase);
+    // It is also not liveout as the last definition will be moved to postexit.
+    Lp->removeLiveOutTemp(LvalSymbase);
+
+    auto *LiveoutTempDef = Lp->isLiveOut(LvalSymbase) ? DefInst : nullptr;
+
+    if (isa<LoadInst>(TempInfo.DefInst->getLLVMInstruction())) {
+
+      bool Replaced = false;
+
+      // Single use load temp can be eliminated by replacing it in the use
+      // directly.
+      if ((TempInfo.Uses.size() == 1)) {
+        if (auto *RegUseRef = dyn_cast<RegDDRef>(TempInfo.Uses[0])) {
+          HIRTransformUtils::replaceOperand(RegUseRef,
+                                            DefInst->removeRvalDDRef());
+          Replaced = true;
+        }
+      }
+
+      if (!Replaced) {
+        HLNodeUtils::insertAsFirstChild(Lp, DefInst);
+        LiveoutTempDef = LiveoutTempDef ? LiveoutTempDef->clone() : nullptr;
+      }
+
+    } else {
+      // Linear temp case
+
+      unsigned TempIndex =
+          LvalRef->getBlobUtils().findTempBlobIndex(LvalSymbase);
+
+      for (auto *Use : TempInfo.Uses) {
+        replaceLinearTempInUse(TempIndex, LvalRef, Use);
+      }
+
+      if (LiveoutTempDef) {
+        LiveoutTempDef->getLvalDDRef()->makeSelfBlob(true);
+      }
+    }
+
+    if (LiveoutTempDef) {
+      insertLiveoutDefToPostexit(LiveoutTempDef, Lp, TripCountCE);
+    }
+  }
+
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics,
+                                       HIRSafeReductionAnalysis>(Lp);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
 }
 
 void HIRLoopPeeling::run() {
@@ -338,7 +518,7 @@ void HIRLoopPeeling::run() {
   SmallVector<HLLoop *, 64> CandidateLoops;
   HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
-  // OptReportBuilder &ORBuilder = HIRF.getORBuilder();
+  OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
   for (auto *Lp : CandidateLoops) {
     PeelingInfo PeelInfo;
@@ -349,8 +529,9 @@ void HIRLoopPeeling::run() {
 
     LLVM_DEBUG(dbgs() << "Loop peeling candidate found!\n");
 
-    // ID: 25579u, remark string: Loop was peeled
-    // ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25579u);
+    peelLoop(Lp, PeelInfo);
+    // remark string: Loop peeled to eliminate data dependence
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25487u);
   }
 }
 
