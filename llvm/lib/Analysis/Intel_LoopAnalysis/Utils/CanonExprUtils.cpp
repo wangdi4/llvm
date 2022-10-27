@@ -653,6 +653,11 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 
   // Set denominator from CE1 to CE2
   Term->divide(CE1->getDenominator());
+  // If we reach here, either the CEs are mergeable in which case the division
+  // type should be the same or the denominator of CE2 was 1. In both cases we
+  // should be able to override the division type as it is set so add() below
+  // doesn't fail.
+  Term->setDivisionType(CE1->isSignedDiv());
 
   // CE1 = C1*C2 * B1*B2 + C3*i2 + ...
   if (!add(CE1, Term.get(), /*RelaxedMode*/ true)) {
