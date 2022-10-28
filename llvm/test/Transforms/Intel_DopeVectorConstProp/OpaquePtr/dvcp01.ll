@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -dope-vector-local-const-prop=false -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -dope-vector-local-const-prop=false -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that full load, stride, and extent dope vector constant values are
