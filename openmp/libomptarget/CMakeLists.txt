@@ -235,13 +235,9 @@ set(LIBOMPTARGET_LLVM_LIBRARY_DIR "${LLVM_LIBRARY_DIR}" CACHE STRING
 
 # Build offloading plugins and device RTLs if they are available.
 add_subdirectory(plugins)
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
 add_subdirectory(deviceRTLs)
 else(INTEL_CUSTOMIZATION)
-=======
-add_subdirectory(plugins-nextgen)
->>>>>>> 846904195bd603628ee3670d7dc0ca84e3e3bba4
 add_subdirectory(DeviceRTL)
 endif(INTEL_CUSTOMIZATION)
 add_subdirectory(tools)
