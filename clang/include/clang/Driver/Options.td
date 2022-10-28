@@ -5582,10 +5582,6 @@ def mno_avx512vp2intersect : Flag<["-"], "mno-avx512vp2intersect">, Group<m_x86_
 def mavxbf16 : Flag<["-"], "mavxbf16">, Group<m_x86_Features_Group>;
 def mno_avxbf16 : Flag<["-"], "mno-avxbf16">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
-def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
-def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def mavxcompress : Flag<["-"], "mavxcompress">, Group<m_x86_Features_Group>;
 def mno_avxcompress : Flag<["-"], "mno-avxcompress">, Group<m_x86_Features_Group>;
@@ -5627,6 +5623,8 @@ def mavxraoint : Flag<["-"], "mavxraoint">, Group<m_x86_Features_Group>;
 def mno_avxraoint : Flag<["-"], "mno-avxraoint">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
+def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
+def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
 def mavxvnni : Flag<["-"], "mavxvnni">, Group<m_x86_Features_Group>;
 def mno_avxvnni : Flag<["-"], "mno-avxvnni">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
@@ -8479,10 +8477,8 @@ def : CLFlag<"Qmno-avx512vp2intersect">, Alias<mno_avx512vp2intersect>;
 def : CLFlag<"Qmavxbf16">, Alias<mavxbf16>;
 def : CLFlag<"Qmno-avxbf16">, Alias<mno_avxbf16>;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
 def : CLFlag<"Qmavxifma">, Alias<mavxifma>;
 def : CLFlag<"Qmno-avxifma">, Alias<mno_avxifma>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def : CLFlag<"Qmavxcompress">, Alias<mavxcompress>;
 def : CLFlag<"Qmno-avxcompress">, Alias<mno_avxcompress>;

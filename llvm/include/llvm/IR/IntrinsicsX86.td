@@ -1952,26 +1952,6 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
               ClangBuiltin<"__builtin_ia32_vpmadd52luq512">,
               Intrinsic<[llvm_v8i64_ty], [llvm_v8i64_ty, llvm_v8i64_ty,
                          llvm_v8i64_ty], [IntrNoMem]>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-  def int_x86_avx_vpmadd52h_uq_128 :
-              ClangBuiltin<"__builtin_ia32_vpmadd52huqvex128">,
-              Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_v2i64_ty,
-                         llvm_v2i64_ty], [IntrNoMem]>;
-  def int_x86_avx_vpmadd52l_uq_128 :
-              ClangBuiltin<"__builtin_ia32_vpmadd52luqvex128">,
-              Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_v2i64_ty,
-                         llvm_v2i64_ty], [IntrNoMem]>;
-  def int_x86_avx_vpmadd52h_uq_256 :
-              ClangBuiltin<"__builtin_ia32_vpmadd52huqvex256">,
-              Intrinsic<[llvm_v4i64_ty], [llvm_v4i64_ty, llvm_v4i64_ty,
-                         llvm_v4i64_ty], [IntrNoMem]>;
-  def int_x86_avx_vpmadd52l_uq_256 :
-              ClangBuiltin<"__builtin_ia32_vpmadd52luqvex256">,
-              Intrinsic<[llvm_v4i64_ty], [llvm_v4i64_ty, llvm_v4i64_ty,
-                         llvm_v4i64_ty], [IntrNoMem]>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
 }
 
 // VNNI

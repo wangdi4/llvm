@@ -1884,6 +1884,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
 // TODO: CPUID bit is TBD.
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
+  Features["avxifma"]    = HasLeaf7Subleaf1 && ((EAX >> 23) & 1) && HasAVXSave;
   Features["prefetchi"]  = HasLeaf7Subleaf1 && ((EDX >> 14) & 1);
 
   bool HasLeafD = MaxLevel >= 0xd &&

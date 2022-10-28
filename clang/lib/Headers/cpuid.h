@@ -227,6 +227,7 @@
 // TODO: CPUID bit is TBD.
 /* end INTEL_FEATURE_ISA_PREFETCHST2 */
 /* end INTEL_CUSTOMIZATION */
+#define bit_AVXIFMA       0x00800000
 
 /* Features in %edx for leaf 7 sub-leaf 1 */
 #define bit_PREFETCHI     0x00004000

@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_avx_ifma
 // RUN: llvm-mc -triple=x86_64-unknown-unknown -mattr=+avxifma --show-encoding < %s  | FileCheck %s
 
 // CHECK: {vex} vpmadd52huq %ymm14, %ymm13, %ymm12

@@ -1298,11 +1298,6 @@ list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_BF16)
 # end INTEL_FEATURE_ISA_AVX_BF16
 
-# INTEL_FEATURE_ISA_AVX_IFMA
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_IFMA)
-# end INTEL_FEATURE_ISA_AVX_IFMA
-
 # INTEL_FEATURE_ISA_AVX_COMPRESS
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_COMPRESS)

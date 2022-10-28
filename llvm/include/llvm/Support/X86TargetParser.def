@@ -244,9 +244,6 @@ X86_FEATURE       (AVX512FP16,      "avx512fp16")
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
 X86_FEATURE       (AVX512BF16NE,    "avx512bf16ne")
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#if INTEL_FEATURE_ISA_AVX_IFMA
-X86_FEATURE       (AVXIFMA,         "avxifma")
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT8
 X86_FEATURE       (AVXVNNIINT8,  "avxvnniint8")
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
@@ -446,6 +443,7 @@ X86_FEATURE       (AMX_FP8, "amx-fp8")
 X86_FEATURE       (AMX_FP16,        "amx-fp16")
 X86_FEATURE       (CMPCCXADD,       "cmpccxadd")
 X86_FEATURE       (AVXVNNI,         "avxvnni")
+X86_FEATURE       (AVXIFMA,         "avxifma")
 // These features aren't really CPU features, but the frontend can set them.
 X86_FEATURE       (RETPOLINE_EXTERNAL_THUNK,    "retpoline-external-thunk")
 X86_FEATURE       (RETPOLINE_INDIRECT_BRANCHES, "retpoline-indirect-branches")
