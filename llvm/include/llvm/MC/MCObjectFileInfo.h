@@ -390,7 +390,7 @@ public:
 
   MCSection *getKCFITrapSection(const MCSection &TextSec) const;
 
-  MCSection *getPseudoProbeSection(const MCSection *TextSec) const;
+  MCSection *getPseudoProbeSection(const MCSection &TextSec) const;
 
   MCSection *getPseudoProbeDescSection(StringRef FuncName) const;
 
