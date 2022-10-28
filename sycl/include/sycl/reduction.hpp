@@ -1131,12 +1131,13 @@ template <class KernelName> struct NDRangeBothFastReduceAndAtomics;
 /// Briefly: calls user's lambda, reduce() + atomic, INT +
 /// ADD/MIN/MAX.
 template <typename KernelName, typename KernelType, int Dims,
-          typename PropertiesT, class Reduction, class AccTy>
+          typename PropertiesT, class Reduction>
 void reduCGFuncForNDRangeBothFastReduceAndAtomics(handler &CGH,
                                                   KernelType KernelFunc,
                                                   const nd_range<Dims> &Range,
                                                   PropertiesT Properties,
-                                                  Reduction &, AccTy Out) {
+                                                  Reduction &Redu) {
+  auto Out = Redu.getReadWriteAccessorToInitializedMem(CGH);
   size_t NElements = Reduction::num_elements;
   using Name = __sycl_reduction_kernel<
       reduction::main_krn::NDRangeBothFastReduceAndAtomics, KernelName>;
@@ -1169,14 +1170,15 @@ template <class KernelName> struct NDRangeFastAtomicsOnly;
 ///
 /// Briefly: calls user's lambda, tree-reduction + atomic, INT + AND/OR/XOR.
 template <typename KernelName, typename KernelType, int Dims,
-          typename PropertiesT, class Reduction, class AccTy>
-void reduCGFuncForNDRangeFastAtomicsOnly(handler &CGH, bool IsPow2WG,
-                                         KernelType KernelFunc,
+          typename PropertiesT, class Reduction>
+void reduCGFuncForNDRangeFastAtomicsOnly(handler &CGH, KernelType KernelFunc,
                                          const nd_range<Dims> &Range,
-                                         PropertiesT Properties, Reduction &,
-                                         AccTy Out) {
+                                         PropertiesT Properties,
+                                         Reduction &Redu) {
+  auto Out = Redu.getReadWriteAccessorToInitializedMem(CGH);
   size_t NElements = Reduction::num_elements;
   size_t WGSize = Range.get_local_range().size();
+  bool IsPow2WG = (WGSize & (WGSize - 1)) == 0;
 
   // Use local memory to reduce elements in work-groups into zero-th element.
   // If WGSize is not power of two, then WGSize+1 elements are allocated.
@@ -1252,13 +1254,15 @@ template <class KernelName> struct NDRangeFastReduceOnly;
 ///
 /// Briefly: user's lambda, reduce(), FP + ADD/MIN/MAX.
 template <typename KernelName, typename KernelType, int Dims,
-          typename PropertiesT, class Reduction, class AccTy>
+          typename PropertiesT, class Reduction>
 void reduCGFuncForNDRangeFastReduceOnly(handler &CGH, KernelType KernelFunc,
                                         const nd_range<Dims> &Range,
-                                        PropertiesT Properties, Reduction &Redu,
-                                        AccTy Out) {
+                                        PropertiesT Properties,
+                                        Reduction &Redu) {
   size_t NElements = Reduction::num_elements;
   size_t NWorkGroups = Range.get_group_range().size();
+  auto Out = Redu.getWriteAccForPartialReds(NWorkGroups * NElements, CGH);
+
   bool IsUpdateOfUserVar =
       !Reduction::is_usm && !Redu.initializeToIdentity() && NWorkGroups == 1;
 
@@ -1300,15 +1304,15 @@ template <class KernelName> struct NDRangeBasic;
 ///
 /// Briefly: user's lambda, tree-reduction, CUSTOM types/ops.
 template <typename KernelName, typename KernelType, int Dims,
-          typename PropertiesT, class Reduction, class AccTy>
-void reduCGFuncForNDRangeBasic(handler &CGH, bool IsPow2WG,
-                               KernelType KernelFunc,
+          typename PropertiesT, class Reduction>
+void reduCGFuncForNDRangeBasic(handler &CGH, KernelType KernelFunc,
                                const nd_range<Dims> &Range,
-                               PropertiesT Properties, Reduction &Redu,
-                               AccTy Out) {
+                               PropertiesT Properties, Reduction &Redu) {
   size_t NElements = Reduction::num_elements;
   size_t WGSize = Range.get_local_range().size();
+  bool IsPow2WG = (WGSize & (WGSize - 1)) == 0;
   size_t NWorkGroups = Range.get_group_range().size();
+  auto Out = Redu.getWriteAccForPartialReds(NWorkGroups * NElements, CGH);
 
   bool IsUpdateOfUserVar =
       !Reduction::is_usm && !Redu.initializeToIdentity() && NWorkGroups == 1;
@@ -1653,15 +1657,13 @@ void initReduLocalAccs(bool Pow2WG, size_t LID, size_t WGSize,
                        const std::tuple<ReducerT...> &Reducers,
                        ReduTupleT<ResultT...> Identities,
                        std::index_sequence<Is...>) {
-  std::tie(std::get<Is>(LocalAccs)[LID]...) =
-      std::make_tuple(std::get<Is>(Reducers).MValue...);
+  ((std::get<Is>(LocalAccs)[LID] = std::get<Is>(Reducers).MValue), ...);
 
   // For work-groups, which size is not power of two, local accessors have
   // an additional element with index WGSize that is used by the tree-reduction
   // algorithm. Initialize those additional elements with identity values here.
   if (!Pow2WG)
-    std::tie(std::get<Is>(LocalAccs)[WGSize]...) =
-        std::make_tuple(std::get<Is>(Identities)...);
+    ((std::get<Is>(LocalAccs)[WGSize] = std::get<Is>(Identities)), ...);
 }
 
 template <typename... LocalAccT, typename... InputAccT, typename... ResultT,
@@ -1679,18 +1681,15 @@ void initReduLocalAccs(bool UniformPow2WG, size_t LID, size_t GID,
   // give any impact into the final partial sums during the tree-reduction
   // algorithm work.
   if (UniformPow2WG || GID < NWorkItems)
-    std::tie(std::get<Is>(LocalAccs)[LID]...) =
-        std::make_tuple(std::get<Is>(InputAccs)[GID]...);
+    ((std::get<Is>(LocalAccs)[LID] = std::get<Is>(InputAccs)[GID]), ...);
   else
-    std::tie(std::get<Is>(LocalAccs)[LID]...) =
-        std::make_tuple(std::get<Is>(Identities)...);
+    ((std::get<Is>(LocalAccs)[LID] = std::get<Is>(Identities)), ...);
 
   // For work-groups, which size is not power of two, local accessors have
   // an additional element with index WGSize that is used by the tree-reduction
   // algorithm. Initialize those additional elements with identity values here.
   if (!UniformPow2WG)
-    std::tie(std::get<Is>(LocalAccs)[WGSize]...) =
-        std::make_tuple(std::get<Is>(Identities)...);
+    ((std::get<Is>(LocalAccs)[WGSize] = std::get<Is>(Identities)), ...);
 }
 
 template <typename... LocalAccT, typename... BOPsT, size_t... Is>
@@ -1698,9 +1697,10 @@ void reduceReduLocalAccs(size_t IndexA, size_t IndexB,
                          ReduTupleT<LocalAccT...> LocalAccs,
                          ReduTupleT<BOPsT...> BOPs,
                          std::index_sequence<Is...>) {
-  std::tie(std::get<Is>(LocalAccs)[IndexA]...) =
-      std::make_tuple((std::get<Is>(BOPs)(std::get<Is>(LocalAccs)[IndexA],
-                                          std::get<Is>(LocalAccs)[IndexB]))...);
+  auto ProcessOne = [=](auto &LocalAcc, auto &BOp) {
+    LocalAcc[IndexA] = BOp(LocalAcc[IndexA], LocalAcc[IndexB]);
+  };
+  (ProcessOne(std::get<Is>(LocalAccs), std::get<Is>(BOPs)), ...);
 }
 
 template <typename... Reductions, typename... OutAccT, typename... LocalAccT,
@@ -1713,23 +1713,23 @@ void writeReduSumsToOutAccs(
     std::index_sequence<Is...>) {
   // Add the initial value of user's variable to the final result.
   if (IsOneWG)
-    std::tie(std::get<Is>(LocalAccs)[0]...) = std::make_tuple(std::get<Is>(
-        BOPs)(std::get<Is>(LocalAccs)[0], IsInitializeToIdentity[Is]
-                                              ? std::get<Is>(IdentityVals)
-                                              : std::get<Is>(OutAccs)[0])...);
+    ((std::get<Is>(LocalAccs)[0] = std::get<Is>(BOPs)(
+          std::get<Is>(LocalAccs)[0], IsInitializeToIdentity[Is]
+                                          ? std::get<Is>(IdentityVals)
+                                          : std::get<Is>(OutAccs)[0])),
+     ...);
 
   if (Pow2WG) {
     // The partial sums for the work-group are stored in 0-th elements of local
     // accessors. Simply write those sums to output accessors.
-    std::tie(std::get<Is>(OutAccs)[OutAccIndex]...) =
-        std::make_tuple(std::get<Is>(LocalAccs)[0]...);
+    ((std::get<Is>(OutAccs)[OutAccIndex] = std::get<Is>(LocalAccs)[0]), ...);
   } else {
     // Each of local accessors keeps two partial sums: in 0-th and WGsize-th
     // elements. Combine them into final partial sums and write to output
     // accessors.
-    std::tie(std::get<Is>(OutAccs)[OutAccIndex]...) =
-        std::make_tuple(std::get<Is>(BOPs)(std::get<Is>(LocalAccs)[0],
-                                           std::get<Is>(LocalAccs)[WGSize])...);
+    ((std::get<Is>(OutAccs)[OutAccIndex] = std::get<Is>(BOPs)(
+          std::get<Is>(LocalAccs)[0], std::get<Is>(LocalAccs)[WGSize])),
+     ...);
   }
 }
 
@@ -2208,44 +2208,21 @@ template <typename KernelName, typename KernelType, int Dims,
 void reduCGFunc(handler &CGH, KernelType KernelFunc,
                 const nd_range<Dims> &Range, PropertiesT Properties,
                 Reduction &Redu) {
-  size_t WGSize = Range.get_local_range().size();
-  auto Out = [&]() {
-    if constexpr (Reduction::has_fast_atomics) {
-
-      // User's initialized read-write accessor is re-used here if
-      // initialize_to_identity is not set (i.e. if user's variable is
-      // initialized). Otherwise, a new buffer is initialized with identity
-      // value and a new read-write accessor to that buffer is created. That is
-      // done because atomic operations update some initialized memory. User's
-      // USM pointer is not re-used even when initialize_to_identity is not set
-      // because it does not worth the creation of an additional variant of a
-      // user's kernel for that case.
-      return Redu.getReadWriteAccessorToInitializedMem(CGH);
-
-    } else {
-      constexpr size_t NElements = Reduction::num_elements;
-      size_t NWorkGroups = Range.get_group_range().size();
-
-      return Redu.getWriteAccForPartialReds(NWorkGroups * NElements, CGH);
-    }
-  }();
-
   if constexpr (Reduction::has_fast_reduce) {
     if constexpr (Reduction::has_fast_atomics) {
       reduCGFuncForNDRangeBothFastReduceAndAtomics<KernelName, KernelType>(
-          CGH, KernelFunc, Range, Properties, Redu, Out);
+          CGH, KernelFunc, Range, Properties, Redu);
     } else {
       reduCGFuncForNDRangeFastReduceOnly<KernelName, KernelType>(
-          CGH, KernelFunc, Range, Properties, Redu, Out);
+          CGH, KernelFunc, Range, Properties, Redu);
     }
   } else {
-    bool IsPow2WG = (WGSize & (WGSize - 1)) == 0;
     if constexpr (Reduction::has_fast_atomics) {
       reduCGFuncForNDRangeFastAtomicsOnly<KernelName, KernelType>(
-          CGH, IsPow2WG, KernelFunc, Range, Properties, Redu, Out);
+          CGH, KernelFunc, Range, Properties, Redu);
     } else {
       reduCGFuncForNDRangeBasic<KernelName, KernelType>(
-          CGH, IsPow2WG, KernelFunc, Range, Properties, Redu, Out);
+          CGH, KernelFunc, Range, Properties, Redu);
     }
   }
 }
