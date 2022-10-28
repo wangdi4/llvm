@@ -274,6 +274,7 @@ namespace L0Interop {
     // Use this when command queue needs to be accessed as
     // the targetsync field in interop will be changed if preferred type is sycl.
     ze_command_queue_handle_t CommandQueue;
+    ze_command_list_handle_t ImmCmdList;
   };
 
   /// Dump implementation-defined properties
@@ -286,14 +287,16 @@ namespace L0Interop {
 
   struct SyclWrapperTy {
     bool WrapApiValid = false;
-    typedef void *(get_sycl_interop_ty)(void*);
-    typedef void  (create_sycl_interop_ty)(omp_interop_t);
-    typedef void  (delete_sycl_interop_ty)(omp_interop_t);
-    typedef void  (delete_all_sycl_interop_ty)();
+    typedef void(init_sycl_interop_ty)(void *);
+    typedef void*(get_sycl_interop_ty)(void *);
+    typedef void(create_sycl_interop_ty)(omp_interop_t);
+    typedef void(delete_sycl_interop_ty)(omp_interop_t);
+    typedef void(delete_all_sycl_interop_ty)();
 
-    get_sycl_interop_ty        *get_sycl_interop        = nullptr;
-    create_sycl_interop_ty     *create_sycl_interop     = nullptr;
-    delete_sycl_interop_ty     *delete_sycl_interop     = nullptr;
+    init_sycl_interop_ty *init_sycl_interop = nullptr;
+    get_sycl_interop_ty *get_sycl_interop = nullptr;
+    create_sycl_interop_ty *create_sycl_interop = nullptr;
+    delete_sycl_interop_ty *delete_sycl_interop = nullptr;
     delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
 
     std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
@@ -303,7 +306,7 @@ namespace L0Interop {
   static void wrapInteropSycl(__tgt_interop * Interop) {
     static std::once_flag Flag{};
 
-    std::call_once(Flag, []() {
+    std::call_once(Flag, [&Interop]() {
       std::string ErrMsg;
       auto DynLib = std::make_unique<llvm::sys::DynamicLibrary>(
           llvm::sys::DynamicLibrary::getPermanentLibrary(
@@ -316,6 +319,10 @@ namespace L0Interop {
       }
 
       DP("Loaded library '%s': \n", L0Interop::SyclWrapName);
+
+      if (!(*((void **)&SyclWrapper.init_sycl_interop) =
+                DynLib->getAddressOfSymbol("__tgt_sycl_init_interop")))
+        return;
 
       if (!(*((void **)&SyclWrapper.get_sycl_interop) =
           DynLib->getAddressOfSymbol("__tgt_sycl_get_interop")))
@@ -335,6 +342,7 @@ namespace L0Interop {
 
       SyclWrapper.WrapApiValid = true;
       SyclWrapper.LibHandle = std::move(DynLib);
+      SyclWrapper.init_sycl_interop(Interop);
     });
 
     if (!SyclWrapper.WrapApiValid) {
@@ -6750,9 +6758,27 @@ __tgt_interop *__tgt_rtl_create_interop(
 
   ret->RTLProperty = new L0Interop::Property();
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
-    ret->TargetSync = DeviceInfo->createCommandQueue(DeviceId);
     auto L0 = static_cast<L0Interop::Property *>(ret->RTLProperty);
-    L0->CommandQueue = static_cast<ze_command_queue_handle_t>(ret->TargetSync);
+    if (DeviceInfo->Option.Flags.UseImmCmdList) {
+      ze_command_queue_desc_t QueueDesc = {
+        ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, 
+        nullptr,
+        getComputeOrdinal(DeviceInfo->Devices[DeviceId]).first,
+        DeviceInfo->ComputeIndices[DeviceId], 
+        0,
+        ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, 
+        ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
+      };
+      ze_command_list_handle_t CmdList;
+      CALL_ZE_EXIT_FAIL(zeCommandListCreateImmediate, DeviceInfo->Context,
+                        DeviceInfo->Devices[DeviceId], &QueueDesc, &CmdList);
+      ret->TargetSync = CmdList;
+      L0->ImmCmdList = CmdList;
+    } else {
+      ret->TargetSync = DeviceInfo->createCommandQueue(DeviceId);
+      L0->CommandQueue = 
+          static_cast<ze_command_queue_handle_t>(ret->TargetSync);
+    }
   }
 
   // Currently we only support prefer-type level0 and sycl
@@ -6775,18 +6801,27 @@ __tgt_interop *__tgt_rtl_create_interop(
 }
 
 int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
-  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
-      Interop->FrId != L0Interop::FrId) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId) {
     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
     return OFFLOAD_FAIL;
   }
 
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    auto cmdQueue = L0->CommandQueue;
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-    CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
+    if (DeviceInfo->Option.Flags.UseImmCmdList) {
+      auto immCmdList = L0->ImmCmdList;
+      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0,
+                       nullptr);
+      CALL_ZE_RET_FAIL(zeCommandListDestroy, immCmdList);
+    } else {
+      auto cmdQueue = L0->CommandQueue;
+      CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+      CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
+    }
   }
+  // Call  sycl wrapper delete if it was a sycl object
+  if (Interop->FrId == 4)
+    L0Interop::SyclWrapper.delete_sycl_interop(Interop);
 
   delete L0;
   delete Interop;
@@ -6795,17 +6830,21 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
 }
 
 int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
-  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
-      Interop->FrId != L0Interop::FrId) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId){
     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
     return OFFLOAD_FAIL;
   }
 
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    auto cmdQueue = static_cast<ze_command_queue_handle_t>(Interop->TargetSync);
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+    if (DeviceInfo->Option.Flags.UseImmCmdList) {
+      auto immCmdList = L0->ImmCmdList;
+      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0, nullptr);
+    } else {
+      auto cmdQueue = L0->CommandQueue;
+      CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+    }
   }
-
   return OFFLOAD_SUCCESS;
 }
 
