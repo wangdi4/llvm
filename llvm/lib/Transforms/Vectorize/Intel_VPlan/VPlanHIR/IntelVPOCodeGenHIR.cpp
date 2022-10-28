@@ -4395,6 +4395,52 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
           addInstUnmasked(TripInst);
         }
 
+        // In some cases we need to subtract loop IV's lower bound from TC to
+        // determine the actual number of iterations that loop executes. This is
+        // needed to ensure correct last value computation in cases like below -
+        //
+        //  DO i1 = 0, MainUB, MainVF
+        //  END LOOP
+        //
+        //  %fp.ind = %fp.ind + (Step * (MainUB + 1))
+        //
+        //  DO i1 = MainUB, LoopUB, RemVF
+        //  END LOOP
+        //
+        //  %fp.ind = fp.ind + (Step * (LoopUB - MainUB + 1))
+        //
+        // Using only LoopUB above will compute wrong last value since %fp.ind
+        // was already updated after main vector loop.
+
+        // Capture loop IV's lower bound using VPlan CFG.
+        assert(VPLoopIVPhiMap.find(L) != VPLoopIVPhiMap.end() &&
+               "IV phi not found for loop.");
+        VPPHINode *IVPhi = const_cast<VPPHINode *>(VPLoopIVPhiMap[L]);
+        VPValue *VPIVLowerBound = L->isDefOutside(IVPhi->getOperand(0))
+                                      ? IVPhi->getOperand(0)
+                                      : IVPhi->getOperand(1);
+        // If induction-init's first operand is constant, then it is main loop
+        // IV with 0 start value (check CG for induction-init opcode).
+        if (auto *ConstLB = dyn_cast<VPConstant>(
+                cast<VPInductionInit>(VPIVLowerBound)->getOperand(0))) {
+          if (ConstLB->getConstant()->isZeroValue())
+            VPIVLowerBound = ConstLB;
+          else
+            assert(false && "Unexpected constant LB for IV.");
+        }
+        RegDDRef *IVLowerBound = getOrCreateScalarRef(VPIVLowerBound, 0);
+        // Lower bound temp's def@level would be explicitly when assigning it as
+        // HLLoop's LB. Make the temp consistent here since we're using it
+        // outside the loop.
+        IVLowerBound->makeConsistent({}, getNestingLevelFromInsertPoint());
+        int64_t IVLBConst;
+        bool IVLBIsZero =
+            IVLowerBound->isIntConstant(&IVLBConst) && IVLBConst == 0;
+        // LB subtraction is needed only if it is not 0 and last value is
+        // written back to start.
+        bool NeedsLBSubtraction =
+            !IVLBIsZero && Start->getSymbase() != ConstantSymbase;
+
         // If types of step and trip count don't match, then an additional cast
         // is needed.
         Type *StepType = Step->getSrcType();
@@ -4406,6 +4452,25 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                                                       "cast.crd");
           addInstUnmasked(TripInst);
           TripCnt = TripInst->getLvalDDRef();
+          if (NeedsLBSubtraction) {
+            // LB will be same type as TC, cast since subtraction will be done
+            // below.
+            HLInst *IVLBCast = HLNodeUtilities.createCastHLInst(
+                StepType, CastOp, IVLowerBound, "iv.lb.cast.crd");
+            addInstUnmasked(IVLBCast);
+            IVLowerBound = IVLBCast->getLvalDDRef();
+          }
+        }
+
+        // Compute actual TC of loop using lower bound subtraction, if needed.
+        if (NeedsLBSubtraction) {
+          Instruction::BinaryOps SubOpc = StepType->isFloatingPointTy()
+                                              ? Instruction::FSub
+                                              : Instruction::Sub;
+          HLInst *SubIVLB = HLNodeUtilities.createBinaryHLInst(
+              SubOpc, TripCnt->clone(), IVLowerBound->clone(), "iv.lb.sub");
+          addInstUnmasked(SubIVLB);
+          TripCnt = SubIVLB->getLvalDDRef()->clone();
         }
 
         RegDDRef *MulRef;
