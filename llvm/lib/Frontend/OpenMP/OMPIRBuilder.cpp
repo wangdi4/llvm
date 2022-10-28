@@ -4759,19 +4759,6 @@ void OpenMPIRBuilder::OutlineInfo::collectBlocks(
   }
 }
 
-void TargetRegionEntryInfo::getTargetRegionEntryFnName(
-    SmallVectorImpl<char> &Name, StringRef ParentName, unsigned DeviceID,
-    unsigned FileID, unsigned Line) {
-  raw_svector_ostream OS(Name);
-  OS << "__omp_offloading" << llvm::format("_%x", DeviceID)
-     << llvm::format("_%x_", FileID) << ParentName << "_l" << Line;
-}
-
-void TargetRegionEntryInfo::getTargetRegionEntryFnName(
-    SmallVectorImpl<char> &Name) {
-  getTargetRegionEntryFnName(Name, ParentName, DeviceID, FileID, Line);
-}
-
 bool OffloadEntriesInfoManager::empty() const {
   return OffloadEntriesTargetRegion.empty() &&
          OffloadEntriesDeviceGlobalVar.empty();
@@ -4779,8 +4766,9 @@ bool OffloadEntriesInfoManager::empty() const {
 
 /// Initialize target region entry.
 void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
-    const TargetRegionEntryInfo &EntryInfo, unsigned Order) {
-  OffloadEntriesTargetRegion[EntryInfo] =
+    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
+    unsigned Order) {
+  OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] =
       OffloadEntryInfoTargetRegion(Order, /*Addr=*/nullptr, /*ID=*/nullptr,
                                    OMPTargetRegionEntryTargetRegion);
   ++OffloadingEntriesNum;
@@ -4790,13 +4778,20 @@ void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
 int OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 #else
 void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
     const TargetRegionEntryInfo &EntryInfo, Constant *Addr, Constant *ID,
     OMPTargetRegionEntryKind Flags, bool IsDevice) {
+=======
+    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
+    Constant *Addr, Constant *ID, OMPTargetRegionEntryKind Flags,
+    bool IsDevice) {
+>>>>>>> 0cb65b0a585c8b3d4a8a2aefe994a8fc907934f8
   // If we are emitting code for a target, the entry is already initialized,
   // only has to be registered.
   if (IsDevice) {
     // This could happen if the device compilation is invoked standalone.
+<<<<<<< HEAD
     if (!hasTargetRegionEntryInfo(EntryInfo)) {
 #if INTEL_COLLAB
       return -1;
@@ -4805,11 +4800,18 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 #endif // INTEL_COLLAB
     }
     auto &Entry = OffloadEntriesTargetRegion[EntryInfo];
+=======
+    if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum))
+      return;
+    auto &Entry =
+        OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+>>>>>>> 0cb65b0a585c8b3d4a8a2aefe994a8fc907934f8
     Entry.setAddress(Addr);
     Entry.setID(ID);
     Entry.setFlags(Flags);
   } else {
     if (Flags == OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion &&
+<<<<<<< HEAD
         hasTargetRegionEntryInfo(EntryInfo, /*IgnoreAddressId*/ true))
 #if INTEL_COLLAB
       return -1;
@@ -4817,9 +4819,15 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
       return;
 #endif // INTEL_COLLAB
     assert(!hasTargetRegionEntryInfo(EntryInfo) &&
+=======
+        hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum,
+                                 /*IgnoreAddressId*/ true))
+      return;
+    assert(!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum) &&
+>>>>>>> 0cb65b0a585c8b3d4a8a2aefe994a8fc907934f8
            "Target region entry already registered!");
     OffloadEntryInfoTargetRegion Entry(OffloadingEntriesNum, Addr, ID, Flags);
-    OffloadEntriesTargetRegion[EntryInfo] = Entry;
+    OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
     ++OffloadingEntriesNum;
   }
 #if INTEL_COLLAB
@@ -4829,13 +4837,23 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 }
 
 bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
-    const TargetRegionEntryInfo &EntryInfo, bool IgnoreAddressId) const {
-  auto It = OffloadEntriesTargetRegion.find(EntryInfo);
-  if (It == OffloadEntriesTargetRegion.end()) {
+    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
+    bool IgnoreAddressId) const {
+  auto PerDevice = OffloadEntriesTargetRegion.find(DeviceID);
+  if (PerDevice == OffloadEntriesTargetRegion.end())
     return false;
-  }
+  auto PerFile = PerDevice->second.find(FileID);
+  if (PerFile == PerDevice->second.end())
+    return false;
+  auto PerParentName = PerFile->second.find(ParentName);
+  if (PerParentName == PerFile->second.end())
+    return false;
+  auto PerLine = PerParentName->second.find(LineNum);
+  if (PerLine == PerParentName->second.end())
+    return false;
   // Fail if this entry is already registered.
-  if (!IgnoreAddressId && (It->second.getAddress() || It->second.getID()))
+  if (!IgnoreAddressId &&
+      (PerLine->second.getAddress() || PerLine->second.getID()))
     return false;
   return true;
 }
@@ -4843,9 +4861,11 @@ bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
 void OffloadEntriesInfoManager::actOnTargetRegionEntriesInfo(
     const OffloadTargetRegionEntryInfoActTy &Action) {
   // Scan all target region entries and perform the provided action.
-  for (const auto &It : OffloadEntriesTargetRegion) {
-    Action(It.first, It.second);
-  }
+  for (const auto &D : OffloadEntriesTargetRegion)
+    for (const auto &F : D.second)
+      for (const auto &P : F.second)
+        for (const auto &L : P.second)
+          Action(D.first, F.first, P.first(), L.first, L.second);
 }
 
 void OffloadEntriesInfoManager::initializeDeviceGlobalVarEntryInfo(
