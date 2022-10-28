@@ -477,6 +477,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   // CFG canonicalization transform (merge loop exits).
   doLoopMassaging(Plan.get());
 
+  // Exchange input and scan phases of exclusive scan loops.
+  exchangeExclusiveScanLoopInputScanPhases(Plan.get());
+
   printAndVerifyAfterInitialTransforms(Plan.get());
 
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
@@ -1669,6 +1672,254 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   }
 
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
+}
+
+void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
+    VPlanVector *Plan) {
+  if (!WRLp)
+    return;
+
+  // Nothing to do if this is not an exclusive scan loop. According to the spec,
+  // scan reductions must be either all inclusive or all exclusive.
+  // If we don't have exclusive reductions, this loop does not require
+  // the transformation.
+  bool IsExclusiveLoop = false;
+  for (ReductionItem *Item : WRLp->getRed().items()) {
+    if (Item->getIsInscan() &&
+        isa<ExclusiveItem>(
+            WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp,
+                                                                    Item))) {
+      IsExclusiveLoop = true;
+      break;
+    }
+  }
+  if (!IsExclusiveLoop)
+    return;
+
+  // Entities framework removed the scan region directives, however their
+  // parent basic blocks remained. As the scan region is single entry/single
+  // exit, the structure would look like this:
+  //
+  // ScanPhaseBB:
+  //  ... ; scan phase
+  //
+  // ScanBeginBB: #preds : ScanPhaseBB
+  //  br ScanBB
+  //
+  // ScanBB: # preds: ScanBeginBB
+  //  ...
+  //  float %vp3 = running-exclusive-reduction float %vp1 float %vp2 ...
+  //  ...
+  //  br ScanEndBB
+  //
+  // ScanEndBB: # preds: ScanBB
+  //  br InputPhaseBB
+  //
+  // InputPhaseBB: # preds: ScanEndBB
+  //  ... ; input phase
+
+  // After the transformation the loop would like as follows:
+  // InputPhaseBB:
+  //  ... ; input phase
+  //  br ScanBeginBB
+  //
+  // ScanBeginBB: #preds : InputPhaseBB
+  //  br ScanBB
+  //
+  // ScanBB: # preds: ScanBeginBB
+  //  ...
+  //  float %vp3 = running-exclusive-reduction float %vp1 float %vp2 ...
+  //  br ScanEndBB
+  //
+  // ScanEndBB: # preds: ScanBB
+  //  br ScanPhaseBB
+  //
+  // ScanPhaseBB: # preds: ScanEndBB
+  //  ... ; scan phase
+
+  // Locate the block containing running exclusive reduction instructions.
+  // It is enough to find one such instruction as they all have been insterted
+  // into the same block.
+  VPInstruction *RunningRedInst = nullptr;
+  for (auto &I : vpinstructions(Plan)) {
+    if (isa<VPRunningExclusiveReduction>(&I)) {
+      RunningRedInst = &I;
+      break;
+    }
+  }
+  assert(RunningRedInst &&
+         "Running reduction instructions must have been inserted!");
+
+  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *VPL = *VPLInfo->begin();
+
+  // Split the latch before all of the induction increments.
+  // Find the first increment for inductions in the Latch, traversing it in
+  // reverse.
+  VPBasicBlock *Latch = VPL->getLoopLatch();
+  assert(Latch && "Latch is expected to exist.");
+  VPBranchInst *Br = Latch->getTerminator();
+  assert(Br && "Expect branch condition!");
+  VPCmpInst *Cond = dyn_cast<VPCmpInst>(Br->getCondition());
+  assert(Cond && (Cond->getNumUsers() == 1) &&
+         "Loop latch condition is expected to have one user!");
+
+  auto IsIndIncrement = [VPL](VPInstruction *PossibleIndInc) {
+    if (!PossibleIndInc)
+      return false;
+    if (PossibleIndInc->getOpcode() == Instruction::Add &&
+        (isa<VPInductionInitStep>(PossibleIndInc->getOperand(1)) ||
+         isa<VPInductionInitStep>(PossibleIndInc->getOperand(0))) &&
+        llvm::find_if(PossibleIndInc->users(), [VPL](auto &User) {
+          return (isa<VPPHINode>(User) &&
+                  cast<VPPHINode>(User)->getParent() == VPL->getHeader());
+        }) != PossibleIndInc->users().end())
+      return true;
+    return false;
+  };
+
+  auto GetIndInc = [&IsIndIncrement](VPInstruction *VPInst) -> VPInstruction * {
+    for (unsigned Idx = 0; Idx < VPInst->getNumOperands(); Idx++) {
+      VPInstruction *Op = cast<VPInstruction>(VPInst->getOperand(Idx));
+      if (IsIndIncrement(Op))
+        return Op;
+    }
+    return nullptr;
+  };
+  VPInstruction *IVIndInc = GetIndInc(Cond);
+  assert(IVIndInc && "Expect increment for loop IV!");
+  // In case the increment is not in the Latch, move it there.
+  if (IVIndInc->getParent() != Latch)
+    IVIndInc->moveBefore(Cond);
+
+  // Go starting from Cond in reverse looking for the first induction increment.
+  // We do expect at least one induction increment for the main loop IV.
+  VPBasicBlock::iterator FirstIndInc = --Cond->getIterator();
+  for (auto It = FirstIndInc; It != Latch->begin(); It--) {
+    VPInstruction *PossibleIndInc = &*It;
+    if (IsIndIncrement(PossibleIndInc))
+      FirstIndInc = It;
+    else
+      break;
+  }
+
+  VPBasicBlock *NewLatch =
+      VPBlockUtils::splitBlock(Latch, FirstIndInc, VPLInfo);
+  NewLatch->setName("new_latch");
+
+  // Split the header after the last store to the Linear.IV. Otherwise,
+  // this initializing store would move past the separating pragma. This would
+  // lead to uninitialized memory loads for Linear.IV in the part of loop
+  // preceeding the separating pragma.
+  // Loop closed calculation and store for Linear.IV are first instruction in
+  // the original header. Entity framework have inserted its instructions just
+  // after the phis, so the split will be correct.
+
+  // Obtain pointer for in-memory LINEAR.IV, traverse through inductions.
+  VPValue *LinearIVMemPtr = nullptr;
+  VPBasicBlock *Preheader = VPL->getLoopPreheader();
+  for (const auto &I : *Preheader) {
+    auto *VPIndInit = dyn_cast<VPInductionInit>(&I);
+    if (!VPIndInit)
+      continue;
+    if (VPIndInit->getIsLinearIV()) {
+      for (const auto *U : VPIndInit->users()) {
+        // The only Store of InductionInit is the store to Linear.IV alloca.
+        auto *LSI = dyn_cast<VPLoadStoreInst>(U);
+        if (!LSI)
+          continue;
+        if (LSI->getOpcode() != Instruction::Store)
+          continue;
+        LinearIVMemPtr = LSI->getPointerOperand();
+      }
+    }
+  }
+  assert(LinearIVMemPtr && "LinearIV memory has to be found!");
+  auto *Header = VPL->getHeader();
+  // Inscan reduction requires memory guard regions to be present,
+  // thus the regions were inserted in the Header right after phis.
+  // After VPOCFGRestructuringPass pass they were outlined into separate BBs
+  // and removed during VPlan construction, but BBs remained.
+  // That means that we should look for Linear.IV store in the second next BB
+  // after the Header.
+  // HeaderBB:
+  //   %vp1 = phi [ ], ... // header phis.
+  //   br BB1
+  // BB1:
+  //   br BB2
+  // BB2:
+  //   ... ; actual header code.
+  VPInstruction *LastLinearIVStore = nullptr;
+  auto *OriginalHeader = Header->getSingleSuccessor()->getSingleSuccessor();
+  for (auto &I : reverse(*OriginalHeader)) {
+    auto *LSI = dyn_cast<VPLoadStoreInst>(&I);
+    if (!LSI)
+      continue;
+    if (LSI->getOpcode() != Instruction::Store)
+      continue;
+    const VPValue *PtrOp = LSI->getPointerOperand();
+    if (PtrOp == LinearIVMemPtr) {
+      LastLinearIVStore = &I;
+      break;
+    }
+  }
+  assert(LastLinearIVStore && "LinearIV must have a store in OriginalHeader!");
+
+  // Incrementing LastLinearIVStore is safe as in the worst case scenario
+  // it will be a terminator inst.
+  VPBasicBlock *HeaderSucc = VPBlockUtils::splitBlock(
+      OriginalHeader, ++LastLinearIVStore->getIterator(), VPLInfo);
+
+  VPBasicBlock *ScanBB = RunningRedInst->getParent();
+  VPBasicBlock *ScanBeginBB = ScanBB->getSinglePredecessor();
+  VPBasicBlock *ScanEndBB = ScanBB->getSingleSuccessor();
+  assert(ScanBeginBB && ScanEndBB && "Separating scan pragma was not found!");
+  assert(ScanBeginBB->getSingleSuccessor() &&
+         ScanEndBB->getSinglePredecessor() &&
+         "Separating pragma directives must have one successor/predecessor!");
+  assert(ScanBeginBB->getSingleSuccessor() ==
+             ScanEndBB->getSinglePredecessor() &&
+         "Separating pragma directives must be one basic block away!");
+
+  assert(ScanEndBB->getSingleSuccessor() && "Expect only one successor!");
+  assert(ScanBeginBB->getSinglePredecessor() && "Expect only one predecessor!");
+  auto *BeginPred = ScanBeginBB->getSinglePredecessor();
+  auto *EndSucc = ScanEndBB->getSingleSuccessor();
+
+  OriginalHeader->replaceSuccessor(HeaderSucc, EndSucc);
+  Latch->replaceSuccessor(NewLatch, ScanBeginBB);
+  ScanEndBB->replaceSuccessor(EndSucc, HeaderSucc);
+  BeginPred->replaceSuccessor(ScanBeginBB, NewLatch);
+
+  // Lifetime start/end intrinsics might become reversed.
+  // Move them to the header and the new latch. In theory, their scope might be
+  // widened in doing so. However, this is more of a conservative approach as
+  // it seems to be unlikely to have deeply nested Lifetime start/end intrinsics
+  // in scan loops. We expect at least one pair for LINEAR.IV.
+  SmallVector<VPCallInstruction *, 2> LifetimeStartVec;
+  SmallVector<VPCallInstruction *, 2> LifetimeEndVec;
+  for (auto &I : vpinstructions(Plan)) {
+    VPInstruction *Inst = &I;
+    if (!VPL->contains(Inst))
+      continue;
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(Inst)) {
+      if (VPCall->isIntrinsicFromList({Intrinsic::lifetime_start}))
+        LifetimeStartVec.push_back(VPCall);
+      if (VPCall->isIntrinsicFromList({Intrinsic::lifetime_end}))
+        LifetimeEndVec.push_back(VPCall);
+    }
+  }
+  assert(!LifetimeStartVec.empty() && !LifetimeEndVec.empty() &&
+         "LinearIV lifetime start/end are expected at least for LINEAR.IV!");
+  for (auto *LifetimeStart : LifetimeStartVec)
+    LifetimeStart->moveBefore(Header->getFirstNonPhi());
+  for (auto *LifetimeEnd : LifetimeEndVec)
+    LifetimeEnd->moveBefore(NewLatch->getFirstNonPhi());
+
+  // TODO: CMPLRLLVM-9535 Update VPDomTree and VPPostDomTree instead of
+  // recalculating it.
+  Plan->computeDT();
+  Plan->computePDT();
 }
 
 void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {

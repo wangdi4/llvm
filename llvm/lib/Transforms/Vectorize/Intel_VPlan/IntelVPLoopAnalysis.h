@@ -348,6 +348,9 @@ public:
 
   void setNeedCloseForm(bool Val) { NeedCloseForm = Val; }
 
+  bool isLinearIV() const { return IsLinearIV; }
+  void setIsLinearIV(bool V) { IsLinearIV = V; }
+
   /// Returns binary opcode of the induction operator. Hides parent's method.
   unsigned int getInductionOpcode() const;
 
@@ -367,6 +370,7 @@ private:
   VPValue *EndVal;
   unsigned int IndOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
+  bool IsLinearIV = false;
 };
 
 /// Private descriptor. Privates can be declared explicitly or detected
@@ -1376,6 +1380,7 @@ public:
   VPValue *getEndVal() const { return EndVal; }
   VPInstruction *getInductionOp() const { return InductionOp; }
   unsigned getIndOpcode() const { return IndOpcode; }
+  bool getIsLinearIV() const { return IsLinearIV; }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setKind(InductionKind V) { K = V; }
@@ -1390,6 +1395,7 @@ public:
   void setIndOpcode(unsigned V) { IndOpcode = V; }
   void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
+  void setIsLinearIV(bool V) { IsLinearIV = V; }
 
   // Get InductionKind and default induction opcode for the data type \p IndTy.
   static std::pair<unsigned, InductionKind>
@@ -1432,6 +1438,7 @@ public:
     InductionOp = nullptr;
     IndOpcode = VPInduction::UnknownOpcode;
     IsExplicitInduction = false;
+    IsLinearIV = false;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1471,6 +1478,7 @@ private:
   VPInstruction *InductionOp =nullptr;
   unsigned IndOpcode = VPInduction::UnknownOpcode;
   bool IsExplicitInduction = false;
+  bool IsLinearIV = false;
 };
 
 /// Intermediate private descriptor. Same as ReductionDescr above but for

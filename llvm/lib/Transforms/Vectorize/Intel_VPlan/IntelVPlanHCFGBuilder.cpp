@@ -456,7 +456,8 @@ public:
     Type *IndTy;
     Type *IndPointeeTy;
     Value *Step;
-    std::tie(IndTy, IndPointeeTy, Step) = CurValue.second;
+    bool IsIV;
+    std::tie(IndTy, IndPointeeTy, Step, IsIV) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
 
     Type *StepTy = IndTy;
@@ -492,6 +493,7 @@ public:
     // value. Explicit inductions always have a valid memory allocation.
     Descriptor.setAllocaInst(Descriptor.getStart());
     Descriptor.setIsExplicitInduction(true);
+    Descriptor.setIsLinearIV(IsIV);
   }
 };
 

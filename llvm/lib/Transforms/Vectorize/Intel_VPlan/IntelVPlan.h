@@ -2459,6 +2459,8 @@ public:
   VPValue *getEndVal() const { return EndVal; }
   void setIsMainLoopIV(bool V) { IsMainLoopIV = V; }
   bool isMainLoopIV() const { return IsMainLoopIV; }
+  void setIsLinearIV(bool V) { IsLinearIV = V; }
+  bool getIsLinearIV() const { return IsLinearIV; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printDetails(raw_ostream &O) const {
@@ -2480,6 +2482,7 @@ protected:
     auto *IndTmp = new VPInductionInit(getOperand(0), getOperand(1), StartVal,
                                        EndVal, getBinOpcode());
     IndTmp->setIsMainLoopIV(IsMainLoopIV);
+    IndTmp->setIsLinearIV(IsLinearIV);
     return IndTmp;
   }
 
@@ -2488,6 +2491,7 @@ private:
   VPValue *StartVal;
   VPValue *EndVal;
   bool IsMainLoopIV = false;
+  bool IsLinearIV = false;
 };
 
 // VPInstruction to initialize vector for induction step.

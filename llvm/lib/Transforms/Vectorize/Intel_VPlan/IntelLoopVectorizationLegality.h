@@ -317,7 +317,8 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     ValueTy *Step = Item->getStep<IR>();
-    addLinear(Val, Type, PointeeTy, Step);
+    bool IsIV = Item->getIsIV();
+    addLinear(Val, Type, PointeeTy, Step, IsIV);
   }
 
   /// Register explicit reduction variable
@@ -371,9 +372,10 @@ private:
                                                            IsF90);
   }
 
-  void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step) {
+  void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step,
+                 bool IsIV) {
     return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, PointeeType,
-                                                      Step);
+                                                      Step, IsIV);
   }
 
   void addReduction(ValueTy *V, RecurKind Kind,
@@ -444,7 +446,7 @@ public:
   using LinearListTy =
       MapVector<Value *,
                 std::tuple<Type * /*EltType*/, Type * /* EltPointeeTy */,
-                           Value * /*Step*/>>;
+                           Value * /*Step*/, bool /*IsIV*/>>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
@@ -651,10 +653,10 @@ private:
 
   /// Add linear value to Linears map
   void addLinear(Value *LinearVal, Type *EltTy, Type *EltPointeeTy,
-                 Value *StepValue) {
+                 Value *StepValue, bool IsIV) {
     assert(TheLoop->isLoopInvariant(StepValue) &&
            "Unexpected step value in linear clause");
-    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, StepValue);
+    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, StepValue, IsIV);
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
