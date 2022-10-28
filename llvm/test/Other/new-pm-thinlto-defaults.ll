@@ -84,6 +84,7 @@
 ; CHECK-O-NEXT: Running pass: InlineListsPass                ;INTEL
 ; CHECK-O-NEXT: Running pass: CoroEarlyPass
 ; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass    ;INTEL
+; CHECK-O-NEXT: Running pass: DopeVectorConstPropPass        ;INTEL
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
