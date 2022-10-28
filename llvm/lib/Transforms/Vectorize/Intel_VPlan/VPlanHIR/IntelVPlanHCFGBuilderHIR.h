@@ -180,7 +180,7 @@ private:
 
   /// Add an explicit linear.
   void addLinear(RegDDRef *LinearVal, Type *LinearTy, Type *PointeeTy,
-                 RegDDRef *Step) {
+                 RegDDRef *Step, bool IsIV) {
     assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
     LinearList.emplace_back(LinearVal, LinearTy, PointeeTy, Step);
   }

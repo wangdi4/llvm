@@ -3,7 +3,7 @@
 ; REQUIRES: asserts
 
 ;; Check that the input and scan phases of inscan reduction loop had been
-;; swapped.
+;; swapped for a loop where IV increment is not located in the latch block.
 
 ;; float foo(float *A, float *B) {
 ;;   float x = 1.0f;
@@ -163,6 +163,7 @@ DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.M
   br label %DIR.OMP.END.SCAN.2
 
 DIR.OMP.END.SCAN.2:                               ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
   %1 = trunc i64 %indvars.iv to i32
   store i32 %1, ptr %i.linear.iv, align 4
@@ -192,7 +193,6 @@ DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
   %add3 = fadd fast float %6, %5
   store float %add3, ptr %x.red, align 4
   call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.228
