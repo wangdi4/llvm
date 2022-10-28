@@ -507,7 +507,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/include/llvm/Analysis/CFG.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/ScalarEvolutionDivision.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/StackLifetime.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/include/llvm/Analysis/VectorUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/VectorUtils.h @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/include/llvm/Analysis/CFGPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/IVUsers.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/RegionIterator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -695,7 +695,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/Analysis/DependenceGraphBuilder.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/DependenceAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ScalarEvolutionDivision.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/lib/Analysis/VectorUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/VectorUtils.cpp @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Analysis/MemorySSAUpdater.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/RegionPass.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/PhiValues.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
