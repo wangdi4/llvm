@@ -874,6 +874,7 @@ def SDTX86MaskedStore: SDTypeProfile<0, 3, [       // masked store
   SDTCisVec<0>, SDTCisPtrTy<1>, SDTCisVec<2>, SDTCisSameNumEltsAs<0, 2>
 ]>;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 def X86vdpphps : SDNode<"X86ISD::VDPPHPS",
@@ -883,12 +884,15 @@ def X86vdpphps : SDNode<"X86ISD::VDPPHPS",
                                          SDTCisSameAs<1,3>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+=======
+>>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
 def X86vpdpbssd  : SDNode<"X86ISD::VPDPBSSD",  SDTVnni>;
 def X86vpdpbssds : SDNode<"X86ISD::VPDPBSSDS", SDTVnni>;
 def X86vpdpbsud  : SDNode<"X86ISD::VPDPBSUD",  SDTVnni>;
 def X86vpdpbsuds : SDNode<"X86ISD::VPDPBSUDS", SDTVnni>;
 def X86vpdpbuud  : SDNode<"X86ISD::VPDPBUUD",  SDTVnni>;
 def X86vpdpbuuds : SDNode<"X86ISD::VPDPBUUDS", SDTVnni>;
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
@@ -1238,6 +1242,9 @@ def X86vphramin : SDNode<"X86ISD::VPHRAMIN", SDTAVX512REDUCTIONTernary>;
 def X86vphramins : SDNode<"X86ISD::VPHRAMINS", SDTAVX512REDUCTIONTernary>;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION2
 #endif // INTEL_CUSTOMIZATION
+=======
+
+>>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments
 //===----------------------------------------------------------------------===//

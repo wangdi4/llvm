@@ -8237,6 +8237,7 @@ multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
 defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52h>, VEX_W, ExplicitVEXPrefix;
 defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52l>, VEX_W, ExplicitVEXPrefix;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 let Constraints = "$src1 = $dst" in
@@ -8286,6 +8287,41 @@ let Uses = [MXCSR], checkVEXPredicate = 1,
   defm VPDPBUUDY  : avx_dotprod_rm<0x50,"vpdpbuud",  v8i32, VR256, loadv8i32,
                                    i256mem, X86vpdpbuud, SchedWriteVecIMul.YMM,
                                    1>,  VEX_L, T8PS;
+=======
+let Constraints = "$src1 = $dst" in
+multiclass avx_dotprod_rm<bits<8> Opc, string OpcodeStr, ValueType OpVT,
+                          RegisterClass RC, PatFrag MemOpFrag,
+                          X86MemOperand X86memop, SDNode OpNode,
+                          X86FoldableSchedWrite Sched,
+                          bit IsCommutable> {
+  let isCommutable = IsCommutable in
+  def rr  :  I<Opc, MRMSrcReg, (outs RC:$dst),
+             (ins RC:$src1, RC:$src2, RC:$src3),
+             !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+             [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, RC:$src3)))]>,
+             VEX_4V, Sched<[Sched]>;
+  def rm  :  I<Opc, MRMSrcMem, (outs RC:$dst),
+             (ins RC:$src1, RC:$src2, X86memop:$src3),
+             !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+             [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2,
+                                   (MemOpFrag addr:$src3))))]>,
+             VEX_4V, Sched<[Sched.Folded, Sched.ReadAfterFold]>;
+}
+
+let Predicates = [HasAVXVNNIINT8] in {
+  defm VPDPBSSD   : avx_dotprod_rm<0x50,"vpdpbssd",  v4i32, VR128, loadv4i32,
+                                   i128mem, X86vpdpbssd, SchedWriteVecIMul.XMM,
+                                   1>, T8XD;
+  defm VPDPBSSDY  : avx_dotprod_rm<0x50,"vpdpbssd",  v8i32, VR256, loadv8i32,
+                                   i256mem, X86vpdpbssd, SchedWriteVecIMul.YMM,
+                                   1>, VEX_L, T8XD;
+  defm VPDPBUUD   : avx_dotprod_rm<0x50,"vpdpbuud",  v4i32, VR128, loadv4i32,
+                                   i128mem, X86vpdpbuud, SchedWriteVecIMul.XMM,
+                                   1>, T8PS;
+  defm VPDPBUUDY  : avx_dotprod_rm<0x50,"vpdpbuud",  v8i32, VR256, loadv8i32,
+                                   i256mem, X86vpdpbuud, SchedWriteVecIMul.YMM,
+                                   1>, VEX_L, T8PS;
+>>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
   defm VPDPBSSDS  : avx_dotprod_rm<0x51,"vpdpbssds", v4i32, VR128, loadv4i32,
                                    i128mem, X86vpdpbssds, SchedWriteVecIMul.XMM,
                                    1>, T8XD;
@@ -8300,7 +8336,11 @@ let Uses = [MXCSR], checkVEXPredicate = 1,
                                    1>, VEX_L, T8PS;
   defm VPDPBSUD   : avx_dotprod_rm<0x50,"vpdpbsud",  v4i32, VR128, loadv4i32,
                                    i128mem, X86vpdpbsud,  SchedWriteVecIMul.XMM,
+<<<<<<< HEAD
                                    0>,  T8XS;
+=======
+                                   0>, T8XS;
+>>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
   defm VPDPBSUDY  : avx_dotprod_rm<0x50,"vpdpbsud",  v8i32, VR256, loadv8i32,
                                    i256mem, X86vpdpbsud,  SchedWriteVecIMul.YMM,
                                    0>,  VEX_L, T8XS;
@@ -8311,6 +8351,7 @@ let Uses = [MXCSR], checkVEXPredicate = 1,
                                    i256mem, X86vpdpbsuds, SchedWriteVecIMul.YMM,
                                    0>, VEX_L, T8XS;
 }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
 
@@ -9022,3 +9063,5 @@ defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968

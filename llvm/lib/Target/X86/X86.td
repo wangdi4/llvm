@@ -223,6 +223,7 @@ def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
 def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            "Support 16-bit floating point",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
@@ -231,10 +232,13 @@ def FeatureNEBF16    : SubtargetFeature<"avx512bf16ne", "HasNEBF16", "true",
                            [FeatureFP16, FeatureBF16]>;
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+=======
+>>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
 def FeatureAVXVNNIINT8  : SubtargetFeature<"avxvnniint8",
                              "HasAVXVNNIINT8", "true",
                              "Enable AVX-VNNI-INT8",
                              [FeatureAVX2]>;
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def FeatureAVXDOTPRODPHPS  : SubtargetFeature<"avxdotprodphps",
@@ -295,6 +299,8 @@ def FeatureAVX512MOVGET : SubtargetFeature<"avx512movget", "HasAVX512MOVGET", "t
 
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
                          "Enable packed carry-less multiplication instructions",
                                [FeatureSSE2]>;
