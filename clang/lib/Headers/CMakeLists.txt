@@ -174,12 +174,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512convert/avx512vlconvertintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX512_CONVERT
-# INTEL_FEATURE_ISA_AVX_VNNI_INT8
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI_INT8
-  Intel_Headers/avxvnniint8/avxvnniint8intrin.h
-  )
-# end INTEL_FEATURE_ISA_AVX_VNNI_INT8
 # INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_PHPS
@@ -581,6 +575,7 @@ set(x86_files
   avx512vpopcntdqvlintrin.h
   avxifmaintrin.h
   avxintrin.h
+  avxvnniint8intrin.h
   avxvnniintrin.h
   bmi2intrin.h
   bmiintrin.h

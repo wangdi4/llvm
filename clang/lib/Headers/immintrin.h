@@ -427,15 +427,13 @@ typedef struct __tile1024i_str {
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_VNNI_INT8 */
-#if defined(__AVXVNNIINT8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVXVNNIINT8__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxvnniint8/avxvnniint8intrin.h>
+/* end INTEL_CUSTOMIZATION */
+#include <avxvnniint8intrin.h>
 #endif
-#endif
-/* end INTEL_FEATURE_ISA_AVX_VNNI_INT8 */
 
+/* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 /*
  * FIXME: When _Float16 type is supported, this should be:

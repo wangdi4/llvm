@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_avx_vnni_int8
 // RUN: llvm-mc -triple i686-unknown-unknown -mattr=+avxvnniint8 -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK: vpdpbssd ymm2, ymm3, ymm4

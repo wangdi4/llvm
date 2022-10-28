@@ -485,10 +485,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avx512convert") {
       HasAVX512CONVERT = true;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-    } else if (Feature == "+avxvnniint8") {
-      HasAVXVNNIINT8 = true;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
     } else if (Feature == "+avxdotprodphps") {
       HasAVXDOTPRODPHPS = true;
@@ -660,6 +656,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVXIFMA = true;
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
+    } else if (Feature == "+avxvnniint8") {
+      HasAVXVNNIINT8 = true;
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
     } else if (Feature == "+tsxldtrk") {
@@ -1267,11 +1265,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512CONVERT__");
   Builder.defineMacro("__AVX512CONVERT_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-  if (HasAVXVNNIINT8)
-    Builder.defineMacro("__AVXVNNIINT8__");
-  Builder.defineMacro("__AVXVNNIINT8_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
   if (HasAVXDOTPRODPHPS)
     Builder.defineMacro("__AVXDOTPRODPHPS__");
@@ -1488,6 +1481,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVXIFMA__");
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
+  if (HasAVXVNNIINT8)
+    Builder.defineMacro("__AVXVNNIINT8__");
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
   if (HasTSXLDTRK)
@@ -1683,6 +1678,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vp2intersect", true)
       .Case("avxifma", true)
       .Case("avxvnni", true)
+      .Case("avxvnniint8", true)
       .Case("bmi", true)
       .Case("bmi2", true)
       .Case("cldemote", true)
@@ -1766,9 +1762,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
       .Case("avx512convert", true)
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-      .Case("avxvnniint8", true)
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
       .Case("avxdotprodphps", true)
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
@@ -1996,9 +1989,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
       .Case("avx512convert", HasAVX512CONVERT)
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-      .Case("avxvnniint8", HasAVXVNNIINT8)
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
       .Case("avxdotprodphps", HasAVXDOTPRODPHPS)
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
@@ -2129,6 +2119,8 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #endif // INTEL_CUSTOMIZATION
       .Case("avxifma", HasAVXIFMA)
       .Case("avxvnni", HasAVXVNNI)
+      .Case("avxvnni", HasAVXVNNI)
+      .Case("avxvnniint8", HasAVXVNNIINT8)
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
       .Case("cldemote", HasCLDEMOTE)

@@ -223,19 +223,16 @@ def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
 def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            "Support 16-bit floating point",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
-
+def FeatureAVXVNNIINT8  : SubtargetFeature<"avxvnniint8",
+                             "HasAVXVNNIINT8", "true",
+                             "Enable AVX-VNNI-INT8",
+                             [FeatureAVX2]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
 def FeatureNEBF16    : SubtargetFeature<"avx512bf16ne", "HasNEBF16", "true",
                            "Support bfloat16 floating point without exceptions",
                            [FeatureFP16, FeatureBF16]>;
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-def FeatureAVXVNNIINT8  : SubtargetFeature<"avxvnniint8",
-                             "HasAVXVNNIINT8", "true",
-                             "Enable AVX-VNNI-INT8",
-                             [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def FeatureAVXDOTPRODPHPS  : SubtargetFeature<"avxdotprodphps",
                              "HasAVXDOTPRODPHPS", "true",
@@ -1411,9 +1408,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
                                                   FeatureAVXVNNIINT16,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
                                                   FeatureAVXVNNIINT8,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
                                                   FeatureAVX512MEDIAX,
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -1521,9 +1516,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
     FeatureAVXVNNIINT16,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
     FeatureAVXVNNIINT8,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     FeatureAVX512MEDIAX,
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX

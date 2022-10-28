@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_avx_vnni_int8
 // RUN: llvm-mc -triple i686-unknown-unknown -mattr=+avxvnniint8 --show-encoding %s | FileCheck %s
 
 // CHECK: vpdpbssd %ymm4, %ymm3, %ymm2
@@ -240,4 +239,3 @@
 // CHECK: vpdpbuuds  -512(,%ebp,2), %xmm3, %xmm2
 // CHECK: encoding: [0xc4,0xe2,0x60,0x51,0x14,0x6d,0x00,0xfe,0xff,0xff]
      vpdpbuuds  -512(,%ebp,2), %xmm3, %xmm2
-

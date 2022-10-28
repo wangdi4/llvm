@@ -229,9 +229,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   bool HasAVX512CONVERT = false;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-  bool HasAVXVNNIINT8 = false;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
   bool HasAVXDOTPRODPHPS = false;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
@@ -363,6 +360,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAMXFP16 = false;
   bool HasCMPCCXADD = false;
   bool HasRAOINT = false;
+  bool HasAVXVNNIINT8 = false;
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker
   bool HasHRESET = false;
