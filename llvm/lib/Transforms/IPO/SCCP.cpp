@@ -29,13 +29,10 @@
 
 #include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Analysis/AssumptionCache.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/GlobalsModRef.h"    // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
-=======
 #include "llvm/Analysis/LoopInfo.h"
->>>>>>> c9b4dc3a81091856584747010881a816a4901b69
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
