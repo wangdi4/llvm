@@ -571,13 +571,20 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
         if (Arg *A = Args.getLastArgNoClaim(options::OPT_g_Group,
                                             options::OPT_intel_debug_Group,
                                             options::OPT__SLASH_Z7)) {
-            Diags.setSeverity(diag::remark_use_of_debug_turn_off_optimization_level,
-                      diag::Severity::Remark, {});
-            Diag(clang::diag::remark_use_of_debug_turn_off_optimization_level)
-                << A->getSpelling().split('=').first
-                << (IsCLMode() ? "/Od" : "-O0");
+          bool emitremark = true;
+          for (auto Value : Args.getAllArgValues(options::OPT_R_Joined)) {
+            if (Value == StringRef("no-debug-disables-optimization")) {
+              emitremark = false;
+            }
+          }
+          if (emitremark)
+            Diags.setSeverity(
+                diag::remark_use_of_debug_turn_off_optimization_level,
+                diag::Severity::Remark, {});
+          Diag(clang::diag::remark_use_of_debug_turn_off_optimization_level)
+              << A->getSpelling().split('=').first
+              << (IsCLMode() ? "/Od" : "-O0");
         }
-
     // For LTO on Windows, use -fuse-ld=lld when /Qipo or /fast is used.
     if (Args.hasFlag(options::OPT_flto_EQ, options::OPT_fno_lto, false)) {
       if (Arg *A = Args.getLastArg(options::OPT_flto_EQ)) {
