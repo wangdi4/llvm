@@ -1570,9 +1570,15 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
   case DeclSpec::TST_half:    Result = Context.HalfTy; break;
   case DeclSpec::TST_BFloat16:
-    if (!S.Context.getTargetInfo().hasBFloat16Type())
-      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
-        << "__bf16";
+#ifdef INTEL_CUSTOMIZATION
+    // Disable errors for SYCL and OpenMP device since definition of __bf16 is
+    // being moved to a shared header and it causes new errors emitted when
+    // host code is compiled with device compiler for SPIR target.
+    // FIXME: device code specific diagnostic is probably needed.
+    if (!S.Context.getTargetInfo().hasBFloat16Type() &&
+        !S.getLangOpts().SYCLIsDevice && !S.getLangOpts().OpenMPIsDevice)
+#endif // INTEL_CUSTOMIZATION
+      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported) << "__bf16";
     Result = Context.BFloat16Ty;
     break;
   case DeclSpec::TST_float:   Result = Context.FloatTy; break;
@@ -2791,8 +2797,17 @@ QualType Sema::BuildVectorType(QualType CurType, Expr *SizeExpr,
   }
 
   if (!TypeSize || VectorSizeBits % TypeSize) {
-    Diag(AttrLoc, diag::err_attribute_invalid_size)
-        << SizeExpr->getSourceRange();
+#if INTEL_CUSTOMIZATION
+    // Disable errors for SYCL and OpenMP device since definition of __bf16 is
+    // being moved to a shared header and it causes new errors emitted when
+    // host code is compiled with device compiler for SPIR target.
+    // FIXME: device code specific diagnostic is probably needed.
+    if (!(!TypeSize &&
+          (getLangOpts().OpenMPIsDevice || getLangOpts().SYCLIsDevice))) {
+      Diag(AttrLoc, diag::err_attribute_invalid_size)
+          << SizeExpr->getSourceRange();
+    }
+#endif // INTEL_CUSTOMIZATION
     return QualType();
   }
 
