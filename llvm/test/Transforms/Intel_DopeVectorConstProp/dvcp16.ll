@@ -1,4 +1,3 @@
-; RUN: opt < %s -dope-vector-local-const-prop=false -S -dopevectorconstprop 2>&1 | FileCheck %s
 ; RUN: opt < %s -dope-vector-local-const-prop=false -S -passes=dopevectorconstprop 2>&1 | FileCheck %s
 
 ; Check that dope vector constants are not recognized because AVX2 is not

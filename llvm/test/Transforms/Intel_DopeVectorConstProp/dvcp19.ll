@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s 2>&1 | FileCheck %s
 
 ; Check that compile does not seg fault when dope vector constant propagation is attempted on a function

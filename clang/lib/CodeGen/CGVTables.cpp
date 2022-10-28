@@ -447,6 +447,13 @@ void CodeGenFunction::EmitMustTailThunk(GlobalDecl GD,
   llvm::CallInst *Call = Builder.CreateCall(Callee, Args);
   Call->setTailCallKind(llvm::CallInst::TCK_MustTail);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  CGM.addDTransIndirectCallInfo(Call,
+                                dyn_cast_or_null<FunctionDecl>(GD.getDecl()));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Apply the standard set of call attributes.
   unsigned CallingConv;
   llvm::AttributeList Attrs;

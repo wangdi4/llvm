@@ -98,8 +98,14 @@ class DTransInfoGenerator {
                                      llvm::Type *LLVMType);
 
   // Wrapper for the function that creates the metadata for function types.
-  // Creates metadata at the same level as CreateTypeMD.
+  // Creates metadata at the same level as CreateTypeMD. This only works for
+  // free-functions.
   llvm::MDNode *CreateFunctionTypeMD(QualType ClangType, llvm::Type *LLVMType);
+
+  // Wrapper for CreateFunctionTypeMD that creates metadata for arbitrary
+  // functions. Creates metadata at the same level as CreateTypeMD.
+  llvm::MDNode *CreateFunctionTypeMD(const FunctionDecl *FD,
+                                     llvm::Type *LLVMType);
 
   // Creates metadata for an unnamed struct (AKA, a literal struct type).
   // These are really only creatable as types the CFE makes up during
@@ -187,6 +193,11 @@ public:
   llvm::MDNode *AddFunctionCallInfo(const CGFunctionInfo *CallInfo,
                                     llvm::Type *LLVMType) {
     return CreateFunctionTypeMD(CallInfo, LLVMType);
+  }
+
+  llvm::MDNode *AddFunctionCallInfo(const FunctionDecl *FD,
+                                    llvm::Type *LLVMType) {
+    return CreateFunctionTypeMD(FD, LLVMType);
   }
 
   // used when we have an inalloca object that needs to be created and have its
@@ -388,21 +399,21 @@ llvm::GlobalVariable *CodeGenModule::addDTransInfoToGlobal(
                                LLVMType);
 }
 
-llvm::GlobalVariable *
-CodeGenModule::addDTransInfoToGlobal(QualType Ty, const Expr *Init,
-                                     llvm::GlobalVariable *GV,
-                                     llvm::Type *LLVMType) {
+llvm::GlobalObject *CodeGenModule::addDTransInfoToGlobal(QualType Ty,
+                                                         const Expr *Init,
+                                                         llvm::GlobalObject *GO,
+                                                         llvm::Type *LLVMType) {
   if (!getCodeGenOpts().EmitDTransInfo)
-    return GV;
+    return GO;
 
   if (!Ty->isPointerType() && !Ty->isReferenceType() && !Ty->isArrayType())
-    return GV;
+    return GO;
 
   llvm::LLVMContext &Ctx = TheModule.getContext();
   DTransInfoGenerator Generator(Ctx, *this);
-  GV->setMetadata("intel_dtrans_type",
+  GO->setMetadata("intel_dtrans_type",
                   Generator.AddFieldInfo(Ty, LLVMType, Init));
-  return GV;
+  return GO;
 }
 
 llvm::GlobalVariable *
@@ -441,6 +452,19 @@ CodeGenModule::addDTransIndirectCallInfo(llvm::CallBase *CI,
   DTransInfoGenerator Generator(Ctx, *this);
   CI->setMetadata("intel_dtrans_type", Generator.AddFunctionCallInfo(
                                            &CallInfo, CI->getFunctionType()));
+  return CI;
+}
+
+llvm::CallBase *
+CodeGenModule::addDTransIndirectCallInfo(llvm::CallBase *CI,
+                                         const FunctionDecl *FD) {
+  if (!getCodeGenOpts().EmitDTransInfo || !FD)
+    return CI;
+
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+  DTransInfoGenerator Generator(Ctx, *this);
+  CI->setMetadata("intel_dtrans_type",
+                  Generator.AddFunctionCallInfo(FD, CI->getFunctionType()));
   return CI;
 }
 
@@ -1056,6 +1080,19 @@ llvm::MDNode *DTransInfoGenerator::CreateFunctionTypeMD(QualType ClangType,
   return CreateFunctionTypeMD(FI, LLVMType);
 }
 
+llvm::MDNode *DTransInfoGenerator::CreateFunctionTypeMD(const FunctionDecl *FD,
+                                                        llvm::Type *LLVMType) {
+  assert(LLVMType->isFunctionTy() && "Not a function type?");
+  if (auto *MD = dyn_cast<CXXMethodDecl>(FD)) {
+    const FunctionProtoType *FPT = cast<FunctionProtoType>(MD->getType());
+    const CGFunctionInfo *FI = &CGM.getTypes().arrangeCXXMethodType(
+        MD->getParent(), FPT, MD);
+    return CreateFunctionTypeMD(FI, LLVMType);
+  }
+  // For free-functions, just dispatch to the ClangType version.
+  return CreateFunctionTypeMD(FD->getType(), LLVMType);
+}
+
 // Generalized case for Function Metadata that can work for call-types as
 // well.
 llvm::MDNode *
@@ -1094,6 +1131,11 @@ DTransInfoGenerator::CreateFunctionTypeMD(const CGFunctionInfo *CallInfo,
 
   unsigned Idx = 0;
   for (QualType &Ty : FuncInfo.Params) {
+    // In some cases, like in the case of MSVC Tail-Thunks, the LLVM Type could
+    // be variadic, despite the Clang type NOT being variadic. In this case,
+    // just give up.
+    if (FuncTy->getNumParams() <= Idx)
+      break;
     FuncMD.push_back(CreateTypeMD(Ty, FuncTy->getParamType(Idx), nullptr));
     ++Idx;
   }

@@ -1401,9 +1401,17 @@ public:
   llvm::GlobalVariable *addDTransInfoToGlobal(const VarDecl *VD,
                                               llvm::GlobalVariable *GV,
                                               llvm::Type *LLVMType);
+
   llvm::GlobalVariable *addDTransInfoToGlobal(QualType Ty, const Expr *Init,
                                               llvm::GlobalVariable *GV,
-                                              llvm::Type *LLVMType);
+                                              llvm::Type *LLVMType) {
+    return cast<llvm::GlobalVariable>(addDTransInfoToGlobal(
+        Ty, Init, cast<llvm::GlobalObject>(GV), LLVMType));
+  }
+
+  llvm::GlobalObject *addDTransInfoToGlobal(QualType Ty, const Expr *Init,
+                                            llvm::GlobalObject *GO,
+                                            llvm::Type *LLVMType);
   llvm::GlobalVariable *addDTransVTableInfo(llvm::GlobalVariable *GV,
                                             const VTableLayout &Layout);
   llvm::GlobalVariable *
@@ -1411,6 +1419,8 @@ public:
                     const SmallVectorImpl<llvm::Constant *> &Fields);
   llvm::CallBase *addDTransIndirectCallInfo(llvm::CallBase *CI,
                                             const CGFunctionInfo &CallInfo);
+  llvm::CallBase *addDTransIndirectCallInfo(llvm::CallBase *CI,
+                                            const FunctionDecl *FD);
 #endif // INTEL_FEATURE_SW_DTRANS
 
 #endif // INTEL_CUSTOMIZATION
