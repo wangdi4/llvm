@@ -5594,10 +5594,6 @@ def mno_avxmemadvise : Flag<["-"], "mno-avxmemadvise">, Group<m_x86_Features_Gro
 def mavxconvert : Flag<["-"], "mavxconvert">, Group<m_x86_Features_Group>;
 def mno_avxconvert : Flag<["-"], "mno-avxconvert">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-def mavxvnniint8 : Flag<["-"], "mavxvnniint8">, Group<m_x86_Features_Group>;
-def mno_avxvnniint8 : Flag<["-"], "mno-avxvnniint8">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def mavxdotprodphps : Flag<["-"], "mavxdotprodphps">, Group<m_x86_Features_Group>;
 def mno_avxdotprodphps : Flag<["-"], "mno-avxdotprodphps">, Group<m_x86_Features_Group>;
@@ -8493,10 +8489,8 @@ def : CLFlag<"Qmno-avxmemadvise">, Alias<mno_avxmemadvise>;
 def : CLFlag<"Qmavxconvert">, Alias<mavxconvert>;
 def : CLFlag<"Qmno-avxconvert">, Alias<mno_avxconvert>;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
 def : CLFlag<"Qmavxvnniint8">, Alias<mavxvnniint8>;
 def : CLFlag<"Qmno-avxvnniint8">, Alias<mno_avxvnniint8>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def : CLFlag<"Qmavxdotprodphps">, Alias<mavxdotprodphps>;
 def : CLFlag<"Qmno-avxdotprodphps">, Alias<mno_avxdotprodphps>;

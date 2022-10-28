@@ -2647,7 +2647,6 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPWSSDrr:
   case X86::VPDPWSSDSYrr:
   case X86::VPDPWSSDSrr:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
   case X86::VPDPWUUDrr:
@@ -2655,9 +2654,6 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPWUUDSrr:
   case X86::VPDPWUUDSYrr:
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-=======
->>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
   case X86::VPDPBSSDSrr:
   case X86::VPDPBSSDSYrr:
   case X86::VPDPBSSDrr:
@@ -2666,8 +2662,6 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPBUUDSYrr:
   case X86::VPDPBUUDrr:
   case X86::VPDPBUUDYrr:
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   case X86::VPDPBSSDSZ128r:
   case X86::VPDPBSSDSZ128rk:
@@ -2707,8 +2701,6 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPBUUDZrkz:
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
   case X86::VPDPWSSDZ128r:
   case X86::VPDPWSSDZ128rk:
   case X86::VPDPWSSDZ128rkz:

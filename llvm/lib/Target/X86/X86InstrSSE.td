@@ -8237,57 +8237,7 @@ multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
 defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52h>, VEX_W, ExplicitVEXPrefix;
 defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52l>, VEX_W, ExplicitVEXPrefix;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-let Constraints = "$src1 = $dst" in
-multiclass avx_dotprod_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
-                          RegisterClass RC, PatFrag MemOpFrag,
-                          X86MemOperand x86memop, SDNode OpNode,
-                          X86FoldableSchedWrite sched,
-                          bit IsCommutable> {
-  let isCommutable = IsCommutable in
-  def rr  :  I<opc, MRMSrcReg, (outs RC:$dst),
-             (ins RC:$src1, RC:$src2, RC:$src3),
-             !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-             [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, RC:$src3)))]>,
-             VEX_4V, Sched<[sched]>;
-  def rm  :  I<opc, MRMSrcMem, (outs RC:$dst),
-             (ins RC:$src1, RC:$src2, x86memop:$src3),
-             !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-             [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2,
-                                   (MemOpFrag addr:$src3))))]>,
-             VEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
-}
-
-let Uses = [MXCSR], checkVEXPredicate = 1,
-    Predicates = [HasAVXDOTPRODPHPS, NoVLX_Or_NoAVX512VNNIFP16] in {
-  // FIXME: Using SchedWriteCvtPD2PS is a workaround.
-  defm VDPPHPS  :  avx_dotprod_rm<0x52, "vdpphps", v4f32, VR128, loadv4f32,
-                                  f128mem, X86vdpphps, SchedWriteCvtPD2PS.XMM,
-                                  0>, T8PS;
-  defm VDPPHPSY :  avx_dotprod_rm<0x52, "vdpphps", v8f32, VR256, loadv8f32,
-                                  f256mem, X86vdpphps, SchedWriteCvtPD2PS.YMM,
-                                  0>, VEX_L, T8PS;
-}
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-  let Predicates = [HasAVXVNNIINT8, NoVLX_Or_NoAVX512VNNIINT8],
-  checkVEXPredicate = 1 in {
-  defm VPDPBSSD   : avx_dotprod_rm<0x50,"vpdpbssd",  v4i32, VR128, loadv4i32,
-                                   i128mem, X86vpdpbssd, SchedWriteVecIMul.XMM,
-                                   1>,  T8XD;
-  defm VPDPBSSDY  : avx_dotprod_rm<0x50,"vpdpbssd",  v8i32, VR256, loadv8i32,
-                                   i256mem, X86vpdpbssd, SchedWriteVecIMul.YMM,
-                                   1>,  VEX_L, T8XD;
-  defm VPDPBUUD   : avx_dotprod_rm<0x50,"vpdpbuud",  v4i32, VR128, loadv4i32,
-                                   i128mem, X86vpdpbuud, SchedWriteVecIMul.XMM,
-                                   1>,  T8PS;
-  defm VPDPBUUDY  : avx_dotprod_rm<0x50,"vpdpbuud",  v8i32, VR256, loadv8i32,
-                                   i256mem, X86vpdpbuud, SchedWriteVecIMul.YMM,
-                                   1>,  VEX_L, T8PS;
-=======
+// AVX-VNNI-INT8
 let Constraints = "$src1 = $dst" in
 multiclass avx_dotprod_rm<bits<8> Opc, string OpcodeStr, ValueType OpVT,
                           RegisterClass RC, PatFrag MemOpFrag,
@@ -8321,7 +8271,6 @@ let Predicates = [HasAVXVNNIINT8] in {
   defm VPDPBUUDY  : avx_dotprod_rm<0x50,"vpdpbuud",  v8i32, VR256, loadv8i32,
                                    i256mem, X86vpdpbuud, SchedWriteVecIMul.YMM,
                                    1>, VEX_L, T8PS;
->>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
   defm VPDPBSSDS  : avx_dotprod_rm<0x51,"vpdpbssds", v4i32, VR128, loadv4i32,
                                    i128mem, X86vpdpbssds, SchedWriteVecIMul.XMM,
                                    1>, T8XD;
@@ -8336,11 +8285,7 @@ let Predicates = [HasAVXVNNIINT8] in {
                                    1>, VEX_L, T8PS;
   defm VPDPBSUD   : avx_dotprod_rm<0x50,"vpdpbsud",  v4i32, VR128, loadv4i32,
                                    i128mem, X86vpdpbsud,  SchedWriteVecIMul.XMM,
-<<<<<<< HEAD
-                                   0>,  T8XS;
-=======
                                    0>, T8XS;
->>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
   defm VPDPBSUDY  : avx_dotprod_rm<0x50,"vpdpbsud",  v8i32, VR256, loadv8i32,
                                    i256mem, X86vpdpbsud,  SchedWriteVecIMul.YMM,
                                    0>,  VEX_L, T8XS;
@@ -8351,8 +8296,20 @@ let Predicates = [HasAVXVNNIINT8] in {
                                    i256mem, X86vpdpbsuds, SchedWriteVecIMul.YMM,
                                    0>, VEX_L, T8XS;
 }
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+let Uses = [MXCSR], checkVEXPredicate = 1,
+    Predicates = [HasAVXDOTPRODPHPS, NoVLX_Or_NoAVX512VNNIFP16] in {
+  // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+  defm VDPPHPS  :  avx_dotprod_rm<0x52, "vdpphps", v4f32, VR128, loadv4f32,
+                                  f128mem, X86vdpphps, SchedWriteCvtPD2PS.XMM,
+                                  0>, T8PS;
+  defm VDPPHPSY :  avx_dotprod_rm<0x52, "vdpphps", v8f32, VR256, loadv8f32,
+                                  f256mem, X86vdpphps, SchedWriteCvtPD2PS.YMM,
+                                  0>, VEX_L, T8PS;
+}
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -9063,5 +9020,3 @@ defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 23f02693ec58efef6951fcaa689d26b440a25968
