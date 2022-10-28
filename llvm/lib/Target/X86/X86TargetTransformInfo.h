@@ -322,7 +322,8 @@ public:
   int getMatchingVectorVariant(
       const VFInfo &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
-      const Module *M) const;
+      const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const;
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
   bool hasVLX() const;

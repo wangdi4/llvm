@@ -172,7 +172,8 @@ static constexpr int Aligned2UnalignedScore = 3;
 static constexpr int NoMatch = -1;
 
 int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
-                    const Module *M) {
+                    const Module *M,
+                    const ArrayRef<bool> ArgIsLinearPrivateMem) {
 
   // 'V1' refers to the variant for the call. Match parameters with 'V2',
   // which represents some available variant.
@@ -227,6 +228,9 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
       }
     }
 
+    // TODO: add scoring for linear reference parameters for ref/val/uval
+    // modifiers.
+
     if (Callee[I].isUniform() && Caller[I].isUniform()) {
       // Uniform ptr arguments are more beneficial for performance, so weight
       // them accordingly.
@@ -268,13 +272,15 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
 }
 } // namespace scores
 
-int VFInfo::getMatchingScore(const VFInfo &Other, int &MaxArg,
-                             const Module *M) const {
+int VFInfo::getMatchingScore(
+    const VFInfo &Other, int &MaxArg, const Module *M,
+    const ArrayRef<bool> ArgIsLinearPrivateMem) const {
   if (getVF() != Other.getVF())
     return scores::NoMatch;
   if (isMasked() != Other.isMasked())
     return scores::NoMatch;
-  return scores::matchParameters(*this, Other, MaxArg, M);
+  return scores::matchParameters(*this, Other, MaxArg, M,
+                                 ArgIsLinearPrivateMem);
 }
 #endif // INTEL_CUSTOMIZATION
 

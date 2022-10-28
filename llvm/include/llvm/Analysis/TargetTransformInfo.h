@@ -1497,7 +1497,8 @@ public:
   int getMatchingVectorVariant(
       const VFInfo &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
-      const Module *M) const;
+      const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const;
 
   /// Returns the appropriate "isa-set" attribute to be used in libiml_attr
   /// for selecting math library function variants. Returns "all" if no
@@ -2039,7 +2040,8 @@ public:
   virtual int getMatchingVectorVariant(
       const VFInfo &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
-      const Module *M) const = 0;
+      const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const = 0;
   virtual bool needsStructuredCFG() const = 0;
   virtual const char *getISASetForIMLFunctions() const = 0;
   virtual bool hasCDI() const = 0;
@@ -2748,8 +2750,10 @@ public:
   int getMatchingVectorVariant(
       const VFInfo &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
-      const Module *M) const override {
-    return Impl.getMatchingVectorVariant(ForCall, Variants, M);
+      const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const override {
+    return Impl.getMatchingVectorVariant(ForCall, Variants, M,
+                                         ArgIsLinearPrivateMem);
   }
 
   bool needsStructuredCFG() const override {
