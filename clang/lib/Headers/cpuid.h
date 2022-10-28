@@ -222,11 +222,15 @@
 #define bit_CMPCCXADD     0x00000080
 #define bit_AMXFP16       0x00200000
 #define bit_HRESET        0x00400000
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_PREFETCHST2 */
 // TODO: CPUID bit is TBD.
 /* end INTEL_FEATURE_ISA_PREFETCHST2 */
 /* end INTEL_CUSTOMIZATION */
+=======
+#define bit_AVXIFMA       0x00800000
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
 
 /* Features in %edx for leaf 7 sub-leaf 1 */
 #define bit_PREFETCHI     0x00004000

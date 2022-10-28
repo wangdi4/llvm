@@ -333,8 +333,17 @@ typedef struct __tile1024i_str {
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+<<<<<<< HEAD
     defined(__AVX512VBMI__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
+=======
+    defined(__AVXIFMA__)
+#include <avxifmaintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VBMI__)
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
 #include <avx512vbmiintrin.h>
 #endif
 

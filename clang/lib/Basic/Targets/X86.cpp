@@ -660,6 +660,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasCMPCCXADD = true;
     } else if (Feature == "+raoint") {
       HasRAOINT = true;
+    } else if (Feature == "+avxifma") {
+      HasAVXIFMA = true;
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
     } else if (Feature == "+serialize") {
@@ -1491,6 +1493,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__CMPCCXADD__");
   if (HasRAOINT)
     Builder.defineMacro("__RAOINT__");
+  if (HasAVXIFMA)
+    Builder.defineMacro("__AVXIFMA__");
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
   if (HasSERIALIZE)
@@ -1686,6 +1690,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
       .Case("avx512vp2intersect", true)
+      .Case("avxifma", true)
       .Case("avxvnni", true)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
@@ -1917,6 +1922,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-fp16", HasAMXFP16)
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
       .Case("amx-fp8", HasAMXFP8)
@@ -1975,6 +1981,8 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
       .Case("avxvnni", HasAVXVNNI)
+=======
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
@@ -1998,6 +2006,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vbmi2", HasAVX512VBMI2)
       .Case("avx512ifma", HasAVX512IFMA)
       .Case("avx512vp2intersect", HasAVX512VP2INTERSECT)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
       .Case("avx512vnniint8", HasAVX512VNNIINT8)
@@ -2139,6 +2148,10 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx256p", HasAVX256P)
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("avxifma", HasAVXIFMA)
+      .Case("avxvnni", HasAVXVNNI)
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
       .Case("cldemote", HasCLDEMOTE)

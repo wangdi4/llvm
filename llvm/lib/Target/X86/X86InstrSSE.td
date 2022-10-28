@@ -8199,6 +8199,7 @@ let isCommutable = 0 in {
                                              X86GF2P8affineqb>, TAPD;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 let Constraints = "$src1 = $dst" in
@@ -8368,6 +8369,8 @@ multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
+=======
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
 let Predicates = [HasAVXIFMA, NoVLX_Or_NoIFMA], Constraints = "$src1 = $dst",
     checkVEXPredicate = 1 in
 multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
@@ -8405,6 +8408,7 @@ multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
 
 defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52h>, VEX_W, ExplicitVEXPrefix;
 defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52l>, VEX_W, ExplicitVEXPrefix;
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
 
@@ -9026,3 +9030,5 @@ defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55

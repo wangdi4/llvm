@@ -1879,11 +1879,15 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["amx-fp16"]   = HasLeaf7Subleaf1 && ((EAX >> 21) & 1) && HasAMXSave;
   Features["cmpccxadd"]  = HasLeaf7Subleaf1 && ((EAX >> 7) & 1);
   Features["hreset"]     = HasLeaf7Subleaf1 && ((EAX >> 22) & 1);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
 // TODO: CPUID bit is TBD.
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
+=======
+  Features["avxifma"]    = HasLeaf7Subleaf1 && ((EAX >> 23) & 1) && HasAVXSave;
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
   Features["prefetchi"]  = HasLeaf7Subleaf1 && ((EDX >> 14) & 1);
 
   bool HasLeafD = MaxLevel >= 0xd &&

@@ -2721,12 +2721,17 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPWSSDSZr:
   case X86::VPDPWSSDSZrk:
   case X86::VPDPWSSDSZrkz:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
   case X86::VPMADD52HUQrr:
   case X86::VPMADD52HUQYrr:
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case X86::VPMADD52HUQrr:
+  case X86::VPMADD52HUQYrr:
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
   case X86::VPMADD52HUQZ128r:
   case X86::VPMADD52HUQZ128rk:
   case X86::VPMADD52HUQZ128rkz:
@@ -2736,12 +2741,17 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPMADD52HUQZr:
   case X86::VPMADD52HUQZrk:
   case X86::VPMADD52HUQZrkz:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
   case X86::VPMADD52LUQrr:
   case X86::VPMADD52LUQYrr:
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case X86::VPMADD52LUQrr:
+  case X86::VPMADD52LUQYrr:
+>>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
   case X86::VPMADD52LUQZ128r:
   case X86::VPMADD52LUQZ128rk:
   case X86::VPMADD52LUQZ128rkz:
