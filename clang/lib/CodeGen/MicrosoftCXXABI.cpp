@@ -2033,6 +2033,12 @@ llvm::GlobalVariable *MicrosoftCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
                                     /*Initializer=*/nullptr, VTableName);
   VTable->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  CGM.addDTransVTableInfo(VTable, VTLayout);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   llvm::Comdat *C = nullptr;
   if (!VFTableComesFromAnotherTU &&
       (llvm::GlobalValue::isWeakForLinker(VFTableLinkage) ||
