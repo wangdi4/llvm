@@ -418,7 +418,9 @@ public:
   /// Returns the score of the vector variant matching between 'this' and \p
   /// Other. Returns score of 0 if no proper match was found. Places the
   /// position of the highest scoring arg in \p MaxArg.
-  int getMatchingScore(const VFInfo &Other, int &MaxArg, const Module *M) const;
+  int getMatchingScore(
+      const VFInfo &Other, int &MaxArg, const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const;
 #endif // INTEL_CUSTOMIZATION
 };
 

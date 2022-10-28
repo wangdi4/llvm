@@ -97,7 +97,9 @@ void VPlanCallVecDecisions::reset() {
 }
 
 VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
-    const VPCallInstruction *VPCall, bool Masked, int VF) {
+    const VPCallInstruction *VPCall, bool Masked, int VF,
+    SmallVectorImpl<bool> &ArgIsLinearPrivateMem) {
+
   auto VPAA = VPlanAlignmentAnalysis(*Plan.getVPSE(), *Plan.getVPVT(), VF);
 
   auto *DA = Plan.getVPlanDA();
@@ -107,6 +109,7 @@ VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(*CallArg);
     auto ParamPos = I - SkippedArgs;
+    bool ArgIsPrivateMemory = false;
     if (CallArgShape.isRandom() || CallArgShape.isUndefined()) {
       Parameters.push_back(VFParameter::vector(ParamPos));
     } else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride()) {
@@ -125,6 +128,16 @@ VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     } else {
       llvm_unreachable("Invalid parameter kind");
     }
+
+    // Parameter matching needs to know that this arg is private memory so that
+    // it can distinguish between ref and val/uval cases for linear reference
+    // arguments. As an example, if 'i' is the loop index on the caller side,
+    // we need to distinguish between 'foo(a[i])' and 'foo(i)'. The latter case
+    // will result in private memory being allocated for VF values of 'i'.
+    if (ArgIsPrivateMemory)
+      ArgIsLinearPrivateMem.push_back(true);
+    else
+      ArgIsLinearPrivateMem.push_back(false);
 
     // If the call arg is a pointer, use alignment analysis to try to obtain a
     // known alignment for matching against variants with aligned params.
@@ -177,11 +190,21 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   if (VPCall->isIntelIndirectCall())
      Masked |= Plan.getVPlanDA()->isDivergent(*VPCall->getOperand(0));
 
+  // Keep track of whether the linear argument to the vector function call is
+  // from private memory. Only keep track of this for linears because matching
+  // on linear reference parameters is determined by whether or not address
+  // is taken on private memory or not. E.g., for linear reference parameters
+  // using ref modifier, matching is done on non-private memory. For val/uval
+  // modifiers, matching is done on private memory. See matchParameters() in
+  // VectorUtils.cpp for more detail.
+  SmallVector<bool, 8> ArgIsLinearPrivateMem;
   const VFInfo VariantForCall =
-      getVectorVariantForCallParameters(VPCall, Masked, VF);
+      getVectorVariantForCallParameters(VPCall, Masked, VF,
+                                        ArgIsLinearPrivateMem);
 
-  int VariantIdx = TTI->getMatchingVectorVariant(VariantForCall, Variants,
-                                                 Call->getModule());
+  int VariantIdx =
+      TTI->getMatchingVectorVariant(VariantForCall, Variants,
+                                    Call->getModule(), ArgIsLinearPrivateMem);
 
   if (VariantIdx >= 0) {
     LLVM_DEBUG(dbgs() << "\nMatched call to: " << Variants[VariantIdx].VectorName

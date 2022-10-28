@@ -1174,8 +1174,10 @@ bool TargetTransformInfo::isAggressiveVLSProfitable() const {
 int TargetTransformInfo::getMatchingVectorVariant(
     const VFInfo &ForCall,
     const SmallVectorImpl<VFInfo> &Variants,
-    const Module *M) const {
-  return TTIImpl->getMatchingVectorVariant(ForCall, Variants, M);
+    const Module *M,
+    const ArrayRef<bool> ArgIsLinearPrivateMem) const {
+  return TTIImpl->getMatchingVectorVariant(ForCall, Variants, M,
+                                           ArgIsLinearPrivateMem);
 }
 
 const char *TargetTransformInfo::getISASetForIMLFunctions() const {

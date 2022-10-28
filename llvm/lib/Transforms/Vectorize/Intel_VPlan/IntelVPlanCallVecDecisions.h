@@ -81,8 +81,9 @@ private:
 
   /// Generates a VFInfo placeholder for TTI so that it can match the
   /// most appropriate vector variant of the called function \p VPCall.
-  VFInfo getVectorVariantForCallParameters(const VPCallInstruction *VPCall,
-                                           bool Masked, int VF);
+  VFInfo getVectorVariantForCallParameters(
+      const VPCallInstruction *VPCall, bool Masked, int VF,
+      SmallVectorImpl<bool> &ArgIsLinearPrivateMem);
 
   VPlanVector &Plan;
 };
