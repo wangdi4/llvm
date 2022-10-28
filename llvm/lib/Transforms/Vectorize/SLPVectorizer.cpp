@@ -1115,9 +1115,9 @@ public:
           DominatorTree *Dt, AssumptionCache *AC, DemandedBits *DB,
           const DataLayout *DL, OptimizationRemarkEmitter *ORE)
 #if INTEL_CUSTOMIZATION
-      : CurrMultiNode(*DL, *Se, *this, *Dt), BatchAA(*Aa), F(Func), SE(Se),
-        TTI(Tti), TLI(TLi), LI(Li), DT(Dt), AC(AC), DB(DB), DL(DL), ORE(ORE),
-        Builder(Se->getContext()) {
+      : CurrMultiNode(*TLi, *DL, *Se, *this, *Dt), BatchAA(*Aa), F(Func),
+        SE(Se), TTI(Tti), TLI(TLi), LI(Li), DT(Dt), AC(AC), DB(DB), DL(DL),
+        ORE(ORE), Builder(Se->getContext()) {
 #endif // INTEL_CUSTOMIZATION
     CodeMetrics::collectEphemeralValues(F, AC, EphValues);
     // Use the vector register size specified by the target unless overridden
@@ -2576,6 +2576,7 @@ private:
       }
 
     private:
+      const TargetLibraryInfo &TLI;
       const DataLayout &DL;
       ScalarEvolution &SE;
       const BoUpSLP &R;
@@ -2822,7 +2823,7 @@ private:
       /// Return the look-ahead score, which tells us how much the sub-trees
       /// rooted at LHS and RHS match (the higher the better).
       int getLookAheadScore(Value *LHS, Value *RHS) {
-        LookAheadHeuristics LookAhead(DL, SE, R, getNumLanes(),
+        LookAheadHeuristics LookAhead(TLI, DL, SE, R, getNumLanes(),
                                       LookAheadMaxLevel);
         int Score = LookAhead.getScoreAtLevel(LHS, RHS, /*U1=*/nullptr,
                                               /*U2=*/nullptr,
@@ -2833,7 +2834,7 @@ private:
       /// Return score of the MultiNode.
       int getScore() const {
         assert(!empty() && "requested score for empty Multi-Node");
-        LookAheadHeuristics LookAhead(DL, SE, R, getNumLanes(),
+        LookAheadHeuristics LookAhead(TLI, DL, SE, R, getNumLanes(),
                                       LookAheadMaxLevel);
         int Score = 0;
         for (int OpI = 0, OpIMax = getNumOperands(); OpI != OpIMax; ++OpI) {
@@ -2949,7 +2950,8 @@ private:
           Instruction *RHSNewFrontierI = FrontierToSwapWith
                                              ? FrontierToSwapWith
                                              : OrigRHSOperand.getFrontier();
-          auto S = getSameOpcode({LHSOperand.getFrontier(), RHSNewFrontierI});
+          auto S =
+              getSameOpcode({LHSOperand.getFrontier(), RHSNewFrontierI}, TLI);
           if (S.isAltShuffle())
             Score += BLEND_COST;
 
@@ -3094,9 +3096,9 @@ private:
       }
 
     public:
-      MNOperands(const DataLayout &DL, ScalarEvolution &SE, const BoUpSLP &R,
-                 const DominatorTree &DT)
-          : DL(DL), SE(SE), R(R), DT(DT) {}
+      MNOperands(const TargetLibraryInfo &TLI, const DataLayout &DL,
+                 ScalarEvolution &SE, const BoUpSLP &R, const DominatorTree &DT)
+          : TLI(TLI), DL(DL), SE(SE), R(R), DT(DT) {}
 
       /// \returns the number of operands.
       unsigned getNumOperands() const { return Leaves.size(); }
@@ -3278,9 +3280,9 @@ private:
     /// due to a legality reason.
     SmallVector<struct OperandInfo, 8> PostponedOperands;
   public:
-    MultiNode(const DataLayout &DL, ScalarEvolution &SE, const BoUpSLP &R,
-              const DominatorTree &DT)
-        : R(R), Operands(DL, SE, R, DT) {}
+    MultiNode(const TargetLibraryInfo &TLI, const DataLayout &DL,
+              ScalarEvolution &SE, const BoUpSLP &R, const DominatorTree &DT)
+        : R(R), Operands(TLI, DL, SE, R, DT) {}
 
     /// \Returns the inverse opcode of \p Opc.
     static Optional<unsigned> getInverseOpcode(unsigned Opc) {
@@ -5312,24 +5314,15 @@ static bool arePointersCompatible(Value *Ptr1, Value *Ptr2,
 
 /// Checks if the given array of loads can be represented as a vectorized,
 /// scatter or just simple gather.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static LoadsState canVectorizeLoads(
     ArrayRef<Value *> VL, const Value *VL0, const TargetTransformInfo &TTI,
     const DataLayout &DL, ScalarEvolution &SE, LoopInfo &LI,
-    SmallVectorImpl<unsigned> &Order,
+    const TargetLibraryInfo &TLI, SmallVectorImpl<unsigned> &Order,
     SmallVectorImpl<Value *> &PointerOps,
     SmallVectorImpl<std::tuple<unsigned, unsigned, BoUpSLP::OrdersType>>
         &LoadGroups) {
 #endif // INTEL_CUSTOMIZATION
-=======
-static LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
-                                    const TargetTransformInfo &TTI,
-                                    const DataLayout &DL, ScalarEvolution &SE,
-                                    LoopInfo &LI, const TargetLibraryInfo &TLI,
-                                    SmallVectorImpl<unsigned> &Order,
-                                    SmallVectorImpl<Value *> &PointerOps) {
->>>>>>> dad64448c66975054d3d968232652a56eb93b451
   // Check that a vectorized load would load the same memory as a scalar
   // load. For example, we don't want to vectorize loads that are smaller
   // than 8-bit. Even though we have a packed struct {<i2, i2, i2, i2>} LLVM
@@ -6262,7 +6255,7 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
   TE->MultiNodeRoot = CurrMultiNode.getRoot()->Idx;
 
   // Do not reorder the operands of VL while building the multinode
-  VLOperands Ops(VL, *DL, *SE, *this);
+  VLOperands Ops(VL, *TLI, *DL, *SE, *this);
 
   // Set the TE operands. This is needed for the scheduler.
   for (int OpIdx : seq<int>(0, Ops.getNumOperands())) {
@@ -7110,19 +7103,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       SmallVector<Value *> PointerOps;
       OrdersType CurrentOrder;
       TreeEntry *TE = nullptr;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Each consecutive group is represented by starting index, load size
       // (number of consecutive scalar elements) and re-ordering information (if
       // any).
       SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> LoadGroups;
-      switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, CurrentOrder,
-                                PointerOps, LoadGroups)) {
-#endif // INTEL_CUSTOMIZATION
-=======
       switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, *TLI,
-                                CurrentOrder, PointerOps)) {
->>>>>>> dad64448c66975054d3d968232652a56eb93b451
+                                CurrentOrder, PointerOps, LoadGroups)) {
+#endif // INTEL_CUSTOMIZATION
       case LoadsState::Vectorize:
         if (CurrentOrder.empty()) {
           // Original loads are consecutive and does not require reordering.
@@ -7309,14 +7297,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       // have the same opcode.
       if (isa<BinaryOperator>(VL0) && VL0->isCommutative()) {
         ValueList Left, Right;
-<<<<<<< HEAD
-        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
+        reorderInputsAccordingToOpcode(VL, Left, Right, *TLI, *DL, *SE, *this);
 #if INTEL_CUSTOMIZATION
         assert(!TE->hasOpcodeOverride() && "Reordering may be invalid");
 #endif // INTEL_CUSTOMIZATION
-=======
-        reorderInputsAccordingToOpcode(VL, Left, Right, *TLI, *DL, *SE, *this);
->>>>>>> dad64448c66975054d3d968232652a56eb93b451
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         buildTree_rec(Left, Depth + 1, {TE, 0});
@@ -8238,12 +8222,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
                 LoadGroups;
             LoadsState LS =
                 canVectorizeLoads(Slice, Slice.front(), *TTI, *DL, *SE, *LI,
-<<<<<<< HEAD
-                                  CurrentOrder, PointerOps, LoadGroups);
+                                  *TLI, CurrentOrder, PointerOps, LoadGroups);
 #endif // INTEL_CUSTOMIZATION
-=======
-                                  *TLI, CurrentOrder, PointerOps);
->>>>>>> dad64448c66975054d3d968232652a56eb93b451
             switch (LS) {
             case LoadsState::Vectorize:
             case LoadsState::ScatterVectorize:
