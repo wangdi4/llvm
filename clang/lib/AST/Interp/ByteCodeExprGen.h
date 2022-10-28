@@ -233,7 +233,8 @@ private:
   /// Emits an integer constant.
   template <typename T> bool emitConst(const Expr *E, T Value) {
     QualType Ty = E->getType();
-    APInt WrappedValue(getIntWidth(Ty), Value, std::is_signed<T>::value);
+    APInt WrappedValue(getIntWidth(Ty), static_cast<uint64_t>(Value),
+                       std::is_signed<T>::value);
     return emitConst(*Ctx.classify(Ty), WrappedValue, E);
   }
 
