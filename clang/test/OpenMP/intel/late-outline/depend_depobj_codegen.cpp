@@ -60,7 +60,9 @@ void foo1() {
         doSomething();
       }
     }
+    #pragma omp taskwait depend(depobj: obj1) 
   }
+  #pragma omp taskwait depend(depobj: obj2) nowait
 }
 #endif // HEADER
 // CHECK-LABEL: @_Z4foo1v(
@@ -86,6 +88,14 @@ void foo1() {
 // CHECK-NEXT:    [[C:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[DOTDEP_ARR_ADDR11:%.*]] = alloca [1 x %struct.kmp_depend_info], align 8
 // CHECK-NEXT:    [[DEP_COUNTER_ADDR17:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[DEPOBJ_SIZE_ADDR18:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[SAVED_STACK19:%.*]] = alloca ptr, align 8
+// CHECK-NEXT:    [[__VLA_EXPR2:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[DEP_COUNTER_ADDR21:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[DEPOBJ_SIZE_ADDR22:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[SAVED_STACK23:%.*]] = alloca ptr, align 8
+// CHECK-NEXT:    [[__VLA_EXPR3:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[DEP_COUNTER_ADDR25:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    [[TMP0:%.*]] = call i32 @__kmpc_global_thread_num(ptr @[[GLOB1:[0-9]+]])
 // CHECK-NEXT:    [[DOTDEP_ARR_ADDR:%.*]] = call ptr @__kmpc_alloc(i32 [[TMP0]], i64 48, ptr null)
 // CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO:%.*]], ptr [[DOTDEP_ARR_ADDR]], i32 0, i32 0
@@ -155,7 +165,7 @@ void foo1() {
 // CHECK-NEXT:    call void @__kmpc_free(i32 [[TMP0]], ptr [[TMP31]], ptr null)
 // CHECK-NEXT:    br label [[IF_END]]
 // CHECK:       if.end:
-// CHECK-NEXT:    [[TMP32:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED:TYPED"(ptr [[AAA]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[BBB]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[CCC]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[DDD]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[EEE]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[OBJ1]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[B]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[C]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEPOBJ_SIZE_ADDR]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[SAVED_STACK]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[__VLA_EXPR0]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEPOBJ_SIZE_ADDR7]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[SAVED_STACK8]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[__VLA_EXPR1]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR10]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR11]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR17]], i64 0, i32 1) ]
+// CHECK-NEXT:    [[TMP32:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED:TYPED"(ptr [[AAA]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[BBB]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[CCC]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[DDD]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[EEE]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[OBJ1]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[B]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[C]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEPOBJ_SIZE_ADDR]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[SAVED_STACK]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[__VLA_EXPR0]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEPOBJ_SIZE_ADDR7]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[SAVED_STACK8]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[__VLA_EXPR1]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR10]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR11]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR17]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEPOBJ_SIZE_ADDR18]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[SAVED_STACK19]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[__VLA_EXPR2]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR21]], i64 0, i32 1) ]
 // CHECK-NEXT:    [[TMP33:%.*]] = load ptr, ptr [[OBJ1]], align 8
 // CHECK-NEXT:    [[TMP34:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP33]], i64 -1
 // CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP34]], i32 0, i32 0
@@ -290,7 +300,71 @@ void foo1() {
 // CHECK-NEXT:    [[TMP116:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.DEPARRAY"(i32 1, ptr [[TMP100]]) ]
 // CHECK-NEXT:    call void @_Z11doSomethingv() #[[ATTR1]]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP116]]) [ "DIR.OMP.END.TASK"() ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP32]]) [ "DIR.OMP.END.PARALLEL"() ]
-// CHECK-NEXT:    ret void
-//
+
+// CHECK-NEXT: [[TMP117:%.*]] = load ptr, ptr %obj1, align 8
+// CHECK-NEXT: [[TMP118:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[TMP117]], i64 -1
+// CHECK-NEXT: [[TMP119:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP118]], i32 0, i32 0
+// CHECK-NEXT: [[TMP120:%.*]] = load i64, ptr [[TMP119]], align 8
+// CHECK-NEXT: store i64 0, ptr [[DEPOBJ_SIZE_ADDR18]], align 8
+// CHECK-NEXT: [[TMP121:%.*]] = load i64, ptr [[DEPOBJ_SIZE_ADDR18]], align 8
+// CHECK-NEXT: [[TMP122:%.*]] = add nuw i64 [[TMP121]], [[TMP120]]
+// CHECK-NEXT: store i64 [[TMP122]], ptr [[DEPOBJ_SIZE_ADDR18]], align 8
+// CHECK-NEXT: [[TMP123:%.*]] = load i64, ptr [[DEPOBJ_SIZE_ADDR18]], align 8
+// CHECK-NEXT: [[TMP124:%.*]] = add nuw i64 0, [[TMP123]]
+// CHECK-NEXT: [[TMP125:%.*]] = add nuw i64 [[TMP124]], 0
+// CHECK-NEXT: [[TMP126:%.*]] = call ptr @llvm.stacksave()
+// CHECK-NEXT: store ptr [[TMP126]], ptr [[SAVED_STACK19]], align 8
+// CHECK-NEXT: [[VLA20:%vla.*]] = alloca %struct.kmp_depend_info, i64 [[TMP125]], align 16
+// CHECK-NEXT: store i64 [[TMP125]], ptr [[__VLA_EXPR2]], align 8
+// CHECK-NEXT: [[TMP127:%.*]] = trunc i64 [[TMP125]] to i32
+// CHECK-NEXT: store i64 0, ptr [[DEP_COUNTER_ADDR21]], align 8
+// CHECK-NEXT: [[TMP128:%.*]] = load ptr, ptr [[OBJ1]], align 8
+// CHECK-NEXT: [[TMP129:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[TMP128]], i64 -1
+// CHECK-NEXT: [[TMP130:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP129]], i32 0, i32 0
+// CHECK-NEXT: [[TMP131:%.*]] = load i64, ptr [[TMP130]], align 8
+// CHECK-NEXT: [[TMP132:%.*]] = mul nuw i64 24, [[TMP131]]
+// CHECK-NEXT: [[TMP133:%.*]] = load i64, ptr [[DEP_COUNTER_ADDR21]], align 8
+// CHECK-NEXT: [[TMP134:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[VLA20]], i64 [[TMP133]]
+// CHECK-NEXT: call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[TMP134]], ptr align 8 [[TMP128]], i64 [[TMP132]], i1 false)
+// CHECK-NEXT: [[TMP135:%.*]] = add nuw i64 [[TMP133]], [[TMP131]]
+// CHECK-NEXT: store i64 [[TMP135]], ptr [[DEP_COUNTER_ADDR21]], align 8
+// CHECK-NEXT:    [[TMP136:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.DEPARRAY"(i32 [[TMP127]], ptr [[VLA20]]) ]
+// CHECK-NEXT: fence acq_rel
+// CHECK-NEXT: call void @llvm.directive.region.exit(token [[TMP136]]) [ "DIR.OMP.END.TASKWAIT"() ]
+// CHECK-NEXT: [[TMP137:%.*]] = load ptr, ptr [[SAVED_STACK19]], align 8
+// CHECK-NEXT: call void @llvm.stackrestore(ptr [[TMP137]])
+// CHECK-NEXT: call void @llvm.directive.region.exit(token [[TMP32]]) [ "DIR.OMP.END.PARALLEL"() ]
+// CHECK-NEXT: [[TMP138:%.*]] = load ptr, ptr [[OBJ2]], align 8
+// CHECK-NEXT: [[TMP139:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[TMP138]], i64 -1
+// CHECK-NEXT: [[TMP140:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP139]], i32 0, i32 0
+// CHECK-NEXT: [[TMP141:%.*]] = load i64, ptr [[TMP140]], align 8
+// CHECK-NEXT: store i64 0, ptr [[DEPOBJ_SIZE_ADDR22]], align 8
+// CHECK-NEXT: [[TMP142:%.*]] = load i64, ptr [[DEPOBJ_SIZE_ADDR22]], align 8
+// CHECK-NEXT: [[TMP143:%.*]] = add nuw i64 [[TMP142]], [[TMP141]]
+// CHECK-NEXT: store i64 [[TMP143]], ptr [[DEPOBJ_SIZE_ADDR22]], align 8
+// CHECK-NEXT: [[TMP144:%.*]] = load i64, ptr [[DEPOBJ_SIZE_ADDR22]], align 8
+// CHECK-NEXT: [[TMP145:%.*]] = add nuw i64 0, [[TMP144]]
+// CHECK-NEXT: [[TMP146:%.*]] = add nuw i64 [[TMP145]], 0
+// CHECK-NEXT: [[TMP147:%.*]] = call ptr @llvm.stacksave()
+// CHECK-NEXT: store ptr [[TMP147]], ptr [[SAVED_STACK23]], align 8
+// CHECK-NEXT: [[VLA24:%vla.*]] = alloca %struct.kmp_depend_info, i64 [[TMP146]], align 16
+// CHECK-NEXT: store i64 [[TMP146]], ptr [[__VLA_EXPR3]], align 8
+// CHECK-NEXT: [[TMP148:%.*]] = trunc i64 [[TMP146]] to i32
+// CHECK-NEXT: store i64 0, ptr [[DEP_COUNTER_ADDR25]], align 8
+// CHECK-NEXT: [[TMP149:%.*]] = load ptr, ptr [[OBJ2]], align 8
+// CHECK-NEXT: [[TMP150:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[TMP149]], i64 -1
+// CHECK-NEXT: [[TMP151:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP150]], i32 0, i32 0
+// CHECK-NEXT: [[TMP152:%.*]] = load i64, ptr [[TMP151]], align 8
+// CHECK-NEXT: [[TMP153:%.*]] = mul nuw i64 24, [[TMP152]]
+// CHECK-NEXT: [[TMP154:%.*]] = load i64, ptr [[DEP_COUNTER_ADDR25]], align 8
+// CHECK-NEXT: [[TMP155:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[VLA24]], i64 [[TMP154]]
+// CHECK-NEXT: call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[TMP155]], ptr align 8 [[TMP149]], i64 [[TMP153]], i1 false)
+// CHECK-NEXT: [[TMP156:%.*]] = add nuw i64 [[TMP154]], [[TMP152]]
+// CHECK-NEXT: store i64 [[TMP156]], ptr [[DEP_COUNTER_ADDR25]], align 8
+// CHECK-NEXT: [[TMP157:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.NOWAIT"(), "QUAL.OMP.DEPARRAY"(i32 [[TMP148]], ptr [[VLA24]]) ]
+// CHECK-NEXT: fence acq_rel
+// CHECK-NEXT: call void @llvm.directive.region.exit(token [[TMP157]]) [ "DIR.OMP.END.TASKWAIT"() ]
+// CHECK-NEXT: [[TMP158:%.*]] = load ptr, ptr [[SAVED_STACK23]], align 8
+// CHECK-NEXT: call void @llvm.stackrestore(ptr [[TMP158]])
+// CHECK-NEXT: ret void
 // end INTEL_COLLAB

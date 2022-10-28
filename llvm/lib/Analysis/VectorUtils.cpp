@@ -166,6 +166,7 @@ static constexpr int Linear2LinearScore = 4;
 static constexpr int Aligned2AlignedScore = 4;
 static constexpr int Unaligned2UnalignedScore = 4;
 static constexpr int Aligned2UnalignedScore = 3;
+static constexpr int Linear2VariableLinearScore = 3;
 
 // Indicate that a match was not found for a particular variant when doing
 // caller/callee variant matching.
@@ -214,18 +215,25 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
       return Scalar2VectorScore; // uniform/linear -> vector
     }
 
-    // linear->linear matches occur when:
+    // Matching for linear integer/pointer args. Matches occur when:
     // 1) both args are linear and have same constant stride
     // 2) caller side arg is recognized by DA as linear with constant stride
-    //    and available variant is variable integer strided.
+    //    and available variant is variable integer strided. As a result, a
+    //    lower score is assigned as a tie-breaker in case multiple variants
+    //    are available.
     // 3) both args are linear with variable stride.
     if (Callee[I].isLinear() && Caller[I].isLinear()) {
-      if ((Callee[I].isConstantStrideLinear() && // Case #1
-           Caller[I].isConstantStrideLinear() &&
-           Callee[I].getStride() == Caller[I].getStride()) ||
-          Callee[I].isVariableStride()) {        // Cases #2 and #3
+      if (Callee[I].isConstantStrideLinear() && // Case #1
+          Caller[I].isConstantStrideLinear() &&
+          Callee[I].getStride() == Caller[I].getStride())
         return Linear2LinearScore;
-      }
+      if (Caller[I].isConstantStrideLinear() && // Case #2
+          Callee[I].isVariableStride())
+        return Linear2VariableLinearScore;
+      if (Callee[I].isVariableStride() &&       // Case #3
+          Caller[I].isVariableStride())
+        return Linear2LinearScore;
+      llvm_unreachable("Unsupported linear to linear match");
     }
 
     // TODO: add scoring for linear reference parameters for ref/val/uval
