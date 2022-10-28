@@ -835,7 +835,8 @@ public:
   int getMatchingVectorVariant(
       const VFInfo &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
-      const Module *M) const  { return -1; }
+      const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const  { return -1; }
 
   bool needsStructuredCFG() const { return false; }
 

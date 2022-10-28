@@ -1593,7 +1593,8 @@ bool X86TTIImpl::targetMatchesVariantISA(
 int X86TTIImpl::getMatchingVectorVariant(
     const VFInfo &ForCall,
     const SmallVectorImpl<VFInfo> &Variants,
-    const Module *M) const {
+    const Module *M,
+    const ArrayRef<bool> ArgIsLinearPrivateMem) const {
   // ForCall is a VFInfo created for the call instruction.
   int BestIndex = -1;
   int CurrIndex = -1;
@@ -1607,7 +1608,8 @@ int X86TTIImpl::getMatchingVectorVariant(
     if (!targetMatchesVariantISA(Variant.getISA()))
       continue;
     int MaxArg = 0;
-    auto Score = ForCall.getMatchingScore(Variant, MaxArg, M);
+    auto Score = ForCall.getMatchingScore(Variant, MaxArg, M,
+                                          ArgIsLinearPrivateMem);
     if (Score > BestScore) {
       BestScore = Score;
       BestIndex = CurrIndex;
