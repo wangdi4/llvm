@@ -11698,7 +11698,7 @@ static bool checkTaskwaitClauseUsage(Sema &S,
       // with taskwait.
       bool ValidDepKindForTaskwait =
           (DepKind == OMPC_DEPEND_in || DepKind == OMPC_DEPEND_out ||
-           DepKind == OMPC_DEPEND_inout);
+           DepKind == OMPC_DEPEND_inout || DepKind == OMPC_DEPEND_depobj);
       if (!ValidDepKindForTaskwait) {
         SourceLocation DepLoc = Depend->getDependencyLoc();
         S.Diag(DepLoc, diag::err_omp_depend_type_unsupported_taskwait);
