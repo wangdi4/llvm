@@ -5577,16 +5577,11 @@ def mavx512vpopcntdq : Flag<["-"], "mavx512vpopcntdq">, Group<m_x86_Features_Gro
 def mno_avx512vpopcntdq : Flag<["-"], "mno-avx512vpopcntdq">, Group<m_x86_Features_Group>;
 def mavx512vp2intersect : Flag<["-"], "mavx512vp2intersect">, Group<m_x86_Features_Group>;
 def mno_avx512vp2intersect : Flag<["-"], "mno-avx512vp2intersect">, Group<m_x86_Features_Group>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_BF16
 def mavxbf16 : Flag<["-"], "mavxbf16">, Group<m_x86_Features_Group>;
 def mno_avxbf16 : Flag<["-"], "mno-avxbf16">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
-def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
-def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def mavxcompress : Flag<["-"], "mavxcompress">, Group<m_x86_Features_Group>;
 def mno_avxcompress : Flag<["-"], "mno-avxcompress">, Group<m_x86_Features_Group>;
@@ -5628,10 +5623,8 @@ def mavxraoint : Flag<["-"], "mavxraoint">, Group<m_x86_Features_Group>;
 def mno_avxraoint : Flag<["-"], "mno-avxraoint">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
-=======
 def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
 def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
->>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
 def mavxvnni : Flag<["-"], "mavxvnni">, Group<m_x86_Features_Group>;
 def mno_avxvnni : Flag<["-"], "mno-avxvnni">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
@@ -8484,10 +8477,8 @@ def : CLFlag<"Qmno-avx512vp2intersect">, Alias<mno_avx512vp2intersect>;
 def : CLFlag<"Qmavxbf16">, Alias<mavxbf16>;
 def : CLFlag<"Qmno-avxbf16">, Alias<mno_avxbf16>;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
 def : CLFlag<"Qmavxifma">, Alias<mavxifma>;
 def : CLFlag<"Qmno-avxifma">, Alias<mno_avxifma>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def : CLFlag<"Qmavxcompress">, Alias<mavxcompress>;
 def : CLFlag<"Qmno-avxcompress">, Alias<mno_avxcompress>;

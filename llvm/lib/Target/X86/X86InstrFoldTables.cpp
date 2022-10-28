@@ -4533,30 +4533,6 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPLZCNTQZ128rrk,            X86::VPLZCNTQZ128rmk,            0 },
   { X86::VPLZCNTQZ256rrk,            X86::VPLZCNTQZ256rmk,            0 },
   { X86::VPLZCNTQZrrk,               X86::VPLZCNTQZrmk,               0 },
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-  { X86::VPMADD52HUQYrr,             X86::VPMADD52HUQYrm,             0 },
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
-  { X86::VPMADD52HUQZ128r,           X86::VPMADD52HUQZ128m,           0 },
-  { X86::VPMADD52HUQZ256r,           X86::VPMADD52HUQZ256m,           0 },
-  { X86::VPMADD52HUQZr,              X86::VPMADD52HUQZm,              0 },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-  { X86::VPMADD52HUQrr,              X86::VPMADD52HUQrm,              0 },
-  { X86::VPMADD52LUQYrr,             X86::VPMADD52LUQYrm,             0 },
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
-  { X86::VPMADD52LUQZ128r,           X86::VPMADD52LUQZ128m,           0 },
-  { X86::VPMADD52LUQZ256r,           X86::VPMADD52LUQZ256m,           0 },
-  { X86::VPMADD52LUQZr,              X86::VPMADD52LUQZm,              0 },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-  { X86::VPMADD52LUQrr,              X86::VPMADD52LUQrm,              0 },
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
-=======
   { X86::VPMADD52HUQYrr,             X86::VPMADD52HUQYrm,             0 },
   { X86::VPMADD52HUQZ128r,           X86::VPMADD52HUQZ128m,           0 },
   { X86::VPMADD52HUQZ256r,           X86::VPMADD52HUQZ256m,           0 },
@@ -4567,7 +4543,6 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPMADD52LUQZ256r,           X86::VPMADD52LUQZ256m,           0 },
   { X86::VPMADD52LUQZr,              X86::VPMADD52LUQZm,              0 },
   { X86::VPMADD52LUQrr,              X86::VPMADD52LUQrm,              0 },
->>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
   { X86::VPMADDUBSWZ128rrkz,         X86::VPMADDUBSWZ128rmkz,         0 },
   { X86::VPMADDUBSWZ256rrkz,         X86::VPMADDUBSWZ256rmkz,         0 },
   { X86::VPMADDUBSWZrrkz,            X86::VPMADDUBSWZrmkz,            0 },

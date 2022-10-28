@@ -238,9 +238,7 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 #ifdef ENABLE_ISA_AVX256
     FeatureAMX_FP16 |
     FeaturePREFETCHI |
-#if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA |
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 // FIXME: Need to change to AVX-NE-CONVERT
     FeatureAVXCONVERT |
@@ -348,9 +346,7 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
     FeatureAVX512BF16NE |
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA |
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
     FeatureCMPCCXADD |
 #if INTEL_FEATURE_ISA_SHA512
     FeatureSHA512 |
@@ -840,9 +836,6 @@ constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT8
 constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8

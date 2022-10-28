@@ -183,19 +183,9 @@ def FeatureVBMI     : SubtargetFeature<"avx512vbmi", "HasVBMI", "true",
 def FeatureVBMI2    : SubtargetFeature<"avx512vbmi2", "HasVBMI2", "true",
                       "Enable AVX-512 further Vector Byte Manipulation Instructions",
                                       [FeatureBWI]>;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
 def FeatureAVXIFMA    : SubtargetFeature<"avxifma", "HasAVXIFMA", "true",
                            "Enable AVX-IFMA",
                            [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
-=======
-def FeatureAVXIFMA    : SubtargetFeature<"avxifma", "HasAVXIFMA", "true",
-                           "Enable AVX-IFMA",
-                           [FeatureAVX2]>;
->>>>>>> 0e720e6adad13d9a3d29dc41e5c62240047acf55
 def FeatureIFMA     : SubtargetFeature<"avx512ifma", "HasIFMA", "true",
                       "Enable AVX-512 Integer Fused Multiple-Add",
                                       [FeatureAVX512]>;
@@ -1434,9 +1424,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
                                                   FeatureNEBF16,
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#if INTEL_FEATURE_ISA_AVX_IFMA
                                                   FeatureAVXIFMA,
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
                                                   FeatureCMPCCXADD,
 #if INTEL_FEATURE_ISA_SHA512
                                                   FeatureSHA512,
@@ -1525,9 +1513,7 @@ def ProcessorFeatures {
 #ifdef ENABLE_ISA_AVX256
     FeatureAMXFP16,
     FeaturePREFETCHI,
-#if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA,
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 // FIXME: Need to change to AVX-NE-CONVERT
     FeatureAVXCONVERT,
