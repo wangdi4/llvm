@@ -60,6 +60,27 @@ public:
 };
 
 std::vector<SyclWrapperTy *> SyclWrappers;
+sycl::context SyclContext;
+sycl::platform SyclPlatform;
+
+EXTERN void __tgt_sycl_init_interop(omp_interop_t interop) {
+
+  ze_driver_handle_t ZePlatform;
+  ze_context_handle_t ZeContext;
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
+
+  ZePlatform = static_cast<ze_driver_handle_t>(TgtInterop->Platform);
+  ZeContext = static_cast<ze_context_handle_t>(TgtInterop->DeviceContext);
+
+  SyclPlatform = sycl::ext::oneapi::level_zero::make_platform(
+      reinterpret_cast<pi_native_handle>(ZePlatform));
+
+  std::vector<device> SyclDevices = SyclPlatform.get_devices();
+  SyclContext = sycl::make_context<sycl::backend::ext_oneapi_level_zero>(
+      {ZeContext, SyclDevices, sycl::ext::oneapi::level_zero::ownership::keep});
+
+  return;
+}
 
 EXTERN void *__tgt_sycl_get_interop(void *zedevice) {
 
@@ -71,34 +92,21 @@ EXTERN void *__tgt_sycl_get_interop(void *zedevice) {
 
 EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop) {
 
-  ze_driver_handle_t ZePlatform;
-  ze_context_handle_t ZeContext;
   void *ZeDevice;
   void *ZeQueue;
 
   __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
 
-  ZePlatform = static_cast<ze_driver_handle_t>(TgtInterop->Platform);
-  ZeContext = static_cast<ze_context_handle_t>(TgtInterop->DeviceContext);
-  ZeDevice = TgtInterop->Device;
-  ZeQueue = TgtInterop->TargetSync;
-
   SyclWrapperTy *SyclWrapperObj = new SyclWrapperTy;
-  SyclWrapperObj->SyclPlatform = sycl::ext::oneapi::level_zero::make_platform(
-      reinterpret_cast<pi_native_handle>(ZePlatform));
 
+  ZeDevice = TgtInterop->Device;
   SyclWrapperObj->ZeDevice = ZeDevice;
   SyclWrapperObj->SyclDevice = sycl::ext::oneapi::level_zero::make_device(
-      SyclWrapperObj->SyclPlatform,
-      reinterpret_cast<pi_native_handle>(ZeDevice));
+      SyclPlatform, reinterpret_cast<pi_native_handle>(ZeDevice));
 
-  SyclWrapperObj->SyclContext =
-      sycl::make_context<sycl::backend::ext_oneapi_level_zero>(
-          {ZeContext,
-           {SyclWrapperObj->SyclDevice},
-           sycl::ext::oneapi::level_zero::ownership::keep});
-
+  ZeQueue = TgtInterop->TargetSync;
   SyclWrapperObj->ZeQueue = ZeQueue;
+
   ze_command_queue_handle_t ZeQueueT =
       static_cast<ze_command_queue_handle_t>(ZeQueue);
 
@@ -106,15 +114,15 @@ EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop) {
       QueueInteropInput =  { ZeQueueT, SyclWrapperObj->SyclDevice,
                              sycl::ext::oneapi::level_zero::ownership::keep };
   SyclWrapperObj->SyclQueue =
-      sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(
-          QueueInteropInput, SyclWrapperObj->SyclContext);
+      sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(QueueInteropInput,
+                                                             SyclContext);
 
   SyclWrapperObj->interop = interop;
   SyclWrappers.push_back(SyclWrapperObj);
 
   // Update interop object by replacing  level0 with sycl
-  TgtInterop->Platform = static_cast<void *>(&SyclWrapperObj->SyclPlatform);
-  TgtInterop->DeviceContext = static_cast<void *>(&SyclWrapperObj->SyclContext);
+  TgtInterop->Platform = static_cast<void *>(&SyclPlatform);
+  TgtInterop->DeviceContext = static_cast<void *>(&SyclContext);
   TgtInterop->Device = static_cast<void *>(&SyclWrapperObj->SyclDevice);
   TgtInterop->TargetSync = static_cast<void *>(&SyclWrapperObj->SyclQueue);
   TgtInterop->FrId = 4;
