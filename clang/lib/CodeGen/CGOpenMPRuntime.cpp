@@ -1678,10 +1678,10 @@ static void getTargetEntryUniqueInfo(ASTContext &C, SourceLocation Loc,
           << PLoc.getFilename() << EC.message();
   }
 
-<<<<<<< HEAD
+  DeviceID = ID.getDevice();
+  FileID = ID.getFile();
 #if INTEL_CUSTOMIZATION
-  unsigned FileID = ID.getFile();
-  if (C.getLangOpts().OpenMPStableFileID) {
+  if (C.getLangOpts().OpenMPStableFileID)
     // Hash relative file name to single unsigned value.
     // This is a non-product mode to get buildsame binaries built
     // from files located in different directories
@@ -1698,16 +1698,8 @@ static void getTargetEntryUniqueInfo(ASTContext &C, SourceLocation Loc,
     //   /ref/2/test.c compiled inside /ref/2 will also have
     //   the same file ID, which may break linking the files together.
     FileID = llvm::MD5Hash(PLoc.getFilename());
-  }
-
-  return llvm::TargetRegionEntryInfo(ParentName, ID.getDevice(), FileID,
-                                     PLoc.getLine());
 #endif // INTEL_CUSTOMIZATION
-=======
-  DeviceID = ID.getDevice();
-  FileID = ID.getFile();
   LineNum = PLoc.getLine();
->>>>>>> 0cb65b0a585c8b3d4a8a2aefe994a8fc907934f8
 }
 
 Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
@@ -3173,20 +3165,14 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
         // - Entry 6 -> Entry kind.
 #endif // INTEL_COLLAB
         // The first element of the metadata node is the kind.
-<<<<<<< HEAD
 #if INTEL_COLLAB
-        llvm::SmallVector<llvm::Metadata*, 7u> Ops = {
+        llvm::SmallVector<llvm::Metadata*, 7u> Ops =
+                                {GetMDInt(E.getKind()), GetMDInt(DeviceID),
 #else
-        llvm::Metadata *Ops[] = {
-#endif // INTEL_COLLAB
-            GetMDInt(E.getKind()),      GetMDInt(EntryInfo.DeviceID),
-            GetMDInt(EntryInfo.FileID), GetMDString(EntryInfo.ParentName),
-            GetMDInt(EntryInfo.Line),   GetMDInt(E.getOrder())};
-=======
         llvm::Metadata *Ops[] = {GetMDInt(E.getKind()), GetMDInt(DeviceID),
+#endif // INTEL_COLLAB
                                  GetMDInt(FileID),      GetMDString(ParentName),
                                  GetMDInt(Line),        GetMDInt(E.getOrder())};
->>>>>>> 0cb65b0a585c8b3d4a8a2aefe994a8fc907934f8
 
 #if INTEL_COLLAB
         if (CGM.getLangOpts().OpenMPLateOutline)
@@ -6447,12 +6433,15 @@ llvm::Function *CGOpenMPRuntime::emitCombiner(CodeGenModule &CGM, QualType Ty,
 int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
                                           StringRef ParentName) {
 
-  auto EntryInfo =
-      getTargetEntryUniqueInfo(CGM.getContext(), D.getBeginLoc(), ParentName);
+  unsigned DeviceID;
+  unsigned FileID;
+  unsigned Line;
+  getTargetEntryUniqueInfo(CGM.getContext(), D.getBeginLoc(), DeviceID, FileID,
+                           Line);
 
   // Register the information for the entry associated with this target region.
   int Index = OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
-      EntryInfo, nullptr, nullptr,
+      DeviceID, FileID, ParentName, Line, nullptr, nullptr,
       llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion,
       CGM.getLangOpts().OpenMPIsDevice);
   if (Index == -1)
@@ -11104,8 +11093,8 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 
     // Is this a target region that should not be emitted as an entry point? If
     // so just signal we are done with this target region.
-<<<<<<< HEAD
-    if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(EntryInfo))
+    if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(DeviceID, FileID,
+                                                            ParentName, Line))
 #if INTEL_COLLAB
       return false;
     if (CGM.getLangOpts().OpenMPLateOutline)
@@ -11114,10 +11103,6 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 #endif // INTEL_CUSTOMIZATION
       return true;
 #else
-=======
-    if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(DeviceID, FileID,
-                                                            ParentName, Line))
->>>>>>> 0cb65b0a585c8b3d4a8a2aefe994a8fc907934f8
       return;
 #endif // INTEL_COLLAB
 

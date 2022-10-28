@@ -20,6 +20,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/Allocator.h"
 #include <forward_list>
+#include <map>
 
 namespace llvm {
 class CanonicalLoopInfo;
@@ -1814,18 +1815,14 @@ public:
   void initializeTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
                                        StringRef ParentName, unsigned LineNum,
                                        unsigned Order);
-<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Register target region entry. Return the entry's order in the table.
-  int registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
+  int registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
 #else
-  void registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
-#endif // INTEL_COLLAB
-=======
   /// Register target region entry.
   void registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+#endif // INTEL_COLLAB
                                      StringRef ParentName, unsigned LineNum,
->>>>>>> 0cb65b0a585c8b3d4a8a2aefe994a8fc907934f8
                                      Constant *Addr, Constant *ID,
                                      OMPTargetRegionEntryKind Flags,
                                      bool IsDevice);
