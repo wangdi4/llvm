@@ -3081,6 +3081,10 @@ def fopenmp_target_declare_simd_spir : Flag<["-"], "fopenmp-target-declare-simd-
   MarshallingInfoFlag<CodeGenOpts<"OpenMPDeclareSIMDSPIR">>;
 def fopenmp_target_intel_proprietary_opts : Flag<["-"], "fopenmp-target-intel-proprietary-opts">, Flags<[HelpHidden]>, Group<f_Group>,
   HelpText<"Allow using Intel proprietary optimizations for OMP SPIR offload">;
+def fopenmp_target_loopopt : Flag<["-"], "fopenmp-target-loopopt">,
+  Flags<[HelpHidden]>, Group<f_Group>,
+  HelpText<"Enable loop optimizer and auto-vectorization for OpenMP offloading "
+           "device compilation with -O2 and above">;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
@@ -8847,6 +8851,12 @@ def _SLASH_Qopenmp_target_buffers_COL : CLJoined<"Qopenmp-target-buffers:">,
   "of 4GB or larger in target code.">;
 def _SLASH_Qopenmp_target_simd : CLFlag<"Qopenmp-target-simd">, Alias<fopenmp_target_simd>;
 def _SLASH_Qopenmp_target_fast_atomics : CLFlag<"Qopenmp-target-fast-atomics">, Alias<fopenmp_target_fast_atomics>;
+def _SLASH_Qopenmp_target_loopopt
+    : Option<["/", "-"], "Qopenmp-target-loopopt", KIND_FLAG>,
+      Group<cl_Group>, Flags<[CLOption, NoXarchOption, HelpHidden]>,
+      Alias<fopenmp_target_loopopt>,
+      HelpText<"Enable loop optimizer and auto-vectorization for OpenMP "
+               "offloading device compilation with -O2 and above">;
 def _SLASH_Qiopenmp_offload : CLFlag<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
 def _SLASH_Qiopenmp_offload_ : CLFlag<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
 def _SLASH_Qiopenmp_vec_at_O0 : CLFlag<"Qiopenmp-vec-at-O0">, Alias<fiopenmp_vec_at_O0>;
