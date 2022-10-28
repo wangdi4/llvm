@@ -9,11 +9,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h"
-#include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -22,8 +23,8 @@
 #include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/IPO.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO.h"
 
 using namespace llvm;
 
@@ -487,7 +488,204 @@ static bool collectAndTransformDopeVectorGlobals(Module &M,
   return Change;
 }
 
-static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
+struct DVModsReads {
+  llvm::SmallVector<Use *, 16> Mods;
+  llvm::SmallVector<Use *, 32> Reads;
+};
+
+using OffsetAccessMap =
+    llvm::MapVector<unsigned long long, std::unique_ptr<DVModsReads>>;
+
+// The function collects all safe-to-propagate accesses to a dopevector's
+// fields and returns them as a map<offset, struct DVModsReads>.
+// Analysis is done in local context of a function and intended to be used
+// for local dopevector values propagation.
+// A dopevector is considered as a good candidate for field values
+// propagation when the address it points to and the addresses of its
+// fields do not escape out of the function in which it was allocated.
+static std::unique_ptr<OffsetAccessMap>
+collectDVPropagatbleAccesses(Function *F, Value *DV, const DataLayout &DL,
+                             const TargetLibraryInfo &TLI) {
+
+  std::unique_ptr<OffsetAccessMap> offsetAccessMap =
+      std::make_unique<OffsetAccessMap>();
+
+  // The function is used to print analysis bail out diagnostics.
+  // For convenience reasons the function returns nullptr to enable
+  // one line returns from the caller.
+  auto Unsafe = [](const char *ErrMsg, const Value *DV, const Use *ErrUse) {
+    LLVM_DEBUG({
+      dbgs() << "Dope vector is not propagation candidate\n";
+      dbgs() << "  DV:   " << *DV << "\n";
+      dbgs() << "  MSG:  " << ErrMsg << "\n";
+      dbgs() << "  VALUE:" << *(ErrUse->get()) << "\n";
+      dbgs() << "  USER: " << *(ErrUse->getUser()) << "\n";
+    });
+    return nullptr;
+  };
+
+  // To collect actual offset at the early stages of PM pipeline we need
+  // to accumulate offsets from chained GEPs and subscripts into single
+  // offset expressed in number of bytes from a structure begin.
+  // For traversal purposes a stack is used. A stack entry contains
+  // a Use* for bookkeeping value-user edge and currently accumulated
+  // offset
+  llvm::SmallVector<std::tuple<Use *, unsigned long long>, 32> stk;
+
+  // Init processing stack with immediate uses of the dope vector.
+  for (auto &DVUse : DV->uses()) {
+    stk.push_back(std::make_tuple(&DVUse, 0));
+  }
+
+  while (!stk.empty()) {
+    Use *U;
+    unsigned long long offset;
+    std::tie(U, offset) = stk.back();
+    stk.pop_back();
+    if (const auto *SI = dyn_cast<StoreInst>(U->getUser())) {
+      // Simple escape analysis, we need to be sure that a pointer.
+      // is used only in store instruction as pointer operand.
+      // Otherwise this dopevector is excluded from value propagation.
+      if (SI->getPointerOperand() != U->get())
+        return Unsafe("Store pointer to a DV field", DV, U);
+      // StoreInst is terminal leaf of the traversal
+      // We need just to store the newly found access to the result
+      // as a modifying access.
+      auto P = offsetAccessMap->insert(
+          std::make_pair(offset, std::make_unique<DVModsReads>()));
+      P.first->second->Mods.push_back(U);
+    } else if (const auto *LI = dyn_cast<LoadInst>(U->getUser())) {
+      // LoadInst is terminal leaf of the traversal
+      // We need just to store new found access to the result as
+      // reading access.
+      auto P = offsetAccessMap->insert(
+          std::make_pair(offset, std::make_unique<DVModsReads>()));
+      P.first->second->Reads.push_back(U);
+    } else if (auto *GEP = dyn_cast<GEPOrSubsOperator>(U->getUser())) {
+      unsigned BitWidth = DL.getIndexSizeInBits(GEP->getPointerAddressSpace());
+      APInt ConstantOffset(BitWidth, 0);
+      // It is expected that all the field accesses have constant offsets
+      // The non-constant offsets are not supported and constant propagation
+      // is not performed.
+      if (!GEP->accumulateConstantOffset(DL, ConstantOffset))
+        return Unsafe("Can't collect constant offset", DV, U);
+      // Add subsequent uses of the GEP/Subscript into work stack for
+      // further processing.
+      for (auto &TU : GEP->uses()) {
+        auto NewOffset = offset + ConstantOffset.getZExtValue();
+        stk.push_back(std::make_tuple(&TU, NewOffset));
+      }
+    } else if (auto *CB = dyn_cast<CallBase>(U->getUser())) {
+      Function *F = CB->getCalledFunction();
+      if (F->isIntrinsic()) {
+        switch (F->getIntrinsicID()) {
+        default:
+          return Unsafe("DV field address passed to unsupported intrinsic", DV,
+                        U);
+        // Skip region entry/exit from the traversal since passing the addresses
+        // to region intrinsic does not modify dopevectors.
+        case Intrinsic::directive_region_entry:
+        case Intrinsic::directive_region_exit:
+          continue;
+        }
+      } else if (CB->getCalledFunction()) {
+        Function *CalledFn = CB->getCalledFunction();
+        LibFunc TheLibFunc;
+        if (TLI.getLibFunc(CalledFn->getName(), TheLibFunc) &&
+            TLI.has(TheLibFunc)) {
+          switch (TheLibFunc) {
+          default:
+            return Unsafe("DV field address passed to unsupported function", DV,
+                          U);
+          case LibFunc_for_allocate_handle:
+          case LibFunc_for_alloc_allocatable_handle:
+            auto P = offsetAccessMap->insert(
+                std::make_pair(0, std::make_unique<DVModsReads>()));
+            P.first->second->Reads.push_back(U);
+            continue;
+          }
+        }
+      }
+      return Unsafe("DV field address passed to unknown function", DV, U);
+    } else if (auto *BC = dyn_cast_or_null<BitCastInst>(U->getUser())) {
+      for (auto &TU : BC->uses()) {
+        stk.push_back(std::make_tuple(&TU, offset));
+      }
+      continue;
+    } else
+      return Unsafe("Unsupported DV field use: ", DV, U);
+  }
+
+  LLVM_DEBUG({
+    dbgs() << "*** DV OFFSET ACCESS MAP ***\n";
+    for (auto &E : *offsetAccessMap) {
+      dbgs() << "OFFSET: " << E.first << "\n";
+      dbgs() << "  MODS:\n";
+      for (auto &V : E.second->Mods) {
+        dbgs() << "    Value: " << *(V->getUser()) << "\n";
+      }
+      dbgs() << "  READS:\n";
+      for (auto &V : E.second->Reads) {
+        dbgs() << "    Value: " << *(V->getUser()) << "\n";
+      }
+    }
+  });
+  return std::move(offsetAccessMap);
+}
+
+static bool propagateAllDVAccesses(OffsetAccessMap &offsetAccessMap,
+                                   const DominatorTree &DT) {
+  auto SkipReplacement = [](const Value *V, const Value *R,
+                            const std::string &M) {
+    LLVM_DEBUG({
+      dbgs() << "VALUE: " << *V << "\n";
+      dbgs() << "\tREPLACEMENT: " << *R << "\n";
+      dbgs() << "\tSKIPPED DUE TO: " << M << "\n";
+    });
+  };
+
+  bool Changed = false;
+  for (auto &E : offsetAccessMap) {
+    for (const auto *R : E.second->Reads) {
+      auto *LI = dyn_cast_or_null<LoadInst>(R->getUser());
+      if (!LI) {
+        SkipReplacement(R->getUser(), R->getUser(), "Unsupported USE");
+        continue;
+      }
+
+      if (E.second->Mods.size() == 1) {
+        // As for initial implementation we consider
+        // only simple case with one def of a field.
+        // Upcoming implementation will handle more
+        // cases.
+        auto *U = E.second->Mods.front()->getUser();
+        if (auto *SI = dyn_cast_or_null<StoreInst>(U)) {
+          auto *Replacement = SI->getValueOperand();
+          if (Replacement->getType() != LI->getType()) {
+            SkipReplacement(LI, SI, "Different types");
+            continue;
+          }
+          if (!DT.dominates(SI, *R)) {
+            SkipReplacement(LI, SI, "Store does not dominate load");
+            continue;
+          }
+          LI->replaceAllUsesWith(Replacement);
+          LLVM_DEBUG({
+            dbgs() << "USES OF: " << *LI << "\n";
+            dbgs() << "IS REPLACED BY: " << *Replacement << "\n";
+          });
+          Changed |= true;
+        } else {
+          SkipReplacement(R->getUser(), U, "Unsupported DEF");
+        }
+      }
+    }
+  }
+  return Changed;
+}
+
+static bool DopeVectorConstPropImpl(
+    Module &M, WholeProgramInfo &WPInfo,
     std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
 
   // Return 'true' if not all of 'F's uses are CallBase.
@@ -743,5 +941,36 @@ PreservedAnalyses DopeVectorConstPropPass::run(Module &M,
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
+  return PA;
+}
+
+PreservedAnalyses DopeVectorConstPropPass::run(Function &F,
+                                               FunctionAnalysisManager &AM) {
+  bool Changed = false;
+  if (!F.isDeclaration() && F.isFortran()) {
+    const DataLayout &DL = F.getParent()->getDataLayout();
+    const auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+    const auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+    for (Instruction &I : instructions(F)) {
+      auto *AI = dyn_cast<AllocaInst>(&I);
+      if (!AI)
+        continue;
+
+      Type *Ty = AI->getAllocatedType();
+      if (!isDopeVectorType(Ty, DL))
+        continue;
+
+      auto offsetAccessMap = collectDVPropagatbleAccesses(&F, AI, DL, TLI);
+
+      if (offsetAccessMap)
+        Changed |= propagateAllDVAccesses(*offsetAccessMap, DT);
+    }
+  }
+
+  if (!Changed)
+    return PreservedAnalyses::all();
+
+  auto PA = PreservedAnalyses();
+  PA.preserveSet<CFGAnalyses>();
   return PA;
 }

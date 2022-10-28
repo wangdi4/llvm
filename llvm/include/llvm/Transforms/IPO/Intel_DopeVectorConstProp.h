@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorConstProp.h ----------------------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -31,6 +31,7 @@ class DopeVectorConstPropPass : public PassInfoMixin<DopeVectorConstPropPass> {
 public:
   DopeVectorConstPropPass(void);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
 } // end namespace llvm

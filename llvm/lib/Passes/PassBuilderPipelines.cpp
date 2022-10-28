@@ -1506,6 +1506,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     EarlyFPM.addPass(LoopOptMarkerPass());
   else
     EarlyFPM.addPass(LowerSubscriptIntrinsicPass());
+
+  EarlyFPM.addPass(DopeVectorConstPropPass());
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   if (RunVPOOpt && RunVPOParopt)
