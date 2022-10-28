@@ -406,7 +406,8 @@ def warn_drv_deprecated_driver_use_driver_opt : Warning<
   "Use '%1 %2'">, InGroup<Deprecated>;
 def remark_use_of_debug_turn_off_optimization_level : Remark<
   "Note that use of '%0' without any optimization-level option will turn off "
-  "most compiler optimizations similar to use of '%1'">,
+  "most compiler optimizations similar to use of '%1';"
+  " use '-Rno-debug-disables-optimization' to disable this remark">,
   InGroup<DebugDisablesOptimization>;
 def warn_invalid_num_qopt : Warning<"Invalid number(%0) of arguments for the -Qoption, option ignored">,
   InGroup<UnusedCommandLineArgument>;
