@@ -1526,9 +1526,10 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       else if (Ty->isFloatingPointTy())
         Step = Builder.createFPCast(Step, Ty);
     }
-    VPInstruction *Init = Builder.create<VPInductionInit>(
-        Name + ".ind.init", Start, Step, Induction->getStartVal(),
-        Induction->getEndVal(), Opc);
+    auto *Init = Builder.create<VPInductionInit>(Name + ".ind.init", Start,
+                                                 Step, Induction->getStartVal(),
+                                                 Induction->getEndVal(), Opc);
+    Init->setIsLinearIV(Induction->isLinearIV());
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
     VPInstruction *InitStep = Builder.create<VPInductionInitStep>(
         Name + ".ind.init.step", Step, Opc);
@@ -3366,6 +3367,7 @@ void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
       EndVal, InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
+  VPInd->setIsLinearIV(getIsLinearIV());
 }
 
 void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,

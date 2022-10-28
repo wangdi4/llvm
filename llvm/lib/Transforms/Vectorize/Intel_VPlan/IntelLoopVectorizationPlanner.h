@@ -679,6 +679,9 @@ private:
   /// transform.
   void emitVPEntityInstrs(VPlanVector *Plan);
 
+  /// Exchange input and scan phases for exclusive scan.
+  void exchangeExclusiveScanLoopInputScanPhases(VPlanVector *Plan);
+
   /// Emit uniform IV for the vector loop and rewrite backedge condition to use
   /// it.
   //
