@@ -925,13 +925,15 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   //                                                    float %carry_over
   //                                                    float -0.000000e+00
   //   store float %running_red float* %red
-  //   ; for inclusive scan:
+  //   ; For inclusive scan:
   //   float %carry_over.next = extract-last-vector-lane float %running_red
-  //   ; For exclusive scan, reduce also with the last lane of input:
-  //   ; float %running_red.last = extract-last-vector-lane float %running_red
-  //   ; float %input_last_lane = extract-last-vector-lane float %red_load_run
-  //   ; ; TODO: For masked mode loop the above has to be
-  //   ; ; extract-last-active-vector-lane.
+  //
+  //   ; For exclusive scan, we need last active lane of calculated reduction,
+  //   ; and also reducing with the last active lane of input:
+  //   ; float %running_red.last = extract-last-vector-lane
+  //                               float %running_red
+  //   ; float %input_last_lane = extract-last-vector-lane
+  //                              float %red_load_run
   //   ; float %carry_over.next = fadd float %running_red.last,
   //   ;                               float %input_last_lane
   // post.exit:

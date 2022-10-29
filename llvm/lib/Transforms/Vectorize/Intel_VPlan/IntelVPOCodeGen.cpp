@@ -1805,15 +1805,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     //   %last_v = phi [%priv.final, %mask_nonzero], [%orig, %orig_bb]
     //
     Value *VecMask = getVectorValue(VPInst->getOperand(1));
-    Type *IntTy = IntegerType::get(Builder.getContext(), VF);
-    Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
-
-    Module *M = OrigLoop->getHeader()->getModule();
-    Function *CTLZ =
-        Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
-    Value *BsfCall =
-        Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
-    Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+    Value *Lane = createLastActiveLaneSequence(VecMask);
     Value *VecExit = getVectorValue(VPInst->getOperand(0));
     // TODO:  if (VPInst->getOperand(0)->getType()->isVectorTy())
     Value *PrivExtract =
@@ -1856,15 +1848,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
     Value *VecMask = getVectorValue(VPInst->getOperand(2));
-    Type *IntTy = IntegerType::get(Builder.getContext(), VF);
-    Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
-
-    Module *M = OrigLoop->getHeader()->getModule();
-    Function *CTLZ =
-        Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
-    Value *BsfCall =
-        Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
-    Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+    // Obtain index of the last active lane.
+    Value *Lane = createLastActiveLaneSequence(VecMask);
     if (Priv->isSOALayout()) {
       BasicBlock *BBExit = processSOALayout(Priv, Orig, ElementType, Lane);
 
@@ -1921,15 +1906,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     //
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
     Value *VecMask = getVectorValue(VPInst->getOperand(2));
-    Type *IntTy = IntegerType::get(Builder.getContext(), VF);
-    Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
-
-    Module *M = OrigLoop->getHeader()->getModule();
-    Function *CTLZ =
-        Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
-    Value *BsfCall =
-        Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
-    Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+    Value *Lane = createLastActiveLaneSequence(VecMask);
     Value *VecExit = getVectorValue(VPInst->getOperand(0));
     Value *PrivExtract =
         Builder.CreateExtractElement(VecExit, Lane, "priv.extract");
@@ -2090,7 +2067,13 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 }
 
 Value *VPOCodeGen::vectorizeExtractLastVectorLane(VPInstruction *VPInst) {
-  return getScalarValue(VPInst->getOperand(0), VF - 1);
+  // Without the mask it is just extract from the last lane.
+  if (!MaskValue)
+    return getScalarValue(VPInst->getOperand(0), VF - 1);
+
+  Value *Lane = createLastActiveLaneSequence(MaskValue);
+  return Builder.CreateExtractElement(getVectorValue(VPInst->getOperand(0)),
+                                      Lane, "last.active.lane");
 }
 
 BasicBlock *VPOCodeGen::processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
@@ -2377,6 +2360,25 @@ const VPValue *VPOCodeGen::getOrigSplatVPValue(const VPValue *V) {
   }
 
   return InsertEltVPInst->getOperand(1);
+}
+
+// Obtain the last active lane index.
+//   %bsfintmask = bitcast.<2 x i1>.i2(%mask); Obtain lane for extraction
+//   %lz = @llvm.ctlz.i2(%bsfintmask, 1);
+//   %lane = VF - 1 - %lz;
+// Clients can use the index to obtain values in the last active lane:
+//   %last_val = extractelement %exit, %lane ; extract final value
+Value *VPOCodeGen::createLastActiveLaneSequence(Value *VecMask) {
+  Type *IntTy = IntegerType::get(Builder.getContext(), VF);
+  Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
+
+  Module *M = OrigLoop->getHeader()->getModule();
+  Function *CTLZ =
+      Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
+  Value *BsfCall =
+      Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
+  Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+  return Lane;
 }
 
 Value *VPOCodeGen::createVectorPrivatePtrs(VPAllocatePrivate *V) {

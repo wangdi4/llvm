@@ -685,9 +685,9 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::ExtractLastVectorLane: {
-    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::LastScalar);
     // Each lanes has its own value.
-    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::LastScalar);
     return true;
   }
 

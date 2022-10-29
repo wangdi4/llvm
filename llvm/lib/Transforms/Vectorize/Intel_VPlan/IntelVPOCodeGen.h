@@ -394,7 +394,7 @@ private:
   template <class RunningReductionTy>
   Value* vectorizeRunningReduction(RunningReductionTy *InscanRed);
 
-  /// Vectorize extract last vector lane instruction.
+  /// Vectorize extract last active vector lane instruction.
   Value *vectorizeExtractLastVectorLane(VPInstruction *VPInst);
 
   /// Vectorize blend instructions using selects.
@@ -702,6 +702,10 @@ private:
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
   /// memory operation. Returns nullptr if operation is unmasked.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
+
+  /// Generate sequence for obtaining the last active lane index.
+  /// The index can be used for extracting values in the last active lane.
+  Value *createLastActiveLaneSequence(Value *VecMask);
 
   /// Helper method to visit all VPLoops in final VPlan CFG and lower
   /// opt-reports attached to them to their corresponding loops in outgoing IR.
