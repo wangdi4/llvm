@@ -51,10 +51,21 @@ target triple = "x86_64-unknown-linux-gnu"
 %"XalanDestroyFunctor" = type { i8 }
 
 ; Function Attrs: uwtable
+; DTrans metadata was intentionally removed from this function for the purpose
+; of this test.
 define dso_local void @_ZN11xalanc_1_1022XStringCachedAllocatorC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(48) %this, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockCount) unnamed_addr align 2 {
 entry:
   %m_allocator = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0
   tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(ptr nonnull dereferenceable(41) %m_allocator, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockCount, i1 zeroext false)
+  ret void
+}
+
+define void @test() {
+  %dummyAllocator = alloca %XStringCachedAllocator
+  %dummyManager = alloca %MemoryManager
+
+  ; Include a use of the function that is missing DTrans metadata.
+  call void @_ZN11xalanc_1_1022XStringCachedAllocatorC2ERN11xercesc_2_713MemoryManagerEt(ptr %dummyAllocator, ptr %dummyManager, i16 30)
   ret void
 }
 
