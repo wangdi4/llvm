@@ -514,64 +514,6 @@ PassManagerBuilder::~PassManagerBuilder() {
   delete Inliner;
 }
 
-/// Set of global extensions, automatically added as part of the standard set.
-static ManagedStatic<
-    SmallVector<std::tuple<PassManagerBuilder::ExtensionPointTy,
-                           PassManagerBuilder::ExtensionFn,
-                           PassManagerBuilder::GlobalExtensionID>,
-                8>>
-    GlobalExtensions;
-static PassManagerBuilder::GlobalExtensionID GlobalExtensionsCounter;
-
-/// Check if GlobalExtensions is constructed and not empty.
-/// Since GlobalExtensions is a managed static, calling 'empty()' will trigger
-/// the construction of the object.
-static bool GlobalExtensionsNotEmpty() {
-  return GlobalExtensions.isConstructed() && !GlobalExtensions->empty();
-}
-
-PassManagerBuilder::GlobalExtensionID
-PassManagerBuilder::addGlobalExtension(PassManagerBuilder::ExtensionPointTy Ty,
-                                       PassManagerBuilder::ExtensionFn Fn) {
-  auto ExtensionID = GlobalExtensionsCounter++;
-  GlobalExtensions->push_back(std::make_tuple(Ty, std::move(Fn), ExtensionID));
-  return ExtensionID;
-}
-
-void PassManagerBuilder::removeGlobalExtension(
-    PassManagerBuilder::GlobalExtensionID ExtensionID) {
-  // RegisterStandardPasses may try to call this function after GlobalExtensions
-  // has already been destroyed; doing so should not generate an error.
-  if (!GlobalExtensions.isConstructed())
-    return;
-
-  auto GlobalExtension =
-      llvm::find_if(*GlobalExtensions, [ExtensionID](const auto &elem) {
-        return std::get<2>(elem) == ExtensionID;
-      });
-  assert(GlobalExtension != GlobalExtensions->end() &&
-         "The extension ID to be removed should always be valid.");
-
-  GlobalExtensions->erase(GlobalExtension);
-}
-
-void PassManagerBuilder::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
-  Extensions.push_back(std::make_pair(Ty, std::move(Fn)));
-}
-
-void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
-                                           legacy::PassManagerBase &PM) const {
-  if (GlobalExtensionsNotEmpty()) {
-    for (auto &Ext : *GlobalExtensions) {
-      if (std::get<0>(Ext) == ETy)
-        std::get<1>(Ext)(*this, PM);
-    }
-  }
-  for (const auto &[PT, Fn] : Extensions)
-    if (PT == ETy)
-      Fn(*this, PM);
-}
-
 void PassManagerBuilder::addInitialAliasAnalysisPasses(
     legacy::PassManagerBase &PM) const {
   switch (UseCFLAA) {
@@ -629,12 +571,15 @@ void PassManagerBuilder::addInstructionCombiningPass(
 
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
+<<<<<<< HEAD
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
 #if INTEL_CUSTOMIZATION
   limitLoopOptOnly(FPM).add(createLoopOptMarkerLegacyPass());
   limitNoLoopOptOnly(FPM).add(createLowerSubscriptIntrinsicLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
@@ -731,7 +676,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
   if (SizeLevel == 0 && !DisableLibCallsShrinkWrap)
     MPM.add(createLibCallsShrinkWrapPass());
-  addExtensionsToPM(EP_Peephole, MPM);
 
 #if INTEL_CUSTOMIZATION
   bool SkipRecProgression = false;
@@ -758,6 +702,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (EnableMatrix)
     MPM.add(createVectorCombinePass());
 
+<<<<<<< HEAD
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
   if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
@@ -797,6 +742,46 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   else
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
 #endif // INTEL_CUSTOMIZATION
+=======
+// Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
+// optimizations rely on TTI, which is not accurate for SPIR target.
+if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
+
+  // The simple loop unswitch pass relies on separate cleanup passes. Schedule
+  // them first so when we re-process a loop they run before other loop
+  // passes.
+  MPM.add(createLoopInstSimplifyPass());
+  MPM.add(createLoopSimplifyCFGPass());
+
+  // Try to remove as much code from the loop header as possible,
+  // to reduce amount of IR that will have to be duplicated. However,
+  // do not perform speculative hoisting the first time as LICM
+  // will destroy metadata that may not need to be destroyed if run
+  // after loop rotation.
+  // TODO: Investigate promotion cap for O1.
+  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                         /*AllowSpeculation=*/false));
+  // Rotate Loop - disable header duplication at -Oz
+  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
+  // TODO: Investigate promotion cap for O1.
+  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                         /*AllowSpeculation=*/true));
+  MPM.add(createSimpleLoopUnswitchLegacyPass(OptLevel == 3));
+  // FIXME: We break the loop pass pipeline here in order to do full
+  // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
+  // the need for this.
+  MPM.add(createCFGSimplificationPass(
+      SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
+  MPM.add(createInstructionCombiningPass());
+  // We resume loop passes creating a second loop pipeline here.
+  if (EnableLoopFlatten) {
+    MPM.add(createLoopFlattenPass()); // Flatten loops
+    MPM.add(createLoopSimplifyCFGPass());
+  }
+  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
+  MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
+  MPM.add(createLoopDeletionPass());          // Delete dead loops
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
 
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
@@ -814,6 +799,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     addExtensionsToPM(EP_LateLoopOptimizations, MPM);
     MPM.add(createLoopDeletionPass()); // Delete dead loops
 
+<<<<<<< HEAD
     if (EnableLoopInterchange)
       MPM.add(createLoopInterchangePass()); // Interchange loops
 
@@ -828,6 +814,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
     // This ends the loop pass pipelines.
+=======
+  // Unroll small loops and perform peeling.
+  MPM.add(createSimpleLoopUnrollPass(OptLevel, DisableUnrollLoops,
+                                     ForgetAllSCEVInLoopUnroll));
+  // This ends the loop pass pipelines.
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
 
 } // broken formatting on this line to simplify pulldown
 
@@ -851,8 +843,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
+<<<<<<< HEAD
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
+=======
+  MPM.add(createInstructionCombiningPass());
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
   if (OptLevel > 1) {
     if (EnableDFAJumpThreading && SizeLevel == 0)
       MPM.add(createDFAJumpThreadingPass());
@@ -882,8 +878,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
                            /*AllowSpeculation=*/true));
   }
 
-  addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
-
   if (RerollLoops)
     MPM.add(createLoopRerollPass());
 
@@ -901,6 +895,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
 #endif // INTEL_CUSTOMIZATION
   // Clean up after everything.
+<<<<<<< HEAD
   addInstructionCombiningPass(MPM, !DTransEnabled); // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
 
@@ -917,6 +912,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #if INTEL_CUSTOMIZATION
 bool PassManagerBuilder::isLoopOptStaticallyDisabled() const {
   return DisableIntelProprietaryOpts || OptLevel < 2;
+=======
+  MPM.add(createInstructionCombiningPass());
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
 }
 legacy::LoopOptLimitingPassManager
 PassManagerBuilder::limitNoLoopOptOnly(legacy::PassManagerBase &PM) const {
@@ -1080,8 +1078,12 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   if (!SYCLOptimizationMode)
 #endif // INTEL_CUSTOMIZATION
   if (!IsFullLTO) {
+<<<<<<< HEAD
     addExtensionsToPM(EP_Peephole, PM);
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
+=======
+    PM.add(createInstructionCombiningPass());
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
 
     if (EnableUnrollAndJam && !DisableUnrollLoops) {
       // Unroll and Jam. We do this before unroll but need to be in a separate
@@ -1176,10 +1178,6 @@ void PassManagerBuilder::populateModulePassManager(
     // builds. The function merging pass is
     if (MergeFunctions)
       MPM.add(createMergeFunctionsPass());
-    else if (GlobalExtensionsNotEmpty() || !Extensions.empty())
-      MPM.add(createBarrierNoopPass());
-
-    addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
 #if INTEL_COLLAB
     if (RunVPOOpt) {
@@ -1225,8 +1223,6 @@ void PassManagerBuilder::populateModulePassManager(
   if (AttributorRun & AttributorRunOption::MODULE)
     MPM.add(createAttributorLegacyPass());
 
-  addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
-
   if (OptLevel > 2)
     MPM.add(createCallSiteSplittingPass());
 
@@ -1244,6 +1240,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createDeadArgEliminationPass()); // Dead argument elimination
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Clean up after IPCP & DAE
   addInstructionCombiningPass(MPM, !DTransEnabled);
@@ -1255,6 +1252,9 @@ void PassManagerBuilder::populateModulePassManager(
   if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
     MPM.add(createJumpThreadingPass()); // INTEL
 #endif // INTEL_CUSTOMIZATION
+=======
+  MPM.add(createInstructionCombiningPass()); // Clean up after IPCP & DAE
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Clean up after IPCP & DAE
@@ -1303,7 +1303,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
 
-  addExtensionsToPM(EP_CGSCCOptimizerLate, MPM);
   addFunctionSimplificationPasses(MPM);
 
 #if INTEL_CUSTOMIZATION
@@ -1410,6 +1409,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createEarlyCSEPass(false));
   }
 
+<<<<<<< HEAD
   addExtensionsToPM(EP_VectorizerStart, MPM);
 
   if (!SYCLOptimizationMode) { // INTEL
@@ -1419,6 +1419,8 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
   } // INTEL
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
   if (!SYCLOptimizationMode) {
     // In LTO mode, loopopt needs to run in link phase along with community
     // vectorizer and unroll after it until they are phased out.
@@ -1487,6 +1489,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createCFGSimplificationPass(
       SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
 
+<<<<<<< HEAD
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
 #if INTEL_CUSTOMIZATION
@@ -1498,6 +1501,8 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> f48fb9854ab8436f36fe7a817fb25add83646834
   MPM.add(createAnnotationRemarksLegacyPass());
 
 #if INTEL_CUSTOMIZATION
