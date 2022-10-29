@@ -32,7 +32,7 @@
 ; }
 
 ; ALL: %[[XPRIV:x.red]] = alloca %class.C, align 4
-; FASTRED: %[[FRSTR:fast_red_struct]] = alloca %struct.fast_red_t, align 4
+; FASTRED: %[[FRSTR:fast_red_struct]] = alloca %struct.fast_red_t, align 8
 ; FASTRED: %[[FXPRIV:x.fast_red]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %[[FRSTR]], i32 0, i32 0
 
 ; ALL: call void @.omp_initializer.(%class.C* %[[XPRIV]], %class.C* @x)
