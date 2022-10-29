@@ -723,7 +723,7 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
   // not legal to create the copy loop. Skip if dimsize known.
   if (!InnerDimSize) {
     const RegDDRef *InnerUBRef = FirstUse.OrigInnerLoop->getUpperDDRef();
-    if (InnerUBRef->getDefinedAtLevel() != 0) {
+    if (InnerUBRef->hasIV() || InnerUBRef->getDefinedAtLevel() != 0) {
       LLVM_DEBUG(
           dbgs() << "[Illegal] Inner UB cannot be used for copy loop.\n";);
       return false;
@@ -743,7 +743,7 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
 
   if (!OuterDimSize) {
     const RegDDRef *OuterUBRef = FirstUse.OrigOuterLoop->getUpperDDRef();
-    if (OuterUBRef->getDefinedAtLevel() != 0) {
+    if (OuterUBRef->hasIV() || OuterUBRef->getDefinedAtLevel() != 0) {
       LLVM_DEBUG(
           dbgs() << "[Illegal] Outer UB cannot be used for copy loop.\n";);
       return false;
