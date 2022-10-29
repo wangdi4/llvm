@@ -184,20 +184,16 @@ DTransBadCastingAnalyzerOP::findSingleGEPISourceElementType(StoreInst *STI,
   llvm::Type *Result = nullptr;
   if (PTA.getAllocationCallKind(CI) == dtrans::AK_NotAlloc)
     return nullptr;
-  unsigned UserCount = 0;
   for (auto *U : CI->users()) {
     // The store should be one of the uses.
-    if (U == STI) {
-      UserCount++;
+    if (U == STI)
       continue;
-    }
     // One of the uses can be an optional test against a constant null pointer.
     // This indicates that the allocation can be conditional.
     if (auto CmpI = dyn_cast<ICmpInst>(U)) {
       auto CT = U->getOperand(0) == CI ? U->getOperand(1) : U->getOperand(0);
       if (!isa<ConstantPointerNull>(CT))
         return nullptr;
-      UserCount++;
       continue;
     }
     if (auto PHIN = dyn_cast<PHINode>(U)) {
