@@ -13,6 +13,9 @@
 * License.
 *******************************************************************************/
 #include "_imf_include_fp32.hpp"
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+#pragma omp declare target
+#endif
 #ifdef __LIBDEVICE_IMF_ENABLED__
 namespace __imf_impl_logb_s_xa {
 namespace {
@@ -116,3 +119,8 @@ DEVICE_EXTERN_C_INLINE float __devicelib_imf_logbf(float a) {
   return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+DEVICE_EXTERN_C_DECLSIMD_INLINE
+float __svml_device_logbf(float x) { return __devicelib_imf_logbf(x); }
+#pragma omp end declare target
+#endif
