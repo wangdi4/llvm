@@ -270,11 +270,11 @@ public:
   // Return true if instruction I is supported and it is beneficial to split it.
   bool isSupportedAndBeneficial(const Instruction *I) const;
 
-  Instruction *getNextGoodCandidate();
+  Instruction *getFirstGoodCandidate();
   void setTTI(const TargetTransformInfo *TTInfo) { TTI = TTInfo; }
 
   // Collection of good candidates which should be split.
-  DenseSet<Instruction *> GoodCandidatesSet;
+  SetVector<Instruction *> GoodCandidatesSet;
 
   // Collection of bad candidates which shouldn't be split.
   DenseSet<Instruction *> BadCandidatesSet;
@@ -348,7 +348,7 @@ private:
 
   // Erase all instructions in this set from it's parent. Affected instructions
   // must also be in this set.
-  void eraseInstSet(const DenseSet<Instruction *> &InstSet);
+  void eraseInstSet(const SetVector<Instruction *> &InstSet);
 
   // Erase cache based on split status.
   void cleanUpCache(bool SplitSucc);
@@ -391,11 +391,11 @@ private:
   SmallVector<InstAction, 16> InstActions;
 
   // Mark old instructions to be erased.
-  DenseSet<Instruction *> OInstSet;
+  SetVector<Instruction *> OInstSet;
 
   // Mark new instructions when split an instruction transitively. those new
   // instructions will be erased if split failed.
-  DenseSet<Instruction *> NInstSet;
+  SetVector<Instruction *> NInstSet;
 
   // Mark instructions which are split with shufflevector. If split success, the
   // split instructions should be kept in InstMap because they may be reused.
@@ -403,7 +403,7 @@ private:
 
   // Mark all new instructions that have been "settled". This set is used to
   // make sure all instructions will be split only once.
-  DenseSet<Instruction *> SettledNInstSet;
+  SetVector<Instruction *> SettledNInstSet;
 
   // Map [pair<'PHINode', 'PHINode operand which is instruction'>] to ['This
   // operand indexes' ]. This is useful when PHINode have operands which is an
@@ -411,7 +411,7 @@ private:
   // need to presplit PHINode first. Then update PHINode transitively (May
   // update some of PHINode operands). Finally split the left PHINode operands
   // that haven't been split.
-  DenseMap<std::pair<Instruction *, Instruction *>, SmallVector<unsigned, 1>>
+  MapVector<std::pair<Instruction *, Instruction *>, SmallVector<unsigned, 1>>
       UnsvdPHIOpdMap;
 
   // WorkList save instructions which users must be updated because this
@@ -575,7 +575,7 @@ bool SplitWizard::isSplitCandidateBeneficial(const Instruction *I) const {
 
 void SplitWizard::parseFunction(Function &F) {
   // Step1: Collect all not bad candidates.
-  DenseSet<Instruction *> NeutralCandidatesSet;
+  SetVector<Instruction *> NeutralCandidatesSet;
   for (auto &BB : F) {
     for (auto &I : BB) {
       if (isCandidate(&I) && !BadCandidatesSet.count(&I))
@@ -597,13 +597,13 @@ void SplitWizard::parseFunction(Function &F) {
     }
 
     for (auto *I : GoodCandidates) {
-      NeutralCandidatesSet.erase(I);
+      NeutralCandidatesSet.remove(I);
       GoodCandidatesSet.insert(I);
     }
   } while (Consumed);
 }
 
-Instruction *SplitWizard::getNextGoodCandidate() {
+Instruction *SplitWizard::getFirstGoodCandidate() {
   if (GoodCandidatesSet.empty())
     return nullptr;
 
@@ -679,7 +679,7 @@ bool SplitWizard::isSupportedAndBeneficial(const Instruction *I) const {
     return false;
 
   if (I->isBitwiseLogicOp()) {
-    if (GoodCandidatesSet.count(I))
+    if (GoodCandidatesSet.count(const_cast<Instruction *>(I)))
       return true;
 
     return false;
@@ -711,7 +711,7 @@ void X86SplitVectorValueType::cleanUpCache(bool SplitSucc) {
 
     // Remove erased instructions from SettledNInstSet.
     for (auto *I : OInstSet)
-      SettledNInstSet.erase(I);
+      SettledNInstSet.remove(I);
 
   } else {
     // Calculate A. B is SplitWithSVInstSet.
@@ -743,7 +743,7 @@ void X86SplitVectorValueType::takeAllInstAction() {
 }
 
 void X86SplitVectorValueType::eraseInstSet(
-    const DenseSet<Instruction *> &InstSet) {
+    const SetVector<Instruction *> &InstSet) {
   for (auto *I : InstSet) {
     for (auto *U : I->users()) {
       auto UI = cast<Instruction>(U);
@@ -1367,7 +1367,7 @@ bool X86SplitVectorValueType::runOnFunction(Function &F) {
   do {
     Consumed = false;
     SW.parseFunction(F);
-    while (Instruction *Candidate = SW.getNextGoodCandidate()) {
+    while (Instruction *Candidate = SW.getFirstGoodCandidate()) {
       // First split the operands of this instruction, then split this
       // instruction. All users of split instructions will be added to
       // WorkList and updateInstChain will split them transitively.
@@ -1383,7 +1383,7 @@ bool X86SplitVectorValueType::runOnFunction(Function &F) {
 
         for (auto *I : SW.CandidatesSplitPath) {
           // Remove good candidates which have been split.
-          if (SW.GoodCandidatesSet.erase(I))
+          if (SW.GoodCandidatesSet.remove(I))
             continue;
 
           if (isMissedGoodCandidate(I, SplitWithSVInstSet))
@@ -1400,7 +1400,7 @@ bool X86SplitVectorValueType::runOnFunction(Function &F) {
         // If split fail, add candidates in CandidatesSplitPath into
         // BadCandidatesSet.
         for (auto *I : SW.CandidatesSplitPath) {
-          SW.GoodCandidatesSet.erase(I);
+          SW.GoodCandidatesSet.remove(I);
           SW.BadCandidatesSet.insert(I);
         }
         LLVM_DEBUG(dbgs() << "\nSplit BB failed. Erasing split "
