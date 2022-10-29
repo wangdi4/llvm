@@ -40,7 +40,7 @@
 ; CHECK-LABEL: define internal void @foo{{[^ ]*}}DIR.OMP.PARALLEL{{[^ ]*}}(i32* {{[^ ,]+}}, i32* {{[^ ,]+}}, %"QNCA_a0$i16*$rank3$"* %"foo_$A")
 
 ; Check for the allocation of local dope vector, and the fast reduction struct.
-; CHECK: [[FAST_RED_STR:[^ ]+]] = alloca %struct.fast_red_t, align 4
+; CHECK: [[FAST_RED_STR:[^ ]+]] = alloca %struct.fast_red_t, align 8
 ; CHECK: [[PRIV_DV:[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 8
 
 ; Check that the dope vector init call is emitted for PRIV_DV.

@@ -65,7 +65,7 @@ entry:
 ; ALL: declare void @__kmpc_end_reduce_nowait(ptr, i32, ptr)
 
 ; USE-LOCAL: %[[LOCAL:[^,]+.red]] = alloca i32, align 4
-; ALL: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 4
+; ALL: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 8
 ; USE-REC: %[[REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, ptr %fast_red_struct, i32 0, i32 0
 ; USE-REC: store i32 0, ptr %[[REC]]
 
