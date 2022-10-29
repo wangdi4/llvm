@@ -8879,6 +8879,8 @@ def _SLASH_Qiopenmp_offload : CLFlag<"Qiopenmp-offload">, Alias<fiopenmp_offload
 def _SLASH_Qiopenmp_offload_ : CLFlag<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
 def _SLASH_Qiopenmp_vec_at_O0 : CLFlag<"Qiopenmp-vec-at-O0">, Alias<fiopenmp_vec_at_O0>;
 def _SLASH_Qno_iopenmp_vec_at_O0 : CLFlag<"Qno-iopenmp-vec-at-O0">, Alias<fno_iopenmp_vec_at_O0>;
+def _SLASH_Qopenmp_target_intel_proprietary_opts : CLFlag<"Qopenmp-target-intel-proprietary-opts">,
+        Alias<fopenmp_target_intel_proprietary_opts>;
 def : CLJoined<"Qparallel-source-info=">,
   Values<"0,1,2">, Alias<parallel_source_info_EQ>, HelpText<"Emit source "
   "location information for parallel code generation with OpenMP and "

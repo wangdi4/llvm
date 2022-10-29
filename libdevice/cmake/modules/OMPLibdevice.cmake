@@ -240,6 +240,10 @@ add_obj_file(
   DEPENDS device_itt.h spirv_vars.h device.h
   )
 
+# INTEL_CUSTOMIZATION
+include(OMPImfDevice)
+# end INTEL_CUSTOMIZATION
+
 add_custom_target(libompdevice-obj DEPENDS ${omplib_objs})
 
 add_custom_target(libompdevice-spv DEPENDS ${omplib_spvs})

@@ -316,6 +316,9 @@ add_custom_command(OUTPUT ${imf_fp32_fallback_src}
                    COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
                                             -D DEST_DIR=${imf_fallback_src_dir}
                                             -D FP64=0
+                                             # INTEL_CUSTOMIZATION
+                                            -D OMP_LIBDEVICE=0
+                                             # end INTEL_CUSTOMIZATION
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_fp32_deps})
 
@@ -323,6 +326,9 @@ add_custom_command(OUTPUT ${imf_fp64_fallback_src}
                    COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
                                             -D DEST_DIR=${imf_fallback_src_dir}
                                             -D FP64=1
+                                             # INTEL_CUSTOMIZATION
+                                            -D OMP_LIBDEVICE=0
+                                             # end INTEL_CUSTOMIZATION
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_fp64_deps})
 

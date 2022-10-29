@@ -14,7 +14,17 @@
 #include <cstddef>
 #include <limits>
 #include <type_traits>
-#ifdef __LIBDEVICE_IMF_ENABLED__
+
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+#include <cmath>
+#define __fma std::fma
+#define __fabs std::fabs
+#define __fmax std::fmax
+#define __fmin std::fmin
+#define __rint std::rint
+#endif
+
+#if defined(__LIBDEVICE_IMF_ENABLED__) && !defined(OMP_LIBDEVICE)
 
 #if !defined(__SPIR__) && !defined(__LIBDEVICE_HOST_IMPL__)
 #error                                                                         \
