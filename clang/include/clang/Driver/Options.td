@@ -2344,8 +2344,6 @@ defm legacy_pass_manager : BoolOption<"f", "legacy-pass-manager",
   NegFlag<SetFalse>,
   BothFlags<[CC1Option]>>, Group<f_clang_Group>;
 #endif // INTEL_CUSTOMIZATION
-def fexperimental_new_pass_manager : Flag<["-"], "fexperimental-new-pass-manager">,
-  Group<f_clang_Group>, Flags<[CC1Option]>, Alias<fno_legacy_pass_manager>;
 #if INTEL_CUSTOMIZATION
 def fno_experimental_new_pass_manager : Flag<["-"], "fno-experimental-new-pass-manager">,
   Group<f_clang_Group>, Flags<[CC1Option]>, Alias<flegacy_pass_manager>;
