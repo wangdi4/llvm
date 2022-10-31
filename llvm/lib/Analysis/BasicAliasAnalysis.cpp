@@ -1749,35 +1749,14 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   SaveAndRestore<bool> SavedMayBeCrossIteration(MayBeCrossIteration, true);
 
 #if INTEL_CUSTOMIZATION
-  // aliasGEP must be more conservative when called from aliasPHI, because
-  // it is not safe to compare GEPs from different iterations.
-  // If we call aliasGEP outside aliasPHI and cache the results, the cached
-  // results may not be correct inside aliasPHI. The community fix below
-  // will pass an empty cache to prevent this.
-  //
-  // This case is already covered by the fix for 24303 above.
-  // Setting PNSize to unknown, will prevent a cache hit, as the cache
-  // checks on both value and size.
-  // Therefore we can improve compile time for deep phi->gep->phi->gep cases by
-  // passing the real cache. (CMPLRLLVM-25048)
-  AAQueryInfo *UseAAQI = &AAQI;
-#else
-  // If we enabled the MayBeCrossIteration flag, alias analysis results that
-  // have been cached earlier may no longer be valid. Perform recursive queries
-  // with a new AAQueryInfo.
-  AAQueryInfo NewAAQI = AAQI.withEmptyCache();
-  AAQueryInfo *UseAAQI = !SavedMayBeCrossIteration.get() ? &NewAAQI : &AAQI;
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
   AliasResult Alias = AliasResult::MayAlias;
-  if (UseAAQI->NeedLoopCarried)
+  if (AAQI.NeedLoopCarried)
     Alias = AAQI.AAR.loopCarriedAlias(
         MemoryLocation(V2, V2Size),
-        MemoryLocation(V1Srcs[0], PNSize), *UseAAQI);
+        MemoryLocation(V1Srcs[0], PNSize), AAQI);
   else
-    Alias = AAQI.AAR.alias(
-      MemoryLocation(V1Srcs[0], PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
+    Alias = AAQI.AAR.alias(MemoryLocation(V1Srcs[0], PNSize),
+                           MemoryLocation(V2, V2Size), AAQI);
 #endif // INTEL_CUSTOMIZATION
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
@@ -1796,13 +1775,13 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
 
 #if INTEL_CUSTOMIZATION
     AliasResult ThisAlias = AliasResult::MayAlias;
-    if (UseAAQI->NeedLoopCarried)
+    if (AAQI.NeedLoopCarried)
       ThisAlias = AAQI.AAR.loopCarriedAlias(
             MemoryLocation(V2, V2Size),
-            MemoryLocation(V, PNSize), *UseAAQI);
+            MemoryLocation(V, PNSize), AAQI);
     else
        ThisAlias = AAQI.AAR.alias(
-           MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
+           MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), AAQI);
 #endif // INTEL_CUSTOMIZATION
     Alias = MergeAliasResults(ThisAlias, Alias);
     if (Alias == AliasResult::MayAlias)
@@ -2111,8 +2090,11 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     return AliasResult::MayAlias;
 
   // Check the cache before climbing up use-def chains. This also terminates
-  // otherwise infinitely recursive queries.
-  AAQueryInfo::LocPair Locs({V1, V1Size}, {V2, V2Size});
+  // otherwise infinitely recursive queries. Include MayBeCrossIteration in the
+  // cache key, because some cases where MayBeCrossIteration==false returns
+  // MustAlias or NoAlias may become MayAlias under MayBeCrossIteration==true.
+  AAQueryInfo::LocPair Locs({V1, V1Size, MayBeCrossIteration},
+                            {V2, V2Size, MayBeCrossIteration});
   const bool Swapped = V1 > V2;
   if (Swapped)
     std::swap(Locs.first, Locs.second);
