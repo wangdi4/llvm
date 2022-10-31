@@ -4382,6 +4382,7 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPDPBSUDZr,                 X86::VPDPBSUDZm,                 0 },
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
+  { X86::VPDPBSUDrr,                 X86::VPDPBSUDrm,                 0 },
   { X86::VPDPBUSDSYrr,               X86::VPDPBUSDSYrm,               0 },
   { X86::VPDPBUSDSZ128r,             X86::VPDPBUSDSZ128m,             0 },
   { X86::VPDPBUSDSZ256r,             X86::VPDPBUSDSZ256m,             0 },
