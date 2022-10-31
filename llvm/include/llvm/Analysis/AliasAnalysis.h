@@ -302,18 +302,6 @@ public:
   SmallVector<AAQueryInfo::LocPair, 4> AssumptionBasedResults;
 
   AAQueryInfo(AAResults &AAR, CaptureInfo *CI) : AAR(AAR), CI(CI) {}
-<<<<<<< HEAD
-
-  /// Create a new AAQueryInfo based on this one, but with the cache cleared.
-  /// This is used for recursive queries across phis, where cache results may
-  /// not be valid.
-  AAQueryInfo withEmptyCache() {
-    AAQueryInfo NewAAQI(AAR, CI, NeedLoopCarried); // INTEL
-    NewAAQI.Depth = Depth;
-    return NewAAQI;
-  }
-=======
->>>>>>> efbb4d0245b50dd8ad80a99ea7f676576fd538f7
 };
 
 /// AAQueryInfo that uses SimpleCaptureInfo.
