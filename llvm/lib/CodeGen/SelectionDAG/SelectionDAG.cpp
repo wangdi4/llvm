@@ -44,11 +44,8 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/ValueTracking.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
-=======
 #include "llvm/Analysis/VectorUtils.h"
->>>>>>> 55a11b542e055744cac3beb87714fc90cacba4c0
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
