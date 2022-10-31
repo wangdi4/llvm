@@ -563,11 +563,30 @@ public:
     static bool isBindClause(int ClauseID);
     static bool isBindClause(StringRef ClauseFullName);
 
-    /// Returns begin loop directive instruction if it exists.
-    static Instruction *getBeginLoopDirective(const Loop &Lp);
+    /// Returns the loop's begin directive Instruction, if it exists and
+    /// satisfies the condition \p Pred specified by the caller. If no predicate
+    /// \p Pred is specified, `isBeginLoopDirective` is used as the default
+    /// predicate.
+    static Instruction *getBeginLoopDirective(
+        const Loop &Lp,
+        std::function<bool(Instruction *)> Pred =
+            static_cast<bool (*)(Instruction *)>(isBeginLoopDirective));
 
-    /// Returns end loop directive instruction if it exists.
-    static Instruction *getEndLoopDirective(const Loop &Lp);
+    /// Returns the loop's end directive Instruction, if it exists and satisfies
+    /// the condition \p Pred specified by the caller. If no predicate \p Pred
+    /// is specified, `isEndLoopDirective` is used as the default predicate.
+    static Instruction *getEndLoopDirective(
+        const Loop &Lp,
+        std::function<bool(Instruction *)> Pred =
+            static_cast<bool (*)(Instruction *)>(isEndLoopDirective));
+
+    /// Returns the directive_region_entry intrinsic in given BasicBlock if it
+    /// exists. Note that BB is searched in reverse direction.
+    static IntrinsicInst *getBeginDirective(BasicBlock *BB);
+
+    /// Returns the directive_region_exit intrinsic in given BasicBlock if it
+    /// exists. Note that BB is searched in forward direction.
+    static IntrinsicInst *getEndDirective(BasicBlock *BB);
 
     // Returns true if V is an operand to a "QUAL.OMP.JUMP.TO.END.IF" clause.
     static bool seenOnJumpToEndIfClause(Value *V);

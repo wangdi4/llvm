@@ -50,6 +50,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -1168,7 +1170,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
     splitNonLoopRegionExit(SplitPos);
 
   } else if (CurRegIt->isNonLoopBlock(RegionEntryBB) &&
-             (RegionEntryIntrin = findRegionEntryIntrinsic(RegionEntryBB))) {
+             (RegionEntryIntrin =
+                  vpo::VPOAnalysisUtils::getBeginDirective(RegionEntryBB))) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
     // starting at that instruction if-
     // 1) It is not the first bblock instruction, Or

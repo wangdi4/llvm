@@ -970,43 +970,103 @@ bool VPOAnalysisUtils::supportsPrivateClause(BasicBlock *BB) {
   return VPOAnalysisUtils::supportsPrivateClause(&(BB->front()));
 }
 
-/// Returns pointer to directive instruction if this bblock contains known loop
-/// begin/end directive. \p BeginDir flag indicates whether to look for begin or
-/// end directive.
-template <bool BeginDir = true>
-static Instruction *getLoopDirective(BasicBlock *BB) {
-  for (auto &Inst : *BB) {
-    if (BeginDir ? VPOAnalysisUtils::isBeginLoopDirective(&Inst)
-                 : VPOAnalysisUtils::isEndLoopDirective(&Inst))
-      return &Inst;
+enum class TraversalOrder : bool { Forward = true, Backward = false };
+
+/// Returns pointer to directive instruction if this bblock contains a region
+/// begin/end directive. \p Order specifies the traversal order of instructions
+/// inside the bblock. If \p IsEntry is provided, it is set to \b true if the
+/// directive being returned is an entry directive, \b false otherwise.
+template <TraversalOrder Order = TraversalOrder::Forward>
+static Instruction *getRegionDirective(BasicBlock *BB,
+                                       bool *IsEntry = nullptr) {
+  if (Order == TraversalOrder::Backward) {
+    for (auto &Inst : make_range(BB->rbegin(), BB->rend()))
+      if (VPOAnalysisUtils::isRegionDirective(&Inst, IsEntry))
+        return &Inst;
+  } else {
+    for (auto &Inst : *BB)
+      if (VPOAnalysisUtils::isRegionDirective(&Inst, IsEntry))
+        return &Inst;
   }
+
   return nullptr;
 }
 
 /// Traces a chain of single predecessor/successor bblocks starting from \p BB
-/// and looks for loop begin/end directive. Returns the directive instruction
-/// pointer. \p BeginDir flag indicates whether to look for begin or
-/// end directive and whether to loop upward or downward the chain of BBs.
+/// and looks for the loop's begin/end directive. If \p BeginDir is \b true,
+/// traverses backwards starting from BB, and if the first directive
+/// encountered, if any, is a region entry directive that matches the given \p
+/// Pred, returns its Instruction pointer, \b nullptr otherwise. Similarly, if
+/// \p BeginDir is \b false, traverses forwards from BB, and if the first
+/// directive encountered, if any, is a region exit directive that matches the
+/// given \p Pred, returns its Instruction pointer, \b nullptr otherwise. An
+/// example of predicate \p Pred could be one that ensures the presence of some
+/// specific directive/quals on the encountered directive.
 template <bool BeginDir = true>
-static Instruction *findLoopDirective(BasicBlock *BB) {
+static Instruction *findLoopDirective(BasicBlock *BB,
+                                      std::function<bool(Instruction *)> Pred) {
+  constexpr TraversalOrder Order =
+      BeginDir ? TraversalOrder::Backward : TraversalOrder::Forward;
   for (; BB != nullptr;) {
-    if (auto *Inst = getLoopDirective<BeginDir>(BB))
-      return Inst;
+    // We shouldn't be trying to cross-over any other kind of terminators like
+    // switches when looking for loop directive as that can result in incorrect
+    // region formation. It is better to give up on the directive if the
+    // incoming IR is not in expected form due to prior optimizations.
+    if (BeginDir && !isa<BranchInst>(BB->getTerminator()))
+      return nullptr;
+
+    if (auto *Inst = getRegionDirective<Order>(BB)) {
+      // We return early if we identify that we're crossing over from current
+      // region to another. This happens when current identified intrinsic
+      // doesn't match the required ID.
+      Intrinsic::ID Id = cast<IntrinsicInst>(Inst)->getIntrinsicID();
+      bool ReqdId = BeginDir ? Id == Intrinsic::directive_region_entry
+                             : Id == Intrinsic::directive_region_exit;
+      if (!ReqdId)
+        return nullptr;
+
+      // Check if this directive satisfies the predicate's conditions.
+      return Pred(Inst) ? Inst : nullptr;
+    }
+
+    // Ignore if terminators like switches is encountered.
+    if (!BeginDir && !isa<BranchInst>(BB->getTerminator()))
+      return nullptr;
+
     BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
   }
   return nullptr;
 }
 
-/// Returns begin loop directive instruction if it exists.
-Instruction *VPOAnalysisUtils::getBeginLoopDirective(const Loop &Lp) {
-  return findLoopDirective<true>(Lp.getLoopPreheader());
+/// Returns begin loop directive instruction if it exists and satisfies \p Pred.
+Instruction *VPOAnalysisUtils::getBeginLoopDirective(
+    const Loop &Lp, std::function<bool(Instruction *)> Pred) {
+  return findLoopDirective<true>(Lp.getLoopPreheader(), Pred);
 }
 
-/// Returns end loop directive instruction if it exists.
-Instruction *VPOAnalysisUtils::getEndLoopDirective(const Loop &Lp) {
+/// Returns end loop directive instruction if it exists and satisfies \p Pred.
+Instruction *
+VPOAnalysisUtils::getEndLoopDirective(const Loop &Lp,
+                                      std::function<bool(Instruction *)> Pred) {
   // TODO: This will not work for multi-exit loops. We need to get the exiting
   // block corresponding to the loop latch.
-  return findLoopDirective<false>(Lp.getExitBlock());
+  return findLoopDirective<false>(Lp.getExitBlock(), Pred);
+}
+
+IntrinsicInst *VPOAnalysisUtils::getBeginDirective(BasicBlock *BB) {
+  bool IsEntry = false;
+  Instruction *I = getRegionDirective<TraversalOrder::Backward>(BB, &IsEntry);
+  if (I && IsEntry)
+    return cast<IntrinsicInst>(I);
+  return nullptr;
+}
+
+IntrinsicInst *VPOAnalysisUtils::getEndDirective(BasicBlock *BB) {
+  bool IsEntry = false;
+  Instruction *I = getRegionDirective<TraversalOrder::Forward>(BB, &IsEntry);
+  if (I && !IsEntry)
+    return cast<IntrinsicInst>(I);
+  return nullptr;
 }
 
 #endif // INTEL_COLLAB
