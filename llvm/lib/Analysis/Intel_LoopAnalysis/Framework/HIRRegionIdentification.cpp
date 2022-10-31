@@ -197,7 +197,7 @@ HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
 /// Returns true if this bblock contains known loop begin/end directive. \p
 /// BeginDir flag indicates whether to look for begin or end directive.
 static bool isKnownLoopDirective(const Instruction *Inst, bool BeginDir,
-                                 bool SkipDistributePoint = false) {
+                                 bool SkipLoopBodyDirectives = false) {
   auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
 
   if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
@@ -210,66 +210,18 @@ static bool isKnownLoopDirective(const Instruction *Inst, bool BeginDir,
                      TagName.equals("DIR.OMP.SIMD") ||
                      TagName.equals("DIR.PRAGMA.BLOCK_LOOP") ||
                      TagName.equals("DIR.PRAGMA.PREFETCH_LOOP") ||
-                     (!SkipDistributePoint &&
-                      TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")) ||
-                     TagName.equals("DIR.VPO.GUARD.MEM.MOTION"))
+                     (!SkipLoopBodyDirectives &&
+                      (TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") ||
+                       TagName.equals("DIR.VPO.GUARD.MEM.MOTION"))))
                   : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
                      TagName.equals("DIR.OMP.END.SIMD") ||
                      TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP") ||
                      TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP") ||
-                     (!SkipDistributePoint &&
-                      TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")) ||
-                     TagName.equals("DIR.VPO.END.GUARD.MEM.MOTION"));
+                     (!SkipLoopBodyDirectives &&
+                      (TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT") ||
+                       TagName.equals("DIR.VPO.END.GUARD.MEM.MOTION"))));
 
   return false;
-}
-
-/// Returns true if this bblock contains known loop begin/end directive. \p
-/// BeginDir flag indicates whether to look for begin or end directive.
-static bool containsLoopDirective(const BasicBlock *BB, bool BeginDir,
-                                  bool SkipDistributePoint) {
-  for (auto &Inst : *BB) {
-    if (isKnownLoopDirective(&Inst, BeginDir, SkipDistributePoint)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/// Traces a chain of single predecessor/successor bblocks starting from \p BB
-/// and looks for loop begin/end directive. Returns the bblock containing the
-/// directive.
-static BasicBlock *findLoopDirective(BasicBlock *BB, bool BeginDir) {
-  assert(BB && "Non-null starting bblock expected to find directive!");
-
-  do {
-    // We shouldn't be trying to cross-over any other kind of terminators like
-    // switches when looking for loop directive as that can result in incorrect
-    // region formation. It is better to give up on the directive if the
-    // incoming IR is not in expected form due to prior optimizations.
-    //
-    // The check is done before or after containsLoopDirective() based on
-    // whether we are looking for begin or end directive.
-    if (BeginDir && !isa<BranchInst>(BB->getTerminator())) {
-      return nullptr;
-    }
-
-    // Ignore distribute point directives as they are only found within the loop
-    // body.
-    if (containsLoopDirective(BB, BeginDir, /* SkipDistributePoint */ true)) {
-      return BB;
-    }
-
-    if (!BeginDir && !isa<BranchInst>(BB->getTerminator())) {
-      return nullptr;
-    }
-
-    BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
-
-  } while (BB != nullptr);
-
-  return nullptr;
 }
 
 /// Inserts chain of bblocks from BeginBB to EndBB inclusive, to RegBBlocks.
@@ -303,19 +255,28 @@ static bool isLoopWithDirective(const Loop &Lp,
     return false;
   }
 
-  BasicBlock *PreheaderBB = Lp.getLoopPreheader();
-  BasicBlock *BeginBB = findLoopDirective(PreheaderBB, true);
+  Instruction *BeginI = vpo::VPOAnalysisUtils::getBeginLoopDirective(
+      Lp, [&](Instruction *I) -> bool {
+        return isKnownLoopDirective(I, true /*BeginDir*/,
+                                    true /*SkipLoopBodyDirectives*/);
+      });
+  BasicBlock *BeginBB = BeginI ? BeginI->getParent() : nullptr;
 
   if (!BeginBB) {
     return false;
   }
 
-  BasicBlock *EndBB = findLoopDirective(ExitBB, false);
+  Instruction *EndI = vpo::VPOAnalysisUtils::getEndLoopDirective(
+      Lp, [&](Instruction *I) -> bool {
+        return isKnownLoopDirective(I, false /*BeginDir*/,
+                                    true /*SkipLoopBodyDirectives*/);
+      });
+  BasicBlock *EndBB = EndI ? EndI->getParent() : nullptr;
 
   assert(EndBB && "Could not find SIMD END Directive!");
 
   if (RegBBlocks) {
-    addBBlocks(PreheaderBB, BeginBB, true, *RegBBlocks);
+    addBBlocks(Lp.getLoopPreheader(), BeginBB, true, *RegBBlocks);
     addBBlocks(ExitBB, EndBB, false, *RegBBlocks);
   }
 
