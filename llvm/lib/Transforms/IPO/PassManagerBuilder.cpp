@@ -630,12 +630,15 @@ void PassManagerBuilder::addInstructionCombiningPass(
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   limitLoopOptOnly(FPM).add(createLoopOptMarkerLegacyPass());
   limitNoLoopOptOnly(FPM).add(createLowerSubscriptIntrinsicLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
+=======
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
 
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
@@ -832,6 +835,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     addExtensionsToPM(EP_LateLoopOptimizations, MPM);
     MPM.add(createLoopDeletionPass()); // Delete dead loops
 
+<<<<<<< HEAD
     if (EnableLoopInterchange)
       MPM.add(createLoopInterchangePass()); // Interchange loops
 
@@ -846,6 +850,13 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
     // This ends the loop pass pipelines.
+=======
+  // Unroll small loops and perform peeling.
+  MPM.add(createSimpleLoopUnrollPass(OptLevel, DisableUnrollLoops,
+                                     ForgetAllSCEVInLoopUnroll));
+  addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
+  // This ends the loop pass pipelines.
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
 
 } // broken formatting on this line to simplify pulldown
 
@@ -869,7 +880,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
+<<<<<<< HEAD
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
+=======
+  MPM.add(createInstructionCombiningPass());
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
   addExtensionsToPM(EP_Peephole, MPM);
   if (OptLevel > 1) {
     if (EnableDFAJumpThreading && SizeLevel == 0)
@@ -919,6 +934,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
 #endif // INTEL_CUSTOMIZATION
   // Clean up after everything.
+<<<<<<< HEAD
   addInstructionCombiningPass(MPM, !DTransEnabled); // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
 
@@ -954,6 +970,10 @@ PassManagerBuilder::limitFullLoopOptOnly(legacy::PassManagerBase &PM) const {
   bool ForceSkip = isLoopOptStaticallyDisabled();
   return legacy::LoopOptLimitingPassManager(PM, LoopOptLimiter::FullLoopOptOnly,
                                             ForceSkip);
+=======
+  MPM.add(createInstructionCombiningPass());
+  addExtensionsToPM(EP_Peephole, MPM);
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
 }
 legacy::LoopOptLimitingPassManager
 PassManagerBuilder::limitLightLoopOptOnly(legacy::PassManagerBase &PM) const {
@@ -1099,7 +1119,10 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif // INTEL_CUSTOMIZATION
   if (!IsFullLTO) {
     addExtensionsToPM(EP_Peephole, PM);
+<<<<<<< HEAD
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
+=======
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
     PM.add(createInstructionCombiningPass());
 
     if (EnableUnrollAndJam && !DisableUnrollLoops) {
@@ -1199,6 +1222,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createBarrierNoopPass());
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
     if (RunVPOOpt) {
@@ -1211,6 +1235,8 @@ void PassManagerBuilder::populateModulePassManager(
       addVPOPasses(MPM, true);
     }
 #endif // INTEL_COLLAB
+=======
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
 
     MPM.add(createAnnotationRemarksLegacyPass());
     return;
@@ -1263,6 +1289,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createDeadArgEliminationPass()); // Dead argument elimination
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Clean up after IPCP & DAE
   addInstructionCombiningPass(MPM, !DTransEnabled);
@@ -1274,6 +1301,10 @@ void PassManagerBuilder::populateModulePassManager(
   if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
     MPM.add(createJumpThreadingPass()); // INTEL
 #endif // INTEL_CUSTOMIZATION
+=======
+  MPM.add(createInstructionCombiningPass()); // Clean up after IPCP & DAE
+  addExtensionsToPM(EP_Peephole, MPM);
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Clean up after IPCP & DAE
@@ -1430,6 +1461,15 @@ void PassManagerBuilder::populateModulePassManager(
   }
 
   addExtensionsToPM(EP_VectorizerStart, MPM);
+<<<<<<< HEAD
+=======
+  
+  if (!SYCLOptimizationMode) {
+    // Re-rotate loops in all our loop nests. These may have fallout out of
+    // rotated form due to GVN or other transformations, and the vectorizer relies
+    // on the rotated form. Disable header duplication at -Oz.
+    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
 
   if (!SYCLOptimizationMode) { // INTEL
   // Re-rotate loops in all our loop nests. These may have fallout out of
@@ -1508,6 +1548,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   if (EnableCSAPasses) {
@@ -1519,6 +1560,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
+=======
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
   MPM.add(createAnnotationRemarksLegacyPass());
 
 #if INTEL_CUSTOMIZATION

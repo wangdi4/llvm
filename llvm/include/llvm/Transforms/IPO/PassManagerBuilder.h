@@ -188,6 +188,7 @@ public:
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
   /// We are after SLP pass.
@@ -200,10 +201,13 @@ public:
     this->WPUtils = std::move(WPUtils);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
   std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// True if the compiler is built to include DTrans and the option
   /// EnableDTrans is turned on.
@@ -214,6 +218,8 @@ private:
   WholeProgramUtils WPUtils;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 992afe28579edb483a100e984f4686d6a7e710c8
 public:
   PassManagerBuilder();
   ~PassManagerBuilder();
@@ -287,6 +293,27 @@ public:
   void populateLTOPassManager(legacy::PassManagerBase &PM);
   void populateThinLTOPassManager(legacy::PassManagerBase &PM);
 #endif // INTEL_CUSTOMIZATION
+};
+
+/// Registers a function for adding a standard set of passes.  This should be
+/// used by optimizer plugins to allow all front ends to transparently use
+/// them.  Create a static instance of this class in your plugin, providing a
+/// private function that the PassManagerBuilder can use to add your passes.
+class RegisterStandardPasses {
+  PassManagerBuilder::GlobalExtensionID ExtensionID;
+
+public:
+  RegisterStandardPasses(PassManagerBuilder::ExtensionPointTy Ty,
+                         PassManagerBuilder::ExtensionFn Fn) {
+    ExtensionID = PassManagerBuilder::addGlobalExtension(Ty, std::move(Fn));
+  }
+
+  ~RegisterStandardPasses() {
+    // If the collection holding the global extensions is destroyed after the
+    // plugin is unloaded, the extension has to be removed here. Indeed, the
+    // destructor of the ExtensionFn may reference code in the plugin.
+    PassManagerBuilder::removeGlobalExtension(ExtensionID);
+  }
 };
 
 /// Registers a function for adding a standard set of passes.  This should be
