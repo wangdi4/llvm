@@ -1864,7 +1864,7 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
     return X;
 
   // (A|B)&(A|C) -> A|(B&C) etc
-  if (Value *V = SimplifyUsingDistributiveLaws(I))
+  if (Value *V = foldUsingDistributiveLaws(I))
     return replaceInstUsesWith(I, V);
 
   if (Value *V = SimplifyBSwap(I, Builder))
@@ -2847,7 +2847,7 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
     return X;
 
   // (A&B)|(A&C) -> A&(B|C) etc
-  if (Value *V = SimplifyUsingDistributiveLaws(I))
+  if (Value *V = foldUsingDistributiveLaws(I))
     return replaceInstUsesWith(I, V);
 
   if (Value *V = SimplifyBSwap(I, Builder))
@@ -3814,7 +3814,7 @@ Instruction *InstCombinerImpl::visitXor(BinaryOperator &I) {
     return NewXor;
 
   // (A&B)^(A&C) -> A&(B^C) etc
-  if (Value *V = SimplifyUsingDistributiveLaws(I))
+  if (Value *V = foldUsingDistributiveLaws(I))
     return replaceInstUsesWith(I, V);
 
   // See if we can simplify any instructions used by the instruction whose sole
