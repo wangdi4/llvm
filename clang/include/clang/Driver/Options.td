@@ -2337,7 +2337,6 @@ def fglobal_isel : Flag<["-"], "fglobal-isel">, Group<f_clang_Group>,
   HelpText<"Enables the global instruction selector">;
 def fexperimental_isel : Flag<["-"], "fexperimental-isel">, Group<f_clang_Group>,
   Alias<fglobal_isel>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 defm legacy_pass_manager : BoolOption<"f", "legacy-pass-manager",
   CodeGenOpts<"LegacyPassManager">, Default<"!static_cast<unsigned>(LLVM_ENABLE_NEW_PASS_MANAGER)">, // INTEL
@@ -2345,14 +2344,10 @@ defm legacy_pass_manager : BoolOption<"f", "legacy-pass-manager",
   NegFlag<SetFalse>,
   BothFlags<[CC1Option]>>, Group<f_clang_Group>;
 #endif // INTEL_CUSTOMIZATION
-def fexperimental_new_pass_manager : Flag<["-"], "fexperimental-new-pass-manager">,
-  Group<f_clang_Group>, Flags<[CC1Option]>, Alias<fno_legacy_pass_manager>;
 #if INTEL_CUSTOMIZATION
 def fno_experimental_new_pass_manager : Flag<["-"], "fno-experimental-new-pass-manager">,
   Group<f_clang_Group>, Flags<[CC1Option]>, Alias<flegacy_pass_manager>;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 69b2b7282e92a1b576b7bd26f3b16716a5027e8e
 def fexperimental_strict_floating_point : Flag<["-"], "fexperimental-strict-floating-point">,
   Group<f_clang_Group>, Flags<[CC1Option]>,
   HelpText<"Enables experimental strict floating point in LLVM.">,
