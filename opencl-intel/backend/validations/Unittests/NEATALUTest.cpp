@@ -1659,12 +1659,12 @@ TYPED_TEST(NEATAluTyped, select_llvm)
                 }
 
                 std::vector<bool> condVec(wrap.GetSize());
-                unsigned k=0;
+                //unsigned k=0;
                 for(unsigned i=0;i<wrap.GetSize();i++)
                     if((firstFloat[testIdx][i] + secondFloat[testIdx][i]) > 0 )
                     {
                         condVec[i] = true;
-                        k++;
+                //        k++;
                     }
                     else
                         condVec[i] = false;

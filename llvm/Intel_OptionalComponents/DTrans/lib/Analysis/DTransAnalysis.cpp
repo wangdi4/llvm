@@ -6208,6 +6208,7 @@ private:
       return;
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       int Count = 0;
+      (void)Count;
       for (auto &FI : StInfo->getFields()) {
         Constant *NV = llvm::Constant::getNullValue(FI.getLLVMType());
         DEBUG_WITH_TYPE(DTRANS_FSV, {
@@ -8123,6 +8124,7 @@ private:
       return;
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       int Count = 0;
+      (void)Count;
       for (auto &FI : StInfo->getFields()) {
         DEBUG_WITH_TYPE(DTRANS_FSV,
                         dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())

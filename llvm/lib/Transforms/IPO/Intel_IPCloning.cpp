@@ -1977,6 +1977,7 @@ static void createRecProgressionClones(Function &F, unsigned ArgPos,
     deleteRecProgressionRecCalls(F, *LastCloneF);
     if (ExtraCloneF) {
       int SubCount = 0;
+      (void)SubCount;
       // Make the inner loop bounds constant for the last normal clone
       if (tryToMakeRecProSubscriptsConstant(LastCloneF, AILower, SILower1,
                                             SILower2, 1))
@@ -2141,6 +2142,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
   LoopInfo LI{DominatorTree(const_cast<Function &>(F))};
 
   unsigned int f_count = 0;
+  (void)f_count;
   unsigned GlobalIFCount = 0;
   unsigned GlobalSwitchCount = 0;
   bool SawPending = false;
@@ -5227,6 +5229,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
       continue;
     }
     int ArgUseCount = -1;
+    (void)ArgUseCount;
     for (User *U0 : Arg.users()) {
       ArgUseCount++;
       // Look for a GEPI of the form GEPI(PointerOperand, 0, 1). We do this
@@ -5276,6 +5279,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
       // Look at the LoadInsts to find loops whose trip counts all can
       // be predicted to be the same value.
       int LoadUseCount = -1;
+      (void)LoadUseCount;
       unsigned TripCountCount = 0;
       unsigned TCN = 0;
       while (!LoadVec.empty()) {

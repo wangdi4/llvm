@@ -1,6 +1,6 @@
 //===- Intel_FMACGCommon.cpp - Fused Multiply Add optimization ------------===//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1077,6 +1077,7 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
     return false;
 
   int UserIndex = 0;
+  (void)UserIndex;
   for (auto *UserExpr : UsersSet) {
     UserIndex++;
     LLVM_DEBUG(FMADbg::fws() << "  Analyze user #" << UserIndex << "...\n";);
@@ -1346,6 +1347,7 @@ void GlobalFMA::doFWS(FMABasicBlock &FMABB) {
           BadFWSCandidates[ExprIndex], InefficientFWSCandidates[ExprIndex],
           CanConsumeIfOneUser, UsersSet);
       int FWSExprCandNum = 0;
+      (void)FWSExprCandNum;
       LLVM_DEBUG(if (!FWSExpr) FMADbg::fws() << "\n";);
       while (FWSExpr) {
         LLVM_DEBUG(FMADbg::fws() << "Found a FWS candidate(#"

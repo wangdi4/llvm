@@ -1,4 +1,21 @@
 #if INTEL_COLLAB
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===------- VPOParoptTpv.cpp - Paropt Threadprivate Transformations ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -181,8 +198,13 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
                              Function *F,
                              Instruction *TidV,
                              const DataLayout &DL) {
+#if 0
+#if INTEL_CUSTOMIZATION
+  // CMPLRS-47746: see below
+#endif // INTEL_CUSTOMIZATION
   static int count=0;
   count ++;
+#endif
   BasicBlock *B = &(F->getEntryBlock());
   BasicBlock::reverse_iterator InstIt = B->rbegin();
   BasicBlock::reverse_iterator LastInstIt;
@@ -231,7 +253,11 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   Value *TpvGV = getTpvPtr(V, F, Int8PtrPtrTy);
   Builder.SetInsertPoint(LastI);
 
-#if 0 // CMPLRS-47746: These if/else Instructions create a race with the
+#if 0
+#if INTEL_CUSTOMIZATION
+      // CMPLRS-47746:
+#endif // INTEL_CUSTOMIZATION
+      // These if/else Instructions create a race with the
       // runtime since the runtime does a store to the cache array, and
       // these if/else Instructions do a load from the array,
       // without any synchronization/lock to ensure atomicity.

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1685,6 +1685,7 @@ static void emitNotifyAnnotation(AsmPrinter *Asm,
   // __notify_intrinsic (NZC: Not Zero Cost) need to calculate probesize
   if (MI.getOperand(0).getImm() == IdxNotifyNZC) {
     unsigned int Num = 0;
+    (void)Num;
     unsigned int InstSizeEstm = 0;
 
     auto I = MachineBasicBlock::instr_iterator(&MI);

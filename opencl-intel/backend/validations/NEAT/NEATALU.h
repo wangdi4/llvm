@@ -5096,6 +5096,8 @@ public:
             if(vec1[i].IsAcc() && Utils::IsInf<T>(*vec1[i].GetAcc<T>()))
                 flagINF = true;
         }
+        if (cntZero == vec1.GetSize())
+            return vec1;
 
         // special case for infinity
         // normalize ( v ) for which any element in v is infinite shall proceed as if
