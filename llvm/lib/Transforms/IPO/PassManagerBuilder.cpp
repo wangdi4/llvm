@@ -635,6 +635,8 @@ void PassManagerBuilder::populateFunctionPassManager(
   limitNoLoopOptOnly(FPM).add(createLowerSubscriptIntrinsicLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
+  addExtensionsToPM(EP_EarlyAsPossible, FPM);
+
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
@@ -797,6 +799,22 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   else
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
 #endif // INTEL_CUSTOMIZATION
+  // FIXME: We break the loop pass pipeline here in order to do full
+  // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
+  // the need for this.
+  MPM.add(createCFGSimplificationPass(
+      SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
+  MPM.add(createInstructionCombiningPass());
+  addInstructionCombiningPass(MPM, !DTransEnabled);
+  // We resume loop passes creating a second loop pipeline here.
+  if (EnableLoopFlatten) {
+    MPM.add(createLoopFlattenPass()); // Flatten loops
+    MPM.add(createLoopSimplifyCFGPass());
+  }
+  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
+  MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
+  addExtensionsToPM(EP_LateLoopOptimizations, MPM);
+  MPM.add(createLoopDeletionPass());          // Delete dead loops
 
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
@@ -1082,6 +1100,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   if (!IsFullLTO) {
     addExtensionsToPM(EP_Peephole, PM);
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
+    PM.add(createInstructionCombiningPass());
 
     if (EnableUnrollAndJam && !DisableUnrollLoops) {
       // Unroll and Jam. We do this before unroll but need to be in a separate
@@ -1497,6 +1516,8 @@ void PassManagerBuilder::populateModulePassManager(
   }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+
+  addExtensionsToPM(EP_OptimizerLast, MPM);
 
   MPM.add(createAnnotationRemarksLegacyPass());
 
