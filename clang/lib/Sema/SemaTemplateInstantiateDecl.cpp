@@ -1787,6 +1787,10 @@ Decl *TemplateDeclInstantiator::VisitVarDecl(VarDecl *D,
     }
     SemaRef.addSyclVarDecl(Var);
   }
+
+  if (Var->getTLSKind())
+    SemaRef.CheckThreadLocalForLargeAlignment(Var);
+
   return Var;
 }
 
