@@ -78,10 +78,13 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    [[TMP27:%.*]] = shufflevector <2 x float> [[WIDE_LOAD290]], <2 x float> zeroinitializer, <2 x i32> <i32 2, i32 0>
 ; CHECK-NEXT:    [[TMP28:%.*]] = fadd fast <2 x float> [[WIDE_LOAD290]], [[TMP27]]
 ; CHECK-NEXT:    [[TMP29:%.*]] = fadd fast <2 x float> [[TMP28]], [[VEC_PHI230]]
-; CHECK-NEXT:    [[DOTEXTRACT_1_0:%.*]] = extractelement <2 x float> [[TMP29]], i32 1
+; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0v2f32(<2 x float> [[TMP29]], <2 x float>* [[DOTVEC0]], i32 1, <2 x i1> [[TMP23]])
+; CHECK-NEXT:    [[BCAST:%.*]] = bitcast <2 x i1> [[TMP23]] to i2
+; CHECK-NEXT:    [[CTLZ:%.*]] = call i2 @llvm.ctlz.i2(i2 [[BCAST]], i1 true)
+; CHECK-NEXT:    [[LAST_ACTIVE_LANE:%.*]] = sub i2 1, [[CTLZ]]
+; CHECK-NEXT:    [[DOTEXTRACT_1_0:%.*]] = extractelement <2 x float> [[TMP29]], i2 [[LAST_ACTIVE_LANE]]
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT340:%.*]] = insertelement <2 x float> poison, float [[DOTEXTRACT_1_0]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT350:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT340]], <2 x float> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0v2f32(<2 x float> [[TMP29]], <2 x float>* [[DOTVEC0]], i32 1, <2 x i1> [[TMP23]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB370:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB37:

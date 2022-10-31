@@ -69,7 +69,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_2:%.*]] = load float* [[VP_X_RED]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_INCL_SCAN:%.*]] = running-inclusive-reduction float [[VP_LOAD_2]] float [[VP_INSCAN_ACCUM]] float 0.000000e+00 (SVAOpBits 0->V 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_INCL_SCAN]] float* [[VP_X_RED]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] float [[VP3]] = extract-last-vector-lane float [[VP_INCL_SCAN]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Uni, SVA: (  L)] float [[VP3]] = extract-last-vector-lane float [[VP_INCL_SCAN]] (SVAOpBits 0->L )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB6:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]

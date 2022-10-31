@@ -44,7 +44,7 @@
 ; CHECK-LABEL: define internal void @foo{{[^ ]*}}DIR.OMP.PARALLEL{{[^ ]*}}(i32* {{[^ ,]+}}, i32* {{[^ ,]+}}, %"QNCA_a0$i16*$rank3$"* %"foo_$A")
 
 ; Check for the allocation of the fast reduction struct, but not an extra local dope vector.
-; CHECK: [[FAST_RED_STR:[^ ]+]] = alloca %struct.fast_red_t, align 4
+; CHECK: [[FAST_RED_STR:[^ ]+]] = alloca %struct.fast_red_t, align 8
 ; CHECK-NOT: alloca %"QNCA_a0$i16*$rank3$", align 1
 ; CHECK: [[FAST_RED_DV:[^ ]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* [[FAST_RED_STR]], i32 0, i32 0
 

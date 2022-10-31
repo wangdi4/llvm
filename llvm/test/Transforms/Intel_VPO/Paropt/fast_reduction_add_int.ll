@@ -54,7 +54,7 @@ entry:
 ; ALL-NEXT: }
 ; ALL: declare i32 @__kmpc_reduce(ptr, i32, i32, i32, ptr, ptr, ptr)
 ; ALL: declare void @__kmpc_end_reduce(ptr, i32, ptr)
-; ALL: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 4
+; ALL: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 8
 ; USE-REC: %[[REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, ptr %fast_red_struct, i32 0, i32 0
 ; USE-REC: store i32 0, ptr %[[REC]]
 

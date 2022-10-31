@@ -27,6 +27,9 @@
 //      
 */
 #include "_imf_include_fp32.hpp"
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+#pragma omp declare target
+#endif
 #ifdef __LIBDEVICE_IMF_ENABLED__
 namespace __imf_impl_ln_s_ha {
 namespace {
@@ -709,3 +712,8 @@ DEVICE_EXTERN_C_INLINE float __devicelib_imf_logf(float a) {
   return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+DEVICE_EXTERN_C_DECLSIMD_INLINE
+float __svml_device_logf(float x) { return __devicelib_imf_logf(x); }
+#pragma omp end declare target
+#endif
