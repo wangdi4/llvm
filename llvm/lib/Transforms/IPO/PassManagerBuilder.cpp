@@ -635,8 +635,6 @@ void PassManagerBuilder::populateFunctionPassManager(
   limitNoLoopOptOnly(FPM).add(createLowerSubscriptIntrinsicLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
-  addExtensionsToPM(EP_EarlyAsPossible, FPM);
-
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
@@ -799,22 +797,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   else
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
 #endif // INTEL_CUSTOMIZATION
-  // FIXME: We break the loop pass pipeline here in order to do full
-  // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
-  // the need for this.
-  MPM.add(createCFGSimplificationPass(
-      SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-  MPM.add(createInstructionCombiningPass());
-  addInstructionCombiningPass(MPM, !DTransEnabled);
-  // We resume loop passes creating a second loop pipeline here.
-  if (EnableLoopFlatten) {
-    MPM.add(createLoopFlattenPass()); // Flatten loops
-    MPM.add(createLoopSimplifyCFGPass());
-  }
-  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
-  MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  addExtensionsToPM(EP_LateLoopOptimizations, MPM);
-  MPM.add(createLoopDeletionPass());          // Delete dead loops
 
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
@@ -1430,12 +1412,12 @@ void PassManagerBuilder::populateModulePassManager(
   }
 
   addExtensionsToPM(EP_VectorizerStart, MPM);
-
-  if (!SYCLOptimizationMode) { // INTEL
-  // Re-rotate loops in all our loop nests. These may have fallout out of
-  // rotated form due to GVN or other transformations, and the vectorizer relies
-  // on the rotated form. Disable header duplication at -Oz.
-  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
+  
+  if (!SYCLOptimizationMode) {
+    // Re-rotate loops in all our loop nests. These may have fallout out of
+    // rotated form due to GVN or other transformations, and the vectorizer relies
+    // on the rotated form. Disable header duplication at -Oz.
+    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
   } // INTEL
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) {
