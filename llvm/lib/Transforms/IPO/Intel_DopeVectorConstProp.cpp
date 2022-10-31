@@ -601,7 +601,7 @@ collectDVPropagatbleAccesses(Function *F, Value *DV, const DataLayout &DL,
           case LibFunc_for_alloc_allocatable_handle:
             auto P = offsetAccessMap->insert(
                 std::make_pair(0, std::make_unique<DVModsReads>()));
-            P.first->second->Reads.push_back(U);
+            P.first->second->Mods.push_back(U);
             continue;
           }
         }
@@ -947,7 +947,7 @@ PreservedAnalyses DopeVectorConstPropPass::run(Module &M,
 PreservedAnalyses DopeVectorConstPropPass::run(Function &F,
                                                FunctionAnalysisManager &AM) {
   bool Changed = false;
-  if (!F.isDeclaration() && F.isFortran()) {
+  if (DVLocalConstProp && !F.isDeclaration() && F.isFortran()) {
     const DataLayout &DL = F.getParent()->getDataLayout();
     const auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
     const auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
@@ -966,7 +966,6 @@ PreservedAnalyses DopeVectorConstPropPass::run(Function &F,
         Changed |= propagateAllDVAccesses(*offsetAccessMap, DT);
     }
   }
-
   if (!Changed)
     return PreservedAnalyses::all();
 
