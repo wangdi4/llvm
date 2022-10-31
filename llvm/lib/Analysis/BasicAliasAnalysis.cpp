@@ -1748,6 +1748,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // different loop iterations.
   SaveAndRestore<bool> SavedMayBeCrossIteration(MayBeCrossIteration, true);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // aliasGEP must be more conservative when called from aliasPHI, because
   // it is not safe to compare GEPs from different iterations.
@@ -1779,6 +1780,10 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     Alias = AAQI.AAR.alias(
       MemoryLocation(V1Srcs[0], PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
 #endif // INTEL_CUSTOMIZATION
+=======
+  AliasResult Alias = AAQI.AAR.alias(MemoryLocation(V1Srcs[0], PNSize),
+                                     MemoryLocation(V2, V2Size), AAQI);
+>>>>>>> efbb4d0245b50dd8ad80a99ea7f676576fd538f7
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
@@ -1794,6 +1799,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   for (unsigned i = 1, e = V1Srcs.size(); i != e; ++i) {
     Value *V = V1Srcs[i];
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     AliasResult ThisAlias = AliasResult::MayAlias;
     if (UseAAQI->NeedLoopCarried)
@@ -1804,6 +1810,10 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
        ThisAlias = AAQI.AAR.alias(
            MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
 #endif // INTEL_CUSTOMIZATION
+=======
+    AliasResult ThisAlias = AAQI.AAR.alias(
+        MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), AAQI);
+>>>>>>> efbb4d0245b50dd8ad80a99ea7f676576fd538f7
     Alias = MergeAliasResults(ThisAlias, Alias);
     if (Alias == AliasResult::MayAlias)
       break;
@@ -2111,8 +2121,11 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     return AliasResult::MayAlias;
 
   // Check the cache before climbing up use-def chains. This also terminates
-  // otherwise infinitely recursive queries.
-  AAQueryInfo::LocPair Locs({V1, V1Size}, {V2, V2Size});
+  // otherwise infinitely recursive queries. Include MayBeCrossIteration in the
+  // cache key, because some cases where MayBeCrossIteration==false returns
+  // MustAlias or NoAlias may become MayAlias under MayBeCrossIteration==true.
+  AAQueryInfo::LocPair Locs({V1, V1Size, MayBeCrossIteration},
+                            {V2, V2Size, MayBeCrossIteration});
   const bool Swapped = V1 > V2;
   if (Swapped)
     std::swap(Locs.first, Locs.second);
