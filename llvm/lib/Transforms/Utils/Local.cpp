@@ -2236,6 +2236,14 @@ llvm::removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB) {
       ++NumDeadDbgInst;
     else
       ++NumDeadInst;
+#if INTEL_CUSTOMIZATION
+    if (auto CB = dyn_cast<CallBase>(Inst)) {
+      InlineReason Reason = NinlrDeletedDeadCode;
+      getInlineReport()->initFunctionClosure(CB->getFunction());
+      getInlineReport()->removeCallBaseReference(*CB, Reason);
+      getMDInlineReport()->removeCallBaseReference(*CB, Reason);
+    }
+#endif // INTEL_CUSTOMIZATION
     Inst->eraseFromParent();
   }
   return {NumDeadInst, NumDeadDbgInst};
@@ -2307,6 +2315,9 @@ CallInst *llvm::createCallMatchingInvoke(InvokeInst *II) {
 
 // changeToCall - Convert the specified invoke into a normal call.
 CallInst *llvm::changeToCall(InvokeInst *II, DomTreeUpdater *DTU) {
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(II->getFunction());
+#endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = createCallMatchingInvoke(II);
   NewCall->takeName(II);
   NewCall->insertBefore(II);
@@ -2654,6 +2665,10 @@ bool llvm::removeUnreachableBlocks(Function &F, DomTreeUpdater *DTU,
   if (MSSAU)
     MSSAU->removeBlocks(BlocksToRemove);
 
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->removeCallBasesInBasicBlocks(BlocksToRemove);
+  getMDInlineReport()->removeCallBasesInBasicBlocks(BlocksToRemove);
+#endif // INTEL_CUSTOMIZATION
   DeleteDeadBlocks(BlocksToRemove.takeVector(), DTU);
 
   return Changed;

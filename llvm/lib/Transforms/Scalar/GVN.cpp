@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -2994,6 +2994,14 @@ bool GVNPass::processBlock(BasicBlock *BB) {
         MSSAU->removeMemoryAccess(I);
       LLVM_DEBUG(verifyRemoved(I));
       ICF->removeInstruction(I);
+#if INTEL_CUSTOMIZATION
+      if (auto CB = dyn_cast<CallBase>(I)) {
+        InlineReason Reason = NinlrDeletedDeadCode;
+        getInlineReport()->initFunctionClosure(CB->getFunction());
+        getInlineReport()->removeCallBaseReference(*CB, Reason);
+        getMDInlineReport()->removeCallBaseReference(*CB, Reason);
+      }
+#endif // INTEL_CUSTOMIZATION
       I->eraseFromParent();
     }
     InstrsToErase.clear();

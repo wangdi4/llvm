@@ -3336,6 +3336,14 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
       } else {
         // Casts, GEP, or anything else: we're about to delete this instruction,
         // so it can not have any valid uses.
+#if INTEL_CUSTOMIZATION
+        if (auto CB = dyn_cast<CallBase>(I)) {
+          getInlineReport()->initFunctionClosure(CB->getFunction());
+          InlineReason Reason = NinlrDeletedDeadCode;
+          getInlineReport()->removeCallBaseReference(*CB, Reason);
+          getMDInlineReport()->removeCallBaseReference(*CB, Reason);
+        }
+#endif // INTEL_CUSTOMIZATION
         replaceInstUsesWith(*I, PoisonValue::get(I->getType()));
       }
       eraseInstFromFunction(*I);
