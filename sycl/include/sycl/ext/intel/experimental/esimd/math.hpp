@@ -4,9 +4,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -1689,19 +1689,23 @@ __ESIMD_NS::simd<T, N> dp4(__ESIMD_NS::simd<T, N> v1,
 /// \param src0 vector of float32 values.
 /// \return vector of converted bf16 values.
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<bfloat16, N>
-convert_to_bf16(__ESIMD_NS::simd<float, N> src0) {
-  return sycl::bit_cast<__ESIMD_NS::simd<bfloat16, N>>(
-    __ESIMD_DNS::convert_vector<bfloat16>(src0.data()));
+__SYCL_DEPRECATED("use regular conversion: simd<bfloat16, N> res = src0;")
+__ESIMD_API
+    __ESIMD_NS::simd<sycl::ext::oneapi::experimental::bfloat16,
+                     N> convert_to_bf16(__ESIMD_NS::simd<float, N> src0) {
+  return src0;
 }
 
 /// float32->bf16 conversion (scalar version).
 /// Available on the ATS, PVC platforms.
 /// \param src0 scalar float32 value.
 /// \return converted scalar bf16 value.
-__ESIMD_API bfloat16 convert_to_bf16(float src0) {
-  // convert_scalar uses wrapper type in interfaces, not __raw_t
-  return __ESIMD_DNS::convert_scalar<bfloat16>(src0);
+__SYCL_DEPRECATED("use regular conversion:  'bfloat16 res = src0;'"
+                  " or 'bfloat16 res = simd<bfloat16,1>(src0)[0];'")
+__ESIMD_API sycl::ext::oneapi::experimental::bfloat16
+convert_to_bf16(float src0) {
+  return __ESIMD_NS::simd<sycl::ext::oneapi::experimental::bfloat16, 1>(
+      src0)[0];
 }
 
 /// bf16->float32 conversion (vector version).
@@ -1710,18 +1714,21 @@ __ESIMD_API bfloat16 convert_to_bf16(float src0) {
 /// \param src0 vector of bf16 values.
 /// \return vector of converted float32 values.
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<float, N>
-convert_from_bf16(__ESIMD_NS::simd<bfloat16, N> src0) {
-  // no bitcast needed, as float has the same raw type:
-  return __ESIMD_DNS::convert_vector<float>(src0.data());
+__SYCL_DEPRECATED("use regular conversion: simd<float, N> res = src0;")
+__ESIMD_API __ESIMD_NS::simd<float, N> convert_from_bf16(
+    __ESIMD_NS::simd<sycl::ext::oneapi::experimental::bfloat16, N> src0) {
+  return src0;
 }
 
 /// bf16->float32 conversion (scalar version).
 /// Available on the ATS, PVC platforms.
 /// \param src0 scalar bf16 value.
 /// \return converted scalar float32 value.
-__ESIMD_API float convert_from_bf16(bfloat16 src0) {
-  return __ESIMD_DNS::convert_scalar<float>(src0);
+__SYCL_DEPRECATED("use regular conversion: `float res = src0;`"
+                  " or `float res = simd<float, N>(res)[0];`")
+__ESIMD_API float
+convert_from_bf16(sycl::ext::oneapi::experimental::bfloat16 src0) {
+  return __ESIMD_NS::simd<float, 1>(src0)[0];
 }
 
 /// convert_to_tf32 - converts vector of fp32 values to "tf32" data format.
@@ -1730,8 +1737,10 @@ __ESIMD_API float convert_from_bf16(bfloat16 src0) {
 /// \param src0 fp32 operand that requires convertion to "tf32"
 /// \return the vector of integers that contains the result of conversion
 template <typename SrcType, int N>
-__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
-convert_to_tf32(__ESIMD_NS::simd<SrcType, N> src0) {
+__SYCL_DEPRECATED("use tfloat32 type and regular conversion:"
+                  " simd<tfloat32, N> res = src0;")
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N> convert_to_tf32(
+    __ESIMD_NS::simd<SrcType, N> src0) {
   static_assert(__ESIMD_DNS::is_fp_type<SrcType>::value,
                 "only fp32(float)->tf32 conversions are supported");
   return __esimd_tf32_cvt<N>(src0.data());
@@ -1743,8 +1752,10 @@ convert_to_tf32(__ESIMD_NS::simd<SrcType, N> src0) {
 /// \param src0 "tf32" operand that requires convertion to fp32
 /// \return the vector of fp32 that contains the result of conversion
 template <typename DstType, int N>
-__ESIMD_NS::simd<DstType, N>
-convert_from_tf32(__ESIMD_NS::simd<uint32_t, N> src0) {
+__SYCL_DEPRECATED("use tfloat32 type and regular conversion:"
+                  " simd<tfloat32, N> src0; simd<DstType, N> res = src0;")
+__ESIMD_API __ESIMD_NS::simd<DstType, N> convert_from_tf32(
+    __ESIMD_NS::simd<uint32_t, N> src0) {
   static_assert(__ESIMD_DNS::is_fp_type<DstType>::value,
                 "only tf32->fp32(float) conversions are supported");
   // convertion from tf32 to fp32 is just a bitcast
@@ -1809,8 +1820,9 @@ __ESIMD_API
                                __ESIMD_DNS::is_fp_type<SrcType>::value;
   constexpr bool is_hf16_fp32 = (DstPrecision == argument_type::FP16) &&
                                 __ESIMD_DNS::is_fp_type<SrcType>::value;
-  constexpr bool is_bf8_hf16 = (DstPrecision == argument_type::BF8) &&
-                               std::is_same_v<SrcType, __ESIMD_DNS::__raw_t<sycl::half>>;
+  constexpr bool is_bf8_hf16 =
+      (DstPrecision == argument_type::BF8) &&
+      std::is_same_v<SrcType, __ESIMD_DNS::__raw_t<sycl::half>>;
 
   static_assert((is_bf8_fp32 || is_hf16_fp32 || is_bf8_hf16),
                 "unsupported srnd type");
