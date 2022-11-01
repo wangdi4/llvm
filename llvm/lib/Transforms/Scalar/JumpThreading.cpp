@@ -121,6 +121,11 @@ ImplicationSearchThreshold(
            "condition to use to thread over a weaker condition"),
   cl::init(3), cl::Hidden);
 
+static cl::opt<unsigned> PhiDuplicateThreshold(
+    "jump-threading-phi-threshold",
+    cl::desc("Max PHIs in BB to duplicate for jump threading"), cl::init(76),
+    cl::Hidden);
+
 static cl::opt<bool> PrintLVIAfterJumpThreading(
     "print-lvi-after-jump-threading",
     cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
@@ -595,6 +600,7 @@ static bool replaceFoldableUses(Instruction *Cond, Value *ToVal,
   return Changed;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// getJumpThreadDuplicationCost - Return the cost of duplicating this region to
 /// thread across it. Stop scanning the region when passing the threshold.
@@ -604,6 +610,36 @@ static unsigned getJumpThreadDuplicationCost(
   const BasicBlock *RegionBottom,
   unsigned Threshold) {
   const Instruction *BBTerm = RegionBottom->getTerminator();
+=======
+/// Return the cost of duplicating a piece of this block from first non-phi
+/// and before StopAt instruction to thread across it. Stop scanning the block
+/// when exceeding the threshold. If duplication is impossible, returns ~0U.
+static unsigned getJumpThreadDuplicationCost(const TargetTransformInfo *TTI,
+                                             BasicBlock *BB,
+                                             Instruction *StopAt,
+                                             unsigned Threshold) {
+  assert(StopAt->getParent() == BB && "Not an instruction from proper BB?");
+
+  // Do not duplicate the BB if it has a lot of PHI nodes.
+  // If a threadable chain is too long then the number of PHI nodes can add up,
+  // leading to a substantial increase in compile time when rewriting the SSA.
+  unsigned PhiCount = 0;
+  Instruction *FirstNonPHI = nullptr;
+  for (Instruction &I : *BB) {
+    if (!isa<PHINode>(&I)) {
+      FirstNonPHI = &I;
+      break;
+    }
+    if (++PhiCount > PhiDuplicateThreshold)
+      return ~0U;
+  }
+
+  /// Ignore PHI nodes, these will be flattened when duplication happens.
+  BasicBlock::const_iterator I(FirstNonPHI);
+
+  // FIXME: THREADING will delete values that are just used to compute the
+  // branch, so they shouldn't count against the duplication cost.
+>>>>>>> 32755786e02083980e177841bda30560dddf7685
 
   unsigned Bonus = 0;
   // Threading through a switch statement is particularly profitable.  If this
