@@ -33,6 +33,7 @@
 #include "X86BaseInfo.h"
 #include "X86IntelInstPrinter.h"
 #include "X86MCAsmInfo.h"
+#include "X86TargetStreamer.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
@@ -774,6 +775,9 @@ for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
 
     // Register the asm target streamer.
     TargetRegistry::RegisterAsmTargetStreamer(*T, createX86AsmTargetStreamer);
+
+    // Register the null streamer.
+    TargetRegistry::RegisterNullTargetStreamer(*T, createX86NullTargetStreamer);
 
     TargetRegistry::RegisterCOFFStreamer(*T, createX86WinCOFFStreamer);
 
