@@ -2,8 +2,8 @@
 // be slightly different than those emitted by the legacy PM. The new PM inliner
 // also does not appear to be added at O0, so we test at O1.
 // INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -fexperimental-new-pass-manager %s -Rpass=inline -Rpass-analysis=inline -Rpass-missed=inline -O1 -emit-llvm-only -verify
-// RUN: %clang_cc1 -fexperimental-new-pass-manager %s -Rpass=inline -Rpass-analysis=inline -Rpass-missed=inline -O1 -emit-llvm-only -debug-info-kind=line-tables-only -verify
+// RUN: %clang_cc1 %s -Rpass=inline -Rpass-analysis=inline -Rpass-missed=inline -O1 -emit-llvm-only -verify
+// RUN: %clang_cc1 %s -Rpass=inline -Rpass-analysis=inline -Rpass-missed=inline -O1 -emit-llvm-only -debug-info-kind=line-tables-only -verify
 // end INTEL_CUSTOMIZATION
 
 int foo(int x, int y) __attribute__((always_inline));

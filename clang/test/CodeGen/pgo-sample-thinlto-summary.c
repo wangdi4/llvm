@@ -7,8 +7,8 @@
 //          unrolling had been done, so we disable them also.
 // Checks if hot call is inlined by normal compile, but not inlined by
 // thinlto compile.
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
+// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
+// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 // end INTEL_CUSTOMIZATION
 
 int baz(int);
