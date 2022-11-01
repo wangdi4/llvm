@@ -2,7 +2,6 @@
 ; direct call when the return type of the target function does not match the
 ; return type of the indirect call.
 
-; RUN: opt < %s -S -disable-verify -intel-ind-call-force-andersen -anders-aa -indirectcallconv 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -disable-verify -intel-ind-call-force-andersen -passes='require<anders-aa>,indirectcallconv' 2>&1 | FileCheck %s
 
 %"class.std::_Lockit" = type { i32 }

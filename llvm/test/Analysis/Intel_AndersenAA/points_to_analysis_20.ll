@@ -2,7 +2,6 @@
 ; conservatively. Later, they will be supported after more testing if
 ; needed.
 
-; RUN: opt < %s -anders-aa -print-anders-constraints -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-constraints -disable-output 2>&1 | FileCheck %s
 
 ; Check constraints are generated conservatively for vector/aggregate

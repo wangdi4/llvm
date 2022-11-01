@@ -1,4 +1,3 @@
-; RUN: opt < %s -anders-aa -inline -globalopt -function-attrs -S | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,cgscc(inline),module(globalopt),cgscc(function-attrs)' -S | FileCheck %s
 
 ;

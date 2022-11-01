@@ -1,7 +1,6 @@
 ; CMPLRLLVM-19368: Verifies that points-to info correctly computed for
 ; for_allocate and for_alloc_allocatable.
 
-; RUN: opt < %s -anders-aa -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s  -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: pointer_$A<mem>        --> ({{[0-9]+}}): MAIN__:func_result3

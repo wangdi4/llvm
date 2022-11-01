@@ -1,10 +1,6 @@
-; RUN: opt < %s -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(aa-eval)' -aa-pipeline=anders-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -anders-aa -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(aa-eval)' -aa-pipeline=anders-aa -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -convert-to-subscript -S | opt -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=convert-to-subscript -S | opt -passes='require<anders-aa>,function(aa-eval)' -aa-pipeline=anders-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -convert-to-subscript -S | opt -anders-aa -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=convert-to-subscript -S | opt -passes='require<anders-aa>,function(aa-eval)' -aa-pipeline=anders-aa -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 @glob1 = common global [10 x i32] zeroinitializer, align 16

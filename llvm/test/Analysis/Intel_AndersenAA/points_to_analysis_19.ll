@@ -2,7 +2,6 @@
 ; extractelement appears in IR. Verify that points-to set of return
 ; value of foo is conservatively computed as UniversalSet.
 
-; RUN: opt < %s -anders-aa -print-anders-points-to -disable-output  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: [1] foo:retval     --> (0): <universal>

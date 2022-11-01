@@ -1,4 +1,3 @@
-; RUN: opt < %s -anders-aa -print-anders-constraints -disable-output  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-constraints -disable-output  2>&1 | FileCheck %s
 ; Check that non-pointer assignments are collected right in escape
 ; analysis and appropriate constraints were created. Test is related
