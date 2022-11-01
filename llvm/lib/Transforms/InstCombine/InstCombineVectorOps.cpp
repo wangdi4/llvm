@@ -408,6 +408,48 @@ ConstantInt *getPreferredVectorIndex(ConstantInt *IndexC) {
                           IndexC->getValue().zextOrTrunc(64));
 }
 
+#if INTEL_CUSTOMIZATION
+// Match:
+// %0 = shufflevector <8 x i1> %input,
+//                    <8 x i1> poison,
+//                    <16 x i32> <i32 [0,1,2,3,4,5,6,7], i32 undef....>
+// %1 = bitcast <16 x i1> %0 to <2 x i8>
+// %output = extractelement <2 x i8> %1, i64 0  ; result is "i8"
+//
+// Input vector is lengthened with undef elements, then cast to a different
+// element type.
+// 1st element is extracted, resulting in a scalar that is the same size as the
+// original vector. The shuffle and extract are not needed, can be replaced
+// with a simple bitcast:
+// bitcast <8 x i1> %input to i8
+static bool matchVecShuffleCast(ExtractElementInst &EI, Value *&TheInputVec) {
+  Value *InputVec = nullptr;
+  ArrayRef<int> MaskC;
+  if (match(&EI, m_ExtractElt(m_BitCast(m_Shuffle(m_Value(InputVec), m_Undef(),
+                                                  m_Mask(MaskC))),
+                              m_Zero()))) {
+    // Generalize the IR in the comment.
+    // Input and output should be the same size.
+    // Shuffle should be at least as big as the original vector.
+    // Mask should copy the input vector to the same locations in the shuffle.
+    // The other values in the shuffle don't matter.
+    // The extract should be "0".
+    auto *InputType = cast<VectorType>(InputVec->getType());
+    if (EI.getType()->getPrimitiveSizeInBits() !=
+        InputType->getPrimitiveSizeInBits())
+      return false;
+    if (InputType->getElementCount().isScalable()) return false;
+    unsigned InputElCount = InputType->getElementCount().getFixedValue();
+    if (MaskC.size() < InputElCount) return false;
+    for (unsigned i = 0; i < InputElCount; ++i)
+      if (MaskC[i] != (int)i) return false;
+    TheInputVec = InputVec;
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
   Value *SrcVec = EI.getVectorOperand();
   Value *Index = EI.getIndexOperand();
@@ -415,6 +457,14 @@ Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
                                             SQ.getWithInstruction(&EI)))
     return replaceInstUsesWith(EI, V);
 
+#if INTEL_CUSTOMIZATION
+  Value *InputVec = nullptr;
+  if (matchVecShuffleCast(EI, InputVec)) {
+    assert(InputVec && "Input vector is null");
+    auto *BCInst = Builder.CreateBitCast(InputVec, EI.getType());
+    return replaceInstUsesWith(EI, BCInst);
+  }
+#endif // INTEL_CUSTOMIZATION
   // If extracting a specified index from the vector, see if we can recursively
   // find a previously computed scalar that was inserted into the vector.
   auto *IndexC = dyn_cast<ConstantInt>(Index);
