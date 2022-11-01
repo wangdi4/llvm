@@ -266,6 +266,9 @@ Bug Fixes
   `Issue 45736 <https://github.com/llvm/llvm-project/issues/45736>`_
 - Fix an issue when performing constraints partial ordering on non-template
   functions. `Issue 56154 <https://github.com/llvm/llvm-project/issues/56154>`_
+- Fix handling of unexpanded packs in template argument expressions.
+  `Issue 58679 <https://github.com/llvm/llvm-project/issues/58679>`_
+- Fix importing of va_list types and declarations.
 
 Improvements to Clang's diagnostics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -346,6 +349,8 @@ Improvements to Clang's diagnostics
   potentially problematic function type casts.
 - Clang will now disambiguate NTTP types when printing diagnostic that contain NTTP types.
   Fixes `Issue 57562 <https://github.com/llvm/llvm-project/issues/57562>`_.
+- Better error recovery for pack expansion of expressions.
+  `Issue 58673 <https://github.com/llvm/llvm-project/issues/58673>`_.
 
 Non-comprehensive list of changes in this release
 -------------------------------------------------
