@@ -1300,6 +1300,7 @@ def HasAVX512VNNIFP8 : Predicate<"Subtarget->hasAVX512VNNIFP8()">;
 #endif // INTEL_CUSTOMIZATION
 def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
 def HasCMPCCXADD : Predicate<"Subtarget->hasCMPCCXADD()">;
+def HasAVXNECONVERT : Predicate<"Subtarget->hasAVXNECONVERT()">;
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasRAOINT    : Predicate<"Subtarget->hasRAOINT()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;

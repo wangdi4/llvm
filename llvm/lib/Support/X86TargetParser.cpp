@@ -831,6 +831,7 @@ constexpr FeatureBitset ImpliedFeaturesAMX_FP16 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODPHPS = FeatureAVX2;
@@ -1034,10 +1035,14 @@ constexpr FeatureBitset ImpliedFeaturesAMX_FP8 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_FP8
 #endif // INTEL_CUSTOMIZATION
 constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
+=======
+>>>>>>> aee2a35ac4ab4fe62bb0ce4e314966ab9207efd1
 constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
 constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = {};
 constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
+constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXNECONVERT = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
 // Key Locker Features
