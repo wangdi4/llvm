@@ -368,25 +368,39 @@ bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
 
   if (Attrs.hasParamAttr(ArgNo, Kind))
     return true;
+
+  const Function *F = getCalledFunction();
+  if (!F)
+    return false;
+
+  if (!F->getAttributes().hasParamAttr(ArgNo, Kind))
+    return false;
+
 #if INTEL_CUSTOMIZATION
-  if (const Function *F = getCalledFunction()) {
-    if (F->getAttributes().hasParamAttr(ArgNo, Kind))
-      return true;
-    if (CallBaseLookupCallbackAttrs)
-      // If we are dealing with a callback call site check if callback function
-      // argument has given attribute if broker function forwards it to the
-      // callback and this attribute can be legaly propagated to the caller.
-      if (Kind == Attribute::ByVal || Kind == Attribute::ImmArg ||
-          Kind == Attribute::NoAlias || Kind == Attribute::NoCapture ||
-          Kind == Attribute::NoFree || Kind == Attribute::NonNull ||
-          Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
-          Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
-        if (Argument *CallbackArg =
-                AbstractCallSite::getCallbackArg(*this, ArgNo))
-          return CallbackArg->hasAttribute(Kind);
-  }
+  if (CallBaseLookupCallbackAttrs) {
+    // If we are dealing with a callback call site check if callback function
+    // argument has given attribute if broker function forwards it to the
+    // callback and this attribute can be legaly propagated to the caller.
+    if (Kind == Attribute::ByVal || Kind == Attribute::ImmArg ||
+        Kind == Attribute::NoAlias || Kind == Attribute::NoCapture ||
+        Kind == Attribute::NoFree || Kind == Attribute::NonNull ||
+        Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
+        Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
+      if (Argument *CallbackArg =
+              AbstractCallSite::getCallbackArg(*this, ArgNo))
+        return CallbackArg->hasAttribute(Kind);
+  } 
 #endif // INTEL_CUSTOMIZATION
-  return false;
+  switch (Kind) {
+    case Attribute::ReadNone:
+      return !hasReadingOperandBundles() && !hasClobberingOperandBundles();
+    case Attribute::ReadOnly:
+      return !hasClobberingOperandBundles();
+    case Attribute::WriteOnly:
+      return !hasReadingOperandBundles();
+    default:
+      return true;
+  }
 }
 
 bool CallBase::hasFnAttrOnCalledFunction(Attribute::AttrKind Kind) const {
