@@ -50,6 +50,39 @@ struct TripCountInfo {
   }
 };
 
+// Vectorized loop descriptor.
+class VPlanLoopDescr {
+public:
+  enum LoopType {
+    LTRemainder,
+    LTMain,
+    LTPeel,
+  };
+
+  VPlanLoopDescr(LoopType Ty, unsigned VF, bool Masked)
+      : Type(Ty), VF(VF), IsMasked(Masked), TripCount(0) {}
+
+  LoopType getLoopType() const { return Type; }
+  unsigned getVF() const { return VF; }
+  bool isMasked() const { return IsMasked; }
+  TripCountInfo::TripCountTy getTC() const { return TripCount; }
+  bool isTCKnown() const { return TripCount != 0; }
+
+  void setMaxTripCount(TripCountInfo::TripCountTy TC) { TripCount = TC; }
+
+private:
+  LoopType Type;
+  unsigned VF; // vector factor
+  bool IsMasked;
+
+  // Vector iterations count, is set to non-zero only when we know
+  // it exactly. I.e. for vectorized remainder it's VF*UF of main loop
+  // devided by VF of remainder, for vectorized peel it's always 1,
+  // for vectorized main loop it's KnownScalarTC / (VF*UF).
+  TripCountInfo::TripCountTy TripCount;
+};
+using VPLoopDescrMap = DenseMap<VPLoop *, const VPlanLoopDescr *>;
+
 /// VPLoopInfo provides analysis of natural loop for VPlan. It is a
 /// specialization of LoopInfoBase class.
 class VPLoopInfo;
@@ -154,6 +187,7 @@ private:
   // Track opt-report remarks for this VPLoop.
   OptReport OR = nullptr;
 };
+
 class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
   using Base = LoopInfoBase<VPBasicBlock, VPLoop>;
 

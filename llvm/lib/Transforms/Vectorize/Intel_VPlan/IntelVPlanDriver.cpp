@@ -1699,7 +1699,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         VPlanIdioms::isSearchLoop(Plan, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            ORBuilder, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef, isOmpSIMDLoop, MCFGI);
+                           PeelArrayRef, isOmpSIMDLoop, MCFGI,
+                           LVP.getLoopDescrs());
     bool LoopIsHandled =
         (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) &&
          LVP.canLowerVPlan(*Plan, VF));
