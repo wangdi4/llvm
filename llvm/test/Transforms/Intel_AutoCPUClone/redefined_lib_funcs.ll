@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; The test checks that functions that are redefinitions of library defined functions,
 ; are not multiversioned.
