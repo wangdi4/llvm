@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -328,7 +328,7 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
   unsigned int ElemNum = STy->getNumElements();
   MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
   assert((!M || !MI->getFunction()->isFortran()) &&
-      "Not expecting TBAA metadata on Fortran fucntions");
+         "Not expecting TBAA metadata on Fortran functions");
   for (unsigned int i = 0; i < ElemNum; ++i) {
     Type *ElemTy = STy->getElementType(i);
     // In order to build the GEP instruction correctly, we need to
@@ -1719,8 +1719,17 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
 
     // memmove/cpy/set of zero bytes is a noop.
     if (Constant *NumBytes = dyn_cast<Constant>(MI->getLength())) {
-      if (NumBytes->isNullValue())
+#if INTEL_CUSTOMIZATION
+      if (NumBytes->isNullValue()) {
+        getInlineReport()->initFunctionClosure(CI.getFunction());
+        InlineReason Reason = NinlrDeletedZeroLengthMemFunc;
+        getInlineReport()->removeCallBaseReference(CI, Reason);
+        getMDInlineReport()->removeCallBaseReference(CI, Reason);
+#endif // INTEL_CUSTOMIZATION
         return eraseInstFromFunction(CI);
+#if INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // No other transformations apply to volatile transfers.
@@ -4114,6 +4123,9 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
 
   AttributeSet FnAttrs = CallerPAL.getFnAttrs();
 
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(Caller->getFunction());
+#endif // INTEL_CUSTOMIZATION
   if (NewRetTy->isVoidTy())
     Caller->setName("");   // Void type should not have a name.
 
@@ -4143,6 +4155,13 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
 
   // Preserve prof metadata if any.
   NewCall->copyMetadata(*Caller, {LLVMContext::MD_prof});
+
+#if INTEL_CUSTOMIZATION
+  if (auto CB = dyn_cast<CallBase>(Caller)) {
+    getInlineReport()->replaceCallBaseWithCallBase(CB, NewCall, true);
+    getMDInlineReport()->replaceCallBaseWithCallBase(CB, NewCall, true);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Insert a cast of the return type as necessary.
   Instruction *NC = NewCall;

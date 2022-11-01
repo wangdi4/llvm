@@ -1,4 +1,4 @@
-//===----------- Intel_InlineReportEmitter.cpp - Inlining Report  -----------===//
+//===----------- Intel_InlineReportEmitter.cpp - Inlining Report ----------===//
 //
 // Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
@@ -49,16 +49,16 @@ public:
   bool runImpl();
 
 private:
-  Module &M;              // Module of Inline Report being emitted
-  unsigned Level;         // Level of Inline Report being emitted
-  unsigned OptLevel;      // Opt Level at which Module was compiled
-  unsigned SizeLevel;     // Opt For Size Level at which Module was compiled
-  bool PrepareForLTO;     // True in the LTO "Compile Step"
-  std::set<StringRef>            // Names of dead Fortran Functions, used
-     DeadFortranFunctionNames;   // to provide language char.
-  SmallDenseMap <StringRef, StringRef> // Map from dead function name to linkage
-     DeadFunctionLinkage; 
-  formatted_raw_ostream &OS;     // Stream to print Inline Report to
+  Module &M;          // Module of Inline Report being emitted
+  unsigned Level;     // Level of Inline Report being emitted
+  unsigned OptLevel;  // Opt Level at which Module was compiled
+  unsigned SizeLevel; // Opt For Size Level at which Module was compiled
+  bool PrepareForLTO; // True in the LTO "Compile Step"
+  std::set<StringRef> // Names of dead Fortran Functions, used
+      DeadFortranFunctionNames;       // to provide language char.
+  SmallDenseMap<StringRef, StringRef> // Map from dead function name to linkage
+      DeadFunctionLinkage;
+  formatted_raw_ostream &OS; // Stream to print Inline Report to
 
   // Print the linkage character for the Function with name 'CalleeName'.
   void printFunctionLinkageChar(StringRef CalleeName);
@@ -212,7 +212,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
                                               unsigned IndentCount) {
   MDTuple *CSIR = cast<MDTuple>(MD);
   assert((CSIR->getNumOperands() == CallSiteMDSize) &&
-      "Bad call site inlining report format");
+         "Bad call site inlining report format");
   int64_t SuppressPrint = 0;
   getOpVal(CSIR->getOperand(CSMDIR_SuppressPrintReport),
            "isSuppressPrint: ", &SuppressPrint);
@@ -238,12 +238,6 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
   } else {
     if (InlineReasonText[Reason].Type == InlPrtSpecial) {
       switch (Reason) {
-      case NinlrDeleted:
-        printIndentCount(OS, IndentCount);
-        OS << "-> DELETE: ";
-        printCalleeNameModuleLineCol(CSIR);
-        OS << "\n";
-        break;
       case NinlrExtern:
         if (Level & InlineReportOptions::Externs) {
           printIndentCount(OS, IndentCount);
@@ -272,6 +266,15 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
       default:
         assert(0);
       }
+    } else if (InlineReasonText[Reason].Type == InlPrtDeleted) {
+      printIndentCount(OS, IndentCount);
+      OS << "-> DELETE: ";
+      printCalleeNameModuleLineCol(CSIR);
+      if (InlineReasonText[Reason].Message)
+        printSimpleMessage(InlineReasonText[Reason].Message, false,
+                           IndentCount);
+      else
+        OS << "\n";
     } else {
       printIndentCount(OS, IndentCount);
       OS << "-> ";
@@ -314,11 +317,11 @@ void IREmitterInfo::findDeadFunctionInfo(NamedMDNode *MIR) {
     if (!IsDead)
       continue;
     StringRef SR = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
-    StringRef LinkageStr = getOpStr(FuncReport->getOperand(FMDIR_LinkageStr),
-                                 "linkage: ");
+    StringRef LinkageStr =
+        getOpStr(FuncReport->getOperand(FMDIR_LinkageStr), "linkage: ");
     DeadFunctionLinkage[SR] = LinkageStr;
-    StringRef LangStr = getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
-                                 "language: ");
+    StringRef LangStr =
+        getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
     bool IsFortran = LangStr == "F";
     if (!IsFortran)
       continue;
@@ -335,7 +338,7 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
     return;
   }
   assert((FuncReport->getNumOperands() == FunctionMDSize) &&
-      "Bad format of function inlining report");
+         "Bad format of function inlining report");
   int64_t SuppressPrint = 0;
   getOpVal(FuncReport->getOperand(FMDIR_SuppressPrintReport),
            "isSuppressPrint: ", &SuppressPrint);
@@ -459,8 +462,8 @@ struct InlineReportEmitter : public ModulePass {
     if (skipModule(M))
       return false;
     unsigned Level = IntelInlineReportLevel;
-    return IREmitterInfo(M, Level, OptLevel, SizeLevel,
-        PrepareForLTO).runImpl();
+    return IREmitterInfo(M, Level, OptLevel, SizeLevel, PrepareForLTO)
+        .runImpl();
   }
 };
 } // namespace
@@ -481,4 +484,3 @@ PreservedAnalyses InlineReportEmitterPass::run(Module &M,
   IREmitterInfo(M, Level, OptLevel, SizeLevel, PrepareForLTO).runImpl();
   return PreservedAnalyses::all();
 }
-

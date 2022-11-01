@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -3304,17 +3304,32 @@ Value *LibCallSimplifier::optimizeFWrite(CallInst *CI, IRBuilderBase &B) {
     uint64_t Bytes = SizeC->getZExtValue() * CountC->getZExtValue();
 
     // If this is writing zero records, remove the call (it's a noop).
-    if (Bytes == 0)
+#if INTEL_CUSTOMIZATION
+    if (Bytes == 0) {
+      getInlineReport()->initFunctionClosure(CI->getFunction());
+      InlineReason Reason = NinlrDeletedZeroLengthWrite;
+      getInlineReport()->removeCallBaseReference(*CI, Reason);
+      getMDInlineReport()->removeCallBaseReference(*CI, Reason);
       return ConstantInt::get(CI->getType(), 0);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // If this is writing one byte, turn it into fputc.
     // This optimisation is only valid, if the return value is unused.
     if (Bytes == 1 && CI->use_empty()) { // fwrite(S,1,1,F) -> fputc(S[0],F)
       Value *Char = B.CreateLoad(B.getInt8Ty(),
                                  castToCStr(CI->getArgOperand(0), B), "char");
+#if INTEL_CUSTOMIZATION
+      getInlineReport()->initFunctionClosure(CI->getFunction());
+#endif // INTEL_CUSTOMIZATION
       Type *IntTy = B.getIntNTy(TLI->getIntSize());
       Value *Cast = B.CreateIntCast(Char, IntTy, /*isSigned*/ true, "chari");
       Value *NewCI = emitFPutC(Cast, CI->getArgOperand(3), B, TLI);
+#if INTEL_CUSTOMIZATION
+      CallBase *CB = cast<CallBase>(NewCI);
+      getInlineReport()->replaceCallBaseWithCallBase(CI, CB);
+      getMDInlineReport()->replaceCallBaseWithCallBase(CI, CB);
+#endif // INTEL_CUSTOMIZATION
       return NewCI ? ConstantInt::get(CI->getType(), 1) : nullptr;
     }
   }
