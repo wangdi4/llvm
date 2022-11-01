@@ -29,9 +29,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:        %ind.step.init17 = 4.000000e+00  *  8.000000e+00;
 ; CHECK:        %phi.temp18 = %3;
 
-; CHECK:        + DO i64 i1 = %phi.temp, 99, 8   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
-; CHECK:        + END LOOP
-
 ; Finalization after vector remainder loop.
 ; CHECK:        %cast.crd25 = sitofp.i64.float(100);
 ; CHECK:        %iv.lb.cast.crd = sitofp.i64.float(%phi.temp);
@@ -83,10 +80,6 @@ for.cond.cleanup:                                 ; preds = %for.body
 ; CHECK:        |   %3 = %phi.temp2  +  %ind.vec.step20;
 ; CHECK:        |   %ind.step.init21 = 4.000000e+00  *  8.000000e+00;
 ; CHECK:        |   %phi.temp22 = %3;
-
-; CHECK:        |   + DO i64 i2 = %phi.temp, %loop.ub24, 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
-; CHECK:        |   | <RVAL-REG> LINEAR i64 %phi.temp{def@1}
-; CHECK:        |   + END LOOP
 
 ; CHECK:        |   %cast.crd31 = sitofp.i64.float(%n);
 ; CHECK:        |   %iv.lb.cast.crd = sitofp.i64.float(%phi.temp);

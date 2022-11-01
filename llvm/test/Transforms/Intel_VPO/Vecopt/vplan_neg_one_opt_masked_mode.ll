@@ -51,16 +51,25 @@ define dso_local i32 @disable_opt() local_unnamed_addr #0 {
 ; HIR-NEXT:        |   [[REVERSE0:%.*]] = shufflevector [[DOTVEC30]],  undef,  <i32 15, i32 14, i32 13, i32 12, i32 11, i32 10, i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>
 ; HIR-NEXT:        |   (<16 x i32>*)(@a)[0][i1] = [[REVERSE0]]
 ; HIR-NEXT:        + END LOOP
-; ====== remainder body
-; HIR:             + DO i1 = [[PHI_TEMP0:%.*]], 1028, 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
-; HIR-NEXT:        |   [[DOTVEC90:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> <u 1029
-; HIR-NEXT:        |   [[DOTVEC100]] = (<16 x i32>*)(@b)[0][-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> + 1028], Mask = @{[[DOTVEC90]]}
-; HIR-NEXT:        |   (<16 x i32>*)(@a)[0][i1] = [[DOTVEC100]], Mask = @{[[DOTVEC90]]}
-; HIR-NEXT:        |   [[DOTVEC110:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> + 16 <u 1029
-; HIR-NEXT:        |   [[TMP1:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC110]])
-; HIR-NEXT:        |   [[CMP0:%.*]] = [[TMP1]] == 0
-; HIR-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
-; HIR-NEXT:        + END LOOP
+; ====== remainder
+; HIR:             [[DOTVEC40:%.*]] = 1029 == 1024
+; HIR-NEXT:        [[PHI_TEMP0:%.*]] = 1024
+; HIR-NEXT:        [[PHI_TEMP60:%.*]] = 1024
+; HIR-NEXT:        [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC40]],  0
+; HIR-NEXT:        if ([[EXTRACT_0_80]] == 1)
+; HIR-NEXT:        {
+; HIR-NEXT:           goto final.merge.49
+; HIR-NEXT:        }
+;
+; HIR:             [[TMP0:%.*]] = [[PHI_TEMP0]]  +  <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>
+; HIR-NEXT:        [[DOTVEC90:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> <u 1029
+; HIR-NEXT:        [[DOTVEC100]] = (<16 x i32>*)(@b)[0][-1 * [[PHI_TEMP0]] + -1 * <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> + 1028], Mask = @{[[DOTVEC90]]}
+; HIR-NEXT:        (<16 x i32>*)(@a)[0][[[PHI_TEMP0]]] = [[DOTVEC100]], Mask = @{[[DOTVEC90]]}
+; HIR-NEXT:        [[DOTVEC110:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> + 16 <u 1029
+; HIR-NEXT:        [[TMP1:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC110]])
+; HIR-NEXT:        [[CMP0:%.*]] = [[TMP1]] == 0
+; HIR-NEXT:        [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
+; HIR:       END REGION
 ;
 entry:
   br label %for.body.preheader
@@ -128,17 +137,18 @@ define dso_local i32 @enable_opt(i64 %N) local_unnamed_addr #0 {
 ; HIR-NEXT:        |   (<16 x i32>*)(@a)[0][i1] = [[REVERSE0]]
 ; HIR-NEXT:        + END LOOP
 ; ====== remainder body
-; HIR:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB110:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
-; HIR-NEXT:        |   [[DOTVEC120:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> <u [[N0:%.*]]
-; HIR-NEXT:        |   [[REVERSE130:%.*]] = shufflevector [[DOTVEC120]],  undef,  <i32 15, i32 14, i32 13, i32 12, i32 11, i32 10, i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>
-; HIR-NEXT:        |   [[DOTVEC140]] = (<16 x i32>*)(@b)[0][-1 * i1 + 1013], Mask = @{[[REVERSE130]]}
-; HIR-NEXT:        |   [[REVERSE150:%.*]] = shufflevector [[DOTVEC140]],  undef,  <i32 15, i32 14, i32 13, i32 12, i32 11, i32 10, i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>
-; HIR-NEXT:        |   (<16 x i32>*)(@a)[0][i1] = [[REVERSE150]], Mask = @{[[DOTVEC120]]}
-; HIR-NEXT:        |   [[DOTVEC160:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> + 16 <u [[N0]]
-; HIR-NEXT:        |   [[TMP1:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC160]])
-; HIR-NEXT:        |   [[CMP0:%.*]] = [[TMP1]] == 0
-; HIR-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
-; HIR-NEXT:        + END LOOP
+; HIR:             [[TMP0:%.*]] = [[PHI_TEMP0:%.*]]  +  <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>
+; HIR-NEXT:        [[LOOP_UB110:%.*]] = [[N0:%.*]]  -  1
+; HIR-NEXT:        [[DOTVEC120:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> <u [[N0]]
+; HIR-NEXT:        [[REVERSE130:%.*]] = shufflevector [[DOTVEC120]],  undef,  <i32 15, i32 14, i32 13, i32 12, i32 11, i32 10, i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>
+; HIR-NEXT:        [[DOTVEC140]] = (<16 x i32>*)(@b)[0][-1 * [[PHI_TEMP0]] + 1013], Mask = @{[[REVERSE130:%.*]]}
+; HIR-NEXT:        [[REVERSE150:%.*]] = shufflevector [[DOTVEC140]],  undef,  <i32 15, i32 14, i32 13, i32 12, i32 11, i32 10, i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>
+; HIR-NEXT:        (<16 x i32>*)(@a)[0][[[PHI_TEMP0]]] = [[REVERSE150]], Mask = @{[[DOTVEC120]]}
+; HIR-NEXT:        [[DOTVEC160:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15> + 16 <u [[N0]]
+; HIR-NEXT:        [[TMP1:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC160]])
+; HIR-NEXT:        [[CMP0:%.*]] = [[TMP1]] == 0
+; HIR-NEXT:        [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
+; HIR:       END REGION
 ;
 entry:
   br label %for.body.preheader

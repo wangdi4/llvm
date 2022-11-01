@@ -244,36 +244,29 @@ inline raw_ostream &operator<<(raw_ostream &OS,
 // Auxiliary class to describe VPlan for CFG merge.
 // After selection of vectorization scenario, the list of the desriptors
 // is created and CFGMerger is run on that list, creating merged CFG.
-class CfgMergerPlanDescr {
+class CfgMergerPlanDescr : public VPlanLoopDescr {
 public:
-  enum LoopType {
-    LTRemainder,
-    LTMain,
-    LTPeel,
-  };
+  using LoopType = VPlanLoopDescr::LoopType;
+
   CfgMergerPlanDescr(LoopType LT, unsigned F, VPlan *P)
-      : Type(LT), VF(F), Plan(P) {}
+      : VPlanLoopDescr(LT, F, isa<VPlanMasked>(P)), Plan(P) {}
 
   VPlan *getVPlan() const { return Plan; }
-  unsigned getVF() const { return VF; }
-  LoopType getLoopType() const { return Type; }
 
   bool isMaskedRemainder() const {
-    return Type == LTRemainder && isa<VPlanMasked>(Plan);
+    return getLoopType() == LoopType::LTRemainder && isMasked();
   }
 
   bool isNonMaskedVecRemainder() const {
-    return Type == LTRemainder && isa<VPlanNonMasked>(Plan);
+    return getLoopType() == LoopType::LTRemainder && !isMasked();
   }
 
   bool isMaskedOrScalarRemainder() const {
-    return Type == LTRemainder &&
-           (isa<VPlanMasked>(Plan) || isa<VPlanScalar>(Plan));
+    return getLoopType() == LoopType::LTRemainder &&
+           (isMasked() || isa<VPlanScalar>(Plan));
   }
 
 private:
-  LoopType Type; // Loop-type.
-  unsigned VF;   // vector factor
   VPlan *Plan;   // VPlan
 
   // Basic blocks used during merge.
@@ -294,17 +287,18 @@ private:
   void dump(raw_ostream &OS) const {
     auto getLoopTypeName = [](LoopType LT) -> StringRef {
       switch (LT) {
-      case LTRemainder:
+      case LoopType::LTRemainder:
         return "remainder";
-      case LTMain:
+      case LoopType::LTMain:
         return "main";
-      case LTPeel:
+      case LoopType::LTPeel:
         return "peel";
       };
       return "";
     };
     OS << "VPlan: " << Plan->getName() << "\n";
-    OS << "  Kind: " << getLoopTypeName(Type) << " VF:" << VF << "\n";
+    OS << " Kind: " << getLoopTypeName(getLoopType()) << " VF:" << getVF()
+       << " TC:" << getTC() << "\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
@@ -499,6 +493,8 @@ public:
     return make_range(MergerVPlans.begin(), MergerVPlans.end());
   }
 
+  VPLoopDescrMap &getLoopDescrs() { return TopLoopDescrs; }
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -593,6 +589,11 @@ protected:
   /// specified vector and unroll factors, scalar remainder.
   void selectSimplestVecScenario(unsigned VF, unsigned UF);
 
+  /// Fill in the map of top loops descriptors (see TopLoopDescrs and its type
+  /// for details). The scalar loops are skipped due to we don't have VPLoops
+  /// for them and they are created only during CG
+  void fillLoopDescrs();
+
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
 
@@ -638,6 +639,10 @@ protected:
   /// A list of other additional VPlans, created during peel/remainders
   /// creation and cloning.
   std::list<CfgMergerPlanDescr> MergerVPlans;
+
+  // Map of the descriptors for top vector loops. Is built after CFG merger
+  // creates VPlan list for merging. No info for inner loops is kept here.
+  VPLoopDescrMap TopLoopDescrs;
 
   struct VPCostSummary {
     VPInstructionCost ScalarIterationCost;

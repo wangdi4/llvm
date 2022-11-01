@@ -45,7 +45,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        |   [[PHI_TEMP140]] = [[DOTVEC170]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v4f32([[SUM_070]],  [[DOTVEC170]])
-; CHECK-NEXT:        [[IND_FINAL0:%.*]] = 0 + [[VEC_TC130]]
+; CHECK-NEXT:        [[IND_FINAL0:%.*]] = 0  +  [[VEC_TC130]]
 ; CHECK-NEXT:        [[TGU190:%.*]] = [[N0]]  /u  2
 ; CHECK-NEXT:        [[VEC_TC200:%.*]] = [[TGU190]]  *  2
 ; CHECK-NEXT:        [[DOTVEC210:%.*]] = [[VEC_TC200]] == [[VEC_TC130]]
@@ -67,12 +67,10 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP90]]  +  <i64 0, i64 1>
 ; CHECK-NEXT:        [[PHI_TEMP330:%.*]] = [[RED_INIT320]]
 ; CHECK-NEXT:        [[LOOP_UB350:%.*]] = [[VEC_TC310]]  -  1
-; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB350]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
-; CHECK-NEXT:        |   [[DOTVEC360:%.*]] = (<2 x float>*)([[A0]])[i1]
-; CHECK-NEXT:        |   [[DOTVEC370:%.*]] = [[DOTVEC360]]  +  [[PHI_TEMP330]]
-; CHECK-NEXT:        |   [[PHI_TEMP330]] = [[DOTVEC370]]
-; CHECK-NEXT:        + END LOOP
-; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v2f32([[PHI_TEMP70]],  [[DOTVEC370]])
+; CHECK-NEXT:        [[DOTVEC360:%.*]] = (<2 x float>*)([[A0]])[%phi.temp9]
+; CHECK-NEXT:        [[DOTVEC370:%.*]] = [[DOTVEC360]]  +  [[PHI_TEMP330]]
+; CHECK-NEXT:        [[PHI_TEMP330]] = [[DOTVEC370]]
+; CHECK-NEXT:        [[SUM_070]] = @llvm.vector.reduce.fadd.v2f32([[PHI_TEMP70]],  [[DOTVEC370]])
 ; CHECK-NEXT:        [[IND_FINAL400:%.*]] = 0  +  [[VEC_TC310]]
 ; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL400]]
