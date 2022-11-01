@@ -2616,8 +2616,10 @@ void patchNotInlinedTIDUserFunc(
   // 2. Functions which are direct callers of functions described in 1 or
   //    (recursively) functions defined in this line which do not contain sync
   //    instructions.
+  SmallPtrSet<Function *, 8> Visited;
   while (!WorkList.empty()) {
     Function *F = WorkList.pop_back_val();
+    Visited.insert(F);
     for (User *U : F->users()) {
       // OCL2.0 : handle constant expression with bitcast of function pointer.
       if (auto *CE = dyn_cast<ConstantExpr>(U)) {
@@ -2638,7 +2640,8 @@ void patchNotInlinedTIDUserFunc(
       if (KernelAndSyncFuncs.contains(Caller))
         continue;
       FuncsToPatch.insert(Caller);
-      WorkList.push_back(Caller);
+      if (!Visited.contains(Caller))
+        WorkList.push_back(Caller);
     }
   }
 
