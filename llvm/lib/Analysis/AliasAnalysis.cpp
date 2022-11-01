@@ -183,7 +183,6 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
   return Result;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Chaining methods to detect whether a value is escaped from the current
 // routine.
@@ -215,12 +214,8 @@ AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool AAResults::pointsToConstantMemory(const MemoryLocation &Loc,
-                                       bool OrLocal) {
-=======
 ModRefInfo AAResults::getModRefInfoMask(const MemoryLocation &Loc,
                                         bool IgnoreLocals) {
->>>>>>> 01859da84bad95fd51d6a03b08b60c660e642a4f
   SimpleAAQueryInfo AAQIP(*this);
   return getModRefInfoMask(Loc, AAQIP, IgnoreLocals);
 }

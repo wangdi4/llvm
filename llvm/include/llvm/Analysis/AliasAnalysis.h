@@ -912,7 +912,6 @@ public:
   virtual AliasResult alias(const MemoryLocation &LocA,
                             const MemoryLocation &LocB, AAQueryInfo &AAQI) = 0;
 
-<<<<<<< HEAD
   /// Checks whether the given location points to constant memory, or if
   /// \p OrLocal is true whether it points to a local alloca.
   virtual bool pointsToConstantMemory(const MemoryLocation &Loc,
@@ -934,8 +933,6 @@ public:
                                        AAQueryInfo &AAQI) = 0;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 01859da84bad95fd51d6a03b08b60c660e642a4f
   /// @}
   //===--------------------------------------------------------------------===//
   /// \name Simple mod/ref information
@@ -997,7 +994,6 @@ public:
     return Result.alias(LocA, LocB, AAQI);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Do opt-level based initialization for each AAResult.
   void setupWithOptLevel(unsigned OptLevel) override {
@@ -1026,14 +1022,9 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                              bool OrLocal) override {
-    return Result.pointsToConstantMemory(Loc, AAQI, OrLocal);
-=======
   ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                                bool IgnoreLocals) override {
     return Result.getModRefInfoMask(Loc, AAQI, IgnoreLocals);
->>>>>>> 01859da84bad95fd51d6a03b08b60c660e642a4f
   }
 
   ModRefInfo getArgModRefInfo(const CallBase *Call, unsigned ArgIdx) override {
