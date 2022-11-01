@@ -467,7 +467,9 @@ public:
 #endif // INTEL_CUSTOMIZATION
   /// Checks whether the given location points to constant memory, or if
   /// \p OrLocal is true whether it points to a local alloca.
-  bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal = false);
+  bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal = false) {
+    return isNoModRef(getModRefInfoMask(Loc, OrLocal));
+  }
 
   /// A convenience wrapper around the primary \c pointsToConstantMemory
   /// interface.
@@ -479,6 +481,22 @@ public:
   //===--------------------------------------------------------------------===//
   /// \name Simple mod/ref information
   /// @{
+
+  /// Returns a bitmask that should be unconditionally applied to the ModRef
+  /// info of a memory location. This allows us to eliminate Mod and/or Ref
+  /// from the ModRef info based on the knowledge that the memory location
+  /// points to constant and/or locally-invariant memory.
+  ///
+  /// If IgnoreLocals is true, then this method returns NoModRef for memory
+  /// that points to a local alloca.
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc,
+                               bool IgnoreLocals = false);
+
+  /// A convenience wrapper around the primary \c getModRefInfoMask
+  /// interface.
+  ModRefInfo getModRefInfoMask(const Value *P, bool IgnoreLocals = false) {
+    return getModRefInfoMask(MemoryLocation::getBeforeOrAfter(P), IgnoreLocals);
+  }
 
   /// Get the ModRef info associated with a pointer argument of a call. The
   /// result's bits are set to indicate the allowed aliasing ModRef kinds. Note
@@ -747,6 +765,8 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal = false);
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                               bool IgnoreLocals = false);
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call2,
                            AAQueryInfo &AAQIP);
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
@@ -821,6 +841,10 @@ public:
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal = false) {
     return AA.pointsToConstantMemory(Loc, AAQI, OrLocal);
   }
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc,
+                               bool IgnoreLocals = false) {
+    return AA.getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+  }
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc) {
     return AA.getModRefInfo(Call, Loc, AAQI);
   }
@@ -888,6 +912,7 @@ public:
   virtual AliasResult alias(const MemoryLocation &LocA,
                             const MemoryLocation &LocB, AAQueryInfo &AAQI) = 0;
 
+<<<<<<< HEAD
   /// Checks whether the given location points to constant memory, or if
   /// \p OrLocal is true whether it points to a local alloca.
   virtual bool pointsToConstantMemory(const MemoryLocation &Loc,
@@ -909,10 +934,20 @@ public:
                                        AAQueryInfo &AAQI) = 0;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 01859da84bad95fd51d6a03b08b60c660e642a4f
   /// @}
   //===--------------------------------------------------------------------===//
   /// \name Simple mod/ref information
   /// @{
+
+  /// Returns a bitmask that should be unconditionally applied to the ModRef
+  /// info of a memory location. This allows us to eliminate Mod and/or Ref from
+  /// the ModRef info based on the knowledge that the memory location points to
+  /// constant and/or locally-invariant memory.
+  virtual ModRefInfo getModRefInfoMask(const MemoryLocation &Loc,
+                                       AAQueryInfo &AAQI,
+                                       bool IgnoreLocals) = 0;
 
   /// Get the ModRef info associated with a pointer argument of a callsite. The
   /// result's bits are set to indicate the allowed aliasing ModRef kinds. Note
@@ -962,6 +997,7 @@ public:
     return Result.alias(LocA, LocB, AAQI);
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Do opt-level based initialization for each AAResult.
   void setupWithOptLevel(unsigned OptLevel) override {
@@ -993,6 +1029,11 @@ public:
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal) override {
     return Result.pointsToConstantMemory(Loc, AAQI, OrLocal);
+=======
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                               bool IgnoreLocals) override {
+    return Result.getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+>>>>>>> 01859da84bad95fd51d6a03b08b60c660e642a4f
   }
 
   ModRefInfo getArgModRefInfo(const CallBase *Call, unsigned ArgIdx) override {
@@ -1045,9 +1086,9 @@ public:
     return AliasResult::MayAlias;
   }
 
-  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                              bool OrLocal) {
-    return false;
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                               bool IgnoreLocals) {
+    return ModRefInfo::ModRef;
   }
 
 #if INTEL_CUSTOMIZATION
