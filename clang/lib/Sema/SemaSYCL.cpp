@@ -522,7 +522,7 @@ static void checkSYCLType(Sema &S, QualType Ty, SourceRange Loc,
 
   // variable length arrays
   if (Ty->isVariableArrayType()) {
-    S.SYCLDiagIfDeviceCode(Loc.getBegin(), diag::err_vla_unsupported);
+    S.SYCLDiagIfDeviceCode(Loc.getBegin(), diag::err_vla_unsupported) << 0;
     Emitting = true;
   }
 
@@ -963,6 +963,18 @@ class SingleDeviceFunctionTracker {
 #if INTEL_CUSTOMIZATION
     VisitCallNode(KernelNode, GetFDFromNode(KernelNode), nullptr, CallStack);
 #endif // INTEL_CUSTOMIZATION
+
+    // Always inline the KernelBody in the kernel entry point. For ESIMD
+    // inlining is handled later down the pipeline.
+    if (KernelBody &&
+        Parent.SemaRef.getLangOpts().SYCLForceInlineKernelLambda &&
+        !KernelBody->hasAttr<NoInlineAttr>() &&
+        !KernelBody->hasAttr<AlwaysInlineAttr>() &&
+        !KernelBody->hasAttr<SYCLSimdAttr>()) {
+      KernelBody->addAttr(AlwaysInlineAttr::CreateImplicit(
+          KernelBody->getASTContext(), {}, AttributeCommonInfo::AS_Keyword,
+          AlwaysInlineAttr::Keyword_forceinline));
+    }
   }
 
 public:
@@ -1816,7 +1828,7 @@ public:
     while (FieldTy->isAnyPointerType()) {
       FieldTy = QualType{FieldTy->getPointeeOrArrayElementType(), 0};
       if (FieldTy->isVariableArrayType()) {
-        Diag.Report(FD->getLocation(), diag::err_vla_unsupported);
+        Diag.Report(FD->getLocation(), diag::err_vla_unsupported) << 0;
         IsInvalid = true;
         break;
       }
@@ -2431,6 +2443,10 @@ public:
             createKernelDecl(S.getASTContext(), Loc, IsInline, IsSIMDKernel)),
         FuncContext(SemaRef, KernelDecl) {
     S.addSyclOpenCLKernel(SYCLKernel, KernelDecl);
+
+    if (const auto *AddIRAttrFunc =
+            SYCLKernel->getAttr<SYCLAddIRAttributesFunctionAttr>())
+      KernelDecl->addAttr(AddIRAttrFunc->clone(SemaRef.getASTContext()));
   }
 
   ~SyclKernelDeclCreator() {
@@ -4532,6 +4548,7 @@ void Sema::MarkDevices() {
     for (auto *A : T.GetCollectedAttributes())
       PropagateAndDiagnoseDeviceAttr(*this, T, A, T.GetSYCLKernel(),
                                      T.GetKernelBody());
+    CheckSYCLAddIRAttributesFunctionAttrConflicts(T.GetSYCLKernel());
   }
 }
 

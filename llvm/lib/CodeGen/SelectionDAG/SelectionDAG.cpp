@@ -678,7 +678,7 @@ static void AddNodeIDOperands(FoldingSetNodeID &ID,
   }
 }
 
-static void AddNodeIDNode(FoldingSetNodeID &ID, unsigned short OpC,
+static void AddNodeIDNode(FoldingSetNodeID &ID, unsigned OpC,
                           SDVTList VTList, ArrayRef<SDValue> OpList) {
   AddNodeIDOpcode(ID, OpC);
   AddNodeIDValueTypes(ID, VTList);
@@ -1479,6 +1479,10 @@ SDValue SelectionDAG::getPtrExtendInReg(SDValue Op, const SDLoc &DL, EVT VT) {
   return getZeroExtendInReg(Op, DL, VT);
 }
 
+SDValue SelectionDAG::getNegative(SDValue Val, const SDLoc &DL, EVT VT) {
+  return getNode(ISD::SUB, DL, VT, getConstant(0, DL, VT), Val);
+}
+
 /// getNOT - Create a bitwise NOT operation as (XOR Val, -1).
 SDValue SelectionDAG::getNOT(const SDLoc &DL, SDValue Val, EVT VT) {
   return getNode(ISD::XOR, DL, VT, Val, getAllOnesConstant(DL, VT));
@@ -1625,11 +1629,8 @@ SDValue SelectionDAG::getConstant(const ConstantInt &Val, const SDLoc &DL,
   }
 
   SDValue Result(N, 0);
-  if (VT.isScalableVector())
-    Result = getSplatVector(VT, DL, Result);
-  else if (VT.isVector())
-    Result = getSplatBuildVector(VT, DL, Result);
-
+  if (VT.isVector())
+    Result = getSplat(VT, DL, Result);
   return Result;
 }
 
@@ -1681,10 +1682,8 @@ SDValue SelectionDAG::getConstantFP(const ConstantFP &V, const SDLoc &DL,
   }
 
   SDValue Result(N, 0);
-  if (VT.isScalableVector())
-    Result = getSplatVector(VT, DL, Result);
-  else if (VT.isVector())
-    Result = getSplatBuildVector(VT, DL, Result);
+  if (VT.isVector())
+    Result = getSplat(VT, DL, Result);
   NewSDValueDbgMsg(Result, "Creating fp constant: ", this);
   return Result;
 }
@@ -2582,16 +2581,19 @@ bool SelectionDAG::MaskedValueIsAllOnes(SDValue V, const APInt &Mask,
 }
 
 /// isSplatValue - Return true if the vector V has the same value
-/// across all DemandedElts. For scalable vectors it does not make
-/// sense to specify which elements are demanded or undefined, therefore
-/// they are simply ignored.
+/// across all DemandedElts. For scalable vectors, we don't know the
+/// number of lanes at compile time.  Instead, we use a 1 bit APInt
+/// to represent a conservative value for all lanes; that is, that
+/// one bit value is implicitly splatted across all lanes.
 bool SelectionDAG::isSplatValue(SDValue V, const APInt &DemandedElts,
                                 APInt &UndefElts, unsigned Depth) const {
   unsigned Opcode = V.getOpcode();
   EVT VT = V.getValueType();
   assert(VT.isVector() && "Vector type expected");
+  assert((!VT.isScalableVector() || DemandedElts.getBitWidth() == 1) &&
+         "scalable demanded bits are ignored");
 
-  if (!VT.isScalableVector() && !DemandedElts)
+  if (!DemandedElts)
     return false; // No demanded elts, better to assume we don't know anything.
 
   if (Depth >= MaxRecursionDepth)
@@ -2773,11 +2775,11 @@ bool SelectionDAG::isSplatValue(SDValue V, bool AllowUndefs) const {
   assert(VT.isVector() && "Vector type expected");
 
   APInt UndefElts;
-  APInt DemandedElts;
-
-  // For now we don't support this with scalable vectors.
-  if (!VT.isScalableVector())
-    DemandedElts = APInt::getAllOnes(VT.getVectorNumElements());
+  // Since the number of lanes in a scalable vector is unknown at compile time,
+  // we track one bit which is implicitly broadcast to all lanes.  This means
+  // that all lanes in a scalable vector are considered demanded.
+  APInt DemandedElts
+    = APInt::getAllOnes(VT.isScalableVector() ? 1 : VT.getVectorNumElements());
   return isSplatValue(V, DemandedElts, UndefElts) &&
          (AllowUndefs || !UndefElts);
 }
@@ -2790,10 +2792,11 @@ SDValue SelectionDAG::getSplatSourceVector(SDValue V, int &SplatIdx) {
   switch (Opcode) {
   default: {
     APInt UndefElts;
-    APInt DemandedElts;
-
-    if (!VT.isScalableVector())
-      DemandedElts = APInt::getAllOnes(VT.getVectorNumElements());
+    // Since the number of lanes in a scalable vector is unknown at compile time,
+    // we track one bit which is implicitly broadcast to all lanes.  This means
+    // that all lanes in a scalable vector are considered demanded.
+    APInt DemandedElts
+      = APInt::getAllOnes(VT.isScalableVector() ? 1 : VT.getVectorNumElements());
 
     if (isSplatValue(V, DemandedElts, UndefElts)) {
       if (VT.isScalableVector()) {
@@ -4722,7 +4725,6 @@ bool SelectionDAG::isKnownNeverNaN(SDValue Op, bool SNaN, unsigned Depth) const 
   if (Depth >= MaxRecursionDepth)
     return false; // Limit search depth.
 
-  // TODO: Handle vectors.
   // If the value is a constant, we can obviously see if it is a NaN or not.
   if (const ConstantFPSDNode *C = dyn_cast<ConstantFPSDNode>(Op)) {
     return !C->getValueAPF().isNaN() ||
@@ -4737,7 +4739,9 @@ bool SelectionDAG::isKnownNeverNaN(SDValue Op, bool SNaN, unsigned Depth) const 
   case ISD::FDIV:
   case ISD::FREM:
   case ISD::FSIN:
-  case ISD::FCOS: {
+  case ISD::FCOS:
+  case ISD::FMA:
+  case ISD::FMAD: {
     if (SNaN)
       return true;
     // TODO: Need isKnownNeverInfinity
@@ -4774,14 +4778,6 @@ bool SelectionDAG::isKnownNeverNaN(SDValue Op, bool SNaN, unsigned Depth) const 
   case ISD::SINT_TO_FP:
   case ISD::UINT_TO_FP:
     return true;
-  case ISD::FMA:
-  case ISD::FMAD: {
-    if (SNaN)
-      return true;
-    return isKnownNeverNaN(Op.getOperand(0), SNaN, Depth + 1) &&
-           isKnownNeverNaN(Op.getOperand(1), SNaN, Depth + 1) &&
-           isKnownNeverNaN(Op.getOperand(2), SNaN, Depth + 1);
-  }
   case ISD::FSQRT: // Need is known positive
   case ISD::FLOG:
   case ISD::FLOG2:
@@ -4819,6 +4815,12 @@ bool SelectionDAG::isKnownNeverNaN(SDValue Op, bool SNaN, unsigned Depth) const 
   }
   case ISD::EXTRACT_VECTOR_ELT: {
     return isKnownNeverNaN(Op.getOperand(0), SNaN, Depth + 1);
+  }
+  case ISD::BUILD_VECTOR: {
+    for (const SDValue &Opnd : Op->ops())
+      if (!isKnownNeverNaN(Opnd, SNaN, Depth + 1))
+        return false;
+    return true;
   }
   default:
     if (Opcode >= ISD::BUILTIN_OP_END ||
@@ -12098,7 +12100,11 @@ void SelectionDAG::copyExtraInfo(SDNode *From, SDNode *To) {
   auto I = SDEI.find(From);
   if (I == SDEI.end())
     return;
-  SDEI[To] = I->second;
+
+  // Use of operator[] on the DenseMap may cause an insertion, which invalidates
+  // the iterator, hence the need to make a copy to prevent a use-after-free.
+  NodeExtraInfo Copy = I->second;
+  SDEI[To] = std::move(Copy);
 }
 
 #ifndef NDEBUG

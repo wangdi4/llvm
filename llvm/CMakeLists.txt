@@ -184,13 +184,7 @@ if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
 endif()
 foreach(proj ${LLVM_ENABLE_PROJECTS})
   if (NOT proj STREQUAL "llvm" AND NOT "${proj}" IN_LIST LLVM_KNOWN_PROJECTS)
-     MESSAGE(FATAL_ERROR "${proj} isn't a known project: ${LLVM_KNOWN_PROJECTS}")
-  endif()
-endforeach()
-foreach(proj "libcxx" "libcxxabi" "libunwind")
-  if (${proj} IN_LIST LLVM_ENABLE_PROJECTS)
-    message(WARNING "Using LLVM_ENABLE_PROJECTS=${proj} is deprecated now, please use -DLLVM_ENABLE_RUNTIMES=${proj} or "
-                    "see the instructions at https://libcxx.llvm.org/BuildingLibcxx.html for building the runtimes.")
+     MESSAGE(FATAL_ERROR "${proj} isn't a known project: ${LLVM_KNOWN_PROJECTS}. Did you mean to enable it as a runtime in LLVM_ENABLE_RUNTIMES?")
   endif()
 endforeach()
 
@@ -353,6 +347,11 @@ option(LLVM_INSTALL_BINUTILS_SYMLINKS
 
 option(LLVM_INSTALL_CCTOOLS_SYMLINKS
   "Install symlinks from the cctools tool names to the corresponding LLVM tools." OFF)
+
+# By default we use symlinks on Unix platforms and copy binaries on Windows
+# If you have the correct setup on Windows you can use this option to enable
+# symlinks and save a lot of diskspace.
+option(LLVM_USE_SYMLINKS "Use symlinks instead of copying binaries" ${CMAKE_HOST_UNIX})
 
 option(LLVM_INSTALL_UTILS "Include utility binaries in the 'install' target." OFF)
 

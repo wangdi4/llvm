@@ -498,6 +498,22 @@ cc_library(
 )
 
 cc_library(
+    name = "DebugInfoGSYM",
+    srcs = glob([
+        "lib/DebugInfo/GSYM/*.cpp",
+        "lib/DebugInfo/GSYM/*.h",
+    ]),
+    hdrs = glob(["include/llvm/DebugInfo/GSYM/*.h"]),
+    copts = llvm_copts,
+    deps = [
+        ":DebugInfoDWARF",
+        ":MC",
+        ":Object",
+        ":Support",
+    ],
+)
+
+cc_library(
     name = "Symbolize",
     srcs = glob([
         "lib/DebugInfo/Symbolize/*.cpp",
@@ -3117,6 +3133,25 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "llvm-gsymutil",
+    srcs = glob([
+        "tools/llvm-gsymutil/*.cpp",
+        "tools/llvm-gsymutil/*.h",
+    ]),
+    copts = llvm_copts,
+    stamp = 0,
+    deps = [
+        ":AllTargetsCodeGens",
+        ":DebugInfoDWARF",
+        ":DebugInfoGSYM",
+        ":MC",
+        ":Object",
+        ":Support",
+        ":Target",
+    ],
+)
+
 gentbl(
     name = "IfsOptionsTableGen",
     strip_include_prefix = "tools/llvm-ifs",
@@ -3129,12 +3164,21 @@ gentbl(
     td_srcs = ["include/llvm/Option/OptParser.td"],
 )
 
+expand_template(
+    name = "ifs_main",
+    out = "llvm-ifs-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_ifs",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-ifs",
     srcs = glob([
         "tools/llvm-ifs/*.cpp",
         "tools/llvm-ifs/*.h",
-    ]),
+    ]) + ["llvm-ifs-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [
@@ -3237,11 +3281,20 @@ gentbl(
     td_srcs = ["include/llvm/Option/OptParser.td"],
 )
 
+expand_template(
+    name = "lipo_main",
+    out = "llvm-lipo-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_lipo",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-lipo",
     srcs = [
         "tools/llvm-lipo/llvm-lipo.cpp",
-    ],
+    ] + ["llvm-lipo-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [
@@ -3396,12 +3449,21 @@ gentbl(
     td_srcs = ["include/llvm/Option/OptParser.td"],
 )
 
+expand_template(
+    name = "mt_main",
+    out = "llvm-mt-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_mt",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-mt",
     srcs = glob([
         "tools/llvm-mt/*.cpp",
         "tools/llvm-mt/*.h",
-    ]),
+    ]) + ["llvm-mt-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [
@@ -3424,12 +3486,21 @@ gentbl(
     td_srcs = ["include/llvm/Option/OptParser.td"],
 )
 
+expand_template(
+    name = "nm_main",
+    out = "llvm-nm-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_nm",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-nm",
     srcs = glob([
         "tools/llvm-nm/*.cpp",
         "tools/llvm-nm/*.h",
-    ]),
+    ]) + ["llvm-nm-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [
@@ -3583,6 +3654,7 @@ cc_binary(
         ":BinaryFormat",
         ":CodeGen",
         ":DebugInfo",
+        ":Debuginfod",
         ":DebugInfoDWARF",
         ":Demangle",
         ":MC",
@@ -3661,12 +3733,21 @@ cc_binary(
     ],
 )
 
+expand_template(
+    name = "profdata_main",
+    out = "llvm-profdata-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_profdata",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-profdata",
     srcs = glob([
         "tools/llvm-profdata/*.cpp",
         "tools/llvm-profdata/*.h",
-    ]),
+    ]) + ["llvm-profdata-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [
@@ -3721,12 +3802,21 @@ cc_library(
     textual_hdrs = glob(["tools/llvm-rc/*.def"]),
 )
 
+expand_template(
+    name = "rc_main",
+    out = "llvm-rc-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_rc",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-rc",
     srcs = glob([
         "tools/llvm-rc/*.cpp",
         "tools/llvm-rc/*.h",
-    ]),
+    ]) + ["llvm-rc-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [
@@ -3756,12 +3846,21 @@ gentbl(
     td_srcs = ["include/llvm/Option/OptParser.td"],
 )
 
+expand_template(
+    name = "readobj_main",
+    out = "llvm-readobj-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_readobj",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-readobj",
     srcs = glob([
         "tools/llvm-readobj/*.cpp",
         "tools/llvm-readobj/*.h",
-    ]),
+    ]) + ["llvm-readobj-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [
@@ -3852,12 +3951,21 @@ gentbl(
     td_srcs = ["include/llvm/Option/OptParser.td"],
 )
 
+expand_template(
+    name = "size_main",
+    out = "llvm-size-driver.cpp",
+    substitutions = {
+        "@TOOL_NAME@": "llvm_size",
+    },
+    template = "cmake/modules/llvm-driver-template.cpp.in",
+)
+
 cc_binary(
     name = "llvm-size",
     srcs = glob([
         "tools/llvm-size/*.cpp",
         "tools/llvm-size/*.h",
-    ]),
+    ]) + ["llvm-size-driver.cpp"],
     copts = llvm_copts,
     stamp = 0,
     deps = [

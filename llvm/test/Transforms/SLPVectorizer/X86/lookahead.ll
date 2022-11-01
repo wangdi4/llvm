@@ -3,8 +3,8 @@
 ; Customization note:
 ; added -slp-compatibility-mode option to suppress some xmain customizations
 ; and reduce community produced checks customizations.
-; RUN: opt -slp-vectorizer -slp-compatibility-mode -S < %s -mtriple=x86_64-unknown-linux -mattr=+sse2 | FileCheck %s --check-prefixes=CHECK,SSE
-; RUN: opt -slp-vectorizer -slp-compatibility-mode -S < %s -mtriple=x86_64-unknown-linux -mcpu=corei7-avx | FileCheck %s --check-prefixes=CHECK,AVX
+; RUN: opt -passes=slp-vectorizer -slp-compatibility-mode -S < %s -mtriple=x86_64-unknown-linux -mattr=+sse2 | FileCheck %s --check-prefixes=CHECK,SSE
+; RUN: opt -passes=slp-vectorizer -slp-compatibility-mode -S < %s -mtriple=x86_64-unknown-linux -mcpu=corei7-avx | FileCheck %s --check-prefixes=CHECK,AVX
 ;
 ; Customization note:
 ; this RUN line invokes opt the same way as non-customized test version but

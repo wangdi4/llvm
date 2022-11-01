@@ -553,7 +553,7 @@ def {0} : LinalgStructuredBase_Op<"{1}", !listconcat([AttrSizedOperandSegments],
 
     let extraClassDeclaration = structuredOpsBaseDecls # [{{
       // Auto-generated.
-      ArrayAttr iterator_types();
+      SmallVector<StringRef> getIteratorTypesArray();
       ArrayAttr getIndexingMaps();
       static void regionBuilder(ImplicitLocOpBuilder &b,
                                 Block &block, ArrayRef<NamedAttribute> attrs);
@@ -587,24 +587,24 @@ static const char structuredOpBuilderFormat[] = R"FMT(
   }]>
 )FMT";
 
-// The iterator_types() method for structured ops. Parameters:
+// The getIteratorTypesArray() method for structured ops. Parameters:
 // {0}: Class name
 // {1}: Comma interleaved iterator type names.
 static const char structuredOpIteratorTypesFormat[] =
     R"FMT(
-ArrayAttr {0}::iterator_types() {{
-  return Builder(getContext()).getStrArrayAttr(SmallVector<StringRef>{{ {1} });
+SmallVector<StringRef> {0}::getIteratorTypesArray() {{
+  return SmallVector<StringRef>{{ {1} };
 }
 )FMT";
 
-// The iterator_types() method for rank polymorphic structured ops. Parameters:
+// The getIteratorTypesArray() method for rank polymorphic structured ops.
+// Parameters:
 // {0}: Class name
 static const char rankPolyStructuredOpIteratorTypesFormat[] =
     R"FMT(
-ArrayAttr {0}::iterator_types() {{
+SmallVector<StringRef> {0}::getIteratorTypesArray() {{
   int64_t rank = getRank(getOutputOperand(0));
-  return Builder(getContext()).getStrArrayAttr(
-    SmallVector<StringRef>(rank, getParallelIteratorTypeName()));
+  return SmallVector<StringRef>(rank, getParallelIteratorTypeName());
 }
 )FMT";
 
@@ -670,7 +670,7 @@ ParseResult {0}::parse(OpAsmParser &parser, OperationState &result) {{
     {0}::getNumRegionArgs(), {0}::getRegionBuilder());
 }
 void {0}::print(OpAsmPrinter &p) {{
-  ::printNamedStructuredOp(p, getOperation(), inputs(), outputs());
+  ::printNamedStructuredOp(p, getOperation(), getInputs(), getOutputs());
 }
 )FMT";
 
@@ -857,7 +857,7 @@ static SmallVector<AffineExpr> getSymbolBindings({0} self) {
         // {1}: Symbol position
         // {2}: Attribute index
         static const char structuredOpAccessAttrFormat[] = R"FMT(
-int64_t cst{1} = self.{0}().getValues<int64_t>()[{2}];
+int64_t cst{1} = self.get{0}().getValues<int64_t>()[{2}];
 exprs.push_back(getAffineConstantExpr(cst{1}, context));
 )FMT";
         // Update all symbol bindings mapped to an attribute.
@@ -868,8 +868,10 @@ exprs.push_back(getAffineConstantExpr(cst{1}, context));
           for (auto &en :
                llvm::enumerate(arg.indexAttrMap->affineMap().getResults())) {
             if (auto symbol = en.value().dyn_cast<AffineSymbolExpr>()) {
+              std::string argName = arg.name;
+              argName[0] = toupper(argName[0]);
               symbolBindings[symbol.getPosition()] =
-                  llvm::formatv(structuredOpAccessAttrFormat, arg.name,
+                  llvm::formatv(structuredOpAccessAttrFormat, argName,
                                 symbol.getPosition(), en.index());
             }
           }

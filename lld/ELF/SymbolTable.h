@@ -29,6 +29,7 @@
 #include "Symbols.h"
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/Compiler.h"
 
 namespace lld::elf {
 
@@ -109,7 +110,7 @@ private:
   llvm::Optional<llvm::StringMap<SmallVector<Symbol *, 0>>> demangledSyms;
 };
 
-extern std::unique_ptr<SymbolTable> symtab;
+LLVM_LIBRARY_VISIBILITY extern SymbolTable symtab;
 
 } // namespace lld::elf
 

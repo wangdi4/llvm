@@ -130,12 +130,12 @@ public:
   }
 };
 
+} // namespace
+
 static PluginProperties &GetGlobalPluginProperties() {
   static PluginProperties g_settings;
   return g_settings;
 }
-
-} // namespace
 
 static const llvm::DWARFDebugLine::LineTable *
 ParseLLVMLineTable(lldb_private::DWARFContext &context,
@@ -2355,8 +2355,6 @@ void SymbolFileDWARF::FindFunctions(const Module::LookupInfo &lookup_info,
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   ConstString name = lookup_info.GetLookupName();
   FunctionNameType name_type_mask = lookup_info.GetNameTypeMask();
-  LLDB_SCOPED_TIMERF("SymbolFileDWARF::FindFunctions (name = '%s')",
-                     name.AsCString());
 
   // eFunctionNameTypeAuto should be pre-resolved by a call to
   // Module::LookupInfo::LookupInfo()

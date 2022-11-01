@@ -106,6 +106,7 @@
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
+#include "llvm/SYCLLowerIR/LowerKernelProps.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
@@ -118,6 +119,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/Coroutines/CoroCleanup.h"
+#include "llvm/Transforms/Coroutines/CoroConditionalWrapper.h"
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
 #include "llvm/Transforms/Coroutines/CoroElide.h"
 #include "llvm/Transforms/Coroutines/CoroSplit.h"
@@ -1159,6 +1161,8 @@ static bool isModulePassName(StringRef Name, CallbacksT &Callbacks) {
     return true;
   if (Name == "function" || Name == "function<eager-inv>")
     return true;
+  if (Name == "coro-cond")
+    return true;
 
   // Explicitly handle custom-parsed pass names.
   if (parseRepeatPassName(Name))
@@ -1351,6 +1355,13 @@ Error PassBuilder::parseModulePass(ModulePassManager &MPM,
       if (auto Err = parseModulePassPipeline(NestedMPM, InnerPipeline))
         return Err;
       MPM.addPass(std::move(NestedMPM));
+      return Error::success();
+    }
+    if (Name == "coro-cond") {
+      ModulePassManager NestedMPM;
+      if (auto Err = parseModulePassPipeline(NestedMPM, InnerPipeline))
+        return Err;
+      MPM.addPass(CoroConditionalWrapper(std::move(NestedMPM)));
       return Error::success();
     }
     if (Name == "cgscc") {

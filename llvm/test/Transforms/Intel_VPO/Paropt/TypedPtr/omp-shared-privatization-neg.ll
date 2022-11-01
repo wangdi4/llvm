@@ -96,6 +96,6 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK: define void @test1(i32* %P, i32 %N) {{.*}} {
 ; CHECK:   [[PADDR:%.+]] = alloca i32*
 ; CHECK:   store i32* %P, i32** [[PADDR]]
-; CHECK:   call {{.+}} @__kmpc_fork_call({{.+}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i32**, i64, i64)* @{{.+}} to void (i32*, i32*, ...)*), i32** nonnull [[PADDR]], i64 0, i64 %{{.+}})
+; CHECK:   call {{.+}} @__kmpc_fork_call({{.+}}, i32 3, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, i32**, i64, i64)* @{{.+}} to void (i32*, i32*, ...)*), i32** nonnull [[PADDR]], i64 0, i64 %{{.+}})
 ; CHECK: }
 

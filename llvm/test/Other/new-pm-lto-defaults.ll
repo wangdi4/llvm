@@ -165,7 +165,7 @@
 ; CHECK-O1-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-O1-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O1-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-O1-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
@@ -344,7 +344,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O23SZ-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O23SZ-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module

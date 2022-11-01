@@ -1,4 +1,4 @@
-; RUN: opt < %s -basic-aa -dse -S | FileCheck %s
+; RUN: opt < %s -dse -S | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -convert-to-subscript -basic-aa -dse -S | FileCheck %s
 

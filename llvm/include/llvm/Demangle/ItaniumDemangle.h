@@ -31,8 +31,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_DEMANGLE_ITANIUMDEMANGLE_H
-#define LLVM_DEMANGLE_ITANIUMDEMANGLE_H
+#ifndef DEMANGLE_ITANIUMDEMANGLE_H
+#define DEMANGLE_ITANIUMDEMANGLE_H
 
 #include "DemangleConfig.h"
 #include "StringView.h"
@@ -44,6 +44,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <new>
 // INTEL_CUSTOMIZATION
 #include <string>
 // end INTEL_CUSTOMIZATION
@@ -5530,4 +5531,4 @@ struct ManglingParser : AbstractManglingParser<ManglingParser<Alloc>, Alloc> {
 
 DEMANGLE_NAMESPACE_END
 
-#endif // LLVM_DEMANGLE_ITANIUMDEMANGLE_H
+#endif // DEMANGLE_ITANIUMDEMANGLE_H

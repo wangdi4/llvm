@@ -1093,6 +1093,7 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::FSIN:
   case ISD::FSQRT: case ISD::VP_SQRT:
   case ISD::FTRUNC:
+  case ISD::VP_FROUNDTOZERO:
   case ISD::SINT_TO_FP:
   case ISD::VP_SINT_TO_FP:
   case ISD::TRUNCATE:
@@ -1136,10 +1137,10 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::UREM: case ISD::VP_UREM:
   case ISD::SREM: case ISD::VP_SREM:
   case ISD::FREM: case ISD::VP_FREM:
-  case ISD::SMIN:
-  case ISD::SMAX:
-  case ISD::UMIN:
-  case ISD::UMAX:
+  case ISD::SMIN: case ISD::VP_SMIN:
+  case ISD::SMAX: case ISD::VP_SMAX:
+  case ISD::UMIN: case ISD::VP_UMIN:
+  case ISD::UMAX: case ISD::VP_UMAX:
   case ISD::SADDSAT:
   case ISD::UADDSAT:
   case ISD::SSUBSAT:
@@ -1149,6 +1150,7 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::ROTL:
   case ISD::ROTR:
   case ISD::COMPLEX_MUL: // INTEL
+  case ISD::VP_FCOPYSIGN:
     SplitVecRes_BinOp(N, Lo, Hi);
     break;
   case ISD::FMA: case ISD::VP_FMA:
@@ -3987,10 +3989,10 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::FMAXNUM: case ISD::VP_FMAXNUM:
   case ISD::FMINIMUM:
   case ISD::FMAXIMUM:
-  case ISD::SMIN:
-  case ISD::SMAX:
-  case ISD::UMIN:
-  case ISD::UMAX:
+  case ISD::SMIN: case ISD::VP_SMIN:
+  case ISD::SMAX: case ISD::VP_SMAX:
+  case ISD::UMIN: case ISD::VP_UMIN:
+  case ISD::UMAX: case ISD::VP_UMAX:
   case ISD::UADDSAT:
   case ISD::SADDSAT:
   case ISD::USUBSAT:
@@ -4018,6 +4020,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::VP_FDIV:
   case ISD::VP_FREM:
   case ISD::COMPLEX_MUL: // INTEL
+  case ISD::VP_FCOPYSIGN:
     Res = WidenVecRes_Binary(N);
     break;
 
@@ -4148,6 +4151,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::VP_FFLOOR:
   case ISD::VP_FROUND:
   case ISD::VP_FROUNDEVEN:
+  case ISD::VP_FROUNDTOZERO:
   case ISD::FREEZE:
   case ISD::ARITH_FENCE:
   case ISD::FCANONICALIZE:

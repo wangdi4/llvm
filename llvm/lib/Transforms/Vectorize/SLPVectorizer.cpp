@@ -461,36 +461,51 @@ static Optional<unsigned> getInsertIndex(const Value *InsertInst,
 /// Checks if the given value is actually an undefined constant vector.
 /// Also, if the\p ShuffleMask is not empty, tries to check if the non-masked
 /// elements actually mask the insertelement buildvector, if any.
-static bool isUndefVector(const Value *V, ArrayRef<int> ShuffleMask = None) {
-  if (isa<UndefValue>(V))
-    return true;
+template <bool IsPoisonOnly = false>
+static SmallBitVector isUndefVector(const Value *V,
+                                    ArrayRef<int> ShuffleMask = None) {
+  SmallBitVector Res(ShuffleMask.empty() ? 1 : ShuffleMask.size(), true);
+  using T =
+      typename std::conditional<IsPoisonOnly, PoisonValue, UndefValue>::type;
+  if (isa<T>(V))
+    return Res;
   auto *VecTy = dyn_cast<FixedVectorType>(V->getType());
   if (!VecTy)
-    return false;
+    return Res.reset();
   auto *C = dyn_cast<Constant>(V);
   if (!C) {
     if (!ShuffleMask.empty()) {
       const Value *Base = V;
       while (auto *II = dyn_cast<InsertElementInst>(Base)) {
+        if (isa<T>(II->getOperand(1)))
+          continue;
         Base = II->getOperand(0);
         Optional<unsigned> Idx = getInsertIndex(II);
         if (!Idx)
           continue;
         if (*Idx < ShuffleMask.size() && ShuffleMask[*Idx] == UndefMaskElem)
-          return false;
+          Res.reset(*Idx);
       }
-      return V != Base && isUndefVector(Base);
+      // TODO: Add analysis for shuffles here too.
+      if (V == Base) {
+        Res.reset();
+      } else {
+        SmallVector<int> SubMask(ShuffleMask.size(), UndefMaskElem);
+        Res &= isUndefVector<IsPoisonOnly>(Base, SubMask);
+      }
+    } else {
+      Res.reset();
     }
-    return false;
+    return Res;
   }
   for (unsigned I = 0, E = VecTy->getNumElements(); I != E; ++I) {
     if (Constant *Elem = C->getAggregateElement(I))
-      if (!isa<UndefValue>(Elem) &&
+      if (!isa<T>(Elem) &&
           (ShuffleMask.empty() ||
            (I < ShuffleMask.size() && ShuffleMask[I] == UndefMaskElem)))
-        return false;
+        Res.reset(I);
   }
-  return true;
+  return Res;
 }
 
 /// Checks if the vector of instructions can be represented as a shuffle, like:
@@ -560,7 +575,7 @@ isFixedVectorShuffle(ArrayRef<Value *> VL, SmallVectorImpl<int> &Mask) {
       return None;
     auto *Vec = EI->getVectorOperand();
     // We can extractelement from undef or poison vector.
-    if (isUndefVector(Vec))
+    if (isUndefVector(Vec).all())
       continue;
     // All vector operands must have the same number of vector elements.
     if (cast<FixedVectorType>(Vec->getType())->getNumElements() != Size)
@@ -1394,7 +1409,7 @@ public:
           // Undefs are always profitable for extractelements.
           if (!Ex2Idx)
             return LookAheadHeuristics::ScoreConsecutiveExtracts;
-          if (isUndefVector(EV2) && EV2->getType() == EV1->getType())
+          if (isUndefVector(EV2).all() && EV2->getType() == EV1->getType())
             return LookAheadHeuristics::ScoreConsecutiveExtracts;
           if (EV2 == EV1) {
             int Idx1 = Ex1Idx->getZExtValue();
@@ -4272,8 +4287,9 @@ private:
   /// Values used only by @llvm.assume calls.
   SmallPtrSet<const Value *, 32> EphValues;
 
-  /// Holds all of the instructions that we gathered.
-  SetVector<Instruction *> GatherShuffleSeq;
+  /// Holds all of the instructions that we gathered, shuffle instructions and
+  /// extractelements.
+  SetVector<Instruction *> GatherShuffleExtractSeq;
 
   /// A list of blocks that we are going to CSE.
   SetVector<BasicBlock *> CSEBlocks;
@@ -6465,7 +6481,7 @@ static std::pair<size_t, size_t> generateKeySubkey(
     if (isa<ExtractElementInst, UndefValue>(V))
       Key = hash_value(Value::UndefValueVal + 1);
     if (auto *EI = dyn_cast<ExtractElementInst>(V)) {
-      if (!isUndefVector(EI->getVectorOperand()) &&
+      if (!isUndefVector(EI->getVectorOperand()).all() &&
           !isa<UndefValue>(EI->getIndexOperand()))
         SubKey = hash_value(EI->getVectorOperand());
     }
@@ -8349,8 +8365,9 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       // initial vector or inserting a subvector.
       // TODO: Implement the analysis of the FirstInsert->getOperand(0)
       // subvector of ActualVecTy.
-      if (!isUndefVector(FirstInsert->getOperand(0), InsertMask) &&
-          NumScalars != NumElts && !IsWholeSubvector) {
+      SmallBitVector InMask =
+          isUndefVector(FirstInsert->getOperand(0), InsertMask);
+      if (!InMask.all() && NumScalars != NumElts && !IsWholeSubvector) {
         if (InsertVecSz != VecSz) {
           auto *ActualVecTy =
               FixedVectorType::get(SrcVecTy->getElementType(), VecSz);
@@ -8359,13 +8376,13 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
                                   CostKind, OffsetBeg - Offset, InsertVecTy);
         } else {
           for (unsigned I = 0, End = OffsetBeg - Offset; I < End; ++I)
-            Mask[I] = I;
+            Mask[I] = InMask.test(I) ? UndefMaskElem : I;
           for (unsigned I = OffsetBeg - Offset, End = OffsetEnd - Offset;
                I <= End; ++I)
             if (Mask[I] != UndefMaskElem)
               Mask[I] = I + VecSz;
           for (unsigned I = OffsetEnd + 1 - Offset; I < VecSz; ++I)
-            Mask[I] = I;
+            Mask[I] = InMask.test(I) ? UndefMaskElem : I;
           Cost += TTI->getShuffleCost(TTI::SK_PermuteTwoSrc, InsertVecTy, Mask);
         }
       }
@@ -9071,14 +9088,15 @@ static T *performExtractsShuffleAction(
   SmallVector<int> Mask(ShuffleMask.begin()->second);
   auto VMIt = std::next(ShuffleMask.begin());
   T *Prev = nullptr;
-  bool IsBaseNotUndef = !isUndefVector(Base, Mask);
-  if (IsBaseNotUndef) {
+  SmallBitVector IsBaseUndef = isUndefVector(Base, Mask);
+  if (!IsBaseUndef.all()) {
     // Base is not undef, need to combine it with the next subvectors.
     std::pair<T *, bool> Res =
         ResizeAction(ShuffleMask.begin()->first, Mask, /*ForSingleMask=*/false);
+    SmallBitVector IsBasePoison = isUndefVector<true>(Base, Mask);
     for (unsigned Idx = 0, VF = Mask.size(); Idx < VF; ++Idx) {
       if (Mask[Idx] == UndefMaskElem)
-        Mask[Idx] = Idx;
+        Mask[Idx] = IsBasePoison.test(Idx) ? UndefMaskElem : Idx;
       else
         Mask[Idx] = (Res.second ? Idx : Mask[Idx]) + VF;
     }
@@ -9134,6 +9152,8 @@ static T *performExtractsShuffleAction(
     }
     VMIt = std::next(VMIt);
   }
+  bool IsBaseNotUndef = !IsBaseUndef.all();
+  (void)IsBaseNotUndef;
   // Perform requested actions for the remaining masks/vectors.
   for (auto E = ShuffleMask.end(); VMIt != E; ++VMIt) {
     // Shuffle other input vectors, if any.
@@ -9643,13 +9663,34 @@ Instruction &BoUpSLP::getLastInstructionInBundle(const TreeEntry *E) {
     return LastInst;
   };
 
-  auto &&FindFirstInst = [E, Front]() {
+  auto &&FindFirstInst = [E, Front, this]() {
     Instruction *FirstInst = Front;
     for (Value *V : E->Scalars) {
       auto *I = dyn_cast<Instruction>(V);
       if (!I)
         continue;
-      if (I->comesBefore(FirstInst))
+      if (FirstInst->getParent() == I->getParent()) {
+        if (I->comesBefore(FirstInst))
+          FirstInst = I;
+        continue;
+      }
+      assert(isVectorLikeInstWithConstOps(FirstInst) &&
+             isVectorLikeInstWithConstOps(I) &&
+             "Expected vector-like insts only.");
+      if (!DT->isReachableFromEntry(FirstInst->getParent())) {
+        FirstInst = I;
+        continue;
+      }
+      if (!DT->isReachableFromEntry(I->getParent()))
+        continue;
+      auto *NodeA = DT->getNode(FirstInst->getParent());
+      auto *NodeB = DT->getNode(I->getParent());
+      assert(NodeA && "Should only process reachable instructions");
+      assert(NodeB && "Should only process reachable instructions");
+      assert((NodeA == NodeB) ==
+                 (NodeA->getDFSNumIn() == NodeB->getDFSNumIn()) &&
+             "Different nodes should have different DFS numbers");
+      if (NodeA->getDFSNumIn() > NodeB->getDFSNumIn())
         FirstInst = I;
     }
     return FirstInst;
@@ -9658,9 +9699,12 @@ Instruction &BoUpSLP::getLastInstructionInBundle(const TreeEntry *E) {
   // Set the insert point to the beginning of the basic block if the entry
   // should not be scheduled.
   if (E->State != TreeEntry::NeedToGather &&
-      doesNotNeedToSchedule(E->Scalars)) {
+      (doesNotNeedToSchedule(E->Scalars) ||
+       all_of(E->Scalars, isVectorLikeInstWithConstOps))) {
     Instruction *InsertInst;
-    if (all_of(E->Scalars, isUsedOutsideBlock))
+    if (all_of(E->Scalars, [](Value *V) {
+          return !isVectorLikeInstWithConstOps(V) && isUsedOutsideBlock(V);
+        }))
       InsertInst = FindLastInst();
     else
       InsertInst = FindFirstInst();
@@ -9756,7 +9800,7 @@ Value *BoUpSLP::gather(ArrayRef<Value *> VL) {
     auto *InsElt = dyn_cast<InsertElementInst>(Vec);
     if (!InsElt)
       return Vec;
-    GatherShuffleSeq.insert(InsElt);
+    GatherShuffleExtractSeq.insert(InsElt);
     CSEBlocks.insert(InsElt->getParent());
     // Add to our 'need-to-extract' list.
     if (TreeEntry *Entry = getTreeEntry(V)) {
@@ -9910,7 +9954,7 @@ Value *BoUpSLP::vectorizeTree(ArrayRef<Value *> VL) {
             V = Builder.CreateShuffleVector(V, UniformMask, "shrink.shuffle");
           }
           if (auto *I = dyn_cast<Instruction>(V)) {
-            GatherShuffleSeq.insert(I);
+            GatherShuffleExtractSeq.insert(I);
             CSEBlocks.insert(I->getParent());
           }
         }
@@ -9975,7 +10019,7 @@ Value *BoUpSLP::createBuildVector(ArrayRef<Value *> VL) {
     VL = UniqueValues;
   }
 
-  ShuffleInstructionBuilder ShuffleBuilder(Builder, VF, GatherShuffleSeq,
+  ShuffleInstructionBuilder ShuffleBuilder(Builder, VF, GatherShuffleExtractSeq,
                                            CSEBlocks);
   Value *Vec = gather(VL);
   if (!ReuseShuffleIndicies.empty()) {
@@ -9995,7 +10039,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 
   bool NeedToShuffleReuses = !E->ReuseShuffleIndices.empty();
   unsigned VF = E->getVectorFactor();
-  ShuffleInstructionBuilder ShuffleBuilder(Builder, VF, GatherShuffleSeq,
+  ShuffleInstructionBuilder ShuffleBuilder(Builder, VF, GatherShuffleExtractSeq,
                                            CSEBlocks);
   if (E->State == TreeEntry::NeedToGather) {
     if (E->getMainOp())
@@ -10011,7 +10055,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       Vec = Builder.CreateShuffleVector(Entries.front()->VectorizedValue,
                                         Entries.back()->VectorizedValue, Mask);
       if (auto *I = dyn_cast<Instruction>(Vec)) {
-        GatherShuffleSeq.insert(I);
+        GatherShuffleExtractSeq.insert(I);
         CSEBlocks.insert(I->getParent());
       }
     } else {
@@ -10106,7 +10150,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 
     case Instruction::ExtractElement: {
       Value *V = E->getSingleOperand(0);
-      Builder.SetInsertPoint(VL0);
+      setInsertPointAfterBundle(E);
       ShuffleBuilder.addInversedMask(E->ReorderIndices);
       ShuffleBuilder.addMask(E->ReuseShuffleIndices);
       V = ShuffleBuilder.finalize(V);
@@ -10164,7 +10208,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       if (!IsIdentity || NumElts != NumScalars) {
         V = Builder.CreateShuffleVector(V, Mask);
         if (auto *I = dyn_cast<Instruction>(V)) {
-          GatherShuffleSeq.insert(I);
+          GatherShuffleExtractSeq.insert(I);
           CSEBlocks.insert(I->getParent());
         }
       }
@@ -10172,21 +10216,48 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       SmallVector<int> InsertMask(NumElts, UndefMaskElem);
       for (unsigned I = 0; I < NumElts; I++) {
         if (Mask[I] != UndefMaskElem)
-          InsertMask[Offset + I] = NumElts + I;
+          InsertMask[Offset + I] = I;
       }
-      if (Offset != 0 ||
-          !isUndefVector(FirstInsert->getOperand(0), InsertMask)) {
-        for (unsigned I = 0; I < NumElts; I++) {
-          if (InsertMask[I] == UndefMaskElem)
-            InsertMask[I] = I;
-        }
-
-        V = Builder.CreateShuffleVector(
-            FirstInsert->getOperand(0), V, InsertMask,
-            cast<Instruction>(E->Scalars.back())->getName());
-        if (auto *I = dyn_cast<Instruction>(V)) {
-          GatherShuffleSeq.insert(I);
-          CSEBlocks.insert(I->getParent());
+      SmallBitVector IsFirstUndef =
+          isUndefVector(FirstInsert->getOperand(0), InsertMask);
+      if ((!IsIdentity || Offset != 0 || !IsFirstUndef.all()) &&
+          NumElts != NumScalars) {
+        if (IsFirstUndef.all()) {
+          if (!ShuffleVectorInst::isIdentityMask(InsertMask)) {
+            SmallBitVector IsFirstPoison =
+              isUndefVector<true>(FirstInsert->getOperand(0), InsertMask);
+            if (!IsFirstPoison.all()) {
+              for (unsigned I = 0; I < NumElts; I++) {
+                if (InsertMask[I] == UndefMaskElem && !IsFirstPoison.test(I))
+                  InsertMask[I] = I + NumElts;
+              }
+            }
+            V = Builder.CreateShuffleVector(
+                V,
+                IsFirstPoison.all() ? PoisonValue::get(V->getType())
+                                    : FirstInsert->getOperand(0),
+                InsertMask, cast<Instruction>(E->Scalars.back())->getName());
+            if (auto *I = dyn_cast<Instruction>(V)) {
+              GatherShuffleExtractSeq.insert(I);
+              CSEBlocks.insert(I->getParent());
+            }
+          }
+        } else {
+          SmallBitVector IsFirstPoison =
+              isUndefVector<true>(FirstInsert->getOperand(0), InsertMask);
+          for (unsigned I = 0; I < NumElts; I++) {
+            if (InsertMask[I] == UndefMaskElem)
+              InsertMask[I] = IsFirstPoison.test(I) ? UndefMaskElem : I;
+            else
+              InsertMask[I] += NumElts;
+          }
+          V = Builder.CreateShuffleVector(
+              FirstInsert->getOperand(0), V, InsertMask,
+              cast<Instruction>(E->Scalars.back())->getName());
+          if (auto *I = dyn_cast<Instruction>(V)) {
+            GatherShuffleExtractSeq.insert(I);
+            CSEBlocks.insert(I->getParent());
+          }
         }
       }
 
@@ -10704,7 +10775,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       // instruction, if any.
       for (Value *V : {V0, V1}) {
         if (auto *I = dyn_cast<Instruction>(V)) {
-          GatherShuffleSeq.insert(I);
+          GatherShuffleExtractSeq.insert(I);
           CSEBlocks.insert(I->getParent());
         }
       }
@@ -10741,7 +10812,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       Value *V = Builder.CreateShuffleVector(V0, V1, Mask);
       if (auto *I = dyn_cast<Instruction>(V)) {
         V = propagateMetadata(I, E->Scalars);
-        GatherShuffleSeq.insert(I);
+        GatherShuffleExtractSeq.insert(I);
         CSEBlocks.insert(I->getParent());
       }
       V = ShuffleBuilder.finalize(V);
@@ -10841,6 +10912,12 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
         } else {
           Ex = Builder.CreateExtractElement(Vec, Lane);
         }
+        // The then branch of the previous if may produce constants, since 0
+        // operand might be a constant.
+        if (auto *ExI = dyn_cast<Instruction>(Ex)) {
+          GatherShuffleExtractSeq.insert(ExI);
+          CSEBlocks.insert(ExI->getParent());
+        }
         // If necessary, sign-extend or zero-extend ScalarRoot
         // to the larger type.
         if (!MinBWs.count(ScalarRoot))
@@ -10870,7 +10947,6 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
         Builder.SetInsertPoint(&F->getEntryBlock().front());
       }
       Value *NewInst = ExtractAndExtendIfNeeded(Vec);
-      CSEBlocks.insert(cast<Instruction>(Scalar)->getParent());
       auto &NewInstLocs = ExternallyUsedValues[NewInst];
       auto It = ExternallyUsedValues.find(Scalar);
       assert(It != ExternallyUsedValues.end() &&
@@ -10962,20 +11038,17 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
               Builder.SetInsertPoint(PH->getIncomingBlock(i)->getTerminator());
             }
             Value *NewInst = ExtractAndExtendIfNeeded(Vec);
-            CSEBlocks.insert(PH->getIncomingBlock(i));
             PH->setOperand(i, NewInst);
           }
         }
       } else {
         Builder.SetInsertPoint(cast<Instruction>(User));
         Value *NewInst = ExtractAndExtendIfNeeded(Vec);
-        CSEBlocks.insert(cast<Instruction>(User)->getParent());
         User->replaceUsesOfWith(Scalar, NewInst);
       }
     } else {
       Builder.SetInsertPoint(&F->getEntryBlock().front());
       Value *NewInst = ExtractAndExtendIfNeeded(Vec);
-      CSEBlocks.insert(&F->getEntryBlock());
       User->replaceUsesOfWith(Scalar, NewInst);
     }
 
@@ -11012,8 +11085,8 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
           if (IsIdentityMask(Mask, cast<FixedVectorType>(SV->getType())) ||
               SV->isZeroEltSplat())
             break;
-          bool IsOp1Undef = isUndefVector(SV->getOperand(0), Mask);
-          bool IsOp2Undef = isUndefVector(SV->getOperand(1), Mask);
+          bool IsOp1Undef = isUndefVector(SV->getOperand(0), Mask).all();
+          bool IsOp2Undef = isUndefVector(SV->getOperand(1), Mask).all();
           if (!IsOp1Undef && !IsOp2Undef)
             break;
           SmallVector<int> ShuffleMask(SV->getShuffleMask().begin(),
@@ -11033,7 +11106,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
                           &CombineMasks](Value *V1, Value *V2,
                                          ArrayRef<int> Mask) -> Value * {
     assert(V1 && "Expected at least one vector value.");
-    if (V2 && !isUndefVector(V2, Mask)) {
+    if (V2 && !isUndefVector(V2, Mask).all()) {
       // Peek through shuffles.
       Value *Op1 = V1;
       Value *Op2 = V2;
@@ -11061,8 +11134,8 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
             if (SV1->getOperand(0)->getType() ==
                     SV2->getOperand(0)->getType() &&
                 SV1->getOperand(0)->getType() != SV1->getType() &&
-                isUndefVector(SV1->getOperand(1), CombinedMask1) &&
-                isUndefVector(SV2->getOperand(1), CombinedMask2)) {
+                isUndefVector(SV1->getOperand(1), CombinedMask1).all() &&
+                isUndefVector(SV2->getOperand(1), CombinedMask2).all()) {
               Op1 = SV1->getOperand(0);
               Op2 = SV2->getOperand(0);
               SmallVector<int> ShuffleMask1(SV1->getShuffleMask().begin(),
@@ -11089,7 +11162,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
           Op1, Op1 == Op2 ? PoisonValue::get(Op1->getType()) : Op2,
           CombinedMask1);
       if (auto *I = dyn_cast<Instruction>(Vec)) {
-        GatherShuffleSeq.insert(I);
+        GatherShuffleExtractSeq.insert(I);
         CSEBlocks.insert(I->getParent());
       }
       return Vec;
@@ -11104,7 +11177,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
         !IsIdentityMask(CombinedMask, cast<FixedVectorType>(Op->getType()))) {
       Value *Vec = Builder.CreateShuffleVector(Op, CombinedMask);
       if (auto *I = dyn_cast<Instruction>(Vec)) {
-        GatherShuffleSeq.insert(I);
+        GatherShuffleExtractSeq.insert(I);
         CSEBlocks.insert(I->getParent());
       }
       return Vec;
@@ -11244,10 +11317,10 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
 }
 
 void BoUpSLP::optimizeGatherSequence() {
-  LLVM_DEBUG(dbgs() << "SLP: Optimizing " << GatherShuffleSeq.size()
+  LLVM_DEBUG(dbgs() << "SLP: Optimizing " << GatherShuffleExtractSeq.size()
                     << " gather sequences instructions.\n");
   // LICM InsertElementInst sequences.
-  for (Instruction *I : GatherShuffleSeq) {
+  for (Instruction *I : GatherShuffleExtractSeq) {
     if (isDeleted(I))
       continue;
 
@@ -11349,7 +11422,7 @@ void BoUpSLP::optimizeGatherSequence() {
       if (isDeleted(&In))
         continue;
       if (!isa<InsertElementInst, ExtractElementInst, ShuffleVectorInst>(&In) &&
-          !GatherShuffleSeq.contains(&In))
+          !GatherShuffleExtractSeq.contains(&In))
         continue;
 
       // Check if we can replace this instruction with any of the
@@ -11368,7 +11441,7 @@ void BoUpSLP::optimizeGatherSequence() {
           break;
         }
         if (isa<ShuffleVectorInst>(In) && isa<ShuffleVectorInst>(V) &&
-            GatherShuffleSeq.contains(V) &&
+            GatherShuffleExtractSeq.contains(V) &&
             IsIdenticalOrLessDefined(V, &In, NewMask) &&
             DT->dominates(In.getParent(), V->getParent())) {
           In.moveAfter(V);
@@ -11389,7 +11462,7 @@ void BoUpSLP::optimizeGatherSequence() {
     }
   }
   CSEBlocks.clear();
-  GatherShuffleSeq.clear();
+  GatherShuffleExtractSeq.clear();
 }
 
 BoUpSLP::ScheduleData *

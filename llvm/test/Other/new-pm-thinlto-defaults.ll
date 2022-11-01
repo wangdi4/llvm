@@ -305,7 +305,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass
@@ -324,7 +324,6 @@
 ; CHECK-POSTLINK-Os-NEXT: Running pass: InjectTLIMappings
 ; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
-; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-POSTLINK-O2-NEXT: Running pass: SLPVectorizerPass
@@ -349,6 +348,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: MemorySSAAnalysis ;INTEL
+; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running pass: LICMPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSinkPass

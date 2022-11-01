@@ -61,10 +61,21 @@ code bases.
   into an error-only diagnostic in the next Clang release. Fixes
   `Issue 50055 <https://github.com/llvm/llvm-project/issues/50055>`_.
 
+- The ``-Wimplicit-function-declaration`` and ``-Wimplicit-int`` warnings
+  now default to an error in C99, C11, and C17. As of C2x,
+  support for implicit function declarations and implicit int has been removed,
+  and the warning options will have no effect. Specifying ``-Wimplicit-int`` in
+  C89 mode will now issue warnings instead of being a noop.
+
+  **NOTE**: We recommend that projects using configure scripts verify that the
+  results do not change before/after setting
+  ``-Werror=implicit-function-declarations`` or ``-Wimplicit-int`` to avoid
+  incompatibility with Clang 16.
+
 - ``-Wincompatible-function-pointer-types`` now defaults to an error in all C
   language modes. It may be downgraded to a warning with
   ``-Wno-error=incompatible-function-pointer-types`` or disabled entirely with
-  ``-Wno-implicit-function-pointer-types``.
+  ``-Wno-incompatible-function-pointer-types``.
 
   **NOTE:** We recommend that projects using configure scripts verify that the
   results do not change before/after setting
@@ -85,6 +96,67 @@ code bases.
 
   typedef char int8_a16 __attribute__((aligned(16)));
   int8_a16 array[4]; // Now diagnosed as the element size not being a multiple of the array alignment.
+
+- When compiling for Windows in MSVC compatibility mode (for example by using
+  clang-cl), the compiler will now propagate dllimport/export declspecs in
+  explicit specializations of class template member functions (`Issue 54717
+  <https://github.com/llvm/llvm-project/issues/54717>`_):
+
+  .. code-block:: c++
+
+    template <typename> struct __declspec(dllexport) S {
+      void f();
+    };
+    template<> void S<int>::f() {}  // clang-cl will now dllexport this.
+
+  This matches what MSVC does, so it improves compatibility, but it can also
+  cause errors for code which clang-cl would previously accept, for example:
+
+  .. code-block:: c++
+
+    template <typename> struct __declspec(dllexport) S {
+      void f();
+    };
+    template<> void S<int>::f() = delete;  // Error: cannot delete dllexport function.
+
+  .. code-block:: c++
+
+    template <typename> struct __declspec(dllimport) S {
+      void f();
+    };
+    template<> void S<int>::f() {};  // Error: cannot define dllimport function.
+
+  These errors also match MSVC's behavior.
+
+- Clang now diagnoses indirection of ``void *`` in C++ mode as a warning which
+  defaults to an error. This is compatible with ISO C++, GCC, ICC, and MSVC. This
+  is also now a SFINAE error so constraint checking and SFINAE checking can be
+  compatible with other compilers. It is expected that this will be upgraded to
+  an error-only diagnostic in the next Clang release.
+
+  .. code-block:: c++
+
+    void func(void *p) {
+      *p; // Now diagnosed as a warning-as-error.
+    }
+
+- Clang now diagnoses use of a bit-field as an instruction operand in Microsoft
+  style inline asm blocks as an error. Previously, a bit-field operand yielded
+  the address of the allocation unit the bit-field was stored within; reads or
+  writes therefore had the potential to read or write nearby bit-fields. This
+  change fixes `issue 57791 <https://github.com/llvm/llvm-project/issues/57791>`_.
+
+  .. code-block:: c++
+
+    typedef struct S {
+      unsigned bf:1;
+    } S;
+    void f(S s) {
+      __asm {
+        mov eax, s.bf // Now diagnosed as an error.
+        mov s.bf, eax // Now diagnosed as an error.
+      }
+    }
 
 
 What's New in Clang |release|?
@@ -172,7 +244,10 @@ Bug Fixes
 - The template arguments of a variable template being accessed as a
   member will now be represented in the AST.
 - Fix incorrect handling of inline builtins with asm labels.
-
+- Finished implementing C++ DR2565, which results in a requirement becoming
+  not satisfied in the event of an instantiation failures in a requires expression's
+  parameter list. We previously handled this correctly in a constraint evaluation
+  context, but not in a requires clause evaluated as a boolean.
 
 Improvements to Clang's diagnostics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -226,6 +301,12 @@ Improvements to Clang's diagnostics
   doesn't generate strange cascading errors, particularly in cases where a
   subsuming constraint fails, which would result in a less-specific overload to
   be selected.
+- Add a fix-it hint for the ``-Wdefaulted-function-deleted`` warning to
+  explicitly delete the function.
+- Fixed an accidental duplicate diagnostic involving the declaration of a
+  function definition without a prototype which is preceded by a static
+  declaration of the function with a prototype. Fixes
+  `Issue 58181 <https://github.com/llvm/llvm-project/issues/58181>`_.
 
 Non-comprehensive list of changes in this release
 -------------------------------------------------
@@ -257,6 +338,10 @@ Non-comprehensive list of changes in this release
   is the target triple and `driver` first tries the canonical name
   for the driver (respecting ``--driver-mode=``), and then the name found
   in the executable.
+- If the environment variable ``SOURCE_DATE_EPOCH`` is set, it specifies a UNIX
+  timestamp to be used in replacement of the current date and time in
+  the ``__DATE__``, ``__TIME__``, and ``__TIMESTAMP__`` macros. See
+  `<https://reproducible-builds.org/docs/source-date-epoch/>`_.
 
 New Compiler Flags
 ------------------
@@ -277,6 +362,10 @@ New Compiler Flags
 
 Deprecated Compiler Flags
 -------------------------
+- ``-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang``
+  has been deprecated. The flag will be removed in Clang 18.
+  ``-ftrivial-auto-var-init=zero`` is now available unconditionally, to be
+  compatible with GCC.
 
 Modified Compiler Flags
 -----------------------
@@ -359,7 +448,9 @@ C2x Feature Support
 C++ Language Changes in Clang
 -----------------------------
 - Implemented DR692, DR1395 and DR1432. Use the ``-fclang-abi-compat=15`` option
-  to get the old partial ordering behavior regarding packs.
+  to get the old partial ordering behavior regarding packs. Note that the fix for
+  DR1432 is speculative that there is no wording or even resolution for this issue.
+  A speculative fix for DR1432 is needed because it fixes regressions caused by DR692.
 - Clang's default C++/ObjC++ standard is now ``gnu++17`` instead of ``gnu++14``.
   This means Clang will by default accept code using features from C++17 and
   conforming GNU extensions. Projects incompatible with C++17 can add
@@ -404,6 +495,7 @@ C++20 Feature Support
   name is found via ordinary lookup so typedefs are found.
 - Implemented `P0634r3 <https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0634r3.html>`_,
   which removes the requirement for the ``typename`` keyword in certain contexts.
+- Implemented The Equality Operator You Are Looking For (`P2468 <http://wg21.link/p2468r2>`_).
 
 C++2b Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
@@ -433,7 +525,8 @@ OpenMP Support in Clang
 CUDA Support in Clang
 ---------------------
 
-- ...
+- Clang now supports CUDA SDK up to 11.8
+- Added support for targeting sm_{87,89,90} GPUs.
 
 RISC-V Support in Clang
 -----------------------
@@ -450,6 +543,14 @@ DWARF Support in Clang
 
 Arm and AArch64 Support in Clang
 --------------------------------
+
+- The target(..) function attributes for AArch64 now accept:
+
+  * ``"arch=<arch>"`` strings, that specify the architecture for a function as per the ``-march`` option.
+  * ``"cpu=<cpu>"`` strings, that specify the cpu for a function as per the ``-mcpu`` option.
+  * ``"tune=<cpu>"`` strings, that specify the tune cpu for a function as per ``-mtune``.
+  * ``"+<feature>"``, ``"+no<feature>"`` enables/disables the specific feature, for compatibility with GCC target attributes.
+  * ``"<feature>"``, ``"no-<feature>"`` enabled/disables the specific feature, for backward compatibility with previous releases.
 - ``-march`` values for targeting armv2, armv2A, armv3 and armv3M have been removed.
   Their presence gave the impression that Clang can correctly generate code for
   them, which it cannot.
@@ -470,6 +571,7 @@ AST Matchers
 
 clang-format
 ------------
+- Add `RemoveSemicolon` option for removing `;` after a non-empty function definition.
 
 clang-extdef-mapping
 --------------------

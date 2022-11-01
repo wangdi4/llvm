@@ -45,7 +45,7 @@ omp.precond.then:                                 ; preds = %entry
   %3 = load i32, i32* %.capture_expr.1, align 4
   store i32 %3, i32* %.omp.ub, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, i64, i64)* [[OUTLINED_TEST_FENCE:@.+]] to void (i32*, i32*, ...)*), float* %A,
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* nonnull bitcast (void (i32*, i32*, float*, i64, i64)* [[OUTLINED_TEST_FENCE:@.+]] to void (i32*, i32*, ...)*), float* %A,
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
   %5 = load i32, i32* %.omp.lb, align 4

@@ -80,6 +80,9 @@ protected:
 enum class MSVtorDispMode { Never, ForVBaseOverride, ForVFTable };
 
 /// Shader programs run in specific pipeline stages.
+/// The order of these values matters, and must be kept in sync with the
+/// Triple Environment enum in llvm::Triple. The ordering is enforced in
+///  static_asserts in Triple.cpp and in clang/Basic/HLSLRuntime.h.
 enum class ShaderStage {
   Pixel = 0,
   Vertex,
@@ -406,6 +409,17 @@ public:
     Explicit,
     /// map all default visibilities to exported
     All,
+  };
+
+  enum class StrictFlexArraysLevelKind {
+    /// Any trailing array member is a FAM.
+    Default = 0,
+    /// Any trailing array member of undefined, 0, or 1 size is a FAM.
+    OneZeroOrIncomplete = 1,
+    /// Any trailing array member of undefined or 0 size is a FAM.
+    ZeroOrIncomplete = 2,
+    /// Any trailing array member of undefined size is a FAM.
+    Incomplete = 3,
   };
 
 public:

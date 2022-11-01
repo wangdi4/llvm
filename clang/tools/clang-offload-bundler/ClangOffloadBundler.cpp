@@ -30,6 +30,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/Cuda.h"
+#include "clang/Basic/TargetID.h"
 #include "clang/Basic/Version.h"
 #include "clang/Driver/OffloadBundler.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -70,6 +71,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <forward_list>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -399,6 +401,8 @@ int main(int argc, const char **argv) {
   unsigned HostTargetNum = 0u;
   bool HIPOnly = true;
   llvm::DenseSet<StringRef> ParsedTargets;
+  // Map {offload-kind}-{triple} to target IDs.
+  std::map<std::string, std::set<StringRef>> TargetIDs;
   for (StringRef Target : TargetNames) {
     if (ParsedTargets.contains(Target)) {
       reportError(createStringError(errc::invalid_argument,
@@ -421,6 +425,8 @@ int main(int argc, const char **argv) {
       reportError(createStringError(errc::invalid_argument, Msg.str()));
     }
 
+    TargetIDs[OffloadInfo.OffloadKind.str() + "-" + OffloadInfo.Triple.str()]
+        .insert(OffloadInfo.TargetID);
     if (KindIsValid && OffloadInfo.hasHostKind()) {
       ++HostTargetNum;
       // Save the index of the input that refers to the host.
@@ -431,6 +437,17 @@ int main(int argc, const char **argv) {
       HIPOnly = false;
 
     ++Index;
+  }
+  for (const auto &TargetID : TargetIDs) {
+    if (auto ConflictingTID =
+            clang::getConflictTargetIDCombination(TargetID.second)) {
+      SmallVector<char, 128u> Buf;
+      raw_svector_ostream Msg(Buf);
+      Msg << "Cannot bundle inputs with conflicting targets: '"
+          << TargetID.first + "-" + ConflictingTID->first << "' and '"
+          << TargetID.first + "-" + ConflictingTID->second << "'";
+      reportError(createStringError(errc::invalid_argument, Msg.str()));
+    }
   }
 
   if (CheckSection) {

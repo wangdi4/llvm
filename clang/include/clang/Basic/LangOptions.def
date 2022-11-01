@@ -361,6 +361,7 @@ LANGOPT(EnableVariantFunctionPointers, 1, 0, "Allow function pointers with vecto
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(SYCLStdLayoutKernelParams, 1, 0, "Enable standard layout requirement for SYCL kernel parameters")
 LANGOPT(SYCLUnnamedLambda , 1, 0, "Allow unnamed lambda SYCL kernels")
+LANGOPT(SYCLForceInlineKernelLambda , 1, 0, "Force inline SYCL kernel lambdas in entry point")
 LANGOPT(SYCLESIMDForceStatelessMem, 1, 0, "Make accessors use USM memory in ESIMD kernels")
 ENUM_LANGOPT(SYCLVersion  , SYCLMajorVersion, 2, SYCL_None, "Version of the SYCL standard used")
 LANGOPT(DeclareSPIRVBuiltins, 1, 0, "Declare SPIR-V builtin functions")
@@ -531,7 +532,10 @@ LANGOPT(PaddingOnUnsignedFixedPoint, 1, 0,
 LANGOPT(RegisterStaticDestructors, 1, 1, "Register C++ static destructors")
 
 LANGOPT(MatrixTypes, 1, 0, "Enable or disable the builtin matrix type")
-LANGOPT(StrictFlexArrays, 2, 0, "Rely on strict definition of flexible arrays")
+
+ENUM_LANGOPT(StrictFlexArraysLevel, StrictFlexArraysLevelKind, 2,
+             StrictFlexArraysLevelKind::Default,
+             "Rely on strict definition of flexible arrays")
 
 COMPATIBLE_VALUE_LANGOPT(MaxTokens, 32, 0, "Max number of tokens per TU or 0")
 

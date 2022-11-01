@@ -24,9 +24,7 @@
 
 namespace llvm {
 
-class StdContainerAAResult : public AAResultBase<StdContainerAAResult> {
-  friend AAResultBase<StdContainerAAResult>;
-
+class StdContainerAAResult : public AAResultBase {
 public:
   explicit StdContainerAAResult() : AAResultBase() {}
   StdContainerAAResult(StdContainerAAResult &&Arg)

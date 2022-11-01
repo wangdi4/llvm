@@ -1824,6 +1824,24 @@ protected:
     unsigned IsUnqual : 1; // If true: typeof_unqual, else: typeof
   };
 
+  class UsingBitfields {
+    friend class UsingType;
+
+    unsigned : NumTypeBits;
+
+    /// True if the underlying type is different from the declared one.
+    unsigned hasTypeDifferentFromDecl : 1;
+  };
+
+  class TypedefBitfields {
+    friend class TypedefType;
+
+    unsigned : NumTypeBits;
+
+    /// True if the underlying type is different from the declared one.
+    unsigned hasTypeDifferentFromDecl : 1;
+  };
+
   class SubstTemplateTypeParmTypeBitfields {
     friend class SubstTemplateTypeParmType;
 
@@ -1914,6 +1932,8 @@ protected:
     AttributedTypeBitfields AttributedTypeBits;
     AutoTypeBitfields AutoTypeBits;
     TypeOfBitfields TypeOfBits;
+    TypedefBitfields TypedefBits;
+    UsingBitfields UsingBits;
     BuiltinTypeBitfields BuiltinTypeBits;
     FunctionTypeBitfields FunctionTypeBits;
     ObjCObjectTypeBitfields ObjCObjectTypeBits;
@@ -4508,9 +4528,12 @@ public:
   }
 };
 
-class UsingType : public Type, public llvm::FoldingSetNode {
+class UsingType final : public Type,
+                        public llvm::FoldingSetNode,
+                        private llvm::TrailingObjects<UsingType, QualType> {
   UsingShadowDecl *Found;
   friend class ASTContext; // ASTContext creates these.
+  friend TrailingObjects;
 
   UsingType(const UsingShadowDecl *Found, QualType Underlying, QualType Canon);
 
@@ -4519,21 +4542,31 @@ public:
   QualType getUnderlyingType() const;
 
   bool isSugared() const { return true; }
+
+  // This always has the 'same' type as declared, but not necessarily identical.
   QualType desugar() const { return getUnderlyingType(); }
 
-  void Profile(llvm::FoldingSetNodeID &ID) { Profile(ID, Found); }
-  static void Profile(llvm::FoldingSetNodeID &ID,
-                      const UsingShadowDecl *Found) {
+  // Internal helper, for debugging purposes.
+  bool typeMatchesDecl() const { return !UsingBits.hasTypeDifferentFromDecl; }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, Found, typeMatchesDecl() ? QualType() : getUnderlyingType());
+  }
+  static void Profile(llvm::FoldingSetNodeID &ID, const UsingShadowDecl *Found,
+                      QualType Underlying) {
     ID.AddPointer(Found);
+    if (!Underlying.isNull())
+      Underlying.Profile(ID);
   }
   static bool classof(const Type *T) { return T->getTypeClass() == Using; }
 };
 
-class TypedefType : public Type {
+class TypedefType final : public Type,
+                          public llvm::FoldingSetNode,
+                          private llvm::TrailingObjects<TypedefType, QualType> {
   TypedefNameDecl *Decl;
-
-private:
   friend class ASTContext; // ASTContext creates these.
+  friend TrailingObjects;
 
   TypedefType(TypeClass tc, const TypedefNameDecl *D, QualType underlying,
               QualType can);
@@ -4542,7 +4575,22 @@ public:
   TypedefNameDecl *getDecl() const { return Decl; }
 
   bool isSugared() const { return true; }
+
+  // This always has the 'same' type as declared, but not necessarily identical.
   QualType desugar() const;
+
+  // Internal helper, for debugging purposes.
+  bool typeMatchesDecl() const { return !TypedefBits.hasTypeDifferentFromDecl; }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, Decl, typeMatchesDecl() ? QualType() : desugar());
+  }
+  static void Profile(llvm::FoldingSetNodeID &ID, const TypedefNameDecl *Decl,
+                      QualType Underlying) {
+    ID.AddPointer(Decl);
+    if (!Underlying.isNull())
+      Underlying.Profile(ID);
+  }
 
   static bool classof(const Type *T) { return T->getTypeClass() == Typedef; }
 };
@@ -4592,8 +4640,11 @@ protected:
 public:
   Expr *getUnderlyingExpr() const { return TOExpr; }
 
-  /// Returns true if this is a typeof_unqual type.
-  bool isUnqual() const { return TypeOfBits.IsUnqual; }
+  /// Returns the kind of 'typeof' type this is.
+  TypeOfKind getKind() const {
+    return TypeOfBits.IsUnqual ? TypeOfKind::Unqualified
+                               : TypeOfKind::Qualified;
+  }
 
   /// Remove a single level of sugar.
   QualType desugar() const;
@@ -4619,7 +4670,8 @@ public:
       : TypeOfExprType(E, Kind), Context(Context) {}
 
   void Profile(llvm::FoldingSetNodeID &ID) {
-    Profile(ID, Context, getUnderlyingExpr(), isUnqual());
+    Profile(ID, Context, getUnderlyingExpr(),
+            getKind() == TypeOfKind::Unqualified);
   }
 
   static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
@@ -4648,14 +4700,17 @@ public:
   /// Remove a single level of sugar.
   QualType desugar() const {
     QualType QT = getUnmodifiedType();
-    return isUnqual() ? QT.getAtomicUnqualifiedType() : QT;
+    return TypeOfBits.IsUnqual ? QT.getAtomicUnqualifiedType() : QT;
   }
 
   /// Returns whether this type directly provides sugar.
   bool isSugared() const { return true; }
 
-  /// Returns true if this is a typeof_unqual type.
-  bool isUnqual() const { return TypeOfBits.IsUnqual; }
+  /// Returns the kind of 'typeof' type this is.
+  TypeOfKind getKind() const {
+    return TypeOfBits.IsUnqual ? TypeOfKind::Unqualified
+                               : TypeOfKind::Qualified;
+  }
 
   static bool classof(const Type *T) { return T->getTypeClass() == TypeOf; }
 };

@@ -340,6 +340,24 @@ def LinalgStructuredInterface : OpInterface<"LinalgOp"> {
     >,
     InterfaceMethod<
       /*desc=*/[{
+        Return the input block arguments of the region.
+      }],
+      /*retTy=*/"Block::BlockArgListType",
+      /*methodName=*/"getRegionInputArgs",
+      /*args=*/(ins),
+      /*methodBody=*/"",
+      /*defaultImplementation=*/[{
+        // MLIR currently does not support dependent interfaces or interface
+        // inheritance. By construction all ops with StructuredOpInterface must
+        // implement DestinationStyleOpInterface.
+        // TODO: reevalute the need for a cast when a better mechanism exists.
+        return getBlock()->getArguments().take_front(
+            cast<DestinationStyleOpInterface>(*this->getOperation())
+                .getNumInputs());
+      }]
+    >,
+    InterfaceMethod<
+      /*desc=*/[{
         Return the output block arguments of the region.
       }],
       /*retTy=*/"Block::BlockArgListType",
@@ -481,26 +499,19 @@ def LinalgStructuredInterface : OpInterface<"LinalgOp"> {
     >,
     InterfaceMethod<
       /*desc=*/[{
-        Return the iterator types attribute within the current operation.
-      }],
-      /*retTy=*/"ArrayAttr",
-      /*methodName=*/"iterator_types",
-      /*args=*/(ins),
-      /*methodBody=*/"",
-      /*defaultImplementation=*/[{
-        return $_op.getIteratorTypes();
-      }]
-    >,
-    InterfaceMethod<
-      /*desc=*/[{
         Return iterator types in the current operation.
+
+        Default implementation assumes that the operation has an attribute
+        `iterator_types`, but it's not always the case. Sometimes iterator types
+        can be infered from other parameters and in such cases default
+        getIteratorTypesArray should be overriden.
       }],
       /*retTy=*/"SmallVector<StringRef>",
       /*methodName=*/"getIteratorTypesArray",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
-        auto range = $_op.iterator_types().template getAsValueRange<StringAttr>();
+        auto range = $_op.getIteratorTypes().template getAsValueRange<StringAttr>();
         return {range.begin(), range.end()};
       }]
     >,
@@ -755,9 +766,6 @@ def LinalgStructuredInterface : OpInterface<"LinalgOp"> {
     LogicalResult reifyResultShapes(OpBuilder &b,
         ReifiedRankedShapedTypeDims &reifiedReturnShapes);
 
-    // TODO: Remove once prefixing is flipped.
-    ArrayAttr getIteratorTypes() { return iterator_types(); }
-
     SmallVector<StringRef> getIteratorTypeNames() {
       return getIteratorTypesArray();
     }
@@ -771,8 +779,9 @@ def LinalgStructuredInterface : OpInterface<"LinalgOp"> {
     // TODO: reevalute the need for a cast when a better mechanism exists.
     //========================================================================//
 
-    ValueRange inputs() {
-      return cast<DestinationStyleOpInterface>(*this->getOperation()).inputs();
+    ValueRange getInputs() {
+      return cast<DestinationStyleOpInterface>(*this->getOperation())
+          .getInputs();
     }
 
     int64_t getNumInputs() {
@@ -780,7 +789,7 @@ def LinalgStructuredInterface : OpInterface<"LinalgOp"> {
           .getNumInputs();
     }
 
-    ValueRange outputs() {
+    ValueRange getOutputs() {
       return cast<DestinationStyleOpInterface>(*this->getOperation())
           .getOutputs();
     }
@@ -922,7 +931,7 @@ def LinalgStructuredInterface : OpInterface<"LinalgOp"> {
 // The 'DestinationStyleOpInterface' provides access to the methods relevant
 // for destination-style ops. A destination-style operation has 'n' input
 // arguments and 'm' output arguments. Each op that wants to implement
-// DestinationStyleOpInterface needs to define inputs() and getOutputs()
+// DestinationStyleOpInterface needs to define getInputs() and getOutputs()
 // methods.
 def DestinationStyleOpInterface : OpInterface<"DestinationStyleOpInterface"> {
   let cppNamespace = "::mlir::linalg";
@@ -930,18 +939,18 @@ def DestinationStyleOpInterface : OpInterface<"DestinationStyleOpInterface"> {
     //===------------------------------------------------------------------===//
     // Num input/output arguments handling.
     //===------------------------------------------------------------------===//
-    // `inputs` must be defined by each op that wants to implement the
+    // `getInputs` must be defined by each op that wants to implement the
     // DestinationStyleOpInterface.
     InterfaceMethod<
       /*desc=*/[{
         Return the input shape operands.
       }],
       /*retTy=*/"ValueRange",
-      /*methodName=*/"inputs",
+      /*methodName=*/"getInputs",
       /*args=*/(ins)
     >,
-    // These special methods rely on `inputs` and `outputs` being defined by
-    // each op that wants to implement the DestinationStyleOpInterface.
+    // These special methods rely on `getInputs` and `getOutputs` being defined
+    // by each op that wants to implement the DestinationStyleOpInterface.
     InterfaceMethod<
       /*desc=*/[{
         Return the number of inputs.

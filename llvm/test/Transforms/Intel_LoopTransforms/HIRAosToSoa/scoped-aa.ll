@@ -1,6 +1,6 @@
-; RUN: opt -scoped-noalias-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,RESTRICT %s
+; RUN: opt -aa-pipeline=scoped-noalias-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,RESTRICT %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa,scoped-noalias-aa" -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,NORESTRICT %s
+; RUN: opt -aa-pipeline=basic-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,NORESTRICT %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck --check-prefixes=CHECK,NORESTRICT %s
 
 ; Check that AosToSoa kicks in for cases where memory references may have outer

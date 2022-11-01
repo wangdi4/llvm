@@ -34,8 +34,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/BinaryFormat/ELF.h"
+#include "llvm/Option/ArgList.h"
 #include "llvm/Support/CachePruning.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/GlobPattern.h"
@@ -53,6 +55,7 @@ class ELFFileBase;
 class SharedFile;
 class InputSectionBase;
 class Symbol;
+class BitcodeCompiler;
 
 enum ELFKind : uint8_t {
   ELFNoneKind,
@@ -114,11 +117,51 @@ struct VersionDefinition {
   SmallVector<SymbolVersion, 0> localPatterns;
 };
 
+class LinkerDriver {
+public:
+  void linkerMain(ArrayRef<const char *> args);
+  void addFile(StringRef path, bool withLOption);
+  void addLibrary(StringRef name);
+
+private:
+  void createFiles(llvm::opt::InputArgList &args);
+  void inferMachineType();
+  void link(llvm::opt::InputArgList &args);
+  template <class ELFT> void compileBitcodeFiles(bool skipLinkedOutput);
+
+  // True if we are in --whole-archive and --no-whole-archive.
+  bool inWholeArchive = false;
+
+  // True if we are in --start-lib and --end-lib.
+  bool inLib = false;
+
+  std::unique_ptr<BitcodeCompiler> lto;
+  std::vector<InputFile *> files;
+
+#if INTEL_CUSTOMIZATION
+  // Helper function for finding the ELF target used for GNU LTO files and
+  // invoke doGNULTOLinking.
+  void finalizeGNULTO(llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles,
+                      bool isLazyFile);
+
+  // Pass to g++ the input vector of GNU LTO files in order to do LTO and
+  // build a temporary object. Then collect the ELF object generated and
+  // add it to the linking process either as a regular object file or
+  // lazy object (archive members).
+  template <class ELFT> void
+  doGNULTOLinking(llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles,
+                  bool isLazyFile);
+#endif // INTEL_CUSTOMIZATION
+
+public:
+  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
+};
+
 // This struct contains the global configuration for the linker.
 // Most fields are direct mapping from the command line options
 // and such fields have the same name as the corresponding options.
-// Most fields are initialized by the driver.
-struct Configuration {
+// Most fields are initialized by the ctx.driver.
+struct Config {
   uint8_t osabi = 0;
   uint32_t andFeatures = 0;
   llvm::CachePruningPolicy thinLTOCachePolicy;
@@ -390,9 +433,12 @@ struct Configuration {
 
   unsigned threadCount;
 };
+struct ConfigWrapper {
+  Config c;
+  Config *operator->() { return &c; }
+};
 
-// The only instance of Configuration struct.
-extern std::unique_ptr<Configuration> config;
+LLVM_LIBRARY_VISIBILITY extern ConfigWrapper config;
 
 struct DuplicateSymbol {
   const Symbol *sym;
@@ -402,6 +448,7 @@ struct DuplicateSymbol {
 };
 
 struct Ctx {
+  LinkerDriver driver;
   SmallVector<std::unique_ptr<MemoryBuffer>> memoryBuffers;
   SmallVector<ELFFileBase *, 0> objectFiles;
   SmallVector<SharedFile *, 0> sharedFiles;
@@ -415,10 +462,6 @@ struct Ctx {
   // Symbols in a non-prevailing COMDAT group which should be changed to an
   // Undefined.
   SmallVector<std::pair<Symbol *, unsigned>, 0> nonPrevailingSyms;
-  // True if SHT_LLVM_SYMPART is used.
-  std::atomic<bool> hasSympart{false};
-  // True if we need to reserve two .got entries for local-dynamic TLS model.
-  std::atomic<bool> needsTlsLd{false};
   // A tuple of (reference, extractedFile, sym). Used by --why-extract=.
   SmallVector<std::tuple<std::string, const InputFile *, const Symbol &>, 0>
       whyExtractRecords;
@@ -427,10 +470,15 @@ struct Ctx {
   llvm::DenseMap<const Symbol *,
                  std::pair<const InputFile *, const InputFile *>>
       backwardReferences;
+  // True if SHT_LLVM_SYMPART is used.
+  std::atomic<bool> hasSympart{false};
+  // True if we need to reserve two .got entries for local-dynamic TLS model.
+  std::atomic<bool> needsTlsLd{false};
+
+  void reset();
 };
 
-// The only instance of Ctx struct.
-extern std::unique_ptr<Ctx> ctx;
+LLVM_LIBRARY_VISIBILITY extern Ctx ctx;
 
 // The first two elements of versionDefinitions represent VER_NDX_LOCAL and
 // VER_NDX_GLOBAL. This helper returns other elements.

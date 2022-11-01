@@ -1232,17 +1232,14 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
   auto ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
-  auto *LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
-  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    return LAA->getInfo(&L);
-  };
+  auto LAIs = &getAnalysis<LoopAccessLegacyAnalysis>().getLAIs();
   auto Verbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
   auto *BFI = &getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
 
-  return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
+  return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR,
                       TTI, TLI, BFI, nullptr, FatalErrorHandler);
 }
 
@@ -1264,15 +1261,9 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
   auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
-  auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
-  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI, *SE,
-                                      *TLI, *TTI, BFI, nullptr /* BPI */,
-                                      nullptr /* MemorySSA */};
-    return LAM.getResult<LoopAccessAnalysis>(L, AR);
-  };
+  LoopAccessInfoManager *LAIs = &AM.getResult<LoopAccessAnalysis>(F);
 
-  if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
+  if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR, TTI,
                     TLI, BFI, nullptr, nullptr))
     return PreservedAnalyses::all();
 
@@ -1285,7 +1276,7 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
 bool VPlanDriverImpl::runImpl(
     Function &Fn, LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
     AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
-    std::function<const LoopAccessInfo &(Loop &)> GetLAA,
+    LoopAccessInfoManager *LAIs,
     OptimizationRemarkEmitter *ORE, OptReportVerbosity::Level Verbosity,
     WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
     BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
@@ -1302,7 +1293,7 @@ bool VPlanDriverImpl::runImpl(
   this->AC = AC;
   this->AA = AA;
   this->DB = DB;
-  this->GetLAA = &GetLAA;
+  this->LAIs = LAIs;
   this->ORE = ORE;
   this->TTI = TTI;
   this->TLI = TLI;
@@ -1849,7 +1840,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
   PredicatedScalarEvolution PSE(*SE, *Lp);
   LoopVectorizationRequirements Requirements;
   LoopVectorizeHints Hints(Lp, true, *ORE);
-  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
+  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, *LAIs, LI, ORE,
                                 &Requirements, &Hints, DB, AC, BFI, PSI);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))
@@ -1860,7 +1851,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
     return false;
 
   // Bail out if any runtime checks are needed
-  auto LAI = &(*GetLAA)(*Lp);
+  auto LAI = &LAIs->getInfo(*Lp);
   if (LAI->getNumRuntimePointerChecks())
     return false;
 

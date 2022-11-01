@@ -605,7 +605,8 @@ __ESIMD_API std::enable_if_t<!std::is_pointer<AccessorTy>::value,
 lsc_gather(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
            __ESIMD_NS::simd_mask<N> pred = 1) {
 #ifdef __ESIMD_FORCE_STATELESS_MEM
-  return lsc_gather<T, N, DS, L1H>(acc.get_pointer().get(), offsets, pred);
+  return lsc_gather<T, NElts, DS, L1H, L3H>(acc.get_pointer().get(), offsets,
+                                            pred);
 #else
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
@@ -674,9 +675,19 @@ lsc_block_load(const T *p, __ESIMD_NS::simd_mask<1> pred = 1) {
   constexpr detail::lsc_vector_size _VS =
       detail::to_lsc_vector_size<NElts / SmallIntFactor>();
   if constexpr (SmallIntFactor == 1) {
-    return __esimd_lsc_load_stateless<T, L1H, L3H, _AddressScale, _ImmOffset,
-                                      _DS, _VS, _Transposed, N>(pred.data(),
-                                                                addrs.data());
+    if constexpr (_DS == lsc_data_size::u32) {
+      __ESIMD_NS::simd<uint32_t, NElts> result =
+          __esimd_lsc_load_stateless<uint32_t, L1H, L3H, _AddressScale,
+                                     _ImmOffset, lsc_data_size::u32, _VS,
+                                     _Transposed, N>(pred.data(), addrs.data());
+      return result.template bit_cast_view<T>();
+    } else {
+      __ESIMD_NS::simd<uint64_t, NElts> result =
+          __esimd_lsc_load_stateless<uint64_t, L1H, L3H, _AddressScale,
+                                     _ImmOffset, lsc_data_size::u64, _VS,
+                                     _Transposed, N>(pred.data(), addrs.data());
+      return result.template bit_cast_view<T>();
+    }
   } else {
     __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> result =
         __esimd_lsc_load_stateless<uint32_t, L1H, L3H, _AddressScale,
@@ -739,11 +750,20 @@ lsc_block_load(AccessorTy acc, uint32_t offset,
       detail::to_lsc_vector_size<NElts / SmallIntFactor>();
 
   if constexpr (SmallIntFactor == 1) {
-    return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
-                                _VS, _Transposed, N>(pred.data(),
-                                                     offsets.data(), si);
+    if constexpr (_DS == lsc_data_size::u32) {
+      __ESIMD_NS::simd<uint32_t, NElts> result =
+          __esimd_lsc_load_bti<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
+                               lsc_data_size::u32, _VS, _Transposed, N>(
+              pred.data(), offsets.data(), si);
+      return result.template bit_cast_view<T>();
+    } else {
+      __ESIMD_NS::simd<uint64_t, NElts> result =
+          __esimd_lsc_load_bti<uint64_t, L1H, L3H, _AddressScale, _ImmOffset,
+                               lsc_data_size::u64, _VS, _Transposed, N>(
+              pred.data(), offsets.data(), si);
+      return result.template bit_cast_view<T>();
+    }
   } else {
-
     __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> result =
         __esimd_lsc_load_bti<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
                              lsc_data_size::u32, _VS, _Transposed, N>(
@@ -1062,8 +1082,8 @@ lsc_scatter(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
             __ESIMD_NS::simd<T, N * NElts> vals,
             __ESIMD_NS::simd_mask<N> pred = 1) {
 #ifdef __ESIMD_FORCE_STATELESS_MEM
-  lsc_scatter<T, NElts, DS, L1H>(__ESIMD_DNS::accessorToPointer<T>(acc),
-                                 offsets, pred);
+  lsc_scatter<T, NElts, DS, L1H, L3H>(__ESIMD_DNS::accessorToPointer<T>(acc),
+                                      offsets, vals, pred);
 #else
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
@@ -1125,13 +1145,23 @@ __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
   constexpr detail::lsc_vector_size _VS =
       detail::to_lsc_vector_size<NElts / SmallIntFactor>();
   if constexpr (SmallIntFactor == 1) {
-
-    __esimd_lsc_store_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
-                                _VS, _Transposed, N>(pred.data(), addrs.data(),
-                                                     vals.data());
+    if constexpr (_DS == lsc_data_size::u32) {
+      __esimd_lsc_store_stateless<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
+                                  _DS, _VS, _Transposed, N>(
+          pred.data(), addrs.data(),
+          sycl::bit_cast<__ESIMD_DNS::vector_type_t<uint32_t, NElts>>(
+              vals.data()));
+    } else {
+      __esimd_lsc_store_stateless<uint64_t, L1H, L3H, _AddressScale, _ImmOffset,
+                                  _DS, _VS, _Transposed, N>(
+          pred.data(), addrs.data(),
+          sycl::bit_cast<__ESIMD_DNS::vector_type_t<uint64_t, NElts>>(
+              vals.data()));
+    }
   } else {
-    __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> tmp =
-        vals.template bit_cast_view<uint32_t>();
+    __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> tmp = sycl::bit_cast<
+        __ESIMD_DNS::vector_type_t<uint32_t, NElts / SmallIntFactor>>(
+        vals.data());
 
     __esimd_lsc_store_stateless<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
                                 lsc_data_size::u32, _VS, _Transposed, N>(
@@ -1169,7 +1199,7 @@ lsc_block_store(AccessorTy acc, uint32_t offset,
                 __ESIMD_NS::simd<T, NElts> vals,
                 __ESIMD_NS::simd_mask<1> pred = 1) {
 #ifdef __ESIMD_FORCE_STATELESS_MEM
-  lsc_block_store<T, NElts, DS, L1H>(
+  lsc_block_store<T, NElts, DS, L1H, L3H>(
       __ESIMD_DNS::accessorToPointer<T>(acc, offset), vals, pred);
 #else
   detail::check_lsc_data_size<T, DS>();
@@ -1192,15 +1222,29 @@ lsc_block_store(AccessorTy acc, uint32_t offset,
   constexpr detail::lsc_vector_size _VS =
       detail::to_lsc_vector_size<NElts / SmallIntFactor>();
   if constexpr (SmallIntFactor > 1) {
-    __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> Tmp =
-        vals.template bit_cast_view<uint32_t>();
     __esimd_lsc_store_bti<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
                           lsc_data_size::u32, _VS, _Transposed, N>(
-        pred.data(), offsets.data(), Tmp.data(), si);
+        pred.data(), offsets.data(),
+        sycl::bit_cast<
+            __ESIMD_DNS::vector_type_t<uint32_t, NElts / SmallIntFactor>>(
+            vals.data()),
+        si);
   } else {
-    __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                          _Transposed, N>(pred.data(), offsets.data(),
-                                          vals.data(), si);
+    if constexpr (_DS == lsc_data_size::u32) {
+      __esimd_lsc_store_bti<uint32_t, L1H, L3H, _AddressScale, _ImmOffset, _DS,
+                            _VS, _Transposed, N>(
+          pred.data(), offsets.data(),
+          sycl::bit_cast<__ESIMD_DNS::vector_type_t<uint32_t, NElts>>(
+              vals.data()),
+          si);
+    } else {
+      __esimd_lsc_store_bti<uint64_t, L1H, L3H, _AddressScale, _ImmOffset, _DS,
+                            _VS, _Transposed, N>(
+          pred.data(), offsets.data(),
+          sycl::bit_cast<__ESIMD_DNS::vector_type_t<uint64_t, NElts>>(
+              vals.data()),
+          si);
+    }
   }
 #endif
 }

@@ -1,4 +1,5 @@
 /// Check "-aux-target-cpu" and "target-cpu" are passed when compiling for SYCL offload device and host codes:
+// UNSUPPORTED: windows
 //  RUN:  %clang -### -fsycl -c %s 2>&1 | FileCheck -check-prefix=CHECK-OFFLOAD %s
 //  CHECK-OFFLOAD: clang{{.*}} "-cc1" {{.*}} "-fsycl-is-device"
 //  CHECK-OFFLOAD-SAME: "-aux-target-cpu" "[[HOST_CPU_NAME:[^ ]+]]"

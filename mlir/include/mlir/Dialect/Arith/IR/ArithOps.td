@@ -1,4 +1,4 @@
-//===- ArithOps.td - Arith op definitions -------------*- tablegen -*-===//
+//===- ArithOps.td - Arith op definitions ------------------*- tablegen -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,7 +21,7 @@ include "mlir/IR/OpAsmInterface.td"
 // Base class for Arith dialect ops. Ops in this dialect have no side
 // effects and can be applied element-wise to vectors and tensors.
 class Arith_Op<string mnemonic, list<Trait> traits = []> :
-    Op<Arith_Dialect, mnemonic, traits # [NoSideEffect,
+    Op<Arith_Dialect, mnemonic, traits # [Pure,
     DeclareOpInterfaceMethods<VectorUnrollOpInterface>] #
     ElementwiseMappable.traits>;
 
@@ -127,7 +127,7 @@ class Arith_CompareOpOfAnyRank<string mnemonic, list<Trait> traits = []> :
 //===----------------------------------------------------------------------===//
 
 def Arith_ConstantOp : Op<Arith_Dialect, "constant",
-    [ConstantLike, NoSideEffect,
+    [ConstantLike, Pure,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>,
      AllTypesMatch<["value", "result"]>,
      DeclareOpInterfaceMethods<InferIntRangeInterface>]> {
@@ -1029,6 +1029,25 @@ def Arith_IndexCastOp
     Casts between scalar or vector integers and corresponding 'index' scalar or
     vectors. Index is an integer of platform-specific bit width. If casting to
     a wider integer, the value is sign-extended. If casting to a narrower
+    integer, the value is truncated.
+  }];
+
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// IndexCastUIOp
+//===----------------------------------------------------------------------===//
+
+def Arith_IndexCastUIOp
+  : Arith_CastOp<"index_castui", IndexCastTypeConstraint, IndexCastTypeConstraint,
+                 [DeclareOpInterfaceMethods<InferIntRangeInterface>]> {
+  let summary = "unsigned cast between index and integer types";
+  let description = [{
+    Casts between scalar or vector integers and corresponding 'index' scalar or
+    vectors. Index is an integer of platform-specific bit width. If casting to
+    a wider integer, the value is zero-extended. If casting to a narrower
     integer, the value is truncated.
   }];
 

@@ -6767,6 +6767,8 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
       return;
   }
 
+  const TargetInfo &TI = S.getASTContext().getTargetInfo();
+
   // Assemble the list of required features.
   SmallVector<StringRef, 8> ReqFeatures;
   if (auto BuiltinID = Callee->getBuiltinID(true)) {
@@ -6777,10 +6779,10 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
       StringRef(FeatureStr).split(ReqFeatures, ',');
     }
   } else if (const auto *TA = Callee->getAttr<TargetAttr>()){
-    ParsedTargetAttr ParsedInfo = TA->parse();
+    ParsedTargetAttr ParsedInfo = TI.parseTargetAttr(TA->getFeaturesStr());
 
     // Setting the CPU isn't supported for target promoting.
-    if (!ParsedInfo.Architecture.empty())
+    if (!ParsedInfo.CPU.empty())
       return;
     TA->getAddedFeatures(ReqFeatures);
   }
@@ -6790,7 +6792,6 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
     return;
 
   // Figure out which features we currently have.
-  const TargetInfo &TI = S.getASTContext().getTargetInfo();
   std::vector<std::string> Features(TI.getTargetOpts().Features);
 
   if (const auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
@@ -14876,9 +14877,12 @@ static QualType CheckIndirectionOperand(Sema &S, Expr *Op, ExprValueKind &VK,
     //   [...] the expression to which [the unary * operator] is applied shall
     //   be a pointer to an object type, or a pointer to a function type
     LangOptions LO = S.getLangOpts();
-    if (LO.CPlusPlus || !(LO.C99 && (IsAfterAmp || S.isUnevaluatedContext())))
+    if (LO.CPlusPlus)
+      S.Diag(OpLoc, diag::ext_typecheck_indirection_through_void_pointer_cpp)
+          << OpTy << Op->getSourceRange();
+    else if (!(LO.C99 && IsAfterAmp) && !S.isUnevaluatedContext())
       S.Diag(OpLoc, diag::ext_typecheck_indirection_through_void_pointer)
-          << LO.CPlusPlus << OpTy << Op->getSourceRange();
+          << OpTy << Op->getSourceRange();
   }
 
   // Dereferences are usually l-values...

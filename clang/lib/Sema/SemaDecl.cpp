@@ -45,6 +45,7 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/TargetBuiltins.h" // INTEL
+#include "clang/Basic/HLSLRuntime.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
@@ -1684,9 +1685,11 @@ bool Sema::CheckRedeclarationModuleOwnership(NamedDecl *New, NamedDecl *Old) {
 
   // Partitions are part of the module, but a partition could import another
   // module, so verify that the PMIs agree.
-  if (NewM && OldM && (NewM->isModulePartition() || OldM->isModulePartition()))
-    return NewM->getPrimaryModuleInterfaceName() ==
-           OldM->getPrimaryModuleInterfaceName();
+  if (NewM && OldM &&
+      (NewM->isModulePartition() || OldM->isModulePartition()) &&
+      NewM->getPrimaryModuleInterfaceName() ==
+          OldM->getPrimaryModuleInterfaceName())
+    return false;
 
   bool NewIsModuleInterface = NewM && NewM->isModulePurview();
   bool OldIsModuleInterface = OldM && OldM->isModulePurview();
@@ -2113,20 +2116,31 @@ static void GenerateFixForUnusedDecl(const NamedDecl *D, ASTContext &Ctx,
 }
 
 void Sema::DiagnoseUnusedNestedTypedefs(const RecordDecl *D) {
+  DiagnoseUnusedNestedTypedefs(
+      D, [this](SourceLocation Loc, PartialDiagnostic PD) { Diag(Loc, PD); });
+}
+
+void Sema::DiagnoseUnusedNestedTypedefs(const RecordDecl *D,
+                                        DiagReceiverTy DiagReceiver) {
   if (D->getTypeForDecl()->isDependentType())
     return;
 
   for (auto *TmpD : D->decls()) {
     if (const auto *T = dyn_cast<TypedefNameDecl>(TmpD))
-      DiagnoseUnusedDecl(T);
+      DiagnoseUnusedDecl(T, DiagReceiver);
     else if(const auto *R = dyn_cast<RecordDecl>(TmpD))
-      DiagnoseUnusedNestedTypedefs(R);
+      DiagnoseUnusedNestedTypedefs(R, DiagReceiver);
   }
+}
+
+void Sema::DiagnoseUnusedDecl(const NamedDecl *D) {
+  DiagnoseUnusedDecl(
+      D, [this](SourceLocation Loc, PartialDiagnostic PD) { Diag(Loc, PD); });
 }
 
 /// DiagnoseUnusedDecl - Emit warnings about declarations that are not used
 /// unless they are marked attr(unused).
-void Sema::DiagnoseUnusedDecl(const NamedDecl *D) {
+void Sema::DiagnoseUnusedDecl(const NamedDecl *D, DiagReceiverTy DiagReceiver) {
   if (!ShouldDiagnoseUnusedDecl(D))
     return;
 
@@ -2148,10 +2162,11 @@ void Sema::DiagnoseUnusedDecl(const NamedDecl *D) {
   else
     DiagID = diag::warn_unused_variable;
 
-  Diag(D->getLocation(), DiagID) << D << Hint;
+  DiagReceiver(D->getLocation(), PDiag(DiagID) << D << Hint);
 }
 
-void Sema::DiagnoseUnusedButSetDecl(const VarDecl *VD) {
+void Sema::DiagnoseUnusedButSetDecl(const VarDecl *VD,
+                                    DiagReceiverTy DiagReceiver) {
   // If it's not referenced, it can't be set. If it has the Cleanup attribute,
   // it's not really unused.
   if (!VD->isReferenced() || !VD->getDeclName() || VD->hasAttr<UnusedAttr>() ||
@@ -2197,10 +2212,11 @@ void Sema::DiagnoseUnusedButSetDecl(const VarDecl *VD) {
     return;
   unsigned DiagID = isa<ParmVarDecl>(VD) ? diag::warn_unused_but_set_parameter
                                          : diag::warn_unused_but_set_variable;
-  Diag(VD->getLocation(), DiagID) << VD;
+  DiagReceiver(VD->getLocation(), PDiag(DiagID) << VD);
 }
 
-static void CheckPoppedLabel(LabelDecl *L, Sema &S) {
+static void CheckPoppedLabel(LabelDecl *L, Sema &S,
+                             Sema::DiagReceiverTy DiagReceiver) {
   // Verify that we have no forward references left.  If so, there was a goto
   // or address of a label taken, but no definition of it.  Label fwd
   // definitions are indicated with a null substmt which is also not a resolved
@@ -2211,7 +2227,8 @@ static void CheckPoppedLabel(LabelDecl *L, Sema &S) {
   else
     Diagnose = L->getStmt() == nullptr;
   if (Diagnose)
-    S.Diag(L->getLocation(), diag::err_undeclared_label_use) << L;
+    DiagReceiver(L->getLocation(), S.PDiag(diag::err_undeclared_label_use)
+                                       << L);
 }
 
 void Sema::ActOnPopScope(SourceLocation Loc, Scope *S) {
@@ -2221,6 +2238,24 @@ void Sema::ActOnPopScope(SourceLocation Loc, Scope *S) {
   assert((S->getFlags() & (Scope::DeclScope | Scope::TemplateParamScope)) &&
          "Scope shouldn't contain decls!");
 
+  /// We visit the decls in non-deterministic order, but we want diagnostics
+  /// emitted in deterministic order. Collect any diagnostic that may be emitted
+  /// and sort the diagnostics before emitting them, after we visited all decls.
+  struct LocAndDiag {
+    SourceLocation Loc;
+    Optional<SourceLocation> PreviousDeclLoc;
+    PartialDiagnostic PD;
+  };
+  SmallVector<LocAndDiag, 16> DeclDiags;
+  auto addDiag = [&DeclDiags](SourceLocation Loc, PartialDiagnostic PD) {
+    DeclDiags.push_back(LocAndDiag{Loc, None, std::move(PD)});
+  };
+  auto addDiagWithPrev = [&DeclDiags](SourceLocation Loc,
+                                      SourceLocation PreviousDeclLoc,
+                                      PartialDiagnostic PD) {
+    DeclDiags.push_back(LocAndDiag{Loc, PreviousDeclLoc, std::move(PD)});
+  };
+
   for (auto *TmpD : S->decls()) {
     assert(TmpD && "This decl didn't get pushed??");
 
@@ -2229,11 +2264,11 @@ void Sema::ActOnPopScope(SourceLocation Loc, Scope *S) {
 
     // Diagnose unused variables in this scope.
     if (!S->hasUnrecoverableErrorOccurred()) {
-      DiagnoseUnusedDecl(D);
+      DiagnoseUnusedDecl(D, addDiag);
       if (const auto *RD = dyn_cast<RecordDecl>(D))
-        DiagnoseUnusedNestedTypedefs(RD);
+        DiagnoseUnusedNestedTypedefs(RD, addDiag);
       if (VarDecl *VD = dyn_cast<VarDecl>(D)) {
-        DiagnoseUnusedButSetDecl(VD);
+        DiagnoseUnusedButSetDecl(VD, addDiag);
         RefsMinusAssignments.erase(VD);
       }
     }
@@ -2242,7 +2277,7 @@ void Sema::ActOnPopScope(SourceLocation Loc, Scope *S) {
 
     // If this was a forward reference to a label, verify it was defined.
     if (LabelDecl *LD = dyn_cast<LabelDecl>(D))
-      CheckPoppedLabel(LD, *this);
+      CheckPoppedLabel(LD, *this, addDiag);
 
     // Remove this name from our lexical scope, and warn on it if we haven't
     // already.
@@ -2250,12 +2285,26 @@ void Sema::ActOnPopScope(SourceLocation Loc, Scope *S) {
     auto ShadowI = ShadowingDecls.find(D);
     if (ShadowI != ShadowingDecls.end()) {
       if (const auto *FD = dyn_cast<FieldDecl>(ShadowI->second)) {
-        Diag(D->getLocation(), diag::warn_ctor_parm_shadows_field)
-            << D << FD << FD->getParent();
-        Diag(FD->getLocation(), diag::note_previous_declaration);
+        addDiagWithPrev(D->getLocation(), FD->getLocation(),
+                        PDiag(diag::warn_ctor_parm_shadows_field)
+                            << D << FD << FD->getParent());
       }
       ShadowingDecls.erase(ShadowI);
     }
+  }
+
+  llvm::sort(DeclDiags,
+             [](const LocAndDiag &LHS, const LocAndDiag &RHS) -> bool {
+               // The particular order for diagnostics is not important, as long
+               // as the order is deterministic. Using the raw location is going
+               // to generally be in source order unless there are macro
+               // expansions involved.
+               return LHS.Loc.getRawEncoding() < RHS.Loc.getRawEncoding();
+             });
+  for (const LocAndDiag &D : DeclDiags) {
+    Diag(D.Loc, D.PD);
+    if (D.PreviousDeclLoc)
+      Diag(*D.PreviousDeclLoc, diag::note_previous_declaration);
   }
 }
 
@@ -7183,13 +7232,24 @@ static void checkDLLAttributeRedeclaration(Sema &S, NamedDecl *OldDecl,
       (!IsInline || (IsMicrosoftABI && IsTemplate)) && !IsStaticDataMember &&
       !NewDecl->isLocalExternDecl() && !IsQualifiedFriend) {
     if (IsMicrosoftABI && IsDefinition) {
-      S.Diag(NewDecl->getLocation(),
-             diag::warn_redeclaration_without_import_attribute)
-          << NewDecl;
-      S.Diag(OldDecl->getLocation(), diag::note_previous_declaration);
-      NewDecl->dropAttr<DLLImportAttr>();
-      NewDecl->addAttr(
-          DLLExportAttr::CreateImplicit(S.Context, NewImportAttr->getRange()));
+      if (IsSpecialization) {
+        S.Diag(
+            NewDecl->getLocation(),
+            diag::err_attribute_dllimport_function_specialization_definition);
+        S.Diag(OldImportAttr->getLocation(), diag::note_attribute);
+        NewDecl->dropAttr<DLLImportAttr>();
+      } else {
+        S.Diag(NewDecl->getLocation(),
+               diag::warn_redeclaration_without_import_attribute)
+            << NewDecl;
+        S.Diag(OldDecl->getLocation(), diag::note_previous_declaration);
+        NewDecl->dropAttr<DLLImportAttr>();
+        NewDecl->addAttr(DLLExportAttr::CreateImplicit(
+            S.Context, NewImportAttr->getRange()));
+      }
+    } else if (IsMicrosoftABI && IsSpecialization) {
+      assert(!IsDefinition);
+      // MSVC allows this. Keep the inherited attribute.
     } else {
       S.Diag(NewDecl->getLocation(),
              diag::warn_redeclaration_without_attribute_prev_attribute_ignored)
@@ -10365,10 +10425,11 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         S->getDepth() == 0) {
       CheckHLSLEntryPoint(NewFD);
       if (!NewFD->isInvalidDecl()) {
-        auto TripleShaderType = TargetInfo.getTriple().getEnvironment();
+        auto Env = TargetInfo.getTriple().getEnvironment();
         AttributeCommonInfo AL(NewFD->getBeginLoc());
-        HLSLShaderAttr::ShaderType ShaderType = (HLSLShaderAttr::ShaderType)(
-            TripleShaderType - (uint32_t)llvm::Triple::Pixel);
+        HLSLShaderAttr::ShaderType ShaderType =
+            static_cast<HLSLShaderAttr::ShaderType>(
+                hlsl::getStageFromEnvironment(Env));
         // To share code with HLSLShaderAttr, add HLSLShaderAttr to entry
         // function.
         if (HLSLShaderAttr *Attr = mergeHLSLShaderAttr(NewFD, AL, ShaderType))
@@ -11049,14 +11110,14 @@ bool Sema::shouldLinkDependentDeclWithPrevious(Decl *D, Decl *PrevDecl) {
 static bool CheckMultiVersionValue(Sema &S, const FunctionDecl *FD) {
   const auto *TA = FD->getAttr<TargetAttr>();
   assert(TA && "MultiVersion Candidate requires a target attribute");
-  ParsedTargetAttr ParseInfo = TA->parse();
+  ParsedTargetAttr ParseInfo =
+      S.getASTContext().getTargetInfo().parseTargetAttr(TA->getFeaturesStr());
   const TargetInfo &TargetInfo = S.Context.getTargetInfo();
   enum ErrType { Feature = 0, Architecture = 1 };
 
-  if (!ParseInfo.Architecture.empty() &&
-      !TargetInfo.validateCpuIs(ParseInfo.Architecture)) {
+  if (!ParseInfo.CPU.empty() && !TargetInfo.validateCpuIs(ParseInfo.CPU)) {
     S.Diag(FD->getLocation(), diag::err_bad_multiversion_option)
-        << Architecture << ParseInfo.Architecture;
+        << Architecture << ParseInfo.CPU;
     return true;
   }
 
@@ -11329,7 +11390,9 @@ static bool CheckTargetCausesMultiVersioning(
     Sema &S, FunctionDecl *OldFD, FunctionDecl *NewFD, const TargetAttr *NewTA,
     bool &Redeclaration, NamedDecl *&OldDecl, LookupResult &Previous) {
   const auto *OldTA = OldFD->getAttr<TargetAttr>();
-  ParsedTargetAttr NewParsed = NewTA->parse();
+  ParsedTargetAttr NewParsed =
+      S.getASTContext().getTargetInfo().parseTargetAttr(
+          NewTA->getFeaturesStr());
   // Sort order doesn't matter, it just needs to be consistent.
   llvm::sort(NewParsed.Features);
 
@@ -11366,7 +11429,10 @@ static bool CheckTargetCausesMultiVersioning(
     return true;
   }
 
-  ParsedTargetAttr OldParsed = OldTA->parse(std::less<std::string>());
+  ParsedTargetAttr OldParsed =
+      S.getASTContext().getTargetInfo().parseTargetAttr(
+          OldTA->getFeaturesStr());
+  llvm::sort(OldParsed.Features);
 
   if (OldParsed == NewParsed) {
     S.Diag(NewFD->getLocation(), diag::err_multiversion_duplicate);
@@ -11429,7 +11495,8 @@ static bool CheckMultiVersionAdditionalDecl(
 
   ParsedTargetAttr NewParsed;
   if (NewTA) {
-    NewParsed = NewTA->parse();
+    NewParsed = S.getASTContext().getTargetInfo().parseTargetAttr(
+        NewTA->getFeaturesStr());
     llvm::sort(NewParsed.Features);
   }
 
@@ -11463,7 +11530,10 @@ static bool CheckMultiVersionAdditionalDecl(
         return false;
       }
 
-      ParsedTargetAttr CurParsed = CurTA->parse(std::less<std::string>());
+      ParsedTargetAttr CurParsed =
+          S.getASTContext().getTargetInfo().parseTargetAttr(
+              CurTA->getFeaturesStr());
+      llvm::sort(CurParsed.Features);
       if (CurParsed == NewParsed) {
         S.Diag(NewFD->getLocation(), diag::err_multiversion_duplicate);
         S.Diag(CurFD->getLocation(), diag::note_previous_declaration);
@@ -15009,6 +15079,21 @@ void Sema::ActOnFinishInlineFunctionDef(FunctionDecl *D) {
   Consumer.HandleInlineFunctionDefinition(D);
 }
 
+static bool FindPossiblePrototype(const FunctionDecl *FD,
+                                  const FunctionDecl *&PossiblePrototype) {
+  for (const FunctionDecl *Prev = FD->getPreviousDecl(); Prev;
+       Prev = Prev->getPreviousDecl()) {
+    // Ignore any declarations that occur in function or method
+    // scope, because they aren't visible from the header.
+    if (Prev->getLexicalDeclContext()->isFunctionOrMethod())
+      continue;
+
+    PossiblePrototype = Prev;
+    return Prev->getType()->isFunctionProtoType();
+  }
+  return false;
+}
+
 static bool
 ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
                                 const FunctionDecl *&PossiblePrototype) {
@@ -15055,16 +15140,9 @@ ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
   if (!FD->isExternallyVisible())
     return false;
 
-  for (const FunctionDecl *Prev = FD->getPreviousDecl();
-       Prev; Prev = Prev->getPreviousDecl()) {
-    // Ignore any declarations that occur in function or method
-    // scope, because they aren't visible from the header.
-    if (Prev->getLexicalDeclContext()->isFunctionOrMethod())
-      continue;
-
-    PossiblePrototype = Prev;
-    return Prev->getType()->isFunctionNoProtoType();
-  }
+  // If we were able to find a potential prototype, don't warn.
+  if (FindPossiblePrototype(FD, PossiblePrototype))
+    return false;
 
   return true;
 }
@@ -15631,6 +15709,12 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
                       : FixItHint{});
         }
       }
+
+      // We might not have found a prototype because we didn't wish to warn on
+      // the lack of a missing prototype. Try again without the checks for
+      // whether we want to warn on the missing prototype.
+      if (!PossiblePrototype)
+        (void)FindPossiblePrototype(FD, PossiblePrototype);
 
       // If the function being defined does not have a prototype, then we may
       // need to diagnose it as changing behavior in C2x because we now know
