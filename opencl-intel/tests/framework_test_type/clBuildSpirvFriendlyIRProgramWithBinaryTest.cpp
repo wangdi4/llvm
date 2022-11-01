@@ -26,12 +26,6 @@ bool clBuildSpirvFriendlyIRProgramWithBinaryTest() {
   if (gDeviceType != CL_DEVICE_TYPE_CPU)
     return true;
 
-  // Use the LTO pipeline for nonspirv CPU input.
-  if (!SETENV("CL_CONFIG_LTO_PM", "legacy")) {
-    printf("Error: failed to set env CL_CONFIG_LTO_PM=legacy\n");
-    return false;
-  }
-
   bool bResult = true;
 
   printf("---------------------------------------\n");
