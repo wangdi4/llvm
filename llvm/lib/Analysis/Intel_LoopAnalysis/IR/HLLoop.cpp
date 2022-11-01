@@ -1133,10 +1133,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
 
     while (TmpLp != ReplaceLp && !InnerLoops.count(TmpLp)) {
 
-      for (auto *LowerBRef :
-           make_range(MergedRef->blob_begin(), MergedRef->blob_end())) {
-        TmpLp->addLiveInTemp(LowerBRef->getSymbase());
-      }
+      TmpLp->addLiveInTemp(MergedRef);
 
       InnerLoops.insert(TmpLp);
       TmpLp = TmpLp->getParentLoop();
@@ -1146,12 +1143,19 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
   return ParentLp->getNestingLevel();
 }
 
-void HLLoop::replaceByFirstIteration(bool ExtractPostexit) {
+void HLLoop::replaceByFirstIteration(bool ExtractPostexit,
+                                     bool PreserveOptReport) {
   unsigned Level = getNestingLevel();
   const RegDDRef *LB = getLowerDDRef();
 
   bool HaveExplicitLB = false;
   SmallPtrSet<HLLoop *, 8> InnerLoops;
+
+  if (PreserveOptReport) {
+    OptReportBuilder &ORBuilder =
+        this->getHLNodeUtils().getHIRFramework().getORBuilder();
+    ORBuilder(*this).preserveLostOptReport();
+  }
 
   extractZtt(Level - 1);
   extractPreheader();
