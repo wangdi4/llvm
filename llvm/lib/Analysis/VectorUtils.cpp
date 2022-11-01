@@ -1388,7 +1388,6 @@ Function *llvm::getOrInsertVectorLibFunction(
 
   if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
     // TODO: Modify OpenCL read/write channel code to be CallInst independent.
-    // Check JR https://jira.devtools.intel.com/browse/CORC-4838
     assert(Call && "VPVALCG: OpenCL read/write channels not uplifted to be "
                    "call independent.");
     AllocaInst *Alloca = getOpenCLReadWriteChannelAlloc(Call);
