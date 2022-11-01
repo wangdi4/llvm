@@ -826,6 +826,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   // Helpers of visitSelectInst().
+  Instruction *foldSelectOfBools(SelectInst &SI);
   Instruction *foldSelectExtConst(SelectInst &Sel);
   Instruction *foldSelectOpOp(SelectInst &SI, Instruction *TI, Instruction *FI);
   Instruction *foldSelectIntoOp(SelectInst &SI, Value *, Value *);
