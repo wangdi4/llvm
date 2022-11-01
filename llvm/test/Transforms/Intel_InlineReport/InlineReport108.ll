@@ -21,7 +21,7 @@
 ; CHECK-CL: get_ref|8.16 {{.*}}Newly created callsite
 ; CHECK-CL: get_ref|16.8 {{.*}}Newly created callsite
 ; CHECK-CL: get_ref {{.*}}Newly created callsite
-; CHECK-CL: printf {{.*}}Newly created callsite
+; CHECK-CL: EXTERN: printf{{ *$}}
 
 ; CHECK-MD-LABEL: COMPILE FUNC: main{{ *$}}
 ; CHECK-MD: get_ref|16.16 {{.*}}Not tested for inlining
@@ -29,7 +29,7 @@
 ; CHECK-MD: get_ref|8.16 {{.*}}Not tested for inlining
 ; CHECK-MD: get_ref|16.8 {{.*}}Not tested for inlining
 ; CHECK-MD: get_ref {{.*}}Not tested for inlining
-; CHECK-MD: EXTERN: printf
+; CHECK-MD: EXTERN: printf{{ *$}}
 
 ; CHECK-MD-LABEL: COMPILE FUNC: get_ref{{ *$}}
 ; CHECK-MD: get_ref|8.8 {{.*}}Multiversioned callsite
