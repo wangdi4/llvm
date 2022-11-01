@@ -648,6 +648,14 @@ set(hexagon_SOURCES
   ${GENERIC_TF_SOURCES}
 )
 
+set(loongarch_SOURCES
+  loongarch/fp_mode.c
+  ${GENERIC_SOURCES}
+  ${GENERIC_TF_SOURCES}
+)
+set(loongarch64_SOURCES
+  ${loongarch_SOURCES}
+)
 
 set(mips_SOURCES ${GENERIC_SOURCES})
 set(mipsel_SOURCES ${mips_SOURCES})
