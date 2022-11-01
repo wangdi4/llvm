@@ -5,7 +5,6 @@
 ; when the limit of targets is reached. The goal of this test is to make sure
 ; that the trace is printed correctly.
 
-; RUN: opt < %s -intel-ind-call-force-andersen -debug-only=intel-ind-call-conv -anders-aa -indirectcallconv 2>&1 | FileCheck %s
 ; RUN: opt < %s -intel-ind-call-force-andersen -debug-only=intel-ind-call-conv -passes='require<anders-aa>,indirectcallconv' 2>&1 | FileCheck %s
 
 %struct.A = type { %struct.A* ()*, i32 }

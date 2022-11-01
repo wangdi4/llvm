@@ -2,7 +2,6 @@
 ; This test checks that @aliassub isn't in the unresolved aliases list since
 ; there is no use for it in the IR.
 
-; RUN: opt < %s -enable-new-pm=0 -disable-output -wholeprogramanalysis -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='require<wholeprogram>' -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 
 ; CHECK:   ALIASES UNRESOLVED: 0

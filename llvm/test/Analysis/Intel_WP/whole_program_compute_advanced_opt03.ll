@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt %s -enable-new-pm=0 -disable-output -debug-only=whole-program-analysis -whole-program-advanced-opt-trace -wholeprogramanalysis -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 ; RUN: opt %s -disable-output -debug-only=whole-program-analysis -whole-program-advanced-opt-trace -passes='require<wholeprogram>' -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; This test is to verify the module level computation for advanced optimizations

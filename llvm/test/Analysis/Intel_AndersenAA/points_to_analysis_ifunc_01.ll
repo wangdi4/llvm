@@ -1,7 +1,6 @@
 ; This test verifies that AndersAA handles ifuncs.
 ; Checks that AndersAA computes  that %i10 points-to @my_malloc.V:%i
 
-; RUN: opt < %s -anders-aa -disable-output -print-anders-points-to 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="require<anders-aa>" -disable-output -print-anders-points-to 2>&1 | FileCheck %s
 
 ; CHECK: [1] init_parse:i10        --> ({{[0-9a-f]+}}): my_malloc.V:i

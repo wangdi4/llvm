@@ -5,7 +5,6 @@
 ; NOTE: This test case runs in opt rather than lld because we don't want
 ; to run the internalization in LTO.
 
-; RUN: opt < %s -enable-new-pm=0 -disable-output -wholeprogramanalysis -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='require<wholeprogram>' -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 
 ; CHECK:   ALIASES UNRESOLVED: 0

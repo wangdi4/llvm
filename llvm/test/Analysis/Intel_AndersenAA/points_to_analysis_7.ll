@@ -1,4 +1,3 @@
-; RUN: opt < %s -anders-aa -disable-output 2>/dev/null
 ; RUN: opt < %s -passes='require<anders-aa>'  -disable-output 2>/dev/null
 ; Test for a bug (CQ378470) in Andersens analysis that caused crash when
 ; Instruction::Select is passed as argument to Instruction::Call.
