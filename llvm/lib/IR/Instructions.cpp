@@ -368,6 +368,7 @@ bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
 
   if (Attrs.hasParamAttr(ArgNo, Kind))
     return true;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const Function *F = getCalledFunction()) {
     if (F->getAttributes().hasParamAttr(ArgNo, Kind))
@@ -387,6 +388,27 @@ bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
   }
 #endif // INTEL_CUSTOMIZATION
   return false;
+=======
+
+  const Function *F = getCalledFunction();
+  if (!F)
+    return false;
+
+  if (!F->getAttributes().hasParamAttr(ArgNo, Kind))
+    return false;
+
+  // Take into account mod/ref by operand bundles.
+  switch (Kind) {
+  case Attribute::ReadNone:
+    return !hasReadingOperandBundles() && !hasClobberingOperandBundles();
+  case Attribute::ReadOnly:
+    return !hasClobberingOperandBundles();
+  case Attribute::WriteOnly:
+    return !hasReadingOperandBundles();
+  default:
+    return true;
+  }
+>>>>>>> 6aa672f14197e84520671de4ce3fcc724bbfe8d9
 }
 
 bool CallBase::hasFnAttrOnCalledFunction(Attribute::AttrKind Kind) const {
