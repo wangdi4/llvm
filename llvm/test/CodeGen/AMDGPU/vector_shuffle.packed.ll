@@ -2,6 +2,7 @@
 ; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx900 -verify-machineinstrs < %s | FileCheck -check-prefix=GFX9 %s
 ; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1010 -verify-machineinstrs < %s | FileCheck -check-prefix=GFX10 %s
 ; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1100 -verify-machineinstrs < %s | FileCheck -check-prefix=GFX11 %s
+; UNSUPPORTED: windows
 
 define <4 x half> @shuffle_v4f16_23uu(<4 x half> addrspace(1)* %arg0, <4 x half> addrspace(1)* %arg1) {
 ; GFX9-LABEL: shuffle_v4f16_23uu:
