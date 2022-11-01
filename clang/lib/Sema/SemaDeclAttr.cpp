@@ -3378,7 +3378,7 @@ static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
   }
 
   // TODO: Check that num_compute_units attribute is specified with valid
-  // number of arguments: CORC-2359
+  // number of arguments
 
   if (Attr.getNumArgs() < 2)
     NumComputeUnits[1] = NumComputeUnitsAttr::DefaultYDim;
@@ -3421,7 +3421,7 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     }
   }
 
-  // TODO: Check that kernel does not use I/O channels: CORC-2359
+  // TODO: Check that kernel does not use I/O channels
 
   D->addAttr(::new (S.Context) AutorunAttr(S.Context, Attr));
 }
