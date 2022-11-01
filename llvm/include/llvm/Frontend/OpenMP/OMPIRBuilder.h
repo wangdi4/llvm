@@ -1844,16 +1844,11 @@ public:
                                        unsigned Order);
 #if INTEL_COLLAB
   /// Register target region entry. Return the entry's order in the table.
-  int registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+  int registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
 #else
   /// Register target region entry.
-<<<<<<< HEAD
-  void registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-#endif // INTEL_COLLAB
-                                     StringRef ParentName, unsigned LineNum,
-=======
   void registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
->>>>>>> 67f8521cd4b6a3bd23263ad21bd6841081fd084f
+#endif // INTEL_COLLAB
                                      Constant *Addr, Constant *ID,
                                      OMPTargetRegionEntryKind Flags,
                                      bool IsDevice);
