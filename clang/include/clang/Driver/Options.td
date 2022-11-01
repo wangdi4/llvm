@@ -5849,6 +5849,7 @@ def Z_reserved_lib_imf : Flag<["-"], "Z-reserved-lib-imf">,
 #if INTEL_CUSTOMIZATION
 // -q Intel options
 def qopt_assume_counted_loops : Flag<["-"], "qopt-assume-counted-loops">,
+  Flags<[HelpHidden]>,
   HelpText<"for loops in C/C++ will be treated as counted loops. If there are "
            "side-effects, runtime error may occur.">;
 def qno_opt_assume_counted_loops : Flag<["-"], "qno-opt-assume-counted-loops">;
@@ -7963,6 +7964,9 @@ class CLRemainingArgsJoined<string name> : Option<["/", "-"], name,
   KIND_REMAINING_ARGS_JOINED>, Group<cl_Group>, Flags<[CLOption, NoXarchOption]>;
 
 #if INTEL_CUSTOMIZATION
+class CLHiddenFlag<string name> : Option<["/", "-"], name, KIND_FLAG>,
+  Group<cl_Group>, Flags<[CLOption, NoXarchOption, HelpHidden]>;
+
 class CLCommaJoined<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
   Group<cl_Group>, Flags<[CLOption, NoXarchOption]>;
 
@@ -8933,7 +8937,8 @@ def _SLASH_Qopenmp_threadprivate_EQ : CLJoined<"Qopenmp-threadprivate=">,
 def _SLASH_Qopenmp_threadprivate_COL : CLJoined<"Qopenmp-threadprivate:">,
   HelpText<"Choose which threadprivate implementation to use: compat or legacy.">,
   Alias<qopenmp_threadprivate_EQ>;
-def _SLASH_Qopt_assume_counted_loops : CLFlag<"Qopt-assume-counted-loops">,
+def _SLASH_Qopt_assume_counted_loops :
+  CLHiddenFlag<"Qopt-assume-counted-loops">,
   Alias<qopt_assume_counted_loops>,
   HelpText<"for loops in C/C++ will be treated as counted loops. If there are "
            "side-effects, runtime error may occur.">;

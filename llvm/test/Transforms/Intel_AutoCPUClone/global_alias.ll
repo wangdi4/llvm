@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; CHECK: @_ZN3fooC1Ev.A = dso_local unnamed_addr alias void (ptr), ptr @_ZN3fooC2Ev.A
 ; CHECK-NEXT: @_ZN3fooC1Ev = dso_local unnamed_addr alias void (ptr), ptr @_ZN3fooC2Ev

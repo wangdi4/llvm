@@ -25,6 +25,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "auto-cpu-clone"
 
+// Internal option to control whether to multi-version select functions.
+static cl::opt<bool>
+    EnableSelectiveMultiVersioning("enable-selective-mv", cl::init(true),
+                                   cl::ReallyHidden,
+                                   cl::desc("Enable multi-versioning of select functions"));
+
 static StringRef getTargetCPUFromMD(MDNode *TargetInfoMD) {
   // Expected format:
   //
@@ -137,9 +143,10 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
   // TODO: CodeGenModule::SetCommonAttributes ?
 }
 
-static bool cloneFunctions(Module &M,
-                           function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-                           function_ref<TargetTransformInfo &(Function &)> GetTTI) {
+static bool
+cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
+               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+               function_ref<TargetTransformInfo &(Function &)> GetTTI) {
 
   const Triple TT{M.getTargetTriple()};
 
@@ -211,6 +218,19 @@ static bool cloneFunctions(Module &M,
     if (Fn.hasExternalLinkage() &&
         GetTLI(Fn).getLibFunc(Fn.getName(), LF)) {
       continue;
+    }
+
+    // Do not multiversion functions that do not contain loops nor
+    // functions that do not contain non-annotation like intrinsics
+    if (EnableSelectiveMultiVersioning &&
+        GetLoopInfo(Fn).getTopLevelLoopsVector().empty()) {
+      if (none_of(instructions(Fn),
+                  [&](Instruction &I) {
+                    auto *Inst = dyn_cast<llvm::IntrinsicInst>(&I);
+                    return Inst && !Inst->isAssumeLikeIntrinsic();
+                  })) {
+        continue;
+      }
     }
 
     // Use wrapper based resolvers on Windows.
@@ -523,6 +543,9 @@ static bool cloneFunctions(Module &M,
 PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
 
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetLoopInfo = [&FAM](Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
   auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
@@ -530,7 +553,7 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<TargetIRAnalysis>(F);
   };
 
-  if (cloneFunctions(M, GetTLI, GetTTI))
+  if (cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
@@ -545,12 +568,16 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
 
+    auto GetLoopInfo = [this](Function &F) -> LoopInfo & {
+      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    };
     auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
@@ -561,7 +588,7 @@ public:
     if (skipModule(M))
       return false;
 
-    bool anyFunctionsCloned = cloneFunctions(M, GetTLI, GetTTI);
+    bool anyFunctionsCloned = cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI);
     return anyFunctionsCloned;
   }
 };
@@ -570,6 +597,7 @@ public:
 char AutoCPUCloneLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(AutoCPUCloneLegacyPass, "auto-cpu-clone",
                       "Clone functions for Auto CPU Dispatch", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(AutoCPUCloneLegacyPass, "auto-cpu-clone",
