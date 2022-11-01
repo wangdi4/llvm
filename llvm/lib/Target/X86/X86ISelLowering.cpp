@@ -2393,14 +2393,14 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #if INTEL_FEATURE_ISA_AVX_BF16
         Subtarget.hasAVXBF16() ||
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-        Subtarget.hasBF16())) {
+      (Subtarget.hasAVXNECONVERT() || Subtarget.hasBF16()))) {
     addRegisterClass(MVT::v8bf16, &X86::VR128XRegClass);
     addRegisterClass(MVT::v16bf16, &X86::VR256XRegClass);
     // We set the type action of bf16 to TypeSoftPromoteHalf, but we don't
     // provide the method to promote BUILD_VECTOR. Set the operation action
     // Custom to do the customization later.
     setOperationAction(ISD::BUILD_VECTOR, MVT::bf16, Custom);
-    for (auto VT : { MVT::v8bf16, MVT::v16bf16 }) {
+    for (auto VT : {MVT::v8bf16, MVT::v16bf16}) {
       setF16Action(VT, Expand);
       setOperationAction(ISD::FADD, VT, Expand);
       setOperationAction(ISD::FSUB, VT, Expand);
