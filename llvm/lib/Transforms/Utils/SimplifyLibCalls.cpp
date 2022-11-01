@@ -3319,21 +3319,17 @@ Value *LibCallSimplifier::optimizeFWrite(CallInst *CI, IRBuilderBase &B) {
     if (Bytes == 1 && CI->use_empty()) { // fwrite(S,1,1,F) -> fputc(S[0],F)
       Value *Char = B.CreateLoad(B.getInt8Ty(),
                                  castToCStr(CI->getArgOperand(0), B), "char");
-<<<<<<< HEAD
-      Type *IntTy = B.getIntNTy(TLI->getIntSize());
-      Value *Cast = B.CreateIntCast(Char, IntTy, /*isSigned*/ true, "chari");
-      Value *NewCI = emitFPutC(Cast, CI->getArgOperand(3), B, TLI);
-=======
 #if INTEL_CUSTOMIZATION
       getInlineReport()->initFunctionClosure(CI->getFunction());
 #endif // INTEL_CUSTOMIZATION
-      Value *NewCI = emitFPutC(Char, CI->getArgOperand(3), B, TLI);
+      Type *IntTy = B.getIntNTy(TLI->getIntSize());
+      Value *Cast = B.CreateIntCast(Char, IntTy, /*isSigned*/ true, "chari");
+      Value *NewCI = emitFPutC(Cast, CI->getArgOperand(3), B, TLI);
 #if INTEL_CUSTOMIZATION
       CallBase *CB = cast<CallBase>(NewCI);
       getInlineReport()->replaceCallBaseWithCallBase(CI, CB);
       getMDInlineReport()->replaceCallBaseWithCallBase(CI, CB);
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 17576f881750ce33862604025e08dd2dfb61809b
       return NewCI ? ConstantInt::get(CI->getType(), 1) : nullptr;
     }
   }
