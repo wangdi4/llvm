@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone,inline,globaldce < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=auto-cpu-clone,inline,globaldce -enable-selective-mv=0 < %s -S | FileCheck %s
 
 
 ; CHECK:      @__intel_cpu_feature_indicator = external global [2 x i64]
