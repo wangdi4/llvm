@@ -184,13 +184,8 @@ define amdgpu_kernel void @loop_land_info_assert(i32 %c0, i32 %c1, i32 %c2, i32 
 ; SI-NEXT:    s_mov_b32 s6, -1
 ; SI-NEXT:    v_mov_b32_e32 v0, 3
 ; SI-NEXT:    s_branch .LBB3_3
-<<<<<<< HEAD
 ; SI-NEXT:  .LBB3_1: ; %convex.exit
 ; SI-NEXT:    ; in Loop: Header=BB3_3 Depth=1
-; SI-NEXT:    s_mov_b64 s[10:11], -1
-=======
-; SI-NEXT:  .LBB3_1: ; in Loop: Header=BB3_3 Depth=1
->>>>>>> f59205aef957da9017285d4c0bb6f9c6f244621f
 ; SI-NEXT:    s_mov_b64 s[8:9], 0
 ; SI-NEXT:    s_mov_b64 s[10:11], -1
 ; SI-NEXT:    s_mov_b64 s[12:13], -1
@@ -265,13 +260,8 @@ define amdgpu_kernel void @loop_land_info_assert(i32 %c0, i32 %c1, i32 %c2, i32 
 ; FLAT-NEXT:    s_mov_b32 s6, -1
 ; FLAT-NEXT:    v_mov_b32_e32 v0, 3
 ; FLAT-NEXT:    s_branch .LBB3_3
-<<<<<<< HEAD
 ; FLAT-NEXT:  .LBB3_1: ; %convex.exit
 ; FLAT-NEXT:    ; in Loop: Header=BB3_3 Depth=1
-; FLAT-NEXT:    s_mov_b64 s[10:11], -1
-=======
-; FLAT-NEXT:  .LBB3_1: ; in Loop: Header=BB3_3 Depth=1
->>>>>>> f59205aef957da9017285d4c0bb6f9c6f244621f
 ; FLAT-NEXT:    s_mov_b64 s[8:9], 0
 ; FLAT-NEXT:    s_mov_b64 s[10:11], -1
 ; FLAT-NEXT:    s_mov_b64 s[12:13], -1
