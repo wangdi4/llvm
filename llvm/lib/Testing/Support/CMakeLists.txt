@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -19,6 +20,8 @@
 # by unittests if these are built.
 set(EXCLUDE_FROM_ALL ON)
 
+=======
+>>>>>>> ad1fad17164fa09586dcce11ef68cbbd2ca0cc50
 add_llvm_library(LLVMTestingSupport
   Annotations.cpp
   Error.cpp
