@@ -2367,7 +2367,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 
-<<<<<<< HEAD
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   if (!Subtarget.useSoftFloat() && Subtarget.hasAVXCOMPRESS()) {
     for (auto VT : { MVT::v16i8, MVT::v32i8, MVT::v8i16, MVT::v16i16 })
@@ -2394,22 +2393,14 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #if INTEL_FEATURE_ISA_AVX_BF16
         Subtarget.hasAVXBF16() ||
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-        Subtarget.hasBF16())) {
-=======
-  if (!Subtarget.useSoftFloat() &&
-      (Subtarget.hasAVXNECONVERT() || Subtarget.hasBF16())) {
->>>>>>> aee2a35ac4ab4fe62bb0ce4e314966ab9207efd1
+      (Subtarget.hasAVXNECONVERT() || Subtarget.hasBF16()))) {
     addRegisterClass(MVT::v8bf16, &X86::VR128XRegClass);
     addRegisterClass(MVT::v16bf16, &X86::VR256XRegClass);
     // We set the type action of bf16 to TypeSoftPromoteHalf, but we don't
     // provide the method to promote BUILD_VECTOR. Set the operation action
     // Custom to do the customization later.
     setOperationAction(ISD::BUILD_VECTOR, MVT::bf16, Custom);
-<<<<<<< HEAD
-    for (auto VT : { MVT::v8bf16, MVT::v16bf16 }) {
-=======
     for (auto VT : {MVT::v8bf16, MVT::v16bf16}) {
->>>>>>> aee2a35ac4ab4fe62bb0ce4e314966ab9207efd1
       setF16Action(VT, Expand);
       setOperationAction(ISD::FADD, VT, Expand);
       setOperationAction(ISD::FSUB, VT, Expand);
@@ -2429,10 +2420,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::FDIV, MVT::v32bf16, Expand);
     setOperationAction(ISD::BUILD_VECTOR, MVT::v32bf16, Custom);
   }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> aee2a35ac4ab4fe62bb0ce4e314966ab9207efd1
 
   if (!Subtarget.useSoftFloat() && Subtarget.hasVLX()) {
     setTruncStoreAction(MVT::v4i64, MVT::v4i8,  Legal);

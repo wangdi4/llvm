@@ -591,7 +591,6 @@ typedef struct __tile1024i_str {
 /* INTEL_FEATURE_ISA_AVX_RAO_INT */
 #if defined(__AVXRAOINT_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-<<<<<<< HEAD
     defined(__AVXRAOINT__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxraoint/avxraointintrin.h>
 #endif
@@ -713,14 +712,12 @@ typedef struct __tile1024i_str {
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-=======
     defined(__AVXNECONVERT__)
 #include <avxneconvertintrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__RDPID__)
->>>>>>> aee2a35ac4ab4fe62bb0ce4e314966ab9207efd1
 /// Returns the value of the IA32_TSC_AUX MSR (0xc0000103).
 ///
 /// \headerfile <immintrin.h>
