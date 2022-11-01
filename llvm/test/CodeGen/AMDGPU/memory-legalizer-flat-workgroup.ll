@@ -9,6 +9,7 @@
 ; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx940 -mattr=+tgsplit -verify-machineinstrs < %s | FileCheck -check-prefixes=GFX940-TGSPLIT %s
 ; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1100 -verify-machineinstrs < %s | FileCheck --check-prefixes=GFX11-WGP %s
 ; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1100 -mattr=+cumode -verify-machineinstrs < %s | FileCheck --check-prefixes=GFX11-CU %s
+; UNSUPPORTED: windows
 
 define amdgpu_kernel void @flat_workgroup_unordered_load(
 ; GFX7-LABEL: flat_workgroup_unordered_load:

@@ -1,3 +1,4 @@
+// UNSUPPORTED: windows
 // RUN: %clang --target=i386 -march=i386 -mx87 %s -### 2>&1 | FileCheck -check-prefix=X87 %s
 // RUN: %clang --target=i386 -march=i386 -mno-x87 %s -### 2>&1 | FileCheck -check-prefix=NO-X87 %s
 // RUN: %clang --target=i386 -march=i386 -m80387 %s -### 2>&1 | FileCheck -check-prefix=X87 %s
