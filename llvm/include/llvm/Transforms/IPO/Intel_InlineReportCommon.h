@@ -25,29 +25,29 @@ namespace llvm {
 namespace InlineReportTypes {
 
 typedef enum {
-  Basic = 0x1,     // Print basic information like what was inlined
-  Reasons = 0x2,   // Add reasons for inlining or not inlining
-  SameLine = 0x4,  // Put the reasons and the call site on the same lime
-  LineCol = 0x8,   // Print the line and column of the call sites
-                   //   if we had appropriate source position information
-  File = 0x10,     // Print the file of the call sites
-  Linkage = 0x20,  // Print linkage info for routines and call sites:
-                   //   L: local (F.hasLocalLinkage())
-                   //   O: link once ODR (one definition rule)
-                   //     (F.hasLinkOnceODRLinkage())
-                   //   X: available externally (and generally not emitted)
-                   //     (F.hasAvailableExternallyLinkage())
-                   //   A: alternate (something other than L, O, or X)
-  EarlyExitCost = 0x40,    // Print the early exit cost vs. threshold info,
-                           //   where applicable
+  Basic = 0x1,          // Print basic information like what was inlined
+  Reasons = 0x2,        // Add reasons for inlining or not inlining
+  SameLine = 0x4,       // Put the reasons and the call site on the same lime
+  LineCol = 0x8,        // Print the line and column of the call sites
+                        //   if we had appropriate source position information
+  File = 0x10,          // Print the file of the call sites
+  Linkage = 0x20,       // Print linkage info for routines and call sites:
+                        //   L: local (F.hasLocalLinkage())
+                        //   O: link once ODR (one definition rule)
+                        //     (F.hasLinkOnceODRLinkage())
+                        //   X: available externally (and generally not emitted)
+                        //     (F.hasAvailableExternallyLinkage())
+                        //   A: alternate (something other than L, O, or X)
+  EarlyExitCost = 0x40, // Print the early exit cost vs. threshold info,
+                        //   where applicable
   BasedOnMetadata = 0x80,  // Create metadata-based inline report
   CompositeReport = 0x100, // Create composite inline report for an -flto
                            //   compilation
   DontSkipIntrin = 0x200,  // Do create the inlining report info for the
                            //   special intrinsic call sites
-  Language = 0x400,     // Print the source language C for C/C++ and F for Fortran
-  Options = 0x800,      // Print the inlining option values
-  RealCost = 0x1000,    // Print both early exit and real inlining costs
+  Language = 0x400,  // Print the source language C for C/C++ and F for Fortran
+  Options = 0x800,   // Print the inlining option values
+  RealCost = 0x1000, // Print both early exit and real inlining costs
   DeadStatics = 0x2000, // Print dead static functions
   Externs = 0x4000,     // Print external function callsites
   Indirects = 0x8000    // Print indirect function callsites
@@ -79,12 +79,13 @@ typedef enum {
 // printing functions themselves.
 
 typedef enum {
-  InlPrtNone,   // Used for sentinels and the generic value "InlrNoReason"
-                //   No text is expected to be printed for these.
-  InlPrtSimple, // Print only the text for the (non-)inlining reason
-  InlPrtCost,   // Print the text and cost info for the (non-)inlining reason
-  InlPrtSpecial // The function InlineReportCallSite::print needs to have
-                //   special cased code to handle it
+  InlPrtNone,    // Used for sentinels and the generic value "InlrNoReason"
+                 //   No text is expected to be printed for these.
+  InlPrtSimple,  // Print only the text for the (non-)inlining reason
+  InlPrtCost,    // Print the text and cost info for the (non-)inlining reason
+  InlPrtDeleted, // Print that the call was deleted, with an optional reason
+  InlPrtSpecial  // The function InlineReportCallSite::print needs to have
+                 //   special cased code to handle it
 } InlPrtType;
 
 typedef struct {
@@ -180,7 +181,7 @@ const static InlPrtRecord InlineReasonText[] = {
     // NinlrColdCallee,
     {InlPrtCost, "Callee is cold"},
     // NinlrDeleted,
-    {InlPrtSpecial, nullptr},
+    {InlPrtDeleted, nullptr},
     // NinlrDuplicateCall,
     {InlPrtSimple, "Callee cannot be called more than once"},
     // NinlrDynamicAlloca,
@@ -271,11 +272,19 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Multiversioned callsite"},
     // NinlrDelayInlineDecisionLTO
     {InlPrtSimple, "Inline decision is delayed"},
+    // NinlrDeletedZeroLengthMemFunc
+    {InlPrtDeleted, "Zero length memory function"},
+    // NinlrDeletedZeroLengthWrite
+    {InlPrtDeleted, "Zero length write"},
+    // NinlrDeletedIndCallConv
+    {InlPrtDeleted, "Indirect call conversion"},
+    // NinlrDeletedDeadCode
+    {InlPrtDeleted, "Dead code"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 
 static_assert(sizeof(InlineReasonText) ==
-              sizeof(InlPrtRecord) * (InlineReportTypes::NinlrLast + 1),
+                  sizeof(InlPrtRecord) * (InlineReportTypes::NinlrLast + 1),
               "Missing report message");
 
 // Print indent
