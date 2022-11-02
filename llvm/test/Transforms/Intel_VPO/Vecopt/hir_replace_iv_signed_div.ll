@@ -8,8 +8,6 @@
 ; This test is expected to fail until vectorizer checks in PR to unroll
 ; masked remainder loop.
 
-; XFAIL: *
-
 ; CHECK: Dump Before
 
 ; CHECK: + DO i1 = 0, 6, 1   <DO_LOOP>

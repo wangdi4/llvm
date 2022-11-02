@@ -263,7 +263,7 @@ void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
   CFGMerger.setIsSimpleConstTCScenario(VecScenario.isSimpleConstTCScenario());
 
   // Run CFGMerger.
-  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TopLoopDescrs, TheLoop);
 }
 
 void LoopVectorizationPlannerHIR::createMergerVPlans(
@@ -281,6 +281,7 @@ void LoopVectorizationPlannerHIR::createMergerVPlans(
 
   VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
                               *Plan, VPAF);
+  fillLoopDescrs();
 }
 
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {

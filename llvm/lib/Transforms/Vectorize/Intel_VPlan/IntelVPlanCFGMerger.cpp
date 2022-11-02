@@ -143,7 +143,7 @@ void VPlanCFGMerger::updateMergeBlockIncomings(PlanDescr &Descr,
   DenseMap<unsigned, VPValue *> MergeVals;
   VPValue *AdapterInst = nullptr;
   if (Src == Descr.LastBB) {
-    if (Descr.Type != LT::LTMain) {
+    if (Descr.getLoopType() != LT::LTMain) {
       // Go through phi nodes in the MergeBlock and set their incoming values
       // from SplitBlock to VPlan adapter.
       auto Adapter = llvm::find_if(*Descr.FirstBB, [](const VPInstruction &I) {
@@ -585,6 +585,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
     ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
     CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
     PlanDescrs.push_front({LT::LTPeel, 1, CurPlan});
+    PlanDescrs.front().setMaxTripCount(MainVF - 1);
     dumpNewVPlan(CurPlan);
     break;
   }
@@ -601,6 +602,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
     }
     UsedPlans.insert(CurPlan);
     PlanDescrs.push_front({LT::LTPeel, Scen.getPeelVF(), CurPlan});
+    PlanDescrs.front().setMaxTripCount(1);
     break;
   case LK::LKVector:
     llvm_unreachable("unsupported peel kind");
@@ -609,7 +611,13 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
 
   CurPlan = NewMainPlan;
   unsigned MainUF = Scen.getMainUF();
-  PlanDescrs.push_front({LT::LTMain, MainVF * MainUF, CurPlan});
+  unsigned PrevVF = MainVF * MainUF;
+  PlanDescrs.push_front({LT::LTMain, PrevVF, CurPlan});
+  auto TCInfo = cast<VPlanVector>(CurPlan)
+                    ->getMainLoop(true /* StrictCheck */)
+                    ->getTripCountInfo();
+  if (!TCInfo.IsEstimated)
+    PlanDescrs.front().setMaxTripCount(TCInfo.TripCount / PrevVF);
   dumpExistingVPlan(CurPlan);
 
   // The order of insertion of remainders in the list is important. We insert
@@ -625,6 +633,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
       CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
       PlanDescrs.push_front({LT::LTRemainder, 1, CurPlan});
+      PlanDescrs.front().setMaxTripCount(PrevVF - 1);
       dumpNewVPlan(CurPlan);
       break;
     }
@@ -640,6 +649,17 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
         dumpExistingVPlan(CurPlan);
       }
       PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      // Non-masked remainder can execute one more iteration when we have a
+      // peel. That is due to we don't execute peel and main loop when scalar TC
+      // is less than main VF + PeelCnt.
+      // E.g., we have mainVF=8, remainderVF=4, TC=11 and peeling for 5
+      // iterations. We will not execiute neither peel nor main loop (because 8
+      // + 5 >11), and will come to remainder with remaining TC=11. Then
+      // remainder will execute 2 iterations instead of 1 in case we come from
+      // the main loop. Yes, it can happen that more than 2 iterations, but that
+      // does not matter much, for us it's only important that it is not 1
+      std::prev(AnchorIter, 1)
+          ->setMaxTripCount((PrevVF - 1) / Rem.VF + (Scen.hasPeel() ? 1 : 0));
       UsedPlans.insert(CurPlan);
       break;
     case LK::LKMasked:
@@ -654,6 +674,11 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
         dumpExistingVPlan(CurPlan);
       }
       PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      // Masked remainder can execute more than one iteration when we have a
+      // peel. That is due to we don't execute peel and main loop when scalar TC
+      // is less than main VF + PeelCnt. See comment above.
+      std::prev(AnchorIter, 1)
+          ->setMaxTripCount(PrevVF / Rem.VF + (Scen.hasPeel() ? 1 : 0));
       UsedPlans.insert(CurPlan);
     }
 
@@ -701,7 +726,7 @@ void VPlanCFGMerger::createAdapterBB(PlanDescr &Descr,
   VPBuilder Builder;
   Builder.setInsertPoint(NewBB);
   VPInstruction *AdapterI;
-  if (Descr.Type == LT::LTPeel)
+  if (Descr.getLoopType() == LT::LTPeel)
     AdapterI =
         Builder.create<VPlanPeelAdapter>("vplan.peel.adapter", *Descr.Plan);
   else
@@ -715,13 +740,14 @@ void VPlanCFGMerger::createAdapterBB(PlanDescr &Descr,
 template <class LoopTy>
 void VPlanCFGMerger::createMergedCFG(SingleLoopVecScenario &Scen,
                                      std::list<CfgMergerPlanDescr> &Plans,
+                                     VPLoopDescrMap &LoopDescrs,
                                      LoopTy *OrigLoop) {
   Plan.invalidateAnalyses({VPAnalysisID::SVA});
 
   MainVF = Scen.getMainVF();
   MainUF = Scen.getMainUF();
   emitSkeleton(Plans, OrigLoop);
-  mergeVPlans(Plans);
+  mergeVPlans(Plans, LoopDescrs);
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
 
@@ -743,7 +769,7 @@ void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,
     // with pushVF/popVF.
     VectorUB = cast<VPVectorTripCountCalculation>(VectorUB->clone());
     VectorUB->setOperand(0, OrigUB);
-    insertVectorUBInst(VectorUB, TestBB, Descr.VF, false);
+    insertVectorUBInst(VectorUB, TestBB, Descr.getVF(), false);
   }
   if (isa<VPlanScalar>(PrevDescr.Plan) || isa<VPlanMasked>(PrevDescr.Plan)) {
     // Scalar and masked mode loops have original upper bound
@@ -753,7 +779,8 @@ void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,
     auto *VecUB = cast<VPVectorTripCountCalculation>(
         findVectorUB(*PrevDescr.Plan)->clone());
     VecUB->setOperand(0, OrigUB);
-    insertVectorUBInst(VecUB, TestBB, PrevDescr.VF, PrevDescr.Plan == &Plan);
+    insertVectorUBInst(VecUB, TestBB, PrevDescr.getVF(),
+                       PrevDescr.Plan == &Plan);
     PrevUB = VecUB;
   }
 
@@ -864,7 +891,7 @@ void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
                                              PlanDescr &MainDescr,
                                              PlanDescr *PRemDescr,
                                              PlanDescr *PPrevDescr) {
-  assert((MainDescr.Type == CfgMergerPlanDescr::LoopType::LTMain &&
+  assert((MainDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain &&
           MainDescr.Plan == &Plan) &&
          "expected main vplan");
   if (Peel)
@@ -889,8 +916,8 @@ void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
     return;
 
   VPBasicBlock *TopTest = createTopTest(
-      MainDescr.Plan, MainDescr.FirstBB, MainDescr.PrevMerge,
-      MainDescr.FirstBB, Peel ? Peel->Plan : nullptr, MainDescr.VF);
+      MainDescr.Plan, MainDescr.FirstBB, MainDescr.PrevMerge, MainDescr.FirstBB,
+      Peel ? Peel->Plan : nullptr, MainDescr.getVF());
   if (Peel)
     updateMergeBlockIncomings(*Peel, MainDescr.PrevMerge, TopTest,
                               false /* UseLiveIn */);
@@ -905,7 +932,7 @@ void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
         PPrevDescr ? PPrevDescr->MergeBefore : PRemDescr->PrevMerge;
     VPBasicBlock *TopTest2 =
         createTopTest(PRemDescr->Plan, TopTest, MergeBB, TopTest,
-                      Peel ? Peel->Plan : nullptr, PRemDescr->VF);
+                      Peel ? Peel->Plan : nullptr, PRemDescr->getVF());
     if (Peel)
       updateMergeBlockIncomings(*Peel, MergeBB, TopTest2,
                                 false /* UseLiveIn */);
@@ -1039,7 +1066,7 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
                                             VPBasicBlock *RemainderMerge,
                                             LoopTy *OrigLoop) {
 
-  assert(P.Type == CfgMergerPlanDescr::LoopType::LTPeel &&
+  assert(P.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
          "expected peel loop");
   // Emit peel count instruction.
   VPBasicBlock *TestBB =
@@ -1271,7 +1298,7 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
     bool IsFirst = Iter == Plans.begin();
 
     VPBasicBlock *Succ;
-    if (P.Type != LT::LTMain) {
+    if (P.getLoopType() != LT::LTMain) {
       // Create basic block with VPlanAdaptor.
       // We need to link it to FinalMerge in case it's the first one or
       // is masked remainder.
@@ -1280,7 +1307,7 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
 
       // Insert PushVF/PopVF around VPlan for non-main plan.
       // For main plan we inserted them already at beginnnig of the routine.
-      insertPushPopVF(*P.Plan, P.VF, 1);
+      insertPushPopVF(*P.Plan, P.getVF(), 1);
     } else {
       // Special case for main loop. We don't create basic block with adaptor,
       // just setting First/Last basic blocks.
@@ -1293,7 +1320,7 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
 
     if (!IsFirst && !P.isMaskedOrScalarRemainder()) {
       assert(Succ != FinalMerge && "not expected check");
-      if (P.Type == LT::LTPeel) {
+      if (P.getLoopType() == LT::LTPeel) {
         assert(!IsFirst && "peel loop can't be the first in chain");
         // After peel we should have at least two loops created, main and
         // remainder. The situation with one loop (e.g. masked mode loop) is not
@@ -1376,16 +1403,16 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
       LastMerge = createMergeBlockBefore(P.FirstBB);
       P.MergeBefore = LastMerge;
 
-      if (P.Type != LT::LTMain)
+      if (P.getLoopType() != LT::LTMain)
         updateAdapterOperands(P.FirstBB, LastMerge);
 
-      if (!FinalRemainderMerge && P.Type == LT::LTRemainder &&
+      if (!FinalRemainderMerge && P.getLoopType() == LT::LTRemainder &&
           !isa<VPlanNonMasked>(P.Plan))
         FinalRemainderMerge = LastMerge;
-    } else if (P.Type != LT::LTPeel) {
+    } else if (P.getLoopType() != LT::LTPeel) {
       // If that is the last non-peel VPlan it should be main VPlan and
       // we need to generate the needed trip count check before it.
-      assert(P.Type == LT::LTMain && "expected main loop");
+      assert(P.getLoopType() == LT::LTMain && "expected main loop");
       PlanDescr *PrevD = IsFirst ? nullptr : &*(std::prev(Iter, 1));
       // PPrevD is a remainder after non-masked mode remainder.
       PlanDescr *PPrevD = nullptr;
@@ -1511,7 +1538,7 @@ void VPlanCFGMerger::copyDA(std::list<PlanDescr> &Plans) {
   using LT = CfgMergerPlanDescr::LoopType;
   VPlanDivergenceAnalysis *DA = Plan.getVPlanDA();
   for (const auto &P : Plans) {
-    if (P.Type == LT::LTMain)
+    if (P.getLoopType() == LT::LTMain)
       continue;
 
     if (isa<VPlanScalar>(P.Plan)) {
@@ -1582,7 +1609,7 @@ void VPlanCFGMerger::updateVPlansIncomings(std::list<PlanDescr> &Plans) {
 
     // Find VPlan adapter.
     auto AdapterI = P.FirstBB->end();
-    if (P.Type != LT::LTMain) {
+    if (P.getLoopType() != LT::LTMain) {
       AdapterI = llvm::find_if(*P.FirstBB, [](const VPInstruction &I) {
         return isa<VPlanAdapter>(I);
       });
@@ -1590,19 +1617,19 @@ void VPlanCFGMerger::updateVPlansIncomings(std::list<PlanDescr> &Plans) {
     }
 
     if (std::next(Iter, 1) == Plans.end()) {
-      assert((P.Type == LT::LTPeel || P.Type == LT::LTMain) &&
+      assert((P.getLoopType() == LT::LTPeel || P.getLoopType() == LT::LTMain) &&
              "expected peel or main vplan");
       // The last inserted VPlan (peel or main one), i.e. the most upper one in
       // CFG, always uses original incoming values.
       VPLiveInOutCreator LICreator(*P.Plan);
       LICreator.restoreLiveIns();
-      if (P.Type != LT::LTMain)
+      if (P.getLoopType() != LT::LTMain)
         // Update uses of Adapter by VPlan's outigoing values.
         replaceAdapterUses(cast<VPlanAdapter>(&*AdapterI), *P.Plan);
       continue;
     }
 
-    if (P.Type == LT::LTMain) {
+    if (P.getLoopType() == LT::LTMain) {
       // If main VPlan has a predecessor VPlan in CFG then we update its
       // incoming values from the predecessor merge block.
       VPBasicBlock *MergeBB = P.MergeBefore;
@@ -1632,12 +1659,12 @@ void VPlanCFGMerger::updateVPlansIncomings(std::list<PlanDescr> &Plans) {
 // Of course, no clonning is done as the blocks from \p P should be in the main
 // VPlan.
 //
-void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
+void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P, VPLoopDescrMap &LoopDescrs) {
   VPLoopInfo *DestLI = Plan.getVPLoopInfo();
   VPLoopInfo *SrcLI = P.getVPLoopInfo();
 
-  auto CopyLoop = [DestLI, SrcLI, this](VPLoop *L,
-                                        VPLoop *ParentL) -> VPLoop * {
+  auto CopyLoop = [DestLI, SrcLI, this,
+                   &LoopDescrs](VPLoop *L, VPLoop *ParentL) -> VPLoop * {
     VPLoop *NewLoop = DestLI->AllocateLoop();
     if (ParentL)
       ParentL->addChildLoop(NewLoop);
@@ -1648,6 +1675,8 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
     NewLoop->setOptReport(L->getOptReport());
     ExtVals.setOptRptStatsForLoop(NewLoop,
                                   ExtVals.getOrCreateOptRptStatsForLoop(L));
+    if (LoopDescrs.count(L))
+      LoopDescrs[NewLoop] = LoopDescrs[L];
 
     // Add all of the blocks in L to the new loop.
     for (const auto &BB : L->getBlocks())
@@ -1665,10 +1694,11 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
   }
 }
 
-void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
+void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans,
+                                      VPLoopDescrMap &LoopDescrs) {
   using LT = CfgMergerPlanDescr::LoopType;
   for (const auto &P : Plans) {
-    if (P.Type == LT::LTMain)
+    if (P.getLoopType() == LT::LTMain)
       continue;
     // Move blocks from inner VPlan into main VPlan.
     VPBasicBlock *Begin = &P.Plan->getEntryBlock();
@@ -1689,19 +1719,20 @@ void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
 
     Plan.getBasicBlockList().erase(VPFirstBB);
     if (auto VecPlan = dyn_cast<VPlanVector>(P.Plan))
-      mergeLoopInfo(*VecPlan);
+      mergeLoopInfo(*VecPlan, LoopDescrs);
   }
   VPLAN_DUMP(MergePass2DumpControl, Plan);
 }
 
-void VPlanCFGMerger::mergeVPlans(std::list<CfgMergerPlanDescr> &Plans) {
+void VPlanCFGMerger::mergeVPlans(std::list<CfgMergerPlanDescr> &Plans,
+                                 VPLoopDescrMap &LoopDescrs) {
 
   VPLoop *VLoop = Plan.getMainLoop(true);
   (void) VLoop;
 
   copyDA(Plans);
   updateVPlansIncomings(Plans);
-  mergeVPlanBodies(Plans);
+  mergeVPlanBodies(Plans, LoopDescrs);
 
   Plan.setExplicitRemainderUsed();
 
@@ -1716,13 +1747,12 @@ void VPlanCFGMerger::mergeVPlans(std::list<CfgMergerPlanDescr> &Plans) {
   Plan.computePDT();
 }
 
-template void
-VPlanCFGMerger::createMergedCFG<Loop>(SingleLoopVecScenario &Scen,
-                                      std::list<CfgMergerPlanDescr> &Plans,
-                                      Loop *OrigLoop);
+template void VPlanCFGMerger::createMergedCFG<Loop>(
+    SingleLoopVecScenario &Scen, std::list<CfgMergerPlanDescr> &Plans,
+    VPLoopDescrMap &LoopDescrs, Loop *OrigLoop);
 template void VPlanCFGMerger::createMergedCFG<loopopt::HLLoop>(
     SingleLoopVecScenario &Scen, std::list<CfgMergerPlanDescr> &Plans,
-    loopopt::HLLoop *OrigLoop);
+    VPLoopDescrMap &LoopDescrs, loopopt::HLLoop *OrigLoop);
 
 template void VPlanCFGMerger::emitSkeleton<Loop>(std::list<PlanDescr> &Plans,
                                                  Loop *OrigLoop);

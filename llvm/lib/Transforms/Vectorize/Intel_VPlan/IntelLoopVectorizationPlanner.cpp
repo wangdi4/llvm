@@ -2227,7 +2227,7 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
   // Run CFGMerger.
-  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TopLoopDescrs, TheLoop);
 }
 
 void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {
@@ -2239,8 +2239,19 @@ void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {
 
   VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
                               *Plan, VPAF);
+  fillLoopDescrs();
 }
 
+void LoopVectorizationPlanner::fillLoopDescrs() {
+  for (const CfgMergerPlanDescr &PlanDescr : MergerVPlans) {
+    VPlan *Plan = PlanDescr.getVPlan();
+    if (isa<VPlanScalar>(Plan))
+      continue;
+    VPLoop *Lp = cast<VPlanVector>(Plan)->getMainLoop(true /* StrictCheck */);
+    assert(Lp && "Expected non-null mainloop");
+    TopLoopDescrs[Lp] = &PlanDescr;
+  }
+}
 // Return true if the compare and branch sequence guarantees the loop trip count
 // is meaningful, i.e. the loop is executed as a loop. For example, consider the
 // following comination:

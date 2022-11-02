@@ -72,6 +72,11 @@ static cl::opt<bool> EnableBlobCoeffVec(
 static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(true),
                                       cl::Hidden,
                                       cl::desc("Enable VLS code generation"));
+static cl::opt<bool>
+    EnablePeelRemStrip("vplan-enable-peel-rem-strip", cl::init(true),
+                       cl::Hidden,
+                       cl::desc("Enable stripping of peel and remainder loops "
+                                "which are known to have one iteration."));
 
 /// Command line switches to control VLS optimizations
 static cl::opt<bool>
@@ -1016,37 +1021,37 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
     CurTopVPLoop = VPLp;
     HLoop = getHLLoopForTopVPLoop(VPLp);
 
-    // We are dealing with vectorized peel loop if peel loop was emitted
-    // and PeelVF is not yet set(if we did not see ScalarPeelHIR yet).
-    if (NeedPeelLoop && !getPeelVF()) {
+    auto Iter = VPLoopDescrs.find(VPLp);
+    assert(Iter != VPLoopDescrs.end() && "LoopDescriptor not found");
+
+    const VPlanLoopDescr *Descr = Iter->second;
+    // If the loop is of one iteration, mark it for unrolling.
+    if (Descr->getLoopType() != VPlanLoopDescr::LoopType::LTMain &&
+        Descr->getTC() == 1)
+      StripCandidates.push_back(HLoop);
+
+    // Update loop TC and vector tags.
+    switch (Descr->getLoopType()) {
+    case VPlanLoopDescr::LoopType::LTPeel:
       PeelLoop = HLoop;
       PeelLoop->setVecTag(HLLoop::VecTagTy::PEEL);
-      setPeelVF(VF);
-    } else if (!getMainVF()) {
-      // If we have dealt with peel loop and MainVF is not yet set we are
-      // dealing with the main vector loop.
-      setMainVF(VF);
+      if (Descr->isTCKnown())
+        setLoopTCEstimatesAndMarkers(HLoop, Descr->getTC());
+      break;
+    case VPlanLoopDescr::LoopType::LTRemainder:
+      HLoop->setVecTag(HLLoop::VecTagTy::REMAINDER);
+      if (Descr->isTCKnown())
+        setLoopTCEstimatesAndMarkers(HLoop, Descr->getTC());
+      break;
+    case VPlanLoopDescr::LoopType::LTMain:
       if (IsOmpSIMD)
         HLoop->setVecTag(HLLoop::VecTagTy::SIMD);
       else
         HLoop->setVecTag(HLLoop::VecTagTy::AUTOVEC);
-    } else {
-      // Both peel and main loops have been dealt with - we are dealing with
-      // remainder loop now.
-      setRemVF(VF);
-      HLoop->setVecTag(HLLoop::VecTagTy::REMAINDER);
+      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(HLoop,
+                                                               Descr->getVF());
+      break;
     }
-
-    // TODO - this code is making some implicit assumptions that the first
-    // VPLoop is the main vector loop and using its VF(MaxVF) to set
-    // trip count estimates. This needs to be improved to get the VF
-    // information explicitly from the merger and to give better estimates
-    // for the different vector loops.
-    if (*Plan->getVPLoopInfo()->begin() == VPLp)
-      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
-          HLoop, getVF() * getUF());
-    else
-      setLoopTCEstimatesAndMarkers(HLoop, MaxVF / VF);
   } else {
     Type *IVTy;
     VPValue *IVUpper = nullptr;
@@ -1183,6 +1188,7 @@ void VPOCodeGenHIR::setupLoopsForMergedCFG() {
   // generated vector HIR.
   OrigLoop->extractZttPreheaderAndPostexit();
   HLLoop *MainLoop = OrigLoop->cloneEmpty();
+
   setNeedPeelLoop(CFGInfo.isPeelLoopEmitted());
   setNeedRemainderLoop(CFGInfo.isRemainderLoopEmitted());
   setMainLoop(MainLoop);
@@ -1520,6 +1526,14 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
         || (TripCount == VF && OrigLoop->getNestingLevel() > 1))
       HIRTransformUtils::completeUnroll(MainLoop);
   }
+
+  LLVM_DEBUG(dbgs() << "# full unroll candidates: " << StripCandidates.size()
+                    << "\n";);
+  if (EnablePeelRemStrip)
+    for (auto Lp : StripCandidates) {
+      Lp->replaceByFirstIteration(true /* ExtractPostExit */,
+                                  true /* Preserve optreport */);
+    }
 
   // Remove the OrigLoop for merged CFG approach or if remainder is not needed.
   if ((!isSearchLoop() && OrigLoop->isAttached()) || !NeedRemainderLoop)
@@ -5963,7 +5977,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ScalarPeelHIR: {
     auto *VPPeelLp = cast<VPScalarPeelHIR>(VPInst);
     HLLoop *ScalarPeel = VPPeelLp->getLoop()->clone();
-    setPeelVF(1);
     ScalarPeel->setVecTag(HLLoop::VecTagTy::PEEL);
     OutgoingScalarHLLoops.insert(ScalarPeel);
     OutgoingScalarHLLoopsMap[VPPeelLp] = ScalarPeel;
@@ -6022,7 +6035,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ScalarRemainderHIR: {
     auto *VPRemLp = cast<VPScalarRemainderHIR>(VPInst);
     HLLoop *ScalarRem = VPRemLp->getLoop()->clone();
-    setRemVF(1);
     ScalarRem->setVecTag(HLLoop::VecTagTy::REMAINDER);
     OutgoingScalarHLLoops.insert(ScalarRem);
     OutgoingScalarHLLoopsMap[VPRemLp] = ScalarRem;

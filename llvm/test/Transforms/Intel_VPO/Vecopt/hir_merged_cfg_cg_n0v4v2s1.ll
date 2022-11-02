@@ -80,14 +80,10 @@
 ; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP90]]  +  <i64 0, i64 1>
 ; CHECK-NEXT:        [[PHI_TEMP340:%.*]] = [[RED_INIT_INSERT330]]
 ; CHECK-NEXT:        [[LOOP_UB360:%.*]] = [[VEC_TC310]]  -  1
-
-; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB360]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
-; CHECK-NEXT:        |   [[DOTVEC370:%.*]] = (<2 x i32>*)([[A0]])[i1]
-; CHECK-NEXT:        |   [[DOTVEC380:%.*]] = [[DOTVEC370]]  +  [[PHI_TEMP340]]
-; CHECK-NEXT:        |   [[PHI_TEMP340]] = [[DOTVEC380]]
-; CHECK-NEXT:        + END LOOP
-
-; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v2i32([[DOTVEC380]])
+; CHECK-NEXT:        [[DOTVEC370:%.*]] = (<2 x i32>*)([[A0]])[[[PHI_TEMP90]]]
+; CHECK-NEXT:        [[DOTVEC380:%.*]] = [[DOTVEC370]]  +  [[PHI_TEMP340]]
+; CHECK-NEXT:        [[PHI_TEMP340]] = [[DOTVEC380]]
+; CHECK-NEXT:        [[SUM_070]] = @llvm.vector.reduce.add.v2i32([[DOTVEC380]])
 ; CHECK-NEXT:        [[IND_FINAL410:%.*]] = 0  +  [[VEC_TC310]]
 ; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL410]]
@@ -117,10 +113,8 @@
 ; CHECK-NEXT:        [[FINAL_MERGE]]:
 ; CHECK-NEXT:  END REGION
 
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
-
 define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

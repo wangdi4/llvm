@@ -77,9 +77,11 @@ public:
   // blocks, and emits the needed trip count checks.
   template <class LoopTy>
   void createMergedCFG(SingleLoopVecScenario &Scen,
-                       std::list<CfgMergerPlanDescr> &Plans, LoopTy *OrigLoop);
+                       std::list<CfgMergerPlanDescr> &Plans,
+                       VPLoopDescrMap &LoopDescrs, LoopTy *OrigLoop);
 
-  void mergeVPlans(std::list<CfgMergerPlanDescr> &Plans);
+  void mergeVPlans(std::list<CfgMergerPlanDescr> &Plans,
+                   VPLoopDescrMap &LoopDescrs);
 
   void setIsSimpleConstTCScenario(bool Val) { IsSimpleConstTCScenario = Val; }
 
@@ -333,11 +335,12 @@ private:
   void replaceAdapterUses(VPlanAdapter *Adapter, VPlan &P);
 
   // Merge all basic blocks in VPlans from the list into main VPlan.
-  void mergeVPlanBodies(std::list<PlanDescr> &Plans);
+  void mergeVPlanBodies(std::list<PlanDescr> &Plans,
+                        VPLoopDescrMap &LoopDescrs);
 
   // Copy LoopInfo from VPlan \p P to the main VPlan. The loops are added
   // at the same level as they exist in \p P.
-  void mergeLoopInfo(VPlanVector &P);
+  void mergeLoopInfo(VPlanVector &P, VPLoopDescrMap &LoopDescrs);
 };
 
 } // namespace vpo

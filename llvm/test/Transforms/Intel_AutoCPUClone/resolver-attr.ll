@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; This lit test checks that a resolver function carries the same target-cpu,
 ; tune-cpu and target-features attributes of the cloned function.

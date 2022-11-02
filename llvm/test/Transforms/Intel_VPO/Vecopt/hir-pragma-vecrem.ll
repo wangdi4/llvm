@@ -89,7 +89,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP80]]  +  <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:        [[PHI_TEMP330:%.*]] = [[RED_INIT_INSERT320]]
 ; CHECK-NEXT:        [[LOOP_UB350:%.*]] = [[VEC_TC300]]  -  1
-; CHECK:             + DO i1 = [[PHI_TEMP80]], [[LOOP_UB350]], 4   <DO_LOOP>  <MAX_TC_EST = 4>  <LEGAL_MAX_TC = 4> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 4>
+; CHECK:             + DO i1 = [[PHI_TEMP80]], [[LOOP_UB350]], 4   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   [[DOTVEC360:%.*]] = (<4 x i32>*)([[PTR0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC370:%.*]] = [[DOTVEC360]]  +  [[PHI_TEMP330]]
 ; CHECK-NEXT:        |   [[PHI_TEMP330]] = [[DOTVEC370]]

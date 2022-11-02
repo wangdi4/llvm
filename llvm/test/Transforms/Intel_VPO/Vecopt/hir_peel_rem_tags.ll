@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-vec-scenario="m4;v8;v2s1" < %s 2>&1 | FileCheck %s --check-prefix=VECCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-force-vf=4 -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-vec-scenario="m4;v8;v2s1" -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s --check-prefix=VECCHECK
 ; LIT test to check emission of peel/remainder loop tags during vectorization.
 ;
 ; CHECK: DO i1 = 0, %peel.ub, 1   <DO_LOOP>  {{.*}} <vector-peel>
