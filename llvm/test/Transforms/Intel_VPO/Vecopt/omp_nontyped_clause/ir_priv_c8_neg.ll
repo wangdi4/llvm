@@ -52,7 +52,7 @@ define dso_local i32 @_Z3fooPiS_(i32* nocapture readonly %a, i32* nocapture read
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1     [[COND_LCSSA0:%.*]] = phi i32 [ [[COND0:%.*]], [[COND_END0]] ] i32 [[VP_COND]] -> i32 [[COND0]]
 ;
-; CHECK:       Incorrect recurrent operand of unconditional private:
+; CHECK:       Detected recurrent operand while checking for unconditional private:
 ; CHECK-NEXT:  i32 [[VP0]] = phi  [ i32 [[S_RED_PROMOTED0]], [[BB1]] ],  [ i32 [[VP_ADD1]], [[BB3]] ]
 ;
 DIR.OMP.SIMD.136:

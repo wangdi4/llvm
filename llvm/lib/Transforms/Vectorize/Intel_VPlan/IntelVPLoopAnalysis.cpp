@@ -2113,43 +2113,6 @@ static bool checkLastPrivPhiUsers(const VPPHINode *VPhi,
   return true;
 }
 
-// Return true if the \p ExitI does not have any recurrent phi in its operand
-// chain, except inductions.
-//
-static bool checkUncondLastPrivOperands(const VPInstruction *ExitI,
-                                        VPLoopEntityList *LE) {
-  SmallVector<const VPInstruction *, 4> Worklist;
-  SmallPtrSet<const VPInstruction *, 4> Visited;
-
-  const VPBasicBlock *HeaderBB = LE->getLoop().getHeader();
-
-  Worklist.push_back(ExitI);
-  while (!Worklist.empty()) {
-    const VPInstruction *Cur = Worklist.pop_back_val();
-    if (auto VPhi = dyn_cast<VPPHINode>(Cur)) {
-      if (VPhi->getParent() == HeaderBB && !LE->getInduction(VPhi)) {
-        LLVM_DEBUG(
-            dbgs()
-            << "Incorrect recurrent operand of unconditional private: \n");
-        LLVM_DEBUG(Cur->dump());
-        return false;
-      }
-    }
-    if (!Visited.insert(Cur).second)
-      continue;
-    for (auto *Op : Cur->operands())
-      if (auto *VInst = dyn_cast<VPInstruction>(Op)) {
-        if (VPLoadStoreInst::isLoadOpcode(VInst->getOpcode())) {
-          // Skip a load, it produces a new value that does not use operands
-          // directly.
-          continue;
-        }
-        Worklist.push_back(VInst);
-      }
-  }
-  return true;
-}
-
 // Calculate kind of a last private, using its exit instruction \p Inst. Returns
 // optional pair <VPValue*, PrivateKind>. For conditonal last privates the
 // pair.first is the VPHINode from the loop header and PrivateKind is
@@ -2232,7 +2195,9 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
 
   // A value which is assigned uconditionally. We consider it as a safe
   // last private if does not use any recurrence, except known inductions.
-  if (checkUncondLastPrivOperands(Inst, LE))
+  if (checkUncondLastPrivOperands<VPPHINode>(
+          HeaderBB, Inst,
+          [&](VPPHINode *Phi) { return LE->getInduction(Phi); }))
     return PrivKindPair(std::make_pair(nullptr, VPPrivate::PrivateKind::Last));
 
   return None;

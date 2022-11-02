@@ -693,6 +693,11 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           if (checkAndAddAliasForSimdLastPrivate(Phi))
             continue;
 
+          if (checkUncondLastPrivOperands<PHINode>(
+                  Header, Phi,
+                  [&](PHINode *Phi) { return Inductions.count(Phi); }))
+            continue;
+
           LLVM_DEBUG(dbgs() << "LV: PHI value could not be identified as"
                             << " an induction or reduction." << *Phi << "\n");
           return false;
