@@ -7,7 +7,7 @@
 
 __m512 test_mm512_bcstnebf16_ps(const __bf16 * __A) {
   // CHECK-LABEL: @test_mm512_bcstnebf16_ps(
-  // CHECK: call <16 x float> @llvm.x86.avx512.vbcstnebf162ps512(i8* %{{.*}})
+  // CHECK: call <16 x float> @llvm.x86.vbcstnebf162ps512(i8* %{{.*}})
   return _mm512_bcstnebf16_ps(__A);
 }
 
@@ -25,7 +25,7 @@ __m512 test_mm512_maskz_bcstnebf16_ps(__mmask16 __A, const __bf16 * __B) {
 
 __m512 test_mm512_bcstnesh_ps(const _Float16 * __A) {
   // CHECK-LABEL: @test_mm512_bcstnesh_ps(
-  // CHECK: call <16 x float> @llvm.x86.avx512.vbcstnesh2ps512(i8* %{{.*}})
+  // CHECK: call <16 x float> @llvm.x86.vbcstnesh2ps512(i8* %{{.*}})
   return _mm512_bcstnesh_ps(__A);
 }
 
@@ -55,7 +55,7 @@ __m512h test_mm512_cvtne_round2ps_ph(__m512 __A, __m512 __B) {
 
 __m512 test_mm512_cvtneebf16_ps(const __m512bh * __A) {
   // CHECK-LABEL: @test_mm512_cvtneebf16_ps(
-  // CHECK: call <16 x float> @llvm.x86.avx512.vcvtneebf162ps512(i8* %{{.*}})
+  // CHECK: call <16 x float> @llvm.x86.vcvtneebf162ps512(i8* %{{.*}})
   return _mm512_cvtneebf16_ps(__A);
 }
 
@@ -73,7 +73,7 @@ __m512 test_mm512_maskz_cvtneebf16_ps(__mmask16 __A, const __m512bh * __B) {
 
 __m512 test_mm512_cvtneeph_ps(const __m512h * __A) {
   // CHECK-LABEL: @test_mm512_cvtneeph_ps(
-  // CHECK: call <16 x float> @llvm.x86.avx512.vcvtneeph2ps512(i8* %{{.*}})
+  // CHECK: call <16 x float> @llvm.x86.vcvtneeph2ps512(i8* %{{.*}})
   return _mm512_cvtneeph_ps(__A);
 }
 
@@ -91,7 +91,7 @@ __m512 test_mm512_maskz_cvtneeph_ps(__mmask16 __A, const __m512h * __B) {
 
 __m512 test_mm512_cvtneobf16_ps(const __m512bh * __A) {
   // CHECK-LABEL: @test_mm512_cvtneobf16_ps(
-  // CHECK: call <16 x float> @llvm.x86.avx512.vcvtneobf162ps512(i8* %{{.*}})
+  // CHECK: call <16 x float> @llvm.x86.vcvtneobf162ps512(i8* %{{.*}})
   return _mm512_cvtneobf16_ps(__A);
 }
 
@@ -109,7 +109,7 @@ __m512 test_mm512_maskz_cvtneobf16_ps(__mmask16 __A, const __m512bh * __B) {
 
 __m512 test_mm512_cvtneoph_ps(const __m512h * __A) {
   // CHECK-LABEL: @test_mm512_cvtneoph_ps(
-  // CHECK: call <16 x float> @llvm.x86.avx512.vcvtneoph2ps512(i8* %{{.*}})
+  // CHECK: call <16 x float> @llvm.x86.vcvtneoph2ps512(i8* %{{.*}})
   return _mm512_cvtneoph_ps(__A);
 }
 

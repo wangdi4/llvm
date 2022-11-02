@@ -336,6 +336,13 @@ typedef struct __tile1024i_str {
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXNECONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
+#include <avxneconvertintrin.h>
+#endif
+
+/* INTEL_CUSTOMIZATION */
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512VBMI__) && defined(__AVX512VL__)) ||                      \
     defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
@@ -652,13 +659,6 @@ typedef struct __tile1024i_str {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_AVX512_CVTROW */
 
-/* INTEL_FEATURE_ISA_AVX_NE_CONVERT */
-/* FIXME: Change these When _Float16 type is supported */
-#if defined(__AVXNECONVERT__) && defined(__AVX512FP16__)
-#include <avxneconvert/avxneconvertintrin.h>
-#endif
-/* end INTEL_FEATURE_ISA_AVX_NE_CONVERT */
-
 /* INTEL_FEATURE_ISA_AVX512_NE_CONVERT */
 /* FIXME: Change these When _Float16 type is supported */
 #if defined(__AVX512NECONVERT_SUPPORTED__)
@@ -712,12 +712,6 @@ typedef struct __tile1024i_str {
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-    defined(__AVXNECONVERT__)
-#include <avxneconvertintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__RDPID__)
 /// Returns the value of the IA32_TSC_AUX MSR (0xc0000103).
 ///
 /// \headerfile <immintrin.h>

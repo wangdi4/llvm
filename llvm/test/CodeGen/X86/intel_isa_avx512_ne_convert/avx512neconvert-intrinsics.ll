@@ -14,10 +14,10 @@ define <16 x float> @test_int_x86_vbcstnebf162ps512(i8* %A) {
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
 ; X86-NEXT:    vbcstnebf162ps (%eax), %zmm0 # encoding: [0x62,0xf2,0x7e,0x48,0xb1,0x00]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x float> @llvm.x86.avx512.vbcstnebf162ps512(i8* %A)
+  %ret = call <16 x float> @llvm.x86.vbcstnebf162ps512(i8* %A)
   ret <16 x float> %ret
 }
-declare <16 x float> @llvm.x86.avx512.vbcstnebf162ps512(i8* %A)
+declare <16 x float> @llvm.x86.vbcstnebf162ps512(i8* %A)
 
 define <16 x float> @test_int_x86_mask_vbcstnebf162ps512(<16 x float> %W, i16 %A, i8* %B) {
 ; X64-LABEL: test_int_x86_mask_vbcstnebf162ps512:
@@ -48,10 +48,10 @@ define <16 x float> @test_int_x86_vbcstnesh2ps512(i8* %A) {
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
 ; X86-NEXT:    vbcstnesh2ps (%eax), %zmm0 # encoding: [0x62,0xf2,0x7d,0x48,0xb1,0x00]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x float> @llvm.x86.avx512.vbcstnesh2ps512(i8* %A)
+  %ret = call <16 x float> @llvm.x86.vbcstnesh2ps512(i8* %A)
   ret <16 x float> %ret
 }
-declare <16 x float> @llvm.x86.avx512.vbcstnesh2ps512(i8* %A)
+declare <16 x float> @llvm.x86.vbcstnesh2ps512(i8* %A)
 
 define <16 x float> @test_int_x86_mask_vbcstnesh2ps512(<16 x float> %W, i16 %A, i8* %B) {
 ; X64-LABEL: test_int_x86_mask_vbcstnesh2ps512:
@@ -112,10 +112,10 @@ define <16 x float> @test_int_x86_vcvtneebf162ps512(i8* %A) {
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
 ; X86-NEXT:    vcvtneebf162ps (%eax), %zmm0 # encoding: [0x62,0xf2,0x7e,0x48,0xb0,0x00]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x float> @llvm.x86.avx512.vcvtneebf162ps512(i8* %A)
+  %ret = call <16 x float> @llvm.x86.vcvtneebf162ps512(i8* %A)
   ret <16 x float> %ret
 }
-declare <16 x float> @llvm.x86.avx512.vcvtneebf162ps512(i8* %A)
+declare <16 x float> @llvm.x86.vcvtneebf162ps512(i8* %A)
 
 define <16 x float> @test_int_x86_mask_vcvtneebf162ps512(<16 x float> %W, i16 %A, i8* %B) {
 ; X64-LABEL: test_int_x86_mask_vcvtneebf162ps512:
@@ -146,10 +146,10 @@ define <16 x float> @test_int_x86_vcvtneeph2ps512(i8* %A) {
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
 ; X86-NEXT:    vcvtneeph2ps (%eax), %zmm0 # encoding: [0x62,0xf2,0x7d,0x48,0xb0,0x00]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x float> @llvm.x86.avx512.vcvtneeph2ps512(i8* %A)
+  %ret = call <16 x float> @llvm.x86.vcvtneeph2ps512(i8* %A)
   ret <16 x float> %ret
 }
-declare <16 x float> @llvm.x86.avx512.vcvtneeph2ps512(i8* %A)
+declare <16 x float> @llvm.x86.vcvtneeph2ps512(i8* %A)
 
 define <16 x float> @test_int_x86_mask_vcvtneeph2ps512(<16 x float> %W, i16 %A, i8* %B) {
 ; X64-LABEL: test_int_x86_mask_vcvtneeph2ps512:
@@ -180,10 +180,10 @@ define <16 x float> @test_int_x86_vcvtneobf162ps512(i8* %A) {
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
 ; X86-NEXT:    vcvtneobf162ps (%eax), %zmm0 # encoding: [0x62,0xf2,0x7f,0x48,0xb0,0x00]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x float> @llvm.x86.avx512.vcvtneobf162ps512(i8* %A)
+  %ret = call <16 x float> @llvm.x86.vcvtneobf162ps512(i8* %A)
   ret <16 x float> %ret
 }
-declare <16 x float> @llvm.x86.avx512.vcvtneobf162ps512(i8* %A)
+declare <16 x float> @llvm.x86.vcvtneobf162ps512(i8* %A)
 
 define <16 x float> @test_int_x86_mask_vcvtneobf162ps512(<16 x float> %W, i16 %A, i8* %B) {
 ; X64-LABEL: test_int_x86_mask_vcvtneobf162ps512:
@@ -214,10 +214,10 @@ define <16 x float> @test_int_x86_vcvtneoph2ps512(i8* %A) {
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
 ; X86-NEXT:    vcvtneoph2ps (%eax), %zmm0 # encoding: [0x62,0xf2,0x7c,0x48,0xb0,0x00]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x float> @llvm.x86.avx512.vcvtneoph2ps512(i8* %A)
+  %ret = call <16 x float> @llvm.x86.vcvtneoph2ps512(i8* %A)
   ret <16 x float> %ret
 }
-declare <16 x float> @llvm.x86.avx512.vcvtneoph2ps512(i8* %A)
+declare <16 x float> @llvm.x86.vcvtneoph2ps512(i8* %A)
 
 define <16 x float> @test_int_x86_mask_vcvtneoph2ps512(<16 x float> %W, i16 %A, i8* %B) {
 ; X64-LABEL: test_int_x86_mask_vcvtneoph2ps512:

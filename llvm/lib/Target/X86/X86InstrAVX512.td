@@ -14856,7 +14856,7 @@ multiclass avx512_ne_convert_2op<bits<8> OpCode, string OpcodeStr,
   def rm : I<OpCode, MRMSrcMem, (outs vt_dst.RC:$dst), (ins MemOp:$src),
             OpcodeStr#"\t{$src, $dst|$dst, $src}",
             [(set vt_dst.RC:$dst,
-             (!cast<Intrinsic>("int_x86_avx512_"#OpcodeStr#vl) addr:$src))]>,
+             (!cast<Intrinsic>("int_x86_"#OpcodeStr#vl) addr:$src))]>,
              EVEX, EVEX_CD8<vt_dst.EltSize, CD8VF>;
   let Constraints = "$src0 = $dst" in
   def rmk : I<OpCode, MRMSrcMem, (outs vt_dst.RC:$dst),
@@ -14903,20 +14903,20 @@ multiclass avx512_ne_convert_2op_sclar<string OpcodeStr,
 
 // Source operand is vector type.
 defm VCVTNEEBF162PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneebf162ps",
-                      avx512vl_f32_info, avx512vl_i16_info, X86vcvtneebf162ps,
+                      avx512vl_f32_info, avx512vl_bf16_info, X86vcvtneebf162ps,
                       X86vcvtneebf162psz>, T8XS;
 defm VCVTNEEPH2PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneeph2ps",
                       avx512vl_f32_info, avx512vl_f16_info, X86vcvtneeph2ps,
                       X86vcvtneeph2psz>, T8PD;
 defm VCVTNEOBF162PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneobf162ps",
-                      avx512vl_f32_info, avx512vl_i16_info, X86vcvtneobf162ps,
+                      avx512vl_f32_info, avx512vl_bf16_info, X86vcvtneobf162ps,
                       X86vcvtneobf162psz>, T8XD;
 defm VCVTNEOPH2PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneoph2ps",
                       avx512vl_f32_info, avx512vl_f16_info, X86vcvtneoph2ps,
                       X86vcvtneoph2psz>, T8PS;
 // Source operand is sclar type.
 defm VBCSTNEBF162PS : avx512_ne_convert_2op_sclar<"vbcstnebf162ps",
-                      avx512vl_f32_info, i16mem, X86vbcstnebf162ps,
+                      avx512vl_f32_info, f16mem, X86vbcstnebf162ps,
                       X86vbcstnebf162psz>, T8XS;
 defm VBCSTNESH2PS : avx512_ne_convert_2op_sclar<"vbcstnesh2ps",
                       avx512vl_f32_info, f16mem, X86vbcstnesh2ps,
