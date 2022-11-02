@@ -1260,10 +1260,6 @@ static bool isLiveAtPHI(const Instruction * Inst,
       if (BBI->mayWriteToMemory())
         return false;
 
-    const DataLayout &DL = PN.getModule()->getDataLayout();
-
-    uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
-    uint64_t Size = DL.getTypeStoreSize(LI->getType()).getFixedSize();
     MaxAlign = std::max(MaxAlign, Align(LI->getAlign()));
 
     return true;
