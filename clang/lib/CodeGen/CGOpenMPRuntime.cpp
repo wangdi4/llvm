@@ -3381,6 +3381,7 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
     return;
   }
 
+<<<<<<< HEAD
   llvm::NamedMDNode *MD = ME.get()->getNamedMetadata("omp_offload.info");
   if (!MD)
     return;
@@ -3435,6 +3436,9 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
 #endif // INTEL_COLLAB
     }
   }
+=======
+  OMPBuilder.loadOffloadInfoMetadata(*ME.get(), OffloadEntriesInfoManager);
+>>>>>>> a3463a9f5cb0880357fd3e4c47ed4c2b09f0e6fc
 }
 
 void CGOpenMPRuntime::emitKmpRoutineEntryT(QualType KmpInt32Ty) {
