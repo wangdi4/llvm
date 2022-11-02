@@ -912,10 +912,6 @@ public:
   virtual AliasResult alias(const MemoryLocation &LocA,
                             const MemoryLocation &LocB, AAQueryInfo &AAQI) = 0;
 
-  /// Checks whether the given location points to constant memory, or if
-  /// \p OrLocal is true whether it points to a local alloca.
-  virtual bool pointsToConstantMemory(const MemoryLocation &Loc,
-                                      AAQueryInfo &AAQI, bool OrLocal) = 0;
 #if INTEL_CUSTOMIZATION
   // Returns true if the given value V is escaped.
   virtual bool escapes(const Value *V) = 0;
