@@ -238,9 +238,9 @@ add_subdirectory(plugins)
 if(INTEL_CUSTOMIZATION)
 add_subdirectory(deviceRTLs)
 else(INTEL_CUSTOMIZATION)
+add_subdirectory(plugins-nextgen)
 add_subdirectory(DeviceRTL)
 endif(INTEL_CUSTOMIZATION)
 add_subdirectory(tools)
 
 # Add tests.
-add_subdirectory(test)
