@@ -5305,7 +5305,7 @@ private:
   AndersGetTLITy GetTLI;
 
   // Pointer for DataLayout for getUnderlyingObject calls
-  const DataLayout *DL;
+  const DataLayout *DL = nullptr;
 
   // Mapping between Functions and the ModRef sets for them.
   typedef MapVector<Function *, FunctionRecord> FunctionRecordMap;

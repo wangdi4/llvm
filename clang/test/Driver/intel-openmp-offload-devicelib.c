@@ -100,6 +100,62 @@
 // CHK-PHASES-LIBC: 30: assembler, {29}, object, (host-openmp)
 // CHK-PHASES-LIBC: 31: linker, {4, 30}, image, (host-openmp)
 
+/// Check explicit linking of device libs w/ target-simd enabled:
+// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fopenmp-target-simd %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-PHASES-SIMD %s
+// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fopenmp-target-simd %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-PHASES-SIMD %s
+// CHK-PHASES-SIMD: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
+// CHK-PHASES-SIMD: 1: preprocessor, {0}, cpp-output, (host-openmp)
+// CHK-PHASES-SIMD: 2: compiler, {1}, ir, (host-openmp)
+// CHK-PHASES-SIMD: 3: backend, {2}, assembler, (host-openmp)
+// CHK-PHASES-SIMD: 4: assembler, {3}, object, (host-openmp)
+// CHK-PHASES-SIMD: 5: input, "[[INPUT]]", c, (device-openmp)
+// CHK-PHASES-SIMD: 6: preprocessor, {5}, cpp-output, (device-openmp)
+// CHK-PHASES-SIMD: 7: compiler, {6}, ir, (device-openmp)
+// CHK-PHASES-SIMD: 8: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {7}, ir
+// CHK-PHASES-SIMD: 9: backend, {8}, ir, (device-openmp)
+// CHK-PHASES-SIMD: 10: input, "{{.*libomp-spirvdevicertl.o.*}}", object
+// CHK-PHASES-SIMD: 11: clang-offload-unbundler, {10}, object
+// CHK-PHASES-SIMD: 12: input, "{{.*libomp-glibc.o.*}}", object
+// CHK-PHASES-SIMD: 13: clang-offload-unbundler, {12}, object
+// CHK-PHASES-SIMD: 14: input, "{{.*libomp-complex.o.*}}", object
+// CHK-PHASES-SIMD: 15: clang-offload-unbundler, {14}, object
+// CHK-PHASES-SIMD: 16: input, "{{.*libomp-complex-fp64.o.*}}", object
+// CHK-PHASES-SIMD: 17: clang-offload-unbundler, {16}, object
+// CHK-PHASES-SIMD: 18: input, "{{.*libomp-cmath.o.*}}", object
+// CHK-PHASES-SIMD: 19: clang-offload-unbundler, {18}, object
+// CHK-PHASES-SIMD: 20: input, "{{.*libomp-cmath-fp64.o.*}}", object
+// CHK-PHASES-SIMD: 21: clang-offload-unbundler, {20}, object
+// CHK-PHASES-SIMD: 22: input, "{{.*libomp-fallback-cassert.o.*}}", object
+// CHK-PHASES-SIMD: 23: clang-offload-unbundler, {22}, object
+// CHK-PHASES-SIMD: 24: input, "{{.*libomp-fallback-cstring.o.*}}", object
+// CHK-PHASES-SIMD: 25: clang-offload-unbundler, {24}, object
+// CHK-PHASES-SIMD: 26: input, "{{.*libomp-fallback-complex.o.*}}", object
+// CHK-PHASES-SIMD: 27: clang-offload-unbundler, {26}, object
+// CHK-PHASES-SIMD: 28: input, "{{.*libomp-fallback-complex-fp64.o.*}}", object
+// CHK-PHASES-SIMD: 29: clang-offload-unbundler, {28}, object
+// CHK-PHASES-SIMD: 30: input, "{{.*libomp-fallback-cmath.o.*}}", object
+// CHK-PHASES-SIMD: 31: clang-offload-unbundler, {30}, object
+// CHK-PHASES-SIMD: 32: input, "{{.*libomp-fallback-cmath-fp64.o.*}}", object
+// CHK-PHASES-SIMD: 33: clang-offload-unbundler, {32}, object
+// CHK-PHASES-SIMD: 34: input, "{{.*libomp-itt-user-wrappers.o.*}}", object
+// CHK-PHASES-SIMD: 35: clang-offload-unbundler, {34}, object
+// CHK-PHASES-SIMD: 36: input, "{{.*libomp-itt-compiler-wrappers.o.*}}", object
+// CHK-PHASES-SIMD: 37: clang-offload-unbundler, {36}, object
+// CHK-PHASES-SIMD: 38: input, "{{.*libomp-itt-stubs.o.*}}", object
+// CHK-PHASES-SIMD: 39: clang-offload-unbundler, {38}, object
+// CHK-PHASES-SIMD: 40: input, "{{.*libomp-device-svml.o.*}}", object
+// CHK-PHASES-SIMD: 41: clang-offload-unbundler, {40}, object
+// CHK-PHASES-SIMD: 42: linker, {9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41}, ir, (device-openmp)
+// CHK-PHASES-SIMD: 43: sycl-post-link, {42}, ir, (device-openmp)
+// CHK-PHASES-SIMD: 44: llvm-spirv, {43}, spirv, (device-openmp)
+// CHK-PHASES-SIMD: 45: offload, "device-openmp (spir64)" {44}, ir
+// CHK-PHASES-SIMD: 46: clang-offload-wrapper, {45}, ir, (host-openmp)
+// CHK-PHASES-SIMD: 47: backend, {46}, assembler, (host-openmp)
+// CHK-PHASES-SIMD: 48: assembler, {47}, object, (host-openmp)
+// CHK-PHASES-SIMD: 49: linker, {4, 48}, image, (host-openmp)
+
 /// Check that -fopenmp-device-lib does not affect separate compilation:
 // RUN:   %clang -### -ccc-print-phases -fiopenmp -c -o %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fopenmp-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-BUACTIONS %s

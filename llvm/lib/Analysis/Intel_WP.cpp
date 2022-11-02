@@ -1,6 +1,6 @@
 //===------- Intel_WP.cpp - Whole Program Analysis -*------===//
 //
-// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -161,6 +161,10 @@ WholeProgramInfo::WholeProgramInfo(Module *M,
   unsigned E = static_cast<unsigned>(EE);
   for (unsigned I = 0; I < E; ++I)
     IsAdvancedOptEnabled[I] = true;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  UnresolvedCallsCount = 0;
+#endif
 }
 
 WholeProgramInfo::~WholeProgramInfo() {}
