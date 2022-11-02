@@ -567,6 +567,7 @@ public:
     return getMemoryEffects(F).onlyReadsMemory();
   }
 
+<<<<<<< HEAD
   /// getModRefInfo (for call sites) - Return information about whether
   /// a particular call site modifies or reads the specified memory location.
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
@@ -667,6 +668,8 @@ public:
                                             const MemoryLocation &Loc);
  #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 41dba9e6a3096d54de6005ef4e648af1ff02b90c
   /// Check whether or not an instruction may read or write the optionally
   /// specified memory location.
   ///
@@ -704,11 +707,6 @@ public:
   /// Return information about whether a call and an instruction may refer to
   /// the same memory locations.
   ModRefInfo getModRefInfo(const Instruction *I, const CallBase *Call);
-
-  /// Return information about whether two call sites may refer to the same set
-  /// of memory locations. See the AA documentation for details:
-  ///   http://llvm.org/docs/AliasAnalysis.html#ModRefInfo
-  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2);
 
   /// Return information about whether a particular call site modifies
   /// or reads the specified memory location \p MemLoc before instruction \p I
@@ -844,12 +842,6 @@ public:
   ModRefInfo getModRefInfoMask(const MemoryLocation &Loc,
                                bool IgnoreLocals = false) {
     return AA.getModRefInfoMask(Loc, AAQI, IgnoreLocals);
-  }
-  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc) {
-    return AA.getModRefInfo(Call, Loc, AAQI);
-  }
-  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2) {
-    return AA.getModRefInfo(Call1, Call2, AAQI);
   }
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc) {
