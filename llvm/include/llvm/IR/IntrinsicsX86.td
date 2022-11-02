@@ -2106,10 +2106,9 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
                               [IntrNoMem]>;
   def int_x86_avx2_vpdpbuuds_256
       : ClangBuiltin<"__builtin_ia32_vpdpbuuds256">,
-<<<<<<< HEAD
-        Intrinsic<[llvm_v8i32_ty],
-                  [llvm_v8i32_ty, llvm_v8i32_ty, llvm_v8i32_ty],
-                  [IntrNoMem]>;
+        DefaultAttrsIntrinsic<[llvm_v8i32_ty],
+                              [llvm_v8i32_ty, llvm_v8i32_ty, llvm_v8i32_ty],
+                              [IntrNoMem]>;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
@@ -2305,11 +2304,6 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
                          llvm_v4i64_ty], [IntrNoMem]>;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
-=======
-        DefaultAttrsIntrinsic<[llvm_v8i32_ty],
-                              [llvm_v8i32_ty, llvm_v8i32_ty, llvm_v8i32_ty],
-                              [IntrNoMem]>;
->>>>>>> 3ee3d3b365be8154d0d15bd715368e2f7ffe894d
 }
 
 //===----------------------------------------------------------------------===//
