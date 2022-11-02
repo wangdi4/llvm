@@ -24,6 +24,7 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
+#include <sycl/ext/intel/math/imf_half_trivial.hpp>
 #include <sycl/half_type.hpp>
 #include <type_traits>
 
