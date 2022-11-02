@@ -3680,12 +3680,16 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
 #endif // INTEL_CUSTOMIZATION
 }
 
-static bool runBundler(const SmallVectorImpl<StringRef> &BundlerArgs,
+static bool runBundler(const SmallVectorImpl<StringRef> &InputArgs,
                        Compilation &C) {
   // Find bundler.
   StringRef ExecPath(C.getArgs().MakeArgString(C.getDriver().Dir));
   llvm::ErrorOr<std::string> BundlerBinary =
       llvm::sys::findProgramByName("clang-offload-bundler", ExecPath);
+  SmallVector<StringRef, 6> BundlerArgs;
+  BundlerArgs.push_back(BundlerBinary.getError() ? "clang-offload-bundler"
+                                                 : BundlerBinary.get().c_str());
+  BundlerArgs.append(InputArgs);
   // Since this is run in real time and not in the toolchain, output the
   // command line if requested.
   bool OutputOnly = C.getArgs().hasArg(options::OPT__HASH_HASH_HASH);
@@ -3727,8 +3731,8 @@ static bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
 
   // Always use -type=ao for aocx/aocr bundle checking.  The 'bundles' are
   // actually archives.
-  SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler", "-type=ao",
-                                           Targets, Inputs, "-check-section"};
+  SmallVector<StringRef, 6> BundlerArgs = {"-type=ao", Targets, Inputs,
+                                           "-check-section"};
 #if INTEL_CUSTOMIZATION
   const char *TmpDir =
       C.getArgs().MakeArgString(Twine("-base-temp-dir=") +
@@ -3819,8 +3823,7 @@ static bool hasSYCLDefaultSection(Compilation &C, const StringRef &File) {
   const char *Targets =
       C.getArgs().MakeArgString(Twine("-targets=sycl-") + TT.str());
   const char *Inputs = C.getArgs().MakeArgString(Twine("-input=") + File.str());
-  SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler",
-                                           IsArchive ? "-type=ao" : "-type=o",
+  SmallVector<StringRef, 6> BundlerArgs = {IsArchive ? "-type=ao" : "-type=o",
                                            Targets, Inputs, "-check-section"};
 #if INTEL_CUSTOMIZATION
   const char *TmpDir =
@@ -3848,8 +3851,7 @@ static bool hasOffloadSections(Compilation &C, const StringRef &File,
   // of the generic host availability.
   const char *Targets = Args.MakeArgString(Twine("-targets=host-") + TT.str());
   const char *Inputs = Args.MakeArgString(Twine("-input=") + File.str());
-  SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler",
-                                           IsArchive ? "-type=ao" : "-type=o",
+  SmallVector<StringRef, 6> BundlerArgs = {IsArchive ? "-type=ao" : "-type=o",
                                            Targets, Inputs, "-check-section"};
 #if INTEL_CUSTOMIZATION
   const char *TmpDir = 
