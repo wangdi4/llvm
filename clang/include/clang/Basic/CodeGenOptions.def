@@ -474,6 +474,9 @@ CODEGENOPT(EmitTraceBack, 1, 0)
 CODEGENOPT(EmitIntelSTI, 1, 0)
 #endif // INTEL_CUSTOMIZATION
 
+/// Whether to emit the compiler path and command line into the CodeView debug information.
+CODEGENOPT(CodeViewCommandLine, 1, 0)
+
 /// The kind of inlining to perform.
 ENUM_CODEGENOPT(Inlining, InliningMethod, 2, NormalInlining)
 
