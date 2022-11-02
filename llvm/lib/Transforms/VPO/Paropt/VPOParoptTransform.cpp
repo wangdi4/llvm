@@ -5675,18 +5675,21 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
   if (FastRedMode == FastReductionNoneMode)
     return std::make_pair(nullptr, nullptr);
 
+  LLVMContext &C = F->getContext();
+  const auto &DL = F->getParent()->getDataLayout();
+
   // Create structure type for fast reduction
   SmallVector<Type *, 9> StructArgTys;
-  MaybeAlign MaxAlignment(4);
+  // Use the default alignment of an empty packed struct (8) as the starting
+  // alignment. This will be incremented to match the largest of the alignments
+  // for individual elements of the fast reduction struct.
+  Align StructAlignment =
+      DL.getPrefTypeAlign(StructType::get(C, /*packed=*/true));
 
   ReductionClause &RedClause = W->getRed();
   Instruction *InsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F, false);
   IRBuilder<> Builder(InsertPt);
   for (ReductionItem *RedI : RedClause.items()) {
-    Align OrigAlignment =
-        RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
-    MaxAlignment = std::max(OrigAlignment, MaxAlignment.valueOrOne());
-
     if ((isa<WRNVecLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
         getIsVlaOrVlaSection(RedI)) {
       InsertPt = W->getVlaAllocaInsertPt();
@@ -5716,28 +5719,52 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
       RedI->setGVSize(GVArrSecSize);
     }
 
+    bool StructArgTyIsPointerToOrigElementTy = false;
     if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
       uint64_t Size = CI->getZExtValue();
       assert(Size > 0 && "Invalid size for new alloca.");
       ElementType = ArrayType::get(ElementType, Size);
     } else if (NumElements != nullptr) {
-      // For array section with variable length (non-constant size), pointer to
-      // its element type is added into struct.fast_red_t structure, instead of
-      // array.
+      // For array sections with variable length (non-constant size) and VLAs, a
+      // pointer to their element type is added into struct.fast_red_t struct,
+      // instead of the array/VLA. e.g. i32* for %x = alloca i32, i64 %n
       const DataLayout &DL = InsertPt->getModule()->getDataLayout();
       ElementType = PointerType::get(ElementType, DL.getAllocaAddrSpace());
+      StructArgTyIsPointerToOrigElementTy = true;
     }
     StructArgTys.push_back(ElementType);
+
+    Value *Orig = RedI->getOrig();
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": RedI: ";
+               Orig->printAsOperand(dbgs()));
+
+    if (!StructArgTyIsPointerToOrigElementTy && !RedI->getIsByRef() &&
+        !RedI->getArraySectionInfo().getBaseIsPointer()) {
+      // For byrefs, array-sections on pointers, and when the struct member is a
+      // pointer to the reduction operand's element type (like VLAs, variable
+      // length array-sections), Orig's alignment should not impact the fast
+      // reduction struct's alignment.
+      Align OrigAlignment = Orig->getPointerAlignment(DL);
+      StructAlignment = std::max(OrigAlignment, StructAlignment);
+      LLVM_DEBUG(dbgs() << ", orig's align: " << OrigAlignment.value());
+    }
+
+    Align ElementAlignment = DL.getPrefTypeAlign(ElementType);
+    StructAlignment = std::max(ElementAlignment, StructAlignment);
+    LLVM_DEBUG(dbgs() << ", ElemTy ("; ElementType->print(dbgs());
+               dbgs() << ")'s preferred align: " << ElementAlignment.value()
+                      << ", fast_red_struct's align: "
+                      << StructAlignment.value() << "\n");
   }
-  LLVMContext &C = F->getContext();
+
   // Packed structure is needed, so that we can get actual size of this
   // structure, instead of the larger size including padding.
   FastRedStructTy =
       StructType::create(C, StructArgTys, "struct.fast_red_t", true);
 
   FastRedInst = VPOParoptUtils::genPrivatizationAlloca(
-      FastRedStructTy, nullptr, MaybeAlign(MaxAlignment), InsertPt,
-      isTargetSPIRV(), "fast_red_struct", llvm::None, llvm::None);
+      FastRedStructTy, nullptr, StructAlignment, InsertPt, isTargetSPIRV(),
+      "fast_red_struct", llvm::None, llvm::None);
 
   unsigned Index = 0;
   for (ReductionItem *RedI : RedClause.items()) {
