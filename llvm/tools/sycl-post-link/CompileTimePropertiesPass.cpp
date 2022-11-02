@@ -135,9 +135,8 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
                                      getAttributeAsInteger<uint32_t>(Attr));
     case DecorValueTy::boolean:
       return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
-    default:
-      llvm_unreachable("Unhandled decorator type.");
   }
+  llvm_unreachable("Unhandled decorator type.");
 }
 
 /// Tries to generate a SPIR-V execution mode metadata node from an attribute.
