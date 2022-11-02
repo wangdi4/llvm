@@ -3731,19 +3731,14 @@ static bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
 
   // Always use -type=ao for aocx/aocr bundle checking.  The 'bundles' are
   // actually archives.
-<<<<<<< HEAD
-  SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler", "-type=ao",
-                                           Targets, Inputs, "-check-section"};
+  SmallVector<StringRef, 6> BundlerArgs = {"-type=ao", Targets, Inputs,
+                                           "-check-section"};
 #if INTEL_CUSTOMIZATION
   const char *TmpDir =
       C.getArgs().MakeArgString(Twine("-base-temp-dir=") +
                                 C.getDriver().BaseTempDir);
   BundlerArgs.push_back(TmpDir);
 #endif // INTEL_CUSTOMIZATION
-=======
-  SmallVector<StringRef, 6> BundlerArgs = {"-type=ao", Targets, Inputs,
-                                           "-check-section"};
->>>>>>> a11a5ed40c834c9773dd0adcfbc7b4759084d993
   return runBundler(BundlerArgs, C);
 }
 
