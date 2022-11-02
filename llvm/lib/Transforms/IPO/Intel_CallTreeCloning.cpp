@@ -345,11 +345,6 @@ static cl::opt<unsigned> NumUserCallsModeled(
     "ctcmv-num-user-calls-modeled", cl::init(0), cl::ReallyHidden,
     cl::desc("Arbitrary number of user-defined calls modeled"));
 
-static cl::opt<bool> ForceInlineReportAfterCallTreeCloning(
-    "force-print-inline-report-after-call-tree-cloning", cl::init(false),
-    cl::Hidden,
-    cl::desc("Force printing of the inlining report after call tree cloning"));
-
 #define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
 
 // Conduct Module Verifications:
@@ -2608,8 +2603,6 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
   bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
-  if (ForceInlineReportAfterCallTreeCloning)
-    getInlineReport()->testAndPrint(nullptr);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG
@@ -4302,8 +4295,6 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
   bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
-  if (ForceInlineReportAfterCallTreeCloning)
-    getInlineReport()->testAndPrint(nullptr);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG

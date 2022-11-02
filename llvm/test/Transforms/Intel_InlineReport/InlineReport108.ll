@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe807 -force-print-inline-report-after-call-tree-cloning -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt < %s -passes='module(call-tree-clone),print<inline-report>' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe807 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe886 | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that multiversioned callsites appear in the inlining report, when
