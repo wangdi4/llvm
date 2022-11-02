@@ -9,6 +9,8 @@ def StdC : StandardSpec<"stdc"> {
   NamedType LDivTType = NamedType<"ldiv_t">;
   NamedType LLDivTType = NamedType<"lldiv_t">;
 
+  NamedType JmpBuf = NamedType<"jmp_buf">;
+
   NamedType TssTType = NamedType<"tss_t">;
   PtrType TssTPtr = PtrType<TssTType>;
   NamedType TssDtorTType = NamedType<"tss_dtor_t">;
@@ -336,6 +338,7 @@ def StdC : StandardSpec<"stdc"> {
           Macro<"MATH_ERREXCEPT">,
           Macro<"math_errhandling">,
 
+          Macro<"HUGE_VAL">,
           Macro<"INFINITY">,
           Macro<"NAN">,
 
@@ -738,6 +741,7 @@ def StdC : StandardSpec<"stdc"> {
       ]
   >;
 
+  NamedType SigAtomicT = NamedType<"sig_atomic_t">;
   HeaderSpec Signal = HeaderSpec<
       "signal.h",
       [
@@ -754,6 +758,7 @@ def StdC : StandardSpec<"stdc"> {
       ],
       [
         SizeTType,
+        SigAtomicT,
         SigHandlerT,
       ],
       [], // Enumerations
@@ -988,6 +993,30 @@ def StdC : StandardSpec<"stdc"> {
       ]
   >;
 
+  HeaderSpec SetJmp = HeaderSpec<
+      "setjmp.h",
+      [], // Macros
+      [JmpBuf],
+      [], // Enumerations
+      [
+          FunctionSpec<
+              "longjmp",
+              RetValSpec<NoReturn>,
+              [ArgSpec<JmpBuf>, ArgSpec<IntType>]
+          >,
+          FunctionSpec<
+              "setjmp",
+              RetValSpec<IntType>,
+              [ArgSpec<JmpBuf>]
+          >,
+          FunctionSpec<
+              "longjmp",
+              RetValSpec<VoidType>,
+              [ArgSpec<JmpBuf>, ArgSpec<IntType>]
+          >,
+      ]
+  >;
+
   let Headers = [
     Assert,
     CType,
@@ -998,6 +1027,7 @@ def StdC : StandardSpec<"stdc"> {
     StdIO,
     StdLib,
     IntTypes,
+    SetJmp,
     Signal,
     Threads,
     Time,
