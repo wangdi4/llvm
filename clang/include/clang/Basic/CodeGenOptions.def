@@ -464,7 +464,6 @@ CODEGENOPT(EmitCodeView, 1, 0)
 /// Whether to emit the .debug$H section containing hashes of CodeView types.
 CODEGENOPT(CodeViewGHash, 1, 0)
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Enable emission of TraceBack debug information.
 CODEGENOPT(EmitTraceBack, 1, 0)
@@ -474,10 +473,9 @@ CODEGENOPT(EmitTraceBack, 1, 0)
 /// Enable emission of Intel STI debug information.
 CODEGENOPT(EmitIntelSTI, 1, 0)
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Whether to emit the compiler path and command line into the CodeView debug information.
 CODEGENOPT(CodeViewCommandLine, 1, 0)
->>>>>>> 29a500b346bdd998cac237f8570c6957730e086a
 
 /// The kind of inlining to perform.
 ENUM_CODEGENOPT(Inlining, InliningMethod, 2, NormalInlining)
