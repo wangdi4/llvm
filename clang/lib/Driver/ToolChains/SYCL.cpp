@@ -168,20 +168,29 @@ static llvm::SmallVector<StringRef, 16> SYCLDeviceLibList {
 // the list should be updated accordingly.
 // The spirvdevicertl library is not included here as it is required to
 //  be linked in fully (without --only-needed).
-static llvm::SmallVector<StringRef, 10> OMPDeviceLibList{
-    "cmath",
-    "cmath-fp64",
-    "complex",
-    "complex-fp64",
-    "fallback-cassert",
-    "fallback-cstring",
-    "fallback-cmath",
-    "fallback-cmath-fp64",
-    "fallback-complex",
-    "fallback-complex-fp64",
-    "itt-compiler-wrappers",
-    "itt-stubs",
-    "itt-user-wrappers"};
+// Some of the libraries are being linked conditionally (only device-svml
+// for now) and we need to check that when considering whether to add
+// one to the final list.
+static llvm::SmallVector<
+    std::pair<StringRef, std::function<bool(const ArgList &)>>, 10>
+    OMPDeviceLibList{
+        {"cmath", [](const ArgList &Args) { return true; }},
+        {"cmath-fp64", [](const ArgList &Args) { return true; }},
+        {"complex", [](const ArgList &Args) { return true; }},
+        {"complex-fp64", [](const ArgList &Args) { return true; }},
+        {"fallback-cassert", [](const ArgList &Args) { return true; }},
+        {"fallback-cstring", [](const ArgList &Args) { return true; }},
+        {"fallback-cmath", [](const ArgList &Args) { return true; }},
+        {"fallback-cmath-fp64", [](const ArgList &Args) { return true; }},
+        {"fallback-complex", [](const ArgList &Args) { return true; }},
+        {"fallback-complex-fp64", [](const ArgList &Args) { return true; }},
+        {"device-svml",
+         [](const ArgList &Args) {
+           return Args.hasArg(options::OPT_fopenmp_target_simd);
+         }},
+        {"itt-compiler-wrappers", [](const ArgList &Args) { return true; }},
+        {"itt-stubs", [](const ArgList &Args) { return true; }},
+        {"itt-user-wrappers", [](const ArgList &Args) { return true; }}};
 #endif // INTEL_CUSTOMIZATION
 
 const char *SYCL::Linker::constructLLVMLinkCommand(
@@ -236,7 +245,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       return false;
     };
 #if INTEL_CUSTOMIZATION
-    auto isOMPDeviceLib = [&C](const InputInfo &II) {
+    auto isOMPDeviceLib = [&C, &Args](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       bool IsMSVC = HostTC->getTriple().isWindowsMSVCEnvironment();
       StringRef InputFilename =
@@ -247,8 +256,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       size_t PureLibNameLen = InputFilename.find_last_of('-');
       // Skip the prefix "libomp-"
       StringRef PureLibName = InputFilename.substr(7, PureLibNameLen - 7);
-      for (const auto &L : OMPDeviceLibList) {
-        if (PureLibName.compare(L) == 0)
+      for (const auto &[Lib, Check] : OMPDeviceLibList) {
+        if (PureLibName.compare(Lib) == 0 && Check(Args))
           return true;
       }
       // Do a separate check for the CRT device lib, as it is a different name
