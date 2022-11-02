@@ -241,8 +241,8 @@ AliasResult DPCPPAAResult::alias(const MemoryLocation &LocA,
   return AAResultBase::alias(LocA, LocB, AAQI);
 }
 
-bool DPCPPAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
-                                           AAQueryInfo &AAQI, bool OrLocal) {
+ModRefInfo DPCPPAAResult::getModRefInfoMask(const MemoryLocation &Loc,
+                                           AAQueryInfo &AAQI, bool IgnoreLocals) {
   const Value *V = Loc.Ptr;
 
   // Remove casts if exists
@@ -252,8 +252,8 @@ bool DPCPPAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
     // If V is a pointer to the OCLAddressSpace::Constant address space
     // then it points to __constant OpenCL memory.
     if (VP->getAddressSpace() == ADDRESS_SPACE_CONSTANT)
-      return true;
+      return ModRefInfo::ModRef;
   }
 
-  return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+  return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
 }
