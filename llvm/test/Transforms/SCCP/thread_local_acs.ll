@@ -23,13 +23,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define internal i32 @callee(ptr %thread_local_ptr, ptr %shared_ptr) {
 ; CHECK-LABEL: @callee(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP:%.*]] = load i32, i32* [[THREAD_LOCAL_PTR:%.*]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* @gsh, align 4  ;INTEL
-=======
 ; CHECK-NEXT:    [[TMP:%.*]] = load i32, ptr [[THREAD_LOCAL_PTR:%.*]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[SHARED_PTR:%.*]], align 4
->>>>>>> 0991da36906bdb29b8f1030d5123bafb58fee79e
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr @gsh, align 4 ;INTEL
 ; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP]], [[TMP1]]
 ; CHECK-NEXT:    ret i32 [[ADD]]
 ;

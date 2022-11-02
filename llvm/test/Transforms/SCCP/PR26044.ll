@@ -9,18 +9,10 @@ define void @fn2(ptr %P) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       for.cond1:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; workaround CMPLRLLVM-38653
 ; CHECK-NEXT:    br i1 false, label [[IF_END]], label [[IF_END]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    unreachable
-; CHECK:       if.end:
-; CHECK-NEXT:    [[CALL:%.*]] = call i32 @fn1(i32 undef)
-; CHECK-NEXT:    store i32 [[CALL]], ptr [[P]], align 4
-; CHECK-NEXT:    br label [[FOR_COND1:%.*]]
->>>>>>> 0991da36906bdb29b8f1030d5123bafb58fee79e
 ;
 entry:
   br label %if.end
@@ -56,18 +48,10 @@ define void @fn_no_null_opt(ptr %P) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       for.cond1:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; workaround CMPLRLLVM-38653
 ; CHECK-NEXT:    br i1 false, label [[IF_END]], label [[IF_END]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    unreachable
-; CHECK:       if.end:
-; CHECK-NEXT:    [[CALL:%.*]] = call i32 @fn0(i32 undef)
-; CHECK-NEXT:    store i32 [[CALL]], ptr [[P]], align 4
-; CHECK-NEXT:    br label [[FOR_COND1:%.*]]
->>>>>>> 0991da36906bdb29b8f1030d5123bafb58fee79e
 ;
 entry:
   br label %if.end

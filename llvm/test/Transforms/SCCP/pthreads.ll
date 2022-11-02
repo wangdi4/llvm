@@ -44,11 +44,7 @@ declare !callback !0 dso_local i32 @pthread_create(ptr, ptr, ptr, ptr)
 define internal ptr @foo(ptr %arg) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    ret i8* null   ;INTEL
-=======
-; CHECK-NEXT:    ret ptr [[ARG:%.*]]
->>>>>>> 0991da36906bdb29b8f1030d5123bafb58fee79e
+; CHECK-NEXT:    ret ptr null   ;INTEL
 ;
 entry:
   ret ptr %arg
@@ -57,11 +53,7 @@ entry:
 define internal ptr @bar(ptr %arg) {
 ; CHECK-LABEL: @bar(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    ret i8* bitcast (i8** @GlobalVPtr to i8*)  ;INTEL
-=======
-; CHECK-NEXT:    ret ptr [[ARG:%.*]]
->>>>>>> 0991da36906bdb29b8f1030d5123bafb58fee79e
+; CHECK-NEXT:    ret ptr @GlobalVPtr   ;INTEL
 ;
 entry:
   ret ptr %arg
