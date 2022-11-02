@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers < %s -passes='module(call-tree-clone)' -force-print-inline-report-after-call-tree-cloning -inline-report=0xe807 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK
+; RUN: opt -opaque-pointers < %s -passes='module(call-tree-clone),print<inline-report>' -inline-report=0xe807 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='module(call-tree-clone)' -inline-report=0xe886 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; Check that call tree clones appear in the inlining report.

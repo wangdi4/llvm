@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=partial-inliner -skip-partial-inlining-cost-analysis -inline-report=0xe807 -force-print-inline-report-after-partial-inline -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='partial-inliner,print<inline-report>' -skip-partial-inlining-cost-analysis -inline-report=0xe807 -disable-output 2>&1 | FileCheck %s
 
 ; Check that partial inlining is recorded in the classic inlining report and
 ; that the call to foo appears both in inlinedFunc and dummyCaller after the
