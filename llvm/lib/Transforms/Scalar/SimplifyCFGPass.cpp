@@ -62,6 +62,9 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include <utility>
 using namespace llvm;
 
@@ -177,6 +180,11 @@ static bool tailMergeBlocksWithSimilarFunctionTerminators(Function &F,
   SmallMapVector<unsigned /*TerminatorOpcode*/, SmallVector<BasicBlock *, 2>, 4>
       Structure;
 
+#if INTEL_COLLAB
+  // OpenMP regions with exception handling must have resume blocks inside the
+  // region; they cannot be merged with blocks outside.
+  bool MayHaveOmp = llvm::vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(F);
+#endif // INTEL_COLLAB
   // Scan all the blocks in the function, record the interesting-ones.
   for (BasicBlock &BB : F) {
     if (DTU && DTU->isBBPendingDeletion(&BB))
@@ -198,6 +206,12 @@ static bool tailMergeBlocksWithSimilarFunctionTerminators(Function &F,
       continue;
     }
 
+#if INTEL_COLLAB
+    // This optimization will have very little performance upside; we
+    // don't attempt to do region analysis.
+    if (Term->getOpcode() == Instruction::Resume && MayHaveOmp)
+      continue;
+#endif // INTEL_COLLAB
     // We can't tail-merge block that contains a musttail call.
     if (BB.getTerminatingMustTailCall())
       continue;
