@@ -43,6 +43,7 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/exp_h_la.cpp
                                imf/intel/ln_h_la.cpp
                                imf/intel/log10_h_la.cpp
+                               imf/intel/log2_h_la.cpp
                                imf/intel/sin_h_la.cpp
                                imf/intel/erfinv_s_ha.cpp
                                imf/intel/cbrt_s_la.cpp
