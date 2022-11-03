@@ -1515,9 +1515,9 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
 }
 
 /// getModRefInfoMask - If we can determine that this pointer only points
-/// to constant memory, return true.  In practice, this means that if the
+/// to constant memory, return NoModRef.  In practice, this means that if the
 /// pointer can only point to constant globals, functions, or the null pointer,
-/// return true.
+/// return NoModRef.
 ///
 ModRefInfo AndersensAAResult::getModRefInfoMask(const MemoryLocation &Loc,
                                                AAQueryInfo &AAQI,
@@ -1582,10 +1582,10 @@ ModRefInfo AndersensAAResult::getModRefInfoMask(const MemoryLocation &Loc,
   }
 
   if (PrintAndersConstMemQueries) {
-      dbgs() << " Result: true \n";
-      dbgs() << " ConstMem_End \n";
+    dbgs() << " Result: NoModRef\n";
+    dbgs() << " ConstMem_End \n";
   }
-  return ModRefInfo::ModRef;
+  return ModRefInfo::NoModRef;
 }
 
 // Returns true if the given value V escapes
