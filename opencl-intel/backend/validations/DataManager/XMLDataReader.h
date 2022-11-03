@@ -15,84 +15,80 @@
 #ifndef __XML_DATA_READER_H__
 #define __XML_DATA_READER_H__
 
-#include <string>
-#include <limits>
 #include <fstream>
+#include <limits>
+#include <string>
 
 #include "tinyxml_wrapper.h"
 #include "llvm/Support/DataTypes.h"
 
-#include "IDataReader.h"
-#include "IBufferContainerList.h"
-#include "XMLDataReadWrite.h"
 #include "Exception.h"
+#include "IBufferContainerList.h"
+#include "IDataReader.h"
+#include "XMLDataReadWrite.h"
 
-namespace Validation
-{
+namespace Validation {
 
-    /// @brief IBufferContainerList object reader from data file in XML format
-    /// Implements IDataReader interface
-    class XMLBufferContainerListReader: public IDataReader
-    {
-    public:
-        /// @brief XMLBufferContainerListReaderctor.
-        /// Opens "fileName" data file and reads it into internal data structure
-        /// @param fileName - name of file
-        /// @throws Exception::InvalidArgument
-        XMLBufferContainerListReader(const std::string& fileName): 
-          m_fileName(fileName)
-        {
-            if(fileName.empty())
-                throw Exception::InvalidArgument("XMLBufferContainerListReader"
-                "::XMLBufferContainerListReader file name is empty");
-        }
+/// @brief IBufferContainerList object reader from data file in XML format
+/// Implements IDataReader interface
+class XMLBufferContainerListReader : public IDataReader {
+public:
+  /// @brief XMLBufferContainerListReaderctor.
+  /// Opens "fileName" data file and reads it into internal data structure
+  /// @param fileName - name of file
+  /// @throws Exception::InvalidArgument
+  XMLBufferContainerListReader(const std::string &fileName)
+      : m_fileName(fileName) {
+    if (fileName.empty())
+      throw Exception::InvalidArgument(
+          "XMLBufferContainerListReader"
+          "::XMLBufferContainerListReader file name is empty");
+  }
 
-        /// @brief dtor does nothing
-        virtual ~XMLBufferContainerListReader() {}
+  /// @brief dtor does nothing
+  virtual ~XMLBufferContainerListReader() {}
 
-        /// @brief read data to IBufferContainerList object from XML node
-        /// @param [INOUT] - pContainer pointer to object with 
-        ///        IBufferContainerList interface
-        /// @throws Exception::InvalidArgument, Exception::IOError
-        void Read(IContainer *pContainer) override {
-          IBufferContainerList *pBCL =
-              static_cast<IBufferContainerList *>(pContainer);
-          if (NULL == pBCL)
-            throw Exception::InvalidArgument("XMLBufferContainerListReader"
-                                             "::Read Input object is NULL");
+  /// @brief read data to IBufferContainerList object from XML node
+  /// @param [INOUT] - pContainer pointer to object with
+  ///        IBufferContainerList interface
+  /// @throws Exception::InvalidArgument, Exception::IOError
+  void Read(IContainer *pContainer) override {
+    IBufferContainerList *pBCL =
+        static_cast<IBufferContainerList *>(pContainer);
+    if (NULL == pBCL)
+      throw Exception::InvalidArgument("XMLBufferContainerListReader"
+                                       "::Read Input object is NULL");
 
-          TiXmlDocument XMLDoc;
-          if (!XMLDoc.LoadFile(m_fileName.c_str())) {
-            std::stringstream ss;
-            ss << "at line " << XMLDoc.ErrorRow();
-            ss << ", column " << XMLDoc.ErrorCol();
-            ss << ", " << XMLDoc.ErrorDesc() << std::endl;
-            throw Exception::IOError(ss.str());
-          }
+    TiXmlDocument XMLDoc;
+    if (!XMLDoc.LoadFile(m_fileName.c_str())) {
+      std::stringstream ss;
+      ss << "at line " << XMLDoc.ErrorRow();
+      ss << ", column " << XMLDoc.ErrorCol();
+      ss << ", " << XMLDoc.ErrorDesc() << std::endl;
+      throw Exception::IOError(ss.str());
+    }
 
-          TiXmlHandle h(&XMLDoc);
-          TiXmlElement *pXMLNode = h.FirstChild("ICSCData").ToElement();
-          if (NULL == pXMLNode)
-            throw Exception::IOError(
-                "XMLBufferContainerListReader::"
-                "XMLBufferContainerListReader cannot open node ");
+    TiXmlHandle h(&XMLDoc);
+    TiXmlElement *pXMLNode = h.FirstChild("ICSCData").ToElement();
+    if (NULL == pXMLNode)
+      throw Exception::IOError(
+          "XMLBufferContainerListReader::"
+          "XMLBufferContainerListReader cannot open node ");
 
-          XMLBufferContainerListReadWrite rw;
-          rw.ReadWriteBufferContainerList(pBCL, pXMLNode,
-                                          IXMLReadWriteBase::READ);
-        }
+    XMLBufferContainerListReadWrite rw;
+    rw.ReadWriteBufferContainerList(pBCL, pXMLNode, IXMLReadWriteBase::READ);
+  }
 
-    private:
-        /// hide copy constructor
-        XMLBufferContainerListReader(const XMLBufferContainerListReader& ) : 
-           IDataReader() {}
-        /// hide assignment operator
-        void operator =(const XMLBufferContainerListReader&){}
-        /// file name
-        const std::string m_fileName;
-    };
+private:
+  /// hide copy constructor
+  XMLBufferContainerListReader(const XMLBufferContainerListReader &)
+      : IDataReader() {}
+  /// hide assignment operator
+  void operator=(const XMLBufferContainerListReader &) {}
+  /// file name
+  const std::string m_fileName;
+};
 
-} // End of Validation namespace
+} // namespace Validation
 
 #endif // __XML_DATA_READER_H__
-

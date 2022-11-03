@@ -16,31 +16,28 @@
 //  dllmain.cpp
 ///////////////////////////////////////////////////////////
 
-#include "cpu_device.h"
 #include "cl_sys_info.h"
+#include "cpu_device.h"
 
 #include <libgen.h>
 #include <pthread.h>
 
 using namespace Intel::OpenCL::CPUDevice;
 
-void __attribute__ ((constructor)) dll_init(void);
-void __attribute__ ((destructor)) dll_fini(void);
+void __attribute__((constructor)) dll_init(void);
+void __attribute__((destructor)) dll_fini(void);
 
 pthread_key_t thkMasterContext;
 
 static void thread_cleanup_callback(void * /*_NULL*/) {}
 
-void dll_init(void)
-{
-	thkMasterContext = 0;
-	pthread_key_create(&thkMasterContext, thread_cleanup_callback);
+void dll_init(void) {
+  thkMasterContext = 0;
+  pthread_key_create(&thkMasterContext, thread_cleanup_callback);
 }
 
-void dll_fini(void)
-{
-	if ( thkMasterContext )
-	{
-		pthread_key_delete(thkMasterContext);
-	}
+void dll_fini(void) {
+  if (thkMasterContext) {
+    pthread_key_delete(thkMasterContext);
+  }
 }

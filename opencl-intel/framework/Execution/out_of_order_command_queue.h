@@ -14,72 +14,71 @@
 
 #pragma once
 
-#include <cl_types.h>
+#include "command_queue.h"
 #include "enqueue_commands.h"
 #include "ocl_command_queue.h"
-#include "command_queue.h"
+#include <cl_types.h>
 
-namespace Intel { namespace OpenCL { namespace Framework {
-    class OclEvent;
-    class EventsManager;
-    class Device;
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
+class OclEvent;
+class EventsManager;
+class Device;
 
-    /************************************************************************
-     * OutOfOrderCommandQueue implements an OpenCL out of order Command Queue
-    ************************************************************************/       
-	class OutOfOrderCommandQueue : public IOclCommandQueueBase
-	{
-	public:
+/************************************************************************
+ * OutOfOrderCommandQueue implements an OpenCL out of order Command Queue
+ ************************************************************************/
+class OutOfOrderCommandQueue : public IOclCommandQueueBase {
+public:
+  PREPARE_SHARED_PTR(OutOfOrderCommandQueue)
 
-        PREPARE_SHARED_PTR(OutOfOrderCommandQueue)
-    
-        static SharedPtr<OutOfOrderCommandQueue> Allocate(
-            SharedPtr<Context>          pContext,
-			cl_device_id                clDefaultDeviceID, 
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager)
-        {
-            return SharedPtr<OutOfOrderCommandQueue>(new OutOfOrderCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager));
-        }		
-		
-		~OutOfOrderCommandQueue();
+  static SharedPtr<OutOfOrderCommandQueue>
+  Allocate(SharedPtr<Context> pContext, cl_device_id clDefaultDeviceID,
+           cl_command_queue_properties clProperties,
+           EventsManager *pEventManager) {
+    return SharedPtr<OutOfOrderCommandQueue>(new OutOfOrderCommandQueue(
+        pContext, clDefaultDeviceID, clProperties, pEventManager));
+  }
 
-                cl_err_code Initialize() override;
-                long Release() override;
-                virtual cl_err_code Enqueue(Command *cmd) override;
-                virtual cl_err_code EnqueueWaitForEvents(Command *cmd) override;
-                virtual cl_err_code
-                EnqueueMarkerWaitForEvents(Command *marker) override;
-                virtual cl_err_code
-                EnqueueBarrierWaitForEvents(Command *barrier) override;
+  ~OutOfOrderCommandQueue();
 
-                virtual cl_err_code Flush(bool bBlocking) override;
-                virtual cl_err_code
-                NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
-                                  OclEventState prevColor,
-                                  OclEventState newColor) override;
-                // No need for explicit "send commands to device" method,
-                // commands are submitted as they become ready
-                virtual cl_err_code SendCommandsToDevice() override {
-                  return CL_SUCCESS;
-                }
+  cl_err_code Initialize() override;
+  long Release() override;
+  virtual cl_err_code Enqueue(Command *cmd) override;
+  virtual cl_err_code EnqueueWaitForEvents(Command *cmd) override;
+  virtual cl_err_code EnqueueMarkerWaitForEvents(Command *marker) override;
+  virtual cl_err_code EnqueueBarrierWaitForEvents(Command *barrier) override;
 
-              protected:
-                OutOfOrderCommandQueue(SharedPtr<Context> pContext,
-                                       cl_device_id clDefaultDeviceID,
-                                       cl_command_queue_properties clProperties,
-                                       EventsManager *pEventManager);
+  virtual cl_err_code Flush(bool bBlocking) override;
+  virtual cl_err_code NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
+                                        OclEventState prevColor,
+                                        OclEventState newColor) override;
+  // No need for explicit "send commands to device" method,
+  // commands are submitted as they become ready
+  virtual cl_err_code SendCommandsToDevice() override { return CL_SUCCESS; }
 
-		virtual cl_err_code AddDependentOnAll(Command* cmd);
+protected:
+  OutOfOrderCommandQueue(SharedPtr<Context> pContext,
+                         cl_device_id clDefaultDeviceID,
+                         cl_command_queue_properties clProperties,
+                         EventsManager *pEventManager);
 
-		void                Submit(Command* cmd);
+  virtual cl_err_code AddDependentOnAll(Command *cmd);
 
-    // At all times, points to a command that depends on everything enqueued since the last time clEnqueueBarrier/Marker was enqueued to this queue
-		Intel::OpenCL::Utils::AtomicPointer<Command> m_depOnAll;
-		Intel::OpenCL::Utils::AtomicCounter 		 m_commandsInExecution;
-		Intel::OpenCL::Utils::SharedPtr<OclEvent>    m_lastBarrier;
-		Intel::OpenCL::Utils::OclSpinMutex			 m_muLastBarrer; //TODO: find better way to handle data race on lastBarrier
-		// Is meant to optimize away flushes made to an empty queue
-		Intel::OpenCL::Utils::AtomicCounter 		 m_unflushedCommands;
-	};
-}}}    // Intel::OpenCL::Framework
+  void Submit(Command *cmd);
+
+  // At all times, points to a command that depends on everything enqueued since
+  // the last time clEnqueueBarrier/Marker was enqueued to this queue
+  Intel::OpenCL::Utils::AtomicPointer<Command> m_depOnAll;
+  Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
+  Intel::OpenCL::Utils::SharedPtr<OclEvent> m_lastBarrier;
+  Intel::OpenCL::Utils::OclSpinMutex
+      m_muLastBarrer; // TODO: find better way to handle data race on
+                      // lastBarrier
+  // Is meant to optimize away flushes made to an empty queue
+  Intel::OpenCL::Utils::AtomicCounter m_unflushedCommands;
+};
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

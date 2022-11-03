@@ -33,70 +33,76 @@
 
 #include <cstdint>
 
-#define SPIR_OPTIONS_METADATA     "opencl.compiler.options"
+#define SPIR_OPTIONS_METADATA "opencl.compiler.options"
 #define SPIR_EXT_OPTIONS_METADATA "opencl.compiler.ext.options"
 
-/**********************************************************************************************
-* Description:
-* Represents a test fixture for unit-testing FE Compiler.
-* By gtest design it is being instantiated with SetUp() call in the beginning of a test
-* and destroyed with TearDown() call at the end of the test.
-**********************************************************************************************/
+/*******************************************************************************
+ * Description:
+ * Represents a test fixture for unit-testing FE Compiler.
+ * By gtest design it is being instantiated with SetUp() call in the beginning
+ * of a test and destroyed with TearDown() call at the end of the test.
+ ******************************************************************************/
 class ClangCompilerTestType : public ::testing::Test {
 protected:
-    ClangCompilerTestType()
-        : m_binary_result(nullptr), m_fe_compiler(nullptr), m_llvm_context(nullptr) {}
+  ClangCompilerTestType()
+      : m_binary_result(nullptr), m_fe_compiler(nullptr),
+        m_llvm_context(nullptr) {}
 
-    virtual void SetUp();
-    virtual void TearDown();
+  virtual void SetUp();
+  virtual void TearDown();
 
-    std::vector<char>& GetSpirvBinaryContainer()
-        { return m_spirv_program_binary; }
-    Intel::OpenCL::FECompilerAPI::IOCLFECompiler* GetFECompiler()
-        { return m_fe_compiler; }
-    llvm::LLVMContext* GetLLVMContext()
-        { return m_llvm_context; }
+  std::vector<char> &GetSpirvBinaryContainer() {
+    return m_spirv_program_binary;
+  }
+  Intel::OpenCL::FECompilerAPI::IOCLFECompiler *GetFECompiler() {
+    return m_fe_compiler;
+  }
+  llvm::LLVMContext *GetLLVMContext() { return m_llvm_context; }
 
-    // Reads a test SPIR-V program to a vector.
-    void GetTestSPIRVProgram(std::vector<char>&);
-    // Returns a test FESPIRVProgramDescriptor structure - an argument for ParseSPIRV.
-    Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor GetTestFESPIRVProgramDescriptor(
-        const char* build_options);
-    // Returns a test FESPIRVProgramDescriptor structure - an argument for ParseSPIRV.
-    template<typename T, std::size_t N>
-    Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor GetTestFESPIRVProgramDescriptor(
-        T (&bin) [N]) {
-        using Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor;
-        FESPIRVProgramDescriptor spirvDesc;
+  // Reads a test SPIR-V program to a vector.
+  void GetTestSPIRVProgram(std::vector<char> &);
+  // Returns a test FESPIRVProgramDescriptor structure - an argument for
+  // ParseSPIRV.
+  Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor
+  GetTestFESPIRVProgramDescriptor(const char *build_options);
+  // Returns a test FESPIRVProgramDescriptor structure - an argument for
+  // ParseSPIRV.
+  template <typename T, std::size_t N>
+  Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor
+  GetTestFESPIRVProgramDescriptor(T (&bin)[N]) {
+    using Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor;
+    FESPIRVProgramDescriptor spirvDesc;
 
-        spirvDesc.pSPIRVContainer = reinterpret_cast<char const*>(bin);
-        spirvDesc.uiSPIRVContainerSize = N * sizeof(T);
-        spirvDesc.pszOptions = "";
-        spirvDesc.uiSpecConstCount = 0;
-        spirvDesc.puiSpecConstIds = nullptr;
-        spirvDesc.puiSpecConstValues = nullptr;
+    spirvDesc.pSPIRVContainer = reinterpret_cast<char const *>(bin);
+    spirvDesc.uiSPIRVContainerSize = N * sizeof(T);
+    spirvDesc.pszOptions = "";
+    spirvDesc.uiSpecConstCount = 0;
+    spirvDesc.puiSpecConstIds = nullptr;
+    spirvDesc.puiSpecConstValues = nullptr;
 
-        return spirvDesc;
-    }
-    // Parses FE Compiler return structure and decodes llvm::Module.
-    llvm::ErrorOr<std::unique_ptr<llvm::Module>> ExtractModule(Intel::OpenCL::ClangFE::IOCLFEBinaryResult* pResult);
+    return spirvDesc;
+  }
+  // Parses FE Compiler return structure and decodes llvm::Module.
+  llvm::ErrorOr<std::unique_ptr<llvm::Module>>
+  ExtractModule(Intel::OpenCL::ClangFE::IOCLFEBinaryResult *pResult);
+
 protected:
-    Intel::OpenCL::ClangFE::IOCLFEBinaryResult* m_binary_result;
+  Intel::OpenCL::ClangFE::IOCLFEBinaryResult *m_binary_result;
+
 private:
-    std::vector<char> m_spirv_program_binary;
-    Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_fe_compiler;
-    llvm::LLVMContext* m_llvm_context;
+  std::vector<char> m_spirv_program_binary;
+  Intel::OpenCL::FECompilerAPI::IOCLFECompiler *m_fe_compiler;
+  llvm::LLVMContext *m_llvm_context;
 };
 
-#if defined (_WIN32)
+#if defined(_WIN32)
 #define DLL_IMPORT _declspec(dllimport)
 #else
 #define DLL_IMPORT
 #endif
 
 extern "C" DLL_IMPORT int CreateFrontEndInstance(
-    const void* pDeviceInfo,
-    size_t devInfoSize,
-    Intel::OpenCL::FECompilerAPI::IOCLFECompiler* *pFECompiler);
+    const void *pDeviceInfo, size_t devInfoSize,
+    Intel::OpenCL::FECompilerAPI::IOCLFECompiler **pFECompiler);
 
 #endif

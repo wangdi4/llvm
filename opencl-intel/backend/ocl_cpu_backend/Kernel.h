@@ -16,11 +16,11 @@
 //  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
-#include "cl_dev_backend_api.h"
-#include "cl_device_api.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
 #include "cl_config.h"
+#include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
@@ -47,10 +47,10 @@ public:
   virtual ~IKernelJITContainer() {}
 
   // Get kernel function name.
-  virtual const std::string& GetFunctionName() const = 0;
+  virtual const std::string &GetFunctionName() const = 0;
 
   // Set JIT address for a kernel function.
-  virtual void SetJITCode(const void* addr) = 0;
+  virtual void SetJITCode(const void *addr) = 0;
 
   /*
    * Free machine code
@@ -65,15 +65,16 @@ public:
   /**
    * Serialization methods for the class (used by the serialization service)
    */
-  virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const = 0;
-  virtual void Deserialize(IInputStream& ist, SerializationStatus* stats) = 0;
+  virtual void Serialize(IOutputStream &ost,
+                         SerializationStatus *stats) const = 0;
+  virtual void Deserialize(IInputStream &ist, SerializationStatus *stats) = 0;
 };
 
 class Kernel : public ICLDevBackendKernel_, public ICLDevBackendKernelRunner {
 public:
   Kernel() : m_pProps(NULL) {
     using namespace Intel::OpenCL::Utils;
-    BasicCLConfigWrapper  basicConfig;
+    BasicCLConfigWrapper basicConfig;
     basicConfig.Initialize(GetConfigFilePath());
     m_stackDefaultSize = basicConfig.GetStackDefaultSize();
     m_stackExtraSize = basicConfig.GetStackExtraSize();
@@ -164,14 +165,14 @@ public:
   virtual size_t GetArgumentBufferRequiredAlignment() const override;
 
   /**
-  * @returns the number of memory object arguments passed to the kernel
-  */
+   * @returns the number of memory object arguments passed to the kernel
+   */
   virtual unsigned int GetMemoryObjectArgumentCount() const override;
 
   /**
-  * @returns the array of indexes of memory object arguments passed to the
-  * kernel
-  */
+   * @returns the array of indexes of memory object arguments passed to the
+   * kernel
+   */
   virtual const unsigned int *GetMemoryObjectArgumentIndexes() const override;
 
   /**
@@ -323,7 +324,7 @@ public:
   /**
    * Serialization methods for the class (used by the serialization service)
    */
-  virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
+  virtual void Serialize(IOutputStream &ost, SerializationStatus *stats) const;
   virtual void Deserialize(IInputStream &ist, SerializationStatus *stats);
 
 protected:
@@ -351,7 +352,7 @@ protected:
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;
   mutable size_t m_stackActualSize;
-  bool     m_useAutoMemory;
+  bool m_useAutoMemory;
 
 private:
   // Minimum alignment in bytes for Kernel Uniform Args
@@ -359,12 +360,13 @@ private:
   // Disable copy ctor and assignment operator
   Kernel(const Kernel &);
   bool operator=(const Kernel &);
+
 protected:
 #ifdef OCL_DEV_BACKEND_PLUGINS
-    // m_pluginManager is mutable to allow kernel's const methods,
-    // like Kernel::PrepareKernelArguments init m_pluginManager, which
-    // is initialised on each kernel
-    mutable Intel::OpenCL::PluginManager m_pluginManager;
+  // m_pluginManager is mutable to allow kernel's const methods,
+  // like Kernel::PrepareKernelArguments init m_pluginManager, which
+  // is initialised on each kernel
+  mutable Intel::OpenCL::PluginManager m_pluginManager;
 #endif
 };
 
@@ -394,8 +396,8 @@ public:
 
 private:
   std::vector<Kernel *> m_kernels;
-  size_t                m_blockKernelsCount;
+  size_t m_blockKernelsCount;
 };
-}
-}
-}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

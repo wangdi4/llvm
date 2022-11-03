@@ -19,8 +19,8 @@ extern cl::opt<llvm::VFISAKind> IsaEncodingOverride;
 namespace Intel {
 namespace VectorizerCommon {
 
-llvm::VFISAKind getCPUIdISA(
-    const Intel::OpenCL::Utils::CPUDetect *CPUId /*=nullptr*/) {
+llvm::VFISAKind
+getCPUIdISA(const Intel::OpenCL::Utils::CPUDetect *CPUId /*=nullptr*/) {
   if (IsaEncodingOverride.getNumOccurrences())
     return IsaEncodingOverride.getValue();
 

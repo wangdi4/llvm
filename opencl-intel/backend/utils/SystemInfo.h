@@ -18,10 +18,12 @@
 #include <cstddef>
 #include <string>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
+namespace Utils {
 
-class SystemInfo
-{
+class SystemInfo {
 public:
   SystemInfo(void);
   ~SystemInfo(void);
@@ -32,6 +34,9 @@ public:
   static std::string GetExecutableFilename();
 };
 
-}}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
+} // namespace Utils
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __SYSTEM_INFO_H__

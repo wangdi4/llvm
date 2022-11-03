@@ -60,7 +60,8 @@ TEST_F(CL21, GetKernelWorkGroupInfo_SizeRet) {
   status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_WORK_GROUP_SIZE, 0,
                                     NULL, &param_value_size_ret);
 
-  ASSERT_EQ(CL_SUCCESS, status) << "clGetKernelWorkGroupInfo(CL_KERNEL_WORK_GROUP_SIZE) failed";
+  ASSERT_EQ(CL_SUCCESS, status)
+      << "clGetKernelWorkGroupInfo(CL_KERNEL_WORK_GROUP_SIZE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(size_t))
       << "Wrong buffer data size returned";
 
@@ -74,10 +75,12 @@ TEST_F(CL21, GetKernelWorkGroupInfo_SizeRet) {
       << "Wrong buffer data size returned";
 #endif
   /* Get size of work-group info: CL_KERNEL_COMPILE_WORK_GROUP_SIZE */
-  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, 0,
-                                    NULL, &param_value_size_ret);
+  status =
+      clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, 0,
+                               NULL, &param_value_size_ret);
 
-  ASSERT_EQ(CL_SUCCESS, status) << "clGetKernelWorkGroupInfo(CL_KERNEL_COMPILE_WORK_GROUP_SIZE) failed";
+  ASSERT_EQ(CL_SUCCESS, status)
+      << "clGetKernelWorkGroupInfo(CL_KERNEL_COMPILE_WORK_GROUP_SIZE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(size_t[3]))
       << "Wrong buffer data size returned";
 
@@ -85,24 +88,28 @@ TEST_F(CL21, GetKernelWorkGroupInfo_SizeRet) {
   status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_LOCAL_MEM_SIZE, 0,
                                     NULL, &param_value_size_ret);
 
-  ASSERT_EQ(CL_SUCCESS, status) << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
+  ASSERT_EQ(CL_SUCCESS, status)
+      << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(cl_ulong))
       << "Wrong buffer data size returned";
 
-  /* Get size of work-group info: CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE */
-  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 0,
-                                    NULL, &param_value_size_ret);
+  /* Get size of work-group info: CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
+   */
+  status = clGetKernelWorkGroupInfo(
+      krnl, dev, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 0, NULL,
+      &param_value_size_ret);
 
-  ASSERT_EQ(CL_SUCCESS, status) << "clGetKernelWorkGroupInfo(CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE) failed";
+  ASSERT_EQ(CL_SUCCESS, status) << "clGetKernelWorkGroupInfo(CL_KERNEL_"
+                                   "PREFERRED_WORK_GROUP_SIZE_MULTIPLE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(size_t))
       << "Wrong buffer data size returned";
-
 
   /* Get size of work-group info: CL_KERNEL_PRIVATE_MEM_SIZE */
   status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_PRIVATE_MEM_SIZE, 0,
                                     NULL, &param_value_size_ret);
 
-  ASSERT_EQ(CL_SUCCESS, status) << "clGetKernelWorkGroupInfo(CL_KERNEL_PRIVATE_MEM_SIZE) failed";
+  ASSERT_EQ(CL_SUCCESS, status)
+      << "clGetKernelWorkGroupInfo(CL_KERNEL_PRIVATE_MEM_SIZE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(cl_ulong))
       << "Wrong buffer data size returned";
 

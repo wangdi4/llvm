@@ -7,16 +7,16 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-func_all (	__global const float *in,
-		__global float *out)
+func_all (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	char4 tmp = (char4) ( convert_char(4 * atan2pi(gid, in[gid])), (char)floor(in[gid]), (char)gid, (char)log2(in[gid] * 10));
-	out[gid] = all(tmp);
+  int gid = get_global_id(0);
+  char4 tmp = (char4) ( convert_char(4 * atan2pi(gid, in[gid])), (char)floor(in[gid]), (char)gid, (char)log2(in[gid] * 10));
+  out[gid] = all(tmp);
 }

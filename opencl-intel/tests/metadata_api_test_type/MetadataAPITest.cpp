@@ -52,8 +52,6 @@ TEST_F(MetadataTest, Test_GetRecursiveCallMetadataFromNoMetadataFunction) {
   EXPECT_FALSE(mdApi.RecursiveCall.get());
 }
 
-
-
 /// kernel_arg_base_type
 
 TEST_F(MetadataTest, Test_RetrieveKernelArgBaseType) {
@@ -75,7 +73,6 @@ TEST_F(MetadataTest, Test_RetrieveKernelArgBaseType) {
     EXPECT_TRUE(expected[i] == actual[i]);
   }
 }
-
 
 /// work_group_size_hint
 
@@ -170,7 +167,8 @@ TEST_F(MetadataTest, Test_SetGetVectorizerWidth) {
 
   const int32_t expected = 16;
 
-  KernelInternalMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
+  KernelInternalMetadataAPI kernelMDApi(
+      pModule->getFunction("metatest_kernel"));
 
   {
     auto VectorizedWidth = kernelMDApi.VectorizedWidth;
@@ -198,7 +196,8 @@ TEST_F(MetadataTest, Test_SetGetVectorizedKernel) {
   auto vectorized_kernel = llvm::CloneFunction(kernel, VMap);
   vectorized_kernel->setName("vectorized_kernel");
 
-  KernelInternalMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
+  KernelInternalMetadataAPI kernelMDApi(
+      pModule->getFunction("metatest_kernel"));
 
   {
     auto VectorizedKernel = kernelMDApi.VectorizedKernel;
@@ -237,8 +236,7 @@ TEST_F(MetadataTest, Test_ModuleSpirVersion) {
 TEST_F(MetadataTest, Test_SaveModuleVersionListMetadata) {
   auto pModule = GetTestModule();
 
-  const ModuleMetadataAPI::OpenCLVersionListTy::vector_type
-    expected = {2, 0};
+  const ModuleMetadataAPI::OpenCLVersionListTy::vector_type expected = {2, 0};
 
   {
     ModuleMetadataAPI ModuleMetadataAPI(pModule);
@@ -271,8 +269,8 @@ TEST_F(MetadataTest, Test_AttachFunctionStatistics) {
   auto pModule = GetTestModule();
   auto pKernel = pModule->getFunction("metatest_kernel");
 
-  FunctionStatMetadataAPI::StatListTy expectedList = {
-      {"stat1", 4, "desc1"}, {"stat2", 2, "desc2"}};
+  FunctionStatMetadataAPI::StatListTy expectedList = {{"stat1", 4, "desc1"},
+                                                      {"stat2", 2, "desc2"}};
 
   FunctionStatMetadataAPI::set(*pKernel, expectedList);
 
@@ -303,7 +301,7 @@ TEST_F(MetadataTest, Test_RemoveFunctionStatistics) {
   auto &kernel = *pModule->getFunction("metatest_kernel");
 
   FunctionStatMetadataAPI::StatListTy statList = {{"stat1", 4, "desc1"},
-                                                      {"stat2", 2, "desc2"}};
+                                                  {"stat2", 2, "desc2"}};
 
   FunctionStatMetadataAPI::set(kernel, statList);
   FunctionStatMetadataAPI::remove(kernel);
@@ -323,8 +321,8 @@ TEST_F(MetadataTest, Test_CopyFunctionStatistics) {
   auto &kernel = *pModule->getFunction("metatest_kernel");
   auto &func = *pModule->getFunction("metatest_plain_func");
 
-  FunctionStatMetadataAPI::StatListTy expectedList = {
-      {"stat1", 4, "desc1"}, {"stat2", 2, "desc2"}};
+  FunctionStatMetadataAPI::StatListTy expectedList = {{"stat1", 4, "desc1"},
+                                                      {"stat2", 2, "desc2"}};
 
   { FunctionStatMetadataAPI::set(kernel, expectedList); }
   { FunctionStatMetadataAPI::copy(kernel, func); }
@@ -359,8 +357,8 @@ TEST_F(MetadataTest, Test_MoveFunctionStatistics) {
   auto &kernel = *pModule->getFunction("metatest_kernel");
   auto &func = *pModule->getFunction("metatest_plain_func");
 
-  FunctionStatMetadataAPI::StatListTy expectedList = {
-      {"stat1", 4, "desc1"}, {"stat2", 2, "desc2"}};
+  FunctionStatMetadataAPI::StatListTy expectedList = {{"stat1", 4, "desc1"},
+                                                      {"stat2", 2, "desc2"}};
 
   { FunctionStatMetadataAPI::set(kernel, expectedList); }
   { FunctionStatMetadataAPI::move(kernel, func); }

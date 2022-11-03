@@ -5,55 +5,55 @@
  * depend on uchar and don't depend on thread id.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 do_while_switch ( __global const float *in,
-		__global float *out)
+    __global float *out)
 {
-	int gid = get_global_id(0);
+  int gid = get_global_id(0);
 
-	uchar tmp1 = clz((uchar)in[gid]);
-	tmp1 = tmp1 % 7;
+  uchar tmp1 = clz((uchar)in[gid]);
+  tmp1 = tmp1 % 7;
 
-	switch(tmp1 - 3) {
+  switch(tmp1 - 3) {
 
-	case 0:
-		tmp1 = 0;
-		break;
+  case 0:
+    tmp1 = 0;
+    break;
 
-	case 1:
-		tmp1 = 1;
-		break;
+  case 1:
+    tmp1 = 1;
+    break;
 
-	case 2:
-		tmp1 = 2;
-		// fall through
+  case 2:
+    tmp1 = 2;
+    // fall through
 
-	case 3:
-		tmp1 = tmp1 * 3;
-		// fall through
+  case 3:
+    tmp1 = tmp1 * 3;
+    // fall through
 
-	default:
-		tmp1 = min(tmp1, (uchar)in[gid]);
-		break;
+  default:
+    tmp1 = min(tmp1, (uchar)in[gid]);
+    break;
 
-	}
+  }
 
-	int i = 0;
+  int i = 0;
 
-	do {
+  do {
 
-		tmp1 = sub_sat(tmp1, (uchar)(tmp1 - 7));
-		tmp1--;
+    tmp1 = sub_sat(tmp1, (uchar)(tmp1 - 7));
+    tmp1--;
 
-		i++;
+    i++;
 
-	} while ((tmp1 > 100) && (i < 174));
+  } while ((tmp1 > 100) && (i < 174));
 
-	out[gid] = tmp1 + in[gid];
+  out[gid] = tmp1 + in[gid];
 
 }

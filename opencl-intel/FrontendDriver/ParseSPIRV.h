@@ -33,19 +33,15 @@ namespace ClangFE {
 class OCLFESpecConstInfo : public IOCLFESpecConstInfo {
 public:
   using SpecConstInfoTy = std::pair<uint32_t, uint32_t>;
-  size_t getSpecConstCount() const override {
-    return SpecConstInfo.size();
-  }
+  size_t getSpecConstCount() const override { return SpecConstInfo.size(); }
   cl_uint getSpecConstId(size_t Index) const override {
     return SpecConstInfo[Index].first;
   }
   cl_uint getSpecConstSize(size_t Index) const override {
     return SpecConstInfo[Index].second;
   }
-  void release() override {
-    SpecConstInfo.clear();
-  }
-  std::vector<SpecConstInfoTy>& getRef() {return SpecConstInfo;}
+  void release() override { SpecConstInfo.clear(); }
+  std::vector<SpecConstInfoTy> &getRef() { return SpecConstInfo; }
 
 private:
   std::vector<SpecConstInfoTy> SpecConstInfo;
@@ -63,11 +59,12 @@ public:
 
   /// \brief Check that stream of bytes given in \a pBinary begins with SPIR-V
   /// magic number, i.e 0x07230203
-  static bool isSPIRV(const void* pBinary, const size_t BinarySize);
+  static bool isSPIRV(const void *pBinary, const size_t BinarySize);
 
   /// \brief partially parse SPIR-V module, i.e. only decode what is needed to
   /// get specialization constant info.
-  void getSpecConstInfo(IOCLFESpecConstInfo** pSpecConstInfo);
+  void getSpecConstInfo(IOCLFESpecConstInfo **pSpecConstInfo);
+
 private:
   /// \brief Read 32bit integer value and convert it to little-endian if
   /// necessary
@@ -84,7 +81,7 @@ private:
   bool isSPIRVSupported(std::string &error) const;
 
   Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *m_pProgDesc;
-  const Intel::OpenCL::ClangFE::CLANG_DEV_INFO& m_sDeviceInfo;
+  const Intel::OpenCL::ClangFE::CLANG_DEV_INFO &m_sDeviceInfo;
   bool m_littleEndian; ///< True if SPIR-V module byte order is little-endian
 
   std::uint32_t m_sourceLanguage = 0; // SourceLanguageUnknown

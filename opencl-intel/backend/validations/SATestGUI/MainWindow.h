@@ -15,88 +15,84 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
+#include "ConfigManager.h"
+#include "EditPathsDialog.h"
+#include "EnviromentDialog.h"
+#include "FileTree.h"
+#include "OpenCLProgramConfiguration.h"
+#include "RunDialog.h"
+#include "SATestWrapper.h"
+#include "TabWidget.h"
+#include <QAction>
+#include <QByteArray>
+#include <QDateTime>
+#include <QDebug>
 #include <QDockWidget>
+#include <QMainWindow>
+#include <QMenu>
+#include <QProcess>
+#include <QString>
+#include <QTabWidget>
 #include <QTextEdit>
 #include <QTreeWidget>
-#include <QTabWidget>
-#include <QWidget>
-#include <QAction>
-#include <QString>
-#include <QMenu>
 #include <QTreeWidgetItem>
-#include <QProcess>
-#include <QByteArray>
-#include <QDebug>
-#include "SATestWrapper.h"
-#include "EnviromentDialog.h"
-#include "EditPathsDialog.h"
-#include "RunDialog.h"
-#include "TabWidget.h"
-#include "FileTree.h"
-#include "ConfigManager.h"
-#include "OpenCLProgramConfiguration.h"
-#include <QDateTime>
+#include <QWidget>
 
 namespace Ui {
 class MainWindow;
 }
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 /**
  * @brief The MainWindow class
  */
-class MainWindow : public QMainWindow
-{
-    Q_OBJECT
+class MainWindow : public QMainWindow {
+  Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = 0);
-    ~MainWindow();
+  explicit MainWindow(QWidget *parent = 0);
+  ~MainWindow();
 
 private:
-    Ui::MainWindow *ui;
+  Ui::MainWindow *ui;
 
-    QDockWidget* filetreedock;
-    QDockWidget* stoutputdock;
-    ConfigManager* cfg;
-    FileTree* filetree;
-    TabWidget* tabs;
-    QTextEdit* outputtext;
+  QDockWidget *filetreedock;
+  QDockWidget *stoutputdock;
+  ConfigManager *cfg;
+  FileTree *filetree;
+  TabWidget *tabs;
+  QTextEdit *outputtext;
 
-    QAction* openfileaction;
-    QAction* closefileaction;
-    QAction* quitappaction;
-    QAction* runsatestaction;
-    QAction* showvardialogaction;
-    QAction* editpathsaction;
-    QAction* saveAction;
-    QMenu* filemenu;
+  QAction *openfileaction;
+  QAction *closefileaction;
+  QAction *quitappaction;
+  QAction *runsatestaction;
+  QAction *showvardialogaction;
+  QAction *editpathsaction;
+  QAction *saveAction;
+  QMenu *filemenu;
 
-    SATestWrapper* satest;
-    /**
-     * @brief createWidgets
-     */
-    void createWidgets();
-    /**
-     * @brief createActions
-     */
-    void createActions();
-    void example();
+  SATestWrapper *satest;
+  /**
+   * @brief createWidgets
+   */
+  void createWidgets();
+  /**
+   * @brief createActions
+   */
+  void createActions();
+  void example();
 private slots:
-    void updateOutputFromOut();
-    void updateOutputFromErr();
-    void runsatest();
-    void updatetext(int,QProcess::ExitStatus);
-    void showEnvDialog();
-    void showEditPathDialog();
-    void addEditTab(QString);
+  void updateOutputFromOut();
+  void updateOutputFromErr();
+  void runsatest();
+  void updatetext(int, QProcess::ExitStatus);
+  void showEnvDialog();
+  void showEditPathDialog();
+  void addEditTab(QString);
 };
 
-
-}
-}
+} // namespace GUI
+} // namespace Validation
 #endif // MAINWINDOW_H

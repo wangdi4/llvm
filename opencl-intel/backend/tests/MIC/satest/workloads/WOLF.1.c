@@ -1,72 +1,60 @@
-#pragma OPENCL EXTENSION cl_khr_fp64: enable
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 /* Each work-item computes 1 output float value*/
-__kernel void matrixMultiplicationScalar(
-    const __global float *matrixA,
-    const __global float *matrixB,
-    __global float* matrixC,
-    uint widthA, uint widthB)
-{
-    int x= get_global_id(0);
-    int y= get_global_id(1);
-    float sum = 0;
-    for(int i = 0; i < widthA; i++)
-    {
-        sum+=matrixA[i + y*widthA]*matrixB[x + i*widthB];
-    }
-    matrixC[x + y* widthB] = sum;
+__kernel void matrixMultiplicationScalar(const __global float *matrixA,
+                                         const __global float *matrixB,
+                                         __global float *matrixC, uint widthA,
+                                         uint widthB) {
+  int x = get_global_id(0);
+  int y = get_global_id(1);
+  float sum = 0;
+  for (int i = 0; i < widthA; i++) {
+    sum += matrixA[i + y * widthA] * matrixB[x + i * widthB];
+  }
+  matrixC[x + y * widthB] = sum;
 }
 /* Each work-item computes 1 output double value*/
-__kernel void matrixMultiplicationScalar_Double(
-    const __global double *matrixA,
-    const __global double *matrixB,
-    __global double* matrixC,
-    uint widthA, uint widthB)
-{
-    int x= get_global_id(0);
-    int y= get_global_id(1);
-    double sum = 0;
-    for(int i = 0; i < widthA; i++)
-    {
-        sum+=matrixA[i + y*widthA]*matrixB[x + i*widthB];
-    }
-    matrixC[x + y* widthB] = sum;
+__kernel void matrixMultiplicationScalar_Double(const __global double *matrixA,
+                                                const __global double *matrixB,
+                                                __global double *matrixC,
+                                                uint widthA, uint widthB) {
+  int x = get_global_id(0);
+  int y = get_global_id(1);
+  double sum = 0;
+  for (int i = 0; i < widthA; i++) {
+    sum += matrixA[i + y * widthA] * matrixB[x + i * widthB];
+  }
+  matrixC[x + y * widthB] = sum;
 }
 /* Each work-item still computes 1 output float value*/
-__kernel void matrixMultiplicationVector(
-    const __global float *matrixA,
-    const __global float *matrixB,
-    __global float* matrixC,
-    uint widthA, uint widthB)
-{
-    int x = get_global_id(0);
-    int y = get_global_id(1);
-    float4 sum = (float4)0.0f;
-    /* Vectorization reduces the width by a factor of 4 */
-    for(int i = 0; i < widthA; i++)
-    {
-        float4 tempA0 = (float4)matrixA[i + y* widthA];
-        float4 tempB0 = vload4(x,matrixB + i * widthB);
-        sum += tempA0*tempB0;
-    }
-    vstore4(sum,x,matrixC+ y* widthB);
+__kernel void matrixMultiplicationVector(const __global float *matrixA,
+                                         const __global float *matrixB,
+                                         __global float *matrixC, uint widthA,
+                                         uint widthB) {
+  int x = get_global_id(0);
+  int y = get_global_id(1);
+  float4 sum = (float4)0.0f;
+  /* Vectorization reduces the width by a factor of 4 */
+  for (int i = 0; i < widthA; i++) {
+    float4 tempA0 = (float4)matrixA[i + y * widthA];
+    float4 tempB0 = vload4(x, matrixB + i * widthB);
+    sum += tempA0 * tempB0;
+  }
+  vstore4(sum, x, matrixC + y * widthB);
 }
-__kernel void matrixMultiplicationVector8(
-    const __global float *matrixA,
-    const __global float *matrixB,
-    __global float* matrixC,
-    uint widthA, uint widthB)
-{
-    int x = get_global_id(0);
-    int y = get_global_id(1);
-    float8 sum = (float8)0.0f;
-    /* Vectorization reduces the width by a factor of 8 */
-    for(int i = 0; i < widthA; i++)
-    {
-        float8 tempA0 = (float8)matrixA[i + y* widthA];
-        float8 tempB0 = vload8(x,matrixB + i * widthB);
-        sum += tempA0*tempB0;
-    }
-    vstore8(sum,x,matrixC+ y* widthB);
+__kernel void matrixMultiplicationVector8(const __global float *matrixA,
+                                          const __global float *matrixB,
+                                          __global float *matrixC, uint widthA,
+                                          uint widthB) {
+  int x = get_global_id(0);
+  int y = get_global_id(1);
+  float8 sum = (float8)0.0f;
+  /* Vectorization reduces the width by a factor of 8 */
+  for (int i = 0; i < widthA; i++) {
+    float8 tempA0 = (float8)matrixA[i + y * widthA];
+    float8 tempB0 = vload8(x, matrixB + i * widthB);
+    sum += tempA0 * tempB0;
+  }
+  vstore8(sum, x, matrixC + y * widthB);
 }
 #if 0
 /* Each work-item computes 1 output float value*/

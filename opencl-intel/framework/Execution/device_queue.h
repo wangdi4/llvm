@@ -16,57 +16,62 @@
 
 #include "command_queue.h"
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
 /**
  * This class represents an on-device command-queue
  */
-class DeviceQueue : public OclCommandQueue
-{
+class DeviceQueue : public OclCommandQueue {
 public:
+  PREPARE_SHARED_PTR(DeviceQueue)
 
-	PREPARE_SHARED_PTR(DeviceQueue)
+  static SharedPtr<DeviceQueue>
+  Allocate(const SharedPtr<Context> &pContext, cl_device_id clDefaultDeviceID,
+           cl_command_queue_properties clProperties,
+           EventsManager *pEventManager, bool bEnableProfiling, bool bIsDefault,
+           cl_uint uiSize) {
+    return new DeviceQueue(pContext, clDefaultDeviceID, clProperties,
+                           pEventManager, bEnableProfiling, bIsDefault, uiSize);
+  }
 
-	static SharedPtr<DeviceQueue> Allocate(const SharedPtr<Context>& pContext, cl_device_id clDefaultDeviceID, cl_command_queue_properties clProperties, EventsManager* pEventManager,
-										   bool bEnableProfiling, bool bIsDefault, cl_uint uiSize)
-	{
-		return new DeviceQueue(pContext, clDefaultDeviceID, clProperties, pEventManager, bEnableProfiling, bIsDefault, uiSize);
-	}
+  // overriden methods:
 
-	// overriden methods:
+  virtual cl_err_code Initialize() override;
 
-        virtual cl_err_code Initialize() override;
+  virtual cl_int GetInfoInternal(cl_int iParamName, void *pBuf, size_t szBuf,
+                                 size_t *szOutput) const override;
 
-        virtual cl_int GetInfoInternal(cl_int iParamName, void *pBuf,
-                                       size_t szBuf,
-                                       size_t *szOutput) const override;
+  virtual void BecomeVisible() override;
 
-        virtual void BecomeVisible() override;
-
-        cl_err_code SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice) {
-          return pDevice->SetDefaultDeviceQueue(this, m_clDevCmdListId);
-        }
+  cl_err_code SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice) {
+    return pDevice->SetDefaultDeviceQueue(this, m_clDevCmdListId);
+  }
 
 protected:
-	virtual ~DeviceQueue()
-	{
-		// If the queue is a default device queue
-		// the following call will unset it
-		m_pDefaultDevice->UnsetDefaultQueueIfEqual(this);
-	}
+  virtual ~DeviceQueue() {
+    // If the queue is a default device queue
+    // the following call will unset it
+    m_pDefaultDevice->UnsetDefaultQueueIfEqual(this);
+  }
 
 private:
-
-	/**
-	 * Constructor
-	 * @param pContext				the context in which the command-queue is to be created
-	 * @param clDefaultDeviceID		the device ID of the device in which the command-queue is to be created
-	 * @param clProperties			the command-queue's properties
-	 * @param pEventManager			a pointer to the EventManager
-	 * @param bEnableProfiling		whether to enable profiling of commands in the command-queue
-	 * @param bIsDefault			whether this command-queue is the default device queue
-	 * @param uiSize				size of the device queue in bytes
-	 */
+  /**
+   * Constructor
+   * @param pContext        the context in which the
+   * command-queue is to be created
+   * @param clDefaultDeviceID    the device ID of the device in which the
+   * command-queue is to be created
+   * @param clProperties      the command-queue's properties
+   * @param pEventManager      a pointer to the EventManager
+   * @param bEnableProfiling    whether to enable profiling of commands
+   * in the command-queue
+   * @param bIsDefault      whether this command-queue is the
+   * default device queue
+   * @param uiSize        size of the device queue in
+   * bytes
+   */
   DeviceQueue(const SharedPtr<Context> &pContext,
               cl_device_id clDefaultDeviceID,
               cl_command_queue_properties clProperties,
@@ -80,4 +85,6 @@ private:
   const cl_uint m_uiSize;
 };
 
-}}}
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

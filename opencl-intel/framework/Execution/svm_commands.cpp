@@ -13,55 +13,52 @@
 // License.
 
 #include "svm_commands.h"
-#include "command_queue.h"
-#include "context_module.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_info.h"
 #include "cl_user_logger.h"
+#include "command_queue.h"
+#include "context_module.h"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-cl_err_code SVMFreeCommand::Execute()
-{
-    if (m_freeFunc != nullptr)
-    {
-        if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
-        {
-            std::stringstream stream;
-            stream << "SVMFreeCommand callback(" << GetCommandQueue()->GetHandle() << ", " << m_svmPtrs.size() << ", " << &m_svmPtrs[0] << ", " << m_pUserData << ")"
-                << std::endl;
-            g_pUserLogger->PrintString(stream.str());
-        }
-        m_freeFunc(GetCommandQueue()->GetHandle(), m_svmPtrs.size(), &m_svmPtrs[0], m_pUserData);
+cl_err_code SVMFreeCommand::Execute() {
+  if (m_freeFunc != nullptr) {
+    if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled()) {
+      std::stringstream stream;
+      stream << "SVMFreeCommand callback(" << GetCommandQueue()->GetHandle()
+             << ", " << m_svmPtrs.size() << ", " << &m_svmPtrs[0] << ", "
+             << m_pUserData << ")" << std::endl;
+      g_pUserLogger->PrintString(stream.str());
     }
-    else
-    {
-        SharedPtr<Context> pContext = GetCommandQueue()->GetContext();
-        for (std::vector<void* >::const_iterator iter = m_svmPtrs.begin(); iter != m_svmPtrs.end(); iter++)
-        {
-            pContext->SVMFree(*iter);
-        }
+    m_freeFunc(GetCommandQueue()->GetHandle(), m_svmPtrs.size(), &m_svmPtrs[0],
+               m_pUserData);
+  } else {
+    SharedPtr<Context> pContext = GetCommandQueue()->GetContext();
+    for (std::vector<void *>::const_iterator iter = m_svmPtrs.begin();
+         iter != m_svmPtrs.end(); iter++) {
+      pContext->SVMFree(*iter);
     }
-    return RuntimeCommand::Execute();
+  }
+  return RuntimeCommand::Execute();
 }
 
 cl_err_code RuntimeSVMMemcpyCommand::Execute() {
-    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS, HostTime());
+  NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS, HostTime());
 
-    MEMCPY_S(m_pDstPtr, m_size, m_pSrcPtr, m_size);
+  MEMCPY_S(m_pDstPtr, m_size, m_pSrcPtr, m_size);
 
-    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS, HostTime());
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS, HostTime());
 
-    return m_returnCode;
+  return m_returnCode;
 }
 
 cl_err_code RuntimeSVMMemFillCommand::Execute() {
-    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS, HostTime());
+  NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS, HostTime());
 
-    CopyPattern(m_pPattern, m_szPatternSize, m_pSvmPtr, m_size);
+  CopyPattern(m_pPattern, m_szPatternSize, m_pSvmPtr, m_size);
 
-    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS, HostTime());
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS, HostTime());
 
-    return m_returnCode;
+  return m_returnCode;
 }

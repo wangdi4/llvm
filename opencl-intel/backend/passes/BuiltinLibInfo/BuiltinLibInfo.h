@@ -22,17 +22,13 @@ using namespace llvm;
 
 namespace intel {
 
-/// BuiltinLibInfo - This pass is used for holding the Runtime library (built-ins).
+/// BuiltinLibInfo - This pass is used for holding the Runtime library
+/// (built-ins).
 class BuiltinLibInfo : public ImmutablePass {
 public:
   static char ID;
 
-  typedef enum {
-    RTS_OCL,
-    RTS_OSX,
-    RTS_DX,
-    RTS_NUM
-  } RuntimeServicesTypes;
+  typedef enum { RTS_OCL, RTS_OSX, RTS_DX, RTS_NUM } RuntimeServicesTypes;
 
   /// @brief Constructor
   /// @param BuiltinsList List of builtin modules
@@ -40,12 +36,9 @@ public:
   BuiltinLibInfo(ArrayRef<Module *> builtinsList, RuntimeServicesTypes type);
 
   /// @brief Empty Constructor
-  BuiltinLibInfo() : ImmutablePass(ID), m_pRuntimeServices(nullptr) {
-  }
+  BuiltinLibInfo() : ImmutablePass(ID), m_pRuntimeServices(nullptr) {}
 
-  ~BuiltinLibInfo() {
-    delete m_pRuntimeServices;
-  }
+  ~BuiltinLibInfo() { delete m_pRuntimeServices; }
 
   virtual llvm::StringRef getPassName() const override {
     return "BuiltinLibInfo";
@@ -57,8 +50,10 @@ public:
 
   /// @brief returns runtime services
   /// @return the runtime services
-  const RuntimeServices* getRuntimeServices() const { return m_pRuntimeServices; }
-  RuntimeServices* getRuntimeServices() { return m_pRuntimeServices; }
+  const RuntimeServices *getRuntimeServices() const {
+    return m_pRuntimeServices;
+  }
+  RuntimeServices *getRuntimeServices() { return m_pRuntimeServices; }
 
 private:
   /// This list holds the Builtin modules

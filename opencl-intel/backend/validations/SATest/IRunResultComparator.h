@@ -15,20 +15,19 @@
 #ifndef I_RUN_RESULT_COMPARATOR_H
 #define I_RUN_RESULT_COMPARATOR_H
 
-namespace Validation
-{
-    class IRunResult;
-    class IRunResultComparison;
+namespace Validation {
+class IRunResult;
+class IRunResultComparison;
 
-    /// @brief Contains the result of comparison for entire run result
-    class IRunResultComparator
-    {
-    public:
-        virtual ~IRunResultComparator(void) {}
+/// @brief Contains the result of comparison for entire run result
+class IRunResultComparator {
+public:
+  virtual ~IRunResultComparator(void) {}
 
-        /// @brief Compares the result of two runs
-        virtual IRunResultComparison* Compare( IRunResult* lhs, IRunResult* rhs ) const = 0;
-    };
-}
+  /// @brief Compares the result of two runs
+  virtual IRunResultComparison *Compare(IRunResult *lhs,
+                                        IRunResult *rhs) const = 0;
+};
+} // namespace Validation
 
 #endif // I_RUN_RESULT_H

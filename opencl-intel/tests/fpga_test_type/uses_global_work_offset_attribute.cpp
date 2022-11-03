@@ -140,8 +140,8 @@ protected:
 TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNull) {
   const std::string programSources = "\n\
   __attribute__((uses_global_work_offset(" +
-  std::to_string(attribute_value) +
-  ")))                                \n\
+                                     std::to_string(attribute_value) +
+                                     ")))                                \n\
   __kernel void k1() {}               \n\
   ";
 
@@ -167,8 +167,8 @@ TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNull) {
 TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNonNull) {
   const std::string programSources = "\n\
   __attribute__((uses_global_work_offset(" +
-  std::to_string(attribute_value) +
-  ")))                                \n\
+                                     std::to_string(attribute_value) +
+                                     ")))                                \n\
   __kernel void k1() {}               \n\
   ";
 
@@ -192,5 +192,5 @@ TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNonNull) {
 }
 
 INSTANTIATE_TEST_SUITE_P(TestCanUseGlobalWorkOffsetParam,
-                        CanUseGlobalWorkOffsetParamBase,
-                        ::testing::Values(1, 31));
+                         CanUseGlobalWorkOffsetParamBase,
+                         ::testing::Values(1, 31));

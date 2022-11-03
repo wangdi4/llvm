@@ -15,43 +15,47 @@
 #ifndef __COMPILEDATA_H__
 #define __COMPILEDATA_H__
 
-#include <vector>
 #include "source_file.h"
+#include <vector>
 
-namespace Intel { namespace OpenCL { namespace Frontend {
+namespace Intel {
+namespace OpenCL {
+namespace Frontend {
 
-class CompileData{
+class CompileData {
 public:
   /////////////////////////////////////////////////////
-  //Parameters:
-  //  headers: a vector of headers included by the source file being compiled
-  //  sourceFile: the source file being compiled by the compilation action,
-  //  which caused the instance of this class to be created.
+  // Parameters:
+  //   headers: a vector of headers included by the source file being compiled
+  //   sourceFile: the source file being compiled by the compilation action,
+  //   which caused the instance of this class to be created.
   /////////////////////////////////////////////////////
-  CompileData(const std::vector<SourceFile>& headers, const SourceFile& sourceFile);
-  CompileData(const CompileData&);
+  CompileData(const std::vector<SourceFile> &headers,
+              const SourceFile &sourceFile);
+  CompileData(const CompileData &);
   CompileData();
   //
-  //setters
+  // setters
   //
   // sets the compiled source file
-  void sourceFile(const SourceFile&);
-  //adds the given source file to the headers to be included by the source file
-  void addIncludeFile(const SourceFile&);
+  void sourceFile(const SourceFile &);
+  // adds the given source file to the headers to be included by the source file
+  void addIncludeFile(const SourceFile &);
   //
-  //getters
-  const SourceFile& sourceFile() const;
-  std::vector<SourceFile>::const_iterator beginHeaders()const;
-  std::vector<SourceFile>::const_iterator endHeaders()const;
-private:
-  //Source file compiled by the compilation action
-  SourceFile m_sourceFile;
-  //a list of headers included by the above source file
-  std::vector<SourceFile> m_headers;
+  // getters
+  const SourceFile &sourceFile() const;
+  std::vector<SourceFile>::const_iterator beginHeaders() const;
+  std::vector<SourceFile>::const_iterator endHeaders() const;
 
+private:
+  // Source file compiled by the compilation action
+  SourceFile m_sourceFile;
+  // a list of headers included by the above source file
+  std::vector<SourceFile> m_headers;
 };
 
-}}}
-
+} // namespace Frontend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif

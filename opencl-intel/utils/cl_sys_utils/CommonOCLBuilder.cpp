@@ -25,53 +25,51 @@ using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace std;
 
-CommonOCLBuilder& CommonOCLBuilder::instance(){
-  return _instance;
-}
+CommonOCLBuilder &CommonOCLBuilder::instance() { return _instance; }
 
-CommonOCLBuilder& CommonOCLBuilder::withLibrary(const char* lib){
+CommonOCLBuilder &CommonOCLBuilder::withLibrary(const char *lib) {
   m_pCompiler = createCompiler(lib);
   return *this;
 }
 
-CommonOCLBuilder& CommonOCLBuilder::withBuildOptions(const char* options){
+CommonOCLBuilder &CommonOCLBuilder::withBuildOptions(const char *options) {
   m_options = options;
   return *this;
 }
 
-CommonOCLBuilder& CommonOCLBuilder::withSource(const char* src){
-	m_source = src;
-	return *this;
+CommonOCLBuilder &CommonOCLBuilder::withSource(const char *src) {
+  m_source = src;
+  return *this;
 }
 
-CommonOCLBuilder& CommonOCLBuilder::withExtensions(const char* extensions){
-	m_extensions = extensions;
-	return *this;
+CommonOCLBuilder &CommonOCLBuilder::withExtensions(const char *extensions) {
+  m_extensions = extensions;
+  return *this;
 }
 
-CommonOCLBuilder& CommonOCLBuilder::withFP64Support(bool isFP64Supported) {
+CommonOCLBuilder &CommonOCLBuilder::withFP64Support(bool isFP64Supported) {
   m_bSupportFP64 = isFP64Supported;
   return *this;
 }
 
-CommonOCLBuilder& CommonOCLBuilder::withImageSupport(bool areImagesSupported) {
+CommonOCLBuilder &CommonOCLBuilder::withImageSupport(bool areImagesSupported) {
   m_bSupportImages = areImagesSupported;
   return *this;
 }
 
-CommonOCLBuilder& CommonOCLBuilder::withFpgaEmulator(bool isFpgaEmulation) {
+CommonOCLBuilder &CommonOCLBuilder::withFpgaEmulator(bool isFpgaEmulation) {
   m_bFpgaEmulator = isFpgaEmulation;
   return *this;
 }
 
-void CommonOCLBuilder::close(){
+void CommonOCLBuilder::close() {
   m_dynamicLoader.Close();
   if (m_pCompiler)
     m_pCompiler->Release();
   m_pCompiler = nullptr;
 }
 
-IOCLFEBinaryResult* CommonOCLBuilder::build(){
+IOCLFEBinaryResult *CommonOCLBuilder::build() {
   if (nullptr == m_pCompiler)
     throw ocl_string_exception("loader wasn't assigned");
   if (m_source.empty())
@@ -83,25 +81,25 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   programDescriptor.pszInputHeadersNames = nullptr;
   programDescriptor.pszOptions = m_options.c_str();
   programDescriptor.bFpgaEmulator = m_bFpgaEmulator;
-  IOCLFEBinaryResult* res;
+  IOCLFEBinaryResult *res;
   int rc = m_pCompiler->CompileProgram(&programDescriptor, &res);
-  if (rc || nullptr == res){
+  if (rc || nullptr == res) {
     std::string errorMessage = "compilation failed: ";
     if (res)
-      errorMessage.append (res->GetErrorLog());
+      errorMessage.append(res->GetErrorLog());
     else
       errorMessage.append("<unknown error>");
     throw ocl_string_exception(errorMessage);
   }
   //
-  //Linking
+  // Linking
   //
-  IOCLFEBinaryResult* executableResult = nullptr;
+  IOCLFEBinaryResult *executableResult = nullptr;
   FELinkProgramsDescriptor linkDescriptor;
-  IOCLFELinkKernelNames* linkKernelNames = nullptr;
+  IOCLFELinkKernelNames *linkKernelNames = nullptr;
   linkDescriptor.uiNumBinaries = 1;
   linkDescriptor.pszOptions = "";
-  const void* irBuffer = res->GetIR();
+  const void *irBuffer = res->GetIR();
   linkDescriptor.pBinaryContainers = &irBuffer;
   size_t execsize = res->GetIRSize();
   linkDescriptor.puiBinariesSizes = &execsize;
@@ -112,33 +110,26 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   return executableResult;
 }
 
-CommonOCLBuilder::CommonOCLBuilder():
-  m_pCompiler(nullptr),
-  m_bSupportFP64(true),
-  m_bSupportImages(true),
-  m_bFpgaEmulator(false) {
-}
+CommonOCLBuilder::CommonOCLBuilder()
+    : m_pCompiler(nullptr), m_bSupportFP64(true), m_bSupportImages(true),
+      m_bFpgaEmulator(false) {}
 
-IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){
-  IOCLFECompiler* ret;
-  //constants
-  const char* fnFactoryName = "CreateFrontEndInstance";
-  const char* strDeviceOptions = m_extensions.c_str();
+IOCLFECompiler *CommonOCLBuilder::createCompiler(const char *lib) {
+  IOCLFECompiler *ret;
+  // constants
+  const char *fnFactoryName = "CreateFrontEndInstance";
+  const char *strDeviceOptions = m_extensions.c_str();
 
   Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
-    strDeviceOptions,
-    m_bSupportImages,
-    m_bSupportFP64,
-    0,
-    m_bFpgaEmulator
-    };
+      strDeviceOptions, m_bSupportImages, m_bSupportFP64, 0, m_bFpgaEmulator};
 
   //
-  //loading clang dll
+  // loading clang dll
   //
   m_dynamicLoader.Load(lib);
-  fnCreateFECompilerInstance* factoryMethod =
-    (fnCreateFECompilerInstance*)(intptr_t)m_dynamicLoader.GetFunctionPtrByName(fnFactoryName);
+  fnCreateFECompilerInstance *factoryMethod =
+      (fnCreateFECompilerInstance *)(intptr_t)
+          m_dynamicLoader.GetFunctionPtrByName(fnFactoryName);
   assert(factoryMethod && "GetFunctionPtrByName failed");
   int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret, nullptr);
   if (rc || nullptr == ret)

@@ -1,14 +1,26 @@
-// MD5.CC - source code for the C++/object oriented translation and 
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+// MD5.CC - source code for the C++/object oriented translation and
 //          modification of MD5.
 
-// Translation and modification (c) 1995 by Mordechai T. Abzug 
+// Translation and modification (c) 1995 by Mordechai T. Abzug
 
-// This translation/ modification is provided "as is," without express or 
+// This translation/ modification is provided "as is," without express or
 // implied warranty of any kind.
 
-// The translator/ modifier does not claim (1) that MD5 will do what you think 
-// it does; (2) that this translation/ modification is accurate; or (3) that 
-// this software is "merchantible."  (Language for this disclaimer partially 
+// The translator/ modifier does not claim (1) that MD5 will do what you think
+// it does; (2) that this translation/ modification is accurate; or (3) that
+// this software is "merchantible."  (Language for this disclaimer partially
 // copied from the disclaimer below).
 
 /* based on:
@@ -39,75 +51,75 @@ documentation and/or software.
 
 */
 
-#include <stdio.h>
 #include <fstream>
-#include <istream>
 #include <iostream>
+#include <istream>
+#include <stdio.h>
 
-namespace Validation{
+namespace Validation {
 
-class MD5Code{
+class MD5Code {
 public:
   MD5Code();
   MD5Code(unsigned char rawresult[16]);
-  MD5Code(const MD5Code&);
-  
-  MD5Code& operator =(const MD5Code&);
-  bool operator == (const MD5Code&)const;
-  const unsigned char* code() const;
+  MD5Code(const MD5Code &);
+
+  MD5Code &operator=(const MD5Code &);
+  bool operator==(const MD5Code &) const;
+  const unsigned char *code() const;
+
 private:
   unsigned char m_res[16];
 };
 
-std::ostream& operator<< (std::ostream&, const MD5Code& context);
+std::ostream &operator<<(std::ostream &, const MD5Code &context);
 
 class MD5 {
 
 public:
-  MD5(unsigned char * buffer, size_t bufferLen);
+  MD5(unsigned char *buffer, size_t bufferLen);
 
-// methods to acquire finalized result
-  MD5Code         digest ();  // digest as a 16-byte binary array
+  // methods to acquire finalized result
+  MD5Code digest(); // digest as a 16-byte binary array
 
 private:
-  
-  void  update     (unsigned char *input, unsigned int input_length);
-  void  finalize   ();
+  void update(unsigned char *input, unsigned int input_length);
+  void finalize();
 
-// first, some types:
-  typedef unsigned       int uint4; // assumes integer is 4 words long
+  // first, some types:
+  typedef unsigned int uint4;       // assumes integer is 4 words long
   typedef unsigned short int uint2; // assumes short integer is 2 words long
-  typedef unsigned      char uint1; // assumes char is 1 word long
+  typedef unsigned char uint1;      // assumes char is 1 word long
 
-// next, the private data:
+  // next, the private data:
   uint4 m_state[4];
-  uint4 m_count[2];     // number of *bits*, mod 2^64
-  uint1 m_buffer[64];   // input buffer
+  uint4 m_count[2];   // number of *bits*, mod 2^64
+  uint1 m_buffer[64]; // input buffer
   uint1 m_digest[16];
   uint1 finalized;
 
-// last, the private methods, mostly static:
-  void init             ();               // called by all constructors
-  void transform        (uint1 *buffer);  // does the real update work.  Note 
-                                          // that length is implied to be 64.
+  // last, the private methods, mostly static:
+  void init();                   // called by all constructors
+  void transform(uint1 *buffer); // does the real update work.  Note
+                                 // that length is implied to be 64.
 
-  static void encode    (uint1 *dest, uint4 *src, uint4 length);
-  static void decode    (uint4 *dest, uint1 *src, uint4 length);
-  static void memcpy    (uint1 *dest, uint1 *src, uint4 length);
-  static void memset    (uint1 *start, uint1 val, uint4 length);
+  static void encode(uint1 *dest, uint4 *src, uint4 length);
+  static void decode(uint4 *dest, uint1 *src, uint4 length);
+  static void memcpy(uint1 *dest, uint1 *src, uint4 length);
+  static void memset(uint1 *start, uint1 val, uint4 length);
 
-  static inline uint4  rotate_left (uint4 x, uint4 n);
-  static inline uint4  F           (uint4 x, uint4 y, uint4 z);
-  static inline uint4  G           (uint4 x, uint4 y, uint4 z);
-  static inline uint4  H           (uint4 x, uint4 y, uint4 z);
-  static inline uint4  I           (uint4 x, uint4 y, uint4 z);
-  static inline void   FF  (uint4& a, uint4 b, uint4 c, uint4 d, uint4 x, 
-			    uint4 s, uint4 ac);
-  static inline void   GG  (uint4& a, uint4 b, uint4 c, uint4 d, uint4 x, 
-			    uint4 s, uint4 ac);
-  static inline void   HH  (uint4& a, uint4 b, uint4 c, uint4 d, uint4 x, 
-			    uint4 s, uint4 ac);
-  static inline void   II  (uint4& a, uint4 b, uint4 c, uint4 d, uint4 x, 
-			    uint4 s, uint4 ac);
+  static inline uint4 rotate_left(uint4 x, uint4 n);
+  static inline uint4 F(uint4 x, uint4 y, uint4 z);
+  static inline uint4 G(uint4 x, uint4 y, uint4 z);
+  static inline uint4 H(uint4 x, uint4 y, uint4 z);
+  static inline uint4 I(uint4 x, uint4 y, uint4 z);
+  static inline void FF(uint4 &a, uint4 b, uint4 c, uint4 d, uint4 x, uint4 s,
+                        uint4 ac);
+  static inline void GG(uint4 &a, uint4 b, uint4 c, uint4 d, uint4 x, uint4 s,
+                        uint4 ac);
+  static inline void HH(uint4 &a, uint4 b, uint4 c, uint4 d, uint4 x, uint4 s,
+                        uint4 ac);
+  static inline void II(uint4 &a, uint4 b, uint4 c, uint4 d, uint4 x, uint4 s,
+                        uint4 ac);
 };
-}
+} // namespace Validation

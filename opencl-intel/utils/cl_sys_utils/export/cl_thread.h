@@ -32,62 +32,63 @@
 #define THREAD_HANDLE pthread_t
 #endif
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
-    /************************************************************************
-     * OclThread is an abstract thread class.
-     * To implement a thread in the system, inherit this class and implement the
-     * Run function.
-     * This class provides basic thread managing methods such as: start, join, terminate
-     * Set bAutoDelete to true only for dynamicaly created objects and expected to be terminated by themself
-     ************************************************************************/
+/************************************************************************
+ * OclThread is an abstract thread class.
+ * To implement a thread in the system, inherit this class and implement the
+ * Run function.
+ * This class provides basic thread managing methods such as: start, join,
+ *terminate Set bAutoDelete to true only for dynamicaly created objects and
+ *expected to be terminated by themself
+ ************************************************************************/
 
-    class OclThread
-    {
-    public:
-		OclThread(std::string name = "", bool bAutoDelete = false);
-	    virtual ~OclThread();
+class OclThread {
+public:
+  OclThread(std::string name = "", bool bAutoDelete = false);
+  virtual ~OclThread();
 
-        virtual int         Start();
-        virtual int         Join();
-        virtual int         WaitForCompletion();
-        void                Terminate(RETURN_TYPE_ENTRY_POINT exitCode);
-	    int                 SetAffinity(unsigned char ucAffinity);
-        bool                IsRunning() const               {return m_running;}
-        unsigned int        GetThreadId() const             {return m_threadId;}
-        THREAD_HANDLE       GetThreadHandle() const;
-        void                Clean();
+  virtual int Start();
+  virtual int Join();
+  virtual int WaitForCompletion();
+  void Terminate(RETURN_TYPE_ENTRY_POINT exitCode);
+  int SetAffinity(unsigned char ucAffinity);
+  bool IsRunning() const { return m_running; }
+  unsigned int GetThreadId() const { return m_threadId; }
+  THREAD_HANDLE GetThreadHandle() const;
+  void Clean();
 
-		enum eThreadResult
-		{
-			THREAD_RESULT_SUCCESS = 0,
-			THREAD_RESULT_FAIL = -1
-		};
+  enum eThreadResult { THREAD_RESULT_SUCCESS = 0, THREAD_RESULT_FAIL = -1 };
 
-        static bool IsOsThreadRunning( THREAD_HANDLE handle );
-        static void WaitForOsThreadCompletion( THREAD_HANDLE handle );
+  static bool IsOsThreadRunning(THREAD_HANDLE handle);
+  static void WaitForOsThreadCompletion(THREAD_HANDLE handle);
 
-    protected:
-        virtual RETURN_TYPE_ENTRY_POINT    Run()=0;          // The actual thread running loop.
-        void                Exit(RETURN_TYPE_ENTRY_POINT exitCode);
-		static void			SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode);
-		bool				isSelf();
+protected:
+  virtual RETURN_TYPE_ENTRY_POINT Run() = 0; // The actual thread running loop.
+  void Exit(RETURN_TYPE_ENTRY_POINT exitCode);
+  static void SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode);
+  bool isSelf();
 
-        static RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT ThreadEntryPoint( void* threadObject );
+  static RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT
+  ThreadEntryPoint(void *threadObject);
 
-        void*               m_threadHandle;
-        unsigned int        m_threadId;
-        bool                m_running;
-        AtomicCounter       m_join;
-		AtomicCounter       m_numWaiters;
-		bool				m_bAutoDelete;
-		std::string			m_Name;
+  void *m_threadHandle;
+  unsigned int m_threadId;
+  bool m_running;
+  AtomicCounter m_join;
+  AtomicCounter m_numWaiters;
+  bool m_bAutoDelete;
+  std::string m_Name;
 
-    private:
-        // A thread object cannot be copied
-        OclThread(const OclThread&);           // copy constructor
-        OclThread& operator=(const OclThread&);// assignment operator
-    };
+private:
+  // A thread object cannot be copied
+  OclThread(const OclThread &);            // copy constructor
+  OclThread &operator=(const OclThread &); // assignment operator
+};
 
-    }}  }           // Intel::OpenCL::Utils
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel
 #endif // __CL_THREAD_H__

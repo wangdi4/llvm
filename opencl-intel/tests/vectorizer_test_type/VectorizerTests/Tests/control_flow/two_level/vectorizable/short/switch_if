@@ -5,52 +5,52 @@
  * depend on short and don't depend on thread id.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-switch_if (	__global const float *in,
-		__global float *out, __global const short shortArg1)
+switch_if (  __global const float *in,
+    __global float *out, __global const short shortArg1)
 {
-	int gid = get_global_id(0);
+  int gid = get_global_id(0);
 
-	out[gid] = in[gid];
-	short tmp1 = shortArg1 * 7;
+  out[gid] = in[gid];
+  short tmp1 = shortArg1 * 7;
 
-	switch(shortArg1 % 4) {
+  switch(shortArg1 % 4) {
 
-	case 0:
-		tmp1 = rotate(tmp1, shortArg1);
-		if (tmp1 >= SHORT1) {
-			tmp1 = tmp1 / 12;
-		}
-		// fall through
+  case 0:
+    tmp1 = rotate(tmp1, shortArg1);
+    if (tmp1 >= SHORT1) {
+      tmp1 = tmp1 / 12;
+    }
+    // fall through
 
-	case 1:
-		tmp1 = tmp1 - 17;
-		if ((tmp1 / 6) % 5 == 1) {
-			tmp1 = 0;
-		}
-		break;
+  case 1:
+    tmp1 = tmp1 - 17;
+    if ((tmp1 / 6) % 5 == 1) {
+      tmp1 = 0;
+    }
+    break;
 
-	case 2:
-		tmp1++;
-		// fall through
-
-
-	case 3:
-		if (max(tmp1, (short)(in[1] * shortArg1)) > 0) {
-			tmp1 = tmp1 - 13;
-		}
-		break;
-
-	default:
-		break;
-
-	}
+  case 2:
+    tmp1++;
+    // fall through
 
 
-	out[gid] = tmp1 - out[gid];
+  case 3:
+    if (max(tmp1, (short)(in[1] * shortArg1)) > 0) {
+      tmp1 = tmp1 - 13;
+    }
+    break;
+
+  default:
+    break;
+
+  }
+
+
+  out[gid] = tmp1 - out[gid];
 }

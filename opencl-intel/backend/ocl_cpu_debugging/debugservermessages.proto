@@ -33,7 +33,7 @@ message ClientToServerMessage {
         repeated LineInfo breakpoints = 2;
     }
     optional RunMsg run_msg = 21;
-    
+
     message GetMemoryRangeMsg {
         required uint64 start_addr = 1;
         required uint64 end_addr = 2;

@@ -16,8 +16,8 @@
 #define BLT_WORK_ITEM_H
 
 #include <llvm/ADT/ArrayRef.h>
-#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/IR/DerivedTypes.h>
 
 #include <map>
 #include <string>
@@ -25,38 +25,49 @@
 namespace Validation {
 namespace OCLBuiltins {
 
-llvm::GenericValue lle_X_get_work_dim_impl(llvm::FunctionType *FT,
+llvm::GenericValue
+lle_X_get_work_dim_impl(llvm::FunctionType *FT,
+                        llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue
+lle_X_get_global_size_impl(llvm::FunctionType *FT,
+                           llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue
+lle_X_get_global_id_impl(llvm::FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_global_size_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_local_size_impl(llvm::FunctionType *FT,
+                          llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_global_id_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_local_id_impl(llvm::FunctionType *FT,
+                        llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_local_size_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_num_groups_impl(llvm::FunctionType *FT,
+                          llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_local_id_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_group_id_impl(llvm::FunctionType *FT,
+                        llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_num_groups_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_global_offset_impl(llvm::FunctionType *FT,
+                             llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_group_id_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_global_linear_id_impl(llvm::FunctionType *FT,
+                                llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_global_offset_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_local_linear_id_impl(llvm::FunctionType *FT,
+                               llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_get_global_linear_id_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
-
-llvm::GenericValue lle_X_get_local_linear_id_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
-
-llvm::GenericValue lle_X_get_enqueued_local_size_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_get_enqueued_local_size_impl(llvm::FunctionType *FT,
+                                   llvm::ArrayRef<llvm::GenericValue> Args);
 
 } // namespace OCLBuiltins
 } // namespace Validation

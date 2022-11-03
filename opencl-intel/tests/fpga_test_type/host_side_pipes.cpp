@@ -54,7 +54,8 @@ protected:
   cl_int (*unmap_pipe_fn)(cl_mem, void *, size_t, size_t *);
 };
 
-const std::string TestHostSidePipes::m_program_source = "                               \n\
+const std::string TestHostSidePipes::m_program_source =
+    "                               \n\
 #pragma OPENCL EXTENSION cl_intel_fpga_host_pipe : enable                               \n\
 __kernel void loopback(read_only pipe int pin __attribute__((intel_host_accessible)),   \n\
                        write_only pipe int pout __attribute__((intel_host_accessible)), \n\
@@ -87,14 +88,13 @@ void TestHostSidePipes::SetUp() {
   m_loopback = createKernel(m_program, "loopback");
   ASSERT_NE(nullptr, m_loopback) << "createKernel failed";
 
-  m_pipeRead = createPipe(m_context, sizeof(cl_int),
-                            m_maxBufferSize, CL_MEM_HOST_READ_ONLY);
+  m_pipeRead = createPipe(m_context, sizeof(cl_int), m_maxBufferSize,
+                          CL_MEM_HOST_READ_ONLY);
   ASSERT_NE(nullptr, m_pipeRead) << "createPipe failed";
 
   m_pipeWrite = createPipe(m_context, sizeof(cl_int), m_maxBufferSize,
                            CL_MEM_HOST_WRITE_ONLY);
   ASSERT_NE(nullptr, m_pipeWrite) << "createPipe failed";
-
 
   read_pipe_fn = (cl_int(*)(cl_mem, void *))clGetExtensionFunctionAddress(
       "clReadPipeIntelFPGA");
@@ -118,10 +118,7 @@ void TestHostSidePipes::SetUp() {
       << "clGetExtensionFunctionAddress(clUnmapPipeIntelFPGA) failed";
 }
 
-void TestHostSidePipes::TearDown() {
-
-  parent_t::TearDown();
-}
+void TestHostSidePipes::TearDown() { parent_t::TearDown(); }
 
 cl_int TestHostSidePipes::readPipe(cl_mem pipe, void *mem) {
   cl_int error = CL_SUCCESS;
@@ -462,4 +459,3 @@ TEST_F(TestHostSidePipes, BadPtr) {
   ASSERT_EQ(CL_INVALID_VALUE, iRet)
       << "clUnmapPipeIntelFPGA(0xdeadbeef, nullptr): " << ErrToStr(iRet);
 }
-

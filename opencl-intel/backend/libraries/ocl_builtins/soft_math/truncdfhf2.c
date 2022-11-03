@@ -32,4 +32,6 @@
 #ifndef _WIN32
 __attribute__((weak))
 #endif
-dst_t __truncdfhf2(double a) { return __truncXfYf2__(a); }
+dst_t __truncdfhf2(double a) {
+  return __truncXfYf2__(a);
+}

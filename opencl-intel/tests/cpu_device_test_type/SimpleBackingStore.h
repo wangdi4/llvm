@@ -29,55 +29,52 @@
 
 #include <cl_device_api.h>
 
-class SimpleBackingStore : public IOCLDevBackingStore
-{
+class SimpleBackingStore : public IOCLDevBackingStore {
 public:
-	SimpleBackingStore( const cl_image_format*	pclImageFormat,
-						unsigned int		    dim_count,
-						const size_t*	        dimension,
-						const size_t*           pitches);
+  SimpleBackingStore(const cl_image_format *pclImageFormat,
+                     unsigned int dim_count, const size_t *dimension,
+                     const size_t *pitches);
 
-	void*                   GetRawData()     const {return m_ptr;}
-    size_t                  GetRawDataSize() const {return m_raw_data_size;}
-    size_t                  GetRawDataOffset( const size_t* origin ) const;
+  void *GetRawData() const { return m_ptr; }
+  size_t GetRawDataSize() const { return m_raw_data_size; }
+  size_t GetRawDataOffset(const size_t *origin) const;
 
-	size_t                  GetDimCount()    const {return m_dim_count;}
-	const size_t*           GetDimentions()  const {return m_dimensions;}
-	bool                    IsDataValid()    const {return true;}
-	void                    SetDataValid(bool value)   {}
-	const size_t*           GetPitch()       const {return m_pitches;}
-    const cl_image_format&  GetFormat()      const {return m_format;}
-    size_t                  GetElementSize() const {return m_element_size;}
-    void*                   GetUserProvidedHostMapPtr() const { return m_ptr; }
+  size_t GetDimCount() const { return m_dim_count; }
+  const size_t *GetDimentions() const { return m_dimensions; }
+  bool IsDataValid() const { return true; }
+  void SetDataValid(bool value) {}
+  const size_t *GetPitch() const { return m_pitches; }
+  const cl_image_format &GetFormat() const { return m_format; }
+  size_t GetElementSize() const { return m_element_size; }
+  void *GetUserProvidedHostMapPtr() const { return m_ptr; }
 
-	int AddPendency();
-	int RemovePendency();
+  int AddPendency();
+  int RemovePendency();
 
-    // helper function to calculate offsets
-    static size_t calculate_offset( size_t elem_size, unsigned int  dim_count,
-                                    const size_t  origin[], const size_t  pitches[] );
-    static size_t get_element_size( const cl_image_format* format);
-    static size_t calculate_size( size_t elem_size, unsigned int  dim_count,
-                                    const size_t  dimensions[], const size_t  pitches[] );
+  // helper function to calculate offsets
+  static size_t calculate_offset(size_t elem_size, unsigned int dim_count,
+                                 const size_t origin[], const size_t pitches[]);
+  static size_t get_element_size(const cl_image_format *format);
+  static size_t calculate_size(size_t elem_size, unsigned int dim_count,
+                               const size_t dimensions[],
+                               const size_t pitches[]);
 
 private:
-	virtual ~SimpleBackingStore();
+  virtual ~SimpleBackingStore();
 
-	static void calculate_pitches_and_dimentions( 
-								   size_t elem_size, unsigned int  dim_count, 
-								   const size_t user_dims[], const size_t user_pitches[],
-                                   size_t  dimensions[], size_t  pitches[] );
+  static void calculate_pitches_and_dimentions(
+      size_t elem_size, unsigned int dim_count, const size_t user_dims[],
+      const size_t user_pitches[], size_t dimensions[], size_t pitches[]);
 
-	void*			m_ptr;
+  void *m_ptr;
 
-    size_t          m_dim_count;
-    size_t          m_dimensions[MAX_WORK_DIM];
-	size_t			m_pitches[MAX_WORK_DIM-1];
-    cl_image_format m_format;
-    size_t          m_element_size;
+  size_t m_dim_count;
+  size_t m_dimensions[MAX_WORK_DIM];
+  size_t m_pitches[MAX_WORK_DIM - 1];
+  cl_image_format m_format;
+  size_t m_element_size;
 
-    size_t          m_raw_data_size;
+  size_t m_raw_data_size;
 
-	unsigned int	m_refCount;
+  unsigned int m_refCount;
 };
-

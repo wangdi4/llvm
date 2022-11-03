@@ -270,8 +270,7 @@ std::string LLDJIT::emitObject(Module *M) {
   raw_svector_ostream ObjStream(ObjBufferSV);
 
   TM->addPassesToEmitFile(PM, ObjStream,
-                          /*raw_pwrite_stream*/ nullptr,
-                          CGFT_ObjectFile,
+                          /*raw_pwrite_stream*/ nullptr, CGFT_ObjectFile,
                           /*DisableVerify*/ true);
 
   // Initialize passes.
@@ -905,8 +904,8 @@ LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
 void LLDJIT::TmpFile::close() {
   OS().close();
   if (std::error_code EC = OS().error())
-    report_fatal_error(Twine("IO failure on file " + FileName() + ": " +
-                       EC.message()));
+    report_fatal_error(
+        Twine("IO failure on file " + FileName() + ": " + EC.message()));
 }
 
 void LLDJIT::notifyObjectLoaded(const object::ObjectFile &Obj,

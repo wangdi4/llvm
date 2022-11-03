@@ -32,7 +32,7 @@
 // for sleep function
 #include <windows.h>
 #else
-// for sleep function		
+// for sleep function
 #include <unistd.h>
 #endif
 
@@ -40,123 +40,117 @@
  * Encapsulates common methods
  **/
 
-// bineryFileToBuffer - returns (via return_val) content of file with sFileName name in current working directory
-// caller is responsible for resources deallocation
-void binaryFileToBuffer(const char** return_val, const char* sFileName, size_t* return_length)
-{
-    std::stringstream ss;
-    #if defined (_WIN32)
-        // [QA]: correct hardcoded path
-        // ss << "validation\\common_runtime_test_type\\" << sFileName;
-        ss << "" << sFileName;
-    #else
-        // [QA]: correct hardcoded path
-        // ss << "validation/common_runtime_test_type/" << sFileName;
-        ss << "" << sFileName;
-    #endif
-    // try to open file
-    std::ifstream file(ss.str().c_str(), std::fstream::in | std::fstream::binary | std::fstream::ate);
-    // check if file was opened successfully
-    ASSERT_FALSE(file.fail()) << "Could not open file " << ss.str();
-    file.seekg(0, std::ios::end);
-    size_t length = file.tellg();
-    file.seekg(0, std::ios::beg);
-    char* buffer = new char[length + 1];
-    file.read(buffer, length);
-    buffer[file.gcount()] = '\0';
-    // close file
-    file.close();
-    // return buffer
-    if (return_length != nullptr)
-    {
-        *return_length = length + 1;
-    }
-    *return_val = static_cast<const char*> (buffer);
-}
-
-// fileToBuffer - returns (via return_val) content of file with sFileName name in current working directory
-// caller is responsible for resources deallocation
-void fileToBuffer(const char** return_val, const char* sFileName, size_t* return_length)
-{
-    std::stringstream ss;
-    #if defined (_WIN32)
-        // [QA]: correct hardcoded path
-        // ss << "validation\\common_runtime_test_type\\" << sFileName;
-        ss << "" << sFileName;
-    #else
-        // [QA]: correct hardcoded path
-        // ss << "validation/common_runtime_test_type/" << sFileName;
-        ss << "" << sFileName;
-    #endif
-    // try to open file
-    std::ifstream file(ss.str().c_str());
-    // check if file was opened successfully
-    ASSERT_FALSE(file.fail()) << "Could not open file " << ss.str();
-    file.seekg(0, std::ios::end);
-    size_t length = file.tellg();
-    file.seekg(0, std::ios::beg);
-    char* buffer = new char[length + 1];
-    file.read(buffer, length);
-    buffer[file.gcount()] = '\0';
-    // close file
-    file.close();
-    // return buffer
-    if (return_length != nullptr)
-    {
-        *return_length = length + 1;
-    }
-    *return_val = static_cast<const char*> (buffer);
-}
-
-// getAllStrings - helper function - returns all strings in s separated by whitespace 
-// as vector of single strings
-std::vector<std::string> getAllStrings(std::string s)
-{
-	std::vector<std::string> vec;
-	std::istringstream iss(s);
-    int i=0;
-	do
-    {
-		std::string sub;
-        iss >> sub;
-		vec.push_back(sub);
-    } while (iss);
-	return vec;
-}
-
-// assertVectorInclusion - helper function - asserts that all elements of expected are in found
-void assertVectorInclusion(std::vector<std::string>& expected, std::vector<std::string>& found)
-{
-	std::vector<std::string>::iterator itExp;
-	std::vector<std::string>::iterator itVec;
-	for ( itExp=expected.begin() ; itExp < expected.end(); itExp++ ){
-		// iterate over all expected extensions
-		bool foundBool = false;
-		for ( itVec=found.begin() ; itVec < found.end(); itVec++ ){
-			// iterate over all found extensions
-			if(0==itExp->compare(*itVec)){
-				// found this extension
-				foundBool = true;
-				continue;
-			}
-		}
-		if(false == foundBool){
-			// did not find this extension
-			EXPECT_TRUE(false) << "Extension " << *itExp << " was not returned";
-		}
-	}
-}
-
-//	sleepMS - will cause the running thread to sleep for milliseconds
-void sleepMS(unsigned milliseconds)
-{
-#ifdef _WIN32
-	Sleep(milliseconds);
+// bineryFileToBuffer - returns (via return_val) content of file with sFileName
+// name in current working directory caller is responsible for resources
+// deallocation
+void binaryFileToBuffer(const char **return_val, const char *sFileName,
+                        size_t *return_length) {
+  std::stringstream ss;
+#if defined(_WIN32)
+  // [QA]: correct hardcoded path
+  // ss << "validation\\common_runtime_test_type\\" << sFileName;
+  ss << "" << sFileName;
 #else
-	usleep(milliseconds*1000);
+  // [QA]: correct hardcoded path
+  // ss << "validation/common_runtime_test_type/" << sFileName;
+  ss << "" << sFileName;
+#endif
+  // try to open file
+  std::ifstream file(ss.str().c_str(), std::fstream::in | std::fstream::binary |
+                                           std::fstream::ate);
+  // check if file was opened successfully
+  ASSERT_FALSE(file.fail()) << "Could not open file " << ss.str();
+  file.seekg(0, std::ios::end);
+  size_t length = file.tellg();
+  file.seekg(0, std::ios::beg);
+  char *buffer = new char[length + 1];
+  file.read(buffer, length);
+  buffer[file.gcount()] = '\0';
+  // close file
+  file.close();
+  // return buffer
+  if (return_length != nullptr) {
+    *return_length = length + 1;
+  }
+  *return_val = static_cast<const char *>(buffer);
+}
+
+// fileToBuffer - returns (via return_val) content of file with sFileName name
+// in current working directory caller is responsible for resources deallocation
+void fileToBuffer(const char **return_val, const char *sFileName,
+                  size_t *return_length) {
+  std::stringstream ss;
+#if defined(_WIN32)
+  // [QA]: correct hardcoded path
+  // ss << "validation\\common_runtime_test_type\\" << sFileName;
+  ss << "" << sFileName;
+#else
+  // [QA]: correct hardcoded path
+  // ss << "validation/common_runtime_test_type/" << sFileName;
+  ss << "" << sFileName;
+#endif
+  // try to open file
+  std::ifstream file(ss.str().c_str());
+  // check if file was opened successfully
+  ASSERT_FALSE(file.fail()) << "Could not open file " << ss.str();
+  file.seekg(0, std::ios::end);
+  size_t length = file.tellg();
+  file.seekg(0, std::ios::beg);
+  char *buffer = new char[length + 1];
+  file.read(buffer, length);
+  buffer[file.gcount()] = '\0';
+  // close file
+  file.close();
+  // return buffer
+  if (return_length != nullptr) {
+    *return_length = length + 1;
+  }
+  *return_val = static_cast<const char *>(buffer);
+}
+
+// getAllStrings - helper function - returns all strings in s separated by
+// whitespace as vector of single strings
+std::vector<std::string> getAllStrings(std::string s) {
+  std::vector<std::string> vec;
+  std::istringstream iss(s);
+  int i = 0;
+  do {
+    std::string sub;
+    iss >> sub;
+    vec.push_back(sub);
+  } while (iss);
+  return vec;
+}
+
+// assertVectorInclusion - helper function - asserts that all elements of
+// expected are in found
+void assertVectorInclusion(std::vector<std::string> &expected,
+                           std::vector<std::string> &found) {
+  std::vector<std::string>::iterator itExp;
+  std::vector<std::string>::iterator itVec;
+  for (itExp = expected.begin(); itExp < expected.end(); itExp++) {
+    // iterate over all expected extensions
+    bool foundBool = false;
+    for (itVec = found.begin(); itVec < found.end(); itVec++) {
+      // iterate over all found extensions
+      if (0 == itExp->compare(*itVec)) {
+        // found this extension
+        foundBool = true;
+        continue;
+      }
+    }
+    if (false == foundBool) {
+      // did not find this extension
+      EXPECT_TRUE(false) << "Extension " << *itExp << " was not returned";
+    }
+  }
+}
+
+//  sleepMS - will cause the running thread to sleep for milliseconds
+void sleepMS(unsigned milliseconds) {
+#ifdef _WIN32
+  Sleep(milliseconds);
+#else
+  usleep(milliseconds * 1000);
 #endif
 }
-
-
-
-

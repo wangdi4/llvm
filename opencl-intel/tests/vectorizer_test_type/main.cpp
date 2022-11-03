@@ -1,41 +1,40 @@
-#include <string>
 #include <set>
+#include <string>
 
 #include "KernelExecutor/KerenelExecutor.h"
 #include "TestsRunner/TestsRunner.h"
 
-using std::string;
 using std::set;
+using std::string;
 
-int main(int argc, char * const argv[]) {
+int main(int argc, char *const argv[]) {
 
-	KerenelExecutor::setPauseExecution(false);
+  KerenelExecutor::setPauseExecution(false);
 
-	// check if need to pause execution before and after running the kernel
+  // check if need to pause execution before and after running the kernel
 
-	set<string> testsToRun;
-	for (int i = 1; i < argc; i++) {
+  set<string> testsToRun;
+  for (int i = 1; i < argc; i++) {
 
-		string param = argv[i];
+    string param = argv[i];
 
-		if (param == "-pause") {
-			KerenelExecutor::setPauseExecution(true);
-		} else {
-			testsToRun.insert(param);
-		}
-	}
+    if (param == "-pause") {
+      KerenelExecutor::setPauseExecution(true);
+    } else {
+      testsToRun.insert(param);
+    }
+  }
 
-	TestsRunner::setTestList(testsToRun);
+  TestsRunner::setTestList(testsToRun);
 
-	TestsRunner noInputArgs;
+  TestsRunner noInputArgs;
 
-	noInputArgs.RunAllTests();
+  noInputArgs.RunAllTests();
 
 #ifdef WINDOWS
-	getchar();
+  getchar();
 #else
 #endif
 
-	return 0;
+  return 0;
 }
-

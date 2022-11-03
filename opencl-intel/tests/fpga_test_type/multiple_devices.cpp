@@ -65,16 +65,18 @@ TEST_P(MultipleDevicesBase, Simple) {
     cl_program program = createAndBuildProgram(contexts[i], program_sources);
     ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
 
-    cl_mem buf_a = createBuffer(contexts[i], sizeof(cl_int) * data_a.size(),
-        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_a.front());
+    cl_mem buf_a =
+        createBuffer(contexts[i], sizeof(cl_int) * data_a.size(),
+                     CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_a.front());
     ASSERT_NE(nullptr, buf_a) << "createBuffer failed";
 
-    cl_mem buf_b = createBuffer(contexts[i], sizeof(cl_int) * data_b.size(),
-        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_b.front());
+    cl_mem buf_b =
+        createBuffer(contexts[i], sizeof(cl_int) * data_b.size(),
+                     CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_b.front());
     ASSERT_NE(nullptr, buf_b) << "createBuffer failed";
 
     cl_mem buf_c = createBuffer(contexts[i], sizeof(cl_int) * data_b.size(),
-        CL_MEM_WRITE_ONLY);
+                                CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, buf_c) << "createBuffer failed";
 
     cl_kernel kernel = createKernel(program, "plus");
@@ -92,10 +94,10 @@ TEST_P(MultipleDevicesBase, Simple) {
         << "clSetKernelArg failed with error " << ErrToStr(error);
 
     const size_t num_dims = 1;
-    const size_t global_size[num_dims] = { data_a.size() };
+    const size_t global_size[num_dims] = {data_a.size()};
 
     error = clEnqueueNDRangeKernel(queues[i], kernel, num_dims, nullptr,
-        global_size, nullptr, 0, nullptr, nullptr);
+                                   global_size, nullptr, 0, nullptr, nullptr);
     ASSERT_EQ(CL_SUCCESS, error)
         << "clEnqueueNDRangeKernel failed with error " << ErrToStr(error);
 
@@ -113,7 +115,6 @@ TEST_P(MultipleDevicesBase, Simple) {
   }
 }
 
-
 TEST_P(MultipleDevicesBase, DeviceMismatch) {
   if (GetParam() > 1) { // There are multi devices.
     cl_context context0 = createContext(devices()[0]);
@@ -126,13 +127,12 @@ TEST_P(MultipleDevicesBase, DeviceMismatch) {
     cl_device_id seconddevice = devices()[1];
     // Invoke clBuildProgram with another device which is not associated with
     // this program, CL_INVALID_DEVICE should be returned.
-    error = clBuildProgram(program_with_source, 1, &seconddevice,
-        nullptr, nullptr, nullptr);
+    error = clBuildProgram(program_with_source, 1, &seconddevice, nullptr,
+                           nullptr, nullptr);
     EXPECT_EQ(CL_INVALID_DEVICE, error)
         << "clBuildProgram does not return expected error " << ErrToStr(error);
   }
 }
-
 
 TEST_P(MultipleDevicesBase, SharedContext) {
   cl_context context = createContext(devices());
@@ -157,12 +157,14 @@ TEST_P(MultipleDevicesBase, SharedContext) {
 
   std::vector<cl_int> data_a(128, 1), data_b(128, 0);
 
-  cl_mem buf_a = createBuffer(context, sizeof(cl_int) * data_a.size(),
-      CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_a.front());
+  cl_mem buf_a =
+      createBuffer(context, sizeof(cl_int) * data_a.size(),
+                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_a.front());
   ASSERT_NE(nullptr, buf_a) << "createBuffer failed";
 
-  cl_mem buf_b = createBuffer(context, sizeof(cl_int) * data_b.size(),
-      CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_b.front());
+  cl_mem buf_b =
+      createBuffer(context, sizeof(cl_int) * data_b.size(),
+                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_b.front());
   ASSERT_NE(nullptr, buf_b) << "createBuffer failed";
 
   cl_kernel kernel = createKernel(program, "plus");
@@ -177,11 +179,11 @@ TEST_P(MultipleDevicesBase, SharedContext) {
       << "clSetKernelArg failed with error " << ErrToStr(error);
 
   const size_t num_dims = 1;
-  const size_t global_size[num_dims] = { data_a.size() };
+  const size_t global_size[num_dims] = {data_a.size()};
 
   for (size_t i = 0; i < queues.size(); ++i) {
     error = clEnqueueNDRangeKernel(queues[i], kernel, num_dims, nullptr,
-        global_size, nullptr, 0, nullptr, nullptr);
+                                   global_size, nullptr, 0, nullptr, nullptr);
     ASSERT_EQ(CL_SUCCESS, error)
         << "clEnqueueNDRangeKernel failed with error " << ErrToStr(error);
     clFinish(queues[i]);
@@ -236,12 +238,14 @@ TEST_P(MultipleDevicesBase, WithAutorun) {
 
   std::vector<cl_int> data_a(128, 1), data_b(128, 0);
 
-  cl_mem buf_a = createBuffer(context, sizeof(cl_int) * data_a.size(),
-      CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_a.front());
+  cl_mem buf_a =
+      createBuffer(context, sizeof(cl_int) * data_a.size(),
+                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_a.front());
   ASSERT_NE(nullptr, buf_a) << "createBuffer failed";
 
-  cl_mem buf_b = createBuffer(context, sizeof(cl_int) * data_b.size(),
-      CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_b.front());
+  cl_mem buf_b =
+      createBuffer(context, sizeof(cl_int) * data_b.size(),
+                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &data_b.front());
   ASSERT_NE(nullptr, buf_b) << "createBuffer failed";
 
   cl_kernel kernel = createKernel(program, "plus");
@@ -256,11 +260,11 @@ TEST_P(MultipleDevicesBase, WithAutorun) {
       << "clSetKernelArg failed with error " << ErrToStr(error);
 
   const size_t num_dims = 1;
-  const size_t global_size[num_dims] = { data_a.size() };
+  const size_t global_size[num_dims] = {data_a.size()};
 
   for (size_t i = 0; i < queues.size(); ++i) {
     error = clEnqueueNDRangeKernel(queues[i], kernel, num_dims, nullptr,
-        global_size, nullptr, 0, nullptr, nullptr);
+                                   global_size, nullptr, 0, nullptr, nullptr);
     ASSERT_EQ(CL_SUCCESS, error)
         << "clEnqueueNDRangeKernel failed with error " << ErrToStr(error);
     clFinish(queues[i]);
@@ -323,7 +327,7 @@ TEST_P(MultipleDevicesBase, CheckThatChannelsAreNotShared) {
       << "clSetKernelArg failed with error " << ErrToStr(error);
 
   const size_t num_dims = 1;
-  const size_t global_size[num_dims] = { 1 };
+  const size_t global_size[num_dims] = {1};
 
   for (size_t i = 0; i < queues.size(); ++i) {
     cl_int num = i + 1;
@@ -356,10 +360,11 @@ TEST_P(MultipleDevicesBase, CheckThatChannelsAreNotShared) {
                             result, 0, nullptr, nullptr);
     ASSERT_EQ(CL_SUCCESS, error)
         << "clEnqueueReadBuffer failed with error " << ErrToStr(error);
-    ASSERT_EQ((cl_int)i + 1, result[0]) << "invalid result for " << i << "-th device";
+    ASSERT_EQ((cl_int)i + 1, result[0])
+        << "invalid result for " << i << "-th device";
     ASSERT_EQ(0, result[1]) << "invlid result for " << i << "-th device";
   }
 }
 
 INSTANTIATE_TEST_SUITE_P(TestFPGAMultiDevice, MultipleDevicesBase,
-                        ::testing::Values(1, 2, 3, 10));
+                         ::testing::Values(1, 2, 3, 10));

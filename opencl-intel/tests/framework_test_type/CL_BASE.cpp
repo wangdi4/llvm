@@ -23,8 +23,8 @@ void CL_base::SetUp() {
 
   // Check OpenCL 2.1 availability.
   size_t platVerSize = 0;
-  err = clGetPlatformInfo(m_platform, CL_PLATFORM_VERSION, 0, NULL,
-                          &platVerSize);
+  err =
+      clGetPlatformInfo(m_platform, CL_PLATFORM_VERSION, 0, NULL, &platVerSize);
   ASSERT_EQ(CL_SUCCESS, err) << " clGetPlatformInfo failed on trying to obtain "
                                 "CL_PLATFORM_VERSION string's size.";
   ASSERT_NE((size_t)0, platVerSize)
@@ -59,10 +59,10 @@ void CL_base::SetUp() {
   m_context = clCreateContext(prop, 1, &m_device, NULL, NULL, &err);
   ASSERT_OCL_SUCCESS(err, " clCreateContext");
 
-    cl_command_queue_properties properties[] = {CL_QUEUE_PROPERTIES,
-                                                CL_QUEUE_PROFILING_ENABLE, 0};
-    m_queue = clCreateCommandQueueWithProperties(m_context, m_device,
-                                                 properties, &err);
+  cl_command_queue_properties properties[] = {CL_QUEUE_PROPERTIES,
+                                              CL_QUEUE_PROFILING_ENABLE, 0};
+  m_queue =
+      clCreateCommandQueueWithProperties(m_context, m_device, properties, &err);
   ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
 }
 

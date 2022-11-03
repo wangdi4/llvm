@@ -57,7 +57,6 @@ bool ClangFECompilerCheckCompileOptions(
     size_t uiUnrecognizedOptionsSize,
     const Intel::OpenCL::Utils::BasicCLConfigWrapper &config);
 
-
 } // namespace ClangFE
 } // namespace OpenCL
 } // namespace Intel

@@ -1,10 +1,7 @@
 __constant int myglob = 333;
 __constant float hisglob = 1.f;
 
-
-
-void blehLLLLLLLLLLLLLLLLLLLLLLLLLLLLL(__global uchar* buf, int i)
-{
+void blehLLLLLLLLLLLLLLLLLLLLLLLLLLLLL(__global uchar *buf, int i) {
   int ggggggggggggggggg = get_global_id(i);
 
   if (i == 0)
@@ -16,17 +13,13 @@ void blehLLLLLLLLLLLLLLLLLLLLLLLLLLLLL(__global uchar* buf, int i)
   }
 }
 
-
-void mybarBBBBBBBBBBBBBBBBBBBBBBBB()
-{
+void mybarBBBBBBBBBBBBBBBBBBBBBBBB() {
   int myglob = 333;
   printf("in mybar 1\n!");
   printf("in mybar 2\n!");
-
 }
 
-void myfooMMMMMMMMMMMMMMMMMMMMMMMM(__global uchar* buf)
-{
+void myfooMMMMMMMMMMMMMMMMMMMMMMMM(__global uchar *buf) {
   printf("In myfoo!\n");
   barrier(CLK_LOCAL_MEM_FENCE);
   int bb = 2435, df;
@@ -35,16 +28,13 @@ void myfooMMMMMMMMMMMMMMMMMMMMMMMM(__global uchar* buf)
   if (buf[1] != 0)
     return;
 
-  df = bb  * 2;
+  df = bb * 2;
 
   int dimension = buf[1] == 0 ? 0 : 1;
   blehLLLLLLLLLLLLLLLLLLLLLLLLLLLLL(buf, get_global_id(dimension));
 }
 
-
-
-__kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
-{
+__kernel void main_kernel(__global uchar *buf_in, __global uchar *buf_out) {
   int myarr[4];
   int i, u1, u2;
   int gid0 = 2;
@@ -53,10 +43,8 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
   size_t gigid1 = get_global_id(1);
   int kwa = 1;
   kwa = 2;
-  printf("GIDS %u %u %u\n",
-    get_global_id(0),
-    get_global_id(1),
-    get_global_id(2));
+  printf("GIDS %u %u %u\n", get_global_id(0), get_global_id(1),
+         get_global_id(2));
   float4 fl4 = (float4)(1.1f, 2.2f, 3.3f, 4.4f);
   char4 cc4 = (char4)(17, -18, 19, 20);
   short4 ss4 = (short4)(0xAC, 0xBC, 0xCC, 0xDC);

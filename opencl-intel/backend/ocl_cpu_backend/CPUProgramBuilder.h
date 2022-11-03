@@ -25,16 +25,18 @@
 #include <string>
 
 namespace llvm {
-    class ExecutionEngine;
-    class LLVMContext;
-    class Module;
-    class Program;
-    class Function;
-    class MemoryBuffer;
-    class MDNode;
-}
+class ExecutionEngine;
+class LLVMContext;
+class Module;
+class Program;
+class Function;
+class MemoryBuffer;
+class MDNode;
+} // namespace llvm
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 class BuiltinModules;
 class Program;
@@ -44,60 +46,59 @@ class KernelGroupSet;
 class ObjectCodeCache;
 class ProgramBuildResult;
 
-
-//*****************************************************************************************
+//******************************************************************************
 // Provides the module optimization and code generation functionality.
 //
-class CPUProgramBuilder : public ProgramBuilder
-{
+class CPUProgramBuilder : public ProgramBuilder {
 
 public:
-    /**
-     * Ctor
-     */
-    CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory,
-                      std::unique_ptr<ICompilerConfig> pConfig);
-    ~CPUProgramBuilder();
+  /**
+   * Ctor
+   */
+  CPUProgramBuilder(IAbstractBackendFactory *pBackendFactory,
+                    std::unique_ptr<ICompilerConfig> pConfig);
+  ~CPUProgramBuilder();
 
-    Compiler *GetCompiler() override { return &m_compiler; }
-    const Compiler *GetCompiler() const override { return &m_compiler; }
+  Compiler *GetCompiler() override { return &m_compiler; }
+  const Compiler *GetCompiler() const override { return &m_compiler; }
 
-  protected:
-    KernelSet *CreateKernels(Program *pProgram, const char *pBuildOpts,
-                             ProgramBuildResult &buildResult) const override;
+protected:
+  KernelSet *CreateKernels(Program *pProgram, const char *pBuildOpts,
+                           ProgramBuildResult &buildResult) const override;
 
-    void PostOptimizationProcessing(Program *pProgram) const override;
+  void PostOptimizationProcessing(Program *pProgram) const override;
 
-    void JitProcessing(Program* program,
-                       const ICLDevBackendOptions* options,
-                       std::unique_ptr<llvm::TargetMachine> targetMachine,
-                       ObjectCodeCache *objCache) override;
+  void JitProcessing(Program *program, const ICLDevBackendOptions *options,
+                     std::unique_ptr<llvm::TargetMachine> targetMachine,
+                     ObjectCodeCache *objCache) override;
 
-    // reloads the program container from the cached binary object
-    virtual bool ReloadProgramFromCachedExecutable(Program *pProgram) override;
-    // builds binary object for the built program
-    virtual void BuildProgramCachedExecutable(ObjectCodeCache *pCache,
-                                              Program *pProgram) const override;
-
-  private:
-    Kernel *CreateKernel(llvm::Function *pFunc, const std::string &funcName,
-                         KernelProperties *pProps, bool useTLSGlobals) const;
-
-    void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel,
-                      llvm::Function* pFunc, KernelJITProperties* pProps) const;
-
-    // Klockwork Issue
-    CPUProgramBuilder ( const CPUProgramBuilder& x );
-
-    // Klockwork Issue
-    CPUProgramBuilder& operator= ( const CPUProgramBuilder& x );
+  // reloads the program container from the cached binary object
+  virtual bool ReloadProgramFromCachedExecutable(Program *pProgram) override;
+  // builds binary object for the built program
+  virtual void BuildProgramCachedExecutable(ObjectCodeCache *pCache,
+                                            Program *pProgram) const override;
 
 private:
-    CPUCompiler m_compiler;
-    #ifdef OCL_DEV_BACKEND_PLUGINS
-    mutable Intel::OpenCL::PluginManager m_pluginManger;
-    #endif
-    bool m_isFpgaEmulator;
+  Kernel *CreateKernel(llvm::Function *pFunc, const std::string &funcName,
+                       KernelProperties *pProps, bool useTLSGlobals) const;
+
+  void AddKernelJIT(CPUProgram *pProgram, Kernel *pKernel,
+                    llvm::Function *pFunc, KernelJITProperties *pProps) const;
+
+  // Klockwork Issue
+  CPUProgramBuilder(const CPUProgramBuilder &x);
+
+  // Klockwork Issue
+  CPUProgramBuilder &operator=(const CPUProgramBuilder &x);
+
+private:
+  CPUCompiler m_compiler;
+#ifdef OCL_DEV_BACKEND_PLUGINS
+  mutable Intel::OpenCL::PluginManager m_pluginManger;
+#endif
+  bool m_isFpgaEmulator;
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

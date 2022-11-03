@@ -43,22 +43,22 @@
 #include <string>
 #include <vector>
 
-#include <google/protobuf/stubs/port.h>
 #include <google/protobuf/stubs/macros.h>
 #include <google/protobuf/stubs/platform_macros.h>
+#include <google/protobuf/stubs/port.h>
 
 // TODO(liujisi): Remove the following includes after the include clean-up.
+#include <google/protobuf/stubs/callback.h>
 #include <google/protobuf/stubs/logging.h>
 #include <google/protobuf/stubs/mutex.h>
-#include <google/protobuf/stubs/callback.h>
 
 #ifndef PROTOBUF_USE_EXCEPTIONS
 #if defined(_MSC_VER) && defined(_CPPUNWIND)
-  #define PROTOBUF_USE_EXCEPTIONS 1
+#define PROTOBUF_USE_EXCEPTIONS 1
 #elif defined(__EXCEPTIONS)
-  #define PROTOBUF_USE_EXCEPTIONS 1
+#define PROTOBUF_USE_EXCEPTIONS 1
 #else
-  #define PROTOBUF_USE_EXCEPTIONS 0
+#define PROTOBUF_USE_EXCEPTIONS 0
 #endif
 #endif
 
@@ -66,10 +66,12 @@
 #include <exception>
 #endif
 #if defined(__APPLE__)
-#include <TargetConditionals.h>  // for TARGET_OS_IPHONE
+#include <TargetConditionals.h> // for TARGET_OS_IPHONE
 #endif
 
-#if defined(__ANDROID__) || defined(GOOGLE_PROTOBUF_OS_ANDROID) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) || defined(GOOGLE_PROTOBUF_OS_IPHONE)
+#if defined(__ANDROID__) || defined(GOOGLE_PROTOBUF_OS_ANDROID) ||             \
+    (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) ||                         \
+    defined(GOOGLE_PROTOBUF_OS_IPHONE)
 #include <pthread.h>
 #endif
 
@@ -77,15 +79,13 @@
 // Allow GetMessage to be used as a valid method name in protobuf classes.
 // windows.h defines GetMessage() as a macro.  Let's re-define it as an inline
 // function.  The inline function should be equivalent for C++ users.
-inline BOOL GetMessage_Win32(
-    LPMSG lpMsg, HWND hWnd,
-    UINT wMsgFilterMin, UINT wMsgFilterMax) {
+inline BOOL GetMessage_Win32(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
+                             UINT wMsgFilterMax) {
   return GetMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 }
 #undef GetMessage
-inline BOOL GetMessage(
-    LPMSG lpMsg, HWND hWnd,
-    UINT wMsgFilterMin, UINT wMsgFilterMax) {
+inline BOOL GetMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
+                       UINT wMsgFilterMax) {
   return GetMessage_Win32(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 }
 #endif
@@ -126,22 +126,20 @@ static const int kMinHeaderVersionForProtoc = 3006001;
 // Verifies that the headers and libraries are compatible.  Use the macro
 // below to call this.
 void LIBPROTOBUF_EXPORT VerifyVersion(int headerVersion, int minLibraryVersion,
-                                      const char* filename);
+                                      const char *filename);
 
 // Converts a numeric version number to a string.
 std::string LIBPROTOBUF_EXPORT VersionString(int version);
 
-}  // namespace internal
+} // namespace internal
 
 // Place this macro in your main() function (or somewhere before you attempt
 // to use the protobuf library) to verify that the version you link against
 // matches the headers you compiled against.  If a version mismatch is
 // detected, the process will abort.
-#define GOOGLE_PROTOBUF_VERIFY_VERSION                                    \
-  ::google::protobuf::internal::VerifyVersion(                            \
-    GOOGLE_PROTOBUF_VERSION, GOOGLE_PROTOBUF_MIN_LIBRARY_VERSION,         \
-    __FILE__)
-
+#define GOOGLE_PROTOBUF_VERIFY_VERSION                                         \
+  ::google::protobuf::internal::VerifyVersion(                                 \
+      GOOGLE_PROTOBUF_VERSION, GOOGLE_PROTOBUF_MIN_LIBRARY_VERSION, __FILE__)
 
 // ===================================================================
 // from google3/util/utf8/public/unilib.h
@@ -151,14 +149,14 @@ namespace internal {
 
 // Checks if the buffer contains structurally-valid UTF-8.  Implemented in
 // structurally_valid.cc.
-LIBPROTOBUF_EXPORT bool IsStructurallyValidUTF8(const char* buf, int len);
+LIBPROTOBUF_EXPORT bool IsStructurallyValidUTF8(const char *buf, int len);
 
-inline bool IsStructurallyValidUTF8(const std::string& str) {
+inline bool IsStructurallyValidUTF8(const std::string &str) {
   return IsStructurallyValidUTF8(str.data(), static_cast<int>(str.length()));
 }
 
 // Returns initial number of bytes of structually valid UTF-8.
-LIBPROTOBUF_EXPORT int UTF8SpnStructurallyValid(const StringPiece& str);
+LIBPROTOBUF_EXPORT int UTF8SpnStructurallyValid(const StringPiece &str);
 
 // Coerce UTF-8 byte string in src_str to be
 // a structurally-valid equal-length string by selectively
@@ -172,11 +170,11 @@ LIBPROTOBUF_EXPORT int UTF8SpnStructurallyValid(const StringPiece& str);
 //
 // Optimized for: all structurally valid and no byte copying is done.
 //
-LIBPROTOBUF_EXPORT char* UTF8CoerceToStructurallyValid(
-    const StringPiece& str, char* dst, char replace_char);
+LIBPROTOBUF_EXPORT char *UTF8CoerceToStructurallyValid(const StringPiece &str,
+                                                       char *dst,
+                                                       char replace_char);
 
-}  // namespace internal
-
+} // namespace internal
 
 // ===================================================================
 // Shutdown support.
@@ -202,31 +200,30 @@ namespace internal {
 // Register a function to be called when ShutdownProtocolBuffers() is called.
 LIBPROTOBUF_EXPORT void OnShutdown(void (*func)());
 // Run an arbitrary function on an arg
-LIBPROTOBUF_EXPORT void OnShutdownRun(void (*f)(const void*), const void* arg);
+LIBPROTOBUF_EXPORT void OnShutdownRun(void (*f)(const void *), const void *arg);
 
-template <typename T>
-T* OnShutdownDelete(T* p) {
-  OnShutdownRun([](const void* p) { delete static_cast<const T*>(p); }, p);
+template <typename T> T *OnShutdownDelete(T *p) {
+  OnShutdownRun([](const void *p) { delete static_cast<const T *>(p); }, p);
   return p;
 }
 
-}  // namespace internal
+} // namespace internal
 
 #if PROTOBUF_USE_EXCEPTIONS
 class FatalException : public std::exception {
- public:
-  FatalException(const char* filename, int line, const std::string& message)
+public:
+  FatalException(const char *filename, int line, const std::string &message)
       : filename_(filename), line_(line), message_(message) {}
   virtual ~FatalException() throw();
 
-  virtual const char* what() const throw();
+  virtual const char *what() const throw();
 
-  const char* filename() const { return filename_; }
+  const char *filename() const { return filename_; }
   int line() const { return line_; }
-  const std::string& message() const { return message_; }
+  const std::string &message() const { return message_; }
 
- private:
-  const char* filename_;
+private:
+  const char *filename_;
   const int line_;
   const std::string message_;
 };
@@ -236,7 +233,7 @@ class FatalException : public std::exception {
 // in some versions of MSVC.
 using std::string;
 
-}  // namespace protobuf
-}  // namespace google
+} // namespace protobuf
+} // namespace google
 
-#endif  // GOOGLE_PROTOBUF_COMMON_H__
+#endif // GOOGLE_PROTOBUF_COMMON_H__

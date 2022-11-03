@@ -15,29 +15,32 @@
 #ifndef __EXECUTION_CONTEXT_H__
 #define __EXECUTION_CONTEXT_H__
 
-#include "cpu_dev_limits.h"
 #include "cl_dev_backend_api.h"
+#include "cpu_dev_limits.h"
 #include <cstddef>
 #include <set>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-  /// @brief  Work Info structure, contains these information:
-  ///         uiWorkDim       - work dimension
-  ///         GlobalOffset    - global offset (for each dimension)
-  ///         GlobalSize      - global size (for each dimension)
-  ///         LocalSize       - local sizes (for each dimension)
-  ///         WGNumber        - number of work groups (for each dimension)
-  ///         WGLoopIterCount - number of iteration the loop barrier executes
-  struct sWorkInfo
-  {
-      unsigned int    uiWorkDim;
-      size_t          GlobalOffset[MAX_WORK_DIM];
-      size_t          GlobalSize[MAX_WORK_DIM];
-      size_t          LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
-      size_t          WGNumber[MAX_WORK_DIM];
-      size_t          WGLoopIterCount;
-  };
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+/// @brief  Work Info structure, contains these information:
+///         uiWorkDim       - work dimension
+///         GlobalOffset    - global offset (for each dimension)
+///         GlobalSize      - global size (for each dimension)
+///         LocalSize       - local sizes (for each dimension)
+///         WGNumber        - number of work groups (for each dimension)
+///         WGLoopIterCount - number of iteration the loop barrier executes
+struct sWorkInfo {
+  unsigned int uiWorkDim;
+  size_t GlobalOffset[MAX_WORK_DIM];
+  size_t GlobalSize[MAX_WORK_DIM];
+  size_t LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
+  size_t WGNumber[MAX_WORK_DIM];
+  size_t WGLoopIterCount;
+};
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __EXECUTION_CONTEXT_H__

@@ -14,119 +14,123 @@
 
 #pragma once
 
-#include <cl_types.h>
-#include <Logger.h>
 #include "cl_object.h"
-#include "queue_event.h"
 #include "ocl_itt.h"
+#include "queue_event.h"
+#include <Logger.h>
+#include <cl_types.h>
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
-    // Forward declarations
-    class Context;
-    class Device;
-    class FissionableDevice;
-    class QueueWorkerThread;
-    class EventsManager;
-    class ICommandQueue;
-    class Command;
+// Forward declarations
+class Context;
+class Device;
+class FissionableDevice;
+class QueueWorkerThread;
+class EventsManager;
+class ICommandQueue;
+class Command;
 
-    /**********************************************************************************************
-     * Class name:    OclCommandQueue
-     *
-     * Description:    
-     *
-            The command-queue can be used to queue a set of operations (referred to as commands) in order. Having multiple
-            command-queues allows applications to queue multiple independent commands without
-            requiring synchronization. Note that this should work as long as these objects are not being
-            shared. Sharing of objects across multiple command-queues will require the application to
-            perform appropriate synchronization
+/*******************************************************************************
+ * Class name:    OclCommandQueue
+ *
+ * Description:
+ *
+        The command-queue can be used to queue a set of operations (referred to
+as commands) in order. Having multiple command-queues allows applications to
+queue multiple independent commands without requiring synchronization. Note that
+this should work as long as these objects are not being shared. Sharing of
+objects across multiple command-queues will require the application to perform
+appropriate synchronization
 
-     *
-     * Author:        Arnon Peleg
-     * Date:        December 2008
-    **********************************************************************************************/
-    class OclCommandQueue : public OCLObject<_cl_command_queue_int>
-    {
+ *
+ * Author:        Arnon Peleg
+ * Date:        December 2008
+*******************************************************************************/
+class OclCommandQueue : public OCLObject<_cl_command_queue_int> {
 
-    public:
+public:
+  PREPARE_SHARED_PTR(OclCommandQueue)
 
-        PREPARE_SHARED_PTR(OclCommandQueue)
-        
-        OclCommandQueue(
-            const SharedPtr<Context>&   pContext,
-            cl_device_id                clDefaultDeviceID, 
-            cl_command_queue_properties clProperties,
-            EventsManager*              pEventManager
-            );
-        virtual  cl_err_code     Initialize();
-        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
-                            void *pParamValue,
-                            size_t *pszParamValueSizeRet) const override;
+  OclCommandQueue(const SharedPtr<Context> &pContext,
+                  cl_device_id clDefaultDeviceID,
+                  cl_command_queue_properties clProperties,
+                  EventsManager *pEventManager);
+  virtual cl_err_code Initialize();
+  cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
+                      void *pParamValue,
+                      size_t *pszParamValueSizeRet) const override;
 
-        //These make little sense. Here for legacy support - deprecated in 1.1
-        cl_bool         EnableProfiling( cl_bool bEnabled );
-        virtual cl_bool EnableOutOfOrderExecMode( cl_bool bEnabled );
+  // These make little sense. Here for legacy support - deprecated in 1.1
+  cl_bool EnableProfiling(cl_bool bEnabled);
+  virtual cl_bool EnableOutOfOrderExecMode(cl_bool bEnabled);
 
-        cl_bool         IsPropertiesSupported( cl_command_queue_properties clProperties );
-        cl_bool         IsProfilingEnabled() const              { return m_bProfilingEnabled;       }
-        cl_bool         IsOutOfOrderExecModeEnabled() const     { return m_bOutOfOrderEnabled;      }
-        cl_int          GetContextId() const;
-        cl_device_id    GetQueueDeviceHandle() const            { return m_clDefaultDeviceHandle;   }
-        const SharedPtr<FissionableDevice>&    GetDefaultDevice() const { return m_pDefaultDevice;            }
-        EventsManager*  GetEventsManager() const                { return m_pEventsManager; }
-        const SharedPtr<Context>& GetContext() const            { return m_pContext; } 
-        SharedPtr<Context>&       GetContext()                  { return m_pContext; } 
-        virtual cl_err_code CancelAll();
-        virtual void    ReleaseQueue() { }    // called when the user calls clReleaesCommandQueue for this OclCommandQueue
+  cl_bool IsPropertiesSupported(cl_command_queue_properties clProperties);
+  cl_bool IsProfilingEnabled() const { return m_bProfilingEnabled; }
+  cl_bool IsOutOfOrderExecModeEnabled() const { return m_bOutOfOrderEnabled; }
+  cl_int GetContextId() const;
+  cl_device_id GetQueueDeviceHandle() const { return m_clDefaultDeviceHandle; }
+  const SharedPtr<FissionableDevice> &GetDefaultDevice() const {
+    return m_pDefaultDevice;
+  }
+  EventsManager *GetEventsManager() const { return m_pEventsManager; }
+  const SharedPtr<Context> &GetContext() const { return m_pContext; }
+  SharedPtr<Context> &GetContext() { return m_pContext; }
+  virtual cl_err_code CancelAll();
+  virtual void ReleaseQueue() {
+  } // called when the user calls clReleaesCommandQueue for this OclCommandQueue
 
-        /**
-         * @return the address of device agent's command list
-         */
-        void* GetDeviceCommandListPtr();
+  /**
+   * @return the address of device agent's command list
+   */
+  void *GetDeviceCommandListPtr();
 
-        // Create a custom tracker in GAP that correspond to the OCL queue
-        cl_err_code GPA_InitializeQueue();
-        ocl_gpa_queue * GPA_GetQueue() { return m_pOclGpaQueue; }
-        cl_err_code GPA_ReleaseQueue();
-        virtual ocl_gpa_data* GetGPAData() const;
-        void SetProperties(
-            std::vector<cl_command_queue_properties> &clQueuePropsArray);
+  // Create a custom tracker in GAP that correspond to the OCL queue
+  cl_err_code GPA_InitializeQueue();
+  ocl_gpa_queue *GPA_GetQueue() { return m_pOclGpaQueue; }
+  cl_err_code GPA_ReleaseQueue();
+  virtual ocl_gpa_data *GetGPAData() const;
+  void
+  SetProperties(std::vector<cl_command_queue_properties> &clQueuePropsArray);
 
-    protected:
+protected:
+  OclCommandQueue(const SharedPtr<Context> &pContext,
+                  cl_device_id clDefaultDeviceID,
+                  cl_command_queue_properties clProperties,
+                  EventsManager *pEventManager,
+                  ocl_entry_points *pOclEntryPoints);
 
-        OclCommandQueue(
-            const SharedPtr<Context>&   pContext,
-            cl_device_id                clDefaultDeviceID, 
-            cl_command_queue_properties clProperties,
-            EventsManager*              pEventManager,
-            ocl_entry_points *            pOclEntryPoints
-            );
+  virtual ~OclCommandQueue();
 
-        virtual         ~OclCommandQueue();
+  virtual void BecomeVisible() = 0;
 
-        virtual  void BecomeVisible() = 0;
+  /**
+   * @param iParamName    the parameter's name
+   * @param pBuf            a buffer into which the parameter's information is
+   * to be written
+   * @param szBuf            pBuf's size
+   * @param szOuput       the size of the data
+   * @return CL_SUCCESS if
+   * the function is executed successfully.
+   */
+  virtual cl_int GetInfoInternal(cl_int iParamName, void *pBuf, size_t szBuf,
+                                 size_t *szOutput) const;
 
-        /**
-         * @param iParamName    the parameter's name
-         * @param pBuf            a buffer into which the parameter's information is to be written
-         * @param szBuf            pBuf's size
-         * @param szOuput       the size of the data
-         * @return CL_SUCCESS if the function is executed successfully.
-         */
-        virtual cl_int GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf, size_t *szOutput) const;
+  SharedPtr<Context> m_pContext;
+  SharedPtr<FissionableDevice> m_pDefaultDevice;
+  EventsManager *m_pEventsManager;
+  cl_device_id m_clDefaultDeviceHandle;
+  cl_bool m_bProfilingEnabled;
+  cl_bool m_bOutOfOrderEnabled;
+  cl_dev_cmd_list m_clDevCmdListId;
+  std::vector<cl_queue_properties> m_clQueuePropsArray;
 
-        SharedPtr<Context> m_pContext;
-        SharedPtr<FissionableDevice> m_pDefaultDevice;
-        EventsManager*      m_pEventsManager;
-        cl_device_id        m_clDefaultDeviceHandle;
-        cl_bool             m_bProfilingEnabled;
-        cl_bool             m_bOutOfOrderEnabled;
-        cl_dev_cmd_list     m_clDevCmdListId;
-        std::vector<cl_queue_properties> m_clQueuePropsArray;
-
-        ocl_gpa_queue*      m_pOclGpaQueue;
-        ocl_gpa_data*        m_pGPAData;
-        volatile bool        m_bCancelAll;
-    };
-}}}    // Intel::OpenCL::Framework
+  ocl_gpa_queue *m_pOclGpaQueue;
+  ocl_gpa_data *m_pGPAData;
+  volatile bool m_bCancelAll;
+};
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

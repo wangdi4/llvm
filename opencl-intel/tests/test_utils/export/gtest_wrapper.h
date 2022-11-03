@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wsuggest-override"

@@ -1,4 +1,4 @@
-#if 0   // This test must be rewritten completely.
+#if 0 // This test must be rewritten completely.
 //|
 //| TESTSUITE: ArrayOfImagesTest
 //|
@@ -7,26 +7,26 @@
 //|
 
 #include "TestsHelpClasses.h"
-#include <time.h>
 #include "clParameterizedImages.h"
 #include <cstdio>
+#include <time.h>
 
 
 
 class ArrayOfImagesTest :
-	public ParameterizedImagesTest<CreateImage2DArray>
+  public ParameterizedImagesTest<CreateImage2DArray>
 {
 
 };
 TEST_F(ArrayOfImagesTest, ImageInfo){
-	cl_err_code err = ERROR_RESET;
-	
-	//Creation
+  cl_err_code err = ERROR_RESET;
+  
+  //Creation
     Image = clCreateImage2DArrayINTEL( context, CL_MEM_READ_ONLY , &clFormat,CL_IMAGE_ARRAY_SAME_DIMENSIONS, &ImagesWidth, &ImagesHeight,NumImages,0,0,NULL , &err );
-	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(err)) << ERR_FUNCTION("clCreateImage2DArrayINTEL");
+  EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(err)) << ERR_FUNCTION("clCreateImage2DArrayINTEL");
     
-	
-//	cl_mem_object_type memObjType;
+  
+//  cl_mem_object_type memObjType;
     size_t numImages = -1;
 
     err = clGetMemObjectInfo(Image, CL_MEM_ARRAY_SIZE, sizeof(size_t), &numImages, NULL);
@@ -52,16 +52,16 @@ TEST_F(ArrayOfImagesTest, ImageInfo){
     EXPECT_EQ(val, CL_IMAGE_ARRAY_SAME_DIMENSIONS);
     EXPECT_EQ(size, sizeof(val));
 
-	Image.reset();
+  Image.reset();
 }
 
 TEST_F(ArrayOfImagesTest, CreationFailures){
-	cl_err_code err = ERROR_RESET;
+  cl_err_code err = ERROR_RESET;
 
-	//CL INVALID VALUE
-	Image = clCreateImage2DArrayINTEL(context, CL_MEM_READ_WRITE, &clFormat, (cl_image_array_type) 0, &ImagesWidth, &ImagesHeight,NumImages,0,0, NULL , &err );
-	EXPECT_EQ(oclErr(CL_INVALID_VALUE),oclErr(err)) << ERR_FUNCTION("clCreateImage2DArrayINTEL");
-	EXPECT_EQ(NULL,Image) << ERR_FUNCTION("clCreateImage2DArrayINTEL");
+  //CL INVALID VALUE
+  Image = clCreateImage2DArrayINTEL(context, CL_MEM_READ_WRITE, &clFormat, (cl_image_array_type) 0, &ImagesWidth, &ImagesHeight,NumImages,0,0, NULL , &err );
+  EXPECT_EQ(oclErr(CL_INVALID_VALUE),oclErr(err)) << ERR_FUNCTION("clCreateImage2DArrayINTEL");
+  EXPECT_EQ(NULL,Image) << ERR_FUNCTION("clCreateImage2DArrayINTEL");
 
 }
 
@@ -105,38 +105,39 @@ TEST_F(ArrayOfImagesTest, DISABLED_SetKernelArg)
 //TODO: this test can be moved to clParameterizedImages.cpp once write_imagef will be implemented for 3D Image,
 //you should uncomment the first line (Macro) and delete the second one(typedef)
 //TODO: not tested due to no implementation , should check it is actully does it job....
-#define SIMPLE_WRITING_KERNEL __kernel void imageWrite(__write_only %s /*1 type of image */ srcImg, __global %s  *pPixels)	\
-{	\
-	size_t x = get_global_id(0);	\
-	size_t y = get_global_id(1);	\
-	size_t z = get_global_id(2);	\
-	size_t pxlOff = x + y * DEFAULT_WIDTH;	\
-	%s(srcImg, (int4)(x,y,z,0), pPixels[pxlOff]); /*function name*/	\
-}
+#define SIMPLE_WRITING_KERNEL                                                  \
+  __kernel void imageWrite(__write_only % s /*1 type of image */ srcImg,       \
+                           __global % s * pPixels) {                           \
+    size_t x = get_global_id(0);                                               \
+    size_t y = get_global_id(1);                                               \
+    size_t z = get_global_id(2);                                               \
+    size_t pxlOff = x + y * DEFAULT_WIDTH;                                     \
+    % s(srcImg, (int4)(x, y, z, 0), pPixels[pxlOff]); /*function name*/        \
+  }
 
 TEST_F(ArrayOfImagesTest, DISABLED_KernelWriteImagef){
-// 	TEMPLATE_DECLERATION_FIX;
-	typedef CreateImage2DArray TypeParam;
+//   TEMPLATE_DECLERATION_FIX;
+  typedef CreateImage2DArray TypeParam;
 
-	TypeParam ImageType;
-	clFormat.image_channel_data_type = CL_UNORM_INT8;
-	clFormat.image_channel_order = CL_RGBA;
-	cl_err_code err = ERROR_RESET;
+  TypeParam ImageType;
+  clFormat.image_channel_data_type = CL_UNORM_INT8;
+  clFormat.image_channel_order = CL_RGBA;
+  cl_err_code err = ERROR_RESET;
 
-	Ocl2DImage WriteImg(this->getSize(),true);
-	//	Ocl2DImage ImgArray(NumImages,WriteImg);
-	Image = createTypedImage( context, CL_MEM_READ_WRITE, &clFormat,CL_IMAGE_ARRAY_SAME_DIMENSIONS, &ImagesWidth, &ImagesHeight,NumImages,0,0, NULL , &err );
-	ASSERT_EQ(oclErr(CL_SUCCESS),oclErr(err)) << ERR_FUNCTION("createTypedImage");
-	// until here it was just creating
+  Ocl2DImage WriteImg(this->getSize(),true);
+  //  Ocl2DImage ImgArray(NumImages,WriteImg);
+  Image = createTypedImage( context, CL_MEM_READ_WRITE, &clFormat,CL_IMAGE_ARRAY_SAME_DIMENSIONS, &ImagesWidth, &ImagesHeight,NumImages,0,0, NULL , &err );
+  ASSERT_EQ(oclErr(CL_SUCCESS),oclErr(err)) << ERR_FUNCTION("createTypedImage");
+  // until here it was just creating
 
-	char kernelSource[MAX_SOURCE_SIZE];
-	char *pString = kernelSource;
-	sprintf(kernelSource,XSTR(SIMPLE_WRITING_KERNEL), ImageType.getBuiltinType(), "float4", "write_imagef");
+  char kernelSource[MAX_SOURCE_SIZE];
+  char *pString = kernelSource;
+  sprintf(kernelSource,XSTR(SIMPLE_WRITING_KERNEL), ImageType.getBuiltinType(), "float4", "write_imagef");
 
-	Ocl2DImage DstArray(this->getSize()*NumImages,false);
-	ASSERT_NO_FATAL_FAILURE(copyBufferWithKernelToPImage(Image, DstArray, (const char**)&pString));
+  Ocl2DImage DstArray(this->getSize()*NumImages,false);
+  ASSERT_NO_FATAL_FAILURE(copyBufferWithKernelToPImage(Image, DstArray, (const char**)&pString));
 
-	//now checking
-	EXPECT_NO_FATAL_FAILURE(this->readPImageAndCompare(Image,WriteImg)) << "READING THE WRITTEN IMAGES FAILED";
+  //now checking
+  EXPECT_NO_FATAL_FAILURE(this->readPImageAndCompare(Image,WriteImg)) << "READING THE WRITTEN IMAGES FAILED";
 }
 #endif

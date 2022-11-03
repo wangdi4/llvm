@@ -7,17 +7,17 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 func_distance ( __global const float *in,
-		__global float *out, __global const float floatArg1)
+    __global float *out, __global const float floatArg1)
 {
-	int gid = get_global_id(0);
-	float tmp = in[gid] - gid * gid;
-	out[gid] = distance(floatArg1, tmp);
+  int gid = get_global_id(0);
+  float tmp = in[gid] - gid * gid;
+  out[gid] = distance(floatArg1, tmp);
 }

@@ -45,9 +45,8 @@ void SubgroupsTest::GetDummySubgroupKernel(cl_kernel &kern) const {
   ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed. ";
 }
 
-void SubgroupsTest::CheckSGCount(
-    cl_device_id device, cl_kernel kern,
-    const std::vector<size_t> &local_work_sizes) {
+void SubgroupsTest::CheckSGCount(cl_device_id device, cl_kernel kern,
+                                 const std::vector<size_t> &local_work_sizes) {
   cl_int iRet = CL_SUCCESS;
 
   ASSERT_EQ(3, local_work_sizes.size())

@@ -33,5 +33,6 @@
 #endif
 #include "fp_trunc_impl.inc"
 
-__attribute__((weak))
-dst_t __trunctfhf2(long double a) { return __truncXfYf2__(a); }
+__attribute__((weak)) dst_t __trunctfhf2(long double a) {
+  return __truncXfYf2__(a);
+}

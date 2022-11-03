@@ -12,13 +12,13 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "common_clang.h"
-#include "Compile.h"
 #include "FrontendDriver.h"
+#include "Compile.h"
 #include "GetKernelArgInfo.h"
 #include "Link.h"
 #include "ParseSPIRV.h"
 #include "SPIRMaterializer.h"
+#include "common_clang.h"
 #include "fe_driver_main.h"
 
 #include <Logger.h>
@@ -94,7 +94,7 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
   assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   int result = ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
-      .Compile(pBinaryResult);
+                   .Compile(pBinaryResult);
 
   if (result != CL_SUCCESS ||
       !ClangFECompilerParseSPIRVTask::isSPIRV((*pBinaryResult)->GetIR(),
@@ -115,7 +115,7 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
                                          nullptr};
 
   result = ClangFECompilerParseSPIRVTask(&SPIRVProgDesc, m_sDeviceInfo)
-      .ParseSPIRV(pBinaryResult);
+               .ParseSPIRV(pBinaryResult);
 
   // SPIR-V binary is not needed anymore, clear it.
   // NOTE: After pSPIRVResult removing SPIRVProgDesc will be invalid.
@@ -177,7 +177,7 @@ bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
 }
 
 void ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
-                                      IOCLFESpecConstInfo **pSpecConstInfo) {
+                                       IOCLFESpecConstInfo **pSpecConstInfo) {
   ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
       .getSpecConstInfo(pSpecConstInfo);
 }
@@ -187,15 +187,14 @@ namespace OpenCL {
 namespace Utils {
 FrameworkUserLogger *g_pUserLogger = nullptr;
 }
-}
-}
+} // namespace OpenCL
+} // namespace Intel
 
-extern "C" DLL_EXPORT int
-CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
-                       IOCLFECompiler **pFECompiler) {
+extern "C" DLL_EXPORT int CreateFrontEndInstance(const void *pDeviceInfo,
+                                                 size_t devInfoSize,
+                                                 IOCLFECompiler **pFECompiler) {
   // Lazy initialization
-  if (!ClangCompilerInitialize())
-  {
+  if (!ClangCompilerInitialize()) {
     return CL_COMPILER_NOT_AVAILABLE;
   }
 

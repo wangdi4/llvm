@@ -1,5 +1,5 @@
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -11,394 +11,441 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "common_runtime_tests.h"
 #include "common_methods.h"
+#include "common_runtime_tests.h"
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
 
-class VR4: public CommonRuntime{};
+class VR4 : public CommonRuntime {};
 
-//|	
-//|	NEED TO UNCOMMENT CODE IN THE LAST 3 FUNCTIONS IN ORDER TO RUN THESE TEST
-//|	WERE NOT ABLE TO TEST THIS ON AMD
+//|
+//|  NEED TO UNCOMMENT CODE IN THE LAST 3 FUNCTIONS IN ORDER TO RUN THESE
+// TEST |  WERE NOT ABLE TO TEST THIS ON AMD
 //|
 
-//|	initExpectedSharedExtenstions - helper function - add extensions to be supported by both CPU and GPU here
-//|	Currently there are no extensions common runtime on AMD supports that appear in the validation requirenemnts paper
+//|  initExpectedSharedExtenstions - helper function - add extensions to be
+// supported by both CPU and GPU here |  Currently there are no extensions
+// common runtime on AMD supports that appear in the validation requirenemnts
+// paper
 //|
-static std::vector<std::string> initExpectedSharedExtenstions()
-{
-	std::vector<std::string> vec;
-	// ADD EXTENSIONS HERE
-	vec.push_back("cl_khr_global_int32_base_atomics");
-	vec.push_back("cl_khr_global_int32_extended_atomics");
-	vec.push_back("cl_khr_local_int32_base_atomics");
-	vec.push_back("cl_khr_local_int32_extended_atomics");
-	vec.push_back("cl_khr_byte_addressable_store");
-	if(!isAccelerator()){
-		vec.push_back("cl_khr_gl_sharing");	
-        }
+static std::vector<std::string> initExpectedSharedExtenstions() {
+  std::vector<std::string> vec;
+  // ADD EXTENSIONS HERE
+  vec.push_back("cl_khr_global_int32_base_atomics");
+  vec.push_back("cl_khr_global_int32_extended_atomics");
+  vec.push_back("cl_khr_local_int32_base_atomics");
+  vec.push_back("cl_khr_local_int32_extended_atomics");
+  vec.push_back("cl_khr_byte_addressable_store");
+  if (!isAccelerator()) {
+    vec.push_back("cl_khr_gl_sharing");
+  }
 
-        /// ToDo: 
-        ///     Disabled for now; enable the following 
-        ///     later when supported by the underlying
-        ///     platforms.
-	
-	// vec.push_back("cl_intel_dx9_sharing");
-	return vec;
+  /// ToDo:
+  ///     Disabled for now; enable the following
+  ///     later when supported by the underlying
+  ///     platforms.
+
+  // vec.push_back("cl_intel_dx9_sharing");
+  return vec;
 }
-//|	initExpectedCPUExtenstions - helper function - add extensions to be supported by CPU here
+//|  initExpectedCPUExtenstions - helper function - add extensions to be
+// supported by CPU here
 //|
-static std::vector<std::string> initExpectedCPUExtenstions()
-{
-	std::vector<std::string> vec;
-	// ADD EXTENSIONS HERE
-	vec.push_back("cl_khr_global_int32_base_atomics");
-	vec.push_back("cl_khr_global_int32_extended_atomics");
-	vec.push_back("cl_khr_local_int32_base_atomics");
-	vec.push_back("cl_khr_local_int32_extended_atomics");
-	vec.push_back("cl_khr_fp64");
-	vec.push_back("cl_khr_byte_addressable_store");
-	#ifdef _WIN32
-	vec.push_back("cl_khr_gl_sharing");
-	vec.push_back("cl_intel_dx9_media_sharing");	
-	#endif
-	
+static std::vector<std::string> initExpectedCPUExtenstions() {
+  std::vector<std::string> vec;
+  // ADD EXTENSIONS HERE
+  vec.push_back("cl_khr_global_int32_base_atomics");
+  vec.push_back("cl_khr_global_int32_extended_atomics");
+  vec.push_back("cl_khr_local_int32_base_atomics");
+  vec.push_back("cl_khr_local_int32_extended_atomics");
+  vec.push_back("cl_khr_fp64");
+  vec.push_back("cl_khr_byte_addressable_store");
+#ifdef _WIN32
+  vec.push_back("cl_khr_gl_sharing");
+  vec.push_back("cl_intel_dx9_media_sharing");
+#endif
 
-        /// ToDo: 
-        ///     Disabled for now; enable the following 
-        ///     later when supported by the underlying
-        ///     platforms.
-    //vec.push_back("cl_ext_immediate_execution");
+  /// ToDo:
+  ///     Disabled for now; enable the following
+  ///     later when supported by the underlying
+  ///     platforms.
+  // vec.push_back("cl_ext_immediate_execution");
 
-	return vec;
+  return vec;
 }
-//|	initExpectedGPUExtenstions - helper function - add extensions to be supported by GPU here
+//|  initExpectedGPUExtenstions - helper function - add extensions to be
+// supported by GPU here
 //|
-static std::vector<std::string> initExpectedGPUExtenstions()
-{
-	std::vector<std::string> vec;
-	// ADD EXTENSIONS HERE
-    vec.push_back("cl_khr_icd");
-	vec.push_back("cl_khr_global_int32_base_atomics");
-	vec.push_back("cl_khr_global_int32_extended_atomics");
-	vec.push_back("cl_khr_local_int32_base_atomics");
-	vec.push_back("cl_khr_local_int32_extended_atomics");
-	vec.push_back("cl_khr_byte_addressable_store");
-	vec.push_back("cl_khr_gl_sharing");
-	vec.push_back("cl_intel_dx9_media_sharing");
-	vec.push_back("cl_khr_3d_image_writes");
-	
-	//MIC does not support 'cl_khr_d3d10_sharing' extension
-	if(!isAccelerator()){
-	vec.push_back("cl_khr_d3d10_sharing");
-	}
-	
-        /// ToDo: 
-        ///     Disabled for now; enable the following 
-        ///     later when supported by the underlying
-        ///     platforms.
-    //vec.push_back("cl_khr_gl_event");
-    //vec.push_back("cl_intel_packed_yuv");
-	return vec;
-}
+static std::vector<std::string> initExpectedGPUExtenstions() {
+  std::vector<std::string> vec;
+  // ADD EXTENSIONS HERE
+  vec.push_back("cl_khr_icd");
+  vec.push_back("cl_khr_global_int32_base_atomics");
+  vec.push_back("cl_khr_global_int32_extended_atomics");
+  vec.push_back("cl_khr_local_int32_base_atomics");
+  vec.push_back("cl_khr_local_int32_extended_atomics");
+  vec.push_back("cl_khr_byte_addressable_store");
+  vec.push_back("cl_khr_gl_sharing");
+  vec.push_back("cl_intel_dx9_media_sharing");
+  vec.push_back("cl_khr_3d_image_writes");
 
-//|	TEST: VR4.SharedExtensions (TC-7)
-//|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the platfrom returns all extensions that should be supported for both CPU and GPU
-//|
-//|	Method
-//|	------
-//|
-//|	1. Call clGetPlatformInfo() with CL_PLATFORM_EXTENSIONS and retrieve all available extensions of this platform
-//|	2. Compare all exntensions recieved from clGetPlatformInfo to expected extensions that both devices should support 
-//|	
-//|	Pass criteria
-//|	-------------
-//|
-//|	All extensions that both CPU and GPU should support are returned by getPlatformInfo with CL_PLATFORM_EXTENSIONS
-//|
-TEST_F(VR4, SharedExtensions){
-	// set up platform, expect return of a single platform
-	cl_uint num_entries = 1;
-	cl_uint num_platforms = 0;
-	cl_uint num_devices = 0;
-	ASSERT_NO_FATAL_FAILURE(getPlatformIDs(num_entries, ocl_descriptor.platforms, &num_platforms));
-	
-	// get platform exntensions shared for CPU and GPU
-	size_t param_value_size = sizeof(char) * 1000;
-	char* param_value = new char[1000];
-	ASSERT_NO_FATAL_FAILURE(getPlatformInfo(ocl_descriptor.platforms[0], CL_PLATFORM_EXTENSIONS, param_value_size, param_value));
+  // MIC does not support 'cl_khr_d3d10_sharing' extension
+  if (!isAccelerator()) {
+    vec.push_back("cl_khr_d3d10_sharing");
+  }
 
-	// get all expected extensions
-	std::vector<std::string> expected = initExpectedSharedExtenstions();
-	// get string vector in which each element is a single extension from extensions found earlier for this platform
-	std::vector<std::string> foundExt = getAllStrings(param_value);
-	delete[] param_value;
-	// check that all required extensions were found
-
-	// UNCOMMENT THIS
-	assertVectorInclusion(expected, foundExt);
+  /// ToDo:
+  ///     Disabled for now; enable the following
+  ///     later when supported by the underlying
+  ///     platforms.
+  // vec.push_back("cl_khr_gl_event");
+  // vec.push_back("cl_intel_packed_yuv");
+  return vec;
 }
 
-//|	TEST: VR4.CPUExtensions (TC-8)
+//|  TEST: VR4.SharedExtensions (TC-7)
 //|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the CPU device returns all extensions that should be supported by CPU
+//|  Purpose
+//|  -------
 //|
-//|	Method
-//|	------
+//|  Verify that the platfrom returns all extensions that should be supported
+// for both CPU and GPU
 //|
-//|	1. Call clGetDeviceInfo() with CL_DEVICE_EXTENSIONS and retrieve all available extensions of this CPU device
-//|	2. Compare all exntensions recieved from clGetDeviceInfo to expected extensions that CPU should support 
-//|	
-//|	Pass criteria
-//|	-------------
+//|  Method
+//|  ------
 //|
-//|	All extensions that CPU returns all required extensions
+//|  1. Call clGetPlatformInfo() with CL_PLATFORM_EXTENSIONS and retrieve all
+// available extensions of this platform |  2. Compare all exntensions
+// recieved from clGetPlatformInfo to expected extensions that both devices
+// should support
 //|
-TEST_F(VR4, CPUExtensions){
-	// get CPU device
-	ASSERT_NO_FATAL_FAILURE(getCPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
+//|  Pass criteria
+//|  -------------
+//|
+//|  All extensions that both CPU and GPU should support are returned by
+// getPlatformInfo with CL_PLATFORM_EXTENSIONS
+//|
+TEST_F(VR4, SharedExtensions) {
+  // set up platform, expect return of a single platform
+  cl_uint num_entries = 1;
+  cl_uint num_platforms = 0;
+  cl_uint num_devices = 0;
+  ASSERT_NO_FATAL_FAILURE(
+      getPlatformIDs(num_entries, ocl_descriptor.platforms, &num_platforms));
 
-	size_t param_value_size = sizeof(char) * 1000;
-	char* param_value = new char[1000];
-	// get extensions supported by this CPU device
-	ASSERT_NO_FATAL_FAILURE(getDeviceInfo(ocl_descriptor.devices[0],  CL_DEVICE_EXTENSIONS, param_value_size, param_value));
+  // get platform exntensions shared for CPU and GPU
+  size_t param_value_size = sizeof(char) * 1000;
+  char *param_value = new char[1000];
+  ASSERT_NO_FATAL_FAILURE(getPlatformInfo(ocl_descriptor.platforms[0],
+                                          CL_PLATFORM_EXTENSIONS,
+                                          param_value_size, param_value));
 
-	// get all expected CPU extensions
-	std::vector<std::string> expected = initExpectedCPUExtenstions();
-	// get string vector in which each element is a single extension from extensions found earlier for this device
-	std::vector<std::string> foundExt = getAllStrings(param_value);
+  // get all expected extensions
+  std::vector<std::string> expected = initExpectedSharedExtenstions();
+  // get string vector in which each element is a single extension from
+  // extensions found earlier for this platform
+  std::vector<std::string> foundExt = getAllStrings(param_value);
+  delete[] param_value;
+  // check that all required extensions were found
 
-	delete[] param_value;
-	// check that all required extensions were found
-
-	// UNCOMMENT THIS
-	assertVectorInclusion(expected, foundExt);
+  // UNCOMMENT THIS
+  assertVectorInclusion(expected, foundExt);
 }
 
-//|	TEST: VR4.GPUExtensions (TC-9)
+//|  TEST: VR4.CPUExtensions (TC-8)
 //|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the GPU device returns all extensions that should be supported by GPU
+//|  Purpose
+//|  -------
 //|
-//|	Method
-//|	------
+//|  Verify that the CPU device returns all extensions that should be
+// supported by CPU
 //|
-//|	1. Call clGetDeviceInfo() with CL_DEVICE_EXTENSIONS and retrieve all available extensions of this GPU device
-//|	2. Compare all exntensions recieved from clGetDeviceInfo to expected extensions that GPU should support 
-//|	
-//|	Pass criteria
-//|	-------------
+//|  Method
+//|  ------
 //|
-//|	All extensions that CPU returns all required extensions
+//|  1. Call clGetDeviceInfo() with CL_DEVICE_EXTENSIONS and retrieve all
+// available extensions of this CPU device |  2. Compare all exntensions
+// recieved from clGetDeviceInfo to expected extensions that CPU should support
 //|
-TEST_F(VR4, GPUExtensions){
-	if(isAccelerator()){ //MIC has diffrent extentions
-		return;
-	}
-	// get CPU device
-	ASSERT_NO_FATAL_FAILURE(getGPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
+//|  Pass criteria
+//|  -------------
+//|
+//|  All extensions that CPU returns all required extensions
+//|
+TEST_F(VR4, CPUExtensions) {
+  // get CPU device
+  ASSERT_NO_FATAL_FAILURE(
+      getCPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
 
-	size_t param_value_size = sizeof(char) * 1000;
-	char* param_value = new char[1000];
-	// get extensions supported by this CPU device
-	ASSERT_NO_FATAL_FAILURE(getDeviceInfo(ocl_descriptor.devices[0],  CL_DEVICE_EXTENSIONS, param_value_size, param_value));
+  size_t param_value_size = sizeof(char) * 1000;
+  char *param_value = new char[1000];
+  // get extensions supported by this CPU device
+  ASSERT_NO_FATAL_FAILURE(getDeviceInfo(ocl_descriptor.devices[0],
+                                        CL_DEVICE_EXTENSIONS, param_value_size,
+                                        param_value));
 
-	// get all expected extensions
-	std::vector<std::string> expected = initExpectedGPUExtenstions();
-	// get string vector in which each element is a single extension from extensions found earlier for this device
-	std::vector<std::string> foundExt = getAllStrings(param_value);
-	delete[] param_value;
-	// check that all required extensions were found
-	
-	// UNCOMMENT THIS
-	assertVectorInclusion(expected, foundExt);
+  // get all expected CPU extensions
+  std::vector<std::string> expected = initExpectedCPUExtenstions();
+  // get string vector in which each element is a single extension from
+  // extensions found earlier for this device
+  std::vector<std::string> foundExt = getAllStrings(param_value);
+
+  delete[] param_value;
+  // check that all required extensions were found
+
+  // UNCOMMENT THIS
+  assertVectorInclusion(expected, foundExt);
 }
 
-//|	TEST: VR4.CPUImmediateExecutionExtension (TC-20)
+//|  TEST: VR4.GPUExtensions (TC-9)
 //|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the extension cl_ext_immediate_execution is supported by CPU device 
+//|  Purpose
+//|  -------
 //|
-//|	Method
-//|	------
+//|  Verify that the GPU device returns all extensions that should be
+// supported by GPU
 //|
-//|	1. Call clCreateCommandQueue() with CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL property 
-//|	2. assert the result (should be success)
-//|	
-//|	Pass criteria
-//|	-------------
+//|  Method
+//|  ------
 //|
-//|	The immediate execution commands-queue should successfully create.
+//|  1. Call clGetDeviceInfo() with CL_DEVICE_EXTENSIONS and retrieve all
+// available extensions of this GPU device |  2. Compare all exntensions
+// recieved from clGetDeviceInfo to expected extensions that GPU should support
 //|
+//|  Pass criteria
+//|  -------------
+//|
+//|  All extensions that CPU returns all required extensions
+//|
+TEST_F(VR4, GPUExtensions) {
+  if (isAccelerator()) { // MIC has diffrent extentions
+    return;
+  }
+  // get CPU device
+  ASSERT_NO_FATAL_FAILURE(
+      getGPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
 
+  size_t param_value_size = sizeof(char) * 1000;
+  char *param_value = new char[1000];
+  // get extensions supported by this CPU device
+  ASSERT_NO_FATAL_FAILURE(getDeviceInfo(ocl_descriptor.devices[0],
+                                        CL_DEVICE_EXTENSIONS, param_value_size,
+                                        param_value));
 
-TEST_F(VR4, CPUImmediateExecutionExtension){
-	// get CPU device and context
-	ASSERT_NO_FATAL_FAILURE(getCPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context,NULL,1,ocl_descriptor.devices,NULL,NULL));
+  // get all expected extensions
+  std::vector<std::string> expected = initExpectedGPUExtenstions();
+  // get string vector in which each element is a single extension from
+  // extensions found earlier for this device
+  std::vector<std::string> foundExt = getAllStrings(param_value);
+  delete[] param_value;
+  // check that all required extensions were found
 
-	// build the queue with CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL flag
-	ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[0],ocl_descriptor.context,ocl_descriptor.devices[0],CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL));
+  // UNCOMMENT THIS
+  assertVectorInclusion(expected, foundExt);
 }
 
-//|	TEST: VR4.GPUImmediateExecutionExtension (TC-21)
+//|  TEST: VR4.CPUImmediateExecutionExtension (TC-20)
 //|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the extension cl_ext_immediate_execution is not supported by GPU device 
+//|  Purpose
+//|  -------
 //|
-//|	Method
-//|	------
+//|  Verify that the extension cl_ext_immediate_execution is supported by CPU
+// device
 //|
-//|	1. Call clCreateCommandQueue() with CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL property 
-//|	2. assert the result (should fail)
-//|	
-//|	Pass criteria
-//|	-------------
+//|  Method
+//|  ------
 //|
-//|	The immediate execution commands-queue should fail to create.
+//|  1. Call clCreateCommandQueue() with
+// CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL property |  2. assert the result
+//(should be success)
+//|
+//|  Pass criteria
+//|  -------------
+//|
+//|  The immediate execution commands-queue should successfully create.
 //|
 
+TEST_F(VR4, CPUImmediateExecutionExtension) {
+  // get CPU device and context
+  ASSERT_NO_FATAL_FAILURE(
+      getCPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
+  ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, NULL, 1,
+                                        ocl_descriptor.devices, NULL, NULL));
 
-TEST_F(VR4, GPUImmediateExecutionExtension){
-
-if(isAccelerator()){ //MIC has diffrent extentions
-		return;
-	}
-	cl_int errcode_ret = CL_SUCCESS;
-	
-	//get GPU device and context
-	ASSERT_NO_FATAL_FAILURE(getGPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context,NULL,1,ocl_descriptor.devices,NULL,NULL));
-	
-	//try to create a command queue
-	ocl_descriptor.queues[0] = clCreateCommandQueue (ocl_descriptor.context, ocl_descriptor.devices[0], CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL, &errcode_ret);
-	
-	//extension is suported for MIC but not GPU
-	if(isAccelerator()){
-		ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret) << "clCreateCommandQueue failed"; 
-		return;
-	}
-	ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret) << "clCreateCommandQueue failed"; 
+  // build the queue with CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL flag
+  ASSERT_NO_FATAL_FAILURE(createCommandQueue(
+      &ocl_descriptor.queues[0], ocl_descriptor.context,
+      ocl_descriptor.devices[0], CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL));
 }
 
-//TODO: Uncomment the following code when this extension is supported
+//|  TEST: VR4.GPUImmediateExecutionExtension (TC-21)
+//|
+//|  Purpose
+//|  -------
+//|
+//|  Verify that the extension cl_ext_immediate_execution is not supported by
+// GPU device
+//|
+//|  Method
+//|  ------
+//|
+//|  1. Call clCreateCommandQueue() with
+// CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL property |  2. assert the result
+//(should fail)
+//|
+//|  Pass criteria
+//|  -------------
+//|
+//|  The immediate execution commands-queue should fail to create.
+//|
+
+TEST_F(VR4, GPUImmediateExecutionExtension) {
+
+  if (isAccelerator()) { // MIC has diffrent extentions
+    return;
+  }
+  cl_int errcode_ret = CL_SUCCESS;
+
+  // get GPU device and context
+  ASSERT_NO_FATAL_FAILURE(
+      getGPUDevice(&ocl_descriptor.platforms[0], &ocl_descriptor.devices[0]));
+  ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, NULL, 1,
+                                        ocl_descriptor.devices, NULL, NULL));
+
+  // try to create a command queue
+  ocl_descriptor.queues[0] = clCreateCommandQueue(
+      ocl_descriptor.context, ocl_descriptor.devices[0],
+      CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL, &errcode_ret);
+
+  // extension is suported for MIC but not GPU
+  if (isAccelerator()) {
+    ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret)
+        << "clCreateCommandQueue failed";
+    return;
+  }
+  ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret)
+      << "clCreateCommandQueue failed";
+}
+
+// TODO: Uncomment the following code when this extension is supported
 
 /*
-//|	TEST: VR4.LogocalOperatorsForFloatsOnCPU (TC-24)
+//|  TEST: VR4.LogocalOperatorsForFloatsOnCPU (TC-24)
 //|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the extension logical operators for floating-point types is supported by CPU device
+//|  Purpose
+//|  -------
 //|
-//|	Method
-//|	------
+//|  Verify that the extension logical operators for floating-point types is
+supported by CPU device
 //|
-//|	Create, compile and execute a CPU kernel including logical operators between floating-point variables (float)
-//|		
-//|	Pass criteria
-//|	-------------
+//|  Method
+//|  ------
 //|
-//|	The kernel executes successfully
+//|  Create, compile and execute a CPU kernel including logical operators
+between floating-point variables (float)
+//|
+//|  Pass criteria
+//|  -------------
+//|
+//|  The kernel executes successfully
 //|
 TEST_F(VR4, LogocalOperatorsForFloatsOnCPU)
 {
-	cl_platform_id platform = 0;
-	cl_device_id device = 0;
+        cl_platform_id platform = 0;
+        cl_device_id device = 0;
 
-	// get pltfrom and device id
-	ASSERT_NO_FATAL_FAILURE(getCPUDevice(&platform, &device));
+        // get pltfrom and device id
+        ASSERT_NO_FATAL_FAILURE(getCPUDevice(&platform, &device));
 
-	// create context
-	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0};
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 1, &device, NULL, NULL));
+        // create context
+        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM,
+(cl_context_properties)platform, 0};
+        ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context,
+properties, 1, &device, NULL, NULL));
 
-	//	create and build program
-	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource("float_logic.cl", &ocl_descriptor.program, ocl_descriptor.context, 1, &device, 
-		NULL, NULL, NULL));
+        //  create and build program
+        ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource("float_logic.cl",
+&ocl_descriptor.program, ocl_descriptor.context, 1, &device, NULL, NULL, NULL));
 
-	// create kernel
-	ASSERT_NO_FATAL_FAILURE(createKernel(&ocl_descriptor.kernels[0] , ocl_descriptor.program, "float_logic"));
+        // create kernel
+        ASSERT_NO_FATAL_FAILURE(createKernel(&ocl_descriptor.kernels[0] ,
+ocl_descriptor.program, "float_logic"));
 
-	// create queue
-	ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[0], ocl_descriptor.context, device, 0));
+        // create queue
+        ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[0],
+ocl_descriptor.context, device, 0));
 
-	// input array
-	int arraySize = 4;
-	DynamicArray<float> input_array(arraySize);
-	// create shared buffer
-	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer, ocl_descriptor.context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, sizeof(float)*input_array.dynamic_array_size, input_array.dynamic_array));
+        // input array
+        int arraySize = 4;
+        DynamicArray<float> input_array(arraySize);
+        // create shared buffer
+        ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,
+ocl_descriptor.context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+sizeof(float)*input_array.dynamic_array_size, input_array.dynamic_array));
 
-	// set kernel argumanets
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), &ocl_descriptor.in_common_buffer));
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(int), &input_array.dynamic_array_size));	
+        // set kernel argumanets
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0,
+sizeof(cl_mem), &ocl_descriptor.in_common_buffer));
+        ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1,
+sizeof(int), &input_array.dynamic_array_size));
 
-	// enqueue both kernels with required dependency (CPU then GPU)
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], 1, NULL, &global_work_size, NULL, 0, NULL, NULL));	
+        // enqueue both kernels with required dependency (CPU then GPU)
+        cl_uint work_dim = 1;
+        size_t global_work_size = 1;
+        ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0],
+ocl_descriptor.kernels[0], 1, NULL, &global_work_size, NULL, 0, NULL, NULL));
 }
 
-//|	TEST: VR4.LogocalOperatorsForFloatsOnGPU (TC-25)
+//|  TEST: VR4.LogocalOperatorsForFloatsOnGPU (TC-25)
 //|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the extension logical operators for floating-point types is not supported by GPU device
+//|  Purpose
+//|  -------
 //|
-//|	Method
-//|	------
+//|  Verify that the extension logical operators for floating-point types is
+not supported by GPU device
 //|
-//|	Create and compile a CPU kernel including logical operators between floating-point variables (float)
-//|		
-//|	Pass criteria
-//|	-------------
+//|  Method
+//|  ------
 //|
-//|	Building OpenCL program should fail
+//|  Create and compile a CPU kernel including logical operators between
+floating-point variables (float)
+//|
+//|  Pass criteria
+//|  -------------
+//|
+//|  Building OpenCL program should fail
 //|
 TEST_F(VR4, LogocalOperatorsForFloatsOnGPU)
 {
-	cl_platform_id platform = 0;
-	cl_device_id device = 0;
+        cl_platform_id platform = 0;
+        cl_device_id device = 0;
 
-	// get pltfrom and device id
-	ASSERT_NO_FATAL_FAILURE(getCPUDevice(&platform, &device));
+        // get pltfrom and device id
+        ASSERT_NO_FATAL_FAILURE(getCPUDevice(&platform, &device));
 
-	// create context
-	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0};
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 1, &device, NULL, NULL));
+        // create context
+        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM,
+(cl_context_properties)platform, 0};
+        ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context,
+properties, 1, &device, NULL, NULL));
 
-	const char* kernelSource = NULL;
-	// read kernels file
-	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "float_logic.cl"));
-	// create program
-	ASSERT_NO_FATAL_FAILURE(createProgramWithSource(&ocl_descriptor.program, ocl_descriptor.context,	
-		1, &kernelSource, NULL));
-	// build program, expect failure
-	ASSERT_NE(CL_SUCCESS, clBuildProgram (ocl_descriptor.program, 1, &device, 0, NULL, NULL));
-	if(NULL!=kernelSource)
-	{
-		delete[] kernelSource;
-		kernelSource = NULL;
-	}
+        const char* kernelSource = NULL;
+        // read kernels file
+        ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "float_logic.cl"));
+        // create program
+        ASSERT_NO_FATAL_FAILURE(createProgramWithSource(&ocl_descriptor.program,
+ocl_descriptor.context, 1, &kernelSource, NULL));
+        // build program, expect failure
+        ASSERT_NE(CL_SUCCESS, clBuildProgram (ocl_descriptor.program, 1,
+&device, 0, NULL, NULL)); if(NULL!=kernelSource)
+        {
+                delete[] kernelSource;
+                kernelSource = NULL;
+        }
 }*/

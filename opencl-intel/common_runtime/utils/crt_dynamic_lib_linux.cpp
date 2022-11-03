@@ -14,113 +14,97 @@
 
 #include "crt_dynamic_lib.h"
 
-#include <sys/stat.h>
-#include <dlfcn.h>
 #include <assert.h>
 #include <cstdio>
+#include <dlfcn.h>
+#include <sys/stat.h>
 
 using namespace OCLCRT::Utils;
 
-OclDynamicLib::OclDynamicLib() :
-    m_hLibrary(NULL)
-{
-}
+OclDynamicLib::OclDynamicLib() : m_hLibrary(NULL) {}
 
-OclDynamicLib::~OclDynamicLib()
-{
-    Close();
-}
+OclDynamicLib::~OclDynamicLib() { Close(); }
 
 // ------------------------------------------------------------------------------
 // Checks for existance of a file with specified name
-crt_err_code OclDynamicLib::IsExists(const char* pLibName)
-{
-    struct stat stFileInfo;
-    int rc;
+crt_err_code OclDynamicLib::IsExists(const char *pLibName) {
+  struct stat stFileInfo;
+  int rc;
 
-    rc = stat(pLibName, &stFileInfo);
+  rc = stat(pLibName, &stFileInfo);
 
-    return (0 == rc);
+  return (0 == rc);
 }
 
 // ------------------------------------------------------------------------------
 // Loads a dynamically link library into process address space
-crt_err_code OclDynamicLib::Load(const char* pLibName)
-{
-    if ( NULL != m_hLibrary )
-    {
-        return CRT_FAIL;
-    }
+crt_err_code OclDynamicLib::Load(const char *pLibName) {
+  if (NULL != m_hLibrary) {
+    return CRT_FAIL;
+  }
 
-    // Load library
-    m_hLibrary = dlopen(pLibName, RTLD_LAZY);
+  // Load library
+  m_hLibrary = dlopen(pLibName, RTLD_LAZY);
 
-    if ( NULL == m_hLibrary )
-    {
+  if (NULL == m_hLibrary) {
 #ifdef _DEBUG
-        const char* e = dlerror();
-        printf("Warning. Unable to load %s: %s\n", pLibName, e);
+    const char *e = dlerror();
+    printf("Warning. Unable to load %s: %s\n", pLibName, e);
 #endif
-        return CRT_FAIL;
-    }
+    return CRT_FAIL;
+  }
 
-    return CRT_SUCCESS;
+  return CRT_SUCCESS;
 }
 
 // Loads a dynamically link library into process address space
-void OclDynamicLib::Close()
-{
-    if ( NULL == m_hLibrary )
-    {
-        return;
-    }
+void OclDynamicLib::Close() {
+  if (NULL == m_hLibrary) {
+    return;
+  }
 
-    m_uiFuncCount = 0;
-    m_pOffsetNames = NULL;
-    m_pOffsetFunc = NULL;
+  m_uiFuncCount = 0;
+  m_pOffsetNames = NULL;
+  m_pOffsetFunc = NULL;
 
-    dlclose(m_hLibrary);
-    m_hLibrary = NULL;
+  dlclose(m_hLibrary);
+  m_hLibrary = NULL;
 }
 
 // Returns a number of named functions found in the library
-unsigned int OclDynamicLib::GetNumberOfFunctions() const
-{
-    assert(0 && "Not implemented on Linux");
-        return 0;        
+unsigned int OclDynamicLib::GetNumberOfFunctions() const {
+  assert(0 && "Not implemented on Linux");
+  return 0;
 }
 
 // Returns a pointer to function name
-const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
-{
-    assert(0 && "Not implemented on Linux");
-        return NULL;
+const char *OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const {
+  assert(0 && "Not implemented on Linux");
+  return NULL;
 }
 
 // Returns a function pointer
-const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
-{
-    assert(0 && "Not implemented on Linux");
-        return NULL;
+const void *OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const {
+  assert(0 && "Not implemented on Linux");
+  return NULL;
 }
 
 // Returns a function pointer
-OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
-{
-    if ( NULL == m_hLibrary )
-    {
-        return NULL;
-    }
+OclDynamicLib::func_t
+OclDynamicLib::GetFunctionPtrByName(const char *szFuncName) const {
+  if (NULL == m_hLibrary) {
+    return NULL;
+  }
 
-    void* func;
-    const char* error;
+  void *func;
+  const char *error;
 
-    //clear errors
-    dlerror();
-    func = dlsym(m_hLibrary, szFuncName);
-        if ((error = dlerror()) != NULL) {
-         return NULL;
-    }
+  // clear errors
+  dlerror();
+  func = dlsym(m_hLibrary, szFuncName);
+  if ((error = dlerror()) != NULL) {
+    return NULL;
+  }
 
-    return (func_t)(ptrdiff_t)func;
+  return (func_t)(ptrdiff_t)func;
 }

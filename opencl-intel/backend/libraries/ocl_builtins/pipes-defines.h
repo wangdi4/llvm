@@ -20,4 +20,3 @@
 #define CHANNEL_DEPTH_MODE_IGNORE_DEPTH 2
 
 #endif // __PIPES_DEFINES_H__
-

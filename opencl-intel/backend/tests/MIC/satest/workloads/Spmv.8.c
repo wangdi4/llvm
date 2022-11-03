@@ -2,24 +2,25 @@
 #ifdef SINGLE_PRECISION
 #define FPTYPE float
 #elif K_DOUBLE_PRECISION
-#pragma OPENCL EXTENSION cl_khr_fp64: enable
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #define FPTYPE double
 #elif AMD_DOUBLE_PRECISION
-#pragma OPENCL EXTENSION cl_amd_fp64: enable
+#pragma OPENCL EXTENSION cl_amd_fp64 : enable
 #define FPTYPE double
 #endif
-//__constant sampler_t texFetchSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+//__constant sampler_t texFetchSampler = CLK_NORMALIZED_COORDS_FALSE |
+// CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
 // Modification
-//#ifdef USE_TEXTURE
-//FPTYPE texFetch(const image2d_t image, const int idx) {
+// #ifdef USE_TEXTURE
+// FPTYPE texFetch(const image2d_t image, const int idx) {
 //      int2 coord={idx%MAX_IMG_WIDTH,idx/MAX_IMG_WIDTH};
-//#ifdef SINGLE_PRECISION
+// #ifdef SINGLE_PRECISION
 //        return read_imagef(image,texFetchSampler,coord).x;
-//#else
+// #else
 //          return as_double2(read_imagei(image,texFetchSampler,coord)).x;
-//#endif
+// #endif
 //}
-//#endif
+// #endif
 // ****************************************************************************
 // Function: spmv_csr_scalar_kernel
 //
@@ -48,34 +49,31 @@
 //
 // ****************************************************************************
 __kernel void
-spmv_csr_scalar_kernel( __global const FPTYPE * restrict val,
-// Modification
-//#ifdef USE_TEXTURE
-//                        __global const image2d_t vec,
-//#else
-                        __global const FPTYPE * restrict vec,
-//#endif
-                        __global const int * restrict cols,
-                        __global const int * restrict rowDelimiters,
-                       const int dim, __global FPTYPE * restrict out)
-{
-    int myRow = get_global_id(0);
-    if (myRow < dim)
-    {
-        FPTYPE t=0;
-        int start = rowDelimiters[myRow];
-        int end = rowDelimiters[myRow+1];
-        for (int j = start; j < end; j++)
-        {
-            int col = cols[j];
-//#ifdef USE_TEXTURE
-//            t += val[j] * texFetch(vec,col);
-//#else
-            t += val[j] * vec[col];
-//#endif
-        }
-        out[myRow] = t;
+spmv_csr_scalar_kernel(__global const FPTYPE *restrict val,
+                       // Modification
+                       // #ifdef USE_TEXTURE
+                       //                        __global const image2d_t vec,
+                       // #else
+                       __global const FPTYPE *restrict vec,
+                       // #endif
+                       __global const int *restrict cols,
+                       __global const int *restrict rowDelimiters,
+                       const int dim, __global FPTYPE *restrict out) {
+  int myRow = get_global_id(0);
+  if (myRow < dim) {
+    FPTYPE t = 0;
+    int start = rowDelimiters[myRow];
+    int end = rowDelimiters[myRow + 1];
+    for (int j = start; j < end; j++) {
+      int col = cols[j];
+      // #ifdef USE_TEXTURE
+      //             t += val[j] * texFetch(vec,col);
+      // #else
+      t += val[j] * vec[col];
+      // #endif
     }
+    out[myRow] = t;
+  }
 }
 // ****************************************************************************
 // Function: spmv_csr_vector_kernel
@@ -105,62 +103,62 @@ spmv_csr_scalar_kernel( __global const FPTYPE * restrict val,
 //
 // ****************************************************************************
 __kernel void
-spmv_csr_vector_kernel(__global const FPTYPE * restrict val,
-// Modification
-//#ifdef USE_TEXTURE
-//                       __global const image2d_t vec,
-//#else
-                       __global const FPTYPE * restrict vec,
-//#endif
-                       __global const int * restrict cols,
-                       __global const int * restrict rowDelimiters,
-                       const int dim, __global FPTYPE * restrict out)
-{
-    // Thread ID in block
-    int t = get_local_id(0);
-    // Thread ID within warp
-    int id = t & (VECTOR_SIZE-1);
-    // One row per warp
-    int vecsPerBlock = get_local_size(0) / VECTOR_SIZE;
-    int myRow = (get_group_id(0) * vecsPerBlock) + (t / VECTOR_SIZE);
-    __local volatile FPTYPE partialSums[128];
-    partialSums[t] = 0;
-    if (myRow < dim)
-    {
-        int vecStart = rowDelimiters[myRow];
-        int vecEnd = rowDelimiters[myRow+1];
-        FPTYPE mySum = 0;
-        for (int j= vecStart + id; j < vecEnd;
-             j+=VECTOR_SIZE)
-        {
-            int col = cols[j];
-//#ifdef USE_TEXTURE
-//            mySum += val[j] * texFetch(vec,col);
-//#else
-            mySum += val[j] * vec[col];
-//#endif
-        }
-        partialSums[t] = mySum;
-        barrier(CLK_LOCAL_MEM_FENCE);
-        // Reduce partial sums
-        // Needs to be modified if there is a change in vector
-        // length
-        if (id < 16) partialSums[t] += partialSums[t+16];
-        barrier(CLK_LOCAL_MEM_FENCE);
-        if (id <  8) partialSums[t] += partialSums[t+ 8];
-        barrier(CLK_LOCAL_MEM_FENCE);
-        if (id <  4) partialSums[t] += partialSums[t+ 4];
-        barrier(CLK_LOCAL_MEM_FENCE);
-        if (id <  2) partialSums[t] += partialSums[t+ 2];
-        barrier(CLK_LOCAL_MEM_FENCE);
-        if (id <  1) partialSums[t] += partialSums[t+ 1];
-        barrier(CLK_LOCAL_MEM_FENCE);
-        // Write result
-        if (id == 0)
-        {
-            out[myRow] = partialSums[t];
-        }
+spmv_csr_vector_kernel(__global const FPTYPE *restrict val,
+                       // Modification
+                       // #ifdef USE_TEXTURE
+                       //                       __global const image2d_t vec,
+                       // #else
+                       __global const FPTYPE *restrict vec,
+                       // #endif
+                       __global const int *restrict cols,
+                       __global const int *restrict rowDelimiters,
+                       const int dim, __global FPTYPE *restrict out) {
+  // Thread ID in block
+  int t = get_local_id(0);
+  // Thread ID within warp
+  int id = t & (VECTOR_SIZE - 1);
+  // One row per warp
+  int vecsPerBlock = get_local_size(0) / VECTOR_SIZE;
+  int myRow = (get_group_id(0) * vecsPerBlock) + (t / VECTOR_SIZE);
+  __local volatile FPTYPE partialSums[128];
+  partialSums[t] = 0;
+  if (myRow < dim) {
+    int vecStart = rowDelimiters[myRow];
+    int vecEnd = rowDelimiters[myRow + 1];
+    FPTYPE mySum = 0;
+    for (int j = vecStart + id; j < vecEnd; j += VECTOR_SIZE) {
+      int col = cols[j];
+      // #ifdef USE_TEXTURE
+      //             mySum += val[j] * texFetch(vec,col);
+      // #else
+      mySum += val[j] * vec[col];
+      // #endif
     }
+    partialSums[t] = mySum;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    // Reduce partial sums
+    // Needs to be modified if there is a change in vector
+    // length
+    if (id < 16)
+      partialSums[t] += partialSums[t + 16];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (id < 8)
+      partialSums[t] += partialSums[t + 8];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (id < 4)
+      partialSums[t] += partialSums[t + 4];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (id < 2)
+      partialSums[t] += partialSums[t + 2];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (id < 1)
+      partialSums[t] += partialSums[t + 1];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    // Write result
+    if (id == 0) {
+      out[myRow] = partialSums[t];
+    }
+  }
 }
 // ****************************************************************************
 // Function: spmv_ellpackr_kernel
@@ -189,31 +187,28 @@ spmv_csr_vector_kernel(__global const FPTYPE * restrict val,
 //
 // ****************************************************************************
 __kernel void
-spmv_ellpackr_kernel(__global const FPTYPE * restrict val,
-// Modification
-//#ifdef USE_TEXTURE
-//                     __global const image2d_t vec,
-//#else
-                     __global const  FPTYPE * restrict vec,
-//#endif
-                     __global const int * restrict cols,
-                     __global const int * restrict rowLengths,
-                     const int dim, __global FPTYPE * restrict out)
-{
-    int t = get_global_id(0);
-    if (t < dim)
-    {
-        FPTYPE result = 0.0;
-        int max = rowLengths[t];
-        for (int i = 0; i < max; i++)
-        {
-            int ind = i * dim + t;
-//#ifdef USE_TEXTURE
-//	          result += val[ind] * texFetch(vec,cols[ind]);
-//#else
-	          result += val[ind] * vec[cols[ind]];
-//#endif
-        }
-        out[t] = result;
+spmv_ellpackr_kernel(__global const FPTYPE *restrict val,
+                     // Modification
+                     // #ifdef USE_TEXTURE
+                     //                     __global const image2d_t vec,
+                     // #else
+                     __global const FPTYPE *restrict vec,
+                     // #endif
+                     __global const int *restrict cols,
+                     __global const int *restrict rowLengths, const int dim,
+                     __global FPTYPE *restrict out) {
+  int t = get_global_id(0);
+  if (t < dim) {
+    FPTYPE result = 0.0;
+    int max = rowLengths[t];
+    for (int i = 0; i < max; i++) {
+      int ind = i * dim + t;
+      // #ifdef USE_TEXTURE
+      //             result += val[ind] * texFetch(vec,cols[ind]);
+      // #else
+      result += val[ind] * vec[cols[ind]];
+      // #endif
     }
+    out[t] = result;
+  }
 }

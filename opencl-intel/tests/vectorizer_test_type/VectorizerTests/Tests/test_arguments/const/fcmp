@@ -6,17 +6,17 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-fcmp (	__global const float4 *in,
-		__global float *out)
+fcmp (  __global const float4 *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	int4 res = (FLOAT4_VEC1 == ARG0);
-	out[gid] = res.x + res.y + res.z + res.w;
+  int gid = get_global_id(0);
+  int4 res = (FLOAT4_VEC1 == ARG0);
+  out[gid] = res.x + res.y + res.z + res.w;
 
 }

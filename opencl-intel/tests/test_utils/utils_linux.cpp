@@ -10,17 +10,17 @@
 
 #include "common_utils.h"
 
-#include <climits>
-#include <vector>
-#include <string>
-#include <cerrno>      // errno
-#include <libgen.h>    // dirname
-#include <unistd.h>    // readlink
-#include <fstream>
 #include <assert.h>
+#include <cerrno> // errno
+#include <climits>
+#include <fstream>
+#include <libgen.h> // dirname
+#include <string>
+#include <unistd.h> // readlink
+#include <vector>
 
-bool GetEnv(std::string& result, const std::string& name) {
-  char* buf;
+bool GetEnv(std::string &result, const std::string &name) {
+  char *buf;
   buf = getenv(name.c_str());
   if (!buf) {
     result = "";
@@ -34,29 +34,27 @@ bool GetEnv(std::string& result, const std::string& name) {
 // The code below is based on code from vnx/os_helpers
 // TODO: remove this copy-paste and reuse vnx library at all in our tests
 
-typedef std::vector< char > buffer_t;
+typedef std::vector<char> buffer_t;
 
-int const _size  = PATH_MAX + 1;    // Initial buffer size for path.
-int const _count = 8;               // How many times we will try to double buffer size.
+int const _size = PATH_MAX + 1; // Initial buffer size for path.
+int const _count = 8; // How many times we will try to double buffer size.
 
-static std::string dir_sep() {
-  return "/";
-}
+static std::string dir_sep() { return "/"; }
 
 static std::string exe_path(unsigned int pid) {
   static std::string const exe =
-    (!pid) ? "/proc/self/exe" : "/proc/" + std::to_string(pid) + "/exe";
+      (!pid) ? "/proc/self/exe" : "/proc/" + std::to_string(pid) + "/exe";
 
-  buffer_t    path(_size);
-  int         count = _count;  // Max number of iterations.
+  buffer_t path(_size);
+  int count = _count; // Max number of iterations.
 
   while (true) {
     ssize_t len = readlink(exe.c_str(), &path.front(), path.size());
 
     if (len < 0) {
       // Oops.
-      //int err = errno;
-      //VNX_ERR(
+      // int err = errno;
+      // VNX_ERR(
       //    "ERROR: Getting executable path failed: "
       //    "Reading symlink `%s' failed: %s\n",
       //    exe.c_str(), vnx::err_str( err ).c_str()
@@ -64,8 +62,8 @@ static std::string exe_path(unsigned int pid) {
       return "";
     }; // if
 
-    // Typecast avoids warning "comparison between signed and unsigned integer expressions".
-    // Typecast is safe because `len' is positive (or zero) here.
+    // Typecast avoids warning "comparison between signed and unsigned integer
+    // expressions". Typecast is safe because `len' is positive (or zero) here.
     if (size_t(len) < path.size()) {
       // We got the path.
       path.resize(len);
@@ -78,19 +76,17 @@ static std::string exe_path(unsigned int pid) {
       // Enlarge the buffer.
       path.resize(path.size() * 2);
     } else {
-      //VNX_ERR(
-      //    "ERROR: Getting executable path failed: "
-      //    "Reading symlink `%s' failed: Buffer of %lu bytes is still too small\n",
-      //    exe.c_str(),
-      //    (unsigned long) path.size()
+      // VNX_ERR(
+      //     "ERROR: Getting executable path failed: "
+      //     "Reading symlink `%s' failed: Buffer of %lu bytes is still too
+      //     small\n", exe.c_str(), (unsigned long) path.size()
       //);
       return "";
     }; // if
-  }; // forever
+  };   // forever
 
   return std::string(&path.front(), path.size());
 } // exe_path
-
 
 std::string get_exe_dir(unsigned int pid) {
   std::string path = exe_path(pid);

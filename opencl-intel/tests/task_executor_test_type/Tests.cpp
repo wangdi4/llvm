@@ -24,16 +24,19 @@
 
 using namespace std;
 
-ITaskExecutor* TaskExecutorTester::m_pTaskExecutor = NULL;
+ITaskExecutor *TaskExecutorTester::m_pTaskExecutor = NULL;
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = NULL;
+FrameworkUserLogger *g_pUserLogger = NULL;
 
-}}}
+}
+} // namespace OpenCL
+} // namespace Intel
 
-struct DeviceAuto
-{
+struct DeviceAuto {
   SharedPtr<ITEDevice> deviceHandle;
 
   // root device constructor
@@ -104,109 +107,92 @@ static bool RunSomeTasks(const SharedPtr<ITEDevice> &pSubdevData,
 
 // a value of 0 in uiSubdevSize designates running on the root device
 
-static bool RunSubdeviceTest(unsigned int uiSubdevSize, TaskExecutorTester& taskExecutorTester)
-{
-    DeviceAuto  rootDeviceHandle( taskExecutorTester );
-    bool use_subdevice = (uiSubdevSize > 0);
-    DeviceAuto subDevHandle(rootDeviceHandle.deviceHandle, uiSubdevSize);
-    SharedPtr<ITEDevice> pSubdevData = use_subdevice
-                                           ? subDevHandle.deviceHandle
-                                           : rootDeviceHandle.deviceHandle;
-    if (NULL == pSubdevData.GetPtr() && use_subdevice) {
-      cerr << "CreateSubdevice returned NULL" << endl;
+static bool RunSubdeviceTest(unsigned int uiSubdevSize,
+                             TaskExecutorTester &taskExecutorTester) {
+  DeviceAuto rootDeviceHandle(taskExecutorTester);
+  bool use_subdevice = (uiSubdevSize > 0);
+  DeviceAuto subDevHandle(rootDeviceHandle.deviceHandle, uiSubdevSize);
+  SharedPtr<ITEDevice> pSubdevData =
+      use_subdevice ? subDevHandle.deviceHandle : rootDeviceHandle.deviceHandle;
+  if (NULL == pSubdevData.GetPtr() && use_subdevice) {
+    cerr << "CreateSubdevice returned NULL" << endl;
+    return false;
+  }
+  AtomicCounter uncompletedTasks;
+  const bool bResult =
+      RunSomeTasks(pSubdevData, false, !use_subdevice, &uncompletedTasks);
+
+  if (0 == uiSubdevSize) // subdevices don't support WaitForCompletion
+  {
+    SharedPtr<TesterTaskSet> pTaskSet =
+        TesterTaskSet::Allocate(1, &uncompletedTasks);
+    SharedPtr<ITaskList> pTaskList =
+        pSubdevData->CreateTaskList(TE_CMD_LIST_IN_ORDER);
+
+    pTaskList->Enqueue(pTaskSet);
+    pTaskList->Flush();
+    pTaskList->WaitForCompletion(pTaskSet.GetPtr());
+    if (!pTaskSet->IsCompleted()) {
+      cerr << "pTaskSet is not completed after taskExecutor.Execute" << endl;
       return false;
     }
-    AtomicCounter uncompletedTasks;
-    const bool bResult =
-        RunSomeTasks(pSubdevData, false, !use_subdevice, &uncompletedTasks);
-
-    if (0 == uiSubdevSize)   // subdevices don't support WaitForCompletion
-    {
-        SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(1, &uncompletedTasks);
-        SharedPtr<ITaskList>     pTaskList = pSubdevData->CreateTaskList( TE_CMD_LIST_IN_ORDER );
-
-        pTaskList->Enqueue(pTaskSet);
-        pTaskList->Flush();
-        pTaskList->WaitForCompletion(pTaskSet.GetPtr());
-        if (!pTaskSet->IsCompleted())
-        {
-            cerr << "pTaskSet is not completed after taskExecutor.Execute" << endl;
-            return false;
-        }
+  } else {
+    while (uncompletedTasks > 0) {
+      clSleep(1);
     }
-    else
-    {
-    	while (uncompletedTasks > 0)
-    	{
-    		clSleep(1);
-    	}
-    }
-    return bResult;
+  }
+  return bResult;
 }
 
-bool SubdeviceTest()
-{
-    TaskExecutorTester tester;
-    return RunSubdeviceTest(tester.GetTaskExecutor()->GetMaxNumOfConcurrentThreads() / 2, tester);
+bool SubdeviceTest() {
+  TaskExecutorTester tester;
+  return RunSubdeviceTest(
+      tester.GetTaskExecutor()->GetMaxNumOfConcurrentThreads() / 2, tester);
 }
 
-bool SubdeviceSize1Test()
-{
-    TaskExecutorTester tester;
-    return RunSubdeviceTest(1, tester);
+bool SubdeviceSize1Test() {
+  TaskExecutorTester tester;
+  return RunSubdeviceTest(1, tester);
 }
 
-bool SubdeviceFullDevice()
-{
-	TaskExecutorTester tester;
-	return RunSubdeviceTest(tester.GetTaskExecutor()->GetMaxNumOfConcurrentThreads(), tester);
+bool SubdeviceFullDevice() {
+  TaskExecutorTester tester;
+  return RunSubdeviceTest(
+      tester.GetTaskExecutor()->GetMaxNumOfConcurrentThreads(), tester);
 }
 
-bool BasicTest()
-{
-    TaskExecutorTester tester;    
+bool BasicTest() {
+  TaskExecutorTester tester;
 
-    DeviceAuto rootDeviceHandle( tester );
-    const bool bResult = RunSubdeviceTest(0, tester);
-    return bResult;
+  DeviceAuto rootDeviceHandle(tester);
+  const bool bResult = RunSubdeviceTest(0, tester);
+  return bResult;
 }
 
-bool OOOTest()
-{
-    TaskExecutorTester tester;
+bool OOOTest() {
+  TaskExecutorTester tester;
 
-    DeviceAuto rootDeviceHandle( tester );
-    const bool bResult = RunSomeTasks(rootDeviceHandle.deviceHandle, true, true, NULL);
-    return bResult;
+  DeviceAuto rootDeviceHandle(tester);
+  const bool bResult =
+      RunSomeTasks(rootDeviceHandle.deviceHandle, true, true, NULL);
+  return bResult;
 }
 
-TEST(TaskExecutorTestType, Test_Basic)
-{
-	EXPECT_TRUE(BasicTest());
+TEST(TaskExecutorTestType, Test_Basic) { EXPECT_TRUE(BasicTest()); }
+
+TEST(TaskExecutorTestType, Test_Subdevices) { EXPECT_TRUE(SubdeviceTest()); }
+
+TEST(TaskExecutorTestType, Test_SubdeviceSize1) {
+  EXPECT_TRUE(SubdeviceSize1Test());
 }
 
-TEST(TaskExecutorTestType, Test_Subdevices)
-{
-    EXPECT_TRUE(SubdeviceTest());
+TEST(TaskExecutorTestType, Test_SubdeviceFullDevice) {
+  EXPECT_TRUE(SubdeviceFullDevice());
 }
 
-TEST(TaskExecutorTestType, Test_SubdeviceSize1)
-{
-    EXPECT_TRUE(SubdeviceSize1Test());
-}
+TEST(TaskExecutorTestType, Test_OOO) { EXPECT_TRUE(OOOTest()); }
 
-TEST(TaskExecutorTestType, Test_SubdeviceFullDevice)
-{
-	EXPECT_TRUE(SubdeviceFullDevice());
-}
-
-TEST(TaskExecutorTestType, Test_OOO)
-{
-    EXPECT_TRUE(OOOTest());
-}
-
-int main(int argc, char* argv[])
-{
-    ::testing::InitGoogleTest(&argc, argv);
-   return RUN_ALL_TESTS();
+int main(int argc, char *argv[]) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

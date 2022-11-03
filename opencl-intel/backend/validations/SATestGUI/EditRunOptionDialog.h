@@ -15,38 +15,34 @@
 #ifndef EDITRUNOPTIONDIALOG_H
 #define EDITRUNOPTIONDIALOG_H
 
-#include <QDialog>
 #include "ConfigManager.h"
+#include <QDialog>
 
 namespace Ui {
 class EditRunOptionDialog;
 }
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The EditRunOptionDialog class
  * @detailed shows dialog for add|edit run options
  */
-class EditRunOptionDialog : public QDialog
-{
-    Q_OBJECT
+class EditRunOptionDialog : public QDialog {
+  Q_OBJECT
 
 public:
-    explicit EditRunOptionDialog(QWidget *parent = 0);
-    EditRunOptionDialog(RunVariant variant,QWidget *parent=0);
+  explicit EditRunOptionDialog(QWidget *parent = 0);
+  EditRunOptionDialog(RunVariant variant, QWidget *parent = 0);
 
-    RunVariant getVariant();
-    ~EditRunOptionDialog();
+  RunVariant getVariant();
+  ~EditRunOptionDialog();
 
 private:
-    Ui::EditRunOptionDialog *ui;
-
+  Ui::EditRunOptionDialog *ui;
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 #endif // EDITRUNOPTIONDIALOG_H

@@ -7,18 +7,18 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-sitofp (	__global const float *in,
-		__global float *out)
+sitofp (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	short tmp = ARG0;
-	// this add is done to make sure that fptosi double to long is used on tmp
-	tmp = tmp + 3;
-	out[gid] = tmp;
+  int gid = get_global_id(0);
+  short tmp = ARG0;
+  // this add is done to make sure that fptosi double to long is used on tmp
+  tmp = tmp + 3;
+  out[gid] = tmp;
 }

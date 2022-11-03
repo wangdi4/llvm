@@ -26,100 +26,97 @@
 #include <tbb/task_group.h>
 
 #ifndef ASSERT
-    #define ASSERT __TBB_ASSERT
-    #define __TBB_UNDEF_ASSERT
+#define ASSERT __TBB_ASSERT
+#define __TBB_UNDEF_ASSERT
 #endif
 
-namespace tbb { namespace Harness {
+namespace tbb {
+namespace Harness {
 
 class TbbWorkersTrapper {
-    tbb::task_arena *m_arena;
-    task_group_with_reference m_group;
-    utils::SpinBarrier* my_barrier;
+  tbb::task_arena *m_arena;
+  task_group_with_reference m_group;
+  utils::SpinBarrier *my_barrier;
 
-    class TrapperTaskRunner
-    {
-        task_group_with_reference *m_group;
-        utils::SpinBarrier* m_barrier;
-    public:
-        TrapperTaskRunner(task_group_with_reference * group,
-                          utils::SpinBarrier * barrier)
-            : m_group(group), m_barrier(barrier) {}
+  class TrapperTaskRunner {
+    task_group_with_reference *m_group;
+    utils::SpinBarrier *m_barrier;
 
-        void operator()() const
-        {
-            m_barrier->wait(); // Wait until all workers are ready
-            m_group->wait();
-            m_barrier->signalNoWait();
-        }
-    };
+  public:
+    TrapperTaskRunner(task_group_with_reference *group,
+                      utils::SpinBarrier *barrier)
+        : m_group(group), m_barrier(barrier) {}
 
-    class TrapperReleaseRunner {
-        utils::SpinBarrier*     barrier;
-    public:
-        TrapperReleaseRunner( TbbWorkersTrapper& owner) :
-          barrier(owner.my_barrier) {}
-        void operator()() const {
-            barrier->wait(); // Make sure no tasks are referencing us
-            delete barrier;
-        }
-    };
+    void operator()() const {
+      m_barrier->wait(); // Wait until all workers are ready
+      m_group->wait();
+      m_barrier->signalNoWait();
+    }
+  };
 
-    int           num_threads;
-    bool          is_async;
-    volatile bool is_trapped;
+  class TrapperReleaseRunner {
+    utils::SpinBarrier *barrier;
+
+  public:
+    TrapperReleaseRunner(TbbWorkersTrapper &owner)
+        : barrier(owner.my_barrier) {}
+    void operator()() const {
+      barrier->wait(); // Make sure no tasks are referencing us
+      delete barrier;
+    }
+  };
+
+  int num_threads;
+  bool is_async;
+  volatile bool is_trapped;
+
 public:
-    TbbWorkersTrapper (int _num_threads, bool _is_async, tbb::task_arena *arena)
-        : m_arena(arena),
-          num_threads(_num_threads),
-          is_async(_is_async),
-          is_trapped(false)
-    {
-        my_barrier = new utils::SpinBarrier;
-        my_barrier->initialize(num_threads + (is_async ? 1 : 0));
+  TbbWorkersTrapper(int _num_threads, bool _is_async, tbb::task_arena *arena)
+      : m_arena(arena), num_threads(_num_threads), is_async(_is_async),
+        is_trapped(false) {
+    my_barrier = new utils::SpinBarrier;
+    my_barrier->initialize(num_threads + (is_async ? 1 : 0));
+  }
+
+  ~TbbWorkersTrapper() {
+    if (!is_trapped)
+      return;
+    m_group.release_wait();
+    if (tbb::this_task_arena::current_thread_index() > 0) {
+      // executing by a worker, so we must enqueue a task that will destroy the
+      // barrier
+      TrapperReleaseRunner f(*this);
+      m_arena->enqueue(f);
+      return;
+    } else {
+      my_barrier->wait(); // Make sure no tasks are referencing us
+      delete my_barrier;
+    }
+  }
+
+  bool IsTrapped() const { return is_trapped; }
+
+  int GetTrappedThreadCount() const { return num_threads; }
+
+  void Wait() { my_barrier->wait(); }
+
+  void operator()(void) {
+    assert((tbb::this_task_arena::current_thread_index() == 0 || is_async) &&
+           "Trapper must be executed from the master slot or be async");
+    m_group.reserve_wait();
+    for (int i = 1; i < num_threads; ++i) {
+      TrapperTaskRunner f(&m_group, my_barrier);
+      m_group.run(f);
     }
 
-    ~TbbWorkersTrapper () {
-        if ( !is_trapped )
-            return;
-        m_group.release_wait();
-        if ( tbb::this_task_arena::current_thread_index() > 0 )
-        {
-            // executing by a worker, so we must enqueue a task that will destroy the barrier
-            TrapperReleaseRunner f(*this);
-            m_arena->enqueue(f);
-            return;
-        } else
-        {
-            my_barrier->wait(); // Make sure no tasks are referencing us
-            delete my_barrier;
-        }
+    my_barrier->wait(); // Wait until all workers are ready
+    is_trapped = true;
+    // For async we need to trap this task as well
+    if (is_async) {
+      m_group.wait();
+      my_barrier->wait();
     }
-
-    bool  IsTrapped() const { return is_trapped;}
-
-    int   GetTrappedThreadCount() const { return num_threads; }
-
-    void  Wait() { my_barrier->wait(); }
-
-    void operator()(void)
-    {
-        assert( (tbb::this_task_arena::current_thread_index() == 0 || is_async) && "Trapper must be executed from the master slot or be async" );
-        m_group.reserve_wait();
-        for (int i = 1; i < num_threads; ++i) {
-            TrapperTaskRunner f(&m_group, my_barrier);
-            m_group.run(f);
-        }
-
-        my_barrier->wait(); // Wait until all workers are ready
-        is_trapped = true;
-        // For async we need to trap this task as well
-        if ( is_async )
-        {
-            m_group.wait();
-            my_barrier->wait();
-        }
-    }
+  }
 
 }; // TbbWorkersTrapper
 
@@ -127,7 +124,7 @@ public:
 } // namespace tbb
 
 #ifdef __TBB_UNDEF_ASSERT
-    #undef ASSERT
+#undef ASSERT
 #endif
 
 #endif // #ifndef HARNESS_TRAPPER_H

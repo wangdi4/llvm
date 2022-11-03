@@ -4,14 +4,15 @@
 //| Purpose
 //| -------
 //|
-//| Test the ability to plit the device into sub-devices comprised of compute units that share a NUMA node.
+//| Test the ability to plit the device into sub-devices comprised of compute
+// units that share a NUMA node.
 //|
 //| Method
 //| ------
 //|
-//| 1. Create two subdevices with CL_DEV_PARTITION_AFFINITY_NUMA property from root device.
-//| 2. Get which processor the current thread is running on in the kernel.
-//| 3. Read results from kernel.
+//| 1. Create two subdevices with CL_DEV_PARTITION_AFFINITY_NUMA property from
+// root device. | 2. Get which processor the current thread is running on in the
+// kernel. | 3. Read results from kernel.
 //|
 //| Pass criteria
 //| -------------
@@ -31,9 +32,9 @@ extern cl_device_type gDeviceType;
 class SubDevicesByNumaTest : public ::testing::Test {
 public:
   SubDevicesByNumaTest() : platform(nullptr), device(nullptr) {
-    //clCreateSubDevice is not supported on windows,
-    //skip this test temporarily.
-    // TODO: Re-enable this test after the issue CMPLRLLVM-37007 has been fixed
+    // clCreateSubDevice is not supported on windows,
+    // skip this test temporarily.
+    //  TODO: Re-enable this test after the issue CMPLRLLVM-37007 has been fixed
     skipTests = 1;
   }
 
@@ -176,7 +177,7 @@ TEST_F(SubDevicesByNumaTest, createSubDevicesAndRunKernel) {
     ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
   }
 
-  for(auto &q : queue)
+  for (auto &q : queue)
     clFinish(q);
 
   // validate result
@@ -225,7 +226,7 @@ TEST_F(SubDevicesByNumaTest, queryDeviceInfo) {
                                nullptr, &paramSize);
   ASSERT_OCL_SUCCESS(err, clGetDeviceInfo);
 
-  supportedProps.resize(paramSize/sizeof(cl_device_partition_property));
+  supportedProps.resize(paramSize / sizeof(cl_device_partition_property));
   // query device info -> CL_DEVICE_PARTITION_PROPERTIES
   err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_PROPERTIES, paramSize,
                         supportedProps.data(), nullptr);
@@ -238,13 +239,14 @@ TEST_F(SubDevicesByNumaTest, queryDeviceInfo) {
 
   cl_device_affinity_domain supportedAffinityDomains;
   err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
-      sizeof(cl_device_affinity_domain), &supportedAffinityDomains, nullptr);
+                        sizeof(cl_device_affinity_domain),
+                        &supportedAffinityDomains, nullptr);
   ASSERT_OCL_SUCCESS(err, clGetDeviceInfo);
   ASSERT_EQ(CL_DEVICE_AFFINITY_DOMAIN_NUMA |
-              CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE,
+                CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE,
             supportedAffinityDomains &
-              (CL_DEVICE_AFFINITY_DOMAIN_NUMA |
-               CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE));
+                (CL_DEVICE_AFFINITY_DOMAIN_NUMA |
+                 CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE));
 
   const cl_device_partition_property props[3] = {
       CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN, CL_DEVICE_AFFINITY_DOMAIN_NUMA,
@@ -264,7 +266,7 @@ TEST_F(SubDevicesByNumaTest, queryDeviceInfo) {
                         &paramSize);
   ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
 
-  partitionType.resize(paramSize/sizeof(cl_device_partition_property));
+  partitionType.resize(paramSize / sizeof(cl_device_partition_property));
   // query device info -> CL_DEVICE_PARTITION_TYPE
   err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_TYPE, paramSize,
                         partitionType.data(), nullptr);

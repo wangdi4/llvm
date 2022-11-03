@@ -16,6 +16,4 @@
 
 // On Windows we delay common_clang library load to prevent DLL hijacking
 // On Linux shared libraries are loaded by OS
-bool LoadCommonClang() {
-  return true;
-}
+bool LoadCommonClang() { return true; }

@@ -36,7 +36,7 @@
 
 #define COMPILE_TIME_ASSERT(expr) COMPILE_TIME_ASSERT1(expr, __COUNTER__)
 #define COMPILE_TIME_ASSERT1(expr, cnt) COMPILE_TIME_ASSERT2(expr, cnt)
-#define COMPILE_TIME_ASSERT2(expr, cnt)                                        \
+#define COMPILE_TIME_ASSERT2(expr, cnt)
 
 #ifdef __BIONIC__
 // There are 4 pthread key cleanup rounds on Bionic. Delay emutls deallocation

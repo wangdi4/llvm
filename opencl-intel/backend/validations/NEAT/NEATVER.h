@@ -15,17 +15,14 @@
 #ifndef __NEATVER_H__
 #define __NEATVER_H__
 
-namespace Validation
-{
-    class NEATVersion {
-    public:
-        static uint64_t GetVersion() {
-            return neatVersion;
-        }
-    private:
-        /// NEAT version to be incremented after every change in NEAT
-        static const uint64_t neatVersion = 1;
-};
-}
-#endif // __NEATVER_H__
+namespace Validation {
+class NEATVersion {
+public:
+  static uint64_t GetVersion() { return neatVersion; }
 
+private:
+  /// NEAT version to be incremented after every change in NEAT
+  static const uint64_t neatVersion = 1;
+};
+} // namespace Validation
+#endif // __NEATVER_H__

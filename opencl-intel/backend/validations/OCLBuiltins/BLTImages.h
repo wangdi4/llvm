@@ -16,18 +16,19 @@
 #define BLT_IMAGES_H
 
 #include <llvm/ADT/ArrayRef.h>
-#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/IR/DerivedTypes.h>
 
-#include "llvm/Support/Debug.h"
 #include "Helpers.h"
-#include "RefALU.h"
 #include "ImagesALU.h"
+#include "RefALU.h"
+#include "llvm/Support/Debug.h"
 // !!!! HACK
-// Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it generates
-// Removing annoying ‘ceil’ : attributes not present on previous declaration warning C4985
-#include "cl_types.h"
+// Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it
+// generates Removing annoying ‘ceil’ : attributes not present on previous
+// declaration warning C4985
 #include "CL/cl.h"
+#include "cl_types.h"
 
 #ifdef DEBUG_TYPE
 #undef DEBUG_TYPE
@@ -41,196 +42,213 @@ using namespace llvm;
 namespace Validation {
 namespace OCLBuiltins {
 
+Conformance::image_descriptor
+CreateConfImageDesc(const cl_mem_obj_descriptor &in_Desc,
+                    cl_image_format &out_ImageFmt);
+Conformance::image_sampler_data CreateSamplerData(const uint32_t &in_sampler);
+cl_channel_type
+ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type &val);
 
-Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& in_Desc, cl_image_format& out_ImageFmt);
-Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler);
-cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& val );
+template <typename T1, typename T2>
+void getCoordsByImageType(const cl_mem_object_type objType,
+                          const llvm::GenericValue &CoordGV, T2 &u, T2 &v,
+                          T2 &w) {
+  u = T2(0);
+  v = T2(0);
+  w = T2(0);
 
-    template<typename T1,typename T2>
-    void getCoordsByImageType(const cl_mem_object_type objType, const llvm::GenericValue& CoordGV, T2& u, T2& v, T2& w){
-        u = T2(0);
-        v = T2(0);
-        w = T2(0);
+  switch (objType) {
+  case CL_MEM_OBJECT_IMAGE1D:
+  case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+    u = T2(getVal<T1, 1>(CoordGV, 0));
+    break;
+  case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+  case CL_MEM_OBJECT_IMAGE2D:
+    u = T2(getVal<T1, 2>(CoordGV, 0));
+    v = T2(getVal<T1, 2>(CoordGV, 1));
+    break;
+  case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+  case CL_MEM_OBJECT_IMAGE3D:
+    u = T2(getVal<T1, 4>(CoordGV, 0));
+    v = T2(getVal<T1, 4>(CoordGV, 1));
+    w = T2(getVal<T1, 4>(CoordGV, 2));
+    break;
+  default:
+    break;
+  }
+}
 
-        switch(objType) {
-        case CL_MEM_OBJECT_IMAGE1D:
-        case CL_MEM_OBJECT_IMAGE1D_BUFFER:
-            u = T2(getVal<T1, 1>(CoordGV, 0));
-            break;
-        case CL_MEM_OBJECT_IMAGE1D_ARRAY:
-        case CL_MEM_OBJECT_IMAGE2D:
-            u = T2(getVal<T1, 2>(CoordGV, 0));
-            v = T2(getVal<T1, 2>(CoordGV, 1));
-            break;
-        case CL_MEM_OBJECT_IMAGE2D_ARRAY:
-        case CL_MEM_OBJECT_IMAGE3D:
-            u = T2(getVal<T1, 4>(CoordGV, 0));
-            v = T2(getVal<T1, 4>(CoordGV, 1));
-            w = T2(getVal<T1, 4>(CoordGV, 2));
-            break;
-        default:
-            break;
-        }
-    }
+template <typename T>
+llvm::GenericValue local_read_image(const cl_mem_obj_descriptor *memobj,
+                                    const llvm::GenericValue &CoordGV,
+                                    const uint32_t sampler,
+                                    const llvm::Type::TypeID CoordTy) {
+  llvm::GenericValue gv;
 
-    template<typename T>
-    llvm::GenericValue local_read_image(const cl_mem_obj_descriptor * memobj, const llvm::GenericValue& CoordGV, const uint32_t sampler, const llvm::Type::TypeID CoordTy) {
-        llvm::GenericValue gv;
+  const cl_mem_object_type objType = memobj->memObjType;
+  // coordinates
+  float u, v, w;
 
-        const cl_mem_object_type objType = memobj->memObjType;
-        // coordinates
-        float u, v, w;
+  if (llvm::Type::FloatTyID == CoordTy)
+    getCoordsByImageType<float, float>(objType, CoordGV, u, v, w);
+  else
+    getCoordsByImageType<int32_t, float>(objType, CoordGV, u, v, w);
 
+  cl_image_format im_fmt;
+  Conformance::image_descriptor desc = CreateConfImageDesc(*memobj, im_fmt);
+  Conformance::image_sampler_data imageSampler = CreateSamplerData(sampler);
+  T Pixel[4];
+  Conformance::sample_image_pixel<T>(
+      memobj->pData, // void *imageData,
+      &desc,         // image_descriptor *imageInfo,
+      u, v, w,
+      &imageSampler, // image_sampler_data *imageSampler,
+      Pixel);
 
-        if( llvm::Type::FloatTyID == CoordTy)
-            getCoordsByImageType<float,float>(objType,CoordGV,u,v,w);
-        else
-            getCoordsByImageType<int32_t,float>(objType,CoordGV,u,v,w);
+  if (memobj->format.image_channel_order == CLK_DEPTH)
+    getRef<T>(gv) = derefPointer<T>(Pixel + 0);
+  else {
+    gv.AggregateVal.resize(4);
+    getRef<T, 4>(gv, 0) = derefPointer<T>(Pixel + 0);
+    getRef<T, 4>(gv, 1) = derefPointer<T>(Pixel + 1);
+    getRef<T, 4>(gv, 2) = derefPointer<T>(Pixel + 2);
+    getRef<T, 4>(gv, 3) = derefPointer<T>(Pixel + 3);
+  }
+  return gv;
+}
 
-        cl_image_format im_fmt;
-        Conformance::image_descriptor desc = CreateConfImageDesc(*memobj, im_fmt);
-        Conformance::image_sampler_data imageSampler = CreateSamplerData(sampler);
-        T Pixel[4];
-        Conformance::sample_image_pixel<T>(
-            memobj->pData, // void *imageData,
-            &desc, // image_descriptor *imageInfo,
-            u,v,w,
-            &imageSampler,// image_sampler_data *imageSampler,
-            Pixel);
+template <typename T>
+llvm::GenericValue lle_X_read_image(llvm::FunctionType *FT,
+                                    llvm::ArrayRef<llvm::GenericValue> Args) {
+  const cl_mem_obj_descriptor *memobj =
+      (cl_mem_obj_descriptor *)Args[0].PointerVal;
 
-        if(memobj->format.image_channel_order == CLK_DEPTH)
-            getRef<T>(gv) = derefPointer<T>(Pixel+0);
-        else
-        {
-            gv.AggregateVal.resize(4);
-            getRef<T,4>(gv, 0) = derefPointer<T>(Pixel+0);
-            getRef<T,4>(gv, 1) = derefPointer<T>(Pixel+1);
-            getRef<T,4>(gv, 2) = derefPointer<T>(Pixel+2);
-            getRef<T,4>(gv, 3) = derefPointer<T>(Pixel+3);
-        }
-        return gv;
-    }
+  const llvm::GenericValue &CoordGV = Args[2];
 
+  const uint32_t sampler = uint32_t(Args[1].IntVal.getZExtValue());
 
-    template<typename T>
-    llvm::GenericValue lle_X_read_image( llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args )
-    {
-        const cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
+  // datatype of coordinates == float or int
+  llvm::Type::TypeID CoordTy;
+  // for 1d image parameter number 2 is scalar, for other image
+  // formats it is a vector
+  if (FT->getParamType(2)->getNumContainedTypes() > 0)
+    CoordTy = FT->getParamType(2)->getContainedType(0)->getTypeID();
+  else
+    CoordTy = FT->getParamType(2)->getTypeID();
 
-        const llvm::GenericValue& CoordGV = Args[2];
+  return local_read_image<T>(memobj, CoordGV, sampler, CoordTy);
+}
 
-        const uint32_t sampler = uint32_t(Args[1].IntVal.getZExtValue());
+template <typename T>
+llvm::GenericValue
+lle_X_read_image_samplerless(llvm::FunctionType *FT,
+                             llvm::ArrayRef<llvm::GenericValue> Args) {
+  const cl_mem_obj_descriptor *memobj =
+      (cl_mem_obj_descriptor *)Args[0].PointerVal;
 
-        // datatype of coordinates == float or int
-        llvm::Type::TypeID CoordTy;
-        // for 1d image parameter number 2 is scalar, for other image
-        // formats it is a vector
-        if( FT->getParamType(2)->getNumContainedTypes() > 0 )
-            CoordTy = FT->getParamType(2)->getContainedType(0)->getTypeID();
-        else
-            CoordTy = FT->getParamType(2)->getTypeID();
+  const llvm::GenericValue &CoordGV = Args[1];
 
-        return local_read_image<T>(memobj,CoordGV,sampler,CoordTy);
-    }
+  const uint32_t sampler = uint32_t(CLK_ADDRESS_NONE | CLK_FILTER_NEAREST |
+                                    CLK_NORMALIZED_COORDS_FALSE);
 
-    template<typename T>
-    llvm::GenericValue lle_X_read_image_samplerless( llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args )
-    {
-        const cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
+  // datatype of coordinates == float or int
+  llvm::Type::TypeID CoordTy;
+  // for 1d image parameter number 1 is scalar, for other image
+  // formats it is a vector
+  if (FT->getParamType(1)->getNumContainedTypes() > 0)
+    CoordTy = FT->getParamType(1)->getContainedType(0)->getTypeID();
+  else
+    CoordTy = FT->getParamType(1)->getTypeID();
 
-        const llvm::GenericValue& CoordGV = Args[1];
+  return local_read_image<T>(memobj, CoordGV, sampler, CoordTy);
+}
 
-        const uint32_t sampler =
-          uint32_t(CLK_ADDRESS_NONE | CLK_FILTER_NEAREST | CLK_NORMALIZED_COORDS_FALSE);
+template <typename T>
+void getColorForWriteImage(const GenericValue &PixelGV, T val[4]) {
+  llvm::report_fatal_error("getColor: unsupported data type.");
+}
 
-        // datatype of coordinates == float or int
-        llvm::Type::TypeID CoordTy;
-        // for 1d image parameter number 1 is scalar, for other image
-        // formats it is a vector
-        if( FT->getParamType(1)->getNumContainedTypes() > 0 )
-            CoordTy = FT->getParamType(1)->getContainedType(0)->getTypeID();
-        else
-            CoordTy = FT->getParamType(1)->getTypeID();
+template <typename T>
+llvm::GenericValue lle_X_write_image(llvm::FunctionType *FT,
+                                     llvm::ArrayRef<llvm::GenericValue> Args) {
+  GenericValue gv;
+  cl_mem_obj_descriptor *memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
 
-        return local_read_image<T>(memobj,CoordGV,sampler,CoordTy);
-    }
-    
-    template<typename T>
-    void getColorForWriteImage(const GenericValue& PixelGV, T val[4]) {
-        llvm::report_fatal_error("getColor: unsupported data type.");
-    }
+  cl_image_format im_fmt;
+  Conformance::image_descriptor desc = CreateConfImageDesc(*memobj, im_fmt);
 
-    template<typename T>
-    llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT, 
-                                     llvm::ArrayRef<llvm::GenericValue> Args )
-    {
-        GenericValue gv;
-        cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
-       
-        cl_image_format im_fmt;
-        Conformance::image_descriptor desc = CreateConfImageDesc(*memobj, im_fmt);
-    
-        const cl_mem_object_type objType = memobj->memObjType;
-    
-        // coordinates
-        const GenericValue& CoordGV = Args[1];
-        
-        int32_t u,v,w;
-    
-        getCoordsByImageType<int32_t,int32_t>(objType,CoordGV,u,v,w);
-    
-        // datatype of pixel 
-        const GenericValue& PixelGV = Args[2];    
-    
-        T val[4];
+  const cl_mem_object_type objType = memobj->memObjType;
 
-        if(desc.format->image_channel_order == CLK_DEPTH)
-            val[0] = getVal<T>(PixelGV);
-        else
-            getColorForWriteImage<T>(PixelGV,val);
-        Conformance::write_image_pixel<T>(memobj->pData, &desc, u, v, w, val);
-        
-       return gv;        
-    }
-        
-    llvm::GenericValue lle_X_get_image_dim2(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
-        
-    llvm::GenericValue lle_X_get_image_width(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
-    
-    llvm::GenericValue lle_X_get_image_height(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
+  // coordinates
+  const GenericValue &CoordGV = Args[1];
 
-    llvm::GenericValue lle_X_get_image_depth(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
+  int32_t u, v, w;
 
-    llvm::GenericValue lle_X_get_image_dim3(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
+  getCoordsByImageType<int32_t, int32_t>(objType, CoordGV, u, v, w);
 
-    llvm::GenericValue lle_X_get_image_channel_data_type(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
+  // datatype of pixel
+  const GenericValue &PixelGV = Args[2];
 
-    llvm::GenericValue lle_X_get_image_channel_order(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
+  T val[4];
 
-    llvm::GenericValue lle_X_get_image_array_size(FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args);
+  if (desc.format->image_channel_order == CLK_DEPTH)
+    val[0] = getVal<T>(PixelGV);
+  else
+    getColorForWriteImage<T>(PixelGV, val);
+  Conformance::write_image_pixel<T>(memobj->pData, &desc, u, v, w, val);
 
-    /// @brief convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
-    cl_channel_order ConvertChannelOrderFromIntelOCLToCL(const cl_channel_order& val );
+  return gv;
+}
 
-    /// @brief convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
-    cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& val );
+llvm::GenericValue
+lle_X_get_image_dim2(llvm::FunctionType *FT,
+                     llvm::ArrayRef<llvm::GenericValue> Args);
 
-    /// @brief Create image_descriptor and cl_image_format for calling Conformance::ImagesALU functions
-    Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& in_Desc,
-        cl_image_format& out_ImageFmt);
+llvm::GenericValue
+lle_X_get_image_width(llvm::FunctionType *FT,
+                      llvm::ArrayRef<llvm::GenericValue> Args);
 
-    /// @brief Create sampler data struct for calling Conformance::ImagesALU functions
-    Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler);
+llvm::GenericValue
+lle_X_get_image_height(llvm::FunctionType *FT,
+                       llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue
+lle_X_get_image_depth(llvm::FunctionType *FT,
+                      llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue
+lle_X_get_image_dim3(llvm::FunctionType *FT,
+                     llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue
+lle_X_get_image_channel_data_type(llvm::FunctionType *FT,
+                                  llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue
+lle_X_get_image_channel_order(llvm::FunctionType *FT,
+                              llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue
+lle_X_get_image_array_size(FunctionType *FT,
+                           llvm::ArrayRef<llvm::GenericValue> Args);
+
+/// @brief convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
+cl_channel_order
+ConvertChannelOrderFromIntelOCLToCL(const cl_channel_order &val);
+
+/// @brief convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
+cl_channel_type
+ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type &val);
+
+/// @brief Create image_descriptor and cl_image_format for calling
+/// Conformance::ImagesALU functions
+Conformance::image_descriptor
+CreateConfImageDesc(const cl_mem_obj_descriptor &in_Desc,
+                    cl_image_format &out_ImageFmt);
+
+/// @brief Create sampler data struct for calling Conformance::ImagesALU
+/// functions
+Conformance::image_sampler_data CreateSamplerData(const uint32_t &in_sampler);
 
 } // namespace OCLBuiltins
 } // namespace Validation

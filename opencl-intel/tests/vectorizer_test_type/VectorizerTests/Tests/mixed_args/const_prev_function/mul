@@ -7,18 +7,18 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 mul ( __global const float *in,
-		__global float *out)
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	int tmp = gid + in[gid];
-	tmp = min(tmp, (int)(in[gid] * in[gid] - 5));
-	out[gid] = INT1 * tmp;
+  int gid = get_global_id(0);
+  int tmp = gid + in[gid];
+  tmp = min(tmp, (int)(in[gid] * in[gid] - 5));
+  out[gid] = INT1 * tmp;
 }

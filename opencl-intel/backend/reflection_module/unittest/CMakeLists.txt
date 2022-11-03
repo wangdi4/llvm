@@ -2,7 +2,7 @@ use_eh(TRUE)
 
 set(TARGET_NAME ReflectionModuleTest)
 
-project (${TARGET_NAME})
+project(${TARGET_NAME})
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
@@ -11,26 +11,16 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
-  ${OCL_SOURCE_DIR}/tests/test_utils/export
-)
+  ${OCL_SOURCE_DIR}/tests/test_utils/export)
 
-add_opencl_executable(
-  ${TARGET_NAME}
-  EXCLUDE_FROM_ALL_BUILD
+add_opencl_executable(${TARGET_NAME} EXCLUDE_FROM_ALL_BUILD
+                      TestBuiltinKeeper.cpp)
 
-  TestBuiltinKeeper.cpp
-)
+target_link_libraries(${TARGET_NAME} BuiltinLibInfo OclBackendUtils
+                      reflection_module llvm_gtest ${LLVM_MODULE_LIBS})
 
-target_link_libraries(
-  ${TARGET_NAME}
-  BuiltinLibInfo
-  OclBackendUtils
-  reflection_module
-  llvm_gtest
-  ${LLVM_MODULE_LIBS}
-)
-
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
+set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
+                                                ${BACKEND_TESTS_FOLDER_NAME})
 
 install(FILES mybi.ll DESTINATION tests/reflection_module)
 install(FILES ReflectionModuleTest.pm DESTINATION tests/reflection_module)

@@ -17,29 +17,35 @@ File Name:  atomics_builtin.cl
 
 \*****************************************************************************/
 
-#define KERNEL_ATOMIC_ONEARG(_func, _type, _attrib) __kernel void _func##_attrib##_type (__global uint* buf_in, __global uint* buf_out0, __global uint* buf_out1)\
-{\
-    _type * pout = (_type*) &buf_out1[0];\
-    _attrib _type* bufuip = ((_attrib _type*) &buf_out0[0]);\
-    *pout = _func(bufuip);\
-}
+#define KERNEL_ATOMIC_ONEARG(_func, _type, _attrib)                            \
+  __kernel void _func##_attrib##_type(__global uint *buf_in,                   \
+                                      __global uint *buf_out0,                 \
+                                      __global uint *buf_out1) {               \
+    _type *pout = (_type *)&buf_out1[0];                                       \
+    _attrib _type *bufuip = ((_attrib _type *)&buf_out0[0]);                   \
+    *pout = _func(bufuip);                                                     \
+  }
 
-#define KERNEL_ATOMIC_TWOARGS(_func, _type, _attrib) __kernel void _func##_attrib##_type (__global uint* buf_in, __global uint* buf_out0, __global uint* buf_out1)\
-{\
-    _type val1 = *((_type*) &buf_in[0]);\
-    _type * pout = (_type*) &buf_out1[0];\
-    _attrib _type* bufuip = ((_attrib _type*) &buf_out0[0]);\
-    *pout = _func(bufuip, val1);\
-}
+#define KERNEL_ATOMIC_TWOARGS(_func, _type, _attrib)                           \
+  __kernel void _func##_attrib##_type(__global uint *buf_in,                   \
+                                      __global uint *buf_out0,                 \
+                                      __global uint *buf_out1) {               \
+    _type val1 = *((_type *)&buf_in[0]);                                       \
+    _type *pout = (_type *)&buf_out1[0];                                       \
+    _attrib _type *bufuip = ((_attrib _type *)&buf_out0[0]);                   \
+    *pout = _func(bufuip, val1);                                               \
+  }
 
-#define KERNEL_ATOMIC_CMPXCHG(_func, _type, _attrib) __kernel void _func##_attrib##_type (__global uint* buf_in, __global uint* buf_out0, __global uint* buf_out1)\
-{\
-	_type val0 = *((_type*) &buf_in[0]);\
-    _type val1 = *((_type*) &buf_in[1]);\
-    _type * pout = (_type*) &buf_out1[0];\
-    _attrib _type* bufuip = ((_attrib _type*) &buf_out0[0]);\
-    *pout = _func(bufuip, val0, val1);\
-}
+#define KERNEL_ATOMIC_CMPXCHG(_func, _type, _attrib)                           \
+  __kernel void _func##_attrib##_type(__global uint *buf_in,                   \
+                                      __global uint *buf_out0,                 \
+                                      __global uint *buf_out1) {               \
+    _type val0 = *((_type *)&buf_in[0]);                                       \
+    _type val1 = *((_type *)&buf_in[1]);                                       \
+    _type *pout = (_type *)&buf_out1[0];                                       \
+    _attrib _type *bufuip = ((_attrib _type *)&buf_out0[0]);                   \
+    *pout = _func(bufuip, val0, val1);                                         \
+  }
 
 KERNEL_ATOMIC_TWOARGS(atomic_add, uint, __global)
 KERNEL_ATOMIC_TWOARGS(atomic_add, uint, __local)

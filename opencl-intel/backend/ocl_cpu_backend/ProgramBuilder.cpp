@@ -68,7 +68,9 @@ using namespace DPCPPKernelMetadataAPI;
 using namespace intel;
 using namespace llvm;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 static void BEFatalErrorHandler(void * /*user_data*/, const char *reason,
                                 bool /*gen_crash_diag*/) {
@@ -82,8 +84,7 @@ static void BEFatalErrorHandler(void * /*user_data*/, const char *reason,
 /*
  * Utility methods
  */
-namespace Utils
-{
+namespace Utils {
 static unsigned getEqualizerDumpFileId() {
   static std::atomic<unsigned> fileId(0);
   fileId++;
@@ -107,10 +108,10 @@ static llvm::MemoryBuffer *GetProgramMemoryBuffer(Program *pProgram) {
 }
 
 /// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
-void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelSet * pKernels )
-{
-  for(unsigned cnt = 0; cnt < pKernels->GetCount(); ++cnt){
-    Kernel * pK = pKernels->GetKernel(cnt);
+void UpdateKernelsWithRuntimeService(const RuntimeServiceSharedPtr &rs,
+                                     KernelSet *pKernels) {
+  for (unsigned cnt = 0; cnt < pKernels->GetCount(); ++cnt) {
+    Kernel *pK = pKernels->GetKernel(cnt);
     pK->SetRuntimeService(rs);
   }
 }
@@ -122,7 +123,7 @@ void UpdateKernelsWithRuntimeConfig(const ICompilerConfig *Config,
     Kernels->GetKernel(I)->SetRuntimeConfig(Config);
 }
 
-} //namespace Utils
+} // namespace Utils
 
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
                                std::unique_ptr<ICompilerConfig> config)
@@ -146,9 +147,7 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
   }
 }
 
-ProgramBuilder::~ProgramBuilder()
-{
-}
+ProgramBuilder::~ProgramBuilder() {}
 
 std::string
 ProgramBuilder::generateDumpFilename(const std::string &hash, unsigned fileId,
@@ -188,178 +187,168 @@ void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
 #endif // INTEL_PRODUCT_RELEASE
 }
 
-void ProgramBuilder::ParseProgram(Program* pProgram)
-{
-    try
-    {
-        assert(!pProgram->HasCachedExecutable() &&
-               "Program must not be loaded from cache");
-        pProgram->SetModule( GetCompiler()->ParseModuleIR( Utils::GetProgramMemoryBuffer(pProgram)));
-    }
-    catch(Exceptions::CompilerException& e)
-    {
-        throw Exceptions::DeviceBackendExceptionBase(e.what());
-    }
+void ProgramBuilder::ParseProgram(Program *pProgram) {
+  try {
+    assert(!pProgram->HasCachedExecutable() &&
+           "Program must not be loaded from cache");
+    pProgram->SetModule(
+        GetCompiler()->ParseModuleIR(Utils::GetProgramMemoryBuffer(pProgram)));
+  } catch (Exceptions::CompilerException &e) {
+    throw Exceptions::DeviceBackendExceptionBase(e.what());
+  }
 }
 
-cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
-    const ICLDevBackendOptions* pOptions,
-    const char* pBuildOpts)
-{
-    assert(pProgram && "Program parameter must not be nullptr");
-    ProgramBuildResult buildResult;
+cl_dev_err_code
+ProgramBuilder::BuildProgram(Program *pProgram,
+                             const ICLDevBackendOptions *pOptions,
+                             const char *pBuildOpts) {
+  assert(pProgram && "Program parameter must not be nullptr");
+  ProgramBuildResult buildResult;
 
-    try
-    {
-        if(pProgram->HasCachedExecutable())
-        {
-            if (ReloadProgramFromCachedExecutable(pProgram)) {
-                std::string log = "Reload Program Binary Object.";
-                pProgram->SetBuildLog(log);
-                return CL_DEV_SUCCESS;
-            }
-        }
-        Compiler* pCompiler = GetCompiler();
-        llvm::Module* pModule = pProgram->GetModule();
+  try {
+    if (pProgram->HasCachedExecutable()) {
+      if (ReloadProgramFromCachedExecutable(pProgram)) {
+        std::string log = "Reload Program Binary Object.";
+        pProgram->SetBuildLog(log);
+        return CL_DEV_SUCCESS;
+      }
+    }
+    Compiler *pCompiler = GetCompiler();
+    llvm::Module *pModule = pProgram->GetModule();
 
-        if(!pModule)
-        {
-            ParseProgram(pProgram);
-            pModule = pProgram->GetModule();
-        }
-        assert(pModule && "Module parsing has failed without exception. Strange");
+    if (!pModule) {
+      ParseProgram(pProgram);
+      pModule = pProgram->GetModule();
+    }
+    assert(pModule && "Module parsing has failed without exception. Strange");
 
 #ifndef INTEL_PRODUCT_RELEASE
-        std::string Env;
-        llvm::LLVMContext *ReplaceModuleCtx = nullptr;
-        auto ReplaceModule = [&](bool BeforeOptimizer) {
-          dbgs() << "WARNING: replace module IR before device "
-                 << (BeforeOptimizer ? "optimizer" : "CodeGen") << ": " << Env
-                 << "\n";
-          // Create new LLVMContext instead of reusing pModule's LLVMContext, in
-          // order to avoid type renaming in textual IR dump.
-          static llvm::once_flag OnceFlag;
-          llvm::call_once(OnceFlag, [&]() {
-            ReplaceModuleCtx = pCompiler->resetLLVMContextForCurrentThread();
-            // Reload builtin modules since context is changed.
-            static_cast<CPUCompiler *>(pCompiler)->GetOrLoadBuiltinModules(
-                /*ForceLoad*/ true);
-          });
-          assert(ReplaceModuleCtx && "invalid replace context");
-          SMDiagnostic Err;
-          std::unique_ptr<Module> ReplaceModule =
-              parseIRFile(Env, Err, *ReplaceModuleCtx);
-          if (!ReplaceModule) {
-            Err.print("", errs());
-            throw Exceptions::DeviceBackendExceptionBase(
-                std::string("Failed to load module IR to replace"));
-          }
-          pProgram->GetModuleOwner().reset(nullptr);
-          pProgram->SetModule(std::move(ReplaceModule));
-          pModule = pProgram->GetModule();
-        };
-        if (Intel::OpenCL::Utils::getEnvVar(
-                Env, "CL_CONFIG_REPLACE_IR_BEFORE_OPTIMIZER") &&
-            !Env.empty())
-          ReplaceModule(true);
+    std::string Env;
+    llvm::LLVMContext *ReplaceModuleCtx = nullptr;
+    auto ReplaceModule = [&](bool BeforeOptimizer) {
+      dbgs() << "WARNING: replace module IR before device "
+             << (BeforeOptimizer ? "optimizer" : "CodeGen") << ": " << Env
+             << "\n";
+      // Create new LLVMContext instead of reusing pModule's LLVMContext, in
+      // order to avoid type renaming in textual IR dump.
+      static llvm::once_flag OnceFlag;
+      llvm::call_once(OnceFlag, [&]() {
+        ReplaceModuleCtx = pCompiler->resetLLVMContextForCurrentThread();
+        // Reload builtin modules since context is changed.
+        static_cast<CPUCompiler *>(pCompiler)->GetOrLoadBuiltinModules(
+            /*ForceLoad*/ true);
+      });
+      assert(ReplaceModuleCtx && "invalid replace context");
+      SMDiagnostic Err;
+      std::unique_ptr<Module> ReplaceModule =
+          parseIRFile(Env, Err, *ReplaceModuleCtx);
+      if (!ReplaceModule) {
+        Err.print("", errs());
+        throw Exceptions::DeviceBackendExceptionBase(
+            std::string("Failed to load module IR to replace"));
+      }
+      pProgram->GetModuleOwner().reset(nullptr);
+      pProgram->SetModule(std::move(ReplaceModule));
+      pModule = pProgram->GetModule();
+    };
+    if (Intel::OpenCL::Utils::getEnvVar(
+            Env, "CL_CONFIG_REPLACE_IR_BEFORE_OPTIMIZER") &&
+        !Env.empty())
+      ReplaceModule(true);
 
-        // If environment variable VOLCANO_EQUALIZER_STATS is set to any
-        // non-empty string, then we dump IR before optimization.
-        if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS")) {
-          if (!Env.empty()) {
-            DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
-          }
-        }
+    // If environment variable VOLCANO_EQUALIZER_STATS is set to any
+    // non-empty string, then we dump IR before optimization.
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS")) {
+      if (!Env.empty()) {
+        DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
+      }
+    }
 #endif // INTEL_PRODUCT_RELEASE
 
-        // Handle LLVM ERROR which can occured during build programm
-        // Need to do it to eliminate RT hanging when clBuildProgramm failed
-        llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
-                                                        nullptr);
+    // Handle LLVM ERROR which can occured during build programm
+    // Need to do it to eliminate RT hanging when clBuildProgramm failed
+    llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
+                                                    nullptr);
 
-        std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
-        if ((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
-            (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
-          MergeOptions.append(" -cl-opt-disable");
-        if((MergeOptions.find("-g") == std::string::npos) &&
-           (CompilationUtils::getDebugFlagFromMetadata(pModule)))
-             MergeOptions.append(" -g");
+    std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
+    if ((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
+        (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
+      MergeOptions.append(" -cl-opt-disable");
+    if ((MergeOptions.find("-g") == std::string::npos) &&
+        (CompilationUtils::getDebugFlagFromMetadata(pModule)))
+      MergeOptions.append(" -g");
 
-        std::unique_ptr<llvm::TargetMachine> targetMachine;
-        pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult,
-                                targetMachine);
+    std::unique_ptr<llvm::TargetMachine> targetMachine;
+    pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult,
+                            targetMachine);
 
-        pProgram->SetBuiltinModule(pCompiler->GetBuiltinModuleList());
+    pProgram->SetBuiltinModule(pCompiler->GetBuiltinModuleList());
 
-        // init refcounted runtime service shared storage between program
-        // and kernels
-        RuntimeServiceSharedPtr lRuntimeService =
-                          RuntimeServiceSharedPtr(new RuntimeServiceImpl);
-        // set runtime service for the program
-        pProgram->SetRuntimeService(lRuntimeService);
+    // init refcounted runtime service shared storage between program
+    // and kernels
+    RuntimeServiceSharedPtr lRuntimeService =
+        RuntimeServiceSharedPtr(new RuntimeServiceImpl);
+    // set runtime service for the program
+    pProgram->SetRuntimeService(lRuntimeService);
 
 #ifndef INTEL_PRODUCT_RELEASE
-        if (Intel::OpenCL::Utils::getEnvVar(
-                Env, "CL_CONFIG_REPLACE_IR_AFTER_OPTIMIZER") &&
-            !Env.empty())
-          ReplaceModule(false);
+    if (Intel::OpenCL::Utils::getEnvVar(
+            Env, "CL_CONFIG_REPLACE_IR_AFTER_OPTIMIZER") &&
+        !Env.empty())
+      ReplaceModule(false);
 
-        // Dump module stats just before lowering if requested
-        if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS")) {
-          if (!Env.empty())
-            DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
-        }
+    // Dump module stats just before lowering if requested
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS")) {
+      if (!Env.empty())
+        DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
+    }
 #endif // INTEL_PRODUCT_RELEASE
 
-        PostOptimizationProcessing(pProgram);
+    PostOptimizationProcessing(pProgram);
 
-        // ObjectCodeCache structure will be filled by a callback after JIT
-        // happens.
-        std::unique_ptr<ObjectCodeCache>
-            objCache(new ObjectCodeCache(nullptr, nullptr, 0));
+    // ObjectCodeCache structure will be filled by a callback after JIT
+    // happens.
+    std::unique_ptr<ObjectCodeCache> objCache(
+        new ObjectCodeCache(nullptr, nullptr, 0));
 
-        if (!(pOptions && pOptions->
-              GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
-        {
-            JitProcessing(pProgram, pOptions, std::move(targetMachine),
-                          objCache.get());
+    if (!(pOptions && pOptions->GetBooleanValue(
+                          CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false))) {
+      JitProcessing(pProgram, pOptions, std::move(targetMachine),
+                    objCache.get());
 
-            // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
-            // L"Start iterating over kernels");
-            KernelSet* pKernels = CreateKernels( pProgram,
-                                                 MergeOptions.c_str(),
-                                                 buildResult);
-            // update kernels with RuntimeService
-            Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
+      // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
+      // L"Start iterating over kernels");
+      KernelSet *pKernels =
+          CreateKernels(pProgram, MergeOptions.c_str(), buildResult);
+      // update kernels with RuntimeService
+      Utils::UpdateKernelsWithRuntimeService(lRuntimeService, pKernels);
 
-            pProgram->SetKernelSet( pKernels );
-        }
-
-        BuildProgramCachedExecutable(objCache.get(), pProgram);
-    }
-    catch( Exceptions::DeviceBackendExceptionBase& e )
-    {
-        // if an exception is caught, the LLVM error handler should be removed safely
-        // on windows, the LLVM error handler will not be removed automatically and
-        // will cause assertion failure in debug mode
-        llvm::remove_fatal_error_handler();
-
-        buildResult.LogS() << e.what() << "\n";
-        buildResult.SetBuildResult( e.GetErrorCode());
-        pProgram->SetBuildLog(buildResult.GetBuildLog());
-        throw e;
+      pProgram->SetKernelSet(pKernels);
     }
 
-    pProgram->SetBuildLog( buildResult.GetBuildLog());
-    return buildResult.GetBuildResult();
+    BuildProgramCachedExecutable(objCache.get(), pProgram);
+  } catch (Exceptions::DeviceBackendExceptionBase &e) {
+    // if an exception is caught, the LLVM error handler should be removed
+    // safely on windows, the LLVM error handler will not be removed
+    // automatically and will cause assertion failure in debug mode
+    llvm::remove_fatal_error_handler();
+
+    buildResult.LogS() << e.what() << "\n";
+    buildResult.SetBuildResult(e.GetErrorCode());
+    pProgram->SetBuildLog(buildResult.GetBuildLog());
+    throw e;
+  }
+
+  pProgram->SetBuildLog(buildResult.GetBuildLog());
+  return buildResult.GetBuildResult();
 }
 
-KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vectorSize) const
-{
-    KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
-    pProps->SetUseVTune(m_config->GetUseVTune());
-    pProps->SetVectorSize(vectorSize);
-    return pProps;
+KernelJITProperties *
+ProgramBuilder::CreateKernelJITProperties(unsigned int vectorSize) const {
+  KernelJITProperties *pProps = m_pBackendFactory->CreateKernelJITProperties();
+  pProps->SetUseVTune(m_config->GetUseVTune());
+  pProps->SetVectorSize(vectorSize);
+  return pProps;
 }
 
 KernelProperties *ProgramBuilder::CreateKernelProperties(
@@ -440,7 +429,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   bool canUseGlobalWorkOffset = true;
   if (kmd.CanUseGlobalWorkOffset.hasValue()) {
     canUseGlobalWorkOffset = kmd.CanUseGlobalWorkOffset.get();
-    kernelAttributes << "uses_global_Work_offset(" << canUseGlobalWorkOffset << ") ";
+    kernelAttributes << "uses_global_Work_offset(" << canUseGlobalWorkOffset
+                     << ") ";
   }
 
   if (kmd.hasVecLength()) {
@@ -501,13 +491,15 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   // KernelAnalysisPass is running in all scenarios.
   const bool HasNoBarrierPath =
       skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get();
-  const bool HasMatrixCall = skimd.HasMatrixCall.hasValue() && skimd.HasMatrixCall.get();
+  const bool HasMatrixCall =
+      skimd.HasMatrixCall.hasValue() && skimd.HasMatrixCall.get();
   const unsigned int localBufferSize = skimd.LocalBufferSize.get();
   const bool hasGlobalSync = skimd.KernelHasGlobalSync.get();
   const size_t scalarExecutionLength = skimd.KernelExecutionLength.get();
   const unsigned int scalarBufferStride = skimd.BarrierBufferSize.get();
   unsigned int privateMemorySize = skimd.PrivateMemorySize.get();
-  size_t VF = skimd.VectorizedWidth.hasValue() ? skimd.VectorizedWidth.get() : 1;
+  size_t VF =
+      skimd.VectorizedWidth.hasValue() ? skimd.VectorizedWidth.get() : 1;
 
   size_t vectorExecutionLength = 0;
   unsigned int vectorBufferStride = 0;
@@ -691,4 +683,6 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 
   return buildResult.GetBuildResult();
 }
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

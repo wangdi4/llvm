@@ -8,18 +8,18 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-inttoptr (	__global const float *in,
-		__global float *out, __global const ptrdiff_t intPtrArg1)
+inttoptr (  __global const float *in,
+    __global float *out, __global const ptrdiff_t intPtrArg1)
 {
-	int gid = get_global_id(0);
-	int * c = (int*) intPtrArg1;
-	// this add is done to make sure that inttoptr will be used (on c)
-	c = c + 2;
-	out[gid] = as_float((int) c);
+  int gid = get_global_id(0);
+  int * c = (int*) intPtrArg1;
+  // this add is done to make sure that inttoptr will be used (on c)
+  c = c + 2;
+  out[gid] = as_float((int) c);
 }

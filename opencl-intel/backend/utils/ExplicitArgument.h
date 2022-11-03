@@ -19,19 +19,23 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-  class ExplicitArgument : public FunctionArgument {
-  
-  public:
-    /// @brief Constructor
-    /// @param pValue           Explicit argument's value destination pointer
-    /// @param arg              OpenCL argument
-    ExplicitArgument(char* pValue, const KernelArgument& arg)
-     : FunctionArgument(pValue, TypeAlignment::getSize(arg), TypeAlignment::getAlignment(arg)) { }
-  
-  };
+class ExplicitArgument : public FunctionArgument {
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+public:
+  /// @brief Constructor
+  /// @param pValue           Explicit argument's value destination pointer
+  /// @param arg              OpenCL argument
+  ExplicitArgument(char *pValue, const KernelArgument &arg)
+      : FunctionArgument(pValue, TypeAlignment::getSize(arg),
+                         TypeAlignment::getAlignment(arg)) {}
+};
+
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __EXPLICIT_ARGUMENT_H__

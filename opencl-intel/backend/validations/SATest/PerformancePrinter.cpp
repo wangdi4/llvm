@@ -17,46 +17,35 @@
 
 using namespace Validation;
 
-PerformancePrinter::PerformancePrinter(const IProgramConfiguration * pProgramConfiguration,
-                                       const IRunComponentConfiguration* pRunConfiguration )
-{
-    const BERunOptions *pBERunConfig = static_cast<const BERunOptions *>(pRunConfiguration);
+PerformancePrinter::PerformancePrinter(
+    const IProgramConfiguration *pProgramConfiguration,
+    const IRunComponentConfiguration *pRunConfiguration) {
+  const BERunOptions *pBERunConfig =
+      static_cast<const BERunOptions *>(pRunConfiguration);
 
-    m_programName= pProgramConfiguration->GetProgramName();
-    m_IRFilename = pBERunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "");
-    m_JITFilename= pBERunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "");
-    std::string csvFilename= pBERunConfig->GetValue<std::string>(RC_BR_PERF_LOG, "-");
+  m_programName = pProgramConfiguration->GetProgramName();
+  m_IRFilename =
+      pBERunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "");
+  m_JITFilename = pBERunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "");
+  std::string csvFilename =
+      pBERunConfig->GetValue<std::string>(RC_BR_PERF_LOG, "-");
 
-    if( csvFilename == "-" )
-        m_pOutStream = &std::cout;
-    else
-    {
-        m_fOutStream.open(csvFilename.c_str(), std::ios_base::out | std::ios::app);
-        m_pOutStream = &m_fOutStream;
-    }
+  if (csvFilename == "-")
+    m_pOutStream = &std::cout;
+  else {
+    m_fOutStream.open(csvFilename.c_str(), std::ios_base::out | std::ios::app);
+    m_pOutStream = &m_fOutStream;
+  }
 }
 
 void PerformancePrinter::OnKernelSample(
-                    const std::string& kernel,
-                    unsigned int vectorSize,
-                    cl_long buildTicks,
-                    double buildSDMean,
-                    cl_long executionTicks,
-                    double executionSDMean,
-                    cl_long serializationTicks,
-                    double serializationSDMean,
-                    cl_long deserializationTicks,
-                    double deserializationSDMean
-                    )
-{
-    *m_pOutStream << m_programName << "."
-              << kernel << ","
-              << buildTicks << ","
-              << buildSDMean << ","
-              << executionTicks << ","
-              << executionSDMean << ","
-              << vectorSize << "," // Actualy vector size
-              << m_IRFilename << ","
-              << m_JITFilename
-              << std::endl;
+    const std::string &kernel, unsigned int vectorSize, cl_long buildTicks,
+    double buildSDMean, cl_long executionTicks, double executionSDMean,
+    cl_long serializationTicks, double serializationSDMean,
+    cl_long deserializationTicks, double deserializationSDMean) {
+  *m_pOutStream << m_programName << "." << kernel << "," << buildTicks << ","
+                << buildSDMean << "," << executionTicks << ","
+                << executionSDMean << "," << vectorSize
+                << "," // Actualy vector size
+                << m_IRFilename << "," << m_JITFilename << std::endl;
 }

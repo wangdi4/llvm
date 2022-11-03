@@ -17,8 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
-namespace CLElfLib
-{
+namespace CLElfLib {
 /******************************************************************************\
  Constructor: CElfReader::CElfReader
 \******************************************************************************/
@@ -38,38 +37,30 @@ CElfReader::CElfReader(const char *pElfBinary) {
 /******************************************************************************\
  Destructor: CElfReader::~CElfReader
 \******************************************************************************/
-CElfReader::~CElfReader()
-{
-}
+CElfReader::~CElfReader() {}
 
 /******************************************************************************\
  Member Function: CElfReader::Create
 \******************************************************************************/
-CElfReader* CElfReader::Create( 
-    const char* pElfBinary,
-    const size_t elfBinarySize )
-{
-    CElfReader* pNewReader = nullptr;
+CElfReader *CElfReader::Create(const char *pElfBinary,
+                               const size_t elfBinarySize) {
+  CElfReader *pNewReader = nullptr;
 
-    if( IsValidElf64( pElfBinary, elfBinarySize ) )
-    {
-      pNewReader = new CElfReader(pElfBinary);
-    }
+  if (IsValidElf64(pElfBinary, elfBinarySize)) {
+    pNewReader = new CElfReader(pElfBinary);
+  }
 
-    return pNewReader;
+  return pNewReader;
 }
 
 /******************************************************************************\
  Member Function: CElfReader::Delete
 \******************************************************************************/
-void CElfReader::Delete( 
-    CElfReader* pElfReader )
-{
-    if( pElfReader )
-    {
-        delete pElfReader;
-        pElfReader = nullptr;
-    }
+void CElfReader::Delete(CElfReader *pElfReader) {
+  if (pElfReader) {
+    delete pElfReader;
+    pElfReader = nullptr;
+  }
 }
 
 /******************************************************************************\
@@ -163,18 +154,14 @@ bool CElfReader::IsValidElf64(const char *pBinary, const size_t binarySize) {
  Member Function: GetElfHeader
  Description:     Returns a pointer to the requested section header
 \******************************************************************************/
-const SElf64Header* CElfReader::GetElfHeader()
-{
-    return m_pElfHeader;
-}
+const SElf64Header *CElfReader::GetElfHeader() { return m_pElfHeader; }
 
 /******************************************************************************\
  Member Function: GetSectionHeader
  Description:     Returns a pointer to the requested section header
 \******************************************************************************/
-const SElf64SectionHeader* CElfReader::GetSectionHeader( 
-    unsigned int sectionIndex )
-{
+const SElf64SectionHeader *
+CElfReader::GetSectionHeader(unsigned int sectionIndex) {
   const SElf64SectionHeader *pSectionHeader = nullptr;
   size_t indexedSectionHeaderOffset = 0;
   size_t entrySize = m_pElfHeader->SectionHeaderEntrySize;
@@ -187,12 +174,12 @@ const SElf64SectionHeader* CElfReader::GetSectionHeader(
                                                    indexedSectionHeaderOffset);
   }
 
-    return pSectionHeader;
+  return pSectionHeader;
 }
 
 /******************************************************************************\
  Member Function: GetSectionData
- Description:     Returns a pointer to and size of the requested section's 
+ Description:     Returns a pointer to and size of the requested section's
                   data
 \******************************************************************************/
 E_RETVAL CElfReader::GetSectionData(const unsigned int sectionIndex,
@@ -211,7 +198,7 @@ E_RETVAL CElfReader::GetSectionData(const unsigned int sectionIndex,
 
 /******************************************************************************\
  Member Function: GetSectionData
- Description:     Returns a pointer to and size of the requested section's 
+ Description:     Returns a pointer to and size of the requested section's
                   data
 \******************************************************************************/
 E_RETVAL CElfReader::GetSectionData(const char *pName, const char *&pData,
@@ -236,9 +223,7 @@ E_RETVAL CElfReader::GetSectionData(const char *pName, const char *&pData,
  Member Function: GetSectionName
  Description:     Returns a pointer to a NULL terminated string
 \******************************************************************************/
-const char* CElfReader::GetSectionName( 
-    unsigned int sectionIndex )
-{
+const char *CElfReader::GetSectionName(unsigned int sectionIndex) {
   const char *pName = nullptr;
   const SElf64SectionHeader *pSectionHeader = GetSectionHeader(sectionIndex);
 
@@ -246,7 +231,7 @@ const char* CElfReader::GetSectionName(
     pName = m_pNameTable + pSectionHeader->Name;
   }
 
-    return pName;
+  return pName;
 }
 
-} // namespace OclElfLib
+} // namespace CLElfLib

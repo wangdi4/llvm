@@ -87,10 +87,9 @@ extern bool DPCPPForceOptnone;
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
-extern "C"{
+extern "C" {
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
-
 }
 
 using namespace intel;
@@ -100,14 +99,11 @@ namespace DeviceBackend {
 
 // Load Table-Gen'erated VectInfo.gen
 static constexpr llvm::VectItem Vect[] = {
-  #include "VectInfo.gen"
+#include "VectInfo.gen"
 };
 static constexpr llvm::ArrayRef<llvm::VectItem> VectInfos(Vect);
 
-llvm::ArrayRef<llvm::VectItem>
-Optimizer::getVectInfos() {
-  return VectInfos;
-}
+llvm::ArrayRef<llvm::VectItem> Optimizer::getVectInfos() { return VectInfos; }
 
 const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
   static const StringSet<> VPlanMaskedFuncs =
@@ -136,15 +132,15 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   if (UnitAtATime) {
     // If a function has internal linkage type this pass can eliminate one or
     // even more arguments in a function call. Due to VPO passes are split
-    // in the optimizer that will lead to a mismatch between number of parameters in
-    // the function callee and its vectorized form. Therefore, this pass should
-    // be launched before VPO.
+    // in the optimizer that will lead to a mismatch between number of
+    // parameters in the function callee and its vectorized form. Therefore,
+    // this pass should be launched before VPO.
     PM->add(llvm::createDeadArgEliminationPass());
   }
 
   if (UnitAtATime) {
-    PM->add(llvm::createGlobalOptimizerPass());    // Optimize out global vars
-    PM->add(llvm::createIPSCCPPass());             // IP SCCP
+    PM->add(llvm::createGlobalOptimizerPass()); // Optimize out global vars
+    PM->add(llvm::createIPSCCPPass());          // IP SCCP
   }
 
   PM->add(llvm::createInstSimplifyLegacyPass());
@@ -157,14 +153,14 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
 
   // Break up aggregate allocas
   PM->add(llvm::createSROAPass());
-  PM->add(llvm::createEarlyCSEPass());           // Catch trivial redundancies
+  PM->add(llvm::createEarlyCSEPass()); // Catch trivial redundancies
   PM->add(llvm::createInstSimplifyLegacyPass());
   PM->add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
   PM->add(llvm::createJumpThreadingPass());        // Thread jumps.
   // Propagate conditionals
   PM->add(llvm::createCorrelatedValuePropagationPass());
-  PM->add(llvm::createCFGSimplificationPass());      // Merge & remove BBs
-  PM->add(llvm::createInstructionCombiningPass());   // Combine silly seq's
+  PM->add(llvm::createCFGSimplificationPass());    // Merge & remove BBs
+  PM->add(llvm::createInstructionCombiningPass()); // Combine silly seq's
 
   PM->add(llvm::createTailCallEliminationPass()); // Eliminate tail calls
   PM->add(llvm::createCFGSimplificationPass());   // Merge & remove BBs
@@ -177,8 +173,9 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createLoopDeletionPass());   // Delete dead loops
 
   // If a function appeared in a loop is a candidate to be inlined,
-  // LoopUnroll pass refuses to unroll the loop, so we should inline the function
-  // first to help unroller to decide if it's worthy to unroll the loop.
+  // LoopUnroll pass refuses to unroll the loop, so we should inline the
+  // function first to help unroller to decide if it's worthy to unroll the
+  // loop.
   PM->add(llvm::createFunctionInliningPass(16384)); // Inline (not only small)
                                                     // functions
   if (UnrollLoops) {
@@ -195,8 +192,8 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     const int thresholdBase = 16;
     if (rtLoopUnrollFactor > 1) {
       const int threshold = thresholdBase * rtLoopUnrollFactor;
-      PM->add(llvm::createLoopUnrollPass(OptLevel, false, false,
-                                         threshold, rtLoopUnrollFactor, 0, 1));
+      PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, threshold,
+                                         rtLoopUnrollFactor, 0, 1));
     }
   }
   // Break up aggregate allocas
@@ -207,7 +204,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   if (OptLevel > 1)
     PM->add(llvm::createGVNPass());     // Remove redundancies
   PM->add(llvm::createMemCpyOptPass()); // Remove memcpy / form memset
-  PM->add(llvm::createSCCPPass()); // Constant prop with SCCP
+  PM->add(llvm::createSCCPPass());      // Constant prop with SCCP
 
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
@@ -273,11 +270,11 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   if (isFpgaEmulator) {
-      PM.add(createDPCPPRewritePipesLegacyPass());
-      PM.add(createChannelPipeTransformationLegacyPass());
-      PM.add(createPipeIOTransformationLegacyPass());
-      PM.add(createPipeOrderingLegacyPass());
-      PM.add(createAutorunReplicatorLegacyPass());
+    PM.add(createDPCPPRewritePipesLegacyPass());
+    PM.add(createChannelPipeTransformationLegacyPass());
+    PM.add(createPipeIOTransformationLegacyPass());
+    PM.add(createPipeOrderingLegacyPass());
+    PM.add(createAutorunReplicatorLegacyPass());
   }
 
   // Adding module passes.
@@ -325,9 +322,8 @@ static void populatePassesPostFailCheck(
     llvm::legacy::PassManagerBase &PM, llvm::Module &M,
     SmallVectorImpl<Module *> &pRtlModuleList, unsigned OptLevel,
     const intel::OptimizerConfig &pConfig, bool isOcl20, bool isFpgaEmulator,
-    bool UnrollLoops, bool UseVplan, bool IsSPIRV,
-    bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
-    bool UseTLSGlobals) {
+    bool UnrollLoops, bool UseVplan, bool IsSPIRV, bool IsSYCL, bool IsOMP,
+    DebuggingServiceType debugType, bool UseTLSGlobals) {
   bool isProfiling = pConfig.GetProfilingFlag();
   bool HasGatherScatter = pConfig.GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
@@ -372,7 +368,6 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0)
     PM.add(llvm::createInferArgumentAliasLegacyPass());
   PM.add(llvm::createUnifyFunctionExitNodesPass());
-
 
   PM.add(llvm::createBasicAAWrapperPass());
 
@@ -441,13 +436,13 @@ static void populatePassesPostFailCheck(
         // Merge returns : this pass ensures that the function has at most one
         // return instruction.
         PM.add(createUnifyFunctionExitNodesPass());
-        PM.add(createCFGSimplificationPass(
-            SimplifyCFGOptions()
-            .bonusInstThreshold(1)
-            .forwardSwitchCondToPhi(false)
-            .convertSwitchToLookupTable(false)
-            .needCanonicalLoops(true)
-            .sinkCommonInsts(true)));
+        PM.add(
+            createCFGSimplificationPass(SimplifyCFGOptions()
+                                            .bonusInstThreshold(1)
+                                            .forwardSwitchCondToPhi(false)
+                                            .convertSwitchToLookupTable(false)
+                                            .needCanonicalLoops(true)
+                                            .sinkCommonInsts(true)));
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
         PM.add(createDeadCodeEliminationPass());
@@ -594,7 +589,8 @@ static void populatePassesPostFailCheck(
   else
     PM.add(llvm::createAddImplicitArgsLegacyPass());
 
-  PM.add(llvm::createResolveWICallLegacyPass(pConfig.GetUniformWGSize(), UseTLSGlobals));
+  PM.add(llvm::createResolveWICallLegacyPass(pConfig.GetUniformWGSize(),
+                                             UseTLSGlobals));
   PM.add(llvm::createLocalBuffersLegacyPass(UseTLSGlobals));
   // clang converts OCL's local to global.
   // createLocalBuffersLegacyPass changes the local allocation from global to a
@@ -633,7 +629,7 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createBuiltinCallToInstLegacyPass());
   }
 
-// funcPassMgr->add(new intel::SelectLower());
+  // funcPassMgr->add(new intel::SelectLower());
 
 #ifdef _DEBUG
   PM.add(llvm::createVerifierPass());
@@ -647,12 +643,13 @@ static void populatePassesPostFailCheck(
       // so inlining was done more agressively.
       // This was transferred to AVX-512 SKX/CNL through HasGatherScatter flag.
       // So far there's no data that would suggest dropping this customization.
-      PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
+      PM.add(llvm::createFunctionInliningPass(
+          4096)); // Inline (not only small) functions.
     else
-      PM.add(llvm::createFunctionInliningPass());     // Inline small functions
+      PM.add(llvm::createFunctionInliningPass()); // Inline small functions
   } else if (isOcl20) {
-    // Ensure that the built-in functions to be processed by PatchCallbackArgsPass
-    // are inlined.
+    // Ensure that the built-in functions to be processed by
+    // PatchCallbackArgsPass are inlined.
     PM.add(llvm::createAlwaysInlinerLegacyPass());
   }
   // Some built-in functions contain calls to external functions which take
@@ -676,18 +673,19 @@ static void populatePassesPostFailCheck(
   // Only support CPU Device
   if (OptLevel > 0 && !isFpgaEmulator) {
     PM.add(llvm::createLICMPass());      // Hoist loop invariants
-    PM.add(llvm::createLoopIdiomPass()); // Transform simple loops to non-loop form, e.g. memcpy
-    PM.add(createLoopDeletionPass()); // Delete dead loops
+    PM.add(llvm::createLoopIdiomPass()); // Transform simple loops to non-loop
+                                         // form, e.g. memcpy
+    PM.add(createLoopDeletionPass());    // Delete dead loops
   }
 
   // PrepareKernelArgsLegacyPass must run in debugging mode as well
   PM.add(llvm::createPrepareKernelArgsLegacyPass(UseTLSGlobals));
 
-  if ( OptLevel > 0 ) {
+  if (OptLevel > 0) {
     // These passes come after PrepareKernelArgsLegacyPass to eliminate the
     // redundancy reducced by it
-    PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
-    PM.add(llvm::createCFGSimplificationPass());   // Simplify CFG
+    PM.add(llvm::createDeadCodeEliminationPass());  // Delete dead instructions
+    PM.add(llvm::createCFGSimplificationPass());    // Simplify CFG
     PM.add(llvm::createInstructionCombiningPass()); // Instruction combining
     PM.add(llvm::createDeadStoreEliminationPass()); // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
@@ -714,7 +712,7 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
     llvm::Module &pModule, llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
     const intel::OptimizerConfig &pConfig)
     : Optimizer(pModule, RtlModules, pConfig) {
-  TargetMachine* targetMachine = pConfig.GetTargetMachine();
+  TargetMachine *targetMachine = pConfig.GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
 
   unsigned int OptLevel = 3;
@@ -751,9 +749,9 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
                              m_IsFpgaEmulator, UnrollLoops, m_IsSPIRV);
 
   populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
-                              m_IsOcl20, m_IsFpgaEmulator,
-                              UnrollLoops, EnableVPlan, m_IsSPIRV, m_IsSYCL,
-                              m_IsOMP, m_debugType, m_UseTLSGlobals);
+                              m_IsOcl20, m_IsFpgaEmulator, UnrollLoops,
+                              EnableVPlan, m_IsSPIRV, m_IsSYCL, m_IsOMP,
+                              m_debugType, m_UseTLSGlobals);
 }
 
 /// Customized diagnostic handler to be registered to LLVMContext before running
@@ -840,8 +838,8 @@ bool Optimizer::hasUnsupportedRecursion() {
 }
 
 bool Optimizer::hasFpgaPipeDynamicAccess() const {
-  return !GetInvalidFunctions(
-      InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS).empty();
+  return !GetInvalidFunctions(InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS)
+              .empty();
 }
 
 bool Optimizer::hasVectorVariantFailure() const {
@@ -860,12 +858,12 @@ std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) const {
     auto GVM = DPCPPKernelMetadataAPI::GlobalVariableMetadataAPI(&GV);
 
     switch (Ty) {
-      case FPGA_DEPTH_IS_IGNORED:
-        if (GVM.DepthIsIgnored.hasValue() && GVM.DepthIsIgnored.get()) {
-          assert(GV.getName().endswith(".pipe") &&
-              "Only global pipes are expected");
-          Res.push_back(std::string(GV.getName().drop_back(5)));
-        }
+    case FPGA_DEPTH_IS_IGNORED:
+      if (GVM.DepthIsIgnored.hasValue() && GVM.DepthIsIgnored.get()) {
+        assert(GV.getName().endswith(".pipe") &&
+               "Only global pipes are expected");
+        Res.push_back(std::string(GV.getName().drop_back(5)));
+      }
     }
   }
 
@@ -890,7 +888,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
       break;
     case FPGA_PIPE_DYNAMIC_ACCESS:
       Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&
-        KMD.FpgaPipeDynamicAccess.get();
+                KMD.FpgaPipeDynamicAccess.get();
       break;
     case VECTOR_VARIANT_FAILURE:
       Invalid = F.hasFnAttribute(llvm::KernelAttribute::VectorVariantFailure);
@@ -903,7 +901,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
       MStr << std::string(F.getName());
       if (auto SP = F.getSubprogram()) {
         MStr << " at ";
-        MStr << "file: " << SP->getFilename () << ", line:" << SP->getLine();
+        MStr << "file: " << SP->getFilename() << ", line:" << SP->getLine();
       }
       MStr.str();
       Res.push_back(std::move(Message));
@@ -955,4 +953,6 @@ void OptimizerOCLLegacy::initializePasses() {
 
   initializeOCLPasses(Registry);
 }
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

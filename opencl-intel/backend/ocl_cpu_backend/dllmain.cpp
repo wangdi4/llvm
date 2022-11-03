@@ -16,20 +16,20 @@
 
 #define DEVICE_BACKEND_EXPORTS
 
-#include "cl_dev_backend_api.h"
 #include "BackendConfiguration.h"
-#include "ServiceFactory.h"
-#include "CPUDeviceBackendFactory.h"
 #include "BuiltinModuleManager.h"
-#include "ImageCallbackManager.h"
+#include "CPUDeviceBackendFactory.h"
 #include "Compiler.h"
+#include "ImageCallbackManager.h"
 #include "LibraryProgramManager.h"
-#include "llvm/Support/Mutex.h"
-#include "debuggingservicewrapper.h"
+#include "ServiceFactory.h"
 #include "cl_cpu_detect.h"
+#include "cl_dev_backend_api.h"
 #include "cl_disable_sys_dialog.h"
 #include "cl_shutdown.h"
+#include "debuggingservicewrapper.h"
 #include "ocl_mutex.h"
+#include "llvm/Support/Mutex.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -53,159 +53,138 @@ USE_SHUTDOWN_HANDLER(nullptr);
 
 #if defined(_WIN32)
 
-BOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-                     )
-{
-    switch (ul_reason_for_call)
-    {
-    case DLL_PROCESS_ATTACH:
-        // FIXME: Calling this from dll_init on Linux can cause problems
-        //        because the constructors of static objects in other files
-        //        haven't necessarily been called before we get there.  By
-        //        extension, it seems like a bad idea to call it from here
-        //        on Windows.  While it may work, the behavior would be
-        //        inconsistent.
-        // Compiler::Init();
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
+                      LPVOID lpReserved) {
+  switch (ul_reason_for_call) {
+  case DLL_PROCESS_ATTACH:
+    // FIXME: Calling this from dll_init on Linux can cause problems
+    //        because the constructors of static objects in other files
+    //        haven't necessarily been called before we get there.  By
+    //        extension, it seems like a bad idea to call it from here
+    //        on Windows.  While it may work, the behavior would be
+    //        inconsistent.
+    // Compiler::Init();
 #if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
-        Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
+    Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
 #endif
-        break;
-    case DLL_THREAD_ATTACH:
-    case DLL_THREAD_DETACH:
-        break;
-    case DLL_PROCESS_DETACH:
-        if( s_init_count > 0 )
-        {
-            // Dll is unloaded prior to Terminate call - in this case the TerminateDeviceBackend
-            // method should not attempts to free the resources, since the system
-            // could be in non-stable state
-            s_ignore_termination = true;
-        }
-
-        if( !s_ignore_termination)
-        {
-            Compiler::Terminate();
-        }
-        break;
+    break;
+  case DLL_THREAD_ATTACH:
+  case DLL_THREAD_DETACH:
+    break;
+  case DLL_PROCESS_DETACH:
+    if (s_init_count > 0) {
+      // Dll is unloaded prior to Terminate call - in this case the
+      // TerminateDeviceBackend method should not attempts to free the
+      // resources, since the system could be in non-stable state
+      s_ignore_termination = true;
     }
-    return TRUE;
+
+    if (!s_ignore_termination) {
+      Compiler::Terminate();
+    }
+    break;
+  }
+  return TRUE;
 }
 #else
-void __attribute__ ((constructor)) dll_init(void)
-{
+void __attribute__((constructor)) dll_init(void) {
   // FIXME: Calling this from here can cause problems because the constructors
   //        of static objects in other files haven't necessarily been called
   //        before we get here.
-  //Compiler::Init();
+  // Compiler::Init();
 }
 
-void __attribute__ ((destructor)) dll_fini(void)
-{
-    if( s_init_count > 0 )
-    {
-        s_ignore_termination = true;
-    }
+void __attribute__((destructor)) dll_fini(void) {
+  if (s_init_count > 0) {
+    s_ignore_termination = true;
+  }
 
-    if( !s_ignore_termination)
-    {
-        Compiler::Terminate();
-    }
+  if (!s_ignore_termination) {
+    Compiler::Terminate();
+  }
 }
 #endif
-
-
 
 // Defines the exported functions for the DLL application.
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
-    ///@brief
-    ///
-    LLVM_BACKEND_API cl_dev_err_code  InitDeviceBackend(const ICLDevBackendOptions* pBackendOptions)
-    {
-        OclAutoMutex lock(&s_init_lock);
+///@brief
+///
+LLVM_BACKEND_API cl_dev_err_code
+InitDeviceBackend(const ICLDevBackendOptions *pBackendOptions) {
+  OclAutoMutex lock(&s_init_lock);
 
-        // The compiler can only be initialized once, even if the backend is
-        //   terminated.  The s_init_count check is not sufficient.
-        if (!s_compiler_initialized)
-        {
-            Compiler::Init();
-            s_compiler_initialized = true;
-        }
+  // The compiler can only be initialized once, even if the backend is
+  //   terminated.  The s_init_count check is not sufficient.
+  if (!s_compiler_initialized) {
+    Compiler::Init();
+    s_compiler_initialized = true;
+  }
 
-        ++s_init_count;
-        if( s_init_count > 1 )
-        {
-            //
-            // Initialization was already completed - just return the result
-            //
-            return s_init_result;
-        }
+  ++s_init_count;
+  if (s_init_count > 1) {
+    //
+    // Initialization was already completed - just return the result
+    //
+    return s_init_result;
+  }
 
-        try
-        {
-            BackendConfiguration::Init();
-            Compiler::InitGlobalState( BackendConfiguration::GetInstance().GetGlobalCompilerConfig(pBackendOptions));
-            ServiceFactory::Init();
-            CPUDeviceBackendFactory::Init();
-            DeviceMode targetDev = CPU_DEVICE;
-            if (pBackendOptions) {
-              targetDev = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
-                  (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
-            }
-            BuiltinModuleManager::Init(FPGA_EMU_DEVICE == targetDev);
-            LibraryProgramManager::Init();
-            ImageCallbackManager::Init();
-            // Attempt to initialize the debug service. If debugging is
-            // disabled this is a no-op returning success.
-            //
-            if (CL_DEV_FAILED(DebuggingServiceWrapper::GetInstance().Init()))
-                s_init_result = CL_DEV_ERROR_FAIL;
-            else
-                s_init_result = CL_DEV_SUCCESS;
-        }
-        catch( std::runtime_error& )
-        {
-            s_init_result = CL_DEV_ERROR_FAIL;
-        }
-        return s_init_result;
-
+  try {
+    BackendConfiguration::Init();
+    Compiler::InitGlobalState(
+        BackendConfiguration::GetInstance().GetGlobalCompilerConfig(
+            pBackendOptions));
+    ServiceFactory::Init();
+    CPUDeviceBackendFactory::Init();
+    DeviceMode targetDev = CPU_DEVICE;
+    if (pBackendOptions) {
+      targetDev = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
+          (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
     }
+    BuiltinModuleManager::Init(FPGA_EMU_DEVICE == targetDev);
+    LibraryProgramManager::Init();
+    ImageCallbackManager::Init();
+    // Attempt to initialize the debug service. If debugging is
+    // disabled this is a no-op returning success.
+    //
+    if (CL_DEV_FAILED(DebuggingServiceWrapper::GetInstance().Init()))
+      s_init_result = CL_DEV_ERROR_FAIL;
+    else
+      s_init_result = CL_DEV_SUCCESS;
+  } catch (std::runtime_error &) {
+    s_init_result = CL_DEV_ERROR_FAIL;
+  }
+  return s_init_result;
+}
 
-    LLVM_BACKEND_API void TerminateDeviceBackend()
-    {
-        if( s_ignore_termination )
-        {
-            return;
-        }
+LLVM_BACKEND_API void TerminateDeviceBackend() {
+  if (s_ignore_termination) {
+    return;
+  }
 
-        OclAutoMutex lock(&s_init_lock);
-        //
-        // Only perform the termination when initialization count drops to zero
-        //
-        --s_init_count;
-        assert( s_init_count >= 0 );
-        if( s_init_count > 0 )
-        {
-            return;
-        }
+  OclAutoMutex lock(&s_init_lock);
+  //
+  // Only perform the termination when initialization count drops to zero
+  //
+  --s_init_count;
+  assert(s_init_count >= 0);
+  if (s_init_count > 0) {
+    return;
+  }
 
-        BuiltinModuleManager::Terminate();
-        ImageCallbackManager::Terminate();
-        LibraryProgramManager::Terminate();
-        CPUDeviceBackendFactory::Terminate();
-        DebuggingServiceWrapper::GetInstance().Terminate();
-        ServiceFactory::Terminate();
-        BackendConfiguration::Terminate();
-    }
+  BuiltinModuleManager::Terminate();
+  ImageCallbackManager::Terminate();
+  LibraryProgramManager::Terminate();
+  CPUDeviceBackendFactory::Terminate();
+  DebuggingServiceWrapper::GetInstance().Terminate();
+  ServiceFactory::Terminate();
+  BackendConfiguration::Terminate();
+}
 
-    LLVM_BACKEND_API ICLDevBackendServiceFactory* GetDeviceBackendFactory()
-    {
-        return ServiceFactory::GetInstance();
-    }
+LLVM_BACKEND_API ICLDevBackendServiceFactory *GetDeviceBackendFactory() {
+  return ServiceFactory::GetInstance();
+}
 #ifdef __cplusplus
 }
 #endif

@@ -30,7 +30,7 @@
 #include "task_dispatcher.h"
 #include <numeric>
 
-#if defined (_WIN32)
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -39,29 +39,36 @@
 #define getG(color) ((color >> 8) & 0xFF)
 #define getB(color) (color & 0xFF)
 
-// This string size is calculated as 6x(the maximal number of digits assuming size_t is 64 bit) + 8
+// This string size is calculated as 6x(the maximal number of digits assuming
+// size_t is 64 bit) + 8
 #define GPA_RANGE_STRING_SIZE 130
 
-#define COLOR(R,G,B)    (((R)<<16) + ((G)<<8) + (B))
+#define COLOR(R, G, B) (((R) << 16) + ((G) << 8) + (B))
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL;
 unsigned int NDRange::RGBTable[COLOR_TABLE_SIZE] = {
-    COLOR(204,0,102),    COLOR(153,51,153),    COLOR(102,51,204),    COLOR(51,0,253),
-    COLOR(102,153,255),    COLOR(0,204,204),    COLOR(153,255,204),    COLOR(0,153,102),
-    COLOR(0,51,0),        COLOR(204,255,51),    COLOR(255,255,0),    COLOR(204,51,0),
-    COLOR(255,153,255),    COLOR(204,102,255),    COLOR(51,0,51),        COLOR(51,0,153),
-    COLOR(0,102,204),    COLOR(51,255,255),    COLOR(0,204,153),    COLOR(0,204,102),
-    COLOR(102,204,51),    COLOR(153,204,0),    COLOR(255,255,102),    COLOR(255,102,0),
-    COLOR(255,153,204),    COLOR(204,51,204),    COLOR(153,51,255),    COLOR(51,51,102),
-    COLOR(0,0,204),        COLOR(153,255,255),    COLOR(51,255,204),    COLOR(51,255,153),
-    COLOR(102,255,51),    COLOR(51,102,0),    COLOR(255,255,204),    COLOR(255,102,51),
-    COLOR(102,0,51),    COLOR(153,0,102),    COLOR(102,0,102),    COLOR(102,102,255),
-    COLOR(0,0,153),        COLOR(51,204,255),    COLOR(0,51,51),        COLOR(153,204,153),
-    COLOR(0,204,51),    COLOR(102,153,51),    COLOR(153,153,102),    COLOR(204,102,51),
-    COLOR(153,0,51),    COLOR(255,0,102),    COLOR(204,0,204),    COLOR(102,0,204),
-    COLOR(51,51,255),    COLOR(0,51,102),    COLOR(0,153,153),    COLOR(0,255,153),
-    COLOR(0,153,51),    COLOR(0,153,0),        COLOR(204,255,0),    COLOR(255,204,0),        
-    COLOR(204,204,204),    COLOR(153,153,153),    COLOR(102,102,102),    COLOR(51,51,51)};
+    COLOR(204, 0, 102),   COLOR(153, 51, 153),  COLOR(102, 51, 204),
+    COLOR(51, 0, 253),    COLOR(102, 153, 255), COLOR(0, 204, 204),
+    COLOR(153, 255, 204), COLOR(0, 153, 102),   COLOR(0, 51, 0),
+    COLOR(204, 255, 51),  COLOR(255, 255, 0),   COLOR(204, 51, 0),
+    COLOR(255, 153, 255), COLOR(204, 102, 255), COLOR(51, 0, 51),
+    COLOR(51, 0, 153),    COLOR(0, 102, 204),   COLOR(51, 255, 255),
+    COLOR(0, 204, 153),   COLOR(0, 204, 102),   COLOR(102, 204, 51),
+    COLOR(153, 204, 0),   COLOR(255, 255, 102), COLOR(255, 102, 0),
+    COLOR(255, 153, 204), COLOR(204, 51, 204),  COLOR(153, 51, 255),
+    COLOR(51, 51, 102),   COLOR(0, 0, 204),     COLOR(153, 255, 255),
+    COLOR(51, 255, 204),  COLOR(51, 255, 153),  COLOR(102, 255, 51),
+    COLOR(51, 102, 0),    COLOR(255, 255, 204), COLOR(255, 102, 51),
+    COLOR(102, 0, 51),    COLOR(153, 0, 102),   COLOR(102, 0, 102),
+    COLOR(102, 102, 255), COLOR(0, 0, 153),     COLOR(51, 204, 255),
+    COLOR(0, 51, 51),     COLOR(153, 204, 153), COLOR(0, 204, 51),
+    COLOR(102, 153, 51),  COLOR(153, 153, 102), COLOR(204, 102, 51),
+    COLOR(153, 0, 51),    COLOR(255, 0, 102),   COLOR(204, 0, 204),
+    COLOR(102, 0, 204),   COLOR(51, 51, 255),   COLOR(0, 51, 102),
+    COLOR(0, 153, 153),   COLOR(0, 255, 153),   COLOR(0, 153, 51),
+    COLOR(0, 153, 0),     COLOR(204, 255, 0),   COLOR(255, 204, 0),
+    COLOR(204, 204, 204), COLOR(153, 153, 153), COLOR(102, 102, 102),
+    COLOR(51, 51, 51)};
 
 AtomicCounter NDRange::RGBTableCounter;
 
@@ -69,9 +76,10 @@ using namespace Intel::OpenCL::BuiltInKernels;
 using Intel::OpenCL::Utils::g_pUserLogger;
 
 /**
- * Debug prints flag. Required for (weird) platforms like Linux, where our logger does not work.
+ * Debug prints flag. Required for (weird) platforms like Linux, where our
+ * logger does not work.
  */
-//#define _DEBUG_PRINT
+// #define _DEBUG_PRINT
 
 #if defined(__INCLUDE_MKL__) && defined(__OMP2TBB__)
 extern "C" void __omp2tbb_set_thread_max_concurency(int max_concurency);
@@ -79,124 +87,110 @@ extern "C" void __omp2tbb_set_thread_max_concurency(int max_concurency);
 
 ///////////////////////////////////////////////////////////////////////////
 // Base dispatcher command
-DispatcherCommand::DispatcherCommand(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
-{
-    assert(pTD && "Expected non NULL TaskDispatcher");
-    assert(pCmd && "Expected non NULL command descriptor");
-    m_pLogDescriptor = pTD->m_pLogDescriptor;
-    m_iLogHandle = pTD->m_iLogHandle;
-    m_pGPAData = pTD->m_pGPAData;
+DispatcherCommand::DispatcherCommand(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd)
+    : m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false) {
+  assert(pTD && "Expected non NULL TaskDispatcher");
+  assert(pCmd && "Expected non NULL command descriptor");
+  m_pLogDescriptor = pTD->m_pLogDescriptor;
+  m_iLogHandle = pTD->m_iLogHandle;
+  m_pGPAData = pTD->m_pGPAData;
 #if defined(USE_ITT)
-    m_ittID = __itt_null;
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-        // unique ID to pass all tasks, and markers.
-        m_ittID = __itt_id_make(&m_ittID, (unsigned long long)this);
-        __itt_id_create(m_pGPAData->pDeviceDomain, m_ittID);
-    }
+  m_ittID = __itt_null;
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+    // unique ID to pass all tasks, and markers.
+    m_ittID = __itt_id_make(&m_ittID, (unsigned long long)this);
+    __itt_id_create(m_pGPAData->pDeviceDomain, m_ittID);
+  }
 #endif
 }
 
-DispatcherCommand::~DispatcherCommand()
-{
+DispatcherCommand::~DispatcherCommand() {
 #if defined(USE_ITT)
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-        __itt_id_destroy(m_pGPAData->pDeviceDomain, m_ittID);
-    }
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+    __itt_id_destroy(m_pGPAData->pDeviceDomain, m_ittID);
+  }
 #endif
 }
 
-void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr)
-{
-    if ( CL_COMPLETE == uStatus )
-    {
-        void* pTaskPtr = cmd->device_agent_data;
-        // If the ITask pointer still exists we need reduce reference count
-        // and release ITask object
-        if ( nullptr != pTaskPtr )
-        {
-            ITaskBase* pTask = static_cast<ITaskBase*>(pTaskPtr);
-            pTask->Release();
-        }
-        m_bCompleted = true;
+void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc *cmd,
+                                                   unsigned uStatus, int iErr) {
+  if (CL_COMPLETE == uStatus) {
+    void *pTaskPtr = cmd->device_agent_data;
+    // If the ITask pointer still exists we need reduce reference count
+    // and release ITask object
+    if (nullptr != pTaskPtr) {
+      ITaskBase *pTask = static_cast<ITaskBase *>(pTaskPtr);
+      pTask->Release();
     }
-    m_pTaskDispatcher->NotifyCommandStatusChange(cmd, uStatus, iErr);
+    m_bCompleted = true;
+  }
+  m_pTaskDispatcher->NotifyCommandStatusChange(cmd, uStatus, iErr);
 }
 
-cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
-                                                        const KernelArgument* pParams,
-                                                        const unsigned int* pMemObjectIndx,
-                                                        unsigned int uiMemObjCount,
-                                                        std::vector<cl_mem_obj_descriptor*>* devMemObjects,
-                                                        std::vector<char>* kernelParamsVec)
-{
-    char* pLockedParams = (char*)pTargetTaskParam;
+cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(
+    void *pTargetTaskParam, const KernelArgument *pParams,
+    const unsigned int *pMemObjectIndx, unsigned int uiMemObjCount,
+    std::vector<cl_mem_obj_descriptor *> *devMemObjects,
+    std::vector<char> *kernelParamsVec) {
+  char *pLockedParams = (char *)pTargetTaskParam;
 
 #ifdef OCLDEVICE_PLUGINS
-    // save copy of kernel params, because *pLockedParams will be changed below
-    char* pKernelParams = &(*kernelParamsVec)[0];
-    size_t sizeParams = (*kernelParamsVec).size();
-    MEMCPY_S(pKernelParams, sizeParams, pLockedParams, sizeParams);
+  // save copy of kernel params, because *pLockedParams will be changed below
+  char *pKernelParams = &(*kernelParamsVec)[0];
+  size_t sizeParams = (*kernelParamsVec).size();
+  MEMCPY_S(pKernelParams, sizeParams, pLockedParams, sizeParams);
 #endif
 
-    // Lock required memory objects, in place operation
-    for(unsigned int i=0; i<uiMemObjCount; ++i)
-    {
-        const KernelArgument&   param       = pParams[pMemObjectIndx[i]];
-        size_t                      stOffset    = param.OffsetInBytes;
-        IOCLDevMemoryObject*        memObj     = *(IOCLDevMemoryObject**)(pLockedParams+stOffset);
+  // Lock required memory objects, in place operation
+  for (unsigned int i = 0; i < uiMemObjCount; ++i) {
+    const KernelArgument &param = pParams[pMemObjectIndx[i]];
+    size_t stOffset = param.OffsetInBytes;
+    IOCLDevMemoryObject *memObj =
+        *(IOCLDevMemoryObject **)(pLockedParams + stOffset);
 
-        assert(((KRNL_ARG_PTR_CONST == param.Ty) ||
-                (KRNL_ARG_PTR_GLOBAL == param.Ty) || (nullptr != memObj)) &&
-               "NULL is not allowed for non buffer arguments");
-        if (nullptr != memObj)
-        {
-            char* loc = pLockedParams+stOffset;
-            cl_mem_obj_descriptor* objHandle;
-            memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&objHandle );
+    assert(((KRNL_ARG_PTR_CONST == param.Ty) ||
+            (KRNL_ARG_PTR_GLOBAL == param.Ty) || (nullptr != memObj)) &&
+           "NULL is not allowed for non buffer arguments");
+    if (nullptr != memObj) {
+      char *loc = pLockedParams + stOffset;
+      cl_mem_obj_descriptor *objHandle;
+      memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0,
+                                       (void **)&objHandle);
 #ifdef OCLDEVICE_PLUGINS
-            *(cl_mem_obj_descriptor**)(pKernelParams+stOffset) = objHandle;
+      *(cl_mem_obj_descriptor **)(pKernelParams + stOffset) = objHandle;
 #endif
-            if ( objHandle->memObjType == CL_MEM_OBJECT_BUFFER ||
-                 objHandle->memObjType == CL_MEM_OBJECT_PIPE )
-            {
-                *(void**)loc = objHandle->pData;
-            }
-            else
-            {
-                *(void**)loc = objHandle->imageAuxData;
-            }
-            if ( nullptr != devMemObjects )
-            {
-                devMemObjects->push_back(objHandle);
-            }
-        }
-    };
+      if (objHandle->memObjType == CL_MEM_OBJECT_BUFFER ||
+          objHandle->memObjType == CL_MEM_OBJECT_PIPE) {
+        *(void **)loc = objHandle->pData;
+      } else {
+        *(void **)loc = objHandle->imageAuxData;
+      }
+      if (nullptr != devMemObjects) {
+        devMemObjects->push_back(objHandle);
+      }
+    }
+  };
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // CommandBaseClass
 template <class ITaskClass>
-    bool CommandBaseClass<ITaskClass>::SetAsSyncPoint()
-{
-    bool Expected = false;
-    return m_isSyncPoint.compare_exchange_strong(Expected, true);
+bool CommandBaseClass<ITaskClass>::SetAsSyncPoint() {
+  bool Expected = false;
+  return m_isSyncPoint.compare_exchange_strong(Expected, true);
 }
 
 template <class ITaskClass>
-    bool CommandBaseClass<ITaskClass>::CompleteAndCheckSyncPoint()
-{
-    // The queue some how need to be signaled stop processing of the job list.
-    // On other side RT should be aware that the command was done.
-    // And it should be done by single instruction, otherwise there is a race
-    bool Expected = false;
-    (void)m_completedSync.compare_exchange_strong(Expected, true);
+bool CommandBaseClass<ITaskClass>::CompleteAndCheckSyncPoint() {
+  // The queue some how need to be signaled stop processing of the job list.
+  // On other side RT should be aware that the command was done.
+  // And it should be done by single instruction, otherwise there is a race
+  bool Expected = false;
+  (void)m_completedSync.compare_exchange_strong(Expected, true);
 
-    return m_isSyncPoint;
+  return m_isSyncPoint;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -221,127 +215,130 @@ ReadWriteMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
   return CL_DEV_SUCCESS;
 }
 
-ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
-{
+ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher *pTD,
+                                       cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
+
+cl_dev_err_code ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if ((CL_DEV_CMD_READ != cmd->type) && (CL_DEV_CMD_WRITE != cmd->type)) {
+    return CL_DEV_INVALID_COMMAND_TYPE;
+  }
+
+  if (sizeof(cl_dev_cmd_param_rw) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  cl_dev_cmd_param_rw *cmdParams = (cl_dev_cmd_param_rw *)(cmd->params);
+
+  for (unsigned int i = 0; i < cmdParams->dim_count - 1; i++) {
+    if (0 == cmdParams->pitch[i]) {
+      return CL_DEV_INVALID_VALUE;
+    }
+  }
+
+  // Check Region
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code ReadWriteMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if ( (CL_DEV_CMD_READ != cmd->type) && (CL_DEV_CMD_WRITE != cmd->type) )
-    {
-        return CL_DEV_INVALID_COMMAND_TYPE;
-    }
+bool ReadWriteMemObject::Execute() {
+  cl_dev_cmd_param_rw *cmdParams = (cl_dev_cmd_param_rw *)m_pCmd->params;
+  cl_mem_obj_descriptor *pMemObj;
+  SMemCpyParams sCpyParam;
 
-    if ( sizeof(cl_dev_cmd_param_rw) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-    cl_dev_cmd_param_rw *cmdParams = (cl_dev_cmd_param_rw*)(cmd->params);
+  cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0,
+                                              (cl_dev_memobj_handle *)&pMemObj);
 
-    for (unsigned int i=0; i< cmdParams->dim_count-1; i++)
-    {
-        if(0 == cmdParams->pitch[i])
-        {
-            return CL_DEV_INVALID_VALUE;
-        }
-    }
-
-    // Check Region
-    return CL_DEV_SUCCESS;
-}
-
-bool ReadWriteMemObject::Execute()
-{
-    cl_dev_cmd_param_rw*    cmdParams = (cl_dev_cmd_param_rw*)m_pCmd->params;
-    cl_mem_obj_descriptor*    pMemObj;
-    SMemCpyParams            sCpyParam;
-
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-    cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
-
-    void*    pObjPtr;
-    size_t* pObjPitchPtr = cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj->pitch;
+  void *pObjPtr;
+  size_t *pObjPitchPtr =
+      cmdParams->memobj_pitch[0] ? cmdParams->memobj_pitch : pMemObj->pitch;
 
 #ifdef _DEBUG_PRINT
-    printf("--> ReadWriteMemObject(start), cmdid:%p\n", m_pCmd->id);
+  printf("--> ReadWriteMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
+  // Request access on default device
 
-    // Request access on default device
+  sCpyParam.uiDimCount = cmdParams->dim_count;
+  pObjPtr = MemoryAllocator::CalculateOffsetPointer(
+      pMemObj->pData, sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr,
+      pMemObj->uiElementSize);
 
-    sCpyParam.uiDimCount = cmdParams->dim_count;
-    pObjPtr = MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, sCpyParam.uiDimCount, cmdParams->origin, pObjPitchPtr, pMemObj->uiElementSize);
+  // Set Source/Destination
+  MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), cmdParams->region,
+           sizeof(sCpyParam.vRegion));
+  sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
 
-    // Set Source/Destination
-    MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), cmdParams->region, sizeof(sCpyParam.vRegion));
-    sCpyParam.vRegion[0] = cmdParams->region[0] * pMemObj->uiElementSize;
+  // In case the pointer parameter (Destination for CMD_READ and Source for
+  // CMD_WRITE) has pitch properties, we need to consider that too.
+  size_t ptrOffset = cmdParams->ptr_origin[2] * cmdParams->pitch[1] +
+                     cmdParams->ptr_origin[1] * cmdParams->pitch[0] +
+                     cmdParams->ptr_origin[0];
 
-    // In case the pointer parameter (Destination for CMD_READ and Source for CMD_WRITE) has pitch properties,
-    // we need to consider that too.
-    size_t ptrOffset =    cmdParams->ptr_origin[2] * cmdParams->pitch[1] + \
-                        cmdParams->ptr_origin[1] * cmdParams->pitch[0] + \
-                        cmdParams->ptr_origin[0];
+  if (CL_DEV_CMD_READ == m_pCmd->type) {
+    sCpyParam.pSrc = (cl_char *)pObjPtr;
+    MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch), pObjPitchPtr,
+             sizeof(sCpyParam.vSrcPitch));
+    sCpyParam.pDst = (cl_char *)((size_t)cmdParams->ptr + ptrOffset);
+    MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), cmdParams->pitch,
+             sizeof(sCpyParam.vDstPitch));
+  } else {
+    sCpyParam.pSrc = (cl_char *)((size_t)cmdParams->ptr + ptrOffset);
+    MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch), cmdParams->pitch,
+             sizeof(sCpyParam.vSrcPitch));
+    sCpyParam.pDst = (cl_char *)pObjPtr;
+    MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), pObjPitchPtr,
+             sizeof(sCpyParam.vDstPitch));
+  }
 
-    if ( CL_DEV_CMD_READ == m_pCmd->type )
-    {
-        sCpyParam.pSrc = (cl_char*)pObjPtr;
-        MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch), pObjPitchPtr, sizeof(sCpyParam.vSrcPitch));
-        sCpyParam.pDst = (cl_char*)((size_t)cmdParams->ptr + ptrOffset);
-        MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), cmdParams->pitch, sizeof(sCpyParam.vDstPitch));
-    }
-    else
-    {
-        sCpyParam.pSrc = (cl_char*)((size_t)cmdParams->ptr + ptrOffset);
-        MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch), cmdParams->pitch, sizeof(sCpyParam.vSrcPitch));
-        sCpyParam.pDst = (cl_char*)pObjPtr;
-        MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), pObjPitchPtr, sizeof(sCpyParam.vDstPitch));
-    }
-
-    // Execute copy routine
+  // Execute copy routine
 #if defined(USE_ITT)
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
 
 #if defined(USE_GPA)
-        __itt_set_track(nullptr);
+    __itt_set_track(nullptr);
 #endif
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? m_pGPAData->pReadHandle : m_pGPAData->pWriteHandle ));
+    __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
+                     (CL_DEV_CMD_READ == m_pCmd->type
+                          ? m_pGPAData->pReadHandle
+                          : m_pGPAData->pWriteHandle));
 
 #if defined(USE_GPA)
-        TAL_SetNamedTaskColor((CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write"), 255, 0, 0);
+    TAL_SetNamedTaskColor((CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write"),
+                          255, 0, 0);
 #endif
 
-        // Copy dimensions to 64 bit, for uniformity.
-        cl_ulong copyParams64[MAX_WORK_DIM];
-        copyParams64[0] = sCpyParam.vRegion[0];
-        copyParams64[1] = cmdParams->region[1];
-        copyParams64[2] = cmdParams->region[2];
+    // Copy dimensions to 64 bit, for uniformity.
+    cl_ulong copyParams64[MAX_WORK_DIM];
+    copyParams64[0] = sCpyParam.vRegion[0];
+    copyParams64[1] = cmdParams->region[1];
+    copyParams64[2] = cmdParams->region[2];
 
-        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pSizeHandle, __itt_metadata_u64, cmdParams->dim_count, copyParams64);
-    }
+    __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID,
+                       m_pGPAData->pSizeHandle, __itt_metadata_u64,
+                       cmdParams->dim_count, copyParams64);
+  }
 #endif // ITT
 
-    clCopyMemoryRegion(&sCpyParam);
+  clCopyMemoryRegion(&sCpyParam);
 
 #if defined(USE_ITT)
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
 #if defined(USE_GPA)
-        __itt_set_track(nullptr);
+    __itt_set_track(nullptr);
 #endif
-        __itt_task_end(m_pGPAData->pDeviceDomain);
-    }
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
 #endif // ITT
 
 #ifdef _DEBUG_PRINT
-    printf("--> ReadWriteMemObject(end), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
+  printf("--> ReadWriteMemObject(end), cmdid:%p(%d)\n", m_pCmd->id,
+         CL_DEV_SUCCESS);
 #endif
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 
-    return true;
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -355,145 +352,153 @@ cl_dev_err_code CopyMemObject::Create(TaskDispatcher *pTD,
     return CL_DEV_OUT_OF_MEMORY;
   }
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    if( CL_DEV_FAILED(rc))
-    {
-        delete pCommand;
-        return rc;
-    }
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  if (CL_DEV_FAILED(rc)) {
+    delete pCommand;
+    return rc;
+  }
 #endif
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-CopyMemObject::CopyMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
-{
+CopyMemObject::CopyMemObject(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
+
+cl_dev_err_code CopyMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if (CL_DEV_CMD_COPY != cmd->type) {
+    return CL_DEV_INVALID_COMMAND_TYPE;
+  }
+
+  if (sizeof(cl_dev_cmd_param_copy) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code CopyMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if(CL_DEV_CMD_COPY != cmd->type)
-    {
-        return CL_DEV_INVALID_COMMAND_TYPE;
-    }
+bool CopyMemObject::Execute() {
+  cl_dev_cmd_param_copy *cmdParams = (cl_dev_cmd_param_copy *)m_pCmd->params;
+  cl_mem_obj_descriptor *pSrcMemObj;
+  ;
+  cl_mem_obj_descriptor *pDstMemObj;
+  SMemCpyParams sCpyParam;
 
-    if ( sizeof(cl_dev_cmd_param_copy) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
+  cmdParams->srcMemObj->clDevMemObjGetDescriptor(
+      CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle *)&pSrcMemObj);
+  cmdParams->dstMemObj->clDevMemObjGetDescriptor(
+      CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle *)&pDstMemObj);
 
-    return CL_DEV_SUCCESS;
-}
+  size_t uiSrcElementSize = pSrcMemObj->uiElementSize;
+  size_t uiDstElementSize = pDstMemObj->uiElementSize;
 
-bool CopyMemObject::Execute()
-{
-    cl_dev_cmd_param_copy*    cmdParams = (cl_dev_cmd_param_copy*)m_pCmd->params;
-    cl_mem_obj_descriptor*    pSrcMemObj;;
-    cl_mem_obj_descriptor*    pDstMemObj;
-    SMemCpyParams            sCpyParam;
-
-    cmdParams->srcMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pSrcMemObj);
-    cmdParams->dstMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pDstMemObj);
-
-    size_t  uiSrcElementSize = pSrcMemObj->uiElementSize;
-    size_t    uiDstElementSize = pDstMemObj->uiElementSize;
-
-    // Objects has to have same element size or buffer<->image
-    if( (uiDstElementSize != uiSrcElementSize) &&
-        (1 != uiDstElementSize) && (1 != uiSrcElementSize) )
-    {
+  // Objects has to have same element size or buffer<->image
+  if ((uiDstElementSize != uiSrcElementSize) && (1 != uiDstElementSize) &&
+      (1 != uiSrcElementSize)) {
 #ifdef _DEBUG_PRINT
-        printf("--> CopyMemObject(fail,3), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_INVALID_COMMAND_PARAM);
+    printf("--> CopyMemObject(fail,3), cmdid:%p(%d)\n", m_pCmd->id,
+           CL_DEV_INVALID_COMMAND_PARAM);
 #endif
-        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, (cl_int)CL_DEV_INVALID_COMMAND_PARAM);
-        return true;
-    }
-
-    // No we can notify that we are running
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-    //Options for different dimensions are
-    //Copy a 2D image object to a 2D slice of a 3D image object.
-    //Copy a 2D slice of a 3D image object to a 2D image object.
-    //Copy 2D to 2D
-    //Copy 3D to 3D
-    //Copy 2D image to buffer
-    //Copy 3D image to buffer
-    //Buffer to image
-    MEMCPY_S(sCpyParam.vSrcPitch,  sizeof(sCpyParam.vSrcPitch), cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj->pitch, sizeof(sCpyParam.vSrcPitch));
-    MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch), cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj->pitch, sizeof(sCpyParam.vDstPitch));
-
-    sCpyParam.pSrc = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pSrcMemObj->pData, cmdParams->src_dim_count, cmdParams->src_origin, sCpyParam.vSrcPitch, pSrcMemObj->uiElementSize);
-    sCpyParam.pDst = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pDstMemObj->pData, cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vDstPitch, pDstMemObj->uiElementSize);
-
-    sCpyParam.uiDimCount = min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
-    //Buffer to image
-    if (CL_MEM_OBJECT_BUFFER == pSrcMemObj->memObjType && CL_MEM_OBJECT_BUFFER != pDstMemObj->memObjType)
-    {
-        uiSrcElementSize = uiDstElementSize;
-        sCpyParam.uiDimCount = cmdParams->dst_dim_count;
-        sCpyParam.vSrcPitch[0] = cmdParams->region[0] * uiDstElementSize;
-        sCpyParam.vSrcPitch[1] = sCpyParam.vSrcPitch[0] * cmdParams->region[1];
-    }
-    else if (CL_MEM_OBJECT_BUFFER == pDstMemObj->memObjType && CL_MEM_OBJECT_BUFFER != pSrcMemObj->memObjType)
-    {
-        //When destination is buffer the memcpy will be done as if the buffer is an image with height=1
-        sCpyParam.uiDimCount = cmdParams->src_dim_count;
-        sCpyParam.vDstPitch[0] = cmdParams->region[0] * uiSrcElementSize;
-        sCpyParam.vDstPitch[1] = sCpyParam.vDstPitch[0] * cmdParams->region[1];
-    }
-
-    //If row_pitch (or input_row_pitch) is set to 0, the appropriate row pitch is calculated
-    //based on the size of each element in bytes multiplied by width.
-    MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), cmdParams->region, sizeof(sCpyParam.vRegion));
-    sCpyParam.vRegion[0] *= uiSrcElementSize;
-
-#if defined(USE_ITT)
-    // Execute copy routine
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-#if defined(USE_GPA)
-        __itt_set_track(nullptr);
-#endif
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pGPAData->pCopyHandle);
-#if defined(USE_GPA)
-        TAL_SetNamedTaskColor("Copy", 255, 0, 0);
-#endif
-
-        // Copy dimensions to 64 bit, for uniformity.
-        cl_ulong copyParams64[MAX_WORK_DIM];
-        copyParams64[0] = sCpyParam.vRegion[0];
-        copyParams64[1] = cmdParams->region[1];
-        copyParams64[2] = cmdParams->region[2];
-
-        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pSizeHandle, __itt_metadata_u64 , cmdParams->src_dim_count, copyParams64);
-    }
-#endif // ITT
-    
-    // Execute copy routine
-    clCopyMemoryRegion(&sCpyParam);
-
-#if defined(USE_ITT)
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-#if defined(USE_GPA)
-        __itt_set_track(nullptr);
-#endif
-        __itt_task_end(m_pGPAData->pDeviceDomain);
-    } 
-#endif
-
-#ifdef _DEBUG_PRINT
-    printf("--> CopyMemObject(end), cmd_id:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
-#endif
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-
+    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE,
+                               (cl_int)CL_DEV_INVALID_COMMAND_PARAM);
     return true;
+  }
+
+  // No we can notify that we are running
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+  // Options for different dimensions are
+  // Copy a 2D image object to a 2D slice of a 3D image object.
+  // Copy a 2D slice of a 3D image object to a 2D image object.
+  // Copy 2D to 2D
+  // Copy 3D to 3D
+  // Copy 2D image to buffer
+  // Copy 3D image to buffer
+  // Buffer to image
+  MEMCPY_S(sCpyParam.vSrcPitch, sizeof(sCpyParam.vSrcPitch),
+           cmdParams->src_pitch[0] ? cmdParams->src_pitch : pSrcMemObj->pitch,
+           sizeof(sCpyParam.vSrcPitch));
+  MEMCPY_S(sCpyParam.vDstPitch, sizeof(sCpyParam.vDstPitch),
+           cmdParams->dst_pitch[0] ? cmdParams->dst_pitch : pDstMemObj->pitch,
+           sizeof(sCpyParam.vDstPitch));
+
+  sCpyParam.pSrc = (cl_char *)MemoryAllocator::CalculateOffsetPointer(
+      pSrcMemObj->pData, cmdParams->src_dim_count, cmdParams->src_origin,
+      sCpyParam.vSrcPitch, pSrcMemObj->uiElementSize);
+  sCpyParam.pDst = (cl_char *)MemoryAllocator::CalculateOffsetPointer(
+      pDstMemObj->pData, cmdParams->dst_dim_count, cmdParams->dst_origin,
+      sCpyParam.vDstPitch, pDstMemObj->uiElementSize);
+
+  sCpyParam.uiDimCount =
+      min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
+  // Buffer to image
+  if (CL_MEM_OBJECT_BUFFER == pSrcMemObj->memObjType &&
+      CL_MEM_OBJECT_BUFFER != pDstMemObj->memObjType) {
+    uiSrcElementSize = uiDstElementSize;
+    sCpyParam.uiDimCount = cmdParams->dst_dim_count;
+    sCpyParam.vSrcPitch[0] = cmdParams->region[0] * uiDstElementSize;
+    sCpyParam.vSrcPitch[1] = sCpyParam.vSrcPitch[0] * cmdParams->region[1];
+  } else if (CL_MEM_OBJECT_BUFFER == pDstMemObj->memObjType &&
+             CL_MEM_OBJECT_BUFFER != pSrcMemObj->memObjType) {
+    // When destination is buffer the memcpy will be done as if the buffer is an
+    // image with height=1
+    sCpyParam.uiDimCount = cmdParams->src_dim_count;
+    sCpyParam.vDstPitch[0] = cmdParams->region[0] * uiSrcElementSize;
+    sCpyParam.vDstPitch[1] = sCpyParam.vDstPitch[0] * cmdParams->region[1];
+  }
+
+  // If row_pitch (or input_row_pitch) is set to 0, the appropriate row pitch is
+  // calculated based on the size of each element in bytes multiplied by width.
+  MEMCPY_S(sCpyParam.vRegion, sizeof(sCpyParam.vRegion), cmdParams->region,
+           sizeof(sCpyParam.vRegion));
+  sCpyParam.vRegion[0] *= uiSrcElementSize;
+
+#if defined(USE_ITT)
+  // Execute copy routine
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+#if defined(USE_GPA)
+    __itt_set_track(nullptr);
+#endif
+    __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
+                     m_pGPAData->pCopyHandle);
+#if defined(USE_GPA)
+    TAL_SetNamedTaskColor("Copy", 255, 0, 0);
+#endif
+
+    // Copy dimensions to 64 bit, for uniformity.
+    cl_ulong copyParams64[MAX_WORK_DIM];
+    copyParams64[0] = sCpyParam.vRegion[0];
+    copyParams64[1] = cmdParams->region[1];
+    copyParams64[2] = cmdParams->region[2];
+
+    __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID,
+                       m_pGPAData->pSizeHandle, __itt_metadata_u64,
+                       cmdParams->src_dim_count, copyParams64);
+  }
+#endif // ITT
+
+  // Execute copy routine
+  clCopyMemoryRegion(&sCpyParam);
+
+#if defined(USE_ITT)
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+#if defined(USE_GPA)
+    __itt_set_track(nullptr);
+#endif
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
+#endif
+
+#ifdef _DEBUG_PRINT
+  printf("--> CopyMemObject(end), cmd_id:%d(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
+#endif
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -507,92 +512,85 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher *pTD,
     return CL_DEV_OUT_OF_MEMORY;
   }
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    if( CL_DEV_FAILED(rc))
-    {
-        delete pCommand;
-        return rc;
-    }
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  if (CL_DEV_FAILED(rc)) {
+    delete pCommand;
+    return rc;
+  }
 #endif
 
-    cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)pCmd->params;
+  cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native *)pCmd->params;
 
-    // Create temporal buffer for execution
-    char*    pArgV = new char[cmdParams->args];
-    if ( nullptr == pArgV )
-    {
+  // Create temporal buffer for execution
+  char *pArgV = new char[cmdParams->args];
+  if (nullptr == pArgV) {
 #ifdef _DEBUG
-        CpuErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, TEXT("%s"), TEXT("Can't allocate memory for parameters"));
+    CpuErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, TEXT("%s"),
+              TEXT("Can't allocate memory for parameters"));
 #endif
-        delete pCommand;
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-    pCommand->m_pArgV = pArgV;
-    MEMCPY_S(pArgV, cmdParams->args, cmdParams->argv, cmdParams->args);
+    delete pCommand;
+    return CL_DEV_OUT_OF_MEMORY;
+  }
+  pCommand->m_pArgV = pArgV;
+  MEMCPY_S(pArgV, cmdParams->args, cmdParams->argv, cmdParams->args);
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
-    return CL_DEV_SUCCESS;
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
+  return CL_DEV_SUCCESS;
 }
 
-NativeFunction::NativeFunction(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd),
-    m_pArgV(nullptr)
-{
+NativeFunction::NativeFunction(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd), m_pArgV(nullptr) {}
+
+cl_dev_err_code NativeFunction::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if (CL_DEV_CMD_EXEC_NATIVE != cmd->type) {
+    return CL_DEV_INVALID_COMMAND_TYPE;
+  }
+
+  if (sizeof(cl_dev_cmd_param_native) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native *)(cmd->params);
+
+  if (nullptr == cmdParams->func_ptr) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code    NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if ( CL_DEV_CMD_EXEC_NATIVE != cmd->type )
-    {
-        return CL_DEV_INVALID_COMMAND_TYPE;
-    }
+bool NativeFunction::Execute() {
+  cl_dev_cmd_param_native *cmdParams =
+      (cl_dev_cmd_param_native *)m_pCmd->params;
 
-    if ( sizeof(cl_dev_cmd_param_native) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-    cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)(cmd->params);
+  for (unsigned int i = 0; (i < cmdParams->mem_num); ++i) {
+    IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject **)((
+        ((char *)cmdParams->argv) + cmdParams->mem_offset[i])));
 
-    if( nullptr == cmdParams->func_ptr )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
+    cl_mem_obj_descriptor *memObjDesc;
+    memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0,
+                                     (cl_dev_memobj_handle *)&memObjDesc);
 
-    return CL_DEV_SUCCESS;
-}
+    void **pMemPtr = (void **)((cl_char *)m_pArgV + cmdParams->mem_offset[i]);
+    *pMemPtr = memObjDesc->pData;
+  }
 
-bool NativeFunction::Execute()
-{
-    cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)m_pCmd->params;
+  // Notify start execution
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+  // Execute native function
+  fn_clNativeKernel *func = (fn_clNativeKernel *)cmdParams->func_ptr;
+  func(m_pArgV);
 
-    for(unsigned int i=0; (i<cmdParams->mem_num); ++i )
-    {
-        IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject**)((((char*)cmdParams->argv)+cmdParams->mem_offset[i])));
-        
-        cl_mem_obj_descriptor* memObjDesc;
-        memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&memObjDesc);
+  // Free memory allocated to execution parameters
+  delete[] m_pArgV;
 
-        void*    *pMemPtr = (void**)((cl_char*)m_pArgV+cmdParams->mem_offset[i]);
-        *pMemPtr = memObjDesc->pData;
-    }
-
-    // Notify start execution
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-    // Execute native function
-    fn_clNativeKernel *func = (fn_clNativeKernel*)cmdParams->func_ptr;
-    func(m_pArgV);
-
-    // Free memory allocated to execution parameters
-    delete []m_pArgV;
-
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-    return true;
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -606,77 +604,69 @@ cl_dev_err_code MapMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
     return CL_DEV_OUT_OF_MEMORY;
   }
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    if( CL_DEV_FAILED(rc))
-    {
-        delete pCommand;
-        return rc;
-    }
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  if (CL_DEV_FAILED(rc)) {
+    delete pCommand;
+    return rc;
+  }
 #endif
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
-    return CL_DEV_SUCCESS;
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
+  return CL_DEV_SUCCESS;
 }
 
-MapMemObject::MapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
-{
+MapMemObject::MapMemObject(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
+
+cl_dev_err_code MapMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if (CL_DEV_CMD_MAP != cmd->type) {
+    return CL_DEV_INVALID_COMMAND_TYPE;
+  }
+
+  if (sizeof(cl_dev_cmd_param_map) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code MapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if (CL_DEV_CMD_MAP != cmd->type)
-    {
-        return CL_DEV_INVALID_COMMAND_TYPE;
-    }
-
-    if ( sizeof(cl_dev_cmd_param_map) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
-
-    return CL_DEV_SUCCESS;
-}
-
-bool MapMemObject::Execute()
-{
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+bool MapMemObject::Execute() {
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #ifdef _DEBUG_PRINT
-    printf("--> MapMemObject(start), cmdid:%p\n", m_pCmd->id);
+  printf("--> MapMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
 #if defined(USE_ITT)
-    // Write Map task to ITT trace
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
+  // Write Map task to ITT trace
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
 #if defined(USE_GPA)
-        __itt_set_track(nullptr);
+    __itt_set_track(nullptr);
 #endif
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pGPAData->pMapHandle);
+    __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
+                     m_pGPAData->pMapHandle);
 #if defined(USE_GPA)
-        TAL_SetNamedTaskColor("Map", 255, 0, 0);
+    TAL_SetNamedTaskColor("Map", 255, 0, 0);
 #endif
-    }
+  }
 
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
 #if defined(USE_GPA)
-        __itt_set_track(nullptr);
+    __itt_set_track(nullptr);
 #endif
-        __itt_task_end(m_pGPAData->pDeviceDomain);
-    } 
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
 #endif
 
 #ifdef _DEBUG_PRINT
-    printf("--> MapMemObject(end), cmdid:%p\n", m_pCmd->id);
+  printf("--> MapMemObject(end), cmdid:%p\n", m_pCmd->id);
 #endif
 
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 
-    return true;
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -691,293 +681,288 @@ cl_dev_err_code UnmapMemObject::Create(TaskDispatcher *pTD,
     return CL_DEV_OUT_OF_MEMORY;
   }
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    if( CL_DEV_FAILED(rc))
-    {
-        delete pCommand;
-        return rc;
-    }
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  if (CL_DEV_FAILED(rc)) {
+    delete pCommand;
+    return rc;
+  }
 #endif
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
-    return CL_DEV_SUCCESS;
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
+  return CL_DEV_SUCCESS;
 }
 
-UnmapMemObject::UnmapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
-{
+UnmapMemObject::UnmapMemObject(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
+
+cl_dev_err_code UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if (CL_DEV_CMD_UNMAP != cmd->type) {
+    return CL_DEV_INVALID_COMMAND_TYPE;
+  }
+
+  if (sizeof(cl_dev_cmd_param_map) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code UnmapMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if (CL_DEV_CMD_UNMAP != cmd->type)
-    {
-        return CL_DEV_INVALID_COMMAND_TYPE;
-    }
-
-    if ( sizeof(cl_dev_cmd_param_map) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
-
-    return CL_DEV_SUCCESS;
-}
-
-bool UnmapMemObject::Execute()
-{
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+bool UnmapMemObject::Execute() {
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #ifdef _DEBUG_PRINT
-    printf("--> UnmapMemObject(start), cmdid:%p\n", m_pCmd->id);
+  printf("--> UnmapMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
 #ifdef _DEBUG_PRINT
-    printf("--> UnmapMemObject(end), cmdid:%p\n", m_pCmd->id);
+  printf("--> UnmapMemObject(end), cmdid:%p\n", m_pCmd->id);
 #endif
 
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 
-    return true;
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Kernel execution
-Intel::OpenCL::Utils::AtomicCounter    NDRange::s_lGlbNDRangeId;
+Intel::OpenCL::Utils::AtomicCounter NDRange::s_lGlbNDRangeId;
 
-cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
+cl_dev_err_code NDRange::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
+                                SharedPtr<ITaskBase> *pTask,
+                                const SharedPtr<ITaskList> &pList) {
 #ifdef __INCLUDE_MKL__
-    // First to check if the required NDRange is one of the built-in kernels
-    const ProgramService::KernelMapEntry* pKernelEntry = (const ProgramService::KernelMapEntry*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
-    const ICLDevBackendKernel_* pKernel = pKernelEntry->pBEKernel;
+  // First to check if the required NDRange is one of the built-in kernels
+  const ProgramService::KernelMapEntry *pKernelEntry =
+      (const ProgramService::KernelMapEntry
+           *)(((cl_dev_cmd_param_kernel *)pCmd->params)->kernel);
+  const ICLDevBackendKernel_ *pKernel = pKernelEntry->pBEKernel;
 
-    const ICLDevBackendKernelProporties* pProperties = pKernel->GetKernelProporties();
-    
-    assert( nullptr != pProperties && "Kernel properties always shall exist");
+  const ICLDevBackendKernelProporties *pProperties =
+      pKernel->GetKernelProporties();
 
-    // Built-in kernel currently returns -1 for Execution lenght properties.
-    if ( (size_t)-1 == pProperties->GetKernelExecutionLength() )
-    {
-        return NativeKernelTask::Create(pTD, pList, pCmd, pTask);
-    }
+  assert(nullptr != pProperties && "Kernel properties always shall exist");
+
+  // Built-in kernel currently returns -1 for Execution lenght properties.
+  if ((size_t)-1 == pProperties->GetKernelExecutionLength()) {
+    return NativeKernelTask::Create(pTD, pList, pCmd, pTask);
+  }
 #endif
-    pCmd->id =
-        (cl_dev_cmd_id)((size_t)(pCmd->id) &
-                        ~(1ULL
-                          << (sizeof(size_t) * 8 -
-                              1))); // device NDRange IDs have their MSB set,
-                                    // while in host NDRange IDs they're reset
-    NDRange* pCommand = new NDRange(pTD, pCmd, pList.GetPtr(), nullptr);
+  pCmd->id =
+      (cl_dev_cmd_id)((size_t)(pCmd->id) &
+                      ~(1ULL
+                        << (sizeof(size_t) * 8 -
+                            1))); // device NDRange IDs have their MSB set,
+                                  // while in host NDRange IDs they're reset
+  NDRange *pCommand = new NDRange(pTD, pCmd, pList.GetPtr(), nullptr);
 
-    assert(pTask && "Invalid task parameter");
-    *pTask = static_cast<ITaskBase*>(pCommand);
+  assert(pTask && "Invalid task parameter");
+  *pTask = static_cast<ITaskBase *>(pCommand);
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
 // Declare local storage variable
-THREAD_LOCAL ICLDevBackendKernelRunner::ICLDevExecutionState NDRange::m_tExecState = {0};
+THREAD_LOCAL ICLDevBackendKernelRunner::ICLDevExecutionState
+    NDRange::m_tExecState = {0};
 
-NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskList* pList, KernelCommand* parent) :
-    CommandBaseClass<ITaskSet>(pTD, pCmd),
-    KernelCommand(pList, parent, this),
-    m_lastError(CL_DEV_SUCCESS),
-    m_numThreads(0), m_bEnablePredictablePartitioning(false),
-    m_lNDRangeId(-1)
-{
+NDRange::NDRange(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd, ITaskList *pList,
+                 KernelCommand *parent)
+    : CommandBaseClass<ITaskSet>(pTD, pCmd), KernelCommand(pList, parent, this),
+      m_lastError(CL_DEV_SUCCESS), m_numThreads(0),
+      m_bEnablePredictablePartitioning(false), m_lNDRangeId(-1) {
 #ifdef _DEBUG
-    m_lFinish.exchange(0);
-    m_lAttaching.exchange(0);
-    m_lExecuting.exchange(0);
+  m_lFinish.exchange(0);
+  m_lAttaching.exchange(0);
+  m_lExecuting.exchange(0);
 #endif
-    m_pImplicitArgs = nullptr;
-    m_numThreads = pList->GetDeviceConcurency();
+  m_pImplicitArgs = nullptr;
+  m_numThreads = pList->GetDeviceConcurency();
 }
 
-int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThreads)
-{
-    cl_dev_cmd_param_kernel* cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-
+int NDRange::Init(size_t region[], unsigned int &dimCount,
+                  size_t numberOfThreads) {
+  cl_dev_cmd_param_kernel *cmdParams =
+      (cl_dev_cmd_param_kernel *)m_pCmd->params;
 
 #ifdef _DEBUG_PRINT
-    printf("--> Init(start):%s, id(%d)\n", pKernel->GetKernelName(), (int)m_pCmd->id);
+  printf("--> Init(start):%s, id(%d)\n", pKernel->GetKernelName(),
+         (int)m_pCmd->id);
 #endif
 
-    if ( CL_DEV_FAILED(m_lastError) )
-    {
-        return m_lastError;
-    }
+  if (CL_DEV_FAILED(m_lastError)) {
+    return m_lastError;
+  }
 
-    char* pLockedParams = (char*)cmdParams->arg_values;
+  char *pLockedParams = (char *)cmdParams->arg_values;
 
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #ifdef USE_ITT
-    // Start execution task
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-        __itt_string_handle *h;
-        cl_dev_cmd_type t = cmdParams->parallel_copy_cmd_type;
-        if (CL_DEV_CMD_READ == t)
-          h = m_pGPAData->pReadHandle;
-        else if (CL_DEV_CMD_WRITE == t)
-          h = m_pGPAData->pWriteHandle;
-        else if (CL_DEV_CMD_COPY == t)
-          h = m_pGPAData->pCopyHandle;
-        else if (CL_DEV_CMD_FILL_BUFFER == t || CL_DEV_CMD_FILL_IMAGE == t)
-          h = m_pGPAData->pFillHandle;
-        else
-          h = ((const ProgramService::KernelMapEntry *)cmdParams->kernel)
+  // Start execution task
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+    __itt_string_handle *h;
+    cl_dev_cmd_type t = cmdParams->parallel_copy_cmd_type;
+    if (CL_DEV_CMD_READ == t)
+      h = m_pGPAData->pReadHandle;
+    else if (CL_DEV_CMD_WRITE == t)
+      h = m_pGPAData->pWriteHandle;
+    else if (CL_DEV_CMD_COPY == t)
+      h = m_pGPAData->pCopyHandle;
+    else if (CL_DEV_CMD_FILL_BUFFER == t || CL_DEV_CMD_FILL_IMAGE == t)
+      h = m_pGPAData->pFillHandle;
+    else
+      h = ((const ProgramService::KernelMapEntry *)cmdParams->kernel)
               ->ittTaskNameHandle;
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, h);
-    }
+    __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, h);
+  }
 #endif
 
-    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
-    const KernelArgument*   pParams = pKernel->GetKernelParams();
-    const ICLDevBackendKernelProporties* pProperties = pKernel->GetKernelProporties();
-    m_needSerializeWGs = pProperties->NeedSerializeWGs();
+  const ICLDevBackendKernel_ *pKernel =
+      ((const ProgramService::KernelMapEntry *)cmdParams->kernel)->pBEKernel;
+  const KernelArgument *pParams = pKernel->GetKernelParams();
+  const ICLDevBackendKernelProporties *pProperties =
+      pKernel->GetKernelProporties();
+  m_needSerializeWGs = pProperties->NeedSerializeWGs();
 
-    std::vector<cl_mem_obj_descriptor*> devMemObjects;
-    unsigned int uiMemArgCount = pKernel->GetMemoryObjectArgumentCount();
-    devMemObjects.reserve(uiMemArgCount + cmdParams->uiNonArgSvmBuffersCount +
-                          cmdParams->uiNonArgUsmBuffersCount);
+  std::vector<cl_mem_obj_descriptor *> devMemObjects;
+  unsigned int uiMemArgCount = pKernel->GetMemoryObjectArgumentCount();
+  devMemObjects.reserve(uiMemArgCount + cmdParams->uiNonArgSvmBuffersCount +
+                        cmdParams->uiNonArgUsmBuffersCount);
 
-    // Fill with SVM buffers
-    devMemObjects.resize(cmdParams->uiNonArgSvmBuffersCount +
-                         cmdParams->uiNonArgUsmBuffersCount);
-    for(cl_uint i=0;i<cmdParams->uiNonArgSvmBuffersCount;++i)
-    {
-        cmdParams->ppNonArgSvmBuffers[i]->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&devMemObjects[i] );
-    }
-    // Fill with USM buffers
-    unsigned int offset = cmdParams->uiNonArgSvmBuffersCount;
-    for (cl_uint i = 0; i < cmdParams->uiNonArgUsmBuffersCount; ++i)
-        cmdParams->ppNonArgUsmBuffers[i]->clDevMemObjGetDescriptor(
-            CL_DEVICE_TYPE_CPU, 0, (void**)&devMemObjects[offset + i]);
+  // Fill with SVM buffers
+  devMemObjects.resize(cmdParams->uiNonArgSvmBuffersCount +
+                       cmdParams->uiNonArgUsmBuffersCount);
+  for (cl_uint i = 0; i < cmdParams->uiNonArgSvmBuffersCount; ++i) {
+    cmdParams->ppNonArgSvmBuffers[i]->clDevMemObjGetDescriptor(
+        CL_DEVICE_TYPE_CPU, 0, (void **)&devMemObjects[i]);
+  }
+  // Fill with USM buffers
+  unsigned int offset = cmdParams->uiNonArgSvmBuffersCount;
+  for (cl_uint i = 0; i < cmdParams->uiNonArgUsmBuffersCount; ++i)
+    cmdParams->ppNonArgUsmBuffers[i]->clDevMemObjGetDescriptor(
+        CL_DEVICE_TYPE_CPU, 0, (void **)&devMemObjects[offset + i]);
 
-    std::vector<char> kernelParamsVec;
+  std::vector<char> kernelParamsVec;
 
-    if ( uiMemArgCount > 0 )
-    {
+  if (uiMemArgCount > 0) {
 #ifdef OCLDEVICE_PLUGINS
-        kernelParamsVec.resize(cmdParams->arg_size);
+    kernelParamsVec.resize(cmdParams->arg_size);
 #endif
-        cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount,
-                                                     &devMemObjects, &kernelParamsVec);
-        if ( CL_DEV_FAILED(clRet) )
-        {
-            m_lastError = clRet;
-            NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
-            return clRet;
-        }
+    cl_dev_err_code clRet = ExtractNDRangeParams(
+        pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(),
+        uiMemArgCount, &devMemObjects, &kernelParamsVec);
+    if (CL_DEV_FAILED(clRet)) {
+      m_lastError = clRet;
+      NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
+      return clRet;
     }
-    m_pKernelArgs = pLockedParams;
-    m_pImplicitArgs = (UniformKernelArgs*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
-    m_pImplicitArgs->WorkDim = cmdParams->work_dim;
-    m_pImplicitArgs->RuntimeInterface = static_cast<IDeviceCommandManager*>(this);
-    // Copy global_offset, global_size, uniform local_work_size, and non-uniform local_work_size
-    unsigned i;
-    for (i = 0; i < cmdParams->work_dim; ++i)
-    {
-        m_pImplicitArgs->GlobalOffset[i] = cmdParams->glb_wrk_offs[i];
-        m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]    = cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i];
-        m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = cmdParams->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i];
-        m_pImplicitArgs->GlobalSize[i]   = cmdParams->glb_wrk_size[i];
-    }
-    for (; i < MAX_WORK_DIM; ++i) {
-        m_pImplicitArgs->GlobalOffset[i] = 0;
-        m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]    = 1;
-        m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
-        m_pImplicitArgs->GlobalSize[i] = 1;
-    }
+  }
+  m_pKernelArgs = pLockedParams;
+  m_pImplicitArgs =
+      (UniformKernelArgs *)(pLockedParams +
+                            pKernel->GetExplicitArgumentBufferSize());
+  m_pImplicitArgs->WorkDim = cmdParams->work_dim;
+  m_pImplicitArgs->RuntimeInterface =
+      static_cast<IDeviceCommandManager *>(this);
+  // Copy global_offset, global_size, uniform local_work_size, and non-uniform
+  // local_work_size
+  unsigned i;
+  for (i = 0; i < cmdParams->work_dim; ++i) {
+    m_pImplicitArgs->GlobalOffset[i] = cmdParams->glb_wrk_offs[i];
+    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
+        cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i];
+    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
+        cmdParams->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i];
+    m_pImplicitArgs->GlobalSize[i] = cmdParams->glb_wrk_size[i];
+  }
+  for (; i < MAX_WORK_DIM; ++i) {
+    m_pImplicitArgs->GlobalOffset[i] = 0;
+    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
+    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
+    m_pImplicitArgs->GlobalSize[i] = 1;
+  }
 
-    m_pImplicitArgs->MinWorkGroupNum = m_numThreads;
+  m_pImplicitArgs->MinWorkGroupNum = m_numThreads;
 
-    m_pRunner = pKernel->GetKernelRunner();
+  m_pRunner = pKernel->GetKernelRunner();
 #ifdef OCLDEVICE_PLUGINS
-    unsigned int memObjCount = (unsigned int)kernelParamsVec.size();
-    const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&kernelParamsVec[0] : nullptr;
+  unsigned int memObjCount = (unsigned int)kernelParamsVec.size();
+  const cl_mem_obj_descriptor **memArgs =
+      memObjCount > 0 ? (const cl_mem_obj_descriptor **)&kernelParamsVec[0]
+                      : nullptr;
 #else
-    unsigned int memObjCount = 0;
-    const cl_mem_obj_descriptor** memArgs = nullptr;
+  unsigned int memObjCount = 0;
+  const cl_mem_obj_descriptor **memArgs = nullptr;
 #endif
-    bool zero_enqueue = false;
-    for (unsigned int i = 0; i < cmdParams->work_dim; ++i)
-    {
-        if(!cmdParams->glb_wrk_size[i])
-        {
-            zero_enqueue = true;
-            break;
-        }
+  bool zero_enqueue = false;
+  for (unsigned int i = 0; i < cmdParams->work_dim; ++i) {
+    if (!cmdParams->glb_wrk_size[i]) {
+      zero_enqueue = true;
+      break;
     }
-    if(!zero_enqueue)
-    {
-      bool hasForcedWGSize = applyForcedWGSize();
-      m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount,
-                                        numberOfThreads, !hasForcedWGSize);
-    }
+  }
+  if (!zero_enqueue) {
+    bool hasForcedWGSize = applyForcedWGSize();
+    m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount,
+                                      numberOfThreads, !hasForcedWGSize);
+  }
 
-    // if logger is enabled, always print local work size from BE
-    if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
-        g_pUserLogger->SetWGSizeCount(m_pCmd->id, (size_t)cmdParams->work_dim,
-            m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
-            m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX],
-            m_pImplicitArgs->WGCount);
+  // if logger is enabled, always print local work size from BE
+  if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+    g_pUserLogger->SetWGSizeCount(
+        m_pCmd->id, (size_t)cmdParams->work_dim,
+        m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
+        m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX],
+        m_pImplicitArgs->WGCount);
 
-    const size_t*    pWGSize = m_pImplicitArgs->WGCount;
-    assert(pWGSize && "pWGSize must be non zero pointer");
-    for (i = 0; i < cmdParams->work_dim; ++i)
-    {
-      region[i] = pWGSize[i];
-    }
-    for (; i<MAX_WORK_DIM; ++i)
-    {
-        region[i] = 1;
-    }
+  const size_t *pWGSize = m_pImplicitArgs->WGCount;
+  assert(pWGSize && "pWGSize must be non zero pointer");
+  for (i = 0; i < cmdParams->work_dim; ++i) {
+    region[i] = pWGSize[i];
+  }
+  for (; i < MAX_WORK_DIM; ++i) {
+    region[i] = 1;
+  }
 
-    dimCount = cmdParams->work_dim;
+  dimCount = cmdParams->work_dim;
 
-    //TODO: might want to revisit these restrictions in the future
-    //TODO: Use direct access to ITEDevice and expose sub device INFO.
-    m_bEnablePredictablePartitioning = ( (1 == dimCount) && (region[0] == m_numThreads) && m_pTaskDispatcher->isPredictablePartitioningAllowed() );
-    if ( m_bEnablePredictablePartitioning )
-    {
-        m_bWGExecuted.init(m_numThreads, false);
-    }
+  // TODO: might want to revisit these restrictions in the future
+  // TODO: Use direct access to ITEDevice and expose sub device INFO.
+  m_bEnablePredictablePartitioning =
+      ((1 == dimCount) && (region[0] == m_numThreads) &&
+       m_pTaskDispatcher->isPredictablePartitioningAllowed());
+  if (m_bEnablePredictablePartitioning) {
+    m_bWGExecuted.init(m_numThreads, false);
+  }
 
 #ifdef _DEBUG_PRINT
-    printf("--> Init(done):%s\n", pKernel->GetKernelName());
+  printf("--> Init(done):%s\n", pKernel->GetKernelName());
 #endif
-    m_lNDRangeId = s_lGlbNDRangeId++;
-    return CL_DEV_SUCCESS;
+  m_lNDRangeId = s_lGlbNDRangeId++;
+  return CL_DEV_SUCCESS;
 }
 
-size_t NDRange::PreferredSequentialItemsPerThread() const
-{
-    size_t preferredSize = 1;
-    if (m_needSerializeWGs)
-    {
-        assert(m_pImplicitArgs != nullptr && "Init should be called first.");
-        const size_t* pWGSize = m_pImplicitArgs->WGCount;
-        for (unsigned int i = 0; i < m_pImplicitArgs->WorkDim; ++i)
-        {
-            // The whole NDRange are splitted to several tasks using grainsize.
-            // The important fact that 3D-range are handled as three independent
-            // 1D-ranges with the same grainsize computed here.
-            // So, to ensure that 3D-range will not be splitted we need to
-            // ensure that no one from independent 1D-ranges will not be
-            // splitted. That is why it is enough to use maximum number of
-            // work-groups among all dimensions instead of total count of
-            // work-groups in NDRange.
-            preferredSize =
-                (preferredSize < pWGSize[i]) ? pWGSize[i] : preferredSize;
-        }
+size_t NDRange::PreferredSequentialItemsPerThread() const {
+  size_t preferredSize = 1;
+  if (m_needSerializeWGs) {
+    assert(m_pImplicitArgs != nullptr && "Init should be called first.");
+    const size_t *pWGSize = m_pImplicitArgs->WGCount;
+    for (unsigned int i = 0; i < m_pImplicitArgs->WorkDim; ++i) {
+      // The whole NDRange are splitted to several tasks using grainsize.
+      // The important fact that 3D-range are handled as three independent
+      // 1D-ranges with the same grainsize computed here.
+      // So, to ensure that 3D-range will not be splitted we need to
+      // ensure that no one from independent 1D-ranges will not be
+      // splitted. That is why it is enough to use maximum number of
+      // work-groups among all dimensions instead of total count of
+      // work-groups in NDRange.
+      preferredSize = (preferredSize < pWGSize[i]) ? pWGSize[i] : preferredSize;
     }
+  }
 
-    return preferredSize;
+  return preferredSize;
 }
 
 bool NDRange::Finish(FINISH_REASON /*reason*/) {
@@ -996,190 +981,193 @@ bool NDRange::Finish(FINISH_REASON /*reason*/) {
 
   // regular stuff:
 #ifdef _DEBUG
-    long lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
-    assert(lVal == 0);
-    m_lFinish.exchange(1);
+  long lVal =
+      (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
+  assert(lVal == 0);
+  m_lFinish.exchange(1);
 #endif
 
 #ifdef _DEBUG
-    lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
-    assert(lVal == 0);
+  lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
+  assert(lVal == 0);
 #endif
 
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
 
 #ifdef _DEBUG_PRINT
-    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
-    printf("--> Finish(done):%s\n", pKernel->GetKernelName());
+  cl_dev_cmd_param_kernel *cmdParams =
+      (cl_dev_cmd_param_kernel *)m_pCmd->params;
+  const ICLDevBackendKernel_ *pKernel =
+      ((const ProgramService::KernelMapEntry *)cmdParams->kernel)->pBEKernel;
+  printf("--> Finish(done):%s\n", pKernel->GetKernelName());
 #endif
 #ifdef _DEBUG
-    m_lFinish.exchange(0);
+  m_lFinish.exchange(0);
 #endif
 
 #if defined(USE_ITT)
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-        __itt_task_end(m_pGPAData->pDeviceDomain);
-    }
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
 #endif // ITT
 
-    return true;
+  return true;
 }
 
-void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
-{
+void *NDRange::AttachToThread(void *pWgContextBase, size_t uiNumberOfWorkGroups,
+                              size_t firstWGID[], size_t lastWGID[]) {
 #ifdef _DEBUG_PRINT
-    printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", (int)GetCurrentThreadId(), (int)uiWorkerId, (int)m_pCmd->id);
+  printf("AttachToThread %d, WrkId(%d), CmdId(%d)\n", (int)GetCurrentThreadId(),
+         (int)uiWorkerId, (int)m_pCmd->id);
 #endif
 
 #ifdef _DEBUG
-    long lVal = m_lFinish.test_and_set(0, 0);
-    if ( lVal == 1 )
-    {
-        assert(0);
-    }
-    ++m_lAttaching ;
+  long lVal = m_lFinish.test_and_set(0, 0);
+  if (lVal == 1) {
+    assert(0);
+  }
+  ++m_lAttaching;
 #endif
 
-    m_pRunner->PrepareThreadState(m_tExecState);
+  m_pRunner->PrepareThreadState(m_tExecState);
 
 #ifdef USE_ITT
-    // Start execution task
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-        unsigned int uiWorkGroupSize = 1;
-        const size_t*    pWGSize = m_pImplicitArgs->WGCount;
-        cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+  // Start execution task
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+    unsigned int uiWorkGroupSize = 1;
+    const size_t *pWGSize = m_pImplicitArgs->WGCount;
+    cl_dev_cmd_param_kernel *cmdParams =
+        (cl_dev_cmd_param_kernel *)m_pCmd->params;
 
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
-                ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->ittTaskNameHandle);
+    __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
+                     ((const ProgramService::KernelMapEntry *)cmdParams->kernel)
+                         ->ittTaskNameHandle);
 
-        for (unsigned int i=0 ; i<cmdParams->work_dim ; ++i)
-        {
-            uiWorkGroupSize *= (unsigned int)pWGSize[i];
-        }
-        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
-
-        cl_ulong numOfWGs64 = uiNumberOfWorkGroups;
-        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pNumberOfWorkGroupsHandle, __itt_metadata_u64 , 1, &numOfWGs64);
-
-        // Make sure all values are 64 bit.
-        cl_ulong firstWGID64[MAX_WORK_DIM];
-        cl_ulong lastWGID64[MAX_WORK_DIM];
-        for (int i=0 ; i < MAX_WORK_DIM ; ++i)
-        {
-            firstWGID64[i] = firstWGID[i];
-            lastWGID64[i]  = lastWGID[i];
-        }
-
-        // Do not use string metadata, it is VERY slow.
-        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pStartPos, __itt_metadata_u64 , cmdParams->work_dim, firstWGID64);
-        __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pEndPos, __itt_metadata_u64 , cmdParams->work_dim, lastWGID64);
+    for (unsigned int i = 0; i < cmdParams->work_dim; ++i) {
+      uiWorkGroupSize *= (unsigned int)pWGSize[i];
     }
+    __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID,
+                       m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32, 1,
+                       &uiWorkGroupSize);
+
+    cl_ulong numOfWGs64 = uiNumberOfWorkGroups;
+    __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID,
+                       m_pGPAData->pNumberOfWorkGroupsHandle,
+                       __itt_metadata_u64, 1, &numOfWGs64);
+
+    // Make sure all values are 64 bit.
+    cl_ulong firstWGID64[MAX_WORK_DIM];
+    cl_ulong lastWGID64[MAX_WORK_DIM];
+    for (int i = 0; i < MAX_WORK_DIM; ++i) {
+      firstWGID64[i] = firstWGID[i];
+      lastWGID64[i] = lastWGID[i];
+    }
+
+    // Do not use string metadata, it is VERY slow.
+    __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID,
+                       m_pGPAData->pStartPos, __itt_metadata_u64,
+                       cmdParams->work_dim, firstWGID64);
+    __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pEndPos,
+                       __itt_metadata_u64, cmdParams->work_dim, lastWGID64);
+  }
 #endif // ITT
 
 #ifdef _DEBUG
-    -- m_lAttaching;
+  --m_lAttaching;
 #endif
 
-    return pWgContextBase;
+  return pWgContextBase;
 }
 
 void NDRange::DetachFromThread(void * /*pWgContext*/) {
   // End execution task
 #if defined(USE_ITT)
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
-        __itt_task_end(m_pGPAData->pDeviceDomain);
-    }
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
 #endif // ITT
-    
-    m_pRunner->RestoreThreadState(m_tExecState);
+
+  m_pRunner->RestoreThreadState(m_tExecState);
 }
 
-bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
-{
+bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void *pWgCtx) {
 #ifdef _DEBUG
-    long lVal = m_lFinish.test_and_set(0, 0);
-    assert(lVal == 0);
-    ++ m_lExecuting;
+  long lVal = m_lFinish.test_and_set(0, 0);
+  assert(lVal == 0);
+  ++m_lExecuting;
 #endif
 
-    // We always start from (0,0,0) and process whole WG
-    // No Need in parameters now
+  // We always start from (0,0,0) and process whole WG
+  // No Need in parameters now
 #ifdef _DEBUG
-    const size_t* pWGCount = m_pImplicitArgs->WGCount;
+  const size_t *pWGCount = m_pImplicitArgs->WGCount;
 
-    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-    size_t tDimArr[3] = {x, y, z};
-    for (unsigned int i=0; i<cmdParams->work_dim;++i)
-    {
-        size_t val = pWGCount[i];
-        assert(tDimArr[i]<val);
-    }
+  cl_dev_cmd_param_kernel *cmdParams =
+      (cl_dev_cmd_param_kernel *)m_pCmd->params;
+  size_t tDimArr[3] = {x, y, z};
+  for (unsigned int i = 0; i < cmdParams->work_dim; ++i) {
+    size_t val = pWGCount[i];
+    assert(tDimArr[i] < val);
+  }
 
-    lVal = m_lFinish.test_and_set(0, 0);
-    assert(lVal == 0);
+  lVal = m_lFinish.test_and_set(0, 0);
+  assert(lVal == 0);
 #endif
 
-    // Execute WG
-    size_t groupId[MAX_WORK_DIM] = {x, y, z};
-#ifndef _WIN32  //Don't support this feature on Windows at the moment   
-                //Optionally override the iteration to be executed if an affinity permutation is defined
-    if (m_bEnablePredictablePartitioning)
+  // Execute WG
+  size_t groupId[MAX_WORK_DIM] = {x, y, z};
+#ifndef _WIN32 // Don't support this feature on Windows at the moment
+               // Optionally override the iteration to be executed if an
+               // affinity permutation is defined
+  if (m_bEnablePredictablePartitioning) {
+    assert((0 == y) && (0 == z) && "predicted partitioning work on 1D only");
+    ITaskExecutor *pTaskExecutor = reinterpret_cast<ITaskExecutor *>(pWgCtx);
+    unsigned int myGroupID = pTaskExecutor->GetPosition();
+    if (0 == m_bWGExecuted.bitTestAndSet(myGroupID)) {
+      groupId[0] = myGroupID;
+    } else // find an available work group
     {
-        assert((0 == y) && (0 == z) && "predicted partitioning work on 1D only");
-        ITaskExecutor* pTaskExecutor = reinterpret_cast<ITaskExecutor*>(pWgCtx);
-        unsigned int myGroupID = pTaskExecutor->GetPosition();
-        if (0 == m_bWGExecuted.bitTestAndSet(myGroupID))
-        {
-            groupId[0] = myGroupID;
+      for (unsigned int ui = 0; ui < m_numThreads; ++ui) {
+        if (0 == m_bWGExecuted.bitTestAndSet(ui)) {
+          groupId[0] = ui;
+          break;
         }
-        else // find an available work group
-        {
-            for (unsigned int ui = 0; ui < m_numThreads; ++ui)
-            {
-                if (0 == m_bWGExecuted.bitTestAndSet(ui))
-                {
-                    groupId[0] = ui;
-                    break;
-                }
-            }
-        }
+      }
     }
+  }
 #endif
-    CommandSubmitionLists childKernelsForWG;
+  CommandSubmitionLists childKernelsForWG;
 
-    m_pRunner->RunGroup(m_pKernelArgs, groupId, &childKernelsForWG);
+  m_pRunner->RunGroup(m_pKernelArgs, groupId, &childKernelsForWG);
 
-    if ( (nullptr != childKernelsForWG.waitingChildrenForWorkGroup) || (nullptr != childKernelsForWG.waitingChildrenForKernelLocalHead) )
-    {
-        SubmitCommands(&childKernelsForWG);
-    }
+  if ((nullptr != childKernelsForWG.waitingChildrenForWorkGroup) ||
+      (nullptr != childKernelsForWG.waitingChildrenForKernelLocalHead)) {
+    SubmitCommands(&childKernelsForWG);
+  }
 
 #ifdef _DEBUG
-    -- m_lExecuting;
+  --m_lExecuting;
 #endif
-    return true;
+  return true;
 }
 
-KernelCommand* NDRange::AllocateChildCommand(ITaskList* pList, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-        const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount,
-        const _ndrange_t* pNDRange) const
-{
-    KernelCommand* pNewCommand = new DeviceNDRange(m_pTaskDispatcher, pList, const_cast<NDRange*>(this), pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+KernelCommand *NDRange::AllocateChildCommand(
+    ITaskList *pList,
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_ *pKernel,
+    const void *pBlockLiteral, size_t stBlockSize, const size_t *pLocalSizes,
+    size_t stLocalSizeCount, const _ndrange_t *pNDRange) const {
+  KernelCommand *pNewCommand = new DeviceNDRange(
+      m_pTaskDispatcher, pList, const_cast<NDRange *>(this), pKernel,
+      pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
 
-    return pNewCommand;
+  return pNewCommand;
 }
 
-queue_t NDRange::GetDefaultQueueForDevice() const
-{
-    if ( nullptr == m_pTaskDispatcher )
-    {
-        return 0 != m_parent ? m_parent->GetDefaultQueueForDevice() : nullptr;
-    }
-    return m_pTaskDispatcher->GetDefaultQueue();
+queue_t NDRange::GetDefaultQueueForDevice() const {
+  if (nullptr == m_pTaskDispatcher) {
+    return 0 != m_parent ? m_parent->GetDefaultQueueForDevice() : nullptr;
+  }
+  return m_pTaskDispatcher->GetDefaultQueue();
 }
 
 queue_t NDRange::GetTaskSeqQueueForDevice() const {
@@ -1229,155 +1217,146 @@ cl_dev_err_code FillMemObject::Create(TaskDispatcher *pTD,
     return CL_DEV_OUT_OF_MEMORY;
   }
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    assert(CL_DEV_SUCCESS == rc);
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  assert(CL_DEV_SUCCESS == rc);
 #endif
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-FillMemObject::FillMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
-{
-}
+FillMemObject::FillMemObject(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
 
-cl_dev_err_code FillMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if ( (CL_DEV_CMD_FILL_BUFFER != cmd->type) && (CL_DEV_CMD_FILL_IMAGE != cmd->type) )
-    {
-        return CL_DEV_INVALID_COMMAND_TYPE;
+cl_dev_err_code FillMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if ((CL_DEV_CMD_FILL_BUFFER != cmd->type) &&
+      (CL_DEV_CMD_FILL_IMAGE != cmd->type)) {
+    return CL_DEV_INVALID_COMMAND_TYPE;
+  }
+
+  if (sizeof(cl_dev_cmd_param_fill) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  cl_dev_cmd_param_fill *cmdParams = (cl_dev_cmd_param_fill *)(cmd->params);
+
+  for (unsigned int i = 0; i < cmdParams->dim_count - 1; i++) {
+    // offset may be 0, but region must be bigger than 0 for used dimmensions.
+    if (0 == cmdParams->region[i]) {
+      return CL_DEV_INVALID_VALUE;
     }
+  }
 
-    if ( sizeof(cl_dev_cmd_param_fill) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
-
-    cl_dev_cmd_param_fill *cmdParams = (cl_dev_cmd_param_fill*)(cmd->params);
-
-    for (unsigned int i=0; i< cmdParams->dim_count-1; i++)
-    {
-        // offset may be 0, but region must be bigger than 0 for used dimmensions.
-        if(0 == cmdParams->region[i])
-        {
-            return CL_DEV_INVALID_VALUE;
-        }
-    }
-
-    // TODO: Check Region
-    return CL_DEV_SUCCESS;
+  // TODO: Check Region
+  return CL_DEV_SUCCESS;
 }
 
 static bool getLCMSize(size_t A, size_t B) {
-    assert(A != 0 && B != 0 && "invalid size");
-    size_t Mul = A * B;
-    size_t GCD = std::gcd(A, B);
-    return Mul / GCD;
+  assert(A != 0 && B != 0 && "invalid size");
+  size_t Mul = A * B;
+  size_t GCD = std::gcd(A, B);
+  return Mul / GCD;
 }
 
-bool FillMemObject::Execute()
-{
-    const cl_dev_cmd_param_fill* cmdParams = (cl_dev_cmd_param_fill*)m_pCmd->params;
-    cl_mem_obj_descriptor*  pMemObj;
+bool FillMemObject::Execute() {
+  const cl_dev_cmd_param_fill *cmdParams =
+      (cl_dev_cmd_param_fill *)m_pCmd->params;
+  cl_mem_obj_descriptor *pMemObj;
 
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-    cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)&pMemObj);
-
-#ifdef _DEBUG_PRINT
-    printf("--> FillMemObject(start), cmdid:%p\n", m_pCmd->id);
-#endif
-
-    size_t depthStart = 0;
-    size_t depthEnd = 1;
-    if (cmdParams->dim_count > 2)
-    {
-        depthStart = cmdParams->offset[2];
-        depthEnd = depthStart + cmdParams->region[2];
-    }
-
-    size_t heightStart = 0;
-    size_t heightEnd = 1;
-    if (cmdParams->dim_count > 1)
-    {
-        heightStart = cmdParams->offset[1];
-        heightEnd = heightStart + cmdParams->region[1];
-    }
-
-    // width, unlike height and depth, is in bytes.
-    const size_t width =  cmdParams->region[0] * pMemObj->uiElementSize;
-    if (width == 0) {
-        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-        return true;
-    }
-
-    // 'width' could be very large in the case of 1D buffer. It is ineffcient to
-    // do CopyPattern on a temporary buffer of size 'width'. Furthermore, it may
-    // cause runfail on windows 32bit due to running out of memory.
-    // Therefore, we do CopyPattern on a smaller chunk size based on heuristic.
-    size_t minSize = 64 * 1024;
-    size_t lcm = getLCMSize(minSize, cmdParams->pattern_size);
-    size_t maxSize = 64 * 1024 * 1024;
-    while (lcm > maxSize && minSize > 1) {
-        minSize /= 2;
-        lcm = getLCMSize(minSize, cmdParams->pattern_size);
-    }
-    assert(lcm && "invalid least common multiple");
-    size_t chunkSize = std::min(((maxSize + lcm - 1) / lcm) * lcm, width);
-
-    // Prepare copy buffer.
-    char *fillBuf = new char[chunkSize];
-    CopyPattern(cmdParams->pattern, cmdParams->pattern_size, fillBuf,
-                chunkSize);
+  cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0,
+                                              (cl_dev_memobj_handle *)&pMemObj);
 
 #ifdef _DEBUG_PRINT
-    fprintf(stderr,
-            "Going to fill [%lu,%lu,%lu] to [%lu,%lu,%lu]- with buffer of len "
-            "%lu bytes\n",
-            cmdParams->offset[0], heightStart, depthStart,
-            cmdParams->offset[0] + cmdParams->region[0], heightEnd, depthEnd,
-            chunkSize);
-    fprintf(stderr, "dim_count is %u ; pitches: %lu, %lu ; element size: %u ; color: ", cmdParams->dim_count, pMemObj->pitch[0], pMemObj->pitch[1], pMemObj->uiElementSize);
-    for (size_t i=0 ; i < cmdParams->pattern_size ; ++i)
-    {
-        fprintf(stderr, "%02x ", cmdParams->pattern[i]);
-    }
-    fprintf(stderr, "\n");
+  printf("--> FillMemObject(start), cmdid:%p\n", m_pCmd->id);
 #endif
 
-    size_t offset[MAX_WORK_DIM];
-    offset[0] = cmdParams->offset[0];
-    size_t remainderChunkSize = width % chunkSize;
-    if (remainderChunkSize == 0)
-        remainderChunkSize = chunkSize;
-    for (size_t depth = depthStart ; depth < depthEnd ; ++depth)
-    {
-        offset[2] = depth;
-        for (size_t height = heightStart ; height < heightEnd ; ++height)
-        {
-            offset[1] = height;
-            char *dst = (char *)MemoryAllocator::CalculateOffsetPointer(
-                pMemObj->pData, cmdParams->dim_count, offset, pMemObj->pitch,
-                pMemObj->uiElementSize);
-            size_t idx = 0;
-            for (; idx < (width - chunkSize); idx += chunkSize)
-                MEMCPY_S(dst + idx, chunkSize, fillBuf, chunkSize);
-            MEMCPY_S(dst + idx, remainderChunkSize, fillBuf,
-                     remainderChunkSize);
-        }
-    }
+  size_t depthStart = 0;
+  size_t depthEnd = 1;
+  if (cmdParams->dim_count > 2) {
+    depthStart = cmdParams->offset[2];
+    depthEnd = depthStart + cmdParams->region[2];
+  }
 
-    delete[] fillBuf;
+  size_t heightStart = 0;
+  size_t heightEnd = 1;
+  if (cmdParams->dim_count > 1) {
+    heightStart = cmdParams->offset[1];
+    heightEnd = heightStart + cmdParams->region[1];
+  }
 
-#ifdef _DEBUG_PRINT
-    printf("--> FillMemObject(end), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
-#endif
+  // width, unlike height and depth, is in bytes.
+  const size_t width = cmdParams->region[0] * pMemObj->uiElementSize;
+  if (width == 0) {
     NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
     return true;
+  }
+
+  // 'width' could be very large in the case of 1D buffer. It is ineffcient to
+  // do CopyPattern on a temporary buffer of size 'width'. Furthermore, it may
+  // cause runfail on windows 32bit due to running out of memory.
+  // Therefore, we do CopyPattern on a smaller chunk size based on heuristic.
+  size_t minSize = 64 * 1024;
+  size_t lcm = getLCMSize(minSize, cmdParams->pattern_size);
+  size_t maxSize = 64 * 1024 * 1024;
+  while (lcm > maxSize && minSize > 1) {
+    minSize /= 2;
+    lcm = getLCMSize(minSize, cmdParams->pattern_size);
+  }
+  assert(lcm && "invalid least common multiple");
+  size_t chunkSize = std::min(((maxSize + lcm - 1) / lcm) * lcm, width);
+
+  // Prepare copy buffer.
+  char *fillBuf = new char[chunkSize];
+  CopyPattern(cmdParams->pattern, cmdParams->pattern_size, fillBuf, chunkSize);
+
+#ifdef _DEBUG_PRINT
+  fprintf(stderr,
+          "Going to fill [%lu,%lu,%lu] to [%lu,%lu,%lu]- with buffer of len "
+          "%lu bytes\n",
+          cmdParams->offset[0], heightStart, depthStart,
+          cmdParams->offset[0] + cmdParams->region[0], heightEnd, depthEnd,
+          chunkSize);
+  fprintf(stderr,
+          "dim_count is %u ; pitches: %lu, %lu ; element size: %u ; color: ",
+          cmdParams->dim_count, pMemObj->pitch[0], pMemObj->pitch[1],
+          pMemObj->uiElementSize);
+  for (size_t i = 0; i < cmdParams->pattern_size; ++i) {
+    fprintf(stderr, "%02x ", cmdParams->pattern[i]);
+  }
+  fprintf(stderr, "\n");
+#endif
+
+  size_t offset[MAX_WORK_DIM];
+  offset[0] = cmdParams->offset[0];
+  size_t remainderChunkSize = width % chunkSize;
+  if (remainderChunkSize == 0)
+    remainderChunkSize = chunkSize;
+  for (size_t depth = depthStart; depth < depthEnd; ++depth) {
+    offset[2] = depth;
+    for (size_t height = heightStart; height < heightEnd; ++height) {
+      offset[1] = height;
+      char *dst = (char *)MemoryAllocator::CalculateOffsetPointer(
+          pMemObj->pData, cmdParams->dim_count, offset, pMemObj->pitch,
+          pMemObj->uiElementSize);
+      size_t idx = 0;
+      for (; idx < (width - chunkSize); idx += chunkSize)
+        MEMCPY_S(dst + idx, chunkSize, fillBuf, chunkSize);
+      MEMCPY_S(dst + idx, remainderChunkSize, fillBuf, remainderChunkSize);
+    }
+  }
+
+  delete[] fillBuf;
+
+#ifdef _DEBUG_PRINT
+  printf("--> FillMemObject(end), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);
+#endif
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1392,62 +1371,56 @@ MigrateMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
     return CL_DEV_OUT_OF_MEMORY;
   }
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    assert(CL_DEV_SUCCESS == rc);
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  assert(CL_DEV_SUCCESS == rc);
 #endif
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-MigrateMemObject::MigrateMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
-{
+MigrateMemObject::MigrateMemObject(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
+
+cl_dev_err_code MigrateMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if (sizeof(cl_dev_cmd_param_migrate) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  cl_dev_cmd_param_migrate *cmdParams =
+      (cl_dev_cmd_param_migrate *)(cmd->params);
+
+  if (0 == cmdParams->mem_num) {
+    return CL_DEV_INVALID_VALUE;
+  }
+
+  for (unsigned int i = 0; i < cmdParams->mem_num; ++i) {
+    if (nullptr == cmdParams->memObjs[i]) {
+      return CL_DEV_INVALID_VALUE;
+    }
+  }
+
+  if (0 != (cmdParams->flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
+                                 CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))) {
+    return CL_DEV_INVALID_VALUE;
+  }
+
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code MigrateMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if ( sizeof(cl_dev_cmd_param_migrate) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
+bool MigrateMemObject::Execute() {
+  // cl_dev_cmd_param_migrate* cmdParams =
+  // (cl_dev_cmd_param_migrate*)m_pCmd->params;
 
-    cl_dev_cmd_param_migrate *cmdParams = (cl_dev_cmd_param_migrate*)(cmd->params);
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-    if (0 == cmdParams->mem_num)
-    {
-        return CL_DEV_INVALID_VALUE;
-    }
+  // TODO: Numa implementation
 
-    for (unsigned int i=0; i< cmdParams->mem_num; ++i)
-    {
-        if(nullptr == cmdParams->memObjs[i])
-        {
-            return CL_DEV_INVALID_VALUE;
-        }
-    }
-
-    if (0 != (cmdParams->flags & ~(CL_MIGRATE_MEM_OBJECT_HOST | CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
-    {
-        return CL_DEV_INVALID_VALUE;
-    }
-    
-    return CL_DEV_SUCCESS;
-}
-
-bool MigrateMemObject::Execute()
-{
-    //cl_dev_cmd_param_migrate* cmdParams = (cl_dev_cmd_param_migrate*)m_pCmd->params;
-
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-    // TODO: Numa implementation
-
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-    return true;
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1462,116 +1435,112 @@ MigrateUSMMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
     return CL_DEV_OUT_OF_MEMORY;
   }
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    assert(CL_DEV_SUCCESS == rc);
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  assert(CL_DEV_SUCCESS == rc);
 #endif
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-MigrateUSMMemObject::MigrateUSMMemObject(TaskDispatcher* pTD,
-    cl_dev_cmd_desc* pCmd) : CommandBaseClass<ITask>(pTD, pCmd)
-{
+MigrateUSMMemObject::MigrateUSMMemObject(TaskDispatcher *pTD,
+                                         cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
+
+cl_dev_err_code MigrateUSMMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if (sizeof(cl_dev_cmd_param_migrate_usm) != cmd->param_size) {
+    return CL_DEV_INVALID_COMMAND_PARAM;
+  }
+
+  cl_dev_cmd_param_migrate_usm *cmdParams =
+      (cl_dev_cmd_param_migrate_usm *)(cmd->params);
+
+  if (nullptr == cmdParams->memObj) {
+    return CL_DEV_INVALID_VALUE;
+  }
+
+  if (0 != (cmdParams->flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
+                                 CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))) {
+    return CL_DEV_INVALID_VALUE;
+  }
+
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code MigrateUSMMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if ( sizeof(cl_dev_cmd_param_migrate_usm) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
+bool MigrateUSMMemObject::Execute() {
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-    cl_dev_cmd_param_migrate_usm *cmdParams =
-        (cl_dev_cmd_param_migrate_usm*)(cmd->params);
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 
-    if(nullptr == cmdParams->memObj)
-    {
-        return CL_DEV_INVALID_VALUE;
-    }
-
-    if (0 != (cmdParams->flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
-                                   CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
-    {
-        return CL_DEV_INVALID_VALUE;
-    }
-
-    return CL_DEV_SUCCESS;
-}
-
-bool MigrateUSMMemObject::Execute()
-{
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-
-    return true;
+  return true;
 }
 
 // DeviceNDRange:
 
 AtomicCounter DeviceNDRange::sm_cmdIdCnt;
 
-void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-        const void* pBlockLiteral, size_t stBlockSize,
-        const size_t* pLocalSizes, size_t stLocalSizeCount,
-        const _ndrange_t* pNDRange)
-{
-    m_kernelMapEntry.pBEKernel = pKernel;
+void DeviceNDRange::InitBlockCmdDesc(
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_ *pKernel,
+    const void *pBlockLiteral, size_t stBlockSize, const size_t *pLocalSizes,
+    size_t stLocalSizeCount, const _ndrange_t *pNDRange) {
+  m_kernelMapEntry.pBEKernel = pKernel;
 #ifdef USE_ITT
-    m_kernelMapEntry.ittTaskNameHandle = nullptr; //TODO: Need to see how to integrate ITT task here
+  m_kernelMapEntry.ittTaskNameHandle =
+      nullptr; // TODO: Need to see how to integrate ITT task here
 #endif
-    m_paramKernel.kernel = &m_kernelMapEntry;
-    m_paramKernel.work_dim = pNDRange->workDimension;
-    for (cl_uint i = 0; i < m_paramKernel.work_dim; ++i)
-    {
-        m_paramKernel.glb_wrk_offs[i] = pNDRange->globalWorkOffset[i];
-        m_paramKernel.glb_wrk_size[i] = pNDRange->globalWorkSize[i];
-        m_paramKernel.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] = pNDRange->localWorkSize[i];
-        // work-group size may be 0
-        const size_t nonUniLocalSize = pNDRange->localWorkSize[i] == 0 ?
-                                                                     0 :
-                                                                     pNDRange->globalWorkSize[i] % pNDRange->localWorkSize[i];
-        // if the remainder is 0 set non-unifrom size to uniform value
-        m_paramKernel.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = nonUniLocalSize == 0 ?
-                                                                  pNDRange->localWorkSize[i] :
-                                                                  nonUniLocalSize;
-    }
+  m_paramKernel.kernel = &m_kernelMapEntry;
+  m_paramKernel.work_dim = pNDRange->workDimension;
+  for (cl_uint i = 0; i < m_paramKernel.work_dim; ++i) {
+    m_paramKernel.glb_wrk_offs[i] = pNDRange->globalWorkOffset[i];
+    m_paramKernel.glb_wrk_size[i] = pNDRange->globalWorkSize[i];
+    m_paramKernel.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] =
+        pNDRange->localWorkSize[i];
+    // work-group size may be 0
+    const size_t nonUniLocalSize =
+        pNDRange->localWorkSize[i] == 0
+            ? 0
+            : pNDRange->globalWorkSize[i] % pNDRange->localWorkSize[i];
+    // if the remainder is 0 set non-unifrom size to uniform value
+    m_paramKernel.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] =
+        nonUniLocalSize == 0 ? pNDRange->localWorkSize[i] : nonUniLocalSize;
+  }
 
-    size_t const exp_arg_size = pKernel->GetExplicitArgumentBufferSize();
-    size_t const sizeof_loc_sizes_buf = stLocalSizeCount * sizeof(size_t);
-    // Align block's size to sizes of local buffers or the implicit arguments
-    size_t const local_arg_offset = ALIGN_UP(stBlockSize, sizeof(size_t));
-    assert( (exp_arg_size == (local_arg_offset + sizeof_loc_sizes_buf) ) &&
-            "Explicit arguments buffer size is not as expected" );
+  size_t const exp_arg_size = pKernel->GetExplicitArgumentBufferSize();
+  size_t const sizeof_loc_sizes_buf = stLocalSizeCount * sizeof(size_t);
+  // Align block's size to sizes of local buffers or the implicit arguments
+  size_t const local_arg_offset = ALIGN_UP(stBlockSize, sizeof(size_t));
+  assert((exp_arg_size == (local_arg_offset + sizeof_loc_sizes_buf)) &&
+         "Explicit arguments buffer size is not as expected");
 
-    // We should also allocate space for the implicit arguments
-    size_t const total_size = exp_arg_size + sizeof(UniformKernelArgs);
+  // We should also allocate space for the implicit arguments
+  size_t const total_size = exp_arg_size + sizeof(UniformKernelArgs);
 
-    char* pAllocatedContext = (char*)ALIGNED_MALLOC(total_size,
-                                                    pKernel->GetArgumentBufferRequiredAlignment());
-    m_paramKernel.uiNonArgSvmBuffersCount = 0;
-    m_paramKernel.uiNonArgUsmBuffersCount = 0;
-    m_paramKernel.arg_size = total_size;
-    m_paramKernel.arg_values = pAllocatedContext;
+  char *pAllocatedContext = (char *)ALIGNED_MALLOC(
+      total_size, pKernel->GetArgumentBufferRequiredAlignment());
+  m_paramKernel.uiNonArgSvmBuffersCount = 0;
+  m_paramKernel.uiNonArgUsmBuffersCount = 0;
+  m_paramKernel.arg_size = total_size;
+  m_paramKernel.arg_values = pAllocatedContext;
 
-    // Copy the block literal (w\ all captured variables)
-    MEMCPY_S(pAllocatedContext, exp_arg_size, pBlockLiteral, stBlockSize);
-    // Copy local buffer sizes
-    MEMCPY_S(pAllocatedContext + local_arg_offset, exp_arg_size - local_arg_offset, pLocalSizes, sizeof_loc_sizes_buf);
+  // Copy the block literal (w\ all captured variables)
+  MEMCPY_S(pAllocatedContext, exp_arg_size, pBlockLiteral, stBlockSize);
+  // Copy local buffer sizes
+  MEMCPY_S(pAllocatedContext + local_arg_offset,
+           exp_arg_size - local_arg_offset, pLocalSizes, sizeof_loc_sizes_buf);
 
-    m_cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
-    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
-    m_cmdDesc.id = (cl_dev_cmd_id)((size_t)(DeviceNDRange::GetNextCmdId() |
-                                            (1L << (sizeof(long) * 8 - 1))));
-    m_cmdDesc.data = this;
-    m_cmdDesc.device_agent_data = nullptr;
-    m_cmdDesc.profiling = GetList()->IsProfilingEnabled();
-    m_cmdDesc.params = &m_paramKernel;
-    m_cmdDesc.param_size = sizeof(m_paramKernel);
+  m_cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
+  // device NDRange IDs have their MSB set, while in host NDRange IDs they're
+  // reset
+  m_cmdDesc.id = (cl_dev_cmd_id)((size_t)(DeviceNDRange::GetNextCmdId() |
+                                          (1L << (sizeof(long) * 8 - 1))));
+  m_cmdDesc.data = this;
+  m_cmdDesc.device_agent_data = nullptr;
+  m_cmdDesc.profiling = GetList()->IsProfilingEnabled();
+  m_cmdDesc.params = &m_paramKernel;
+  m_cmdDesc.param_size = sizeof(m_paramKernel);
 }
 
 void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc * /*cmd*/,
@@ -1597,89 +1566,95 @@ void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc * /*cmd*/,
 #ifdef __INCLUDE_MKL__
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
-{
-    NativeKernelTask* pCommand = new NativeKernelTask(pTD, pList, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code NativeKernelTask::Create(TaskDispatcher *pTD,
+                                         const SharedPtr<ITaskList> &pList,
+                                         cl_dev_cmd_desc *pCmd,
+                                         SharedPtr<ITaskBase> *pTask) {
+  NativeKernelTask *pCommand = new NativeKernelTask(pTD, pList, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-NativeKernelTask::NativeKernelTask(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd), m_pList(pList.GetPtr())
-{
-    cl_dev_cmd_param_kernel* pCmd_params = (cl_dev_cmd_param_kernel*)(pCmd->params);
-    const ProgramService::KernelMapEntry* pEntry = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel);
-    const ICLDevBackendKernel_* pKernel = pEntry->pBEKernel;
-    
-    m_pBIKernel = static_cast<const IBuiltInKernel*>(pKernel);
+NativeKernelTask::NativeKernelTask(TaskDispatcher *pTD,
+                                   const SharedPtr<ITaskList> &pList,
+                                   cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd), m_pList(pList.GetPtr()) {
+  cl_dev_cmd_param_kernel *pCmd_params =
+      (cl_dev_cmd_param_kernel *)(pCmd->params);
+  const ProgramService::KernelMapEntry *pEntry =
+      ((const ProgramService::KernelMapEntry *)pCmd_params->kernel);
+  const ICLDevBackendKernel_ *pKernel = pEntry->pBEKernel;
+
+  m_pBIKernel = static_cast<const IBuiltInKernel *>(pKernel);
 }
 
-cl_dev_err_code NativeKernelTask::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    return CL_DEV_SUCCESS;
+cl_dev_err_code NativeKernelTask::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  return CL_DEV_SUCCESS;
 }
 
-bool NativeKernelTask::Execute()
-{
-    cl_dev_cmd_param_kernel* pCmd_params = (cl_dev_cmd_param_kernel*)(m_pCmd->params);
-    const ProgramService::KernelMapEntry* pEntry = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel);
-    const ICLDevBackendKernel_* pKernel = pEntry->pBEKernel;
-    const KernelArgument*   pParams = pKernel->GetKernelParams();
+bool NativeKernelTask::Execute() {
+  cl_dev_cmd_param_kernel *pCmd_params =
+      (cl_dev_cmd_param_kernel *)(m_pCmd->params);
+  const ProgramService::KernelMapEntry *pEntry =
+      ((const ProgramService::KernelMapEntry *)pCmd_params->kernel);
+  const ICLDevBackendKernel_ *pKernel = pEntry->pBEKernel;
+  const KernelArgument *pParams = pKernel->GetKernelParams();
 
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #if defined(USE_ITT)
-    // Start execution task
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
+  // Start execution task
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
 #if defined(USE_GPA)
-        __itt_set_track(nullptr);
+    __itt_set_track(nullptr);
 #endif
 
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, pEntry->ittTaskNameHandle);
-    }
+    __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
+                     pEntry->ittTaskNameHandle);
+  }
 #endif
 
-    cl_dev_err_code err = ExtractNDRangeParams(pCmd_params->arg_values, pParams,
-                                                   pKernel->GetMemoryObjectArgumentIndexes(),
-                                                   pKernel->GetMemoryObjectArgumentCount(),
-                                                   nullptr);
-    if ( CL_DEV_FAILED(err) )
-    {
-        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, err);
-        return false;
-    }
+  cl_dev_err_code err =
+      ExtractNDRangeParams(pCmd_params->arg_values, pParams,
+                           pKernel->GetMemoryObjectArgumentIndexes(),
+                           pKernel->GetMemoryObjectArgumentCount(), nullptr);
+  if (CL_DEV_FAILED(err)) {
+    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, err);
+    return false;
+  }
 
-    UniformKernelArgs* pUnifromArgs = (UniformKernelArgs*)((char*)pCmd_params->arg_values + pKernel->GetExplicitArgumentBufferSize());
-    pUnifromArgs->WorkDim = pCmd_params->work_dim;
-    memcpy(pUnifromArgs->GlobalSize, pCmd_params->glb_wrk_size, pCmd_params->work_dim*sizeof(size_t));
+  UniformKernelArgs *pUnifromArgs =
+      (UniformKernelArgs *)((char *)pCmd_params->arg_values +
+                            pKernel->GetExplicitArgumentBufferSize());
+  pUnifromArgs->WorkDim = pCmd_params->work_dim;
+  memcpy(pUnifromArgs->GlobalSize, pCmd_params->glb_wrk_size,
+         pCmd_params->work_dim * sizeof(size_t));
 #ifndef __OMP2TBB__
-    cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params->arg_values, m_pTaskDispatcher->getOmpExecutionThread());
+  cl_dev_err_code res = m_pBIKernel->Execute(
+      pCmd_params->arg_values, m_pTaskDispatcher->getOmpExecutionThread());
 #else
-    cl_dev_err_code res = m_pBIKernel->Execute(m_pList, pCmd_params->arg_values);
+  cl_dev_err_code res = m_pBIKernel->Execute(m_pList, pCmd_params->arg_values);
 #endif
 
 #if defined(USE_ITT)
-    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
-    {
+  if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
 #if defined(USE_GPA)
-        __itt_set_track(nullptr);
+    __itt_set_track(nullptr);
 #endif
-        __itt_task_end(m_pGPAData->pDeviceDomain);
-    }
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
 #endif // ITT
 
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, res);
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, res);
 
-    // Return success even if BuiltIn kernel execution failed
-    return true;
+  // Return success even if BuiltIn kernel execution failed
+  return true;
 }
 #endif
 
@@ -1693,44 +1668,40 @@ AdviseUSMMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
   AdviseUSMMemObject *pCommand = new AdviseUSMMemObject(pTD, pCmd);
 
 #ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    assert(CL_DEV_SUCCESS == rc);
+  cl_dev_err_code rc;
+  rc = pCommand->CheckCommandParams(pCmd);
+  assert(CL_DEV_SUCCESS == rc);
 #endif
 
-    assert(pTask);
-    *pTask = static_cast<ITaskBase*>(pCommand);
+  assert(pTask);
+  *pTask = static_cast<ITaskBase *>(pCommand);
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-AdviseUSMMemObject::AdviseUSMMemObject(TaskDispatcher* pTD,
-                                       cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
-{
+AdviseUSMMemObject::AdviseUSMMemObject(TaskDispatcher *pTD,
+                                       cl_dev_cmd_desc *pCmd)
+    : CommandBaseClass<ITask>(pTD, pCmd) {}
+
+cl_dev_err_code AdviseUSMMemObject::CheckCommandParams(cl_dev_cmd_desc *cmd) {
+  if (sizeof(cl_dev_cmd_param_advise_usm) != cmd->param_size)
+    return CL_DEV_INVALID_COMMAND_PARAM;
+
+  cl_dev_cmd_param_advise_usm *cmdParams =
+      (cl_dev_cmd_param_advise_usm *)(cmd->params);
+
+  if (nullptr == cmdParams->memObj)
+    return CL_DEV_INVALID_VALUE;
+
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code AdviseUSMMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if (sizeof(cl_dev_cmd_param_advise_usm) != cmd->param_size)
-        return CL_DEV_INVALID_COMMAND_PARAM;
+bool AdviseUSMMemObject::Execute() {
+  bool ret = true;
 
-    cl_dev_cmd_param_advise_usm *cmdParams =
-        (cl_dev_cmd_param_advise_usm*)(cmd->params);
+  NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
-    if (nullptr == cmdParams->memObj)
-        return CL_DEV_INVALID_VALUE;
+  NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 
-    return CL_DEV_SUCCESS;
-}
-
-bool AdviseUSMMemObject::Execute()
-{
-    bool ret = true;
-
-    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
-
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
-
-    return ret;
+  return ret;
 }

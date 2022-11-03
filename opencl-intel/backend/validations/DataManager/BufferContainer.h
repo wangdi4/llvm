@@ -15,45 +15,42 @@
 #ifndef __BUFFER_CONTAINER_H__
 #define __BUFFER_CONTAINER_H__
 
-#include <vector>
-#include <cstddef>              // for std::size_t
-#include "IMemoryObject.h"
 #include "BufferDesc.h"
-#include "ImageDesc.h"
 #include "IBufferContainer.h"
+#include "IMemoryObject.h"
+#include "ImageDesc.h"
+#include <cstddef> // for std::size_t
+#include <vector>
 
-namespace Validation
-{
-    class BufferContainerList;
-    class IContainerVisitor;
+namespace Validation {
+class BufferContainerList;
+class IContainerVisitor;
 
-    class BufferContainer : public IBufferContainer
-    {
-    public:
-        /// ctor
-        BufferContainer(){}
-        /// dtor. Should be called only by BufferContainerList object
-        virtual ~BufferContainer();
-        std::size_t GetMemoryObjectCount() const override;
-        IMemoryObject *GetMemoryObject(std::size_t buffId) const override;
-        IMemoryObject *CreateBuffer(const BufferDesc &buffDesc) override;
-        IMemoryObject *CreateImage(const ImageDesc &imDesc) override;
+class BufferContainer : public IBufferContainer {
+public:
+  /// ctor
+  BufferContainer() {}
+  /// dtor. Should be called only by BufferContainerList object
+  virtual ~BufferContainer();
+  std::size_t GetMemoryObjectCount() const override;
+  IMemoryObject *GetMemoryObject(std::size_t buffId) const override;
+  IMemoryObject *CreateBuffer(const BufferDesc &buffDesc) override;
+  IMemoryObject *CreateImage(const ImageDesc &imDesc) override;
 
-        void Accept(IContainerVisitor &visitor) const override;
+  void Accept(IContainerVisitor &visitor) const override;
 
-      private:
-        /// hide copy constructor
-        BufferContainer(const BufferContainer& ) : IBufferContainer() {}
-        /// hide assignment operator
-        void operator =(BufferContainer&){}
-        /// typedef for MemoryObjectList
-        typedef std::vector<IMemoryObject*> MemoryObjectList;
-        /// List of buffers
-        MemoryObjectList m_buffs;
-        /// declare friend for access private members
-        friend class BufferContainerList;
-    };
-} // End of Validation namespace
+private:
+  /// hide copy constructor
+  BufferContainer(const BufferContainer &) : IBufferContainer() {}
+  /// hide assignment operator
+  void operator=(BufferContainer &) {}
+  /// typedef for MemoryObjectList
+  typedef std::vector<IMemoryObject *> MemoryObjectList;
+  /// List of buffers
+  MemoryObjectList m_buffs;
+  /// declare friend for access private members
+  friend class BufferContainerList;
+};
+} // namespace Validation
 
 #endif // __BUFFERS_CONTEINER_H__
-

@@ -18,7 +18,7 @@
 #define __TBB_test_common_config_H
 
 #if __TBB_CPF_BUILD
-#ifndef  TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#ifndef TBB_PREVIEW_FLOW_GRAPH_FEATURES
 #define TBB_PREVIEW_FLOW_GRAPH_FEATURES 1
 #endif
 #ifndef TBB_PREVIEW_ALGORITHM_TRACE
@@ -34,41 +34,44 @@
 
 #include "oneapi/tbb/detail/_config.h"
 #if __FreeBSD__
-#include <sys/param.h>  // for __FreeBSD_version
+#include <sys/param.h> // for __FreeBSD_version
 #endif
 
 #if __INTEL_COMPILER
-  #define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (__cplusplus >= 201402L)
+#define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (__cplusplus >= 201402L)
 #elif __clang__
-  #define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (__has_feature(cxx_generic_lambdas))
+#define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (__has_feature(cxx_generic_lambdas))
 #elif __GNUC__
-  #define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (__cplusplus >= 201402L)
-  #define __TBB_GCC_WARNING_IGNORED_ATTRIBUTES_PRESENT (__TBB_GCC_VERSION >= 60100)
+#define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (__cplusplus >= 201402L)
+#define __TBB_GCC_WARNING_IGNORED_ATTRIBUTES_PRESENT                           \
+  (__TBB_GCC_VERSION >= 60100)
 #elif _MSC_VER
-  #define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (_MSC_VER >= 1922)
+#define __TBB_CPP14_GENERIC_LAMBDAS_PRESENT (_MSC_VER >= 1922)
 #endif
 
-// The tuple-based tests with more inputs take a long time to compile.  If changes
-// are made to the tuple implementation or any switch that controls it, or if testing
-// with a new platform implementation of std::tuple, the test should be compiled with
-// MAX_TUPLE_TEST_SIZE >= 10 (or the largest number of elements supported) to ensure
-// all tuple sizes are tested.  Expect a very long compile time.
+// The tuple-based tests with more inputs take a long time to compile.  If
+// changes are made to the tuple implementation or any switch that controls it,
+// or if testing with a new platform implementation of std::tuple, the test
+// should be compiled with MAX_TUPLE_TEST_SIZE >= 10 (or the largest number of
+// elements supported) to ensure all tuple sizes are tested.  Expect a very long
+// compile time.
 #ifndef MAX_TUPLE_TEST_SIZE
-    #if TBB_USE_DEBUG
-        #define MAX_TUPLE_TEST_SIZE 3
-    #else
-        #define MAX_TUPLE_TEST_SIZE 5
-    #endif
+#if TBB_USE_DEBUG
+#define MAX_TUPLE_TEST_SIZE 3
 #else
-    #if MAX_TUPLE_TEST_SIZE > __TBB_VARIADIC_MAX
-        #undef MAX_TUPLE_TEST_SIZE
-        #define MAX_TUPLE_TEST_SIZE __TBB_VARIADIC_MAX
-    #endif
+#define MAX_TUPLE_TEST_SIZE 5
+#endif
+#else
+#if MAX_TUPLE_TEST_SIZE > __TBB_VARIADIC_MAX
+#undef MAX_TUPLE_TEST_SIZE
+#define MAX_TUPLE_TEST_SIZE __TBB_VARIADIC_MAX
+#endif
 #endif
 
-const unsigned MByte = 1024*1024;
+const unsigned MByte = 1024 * 1024;
 
-#if (_WIN32 && !__TBB_WIN8UI_SUPPORT) || (__linux__ && !__ANDROID__ && !__bg__) || __FreeBSD_version >= 701000
+#if (_WIN32 && !__TBB_WIN8UI_SUPPORT) ||                                       \
+    (__linux__ && !__ANDROID__ && !__bg__) || __FreeBSD_version >= 701000
 #define __TBB_TEST_SKIP_AFFINITY 0
 #else
 #define __TBB_TEST_SKIP_AFFINITY 1

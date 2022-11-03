@@ -16,12 +16,15 @@
 
 #include "ExecutionService.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class CPUExecutionService: public ExecutionService
-{
+class CPUExecutionService : public ExecutionService {
 public:
-    CPUExecutionService(const ICLDevBackendOptions* pOptions);
+  CPUExecutionService(const ICLDevBackendOptions *pOptions);
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
