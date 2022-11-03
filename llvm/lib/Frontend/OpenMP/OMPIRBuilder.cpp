@@ -4816,6 +4816,13 @@ void OpenMPIRBuilder::loadOffloadInfoMetadata(
               /*Flags=*/GetMDInt(2)),
           /*Order=*/GetMDInt(3));
       break;
+#if INTEL_COLLAB
+    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
+        OffloadingEntryInfoIndirectFn:
+      OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
+          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2));
+      break;
+#endif // INTEL_COLLAB
     }
   }
 }
@@ -4904,10 +4911,7 @@ void OffloadEntriesInfoManager::initializeDeviceGlobalVarEntryInfo(
 
 #if INTEL_COLLAB
 void OffloadEntriesInfoManager::initializeDeviceIndirectFnEntryInfo(
-    StringRef Name, unsigned Order, bool IsDevice) {
-  assert(IsDevice && "Initialization of entries is "
-                     "only required for the device "
-                     "code generation.");
+    StringRef Name, unsigned Order) {
   OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn IFn(Order);
   OffloadEntriesDeviceIndirectFn[Name.str()] = IFn;
   ++OffloadingEntriesNum;

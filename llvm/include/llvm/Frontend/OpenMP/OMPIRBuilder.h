@@ -1960,8 +1960,7 @@ public:
   };
 
   /// Initialize device declare target indirect function entry
-  void initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order,
-                                           bool IsDevice);
+  void initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order);
 
   /// Register device declare targeta indirect function entry
   void registerDeviceIndirectFnEntryInfo(StringRef FnName, llvm::Constant *Addr,

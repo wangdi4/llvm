@@ -3381,64 +3381,7 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
     return;
   }
 
-<<<<<<< HEAD
-  llvm::NamedMDNode *MD = ME.get()->getNamedMetadata("omp_offload.info");
-  if (!MD)
-    return;
-
-  for (llvm::MDNode *MN : MD->operands()) {
-    auto &&GetMDInt = [MN](unsigned Idx) {
-      auto *V = cast<llvm::ConstantAsMetadata>(MN->getOperand(Idx));
-      return cast<llvm::ConstantInt>(V->getValue())->getZExtValue();
-    };
-
-    auto &&GetMDString = [MN](unsigned Idx) {
-      auto *V = cast<llvm::MDString>(MN->getOperand(Idx));
-      return V->getString();
-    };
-
-    switch (GetMDInt(0)) {
-    default:
-      llvm_unreachable("Unexpected metadata!");
-      break;
-    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
-        OffloadingEntryInfoTargetRegion: {
-      assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                                 "only required for the "
-                                                 "device code generation.");
-      llvm::TargetRegionEntryInfo EntryInfo(/*ParentName=*/GetMDString(3),
-                                            /*DeviceID=*/GetMDInt(1),
-                                            /*FileID=*/GetMDInt(2),
-                                            /*Line=*/GetMDInt(4));
-      OffloadEntriesInfoManager.initializeTargetRegionEntryInfo(
-          EntryInfo, /*Order=*/GetMDInt(5));
-      break;
-    }
-    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
-        OffloadingEntryInfoDeviceGlobalVar:
-      assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                                 "only required for the "
-                                                 "device code generation.");
-      OffloadEntriesInfoManager.initializeDeviceGlobalVarEntryInfo(
-          /*MangledName=*/GetMDString(1),
-          static_cast<
-              llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind>(
-              /*Flags=*/GetMDInt(2)),
-          /*Order=*/GetMDInt(3));
-      break;
-#if INTEL_COLLAB
-    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
-        OffloadingEntryInfoIndirectFn:
-      OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
-          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2),
-          CGM.getLangOpts().OpenMPIsDevice);
-      break;
-#endif // INTEL_COLLAB
-    }
-  }
-=======
   OMPBuilder.loadOffloadInfoMetadata(*ME.get(), OffloadEntriesInfoManager);
->>>>>>> a3463a9f5cb0880357fd3e4c47ed4c2b09f0e6fc
 }
 
 void CGOpenMPRuntime::emitKmpRoutineEntryT(QualType KmpInt32Ty) {
