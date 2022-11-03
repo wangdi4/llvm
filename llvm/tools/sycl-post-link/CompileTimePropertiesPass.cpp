@@ -136,6 +136,8 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
                                      getAttributeAsInteger<uint32_t>(Attr));
     case DecorValueTy::boolean:
       return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
+    default:
+      break;
   }
   llvm_unreachable("Unhandled decorator type.");
 }
