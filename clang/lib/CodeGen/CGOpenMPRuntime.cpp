@@ -3100,27 +3100,13 @@ enum KmpTaskTFields {
 };
 } // anonymous namespace
 
-void CGOpenMPRuntime::createOffloadEntry(
-    llvm::Constant *ID, llvm::Constant *Addr, uint64_t Size, int32_t Flags,
-    llvm::GlobalValue::LinkageTypes Linkage) {
-  OMPBuilder.emitOffloadingEntry(ID, Addr->getName(), Size, Flags);
-}
-
 void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
-  // Emit the offloading entries and metadata so that the device codegen side
-  // can easily figure out what to emit. The produced metadata looks like
-  // this:
-  //
-  // !omp_offload.info = !{!1, ...}
-  //
-  // Right now we only generate metadata for function that contain target
-  // regions.
-
   // If we are in simd mode or there are no entries, we don't need to do
   // anything.
   if (CGM.getLangOpts().OpenMPSimd || OffloadEntriesInfoManager.empty())
     return;
 
+<<<<<<< HEAD
   llvm::Module &M = CGM.getModule();
   llvm::LLVMContext &C = M.getContext();
   SmallVector<
@@ -3332,22 +3318,53 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
               "address is invalid.");
           CGM.getDiags().Report(DiagID);
           continue;
+=======
+  llvm::OpenMPIRBuilder::EmitMetadataErrorReportFunctionTy &&ErrorReportFn =
+      [this](llvm::OpenMPIRBuilder::EmitMetadataErrorKind Kind,
+             const llvm::TargetRegionEntryInfo &EntryInfo) -> void {
+    SourceLocation Loc;
+    if (Kind != llvm::OpenMPIRBuilder::EMIT_MD_GLOBAL_VAR_LINK_ERROR) {
+      for (auto I = CGM.getContext().getSourceManager().fileinfo_begin(),
+                E = CGM.getContext().getSourceManager().fileinfo_end();
+           I != E; ++I) {
+        if (I->getFirst()->getUniqueID().getDevice() == EntryInfo.DeviceID &&
+            I->getFirst()->getUniqueID().getFile() == EntryInfo.FileID) {
+          Loc = CGM.getContext().getSourceManager().translateFileLineCol(
+              I->getFirst(), EntryInfo.Line, 1);
+          break;
+>>>>>>> 9ea2b150b5455b907ba3b9aa24703b5d4faabedd
         }
-        break;
       }
-
-      // Hidden or internal symbols on the device are not externally visible. We
-      // should not attempt to register them by creating an offloading entry.
-      if (auto *GV = dyn_cast<llvm::GlobalValue>(CE->getAddress()))
-        if (GV->hasLocalLinkage() || GV->hasHiddenVisibility())
-          continue;
-
-      createOffloadEntry(CE->getAddress(), CE->getAddress(), CE->getVarSize(),
-                         Flags, CE->getLinkage());
-    } else {
-      llvm_unreachable("Unsupported entry kind.");
     }
-  }
+    switch (Kind) {
+    case llvm::OpenMPIRBuilder::EMIT_MD_TARGET_REGION_ERROR: {
+      unsigned DiagID = CGM.getDiags().getCustomDiagID(
+          DiagnosticsEngine::Error, "Offloading entry for target region in "
+                                    "%0 is incorrect: either the "
+                                    "address or the ID is invalid.");
+      CGM.getDiags().Report(Loc, DiagID) << EntryInfo.ParentName;
+    } break;
+    case llvm::OpenMPIRBuilder::EMIT_MD_DECLARE_TARGET_ERROR: {
+      unsigned DiagID = CGM.getDiags().getCustomDiagID(
+          DiagnosticsEngine::Error, "Offloading entry for declare target "
+                                    "variable %0 is incorrect: the "
+                                    "address is invalid.");
+      CGM.getDiags().Report(Loc, DiagID) << EntryInfo.ParentName;
+    } break;
+    case llvm::OpenMPIRBuilder::EMIT_MD_GLOBAL_VAR_LINK_ERROR: {
+      unsigned DiagID = CGM.getDiags().getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "Offloading entry for declare target variable is incorrect: the "
+          "address is invalid.");
+      CGM.getDiags().Report(DiagID);
+    } break;
+    }
+  };
+
+  OMPBuilder.createOffloadEntriesAndInfoMetadata(
+      OffloadEntriesInfoManager, isTargetCodegen(),
+      CGM.getLangOpts().OpenMPIsDevice,
+      CGM.getOpenMPRuntime().hasRequiresUnifiedSharedMemory(), ErrorReportFn);
 }
 
 /// Loads all the offload entries information from the host IR
