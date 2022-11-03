@@ -233,8 +233,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       }
     }
 
-    // Use wrapper based resolvers on Windows.
-    bool UseWrapperBasedResolver = TT.isOSWindows();
+    // Use wrapper based resolvers on Windows or when -fPIC is specified
+    // on the command line.
+    bool isPIC = M.getPICLevel() != PICLevel::NotPIC;
+    bool UseWrapperBasedResolver = TT.isOSWindows() || isPIC;
 
     // Skip multiversioning variable argument functions w/ wrapper based resolvers.
     if (UseWrapperBasedResolver && Fn.isVarArg())
