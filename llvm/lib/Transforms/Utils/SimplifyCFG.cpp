@@ -2683,6 +2683,32 @@ static bool MergeCompatibleInvokes(BasicBlock *BB, DomTreeUpdater *DTU) {
   return Changed;
 }
 
+namespace {
+/// Track ephemeral values, which should be ignored for cost-modelling
+/// purposes. Requires walking instructions in reverse order.
+class EphemeralValueTracker {
+  SmallPtrSet<const Instruction *, 32> EphValues;
+
+  bool isEphemeral(const Instruction *I) {
+    if (isa<AssumeInst>(I))
+      return true;
+    return !I->mayHaveSideEffects() && !I->isTerminator() &&
+           all_of(I->users(), [&](const User *U) {
+             return EphValues.count(cast<Instruction>(U));
+           });
+  }
+
+public:
+  bool track(const Instruction *I) {
+    if (isEphemeral(I)) {
+      EphValues.insert(I);
+      return true;
+    }
+    return false;
+  }
+};
+} // namespace
+
 /// Determine if we can hoist sink a sole store instruction out of a
 /// conditional block.
 ///
@@ -3054,6 +3080,7 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   int Size = 0;
+<<<<<<< HEAD
 
   SmallPtrSet<const Value *, 32> EphValues;
   auto IsEphemeral = [&](const Instruction *I) {
@@ -3063,6 +3090,10 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
            all_of(I->users(),
                   [&](const User *U) { return EphValues.count(U); });
   };
+=======
+  EphemeralValueTracker EphTracker;
+
+>>>>>>> 592a96c03b0c587404e78d69bbf072609b1e6417
   // Walk the loop in reverse so that we can identify ephemeral values properly
   // (values only feeding assumes).
   for (Instruction &I : reverse(BB->instructionsWithoutDebug(false))) {
@@ -3077,11 +3108,9 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
         return false;
 
     // Ignore ephemeral values which are deleted during codegen.
-    if (IsEphemeral(&I))
-      EphValues.insert(&I);
     // We will delete Phis while threading, so Phis should not be accounted in
     // block's size.
-    else if (!isa<PHINode>(I)) {
+    if (!EphTracker.track(&I) && !isa<PHINode>(I)) {
       if (Size++ > MaxSmallBlockSize)
         return false; // Don't clone large BB's.
     }
