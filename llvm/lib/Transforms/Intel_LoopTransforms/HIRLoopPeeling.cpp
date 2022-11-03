@@ -456,12 +456,12 @@ void HIRLoopPeeling::peelLoop(HLLoop *Lp, PeelingInfo &PeelInfo) {
     auto *LvalRef = DefInst->getLvalDDRef();
     unsigned LvalSymbase = LvalRef->getSymbase();
 
+    auto *LiveoutTempDef = Lp->isLiveOut(LvalSymbase) ? DefInst : nullptr;
+
     // Temp is no longer livein after backwards substitution.
     Lp->removeLiveInTemp(LvalSymbase);
     // It is also not liveout as the last definition will be moved to postexit.
     Lp->removeLiveOutTemp(LvalSymbase);
-
-    auto *LiveoutTempDef = Lp->isLiveOut(LvalSymbase) ? DefInst : nullptr;
 
     if (isa<LoadInst>(TempInfo.DefInst->getLLVMInstruction())) {
 
@@ -471,8 +471,11 @@ void HIRLoopPeeling::peelLoop(HLLoop *Lp, PeelingInfo &PeelInfo) {
       // directly.
       if ((TempInfo.Uses.size() == 1)) {
         if (auto *RegUseRef = dyn_cast<RegDDRef>(TempInfo.Uses[0])) {
-          HIRTransformUtils::replaceOperand(RegUseRef,
-                                            DefInst->removeRvalDDRef());
+          // If temp is liveout we need the original inst to move to postexit so
+          // we cannot reuse its rval ref.
+          auto *LoadRef = LiveoutTempDef ? DefInst->getRvalDDRef()->clone()
+                                         : DefInst->removeRvalDDRef();
+          HIRTransformUtils::replaceOperand(RegUseRef, LoadRef);
           Replaced = true;
         }
       }
