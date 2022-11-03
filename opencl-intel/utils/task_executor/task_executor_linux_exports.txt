@@ -1,9 +1,9 @@
 {
     global:
-		*GetTaskExecutor*;
-		*SharedPtrBase*ITaskBase*RefCnt*;
+    *GetTaskExecutor*;
+    *SharedPtrBase*ITaskBase*RefCnt*;
 
-		*TE_RegisterGlobalAtExitNotification*;
+    *TE_RegisterGlobalAtExitNotification*;
     local:
         *;
 };

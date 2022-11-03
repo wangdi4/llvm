@@ -59,8 +59,8 @@ void FPGAEmuBuiltinLibrary::Load() {
     m_builtinLibLog += Err;
   }
   // Load the variable precision floating point library.
-  if (continue_load && sys::DynamicLibrary::LoadLibraryPermanently(
-                           VPFP_Path.c_str(), &Err)) {
+  if (continue_load &&
+      sys::DynamicLibrary::LoadLibraryPermanently(VPFP_Path.c_str(), &Err)) {
     m_builtinLibLog += "Loading ac_types_vpfp_library failed: ";
     m_builtinLibLog += Err;
   }

@@ -23,9 +23,13 @@
 #include <memory>
 
 // forward decl
-namespace llvm { class MemoryBuffer; }
+namespace llvm {
+class MemoryBuffer;
+}
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 class ProgramContainerMemoryBuffer;
 
 /**
@@ -33,58 +37,61 @@ class ProgramContainerMemoryBuffer;
  *
  * Also get ownership on LLVM materialized module
  */
-class BitCodeContainer : public ICLDevBackendCodeContainer
-{
+class BitCodeContainer : public ICLDevBackendCodeContainer {
 public:
-    BitCodeContainer(const void *pBinary, size_t uiBinarySize, const char* name = "");
-    BitCodeContainer(std::unique_ptr<llvm::MemoryBuffer> memBuffer);
-    ~BitCodeContainer();
+  BitCodeContainer(const void *pBinary, size_t uiBinarySize,
+                   const char *name = "");
+  BitCodeContainer(std::unique_ptr<llvm::MemoryBuffer> memBuffer);
+  ~BitCodeContainer();
 
-    const void *GetCode() const override;
+  const void *GetCode() const override;
 
-    size_t GetCodeSize() const override;
+  size_t GetCodeSize() const override;
 
-    /**
-     * Get ownership on passed module
-     */
-    void SetModule(std::unique_ptr<llvm::Module> M);
+  /**
+   * Get ownership on passed module
+   */
+  void SetModule(std::unique_ptr<llvm::Module> M);
 
-    /**
-     * Get ownership on passed ThreadSafeModule
-     */
-    void SetModule(llvm::orc::ThreadSafeModule TSM);
+  /**
+   * Get ownership on passed ThreadSafeModule
+   */
+  void SetModule(llvm::orc::ThreadSafeModule TSM);
 
-    /**
-     * Return the LLVM Module pointer
-     */
-    llvm::Module* GetModule() const;
+  /**
+   * Return the LLVM Module pointer
+   */
+  llvm::Module *GetModule() const;
 
-    /**
-     * Return the LLVM Module with ownership
-     */
-    std::unique_ptr<llvm::Module> GetModuleOwner();
+  /**
+   * Return the LLVM Module with ownership
+   */
+  std::unique_ptr<llvm::Module> GetModuleOwner();
 
-    /**
-     * Returns the serialized bitcode buffer as a plain pointer (convert to LLVM MemoryBuffer)
-     */
-    llvm::MemoryBuffer *GetMemoryBuffer() const;
+  /**
+   * Returns the serialized bitcode buffer as a plain pointer (convert to LLVM
+   * MemoryBuffer)
+   */
+  llvm::MemoryBuffer *GetMemoryBuffer() const;
 
-    /**
-     * Releases the Bit Code Container
-     */
-    void Release();
+  /**
+   * Releases the Bit Code Container
+   */
+  void Release();
 
 private:
-    // Module is owned by either m_M or m_TSM
-    std::unique_ptr<llvm::Module> m_M;
-    llvm::orc::ThreadSafeModule m_TSM;
+  // Module is owned by either m_M or m_TSM
+  std::unique_ptr<llvm::Module> m_M;
+  llvm::orc::ThreadSafeModule m_TSM;
 
-    std::unique_ptr<llvm::MemoryBuffer> m_pBuffer;
+  std::unique_ptr<llvm::MemoryBuffer> m_pBuffer;
 
-    // Klockwork Issue
-    BitCodeContainer ( const BitCodeContainer& x );
+  // Klockwork Issue
+  BitCodeContainer(const BitCodeContainer &x);
 
-    // Klockwork Issue
-    BitCodeContainer& operator= ( const BitCodeContainer& x );
+  // Klockwork Issue
+  BitCodeContainer &operator=(const BitCodeContainer &x);
 };
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

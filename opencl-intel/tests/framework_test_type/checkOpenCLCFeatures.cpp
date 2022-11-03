@@ -28,26 +28,25 @@
 
 extern cl_device_type gDeviceType;
 
-class CheckOpenCLCFeatures : public CL_base {
-};
+class CheckOpenCLCFeatures : public CL_base {};
 
 // Reference OpenCL C features. Update this list if supported features names or
 // version changes.
 const static std::unordered_map<std::string, cl_version> featsRefCPU = {
-    {"__opencl_c_3d_image_writes",                 CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_atomic_order_acq_rel",            CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_atomic_order_seq_cst",            CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_atomic_scope_device",             CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_atomic_scope_all_devices",        CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_device_enqueue",                  CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_generic_address_space",           CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_fp64",                            CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_images",                          CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_int64",                           CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_pipes",                           CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_program_scope_global_variables",  CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_read_write_images",               CL_MAKE_VERSION(3, 0, 0)},
-    {"__opencl_c_subgroups",                       CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_3d_image_writes", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_atomic_order_acq_rel", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_atomic_order_seq_cst", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_atomic_scope_device", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_atomic_scope_all_devices", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_device_enqueue", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_generic_address_space", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_fp64", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_images", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_int64", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_pipes", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_program_scope_global_variables", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_read_write_images", CL_MAKE_VERSION(3, 0, 0)},
+    {"__opencl_c_subgroups", CL_MAKE_VERSION(3, 0, 0)},
     {"__opencl_c_work_group_collective_functions", CL_MAKE_VERSION(3, 0, 0)}};
 
 static inline std::string makeVersonString(cl_version version) {

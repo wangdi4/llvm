@@ -128,8 +128,8 @@ CPUId CPUDetect::GetCPUIdForKernelPropertiesSerialize() const {
 
 // This is to reset CPU according to ICompilerConfig when
 // CL_CONFIG_CPU_TARGET_ARCH env is set
-void CPUDetect::ResetCPU(ECPU cpuId,
-                    const llvm::SmallVectorImpl<std::string> &forcedFeatures) {
+void CPUDetect::ResetCPU(
+    ECPU cpuId, const llvm::SmallVectorImpl<std::string> &forcedFeatures) {
   // Set CPU arch according to config
   m_CPUArch = cpuId;
   m_CPUString = GetCPUName(m_CPUArch);

@@ -15,52 +15,40 @@
 #include "ocl_mutex.h"
 #include <assert.h>
 
-
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 
 // Creates the mutex section object.
-OclMutex::OclMutex( unsigned int uiSpinCount )
-{
-    m_mutexHndl = new CRITICAL_SECTION();
-    InitializeCriticalSectionAndSpinCount( (LPCRITICAL_SECTION)m_mutexHndl, uiSpinCount );
+OclMutex::OclMutex(unsigned int uiSpinCount) {
+  m_mutexHndl = new CRITICAL_SECTION();
+  InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)m_mutexHndl,
+                                        uiSpinCount);
 }
 
 // Destroys the critical section object.
-OclMutex::~OclMutex()
-{
-    DeleteCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
-    delete ((LPCRITICAL_SECTION)m_mutexHndl);
-    m_mutexHndl = nullptr;
+OclMutex::~OclMutex() {
+  DeleteCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
+  delete ((LPCRITICAL_SECTION)m_mutexHndl);
+  m_mutexHndl = nullptr;
 }
 
 // Take the lock on this critical section.
 // If lock is acquired, all other threads are blocked on this lock until
 // the current thread unlocked it.
-void OclMutex::Lock()
-{
-    EnterCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
-}
+void OclMutex::Lock() { EnterCriticalSection((LPCRITICAL_SECTION)m_mutexHndl); }
 // Release the lock
-void OclMutex::Unlock()
-{
-    LeaveCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
+void OclMutex::Unlock() {
+  LeaveCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
 }
 
-
-OclAutoMutex::OclAutoMutex( IMutex* mutexObj, bool bAutoLock )
-{
-    m_mutexObj = mutexObj;
-    if( bAutoLock )
-    {
-        m_mutexObj->Lock();
-    }
+OclAutoMutex::OclAutoMutex(IMutex *mutexObj, bool bAutoLock) {
+  m_mutexObj = mutexObj;
+  if (bAutoLock) {
+    m_mutexObj->Lock();
+  }
 }
 
-OclAutoMutex::~OclAutoMutex()
-{
-    m_mutexObj->Unlock();
-}
+OclAutoMutex::~OclAutoMutex() { m_mutexObj->Unlock(); }
 #else
 #include <pthread.h>
 OclMutex::OclMutex(unsigned int /*uiSpinCount*/) {
@@ -82,21 +70,18 @@ OclMutex::OclMutex(unsigned int /*uiSpinCount*/) {
 /************************************************************************
  * Destroys the critical section object.
  ************************************************************************/
-OclMutex::~OclMutex()
-{
-    if (0 != pthread_mutex_destroy((pthread_mutex_t*)m_mutexHndl))
-    {
-        assert(0 && "Failed destroy pthread mutex");
-    }
-    delete((pthread_mutex_t*)m_mutexHndl);
-    m_mutexHndl = nullptr;
+OclMutex::~OclMutex() {
+  if (0 != pthread_mutex_destroy((pthread_mutex_t *)m_mutexHndl)) {
+    assert(0 && "Failed destroy pthread mutex");
+  }
+  delete ((pthread_mutex_t *)m_mutexHndl);
+  m_mutexHndl = nullptr;
 
-    if (0 != pthread_mutexattr_destroy((pthread_mutexattr_t*)m_mutexAttr))
-    {
-        assert(0 && "Failed destroy pthread mutex attribute");
-    }
-    delete((pthread_mutexattr_t*)m_mutexAttr);
-    m_mutexAttr = nullptr;
+  if (0 != pthread_mutexattr_destroy((pthread_mutexattr_t *)m_mutexAttr)) {
+    assert(0 && "Failed destroy pthread mutex attribute");
+  }
+  delete ((pthread_mutexattr_t *)m_mutexAttr);
+  m_mutexAttr = nullptr;
 }
 
 /************************************************************************
@@ -104,32 +89,23 @@ OclMutex::~OclMutex()
  * If lock is acquired, all other threads are blocked on this lock until
  * the current thread unlocked it.
  ************************************************************************/
-void OclMutex::Lock()
-{
-    pthread_mutex_lock((pthread_mutex_t*)m_mutexHndl);
-}
+void OclMutex::Lock() { pthread_mutex_lock((pthread_mutex_t *)m_mutexHndl); }
 /************************************************************************
  * Release the lock
  ************************************************************************/
-void OclMutex::Unlock()
-{
-    pthread_mutex_unlock((pthread_mutex_t*)m_mutexHndl);
+void OclMutex::Unlock() {
+  pthread_mutex_unlock((pthread_mutex_t *)m_mutexHndl);
 }
 /************************************************************************
  *
  ************************************************************************/
-OclAutoMutex::OclAutoMutex(IMutex* mutexObj, bool bAutoLock)
-{
-    m_mutexObj = mutexObj;
-    if ( bAutoLock )
-    {
-        m_mutexObj->Lock();
-    }
+OclAutoMutex::OclAutoMutex(IMutex *mutexObj, bool bAutoLock) {
+  m_mutexObj = mutexObj;
+  if (bAutoLock) {
+    m_mutexObj->Lock();
+  }
 }
 
-OclAutoMutex::~OclAutoMutex()
-{
-    m_mutexObj->Unlock();
-}
+OclAutoMutex::~OclAutoMutex() { m_mutexObj->Unlock(); }
 
 #endif

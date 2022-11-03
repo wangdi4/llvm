@@ -16,124 +16,112 @@
 
 using namespace Intel::OpenCL::Utils;
 
-IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = nullptr;
+IAtExitCentralPoint *OclDynamicLib::m_atexit_fn = nullptr;
 
 // Get function pointer from library handle
-ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary,
-                                                       const char* szFuncName)
-{
-    //clear errors
-    dlerror();
-    void* func = dlsym(hLibrary, szFuncName);
-    const char * error;
-    if ((error = dlerror()) != nullptr)  {
-        return 0;
-    }
+ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void *hLibrary,
+                                                       const char *szFuncName) {
+  // clear errors
+  dlerror();
+  void *func = dlsym(hLibrary, szFuncName);
+  const char *error;
+  if ((error = dlerror()) != nullptr) {
+    return 0;
+  }
 
-    return (ptrdiff_t)func;
+  return (ptrdiff_t)func;
 }
 
 OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor)
     : m_hLibrary(nullptr), m_bUnloadOnDestructor(bUnloadOnDestructor),
       m_vErrInfo("") {}
 
-OclDynamicLib::~OclDynamicLib()
-{
-    if (m_bUnloadOnDestructor)
-    {
-        Close();
-    }
+OclDynamicLib::~OclDynamicLib() {
+  if (m_bUnloadOnDestructor) {
+    Close();
+  }
 }
 
 // -----------------------------------------------------------------------------
 // Checks for existance of a file with specified name
-bool OclDynamicLib::IsExists(const char* pLibName)
-{
-    struct stat stFileInfo;
-    int rc;
+bool OclDynamicLib::IsExists(const char *pLibName) {
+  struct stat stFileInfo;
+  int rc;
 
-    rc = stat(pLibName, &stFileInfo);
+  rc = stat(pLibName, &stFileInfo);
 
-    return (0 == rc);
+  return (0 == rc);
 }
 
 // -----------------------------------------------------------------------------
 // Loads a dynamically link library into process address space
-int OclDynamicLib::Load(const char* pLibName)
-{
-    if ( nullptr != m_hLibrary )
-    {
-        return -1;
-    }
+int OclDynamicLib::Load(const char *pLibName) {
+  if (nullptr != m_hLibrary) {
+    return -1;
+  }
 
-    // Load library
-    std::string strLibName(MAX_PATH, '\0');
-    // Get a full path of a library from where the function was called. We
-    // expect, that a callee library is having the same path as the caller.
-    // Add this path to string to pass in dlopen function.
-    Intel::OpenCL::Utils::GetModuleDirectory(&strLibName[0], MAX_PATH);
-    strLibName.resize(strLibName.find_first_of('\0'));
-    // To make library name canonical add a version string at its ending.
-    strLibName += std::string(pLibName) + std::string(".") +
-                  std::string(VERSIONSTRING);
+  // Load library
+  std::string strLibName(MAX_PATH, '\0');
+  // Get a full path of a library from where the function was called. We
+  // expect, that a callee library is having the same path as the caller.
+  // Add this path to string to pass in dlopen function.
+  Intel::OpenCL::Utils::GetModuleDirectory(&strLibName[0], MAX_PATH);
+  strLibName.resize(strLibName.find_first_of('\0'));
+  // To make library name canonical add a version string at its ending.
+  strLibName +=
+      std::string(pLibName) + std::string(".") + std::string(VERSIONSTRING);
+  m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
+
+  if (nullptr == m_hLibrary) {
+    // We didn't find the called library by a full path. Step back and try
+    // to find it disregarding the calculated path.
+    strLibName =
+        std::string(pLibName) + std::string(".") + std::string(VERSIONSTRING);
     m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
-
-    if ( nullptr == m_hLibrary )
-    {
-        // We didn't find the called library by a full path. Step back and try
-        // to find it disregarding the calculated path.
-        strLibName = std::string(pLibName) + std::string(".") +
-                                 std::string(VERSIONSTRING);
-        m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
-        if (nullptr == m_hLibrary) {
-          const char *strDllError = dlerror();
-          m_vErrInfo = std::string(nullptr == strDllError ? "Unknown reason."
-                                                          : strDllError);
-          return 1;
-        }
+    if (nullptr == m_hLibrary) {
+      const char *strDllError = dlerror();
+      m_vErrInfo =
+          std::string(nullptr == strDllError ? "Unknown reason." : strDllError);
+      return 1;
     }
+  }
 
-    RegisterAtExitNotification_Func AtExitFunc = 
-        (RegisterAtExitNotification_Func)GetFunctionPtrByName(
-            OclDynamicLib_AT_EXIT_REGISTER_FUNC_NAME);
+  RegisterAtExitNotification_Func AtExitFunc =
+      (RegisterAtExitNotification_Func)GetFunctionPtrByName(
+          OclDynamicLib_AT_EXIT_REGISTER_FUNC_NAME);
 
-    if (nullptr != AtExitFunc)
-    {
-        AtExitFunc( m_atexit_fn );
-    }
+  if (nullptr != AtExitFunc) {
+    AtExitFunc(m_atexit_fn);
+  }
 
-    return 0;
+  return 0;
 }
 
 // Loads a dynamically link library into process address space
-void OclDynamicLib::Close()
-{
-    if ( nullptr == m_hLibrary )
-    {
-        return;
-    }
+void OclDynamicLib::Close() {
+  if (nullptr == m_hLibrary) {
+    return;
+  }
 
-    if (IsShuttingDown())
-    {
-        return;
-    }
+  if (IsShuttingDown()) {
+    return;
+  }
 
-    m_uiFuncCount = 0;
-    m_pOffsetNames = nullptr;
-    m_pOffsetFunc = nullptr;
+  m_uiFuncCount = 0;
+  m_pOffsetNames = nullptr;
+  m_pOffsetFunc = nullptr;
 
-    UseShutdownHandler::UnloadingDll(true);
-    dlclose(m_hLibrary);
-    UseShutdownHandler::UnloadingDll(false);
+  UseShutdownHandler::UnloadingDll(true);
+  dlclose(m_hLibrary);
+  UseShutdownHandler::UnloadingDll(false);
 
-    m_hLibrary = nullptr;
+  m_hLibrary = nullptr;
 }
 
 // Returns a number of named functions found in the library
-unsigned int OclDynamicLib::GetNumberOfFunctions() const
-{
-    assert(0 && "Not implemented on Linux");
-    return 0;
+unsigned int OclDynamicLib::GetNumberOfFunctions() const {
+  assert(0 && "Not implemented on Linux");
+  return 0;
 }
 
 // Returns a pointer to function name
@@ -149,22 +137,20 @@ const void *OclDynamicLib::GetFunctionPtr(unsigned int /*uiFuncId*/) const {
 }
 
 // Returns a function pointer
-ptrdiff_t OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
-{
-    if ( nullptr == m_hLibrary )
-    {
-        return 0;
-    }
+ptrdiff_t OclDynamicLib::GetFunctionPtrByName(const char *szFuncName) const {
+  if (nullptr == m_hLibrary) {
+    return 0;
+  }
 
-    void* func;
-    const char* error;
+  void *func;
+  const char *error;
 
-    //clear errors
-    dlerror();
-    func = dlsym(m_hLibrary, szFuncName);
-        if ((error = dlerror()) != nullptr)  {
-            return 0;
-      }
+  // clear errors
+  dlerror();
+  func = dlsym(m_hLibrary, szFuncName);
+  if ((error = dlerror()) != nullptr) {
+    return 0;
+  }
 
-    return (ptrdiff_t)func;
+  return (ptrdiff_t)func;
 }

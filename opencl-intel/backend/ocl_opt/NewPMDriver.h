@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 //===- NewPMDriver.h - Function to drive opt with the new PM ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -35,12 +47,8 @@ enum OutputKind {
   OK_OutputBitcode,
   OK_OutputThinLTOBitcode,
 };
-enum VerifierKind {
-  VK_NoVerifier,
-  VK_VerifyInAndOut,
-  VK_VerifyEachPass
-};
-}
+enum VerifierKind { VK_NoVerifier, VK_VerifyInAndOut, VK_VerifyEachPass };
+} // namespace opt_tool
 
 /// \brief Driver function to run the new pass manager over a module.
 ///
@@ -58,6 +66,6 @@ bool runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                      bool ShouldPreserveAssemblyUseListOrder,
                      bool ShouldPreserveBitcodeUseListOrder,
                      bool EmitSummaryIndex, bool EmitModuleHash);
-}
+} // namespace llvm
 
 #endif

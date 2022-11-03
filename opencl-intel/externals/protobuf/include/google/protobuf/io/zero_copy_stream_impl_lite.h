@@ -44,14 +44,13 @@
 #ifndef GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_IMPL_LITE_H__
 #define GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_IMPL_LITE_H__
 
-#include <memory>
-#include <string>
-#include <iosfwd>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/stubs/callback.h>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/stubs/stl_util.h>
-
+#include <iosfwd>
+#include <memory>
+#include <string>
 
 namespace google {
 namespace protobuf {
@@ -61,7 +60,7 @@ namespace io {
 
 // A ZeroCopyInputStream backed by an in-memory array of bytes.
 class LIBPROTOBUF_EXPORT ArrayInputStream : public ZeroCopyInputStream {
- public:
+public:
   // Create an InputStream that returns the bytes pointed to by "data".
   // "data" remains the property of the caller but must remain valid until
   // the stream is destroyed.  If a block_size is given, calls to Next()
@@ -69,23 +68,22 @@ class LIBPROTOBUF_EXPORT ArrayInputStream : public ZeroCopyInputStream {
   // first call to Next() returns the entire array.  block_size is mainly
   // useful for testing; in production you would probably never want to set
   // it.
-  ArrayInputStream(const void* data, int size, int block_size = -1);
+  ArrayInputStream(const void *data, int size, int block_size = -1);
 
   // implements ZeroCopyInputStream ----------------------------------
-  bool Next(const void** data, int* size);
+  bool Next(const void **data, int *size);
   void BackUp(int count);
   bool Skip(int count);
   int64 ByteCount() const;
 
-
- private:
-  const uint8* const data_;  // The byte array.
-  const int size_;           // Total size of the array.
-  const int block_size_;     // How many bytes to return at a time.
+private:
+  const uint8 *const data_; // The byte array.
+  const int size_;          // Total size of the array.
+  const int block_size_;    // How many bytes to return at a time.
 
   int position_;
-  int last_returned_size_;   // How many bytes we returned last time Next()
-                             // was called (used for error checking only).
+  int last_returned_size_; // How many bytes we returned last time Next()
+                           // was called (used for error checking only).
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ArrayInputStream);
 };
@@ -94,7 +92,7 @@ class LIBPROTOBUF_EXPORT ArrayInputStream : public ZeroCopyInputStream {
 
 // A ZeroCopyOutputStream backed by an in-memory array of bytes.
 class LIBPROTOBUF_EXPORT ArrayOutputStream : public ZeroCopyOutputStream {
- public:
+public:
   // Create an OutputStream that writes to the bytes pointed to by "data".
   // "data" remains the property of the caller but must remain valid until
   // the stream is destroyed.  If a block_size is given, calls to Next()
@@ -102,21 +100,21 @@ class LIBPROTOBUF_EXPORT ArrayOutputStream : public ZeroCopyOutputStream {
   // first call to Next() returns the entire array.  block_size is mainly
   // useful for testing; in production you would probably never want to set
   // it.
-  ArrayOutputStream(void* data, int size, int block_size = -1);
+  ArrayOutputStream(void *data, int size, int block_size = -1);
 
   // implements ZeroCopyOutputStream ---------------------------------
-  bool Next(void** data, int* size);
+  bool Next(void **data, int *size);
   void BackUp(int count);
   int64 ByteCount() const;
 
- private:
-  uint8* const data_;        // The byte array.
-  const int size_;           // Total size of the array.
-  const int block_size_;     // How many bytes to return at a time.
+private:
+  uint8 *const data_;    // The byte array.
+  const int size_;       // Total size of the array.
+  const int block_size_; // How many bytes to return at a time.
 
   int position_;
-  int last_returned_size_;   // How many bytes we returned last time Next()
-                             // was called (used for error checking only).
+  int last_returned_size_; // How many bytes we returned last time Next()
+                           // was called (used for error checking only).
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ArrayOutputStream);
 };
@@ -125,7 +123,7 @@ class LIBPROTOBUF_EXPORT ArrayOutputStream : public ZeroCopyOutputStream {
 
 // A ZeroCopyOutputStream which appends bytes to a string.
 class LIBPROTOBUF_EXPORT StringOutputStream : public ZeroCopyOutputStream {
- public:
+public:
   // Create a StringOutputStream which appends bytes to the given string.
   // The string remains property of the caller, but it is mutated in arbitrary
   // ways and MUST NOT be accessed in any way until you're done with the
@@ -135,20 +133,20 @@ class LIBPROTOBUF_EXPORT StringOutputStream : public ZeroCopyOutputStream {
   // Hint:  If you call target->reserve(n) before creating the stream,
   //   the first call to Next() will return at least n bytes of buffer
   //   space.
-  explicit StringOutputStream(string* target);
+  explicit StringOutputStream(string *target);
 
   // implements ZeroCopyOutputStream ---------------------------------
-  bool Next(void** data, int* size);
+  bool Next(void **data, int *size);
   void BackUp(int count);
   int64 ByteCount() const;
 
- protected:
-  void SetString(string* target);
+protected:
+  void SetString(string *target);
 
- private:
+private:
   static const int kMinimumSize = 16;
 
-  string* target_;
+  string *target_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(StringOutputStream);
 };
@@ -171,14 +169,14 @@ class LIBPROTOBUF_EXPORT StringOutputStream : public ZeroCopyOutputStream {
 // CopyingInputStreamAdaptor does its own buffering and will read data
 // in large blocks.
 class LIBPROTOBUF_EXPORT CopyingInputStream {
- public:
+public:
   virtual ~CopyingInputStream() {}
 
   // Reads up to "size" bytes into the given buffer.  Returns the number of
   // bytes read.  Read() waits until at least one byte is available, or
   // returns zero if no bytes will ever become available (EOF), or -1 if a
   // permanent read error occurred.
-  virtual int Read(void* buffer, int size) = 0;
+  virtual int Read(void *buffer, int size) = 0;
 
   // Skips the next "count" bytes of input.  Returns the number of bytes
   // actually skipped.  This will always be exactly equal to "count" unless
@@ -196,14 +194,15 @@ class LIBPROTOBUF_EXPORT CopyingInputStream {
 // If you want to read from file descriptors or C++ istreams, this is
 // already implemented for you:  use FileInputStream or IstreamInputStream
 // respectively.
-class LIBPROTOBUF_EXPORT CopyingInputStreamAdaptor : public ZeroCopyInputStream {
- public:
+class LIBPROTOBUF_EXPORT CopyingInputStreamAdaptor
+    : public ZeroCopyInputStream {
+public:
   // Creates a stream that reads from the given CopyingInputStream.
   // If a block_size is given, it specifies the number of bytes that
   // should be read and returned with each call to Next().  Otherwise,
   // a reasonable default is used.  The caller retains ownership of
   // copying_stream unless SetOwnsCopyingStream(true) is called.
-  explicit CopyingInputStreamAdaptor(CopyingInputStream* copying_stream,
+  explicit CopyingInputStreamAdaptor(CopyingInputStream *copying_stream,
                                      int block_size = -1);
   ~CopyingInputStreamAdaptor();
 
@@ -212,19 +211,19 @@ class LIBPROTOBUF_EXPORT CopyingInputStreamAdaptor : public ZeroCopyInputStream 
   void SetOwnsCopyingStream(bool value) { owns_copying_stream_ = value; }
 
   // implements ZeroCopyInputStream ----------------------------------
-  bool Next(const void** data, int* size);
+  bool Next(const void **data, int *size);
   void BackUp(int count);
   bool Skip(int count);
   int64 ByteCount() const;
 
- private:
+private:
   // Insures that buffer_ is not NULL.
   void AllocateBufferIfNeeded();
   // Frees the buffer and resets buffer_used_.
   void FreeBuffer();
 
   // The underlying copying stream.
-  CopyingInputStream* copying_stream_;
+  CopyingInputStream *copying_stream_;
   bool owns_copying_stream_;
 
   // True if we have seen a permenant error from the underlying stream.
@@ -265,12 +264,12 @@ class LIBPROTOBUF_EXPORT CopyingInputStreamAdaptor : public ZeroCopyInputStream 
 // CopyingOutputStreamAdaptor does its own buffering and will write data
 // in large blocks.
 class LIBPROTOBUF_EXPORT CopyingOutputStream {
- public:
+public:
   virtual ~CopyingOutputStream() {}
 
   // Writes "size" bytes from the given buffer to the output.  Returns true
   // if successful, false on a write error.
-  virtual bool Write(const void* buffer, int size) = 0;
+  virtual bool Write(const void *buffer, int size) = 0;
 };
 
 // A ZeroCopyOutputStream which writes to a CopyingOutputStream.  This is
@@ -280,13 +279,14 @@ class LIBPROTOBUF_EXPORT CopyingOutputStream {
 // If you want to write to file descriptors or C++ ostreams, this is
 // already implemented for you:  use FileOutputStream or OstreamOutputStream
 // respectively.
-class LIBPROTOBUF_EXPORT CopyingOutputStreamAdaptor : public ZeroCopyOutputStream {
- public:
+class LIBPROTOBUF_EXPORT CopyingOutputStreamAdaptor
+    : public ZeroCopyOutputStream {
+public:
   // Creates a stream that writes to the given Unix file descriptor.
   // If a block_size is given, it specifies the size of the buffers
   // that should be returned by Next().  Otherwise, a reasonable default
   // is used.
-  explicit CopyingOutputStreamAdaptor(CopyingOutputStream* copying_stream,
+  explicit CopyingOutputStreamAdaptor(CopyingOutputStream *copying_stream,
                                       int block_size = -1);
   ~CopyingOutputStreamAdaptor();
 
@@ -300,11 +300,11 @@ class LIBPROTOBUF_EXPORT CopyingOutputStreamAdaptor : public ZeroCopyOutputStrea
   void SetOwnsCopyingStream(bool value) { owns_copying_stream_ = value; }
 
   // implements ZeroCopyOutputStream ---------------------------------
-  bool Next(void** data, int* size);
+  bool Next(void **data, int *size);
   void BackUp(int count);
   int64 ByteCount() const;
 
- private:
+private:
   // Write the current buffer, if it is present.
   bool WriteBuffer();
   // Insures that buffer_ is not NULL.
@@ -313,7 +313,7 @@ class LIBPROTOBUF_EXPORT CopyingOutputStreamAdaptor : public ZeroCopyOutputStrea
   void FreeBuffer();
 
   // The underlying copying stream.
-  CopyingOutputStream* copying_stream_;
+  CopyingOutputStream *copying_stream_;
   bool owns_copying_stream_;
 
   // True if we have seen a permenant error from the underlying stream.
@@ -353,7 +353,7 @@ class LIBPROTOBUF_EXPORT CopyingOutputStreamAdaptor : public ZeroCopyOutputStrea
 // Return a pointer to mutable characters underlying the given string.  The
 // return value is valid until the next time the string is resized.  We
 // trust the caller to treat the return value as an array of length s->size().
-inline char* mutable_string_data(string* s) {
+inline char *mutable_string_data(string *s) {
 #ifdef LANG_CXX11
   // This should be simpler & faster than string_as_array() because the latter
   // is guaranteed to return NULL when *s is empty, so it has to check for that.
@@ -367,7 +367,7 @@ inline char* mutable_string_data(string* s) {
 //  ({ char* p = mutable_string_data(s); make_pair(p, p != NULL); })
 // Sometimes it's faster: in some scenarios p cannot be NULL, and then the
 // code can avoid that check.
-inline std::pair<char*, bool> as_string_data(string* s) {
+inline std::pair<char *, bool> as_string_data(string *s) {
   char *p = mutable_string_data(s);
 #ifdef LANG_CXX11
   return std::make_pair(p, true);
@@ -376,8 +376,8 @@ inline std::pair<char*, bool> as_string_data(string* s) {
 #endif
 }
 
-}  // namespace io
-}  // namespace protobuf
+} // namespace io
+} // namespace protobuf
 
-}  // namespace google
-#endif  // GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_IMPL_LITE_H__
+} // namespace google
+#endif // GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_IMPL_LITE_H__

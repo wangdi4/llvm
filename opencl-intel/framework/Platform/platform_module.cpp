@@ -16,19 +16,19 @@
 #include "Device.h"
 #include "fe_compiler.h"
 
+#include <cl_device_api.h>
 #include <cl_object_info.h>
 #include <cl_objects_map.h>
-#include <cl_device_api.h>
 #include <cl_sys_defines.h>
 
-#include <algorithm>
-#include <assert.h>
-#include <malloc.h>
-#include <string>
 #include "cl_local_array.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_info.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+#include <algorithm>
+#include <assert.h>
+#include <malloc.h>
+#include <string>
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -40,466 +40,430 @@ unsigned int PlatformModule::m_uiPlatformNameStrSize = 0;
 std::string PlatformModule::m_vPlatformVersionStr;
 cl_version PlatformModule::m_vPlatformVersionNum;
 const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
-const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
-
+const unsigned int PlatformModule::m_uiPlatformVendorStrSize =
+    sizeof(m_vPlatformVendorStr) / sizeof(char);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::PlatformModule
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule")
-{
-    m_ppRootDevices        = nullptr;
-    m_uiRootDevicesCount   = 0;
-    m_pOclEntryPoints      = nullptr;
-    m_oclVersion           = OPENCL_VERSION_UNKNOWN;
+PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule") {
+  m_ppRootDevices = nullptr;
+  m_uiRootDevicesCount = 0;
+  m_pOclEntryPoints = nullptr;
+  m_oclVersion = OPENCL_VERSION_UNKNOWN;
 
-    memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
-    // initialize logger
-    INIT_LOGGER_CLIENT("PlatformModule", LL_DEBUG);
+  memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
+  // initialize logger
+  INIT_LOGGER_CLIENT("PlatformModule", LL_DEBUG);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::~PlatformModule
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-PlatformModule::~PlatformModule()
-{
-    RELEASE_LOGGER_CLIENT;
-}
+PlatformModule::~PlatformModule() { RELEASE_LOGGER_CLIENT; }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::InitDevices
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const string& defaultDevice)
-{
-    unsigned int supported_devices_type_count = (unsigned int)devices.size();
+cl_err_code PlatformModule::InitDevices(const vector<string> &devices,
+                                        const string &defaultDevice) {
+  unsigned int supported_devices_type_count = (unsigned int)devices.size();
 
-    if (0 == supported_devices_type_count)
-    {
-        return CL_INVALID_DEVICE;
+  if (0 == supported_devices_type_count) {
+    return CL_INVALID_DEVICE;
+  }
+
+  m_uiRootDevicesCount = 0;
+  m_pDefaultDevice = nullptr;
+  m_ppRootDevices = nullptr;
+
+  cl_err_code clErrRet = CL_SUCCESS;
+  vector<SharedPtr<Device>> devicesList;
+  for (unsigned int ui = 0; ui < supported_devices_type_count; ++ui) {
+    string strDevice = OS_DLL_POST(devices[ui]);
+
+    clErrRet = Device::CreateAndInitAllDevicesOfDeviceType(
+        strDevice.c_str(), &m_clPlatformId, &devicesList);
+    if (CL_FAILED(clErrRet)) {
+      if (CL_OUT_OF_HOST_MEMORY == clErrRet) {
+        devicesList.clear();
+        break;
+      }
+      // it's possible - if the device isn't presented on the system
+      LOG_INFO(TEXT("InitDevice() failed with %d for %s"), clErrRet,
+               devices[ui].c_str());
+      continue;
     }
+  }
 
+  if (devicesList.size() == 0) {
+    return clErrRet;
+  }
+
+  m_uiRootDevicesCount = devicesList.size();
+  m_ppRootDevices = new SharedPtr<Device>[m_uiRootDevicesCount];
+  if (nullptr == m_ppRootDevices) {
     m_uiRootDevicesCount = 0;
-    m_pDefaultDevice = nullptr;
-    m_ppRootDevices = nullptr;
+    return CL_OUT_OF_HOST_MEMORY;
+  }
 
-    cl_err_code clErrRet = CL_SUCCESS;
-    vector< SharedPtr<Device> > devicesList;
-    for(unsigned int ui = 0; ui < supported_devices_type_count; ++ui)
-    {
-        string strDevice = OS_DLL_POST(devices[ui]);
+  for (size_t ui = 0; ui < m_uiRootDevicesCount; ++ui) {
+    m_ppRootDevices[ui] = devicesList[ui];
+    // assign device in the objects map
+    m_mapDevices.AddObject(devicesList[ui]);
 
-        clErrRet = Device::CreateAndInitAllDevicesOfDeviceType(strDevice.c_str(), &m_clPlatformId, &devicesList);
-        if (CL_FAILED(clErrRet))
-        {
-            if (CL_OUT_OF_HOST_MEMORY == clErrRet)
-            {
-                devicesList.clear();
-                break;
-            }
-            // it's possible - if the device isn't presented on the system
-            LOG_INFO(TEXT("InitDevice() failed with %d for %s"), clErrRet, devices[ui].c_str());
-            continue;
-        }
+    if ((0 == m_pDefaultDevice) && (defaultDevice != "") &&
+        (defaultDevice == devices[ui])) {
+      m_pDefaultDevice = devicesList[ui];
     }
+  }
 
-    if (devicesList.size() == 0)
-    {
-        return clErrRet;
-    }
-
-    m_uiRootDevicesCount = devicesList.size();
-    m_ppRootDevices = new SharedPtr<Device>[m_uiRootDevicesCount];
-    if (nullptr == m_ppRootDevices)
-    {
-        m_uiRootDevicesCount = 0;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
-    for(size_t ui = 0; ui < m_uiRootDevicesCount; ++ui)
-    {
-        m_ppRootDevices[ui] = devicesList[ui];
-        // assign device in the objects map
-        m_mapDevices.AddObject(devicesList[ui]);
-
-        if ((0 == m_pDefaultDevice) && (defaultDevice != "") && (defaultDevice == devices[ui]))
-        {
-            m_pDefaultDevice = devicesList[ui];
-        }
-    }
-
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::Initialize
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pConfig, ocl_gpa_data * pGPAData)
-{
-    LOG_INFO(TEXT("%s"), TEXT("Platform module logger initialized"));
+cl_err_code PlatformModule::Initialize(ocl_entry_points *pOclEntryPoints,
+                                       OCLConfig *pConfig,
+                                       ocl_gpa_data *pGPAData) {
+  LOG_INFO(TEXT("%s"), TEXT("Platform module logger initialized"));
 
-    m_pOclEntryPoints = pOclEntryPoints;
+  m_pOclEntryPoints = pOclEntryPoints;
 
-    // initialize GPA data^M
-    m_pGPAData = pGPAData;
+  // initialize GPA data^M
+  m_pGPAData = pGPAData;
 
-    // We suppose there is a config file which contains CL_CONFIG_DEVICES info.
-    // Otherwise we will log the error info and do not show this platform.
-    string strDeviceNameInCFG = pConfig->GetDeviceModeName();
-    if (strDeviceNameInCFG.empty()) {
+  // We suppose there is a config file which contains CL_CONFIG_DEVICES info.
+  // Otherwise we will log the error info and do not show this platform.
+  string strDeviceNameInCFG = pConfig->GetDeviceModeName();
+  if (strDeviceNameInCFG.empty()) {
+    assert(!m_clPlatformId.object &&
+           "PlatformID before initialization should be NULL");
+    LOG_ERROR(TEXT("Failed to load config file %s"),
+              GetConfigFilePath().c_str());
+    return CL_ERR_DEVICE_INIT_FAIL;
+  }
+
+  // If user configures device type by env variable "CL_CONFIG_DEVICES",
+  // the runtime only enable the correspondig device type.
+  // Otherwise it will enable all supported devices.
+  // This function is entry point after ICD loader loads the runtime so we
+  // check it here.
+  string strEnvDevice;
+  if (Intel::OpenCL::Utils::getEnvVar(strEnvDevice, "CL_CONFIG_DEVICES")) {
+    // Read the value from cl.cfg. If it does not match env value, return
+    // CL_INVALID_VALUE value.
+    if (strDeviceNameInCFG.compare(strEnvDevice) != 0) {
       assert(!m_clPlatformId.object &&
              "PlatformID before initialization should be NULL");
-      LOG_ERROR(TEXT("Failed to load config file %s"),
-                GetConfigFilePath().c_str());
       return CL_ERR_DEVICE_INIT_FAIL;
     }
+  }
 
-    // If user configures device type by env variable "CL_CONFIG_DEVICES",
-    // the runtime only enable the correspondig device type.
-    // Otherwise it will enable all supported devices.
-    // This function is entry point after ICD loader loads the runtime so we
-    // check it here.
-    string strEnvDevice;
-    if (Intel::OpenCL::Utils::getEnvVar(strEnvDevice, "CL_CONFIG_DEVICES")) {
-      // Read the value from cl.cfg. If it does not match env value, return
-      // CL_INVALID_VALUE value.
-      if (strDeviceNameInCFG.compare(strEnvDevice) != 0) {
-        assert(!m_clPlatformId.object &&
-               "PlatformID before initialization should be NULL");
-        return CL_ERR_DEVICE_INIT_FAIL;
-      }
-    }
+  m_clPlatformId.object = &m_clPlatformId;
+  memcpy(&m_clPlatformId, m_pOclEntryPoints, sizeof(ocl_entry_points));
 
-    m_clPlatformId.object = &m_clPlatformId;
-    memcpy(&m_clPlatformId, m_pOclEntryPoints, sizeof(ocl_entry_points));
+  // initialize devices
+  m_pDefaultDevice = nullptr;
 
-    // initialize devices
-    m_pDefaultDevice = nullptr;
+  // initialize device mode
+  m_deviceMode = pConfig->GetDeviceMode();
 
-    // initialize device mode
-    m_deviceMode = pConfig->GetDeviceMode();
+  // get device agents dll names from configuration file
+  string strDefaultDevice = pConfig->GetDefaultDevice();
+  vector<string> strDevices = pConfig->GetDevices();
+  if (strDevices.size() == 0) {
+    return CL_ERR_DEVICE_INIT_FAIL;
+  }
 
-    // get device agents dll names from configuration file
-    string strDefaultDevice = pConfig->GetDefaultDevice();
-    vector<string> strDevices = pConfig->GetDevices();
-    if (strDevices.size() == 0)
-    {
-        return CL_ERR_DEVICE_INIT_FAIL;
-    }
+  // Initialize devices, included initialization of required FE compiler
+  cl_err_code clErr = InitDevices(strDevices, strDefaultDevice);
+  if (CL_FAILED(clErr)) {
+    LOG_CRITICAL(TEXT("%s"), TEXT("Failed to initialize devices compilers"));
+  }
 
-    // Initialize devices, included initialization of required FE compiler
-    cl_err_code clErr = InitDevices(strDevices, strDefaultDevice);
-    if (CL_FAILED(clErr))
-    {
-        LOG_CRITICAL(TEXT("%s"), TEXT("Failed to initialize devices compilers"));
-    }
+  m_oclVersion = pConfig->GetOpenCLVersion();
+  switch (m_oclVersion) {
+  case OPENCL_VERSION_1_2:
+    m_vPlatformVersionStr = "OpenCL 1.2";
+    m_vPlatformVersionNum = CL_MAKE_VERSION(1, 2, 0);
+    break;
+  case OPENCL_VERSION_2_2:
+    m_vPlatformVersionStr = "OpenCL 2.2";
+    m_vPlatformVersionNum = CL_MAKE_VERSION(2, 2, 0);
+    break;
+  case OPENCL_VERSION_2_1:
+    m_vPlatformVersionStr = "OpenCL 2.1";
+    m_vPlatformVersionNum = CL_MAKE_VERSION(2, 1, 0);
+    break;
+  case OPENCL_VERSION_2_0:
+    m_vPlatformVersionStr = "OpenCL 2.0";
+    m_vPlatformVersionNum = CL_MAKE_VERSION(2, 0, 0);
+    break;
+  case OPENCL_VERSION_3_0:
+    m_vPlatformVersionStr = "OpenCL 3.0";
+    m_vPlatformVersionNum = CL_MAKE_VERSION(3, 0, 0);
+    break;
+  default:
+    m_vPlatformVersionStr = "OpenCL 1.0";
+    m_vPlatformVersionNum = CL_MAKE_VERSION(1, 0, 0);
+    break;
+  }
 
-    m_oclVersion = pConfig->GetOpenCLVersion();
-    switch(m_oclVersion)
-    {
-        case OPENCL_VERSION_1_2:
-            m_vPlatformVersionStr = "OpenCL 1.2";
-            m_vPlatformVersionNum = CL_MAKE_VERSION(1, 2, 0);
-            break;
-        case OPENCL_VERSION_2_2:
-            m_vPlatformVersionStr = "OpenCL 2.2";
-            m_vPlatformVersionNum = CL_MAKE_VERSION(2, 2, 0);
-            break;
-        case OPENCL_VERSION_2_1:
-            m_vPlatformVersionStr = "OpenCL 2.1";
-            m_vPlatformVersionNum = CL_MAKE_VERSION(2, 1, 0);
-            break;
-        case OPENCL_VERSION_2_0:
-            m_vPlatformVersionStr = "OpenCL 2.0";
-            m_vPlatformVersionNum = CL_MAKE_VERSION(2, 0, 0);
-            break;
-        case OPENCL_VERSION_3_0:
-            m_vPlatformVersionStr = "OpenCL 3.0";
-            m_vPlatformVersionNum = CL_MAKE_VERSION(3, 0, 0);
-            break;
-        default:
-            m_vPlatformVersionStr = "OpenCL 1.0";
-            m_vPlatformVersionNum = CL_MAKE_VERSION(1, 0, 0);
-            break;
-    }
-
-    if (FPGA_EMU_DEVICE == m_deviceMode)
-    {
-        m_vPlatformVersionStr +=
-          " Intel(R) FPGA SDK for OpenCL(TM), Version 20.3";
-    }
-    else
-    {
-#if defined (_WIN32)
-        m_vPlatformVersionStr += " WINDOWS";
+  if (FPGA_EMU_DEVICE == m_deviceMode) {
+    m_vPlatformVersionStr += " Intel(R) FPGA SDK for OpenCL(TM), Version 20.3";
+  } else {
+#if defined(_WIN32)
+    m_vPlatformVersionStr += " WINDOWS";
 #else // LINUX
-        m_vPlatformVersionStr += " LINUX";
+    m_vPlatformVersionStr += " LINUX";
 #endif
-    }
+  }
 
-    return clErr;
-
+  return clErr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::Release
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code    PlatformModule::Release(bool bTerminate)
-{
-    // release devices
-    m_mapDevices.ReleaseAllObjects(bTerminate);
-    m_pDefaultDevice = nullptr;
+cl_err_code PlatformModule::Release(bool bTerminate) {
+  // release devices
+  m_mapDevices.ReleaseAllObjects(bTerminate);
+  m_pDefaultDevice = nullptr;
 
-    if (nullptr != m_ppRootDevices)
-    {
-        delete[] m_ppRootDevices;
-        m_ppRootDevices = nullptr;
-    }
-    RELEASE_LOGGER_CLIENT;
+  if (nullptr != m_ppRootDevices) {
+    delete[] m_ppRootDevices;
+    m_ppRootDevices = nullptr;
+  }
+  RELEASE_LOGGER_CLIENT;
 
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetPlatformIDs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
-                                           cl_platform_id * pclPlatforms,
-                                           cl_uint * puiNumPlatforms)
-{
-    LOG_INFO(TEXT("Enter GetPlatformIDs. (uiNumEntries=%d, pclPlatforms=%d, puiNumPlatforms=%d)"),
-        uiNumEntries, pclPlatforms, puiNumPlatforms);
+                                           cl_platform_id *pclPlatforms,
+                                           cl_uint *puiNumPlatforms) {
+  LOG_INFO(TEXT("Enter GetPlatformIDs. (uiNumEntries=%d, pclPlatforms=%d, "
+                "puiNumPlatforms=%d)"),
+           uiNumEntries, pclPlatforms, puiNumPlatforms);
 
-    if ( ((0 == uiNumEntries) && (nullptr != pclPlatforms)) ||
-         ((nullptr == puiNumPlatforms) && (nullptr == pclPlatforms)) )
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("((0 == uiNumEntries) && (NULL != pclPlatforms)) || ((NULL == puiNumPlatforms) && (NULL != pclPlatforms))"));
-        return CL_INVALID_VALUE;
-    }
+  if (((0 == uiNumEntries) && (nullptr != pclPlatforms)) ||
+      ((nullptr == puiNumPlatforms) && (nullptr == pclPlatforms))) {
+    LOG_ERROR(TEXT("%s"),
+              TEXT("((0 == uiNumEntries) && (NULL != pclPlatforms)) || ((NULL "
+                   "== puiNumPlatforms) && (NULL != pclPlatforms))"));
+    return CL_INVALID_VALUE;
+  }
 
-    if ( (uiNumEntries > 0) && (nullptr != pclPlatforms) )
-    {
-      if (m_clPlatformId.object) {
-        *pclPlatforms = &m_clPlatformId;
-        ;
-      } else {
-        *pclPlatforms = nullptr;
-      }
+  if ((uiNumEntries > 0) && (nullptr != pclPlatforms)) {
+    if (m_clPlatformId.object) {
+      *pclPlatforms = &m_clPlatformId;
+      ;
+    } else {
+      *pclPlatforms = nullptr;
     }
+  }
 
-    if (nullptr != puiNumPlatforms)
-    {
-      if (m_clPlatformId.object) {
-        *puiNumPlatforms = 1;
-      } else {
-        *puiNumPlatforms = 0;
-      }
+  if (nullptr != puiNumPlatforms) {
+    if (m_clPlatformId.object) {
+      *puiNumPlatforms = 1;
+    } else {
+      *puiNumPlatforms = 0;
     }
-    return CL_SUCCESS;
+  }
+  return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::UnloadPlatformCompiler
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::UnloadPlatformCompiler(cl_platform_id platform)
-{
-    LOG_INFO(TEXT("Enter UnloadPlatformCompiler. platform=%d"), platform);
+cl_err_code PlatformModule::UnloadPlatformCompiler(cl_platform_id platform) {
+  LOG_INFO(TEXT("Enter UnloadPlatformCompiler. platform=%d"), platform);
 
-    if ( false == CheckPlatformId(platform) )
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("false == CheckPlatformId(platform)"));
-        return CL_INVALID_PLATFORM;
-    }
+  if (false == CheckPlatformId(platform)) {
+    LOG_ERROR(TEXT("%s"), TEXT("false == CheckPlatformId(platform)"));
+    return CL_INVALID_PLATFORM;
+  }
 
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetPlatformInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
-                                        cl_platform_info clParamName,
-                                        size_t szParamValueSize,
-                                        void* pParamValue,
-                                        size_t* pszParamValueSizeRet)
-{
-    LOG_INFO(TEXT("Enter GetPlatformInfo (clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
-        clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+cl_int PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
+                                       cl_platform_info clParamName,
+                                       size_t szParamValueSize,
+                                       void *pParamValue,
+                                       size_t *pszParamValueSizeRet) {
+  LOG_INFO(TEXT("Enter GetPlatformInfo (clParamName=%d, szParamValueSize=%d, "
+                "pParamValue=%d, pszParamValueSizeRet=%d)"),
+           clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
-    if (false == CheckPlatformId(clPlatform))
-    {
-        LOG_ERROR(TEXT("Current platform id (%d) is not supported"), clPlatform);
-        return CL_INVALID_PLATFORM;
-    }
+  if (false == CheckPlatformId(clPlatform)) {
+    LOG_ERROR(TEXT("Current platform id (%d) is not supported"), clPlatform);
+    return CL_INVALID_PLATFORM;
+  }
 
-    cl_err_code clErr = CL_SUCCESS;
-    size_t szParamSize = 0;
-    cl_ulong value = 0;
-    void* pValue   = &value;
-    char * pch = nullptr,  *pNextToken;
-    SharedPtr<Device> pDevice = nullptr;
-    bool bRes = true;
-    cl_char pcPlatformExtension[8192] = {0};
-    cl_char pcDeviceExtension[8192] = {0};
-    cl_char pcOtherDeviceExtension[8192] = {0};
-    std::vector<cl_name_version> extsWithVerPlatform;
-    const char * pcPlatformICDSuffixKhr;
+  cl_err_code clErr = CL_SUCCESS;
+  size_t szParamSize = 0;
+  cl_ulong value = 0;
+  void *pValue = &value;
+  char *pch = nullptr, *pNextToken;
+  SharedPtr<Device> pDevice = nullptr;
+  bool bRes = true;
+  cl_char pcPlatformExtension[8192] = {0};
+  cl_char pcDeviceExtension[8192] = {0};
+  cl_char pcOtherDeviceExtension[8192] = {0};
+  std::vector<cl_name_version> extsWithVerPlatform;
+  const char *pcPlatformICDSuffixKhr;
 
-    if (FPGA_EMU_DEVICE == m_deviceMode)
-    {
-        m_vPlatformInfoStr = "EMBEDDED_PROFILE";
-        pcPlatformICDSuffixKhr = "IntelFPGA";
-        m_vPlatformNameStr =
-          "Intel(R) FPGA Emulation Platform for OpenCL(TM)";
-    }
-    else
-    {
-        m_vPlatformInfoStr = "FULL_PROFILE";
-        pcPlatformICDSuffixKhr = "INTEL";
+  if (FPGA_EMU_DEVICE == m_deviceMode) {
+    m_vPlatformInfoStr = "EMBEDDED_PROFILE";
+    pcPlatformICDSuffixKhr = "IntelFPGA";
+    m_vPlatformNameStr = "Intel(R) FPGA Emulation Platform for OpenCL(TM)";
+  } else {
+    m_vPlatformInfoStr = "FULL_PROFILE";
+    pcPlatformICDSuffixKhr = "INTEL";
 #ifdef BUILD_OPENCL_21
-        m_vPlatformNameStr = "Intel(R) OpenCL 2.1 CPU Only Platform";
+    m_vPlatformNameStr = "Intel(R) OpenCL 2.1 CPU Only Platform";
 #else
-        m_vPlatformNameStr = "Intel(R) OpenCL";
+    m_vPlatformNameStr = "Intel(R) OpenCL";
 #endif // BUILD_OPENCL_21
+  }
+
+  switch (clParamName) {
+  case CL_PLATFORM_PROFILE:
+    m_uiPlatformInfoStrSize = m_vPlatformInfoStr.size() + 1;
+    szParamSize = m_uiPlatformInfoStrSize;
+    pValue = const_cast<char *>(m_vPlatformInfoStr.c_str());
+    break;
+  case CL_PLATFORM_VERSION:
+    // it must include the terminating null character
+    szParamSize = m_vPlatformVersionStr.size() + 1;
+    pValue = const_cast<char *>(m_vPlatformVersionStr.c_str());
+    break;
+  case CL_PLATFORM_NUMERIC_VERSION:
+    szParamSize = sizeof(m_vPlatformVersionNum);
+    pValue = (void *)&m_vPlatformVersionNum;
+    break;
+  case CL_PLATFORM_NAME:
+    // it must include the terminating null character
+    m_uiPlatformNameStrSize = m_vPlatformNameStr.size() + 1;
+    szParamSize = m_uiPlatformNameStrSize;
+    pValue = const_cast<char *>(m_vPlatformNameStr.c_str());
+    break;
+  case CL_PLATFORM_VENDOR:
+    szParamSize = m_uiPlatformVendorStrSize;
+    pValue = const_cast<char *>(m_vPlatformVendorStr);
+    break;
+  case CL_PLATFORM_EXTENSIONS:
+    assert((m_uiRootDevicesCount > 0) &&
+           "No devices associated to the platform");
+    clErr = m_ppRootDevices[0]->GetInfo(CL_DEVICE_EXTENSIONS, 8192,
+                                        pcDeviceExtension, nullptr);
+    if (CL_FAILED(clErr)) {
+      return CL_INVALID_VALUE;
+    }
+    pch = STRTOK_S((char *)pcDeviceExtension, " ", &pNextToken);
+    while (pch != nullptr) {
+      bRes = true;
+      for (size_t ui = 1; ui < m_uiRootDevicesCount; ++ui) {
+        clErr = m_ppRootDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS, 8192,
+                                             pcOtherDeviceExtension, nullptr);
+        if (CL_FAILED(clErr)) {
+          return CL_INVALID_VALUE;
+        }
+        if (nullptr == strstr((char *)pcOtherDeviceExtension, pch)) {
+          bRes = false;
+          break;
+        }
+      }
+      if (bRes) {
+        STRCAT_S((char *)pcPlatformExtension, 8192, pch);
+        STRCAT_S((char *)pcPlatformExtension, 8192, " ");
+      }
+      pch = STRTOK_S(nullptr, " ", &pNextToken);
     }
 
-    switch (clParamName)
-    {
-    case CL_PLATFORM_PROFILE:
-        m_uiPlatformInfoStrSize = m_vPlatformInfoStr.size() + 1;
-        szParamSize = m_uiPlatformInfoStrSize;
-        pValue = const_cast<char *>(m_vPlatformInfoStr.c_str());
-        break;
-    case CL_PLATFORM_VERSION:
-        // it must include the terminating null character
-        szParamSize = m_vPlatformVersionStr.size() + 1;
-        pValue = const_cast<char *>(m_vPlatformVersionStr.c_str());
-        break;
-    case CL_PLATFORM_NUMERIC_VERSION:
-        szParamSize = sizeof(m_vPlatformVersionNum);
-        pValue = (void*)&m_vPlatformVersionNum;
-        break;
-    case CL_PLATFORM_NAME:
-        // it must include the terminating null character
-        m_uiPlatformNameStrSize = m_vPlatformNameStr.size() + 1;
-        szParamSize = m_uiPlatformNameStrSize;
-        pValue = const_cast<char *>(m_vPlatformNameStr.c_str());
-        break;
-    case CL_PLATFORM_VENDOR:
-        szParamSize = m_uiPlatformVendorStrSize;
-        pValue = const_cast<char *>(m_vPlatformVendorStr);
-        break;
-    case CL_PLATFORM_EXTENSIONS:
-        assert ((m_uiRootDevicesCount > 0) &&
-            "No devices associated to the platform");
-        clErr = m_ppRootDevices[0]->
-          GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, nullptr);
-        if (CL_FAILED(clErr))
-        {
-            return CL_INVALID_VALUE;
-        }
-        pch = STRTOK_S((char*)pcDeviceExtension," ", &pNextToken);
-        while (pch != nullptr)
-        {
-            bRes = true;
-            for (size_t ui=1; ui<m_uiRootDevicesCount; ++ui)
-            {
-                clErr = m_ppRootDevices[ui]->
-                  GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension,
-                           nullptr);
-                if (CL_FAILED(clErr))
-                {
-                    return CL_INVALID_VALUE;
-                }
-                if (nullptr == strstr((char*)pcOtherDeviceExtension, pch))
-                {
-                    bRes = false;
-                    break;
-                }
-            }
-            if (bRes)
-            {
-                STRCAT_S((char*)pcPlatformExtension, 8192, pch);
-                STRCAT_S((char*)pcPlatformExtension, 8192, " ");
-            }
-            pch = STRTOK_S(nullptr, " ", &pNextToken);
-        }
+    pValue = pcPlatformExtension;
+    szParamSize = strlen((char *)pcPlatformExtension) + 1;
+    break;
+  case CL_PLATFORM_EXTENSIONS_WITH_VERSION: {
+    assert((m_uiRootDevicesCount > 0) &&
+           "No devices associated to the platform");
 
-        pValue = pcPlatformExtension;
-        szParamSize = strlen((char*)pcPlatformExtension) + 1;
-        break;
-    case CL_PLATFORM_EXTENSIONS_WITH_VERSION: {
-        assert ((m_uiRootDevicesCount > 0) &&
-            "No devices associated to the platform");
+    auto contains = [](const std::vector<cl_name_version> &data,
+                       const cl_name_version &ext) {
+      for (auto &item : data)
+        if (strcmp(item.name, ext.name) == 0)
+          return true;
 
-        auto contains = [](const std::vector<cl_name_version> &data,
-                          const cl_name_version &ext) {
-            for (auto &item : data)
-                if (strcmp(item.name, ext.name) == 0)
-                    return true;
+      return false;
+    };
 
-            return false;
-        };
-
-        std::vector<cl_name_version> extsWithVer(64);
-        for (size_t ui = 0; ui < m_uiRootDevicesCount; ++ui) {
-            size_t szExts = 0;
-            clErr = m_ppRootDevices[ui]->GetInfo(
-                CL_DEVICE_EXTENSIONS_WITH_VERSION,
-                extsWithVer.size() * sizeof(cl_name_version),
-                extsWithVer.data(), &szExts);
-            if (CL_FAILED(clErr)) {
-                return CL_INVALID_VALUE;
-            }
-            extsWithVer.resize(szExts / sizeof(cl_name_version));
-
-            if (ui == 0) {
-              extsWithVerPlatform = extsWithVer;
-              continue;
-            }
-
-            // If there is more than 1 device, return the intersection set of
-            // extensions for the platform.
-            std::vector<cl_name_version> intersection;
-            for (auto ext : extsWithVer) {
-                if (contains(extsWithVerPlatform, ext))
-                    intersection.push_back(ext);
-            }
-            extsWithVerPlatform = intersection;
-        }
-
-        pValue = extsWithVerPlatform.data();
-        szParamSize = extsWithVerPlatform.size() * sizeof(cl_name_version);
-        break;
-    }
-    case CL_PLATFORM_ICD_SUFFIX_KHR:
-      pValue = const_cast<char *>(pcPlatformICDSuffixKhr);
-      szParamSize = strlen((const char *)pcPlatformICDSuffixKhr) + 1;
-      break;
-    case CL_PLATFORM_HOST_TIMER_RESOLUTION:
-        if (m_oclVersion >= OPENCL_VERSION_2_1)
-        {
-            *(cl_ulong*)pValue = (cl_ulong)ProfilingTimerResolution();
-            szParamSize = sizeof(cl_ulong);
-            break;
-        }
-        LLVM_FALLTHROUGH;
-    default:
+    std::vector<cl_name_version> extsWithVer(64);
+    for (size_t ui = 0; ui < m_uiRootDevicesCount; ++ui) {
+      size_t szExts = 0;
+      clErr = m_ppRootDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS_WITH_VERSION,
+                                           extsWithVer.size() *
+                                               sizeof(cl_name_version),
+                                           extsWithVer.data(), &szExts);
+      if (CL_FAILED(clErr)) {
         return CL_INVALID_VALUE;
+      }
+      extsWithVer.resize(szExts / sizeof(cl_name_version));
+
+      if (ui == 0) {
+        extsWithVerPlatform = extsWithVer;
+        continue;
+      }
+
+      // If there is more than 1 device, return the intersection set of
+      // extensions for the platform.
+      std::vector<cl_name_version> intersection;
+      for (auto ext : extsWithVer) {
+        if (contains(extsWithVerPlatform, ext))
+          intersection.push_back(ext);
+      }
+      extsWithVerPlatform = intersection;
     }
 
-    if (nullptr != pParamValue)
-    {
-        if (szParamValueSize < szParamSize)
-        {
-            LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"), szParamValueSize, szParamSize);
-            return CL_INVALID_VALUE;
-        }
-        memset(pParamValue, 0, szParamValueSize);
-        MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
+    pValue = extsWithVerPlatform.data();
+    szParamSize = extsWithVerPlatform.size() * sizeof(cl_name_version);
+    break;
+  }
+  case CL_PLATFORM_ICD_SUFFIX_KHR:
+    pValue = const_cast<char *>(pcPlatformICDSuffixKhr);
+    szParamSize = strlen((const char *)pcPlatformICDSuffixKhr) + 1;
+    break;
+  case CL_PLATFORM_HOST_TIMER_RESOLUTION:
+    if (m_oclVersion >= OPENCL_VERSION_2_1) {
+      *(cl_ulong *)pValue = (cl_ulong)ProfilingTimerResolution();
+      szParamSize = sizeof(cl_ulong);
+      break;
     }
+    LLVM_FALLTHROUGH;
+  default:
+    return CL_INVALID_VALUE;
+  }
 
-    // The size should be return only if successful copy was completed (CSSD100011955)
-    if (nullptr != pszParamValueSizeRet)
-    {
-        *pszParamValueSizeRet = szParamSize;
+  if (nullptr != pParamValue) {
+    if (szParamValueSize < szParamSize) {
+      LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"),
+                szParamValueSize, szParamSize);
+      return CL_INVALID_VALUE;
     }
+    memset(pParamValue, 0, szParamValueSize);
+    MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
+  }
 
-    return CL_SUCCESS;
+  // The size should be return only if successful copy was completed
+  // (CSSD100011955)
+  if (nullptr != pszParamValueSizeRet) {
+    *pszParamValueSizeRet = szParamSize;
+  }
+
+  return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceIDs
@@ -607,487 +571,458 @@ cl_int PlatformModule::GetDeviceIDs(cl_platform_id /*clPlatform*/,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
-                                      cl_device_info clParamName,
-                                      size_t szParamValueSize,
-                                      void* pParamValue,
-                                      size_t* pszParamValueSizeRet)
-{
-    SharedPtr<FissionableDevice> pDevice = nullptr;
-    size_t szParamSize = 0;
-    cl_bool bBoolValue = CL_TRUE;
-    const void * pValue = nullptr;
-	  const cl_platform_id id = &m_clPlatformId;
+cl_int PlatformModule::GetDeviceInfo(cl_device_id clDevice,
+                                     cl_device_info clParamName,
+                                     size_t szParamValueSize, void *pParamValue,
+                                     size_t *pszParamValueSizeRet) {
+  SharedPtr<FissionableDevice> pDevice = nullptr;
+  size_t szParamSize = 0;
+  cl_bool bBoolValue = CL_TRUE;
+  const void *pValue = nullptr;
+  const cl_platform_id id = &m_clPlatformId;
 
-    switch(clParamName)
-    {
-    case CL_DEVICE_PLATFORM:
-        {
-            szParamSize = sizeof(cl_platform_id);
-            pValue = &id;
-            break;
-        }
-    case CL_DEVICE_LINKER_AVAILABLE:
-    case CL_DEVICE_COMPILER_AVAILABLE:
-        {
-            szParamSize = sizeof(cl_bool);
-            bBoolValue = CL_TRUE;
-            pValue = &bBoolValue;
-            break;
-        }
-    case CL_DEVICE_SPIR_VERSIONS:
-        {
-            // Regardless to the device, Our SDK supports SPIR 1.2 (which is the
-            // only existing version ATM).
-            pValue = "1.2";
-            szParamSize = strlen((const char*)pValue) + 1;
-            break;
-        }
+  switch (clParamName) {
+  case CL_DEVICE_PLATFORM: {
+    szParamSize = sizeof(cl_platform_id);
+    pValue = &id;
+    break;
+  }
+  case CL_DEVICE_LINKER_AVAILABLE:
+  case CL_DEVICE_COMPILER_AVAILABLE: {
+    szParamSize = sizeof(cl_bool);
+    bBoolValue = CL_TRUE;
+    pValue = &bBoolValue;
+    break;
+  }
+  case CL_DEVICE_SPIR_VERSIONS: {
+    // Regardless to the device, Our SDK supports SPIR 1.2 (which is the
+    // only existing version ATM).
+    pValue = "1.2";
+    szParamSize = strlen((const char *)pValue) + 1;
+    break;
+  }
 
-    default:
-        pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice).DynamicCast<FissionableDevice>();
-        if (0 == pDevice)
-        {
-            return CL_INVALID_DEVICE;
-        }
-        return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+  default:
+    pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)clDevice)
+                  .DynamicCast<FissionableDevice>();
+    if (0 == pDevice) {
+      return CL_INVALID_DEVICE;
+    }
+    return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue,
+                            pszParamValueSizeRet);
+  }
+
+  if (nullptr != pParamValue) {
+    if (szParamValueSize < szParamSize) {
+      LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"),
+                szParamValueSize, szParamSize);
+      return CL_INVALID_VALUE;
     }
 
-    if (nullptr != pParamValue)
-    {
-        if (szParamValueSize < szParamSize)
-        {
-            LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"), szParamValueSize, szParamSize);
-            return CL_INVALID_VALUE;
-        }
+    MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
+  }
 
-        MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
-    }
+  if (nullptr != pszParamValueSizeRet) {
+    *pszParamValueSizeRet = szParamSize;
+  }
 
-    if (nullptr != pszParamValueSizeRet)
-    {
-        *pszParamValueSizeRet = szParamSize;
-    }
-
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDevice
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code    PlatformModule::GetRootDevice(cl_device_id clDeviceId, SharedPtr<Device>* ppDevice)
-{
-    LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
-    assert( (nullptr != ppDevice) );
-    // get the device from the devices list
-    SharedPtr<FissionableDevice> temp = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId).DynamicCast<FissionableDevice>();
-    if (!temp)
-    {
-        return CL_INVALID_DEVICE;
-    }
-    *ppDevice = temp->GetRootDevice();
-    return CL_SUCCESS;
+cl_err_code PlatformModule::GetRootDevice(cl_device_id clDeviceId,
+                                          SharedPtr<Device> *ppDevice) {
+  LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),
+           clDeviceId, ppDevice);
+  assert((nullptr != ppDevice));
+  // get the device from the devices list
+  SharedPtr<FissionableDevice> temp =
+      m_mapDevices.GetOCLObject((_cl_device_id_int *)clDeviceId)
+          .DynamicCast<FissionableDevice>();
+  if (!temp) {
+    return CL_INVALID_DEVICE;
+  }
+  *ppDevice = temp->GetRootDevice();
+  return CL_SUCCESS;
 }
 
-SharedPtr<FissionableDevice> PlatformModule::GetDevice(cl_device_id clDeviceId)
-{
-    LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d"),clDeviceId);
-    // get the device from the devices list
-    return m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId).DynamicCast<FissionableDevice>();
+SharedPtr<FissionableDevice>
+PlatformModule::GetDevice(cl_device_id clDeviceId) {
+  LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d"), clDeviceId);
+  // get the device from the devices list
+  return m_mapDevices.GetOCLObject((_cl_device_id_int *)clDeviceId)
+      .DynamicCast<FissionableDevice>();
 }
 
 //////////////////////////////////////////////////////////////////////////
 // PlatformModule::UnloadCompiler
 //////////////////////////////////////////////////////////////////////////
-cl_int PlatformModule::UnloadCompiler(void)
-{
-    for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
-    {
-        SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-        if (0 != pDevice && 0 != pDevice->GetDeviceAgent())
-        {
-            pDevice->GetDeviceAgent()->clDevUnloadCompiler();
-        }
+cl_int PlatformModule::UnloadCompiler(void) {
+  for (cl_uint ui = 0; ui < m_mapDevices.Count(); ++ui) {
+    SharedPtr<FissionableDevice> pDevice =
+        m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
+    if (0 != pDevice && 0 != pDevice->GetDeviceAgent()) {
+      pDevice->GetDeviceAgent()->clDevUnloadCompiler();
     }
-    return CL_SUCCESS;
+  }
+  return CL_SUCCESS;
 }
 
 // Device Fission
-class ParentDeviceWrapper
-{
+class ParentDeviceWrapper {
 public:
-    explicit ParentDeviceWrapper(const SharedPtr<FissionableDevice>& ptr) : m_bNeedToCreateDevice(false), m_pParentDevice(ptr) {}
-    ~ParentDeviceWrapper()
-    {
-        if (m_bNeedToCreateDevice)
-        {
-            m_pParentDevice->GetRootDevice()->CloseDeviceInstance();
-        }
+  explicit ParentDeviceWrapper(const SharedPtr<FissionableDevice> &ptr)
+      : m_bNeedToCreateDevice(false), m_pParentDevice(ptr) {}
+  ~ParentDeviceWrapper() {
+    if (m_bNeedToCreateDevice) {
+      m_pParentDevice->GetRootDevice()->CloseDeviceInstance();
     }
+  }
 
-    cl_err_code CreateRootDevice()
-    {
-        m_bNeedToCreateDevice = ((0 != m_pParentDevice) && (nullptr == m_pParentDevice->GetDeviceAgent()));
-        return (m_bNeedToCreateDevice ? m_pParentDevice->GetRootDevice()->CreateInstance() : CL_SUCCESS);
-    }
+  cl_err_code CreateRootDevice() {
+    m_bNeedToCreateDevice = ((0 != m_pParentDevice) &&
+                             (nullptr == m_pParentDevice->GetDeviceAgent()));
+    return (m_bNeedToCreateDevice
+                ? m_pParentDevice->GetRootDevice()->CreateInstance()
+                : CL_SUCCESS);
+  }
 
-    operator SharedPtr<FissionableDevice>&            () { return m_pParentDevice; }
-    SharedPtr<FissionableDevice>&           operator->() { return m_pParentDevice; }
-    const SharedPtr<FissionableDevice>&     operator* () const { return m_pParentDevice; }
+  operator SharedPtr<FissionableDevice> &() { return m_pParentDevice; }
+  SharedPtr<FissionableDevice> &operator->() { return m_pParentDevice; }
+  const SharedPtr<FissionableDevice> &operator*() const {
+    return m_pParentDevice;
+  }
 
 private:
-    bool                         m_bNeedToCreateDevice;
-    SharedPtr<FissionableDevice> m_pParentDevice;
+  bool m_bNeedToCreateDevice;
+  SharedPtr<FissionableDevice> m_pParentDevice;
 };
 
-bool operator==( void* p, const ParentDeviceWrapper& me )
-{
-    return (p == (*me).GetPtr());
+bool operator==(void *p, const ParentDeviceWrapper &me) {
+  return (p == (*me).GetPtr());
 }
 
-cl_err_code PlatformModule::GetHostTimer(cl_device_id device, cl_ulong* host_timestamp)
-{
-    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (0 == pDevice)
-    {
-        return CL_INVALID_DEVICE;
-    }
-    if (nullptr == host_timestamp)
-    {
-        return CL_INVALID_VALUE;
-    }
+cl_err_code PlatformModule::GetHostTimer(cl_device_id device,
+                                         cl_ulong *host_timestamp) {
+  SharedPtr<FissionableDevice> pDevice =
+      m_mapDevices.GetOCLObject((_cl_device_id_int *)device)
+          .DynamicCast<FissionableDevice>();
+  if (0 == pDevice) {
+    return CL_INVALID_DEVICE;
+  }
+  if (nullptr == host_timestamp) {
+    return CL_INVALID_VALUE;
+  }
 
-    *host_timestamp = Intel::OpenCL::Utils::HostTime();
+  *host_timestamp = Intel::OpenCL::Utils::HostTime();
 
+  return CL_SUCCESS;
+}
+
+cl_err_code PlatformModule::GetDeviceAndHostTimer(cl_device_id device,
+                                                  cl_ulong *device_timestamp,
+                                                  cl_ulong *host_timestamp) {
+  SharedPtr<FissionableDevice> pDevice =
+      m_mapDevices.GetOCLObject((_cl_device_id_int *)device)
+          .DynamicCast<FissionableDevice>();
+  if (0 == pDevice) {
+    return CL_INVALID_DEVICE;
+  }
+  if ((nullptr == host_timestamp) || (nullptr == device_timestamp)) {
+    return CL_INVALID_VALUE;
+  }
+  *host_timestamp = Intel::OpenCL::Utils::HostTime();
+  *device_timestamp = pDevice->GetDeviceTimer();
+
+  return CL_SUCCESS;
+}
+
+cl_err_code PlatformModule::clCreateSubDevices(
+    cl_device_id device, const cl_device_partition_property *properties,
+    cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices) {
+  OclAutoMutex CS(&m_deviceFissionMutex);
+  cl_uint numOutputDevices, numSubdevicesToCreate, tNumDevices;
+  tNumDevices = 0;
+  SharedPtr<OCLObject<_cl_device_id_int, _cl_platform_id_int>> pParent_obj =
+      m_mapDevices.GetOCLObject((_cl_device_id_int *)device);
+
+  if (0 == pParent_obj) {
+    return CL_INVALID_DEVICE;
+  }
+
+  if (nullptr == properties) {
+    return CL_INVALID_VALUE;
+  }
+
+  if (0 == num_entries) {
+    if (nullptr != out_devices) {
+      return CL_INVALID_VALUE;
+    }
+  }
+
+  ParentDeviceWrapper pParentDevice(
+      pParent_obj.StaticCast<FissionableDevice>());
+
+  cl_err_code ret = pParentDevice.CreateRootDevice();
+  if (CL_SUCCESS != ret) {
+    return ret;
+  }
+
+  // Get the number of devices to be generated
+  ret = pParentDevice->FissionDevice(properties, 0, nullptr, &numOutputDevices,
+                                     nullptr);
+  if (ret != CL_SUCCESS) {
+    return ret;
+  }
+
+  // if the user is only interested in count
+  if (nullptr == out_devices) {
+    if (nullptr == num_devices) {
+      return CL_INVALID_VALUE;
+    }
+    *num_devices = numOutputDevices;
     return CL_SUCCESS;
-}
+  }
 
-cl_err_code PlatformModule::GetDeviceAndHostTimer(cl_device_id device, cl_ulong* device_timestamp, cl_ulong* host_timestamp)
-{
-    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (0 == pDevice)
-    {
-        return CL_INVALID_DEVICE;
-    }
-    if ((nullptr == host_timestamp) || (nullptr == device_timestamp))
-    {
-        return CL_INVALID_VALUE;
-    }
-    *host_timestamp = Intel::OpenCL::Utils::HostTime();
-    *device_timestamp = pDevice->GetDeviceTimer();
+  // Else, if the user only needs some of the sub-devices we'll provide, adjust
+  // the number of output device to equal the number of entries in the device id
+  // list
+  if (numOutputDevices > num_entries) {
+    numOutputDevices = num_entries;
+  }
 
-    return CL_SUCCESS;
-}
+  tNumDevices = numOutputDevices;
 
-cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
-{
-    OclAutoMutex CS(&m_deviceFissionMutex);
-    cl_uint numOutputDevices, numSubdevicesToCreate, tNumDevices;
-    tNumDevices = 0;
-    SharedPtr<OCLObject<_cl_device_id_int, _cl_platform_id_int> > pParent_obj = m_mapDevices.GetOCLObject((_cl_device_id_int*)device);
+  if (0 == num_entries) {
+    return CL_INVALID_VALUE;
+  }
 
-    if (0 == pParent_obj)
-    {
-        return CL_INVALID_DEVICE;
-    }
+  numSubdevicesToCreate = numOutputDevices;
 
-    if (nullptr == properties)
-    {
-        return CL_INVALID_VALUE;
-    }
-
-    if (0 == num_entries)
-    {
-        if (nullptr != out_devices)
-        {
-            return CL_INVALID_VALUE;
-        }
-    }
-
-    ParentDeviceWrapper pParentDevice( pParent_obj.StaticCast<FissionableDevice>() );
-
-    cl_err_code ret = pParentDevice.CreateRootDevice();
-    if (CL_SUCCESS != ret)
-    {
-        return ret;
-    }
-
-    //Get the number of devices to be generated
-    ret = pParentDevice->FissionDevice(properties, 0, nullptr, &numOutputDevices, nullptr);
-    if (ret != CL_SUCCESS)
-    {
-        return ret;
-    }
-
-    //if the user is only interested in count
-    if (nullptr == out_devices)
-    {
-        if (nullptr == num_devices)
-        {
-            return CL_INVALID_VALUE;
-        }
-        *num_devices = numOutputDevices;
-        return CL_SUCCESS;
-    }
-
-    //Else, if the user only needs some of the sub-devices we'll provide, adjust the number of output device to equal the number of entries in the device id list
-    if (numOutputDevices > num_entries)
-    {
-        numOutputDevices = num_entries;
-    }
-
-    tNumDevices = numOutputDevices;
-
-    if (0 == num_entries)
-    {
-        return CL_INVALID_VALUE;
-    }
-
-    numSubdevicesToCreate = numOutputDevices;
-
-    cl_dev_subdevice_id* subdevice_ids = new cl_dev_subdevice_id[numSubdevicesToCreate];
-    if (nullptr == subdevice_ids)
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    size_t* sizes = new size_t[numSubdevicesToCreate];
-    if (nullptr == sizes)
-    {
-        delete[] subdevice_ids;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
-    ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids, &tNumDevices, sizes);
-    if (ret != CL_SUCCESS)
-    {
-        return ret;
-    }
-    //If we're here, the device was successfully fissioned. Create the new FissionableDevice objects and add them as appropriate
-    SharedPtr<FissionableDevice>* pNewDevices = new SharedPtr<FissionableDevice>[numSubdevicesToCreate];
-    if (nullptr == pNewDevices)
-    {
-        delete[] subdevice_ids;
-        delete[] sizes;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    //Get the partitioning mode
-    cl_int partitionMode = (cl_int)properties[0];
-    if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN == partitionMode)
-    {
-        partitionMode = (cl_int)properties[1];
-    }
-    for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
-    {
-        pNewDevices[i] = SubDevice::Allocate(pParentDevice, sizes[i], subdevice_ids[i], properties);
-        if (0 == pNewDevices[i])
-        {
-            for (cl_uint j = 0; j < i; ++j)
-            {
-                pNewDevices[j]->Release();
-            }
-            delete[] pNewDevices;
-            delete[] sizes;
-            delete[] subdevice_ids;
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-        out_devices[i] = pNewDevices[i]->GetHandle();
-    }
-    //Can close the device instance as the sub-devices now hold references on the device agent
-    delete[] sizes;
+  cl_dev_subdevice_id *subdevice_ids =
+      new cl_dev_subdevice_id[numSubdevicesToCreate];
+  if (nullptr == subdevice_ids) {
+    return CL_OUT_OF_HOST_MEMORY;
+  }
+  size_t *sizes = new size_t[numSubdevicesToCreate];
+  if (nullptr == sizes) {
     delete[] subdevice_ids;
+    return CL_OUT_OF_HOST_MEMORY;
+  }
 
-    //Successful fission. Update device maps
-    ret = AddDevices(pNewDevices, numSubdevicesToCreate);
-    if (ret != CL_SUCCESS)
-    {
-        for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
-        {
-            pNewDevices[i]->Release();
-        }
-        delete[] pNewDevices;
-        return ret;
+  ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids,
+                                     &tNumDevices, sizes);
+  if (ret != CL_SUCCESS) {
+    return ret;
+  }
+  // If we're here, the device was successfully fissioned. Create the new
+  // FissionableDevice objects and add them as appropriate
+  SharedPtr<FissionableDevice> *pNewDevices =
+      new SharedPtr<FissionableDevice>[numSubdevicesToCreate];
+  if (nullptr == pNewDevices) {
+    delete[] subdevice_ids;
+    delete[] sizes;
+    return CL_OUT_OF_HOST_MEMORY;
+  }
+  // Get the partitioning mode
+  cl_int partitionMode = (cl_int)properties[0];
+  if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN == partitionMode) {
+    partitionMode = (cl_int)properties[1];
+  }
+  for (cl_uint i = 0; i < numSubdevicesToCreate; ++i) {
+    pNewDevices[i] = SubDevice::Allocate(pParentDevice, sizes[i],
+                                         subdevice_ids[i], properties);
+    if (0 == pNewDevices[i]) {
+      for (cl_uint j = 0; j < i; ++j) {
+        pNewDevices[j]->Release();
+      }
+      delete[] pNewDevices;
+      delete[] sizes;
+      delete[] subdevice_ids;
+      return CL_OUT_OF_HOST_MEMORY;
     }
+    out_devices[i] = pNewDevices[i]->GetHandle();
+  }
+  // Can close the device instance as the sub-devices now hold references on the
+  // device agent
+  delete[] sizes;
+  delete[] subdevice_ids;
 
+  // Successful fission. Update device maps
+  ret = AddDevices(pNewDevices, numSubdevicesToCreate);
+  if (ret != CL_SUCCESS) {
+    for (cl_uint i = 0; i < numSubdevicesToCreate; ++i) {
+      pNewDevices[i]->Release();
+    }
     delete[] pNewDevices;
+    return ret;
+  }
 
-    if (nullptr != num_devices)
-    {
-        *num_devices = tNumDevices;
-    }
+  delete[] pNewDevices;
 
+  if (nullptr != num_devices) {
+    *num_devices = tNumDevices;
+  }
+
+  return CL_SUCCESS;
+}
+
+cl_err_code PlatformModule::clReleaseDevice(cl_device_id device) {
+  SharedPtr<FissionableDevice> pDevice =
+      m_mapDevices.GetOCLObject((_cl_device_id_int *)device)
+          .DynamicCast<FissionableDevice>();
+  if (0 == pDevice) {
+    return CL_INVALID_DEVICE;
+  }
+  if (pDevice->IsRootLevelDevice()) {
     return CL_SUCCESS;
+  }
+  return m_mapDevices.ReleaseObject((_cl_device_id_int *)device);
 }
 
-cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
-{
-    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (0 == pDevice)
-    {
-        return CL_INVALID_DEVICE;
-    }
-    if (pDevice->IsRootLevelDevice())
-    {
-        return CL_SUCCESS;
-    }
-    return m_mapDevices.ReleaseObject((_cl_device_id_int *)device);
+void PlatformModule::RemoveAllDevices(bool preserve_user_handles) {
+  m_mapDevices.DisableAdding();
+  if (preserve_user_handles) {
+    m_mapDevices.SetPreserveUserHandles();
+  }
+  m_mapDevices.ReleaseAllObjects(false);
+  m_pDefaultDevice = nullptr;
+
+  if (nullptr != m_ppRootDevices) {
+    delete[] m_ppRootDevices;
+    m_ppRootDevices = nullptr;
+    m_uiRootDevicesCount = 0;
+  }
 }
 
-void PlatformModule::RemoveAllDevices(bool preserve_user_handles)
-{
-    m_mapDevices.DisableAdding();
-    if (preserve_user_handles)
-    {
-        m_mapDevices.SetPreserveUserHandles();
-    }
-    m_mapDevices.ReleaseAllObjects(false);
-      m_pDefaultDevice = nullptr;
-
-    if (nullptr != m_ppRootDevices)
-    {
-        delete[] m_ppRootDevices;
-        m_ppRootDevices      = nullptr;
-        m_uiRootDevicesCount = 0;
-    }
-}
-
-cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
-{
-    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (0 == pDevice)
-    {
-        return CL_INVALID_DEVICE;
-    }
-    if (pDevice->IsRootLevelDevice())
-    {
-        return CL_SUCCESS;
-    }
-    return pDevice->Retain();
-}
-
-
-cl_err_code PlatformModule::AddDevices(SharedPtr<FissionableDevice>* ppDevices, unsigned int count)
-{
-    for (unsigned int i = 0; i < count; ++i)
-    {
-        m_mapDevices.AddObject(ppDevices[i]);
-    }
+cl_err_code PlatformModule::clRetainDevice(cl_device_id device) {
+  SharedPtr<FissionableDevice> pDevice =
+      m_mapDevices.GetOCLObject((_cl_device_id_int *)device)
+          .DynamicCast<FissionableDevice>();
+  if (0 == pDevice) {
+    return CL_INVALID_DEVICE;
+  }
+  if (pDevice->IsRootLevelDevice()) {
     return CL_SUCCESS;
+  }
+  return pDevice->Retain();
 }
 
+cl_err_code PlatformModule::AddDevices(SharedPtr<FissionableDevice> *ppDevices,
+                                       unsigned int count) {
+  for (unsigned int i = 0; i < count; ++i) {
+    m_mapDevices.AddObject(ppDevices[i]);
+  }
+  return CL_SUCCESS;
+}
 
-#if defined (DX_MEDIA_SHARING)
-cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
-                                            cl_uint uiNumMediaAdapters,
-                                            int *pMediaAdaptersType,
-                                            void** ppMediaAdapters,
-                                            int clD3dDeviceSet,
-                                            cl_uint uiNumEntries,
-                                            cl_device_id *pclDevices,
-                                            cl_uint *puiNumDevices,
-                                            const ID3DSharingDefinitions& d3dDefinitions)
-{
-    if (nullptr == clPlatform)
-    {
-        LOG_ERROR(TEXT("clPlatform is NULL"));
-        return CL_INVALID_PLATFORM;
+#if defined(DX_MEDIA_SHARING)
+cl_int PlatformModule::GetDeviceIDsFromD3D(
+    cl_platform_id clPlatform, cl_uint uiNumMediaAdapters,
+    int *pMediaAdaptersType, void **ppMediaAdapters, int clD3dDeviceSet,
+    cl_uint uiNumEntries, cl_device_id *pclDevices, cl_uint *puiNumDevices,
+    const ID3DSharingDefinitions &d3dDefinitions) {
+  if (nullptr == clPlatform) {
+    LOG_ERROR(TEXT("clPlatform is NULL"));
+    return CL_INVALID_PLATFORM;
+  }
+  LOG_INFO(
+      TEXT("Enter GetDeviceIDsFromD3D(clPlatform=%d, uiNumMediaAdapters=%d, "
+           "pMediaAdaptersType=%p, ppMediaAdapters=%p, clD3dDeviceSet=%d, "
+           "uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
+      clPlatform, uiNumMediaAdapters, pMediaAdaptersType, ppMediaAdapters,
+      clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
+  if (nullptr != pclDevices && 0 == uiNumEntries) {
+    LOG_ERROR(
+        TEXT("uiNumEntries is equal to zero and pclDevices is not NULL."));
+    return CL_INVALID_VALUE;
+  }
+  if (nullptr == pclDevices && nullptr == puiNumDevices) {
+    LOG_ERROR(TEXT("both puiNumDevices and pclDevices are NULL."));
+    return CL_INVALID_VALUE;
+  }
+  if (!CheckPlatformId(clPlatform)) {
+    LOG_ERROR(TEXT("clPlatform is not a valid platform."));
+    return CL_INVALID_PLATFORM;
+  }
+  if (d3dDefinitions.GetPreferredDevicesForD3D() != clD3dDeviceSet &&
+      d3dDefinitions.GetAllDevicesForD3D() != clD3dDeviceSet) {
+    LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
+    return CL_INVALID_VALUE;
+  }
+  if (0 == uiNumMediaAdapters || nullptr == pMediaAdaptersType ||
+      nullptr == ppMediaAdapters &&
+          d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_KHR) {
+    return CL_INVALID_VALUE;
+  }
+  if (nullptr == ppMediaAdapters &&
+      d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL) {
+    return CL_DEVICE_NOT_FOUND;
+  }
+  for (cl_uint i = 0; i < uiNumMediaAdapters; i++) {
+    const int iType = pMediaAdaptersType[i];
+    const vector<int> &validDeviceTypes = d3dDefinitions.GetValidDeviceTypes();
+    if (find(validDeviceTypes.begin(), validDeviceTypes.end(), iType) ==
+        validDeviceTypes.end()) {
+      return CL_INVALID_VALUE;
     }
-    LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D(clPlatform=%d, uiNumMediaAdapters=%d, pMediaAdaptersType=%p, ppMediaAdapters=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
-        clPlatform, uiNumMediaAdapters, pMediaAdaptersType, ppMediaAdapters, clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
-    if (nullptr != pclDevices && 0 == uiNumEntries)
-    {
-        LOG_ERROR(TEXT("uiNumEntries is equal to zero and pclDevices is not NULL."));
+    /* ppMediaAdapters is defined to be of type void* by the spec. However, this
+       is clearly a bug and it should be of type void**. The problem is that the
+       conformance test indeed treats it like void* while passing 1 as
+       uiNumMediaAdapters. This of course can't work for numbers greater than 1.
+       Therefore I'm writing the condition like this. When the spec is fixed,
+       I'll change it. */
+    if (nullptr == (void *)ppMediaAdapters && 1 == uiNumMediaAdapters ||
+        uiNumMediaAdapters > 1 && nullptr != (void *)ppMediaAdapters &&
+            nullptr == ((void **)ppMediaAdapters)[i]) {
+      if (d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL) {
+        return CL_DEVICE_NOT_FOUND; // we return this to be aligned with GEN
+      } else {
         return CL_INVALID_VALUE;
+      }
     }
-    if (nullptr == pclDevices && nullptr == puiNumDevices)
-    {
-        LOG_ERROR(TEXT("both puiNumDevices and pclDevices are NULL."));
-        return CL_INVALID_VALUE;
-    }
-    if (!CheckPlatformId(clPlatform))
-    {
-        LOG_ERROR(TEXT("clPlatform is not a valid platform."));
-        return CL_INVALID_PLATFORM;
-    }
-    if (d3dDefinitions.GetPreferredDevicesForD3D() != clD3dDeviceSet && d3dDefinitions.GetAllDevicesForD3D() != clD3dDeviceSet)
-    {
-        LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
-        return CL_INVALID_VALUE;
-    }
-    if (0 == uiNumMediaAdapters || nullptr == pMediaAdaptersType || nullptr == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_KHR)
-    {
-        return CL_INVALID_VALUE;
-    }
-    if (nullptr == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
-    {
-        return CL_DEVICE_NOT_FOUND;
-    }
-    for (cl_uint i = 0; i < uiNumMediaAdapters; i++)
-    {
-        const int iType = pMediaAdaptersType[i];
-        const vector<int>& validDeviceTypes = d3dDefinitions.GetValidDeviceTypes();
-        if (find(validDeviceTypes.begin(), validDeviceTypes.end(), iType) == validDeviceTypes.end())
-        {
-            return CL_INVALID_VALUE;
+  }
+  size_t szDevIndex = 0;
+  if (nullptr != puiNumDevices) {
+    *puiNumDevices = 0;
+  }
+  size_t szFoundDevices = 0;
+
+  // in case of CL_PREFERRED_DEVICES, we won't return the CPU device, since it
+  // is not the preferred device.
+  if (d3dDefinitions.GetAllDevicesForD3D() == clD3dDeviceSet) {
+    // find all devices that report supporting Direct3D Sharing
+    for (unsigned int i = 0; i < m_uiRootDevicesCount; i++) {
+      size_t szParamValSize;
+
+      cl_err_code err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, 0,
+                                                    nullptr, &szParamValSize);
+      if (CL_FAILED(err)) {
+        return err;
+      }
+      clLocalArray<char> sDevEx(szParamValSize);
+      err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, szParamValSize,
+                                        (char *)sDevEx, nullptr);
+      if (CL_FAILED(err)) {
+        return err;
+      }
+      if (std::string((char *)sDevEx).find(d3dDefinitions.GetExtensionName()) !=
+          std::string::npos) {
+        szFoundDevices++;
+        if (nullptr != pclDevices && szDevIndex < uiNumEntries) {
+          pclDevices[szDevIndex++] = m_ppRootDevices[i]->GetHandle();
         }
-        /* ppMediaAdapters is defined to be of type void* by the spec. However, this is clearly a bug and it should be of type void**. The problem is that the conformance
-            test indeed treats it like void* while passing 1 as uiNumMediaAdapters. This of course can't work for numbers greater than 1. Therefore I'm writing the condition
-            like this. When the spec is fixed, I'll change it. */
-        if (nullptr == (void*)ppMediaAdapters && 1 == uiNumMediaAdapters || uiNumMediaAdapters > 1 && nullptr != (void*)ppMediaAdapters && nullptr == ((void**)ppMediaAdapters)[i])
-        {
-            if (d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
-            {
-                return CL_DEVICE_NOT_FOUND; // we return this to be aligned with GEN
-            }
-            else
-            {
-                return CL_INVALID_VALUE;
-            }
+        if (nullptr != puiNumDevices) {
+          (*puiNumDevices)++;
         }
+      }
     }
-    size_t szDevIndex = 0;
-    if (nullptr != puiNumDevices)
-    {
-        *puiNumDevices = 0;
-    }
-    size_t szFoundDevices = 0;
+  }
 
-    // in case of CL_PREFERRED_DEVICES, we won't return the CPU device, since it is not the preferred device.
-    if (d3dDefinitions.GetAllDevicesForD3D() == clD3dDeviceSet)
-    {
-        // find all devices that report supporting Direct3D Sharing
-        for (unsigned int i = 0; i < m_uiRootDevicesCount; i++)
-        {
-            size_t szParamValSize;
-
-            cl_err_code err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, 0, nullptr, &szParamValSize);
-            if (CL_FAILED(err))
-            {
-                return err;
-            }
-            clLocalArray<char> sDevEx(szParamValSize);
-            err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, szParamValSize, (char*)sDevEx, nullptr);
-            if (CL_FAILED(err))
-            {
-                return err;
-            }
-            if (std::string((char*)sDevEx).find(d3dDefinitions.GetExtensionName()) != std::string::npos)
-            {
-                szFoundDevices++;
-                if (nullptr != pclDevices && szDevIndex < uiNumEntries)
-                {
-                    pclDevices[szDevIndex++] = m_ppRootDevices[i]->GetHandle();
-                }
-                if (nullptr != puiNumDevices)
-                {
-                    (*puiNumDevices)++;
-                }
-            }
-        }
-    }
-
-    if (0 == szFoundDevices)
-    {
-        return CL_DEVICE_NOT_FOUND;
-    }
-    return CL_SUCCESS;
+  if (0 == szFoundDevices) {
+    return CL_DEVICE_NOT_FOUND;
+  }
+  return CL_SUCCESS;
 }
 #endif

@@ -9,7 +9,7 @@
 
 extern cl_device_type gDeviceType;
 
-/**************************************************************************************************
+/*******************************************************************************
 * clBuildSpirvFriendlyIRProgramWithBinaryTest
 * -------------------
 * (1) get device id (gDeviceType)
@@ -20,7 +20,7 @@ extern cl_device_type gDeviceType;
 
 The input bitcode must have "spir64_x86_64" triple.
 This test is not supported on 32bit systems (CL_INVALID_BINARY).
-**************************************************************************************************/
+*******************************************************************************/
 
 bool clBuildSpirvFriendlyIRProgramWithBinaryTest() {
   if (gDeviceType != CL_DEVICE_TYPE_CPU)

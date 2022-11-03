@@ -49,30 +49,30 @@ class MapFieldLite {
   // Define message type for internal repeated field.
   typedef Derived EntryType;
 
- public:
+public:
   typedef Map<Key, T> MapType;
   typedef EntryType EntryTypeTrait;
 
   MapFieldLite() : arena_(NULL) { SetDefaultEnumValue(); }
 
-  explicit MapFieldLite(Arena* arena) : arena_(arena), map_(arena) {
+  explicit MapFieldLite(Arena *arena) : arena_(arena), map_(arena) {
     SetDefaultEnumValue();
   }
 
   // Accessors
-  const Map<Key, T>& GetMap() const { return map_; }
-  Map<Key, T>* MutableMap() { return &map_; }
+  const Map<Key, T> &GetMap() const { return map_; }
+  Map<Key, T> *MutableMap() { return &map_; }
 
   // Convenient methods for generated message implementation.
   int size() const { return static_cast<int>(map_.size()); }
   void Clear() { return map_.clear(); }
-  void MergeFrom(const MapFieldLite& other) {
+  void MergeFrom(const MapFieldLite &other) {
     for (typename Map<Key, T>::const_iterator it = other.map_.begin();
          it != other.map_.end(); ++it) {
       map_[it->first] = it->second;
     }
   }
-  void Swap(MapFieldLite* other) { map_.swap(other->map_); }
+  void Swap(MapFieldLite *other) { map_.swap(other->map_); }
 
   // Set default enum value only for proto2 map field whose value is enum type.
   void SetDefaultEnumValue() {
@@ -81,7 +81,7 @@ class MapFieldLite {
 
   // Used in the implementation of parsing. Caller should take the ownership iff
   // arena_ is NULL.
-  EntryType* NewEntry() const {
+  EntryType *NewEntry() const {
     if (arena_ == NULL) {
       return new EntryType();
     } else {
@@ -90,19 +90,19 @@ class MapFieldLite {
   }
   // Used in the implementation of serializing enum value type. Caller should
   // take the ownership iff arena_ is NULL.
-  EntryType* NewEnumEntryWrapper(const Key& key, const T t) const {
+  EntryType *NewEnumEntryWrapper(const Key &key, const T t) const {
     return EntryType::EnumWrap(key, t, arena_);
   }
   // Used in the implementation of serializing other value types. Caller should
   // take the ownership iff arena_ is NULL.
-  EntryType* NewEntryWrapper(const Key& key, const T& t) const {
+  EntryType *NewEntryWrapper(const Key &key, const T &t) const {
     return EntryType::Wrap(key, t, arena_);
   }
 
- private:
+private:
   typedef void DestructorSkippable_;
 
-  Arena* arena_;
+  Arena *arena_;
   Map<Key, T> map_;
 
   friend class ::google::protobuf::Arena;
@@ -113,10 +113,11 @@ class MapFieldLite {
 // protobuf compiler from ever having to emit loops in IsInitialized() methods.
 // We want the C++ compiler to inline this or not as it sees fit.
 template <typename Key, typename T>
-bool AllAreInitialized(const Map<Key, T>& t) {
+bool AllAreInitialized(const Map<Key, T> &t) {
   for (typename Map<Key, T>::const_iterator it = t.begin(); it != t.end();
        ++it) {
-    if (!it->second.IsInitialized()) return false;
+    if (!it->second.IsInitialized())
+      return false;
   }
   return true;
 }
@@ -128,7 +129,7 @@ template <typename T, typename Key, typename Value,
           WireFormatLite::FieldType kKeyFieldType,
           WireFormatLite::FieldType kValueFieldType, int default_enum_value>
 struct MapEntryToMapField<MapEntryLite<T, Key, Value, kKeyFieldType,
-                                       kValueFieldType, default_enum_value> > {
+                                       kValueFieldType, default_enum_value>> {
   typedef MapFieldLite<MapEntryLite<T, Key, Value, kKeyFieldType,
                                     kValueFieldType, default_enum_value>,
                        Key, Value, kKeyFieldType, kValueFieldType,
@@ -136,8 +137,8 @@ struct MapEntryToMapField<MapEntryLite<T, Key, Value, kKeyFieldType,
       MapFieldType;
 };
 
-}  // namespace internal
-}  // namespace protobuf
+} // namespace internal
+} // namespace protobuf
 
-}  // namespace google
-#endif  // GOOGLE_PROTOBUF_MAP_FIELD_LITE_H__
+} // namespace google
+#endif // GOOGLE_PROTOBUF_MAP_FIELD_LITE_H__

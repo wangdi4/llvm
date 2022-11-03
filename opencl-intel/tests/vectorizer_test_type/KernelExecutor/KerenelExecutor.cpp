@@ -7,281 +7,291 @@
 
 #include "KerenelExecutor.h"
 
-#include <iostream>
-#include <fstream>
 #include <assert.h>
-#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
 #include <stdio.h>
+#include <sys/stat.h>
 
-#define CHECK_ERRORS(err) if (err != CL_SUCCESS) {cout << "Error (" << err << ") in line " << __LINE__ << "  In file:" << __FILE__ << endl; exit(-1);}
+#define CHECK_ERRORS(err)                                                      \
+  if (err != CL_SUCCESS) {                                                     \
+    cout << "Error (" << err << ") in line " << __LINE__                       \
+         << "  In file:" << __FILE__ << endl;                                  \
+    exit(-1);                                                                  \
+  }
 
-using std::cout;
-using std::cin;
 using std::cerr;
+using std::cin;
+using std::cout;
 using std::endl;
 using std::ifstream;
 
 bool KerenelExecutor::pauseExecution = false;
 
 void KerenelExecutor::setPauseExecution(bool newVal) {
-	pauseExecution = newVal;
+  pauseExecution = newVal;
 }
 
 /**
  * executes the given kernel
  *
  * @param program_source
- * 		path and name of file containing the kernel source
+ *     path and name of file containing the kernel source
  * @param kernelName
- * 		name of the kernel
+ *     name of the kernel
  * @param numInstances
- * 		num instances to create while running the kernel
+ *     num instances to create while running the kernel
  * @param params
- * 		parameters to pass to the kernel
+ *     parameters to pass to the kernel
  * @param numParms
- * 		number of parameters
+ *     number of parameters
  * @parm executionType
- * 		in what way to execute the kernel (NORMAL, VECTORIZED)
+ *     in what way to execute the kernel (NORMAL, VECTORIZED)
  *
  * @returns
- * 		message containing the string "ok" if execution succeded or
+ *     message containing the string "ok" if execution succeded or
  *
  */
-string KerenelExecutor::execKernel(const string& kernelName,
-		const string& program_source, const string& includeFile,
-		size_t numInstances, vector<ArrayParameter>& params, list<
-				RegularParameter> inputArgs, Execution::Type executionType) {
+string KerenelExecutor::execKernel(const string &kernelName,
+                                   const string &program_source,
+                                   const string &includeFile,
+                                   size_t numInstances,
+                                   vector<ArrayParameter> &params,
+                                   list<RegularParameter> inputArgs,
+                                   Execution::Type executionType) {
 
-	cl_context context;
-	cl_command_queue cmd_queue;
-	cl_device_id *devices;
-	cl_program program;
-	cl_kernel kernel;
-	int numParams = params.size();
-	cl_mem *memobjs = new cl_mem[numParams];
-	size_t global_work_size[1];
-	size_t local_work_size[1];
-	size_t cb;
-	cl_int err;
+  cl_context context;
+  cl_command_queue cmd_queue;
+  cl_device_id *devices;
+  cl_program program;
+  cl_kernel kernel;
+  int numParams = params.size();
+  cl_mem *memobjs = new cl_mem[numParams];
+  size_t global_work_size[1];
+  size_t local_work_size[1];
+  size_t cb;
+  cl_int err;
 
-	// create the OpenCL context on a CPU device
-	context = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, NULL, NULL, NULL);
-	if (context == (cl_context) 0)
-		return "could not create the OpenCL context on a CPU device";
+  // create the OpenCL context on a CPU device
+  context = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, NULL, NULL, NULL);
+  if (context == (cl_context)0)
+    return "could not create the OpenCL context on a CPU device";
 
-	// get the list of GPU devices associated with context
-	clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &cb);
-	devices = (cl_device_id*) malloc(cb);
-	clGetContextInfo(context, CL_CONTEXT_DEVICES, cb, devices, NULL);
+  // get the list of GPU devices associated with context
+  clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &cb);
+  devices = (cl_device_id *)malloc(cb);
+  clGetContextInfo(context, CL_CONTEXT_DEVICES, cb, devices, NULL);
 
-	// create a command-queue
-	cmd_queue = clCreateCommandQueue(context, devices[0], 0, NULL);
-	if (cmd_queue == (cl_command_queue) 0) {
-		clReleaseContext(context);
-		return "could not create a command-queue";
-	}
-	free(devices);
+  // create a command-queue
+  cmd_queue = clCreateCommandQueue(context, devices[0], 0, NULL);
+  if (cmd_queue == (cl_command_queue)0) {
+    clReleaseContext(context);
+    return "could not create a command-queue";
+  }
+  free(devices);
 
-	// allocate the buffer memory objects
-	for (int i = 0; i < numParams; i++) {
+  // allocate the buffer memory objects
+  for (int i = 0; i < numParams; i++) {
 
-		ArrayParameter param = params[i];
+    ArrayParameter param = params[i];
 
-		memobjs[i] = clCreateBuffer(context, param.getCLMem(), param.getSize(),
-				param.getHostPtr(), NULL);
-		if (memobjs[i] == (cl_mem) 0) {
-			deleteMemobjs(memobjs, i - 1);
-			clReleaseCommandQueue(cmd_queue);
-			clReleaseContext(context);
-			return "could not allocate the buffer memory objects";
-		}
-	}
+    memobjs[i] = clCreateBuffer(context, param.getCLMem(), param.getSize(),
+                                param.getHostPtr(), NULL);
+    if (memobjs[i] == (cl_mem)0) {
+      deleteMemobjs(memobjs, i - 1);
+      clReleaseCommandQueue(cmd_queue);
+      clReleaseContext(context);
+      return "could not allocate the buffer memory objects";
+    }
+  }
 
-	// create the program
-	program = createProgramFromFile(context, program_source, includeFile);
-	// comes instead of this code:
-	//	program = clCreateProgramWithSource(context, 1,
-	//			(const char**) &program_source, NULL, NULL);
-	if (program == (cl_program) 0) {
-		deleteMemobjs(memobjs, numParams);
-		clReleaseCommandQueue(cmd_queue);
-		clReleaseContext(context);
-		return "could not create the program";
-	}
+  // create the program
+  program = createProgramFromFile(context, program_source, includeFile);
+  // comes instead of this code:
+  //  program = clCreateProgramWithSource(context, 1,
+  //      (const char**) &program_source, NULL, NULL);
+  if (program == (cl_program)0) {
+    deleteMemobjs(memobjs, numParams);
+    clReleaseCommandQueue(cmd_queue);
+    clReleaseContext(context);
+    return "could not create the program";
+  }
 
-	// build the program
-	err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-	if (err != CL_SUCCESS) {
+  // build the program
+  err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+  if (err != CL_SUCCESS) {
 
-		char buildLog[1024];
+    char buildLog[1024];
 
-		cl_device_type use_device = CL_DEVICE_TYPE_CPU;
-		cl_device_id dev;
-		err = clGetDeviceIDs(NULL, use_device, 1, &dev, NULL);
-		CHECK_ERRORS(err);
-		err = clGetProgramBuildInfo(program, dev, CL_PROGRAM_BUILD_LOG, 1024,
-				buildLog, NULL);
+    cl_device_type use_device = CL_DEVICE_TYPE_CPU;
+    cl_device_id dev;
+    err = clGetDeviceIDs(NULL, use_device, 1, &dev, NULL);
+    CHECK_ERRORS(err);
+    err = clGetProgramBuildInfo(program, dev, CL_PROGRAM_BUILD_LOG, 1024,
+                                buildLog, NULL);
 
-		deleteMemobjs(memobjs, numParams);
-		clReleaseProgram(program);
-		clReleaseCommandQueue(cmd_queue);
-		clReleaseContext(context);
-		return "could not build the program\nbuildLog:\n" + string(buildLog);
-	}
+    deleteMemobjs(memobjs, numParams);
+    clReleaseProgram(program);
+    clReleaseCommandQueue(cmd_queue);
+    clReleaseContext(context);
+    return "could not build the program\nbuildLog:\n" + string(buildLog);
+  }
 
-	// create the kernel
-	kernel = clCreateKernel(program, kernelName.c_str(), NULL);
-	if (kernel == (cl_kernel) 0) {
-		deleteMemobjs(memobjs, numParams);
-		clReleaseProgram(program);
-		clReleaseCommandQueue(cmd_queue);
-		clReleaseContext(context);
-		return "could not create the kernel";
-	}
+  // create the kernel
+  kernel = clCreateKernel(program, kernelName.c_str(), NULL);
+  if (kernel == (cl_kernel)0) {
+    deleteMemobjs(memobjs, numParams);
+    clReleaseProgram(program);
+    clReleaseCommandQueue(cmd_queue);
+    clReleaseContext(context);
+    return "could not create the kernel";
+  }
 
-	err = 0;
-	// set the args values
-	for (int i = 0; i < numParams; i++) {
-		err |= clSetKernelArg(kernel, i, sizeof(cl_mem), (void *) &memobjs[i]);
+  err = 0;
+  // set the args values
+  for (int i = 0; i < numParams; i++) {
+    err |= clSetKernelArg(kernel, i, sizeof(cl_mem), (void *)&memobjs[i]);
 
-		if (err != CL_SUCCESS) {
-			deleteMemobjs(memobjs, numParams);
-			clReleaseKernel(kernel);
-			clReleaseProgram(program);
-			clReleaseCommandQueue(cmd_queue);
-			clReleaseContext(context);
-			return "could not set the array args values";
-		}
-	}
+    if (err != CL_SUCCESS) {
+      deleteMemobjs(memobjs, numParams);
+      clReleaseKernel(kernel);
+      clReleaseProgram(program);
+      clReleaseCommandQueue(cmd_queue);
+      clReleaseContext(context);
+      return "could not set the array args values";
+    }
+  }
 
-	list<RegularParameter>::iterator it;
-	int i = numParams;
-	for (it = inputArgs.begin(); it != inputArgs.end(); it++) {
+  list<RegularParameter>::iterator it;
+  int i = numParams;
+  for (it = inputArgs.begin(); it != inputArgs.end(); it++) {
 
-		err |= clSetKernelArg(kernel, i, it->getSize(), it->getValue());
-			i++;
+    err |= clSetKernelArg(kernel, i, it->getSize(), it->getValue());
+    i++;
 
-		if (err != CL_SUCCESS) {
-			deleteMemobjs(memobjs, numParams);
-			clReleaseKernel(kernel);
-			clReleaseProgram(program);
-			clReleaseCommandQueue(cmd_queue);
-			clReleaseContext(context);
-			return "could not set the regular args values";
-		}
-	}
+    if (err != CL_SUCCESS) {
+      deleteMemobjs(memobjs, numParams);
+      clReleaseKernel(kernel);
+      clReleaseProgram(program);
+      clReleaseCommandQueue(cmd_queue);
+      clReleaseContext(context);
+      return "could not set the regular args values";
+    }
+  }
 
-	// set work-item dimensions
-	global_work_size[0] = numInstances;
+  // set work-item dimensions
+  global_work_size[0] = numInstances;
 
-	//check if need to pause (before kernel execution
-	if (pauseExecution) {
-		cout << "press any key to begin execution of " << kernelName
-				<< " in mode " << Execution::toString(executionType);
-		getchar();
-	}
+  // check if need to pause (before kernel execution
+  if (pauseExecution) {
+    cout << "press any key to begin execution of " << kernelName << " in mode "
+         << Execution::toString(executionType);
+    getchar();
+  }
 
-	// execute kernel
-	if (executionType == Execution::NORMAL) {
-		local_work_size[0] = 1;
-		err = clEnqueueNDRangeKernel(cmd_queue, kernel, 1, NULL,
-				global_work_size, local_work_size, 0, NULL, NULL);
-	} else {
-		err = clEnqueueNDRangeKernel(cmd_queue, kernel, 1, NULL,
-				global_work_size, NULL, 0, NULL, NULL);
-	}
+  // execute kernel
+  if (executionType == Execution::NORMAL) {
+    local_work_size[0] = 1;
+    err = clEnqueueNDRangeKernel(cmd_queue, kernel, 1, NULL, global_work_size,
+                                 local_work_size, 0, NULL, NULL);
+  } else {
+    err = clEnqueueNDRangeKernel(cmd_queue, kernel, 1, NULL, global_work_size,
+                                 NULL, 0, NULL, NULL);
+  }
 
-	if (err != CL_SUCCESS) {
-		deleteMemobjs(memobjs, numParams);
-		clReleaseKernel(kernel);
-		clReleaseProgram(program);
-		clReleaseCommandQueue(cmd_queue);
-		clReleaseContext(context);
-		return "could not execute kernel";
-	}
+  if (err != CL_SUCCESS) {
+    deleteMemobjs(memobjs, numParams);
+    clReleaseKernel(kernel);
+    clReleaseProgram(program);
+    clReleaseCommandQueue(cmd_queue);
+    clReleaseContext(context);
+    return "could not execute kernel";
+  }
 
-	//check if need to pause (before) kernel execution
-	if (pauseExecution) {
-		cout << "press any key to end execution of " << kernelName
-				<< " in mode " << Execution::toString(executionType);
-		cout << endl;
-		getchar();
-	}
+  // check if need to pause (before) kernel execution
+  if (pauseExecution) {
+    cout << "press any key to end execution of " << kernelName << " in mode "
+         << Execution::toString(executionType);
+    cout << endl;
+    getchar();
+  }
 
-	// read output image
-	for (int i = 0; i < numParams; i++) {
-		ArrayParameter param = params[i];
-		if (param.needToReturn()) {
-			err = clEnqueueReadBuffer(cmd_queue, memobjs[i], CL_TRUE, 0,
-					param.getSize(), param.getParam(), 0, NULL, NULL);
-			if (err != CL_SUCCESS) {
-				deleteMemobjs(memobjs, numParams);
-				clReleaseKernel(kernel);
-				clReleaseProgram(program);
-				clReleaseCommandQueue(cmd_queue);
-				clReleaseContext(context);
-				return "could not read output image";
-			}
-		}
-	}
+  // read output image
+  for (int i = 0; i < numParams; i++) {
+    ArrayParameter param = params[i];
+    if (param.needToReturn()) {
+      err =
+          clEnqueueReadBuffer(cmd_queue, memobjs[i], CL_TRUE, 0,
+                              param.getSize(), param.getParam(), 0, NULL, NULL);
+      if (err != CL_SUCCESS) {
+        deleteMemobjs(memobjs, numParams);
+        clReleaseKernel(kernel);
+        clReleaseProgram(program);
+        clReleaseCommandQueue(cmd_queue);
+        clReleaseContext(context);
+        return "could not read output image";
+      }
+    }
+  }
 
-	// release kernel, program, and memory objects
-	deleteMemobjs(memobjs, numParams);
-	clReleaseKernel(kernel);
-	clReleaseProgram(program);
-	clReleaseCommandQueue(cmd_queue);
-	clReleaseContext(context);
-	delete memobjs;
+  // release kernel, program, and memory objects
+  deleteMemobjs(memobjs, numParams);
+  clReleaseKernel(kernel);
+  clReleaseProgram(program);
+  clReleaseCommandQueue(cmd_queue);
+  clReleaseContext(context);
+  delete memobjs;
 
-	return "ok"; // success...
+  return "ok"; // success...
 }
 
 void KerenelExecutor::deleteMemobjs(cl_mem *memobjs, int n) {
-	int i;
-	for (i = 0; i < n; i++)
-		clReleaseMemObject(memobjs[i]);
+  int i;
+  for (i = 0; i < n; i++)
+    clReleaseMemObject(memobjs[i]);
 }
 
-string KerenelExecutor::getFileContent(const string& fileName) {
+string KerenelExecutor::getFileContent(const string &fileName) {
 
-	// Load file
-	struct stat stbuf;
-	if (stat(fileName.c_str(), &stbuf) == -1) {
-		cerr << "Could not start file '" << fileName << "'\n";
-		exit(-1);
-	}
-	int contentStrSize = stbuf.st_size;
-	char *contentStr = new char[contentStrSize + 1];
-	assert(contentStr);
+  // Load file
+  struct stat stbuf;
+  if (stat(fileName.c_str(), &stbuf) == -1) {
+    cerr << "Could not start file '" << fileName << "'\n";
+    exit(-1);
+  }
+  int contentStrSize = stbuf.st_size;
+  char *contentStr = new char[contentStrSize + 1];
+  assert(contentStr);
 
-	ifstream inFile(fileName.c_str());
-	if (!inFile) {
-		cerr << "Failed to open '" << fileName << "'\n" << endl;
-		exit(-1);
-	}
-	inFile.read(contentStr, contentStrSize);
-	contentStr[contentStrSize] = '\0';
-	inFile.close();
+  ifstream inFile(fileName.c_str());
+  if (!inFile) {
+    cerr << "Failed to open '" << fileName << "'\n" << endl;
+    exit(-1);
+  }
+  inFile.read(contentStr, contentStrSize);
+  contentStr[contentStrSize] = '\0';
+  inFile.close();
 
-	return contentStr;
+  return contentStr;
 }
 
 cl_program KerenelExecutor::createProgramFromFile(cl_context context,
-		const string& fileName, const string& includeFile) {
+                                                  const string &fileName,
+                                                  const string &includeFile) {
 
-	// read header file
-	string code = KerenelExecutor::getFileContent(includeFile);
+  // read header file
+  string code = KerenelExecutor::getFileContent(includeFile);
 
-	// read kernel file
-	code += KerenelExecutor::getFileContent(fileName);
+  // read kernel file
+  code += KerenelExecutor::getFileContent(fileName);
 
-	const char* codeBuff = code.c_str();
+  const char *codeBuff = code.c_str();
 
-	// Load the source into OpenCL driver
-	cl_int err;
-	cl_program prog = clCreateProgramWithSource(context, 1,
-			(const char**) &codeBuff, NULL, &err);
-	CHECK_ERRORS(err);
+  // Load the source into OpenCL driver
+  cl_int err;
+  cl_program prog = clCreateProgramWithSource(
+      context, 1, (const char **)&codeBuff, NULL, &err);
+  CHECK_ERRORS(err);
 
-	return prog;
+  return prog;
 }

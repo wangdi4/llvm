@@ -12,42 +12,36 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
-class IMutex
-{
+class IMutex {
 public:
-    IMutex() {}
-    virtual void Lock() = 0;
-    virtual void Unlock() = 0;
-    virtual ~IMutex(){}
+  IMutex() {}
+  virtual void Lock() = 0;
+  virtual void Unlock() = 0;
+  virtual ~IMutex() {}
+
 private:
-    //Disallow copying
+  // Disallow copying
   IMutex(const IMutex & /*im*/) {}
   void operator=(const IMutex &);
 };
 
-
-class OclMutex: public IMutex
-{
+class OclMutex : public IMutex {
 public:
-    OclMutex( unsigned int uiSpinCount = 4000 );
-    virtual ~OclMutex ();
-    void Lock() override;
-    void Unlock() override;
+  OclMutex(unsigned int uiSpinCount = 4000);
+  virtual ~OclMutex();
+  void Lock() override;
+  void Unlock() override;
 
-  protected:
-    void* m_mutexHndl;
-    void* m_mutexAttr;
+protected:
+  void *m_mutexHndl;
+  void *m_mutexAttr;
 };
 
-
-class OclAutoMutex
-{
+class OclAutoMutex {
 public:
-    OclAutoMutex( IMutex* mutexObj, bool bAutoLock = true );
-    ~OclAutoMutex();
+  OclAutoMutex(IMutex *mutexObj, bool bAutoLock = true);
+  ~OclAutoMutex();
 
 private:
-    IMutex* m_mutexObj;
+  IMutex *m_mutexObj;
 };
-

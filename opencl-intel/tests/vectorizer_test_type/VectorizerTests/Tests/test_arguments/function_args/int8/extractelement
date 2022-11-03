@@ -7,15 +7,15 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 extractelement ( __global const float *in,
-		__global float *out, __global const int8 int8Arg1)
+    __global float *out, __global const int8 int8Arg1)
 {
-	int gid = get_global_id(0);
-	out[gid] = int8Arg1.x + int8Arg1.y;
+  int gid = get_global_id(0);
+  out[gid] = int8Arg1.x + int8Arg1.y;
 }

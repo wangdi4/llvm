@@ -28,7 +28,9 @@
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 static unsigned getAsmDumpFileId() {
   static std::atomic<unsigned> fileId(0);
@@ -45,12 +47,12 @@ static unsigned getBinDumpFileId() {
 }
 
 CPUCompileService::CPUCompileService(std::unique_ptr<ICompilerConfig> config)
-    :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), std::move(config))
-{
-    m_backendFactory = CPUDeviceBackendFactory::GetInstance();
-    LibraryProgramManager::getInstance()->createProgram(
-        static_cast<CPUDeviceBackendFactory *>(m_backendFactory),
-        m_programBuilder);
+    : m_programBuilder(CPUDeviceBackendFactory::GetInstance(),
+                       std::move(config)) {
+  m_backendFactory = CPUDeviceBackendFactory::GetInstance();
+  LibraryProgramManager::getInstance()->createProgram(
+      static_cast<CPUDeviceBackendFactory *>(m_backendFactory),
+      m_programBuilder);
 }
 
 cl_dev_err_code
@@ -116,93 +118,99 @@ CPUCompileService::DumpJITCodeContainer(ICLDevBackendProgram_ *program,
   }
 }
 
-cl_dev_err_code
-CPUCompileService::CheckProgramBinary(const void *pBinary,
-                                      size_t uiBinarySize)
-{
-    // check if it is LLVM BC (such as SPIR 1.2 or SPV-IR)
-    if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_)-1)) {
-      std::string strTargetTriple = (m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
-      llvm::Triple TT(strTargetTriple);
-      // Must be "spir*" target.
-      if (!TT.isSPIR())
-        return CL_DEV_INVALID_BINARY;
+cl_dev_err_code CPUCompileService::CheckProgramBinary(const void *pBinary,
+                                                      size_t uiBinarySize) {
+  // check if it is LLVM BC (such as SPIR 1.2 or SPV-IR)
+  if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary,
+              sizeof(_CL_LLVM_BITCODE_MASK_) - 1)) {
+    std::string strTargetTriple =
+        (m_programBuilder.GetCompiler())
+            ->GetBitcodeTargetTriple(pBinary, uiBinarySize);
+    llvm::Triple TT(strTargetTriple);
+    // Must be "spir*" target.
+    if (!TT.isSPIR())
+      return CL_DEV_INVALID_BINARY;
 #if defined _M_X64 || defined __x86_64__
-      if (!TT.isArch64Bit())
-        return CL_DEV_INVALID_BINARY;
-      // "spir64_x86_64" arch implies non-spirv CPU AOT.
-      // Input format is SPV-IR (SPIRV-Friendly-IR).
-      if (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
-        return CL_DEV_SUCCESS;
+    if (!TT.isArch64Bit())
+      return CL_DEV_INVALID_BINARY;
+    // "spir64_x86_64" arch implies non-spirv CPU AOT.
+    // Input format is SPV-IR (SPIRV-Friendly-IR).
+    if (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
+      return CL_DEV_SUCCESS;
 #else
-      if (!TT.isArch32Bit())
-        return CL_DEV_INVALID_BINARY;
+    if (!TT.isArch32Bit())
+      return CL_DEV_INVALID_BINARY;
 #endif
-      // Should be "spir64" or "spir" target without subarch postfix.
-      if (TT.getSubArch() == llvm::Triple::NoSubArch)
-        return CL_DEV_SUCCESS;
+    // Should be "spir64" or "spir" target without subarch postfix.
+    if (TT.getSubArch() == llvm::Triple::NoSubArch)
+      return CL_DEV_SUCCESS;
 
-      return CL_DEV_INVALID_BINARY;
-    }
+    return CL_DEV_INVALID_BINARY;
+  }
 
-    // check if it is a binary object
-    if (_CL_OBJECT_BITCODE_MASK_ != ((const int *)pBinary)[0])
-        return CL_DEV_SUCCESS;
+  // check if it is a binary object
+  if (_CL_OBJECT_BITCODE_MASK_ != ((const int *)pBinary)[0])
+    return CL_DEV_SUCCESS;
 
-    // Check only for cached Binary Object
-    OpenCL::ELFUtils::CacheBinaryReader reader(pBinary, uiBinarySize);
-    if (!reader.IsCachedObject())
-        return CL_DEV_SUCCESS;
+  // Check only for cached Binary Object
+  OpenCL::ELFUtils::CacheBinaryReader reader(pBinary, uiBinarySize);
+  if (!reader.IsCachedObject())
+    return CL_DEV_SUCCESS;
 
-    bool valid = true;
-    CPUDetect *cpuId = m_programBuilder.GetCompiler()->GetCpuId();
+  bool valid = true;
+  CPUDetect *cpuId = m_programBuilder.GetCompiler()->GetCpuId();
 
-    // check bitOS
-    // get bitOS from ELF header
-    CLElfLib::E_EH_MACHINE headerBit = static_cast<CLElfLib::E_EH_MACHINE>(reader.GetElfHeader()->Machine);
-    valid = cpuId->Is64BitOS() ? (headerBit == CLElfLib::EM_X86_64)
-                               : (headerBit == CLElfLib::EM_860);
+  // check bitOS
+  // get bitOS from ELF header
+  CLElfLib::E_EH_MACHINE headerBit =
+      static_cast<CLElfLib::E_EH_MACHINE>(reader.GetElfHeader()->Machine);
+  valid = cpuId->Is64BitOS() ? (headerBit == CLElfLib::EM_X86_64)
+                             : (headerBit == CLElfLib::EM_860);
 
-    // Check version of binary.
-    // If binary doesn't contain section with version - return CL_INVALID_BINARY.
-    const void* binaryVersion = reader.GetSectionData(Intel::OpenCL::ELFUtils::g_objVerSectionName);
-    if (binaryVersion == nullptr) {
-        return CL_DEV_INVALID_BINARY;
-    }
+  // Check version of binary.
+  // If binary doesn't contain section with version - return CL_INVALID_BINARY.
+  const void *binaryVersion =
+      reader.GetSectionData(Intel::OpenCL::ELFUtils::g_objVerSectionName);
+  if (binaryVersion == nullptr) {
+    return CL_DEV_INVALID_BINARY;
+  }
 
-    // Check if cached binary is build using gold release compiler or higher.
-    // If not - return CL_INVALID_BINARY
-    if (*((const unsigned int *)binaryVersion) < 10 ||
-        *((const unsigned int *)binaryVersion) >
-            (unsigned int)OCL_CACHED_BINARY_VERSION)
-      return CL_DEV_INVALID_BINARY;
+  // Check if cached binary is build using gold release compiler or higher.
+  // If not - return CL_INVALID_BINARY
+  if (*((const unsigned int *)binaryVersion) < 10 ||
+      *((const unsigned int *)binaryVersion) >
+          (unsigned int)OCL_CACHED_BINARY_VERSION)
+    return CL_DEV_INVALID_BINARY;
 
-    // check maximum supported instruction
-    // get maximum supported instruction from ELF header
-    CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
-    Intel::OpenCL::Utils::ECPU cpu = Intel::OpenCL::Utils::CPU_UNKNOWN;
+  // check maximum supported instruction
+  // get maximum supported instruction from ELF header
+  CLElfLib::E_EH_FLAGS headerFlag =
+      static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
+  Intel::OpenCL::Utils::ECPU cpu = Intel::OpenCL::Utils::CPU_UNKNOWN;
 
-    if (headerFlag == CLElfLib::EH_FLAG_AVX512_ICL){
-      valid &= cpuId->HasAVX512ICL();
-      cpu = Intel::OpenCL::Utils::CPU_ICL;
-    }else if (headerFlag == CLElfLib::EH_FLAG_AVX512_SKX){
-      valid &= cpuId->HasAVX512SKX();
-      cpu = Intel::OpenCL::Utils::CPU_SKX;
-    }else if (headerFlag == CLElfLib::EH_FLAG_AVX2){
-      valid &= cpuId->HasAVX2();
-      cpu = Intel::OpenCL::Utils::CPU_HSW;
-    }else if (headerFlag == CLElfLib::EH_FLAG_AVX1){
-      valid &= cpuId->HasAVX1();
-      cpu = Intel::OpenCL::Utils::CPU_SNB;
-    }else if (headerFlag == CLElfLib::EH_FLAG_SSE4){
-      valid &= (cpuId->HasSSE41() || cpuId->HasSSE42());
-      cpu = Intel::OpenCL::Utils::CPU_COREI7;
-    }else{
-        valid=false;
-    }
-    if (valid && cpuId->GetCPU() != cpu)
-      m_programBuilder.GetCompiler()->SetBuiltinModules(
-          CPUDetect::GetCPUName(cpu));
-    return valid ? CL_DEV_SUCCESS : CL_DEV_INVALID_BINARY;
+  if (headerFlag == CLElfLib::EH_FLAG_AVX512_ICL) {
+    valid &= cpuId->HasAVX512ICL();
+    cpu = Intel::OpenCL::Utils::CPU_ICL;
+  } else if (headerFlag == CLElfLib::EH_FLAG_AVX512_SKX) {
+    valid &= cpuId->HasAVX512SKX();
+    cpu = Intel::OpenCL::Utils::CPU_SKX;
+  } else if (headerFlag == CLElfLib::EH_FLAG_AVX2) {
+    valid &= cpuId->HasAVX2();
+    cpu = Intel::OpenCL::Utils::CPU_HSW;
+  } else if (headerFlag == CLElfLib::EH_FLAG_AVX1) {
+    valid &= cpuId->HasAVX1();
+    cpu = Intel::OpenCL::Utils::CPU_SNB;
+  } else if (headerFlag == CLElfLib::EH_FLAG_SSE4) {
+    valid &= (cpuId->HasSSE41() || cpuId->HasSSE42());
+    cpu = Intel::OpenCL::Utils::CPU_COREI7;
+  } else {
+    valid = false;
+  }
+  if (valid && cpuId->GetCPU() != cpu)
+    m_programBuilder.GetCompiler()->SetBuiltinModules(
+        CPUDetect::GetCPUName(cpu));
+  return valid ? CL_DEV_SUCCESS : CL_DEV_INVALID_BINARY;
 }
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

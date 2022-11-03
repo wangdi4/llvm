@@ -13,18 +13,17 @@
 // License.
 
 #include "ClangUtils.h"
+#include "cl_device_api.h"
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
-#include <cctype>
-#include "cl_device_api.h"
 
 #include "llvm/Support/FileSystem.h"
 
-static std::string getZeroLiteral(const std::string& type){
-  if ("char" == type || "short" == type || "int" == type ||
-      "uchar" == type || "ushort" == type || "uint" == type ||
-      "bool" == type)
+static std::string getZeroLiteral(const std::string &type) {
+  if ("char" == type || "short" == type || "int" == type || "uchar" == type ||
+      "ushort" == type || "uint" == type || "bool" == type)
     return "0";
   else if ("long" == type || "ulong" == type)
     return "0L";
@@ -37,72 +36,81 @@ static std::string getZeroLiteral(const std::string& type){
   else if ("double" == type)
     return "0.0";
   else if ("event_t" == type)
-    //This is a work around:
-    // 1. there is no zero value for event_t
-    // 2. built-ins that need to return event_t has an argument of type event_t called "event".
+    // This is a work around:
+    //  1. there is no zero value for event_t
+    //  2. built-ins that need to return event_t has an argument of type event_t
+    //  called "event".
     return "event";
   llvm::errs() << "unhandled type " << type << "\n";
-  assert (0 && "unrecognized type");
+  assert(0 && "unrecognized type");
   return "";
 }
 
-//builds the given code to a file with a given name
-void build(const std::string& code, std::string fileName){
-  const char* clangpath = XSTR(CLANG_BIN_PATH);
-  const char* include_dir = XSTR(CCLANG_INCLUDE_PATH);
-  const char* wide_vec_types_include_dir = XSTR(CL_BUILTIN_SOURCE_DIR);
+// builds the given code to a file with a given name
+void build(const std::string &code, std::string fileName) {
+  const char *clangpath = XSTR(CLANG_BIN_PATH);
+  const char *include_dir = XSTR(CCLANG_INCLUDE_PATH);
+  const char *wide_vec_types_include_dir = XSTR(CL_BUILTIN_SOURCE_DIR);
 
   std::stringstream options;
-  options << "-cc1 -x cl -disable-intel-proprietary-opts -emit-llvm-bc -include opencl-c.h -include long_vector_types.h";
-  options << " " << "-opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
-  options <<  " " << "-triple" << " "
-      << ((sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown" : "spir-unknown-unknown") << " ";
+  options << "-cc1 -x cl -disable-intel-proprietary-opts -emit-llvm-bc "
+             "-include opencl-c.h -include long_vector_types.h";
+  options
+      << " "
+      << "-opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
+  options << " "
+          << "-triple"
+          << " "
+          << ((sizeof(size_t) * 8 == 64) ? "spir64-unknown-unknown"
+                                         : "spir-unknown-unknown")
+          << " ";
 
-  const char* tmpfile = "tmp.cl";
+  const char *tmpfile = "tmp.cl";
   assert(fileName != tmpfile && "tmp.cl is reserved!");
-  //writing the cl code to the input file
+  // writing the cl code to the input file
   std::error_code ec;
   llvm::raw_fd_ostream input(tmpfile, ec, llvm::sys::fs::FA_Write);
-  if( ec )
-  {
-      llvm::errs() << "couldn't open a file " << tmpfile << ": " << ec.message();
-      exit(1);
+  if (ec) {
+    llvm::errs() << "couldn't open a file " << tmpfile << ": " << ec.message();
+    exit(1);
   }
   input << code;
   input.close();
 
-  //building the command line
+  // building the command line
   std::stringstream cmdline;
-  cmdline << clangpath << " " << options.str() << " -o " << fileName
-          << " -I " << include_dir << " -I " << wide_vec_types_include_dir << " " << tmpfile;
+  cmdline << clangpath << " " << options.str() << " -o " << fileName << " -I "
+          << include_dir << " -I " << wide_vec_types_include_dir << " "
+          << tmpfile;
   int res = system(cmdline.str().c_str());
-  if( res ){
+  if (res) {
     llvm::errs() << "bi compilation failed!\n";
     exit(1);
   }
 
-  //deleting the temporary file
+  // deleting the temporary file
   remove(tmpfile);
 }
 
-//generates 'dummy code' (which does nothing but lets the module compile)
-std::string generateDummyBody(const std::string& type, size_t veclen){
+// generates 'dummy code' (which does nothing but lets the module compile)
+std::string generateDummyBody(const std::string &type, size_t veclen) {
   std::stringstream sstream;
   sstream << "{return ";
-  if ("void" == type){
+  if ("void" == type) {
     sstream << ";}";
     return sstream.str();
   }
   std::string zeroLiteral = getZeroLiteral(type);
   if ("event_t" == type) {
-    //Cannot cast to event_t type, just return the "ZeroLiteral" value.
+    // Cannot cast to event_t type, just return the "ZeroLiteral" value.
     sstream << zeroLiteral << ";}";
   } else {
     sstream << "(" << type;
     if (veclen > 1)
       sstream << veclen;
-     sstream << ")" << " (" << zeroLiteral;
-    for (size_t i = 1 ; i<veclen ; i++)
+    sstream << ")"
+            << " (" << zeroLiteral;
+    for (size_t i = 1; i < veclen; i++)
       sstream << "," << zeroLiteral;
     sstream << ");}";
   }

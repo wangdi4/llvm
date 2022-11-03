@@ -13,16 +13,10 @@
 // License.
 
 #include "Tab.h"
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
-Tab::Tab(QWidget *parent) :
-    QWidget(parent)
-{
+Tab::Tab(QWidget *parent) : QWidget(parent) {}
 
-}
-
-}
-}
+} // namespace GUI
+} // namespace Validation

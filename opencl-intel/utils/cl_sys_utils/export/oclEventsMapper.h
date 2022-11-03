@@ -18,42 +18,44 @@
 
 #include <CL/cl.h>
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
-    // This class helps to manage mapping between pairs of events.
-    // It can be used to manage wrappers for events.
-    // 
-    class EventsMapper
-    {
-    public:
-        virtual void addEventPair(cl_event userEvent, cl_event notifierEvent) = 0;
-        virtual cl_event getUserEvent(cl_event notifierEvent) = 0;
-        virtual cl_event getNotifierEvent(cl_event userEvent) = 0;
-        virtual void delEvent(cl_event userEvent) = 0;
-        virtual ~EventsMapper() {}
-    };
+// This class helps to manage mapping between pairs of events.
+// It can be used to manage wrappers for events.
+//
+class EventsMapper {
+public:
+  virtual void addEventPair(cl_event userEvent, cl_event notifierEvent) = 0;
+  virtual cl_event getUserEvent(cl_event notifierEvent) = 0;
+  virtual cl_event getNotifierEvent(cl_event userEvent) = 0;
+  virtual void delEvent(cl_event userEvent) = 0;
+  virtual ~EventsMapper() {}
+};
 
-    // The class below helps the notifier collection to wrap
-    // each OCL write/modify event (e.g. clEnqueueWriteBuffer),
-    // with a custom event.
-    //
-    class NotifierEventsMapper : public EventsMapper
-    {
-    public:
-      virtual void addEventPair(cl_event userEvent,
-                                cl_event notifierEvent) override;
-      virtual cl_event getUserEvent(cl_event notifierEvent) override;
-      virtual cl_event getNotifierEvent(cl_event userEvent) override;
-      virtual void delEvent(cl_event userEvent) override;
+// The class below helps the notifier collection to wrap
+// each OCL write/modify event (e.g. clEnqueueWriteBuffer),
+// with a custom event.
+//
+class NotifierEventsMapper : public EventsMapper {
+public:
+  virtual void addEventPair(cl_event userEvent,
+                            cl_event notifierEvent) override;
+  virtual cl_event getUserEvent(cl_event notifierEvent) override;
+  virtual cl_event getNotifierEvent(cl_event userEvent) override;
+  virtual void delEvent(cl_event userEvent) override;
 
-    private:
-        OclMutex m_lock;
+private:
+  OclMutex m_lock;
 
-        typedef cl_event UserEvent;
-        typedef cl_event NotifierEvent;
-        typedef map<UserEvent, NotifierEvent> EventsMap;
+  typedef cl_event UserEvent;
+  typedef cl_event NotifierEvent;
+  typedef map<UserEvent, NotifierEvent> EventsMap;
 
-        EventsMap m_eventsMap;
-    };
+  EventsMap m_eventsMap;
+};
 
-}}} // Intel::OpenCL::Utils
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel

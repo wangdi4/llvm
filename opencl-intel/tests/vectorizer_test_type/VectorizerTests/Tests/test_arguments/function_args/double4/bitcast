@@ -7,18 +7,18 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-bitcast (	__global const float *in,
-		__global float8 *out, __global const double4 double4Arg1)
+bitcast (  __global const float *in,
+    __global float8 *out, __global const double4 double4Arg1)
 {
-	int gid = get_global_id(0);
-	ushort16 tmp = as_ushort16(double4Arg1);
-	// this add is done to make sure that tmp is created
-	tmp = tmp + tmp;
-	out[gid] = as_float8(tmp);
+  int gid = get_global_id(0);
+  ushort16 tmp = as_ushort16(double4Arg1);
+  // this add is done to make sure that tmp is created
+  tmp = tmp + tmp;
+  out[gid] = as_float8(tmp);
 }

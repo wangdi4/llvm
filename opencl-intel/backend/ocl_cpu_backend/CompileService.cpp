@@ -12,128 +12,119 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "exceptions.h"
 #include "CompileService.h"
-#include "CPUProgram.h"
-#include "Program.h"
 #include "BitCodeContainer.h"
+#include "CPUProgram.h"
 #include "LibraryProgramManager.h"
 #include "ObjectCodeContainer.h"
-#include "elf_binary.h"
+#include "Program.h"
 #include "cache_binary_handler.h"
+#include "elf_binary.h"
+#include "exceptions.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
+#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 using namespace Intel::OpenCL::ELFUtils;
 
-CompileService::CompileService()
-{}
+CompileService::CompileService() {}
 
-cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
-                                               size_t uiBinarySize,
-                                               ICLDevBackendProgram_** ppProgram)
-{
-    assert(m_backendFactory);
+cl_dev_err_code
+CompileService::CreateProgram(const void *pBinary, size_t uiBinarySize,
+                              ICLDevBackendProgram_ **ppProgram) {
+  assert(m_backendFactory);
 
-    try
-    {
-        const char* pBinaryData = (const char*)pBinary;
-        size_t uiBinaryDataSize = uiBinarySize;
+  try {
+    const char *pBinaryData = (const char *)pBinary;
+    size_t uiBinaryDataSize = uiBinarySize;
 
-        if(nullptr == pBinary || uiBinarySize == 0 || nullptr == ppProgram)
-        {
-            return CL_DEV_INVALID_VALUE;
-        }
+    if (nullptr == pBinary || uiBinarySize == 0 || nullptr == ppProgram) {
+      return CL_DEV_INVALID_VALUE;
+    }
 
-        std::unique_ptr<Program> spProgram(m_backendFactory->CreateProgram());
+    std::unique_ptr<Program> spProgram(m_backendFactory->CreateProgram());
 
-        //check if it is Binary object
-        if( OCLElfBinaryReader::IsValidOpenCLBinary((const char*)pBinary, uiBinarySize))
-        {
-            OCLElfBinaryReader reader((const char*)pBinary,uiBinarySize);
-            reader.GetIR(pBinaryData, uiBinaryDataSize);
-            spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
-            GetProgramBuilder()->ParseProgram(spProgram.get());
-        }
-        else if(CacheBinaryReader::IsValidCacheObject((const char*)pBinary, uiBinarySize))
-        {
-            spProgram->SetObjectCodeContainer(new ObjectCodeContainer(pBinaryData, uiBinaryDataSize));
-        }
-        //check if it is LLVM IR object
-        else if ( !memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
-        {
-            spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
-            GetProgramBuilder()->ParseProgram(spProgram.get());
-        }
-        else
-        {
-            throw Exceptions::DeviceBackendExceptionBase("Unknown binary type", CL_DEV_INVALID_BINARY);
-        }
+    // check if it is Binary object
+    if (OCLElfBinaryReader::IsValidOpenCLBinary((const char *)pBinary,
+                                                uiBinarySize)) {
+      OCLElfBinaryReader reader((const char *)pBinary, uiBinarySize);
+      reader.GetIR(pBinaryData, uiBinaryDataSize);
+      spProgram->SetBitCodeContainer(
+          new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
+      GetProgramBuilder()->ParseProgram(spProgram.get());
+    } else if (CacheBinaryReader::IsValidCacheObject((const char *)pBinary,
+                                                     uiBinarySize)) {
+      spProgram->SetObjectCodeContainer(
+          new ObjectCodeContainer(pBinaryData, uiBinaryDataSize));
+    }
+    // check if it is LLVM IR object
+    else if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary,
+                     sizeof(_CL_LLVM_BITCODE_MASK_) - 1)) {
+      spProgram->SetBitCodeContainer(
+          new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
+      GetProgramBuilder()->ParseProgram(spProgram.get());
+    } else {
+      throw Exceptions::DeviceBackendExceptionBase("Unknown binary type",
+                                                   CL_DEV_INVALID_BINARY);
+    }
 #ifdef OCL_DEV_BACKEND_PLUGINS
-        // Notify the plugin manager
-        m_pluginManager.OnCreateProgram(pBinaryData, uiBinaryDataSize, spProgram.get());
+    // Notify the plugin manager
+    m_pluginManager.OnCreateProgram(pBinaryData, uiBinaryDataSize,
+                                    spProgram.get());
 #endif
-        *ppProgram = spProgram.release();
-        return CL_DEV_SUCCESS;
-    }
-    catch( Exceptions::DeviceBackendExceptionBase& e )
-    {
-        return e.GetErrorCode();
-    }
-    catch( std::bad_alloc& )
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+    *ppProgram = spProgram.release();
+    return CL_DEV_SUCCESS;
+  } catch (Exceptions::DeviceBackendExceptionBase &e) {
+    return e.GetErrorCode();
+  } catch (std::bad_alloc &) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 }
 
-void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
-{
-    std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
+void CompileService::ReleaseProgram(ICLDevBackendProgram_ *pProgram) const {
+  std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
 #ifdef OCL_DEV_BACKEND_PLUGINS
-    m_pluginManager.OnReleaseProgram(pProgram);
+  m_pluginManager.OnReleaseProgram(pProgram);
 #endif
-    if (pProgram != LibraryProgramManager::getInstance()->getProgram())
-        delete pProgram;
+  if (pProgram != LibraryProgramManager::getInstance()->getProgram())
+    delete pProgram;
 }
 
-cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
-                                              const ICLDevBackendOptions* pOptions,
-                                              const char* pBuildOpts)
-{
-    if(nullptr == pProgram)
-    {
-        return CL_DEV_INVALID_VALUE;
-    }
+cl_dev_err_code
+CompileService::BuildProgram(ICLDevBackendProgram_ *pProgram,
+                             const ICLDevBackendOptions *pOptions,
+                             const char *pBuildOpts) {
+  if (nullptr == pProgram) {
+    return CL_DEV_INVALID_VALUE;
+  }
 
-    // if an exception is caught, this mutex should be unlocked safely
-    // on windows, this mutex will remain unlocked if it is locked in the try{} code block
-    std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
+  // if an exception is caught, this mutex should be unlocked safely
+  // on windows, this mutex will remain unlocked if it is locked in the try{}
+  // code block
+  std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
 
-    try
-    {
-        return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), pOptions, pBuildOpts);
-    }
-    catch( Exceptions::DeviceBackendExceptionBase& e )
-    {
-        return e.GetErrorCode();
-    }
-    catch( std::bad_alloc& )
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+  try {
+    return GetProgramBuilder()->BuildProgram(static_cast<Program *>(pProgram),
+                                             pOptions, pBuildOpts);
+  } catch (Exceptions::DeviceBackendExceptionBase &e) {
+    return e.GetErrorCode();
+  } catch (std::bad_alloc &) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 }
 
 cl_dev_err_code CompileService::FinalizeProgram(ICLDevBackendProgram_ *Prog) {
@@ -158,9 +149,8 @@ cl_dev_err_code CompileService::FinalizeProgram(ICLDevBackendProgram_ *Prog) {
   }
 }
 
-cl_dev_err_code
-CompileService::GetLibraryProgram(ICLDevBackendProgram_ **Prog,
-                                  const char **KernelNames) {
+cl_dev_err_code CompileService::GetLibraryProgram(ICLDevBackendProgram_ **Prog,
+                                                  const char **KernelNames) {
   assert(m_backendFactory && "m_backendFactory not initialized");
   if (!Prog || !KernelNames)
     return CL_DEV_INVALID_VALUE;
@@ -173,56 +163,47 @@ CompileService::GetLibraryProgram(ICLDevBackendProgram_ **Prog,
   return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                                                   const ICLDevBackendOptions* pOptions ) const
-{
-    assert(pCodeContainer);
-    assert(pOptions);
+cl_dev_err_code CompileService::DumpCodeContainer(
+    const ICLDevBackendCodeContainer *pCodeContainer,
+    const ICLDevBackendOptions *pOptions) const {
+  assert(pCodeContainer);
+  assert(pOptions);
 
-    try
-    {
-        const BitCodeContainer* pContainer = static_cast<const BitCodeContainer*>(pCodeContainer);
-        llvm::Module* pModule = pContainer->GetModule();
-        assert(pModule);
+  try {
+    const BitCodeContainer *pContainer =
+        static_cast<const BitCodeContainer *>(pCodeContainer);
+    llvm::Module *pModule = pContainer->GetModule();
+    assert(pModule);
 
-        std::string fname = pOptions->GetStringValue( CL_DEV_BACKEND_OPTION_DUMPFILE, "");
+    std::string fname =
+        pOptions->GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE, "");
 
-        if( fname.empty() )
-        {
-            llvm::outs() << *pModule;
-        }
-        else
-        {
-            std::error_code ec;
-            llvm::raw_fd_ostream ostr(fname.c_str(), ec,
-                                      llvm::sys::fs::FA_Write);
-            if(!ec)
-            {
-                pContainer->GetModule()->print(ostr, 0);
-            }
-            else
-            {
-                throw Exceptions::DeviceBackendExceptionBase(std::string("Can't open the dump file ") + fname + ":" + ec.message());
-            }
-        }
-        return CL_DEV_SUCCESS;
+    if (fname.empty()) {
+      llvm::outs() << *pModule;
+    } else {
+      std::error_code ec;
+      llvm::raw_fd_ostream ostr(fname.c_str(), ec, llvm::sys::fs::FA_Write);
+      if (!ec) {
+        pContainer->GetModule()->print(ostr, 0);
+      } else {
+        throw Exceptions::DeviceBackendExceptionBase(
+            std::string("Can't open the dump file ") + fname + ":" +
+            ec.message());
+      }
     }
-    catch( Exceptions::DeviceBackendExceptionBase& e )
-    {
-        return e.GetErrorCode();
-    }
-    catch( std::bad_alloc& )
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+    return CL_DEV_SUCCESS;
+  } catch (Exceptions::DeviceBackendExceptionBase &e) {
+    return e.GetErrorCode();
+  } catch (std::bad_alloc &) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 }
 
-void CompileService::Release()
-{
-    // LLJIT instance in library program must be released before
-    // IntelJITEventListener dtor.
-    LibraryProgramManager::getInstance()->release();
-    delete this;
+void CompileService::Release() {
+  // LLJIT instance in library program must be released before
+  // IntelJITEventListener dtor.
+  LibraryProgramManager::getInstance()->release();
+  delete this;
 }
 
 // dump JIT'ed code as object binary or x86 assembly
@@ -233,4 +214,6 @@ CompileService::DumpJITCodeContainer(ICLDevBackendProgram_ * /*program*/,
   assert(false);
   return CL_DEV_NOT_SUPPORTED;
 }
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

@@ -17,68 +17,64 @@
 #include "BuiltinModules.h"
 #include "CPUCompiler.h"
 #include "StaticObjectLoader.h"
-#include "llvm/ExecutionEngine/ObjectCache.h"
 #include "cl_cpu_detect.h"
 #include "cl_utils.h"
+#include "llvm/ExecutionEngine/ObjectCache.h"
 
 #include <memory>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 // TODO: ensure it is defined from cl_image_declaration.h
 // indexes of translation callbacks for each type of sampler
 // !!!IMPORTANT!!! These defines should be the same as in cl_image_declaration.h
-enum SamplerType
-{
-    NONE_FALSE_NEAREST          =0x10,
-    CLAMP_FALSE_NEAREST         =0x14,
-    CLAMPTOEDGE_FALSE_NEAREST   =0x12,
-    REPEAT_FALSE_NEAREST        =0x16,
-    MIRRORED_FALSE_NEAREST      =0x18,
-    
-    NONE_TRUE_NEAREST           =0x11,
-    CLAMP_TRUE_NEAREST          =0x15,
-    CLAMPTOEDGE_TRUE_NEAREST    =0x13,
-    REPEAT_TRUE_NEAREST         =0x17,
-    MIRRORED_TRUE_NEAREST       =0x19,
-    
-    NONE_FALSE_LINEAR           =0x20,
-    CLAMP_FALSE_LINEAR          =0x24,
-    CLAMPTOEDGE_FALSE_LINEAR    =0x22,
-    REPEAT_FALSE_LINEAR         =0x26,
-    MIRRORED_FALSE_LINEAR       =0x28,
-    
-    NONE_TRUE_LINEAR            =0x21,
-    CLAMP_TRUE_LINEAR           =0x25,
-    CLAMPTOEDGE_TRUE_LINEAR     =0x23,
-    REPEAT_TRUE_LINEAR          =0x27,
-    MIRRORED_TRUE_LINEAR        =0x29,
-    
-    SAMPLER_UNDEFINED = 0xFF
+enum SamplerType {
+  NONE_FALSE_NEAREST = 0x10,
+  CLAMP_FALSE_NEAREST = 0x14,
+  CLAMPTOEDGE_FALSE_NEAREST = 0x12,
+  REPEAT_FALSE_NEAREST = 0x16,
+  MIRRORED_FALSE_NEAREST = 0x18,
+
+  NONE_TRUE_NEAREST = 0x11,
+  CLAMP_TRUE_NEAREST = 0x15,
+  CLAMPTOEDGE_TRUE_NEAREST = 0x13,
+  REPEAT_TRUE_NEAREST = 0x17,
+  MIRRORED_TRUE_NEAREST = 0x19,
+
+  NONE_FALSE_LINEAR = 0x20,
+  CLAMP_FALSE_LINEAR = 0x24,
+  CLAMPTOEDGE_FALSE_LINEAR = 0x22,
+  REPEAT_FALSE_LINEAR = 0x26,
+  MIRRORED_FALSE_LINEAR = 0x28,
+
+  NONE_TRUE_LINEAR = 0x21,
+  CLAMP_TRUE_LINEAR = 0x25,
+  CLAMPTOEDGE_TRUE_LINEAR = 0x23,
+  REPEAT_TRUE_LINEAR = 0x27,
+  MIRRORED_TRUE_LINEAR = 0x29,
+
+  SAMPLER_UNDEFINED = 0xFF
 };
 
 // Describes callback type that is used if read_image is called
 // with parameters that by spec produce undefined return value
-enum UndefCbkType
-{
-    // Undefined reading callback with integer coordinates
-    READ_CBK_UNDEF_INT,
-    // Undefined reading callback with floating point coordinates
-    READ_CBK_UNDEF_FLOAT,
-    // Undefined translation callback for floating point coordinates but integer image
-    TRANS_CBK_UNDEF_FLOAT,
-    // Undefined translation callback for floating poitn coordinates and float image
-    TRANS_CBK_UNDEF_FLOAT_FLOAT
+enum UndefCbkType {
+  // Undefined reading callback with integer coordinates
+  READ_CBK_UNDEF_INT,
+  // Undefined reading callback with floating point coordinates
+  READ_CBK_UNDEF_FLOAT,
+  // Undefined translation callback for floating point coordinates but integer
+  // image
+  TRANS_CBK_UNDEF_FLOAT,
+  // Undefined translation callback for floating poitn coordinates and float
+  // image
+  TRANS_CBK_UNDEF_FLOAT_FLOAT
 };
 
 // callback vector size
-enum VecSize
-{
-    SCALAR = 1,
-    SOA4 = 4,
-    SOA8 = 8,
-    SOA16 = 16
-};
+enum VecSize { SCALAR = 1, SOA4 = 4, SOA8 = 8, SOA16 = 16 };
 
 // Auxiliary functions for image callback names mangling
 const string channelOrderToPrefix(cl_channel_order _co);
@@ -88,70 +84,62 @@ const string channelDataTypeToPrefix(cl_channel_type _ct);
 const string VecSizeToPrefix(VecSize _size);
 const string FilterToPrefix(cl_filter_mode _filterMode);
 
-class CbkDesc
-{
+class CbkDesc {
 public:
-    virtual std::string GetName() const = 0;
-    virtual ~CbkDesc() {}
+  virtual std::string GetName() const = 0;
+  virtual ~CbkDesc() {}
 };
 
-class UndefCbkDesc : public CbkDesc
-{
+class UndefCbkDesc : public CbkDesc {
 public:
+  UndefCbkDesc(UndefCbkType _type, VecSize _vecSize = SCALAR);
+  virtual std::string GetName() const override;
 
-    UndefCbkDesc(UndefCbkType _type, VecSize _vecSize = SCALAR);
-    virtual std::string GetName() const override;
-
-  private:
-    UndefCbkType Type;
-    VecSize Size;
+private:
+  UndefCbkType Type;
+  VecSize Size;
 };
 
-class TransCbkDesc : public CbkDesc
-{
+class TransCbkDesc : public CbkDesc {
 public:
-    TransCbkDesc(bool _isInt, SamplerType _sampler, VecSize _vectorSize = SCALAR);
-    virtual std::string GetName() const override;
+  TransCbkDesc(bool _isInt, SamplerType _sampler, VecSize _vectorSize = SCALAR);
+  virtual std::string GetName() const override;
 
-  private:
-    bool IsIntFormat;
-    SamplerType Sampler;
-    VecSize VectorSize;
+private:
+  bool IsIntFormat;
+  SamplerType Sampler;
+  VecSize VectorSize;
 };
 
-class ReadCbkDesc : public CbkDesc
-{
+class ReadCbkDesc : public CbkDesc {
 public:
-    ReadCbkDesc(bool _isClamp,
-        cl_channel_order _ch_order,
-        cl_channel_type _ch_type,
-        cl_filter_mode _filter,
-        // For regular 1.1 images reading callbacks are common for 2D and 3D
-        // so set 2D here for generality
-        cl_mem_object_type _imageType = CL_MEM_OBJECT_IMAGE2D,
-        VecSize _vectorSize = SCALAR);
+  ReadCbkDesc(bool _isClamp, cl_channel_order _ch_order,
+              cl_channel_type _ch_type, cl_filter_mode _filter,
+              // For regular 1.1 images reading callbacks are common for 2D and
+              // 3D so set 2D here for generality
+              cl_mem_object_type _imageType = CL_MEM_OBJECT_IMAGE2D,
+              VecSize _vectorSize = SCALAR);
 
-    virtual std::string GetName() const override;
+  virtual std::string GetName() const override;
 
-  private:
-    cl_image_format     Format;
-    bool                IsClamp;
-    cl_filter_mode      Filter;
-    cl_mem_object_type  ImageType;
-    VecSize             VectorSize;
+private:
+  cl_image_format Format;
+  bool IsClamp;
+  cl_filter_mode Filter;
+  cl_mem_object_type ImageType;
+  VecSize VectorSize;
 };
 
-class WriteCbkDesc : public CbkDesc
-{
+class WriteCbkDesc : public CbkDesc {
 public:
+  WriteCbkDesc(cl_channel_order _ch_order, cl_channel_type _ch_type,
+               VecSize _vectorSize = SCALAR);
+  // Returns llvm name of a function
+  virtual std::string GetName() const override;
 
-    WriteCbkDesc(cl_channel_order _ch_order, cl_channel_type _ch_type, VecSize _vectorSize = SCALAR);
-    // Returns llvm name of a function
-    virtual std::string GetName() const override;
-
-  private:
-    VecSize VectorSize;
-    cl_image_format Format;
+private:
+  VecSize VectorSize;
+  cl_image_format Format;
 };
 
 const bool FLT_CBK = false;
@@ -162,70 +150,63 @@ const bool NO_CLAMP_CBK = !CLAMP_CBK;
 
 // Returns size of array
 #ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a) \
-  ((sizeof(a) / sizeof(*(a))) / \
-  static_cast<size_t>(!(sizeof(a) % sizeof(*(a)))))
+#define ARRAY_SIZE(a)                                                          \
+  ((sizeof(a) / sizeof(*(a))) /                                                \
+   static_cast<size_t>(!(sizeof(a) % sizeof(*(a)))))
 #endif
 
 /**
- *  Holds the entire callback functions set for a specific compiled library (i.e., per architecture)
+ *  Holds the entire callback functions set for a specific compiled library
+ * (i.e., per architecture)
  */
-class ImageCallbackFunctions{
+class ImageCallbackFunctions {
 public:
-
-    ImageCallbackFunctions();
+  ImageCallbackFunctions();
 
 private:
+  // Used for function lookup. Not owned by this class.
+  llvm::orc::LLJIT *m_LLJIT;
 
-    // Used for function lookup. Not owned by this class.
-    llvm::orc::LLJIT *m_LLJIT;
-
-    void* GetCbkPtr(const CbkDesc& _desc);
+  void *GetCbkPtr(const CbkDesc &_desc);
 
 public:
+  void *GetUndefinedCbk(UndefCbkType _type, VecSize _vecSize = SCALAR) {
+    UndefCbkDesc desc(_type, _vecSize);
+    return GetCbkPtr(desc);
+  }
 
-    void* GetUndefinedCbk(UndefCbkType _type,
-                   VecSize _vecSize = SCALAR)
-    {
-        UndefCbkDesc desc(_type, _vecSize);
-        return GetCbkPtr(desc);
-    }
+  void *GetTranslationCbk(bool _isInt, SamplerType _sampler) {
+    TransCbkDesc desc(_isInt, _sampler);
+    return GetCbkPtr(desc);
+  }
 
-    void* GetTranslationCbk(bool _isInt, SamplerType _sampler)
-    {
-        TransCbkDesc desc(_isInt, _sampler);
-        return GetCbkPtr(desc);
-    }
+  void *GetReadingCbk(bool _isClamp, cl_channel_order _ch_order,
+                      cl_channel_type _ch_type, cl_filter_mode _filter,
+                      cl_mem_object_type _imageType = CL_MEM_OBJECT_IMAGE2D,
+                      VecSize _vecSize = SCALAR) {
+    ReadCbkDesc desc(_isClamp, _ch_order, _ch_type, _filter, _imageType,
+                     _vecSize);
+    return GetCbkPtr(desc);
+  }
 
-    void* GetReadingCbk(bool _isClamp,
-                        cl_channel_order _ch_order,
-                        cl_channel_type _ch_type,
-                        cl_filter_mode _filter,
-                        cl_mem_object_type _imageType = CL_MEM_OBJECT_IMAGE2D,
-                        VecSize _vecSize = SCALAR)
-    {
-        ReadCbkDesc desc(_isClamp, _ch_order, _ch_type, _filter, _imageType, _vecSize);
-        return GetCbkPtr(desc);
-    }
+  void *GetWritingCbk(cl_channel_order _ch_order, cl_channel_type _ch_type,
+                      VecSize _vectorSize = SCALAR) {
+    WriteCbkDesc desc(_ch_order, _ch_type, _vectorSize);
+    return GetCbkPtr(desc);
+  }
 
-    void* GetWritingCbk(cl_channel_order _ch_order, cl_channel_type _ch_type, VecSize _vectorSize = SCALAR)
-    {
-        WriteCbkDesc desc(_ch_order, _ch_type, _vectorSize);
-        return GetCbkPtr(desc);
-    }
-
-    void* GetTrapCbk();
-
+  void *GetTrapCbk();
 };
 
 /**
- *  Provides loading and building image library for specified cpu. Owns compiler instance
+ *  Provides loading and building image library for specified cpu. Owns compiler
+ * instance
  */
-class ImageCallbackLibrary{
+class ImageCallbackLibrary {
 public:
-    /**
-    *  ctor
-    */
+  /**
+   *  ctor
+   */
   ImageCallbackLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId,
                        CPUCompiler *compiler)
       : m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler) {}
@@ -247,25 +228,25 @@ public:
     return m_ImageFunctions;
   }
 
-    ~ImageCallbackLibrary();
+  ~ImageCallbackLibrary();
 
 private:
+  /// Get the path to the builtin library
+  std::string getLibraryBasename();
+  std::string getLibraryObjectName();
 
-    /// Get the path to the builtin library
-    std::string getLibraryBasename();
-    std::string getLibraryObjectName();
-
-    const Intel::OpenCL::Utils::CPUDetect *m_CpuId;
-    // Instance with all function pointers. Owned by this class
-    ImageCallbackFunctions* m_ImageFunctions;
-    // Pointer to Compiler. Owned by this class.
-    CPUCompiler* m_Compiler;
+  const Intel::OpenCL::Utils::CPUDetect *m_CpuId;
+  // Instance with all function pointers. Owned by this class
+  ImageCallbackFunctions *m_ImageFunctions;
+  // Pointer to Compiler. Owned by this class.
+  CPUCompiler *m_Compiler;
 
 private:
-    // Disable copy ctor and assignment operator
-    ImageCallbackLibrary( const ImageCallbackLibrary& );
-    bool operator = (const ImageCallbackLibrary& );
-
+  // Disable copy ctor and assignment operator
+  ImageCallbackLibrary(const ImageCallbackLibrary &);
+  bool operator=(const ImageCallbackLibrary &);
 };
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

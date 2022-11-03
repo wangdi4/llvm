@@ -30,11 +30,10 @@ namespace intel {
 
 char StripIntelIP::ID = 0;
 
-OCL_INITIALIZE_PASS(
-    StripIntelIP, "strip-intel-ip",
-    "strips the Module of all data not essential to"
-    "functioning of OpenCL CPU RT",
-    /* Only looks at CFG */false, /* Analysis Pass */false)
+OCL_INITIALIZE_PASS(StripIntelIP, "strip-intel-ip",
+                    "strips the Module of all data not essential to"
+                    "functioning of OpenCL CPU RT",
+                    /* Only looks at CFG */ false, /* Analysis Pass */ false)
 
 StripIntelIP::StripIntelIP() : ModulePass(ID) {
   initializeStripIntelIPPass(*PassRegistry::getPassRegistry());
@@ -71,8 +70,8 @@ static void stripFunction(Function *Func) {
   Func->setAttributes(EmptyAttrs);
 }
 
-static void emptyFunctionBodies(
-    const SmallPtrSetImpl<Function*> &FuncsToEmpty) {
+static void
+emptyFunctionBodies(const SmallPtrSetImpl<Function *> &FuncsToEmpty) {
   for (auto *F : FuncsToEmpty) {
     stripFunction(F);
     auto *ExitBB = BasicBlock::Create(F->getContext(), "exit", F);
@@ -87,15 +86,15 @@ bool StripIntelIP::runOnModule(Module &M) {
   // Split all Functions into 3 categories:
   // Those that should be emptied, but remain defined.
   // These are external functions exported from Module.
-  SmallPtrSet<Function*, 8> KernelDefs;
+  SmallPtrSet<Function *, 8> KernelDefs;
   // Kernel wrappers, which is a decl by design,
   // but require Metadata and Attributes filtering.
-  SmallPtrSet<Function*, 8> KernelDecls;
+  SmallPtrSet<Function *, 8> KernelDecls;
   // Those that should be deleted entirely.
-  SmallVector<Function*, 8> FuncsToRemove;
+  SmallVector<Function *, 8> FuncsToRemove;
 
-  SmallVector<GlobalVariable*, 16> GlobalsToRemove;
-  SmallVector<NamedMDNode*, 8> NamedMDNodesToRemove;
+  SmallVector<GlobalVariable *, 16> GlobalsToRemove;
+  SmallVector<NamedMDNode *, 8> NamedMDNodesToRemove;
 
   // Collection Stage 1. Collect functions whose bodies we need
   // to empty and those we need to save attached Metadata for.
@@ -200,7 +199,5 @@ bool StripIntelIP::runOnModule(Module &M) {
 } // namespace intel
 
 extern "C" {
-    llvm::ModulePass *createStripIntelIPPass() {
-    return new intel::StripIntelIP();
-  }
+llvm::ModulePass *createStripIntelIPPass() { return new intel::StripIntelIP(); }
 }

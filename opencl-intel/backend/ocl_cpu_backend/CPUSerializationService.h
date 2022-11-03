@@ -15,48 +15,51 @@
 #ifndef __CPU_SERIALIZATION_SERVICE
 #define __CPU_SERIALIZATION_SERVICE
 
-#include "cl_dev_backend_api.h"
 #include "IAbstractBackendFactory.h"
+#include "cl_dev_backend_api.h"
 #include <map>
 #include <string>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class CPUSerializationService : public ICLDevBackendSerializationService
-{
+class CPUSerializationService : public ICLDevBackendSerializationService {
 public:
-    
-    CPUSerializationService(const ICLDevBackendOptions* pBackendOptions);
+  CPUSerializationService(const ICLDevBackendOptions *pBackendOptions);
 
-    // Program Functions
-    virtual cl_dev_err_code
-    GetSerializationBlobSize(cl_serialization_type serializationType,
-                             const ICLDevBackendProgram_ *pProgram,
-                             size_t *pSize) const override;
+  // Program Functions
+  virtual cl_dev_err_code
+  GetSerializationBlobSize(cl_serialization_type serializationType,
+                           const ICLDevBackendProgram_ *pProgram,
+                           size_t *pSize) const override;
 
-    virtual cl_dev_err_code
-    SerializeProgram(cl_serialization_type serializationType,
-                     const ICLDevBackendProgram_ *pProgram, void *pBlob,
-                     size_t blobSize) const override;
+  virtual cl_dev_err_code
+  SerializeProgram(cl_serialization_type serializationType,
+                   const ICLDevBackendProgram_ *pProgram, void *pBlob,
+                   size_t blobSize) const override;
 
-    virtual cl_dev_err_code
-    ReloadProgram(cl_serialization_type serializationType,
-                  ICLDevBackendProgram_ *pProgram, const void *pBlob,
-                  size_t blobSize, unsigned int binaryVersion) const;
+  virtual cl_dev_err_code ReloadProgram(cl_serialization_type serializationType,
+                                        ICLDevBackendProgram_ *pProgram,
+                                        const void *pBlob, size_t blobSize,
+                                        unsigned int binaryVersion) const;
 
-    virtual cl_dev_err_code
-    DeSerializeProgram(cl_serialization_type serializationType,
-                       ICLDevBackendProgram_ **ppProgram, const void *pBlob,
-                       size_t blobSize, unsigned int binaryVersion) const override;
+  virtual cl_dev_err_code
+  DeSerializeProgram(cl_serialization_type serializationType,
+                     ICLDevBackendProgram_ **ppProgram, const void *pBlob,
+                     size_t blobSize,
+                     unsigned int binaryVersion) const override;
 
-    virtual void ReleaseProgram(ICLDevBackendProgram_ *pProgram) const override;
+  virtual void ReleaseProgram(ICLDevBackendProgram_ *pProgram) const override;
 
-    virtual void Release() override;
+  virtual void Release() override;
 
-  private:
-    IAbstractBackendFactory* m_pBackendFactory;
+private:
+  IAbstractBackendFactory *m_pBackendFactory;
 };
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __CPU_SERIALIZATION_SERVICE

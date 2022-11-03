@@ -20,18 +20,17 @@
 // build-same check. So we put it in a specific section and then ignore this
 // section when doing build-same check.
 #ifdef _WIN32
-#pragma section(".oclver",read)
+#pragma section(".oclver", read)
 __declspec(allocate(".oclver"))
 #else
 __attribute__((section(".oclver")))
 #endif
-const char OCL_VER_EXT[] = VERSIONSTRING_WITH_EXT;
+    const char OCL_VER_EXT[] = VERSIONSTRING_WITH_EXT;
 
 ////////////////////////////////////////////////////////////////////////////////
 // return the product version:
 // Arguments - year, LLVM version, month, digit (0) - output version numbers
 ///////////////////////////////////////////////////////////////////////////////
-const char* Intel::OpenCL::Utils::GetModuleProductVersion()
-{
-    return OCL_VER_EXT;
+const char *Intel::OpenCL::Utils::GetModuleProductVersion() {
+  return OCL_VER_EXT;
 }

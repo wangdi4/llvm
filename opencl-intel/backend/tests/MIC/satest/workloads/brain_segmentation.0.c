@@ -4,7 +4,10 @@
 #define BLOCK_SIZE 16
 #define ISCONJ 0
 #if ISCONJ
-ty CONJ(ty in) { ty out = { in.x, -in.y}; return out; }
+ty CONJ(ty in) {
+  ty out = {in.x, -in.y};
+  return out;
+}
 #else
 #define CONJ(in) (in)
 #endif
@@ -30,7 +33,7 @@ ty CONJ(ty in) { ty out = { in.x, -in.y}; return out; }
 #define STATIC static
 #define BOOL bool
 #else
-#ifdef AFCL    // is there not some OpenCL directive?
+#ifdef AFCL // is there not some OpenCL directive?
 #define MAIN __kernel
 #define DEVICE
 #define GLOBAL __global
@@ -50,44 +53,41 @@ ty CONJ(ty in) { ty out = { in.x, -in.y}; return out; }
 #define BOOL uchar
 #endif // AFCL
 #endif // CUDACC
-TEMPLATE MAIN
-STATIC void _transpose(const GLOBAL ty *_idata, GLOBAL ty *_odata,
-                       unsigned w, unsigned h,
-                       unsigned gridDim_x, int i, int j)
-{
-    SHARED ty block[BLOCK_SIZE][BLOCK_SIZE+1];
-    unsigned id = 0;
-    unsigned bx = BIDX + i;
-    unsigned by = BIDY + j;
-    if (ISGFOR) {
-        id = (bx) / gridDim_x;
-        bx -= id * gridDim_x; // MOD(bx, gridDim_x);
-    }
-    unsigned inc = (ISGFOR ? id * w * h : 0);
-    GLOBAL ty *odata = (GLOBAL ty *)_odata + inc;
-    const GLOBAL ty *idata = (const GLOBAL ty *)_idata + inc;
-    int blockIdx_x, blockIdx_y;
-    // do diagonal reordering
-    if (w == h) {
-        blockIdx_y = bx;
-        blockIdx_x = MOD((bx+by), gridDim_x);
-    } else {
-        int bid = bx + gridDim_x*by;
-        blockIdx_y = MOD(bid, GDMY);
-        int tmp = ((bid/GDMY)+blockIdx_y);
-        blockIdx_x = MOD(tmp, gridDim_x);
-    }
-    // from here on the code is same as previous kernel except blockIdx_x replaces BIDX
-    // and similarly for y
-	// read the matrix tile into shared memory
-	unsigned x = blockIdx_x * BLOCK_SIZE + TIDX;
-	unsigned y = blockIdx_y * BLOCK_SIZE + TIDY;
-	if (x < w && y < h)
-		block[TIDY][TIDX] = idata[y * w + x];
-	SYNC(); // coalesce reads/writes
-	// write the transposed matrix tile to global memory
-	x = blockIdx_y * BLOCK_SIZE + TIDX;
-	y = blockIdx_x * BLOCK_SIZE + TIDY;
-	if (x < h && y < w)
-		odata[y * h + x] = ISCONJ ? CONJ(block[TIDX][TIDY]) : block[TIDX][TIDY];
+TEMPLATE MAIN STATIC void _transpose(const GLOBAL ty *_idata, GLOBAL ty *_odata,
+                                     unsigned w, unsigned h, unsigned gridDim_x,
+                                     int i, int j) {
+  SHARED ty block[BLOCK_SIZE][BLOCK_SIZE + 1];
+  unsigned id = 0;
+  unsigned bx = BIDX + i;
+  unsigned by = BIDY + j;
+  if (ISGFOR) {
+    id = (bx) / gridDim_x;
+    bx -= id * gridDim_x; // MOD(bx, gridDim_x);
+  }
+  unsigned inc = (ISGFOR ? id * w * h : 0);
+  GLOBAL ty *odata = (GLOBAL ty *)_odata + inc;
+  const GLOBAL ty *idata = (const GLOBAL ty *)_idata + inc;
+  int blockIdx_x, blockIdx_y;
+  // do diagonal reordering
+  if (w == h) {
+    blockIdx_y = bx;
+    blockIdx_x = MOD((bx + by), gridDim_x);
+  } else {
+    int bid = bx + gridDim_x * by;
+    blockIdx_y = MOD(bid, GDMY);
+    int tmp = ((bid / GDMY) + blockIdx_y);
+    blockIdx_x = MOD(tmp, gridDim_x);
+  }
+  // from here on the code is same as previous kernel except blockIdx_x replaces
+  // BIDX and similarly for y read the matrix tile into shared memory
+  unsigned x = blockIdx_x * BLOCK_SIZE + TIDX;
+  unsigned y = blockIdx_y * BLOCK_SIZE + TIDY;
+  if (x < w && y < h)
+    block[TIDY][TIDX] = idata[y * w + x];
+  SYNC(); // coalesce reads/writes
+  // write the transposed matrix tile to global memory
+  x = blockIdx_y * BLOCK_SIZE + TIDX;
+  y = blockIdx_x * BLOCK_SIZE + TIDY;
+  if (x < h && y < w)
+    odata[y * h + x] = ISCONJ ? CONJ(block[TIDX][TIDY]) : block[TIDX][TIDY];
 }

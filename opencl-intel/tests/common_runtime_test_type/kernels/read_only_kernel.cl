@@ -1,5 +1,5 @@
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -11,20 +11,19 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
 /**
  * kernel_n - kernels intended for kernels' compilation, will not be enqueued
  */
- 
- __kernel void kernel_0(__global int* input,__global int* output)
-{
-	if(*input == 1){
-		*output = 1;
-	}	
-	if(*input == 2){
-		*output = 2;
-	}	
+
+__kernel void kernel_0(__global int *input, __global int *output) {
+  if (*input == 1) {
+    *output = 1;
+  }
+  if (*input == 2) {
+    *output = 2;
+  }
 }

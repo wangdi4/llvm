@@ -3,104 +3,107 @@
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
 # provided to you ("License"). Unless the License provides otherwise, you may
-# not use, modify, copy, publish, distribute, disclose or transmit this
-# software or the related documents without Intel's prior written permission.
+# not use, modify, copy, publish, distribute, disclose or transmit this software
+# or the related documents without Intel's prior written permission.
 #
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the
-# License.
+# This software and the related documents are provided as is, with no express or
+# implied warranties, other than those that are expressly stated in the License.
 
 #
-# Project variables:
-#  OCL_SOURCE_DIR    - points to the top src directory
-#  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
+# Project variables: OCL_SOURCE_DIR    - points to the top src directory
+# OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root
+#                     of generated files
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME protobuf )
+set(TARGET_NAME protobuf)
 use_rtti(TRUE)
 
-include_directories( . include src )
+include_directories(. include src)
 
-# Temporarily disable warnings for use of deprecated declarations
-# util we upgrade protobuf to support c++17.
-check_cxx_compiler_flag("-Wno-deprecated-declarations" OCL_DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
-if (OCL_DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+# Temporarily disable warnings for use of deprecated declarations util we
+# upgrade protobuf to support c++17.
+check_cxx_compiler_flag("-Wno-deprecated-declarations"
+                        OCL_DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+if(OCL_DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 endif()
 
-if (WIN32)
-  add_definitions( -D_SCL_SECURE_NO_WARNINGS -D _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)
-else (WIN32)
-  add_definitions ( -DHAVE_PTHREAD )
-endif (WIN32)
+if(WIN32)
+  add_definitions(-D_SCL_SECURE_NO_WARNINGS -D
+                  _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)
+else(WIN32)
+  add_definitions(-DHAVE_PTHREAD)
+endif(WIN32)
 
 set(TARGET_SOURCE_FILES
-src/google/protobuf/any.cc
-src/google/protobuf/arena.cc
-src/google/protobuf/arenastring.cc
-src/google/protobuf/descriptor.cc
-src/google/protobuf/descriptor.pb.cc
-src/google/protobuf/descriptor_database.cc
-src/google/protobuf/dynamic_message.cc
-src/google/protobuf/extension_set.cc
-src/google/protobuf/extension_set_heavy.cc
-src/google/protobuf/generated_message_reflection.cc
-src/google/protobuf/generated_message_table_driven.cc
-src/google/protobuf/generated_message_table_driven_lite.cc
-src/google/protobuf/generated_message_util.cc
-src/google/protobuf/implicit_weak_message.cc
-src/google/protobuf/io/coded_stream.cc
-src/google/protobuf/io/gzip_stream.cc
-src/google/protobuf/io/printer.cc
-src/google/protobuf/io/strtod.cc
-src/google/protobuf/io/tokenizer.cc
-src/google/protobuf/io/zero_copy_stream.cc
-src/google/protobuf/io/zero_copy_stream_impl.cc
-src/google/protobuf/io/zero_copy_stream_impl_lite.cc
-src/google/protobuf/map_field.cc
-src/google/protobuf/message.cc
-src/google/protobuf/message_lite.cc
-src/google/protobuf/reflection_ops.cc
-src/google/protobuf/repeated_field.cc
-src/google/protobuf/service.cc
-src/google/protobuf/stubs/bytestream.cc
-src/google/protobuf/stubs/common.cc
-src/google/protobuf/stubs/int128.cc
-src/google/protobuf/stubs/io_win32.cc
-src/google/protobuf/stubs/mathlimits.cc
-src/google/protobuf/stubs/status.cc
-src/google/protobuf/stubs/statusor.cc
-src/google/protobuf/stubs/stringpiece.cc
-src/google/protobuf/stubs/stringprintf.cc
-src/google/protobuf/stubs/structurally_valid.cc
-src/google/protobuf/stubs/strutil.cc
-src/google/protobuf/stubs/substitute.cc
-src/google/protobuf/stubs/time.cc
-src/google/protobuf/text_format.cc
-src/google/protobuf/unknown_field_set.cc
-src/google/protobuf/wire_format.cc
-src/google/protobuf/wire_format_lite.cc
-)
+    src/google/protobuf/any.cc
+    src/google/protobuf/arena.cc
+    src/google/protobuf/arenastring.cc
+    src/google/protobuf/descriptor.cc
+    src/google/protobuf/descriptor.pb.cc
+    src/google/protobuf/descriptor_database.cc
+    src/google/protobuf/dynamic_message.cc
+    src/google/protobuf/extension_set.cc
+    src/google/protobuf/extension_set_heavy.cc
+    src/google/protobuf/generated_message_reflection.cc
+    src/google/protobuf/generated_message_table_driven.cc
+    src/google/protobuf/generated_message_table_driven_lite.cc
+    src/google/protobuf/generated_message_util.cc
+    src/google/protobuf/implicit_weak_message.cc
+    src/google/protobuf/io/coded_stream.cc
+    src/google/protobuf/io/gzip_stream.cc
+    src/google/protobuf/io/printer.cc
+    src/google/protobuf/io/strtod.cc
+    src/google/protobuf/io/tokenizer.cc
+    src/google/protobuf/io/zero_copy_stream.cc
+    src/google/protobuf/io/zero_copy_stream_impl.cc
+    src/google/protobuf/io/zero_copy_stream_impl_lite.cc
+    src/google/protobuf/map_field.cc
+    src/google/protobuf/message.cc
+    src/google/protobuf/message_lite.cc
+    src/google/protobuf/reflection_ops.cc
+    src/google/protobuf/repeated_field.cc
+    src/google/protobuf/service.cc
+    src/google/protobuf/stubs/bytestream.cc
+    src/google/protobuf/stubs/common.cc
+    src/google/protobuf/stubs/int128.cc
+    src/google/protobuf/stubs/io_win32.cc
+    src/google/protobuf/stubs/mathlimits.cc
+    src/google/protobuf/stubs/status.cc
+    src/google/protobuf/stubs/statusor.cc
+    src/google/protobuf/stubs/stringpiece.cc
+    src/google/protobuf/stubs/stringprintf.cc
+    src/google/protobuf/stubs/structurally_valid.cc
+    src/google/protobuf/stubs/strutil.cc
+    src/google/protobuf/stubs/substitute.cc
+    src/google/protobuf/stubs/time.cc
+    src/google/protobuf/text_format.cc
+    src/google/protobuf/unknown_field_set.cc
+    src/google/protobuf/wire_format.cc
+    src/google/protobuf/wire_format_lite.cc)
 
-SET_UNICODE_ON()
+set_unicode_on()
 
 # add a target named ${TARGET_NAME}
-add_opencl_library (${TARGET_NAME} STATIC ${TARGET_SOURCE_FILES})
+add_opencl_library(${TARGET_NAME} STATIC ${TARGET_SOURCE_FILES})
 
-# needed or not???
-#SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+# needed or not??? SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES
+# LINKER_LANGUAGE CXX)
 
-# Disable MSVC warnings generated by the protobuf source code
-# These are taken from protobuf's own MSVC project
-if (MSVC)
-if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-suggest-override -Wno-sign-compare -Wno-covered-switch-default -Wno-unused-const-variable -Wno-cast-qual ")
-else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4018 -wd4125 -wd4065 -wd4062 -wd4506 -wd4305")
-endif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
+# Disable MSVC warnings generated by the protobuf source code These are taken
+# from protobuf's own MSVC project
+if(MSVC)
+  if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
+    set(CMAKE_CXX_FLAGS
+        "${CMAKE_CXX_FLAGS} -Wno-suggest-override -Wno-sign-compare -Wno-covered-switch-default -Wno-unused-const-variable -Wno-cast-qual "
+    )
+  else()
+    set(CMAKE_CXX_FLAGS
+        "${CMAKE_CXX_FLAGS} -wd4018 -wd4125 -wd4065 -wd4062 -wd4506 -wd4305")
+  endif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
 else(MSVC)
   add_definitions(-w)
 endif(MSVC)
 
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )
+set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Backend")

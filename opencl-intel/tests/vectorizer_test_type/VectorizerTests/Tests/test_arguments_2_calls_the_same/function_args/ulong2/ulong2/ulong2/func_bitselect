@@ -7,22 +7,22 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 func_bitselect ( __global const float *in,
-		__global float4 *out, __global const ulong2 ulong2Arg1, __global const ulong2 ulong2Arg2, __global const ulong2 ulong2Arg3)
+    __global float4 *out, __global const ulong2 ulong2Arg1, __global const ulong2 ulong2Arg2, __global const ulong2 ulong2Arg3)
 {
-	int gid = get_global_id(0);
-	ulong2 res1 = bitselect(ulong2Arg1, ulong2Arg2, ulong2Arg3);
-	ulong2 res2 = bitselect(ulong2Arg1, ulong2Arg2, ulong2Arg3);
-	ulong4 res;
-	res.x = res1.x;
-	res.x = res1.y;
-	res.z = res2.x;
-	res.w = res2.y;
-	out[gid] = convert_float4(res);
+  int gid = get_global_id(0);
+  ulong2 res1 = bitselect(ulong2Arg1, ulong2Arg2, ulong2Arg3);
+  ulong2 res2 = bitselect(ulong2Arg1, ulong2Arg2, ulong2Arg3);
+  ulong4 res;
+  res.x = res1.x;
+  res.x = res1.y;
+  res.z = res2.x;
+  res.w = res2.y;
+  out[gid] = convert_float4(res);
 }

@@ -17,17 +17,21 @@
 #include <exception>
 #include <string>
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
 class ocl_string_exception : public std::exception {
 public:
-	ocl_string_exception(const char *exception) throw();
-	ocl_string_exception(const std::string& exception) throw();
-        virtual ~ocl_string_exception() throw() {}
+  ocl_string_exception(const char *exception) throw();
+  ocl_string_exception(const std::string &exception) throw();
+  virtual ~ocl_string_exception() throw() {}
 
-        const char *what() const throw() override;
+  const char *what() const throw() override;
 
-      private:
-        std::string m_exception;
+private:
+  std::string m_exception;
 };
-}}}
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel

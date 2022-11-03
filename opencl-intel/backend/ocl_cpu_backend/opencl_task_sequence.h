@@ -27,8 +27,8 @@ struct task_sequence {
 struct task_sequence_data {
   std::vector<char *> results;     // Buffers to store returned values
   std::vector<clk_event_t> events; // OCL events to observe async tasks
-  size_t result_size;  // Size of every single value returned by __get()
-  unsigned delivered;  // Number of __get() being invoked
+  size_t result_size; // Size of every single value returned by __get()
+  unsigned delivered; // Number of __get() being invoked
 };
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t

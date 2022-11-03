@@ -16,51 +16,50 @@
 
 #include "CLElfTypes.h"
 
-namespace Intel{ namespace OpenCL{ namespace ELFUtils{
-    bool OCLElfBinaryReader::IsValidOpenCLBinary(const char* pBinary, size_t uiBinarySize)
-    {
-        if( CLElfLib::CElfReader::IsValidElf64((const char*)pBinary, uiBinarySize))
-        {
-            ElfReaderPtr pReader(CLElfLib::CElfReader::Create((const char*)pBinary, uiBinarySize));
-            switch( pReader->GetElfHeader()->Type)
-            {
-                case CLElfLib::EH_TYPE_OPENCL_OBJECTS   :
-                case CLElfLib::EH_TYPE_OPENCL_LIBRARY   :
-                case CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS:
-                    return true;
-            }
-        }
-        return false;
+namespace Intel {
+namespace OpenCL {
+namespace ELFUtils {
+bool OCLElfBinaryReader::IsValidOpenCLBinary(const char *pBinary,
+                                             size_t uiBinarySize) {
+  if (CLElfLib::CElfReader::IsValidElf64((const char *)pBinary, uiBinarySize)) {
+    ElfReaderPtr pReader(
+        CLElfLib::CElfReader::Create((const char *)pBinary, uiBinarySize));
+    switch (pReader->GetElfHeader()->Type) {
+    case CLElfLib::EH_TYPE_OPENCL_OBJECTS:
+    case CLElfLib::EH_TYPE_OPENCL_LIBRARY:
+    case CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS:
+      return true;
     }
+  }
+  return false;
+}
 
-    OCLElfBinaryReader::OCLElfBinaryReader(const char* pBinary, size_t uiBinarySize)
-        :m_pReader(CLElfLib::CElfReader::Create(pBinary, uiBinarySize))
-    {
-        assert(IsValidOpenCLBinary(pBinary, uiBinarySize) && "invalid opencl binary");
-        if( nullptr == m_pReader.get() )
-        {
-            throw std::bad_alloc();
-        }
-    }
+OCLElfBinaryReader::OCLElfBinaryReader(const char *pBinary, size_t uiBinarySize)
+    : m_pReader(CLElfLib::CElfReader::Create(pBinary, uiBinarySize)) {
+  assert(IsValidOpenCLBinary(pBinary, uiBinarySize) && "invalid opencl binary");
+  if (nullptr == m_pReader.get()) {
+    throw std::bad_alloc();
+  }
+}
 
-    void OCLElfBinaryReader::GetIR(const char *&pData, size_t &uiSize) const {
-      if (CLElfLib::SUCCESS !=
-          m_pReader->GetSectionData(".ocl.ir", pData, uiSize)) {
-        throw "no .ocl.ir section";
-      }
-    }
+void OCLElfBinaryReader::GetIR(const char *&pData, size_t &uiSize) const {
+  if (CLElfLib::SUCCESS !=
+      m_pReader->GetSectionData(".ocl.ir", pData, uiSize)) {
+    throw "no .ocl.ir section";
+  }
+}
 
-    cl_prog_binary_type OCLElfBinaryReader::GetBinaryType() const
-    {
-        switch( m_pReader->GetElfHeader()->Type)
-        {
-            case CLElfLib::EH_TYPE_OPENCL_OBJECTS   :
-                return CL_PROG_BIN_COMPILED_LLVM;
-            case CLElfLib::EH_TYPE_OPENCL_LIBRARY   :
-                return CL_PROG_BIN_LINKED_LLVM;
-            case CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS:
-                return CL_PROG_BIN_EXECUTABLE_LLVM;
-        }
-        throw "unsupported binary type";
-    }
-}}} //namespace Intel::OpenCL::ELFUtils
+cl_prog_binary_type OCLElfBinaryReader::GetBinaryType() const {
+  switch (m_pReader->GetElfHeader()->Type) {
+  case CLElfLib::EH_TYPE_OPENCL_OBJECTS:
+    return CL_PROG_BIN_COMPILED_LLVM;
+  case CLElfLib::EH_TYPE_OPENCL_LIBRARY:
+    return CL_PROG_BIN_LINKED_LLVM;
+  case CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS:
+    return CL_PROG_BIN_EXECUTABLE_LLVM;
+  }
+  throw "unsupported binary type";
+}
+} // namespace ELFUtils
+} // namespace OpenCL
+} // namespace Intel

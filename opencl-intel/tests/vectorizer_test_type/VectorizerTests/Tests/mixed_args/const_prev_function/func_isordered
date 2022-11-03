@@ -7,19 +7,19 @@
  * This function is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 func_isordered
 ( __global const float *in,
-		__global float *out)
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	double tmp = in[gid] - degrees((float)(gid / 7 + 29.46413));
-	double res = isordered((float)DOUBLE1, (float)tmp);
-	out[gid] = res;
+  int gid = get_global_id(0);
+  double tmp = in[gid] - degrees((float)(gid / 7 + 29.46413));
+  double res = isordered((float)DOUBLE1, (float)tmp);
+  out[gid] = res;
 }

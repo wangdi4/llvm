@@ -5,7 +5,7 @@ rem All variables in the form of CMake vars will be replaced by CMake:
 rem     VS100_CPU_ENV_SCRIPT_NATIVE - script setting the VS100 environment
 rem     VS100_CPU_CL_NATIVE         - executable of VS100 compiler
 rem     BUILD_TYPE_ICC_COMPILER_FLAGS_Debug   - Debug build specific compliler flags 
-rem		BUILD_TYPE_ICC_COMPILER_FLAGS_Release - Release build specific compliler flags 
+rem    BUILD_TYPE_ICC_COMPILER_FLAGS_Release - Release build specific compliler flags 
 rem Invocation parameters:
 rem     %1 - build type
 rem     %2 - source file

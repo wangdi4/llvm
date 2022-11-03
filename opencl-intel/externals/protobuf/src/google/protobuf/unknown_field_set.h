@@ -39,28 +39,28 @@
 #define GOOGLE_PROTOBUF_UNKNOWN_FIELD_SET_H__
 
 #include <assert.h>
-#include <string>
-#include <vector>
+#include <google/protobuf/message_lite.h>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/stubs/logging.h>
-#include <google/protobuf/message_lite.h>
+#include <string>
+#include <vector>
 
 namespace google {
 namespace protobuf {
-  namespace io {
-    class CodedInputStream;         // coded_stream.h
-    class CodedOutputStream;        // coded_stream.h
-    class ZeroCopyInputStream;      // zero_copy_stream.h
-  }
-  namespace internal {
-    class InternalMetadataWithArena;  // metadata.h
-    class WireFormat;               // wire_format.h
-    class MessageSetFieldSkipperUsingCord;
-                                    // extension_set_heavy.cc
-  }
+namespace io {
+class CodedInputStream;    // coded_stream.h
+class CodedOutputStream;   // coded_stream.h
+class ZeroCopyInputStream; // zero_copy_stream.h
+} // namespace io
+namespace internal {
+class InternalMetadataWithArena; // metadata.h
+class WireFormat;                // wire_format.h
+class MessageSetFieldSkipperUsingCord;
+// extension_set_heavy.cc
+} // namespace internal
 
-class Message;                      // message.h
-class UnknownField;                 // below
+class Message;      // message.h
+class UnknownField; // below
 
 // An UnknownFieldSet contains fields that were encountered while parsing a
 // message but were not defined by its type.  Keeping track of these can be
@@ -75,7 +75,7 @@ class UnknownField;                 // below
 // This class is necessarily tied to the protocol buffer wire format, unlike
 // the Reflection interface which is independent of any serialization scheme.
 class LIBPROTOBUF_EXPORT UnknownFieldSet {
- public:
+public:
   UnknownFieldSet();
   ~UnknownFieldSet();
 
@@ -89,20 +89,20 @@ class LIBPROTOBUF_EXPORT UnknownFieldSet {
   inline bool empty() const;
 
   // Merge the contents of some other UnknownFieldSet with this one.
-  void MergeFrom(const UnknownFieldSet& other);
+  void MergeFrom(const UnknownFieldSet &other);
 
   // Similar to above, but this function will destroy the contents of other.
-  void MergeFromAndDestroy(UnknownFieldSet* other);
+  void MergeFromAndDestroy(UnknownFieldSet *other);
 
   // Merge the contents an UnknownFieldSet with the UnknownFieldSet in
   // *metadata, if there is one.  If *metadata doesn't have an UnknownFieldSet
   // then add one to it and make it be a copy of the first arg.
-  static void MergeToInternalMetdata(
-      const UnknownFieldSet& other,
-      internal::InternalMetadataWithArena* metadata);
+  static void
+  MergeToInternalMetdata(const UnknownFieldSet &other,
+                         internal::InternalMetadataWithArena *metadata);
 
   // Swaps the contents of some other UnknownFieldSet with this one.
-  inline void Swap(UnknownFieldSet* x);
+  inline void Swap(UnknownFieldSet *x);
 
   // Computes (an estimate of) the total number of bytes currently used for
   // storing the unknown fields in memory. Does NOT include
@@ -116,31 +116,29 @@ class LIBPROTOBUF_EXPORT UnknownFieldSet {
   // Version of SpaceUsed() including sizeof(*this).
   size_t SpaceUsedLong() const;
 
-  int SpaceUsed() const {
-    return internal::ToIntSize(SpaceUsedLong());
-  }
+  int SpaceUsed() const { return internal::ToIntSize(SpaceUsedLong()); }
 
   // Returns the number of fields present in the UnknownFieldSet.
   inline int field_count() const;
   // Get a field in the set, where 0 <= index < field_count().  The fields
   // appear in the order in which they were added.
-  inline const UnknownField& field(int index) const;
+  inline const UnknownField &field(int index) const;
   // Get a mutable pointer to a field in the set, where
   // 0 <= index < field_count().  The fields appear in the order in which
   // they were added.
-  inline UnknownField* mutable_field(int index);
+  inline UnknownField *mutable_field(int index);
 
   // Adding fields ---------------------------------------------------
 
   void AddVarint(int number, uint64 value);
   void AddFixed32(int number, uint32 value);
   void AddFixed64(int number, uint64 value);
-  void AddLengthDelimited(int number, const string& value);
-  string* AddLengthDelimited(int number);
-  UnknownFieldSet* AddGroup(int number);
+  void AddLengthDelimited(int number, const string &value);
+  string *AddLengthDelimited(int number);
+  UnknownFieldSet *AddGroup(int number);
 
   // Adds an unknown field from another set.
-  void AddField(const UnknownField& field);
+  void AddField(const UnknownField &field);
 
   // Delete fields with indices in the range [start .. start+num-1].
   // Caution: implementation moves all fields with indices [start+num .. ].
@@ -154,21 +152,22 @@ class LIBPROTOBUF_EXPORT UnknownFieldSet {
   // Parsing helpers -------------------------------------------------
   // These work exactly like the similarly-named methods of Message.
 
-  bool MergeFromCodedStream(io::CodedInputStream* input);
-  bool ParseFromCodedStream(io::CodedInputStream* input);
-  bool ParseFromZeroCopyStream(io::ZeroCopyInputStream* input);
-  bool ParseFromArray(const void* data, int size);
-  inline bool ParseFromString(const string& data) {
+  bool MergeFromCodedStream(io::CodedInputStream *input);
+  bool ParseFromCodedStream(io::CodedInputStream *input);
+  bool ParseFromZeroCopyStream(io::ZeroCopyInputStream *input);
+  bool ParseFromArray(const void *data, int size);
+  inline bool ParseFromString(const string &data) {
     return ParseFromArray(data.data(), static_cast<int>(data.size()));
   }
 
-  static const UnknownFieldSet* default_instance();
- private:
+  static const UnknownFieldSet *default_instance();
+
+private:
   // For InternalMergeFrom
   friend class UnknownField;
   // Merges from other UnknownFieldSet. This method assumes, that this object
   // is newly created and has fields_ == NULL;
-  void InternalMergeFrom(const UnknownFieldSet& other);
+  void InternalMergeFrom(const UnknownFieldSet &other);
   void ClearFallback();
 
   // fields_ is either NULL, or a pointer to a vector that is *non-empty*. We
@@ -177,13 +176,13 @@ class LIBPROTOBUF_EXPORT UnknownFieldSet {
   // embedded in the message object, so 'fields_ != NULL' tests a member
   // variable hot in the cache, without the need to go touch a vector somewhere
   // else in memory.
-  std::vector<UnknownField>* fields_;
+  std::vector<UnknownField> *fields_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(UnknownFieldSet);
 };
 
 // Represents one field in an UnknownFieldSet.
 class LIBPROTOBUF_EXPORT UnknownField {
- public:
+public:
   enum Type {
     TYPE_VARINT,
     TYPE_FIXED32,
@@ -204,25 +203,24 @@ class LIBPROTOBUF_EXPORT UnknownField {
   inline uint64 varint() const;
   inline uint32 fixed32() const;
   inline uint64 fixed64() const;
-  inline const string& length_delimited() const;
-  inline const UnknownFieldSet& group() const;
+  inline const string &length_delimited() const;
+  inline const UnknownFieldSet &group() const;
 
   inline void set_varint(uint64 value);
   inline void set_fixed32(uint32 value);
   inline void set_fixed64(uint64 value);
-  inline void set_length_delimited(const string& value);
-  inline string* mutable_length_delimited();
-  inline UnknownFieldSet* mutable_group();
+  inline void set_length_delimited(const string &value);
+  inline string *mutable_length_delimited();
+  inline UnknownFieldSet *mutable_group();
 
   // Serialization API.
   // These methods can take advantage of the underlying implementation and may
   // archieve a better performance than using getters to retrieve the data and
   // do the serialization yourself.
-  void SerializeLengthDelimitedNoTag(io::CodedOutputStream* output) const;
-  uint8* SerializeLengthDelimitedNoTagToArray(uint8* target) const;
+  void SerializeLengthDelimitedNoTag(io::CodedOutputStream *output) const;
+  uint8 *SerializeLengthDelimitedNoTagToArray(uint8 *target) const;
 
   inline size_t GetLengthDelimitedSize() const;
-
 
   // If this UnknownField contains a pointer, delete it.
   void Delete();
@@ -232,14 +230,14 @@ class LIBPROTOBUF_EXPORT UnknownField {
   void Reset();
 
   // Make a deep copy of any pointers in this UnknownField.
-  void DeepCopy(const UnknownField& other);
+  void DeepCopy(const UnknownField &other);
 
   // Set the wire type of this UnknownField. Should only be used when this
   // UnknownField is being created.
   inline void SetType(Type type);
 
   union LengthDelimited {
-    string* string_value_;
+    string *string_value_;
   };
 
   uint32 number_;
@@ -249,7 +247,7 @@ class LIBPROTOBUF_EXPORT UnknownField {
     uint32 fixed32_;
     uint64 fixed64_;
     mutable union LengthDelimited length_delimited_;
-    UnknownFieldSet* group_;
+    UnknownFieldSet *group_;
   } data_;
 };
 
@@ -273,28 +271,25 @@ inline bool UnknownFieldSet::empty() const {
   return !fields_;
 }
 
-inline void UnknownFieldSet::Swap(UnknownFieldSet* x) {
+inline void UnknownFieldSet::Swap(UnknownFieldSet *x) {
   std::swap(fields_, x->fields_);
 }
 
 inline int UnknownFieldSet::field_count() const {
   return fields_ ? static_cast<int>(fields_->size()) : 0;
 }
-inline const UnknownField& UnknownFieldSet::field(int index) const {
+inline const UnknownField &UnknownFieldSet::field(int index) const {
   GOOGLE_DCHECK(fields_ != NULL);
   return (*fields_)[static_cast<size_t>(index)];
 }
-inline UnknownField* UnknownFieldSet::mutable_field(int index) {
+inline UnknownField *UnknownFieldSet::mutable_field(int index) {
   return &(*fields_)[static_cast<size_t>(index)];
 }
 
-inline void UnknownFieldSet::AddLengthDelimited(
-    int number, const string& value) {
+inline void UnknownFieldSet::AddLengthDelimited(int number,
+                                                const string &value) {
   AddLengthDelimited(number)->assign(value);
 }
-
-
-
 
 inline int UnknownField::number() const { return static_cast<int>(number_); }
 inline UnknownField::Type UnknownField::type() const {
@@ -313,11 +308,11 @@ inline uint64 UnknownField::fixed64() const {
   assert(type() == TYPE_FIXED64);
   return data_.fixed64_;
 }
-inline const string& UnknownField::length_delimited() const {
+inline const string &UnknownField::length_delimited() const {
   assert(type() == TYPE_LENGTH_DELIMITED);
   return *data_.length_delimited_.string_value_;
 }
-inline const UnknownFieldSet& UnknownField::group() const {
+inline const UnknownFieldSet &UnknownField::group() const {
   assert(type() == TYPE_GROUP);
   return *data_.group_;
 }
@@ -334,15 +329,15 @@ inline void UnknownField::set_fixed64(uint64 value) {
   assert(type() == TYPE_FIXED64);
   data_.fixed64_ = value;
 }
-inline void UnknownField::set_length_delimited(const string& value) {
+inline void UnknownField::set_length_delimited(const string &value) {
   assert(type() == TYPE_LENGTH_DELIMITED);
   data_.length_delimited_.string_value_->assign(value);
 }
-inline string* UnknownField::mutable_length_delimited() {
+inline string *UnknownField::mutable_length_delimited() {
   assert(type() == TYPE_LENGTH_DELIMITED);
   return data_.length_delimited_.string_value_;
 }
-inline UnknownFieldSet* UnknownField::mutable_group() {
+inline UnknownFieldSet *UnknownField::mutable_group() {
   assert(type() == TYPE_GROUP);
   return data_.group_;
 }
@@ -352,12 +347,9 @@ inline size_t UnknownField::GetLengthDelimitedSize() const {
   return data_.length_delimited_.string_value_->size();
 }
 
-inline void UnknownField::SetType(Type type) {
-  type_ = type;
-}
+inline void UnknownField::SetType(Type type) { type_ = type; }
 
+} // namespace protobuf
 
-}  // namespace protobuf
-
-}  // namespace google
-#endif  // GOOGLE_PROTOBUF_UNKNOWN_FIELD_SET_H__
+} // namespace google
+#endif // GOOGLE_PROTOBUF_UNKNOWN_FIELD_SET_H__

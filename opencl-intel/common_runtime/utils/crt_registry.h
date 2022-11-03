@@ -18,89 +18,78 @@
 
 #include "crt_types.h"
 
+namespace OCLCRT {
+namespace Utils {
 
-namespace OCLCRT
-{
-namespace Utils
-{
-
-inline std::string FormatLibNameForOS( std::string &libName )
-{
-    std::string retName;
-#if defined( _WIN64 )
-    retName = libName + "64.dll";
-#elif defined( _WIN32 )
-    retName = libName + "32.dll";
-#elif defined( __linux__ )
-    retName = "lib" + libName + ".so";
+inline std::string FormatLibNameForOS(std::string &libName) {
+  std::string retName;
+#if defined(_WIN64)
+  retName = libName + "64.dll";
+#elif defined(_WIN32)
+  retName = libName + "32.dll";
+#elif defined(__linux__)
+  retName = "lib" + libName + ".so";
 #endif
-    return retName;
+  return retName;
 }
 
-#if defined( _WIN32 )
-inline bool GetStringValueFromRegistry( HKEY       top_hkey,
-                                        const char *keyPath,
-                                        const char *valueName,
-                                        char       *retValue,
-                                        DWORD      size )
-{
-    HKEY hkey;
+#if defined(_WIN32)
+inline bool GetStringValueFromRegistry(HKEY top_hkey, const char *keyPath,
+                                       const char *valueName, char *retValue,
+                                       DWORD size) {
+  HKEY hkey;
 
-    // Open the registry path. hkey will hold the entry
-    LONG retCode = RegOpenKeyExA(
-        top_hkey,                   // hkey
-        keyPath,                    // lpSubKey
-        0,                          // ulOptions
-        KEY_READ,                   // samDesired
-        &hkey                       // phkResult
-        );
+  // Open the registry path. hkey will hold the entry
+  LONG retCode = RegOpenKeyExA(top_hkey, // hkey
+                               keyPath,  // lpSubKey
+                               0,        // ulOptions
+                               KEY_READ, // samDesired
+                               &hkey     // phkResult
+  );
 
-    if( ERROR_SUCCESS == retCode )
-    {
-        // Get the value by name from the key
-        retCode = RegQueryValueExA(
-            hkey,                   // hkey
-            valueName,              // lpValueName
-            0,                      // lpReserved
-            NULL,                   // lpType
-            ( LPBYTE )retValue,     // lpData
-            &size                   // lpcbData
-            );
+  if (ERROR_SUCCESS == retCode) {
+    // Get the value by name from the key
+    retCode = RegQueryValueExA(hkey,             // hkey
+                               valueName,        // lpValueName
+                               0,                // lpReserved
+                               NULL,             // lpType
+                               (LPBYTE)retValue, // lpData
+                               &size             // lpcbData
+    );
 
-        // Close the key - we don't need it any more
-        RegCloseKey( hkey );
+    // Close the key - we don't need it any more
+    RegCloseKey(hkey);
 
-        if( ERROR_SUCCESS == retCode )
-        {
-            return true;
-        }
+    if (ERROR_SUCCESS == retCode) {
+      return true;
     }
+  }
 
-    return false;
+  return false;
 }
 
 #endif
 
-inline bool GetCpuPathFromRegistry( const std::string valueName, std::string &cpuPath )
-{
-#if defined( _WIN32 )
-    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
-    char pCpuPath[MAX_PATH];
-	bool retVal = GetStringValueFromRegistry( HKEY_LOCAL_MACHINE, regPath, valueName.c_str(), pCpuPath, MAX_PATH );
+inline bool GetCpuPathFromRegistry(const std::string valueName,
+                                   std::string &cpuPath) {
+#if defined(_WIN32)
+  const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+  char pCpuPath[MAX_PATH];
+  bool retVal = GetStringValueFromRegistry(
+      HKEY_LOCAL_MACHINE, regPath, valueName.c_str(), pCpuPath, MAX_PATH);
 
-    if( retVal )
-    {
-        cpuPath = pCpuPath;
-#if defined( _WIN64 )
-        cpuPath = cpuPath + "\\bin\\x64";
+  if (retVal) {
+    cpuPath = pCpuPath;
+#if defined(_WIN64)
+    cpuPath = cpuPath + "\\bin\\x64";
 #else // _WIN32
-        cpuPath = cpuPath + "\\bin\\x86";
+    cpuPath = cpuPath + "\\bin\\x86";
 #endif
-    }
-    return retVal;
+  }
+  return retVal;
 
 #endif
-    return false;
+  return false;
 }
 
 } // namespace Utils

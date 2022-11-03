@@ -37,12 +37,8 @@ OclBuiltinDB *VectInfo::builtinDB = nullptr;
 
 VFInfo getVectorVariant(unsigned int V, const std::string &BaseName,
                         const std::string &Alias) {
-  return VFInfo::get(VectEntry::isaClass,
-                     VectEntry::isMasked,
-                     V,
-                     VectEntry::vectorKindEncode,
-                     BaseName,
-                     Alias);
+  return VFInfo::get(VectEntry::isaClass, VectEntry::isMasked, V,
+                     VectEntry::vectorKindEncode, BaseName, Alias);
 }
 
 template <class T>

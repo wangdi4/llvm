@@ -21,8 +21,9 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Declaration section
-/// !!!NOTE: Callbacks should have the same argument order and same return type as original BI
-/// If it's not, then implement passing of arguments to callback for specified function
+/// !!!NOTE: Callbacks should have the same argument order and same return type
+/// as original BI If it's not, then implement passing of arguments to callback
+/// for specified function
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// @brief call back for get default queue

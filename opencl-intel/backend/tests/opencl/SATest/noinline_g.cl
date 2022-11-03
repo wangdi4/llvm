@@ -1,8 +1,3 @@
-__attribute__((noinline))
-void foo(global int *dst) {
-  *dst = 0;
-}
+__attribute__((noinline)) void foo(global int *dst) { *dst = 0; }
 
-kernel void test(global int *dst) {
-  foo(dst);
-}
+kernel void test(global int *dst) { foo(dst); }

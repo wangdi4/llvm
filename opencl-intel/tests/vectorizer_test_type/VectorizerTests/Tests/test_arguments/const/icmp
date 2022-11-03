@@ -6,15 +6,15 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-icmp (	__global const float *in,
-		__global float *out)
+icmp (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	out[gid] = (USHORT1 == ((ushort) ARG0));
+  int gid = get_global_id(0);
+  out[gid] = (USHORT1 == ((ushort) ARG0));
 }

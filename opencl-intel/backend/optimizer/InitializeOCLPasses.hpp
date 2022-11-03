@@ -16,9 +16,9 @@
 #include "InitializePasses.h"
 
 static void initializeOCLPasses(llvm::PassRegistry &Registry) {
-    intel::initializeBuiltinLibInfoPass(Registry);
-    intel::initializeDebugInfoPassPass(Registry);
-    intel::initializeSmartGVNPass(Registry);
-    intel::initializeStripIntelIPPass(Registry);
+  intel::initializeBuiltinLibInfoPass(Registry);
+  intel::initializeDebugInfoPassPass(Registry);
+  intel::initializeSmartGVNPass(Registry);
+  intel::initializeStripIntelIPPass(Registry);
 }
-#endif //INITIALIZE_OCL_PASSES_H
+#endif // INITIALIZE_OCL_PASSES_H

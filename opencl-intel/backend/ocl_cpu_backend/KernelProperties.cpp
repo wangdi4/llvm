@@ -23,13 +23,14 @@
 
 using namespace llvm;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 KernelJITProperties::KernelJITProperties()
     : m_useVTune(false), m_vectorSize(1) {}
 
-KernelJITProperties::~KernelJITProperties()
-{}
+KernelJITProperties::~KernelJITProperties() {}
 
 void KernelJITProperties::Serialize(IOutputStream &ost,
                                     SerializationStatus * /*stats*/) const {
@@ -45,15 +46,14 @@ void KernelJITProperties::Deserialize(IInputStream &ist,
 
 KernelProperties::KernelProperties()
     : m_hasNoBarrierPath(false), m_hasMatrixCall(false), m_hasGlobalSync(false),
-      m_DAZ(false), m_optWGSize(0),
-      m_totalImplSize(0), m_barrierBufferSize(0), m_privateMemorySize(0),
-      m_maxPrivateMemorySize(0), m_reqdNumSG(0), m_kernelExecutionLength(0),
-      m_vectorizationWidth(1), m_minGroupSizeFactorial(1),
-      m_isVectorizedWithTail(false), m_uiSizeT(sizeof(void *)),
-      m_bIsBlock(false), m_bIsAutorun(false), m_bNeedSerializeWGs(false),
-      m_bIsTask(false), m_bCanUseGlobalWorkOffset(true),
-      m_bIsNonUniformWGSizeSupported(false), m_canUniteWG(false),
-      m_verctorizeOnDimention(0), m_debugInfo(false) {
+      m_DAZ(false), m_optWGSize(0), m_totalImplSize(0), m_barrierBufferSize(0),
+      m_privateMemorySize(0), m_maxPrivateMemorySize(0), m_reqdNumSG(0),
+      m_kernelExecutionLength(0), m_vectorizationWidth(1),
+      m_minGroupSizeFactorial(1), m_isVectorizedWithTail(false),
+      m_uiSizeT(sizeof(void *)), m_bIsBlock(false), m_bIsAutorun(false),
+      m_bNeedSerializeWGs(false), m_bIsTask(false),
+      m_bCanUseGlobalWorkOffset(true), m_bIsNonUniformWGSizeSupported(false),
+      m_canUniteWG(false), m_verctorizeOnDimention(0), m_debugInfo(false) {
   memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
   memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
@@ -201,45 +201,35 @@ void KernelProperties::Deserialize(IInputStream &ist,
   m_cpuMaxWGSize = (size_t)tmp;
 }
 
-size_t KernelProperties::GetKernelExecutionLength() const
-{
-    return m_kernelExecutionLength;
+size_t KernelProperties::GetKernelExecutionLength() const {
+  return m_kernelExecutionLength;
 }
 
-const char *KernelProperties::GetKernelAttributes() const
-{
-    return m_kernelAttributes.c_str();
+const char *KernelProperties::GetKernelAttributes() const {
+  return m_kernelAttributes.c_str();
 }
 
-unsigned int KernelProperties::GetKernelPackCount() const
-{
-    return m_optWGSize;
+unsigned int KernelProperties::GetKernelPackCount() const {
+  return m_optWGSize;
 }
 
-const size_t* KernelProperties::GetRequiredWorkGroupSize() const
-{
-    return m_reqdWGSize[0] ? m_reqdWGSize : nullptr;
+const size_t *KernelProperties::GetRequiredWorkGroupSize() const {
+  return m_reqdWGSize[0] ? m_reqdWGSize : nullptr;
 }
 
-size_t KernelProperties::GetBarrierBufferSize() const
-{
-    return m_barrierBufferSize;
+size_t KernelProperties::GetBarrierBufferSize() const {
+  return m_barrierBufferSize;
 }
 
-size_t KernelProperties::GetPrivateMemorySize() const
-{
-    return m_privateMemorySize;
+size_t KernelProperties::GetPrivateMemorySize() const {
+  return m_privateMemorySize;
 }
 
-size_t KernelProperties::GetMaxPrivateMemorySize() const
-{
-    return m_maxPrivateMemorySize;
+size_t KernelProperties::GetMaxPrivateMemorySize() const {
+  return m_maxPrivateMemorySize;
 }
 
-size_t KernelProperties::GetRequiredNumSubGroups() const
-{
-    return m_reqdNumSG;
-}
+size_t KernelProperties::GetRequiredNumSubGroups() const { return m_reqdNumSG; }
 
 size_t KernelProperties::getMaterializedSubGroupSize() const {
   // Vectorization width is usually set by vectorizer or subgroup emulation.
@@ -262,137 +252,112 @@ size_t KernelProperties::getMaterializedSubGroupSize() const {
   return MaterializedSGSize;
 }
 
-size_t KernelProperties::GetMaxNumSubGroups(size_t const WGSizeUpperBound) const {
+size_t
+KernelProperties::GetMaxNumSubGroups(size_t const WGSizeUpperBound) const {
   return WGSizeUpperBound / getMaterializedSubGroupSize();
 }
 
-size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const
-{
-    assert((m_verctorizeOnDimention < size) && "Vect dim must be less that NDRange dim!");
+size_t KernelProperties::GetNumberOfSubGroups(size_t size,
+                                              const size_t *WGSizes) const {
+  assert((m_verctorizeOnDimention < size) &&
+         "Vect dim must be less that NDRange dim!");
 
-    // The following calculation routine will allow for extra
-    // subgroup when WGSize % VF != 0.
-    size_t SubGroupsOnVectorizedDim = ((WGSizes[m_verctorizeOnDimention] - 1) /
-                                       getMaterializedSubGroupSize()) +
-                                      1;
-    size_t SubGroupsOnOtherDims = 1;
-    for(size_t i = 0; i < size; ++i)
-        if (i != m_verctorizeOnDimention)
-            SubGroupsOnOtherDims *= WGSizes[i];
+  // The following calculation routine will allow for extra
+  // subgroup when WGSize % VF != 0.
+  size_t SubGroupsOnVectorizedDim =
+      ((WGSizes[m_verctorizeOnDimention] - 1) / getMaterializedSubGroupSize()) +
+      1;
+  size_t SubGroupsOnOtherDims = 1;
+  for (size_t i = 0; i < size; ++i)
+    if (i != m_verctorizeOnDimention)
+      SubGroupsOnOtherDims *= WGSizes[i];
 
-    return SubGroupsOnOtherDims * SubGroupsOnVectorizedDim;
+  return SubGroupsOnOtherDims * SubGroupsOnVectorizedDim;
 }
 
 size_t KernelProperties::GetMaxSubGroupSize() const {
   return getMaterializedSubGroupSize();
 }
 
-unsigned int KernelProperties::GetMinGroupSizeFactorial() const
-{
-    return m_minGroupSizeFactorial;
+unsigned int KernelProperties::GetMinGroupSizeFactorial() const {
+  return m_minGroupSizeFactorial;
 }
 
-size_t KernelProperties::GetImplicitLocalMemoryBufferSize() const
-{
-    return m_totalImplSize;
+size_t KernelProperties::GetImplicitLocalMemoryBufferSize() const {
+  return m_totalImplSize;
 }
 
-bool KernelProperties::HasPrintOperation() const
-{
-    return false;
-}
+bool KernelProperties::HasPrintOperation() const { return false; }
 
-bool KernelProperties::HasGlobalSyncOperation() const
-{
-    return m_hasGlobalSync;
+bool KernelProperties::HasGlobalSyncOperation() const {
+  return m_hasGlobalSync;
 }
 
 bool KernelProperties::HasNoBarrierPath() const { return m_hasNoBarrierPath; }
 
 bool KernelProperties::HasMatrixCall() const { return m_hasMatrixCall; }
 
-bool KernelProperties::HasDebugInfo() const
-{
-    return m_debugInfo;
+bool KernelProperties::HasDebugInfo() const { return m_debugInfo; }
+
+bool KernelProperties::HasKernelCallOperation() const { return false; }
+
+void KernelProperties::SetReqdWGSize(const size_t *psize) {
+  std::copy(psize, psize + MAX_WORK_DIM, m_reqdWGSize);
 }
 
-bool KernelProperties::HasKernelCallOperation() const
-{
-    return false;
+void KernelProperties::SetHintWGSize(const size_t *psize) {
+  std::copy(psize, psize + MAX_WORK_DIM, m_hintWGSize);
 }
 
-void KernelProperties::SetReqdWGSize(const size_t* psize )
-{
-    std::copy(psize, psize + MAX_WORK_DIM, m_reqdWGSize);
-}
+bool KernelProperties::IsBlock() const { return m_bIsBlock; }
 
-void KernelProperties::SetHintWGSize(const size_t* psize )
-{
-    std::copy(psize, psize + MAX_WORK_DIM, m_hintWGSize);
-}
-
-bool KernelProperties::IsBlock() const
-{
-    return m_bIsBlock;
-}
-
-bool KernelProperties::IsAutorun() const
-{
-    return m_bIsAutorun;
-}
+bool KernelProperties::IsAutorun() const { return m_bIsAutorun; }
 
 DeviceMode KernelProperties::TargetDevice() const { return m_targetDevice; }
 
-bool KernelProperties::IsTask() const
-{
-    return m_bIsTask;
+bool KernelProperties::IsTask() const { return m_bIsTask; }
+
+bool KernelProperties::CanUseGlobalWorkOffset() const {
+  return m_bCanUseGlobalWorkOffset;
 }
 
-bool KernelProperties::CanUseGlobalWorkOffset() const
-{
-    return m_bCanUseGlobalWorkOffset;
+bool KernelProperties::NeedSerializeWGs() const { return m_bNeedSerializeWGs; }
+
+void KernelProperties::GetLocalSizeForSubGroupCount(
+    size_t const desiredSGCount, size_t const wgSizeUpperBound,
+    size_t const wgPrivateMemSizeUpperBound, size_t *pValue,
+    size_t const dim) const {
+  assert(dim >= 1 && "Expect dimensions to fill to be >= 1");
+
+  const size_t maxWorkGroupSize =
+      GetMaxWorkGroupSize(wgSizeUpperBound, wgPrivateMemSizeUpperBound);
+  bool successFill = true;
+  size_t wg_size = getMaterializedSubGroupSize() * desiredSGCount;
+  if (wg_size <= maxWorkGroupSize) {
+    pValue[0] = wg_size;
+    successFill = true;
+  } else {
+    successFill = false;
+  }
+
+  // Desired SG count == 0 can't be fulfilled anyway.
+  if (desiredSGCount == 0)
+    successFill = false;
+
+  if (successFill) {
+    // fill the rest with ones.
+    for (size_t i = 1; i < dim; ++i)
+      pValue[i] = 1;
+  } else {
+    // fill everything with zero.
+    for (size_t i = 0; i < dim; i++)
+      pValue[i] = 0;
+  }
 }
 
-bool KernelProperties::NeedSerializeWGs() const
-{
-    return m_bNeedSerializeWGs;
-}
-
-void KernelProperties::GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
-                                                    size_t const wgSizeUpperBound,
-                                                    size_t const wgPrivateMemSizeUpperBound,
-                                                    size_t* pValue,
-                                                    size_t const dim) const {
-    assert(dim >=1 && "Expect dimensions to fill to be >= 1");
-
-    const size_t maxWorkGroupSize =
-        GetMaxWorkGroupSize(wgSizeUpperBound, wgPrivateMemSizeUpperBound);
-    bool successFill = true;
-    size_t wg_size = getMaterializedSubGroupSize() * desiredSGCount;
-    if (wg_size <= maxWorkGroupSize) {
-        pValue[0] = wg_size;
-        successFill = true;
-    } else {
-        successFill = false;
-    }
-
-    // Desired SG count == 0 can't be fulfilled anyway.
-    if (desiredSGCount == 0)
-      successFill = false;
-
-    if (successFill) {
-        // fill the rest with ones.
-        for(size_t i = 1; i < dim; ++i)
-            pValue[i] = 1;
-    } else {
-        // fill everything with zero.
-        for (size_t i = 0; i < dim; i++)
-            pValue[i] = 0;
-    }
-}
-
-size_t KernelProperties::GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
-                                             size_t const wgPrivateMemSizeUpperBound) const {
+size_t KernelProperties::GetMaxWorkGroupSize(
+    size_t const wgSizeUpperBound,
+    size_t const wgPrivateMemSizeUpperBound) const {
   assert(GetBarrierBufferSize() <= GetPrivateMemorySize() &&
          "kernel's private memory size must include barrier buffer size");
 
@@ -401,18 +366,23 @@ size_t KernelProperties::GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
   size_t maxWorkGroupSize = wgSizeUpperBound;
 
   // Return 0 if there is not enough private memory. But take into account what
-  // in the vectorized JIT each lane has it's own private memory (not only barrier buffer).
-  if(wgPrivateMemSizeUpperBound < GetPrivateMemorySize() * GetMinGroupSizeFactorial()) {
+  // in the vectorized JIT each lane has it's own private memory (not only
+  // barrier buffer).
+  if (wgPrivateMemSizeUpperBound <
+      GetPrivateMemorySize() * GetMinGroupSizeFactorial()) {
     // Private memory requirements exceed available resources.
     maxWorkGroupSize = 0;
-  } else if(GetBarrierBufferSize() > 0) {
+  } else if (GetBarrierBufferSize() > 0) {
     // TODO: CSSD100016517 workaround:
-    //       At the moment GetPrivateMemorySize() returns here the same value as GetBarrierBufferSize().
-    //       It is not what it must to do. See the declaration.
+    //       At the moment GetPrivateMemorySize() returns here the same value as
+    //       GetBarrierBufferSize(). It is not what it must to do. See the
+    //       declaration.
     // Each work-item has it's own barrier buffer. But other private memory
-    // is shared among all of them (with exception for vectorized JIT, see above).
-    size_t const vecSharedPrivateMemory = (GetPrivateMemorySize() - GetBarrierBufferSize()) *
-                                           GetMinGroupSizeFactorial();
+    // is shared among all of them (with exception for vectorized JIT, see
+    // above).
+    size_t const vecSharedPrivateMemory =
+        (GetPrivateMemorySize() - GetBarrierBufferSize()) *
+        GetMinGroupSizeFactorial();
 
     // Find out how much memory is left for barrier buffers.
     size_t leftForBuffers = wgPrivateMemSizeUpperBound - vecSharedPrivateMemory;
@@ -431,9 +401,8 @@ size_t KernelProperties::GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
   return maxWorkGroupSize;
 }
 
-bool KernelProperties::IsNonUniformWGSizeSupported() const
-{
-    return m_bIsNonUniformWGSizeSupported;
+bool KernelProperties::IsNonUniformWGSizeSupported() const {
+  return m_bIsNonUniformWGSizeSupported;
 }
 
 void KernelProperties::Print() const {
@@ -485,9 +454,10 @@ void KernelProperties::Print() const {
                     << "\n";
   outs().indent(NS) << "debugInfo: " << m_debugInfo << "\n";
   outs().indent(NS) << "targetDevice: "
-                    << ((m_targetDevice == CPU_DEVICE)        ? "cpu"
-                        : "fpga-emu")
+                    << ((m_targetDevice == CPU_DEVICE) ? "cpu" : "fpga-emu")
                     << "\n";
   outs().indent(NS) << "cpuMaxWGSize: " << m_cpuMaxWGSize << "\n";
 }
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

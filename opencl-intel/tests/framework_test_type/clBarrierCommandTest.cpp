@@ -1,8 +1,7 @@
 #include "CL_BASE.h"
 #include "TestsHelpClasses.h"
 
-class BarrierCommandTest : public CL_base {
-};
+class BarrierCommandTest : public CL_base {};
 
 TEST_F(BarrierCommandTest, Profiling) {
   cl_int err;

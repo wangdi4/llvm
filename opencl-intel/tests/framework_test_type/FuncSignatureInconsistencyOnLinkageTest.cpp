@@ -49,13 +49,13 @@ tryToBuildProgram(const char *ClSrc1, const char *ClSrc2,
       << " clCreateProgramWithSource for 2nd source file failed.";
 
   // Compile programs
-  iRet = clCompileProgram(ClProg1, 1, &device, "-cl-std=CL2.0", 0,
-                          NULL, NULL, NULL, NULL);
+  iRet = clCompileProgram(ClProg1, 1, &device, "-cl-std=CL2.0", 0, NULL, NULL,
+                          NULL, NULL);
   ASSERT_EQ(CL_SUCCESS, iRet)
       << " clCompileProgram for 1st source file failed.";
 
-  iRet = clCompileProgram(ClProg2, 1, &device, "-cl-std=CL2.0", 0,
-                          NULL, NULL, NULL, NULL);
+  iRet = clCompileProgram(ClProg2, 1, &device, "-cl-std=CL2.0", 0, NULL, NULL,
+                          NULL, NULL);
   ASSERT_EQ(CL_SUCCESS, iRet)
       << " clCompileProgram for 2nd source file failed.";
 
@@ -69,10 +69,9 @@ tryToBuildProgram(const char *ClSrc1, const char *ClSrc2,
 
   // Check that CL_PROGRAM_BUILD_LOG query returns linkage error message
   size_t LinkLogSize = 0;
-  iRet = clGetProgramBuildInfo(ClProgLinked, device, CL_PROGRAM_BUILD_LOG,
-                               0, NULL, &LinkLogSize);
-  ASSERT_EQ(CL_SUCCESS, iRet)
-      << " Device failed to return linkage log size.";
+  iRet = clGetProgramBuildInfo(ClProgLinked, device, CL_PROGRAM_BUILD_LOG, 0,
+                               NULL, &LinkLogSize);
+  ASSERT_EQ(CL_SUCCESS, iRet) << " Device failed to return linkage log size.";
 
   char *LinkLog = (char *)malloc(LinkLogSize);
   iRet = clGetProgramBuildInfo(ClProgLinked, device, CL_PROGRAM_BUILD_LOG,
@@ -123,8 +122,10 @@ void clFuncIncompatParamASOnLinkageTest() {
   std::string LinkLogStr;
   tryToBuildProgram(ClSrc1, ClSrc2, LinkLogStr);
 
-  ASSERT_TRUE(std::string::npos != LinkLogStr.find(
-      "testLibFunc [passing parameter 1 with incompatible address space]"))
+  ASSERT_TRUE(
+      std::string::npos !=
+      LinkLogStr.find(
+          "testLibFunc [passing parameter 1 with incompatible address space]"))
       << "Expected link error description not found";
 }
 
@@ -161,8 +162,9 @@ void clFuncWrongNumParamsOnLinkageTest() {
   std::string LinkLogStr;
   tryToBuildProgram(ClSrc1, ClSrc2, LinkLogStr);
 
-  ASSERT_TRUE(std::string::npos != LinkLogStr.find(
-      "testLibFunc [wrong number of arguments to function call, expected 1, have 2]"))
+  ASSERT_TRUE(std::string::npos !=
+              LinkLogStr.find("testLibFunc [wrong number of arguments to "
+                              "function call, expected 1, have 2]"))
       << "Expected link error description not found";
 }
 

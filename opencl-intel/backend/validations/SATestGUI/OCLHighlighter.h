@@ -15,53 +15,50 @@
 #ifndef OCLHIGHLIGHTER_H
 #define OCLHIGHLIGHTER_H
 
-#include <QSyntaxHighlighter>
+#include <QCoreApplication>
+#include <QDebug>
 #include <QFile>
 #include <QStringList>
+#include <QSyntaxHighlighter>
 #include <QTextStream>
-#include <QDebug>
-#include <QCoreApplication>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The OCLHighlighter class
- * @detailed class highlight openCL source code. uses in EditTab class. to details see QSyntaxHighlighter in Qt Documentation
+ * @detailed class highlight openCL source code. uses in EditTab class. to
+ * details see QSyntaxHighlighter in Qt Documentation
  */
-class OCLHighlighter : public QSyntaxHighlighter
-{
-    Q_OBJECT
+class OCLHighlighter : public QSyntaxHighlighter {
+  Q_OBJECT
 public:
-    explicit OCLHighlighter(QTextDocument *parent = 0);
+  explicit OCLHighlighter(QTextDocument *parent = 0);
+
 protected:
-    void highlightBlock(const QString &text);
+  void highlightBlock(const QString &text);
 signals:
 
 public slots:
 private:
-    QStringList readKeyWords();
-    struct HighlightingRule
-    {
-        QRegExp pattern;
-        QTextCharFormat format;
-    };
-    QVector<HighlightingRule> highlightingRules;
+  QStringList readKeyWords();
+  struct HighlightingRule {
+    QRegExp pattern;
+    QTextCharFormat format;
+  };
+  QVector<HighlightingRule> highlightingRules;
 
-    QRegExp commentStartExpression;
-    QRegExp commentEndExpression;
+  QRegExp commentStartExpression;
+  QRegExp commentEndExpression;
 
-    QTextCharFormat keywordFormat;
-    QTextCharFormat classFormat;
-    QTextCharFormat singleLineCommentFormat;
-    QTextCharFormat multiLineCommentFormat;
-    QTextCharFormat quotationFormat;
-    QTextCharFormat functionFormat;
-
+  QTextCharFormat keywordFormat;
+  QTextCharFormat classFormat;
+  QTextCharFormat singleLineCommentFormat;
+  QTextCharFormat multiLineCommentFormat;
+  QTextCharFormat quotationFormat;
+  QTextCharFormat functionFormat;
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 #endif // OCLHIGHLIGHTER_H

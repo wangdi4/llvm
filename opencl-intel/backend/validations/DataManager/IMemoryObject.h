@@ -15,28 +15,25 @@
 #ifndef __I_MEMORY_OBJECT_H__
 #define __I_MEMORY_OBJECT_H__
 
-#include "BufferDesc.h"                  // Data Manager library data types
+#include "BufferDesc.h" // Data Manager library data types
 #include "IContainer.h"
 #include <string>
 
-namespace Validation
-{
-    ///////////////////////////////////////////////////
-    /// Interface to data container objects.
-    class IMemoryObject : public IContainer
-    {
-    public:
-        /// @brief Provide access to buffer's data.
-        /// @return Pointer to memory region with buffer's data.
-        virtual void* GetDataPtr() const = 0;
-        /// @brief Provide access to buffer's description.
-        /// @return buffer's description.
-        virtual const IMemoryObjectDesc* GetMemoryObjectDesc() const = 0;
-        /// @brief Name of object class.
-        /// @return String with the name of the class.
-        virtual std::string GetName() const = 0;
-    };
-} // End of Validation namespace
+namespace Validation {
+///////////////////////////////////////////////////
+/// Interface to data container objects.
+class IMemoryObject : public IContainer {
+public:
+  /// @brief Provide access to buffer's data.
+  /// @return Pointer to memory region with buffer's data.
+  virtual void *GetDataPtr() const = 0;
+  /// @brief Provide access to buffer's description.
+  /// @return buffer's description.
+  virtual const IMemoryObjectDesc *GetMemoryObjectDesc() const = 0;
+  /// @brief Name of object class.
+  /// @return String with the name of the class.
+  virtual std::string GetName() const = 0;
+};
+} // namespace Validation
 
 #endif // __I_MEMORY_OBJECT_H__
-

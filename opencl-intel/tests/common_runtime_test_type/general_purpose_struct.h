@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 //
@@ -29,16 +29,17 @@
  * Encapsulates common methods
  **/
 
-// UserDefinedStructure - struct used as general-purpose struct paremeter for kernels
-typedef struct{
-	cl_int x;
-	cl_float y;
-	cl_char z;
+// UserDefinedStructure - struct used as general-purpose struct paremeter for
+// kernels
+typedef struct {
+  cl_int x;
+  cl_float y;
+  cl_char z;
 } UserDefinedStructure;
 
 // HalfWrapper - used to bypass collisions with ushort template definitions
-struct HalfWrapper{
-	cl_half half;
+struct HalfWrapper {
+  cl_half half;
 };
 
 #endif /* GENERAL_PURPOSE_STRUCT_ */

@@ -75,19 +75,19 @@ namespace strings {
 //   sink->Flush();
 //
 class LIBPROTOBUF_EXPORT ByteSink {
- public:
+public:
   ByteSink() {}
   virtual ~ByteSink() {}
 
   // Appends the "n" bytes starting at "bytes".
-  virtual void Append(const char* bytes, size_t n) = 0;
+  virtual void Append(const char *bytes, size_t n) = 0;
 
   // Flushes internal buffers. The default implemenation does nothing. ByteSink
   // subclasses may use internal buffers that require calling Flush() at the end
   // of the stream.
   virtual void Flush();
 
- private:
+private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ByteSink);
 };
 
@@ -104,7 +104,7 @@ class LIBPROTOBUF_EXPORT ByteSink {
 //   }
 //
 class LIBPROTOBUF_EXPORT ByteSource {
- public:
+public:
   ByteSource() {}
   virtual ~ByteSource() {}
 
@@ -138,9 +138,9 @@ class LIBPROTOBUF_EXPORT ByteSource {
   // override CopyTo to optimize certain cases.
   //
   // REQUIRES: Available() >= n
-  virtual void CopyTo(ByteSink* sink, size_t n);
+  virtual void CopyTo(ByteSink *sink, size_t n);
 
- private:
+private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ByteSource);
 };
 
@@ -160,18 +160,18 @@ class LIBPROTOBUF_EXPORT ByteSource {
 //   sink.Append(data, 100);  // WOOPS! Overflows buf[10].
 //
 class LIBPROTOBUF_EXPORT UncheckedArrayByteSink : public ByteSink {
- public:
-  explicit UncheckedArrayByteSink(char* dest) : dest_(dest) {}
-  virtual void Append(const char* data, size_t n);
+public:
+  explicit UncheckedArrayByteSink(char *dest) : dest_(dest) {}
+  virtual void Append(const char *data, size_t n);
 
   // Returns the current output pointer so that a caller can see how many bytes
   // were produced.
   //
   // Note: this method is not part of the ByteSink interface.
-  char* CurrentDestination() const { return dest_; }
+  char *CurrentDestination() const { return dest_; }
 
- private:
-  char* dest_;
+private:
+  char *dest_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(UncheckedArrayByteSink);
 };
 
@@ -188,9 +188,9 @@ class LIBPROTOBUF_EXPORT UncheckedArrayByteSink : public ByteSink {
 //   sink.Append(data, 100);  // Will only write 8 more bytes
 //
 class LIBPROTOBUF_EXPORT CheckedArrayByteSink : public ByteSink {
- public:
-  CheckedArrayByteSink(char* outbuf, size_t capacity);
-  virtual void Append(const char* bytes, size_t n);
+public:
+  CheckedArrayByteSink(char *outbuf, size_t capacity);
+  virtual void Append(const char *bytes, size_t n);
 
   // Returns the number of bytes actually written to the sink.
   size_t NumberOfBytesWritten() const { return size_; }
@@ -199,8 +199,8 @@ class LIBPROTOBUF_EXPORT CheckedArrayByteSink : public ByteSink {
   // attempt to write more than 'capacity' bytes.
   bool Overflowed() const { return overflowed_; }
 
- private:
-  char* outbuf_;
+private:
+  char *outbuf_;
   const size_t capacity_;
   size_t size_;
   bool overflowed_;
@@ -224,21 +224,21 @@ class LIBPROTOBUF_EXPORT CheckedArrayByteSink : public ByteSink {
 //   delete[] buf;
 //
 class LIBPROTOBUF_EXPORT GrowingArrayByteSink : public strings::ByteSink {
- public:
+public:
   explicit GrowingArrayByteSink(size_t estimated_size);
   virtual ~GrowingArrayByteSink();
-  virtual void Append(const char* bytes, size_t n);
+  virtual void Append(const char *bytes, size_t n);
 
   // Returns the allocated buffer, and sets nbytes to its size. The caller takes
   // ownership of the buffer and must delete it with delete[].
-  char* GetBuffer(size_t* nbytes);
+  char *GetBuffer(size_t *nbytes);
 
- private:
+private:
   void Expand(size_t amount);
   void ShrinkToFit();
 
   size_t capacity_;
-  char* buf_;
+  char *buf_;
   size_t size_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(GrowingArrayByteSink);
 };
@@ -254,12 +254,12 @@ class LIBPROTOBUF_EXPORT GrowingArrayByteSink : public strings::ByteSink {
 //   assert(dest == "Hello World");
 //
 class LIBPROTOBUF_EXPORT StringByteSink : public ByteSink {
- public:
-  explicit StringByteSink(string* dest) : dest_(dest) {}
-  virtual void Append(const char* data, size_t n);
+public:
+  explicit StringByteSink(string *dest) : dest_(dest) {}
+  virtual void Append(const char *data, size_t n);
 
- private:
-  string* dest_;
+private:
+  string *dest_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(StringByteSink);
 };
 
@@ -271,11 +271,11 @@ class LIBPROTOBUF_EXPORT StringByteSink : public ByteSink {
 //   sink.Append(data, data.size());  // All data ignored.
 //
 class LIBPROTOBUF_EXPORT NullByteSink : public ByteSink {
- public:
+public:
   NullByteSink() {}
   virtual void Append(const char *data, size_t n) {}
 
- private:
+private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(NullByteSink);
 };
 
@@ -293,15 +293,15 @@ class LIBPROTOBUF_EXPORT NullByteSink : public ByteSink {
 //   assert(source.Peek() == "Hello");
 //
 class LIBPROTOBUF_EXPORT ArrayByteSource : public ByteSource {
- public:
+public:
   explicit ArrayByteSource(StringPiece s) : input_(s) {}
 
   virtual size_t Available() const;
   virtual StringPiece Peek();
   virtual void Skip(size_t n);
 
- private:
-  StringPiece   input_;
+private:
+  StringPiece input_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ArrayByteSource);
 };
 
@@ -324,9 +324,9 @@ class LIBPROTOBUF_EXPORT ArrayByteSource : public ByteSource {
 //   assert(limit.Peek() == "Hello");
 //
 class LIBPROTOBUF_EXPORT LimitByteSource : public ByteSource {
- public:
+public:
   // Returns at most "limit" bytes from "source".
-  LimitByteSource(ByteSource* source, size_t limit);
+  LimitByteSource(ByteSource *source, size_t limit);
 
   virtual size_t Available() const;
   virtual StringPiece Peek();
@@ -334,15 +334,15 @@ class LIBPROTOBUF_EXPORT LimitByteSource : public ByteSource {
 
   // We override CopyTo so that we can forward to the underlying source, in
   // case it has an efficient implementation of CopyTo.
-  virtual void CopyTo(ByteSink* sink, size_t n);
+  virtual void CopyTo(ByteSink *sink, size_t n);
 
- private:
-  ByteSource* source_;
+private:
+  ByteSource *source_;
   size_t limit_;
 };
 
-}  // namespace strings
-}  // namespace protobuf
-}  // namespace google
+} // namespace strings
+} // namespace protobuf
+} // namespace google
 
-#endif  // GOOGLE_PROTOBUF_STUBS_BYTESTREAM_H_
+#endif // GOOGLE_PROTOBUF_STUBS_BYTESTREAM_H_

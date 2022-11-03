@@ -5,38 +5,38 @@
  * depend on a pointer and they both depend on thread id.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-do_while_while (	__global const float *in,
-		__global float *out, __global const ptrdiff_t intPtrArg1)
+do_while_while (  __global const float *in,
+    __global float *out, __global const ptrdiff_t intPtrArg1)
 {
 
-	int gid = get_global_id(0);
+  int gid = get_global_id(0);
 
-		ptrdiff_t tmp1 = intPtrArg1 + abs((int)in[gid]) + gid;
-		ptrdiff_t tmp2 = intPtrArg1 - gid - in[0];
+    ptrdiff_t tmp1 = intPtrArg1 + abs((int)in[gid]) + gid;
+    ptrdiff_t tmp2 = intPtrArg1 - gid - in[0];
 
-		int i = 0;
+    int i = 0;
 
-		do {
+    do {
 
-			int j = 0;
-			while ((tmp1 > gid) && (j < 1024)) {
+      int j = 0;
+      while ((tmp1 > gid) && (j < 1024)) {
 
-				tmp1 = tmp1--;
-				j++;
-			}
+        tmp1 = tmp1--;
+        j++;
+      }
 
-			out[gid] += i * tmp1;
-			tmp1 = tmp1 - gid;
+      out[gid] += i * tmp1;
+      tmp1 = tmp1 - gid;
 
-			i++;
+      i++;
 
-		} while ((tmp1 > tmp2) && (i < 2048));
+    } while ((tmp1 > tmp2) && (i < 2048));
 
-		out[gid] = tmp1 * tmp2;
+    out[gid] = tmp1 * tmp2;
 }

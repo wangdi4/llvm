@@ -18,26 +18,36 @@
 #include "dxfloat.h"
 using namespace Validation;
 
-DataTypeValWrapper::DataTypeMetadataMap  DataTypeValWrapper::m_metaData(initStaticMap());
+DataTypeValWrapper::DataTypeMetadataMap
+    DataTypeValWrapper::m_metaData(initStaticMap());
 
-DataTypeValWrapper::DataTypeMetadataMap  DataTypeValWrapper::initStaticMap()
-{
-    DataTypeMetadataMap metaData;
+DataTypeValWrapper::DataTypeMetadataMap DataTypeValWrapper::initStaticMap() {
+  DataTypeMetadataMap metaData;
 
-    metaData[F16] = DataTypeValWrapper::DataTypeMetadata(sizeof(CFloat16), true, "f16");
-    metaData[F32] = DataTypeValWrapper::DataTypeMetadata(sizeof(float), true, "f32");
-    metaData[F64] = DataTypeValWrapper::DataTypeMetadata(sizeof(double), true, "f64");
+  metaData[F16] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(CFloat16), true, "f16");
+  metaData[F32] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(float), true, "f32");
+  metaData[F64] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(double), true, "f64");
 
-    metaData[I8] =	DataTypeValWrapper::DataTypeMetadata(sizeof(int8_t), false, "i8");
-    metaData[I16] =	DataTypeValWrapper::DataTypeMetadata(sizeof(int16_t), false, "i16");
-    metaData[I32] =	DataTypeValWrapper::DataTypeMetadata(sizeof(int32_t), false, "i32");
-    metaData[I64] =	DataTypeValWrapper::DataTypeMetadata(sizeof(int64_t), false, "i64");
+  metaData[I8] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(int8_t), false, "i8");
+  metaData[I16] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(int16_t), false, "i16");
+  metaData[I32] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(int32_t), false, "i32");
+  metaData[I64] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(int64_t), false, "i64");
 
-    metaData[U8] =	DataTypeValWrapper::DataTypeMetadata(sizeof(uint8_t), false, "u8");
-    metaData[U16] =	DataTypeValWrapper::DataTypeMetadata(sizeof(uint16_t), false, "u16");
-    metaData[U32] =	DataTypeValWrapper::DataTypeMetadata(sizeof(uint32_t), false, "u32");
-    metaData[U64] =	DataTypeValWrapper::DataTypeMetadata(sizeof(uint64_t), false, "u64");
+  metaData[U8] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(uint8_t), false, "u8");
+  metaData[U16] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(uint16_t), false, "u16");
+  metaData[U32] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(uint32_t), false, "u32");
+  metaData[U64] =
+      DataTypeValWrapper::DataTypeMetadata(sizeof(uint64_t), false, "u64");
 
-    return metaData;
-
+  return metaData;
 }

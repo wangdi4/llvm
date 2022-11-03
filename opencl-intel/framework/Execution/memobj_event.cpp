@@ -18,15 +18,16 @@
 
 using namespace Intel::OpenCL::Framework;
 
-MemoryObjectEvent::MemoryObjectEvent(IOCLDevMemoryObject* *ppDevMemObj, const SharedPtr<MemoryObject>& pMemObject, const SharedPtr<FissionableDevice>& pDevice) :
-	OclEvent(pMemObject->GetParentHandle()), m_ppDevMemObj(ppDevMemObj) , m_pMemObject(pMemObject), m_pDevice(pDevice)
-{
-	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+MemoryObjectEvent::MemoryObjectEvent(
+    IOCLDevMemoryObject **ppDevMemObj,
+    const SharedPtr<MemoryObject> &pMemObject,
+    const SharedPtr<FissionableDevice> &pDevice)
+    : OclEvent(pMemObject->GetParentHandle()), m_ppDevMemObj(ppDevMemObj),
+      m_pMemObject(pMemObject), m_pDevice(pDevice) {
+  SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 }
 
-MemoryObjectEvent::~MemoryObjectEvent()
-{
-}
+MemoryObjectEvent::~MemoryObjectEvent() {}
 
 cl_err_code MemoryObjectEvent::ObservedEventStateChanged(
     const SharedPtr<OclEvent> & /*pEvent*/, cl_int returnCode) {

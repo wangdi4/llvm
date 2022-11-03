@@ -11,18 +11,17 @@
 
 using std::stringstream;
 
-
 string StringConverter::toString(float array[], int size) {
 
-	stringstream s;
+  stringstream s;
 
-	s << "{";
+  s << "{";
 
-	for (int i = 0; i < size - 1; i++) {
-		s << array[i] << ", ";
-	}
+  for (int i = 0; i < size - 1; i++) {
+    s << array[i] << ", ";
+  }
 
-	s << array[size - 1] << "}";
+  s << array[size - 1] << "}";
 
-	return s.str();
+  return s.str();
 }

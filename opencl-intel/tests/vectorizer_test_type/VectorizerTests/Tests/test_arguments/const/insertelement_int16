@@ -6,19 +6,19 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 insertelement_int16 ( __global const float *in,
-		__global float16 *out)
+    __global float16 *out)
 {
-	int gid = get_global_id(0);
-	int16 vec = INT16_VEC1;
-	// these assignment and add are done to make sure that insertelement will be used (on vec)
-	vec.x = ARG0;
-	vec = vec + vec;
-	out[gid] = convert_float16(vec);
+  int gid = get_global_id(0);
+  int16 vec = INT16_VEC1;
+  // these assignment and add are done to make sure that insertelement will be used (on vec)
+  vec.x = ARG0;
+  vec = vec + vec;
+  out[gid] = convert_float16(vec);
 }

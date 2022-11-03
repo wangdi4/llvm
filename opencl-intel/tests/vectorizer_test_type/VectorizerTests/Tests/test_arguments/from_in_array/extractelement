@@ -7,18 +7,18 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 extractelement ( __global const float *in,
-		__global float4 *out)
+    __global float4 *out)
 {
-	int gid = get_global_id(0);
-	double4 vec = (ARG1, ARG1, ARG1, ARG1);
-	// this multipication is done to make sure that extractelement will be used (on vec2)
-	double4 res = vec * vec;
-	out[gid] = res.x + res.y + res.z + res.w;
+  int gid = get_global_id(0);
+  double4 vec = (ARG1, ARG1, ARG1, ARG1);
+  // this multipication is done to make sure that extractelement will be used (on vec2)
+  double4 res = vec * vec;
+  out[gid] = res.x + res.y + res.z + res.w;
 }

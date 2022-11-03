@@ -7,21 +7,21 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-func_any (	__global const float *in,
-		__global float *out)
+func_any (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	ulong x = in[gid];
-	ulong y = gid * acospi(in[gid]);
-//	ulong z = abs((long)(x - y));
-	ulong z = (long)(x - y);
-	ulong w = log10(in[gid] * gid * 25);
-	ulong16 tmp = (ulong16)( (ulong)x, x + y, (ulong)abs((long)(z * y / x)), w + z, w, x * z + clz(y), x, abs((long)(y - x)), z * z * z, rotate(x, y), y, x + 2 * y, w - 5, 5, x, z);
-	out[gid] = any(tmp);
+  int gid = get_global_id(0);
+  ulong x = in[gid];
+  ulong y = gid * acospi(in[gid]);
+//  ulong z = abs((long)(x - y));
+  ulong z = (long)(x - y);
+  ulong w = log10(in[gid] * gid * 25);
+  ulong16 tmp = (ulong16)( (ulong)x, x + y, (ulong)abs((long)(z * y / x)), w + z, w, x * z + clz(y), x, abs((long)(y - x)), z * z * z, rotate(x, y), y, x + 2 * y, w - 5, 5, x, z);
+  out[gid] = any(tmp);
 }

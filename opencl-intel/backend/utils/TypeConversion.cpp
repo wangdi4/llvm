@@ -13,23 +13,24 @@
 // License.
 
 #include "TypeConversion.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/DerivedTypes.h"
 #include <string>
 
 using namespace llvm;
 
-namespace intel{
+namespace intel {
 
-class ConversionVisitor : public reflection::TypeVisitor{
+class ConversionVisitor : public reflection::TypeVisitor {
   llvm::Type *m_llvmTy;
   llvm::LLVMContext &m_Ctx;
 
-  bool isAddressSpace(reflection::TypeAttributeEnum attr){
-    return (attr >= reflection::ATTR_ADDR_SPACE_FIRST && attr <= reflection::ATTR_ADDR_SPACE_LAST);
+  bool isAddressSpace(reflection::TypeAttributeEnum attr) {
+    return (attr >= reflection::ATTR_ADDR_SPACE_FIRST &&
+            attr <= reflection::ATTR_ADDR_SPACE_LAST);
   }
 
-  unsigned convertAddressSpace(reflection::TypeAttributeEnum attr){
+  unsigned convertAddressSpace(reflection::TypeAttributeEnum attr) {
     switch (attr) {
     case reflection::ATTR_PRIVATE:
       return 0U;
@@ -46,12 +47,12 @@ class ConversionVisitor : public reflection::TypeVisitor{
       return 42U;
     }
   }
+
 public:
-  ConversionVisitor(llvm::LLVMContext &ctx): m_Ctx(ctx){
-  }
+  ConversionVisitor(llvm::LLVMContext &ctx) : m_Ctx(ctx) {}
 
   virtual void visit(const reflection::PrimitiveType *Ty) override {
-    switch (Ty->getPrimitive()){
+    switch (Ty->getPrimitive()) {
     case reflection::PRIMITIVE_BOOL:
       m_llvmTy = llvm::IntegerType::get(m_Ctx, 1U);
       break;
@@ -95,12 +96,10 @@ public:
     case reflection::PRIMITIVE_CLK_EVENT_T:
     case reflection::PRIMITIVE_QUEUE_T:
     case reflection::PRIMITIVE_PIPE_RO_T:
-    case reflection::PRIMITIVE_PIPE_WO_T:
-      {
-         std::string Name = reflection::llvmPrimitiveString(Ty->getPrimitive());
-         m_llvmTy = llvm::StructType::create(m_Ctx, Name);
-      }
-      break;
+    case reflection::PRIMITIVE_PIPE_WO_T: {
+      std::string Name = reflection::llvmPrimitiveString(Ty->getPrimitive());
+      m_llvmTy = llvm::StructType::create(m_Ctx, Name);
+    } break;
     case reflection::PRIMITIVE_SAMPLER_T:
       m_llvmTy = llvm::IntegerType::get(m_Ctx, 32U);
       break;
@@ -118,9 +117,9 @@ public:
   virtual void visit(const reflection::PointerType *PTy) override {
     PTy->getPointee()->accept(this);
     unsigned AS = 0U;
-    for(unsigned int i=0; i< PTy->getAttributes().size(); ++i ) {
+    for (unsigned int i = 0; i < PTy->getAttributes().size(); ++i) {
       reflection::TypeAttributeEnum attr = PTy->getAttributes()[i];
-      if ( isAddressSpace(attr) ) {
+      if (isAddressSpace(attr)) {
         AS = convertAddressSpace(attr);
         break;
       }
@@ -141,16 +140,16 @@ public:
     m_llvmTy = llvm::StructType::create(m_Ctx, Name);
   }
 
-  const llvm::Type* getType()const{ return m_llvmTy;}
+  const llvm::Type *getType() const { return m_llvmTy; }
 
-  llvm::Type* getType(){ return m_llvmTy; }
+  llvm::Type *getType() { return m_llvmTy; }
 };
 
-
-llvm::Type* reflectionToLLVM(llvm::LLVMContext &Ctx, const reflection::RefParamType& Ty){
+llvm::Type *reflectionToLLVM(llvm::LLVMContext &Ctx,
+                             const reflection::RefParamType &Ty) {
   ConversionVisitor V(Ctx);
   Ty->accept(&V);
   return V.getType();
 }
 
-}
+} // namespace intel

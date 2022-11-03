@@ -14,11 +14,13 @@
 
 #pragma once
 
-#include <vector>
-#include <string>
 #include "cl_dev_backend_api.h"
+#include <string>
+#include <vector>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 class Program;
 class Kernel;
@@ -30,23 +32,23 @@ class IBlockToKernelMapper;
 /**
  * This interface is used to generate the suitable objects for CPU\MIC devices
  */
-class IAbstractBackendFactory
-{
+class IAbstractBackendFactory {
 public:
-    virtual Program* CreateProgram() = 0;
-    virtual Kernel* CreateKernel()   = 0;
+  virtual Program *CreateProgram() = 0;
+  virtual Kernel *CreateKernel() = 0;
 
-    virtual Kernel* CreateKernel(
-        const std::string& name,
-        const std::vector<KernelArgument>& args,
-        const std::vector<unsigned int>& memArgs,
-        KernelProperties* pProps) = 0;
+  virtual Kernel *CreateKernel(const std::string &name,
+                               const std::vector<KernelArgument> &args,
+                               const std::vector<unsigned int> &memArgs,
+                               KernelProperties *pProps) = 0;
 
-    virtual KernelProperties* CreateKernelProperties() = 0;
-    virtual KernelJITProperties* CreateKernelJITProperties() = 0;
-    virtual IKernelJITContainer* CreateKernelJITContainer() = 0;
+  virtual KernelProperties *CreateKernelProperties() = 0;
+  virtual KernelJITProperties *CreateKernelJITProperties() = 0;
+  virtual IKernelJITContainer *CreateKernelJITContainer() = 0;
 
-    virtual ~IAbstractBackendFactory() {}
+  virtual ~IAbstractBackendFactory() {}
 };
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

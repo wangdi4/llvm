@@ -36,10 +36,12 @@ class OclBuiltinDB;
 /// OclType
 class OclType {
 public:
-  explicit OclType(const OclBuiltinDB&, const Record*);
-  virtual ~OclType() {};
+  explicit OclType(const OclBuiltinDB &, const Record *);
+  virtual ~OclType(){};
 
-  virtual const std::string& getGenType(const std::string&) const { return m_Name; }
+  virtual const std::string &getGenType(const std::string &) const {
+    return m_Name;
+  }
 
   std::string getMaskCastTy() const;
 
@@ -65,23 +67,23 @@ public:
 
   std::string getSGBlockOpSuffix() const;
 
-  std::string getCType(const OclBuiltin*, bool = false) const;
+  std::string getCType(const OclBuiltin *, bool = false) const;
 
-  std::string getNativeCType(const OclBuiltin*) const;
+  std::string getNativeCType(const OclBuiltin *) const;
 
-  const std::string& getBaseCType() const { return m_BaseCType; }
+  const std::string &getBaseCType() const { return m_BaseCType; }
 
-  const std::string& getName() const { return m_Name; }
+  const std::string &getName() const { return m_Name; }
 
-  const std::string& getSuffix() const { return m_Suffix; }
+  const std::string &getSuffix() const { return m_Suffix; }
 
-  const std::string& getVTypeSuffix() const { return m_VTypeSuffix; }
+  const std::string &getVTypeSuffix() const { return m_VTypeSuffix; }
 
-  const std::string& getSVMLSuffix() const { return m_SVMLSuffix; }
+  const std::string &getSVMLSuffix() const { return m_SVMLSuffix; }
 
-  const std::string& getSVMLDSuffix() const { return m_SVMLDSuffix; }
+  const std::string &getSVMLDSuffix() const { return m_SVMLDSuffix; }
 
-  const std::string& getSVMLFSuffix() const { return m_SVMLFSuffix; }
+  const std::string &getSVMLFSuffix() const { return m_SVMLFSuffix; }
 
   int getVecLength() const { return m_VecLength; }
 
@@ -92,8 +94,8 @@ public:
   void setNative(bool native) { m_Native = native; }
 
 protected:
-  const OclBuiltinDB& m_DB;
-  const Record* m_Record;
+  const OclBuiltinDB &m_DB;
+  const Record *m_Record;
   std::string m_Name;
   std::string m_CType;
   std::string m_BaseCType;
@@ -111,7 +113,7 @@ protected:
 /// OclGenType
 class OclGenType : public OclType {
 public:
-  explicit OclGenType(const OclBuiltinDB&, const Record*);
+  explicit OclGenType(const OclBuiltinDB &, const Record *);
 
   virtual const std::string &getGenType(const std::string &) const override;
 
@@ -122,15 +124,17 @@ protected:
 /// OclBuiltinAttr
 class OclBuiltinAttr {
 public:
-  explicit OclBuiltinAttr(const Record*);
+  explicit OclBuiltinAttr(const Record *);
 
-  const std::string& getCAttr() const { return m_CAttribute; }
+  const std::string &getCAttr() const { return m_CAttribute; }
 
   static OclBuiltinAttr CreateInilineAttribute();
 
-  bool operator == (const OclBuiltinAttr&)const;
+  bool operator==(const OclBuiltinAttr &) const;
+
 private:
-  explicit OclBuiltinAttr(const std::string&);
+  explicit OclBuiltinAttr(const std::string &);
+
 protected:
   std::string m_CAttribute;
 };
@@ -153,77 +157,83 @@ protected:
 /// OclBuiltin
 class OclBuiltin {
 public:
-  explicit OclBuiltin(const OclBuiltinDB&, const Record*);
+  explicit OclBuiltin(const OclBuiltinDB &, const Record *);
   virtual ~OclBuiltin();
 
-  std::string getReturnSym(const std::string&, const std::string&) const;
+  std::string getReturnSym(const std::string &, const std::string &) const;
 
-  std::string getArgumentSym(unsigned, const std::string&, const std::string&) const;
+  std::string getArgumentSym(unsigned, const std::string &,
+                             const std::string &) const;
 
-  std::string getReturnCType(const std::string&) const;
+  std::string getReturnCType(const std::string &) const;
 
-  std::string getReturnBaseCType(const std::string&) const;
+  std::string getReturnBaseCType(const std::string &) const;
 
-  std::string getReturnCName(const std::string&) const;
+  std::string getReturnCName(const std::string &) const;
 
-  size_t      getReturnVectorLength(const std::string&)const;
+  size_t getReturnVectorLength(const std::string &) const;
 
-  size_t      getNumArguments() const;
+  size_t getNumArguments() const;
 
-  std::string getArgumentCType(unsigned, const std::string&) const;
+  std::string getArgumentCType(unsigned, const std::string &) const;
 
-  std::string getPtrArgumentCType(unsigned, const std::string&) const;
+  std::string getPtrArgumentCType(unsigned, const std::string &) const;
 
-  std::string getArgumentBaseCType(unsigned i, const std::string& TyName) const;
+  std::string getArgumentBaseCType(unsigned i, const std::string &TyName) const;
 
-  std::string getArgumentCVecType(unsigned, const std::string&, int) const;
+  std::string getArgumentCVecType(unsigned, const std::string &, int) const;
 
-  std::string getArgumentCNoASType(unsigned, const std::string&) const;
+  std::string getArgumentCNoASType(unsigned, const std::string &) const;
 
-  std::string getArgumentCGenType(unsigned, const std::string&, const std::string&) const;
+  std::string getArgumentCGenType(unsigned, const std::string &,
+                                  const std::string &) const;
 
-  std::string getArgumentSGBlockOpSuffix(unsigned, const std::string&) const;
+  std::string getArgumentSGBlockOpSuffix(unsigned, const std::string &) const;
 
-  std::string getReturnSGBlockOpSuffix(const std::string&) const;
+  std::string getReturnSGBlockOpSuffix(const std::string &) const;
 
-  std::string getReturnCGenType(const std::string& Generator, const std::string& TyName) const;
+  std::string getReturnCGenType(const std::string &Generator,
+                                const std::string &TyName) const;
 
-  std::string getArgumentCName(unsigned, const std::string&) const;
+  std::string getArgumentCName(unsigned, const std::string &) const;
 
   std::string getCFunc() const;
 
-  std::string getCFunc(const std::string&) const;
+  std::string getCFunc(const std::string &) const;
 
-  std::string getNativeReturnCType(const std::string&) const;
+  std::string getNativeReturnCType(const std::string &) const;
 
-  std::string getNativeArgumentCType(unsigned, const std::string&) const;
+  std::string getNativeArgumentCType(unsigned, const std::string &) const;
 
-  std::string getNativeArgumentCVecLen(unsigned, const std::string&) const;
+  std::string getNativeArgumentCVecLen(unsigned, const std::string &) const;
 
-  std::string getNativeCFunc(const std::string&) const;
+  std::string getNativeCFunc(const std::string &) const;
 
-  std::string getExpandLoCFunc(const std::string&) const;
+  std::string getExpandLoCFunc(const std::string &) const;
 
-  std::string getExpandHiCFunc(const std::string&) const;
+  std::string getExpandHiCFunc(const std::string &) const;
 
-  std::string getCProto(const std::string&, bool isDecl = false) const;
+  std::string getCProto(const std::string &, bool isDecl = false) const;
 
-  //indicates whether the underlying builtin is really an svml function
-  bool isSvml()const;
+  // indicates whether the underlying builtin is really an svml function
+  bool isSvml() const;
 
-  bool isOverlodable()const;
-  // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling in-compat with SPIR (CQ CSSD100017714)
-  bool isBrokenNameMangling()const {return strstr(m_Name.c_str(),"work_group_") != NULL;}
+  bool isOverlodable() const;
+  // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling
+  // in-compat with SPIR (CQ CSSD100017714)
+  bool isBrokenNameMangling() const {
+    return strstr(m_Name.c_str(), "work_group_") != NULL;
+  }
 
-  typedef std::vector<const OclType*>::const_iterator const_type_iterator;
+  typedef std::vector<const OclType *>::const_iterator const_type_iterator;
 
-  inline const_type_iterator  type_begin() const { return m_Types.begin(); }
-  inline const_type_iterator    type_end() const { return m_Types.end(); }
-  inline size_t                typeCount() const { return m_Types.size(); }
+  inline const_type_iterator type_begin() const { return m_Types.begin(); }
+  inline const_type_iterator type_end() const { return m_Types.end(); }
+  inline size_t typeCount() const { return m_Types.size(); }
 
-  bool isValidType(const std::string&) const;
+  bool isValidType(const std::string &) const;
 
-  const std::string& getName() const { return m_Name; }
+  const std::string &getName() const { return m_Name; }
 
   bool isDeclOnly() const { return m_IsDeclOnly; }
 
@@ -233,15 +243,15 @@ public:
 
   bool needToExclude() const { return m_NeedToExclude; }
 
-  const std::string& getAS() const { return m_AS; }
+  const std::string &getAS() const { return m_AS; }
 
   bool hasConst() const { return m_HasConst; }
 
   bool hasVolatile() const { return m_HasVolatile; }
 
-  void addAttribute(const OclBuiltinAttr&);
+  void addAttribute(const OclBuiltinAttr &);
 
-  void removeAttribute(const OclBuiltinAttr&);
+  void removeAttribute(const OclBuiltinAttr &);
 
   bool hasKernelCallOnce() const {
     for (auto &VA : m_VectorAttrs)
@@ -253,8 +263,8 @@ public:
   bool shouldGenerate() const;
 
 protected:
-  const OclBuiltinDB& m_DB;
-  const Record* m_Record;
+  const OclBuiltinDB &m_DB;
+  const Record *m_Record;
   std::string m_Name;
   std::string m_CFunc;
   bool m_IsDeclOnly;
@@ -264,42 +274,41 @@ protected:
   std::string m_AS;
   bool m_HasConst;
   bool m_HasVolatile;
-  std::vector<const OclType*> m_Types;
-  std::vector<const OclBuiltinAttr*> m_Attrs;
+  std::vector<const OclType *> m_Types;
+  std::vector<const OclBuiltinAttr *> m_Attrs;
   std::vector<const OclBuiltinVectorAttr *> m_VectorAttrs;
-  std::vector<std::pair<const OclType*, std::string> > m_Outputs;
-  std::vector<std::pair<const OclType*, std::string> > m_Inputs;
+  std::vector<std::pair<const OclType *, std::string>> m_Outputs;
+  std::vector<std::pair<const OclType *, std::string>> m_Inputs;
 };
 
 /// OclBuiltinImpl
 class OclBuiltinImpl {
 public:
-  explicit OclBuiltinImpl(const OclBuiltinDB&, const Record*);
+  explicit OclBuiltinImpl(const OclBuiltinDB &, const Record *);
   virtual ~OclBuiltinImpl();
 
-  std::string getCImpl(const std::string&) const;
+  std::string getCImpl(const std::string &) const;
 
   void appendImpl(const Record *, const char *Loc, int TargetID = 0);
 
   void sortImplsByTarget();
 
-  const OclBuiltin* getOclBuiltin() const { return m_Proto; }
+  const OclBuiltin *getOclBuiltin() const { return m_Proto; }
 
 protected:
-  const OclBuiltinDB& m_DB;
-  const OclBuiltin* m_Proto;
-
+  const OclBuiltinDB &m_DB;
+  const OclBuiltin *m_Proto;
 
   struct Impl {
-    const Record* m_Record;
+    const Record *m_Record;
     const char *m_Loc;
-    std::vector<const OclType*> m_Types;
+    std::vector<const OclType *> m_Types;
     std::map<std::string, std::string> m_customMacro;
     std::string m_Code;
     bool m_IsDeclOnly;
     int m_TargetID;
   };
-  std::vector<Impl*> m_Impls;
+  std::vector<Impl *> m_Impls;
 };
 
 /// OclBuiltinDB
@@ -308,76 +317,78 @@ public:
   explicit OclBuiltinDB(RecordKeeper &, bool CollectImplDefs = true);
   virtual ~OclBuiltinDB();
 
-  std::string rewritePattern(const OclBuiltin*, const OclType*, const std::string&,
-                             std::map<std::string, std::string> const&) const;
+  std::string rewritePattern(const OclBuiltin *, const OclType *,
+                             const std::string &,
+                             std::map<std::string, std::string> const &) const;
 
-  std::string getNextNativeType(const std::string&) const;
+  std::string getNextNativeType(const std::string &) const;
 
-  std::string getVecType(const std::string&, int len) const;
+  std::string getVecType(const std::string &, int len) const;
 
-  std::string getExpandLoType(const std::string&) const;
+  std::string getExpandLoType(const std::string &) const;
 
-  std::string getExpandHiType(const std::string&) const;
+  std::string getExpandHiType(const std::string &) const;
 
-  const OclType* getOclType(const std::string&) const;
+  const OclType *getOclType(const std::string &) const;
 
-  const OclBuiltin* getOclBuiltin(const std::string&) const;
+  const OclBuiltin *getOclBuiltin(const std::string &) const;
 
-  const OclBuiltinImpl* getOclBuiltinImpl(const OclBuiltin*) const;
+  const OclBuiltinImpl *getOclBuiltinImpl(const OclBuiltin *) const;
 
-  typedef std::map<std::string, OclBuiltin*>::const_iterator const_proto_iterator;
+  typedef std::map<std::string, OclBuiltin *>::const_iterator
+      const_proto_iterator;
 
   inline const_proto_iterator proto_begin() const { return m_ProtoMap.begin(); }
-  inline const_proto_iterator   proto_end() const { return m_ProtoMap.end(); }
+  inline const_proto_iterator proto_end() const { return m_ProtoMap.end(); }
   inline size_t protoCount() const { return m_ProtoMap.size(); };
 
-  const RecordKeeper& getRecords() const { return m_Records; }
+  const RecordKeeper &getRecords() const { return m_Records; }
 
-  const Record* getRecord() const { return m_Record; }
+  const Record *getRecord() const { return m_Record; }
 
-  const std::string& getTarget() const { return m_Target; }
+  const std::string &getTarget() const { return m_Target; }
 
-  const std::string& getProlog() const { return m_Prolog; }
+  const std::string &getProlog() const { return m_Prolog; }
 
-  const std::string& getEpilog() const { return m_Epilog; }
+  const std::string &getEpilog() const { return m_Epilog; }
 
-  std::string getSVMLRounding(const std::string&) const;
+  std::string getSVMLRounding(const std::string &) const;
 
   // Process AliasMap records.
   void processAliasMap();
 
   // Check whether the builtin has alias names.
-  bool hasAlias(const OclBuiltin* builtin) const;
+  bool hasAlias(const OclBuiltin *builtin) const;
 
   // Return the alias name for a specific OclBuiltin record.
-  ArrayRef<std::string> getAliasNames(const OclBuiltin* builtin);
+  ArrayRef<std::string> getAliasNames(const OclBuiltin *builtin);
 
   // Return the types for the alias of a specific OclBuiltin record.
-  const std::set<const OclType*>& getAliasTypes(const OclBuiltin* builtin);
+  const std::set<const OclType *> &getAliasTypes(const OclBuiltin *builtin);
 
 protected:
-  RecordKeeper& m_Records;
-  const Record* m_Record;
+  RecordKeeper &m_Records;
+  const Record *m_Record;
   std::string m_Target;
   std::string m_Prolog;
   std::string m_Epilog;
-  std::map<std::string, OclType*> m_TypeMap;
-  std::map<std::string, OclBuiltin*> m_ProtoMap;
-  std::map<const OclBuiltin*, OclBuiltinImpl*> m_ImplMap;
-  std::map<const OclBuiltin*,
-           std::pair<std::vector<std::string>,
-                     std::set<const OclType*>>> m_AliasMap;
+  std::map<std::string, OclType *> m_TypeMap;
+  std::map<std::string, OclBuiltin *> m_ProtoMap;
+  std::map<const OclBuiltin *, OclBuiltinImpl *> m_ImplMap;
+  std::map<const OclBuiltin *,
+           std::pair<std::vector<std::string>, std::set<const OclType *>>>
+      m_AliasMap;
 };
 
 /// OclBuiltinEmitter
 class OclBuiltinEmitter {
 public:
-  explicit OclBuiltinEmitter(RecordKeeper&);
+  explicit OclBuiltinEmitter(RecordKeeper &);
 
-  void run(raw_ostream&);
+  void run(raw_ostream &);
 
 protected:
-  RecordKeeper& m_Records;
+  RecordKeeper &m_Records;
   OclBuiltinDB m_DB;
 };
 

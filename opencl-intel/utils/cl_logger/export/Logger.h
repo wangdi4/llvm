@@ -22,188 +22,196 @@
 
 #include <stdio.h>
 
-namespace Intel { namespace OpenCL { namespace Utils {
-    class IAtExitCentralPoint;
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
+class IAtExitCentralPoint;
 
-	/**********************************************************************************************
-	* Class name:	LoggerClient
-	*
-	* Description:	Module programmer interface for logging
-	*				Programmers willing to log messages in their module, need to create a logger
-	*				client for their module (or more than one), and log messages using it's Log
-	*				interface
-	* Author:		Uri Levy
-	* Date:			December 2008
-	**********************************************************************************************/
-	class LoggerClient
-	{
-	public:
+/*******************************************************************************
+ * Class name: LoggerClient
+ *
+ * Description: Module programmer interface for logging
+ *              Programmers willing to log messages in their module, need to
+ *              create a logger client for their module (or more than one), and
+ *              log messages using it's Log interface
+ * Author: Uri Levy
+ * Date: December 2008
+ ******************************************************************************/
+class LoggerClient {
+public:
+  /*****************************************************************************
+   * Function: LoggerClient
+   * Description: The LoggerClient class constructor - creater logger client
+   * Arguments: handle [in] - client unique string handle
+   *            loglevel [in] - log level
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  LoggerClient(const char *handle, ELogLevel loglevel);
 
-		/******************************************************************************************
-		* Function: 	LoggerClient
-		* Description:	The LoggerClient class constructor - creater logger client
-		* Arguments:	handle [in] -	client unique string handle
-		*				loglevel [in] -	log level
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		LoggerClient(const char* handle, ELogLevel loglevel);
+  /*****************************************************************************
+   * Function: ~LoggerClient
+   * Description: The LoggerClient class destructor
+   * Arguments:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  virtual ~LoggerClient();
 
-		/******************************************************************************************
-		* Function: 	~LoggerClient
-		* Description:	The LoggerClient class destructor
-		* Arguments:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		virtual ~LoggerClient();
+  /*****************************************************************************
+   * Function: Log(W)
+   * Description: log message to the logger client
+   * Arguments: level [in] - message log level
+   *            sourceFile [in] - the filename where the message was generated
+   *            functionName [in] - the functionName where the message was
+   *                                generated
+   *            sourceLine [in] - the sourceLine where the message was generated
+   *            message [in] - the message body with a variable arguments list
+   * Return value:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  void Log(ELogLevel level, const char *sourceFile, const char *functionName,
+           __int32 sourceLine, const char *message, ...);
 
-		/******************************************************************************************
-		* Function: 	Log(W)
-		* Description:	log message to the logger client
-		* Arguments:	level [in] -		message log level
-		*				sourceFile [in] -	the filename where the message was generated
-		*				functionName [in] -	the functionName where the message was generated
-		*				sourceLine [in] -	the sourceLine where the message was generated
-		*				message [in] -		the message body with a variable arguments list
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		void Log(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, ...);
+  /*****************************************************************************
+   * Function: Log
+   * Description: log message to the logger client
+   * Arguments: level [in] - message log level
+   *            sourceFile [in] - the filename where the message was generated
+   *            functionName [in] - the functionName where the message was
+   *                                generated
+   *            sourceLine [in] - the sourceLine where the message was generated
+   *            message [in] - the message body with a variable arguments list
+   *            va [in] - the message variable arguments list
+   * Return value:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  void LogArgList(ELogLevel level, const char *sourceFile,
+                  const char *functionName, __int32 sourceLine,
+                  const char *message, va_list va);
 
-		/******************************************************************************************
-		* Function: 	Log
-		* Description:	log message to the logger client
-		* Arguments:	level [in] -		message log level
-		*				sourceFile [in] -	the filename where the message was generated
-		*				functionName [in] -	the functionName where the message was generated
-		*				sourceLine [in] -	the sourceLine where the message was generated
-		*				message [in] -		the message body with a variable arguments list
-		*				va [in]	-			the message variable arguments list
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		void LogArgList(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, va_list va);
+private:
+  char *m_handle;               // unique string handle representation
+  ELogLevel m_logLevel;         // client log level (ignore levels < m_logLevel)
+  ELogConfigField m_eLogConfig; // configuration flags
+};
 
-	private:
-		char*			    m_handle;           // unique string handle representation
-		ELogLevel			m_logLevel;         // client log level (ignore levels < m_logLevel)
-		ELogConfigField		m_eLogConfig;		// configuration flags
+/*******************************************************************************
+ * Class name: Logger
+ *
+ * Description: represents the logging interface for clients.
+ * Author: Uri Levy
+ * Date: December 2008
+ ******************************************************************************/
+class Logger {
+public:
+  /*****************************************************************************
+   * Function: Logger
+   * Description: The Logger class constructor
+   * Arguments:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  Logger();
 
-	};
+  /*****************************************************************************
+   * Function: ~Logger
+   * Description: The Logger class destructor
+   * Arguments:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  virtual ~Logger();
 
-	/**********************************************************************************************
-	* Class name:	Logger
-	*
-	* Description:	represents the logging interface for clients.
-	* Author:		Uri Levy
-	* Date:			December 2008
-	**********************************************************************************************/
-	class Logger
-	{
-	public:
+  /*****************************************************************************
+   * Function: GetInstance
+   * Description: returns the Logger instance
+   *              The logger is implemented as a singleton. in order to get an
+   *              instance of the logger module users should call this method
+   * Arguments:
+   * Return value: an instance of the logger
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  static Logger &GetInstance();
 
-		/******************************************************************************************
-		* Function: 	Logger
-		* Description:	The Logger class constructor
-		* Arguments:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		Logger();
+  /*****************************************************************************
+   * Function: Log
+   * Description: instruct the logger to log message. the logger will propagate
+   *              the message to all log handlers.
+   * Arguments: level [in] - message log level
+   *            sourceFile [in] - the filename where the message was generated
+   *            functionName [in]  - the functionName where the message was
+   *                                 generated
+   *            sourceLine [in] - the sourceLine where the message was generated
+   *            message [in]    - the message body
+   *            va [in] - the message variable arguments list
+   * Return value:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  void Log(ELogLevel level, ELogConfigField config, const char *psClientName,
+           const char *sourceFile, const char *functionName, __int32 sourceLine,
+           const char *message, va_list va);
 
-		/******************************************************************************************
-		* Function: 	~Logger
-		* Description:	The Logger class destructor
-		* Arguments:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		virtual ~Logger();
+  /*****************************************************************************
+   * Function: GetLogHandlerParams
+   * Description: add new logger handler
+   *              Logger dispatches log messages to all Added loghandlers. in
+   *              case log handler's level <= logMessage's level, the message
+   *              will be sent to output
+   * Arguments: handle [in] - log handler unique string handle
+   * Return value:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  const char *GetLogHandlerParams(const char *handle);
 
-		/******************************************************************************************
-		* Function: 	GetInstance
-		* Description:	returns the Logger instance
-		*				The logger is implemented as a singleton. in order to get an instance of
-		*				the logger module users should call this method
-		* Arguments:
-		* Return value:	static Logger& - an instance of the logger
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		static Logger& GetInstance();
+  /*****************************************************************************
+   * Function: AddLogHandler
+   * Description: add new logger handler
+   *              Logger dispatches log messages to all Added loghandlers. in
+   *              case log handler's level <= logMessage's level, the message
+   *              will be sent to output
+   * Arguments: logHandler [in] - pointer to LogHandler instance
+   * Return value:
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  cl_err_code AddLogHandler(LogHandler *logHandler);
 
-		/******************************************************************************************
-		* Function: 	Log
-		* Description:	instruct the logger to log message. the logger will propagate the message
-		*				to all log handlers.
-		* Arguments:	level [in]			- message log level
-		*				sourceFile [in]		- the filename where the message was generated
-		*				functionName [in]	- the functionName where the message was generated
-		*				sourceLine [in]		- the sourceLine where the message was generated
-		*				message [in]		- the message body
-		*				va [in]				- the message variable arguments list
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-        void Log(ELogLevel level, ELogConfigField config, const char* psClientName, const char* sourceFile,
-                 const char* functionName, __int32 sourceLine, const char* message,  va_list va);
+  void SetActive(const bool bActive) { m_bIsActive = bActive; }
 
-		/******************************************************************************************
-		* Function: 	GetLogHandlerParams
-		* Description:	add new logger handler
-		*				Logger dispatches log messages to all Added loghandlers. in case log
-		*				handler's level <= logMessage's level, the message will be sent to output
-		* Arguments:	handle [in] - log handler unique string handle
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		const char*  GetLogHandlerParams(const char* handle);
+  bool IsActive() const { return m_bIsActive; }
 
-		/******************************************************************************************
-		* Function: 	AddLogHandler
-		* Description:	add new logger handler
-		*				Logger dispatches log messages to all Added loghandlers. in case log
-		*				handler's level <= logMessage's level, the message will be sent to output
-		* Arguments:	logHandler [in] - pointer to LogHandler instance
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		cl_err_code AddLogHandler(LogHandler* logHandler);
+  /*****************************************************************************
+   * Function: RegisterAtExitNotification
+   * Description: store at_exit notification callback to be called immediately
+   *              when DLL receives atexit() notification from OS BEFORE any
+   *              other internal action.
+   * Arguments: fn [in] - at_exit_notification_fn. NULL if need to disable
+   *                      callback
+   * Return value:
+   * Author: Dmitry Kaptsenel
+   * Date:
+   ****************************************************************************/
+  static void RegisterGlobalAtExitNotification(IAtExitCentralPoint *fn);
 
-		void SetActive(const bool bActive) { m_bIsActive = bActive; }
+private:
+  // each logging output generator is being represented by a LogHandler. Logger
+  // will propagate the LogMessages to all registered LogHandlers. Each will
+  // decide whether to emit the message according to its own LogLevel and the
+  // message's LogLevel.
+  LogHandler *m_logHandlers[MAX_LOG_HANDLERS];
 
-		bool IsActive() const { return m_bIsActive; }
+  bool m_bIsActive;
 
-        /******************************************************************************************
-        * Function:     RegisterAtExitNotification
-        * Description:  store at_exit notification callback to be called immediately when DLL receives atexit() notification
-        *               from OS BEFORE any other internal action.
-        * Arguments:    [in] at_exit_notification_fn. NULL if need to disable callback
-        * Return value:
-        * Author:       Dmitry Kaptsenel
-        * Date:         
-        ******************************************************************************************/
-        static void RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn );
+  // The class critical section object.
+  OclMutex m_CS;
+};
 
-	private:
-
-		// each logging output generator is being represented by a LogHandler. Logger will
-		// propagate the LogMessages to all registered LogHandlers. Each will decide whether to
-		// emit the message according to its own LogLevel and the message's LogLevel.
-		LogHandler*		m_logHandlers[MAX_LOG_HANDLERS];
-
-		bool			m_bIsActive;
-
-		// The class critical section object.
-
-		OclMutex	m_CS;
-
-	};
-
-}}}
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel

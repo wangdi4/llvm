@@ -15,8 +15,7 @@
 #ifndef __ATOMICS_H__
 #define __ATOMICS_H__
 
-
-namespace intel{
+namespace intel {
 // short implementation of atomics for thread-safe reference counter
 // written on base of llvm/Support/Atomic.h
 // our implementation is needed since this file is used in ocl_mic_executor
@@ -24,12 +23,12 @@ namespace intel{
 // to implement our own atomics
 namespace atomics {
 #ifdef _MSC_VER
-  typedef long atomic_type;
+typedef long atomic_type;
 #else
-  typedef unsigned atomic_type;
+typedef unsigned atomic_type;
 #endif
-  atomic_type AtomicIncrement(atomic_type* ptr);
-  atomic_type AtomicDecrement(atomic_type* ptr);
+atomic_type AtomicIncrement(atomic_type *ptr);
+atomic_type AtomicDecrement(atomic_type *ptr);
 } // namespace atomics
 } // namespace intel
 #endif // __ATOMICS_H__

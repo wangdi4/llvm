@@ -26,8 +26,7 @@ TEST_P(SGEmulationTest, BasicTests) {
       clCreateProgramWithSource(m_context, 1, &kernel, &kernel_size, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
-  iRet =
-      clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
+  iRet = clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));

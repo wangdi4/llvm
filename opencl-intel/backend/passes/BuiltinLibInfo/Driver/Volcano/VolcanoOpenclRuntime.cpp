@@ -16,60 +16,55 @@
 #include "Logger.h"
 
 namespace intel {
-  const char *volacanoScalarSelect[] = {
+const char *volacanoScalarSelect[] = {
     "_Z6selectccc", "_Z6selectcch", "_Z6selecthhc", "_Z6selecthhh",
     "_Z6selectsss", "_Z6selectsst", "_Z6selecttts", "_Z6selectttt",
     "_Z6selectiii", "_Z6selectiij", "_Z6selectjji", "_Z6selectjjj",
     "_Z6selectlll", "_Z6selectllm", "_Z6selectmml", "_Z6selectmmm",
-    "_Z6selectffi", "_Z6selectffj",
-    "_Z6selectddl", "_Z6selectddm",
-    nullptr
-  };
+    "_Z6selectffi", "_Z6selectffj", "_Z6selectddl", "_Z6selectddm",
+    nullptr};
 
-  bool VolcanoOpenclRuntime::needPreVectorizationFakeFunction(
-      const std::string & /*funcName*/) const {
-    return false;
-  }
-
-  bool
-  VolcanoOpenclRuntime::isWriteImage(const std::string & /*funcName*/) const {
-    return false;
-  }
-
-  bool VolcanoOpenclRuntime::isFakeWriteImage(
-      const std::string & /*funcName*/) const {
-    return false;
-  }
-
-  VolcanoOpenclRuntime::VolcanoOpenclRuntime(
-      ArrayRef<Module *> runtimeModuleList)
-      : OpenclRuntime(runtimeModuleList, volacanoScalarSelect) {}
-
-  bool VolcanoOpenclRuntime::isTransposedReadImg(
-      const std::string & /*funcName*/) const {
-    return false;
-  }
-
-  Function *
-  VolcanoOpenclRuntime::getWriteStream(bool /*isPointer64Bit*/) const {
-    return nullptr;
-  }
-
-  bool VolcanoOpenclRuntime::isTransposedWriteImg(
-      const std::string & /*funcName*/) const {
-    return false;
-  }
-
-  Function *VolcanoOpenclRuntime::getReadStream(bool /*isPointer64Bit*/) const {
-    return nullptr;
-  }
-
-  bool
-  VolcanoOpenclRuntime::isStreamFunc(const std::string & /*funcName*/) const {
-    return false;
-  }
+bool VolcanoOpenclRuntime::needPreVectorizationFakeFunction(
+    const std::string & /*funcName*/) const {
+  return false;
 }
 
+bool VolcanoOpenclRuntime::isWriteImage(
+    const std::string & /*funcName*/) const {
+  return false;
+}
+
+bool VolcanoOpenclRuntime::isFakeWriteImage(
+    const std::string & /*funcName*/) const {
+  return false;
+}
+
+VolcanoOpenclRuntime::VolcanoOpenclRuntime(ArrayRef<Module *> runtimeModuleList)
+    : OpenclRuntime(runtimeModuleList, volacanoScalarSelect) {}
+
+bool VolcanoOpenclRuntime::isTransposedReadImg(
+    const std::string & /*funcName*/) const {
+  return false;
+}
+
+Function *VolcanoOpenclRuntime::getWriteStream(bool /*isPointer64Bit*/) const {
+  return nullptr;
+}
+
+bool VolcanoOpenclRuntime::isTransposedWriteImg(
+    const std::string & /*funcName*/) const {
+  return false;
+}
+
+Function *VolcanoOpenclRuntime::getReadStream(bool /*isPointer64Bit*/) const {
+  return nullptr;
+}
+
+bool VolcanoOpenclRuntime::isStreamFunc(
+    const std::string & /*funcName*/) const {
+  return false;
+}
+} // namespace intel
 
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe

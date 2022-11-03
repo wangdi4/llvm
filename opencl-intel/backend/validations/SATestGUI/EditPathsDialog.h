@@ -15,43 +15,40 @@
 #ifndef EDITPATHSDIALOG_H
 #define EDITPATHSDIALOG_H
 
-#include <QDialog>
-#include <QMessageBox>
-#include <QFile>
-#include <QDir>
-#include <QFileDialog>
 #include "AppSettings.h"
+#include <QDialog>
+#include <QDir>
+#include <QFile>
+#include <QFileDialog>
+#include <QMessageBox>
 
 namespace Ui {
 class EditPathsDialog;
 }
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The EditPathsDialog class
- * @detailed shows dialog for add|update|remove path to SATest.exe and its working directory
+ * @detailed shows dialog for add|update|remove path to SATest.exe and its
+ * working directory
  */
-class EditPathsDialog : public QDialog
-{
-    Q_OBJECT
+class EditPathsDialog : public QDialog {
+  Q_OBJECT
 
 public:
-    explicit EditPathsDialog(QWidget *parent = 0);
-    ~EditPathsDialog();
+  explicit EditPathsDialog(QWidget *parent = 0);
+  ~EditPathsDialog();
 
 private:
-    Ui::EditPathsDialog *ui;
+  Ui::EditPathsDialog *ui;
 private slots:
-    void check();
-    void selectSatest();
-    void selectWorkDir();
+  void check();
+  void selectSatest();
+  void selectWorkDir();
 };
 
-
-}
-}
+} // namespace GUI
+} // namespace Validation
 #endif // EDITPATHSDIALOG_H

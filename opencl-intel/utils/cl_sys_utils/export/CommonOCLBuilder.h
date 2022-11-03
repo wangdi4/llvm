@@ -19,68 +19,72 @@
 
 #include <frontend_api.h>
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
 //
-//Name: OCLBinaryFactory
-//Description: Simplifies the OCL source building process
+// Name: OCLBinaryFactory
+// Description: Simplifies the OCL source building process
 //
-class CommonOCLBuilder{
+class CommonOCLBuilder {
 public:
   //
-  //returns a singleton instance of this.
-  static CommonOCLBuilder& instance();
+  // returns a singleton instance of this.
+  static CommonOCLBuilder &instance();
 
-  //Sets the name of the library, from which the compiler will be loaded
-  CommonOCLBuilder& withLibrary(const char* lib);
+  // Sets the name of the library, from which the compiler will be loaded
+  CommonOCLBuilder &withLibrary(const char *lib);
 
-  //Sets the build options
-  CommonOCLBuilder& withBuildOptions(const char* options);
+  // Sets the build options
+  CommonOCLBuilder &withBuildOptions(const char *options);
 
-  //sets the OCL source to be compiled
-  CommonOCLBuilder& withSource(const char* src);
+  // sets the OCL source to be compiled
+  CommonOCLBuilder &withSource(const char *src);
 
-  CommonOCLBuilder& withExtensions(const char* extentions);
+  CommonOCLBuilder &withExtensions(const char *extentions);
 
-  CommonOCLBuilder& withFP64Support(bool );
-  CommonOCLBuilder& withImageSupport(bool );
-  CommonOCLBuilder& withFpgaEmulator(bool );
-  //cleanup function
+  CommonOCLBuilder &withFP64Support(bool);
+  CommonOCLBuilder &withImageSupport(bool);
+  CommonOCLBuilder &withFpgaEmulator(bool);
+  // cleanup function
   void close();
 
-  //Compiles the (previously given) source file with the compiler loaded from
+  // Compiles the (previously given) source file with the compiler loaded from
   //(the previously given) library.
-  //Returns value: IOCLFEBinaryResult, which contains the binary result in its
-  //bytecode form, with some metadeta on it (size in bytes etc.)
-  Intel::OpenCL::ClangFE::IOCLFEBinaryResult* build();
+  // Returns value: IOCLFEBinaryResult, which contains the binary result in its
+  // bytecode form, with some metadeta on it (size in bytes etc.)
+  Intel::OpenCL::ClangFE::IOCLFEBinaryResult *build();
 
 private:
   CommonOCLBuilder();
   // Prevent misuse, can't be stack allocated
-  CommonOCLBuilder(const CommonOCLBuilder& builder);
+  CommonOCLBuilder(const CommonOCLBuilder &builder);
 
-  Intel::OpenCL::FECompilerAPI::IOCLFECompiler* createCompiler(const char* lib);
+  Intel::OpenCL::FECompilerAPI::IOCLFECompiler *createCompiler(const char *lib);
 
-  //Statically initialized instance of the builder
+  // Statically initialized instance of the builder
   static CommonOCLBuilder _instance;
-  //compiler pointer, extracted by 'withLibrary' method
-  Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_pCompiler;
-  //used to load the library
+  // compiler pointer, extracted by 'withLibrary' method
+  Intel::OpenCL::FECompilerAPI::IOCLFECompiler *m_pCompiler;
+  // used to load the library
   Intel::OpenCL::Utils::OclDynamicLib m_dynamicLoader;
-  //source to be compiled
+  // source to be compiled
   std::string m_source;
-  //build options
+  // build options
   std::string m_options;
-  //extensions
+  // extensions
   std::string m_extensions;
-  //Indicates whether doubles are supported by the device
+  // Indicates whether doubles are supported by the device
   bool m_bSupportFP64;
-  //Indicates whether images are supported by the device
+  // Indicates whether images are supported by the device
   bool m_bSupportImages;
   // Indicates whether FPGA emulation is supported by the device
   bool m_bFpgaEmulator;
 };
 
-}}} // Namespaces
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel
 
 #endif //__OCL_BUILDER_H__

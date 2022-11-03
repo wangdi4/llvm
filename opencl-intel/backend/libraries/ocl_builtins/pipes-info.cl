@@ -46,9 +46,8 @@ int __pipe_get_max_packets_fpga(int depth, int mode) {
   // if (mode == CHANNEL_DEPTH_MODE_IGNORE_DEPTH ||
   //    (mode == CHANNEL_DEPTH_MODE_DEFAULT && depth == 0))
   // pipe max_packets should be more than maximum of supported VL
-  int max_packets = depth > MAX_VL_SUPPORTED_BY_PIPES
-    ? depth
-    : MAX_VL_SUPPORTED_BY_PIPES;
+  int max_packets =
+      depth > MAX_VL_SUPPORTED_BY_PIPES ? depth : MAX_VL_SUPPORTED_BY_PIPES;
 
   // reserve one extra element b/w head and tail to distinguish full/empty
   // conditions
@@ -67,7 +66,7 @@ int __pipe_get_max_packets_fpga(int depth, int mode) {
 }
 
 int __pipe_get_total_size_fpga(int packet_size, int depth, int mode) {
-  size_t total = sizeof(struct __pipe_t)       // header
-    + packet_size * __pipe_get_max_packets_fpga(depth, mode);
+  size_t total = sizeof(struct __pipe_t) // header
+                 + packet_size * __pipe_get_max_packets_fpga(depth, mode);
   return total;
 }

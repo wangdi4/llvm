@@ -108,7 +108,7 @@ class TestBreakpoints(DebuggerTestCase):
         self.client.start_session(0, 0, 0)
         bps = []
         for i in range(100):
-		    # set breakpoints at 100 nested functions (functions name foon) one by one
+        # set breakpoints at 100 nested functions (functions name foon) one by one
             # first function is at NESTED_FIRST_FUNC_ROW and next function is NESTED_JUMP rows after that
             bps.append((self.CLNAME, self.NESTED_FIRST_FUNC_ROW - i*self.NESTED_JUMP))
         for i in range(100):

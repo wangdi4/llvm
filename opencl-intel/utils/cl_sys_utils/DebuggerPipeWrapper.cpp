@@ -20,9 +20,8 @@
 
 #define CONTENT_SIZE 7
 
-DebuggerPipeWrapper::DebuggerPipeWrapper(): m_isDeubggingEnabled(false), m_debuggingPort(0)
-{
-}
+DebuggerPipeWrapper::DebuggerPipeWrapper()
+    : m_isDeubggingEnabled(false), m_debuggingPort(0) {}
 
 bool DebuggerPipeWrapper::init(std::string pipeName) {
   HANDLE hPipe = nullptr;

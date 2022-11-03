@@ -7,16 +7,16 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-mul (	__global const float *in,
-		__global float *out, __global const double2 double2Arg1, __global double2 double2Arg2)
+mul (  __global const float *in,
+    __global float *out, __global const double2 double2Arg1, __global double2 double2Arg2)
 {
-	int gid = get_global_id(0);
-	double2 tmp = double2Arg1 * double2Arg2;
-	out[gid] = tmp.x + tmp.y;
+  int gid = get_global_id(0);
+  double2 tmp = double2Arg1 * double2Arg2;
+  out[gid] = tmp.x + tmp.y;
 }

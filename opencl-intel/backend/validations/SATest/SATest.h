@@ -15,79 +15,73 @@
 #ifndef SATest_H
 #define SATest_H
 
-#include "IProgramRunner.h"
 #include "IProgram.h"
+#include "IProgramRunner.h"
 #include "IRunConfiguration.h"
 
-#include "RunnerFactoryGenerator.h"
 #include "BufferContainerList.h"
 #include "RunResult.h"
+#include "RunnerFactoryGenerator.h"
 
 #include <string>
 
-namespace Validation
-{
-    /// @brief The main class that runs a single test 
-    class SATest
-    {
-    public:
+namespace Validation {
+/// @brief The main class that runs a single test
+class SATest {
+public:
+  /// @brief Constructor
+  /// @param [IN] configFileName Name of file that contains run configurations
+  /// @param [IN] baseDirectory Directory to use in data file lookup
+  /// @param [IN] pRunConfiguration Run configuration file
+  SATest(const std::string &configFileName, const std::string &baseDirectory,
+         IRunConfiguration *pRunConfiguration);
 
-        /// @brief Constructor
-        /// @param [IN] configFileName Name of file that contains run configurations
-        /// @param [IN] baseDirectory Directory to use in data file lookup
-        /// @param [IN] pRunConfiguration Run configuration file
-        SATest( const std::string& configFileName,
-                const std::string& baseDirectory,
-                IRunConfiguration* pRunConfiguration);
+  /// @brief Destructor
+  virtual ~SATest(void);
 
-        /// @brief Destructor
-        virtual ~SATest(void);
+  /// @brief Runs a single test
+  /// @throws TestFailException In case the test failed
+  void Run(TEST_MODE mode, IRunConfiguration *pRunConfiguration);
 
-        /// @brief Runs a single test
-        /// @throws TestFailException In case the test failed
-        void Run(TEST_MODE mode, IRunConfiguration* pRunConfiguration);
+  /// @brief Validates execution environment of SATest
+  /// @throws InvalidEnvironmentException in case of invalid environment
+  static void ValidateEnvironment();
 
-        /// @brief Validates execution environment of SATest
-        /// @throws InvalidEnvironmentException in case of invalid environment
-        static void ValidateEnvironment();
+private:
+  /// @brief Loads or re-generate reference output.
+  void LoadOrGenerateReference(IRunConfiguration *pRunConfiguration,
+                               IRunResult *pResult);
 
-    private:
-        /// @brief Loads or re-generate reference output.
-        void LoadOrGenerateReference(IRunConfiguration* pRunConfiguration, IRunResult* pResult);
+  /// @brief re-generate reference output.
+  void RunReference(const IRunComponentConfiguration *pRunConfiguration);
 
-        /// @brief re-generate reference output.
-        void RunReference(const IRunComponentConfiguration* pRunConfiguration);
+  /// @brief Runs a single test and measure its performance
+  void RunPerformance(const IRunComponentConfiguration *pRunConfiguration);
 
-        /// @brief Runs a single test and measure its performance
-        void RunPerformance(const IRunComponentConfiguration* pRunConfiguration);
+  /// @brief Runs a single test and measure its performance
+  void RunValidation(IRunConfiguration *pRunConfiguration);
 
-        /// @brief Runs a single test and measure its performance
-        void RunValidation(IRunConfiguration* pRunConfiguration);
+  /// @brief Generate the reference output
+  void GenerateReference(IRunResult *pResult, IProgramRunner *pRunner,
+                         const IRunComponentConfiguration *pRunConfiguration);
 
-        /// @brief Generate the reference output
-        void GenerateReference(IRunResult* pResult,
-                               IProgramRunner* pRunner,
-                               const IRunComponentConfiguration* pRunConfiguration);
+  /// @brief Load the reference output
+  void LoadReference(IRunResult *pResult, IProgramRunner *pRunner,
+                     const IRunComponentConfiguration *pRunConfiguration);
 
-        /// @brief Load the reference output
-        void LoadReference(IRunResult* pResult,
-                               IProgramRunner* pRunner,
-                               const IRunComponentConfiguration* pRunConfiguration);
+  /// @brief Runs a single test in build only mode
+  void RunBuildOnly(const IRunComponentConfiguration *pRunConfiguration);
 
-        /// @brief Runs a single test in build only mode
-        void RunBuildOnly(const IRunComponentConfiguration* pRunConfiguration);
+private:
+  /// @brief Runner factory generator
+  IRunnerFactory &m_factory;
 
-    private:
+  /// @brief Test run configuration
+  IProgramConfiguration *m_pProgramConfiguration;
 
-        /// @brief Runner factory generator
-        IRunnerFactory& m_factory;
-
-        /// @brief Test run configuration
-        IProgramConfiguration * m_pProgramConfiguration;
-
-        /// @brief Test program
-        IProgram * m_pProgram;
-    };
-}
+  /// @brief Test program
+  IProgram *m_pProgram;
+};
+} // namespace Validation
 
 #endif // SATest_H

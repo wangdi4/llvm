@@ -15,48 +15,46 @@
 #ifndef RUNDIALOG_H
 #define RUNDIALOG_H
 
+#include "ConfigManager.h"
 #include <QDialog>
 #include <QListWidgetItem>
-#include "ConfigManager.h"
 
 namespace Ui {
 class RunDialog;
 }
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The RunDialog class
- * @detailed Dialog which shows when we click to "Run SATest" button. Shows all variants of set of run options.
+ * @detailed Dialog which shows when we click to "Run SATest" button. Shows all
+ * variants of set of run options.
  */
-class RunDialog : public QDialog
-{
-    Q_OBJECT
+class RunDialog : public QDialog {
+  Q_OBJECT
 
 public:
-    /**
-     * @brief RunDialog constructor
-     * @param variants - vector of sets of run options
-     */
-    explicit RunDialog(QVector<RunVariant> variants,QWidget *parent = 0);
-    ~RunDialog();
-    /**
-     * @brief getSelectedOption
-     * @return index in run variants vector which selected by user
-     */
-    int getSelectedOption(){return index;}
+  /**
+   * @brief RunDialog constructor
+   * @param variants - vector of sets of run options
+   */
+  explicit RunDialog(QVector<RunVariant> variants, QWidget *parent = 0);
+  ~RunDialog();
+  /**
+   * @brief getSelectedOption
+   * @return index in run variants vector which selected by user
+   */
+  int getSelectedOption() { return index; }
 
 private:
-    Ui::RunDialog *ui;
-    int index;
+  Ui::RunDialog *ui;
+  int index;
 private slots:
-    void selectedItem(int);
+  void selectedItem(int);
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // RUNDIALOG_H

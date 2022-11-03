@@ -2,10 +2,9 @@
 
 #include "FrameworkTest.h"
 
-typedef RETURN_TYPE_ENTRY_POINT (STDCALL *ThreadEntryPoint)(void *);
+typedef RETURN_TYPE_ENTRY_POINT(STDCALL *ThreadEntryPoint)(void *);
 
-class Thread
-{
+class Thread {
 public:
   Thread() {}
   virtual ~Thread() {}
@@ -23,8 +22,7 @@ protected:
 #endif
 };
 
-class SynchronizedThread : public Thread
-{
+class SynchronizedThread : public Thread {
 public:
   SynchronizedThread() {}
   virtual ~SynchronizedThread() {}
@@ -40,17 +38,20 @@ protected:
 
 class SynchronizedThreadPool {
 public:
-	SynchronizedThreadPool() : m_init(false), m_threadStarted(NULL) {}
-	virtual ~SynchronizedThreadPool() { if (NULL != m_threadStarted) delete[] m_threadStarted; }
+  SynchronizedThreadPool() : m_init(false), m_threadStarted(NULL) {}
+  virtual ~SynchronizedThreadPool() {
+    if (NULL != m_threadStarted)
+      delete[] m_threadStarted;
+  }
 
-	bool Init(SynchronizedThread** pThreads, size_t numThreads);
+  bool Init(SynchronizedThread **pThreads, size_t numThreads);
 
-	void StartAll();
-	void WaitAll();
+  void StartAll();
+  void WaitAll();
 
 protected:
-    bool                 m_init;
-    SynchronizedThread** m_threads;
-    bool*                m_threadStarted;
-    size_t               m_numThreads;
+  bool m_init;
+  SynchronizedThread **m_threads;
+  bool *m_threadStarted;
+  size_t m_numThreads;
 };

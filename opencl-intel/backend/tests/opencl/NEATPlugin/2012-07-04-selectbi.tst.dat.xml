@@ -37,7 +37,7 @@
         <Vector id="31">3</Vector>
       </Buffer>
       <Buffer length="32" vectorWidth="1" type="i8" type_size_in_bytes="1" neat="0">
-	<Vector id="0">169</Vector>
+  <Vector id="0">169</Vector>
         <Vector id="1">7</Vector>
         <Vector id="2">7</Vector>
         <Vector id="3">7</Vector>
@@ -71,7 +71,7 @@
         <Vector id="31">7</Vector>
       </Buffer>
       <Buffer length="32" vectorWidth="1" type="i8" type_size_in_bytes="1" neat="0">
-	<Vector id="0">169</Vector>
+  <Vector id="0">169</Vector>
         <Vector id="1">1</Vector>
         <Vector id="2">1</Vector>
         <Vector id="3">1</Vector>
@@ -105,7 +105,7 @@
         <Vector id="31">1</Vector>
       </Buffer>
       <Buffer length="32" vectorWidth="1" type="i8" type_size_in_bytes="1" neat="0">
-	<Vector id="0">1</Vector>
+  <Vector id="0">1</Vector>
         <Vector id="1">0</Vector>
         <Vector id="2">1</Vector>
         <Vector id="3">0</Vector>

@@ -14,14 +14,15 @@
 
 #pragma once
 
-
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/Support/MemoryBuffer.h"
 
-#include <string>
 #include <memory>
+#include <string>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 /**
  *  Manages calls for saving and loading the Objects for saving compilation time
@@ -33,28 +34,29 @@ private:
   std::unique_ptr<llvm::MemoryBuffer> m_pObjectBuffer;
   bool m_isObjectAvailable;
 
-  ObjectCodeCache( const ObjectCodeCache& rhs );
-  ObjectCodeCache& operator=( const ObjectCodeCache& rhs );
+  ObjectCodeCache(const ObjectCodeCache &rhs);
+  ObjectCodeCache &operator=(const ObjectCodeCache &rhs);
 
 public:
-  ObjectCodeCache():
-    m_isObjectAvailable(false)
-    { }
+  ObjectCodeCache() : m_isObjectAvailable(false) {}
 
-  ObjectCodeCache(llvm::Module* pModule, const char* pObject, size_t ObjectSize);
+  ObjectCodeCache(llvm::Module *pModule, const char *pObject,
+                  size_t ObjectSize);
 
   virtual ~ObjectCodeCache();
 
   /// notifyObjectCompiled - will be called once the codegen generates an object
-  virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef)
-      override;
+  virtual void notifyObjectCompiled(const llvm::Module *,
+                                    llvm::MemoryBufferRef) override;
 
   /// getObject - Returns a pointer to a pre-compiled object buffer previously
   /// added to the cache or 0 if the object not found
-  virtual std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M)
-      override;
+  virtual std::unique_ptr<llvm::MemoryBuffer>
+  getObject(const llvm::Module *M) override;
 
   virtual bool isObjectAvailable() const { return m_isObjectAvailable; }
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

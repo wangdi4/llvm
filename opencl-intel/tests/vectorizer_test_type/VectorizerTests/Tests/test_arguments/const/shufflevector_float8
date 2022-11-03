@@ -6,18 +6,18 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-shufflevector_float8 (	__global const float *in,
-		__global float *out)
+shufflevector_float8 (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	float8 vec = (float8)(ARG0, ARG0, ARG0, ARG0, ARG0, ARG0, ARG0, ARG0);
-	vec.s0124756 = FLOAT8_VEC1.s2106534;
-	vec = vec + vec;
-	out[gid] = vec.s0;
+  int gid = get_global_id(0);
+  float8 vec = (float8)(ARG0, ARG0, ARG0, ARG0, ARG0, ARG0, ARG0, ARG0);
+  vec.s0124756 = FLOAT8_VEC1.s2106534;
+  vec = vec + vec;
+  out[gid] = vec.s0;
 }

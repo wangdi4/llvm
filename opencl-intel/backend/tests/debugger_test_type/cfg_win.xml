@@ -1,8 +1,8 @@
 <TestConfig>
-	<TestCases>
-		<TestCase>
-			<Name>ALL</Name>
-			<Command> </Command>
-		</TestCase>
-	</TestCases>
+  <TestCases>
+    <TestCase>
+      <Name>ALL</Name>
+      <Command> </Command>
+    </TestCase>
+  </TestCases>
 </TestConfig>

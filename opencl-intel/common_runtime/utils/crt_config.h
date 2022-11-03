@@ -16,19 +16,19 @@
 #include "crt_types.h"
 
 #include <iostream>
-#include <vector>
 #include <string>
+#include <vector>
 
-class CrtConfig
-{
+class CrtConfig {
 public:
-    CrtConfig();
-    crt_err_code Init();
-    cl_uint getNumPlatforms();
-    std::string& getPlatformLibName(cl_uint index);
-    ~CrtConfig();
-private:
-	bool emulatorEnabled();
+  CrtConfig();
+  crt_err_code Init();
+  cl_uint getNumPlatforms();
+  std::string &getPlatformLibName(cl_uint index);
+  ~CrtConfig();
 
-    std::vector<std::string>    m_libraryNames;
+private:
+  bool emulatorEnabled();
+
+  std::vector<std::string> m_libraryNames;
 };

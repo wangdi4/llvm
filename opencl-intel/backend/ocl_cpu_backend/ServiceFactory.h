@@ -14,10 +14,12 @@
 
 #pragma once
 
-#include <assert.h>
 #include "cl_dev_backend_api.h"
+#include <assert.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 class ICLDebuggingService;
 
@@ -28,109 +30,114 @@ class ICLDebuggingService;
 //
 class ICLDevBackendServiceFactoryInternal : public ICLDevBackendServiceFactory {
 public:
-    virtual cl_dev_err_code GetDebuggingService(
-        ICLDebuggingService** pDebuggingService) = 0;
+  virtual cl_dev_err_code
+  GetDebuggingService(ICLDebuggingService **pDebuggingService) = 0;
 };
 
-
-class ServiceFactory: public ICLDevBackendServiceFactoryInternal
-{
+class ServiceFactory : public ICLDevBackendServiceFactoryInternal {
 private:
-    ServiceFactory();
-    ~ServiceFactory();
+  ServiceFactory();
+  ~ServiceFactory();
 
 public:
-    static void Init();
-    static void Terminate();
-    static ICLDevBackendServiceFactory* GetInstance();
+  static void Init();
+  static void Terminate();
+  static ICLDevBackendServiceFactory *GetInstance();
 
-    /**
-     * Get an instance as a pointer to the internal service factory interface.
-     * Required to be able to access methods added in the internal interface.
-    */
-    static ICLDevBackendServiceFactoryInternal* GetInstanceInternal();
+  /**
+   * Get an instance as a pointer to the internal service factory interface.
+   * Required to be able to access methods added in the internal interface.
+   */
+  static ICLDevBackendServiceFactoryInternal *GetInstanceInternal();
 
-    /**
-     * Creates Compilation Service object
-     *
-     * @param pBackendOptions pointer to class which will contain the backend compilation
-     *  options (target arch, target description , etc ..)
-     * @param pBackendCompilationService will be modified to contain the generated object
-     *
-     * @returns
-     *  CL_DEV_SUCCESS in case of success, otherwise:
-     *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
-     *  CL_DEV_ERROR_FAIL in any other failure
-     */
-    virtual cl_dev_err_code GetCompilationService(
-        const ICLDevBackendOptions *pBackendOptions,
-        ICLDevBackendCompilationService **pBackendCompilationService) override;
+  /**
+   * Creates Compilation Service object
+   *
+   * @param pBackendOptions pointer to class which will contain the backend
+   * compilation options (target arch, target description , etc ..)
+   * @param pBackendCompilationService will be modified to contain the generated
+   * object
+   *
+   * @returns
+   *  CL_DEV_SUCCESS in case of success, otherwise:
+   *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
+   *  CL_DEV_ERROR_FAIL in any other failure
+   */
+  virtual cl_dev_err_code GetCompilationService(
+      const ICLDevBackendOptions *pBackendOptions,
+      ICLDevBackendCompilationService **pBackendCompilationService) override;
 
-    /**
-     * Creates Execution Service object
-     *
-     * @param pBackendOptions pointer to class which will contain the backend execution
-     *  options (like printf handler address, alloc\dealloc program JIT handler address, etc ..)
-     * @param pBackendExecutionService will be modified to contain the generated object
-     *
-     * @returns
-     *  CL_DEV_SUCCESS in case of success, otherwise:
-     *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
-     *  CL_DEV_NOT_SUPPORTED in case of requesting ACCELERATOR execution service on the host.
-     *  CL_DEV_ERROR_FAIL in any other failure
-     */
-    virtual cl_dev_err_code GetExecutionService(
-        const ICLDevBackendOptions *pBackendOptions,
-        ICLDevBackendExecutionService **pBackendExecutionService) override;
+  /**
+   * Creates Execution Service object
+   *
+   * @param pBackendOptions pointer to class which will contain the backend
+   * execution options (like printf handler address, alloc\dealloc program JIT
+   * handler address, etc ..)
+   * @param pBackendExecutionService will be modified to contain the generated
+   * object
+   *
+   * @returns
+   *  CL_DEV_SUCCESS in case of success, otherwise:
+   *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
+   *  CL_DEV_NOT_SUPPORTED in case of requesting ACCELERATOR execution service
+   * on the host. CL_DEV_ERROR_FAIL in any other failure
+   */
+  virtual cl_dev_err_code GetExecutionService(
+      const ICLDevBackendOptions *pBackendOptions,
+      ICLDevBackendExecutionService **pBackendExecutionService) override;
 
-    /**
-     * Creates Serialization Service object
-     *
-     * @param pBackendOptions pointer to class which will contain the backend compilation
-     *  options (alloc\dealloc program JIT handler address, etc ..)
-     * @param pBackendSerializationService will be modified to contain the generated object
-     *
-     * @returns
-     *  CL_DEV_SUCCESS in case of success, otherwise:
-     *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
-     *  CL_DEV_ERROR_FAIL in any other failure
-     */
-    virtual cl_dev_err_code
-    GetSerializationService(const ICLDevBackendOptions *pBackendOptions,
-                            ICLDevBackendSerializationService *
-                                *pBackendSerializationService) override;
+  /**
+   * Creates Serialization Service object
+   *
+   * @param pBackendOptions pointer to class which will contain the backend
+   * compilation options (alloc\dealloc program JIT handler address, etc ..)
+   * @param pBackendSerializationService will be modified to contain the
+   * generated object
+   *
+   * @returns
+   *  CL_DEV_SUCCESS in case of success, otherwise:
+   *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
+   *  CL_DEV_ERROR_FAIL in any other failure
+   */
+  virtual cl_dev_err_code
+  GetSerializationService(const ICLDevBackendOptions *pBackendOptions,
+                          ICLDevBackendSerializationService *
+                              *pBackendSerializationService) override;
 
-    /**
-     * Creates Image Service object
-     *
-     * @param pBackendOptions pointer to class which will contain the backend compilation
-     *  options (alloc\dealloc program JIT handler address, etc ..)
-     * @param pBackendImageService [OUT] will be modified to contain the generated object
-     *
-     * @returns
-     *  CL_DEV_SUCCESS in case of success, otherwise:
-     *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
-     *  CL_DEV_ERROR_FAIL in any other failure
-     */
-    virtual cl_dev_err_code
-    GetImageService(const ICLDevBackendOptions *pBackendOptions,
-                    ICLDevBackendImageService **ppBackendImageService) override;
+  /**
+   * Creates Image Service object
+   *
+   * @param pBackendOptions pointer to class which will contain the backend
+   * compilation options (alloc\dealloc program JIT handler address, etc ..)
+   * @param pBackendImageService [OUT] will be modified to contain the generated
+   * object
+   *
+   * @returns
+   *  CL_DEV_SUCCESS in case of success, otherwise:
+   *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
+   *  CL_DEV_ERROR_FAIL in any other failure
+   */
+  virtual cl_dev_err_code
+  GetImageService(const ICLDevBackendOptions *pBackendOptions,
+                  ICLDevBackendImageService **ppBackendImageService) override;
 
-    /**
-     * Creates a Debugging Service object
-     *
-     * @ param pDebuggingService will be modified to contain the generated
-     *         object.
-     *
-     * @returns
-     *  CL_DEV_SUCCESS in case of success, otherwise:
-     *  CL_DEV_ERROR_FAIL in case of failure
-     */
-    virtual cl_dev_err_code
-    GetDebuggingService(ICLDebuggingService **pDebuggingService) override;
+  /**
+   * Creates a Debugging Service object
+   *
+   * @ param pDebuggingService will be modified to contain the generated
+   *         object.
+   *
+   * @returns
+   *  CL_DEV_SUCCESS in case of success, otherwise:
+   *  CL_DEV_ERROR_FAIL in case of failure
+   */
+  virtual cl_dev_err_code
+  GetDebuggingService(ICLDebuggingService **pDebuggingService) override;
 
-  private:
-    static ServiceFactory* s_pInstance;
+private:
+  static ServiceFactory *s_pInstance;
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

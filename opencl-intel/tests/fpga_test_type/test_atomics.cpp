@@ -52,7 +52,8 @@ TEST_F(TestAtomcis, No64BitAtomicsSupport) {
   iRet = clBuildProgram(program, 1, &deviceId, nullptr, nullptr, nullptr);
 
   ASSERT_EQ(CL_BUILD_PROGRAM_FAILURE, iRet)
-      << "clBuildProgram should fail but succeeded. Input contains 64bit atomics"
+      << "clBuildProgram should fail but succeeded. Input contains 64bit "
+         "atomics"
          " which are not supported on FPGA emulator.";
 
   std::string log("", 1000);
@@ -61,5 +62,4 @@ TEST_F(TestAtomcis, No64BitAtomicsSupport) {
 
   ASSERT_TRUE(log.find("64bit atomics are not supported on FPGA emulator") !=
               std::string::npos);
-
 }

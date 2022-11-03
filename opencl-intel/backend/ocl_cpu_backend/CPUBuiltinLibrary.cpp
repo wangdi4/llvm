@@ -20,14 +20,15 @@
 #include "llvm/Support/MemoryBuffer.h"
 
 #if defined(_WIN32)
-    #include <windows.h>
+#include <windows.h>
 #else
-    #include <linux/limits.h>
-    #define MAX_PATH PATH_MAX
+#include <linux/limits.h>
+#define MAX_PATH PATH_MAX
 #endif
 
-
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 using namespace llvm;
 
@@ -44,7 +45,7 @@ void CPUBuiltinLibrary::Load() {
     // Load SVML functions
     assert(CPUPrefix && "CPUPrefix is null");
     std::string SVMLPath = PathStr + "__ocl_svml_" + CPUPrefix;
-#if defined (_WIN32)
+#if defined(_WIN32)
     SVMLPath += ".dll";
 #else
     SVMLPath += ".so";
@@ -61,8 +62,8 @@ void CPUBuiltinLibrary::Load() {
   // Load target-specific built-in library
   std::string RTLPath = PathStr + "clbltfn" + CPUPrefix + ".rtl";
   ErrorOr<std::unique_ptr<MemoryBuffer>> RTLBufferOrErr =
-    MemoryBuffer::getFile(RTLPath);
-  if(!RTLBufferOrErr)
+      MemoryBuffer::getFile(RTLPath);
+  if (!RTLBufferOrErr)
     throw Exceptions::DeviceBackendExceptionBase(
         std::string("Failed to load the builtins rtl library"));
 
@@ -74,15 +75,15 @@ void CPUBuiltinLibrary::Load() {
   //    clbltfnshared.rtl
   //    x64/ or x86/
   //        other libraries
-#if defined (_WIN32)
+#if defined(_WIN32)
   std::string RTLSharedPath = PathStr + "..\\clbltfnshared.rtl";
 #else
   std::string RTLSharedPath = PathStr + "../clbltfnshared.rtl";
 #endif
   // Trying to load it
   ErrorOr<std::unique_ptr<MemoryBuffer>> RTLBufferSharedOrErr =
-    MemoryBuffer::getFile(RTLSharedPath);
-  if(!RTLBufferSharedOrErr) {
+      MemoryBuffer::getFile(RTLSharedPath);
+  if (!RTLBufferSharedOrErr) {
     // TODO: Fix build layout to not support this case
     // Development install case:
     // shared library is in the same directory as other ones
@@ -90,11 +91,13 @@ void CPUBuiltinLibrary::Load() {
 
     // Trying to load it
     RTLBufferSharedOrErr = MemoryBuffer::getFile(RTLSharedPath);
-    if(!RTLBufferSharedOrErr)
+    if (!RTLBufferSharedOrErr)
       throw Exceptions::DeviceBackendExceptionBase(
           std::string("Failed to load the shared builtins rtl library"));
   }
   m_pRtlBufferSvmlShared = std::move(RTLBufferSharedOrErr.get());
 }
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

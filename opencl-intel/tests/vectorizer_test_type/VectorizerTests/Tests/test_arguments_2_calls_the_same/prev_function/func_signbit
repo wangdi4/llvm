@@ -7,22 +7,22 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-func_signbit (	__global const float *in,
-		__global float16 *out)
+func_signbit (  __global const float *in,
+    __global float16 *out)
 {
-	int gid = get_global_id(0);
-	float x = gid;
-	float y = max((float)gid, (float)(in[gid])) * in[gid];
-	float z = fast_length(x * y);
-	float w = fma(x, y, z) -y + x * z;
-	long16 tmp = (long16) ( x, x, y - z, x * y + w, y + x -z * x, y, z, y, z, x * x * x, y * x * w, y + y, z - w, w - x - 1, y, w);
-	long16 res1 = signbit(tmp);
-	long16 res2 = signbit(tmp);
-	out[gid] = convert_float16(res1 * res2);
+  int gid = get_global_id(0);
+  float x = gid;
+  float y = max((float)gid, (float)(in[gid])) * in[gid];
+  float z = fast_length(x * y);
+  float w = fma(x, y, z) -y + x * z;
+  long16 tmp = (long16) ( x, x, y - z, x * y + w, y + x -z * x, y, z, y, z, x * x * x, y * x * w, y + y, z - w, w - x - 1, y, w);
+  long16 res1 = signbit(tmp);
+  long16 res2 = signbit(tmp);
+  out[gid] = convert_float16(res1 * res2);
 }

@@ -13,34 +13,28 @@
 // License.
 
 #include "immediate_command_queue.h"
-#include "enqueue_commands.h"
-#include "ocl_event.h"
+#include "Context.h"
 #include "Device.h"
+#include "cl_shared_ptr.hpp"
+#include "enqueue_commands.h"
 #include "events_manager.h"
 #include "ocl_command_queue.h"
-#include "Context.h"
-#include "cl_shared_ptr.hpp"
+#include "ocl_event.h"
 #include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
 ImmediateCommandQueue::ImmediateCommandQueue(
-	SharedPtr<Context>                    pContext,
-	cl_device_id                clDefaultDeviceID, 
-	cl_command_queue_properties clProperties,
-	EventsManager*              pEventManager
-	) :
-	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager)
-{
-}
-ImmediateCommandQueue::~ImmediateCommandQueue() 
-{
-}
+    SharedPtr<Context> pContext, cl_device_id clDefaultDeviceID,
+    cl_command_queue_properties clProperties, EventsManager *pEventManager)
+    : IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties,
+                           pEventManager) {}
+ImmediateCommandQueue::~ImmediateCommandQueue() {}
 
-cl_err_code ImmediateCommandQueue::Initialize()
-{
-    cl_err_code ret = CL_SUCCESS;
-    ret = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_IN_PLACE, 0, &m_clDevCmdListId);
-    return ret;
+cl_err_code ImmediateCommandQueue::Initialize() {
+  cl_err_code ret = CL_SUCCESS;
+  ret = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(
+      CL_DEV_LIST_IN_PLACE, 0, &m_clDevCmdListId);
+  return ret;
 }
 
 cl_err_code ImmediateCommandQueue::EnqueueCommand(
@@ -91,56 +85,52 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(
   return ret;
 }
 
-cl_err_code ImmediateCommandQueue::Enqueue(Command* cmd)
-{
-    SharedPtr<QueueEvent> pQueueEvent = cmd->GetEvent();
-    if ( m_bProfilingEnabled )
-    {
-        pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
-    }				
-    pQueueEvent->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
-    cmd->SetDevCmdListId(m_clDevCmdListId);
-    return (m_bCancelAll) ? cmd->Cancel() : cmd->Execute();
+cl_err_code ImmediateCommandQueue::Enqueue(Command *cmd) {
+  SharedPtr<QueueEvent> pQueueEvent = cmd->GetEvent();
+  if (m_bProfilingEnabled) {
+    pQueueEvent->SetProfilingInfo(
+        CL_PROFILING_COMMAND_SUBMIT,
+        m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
+  }
+  pQueueEvent->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
+  cmd->SetDevCmdListId(m_clDevCmdListId);
+  return (m_bCancelAll) ? cmd->Cancel() : cmd->Execute();
 }
 
 /**
- * @fn cl_err_code ImmediateCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
+ * @fn cl_err_code ImmediateCommandQueue::EnqueueMarkerWaitForEvents(Command*
+ * marker)
  */
-cl_err_code ImmediateCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
-{
-    if (marker->IsDependentOnEvents())
-    {
-        Enqueue(marker);
+cl_err_code ImmediateCommandQueue::EnqueueMarkerWaitForEvents(Command *marker) {
+  if (marker->IsDependentOnEvents()) {
+    Enqueue(marker);
+  } else {
+    cl_err_code ret;
+    if (m_bProfilingEnabled) {
+      marker->GetEvent()->SetProfilingInfo(
+          CL_PROFILING_COMMAND_QUEUED,
+          m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
     }
-    else
-    {
-        cl_err_code ret; 
-        if (m_bProfilingEnabled)
-        {
-            marker->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
-        }
-        if (!m_bOutOfOrderEnabled)
-        {
-            //Must block while commands are executed
-            m_CS.Lock();
-            ret = Enqueue(marker);
-            m_CS.Unlock();
-        }
-        else
-        {
-            ret = Enqueue(marker);
-        }
-        return ret;
+    if (!m_bOutOfOrderEnabled) {
+      // Must block while commands are executed
+      m_CS.Lock();
+      ret = Enqueue(marker);
+      m_CS.Unlock();
+    } else {
+      ret = Enqueue(marker);
     }
-    return CL_SUCCESS;
+    return ret;
+  }
+  return CL_SUCCESS;
 }
 
 /**
- * @fn cl_err_code ImmediateCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier)
+ * @fn cl_err_code ImmediateCommandQueue::EnqueueBarrierWaitForEvents(Command*
+ * barrier)
  */
-cl_err_code ImmediateCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier)
-{
-    return EnqueueMarkerWaitForEvents(barrier);
+cl_err_code
+ImmediateCommandQueue::EnqueueBarrierWaitForEvents(Command *barrier) {
+  return EnqueueMarkerWaitForEvents(barrier);
 }
 
 cl_err_code ImmediateCommandQueue::Flush(bool /*bBlocking*/) {
@@ -153,7 +143,4 @@ cl_err_code ImmediateCommandQueue::NotifyStateChange(
   return CL_SUCCESS;
 }
 
-cl_err_code ImmediateCommandQueue::SendCommandsToDevice()
-{
-    return CL_SUCCESS;
-}
+cl_err_code ImmediateCommandQueue::SendCommandsToDevice() { return CL_SUCCESS; }

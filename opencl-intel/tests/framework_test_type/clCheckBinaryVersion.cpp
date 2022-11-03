@@ -43,14 +43,13 @@ protected:
   std::string m_CachedBinaryUpToDateVersionFileName =
       "cached_binary_up_to_date.bin";
 
-  void ReadBinary(std::string filename, std::vector<unsigned char>& file) {
+  void ReadBinary(std::string filename, std::vector<unsigned char> &file) {
     std::ifstream binaryFile(get_exe_dir() + filename,
-           std::fstream::binary | std::fstream::in);
+                             std::fstream::binary | std::fstream::in);
     ASSERT_TRUE(binaryFile.is_open()) << "Unable to open file";
 
     std::copy(std::istreambuf_iterator<char>(binaryFile),
-        std::istreambuf_iterator<char>(),
-        std::back_inserter(file));
+              std::istreambuf_iterator<char>(), std::back_inserter(file));
     binaryFile.close();
   }
 
@@ -173,13 +172,13 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithoutSectionTest) {
   ASSERT_NE(binary.size(), 0) << "Unable to read binary";
   std::size_t binarySize;
   binarySize = binary.size();
-  unsigned char* p_binary = binary.data();
+  unsigned char *p_binary = binary.data();
 
   cl_int binaryStatus;
   cl_int rc;
-  clCreateProgramWithBinary(
-      m_context, 1, &m_device, &binarySize,
-      const_cast<const unsigned char **>(&p_binary), &binaryStatus, &rc);
+  clCreateProgramWithBinary(m_context, 1, &m_device, &binarySize,
+                            const_cast<const unsigned char **>(&p_binary),
+                            &binaryStatus, &rc);
   ASSERT_EQ(CL_INVALID_BINARY, rc) << "Failed to create program with binary";
 }
 
@@ -191,13 +190,13 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithWrongVersionTest) {
   ASSERT_NE(binary.size(), 0) << "Unable to read binary";
   std::size_t binarySize;
   binarySize = binary.size();
-  unsigned char* p_binary = binary.data();
+  unsigned char *p_binary = binary.data();
 
   cl_int binaryStatus;
   cl_int rc;
-  clCreateProgramWithBinary(
-      m_context, 1, &m_device, &binarySize,
-      const_cast<const unsigned char **>(&p_binary), &binaryStatus, &rc);
+  clCreateProgramWithBinary(m_context, 1, &m_device, &binarySize,
+                            const_cast<const unsigned char **>(&p_binary),
+                            &binaryStatus, &rc);
   ASSERT_EQ(CL_INVALID_BINARY, rc) << "Binary with wrong version should fail";
 }
 

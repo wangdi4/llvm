@@ -15,7 +15,7 @@ will always be in llvm-bytecode.
 
 The recorder is controlled by the following environment variables:
 
-1. OCLBACKEND_PLUGINS:	should be set to the dynamic library of the OCLRecorder.
+1. OCLBACKEND_PLUGINS:  should be set to the dynamic library of the OCLRecorder.
   (libOclRecorder.so on linux, OclRecorder.dll on windows). On linux systems,
   it is important to remember to set the LD_LIBRARY_PATH, so it
   the OS will find the recorder in runtime.

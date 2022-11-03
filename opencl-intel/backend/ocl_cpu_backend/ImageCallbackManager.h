@@ -13,58 +13,61 @@
 // License.
 
 #pragma once
-#include "cl_cpu_detect.h"
 #include "ICompilerConfig.h"
 #include "ImageCallbackLibrary.h"
+#include "cl_cpu_detect.h"
 
 #include <map>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 class ImageCallbackLibrary;
 class ImageCallbackFunctions;
 
-//*****************************************************************************************
-// Responsible for loading builtin modules in a lazy fashion. This is a singleton class.
+//******************************************************************************
+// Responsible for loading builtin modules in a lazy fashion. This is a
+// singleton class.
 //
-class ImageCallbackManager
-{
+class ImageCallbackManager {
 private:
-    ImageCallbackManager();
-    ~ImageCallbackManager();
+  ImageCallbackManager();
+  ~ImageCallbackManager();
 
 public:
-    /**
-     * Static singleton intialization
-     */
-    static void Init();
-    /**
-     * Static singleton termination
-     */
-    static void Terminate();
-    /**
-     * Singleton instance
-     */
-    static ImageCallbackManager* GetInstance();
+  /**
+   * Static singleton intialization
+   */
+  static void Init();
+  /**
+   * Static singleton termination
+   */
+  static void Terminate();
+  /**
+   * Singleton instance
+   */
+  static ImageCallbackManager *GetInstance();
 
-    /**
-     * Initializes the \see BuiltinsLibrary for the given cpu if it hasn't been loaded before.
-     */
-    bool InitLibrary(const ICompilerConfig &config, bool isCpu,
-                     Intel::OpenCL::Utils::CPUDetect *cpuId);
+  /**
+   * Initializes the \see BuiltinsLibrary for the given cpu if it hasn't been
+   * loaded before.
+   */
+  bool InitLibrary(const ICompilerConfig &config, bool isCpu,
+                   Intel::OpenCL::Utils::CPUDetect *cpuId);
 
-    /***
-    * Returns the image callback functions per architecture
-    ****/
+  /***
+   * Returns the image callback functions per architecture
+   ****/
 
-    ImageCallbackFunctions *
-    getCallbackFunctions(const Intel::OpenCL::Utils::CPUDetect *);
+  ImageCallbackFunctions *
+  getCallbackFunctions(const Intel::OpenCL::Utils::CPUDetect *);
 
-  private:
-    typedef std::map<const Intel::OpenCL::Utils::ECPU, ImageCallbackLibrary *>
-        ImageCallbackMap;
-    static ImageCallbackManager* s_pInstance;
-    ImageCallbackMap m_ImageCallbackLibs;
+private:
+  typedef std::map<const Intel::OpenCL::Utils::ECPU, ImageCallbackLibrary *>
+      ImageCallbackMap;
+  static ImageCallbackManager *s_pInstance;
+  ImageCallbackMap m_ImageCallbackLibs;
 };
 
 } // namespace DeviceBackend

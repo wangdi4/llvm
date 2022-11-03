@@ -15,9 +15,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-__kernel void copy_int(__global int* input, __global int* output)
-{
-    size_t id = get_global_id(0);
-    output[id] = input[id];
+__kernel void copy_int(__global int *input, __global int *output) {
+  size_t id = get_global_id(0);
+  output[id] = input[id];
 }
-

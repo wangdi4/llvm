@@ -14,54 +14,49 @@
 
 #include "mem_utils.h"
 
-namespace Validation { 
+namespace Validation {
 
-void * align_malloc(size_t size, size_t alignment)
-{
-    void * ptr = NULL;
+void *align_malloc(size_t size, size_t alignment) {
+  void *ptr = NULL;
 #if defined(_WIN32) && defined(_MSC_VER)
-    ptr = _aligned_malloc(size, alignment);
-#elif  defined(__linux__) || defined (linux)
-   // The value of alignment shall be a multiple of sizeof(void*)
-   {
-      size_t linuxAlignment;
-      size_t remainder = alignment % (sizeof(void*));
-      if(remainder) {
-        size_t quotient = alignment / (sizeof(void*));
-        linuxAlignment = (quotient+1)*(sizeof(void*));
-      }
-      else {
-        linuxAlignment = alignment;
-      }
-      if (0 != posix_memalign(&ptr, linuxAlignment, size)) 
-      {
-        ptr = NULL;
-      }
-   }
-#elif defined(__MINGW32__)
-    ptr =  __mingw_aligned_malloc(size, alignment);
-#else
-#error "Please add support OS for aligned malloc" 
-#endif
-    if( NULL == ptr )
-    {
-        throw std::bad_alloc();
+  ptr = _aligned_malloc(size, alignment);
+#elif defined(__linux__) || defined(linux)
+  // The value of alignment shall be a multiple of sizeof(void*)
+  {
+    size_t linuxAlignment;
+    size_t remainder = alignment % (sizeof(void *));
+    if (remainder) {
+      size_t quotient = alignment / (sizeof(void *));
+      linuxAlignment = (quotient + 1) * (sizeof(void *));
+    } else {
+      linuxAlignment = alignment;
     }
-    return ptr;
+    if (0 != posix_memalign(&ptr, linuxAlignment, size)) {
+      ptr = NULL;
+    }
+  }
+#elif defined(__MINGW32__)
+  ptr = __mingw_aligned_malloc(size, alignment);
+#else
+#error "Please add support OS for aligned malloc"
+#endif
+  if (NULL == ptr) {
+    throw std::bad_alloc();
+  }
+  return ptr;
 }
 
 // This function implementation must ignore NULL ptr value.
-void   align_free(void * ptr)
-{
+void align_free(void *ptr) {
 #if defined(_WIN32) && defined(_MSC_VER)
-    _aligned_free(ptr);
-#elif  defined(__linux__) || defined (linux)
-    return  free(ptr);
+  _aligned_free(ptr);
+#elif defined(__linux__) || defined(linux)
+  return free(ptr);
 #elif defined(__MINGW32__)
-    return __mingw_aligned_free(ptr); 
+  return __mingw_aligned_free(ptr);
 #else
 #error "Please add OS support for aligned free"
 #endif
 }
 
-} // namespace
+} // namespace Validation

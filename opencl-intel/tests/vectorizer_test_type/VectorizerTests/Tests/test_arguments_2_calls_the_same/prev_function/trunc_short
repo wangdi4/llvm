@@ -7,20 +7,20 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-trunc_short (	__global const float *in,
-		__global float *out)
+trunc_short (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	long tmp1 = rhadd(gid, gid * gid + 3);
-	char res1 = tmp1;
-	tmp1 = tmp1 * ((gid + 1) / (gid + 1));
-	char res2 = tmp1;
-	char res3 = res1 + 2 * res2;
-	out[gid] = res3;
+  int gid = get_global_id(0);
+  long tmp1 = rhadd(gid, gid * gid + 3);
+  char res1 = tmp1;
+  tmp1 = tmp1 * ((gid + 1) / (gid + 1));
+  char res2 = tmp1;
+  char res3 = res1 + 2 * res2;
+  out[gid] = res3;
 }

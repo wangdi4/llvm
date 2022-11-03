@@ -17,34 +17,29 @@
 
 #include "IProgramConfiguration.h"
 
-namespace Validation
-{
-    /// @brief This class contains DirectX test run configuration
-    class DXProgramConfiguration : public IProgramConfiguration
-    {
-    public:
+namespace Validation {
+/// @brief This class contains DirectX test run configuration
+class DXProgramConfiguration : public IProgramConfiguration {
+public:
+  /// @brief Constructor
+  /// @param [IN] configFile Name of DirectX test run configuration file
+  DXProgramConfiguration(const std::string &configFile);
 
-        /// @brief Constructor
-        /// @param [IN] configFile Name of DirectX test run configuration file
-        DXProgramConfiguration(const std::string& configFile);
+  /// @brief Destructor
+  virtual ~DXProgramConfiguration(void);
 
-        /// @brief Destructor
-        virtual ~DXProgramConfiguration(void);
+  /// @brief Returns the program file path
+  std::string GetProgramFilePath() const override { throw "Not implemented"; }
 
-        /// @brief Returns the program file path
-        std::string GetProgramFilePath() const override {
-          throw "Not implemented";
-        }
+  /// @brief Returns the program name
+  std::string GetProgramName() const override { throw "Not implemented"; }
 
-        /// @brief Returns the program name
-        std::string GetProgramName() const override { throw "Not implemented"; }
+  /// @brief Return number of kernel configurations to run.
+  size_t GetNumberOfKernelConfigurations() const override {
+    throw "Not implemented";
+  }
+};
 
-        /// @brief Return number of kernel configurations to run.
-        size_t GetNumberOfKernelConfigurations() const override {
-          throw "Not implemented";
-        }
-    };
-
-}
+} // namespace Validation
 
 #endif // DX_RUN_CONFIGURATION_H

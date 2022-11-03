@@ -29,5 +29,6 @@
 #define DST_DOUBLE
 #include "fp_trunc_impl.inc"
 
-__attribute__((weak))
-double __trunctfdf2(long double a) { return __truncXfYf2__(a); }
+__attribute__((weak)) double __trunctfdf2(long double a) {
+  return __truncXfYf2__(a);
+}

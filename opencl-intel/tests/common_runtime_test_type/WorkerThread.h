@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,40 +14,40 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 //
 // WorkerThread.h
 
-
 #ifndef WORKERTHREAD_H_
 #define WORKERTHREAD_H_
 
-/**********************************************************************************************************************************
- *	WorkerThreadFunc - for WINDOWS must return void, for pthreads must return void*
- **********************************************************************************************************************************/
-#if !defined (_WIN32)
-typedef void* ( WorkerThreadFunc)(void*);
+/*******************************************************************************
+ *  WorkerThreadFunc - for WINDOWS must return void, for pthreads must
+ *return void*
+ ******************************************************************************/
+#if !defined(_WIN32)
+typedef void *(WorkerThreadFunc)(void *);
 #else
-typedef void (WorkerThreadFunc)(void*);
+typedef void(WorkerThreadFunc)(void *);
 #endif
 
-/**********************************************************************************************************************************
- *	WorkerThread - class responsible for initializing, running and stopping cross platform threads
- **********************************************************************************************************************************/
-class WorkerThread
-{
+/*******************************************************************************
+ *  WorkerThread - class responsible for initializing, running and stopping
+ *cross platform threads
+ ******************************************************************************/
+class WorkerThread {
 public:
-	WorkerThread();
-	~WorkerThread();
+  WorkerThread();
+  ~WorkerThread();
 
-	//	start - invokes function threadFunction with parameter threadData
-	bool start(WorkerThreadFunc threadFunction, void* threadData);
-	void stop();
+  //  start - invokes function threadFunction with parameter threadData
+  bool start(WorkerThreadFunc threadFunction, void *threadData);
+  void stop();
 
 protected:
-	void* m_thread;
+  void *m_thread;
 };
 
 #endif /* WORKERTHREAD_H_ */

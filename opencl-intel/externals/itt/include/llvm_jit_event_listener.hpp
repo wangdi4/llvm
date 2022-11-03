@@ -87,155 +87,152 @@
 
 #include "jitprofiling.h"
 
-#include <llvm/Function.h>
-#include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Analysis/DebugInfo.h>
+#include <llvm/ExecutionEngine/JITEventListener.h>
+#include <llvm/Function.h>
 
-#include <map>
 #include <cassert>
+#include <map>
 
 // Uncomment the line below to turn on logging to stderr
 #define JITPROFILING_DEBUG_ENABLE
 
 // Some elementary logging support
 #ifdef JITPROFILING_DEBUG_ENABLE
-#include <cstdio>
 #include <cstdarg>
-static void _jit_debug(const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
+#include <cstdio>
+static void _jit_debug(const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  vfprintf(stderr, format, args);
+  va_end(args);
 }
 // Use the macro as JITDEBUG(("foo: %d", foo_val));
-#define JITDEBUG(x) \
-    do { \
-        _jit_debug("jit-listener: "); \
-        _jit_debug x; \
-    } \
-    while (0)
+#define JITDEBUG(x)                                                            \
+  do {                                                                         \
+    _jit_debug("jit-listener: ");                                              \
+    _jit_debug x;                                                              \
+  } while (0)
 #else
 #define JITDEBUG(x)
 #endif
 
 // LLVM JIT event listener, translates the notifications to the JIT profiling
 // API information.
-class __itt_llvm_jit_event_listener : public llvm::JITEventListener
-{
+class __itt_llvm_jit_event_listener : public llvm::JITEventListener {
 public:
-    __itt_llvm_jit_event_listener() {}
+  __itt_llvm_jit_event_listener() {}
 
 public:
-    virtual void NotifyFunctionEmitted(const llvm::Function &F,
-        void *Code, size_t Size, const EmittedFunctionDetails &Details)
-    {
-        std::string name = F.getName().str();
-        JITDEBUG(("function jitted:\n"));
-        JITDEBUG(("  addr=0x%08x\n", (int)Code));
-        JITDEBUG(("  name=`%s'\n", name.c_str()));
-        JITDEBUG(("  code-size=%d\n", (int)Size));
-        JITDEBUG(("  line-infos-count=%d\n", Details.LineStarts.size()));
+  virtual void NotifyFunctionEmitted(const llvm::Function &F, void *Code,
+                                     size_t Size,
+                                     const EmittedFunctionDetails &Details) {
+    std::string name = F.getName().str();
+    JITDEBUG(("function jitted:\n"));
+    JITDEBUG(("  addr=0x%08x\n", (int)Code));
+    JITDEBUG(("  name=`%s'\n", name.c_str()));
+    JITDEBUG(("  code-size=%d\n", (int)Size));
+    JITDEBUG(("  line-infos-count=%d\n", Details.LineStarts.size()));
 
-        // The method must not be in the map - the entry must have been cleared
-        // from the map in NotifyFreeingMachineCode in case of rejitting.
-        assert(m_addr2MethodId.find(Code) == m_addr2MethodId.end());
+    // The method must not be in the map - the entry must have been cleared
+    // from the map in NotifyFreeingMachineCode in case of rejitting.
+    assert(m_addr2MethodId.find(Code) == m_addr2MethodId.end());
 
-        int mid = iJIT_GetNewMethodID();
-        m_addr2MethodId[Code] = mid;
+    int mid = iJIT_GetNewMethodID();
+    m_addr2MethodId[Code] = mid;
 
-        iJIT_Method_Load mload;
-        memset(&mload, 0, sizeof mload);
-        mload.method_id = mid;
+    iJIT_Method_Load mload;
+    memset(&mload, 0, sizeof mload);
+    mload.method_id = mid;
 
-        // Populate the method size and name information
-        // TODO: The JIT profiling API should have members as const char pointers.
-        mload.method_name = (char*)name.c_str();
-        mload.method_load_address = Code;
-        mload.method_size = (unsigned int)Size;
+    // Populate the method size and name information
+    // TODO: The JIT profiling API should have members as const char pointers.
+    mload.method_name = (char *)name.c_str();
+    mload.method_load_address = Code;
+    mload.method_size = (unsigned int)Size;
 
-        // Populate line information now.
-        // From the JIT API documentation it is not quite clear whether the
-        // line information can be given in ranges, so we'll populate it for
-        // every byte of the function, hmm.
-        std::string srcFilePath;
-        std::vector<LineNumberInfo> lineInfos;
-        char *addr = (char*)Code;
-        char *lineAddr = addr;          // Exclusive end point at which current
-                                        // line info changes.
-        const llvm::DebugLoc* loc = 0;  // Current line info
-        int lineIndex = -1;             // Current index into the line info table
-        for (int i = 0; i < Size; ++i, ++addr) {
-            while (addr >= lineAddr) {
-                if (lineIndex >= 0 && lineIndex < Details.LineStarts.size()) {
-                    loc = &Details.LineStarts[lineIndex].Loc;
-                    std::string p = getSrcFilePath(F.getContext(), *loc);
-                    assert(srcFilePath.empty() || p == srcFilePath);
-                    srcFilePath = p;
-                } else {
-                    loc = NULL;
-                }
-                lineIndex++;
-                if (lineIndex >= 0 && lineIndex < Details.LineStarts.size()) {
-                    lineAddr = (char*)Details.LineStarts[lineIndex].Address;
-                } else {
-                    lineAddr = addr + Size;
-                }
-            }
-            if (loc) {
-                int line = loc->getLine();
-                LineNumberInfo info = { i, line };
-                lineInfos.push_back(info);
-                JITDEBUG(("  addr 0x%08x -> line %d\n", addr, line));
-            }
+    // Populate line information now.
+    // From the JIT API documentation it is not quite clear whether the
+    // line information can be given in ranges, so we'll populate it for
+    // every byte of the function, hmm.
+    std::string srcFilePath;
+    std::vector<LineNumberInfo> lineInfos;
+    char *addr = (char *)Code;
+    char *lineAddr = addr;         // Exclusive end point at which current
+                                   // line info changes.
+    const llvm::DebugLoc *loc = 0; // Current line info
+    int lineIndex = -1;            // Current index into the line info table
+    for (int i = 0; i < Size; ++i, ++addr) {
+      while (addr >= lineAddr) {
+        if (lineIndex >= 0 && lineIndex < Details.LineStarts.size()) {
+          loc = &Details.LineStarts[lineIndex].Loc;
+          std::string p = getSrcFilePath(F.getContext(), *loc);
+          assert(srcFilePath.empty() || p == srcFilePath);
+          srcFilePath = p;
+        } else {
+          loc = NULL;
         }
-        if (!lineInfos.empty()) {
-            mload.line_number_size = lineInfos.size();
-            JITDEBUG(("  translated to %d line infos to JIT", (int)lineInfos.size()));
-            mload.line_number_table = &lineInfos[0];
-            mload.source_file_name = (char*)srcFilePath.c_str();
+        lineIndex++;
+        if (lineIndex >= 0 && lineIndex < Details.LineStarts.size()) {
+          lineAddr = (char *)Details.LineStarts[lineIndex].Address;
+        } else {
+          lineAddr = addr + Size;
         }
-
-        iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &mload);
+      }
+      if (loc) {
+        int line = loc->getLine();
+        LineNumberInfo info = {i, line};
+        lineInfos.push_back(info);
+        JITDEBUG(("  addr 0x%08x -> line %d\n", addr, line));
+      }
+    }
+    if (!lineInfos.empty()) {
+      mload.line_number_size = lineInfos.size();
+      JITDEBUG(("  translated to %d line infos to JIT", (int)lineInfos.size()));
+      mload.line_number_table = &lineInfos[0];
+      mload.source_file_name = (char *)srcFilePath.c_str();
     }
 
-    virtual void NotifyFreeingMachineCode(void *OldPtr)
-    {
-        JITDEBUG(("function unjitted\n"));
-        JITDEBUG(("  addr=0x%08x\n", (int)OldPtr));
-        Addr2MethodId::iterator it = m_addr2MethodId.find(OldPtr);
-        assert(it != m_addr2MethodId.end());
-        iJIT_Method_Id mid = { it->second };
-        iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_UNLOAD_START, &mid);
-        m_addr2MethodId.erase(it);
-    }
+    iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &mload);
+  }
+
+  virtual void NotifyFreeingMachineCode(void *OldPtr) {
+    JITDEBUG(("function unjitted\n"));
+    JITDEBUG(("  addr=0x%08x\n", (int)OldPtr));
+    Addr2MethodId::iterator it = m_addr2MethodId.find(OldPtr);
+    assert(it != m_addr2MethodId.end());
+    iJIT_Method_Id mid = {it->second};
+    iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_UNLOAD_START, &mid);
+    m_addr2MethodId.erase(it);
+  }
 
 private:
-    std::string getSrcFilePath(const llvm::LLVMContext& ctx, const llvm::DebugLoc& loc)
-    {
-        llvm::MDNode* node = loc.getAsMDNode(ctx);
-        llvm::DILocation srcLoc(node);
-        return srcLoc.getDirectory().str() + "/" + srcLoc.getFilename().str();
-    }
+  std::string getSrcFilePath(const llvm::LLVMContext &ctx,
+                             const llvm::DebugLoc &loc) {
+    llvm::MDNode *node = loc.getAsMDNode(ctx);
+    llvm::DILocation srcLoc(node);
+    return srcLoc.getDirectory().str() + "/" + srcLoc.getFilename().str();
+  }
 
 private:
-    /// Don't copy
-    __itt_llvm_jit_event_listener(const __itt_llvm_jit_event_listener&);
-    __itt_llvm_jit_event_listener& operator=(const __itt_llvm_jit_event_listener&);
+  /// Don't copy
+  __itt_llvm_jit_event_listener(const __itt_llvm_jit_event_listener &);
+  __itt_llvm_jit_event_listener &
+  operator=(const __itt_llvm_jit_event_listener &);
 
 private:
-    typedef std::vector<LineNumberInfo> LineInfoList;
+  typedef std::vector<LineNumberInfo> LineInfoList;
 
-    // The method unload notification in VTune JIT profiling API takes the
-    // method ID, not method address so have to maintain the mapping.  Is
-    // there a more efficient and simple way to do this like attaching the
-    // method ID information somehow to the LLVM function instance?
-    //
-    // TODO: It would be more convenient for the JIT API to take the method
-    // address, not method ID.
-    typedef std::map<const void*, int> Addr2MethodId;
-    Addr2MethodId m_addr2MethodId;
+  // The method unload notification in VTune JIT profiling API takes the
+  // method ID, not method address so have to maintain the mapping.  Is
+  // there a more efficient and simple way to do this like attaching the
+  // method ID information somehow to the LLVM function instance?
+  //
+  // TODO: It would be more convenient for the JIT API to take the method
+  // address, not method ID.
+  typedef std::map<const void *, int> Addr2MethodId;
+  Addr2MethodId m_addr2MethodId;
 };
 
 #endif // Header guard

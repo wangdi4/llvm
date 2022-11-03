@@ -25,31 +25,31 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-void CPUProgram::ReleaseExecutionEngine()
-{
-    // We have to remove the built-ins module from execEngine
-    // since this module is owned by compiler.
-    if (m_pExecutionEngine)
-    {
-        for (llvm::SmallVector<llvm::Module*, 2>::iterator it = m_bltnFuncList.begin(); it != m_bltnFuncList.end(); ++it)
-        {
-            m_pExecutionEngine->removeModule(*it);
-        }
-
-        if (m_pIRCodeContainer->GetModule())
-        {
-            m_pExecutionEngine->removeModule(m_pIRCodeContainer->GetModule());
-        }
+void CPUProgram::ReleaseExecutionEngine() {
+  // We have to remove the built-ins module from execEngine
+  // since this module is owned by compiler.
+  if (m_pExecutionEngine) {
+    for (llvm::SmallVector<llvm::Module *, 2>::iterator it =
+             m_bltnFuncList.begin();
+         it != m_bltnFuncList.end(); ++it) {
+      m_pExecutionEngine->removeModule(*it);
     }
+
+    if (m_pIRCodeContainer->GetModule()) {
+      m_pExecutionEngine->removeModule(m_pIRCodeContainer->GetModule());
+    }
+  }
 }
 
 CPUProgram::~CPUProgram() {
   using llvm_writeout_files_ptr = void (*)(void);
   if (m_codeProfilingStatus == PROFILING_GCOV) {
     auto llvm_writeout_files = reinterpret_cast<llvm_writeout_files_ptr>(
-      GetPointerToFunction("llvm_writeout_files"));
+        GetPointerToFunction("llvm_writeout_files"));
     llvm_writeout_files();
   }
   // Freeing the execution engine is sufficient to cleanup all memory in
@@ -57,42 +57,42 @@ CPUProgram::~CPUProgram() {
   ReleaseExecutionEngine();
 }
 
-void* CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
-    assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
-    uintptr_t Addr;
-    if (m_LLJIT) {
-        auto Sym = m_LLJIT->lookup(Name);
-        if (llvm::Error Err = Sym.takeError()) {
-            llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
-            throw Exceptions::CompilerException(
-                "Failed to lookup symbol " + Name.str() + '\n' + getLLJITLog());
-        }
-        Addr = static_cast<uintptr_t>(Sym->getValue());
-    } else
-        Addr = static_cast<uintptr_t>(
-            m_pExecutionEngine->getGlobalValueAddress(Name.str()));
-    return reinterpret_cast<void *>(Addr);
+void *CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
+  assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
+  uintptr_t Addr;
+  if (m_LLJIT) {
+    auto Sym = m_LLJIT->lookup(Name);
+    if (llvm::Error Err = Sym.takeError()) {
+      llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
+      throw Exceptions::CompilerException("Failed to lookup symbol " +
+                                          Name.str() + '\n' + getLLJITLog());
+    }
+    Addr = static_cast<uintptr_t>(Sym->getValue());
+  } else
+    Addr = static_cast<uintptr_t>(
+        m_pExecutionEngine->getGlobalValueAddress(Name.str()));
+  return reinterpret_cast<void *>(Addr);
 }
 
-void* CPUProgram::GetPointerToFunction(llvm::StringRef Name) const {
-    assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
-    uintptr_t Addr;
-    if (m_LLJIT) {
-        auto Sym = m_LLJIT->lookup(Name);
-        if (llvm::Error Err = Sym.takeError()) {
-            llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
-            throw Exceptions::CompilerException(
-                "Failed to lookup symbol " + Name.str() + '\n' + getLLJITLog());
-        }
-        Addr = static_cast<uintptr_t>(Sym->getValue());
-    } else
-        Addr = static_cast<uintptr_t>(
-            m_pExecutionEngine->getFunctionAddress(Name.str()));
-    return reinterpret_cast<void *>(Addr);
+void *CPUProgram::GetPointerToFunction(llvm::StringRef Name) const {
+  assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
+  uintptr_t Addr;
+  if (m_LLJIT) {
+    auto Sym = m_LLJIT->lookup(Name);
+    if (llvm::Error Err = Sym.takeError()) {
+      llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
+      throw Exceptions::CompilerException("Failed to lookup symbol " +
+                                          Name.str() + '\n' + getLLJITLog());
+    }
+    Addr = static_cast<uintptr_t>(Sym->getValue());
+  } else
+    Addr = static_cast<uintptr_t>(
+        m_pExecutionEngine->getFunctionAddress(Name.str()));
+  return reinterpret_cast<void *>(Addr);
 }
 
 cl_ulong CPUProgram::GetFunctionPointerFor(const char *FunctionName) const {
-    return (cl_ulong)(GetPointerToFunction(FunctionName));
+  return (cl_ulong)(GetPointerToFunction(FunctionName));
 }
 
 void CPUProgram::GetGlobalVariablePointers(const cl_prog_gv **GVs,
@@ -113,7 +113,7 @@ cl_dev_err_code CPUProgram::Finalize() {
     // Setup kernel JIT address.
     for (size_t i = 0; i < m_kernels->GetCount(); ++i) {
       Kernel *kernel = m_kernels->GetKernel(i);
-      for (unsigned j =0; j < kernel->GetKernelJITCount(); ++j) {
+      for (unsigned j = 0; j < kernel->GetKernelJITCount(); ++j) {
         IKernelJITContainer *jitContainer = kernel->GetKernelJIT(j);
         const std::string &kernelName = jitContainer->GetFunctionName();
         jitContainer->SetJITCode(GetPointerToFunction(kernelName));
@@ -183,12 +183,12 @@ void CPUProgram::LoadProfileLib() const {
 
   if (!llvm::sys::fs::exists(ProfileLibPath)) {
     llvm::logAllUnhandledErrors(
-      llvm::createStringError(llvm::errc::no_such_file_or_directory,
-                              "The program was built with profiling but the "
-                              "clang profile library is not found"),
-      llvm::errs());
+        llvm::createStringError(llvm::errc::no_such_file_or_directory,
+                                "The program was built with profiling but the "
+                                "clang profile library is not found"),
+        llvm::errs());
     throw Exceptions::DeviceBackendExceptionBase(
-      "Clang profile library is not found");
+        "Clang profile library is not found");
   }
   auto &JD = m_LLJIT->getMainJITDylib();
   unique_function<Expected<llvm::orc::MaterializationUnit::Interface>(
@@ -204,12 +204,13 @@ void CPUProgram::LoadProfileLib() const {
   JD.addGenerator(std::move(*G));
 }
 
-void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
-{
-    void* pModule = (nullptr != m_pIRCodeContainer) ? m_pIRCodeContainer->GetModule() : nullptr;
-    stats->SetPointerMark("pModule", pModule);
-    stats->SetPointerMark("pProgram", this);
-    Program::Deserialize(ist, stats);
+void CPUProgram::Deserialize(IInputStream &ist, SerializationStatus *stats) {
+  void *pModule = (nullptr != m_pIRCodeContainer)
+                      ? m_pIRCodeContainer->GetModule()
+                      : nullptr;
+  stats->SetPointerMark("pModule", pModule);
+  stats->SetPointerMark("pProgram", this);
+  Program::Deserialize(ist, stats);
 }
 
 void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
@@ -218,11 +219,12 @@ void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
 
 void CPUProgram::CreateAndSetBlockToKernelMapper() {
   // create block to kernel mapper
-  IBlockToKernelMapper *pMapper =
-      new CPUBlockToKernelMapper((Program *)this);
+  IBlockToKernelMapper *pMapper = new CPUBlockToKernelMapper((Program *)this);
   assert(pMapper && "IBlockToKernelMapper object is NULL");
   assert(!GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
   // set in RuntimeService new BlockToKernelMapper object
   GetRuntimeService()->SetBlockToKernelMapper(pMapper);
 }
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

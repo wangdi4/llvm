@@ -16,10 +16,6 @@
 
 using namespace Validation;
 
-DXProgramConfiguration::DXProgramConfiguration(const std::string& configFile)
-{
-}
+DXProgramConfiguration::DXProgramConfiguration(const std::string &configFile) {}
 
-DXProgramConfiguration::~DXProgramConfiguration(void)
-{
-}
+DXProgramConfiguration::~DXProgramConfiguration(void) {}

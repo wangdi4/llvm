@@ -37,17 +37,19 @@ protected:
 
 TEST_F(TestInfo, Platform) {
   checkPlatform(CL_PLATFORM_PROFILE, "EMBEDDED_PROFILE");
-  checkPlatform(CL_PLATFORM_VERSION, "OpenCL 1.2 Intel(R) FPGA SDK for OpenCL(TM), Version 20.3");
-  checkPlatform(CL_PLATFORM_NAME,    "Intel(R) FPGA Emulation Platform for OpenCL(TM)");
-  checkPlatform(CL_PLATFORM_VENDOR,  "Intel(R) Corporation");
+  checkPlatform(CL_PLATFORM_VERSION,
+                "OpenCL 1.2 Intel(R) FPGA SDK for OpenCL(TM), Version 20.3");
+  checkPlatform(CL_PLATFORM_NAME,
+                "Intel(R) FPGA Emulation Platform for OpenCL(TM)");
+  checkPlatform(CL_PLATFORM_VENDOR, "Intel(R) Corporation");
 }
 
 TEST_F(TestInfo, Device) {
   for (auto device : devices()) {
-    checkDevice(device, CL_DEVICE_PROFILE,          "EMBEDDED_PROFILE");
-    checkDevice(device, CL_DEVICE_VERSION,          "OpenCL 1.2 ");
-    checkDevice(device, CL_DEVICE_NAME,             "Intel(R) FPGA Emulation Device");
-    checkDevice(device, CL_DEVICE_VENDOR,           "Intel(R) Corporation");
+    checkDevice(device, CL_DEVICE_PROFILE, "EMBEDDED_PROFILE");
+    checkDevice(device, CL_DEVICE_VERSION, "OpenCL 1.2 ");
+    checkDevice(device, CL_DEVICE_NAME, "Intel(R) FPGA Emulation Device");
+    checkDevice(device, CL_DEVICE_VENDOR, "Intel(R) Corporation");
     checkDevice(device, CL_DEVICE_OPENCL_C_VERSION, "OpenCL C 1.2 ");
     checkDevice(
         device, CL_DEVICE_EXTENSIONS,
@@ -69,4 +71,3 @@ TEST_F(TestInfo, Device) {
     ASSERT_EQ((cl_uint)4466, vendorId);
   }
 }
-

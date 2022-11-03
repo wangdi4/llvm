@@ -7,16 +7,16 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 vicmp ( __global const float *in,
-		__global float2 *out, __global const char2 char2Arg1)
+    __global float2 *out, __global const char2 char2Arg1)
 {
-	int gid = get_global_id(0);
-	out[gid] = convert_float2(CHAR2_VEC1 == char2Arg1);
+  int gid = get_global_id(0);
+  out[gid] = convert_float2(CHAR2_VEC1 == char2Arg1);
 }

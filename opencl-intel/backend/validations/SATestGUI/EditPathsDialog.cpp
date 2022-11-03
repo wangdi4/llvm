@@ -15,70 +15,55 @@
 #include "EditPathsDialog.h"
 #include "Ui_EditPathsDialog.h"
 
-namespace Validation
-{
-namespace GUI
-{
-EditPathsDialog::EditPathsDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::EditPathsDialog)
-{
-    ui->setupUi(this);
-    ui->ststLE->setText(AppSettings::instance()->getSATestPath());
-    ui->wrkDirLE->setText(AppSettings::instance()->getWorkDir());
-    connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(check()));
-    connect(ui->browseSTstPB, SIGNAL(clicked()), this, SLOT(selectSatest()));
-    connect(ui->browseWrkDirPB, SIGNAL(clicked()), this, SLOT(selectWorkDir()));
+namespace Validation {
+namespace GUI {
+EditPathsDialog::EditPathsDialog(QWidget *parent)
+    : QDialog(parent), ui(new Ui::EditPathsDialog) {
+  ui->setupUi(this);
+  ui->ststLE->setText(AppSettings::instance()->getSATestPath());
+  ui->wrkDirLE->setText(AppSettings::instance()->getWorkDir());
+  connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(check()));
+  connect(ui->browseSTstPB, SIGNAL(clicked()), this, SLOT(selectSatest()));
+  connect(ui->browseWrkDirPB, SIGNAL(clicked()), this, SLOT(selectWorkDir()));
 }
 
-EditPathsDialog::~EditPathsDialog()
-{
-    delete ui;
+EditPathsDialog::~EditPathsDialog() { delete ui; }
+
+void EditPathsDialog::check() {
+  bool satest = QFile::exists(ui->ststLE->text());
+  QDir dir(ui->wrkDirLE->text());
+  bool wrkdir = dir.exists();
+  QMessageBox message(this);
+  if (!satest) {
+    message.setText("SATest not foud!");
+    message.exec();
+  }
+  if (!wrkdir) {
+    message.setText("Working dir not found!");
+    message.exec();
+  }
+  if (satest && wrkdir) {
+    AppSettings::instance()->setSATestPath(ui->ststLE->text());
+    AppSettings::instance()->setWorkDir(ui->wrkDirLE->text());
+    this->accept();
+  }
 }
 
-void EditPathsDialog::check()
-{
-    bool satest = QFile::exists(ui->ststLE->text());
-    QDir dir(ui->wrkDirLE->text());
-    bool wrkdir = dir.exists();
-    QMessageBox message(this);
-    if(!satest)
-    {
-        message.setText("SATest not foud!");
-        message.exec();
-    }
-    if(!wrkdir)
-    {
-        message.setText("Working dir not found!");
-        message.exec();
-    }
-    if(satest && wrkdir)
-    {
-        AppSettings::instance()->setSATestPath(ui->ststLE->text());
-        AppSettings::instance()->setWorkDir(ui->wrkDirLE->text());
-        this->accept();
-    }
-
+void EditPathsDialog::selectSatest() {
+  QString path = QFileDialog::getOpenFileName(this, "Select SATest file",
+                                              QDir::currentPath());
+  if (!path.isEmpty()) {
+    ui->ststLE->setText(path);
+  }
 }
 
-void EditPathsDialog::selectSatest()
-{
-    QString path = QFileDialog::getOpenFileName(this, "Select SATest file", QDir::currentPath());
-    if(!path.isEmpty())
-    {
-        ui->ststLE->setText(path);
-    }
+void EditPathsDialog::selectWorkDir() {
+  QString directory = QFileDialog::getExistingDirectory(
+      this, "Select working directory", QDir::currentPath());
+  if (!directory.isEmpty()) {
+    ui->wrkDirLE->setText(directory);
+  }
 }
 
-void EditPathsDialog::selectWorkDir()
-{
-    QString directory = QFileDialog::getExistingDirectory(this,
-                               "Select working directory", QDir::currentPath());
-    if(!directory.isEmpty())
-    {
-        ui->wrkDirLE->setText(directory);
-    }
-}
-
-}
-}
+} // namespace GUI
+} // namespace Validation

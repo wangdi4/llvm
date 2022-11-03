@@ -46,7 +46,7 @@ namespace internal {
 // specialized mutexes. gRPC also provides an injection mechanism for custom
 // mutexes.
 class LIBPROTOBUF_EXPORT WrappedMutex {
- public:
+public:
   WrappedMutex() = default;
   void Lock() { mu_.lock(); }
   void Unlock() { mu_.unlock(); }
@@ -54,7 +54,7 @@ class LIBPROTOBUF_EXPORT WrappedMutex {
   // May fail to crash when it should; will never crash when it should not.
   void AssertHeld() const {}
 
- private:
+private:
   std::mutex mu_;
 };
 
@@ -62,10 +62,11 @@ using Mutex = WrappedMutex;
 
 // MutexLock(mu) acquires mu when constructed and releases it when destroyed.
 class LIBPROTOBUF_EXPORT MutexLock {
- public:
+public:
   explicit MutexLock(Mutex *mu) : mu_(mu) { this->mu_->Lock(); }
   ~MutexLock() { this->mu_->Unlock(); }
- private:
+
+private:
   Mutex *const mu_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MutexLock);
 };
@@ -76,55 +77,58 @@ typedef MutexLock WriterMutexLock;
 
 // MutexLockMaybe is like MutexLock, but is a no-op when mu is NULL.
 class LIBPROTOBUF_EXPORT MutexLockMaybe {
- public:
-  explicit MutexLockMaybe(Mutex *mu) :
-    mu_(mu) { if (this->mu_ != NULL) { this->mu_->Lock(); } }
-  ~MutexLockMaybe() { if (this->mu_ != NULL) { this->mu_->Unlock(); } }
- private:
+public:
+  explicit MutexLockMaybe(Mutex *mu) : mu_(mu) {
+    if (this->mu_ != NULL) {
+      this->mu_->Lock();
+    }
+  }
+  ~MutexLockMaybe() {
+    if (this->mu_ != NULL) {
+      this->mu_->Unlock();
+    }
+  }
+
+private:
   Mutex *const mu_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MutexLockMaybe);
 };
 
 #if defined(GOOGLE_PROTOBUF_NO_THREADLOCAL)
-template<typename T>
-class ThreadLocalStorage {
- public:
+template <typename T> class ThreadLocalStorage {
+public:
   ThreadLocalStorage() {
     pthread_key_create(&key_, &ThreadLocalStorage::Delete);
   }
-  ~ThreadLocalStorage() {
-    pthread_key_delete(key_);
-  }
-  T* Get() {
-    T* result = static_cast<T*>(pthread_getspecific(key_));
+  ~ThreadLocalStorage() { pthread_key_delete(key_); }
+  T *Get() {
+    T *result = static_cast<T *>(pthread_getspecific(key_));
     if (result == NULL) {
       result = new T();
       pthread_setspecific(key_, result);
     }
     return result;
   }
- private:
-  static void Delete(void* value) {
-    delete static_cast<T*>(value);
-  }
+
+private:
+  static void Delete(void *value) { delete static_cast<T *>(value); }
   pthread_key_t key_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ThreadLocalStorage);
 };
 #endif
 
-}  // namespace internal
+} // namespace internal
 
 // We made these internal so that they would show up as such in the docs,
 // but we don't want to stick "internal::" in front of them everywhere.
 using internal::Mutex;
 using internal::MutexLock;
+using internal::MutexLockMaybe;
 using internal::ReaderMutexLock;
 using internal::WriterMutexLock;
-using internal::MutexLockMaybe;
 
+} // namespace protobuf
+} // namespace google
 
-}  // namespace protobuf
-}  // namespace google
-
-#endif  // GOOGLE_PROTOBUF_STUBS_MUTEX_H_
+#endif // GOOGLE_PROTOBUF_STUBS_MUTEX_H_

@@ -8,18 +8,18 @@
  * This function is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 func_mix
 ( __global const float *in,
-		__global float *out, __global const double doubleArg1)
+    __global float *out, __global const double doubleArg1)
 {
-	int gid = get_global_id(0);
-	double tmp = in[gid] - gid * 1.46564 + 12.45646;
-	out[gid] = convert_float(mix((float)doubleArg1, (float)tmp, (float)DOUBLE1));
+  int gid = get_global_id(0);
+  double tmp = in[gid] - gid * 1.46564 + 12.45646;
+  out[gid] = convert_float(mix((float)doubleArg1, (float)tmp, (float)DOUBLE1));
 }

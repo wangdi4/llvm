@@ -14,9 +14,9 @@
 
 #include "OpenCLArgsBuffer.h"
 #include "Buffer.h"
+#include "Exception.h"
 #include "Image.h"
 #include "SATestException.h"
-#include "Exception.h"
 
 #include "mem_utils.h"
 
@@ -28,130 +28,201 @@
 using namespace Validation;
 
 // must be a multiple of 64 to avoid alignment issues.
-const size_t  PaddingSize = 4096;
-const uint8_t PaddingVal  = 0xcc;
+const size_t PaddingSize = 4096;
+const uint8_t PaddingVal = 0xcc;
 
-OpenCLArgsBuffer::OpenCLArgsBuffer(const KernelArgument * pKernelArgs, 
-                                   cl_uint kernelNumArgs, 
-                                   IBufferContainerList * input,
-                                   const ICLDevBackendImageService* pImageService,
-                                   bool isCheckOOBAccess) : 
-m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs), m_pImageService(pImageService), m_isCheckOOBAccess(isCheckOOBAccess)
-{
-    m_argsBufferSize = CalcArgsBufferSize();
+OpenCLArgsBuffer::OpenCLArgsBuffer(
+    const KernelArgument *pKernelArgs, cl_uint kernelNumArgs,
+    IBufferContainerList *input, const ICLDevBackendImageService *pImageService,
+    bool isCheckOOBAccess)
+    : m_pKernelArgs(pKernelArgs), m_kernelNumArgs(kernelNumArgs),
+      m_pImageService(pImageService), m_isCheckOOBAccess(isCheckOOBAccess) {
+  m_argsBufferSize = CalcArgsBufferSize();
 
-    m_pArgsBuffer = new uint8_t[m_argsBufferSize];
-    FillArgsBuffer(input);
+  m_pArgsBuffer = new uint8_t[m_argsBufferSize];
+  FillArgsBuffer(input);
 }
 
-OpenCLArgsBuffer::~OpenCLArgsBuffer(void)
-{
-    DestroyArgsBuffer();
-    delete [] m_pArgsBuffer;
+OpenCLArgsBuffer::~OpenCLArgsBuffer(void) {
+  DestroyArgsBuffer();
+  delete[] m_pArgsBuffer;
 }
 
-uint8_t* OpenCLArgsBuffer::GetArgsBuffer()
-{
-    return m_pArgsBuffer;
+uint8_t *OpenCLArgsBuffer::GetArgsBuffer() { return m_pArgsBuffer; }
+
+size_t OpenCLArgsBuffer::GetArgsBufferSize() { return m_argsBufferSize; }
+
+void Validation::FillMemObjDescriptor(cl_mem_obj_descriptor &mem_desc,
+                                      const BufferDesc &buffer_desc,
+                                      void *pData) {
+  mem_desc.dim_count = 1;
+  mem_desc.memObjType = CL_MEM_OBJECT_BUFFER;
+  mem_desc.dimensions.dim[0] = buffer_desc.GetSizeInBytes();
+  mem_desc.pData = pData;
 }
 
-size_t OpenCLArgsBuffer::GetArgsBufferSize()
-{
-    return m_argsBufferSize;
-}
+void Validation::FillMemObjDescriptor(
+    cl_mem_obj_descriptor &mem_desc, const ImageDesc &image_desc, void *pData,
+    const ICLDevBackendImageService *pImageService) {
+  // workaround for implementing OpenCL 1.2
+  mem_desc.dim_count = image_desc.GetDimensionCount();
+  switch (image_desc.GetImageType()) {
+  case OpenCL_MEM_OBJECT_IMAGE1D:
+    mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D;
+    break;
+  case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY:
+    mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D_ARRAY;
+    break;
+  case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER:
+    mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D_BUFFER;
+    break;
+  case OpenCL_MEM_OBJECT_IMAGE2D:
+    mem_desc.memObjType = CL_MEM_OBJECT_IMAGE2D;
+    break;
+  case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY:
+    mem_desc.memObjType = CL_MEM_OBJECT_IMAGE2D_ARRAY;
+    break;
+  case OpenCL_MEM_OBJECT_IMAGE3D:
+    mem_desc.memObjType = CL_MEM_OBJECT_IMAGE3D;
+    break;
+  default:
+    throw Exception::InvalidArgument(
+        "FillMemObjDescriptor:: Unknown image type");
+  }
+  ImageSizeDesc imSizes = image_desc.GetSizesDesc();
+  mem_desc.dimensions.dim[0] = imSizes.width;
+  mem_desc.dimensions.dim[1] = imSizes.height;
+  mem_desc.dimensions.dim[2] = imSizes.depth;
 
-void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const BufferDesc& buffer_desc, void* pData)
-{
-    mem_desc.dim_count = 1;
-    mem_desc.memObjType = CL_MEM_OBJECT_BUFFER;
-    mem_desc.dimensions.dim[0] = buffer_desc.GetSizeInBytes();
-    mem_desc.pData = pData;
-}
+  if (image_desc.GetImageType() == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY) {
+    mem_desc.dimensions.dim[1] = imSizes.array_size;
+  }
+  if (image_desc.GetImageType() == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY) {
+    mem_desc.dimensions.dim[2] = imSizes.array_size;
+  }
 
-void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc,
-                                       const ImageDesc& image_desc,
-                                       void* pData,
-                                       const ICLDevBackendImageService* pImageService)
-{
-    // workaround for implementing OpenCL 1.2
-    mem_desc.dim_count = image_desc.GetDimensionCount();
-    switch(image_desc.GetImageType())
-    {
-    case OpenCL_MEM_OBJECT_IMAGE1D:        mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D; break;
-    case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY:  mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D_ARRAY; break;
-    case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER: mem_desc.memObjType = CL_MEM_OBJECT_IMAGE1D_BUFFER; break;
-    case OpenCL_MEM_OBJECT_IMAGE2D:        mem_desc.memObjType = CL_MEM_OBJECT_IMAGE2D; break;
-    case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY:  mem_desc.memObjType = CL_MEM_OBJECT_IMAGE2D_ARRAY; break;
-    case OpenCL_MEM_OBJECT_IMAGE3D:        mem_desc.memObjType = CL_MEM_OBJECT_IMAGE3D; break;
-    default: throw Exception::InvalidArgument("FillMemObjDescriptor:: Unknown image type");
-    }
-    ImageSizeDesc imSizes = image_desc.GetSizesDesc();
-    mem_desc.dimensions.dim[0] = imSizes.width;
-    mem_desc.dimensions.dim[1] = imSizes.height;
-    mem_desc.dimensions.dim[2] = imSizes.depth;
+  mem_desc.pitch[0] = imSizes.row;
+  mem_desc.pitch[1] = imSizes.slice;
+  ImageChannelDataTypeVal dataType = image_desc.GetImageChannelDataType();
+  switch (dataType) {
+  case OpenCL_SNORM_INT8:
+    mem_desc.format.image_channel_data_type = CLK_SNORM_INT8;
+    break;
+  case OpenCL_SNORM_INT16:
+    mem_desc.format.image_channel_data_type = CLK_SNORM_INT16;
+    break;
+  case OpenCL_UNORM_INT8:
+    mem_desc.format.image_channel_data_type = CLK_UNORM_INT8;
+    break;
+  case OpenCL_UNORM_INT16:
+    mem_desc.format.image_channel_data_type = CLK_UNORM_INT16;
+    break;
+  case OpenCL_UNORM_SHORT_565:
+    mem_desc.format.image_channel_data_type = CLK_UNORM_SHORT_565;
+    break;
+  case OpenCL_UNORM_SHORT_555:
+    mem_desc.format.image_channel_data_type = CLK_UNORM_SHORT_555;
+    break;
+  case OpenCL_UNORM_INT_101010:
+    mem_desc.format.image_channel_data_type = CLK_UNORM_INT_101010;
+    break;
+  case OpenCL_SIGNED_INT8:
+    mem_desc.format.image_channel_data_type = CLK_SIGNED_INT8;
+    break;
+  case OpenCL_SIGNED_INT16:
+    mem_desc.format.image_channel_data_type = CLK_SIGNED_INT16;
+    break;
+  case OpenCL_SIGNED_INT32:
+    mem_desc.format.image_channel_data_type = CLK_SIGNED_INT32;
+    break;
+  case OpenCL_UNSIGNED_INT8:
+    mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT8;
+    break;
+  case OpenCL_UNSIGNED_INT16:
+    mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT16;
+    break;
+  case OpenCL_UNSIGNED_INT32:
+    mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT32;
+    break;
+  case OpenCL_HALF_FLOAT:
+    mem_desc.format.image_channel_data_type = CLK_HALF_FLOAT;
+    break;
+  case OpenCL_FLOAT:
+    mem_desc.format.image_channel_data_type = CLK_FLOAT;
+    break;
+  default:
+    throw Exception::InvalidArgument(
+        "FillMemObjDescriptor:: Unknown Image channel data type");
+  }
+  ImageChannelOrderVal order = image_desc.GetImageChannelOrder();
+  switch (order) {
+  case OpenCL_R:
+    mem_desc.format.image_channel_order = CLK_R;
+    break;
+  case OpenCL_Rx:
+    mem_desc.format.image_channel_order = CL_Rx;
+    throw;
+    break;
+  case OpenCL_A:
+    mem_desc.format.image_channel_order = CLK_A;
+    break;
+  case OpenCL_INTENSITY:
+    mem_desc.format.image_channel_order = CLK_INTENSITY;
+    break;
+  case OpenCL_LUMINANCE:
+    mem_desc.format.image_channel_order = CLK_LUMINANCE;
+    break;
+  case OpenCL_RG:
+    mem_desc.format.image_channel_order = CLK_RG;
+    break;
+  case OpenCL_RGx:
+    mem_desc.format.image_channel_order = CL_RGx;
+    throw;
+    break;
+  case OpenCL_RA:
+    mem_desc.format.image_channel_order = CLK_RA;
+    break;
+  case OpenCL_RGB:
+    mem_desc.format.image_channel_order = CLK_RGB;
+    break;
+  case OpenCL_RGBx:
+    mem_desc.format.image_channel_order = CL_RGBx;
+    throw;
+    break;
+  case OpenCL_RGBA:
+    mem_desc.format.image_channel_order = CLK_RGBA;
+    break;
+  case OpenCL_ARGB:
+    mem_desc.format.image_channel_order = CLK_ARGB;
+    break;
+  case OpenCL_BGRA:
+    mem_desc.format.image_channel_order = CLK_BGRA;
+    break;
+  case OpenCL_DEPTH:
+    mem_desc.format.image_channel_order = CLK_DEPTH;
+    break;
+  case OpenCL_sRGBA:
+    mem_desc.format.image_channel_order = CLK_sRGBA;
+    break;
+  case OpenCL_sBGRA:
+    mem_desc.format.image_channel_order = CLK_sBGRA;
+    break;
+  default:
+    throw Exception::InvalidArgument(
+        "FillMemObjDescriptor:: Unknown Image pixel data type");
+  }
+  mem_desc.uiElementSize = image_desc.GetElementSize();
+  mem_desc.pData = pData;
 
-    if(image_desc.GetImageType() == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY) {
-        mem_desc.dimensions.dim[1] = imSizes.array_size;
-    }
-    if(image_desc.GetImageType() == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY) {
-        mem_desc.dimensions.dim[2] = imSizes.array_size;
-    }
-
-    mem_desc.pitch[0] = imSizes.row;
-    mem_desc.pitch[1] = imSizes.slice;
-    ImageChannelDataTypeVal dataType = image_desc.GetImageChannelDataType();
-    switch (dataType)
-    {
-    case OpenCL_SNORM_INT8:         mem_desc.format.image_channel_data_type = CLK_SNORM_INT8; break;
-    case OpenCL_SNORM_INT16:        mem_desc.format.image_channel_data_type = CLK_SNORM_INT16; break;
-    case OpenCL_UNORM_INT8:         mem_desc.format.image_channel_data_type = CLK_UNORM_INT8; break;
-    case OpenCL_UNORM_INT16:        mem_desc.format.image_channel_data_type = CLK_UNORM_INT16; break;
-    case OpenCL_UNORM_SHORT_565:    mem_desc.format.image_channel_data_type = CLK_UNORM_SHORT_565; break;
-    case OpenCL_UNORM_SHORT_555:    mem_desc.format.image_channel_data_type = CLK_UNORM_SHORT_555; break;
-    case OpenCL_UNORM_INT_101010:   mem_desc.format.image_channel_data_type = CLK_UNORM_INT_101010; break;
-    case OpenCL_SIGNED_INT8:        mem_desc.format.image_channel_data_type = CLK_SIGNED_INT8; break;
-    case OpenCL_SIGNED_INT16:       mem_desc.format.image_channel_data_type = CLK_SIGNED_INT16; break;
-    case OpenCL_SIGNED_INT32:       mem_desc.format.image_channel_data_type = CLK_SIGNED_INT32; break;
-    case OpenCL_UNSIGNED_INT8:      mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT8; break;
-    case OpenCL_UNSIGNED_INT16:     mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT16; break;
-    case OpenCL_UNSIGNED_INT32:     mem_desc.format.image_channel_data_type = CLK_UNSIGNED_INT32; break;
-    case OpenCL_HALF_FLOAT:         mem_desc.format.image_channel_data_type = CLK_HALF_FLOAT; break;
-    case OpenCL_FLOAT:              mem_desc.format.image_channel_data_type = CLK_FLOAT; break;
-    default: throw Exception::InvalidArgument("FillMemObjDescriptor:: Unknown Image channel data type");
-    }
-    ImageChannelOrderVal order = image_desc.GetImageChannelOrder();
-    switch (order)
-    {
-    case OpenCL_R:          mem_desc.format.image_channel_order = CLK_R; break;
-    case OpenCL_Rx:         mem_desc.format.image_channel_order = CL_Rx; throw; break;
-    case OpenCL_A:          mem_desc.format.image_channel_order = CLK_A; break;
-    case OpenCL_INTENSITY:  mem_desc.format.image_channel_order = CLK_INTENSITY; break;
-    case OpenCL_LUMINANCE:  mem_desc.format.image_channel_order = CLK_LUMINANCE; break;
-    case OpenCL_RG:         mem_desc.format.image_channel_order = CLK_RG; break;
-    case OpenCL_RGx:        mem_desc.format.image_channel_order = CL_RGx; throw; break;
-    case OpenCL_RA:         mem_desc.format.image_channel_order = CLK_RA; break;
-    case OpenCL_RGB:        mem_desc.format.image_channel_order = CLK_RGB; break;
-    case OpenCL_RGBx:       mem_desc.format.image_channel_order = CL_RGBx; throw; break;
-    case OpenCL_RGBA:       mem_desc.format.image_channel_order = CLK_RGBA; break;
-    case OpenCL_ARGB:       mem_desc.format.image_channel_order = CLK_ARGB; break;
-    case OpenCL_BGRA:       mem_desc.format.image_channel_order = CLK_BGRA; break;
-    case OpenCL_DEPTH:      mem_desc.format.image_channel_order = CLK_DEPTH; break;
-    case OpenCL_sRGBA:      mem_desc.format.image_channel_order = CLK_sRGBA; break;
-    case OpenCL_sBGRA:      mem_desc.format.image_channel_order = CLK_sBGRA; break;
-    default: throw Exception::InvalidArgument("FillMemObjDescriptor:: Unknown Image pixel data type");
-    }
-    mem_desc.uiElementSize = image_desc.GetElementSize();
-    mem_desc.pData = pData;
-
-    if(pImageService != NULL)
-    {
-        /// Allocate data for auxiliary image structures
-        _image_aux_data* auxObject = NULL;
-        size_t auxObjectSize=pImageService->GetAuxilarySize();
-        auxObject = (_image_aux_data*)Validation::align_malloc(auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
-        /// Create auxiliary image structures
-        pImageService->CreateImageObject(&mem_desc, auxObject);
-    }
+  if (pImageService != NULL) {
+    /// Allocate data for auxiliary image structures
+    _image_aux_data *auxObject = NULL;
+    size_t auxObjectSize = pImageService->GetAuxilarySize();
+    auxObject = (_image_aux_data *)Validation::align_malloc(
+        auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
+    /// Create auxiliary image structures
+    pImageService->CreateImageObject(&mem_desc, auxObject);
+  }
 }
 
 void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList *input) {
@@ -453,48 +524,38 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output,
   }
 }
 
-size_t OpenCLArgsBuffer::CalcArgsBufferSize()
-{
-    size_t bufferSize = 0;
+size_t OpenCLArgsBuffer::CalcArgsBufferSize() {
+  size_t bufferSize = 0;
 
-    for (unsigned int i =0; i < m_kernelNumArgs; i++)
-    {
-        if ( KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].Ty )
-        {
-            // Kernel argument is a buffer
-            // Need to pass a pointer in the arguments buffer
-            bufferSize += sizeof(void *);
-        }
-        else if (KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].Ty)
-        {
-            // Kernel argument is a local buffer
-            // Need to pass pointer to somewhere in local memory buffer
-            bufferSize += sizeof(void *);
-        }
-        else if (KRNL_ARG_VECTOR == m_pKernelArgs[i].Ty || KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].Ty)
-        {
-            // Kernel argument is a vector
-            // Need to pass all the vector in the argument buffer
+  for (unsigned int i = 0; i < m_kernelNumArgs; i++) {
+    if (KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].Ty) {
+      // Kernel argument is a buffer
+      // Need to pass a pointer in the arguments buffer
+      bufferSize += sizeof(void *);
+    } else if (KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].Ty) {
+      // Kernel argument is a local buffer
+      // Need to pass pointer to somewhere in local memory buffer
+      bufferSize += sizeof(void *);
+    } else if (KRNL_ARG_VECTOR == m_pKernelArgs[i].Ty ||
+               KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].Ty) {
+      // Kernel argument is a vector
+      // Need to pass all the vector in the argument buffer
 
-            unsigned int uiSize = m_pKernelArgs[i].SizeInBytes;
-            // Upper part of uiSize is number of element in vector (int2/float4/...)
-            // Lower part of uiSize is size of type in vector
-            uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
-            bufferSize += uiSize;
-        }
-        else if (KRNL_ARG_SAMPLER == m_pKernelArgs[i].Ty)
-        {
-            // Kernel argument is a sampler
-            // Need to pass sampler flags
-            bufferSize += sizeof(cl_int);
-        }
-        else
-        {
-            // Kernel argument is a simple type (int/float/...)
-            // Need to pass the value itself in the arguments buffer
-            bufferSize += m_pKernelArgs[i].SizeInBytes;
-        }
+      unsigned int uiSize = m_pKernelArgs[i].SizeInBytes;
+      // Upper part of uiSize is number of element in vector (int2/float4/...)
+      // Lower part of uiSize is size of type in vector
+      uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
+      bufferSize += uiSize;
+    } else if (KRNL_ARG_SAMPLER == m_pKernelArgs[i].Ty) {
+      // Kernel argument is a sampler
+      // Need to pass sampler flags
+      bufferSize += sizeof(cl_int);
+    } else {
+      // Kernel argument is a simple type (int/float/...)
+      // Need to pass the value itself in the arguments buffer
+      bufferSize += m_pKernelArgs[i].SizeInBytes;
     }
+  }
 
-    return bufferSize;
+  return bufferSize;
 }

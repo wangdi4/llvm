@@ -7,11 +7,11 @@
 
 extern cl_device_type gDeviceType;
 
-/**************************************************************************************************
+/*******************************************************************************
  * clIntegerExecuteTest
  * -------------------
  * Implement image access test
- **************************************************************************************************/
+ ******************************************************************************/
 void clLocalStructTest() {
   printf("=============================================================\n");
   printf("clILocalSTructAssingTest\n");
@@ -26,15 +26,15 @@ void clLocalStructTest() {
       "typedef struct _AABB {int Min[3];int Max[3];} AABB;\n"
       "kernel void Foo(global AABB* p, local AABB* lcl)\n"
       "{\n"
-      "	int g=get_global_id(0);\n"
-      "	__local AABB tileBB;\n"
-      "	tileBB.Min[0] = -1.0; tileBB.Min[1] = -2.0; tileBB.Min[2] = -3.0;\n"
-      "	tileBB.Max[0] = 1.0; tileBB.Max[1] = 2.0; tileBB.Max[2] = 3.0;\n"
-      "	*lcl = tileBB;\n"
-      "	event_t ev = async_work_group_copy((__global char*)&p[0], (__local "
+      "  int g=get_global_id(0);\n"
+      "  __local AABB tileBB;\n"
+      "  tileBB.Min[0] = -1.0; tileBB.Min[1] = -2.0; tileBB.Min[2] = -3.0;\n"
+      "  tileBB.Max[0] = 1.0; tileBB.Max[1] = 2.0; tileBB.Max[2] = 3.0;\n"
+      "  *lcl = tileBB;\n"
+      "  event_t ev = async_work_group_copy((__global char*)&p[0], (__local "
       "char*)&tileBB, sizeof(AABB), 0);\n"
-      "	wait_group_events(1, &ev);\n"
-      "	p[1]=*lcl;\n"
+      "  wait_group_events(1, &ev);\n"
+      "  p[1]=*lcl;\n"
       "}"};
 
   cl_platform_id platform = 0;

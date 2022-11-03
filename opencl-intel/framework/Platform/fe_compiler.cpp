@@ -13,9 +13,9 @@
 // License.
 
 #include "fe_compiler.h"
-#include "observer.h"
 #include "cl_sys_info.h"
 #include "common_clang.h"
+#include "observer.h"
 
 #include <cl_sys_defines.h>
 #include <task_executor.h>
@@ -24,7 +24,7 @@
 #include <Windows.h>
 #else // _WIN32
 #include <malloc.h>
-#endif// _WIN32
+#endif // _WIN32
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -33,110 +33,98 @@ using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::ClangFE;
 
 #ifdef _WIN32
-static std::string GetDriverStorePathToLibrary()
-{
-    std::string dllPath;
-    dllPath.resize(MAX_PATH);
+static std::string GetDriverStorePathToLibrary() {
+  std::string dllPath;
+  dllPath.resize(MAX_PATH);
 #ifdef _M_X64
-    LPCTSTR crt_name = "IntelOpenCL64.dll";
-#else //(_M_X64)
-    LPCTSTR crt_name = "IntelOpenCL32.dll";
+  LPCTSTR crt_name = "IntelOpenCL64.dll";
+#else  //(_M_X64)
+  LPCTSTR crt_name = "IntelOpenCL32.dll";
 #endif //(_M_X64)
-    DWORD Length = GetModuleFileNameA( GetModuleHandle(crt_name), &dllPath[0], MAX_PATH );
+  DWORD Length =
+      GetModuleFileNameA(GetModuleHandle(crt_name), &dllPath[0], MAX_PATH);
 
-    for( DWORD l = Length; l > 0; l-- )
-    {
-        if( dllPath[ l - 1 ] == '\\' )
-        {
-            dllPath[ l ] = '\0';
-            break;
-        }
+  for (DWORD l = Length; l > 0; l--) {
+    if (dllPath[l - 1] == '\\') {
+      dllPath[l] = '\0';
+      break;
     }
+  }
 
-    return dllPath;
+  return dllPath;
 }
 #endif // _WIN32
 
-FrontEndCompiler::FrontEndCompiler() :
-        OCLObject<_cl_object>(nullptr, "FrontEndCompiler"),
-        m_pfnCreateInstance(nullptr),
-        m_pszModuleName(nullptr),
-        m_pFECompiler(nullptr),
-        m_pLoggerClient(nullptr)
-{
-}
+FrontEndCompiler::FrontEndCompiler()
+    : OCLObject<_cl_object>(nullptr, "FrontEndCompiler"),
+      m_pfnCreateInstance(nullptr), m_pszModuleName(nullptr),
+      m_pFECompiler(nullptr), m_pLoggerClient(nullptr) {}
 
-FrontEndCompiler::~FrontEndCompiler()
-{
-    FreeResources();
-}
+FrontEndCompiler::~FrontEndCompiler() { FreeResources(); }
 
-cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *pDeviceInfo, size_t stDevInfoSize)
-{
-    FreeResources();
+cl_err_code FrontEndCompiler::Initialize(const char *psModuleName,
+                                         const void *pDeviceInfo,
+                                         size_t stDevInfoSize) {
+  FreeResources();
 
-    INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
+  INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
-    if (m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) != 0)
-    {
-      if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
-        g_pUserLogger->PrintError(
-            "Failed to load " + std::string(psModuleName) +
-            " with error message: " + m_dlModule.GetError());
+  if (m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) != 0) {
+    if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
+      g_pUserLogger->PrintError(
+          "Failed to load " + std::string(psModuleName) +
+          " with error message: " + m_dlModule.GetError());
 
 #ifdef _WIN32
-      // This path is for loading clang from GPU driver.
-      const std::string pathString =
-          GetDriverStorePathToLibrary() + std::string(psModuleName);
-      if (m_dlModule.Load(GetFullModuleNameForLoad(pathString.c_str())) != 0) {
-        LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"),
-                  psModuleName, pathString.c_str());
-        return CL_COMPILER_NOT_AVAILABLE;
-      }
+    // This path is for loading clang from GPU driver.
+    const std::string pathString =
+        GetDriverStorePathToLibrary() + std::string(psModuleName);
+    if (m_dlModule.Load(GetFullModuleNameForLoad(pathString.c_str())) != 0) {
+      LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"),
+                psModuleName, pathString.c_str());
+      return CL_COMPILER_NOT_AVAILABLE;
+    }
 #else
-        LOG_ERROR(TEXT("Can't find frontend library %s)"), psModuleName);
-        return CL_COMPILER_NOT_AVAILABLE;
+    LOG_ERROR(TEXT("Can't find frontend library %s)"), psModuleName);
+    return CL_COMPILER_NOT_AVAILABLE;
 #endif
-    }
+  }
 
-    m_pfnCreateInstance = (fnCreateFECompilerInstance*)m_dlModule.GetFunctionPtrByName("CreateFrontEndInstance");
-    if ( nullptr == m_pfnCreateInstance )
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("Can't find entry function"));
-        return CL_COMPILER_NOT_AVAILABLE;
-    }
+  m_pfnCreateInstance =
+      (fnCreateFECompilerInstance *)m_dlModule.GetFunctionPtrByName(
+          "CreateFrontEndInstance");
+  if (nullptr == m_pfnCreateInstance) {
+    LOG_ERROR(TEXT("%s"), TEXT("Can't find entry function"));
+    return CL_COMPILER_NOT_AVAILABLE;
+  }
 
-    m_pszModuleName = STRDUP(psModuleName);
+  m_pszModuleName = STRDUP(psModuleName);
 
-    cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler, g_pUserLogger);
-    if ( CL_FAILED(err) )
-    {
-        LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
-    }
+  cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize,
+                                        &m_pFECompiler, g_pUserLogger);
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
+  }
 
-    return err;
+  return err;
 }
 
-void FrontEndCompiler::FreeResources()
-{
-    RELEASE_LOGGER_CLIENT;
+void FrontEndCompiler::FreeResources() {
+  RELEASE_LOGGER_CLIENT;
 
-    if ( nullptr != m_pFECompiler )
-    {
-        if (!m_bTerminate)
-        {
-            m_pFECompiler->Release();
-        }
-        m_pFECompiler = nullptr;
+  if (nullptr != m_pFECompiler) {
+    if (!m_bTerminate) {
+      m_pFECompiler->Release();
     }
+    m_pFECompiler = nullptr;
+  }
 
-    if ( nullptr != m_pszModuleName )
-    {
-      free(const_cast<char *>(m_pszModuleName));
-      m_pszModuleName = nullptr;
-      m_dlModule.Close();
-      m_pfnCreateInstance = nullptr;
-    }
+  if (nullptr != m_pszModuleName) {
+    free(const_cast<char *>(m_pszModuleName));
+    m_pszModuleName = nullptr;
+    m_dlModule.Close();
+    m_pfnCreateInstance = nullptr;
+  }
 }
 
 cl_err_code FrontEndCompiler::ProcessResults(cl_err_code Error,
@@ -174,68 +162,64 @@ cl_err_code FrontEndCompiler::ProcessResults(cl_err_code Error,
 }
 
 void FrontEndCompiler::GetSpecConstInfo(
-    const char* szProgramBinary, size_t uiProgramSize,
-    std::vector<SpecConstInfoTy>& SpecConstInfo) const
-{
-    FESPIRVProgramDescriptor spirvDesc;
-    spirvDesc.pSPIRVContainer = szProgramBinary;
-    spirvDesc.uiSPIRVContainerSize = uiProgramSize;
-    spirvDesc.pszOptions = nullptr;
-    spirvDesc.uiSpecConstCount = 0;
-    spirvDesc.puiSpecConstIds = nullptr;
-    spirvDesc.puiSpecConstValues = nullptr;
+    const char *szProgramBinary, size_t uiProgramSize,
+    std::vector<SpecConstInfoTy> &SpecConstInfo) const {
+  FESPIRVProgramDescriptor spirvDesc;
+  spirvDesc.pSPIRVContainer = szProgramBinary;
+  spirvDesc.uiSPIRVContainerSize = uiProgramSize;
+  spirvDesc.pszOptions = nullptr;
+  spirvDesc.uiSpecConstCount = 0;
+  spirvDesc.puiSpecConstIds = nullptr;
+  spirvDesc.puiSpecConstValues = nullptr;
 
-    IOCLFESpecConstInfo* pSpecConstInfo = nullptr;
+  IOCLFESpecConstInfo *pSpecConstInfo = nullptr;
 
-    LOG_DEBUG(TEXT("Enter FrontEndCompiler::GetSpecConstInfo("
-                   "szProgramBinary=%d, uiProgramSize=%d)"),
-        szProgramBinary, uiProgramSize);
-    m_pFECompiler->GetSpecConstInfo(&spirvDesc, &pSpecConstInfo);
-    // Free resourses
-    if (pSpecConstInfo)
-    {
-        for(size_t i = 0, e = pSpecConstInfo->getSpecConstCount(); i < e; ++i)
-        {
-            SpecConstInfo.emplace_back(pSpecConstInfo->getSpecConstId(i),
-                                       pSpecConstInfo->getSpecConstSize(i));
-        }
-        pSpecConstInfo->release();
+  LOG_DEBUG(TEXT("Enter FrontEndCompiler::GetSpecConstInfo("
+                 "szProgramBinary=%d, uiProgramSize=%d)"),
+            szProgramBinary, uiProgramSize);
+  m_pFECompiler->GetSpecConstInfo(&spirvDesc, &pSpecConstInfo);
+  // Free resourses
+  if (pSpecConstInfo) {
+    for (size_t i = 0, e = pSpecConstInfo->getSpecConstCount(); i < e; ++i) {
+      SpecConstInfo.emplace_back(pSpecConstInfo->getSpecConstId(i),
+                                 pSpecConstInfo->getSpecConstSize(i));
     }
+    pSpecConstInfo->release();
+  }
 }
 
-cl_err_code FrontEndCompiler::ParseSpirv(const char*     szProgramBinary,
-                                         unsigned int    uiProgramBinarySize,
-                                         const char*     szOptions,
-                                         size_t          uiSpecConstCount,
-                                         const uint32_t* puiSpecConstIds,
-                                         const uint64_t* puiSpecConstValues,
-                                         OUT char**      ppBinary,
-                                         OUT size_t*     puiBinarySize,
-                                         OUT char**      pszCompileLog) const
-{
-    LOG_DEBUG(TEXT("Enter ParseSpirv(szProgramBinary=%d, uiProgramBinarySize=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
-        szProgramBinary, uiProgramBinarySize, szOptions, ppBinary, puiBinarySize, pszCompileLog);
+cl_err_code FrontEndCompiler::ParseSpirv(
+    const char *szProgramBinary, unsigned int uiProgramBinarySize,
+    const char *szOptions, size_t uiSpecConstCount,
+    const uint32_t *puiSpecConstIds, const uint64_t *puiSpecConstValues,
+    OUT char **ppBinary, OUT size_t *puiBinarySize,
+    OUT char **pszCompileLog) const {
+  LOG_DEBUG(
+      TEXT("Enter ParseSpirv(szProgramBinary=%d, uiProgramBinarySize=%d, "
+           "szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+      szProgramBinary, uiProgramBinarySize, szOptions, ppBinary, puiBinarySize,
+      pszCompileLog);
 
-    IOCLFEBinaryResult* pResult;
-    int err = CL_SUCCESS;
+  IOCLFEBinaryResult *pResult;
+  int err = CL_SUCCESS;
 
-    assert(sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiProgramBinarySize &&
-           _CL_SPIRV_MAGIC_NUMBER_ ==
-               ((const unsigned int *)szProgramBinary)[0] &&
-           "The binary is not SPIRV program.");
+  assert(sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiProgramBinarySize &&
+         _CL_SPIRV_MAGIC_NUMBER_ ==
+             ((const unsigned int *)szProgramBinary)[0] &&
+         "The binary is not SPIRV program.");
 
-    FESPIRVProgramDescriptor spirvDesc;
+  FESPIRVProgramDescriptor spirvDesc;
 
-    spirvDesc.pSPIRVContainer = szProgramBinary;
-    spirvDesc.uiSPIRVContainerSize = uiProgramBinarySize;
-    spirvDesc.pszOptions = szOptions;
-    spirvDesc.uiSpecConstCount = uiSpecConstCount;
-    spirvDesc.puiSpecConstIds = puiSpecConstIds;
-    spirvDesc.puiSpecConstValues = puiSpecConstValues;
+  spirvDesc.pSPIRVContainer = szProgramBinary;
+  spirvDesc.uiSPIRVContainerSize = uiProgramBinarySize;
+  spirvDesc.pszOptions = szOptions;
+  spirvDesc.uiSpecConstCount = uiSpecConstCount;
+  spirvDesc.puiSpecConstIds = puiSpecConstIds;
+  spirvDesc.puiSpecConstValues = puiSpecConstValues;
 
-    err = m_pFECompiler->ParseSPIRV(&spirvDesc, &pResult);
+  err = m_pFECompiler->ParseSPIRV(&spirvDesc, &pResult);
 
-    return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
+  return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
 }
 
 cl_err_code FrontEndCompiler::MaterializeSPIR(const char *szProgramBinary,
@@ -262,32 +246,31 @@ cl_err_code FrontEndCompiler::MaterializeSPIR(const char *szProgramBinary,
   return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
 }
 
-cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
-                                             unsigned int   uiNumInputHeaders,
-                                             const char**   pszInputHeaders,
-                                             const char**   pszInputHeadersNames,
-                                             const char*    szOptions,
-                                             bool           bFpgaEmulator,
-                                             OUT char**     ppBinary,
-                                             OUT size_t*    puiBinarySize,
-                                             OUT char**     pszCompileLog) const
-{
-    LOG_DEBUG(TEXT("Enter CompileProgram(szProgramSource=%d, uiNumInputHeaders=%d, pszInputHeaders=%d, pszInputHeadersNames=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
-        szProgramSource, uiNumInputHeaders, pszInputHeaders, pszInputHeadersNames, szOptions, ppBinary, puiBinarySize, pszCompileLog);
+cl_err_code FrontEndCompiler::CompileProgram(
+    const char *szProgramSource, unsigned int uiNumInputHeaders,
+    const char **pszInputHeaders, const char **pszInputHeadersNames,
+    const char *szOptions, bool bFpgaEmulator, OUT char **ppBinary,
+    OUT size_t *puiBinarySize, OUT char **pszCompileLog) const {
+  LOG_DEBUG(
+      TEXT("Enter CompileProgram(szProgramSource=%d, uiNumInputHeaders=%d, "
+           "pszInputHeaders=%d, pszInputHeadersNames=%d, szOptions=%d, "
+           "ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+      szProgramSource, uiNumInputHeaders, pszInputHeaders, pszInputHeadersNames,
+      szOptions, ppBinary, puiBinarySize, pszCompileLog);
 
-    IOCLFEBinaryResult*         pResult;
-    FECompileProgramDescriptor  compileDesc;
+  IOCLFEBinaryResult *pResult;
+  FECompileProgramDescriptor compileDesc;
 
-    compileDesc.pProgramSource = szProgramSource;
-    compileDesc.uiNumInputHeaders = uiNumInputHeaders;
-    compileDesc.pInputHeaders = pszInputHeaders;
-    compileDesc.pszInputHeadersNames = pszInputHeadersNames;
-    compileDesc.pszOptions = szOptions;
-    compileDesc.bFpgaEmulator = bFpgaEmulator;
+  compileDesc.pProgramSource = szProgramSource;
+  compileDesc.uiNumInputHeaders = uiNumInputHeaders;
+  compileDesc.pInputHeaders = pszInputHeaders;
+  compileDesc.pszInputHeadersNames = pszInputHeadersNames;
+  compileDesc.pszOptions = szOptions;
+  compileDesc.bFpgaEmulator = bFpgaEmulator;
 
-    int err = m_pFECompiler->CompileProgram(&compileDesc, &pResult);
+  int err = m_pFECompiler->CompileProgram(&compileDesc, &pResult);
 
-    return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
+  return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
 }
 
 cl_err_code FrontEndCompiler::LinkProgram(
@@ -358,21 +341,24 @@ cl_err_code FrontEndCompiler::LinkProgram(
   return CL_SUCCESS;
 }
 
-bool FrontEndCompiler::CheckCompileOptions(const char* szOptions, char* szUnrecognizedOptions, size_t uiUnrecognizedOptionsSize) const
-{
-    return m_pFECompiler->CheckCompileOptions(szOptions, szUnrecognizedOptions, uiUnrecognizedOptionsSize);
+bool FrontEndCompiler::CheckCompileOptions(
+    const char *szOptions, char *szUnrecognizedOptions,
+    size_t uiUnrecognizedOptionsSize) const {
+  return m_pFECompiler->CheckCompileOptions(szOptions, szUnrecognizedOptions,
+                                            uiUnrecognizedOptionsSize);
 }
 
-bool FrontEndCompiler::CheckLinkOptions(const char* szOptions, char* szUnrecognizedOptions, size_t uiUnrecongnizedOptionsSize) const
-{
-  return m_pFECompiler->CheckLinkOptions(szOptions, szUnrecognizedOptions, uiUnrecongnizedOptionsSize);
+bool FrontEndCompiler::CheckLinkOptions(
+    const char *szOptions, char *szUnrecognizedOptions,
+    size_t uiUnrecongnizedOptionsSize) const {
+  return m_pFECompiler->CheckLinkOptions(szOptions, szUnrecognizedOptions,
+                                         uiUnrecongnizedOptionsSize);
 }
 
-cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin,
-                                               size_t             uiBinarySize,
-                                               const char*        szKernelName,
-                                               IOCLFEKernelArgInfo*   *ppArgInfo) const
-{
+cl_err_code
+FrontEndCompiler::GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
+                                   const char *szKernelName,
+                                   IOCLFEKernelArgInfo **ppArgInfo) const {
   LOG_DEBUG(
       TEXT("Enter GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p)"),
       pBin, szKernelName, (void *)ppArgInfo);
@@ -382,12 +368,12 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin,
     return CL_INVALID_VALUE;
   }
 
-    int err = m_pFECompiler->GetKernelArgInfo(pBin, uiBinarySize, szKernelName, ppArgInfo);
+  int err = m_pFECompiler->GetKernelArgInfo(pBin, uiBinarySize, szKernelName,
+                                            ppArgInfo);
 
-    LOG_DEBUG(TEXT("Exit GetKernelArgInfo(pBin=%p, szKernelName=<%s>, "
-                   "ppArgInfo=%p, err=%d)"),
-              pBin, szKernelName, (void *)ppArgInfo, err);
+  LOG_DEBUG(TEXT("Exit GetKernelArgInfo(pBin=%p, szKernelName=<%s>, "
+                 "ppArgInfo=%p, err=%d)"),
+            pBin, szKernelName, (void *)ppArgInfo, err);
 
-    return err;
+  return err;
 }
-

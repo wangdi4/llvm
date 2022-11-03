@@ -17,11 +17,13 @@
 
 #include <cstdlib>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 /*! \enum cl_dev_backend_options
-   * Defines possible values of the backend
+ * Defines possible values of the backend
  * options
-   */
+ */
 // clang-format off
   enum cl_dev_backend_options                          // Description                           | Type                   | Values/Format/Exampl
   {                                                    // --------------------------------------+------------------------+----------------------
@@ -65,76 +67,70 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 /*
 enum cl_dev_backend_dump_options
 {
-    CL_DEV_BACKEND_OPTION_DUMPFILE,  //!< string - file name to store the dump into. If not specified - use stdout
-    CL_DEV_BACKEND_OPTION_DUMPTYPE   //!< int - dump type. Possible values are not defined currently
+    CL_DEV_BACKEND_OPTION_DUMPFILE,  //!< string - file name to store the dump
+into. If not specified - use stdout CL_DEV_BACKEND_OPTION_DUMPTYPE   //!< int -
+dump type. Possible values are not defined currently
 };
 */
 
 /*! \enum ETransposeSize
  * Defines possible values for backend vectorization support
  */
-enum ETransposeSize
-{
-    TRANSPOSE_SIZE_INVALID = -2, // Invalid value.
-    TRANSPOSE_SIZE_NOT_SET = -1, // Default value. Size is not set by user.
-    TRANSPOSE_SIZE_AUTO = 0, // Automatic selection. Backend will selectet if and how to vectorize based on heuristics
-    TRANSPOSE_SIZE_1  = 1,   // Scalar mode. Do not use the vectorizer
-    TRANSPOSE_SIZE_4  = 4,   // Force the vectorization with packetization size of 4
-    TRANSPOSE_SIZE_8  = 8,   // Force the vectorization with packetization size of 8
-    TRANSPOSE_SIZE_16 = 16,  // Force the vectorization with packetization size of 16
-    TRANSPOSE_SIZE_32 = 32,  // Force the vectorization with packetization size of 32
-    TRANSPOSE_SIZE_64 = 64   // Force the vectorization with packetization size of 64
+enum ETransposeSize {
+  TRANSPOSE_SIZE_INVALID = -2, // Invalid value.
+  TRANSPOSE_SIZE_NOT_SET = -1, // Default value. Size is not set by user.
+  TRANSPOSE_SIZE_AUTO = 0, // Automatic selection. Backend will selectet if and
+                           // how to vectorize based on heuristics
+  TRANSPOSE_SIZE_1 = 1,    // Scalar mode. Do not use the vectorizer
+  TRANSPOSE_SIZE_4 = 4, // Force the vectorization with packetization size of 4
+  TRANSPOSE_SIZE_8 = 8, // Force the vectorization with packetization size of 8
+  TRANSPOSE_SIZE_16 =
+      16, // Force the vectorization with packetization size of 16
+  TRANSPOSE_SIZE_32 =
+      32, // Force the vectorization with packetization size of 32
+  TRANSPOSE_SIZE_64 =
+      64 // Force the vectorization with packetization size of 64
 };
 
 /*! \dump_IR_options
  * Defines the options for dumping IR - before or after a certain pass
  */
-enum dump_IR_options
-{
-    OPTION_IR_DUMPTYPE_BEFORE = 1,
-    OPTION_IR_DUMPTYPE_AFTER
+enum dump_IR_options {
+  OPTION_IR_DUMPTYPE_BEFORE = 1,
+  OPTION_IR_DUMPTYPE_AFTER
 };
 
 /*! \enum IRDumpOptions
  * Defines possible places for printing IR, after/before certain optimizations
  */
-enum IRDumpOptions
-{
-    DUMP_IR_ALL = 1,        // Printing after/before each optimization
-    DUMP_IR_TARGERT_DATA,   // Printing after/before target data pass
-    DUMP_IR_VECTORIZER      // Printing after/before vectorizer pass
+enum IRDumpOptions {
+  DUMP_IR_ALL = 1,      // Printing after/before each optimization
+  DUMP_IR_TARGERT_DATA, // Printing after/before target data pass
+  DUMP_IR_VECTORIZER    // Printing after/before vectorizer pass
 };
 
 /**
- * This interface represents the options which can be passed from the User to the Backend
+ * This interface represents the options which can be passed from the User to
+ * the Backend
  */
-class ICLDevBackendOptions
-{
+class ICLDevBackendOptions {
 public:
-    virtual ~ICLDevBackendOptions() {}
+  virtual ~ICLDevBackendOptions() {}
 
-    /**
-     * returns the specified option as (boolean\int\string\void*) value
-     *
-     * @param optionId specified which option
-     * @param default value to return
-     */
-    virtual bool GetBooleanValue(
-        int optionId,
-        bool defaultValue) const = 0;
+  /**
+   * returns the specified option as (boolean\int\string\void*) value
+   *
+   * @param optionId specified which option
+   * @param default value to return
+   */
+  virtual bool GetBooleanValue(int optionId, bool defaultValue) const = 0;
 
-    virtual int GetIntValue(
-        int optionId,
-        int defaultValue) const = 0;
+  virtual int GetIntValue(int optionId, int defaultValue) const = 0;
 
-    virtual const char* GetStringValue(
-        int optionId,
-        const char* defaultValue) const = 0;
+  virtual const char *GetStringValue(int optionId,
+                                     const char *defaultValue) const = 0;
 
-    virtual bool GetValue(
-        int optionId,
-        void* Value,
-        size_t* pSize) const = 0;
+  virtual bool GetValue(int optionId, void *Value, size_t *pSize) const = 0;
 };
 
 enum PassManagerType {
@@ -144,6 +140,8 @@ enum PassManagerType {
   PM_LTO_LEGACY, // llvm legacy pass pipeline.
   PM_LTO         // llvm new pass manager pipeline.
 };
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // ICLDevBackendOptions_H

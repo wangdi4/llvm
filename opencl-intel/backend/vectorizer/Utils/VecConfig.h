@@ -26,23 +26,19 @@ class TargetMachine;
 
 namespace intel {
 
-class OptimizerConfig
-{
+class OptimizerConfig {
 public:
   OptimizerConfig(const Intel::OpenCL::Utils::CPUDetect *cpuId,
-                  ETransposeSize tranposeSize,
-                  llvm::TargetMachine *machine, bool debugInfo,
-                  bool useNativeDebugger, bool profiling, bool disableOpt,
-                  bool relaxedMath, bool uniformWGSize, bool fpgaEmulator,
-                  bool heuristicIR,
-                  int rtLoopUnrollFactor, bool streamingAlways,
-                  unsigned expensiveMemOpts)
-      : m_cpuId(cpuId), m_transposeSize(tranposeSize),
-        m_targetMachine(machine), m_debugInfo(debugInfo),
-        m_useNativeDebugger(useNativeDebugger), m_profiling(profiling),
-        m_disableOpt(disableOpt), m_relaxedMath(relaxedMath),
-        m_uniformWGSize(uniformWGSize), m_fpgaEmulator(fpgaEmulator),
-        m_dumpHeuristicIR(heuristicIR),
+                  ETransposeSize tranposeSize, llvm::TargetMachine *machine,
+                  bool debugInfo, bool useNativeDebugger, bool profiling,
+                  bool disableOpt, bool relaxedMath, bool uniformWGSize,
+                  bool fpgaEmulator, bool heuristicIR, int rtLoopUnrollFactor,
+                  bool streamingAlways, unsigned expensiveMemOpts)
+      : m_cpuId(cpuId), m_transposeSize(tranposeSize), m_targetMachine(machine),
+        m_debugInfo(debugInfo), m_useNativeDebugger(useNativeDebugger),
+        m_profiling(profiling), m_disableOpt(disableOpt),
+        m_relaxedMath(relaxedMath), m_uniformWGSize(uniformWGSize),
+        m_fpgaEmulator(fpgaEmulator), m_dumpHeuristicIR(heuristicIR),
         m_rtLoopUnrollFactor(rtLoopUnrollFactor),
         m_streamingAlways(streamingAlways),
         m_expensiveMemOpts(expensiveMemOpts) {}
@@ -50,45 +46,44 @@ public:
   const Intel::OpenCL::Utils::CPUDetect *GetCpuId() const { return m_cpuId; }
   ETransposeSize GetTransposeSize() const { return m_transposeSize; }
 
-    const std::string& GetDumpIRDir() const{ return m_dumpIRDir; }
-    llvm::TargetMachine* GetTargetMachine() const { return m_targetMachine; }
-    bool GetDisableOpt()    const { return m_disableOpt; }
-    bool GetDebugInfoFlag() const { return m_debugInfo; }
-    bool GetUseNativeDebuggerFlag() const { return m_useNativeDebugger; }
-    bool GetProfilingFlag() const { return m_profiling; }
-    bool GetRelaxedMath()   const { return m_relaxedMath; }
-    bool GetUniformWGSize() const { return m_uniformWGSize; }
-    bool isFpgaEmulator()   const { return m_fpgaEmulator; }
-    int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
-    bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
-    bool GetStreamingAlways() const { return m_streamingAlways; }
-    bool EnableOCLAA() const;
+  const std::string &GetDumpIRDir() const { return m_dumpIRDir; }
+  llvm::TargetMachine *GetTargetMachine() const { return m_targetMachine; }
+  bool GetDisableOpt() const { return m_disableOpt; }
+  bool GetDebugInfoFlag() const { return m_debugInfo; }
+  bool GetUseNativeDebuggerFlag() const { return m_useNativeDebugger; }
+  bool GetProfilingFlag() const { return m_profiling; }
+  bool GetRelaxedMath() const { return m_relaxedMath; }
+  bool GetUniformWGSize() const { return m_uniformWGSize; }
+  bool isFpgaEmulator() const { return m_fpgaEmulator; }
+  int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
+  bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
+  bool GetStreamingAlways() const { return m_streamingAlways; }
+  bool EnableOCLAA() const;
 
-  private:
-    const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
-    ETransposeSize m_transposeSize;
+private:
+  const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
+  ETransposeSize m_transposeSize;
 
-    std::vector<int> m_dumpIROptionsAfter;
-    std::vector<int> m_dumpIROptionsBefore;
-    const std::string m_dumpIRDir = "";
-    llvm::TargetMachine *m_targetMachine;
-    bool m_debugInfo;
-    bool m_useNativeDebugger;
-    bool m_profiling;
-    bool m_disableOpt;
-    bool m_relaxedMath;
-    bool m_uniformWGSize;
-    // Sets whether we are working as fpga emulator
-    bool m_fpgaEmulator;
-    // Sets whether the vectorize should output heuristic LL IR inputs
-    bool m_dumpHeuristicIR;
+  std::vector<int> m_dumpIROptionsAfter;
+  std::vector<int> m_dumpIROptionsBefore;
+  const std::string m_dumpIRDir = "";
+  llvm::TargetMachine *m_targetMachine;
+  bool m_debugInfo;
+  bool m_useNativeDebugger;
+  bool m_profiling;
+  bool m_disableOpt;
+  bool m_relaxedMath;
+  bool m_uniformWGSize;
+  // Sets whether we are working as fpga emulator
+  bool m_fpgaEmulator;
+  // Sets whether the vectorize should output heuristic LL IR inputs
+  bool m_dumpHeuristicIR;
 
-    int m_rtLoopUnrollFactor;
-    bool m_streamingAlways;
-    unsigned m_expensiveMemOpts;
+  int m_rtLoopUnrollFactor;
+  bool m_streamingAlways;
+  unsigned m_expensiveMemOpts;
 };
 
-
-}
+} // namespace intel
 
 #endif

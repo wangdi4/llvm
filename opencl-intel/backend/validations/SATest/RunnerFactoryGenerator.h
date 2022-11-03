@@ -17,23 +17,21 @@
 
 #include "IRunnerFactory.h"
 
-namespace Validation
-{
-    /// @brief IRunnerFactory abstract factory implementation
-    class RunnerFactory
-    {
-    public:
-        /// @brief Returns appropriate instance of a runner factory
-        /// @return Instance of a runner factory
-        static IRunnerFactory& GetInstance();
+namespace Validation {
+/// @brief IRunnerFactory abstract factory implementation
+class RunnerFactory {
+public:
+  /// @brief Returns appropriate instance of a runner factory
+  /// @return Instance of a runner factory
+  static IRunnerFactory &GetInstance();
 
-    private:
-        /// @brief Ctor.
-        RunnerFactory();
+private:
+  /// @brief Ctor.
+  RunnerFactory();
 
-        /// @brief Instance of a runner factory
-        static IRunnerFactory * s_oclFactory;
-    };
-}
+  /// @brief Instance of a runner factory
+  static IRunnerFactory *s_oclFactory;
+};
+} // namespace Validation
 
 #endif // RUNNER_FACTORY_GENERATOR_H

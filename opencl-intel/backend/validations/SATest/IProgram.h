@@ -15,15 +15,12 @@
 #ifndef I_PROGRAM_H
 #define I_PROGRAM_H
 
-namespace Validation
-{
-  /// @brief This class contains test program information
-  class IProgram
-  {
-  public:
-    virtual ~IProgram(void) {}
-  };
-}
-
+namespace Validation {
+/// @brief This class contains test program information
+class IProgram {
+public:
+  virtual ~IProgram(void) {}
+};
+} // namespace Validation
 
 #endif // I_PROGRAM_H

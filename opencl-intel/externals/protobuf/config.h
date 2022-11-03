@@ -28,7 +28,6 @@
 
 #else /* no _MSC_VER */
 
-
 /* the name of <hash_map> */
 #define HASH_MAP_CLASS unordered_map
 
@@ -48,4 +47,3 @@
 #define HAVE_HASH_SET 1
 
 #endif
-

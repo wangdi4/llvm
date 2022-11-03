@@ -6,16 +6,16 @@
  * as input.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
-sdiv (	__global const float *in,
-		__global float *out, __global const long longArg1, __global const long longArg2)
+sdiv (  __global const float *in,
+    __global float *out, __global const long longArg1, __global const long longArg2)
 {
-	int gid = get_global_id(0);
-	out[gid] = longArg1 / longArg2;
+  int gid = get_global_id(0);
+  out[gid] = longArg1 / longArg2;
 }

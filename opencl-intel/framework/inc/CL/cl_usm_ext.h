@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 //==---------------- cl_usm_ext.h - USM Extension for CL -------*- C++ -*---==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -65,7 +77,7 @@ typedef cl_uint cl_unified_shared_memory_type_intel;
 typedef cl_bitfield cl_mem_migration_flags_intel;
 
 /* cl_mem_migration_flags_intel */
-#define CL_MIGRATE_MEM_OBJECT_HOST_INTEL              (1 << 0)
+#define CL_MIGRATE_MEM_OBJECT_HOST_INTEL (1 << 0)
 #define CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL (1 << 1)
 
 typedef cl_uint cl_mem_advice_intel;
@@ -86,10 +98,9 @@ typedef cl_uint cl_mem_advice_intel;
 #define CL_COMMAND_MIGRATEMEM_INTEL 0x4206
 #define CL_COMMAND_MEMADVISE_INTEL 0x4207
 
-extern CL_API_ENTRY void *CL_API_CALL
-clHostMemAllocINTEL(cl_context context,
-                    const cl_mem_properties_intel *properties,
-                    size_t size, cl_uint alignment, cl_int *errcode_ret);
+extern CL_API_ENTRY void *CL_API_CALL clHostMemAllocINTEL(
+    cl_context context, const cl_mem_properties_intel *properties, size_t size,
+    cl_uint alignment, cl_int *errcode_ret);
 
 typedef CL_API_ENTRY void *(CL_API_CALL *clHostMemAllocINTEL_fn)(
     cl_context context, const cl_mem_properties_intel *properties, size_t size,
@@ -97,32 +108,32 @@ typedef CL_API_ENTRY void *(CL_API_CALL *clHostMemAllocINTEL_fn)(
 
 extern CL_API_ENTRY void *CL_API_CALL
 clDeviceMemAllocINTEL(cl_context context, cl_device_id device,
-                      const cl_mem_properties_intel *properties,
-                      size_t size, cl_uint alignment, cl_int *errcode_ret);
+                      const cl_mem_properties_intel *properties, size_t size,
+                      cl_uint alignment, cl_int *errcode_ret);
 
 typedef CL_API_ENTRY void *(CL_API_CALL *clDeviceMemAllocINTEL_fn)(
     cl_context context, cl_device_id device,
-    const cl_mem_properties_intel *properties,
-    size_t size, cl_uint alignment, cl_int *errcode_ret);
+    const cl_mem_properties_intel *properties, size_t size, cl_uint alignment,
+    cl_int *errcode_ret);
 
 extern CL_API_ENTRY void *CL_API_CALL
 clSharedMemAllocINTEL(cl_context context, cl_device_id device,
-                      const cl_mem_properties_intel *properties,
-                      size_t size, cl_uint alignment, cl_int *errcode_ret);
+                      const cl_mem_properties_intel *properties, size_t size,
+                      cl_uint alignment, cl_int *errcode_ret);
 
 typedef CL_API_ENTRY void *(CL_API_CALL *clSharedMemAllocINTEL_fn)(
     cl_context context, cl_device_id device,
-    const cl_mem_properties_intel *properties,
-    size_t size, cl_uint alignment, cl_int *errcode_ret);
+    const cl_mem_properties_intel *properties, size_t size, cl_uint alignment,
+    cl_int *errcode_ret);
 
-extern CL_API_ENTRY
-cl_int CL_API_CALL clMemFreeINTEL(cl_context context, void *ptr);
+extern CL_API_ENTRY cl_int CL_API_CALL clMemFreeINTEL(cl_context context,
+                                                      void *ptr);
 
-extern CL_API_ENTRY
-cl_int CL_API_CALL clMemBlockingFreeINTEL(cl_context context, void *ptr);
+extern CL_API_ENTRY cl_int CL_API_CALL
+clMemBlockingFreeINTEL(cl_context context, void *ptr);
 
-typedef CL_API_ENTRY
-cl_int(CL_API_CALL *clMemFreeINTEL_fn)(cl_context context, void *ptr);
+typedef CL_API_ENTRY cl_int(CL_API_CALL *clMemFreeINTEL_fn)(cl_context context,
+                                                            void *ptr);
 
 typedef CL_API_ENTRY
 cl_int(CL_API_CALL *clMemBlockingFreeINTEL_fn)(cl_context context, void *ptr);
@@ -151,14 +162,13 @@ typedef CL_API_ENTRY cl_int(CL_API_CALL *clEnqueueMemsetINTEL_fn)(
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event);
 
-extern CL_API_ENTRY cl_int CL_API_CALL
-clEnqueueMemFillINTEL(cl_command_queue command_queue, void *dst_ptr,
-                      const void* pattern, size_t pattern_size, size_t size,
-                      cl_uint num_events_in_wait_list,
-                      const cl_event *event_wait_list, cl_event *event);
+extern CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemFillINTEL(
+    cl_command_queue command_queue, void *dst_ptr, const void *pattern,
+    size_t pattern_size, size_t size, cl_uint num_events_in_wait_list,
+    const cl_event *event_wait_list, cl_event *event);
 
 typedef CL_API_ENTRY cl_int(CL_API_CALL *clEnqueueMemFillINTEL_fn)(
-    cl_command_queue command_queue, void *dst_ptr, const void* pattern,
+    cl_command_queue command_queue, void *dst_ptr, const void *pattern,
     size_t pattern_size, size_t size, cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list, cl_event *event);
 

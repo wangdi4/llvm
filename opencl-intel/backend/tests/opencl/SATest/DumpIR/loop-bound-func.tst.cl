@@ -3,4 +3,3 @@ __kernel void f(__global int *src, __global int *dst) {
   if (i < 10)
     dst[i] = src[i];
 }
-

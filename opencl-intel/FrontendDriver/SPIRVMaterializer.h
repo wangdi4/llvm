@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "frontend_api.h"
 #include "LLVMSPIRVOpts.h"
+#include "frontend_api.h"
 
 namespace llvm {
 class Module;
@@ -27,8 +27,7 @@ namespace ClangFE {
 
 class ClangFECompilerMaterializeSPIRVTask {
 public:
-  ClangFECompilerMaterializeSPIRVTask(
-      SPIRV::TranslatorOpts opts)
+  ClangFECompilerMaterializeSPIRVTask(SPIRV::TranslatorOpts opts)
       : m_opts(opts) {}
 
   /// \brief Correct the given module to be processed by the BE.

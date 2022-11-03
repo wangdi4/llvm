@@ -12,9 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "frontend_api.h"
-#include "FrontendResultImpl.h"
 #include "SPIRMaterializer.h"
+#include "FrontendResultImpl.h"
+#include "frontend_api.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -37,14 +37,13 @@ namespace Intel {
 namespace OpenCL {
 namespace ClangFE {
 
-
 static bool checkSPIR12Version(llvm::Module &M) {
   auto NamedMD = M.getNamedMetadata("opencl.spir.version");
   if (!NamedMD || NamedMD->getNumOperands() == 0)
     return false;
   auto VerMD = dyn_cast<MDTuple>(NamedMD->getOperand(0));
   assert(VerMD->getNumOperands() == 2 &&
-    "Invalid operand number for opencl.spir.version");
+         "Invalid operand number for opencl.spir.version");
   auto CMajor = mdconst::extract<ConstantInt>(VerMD->getOperand(0));
   auto VerMajor = CMajor->getZExtValue();
   auto CMinor = mdconst::extract<ConstantInt>(VerMD->getOperand(1));
@@ -347,10 +346,11 @@ static void RemangleBuiltins(llvm::Function &F, bool isSpir12) {
   F.setName(NewName);
 }
 
-int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(llvm::Module &M, bool isSpir12) {
+int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(llvm::Module &M,
+                                                        bool isSpir12) {
   updateMetadata(M);
 
-  for ( llvm::Module::iterator I = M.begin(), E = M.end(); I != E;) {
+  for (llvm::Module::iterator I = M.begin(), E = M.end(); I != E;) {
     llvm::Function *F = &*I++;
     RemangleBuiltins(*F, isSpir12);
   }

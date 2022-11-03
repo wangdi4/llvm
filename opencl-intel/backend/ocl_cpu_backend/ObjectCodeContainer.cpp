@@ -15,30 +15,27 @@
 #include "ObjectCodeContainer.h"
 #include "cl_device_api.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-ObjectCodeContainer::ObjectCodeContainer(const void *pBinary, size_t uiBinarySize)
-{
-    assert(pBinary && "Code container pointer must be valid");
-    m_pBinary = new char[uiBinarySize];
-    m_uiBinarySize = uiBinarySize;
-    std::copy((const char*)pBinary, (const char*)pBinary+uiBinarySize, m_pBinary);
+ObjectCodeContainer::ObjectCodeContainer(const void *pBinary,
+                                         size_t uiBinarySize) {
+  assert(pBinary && "Code container pointer must be valid");
+  m_pBinary = new char[uiBinarySize];
+  m_uiBinarySize = uiBinarySize;
+  std::copy((const char *)pBinary, (const char *)pBinary + uiBinarySize,
+            m_pBinary);
 }
 
-ObjectCodeContainer::~ObjectCodeContainer()
-{
-    delete[] m_pBinary;
+ObjectCodeContainer::~ObjectCodeContainer() { delete[] m_pBinary; }
+
+const void *ObjectCodeContainer::GetCode() const {
+  return (const void *)m_pBinary;
 }
 
-const void* ObjectCodeContainer::GetCode() const
-{
-    return (const void*)m_pBinary;
-}
+size_t ObjectCodeContainer::GetCodeSize() const { return m_uiBinarySize; }
 
-size_t ObjectCodeContainer::GetCodeSize() const
-{
-    return m_uiBinarySize;
-}
-
-}}} // namespace
-
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

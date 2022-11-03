@@ -80,7 +80,6 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
 }
 #endif // OCLFRONTEND_PLUGINS
 
-
 std::string GetCurrentDir() {
   char szCurrDirrPath[MAX_STR_BUFF];
   if (!GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath))
@@ -122,14 +121,15 @@ const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
 }
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
-  bool bProfiling   = false,
-       bRelaxedMath = false;
+  bool bProfiling = false, bRelaxedMath = false;
 
   llvm::SmallVector<llvm::StringRef, 8> splittedOptions;
   llvm::StringRef(m_pProgDesc->pszOptions).split(splittedOptions, " ");
   for (const auto opt : splittedOptions) {
-    if (opt.str() == "-profiling") bProfiling = true;
-    if (opt.str() == "-cl-fast-relaxed-math") bRelaxedMath = true;
+    if (opt.str() == "-profiling")
+      bProfiling = true;
+    if (opt.str() == "-cl-fast-relaxed-math")
+      bRelaxedMath = true;
   }
 
   std::stringstream options;
@@ -250,12 +250,14 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 #endif // INTEL_PRODUCT_RELEASE
 
   // Reallocate headers to include another one
-  std::vector<const char*> InputHeaders;
-  std::vector<const char*> InputHeadersNames;
+  std::vector<const char *> InputHeaders;
+  std::vector<const char *> InputHeadersNames;
   InputHeaders.assign(m_pProgDesc->pInputHeaders,
-                      m_pProgDesc->pInputHeaders + m_pProgDesc->uiNumInputHeaders);
+                      m_pProgDesc->pInputHeaders +
+                          m_pProgDesc->uiNumInputHeaders);
   InputHeadersNames.assign(m_pProgDesc->pszInputHeadersNames,
-                           m_pProgDesc->pszInputHeadersNames + m_pProgDesc->uiNumInputHeaders);
+                           m_pProgDesc->pszInputHeadersNames +
+                               m_pProgDesc->uiNumInputHeaders);
 
   // Input header with OpenCL pre-release extensions
   // Skip Emulator devices
@@ -269,11 +271,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
   IOCLFEBinaryResultPtr spBinaryResult;
 
-  int res = ::Compile(m_pProgDesc->pProgramSource,
-                      InputHeaders.data(),
-                      InputHeaders.size(),
-                      InputHeadersNames.data(),
-                      0, 0,
+  int res = ::Compile(m_pProgDesc->pProgramSource, InputHeaders.data(),
+                      InputHeaders.size(), InputHeadersNames.data(), 0, 0,
                       options.str().c_str(),   // pszOptions
                       optionsEx.str().c_str(), // pszOptionsEx
                       GetOpenCLVersionStr(m_config.GetOpenCLVersion()),

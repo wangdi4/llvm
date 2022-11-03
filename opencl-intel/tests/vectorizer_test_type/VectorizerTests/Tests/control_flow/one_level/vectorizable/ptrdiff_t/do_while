@@ -4,27 +4,27 @@
  * depend on thread id.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-do_while (	__global const float *in,
-		__global float *out, __global const ptrdiff_t intPtrArg1)
+do_while (  __global const float *in,
+    __global float *out, __global const ptrdiff_t intPtrArg1)
 {
-	int gid = get_global_id(0);
+  int gid = get_global_id(0);
 
-	int * tmp1 =  (int *)intPtrArg1;
-	int i = 0;
-	do {
+  int * tmp1 =  (int *)intPtrArg1;
+  int i = 0;
+  do {
 
-		int* tmp2 = max((int)tmp1, i);
-		tmp1 =  tmp2 - i;
-		i++;
+    int* tmp2 = max((int)tmp1, i);
+    tmp1 =  tmp2 - i;
+    i++;
 
-	} while ((int)tmp1 > 1024);
+  } while ((int)tmp1 > 1024);
 
-	out[gid] = i + clz((int) tmp1);
+  out[gid] = i + clz((int) tmp1);
 
 }

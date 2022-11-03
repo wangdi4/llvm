@@ -15,35 +15,25 @@
 #include "RunDialog.h"
 #include "Ui_RunDialog.h"
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
-RunDialog::RunDialog(QVector<RunVariant> variants, QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::RunDialog)
-{
-    ui->setupUi(this);
-    for(int i=0; i<variants.size(); i++)
-    {
-        QListWidgetItem* item = new QListWidgetItem(variants[i].toStr());
-        ui->listWidget->insertItem(i,item);
-    }
-    ui->listWidget->setCurrentRow(0);
-        index = 0;
-    connect(ui->listWidget, SIGNAL(currentRowChanged(int)), this, SLOT(selectedItem(int)));
+RunDialog::RunDialog(QVector<RunVariant> variants, QWidget *parent)
+    : QDialog(parent), ui(new Ui::RunDialog) {
+  ui->setupUi(this);
+  for (int i = 0; i < variants.size(); i++) {
+    QListWidgetItem *item = new QListWidgetItem(variants[i].toStr());
+    ui->listWidget->insertItem(i, item);
+  }
+  ui->listWidget->setCurrentRow(0);
+  index = 0;
+  connect(ui->listWidget, SIGNAL(currentRowChanged(int)), this,
+          SLOT(selectedItem(int)));
 }
 
-RunDialog::~RunDialog()
-{
-    delete ui;
-}
+RunDialog::~RunDialog() { delete ui; }
 
-void RunDialog::selectedItem(int index)
-{
-    this->index = index;
-}
+void RunDialog::selectedItem(int index) { this->index = index; }
 
-}
-}
+} // namespace GUI
+} // namespace Validation

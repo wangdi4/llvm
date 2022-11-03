@@ -16,45 +16,50 @@
 #include "OCLPassSupport.h"
 
 namespace llvm {
-  class Module;
+class Module;
 }
 
 using namespace llvm;
 
 extern "C" {
-    Pass* createBuiltinLibInfoPass(ArrayRef<Module *> builtinsList, std::string type) {
-    intel::BuiltinLibInfo::RuntimeServicesTypes rtType = intel::BuiltinLibInfo::RTS_OCL;
-    if(type == "ocl") {
-      rtType = intel::BuiltinLibInfo::RTS_OCL;
-    } else {
-      assert(type == "" && "Unknown runtime service type");
-    }
-    return new intel::BuiltinLibInfo(builtinsList, rtType);
+Pass *createBuiltinLibInfoPass(ArrayRef<Module *> builtinsList,
+                               std::string type) {
+  intel::BuiltinLibInfo::RuntimeServicesTypes rtType =
+      intel::BuiltinLibInfo::RTS_OCL;
+  if (type == "ocl") {
+    rtType = intel::BuiltinLibInfo::RTS_OCL;
+  } else {
+    assert(type == "" && "Unknown runtime service type");
   }
-
-  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(ArrayRef<Module *> runtimeModuleList);
+  return new intel::BuiltinLibInfo(builtinsList, rtType);
 }
 
-namespace intel{
+intel::RuntimeServices *
+createVolcanoOpenclRuntimeSupport(ArrayRef<Module *> runtimeModuleList);
+}
 
-  char BuiltinLibInfo::ID = 0;
+namespace intel {
 
-  OCL_INITIALIZE_PASS(BuiltinLibInfo, "builtin-lib-info", "Builtin Library Info", false, true)
+char BuiltinLibInfo::ID = 0;
 
-  BuiltinLibInfo::BuiltinLibInfo(ArrayRef<Module *> builtinsList, RuntimeServicesTypes type) :
-    ImmutablePass(ID) {
-    m_BIModuleList.assign(builtinsList.begin(), builtinsList.end());
+OCL_INITIALIZE_PASS(BuiltinLibInfo, "builtin-lib-info", "Builtin Library Info",
+                    false, true)
 
-    initializeBuiltinLibInfoPass(*PassRegistry::getPassRegistry());
+BuiltinLibInfo::BuiltinLibInfo(ArrayRef<Module *> builtinsList,
+                               RuntimeServicesTypes type)
+    : ImmutablePass(ID) {
+  m_BIModuleList.assign(builtinsList.begin(), builtinsList.end());
 
-    // Generate runtimeSupport object, to be used as input for vectorizer
-    switch(type) {
-    case RTS_OCL:
-      m_pRuntimeServices = createVolcanoOpenclRuntimeSupport(m_BIModuleList);
-      break;
-    default:
-      assert(false && "Unknown runtime services type.");
-      m_pRuntimeServices = nullptr;
-    }
+  initializeBuiltinLibInfoPass(*PassRegistry::getPassRegistry());
+
+  // Generate runtimeSupport object, to be used as input for vectorizer
+  switch (type) {
+  case RTS_OCL:
+    m_pRuntimeServices = createVolcanoOpenclRuntimeSupport(m_BIModuleList);
+    break;
+  default:
+    assert(false && "Unknown runtime services type.");
+    m_pRuntimeServices = nullptr;
   }
+}
 } // namespace intel

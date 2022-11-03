@@ -7,17 +7,17 @@
  * This function is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 load_double_ptr
 ( __global const double **in,
-		__global double **out)
+    __global double **out)
 {
-	int gid = get_global_id(0);
-	out[gid] = *in;
+  int gid = get_global_id(0);
+  out[gid] = *in;
 }

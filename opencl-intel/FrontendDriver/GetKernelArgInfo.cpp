@@ -174,7 +174,7 @@ parseKernelArgumentInfos(Function *F) {
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
     const void *pBin, size_t uiBinarySize, const char *szKernelName,
     IOCLFEKernelArgInfo **ppResult) {
-  const char *psBin = static_cast<const char*>(pBin);
+  const char *psBin = static_cast<const char *>(pBin);
   const void *pIRBuffer = nullptr;
   size_t uiIRBufferSize = 0;
 

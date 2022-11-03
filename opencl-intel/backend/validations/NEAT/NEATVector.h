@@ -19,26 +19,25 @@
 #include "VectorWidth.h"
 #define MAX_VECTOR_WIDTH 16
 
-namespace Validation
-{
-    struct NEATVector
-    {
-    public:
-        // Default ctor. To enable inserting into structures with default ctor.
-        NEATVector() {}
+namespace Validation {
+struct NEATVector {
+public:
+  // Default ctor. To enable inserting into structures with default ctor.
+  NEATVector() {}
 
-        NEATVector(VectorWidth width);
+  NEATVector(VectorWidth width);
 
-        ~NEATVector();
-        void SetWidth(VectorWidth width);
-        VectorWidth GetWidth() const;
-        size_t GetSize() const;
-        NEATValue& operator[](int i);
-        const NEATValue& operator[](int i) const;
-    private:
-        VectorWidthWrapper m_Width;
-        NEATValue m_Values[MAX_VECTOR_WIDTH];
-    };
-}
+  ~NEATVector();
+  void SetWidth(VectorWidth width);
+  VectorWidth GetWidth() const;
+  size_t GetSize() const;
+  NEATValue &operator[](int i);
+  const NEATValue &operator[](int i) const;
+
+private:
+  VectorWidthWrapper m_Width;
+  NEATValue m_Values[MAX_VECTOR_WIDTH];
+};
+} // namespace Validation
 
 #endif // NEAT_VECTOR_H

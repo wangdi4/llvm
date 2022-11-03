@@ -15,10 +15,10 @@
 #ifndef __SMART_GVN_H__
 #define __SMART_GVN_H__
 
-#include <llvm/Pass.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Function.h>
 #include <llvm/Analysis/LoopInfo.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
 
 namespace intel {
 
@@ -35,7 +35,8 @@ public:
   /// @brief Constructor
   /// @param doNoLoadAnalysis enables SmartGVN pass heuristic which decides
   ///        if GVN should hoist load operations out of loops.
-  /// @param memDependencyBBThreshold size of the basic block for memory denedency analysis.
+  /// @param memDependencyBBThreshold size of the basic block for memory
+  /// denedency analysis.
   ///        if GVN should hoist load operations out of loops.
   SmartGVN(bool doNoLoadAnalysis = false);
   /// @brief execute pass on given module
@@ -65,4 +66,3 @@ protected:
 } // namespace intel
 
 #endif // __SMART_GVN_H__
-

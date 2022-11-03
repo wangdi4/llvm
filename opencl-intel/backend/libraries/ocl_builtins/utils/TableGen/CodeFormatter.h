@@ -15,50 +15,48 @@
 #ifndef __CODE_FORMATTER_H__
 #define __CODE_FORMATTER_H__
 
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/raw_ostream.h"
 #include <list>
 
-namespace llvm{
+namespace llvm {
 
 ///////////////////////
-//Purpose: design to help code generation in a formated way.
+// Purpose: design to help code generation in a formated way.
 ///////////////////////
-struct CodeFormatter{
+struct CodeFormatter {
   ~CodeFormatter();
 
   void indent();
 
   void unindent();
 
-  CodeFormatter (llvm::raw_ostream& s, int indent=2);
+  CodeFormatter(llvm::raw_ostream &s, int indent = 2);
 
-  template <typename T>
-  CodeFormatter& emmit (const T& obj);
+  template <typename T> CodeFormatter &emmit(const T &obj);
 
-  CodeFormatter& endl();
+  CodeFormatter &endl();
 
 private:
   void writeIndentation();
 
   const int INDENT;
   int m_indentLevel;
-  llvm::raw_ostream& m_stream;
+  llvm::raw_ostream &m_stream;
   bool m_shouldIndent;
 };
 
-template <typename T>
-CodeFormatter& CodeFormatter::emmit (const T& obj){
+template <typename T> CodeFormatter &CodeFormatter::emmit(const T &obj) {
   writeIndentation();
   m_stream << obj;
   return *this;
 }
 
 template <typename T>
-CodeFormatter& operator << (CodeFormatter& cf, const T& obj){
+CodeFormatter &operator<<(CodeFormatter &cf, const T &obj) {
   return cf.emmit(obj);
 }
 
-}
+} // namespace llvm
 
-#endif//__CODE_FORMATTER_H__
+#endif //__CODE_FORMATTER_H__

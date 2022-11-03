@@ -22,7 +22,7 @@ using namespace Intel::OpenCL::DeviceBackend::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Validation;
 
-static std::string buildLibName (const char* s){
+static std::string buildLibName(const char *s) {
   std::stringstream ret;
 #ifdef _WIN32
   ret << s << ".dll";
@@ -32,10 +32,10 @@ static std::string buildLibName (const char* s){
   return ret.str();
 }
 
-TEST(ClangStadalone, DISABLED_instance_creation){
+TEST(ClangStadalone, DISABLED_instance_creation) {
 // this test crashes, so it is disabled until CSSD100013412 will be fixed
-#if defined (_WIN32)
-#if defined (_M_X64)
+#if defined(_WIN32)
+#if defined(_M_X64)
   std::string clangLib = buildLibName("clang_compiler64");
 #else
   std::string clangLib = buildLibName("clang_compiler32");
@@ -43,13 +43,14 @@ TEST(ClangStadalone, DISABLED_instance_creation){
 #else
   std::string clangLib = buildLibName("clang_compiler");
 #endif
-  const char* source =   "__kernel void add (__global const int *a, __global const int *b, __global int *c){"
-  "int tid = get_global_id(0);"
-  "c[tid] = b[tid] + a[tid];"
-  "}";
-  OCLBuilder& builder = OCLBuilder::Instance();
-  IOCLFEBinaryResult* binaryResult =
-    builder.withSource(source).withLibrary(clangLib.c_str()).build();
+  const char *source = "__kernel void add (__global const int *a, __global "
+                       "const int *b, __global int *c){"
+                       "int tid = get_global_id(0);"
+                       "c[tid] = b[tid] + a[tid];"
+                       "}";
+  OCLBuilder &builder = OCLBuilder::Instance();
+  IOCLFEBinaryResult *binaryResult =
+      builder.withSource(source).withLibrary(clangLib.c_str()).build();
   ASSERT_TRUE(binaryResult);
   builder.close();
 }

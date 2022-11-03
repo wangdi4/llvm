@@ -19,82 +19,80 @@ File Name:  SamplePlugin.h
 #ifndef SAMPLE_PLUGIN_H
 #define SAMPLE_PLUGIN_H
 
-#include <cstddef>
-#include "plugin_interface.h"
-#include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
+#include "plugin_interface.h"
+#include <cstddef>
 
 #define OCL_SAMPLEPLUGIN_EXPORTS
 
 // defines the SamplePlugin APIs
 #if defined(_WIN32)
-    #define OCL_SAMPLEPLUGIN_API __declspec(dllexport)
+#define OCL_SAMPLEPLUGIN_API __declspec(dllexport)
 #else
-    #define OCL_SAMPLEPLUGIN_API
+#define OCL_SAMPLEPLUGIN_API
 #endif
 
 using namespace Intel::OpenCL::DeviceBackend;
 
-/** @brief SamplePlugin used for testing the loading of the plugins in the backend tests
- *         we test if the plugin is loaded by checking the 'pluginWorked' flag before
- *         and after the call of OnCreateProgram
+/** @brief SamplePlugin used for testing the loading of the plugins in the
+ * backend tests we test if the plugin is loaded by checking the 'pluginWorked'
+ * flag before and after the call of OnCreateProgram
  */
 
-class SamplePlugin : public Intel::OpenCL::DeviceBackend::ICLDevBackendPlugin
-{
+class SamplePlugin : public Intel::OpenCL::DeviceBackend::ICLDevBackendPlugin {
 public:
-    SamplePlugin()  {}
-    ~SamplePlugin() {}
+  SamplePlugin() {}
+  ~SamplePlugin() {}
 
-    /// @brief dummy implemention of the interface's method
-    void OnCreateBinary(const ICLDevBackendKernel_ *pKernel,
-                        const _cl_work_description_type *pWorkDesc,
-                        size_t bufSize, void *pArgsBuffer) override {
-      // do nothing
-    }
+  /// @brief dummy implemention of the interface's method
+  void OnCreateBinary(const ICLDevBackendKernel_ *pKernel,
+                      const _cl_work_description_type *pWorkDesc,
+                      size_t bufSize, void *pArgsBuffer) override {
+    // do nothing
+  }
 
-    /// @brief dummy implemention of the interface's method
-    void OnCreateKernel(const ICLDevBackendProgram_ *pProgram,
-                        const ICLDevBackendKernel_ *pKernel,
-                        const void *pFunction) override {
-      // do nothing
-    }
+  /// @brief dummy implemention of the interface's method
+  void OnCreateKernel(const ICLDevBackendProgram_ *pProgram,
+                      const ICLDevBackendKernel_ *pKernel,
+                      const void *pFunction) override {
+    // do nothing
+  }
 
-    /// @brief implementing the interface's method, the ONLY method that changes
-    /// pluginWorked
-    void OnCreateProgram(const void *pBinary, size_t uiBinarySize,
-                         const ICLDevBackendProgram_ *pProgram) override {
-      // we are using this event to check if the plugin is loaded (see backend
-      // plugin tests)
-      pluginWorked = true;
-    }
+  /// @brief implementing the interface's method, the ONLY method that changes
+  /// pluginWorked
+  void OnCreateProgram(const void *pBinary, size_t uiBinarySize,
+                       const ICLDevBackendProgram_ *pProgram) override {
+    // we are using this event to check if the plugin is loaded (see backend
+    // plugin tests)
+    pluginWorked = true;
+  }
 
-    /// @brief dummy implemention of the interface's method
-    void OnReleaseProgram(const ICLDevBackendProgram_ *pProgram) override {
-      // do nothing
-    }
+  /// @brief dummy implemention of the interface's method
+  void OnReleaseProgram(const ICLDevBackendProgram_ *pProgram) override {
+    // do nothing
+  }
 
-    /// @brief we call this after we created a program to check if the plugin is
-    /// loaded
-    static bool DidPluginWork() { return pluginWorked; }
+  /// @brief we call this after we created a program to check if the plugin is
+  /// loaded
+  static bool DidPluginWork() { return pluginWorked; }
+
 private:
-    static bool pluginWorked;
+  static bool pluginWorked;
 };
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
-OCL_SAMPLEPLUGIN_API void ReleasePlugin(Intel::OpenCL::IPlugin* pPlugin);
+OCL_SAMPLEPLUGIN_API void ReleasePlugin(Intel::OpenCL::IPlugin *pPlugin);
 #ifdef __cplusplus
 }
 #endif
 /** @brief OclSamplePlugin used for returning the backend plugin SamplePlugin
  *         to the plugin manager
  */
-class OclSamplePlugin: public Intel::OpenCL::IPlugin
-{
-    friend void ReleasePlugin(Intel::OpenCL::IPlugin*);
+class OclSamplePlugin : public Intel::OpenCL::IPlugin {
+  friend void ReleasePlugin(Intel::OpenCL::IPlugin *);
 
 public:
   /// @brief return the singleton instance
@@ -111,4 +109,4 @@ private:
   OclSamplePlugin() {}
 };
 
-#endif //SAMPLE_PLUGIN_H
+#endif // SAMPLE_PLUGIN_H

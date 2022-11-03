@@ -15,37 +15,40 @@
 #include "compile_data.h"
 #include <algorithm>
 
-namespace Intel { namespace OpenCL { namespace Frontend {
-  CompileData::CompileData(){}
+namespace Intel {
+namespace OpenCL {
+namespace Frontend {
+CompileData::CompileData() {}
 
-  CompileData::CompileData(const std::vector<SourceFile>& headers, 
-    const SourceFile& sourceFile) : m_sourceFile(sourceFile){
-    std::copy(headers.begin(), headers.end(), m_headers.begin());
-  }
-  
-  CompileData::CompileData(const CompileData& that){
-    this->m_sourceFile = that.sourceFile();
-    std::copy(that.m_headers.begin(), that.m_headers.end(), m_headers.begin());
-  }
-  
-  const SourceFile& CompileData::sourceFile() const{
-    return m_sourceFile;
-  }
-  
-  void CompileData::addIncludeFile(const SourceFile& header){
-    m_headers.push_back(header);
-  }
+CompileData::CompileData(const std::vector<SourceFile> &headers,
+                         const SourceFile &sourceFile)
+    : m_sourceFile(sourceFile) {
+  std::copy(headers.begin(), headers.end(), m_headers.begin());
+}
 
-  void CompileData::sourceFile(const SourceFile& sourceFile){
-    m_sourceFile = sourceFile;
-  }
+CompileData::CompileData(const CompileData &that) {
+  this->m_sourceFile = that.sourceFile();
+  std::copy(that.m_headers.begin(), that.m_headers.end(), m_headers.begin());
+}
 
-  std::vector<SourceFile>::const_iterator CompileData::beginHeaders() const{
-    return m_headers.begin();
-  }
-  
-  std::vector<SourceFile>::const_iterator CompileData::endHeaders() const{
-    return m_headers.end();
-  }
+const SourceFile &CompileData::sourceFile() const { return m_sourceFile; }
 
-}}}
+void CompileData::addIncludeFile(const SourceFile &header) {
+  m_headers.push_back(header);
+}
+
+void CompileData::sourceFile(const SourceFile &sourceFile) {
+  m_sourceFile = sourceFile;
+}
+
+std::vector<SourceFile>::const_iterator CompileData::beginHeaders() const {
+  return m_headers.begin();
+}
+
+std::vector<SourceFile>::const_iterator CompileData::endHeaders() const {
+  return m_headers.end();
+}
+
+} // namespace Frontend
+} // namespace OpenCL
+} // namespace Intel

@@ -14,16 +14,15 @@ using std::string;
 
 class Execution {
 public:
+  typedef enum {
 
-	typedef enum {
+    NORMAL,
 
-		NORMAL,
+    VECTORIZED
 
-		VECTORIZED
+  } Type;
 
-	} Type;
-
-	static string toString(Type type);
+  static string toString(Type type);
 };
 
 #endif /* EXECUTION_H_ */

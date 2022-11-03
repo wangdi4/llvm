@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 //===- NewPMDriver.cpp - Driver for opt with new PM -----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -94,12 +106,13 @@ static cl::opt<PGOKind> PGOKindFlag(
                           "Use instrumented profile to guide PGO."),
                clEnumValN(SampleUse, "new-pm-pgo-sample-use-pipeline",
                           "Use sampled profile to guide PGO.")));
-static cl::opt<std::string> ProfileFile(
-    "profile-file", cl::desc("Path to the profile."), cl::Hidden);
+static cl::opt<std::string>
+    ProfileFile("profile-file", cl::desc("Path to the profile."), cl::Hidden);
 
-static cl::opt<std::string> ProfileRemappingFile(
-    "profile-remapping-file", cl::desc("Path to the profile remapping."),
-      cl::Hidden);
+static cl::opt<std::string>
+    ProfileRemappingFile("profile-remapping-file",
+                         cl::desc("Path to the profile remapping."),
+                         cl::Hidden);
 
 static cl::opt<bool> DebugInfoForProfiling(
     "new-pm-debug-info-for-profiling", cl::init(false), cl::Hidden,
@@ -126,8 +139,7 @@ bool tryParsePipelineText(PassBuilder &PB, StringRef PipelineText) {
 static void registerEPCallbacks(PassBuilder &PB, bool /*DebugLogging*/) {
   if (tryParsePipelineText<FunctionPassManager>(PB, PeepholeEPPipeline))
     PB.registerPeepholeEPCallback(
-        [&PB](FunctionPassManager &PM,
-              OptimizationLevel /*Level*/) {
+        [&PB](FunctionPassManager &PM, OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, PeepholeEPPipeline);
         });
   if (tryParsePipelineText<LoopPassManager>(PB,
@@ -144,8 +156,7 @@ static void registerEPCallbacks(PassBuilder &PB, bool /*DebugLogging*/) {
   if (tryParsePipelineText<FunctionPassManager>(PB,
                                                 ScalarOptimizerLateEPPipeline))
     PB.registerScalarOptimizerLateEPCallback(
-        [&PB](FunctionPassManager &PM,
-              OptimizationLevel /*Level*/) {
+        [&PB](FunctionPassManager &PM, OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, ScalarOptimizerLateEPPipeline);
         });
   if (tryParsePipelineText<CGSCCPassManager>(PB, CGSCCOptimizerLateEPPipeline))
@@ -155,8 +166,7 @@ static void registerEPCallbacks(PassBuilder &PB, bool /*DebugLogging*/) {
         });
   if (tryParsePipelineText<FunctionPassManager>(PB, VectorizerStartEPPipeline))
     PB.registerVectorizerStartEPCallback(
-        [&PB](FunctionPassManager &PM,
-              OptimizationLevel /*Level*/) {
+        [&PB](FunctionPassManager &PM, OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, VectorizerStartEPPipeline);
         });
 }
@@ -177,22 +187,22 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            bool EmitSummaryIndex, bool EmitModuleHash) {
   Optional<PGOOptions> P;
   switch (PGOKindFlag) {
-    case InstrGen:
-      P = PGOOptions(ProfileFile, "", "", PGOOptions::IRInstr);
-      break;
-    case InstrUse:
-      P = PGOOptions(ProfileFile, "", ProfileRemappingFile, PGOOptions::IRUse);
-      break;
-    case SampleUse:
-      P = PGOOptions(ProfileFile, "", ProfileRemappingFile,
-                     PGOOptions::SampleUse);
-      break;
-    case NoPGO:
-      if (DebugInfoForProfiling)
-        P = PGOOptions("", "", "", PGOOptions::NoAction, PGOOptions::NoCSAction,
-                       true);
-      else
-        P = None;
+  case InstrGen:
+    P = PGOOptions(ProfileFile, "", "", PGOOptions::IRInstr);
+    break;
+  case InstrUse:
+    P = PGOOptions(ProfileFile, "", ProfileRemappingFile, PGOOptions::IRUse);
+    break;
+  case SampleUse:
+    P = PGOOptions(ProfileFile, "", ProfileRemappingFile,
+                   PGOOptions::SampleUse);
+    break;
+  case NoPGO:
+    if (DebugInfoForProfiling)
+      P = PGOOptions("", "", "", PGOOptions::NoAction, PGOOptions::NoCSAction,
+                     true);
+    else
+      P = None;
   }
   PassBuilder PB(TM, PipelineTuningOptions(), P);
   registerEPCallbacks(PB, DebugPM);
