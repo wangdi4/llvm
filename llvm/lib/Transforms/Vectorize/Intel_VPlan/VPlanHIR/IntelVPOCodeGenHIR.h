@@ -1182,6 +1182,11 @@ private:
   // Returns CurMaskValue if it exists or all-ones value otherwise.
   RegDDRef *getCurMaskValueOrAllOnes() const;
 
+  /// Generate sequence for obtaining the last active lane index.
+  /// The index can be used for extracting values in the last active lane.
+  RegDDRef *createLastActiveLaneSequence(RegDDRef *VecMask,
+                                         HLContainerTy *Container);
+
   // Calculate mask for a non-unit strided compress store or expand load.
   RegDDRef *generateMaskForCompressExpandLoadStoreNonu();
 
