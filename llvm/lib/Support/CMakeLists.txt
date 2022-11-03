@@ -191,6 +191,7 @@ set (SUPPORT_SOURCES
   FileUtilities.cpp
   FileOutputBuffer.cpp
   FoldingSet.cpp
+  Format.cpp
   FormattedStream.cpp
   FormatVariadic.cpp
   GlobPattern.cpp
