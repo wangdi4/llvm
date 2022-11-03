@@ -27,8 +27,8 @@ define void @test(i256* %a, i256* %b, i256* %out) {
 ; SPLIT-NEXT:    imulq %r9, %rdi
 ; SPLIT-NEXT:    movq %r9, %rdx
 ; SPLIT-NEXT:    mulxq %rbx, %r14, %rdx
-; SPLIT-NEXT:    addq %rdi, %rdx
 ; SPLIT-NEXT:    imulq %r11, %rbx
+; SPLIT-NEXT:    addq %rdi, %rbx
 ; SPLIT-NEXT:    jmp .LBB0_1
 ; SPLIT-NEXT:  .LBB0_1: # %entry
 ; SPLIT-NEXT:    addq %rdx, %rbx
@@ -36,9 +36,9 @@ define void @test(i256* %a, i256* %b, i256* %out) {
 ; SPLIT-NEXT:    imulq %rcx, %r15
 ; SPLIT-NEXT:    movq %r10, %rdx
 ; SPLIT-NEXT:    mulxq %r8, %rdi, %rdx
-; SPLIT-NEXT:    addq %r15, %rdx
 ; SPLIT-NEXT:    movq 24(%rsi), %rsi
 ; SPLIT-NEXT:    imulq %r8, %rsi
+; SPLIT-NEXT:    addq %r15, %rsi
 ; SPLIT-NEXT:    addq %rdx, %rsi
 ; SPLIT-NEXT:    addq %r14, %rdi
 ; SPLIT-NEXT:    movq %r8, %rdx
@@ -98,16 +98,16 @@ define void @test(i256* %a, i256* %b, i256* %out) {
 ; NOSPLIT1-NEXT:    imulq %r9, %rdi
 ; NOSPLIT1-NEXT:    movq %r9, %rdx
 ; NOSPLIT1-NEXT:    mulxq %rbx, %r14, %rdx
-; NOSPLIT1-NEXT:    addq %rdi, %rdx
 ; NOSPLIT1-NEXT:    imulq %r11, %rbx
+; NOSPLIT1-NEXT:    addq %rdi, %rbx
 ; NOSPLIT1-NEXT:    addq %rdx, %rbx
 ; NOSPLIT1-NEXT:    movq %r10, %r15
 ; NOSPLIT1-NEXT:    imulq %rcx, %r15
 ; NOSPLIT1-NEXT:    movq %r10, %rdx
 ; NOSPLIT1-NEXT:    mulxq %r8, %rdi, %rdx
-; NOSPLIT1-NEXT:    addq %r15, %rdx
 ; NOSPLIT1-NEXT:    movq 24(%rsi), %rsi
 ; NOSPLIT1-NEXT:    imulq %r8, %rsi
+; NOSPLIT1-NEXT:    addq %r15, %rsi
 ; NOSPLIT1-NEXT:    addq %rdx, %rsi
 ; NOSPLIT1-NEXT:    addq %r14, %rdi
 ; NOSPLIT1-NEXT:    movq %r8, %rdx
@@ -163,16 +163,16 @@ define void @test(i256* %a, i256* %b, i256* %out) {
 ; NOSPLIT2-NEXT:    imulq %r9, %rdi
 ; NOSPLIT2-NEXT:    movq %r9, %rdx
 ; NOSPLIT2-NEXT:    mulxq %rbx, %r14, %rdx
-; NOSPLIT2-NEXT:    addq %rdi, %rdx
 ; NOSPLIT2-NEXT:    imulq %r11, %rbx
+; NOSPLIT2-NEXT:    addq %rdi, %rbx
 ; NOSPLIT2-NEXT:    addq %rdx, %rbx
 ; NOSPLIT2-NEXT:    movq %r10, %r15
 ; NOSPLIT2-NEXT:    imulq %rcx, %r15
 ; NOSPLIT2-NEXT:    movq %r10, %rdx
 ; NOSPLIT2-NEXT:    mulxq %r8, %rdi, %rdx
-; NOSPLIT2-NEXT:    addq %r15, %rdx
 ; NOSPLIT2-NEXT:    movq 24(%rsi), %rsi
 ; NOSPLIT2-NEXT:    imulq %r8, %rsi
+; NOSPLIT2-NEXT:    addq %r15, %rsi
 ; NOSPLIT2-NEXT:    addq %rdx, %rsi
 ; NOSPLIT2-NEXT:    addq %r14, %rdi
 ; NOSPLIT2-NEXT:    movq %r8, %rdx
