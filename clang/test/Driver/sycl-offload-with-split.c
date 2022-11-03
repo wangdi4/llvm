@@ -3,6 +3,8 @@
 ///
 
 // REQUIRES: x86-registered-target
+// Timeout on windows tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41522
+// UNSUPPORTED: windows
 
 /// ###########################################################################
 

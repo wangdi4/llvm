@@ -35,6 +35,7 @@ constexpr uint32_t SPIRV_HOST_ACCESS_DEFAULT_VALUE = 2; // Read/Write
 enum class DecorValueTy {
   uint32,
   boolean,
+  none,  // INTEL
 };
 
 struct Decor {
@@ -135,6 +136,8 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
                                      getAttributeAsInteger<uint32_t>(Attr));
     case DecorValueTy::boolean:
       return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
+    default:
+      break;
   }
   llvm_unreachable("Unhandled decorator type.");
 }
