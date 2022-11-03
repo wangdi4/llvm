@@ -252,7 +252,7 @@ ModRefInfo DPCPPAAResult::getModRefInfoMask(const MemoryLocation &Loc,
     // If V is a pointer to the OCLAddressSpace::Constant address space
     // then it points to __constant OpenCL memory.
     if (VP->getAddressSpace() == ADDRESS_SPACE_CONSTANT)
-      return ModRefInfo::ModRef;
+      return ModRefInfo::NoModRef;
   }
 
   return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
