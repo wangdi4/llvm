@@ -11689,7 +11689,6 @@ StmtResult Sema::ActOnOpenMPBarrierDirective(SourceLocation StartLoc,
   return OMPBarrierDirective::Create(Context, StartLoc, EndLoc);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static bool checkTaskwaitClauseUsage(Sema &S,
                                      const ArrayRef<OMPClause *> Clauses) {
@@ -11725,13 +11724,12 @@ static bool checkTaskwaitClauseUsage(Sema &S,
   return false;
 }
 #endif // INTEL_COLLAB
-=======
+
 StmtResult Sema::ActOnOpenMPErrorDirective(ArrayRef<OMPClause *> Clauses,
                                            SourceLocation StartLoc,
                                            SourceLocation EndLoc) {
   return OMPErrorDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
->>>>>>> ea64e66f7b71dfd52e9701a080b8216052344962
 
 StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
                                               SourceLocation StartLoc,
