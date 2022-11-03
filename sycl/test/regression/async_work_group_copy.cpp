@@ -1,4 +1,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o -
+// Test has timeout issues on Windows, JIRA:CMPLRLLVM-41413
+// UNSUPPORTED: windows
 
 // Test checks for that no compile errors occur for
 // builtin async_work_group_copy
