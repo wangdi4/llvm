@@ -19,7 +19,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include <string>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 /**
  * Global compiler configuration interface.
@@ -27,30 +29,29 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  * This configuration is used for all the instances of the compiler
  * Internally it is mapped to the global LLVM state
  */
-class IGlobalCompilerConfig
-{
+class IGlobalCompilerConfig {
 public:
-    virtual ~IGlobalCompilerConfig(){}
-    /**
-     * Time each pass, printing elapsed time for each on exit
-     */
-    virtual bool EnableTiming() const = 0;
-    /**
-     * File to append -stats and -timer output to
-     */
-    virtual std::string InfoOutputFile() const = 0;
-    /**
-     * Disables printing the stack dump upon crash - used
-     * primarity to disable the SEH handling by llvm library
-     * usually for SDE tracing support.
-     */
-    virtual bool DisableStackDump() const = 0;
-    /**
-     * Pass command line options to LLVM
-     */
-    virtual const llvm::SmallVectorImpl<std::string> &LLVMOptions() const = 0;
+  virtual ~IGlobalCompilerConfig() {}
+  /**
+   * Time each pass, printing elapsed time for each on exit
+   */
+  virtual bool EnableTiming() const = 0;
+  /**
+   * File to append -stats and -timer output to
+   */
+  virtual std::string InfoOutputFile() const = 0;
+  /**
+   * Disables printing the stack dump upon crash - used
+   * primarity to disable the SEH handling by llvm library
+   * usually for SDE tracing support.
+   */
+  virtual bool DisableStackDump() const = 0;
+  /**
+   * Pass command line options to LLVM
+   */
+  virtual const llvm::SmallVectorImpl<std::string> &LLVMOptions() const = 0;
 
-    virtual DeviceMode TargetDevice() const = 0;
+  virtual DeviceMode TargetDevice() const = 0;
 };
 
 /**
@@ -58,30 +59,31 @@ public:
  *
  * This configuration is used for specific instance of the compiler
  */
-class ICompilerConfig
-{
+class ICompilerConfig {
 public:
-    virtual ~ICompilerConfig(){}
+  virtual ~ICompilerConfig() {}
 
-    virtual std::string GetCpuArch() const = 0;
-    virtual std::string GetCpuFeatures() const = 0;
-    virtual size_t GetCpuMaxWGSize() const = 0;
-    virtual ETransposeSize GetTransposeSize() const = 0;
-    virtual int GetRTLoopUnrollFactor() const = 0;
-    virtual bool GetUseVTune() const = 0;
-    virtual bool GetSerializeWorkGroups() const = 0;
-    virtual size_t GetForcedPrivateMemorySize() const = 0;
-    virtual bool UseAutoMemory() const = 0;
-    // sets whether we need built-in module to be loaded for current compiler
-    virtual bool GetLoadBuiltins() const = 0;
-    virtual bool GetDumpHeuristicIRFlag() const = 0;
-    virtual const std::string &GetDumpFilenamePrefix() const = 0;
-    virtual bool GetStreamingAlways() const = 0;
-    virtual unsigned GetExpensiveMemOpts() const = 0;
+  virtual std::string GetCpuArch() const = 0;
+  virtual std::string GetCpuFeatures() const = 0;
+  virtual size_t GetCpuMaxWGSize() const = 0;
+  virtual ETransposeSize GetTransposeSize() const = 0;
+  virtual int GetRTLoopUnrollFactor() const = 0;
+  virtual bool GetUseVTune() const = 0;
+  virtual bool GetSerializeWorkGroups() const = 0;
+  virtual size_t GetForcedPrivateMemorySize() const = 0;
+  virtual bool UseAutoMemory() const = 0;
+  // sets whether we need built-in module to be loaded for current compiler
+  virtual bool GetLoadBuiltins() const = 0;
+  virtual bool GetDumpHeuristicIRFlag() const = 0;
+  virtual const std::string &GetDumpFilenamePrefix() const = 0;
+  virtual bool GetStreamingAlways() const = 0;
+  virtual unsigned GetExpensiveMemOpts() const = 0;
 
-    virtual DeviceMode TargetDevice() const = 0;
+  virtual DeviceMode TargetDevice() const = 0;
 
-    virtual PassManagerType GetPassManagerType() const = 0;
+  virtual PassManagerType GetPassManagerType() const = 0;
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

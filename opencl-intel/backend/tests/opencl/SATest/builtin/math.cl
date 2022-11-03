@@ -18,13 +18,13 @@ kernel void test(global TYPE *A, global TYPE *B, global TYPE *C,
            sinh(A[i]) + sinpi(A[i]) + sqrt(A[i]) + tan(A[i]) + tanh(A[i]) +
            tanpi(A[i]) + tgamma(A[i]) + trunc(A[i]);
 
-  dst[i] += fract(A[i], dst2+i);
-  dst[i] += modf(A[i], dst2+i);
-  dst[i] += sincos(A[i], dst2+i);
+  dst[i] += fract(A[i], dst2 + i);
+  dst[i] += modf(A[i], dst2 + i);
+  dst[i] += sincos(A[i], dst2 + i);
 
-  dst[i] += frexp(A[i], dst3+i);
-  dst[i] += lgamma_r(A[i], dst3+i);
-  dst[i] += remquo(A[i], B[i], dst3+i);
+  dst[i] += frexp(A[i], dst3 + i);
+  dst[i] += lgamma_r(A[i], dst3 + i);
+  dst[i] += remquo(A[i], B[i], dst3 + i);
 
 #ifdef MASKED
   // Add subgroup call in order to enable masked vectorized kernel.

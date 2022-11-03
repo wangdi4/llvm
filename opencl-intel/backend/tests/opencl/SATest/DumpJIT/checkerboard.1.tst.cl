@@ -14,49 +14,38 @@
  * Systems Incorporated.
  *
  *****************************************************************************/
-// checkerboard: A simple example to demonstrate the use of the kernel language to 
+// checkerboard: A simple example to demonstrate the use of the kernel language
+// to
 //               generate images.
 
-float4
-evaluatePixel(
-	float2 outCrd,
-	const float2 checkerSize,
-	const float4 color1,
-	const float4 color2
-	)
-{
-    float2 checkerLocation = floor(outCrd / checkerSize);
+float4 evaluatePixel(float2 outCrd, const float2 checkerSize,
+                     const float4 color1, const float4 color2) {
+  float2 checkerLocation = floor(outCrd / checkerSize);
 
-	const float2 f2_2 = (float2)2.0f;
-    float2 modLocation = fmod(checkerLocation, f2_2);
+  const float2 f2_2 = (float2)2.0f;
+  float2 modLocation = fmod(checkerLocation, f2_2);
 
-	const float2 f0_0 = (float2)0.0f;
-	const float2 f1_1 = (float2)1.0f;
-	
-    uint setColor1 = all(isequal(modLocation, f0_0)) || 
-					 all(isequal(modLocation, f1_1));
+  const float2 f0_0 = (float2)0.0f;
+  const float2 f1_1 = (float2)1.0f;
 
-    float4 dst = setColor1 ? color1 : color2;
+  uint setColor1 =
+      all(isequal(modLocation, f0_0)) || all(isequal(modLocation, f1_1));
 
-    return dst;
+  float4 dst = setColor1 ? color1 : color2;
+
+  return dst;
 }
 
-__kernel void
-checkerboard2D(
-    __global float4 *output,
-	const float2 checkerSize,
-	const float4 color1,
-	const float4 color2
-	)
-{
+__kernel void checkerboard2D(__global float4 *output, const float2 checkerSize,
+                             const float4 color1, const float4 color2) {
 
-	// Pixel-level parallelism
-	int gid0_col = (int)get_global_id(0);
-	int gid1_row = (int)get_global_id(1);
-	int imgWidth = (int)get_global_size(0);
+  // Pixel-level parallelism
+  int gid0_col = (int)get_global_id(0);
+  int gid1_row = (int)get_global_id(1);
+  int imgWidth = (int)get_global_size(0);
 
-	int index = gid1_row*imgWidth + gid0_col;
-	
-	float2 curCrd = { (float)gid0_col, (float)gid1_row };
-	output[index] = evaluatePixel(curCrd, checkerSize, color1, color2);
+  int index = gid1_row * imgWidth + gid0_col;
+
+  float2 curCrd = {(float)gid0_col, (float)gid1_row};
+  output[index] = evaluatePixel(curCrd, checkerSize, color1, color2);
 }

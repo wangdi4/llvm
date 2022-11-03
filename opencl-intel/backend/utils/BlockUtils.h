@@ -21,32 +21,37 @@ File Name:  BlockUtils.h
 
 #include "llvm/IR/Function.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-  /// @brief  BlockUtils class used to provide helper utilies handling block_invoke functions
-  ///         used in several modules related to OCL2.0 Extended Execution
-  class BlockUtils {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
+/// @brief  BlockUtils class used to provide helper utilies handling
+/// block_invoke functions
+///         used in several modules related to OCL2.0 Extended Execution
+class BlockUtils {
 
-  public:
-    /// @brief Is llvm function a block invoke functions
-    /// @return - true if function is block invoke function
-    static bool isBlockInvokeFunction(const llvm::Function& F);
+public:
+  /// @brief Is llvm function a block invoke functions
+  /// @return - true if function is block invoke function
+  static bool isBlockInvokeFunction(const llvm::Function &F);
 
-    /// @brief Create name for kernel created from block_invoke function
-    /// @return - string with name
-    static std::string CreateBlockInvokeKernelName(const std::string& F);
+  /// @brief Create name for kernel created from block_invoke function
+  /// @return - string with name
+  static std::string CreateBlockInvokeKernelName(const std::string &F);
 
-    /// @brief Is kernel created from block_invoke function
-    /// @param F - llvm function with kernel
-    /// @return - true if kernel was created from block invoke function
-    static bool IsBlockInvocationKernel(const llvm::Function& F);
+  /// @brief Is kernel created from block_invoke function
+  /// @param F - llvm function with kernel
+  /// @return - true if kernel was created from block invoke function
+  static bool IsBlockInvocationKernel(const llvm::Function &F);
 
-    /// @brief Obtain name of original block_invoke function from kernel function
-    /// @param str - kernel function name
-    /// @return - string with block_invoke function name
-    static std::string ObtainBlockInvokeFuncNameFromKernel(const std::string& str);
-  };
+  /// @brief Obtain name of original block_invoke function from kernel function
+  /// @param str - kernel function name
+  /// @return - string with block_invoke function name
+  static std::string
+  ObtainBlockInvokeFuncNameFromKernel(const std::string &str);
+};
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __BLOCK_UTILS_H__
-

@@ -7,22 +7,22 @@
  * This function is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 select_uint4_ptr
 ( __global const uint4 **in,
-		__global int *out, bool boolArg1)
+    __global int *out, bool boolArg1)
 {
-	int gid = get_global_id(0);
-	uint4* tmp1 = (uint4*)(in[gid]);
-	uint4* tmp2 = tmp1 - gid;
-	uint4* tmp3 = tmp1 + (15 * gid / 17);
-	uint4* tmp4 = tmp3 + (gid / 7);
-	uint4* tmp5 = boolArg1 ? tmp3 : tmp4;
-	out[gid] = tmp5;
+  int gid = get_global_id(0);
+  uint4* tmp1 = (uint4*)(in[gid]);
+  uint4* tmp2 = tmp1 - gid;
+  uint4* tmp3 = tmp1 + (15 * gid / 17);
+  uint4* tmp4 = tmp3 + (gid / 7);
+  uint4* tmp5 = boolArg1 ? tmp3 : tmp4;
+  out[gid] = tmp5;
 }

@@ -41,21 +41,19 @@ protected:
         clCreateCommandQueueWithProperties(m_context, m_device, nullptr, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
 
-    m_clEnqueueReadGlobalVariableINTEL =
-      (clEnqueueReadGlobalVariableINTEL_fn)
+    m_clEnqueueReadGlobalVariableINTEL = (clEnqueueReadGlobalVariableINTEL_fn)
         clGetExtensionFunctionAddressForPlatform(
-          m_platform, "clEnqueueReadGlobalVariableINTEL");
+            m_platform, "clEnqueueReadGlobalVariableINTEL");
     ASSERT_NE(nullptr, m_clEnqueueReadGlobalVariableINTEL)
-      << "clGetExtensionFunctionAddressForPlatform("
-         "\"clEnqueueReadGlobalVariableINTEL\") failed.";
+        << "clGetExtensionFunctionAddressForPlatform("
+           "\"clEnqueueReadGlobalVariableINTEL\") failed.";
 
-    m_clEnqueueWriteGlobalVariableINTEL =
-      (clEnqueueWriteGlobalVariableINTEL_fn)
+    m_clEnqueueWriteGlobalVariableINTEL = (clEnqueueWriteGlobalVariableINTEL_fn)
         clGetExtensionFunctionAddressForPlatform(
-          m_platform, "clEnqueueWriteGlobalVariableINTEL");
+            m_platform, "clEnqueueWriteGlobalVariableINTEL");
     ASSERT_NE(nullptr, m_clEnqueueWriteGlobalVariableINTEL)
-      << "clGetExtensionFunctionAddressForPlatform("
-         "\"clEnqueueWriteGlobalVariableINTEL\") failed.";
+        << "clGetExtensionFunctionAddressForPlatform("
+           "\"clEnqueueWriteGlobalVariableINTEL\") failed.";
   }
 
   void TearDown() override {
@@ -99,8 +97,8 @@ TEST_F(GVAccessExtentionTest, readGlobalVariable) {
 
   // Read global variable "gv"
   int gv;
-  err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gv", false,
-      sizeof(int), 0, &gv, 0, nullptr, nullptr);
+  err = m_clEnqueueReadGlobalVariableINTEL(
+      m_queue, program, "gv", false, sizeof(int), 0, &gv, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadGlobalVariableINTEL");
   ASSERT_EQ(123, gv);
 }
@@ -125,12 +123,13 @@ TEST_F(GVAccessExtentionTest, readAfterWriteGlobalVariable) {
   // Write a new value to global variable "gv" and test if we write successfully
   const int gvToWrite = 234;
   err = m_clEnqueueWriteGlobalVariableINTEL(m_queue, program, "gv", false,
-      sizeof(int), 0, &gvToWrite, 0, nullptr, nullptr);
+                                            sizeof(int), 0, &gvToWrite, 0,
+                                            nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueWriteGlobalVariableINTEL");
 
   int gv;
-  err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gv", false,
-      sizeof(int), 0, &gv, 0, nullptr, nullptr);
+  err = m_clEnqueueReadGlobalVariableINTEL(
+      m_queue, program, "gv", false, sizeof(int), 0, &gv, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadGlobalVariableINTEL");
   ASSERT_EQ(234, gv);
 }
@@ -158,7 +157,8 @@ TEST_F(GVAccessExtentionTest, readGlobalVariableArrary) {
   int gvArr[4];
   int gvArrRef[4] = {1, 2, 3, 4};
   err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gvArr", false,
-      sizeof(gvArr), 0, gvArr, 0, nullptr, nullptr);
+                                           sizeof(gvArr), 0, gvArr, 0, nullptr,
+                                           nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadGlobalVariableINTEL");
   ASSERT_EQ(0, memcmp(gvArr, gvArrRef, sizeof(gvArr)));
 
@@ -166,14 +166,16 @@ TEST_F(GVAccessExtentionTest, readGlobalVariableArrary) {
   int gvArrRef2[4] = {3, 4, 0, 0};
   memset(gvArr, 0, sizeof(gvArr));
   err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gvArr", false,
-      sizeof(gvArr)/2, sizeof(gvArr)/2, gvArr, 0, nullptr, nullptr);
+                                           sizeof(gvArr) / 2, sizeof(gvArr) / 2,
+                                           gvArr, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadGlobalVariableINTEL");
   ASSERT_EQ(0, memcmp(gvArr, gvArrRef2, sizeof(gvArr)));
 
   // The region being read specified by (offset, size) should be
   // fully contained by the size of the global variable
-  err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gvArr", false,
-      sizeof(gvArr)/2 + 1, sizeof(gvArr)/2, gvArr, 0, nullptr, nullptr);
+  err = m_clEnqueueReadGlobalVariableINTEL(
+      m_queue, program, "gvArr", false, sizeof(gvArr) / 2 + 1,
+      sizeof(gvArr) / 2, gvArr, 0, nullptr, nullptr);
   ASSERT_EQ(CL_INVALID_VALUE, err);
 }
 
@@ -201,18 +203,21 @@ TEST_F(GVAccessExtentionTest, readAfterWriteGlobalVariableArrary) {
   int gvArr[4];
   const int gvArrToWrite[4] = {6, 7, 8, 9};
   err = m_clEnqueueWriteGlobalVariableINTEL(m_queue, program, "gvArr", false,
-      sizeof(gvArr), 0, gvArrToWrite, 0, nullptr, nullptr);
+                                            sizeof(gvArr), 0, gvArrToWrite, 0,
+                                            nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueWriteGlobalVariableINTEL");
 
   err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gvArr", false,
-      sizeof(gvArr), 0, gvArr, 0, nullptr, nullptr);
+                                           sizeof(gvArr), 0, gvArr, 0, nullptr,
+                                           nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadGlobalVariableINTEL");
   ASSERT_EQ(0, memcmp(gvArr, gvArrToWrite, sizeof(gvArr)));
 
   // The region being written specified by (offset, size) should be
   // fully contained by the size of the global variable
-  err = m_clEnqueueWriteGlobalVariableINTEL(m_queue, program, "gvArr", false,
-      sizeof(gvArr)/2 + 1, sizeof(gvArr)/2, gvArrToWrite, 0, nullptr, nullptr);
+  err = m_clEnqueueWriteGlobalVariableINTEL(
+      m_queue, program, "gvArr", false, sizeof(gvArr) / 2 + 1,
+      sizeof(gvArr) / 2, gvArrToWrite, 0, nullptr, nullptr);
   ASSERT_EQ(CL_INVALID_VALUE, err);
 }
 
@@ -237,23 +242,24 @@ TEST_F(GVAccessExtentionTest, readAndWriteGlobalVariableCommandType) {
   int gv;
   cl_event event;
   cl_command_type cmdType;
-  err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gv", false,
-      sizeof(int), 0, &gv, 0, nullptr, &event);
+  err = m_clEnqueueReadGlobalVariableINTEL(
+      m_queue, program, "gv", false, sizeof(int), 0, &gv, 0, nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadGlobalVariableINTEL");
   // Query event command type
   err = clGetEventInfo(event, CL_EVENT_COMMAND_TYPE, sizeof(cl_command_type),
-      &cmdType, nullptr);
+                       &cmdType, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetEventInfo");
   ASSERT_EQ(CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL, cmdType);
 
   // Write a new value to global variable "gv" and test if we write successfully
   const int gvToWrite = 234;
   err = m_clEnqueueWriteGlobalVariableINTEL(m_queue, program, "gv", false,
-      sizeof(int), 0, &gvToWrite, 0, nullptr, &event);
+                                            sizeof(int), 0, &gvToWrite, 0,
+                                            nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueWriteGlobalVariableINTEL");
   // Query event command type
   err = clGetEventInfo(event, CL_EVENT_COMMAND_TYPE, sizeof(cl_command_type),
-      &cmdType, nullptr);
+                       &cmdType, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetEventInfo");
   ASSERT_EQ(CL_COMMAND_WRITE_GLOBAL_VARIABLE_INTEL, cmdType);
 }
@@ -279,14 +285,14 @@ TEST_F(GVAccessExtentionTest, readAfterWriteGlobalVariableWaitForEvents) {
     cl_event ew;
     cl_event er;
     // Write global variable "gv"
-    err = m_clEnqueueWriteGlobalVariableINTEL(m_queue, program, "gv", false,
-        sizeof(int), 0, &i, 0, nullptr, &ew);
+    err = m_clEnqueueWriteGlobalVariableINTEL(
+        m_queue, program, "gv", false, sizeof(int), 0, &i, 0, nullptr, &ew);
     ASSERT_OCL_SUCCESS(err, "clEnqueueWriteGlobalVariableINTEL");
 
     int gv;
     // Read global variable "gv"
     err = m_clEnqueueReadGlobalVariableINTEL(m_queue, program, "gv", false,
-        sizeof(int), 0, &gv, 1, &ew, &er);
+                                             sizeof(int), 0, &gv, 1, &ew, &er);
     ASSERT_OCL_SUCCESS(err, "clEnqueueReadGlobalVariableINTEL");
     err = clWaitForEvents(1, &er);
     ASSERT_OCL_SUCCESS(err, "clWaitForEvents");

@@ -281,7 +281,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
   if (Level.getSpeedupLevel() > 1)
     FPM3.addPass(GVNPass());     // Remove redundancies
   FPM3.addPass(MemCpyOptPass()); // Remove memcpy / form memset
-  FPM3.addPass(SCCPPass()); // Constant prop with SCCP
+  FPM3.addPass(SCCPPass());      // Constant prop with SCCP
 
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.

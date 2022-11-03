@@ -60,10 +60,10 @@ enum Code {
   UNAVAILABLE = 14,
   DATA_LOSS = 15,
 };
-}  // namespace error
+} // namespace error
 
 class LIBPROTOBUF_EXPORT Status {
- public:
+public:
   // Creates a "successful" status.
   Status();
 
@@ -72,45 +72,37 @@ class LIBPROTOBUF_EXPORT Status {
   // ignored and a Status object identical to Status::OK is
   // constructed.
   Status(error::Code error_code, StringPiece error_message);
-  Status(const Status&);
-  Status& operator=(const Status& x);
+  Status(const Status &);
+  Status &operator=(const Status &x);
   ~Status() {}
 
   // Some pre-defined Status objects
-  static const Status OK;             // Identical to 0-arg constructor
+  static const Status OK; // Identical to 0-arg constructor
   static const Status CANCELLED;
   static const Status UNKNOWN;
 
   // Accessor
-  bool ok() const {
-    return error_code_ == error::OK;
-  }
-  int error_code() const {
-    return error_code_;
-  }
-  StringPiece error_message() const {
-    return error_message_;
-  }
+  bool ok() const { return error_code_ == error::OK; }
+  int error_code() const { return error_code_; }
+  StringPiece error_message() const { return error_message_; }
 
-  bool operator==(const Status& x) const;
-  bool operator!=(const Status& x) const {
-    return !operator==(x);
-  }
+  bool operator==(const Status &x) const;
+  bool operator!=(const Status &x) const { return !operator==(x); }
 
   // Return a combination of the error code name and message.
   string ToString() const;
 
- private:
+private:
   error::Code error_code_;
   string error_message_;
 };
 
 // Prints a human-readable representation of 'x' to 'os'.
-LIBPROTOBUF_EXPORT std::ostream& operator<<(std::ostream& os, const Status& x);
+LIBPROTOBUF_EXPORT std::ostream &operator<<(std::ostream &os, const Status &x);
 
 #define EXPECT_OK(value) EXPECT_TRUE((value).ok())
 
-}  // namespace util
-}  // namespace protobuf
-}  // namespace google
-#endif  // GOOGLE_PROTOBUF_STUBS_STATUS_H_
+} // namespace util
+} // namespace protobuf
+} // namespace google
+#endif // GOOGLE_PROTOBUF_STUBS_STATUS_H_

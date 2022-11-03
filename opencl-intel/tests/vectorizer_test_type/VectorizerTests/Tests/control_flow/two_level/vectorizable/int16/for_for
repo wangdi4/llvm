@@ -5,31 +5,31 @@
  * depend on a int and they both don't depend on thread id.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-for_for (	__global const float *in,
-		__global float *out, __global const int16 int16Arg1)
+for_for (  __global const float *in,
+    __global float *out, __global const int16 int16Arg1)
 {
-	int gid = get_global_id(0);
+  int gid = get_global_id(0);
 
-	int tmp1 = in[gid];
+  int tmp1 = in[gid];
 
-	out[gid] = gid;
+  out[gid] = gid;
 
-	for (int i = 0; i < 10 + min((int)abs((int)abs_diff(int16Arg1.sE, (int)in[2])), 2048); i++) {
+  for (int i = 0; i < 10 + min((int)abs((int)abs_diff(int16Arg1.sE, (int)in[2])), 2048); i++) {
 
-		tmp1 += gid + clz(int16Arg1.sC);
+    tmp1 += gid + clz(int16Arg1.sC);
 
-		for (int j= 0; j < 12; j = j + 2) {
-			tmp1 -= clz(gid);
-			tmp1 /= abs((int)mad_sat(tmp1, int16Arg1.sA - tmp1, in[gid])) + 1;
-		}
-	}
+    for (int j= 0; j < 12; j = j + 2) {
+      tmp1 -= clz(gid);
+      tmp1 /= abs((int)mad_sat(tmp1, int16Arg1.sA - tmp1, in[gid])) + 1;
+    }
+  }
 
-	out[gid] += tmp1;
+  out[gid] += tmp1;
 
 }

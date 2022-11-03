@@ -14,34 +14,27 @@
 
 #include "EditTab.h"
 
-namespace Validation
-{
-namespace GUI
-{
-EditTab::EditTab(ConfigManager* cfg, QString path)
-{
-    /**
-     * @TODO add validator (see QValidator class for help)
-     */
-        this->path = path;
-    this->cfg = cfg;
-    type = Tab::Editor;
-    textEdit = new QTextEdit(this);
-    QFont font("Courier New");
-    textEdit->setFont(font);
-    highlighter = new OCLHighlighter();
-    highlighter->setDocument(textEdit->document());
-    QVBoxLayout * layout = new QVBoxLayout(this);
-    layout->addWidget(textEdit);
-    this->setLayout(layout);
-    textEdit->setText(cfg->getFilePlainText(path));
-
+namespace Validation {
+namespace GUI {
+EditTab::EditTab(ConfigManager *cfg, QString path) {
+  /**
+   * @TODO add validator (see QValidator class for help)
+   */
+  this->path = path;
+  this->cfg = cfg;
+  type = Tab::Editor;
+  textEdit = new QTextEdit(this);
+  QFont font("Courier New");
+  textEdit->setFont(font);
+  highlighter = new OCLHighlighter();
+  highlighter->setDocument(textEdit->document());
+  QVBoxLayout *layout = new QVBoxLayout(this);
+  layout->addWidget(textEdit);
+  this->setLayout(layout);
+  textEdit->setText(cfg->getFilePlainText(path));
 }
 
-void EditTab::save()
-{
-    cfg->saveFilePlainText(path,textEdit->toPlainText());
-}
+void EditTab::save() { cfg->saveFilePlainText(path, textEdit->toPlainText()); }
 
-}
-}
+} // namespace GUI
+} // namespace Validation

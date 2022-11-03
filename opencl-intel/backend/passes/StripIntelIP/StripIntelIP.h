@@ -33,4 +33,3 @@ public:
 } // namespace intel
 
 #endif // __STRIP_INTEL_IP_H__
-

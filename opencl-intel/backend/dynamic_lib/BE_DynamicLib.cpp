@@ -18,44 +18,41 @@
 #if defined(_WIN32)
 #include <windows.h>
 #else
-#include <stdio.h>
 #include <dlfcn.h>
+#include <stdio.h>
 #endif
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 
-namespace Intel{ namespace OpenCL { namespace DeviceBackend { namespace Utils{
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
+namespace Utils {
 
 BE_DynamicLib::BE_DynamicLib(void) {}
 
-BE_DynamicLib::~BE_DynamicLib(void) 
-{
-  Close();
-}
+BE_DynamicLib::~BE_DynamicLib(void) { Close(); }
 
-void BE_DynamicLib::Load(const char* pLibName)
-{
-  try
-  {
+void BE_DynamicLib::Load(const char *pLibName) {
+  try {
     Intel::OpenCL::Utils::OclDynamicLib::Load(pLibName);
-  }
-  catch (ocl_string_exception& errMsg)
-  {
-    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(errMsg.what());
+  } catch (ocl_string_exception &errMsg) {
+    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(
+        errMsg.what());
   }
 }
 
-ptrdiff_t BE_DynamicLib::GetFuncPtr(const char* funcName)
-{
-  try
-  {
+ptrdiff_t BE_DynamicLib::GetFuncPtr(const char *funcName) {
+  try {
     return GetFunctionPtrByName(funcName);
-  }
-  catch (ocl_string_exception& errMsg)
-  {
-    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(errMsg.what());
+  } catch (ocl_string_exception &errMsg) {
+    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(
+        errMsg.what());
   }
 }
 
-}}}}
+} // namespace Utils
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

@@ -12,15 +12,14 @@ protected:
   virtual void TearDown();
 
   cl_command_queue createCommandQueue();
-  cl_mem createBuffer(size_t size,
-                      cl_mem_flags flags = CL_MEM_READ_WRITE,
+  cl_mem createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE,
                       void *host_ptr = nullptr);
 
-  cl_platform_id                platform;
-  cl_device_id                  device;
-  cl_context                    context;
+  cl_platform_id platform;
+  cl_device_id device;
+  cl_context context;
   std::vector<cl_command_queue> queues;
-  std::vector<cl_mem>           buffers;
+  std::vector<cl_mem> buffers;
 };
 
 bool atomic_min_max_float_test();

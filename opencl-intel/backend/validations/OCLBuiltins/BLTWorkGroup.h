@@ -16,55 +16,62 @@
 #define BLT_WORK_GROUP_H
 
 #include <llvm/ADT/ArrayRef.h>
-#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/IR/DerivedTypes.h>
 
-#include <string>
 #include <map>
+#include <string>
 
 #include "Helpers.h"
 
 namespace Validation {
 namespace OCLBuiltins {
 
-llvm::GenericValue lle_X_work_group_all_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_work_group_all_impl(llvm::FunctionType *FT,
+                          llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_any_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_work_group_any_impl(llvm::FunctionType *FT,
+                          llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_broadcast_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_work_group_broadcast_impl(llvm::FunctionType *FT,
+                                llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_add_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_work_group_reduce_add_impl(llvm::FunctionType *FT,
+                                 llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_max_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_work_group_reduce_max_impl(llvm::FunctionType *FT,
+                                 llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_min_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_work_group_reduce_min_impl(llvm::FunctionType *FT,
+                                 llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_mul_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue
+lle_X_work_group_reduce_mul_impl(llvm::FunctionType *FT,
+                                 llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_bitwise_and_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue lle_X_work_group_reduce_bitwise_and_impl(
+    llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_bitwise_or_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue lle_X_work_group_reduce_bitwise_or_impl(
+    llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_bitwise_xor_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue lle_X_work_group_reduce_bitwise_xor_impl(
+    llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_logical_and_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue lle_X_work_group_reduce_logical_and_impl(
+    llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_logical_or_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue lle_X_work_group_reduce_logical_or_impl(
+    llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
 
-llvm::GenericValue lle_X_work_group_reduce_logical_xor_impl(llvm::FunctionType *FT,
-                         llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue lle_X_work_group_reduce_logical_xor_impl(
+    llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
 } // namespace OCLBuiltins
 } // namespace Validation
 #endif // BLT_WORK_GROUP_H

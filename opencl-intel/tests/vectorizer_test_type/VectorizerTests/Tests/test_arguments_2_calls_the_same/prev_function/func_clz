@@ -7,21 +7,21 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-func_clz (	__global const float *in,
-		__global float4 *out)
+func_clz (  __global const float *in,
+    __global float4 *out)
 {
-	int gid = get_global_id(0);
-	long tmp = sub_sat(gid * isfinite((in[gid])), in[gid]);
-	long res1 = clz(tmp);
-	long res2 = clz(tmp);
-	long2 res;
-	res.x = res1;
-	res.y = res2;
-	out[gid] = as_float4(res);
+  int gid = get_global_id(0);
+  long tmp = sub_sat(gid * isfinite((in[gid])), in[gid]);
+  long res1 = clz(tmp);
+  long res2 = clz(tmp);
+  long2 res;
+  res.x = res1;
+  res.y = res2;
+  out[gid] = as_float4(res);
 }

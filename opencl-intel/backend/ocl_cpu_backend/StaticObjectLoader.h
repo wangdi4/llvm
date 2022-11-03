@@ -14,22 +14,26 @@
 
 #pragma once
 
-
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <memory>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 /**
- *  Image Callback Library statically compiled object loader. Implements llvm::ObjectCache interface.
+ *  Image Callback Library statically compiled object loader. Implements
+ * llvm::ObjectCache interface.
  */
 class StaticObjectLoader : public llvm::ObjectCache {
 
-  typedef llvm::DenseMap<const llvm::Module*, std::unique_ptr<llvm::MemoryBuffer>> ModuleMemBuffers;
-  typedef llvm::DenseMap<const llvm::Module*, std::string> ModuleStringMap;
+  typedef llvm::DenseMap<const llvm::Module *,
+                         std::unique_ptr<llvm::MemoryBuffer>>
+      ModuleMemBuffers;
+  typedef llvm::DenseMap<const llvm::Module *, std::string> ModuleStringMap;
 
   // Map of modules to buffers containing object files which have been been
   // read from disk.
@@ -43,38 +47,40 @@ class StaticObjectLoader : public llvm::ObjectCache {
     return llvm::sys::fs::exists(Location);
   }
 
-  llvm::MemoryBuffer* readObject(llvm::StringRef Location) {
-    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> memBufOrErr = llvm::MemoryBuffer::getFile(Location);
+  llvm::MemoryBuffer *readObject(llvm::StringRef Location) {
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> memBufOrErr =
+        llvm::MemoryBuffer::getFile(Location);
     return memBufOrErr.get().release();
   }
 
 public:
+  StaticObjectLoader() {}
 
-  StaticObjectLoader()  { }
-
-  virtual ~StaticObjectLoader() { }
+  virtual ~StaticObjectLoader() {}
 
   /// addLocation - Adds a mapping between a module and a path on the filesystem
   /// from where the object file for the given module should be loaded,
   /// The contents of the file at ObjectFilePath can be retrieved by calling
   /// getObject() with the same Module pointer as used to call this function.
-  virtual void addLocation(const llvm::Module* M,
-                           const std::string& ObjectFilePath) {
+  virtual void addLocation(const llvm::Module *M,
+                           const std::string &ObjectFilePath) {
     Paths[M] = ObjectFilePath;
     if (exists(ObjectFilePath)) {
-      // A file exists at ObjectFilePath, so read it now and save it for later retrieval via getObject
-        std::unique_ptr<llvm::MemoryBuffer> StaticObject(
-        readObject(ObjectFilePath));
+      // A file exists at ObjectFilePath, so read it now and save it for later
+      // retrieval via getObject
+      std::unique_ptr<llvm::MemoryBuffer> StaticObject(
+          readObject(ObjectFilePath));
       StaticObjects.insert(std::make_pair(M, std::move(StaticObject)));
     }
   }
 
   /// addPreCompiled - Adds a mapping between a module and a preloaded object
   /// file.
-  virtual void addPreCompiled(const llvm::Module* M,
-                              const llvm::MemoryBuffer* MemBuff) {
-    StaticObjects.insert(std::make_pair(M, (std::unique_ptr<llvm::MemoryBuffer>(
-                        const_cast<llvm::MemoryBuffer*>(MemBuff)))));
+  virtual void addPreCompiled(const llvm::Module *M,
+                              const llvm::MemoryBuffer *MemBuff) {
+    StaticObjects.insert(
+        std::make_pair(M, (std::unique_ptr<llvm::MemoryBuffer>(
+                              const_cast<llvm::MemoryBuffer *>(MemBuff)))));
   }
 
   virtual void notifyObjectCompiled(const llvm::Module *,
@@ -97,4 +103,6 @@ public:
   }
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

@@ -1,5 +1,5 @@
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -11,19 +11,19 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 /**
- * gpu_error_kernel - kernels intended to fail upon build on GPU and succeed for CPU
+ * gpu_error_kernel - kernels intended to fail upon build on GPU and succeed for
+ * CPU
  */
- 
- __kernel void gpu_error_kernel(__global int* input, double input_size)
-{
-	long4 x = 0;
-	double4 y = as_double4(x);
-	input[0] = (int)y.x;			
+
+__kernel void gpu_error_kernel(__global int *input, double input_size) {
+  long4 x = 0;
+  double4 y = as_double4(x);
+  input[0] = (int)y.x;
 }

@@ -7,16 +7,16 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-load_char (	__global const int *in,
-		__global float *out)
+load_char (  __global const int *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	int temp = gid - (gid * 0.5);
-	out[gid] = in[temp];
+  int gid = get_global_id(0);
+  int temp = gid - (gid * 0.5);
+  out[gid] = in[temp];
 }

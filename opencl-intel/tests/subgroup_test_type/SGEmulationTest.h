@@ -18,7 +18,8 @@
 #include "CL_BASE.h"
 #include "TestsHelpClasses.h"
 
-class SGEmulationTest : public ::CL_base, public ::testing::WithParamInterface<bool> {
+class SGEmulationTest : public ::CL_base,
+                        public ::testing::WithParamInterface<bool> {
 protected:
   virtual void SetUp() override;
   virtual void TearDown() override;

@@ -20,16 +20,17 @@
 #include <string>
 
 namespace intel {
-  const unsigned NUM_VERSIONS = 6;
-  /// @brief Structure returned for each function name query
-  struct hashEntry {
-    const char* funcs[NUM_VERSIONS]; // Name of functions, sorted as (1,2,4,8,16,3)
-    unsigned isScalarizable;
-    unsigned isPacketizable;
-  };
+const unsigned NUM_VERSIONS = 6;
+/// @brief Structure returned for each function name query
+struct hashEntry {
+  const char
+      *funcs[NUM_VERSIONS]; // Name of functions, sorted as (1,2,4,8,16,3)
+  unsigned isScalarizable;
+  unsigned isPacketizable;
+};
 
-struct funcEntry : VectorizerFunction{
-  funcEntry(const hashEntry*, unsigned width);
+struct funcEntry : VectorizerFunction {
+  funcEntry(const hashEntry *, unsigned width);
   funcEntry();
   unsigned getWidth() const override;
   bool isPacketizable() const override;
@@ -38,8 +39,8 @@ struct funcEntry : VectorizerFunction{
   bool isNull() const override;
 
 private:
-  int getIndex()const;
-  const hashEntry* m_hashEntry;
+  int getIndex() const;
+  const hashEntry *m_hashEntry;
   unsigned m_width;
 };
 
@@ -47,12 +48,10 @@ private:
 ///  Functions mapping for Intel's Opencl builtin functions
 class VFH {
 public:
-
-
   /// @brief C'tor
   /// @param initializer Database to load
   ///  DB is null terminated
-  VFH(hashEntry* initializer);
+  VFH(hashEntry *initializer);
 
   /// @brief Search the hash for a vector function (used by scalarizer)
   /// @param inp_name Function name to look for
@@ -65,6 +64,6 @@ private:
   std::vector<hashEntry> m_entries;
 };
 
-} // Namespace
+} // namespace intel
 
 #endif // _FUNCTIONS_H_

@@ -50,19 +50,19 @@ extern HostProgramFunc host_fpga_fp16;
 extern HostProgramFunc host_compile_link;
 extern HostProgramFunc host_jit_reload;
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = NULL;
+FrameworkUserLogger *g_pUserLogger = NULL;
 
-}}}
+}
+} // namespace OpenCL
+} // namespace Intel
 
 // List of tests which should be launched only on FPGA Emulator
-vector<string> FPGATests = {
-    "fpga_host_side_pipes",
-    "fpga_channels",
-    "fpga_autorun",
-    "fpga_fp16"
-};
+vector<string> FPGATests = {"fpga_host_side_pipes", "fpga_channels",
+                            "fpga_autorun", "fpga_fp16"};
 
 // List of tests which should not be launched on FPGA Emulator
 vector<string> NonFPGATests = {
@@ -73,91 +73,85 @@ vector<string> NonFPGATests = {
 // Initialize with a flag string, then use the 'get' method to obtain values
 // of flags by name.
 //
-class DTTOptions
-{
+class DTTOptions {
 public:
-    DTTOptions(const string& flags_str) {
-        if (flags_str == "none")
-            return;
-        vector<string> flags = tokenize(flags_str, ",");
-        for (auto &flag : flags) {
-            // Split flag to key=value pair. Ignore invalidly structured flags
-            const size_t i = flag.find_first_of("=");
-            if (i != string::npos)
-              m_options[flag.substr(0, i)] =
-                flag.substr(i + 1, flag.size() - i - 1);
-        }
+  DTTOptions(const string &flags_str) {
+    if (flags_str == "none")
+      return;
+    vector<string> flags = tokenize(flags_str, ",");
+    for (auto &flag : flags) {
+      // Split flag to key=value pair. Ignore invalidly structured flags
+      const size_t i = flag.find_first_of("=");
+      if (i != string::npos)
+        m_options[flag.substr(0, i)] = flag.substr(i + 1, flag.size() - i - 1);
     }
+  }
 
-    string get(const string& key, const string& dflt="")
-    {
-        map<string, string>::const_iterator val_i = m_options.find(key);
-        if (val_i == m_options.end())
-            return dflt;
-        else
-            return val_i->second;
-    }
+  string get(const string &key, const string &dflt = "") {
+    map<string, string>::const_iterator val_i = m_options.find(key);
+    if (val_i == m_options.end())
+      return dflt;
+    else
+      return val_i->second;
+  }
 
 private:
-    map<string, string> m_options;
+  map<string, string> m_options;
 };
-
 
 // Convenience utility for placing the command-line arguments into a vector of
 // strings. Only the command-line arguments are returned (the program name
 // is not).
 //
-vector<string> read_commandline(int argc, char** argv)
-{
-    vector<string> args;
-    for (int i = 1; i < argc; ++i)
-        args.push_back(argv[i]);
-    return args;
+vector<string> read_commandline(int argc, char **argv) {
+  vector<string> args;
+  for (int i = 1; i < argc; ++i)
+    args.push_back(argv[i]);
+  return args;
 }
-
 
 // Get the host program function from a name. Throw runtime_error in case of
 // errors.
 //
-HostProgramFunc get_host_program_by_name(string name)
-{
-    if (name == "1d_inout")
-        return host_1d_inout;
-    else if (name == "ndrange_inout")
-        return host_ndrange_inout;
-    else if (name == "multi_ndrange")
-        return host_multi_ndrange;
-    else if (name == "printf_tester")
-        return host_printf_tester;
-    else if (name == "1d_float4_with_size")
-        return host_1d_float4_with_size;
-    else if (name == "struct_kernel_arg")
-        return host_struct_kernel_arg;
-    else if (name == "images_and_struct")
-        return host_images_and_struct;
-    else if (name == "local_global")
-        return host_local_global;
-    else if (name == "task")
-        return host_task;
-    else if (name == "fpga_host_side_pipes")
-        return host_fpga_host_side_pipes;
-    else if (name == "fpga_channels")
-        return host_fpga_channels;
-    else if (name == "fpga_autorun")
-        return host_fpga_autorun;
-    else if (name == "fpga_fp16")
-        return host_fpga_fp16;
-    else if (name == "host_compile_link")
-        return host_compile_link;
-    else if (name == "jit_reload")
-        return host_jit_reload;
+HostProgramFunc get_host_program_by_name(string name) {
+  if (name == "1d_inout")
+    return host_1d_inout;
+  else if (name == "ndrange_inout")
+    return host_ndrange_inout;
+  else if (name == "multi_ndrange")
+    return host_multi_ndrange;
+  else if (name == "printf_tester")
+    return host_printf_tester;
+  else if (name == "1d_float4_with_size")
+    return host_1d_float4_with_size;
+  else if (name == "struct_kernel_arg")
+    return host_struct_kernel_arg;
+  else if (name == "images_and_struct")
+    return host_images_and_struct;
+  else if (name == "local_global")
+    return host_local_global;
+  else if (name == "task")
+    return host_task;
+  else if (name == "fpga_host_side_pipes")
+    return host_fpga_host_side_pipes;
+  else if (name == "fpga_channels")
+    return host_fpga_channels;
+  else if (name == "fpga_autorun")
+    return host_fpga_autorun;
+  else if (name == "fpga_fp16")
+    return host_fpga_fp16;
+  else if (name == "host_compile_link")
+    return host_compile_link;
+  else if (name == "jit_reload")
+    return host_jit_reload;
 
-    throw runtime_error("Unknown host program: '" + name + "'");
+  throw runtime_error("Unknown host program: '" + name + "'");
 }
 #ifdef _WIN32
 // This is required, because CDB doesn't provide a facility
 // to change the environment variables, like gdb.
-// This function will return the injected string from cdbGWorkitemInjectionBuffer.
+// This function will return the injected string from
+// cdbGWorkitemInjectionBuffer.
 std::string cdbInjectWorkitemFocus() {
   string gworkitem;
   stringstream filename;
@@ -183,180 +177,171 @@ std::string getWorkitemFocus() {
   return Env;
 }
 
-int main(int argc, char** argv)
-{
-    int rc;
-    DTT_LOG("<---------------------------------");
-    DTT_LOG("Starting debug_test_type");
+int main(int argc, char **argv) {
+  int rc;
+  DTT_LOG("<---------------------------------");
+  DTT_LOG("Starting debug_test_type");
 
 #ifdef _WIN32
-    std::string envVar;
-    Intel::OpenCL::Utils::getEnvVar(envVar, "CL_CONFIG_USE_NATIVE_DEBUGGER");
-    bool useNativeDebugger =
-        Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(envVar);
-    NamedPipeThread *thread = nullptr;
-    if (!useNativeDebugger)
-    {
-        // Create a thread that will simulate client configuration write
-        thread = new NamedPipeThread();
-        thread->Start();
+  std::string envVar;
+  Intel::OpenCL::Utils::getEnvVar(envVar, "CL_CONFIG_USE_NATIVE_DEBUGGER");
+  bool useNativeDebugger =
+      Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(envVar);
+  NamedPipeThread *thread = nullptr;
+  if (!useNativeDebugger) {
+    // Create a thread that will simulate client configuration write
+    thread = new NamedPipeThread();
+    thread->Start();
 
-        // Allow thread to run (write the data)
-        Sleep(1000);
-    }
+    // Allow thread to run (write the data)
+    Sleep(1000);
+  }
 #endif
-    vector<string> args = read_commandline(argc, argv);
+  vector<string> args = read_commandline(argc, argv);
 
-    if (args.size() < 3) {
-        cerr << "Error: expected arguments: ";
-        cerr << "<host program name> <options> <cl file name> [extra arguments]\n";
-        cerr << "\n\toptions: comma-separated list of key=value pairs\n";
-        return 1;
+  if (args.size() < 3) {
+    cerr << "Error: expected arguments: ";
+    cerr << "<host program name> <options> <cl file name> [extra arguments]\n";
+    cerr << "\n\toptions: comma-separated list of key=value pairs\n";
+    return 1;
+  }
+
+  try {
+    string host_program_name = args[0];
+    HostProgramFunc host_program = get_host_program_by_name(host_program_name);
+
+    string flags = args[1];
+    DTTOptions options = DTTOptions(flags);
+
+    string cl_file_name = args[2];
+    string cl_code = ReadFileContents(cl_file_name);
+    if (cl_code.size() == 0)
+      throw runtime_error("Can't read kernel from file: " + cl_file_name);
+    args.erase(args.begin(), args.begin() + 3);
+
+    DTT_LOG("Host program name: " + host_program_name);
+    DTT_LOG("Options: " + flags);
+    DTT_LOG("CL file name: " + cl_file_name);
+
+    string s = "Extra arguments: ";
+    if (args.size() == 0)
+      s += "<none>";
+    else {
+      for (const string &arg : args)
+        s += arg + " ";
+    }
+    DTT_LOG(s);
+
+    DTT_LOG("Preparing OpenCL execution...");
+    vector<cl::Platform> platforms;
+    cl::Platform::get(&platforms);
+
+    unsigned cl_platform_index = 0;
+    std::string envIndex;
+    if (Intel::OpenCL::Utils::getEnvVar(envIndex, "CL_PLATFORM_INDEX"))
+      cl_platform_index = atoi(envIndex.c_str());
+
+    if (platforms.size() == 0)
+      throw runtime_error("0 platforms found");
+    else if (platforms.size() <= cl_platform_index)
+      throw runtime_error("CL_PLATFORM_INDEX out of bound");
+
+    cl_context_properties properties[] = {
+        CL_CONTEXT_PLATFORM,
+        (cl_context_properties)(platforms[cl_platform_index])(), 0};
+
+    cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
+
+    if (options.get("device") == "fpga_fast_emu")
+      deviceType = CL_DEVICE_TYPE_ACCELERATOR;
+    else if (options.get("device") == "cpu")
+      deviceType = CL_DEVICE_TYPE_CPU;
+    else if (!options.get("device").empty())
+      throw runtime_error("Wrong device type specified."
+                          "Please, specify 'fpga_fast_emu' or 'cpu'");
+
+    cl::Context context(deviceType, properties);
+
+    vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
+
+    // Ensure that tests will be run on CPU or ACCELERATOR
+    devices[0].getInfo(CL_DEVICE_TYPE, &deviceType);
+    if (deviceType != CL_DEVICE_TYPE_CPU &&
+        deviceType != CL_DEVICE_TYPE_ACCELERATOR)
+      throw runtime_error("Wrong device type."
+                          "Only CPU or ACCELERATOR types supported");
+
+    // Skip fpga-specific tests on CPU
+    if (deviceType != CL_DEVICE_TYPE_ACCELERATOR &&
+        find(FPGATests.begin(), FPGATests.end(), host_program_name) !=
+            FPGATests.end()) {
+      DTT_LOG("Not a FGPA emulator device. Skip the fpga-spicific test");
+      return 0;
     }
 
+    // Skip non-fpga tests on FPGA Emulator
+    if (deviceType == CL_DEVICE_TYPE_ACCELERATOR &&
+        find(NonFPGATests.begin(), NonFPGATests.end(), host_program_name) !=
+            NonFPGATests.end()) {
+      DTT_LOG("FGPA emulator device. Skip the non-fpga test");
+      return 0;
+    }
+
+    cl::Program::Sources sources(1, make_pair(cl_code.c_str(), cl_code.size()));
+    cl::Program prog = cl::Program(context, sources);
+
+    // Build the program with debug arguments enabled.
+    // In case of a build error, we can provide more information on the
+    // failure from the build log.
+    //
     try {
-        string host_program_name = args[0];
-        HostProgramFunc host_program = get_host_program_by_name(host_program_name);
-
-        string flags = args[1];
-        DTTOptions options = DTTOptions(flags);
-
-        string cl_file_name = args[2];
-        string cl_code = ReadFileContents(cl_file_name);
-        if (cl_code.size() == 0)
-            throw runtime_error("Can't read kernel from file: " + cl_file_name);
-        args.erase(args.begin(), args.begin() + 3);
-
-        DTT_LOG("Host program name: " + host_program_name);
-        DTT_LOG("Options: " + flags);
-        DTT_LOG("CL file name: " + cl_file_name);
-
-        string s = "Extra arguments: ";
-        if (args.size() == 0)
-            s += "<none>";
-        else {
-            for (const string& arg : args)
-                s += arg + " ";
-        }
-        DTT_LOG(s);
-
-        DTT_LOG("Preparing OpenCL execution...");
-        vector<cl::Platform> platforms;
-        cl::Platform::get(&platforms);
-
-        unsigned cl_platform_index = 0;
-        std::string envIndex;
-        if (Intel::OpenCL::Utils::getEnvVar(envIndex, "CL_PLATFORM_INDEX"))
-          cl_platform_index = atoi(envIndex.c_str());
-
-        if (platforms.size() == 0)
-            throw runtime_error("0 platforms found");
-        else if (platforms.size() <= cl_platform_index)
-            throw runtime_error("CL_PLATFORM_INDEX out of bound");
-
-        cl_context_properties properties[] = {
-            CL_CONTEXT_PLATFORM,
-            (cl_context_properties)(platforms[cl_platform_index])(), 0
-        };
-
-        cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
-
-        if (options.get("device") == "fpga_fast_emu")
-            deviceType = CL_DEVICE_TYPE_ACCELERATOR;
-        else if (options.get("device") == "cpu")
-            deviceType = CL_DEVICE_TYPE_CPU;
-        else if (!options.get("device").empty())
-          throw runtime_error("Wrong device type specified."
-                              "Please, specify 'fpga_fast_emu' or 'cpu'");
-
-        cl::Context context(deviceType, properties);
-
-        vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
-
-        // Ensure that tests will be run on CPU or ACCELERATOR
-        devices[0].getInfo(CL_DEVICE_TYPE, &deviceType);
-        if (deviceType != CL_DEVICE_TYPE_CPU &&
-            deviceType != CL_DEVICE_TYPE_ACCELERATOR)
-            throw runtime_error("Wrong device type."
-                                "Only CPU or ACCELERATOR types supported");
-
-        // Skip fpga-specific tests on CPU
-        if (deviceType != CL_DEVICE_TYPE_ACCELERATOR &&
-            find(FPGATests.begin(),
-                 FPGATests.end(), host_program_name) != FPGATests.end()) {
-            DTT_LOG("Not a FGPA emulator device. Skip the fpga-spicific test");
-            return 0;
-        }
-
-        // Skip non-fpga tests on FPGA Emulator
-        if (deviceType == CL_DEVICE_TYPE_ACCELERATOR &&
-            find(NonFPGATests.begin(), NonFPGATests.end(),
-                 host_program_name) != NonFPGATests.end()) {
-            DTT_LOG("FGPA emulator device. Skip the non-fpga test");
-            return 0;
-        }
-
-        cl::Program::Sources sources(1,
-            make_pair(cl_code.c_str(), cl_code.size()));
-        cl::Program prog = cl::Program(context, sources);
-
-        // Build the program with debug arguments enabled.
-        // In case of a build error, we can provide more information on the
-        // failure from the build log.
-        //
-        try {
-            // Make possible to pass any build options to tests
-            string build_flags = options.get("build_opts") + " ";
-            string gworkitem = getWorkitemFocus();
-            if (!gworkitem.empty()) {
-              build_flags += "-gworkitem=";
-              build_flags += gworkitem;
-              build_flags += " ";
-            }
-            // As debug and optimization flag decoupled, we need to pass
-            // both "-g" and "-cl-opt-disable" to get complete debug info
-            if (options.get("debug_build") != "off") {
-                build_flags += "-g -cl-opt-disable ";
-            }
-            build_flags += string("-s \"") + cl_file_name + "\"";
-            DTT_LOG("Build flags: " + build_flags);
-            prog.build(devices, build_flags.c_str());
-        }
-        catch (cl::Error err) {
-            string buildlog;
-            prog.getBuildInfo(devices[0], CL_PROGRAM_BUILD_LOG, &buildlog);
-            cerr << "Build error, log:\n" << buildlog << endl;
-            throw;
-        }
-
-
-        DTT_LOG("Running host program...");
-
-        // Invoke the host with the built program
-        host_program(context, devices[0], prog, args);
-
-        DTT_LOG("Host program finished");
-        rc = 0;
+      // Make possible to pass any build options to tests
+      string build_flags = options.get("build_opts") + " ";
+      string gworkitem = getWorkitemFocus();
+      if (!gworkitem.empty()) {
+        build_flags += "-gworkitem=";
+        build_flags += gworkitem;
+        build_flags += " ";
+      }
+      // As debug and optimization flag decoupled, we need to pass
+      // both "-g" and "-cl-opt-disable" to get complete debug info
+      if (options.get("debug_build") != "off") {
+        build_flags += "-g -cl-opt-disable ";
+      }
+      build_flags += string("-s \"") + cl_file_name + "\"";
+      DTT_LOG("Build flags: " + build_flags);
+      prog.build(devices, build_flags.c_str());
+    } catch (cl::Error err) {
+      string buildlog;
+      prog.getBuildInfo(devices[0], CL_PROGRAM_BUILD_LOG, &buildlog);
+      cerr << "Build error, log:\n" << buildlog << endl;
+      throw;
     }
-    catch (const cl::Error& err) {
-      cerr << "Error: " << err.what() << "(" << err.err() << ")\n";
-      fprintf(stderr, "ClErrTxt error: %s\n", ClErrTxt(err.err()));
-      rc = 1;
-    }
-    catch (const runtime_error& err) {
-        cerr << "Error: " << err.what() << endl;
-        rc = 1;
-    }
+
+    DTT_LOG("Running host program...");
+
+    // Invoke the host with the built program
+    host_program(context, devices[0], prog, args);
+
+    DTT_LOG("Host program finished");
+    rc = 0;
+  } catch (const cl::Error &err) {
+    cerr << "Error: " << err.what() << "(" << err.err() << ")\n";
+    fprintf(stderr, "ClErrTxt error: %s\n", ClErrTxt(err.err()));
+    rc = 1;
+  } catch (const runtime_error &err) {
+    cerr << "Error: " << err.what() << endl;
+    rc = 1;
+  }
 
 #ifdef _WIN32
-    if (!useNativeDebugger)
-    {
-        // Wait for thread to finish
-        thread->Join();
-    }
+  if (!useNativeDebugger) {
+    // Wait for thread to finish
+    thread->Join();
+  }
 #endif
 
-    DTT_LOG("debug_test_type done.");
-    DTT_LOG("--------------------------------->");
-    return rc;
+  DTT_LOG("debug_test_type done.");
+  DTT_LOG("--------------------------------->");
+  return rc;
 }

@@ -44,9 +44,9 @@
 // VS 2017 Update 3 also supports this usage of constexpr.
 #if defined(__clang__) || (defined(_MSC_VER) && _MSC_VER >= 1911)
 #define PROTOBUF_CONSTEXPR_VAR constexpr
-#else  // !__clang__
+#else // !__clang__
 #define PROTOBUF_CONSTEXPR_VAR
-#endif  // !_clang
+#endif // !_clang
 
 namespace google {
 namespace protobuf {
@@ -108,21 +108,21 @@ union AuxillaryParseTableField {
     // ExplicitlyInitialized<T> -> T requires a reinterpret_cast, which prevents
     // the tables from being constructed as a constexpr.  We use void to avoid
     // the cast.
-    const void* default_message_void;
-    const MessageLite* default_message() const {
-      return static_cast<const MessageLite*>(default_message_void);
+    const void *default_message_void;
+    const MessageLite *default_message() const {
+      return static_cast<const MessageLite *>(default_message_void);
     }
   };
   message_aux messages;
   // Strings
   struct string_aux {
-    const void* default_ptr;
-    const char* field_name;
+    const void *default_ptr;
+    const char *field_name;
   };
   string_aux strings;
 
   struct map_aux {
-    bool (*parse_map)(io::CodedInputStream*, void*);
+    bool (*parse_map)(io::CodedInputStream *, void *);
   };
   map_aux maps;
 
@@ -138,8 +138,8 @@ union AuxillaryParseTableField {
 };
 
 struct ParseTable {
-  const ParseTableField* fields;
-  const AuxillaryParseTableField* aux;
+  const ParseTableField *fields;
+  const AuxillaryParseTableField *aux;
   int max_field_number;
   // TODO(ckennelly): Do something with this padding.
 
@@ -152,9 +152,9 @@ struct ParseTable {
   // ExplicitlyInitialized<T> -> T requires a reinterpret_cast, which prevents
   // the tables from being constructed as a constexpr.  We use void to avoid
   // the cast.
-  const void* default_instance_void;
-  const MessageLite* default_instance() const {
-    return static_cast<const MessageLite*>(default_instance_void);
+  const void *default_instance_void;
+  const MessageLite *default_instance() const {
+    return static_cast<const MessageLite *>(default_instance_void);
   }
 
   bool unknown_field_set;
@@ -169,32 +169,32 @@ static_assert(std::is_pod<AuxillaryParseTableField::message_aux>::value, "");
 static_assert(std::is_pod<AuxillaryParseTableField::string_aux>::value, "");
 static_assert(std::is_pod<ParseTable>::value, "");
 
-#ifndef __NVCC__  // This assertion currently fails under NVCC.
+#ifndef __NVCC__ // This assertion currently fails under NVCC.
 static_assert(std::is_pod<AuxillaryParseTableField>::value, "");
 #endif
 
 // TODO(ckennelly): Consolidate these implementations into a single one, using
 // dynamic dispatch to the appropriate unknown field handler.
-bool MergePartialFromCodedStream(MessageLite* msg, const ParseTable& table,
-                                 io::CodedInputStream* input);
-bool MergePartialFromCodedStreamLite(MessageLite* msg, const ParseTable& table,
-                                 io::CodedInputStream* input);
+bool MergePartialFromCodedStream(MessageLite *msg, const ParseTable &table,
+                                 io::CodedInputStream *input);
+bool MergePartialFromCodedStreamLite(MessageLite *msg, const ParseTable &table,
+                                     io::CodedInputStream *input);
 
 template <typename Entry>
-bool ParseMap(io::CodedInputStream* input, void* map_field) {
+bool ParseMap(io::CodedInputStream *input, void *map_field) {
   typedef typename MapEntryToMapField<Entry>::MapFieldType MapFieldType;
   typedef google::protobuf::Map<typename Entry::EntryKeyType,
-                      typename Entry::EntryValueType>
+                                typename Entry::EntryValueType>
       MapType;
   typedef typename Entry::template Parser<MapFieldType, MapType> ParserType;
 
-  ParserType parser(static_cast<MapFieldType*>(map_field));
-  return ::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(input,
-                                                                  &parser);
+  ParserType parser(static_cast<MapFieldType *>(map_field));
+  return ::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+      input, &parser);
 }
 
-}  // namespace internal
-}  // namespace protobuf
+} // namespace internal
+} // namespace protobuf
 
-}  // namespace google
-#endif  // GOOGLE_PROTOBUF_GENERATED_MESSAGE_TABLE_DRIVEN_H__
+} // namespace google
+#endif // GOOGLE_PROTOBUF_GENERATED_MESSAGE_TABLE_DRIVEN_H__

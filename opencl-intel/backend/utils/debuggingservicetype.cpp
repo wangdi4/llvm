@@ -47,25 +47,24 @@ DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
 
   DebuggingServiceType serviceType;
 #if _WIN32
-    if (useNativeDebugger)
-        serviceType = Native;
-    else
-        serviceType = Simulator;
-#else
-    // The parameter is used in Windows code
-    (void)useNativeDebugger;
-
-    // CL_CONFIG_DBG_ENABLE != 1 or unset implies native (GDB) debugging.
+  if (useNativeDebugger)
     serviceType = Native;
+  else
+    serviceType = Simulator;
+#else
+  // The parameter is used in Windows code
+  (void)useNativeDebugger;
+
+  // CL_CONFIG_DBG_ENABLE != 1 or unset implies native (GDB) debugging.
+  serviceType = Native;
 #endif
 
-    // Allow the environment variable to override the flag choice.
-    DebuggingServiceType userOverride = getUserDefinedDebuggingServiceType();
-    if (userOverride != None) {
-      serviceType = userOverride;
-    }
+  // Allow the environment variable to override the flag choice.
+  DebuggingServiceType userOverride = getUserDefinedDebuggingServiceType();
+  if (userOverride != None) {
+    serviceType = userOverride;
+  }
 
-
-    return serviceType;
+  return serviceType;
 }
-}
+} // namespace intel

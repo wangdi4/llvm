@@ -17,7 +17,9 @@
 
 #include "cl_synch_objects.h"
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
 /***********************************************************************
  * This class implements table for void pointers.
@@ -26,43 +28,44 @@ namespace Intel { namespace OpenCL { namespace Utils {
  * Object can be queried by its id and return in O(1).
  * An object that is removed, is marked as deleted and will never be used.
  * Any query on this key will return 0 value.
- * To iterate the map, use GetIndexByID. This function return false when Key is bigger
- * then the last available key
- * If a new object exceeds the table initial size load factor, the table is rehashed.
- * and its size is doubled.
- * This object is thread safe!
+ * To iterate the map, use GetIndexByID. This function return false when Key is
+ *bigger then the last available key If a new object exceeds the table initial
+ *size load factor, the table is rehashed. and its size is doubled. This object
+ *is thread safe!
  *
  ***********************************************************************/
-class ClTable
-{
+class ClTable {
 public:
-    ClTable( unsigned short usTableSize = 0xffe  , float fLoadFactor = 0.9 );
-    virtual ~ClTable();
+  ClTable(unsigned short usTableSize = 0xffe, float fLoadFactor = 0.9);
+  virtual ~ClTable();
 
-    unsigned long   Insert    ( void* pObject );
-    bool            Remove    ( unsigned long  key);
-    bool            Contains  ( unsigned long  key);
-    void*           Get       ( unsigned long  key );
-    bool            GetByIndex( unsigned short idx, void** ppObject );
-    unsigned short  GetTableId() const  { return m_usTableId; }
+  unsigned long Insert(void *pObject);
+  bool Remove(unsigned long key);
+  bool Contains(unsigned long key);
+  void *Get(unsigned long key);
+  bool GetByIndex(unsigned short idx, void **ppObject);
+  unsigned short GetTableId() const { return m_usTableId; }
 
 private:
-    void**          m_table;        // Pointer to the hash table
-    unsigned short  m_usTableSize;  // The table size
-    unsigned short  m_usTableId;    // Table unique ID
-    unsigned short  m_usObjectIdx;  // The index of the next object to be inserted
-    float           m_fLoadFactor;  // The rehase load factor
-    OclSpinMutex	m_muTable;      // Mutex that lock the table for thread safe implementation.
+  void **m_table;               // Pointer to the hash table
+  unsigned short m_usTableSize; // The table size
+  unsigned short m_usTableId;   // Table unique ID
+  unsigned short m_usObjectIdx; // The index of the next object to be inserted
+  float m_fLoadFactor;          // The rehase load factor
+  OclSpinMutex
+      m_muTable; // Mutex that lock the table for thread safe implementation.
 
-    static unsigned short m_susTableCounter;  // holds the id of the next table
+  static unsigned short m_susTableCounter; // holds the id of the next table
 
-    // Private methods
-    void            Rehase();
+  // Private methods
+  void Rehase();
 
-    // Prevent compiler from generating defaults
-    ClTable(const ClTable&);           // copy constructor
-    ClTable& operator=(const ClTable&);// assignment operator
+  // Prevent compiler from generating defaults
+  ClTable(const ClTable &);            // copy constructor
+  ClTable &operator=(const ClTable &); // assignment operator
 };
 
-}}}    // Intel::OpenCL::Utils
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel
 #endif // __CL_TABLE_H__

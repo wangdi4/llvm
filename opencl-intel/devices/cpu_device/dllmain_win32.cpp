@@ -23,16 +23,16 @@
 #define TASK_EXECUTOR_LIB_NAME "task_executor32.dll"
 #endif
 
-#include "cpu_device.h"
 #include "backend_wrapper.h"
-#include <stdlib.h>
-#include <string>
 #include "cl_disable_sys_dialog.h"
 #include "cl_dynamic_lib.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
+#include "cpu_device.h"
+#include <stdlib.h>
+#include <string>
 
-#if defined (_WIN32)
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -40,11 +40,10 @@
 using namespace Intel::OpenCL::CPUDevice;
 
 namespace {
-    Intel::OpenCL::Utils::OclDynamicLib *m_dlTaskExecutor;
+Intel::OpenCL::Utils::OclDynamicLib *m_dlTaskExecutor;
 }
 
-BOOL LoadTaskExecutor()
-{
+BOOL LoadTaskExecutor() {
 #if 0
     std::string tePath = std::string(MAX_PATH, '\0');
 
@@ -56,28 +55,24 @@ BOOL LoadTaskExecutor()
         return FALSE;
     }
 #endif
-    return TRUE;
+  return TRUE;
 }
 
-BOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-                     )
-{
-    switch (ul_reason_for_call)
-    {
-    case DLL_PROCESS_ATTACH:
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
+                      LPVOID lpReserved) {
+  switch (ul_reason_for_call) {
+  case DLL_PROCESS_ATTACH:
 #if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
-        Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
+    Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
 #endif
-        m_dlTaskExecutor = new Intel::OpenCL::Utils::OclDynamicLib();
-        return LoadTaskExecutor();
-    case DLL_THREAD_ATTACH:
-    case DLL_THREAD_DETACH:
-        break;
-    case DLL_PROCESS_DETACH:
-        delete m_dlTaskExecutor;
-        break;
-    }
-    return TRUE;
+    m_dlTaskExecutor = new Intel::OpenCL::Utils::OclDynamicLib();
+    return LoadTaskExecutor();
+  case DLL_THREAD_ATTACH:
+  case DLL_THREAD_DETACH:
+    break;
+  case DLL_PROCESS_DETACH:
+    delete m_dlTaskExecutor;
+    break;
+  }
+  return TRUE;
 }

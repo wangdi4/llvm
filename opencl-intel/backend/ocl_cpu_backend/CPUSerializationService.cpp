@@ -13,88 +13,84 @@
 // License.
 
 #include "CPUSerializationService.h"
+#include "CPUDeviceBackendFactory.h"
 #include "CPUProgram.h"
 #include "Serializer.h"
-#include "CPUDeviceBackendFactory.h"
 #include <assert.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class CountingOutputStream : public IOutputStream
-{
+class CountingOutputStream : public IOutputStream {
 public:
-    CountingOutputStream() : m_Counter(0) { }
+  CountingOutputStream() : m_Counter(0) {}
 
-    CountingOutputStream &Write(const char *, size_t count) override {
-      m_Counter += count;
-      return *this;
-    }
+  CountingOutputStream &Write(const char *, size_t count) override {
+    m_Counter += count;
+    return *this;
+  }
 
-    size_t GetCount()
-    {
-        return m_Counter;
-    }
-    
+  size_t GetCount() { return m_Counter; }
+
 private:
-    size_t m_Counter;
+  size_t m_Counter;
 };
 
-class OutputBufferStream : public IOutputStream
-{
+class OutputBufferStream : public IOutputStream {
 public:
-    OutputBufferStream(char* pBuffer, size_t size) 
-        : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) { }
+  OutputBufferStream(char *pBuffer, size_t size)
+      : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) {}
 
-    OutputBufferStream &Write(const char *s, size_t count) override {
-      if ((m_Pos + count) > m_Size)
-        throw Exceptions::DeviceBackendExceptionBase(
-            "Program serializing count is out of range.");
+  OutputBufferStream &Write(const char *s, size_t count) override {
+    if ((m_Pos + count) > m_Size)
+      throw Exceptions::DeviceBackendExceptionBase(
+          "Program serializing count is out of range.");
 
-      std::copy(s, s + count, m_pBuffer + m_Pos);
-      m_Pos += count;
+    std::copy(s, s + count, m_pBuffer + m_Pos);
+    m_Pos += count;
 
-      return *this;
-    }
+    return *this;
+  }
 
-    void close() {
-      if (m_Pos != m_Size)
-        throw Exceptions::DeviceBackendExceptionBase(
-            "Program serialization isn't complete.");
-    }
+  void close() {
+    if (m_Pos != m_Size)
+      throw Exceptions::DeviceBackendExceptionBase(
+          "Program serialization isn't complete.");
+  }
 
 private:
-    char* m_pBuffer;
-    size_t m_Size;
-    size_t m_Pos;
+  char *m_pBuffer;
+  size_t m_Size;
+  size_t m_Pos;
 };
 
-class InputBufferStream : public IInputStream
-{
+class InputBufferStream : public IInputStream {
 public:
-    InputBufferStream(const char* pBuffer, size_t size) 
-        : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) { };
+  InputBufferStream(const char *pBuffer, size_t size)
+      : m_pBuffer(pBuffer), m_Size(size), m_Pos(0){};
 
-    InputBufferStream &Read(char *s, size_t count) override {
-      if ((m_Pos + count) > m_Size)
-        throw Exceptions::DeviceBackendExceptionBase(
-            "Program deserializing count is out of range.");
+  InputBufferStream &Read(char *s, size_t count) override {
+    if ((m_Pos + count) > m_Size)
+      throw Exceptions::DeviceBackendExceptionBase(
+          "Program deserializing count is out of range.");
 
-      std::copy(m_pBuffer + m_Pos, m_pBuffer + m_Pos + count, s);
-      m_Pos += count;
+    std::copy(m_pBuffer + m_Pos, m_pBuffer + m_Pos + count, s);
+    m_Pos += count;
 
-      return *this;
-    }
+    return *this;
+  }
 
-    void close() {
-      if (m_Pos != m_Size)
-        throw Exceptions::DeviceBackendExceptionBase(
-            "Program deserialization isn't complete.");
-    }
+  void close() {
+    if (m_Pos != m_Size)
+      throw Exceptions::DeviceBackendExceptionBase(
+          "Program deserialization isn't complete.");
+  }
 
 private:
-    const char* m_pBuffer;
-    size_t m_Size;
-    size_t m_Pos;
+  const char *m_pBuffer;
+  size_t m_Size;
+  size_t m_Pos;
 };
 
 CPUSerializationService::CPUSerializationService(
@@ -104,44 +100,44 @@ CPUSerializationService::CPUSerializationService(
 }
 
 cl_dev_err_code CPUSerializationService::GetSerializationBlobSize(
-        cl_serialization_type serializationType,
-        const ICLDevBackendProgram_* pProgram, size_t* pSize) const
-{
-    assert((SERIALIZE_PERSISTENT_IMAGE == serializationType) && "Serialization type not supported");
-    CountingOutputStream cs;
+    cl_serialization_type serializationType,
+    const ICLDevBackendProgram_ *pProgram, size_t *pSize) const {
+  assert((SERIALIZE_PERSISTENT_IMAGE == serializationType) &&
+         "Serialization type not supported");
+  CountingOutputStream cs;
 
-    SerializationStatus stats;
-    stats.SerializeVersion(cs);
-    static_cast<const CPUProgram*>(pProgram)->Serialize(cs, &stats);
-    *pSize = cs.GetCount();
+  SerializationStatus stats;
+  stats.SerializeVersion(cs);
+  static_cast<const CPUProgram *>(pProgram)->Serialize(cs, &stats);
+  *pSize = cs.GetCount();
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUSerializationService::SerializeProgram(
-        cl_serialization_type serializationType, 
-        const ICLDevBackendProgram_* pProgram, 
-        void* pBlob, size_t blobSize) const
-{
-    assert((SERIALIZE_PERSISTENT_IMAGE == serializationType) && "Serialization type not supported");
-    OutputBufferStream obs((char*)pBlob, blobSize);
+    cl_serialization_type serializationType,
+    const ICLDevBackendProgram_ *pProgram, void *pBlob, size_t blobSize) const {
+  assert((SERIALIZE_PERSISTENT_IMAGE == serializationType) &&
+         "Serialization type not supported");
+  OutputBufferStream obs((char *)pBlob, blobSize);
 
-    SerializationStatus stats;
-    stats.SerializeVersion(obs);
-    static_cast<const CPUProgram*>(pProgram)->Serialize(obs, &stats);
-    obs.close();
+  SerializationStatus stats;
+  stats.SerializeVersion(obs);
+  static_cast<const CPUProgram *>(pProgram)->Serialize(obs, &stats);
+  obs.close();
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-void CPUSerializationService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
-{
-    delete pProgram;
+void CPUSerializationService::ReleaseProgram(
+    ICLDevBackendProgram_ *pProgram) const {
+  delete pProgram;
 }
 
 cl_dev_err_code CPUSerializationService::ReloadProgram(
     cl_serialization_type /*serializationType*/,
-    ICLDevBackendProgram_ *pProgram, const void *pBlob, size_t blobSize, unsigned int binaryVersion) const {
+    ICLDevBackendProgram_ *pProgram, const void *pBlob, size_t blobSize,
+    unsigned int binaryVersion) const {
   try {
     SerializationStatus stats;
     stats.SetBackendFactory(m_pBackendFactory);
@@ -162,30 +158,27 @@ cl_dev_err_code CPUSerializationService::ReloadProgram(
 }
 
 cl_dev_err_code CPUSerializationService::DeSerializeProgram(
-        cl_serialization_type serializationType, 
-        ICLDevBackendProgram_** ppProgram, 
-        const void* pBlob, size_t blobSize, unsigned int binaryVersion) const
-{
+    cl_serialization_type serializationType, ICLDevBackendProgram_ **ppProgram,
+    const void *pBlob, size_t blobSize, unsigned int binaryVersion) const {
 
-    try
-    {
-        SerializationStatus stats;
-        stats.SetBackendFactory(m_pBackendFactory);
+  try {
+    SerializationStatus stats;
+    stats.SetBackendFactory(m_pBackendFactory);
 
-        std::unique_ptr<ICLDevBackendProgram_> tmpProgram(stats.GetBackendFactory()->CreateProgram());
-        cl_dev_err_code err =
-            ReloadProgram(serializationType, *ppProgram, pBlob, blobSize, binaryVersion);
-        if(CL_DEV_SUCCESS == err) *ppProgram = tmpProgram.release();
-        return err;
-    }
-    catch( std::bad_alloc& )
-    {
-        return CL_DEV_OUT_OF_MEMORY; 
-    }
+    std::unique_ptr<ICLDevBackendProgram_> tmpProgram(
+        stats.GetBackendFactory()->CreateProgram());
+    cl_dev_err_code err = ReloadProgram(serializationType, *ppProgram, pBlob,
+                                        blobSize, binaryVersion);
+    if (CL_DEV_SUCCESS == err)
+      *ppProgram = tmpProgram.release();
+    return err;
+  } catch (std::bad_alloc &) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 }
 
-void CPUSerializationService::Release()
-{
-}
+void CPUSerializationService::Release() {}
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

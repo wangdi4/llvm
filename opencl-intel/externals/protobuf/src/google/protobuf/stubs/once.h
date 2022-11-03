@@ -86,45 +86,44 @@ namespace protobuf {
 namespace internal {
 
 using once_flag = std::once_flag;
-template <typename... Args>
-void call_once(Args&&... args ) {
+template <typename... Args> void call_once(Args &&...args) {
   std::call_once(std::forward<Args>(args)...);
 }
 
-}  // namespace internal
+} // namespace internal
 
 // TODO(gerbens) remove this once third_party is fully extracted
 using ProtobufOnceType = internal::once_flag;
 
-inline void GoogleOnceInit(ProtobufOnceType* once, void (*init_func)()) {
+inline void GoogleOnceInit(ProtobufOnceType *once, void (*init_func)()) {
   std::call_once(*once, init_func);
 }
 
 template <typename Arg>
-inline void GoogleOnceInitArg(ProtobufOnceType* once, void (*init_func)(Arg*),
-                              Arg* arg) {
+inline void GoogleOnceInitArg(ProtobufOnceType *once, void (*init_func)(Arg *),
+                              Arg *arg) {
   std::call_once(*once, init_func, arg);
 }
 
 class GoogleOnceDynamic {
- public:
+public:
   // If this->Init() has not been called before by any thread,
   // execute (*func_with_arg)(arg) then return.
   // Otherwise, wait until that prior invocation has finished
   // executing its function, then return.
-  template<typename T>
-  void Init(void (*func_with_arg)(T*), T* arg) {
+  template <typename T> void Init(void (*func_with_arg)(T *), T *arg) {
     GoogleOnceInitArg<T>(&this->state_, func_with_arg, arg);
   }
- private:
+
+private:
   ProtobufOnceType state_;
 };
 
 #define GOOGLE_PROTOBUF_ONCE_TYPE ::google::protobuf::ProtobufOnceType
-#define GOOGLE_PROTOBUF_DECLARE_ONCE(NAME) \
+#define GOOGLE_PROTOBUF_DECLARE_ONCE(NAME)                                     \
   ::google::protobuf::ProtobufOnceType NAME
 
-}  // namespace protobuf
-}  // namespace google
+} // namespace protobuf
+} // namespace google
 
-#endif  // GOOGLE_PROTOBUF_STUBS_ONCE_H__
+#endif // GOOGLE_PROTOBUF_STUBS_ONCE_H__

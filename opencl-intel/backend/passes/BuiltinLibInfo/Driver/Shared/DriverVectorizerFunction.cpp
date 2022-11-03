@@ -38,7 +38,6 @@ DriverVectorizerFunction::DriverVectorizerFunction(const std::string &s)
 
 DriverVectorizerFunction::~DriverVectorizerFunction() {}
 
-
 unsigned DriverVectorizerFunction::getWidth() const {
   assert(!isNull() && "Null function");
   const BuiltinKeeper *pKeeper = BuiltinKeeper::instance();
@@ -121,5 +120,4 @@ bool DriverVectorizerFunction::isMangled() const {
   return (prefix == m_name.substr(0, prefix.size()));
 }
 
-} // namespace
-
+} // namespace intel

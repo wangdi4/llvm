@@ -87,8 +87,8 @@ void LLDJITBuilder::addDllMainFunction(llvm::Module *M) {
   Type *HModType(POINTER_TYPE);
   Type *ReasonType(Type::getInt32Ty(Ctx));
   Type *ReservedType(POINTER_TYPE);
-  llvm::FunctionCallee FC = M->getOrInsertFunction("_DllMainCRTStartup", RetType, HModType,
-                                    ReasonType, ReservedType);
+  llvm::FunctionCallee FC = M->getOrInsertFunction(
+      "_DllMainCRTStartup", RetType, HModType, ReasonType, ReservedType);
   Function *DllMain = cast<Function>(FC.getCallee());
   DllMain->setCallingConv(CallingConv::X86_StdCall);
   BasicBlock *Block = BasicBlock::Create(M->getContext(), "entry", DllMain);

@@ -15,79 +15,74 @@
 #ifndef __XML_DATA_WRITER_H__
 #define __XML_DATA_WRITER_H__
 
-#include <string>
-#include <sstream>
-#include <limits>
 #include "llvm/Support/DataTypes.h"
+#include <limits>
+#include <sstream>
+#include <string>
 
 #include "tinyxml_wrapper.h"
 
 #include "Exception.h"
-#include "IDataWriter.h"
 #include "IBufferContainerList.h"
+#include "IDataWriter.h"
 #include "XMLDataReadWrite.h"
 
+namespace Validation {
+/// @brief IBufferContainerList object writer to data file in XML format
+/// Implements IDataReader interface
+class XMLBufferContainerListWriter : public IDataWriter {
+public:
+  /// @brief XMLBufferContainerListReaderctor.
+  /// Opens "fileName" data file and reads it into internal data structure
+  /// @param [in] - fileName name of file to write to
+  XMLBufferContainerListWriter(const std::string &fileName)
+      : m_fileName(fileName) {
+    if (fileName.empty())
+      throw Exception::InvalidArgument(
+          "XMLBufferContainerListWriter"
+          "::XMLBufferContainerListWriter file name is empty");
+  }
+  /// dtor
+  virtual ~XMLBufferContainerListWriter() {}
 
-namespace Validation
-{
-    /// @brief IBufferContainerList object writer to data file in XML format
-    /// Implements IDataReader interface
-    class XMLBufferContainerListWriter : public IDataWriter
-    {
-    public:
-        /// @brief XMLBufferContainerListReaderctor.
-        /// Opens "fileName" data file and reads it into internal data structure
-        /// @param [in] - fileName name of file to write to
-        XMLBufferContainerListWriter(const std::string& fileName): 
-          m_fileName(fileName)
-        {
-            if(fileName.empty())
-                throw Exception::InvalidArgument("XMLBufferContainerListWriter"
-                "::XMLBufferContainerListWriter file name is empty");
-        }
-        /// dtor
-        virtual ~XMLBufferContainerListWriter(){}
+  /// @brief write data from IBufferContainerList object to XML node
+  /// @param [IN] - pContainer pointer to object with IBufferContainerList
+  ///        interface
+  /// @throws Exception::InvalidArgument, Exception::IOError
+  virtual void Write(const IContainer *pContainer) override {
+    IBufferContainerList *pBCL = const_cast<IBufferContainerList *>(
+        static_cast<const IBufferContainerList *>(pContainer));
+    if (NULL == pBCL)
+      throw Exception::InvalidArgument("XMLBufferContainerListWriter"
+                                       "::Write() Input object is NULL");
 
-        /// @brief write data from IBufferContainerList object to XML node
-        /// @param [IN] - pContainer pointer to object with IBufferContainerList
-        ///        interface
-        /// @throws Exception::InvalidArgument, Exception::IOError
-        virtual void Write(const IContainer *pContainer) override {
-          IBufferContainerList *pBCL = const_cast<IBufferContainerList *>(
-              static_cast<const IBufferContainerList *>(pContainer));
-          if (NULL == pBCL)
-            throw Exception::InvalidArgument("XMLBufferContainerListWriter"
-                                             "::Write() Input object is NULL");
+    TiXmlDocument XMLDoc;
 
-          TiXmlDocument XMLDoc;
+    // create declaration for XML file
+    XMLDoc.LinkEndChild(new TiXmlDeclaration("1.0", "UTF-8", ""));
 
-          // create declaration for XML file
-          XMLDoc.LinkEndChild(new TiXmlDeclaration("1.0", "UTF-8", ""));
+    // Create ICSCData node
+    TiXmlElement *pXMLNode = new TiXmlElement("ICSCData");
+    XMLDoc.LinkEndChild(pXMLNode);
 
-          // Create ICSCData node
-          TiXmlElement *pXMLNode = new TiXmlElement("ICSCData");
-          XMLDoc.LinkEndChild(pXMLNode);
+    XMLBufferContainerListReadWrite rw;
+    rw.ReadWriteBufferContainerList(pBCL, pXMLNode, IXMLReadWriteBase::WRITE);
 
-          XMLBufferContainerListReadWrite rw;
-          rw.ReadWriteBufferContainerList(pBCL, pXMLNode,
-                                          IXMLReadWriteBase::WRITE);
+    XMLDoc.SaveFile(m_fileName);
+  };
 
-          XMLDoc.SaveFile(m_fileName);
-        };
+private:
+  /// hide copy constructor
+  XMLBufferContainerListWriter(const XMLBufferContainerListWriter &)
+      : IDataWriter() {}
+  /// hide assignment operator
+  void operator=(const XMLBufferContainerListWriter &) {}
 
-    private:
-        /// hide copy constructor
-        XMLBufferContainerListWriter(const XMLBufferContainerListWriter& ) : 
-           IDataWriter() {}
-        /// hide assignment operator
-        void operator =(const XMLBufferContainerListWriter&){}
+private:
+  /// file name to write to
+  const std::string m_fileName;
+};
 
-    private:
-        /// file name to write to
-        const std::string m_fileName;
-    };
-
-} // End of Validation namespace
+} // namespace Validation
 
 #endif // __XML_DATA_WRITER_H__
-

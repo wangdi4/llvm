@@ -13,16 +13,19 @@
 // License.
 
 #include "CPUExecutionService.h"
+#include "CPUDeviceBackendFactory.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "CPUDeviceBackendFactory.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-CPUExecutionService::CPUExecutionService(const ICLDevBackendOptions* pOptions)
-    : ExecutionService(pOptions)
-{
-    m_pBackendFactory = CPUDeviceBackendFactory::GetInstance(); 
+CPUExecutionService::CPUExecutionService(const ICLDevBackendOptions *pOptions)
+    : ExecutionService(pOptions) {
+  m_pBackendFactory = CPUDeviceBackendFactory::GetInstance();
 }
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

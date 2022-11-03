@@ -23,11 +23,10 @@
 //
 std::string read_file_contents(std::string filename);
 
-
 // Split a string to tokens by the given delimiters
 //
-std::vector<std::string> tokenize(const std::string& str, const std::string& delims);
-
+std::vector<std::string> tokenize(const std::string &str,
+                                  const std::string &delims);
 
 // Start capturing stdout
 //

@@ -37,8 +37,9 @@
 #include "Logger.h"
 #endif // DEVICE_NATIVE
 
-namespace Intel { namespace OpenCL { namespace TaskExecutor {
-
+namespace Intel {
+namespace OpenCL {
+namespace TaskExecutor {
 
 class TBBTaskExecutor;
 class ArenaHandler;
@@ -46,415 +47,393 @@ class TEDevice;
 
 using Intel::OpenCL::Utils::IsShutdownMode;
 
-struct TBB_PerActiveThreadData
-{
+struct TBB_PerActiveThreadData {
 public:
-    TEDevice* device;
-    void*     user_tls;
-    unsigned  int  position[ TE_MAX_LEVELS_COUNT ];
+  TEDevice *device;
+  void *user_tls;
+  unsigned int position[TE_MAX_LEVELS_COUNT];
 
-    // arenas where thread attached starting from attach_level
-    ArenaHandler*  attached_arenas[ TE_MAX_LEVELS_COUNT ]; 
-    unsigned  int  attach_level;  // at what level thread attached to the device
+  // arenas where thread attached starting from attach_level
+  ArenaHandler *attached_arenas[TE_MAX_LEVELS_COUNT];
+  unsigned int attach_level; // at what level thread attached to the device
 
-    bool      enter_tried_to_report;
-    bool      enter_reported;
-    bool      is_master;
-    
-    const static unsigned int UNKNOWN_LEVEL = (unsigned int)(-1);
-    TBB_PerActiveThreadData() { reset(); }
-    void reset();
-    void thread_attach() { reset(); };
+  bool enter_tried_to_report;
+  bool enter_reported;
+  bool is_master;
+
+  const static unsigned int UNKNOWN_LEVEL = (unsigned int)(-1);
+  TBB_PerActiveThreadData() { reset(); }
+  void reset();
+  void thread_attach() { reset(); };
 };
 
 /**
- * This class is responsible for handling the explicit arena and the per arena slot resources 
+ * This class is responsible for handling the explicit arena and the per arena
+ * slot resources
  */
-class ArenaHandler : public tbb::task_scheduler_observer
-{
+class ArenaHandler : public tbb::task_scheduler_observer {
 public:
-    
-    ArenaHandler();
-    void Init(unsigned int                  uiMaxNumThreads, 
-              unsigned int                  uiReservedPlacesForMasters,
-              unsigned int uiLevel, const unsigned int p_uiPosition[],
-              TEDevice*                     device,
-              int                           numaNode = 0);
+  ArenaHandler();
+  void Init(unsigned int uiMaxNumThreads,
+            unsigned int uiReservedPlacesForMasters, unsigned int uiLevel,
+            const unsigned int p_uiPosition[], TEDevice *device,
+            int numaNode = 0);
 
-    /**
-     * Destructor
-     */
-    virtual ~ArenaHandler();
+  /**
+   * Destructor
+   */
+  virtual ~ArenaHandler();
 
-    /**
-     * Enqueue a functor on the arena.
-     * @param F the type of the functor
-     * @param f the functor object
-     */
-    template <class F>
-    void Enqueue(F& f) { m_arena.enqueue(f); }
+  /**
+   * Enqueue a functor on the arena.
+   * @param F the type of the functor
+   * @param f the functor object
+   */
+  template <class F> void Enqueue(F &f) { m_arena.enqueue(f); }
 
-    /**
-     * Execute a functor on the arena.
-     * @param F the type of the functor
-     * @param f the functor object
-     */
-    template<class F>
-    void Execute(F& f) { m_arena.execute(f); }
+  /**
+   * Execute a functor on the arena.
+   * @param F the type of the functor
+   * @param f the functor object
+   */
+  template <class F> void Execute(F &f) { m_arena.execute(f); }
 
-    template<class F>
-    void Execute(const F& f) { m_arena.execute(f); }
+  template <class F> void Execute(const F &f) { m_arena.execute(f); }
 
-    /**
-     * @return the number of compute units of the sub-device of this ArenaHandler
-     */
-    unsigned int GetMaxNumThreads() const { return m_uiMaxNumThreads; }
-    unsigned int GetArenaLevel() const { return m_uiLevel; }
-    const unsigned int* GetArenaPosition() const { return m_uiPosition; }
+  /**
+   * @return the number of compute units of the sub-device of this ArenaHandler
+   */
+  unsigned int GetMaxNumThreads() const { return m_uiMaxNumThreads; }
+  unsigned int GetArenaLevel() const { return m_uiLevel; }
+  const unsigned int *GetArenaPosition() const { return m_uiPosition; }
 
-    tbb::task_arena& getArena() { return m_arena; }
+  tbb::task_arena &getArena() { return m_arena; }
 
-    unsigned int AllocateThreadPosition();
-    void         FreeThreadPosition( unsigned int pos );
+  unsigned int AllocateThreadPosition();
+  void FreeThreadPosition(unsigned int pos);
 
-    // overriden task_scheduler_observer methods
-    virtual void on_scheduler_entry(bool bIsWorker) override;
-    virtual void on_scheduler_exit(bool bIsWorker) override;
-    virtual bool on_scheduler_leaving();
+  // overriden task_scheduler_observer methods
+  virtual void on_scheduler_entry(bool bIsWorker) override;
+  virtual void on_scheduler_exit(bool bIsWorker) override;
+  virtual bool on_scheduler_leaving();
 
 private:
-    // start observations
-    void StartMonitoring() { observe(true); }
-    void StopMonitoring()  { observe(false); }
+  // start observations
+  void StartMonitoring() { observe(true); }
+  void StopMonitoring() { observe(false); }
 
-    void Terminate() 
-    {
-        m_arena.terminate();
-    }
+  void Terminate() { m_arena.terminate(); }
 
-    /**
-     * The explicit arena of this device
-     */
-    tbb::task_arena     m_arena;
-    TEDevice*           m_device;
+  /**
+   * The explicit arena of this device
+   */
+  tbb::task_arena m_arena;
+  TEDevice *m_device;
 
-    unsigned int        m_uiMaxNumThreads;
-    unsigned int        m_uiLevel;
-    unsigned int        m_uiPosition[TE_MAX_LEVELS_COUNT];
+  unsigned int m_uiMaxNumThreads;
+  unsigned int m_uiLevel;
+  unsigned int m_uiPosition[TE_MAX_LEVELS_COUNT];
 
-    Intel::OpenCL::Utils::OclSpinMutex m_lock;
-    std::vector<unsigned int> m_freePositions;
+  Intel::OpenCL::Utils::OclSpinMutex m_lock;
+  std::vector<unsigned int> m_freePositions;
 
-    DECLARE_LOGGER_CLIENT;
+  DECLARE_LOGGER_CLIENT;
 
-    // do not implement:
-    ArenaHandler(const ArenaHandler&);
-    ArenaHandler& operator=(const ArenaHandler&);    
+  // do not implement:
+  ArenaHandler(const ArenaHandler &);
+  ArenaHandler &operator=(const ArenaHandler &);
 
-    friend class DevArenaObserver;
-    friend class TEDevice;
+  friend class DevArenaObserver;
+  friend class TEDevice;
 };
 
 /**
  * This class represents an ArenaHandler for root devices
  */
-class TEDevice : public ITEDevice
-{
+class TEDevice : public ITEDevice {
 public:
-    PREPARE_SHARED_PTR(TEDevice)
+  PREPARE_SHARED_PTR(TEDevice)
 
-    static Intel::OpenCL::Utils::SharedPtr<TEDevice> Allocate(
-                                        const RootDeviceCreationParam& device_desc, void* user_data, ITaskExecutorObserver* observer, 
-                                        TBBTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& parent = nullptr )
-    {
-        return new TEDevice(device_desc, user_data, observer, taskExecutor, parent );
-    }
+  static Intel::OpenCL::Utils::SharedPtr<TEDevice>
+  Allocate(const RootDeviceCreationParam &device_desc, void *user_data,
+           ITaskExecutorObserver *observer, TBBTaskExecutor &taskExecutor,
+           const Intel::OpenCL::Utils::SharedPtr<TEDevice> &parent = nullptr) {
+    return new TEDevice(device_desc, user_data, observer, taskExecutor, parent);
+  }
 
-    /**
-     * @param  uiNumSubdevComputeUnits - number of computing units in the sub-device. In the hiearachical mode it must be a subset of the level 0 units.
-     * @return an object representing the sub-device in the TaskExecutor module
-     * @param  user_handle - handle to be returned to used during GetCurrentDevice() calls
-     */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice>
-    CreateSubDevice(unsigned int uiNumSubdevComputeUnits,
-                    void *user_handle = nullptr,
-                    bool disableMasterJoin = true) override;
+  /**
+   * @param  uiNumSubdevComputeUnits - number of computing units in the
+   * sub-device. In the hiearachical mode it must be a subset of the level 0
+   * units.
+   * @return an object representing the sub-device in the TaskExecutor module
+   * @param  user_handle - handle to be returned to used during
+   * GetCurrentDevice() calls
+   */
+  virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice>
+  CreateSubDevice(unsigned int uiNumSubdevComputeUnits,
+                  void *user_handle = nullptr,
+                  bool disableMasterJoin = true) override;
 
-    /**
-     * Reset ITaskExecutorObserver passed during device creation. Note: sub-devices share the same observer, so it will be reset for sub-devices also.
-     * Reaset means no observer calls will be done after from this device and its sub-devices.
-     */
-    virtual void ResetObserver() override;
+  /**
+   * Reset ITaskExecutorObserver passed during device creation. Note:
+   * sub-devices share the same observer, so it will be reset for sub-devices
+   * also. Reaset means no observer calls will be done after from this device
+   * and its sub-devices.
+   */
+  virtual void ResetObserver() override;
 
-    // Set observer for the TEDevice
-    virtual void SetObserver(ITaskExecutorObserver *pObserver) override;
+  // Set observer for the TEDevice
+  virtual void SetObserver(ITaskExecutorObserver *pObserver) override;
 
-    /**
-     * Retrives concurrency level for the device
-     * @return pointer to the new list or NULL on error
-     */
-    virtual int GetConcurrency() const override;
+  /**
+   * Retrives concurrency level for the device
+   * @return pointer to the new list or NULL on error
+   */
+  virtual int GetConcurrency() const override;
 
 #ifdef __HARD_TRAPPING__
-    virtual bool AcquireWorkerThreads(int num_workers, int timeout) override;
-    virtual void RelinquishWorkerThreads() override;
+  virtual bool AcquireWorkerThreads(int num_workers, int timeout) override;
+  virtual void RelinquishWorkerThreads() override;
 #endif // __HARD_TRAPPING__
 
-    virtual void AttachMasterThread(void *user_tls) override;
-    virtual void DetachMasterThread() override;
+  virtual void AttachMasterThread(void *user_tls) override;
+  virtual void DetachMasterThread() override;
 
-    /**
-     * Create Task Execution List to the given sub-device
-     * @return pointer to the new list or NULL on error
-     */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITaskList>
-    CreateTaskList(const CommandListCreationParam &param) override;
+  /**
+   * Create Task Execution List to the given sub-device
+   * @return pointer to the new list or NULL on error
+   */
+  virtual Intel::OpenCL::Utils::SharedPtr<ITaskList>
+  CreateTaskList(const CommandListCreationParam &param) override;
 
-    /**
-     * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
-     */
-    virtual void ShutDown() override;
+  /**
+   * Wait until all work in a sub-device is complete and mark device as
+   * disabled. No more enqueues are allowed after the ShutDown
+   */
+  virtual void ShutDown() override;
 
-    //
-    //   Extra methods
-    //
+  //
+  //   Extra methods
+  //
 
-    /**
-     * Enqueue a functor on the arena.
-     * @param F the type of the functor
-     * @param f the functor object
-     */
-    template <class F>
-    void Enqueue(F& f);
+  /**
+   * Enqueue a functor on the arena.
+   * @param F the type of the functor
+   * @param f the functor object
+   */
+  template <class F> void Enqueue(F &f);
 
-    /**
-     * Execute a functor on the arena.
-     * @param F the type of the functor
-     * @param f the functor object
-     */
-    template<class F>
-    void Execute(F& f);
+  /**
+   * Execute a functor on the arena.
+   * @param F the type of the functor
+   * @param f the functor object
+   */
+  template <class F> void Execute(F &f);
 
-    /**
-     * Lock/Unlock current state (working/shutting down)
-     */
-    void LockState() { m_stateLock.EnterRead(); }
-    void UnLockState() { m_stateLock.LeaveRead(); }
+  /**
+   * Lock/Unlock current state (working/shutting down)
+   */
+  void LockState() { m_stateLock.EnterRead(); }
+  void UnLockState() { m_stateLock.LeaveRead(); }
 
-    /**
-     * @return whether there are enqueued tasks in the sub-device's command lists
-     */
-    bool AreEnqueuedTasks() const;
+  /**
+   * @return whether there are enqueued tasks in the sub-device's command lists
+   */
+  bool AreEnqueuedTasks() const;
 
-    /**
-     * Whether this ArenaHandler is inside its destructor
-     */
-    bool isTerminating() const { return (m_state >= TERMINATING); }
+  /**
+   * Whether this ArenaHandler is inside its destructor
+   */
+  bool isTerminating() const { return (m_state >= TERMINATING); }
 
-    /**
-     * Is master thread joining supported?
-     */
-    bool ShouldMasterJoinWork() const { return (TE_ENABLE_MASTERS_JOIN == m_deviceDescriptor.mastersJoining); }
+  /**
+   * Is master thread joining supported?
+   */
+  bool ShouldMasterJoinWork() const {
+    return (TE_ENABLE_MASTERS_JOIN == m_deviceDescriptor.mastersJoining);
+  }
 
-    void DisableMasterJoin() {
-      m_deviceDescriptor.mastersJoining = TE_DISABLE_MASTERS_JOIN;
-    };
-    /**
-     * Get number of threads in top level arena
-     */
-    unsigned int GetNumOfTopLevelThreads() const { return m_deviceDescriptor.uiThreadsPerLevel[0]  ; }
+  void DisableMasterJoin() {
+    m_deviceDescriptor.mastersJoining = TE_DISABLE_MASTERS_JOIN;
+  };
+  /**
+   * Get number of threads in top level arena
+   */
+  unsigned int GetNumOfTopLevelThreads() const {
+    return m_deviceDescriptor.uiThreadsPerLevel[0];
+  }
 
-    /**
-     * Get number of threads in top level arena
-     */
-    unsigned int GetNumOfLevels() const { return m_deviceDescriptor.uiNumOfLevels; }
+  /**
+   * Get number of threads in top level arena
+   */
+  unsigned int GetNumOfLevels() const {
+    return m_deviceDescriptor.uiNumOfLevels;
+  }
 
-    /**
-     * Get user data associated with this device
-     */
-    void* GetUserData() const { return m_userData; }
+  /**
+   * Get user data associated with this device
+   */
+  void *GetUserData() const { return m_userData; }
 
-    /**
-     *  Owning task executor
-     */
-    TBBTaskExecutor&  GetTaskExecutor() { return m_taskExecutor; }
-    const TBBTaskExecutor&  GetTaskExecutor() const { return m_taskExecutor; }
+  /**
+   *  Owning task executor
+   */
+  TBBTaskExecutor &GetTaskExecutor() { return m_taskExecutor; }
+  const TBBTaskExecutor &GetTaskExecutor() const { return m_taskExecutor; }
 
-    ArenaHandler* GetLowLevelArenas() { return m_lowLevelArenas[0]; }
+  ArenaHandler *GetLowLevelArenas() { return m_lowLevelArenas[0]; }
 
-    // observer methods
-    void on_scheduler_entry(bool bIsWorker, ArenaHandler& arena );
-    void on_scheduler_exit(bool bIsWorker, ArenaHandler& arena );
-    bool on_scheduler_leaving( ArenaHandler& arena );
+  // observer methods
+  void on_scheduler_entry(bool bIsWorker, ArenaHandler &arena);
+  void on_scheduler_exit(bool bIsWorker, ArenaHandler &arena);
+  bool on_scheduler_leaving(ArenaHandler &arena);
 
-    bool isSubDevice() const { return (nullptr != m_pParentDevice.GetPtr()); }	
+  bool isSubDevice() const { return (nullptr != m_pParentDevice.GetPtr()); }
 
-    /**
-     * @return whether the current thread is in this TEDevice's task_arena
-     */
-    bool IsCurrentThreadInArena() const;
+  /**
+   * @return whether the current thread is in this TEDevice's task_arena
+   */
+  bool IsCurrentThreadInArena() const;
 
 private:
+  enum State {
+    INITIALIZING = 0,
+    WORKING,
+    TERMINATING,
+    DISABLE_NEW_THREADS,
+    SHUTTED_DOWN
+  };
 
-    enum State 
-    {
-        INITIALIZING = 0,
-        WORKING,
-        TERMINATING,
-        DISABLE_NEW_THREADS,
-        SHUTTED_DOWN
-    };
+  Intel::OpenCL::Utils::OclReaderWriterLock m_stateLock;
+  volatile State m_state;
 
-    Intel::OpenCL::Utils::OclReaderWriterLock   m_stateLock;
-    volatile State                              m_state;
+  RootDeviceCreationParam m_deviceDescriptor;
+  TBBTaskExecutor &m_taskExecutor;
+  void *m_userData;
 
-    RootDeviceCreationParam                     m_deviceDescriptor;
-    TBBTaskExecutor&                            m_taskExecutor;
-    void*                                       m_userData;
+  Intel::OpenCL::Utils::OclReaderWriterLock m_observerLock;
+  ITaskExecutorObserver *m_observer;
+  Intel::OpenCL::Utils::SharedPtr<TEDevice> m_pParentDevice;
 
-    Intel::OpenCL::Utils::OclReaderWriterLock   m_observerLock;
-    ITaskExecutorObserver*                      m_observer;
-    Intel::OpenCL::Utils::SharedPtr<TEDevice>   m_pParentDevice;
+  ArenaHandler m_mainArena;
+  ArenaHandler
+      *m_lowLevelArenas[TE_MAX_LEVELS_COUNT -
+                        1]; // arrray or arrys of all levels except of 0
 
-    ArenaHandler                                m_mainArena;
-    ArenaHandler*                               m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
+  task_group_with_reference m_trappingTaskGroup;
 
-    task_group_with_reference                   m_trappingTaskGroup;
+  Intel::OpenCL::Utils::AtomicCounter m_numOfActiveThreads;
+  unsigned int m_maxNumOfActiveThreads;
 
-    Intel::OpenCL::Utils::AtomicCounter         m_numOfActiveThreads; 
-    unsigned int                                m_maxNumOfActiveThreads;
+  bool new_threads_disabled() const { return (m_state >= DISABLE_NEW_THREADS); }
 
-    bool new_threads_disabled() const { return (m_state >= DISABLE_NEW_THREADS); }
+  TEDevice(const RootDeviceCreationParam &device_desc, void *user_data,
+           ITaskExecutorObserver *observer, TBBTaskExecutor &taskExecutor,
+           const Intel::OpenCL::Utils::SharedPtr<TEDevice> &parent);
 
-    TEDevice( const RootDeviceCreationParam& device_desc, void* user_data, ITaskExecutorObserver* observer, 
-              TBBTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& parent );
+  ~TEDevice();
 
-    ~TEDevice();
+  // do not implement:
+  TEDevice(const TEDevice &);
+  TEDevice &operator=(const TEDevice &);
 
-    // do not implement:
-    TEDevice(const TEDevice&);
-    TEDevice& operator=(const TEDevice&);       
-
-    void init_next_arena_level( unsigned int current_level, unsigned int position[] );
-    void free_thread_arenas_resources( TBB_PerActiveThreadData* tls, unsigned int starting_level );
-    TEDevice* get_root() 
-    {
-        TEDevice* device = this;
-        while (nullptr != device->m_pParentDevice.GetPtr())
-        {
-            device = device->m_pParentDevice.GetPtr();
-        }
-        return device;
+  void init_next_arena_level(unsigned int current_level,
+                             unsigned int position[]);
+  void free_thread_arenas_resources(TBB_PerActiveThreadData *tls,
+                                    unsigned int starting_level);
+  TEDevice *get_root() {
+    TEDevice *device = this;
+    while (nullptr != device->m_pParentDevice.GetPtr()) {
+      device = device->m_pParentDevice.GetPtr();
     }
+    return device;
+  }
 
-    DECLARE_LOGGER_CLIENT;
+  DECLARE_LOGGER_CLIENT;
 
 #ifdef __HARD_TRAPPING__
-    /**
-     * Required for thread trapping inside the arena
-     */
-    Intel::OpenCL::Utils::AtomicPointer<tbb::Harness::TbbWorkersTrapper> m_worker_trapper;
+  /**
+   * Required for thread trapping inside the arena
+   */
+  Intel::OpenCL::Utils::AtomicPointer<tbb::Harness::TbbWorkersTrapper>
+      m_worker_trapper;
 #endif // __HARD_TRAPPING__
 };
 
-class TEDeviceStateAutoLock
-{
+class TEDeviceStateAutoLock {
 public:
-    TEDeviceStateAutoLock( TEDevice& device ) : m_device(device)
-    {
-        m_device.LockState();
-    }
-    ~TEDeviceStateAutoLock()
-    {
-        m_device.UnLockState();
-    }
+  TEDeviceStateAutoLock(TEDevice &device) : m_device(device) {
+    m_device.LockState();
+  }
+  ~TEDeviceStateAutoLock() { m_device.UnLockState(); }
 
 private:
-    TEDevice& m_device;
+  TEDevice &m_device;
 };
 
 // inlines
-inline
-void ArenaHandler::on_scheduler_entry(bool bIsWorker) 
-{ 
-    if (!IsShutdownMode())
-    {
-        m_device->on_scheduler_entry( bIsWorker, *this ); 
-    }
+inline void ArenaHandler::on_scheduler_entry(bool bIsWorker) {
+  if (!IsShutdownMode()) {
+    m_device->on_scheduler_entry(bIsWorker, *this);
+  }
 }
 
-inline
-void ArenaHandler::on_scheduler_exit(bool bIsWorker) 
-{ 
-    if (!IsShutdownMode())
-    {
-        m_device->on_scheduler_exit( bIsWorker, *this ); 
-    }
+inline void ArenaHandler::on_scheduler_exit(bool bIsWorker) {
+  if (!IsShutdownMode()) {
+    m_device->on_scheduler_exit(bIsWorker, *this);
+  }
 }
 
-inline
-bool ArenaHandler::on_scheduler_leaving() 
-{ 
-    return (IsShutdownMode()) ? true : m_device->on_scheduler_leaving( *this ); 
+inline bool ArenaHandler::on_scheduler_leaving() {
+  return (IsShutdownMode()) ? true : m_device->on_scheduler_leaving(*this);
 }
 
-template<class F > class TrappingEnqueueFunctor
-{
-    task_group_with_reference *m_group;
-    F my_functor;
+template <class F> class TrappingEnqueueFunctor {
+  task_group_with_reference *m_group;
+  F my_functor;
+
 public:
+  TrappingEnqueueFunctor(task_group_with_reference *group, const F &f)
+      : m_group(group), my_functor(f) {}
 
-    TrappingEnqueueFunctor(task_group_with_reference *group, const F& f)
-        : m_group(group), my_functor(f) {}
-
-    void operator()(void) const
-    {
-        m_group->run_and_wait(my_functor);
-    }
+  void operator()(void) const { m_group->run_and_wait(my_functor); }
 };
-template <class F>
-inline
-void TEDevice::Enqueue(F& f)
-{
-    assert (m_deviceDescriptor.uiNumOfLevels <= TE_MAX_LEVELS_COUNT &&
-        "Device level must not exceed TE_MAX_LEVELS_COUNT");
+template <class F> inline void TEDevice::Enqueue(F &f) {
+  assert(m_deviceDescriptor.uiNumOfLevels <= TE_MAX_LEVELS_COUNT &&
+         "Device level must not exceed TE_MAX_LEVELS_COUNT");
 
-    // If trapping exists for device, we need to some w/o to submit a task
+  // If trapping exists for device, we need to some w/o to submit a task
 #ifdef __HARD_TRAPPING__
-    if (m_worker_trapper)
-    {
-        TrappingEnqueueFunctor<F> trapFunctor(&m_trappingTaskGroup, f);
-        m_mainArena.Execute(trapFunctor);
-        return;
-    }
+  if (m_worker_trapper) {
+    TrappingEnqueueFunctor<F> trapFunctor(&m_trappingTaskGroup, f);
+    m_mainArena.Execute(trapFunctor);
+    return;
+  }
 #endif
-    m_mainArena.Enqueue( f );
-
+  m_mainArena.Enqueue(f);
 }
 
-template <class F>
-inline
-void TEDevice::Execute(F& f)
-{
-    assert (m_deviceDescriptor.uiNumOfLevels <= TE_MAX_LEVELS_COUNT &&
-        "Device level must not exceed TE_MAX_LEVELS_COUNT");
+template <class F> inline void TEDevice::Execute(F &f) {
+  assert(m_deviceDescriptor.uiNumOfLevels <= TE_MAX_LEVELS_COUNT &&
+         "Device level must not exceed TE_MAX_LEVELS_COUNT");
 #if defined(__HARD_TRAPPING__) && !defined(DEVICE_NATIVE)
-    assert (m_worker_trapper == nullptr && "Execute() is not allowed on device with trapped workers");
+  assert(m_worker_trapper == nullptr &&
+         "Execute() is not allowed on device with trapped workers");
 #endif
 
-    m_mainArena.Execute( f );
+  m_mainArena.Execute(f);
 }
 
-inline
-void TBB_PerActiveThreadData::reset()
-{
-    device          = nullptr;
-    user_tls        = nullptr;
-    attach_level    = UNKNOWN_LEVEL;
-    enter_tried_to_report = false;
-    enter_reported  = false;
-    is_master       = false;
+inline void TBB_PerActiveThreadData::reset() {
+  device = nullptr;
+  user_tls = nullptr;
+  attach_level = UNKNOWN_LEVEL;
+  enter_tried_to_report = false;
+  enter_reported = false;
+  is_master = false;
 
-    memset(attached_arenas, 0, sizeof(attached_arenas) );
+  memset(attached_arenas, 0, sizeof(attached_arenas));
 }
-}}}
+} // namespace TaskExecutor
+} // namespace OpenCL
+} // namespace Intel

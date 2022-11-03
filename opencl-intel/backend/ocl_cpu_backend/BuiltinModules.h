@@ -14,26 +14,26 @@
 
 #pragma once // <--- TODO: Add proper INCLUDE_GUARD
 
+#include "IDynamicFunctionsResolver.h"
+#include "cl_cpu_detect.h"
+#include "cl_dev_backend_api.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Errno.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <assert.h>
-#include <string>
 #include <memory>
-#include "cl_cpu_detect.h"
-#include "cl_dev_backend_api.h"
-#include "IDynamicFunctionsResolver.h"
+#include <string>
 
-namespace llvm
-{
+namespace llvm {
 class Module;
 class LLVMContext;
-}
+} // namespace llvm
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class BuiltinModules
-{
+class BuiltinModules {
 public:
   BuiltinModules(llvm::SmallVector<std::unique_ptr<Module>, 2> builtinsModules);
   ~BuiltinModules();
@@ -47,8 +47,7 @@ private:
   llvm::SmallVector<llvm::Module *, 2> m_BuiltinsModules;
 };
 
-class BuiltinLibrary : public IDynamicFunctionsResolver
-{
+class BuiltinLibrary : public IDynamicFunctionsResolver {
 public:
   BuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *);
   virtual ~BuiltinLibrary();
@@ -61,22 +60,20 @@ public:
     return MemoryBuffer::getMemBuffer(m_pRtlBufferSvmlShared->getBuffer());
   }
 
-    Intel::OpenCL::Utils::ECPU GetCPU() const { return m_cpuId->GetCPU(); }
+  Intel::OpenCL::Utils::ECPU GetCPU() const { return m_cpuId->GetCPU(); }
 
-    virtual void SetContext(const void * /*pContext*/) {
-      assert(false && "Set Builtin Library Context Not Implemented");
-    }
-    virtual unsigned long long int
-    GetFunctionAddress(const std::string & /*functionName*/) const override {
-      assert(false && "Get Function Address Not Implemented");
-      return 0;
-    }
+  virtual void SetContext(const void * /*pContext*/) {
+    assert(false && "Set Builtin Library Context Not Implemented");
+  }
+  virtual unsigned long long int
+  GetFunctionAddress(const std::string & /*functionName*/) const override {
+    assert(false && "Get Function Address Not Implemented");
+    return 0;
+  }
 
-    virtual void Load() = 0;
+  virtual void Load() = 0;
 
-    virtual std::string& getLog() {
-        return m_builtinLibLog;
-    }
+  virtual std::string &getLog() { return m_builtinLibLog; }
 
 protected:
   const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
@@ -85,5 +82,6 @@ protected:
   std::string m_builtinLibLog;
 };
 
-
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

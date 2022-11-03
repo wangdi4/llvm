@@ -26,31 +26,28 @@
 
 using namespace std;
 
-namespace CLElfLib
-{
-static const unsigned int g_scElfHeaderAlignment    = 16;   // allocation alignment restriction
-static const unsigned int g_scInitialElfSize        = 2048; // initial elf size (in bytes)
+namespace CLElfLib {
+static const unsigned int g_scElfHeaderAlignment =
+    16; // allocation alignment restriction
+static const unsigned int g_scInitialElfSize =
+    2048; // initial elf size (in bytes)
 static const unsigned int g_scInitNumSectionHeaders = 8;
 
-struct SSectionNode
-{
-    E_SH_TYPE    Type;
-    unsigned int Flags;
-    string Name;
-    char* pData;
-    unsigned int DataSize;
+struct SSectionNode {
+  E_SH_TYPE Type;
+  unsigned int Flags;
+  string Name;
+  char *pData;
+  unsigned int DataSize;
 
-    SSectionNode()
-    {
-        Type     = SH_TYPE_NULL;
-        Flags    = 0;
-        pData    = nullptr;
-        DataSize = 0;
-    }
+  SSectionNode() {
+    Type = SH_TYPE_NULL;
+    Flags = 0;
+    pData = nullptr;
+    DataSize = 0;
+  }
 
-    ~SSectionNode()
-    {
-    }
+  ~SSectionNode() {}
 };
 
 /******************************************************************************\
@@ -58,48 +55,39 @@ struct SSectionNode
  Class:         CElfWriter
 
  Description:   Class to provide simpler interaction with the ELF standard
-                binary object.  SElf64Header defines the ELF header type and 
+                binary object.  SElf64Header defines the ELF header type and
                 SElf64SectionHeader defines the section header type.
 
 \******************************************************************************/
-class CElfWriter
-{
+class CElfWriter {
 public:
-    static CElfWriter* ELF_CALL Create(
-        E_EH_TYPE type,
-        E_EH_MACHINE machine,
-        E_EH_FLAGS flags );
+  static CElfWriter *ELF_CALL Create(E_EH_TYPE type, E_EH_MACHINE machine,
+                                     E_EH_FLAGS flags);
 
-    static void ELF_CALL Delete( CElfWriter* &pElfWriter );
+  static void ELF_CALL Delete(CElfWriter *&pElfWriter);
 
-    E_RETVAL ELF_CALL AddSection(
-        SSectionNode* pSectionNode );
+  E_RETVAL ELF_CALL AddSection(SSectionNode *pSectionNode);
 
-    E_RETVAL ELF_CALL ResolveBinary( 
-        char* &pBinary,
-        unsigned int& dataSize );
+  E_RETVAL ELF_CALL ResolveBinary(char *&pBinary, unsigned int &dataSize);
 
-    E_RETVAL ELF_CALL Initialize();
-    E_RETVAL ELF_CALL PatchElfHeader( char* &pBinary );
+  E_RETVAL ELF_CALL Initialize();
+  E_RETVAL ELF_CALL PatchElfHeader(char *&pBinary);
 
 protected:
-    ELF_CALL CElfWriter(
-        E_EH_TYPE type,
-        E_EH_MACHINE machine,
-        E_EH_FLAGS flags );
+  ELF_CALL CElfWriter(E_EH_TYPE type, E_EH_MACHINE machine, E_EH_FLAGS flags);
 
-    ELF_CALL ~CElfWriter();
+  ELF_CALL ~CElfWriter();
 
-    E_EH_TYPE m_type;
-    E_EH_MACHINE m_machine;
-    E_EH_FLAGS m_flags;
+  E_EH_TYPE m_type;
+  E_EH_MACHINE m_machine;
+  E_EH_FLAGS m_flags;
 
-    std::queue<SSectionNode*> m_nodeQueue;
+  std::queue<SSectionNode *> m_nodeQueue;
 
-    unsigned int m_dataSize;
-    unsigned int m_numSections;
-    unsigned int m_stringTableSize;
-    unsigned int m_totalBinarySize;
+  unsigned int m_dataSize;
+  unsigned int m_numSections;
+  unsigned int m_stringTableSize;
+  unsigned int m_totalBinarySize;
 };
 
-} // namespace ELFLib
+} // namespace CLElfLib

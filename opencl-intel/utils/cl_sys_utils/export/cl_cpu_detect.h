@@ -48,22 +48,22 @@ enum ECPUFeatureSupport {
   CFS_BMI = 1 << 8,
   CFS_BMI2 = 1 << 9,
   CFS_AVX512F = 1 << 10,
-  CFS_AVX512CD = 1 << 11,       // SKX
+  CFS_AVX512CD = 1 << 11, // SKX
   // CFS_AVX512ER = 1 << 12,    // KNL (deprecated)
   // CFS_AVX512PF = 1 << 13,    // KNL (deprecated)
-  CFS_AVX512BW = 1 << 14,       // SKX
-  CFS_AVX512DQ = 1 << 15,       // SKX
-  CFS_AVX512VL = 1 << 16,       // SKX
-  CFS_AVX512VBMI = 1 << 17,     // CNL
-  CFS_AVX512IFMA = 1 << 18,     // CNL
-  CFS_AVX512BITALG = 1 << 19,   // ICL
-  CFS_AVX512VBMI2 = 1 << 20,    // ICL
+  CFS_AVX512BW = 1 << 14,        // SKX
+  CFS_AVX512DQ = 1 << 15,        // SKX
+  CFS_AVX512VL = 1 << 16,        // SKX
+  CFS_AVX512VBMI = 1 << 17,      // CNL
+  CFS_AVX512IFMA = 1 << 18,      // CNL
+  CFS_AVX512BITALG = 1 << 19,    // ICL
+  CFS_AVX512VBMI2 = 1 << 20,     // ICL
   CFS_AVX512VPOPCNTDQ = 1 << 21, // ICL
-  CFS_CLWB = 1 << 22,           // ICL
-  CFS_WBNOINVD = 1 << 23,       // ICX
-  CFS_AMXTILE = 1 << 26,        // AMX
-  CFS_AMXINT8 = 1 << 27,        // AMX
-  CFS_AMXBF16 = 1 << 28,        // AMX
+  CFS_CLWB = 1 << 22,            // ICL
+  CFS_WBNOINVD = 1 << 23,        // ICX
+  CFS_AMXTILE = 1 << 26,         // AMX
+  CFS_AMXINT8 = 1 << 27,         // AMX
+  CFS_AMXBF16 = 1 << 28,         // AMX
   CFS_F16C = 1 << 29
 
 };
@@ -80,8 +80,8 @@ enum ECPUBrandFamily {
 
 #define CPU_ARCHS(modificator)                                                 \
   modificator(CPU_COREI7) modificator(CPU_SNB) modificator(CPU_HSW)            \
-      modificator(CPU_SKX) modificator(CPU_ICL)                                \
-          modificator(CPU_ICX) modificator(CPU_SPR)
+      modificator(CPU_SKX) modificator(CPU_ICL) modificator(CPU_ICX)           \
+          modificator(CPU_SPR)
 
 enum ECPU {
   CPU_UNKNOWN = 0,
@@ -124,16 +124,14 @@ private:
 // CPU detection class (singleton)
 class CPUDetect {
 public:
-  static  const std::vector<std::string> CPUArchStr;
+  static const std::vector<std::string> CPUArchStr;
   static CPUDetect *GetInstance();
   // This is to reset CPU according to ICompilerConfig when
   // CL_CONFIG_CPU_TARGET_ARCH env is set
   void ResetCPU(ECPU CPU,
                 const llvm::SmallVectorImpl<std::string> &forcedFeatures);
   // Check host CPU is westmere or not
-  bool isWestmereForHost() const {
-    return m_HostCPUString == "westmere";
-  }
+  bool isWestmereForHost() const { return m_HostCPUString == "westmere"; }
 
   // Check if given feature is supported for the CPU which can be host CPU or a
   // customization CPU by config
@@ -250,8 +248,8 @@ public:
            IsFeatureSupported(CFS_AVX512VPOPCNTDQ);
   }
   bool HasAMX() const {
-    return IsFeatureSupported(CFS_AMXTILE) &&
-           IsFeatureSupported(CFS_AMXINT8) && IsFeatureSupported(CFS_AMXBF16);
+    return IsFeatureSupported(CFS_AMXTILE) && IsFeatureSupported(CFS_AMXINT8) &&
+           IsFeatureSupported(CFS_AMXBF16);
   }
 
   bool Is64BitOS() const { return m_is64BitOS; }

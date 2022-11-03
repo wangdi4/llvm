@@ -1,7 +1,7 @@
- #pragma once
+#pragma once
 
-#include <cl_utils.h>
 #include <CL/cl_ext.h>
+#include <cl_utils.h>
 
 #ifndef _WIN32
 #include <sys/types.h>
@@ -9,26 +9,26 @@
 #include "test_utils.h"
 
 #ifdef _WIN32
-	#define STDCALL __stdcall
-	#define SLEEP(mili) Sleep(mili)
-	#define FOPEN(file, name, mode) fopen_s(&(file), (name), (mode))
-	#define SET_FPOS_T(var, val) (var) = (val)
-	#define GET_FPOS_T(var) var
-	#define ABS64(x) _abs64(x)
-	#define RETURN_TYPE_ENTRY_POINT unsigned int
-	#define FPRINTF fprintf_s
+#define STDCALL __stdcall
+#define SLEEP(mili) Sleep(mili)
+#define FOPEN(file, name, mode) fopen_s(&(file), (name), (mode))
+#define SET_FPOS_T(var, val) (var) = (val)
+#define GET_FPOS_T(var) var
+#define ABS64(x) _abs64(x)
+#define RETURN_TYPE_ENTRY_POINT unsigned int
+#define FPRINTF fprintf_s
 #else
-	#define SET_FPOS_T(var, val) ((var).__pos = (val))
-	#define GET_FPOS_T(var) ((var).__pos)
-	#define STDCALL
-	#define SLEEP(mili) usleep(mili * 1000)
-	#define FOPEN(file, name, mode) (file) = fopen((name), (mode))
-	#define ABS64(x) llabs(x)
-	#define RETURN_TYPE_ENTRY_POINT void *
-	#define FPRINTF fprintf
+#define SET_FPOS_T(var, val) ((var).__pos = (val))
+#define GET_FPOS_T(var) ((var).__pos)
+#define STDCALL
+#define SLEEP(mili) usleep(mili * 1000)
+#define FOPEN(file, name, mode) (file) = fopen((name), (mode))
+#define ABS64(x) llabs(x)
+#define RETURN_TYPE_ENTRY_POINT void *
+#define FPRINTF fprintf
 #endif
 
-typedef void (*openBcFunc)(FILE*&);
+typedef void (*openBcFunc)(FILE *&);
 
 bool clCreateContextTest();
 bool clGetPlatformInfoTest();
@@ -50,7 +50,7 @@ bool clEnqueueRWBuffer();
 bool clFastRelaxedMathModeTest();
 bool clImagePermissions();
 bool clOutOfOrderTest();
-bool clOODotProductTest( int iNumLoops );
+bool clOODotProductTest(int iNumLoops);
 bool clQuickExecutionTest();
 bool clEnqueueCopyBufferTest();
 bool clMapBufferTest();
@@ -138,7 +138,8 @@ bool clSampler();
 bool clAoSFieldScatterGather();
 bool clCheckVectorizingDim1AndUniteWG(bool hasNonUniformWG);
 bool clCheckVectorizingDim1And2AndUniteWG(int progIndex, bool hasLocalWGSize);
-bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, bool hasLocalWGSize);
+bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention,
+                                              bool hasLocalWGSize);
 void clBuildOptionsTest();
 void clShutdownSVMTest();
 bool UnloadPlatformCompiler();
@@ -173,4 +174,4 @@ void clFuncIdenticalLayoutStructOnLinkageTest();
 void cl_DumpIRBeforeAndAfterPasses();
 #endif
 void LinearSampleOOBCoord();
-//#define CUDA_DEVICE
+// #define CUDA_DEVICE

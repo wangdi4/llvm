@@ -15,28 +15,29 @@
 #ifndef __PLUGIN_MANAGER_H__
 #define __PLUGIN_MANAGER_H__
 
-#include <string>
-#include <stdexcept>
 #include <cstdlib>
 #include <list>
+#include <stdexcept>
+#include <string>
 
-#include "link_data.h"
-#include "compile_data.h"
 #include "cl_device_api.h"
+#include "compile_data.h"
+#include "link_data.h"
 
-namespace Intel { namespace OpenCL {
+namespace Intel {
+namespace OpenCL {
 namespace DeviceBackend {
 class ICLDevBackendKernel_;
 class ICLDevBackendProgram_;
-}//end DeviceBackend
+} // namespace DeviceBackend
 
 struct IPlugin;
 class PluginInfo;
 
-class PluginManagerException : public std::runtime_error{
+class PluginManagerException : public std::runtime_error {
 public:
-    virtual ~PluginManagerException() throw();
-    PluginManagerException(std::string message);
+  virtual ~PluginManagerException() throw();
+  PluginManagerException(std::string message);
 };
 
 /**
@@ -50,82 +51,80 @@ public:
  * Each plugin will be deployed as a separate DLL. There are several proposed
  * method for loading such plugins:
  *
- * 1. Each plugin's dll will be named with special prefix such that PluginManager
- * could scan the current working directory and load all such dlls
+ * 1. Each plugin's dll will be named with special prefix such that
+ * PluginManager could scan the current working directory and load all such dlls
  * 2. There will be a special environment variable that will specify the list of
  * plugins to load.
- * 3. OCL Backend will use the configuration file ( currently not implemented) to
- * specify the needed plugins.
+ * 3. OCL Backend will use the configuration file ( currently not implemented)
+ * to specify the needed plugins.
  */
-class PluginManager
-{
+class PluginManager {
 public:
-    ~PluginManager();
-    PluginManager();
+  ~PluginManager();
+  PluginManager();
 
-    /////////////////////////////////////////////////
-    //Description:
-    //  invoked by the OCL Backend, when the runtime initializes an NDRange.
-    //  (could be as a result by call to function such as clEnqueueBuffer
-    /////////////////////////////////////////////////
-    void OnCreateBinary(const DeviceBackend::ICLDevBackendKernel_* pKernel,
-                        const _cl_work_description_type* pWorkDesc,
-                        size_t bufSize,
-                        void* pArgsBuffer);
+  /////////////////////////////////////////////////
+  // Description:
+  //   invoked by the OCL Backend, when the runtime initializes an NDRange.
+  //   (could be as a result by call to function such as clEnqueueBuffer
+  /////////////////////////////////////////////////
+  void OnCreateBinary(const DeviceBackend::ICLDevBackendKernel_ *pKernel,
+                      const _cl_work_description_type *pWorkDesc,
+                      size_t bufSize, void *pArgsBuffer);
 
-    /////////////////////////////////////////////////
-    //Description:
-    // invoked by the OCL BE, as a result of a call to clCreateKernel by the application
-    /////////////////////////////////////////////////
-    void OnCreateKernel(const DeviceBackend::ICLDevBackendProgram_* pProgram,
-                        const DeviceBackend::ICLDevBackendKernel_* pKernel,
-                        const void* pFunction);
+  /////////////////////////////////////////////////
+  // Description:
+  //  invoked by the OCL BE, as a result of a call to clCreateKernel by the
+  //  application
+  /////////////////////////////////////////////////
+  void OnCreateKernel(const DeviceBackend::ICLDevBackendProgram_ *pProgram,
+                      const DeviceBackend::ICLDevBackendKernel_ *pKernel,
+                      const void *pFunction);
 
-    /////////////////////////////////////////////////
-    //Description:
-    //  invoked by OCL BE, when a OCL Program object is created.
-    //  (Program objects may be created by several function such as
-    //  'clCreateProgramWithSource' and clCreateProgramWithBinary).
-    /////////////////////////////////////////////////
-    void OnCreateProgram(const void * pBinary,
-                         size_t uiBinarySize,
-                         const DeviceBackend::ICLDevBackendProgram_* pProgram);
+  /////////////////////////////////////////////////
+  // Description:
+  //   invoked by OCL BE, when a OCL Program object is created.
+  //   (Program objects may be created by several function such as
+  //   'clCreateProgramWithSource' and clCreateProgramWithBinary).
+  /////////////////////////////////////////////////
+  void OnCreateProgram(const void *pBinary, size_t uiBinarySize,
+                       const DeviceBackend::ICLDevBackendProgram_ *pProgram);
 
-    /////////////////////////////////////////////////
-    //Description:
-    //  invoked by OCL BE, when clReleaseProgram is called by the application.
-    /////////////////////////////////////////////////
-    void OnReleaseProgram(const DeviceBackend::ICLDevBackendProgram_* pProgram);
+  /////////////////////////////////////////////////
+  // Description:
+  //   invoked by OCL BE, when clReleaseProgram is called by the application.
+  /////////////////////////////////////////////////
+  void OnReleaseProgram(const DeviceBackend::ICLDevBackendProgram_ *pProgram);
 
-    /////////////////////////////////////////////////
-    //Description:
-    //  invoked by clang, (compiler's FE), when a program is linked by
-    //  clLinkProgram. This callback is only relevant to OCL 1.2 onwards.
-    /////////////////////////////////////////////////
-    void OnLink(const Frontend::LinkData* linkData);
+  /////////////////////////////////////////////////
+  // Description:
+  //   invoked by clang, (compiler's FE), when a program is linked by
+  //   clLinkProgram. This callback is only relevant to OCL 1.2 onwards.
+  /////////////////////////////////////////////////
+  void OnLink(const Frontend::LinkData *linkData);
 
-    /////////////////////////////////////////////////
-    //Description:
-    //  invoked by clang, when compiling an open CL source file to llvm bytecode.
-    /////////////////////////////////////////////////
-    void OnCompile(const Frontend::CompileData* compileData);
-
-private:
-    //
-    //Load the plugins which corresponds the OCLXXX_PLUGINS environment variables
-    void LoadPlugins();
+  /////////////////////////////////////////////////
+  // Description:
+  //   invoked by clang, when compiling an open CL source file to llvm bytecode.
+  /////////////////////////////////////////////////
+  void OnCompile(const Frontend::CompileData *compileData);
 
 private:
+  //
+  // Load the plugins which corresponds the OCLXXX_PLUGINS environment variables
+  void LoadPlugins();
 
-    typedef std::list<PluginInfo* > PluginsList;
-    //list of registered plugins
-    PluginsList m_listPlugins;
-    //Initialization state;
-    bool m_bInitialized;
-    // don't allow Copy constructor and assignment operator
-    PluginManager(const PluginManager&);
-    PluginManager& operator=(const PluginManager&);
-};//end class PluginManager
-}}
+private:
+  typedef std::list<PluginInfo *> PluginsList;
+  // list of registered plugins
+  PluginsList m_listPlugins;
+  // Initialization state;
+  bool m_bInitialized;
+  // don't allow Copy constructor and assignment operator
+  PluginManager(const PluginManager &);
+  PluginManager &operator=(const PluginManager &);
+}; // end class PluginManager
+} // namespace OpenCL
+} // namespace Intel
 
 #endif

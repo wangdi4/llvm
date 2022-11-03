@@ -130,10 +130,10 @@ bool ClangLinkOptions::hasArg(int id) const { return m_pArgs->hasArg(id); }
 // Check whether the module contains OpenCL or DPCPP version metadata.
 // Add "not-ocl-dpcpp" attribute to functions from neither ocl nor dpcpp
 // binary.
-void addAttrForNoneOCLDPCPPCode(llvm::Module* M) {
+void addAttrForNoneOCLDPCPPCode(llvm::Module *M) {
   if (M->getNamedMetadata("opencl.ocl.version") == nullptr &&
-          M->getNamedMetadata("spirv.Source") == nullptr) {
-    for (auto &F: M->getFunctionList()) {
+      M->getNamedMetadata("spirv.Source") == nullptr) {
+    for (auto &F : M->getFunctionList()) {
       F.addFnAttr("not-ocl-dpcpp", "true");
     }
   }
@@ -193,15 +193,14 @@ static bool isSameType(llvm::Type *A, llvm::Type *B, std::string &Message) {
 }
 
 static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
-                              llvm::ArrayRef<llvm::Value*> CIArgs,
-                              std::string &BadSigDesc)
-{
+                              llvm::ArrayRef<llvm::Value *> CIArgs,
+                              std::string &BadSigDesc) {
   assert(FuncTy && "Func type not specified");
 
   if (CIArgs.size() != FuncTy->getNumParams()) {
-    BadSigDesc = "wrong number of arguments to function call, "
-        "expected " + std::to_string(FuncTy->getNumParams()) + ", "
-        "have " + std::to_string(CIArgs.size());
+    BadSigDesc = "wrong number of arguments to function call, expected " +
+                 std::to_string(FuncTy->getNumParams()) + ", have " +
+                 std::to_string(CIArgs.size());
     return false;
   }
 
@@ -225,7 +224,7 @@ static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
 // Example:
 //   call void bitcast (void (i32, i32)* @func to void (i32)*)(i32 sret %38)
 // Check that there is no such function pointers bitcasts.
-static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
+static bool checkAndThrowIfCallFuncCast(const llvm::Module &linkedModule,
                                         std::string &funcSigErr) {
   bool funcCallsValid = true;
 
@@ -251,7 +250,7 @@ static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
           continue;
 
         const auto *CF = llvm::dyn_cast<llvm::Function>(VI);
-        if(!CF)
+        if (!CF)
           continue;
 
         const auto *RFuncTy = llvm::cast<llvm::FunctionType>(
@@ -262,8 +261,10 @@ static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
         if (!checkFuncCallArgs(RFuncTy, llvm::ArrayRef<llvm::Value *>(params),
                                BadSigDesc)) {
           funcCallsValid = false;
-          funcSigErr.append(CF->getName().str()).append(" [").
-              append(BadSigDesc).append("]\n");
+          funcSigErr.append(CF->getName().str())
+              .append(" [")
+              .append(BadSigDesc)
+              .append("]\n");
         }
       }
     }
@@ -345,9 +346,11 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
     }
 
     std::string funcSigErr{};
-    if (uiNumBinaries > 1 && !checkAndThrowIfCallFuncCast(*composite, funcSigErr)) {
+    if (uiNumBinaries > 1 &&
+        !checkAndThrowIfCallFuncCast(*composite, funcSigErr)) {
       throw std::string(
-        "Error: call of function(s) with different signature:\n") + funcSigErr;
+          "Error: call of function(s) with different signature:\n") +
+          funcSigErr;
     }
 
     IR_TYPE binaryType = optionsParser.hasArg(OPT_LINK_create_library)
@@ -415,13 +418,12 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
 
   std::unique_ptr<OCLFEBinaryResult> pResult;
   std::unique_ptr<OCLFELinkKernelNames> pKernelNames =
-	  std::make_unique<OCLFELinkKernelNames>();
+      std::make_unique<OCLFELinkKernelNames>();
   std::string kernelNames;
   int resultCode = CL_SUCCESS;
   try {
     pResult.reset(LinkInternal(m_Binaries.data(), m_pProgDesc->uiNumBinaries,
-                               m_BinariesSizes.data(),
-                               m_pProgDesc->pszOptions,
+                               m_BinariesSizes.data(), m_pProgDesc->pszOptions,
                                &kernelNames));
     resultCode = pResult->getResult();
   } catch (std::bad_alloc &) {

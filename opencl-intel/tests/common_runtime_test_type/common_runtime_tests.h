@@ -36,120 +36,111 @@
  * CommonRuntime - fixture for all test cases, containins ocl_descriptor.
  * ocl_descriptor encapsulates all commonly needed OpenCL objects
  **/
-class CommonRuntime : public ::testing::Test{
- protected:
-	OpenCLDescriptor ocl_descriptor;
+class CommonRuntime : public ::testing::Test {
+protected:
+  OpenCLDescriptor ocl_descriptor;
 
-	// SetUp - called before each test is being run
-	virtual void SetUp()
-	{
-	}
+  // SetUp - called before each test is being run
+  virtual void SetUp() {}
 
-	//	TearDown - called after each test
-	virtual void TearDown()
-	{
-	}
+  //  TearDown - called after each test
+  virtual void TearDown() {}
 };
 
-// FissionWrapper - encapsulates allocation and automatic dealocation of subdevices
-class FissionWrapper: public virtual CommonRuntime{
+// FissionWrapper - encapsulates allocation and automatic dealocation of
+// subdevices
+class FissionWrapper : public virtual CommonRuntime {
 public:
-	cl_device_id* subdevices;
-	cl_uint subdevices_size;
-	// SetUp - called before each test is being run
-	virtual void SetUp()
-	{
-		subdevices = NULL;
-		subdevices_size = 0;
-	}
+  cl_device_id *subdevices;
+  cl_uint subdevices_size;
+  // SetUp - called before each test is being run
+  virtual void SetUp() {
+    subdevices = NULL;
+    subdevices_size = 0;
+  }
 
-	//	TearDown - called after each test
-	virtual void TearDown()
-	{
-		if(NULL != subdevices)
-		{
-			for(cl_uint i = 0; i < subdevices_size ; i++){
-				clReleaseDevice(subdevices[i]);
-			}
-		}
-		subdevices_size = 0;
-	}
+  //  TearDown - called after each test
+  virtual void TearDown() {
+    if (NULL != subdevices) {
+      for (cl_uint i = 0; i < subdevices_size; i++) {
+        clReleaseDevice(subdevices[i]);
+      }
+    }
+    subdevices_size = 0;
+  }
 
-	// partitionByCounts - creates numSubDevices subdevices for CPU root device with property CL_DEVICE_PARTITION_BY_COUNTS_*
-	void partitionByCounts(cl_device_id in_device, cl_uint numSubDevices)
-	{
-		subdevices_size = numSubDevices;
-		subdevices = new cl_device_id[numSubDevices];
-		ASSERT_NO_FATAL_FAILURE(createPartitionByCounts(in_device, subdevices, numSubDevices));
-		subdevices_size = numSubDevices;
-	}
+  // partitionByCounts - creates numSubDevices subdevices for CPU root device
+  // with property CL_DEVICE_PARTITION_BY_COUNTS_*
+  void partitionByCounts(cl_device_id in_device, cl_uint numSubDevices) {
+    subdevices_size = numSubDevices;
+    subdevices = new cl_device_id[numSubDevices];
+    ASSERT_NO_FATAL_FAILURE(
+        createPartitionByCounts(in_device, subdevices, numSubDevices));
+    subdevices_size = numSubDevices;
+  }
 
-	// mergeFirstSubdeviceWithAnotherDevice - copies subdevices[0] and in_device into out_devices respectively
-	// out_device must be at least of size 2
-	void mergeFirstSubdeviceWithGPU(cl_device_id in_device, cl_device_id* out_devices)
-	{
-		if(NULL==out_devices)
-		{
-			ASSERT_TRUE(false) << "Null argument provided";
-		}
-		if(NULL==subdevices)
-		{
-			ASSERT_TRUE(false) << "subdevices were not initialized";
-		}
-		out_devices[0] = subdevices[0];
-		out_devices[1] = in_device;
-	}
+  // mergeFirstSubdeviceWithAnotherDevice - copies subdevices[0] and in_device
+  // into out_devices respectively out_device must be at least of size 2
+  void mergeFirstSubdeviceWithGPU(cl_device_id in_device,
+                                  cl_device_id *out_devices) {
+    if (NULL == out_devices) {
+      ASSERT_TRUE(false) << "Null argument provided";
+    }
+    if (NULL == subdevices) {
+      ASSERT_TRUE(false) << "subdevices were not initialized";
+    }
+    out_devices[0] = subdevices[0];
+    out_devices[1] = in_device;
+  }
 
+  void createAndMergeWithGPU(OpenCLDescriptor &ocl_descriptor) {
+    cl_device_id in_devices[] = {0, 0};
+    ASSERT_NO_FATAL_FAILURE(
+        getCPUGPUDevices(ocl_descriptor.platforms, in_devices));
+    ASSERT_NO_FATAL_FAILURE(partitionByCounts(in_devices[0], 2));
+    ASSERT_NO_FATAL_FAILURE(
+        mergeFirstSubdeviceWithGPU(in_devices[1], ocl_descriptor.devices));
+  }
 
-	void createAndMergeWithGPU(OpenCLDescriptor& ocl_descriptor)
-	{
-		cl_device_id in_devices[]={0,0};
-		ASSERT_NO_FATAL_FAILURE(getCPUGPUDevices(ocl_descriptor.platforms, in_devices));
-		ASSERT_NO_FATAL_FAILURE(partitionByCounts(in_devices[0], 2));
-		ASSERT_NO_FATAL_FAILURE(mergeFirstSubdeviceWithGPU(in_devices[1],ocl_descriptor.devices));
-	}
-
-	// mergeAllSubdevicesWithGPU - copies all subdevices elements and in_device into out_devices respectively
-	// out_device must be at least of size (subdevices_size+1)
-	void mergeAllSubdevicesWithGPU(cl_device_id in_device, cl_device_id* out_devices)
-	{
-		if(NULL==out_devices)
-		{
-			ASSERT_TRUE(false) << "Null argument provided";
-		}
-		if(NULL==subdevices)
-		{
-			ASSERT_TRUE(false) << "subdevices were not initialized";
-		}
-		cl_uint i=0;
-		for(i=0; i<subdevices_size; ++i)
-		{
-			out_devices[i] = subdevices[i];
-		}
-		out_devices[i] = in_device;
-	}
+  // mergeAllSubdevicesWithGPU - copies all subdevices elements and in_device
+  // into out_devices respectively out_device must be at least of size
+  // (subdevices_size+1)
+  void mergeAllSubdevicesWithGPU(cl_device_id in_device,
+                                 cl_device_id *out_devices) {
+    if (NULL == out_devices) {
+      ASSERT_TRUE(false) << "Null argument provided";
+    }
+    if (NULL == subdevices) {
+      ASSERT_TRUE(false) << "subdevices were not initialized";
+    }
+    cl_uint i = 0;
+    for (i = 0; i < subdevices_size; ++i) {
+      out_devices[i] = subdevices[i];
+    }
+    out_devices[i] = in_device;
+  }
 };
 
-//	ImageTypedCommonRuntime - base class for testing reading of images, should not be instantiated as a test case directly.
-//	If new image format tests should be added:
-//	1.	sub-class ImageTypedCommonRuntime
-//	2.	set needed image_format in sub-class' SetUp function with image_channel_order and image_channel_data_type
-//	3.	add appropriate buffer type - for example for "CL_FLOAT" - will need to add "cl_float4" buffer type
-//	Refer to vc8_image.cpp for examples
+//  ImageTypedCommonRuntime - base class for testing reading of images,
+// should not be instantiated as a test case directly.   If new image format
+// tests should be added:   1.  sub-class
+// ImageTypedCommonRuntime   2.  set needed image_format in sub-class'
+// SetUp function with image_channel_order and
+// image_channel_data_type   3.  add appropriate buffer type - for
+// example for "CL_FLOAT" - will need to add "cl_float4" buffer type   Refer to
+// vc8_image.cpp for examples
 template <typename T>
-class ImageTypedCommonRuntime : public virtual CommonRuntime{
+class ImageTypedCommonRuntime : public virtual CommonRuntime {
 public:
-	TypeNameGetter<T> typeNameGetter;
-	T value_;
-	cl_image_format image_format;
-	const char* kernelName;
+  TypeNameGetter<T> typeNameGetter;
+  T value_;
+  cl_image_format image_format;
+  const char *kernelName;
 
-	virtual void SetUp()
-	{
-		this->image_format.image_channel_order = CL_RGBA;
-		this->image_format.image_channel_data_type = CL_FLOAT;
-	}
+  virtual void SetUp() {
+    this->image_format.image_channel_order = CL_RGBA;
+    this->image_format.image_channel_data_type = CL_FLOAT;
+  }
 };
-
 
 #endif /* COMMON_RUNTIME_GTEST_ */

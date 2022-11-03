@@ -1,9 +1,9 @@
 {
     global:
-    	*LogHandler*;
-    	*LogMessage*;
-    	*Logger*;
-		
+      *LogHandler*;
+      *LogMessage*;
+      *Logger*;
+    
     local:
         *;
 };

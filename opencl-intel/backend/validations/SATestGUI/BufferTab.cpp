@@ -14,83 +14,76 @@
 
 #include "BufferTab.h"
 
-namespace Validation
-{
-namespace GUI
-{
-BufferTab::BufferTab(BufferConverter* buf)
-{
-    this->buffer=buf;
-    type=Tab::Buf;
-    tableView = new QTableView(this);
-    QString s = "QTableView {\n"\
-            "selection-color: black;\n"\
-            "selection-background-color: lightblue;\n"\
-            "}";
+namespace Validation {
+namespace GUI {
+BufferTab::BufferTab(BufferConverter *buf) {
+  this->buffer = buf;
+  type = Tab::Buf;
+  tableView = new QTableView(this);
+  QString s = "QTableView {\n"
+              "selection-color: black;\n"
+              "selection-background-color: lightblue;\n"
+              "}";
 
-    tableView->setStyleSheet(s);
-    tableView->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
-    model = new BufferModel(buffer);
-    tableView->setModel(model);
-    hexTableCB = new QComboBox();
-    QStringList views;
-    views<<"dec"<<"hex"<<"float hex";
-    hexTableCB->addItems(views);
-    layout = new QVBoxLayout(this);
-    typeInfoLine = new QHBoxLayout(this);
-    typeInfoLine->addWidget(new QLabel("view as"));
-    typeInfoLine->addWidget(hexTableCB);
-    layout->addLayout(typeInfoLine);
-    layout->addWidget(new QLabel("Type: "+buffer->typeName()));
-    layout->addWidget(tableView);
-    editValueLine = new QHBoxLayout(this);
-    editBtn = new QPushButton("Ok");
-    valueLE = new QLineEdit(this);
-    hexValueCB = new QComboBox(this);
-    hexValueCB->addItems(views);
-    editValueLine->addWidget(valueLE);
-    editValueLine->addWidget(editBtn);
-    editValueLine->addWidget(new QLabel  ("hex"));
-    editValueLine->addWidget(hexValueCB);
-    layout->addLayout(editValueLine);
-    QWidget::setLayout(layout);
-    connect(hexTableCB, SIGNAL(currentIndexChanged(int)), this, SLOT(changeTableView()));
-    connect(hexValueCB, SIGNAL(currentIndexChanged(int)), this, SLOT(changeValueView()));
-    connect(tableView, SIGNAL(clicked(QModelIndex)), this, SLOT(showValue(QModelIndex)));
-    connect(editBtn, SIGNAL(clicked()), this, SLOT(changeValue()));
-    connect(valueLE, SIGNAL(returnPressed()), this, SIGNAL(changeValue()));
-    hexTableCB->setCurrentIndex(0);
-    hexValueCB->setCurrentIndex(0);
-    tableView->reset();
+  tableView->setStyleSheet(s);
+  tableView->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
+  model = new BufferModel(buffer);
+  tableView->setModel(model);
+  hexTableCB = new QComboBox();
+  QStringList views;
+  views << "dec"
+        << "hex"
+        << "float hex";
+  hexTableCB->addItems(views);
+  layout = new QVBoxLayout(this);
+  typeInfoLine = new QHBoxLayout(this);
+  typeInfoLine->addWidget(new QLabel("view as"));
+  typeInfoLine->addWidget(hexTableCB);
+  layout->addLayout(typeInfoLine);
+  layout->addWidget(new QLabel("Type: " + buffer->typeName()));
+  layout->addWidget(tableView);
+  editValueLine = new QHBoxLayout(this);
+  editBtn = new QPushButton("Ok");
+  valueLE = new QLineEdit(this);
+  hexValueCB = new QComboBox(this);
+  hexValueCB->addItems(views);
+  editValueLine->addWidget(valueLE);
+  editValueLine->addWidget(editBtn);
+  editValueLine->addWidget(new QLabel("hex"));
+  editValueLine->addWidget(hexValueCB);
+  layout->addLayout(editValueLine);
+  QWidget::setLayout(layout);
+  connect(hexTableCB, SIGNAL(currentIndexChanged(int)), this,
+          SLOT(changeTableView()));
+  connect(hexValueCB, SIGNAL(currentIndexChanged(int)), this,
+          SLOT(changeValueView()));
+  connect(tableView, SIGNAL(clicked(QModelIndex)), this,
+          SLOT(showValue(QModelIndex)));
+  connect(editBtn, SIGNAL(clicked()), this, SLOT(changeValue()));
+  connect(valueLE, SIGNAL(returnPressed()), this, SIGNAL(changeValue()));
+  hexTableCB->setCurrentIndex(0);
+  hexValueCB->setCurrentIndex(0);
+  tableView->reset();
 }
 
-
-
-
-void BufferTab::changeTableView()
-{
-    model->setViewForTable(hexTableCB->currentIndex());
-    tableView->reset();
+void BufferTab::changeTableView() {
+  model->setViewForTable(hexTableCB->currentIndex());
+  tableView->reset();
 }
 
-void BufferTab::changeValueView()
-{
-    model->setViewForValue(hexValueCB->currentIndex());
-    showValue(tableView->currentIndex());
+void BufferTab::changeValueView() {
+  model->setViewForValue(hexValueCB->currentIndex());
+  showValue(tableView->currentIndex());
 }
 
-void BufferTab::showValue(QModelIndex i)
-{
-    valueLE->setText(model->value(i));
+void BufferTab::showValue(QModelIndex i) { valueLE->setText(model->value(i)); }
+
+void BufferTab::changeValue() {
+  QModelIndex index = tableView->currentIndex();
+  QString val = this->valueLE->text();
+  this->model->setValue(index, val);
+  tableView->reset();
 }
 
-void BufferTab::changeValue()
-{
-    QModelIndex index = tableView->currentIndex();
-    QString val = this->valueLE->text();
-    this->model->setValue(index,val);
-    tableView->reset();
-}
-
-}
-}
+} // namespace GUI
+} // namespace Validation

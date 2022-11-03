@@ -15,49 +15,46 @@
 #ifndef ENVIROMENTDIALOG_H
 #define ENVIROMENTDIALOG_H
 
-#include <QDialog>
-#include <QList>
-#include <QTableWidgetItem>
 #include "AppSettings.h"
 #include "EditVariableDialog.h"
 #include "EnvVar.h"
+#include <QDialog>
+#include <QList>
+#include <QTableWidgetItem>
 
 namespace Ui {
 class EnviromentDialog;
 }
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The EnviromentDialog class
- * @detailed Shows dialog wich show a table with user specific enviroment variables
- * and buttons to add|del|edit this vars.
+ * @detailed Shows dialog wich show a table with user specific enviroment
+ * variables and buttons to add|del|edit this vars.
  */
-class EnviromentDialog : public QDialog
-{
-    Q_OBJECT
+class EnviromentDialog : public QDialog {
+  Q_OBJECT
 
 public:
-    explicit EnviromentDialog(QWidget *parent = 0);
-    ~EnviromentDialog();
+  explicit EnviromentDialog(QWidget *parent = 0);
+  ~EnviromentDialog();
 
 private:
-    QList<EnvVar> vars;
-    Ui::EnviromentDialog *ui;
-    void updateTable();
-    void loadEnvVars();
+  QList<EnvVar> vars;
+  Ui::EnviromentDialog *ui;
+  void updateTable();
+  void loadEnvVars();
 
 private slots:
-    void addNewVar();
-    void editVar();
-    void delVar();
-    void saveEnvVars();
+  void addNewVar();
+  void editVar();
+  void delVar();
+  void saveEnvVars();
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // ENVIROMENTDIALOG_H

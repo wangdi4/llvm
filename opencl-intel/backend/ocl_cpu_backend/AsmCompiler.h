@@ -29,11 +29,12 @@ namespace DeviceBackend {
 /// This class is responsible for asm JIT compilation.
 class AsmCompiler {
 public:
-
-  /// @brief Compiles assembly code to an object file. Currently, only msvc targets are supported.
+  /// @brief Compiles assembly code to an object file. Currently, only msvc
+  /// targets are supported.
   /// @param InAsm - In-memory text of assembly code
   /// @param OutObject - Object's output file stream
-  /// @param Triple - Target triple. It can only be "x86_64-pc-windows-msvc" or "i686-pc-windows-msvc"
+  /// @param Triple - Target triple. It can only be "x86_64-pc-windows-msvc" or
+  /// "i686-pc-windows-msvc"
   /// @returns - Returns the compiler's return value
   static int compileAsmToObjectFile(std::unique_ptr<llvm::MemoryBuffer> InAsm,
                                     llvm::raw_fd_ostream *OutObject,

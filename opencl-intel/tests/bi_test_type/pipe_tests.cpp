@@ -1,8 +1,8 @@
 #include "bi_tests.h"
 
 #include <fstream>
-#include <sstream>
 #include <map>
+#include <sstream>
 
 #include "common_utils.h"
 
@@ -17,19 +17,19 @@ protected:
     buf << file.rdbuf();
 
     std::string program_src = buf.str();
-    const char* src = program_src.c_str();
+    const char *src = program_src.c_str();
     cl_int error;
-    program =
-      clCreateProgramWithSource(context, 1, &src, NULL, &error);
+    program = clCreateProgramWithSource(context, 1, &src, NULL, &error);
     ASSERT_EQ(error, CL_SUCCESS);
 
-    error = clBuildProgram(program, 1, &device, "-cl-std=CL2.0 -Ibi_test_type", NULL, NULL);
+    error = clBuildProgram(program, 1, &device, "-cl-std=CL2.0 -Ibi_test_type",
+                           NULL, NULL);
     size_t log_size;
-    clGetProgramBuildInfo(program, device,
-                          CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL,
+                          &log_size);
     std::vector<char> log(log_size);
-    clGetProgramBuildInfo(program, device,
-                          CL_PROGRAM_BUILD_LOG, log_size, &log[0], NULL);
+    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size,
+                          &log[0], NULL);
 
     ASSERT_EQ(error, CL_SUCCESS) << &log[0];
   }
@@ -42,7 +42,7 @@ protected:
     clReleaseProgram(program);
   }
 
-  cl_kernel createKernel(const char* name) {
+  cl_kernel createKernel(const char *name) {
     auto it = kernels.find(name);
     if (it != kernels.end()) {
       return it->second;
@@ -58,14 +58,13 @@ protected:
   }
 
   cl_int enqueueSingleWI(cl_command_queue queue, cl_kernel kernel) {
-    size_t globalSize[] = { 1 };
-    size_t localSize[] = { 1 };
-    return clEnqueueNDRangeKernel(queue, kernel, 1, NULL,
-                                  globalSize, localSize,
+    size_t globalSize[] = {1};
+    size_t localSize[] = {1};
+    return clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalSize, localSize,
                                   0, NULL, NULL);
   }
 
-  cl_int enqueueSingleWI(cl_command_queue queue, const char* name) {
+  cl_int enqueueSingleWI(cl_command_queue queue, const char *name) {
     cl_kernel kernel = createKernel(name);
     if (kernel == nullptr) {
       return CL_INVALID_KERNEL;
@@ -205,11 +204,10 @@ TEST_F(PipeTest, BigMaxPackets) {
   auto q2 = createCommandQueue();
   ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
 
-  cl_int max_packets[] = { 128,
-                           200, 250, 256, 257, 1024, 2048,
-                           1024 * 8, 1024 * 16,
-                           1024 * 8 + 5, 1024 * 16 - 3,
-                           1024 * 32, 1024 * 64 };
+  cl_int max_packets[] = {128,       200,          250,           256,
+                          257,       1024,         2048,          1024 * 8,
+                          1024 * 16, 1024 * 8 + 5, 1024 * 16 - 3, 1024 * 32,
+                          1024 * 64};
 
   cl_kernel init = createKernel("max_packets_init");
   ASSERT_TRUE(init != nullptr);
@@ -377,11 +375,10 @@ TEST_F(PipeTest, VectorBigMaxPackets) {
   auto q2 = createCommandQueue();
   ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
 
-  cl_int vector_max_packets[] = { 128,
-                           200, 250, 256, 257, 1024, 2048,
-                           1024 * 8, 1024 * 16,
-                           1024 * 8 + 5, 1024 * 16 - 3,
-                           1024 * 32, 1024 * 64 };
+  cl_int vector_max_packets[] = {
+      128,           200,       250,      256,       257,
+      1024,          2048,      1024 * 8, 1024 * 16, 1024 * 8 + 5,
+      1024 * 16 - 3, 1024 * 32, 1024 * 64};
 
   cl_kernel init = createKernel("vector_max_packets_init");
   ASSERT_TRUE(init != nullptr);

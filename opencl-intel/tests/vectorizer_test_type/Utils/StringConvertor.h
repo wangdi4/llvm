@@ -15,8 +15,7 @@ using std::string;
 class StringConverter {
 
 public:
-
-	static string toString(float array[], int size);
+  static string toString(float array[], int size);
 };
 
 #endif /* STRINGCONVERTOR_H_ */

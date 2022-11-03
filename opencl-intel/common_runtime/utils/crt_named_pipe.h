@@ -17,7 +17,7 @@
 #include <string>
 
 #ifdef _WIN32
-#include <windows.h> 
+#include <windows.h>
 #endif
 
 namespace OCLCRT {
@@ -26,17 +26,18 @@ namespace Utils {
 #ifdef _WIN32
 class ApiDebuggerPipeReader {
 public:
-    ApiDebuggerPipeReader();
-    const bool init( std::string pipeName );
-    const bool isAPIDebuggingEnabled() const;
+  ApiDebuggerPipeReader();
+  const bool init(std::string pipeName);
+  const bool isAPIDebuggingEnabled() const;
+
 private:
-    bool m_isDeubggingEnabled;
-    const bool readPipeContent( HANDLE pipeHanle, DWORD bytesToRead, std::string &content ) const;
+  bool m_isDeubggingEnabled;
+  const bool readPipeContent(HANDLE pipeHanle, DWORD bytesToRead,
+                             std::string &content) const;
 };
 #endif
 
-
 bool isAPIDebuggingEnabled();
 
-}   // Utils
-}   // OCLCRT
+} // namespace Utils
+} // namespace OCLCRT

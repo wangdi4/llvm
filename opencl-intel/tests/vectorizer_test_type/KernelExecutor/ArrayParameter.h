@@ -16,38 +16,35 @@
 #include <opencl.h>
 #endif
 
-
 class ArrayParameter {
 
 public:
+  typedef enum {
 
-	typedef enum {
+    READ_ONLY,
 
-		READ_ONLY,
+    READ_WRITE
 
-		READ_WRITE
+  } Access;
 
-	} Access;
+  ArrayParameter(void *param, size_t size, Access access);
 
-	ArrayParameter(void* param, size_t size, Access access);
+  void *getParam() const;
 
-	void *getParam() const;
+  size_t getSize() const;
 
-	size_t getSize() const;
+  cl_mem_flags getCLMem() const;
 
-	cl_mem_flags getCLMem() const;
+  void *getHostPtr() const;
 
-	void *getHostPtr() const;
-
-	bool needToReturn() const;
+  bool needToReturn() const;
 
 private:
-
-	void *param;
-	cl_mem_flags memFlags;
-	size_t size;
-	void *hostPtr;
-	bool returnParam;
+  void *param;
+  cl_mem_flags memFlags;
+  size_t size;
+  void *hostPtr;
+  bool returnParam;
 };
 
 #endif /* ARRAYPARAMETER_H_ */

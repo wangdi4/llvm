@@ -34,13 +34,11 @@
 
 extern cl_device_type gDeviceType;
 
-void clBuildOptionsTest()
-{
-    using std::vector;
-    using std::make_pair;
-    std::cout << "clBuildOptionsTest\n";
-    std::string source(
-        "#define xstr(s) str(s)\n\
+void clBuildOptionsTest() {
+  using std::make_pair;
+  using std::vector;
+  std::cout << "clBuildOptionsTest\n";
+  std::string source("#define xstr(s) str(s)\n\
          #define str(s) #s\n\
          kernel void clBuildOptionsTest(global char *result,\
                                         unsigned int resultCapacity,\
@@ -55,75 +53,64 @@ void clBuildOptionsTest()
              }\
              result[cnt] = '\\0';\
              *resultSize=++cnt;\
-         }"
-    );
+         }");
 
-    vector<std::pair<const char*, const char*> > options;
-    options.push_back(make_pair("", "msg"));
-    options.push_back(make_pair("-Dmsg", "1"));
-    options.push_back(make_pair("-Dmsg=",""));
-    options.push_back(make_pair("-Dmsg=x", "x"));
-    options.push_back(make_pair("-Dmsg=\"x\"", "x"));
-    options.push_back(make_pair("-Dmsg=\\\"x\\\"", "\"x\""));
-    options.push_back(make_pair("-Dmsg=\"\\\"x\\\"\"", "\"x\""));
-    options.push_back(make_pair("-Dmsg=\\\\\\\"x\\\\\\\"", "\\\"x\\\""));
-    options.push_back(make_pair("-Dmsg=\"x y\"", "x y"));
-    options.push_back(make_pair("-Dmsg=\"\\\"x y\\\"\"", "\"x y\""));
-    options.push_back(make_pair("-Dmsg=\"\\\\\\\"x y\\\\\\\"\"",
-                                            "\\\"x y\\\""));
-    options.push_back(make_pair("-Dmsg=\"\\\"\\\\\\\"x y\\\\\\\"\\\"\"",
-                                              "\"\\\"x y\\\"\""));
+  vector<std::pair<const char *, const char *>> options;
+  options.push_back(make_pair("", "msg"));
+  options.push_back(make_pair("-Dmsg", "1"));
+  options.push_back(make_pair("-Dmsg=", ""));
+  options.push_back(make_pair("-Dmsg=x", "x"));
+  options.push_back(make_pair("-Dmsg=\"x\"", "x"));
+  options.push_back(make_pair("-Dmsg=\\\"x\\\"", "\"x\""));
+  options.push_back(make_pair("-Dmsg=\"\\\"x\\\"\"", "\"x\""));
+  options.push_back(make_pair("-Dmsg=\\\\\\\"x\\\\\\\"", "\\\"x\\\""));
+  options.push_back(make_pair("-Dmsg=\"x y\"", "x y"));
+  options.push_back(make_pair("-Dmsg=\"\\\"x y\\\"\"", "\"x y\""));
+  options.push_back(make_pair("-Dmsg=\"\\\\\\\"x y\\\\\\\"\"", "\\\"x y\\\""));
+  options.push_back(
+      make_pair("-Dmsg=\"\\\"\\\\\\\"x y\\\\\\\"\\\"\"", "\"\\\"x y\\\"\""));
 
-    cl_uint capacity = 128;
-    vector<char> resultBuffer(capacity);
-    cl_uint resultSize = 0;
-    vector<cl::Platform> platforms;
-    vector<cl::Device> devices;
-    try
-    {
-        cl::Platform::get(&platforms);
-        platforms[0].getDevices(gDeviceType, &devices);
-        cl::Context context(devices);
-        cl::CommandQueue queue(context, devices[0]);
-        cl::Buffer resultBuf(context, CL_MEM_WRITE_ONLY, capacity);
-        cl::Buffer resultSizeBuf(context, CL_MEM_WRITE_ONLY, sizeof(resultSize));
-        cl::Program program(context, source, /*call clBuildProgram = */false);
+  cl_uint capacity = 128;
+  vector<char> resultBuffer(capacity);
+  cl_uint resultSize = 0;
+  vector<cl::Platform> platforms;
+  vector<cl::Device> devices;
+  try {
+    cl::Platform::get(&platforms);
+    platforms[0].getDevices(gDeviceType, &devices);
+    cl::Context context(devices);
+    cl::CommandQueue queue(context, devices[0]);
+    cl::Buffer resultBuf(context, CL_MEM_WRITE_ONLY, capacity);
+    cl::Buffer resultSizeBuf(context, CL_MEM_WRITE_ONLY, sizeof(resultSize));
+    cl::Program program(context, source, /*call clBuildProgram = */ false);
 
-        for(size_t i = 0; i < options.size(); ++i)
-        {
-            try
-            {
-                program.build(devices, options[i].first);
-            }
-            catch(cl::Error& e)
-            {
-                if(e.err() == CL_BUILD_PROGRAM_FAILURE)
-                {
-                    FAIL() << "clBuildProgram failed. Build log:\n"
-                           << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(
-                              devices[0]);
-                }
-                throw;
-            }
-            cl::Kernel kernel(program, "clBuildOptionsTest");
-            kernel.setArg(0, sizeof(resultBuf), &resultBuf);
-            kernel.setArg(1, sizeof(capacity), &capacity);
-            kernel.setArg(2, sizeof(resultSizeBuf), &resultSizeBuf);
-            cl::NDRange global(1);
-            queue.enqueueNDRangeKernel(kernel, cl::NullRange, global);
-            queue.finish();
-            queue.enqueueReadBuffer(resultSizeBuf, CL_TRUE, 0, sizeof(resultSize),
-                                    &resultSize);
-            ASSERT_LE(resultSize, capacity);
-            queue.enqueueReadBuffer(resultBuf, CL_TRUE, 0, resultSize,
-                                    &resultBuffer[0]);
-            ASSERT_STREQ(&resultBuffer[0], options[i].second);
+    for (size_t i = 0; i < options.size(); ++i) {
+      try {
+        program.build(devices, options[i].first);
+      } catch (cl::Error &e) {
+        if (e.err() == CL_BUILD_PROGRAM_FAILURE) {
+          FAIL() << "clBuildProgram failed. Build log:\n"
+                 << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]);
         }
+        throw;
+      }
+      cl::Kernel kernel(program, "clBuildOptionsTest");
+      kernel.setArg(0, sizeof(resultBuf), &resultBuf);
+      kernel.setArg(1, sizeof(capacity), &capacity);
+      kernel.setArg(2, sizeof(resultSizeBuf), &resultSizeBuf);
+      cl::NDRange global(1);
+      queue.enqueueNDRangeKernel(kernel, cl::NullRange, global);
+      queue.finish();
+      queue.enqueueReadBuffer(resultSizeBuf, CL_TRUE, 0, sizeof(resultSize),
+                              &resultSize);
+      ASSERT_LE(resultSize, capacity);
+      queue.enqueueReadBuffer(resultBuf, CL_TRUE, 0, resultSize,
+                              &resultBuffer[0]);
+      ASSERT_STREQ(&resultBuffer[0], options[i].second);
     }
-    catch(cl::Error& e)
-    {
-        FAIL() << "Call to " << e.what() << " failed: Error code = "
-               << e.err() << '\n';
-    }
-    SUCCEED();
+  } catch (cl::Error &e) {
+    FAIL() << "Call to " << e.what() << " failed: Error code = " << e.err()
+           << '\n';
+  }
+  SUCCEED();
 }

@@ -30,80 +30,76 @@ using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
 
-void ClangCompilerTestType::SetUp()
-{
-    GetTestSPIRVProgram(m_spirv_program_binary);
+void ClangCompilerTestType::SetUp() {
+  GetTestSPIRVProgram(m_spirv_program_binary);
 
-    std::vector<char> pszDeviceInfoVec;
-    pszDeviceInfoVec.resize(sizeof(CLANG_DEV_INFO), 0);
-    // stub with zeros
-    memset(&pszDeviceInfoVec[0], 0, sizeof(CLANG_DEV_INFO));
-    // fix up CLANG_DEV_INFO.sExtensionStrings
-    CLANG_DEV_INFO* pszDeviceInfo = reinterpret_cast<CLANG_DEV_INFO*>(&pszDeviceInfoVec[0]);
-    pszDeviceInfo->sExtensionStrings = "";
+  std::vector<char> pszDeviceInfoVec;
+  pszDeviceInfoVec.resize(sizeof(CLANG_DEV_INFO), 0);
+  // stub with zeros
+  memset(&pszDeviceInfoVec[0], 0, sizeof(CLANG_DEV_INFO));
+  // fix up CLANG_DEV_INFO.sExtensionStrings
+  CLANG_DEV_INFO *pszDeviceInfo =
+      reinterpret_cast<CLANG_DEV_INFO *>(&pszDeviceInfoVec[0]);
+  pszDeviceInfo->sExtensionStrings = "";
 
-    int failure = CreateFrontEndInstance(&pszDeviceInfo[0], pszDeviceInfoVec.size(), &m_fe_compiler);
-    if (failure)
-    {
-        printf("Error while instantiating CreateFrontEndInstance: error #%d", failure);
-        exit(1);
-    }
+  int failure = CreateFrontEndInstance(&pszDeviceInfo[0],
+                                       pszDeviceInfoVec.size(), &m_fe_compiler);
+  if (failure) {
+    printf("Error while instantiating CreateFrontEndInstance: error #%d",
+           failure);
+    exit(1);
+  }
 
-    m_llvm_context = new llvm::LLVMContext();
+  m_llvm_context = new llvm::LLVMContext();
 }
 
 void ClangCompilerTestType::TearDown() {
-    if ( nullptr != m_fe_compiler )
-    {
-        m_fe_compiler->Release();
-        m_fe_compiler = nullptr;
-    }
+  if (nullptr != m_fe_compiler) {
+    m_fe_compiler->Release();
+    m_fe_compiler = nullptr;
+  }
 
-    delete m_llvm_context;
+  delete m_llvm_context;
 
-    if (nullptr != m_binary_result)
-    {
-        m_binary_result->Release();
-        m_binary_result = nullptr;
-    }
+  if (nullptr != m_binary_result) {
+    m_binary_result->Release();
+    m_binary_result = nullptr;
+  }
 }
 
-void ClangCompilerTestType::GetTestSPIRVProgram(std::vector<char>& spirv)
-{
-    std::fstream spirv_file(get_exe_dir() + SPIRV_TEST_FILE, std::fstream::in | std::fstream::binary);
-    if (!spirv_file.is_open())
-    {
-        printf("Error while opening test spirv file: %s\n", SPIRV_TEST_FILE);
-        exit(1);
-    }
+void ClangCompilerTestType::GetTestSPIRVProgram(std::vector<char> &spirv) {
+  std::fstream spirv_file(get_exe_dir() + SPIRV_TEST_FILE,
+                          std::fstream::in | std::fstream::binary);
+  if (!spirv_file.is_open()) {
+    printf("Error while opening test spirv file: %s\n", SPIRV_TEST_FILE);
+    exit(1);
+  }
 
-    std::copy(std::istreambuf_iterator<char>(spirv_file),
-        std::istreambuf_iterator<char>(),
-        std::back_inserter(spirv));
+  std::copy(std::istreambuf_iterator<char>(spirv_file),
+            std::istreambuf_iterator<char>(), std::back_inserter(spirv));
 }
 
 FESPIRVProgramDescriptor ClangCompilerTestType::GetTestFESPIRVProgramDescriptor(
-    const char* build_options)
-{
-    FESPIRVProgramDescriptor spirvDesc;
+    const char *build_options) {
+  FESPIRVProgramDescriptor spirvDesc;
 
-    spirvDesc.pSPIRVContainer = &GetSpirvBinaryContainer()[0];
-    spirvDesc.uiSPIRVContainerSize = GetSpirvBinaryContainer().size();
-    spirvDesc.pszOptions = build_options;
-    spirvDesc.uiSpecConstCount = 0;
-    spirvDesc.puiSpecConstIds = nullptr;
-    spirvDesc.puiSpecConstValues = nullptr;
+  spirvDesc.pSPIRVContainer = &GetSpirvBinaryContainer()[0];
+  spirvDesc.uiSPIRVContainerSize = GetSpirvBinaryContainer().size();
+  spirvDesc.pszOptions = build_options;
+  spirvDesc.uiSpecConstCount = 0;
+  spirvDesc.puiSpecConstIds = nullptr;
+  spirvDesc.puiSpecConstValues = nullptr;
 
-    return spirvDesc;
+  return spirvDesc;
 }
 
 llvm::ErrorOr<std::unique_ptr<llvm::Module>>
-ClangCompilerTestType::ExtractModule(IOCLFEBinaryResult* pResult)
-{
-    llvm::StringRef bitCodeStr((const char*)pResult->GetIR(),
-                               pResult->GetIRSize());
-    std::unique_ptr<llvm::MemoryBuffer> pMemBuffer =
+ClangCompilerTestType::ExtractModule(IOCLFEBinaryResult *pResult) {
+  llvm::StringRef bitCodeStr((const char *)pResult->GetIR(),
+                             pResult->GetIRSize());
+  std::unique_ptr<llvm::MemoryBuffer> pMemBuffer =
       llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
-    return llvm::expectedToErrorOrAndEmitErrors(*GetLLVMContext(),
+  return llvm::expectedToErrorOrAndEmitErrors(
+      *GetLLVMContext(),
       llvm::parseBitcodeFile(pMemBuffer->getMemBufferRef(), *GetLLVMContext()));
 }

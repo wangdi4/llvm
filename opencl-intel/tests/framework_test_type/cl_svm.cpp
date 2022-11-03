@@ -52,7 +52,8 @@ static const char *sProg =
     "  }\n"
     "}\n"
     "\n"
-    "kernel void SumInts(global int* iArr, int szArrSize, global int* pSum, global int* pNull)\n"
+    "kernel void SumInts(global int* iArr, int szArrSize, global int* pSum, "
+    "global int* pNull)\n"
     "{\n"
     "  *pSum = 0;\n"
     "  for (size_t i = 0; i < szArrSize; i++)\n"
@@ -642,12 +643,13 @@ bool clSvmTest() {
     iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps),
                            &svmCaps, NULL);
     CheckException("clGetDeviceInfo", CL_SUCCESS, iRet);
-    CheckException("clGetDeviceInfo",
-                   (cl_device_svm_capabilities)(
-                       CL_DEVICE_SVM_COARSE_GRAIN_BUFFER |
-                       CL_DEVICE_SVM_FINE_GRAIN_BUFFER |
-                       CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS),
-                   svmCaps);
+    CheckException(
+        "clGetDeviceInfo",
+        (cl_device_svm_capabilities)(CL_DEVICE_SVM_COARSE_GRAIN_BUFFER |
+                                     CL_DEVICE_SVM_FINE_GRAIN_BUFFER |
+                                     CL_DEVICE_SVM_FINE_GRAIN_SYSTEM |
+                                     CL_DEVICE_SVM_ATOMICS),
+        svmCaps);
   } catch (const std::exception &) {
     bResult = false;
   }

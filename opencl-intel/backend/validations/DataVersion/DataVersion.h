@@ -20,40 +20,36 @@
 #include "IBufferContainerList.h"
 #include "llvm/IR/Metadata.h"
 
+namespace Validation {
+struct DataVersion {
+public:
+  static void ConvertData(IBufferContainerList *pContainerList,
+                          llvm::Function *pKernel);
 
-namespace Validation
-{
-    struct DataVersion
-    {
-        public:
-            static void ConvertData (IBufferContainerList* pContainerList,
-                                     llvm::Function *pKernel);
+  static std::string GetDataVersionSignature() {
+    return std::string("DataVersion ");
+  }
 
-            static std::string GetDataVersionSignature() {
-                return std::string("DataVersion ");
-            }
+  static uint32_t GetCurrentDataVersion() { return currentVersion; }
 
-            static uint32_t GetCurrentDataVersion() {
-                return currentVersion;
-            }
+  // data version can be in the range from 00001 to 99999
+  static uint32_t GetNumOfDigits() {
+    static const uint32_t len = 5;
+    return len;
+  }
 
-            // data version can be in the range from 00001 to 99999
-            static uint32_t GetNumOfDigits() {
-                static const uint32_t len = 5;
-                return len;
-            }
+  static std::string GetCurrentDataVersionString() {
+    std::stringstream ss;
+    ss << std::setfill('0') << std::setw(GetNumOfDigits());
+    ss << currentVersion;
+    return ss.str();
+  }
 
-            static std::string GetCurrentDataVersionString() {
-                std::stringstream ss;
-                ss << std::setfill('0') << std::setw(GetNumOfDigits());
-                ss << currentVersion;
-                return ss.str();
-            }
-        private:
-            /// current data version
-            static const uint32_t currentVersion = 1;
-    };
+private:
+  /// current data version
+  static const uint32_t currentVersion = 1;
+};
 
-} // End of Validation namespace
+} // namespace Validation
 
 #endif // __DATAVERSION_H__

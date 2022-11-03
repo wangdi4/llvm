@@ -17,66 +17,66 @@
 
 #include "vr8_image.h"
 
-//	FOR MORE INFORMATION ON THE FOLLOWING TESTS PLEASE REFER TO "vr8_image.h" file
+//  FOR MORE INFORMATION ON THE FOLLOWING TESTS PLEASE REFER TO
+//"vr8_image.h" file
 
-//	Fission_VR8_RGBA_CL_SIGNED_INT32 - tests for images with settings RGBA and CL_SIGNED_INT32
+//  Fission_VR8_RGBA_CL_SIGNED_INT32 - tests for images with settings RGBA
+// and CL_SIGNED_INT32
 template <typename T>
-class Fission_VR8_RGBA_CL_SIGNED_INT32 : public ImageTypedCommonRuntime<T>, public FissionWrapper{
+class Fission_VR8_RGBA_CL_SIGNED_INT32 : public ImageTypedCommonRuntime<T>,
+                                         public FissionWrapper {
 public:
-
-	virtual void SetUp()
-	{
-		FissionWrapper::SetUp();
-		this->image_format.image_channel_order = CL_RGBA;
-		this->image_format.image_channel_data_type = CL_SIGNED_INT32;
-	}
-    virtual void TearDown()
-    {
-        FissionWrapper::TearDown();
-    }
+  virtual void SetUp() {
+    FissionWrapper::SetUp();
+    this->image_format.image_channel_order = CL_RGBA;
+    this->image_format.image_channel_data_type = CL_SIGNED_INT32;
+  }
+  virtual void TearDown() { FissionWrapper::TearDown(); }
 };
 // Do not add other types here
 typedef ::testing::Types<cl_int4> Fission_VR8_RGBA_CL_SIGNED_INT32Types;
-TYPED_TEST_CASE(Fission_VR8_RGBA_CL_SIGNED_INT32, Fission_VR8_RGBA_CL_SIGNED_INT32Types);
+TYPED_TEST_CASE(Fission_VR8_RGBA_CL_SIGNED_INT32,
+                Fission_VR8_RGBA_CL_SIGNED_INT32Types);
 
-static const char* d2KernelName = "read_image2D_int4";
-static const char* d3KernelName = "read_image3D_int4";
+static const char *d2KernelName = "read_image2D_int4";
+static const char *d3KernelName = "read_image3D_int4";
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	TESTING Fission_VR8_RGBA_CL_SIGNED_INT32 - for tests description see vc8_imageCL_FLOAT.cpp
+//  TESTING Fission_VR8_RGBA_CL_SIGNED_INT32 - for tests description see
+// vc8_imageCL_FLOAT.cpp
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image2DUseHostPtr)
-{
-	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
+TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image2DUseHostPtr) {
+  ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+  ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(
+      this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
-TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image2AllocHostPtr)
-{
-	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
+TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image2AllocHostPtr) {
+  ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+  ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(
+      this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
-TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image2CopyHostPtr)
-{
-	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
+TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image2CopyHostPtr) {
+  ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+  ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(
+      this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
-TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image3DUseHostPtr)
-{
-	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
+TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image3DUseHostPtr) {
+  ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+  ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(
+      this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
-TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image3DAllocHostPtr)
-{
-	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
+TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image3DAllocHostPtr) {
+  ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+  ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(
+      this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
-TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image3DCopyHostPtr)
-{
-	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
+TYPED_TEST(Fission_VR8_RGBA_CL_SIGNED_INT32, Image3DCopyHostPtr) {
+  ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+  ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(
+      this->ocl_descriptor, this->image_format, d3KernelName));
 }

@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) Microsoft Corporation, 2002.
 //
@@ -43,288 +55,218 @@
 //    0                             0.0
 //
 //-----------------------------------------------------------------------------
-#include <llvm/Support/DataTypes.h>      // LLVM data types
 #include <llvm/Support/Compiler.h>
+#include <llvm/Support/DataTypes.h> // LLVM data types
 
-#include <limits>
 #include <iostream>
+#include <limits>
 
 #ifndef DX_FLOAT_H
 #define DX_FLOAT_H
 
-class CFloat16
-{
+class CFloat16 {
 public:
-    CFloat16()
-    {
-        v = 0;
-    }
-    // Conversion from 32-bit float
-    //
-    // Auxiliary union for safe type cast.
-    union CFloat16Convert
-    {
-        uint32_t dU32;
-        float    dF32;
-    };
+  CFloat16() { v = 0; }
+  // Conversion from 32-bit float
+  //
+  // Auxiliary union for safe type cast.
+  union CFloat16Convert {
+    uint32_t dU32;
+    float dF32;
+  };
 
-    CFloat16(const float& fvalue)
-    { InitFromFloat(fvalue); }
+  CFloat16(const float &fvalue) { InitFromFloat(fvalue); }
 
-    CFloat16(const double& dvalue)
-    { InitFromFloat((float)dvalue); }
+  CFloat16(const double &dvalue) { InitFromFloat((float)dvalue); }
 
 protected:
-    void InitFromFloat(const float& fvalue)
-    {
-        // cast from 32bit float to 32bit uint
-        CFloat16Convert tmp16to32;
-        tmp16to32.dF32 = fvalue;
-        uint32_t u = tmp16to32.dU32;
+  void InitFromFloat(const float &fvalue) {
+    // cast from 32bit float to 32bit uint
+    CFloat16Convert tmp16to32;
+    tmp16to32.dF32 = fvalue;
+    uint32_t u = tmp16to32.dU32;
 
-        uint32_t Sign = (u & 0x80000000) >> 16;
-        uint32_t MagU = u & 0x7FFFFFFF;     // Absolute value
-        if (MagU > m_wMaxNormal)
-        {
-            /// Not representable by 16 bit float
-            /// Check infinite cases
-            if(MagU == m_cFloatInf)
-            {
-                if(Sign)
-                    v = m_cMInf;
-                else
-                    v = m_cPInf;
-            }
-            /// Check NaN case
-            else if(( (0x7FC00000 & u) == 0x7FC00000) && ((0x007FFFFF & u) != 0))
-            {
-                u >>= (24-11);
-                u &= 0x7fff;
-                u |= 0x0200;      //silence the NaN
-                v = u | Sign;
-            }
-            else
-                v = (uint16_t)(Sign | 0x7fff);
-        }
+    uint32_t Sign = (u & 0x80000000) >> 16;
+    uint32_t MagU = u & 0x7FFFFFFF; // Absolute value
+    if (MagU > m_wMaxNormal) {
+      /// Not representable by 16 bit float
+      /// Check infinite cases
+      if (MagU == m_cFloatInf) {
+        if (Sign)
+          v = m_cMInf;
         else
-        if (MagU < m_wMinNormal)
-        {
-            // Denormalized value
+          v = m_cPInf;
+      }
+      /// Check NaN case
+      else if (((0x7FC00000 & u) == 0x7FC00000) && ((0x007FFFFF & u) != 0)) {
+        u >>= (24 - 11);
+        u &= 0x7fff;
+        u |= 0x0200; // silence the NaN
+        v = u | Sign;
+      } else
+        v = (uint16_t)(Sign | 0x7fff);
+    } else if (MagU < m_wMinNormal) {
+      // Denormalized value
 
-            // Make implicit 1 explicit
-            uint32_t Frac = (MagU & ((1<<23)-1)) | (1<<23);
-            int nshift = (m_eMin + 127 - (MagU >> 23));
+      // Make implicit 1 explicit
+      uint32_t Frac = (MagU & ((1 << 23) - 1)) | (1 << 23);
+      int nshift = (m_eMin + 127 - (MagU >> 23));
 
-            if (nshift < 24)
-            {
-                MagU = Frac >> nshift;
-            }
-            else
-            {
-                MagU = 0;
-            }
+      if (nshift < 24) {
+        MagU = Frac >> nshift;
+      } else {
+        MagU = 0;
+      }
 
-            // Round to nearest even
-            v = (uint16_t)(Sign | ((MagU + (m_cRoundBit-1) +
-                       ((MagU >> m_cFracBitsDiff) & 1)) >> m_cFracBitsDiff));
-        }
-        else
-        {
-            // Normalized value with Round to nearest even
-            v = (uint16_t)(Sign | ((MagU + m_BiasDiffo + (m_cRoundBit-1) +
-                       ((MagU >> m_cFracBitsDiff) & 1)) >> m_cFracBitsDiff));
-        }
+      // Round to nearest even
+      v = (uint16_t)(Sign | ((MagU + (m_cRoundBit - 1) +
+                              ((MagU >> m_cFracBitsDiff) & 1)) >>
+                             m_cFracBitsDiff));
+    } else {
+      // Normalized value with Round to nearest even
+      v = (uint16_t)(Sign | ((MagU + m_BiasDiffo + (m_cRoundBit - 1) +
+                              ((MagU >> m_cFracBitsDiff) & 1)) >>
+                             m_cFracBitsDiff));
     }
+  }
 
 public:
-    // Conversion to 32-bit float
-    //
-    // Note: The infinity value (e=31) is converted the same way as any other
-    // normalized value
-    //
-    operator float() const
-    {
-        uint64_t tmp;
-        /// Work with infinite and NaN cases
-        if(IsNaN())
-        {
-            CFloat16Convert fconv;
-            fconv.dF32 = std::numeric_limits<float>::quiet_NaN();
-            fconv.dU32 |= (v & m_cSignMask) << 16;
-            return fconv.dF32;
+  // Conversion to 32-bit float
+  //
+  // Note: The infinity value (e=31) is converted the same way as any other
+  // normalized value
+  //
+  operator float() const {
+    uint64_t tmp;
+    /// Work with infinite and NaN cases
+    if (IsNaN()) {
+      CFloat16Convert fconv;
+      fconv.dF32 = std::numeric_limits<float>::quiet_NaN();
+      fconv.dU32 |= (v & m_cSignMask) << 16;
+      return fconv.dF32;
+    }
+    if (IsPInf())
+      return std::numeric_limits<float>::infinity();
+    if (IsNInf())
+      return -std::numeric_limits<float>::infinity();
+
+    if ((v & ~(m_cSignMask | m_cFracMask)) == 0) {
+      if ((v & m_cFracMask) != 0) {
+        // Normalizing the denormalized value
+        uint32_t exp = (uint32_t)m_eMin;
+        uint32_t frac = v & m_cFracMask;
+        while ((frac & (m_cFracMask + 1)) == 0) {
+          exp--;
+          frac <<= 1;
         }
-        if(IsPInf())
-            return std::numeric_limits<float>::infinity();
-        if(IsNInf())
-            return -std::numeric_limits<float>::infinity();
-
-        if ((v & ~(m_cSignMask | m_cFracMask)) == 0)
-        {
-            if ((v & m_cFracMask) != 0)
-            {
-                // Normalizing the denormalized value
-                uint32_t exp = (uint32_t) m_eMin;
-                uint32_t frac = v & m_cFracMask;
-                while ((frac & (m_cFracMask + 1)) == 0)
-                {
-                    exp--;
-                    frac <<= 1;
-                }
-                frac &= ~(m_cFracMask + 1); // Remove hidden bit
-                tmp = ((v & m_cSignMask) << 16) | // Sigh bit
-                      ((exp + 127) << 23) |     // Exponent
-                      (frac << m_cFracBitsDiff);  // Fraction
-            }
-            else
-            {
-                // Zero - only sign bit is used
-                tmp = (v & m_cSignMask) << 16;
-            }
-        }
-        else
-        {
-            tmp = ((v & m_cSignMask) << 16) |                         // Sigh bit
-                  ((((v >> m_cFracBits) & ((1 << m_cExpBits) - 1)) -
-                    m_cExpBias + 127) << 23) |                        // Exponent
-                  ((v & m_cFracMask) << m_cFracBitsDiff);               // Fraction
-        }
-        // cast from 64bit uint to 32bit float
-        CFloat16Convert tmp16to32;
-        tmp16to32.dU32 = uint32_t(0x0FFFFFFFFL & tmp);
-        return tmp16to32.dF32;
+        frac &= ~(m_cFracMask + 1);       // Remove hidden bit
+        tmp = ((v & m_cSignMask) << 16) | // Sigh bit
+              ((exp + 127) << 23) |       // Exponent
+              (frac << m_cFracBitsDiff);  // Fraction
+      } else {
+        // Zero - only sign bit is used
+        tmp = (v & m_cSignMask) << 16;
+      }
+    } else {
+      tmp = ((v & m_cSignMask) << 16) | // Sigh bit
+            ((((v >> m_cFracBits) & ((1 << m_cExpBits) - 1)) - m_cExpBias + 127)
+             << 23) |                               // Exponent
+            ((v & m_cFracMask) << m_cFracBitsDiff); // Fraction
     }
+    // cast from 64bit uint to 32bit float
+    CFloat16Convert tmp16to32;
+    tmp16to32.dU32 = uint32_t(0x0FFFFFFFFL & tmp);
+    return tmp16to32.dF32;
+  }
 
-    bool operator==(const CFloat16& num) const
-    {
-        if(this->IsNaN() && num.IsNaN())
-            return false;
-        if(v == num.v)
-        {
-            return true;
-        }
-        else
-            return false;
-    }
+  bool operator==(const CFloat16 &num) const {
+    if (this->IsNaN() && num.IsNaN())
+      return false;
+    if (v == num.v) {
+      return true;
+    } else
+      return false;
+  }
 
-    bool operator !=(const CFloat16& num)
-    {
-        return !(*this == num);
-    }
+  bool operator!=(const CFloat16 &num) { return !(*this == num); }
 
-    CFloat16(uint16_t in_uint)
-    {
-        v = in_uint;
-    }
+  CFloat16(uint16_t in_uint) { v = in_uint; }
 
-    CFloat16(int32_t in_int)
-    {
-        v = in_int;
-    }
+  CFloat16(int32_t in_int) { v = in_int; }
 
-    CFloat16(uint64_t in_uint)
-    {
-        v = in_uint;
-    }
+  CFloat16(uint64_t in_uint) { v = in_uint; }
 
-    CFloat16(uint32_t in_uint)
-    {
-        v = in_uint;
-    }
+  CFloat16(uint32_t in_uint) { v = in_uint; }
 
-    static const CFloat16 GetMin()
-    {
-        return CFloat16((uint16_t)m_wMinNormal16);
-    }
+  static const CFloat16 GetMin() { return CFloat16((uint16_t)m_wMinNormal16); }
 
-    static const CFloat16 GetMax()
-    {
-        return CFloat16((uint16_t)m_wMaxNormal16);
-    }
+  static const CFloat16 GetMax() { return CFloat16((uint16_t)m_wMaxNormal16); }
 
-    static const CFloat16 GetNInf()
-    {
-        return CFloat16((uint16_t)m_cMInf);
-    }
+  static const CFloat16 GetNInf() { return CFloat16((uint16_t)m_cMInf); }
 
-    static const CFloat16 GetPInf()
-    {
-        return CFloat16((uint16_t)m_cPInf);
-    }
+  static const CFloat16 GetPInf() { return CFloat16((uint16_t)m_cPInf); }
 
-    static const CFloat16 GetNaN()
-    {
-        return CFloat16((uint16_t)0x7FFF);
-    }
+  static const CFloat16 GetNaN() { return CFloat16((uint16_t)0x7FFF); }
 
-    bool IsInf() const
-    {
-        return ( ( ( v & m_cExpMask ) == m_cExpMask ) && ( (v & m_cFracMask) == 0) );
-    }
+  bool IsInf() const {
+    return (((v & m_cExpMask) == m_cExpMask) && ((v & m_cFracMask) == 0));
+  }
 
-    bool IsNaN() const
-    {
-        return ( ( ( v & m_cExpMask ) == m_cExpMask ) && ( v & m_cFracMask) );
-    }
+  bool IsNaN() const {
+    return (((v & m_cExpMask) == m_cExpMask) && (v & m_cFracMask));
+  }
 
-    bool IsPInf() const
-    {
-        return (v == m_cPInf);
-    }
+  bool IsPInf() const { return (v == m_cPInf); }
 
-    bool IsNInf() const
-    {
-        return (v == m_cMInf);
-    }
+  bool IsNInf() const { return (v == m_cMInf); }
 
-    bool IsDenorm() const
-    {
-        return ( ( ( v & m_cExpMask ) == 0 ) && ( ( v & m_cFracMask ) != 0 ) );
-    }
+  bool IsDenorm() const {
+    return (((v & m_cExpMask) == 0) && ((v & m_cFracMask) != 0));
+  }
 
-    uint16_t GetBits() const
-    {
-        return v;
-    }
+  uint16_t GetBits() const { return v; }
 
-    static const uint32_t m_cFracBits = 10;           // Number of fraction bits
-    static const uint32_t m_cExpBits = 5;             // Number of exponent bits
-    static const uint32_t m_cSignBit = 15;            // Index of the sign bit
-    static const uint32_t m_cSignMask = (1 << m_cSignBit);
-    static const uint32_t m_cFracMask = (1 << m_cFracBits) - 1;         // Fraction mask
-    static const int32_t  m_cExpBias = (1 << (m_cExpBits - 1)) - 1;     // Exponent bias
-    static const int32_t  m_cExpMask = 0x7C00;          // Exponent mask
-    static const uint32_t m_cRoundBit = 1 << (23 - m_cFracBits - 1);    // Bit to add for rounding
-    static const uint32_t m_eMax =  (uint32_t) m_cExpBias+1;         // Max exponent
-    static const int32_t  m_eMin = -m_cExpBias+1;       // Min exponent
-    static const uint32_t m_wMaxNormal = ((m_eMax+127) << 23) | 0x7FEFFF;//  <-max nbr that doesn't round to infinity
-    static const uint32_t m_wMinNormal = (m_eMin+127) << 23;
-    static const uint16_t m_wMaxNormal16 = 0x7BFF;
-    static const uint16_t m_wMinNormal16 = 0xFBFF;
-    static const uint32_t m_BiasDiffo = ((uint32_t )m_cExpBias-127) << 23;
-    static const uint32_t m_cFracBitsDiff = 23 - m_cFracBits;
-    static const uint16_t m_cPInf = 0x7c00;
-    static const uint16_t m_cMInf = 0xfc00;
-    static const uint32_t m_cFloatInf = 0x7F800000;
-    // support for serialization
-    friend std::istream& operator >> (std::istream&,  CFloat16& );
-    friend std::ostream& operator << (std::ostream&,  const CFloat16& );
+  static const uint32_t m_cFracBits = 10; // Number of fraction bits
+  static const uint32_t m_cExpBits = 5;   // Number of exponent bits
+  static const uint32_t m_cSignBit = 15;  // Index of the sign bit
+  static const uint32_t m_cSignMask = (1 << m_cSignBit);
+  static const uint32_t m_cFracMask = (1 << m_cFracBits) - 1; // Fraction mask
+  static const int32_t m_cExpBias =
+      (1 << (m_cExpBits - 1)) - 1;          // Exponent bias
+  static const int32_t m_cExpMask = 0x7C00; // Exponent mask
+  static const uint32_t m_cRoundBit =
+      1 << (23 - m_cFracBits - 1); // Bit to add for rounding
+  static const uint32_t m_eMax = (uint32_t)m_cExpBias + 1; // Max exponent
+  static const int32_t m_eMin = -m_cExpBias + 1;           // Min exponent
+  static const uint32_t m_wMaxNormal =
+      ((m_eMax + 127) << 23) |
+      0x7FEFFF; //  <-max nbr that doesn't round to infinity
+  static const uint32_t m_wMinNormal = (m_eMin + 127) << 23;
+  static const uint16_t m_wMaxNormal16 = 0x7BFF;
+  static const uint16_t m_wMinNormal16 = 0xFBFF;
+  static const uint32_t m_BiasDiffo = ((uint32_t)m_cExpBias - 127) << 23;
+  static const uint32_t m_cFracBitsDiff = 23 - m_cFracBits;
+  static const uint16_t m_cPInf = 0x7c00;
+  static const uint16_t m_cMInf = 0xfc00;
+  static const uint32_t m_cFloatInf = 0x7F800000;
+  // support for serialization
+  friend std::istream &operator>>(std::istream &, CFloat16 &);
+  friend std::ostream &operator<<(std::ostream &, const CFloat16 &);
 
 protected:
-    uint16_t  v;
+  uint16_t v;
 };
 
 // support for serialization
-inline std::istream& operator >> (std::istream& is,  CFloat16& val)
-{
-    float f;
-    is >> f;
-    if(is)
-        val = CFloat16(f);
-    return is;
+inline std::istream &operator>>(std::istream &is, CFloat16 &val) {
+  float f;
+  is >> f;
+  if (is)
+    val = CFloat16(f);
+  return is;
 }
-inline std::ostream& operator << (std::ostream& os, const CFloat16& val)
-{
-    return os << float(val);
+inline std::ostream &operator<<(std::ostream &os, const CFloat16 &val) {
+  return os << float(val);
 }
 
 #endif

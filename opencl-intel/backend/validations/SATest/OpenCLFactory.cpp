@@ -14,13 +14,13 @@
 
 #include "OpenCLFactory.h"
 
-#include "RunResult.h"
-#include "OpenCLProgram.h"
+#include "OpenCLBackendWrapper.h"
 #include "OpenCLCPUBackendRunner.h"
+#include "OpenCLComparator.h"
+#include "OpenCLProgram.h"
 #include "OpenCLReferenceRunner.h"
 #include "OpenCLRunConfiguration.h"
-#include "OpenCLBackendWrapper.h"
-#include "OpenCLComparator.h"
+#include "RunResult.h"
 
 #define DEBUG_TYPE "OpenCLFactory"
 // debug macros
@@ -30,51 +30,54 @@
 using namespace Validation;
 using std::string;
 
-OpenCLFactory::OpenCLFactory(void)
-{
+OpenCLFactory::OpenCLFactory(void) {}
+
+OpenCLFactory::~OpenCLFactory(void) {}
+
+IProgram *OpenCLFactory::CreateProgram(IProgramConfiguration *programConfig,
+                                       IRunConfiguration *runConfig) {
+  OpenCLProgramConfiguration *pOCLProgramConfig =
+      static_cast<OpenCLProgramConfiguration *>(programConfig);
+  BERunOptions *pBERunConfig =
+      static_cast<BERunOptions *>(runConfig->GetBackendRunnerConfiguration());
+  std::string arch = pBERunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE,
+                                                         std::string(""));
+  pBERunConfig->SetValue<int>(RC_BR_DEVICE_MODE,
+                              pOCLProgramConfig->GetDeviceMode());
+  return new OpenCLProgram(pOCLProgramConfig, arch);
 }
 
-OpenCLFactory::~OpenCLFactory(void)
-{
+IProgramConfiguration *
+OpenCLFactory::CreateProgramConfiguration(const string &configFile,
+                                          const string &baseDir) {
+  return new OpenCLProgramConfiguration(configFile, baseDir);
 }
 
-IProgram * OpenCLFactory::CreateProgram(IProgramConfiguration* programConfig,
-                                        IRunConfiguration* runConfig)
-{
-    OpenCLProgramConfiguration* pOCLProgramConfig = static_cast<OpenCLProgramConfiguration*>(programConfig);
-    BERunOptions* pBERunConfig = static_cast<BERunOptions*>(runConfig->GetBackendRunnerConfiguration());
-    std::string arch = pBERunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE,std::string(""));
-    pBERunConfig->SetValue<int>(RC_BR_DEVICE_MODE,pOCLProgramConfig->GetDeviceMode());
-    return new OpenCLProgram(pOCLProgramConfig, arch);
+IRunConfiguration *OpenCLFactory::CreateRunConfiguration() {
+  return new OpenCLRunConfiguration();
 }
 
-IProgramConfiguration * OpenCLFactory::CreateProgramConfiguration(const string& configFile, const string& baseDir)
-{
-    return new OpenCLProgramConfiguration(configFile, baseDir);
+IProgramRunner *OpenCLFactory::CreateProgramRunner(
+    const IRunComponentConfiguration *pRunConfiguration) {
+  const BERunOptions *runConfig =
+      static_cast<const BERunOptions *>(pRunConfiguration);
+  return new OpenCLCPUBackendRunner(*runConfig);
 }
 
-IRunConfiguration * OpenCLFactory::CreateRunConfiguration()
-{
-    return new OpenCLRunConfiguration();
+IProgramRunner *OpenCLFactory::CreateReferenceRunner(
+    const IRunComponentConfiguration *pRunConfiguration) {
+  return new OpenCLReferenceRunner(
+      static_cast<const ReferenceRunOptions *>(pRunConfiguration)
+          ->GetValue<bool>(RC_REF_USE_NEAT, false));
 }
 
-IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
-{
-    const BERunOptions *runConfig = static_cast<const BERunOptions*>(pRunConfiguration);
-    return new OpenCLCPUBackendRunner(*runConfig);
+IRunResultComparator *
+OpenCLFactory::CreateComparator(IProgramConfiguration *pProgramConfiguration,
+                                IRunConfiguration *pRunConfiguration) {
+  return new OpenCLComparator(
+      static_cast<OpenCLProgramConfiguration *>(pProgramConfiguration),
+      static_cast<const ComparatorRunOptions *>(
+          pRunConfiguration->GetComparatorConfiguration()),
+      static_cast<const ReferenceRunOptions *>(
+          pRunConfiguration->GetReferenceRunnerConfiguration()));
 }
-
-IProgramRunner * OpenCLFactory::CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration)
-{
-    return new OpenCLReferenceRunner(static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_NEAT, false));
-}
-
-IRunResultComparator* OpenCLFactory::CreateComparator(IProgramConfiguration* pProgramConfiguration,
-                                                      IRunConfiguration* pRunConfiguration)
-{
-    return new OpenCLComparator(static_cast<OpenCLProgramConfiguration*>(pProgramConfiguration),
-        static_cast<const ComparatorRunOptions*>(pRunConfiguration->GetComparatorConfiguration()),
-        static_cast<const ReferenceRunOptions*>(pRunConfiguration->GetReferenceRunnerConfiguration())
-        );
-}
-

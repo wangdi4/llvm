@@ -24,7 +24,8 @@
 using namespace std;
 using namespace Intel::OpenCL;
 
-int printFormatCommon(OutputAccumulator& output, const char* format, const char* args);
+int printFormatCommon(OutputAccumulator &output, const char *format,
+                      const char *args);
 
 // Used to ensure that only one thread executes __opencl_printf simultaneously,
 // to avoid intermingling of output from different threads.

@@ -10,7 +10,7 @@ class TestAsyncCopy(DebuggerTestCase):
 
     def test_async_copy(self):
         # test use of async_work_group_copy from local to global and vice versa of uchar type variables
-		# TC-82, TC-83
+    # TC-82, TC-83
         self.client.execute_debuggee(
             hostprog_name='local_global',
             cl_name=self.CLNAME)
@@ -21,14 +21,14 @@ class TestAsyncCopy(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('checker'), '2')
         bp = (self.CLNAME, self.SECOND_ASYNC_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
-		#########################################################################################
-		#																						#
-		#		THE NEXT VALUE QUERYS DOESN'T MATCH CURRENTLY								    #
-		#		not sure if it is a bug or an incorrect use of "async_work_group_copy" function #
-		#		clearQuest ticket CSSD100007403													#
-		#		after fixing the problem the following lines shouldn't be on remark				#
-		#																						#
-		#########################################################################################
+    #########################################################################################
+    #                                            #
+    #    THE NEXT VALUE QUERYS DOESN'T MATCH CURRENTLY                    #
+    #    not sure if it is a bug or an incorrect use of "async_work_group_copy" function #
+    #    clearQuest ticket CSSD100007403                          #
+    #    after fixing the problem the following lines shouldn't be on remark        #
+    #                                            #
+    #########################################################################################
         #self.assertEqual(self.client.var_query_value('checker'), '11')
         #bp = (self.CLNAME, self.THIRD_ASYNC_ROW)
         #self.assertEqual(self.client.debug_run([bp]), bp)

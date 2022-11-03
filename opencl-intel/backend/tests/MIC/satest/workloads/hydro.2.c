@@ -28,35 +28,33 @@
   The fact that you are presently reading this means that you have had
   knowledge of the CeCILL license and that you accept its terms.
 */
-#if defined(cl_khr_fp64)    // Khronos extension available?
+#if defined(cl_khr_fp64) // Khronos extension available?
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#elif defined(cl_amd_fp64)  // AMD extension available?
+#elif defined(cl_amd_fp64) // AMD extension available?
 #pragma OPENCL EXTENSION cl_amd_fp64 : enable
 #endif
-//#define USE_MIC_PREFETCHES
+// #define USE_MIC_PREFETCHES
 #ifdef USE_MIC_PREFETCHES
 #define PREFETCH(a, b) prefetch(a, b)
 #else
 #define PREFETCH(a, b)
 #endif
 #include "oclparam.h"
-#define ID     (0)
-#define IU     (1)
-#define IV     (2)
-#define IP     (3)
-#define ExtraLayer    (2)
+#define ID (0)
+#define IU (1)
+#define IV (2)
+#define IP (3)
+#define ExtraLayer (2)
 #define ExtraLayerTot (2 * 2)
-inline void
-idx2d(long *x, long *y, const long nx) {
+inline void idx2d(long *x, long *y, const long nx) {
   long i1d =
-    get_global_id(0) + (get_global_size(1) - 1) * (get_global_id(1) + (get_global_size(2) - 1) * get_global_id(2));
+      get_global_id(0) +
+      (get_global_size(1) - 1) *
+          (get_global_id(1) + (get_global_size(2) - 1) * get_global_id(2));
   *y = i1d / nx;
   *x = i1d - *y * nx;
 }
-inline real_t
-Square(const real_t x) {
-  return x * x;
-}
+inline real_t Square(const real_t x) { return x * x; }
 /*
  * Here are defined a couple of placeholders of mathematical functions
  * waiting for AMD to provide them as part of the OpenCL language. The
@@ -137,10 +135,10 @@ Square(const real_t x) {
 /*
  * End math functions
  */
-#define one (real_t) 1.0
-#define two (real_t) 2.0
-#define demi (real_t) 0.5
-#define zero (real_t) 0.0
+#define one (real_t)1.0
+#define two (real_t)2.0
+#define demi (real_t)0.5
+#define zero (real_t)0.0
 // const real_t one = 1.0;
 // const real_t two = 2.0;
 // const real_t demi = 0.5;
@@ -148,21 +146,18 @@ Square(const real_t x) {
 // #define IHVW(i,v) ((i) + (v) * Hnxyt)
 // #define IHU(i, j, v)  ((i) + Hnxt * ((j) + Hnyt * (v)))
 // #define IHV(i, j, v)  ((i) + Hnxt * ((j) + Hnyt * (v)))
-inline size_t
-IHVW(int i, int v, int Hnxyt) {
-  return (i) + (v) * Hnxyt;
-}
-inline size_t
-IHU(int i, int j, int v, int Hnxt, int Hnyt) {
+inline size_t IHVW(int i, int v, int Hnxyt) { return (i) + (v)*Hnxyt; }
+inline size_t IHU(int i, int j, int v, int Hnxt, int Hnyt) {
   return (i) + (Hnxt * ((j) + Hnyt * (v)));
 }
-inline size_t
-IHV(const int i, const int j, const int v, const int Hnxt, const int Hnyt) {
+inline size_t IHV(const int i, const int j, const int v, const int Hnxt,
+                  const int Hnyt) {
   return (i) + (Hnxt * ((j) + Hnyt * (v)));
 }
-__kernel void
-Loop1KcuCmpflx(__global real_t *qgdnv, __global real_t *flux, const long narray,
-               const long Hnxyt, const real_t Hgamma, const int slices, const int Hnxystep) {
+__kernel void Loop1KcuCmpflx(__global real_t *qgdnv, __global real_t *flux,
+                             const long narray, const long Hnxyt,
+                             const real_t Hgamma, const int slices,
+                             const int Hnxystep) {
   real_t entho = 0, ekin = 0, etot = 0;
   int s = get_global_id(1);
   int i = get_global_id(0);
@@ -190,13 +185,15 @@ Loop1KcuCmpflx(__global real_t *qgdnv, __global real_t *flux, const long narray,
   // Transverse momentum 1
   flux[idxIV] = flux[idxID] * qgdnv[idxIV];
   // Total energy
-  ekin = demi * qgdnv[idxID] * ((qgdnv[idxIU] * qgdnv[idxIU]) + (qgdnv[idxIV] * qgdnv[idxIV]));
+  ekin = demi * qgdnv[idxID] *
+         ((qgdnv[idxIU] * qgdnv[idxIU]) + (qgdnv[idxIV] * qgdnv[idxIV]));
   etot = qgdnv[idxIP] * entho + ekin;
   flux[idxIP] = qgdnv[idxIU] * (etot + qgdnv[idxIP]);
 }
-__kernel void
-Loop2KcuCmpflx(__global real_t *qgdnv, __global real_t *flux, const long narray, const long Hnxyt, const long Hnvar,
-               const int slices, const int Hnxystep) {
+__kernel void Loop2KcuCmpflx(__global real_t *qgdnv, __global real_t *flux,
+                             const long narray, const long Hnxyt,
+                             const long Hnvar, const int slices,
+                             const int Hnxystep) {
   long IN, s, i = get_global_id(0);
   idx2d(&i, &s, Hnxyt);
   if (s >= slices)
@@ -208,10 +205,11 @@ Loop2KcuCmpflx(__global real_t *qgdnv, __global real_t *flux, const long narray,
     flux[idxIN] = flux[idxIN] * qgdnv[idxIN];
   }
 }
-__kernel void
-LoopKQEforRow(const long j, __global real_t *uold, __global real_t *q, __global real_t *e,
-              const real_t Hsmallr,
-              const long Hnxt, const long Hnyt, const long Hnxyt, const long n, const int slices, const int Hnxystep) {
+__kernel void LoopKQEforRow(const long j, __global real_t *uold,
+                            __global real_t *q, __global real_t *e,
+                            const real_t Hsmallr, const long Hnxt,
+                            const long Hnyt, const long Hnxyt, const long n,
+                            const int slices, const int Hnxystep) {
   real_t eken;
   size_t i, s;
   i = get_global_id(0);
@@ -236,13 +234,10 @@ LoopKQEforRow(const long j, __global real_t *uold, __global real_t *q, __global 
   q[idxIP] = uold[idxuIP] / q[idxID] - eken;
   e[is] = q[idxIP];
 }
-__kernel void
-LoopKcourant(__global real_t *q,
-	     __global real_t *courant,
-	     const real_t Hsmallc,
-	     __global const real_t *c,
-             const long Hnxyt, const long n,
-	     const int slices, const int Hnxystep) {
+__kernel void LoopKcourant(__global real_t *q, __global real_t *courant,
+                           const real_t Hsmallc, __global const real_t *c,
+                           const long Hnxyt, const long n, const int slices,
+                           const int Hnxystep) {
   real_t cournox, cournoy, courantl;
   size_t i, s;
   // idx2d(&i, &s, Hnxyt);
@@ -265,20 +260,16 @@ LoopKcourant(__global real_t *q,
 }
 //////
 //  new kernel LoopKComputeDeltat
-//  added to merge 3 calls to lightweight kernels LoopKQEforRow, LoopKcourant and LoopEOS into one
-//  to reduce kernel calling overhead and enable manual prefetching
-//  expected application speedup is 3-5%
+//  added to merge 3 calls to lightweight kernels LoopKQEforRow, LoopKcourant
+//  and LoopEOS into one to reduce kernel calling overhead and enable manual
+//  prefetching expected application speedup is 3-5%
 //////
-__kernel void
-LoopKComputeDeltat
-   ( const long j, __global real_t *uold, __global real_t *q, __global real_t *e,
-	const long Hnxt, const long Hnyt, const long Hnxyt, const long imax,
-	const int slices, const int Hnxystep,
-	const long offsetIP, const long offsetID,
-	const real_t Hsmallc, const real_t Hgamma,
-	const real_t Hsmallr,
-	__global real_t *c, __global real_t *courant )
-{
+__kernel void LoopKComputeDeltat(
+    const long j, __global real_t *uold, __global real_t *q, __global real_t *e,
+    const long Hnxt, const long Hnyt, const long Hnxyt, const long imax,
+    const int slices, const int Hnxystep, const long offsetIP,
+    const long offsetID, const real_t Hsmallc, const real_t Hgamma,
+    const real_t Hsmallr, __global real_t *c, __global real_t *courant) {
   real_t eken;
   real_t smallp, pis, rhois, eintis;
   real_t cournox, cournoy, courantl;
@@ -319,7 +310,7 @@ LoopKComputeDeltat
   rhois = rho[is];
   eintis = e[is];
   pis = (Hgamma - one) * rhois * eintis;
-  pis = Max(pis, (real_t) (rhois * smallp));
+  pis = Max(pis, (real_t)(rhois * smallp));
   c[is] = Sqrt(Hgamma * pis / rhois);
   p[is] = pis;
   cournox = cournoy = 0.;
@@ -328,77 +319,76 @@ LoopKComputeDeltat
   courantl = Max(cournox, Max(cournoy, Hsmallc));
   courant[is] = Max(courant[is], courantl);
 }
-__kernel void
-Loop1KcuGather(__global real_t *uold,
-               __global real_t *u,
-               const long rowcol,
-               const long Hnxt, const long Himin, const long Himax, const long Hnyt,
-               const long Hnxyt, const int slices, const int Hnxystep) {
+__kernel void Loop1KcuGather(__global real_t *uold, __global real_t *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt,
+                             const int slices, const int Hnxystep) {
   size_t i, s;
   i = get_global_id(0);
   // s = get_global_id(1);
-	if (i < Himin || i >= Himax)
+  if (i < Himin || i >= Himax)
     return;
   for (s = 0; s < slices; s++) {
-		int oidID = IHU(i, rowcol + s, ID, Hnxt, Hnyt);
-		PREFETCH(&uold[oidID], 1);
-		int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
-		PREFETCH(   &u[idxID], 1);
-		int oidIU = IHU(i, rowcol + s, IU, Hnxt, Hnyt);
-		PREFETCH(&uold[oidIU], 1);
-		int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
-		PREFETCH(   &u[idxIU], 1);
-		int oidIV = IHU(i, rowcol + s, IV, Hnxt, Hnyt);
-		PREFETCH(&uold[oidIV], 1);
-		int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
-		PREFETCH(   &u[idxIV], 1);
-		int oidIP = IHU(i, rowcol + s, IP, Hnxt, Hnyt);
-		PREFETCH(&uold[oidIP], 1);
-		int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
-		PREFETCH(   &u[idxIP], 1);
-		u[idxID] = uold[oidID];
-		u[idxIU] = uold[oidIU];
-		u[idxIV] = uold[oidIV];
-		u[idxIP] = uold[oidIP];
+    int oidID = IHU(i, rowcol + s, ID, Hnxt, Hnyt);
+    PREFETCH(&uold[oidID], 1);
+    int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
+    PREFETCH(&u[idxID], 1);
+    int oidIU = IHU(i, rowcol + s, IU, Hnxt, Hnyt);
+    PREFETCH(&uold[oidIU], 1);
+    int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
+    PREFETCH(&u[idxIU], 1);
+    int oidIV = IHU(i, rowcol + s, IV, Hnxt, Hnyt);
+    PREFETCH(&uold[oidIV], 1);
+    int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
+    PREFETCH(&u[idxIV], 1);
+    int oidIP = IHU(i, rowcol + s, IP, Hnxt, Hnyt);
+    PREFETCH(&uold[oidIP], 1);
+    int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
+    PREFETCH(&u[idxIP], 1);
+    u[idxID] = uold[oidID];
+    u[idxIU] = uold[oidIU];
+    u[idxIV] = uold[oidIV];
+    u[idxIP] = uold[oidIP];
   }
 }
-__kernel void
-Loop2KcuGather(__global real_t *uold,
-               __global real_t *u,
-               const long rowcol, const long Hnxt, const long Himin, const long Himax, const long Hnyt,
-               const long Hnxyt, const int slices, const int Hnxystep) {
+__kernel void Loop2KcuGather(__global real_t *uold, __global real_t *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt,
+                             const int slices, const int Hnxystep) {
   size_t s, i = get_global_id(0);
   if (i < Himin || i >= Himax)
     return;
   for (s = 0; s < slices; s++) {
-	int oidID = IHU(rowcol + s, i, ID, Hnxt, Hnyt);
-	PREFETCH(&uold[oidID], 1);
+    int oidID = IHU(rowcol + s, i, ID, Hnxt, Hnyt);
+    PREFETCH(&uold[oidID], 1);
     int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
-	PREFETCH(   &u[idxID], 1);
-	int oidIU = IHU(rowcol + s, i, IU, Hnxt, Hnyt);
-	PREFETCH(&uold[oidIU], 1);
+    PREFETCH(&u[idxID], 1);
+    int oidIU = IHU(rowcol + s, i, IU, Hnxt, Hnyt);
+    PREFETCH(&uold[oidIU], 1);
     int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
-	PREFETCH(   &u[idxIV], 1);
-	int oidIV = IHU(rowcol + s, i, IV, Hnxt, Hnyt);
-	PREFETCH(&uold[oidIV], 1);
-	int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
-	PREFETCH(   &u[idxIU], 1);
-	int oidIP = IHU(rowcol + s, i, IP, Hnxt, Hnyt);
-	PREFETCH(&uold[oidIP], 1);
-	int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
-	PREFETCH(   &u[idxIP], 1);
+    PREFETCH(&u[idxIV], 1);
+    int oidIV = IHU(rowcol + s, i, IV, Hnxt, Hnyt);
+    PREFETCH(&uold[oidIV], 1);
+    int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
+    PREFETCH(&u[idxIU], 1);
+    int oidIP = IHU(rowcol + s, i, IP, Hnxt, Hnyt);
+    PREFETCH(&uold[oidIP], 1);
+    int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
+    PREFETCH(&u[idxIP], 1);
     u[idxID] = uold[oidID];
     u[idxIV] = uold[oidIU];
     u[idxIU] = uold[oidIV];
     u[idxIP] = uold[oidIP];
   }
 }
-__kernel void
-Loop3KcuGather(__global real_t *uold,
-               __global real_t *u,
-               const long rowcol,
-               const long Hnxt, const long Himin, const long Himax, const long Hnyt, const long Hnxyt, const long Hnvar,
-               const int slices, const int Hnxystep) {
+__kernel void Loop3KcuGather(__global real_t *uold, __global real_t *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt,
+                             const long Hnvar, const int slices,
+                             const int Hnxystep) {
   size_t i = get_global_id(0);
   size_t ivar;
   size_t s;
@@ -408,16 +398,17 @@ Loop3KcuGather(__global real_t *uold,
     return;
   for (ivar = IP + 1; ivar < Hnvar; ivar++) {
     for (s = 0; s < slices; s++) {
-      u[IHVWS_(i, s, ivar, Hnxyt, Hnxystep)] = uold[IHU(i, rowcol + s, ivar, Hnxt, Hnyt)];
+      u[IHVWS_(i, s, ivar, Hnxyt, Hnxystep)] =
+          uold[IHU(i, rowcol + s, ivar, Hnxt, Hnyt)];
     }
   }
 }
-__kernel void
-Loop4KcuGather(__global real_t *uold,
-               __global real_t *u,
-               const long rowcol,
-               const long Hnxt, const long Himin, const long Himax, const long Hnyt, const long Hnxyt, const long Hnvar,
-               const int slices, const int Hnxystep) {
+__kernel void Loop4KcuGather(__global real_t *uold, __global real_t *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt,
+                             const long Hnvar, const int slices,
+                             const int Hnxystep) {
   size_t i = get_global_id(0);
   size_t ivar;
   if (i < Himin)
@@ -427,16 +418,17 @@ Loop4KcuGather(__global real_t *uold,
   int s;
   for (ivar = IP + 1; ivar < Hnvar; ivar++) {
     for (s = 0; s < slices; s++) {
-      u[IHVWS_(i, s, ivar, Hnxyt, Hnxystep)] = uold[IHU(rowcol + s, i, ivar, Hnxt, Hnyt)];
+      u[IHVWS_(i, s, ivar, Hnxyt, Hnxystep)] =
+          uold[IHU(rowcol + s, i, ivar, Hnxt, Hnyt)];
     }
   }
 }
-__kernel void
-Loop1KcuUpdate(const long rowcol, const real_t dtdx,
-               __global real_t *uold,
-               __global real_t *u,
-               __global real_t *flux, const long Himin, const long Himax, const long Hnxt, const long Hnyt,
-               const long Hnxyt, const int slices, const int Hnxystep) {
+__kernel void Loop1KcuUpdate(const long rowcol, const real_t dtdx,
+                             __global real_t *uold, __global real_t *u,
+                             __global real_t *flux, const long Himin,
+                             const long Himax, const long Hnxt, const long Hnyt,
+                             const long Hnxyt, const int slices,
+                             const int Hnxystep) {
   size_t i, s;
   i = get_global_id(0);
   s = get_global_id(1);
@@ -446,18 +438,18 @@ Loop1KcuUpdate(const long rowcol, const real_t dtdx,
     return;
   if (i >= (Himax - ExtraLayer))
     return;
-	int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxID], 1);
-	PREFETCH(&flux[idxID-2], 2);
-	int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxIU], 1);
-	PREFETCH(&flux[idxIU-2], 2);
-	int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxIV], 1);
-	PREFETCH(&flux[idxIV-2], 2);
-	int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxIP], 1);
-	PREFETCH(&flux[idxIP-2], 2);
+  int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxID], 1);
+  PREFETCH(&flux[idxID - 2], 2);
+  int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxIU], 1);
+  PREFETCH(&flux[idxIU - 2], 2);
+  int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxIV], 1);
+  PREFETCH(&flux[idxIV - 2], 2);
+  int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxIP], 1);
+  PREFETCH(&flux[idxIP - 2], 2);
   int oidID = IHU(i, rowcol + s, ID, Hnxt, Hnyt);
   PREFETCH(&uold[oidID], 1);
   int oidIU = IHU(i, rowcol + s, IU, Hnxt, Hnyt);
@@ -466,18 +458,17 @@ Loop1KcuUpdate(const long rowcol, const real_t dtdx,
   PREFETCH(&uold[oidIV], 1);
   int oidIP = IHU(i, rowcol + s, IP, Hnxt, Hnyt);
   PREFETCH(&uold[oidIP], 1);
-	uold[oidID] = u[idxID] + (flux[idxID-2] - flux[idxID-1]) * dtdx;
-	uold[oidIU] = u[idxIU] + (flux[idxIU-2] - flux[idxIU-1]) * dtdx;
-	uold[oidIV] = u[idxIV] + (flux[idxIV-2] - flux[idxIV-1]) * dtdx;
-	uold[oidIP] = u[idxIP] + (flux[idxIP-2] - flux[idxIP-1]) * dtdx;
+  uold[oidID] = u[idxID] + (flux[idxID - 2] - flux[idxID - 1]) * dtdx;
+  uold[oidIU] = u[idxIU] + (flux[idxIU - 2] - flux[idxIU - 1]) * dtdx;
+  uold[oidIV] = u[idxIV] + (flux[idxIV - 2] - flux[idxIV - 1]) * dtdx;
+  uold[oidIP] = u[idxIP] + (flux[idxIP - 2] - flux[idxIP - 1]) * dtdx;
 }
-__kernel void
-Loop2KcuUpdate(const long rowcol, const real_t dtdx,
-               __global real_t *uold,
-               __global real_t *u,
-               __global real_t *flux,
-               const long Himin, const long Himax, const long Hnvar, const long Hnxt, const long Hnyt, const long Hnxyt,
-               const int slices, const int Hnxystep) {
+__kernel void Loop2KcuUpdate(const long rowcol, const real_t dtdx,
+                             __global real_t *uold, __global real_t *u,
+                             __global real_t *flux, const long Himin,
+                             const long Himax, const long Hnvar,
+                             const long Hnxt, const long Hnyt, const long Hnxyt,
+                             const int slices, const int Hnxystep) {
   long ivar;
   long i, s;
   idx2d(&i, &s, Hnxyt);
@@ -489,16 +480,18 @@ Loop2KcuUpdate(const long rowcol, const real_t dtdx,
     return;
   for (ivar = IP + 1; ivar < Hnvar; ivar++) {
     uold[IHU(i, rowcol + s, ivar, Hnxt, Hnyt)] =
-      u[IHVWS_(i, s, ivar, Hnxyt, Hnxystep)] + (flux[IHVWS_(i - 2, s, ivar, Hnxyt, Hnxystep)] -
-                                               flux[IHVWS_(i - 1, s, ivar, Hnxyt, Hnxystep)]) * dtdx;
+        u[IHVWS_(i, s, ivar, Hnxyt, Hnxystep)] +
+        (flux[IHVWS_(i - 2, s, ivar, Hnxyt, Hnxystep)] -
+         flux[IHVWS_(i - 1, s, ivar, Hnxyt, Hnxystep)]) *
+            dtdx;
   }
 }
-__kernel void
-Loop3KcuUpdate(const long rowcol, const real_t dtdx,
-               __global real_t *uold,
-               __global real_t *u,
-               __global real_t *flux, const long Hjmin, const long Hjmax, const long Hnxt, const long Hnyt,
-               const long Hnxyt, const int slices, const int Hnxystep) {
+__kernel void Loop3KcuUpdate(const long rowcol, const real_t dtdx,
+                             __global real_t *uold, __global real_t *u,
+                             __global real_t *flux, const long Hjmin,
+                             const long Hjmax, const long Hnxt, const long Hnyt,
+                             const long Hnxyt, const int slices,
+                             const int Hnxystep) {
   int ivar;
   size_t s, j;
   j = get_global_id(0);
@@ -509,18 +502,18 @@ Loop3KcuUpdate(const long rowcol, const real_t dtdx,
     return;
   if (j >= (Hjmax - ExtraLayer))
     return;
-	int idxID = IHVWS_(j, s, ID, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxID], 1);
-	PREFETCH(&flux[idxID-2], 2);
-	int idxIP = IHVWS_(j, s, IP, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxIP], 1);
-	PREFETCH(&flux[idxIP-2], 2);
-	int idxIU = IHVWS_(j, s, IU, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxIU], 1);
-	PREFETCH(&flux[idxIU-2], 2);
-	int idxIV = IHVWS_(j, s, IV, Hnxyt, Hnxystep);
-	PREFETCH(&u[idxIV], 1);
-	PREFETCH(&flux[idxIV-2], 2);
+  int idxID = IHVWS_(j, s, ID, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxID], 1);
+  PREFETCH(&flux[idxID - 2], 2);
+  int idxIP = IHVWS_(j, s, IP, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxIP], 1);
+  PREFETCH(&flux[idxIP - 2], 2);
+  int idxIU = IHVWS_(j, s, IU, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxIU], 1);
+  PREFETCH(&flux[idxIU - 2], 2);
+  int idxIV = IHVWS_(j, s, IV, Hnxyt, Hnxystep);
+  PREFETCH(&u[idxIV], 1);
+  PREFETCH(&flux[idxIV - 2], 2);
   int oidID = IHU(rowcol + s, j, ID, Hnxt, Hnyt);
   PREFETCH(&uold[oidID], 1);
   int oidIP = IHU(rowcol + s, j, IP, Hnxt, Hnyt);
@@ -529,18 +522,17 @@ Loop3KcuUpdate(const long rowcol, const real_t dtdx,
   PREFETCH(&uold[oidIV], 1);
   int oidIU = IHU(rowcol + s, j, IU, Hnxt, Hnyt);
   PREFETCH(&uold[oidIU], 1);
-	uold[oidID] = u[idxID] + (flux[idxID-2] - flux[idxID-1]) * dtdx;
-	uold[oidIP] = u[idxIP] + (flux[idxIP-2] - flux[idxIP-1]) * dtdx;
-	uold[oidIV] = u[idxIU] + (flux[idxIU-2] - flux[idxIU-1]) * dtdx;
-	uold[oidIU] = u[idxIV] + (flux[idxIV-2] - flux[idxIV-1]) * dtdx;
+  uold[oidID] = u[idxID] + (flux[idxID - 2] - flux[idxID - 1]) * dtdx;
+  uold[oidIP] = u[idxIP] + (flux[idxIP - 2] - flux[idxIP - 1]) * dtdx;
+  uold[oidIV] = u[idxIU] + (flux[idxIU - 2] - flux[idxIU - 1]) * dtdx;
+  uold[oidIU] = u[idxIV] + (flux[idxIV - 2] - flux[idxIV - 1]) * dtdx;
 }
-__kernel void
-Loop4KcuUpdate(const long rowcol, const real_t dtdx,
-               __global real_t *uold,
-               __global real_t *u,
-               __global real_t *flux,
-               const long Hjmin, const long Hjmax, const long Hnvar, const long Hnxt, const long Hnyt, const long Hnxyt,
-               const int slices, const int Hnxystep) {
+__kernel void Loop4KcuUpdate(const long rowcol, const real_t dtdx,
+                             __global real_t *uold, __global real_t *u,
+                             __global real_t *flux, const long Hjmin,
+                             const long Hjmax, const long Hnvar,
+                             const long Hnxt, const long Hnyt, const long Hnxyt,
+                             const int slices, const int Hnxystep) {
   long ivar;
   long s, j;
   idx2d(&j, &s, Hnxyt);
@@ -552,19 +544,19 @@ Loop4KcuUpdate(const long rowcol, const real_t dtdx,
     return;
   for (ivar = IP + 1; ivar < Hnvar; ivar++) {
     uold[IHU(rowcol + s, j, ivar, Hnxt, Hnyt)] =
-      u[IHVWS_(j, s, ivar, Hnxyt, Hnxystep)] + (flux[IHVWS_(j - 2, s, ivar, Hnxyt, Hnxystep)] -
-                                               flux[IHVWS_(j - 1, s, ivar, Hnxyt, Hnxystep)]) * dtdx;
+        u[IHVWS_(j, s, ivar, Hnxyt, Hnxystep)] +
+        (flux[IHVWS_(j - 2, s, ivar, Hnxyt, Hnxystep)] -
+         flux[IHVWS_(j - 1, s, ivar, Hnxyt, Hnxystep)]) *
+            dtdx;
   }
 }
-__kernel void
-Loop1KcuConstoprim(const long n,
-					__global real_t *u, __global real_t *q, __global real_t *e,
-					const long Hnxyt, const real_t Hsmallr, const int slices, const int Hnxystep,
-					const long Hnvar,
-					__global real_t *c, const long offsetIP, const long offsetID,
-					const real_t Hsmallc, const real_t Hgamma
-				   )
-{
+__kernel void Loop1KcuConstoprim(const long n, __global real_t *u,
+                                 __global real_t *q, __global real_t *e,
+                                 const long Hnxyt, const real_t Hsmallr,
+                                 const int slices, const int Hnxystep,
+                                 const long Hnvar, __global real_t *c,
+                                 const long offsetIP, const long offsetID,
+                                 const real_t Hsmallc, const real_t Hgamma) {
   size_t i, s;
   i = get_global_id(0);
   s = get_global_id(1);
@@ -572,47 +564,47 @@ Loop1KcuConstoprim(const long n,
     return;
   if (i >= n)
     return;
-	long IN;
-	__global real_t *p = &q[offsetIP];
-	__global real_t *rho = &q[offsetID];
-	int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
-	PREFETCH(u+idxID, 1);
-  PREFETCH(q+idxID, 1);
-	int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
-	PREFETCH(u+idxIU, 1);
-  PREFETCH(q+idxIU, 1);
-	int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
-	PREFETCH(u+idxIV, 1);
-  PREFETCH(q+idxIV, 1);
-	int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
-	PREFETCH(u+idxIP, 1);
-	PREFETCH(q+idxIP, 1);
-	int is = IHS_(i, s, Hnxyt);
-  PREFETCH(e+is, 1);
-	PREFETCH(p+is, 1);
-	PREFETCH(rho+is, 1);
-	PREFETCH(c+is, 1);
-	real_t smallp = Square(Hsmallc) / Hgamma;
-	real_t qID = Max(u[idxID], Hsmallr);
-	real_t qrec = 1. / qID;
+  long IN;
+  __global real_t *p = &q[offsetIP];
+  __global real_t *rho = &q[offsetID];
+  int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
+  PREFETCH(u + idxID, 1);
+  PREFETCH(q + idxID, 1);
+  int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
+  PREFETCH(u + idxIU, 1);
+  PREFETCH(q + idxIU, 1);
+  int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
+  PREFETCH(u + idxIV, 1);
+  PREFETCH(q + idxIV, 1);
+  int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
+  PREFETCH(u + idxIP, 1);
+  PREFETCH(q + idxIP, 1);
+  int is = IHS_(i, s, Hnxyt);
+  PREFETCH(e + is, 1);
+  PREFETCH(p + is, 1);
+  PREFETCH(rho + is, 1);
+  PREFETCH(c + is, 1);
+  real_t smallp = Square(Hsmallc) / Hgamma;
+  real_t qID = Max(u[idxID], Hsmallr);
+  real_t qrec = 1. / qID;
   q[idxIU] = u[idxIU] * qrec;
   q[idxIV] = u[idxIV] * qrec;
-	real_t eken = demi * (Square(q[idxIU]) + Square(q[idxIV]));
+  real_t eken = demi * (Square(q[idxIU]) + Square(q[idxIV]));
   q[idxIP] = u[idxIP] * qrec - eken;
-	q[idxID] = qID;
+  q[idxID] = qID;
   e[is] = q[idxIP];
-	for (IN = IP + 1; IN < Hnvar; IN++)
-	{
-		int idxIN = IHVWS_(i, s, IN, Hnxyt, Hnxystep);
-		q[idxIN] = u[idxIN] / q[idxIN];
-	}
-	p[is] = (Hgamma - one) * rho[is] * e[is];
-	p[is] = Max(p[is], (real_t) (rho[is] * smallp));
-	c[is] = Sqrt(Hgamma * p[is] / rho[is]);
+  for (IN = IP + 1; IN < Hnvar; IN++) {
+    int idxIN = IHVWS_(i, s, IN, Hnxyt, Hnxystep);
+    q[idxIN] = u[idxIN] / q[idxIN];
+  }
+  p[is] = (Hgamma - one) * rho[is] * e[is];
+  p[is] = Max(p[is], (real_t)(rho[is] * smallp));
+  c[is] = Sqrt(Hgamma * p[is] / rho[is]);
 }
-__kernel void
-Loop2KcuConstoprim(const long n, __global real_t *u, __global real_t *q,
-                   const long Hnxyt, const long Hnvar, const int slices, const int Hnxystep) {
+__kernel void Loop2KcuConstoprim(const long n, __global real_t *u,
+                                 __global real_t *q, const long Hnxyt,
+                                 const long Hnvar, const int slices,
+                                 const int Hnxystep) {
   int IN;
   size_t i, s, idx = get_global_id(0);
   s = idx / Hnxyt;
@@ -626,12 +618,11 @@ Loop2KcuConstoprim(const long n, __global real_t *u, __global real_t *q,
     q[idxIN] = u[idxIN] / q[idxIN];
   }
 }
-__kernel void
-LoopEOS(__global real_t *q,
-        __global real_t *eint,
-        __global real_t *c,
-        const long offsetIP, const long offsetID, const long imin, const long imax,
-        const real_t Hsmallc, const real_t Hgamma, const int slices, const int Hnxyt) {
+__kernel void LoopEOS(__global real_t *q, __global real_t *eint,
+                      __global real_t *c, const long offsetIP,
+                      const long offsetID, const long imin, const long imax,
+                      const real_t Hsmallc, const real_t Hgamma,
+                      const int slices, const int Hnxyt) {
   real_t smallp, pis, rhois, eintis;
   size_t s, k;
   k = get_global_id(0);
@@ -649,63 +640,70 @@ LoopEOS(__global real_t *q,
   rhois = rho[is];
   eintis = eint[is];
   pis = (Hgamma - one) * rhois * eintis;
-  pis = Max(pis, (real_t) (rhois * smallp));
+  pis = Max(pis, (real_t)(rhois * smallp));
   c[is] = Sqrt(Hgamma * pis / rhois);
   p[is] = pis;
 }
-__kernel void
-Loop1KcuMakeBoundary(const int i, const int i0, const real_t sign, const long Hjmin,
-                     const long n, const long Hnxt, const long Hnyt, const long Hnvar, __global real_t *uold) {
+__kernel void Loop1KcuMakeBoundary(const int i, const int i0, const real_t sign,
+                                   const long Hjmin, const long n,
+                                   const long Hnxt, const long Hnyt,
+                                   const long Hnvar, __global real_t *uold) {
   long j, ivar;
   j = get_global_id(0);
   ivar = get_global_id(1);
-  if (j >= n) return;
-  if (ivar >= Hnvar) return;
-	j += (Hjmin + ExtraLayer);
-	int newId = IHV( i, j, ivar, Hnxt, Hnyt);
-	int oldId = IHV(i0, j, ivar, Hnxt, Hnyt);
-	real_t vsign = (ivar == IU) ? -1.0 : sign;
-	uold[newId] = uold[oldId] * vsign;
+  if (j >= n)
+    return;
+  if (ivar >= Hnvar)
+    return;
+  j += (Hjmin + ExtraLayer);
+  int newId = IHV(i, j, ivar, Hnxt, Hnyt);
+  int oldId = IHV(i0, j, ivar, Hnxt, Hnyt);
+  real_t vsign = (ivar == IU) ? -1.0 : sign;
+  uold[newId] = uold[oldId] * vsign;
 }
-__kernel void
-Loop2KcuMakeBoundary(const int j, const int j0, const real_t sign, const long Himin,
-                     const long n, const long Hnxt, const long Hnyt, const long Hnvar, __global real_t *uold) {
+__kernel void Loop2KcuMakeBoundary(const int j, const int j0, const real_t sign,
+                                   const long Himin, const long n,
+                                   const long Hnxt, const long Hnyt,
+                                   const long Hnvar, __global real_t *uold) {
   long i, ivar;
   i = get_global_id(0);
   ivar = get_global_id(1);
-  if (i >= n) return;
-	if (ivar >= Hnvar)	return;
-	i += (Himin + ExtraLayer);
-	int newId = IHV(i,  j, ivar, Hnxt, Hnyt);
-	int oldId = IHV(i, j0, ivar, Hnxt, Hnyt);
-	real_t vsign = (ivar == IV) ? -1.0 : sign;
-	uold[newId] = uold[oldId] * vsign;
+  if (i >= n)
+    return;
+  if (ivar >= Hnvar)
+    return;
+  i += (Himin + ExtraLayer);
+  int newId = IHV(i, j, ivar, Hnxt, Hnyt);
+  int oldId = IHV(i, j0, ivar, Hnxt, Hnyt);
+  real_t vsign = (ivar == IV) ? -1.0 : sign;
+  uold[newId] = uold[oldId] * vsign;
 }
-__kernel void
-Loop1KcuQleftright(const long bmax, const long Hnvar, const long Hnxyt, const int slices, const int Hstep,
-                   __global real_t *qxm, __global real_t *qxp, __global real_t *qleft, __global real_t *qright)
-{
+__kernel void Loop1KcuQleftright(const long bmax, const long Hnvar,
+                                 const long Hnxyt, const int slices,
+                                 const int Hstep, __global real_t *qxm,
+                                 __global real_t *qxp, __global real_t *qleft,
+                                 __global real_t *qright) {
   size_t i, s, nvar;
   i = get_global_id(0);
   s = get_global_id(1);
   nvar = get_global_id(2);
   int idx_out = IHVWS_(i, s, nvar, Hnxyt, Hstep);
-  PREFETCH(qleft+idx_out, 1);
-  PREFETCH(qright+idx_out, 1);
+  PREFETCH(qleft + idx_out, 1);
+  PREFETCH(qright + idx_out, 1);
   if (s >= slices)
     return;
   if (i >= bmax)
     return;
-  //for (nvar = 0; nvar < Hnvar; nvar++) {
-     qleft[idx_out] = qxm[IHVWS_(i + 1, s, nvar, Hnxyt, Hstep)];
-    qright[idx_out] = qxp[IHVWS_(i + 2, s, nvar, Hnxyt, Hstep)];
+  // for (nvar = 0; nvar < Hnvar; nvar++) {
+  qleft[idx_out] = qxm[IHVWS_(i + 1, s, nvar, Hnxyt, Hstep)];
+  qright[idx_out] = qxp[IHVWS_(i + 2, s, nvar, Hnxyt, Hstep)];
   //}
 }
-__kernel void
-LoopKcuSlope(__global real_t *q, __global real_t *dq,
-             const long Hnvar, const long Hnxyt,
-             const real_t slope_type, const long ijmin, const long ijmax, const int slices, const int Hnxystep)
-{
+__kernel void LoopKcuSlope(__global real_t *q, __global real_t *dq,
+                           const long Hnvar, const long Hnxyt,
+                           const real_t slope_type, const long ijmin,
+                           const long ijmax, const int slices,
+                           const int Hnxystep) {
   real_t dlft, drgt, dcen, dsgn, slop, dlim;
   int ihvwin, ihvwimn, ihvwipn;
   size_t i, s, n;
@@ -713,32 +711,32 @@ LoopKcuSlope(__global real_t *q, __global real_t *dq,
   s = get_global_id(1);
   n = get_global_id(2);
   // if (s >= slices) return;
-  //changed this to enable early exit catch on MIC
+  // changed this to enable early exit catch on MIC
   if (i >= ijmax - ijmin - 2)
     return;
   i += ijmin + 1;
   // if (n >= Hnvar) return;
   // for (n = 0; n < Hnvar; n++) {
-	ihvwin =  IHVWS_(i,     s, n, Hnxyt, Hnxystep);
-	PREFETCH(&dq[ihvwin], 1);
-    ihvwimn = ihvwin - 1;	//IHVWS_(i - 1, s, n, Hnxyt, Hnxystep);
-    ihvwipn = ihvwin + 1;	//IHVWS_(i + 1, s, n, Hnxyt, Hnxystep);
-    dlft = slope_type * (q[ihvwin] - q[ihvwimn]);
-    drgt = slope_type * (q[ihvwipn] - q[ihvwin]);
-    dcen = demi * (dlft + drgt) / slope_type;
-	dsgn = (dcen > 0) ? (real_t) 1.0 : (real_t) -1.0;   // sign(one, dcen);
-	slop = (real_t) Min(Fabs(dlft), Fabs(drgt));
-    dlim = ((dlft * drgt) <= zero) ? zero : slop;
-	dq[ihvwin] = dsgn * (real_t) Min(dlim, Fabs(dcen));
+  ihvwin = IHVWS_(i, s, n, Hnxyt, Hnxystep);
+  PREFETCH(&dq[ihvwin], 1);
+  ihvwimn = ihvwin - 1; // IHVWS_(i - 1, s, n, Hnxyt, Hnxystep);
+  ihvwipn = ihvwin + 1; // IHVWS_(i + 1, s, n, Hnxyt, Hnxystep);
+  dlft = slope_type * (q[ihvwin] - q[ihvwimn]);
+  drgt = slope_type * (q[ihvwipn] - q[ihvwin]);
+  dcen = demi * (dlft + drgt) / slope_type;
+  dsgn = (dcen > 0) ? (real_t)1.0 : (real_t)-1.0; // sign(one, dcen);
+  slop = (real_t)Min(Fabs(dlft), Fabs(drgt));
+  dlim = ((dlft * drgt) <= zero) ? zero : slop;
+  dq[ihvwin] = dsgn * (real_t)Min(dlim, Fabs(dcen));
   // }
 }
-__kernel void
-Loop1KcuTrace(__global real_t *q, __global real_t *dq, __global real_t *c,
-              __global real_t *qxm, __global real_t *qxp,
-              const real_t dtdx, const long Hnxyt,
-              const long imin, const long imax, const real_t zeror, const real_t zerol,
-              const real_t project, const int slices, const int Hnxystep)
-{
+__kernel void Loop1KcuTrace(__global real_t *q, __global real_t *dq,
+                            __global real_t *c, __global real_t *qxm,
+                            __global real_t *qxp, const real_t dtdx,
+                            const long Hnxyt, const long imin, const long imax,
+                            const real_t zeror, const real_t zerol,
+                            const real_t project, const int slices,
+                            const int Hnxystep) {
   size_t i, s;
   i = get_global_id(0);
   s = get_global_id(1);
@@ -746,73 +744,74 @@ Loop1KcuTrace(__global real_t *q, __global real_t *dq, __global real_t *c,
     return;
   if (i < imin || i >= imax)
     return;
-	int is = IHS_(i, s, Hnxyt);
-	PREFETCH( c + is, 1 );
-	int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
-	PREFETCH( q + idxID, 1 );
-  PREFETCH( dq + idxID, 1 );
-	int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
-	PREFETCH( q + idxIP, 1 );
-	PREFETCH( dq + idxIP, 1 );
-	int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
-	PREFETCH( q + idxIU, 1 );
-  PREFETCH( dq + idxIU, 1 );
-	int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
-	PREFETCH( q + idxIV, 1 );
-  PREFETCH( dq + idxIV, 1 );
-  PREFETCH( qxp + idxID, 1 );
-  PREFETCH( qxp + idxIU, 1 );
-  PREFETCH( qxp + idxIV, 1 );
-  PREFETCH( qxp + idxIP, 1 );
-  PREFETCH( qxm + idxID, 1 );
-  PREFETCH( qxm + idxIU, 1 );
-  PREFETCH( qxm + idxIV, 1);
-  PREFETCH( qxm + idxIP, 1 );
-	real_t cc = c[is];
-	real_t csq = Square(cc);
-	real_t r = q[idxID];
-	real_t cc__over_r = cc / r;
-	real_t half_r_over_cc = demi * r / cc;
-	real_t dp = dq[idxIP];
-	real_t dp_r_cc_factor = dp * half_r_over_cc / (r * cc);
-	real_t du = dq[idxIU];
-	real_t alpham =   demi * (du * half_r_over_cc - dp_r_cc_factor);
-	real_t alphap = - demi * (dp_r_cc_factor + du * half_r_over_cc);
-	real_t alpha0r =  demi * (dp / csq - dq[idxID]);
-	real_t alpha0v = -demi * dq[idxIV];
+  int is = IHS_(i, s, Hnxyt);
+  PREFETCH(c + is, 1);
+  int idxID = IHVWS_(i, s, ID, Hnxyt, Hnxystep);
+  PREFETCH(q + idxID, 1);
+  PREFETCH(dq + idxID, 1);
+  int idxIP = IHVWS_(i, s, IP, Hnxyt, Hnxystep);
+  PREFETCH(q + idxIP, 1);
+  PREFETCH(dq + idxIP, 1);
+  int idxIU = IHVWS_(i, s, IU, Hnxyt, Hnxystep);
+  PREFETCH(q + idxIU, 1);
+  PREFETCH(dq + idxIU, 1);
+  int idxIV = IHVWS_(i, s, IV, Hnxyt, Hnxystep);
+  PREFETCH(q + idxIV, 1);
+  PREFETCH(dq + idxIV, 1);
+  PREFETCH(qxp + idxID, 1);
+  PREFETCH(qxp + idxIU, 1);
+  PREFETCH(qxp + idxIV, 1);
+  PREFETCH(qxp + idxIP, 1);
+  PREFETCH(qxm + idxID, 1);
+  PREFETCH(qxm + idxIU, 1);
+  PREFETCH(qxm + idxIV, 1);
+  PREFETCH(qxm + idxIP, 1);
+  real_t cc = c[is];
+  real_t csq = Square(cc);
+  real_t r = q[idxID];
+  real_t cc__over_r = cc / r;
+  real_t half_r_over_cc = demi * r / cc;
+  real_t dp = dq[idxIP];
+  real_t dp_r_cc_factor = dp * half_r_over_cc / (r * cc);
+  real_t du = dq[idxIU];
+  real_t alpham = demi * (du * half_r_over_cc - dp_r_cc_factor);
+  real_t alphap = -demi * (dp_r_cc_factor + du * half_r_over_cc);
+  real_t alpha0r = demi * (dp / csq - dq[idxID]);
+  real_t alpha0v = -demi * dq[idxIV];
   // Right state
-  //attempt to reduce masking overhead on MIC
-	real_t u = q[idxIU];
-	real_t spminus = ((u - cc) >= zeror) ? project : (u - cc) * dtdx + one;
-	real_t spplus  = ((u + cc) >= zeror) ? project : (u + cc) * dtdx + one;
-	real_t spzero  =        (u >= zeror) ? project : u * dtdx + one;
-	real_t apright = spplus * alphap;
-	real_t amright = spminus * alpham;
-	real_t azrright = spzero * alpha0r;
-	real_t v = q[idxIV];
-	real_t p = q[idxIP];
+  // attempt to reduce masking overhead on MIC
+  real_t u = q[idxIU];
+  real_t spminus = ((u - cc) >= zeror) ? project : (u - cc) * dtdx + one;
+  real_t spplus = ((u + cc) >= zeror) ? project : (u + cc) * dtdx + one;
+  real_t spzero = (u >= zeror) ? project : u * dtdx + one;
+  real_t apright = spplus * alphap;
+  real_t amright = spminus * alpham;
+  real_t azrright = spzero * alpha0r;
+  real_t v = q[idxIV];
+  real_t p = q[idxIP];
   qxp[idxID] = r + (apright + amright + azrright);
-	qxp[idxIU] = u + (apright - amright) * cc__over_r;
-	qxp[idxIV] = v + spzero * alpha0v;
+  qxp[idxIU] = u + (apright - amright) * cc__over_r;
+  qxp[idxIV] = v + spzero * alpha0v;
   qxp[idxIP] = p + (apright + amright) * csq;
   // Left state
-  //attempt to reduce masking overhead on MIC
+  // attempt to reduce masking overhead on MIC
   spminus = ((u - cc) <= zerol) ? -project : (u - cc) * dtdx - one;
-  spplus  = ((u + cc) <= zerol) ? -project : (u + cc) * dtdx - one;
-  spzero  =        (u <= zerol) ? -project : u * dtdx - one;
-	real_t apleft = spplus * alphap;
-	real_t amleft = spminus * alpham;
-	real_t azrleft = spzero * alpha0r;
+  spplus = ((u + cc) <= zerol) ? -project : (u + cc) * dtdx - one;
+  spzero = (u <= zerol) ? -project : u * dtdx - one;
+  real_t apleft = spplus * alphap;
+  real_t amleft = spminus * alpham;
+  real_t azrleft = spzero * alpha0r;
   qxm[idxID] = r + (apleft + amleft + azrleft);
-	qxm[idxIU] = u + (apleft - amleft) * cc__over_r;
-	qxm[idxIV] = v + spzero * alpha0v;
+  qxm[idxIU] = u + (apleft - amleft) * cc__over_r;
+  qxm[idxIV] = v + spzero * alpha0v;
   qxm[idxIP] = p + (apleft + amleft) * csq;
 }
-__kernel void
-Loop2KcuTrace(__global real_t *q, __global real_t *dq,
-              __global real_t *qxm, __global real_t *qxp,
-              const real_t dtdx, const long Hnvar, const long Hnxyt,
-              const long imin, const long imax, const real_t zeror, const real_t zerol, const real_t project) {
+__kernel void Loop2KcuTrace(__global real_t *q, __global real_t *dq,
+                            __global real_t *qxm, __global real_t *qxp,
+                            const real_t dtdx, const long Hnvar,
+                            const long Hnxyt, const long imin, const long imax,
+                            const real_t zeror, const real_t zerol,
+                            const real_t project) {
   long IN;
   real_t u, a;
   real_t da;
@@ -827,7 +826,7 @@ Loop2KcuTrace(__global real_t *q, __global real_t *dq,
   int idxIP = IHVW(i, IP, Hnxyt);
   int idxID = IHVW(i, ID, Hnxyt);
   for (IN = IP + 1; IN < Hnvar; IN++) {
-	int idxIN = IHVW(i, IN, Hnxyt);
+    int idxIN = IHVW(i, IN, Hnxyt);
     u = q[idxIU];
     a = q[idxIN];
     da = dq[idxIN];
@@ -847,115 +846,121 @@ Loop2KcuTrace(__global real_t *q, __global real_t *dq,
     qxm[idxIN] = a + acmpleft;
   }
 }
-__kernel void
-KernelMemset(__global real_t *a, real_t v, long lobj) {
+__kernel void KernelMemset(__global real_t *a, real_t v, long lobj) {
   size_t gid = get_global_id(0);
   if (gid >= lobj)
     return;
   real_t dv = v;
   a[gid] = dv;
 }
-__kernel void
-KernelMemsetV4(__global int4 * a, int v, long lobj) {
+__kernel void KernelMemsetV4(__global int4 *a, int v, long lobj) {
   size_t gid = get_global_id(0) * 4;
   if (gid >= lobj)
     return;
-  a[gid] = (int4) v;
+  a[gid] = (int4)v;
 }
-__kernel void
-Loop1KcuRiemann(__global real_t *qleft, __global real_t *qright,
-                __global real_t *sgnm, __global real_t *qgdnv,
-                long Hnxyt, long Knarray, real_t Hsmallc,
-                real_t Hgamma, real_t Hsmallr, long Hniter_riemann, const int slices, const int HStep)
-{
+__kernel void Loop1KcuRiemann(__global real_t *qleft, __global real_t *qright,
+                              __global real_t *sgnm, __global real_t *qgdnv,
+                              long Hnxyt, long Knarray, real_t Hsmallc,
+                              real_t Hgamma, real_t Hsmallr,
+                              long Hniter_riemann, const int slices,
+                              const int HStep) {
   size_t s, i, j;
   i = get_global_id(0);
   s = get_global_id(1);
   if (i >= Knarray)
     return;
-	int idxID = IHVWS_(i, s, ID, Hnxyt, HStep);
-	PREFETCH(qleft + idxID, 1);
-	PREFETCH(qright + idxID, 1);
-	int idxIU = IHVWS_(i, s, IU, Hnxyt, HStep);
-	PREFETCH(qleft + idxIU, 1);
+  int idxID = IHVWS_(i, s, ID, Hnxyt, HStep);
+  PREFETCH(qleft + idxID, 1);
+  PREFETCH(qright + idxID, 1);
+  int idxIU = IHVWS_(i, s, IU, Hnxyt, HStep);
+  PREFETCH(qleft + idxIU, 1);
   PREFETCH(qright + idxIU, 1);
-	int idxIP = IHVWS_(i, s, IP, Hnxyt, HStep);
-	PREFETCH(qleft + idxIP, 1);
+  int idxIP = IHVWS_(i, s, IP, Hnxyt, HStep);
+  PREFETCH(qleft + idxIP, 1);
   PREFETCH(qright + idxIP, 1);
-	int idxIV = IHVWS_(i, s, IV, Hnxyt, HStep);
-	int is = IHS_(i, s, Hnxyt);
-	real_t smallp = Square(Hsmallc) / Hgamma;
-	real_t gamma6 = (Hgamma + one) / (two * Hgamma);
-	PREFETCH( sgnm +is, 1);
+  int idxIV = IHVWS_(i, s, IV, Hnxyt, HStep);
+  int is = IHS_(i, s, Hnxyt);
+  real_t smallp = Square(Hsmallc) / Hgamma;
+  real_t gamma6 = (Hgamma + one) / (two * Hgamma);
+  PREFETCH(sgnm + is, 1);
   PREFETCH(qright + idxIV, 1);
   PREFETCH(qleft + idxIV, 1);
   PREFETCH(qgdnv + idxID, 1);
   PREFETCH(qgdnv + idxIU, 1);
   PREFETCH(qgdnv + idxIP, 1);
   PREFETCH(qgdnv + idxIV, 1);
-	real_t Krli = Max(qleft[idxID], Hsmallr);
-	real_t Kuli = qleft[idxIU];
-	// opencl explose au dela de cette ligne si le code n'est pas en commentaire
-	real_t Kpli = Max(qleft[idxIP], (real_t) (Krli * smallp));
-	real_t Krri = Max(qright[idxID], Hsmallr);
-	real_t Kuri = qright[idxIU];
-	real_t Kpri = Max(qright[idxIP], (real_t) (Krri * smallp));
-	// Lagrangian sound speed
-	real_t Kcli = Hgamma * Kpli * Krli;
-	real_t Kcri = Hgamma * Kpri * Krri;
-	// First guess
-	real_t Kwli = Sqrt(Kcli);
-	real_t Kwri = Sqrt(Kcri);
-	real_t poldS = Max( ((Kwri * Kpli + Kwli * Kpri) + Kwli * Kwri * (Kuli - Kuri)) / (Kwli + Kwri), zero);
-	for (int iter = 0; iter < Hniter_riemann; iter++)
-	{
-		real_t wwl = Sqrt(Kcli * (one + gamma6 * (poldS - Kpli) / Kpli));
-		real_t wwr = Sqrt(Kcri * (one + gamma6 * (poldS - Kpri) / Kpri));
-		real_t ql = two * wwl * Square(wwl) / (Square(wwl) + Kcli);
-		real_t qr = two * wwr * Square(wwr) / (Square(wwr) + Kcri);
-		real_t usl = Kuli - (poldS - Kpli) / wwl;
-		real_t usr = Kuri + (poldS - Kpri) / wwr;
-		real_t t1 = qr * ql / (qr + ql) * (usl - usr);
-		real_t t2 = -poldS;
-		real_t delpS = Max(t1, t2);
+  real_t Krli = Max(qleft[idxID], Hsmallr);
+  real_t Kuli = qleft[idxIU];
+  // opencl explose au dela de cette ligne si le code n'est pas en commentaire
+  real_t Kpli = Max(qleft[idxIP], (real_t)(Krli * smallp));
+  real_t Krri = Max(qright[idxID], Hsmallr);
+  real_t Kuri = qright[idxIU];
+  real_t Kpri = Max(qright[idxIP], (real_t)(Krri * smallp));
+  // Lagrangian sound speed
+  real_t Kcli = Hgamma * Kpli * Krli;
+  real_t Kcri = Hgamma * Kpri * Krri;
+  // First guess
+  real_t Kwli = Sqrt(Kcli);
+  real_t Kwri = Sqrt(Kcri);
+  real_t poldS =
+      Max(((Kwri * Kpli + Kwli * Kpri) + Kwli * Kwri * (Kuli - Kuri)) /
+              (Kwli + Kwri),
+          zero);
+  for (int iter = 0; iter < Hniter_riemann; iter++) {
+    real_t wwl = Sqrt(Kcli * (one + gamma6 * (poldS - Kpli) / Kpli));
+    real_t wwr = Sqrt(Kcri * (one + gamma6 * (poldS - Kpri) / Kpri));
+    real_t ql = two * wwl * Square(wwl) / (Square(wwl) + Kcli);
+    real_t qr = two * wwr * Square(wwr) / (Square(wwr) + Kcri);
+    real_t usl = Kuli - (poldS - Kpli) / wwl;
+    real_t usr = Kuri + (poldS - Kpri) / wwr;
+    real_t t1 = qr * ql / (qr + ql) * (usl - usr);
+    real_t t2 = -poldS;
+    real_t delpS = Max(t1, t2);
     poldS = poldS + delpS;
-		if( Fabs(delpS / (poldS + Hsmallr * smallp)) <= 1.e-6 )
+    if (Fabs(delpS / (poldS + Hsmallr * smallp)) <= 1.e-6)
       break;
   }
-	Kwli = Sqrt(Kcli + Kcli * gamma6 * (poldS - Kpli) / Kpli);
-	Kwri = Sqrt(Kcri + Kcri * gamma6 * (poldS - Kpri) / Kpri);
-	real_t Kustari = demi * (Kuli + (Kpli - poldS) / Kwli + Kuri - (Kpri - poldS) / Kwri);
-	real_t sgnm_is = (Kustari > 0) ? 1 : -1;
+  Kwli = Sqrt(Kcli + Kcli * gamma6 * (poldS - Kpli) / Kpli);
+  Kwri = Sqrt(Kcri + Kcri * gamma6 * (poldS - Kpri) / Kpri);
+  real_t Kustari =
+      demi * (Kuli + (Kpli - poldS) / Kwli + Kuri - (Kpri - poldS) / Kwri);
+  real_t sgnm_is = (Kustari > 0) ? 1 : -1;
   sgnm[is] = sgnm_is;
-	real_t Kroi = (sgnm_is == 1)? Krli : Krri;
-	real_t invKroi = 1.0 / Kroi;
-	real_t Kuoi = (sgnm_is == 1)? Kuli : Kuri;
-	real_t Kpoi = (sgnm_is == 1)? Kpli : Kpri;
-	real_t Kwoi = (sgnm_is == 1)? Kwli : Kwri;
-	real_t Kcoi = Max(Hsmallc, Sqrt(Fabs(Hgamma * Kpoi * invKroi)));
-	real_t Krstari = Kroi / (one + Kroi * (Kpoi - poldS) / Square(Kwoi));
+  real_t Kroi = (sgnm_is == 1) ? Krli : Krri;
+  real_t invKroi = 1.0 / Kroi;
+  real_t Kuoi = (sgnm_is == 1) ? Kuli : Kuri;
+  real_t Kpoi = (sgnm_is == 1) ? Kpli : Kpri;
+  real_t Kwoi = (sgnm_is == 1) ? Kwli : Kwri;
+  real_t Kcoi = Max(Hsmallc, Sqrt(Fabs(Hgamma * Kpoi * invKroi)));
+  real_t Krstari = Kroi / (one + Kroi * (Kpoi - poldS) / Square(Kwoi));
   Krstari = Max(Krstari, Hsmallr);
-	real_t Kcstari = Max(Hsmallc, Sqrt(Fabs(Hgamma * poldS / Krstari)));
-	real_t Kushocki = Kwoi * invKroi - sgnm_is * Kuoi;
-	real_t Kspini = (poldS >= Kpoi) ? Kushocki : Kcstari - sgnm_is * Kustari;
-	real_t Kspouti = (poldS >= Kpoi) ? Kushocki : Kcoi - sgnm_is * Kuoi;
-	real_t Kscri = Max((real_t) (Kspouti - Kspini), (real_t) (Hsmallc + Fabs(Kspouti + Kspini)));
-	real_t Kfraci = (one + (Kspouti + Kspini) / Kscri) * demi;
-	Kfraci = Max(zero, (real_t) (Min(one, Kfraci)));
-	real_t qgdnv_idxID = (Kspouti < zero) ? Kroi : Kfraci * Krstari - (Kfraci * Kroi - Kroi);
-	real_t qgdnv_idxIU = (Kspouti < zero) ? Kuoi : Kfraci * Kustari - (Kfraci * Kuoi - Kuoi);
-	real_t qgdnv_idxIP = (Kspouti < zero) ? Kpoi : Kfraci * poldS - (Kfraci * Kpoi - Kpoi);
+  real_t Kcstari = Max(Hsmallc, Sqrt(Fabs(Hgamma * poldS / Krstari)));
+  real_t Kushocki = Kwoi * invKroi - sgnm_is * Kuoi;
+  real_t Kspini = (poldS >= Kpoi) ? Kushocki : Kcstari - sgnm_is * Kustari;
+  real_t Kspouti = (poldS >= Kpoi) ? Kushocki : Kcoi - sgnm_is * Kuoi;
+  real_t Kscri = Max((real_t)(Kspouti - Kspini),
+                     (real_t)(Hsmallc + Fabs(Kspouti + Kspini)));
+  real_t Kfraci = (one + (Kspouti + Kspini) / Kscri) * demi;
+  Kfraci = Max(zero, (real_t)(Min(one, Kfraci)));
+  real_t qgdnv_idxID =
+      (Kspouti < zero) ? Kroi : Kfraci * Krstari - (Kfraci * Kroi - Kroi);
+  real_t qgdnv_idxIU =
+      (Kspouti < zero) ? Kuoi : Kfraci * Kustari - (Kfraci * Kuoi - Kuoi);
+  real_t qgdnv_idxIP =
+      (Kspouti < zero) ? Kpoi : Kfraci * poldS - (Kfraci * Kpoi - Kpoi);
   qgdnv_idxID = (Kspini > zero) ? Krstari : qgdnv_idxID;
   qgdnv_idxIU = (Kspini > zero) ? Kustari : qgdnv_idxIU;
-	qgdnv_idxIP = (Kspini > zero) ? poldS : qgdnv_idxIP;
-  qgdnv[idxID] = qgdnv_idxID ;
-  qgdnv[idxIU] = qgdnv_idxIU ;
-  qgdnv[idxIP] = qgdnv_idxIP ;
+  qgdnv_idxIP = (Kspini > zero) ? poldS : qgdnv_idxIP;
+  qgdnv[idxID] = qgdnv_idxID;
+  qgdnv[idxIU] = qgdnv_idxIU;
+  qgdnv[idxIP] = qgdnv_idxIP;
   qgdnv[idxIV] = (sgnm_is == 1) ? qleft[idxIV] : qright[idxIV];
 }
-__kernel void
-Loop10KcuRiemann(__global real_t *qleft, __global real_t *qright, __global real_t *sgnm,
-                 __global real_t *qgdnv, long Knarray, long Knvar, long KHnxyt, const int slices, const int Hstep) {
+__kernel void Loop10KcuRiemann(__global real_t *qleft, __global real_t *qright,
+                               __global real_t *sgnm, __global real_t *qgdnv,
+                               long Knarray, long Knvar, long KHnxyt,
+                               const int slices, const int Hstep) {
   long invar;
   long s, i = get_global_id(0);
   long Hnxyt = KHnxyt;
@@ -976,11 +981,11 @@ Loop10KcuRiemann(__global real_t *qleft, __global real_t *qright, __global real_
 }
 // kernel to pack/unpack arrays used in MPI exchanges
 // #define IHv(i,j,v) ((i) + (Hnxt * (Hnyt * (v) + (j))))
-#define IHv2v(i,j,v) ((i) + (ExtraLayer * (Hnyt * (v) + (j))))
-#define IHv2h(i,j,v) ((i) + (Hnxt * (ExtraLayer * (v) + (j))))
-__kernel void
-kpack_arrayv(const int xmin, const long Hnxt, const long Hnyt, const long Hnvar, __global real_t *buffer,
-             __global real_t *uold) {
+#define IHv2v(i, j, v) ((i) + (ExtraLayer * (Hnyt * (v) + (j))))
+#define IHv2h(i, j, v) ((i) + (Hnxt * (ExtraLayer * (v) + (j))))
+__kernel void kpack_arrayv(const int xmin, const long Hnxt, const long Hnyt,
+                           const long Hnvar, __global real_t *buffer,
+                           __global real_t *uold) {
   int ivar, i;
   int j = get_global_id(0);
   if (j >= Hnyt)
@@ -991,9 +996,9 @@ kpack_arrayv(const int xmin, const long Hnxt, const long Hnyt, const long Hnvar,
     }
   }
 }
-__kernel void
-kunpack_arrayv(const int xmin, const long Hnxt, const long Hnyt, const long Hnvar, __global real_t *buffer,
-               __global real_t *uold) {
+__kernel void kunpack_arrayv(const int xmin, const long Hnxt, const long Hnyt,
+                             const long Hnvar, __global real_t *buffer,
+                             __global real_t *uold) {
   int ivar, i;
   int j = get_global_id(0);
   if (j >= Hnyt)
@@ -1004,9 +1009,9 @@ kunpack_arrayv(const int xmin, const long Hnxt, const long Hnyt, const long Hnva
     }
   }
 }
-__kernel void
-kpack_arrayh(const int ymin, const long Hnxt, const long Hnyt, const long Hnvar, __global real_t *buffer,
-             __global real_t *uold) {
+__kernel void kpack_arrayh(const int ymin, const long Hnxt, const long Hnyt,
+                           const long Hnvar, __global real_t *buffer,
+                           __global real_t *uold) {
   int ivar, j;
   int i = get_global_id(0);
   if (i >= Hnxt)
@@ -1017,9 +1022,9 @@ kpack_arrayh(const int ymin, const long Hnxt, const long Hnyt, const long Hnvar,
     }
   }
 }
-__kernel void
-kunpack_arrayh(const int ymin, const long Hnxt, const long Hnyt, const long Hnvar, __global real_t *buffer,
-               __global real_t *uold) {
+__kernel void kunpack_arrayh(const int ymin, const long Hnxt, const long Hnyt,
+                             const long Hnvar, __global real_t *buffer,
+                             __global real_t *uold) {
   int ivar, j;
   int i = get_global_id(0);
   if (i >= Hnxt)
@@ -1032,8 +1037,8 @@ kunpack_arrayh(const int ymin, const long Hnxt, const long Hnyt, const long Hnva
 }
 #define REDUCALGO 1
 #if REDUCALGO == 2
-__kernel void
-reduceMaxReal(__global real_t *buffer, __const long length, __global real_t *result, __local real_t *scratch) {
+__kernel void reduceMaxReal(__global real_t *buffer, __const long length,
+                            __global real_t *result, __local real_t *scratch) {
   int global_index = get_global_id(0);
   int i;
   real_t lmaxCourant;
@@ -1047,20 +1052,17 @@ reduceMaxReal(__global real_t *buffer, __const long length, __global real_t *res
 }
 #endif
 #if REDUCALGO == 1
-__kernel void
-reduceMaxReal(__global real_t *buffer,
-	      __const long length,
-	      __global real_t *result,
-	      __local real_t *scratch) {
+__kernel void reduceMaxReal(__global real_t *buffer, __const long length,
+                            __global real_t *result, __local real_t *scratch) {
   int global_index = get_global_id(0);
-  int local_index  = get_local_id(0);
+  int local_index = get_local_id(0);
   real_t accumulator = -DBL_MAX;
   // Pass 1
   // Loop sequentially over chunks of input vector
   while (global_index < length) {
     real_t element = buffer[global_index];
     accumulator = fmax(accumulator, element);
-    global_index += get_local_size(0);  // to favor coalescing
+    global_index += get_local_size(0); // to favor coalescing
   }
   // Pass 2
   // Perform parallel reduction
@@ -1079,6 +1081,6 @@ reduceMaxReal(__global real_t *buffer,
   }
 }
 #endif
-//EOF
+// EOF
 #ifdef NOTDEF
-#endif //NOTDEF
+#endif // NOTDEF

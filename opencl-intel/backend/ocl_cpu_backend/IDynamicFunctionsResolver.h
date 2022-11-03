@@ -15,22 +15,25 @@
 #pragma once
 #include <string>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 /**
  * This inetrface represent the dynamically loaded builtin functions address
  * resolver unit mainly the SVML
  */
-class IDynamicFunctionsResolver
-{
+class IDynamicFunctionsResolver {
 public:
-    /**
-     * @returns the function address of the required function; 0 in case function
-     *  not known
-     */
-    virtual unsigned long long int GetFunctionAddress(const std::string& functionName) 
-        const = 0;
-    virtual ~IDynamicFunctionsResolver() {}
+  /**
+   * @returns the function address of the required function; 0 in case function
+   *  not known
+   */
+  virtual unsigned long long int
+  GetFunctionAddress(const std::string &functionName) const = 0;
+  virtual ~IDynamicFunctionsResolver() {}
 };
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

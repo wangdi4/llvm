@@ -22,12 +22,10 @@
 
 namespace utils {
 #if __TBB_GLIBCXX_THIS_THREAD_YIELD_BROKEN
-    static inline void yield() {
-        sched_yield();
-    }
+static inline void yield() { sched_yield(); }
 #else
-    using std::this_thread::yield;
+using std::this_thread::yield;
 #endif
-}
+} // namespace utils
 
 #endif // __TBB_test_common_utils_yield_H

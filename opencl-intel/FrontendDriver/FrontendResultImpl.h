@@ -31,7 +31,7 @@ public:
   const char *GetErrorLog() const override { return m_log.c_str(); }
   void Release() override { delete this; }
 
-// OCLFEBinaryResult
+  // OCLFEBinaryResult
   OCLFEBinaryResult() : m_type(IR_TYPE_UNKNOWN) {}
   llvm::SmallVectorImpl<char> &getIRBufferRef() { return m_IRBuffer; }
   std::string &getLogRef() { return m_log; }

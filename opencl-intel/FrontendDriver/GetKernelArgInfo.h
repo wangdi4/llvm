@@ -76,6 +76,6 @@ public:
                        IOCLFEKernelArgInfo **ppResult);
 };
 
-} // ClangFE
-} // OpenCL
-} // Intel
+} // namespace ClangFE
+} // namespace OpenCL
+} // namespace Intel

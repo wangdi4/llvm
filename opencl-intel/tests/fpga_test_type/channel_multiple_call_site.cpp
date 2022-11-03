@@ -77,8 +77,7 @@ TEST_F(TestChannelMultipleCallSite, Basic) {
       size, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, &data.front());
   ASSERT_NE(nullptr, input_buffer) << "createBuffer failed";
 
-  cl_mem output_buffer =
-      createBuffer<cl_int>(size * 8, CL_MEM_WRITE_ONLY);
+  cl_mem output_buffer = createBuffer<cl_int>(size * 8, CL_MEM_WRITE_ONLY);
   ASSERT_NE(nullptr, output_buffer) << "createBuffer failed";
 
   ASSERT_TRUE(enqueueTask("host_reader", input_buffer, size))
@@ -88,7 +87,8 @@ TEST_F(TestChannelMultipleCallSite, Basic) {
 
   std::vector<cl_int> result(size * 8);
   ASSERT_TRUE(readBuffer<cl_int>("host_writer", output_buffer, size * 8,
-                                 &result.front())) << "readBuffer failed";
+                                 &result.front()))
+      << "readBuffer failed";
 
   for (cl_int i = 0; i < size; ++i) {
     ASSERT_EQ(data[i], result[8 * i + 0]) << " Data is differ at index " << i;
@@ -101,4 +101,3 @@ TEST_F(TestChannelMultipleCallSite, Basic) {
     ASSERT_EQ(data[i], result[8 * i + 7]) << " Data is differ at index " << i;
   }
 }
-

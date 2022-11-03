@@ -15,19 +15,17 @@
 #ifndef __ICONTAINER_H__
 #define __ICONTAINER_H__
 
-namespace Validation
-{
-    class IContainerVisitor;
-    /// @brief IContainer marker interface
-    /// Intended to mark all data container objects managed by DataManager
-    class IContainer
-    {
-    public:
-        /// @brief virtual destructor stub
-        virtual ~IContainer(){}
-        /// @brief visitor accept method
-        virtual void Accept( IContainerVisitor& visitor) const = 0;
-    };
-}
+namespace Validation {
+class IContainerVisitor;
+/// @brief IContainer marker interface
+/// Intended to mark all data container objects managed by DataManager
+class IContainer {
+public:
+  /// @brief virtual destructor stub
+  virtual ~IContainer() {}
+  /// @brief visitor accept method
+  virtual void Accept(IContainerVisitor &visitor) const = 0;
+};
+} // namespace Validation
 
 #endif // __ICONTAINER_H__

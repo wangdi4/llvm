@@ -14,19 +14,13 @@
 
 using std::numeric_limits;
 
-template<class T>
-class IntGenerator: public Generator<T> {
+template <class T> class IntGenerator : public Generator<T> {
 public:
-	IntGenerator(int seed, vector<T> edgeCases) :
-		Generator<T> (seed, edgeCases) {
-	}
+  IntGenerator(int seed, vector<T> edgeCases) : Generator<T>(seed, edgeCases) {}
 
-	virtual ~IntGenerator() {
-	}
+  virtual ~IntGenerator() {}
 
-	virtual T getRandomNum() {
-		return rand();
-	}
+  virtual T getRandomNum() { return rand(); }
 };
 
 #endif /* INTGENERATOR_H_ */

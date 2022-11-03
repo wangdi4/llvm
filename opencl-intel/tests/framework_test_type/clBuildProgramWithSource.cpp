@@ -17,7 +17,7 @@
 
 class BuildProgramWithSourceTest : public CL21 {};
 
-/**************************************************************************************************
+/*******************************************************************************
  * clBuildProgram
  * -------------------
  * (1) get device ids
@@ -25,7 +25,7 @@ class BuildProgramWithSourceTest : public CL21 {};
  * (3) create binary
  * (4) create program with source
  * (5) build program
- **************************************************************************************************/
+ ******************************************************************************/
 TEST_F(BuildProgramWithSourceTest, basic) {
   const char *strings[] = {
       "__kernel void test_kernel(__global char16* pBuff0, __global char* "

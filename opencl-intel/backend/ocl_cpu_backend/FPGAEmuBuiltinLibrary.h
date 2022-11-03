@@ -16,16 +16,19 @@
 
 #include "CPUBuiltinLibrary.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class FPGAEmuBuiltinLibrary : public CPUBuiltinLibrary
-{
+class FPGAEmuBuiltinLibrary : public CPUBuiltinLibrary {
 public:
-    FPGAEmuBuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId)
-        : CPUBuiltinLibrary(cpuId) {}
-    virtual ~FPGAEmuBuiltinLibrary() {}
+  FPGAEmuBuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId)
+      : CPUBuiltinLibrary(cpuId) {}
+  virtual ~FPGAEmuBuiltinLibrary() {}
 
-    virtual void Load() override;
+  virtual void Load() override;
 };
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

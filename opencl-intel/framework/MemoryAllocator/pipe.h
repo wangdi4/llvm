@@ -16,32 +16,31 @@
 
 #include "GenericMemObj.h"
 #include "PipeCommon.h"
-#include "framework_proxy.h"
 #include "cl_shared_ptr.hpp"
+#include "framework_proxy.h"
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
 /**
  * This class represents a pipe memory object
  */
-class Pipe : public GenericMemObject
-{
+class Pipe : public GenericMemObject {
 
-	PREPARE_SHARED_PTR(Pipe)
+  PREPARE_SHARED_PTR(Pipe)
 
-	static SharedPtr<Pipe> Allocate(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType)
-	{
-		return new Pipe(pContext, clObjType);
-	}
+  static SharedPtr<Pipe> Allocate(const SharedPtr<Context> &pContext,
+                                  cl_mem_object_type clObjType) {
+    return new Pipe(pContext, clObjType);
+  }
 
   /**
    *  For FPGA Emulator
    */
-  long Release(void) override
-  {
-    if (this->GetContext()->IsFPGAEmulator())
-    {
-      void* pPipe = GetBackingStoreData();
+  long Release(void) override {
+    if (this->GetContext()->IsFPGAEmulator()) {
+      void *pPipe = GetBackingStoreData();
       __pipe_release_fpga(pPipe);
     }
     return 0;
@@ -52,11 +51,9 @@ class Pipe : public GenericMemObject
    * @param uiMaxPackets the maximum number of packets this Pipe can hold
    * @return the pipe's size
    */
-  static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets)
-  {
-    const OCLConfig* pOclConfig = FrameworkProxy::Instance()->GetOCLConfig();
-    if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
-    {
+  static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets) {
+    const OCLConfig *pOclConfig = FrameworkProxy::Instance()->GetOCLConfig();
+    if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode()) {
       int mode = pOclConfig->GetChannelDepthEmulationMode();
       return __pipe_get_total_size_fpga(uiPacketSize, uiMaxPackets, mode);
     }
@@ -96,62 +93,64 @@ class Pipe : public GenericMemObject
            (GetFlags() & CL_MEM_HOST_READ_ONLY);
   }
 
-        /**
-	 * Map pipe object for read or write (depending on a \p flags).
-	 * @param flags is for future use, and should currently be specified as 0
-	 * @param requestedSize  is a number of bytes to read or write
-	 * @param pMappedSizeRet is an actual size of returned memory buffer
-	 * @returns a valid pointer for memory map or nullptr
-	 */
-	void* Map(cl_mem_flags flags, size_t requestedSize,
-                  size_t* pMappedSizeRet, cl_err_code* pError);
+  /**
+   * Map pipe object for read or write (depending on a \p flags).
+   * @param flags is for future use, and should currently be specified as 0
+   * @param requestedSize  is a number of bytes to read or write
+   * @param pMappedSizeRet is an actual size of returned memory buffer
+   * @returns a valid pointer for memory map or nullptr
+   */
+  void *Map(cl_mem_flags flags, size_t requestedSize, size_t *pMappedSizeRet,
+            cl_err_code *pError);
 
-	/**
-	 * Unmap a memory returned by a Map call.
-	 * @param pMappedMem is a memory to unmap
-	 * @param sizeToUnmap is a number of bytes to unmap
-	 * @param pUnmappedSizeRet is a number of bytes that actually was
-	 *    unmapped. Runtime can unmap less than requested for performance
-	 *    reasons.
-	 */
-	cl_err_code Unmap(void* pMappedMem, size_t sizeToUnmap,
-	                  size_t* pUnmappedSizeRet);
+  /**
+   * Unmap a memory returned by a Map call.
+   * @param pMappedMem is a memory to unmap
+   * @param sizeToUnmap is a number of bytes to unmap
+   * @param pUnmappedSizeRet is a number of bytes that actually was
+   *    unmapped. Runtime can unmap less than requested for performance
+   *    reasons.
+   */
+  cl_err_code Unmap(void *pMappedMem, size_t sizeToUnmap,
+                    size_t *pUnmappedSizeRet);
 
-	/**
-	 * Read a single packet into \p pDst.
-	 */
-	cl_err_code ReadPacket(void* pDst);
+  /**
+   * Read a single packet into \p pDst.
+   */
+  cl_err_code ReadPacket(void *pDst);
 
-	/**
-	 * Write a single packet into \p pDst.
-	 */
-	cl_err_code WritePacket(const void* pSrc);
+  /**
+   * Write a single packet into \p pDst.
+   */
+  cl_err_code WritePacket(const void *pSrc);
 
 private:
+  Pipe(const SharedPtr<Context> &pContext, cl_mem_object_type clObjType)
+      : GenericMemObject(pContext, clObjType) {
+    assert(CL_MEM_OBJECT_PIPE == clObjType &&
+           "CL_MEM_OBJECT_PIPE != clObjType");
+  }
 
-	Pipe(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) : GenericMemObject(pContext, clObjType)
-	{
-		assert(CL_MEM_OBJECT_PIPE == clObjType && "CL_MEM_OBJECT_PIPE != clObjType");
-	}
+  struct MapSegment {
+    char *ptr;
+    size_t size;
+    size_t sizeToUnmap;
+  };
 
-	struct MapSegment {
-		char* ptr;
-		size_t size;
-		size_t sizeToUnmap;
-	};
+  void MapRead(MapSegment seg);
+  void MapWrite(MapSegment seg);
+  void UnmapRead(MapSegment seg);
+  void UnmapWrite(MapSegment seg);
+  void FlushRead();
+  void FlushWrite();
 
-	void MapRead(MapSegment seg);
-	void MapWrite(MapSegment seg);
-	void UnmapRead(MapSegment seg);
-	void UnmapWrite(MapSegment seg);
-	void FlushRead();
-	void FlushWrite();
+  cl_uint m_uiPacketSize;
+  cl_uint m_uiMaxPackets;
 
-	cl_uint m_uiPacketSize;
-	cl_uint m_uiMaxPackets;
-
-	std::vector<char> m_mapBuffer;
-	std::deque<MapSegment> m_mapSegments;
+  std::vector<char> m_mapBuffer;
+  std::deque<MapSegment> m_mapSegments;
 };
 
-}}}
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

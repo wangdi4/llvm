@@ -7,17 +7,17 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 store ( __global const float *in,
-		__global int *out)
+    __global int *out)
 {
-	int gid = get_global_id(0);
-	int tmp = max(gid, (gid / 3) + 17);
-	out[tmp] = INT1;
+  int gid = get_global_id(0);
+  int tmp = max(gid, (gid / 3) + 17);
+  out[tmp] = INT1;
 
 }

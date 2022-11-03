@@ -30,49 +30,50 @@ typedef std::map<llvm::reflection::FunctionDescriptor,
 
 struct PairSW : std::pair<std::string, llvm::reflection::width::V> {
   PairSW(const std::pair<std::string, llvm::reflection::width::V> &);
-  bool operator < (const PairSW&)const;
-  private:
-  bool compareWild(const std::string& w , const std::string& s)const;
+  bool operator<(const PairSW &) const;
+
+private:
+  bool compareWild(const std::string &w, const std::string &s) const;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-//Purpose: VersionStrategy is an interface which returns a name of the function
-//that matches a given orderd pair: (n: <mangled name>, w: <target width>).
-//This is a mechnism aimes to enable functions to be versioned by a custom
-//algorithm.
+// Purpose: VersionStrategy is an interface which returns a name of the function
+// that matches a given orderd pair: (n: <mangled name>, w: <target width>).
+// This is a mechnism aimes to enable functions to be versioned by a custom
+// algorithm.
 ///////////////////////////////////////////////////////////////////////////////
-struct VersionStrategy{
-  virtual PairSW operator()(const PairSW&)const = 0;
+struct VersionStrategy {
+  virtual PairSW operator()(const PairSW &) const = 0;
   virtual ~VersionStrategy() = 0;
 };
 
 //
-//Factory for the creation of null descriptors
+// Factory for the creation of null descriptors
 //
-struct NullDescriptorStrategy: VersionStrategy{
+struct NullDescriptorStrategy : VersionStrategy {
   PairSW operator()(const PairSW &) const override;
   ~NullDescriptorStrategy();
 };
 
 //
-//AOS to SOA function descriptor conversion
+// AOS to SOA function descriptor conversion
 //
 class SoaDescriptorStrategy : public VersionStrategy,
                               public llvm::reflection::TypeVisitor {
 private:
-  //type synonyms
+  // type synonyms
   typedef llvm::reflection::FunctionDescriptor (
       SoaDescriptorStrategy::*TransposeStrategy)(const PairSW &sw) const;
 
 public:
   SoaDescriptorStrategy();
-  void setTypeMap(const ReturnTypeMap*);
+  void setTypeMap(const ReturnTypeMap *);
   ~SoaDescriptorStrategy();
-  
+
   //////////////////////////////////////////////////////////////////////////////
-  //Purpose: creates a transposed operator, with respect to the parameters
-  //initialized by the 'init' method.
-  //Return: the transposed function descriptor
+  // Purpose: creates a transposed operator, with respect to the parameters
+  // initialized by the 'init' method.
+  // Return: the transposed function descriptor
   //////////////////////////////////////////////////////////////////////////////
   PairSW operator()(const PairSW &) const override;
   void visit(const llvm::reflection::PrimitiveType *) override;
@@ -88,15 +89,15 @@ private:
   llvm::reflection::FunctionDescriptor
   vectorReturnTranspose(const PairSW &sw) const;
 
-  const ReturnTypeMap* m_pTypeMap;
-  //the transpose strategy (either vector or scalar)
+  const ReturnTypeMap *m_pTypeMap;
+  // the transpose strategy (either vector or scalar)
   TransposeStrategy m_transposeStrategy;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // "Identity strategy", which returns the pair past as parameter.
 ////////////////////////////////////////////////////////////////////////////////
-struct IdentityStrategy: VersionStrategy{
+struct IdentityStrategy : VersionStrategy {
   PairSW operator()(const PairSW &) const override;
 };
 
@@ -107,4 +108,4 @@ std::pair<std::string, llvm::reflection::width::V> nullPair();
 bool isNullPair(const std::pair<std::string, llvm::reflection::width::V> &);
 
 } // namespace Reflection
-#endif//__VERSION_STRATEGY_H__
+#endif //__VERSION_STRATEGY_H__

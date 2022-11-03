@@ -18,19 +18,22 @@
 #include "cl_cpu_detect.h"
 #include "cl_dev_backend_api.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class CPUBuiltinLibrary : public BuiltinLibrary
-{
+class CPUBuiltinLibrary : public BuiltinLibrary {
 public:
   CPUBuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId,
                     bool useDynamicSvmlLibrary = true)
       : BuiltinLibrary(cpuId), m_useDynamicSvmlLibrary(useDynamicSvmlLibrary) {}
 
-    virtual void Load() override;
+  virtual void Load() override;
 
-  private:
-    bool m_useDynamicSvmlLibrary;
+private:
+  bool m_useDynamicSvmlLibrary;
 };
 
-}}} // namespace
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

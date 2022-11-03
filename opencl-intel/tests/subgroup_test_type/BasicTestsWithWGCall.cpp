@@ -28,8 +28,7 @@ TEST_P(SGEmulationTest, BasicTestsWithWGCall) {
       clCreateProgramWithSource(m_context, 1, &kernel, &kernel_size, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
-  iRet = clBuildProgram(program, 0, nullptr, "-cl-std=CL2.0",
-                        nullptr, nullptr);
+  iRet = clBuildProgram(program, 0, nullptr, "-cl-std=CL2.0", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));
@@ -54,8 +53,9 @@ TEST_P(SGEmulationTest, BasicTestsWithWGCall) {
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
 
   cl_int wg_reduce_add[lsize] = {0};
-  cl_mem mem_obj_reduce = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
-                                         sizeof(cl_int) * lsize, wg_reduce_add, &iRet);
+  cl_mem mem_obj_reduce =
+      clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR, sizeof(cl_int) * lsize,
+                     wg_reduce_add, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
 
   iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), &mem_obj_scan);

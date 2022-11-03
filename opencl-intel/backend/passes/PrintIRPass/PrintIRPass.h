@@ -16,64 +16,64 @@
 #define __PRINT_IR_PASS__H__
 
 #include "cl_dev_backend_api.h"
-#include <llvm/Pass.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
 
-#include <vector>
 #include <sstream>
 #include <string>
+#include <vector>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class PrintIRPass : public llvm::ModulePass
-{
-    static char ID; // Pass identification, replacement for typeid
-    std::string m_IRDumpOption;
-    std::string m_IRDumpFolder;
-    bool m_doNotDumpIR;
+class PrintIRPass : public llvm::ModulePass {
+  static char ID; // Pass identification, replacement for typeid
+  std::string m_IRDumpOption;
+  std::string m_IRDumpFolder;
+  bool m_doNotDumpIR;
+
 public:
-    /**
-     * Options used during dumping IR
-     */
-    class DumpIRConfig
-    {
-        const std::vector<int>* m_IRDumpOption;
-        bool m_IRDumpOptionAll;
-    public:
-        /// This is a helper to determine whether the IR option was stated
-        bool FindIROption(const std::vector<int>* IROptions, IRDumpOptions option)
-        {
-            //rely on that IROptions is already sorted
-            if (binary_search(IROptions->begin(), IROptions->end(), option))
-                return true;
-            return false;
-        }
+  /**
+   * Options used during dumping IR
+   */
+  class DumpIRConfig {
+    const std::vector<int> *m_IRDumpOption;
+    bool m_IRDumpOptionAll;
 
-        bool FindIROptionAll(const std::vector<int>* IROptions)
-        {
-            if(FindIROption(IROptions, DUMP_IR_ALL))
-                return true;
-            return false;
-        }
+  public:
+    /// This is a helper to determine whether the IR option was stated
+    bool FindIROption(const std::vector<int> *IROptions, IRDumpOptions option) {
+      // rely on that IROptions is already sorted
+      if (binary_search(IROptions->begin(), IROptions->end(), option))
+        return true;
+      return false;
+    }
 
-        /// This is a utility to check whether a pass should have IR dumped
-        bool ShouldPrintPass(IRDumpOptions option)
-        {
-          return m_IRDumpOptionAll || FindIROption(m_IRDumpOption,option);
-        }
-       
-        DumpIRConfig(const std::vector<int>* IRDumpOption):
-                m_IRDumpOption(IRDumpOption)
-            {
-                m_IRDumpOptionAll = FindIROptionAll(IRDumpOption);
-            }
+    bool FindIROptionAll(const std::vector<int> *IROptions) {
+      if (FindIROption(IROptions, DUMP_IR_ALL))
+        return true;
+      return false;
+    }
 
-         ~DumpIRConfig() {}
-    };
-    PrintIRPass(IRDumpOptions option, dump_IR_options optionLocation,
-                            std::string dumpDir);
-    // doPassInitialization - prints the IR
-    bool runOnModule(llvm::Module &M) override;
+    /// This is a utility to check whether a pass should have IR dumped
+    bool ShouldPrintPass(IRDumpOptions option) {
+      return m_IRDumpOptionAll || FindIROption(m_IRDumpOption, option);
+    }
+
+    DumpIRConfig(const std::vector<int> *IRDumpOption)
+        : m_IRDumpOption(IRDumpOption) {
+      m_IRDumpOptionAll = FindIROptionAll(IRDumpOption);
+    }
+
+    ~DumpIRConfig() {}
+  };
+  PrintIRPass(IRDumpOptions option, dump_IR_options optionLocation,
+              std::string dumpDir);
+  // doPassInitialization - prints the IR
+  bool runOnModule(llvm::Module &M) override;
 };
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 #endif

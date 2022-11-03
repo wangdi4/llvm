@@ -6,22 +6,22 @@
  * produced by previous vectorizable clz function.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 func_clz_func_mul24 ( __global const float *in,
-		__global float4 *out)
+    __global float4 *out)
 {
-	int gid = get_global_id(0);
-	int inGidInt = in[gid];
-	int arg1 = clz(gid);
-	int arg2 = clz(inGidInt);
-	int arg3 = mul24(arg1, arg2);
-	out[gid].x = inGidInt;
-	out[gid].y = arg1;
-	out[gid].z = arg2;
-	out[gid].w = arg3;
+  int gid = get_global_id(0);
+  int inGidInt = in[gid];
+  int arg1 = clz(gid);
+  int arg2 = clz(inGidInt);
+  int arg3 = mul24(arg1, arg2);
+  out[gid].x = inGidInt;
+  out[gid].y = arg1;
+  out[gid].z = arg2;
+  out[gid].w = arg3;
 }

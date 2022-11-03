@@ -25,244 +25,245 @@
 #include "task_executor.h"
 
 // utils
+#include "Logger.h"
 #include "cl_shutdown.h"
 #include "cl_synch_objects.h"
 #include "cl_thread.h"
-#include "Logger.h"
 #include "ocl_itt.h"
 
 // system
 #include <set>
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
-    /**********************************************************************************************
-    * Class name:    FrameworkProxy
-    *
-    * Description:    the framework proxy class design to pass the OpenCL api calls to the 
-    *                framework's modules
-    * Author:        Uri Levy
-    * Date:            December 2008
-    **********************************************************************************************/
-    class FrameworkProxy : public Intel::OpenCL::Utils::IAtExitCentralPoint
-    {
-    private:
-        enum GLOBAL_STATE {
-            WORKING = 0,
-            TERMINATING,
-            TERMINATED
-        };
+/*******************************************************************************
+ * Class name:    FrameworkProxy
+ *
+ * Description: the framework proxy class design to pass the OpenCL api calls to
+ *              the framework's modules
+ * Author: Uri Levy
+ * Date: December 2008
+ ******************************************************************************/
+class FrameworkProxy : public Intel::OpenCL::Utils::IAtExitCentralPoint {
+private:
+  enum GLOBAL_STATE { WORKING = 0, TERMINATING, TERMINATED };
 
-    public:
-        
-        /******************************************************************************************
-        * Function:     Instance
-        * Description:    Get the instance of the framework proxy module.
-        * Arguments:        
-        * Return value:    instance to the framework factory
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        static    FrameworkProxy * Instance();
+public:
+  /*****************************************************************************
+   * Function:     Instance
+   * Description: Get the instance of the framework proxy module.
+   * Arguments:
+   * Return value:    instance to the framework factory
+   * Author:        Uri Levy
+   * Date:          December 2008
+   ****************************************************************************/
+  static FrameworkProxy *Instance();
 
-        static void Destroy();
+  static void Destroy();
 
-        /******************************************************************************************
-        * Function:     GetContextModule
-        * Description:    Get handle to the context module
-        * Arguments:        
-        * Return value:    pointer to the ContextModule class. NULL if context module wasn't
-        *                initialized successfully
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        ContextModule * GetContextModule() const { return m_pContextModule; }
-        
-        /******************************************************************************************
-        * Function:     GetExecutionModule
-        * Description:    Get handle to the execution module
-        * Arguments:        
-        * Return value:    pointer to the ExecutionModule class. NULL if module wasn't initialized
-        *                successfully
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        ExecutionModule * GetExecutionModule() const { return m_pExecutionModule; }
-        
-        /******************************************************************************************
-        * Function:     GetPlatformModule
-        * Description:    Get handle to the platform module
-        * Arguments:        
-        * Return value:    pointer to the PlatformModule class. NULL if module wasn't initialized
-        *                successfully
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        PlatformModule * GetPlatformModule() const { return m_pPlatformModule; }
+  /*****************************************************************************
+   * Function:     GetContextModule
+   * Description:    Get handle to the context module
+   * Arguments:
+   * Return value: pointer to the ContextModule class. NULL if context module
+   *               wasn't initialized successfully
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  ContextModule *GetContextModule() const { return m_pContextModule; }
 
-        /******************************************************************************************
-        * Function:     GetTaskExecutor
-        * Description:    Get global TaskExecutor Interface for Framework
-        * Arguments:        
-        * Return value:  
-        * Author:        
-        * Date:            
-        ******************************************************************************************/
-        Intel::OpenCL::TaskExecutor::ITaskExecutor*  GetTaskExecutor() const;
+  /*****************************************************************************
+   * Function:     GetExecutionModule
+   * Description:    Get handle to the execution module
+   * Arguments:
+   * Return value: pointer to the ExecutionModule class. NULL if module wasn't
+   *               initialized successfully
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  ExecutionModule *GetExecutionModule() const { return m_pExecutionModule; }
 
-        /******************************************************************************************
-        * Function:     Activate
-        * Description:    Simple TaskExecutor Interface for Framework
-        * Arguments:        
-        * Return value:    false on error
-        * Author:        
-        * Date:            
-        ******************************************************************************************/
-        bool            ActivateTaskExecutor() const;
+  /*****************************************************************************
+   * Function:     GetPlatformModule
+   * Description:    Get handle to the platform module
+   * Arguments:
+   * Return value: pointer to the PlatformModule class. NULL if module wasn't
+   *               initialized successfully
+   * Author: Uri Levy
+   * Date: December 2008
+   ****************************************************************************/
+  PlatformModule *GetPlatformModule() const { return m_pPlatformModule; }
 
-           /******************************************************************************************
-        * Function:     Deactivate
-        * Description:    Simple TaskExecutor Interface for Framework
-        * Arguments:        
-        * Return value:    
-        * Author:        
-        * Date:            
-        ******************************************************************************************/
-        void            DeactivateTaskExecutor() const;
+  /*****************************************************************************
+   * Function:     GetTaskExecutor
+   * Description:    Get global TaskExecutor Interface for Framework
+   * Arguments:
+   * Return value:
+   * Author:
+   * Date:
+   ****************************************************************************/
+  Intel::OpenCL::TaskExecutor::ITaskExecutor *GetTaskExecutor() const;
 
-           /******************************************************************************************
-        * Function:     CancelAllTasks()
-        * Description:    Simple TaskExecutor Interface for Framework
-        * Arguments:
-        * Return value:
-        * Author:
-        * Date:
-        ******************************************************************************************/
-        void            CancelAllTasks(bool wait_for_finish) const;
+  /*****************************************************************************
+   * Function:     Activate
+   * Description:    Simple TaskExecutor Interface for Framework
+   * Arguments:
+   * Return value:    false on error
+   * Author:
+   * Date:
+   ****************************************************************************/
+  bool ActivateTaskExecutor() const;
 
-        /******************************************************************************************
-        * Function:     NeedToDisableAPIsAtShutdown
-        * Description:    Considers if necessary to disable API at shutdown
-        * Arguments:
-        * Return value:    true for WIN32 and FPGA, false for Linux
-        * Author:
-        * Date:
-        ******************************************************************************************/
-        bool            NeedToDisableAPIsAtShutdown() const;
+  /*****************************************************************************
+   * Function:     Deactivate
+   * Description:    Simple TaskExecutor Interface for Framework
+   * Arguments:
+   * Return value:
+   * Author:
+   * Date:
+   ****************************************************************************/
+  void DeactivateTaskExecutor() const;
 
-           /******************************************************************************************
-        * Function:     Execute task on TaskExecutor
-        * Description:    Simple TaskExecutor Interface for Framework
-        * Arguments:
-        * Return value:    false on error
-        * Author:
-        * Date:
-        ******************************************************************************************/
-        bool            Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const;
+  /*****************************************************************************
+   * Function:     CancelAllTasks()
+   * Description:    Simple TaskExecutor Interface for Framework
+   * Arguments:
+   * Return value:
+   * Author:
+   * Date:
+   ****************************************************************************/
+  void CancelAllTasks(bool wait_for_finish) const;
 
-        /******************************************************************************************
-        * Function:     Execute task on TaskExecutor immediate
-        * Description:    Simple TaskExecutor Interface for Framework
-        * Arguments:
-        * Return value:    false on error
-        * Author:
-        * Date:
-        ******************************************************************************************/
-        bool            ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const;
+  /*****************************************************************************
+   * Function:     NeedToDisableAPIsAtShutdown
+   * Description:    Considers if necessary to disable API at shutdown
+   *
+   * Arguments:
+   * Return value:    true for WIN32 and FPGA, false for
+   * Linux Author:
+   * Date:
+   ****************************************************************************/
+  bool NeedToDisableAPIsAtShutdown() const;
 
-        /******************************************************************************************
-        * Function:     ~FrameworkProxy
-        * Description:    The FrameworkProxy class destructor
-        * Arguments:        
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        bool            API_Disabled() const { return (gGlobalState >= TERMINATING); }
+  /*****************************************************************************
+   * Function:     Execute task on TaskExecutor
+   * Description:    Simple
+   * TaskExecutor Interface for Framework
+   * Arguments:
+   * Return
+   * value:    false on error
+   * Author:
+   * Date:
+   ****************************************************************************/
+  bool Execute(const Intel::OpenCL::Utils::SharedPtr<
+               Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const;
 
-        /******************************************************************************************
-        * Manage process shutdown (IAtExitCentralPoint)
-        ******************************************************************************************/
-        void RegisterDllCallback(
-            Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
-        void UnregisterDllCallback(
-            Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
-        void SetDllUnloadingState(bool value) override {
-          m_bIgnoreAtExit = value;
-        }
-        bool isDllUnloadingState() const override { return m_bIgnoreAtExit; }
-        void AtExitTrigger(
-            Intel::OpenCL::Utils::at_exit_dll_callback_fn cb) override;
-        const OCLConfig* GetOCLConfig(){ return m_pConfig; };
+  /*****************************************************************************
+   * Function:     Execute task on TaskExecutor immediate
+   *
+   * Description:    Simple TaskExecutor Interface for Framework
+   *
+   * Arguments:
+   * Return value:    false on error
+   * Author:
+   * Date:
+   ****************************************************************************/
+  bool ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<
+                        Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const;
 
-    private:
-        /******************************************************************************************
-        * Function:     FrameworkProxy
-        * Description:    The FrameworkProxy class constructor
-        * Arguments:        
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        FrameworkProxy();
+  /*****************************************************************************
+   * Function:     ~FrameworkProxy
+   * Description:    The FrameworkProxy class destructor
+   * Arguments:
+   * Author:        Uri Levy
+   * Date:            December 2008
+   ****************************************************************************/
+  bool API_Disabled() const { return (gGlobalState >= TERMINATING); }
 
-        /******************************************************************************************
-        * Function:     ~FrameworkProxy
-        * Description:    The FrameworkProxy class destructor
-        * Arguments:        
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        virtual ~FrameworkProxy();
-            
-        void Initialize();
-        void Release(bool bTerminate);
+  /*****************************************************************************
+   * Manage process shutdown (IAtExitCentralPoint)
+   ****************************************************************************/
+  void RegisterDllCallback(
+      Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
+  void UnregisterDllCallback(
+      Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
+  void SetDllUnloadingState(bool value) override { m_bIgnoreAtExit = value; }
+  bool isDllUnloadingState() const override { return m_bIgnoreAtExit; }
+  void AtExitTrigger(Intel::OpenCL::Utils::at_exit_dll_callback_fn cb) override;
+  const OCLConfig *GetOCLConfig() { return m_pConfig; };
 
-        static cl_icd_dispatch             ICDDispatchTable;
-        static SOCLCRTDispatchTable        CRTDispatchTable;
-        static ocl_entry_points     OclEntryPoints;
+private:
+  /*****************************************************************************
+   * Function:     FrameworkProxy
+   * Description:    The FrameworkProxy class constructor
+   * Arguments:
+   * Author:        Uri Levy
+   * Date:            December 2008
+   ****************************************************************************/
+  FrameworkProxy();
 
-        static void InitOCLEntryPoints();
+  /*****************************************************************************
+   * Function:     ~FrameworkProxy
+   * Description:    The FrameworkProxy class destructor
+   * Arguments:
+   * Author:        Uri Levy
+   * Date:            December 2008
+   ****************************************************************************/
+  virtual ~FrameworkProxy();
 
-        // handle to the platform module
-        PlatformModule * m_pPlatformModule;
-        
-        // handle to the context module        
-        ContextModule * m_pContextModule;
+  void Initialize();
+  void Release(bool bTerminate);
 
-        // handle to the execution module
-        ExecutionModule * m_pExecutionModule;
+  static cl_icd_dispatch ICDDispatchTable;
+  static SOCLCRTDispatchTable CRTDispatchTable;
+  static ocl_entry_points OclEntryPoints;
 
-        // handle to the file log handler
-        Intel::OpenCL::Utils::FileLogHandler * m_pFileLogHandler;
-        
-        // handle to the configuration object
-        OCLConfig * m_pConfig;
+  static void InitOCLEntryPoints();
 
-        mutable ocl_gpa_data m_GPAData;
+  // handle to the platform module
+  PlatformModule *m_pPlatformModule;
 
-        // handle to TaskExecutor
-        // During shutdown task_executor dll may finish before current dll and destroy all internal objects
-        // We can discover this case but we cannot access any task_executor object at that time point because
-        // it may be already destroyed. As SharedPtr accesses the object itself to manage counters, we cannot use
-        // SharedPointers at all.
-        mutable Intel::OpenCL::TaskExecutor::ITaskExecutor* m_pTaskExecutor;
-        mutable Intel::OpenCL::TaskExecutor::ITaskList*     m_pTaskList;
-        mutable Intel::OpenCL::TaskExecutor::ITaskList*     m_pTaskList_immediate;
-        mutable unsigned int    m_uiTEActivationCount;
+  // handle to the context module
+  ContextModule *m_pContextModule;
 
-        // a lock to prevent double initialization
-        static Intel::OpenCL::Utils::OclSpinMutex m_initializationMutex;
+  // handle to the execution module
+  ExecutionModule *m_pExecutionModule;
 
-        // Linux shutdown process
-        static void CL_CALLBACK TerminateProcess(bool needToDisableAPI);
-        static volatile GLOBAL_STATE               gGlobalState;
-        static std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>   m_at_exit_cbs; // use m_initializationMutex
-        static THREAD_LOCAL bool                   m_bIgnoreAtExit;
+  // handle to the file log handler
+  Intel::OpenCL::Utils::FileLogHandler *m_pFileLogHandler;
 
-        // handle to the logger client
-        DECLARE_LOGGER_CLIENT;
+  // handle to the configuration object
+  OCLConfig *m_pConfig;
 
-    };
+  mutable ocl_gpa_data m_GPAData;
 
+  // handle to TaskExecutor
+  // During shutdown task_executor dll may finish before current dll and destroy
+  // all internal objects We can discover this case but we cannot access any
+  // task_executor object at that time point because it may be already
+  // destroyed. As SharedPtr accesses the object itself to manage counters, we
+  // cannot use SharedPointers at all.
+  mutable Intel::OpenCL::TaskExecutor::ITaskExecutor *m_pTaskExecutor;
+  mutable Intel::OpenCL::TaskExecutor::ITaskList *m_pTaskList;
+  mutable Intel::OpenCL::TaskExecutor::ITaskList *m_pTaskList_immediate;
+  mutable unsigned int m_uiTEActivationCount;
 
+  // a lock to prevent double initialization
+  static Intel::OpenCL::Utils::OclSpinMutex m_initializationMutex;
 
-}}}
+  // Linux shutdown process
+  static void CL_CALLBACK TerminateProcess(bool needToDisableAPI);
+  static volatile GLOBAL_STATE gGlobalState;
+  static std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>
+      m_at_exit_cbs; // use m_initializationMutex
+  static THREAD_LOCAL bool m_bIgnoreAtExit;
+
+  // handle to the logger client
+  DECLARE_LOGGER_CLIENT;
+};
+
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

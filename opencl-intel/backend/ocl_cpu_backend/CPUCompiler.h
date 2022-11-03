@@ -23,72 +23,76 @@
 #include <string>
 
 namespace llvm {
-    class ExecutionEngine;
-    class Module;
-    class JITEventListener;
-}
+class ExecutionEngine;
+class Module;
+class JITEventListener;
+} // namespace llvm
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 class BuiltinLibrary;
 class BuiltinModules;
 
-//*****************************************************************************************
+//******************************************************************************
 // Provides the module optimization and code generation functionality.
 //
-class CPUCompiler: public Compiler
-{
+class CPUCompiler : public Compiler {
 public:
-    CPUCompiler(const ICompilerConfig& pConfig);
-    virtual ~CPUCompiler();
+  CPUCompiler(const ICompilerConfig &pConfig);
+  virtual ~CPUCompiler();
 
-    // Disable the copy ctor and assignment operator
-    CPUCompiler( const CPUCompiler& ) = delete;
-    bool operator = ( const CPUCompiler& ) = delete;
+  // Disable the copy ctor and assignment operator
+  CPUCompiler(const CPUCompiler &) = delete;
+  bool operator=(const CPUCompiler &) = delete;
 
-    // Create execution engine for the given module
-    // Execution engine depends on module configuration
-    void CreateExecutionEngine( llvm::Module* pModule ) override;
+  // Create execution engine for the given module
+  // Execution engine depends on module configuration
+  void CreateExecutionEngine(llvm::Module *pModule) override;
 
-    // Get execution engine
-    std::unique_ptr<llvm::ExecutionEngine> GetOwningExecutionEngine() override;
+  // Get execution engine
+  std::unique_ptr<llvm::ExecutionEngine> GetOwningExecutionEngine() override;
 
-    // Create LLJIT instance
-    std::unique_ptr<llvm::orc::LLJIT> CreateLLJIT(
-        llvm::Module *M, std::unique_ptr<llvm::TargetMachine> TM,
-        ObjectCodeCache *ObjCache) override;
+  // Create LLJIT instance
+  std::unique_ptr<llvm::orc::LLJIT>
+  CreateLLJIT(llvm::Module *M, std::unique_ptr<llvm::TargetMachine> TM,
+              ObjectCodeCache *ObjCache) override;
 
-    // Compile a module into a MemoryBuffer using llvm::orc::SimpleCompiler
-    std::unique_ptr<llvm::MemoryBuffer> SimpleCompile(
-        llvm::Module *module, ObjectCodeCache *objCache);
+  // Compile a module into a MemoryBuffer using llvm::orc::SimpleCompiler
+  std::unique_ptr<llvm::MemoryBuffer> SimpleCompile(llvm::Module *module,
+                                                    ObjectCodeCache *objCache);
 
-    void SetObjectCache(ObjectCodeCache* pCache) override;
+  void SetObjectCache(ObjectCodeCache *pCache) override;
 
-    void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures) override;
+  void SetBuiltinModules(const std::string &cpuName,
+                         const std::string &cpuFeatures) override;
 
-    bool useLLDJITForExecution(llvm::Module* pModule) const override;
-    bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const override;
+  bool useLLDJITForExecution(llvm::Module *pModule) const override;
+  bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const override;
 
-    BuiltinModules* GetOrLoadBuiltinModules(bool ForceLoad = false);
+  BuiltinModules *GetOrLoadBuiltinModules(bool ForceLoad = false);
 
 protected:
-    // Returns a list of pointers to the RTL library modules
-    llvm::SmallVector<llvm::Module*, 2> &GetBuiltinModuleList() override;
+  // Returns a list of pointers to the RTL library modules
+  llvm::SmallVector<llvm::Module *, 2> &GetBuiltinModuleList() override;
 
 private:
-    void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
-    void CreateCPUExecutionEngine(llvm::Module* pModule);
+  void SelectCpu(const std::string &cpuName, const std::string &cpuFeatures);
+  void CreateCPUExecutionEngine(llvm::Module *pModule);
 
 private:
-    std::unordered_map<std::thread::id, std::unique_ptr<BuiltinModules>>
-        m_builtinModules;
-    llvm::sys::Mutex        m_builtinModuleMutex;
+  std::unordered_map<std::thread::id, std::unique_ptr<BuiltinModules>>
+      m_builtinModules;
+  llvm::sys::Mutex m_builtinModuleMutex;
 
-    std::unique_ptr<llvm::ExecutionEngine> m_pExecEngine;
+  std::unique_ptr<llvm::ExecutionEngine> m_pExecEngine;
 
-    std::unique_ptr<llvm::JITEventListener> m_pGDBJITRegistrationListener;
+  std::unique_ptr<llvm::JITEventListener> m_pGDBJITRegistrationListener;
 
-    std::unique_ptr<llvm::JITEventListener> m_pVTuneListener;
+  std::unique_ptr<llvm::JITEventListener> m_pVTuneListener;
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

@@ -30,43 +30,39 @@ using namespace DPCPPKernelMetadataAPI;
 
 extern "C" LLVMContextRef LLVMGetGlobalContext(void);
 
-enum DumpLevel {
-  S=1, W=2, M=3, F=4
-};
+enum DumpLevel { S = 1, W = 2, M = 3, F = 4 };
 
 namespace Intel {
 bool getIRFileNames(const char *dirname, vector<string> &fname);
 }
 
-static cl::opt<DumpLevel> dumpLevel("l", cl::desc("Set dump detail level:"),
+static cl::opt<DumpLevel> dumpLevel(
+    "l", cl::desc("Set dump detail level:"),
     cl::values(
         clEnumVal(S, "Dump summary of all counters"),
         clEnumVal(W, "Dump counter summary per workload"),
         clEnumVal(M, "Dump counter summary per workload & module"),
         clEnumVal(F, "Dump counter summary per workload, module & function")),
-        cl::init(W));
+    cl::init(W));
 
 static cl::opt<string> outFileName("o", cl::desc("Output file name"),
-    cl::value_desc("filename"), cl::init("Experiment.csv"));
+                                   cl::value_desc("filename"),
+                                   cl::init("Experiment.csv"));
 
 static cl::list<std::string> inDirs(cl::Positional, cl::OneOrMore,
-    cl::desc("<directory-names>"));
+                                    cl::desc("<directory-names>"));
 
-
-bool getFlist (vector<string> &flist)
-{
+bool getFlist(vector<string> &flist) {
   bool result = true;
   for (unsigned i = 0; i != inDirs.size(); i++) {
     result = result && Intel::getIRFileNames(inDirs[i].c_str(), flist);
   }
-  cout << "Found " << flist.size() << " files in " << inDirs.size() <<
-      " directories.\n";
+  cout << "Found " << flist.size() << " files in " << inDirs.size()
+       << " directories.\n";
   return result;
 }
 
-
-bool readStatFiles (vector<string> &flist, ExperimentInfo & expr)
-{
+bool readStatFiles(vector<string> &flist, ExperimentInfo &expr) {
   LLVMContext Ctx;
   // for each file
   for (unsigned i = 0; i < flist.size(); i++) {
@@ -87,17 +83,16 @@ bool readStatFiles (vector<string> &flist, ExperimentInfo & expr)
     string workloadName(msimd.WorkloadName.get());
 
     // compose unique workload id
-    WorkloadInfo& WI = expr.getWorkloadInfo(
+    WorkloadInfo &WI = expr.getWorkloadInfo(
         WorkloadInfo::getWorkloadID(flist[i], workloadName));
 
     // copy module data to stat class
     assert(msimd.RunTimeVersion.hasValue() && "No Runtime Version Metadata!");
     assert(msimd.ExecTime.hasValue() && "No Ecec Time Metadata!");
     assert(msimd.ModuleName.hasValue() && "No Module Name Metadata!");
-    ModuleStats &moduleStats = WI.addModule(msimd.RunTimeVersion.get(),
-        msimd.ExecTime.get(),
-        workloadName,
-        msimd.ModuleName.get());
+    ModuleStats &moduleStats =
+        WI.addModule(msimd.RunTimeVersion.get(), msimd.ExecTime.get(),
+                     workloadName, msimd.ModuleName.get());
 
     // add stat descriptions to map common to all modules
     FunctionStatMetadataAPI::DescriptionListTy descriptionList;
@@ -161,17 +156,16 @@ void transposeDump(stringstream &dump, string &lineStr) {
   lineStr = "";
   for (unsigned i = 0; i < trans.size(); i++) {
     string tmp = trans[i]->str();
-    tmp[tmp.size()-1] = '\n';
+    tmp[tmp.size() - 1] = '\n';
     lineStr += tmp;
   }
 }
-
 
 bool dumpStats(ExperimentInfo &exp) {
 
   ofstream file;
   if (!openStatFile(file))
-      return false;
+    return false;
 
   stringstream str;
   string result;
@@ -185,10 +179,9 @@ bool dumpStats(ExperimentInfo &exp) {
   return true;
 }
 
-void parseCL (int argc, char *argv[])
-{
+void parseCL(int argc, char *argv[]) {
   // remove some non-relevant command line options that come from llvm
-  StringMap<cl::Option*> optMap (std::move(cl::getRegisteredOptions()));
+  StringMap<cl::Option *> optMap(std::move(cl::getRegisteredOptions()));
 
   if (optMap.count("print-after-all") > 0)
     optMap["print-after-all"]->setHiddenFlag(cl::ReallyHidden);
@@ -201,14 +194,13 @@ void parseCL (int argc, char *argv[])
   if (optMap.count("help") > 0)
     optMap["help"]->setDescription("Display available options");
 
-
-  cl::ParseCommandLineOptions(argc, argv,
+  cl::ParseCommandLineOptions(
+      argc, argv,
       "This program dumps stats to a csv file. It searches for the stats in "
       "IR (.ll) files located in the specified directories.");
 }
 
-int main (int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   parseCL(argc, argv);
   vector<string> flist;
 

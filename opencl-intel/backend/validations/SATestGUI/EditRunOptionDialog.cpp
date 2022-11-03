@@ -15,39 +15,29 @@
 #include "EditRunOptionDialog.h"
 #include "Ui_EditRunOptionDialog.h"
 
-namespace Validation
-{
-namespace GUI
-{
-EditRunOptionDialog::EditRunOptionDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::EditRunOptionDialog)
-{
-    ui->setupUi(this);
+namespace Validation {
+namespace GUI {
+EditRunOptionDialog::EditRunOptionDialog(QWidget *parent)
+    : QDialog(parent), ui(new Ui::EditRunOptionDialog) {
+  ui->setupUi(this);
 }
 
-EditRunOptionDialog::EditRunOptionDialog(RunVariant variant,QWidget *parent):
-    QDialog(parent),
-    ui(new Ui::EditRunOptionDialog)
-{
+EditRunOptionDialog::EditRunOptionDialog(RunVariant variant, QWidget *parent)
+    : QDialog(parent), ui(new Ui::EditRunOptionDialog) {
 
-    ui->setupUi(this);
-    ui->nameLE->setText(variant.name);
-    ui->argsLE->setText(variant.args.join(" "));
+  ui->setupUi(this);
+  ui->nameLE->setText(variant.name);
+  ui->argsLE->setText(variant.args.join(" "));
 }
 
-RunVariant EditRunOptionDialog::getVariant()
-{
-    RunVariant variant;
-    variant.args=ui->argsLE->text().split(" ");
-    variant.name= ui->nameLE->text();
-    return variant;
+RunVariant EditRunOptionDialog::getVariant() {
+  RunVariant variant;
+  variant.args = ui->argsLE->text().split(" ");
+  variant.name = ui->nameLE->text();
+  return variant;
 }
 
-EditRunOptionDialog::~EditRunOptionDialog()
-{
-    delete ui;
-}
+EditRunOptionDialog::~EditRunOptionDialog() { delete ui; }
 
-}
-}
+} // namespace GUI
+} // namespace Validation

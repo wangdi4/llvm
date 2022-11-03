@@ -125,8 +125,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         MPM.add(createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
         MPM.add(createDPCPPEqualizerLegacyPass());
         Triple TargetTriple(m_M.getTargetTriple());
-        if (TargetTriple.isArch64Bit() &&
-            TargetTriple.isOSWindows())
+        if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
           MPM.add(createCoerceWin64TypesLegacyPass());
 
         if (m_IsFpgaEmulator)
@@ -509,7 +508,8 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   }
 }
 
-void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel, legacy::PassManagerBase &MPM) {
+void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel,
+                                            legacy::PassManagerBase &MPM) {
   if (OptLevel > 0 || EnableO0Vectorization) {
     MPM.add(createReplaceScalarWithMaskLegacyPass());
 

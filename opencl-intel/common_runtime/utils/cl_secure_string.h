@@ -12,20 +12,22 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 #ifndef errno_t
 typedef int errno_t;
 #endif
 
 #ifndef _WIN32
 
-errno_t strcpy_s( char *dst, size_t numberOfElements, const char *src );
+errno_t strcpy_s(char *dst, size_t numberOfElements, const char *src);
 
-errno_t strncpy_s( char *dst, size_t numberOfElements, const char *src, size_t count );
+errno_t strncpy_s(char *dst, size_t numberOfElements, const char *src,
+                  size_t count);
 
-size_t strnlen_s( const char *str, size_t count );
+size_t strnlen_s(const char *str, size_t count);
 
-errno_t memcpy_s( void *dst, size_t numberOfElements, const void *src, size_t count );
+errno_t memcpy_s(void *dst, size_t numberOfElements, const void *src,
+                 size_t count);
 
 #endif

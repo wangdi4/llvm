@@ -16,172 +16,139 @@
 /////////////////////////////////////////////////////////////////////////////
 // OclConcurrentQueue
 /////////////////////////////////////////////////////////////////////////////
-template<class T> inline
-bool OclConcurrentQueue<T>::IsEmpty() const
-{
-    return m_queue.empty();
+template <class T> inline bool OclConcurrentQueue<T>::IsEmpty() const {
+  return m_queue.empty();
 }
 
-template<class T>
-T OclConcurrentQueue<T>::Top()
-{
-    TTypeConcurrentQueueConstIterator iter = m_queue.unsafe_begin();
-    return *iter;
-    //Todo: the above will throw an exception if the queue is empty. Maybe assert on it?
+template <class T> T OclConcurrentQueue<T>::Top() {
+  TTypeConcurrentQueueConstIterator iter = m_queue.unsafe_begin();
+  return *iter;
+  // Todo: the above will throw an exception if the queue is empty. Maybe assert
+  // on it?
 }
 
-template<class T>
-T OclConcurrentQueue<T>::PopFront()
-{
-    T val;
-    if (m_queue.try_pop(val))
-    {
-        return val;
-    }
-    //else? Todo: figure this out
-    assert(0);
+template <class T> T OclConcurrentQueue<T>::PopFront() {
+  T val;
+  if (m_queue.try_pop(val)) {
     return val;
+  }
+  // else? Todo: figure this out
+  assert(0);
+  return val;
 }
 
-template<class T>
-void OclConcurrentQueue<T>::PushBack(const T& newNode)
-{
-    m_queue.push(newNode);    
+template <class T> void OclConcurrentQueue<T>::PushBack(const T &newNode) {
+  m_queue.push(newNode);
 }
 
-template<class T>
-bool OclConcurrentQueue<T>::TryPop(T& val)
-{
-    return m_queue.try_pop(val);
+template <class T> bool OclConcurrentQueue<T>::TryPop(T &val) {
+  return m_queue.try_pop(val);
 }
 #endif // __USE_TBB_CONCURENT_QUEUE
 
 /////////////////////////////////////////////////////////////////////////////
 // OclNaiveConcurrentQueue
 /////////////////////////////////////////////////////////////////////////////
-template<class T> inline
-bool OclNaiveConcurrentQueue<T>::IsEmpty() const
-{
-    return m_queue.empty();
+template <class T> inline bool OclNaiveConcurrentQueue<T>::IsEmpty() const {
+  return m_queue.empty();
 }
 
-template<class T>
-T OclNaiveConcurrentQueue<T>::Top()
-{
-    OclAutoMutex mu(&m_queueLock);
+template <class T> T OclNaiveConcurrentQueue<T>::Top() {
+  OclAutoMutex mu(&m_queueLock);
 
-    assert(!IsEmpty());
-    T& ret = m_queue.front();
+  assert(!IsEmpty());
+  T &ret = m_queue.front();
 
-    return ret;
+  return ret;
 }
 
-template<class T>
-T OclNaiveConcurrentQueue<T>::PopFront()
-{
-    OclAutoMutex mu(&m_queueLock);
+template <class T> T OclNaiveConcurrentQueue<T>::PopFront() {
+  OclAutoMutex mu(&m_queueLock);
 
-    assert(!IsEmpty());
-    T ret = m_queue.front();
-    m_queue.pop();
+  assert(!IsEmpty());
+  T ret = m_queue.front();
+  m_queue.pop();
 
-    return ret;
+  return ret;
 }
 
-template<class T>
-void OclNaiveConcurrentQueue<T>::PushBack(const T& newNode)
-{
-    OclAutoMutex mu(&m_queueLock);
+template <class T> void OclNaiveConcurrentQueue<T>::PushBack(const T &newNode) {
+  OclAutoMutex mu(&m_queueLock);
 
-    m_queue.push(newNode);
+  m_queue.push(newNode);
 }
 
-template<class T>
-bool OclNaiveConcurrentQueue<T>::TryPop(T& val)
-{
-    OclAutoMutex mu(&m_queueLock);
+template <class T> bool OclNaiveConcurrentQueue<T>::TryPop(T &val) {
+  OclAutoMutex mu(&m_queueLock);
 
-    if ( m_queue.empty() )
-    {
-        return false;
-    }
+  if (m_queue.empty()) {
+    return false;
+  }
 
-    val = m_queue.front();
-    m_queue.pop();
+  val = m_queue.front();
+  m_queue.pop();
 
-    return true;
+  return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // OclNaiveConcurrentMap
 /////////////////////////////////////////////////////////////////////////////
-template<class T, class S> inline
-bool OclNaiveConcurrentMap<T,S>::IsEmpty()
-{
-    OclAutoMutex mu(&m_mapLock);
+template <class T, class S> inline bool OclNaiveConcurrentMap<T, S>::IsEmpty() {
+  OclAutoMutex mu(&m_mapLock);
 
-    return IsEmptyInternal();
+  return IsEmptyInternal();
 }
 
-template<class T, class S>
-void OclNaiveConcurrentMap<T,S>::Insert(const T& key, const S& val)
-{
-    OclAutoMutex mu(&m_mapLock);
+template <class T, class S>
+void OclNaiveConcurrentMap<T, S>::Insert(const T &key, const S &val) {
+  OclAutoMutex mu(&m_mapLock);
 
-    m_map[key] = val;
+  m_map[key] = val;
 }
 
-template<class T, class S>
-S OclNaiveConcurrentMap<T,S>::Find(const T& key)
-{
-    OclAutoMutex mu(&m_mapLock);
+template <class T, class S> S OclNaiveConcurrentMap<T, S>::Find(const T &key) {
+  OclAutoMutex mu(&m_mapLock);
 
-    assert(!IsEmptyInternal());
-    typename std::map<T,S>::const_iterator it = m_map.find(key);
-    assert(it != m_map.end());
-    S val = it->second;
-    return val;
+  assert(!IsEmptyInternal());
+  typename std::map<T, S>::const_iterator it = m_map.find(key);
+  assert(it != m_map.end());
+  S val = it->second;
+  return val;
 }
 
-template<class T, class S>
-void OclNaiveConcurrentMap<T,S>::Erase(const T& key)
-{
-    OclAutoMutex mu(&m_mapLock);
+template <class T, class S>
+void OclNaiveConcurrentMap<T, S>::Erase(const T &key) {
+  OclAutoMutex mu(&m_mapLock);
 
-    assert(!IsEmptyInternal());
-    m_map.erase(key);
+  assert(!IsEmptyInternal());
+  m_map.erase(key);
 }
 
-template<class T, class S>
-bool OclNaiveConcurrentMap<T,S>::IsFound(const T& key, S& val)
-{
-    OclAutoMutex mu(&m_mapLock);
+template <class T, class S>
+bool OclNaiveConcurrentMap<T, S>::IsFound(const T &key, S &val) {
+  OclAutoMutex mu(&m_mapLock);
 
-    if (IsEmptyInternal())
-    {
-        return false;
-    }
-	
-    typename std::map<T,S>::iterator it = m_map.find(key);
-    if (it == m_map.end())
-    {
-        return false;
-    }
-	
-    val = it->second;
-    return true;
+  if (IsEmptyInternal()) {
+    return false;
+  }
+
+  typename std::map<T, S>::iterator it = m_map.find(key);
+  if (it == m_map.end()) {
+    return false;
+  }
+
+  val = it->second;
+  return true;
 }
 
-template<class T, class S>
-void OclNaiveConcurrentMap<T,S>::Clear()
-{
-    OclAutoMutex mu(&m_mapLock);
+template <class T, class S> void OclNaiveConcurrentMap<T, S>::Clear() {
+  OclAutoMutex mu(&m_mapLock);
 
-    m_map.clear();
+  m_map.clear();
 }
 
-template<class T, class S>
-bool OclNaiveConcurrentMap<T,S>::IsEmptyInternal() const
-{
-    return m_map.empty();
+template <class T, class S>
+bool OclNaiveConcurrentMap<T, S>::IsEmptyInternal() const {
+  return m_map.empty();
 }

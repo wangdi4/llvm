@@ -15,59 +15,56 @@
 #ifndef __IMAGE_H__
 #define __IMAGE_H__
 
-#include "IMemoryObject.h"                    // IMemoryObject declaration
-#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include "Exception.h"
+#include "IMemoryObject.h" // IMemoryObject declaration
 #include "ImageDesc.h"
+#include "llvm/Support/DataTypes.h" // LLVM data types
 
-namespace Validation
-{
-    class BufferContainer;
-    class IContainerVisitor;
+namespace Validation {
+class BufferContainer;
+class IContainerVisitor;
 
-    /// Class for containing data.
-    class Image : public IMemoryObject
-    {
-    public:
-        /// @brief Initializing ctor. Allocates memory for buffer's data using
-        /// values from buffer description.
-        Image(const ImageDesc& desc);
+/// Class for containing data.
+class Image : public IMemoryObject {
+public:
+  /// @brief Initializing ctor. Allocates memory for buffer's data using
+  /// values from buffer description.
+  Image(const ImageDesc &desc);
 
-        virtual ~Image();
+  virtual ~Image();
 
-        virtual void *GetDataPtr() const override { return (void *)m_data; }
+  virtual void *GetDataPtr() const override { return (void *)m_data; }
 
-        virtual const IMemoryObjectDesc *GetMemoryObjectDesc() const override {
-          return &m_desc;
-        }
+  virtual const IMemoryObjectDesc *GetMemoryObjectDesc() const override {
+    return &m_desc;
+  }
 
-        virtual std::string GetName() const override { return GetImageName(); }
+  virtual std::string GetName() const override { return GetImageName(); }
 
-        static std::string GetImageName() {return std::string("Image");}
+  static std::string GetImageName() { return std::string("Image"); }
 
-        void Accept(IContainerVisitor &visitor) const override;
+  void Accept(IContainerVisitor &visitor) const override;
 
-      private:
-        /// hide copy constructor
-        Image(const Image& ) : IMemoryObject(), m_desc(){}
+private:
+  /// hide copy constructor
+  Image(const Image &) : IMemoryObject(), m_desc() {}
 
-        /// hide assignment operator
-        void operator =(Image&){}
+  /// hide assignment operator
+  void operator=(Image &) {}
 
-        /// @brief Allocates memory for image's data using existing buffer
-        /// description values
-        void AllocateMemoryForData();
-        /// Image's data values
-        uint8_t* m_data;
-        /// Image description containing types of values, size of buffer, etc.
-        ImageDesc m_desc;
-        /// declare friend
-        friend class BufferContainer;
-    };
+  /// @brief Allocates memory for image's data using existing buffer
+  /// description values
+  void AllocateMemoryForData();
+  /// Image's data values
+  uint8_t *m_data;
+  /// Image description containing types of values, size of buffer, etc.
+  ImageDesc m_desc;
+  /// declare friend
+  friend class BufferContainer;
+};
 
-    ImageDesc GetImageDescription(const IMemoryObjectDesc* iDesc);
+ImageDesc GetImageDescription(const IMemoryObjectDesc *iDesc);
 
-} // End of Validation namespace
+} // namespace Validation
 
 #endif // __IMAGE_H__
-

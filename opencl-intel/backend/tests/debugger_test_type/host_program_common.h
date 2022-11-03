@@ -15,7 +15,6 @@
 #ifndef HOST_PROGRAM_COMMON_H
 #define HOST_PROGRAM_COMMON_H
 
-
 #include "CL/cl.h"
 
 // Use the OpenCL C++ bindings, with exceptions enabled. For MSVC, disable
@@ -25,8 +24,8 @@
 #define __CL_ENABLE_EXCEPTIONS
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable: 4290)
-#endif  // _MSC_VER
+#pragma warning(disable : 4290)
+#endif // _MSC_VER
 
 // Disable warning 'deprecated-declarations' emitted from CL/cl.hpp
 #if defined(__GNUC__)
@@ -38,39 +37,32 @@
 
 #ifdef _MSC_VER
 #pragma warning(pop)
-#endif  // _MSC_VER
+#endif // _MSC_VER
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
 
-
-#include <vector>
-#include <string>
 #include <iostream>
-
+#include <string>
+#include <vector>
 
 #define DTT_LOG_ON
 
-inline void DTT_LOG(const std::string& s)
-{
+inline void DTT_LOG(const std::string &s) {
 #ifdef DTT_LOG_ON
-    std::cerr << s << std::endl;
+  std::cerr << s << std::endl;
 #endif // DTT_LOG_ON
 }
-
 
 // Extra arguments passed to host programs from the command-line.
 //
 typedef std::vector<std::string> HostProgramExtraArgs;
 
-
 // Host program functions have this signature
 //
-typedef void (*HostProgramFunc)(cl::Context context,
-                                cl::Device device,
+typedef void (*HostProgramFunc)(cl::Context context, cl::Device device,
                                 cl::Program program,
                                 HostProgramExtraArgs extra_args);
-
 
 #endif // HOST_PROGRAM_COMMON_H

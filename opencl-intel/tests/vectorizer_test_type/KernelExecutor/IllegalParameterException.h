@@ -8,26 +8,22 @@
 #ifndef ILLEGALPARAMETEREXCEPTION_H_
 #define ILLEGALPARAMETEREXCEPTION_H_
 
-
-#include <string>
 #include <exception>
+#include <string>
 
-using std::string;
 using std::exception;
+using std::string;
 
 class IllegalParameterException : public exception {
 public:
+  IllegalParameterException(string msg) { this->msg = msg; }
 
-	IllegalParameterException(string msg) {
-		this->msg = msg;
-	}
+  ~IllegalParameterException() throw() {}
 
-	~IllegalParameterException() throw() {}
-
-	virtual const char* what() const throw() { return msg.c_str(); }
+  virtual const char *what() const throw() { return msg.c_str(); }
 
 private:
-	string msg;
+  string msg;
 };
 
 #endif /* ILLEGALPARAMETEREXCEPTION_H_ */

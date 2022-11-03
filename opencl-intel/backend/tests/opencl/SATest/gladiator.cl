@@ -1,7 +1,7 @@
-__kernel void copy (__global float* a, __global float* b){
+__kernel void copy(__global float *a, __global float *b) {
 #ifdef MyNameIsGladiator
-  printf ("Gladiator\n");
+  printf("Gladiator\n");
 #else
-  printf ("Comodus\n");
+  printf("Comodus\n");
 #endif
 }

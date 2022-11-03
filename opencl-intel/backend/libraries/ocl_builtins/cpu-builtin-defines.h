@@ -16,25 +16,25 @@
 
 #pragma once
 
-#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
-#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 // enable cl_khr_fp16 extension to generate atomic_[max, min] functions with
 // half type returned
-#pragma OPENCL EXTENSION cl_khr_fp16: enable
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
 // integers masks
 extern const constant char char_MSB_mask;
-extern const constant int  int_MSB_mask;
+extern const constant int int_MSB_mask;
 extern const constant char LSB_mask;
 
 extern const constant long long_even_mask;
 
 // "magic numbers" for popcount parallel algorithm
-extern const constant int  magic_num_S[6];
+extern const constant int magic_num_S[6];
 extern const constant long magic_num_B[6];
 // sse - relational
-extern const constant int fnan_min; // or numeric_limits<float>::quiet_NaN();
-extern const constant int abs_inf; // or numeric_limits<float>::quiet_NaN();
+extern const constant int fnan_min;  // or numeric_limits<float>::quiet_NaN();
+extern const constant int abs_inf;   // or numeric_limits<float>::quiet_NaN();
 extern const constant long dnan_min; // or numeric_limits<float>::quiet_NaN();
 extern const constant long dnan_max; // or numeric_limits<float>::quiet_NaN();
 extern const constant int fexp_mask;
@@ -45,7 +45,7 @@ extern const constant int fsign_mask;
 extern const constant long dsign_mask;
 extern const constant long FF;
 
-//avx-relational
+// avx-relational
 extern const constant int FFFMask8;
 
 // shuffle and shuffle2
@@ -70,14 +70,15 @@ extern const constant int maxInt32;
 
 // TODO: remove this as its the same as generic_min_int
 extern const constant int minIntVal32; //-2147483648.0
-extern const constant int maxIntVal32; //2147483647.0f
+extern const constant int maxIntVal32; // 2147483647.0f
 
-//vloadstore
-void* memcpy(void*, const void*, size_t);
+// vloadstore
+void *memcpy(void *, const void *, size_t);
 
-extern const constant short  Fvec8Float16ExponentMask;//Fvec8Float16ExponentMask,Fvec4Float16NaNExpMask
-extern const constant short  Fvec8Float16MantissaMask;
-extern const constant short  Fvec8Float16SignMask;
+extern const constant short
+    Fvec8Float16ExponentMask; // Fvec8Float16ExponentMask,Fvec4Float16NaNExpMask
+extern const constant short Fvec8Float16MantissaMask;
+extern const constant short Fvec8Float16SignMask;
 
 extern const constant int Fvec4Float32ExponentMask;
 extern const constant int Fvec4Float32NanMask;

@@ -15,20 +15,18 @@
 #include <assert.h>
 #include <cl_sys_info.h>
 
-#include "build_event.h"
 #include "Context.h"
+#include "build_event.h"
 
 using namespace Intel::OpenCL::Framework;
 
-BuildEvent::BuildEvent( _cl_context_int* context ) : OclEvent(context)
-{
-	m_pContext = (Context*)context->object;
-	SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-    m_returnCode = 0xdead;
+BuildEvent::BuildEvent(_cl_context_int *context) : OclEvent(context) {
+  m_pContext = (Context *)context->object;
+  SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
+  m_returnCode = 0xdead;
 }
 
-void BuildEvent::SetComplete(cl_int returnCode)
-{
-	m_returnCode = returnCode;
-	SetEventState(EVENT_STATE_DONE);
+void BuildEvent::SetComplete(cl_int returnCode) {
+  m_returnCode = returnCode;
+  SetEventState(EVENT_STATE_DONE);
 }

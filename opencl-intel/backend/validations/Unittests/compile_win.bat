@@ -4,7 +4,7 @@ rem All variables in the form of CMake vars will be replaced by CMake:
 rem     ICC_CPU_ENV_SCRIPT_NATIVE - script setting the ICC environment
 rem     ICC_CPU_CL_NATIVE         - executable of ICC compiler
 rem     BUILD_TYPE_ICC_COMPILER_FLAGS_Debug   - Debug build specific compliler flags 
-rem		BUILD_TYPE_ICC_COMPILER_FLAGS_Release - Release build specific compliler flags 
+rem    BUILD_TYPE_ICC_COMPILER_FLAGS_Release - Release build specific compliler flags 
 rem Invocation parameters:
 rem     %1 - build type
 rem     %2 - source file

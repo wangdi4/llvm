@@ -13,57 +13,51 @@
 // License.
 
 #pragma once
-#include "program.h"
 #include "observer.h"
+#include "program.h"
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
-	class ProgramWithSource : public Program
-	{
+class ProgramWithSource : public Program {
 
-        PREPARE_SHARED_PTR(ProgramWithSource)
+  PREPARE_SHARED_PTR(ProgramWithSource)
 
-	public:
+public:
+  static SharedPtr<ProgramWithSource>
+  Allocate(SharedPtr<Context> pContext, cl_uint uiNumStrings,
+           const char **pSources, const size_t *pszLengths, cl_int *piRet) {
+    return SharedPtr<ProgramWithSource>(new ProgramWithSource(
+        pContext, uiNumStrings, pSources, pszLengths, piRet));
+  }
 
-        static SharedPtr<ProgramWithSource> Allocate(SharedPtr<Context> pContext,
-                                                     cl_uint            uiNumStrings,
-                                                     const char**       pSources,
-                                                     const size_t*      pszLengths,
-                                                     cl_int*            piRet)
-        {
-            return SharedPtr<ProgramWithSource>(new ProgramWithSource(pContext,
-                                                                      uiNumStrings,
-                                                                      pSources,
-                                                                      pszLengths,
-                                                                      piRet));
-        }
+  cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
+                      void *param_value,
+                      size_t *param_value_size_ret) const override;
 
-        cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
-                            void *param_value,
-                            size_t *param_value_size_ret) const override;
+  // Returns a read only pointer to internal source, used for build stages by
+  // program service
+  virtual const char *GetSourceInternal() override {
+    return m_SourceString.data();
+  };
 
-        // Returns a read only pointer to internal source, used for build stages by program service
-        virtual const char *GetSourceInternal() override {
-          return m_SourceString.data();
-        };
+protected:
+  ProgramWithSource(SharedPtr<Context> pContext, cl_uint uiNumStrings,
+                    const char **pSources, const size_t *pszLengths,
+                    cl_int *piRet);
 
-      protected:
-        ProgramWithSource(SharedPtr<Context> pContext,
-                          cl_uint uiNumStrings,
-                          const char** pSources,
-                          const size_t* pszLengths,
-                          cl_int* piRet);
+  virtual ~ProgramWithSource();
 
-		virtual ~ProgramWithSource();
+  bool CopySourceStrings(cl_uint uiNumStrings, const char **pSources,
+                         const size_t *pszLengths);
 
-		bool CopySourceStrings(cl_uint       uiNumStrings,
-                               const char**  pSources,
-                               const size_t* pszLengths);
+private:
+  ProgramWithSource(const ProgramWithSource &);
+  ProgramWithSource &operator=(const ProgramWithSource &);
 
-	private:
-		ProgramWithSource(const ProgramWithSource&);
-		ProgramWithSource& operator=(const ProgramWithSource&);
-
-        std::string m_SourceString;
-	};
-}}}
+  std::string m_SourceString;
+};
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

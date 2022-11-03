@@ -18,7 +18,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "OclBuiltinEmitter.h"
 #include "OclBuiltinsHeaderGen.h"
 
@@ -32,28 +31,24 @@
 
 using namespace llvm;
 
-enum ActionType {
-  GenOCLBuiltisnHeader,
-  PrintRecords
-};
+enum ActionType { GenOCLBuiltisnHeader, PrintRecords };
 
 namespace {
 
-cl::opt<ActionType>
-Action(cl::desc("Action to perform:"),
-       cl::values(clEnumValN(PrintRecords, "print-records",
-                             "Print all records to stdout (default)"),
-                  clEnumValN(GenOCLBuiltisnHeader, "gen-ocl-src",
-                            "Generates a source with builtins mangled names")),
-       cl::init(PrintRecords));
+cl::opt<ActionType> Action(
+    cl::desc("Action to perform:"),
+    cl::values(clEnumValN(PrintRecords, "print-records",
+                          "Print all records to stdout (default)"),
+               clEnumValN(GenOCLBuiltisnHeader, "gen-ocl-src",
+                          "Generates a source with builtins mangled names")),
+    cl::init(PrintRecords));
 
-cl::opt<std::string>
-Class("class", cl::desc("Print Enum list for this class"),
-      cl::value_desc("class name"));
+cl::opt<std::string> Class("class", cl::desc("Print Enum list for this class"),
+                           cl::value_desc("class name"));
 
 } // anonymous namespace
 
-bool OCLTableGenAction(raw_ostream& OS, RecordKeeper& Records) {
+bool OCLTableGenAction(raw_ostream &OS, RecordKeeper &Records) {
   switch (Action) {
   case PrintRecords:
     OS << Records;
@@ -66,10 +61,7 @@ bool OCLTableGenAction(raw_ostream& OS, RecordKeeper& Records) {
   return false;
 }
 
-
-int
-main(int argc, char** argv)
-{
+int main(int argc, char **argv) {
   sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);

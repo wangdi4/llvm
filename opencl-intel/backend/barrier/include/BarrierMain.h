@@ -29,4 +29,3 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM, unsigned OptLevel,
 } // namespace intel
 
 #endif // __BARRIER_MAIN_H__
-

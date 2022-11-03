@@ -16,7 +16,7 @@
 #define DEBUGGINGSERVICETYPE_H
 
 namespace llvm {
-  class Module;
+class Module;
 }
 
 namespace intel {
@@ -29,13 +29,13 @@ enum DebuggingServiceType { None, Native, Simulator };
 ///   Linux/other:  CL_CONFIG_DBG_ENABLE
 DebuggingServiceType getUserDefinedDebuggingServiceType();
 
-/// Returns the debugging service to use based on the enabled flag (corresponding
-/// to the "-g" build option users can enable and the environment variable
-/// for toggling the debugging type)
+/// Returns the debugging service to use based on the enabled flag
+/// (corresponding to the "-g" build option users can enable and the environment
+/// variable for toggling the debugging type)
 DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
                                              llvm::Module *M,
                                              bool useNativeDebugger);
 
-}
+} // namespace intel
 
 #endif // DEBUGGINGSERVICETYPE_H

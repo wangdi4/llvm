@@ -22,7 +22,7 @@
 #define GNU_ATOMICS
 #endif
 
-namespace intel{
+namespace intel {
 // short implementation of atomics for thread-safe reference counter
 // written on base of llvm/Support/Atomic.h
 // our implementation is needed since this file is used in ocl_executor
@@ -30,25 +30,25 @@ namespace intel{
 // to implement own atomics
 namespace atomics {
 
-atomic_type AtomicIncrement(atomic_type* ptr) {
+atomic_type AtomicIncrement(atomic_type *ptr) {
 #if defined(GNU_ATOMICS)
-    return __sync_add_and_fetch(ptr, 1);
+  return __sync_add_and_fetch(ptr, 1);
 #elif defined(_MSC_VER)
-    return InterlockedIncrement(ptr);
+  return InterlockedIncrement(ptr);
 #else
-#  error No atomic increment implementation for your platform!
+#error No atomic increment implementation for your platform!
 #endif
-  }
+}
 
-atomic_type AtomicDecrement(atomic_type* ptr) {
+atomic_type AtomicDecrement(atomic_type *ptr) {
 #if defined(GNU_ATOMICS)
-    return __sync_sub_and_fetch(ptr, 1);
+  return __sync_sub_and_fetch(ptr, 1);
 #elif defined(_MSC_VER)
-    return InterlockedDecrement(ptr);
+  return InterlockedDecrement(ptr);
 #else
-#  error No atomic decrement implementation for your platform!
+#error No atomic decrement implementation for your platform!
 #endif
 }
 
 } // namespace atomics
-}// namepace intel
+} // namespace intel

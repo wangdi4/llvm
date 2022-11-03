@@ -15,30 +15,30 @@
 #ifndef __OCL_SOURCE_RECORDER_H__
 #define __OCL_SOURCE_RECORDER_H__
 
-#include <cstdlib>
-#include <string>
-#include <vector>
-#include <map>
-#include "llvm/Support/Mutex.h"
+#include "compile_data.h"
+#include "link_data.h"
+#include "md5.h"
 #include "plugin_interface.h"
 #include "source_file.h"
-#include "link_data.h"
-#include "compile_data.h"
-#include "md5.h"
+#include "llvm/Support/Mutex.h"
+#include <cstdlib>
+#include <map>
+#include <string>
+#include <vector>
 
-namespace Validation{
+namespace Validation {
 
 //
-//Functional class for MD5 code comparison, to be used by code map for partial
-//ordering.
+// Functional class for MD5 code comparison, to be used by code map for partial
+// ordering.
 //
-struct CodeLess{
-  //returns true id x < y, false otherwise
-  bool operator () (const MD5Code& x, const MD5Code& y) const;
+struct CodeLess {
+  // returns true id x < y, false otherwise
+  bool operator()(const MD5Code &x, const MD5Code &y) const;
 };
 
 //
-//Type definitions
+// Type definitions
 //
 typedef std::vector<Intel::OpenCL::Frontend::SourceFile> SourceFilesVector;
 
@@ -46,25 +46,27 @@ typedef std::map<MD5Code, SourceFilesVector, CodeLess> SourceFileMap;
 
 class OclSourceRecorder;
 //
-//SourceFile iterator
+// SourceFile iterator
 //
 class FileIter {
   friend class OclSourceRecorder;
+
 public:
   FileIter();
-  FileIter& operator++();
+  FileIter &operator++();
   FileIter operator++(int);
-  bool operator==(const FileIter&)const;
-  bool operator!=(const FileIter&)const;
-  Intel::OpenCL::Frontend::SourceFile operator * ()const;
+  bool operator==(const FileIter &) const;
+  bool operator!=(const FileIter &) const;
+  Intel::OpenCL::Frontend::SourceFile operator*() const;
   static FileIter end();
-  struct FileIterException: public std::exception{
+  struct FileIterException : public std::exception {
   public:
     const char *what() const noexcept override;
   };
-private:
 
-  FileIter(SourceFilesVector::const_iterator b, SourceFilesVector::const_iterator e);
+private:
+  FileIter(SourceFilesVector::const_iterator b,
+           SourceFilesVector::const_iterator e);
   SourceFilesVector::const_iterator m_iter;
   SourceFilesVector::const_iterator m_iterEnd;
   bool m_isInitialized;
@@ -73,37 +75,38 @@ private:
 
 //@Name: OclSourceRecorder
 //@Description: implementing the interface <code>ICLFrontendPlugin</code>,
-//this class supplies call back methods for Link and Compile events. Those
-//callback methods builds an internal dependency graph between compilation
-//artifacts. The <code>begin</code> method can than be used to query all the
-//dependent artifacts of a given module (or more precisely, the MD5 code of a
-//given module).
+// this class supplies call back methods for Link and Compile events. Those
+// callback methods builds an internal dependency graph between compilation
+// artifacts. The <code>begin</code> method can than be used to query all the
+// dependent artifacts of a given module (or more precisely, the MD5 code of a
+// given module).
 //
-class OclSourceRecorder: public Intel::OpenCL::Frontend::ICLFrontendPlugin{
+class OclSourceRecorder : public Intel::OpenCL::Frontend::ICLFrontendPlugin {
 public:
   ~OclSourceRecorder();
   //
-  //invoked when a program is being linked
+  // invoked when a program is being linked
   void OnLink(const Intel::OpenCL::Frontend::LinkData *linkData) override;
   //
-  //invoked when a program is being compiled
+  // invoked when a program is being compiled
   void
   OnCompile(const Intel::OpenCL::Frontend::CompileData *compileData) override;
   //
-  //begin iterator for the files which need to be generated for a configuration
-  //file
-  FileIter begin(const MD5Code&) const;
+  // begin iterator for the files which need to be generated for a configuration
+  // file
+  FileIter begin(const MD5Code &) const;
   //
-  //end iterator for the files which need to be generated for a configuration
-  //file
+  // end iterator for the files which need to be generated for a configuration
+  // file
   FileIter end() const;
+
 private:
-  //map of compiled source files. Maps the md5 of the binary,
-  //to its corresponding source file(s)
+  // map of compiled source files. Maps the md5 of the binary,
+  // to its corresponding source file(s)
   mutable SourceFileMap m_sourceMap;
-  //lock for the source map
+  // lock for the source map
   mutable llvm::sys::Mutex m_sourcemapLock;
-};//end class
-}
+}; // end class
+} // namespace Validation
 
 #endif //__OCL_SOURCE_RECORDER_H__

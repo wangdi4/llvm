@@ -16,45 +16,49 @@
 #include "CompilerConfig.h"
 #include <memory>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 class ICLDevBackendOptions;
 
 //*****************************************************************************
 // Represents the global backend configuration.
 // It is a singletinon that must be initialized explicitly.
-class BackendConfiguration
-{
+class BackendConfiguration {
 public:
-    /**
-     * Status initialization. Must be called once, in single threaded
-     * environment.
-     */
-    static void Init();
-    /**
-     * Termination. Must be called once, in single threaded environment
-     */
-    static void Terminate();
-    /**
-     * Singleton instance getter.
-     */
-    static const BackendConfiguration& GetInstance();
-    /**
-     * Returns the global compiler configuration.
-     */
-    GlobalCompilerConfig GetGlobalCompilerConfig( const ICLDevBackendOptions* pBackendOptions ) const;
-    /**
-     * Returns the CPU compiler instance configuration.
-     */
-    std::unique_ptr<ICompilerConfig> GetCPUCompilerConfig(
-        const ICLDevBackendOptions *pBackendOptions, bool SkipBuiltins = false)
-        const;
+  /**
+   * Status initialization. Must be called once, in single threaded
+   * environment.
+   */
+  static void Init();
+  /**
+   * Termination. Must be called once, in single threaded environment
+   */
+  static void Terminate();
+  /**
+   * Singleton instance getter.
+   */
+  static const BackendConfiguration &GetInstance();
+  /**
+   * Returns the global compiler configuration.
+   */
+  GlobalCompilerConfig
+  GetGlobalCompilerConfig(const ICLDevBackendOptions *pBackendOptions) const;
+  /**
+   * Returns the CPU compiler instance configuration.
+   */
+  std::unique_ptr<ICompilerConfig>
+  GetCPUCompilerConfig(const ICLDevBackendOptions *pBackendOptions,
+                       bool SkipBuiltins = false) const;
 
 private:
-    BackendConfiguration(){}
-    ~BackendConfiguration(){}
+  BackendConfiguration() {}
+  ~BackendConfiguration() {}
 
-    static BackendConfiguration* s_pInstance;
+  static BackendConfiguration *s_pInstance;
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

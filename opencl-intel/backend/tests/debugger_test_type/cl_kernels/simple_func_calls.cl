@@ -1,13 +1,10 @@
-void foo(uchar c)
-{
+void foo(uchar c) {
   uchar d = c;
   d = d + 1;
   d = d + 2;
 }
 
-
-__kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
-{
+__kernel void main_kernel(__global uchar *buf_in, __global uchar *buf_out) {
   uchar p = 9;
   foo(p);
   p = p + 1;

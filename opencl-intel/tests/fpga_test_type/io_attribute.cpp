@@ -24,7 +24,7 @@
 #include <vector>
 
 namespace {
-  const int SIZE = 10;
+const int SIZE = 10;
 }
 
 class TestIOAttribute : public OCLFPGASimpleFixture {

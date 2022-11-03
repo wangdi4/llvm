@@ -21,152 +21,131 @@
 #include <map>
 #include <mutex>
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
 #ifdef _DEBUG
-extern std::mutex* allocatedObjectsMapMutex;
-typedef std::map<const void*, long>                 AllocatedObjectsMap;
-extern std::map<std::string, AllocatedObjectsMap >* allocatedObjectsMap;
+extern std::mutex *allocatedObjectsMapMutex;
+typedef std::map<const void *, long> AllocatedObjectsMap;
+extern std::map<std::string, AllocatedObjectsMap> *allocatedObjectsMap;
 #endif
 
-template<typename T>
-void SharedPtrBase<T>::IncRefCnt()
-{
+template <typename T> void SharedPtrBase<T>::IncRefCnt() {
 #ifdef _DEBUG
-    const long lRefCnt = 
+  const long lRefCnt =
 #endif
-        this->m_ptr->IncRefCnt();
+      this->m_ptr->IncRefCnt();
 #ifdef _DEBUG
-    // TODO: In some DLLs (like task_executor.dll) we always get NULL for the mutex and map - we need to fix this.
-    std::string name = (nullptr != this->m_ptr->GetTypeName()) ? this->m_ptr->GetTypeName() : "";
+  // TODO: In some DLLs (like task_executor.dll) we always get NULL for the
+  // mutex and map - we need to fix this.
+  std::string name =
+      (nullptr != this->m_ptr->GetTypeName()) ? this->m_ptr->GetTypeName() : "";
+  void *p = const_cast<Intel::OpenCL::Utils::ReferenceCountedObject *>(
+      this->m_ptr->GetThis());
+  if (lRefCnt >= 0 && nullptr != allocatedObjectsMapMutex &&
+      nullptr != allocatedObjectsMap &&
+      name != "") // otherwise the object isn't reference counted
+  {
+    std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
+    if (1 == lRefCnt) {
+      (*allocatedObjectsMap)[name][p] = 1;
+    } else {
+      ++((*allocatedObjectsMap)[name][p]);
+    }
+  }
+#endif
+}
+
+template <typename T> void SharedPtrBase<T>::DecRefCntInt(T *ptr) {
+  if (nullptr != ptr) {
+#ifdef _DEBUG
+    std::string name =
+        (nullptr != ptr->GetTypeName()) ? ptr->GetTypeName() : "";
     void *p = const_cast<Intel::OpenCL::Utils::ReferenceCountedObject *>(
-        this->m_ptr->GetThis());
-    if (lRefCnt >= 0 && nullptr != allocatedObjectsMapMutex && nullptr != allocatedObjectsMap && name != "")   // otherwise the object isn't reference counted
-    {
-        std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
-        if (1 == lRefCnt)
-        {
-            (*allocatedObjectsMap)[name][p] = 1;
-        }
-        else
-        {   
-            ++((*allocatedObjectsMap)[name][p]);
-        }
-    }
-#endif
-}
+        ptr->GetThis());
 
-template<typename T>
-void SharedPtrBase<T>::DecRefCntInt(T* ptr)
-{
-    if (nullptr != ptr)
-    {
+    // This isn't thread safe, but these object are freed when the library is
+    // unloaded, so there is just one thread at this point.
+    const bool bIsAllocationDbNull = nullptr == allocatedObjectsMap ||
+                                     nullptr == allocatedObjectsMapMutex ||
+                                     name == "";
+#endif
+    const long lNewVal = ptr->DecRefCnt();
 #ifdef _DEBUG
-        std::string name = (nullptr != ptr->GetTypeName()) ? ptr->GetTypeName() : "";
-        void *p = const_cast<Intel::OpenCL::Utils::ReferenceCountedObject *>(
-            ptr->GetThis());
+    if (!bIsAllocationDbNull) {
+      std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
 
-        // This isn't thread safe, but these object are freed when the library is unloaded, so there is just one thread at this point.
-        const bool bIsAllocationDbNull = nullptr == allocatedObjectsMap || nullptr == allocatedObjectsMapMutex || name == "";
+      AllocatedObjectsMap &internal_map = (*allocatedObjectsMap)[name];
+      auto it = internal_map.find(p);
+      if (it != internal_map.end()) {
+        --(it->second);
+        if (0 == it->second) {
+          internal_map.erase(it);
+        }
+      }
+    }
 #endif
-        const long lNewVal = ptr->DecRefCnt();
-#ifdef _DEBUG
-        if (!bIsAllocationDbNull)
-        {
-            std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
-
-            AllocatedObjectsMap& internal_map = (*allocatedObjectsMap)[name];
-            auto it = internal_map.find(p);
-            if (it != internal_map.end())
-            {
-                --(it->second);
-                if (0 == it->second)
-                {
-                    internal_map.erase( it );
-                }
-            }
-        }
-#endif
-        if (0 == lNewVal)
-        {
-            HandleRefCnt0(ptr);
-        }
+    if (0 == lNewVal) {
+      HandleRefCnt0(ptr);
     }
+  }
 }
 
-template<typename T>
-long SharedPtrBase<T>::GetRefCnt() const
-{
-    if (this->m_ptr)
-    {
-        return this->m_ptr->GetRefCnt();
+template <typename T> long SharedPtrBase<T>::GetRefCnt() const {
+  if (this->m_ptr) {
+    return this->m_ptr->GetRefCnt();
+  } else {
+    return 0;
+  }
+}
+
+template <typename T> SharedPtr<T>::operator ConstSharedPtr<T>() const {
+  return ConstSharedPtr<T>(this->m_ptr);
+}
+
+template <typename T> void SharedPtr<T>::HandleRefCnt0(T *ptr) {
+  ptr->Cleanup();
+}
+
+template <typename T> void ConstSharedPtr<T>::HandleRefCnt0(const T *ptr) {
+  (const_cast<T *>(ptr))->Cleanup();
+}
+
+template <typename T>
+void LifetimeObjectContainer<T>::add(const SharedPtr<T> &ptr) {
+  if (!isZombie(ptr.GetPtr())) {
+    OclAutoMutex lock(&m_lock);
+    if (!isZombie(ptr.GetPtr())) {
+      if (true == m_set.insert(ptr).second) {
+        // inserted a new element
+        IncZombieCnt(ptr.GetPtr());
+      }
     }
-    else
-    {
-        return 0;
-    }
+  } else {
+    assert(false &&
+           "Cannot add object to LifetimeObjectContainer in Zombie state");
+  }
 }
 
-template<typename T>
-SharedPtr<T>::operator ConstSharedPtr<T>() const
-{
-    return ConstSharedPtr<T>(this->m_ptr);
+template <typename T>
+void LifetimeObjectContainer<T>::remove(const SharedPtr<T> &ptr) {
+  if (isZombie(ptr.GetPtr())) {
+    OclAutoMutex lock(&m_lock);
+    m_set.erase(ptr);
+  } else {
+    assert(false && "Cannot remove object from LifetimeObjectContainer in "
+                    "non-Zombie state");
+  }
 }
 
-template<typename T>
-void SharedPtr<T>::HandleRefCnt0(T* ptr)
-{
-    ptr->Cleanup();
+template <typename T>
+template <class T1>
+void LifetimeObjectContainer<T>::getObjects(T1 &containerToFill) {
+  OclAutoMutex lock(&m_lock);
+  containerToFill.insert(containerToFill.end(), m_set.begin(), m_set.end());
 }
 
-template<typename T>
-void ConstSharedPtr<T>::HandleRefCnt0(const T* ptr)
-{
-    (const_cast<T*>(ptr))->Cleanup();
-}
-
-template<typename T>
-void LifetimeObjectContainer<T>::add( const SharedPtr<T>& ptr )
-{
-    if (!isZombie( ptr.GetPtr() ))
-    {
-        OclAutoMutex lock( &m_lock );
-        if (!isZombie( ptr.GetPtr() ))
-        {
-            if (true == m_set.insert( ptr ).second)
-            {
-                // inserted a new element
-                IncZombieCnt( ptr.GetPtr() );
-            }
-        }
-    }
-    else
-    {
-        assert( false && "Cannot add object to LifetimeObjectContainer in Zombie state" );
-    }
-}
-
-template<typename T>
-void LifetimeObjectContainer<T>::remove( const SharedPtr<T>& ptr )
-{
-    if (isZombie( ptr.GetPtr()))
-    {
-        OclAutoMutex lock( &m_lock );
-        m_set.erase( ptr );
-    }
-    else
-    {
-        assert( false && "Cannot remove object from LifetimeObjectContainer in non-Zombie state" );
-    }
-}
-
-template<typename T>
-template<class T1>
-void LifetimeObjectContainer<T>::getObjects( T1& containerToFill )
-{
-    OclAutoMutex lock( &m_lock );
-    containerToFill.insert( containerToFill.end(), m_set.begin(), m_set.end() );
-}
-
-
-}}}
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel

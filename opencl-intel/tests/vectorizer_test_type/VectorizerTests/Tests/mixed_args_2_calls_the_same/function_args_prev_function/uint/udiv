@@ -7,17 +7,17 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 udiv ( __global const float *in,
-		__global float *out, __global const uint uintArg1)
+    __global float *out, __global const uint uintArg1)
 {
-	int gid = get_global_id(0);
-	uint tmp = max((float)1, (float)(gid + in[gid]));
-	out[gid] = convert_float(uintArg1 / tmp);
+  int gid = get_global_id(0);
+  uint tmp = max((float)1, (float)(gid + in[gid]));
+  out[gid] = convert_float(uintArg1 / tmp);
 }

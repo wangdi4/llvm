@@ -15,42 +15,41 @@
 #ifndef I_PROGRAM_RUNNER_H
 #define I_PROGRAM_RUNNER_H
 
-#include "IRunResult.h"
-#include "IProgram.h"
-#include "IRunConfiguration.h"
-#include "IProgramConfiguration.h"
 #include "IBufferContainerList.h"
+#include "IProgram.h"
+#include "IProgramConfiguration.h"
+#include "IRunConfiguration.h"
+#include "IRunResult.h"
 
-namespace Validation
-{
-    /// @brief Interface for the test program runners.
-    class IProgramRunner
-    {
-    public:
+namespace Validation {
+/// @brief Interface for the test program runners.
+class IProgramRunner {
+public:
+  virtual ~IProgramRunner(void) {}
 
-        virtual ~IProgramRunner(void) {}
+  /// @brief Executes a single test program
+  /// @param [OUT] runResult Result of test program execution
+  /// @param [IN] program Test program to execute
+  /// @param [IN] programConfig Test program configuration options
+  /// @param [IN] runConfig Configuration of the test run.
+  virtual void Run(IRunResult *pRunResult, const IProgram *pProgram,
+                   const IProgramConfiguration *programConfig,
+                   const IRunComponentConfiguration *runConfig) = 0;
 
-        /// @brief Executes a single test program
-        /// @param [OUT] runResult Result of test program execution
-        /// @param [IN] program Test program to execute
-        /// @param [IN] programConfig Test program configuration options
-        /// @param [IN] runConfig Configuration of the test run.
-        virtual void Run(IRunResult* pRunResult,
-                         const IProgram * pProgram,
-                         const IProgramConfiguration* programConfig,
-                         const IRunComponentConfiguration* runConfig) = 0;
+  /// @brief Load pre-computed test output data from the file specified in
+  /// program configuration.
+  /// @param [OUT] runResult Result of test program execution
+  /// @param [IN] config Configuration of the test run
+  virtual void LoadOutput(IRunResult *pRunResult,
+                          const IProgramConfiguration *pConfig) = 0;
 
-        /// @brief Load pre-computed test output data from the file specified in program configuration.
-        /// @param [OUT] runResult Result of test program execution
-        /// @param [IN] config Configuration of the test run
-        virtual void LoadOutput(IRunResult* pRunResult, const IProgramConfiguration* pConfig) = 0;
-
-        /// @brief Saves test execution results to the file specified in program configuration.
-        /// @param [IN] runResult Result of test program execution
-        /// @param [IN] config Configuration of the test run
-        virtual void StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const = 0;
-    };
-}
-
+  /// @brief Saves test execution results to the file specified in program
+  /// configuration.
+  /// @param [IN] runResult Result of test program execution
+  /// @param [IN] config Configuration of the test run
+  virtual void StoreOutput(const IRunResult *pRunResult,
+                           const IProgramConfiguration *pConfig) const = 0;
+};
+} // namespace Validation
 
 #endif // I_PROGRAM_RUNNER_H

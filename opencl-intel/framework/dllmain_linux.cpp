@@ -15,22 +15,22 @@
 #include <cassert>
 #include <libgen.h>
 
-#include "framework_proxy.h"
-#include "cl_secure_string_linux.h"
-#include "cl_sys_defines.h"
-#include "cl_sys_info.h"
-#include "cl_shared_ptr.hpp"
+#include "Context.h"
+#include "Device.h"
 #include "GenericMemObj.h"
 #include "MemoryObject.h"
-#include "Context.h"
+#include "cl_secure_string_linux.h"
+#include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include "command_queue.h"
-#include "Device.h"
-#include "queue_event.h"
+#include "framework_proxy.h"
 #include "ocl_event.h"
+#include "queue_event.h"
 
-__attribute__ ((constructor)) static void dll_init(void);
+__attribute__((constructor)) static void dll_init(void);
 // As far as possible let dll_fini be called last
-__attribute__ ((destructor(100))) static void dll_fini(void);
+__attribute__((destructor(100))) static void dll_fini(void);
 
 using namespace Intel::OpenCL::Framework;
 
@@ -39,33 +39,33 @@ template class Intel::OpenCL::Utils::SharedPtrBase<GenericMemObject>;
 template class Intel::OpenCL::Utils::SharedPtrBase<GenericMemObject const>;
 template class Intel::OpenCL::Utils::SharedPtrBase<MemoryObject>;
 template class Intel::OpenCL::Utils::SharedPtrBase<Context>;
-template class Intel::OpenCL::Utils::SharedPtrBase<GenericMemObject::DataCopyEvent>;
+template class Intel::OpenCL::Utils::SharedPtrBase<
+    GenericMemObject::DataCopyEvent>;
 template class Intel::OpenCL::Utils::SharedPtrBase<IOclCommandQueueBase>;
 template class Intel::OpenCL::Utils::SharedPtrBase<FissionableDevice>;
 template class Intel::OpenCL::Utils::SharedPtrBase<QueueEvent>;
 template class Intel::OpenCL::Utils::SharedPtrBase<QueueEvent const>;
 template class Intel::OpenCL::Utils::SharedPtrBase<OclEvent>;
-template class Intel::OpenCL::Utils::
-SharedPtrBase<OCLObject<_cl_device_id_int, _cl_platform_id_int> >;
-template class Intel::OpenCL::Utils::
-SharedPtrBase<OCLObject<_cl_event_int, _cl_context_int> >;
+template class Intel::OpenCL::Utils::SharedPtrBase<
+    OCLObject<_cl_device_id_int, _cl_platform_id_int>>;
+template class Intel::OpenCL::Utils::SharedPtrBase<
+    OCLObject<_cl_event_int, _cl_context_int>>;
 template class Intel::OpenCL::Utils::SharedPtrBase<FissionableDevice const>;
 template class Intel::OpenCL::Utils::SharedPtrBase<IEventObserver>;
 
-void dll_init(void)
-{
-#ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
-    InitSharedPtrs();
+void dll_init(void) {
+#ifdef _DEBUG // this is needed to initialize allocated objects DB, which is
+              // maintained in only in debug
+  InitSharedPtrs();
 #endif
 }
 
-void dll_fini(void)
-{
-    Intel::OpenCL::Utils::FrameworkUserLogger::Destroy();
-    Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
-    // release the framework proxy object
-    Intel::OpenCL::Framework::FrameworkProxy::Destroy();
+void dll_fini(void) {
+  Intel::OpenCL::Utils::FrameworkUserLogger::Destroy();
+  Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
+  // release the framework proxy object
+  Intel::OpenCL::Framework::FrameworkProxy::Destroy();
 #ifdef _DEBUG
-    FiniSharedPts();
+  FiniSharedPts();
 #endif
 }

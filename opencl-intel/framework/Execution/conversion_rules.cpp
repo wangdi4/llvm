@@ -13,8 +13,9 @@
 // License.
 
 /**
- * This file implements image channel conversions as described in chapter 8.3 of the spec.
- * See also 5.3.1.1 (Image Format Descriptor) for channel data type, and order.
+ * This file implements image channel conversions as described in chapter 8.3 of
+ * the spec. See also 5.3.1.1 (Image Format Descriptor) for channel data type,
+ * and order.
  */
 
 #include <assert.h>
@@ -22,32 +23,32 @@
 #include <string.h>
 
 #ifdef WIN32
-    #include <intrin.h>
-    #include <limits.h>
-    #define isnan(x) _isnan(x)
+#include <intrin.h>
+#include <limits.h>
+#define isnan(x) _isnan(x)
 #else
-	#ifdef __AVX__
-		// immintrin is a meta header that includes Intel headers, but it is new
-		// to AVX.
-		#include <immintin.h>
-	#else
-		// copied from immintrin.h
-		#ifdef __SSE3__
-		#include <pmmintrin.h>
-		#endif
+#ifdef __AVX__
+// immintrin is a meta header that includes Intel headers, but it is new
+// to AVX.
+#include <immintin.h>
+#else
+// copied from immintrin.h
+#ifdef __SSE3__
+#include <pmmintrin.h>
+#endif
 
-		#ifdef __SSSE3__
-		#include <tmmintrin.h>
-		#endif
+#ifdef __SSSE3__
+#include <tmmintrin.h>
+#endif
 
-		#if defined (__SSE4_2__) || defined (__SSE4_1__)
-		#include <smmintrin.h>
-		#endif
+#if defined(__SSE4_2__) || defined(__SSE4_1__)
+#include <smmintrin.h>
+#endif
 
-		#if defined (__AES__) || defined (__PCLMUL__)
-		#include <wmmintrin.h>
-		#endif
-	#endif
+#if defined(__AES__) || defined(__PCLMUL__)
+#include <wmmintrin.h>
+#endif
+#endif
 #endif
 
 #include <cl_types.h>
@@ -65,84 +66,77 @@
 
 #define CLAMP(val, low, high) (val < low) ? low : ((val > high) ? high : val)
 
-
-#define TEN_BIT_MAX  0x3ff
-#define SIX_BIT_MAX  0x3f
+#define TEN_BIT_MAX 0x3ff
+#define SIX_BIT_MAX 0x3f
 #define FIVE_BIT_MAX 0x1f
 
 #ifdef WIN32
-	#define AS_INTRIN_128 __declspec(intrin_type) _CRT_ALIGN(16)
+#define AS_INTRIN_128 __declspec(intrin_type) _CRT_ALIGN(16)
 #else
-	#define AS_INTRIN_128 __attribute__ ((__vector_size__ (16), __may_alias__))
+#define AS_INTRIN_128 __attribute__((__vector_size__(16), __may_alias__))
 #endif
 
-#define SHUFFLE_EPI8(x, mask) \
-	_mm_shuffle_epi8((__m128i)x, (__m128i)mask)
+#define SHUFFLE_EPI8(x, mask) _mm_shuffle_epi8((__m128i)x, (__m128i)mask)
 
 // Due to a bug in gcc 4.4.X (on RHEL 6) we must not optimize several functions.
 #if __GNUC__ == 4
 #if __GNUC_MINOR__ == 4
-    #define NOOPTIMIZE __attribute__((optimize(0)))
+#define NOOPTIMIZE __attribute__((optimize(0)))
 #endif
 #endif
 
 #ifndef NOOPTIMIZE
-    #define NOOPTIMIZE
+#define NOOPTIMIZE
 #endif
 
-
 /**
- * The SIMD HALF conversion function DOES NOT WORK properly at the moment. Will fix it in the future.
+ * The SIMD HALF conversion function DOES NOT WORK properly at the moment. Will
+ * fix it in the future.
  */
-//#define FLOAT2HALF_SIMD 1
+// #define FLOAT2HALF_SIMD 1
 #undef FLOAT2HALF_SIMD
 
 ALIGN16 int ones[] = {1, 1, 1, 1};
 
 #ifdef WIN32
-        __m128i _4x32to4x16 = _mm_setr_epi8(0, 1, 4, 5, 8, 9, 12, 13, 0, 0, 0, 0, 0, 0, 0, 0);
-        __m128i allzero     = _mm_setzero_si128();
+__m128i _4x32to4x16 =
+    _mm_setr_epi8(0, 1, 4, 5, 8, 9, 12, 13, 0, 0, 0, 0, 0, 0, 0, 0);
+__m128i allzero = _mm_setzero_si128();
 #else
-	char AS_INTRIN_128 _4x32to4x16 = {0, 1, 4, 5, 8, 9, 12, 13, 0, 0, 0, 0, 0,0,0,0};
-	char AS_INTRIN_128 allzero     = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+char AS_INTRIN_128 _4x32to4x16 = {0, 1, 4, 5, 8, 9, 12, 13,
+                                  0, 0, 0, 0, 0, 0, 0,  0};
+char AS_INTRIN_128 allzero = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #endif
 
- 
-static __m128i convert_to_int(const __m128 &val)
-{
-    int old_csr = _MM_GET_ROUNDING_MODE();
-    _MM_SET_ROUNDING_MODE(0); // set rounding mode to RTE, which is 0 mask.
-    
-	__m128i ret128i = _mm_cvtps_epi32( val );
-    _MM_SET_ROUNDING_MODE(old_csr);
-	return ret128i;
-}
+static __m128i convert_to_int(const __m128 &val) {
+  int old_csr = _MM_GET_ROUNDING_MODE();
+  _MM_SET_ROUNDING_MODE(0); // set rounding mode to RTE, which is 0 mask.
 
+  __m128i ret128i = _mm_cvtps_epi32(val);
+  _MM_SET_ROUNDING_MODE(old_csr);
+  return ret128i;
+}
 
 /**
  * Saturate - set integer in boundary.
  * @param val
  * @return the value in boundary of the relevant integer.
  */
-void NOOPTIMIZE sat(cl_int4 &trgt, const __m128i &intVal)
-{
+void NOOPTIMIZE sat(cl_int4 &trgt, const __m128i &intVal) {
   trgt = *(const cl_int4 *)&intVal;
 }
 
-void NOOPTIMIZE sat(cl_uint4 &trgt, const __m128i &intVal)
-{
+void NOOPTIMIZE sat(cl_uint4 &trgt, const __m128i &intVal) {
   trgt = *(const cl_uint4 *)&intVal;
 }
 
 // short/ushort 16 bits
-void NOOPTIMIZE sat(cl_short4 &trgt, const __m128i &intVal)
-{
-	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
-    _mm_storel_epi64((__m128i*)&trgt, shortVal);
+void NOOPTIMIZE sat(cl_short4 &trgt, const __m128i &intVal) {
+  __m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
+  _mm_storel_epi64((__m128i *)&trgt, shortVal);
 }
 
-void NOOPTIMIZE sat(cl_ushort4 &trgt, const __m128i &intVal)
-{
+void NOOPTIMIZE sat(cl_ushort4 &trgt, const __m128i &intVal) {
   const cl_int4 *cl_intVal = (const cl_int4 *)&intVal;
 
   //
@@ -155,22 +149,22 @@ void NOOPTIMIZE sat(cl_ushort4 &trgt, const __m128i &intVal)
 }
 
 // char/uchar 8 bits
-void NOOPTIMIZE sat(cl_char4 &trgt, const __m128i &intVal)
-{
-	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
-	__m128i charVal = _mm_packs_epi16(shortVal, (__m128i)allzero);
+void NOOPTIMIZE sat(cl_char4 &trgt, const __m128i &intVal) {
+  __m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
+  __m128i charVal = _mm_packs_epi16(shortVal, (__m128i)allzero);
 
-	cl_char16 *t = (cl_char16*)&charVal;
-	for (int i = 0 ; i < 4 ; ++i) trgt.s[i] = t->s[i];
+  cl_char16 *t = (cl_char16 *)&charVal;
+  for (int i = 0; i < 4; ++i)
+    trgt.s[i] = t->s[i];
 }
 
-void NOOPTIMIZE sat(cl_uchar4 &trgt, const __m128i &intVal)
-{
-	__m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
-	__m128i ucharVal = _mm_packus_epi16(shortVal, (__m128i)allzero);
+void NOOPTIMIZE sat(cl_uchar4 &trgt, const __m128i &intVal) {
+  __m128i shortVal = _mm_packs_epi32(intVal, (__m128i)allzero);
+  __m128i ucharVal = _mm_packus_epi16(shortVal, (__m128i)allzero);
 
-	cl_uchar16 *t = (cl_uchar16*)&ucharVal;
-	for (int i = 0 ; i < 4 ; ++i) trgt.s[i] = t->s[i];
+  cl_uchar16 *t = (cl_uchar16 *)&ucharVal;
+  for (int i = 0; i < 4; ++i)
+    trgt.s[i] = t->s[i];
 }
 
 /**
@@ -180,222 +174,219 @@ void NOOPTIMIZE sat(cl_uchar4 &trgt, const __m128i &intVal)
  * @return
  */
 template <typename TargetIntVect>
-TargetIntVect floatVec2IntVec(const cl_float4 val, const float multiplier)
-{
-	__m128 orig = _mm_loadu_ps(val.s);
-	__m128 mul_by = {multiplier, multiplier, multiplier, multiplier};
-	__m128 mul = _mm_mul_ps(orig, mul_by);
-	__m128i asInt = convert_to_int(mul);
-	TargetIntVect ret;
-	sat(ret, asInt);
-	return ret;
+TargetIntVect floatVec2IntVec(const cl_float4 val, const float multiplier) {
+  __m128 orig = _mm_loadu_ps(val.s);
+  __m128 mul_by = {multiplier, multiplier, multiplier, multiplier};
+  __m128 mul = _mm_mul_ps(orig, mul_by);
+  __m128i asInt = convert_to_int(mul);
+  TargetIntVect ret;
+  sat(ret, asInt);
+  return ret;
 }
-
 
 #define MASK_AS_128i(val) _mm_set1_epi32(val)
 #define MASK_AS_128(val) _mm_set1_ps(val)
 
 #ifdef FLOAT2HALF_SIMD
-__m128 float2half_rte_simd(__m128 param)
-{
-    // _mm_cvtps_epi32 _m128 --> _m128i
-    // _mm_cvtepi32_ps _m128i --> _m128
+__m128 float2half_rte_simd(__m128 param) {
+  // _mm_cvtps_epi32 _m128 --> _m128i
+  // _mm_cvtepi32_ps _m128i --> _m128
 
-    int rm = _MM_GET_ROUNDING_MODE();
-    _MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
+  int rm = _MM_GET_ROUNDING_MODE();
+  _MM_SET_ROUNDING_MODE(_MM_ROUND_NEAREST);
 
-    //cl_uint sign = (u.u >> 16) & 0x8000;
-    __m128i temp = (__m128i)_mm_srli_epi32(_mm_cvtps_epi32(param), 0x10);
-    __m128i signs = (__m128i)_mm_and_si128((__m128i)temp, MASK_AS_128i(0x8000));
-    
-    __m128 absParam = _mm_cvtepi32_ps(_mm_and_si128(_mm_cvtps_epi32(param), MASK_AS_128i(0x7fffffff)));
+  // cl_uint sign = (u.u >> 16) & 0x8000;
+  __m128i temp = (__m128i)_mm_srli_epi32(_mm_cvtps_epi32(param), 0x10);
+  __m128i signs = (__m128i)_mm_and_si128((__m128i)temp, MASK_AS_128i(0x8000));
 
-    //Nan
-    //if( x != x )
-    __m128i eq0 = _mm_cvtps_epi32(_mm_cmpneq_ps(absParam, absParam));
-    __m128i eq = _mm_and_si128(_mm_cvtps_epi32(absParam),(__m128i) eq0);
-    //u.u >>= (24-11);
-    eq = (__m128i) _mm_srli_epi32((__m128i)eq, 0x0d);
-    //u.u &= 0x7fff;
-    eq = (__m128i) _mm_and_si128((__m128i)eq, MASK_AS_128i(0x7fff));
-    //u.u |= 0x0200;   -- silence the NaN
-    eq = (__m128i) _mm_or_si128((__m128i)eq, MASK_AS_128i(0x0200));
-    //return u.u | sign;
-    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) signs);
-    eq = (__m128i) _mm_and_si128((__m128i)eq,(__m128i) eq0);
-    __m128i dflt = eq0;
+  __m128 absParam = _mm_cvtepi32_ps(
+      _mm_and_si128(_mm_cvtps_epi32(param), MASK_AS_128i(0x7fffffff)));
 
-    // overflow
-    //if( x >= MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
-    //return 0x7c00 | sign;
-    __m128 eq1 = _mm_cmpge_ps(absParam, MASK_AS_128(0x477ff000));
-    eq0 = _mm_and_si128(_mm_cvtps_epi32(eq1), MASK_AS_128i(0x7c00));
-    eq0 = (__m128i) _mm_or_si128((__m128i)signs,(__m128i) eq0);
-    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
+  // Nan
+  // if( x != x )
+  __m128i eq0 = _mm_cvtps_epi32(_mm_cmpneq_ps(absParam, absParam));
+  __m128i eq = _mm_and_si128(_mm_cvtps_epi32(absParam), (__m128i)eq0);
+  // u.u >>= (24-11);
+  eq = (__m128i)_mm_srli_epi32((__m128i)eq, 0x0d);
+  // u.u &= 0x7fff;
+  eq = (__m128i)_mm_and_si128((__m128i)eq, MASK_AS_128i(0x7fff));
+  // u.u |= 0x0200;   -- silence the NaN
+  eq = (__m128i)_mm_or_si128((__m128i)eq, MASK_AS_128i(0x0200));
+  // return u.u | sign;
+  eq = (__m128i)_mm_or_si128((__m128i)eq, (__m128i)signs);
+  eq = (__m128i)_mm_and_si128((__m128i)eq, (__m128i)eq0);
+  __m128i dflt = eq0;
 
-    // underflow
-    //  if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
-    // return sign
-    
-    eq1 = _mm_cmple_ps(absParam, MASK_AS_128(0x33000000));
-    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1),(__m128i) signs);
-    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
+  // overflow
+  // if( x >= MAKE_HEX_FLOAT(0x1.ffcp15f, 0x1ffcL, 3) )
+  // return 0x7c00 | sign;
+  __m128 eq1 = _mm_cmpge_ps(absParam, MASK_AS_128(0x477ff000));
+  eq0 = _mm_and_si128(_mm_cvtps_epi32(eq1), MASK_AS_128i(0x7c00));
+  eq0 = (__m128i)_mm_or_si128((__m128i)signs, (__m128i)eq0);
+  eq0 = (__m128i)_mm_andnot_si128((__m128i)dflt, (__m128i)eq0);
+  eq = (__m128i)_mm_or_si128((__m128i)eq, (__m128i)eq0);
+  dflt = (__m128i)_mm_or_si128(_mm_cvtps_epi32(eq1), (__m128i)dflt);
 
+  // underflow
+  //  if( x <= MAKE_HEX_FLOAT(0x1.0p-25f, 0x1L, -25) )
+  // return sign
 
-    // very small
-    //  if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
-    // return sign | 1;
-    eq1 = _mm_cmplt_ps(absParam, MASK_AS_128(0x33c00000));
-    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), _mm_or_si128((__m128i)signs,(__m128i) *((__m128i *)ones)));
-    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
+  eq1 = _mm_cmple_ps(absParam, MASK_AS_128(0x33000000));
+  eq0 = (__m128i)_mm_and_si128(_mm_cvtps_epi32(eq1), (__m128i)signs);
+  eq0 = (__m128i)_mm_andnot_si128((__m128i)dflt, (__m128i)eq0);
+  eq = (__m128i)_mm_or_si128((__m128i)eq, (__m128i)eq0);
+  dflt = (__m128i)_mm_or_si128(_mm_cvtps_epi32(eq1), (__m128i)dflt);
 
-    // half denormal
-    //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
-    //  x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
-    //  return sign | x;
-    eq1 = _mm_cmplt_ps(absParam, MASK_AS_128(0x38800000));
-    __m128 eq2 = _mm_mul_ps(absParam, MASK_AS_128(0x01000000));  //x
-    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), _mm_or_si128((__m128i)signs,(__m128i) _mm_cvtps_epi32(eq2)));
-    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
-    dflt = (__m128i) _mm_or_si128(_mm_cvtps_epi32(eq1),(__m128i) dflt);
+  // very small
+  //  if( x < MAKE_HEX_FLOAT(0x1.8p-24f, 0x18L, -28) )
+  // return sign | 1;
+  eq1 = _mm_cmplt_ps(absParam, MASK_AS_128(0x33c00000));
+  eq0 = (__m128i)_mm_and_si128(
+      _mm_cvtps_epi32(eq1),
+      _mm_or_si128((__m128i)signs, (__m128i) * ((__m128i *)ones)));
+  eq0 = (__m128i)_mm_andnot_si128((__m128i)dflt, (__m128i)eq0);
+  eq = (__m128i)_mm_or_si128((__m128i)eq, (__m128i)eq0);
+  dflt = (__m128i)_mm_or_si128(_mm_cvtps_epi32(eq1), (__m128i)dflt);
 
-    // u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
-    // u.u &= 0x7f800000;
-    // x += u.f;
-    // u.f = x - u.f;
-    // u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
-    // return (u.u >> (24-11)) | sign;
-    //int rm = _MM_GET_ROUNDING_MODE();
-    //_MM_SET_ROUNDING_MODE(0x6000);
+  // half denormal
+  //  if( x < MAKE_HEX_FLOAT(0x1.0p-14f, 0x1L, -14) )
+  //  x *= MAKE_HEX_FLOAT(0x1.0p-125f, 0x1L, -125);
+  //  return sign | x;
+  eq1 = _mm_cmplt_ps(absParam, MASK_AS_128(0x38800000));
+  __m128 eq2 = _mm_mul_ps(absParam, MASK_AS_128(0x01000000)); // x
+  eq0 = (__m128i)_mm_and_si128(
+      _mm_cvtps_epi32(eq1),
+      _mm_or_si128((__m128i)signs, (__m128i)_mm_cvtps_epi32(eq2)));
+  eq0 = (__m128i)_mm_andnot_si128((__m128i)dflt, (__m128i)eq0);
+  eq = (__m128i)_mm_or_si128((__m128i)eq, (__m128i)eq0);
+  dflt = (__m128i)_mm_or_si128(_mm_cvtps_epi32(eq1), (__m128i)dflt);
 
-    eq1 = _mm_mul_ps(param, MASK_AS_128(0x46000000));
-    eq0 = (__m128i) _mm_and_si128(_mm_cvtps_epi32(eq1), MASK_AS_128i(0x7f800000)); //u
-    eq1 = _mm_add_ps( _mm_cvtepi32_ps(eq0) ,absParam); //x
-    eq1 = _mm_sub_ps(eq1, _mm_cvtepi32_ps(eq0)); //u
-    eq1 = _mm_mul_ps(eq1, MASK_AS_128(0x07800000));
-    eq0 = (__m128i) _mm_srli_epi32(_mm_cvtps_epi32(eq1), 0x0d);
-    eq0 = (__m128i) _mm_or_si128((__m128i)eq0,(__m128i) signs);
-    eq0 = (__m128i) _mm_andnot_si128((__m128i)dflt,(__m128i) eq0);
-    eq = (__m128i) _mm_or_si128((__m128i)eq,(__m128i) eq0);
+  // u.f *= MAKE_HEX_FLOAT(0x1.0p13f, 0x1L, 13);
+  // u.u &= 0x7f800000;
+  // x += u.f;
+  // u.f = x - u.f;
+  // u.f *= MAKE_HEX_FLOAT(0x1.0p-112f, 0x1L, -112);
+  // return (u.u >> (24-11)) | sign;
+  // int rm = _MM_GET_ROUNDING_MODE();
+  //_MM_SET_ROUNDING_MODE(0x6000);
 
-    eq1 = _mm_castsi128_ps( SHUFFLE_EPI8(eq, _4x32to4x16) );
+  eq1 = _mm_mul_ps(param, MASK_AS_128(0x46000000));
+  eq0 = (__m128i)_mm_and_si128(_mm_cvtps_epi32(eq1),
+                               MASK_AS_128i(0x7f800000)); // u
+  eq1 = _mm_add_ps(_mm_cvtepi32_ps(eq0), absParam);       // x
+  eq1 = _mm_sub_ps(eq1, _mm_cvtepi32_ps(eq0));            // u
+  eq1 = _mm_mul_ps(eq1, MASK_AS_128(0x07800000));
+  eq0 = (__m128i)_mm_srli_epi32(_mm_cvtps_epi32(eq1), 0x0d);
+  eq0 = (__m128i)_mm_or_si128((__m128i)eq0, (__m128i)signs);
+  eq0 = (__m128i)_mm_andnot_si128((__m128i)dflt, (__m128i)eq0);
+  eq = (__m128i)_mm_or_si128((__m128i)eq, (__m128i)eq0);
 
-    _MM_SET_ROUNDING_MODE(rm);
+  eq1 = _mm_castsi128_ps(SHUFFLE_EPI8(eq, _4x32to4x16));
 
-    return eq1;
+  _MM_SET_ROUNDING_MODE(rm);
+
+  return eq1;
 }
 #endif // FLOAT2HALF_SIMD
 
-float tosRGB(float color)
-{
-    if(isnan(color))
-        color = 0.0;
-    if(color > 1.0)
-        color = 1.0;
-    else if(color < 0.0031308)
-        color = 12.92 * color;
-    else
-        color = (1055.0/1000.0) * pow(color, 5.0/12.0) - (55.0/1000.0);
-    return color;
+float tosRGB(float color) {
+  if (isnan(color))
+    color = 0.0;
+  if (color > 1.0)
+    color = 1.0;
+  else if (color < 0.0031308)
+    color = 12.92 * color;
+  else
+    color = (1055.0 / 1000.0) * pow(color, 5.0 / 12.0) - (55.0 / 1000.0);
+  return color;
 }
 
 template <typename VecType>
-cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, const cl_channel_order channelOrder)
-{
-    // start by cleaning target:
-    //memset(trgtColor, 0, sizeof(VecType));
-    MEMCPY_S(trgtColor, sizeof(VecType), srcColor, sizeof(VecType));
-    
-    #define MAP_CHANNEL(dst, src) trgtColor->s[dst] = srcColor->s[src];
-    
-    switch(channelOrder)
-    {
-        case CL_RGBA:
-        case CL_RGBx:
-            MAP_CHANNEL(3, 3);
-            LLVM_FALLTHROUGH;
-        case CL_RGB:
-        case CL_RGx:
-            MAP_CHANNEL(2, 2);
-            LLVM_FALLTHROUGH;
-        case CL_RG:
-        case CL_Rx:
-            MAP_CHANNEL(1, 1);
-            LLVM_FALLTHROUGH;
-        case CL_R:
-            MAP_CHANNEL(0, 0);
-            break;
-            
-        case CL_RA:
-            MAP_CHANNEL(0, 0);
-            MAP_CHANNEL(1, 3);
-            break;
-            
-        case CL_A:
-            MAP_CHANNEL(0, 3);
-            break;
-            
-        case CL_BGRA:
-            MAP_CHANNEL(0, 2);
-            MAP_CHANNEL(1, 1);
-            MAP_CHANNEL(2, 0);
-            MAP_CHANNEL(3, 3);
-            break;
-            
-        case CL_ARGB:
-            MAP_CHANNEL(0, 3);
-            MAP_CHANNEL(1, 0);
-            MAP_CHANNEL(2, 1);
-            MAP_CHANNEL(3, 2);
-            break;
-            
-        case CL_INTENSITY:
-        case CL_LUMINANCE:
-            MAP_CHANNEL(0, 0);
-            break;
-            
-        case CL_sRGBA:
-        case CL_sRGBx:
-            trgtColor->s[3] = srcColor->s[3];
-            LLVM_FALLTHROUGH;
-        case CL_sRGB:
-            trgtColor->s[0] = tosRGB(srcColor->s[0]);
-            trgtColor->s[1] = tosRGB(srcColor->s[1]);
-            trgtColor->s[2] = tosRGB(srcColor->s[2]);
-            break;
+cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor,
+                                  const cl_channel_order channelOrder) {
+  // start by cleaning target:
+  // memset(trgtColor, 0, sizeof(VecType));
+  MEMCPY_S(trgtColor, sizeof(VecType), srcColor, sizeof(VecType));
 
-        case CL_sBGRA:
-            trgtColor->s[0] = tosRGB(srcColor->s[2]);
-            trgtColor->s[1] = tosRGB(srcColor->s[1]);
-            trgtColor->s[2] = tosRGB(srcColor->s[0]);
-            trgtColor->s[3] = srcColor->s[3];
-            break;
-        default:
-            return CL_IMAGE_FORMAT_NOT_SUPPORTED;
-    }
-    return CL_SUCCESS;
+#define MAP_CHANNEL(dst, src) trgtColor->s[dst] = srcColor->s[src];
+
+  switch (channelOrder) {
+  case CL_RGBA:
+  case CL_RGBx:
+    MAP_CHANNEL(3, 3);
+    LLVM_FALLTHROUGH;
+  case CL_RGB:
+  case CL_RGx:
+    MAP_CHANNEL(2, 2);
+    LLVM_FALLTHROUGH;
+  case CL_RG:
+  case CL_Rx:
+    MAP_CHANNEL(1, 1);
+    LLVM_FALLTHROUGH;
+  case CL_R:
+    MAP_CHANNEL(0, 0);
+    break;
+
+  case CL_RA:
+    MAP_CHANNEL(0, 0);
+    MAP_CHANNEL(1, 3);
+    break;
+
+  case CL_A:
+    MAP_CHANNEL(0, 3);
+    break;
+
+  case CL_BGRA:
+    MAP_CHANNEL(0, 2);
+    MAP_CHANNEL(1, 1);
+    MAP_CHANNEL(2, 0);
+    MAP_CHANNEL(3, 3);
+    break;
+
+  case CL_ARGB:
+    MAP_CHANNEL(0, 3);
+    MAP_CHANNEL(1, 0);
+    MAP_CHANNEL(2, 1);
+    MAP_CHANNEL(3, 2);
+    break;
+
+  case CL_INTENSITY:
+  case CL_LUMINANCE:
+    MAP_CHANNEL(0, 0);
+    break;
+
+  case CL_sRGBA:
+  case CL_sRGBx:
+    trgtColor->s[3] = srcColor->s[3];
+    LLVM_FALLTHROUGH;
+  case CL_sRGB:
+    trgtColor->s[0] = tosRGB(srcColor->s[0]);
+    trgtColor->s[1] = tosRGB(srcColor->s[1]);
+    trgtColor->s[2] = tosRGB(srcColor->s[2]);
+    break;
+
+  case CL_sBGRA:
+    trgtColor->s[0] = tosRGB(srcColor->s[2]);
+    trgtColor->s[1] = tosRGB(srcColor->s[1]);
+    trgtColor->s[2] = tosRGB(srcColor->s[0]);
+    trgtColor->s[3] = srcColor->s[3];
+    break;
+  default:
+    return CL_IMAGE_FORMAT_NOT_SUPPORTED;
+  }
+  return CL_SUCCESS;
 }
-
 
 template <typename VecType>
 cl_int __RGBA_fp_to_NORM(const cl_float4 *color,
-                         const cl_channel_order channelOrder, VecType* trgt,
-                         const cl_float multiplier)
-{
-    cl_int status = CL_SUCCESS;
-    cl_float4 out;
-    status = __arrange_by_channel_order<cl_float4>(&out, color, channelOrder);
-    *trgt = floatVec2IntVec<VecType>(out, multiplier);
-    return status;
+                         const cl_channel_order channelOrder, VecType *trgt,
+                         const cl_float multiplier) {
+  cl_int status = CL_SUCCESS;
+  cl_float4 out;
+  status = __arrange_by_channel_order<cl_float4>(&out, color, channelOrder);
+  *trgt = floatVec2IntVec<VecType>(out, multiplier);
+  return status;
 }
-
 
 /**
  * Convert RGBA floating point color to image format requested.
@@ -410,7 +401,7 @@ cl_int __RGBA_fp_to_NORM(const cl_float4 *color,
  * - CL_SUCCESS if OK
  * - CL_IMAGE_FORMAT_NOT_SUPPORTED if cannot convert to the specified format.
  * - CL_INVALID_ARG_SIZE if trgtLength is inappropriate for channel type.
- * 	@
+ *   @
  */
 cl_int Intel::OpenCL::Framework::norm_float_to_image(
     const cl_float4 *color, const cl_channel_order channelOrder,
@@ -460,80 +451,77 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(
     __arrange_by_channel_order<cl_float4>(&orderedFloat, color, channelOrder);
 
 #ifdef FLOAT2HALF_SIMD
-                // using SIMD intrinsics:
-			    __m128 tmpColor;
-                cl_float4 tmpFloat;
-				tmpColor = float2half_rte_simd(_mm_loadu_ps(orderedFloat.s));
-				_mm_storeu_ps(tmpFloat.s, tmpColor);
-                memcpy(trgt, &tmpFloat, sizeof(cl_ushort4));
-#else // FLOAT2HALF_SIMD                
-                // using function taken from 1.2 conformance:
-                cl_ushort* dest = (cl_ushort*)trgt->s;
-                for (size_t i=0 ; i < 4 ; ++i)
-                {
-                    cl_ushort res = float2half_rte(orderedFloat.s[i]);
-                    dest[i] = res;
-                    //memcpy(dest + (i*halfSize), &res, halfSize);
-                }
-#endif// FLOAT2HALF_SIMD
-                /*
-                fprintf( stderr, "Float to Half (order: %d  type: %d), original float: %f,%f,%f,%f swizelled: %f,%f,%f,%f "
-                            "Converted to half: %02x,%02x,%02x,%02x\n",
-                            channelOrder, channelType,
-                            color->s[0], color->s[1], color->s[2], color->s[3],
-                            orderedFloat.s[0], orderedFloat.s[1], orderedFloat.s[2], orderedFloat.s[3],
-                            trgt->s[0], trgt->s[1], trgt->s[2], trgt->s[3]
-                        );
-                */
+    // using SIMD intrinsics:
+    __m128 tmpColor;
+    cl_float4 tmpFloat;
+    tmpColor = float2half_rte_simd(_mm_loadu_ps(orderedFloat.s));
+    _mm_storeu_ps(tmpFloat.s, tmpColor);
+    memcpy(trgt, &tmpFloat, sizeof(cl_ushort4));
+#else  // FLOAT2HALF_SIMD
+       // using function taken from 1.2 conformance:
+    cl_ushort *dest = (cl_ushort *)trgt->s;
+    for (size_t i = 0; i < 4; ++i) {
+      cl_ushort res = float2half_rte(orderedFloat.s[i]);
+      dest[i] = res;
+      // memcpy(dest + (i*halfSize), &res, halfSize);
+    }
+#endif // FLOAT2HALF_SIMD
+       /*
+       fprintf( stderr, "Float to Half (order: %d  type: %d), original float:
+       %f,%f,%f,%f swizelled: %f,%f,%f,%f "    "Converted to half:
+       %02x,%02x,%02x,%02x\n",    channelOrder, channelType,    color->s[0],
+       color->s[1],    color->s[2], color->s[3],    orderedFloat.s[0],
+       orderedFloat.s[1],    orderedFloat.s[2], orderedFloat.s[3],    trgt->s[0],
+       trgt->s[1], trgt->s[2],    trgt->s[3]
+               );
+       */
 
   } break;
-        case CL_UNORM_SHORT_565:
-			{
-				// convert to uint8, and from there round down.
-				cl_uchar4 tempColor;
-				cl_ushort &trgt = *(static_cast<cl_ushort*>(trgtColor)); // output is 16 bit
+  case CL_UNORM_SHORT_565: {
+    // convert to uint8, and from there round down.
+    cl_uchar4 tempColor;
+    cl_ushort &trgt =
+        *(static_cast<cl_ushort *>(trgtColor)); // output is 16 bit
 
-				__RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, &tempColor, 255.0);
-				trgt = 0;
-				trgt |= OCL_MIN(tempColor.s[0], FIVE_BIT_MAX);
-				trgt <<=6;
-				trgt |= OCL_MIN(tempColor.s[1], SIX_BIT_MAX);
-				trgt <<=5;
-				trgt |= OCL_MIN(tempColor.s[2], FIVE_BIT_MAX);
-			}
-			break;
-        case CL_UNORM_SHORT_555:
-			{
-				// convert to uint8, and from there round down.
-				cl_uchar4 tempColor;
-				cl_ushort &trgt = *(static_cast<cl_ushort*>(trgtColor)); // output is 16 bit
+    __RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, &tempColor, 255.0);
+    trgt = 0;
+    trgt |= OCL_MIN(tempColor.s[0], FIVE_BIT_MAX);
+    trgt <<= 6;
+    trgt |= OCL_MIN(tempColor.s[1], SIX_BIT_MAX);
+    trgt <<= 5;
+    trgt |= OCL_MIN(tempColor.s[2], FIVE_BIT_MAX);
+  } break;
+  case CL_UNORM_SHORT_555: {
+    // convert to uint8, and from there round down.
+    cl_uchar4 tempColor;
+    cl_ushort &trgt =
+        *(static_cast<cl_ushort *>(trgtColor)); // output is 16 bit
 
-				__RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, &tempColor, 255.0);
-				trgt = 0;
-				trgt |= OCL_MIN(tempColor.s[0], FIVE_BIT_MAX);
-				trgt <<= 5;
-				trgt |= OCL_MIN(tempColor.s[1], FIVE_BIT_MAX);
-				trgt <<= 5;
-				trgt |= OCL_MIN(tempColor.s[2], FIVE_BIT_MAX);
-			}
-			break;
-        default:
-            return CL_IMAGE_FORMAT_NOT_SUPPORTED;
-        }
+    __RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, &tempColor, 255.0);
+    trgt = 0;
+    trgt |= OCL_MIN(tempColor.s[0], FIVE_BIT_MAX);
+    trgt <<= 5;
+    trgt |= OCL_MIN(tempColor.s[1], FIVE_BIT_MAX);
+    trgt <<= 5;
+    trgt |= OCL_MIN(tempColor.s[2], FIVE_BIT_MAX);
+  } break;
+  default:
+    return CL_IMAGE_FORMAT_NOT_SUPPORTED;
+  }
 
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 
 template <typename OrigVecType, typename VecType>
-cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr, const cl_channel_order order)
-{
-    __m128i color128;
-    MEMCPY_S(&color128, sizeof(__m128i), color->s, sizeof(OrigVecType));
-    VecType tmpColor;
-    sat(tmpColor, color128);
+cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr,
+                          const cl_channel_order order) {
+  __m128i color128;
+  MEMCPY_S(&color128, sizeof(__m128i), color->s, sizeof(OrigVecType));
+  VecType tmpColor;
+  sat(tmpColor, color128);
 
-    VecType *trgt = (VecType *)trgtPtr;
-    return __arrange_by_channel_order<VecType>(trgt, &tmpColor, order);
+  VecType *trgt = (VecType *)trgtPtr;
+  return __arrange_by_channel_order<VecType>(trgt, &tmpColor, order);
 }
 
 /**
@@ -549,7 +537,7 @@ cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr, const cl_chan
  * - CL_SUCCESS if OK
  * - CL_IMAGE_FORMAT_NOT_SUPPORTED if cannot convert to the specified format.
  * - CL_INVALID_ARG_SIZE if trgtLength is inappropriate for channel type.
- * 	@
+ *   @
  */
 cl_int Intel::OpenCL::Framework::non_norm_signed_to_image(
     const cl_int4 *color, const cl_channel_order channelOrder,
@@ -590,7 +578,7 @@ cl_int Intel::OpenCL::Framework::non_norm_signed_to_image(
  * - CL_SUCCESS if OK
  * - CL_IMAGE_FORMAT_NOT_SUPPORTED if cannot convert to the specified format.
  * - CL_INVALID_ARG_SIZE if trgtLength is inappropriate for channel type.
- * 	@
+ *   @
  */
 cl_int Intel::OpenCL::Framework::non_norm_unsigned_to_image(
     const cl_uint4 *color, const cl_channel_order channelOrder,

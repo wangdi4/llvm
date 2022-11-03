@@ -21,57 +21,61 @@
 /*
     Backend Runtime service
     Reference-counted container for objects shared between Program and Kernels
-    The motivation for this container is lifetime of kernel and parent program 
+    The motivation for this container is lifetime of kernel and parent program
     Program can be deleted while kernels are alive in memory. So pointers from
     kernel to program may be invalidated.
     Example: Contain OCL20 BlockToKernelMap used to resolve block to kernels
     Feel free to add another objects to share between kernel and program
 */
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-  
-  /// Runtime service class
-  class RuntimeServiceImpl{
-  public:
-    /// ctor
-    RuntimeServiceImpl() : m_pBlockToKernelMapper(NULL) {}
-    
-    /// dtor
-    virtual ~RuntimeServiceImpl(){
-      std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
-      delete m_pBlockToKernelMapper;
-    }
-    
-    /// getter for IBlockToKernelMapper
-    IBlockToKernelMapper * GetBlockToKernelMapper() const {
-      std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
-      return m_pBlockToKernelMapper;
-    }
-    
-    /// setter IBlockToKernelMapper
-    void SetBlockToKernelMapper(IBlockToKernelMapper * p){
-      assert(p && "IBlockToKernelMapper is NULL");
-      std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
-      delete m_pBlockToKernelMapper;
-      m_pBlockToKernelMapper = p;
-    }
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-  private:
-    /// IBlockToKernelMapper object. This class owns it and is responsible for deleting
-    IBlockToKernelMapper * m_pBlockToKernelMapper;
-    mutable std::mutex m_BlockToKernelMapperMutex;
+/// Runtime service class
+class RuntimeServiceImpl {
+public:
+  /// ctor
+  RuntimeServiceImpl() : m_pBlockToKernelMapper(NULL) {}
 
-    /// hide copy ctor
-    RuntimeServiceImpl(const RuntimeServiceImpl& s);
-    /// hide assignment
-    void operator =(RuntimeServiceImpl&);
+  /// dtor
+  virtual ~RuntimeServiceImpl() {
+    std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
+    delete m_pBlockToKernelMapper;
+  }
 
-  };
+  /// getter for IBlockToKernelMapper
+  IBlockToKernelMapper *GetBlockToKernelMapper() const {
+    std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
+    return m_pBlockToKernelMapper;
+  }
 
-  /// RuntimeService declaration
-  /// implementation of intel::RefCount<> is thread-safe
-  typedef intel::RefCountThreadSafe<RuntimeServiceImpl> RuntimeServiceSharedPtr;
+  /// setter IBlockToKernelMapper
+  void SetBlockToKernelMapper(IBlockToKernelMapper *p) {
+    assert(p && "IBlockToKernelMapper is NULL");
+    std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
+    delete m_pBlockToKernelMapper;
+    m_pBlockToKernelMapper = p;
+  }
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+private:
+  /// IBlockToKernelMapper object. This class owns it and is responsible for
+  /// deleting
+  IBlockToKernelMapper *m_pBlockToKernelMapper;
+  mutable std::mutex m_BlockToKernelMapperMutex;
+
+  /// hide copy ctor
+  RuntimeServiceImpl(const RuntimeServiceImpl &s);
+  /// hide assignment
+  void operator=(RuntimeServiceImpl &);
+};
+
+/// RuntimeService declaration
+/// implementation of intel::RefCount<> is thread-safe
+typedef intel::RefCountThreadSafe<RuntimeServiceImpl> RuntimeServiceSharedPtr;
+
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __RUNTIME_SERVICE_H__

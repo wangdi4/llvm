@@ -17,17 +17,14 @@
 
 #include "llvm/Support/DataTypes.h"
 
-namespace Validation
-{
-    class RefALUVersion {
-    public:
-        static uint64_t GetVersion() {
-            return refALUVersion;
-        }
-    private:
-        /// NEAT version to be incremented after every change in NEAT
-        static const uint64_t refALUVersion = 1;
-};
-}
-#endif // __RefALUVER_H__
+namespace Validation {
+class RefALUVersion {
+public:
+  static uint64_t GetVersion() { return refALUVersion; }
 
+private:
+  /// NEAT version to be incremented after every change in NEAT
+  static const uint64_t refALUVersion = 1;
+};
+} // namespace Validation
+#endif // __RefALUVER_H__

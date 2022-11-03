@@ -4,28 +4,28 @@
  * depend on thread id.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 if_else ( __global const float *in,
-		__global float *out, __global const ulong8 ulong8Arg1, __global const long4 long4Arg1)
+    __global float *out, __global const ulong8 ulong8Arg1, __global const long4 long4Arg1)
 {
-	int gid = get_global_id(0);
+  int gid = get_global_id(0);
 
-	ulong4 tmp1 = convert_ulong4(long4Arg1) * ulong8Arg1.zxwy;
-	tmp1 = abs_diff(rhadd(tmp1 * tmp1, convert_ulong4(long4Arg1)), convert_ulong4(convert_long4(tmp1) - long4Arg1));
+  ulong4 tmp1 = convert_ulong4(long4Arg1) * ulong8Arg1.zxwy;
+  tmp1 = abs_diff(rhadd(tmp1 * tmp1, convert_ulong4(long4Arg1)), convert_ulong4(convert_long4(tmp1) - long4Arg1));
 
-	out[gid] = gid;
+  out[gid] = gid;
 
-	if (tmp1.x >= tmp1.y & tmp1.z) {
-		out[gid] = tmp1.x * in[gid];
-		out[gid] = out[gid] - tmp1.w * ulong8Arg1.s6;
+  if (tmp1.x >= tmp1.y & tmp1.z) {
+    out[gid] = tmp1.x * in[gid];
+    out[gid] = out[gid] - tmp1.w * ulong8Arg1.s6;
 
-	} else {
-		out[gid] = tmp1.y - gid;
-	}
+  } else {
+    out[gid] = tmp1.y - gid;
+  }
 
 }

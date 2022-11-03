@@ -18,20 +18,14 @@
 #include "dynamic_array.h"
 
 // IncrementingSequence<T> - generates incrementing sequence of elements
-template<typename T>
-class IncrementingSequence
-{
-    public:
-        IncrementingSequence(T start) : value(start)
-        {}
+template <typename T> class IncrementingSequence {
+public:
+  IncrementingSequence(T start) : value(start) {}
 
-        IncrementingSequence() : value((T)0)
-        {}
+  IncrementingSequence() : value((T)0) {}
 
-        T operator() ()
-        {
-            return value++;
-        }
-    protected:
-        T value;
+  T operator()() { return value++; }
+
+protected:
+  T value;
 };

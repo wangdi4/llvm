@@ -26,11 +26,10 @@ namespace intel {
 /// @brief
 ///  Interface for runtime services.
 ///  These are services for runtime-specific information. Such services include
-///  detection of Thread-ID creation instructions, and Scalar/Vector mapping of builtin
-///  functions.
+///  detection of Thread-ID creation instructions, and Scalar/Vector mapping of
+///  builtin functions.
 class RuntimeServices {
 public:
-
   RuntimeServices() {}
   virtual ~RuntimeServices() {}
 
@@ -41,13 +40,14 @@ public:
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
   virtual std::unique_ptr<VectorizerFunction>
-  findBuiltinFunction(StringRef) const = 0;
+      findBuiltinFunction(StringRef) const = 0;
 
   /// @brief Check if specified instruction is an ID generator
   /// @param inst The instruction
   /// @param err Returns TRUE, if unable to determine ID generation
   /// @param dim Dimention of TIDGenerator
-  virtual bool isTIDGenerator(const Instruction *inst, bool *err, unsigned *dim) const = 0;
+  virtual bool isTIDGenerator(const Instruction *inst, bool *err,
+                              unsigned *dim) const = 0;
 
   /// @brief Check if function is a synchronization built-in
   /// @param inp_name Function name to look for
@@ -108,9 +108,8 @@ public:
   ///        for the packetized version:
   ///        foo(<2 x float> %a) --> foo4(<8 x float>)
   virtual bool needsConcatenatedVectorParams(StringRef) const = 0;
-
 };
 
-} // Namespace
+} // namespace intel
 
 #endif // __RuntimeServices_H_

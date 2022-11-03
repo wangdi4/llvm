@@ -10,17 +10,17 @@
 
 #include "common_utils.h"
 
-#include <vector>
+#include <assert.h>
 #include <climits>
 #include <fstream>
 #include <string>
-#include <assert.h>
+#include <vector>
 
-#include <windows.h>
 #include <Psapi.h>
+#include <windows.h>
 
-bool GetEnv(std::string& result, const std::string& name) {
-  char* buf;
+bool GetEnv(std::string &result, const std::string &name) {
+  char *buf;
   size_t size;
   errno_t err = _dupenv_s(&buf, &size, name.c_str());
   if (err || (0 == size) || !buf) {
@@ -39,33 +39,31 @@ bool GetEnv(std::string& result, const std::string& name) {
 // MS C compiler issues warnings on `strdup'. Let us avoid them.
 #define strdup _strdup
 
-typedef std::vector< char > buffer_t;
+typedef std::vector<char> buffer_t;
 
-int const _size  = MAX_PATH + 1; // Initial buffer size for path.
+int const _size = MAX_PATH + 1; // Initial buffer size for path.
 int const _count = 8; // How many times we will try to double buffer size.
 
-static std::string dir_sep() {
-  return "\\";
-}
+static std::string dir_sep() { return "\\"; }
 
 static std::string exe_path(unsigned int pid) {
-  buffer_t path( _size );
-  int      count = _count;
+  buffer_t path(_size);
+  int count = _count;
 
   while (true) {
     DWORD len = 0;
-    if (!pid)  {
+    if (!pid) {
       len = GetModuleFileNameA(nullptr, &path.front(), DWORD(path.size()));
     } else {
-      HANDLE hProcess =  OpenProcess(
-          READ_CONTROL | PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE,
-          pid);
+      HANDLE hProcess = OpenProcess(READ_CONTROL | PROCESS_VM_READ |
+                                        PROCESS_QUERY_INFORMATION,
+                                    FALSE, pid);
       if (hProcess != nullptr) {
-        len = GetModuleFileNameEx(
-            hProcess, nullptr, &path.front(), DWORD(path.size()));
+        len = GetModuleFileNameEx(hProcess, nullptr, &path.front(),
+                                  DWORD(path.size()));
         CloseHandle(hProcess);
       } else {
-        //VNX_ERR("OpenProcess failed, cannot get executable path");
+        // VNX_ERR("OpenProcess failed, cannot get executable path");
         return "";
       }
     }
@@ -83,18 +81,18 @@ static std::string exe_path(unsigned int pid) {
     }; // if
 
     // Buffer too small.
-    if (count > 0)  {
+    if (count > 0) {
       --count;
       path.resize(path.size() * 2);
     } else {
-      //VNX_ERR(
-      //  "ERROR: Getting executable path failed: "
-      //  "Buffer of %lu bytes is still too small\n",
-      //  (unsigned long) path.size()
+      // VNX_ERR(
+      //   "ERROR: Getting executable path failed: "
+      //   "Buffer of %lu bytes is still too small\n",
+      //   (unsigned long) path.size()
       //);
       return "";
     }; // if
-  }; // forever
+  };   // forever
 
   return std::string(&path.front(), path.size());
 }

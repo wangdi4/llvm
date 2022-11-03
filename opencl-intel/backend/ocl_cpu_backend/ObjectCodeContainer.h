@@ -17,32 +17,33 @@
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 
-
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 /**
  * Represents the container for Binary Object which contains serialized data
  * for the whole ocl program
  */
-class ObjectCodeContainer : public ICLDevBackendCodeContainer
-{
+class ObjectCodeContainer : public ICLDevBackendCodeContainer {
 public:
-    ObjectCodeContainer(const void *pBinary, size_t uiBinarySize);
-    ~ObjectCodeContainer();
+  ObjectCodeContainer(const void *pBinary, size_t uiBinarySize);
+  ~ObjectCodeContainer();
 
-    const void *GetCode() const override;
-    size_t GetCodeSize() const override;
+  const void *GetCode() const override;
+  size_t GetCodeSize() const override;
 
-  private:
-    char* m_pBinary;
-    size_t m_uiBinarySize;
+private:
+  char *m_pBinary;
+  size_t m_uiBinarySize;
 
-    // Klockwork Issue
-    ObjectCodeContainer ( const ObjectCodeContainer& x );
+  // Klockwork Issue
+  ObjectCodeContainer(const ObjectCodeContainer &x);
 
-    // Klockwork Issue
-    ObjectCodeContainer& operator= ( const ObjectCodeContainer& x );
+  // Klockwork Issue
+  ObjectCodeContainer &operator=(const ObjectCodeContainer &x);
 };
 
-}}} // namespace
-
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

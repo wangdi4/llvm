@@ -25,11 +25,10 @@
 
 #include <memory>
 
-
-#pragma warning (disable : 4985 ) /* disable ceil warnings */ 
+#pragma warning(disable : 4985) /* disable ceil warnings */
 
 namespace llvm {
-    class MDNode;
+class MDNode;
 }
 
 // Initialize the debug server if debugging is enabled.
@@ -39,61 +38,64 @@ namespace llvm {
 //
 bool InitDebugServer(unsigned int port_number);
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 // Interface of the debug server.
 //
-class DebugServer : public ICLDebuggingService
-{
+class DebugServer : public ICLDebuggingService {
 public:
-    // The debug server is a singleton. Access it via this method
-    //
-    static DebugServer& GetInstance() {return instance;}
+  // The debug server is a singleton. Access it via this method
+  //
+  static DebugServer &GetInstance() { return instance; }
 
-    DebugServer();
-    ~DebugServer();
+  DebugServer();
+  ~DebugServer();
 
-    // Initialize the server. Note that this blocks until a client is 
-    // connected.
-    //
-    bool Init(unsigned int port_number);
+  // Initialize the server. Note that this blocks until a client is
+  // connected.
+  //
+  bool Init(unsigned int port_number);
 
-    // Explicitly terminate the server connection
-    //
-    void TerminateConnection();
+  // Explicitly terminate the server connection
+  //
+  void TerminateConnection();
 
-    // These methods are called by the corresponding debug builtins
-    //
-    void Stoppoint(const llvm::MDNode *line_metadata) override;
-    void EnterFunction(const llvm::MDNode *subprogram_mdn) override;
-    void ExitFunction(const llvm::MDNode *subprogram_mdn) override;
-    void DeclareLocal(void *addr, const llvm::MDNode *description,
-                      const llvm::MDNode *expression) override;
-    void DeclareGlobal(void *addr, const llvm::MDNode *description) override;
+  // These methods are called by the corresponding debug builtins
+  //
+  void Stoppoint(const llvm::MDNode *line_metadata) override;
+  void EnterFunction(const llvm::MDNode *subprogram_mdn) override;
+  void ExitFunction(const llvm::MDNode *subprogram_mdn) override;
+  void DeclareLocal(void *addr, const llvm::MDNode *description,
+                    const llvm::MDNode *expression) override;
+  void DeclareGlobal(void *addr, const llvm::MDNode *description) override;
 
-    // Check if the global id passed in as a triple of numbers matches the
-    // debugged global id
-    //
-    bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z) override;
+  // Check if the global id passed in as a triple of numbers matches the
+  // debugged global id
+  //
+  bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z) override;
 
-    // Wait until the client asks to start debugging, initializing the 
-    // debugging session according to the client's request.
-    //
-    void WaitForStartCommand();
+  // Wait until the client asks to start debugging, initializing the
+  // debugging session according to the client's request.
+  //
+  void WaitForStartCommand();
 
 private:
-    static DebugServer instance;
-    struct DebugServerImpl;
-    std::unique_ptr<DebugServerImpl> d;
+  static DebugServer instance;
+  struct DebugServerImpl;
+  std::unique_ptr<DebugServerImpl> d;
 
-    // No copying
-    DebugServer(const DebugServer&);
-    DebugServer& operator=(const DebugServer&);
+  // No copying
+  DebugServer(const DebugServer &);
+  DebugServer &operator=(const DebugServer &);
 
 protected:
-    mutable llvm::sys::Mutex       m_Lock;
+  mutable llvm::sys::Mutex m_Lock;
 };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // DEBUG_SERVER_H
