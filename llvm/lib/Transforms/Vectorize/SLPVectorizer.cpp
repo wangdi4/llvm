@@ -737,7 +737,7 @@ static InstructionsState getSameOpcode(ArrayRef<Value *> VL,
   // TODO - generalize to support all operators (types, calls etc.).
   auto *IBase = cast<Instruction>(VL[BaseIndex]);
   Intrinsic::ID BaseID = 0;
-  SmallVector<VFInfo> BaseMappings;
+  SmallVector<VFInfo, 4> BaseMappings; // INTEL
   if (auto *CallBase = dyn_cast<CallInst>(IBase)) {
     BaseID = getVectorIntrinsicIDForCall(CallBase, &TLI);
     BaseMappings = VFDatabase(*CallBase).getMappings(*CallBase);
@@ -833,7 +833,10 @@ static InstructionsState getSameOpcode(ArrayRef<Value *> VL,
         if (ID != BaseID)
           return InstructionsState(VL[BaseIndex], nullptr, nullptr);
         if (!ID) {
-          SmallVector<VFInfo> Mappings = VFDatabase(*Call).getMappings(*Call);
+#if INTEL_CUSTOMIZATION
+          SmallVector<VFInfo, 4> Mappings =
+              VFDatabase(*Call).getMappings(*Call);
+#endif // INTEL_CUSTOMIZATION
           if (Mappings.size() != BaseMappings.size() ||
               Mappings.front().ISA != BaseMappings.front().ISA ||
               Mappings.front().ScalarName != BaseMappings.front().ScalarName ||
