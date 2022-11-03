@@ -4647,10 +4647,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // create a new temp.
     //
     HLContainerTy PrivFinalInsts;
-    RegDDRef *VecMask = widenRef(VPInst->getOperand(1), getVF());
-
-    HLInst *BsfCall = createCTZCall(VecMask->clone(),
-                                    Intrinsic::ctlz, true, &PrivFinalInsts);
 
     // Scalar result of registerized private finalization should be written back
     // to original private descriptor variable.
@@ -4663,15 +4659,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
     RegDDRef *VecExit = widenRef(VPInst->getOperand(0), getVF());
 
-    RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
-    HLInst *SubInst = HLNodeUtilities.createSub(
-        DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), VF - 1),
-        BsfLhs->clone(), "ext.lane");
-    PrivFinalInsts.push_back(*SubInst);
+    RegDDRef *VecMask = widenRef(VPInst->getOperand(1), getVF());
+    RegDDRef *LastActiveLane =
+        createLastActiveLaneSequence(VecMask, &PrivFinalInsts);
 
     HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
-        VecExit->clone(), SubInst->getLvalDDRef()->clone(), "priv.extract",
-        OrigPrivDescr);
+        VecExit->clone(), LastActiveLane, "priv.extract", OrigPrivDescr);
     PrivFinalInsts.push_back(*PrivExtract);
 
     // Make the original private descriptor non-linear since we have a
@@ -4735,21 +4728,13 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // In case of non-SOA layout it will be enough to copy memory from last
     // private into the original array.
     RegDDRef *VecMask = widenRef(VPInst->getOperand(2), getVF());
-    HLInst *BsfCall = createCTZCall(VecMask->clone(), Intrinsic::ctlz, true,
-                                    &PrivFinalArrayInsts);
-    RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
-
-    HLInst *SubInst = HLNodeUtilities.createSub(
-        DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), VF - 1),
-        BsfLhs->clone(), "ext.lane");
-    SubInst->getLvalDDRef()->makeSelfBlob();
-    PrivFinalArrayInsts.push_back(*SubInst);
+    RegDDRef *LastActiveLane =
+        createLastActiveLaneSequence(VecMask, &PrivFinalArrayInsts);
 
     RegDDRef *ResAddr = getOrCreateScalarRef(Priv, 0);
-    auto IndexRef = SubInst->getLvalDDRef()->clone();
-    ResAddr->addDimension(IndexRef->getSingleCanonExpr());
+    ResAddr->addDimension(LastActiveLane->getSingleCanonExpr());
     ResAddr->setAlignment(Priv->getOrigAlignment().value());
-    SmallVector<const RegDDRef *, 1> AuxRefs = {IndexRef};
+    SmallVector<const RegDDRef *, 1> AuxRefs = {LastActiveLane};
     // Invoke makeConsitent() because dimensions of RegDDRef are modified.
     ResAddr->makeConsistent(AuxRefs, getNestingLevelFromInsertPoint());
 
@@ -4789,24 +4774,17 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     //
     HLContainerTy PrivLastValNonPODInsts;
     RegDDRef *VecMask = widenRef(VPInst->getOperand(2), getVF());
-    HLInst *BsfCall = createCTZCall(VecMask->clone(), Intrinsic::ctlz, true,
-                                    &PrivLastValNonPODInsts);
-    RegDDRef *OrigPrivDescr = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    RegDDRef *LastActiveLane =
+        createLastActiveLaneSequence(VecMask, &PrivLastValNonPODInsts);
+
     RegDDRef *VecExit = widenRef(VPInst->getOperand(0), getVF());
-    RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
-
-    HLInst *SubInst = HLNodeUtilities.createSub(
-        DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), VF - 1),
-        BsfLhs->clone(), "ext.lane");
-    PrivLastValNonPODInsts.push_back(*SubInst);
-
     HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
-        VecExit->clone(), SubInst->getLvalDDRef()->clone(), "priv.extract",
-        nullptr);
+        VecExit->clone(), LastActiveLane, "priv.extract", nullptr);
     PrivLastValNonPODInsts.push_back(*PrivExtract);
 
     auto *CopyAssignFn =
         cast<VPPrivateLastValueNonPODMaskedInst>(VPInst)->getCopyAssign();
+    RegDDRef *OrigPrivDescr = getOrCreateScalarRef(VPInst->getOperand(1), 0);
     HLInst *PrivCopyAssign = HLNodeUtilities.createCall(
         CopyAssignFn,
         {OrigPrivDescr->clone(), PrivExtract->getLvalDDRef()->clone()});
@@ -5053,6 +5031,24 @@ RegDDRef *VPOCodeGenHIR::getCurMaskValueOrAllOnes() const {
                             DDRefUtilities,
                             Constant::getAllOnesValue(Type::getInt1Ty(Context)),
                             getVF());
+}
+
+RegDDRef *
+VPOCodeGenHIR::createLastActiveLaneSequence(RegDDRef *VecMask,
+                                            HLContainerTy *Container) {
+  // Generate set of instructions to obtain last active lane index.
+  // %bsfintmask = bitcast.<2 x i1>.i2(%mask);
+  // %lz = @llvm.ctlz.i2(%bsfintmask,  1);
+  // %lane = VF - 1 - %lz;
+  HLInst *BsfCall =
+      createCTZCall(VecMask->clone(), Intrinsic::ctlz, true, Container);
+  RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
+  HLInst *SubInst = HLNodeUtilities.createSub(
+      DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), getVF() - 1),
+      BsfLhs->clone(), "ext.lane");
+  SubInst->getLvalDDRef()->makeSelfBlob();
+  Container->push_back(*SubInst);
+  return SubInst->getLvalDDRef()->clone();
 }
 
 RegDDRef *VPOCodeGenHIR::generateMaskForCompressExpandLoadStoreNonu() {
