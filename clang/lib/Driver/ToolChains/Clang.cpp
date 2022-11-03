@@ -8626,6 +8626,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-mllvm");
       CmdArgs.push_back(Args.MakeArgString("-paropt=" + Twine(paroptVal)));
     }
+    if (CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
+      CmdArgs.push_back("-fopenmp-typed-clauses");
   }
 
   if (IsOpenMPDevice && Triple.isSPIR()) {
