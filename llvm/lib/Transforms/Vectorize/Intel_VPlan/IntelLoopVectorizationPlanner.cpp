@@ -1909,8 +1909,6 @@ void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
         LifetimeEndVec.push_back(VPCall);
     }
   }
-  assert(!LifetimeStartVec.empty() && !LifetimeEndVec.empty() &&
-         "LinearIV lifetime start/end are expected at least for LINEAR.IV!");
   for (auto *LifetimeStart : LifetimeStartVec)
     LifetimeStart->moveBefore(Header->getFirstNonPhi());
   for (auto *LifetimeEnd : LifetimeEndVec)
