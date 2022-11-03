@@ -3080,7 +3080,7 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   int Size = 0;
-<<<<<<< HEAD
+  EphemeralValueTracker EphTracker;
 
   SmallPtrSet<const Value *, 32> EphValues;
   auto IsEphemeral = [&](const Instruction *I) {
@@ -3090,10 +3090,7 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
            all_of(I->users(),
                   [&](const User *U) { return EphValues.count(U); });
   };
-=======
-  EphemeralValueTracker EphTracker;
 
->>>>>>> 592a96c03b0c587404e78d69bbf072609b1e6417
   // Walk the loop in reverse so that we can identify ephemeral values properly
   // (values only feeding assumes).
   for (Instruction &I : reverse(BB->instructionsWithoutDebug(false))) {
