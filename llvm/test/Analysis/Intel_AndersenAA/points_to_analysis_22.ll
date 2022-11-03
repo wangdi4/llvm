@@ -1,8 +1,6 @@
 ; This test verifies that anders-aa shouldn't be able to disambiguate
 ; stdout and nout, which are external variables.
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -anders-aa -whole-program-assume -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -anders-aa -whole-program-assume -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)'  -whole-program-assume -aa-pipeline=anders-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)'  -whole-program-assume -aa-pipeline=anders-aa -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 

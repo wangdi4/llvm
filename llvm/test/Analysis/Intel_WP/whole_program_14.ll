@@ -5,7 +5,6 @@
 ; there is no use for it. This test case will use opt rather than llvm-lto
 ; because we want to check that the functions traversal is working correctly.
 
-; RUN: opt < %s -enable-new-pm=0 -disable-output -wholeprogramanalysis -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='require<wholeprogram>' -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS

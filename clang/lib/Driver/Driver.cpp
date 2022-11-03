@@ -5281,29 +5281,32 @@ class OffloadingActionBuilder final {
           C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
       StringRef LibCName = IsMSVC ? "libomp-msvc" : "libomp-glibc";
       SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
-        // WARNING: the order will matter here, when we add -only-needed
-        //          for llvm-link linking these libraries.
-        { "libomp-spirvdevicertl", LinkRtl },
-        { LibCName, LinkLibc },
-        { "libomp-complex", LinkFP32 },
-        { "libomp-complex-fp64", LinkFP64 },
-        { "libomp-cmath", LinkFP32 },
-        { "libomp-cmath-fp64", LinkFP64 },
-        // Link the fallback implementations as well, since
-        // SPIR-V modules linking is not supported yet.
-        { "libomp-fallback-cassert", LinkLibc },
-        { "libomp-fallback-cstring", LinkLibc },
-        { "libomp-fallback-complex", LinkFP32 },
-        { "libomp-fallback-complex-fp64", LinkFP64 },
-        { "libomp-fallback-cmath", LinkFP32 },
-        { "libomp-fallback-cmath-fp64", LinkFP64 },
-        // ITT libraries must be last in the unbundling/linking order,
-        // since the other libraries may call ITT APIs.
-        { "libomp-itt-user-wrappers", LinkITT },
-        { "libomp-itt-compiler-wrappers", LinkITT },
-        // The above ITT libraries are calling ITT stubs,
-        // so the stubs must be linked after them.
-        { "libomp-itt-stubs", LinkITT } };
+          // WARNING: the order will matter here, when we add -only-needed
+          //          for llvm-link linking these libraries.
+          {"libomp-spirvdevicertl", LinkRtl},
+          {LibCName, LinkLibc},
+          {"libomp-complex", LinkFP32},
+          {"libomp-complex-fp64", LinkFP64},
+          {"libomp-cmath", LinkFP32},
+          {"libomp-cmath-fp64", LinkFP64},
+          // Link the fallback implementations as well, since
+          // SPIR-V modules linking is not supported yet.
+          {"libomp-fallback-cassert", LinkLibc},
+          {"libomp-fallback-cstring", LinkLibc},
+          {"libomp-fallback-complex", LinkFP32},
+          {"libomp-fallback-complex-fp64", LinkFP64},
+          {"libomp-fallback-cmath", LinkFP32},
+          {"libomp-fallback-cmath-fp64", LinkFP64},
+          // ITT libraries must be last in the unbundling/linking order,
+          // since the other libraries may call ITT APIs.
+          {"libomp-itt-user-wrappers", LinkITT},
+          {"libomp-itt-compiler-wrappers", LinkITT},
+          // The above ITT libraries are calling ITT stubs,
+          // so the stubs must be linked after them.
+          { "libomp-itt-stubs",
+            LinkITT }};
+      if (Args.hasArg(options::OPT_fopenmp_target_simd))
+        omp_device_libs.push_back({"libomp-device-svml", LinkFP32 | LinkFP64});
 
       // Go through the lib vectors and add them accordingly.
       auto addInput = [&](StringRef LibName) {

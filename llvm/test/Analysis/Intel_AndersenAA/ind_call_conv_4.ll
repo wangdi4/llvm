@@ -6,7 +6,6 @@
 ; @add_fun is a similar type. The limit for direct calls is set to 2, therefore
 ; there will be 2 direct calls.
 
-; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -anders-aa -indirectcallconv %s | FileCheck %s
 ; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
 %struct.A = type { %struct.A* ()*, i32 }

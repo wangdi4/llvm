@@ -219,7 +219,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_F)) {
     StringRef Value(A->getValue());
     unsigned SSize;
-    if (!Value.getAsInteger(10, SSize)) {
+    if (!Value.getAsInteger(0, SSize)) {
       CmdArgs.push_back(Args.MakeArgString(Twine("-stack:") + Value));
       A->claim();
     }

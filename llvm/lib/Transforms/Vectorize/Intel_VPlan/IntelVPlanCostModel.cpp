@@ -1316,6 +1316,12 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     return Cost;
   }
 
+  case VPInstruction::ReductionFinalInscan:
+    // reduction-final-inscan does not require any additional operations:
+    // extract from vector value is covered by extract-last-vector-lane,
+    // and the generated extractelement is reused during CG.
+    return 0;
+
   case VPInstruction::CompressExpandIndexInit:
     return TTI.getVectorInstrCost(Instruction::InsertElement,
                                   getWidenedType(VPInst->getType(), VF), 0);
@@ -1460,6 +1466,38 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       Instruction::URem, Ty, TargetTransformInfo::TCK_RecipThroughput);
     Cost += TTI.getArithmeticInstrCost(
       Instruction::Sub, Ty, TargetTransformInfo::TCK_RecipThroughput);
+    return Cost;
+  }
+
+  case VPInstruction::ExtractLastVectorLane: {
+    auto *VecTy = getWidenedType(VPInst->getOperand(0)->getType(), VF);
+    return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                  VF - 1 /* Index */);
+  }
+
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction: {
+    // Computation of running insclusive reduction requires:
+    // 1. broadcast of carry-over value from previous iteration;
+    // 2. log(VF) operations of reduction;
+    // 3. 1 more reduction with carry-over value.
+    // 4. log(VF) shuffles.
+    //
+    // Exclusive reduction also requires one more shuffle operation.
+    auto BinOpcode =
+        isa<VPRunningExclusiveReduction>(VPInst)
+            ? cast<VPRunningExclusiveReduction>(VPInst)->getBinOpcode()
+            : cast<VPRunningInclusiveReduction>(VPInst)->getBinOpcode();
+    auto *VecTy = getWidenedType(VPInst->getType(), VF);
+    VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
+
+    unsigned ShuffleOpsNum =
+        isa<VPRunningExclusiveReduction>(VPInst) ? log2(VF) + 1 : log2(VF);
+    Cost += TTI.getArithmeticInstrCost(
+                BinOpcode, VecTy, TargetTransformInfo::TCK_RecipThroughput) *
+            (log2(VF) + 1);
+    Cost += TTI.getShuffleCost(TTI::SK_PermuteTwoSrc, VecTy) * ShuffleOpsNum;
+
     return Cost;
   }
   }

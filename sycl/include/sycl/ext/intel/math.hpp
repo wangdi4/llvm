@@ -44,6 +44,8 @@ _iml_half_internal __imf_copysignf16(_iml_half_internal, _iml_half_internal);
 /* INTEL_CUSTOMIZATION */
 float __imf_erfinvf(float);
 double __imf_erfinv(double);
+float __imf_erfcinvf(float);
+double __imf_erfcinv(double);
 float __imf_cdfnormf(float);
 double __imf_cdfnorm(double);
 /* end INTEL_CUSTOMIZATION */
@@ -89,6 +91,16 @@ std::enable_if_t<std::is_same_v<Tp, float>, float> erfinv(Tp x) {
 
 template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, double>, double> erfinv(Tp x) {
+  return __imf_erfinv(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> erfcinv(Tp x) {
+  return __imf_erfinvf(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> erfcinv(Tp x) {
   return __imf_erfinv(x);
 }
 

@@ -429,6 +429,50 @@ static const VPValue *getPtrThroughCast(const VPValue *Op) {
   return Op;
 }
 
+inline bool isLoadInstruction(const Instruction *Inst) {
+  return Inst->getOpcode() == Instruction::Load;
+}
+inline bool isLoadInstruction(const VPInstruction *Inst) {
+  return VPLoadStoreInst::isLoadOpcode(Inst->getOpcode());
+}
+
+// Return true if the \p ExitI does not have any recurrent phi in its operand
+// chain, except inductions.
+//
+template <typename PHINode, typename Instruction, typename BasicBlock>
+inline bool
+checkUncondLastPrivOperands(const BasicBlock *HeaderBB, Instruction *ExitI,
+                            std::function<bool(PHINode *)> IsInduction) {
+  SmallVector<Instruction *, 4> Worklist;
+  SmallPtrSet<Instruction *, 4> Visited;
+
+  Worklist.push_back(ExitI);
+  while (!Worklist.empty()) {
+    Instruction *Cur = Worklist.pop_back_val();
+    if (auto Phi = dyn_cast<PHINode>(Cur)) {
+      if (Phi->getParent() == HeaderBB && !IsInduction(Phi)) {
+        DEBUG_WITH_TYPE("vploop-analysis",
+                        dbgs() << "Detected recurrent operand while checking "
+                                  "for unconditional private: \n");
+        DEBUG_WITH_TYPE("vploop-analysis", Cur->dump());
+        return false;
+      }
+    }
+    if (!Visited.insert(Cur).second)
+      continue;
+    for (auto &Op : Cur->operands())
+      if (auto *Inst = dyn_cast<Instruction>(Op)) {
+        if (isLoadInstruction(Inst)) {
+          // Skip a load, it produces a new value that does not use operands
+          // directly.
+          continue;
+        }
+        Worklist.push_back(Inst);
+      }
+  }
+  return true;
+}
+
 } // namespace vpo
 } // namespace llvm
 

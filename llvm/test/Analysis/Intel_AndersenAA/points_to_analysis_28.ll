@@ -1,7 +1,6 @@
 ; Verifies that points-to info for pr<mem> is computed as <universal>
 ; since integer type value (i.e i64) is stored to @pr.
 
-; RUN: opt < %s -anders-aa -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:  pr<mem>        --> ({{[0-9a-f]+}}): <universal>
