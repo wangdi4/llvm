@@ -45,10 +45,10 @@ public:
                                 Module *Module, DebugLoc *DLoc, CallBase *CB,
                                 bool SuppressPrint = false)
       : IRCallee(IRCallee), IRCaller(nullptr), IRParent(nullptr),
-        IsInlined(IsInlined), Reason(Reason),
-        InlineCost(-1), OuterInlineCost(-1), InlineThreshold(-1),
-        EarlyExitInlineCost(INT_MAX), EarlyExitInlineThreshold(INT_MAX),
-        Call(CB), M(Module), SuppressPrint(SuppressPrint) {
+        IsInlined(IsInlined), Reason(Reason), InlineCost(-1),
+        OuterInlineCost(-1), InlineThreshold(-1), EarlyExitInlineCost(INT_MAX),
+        EarlyExitInlineThreshold(INT_MAX), Call(CB), M(Module),
+        SuppressPrint(SuppressPrint) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
     Children.clear();
@@ -152,7 +152,7 @@ public:
   /// Move the callsite recursively in and under 'IRCSV' and attach
   /// them to 'NewIRCS' if they appear in 'OutFCBSet'.
   void moveOutlinedChildren(InlineReportCallSiteVector &IRCSV,
-                            SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet,
+                            SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet,
                             InlineReportCallSite *NewIRCS);
 
 private:
@@ -194,8 +194,8 @@ private:
 class InlineReportFunction {
 public:
   explicit InlineReportFunction(const Function *F, bool SuppressPrint = false)
-      : IsDead(false), IsCurrent(false), IsDeclaration(false),
-        LinkageChar(' '), LanguageChar(' '), SuppressPrint(SuppressPrint) {};
+      : IsDead(false), IsCurrent(false), IsDeclaration(false), LinkageChar(' '),
+        LanguageChar(' '), SuppressPrint(SuppressPrint){};
   ~InlineReportFunction(void);
   InlineReportFunction(const InlineReportFunction &) = delete;
   void operator=(const InlineReportFunction &) = delete;
@@ -249,10 +249,10 @@ public:
   void setLinkageChar(Function *F) {
     LinkageChar =
         (F->hasLocalLinkage()
-         ? 'L'
-         : (F->hasLinkOnceODRLinkage()
-            ? 'O'
-            : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
+             ? 'L'
+             : (F->hasLinkOnceODRLinkage()
+                    ? 'O'
+                    : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
   }
 
   /// Set a single character indicating the language type
@@ -270,12 +270,13 @@ public:
 
   /// Populate 'OutFIRCSSet' with the InlineReportCallSites corresponding
   /// to the CallBases in 'OutFCBSet'
-  void findOutlinedIRCSes(SmallPtrSetImpl<CallBase*> &OutFCBSet,
-                          SmallPtrSetImpl<InlineReportCallSite*> &OutFIRCSSet);
+  void findOutlinedIRCSes(SmallPtrSetImpl<CallBase *> &OutFCBSet,
+                          SmallPtrSetImpl<InlineReportCallSite *> &OutFIRCSSet);
 
   /// Move the InlineReportCallSites 'OutFCBSet' under 'NewIRF'.
-  void moveOutlinedCallSites(InlineReportFunction *NewIRF,
-                             SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet);
+  void
+  moveOutlinedCallSites(InlineReportFunction *NewIRF,
+                        SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet);
 
 private:
   bool IsDead;
@@ -390,8 +391,10 @@ public:
                                    Function *NewFunction);
 
   /// Replace 'CB0' with 'CB1' in the inlining report, so that 'CB1'
-  /// inherits the properties of 'CB0'.
-  void replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1);
+  /// inherits the properties of 'CB0'. If 'UpdateReason', update
+  /// the inlining reason based on the callee of 'CB1'.
+  void replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1,
+                                   bool UpdateReason = false);
 
   /// Clone 'CB0' to produce 'CB1' in the inlining report, so that 'CB1'
   /// inherits the properties of 'CB0'.
@@ -462,6 +465,7 @@ public:
     for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
       if (ActiveInlinedCalls[II] == &CB)
         ActiveInlinedCalls[II] = nullptr;
+    removeCallback(&CB);
   }
 
   // Indicate that 'F' has been eliminated as a dead static function.
@@ -476,6 +480,7 @@ public:
       IRFunctionMap.erase(MapIt);
       IRDeadFunctionSet.insert(IRF);
     }
+    removeCallback(&F);
   }
 
   // Create or update the exiting representation of 'F'.
@@ -494,6 +499,10 @@ public:
   // Indicate that 'CB' calls a specialized version of its caller under
   // a multiversioning test.
   void addMultiversionedCallSite(CallBase *CB);
+
+  // Remove all of the CallBases in the 'BlocksToRemove' as dead code.
+  void
+  removeCallBasesInBasicBlocks(SmallSetVector<BasicBlock *, 8> &BlocksToRemove);
 
 private:
   /// The Level is specified by the option -inline-report=N.
@@ -549,8 +558,7 @@ private:
   /// Clone the call sites recursively in and under 'IRCSV' within
   /// 'OldIRCS' using 'VMap', placing them under 'NewIRCS'.
   void cloneCallSites(InlineReportCallSiteVector &IRCSV,
-                      ValueToValueMapTy &VMap,
-                      InlineReportCallSite *OldIRCS,
+                      ValueToValueMapTy &VMap, InlineReportCallSite *OldIRCS,
                       InlineReportCallSite *NewIRCS);
 
   ///
@@ -569,13 +577,12 @@ private:
         /// corresponding to the Value has been deleted
         IR->removeFunctionReference(*F);
       }
-      setValPtr(nullptr);
     }
 
   public:
     InlineReportCallback(Value *V, InlineReport *CBIR)
-        : CallbackVH(V), IR(CBIR) {};
-    virtual ~InlineReportCallback() {};
+        : CallbackVH(V), IR(CBIR){};
+    virtual ~InlineReportCallback(){};
   };
 
   DenseMap<Value *, InlineReportCallback *> CallbackMap;
@@ -650,6 +657,5 @@ public:
 };
 
 } // end namespace llvm
-
 
 #endif
