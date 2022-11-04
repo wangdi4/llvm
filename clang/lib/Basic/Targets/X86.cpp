@@ -860,22 +860,18 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_SapphireRapids:
   case CK_Alderlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-  case CK_Raptorlake:
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
   case CK_Graniterapids:
 #endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-  case CK_Meteorlake:
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
   case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
+  case CK_Raptorlake:
+  case CK_Meteorlake:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -2271,6 +2267,7 @@ bool X86TargetInfo::validateCpuIs(StringRef FeatureStr) const {
 #define X86_VENDOR(ENUM, STRING) .Case(STRING, true)
 #define X86_CPU_TYPE_ALIAS(ENUM, ALIAS) .Case(ALIAS, true)
 #define X86_CPU_TYPE(ENUM, STR) .Case(STR, true)
+#define X86_CPU_SUBTYPE_ALIAS(ENUM, ALIAS) .Case(ALIAS, true)
 #define X86_CPU_SUBTYPE(ENUM, STR) .Case(STR, true)
 #include "llvm/Support/X86TargetParser.def"
       .Default(false);
@@ -2494,22 +2491,18 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #endif // INTEL_CUSTOMIZATION
     case CK_Alderlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-    case CK_Raptorlake:
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
     case CK_Graniterapids:
 #endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
     case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-    case CK_Meteorlake:
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
     case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
+    case CK_Raptorlake:
+    case CK_Meteorlake:
     case CK_KNL:
     case CK_KNM:
     // K7
