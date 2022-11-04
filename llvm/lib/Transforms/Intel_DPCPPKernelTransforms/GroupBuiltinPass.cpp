@@ -579,7 +579,7 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
 
     // 6. For uniform & vectorized WG function - finalize
     // the result
-    if (isWorkGroupUniform(FuncName) && RetType->isVectorTy()) {
+    if (isWorkGroupUniform(FuncName)) {
 
       // a. Load 'alloca' value of the accumulated result.
       LoadInst *LoadResult = new LoadInst(Result->getAllocatedType(), Result,
@@ -588,7 +588,12 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
       // b. Create finalization function object:
       // Remangle with unique name (derived from original WG function name)
       // [Note that the signature is as of original WG function]
-      std::string FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
+      std::string FinalizeFuncName;
+      if (!IsBroadcast && RetType->isVectorTy()) {
+        FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
+      } else {
+        FinalizeFuncName = getWorkGroupIdentityFinalize(FuncName);
+      }
       // Create function
       // Get the new function declaration out of built-in modules list.
       Function *LibFunc = RTS.findFunctionInBuiltinModules(FinalizeFuncName);

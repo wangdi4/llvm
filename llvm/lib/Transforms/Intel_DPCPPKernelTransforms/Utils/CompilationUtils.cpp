@@ -83,6 +83,7 @@ const StringRef NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
 const StringRef NAME_WORK_GROUP_ALL = "work_group_all";
 const StringRef NAME_WORK_GROUP_ANY = "work_group_any";
 const StringRef NAME_WORK_GROUP_BROADCAST = "work_group_broadcast";
+const StringRef NAME_WORK_GROUP_IDENTITY = "work_group_identity";
 const StringRef NAME_WORK_GROUP_REDUCE_ADD = "work_group_reduce_add";
 const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD =
     "work_group_scan_exclusive_add";
@@ -365,6 +366,10 @@ bool isWorkGroupAny(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ANY); }
 
 bool isWorkGroupBroadCast(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+}
+
+bool isWorkGroupIdentity(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_IDENTITY);
 }
 
 bool isWorkGroupReduceAdd(StringRef S) {
@@ -698,7 +703,8 @@ bool isWorkGroupBuiltinDivergent(StringRef S) { return isWorkGroupScan(S); }
 
 bool isWorkGroupUniform(StringRef S) {
   return isWorkGroupBuiltinUniform(S) || isGetMaxSubGroupSize(S) ||
-         isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S);
+         isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S) ||
+         isWorkGroupIdentity(S);
 }
 
 bool isWorkGroupDivergent(StringRef S) {
@@ -726,6 +732,16 @@ std::string removeWorkGroupFinalizePrefix(StringRef S) {
   FD.Name = FD.Name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
   std::string FuncName = mangle(FD);
   return FuncName;
+}
+
+std::string getWorkGroupIdentityFinalize(StringRef S) {
+  assert(isMangledName(S) && "expected mangled name of work group built-in");
+  reflection::FunctionDescriptor FD = demangle(S);
+  // Only preserve the first parameter
+  FD.Parameters.resize(1);
+  FD.Name = (NAME_FINALIZE_WG_FUNCTION_PREFIX + NAME_WORK_GROUP_IDENTITY).str();
+  std::string finalizeFuncName = mangle(FD);
+  return finalizeFuncName;
 }
 
 bool isWorkGroupBuiltin(StringRef S) {

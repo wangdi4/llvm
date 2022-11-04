@@ -22,10 +22,14 @@ define void @test() {
 ; CHECK-NEXT:    call void @dummy_barrier.()
 ; CHECK-NEXT:    [[CALLWGFORITEM:%.*]] = call i16 @_Z29work_group_reduce_bitwise_andsPs(i16 noundef signext 4, i16* [[ALLOCAWGRESULT]])
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
+; CHECK-NEXT:    [[LOADWGFINALRESULT:%.*]] = load i16, i16* [[ALLOCAWGRESULT]], align 2
+; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call i16 @_Z30__finalize_work_group_identitys(i16 [[LOADWGFINALRESULT]])
 ; CHECK-NEXT:    store i16 -1, i16* [[ALLOCAWGRESULT]], align 2
 ; CHECK-NEXT:    call void @dummy_barrier.()
 ; CHECK-NEXT:    [[CALLWGFORITEM2:%.*]] = call i32 @_Z28work_group_reduce_logical_oriPi(i32 noundef 8, i32* [[ALLOCAWGRESULT1]])
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
+; CHECK-NEXT:    [[LOADWGFINALRESULT:%.*]] = load i32, i32* [[ALLOCAWGRESULT1]], align 4
+; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call i32 @_Z30__finalize_work_group_identityi(i32 [[LOADWGFINALRESULT]])
 ; CHECK-NEXT:    store i32 0, i32* [[ALLOCAWGRESULT1]], align 4
 ; CHECK-NEXT:    call void @dummy_barrier.()
 ; CHECK-NEXT:    [[CALLWGFORITEM4:%.*]] = call signext <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_sPS_(<16 x i16> noundef signext <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>, <16 x i16>* [[ALLOCAWGRESULT3]])
@@ -53,6 +57,6 @@ define void @test() {
 
 ;; Instructions inserted by GroupBuiltin should not have debug info
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-21: WARNING
+; DEBUGIFY-COUNT-25: WARNING
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS
