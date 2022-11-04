@@ -722,10 +722,19 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
   // Check that the UBRefs can be legally hoisted out; otherwise it is
   // not legal to create the copy loop. Skip if dimsize known.
   if (!InnerDimSize) {
-    const RegDDRef *InnerUBRef = FirstUse.OrigInnerLoop->getUpperDDRef();
-    if (InnerUBRef->hasIV() || InnerUBRef->getDefinedAtLevel() != 0) {
+    const HLLoop *InnerLp = FirstUse.OrigInnerLoop;
+    const RegDDRef *InnerUBRef = InnerLp->getUpperDDRef();
+
+    bool BadZtt =
+        InnerLp->hasZtt() &&
+        std::any_of(InnerLp->ztt_ddref_begin(), InnerLp->ztt_ddref_end(),
+                    [&](const RegDDRef *Ref) {
+                      return !Ref->isStructurallyInvariantAtLevel(1);
+                    });
+
+    if (!InnerUBRef->isStructurallyInvariantAtLevel(1) || BadZtt) {
       LLVM_DEBUG(
-          dbgs() << "[Illegal] Inner UB cannot be used for copy loop.\n";);
+          dbgs() << "[Illegal] InnerLoop cannot be used for copy loop.\n";);
       return false;
     }
 
@@ -736,21 +745,30 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
     }
 
     // Used to check for unconditional execution
-    if (FirstUse.OrigInnerLoop->hasZtt()) {
-      IgnoreNodes.insert(FirstUse.OrigInnerLoop);
+    if (InnerLp->hasZtt()) {
+      IgnoreNodes.insert(InnerLp);
     }
   }
 
   if (!OuterDimSize) {
-    const RegDDRef *OuterUBRef = FirstUse.OrigOuterLoop->getUpperDDRef();
-    if (OuterUBRef->hasIV() || OuterUBRef->getDefinedAtLevel() != 0) {
+    const HLLoop *OuterLp = FirstUse.OrigOuterLoop;
+    const RegDDRef *OuterUBRef = OuterLp->getUpperDDRef();
+
+    bool BadZtt =
+        OuterLp->hasZtt() &&
+        std::any_of(OuterLp->ztt_ddref_begin(), OuterLp->ztt_ddref_end(),
+                    [&](const RegDDRef *Ref) {
+                      return !Ref->isStructurallyInvariantAtLevel(1);
+                    });
+
+    if (!OuterUBRef->isStructurallyInvariantAtLevel(1) || BadZtt) {
       LLVM_DEBUG(
-          dbgs() << "[Illegal] Outer UB cannot be used for copy loop.\n";);
+          dbgs() << "[Illegal] OuterLoop cannot be used for copy loop.\n";);
       return false;
     }
 
-    if (FirstUse.OrigOuterLoop->hasZtt()) {
-      IgnoreNodes.insert(FirstUse.OrigOuterLoop);
+    if (OuterLp->hasZtt()) {
+      IgnoreNodes.insert(OuterLp);
     }
   }
 
@@ -1031,7 +1049,10 @@ static void updateLiveInTemp(HLLoop *InnerLoop, unsigned OldSB,
   HLLoop *Lp = InnerLoop;
   while (Lp) {
     if (Lp->isLiveIn(OldSB)) {
-      Lp->removeLiveInTemp(OldSB);
+      // TODO: accurately updated livein/liveouts.
+      // The transformation ignores addressof refs, which need
+      // to return live-in information.
+      // Lp->removeLiveInTemp(OldSB);
       Lp->addLiveInTemp(NewSB);
     }
     Lp = Lp->getParentLoop();

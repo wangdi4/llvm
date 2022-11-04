@@ -1,6 +1,6 @@
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -disable-output 2>&1 | FileCheck %s
 
-; Check that we successfull transpose the array for non-unit stride access
+; Check that we successfully transpose the array for non-unit stride access
 ; (%4)[i2 + sext.i32.i64(%1) * i3]
 
 ;     BEGIN REGION { }
