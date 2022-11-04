@@ -1895,47 +1895,37 @@ public:
   /// Return true if the call should not be inlined.
   bool isNoInline() const { return hasFnAttr(Attribute::NoInline); }
   void setIsNoInline() { addFnAttr(Attribute::NoInline); }
+
+  MemoryEffects getMemoryEffects() const;
+  void setMemoryEffects(MemoryEffects ME);
+
   /// Determine if the call does not access memory.
-  bool doesNotAccessMemory() const { return hasFnAttr(Attribute::ReadNone); }
-  void setDoesNotAccessMemory() { addFnAttr(Attribute::ReadNone); }
+  bool doesNotAccessMemory() const;
+  void setDoesNotAccessMemory();
 
   /// Determine if the call does not access or only reads memory.
-  bool onlyReadsMemory() const {
-    return hasImpliedFnAttr(Attribute::ReadOnly);
-  }
-
-  void setOnlyReadsMemory() { addFnAttr(Attribute::ReadOnly); }
+  bool onlyReadsMemory() const;
+  void setOnlyReadsMemory();
 
   /// Determine if the call does not access or only writes memory.
-  bool onlyWritesMemory() const {
-    return hasImpliedFnAttr(Attribute::WriteOnly);
-  }
-  void setOnlyWritesMemory() { addFnAttr(Attribute::WriteOnly); }
+  bool onlyWritesMemory() const;
+  void setOnlyWritesMemory();
 
   /// Determine if the call can access memmory only using pointers based
   /// on its arguments.
-  bool onlyAccessesArgMemory() const {
-    return hasFnAttr(Attribute::ArgMemOnly);
-  }
-  void setOnlyAccessesArgMemory() { addFnAttr(Attribute::ArgMemOnly); }
+  bool onlyAccessesArgMemory() const;
+  void setOnlyAccessesArgMemory();
 
   /// Determine if the function may only access memory that is
   /// inaccessible from the IR.
-  bool onlyAccessesInaccessibleMemory() const {
-    return hasFnAttr(Attribute::InaccessibleMemOnly);
-  }
-  void setOnlyAccessesInaccessibleMemory() {
-    addFnAttr(Attribute::InaccessibleMemOnly);
-  }
+  bool onlyAccessesInaccessibleMemory() const;
+  void setOnlyAccessesInaccessibleMemory();
 
   /// Determine if the function may only access memory that is
   /// either inaccessible from the IR or pointed to by its arguments.
-  bool onlyAccessesInaccessibleMemOrArgMem() const {
-    return hasFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
-  }
-  void setOnlyAccessesInaccessibleMemOrArgMem() {
-    addFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
-  }
+  bool onlyAccessesInaccessibleMemOrArgMem() const;
+  void setOnlyAccessesInaccessibleMemOrArgMem();
+
   /// Determine if the call cannot return.
   bool doesNotReturn() const { return hasFnAttr(Attribute::NoReturn); }
   void setDoesNotReturn() { addFnAttr(Attribute::NoReturn); }
@@ -2155,43 +2145,6 @@ public:
     return false;
   }
 
-  /// Is the function attribute S disallowed by some operand bundle on
-  /// this operand bundle user?
-  bool isFnAttrDisallowedByOpBundle(StringRef S) const {
-    // Operand bundles only possibly disallow memory access attributes.  All
-    // String attributes are fine.
-    return false;
-  }
-
-  /// Is the function attribute A disallowed by some operand bundle on
-  /// this operand bundle user?
-  bool isFnAttrDisallowedByOpBundle(Attribute::AttrKind A) const {
-    switch (A) {
-    default:
-      return false;
-
-    case Attribute::InaccessibleMemOrArgMemOnly:
-      return hasReadingOperandBundles();
-
-    case Attribute::InaccessibleMemOnly:
-      return hasReadingOperandBundles();
-
-    case Attribute::ArgMemOnly:
-      return hasReadingOperandBundles();
-
-    case Attribute::ReadNone:
-      return hasReadingOperandBundles();
-
-    case Attribute::ReadOnly:
-      return hasClobberingOperandBundles();
-
-    case Attribute::WriteOnly:
-      return hasReadingOperandBundles();
-    }
-
-    llvm_unreachable("switch has a default case!");
-  }
-
   /// Used to keep track of an operand bundle.  See the main comment on
   /// OperandBundleUser above.
   struct BundleOpInfo {
@@ -2360,15 +2313,11 @@ private:
     if (Attrs.hasFnAttr(Kind))
       return true;
 
-    // Operand bundles override attributes on the called function, but don't
-    // override attributes directly present on the call instruction.
-    if (isFnAttrDisallowedByOpBundle(Kind))
-      return false;
-
     return hasFnAttrOnCalledFunction(Kind);
   }
   template <typename AK> Attribute getFnAttrOnCalledFunction(AK Kind) const;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   template <typename AttrKind>
   Attribute getCallSiteOrFuncAttrImpl(AttrKind Kind) const {
@@ -2405,6 +2354,8 @@ private:
       hasFnAttrOnCalledFunction(Attribute::ReadNone);
   }
 
+=======
+>>>>>>> 304f1d59ca41872c094def3aee0a8689df6aa398
   /// Determine whether the return value has the given attribute. Supports
   /// Attribute::AttrKind and StringRef as \p AttrKind types.
   template <typename AttrKind> bool hasRetAttrImpl(AttrKind Kind) const {

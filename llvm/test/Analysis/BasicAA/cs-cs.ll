@@ -432,6 +432,7 @@ entry:
 ; CHECK: Both ModRef:   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 }
 
+<<<<<<< HEAD
 ; CHECK:      attributes #{{.*}} = { argmemonly nocallback nofree nounwind willreturn writeonly }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nocallback nofree nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nosync nounwind willreturn }
@@ -448,6 +449,22 @@ entry:
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly }
 ; end INTEL_CUSTOMIZATION
+=======
+
+; CHECK:      attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+; CHECK-NEXT: attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+; CHECK-NEXT: attributes #2 = { nosync nounwind willreturn memory(argmem: readwrite) }
+; CHECK-NEXT: attributes #3 = { noinline nounwind memory(read) }
+; CHECK-NEXT: attributes #4 = { noinline nounwind memory(write) }
+; CHECK-NEXT: attributes #5 = { nounwind ssp }
+; CHECK-NEXT: attributes #6 = { nounwind memory(inaccessiblemem: readwrite) }
+; CHECK-NEXT: attributes #7 = { nounwind memory(argmem: readwrite, inaccessiblemem: readwrite) }
+; CHECK-NEXT: attributes #8 = { nounwind memory(argmem: readwrite) }
+; CHECK-NEXT: attributes #9 = { memory(read) }
+; CHECK-NEXT: attributes #10 = { memory(inaccessiblemem: readwrite) }
+; CHECK-NEXT: attributes #11 = { memory(argmem: readwrite, inaccessiblemem: readwrite) }
+; CHECK-NEXT: attributes #12 = { memory(argmem: readwrite) }
+>>>>>>> 304f1d59ca41872c094def3aee0a8689df6aa398
 
 attributes #0 = { argmemonly nounwind }
 attributes #1 = { noinline nounwind readonly }

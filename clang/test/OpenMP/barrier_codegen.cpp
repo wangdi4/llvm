@@ -45,9 +45,15 @@ int main(int argc, char **argv) {
 // CLANGCG: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) ;INTEL
 
 // IRBUILDER:          ; Function Attrs: nounwind
+<<<<<<< HEAD
 // IRBUILDER-NEXT:     declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) # ;INTEL
 // IRBUILDER_OPT:      ; Function Attrs: inaccessiblememonly nofree nosync nounwind readonly
 // IRBUILDER_OPT-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) # ;INTEL
+=======
+// IRBUILDER-NEXT:     declare i32 @__kmpc_global_thread_num(ptr) #
+// IRBUILDER_OPT:      ; Function Attrs: nofree nosync nounwind willreturn memory(inaccessiblemem: read)
+// IRBUILDER_OPT-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture nofree readonly) #
+>>>>>>> 304f1d59ca41872c094def3aee0a8689df6aa398
 
 // CHECK: define {{.+}} [[TMAIN_INT]](
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num(ptr [[LOC]])
