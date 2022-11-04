@@ -226,7 +226,9 @@ bool SGValueWidenPass::isCrossBarrier(Instruction *I,
 bool SGValueWidenPass::isWIRelated(Value *V) {
   if (CallInst *CI = dyn_cast<CallInst>(V)) {
     if (Function *F = CI->getCalledFunction()) {
-      const std::string Name = F->getName().str();
+      std::string Name = F->getName().str();
+      if (CompilationUtils::hasWorkGroupFinalizePrefix(Name))
+        Name = CompilationUtils::removeWorkGroupFinalizePrefix(Name);
       // Once WIRelatedAnalysis is ported to SGEmulation, we can remove
       // isWorkGroupUniform.
       if (isSubGroupUniform(Name) || isWorkGroupUniform(Name))
@@ -278,7 +280,9 @@ void SGValueWidenPass::runOnFunction(Function &F, const unsigned &Size) {
         // WGExcludeBB to hold the result value.
         if (CallInst *CI = dyn_cast<CallInst>(I)) {
           if (Function *F = CI->getCalledFunction()) {
-            const std::string Name = F->getName().str();
+            std::string Name = F->getName().str();
+            if (CompilationUtils::hasWorkGroupFinalizePrefix(Name))
+              Name = CompilationUtils::removeWorkGroupFinalizePrefix(Name);
             if (isWorkGroupUniform(Name)) {
               assert(WGExcludeBB && "WGExcludeBB doesn't exist");
               IP = WGExcludeBB->getTerminator();

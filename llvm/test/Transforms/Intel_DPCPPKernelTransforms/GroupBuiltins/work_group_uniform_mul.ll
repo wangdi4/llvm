@@ -22,10 +22,14 @@ define void @test() {
 ; CHECK-NEXT:    call void @dummy_barrier.()
 ; CHECK-NEXT:    [[CALLWGFORITEM:%.*]] = call i32 @_Z21work_group_reduce_muliPi(i32 noundef 2, i32* [[ALLOCAWGRESULT]])
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
+; CHECK-NEXT:    [[LOADWGFINALRESULT:%.*]] = load i32, i32* %AllocaWGResult, align 4
+; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call i32 @_Z30__finalize_work_group_identityi(i32 [[LOADWGFINALRESULT:%.*]])
 ; CHECK-NEXT:    store i32 1, i32* [[ALLOCAWGRESULT]], align 4
 ; CHECK-NEXT:    call void @dummy_barrier.()
 ; CHECK-NEXT:    [[CALLWGFORITEM2:%.*]] = call float @_Z21work_group_reduce_mulfPf(float noundef 2.000000e+00, float* [[ALLOCAWGRESULT1]])
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
+; CHECK-NEXT:    [[LOADWGFINALRESULT:%.*]] = load float, float* [[ALLOCAWGRESULT1]], align 4
+; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call float @_Z30__finalize_work_group_identityf(float [[LOADWGFINALRESULT:%.*]])
 ; CHECK-NEXT:    store float 1.000000e+00, float* [[ALLOCAWGRESULT1]], align 4
 ; CHECK-NEXT:    call void @dummy_barrier.()
 ; CHECK-NEXT:    [[CALLWGFORITEM4:%.*]] = call <16 x i32> @_Z21work_group_reduce_mulDv16_iPS_(<16 x i32> noundef <i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2>, <16 x i32>* [[ALLOCAWGRESULT3]])
@@ -52,7 +56,7 @@ define void @test() {
 
 ;; Instructions inserted by GroupBuiltin should not have debug info
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-21: WARNING
+; DEBUGIFY-COUNT-25: WARNING
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS
 
