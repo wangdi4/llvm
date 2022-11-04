@@ -625,7 +625,8 @@ private:
                          AttributeList OrigAttrs,
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys,
-                         SmallVectorImpl<AttributeSet> &VecArgAttrs);
+                         SmallVectorImpl<AttributeSet> &VecArgAttrs,
+                         bool IsDevice);
 
   /// Generate instructions to extract two results of a sincos call, and store
   /// them to locations designated in the original call.

@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -266,6 +266,7 @@ add_llvm_component_library(LLVMAnalysis
   directives_gen
 # end INTEL_COLLAB
   intel_svml_gen          #INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
+  intel_svml_device_gen   #INTEL_CUSTOMIZATION
   intel_libmvec_gen       #INTEL_CUSTOMIZATION
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_ADVANCED
