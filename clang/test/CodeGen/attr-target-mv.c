@@ -19,12 +19,9 @@ int __attribute__((target("arch=sapphirerapids"))) foo(void) {return 10;}
 int __attribute__((target("arch=alderlake"))) foo(void) {return 11;}
 int __attribute__((target("arch=rocketlake"))) foo(void) {return 12;}
 int __attribute__((target("arch=core2"))) foo(void) {return 13;}
-<<<<<<< HEAD
 int __attribute__((target("arch=gracemont"))) foo(void) {return 14;}  // INTEL
-=======
 int __attribute__((target("arch=raptorlake"))) foo(void) {return 14;}
 int __attribute__((target("arch=meteorlake"))) foo(void) {return 15;}
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
 int __attribute__((target("default"))) foo(void) { return 2; }
 
 int bar(void) {
@@ -159,17 +156,14 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 12
 // LINUX: define{{.*}} i32 @foo.arch_core2()
 // LINUX: ret i32 13
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // LINUX: define{{.*}} i32 @foo.arch_gracemont()
 // LINUX: ret i32 14
 // endif // INTEL_CUSTOMIZATION
-=======
 // LINUX: define{{.*}} i32 @foo.arch_raptorlake()
 // LINUX: ret i32 14
 // LINUX: define{{.*}} i32 @foo.arch_meteorlake()
 // LINUX: ret i32 15
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
 // LINUX: define{{.*}} i32 @foo()
 // LINUX: ret i32 2
 // LINUX: define{{.*}} i32 @bar()
@@ -201,17 +195,14 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 12
 // WINDOWS: define dso_local i32 @foo.arch_core2()
 // WINDOWS: ret i32 13
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // WINDOWS: define{{.*}} dso_local i32 @foo.arch_gracemont()
 // WINDOWS: ret i32 14
 // endif // INTEL_CUSTOMIZATION
-=======
 // WINDOWS: define dso_local i32 @foo.arch_raptorlake()
 // WINDOWS: ret i32 14
 // WINDOWS: define dso_local i32 @foo.arch_meteorlake()
 // WINDOWS: ret i32 15
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
 // WINDOWS: define dso_local i32 @foo()
 // WINDOWS: ret i32 2
 // WINDOWS: define dso_local i32 @bar()

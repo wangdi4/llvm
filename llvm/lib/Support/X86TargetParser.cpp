@@ -597,12 +597,7 @@ constexpr ProcInfo Processors[] = {
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512BF16, FeaturesSapphireRapids },
   // Alderlake microarchitecture based processors.
   { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake },
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-  // Raptorlake microarchitecture based processors.
-  { {"raptorlake"}, CK_Raptorlake, FEATURE_AVX2, FeaturesAlderlake },
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
   // Graniterapids microarchitecture based processors.
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512VP2INTERSECT, FeaturesGraniteRapids },
@@ -611,21 +606,15 @@ constexpr ProcInfo Processors[] = {
   // Diamondrapids microarchitecture based processors.
   { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids },
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-  // Meteorlake microarchitecture based processors.
-  { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesMeteorlake },
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
   // Emeraldrapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
-=======
   // Raptorlake microarchitecture based processors.
   { {"raptorlake"}, CK_Raptorlake, FEATURE_AVX2, FeaturesAlderlake },
   // Meteorlake microarchitecture based processors.
   { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesAlderlake },
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.

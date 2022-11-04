@@ -130,28 +130,19 @@ enum CPUKind {
   CK_Tigerlake,
   CK_SapphireRapids,
   CK_Alderlake,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-  CK_Raptorlake,
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
   CK_Graniterapids,
 #endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   CK_Diamondrapids,
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-  CK_Meteorlake,
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
   CK_Emeraldrapids,
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
-=======
   CK_Raptorlake,
   CK_Meteorlake,
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
   CK_KNL,
   CK_KNM,
   CK_Lakemont,

@@ -2153,14 +2153,9 @@ def : ProcModel<"sapphirerapids", SPRModel,  // INTEL
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 def : ProcModel<"alderlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
-#if INTEL_FEATURE_CPU_RPL
-def : ProcModel<"raptorlake", AlderlakePModel,
-                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
 def : ProcModel<"graniterapids", SPRModel,
                 ProcessorFeatures.GNRFeatures, ProcessorFeatures.GNRTuning>;
@@ -2169,21 +2164,15 @@ def : ProcModel<"graniterapids", SPRModel,
 def : ProcModel<"diamondrapids", SPRModel,
                 ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-def : ProcModel<"meteorlake", AlderlakePModel,
-                ProcessorFeatures.MTLFeatures, ProcessorFeatures.ADLTuning>;
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
 def : ProcModel<"emeraldrapids", SPRModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
-=======
 def : ProcModel<"raptorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 def : ProcModel<"meteorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
 
 // AMD CPUs.
 

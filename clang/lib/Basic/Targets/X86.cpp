@@ -859,28 +859,19 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Tigerlake:
   case CK_SapphireRapids:
   case CK_Alderlake:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-  case CK_Raptorlake:
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
   case CK_Graniterapids:
 #endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-  case CK_Meteorlake:
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
   case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
-=======
   case CK_Raptorlake:
   case CK_Meteorlake:
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -2499,28 +2490,19 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
     case CK_Alderlake:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-    case CK_Raptorlake:
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
     case CK_Graniterapids:
 #endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
     case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-    case CK_Meteorlake:
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
     case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
-=======
     case CK_Raptorlake:
     case CK_Meteorlake:
->>>>>>> a806fc2767d74f2d052647e272dd4339bd747bf0
     case CK_KNL:
     case CK_KNM:
     // K7
