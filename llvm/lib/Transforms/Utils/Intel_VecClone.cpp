@@ -208,7 +208,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   Type *CharacteristicType = nullptr;
   // IGC requires device versions of Intel math functions to have
   // masks of i32 elements
-  if (F.getName().startswith("__svml_device"))
+  if (llvm::isSVMLDeviceScalarFunctionName(F.getName()))
     CharacteristicType = IntegerType::getInt32Ty(F.getContext());
   else
     CharacteristicType = calcCharacteristicType(F, V);

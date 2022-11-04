@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -124,6 +124,9 @@ private:
   // Stores the vector math library the compiler is currently using.
   VectorLibrary CurVectorLibrary = NoLibrary;
 
+  // Indicates whether the GPU version of SVML must be used.
+  bool UseSVMLDevice = false;
+
 public:
 #endif // INTEL_CUSTOMIZATION
 
@@ -198,6 +201,9 @@ public:
 
   /// True iff vector library is set to SVML.
   bool isSVMLEnabled(void) const;
+
+  bool getUseSVMLDevice(void) const { return UseSVMLDevice; }
+  void setUseSVMLDevice(bool Val) { UseSVMLDevice = Val; }
 #endif
 
   /// Return true if the function F has a vector equivalent with any

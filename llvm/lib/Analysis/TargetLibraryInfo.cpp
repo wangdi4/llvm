@@ -1465,6 +1465,11 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_vec_free);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (T.isSPIR())
+    TLI.setUseSVMLDevice(true);
+#endif // INTEL_CUSTOMIZATION
+
   TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary);
 }
 
@@ -5768,17 +5773,28 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     break;
   }
   case SVML: {
-    const VecDesc VecFuncs[] = {
+#if INTEL_CUSTOMIZATION
+    if (getUseSVMLDevice()) {
+      const VecDesc VecFuncs[] = {
+#define GET_SVML_VARIANTS
+#include "llvm/IR/Intel_SVML_Device.gen"
+#undef GET_SVML_VARIANTS
+      };
+      addVectorizableFunctions(VecFuncs);
+    } else {
+#endif // INTEL_CUSTOMIZATION
+      const VecDesc VecFuncs[] = {
 #if INTEL_CUSTOMIZATION
 #define GET_SVML_VARIANTS
 #include "llvm/IR/Intel_SVML.gen"
 #undef GET_SVML_VARIANTS
 #else
-    #define TLI_DEFINE_SVML_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
+#define TLI_DEFINE_SVML_VECFUNCS
+#include "llvm/Analysis/VecFuncs.def"
 #endif // INTEL_CUSTOMIZATION
-    };
-    addVectorizableFunctions(VecFuncs);
+      };
+      addVectorizableFunctions(VecFuncs);
+    }
     break;
   }
 #if INTEL_CUSTOMIZATION
