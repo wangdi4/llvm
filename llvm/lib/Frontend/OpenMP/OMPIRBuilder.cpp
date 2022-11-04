@@ -4822,15 +4822,11 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
   // Create the offloading info metadata node.
   NamedMDNode *MD = M.getOrInsertNamedMetadata("omp_offload.info");
   auto &&TargetRegionMetadataEmitter =
-<<<<<<< HEAD
-      [this, &C, MD, &OrderedEntries, &GetMDInt, &GetMDString
+      [&C, MD, &OrderedEntries, &GetMDInt, &GetMDString
 #if INTEL_COLLAB
       , &IsLateOutline
 #endif // INTEL_COLLAB
       ](
-=======
-      [&C, MD, &OrderedEntries, &GetMDInt, &GetMDString](
->>>>>>> d7f0f4a0a23e4056dd2545b84e294839893abdb2
           const TargetRegionEntryInfo &EntryInfo,
           const OffloadEntriesInfoManager::OffloadEntryInfoTargetRegion &E) {
         // Generate metadata for target regions. Each entry of this metadata
