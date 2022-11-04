@@ -716,7 +716,6 @@ public:
   virtual ~CGOpenMPRuntime() {}
   virtual void clear();
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   struct LOMapInfo {
     llvm::Value *Base;
@@ -745,10 +744,9 @@ public:
     OffloadEntriesInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name, Addr);
   }
 #endif // INTEL_COLLAB
-=======
+
   /// Returns true if the current target is a GPU.
   virtual bool isTargetCodegen() const { return false; }
->>>>>>> 9ea2b150b5455b907ba3b9aa24703b5d4faabedd
 
   /// Emits code for OpenMP 'if' clause using specified \a CodeGen
   /// function. Here is the logic:

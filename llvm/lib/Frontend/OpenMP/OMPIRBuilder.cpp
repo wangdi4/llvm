@@ -4792,7 +4792,14 @@ void OpenMPIRBuilder::createOffloadEntry(bool IsTargetCodegen, Constant *ID,
 // We only generate metadata for function that contain target regions.
 void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
     OffloadEntriesInfoManager &OffloadEntriesInfoManager, bool IsTargetCodegen,
-    bool IsEmbedded, bool HasRequiresUnifiedSharedMemory,
+    bool IsEmbedded, 
+#if INTEL_COLLAB
+    bool IsLateOutline, 
+#if INTEL_CUSTOMIZATION
+    bool IsLateOutlineTarget,
+#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
+    bool HasRequiresUnifiedSharedMemory,
     EmitMetadataErrorReportFunctionTy &ErrorFn) {
 
   // If there are no entries, we don't need to do anything.
@@ -4815,7 +4822,11 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
   // Create the offloading info metadata node.
   NamedMDNode *MD = M.getOrInsertNamedMetadata("omp_offload.info");
   auto &&TargetRegionMetadataEmitter =
-      [this, &C, MD, &OrderedEntries, &GetMDInt, &GetMDString](
+      [this, &C, MD, &OrderedEntries, &GetMDInt, &GetMDString
+#if INTEL_COLLAB
+      , &IsLateOutline
+#endif // INTEL_COLLAB
+      ](
           const TargetRegionEntryInfo &EntryInfo,
           const OffloadEntriesInfoManager::OffloadEntryInfoTargetRegion &E) {
         // Generate metadata for target regions. Each entry of this metadata
@@ -4827,11 +4838,23 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         // identified.
         // - Entry 4 -> Line in the file where the entry was identified.
         // - Entry 5 -> Order the entry was created.
+#if INTEL_COLLAB
+        // - Entry 6 -> Entry kind.
+#endif // INTEL_COLLAB
         // The first element of the metadata node is the kind.
+#if INTEL_COLLAB
+        llvm::SmallVector<llvm::Metadata*, 7u> Ops = {
+#else
         Metadata *Ops[] = {
+#endif // INTEL_COLLAB
             GetMDInt(E.getKind()),      GetMDInt(EntryInfo.DeviceID),
             GetMDInt(EntryInfo.FileID), GetMDString(EntryInfo.ParentName),
             GetMDInt(EntryInfo.Line),   GetMDInt(E.getOrder())};
+
+#if INTEL_COLLAB
+       if (IsLateOutline)
+         Ops.push_back(GetMDInt(E.getFlags()));
+#endif // INTEL_COLLAB
 
         // Save this entry in the right position of the ordered entries array.
         OrderedEntries[E.getOrder()] = std::make_pair(&E, EntryInfo);
@@ -4845,7 +4868,11 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
 
   // Create function that emits metadata for each device global variable entry;
   auto &&DeviceGlobalVarMetadataEmitter =
-      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD](
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD
+#if INTEL_COLLAB
+      , &IsLateOutline
+#endif // INTEL_COLLAB
+      ](
           StringRef MangledName,
           const OffloadEntriesInfoManager::OffloadEntryInfoDeviceGlobalVar &E) {
         // Generate metadata for global variables. Each entry of this metadata
@@ -4855,8 +4882,18 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         // - Entry 2 -> Declare target kind.
         // - Entry 3 -> Order the entry was created.
         // The first element of the metadata node is the kind.
+#if INTEL_COLLAB
+        SmallVector<llvm::Metadata *, 5> Ops = {
+            GetMDInt(E.getKind()), GetMDString(MangledName),
+            GetMDInt(E.getFlags()), GetMDInt(E.getOrder())};
+
+        if (IsLateOutline)
+          // - Entry 4 -> The variable address (GlobalVariable).
+          Ops.push_back(llvm::ConstantAsMetadata::get(E.getAddress()));
+#else  // INTEL_COLLAB
         Metadata *Ops[] = {GetMDInt(E.getKind()), GetMDString(MangledName),
                            GetMDInt(E.getFlags()), GetMDInt(E.getOrder())};
+#endif  // INTEL_COLLAB
 
         // Save this entry in the right position of the ordered entries array.
         TargetRegionEntryInfo varInfo(MangledName, 0, 0, 0);
@@ -4868,6 +4905,41 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
 
   OffloadEntriesInfoManager.actOnDeviceGlobalVarEntriesInfo(
       DeviceGlobalVarMetadataEmitter);
+
+#if INTEL_COLLAB
+  // Create function that emits metadata for each device indirect function
+  // entry;
+  auto DeviceIndirectFnMetadataEmitter =
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString,
+       MD](StringRef MangledName,
+           const llvm::OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn
+               &E) {
+        // Generate metadata for indirect functions. Each entry of this
+        // metadata contains:
+        // - Entry 0 -> Kind of this type of metadata (2).
+        // - Entry 1 -> Mangled name of the indirect function.
+        // - Entry 2 -> Order the entry was created.
+        // - Entry 3 -> The Function address (Function).
+        // The first element of the metadata node is the kind.
+        SmallVector<llvm::Metadata *, 4> Ops = {
+            GetMDInt(E.getKind()), GetMDString(MangledName),
+            GetMDInt(E.getOrder())};
+        Ops.push_back(llvm::ConstantAsMetadata::get(E.getAddress()));
+        // Save this entry in the right position of the ordered entries array.
+        TargetRegionEntryInfo varInfo(MangledName, 0, 0, 0);
+        OrderedEntries[E.getOrder()] = std::make_pair(&E, varInfo);
+        // Add metadata to the named metadata node.
+        MD->addOperand(llvm::MDNode::get(C, Ops));
+      };
+  OffloadEntriesInfoManager.actOnDeviceIndirectFnEntriesInfo(
+      DeviceIndirectFnMetadataEmitter);
+
+  if (IsLateOutline)
+#if INTEL_CUSTOMIZATION
+    if (IsLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+      return;
+#endif // INTEL_COLLAB
 
   for (const auto &E : OrderedEntries) {
     assert(E.first && "All ordered entries must exist!");

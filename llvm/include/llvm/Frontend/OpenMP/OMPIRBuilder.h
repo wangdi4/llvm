@@ -1122,6 +1122,12 @@ public:
   void createOffloadEntriesAndInfoMetadata(
       OffloadEntriesInfoManager &OffloadEntriesInfoManager,
       bool IsTargetCodegen, bool IsEmbedded,
+#if INTEL_COLLAB
+      bool IsLateOutline,
+#if INTEL_CUSTOMIZATION
+      bool IsLateOutlineTarget,
+#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
       bool HasRequiresUnifiedSharedMemory,
       EmitMetadataErrorReportFunctionTy &ErrorReportFunction);
 
