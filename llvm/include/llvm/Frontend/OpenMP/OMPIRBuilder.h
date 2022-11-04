@@ -1120,14 +1120,11 @@ public:
   //
   // We only generate metadata for function that contain target regions.
   void createOffloadEntriesAndInfoMetadata(
-      OffloadEntriesInfoManager &OffloadEntriesInfoManager,
-      bool IsTargetCodegen, bool IsEmbedded,
 #if INTEL_COLLAB
       bool IsLateOutline,
-#if INTEL_CUSTOMIZATION
-      bool IsLateOutlineTarget,
-#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
+      OffloadEntriesInfoManager &OffloadEntriesInfoManager,
+      bool IsTargetCodegen, bool IsEmbedded,
       bool HasRequiresUnifiedSharedMemory,
       EmitMetadataErrorReportFunctionTy &ErrorReportFunction);
 

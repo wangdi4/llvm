@@ -4791,15 +4791,11 @@ void OpenMPIRBuilder::createOffloadEntry(bool IsTargetCodegen, Constant *ID,
 
 // We only generate metadata for function that contain target regions.
 void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
-    OffloadEntriesInfoManager &OffloadEntriesInfoManager, bool IsTargetCodegen,
-    bool IsEmbedded, 
 #if INTEL_COLLAB
-    bool IsLateOutline, 
-#if INTEL_CUSTOMIZATION
-    bool IsLateOutlineTarget,
-#endif // INTEL_CUSTOMIZATION
+    bool IsLateOutline,
 #endif // INTEL_COLLAB
-    bool HasRequiresUnifiedSharedMemory,
+    OffloadEntriesInfoManager &OffloadEntriesInfoManager, bool IsTargetCodegen,
+    bool IsEmbedded, bool HasRequiresUnifiedSharedMemory,
     EmitMetadataErrorReportFunctionTy &ErrorFn) {
 
   // If there are no entries, we don't need to do anything.
@@ -4822,11 +4818,11 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
   // Create the offloading info metadata node.
   NamedMDNode *MD = M.getOrInsertNamedMetadata("omp_offload.info");
   auto &&TargetRegionMetadataEmitter =
-      [&C, MD, &OrderedEntries, &GetMDInt, &GetMDString
 #if INTEL_COLLAB
-      , &IsLateOutline
+      [&C, MD, &OrderedEntries, &GetMDInt, &GetMDString, &IsLateOutline](
+#else // INTEL_COLLAB
+      [&C, MD, &OrderedEntries, &GetMDInt, &GetMDString](
 #endif // INTEL_COLLAB
-      ](
           const TargetRegionEntryInfo &EntryInfo,
           const OffloadEntriesInfoManager::OffloadEntryInfoTargetRegion &E) {
         // Generate metadata for target regions. Each entry of this metadata
@@ -4868,11 +4864,11 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
 
   // Create function that emits metadata for each device global variable entry;
   auto &&DeviceGlobalVarMetadataEmitter =
-      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD
 #if INTEL_COLLAB
-      , &IsLateOutline
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD, &IsLateOutline](
+#else // INTEL_COLLAB
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD](
 #endif // INTEL_COLLAB
-      ](
           StringRef MangledName,
           const OffloadEntriesInfoManager::OffloadEntryInfoDeviceGlobalVar &E) {
         // Generate metadata for global variables. Each entry of this metadata
@@ -4935,10 +4931,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
       DeviceIndirectFnMetadataEmitter);
 
   if (IsLateOutline)
-#if INTEL_CUSTOMIZATION
-    if (IsLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
-      return;
+    return;
 #endif // INTEL_COLLAB
 
   for (const auto &E : OrderedEntries) {

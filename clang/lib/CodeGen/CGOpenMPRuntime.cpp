@@ -3148,14 +3148,14 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   };
 
   OMPBuilder.createOffloadEntriesAndInfoMetadata(
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+      CGM.getLangOpts().OpenMPLateOutlineTarget &&
+#endif // INTEL_CUSTOMIZATION
+      CGM.getLangOpts().OpenMPLateOutline,
+#endif // INTEL_COLLAB
       OffloadEntriesInfoManager, isTargetCodegen(),
       CGM.getLangOpts().OpenMPIsDevice,
-#if INTEL_COLLAB
-      CGM.getLangOpts().OpenMPLateOutline,
-#if INTEL_CUSTOMIZATION
-      CGM.getLangOpts().OpenMPLateOutlineTarget,
-#endif // INTEL_CUSTOMIZATION
-#endif // INTEL_COLLAB
       CGM.getOpenMPRuntime().hasRequiresUnifiedSharedMemory(), ErrorReportFn);
 }
 
