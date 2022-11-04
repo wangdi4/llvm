@@ -80,6 +80,11 @@ static const char *RTLNames[] = {
     /* x86_64 target        */ "omptarget.rtl.x86_64.dll",
 #else  // !_WIN32
     /* x86_64 target        */ "libomptarget.rtl.x86_64.so",
+    /* CUDA target          */ "libomptarget.rtl.cuda.so",
+    /* AArch64 target       */ "libomptarget.rtl.aarch64.so",
+    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
+    /* AMDGPU target        */ "libomptarget.rtl.amdgpu.so",
+    /* Remote target        */ "libomptarget.rtl.rpc.so",
 #endif // !_WIN32
 #else 
     /* PowerPC target       */ "libomptarget.rtl.ppc64",
@@ -274,6 +279,14 @@ void RTLsTy::loadRTLs() {
     RTLInfoTy &RTL = AllRTLs.back();
 
     const std::string BaseRTLName(Name);
+
+#ifdef OMPTARGET_DEBUG
+  RTL.RTLName = Name;
+#endif
+#if INTEL_COLLAB
+    RTL.RTLConstName = Name;
+#endif  // INTEL_COLLAB
+
     if (!attemptLoadRTL(BaseRTLName, RTL))
 #else // INTEL_COLLAB
 
@@ -316,6 +329,7 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
     DP("Unable to load library '%s': %s!\n", Name, ErrMsg.c_str());
     return false;
   }
+
 
   DP("Successfully loaded library '%s'!\n", Name);
 
@@ -376,12 +390,6 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
     return false;
   }
 
-#ifdef OMPTARGET_DEBUG
-  RTL.RTLName = Name;
-#endif
-#if INTEL_COLLAB
-    RTL.RTLConstName = Name;
-#endif  // INTEL_COLLAB
 
   DP("Registering RTL %s supporting %d devices!\n", Name, RTL.NumberOfDevices);
 
