@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -16,14 +15,7 @@
 # License.
 #
 # end INTEL_CUSTOMIZATION
-set(LLD_SYSTEM_LIBS ${LLVM_PTHREAD_LIB})
 
-if(NOT HAVE_CXX_ATOMICS64_WITHOUT_LIB)
-  list(APPEND LLD_SYSTEM_LIBS atomic)
-endif()
-
-=======
->>>>>>> f0b451c77f14947e3e7d314f048679fa2f5c6298
 find_first_existing_vc_file("${LLVM_MAIN_SRC_DIR}" llvm_vc)
 find_first_existing_vc_file("${LLD_SOURCE_DIR}" lld_vc)
 
