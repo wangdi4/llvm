@@ -145,7 +145,13 @@ entry:
 ; CRITICAL: call void @.omp_combiner.(ptr %{{.*}}, ptr %{{.*}})
 ; CRITICAL: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
 ; CRITICAL: call void @__kmpc_end_critical({{.*}})
-; CRITICAL: call void @_ZTSA4_9my_struct.omp.destr(ptr %{{.*}})
+; CRITICAL: red.destr.body:                                   ; preds = %red.destr.body, %red.update.{{.*}}
+; CRITICAL-NEXT:   %red.cpy.dest.ptr{{.*}} = phi ptr [ %array.begin, %red.update.done{{.*}} ], [ %red.cpy.dest.inc{{.*}}, %red.destr.body ]
+; CRITICAL-NEXT:   call void @_ZTSA4_9my_struct.omp.destr(ptr %{{.*}})
+; CRITICAL-NEXT:   %red.cpy.dest.inc{{.*}} = getelementptr %struct.my_struct, ptr %red.cpy.dest.ptr{{.*}}, i32 1
+; CRITICAL-NEXT:   %red.cpy.done{{.*}} = icmp eq ptr %red.cpy.dest.inc{{.*}}, %{{.*}}
+; CRITICAL-NEXT:   br i1 %red.cpy.done{{.*}}, label %red.destr.done, label %red.destr.body
+
 
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: red.update.body{{.*}}:
@@ -153,7 +159,12 @@ entry:
 ; FASTRED-DAG: call void @.omp_combiner.(ptr %{{.*}}, ptr %{{.*}})
 ; FASTRED-DAG: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
 ; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})
-; FASTRED-DAG: call void @_ZTSA4_9my_struct.omp.destr(ptr %{{.*}})
+; FASTRED: red.destr.body:                                   ; preds = %red.destr.body, %tree.reduce.exit{{.*}}
+; FASTRED-NEXT:  %red.cpy.dest.ptr{{.*}} = phi ptr [ %array.begin, %tree.reduce.exit{{.*}} ], [ %red.cpy.dest.inc{{.*}}, %red.destr.body ]
+; FASTRED-NEXT:  call void @_ZTSA4_9my_struct.omp.destr(ptr %{{.*}})
+; FASTRED-NEXT:  %red.cpy.dest.inc{{.*}} = getelementptr %struct.my_struct, ptr %red.cpy.dest.ptr{{.*}}, i32 1
+; FASTRED-NEXT:  %red.cpy.done{{.*}} = icmp eq ptr %red.cpy.dest.inc{{.*}}, %{{.*}}
+; FASTRED-NEXT:  br i1 %red.cpy.done{{.*}}, label %red.destr.done, label %red.destr.body
 
   %1 = load i32, ptr %.omp.lb, align 4
   store i32 %1, ptr %.omp.iv, align 4

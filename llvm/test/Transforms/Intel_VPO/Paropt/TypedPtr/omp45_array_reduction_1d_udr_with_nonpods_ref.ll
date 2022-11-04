@@ -490,14 +490,14 @@ entry:
 ; CRITICAL: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
 ; CRITICAL: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
 ; CRITICAL: call void @__kmpc_end_critical({{.*}})
-; CRITICAL: call void @_ZTSA100_9my_struct.omp.destr([100 x %struct.my_struct]* %yref.addr.red)
+; CRITICAL: call void @_ZTSA100_9my_struct.omp.destr([100 x %struct.my_struct]* %{{.*}}
 
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: red.update.body{{.*}}:
 ; FASTRED-DAG: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
 ; FASTRED-DAG: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
 ; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})
-; FASTRED-DAG: call void @_ZTSA100_9my_struct.omp.destr([100 x %struct.my_struct]* %yref.addr.fast_red)
+; FASTRED-DAG: call void @_ZTSA100_9my_struct.omp.destr([100 x %struct.my_struct]* %{{.*}})
 
   %2 = load i32, i32* %.omp.lb, align 4
   store i32 %2, i32* %.omp.iv, align 4

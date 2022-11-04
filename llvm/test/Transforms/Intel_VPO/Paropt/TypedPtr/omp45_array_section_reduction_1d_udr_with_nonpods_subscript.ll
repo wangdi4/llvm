@@ -482,7 +482,8 @@ entry:
 ; CRITICAL: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
 ; CRITICAL: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
 ; CRITICAL: call void @__kmpc_end_critical({{.*}})
-; CRITICAL: call void @_ZTS9my_struct.omp.destr(%struct.my_struct* %_ZL1y_f73166f30f655dd789033585661ec02c{{[a-zA-Z._0-9]*}})
+; CRITICAL: call void @_ZTS9my_struct.omp.destr(%struct.my_struct* %red.cpy.dest.ptr{{.*}})
+
 
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: red.update.body{{.*}}:
