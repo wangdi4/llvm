@@ -913,6 +913,14 @@ std::string typeToString(Type *Ty);
 bool isSVMLFunction(const TargetLibraryInfo *TLI, StringRef FnName,
                     StringRef VFnName);
 
+/// \brief Returns true if \p FnName is a name of a scalar version of SVML
+/// device function
+bool isSVMLDeviceScalarFunctionName(StringRef FnName);
+/// \brief Returns true if \p VFnName is a device version of a SVML vector
+/// function for a given vectorizable scalar function \p FnName.
+bool isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
+                          StringRef VFnName);
+
 /// Determine if scalar function \p FnName should be vectorized by pumping
 /// feature for the chosen \p VF. If yes, then the factor to pump by is
 /// returned, 1 otherwise.

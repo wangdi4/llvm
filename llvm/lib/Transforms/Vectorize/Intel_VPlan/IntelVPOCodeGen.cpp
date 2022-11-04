@@ -733,7 +733,8 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
                                    AttributeList OrigAttrs,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys,
-                                   SmallVectorImpl<AttributeSet> &VecArgAttrs) {
+                                   SmallVectorImpl<AttributeSet> &VecArgAttrs,
+                                   bool IsDevice = false) {
   assert(CallMaskValue && "Expected mask to be present");
   auto *VecTy = cast<FixedVectorType>(VecArgTys[0]);
   assert(
@@ -741,14 +742,16 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
           cast<FixedVectorType>(CallMaskValue->getType())->getNumElements() &&
       "Re-vectorization of SVML functions is not supported yet");
 
-  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512 || IsDevice) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
-    // parameter list. For example:
+    // parameter list. For ESIMD versions that's done for any widths.
+    // For example:
     //
     //  %sin.vec = call <4 x float> @__svml_sinf4_mask(<4 x float>, <4 x i32>)
-    VectorType *MaskTyExt = VectorType::get(
-        IntegerType::get(OrigF->getContext(), VecTy->getScalarSizeInBits()),
-        VecTy->getElementCount());
+    IntegerType *MaskElemTyExt = IntegerType::get(
+        OrigF->getContext(), (IsDevice ? 32 : VecTy->getScalarSizeInBits()));
+    VectorType *MaskTyExt =
+        VectorType::get(MaskElemTyExt, VecTy->getElementCount());
     Value *MaskValueExt = Builder.CreateSExt(CallMaskValue, MaskTyExt);
     VecArgTys.push_back(MaskTyExt);
     VecArgs.push_back(MaskValueExt);
@@ -2506,6 +2509,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // Set calling convention for SVML function calls
   if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
     VecCall->setCallingConv(CallingConv::SVML);
+  else if (isSVMLDeviceFunction(TLI, CalledFunc->getName(),
+                                VecCall->getCalledFunction()->getName()))
+    VecCall->setCallingConv(CallingConv::SPIR_FUNC);
 
     // TODO: Need a VPValue based analysis for call arg memory references.
     // VPValue-based stride info also needed.
@@ -2626,9 +2632,11 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
       TLI->getVectorizedFunction(FnName, ElementCount::getFixed(PumpedVF),
                                  IsMasked);
   if (IsMasked && !VecFnName.empty() &&
-      isSVMLFunction(TLI, FnName, VecFnName)) {
+      (isSVMLFunction(TLI, FnName, VecFnName) ||
+       isSVMLDeviceFunction(TLI, FnName, VecFnName))) {
     addMaskToSVMLCall(F, PumpPartMaskValue, Attrs, VecArgs, VecArgTys,
-                      VecArgAttrs);
+                      VecArgAttrs,
+                      isSVMLDeviceFunction(TLI, FnName, VecFnName));
     return;
   }
   if (!VecVariant || !VecVariant->isMasked())
@@ -3333,9 +3341,11 @@ void VPOCodeGen::vectorizeLibraryCall(VPCallInstruction *VPCall) {
   for (auto *Result : CallResults) {
     CallInst *VecCall = cast<CallInst>(Result);
     if (isSVMLFunction(TLI, CalledFunc->getName(),
-                       VecCall->getCalledFunction()->getName())) {
+                       VecCall->getCalledFunction()->getName()))
       VecCall->setCallingConv(CallingConv::SVML);
-    }
+    else if (isSVMLDeviceFunction(TLI, CalledFunc->getName(),
+                                  VecCall->getCalledFunction()->getName()))
+      VecCall->setCallingConv(CallingConv::SPIR_FUNC);
   }
 
   // Post process generated vector calls.

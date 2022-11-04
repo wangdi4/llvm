@@ -1251,6 +1251,19 @@ bool llvm::isSVMLFunction(const TargetLibraryInfo *TLI, StringRef FnName,
   return TLI->isFunctionVectorizable(FnName) && VFnName.startswith("__svml_");
 }
 
+bool llvm::isSVMLDeviceScalarFunctionName(StringRef FnName) {
+  return FnName.startswith("__svml_device_");
+}
+
+bool llvm::isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
+                                StringRef VFnName) {
+  if (!TLI->isFunctionVectorizable(FnName))
+    return false;
+  auto DemanglingInfo = VFABI::tryDemangleForVFABI(VFnName);
+  return DemanglingInfo &&
+         isSVMLDeviceScalarFunctionName(DemanglingInfo->ScalarName);
+}
+
 unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
                              const TargetLibraryInfo *TLI) {
   // Call can already be vectorized for current VF, pumping not needed.
