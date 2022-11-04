@@ -8662,10 +8662,12 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
                                    LI->getNew(), nullptr, InsertBeforePt, DT);
       // else do nothing; dtor already emitted for Firstprivates above
 
+  // Destructors for reduction
   if (W->canHaveReduction())
     for (ReductionItem *RI : W->getRed().items())
-      VPOParoptUtils::genDestructorCall(RI->getDestructor(), RI->getNew(),
-                                        InsertBeforePt, isTargetSPIRV());
+      genPrivatizationInitOrFini(RI, RI->getDestructor(), FK_Dtor, RI->getNew(),
+                                 nullptr, InsertBeforePt, DT);
+
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
@@ -9686,10 +9688,9 @@ std::tuple<Type *, Value *, Value *>
 //   %priv.constr.body                                                    (10)
 //
 void VPOParoptTransform::genPrivAggregateInitOrFini(
-    Function *Fn, FunctionKind FuncKind,
-    Type *ObjTy, Value *NumElements,
-    Value *DestVal, Value *SrcVal,
-    Instruction *InsertPt, DominatorTree *DT) {
+    Function *Fn, FunctionKind FuncKind, Type *ObjTy, Value *NumElements,
+    Value *DestVal, Value *SrcVal, Instruction *InsertPt, DominatorTree *DT,
+    StringRef NamePrefix) {
   LLVM_DEBUG(dbgs() << "Enter " << __FUNCTION__ << "\n");
 
   assert((FuncKind >= FK_Start && FuncKind <= FK_End) &&
@@ -9725,26 +9726,26 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
           SrcBegin) &&
          "Null source address for copy assignment/constructor.");
 
-  StringRef Prefix;
+  StringRef FuncKindStr;
   if (FuncKind == FK_Ctor)
-    Prefix = "priv.constr";
+    FuncKindStr = ".constr";
   else if (FuncKind == FK_Dtor)
-    Prefix = "priv.destr";
+    FuncKindStr = ".destr";
   else if (FuncKind == FK_CopyAssign)
-    Prefix = "priv.cpyassn";
+    FuncKindStr = ".cpyassn";
   else
-    Prefix = "priv.cpyctor";
+    FuncKindStr = ".cpyctor";
 
   auto DestEnd =
       Builder.CreateGEP(DestElementTy, DestBegin, ArrayNumElements); // (2)
-  auto IsEmpty =
-      Builder.CreateICmpEQ(DestBegin, DestEnd, Prefix + ".isempty"); // (3)
+  auto IsEmpty = Builder.CreateICmpEQ(
+      DestBegin, DestEnd, NamePrefix + FuncKindStr + ".isempty"); // (3)
 
   auto BodyBB = SplitBlock(EntryBB, InsertPt, DT, LI);
-  BodyBB->setName(Prefix + ".body");
+  BodyBB->setName(NamePrefix + FuncKindStr + ".body");
 
   auto DoneBB = SplitBlock(BodyBB, BodyBB->getTerminator(), DT, LI);
-  DoneBB->setName(Prefix + ".done"); // (5)
+  DoneBB->setName(NamePrefix + FuncKindStr + ".done"); // (5)
 
   EntryBB->getTerminator()->eraseFromParent();
   Builder.SetInsertPoint(EntryBB);
@@ -9752,24 +9753,24 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
 
   Builder.SetInsertPoint(BodyBB);
   BodyBB->getTerminator()->eraseFromParent();
-  PHINode *DestElementPHI =
-      Builder.CreatePHI(DestBegin->getType(), 2, "priv.cpy.dest.ptr"); // (6)
+  PHINode *DestElementPHI = Builder.CreatePHI(
+      DestBegin->getType(), 2, NamePrefix + ".cpy.dest.ptr"); // (6)
   DestElementPHI->addIncoming(DestBegin, EntryBB);
 
   PHINode *SrcElementPHI = nullptr;
   if (SrcBegin != nullptr) {
     SrcElementPHI =
-        Builder.CreatePHI(SrcBegin->getType(), 2, "priv.cpy.src.ptr");
+        Builder.CreatePHI(SrcBegin->getType(), 2, NamePrefix + ".cpy.src.ptr");
     SrcElementPHI->addIncoming(SrcBegin, EntryBB);
   }
 
-  Instruction *DestElementNext = cast<Instruction>(
-      Builder.CreateConstGEP1_32(DestElementTy, DestElementPHI, 1,
-                                 "priv.cpy.dest.inc")); //                (8)
+  Instruction *DestElementNext = cast<Instruction>(Builder.CreateConstGEP1_32(
+      DestElementTy, DestElementPHI, 1,
+      NamePrefix + ".cpy.dest.inc")); //                (8)
   Value *SrcElementNext = nullptr;
   if (SrcElementPHI != nullptr)
     SrcElementNext = Builder.CreateConstGEP1_32(DestElementTy, SrcElementPHI, 1,
-                                                "priv.cpy.src.inc");
+                                                NamePrefix + ".cpy.src.inc");
 
   if (FuncKind == FK_Ctor)
     VPOParoptUtils::genConstructorCall(Fn, DestElementPHI, DestElementPHI,
@@ -9784,8 +9785,8 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
     VPOParoptUtils::genCopyConstructorCall(Fn, DestElementPHI, SrcElementPHI,
                                            DestElementNext, isTargetSPIRV());
 
-  auto Done =
-      Builder.CreateICmpEQ(DestElementNext, DestEnd, "priv.cpy.done"); // (9)
+  auto Done = Builder.CreateICmpEQ(DestElementNext, DestEnd,
+                                   NamePrefix + ".cpy.done"); // (9)
 
   Builder.CreateCondBr(Done, DoneBB, BodyBB); // (10)
   DestElementPHI->addIncoming(DestElementNext, Builder.GetInsertBlock());
@@ -9830,8 +9831,9 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
       BasicBlock *EmptyBB = SplitBlock(BB, BB->getTerminator(), DT, LI);
       InsertPt = EmptyBB->getTerminator();
     }
-    genPrivAggregateInitOrFini(Fn, FuncKind, AllocaTy, NumElements,
-                               DestVal, SrcVal, InsertPt, DT);
+    genPrivAggregateInitOrFini(Fn, FuncKind, AllocaTy, NumElements, DestVal,
+                               SrcVal, InsertPt, DT,
+                               isa<ReductionItem>(I) ? "red" : "priv");
     return;
   }
 

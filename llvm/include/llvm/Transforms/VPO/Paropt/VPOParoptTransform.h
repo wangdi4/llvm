@@ -462,7 +462,8 @@ private:
   void genPrivAggregateInitOrFini(Function *Fn, FunctionKind FuncKind,
                                   Type *ObjTy, Value *NumElements,
                                   Value *DestVal, Value *SrcVal,
-                                  Instruction *InsertPt, DominatorTree *DT);
+                                  Instruction *InsertPt, DominatorTree *DT,
+                                  StringRef NamePrefix = "priv");
 
   /// Generate code for calling constructor/destructor/copy assignment/copy
   /// constructor for privatized variables including scalar and arrays.
