@@ -19,25 +19,15 @@
 //
 // Prototypes
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64,
-                                       v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
+                                       v1f16, v1f32, v1f64], [1, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [OVERLOADABLE] in {
-  // broadcast
-  defset list<OclBuiltin> broadcast_finalize_helpers = {
-    foreach dim = [1, 2, 3] in {
-      // e.g. local_id_names == ["local_id0", "local_id1", "local_id2"] for dim == 3
-      defvar local_id_names = RangeStr<"local_id#", Range<0, dim>.Tout>.Tout;
-      // e.g. local_id_ins == (ins size_t:$local_id0, size_t:$local_id1, size_t:$local_id2) for dim == 3
-      defvar local_id_ins = !dag(ins, !listsplat(size_t, dim), local_id_names);
-
-      def work_group_broadcast # dim # _finalize_helper : OclBuiltin<"__finalize_work_group_broadcast", (outs gentype:$ret), !con((ins gentype:$accum), local_id_ins)>;
-      def work_group_broadcast # dim # _finalize_helper_mask : OclBuiltin<"__finalize_work_group_broadcast", (outs gentype:$ret), !con((ins gentype:$accum), local_id_ins, (ins u32gentype:$dummy_mask))>;
-    }
-  }
+  // identity
+  // This finalize helper is a special function, which returns its arguments as is, 
+  // and is used for work_group_broadcast and all scalar work_group functions
+  def work_group_identity_finalize_helper : OclBuiltin<"__finalize_work_group_identity", (outs gentype:$ret), (ins gentype:$accum)>;
 }
 
 // Implementations
-foreach bi = broadcast_finalize_helpers in {
-  def : OclBuiltinImpl<bi, bi.Types, /*isDeclOnly*/false, ret_arg0_code>, SHARED;
-}
+def : OclBuiltinImpl<work_group_identity_finalize_helper, work_group_identity_finalize_helper.Types, /*isDeclOnly*/false, ret_arg0_code>, SHARED;
 
 // VectInfos (not needed for finalize helpers)

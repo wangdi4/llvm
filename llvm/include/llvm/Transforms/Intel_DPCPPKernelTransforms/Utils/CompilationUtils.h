@@ -315,6 +315,7 @@ bool isWorkGroupCommitWritePipe(StringRef S);
 bool isWorkGroupAll(StringRef S);
 bool isWorkGroupAny(StringRef S);
 bool isWorkGroupBroadCast(StringRef S);
+bool isWorkGroupIdentity(StringRef S);
 bool isWorkGroupReduceAdd(StringRef S);
 bool isWorkGroupScanExclusiveAdd(StringRef S);
 bool isWorkGroupScanInclusiveAdd(StringRef S);
@@ -368,6 +369,11 @@ std::string appendWorkGroupFinalizePrefix(StringRef S);
 
 /// Remove "__finalize_" prefix for \p S.
 std::string removeWorkGroupFinalizePrefix(StringRef S);
+
+/// Returns "__finalize_work_group_identity" for \p S
+/// This is used to generate the common finalize work group function for the
+/// scalar work group function & work_group_broadcast
+std::string getWorkGroupIdentityFinalize(StringRef S);
 
 /// Returns struct type with corresponding name if such exists
 /// The main difference from Module::getTypeByName is that this function

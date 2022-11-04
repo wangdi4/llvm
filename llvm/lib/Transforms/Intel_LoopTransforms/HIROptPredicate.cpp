@@ -140,6 +140,13 @@ static cl::opt<unsigned> RegionCostThreshold(
     cl::Hidden, cl::desc("Don't apply opt predicate of an If instruction if "
     "the number of inner loops is larger than this threshold."));
 
+// NOTE: This reduces the cost for applying unswitching for Switch
+// instructions.
+static cl::opt<bool> UseReducedSwitchCost(
+    OPT_SWITCH "-use-reduced-switch-cost", cl::init(false), cl::Hidden,
+    cl::desc("Reduce the cost of switches for the unswitching in "
+             "order to enable more unswitching"));
+
 // Disable converting Select instructions into If/Else to perform unswitching
 static cl::opt<bool> DisableUnswitchSelect("disable-" OPT_SWITCH "-select",
                                             cl::init(false), cl::Hidden,
@@ -444,6 +451,10 @@ private:
   /// UDivBlob is set to true whenever CE contains a non-constant division.
   unsigned getPossibleDefLevel(const CanonExpr *CE, bool &NonLinearBlob,
                                bool &UDivBlob);
+
+  // Return true if we should reduce the cost of doing unswitching for Switch
+  bool shouldUseReducedSwitchCost(const HLLoop *ParentLoop,
+                                  const HLLoop *TargetLoop) const;
 
   void transformSwitch(HLLoop *TargetLoop,
                        iterator_range<HoistCandidate *> SwitchCandidates,
@@ -1763,6 +1774,52 @@ static bool hasEqualParentNode(HLNode *FromNode, HLLoop *ToLoop) {
   return false;
 }
 
+// Return true if the input loop has special patterns for reducing the
+// cost of unswitching Switch instructions. This will allow to perform
+// more loop unswitching. This function will check if there is a loop
+// nest, the parent loop is the innermost, the target loop is the
+// outermost, and both loops are multi-exit:
+//
+//   + DO i1 = 0, zext.i32.i64(%size) + -1, 1    <DO_MULTI_EXIT_LOOP>
+//   |   + DO i2 = 0, zext.i32.i64(%size2) + -1, 1    <DO_MULTI_EXIT_LOOP>
+//   |   |   switch(%n)
+//   |   |   {
+//   |   |   case 50:
+//   |   |      ...
+//   |   |      break;
+//   |   |   case 20:
+//   |   |      ...
+//   |   |      break;
+//   |   |   case 30:
+//   |   |      ...
+//   |   |      break;
+//   |   |   case 40:
+//   |   |      ...
+//   |   |      break;
+//   |   |   default:
+//   |   |      ...
+//   |   |      break;
+//   |   |   }
+//   |   + END LOOP
+//   + END LOOP
+bool HIROptPredicate::shouldUseReducedSwitchCost(
+    const HLLoop *ParentLoop, const HLLoop *TargetLoop) const {
+
+  assert(ParentLoop && "Parent loop not provided");
+  assert(TargetLoop && "Target loop not provided");
+
+  if (UseReducedSwitchCost)
+    return true;
+
+  if (TargetLoop == ParentLoop)
+    return false;
+
+  if (!ParentLoop->isDoMultiExit() || !TargetLoop->isDoMultiExit())
+    return false;
+
+  return TargetLoop->getNestingLevel() == 1 && ParentLoop->isInnermost();
+}
+
 void HIROptPredicate::transformSwitch(
     HLLoop *TargetLoop, iterator_range<HoistCandidate *> SwitchCandidates,
     CaseNodeContainerMapTy &CaseContainers,
@@ -1770,6 +1827,9 @@ void HIROptPredicate::transformSwitch(
     SmallPtrSetImpl<HLNode *> &TrackClonedNodes,
     SmallVectorImpl<HoistCandidate> &NewCandidates) {
   HLSwitch *OriginalSwitch = SwitchCandidates.begin()->getSwitch();
+  HLLoop *ParentLoop = OriginalSwitch->getParentLoop();
+
+  bool ReduceSwitchCost = shouldUseReducedSwitchCost(ParentLoop, TargetLoop);
 
   auto &HNU = OriginalSwitch->getHLNodeUtils();
   auto &DRU = HNU.getDDRefUtils();
@@ -1779,6 +1839,13 @@ void HIROptPredicate::transformSwitch(
 
   bool IsRemarkAdded = false;
 
+  // If ReduceSwitchCost is true, then it means that there is some
+  // extra pattern in the loop that is worthy to do keep doing the
+  // unswitching. Therefore, the cost for applying the transformation
+  // will be 1.
+  if (ReduceSwitchCost)
+    ++ThresholdMap[TargetLoop];
+
   // Populate cases of the outer Switch with loop clones.
   for (auto &Case : CaseContainers) {
     auto CaseDDRef = DRU.createConstDDRef(
@@ -1787,6 +1854,13 @@ void HIROptPredicate::transformSwitch(
 
     LoopUnswitchNodeMapper CloneMapper(TrackClonedNodes, Candidates);
     HLLoop *NewLoop = TargetLoop->clone(&CloneMapper);
+
+    // If ReduceSwitchCost is false then it means that there is a
+    // chance that unswitching the Switch condition may have some extra
+    // risks (e.g. compile time, larger code, etc.). In this case, the
+    // cost for unswitching will be the same as the number of cases.
+    ThresholdMap[NewLoop] = !ReduceSwitchCost ? ++ThresholdMap[TargetLoop]
+                                              : ThresholdMap[TargetLoop];
 
     addPredicateOptReportOrigin(NewLoop);
     if (!IsRemarkAdded) {

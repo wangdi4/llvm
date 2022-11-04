@@ -36,9 +36,11 @@ define dso_local void @build_hash_table() {
 
 ; CHECK:    [[CALLWGFORITEM:%.*]] = call i32 @_Z14work_group_alliPi(i32 noundef [[DONE_0:%.*]], i32* [[ALLOCAWGRESULT]]) #[[ATTR4:[0-9]+]]
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
+; CHECK-NEXT:    %LoadWGFinalResult = load i32, i32* [[ALLOCAWGRESULT]], align 4
+; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call i32 @_Z30__finalize_work_group_identityi(i32 %LoadWGFinalResult)
 ; CHECK-NEXT:    store i32 1, i32* [[ALLOCAWGRESULT]], align 4
 ; CHECK-NEXT:    call void @dummy_barrier.()
-; CHECK-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[CALLWGFORITEM]], 0
+; CHECK-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[CALLFINALIZEWG]], 0
 
 ; CHECK:       tail call void @_Z18work_group_barrierj(i32 noundef 1) #[[ATTR5:[0-9]+]]
 
