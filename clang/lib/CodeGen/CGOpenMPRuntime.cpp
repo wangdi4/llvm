@@ -11283,62 +11283,64 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
   }
 
 #if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutline)
+      return emitTargetFunctionsForLateOutlining(GD);
+#endif // INTEL_COLLAB
+
+  const ValueDecl *VD = cast<ValueDecl>(GD.getDecl());
+  // Try to detect target regions in the function.
+  if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
+    StringRef Name = CGM.getMangledName(GD);
+    scanForTargetRegionsFunctions(FD->getBody(), Name);
+    if (isAssumedToBeNotEmitted(cast<ValueDecl>(FD),
+                                CGM.getLangOpts().OpenMPIsDevice))
+      return true;
+  }
+
+  // Do not to emit function if it is not marked as declare target.
+  return !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&
+         AlreadyEmittedTargetDecls.count(VD) == 0;
+}
+
+#if INTEL_COLLAB
+/// Decide if the function should be emitted. Returns 'false' if it should
+/// be emitted and 'true' if it should not be emitted.
+bool CGOpenMPRuntime::emitTargetFunctionsForLateOutlining(GlobalDecl GD) {
+
   // Don't emit unsupported functions even if they contain target regions or
   // are marked 'declare target'.
   if (const auto *FD = dyn_cast<FunctionDecl>(GD.getDecl()))
     if (CGM.isUnsupportedTargetFunction(FD))
       return true;
-#endif // INTEL_COLLAB
 
   const ValueDecl *VD = cast<ValueDecl>(GD.getDecl());
   // Try to detect target regions in the function.
-#if INTEL_COLLAB
-  std::string ItaniumMangledName;
   if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
-    StringRef Name = CGM.getMangledName(GD);
-#if INTEL_CUSTOMIZATION
-    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
-    if (CGM.getLangOpts().OpenMPLateOutline) {
-      ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(GD);
-      Name = ItaniumMangledName;
-    }
-    bool HasTargetRegions =
-        scanForTargetRegionsFunctions(FD->getBody(), Name);
-    if (!HasTargetRegions) {
-      // Since the offload entry has only the Ctor_Complete or Dtor_Complete
-      // mangled name for constructors and destructors, check with the
-      // "Complete" name as well.  Both may be needed.
-      if (isa<CXXConstructorDecl>(FD) && GD.getCtorType() == Ctor_Base) {
-        Name = CGM.getMangledName(GD.getWithCtorType(Ctor_Complete));
-#if INTEL_CUSTOMIZATION
-        if (CGM.getLangOpts().OpenMPLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
-        if (CGM.getLangOpts().OpenMPLateOutline) {
-          ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
-              GD.getWithCtorType(Ctor_Complete));
-          Name = ItaniumMangledName;
-        }
-        HasTargetRegions = scanForTargetRegionsFunctions(FD->getBody(), Name);
-      } else if (isa<CXXDestructorDecl>(FD) && GD.getDtorType() == Dtor_Base) {
-        Name = CGM.getMangledName(GD.getWithDtorType(Dtor_Complete));
-#if INTEL_CUSTOMIZATION
-        if (CGM.getLangOpts().OpenMPLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
-        if (CGM.getLangOpts().OpenMPLateOutline) {
-          ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
-              GD.getWithDtorType(Dtor_Complete));
-          Name = ItaniumMangledName;
-        }
-        HasTargetRegions = scanForTargetRegionsFunctions(FD->getBody(), Name);
-      }
+    bool HasTargetRegions;
+    auto It = FunctionRegionMap.find(FD);
+    if (It != FunctionRegionMap.end()) {
+      HasTargetRegions = It->second;
+    } else {
+      std::string Name;
+      // Constructors and destructors use the complete name, so use that for
+      // scanning.
+      if (isa<CXXConstructorDecl>(FD) && GD.getCtorType() != Ctor_Complete)
+        Name = CGM.getUniqueItaniumABIMangledName(
+            GD.getWithCtorType(Ctor_Complete));
+      else if (isa<CXXDestructorDecl>(FD) && GD.getDtorType() != Dtor_Complete)
+        Name = CGM.getUniqueItaniumABIMangledName(
+            GD.getWithDtorType(Dtor_Complete));
+      else
+        Name = CGM.getUniqueItaniumABIMangledName(GD);
+      HasTargetRegions = scanForTargetRegionsFunctions(FD->getBody(), Name);
+      FunctionRegionMap[FD] = HasTargetRegions;
     }
 
-    // Emit functions with target regions if doing BE outlining.
-#if INTEL_CUSTOMIZATION
-    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
-    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline) {
+    // Emit functions with target regions.
+    if (HasTargetRegions) {
       if (FD->hasAttr<OMPDeclareTargetDeclAttr>()) {
         // Add to the deferred list to force it to be emitted normally.
         CGM.addDeferredTargetDecl(GD);
@@ -11359,20 +11361,12 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
     if (DevTy && *DevTy == OMPDeclareTargetDeclAttr::DT_Host)
       return true;
   }
-#else
-  if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
-    StringRef Name = CGM.getMangledName(GD);
-    scanForTargetRegionsFunctions(FD->getBody(), Name);
-    if (isAssumedToBeNotEmitted(cast<ValueDecl>(FD),
-                                CGM.getLangOpts().OpenMPIsDevice))
-      return true;
-  }
-#endif // INTEL_COLLAB
 
   // Do not to emit function if it is not marked as declare target.
   return !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&
          AlreadyEmittedTargetDecls.count(VD) == 0;
 }
+#endif // INTEL_COLLAB
 
 bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
   if (isAssumedToBeNotEmitted(cast<ValueDecl>(GD.getDecl()),
