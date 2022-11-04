@@ -112,6 +112,85 @@ bool DTransForceInlineOP::run(
         return false;
       };
 
+  // Returns true if "F" has a i8* argument that is saved into a struct
+  // and a pointer to struct is passed as the argument to "F".
+  //  Ex:
+  //      foo(void * value) {
+  //        ...
+  //        struct.A* c;
+  //        ...
+  //        c->field1 =  value;
+  //        ...
+  //      }
+  //      bar() {
+  //        struct.A* ptr = baz();
+  //        ...
+  //        foo((void*) ptr);
+  //      }
+  //
+  // Set "noinline-dtrans" attribute for "foo" to avoid badcasting for
+  // "struct.A" in the example.
+  //
+  auto IsStructPtrReturnValuePassedAsI8 = [&](Function &F,
+                                              DTransFunctionType *DFnTy,
+                                              TypeMetadataReader &MDReader) {
+    // Allow only single callsite.
+    if (!F.hasOneUse())
+      return false;
+    auto *CB = dyn_cast<CallBase>(F.user_back());
+    if (!CB || CB->getCalledFunction() != &F)
+      return false;
+    unsigned NumArgs = F.arg_size();
+    for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+      // Check argument is i8*
+      DTransType *DTArgTy = DFnTy->getArgType(ArgIdx);
+      auto *PTy = dyn_cast<DTransPointerType>(DTArgTy);
+      if (!PTy)
+        continue;
+      if (!PTy->getPointerElementType()->getLLVMType()->isIntegerTy(8))
+        continue;
+      auto *Param = F.getArg(ArgIdx);
+      if (Param->hasNUsesOrMore(ParamNumberUsesLimit))
+        continue;
+      // Check argument is a return value of another call and type of
+      // the return value is "pointer to a struct".
+      Value *Arg = CB->getArgOperand(ArgIdx);
+      auto *ArgCall = dyn_cast<CallBase>(Arg);
+      if (!ArgCall || ArgCall->hasNUsesOrMore(ParamNumberUsesLimit))
+        continue;
+      Function *ArgCallee = ArgCall->getCalledFunction();
+      if (!ArgCallee)
+        continue;
+      DTransType *DType = MDReader.getDTransTypeFromMD(ArgCallee);
+      if (!DType)
+        continue;
+      auto *FnType = cast<DTransFunctionType>(DType);
+      DTransType *DRetTy = FnType->getReturnType();
+      if (!DRetTy->isPointerTy() ||
+          !isa<DTransStructType>(DRetTy->getPointerElementType()))
+        continue;
+
+      // Check if I8* argument is stored to a struct.
+      bool ParamStoredInStruct = false;
+      for (User *U : Param->users()) {
+        auto *SI = dyn_cast<StoreInst>(U);
+        if (!SI)
+          continue;
+        if (SI->getValueOperand() != Param)
+          continue;
+        auto *GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+        if (!GEPI || !isa<StructType>(GEPI->getSourceElementType()))
+          continue;
+        ParamStoredInStruct = true;
+        break;
+      }
+      if (!ParamStoredInStruct)
+        continue;
+      return true;
+    }
+    return false;
+  };
+
   // Only run this pass if we have opaque pointers
   if (M.getContext().supportsTypedPointers())
     return false;
@@ -311,6 +390,11 @@ bool DTransForceInlineOP::run(
         if (!CB->getCalledFunction()->hasFnAttribute(Attribute::AlwaysInline))
           CB->addFnAttr("noinline-dtrans");
     }
+
+    // TODO: This code can be removed once CMPLRLLVM-41532 is fixed.
+    if (IsStructPtrReturnValuePassedAsI8(F, DFnTy, MDReader))
+      if (!F.hasFnAttribute(Attribute::AlwaysInline))
+        F.addFnAttr("noinline-dtrans");
   }
   return true;
 }
