@@ -571,6 +571,14 @@ private:
   /// \return True if scan has found target regions in the statement and false
   /// otherwise.
   bool scanForTargetRegionsFunctions(const Stmt *S, StringRef ParentName);
+  /// Decide whether the function \a GD should be emitted when late-outlining.
+  /// \param GD Function to scan.
+  /// \return False if the function should be emitted, True otherwise.
+  bool emitTargetFunctionsForLateOutlining(GlobalDecl GD);
+  /// Records the results of a previous target region scan for the function.
+  /// This is used to prevent rescanning the different versions of constructors
+  /// and destructors, which can break the unique count tracking.
+  llvm::DenseMap<const FunctionDecl *, bool> FunctionRegionMap;
 #else
   void scanForTargetRegionsFunctions(const Stmt *S, StringRef ParentName);
 #endif // INTEL_COLLAB
