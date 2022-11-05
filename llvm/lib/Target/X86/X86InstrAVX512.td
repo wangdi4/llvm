@@ -10071,6 +10071,9 @@ defm VRSQRT14SDZ : avx512_fp14_s<0x4F, "vrsqrt14sd", X86rsqrt14s,
 defm VRSQRT14SDZ : avx512_fp14_s_alt<0x4F, "vrsqrt14sd", X86rsqrt14, // INTEL
                                  SchedWriteFRsqrt.Scl, f64x_info>, VEX_W, // INTEL
                                  EVEX_CD8<64, CD8VT1>, T8PD; // INTEL
+defm VRSQRT14SSZ : avx512_fp14_s_alt<0x4F, "vrsqrt14ss", X86rsqrt14, // INTEL
+                                 SchedWriteFRsqrt.Scl, f32x_info>, // INTEL
+                                 EVEX_CD8<32, CD8VT1>, T8PD; // INTEL
 
 /// avx512_fp14_p rcp14ps, rcp14pd, rsqrt14ps, rsqrt14pd
 multiclass avx512_fp14_p<bits<8> opc, string OpcodeStr, SDNode OpNode,
