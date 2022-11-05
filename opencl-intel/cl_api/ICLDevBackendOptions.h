@@ -135,9 +135,7 @@ public:
 
 enum PassManagerType {
   PM_NONE,       // Pass pipeline is not specified.
-  PM_OCL_LEGACY, // OpenCL pass pipeline.
   PM_OCL,        // OpenCL new pass manager pipeline.
-  PM_LTO_LEGACY, // llvm legacy pass pipeline.
   PM_LTO         // llvm new pass manager pipeline.
 };
 } // namespace DeviceBackend

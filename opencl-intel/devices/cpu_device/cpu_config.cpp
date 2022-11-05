@@ -104,12 +104,8 @@ VectorizerType CPUDeviceConfig::GetVectorizerType() const {
 PassManagerType CPUDeviceConfig::GetPassManagerType() const {
   std::string PMType = m_pConfigFile->Read<string>("CL_CONFIG_LTO_PM", "");
   std::transform(PMType.begin(), PMType.end(), PMType.begin(), ::tolower);
-  if ("legacy" == PMType)
-    return PM_LTO_LEGACY;
-  else if ("new" == PMType)
+  if ("new" == PMType)
     return PM_LTO;
-  else if ("legacyocl" == PMType)
-    return PM_OCL_LEGACY;
   else if ("ocl" == PMType)
     return PM_OCL;
   return PM_NONE;

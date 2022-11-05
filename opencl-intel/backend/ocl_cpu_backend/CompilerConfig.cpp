@@ -109,15 +109,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
       (int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_infoOutputFile.c_str());
   m_enableTiming = !m_infoOutputFile.empty();
 
-  std::string debugPassManager = pBackendOptions->GetStringValue(
-      (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
-  PassManagerType passManagerType =
-      static_cast<PassManagerType>(pBackendOptions->GetIntValue(
-          CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
-  if ((PM_LTO_LEGACY == passManagerType || PM_OCL_LEGACY == passManagerType) &&
-      !debugPassManager.empty())
-    m_LLVMOptions.emplace_back("-debug-pass=" + debugPassManager);
-
   std::string LLVMOption = pBackendOptions->GetStringValue(
       (int)CL_DEV_BACKEND_OPTION_LLVM_OPTION, "");
   if (!LLVMOption.empty()) {
