@@ -4093,12 +4093,12 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
   }
   assert(kernel->GetKernelArgsCount() == 2 && "Invalid args count");
   cl_err_code err =
-      kernel->SetKernelArg(0, sizeof(void *), dst, is_dst_svm, is_dst_usm);
+      kernel->SetKernelArg(0, sizeof(dst), dst, is_dst_svm, is_dst_usm);
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("EnqueueLibraryCopy SetKernelArg 0 failed, err = %d"), err);
     return CL_INVALID_VALUE;
   }
-  err = kernel->SetKernelArg(1, sizeof(void *), src, is_src_svm, is_src_usm);
+  err = kernel->SetKernelArg(1, sizeof(src), src, is_src_svm, is_src_usm);
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("EnqueueLibraryCopy SetKernelArg 1 failed, err = %d"), err);
     return CL_INVALID_VALUE;
@@ -4180,7 +4180,7 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
   size_t argsCount = kernel->GetKernelArgsCount();
   assert((argsCount == 1 || argsCount == 2) && "Invalid args count");
   cl_err_code err =
-      kernel->SetKernelArg(0, sizeof(void *), dst, is_dst_svm, is_dst_usm);
+      kernel->SetKernelArg(0, sizeof(dst), dst, is_dst_svm, is_dst_usm);
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("EnqueueLibrarySet SetKernelArg 0 failed, err = %d"), err);
     return CL_INVALID_VALUE;
