@@ -6478,14 +6478,13 @@ bool X86TTIImpl::shouldExpandReduction(const IntrinsicInst *II) const {
     return true;
   // These reductions have equivalent in avx512-reduction
   case Intrinsic::vector_reduce_add:
-  // TODO
-  // case Intrinsic::vector_reduce_and:
-  // case Intrinsic::vector_reduce_or:
-  // case Intrinsic::vector_reduce_xor:
-  // case Intrinsic::vector_reduce_smax:
-  // case Intrinsic::vector_reduce_smin:
-  // case Intrinsic::vector_reduce_umax:
-  // case Intrinsic::vector_reduce_umin:
+  case Intrinsic::vector_reduce_and:
+  case Intrinsic::vector_reduce_or:
+  case Intrinsic::vector_reduce_xor:
+  case Intrinsic::vector_reduce_smax:
+  case Intrinsic::vector_reduce_smin:
+  case Intrinsic::vector_reduce_umax:
+  case Intrinsic::vector_reduce_umin:
     return false;
   }
 }

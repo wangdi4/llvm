@@ -3,25 +3,15 @@
 ; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mattr=+avx512reduction,+avx512vl | FileCheck %s --check-prefixes=ALL,AVX512REDUCTION
 ; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+avx512vl | FileCheck %s --check-prefixes=ALL,AVX512F
 
-define i64 @reduce_addq_13xi64(<13 x i64> %vec) {
+define i64 @reduce_addq_13xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_addq_13xi64:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovq %rcx, %xmm0
-; AVX512REDUCTION-NEXT:    vmovq %rdx, %xmm1
-; AVX512REDUCTION-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm1[0],xmm0[0]
-; AVX512REDUCTION-NEXT:    vmovq %rsi, %xmm1
-; AVX512REDUCTION-NEXT:    vmovq %rdi, %xmm2
-; AVX512REDUCTION-NEXT:    vpunpcklqdq {{.*#+}} xmm1 = xmm2[0],xmm1[0]
-; AVX512REDUCTION-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVX512REDUCTION-NEXT:    vmovq %r9, %xmm1
-; AVX512REDUCTION-NEXT:    vmovq %r8, %xmm2
-; AVX512REDUCTION-NEXT:    vpunpcklqdq {{.*#+}} xmm1 = xmm2[0],xmm1[0]
-; AVX512REDUCTION-NEXT:    vinserti128 $1, {{[0-9]+}}(%rsp), %ymm1, %ymm1
-; AVX512REDUCTION-NEXT:    vinserti64x4 $1, %ymm1, %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    vmovdqu {{[0-9]+}}(%rsp), %ymm1
-; AVX512REDUCTION-NEXT:    vmovq {{.*#+}} xmm2 = mem[0],zero
-; AVX512REDUCTION-NEXT:    vinserti64x4 $1, %ymm2, %zmm1, %zmm1
-; AVX512REDUCTION-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
+; AVX512REDUCTION-NEXT:    vmovdqa64 64(%rdi), %zmm0
+; AVX512REDUCTION-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
+; AVX512REDUCTION-NEXT:    movb $127, %al
+; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
+; AVX512REDUCTION-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpaddq (%rdi), %zmm0, %zmm0
 ; AVX512REDUCTION-NEXT:    vphraddq %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -29,21 +19,14 @@ define i64 @reduce_addq_13xi64(<13 x i64> %vec) {
 ;
 ; AVX512F-LABEL: reduce_addq_13xi64:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovq %rcx, %xmm0
-; AVX512F-NEXT:    vmovq %rdx, %xmm1
-; AVX512F-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm1[0],xmm0[0]
-; AVX512F-NEXT:    vmovq %rsi, %xmm1
-; AVX512F-NEXT:    vmovq %rdi, %xmm2
-; AVX512F-NEXT:    vpunpcklqdq {{.*#+}} xmm1 = xmm2[0],xmm1[0]
-; AVX512F-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVX512F-NEXT:    vmovq %r9, %xmm1
-; AVX512F-NEXT:    vmovq %r8, %xmm2
-; AVX512F-NEXT:    vpunpcklqdq {{.*#+}} xmm1 = xmm2[0],xmm1[0]
-; AVX512F-NEXT:    vinserti128 $1, {{[0-9]+}}(%rsp), %ymm1, %ymm1
-; AVX512F-NEXT:    vpaddq {{[0-9]+}}(%rsp), %ymm0, %ymm0
-; AVX512F-NEXT:    vmovq {{.*#+}} xmm2 = mem[0],zero
-; AVX512F-NEXT:    vpaddq %ymm0, %ymm2, %ymm0
-; AVX512F-NEXT:    vpaddq %ymm0, %ymm1, %ymm0
+; AVX512F-NEXT:    vmovdqa64 64(%rdi), %zmm0
+; AVX512F-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
+; AVX512F-NEXT:    movb $127, %al
+; AVX512F-NEXT:    kmovw %eax, %k1
+; AVX512F-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vpaddq (%rdi), %zmm0, %zmm0
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpaddq %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpextrq $1, %xmm0, %rcx
@@ -51,6 +34,7 @@ define i64 @reduce_addq_13xi64(<13 x i64> %vec) {
 ; AVX512F-NEXT:    addq %rcx, %rax
 ; AVX512F-NEXT:    vzeroupper
 ; AVX512F-NEXT:    retq
+  %vec= load <13 x i64>, ptr %p
   %res = tail call i64 @llvm.vector.reduce.add.v13i64(<13 x i64> %vec)
   ret i64 %res
 }
@@ -78,12 +62,12 @@ define i64 @reduce_addq_8xi64(<8 x i64> %vec) {
   ret i64 %res
 }
 
-define i64 @reduce_addq_7xi64(<7 x i64> %vec) {
+define i64 @reduce_addq_7xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_addq_7xi64:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    movb $127, %al
 ; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
-; AVX512REDUCTION-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpexpandq (%rdi), %zmm0 {%k1} {z}
 ; AVX512REDUCTION-NEXT:    vphraddq %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -93,9 +77,9 @@ define i64 @reduce_addq_7xi64(<7 x i64> %vec) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movb $127, %al
 ; AVX512F-NEXT:    kmovw %eax, %k1
-; AVX512F-NEXT:    vpexpandq %zmm0, %zmm1 {%k1} {z}
-; AVX512F-NEXT:    vextracti64x4 $1, %zmm1, %ymm1
-; AVX512F-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
+; AVX512F-NEXT:    vpexpandq (%rdi), %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm0
+; AVX512F-NEXT:    vpaddq (%rdi), %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpaddq %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpextrq $1, %xmm0, %rcx
@@ -103,6 +87,7 @@ define i64 @reduce_addq_7xi64(<7 x i64> %vec) {
 ; AVX512F-NEXT:    addq %rcx, %rax
 ; AVX512F-NEXT:    vzeroupper
 ; AVX512F-NEXT:    retq
+  %vec= load <7 x i64>, ptr %p
   %res = tail call i64 @llvm.vector.reduce.add.v7i64(<7 x i64> %vec)
   ret i64 %res
 }
@@ -128,11 +113,11 @@ define i64 @reduce_addq_4xi64(<4 x i64> %vec) {
   ret i64 %res
 }
 
-define i64 @reduce_addq_3xi64(<3 x i64> %vec) {
+define i64 @reduce_addq_3xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_addq_3xi64:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3,4,5],ymm1[6,7]
+; AVX512REDUCTION-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} ymm0 = mem[0,1,2,3,4,5],ymm0[6,7]
 ; AVX512REDUCTION-NEXT:    vphraddq %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -140,15 +125,16 @@ define i64 @reduce_addq_3xi64(<3 x i64> %vec) {
 ;
 ; AVX512F-LABEL: reduce_addq_3xi64:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; AVX512F-NEXT:    vpblendd {{.*#+}} ymm1 = ymm0[0,1,2,3,4,5],ymm1[6,7]
-; AVX512F-NEXT:    vextracti128 $1, %ymm1, %xmm1
-; AVX512F-NEXT:    vpaddq %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5],ymm0[6,7]
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm0
+; AVX512F-NEXT:    vpaddq (%rdi), %xmm0, %xmm0
 ; AVX512F-NEXT:    vpextrq $1, %xmm0, %rcx
 ; AVX512F-NEXT:    vmovq %xmm0, %rax
 ; AVX512F-NEXT:    addq %rcx, %rax
 ; AVX512F-NEXT:    vzeroupper
 ; AVX512F-NEXT:    retq
+  %vec= load <3 x i64>, ptr %p
   %res = tail call i64 @llvm.vector.reduce.add.v3i64(<3 x i64> %vec)
   ret i64 %res
 }
