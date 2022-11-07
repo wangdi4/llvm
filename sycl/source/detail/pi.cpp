@@ -281,7 +281,12 @@ std::string memFlagsToString(pi_mem_flags Flags) {
 }
 
 // GlobalPlugin is a global Plugin used with Interoperability constructors that
+<<<<<<< HEAD
 // use low-level objects to construct SYCL class objects.
+=======
+// use OpenCL objects to construct SYCL class objects.
+// TODO: GlobalPlugin does not seem to be needed anymore. Consider removing it!
+>>>>>>> 1ee35aa2868af04825059f887b436cbe58dbd69e
 std::shared_ptr<plugin> GlobalPlugin;
 
 // Find the plugin at the appropriate location and return the location.
@@ -458,6 +463,7 @@ static void initializePlugins(std::vector<plugin> &Plugins) {
       }
       continue;
     }
+<<<<<<< HEAD
     backend *BE = SYCLConfig<SYCL_BE>::get();
     // Use OpenCL as the default interoperability plugin.
     // This will go away when we make backend interoperability selection
@@ -490,6 +496,8 @@ static void initializePlugins(std::vector<plugin> &Plugins) {
       GlobalPlugin = std::make_shared<plugin>(
           PluginInformation, backend::ext_intel_esimd_emulator, Library);
     }
+=======
+>>>>>>> 1ee35aa2868af04825059f887b436cbe58dbd69e
     plugin &NewPlugin = Plugins.emplace_back(
         plugin(PluginInformation, PluginNames[I].second, Library));
     if (trace(TraceLevel::PI_TRACE_BASIC))
