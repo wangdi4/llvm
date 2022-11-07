@@ -50,15 +50,10 @@ void foo() {
   });
 }
 
-<<<<<<< HEAD
 // CHECK: [[EMPTYASPECTS]] = !{}
-// CHECK: [[ASPECTS1]] = !{i32 1}
-=======
 // CHECK: [[ASPECTS1]] = !{i32 1}
 // CHECK: [[SRCLOC1]] = !{i32 {{[0-9]+}}}
-// CHECK: [[EMPTYASPECTS]] = !{}
 // CHECK: [[SRCLOC2]] = !{i32 {{[0-9]+}}}
->>>>>>> 92c23b15eea19d76752a0bb081cb01303771c63f
 // CHECK: [[ASPECTS2]] = !{i32 5, i32 2}
 // CHECK: [[SRCLOC3]] = !{i32 {{[0-9]+}}}
 // CHECK: [[SRCLOC4]] = !{i32 {{[0-9]+}}}
