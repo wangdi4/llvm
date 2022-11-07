@@ -228,6 +228,14 @@ private:
   /// optimization, each such alloca gets its own dynamic realignment.
   bool StackRealignable;
 
+#if INTEL_CUSTOMIZATION
+  // X86 specific StackRealignable to indicate if we can realign stack.
+  // TODO: Some code in CG didn't check StackRealignable and set larger aligment
+  // exceeded default value in TFI. This is a temporary workaround before we fix
+  // all of them.
+  bool X86StackRealignable = true;
+#endif // INTEL_CUSTOMIZATION
+
   /// Whether the function has the \c alignstack attribute.
   bool ForcedRealign;
 
@@ -371,6 +379,9 @@ public:
 
   /// Return true if there are any stack objects in this function.
   bool hasStackObjects() const { return !Objects.empty(); }
+
+  bool getX86StackRealignable() const { return X86StackRealignable; } // INTEL
+  void setX86StackRealignable(bool SR) { X86StackRealignable = SR; }  // INTEL
 
   /// This method may be called any time after instruction
   /// selection is complete to determine if the stack frame for this function

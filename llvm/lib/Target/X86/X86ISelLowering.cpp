@@ -4780,6 +4780,11 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       ++NumTailCalls;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (isTailCall || IsMustTail)
+    MF.getFrameInfo().setX86StackRealignable(false);
+#endif // INTEL_CUSTOMIZATION
+
   if (IsMustTail && !isTailCall)
     report_fatal_error("failed to perform tail call elimination on a call "
                        "site marked musttail");
@@ -28653,6 +28658,7 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
         Reg = RegInfo->getPtrSizedStackRegister(MF);
       else
         Reg = RegInfo->getPtrSizedFrameRegister(MF);
+      MF.getFrameInfo().setX86StackRealignable(CantUseFP); // INTEL
     }
     return DAG.getCopyFromReg(DAG.getEntryNode(), dl, Reg, VT);
   }
