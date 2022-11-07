@@ -1753,23 +1753,24 @@ struct TargetRegionEntryInfo {
   unsigned DeviceID;
   unsigned FileID;
   unsigned Line;
+  unsigned Count;
 
-  TargetRegionEntryInfo() : ParentName(""), DeviceID(0), FileID(0), Line(0) {}
+  TargetRegionEntryInfo()
+      : ParentName(""), DeviceID(0), FileID(0), Line(0), Count(0) {}
   TargetRegionEntryInfo(StringRef ParentName, unsigned DeviceID,
-                        unsigned FileID, unsigned Line)
-      : ParentName(ParentName), DeviceID(DeviceID), FileID(FileID), Line(Line) {
-  }
+                        unsigned FileID, unsigned Line, unsigned Count = 0)
+      : ParentName(ParentName), DeviceID(DeviceID), FileID(FileID), Line(Line),
+        Count(Count) {}
 
   static void getTargetRegionEntryFnName(SmallVectorImpl<char> &Name,
                                          StringRef ParentName,
                                          unsigned DeviceID, unsigned FileID,
-                                         unsigned Line);
-
-  void getTargetRegionEntryFnName(SmallVectorImpl<char> &Name);
+                                         unsigned Line, unsigned Count);
 
   bool operator<(const TargetRegionEntryInfo RHS) const {
-    return std::make_tuple(ParentName, DeviceID, FileID, Line) <
-           std::make_tuple(RHS.ParentName, RHS.DeviceID, RHS.FileID, RHS.Line);
+    return std::make_tuple(ParentName, DeviceID, FileID, Line, Count) <
+           std::make_tuple(RHS.ParentName, RHS.DeviceID, RHS.FileID, RHS.Line,
+                           RHS.Count);
   }
 };
 
@@ -1892,18 +1893,23 @@ public:
                                        unsigned Order);
 #if INTEL_COLLAB
   /// Register target region entry. Return the entry's order in the table.
-  int registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
+  int registerTargetRegionEntryInfo(TargetRegionEntryInfo EntryInfo,
 #else
   /// Register target region entry.
-  void registerTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
+  void registerTargetRegionEntryInfo(TargetRegionEntryInfo EntryInfo,
 #endif // INTEL_COLLAB
                                      Constant *Addr, Constant *ID,
                                      OMPTargetRegionEntryKind Flags,
                                      bool IsDevice);
   /// Return true if a target region entry with the provided information
   /// exists.
-  bool hasTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
+  bool hasTargetRegionEntryInfo(TargetRegionEntryInfo EntryInfo,
                                 bool IgnoreAddressId = false) const;
+
+  // Return the Name based on \a EntryInfo using the next available Count.
+  void getTargetRegionEntryFnName(SmallVectorImpl<char> &Name,
+                                  const TargetRegionEntryInfo &EntryInfo);
+
   /// brief Applies action \a Action on all registered entries.
   typedef function_ref<void(const TargetRegionEntryInfo &EntryInfo,
                             const OffloadEntryInfoTargetRegion &)>
@@ -2020,6 +2026,23 @@ public:
       const OffloadDeviceGlobalVarEntryInfoActTy &Action);
 
 private:
+  /// Return the count of entries at a particular source location.
+  unsigned
+  getTargetRegionEntryInfoCount(const TargetRegionEntryInfo &EntryInfo) const;
+
+  /// Update the count of entries at a particular source location.
+  void
+  incrementTargetRegionEntryInfoCount(const TargetRegionEntryInfo &EntryInfo);
+
+  static TargetRegionEntryInfo
+  getTargetRegionEntryCountKey(const TargetRegionEntryInfo &EntryInfo) {
+    return TargetRegionEntryInfo(EntryInfo.ParentName, EntryInfo.DeviceID,
+                                 EntryInfo.FileID, EntryInfo.Line, 0);
+  }
+
+  // Count of entries at a location.
+  std::map<TargetRegionEntryInfo, unsigned> OffloadEntriesTargetRegionCount;
+
   // Storage for target region entries kind.
   typedef std::map<TargetRegionEntryInfo, OffloadEntryInfoTargetRegion>
       OffloadEntriesTargetRegionTy;
