@@ -2362,8 +2362,16 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
   if (!Subtarget.useSoftFloat() && Subtarget.hasAVX512REDUCTION()) {
-    for (auto VT : { MVT::v2i64, MVT::v4i64, MVT::v8i64 })
+    for (auto VT : { MVT::v2i64, MVT::v4i64, MVT::v8i64 }) {
       setOperationAction(ISD::VECREDUCE_ADD, VT, Legal);
+      setOperationAction(ISD::VECREDUCE_AND, VT, Legal);
+      setOperationAction(ISD::VECREDUCE_OR, VT, Legal);
+      setOperationAction(ISD::VECREDUCE_XOR, VT, Legal);
+      setOperationAction(ISD::VECREDUCE_SMAX, VT, Legal);
+      setOperationAction(ISD::VECREDUCE_SMIN, VT, Legal);
+      setOperationAction(ISD::VECREDUCE_UMAX, VT, Legal);
+      setOperationAction(ISD::VECREDUCE_UMIN, VT, Legal);
+    }
   }
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 
@@ -4798,6 +4806,11 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     if (isTailCall)
       ++NumTailCalls;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (isTailCall || IsMustTail)
+    MF.getFrameInfo().setX86StackRealignable(false);
+#endif // INTEL_CUSTOMIZATION
 
   if (IsMustTail && !isTailCall)
     report_fatal_error("failed to perform tail call elimination on a call "
@@ -28803,6 +28816,7 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
         Reg = RegInfo->getPtrSizedStackRegister(MF);
       else
         Reg = RegInfo->getPtrSizedFrameRegister(MF);
+      MF.getFrameInfo().setX86StackRealignable(CantUseFP); // INTEL
     }
     return DAG.getCopyFromReg(DAG.getEntryNode(), dl, Reg, VT);
   }

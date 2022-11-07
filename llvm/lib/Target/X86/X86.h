@@ -90,6 +90,7 @@ FunctionPass *createX86PRAExpandPseudoPass();
 FunctionPass *createX86VecSpillPass();
 /// This pass performs x86 intrinsics lowering right before ISel.
 ModulePass *createX86PreISelIntrinsicLoweringPass();
+FunctionPass *createX86StackRealignPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -264,6 +265,7 @@ void initializeX86AvoidMRNBPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
+void initializeX86StackRealignPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86FastPreTileConfigPass(PassRegistry &);

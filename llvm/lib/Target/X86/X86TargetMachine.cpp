@@ -147,6 +147,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86FeatureInitPassPass(PR);
   initializeX86SplitLongBlockPassPass(PR);
   initializeX86PreISelIntrinsicLoweringPass(PR);
+  initializeX86StackRealignPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -768,6 +769,10 @@ static bool onlyAllocateTileRegisters(const TargetRegisterInfo &TRI,
 }
 
 bool X86PassConfig::addRegAssignAndRewriteOptimized() {
+#if INTEL_CUSTOMIZATION
+  if (getOptLevel() == CodeGenOpt::Aggressive && TM->Options.IntelAdvancedOptim)
+    addPass(createX86StackRealignPass());
+#endif // INTEL_CUSTOMIZATION
   // Don't support tile RA when RA is specified by command line "-regalloc".
   if (!isCustomizedRegAlloc() && EnableTileRAPass) {
     // Allocate tile register first.

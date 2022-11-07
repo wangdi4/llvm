@@ -40,7 +40,7 @@ struct VWidthResolver : TypeVisitor {
   width::V width() const { return Width; }
 
 private:
-  width::V Width;
+  width::V Width = width::NONE;
 };
 
 } // namespace
