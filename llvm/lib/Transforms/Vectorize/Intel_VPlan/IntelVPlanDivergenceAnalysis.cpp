@@ -65,6 +65,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cmath>
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -917,6 +918,22 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
           if (ConstOp1->isConstantInt() && ConstOp1->getZExtValue() == UINT_MAX)
             return {Desc0, Shape0.getStride()};
         }
+      }
+      LLVM_FALLTHROUGH;
+    }
+    case Instruction::Shl: {
+      int64_t Op1IntVal;
+      int64_t Op0StrideIntVal;
+      bool Op1IsInt = getConstantIntVal(Op1, Op1IntVal);
+      bool Shape0StrideIsInt = getConstantIntVal(Shape0.getStride(),
+                                                 Op0StrideIntVal);
+      if (Op1IsInt && Op1IntVal >=0 && Shape0StrideIsInt &&
+          I->hasNoSignedWrap() && I->hasNoUnsignedWrap()) {
+        // Be conservative by checking for nuw/nsw flags
+        // See CMPLRLLVM-41456 - may need to be done for all binary ops
+        int64_t MulFactor = std::pow(2, Op1IntVal); // each shift is mul by 2
+        int64_t NewStrideVal = Op0StrideIntVal * MulFactor;
+        return getStridedVectorShape(NewStrideVal);
       }
       LLVM_FALLTHROUGH;
     }
