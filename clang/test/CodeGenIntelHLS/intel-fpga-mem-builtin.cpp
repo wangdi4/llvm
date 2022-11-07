@@ -66,4 +66,4 @@ void foo(float *A, int *B, State *C, State &D) {
   f = __builtin_intel_fpga_mem(&F, PARAM_1 | PARAM_2, 127);
 }
 
-// CHECK: attributes [[ATT]] = { readnone }
+// CHECK: attributes [[ATT]] = { memory(none) }

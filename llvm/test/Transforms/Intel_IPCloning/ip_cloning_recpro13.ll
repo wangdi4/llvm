@@ -103,7 +103,7 @@
 ; CHECK-NOT: call void @good
 
 ; Check the attributes
-; CHECK: attributes #0 = { nounwind readnone speculatable }
+; CHECK: attributes #0 = { nounwind speculatable memory(none) }
 ; CHECK: attributes #1 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 ; CHECK: attributes #2 = { nounwind "contains-rec-pro-clone" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "prefer-inline-rec-pro-clone" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 

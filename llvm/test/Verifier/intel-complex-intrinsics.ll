@@ -6,7 +6,7 @@
 ; Check that a double-valued complex fmul is accepted, and attributes are
 ; correct.
 ; CHECK1: declare <2 x double> @llvm.intel.complex.fmul.v2f64(<2 x double>, <2 x double>) #[[ATTR:[0-9]+]]
-; CHECK1:  attributes #[[ATTR]] = { nocallback nofree nosync nounwind readnone willreturn }
+; CHECK1:  attributes #[[ATTR]] = { nocallback nofree nosync nounwind willreturn memory(none) }
 declare <2 x double> @llvm.intel.complex.fmul.v2f64(<2 x double>, <2 x double>)
 define <2 x double> @t1(<2 x double> %a, <2 x double> %b) {
   %res = call <2 x double> @llvm.intel.complex.fmul.v2f64(<2 x double> %a, <2 x double> %b)
@@ -15,7 +15,7 @@ define <2 x double> @t1(<2 x double> %a, <2 x double> %b) {
 
 ; Test that vector complex values are supported.
 ; CHECK2: declare <4 x double> @llvm.intel.complex.fmul.v4f64(<4 x double>, <4 x double>) #[[ATTR:[0-9]+]]
-; CHECK2:  attributes #[[ATTR]] = { nocallback nofree nosync nounwind readnone willreturn }
+; CHECK2:  attributes #[[ATTR]] = { nocallback nofree nosync nounwind willreturn memory(none) }
 declare <4 x double> @llvm.intel.complex.fmul.v4f64(<4 x double>, <4 x double>)
 define <4 x double> @t2(<4 x double> %a, <4 x double> %b) {
   %res = call <4 x double> @llvm.intel.complex.fmul.v4f64(<4 x double> %a, <4 x double> %b)

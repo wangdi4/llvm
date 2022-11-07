@@ -1355,8 +1355,12 @@ Function *llvm::getOrInsertVectorVariantFunction(
     VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
     VectorF->copyAttributesFrom(OrigF);
     // See notes in VecClone as to why we remove these attributes.
-    VectorF->removeFnAttr(Attribute::ReadOnly);
-    VectorF->removeFnAttr(Attribute::ArgMemOnly);
+    VectorF->setAttributes(
+        VectorF->getAttributes().addFnAttribute(
+              VectorF->getContext(),
+              Attribute::getWithMemoryEffects(VectorF->getContext(),
+					MemoryEffects::unknown())));
+    
     VectorF->setVisibility(OrigF->getVisibility());
   }
 

@@ -63,4 +63,4 @@ void foo(global float *A, global int *B, global struct State *C, global long lon
   f = __builtin_intel_fpga_mem(F, PARAM_1 | PARAM_2, 127);
 }
 
-// CHECK: attributes [[ATT]] = { readnone }
+// CHECK: attributes [[ATT]] = { memory(none) }

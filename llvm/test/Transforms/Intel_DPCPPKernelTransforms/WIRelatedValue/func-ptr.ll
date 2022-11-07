@@ -30,4 +30,4 @@ define void @kernel(i64 %x) {
   ret void
 }
 
-attributes #0 = { readnone }
+attributes #0 = { memory(none) }

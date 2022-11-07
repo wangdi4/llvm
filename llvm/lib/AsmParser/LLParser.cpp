@@ -1561,6 +1561,31 @@ bool LLParser::parseEnumAttribute(Attribute::AttrKind Attr, AttrBuilder &B,
   }
 }
 
+static bool upgradeMemoryAttr(MemoryEffects &ME, lltok::Kind Kind) {
+  switch (Kind) {
+  case lltok::kw_readnone:
+    ME &= MemoryEffects::none();
+    return true;
+  case lltok::kw_readonly:
+    ME &= MemoryEffects::readOnly();
+    return true;
+  case lltok::kw_writeonly:
+    ME &= MemoryEffects::writeOnly();
+    return true;
+  case lltok::kw_argmemonly:
+    ME &= MemoryEffects::argMemOnly();
+    return true;
+  case lltok::kw_inaccessiblememonly:
+    ME &= MemoryEffects::inaccessibleMemOnly();
+    return true;
+  case lltok::kw_inaccessiblemem_or_argmemonly:
+    ME &= MemoryEffects::inaccessibleOrArgMemOnly();
+    return true;
+  default:
+    return false;
+  }
+}
+
 /// parseFnAttributeValuePairs
 ///   ::= <attr> | <attr> '=' <value>
 bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
@@ -1570,10 +1595,11 @@ bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
 
   B.clear();
 
+  MemoryEffects ME = MemoryEffects::unknown();
   while (true) {
     lltok::Kind Token = Lex.getKind();
     if (Token == lltok::rbrace)
-      return HaveError; // Finished.
+      break; // Finished.
 
     if (Token == lltok::StringConstant) {
       if (parseStringAttribute(B))
@@ -1601,10 +1627,15 @@ bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
     if (Token == lltok::kw_builtin)
       BuiltinLoc = Loc;
 
+    if (upgradeMemoryAttr(ME, Token)) {
+      Lex.Lex();
+      continue;
+    }
+
     Attribute::AttrKind Attr = tokenToAttribute(Token);
     if (Attr == Attribute::None) {
       if (!InAttrGrp)
-        return HaveError;
+        break;
       return error(Lex.getLoc(), "unterminated attribute group");
     }
 
@@ -1617,6 +1648,10 @@ bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
     if (!Attribute::canUseAsFnAttr(Attr) && Attr != Attribute::Alignment)
       HaveError |= error(Loc, "this attribute does not apply to functions");
   }
+
+  if (ME != MemoryEffects::unknown())
+    B.addMemoryAttr(ME);
+  return HaveError;
 }
 
 //===----------------------------------------------------------------------===//

@@ -111,6 +111,7 @@
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/ModRef.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/IR/PassManager.h"
@@ -2069,28 +2070,6 @@ void Verifier::verifyFunctionAttrs(FunctionType *FT, AttributeList Attrs,
               "' does not apply to functions!",
           V);
 
-  Check(!(Attrs.hasFnAttr(Attribute::ReadNone) &&
-          Attrs.hasFnAttr(Attribute::ReadOnly)),
-        "Attributes 'readnone and readonly' are incompatible!", V);
-
-  Check(!(Attrs.hasFnAttr(Attribute::ReadNone) &&
-          Attrs.hasFnAttr(Attribute::WriteOnly)),
-        "Attributes 'readnone and writeonly' are incompatible!", V);
-
-  Check(!(Attrs.hasFnAttr(Attribute::ReadOnly) &&
-          Attrs.hasFnAttr(Attribute::WriteOnly)),
-        "Attributes 'readonly and writeonly' are incompatible!", V);
-
-  Check(!(Attrs.hasFnAttr(Attribute::ReadNone) &&
-          Attrs.hasFnAttr(Attribute::InaccessibleMemOrArgMemOnly)),
-        "Attributes 'readnone and inaccessiblemem_or_argmemonly' are "
-        "incompatible!",
-        V);
-
-  Check(!(Attrs.hasFnAttr(Attribute::ReadNone) &&
-          Attrs.hasFnAttr(Attribute::InaccessibleMemOnly)),
-        "Attributes 'readnone and inaccessiblememonly' are incompatible!", V);
-
   Check(!(Attrs.hasFnAttr(Attribute::NoInline) &&
           Attrs.hasFnAttr(Attribute::AlwaysInline)),
         "Attributes 'noinline and alwaysinline' are incompatible!", V);
@@ -3952,7 +3931,7 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
 
   Check(I.hasFnAttr(Attribute::Speculatable),
          "llvm.intel.subscript should have speculatable attribute", &I);
-  Check(I.hasFnAttr(Attribute::ReadNone),
+  Check(I.getMemoryEffects().doesNotAccessMemory(),
          "llvm.intel.subscript should have readnone attribute", &I);
 
   Check(I.getNumOperandBundles() == 0,

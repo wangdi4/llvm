@@ -2431,7 +2431,9 @@ CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
   auto *Arg = Builder.getInt32(TotalElementCount);
   auto AL =
       AttributeList()
-          .addFnAttribute(IP->getContext(), Attribute::ReadNone)
+          .addFnAttribute(IP->getContext(),
+                          Attribute::getWithMemoryEffects(IP->getContext(),
+                                                          MemoryEffects::none()))
           .addFnAttribute(IP->getContext(), Attribute::NoUnwind)
           .addFnAttribute(IP->getContext(), Attribute::WillReturn)
           .addFnAttribute(IP->getContext(), KernelAttribute::ConvergentCall);

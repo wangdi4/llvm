@@ -17,9 +17,9 @@ declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i
 declare token @llvm.directive.region.entry() #5
 declare void @llvm.directive.region.exit(token) #5
 
-attributes #1 = { argmemonly mustprogress nofree noinline norecurse nosync nounwind readonly willreturn uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "vector-variants"="_ZGVbN4v_f_plus_one_" }
+attributes #1 = { mustprogress nofree noinline norecurse nosync nounwind memory(argmem: read) willreturn uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "vector-variants"="_ZGVbN4v_f_plus_one_" }
 
-; Function Attrs: argmemonly mustprogress nofree noinline norecurse nosync nounwind readonly willreturn uwtable
+; Function Attrs: mustprogress nofree noinline norecurse nosync nounwind memory(argmem: read) willreturn uwtable
 define i32 @f_plus_one_(i32* noalias nocapture readonly dereferenceable(4) %"f_plus_one_$X") local_unnamed_addr #1 {
 alloca_1:
   %"f_plus_one_$X_fetch.28" = load i32, i32* %"f_plus_one_$X", align 1
@@ -55,7 +55,7 @@ DIR.OMP.END.SIMD.1:                               ; preds = %omp.pdo.body22
 bb14:                                             ; preds = %DIR.OMP.END.SIMD.159
   ret void
 }
-; CHECK: Function Attrs: argmemonly mustprogress nofree noinline norecurse nosync nounwind readonly willreturn uwtable
+; CHECK: Function Attrs: mustprogress nofree noinline norecurse nosync nounwind memory(argmen: read) willreturn uwtable
 ; CHECK-LABEL: define {{[^@]+}}@f_plus_one_
 ;
 ; CHECK:       region.0:

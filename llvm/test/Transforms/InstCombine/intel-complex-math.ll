@@ -273,7 +273,7 @@ define %complex.double @fastish_div(double %a, double %b, double %c, double %d) 
 }
 
 ;.
-; CHECK: attributes #[[ATTR0:[0-9]+]] = { nocallback nofree nosync nounwind readnone willreturn }
+; CHECK: attributes #[[ATTR0:[0-9]+]] = { nocallback nofree nosync nounwind willreturn memory(none) }
 ; CHECK: attributes #[[ATTR1]] = { "complex-limited-range" }
 ; CHECK: attributes #[[ATTR2]] = { "complex-limited-range" "complex-no-scale" }
 ;.

@@ -19,6 +19,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/ModRef.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/ValueHandle.h"
@@ -105,7 +106,7 @@ static AttributeList getNoUnwindAttr(LLVMContext &C) {
 static AttributeList getPureAttr(LLVMContext &C) {
   AttrBuilder AB(C);
   AB.addAttribute(Attribute::NoUnwind);
-  AB.addAttribute(Attribute::ReadNone);
+  AB.addMemoryAttr(llvm::MemoryEffects::none());
   AB.addAttribute(Attribute::WillReturn);
   AttributeList PureAttr =
       AttributeList::get(C, AttributeList::FunctionIndex, AB);
