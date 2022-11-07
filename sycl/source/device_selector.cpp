@@ -211,8 +211,6 @@ __SYCL_EXPORT int default_selector_v(const device &dev) {
   if (dev.get_backend() == backend::ext_intel_esimd_emulator) {
     return 0;
   }
-  if (dev.get_info<info::device::device_type>() == detail::get_forced_type())
-    Score += 2000;
 
   if (dev.is_gpu())
     Score += 500;
