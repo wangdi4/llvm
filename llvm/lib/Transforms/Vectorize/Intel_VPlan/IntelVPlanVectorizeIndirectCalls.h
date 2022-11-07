@@ -27,7 +27,7 @@ public:
                             VPTransformState *State, Value *MaskValue,
                             const VPlanVector *Plan)
       : CodeGen(CodeGen), LI(LI), VF(VF), State(State), MaskValue(MaskValue),
-        Plan(Plan){};
+        Plan(Plan), OrigCall(nullptr){};
 
   /// Returns true if the indirect call was vectorized
   bool vectorize(VPCallInstruction *VPCallInst);
