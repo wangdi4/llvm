@@ -145,8 +145,8 @@ struct PipeKind {
     Commit            ///< commit operation
   };
 
-  ScopeKind Scope;
-  AccessKind Access;
+  ScopeKind Scope = ScopeKind::WorkItem;
+  AccessKind Access = AccessKind::Read;
   OpKind Op = OpKind::None;
   bool Blocking = false;
   bool IO = false;
