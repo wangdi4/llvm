@@ -24899,7 +24899,18 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
                                            bool Reciprocal) const {
   SDLoc DL(Op);
   EVT VT = Op.getValueType();
+#if INTEL_CUSTOMIZATION
+  StringRef IABRValueStr;
+  double IABRValue = 53; // The maximum accuracy of float point.
 
+  if (RefinementSteps == TargetLoweringBase::ReciprocalEstimate::Unspecified) {
+    const Function &F = DAG.getMachineFunction().getFunction();
+    IABRValueStr =
+        F.getFnAttribute("imf-accuracy-bits-sqrt").getValueAsString();
+    if (!IABRValueStr.empty())
+      IABRValueStr.getAsDouble(IABRValue);
+  }
+#endif // INTEL_CUSTOMIZATION
   // SSE1 has rsqrtss and rsqrtps. AVX adds a 256-bit variant for rsqrtps.
   // It is likely not profitable to do this for f64 because a double-precision
   // rsqrt estimate with refinement on x86 prior to FMA requires at least 16
@@ -24918,8 +24929,32 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
 
     UseOneConstNR = false;
     // There is no FSQRT for 512-bits, but there is RSQRT14.
-    unsigned Opcode = VT == MVT::v16f32 ? X86ISD::RSQRT14 : X86ISD::FRSQRT;
-    SDValue Estimate = DAG.getNode(Opcode, DL, VT, Op);
+#if INTEL_CUSTOMIZATION
+    // RSQRT14(14 bits) improves accuracy from FSQRT(11~12 bits), and they
+    // have the same lantency and throughput.
+    // So if target allows, perfer RSQRT14 than FSQRT.
+    // TODO: rsqrt14ss has additional TWO bytes from rsqrtss in encoding.
+    // So if it results in FE performance issue or customer ask for less code
+    // size by sacrificing accuracy, we could consider revert to rsqrtss in
+    // some condition.
+    unsigned Opcode =
+        ((!VT.isVector() && Subtarget.hasAVX512()) ||
+         (VT.isVector() && Subtarget.hasVLX()) || (VT == MVT::v16f32))
+            ? X86ISD::RSQRT14
+            : X86ISD::FRSQRT;
+    SDValue Estimate;
+    // On AVX512 target, if imf-accuracy-bits-sqrt <=14,
+    // directly trans to rsqrt14 w/o NR.
+    // On AVX target, if imf-accuracy-bits-sqrt <=11,
+    // directly trans to rsqrt w/o NR.
+    if ((IABRValue <= 11 && Opcode == X86ISD::FRSQRT) ||
+        (IABRValue <= 14 && Opcode == X86ISD::RSQRT14)) {
+      RefinementSteps = 0;
+    } // No need to specifically deal with option
+      // "imf-accuracy-bits-sqrt <= 22/23" to oneNR, since by default
+      // it would be OneNR in this estimate path.
+    Estimate = DAG.getNode(Opcode, SDLoc(Op), VT, Op);
+#endif // INTEL_CUSTOMIZATION
     if (RefinementSteps == 0 && !Reciprocal)
       Estimate = DAG.getNode(ISD::FMUL, DL, VT, Op, Estimate);
     return Estimate;
@@ -24952,25 +24987,20 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
        (VT == MVT::v2f64 && Subtarget.hasVLX()) ||
        (VT == MVT::v4f64 && Subtarget.hasVLX()) ||
        (VT == MVT::v8f64 && Subtarget.useAVX512Regs()))) {
-    if (RefinementSteps == TargetLoweringBase::ReciprocalEstimate::Unspecified) {
-      const  Function &F = DAG.getMachineFunction().getFunction();
-      double IABRValue = 0;
-      StringRef IABRValueStr =
-          F.getFnAttribute("imf-accuracy-bits-sqrt").getValueAsString();
-      if (!IABRValueStr.empty() && !IABRValueStr.getAsDouble(IABRValue)) {
-        if (IABRValue <= 14) {
-          RefinementSteps = 0;
-          return DAG.getNode(X86ISD::RSQRT14, SDLoc(Op), VT, Op);
-        } else if (IABRValue <= 26) {
-          RefinementSteps = 0;
-          SDLoc DL(Op);
-          SDValue Half = DAG.getConstantFP(0.5, DL, VT);
-          SDValue Est = DAG.getNode(X86ISD::RSQRT14, DL, VT, Op);
-          SDValue Mul1 = DAG.getNode(ISD::FMUL, DL, VT, Op, Est);
-          SDValue Mul2 = DAG.getNode(ISD::FMUL, DL, VT, Est, Half);
-          SDValue FNMA = DAG.getNode(X86ISD::FNMADD, DL, VT, Mul1, Mul2, Half);
-          return DAG.getNode(ISD::FMA, DL, VT, Est, FNMA, Est);
-        }
+    if (RefinementSteps ==
+        TargetLoweringBase::ReciprocalEstimate::Unspecified) {
+      if (IABRValue <= 14) {
+        RefinementSteps = 0;
+        return DAG.getNode(X86ISD::RSQRT14, SDLoc(Op), VT, Op);
+      } else if (IABRValue <= 26) {
+        RefinementSteps = 0;
+        SDLoc DL(Op);
+        SDValue Half = DAG.getConstantFP(0.5, DL, VT);
+        SDValue Est = DAG.getNode(X86ISD::RSQRT14, DL, VT, Op);
+        SDValue Mul1 = DAG.getNode(ISD::FMUL, DL, VT, Op, Est);
+        SDValue Mul2 = DAG.getNode(ISD::FMUL, DL, VT, Est, Half);
+        SDValue FNMA = DAG.getNode(X86ISD::FNMADD, DL, VT, Mul1, Mul2, Half);
+        return DAG.getNode(ISD::FMA, DL, VT, Est, FNMA, Est);
       }
     }
     if (RefinementSteps != TargetLoweringBase::ReciprocalEstimate::Unspecified)
