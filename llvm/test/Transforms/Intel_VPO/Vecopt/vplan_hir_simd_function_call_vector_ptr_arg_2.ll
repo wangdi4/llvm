@@ -55,7 +55,7 @@ DIR.OMP.END.SIMD.1:                               ; preds = %omp.pdo.body22
 bb14:                                             ; preds = %DIR.OMP.END.SIMD.159
   ret void
 }
-; CHECK: Function Attrs: mustprogress nofree noinline norecurse nosync nounwind memory(argmen: read) willreturn uwtable
+; CHECK: Function Attrs: mustprogress nofree noinline norecurse nosync nounwind willreturn memory(argmem: read) uwtable
 ; CHECK-LABEL: define {{[^@]+}}@f_plus_one_
 ;
 ; CHECK:       region.0:
@@ -77,5 +77,5 @@ bb14:                                             ; preds = %DIR.OMP.END.SIMD.15
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_1_SPLIT:%.*]]
 ;
 ;
-; CHECK: Function Attrs: mustprogress nofree noinline norecurse nosync nounwind willreturn uwtable
+; CHECK: Function Attrs: mustprogress nofree noinline norecurse nosync nounwind willreturn memory(readwrite) uwtable
 ; CHECK-LABEL: define {{[^@]+}}@_ZGVbN4v_f_plus_one_

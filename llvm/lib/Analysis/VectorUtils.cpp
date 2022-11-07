@@ -1354,7 +1354,10 @@ Function *llvm::getOrInsertVectorVariantFunction(
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
     VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
     VectorF->copyAttributesFrom(OrigF);
-    // See notes in VecClone as to why we remove these attributes.
+    // Alias analysis models the high-level memory effects of functions
+    // using FunctionModRefBehavior.
+    // Explicitly set ModRef flag to force AA to behave conservatively
+    // and prevent any illegal code motion/elimination.
     VectorF->setAttributes(
         VectorF->getAttributes().addFnAttribute(
               VectorF->getContext(),
