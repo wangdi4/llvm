@@ -781,6 +781,55 @@ auto make_reduction(RedOutVar RedVar, RestTy &&...Rest) {
                                            std::forward<RestTy>(Rest)...};
 }
 
+namespace reduction {
+inline void finalizeHandler(handler &CGH) { CGH.finalize(); }
+template <class FunctorTy> void withAuxHandler(handler &CGH, FunctorTy Func) {
+  CGH.finalize();
+  handler AuxHandler(CGH.MQueue, CGH.MIsHost);
+  AuxHandler.saveCodeLoc(CGH.MCodeLoc);
+  Func(AuxHandler);
+  CGH.MLastEvent = AuxHandler.finalize();
+  return;
+}
+} // namespace reduction
+
+// This method is used for implementation of parallel_for accepting 1 reduction.
+// TODO: remove this method when everything is switched to general algorithm
+// implementing arbitrary number of reductions in parallel_for().
+/// Copies the final reduction result kept in read-write accessor to user's
+/// accessor. This method is not called for user's read-write accessors
+/// requiring update-write to it.
+template <typename KernelName, class Reduction>
+std::enable_if_t<!Reduction::is_usm>
+reduSaveFinalResultToUserMem(handler &CGH, Reduction &Redu) {
+  auto InAcc = Redu.getReadAccToPreviousPartialReds(CGH);
+  associateWithHandler(CGH, &Redu.getUserRedVar(), access::target::device);
+  CGH.copy(InAcc, Redu.getUserRedVar());
+}
+
+// This method is used for implementation of parallel_for accepting 1 reduction.
+// TODO: remove this method when everything is switched to general algorithm
+// implementing arbitrary number of reductions in parallel_for().
+/// Copies the final reduction result kept in read-write accessor to user's
+/// USM memory.
+template <typename KernelName, class Reduction>
+std::enable_if_t<Reduction::is_usm>
+reduSaveFinalResultToUserMem(handler &CGH, Reduction &Redu) {
+  size_t NElements = Reduction::num_elements;
+  auto InAcc = Redu.getReadAccToPreviousPartialReds(CGH);
+  auto UserVarPtr = Redu.getUserRedVar();
+  bool IsUpdateOfUserVar = !Redu.initializeToIdentity();
+  auto BOp = Redu.getBinaryOperation();
+  CGH.single_task<KernelName>([=] {
+    for (int i = 0; i < NElements; ++i) {
+      if (IsUpdateOfUserVar)
+        UserVarPtr[i] = BOp(UserVarPtr[i], InAcc.get_pointer()[i]);
+      else
+        UserVarPtr[i] = InAcc.get_pointer()[i];
+    }
+  });
+}
+
 /// A helper to pass undefined (sycl::detail::auto_name) names unmodified. We
 /// must do that to avoid name collisions.
 template <template <typename...> class Namer, class KernelName, class... Ts>
@@ -822,7 +871,7 @@ template <class KernelName> struct RangeFastAtomics;
 } // namespace reduction
 template <typename KernelName, typename KernelType, int Dims,
           typename PropertiesT, class Reduction>
-bool reduCGFuncForRangeFastAtomics(handler &CGH, KernelType KernelFunc,
+void reduCGFuncForRangeFastAtomics(handler &CGH, KernelType KernelFunc,
                                    const range<Dims> &Range,
                                    const nd_range<1> &NDRange,
                                    PropertiesT Properties, Reduction &Redu) {
@@ -859,7 +908,11 @@ bool reduCGFuncForRangeFastAtomics(handler &CGH, KernelType KernelFunc,
       Reducer.template atomic_combine(&Out[0]);
     }
   });
-  return Reduction::is_usm || Redu.initializeToIdentity();
+
+  if (Reduction::is_usm || Redu.initializeToIdentity())
+    reduction::withAuxHandler(CGH, [&](handler &CopyHandler) {
+      reduSaveFinalResultToUserMem<KernelName>(CopyHandler, Redu);
+    });
 }
 
 namespace reduction {
@@ -869,7 +922,7 @@ template <class KernelName, class NWorkGroupsFinished> struct RangeFastReduce;
 } // namespace reduction
 template <typename KernelName, typename KernelType, int Dims,
           typename PropertiesT, class Reduction>
-bool reduCGFuncForRangeFastReduce(handler &CGH, KernelType KernelFunc,
+void reduCGFuncForRangeFastReduce(handler &CGH, KernelType KernelFunc,
                                   const range<Dims> &Range,
                                   const nd_range<1> &NDRange,
                                   PropertiesT Properties, Reduction &Redu) {
@@ -960,9 +1013,6 @@ bool reduCGFuncForRangeFastReduce(handler &CGH, KernelType KernelFunc,
     Rest(Redu.getReadWriteAccessorToInitializedGroupsCounter(CGH));
   else
     Rest(Redu.getGroupsCounterAccDiscrete(CGH));
-
-  // We've updated user's variable, no extra work needed.
-  return false;
 }
 
 namespace reduction {
@@ -972,7 +1022,7 @@ template <class KernelName> struct RangeBasic;
 } // namespace reduction
 template <typename KernelName, typename KernelType, int Dims,
           typename PropertiesT, class Reduction>
-bool reduCGFuncForRangeBasic(handler &CGH, KernelType KernelFunc,
+void reduCGFuncForRangeBasic(handler &CGH, KernelType KernelFunc,
                              const range<Dims> &Range,
                              const nd_range<1> &NDRange, PropertiesT Properties,
                              Reduction &Redu) {
@@ -1076,14 +1126,18 @@ bool reduCGFuncForRangeBasic(handler &CGH, KernelType KernelFunc,
       }
     }
   });
-  return Reduction::is_usm;
+
+  if (Reduction::is_usm)
+    reduction::withAuxHandler(CGH, [&](handler &CopyHandler) {
+      reduSaveFinalResultToUserMem<KernelName>(CopyHandler, Redu);
+    });
 }
 
 /// Returns "true" if the result has to be saved to user's variable by
 /// reduSaveFinalResultToUserMem.
 template <typename KernelName, typename KernelType, int Dims,
           typename PropertiesT, class Reduction>
-bool reduCGFuncForRange(handler &CGH, KernelType KernelFunc,
+void reduCGFuncForRange(handler &CGH, KernelType KernelFunc,
                         const range<Dims> &Range, size_t MaxWGSize,
                         uint32_t NumConcurrentWorkGroups,
                         PropertiesT Properties, Reduction &Redu) {
@@ -1098,14 +1152,14 @@ bool reduCGFuncForRange(handler &CGH, KernelType KernelFunc,
   nd_range<1> NDRange{range<1>{NDRItems}, range<1>{WGSize}};
 
   if constexpr (Reduction::has_fast_reduce)
-    return reduCGFuncForRangeFastReduce<KernelName>(CGH, KernelFunc, Range,
-                                                    NDRange, Properties, Redu);
+    reduCGFuncForRangeFastReduce<KernelName>(CGH, KernelFunc, Range, NDRange,
+                                             Properties, Redu);
   else if constexpr (Reduction::has_fast_atomics)
-    return reduCGFuncForRangeFastAtomics<KernelName>(CGH, KernelFunc, Range,
-                                                     NDRange, Properties, Redu);
+    reduCGFuncForRangeFastAtomics<KernelName>(CGH, KernelFunc, Range, NDRange,
+                                              Properties, Redu);
   else
-    return reduCGFuncForRangeBasic<KernelName>(CGH, KernelFunc, Range, NDRange,
-                                               Properties, Redu);
+    reduCGFuncForRangeBasic<KernelName>(CGH, KernelFunc, Range, NDRange,
+                                        Properties, Redu);
 }
 
 namespace reduction {
@@ -1146,6 +1200,12 @@ void reduCGFuncForNDRangeBothFastReduceAndAtomics(handler &CGH,
     if (NDIt.get_local_linear_id() == 0)
       Reducer.atomic_combine(&Out[0]);
   });
+
+  if (Reduction::is_usm || Redu.initializeToIdentity()) {
+    reduction::withAuxHandler(CGH, [&](handler &CopyHandler) {
+      reduSaveFinalResultToUserMem<KernelName>(CopyHandler, Redu);
+    });
+  }
 }
 
 namespace reduction {
@@ -1230,6 +1290,12 @@ void reduCGFuncForNDRangeFastAtomicsOnly(handler &CGH, KernelType KernelFunc,
       Reducer.atomic_combine(&Out[0]);
     }
   });
+
+  if (Reduction::is_usm || Redu.initializeToIdentity()) {
+    reduction::withAuxHandler(CGH, [&](handler &CopyHandler) {
+      reduSaveFinalResultToUserMem<KernelName>(CopyHandler, Redu);
+    });
+  }
 }
 
 namespace reduction {
@@ -1530,43 +1596,6 @@ size_t reduAuxCGFunc(handler &CGH, size_t NWorkItems, size_t MaxWGSize,
         CGH, HasUniformWG, NWorkItems, NWorkGroups, WGSize, Redu, In, Out);
   }
   return NWorkGroups;
-}
-
-// This method is used for implementation of parallel_for accepting 1 reduction.
-// TODO: remove this method when everything is switched to general algorithm
-// implementing arbitrary number of reductions in parallel_for().
-/// Copies the final reduction result kept in read-write accessor to user's
-/// accessor. This method is not called for user's read-write accessors
-/// requiring update-write to it.
-template <typename KernelName, class Reduction>
-std::enable_if_t<!Reduction::is_usm>
-reduSaveFinalResultToUserMem(handler &CGH, Reduction &Redu) {
-  auto InAcc = Redu.getReadAccToPreviousPartialReds(CGH);
-  associateWithHandler(CGH, &Redu.getUserRedVar(), access::target::device);
-  CGH.copy(InAcc, Redu.getUserRedVar());
-}
-
-// This method is used for implementation of parallel_for accepting 1 reduction.
-// TODO: remove this method when everything is switched to general algorithm
-// implementing arbitrary number of reductions in parallel_for().
-/// Copies the final reduction result kept in read-write accessor to user's
-/// USM memory.
-template <typename KernelName, class Reduction>
-std::enable_if_t<Reduction::is_usm>
-reduSaveFinalResultToUserMem(handler &CGH, Reduction &Redu) {
-  size_t NElements = Reduction::num_elements;
-  auto InAcc = Redu.getReadAccToPreviousPartialReds(CGH);
-  auto UserVarPtr = Redu.getUserRedVar();
-  bool IsUpdateOfUserVar = !Redu.initializeToIdentity();
-  auto BOp = Redu.getBinaryOperation();
-  CGH.single_task<KernelName>([=] {
-    for (int i = 0; i < NElements; ++i) {
-      if (IsUpdateOfUserVar)
-        UserVarPtr[i] = BOp(UserVarPtr[i], InAcc.get_pointer()[i]);
-      else
-        UserVarPtr[i] = InAcc.get_pointer()[i];
-    }
-  });
 }
 
 /// For the given 'Reductions' types pack and indices enumerating them this
@@ -1920,45 +1949,6 @@ void reduCGFuncMulti(handler &CGH, KernelType KernelFunc,
     Rest(createReduOutAccs<false>(NWorkGroups, CGH, ReduTuple, ReduIndices));
 }
 
-namespace reduction {
-namespace main_krn {
-template <class KernelName> struct NDRangeAtomic64;
-} // namespace main_krn
-} // namespace reduction
-
-// Specialization for devices with the atomic64 aspect, which guarantees 64 bit
-// floating point support for atomic reduction operation.
-template <typename KernelName, typename KernelType, int Dims,
-          typename PropertiesT, class Reduction>
-void reduCGFuncAtomic64(handler &CGH, KernelType KernelFunc,
-                        const nd_range<Dims> &Range, PropertiesT Properties,
-                        Reduction &Redu) {
-  auto Out = Redu.getReadWriteAccessorToInitializedMem(CGH);
-  static_assert(
-      Reduction::has_float64_atomics,
-      "Only suitable for reductions that have FP64 atomic operations.");
-  size_t NElements = Reduction::num_elements;
-  using Name =
-      __sycl_reduction_kernel<reduction::main_krn::NDRangeAtomic64, KernelName>;
-  CGH.parallel_for<Name>(Range, Properties, [=](nd_item<Dims> NDIt) {
-    // Call user's function. Reducer.MValue gets initialized there.
-    typename Reduction::reducer_type Reducer;
-    KernelFunc(NDIt, Reducer);
-
-    // If there are multiple values, reduce each separately
-    // reduce_over_group is only defined for each T, not for span<T, ...>
-    for (int E = 0; E < NElements; ++E) {
-      typename Reduction::binary_operation BOp;
-      Reducer.getElement(E) =
-          reduce_over_group(NDIt.get_group(), Reducer.getElement(E), BOp);
-    }
-
-    if (NDIt.get_local_linear_id() == 0) {
-      Reducer.atomic_combine(&Out[0]);
-    }
-  });
-}
-
 template <typename... Reductions, size_t... Is>
 void associateReduAccsWithHandler(handler &CGH,
                                   std::tuple<Reductions...> &ReduTuple,
@@ -2123,30 +2113,6 @@ void reduAuxCGFuncImplArray(
    ...);
 }
 
-template <typename KernelName, typename KernelType, int Dims,
-          typename PropertiesT, class Reduction>
-void reduCGFunc(handler &CGH, KernelType KernelFunc,
-                const nd_range<Dims> &Range, PropertiesT Properties,
-                Reduction &Redu) {
-  if constexpr (Reduction::has_fast_reduce) {
-    if constexpr (Reduction::has_fast_atomics) {
-      reduCGFuncForNDRangeBothFastReduceAndAtomics<KernelName, KernelType>(
-          CGH, KernelFunc, Range, Properties, Redu);
-    } else {
-      reduCGFuncForNDRangeFastReduceOnly<KernelName, KernelType>(
-          CGH, KernelFunc, Range, Properties, Redu);
-    }
-  } else {
-    if constexpr (Reduction::has_fast_atomics) {
-      reduCGFuncForNDRangeFastAtomicsOnly<KernelName, KernelType>(
-          CGH, KernelFunc, Range, Properties, Redu);
-    } else {
-      reduCGFuncForNDRangeBasic<KernelName, KernelType>(
-          CGH, KernelFunc, Range, Properties, Redu);
-    }
-  }
-}
-
 namespace reduction {
 namespace aux_krn {
 template <class KernelName, class Predicate> struct Multi;
@@ -2244,6 +2210,181 @@ template <typename TupleT, std::size_t... Is>
 std::tuple<std::tuple_element_t<Is, TupleT>...>
 tuple_select_elements(TupleT Tuple, std::index_sequence<Is...>) {
   return {std::get<Is>(std::move(Tuple))...};
+}
+
+__SYCL_EXPORT uint32_t
+reduGetMaxNumConcurrentWorkGroups(std::shared_ptr<queue_impl> Queue);
+
+template <typename KernelName, int Dims, typename PropertiesT,
+          typename KernelType, typename Reduction>
+void reduction_parallel_for(handler &CGH,
+                            std::shared_ptr<detail::queue_impl> Queue,
+                            range<Dims> Range, PropertiesT Properties,
+                            Reduction Redu, KernelType KernelFunc) {
+  // Before running the kernels, check that device has enough local memory
+  // to hold local arrays required for the tree-reduction algorithm.
+  constexpr bool IsTreeReduction =
+      !Reduction::has_fast_reduce && !Reduction::has_fast_atomics;
+  size_t OneElemSize =
+      IsTreeReduction ? sizeof(typename Reduction::result_type) : 0;
+  uint32_t NumConcurrentWorkGroups =
+#ifdef __SYCL_REDUCTION_NUM_CONCURRENT_WORKGROUPS
+      __SYCL_REDUCTION_NUM_CONCURRENT_WORKGROUPS;
+#else
+      reduGetMaxNumConcurrentWorkGroups(Queue);
+#endif
+  // TODO: currently the preferred work group size is determined for the given
+  // queue/device, while it is safer to use queries to the kernel pre-compiled
+  // for the device.
+  size_t PrefWGSize = reduGetPreferredWGSize(Queue, OneElemSize);
+  reduCGFuncForRange<KernelName>(CGH, KernelFunc, Range, PrefWGSize,
+                                 NumConcurrentWorkGroups, Properties, Redu);
+}
+
+template <typename KernelName, int Dims, typename PropertiesT,
+          typename KernelType, typename Reduction>
+void reduction_parallel_for_basic_impl(
+    handler &CGH, std::shared_ptr<detail::queue_impl> Queue,
+    nd_range<Dims> Range, PropertiesT Properties, Reduction Redu,
+    KernelType KernelFunc) {
+  // This parallel_for() is lowered to the following sequence:
+  // 1) Call a kernel that a) call user's lambda function and b) performs
+  //    one iteration of reduction, storing the partial reductions/sums
+  //    to either a newly created global buffer or to user's reduction
+  //    accessor. So, if the original 'Range' has totally
+  //    N1 elements and work-group size is W, then after the first iteration
+  //    there will be N2 partial sums where N2 = N1 / W.
+  //    If (N2 == 1) then the partial sum is written to user's accessor.
+  //    Otherwise, a new global buffer is created and partial sums are written
+  //    to it.
+  // 2) Call an aux kernel (if necessary, i.e. if N2 > 1) as many times as
+  //    necessary to reduce all partial sums into one final sum.
+
+  // Before running the kernels, check that device has enough local memory
+  // to hold local arrays that may be required for the reduction algorithm.
+  // TODO: If the work-group-size is limited by the local memory, then
+  // a special version of the main kernel may be created. The one that would
+  // not use local accessors, which means it would not do the reduction in
+  // the main kernel, but simply generate Range.get_global_range.size() number
+  // of partial sums, leaving the reduction work to the additional/aux
+  // kernels.
+  constexpr bool HFR = Reduction::has_fast_reduce;
+  size_t OneElemSize = HFR ? 0 : sizeof(typename Reduction::result_type);
+  // TODO: currently the maximal work group size is determined for the given
+  // queue/device, while it may be safer to use queries to the kernel compiled
+  // for the device.
+  size_t MaxWGSize = reduGetMaxWGSize(Queue, OneElemSize);
+  if (Range.get_local_range().size() > MaxWGSize)
+    throw sycl::runtime_error("The implementation handling parallel_for with"
+                              " reduction requires work group size not bigger"
+                              " than " +
+                                  std::to_string(MaxWGSize),
+                              PI_ERROR_INVALID_WORK_GROUP_SIZE);
+
+  // 1. Call the kernel that includes user's lambda function.
+  // We only call this basic version when we can't use atomics to do the final
+  // reduction.
+  assert(!Reduction::has_fast_atomics);
+  if constexpr (Reduction::has_fast_reduce) {
+    reduCGFuncForNDRangeFastReduceOnly<KernelName, KernelType>(
+        CGH, KernelFunc, Range, Properties, Redu);
+  } else {
+    reduCGFuncForNDRangeBasic<KernelName, KernelType>(CGH, KernelFunc, Range,
+                                                      Properties, Redu);
+  }
+  reduction::finalizeHandler(CGH);
+
+  // 2. Run the additional kernel as many times as needed to reduce
+  // all partial sums into one scalar.
+
+  // TODO: Create a special slow/sequential version of the kernel that would
+  // handle the reduction instead of reporting an assert below.
+  if (MaxWGSize <= 1)
+    throw sycl::runtime_error("The implementation handling parallel_for with "
+                              "reduction requires the maximal work group "
+                              "size to be greater than 1 to converge. "
+                              "The maximal work group size depends on the "
+                              "device and the size of the objects passed to "
+                              "the reduction.",
+                              PI_ERROR_INVALID_WORK_GROUP_SIZE);
+  size_t NWorkItems = Range.get_group_range().size();
+  while (NWorkItems > 1) {
+    reduction::withAuxHandler(CGH, [&](handler &AuxHandler) {
+      NWorkItems = reduAuxCGFunc<KernelName, KernelType>(AuxHandler, NWorkItems,
+                                                         MaxWGSize, Redu);
+    });
+  } // end while (NWorkItems > 1)
+
+  if (Reduction::is_usm) {
+    reduction::withAuxHandler(CGH, [&](handler &CopyHandler) {
+      reduSaveFinalResultToUserMem<KernelName>(CopyHandler, Redu);
+    });
+  }
+}
+
+template <typename KernelName, int Dims, typename PropertiesT,
+          typename KernelType, typename Reduction>
+void reduction_parallel_for(handler &CGH,
+                            std::shared_ptr<detail::queue_impl> Queue,
+                            nd_range<Dims> Range, PropertiesT Properties,
+                            Reduction Redu, KernelType KernelFunc) {
+  if constexpr (Reduction::has_float64_atomics) {
+    if (detail::getDeviceFromHandler(CGH).has(aspect::atomic64))
+      return reduCGFuncForNDRangeBothFastReduceAndAtomics<KernelName>(
+          CGH, KernelFunc, Range, Properties, Redu);
+
+    return reduction_parallel_for_basic_impl<KernelName>(
+        CGH, Queue, Range, Properties, Redu, KernelFunc);
+  } else if constexpr (Reduction::has_fast_atomics) {
+    if constexpr (Reduction::has_fast_reduce) {
+      return reduCGFuncForNDRangeBothFastReduceAndAtomics<KernelName,
+                                                          KernelType>(
+          CGH, KernelFunc, Range, Properties, Redu);
+    } else {
+      return reduCGFuncForNDRangeFastAtomicsOnly<KernelName, KernelType>(
+          CGH, KernelFunc, Range, Properties, Redu);
+    }
+  } else {
+    return reduction_parallel_for_basic_impl<KernelName>(
+        CGH, Queue, Range, Properties, Redu, KernelFunc);
+  }
+}
+
+template <typename KernelName, int Dims, typename PropertiesT,
+          typename... RestT>
+void reduction_parallel_for(handler &CGH,
+                            std::shared_ptr<detail::queue_impl> Queue,
+                            nd_range<Dims> Range, PropertiesT Properties,
+                            RestT... Rest) {
+  std::tuple<RestT...> ArgsTuple(Rest...);
+  constexpr size_t NumArgs = sizeof...(RestT);
+  auto KernelFunc = std::get<NumArgs - 1>(ArgsTuple);
+  auto ReduIndices = std::make_index_sequence<NumArgs - 1>();
+  auto ReduTuple = detail::tuple_select_elements(ArgsTuple, ReduIndices);
+
+  size_t LocalMemPerWorkItem = reduGetMemPerWorkItem(ReduTuple, ReduIndices);
+  // TODO: currently the maximal work group size is determined for the given
+  // queue/device, while it is safer to use queries to the kernel compiled
+  // for the device.
+  size_t MaxWGSize = reduGetMaxWGSize(Queue, LocalMemPerWorkItem);
+  if (Range.get_local_range().size() > MaxWGSize)
+    throw sycl::runtime_error("The implementation handling parallel_for with"
+                              " reduction requires work group size not bigger"
+                              " than " +
+                                  std::to_string(MaxWGSize),
+                              PI_ERROR_INVALID_WORK_GROUP_SIZE);
+
+  reduCGFuncMulti<KernelName>(CGH, KernelFunc, Range, Properties, ReduTuple,
+                              ReduIndices);
+  reduction::finalizeHandler(CGH);
+
+  size_t NWorkItems = Range.get_group_range().size();
+  while (NWorkItems > 1) {
+    reduction::withAuxHandler(CGH, [&](handler &AuxHandler) {
+      NWorkItems = reduAuxCGFunc<KernelName, decltype(KernelFunc)>(
+          AuxHandler, NWorkItems, MaxWGSize, ReduTuple, ReduIndices);
+    });
+  } // end while (NWorkItems > 1)
 }
 } // namespace detail
 
