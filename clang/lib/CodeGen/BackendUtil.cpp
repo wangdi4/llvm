@@ -64,6 +64,7 @@
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
+#include "llvm/SYCLLowerIR/SYCLPropagateAspectsUsage.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -1237,6 +1238,11 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
 
   ModulePassManager MPM;
 
+  // FIXME: Change this when -fno-sycl-early-optimizations is not tied to
+  // -disable-llvm-passes.
+  if (CodeGenOpts.DisableLLVMPasses && LangOpts.SYCLIsDevice)
+    MPM.addPass(SYCLPropagateAspectsUsagePass());
+
   if (!CodeGenOpts.DisableLLVMPasses) {
     // Map our optimization levels into one of the distinct levels used to
     // configure the pipeline.
@@ -1246,6 +1252,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       PB.registerPipelineStartEPCallback(
           [&](ModulePassManager &MPM, OptimizationLevel Level) {
             MPM.addPass(ESIMDVerifierPass(LangOpts.SYCLESIMDForceStatelessMem));
+            MPM.addPass(SYCLPropagateAspectsUsagePass());
           });
 
     bool IsThinLTO = CodeGenOpts.PrepareForThinLTO;
