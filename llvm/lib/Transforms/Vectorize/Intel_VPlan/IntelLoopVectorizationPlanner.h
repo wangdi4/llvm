@@ -335,8 +335,8 @@ public:
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA,
                            BlockFrequencyInfo *BFI = nullptr)
-      : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), VLSA(VLSA),
-        TheLoop(Lp), LI(LI), DT(DT), BFI(BFI) {}
+      : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal),
+        VLSA(VLSA), TheLoop(Lp), LI(LI), DT(DT), BFI(BFI) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}

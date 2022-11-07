@@ -57,7 +57,7 @@ protected:
   void print(raw_ostream &OS, const VPBasicBlock *VPBB);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  VPlanScalVecAnalysisBase(SVAType Type) : Type(Type) {}
+  VPlanScalVecAnalysisBase(SVAType Type) : Plan(nullptr), Type(Type) {}
 
 public:
   SVAType getSVAType() const { return Type; }

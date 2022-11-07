@@ -435,7 +435,7 @@ public:
   // Move constructor
   PrivDescr(PrivDescr &&Other)
       : DescrWithAliases<Value>(std::move(Other)), PrivKind(Other.PrivKind),
-        Ty(Other.Ty) {}
+        Ty(Other.Ty), IsF90(false) {}
 
   // Copy assignment
   PrivDescr &operator=(const PrivDescr &Other) {

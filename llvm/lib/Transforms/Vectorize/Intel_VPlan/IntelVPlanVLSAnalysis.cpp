@@ -109,6 +109,7 @@ void VPlanVLSAnalysis::collectMemrefs(
       //        sizes. At the moment, it crashes trying to compute access mask
       //        for a group if element size is greater than MAX_VECTOR_LENGTH.
       if (Memref->getType().getElementSize() >= MAX_VECTOR_LENGTH * 8) {
+        delete Memref;
         continue;
       }
 
