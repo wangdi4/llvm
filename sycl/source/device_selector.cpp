@@ -203,7 +203,6 @@ __SYCL_EXPORT int default_selector_v(const device &dev) {
   }
 
   traceDeviceSelector("info::device_type::automatic");
-<<<<<<< HEAD
   
   // we give the esimd_emulator device a score of zero to prevent it from being
   // chosen among other devices. The same thing is done for gpu_selector_v
@@ -213,8 +212,6 @@ __SYCL_EXPORT int default_selector_v(const device &dev) {
   }
   if (dev.get_info<info::device::device_type>() == detail::get_forced_type())
     Score += 2000;
-=======
->>>>>>> 1ee35aa2868af04825059f887b436cbe58dbd69e
 
   if (dev.is_gpu())
     Score += 500;
