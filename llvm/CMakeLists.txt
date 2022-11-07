@@ -2073,7 +2073,11 @@ if (INTEL_CUSTOMIZATION)
       # LLVM components
       clang lld llc llvm-link llvm-profdata llvm-profgen llvm-spirv
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
-      clang-resource-headers llvm-cov clang-tidy llvm-ml clang-docs
+      clang-resource-headers llvm-cov llvm-ml clang-docs llvm-nm
+      # Clang tools
+      clang-format clang-rename
+      # Clang tools extra
+      clangd clang-include-fixer clang-tidy modularize
       # XDEV components
       xdev-dpcpp xdev-icx xdev-icpx xdev-ifx xdev-fpp xdev-xfortcom
       xdev-fort-target-rtl xdev-compilervars xdev-il0-llvm-common-headers
@@ -2115,16 +2119,46 @@ if (INTEL_CUSTOMIZATION)
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST icx-lto)
     endif()
 
-    if (";${LLVM_INTEL_FEATURES};" MATCHES ";INTEL_INTERNAL_BUILD;")
+    # Deploying sanitizers on Linux and Windows.
+    if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR WIN32)
+      # These are the components available on both Linux and Windows.
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
-        # Deploy sanitizers for sanitized LIT testing.
-        # It should not harm to deploy them always for non-product builds.
-        clang_rt.msan-x86_64 clang_rt.msan_cxx-x86_64
-        clang_rt.msan-i386 clang_rt.msan_cxx-i386
+        # Header files
         compiler-rt-headers
+
+        # Address sanitizer
+        clang_rt.asan-x86_64 clang_rt.asan_cxx-x86_64
+        clang_rt.asan_static-x86_64 clang_rt.asan-preinit-x86_64
+        clang_rt.asan-dynamic-x86_64 asan
+
+        # Undefined behavior sanitizer
+        clang_rt.ubsan_standalone-x86_64
+        clang_rt.ubsan_standalone_cxx-x86_64
+
         # llvm-symbolizer improves traces from sanitizers.
         llvm-symbolizer
+      )
+      if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+        # These are Linux only components.
+        list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+          # Leak sanitizer
+          clang_rt.lsan-x86_64
+
+          # Memory sanitizer
+          clang_rt.msan-x86_64 clang_rt.msan_cxx-x86_64 msan
+
+          # Thread sanitizer
+          clang_rt.tsan-x86_64 clang_rt.tsan_cxx-x86_64
+          clang_rt.tsan-dynamic-x86_64
+
+          # Undefined behavior sanitizer
+          clang_rt.ubsan_minimal-x86_64
+          clang_rt.ubsan_standalone-dynamic-x86_64
+
+          # .syms files
+          sanitizer-rt-symbols
         )
+      endif()
     endif()
 
     set(INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
