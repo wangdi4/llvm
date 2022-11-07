@@ -440,8 +440,10 @@ bool Scheduler::trySchedule(const MemInstGroup &G) {
         scheduleReadyInstruction(ReadyBI);
       }
     }
-    (void)MaxAttempts;
-    assert(MaxAttempts-- != 0 && "Infinite loop");
+    if (MaxAttempts-- == 0) {
+      assert(false && "Infinite loop");
+      return false;
+    }
   }
   LLVM_DEBUG(dbgs() << "LC: trySchedule(Group " << G.getId()
                     << ") Succeeded!\n");

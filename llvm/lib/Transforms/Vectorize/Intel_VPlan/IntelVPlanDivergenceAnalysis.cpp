@@ -1881,6 +1881,7 @@ void VPlanDivergenceAnalysis::cloneVectorShapes(
           (It != OrigClonedValuesMap.end()) ? It->second : OrigStride;
     NewClonedShape->setStride(ClonedStride);
     ClonedVPDA->updateVectorShape(ClonedVal, *NewClonedShape);
+    delete NewClonedShape;
   }
 }
 
