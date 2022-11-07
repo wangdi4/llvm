@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -15,6 +16,11 @@
 # License.
 #
 # end INTEL_CUSTOMIZATION
+=======
+# Do not build unittest libraries automatically, they will be pulled in
+# by unittests if these are built.
+set(EXCLUDE_FROM_ALL ON)
+>>>>>>> b6be37b0be5e1b524456c375700c76b7dae5171c
 
 add_llvm_library(LLVMTestingSupport
   Annotations.cpp
