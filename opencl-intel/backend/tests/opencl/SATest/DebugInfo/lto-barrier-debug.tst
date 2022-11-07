@@ -1,4 +1,4 @@
-; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto-legacy --config=%s.cfg --dump-llvm-file - | FileCheck %s
+; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto --config=%s.cfg --dump-llvm-file - | FileCheck %s
 
 ; Check that TLS globals are generated and debug info is attached to new alloca.
 
