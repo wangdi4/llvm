@@ -576,9 +576,11 @@ collectDVPropagatbleAccesses(Function *F, Value *DV, const DataLayout &DL,
         stk.push_back(std::make_tuple(&TU, NewOffset));
       }
     } else if (auto *CB = dyn_cast<CallBase>(U->getUser())) {
-      Function *F = CB->getCalledFunction();
-      if (F->isIntrinsic()) {
-        switch (F->getIntrinsicID()) {
+      Function *CalledFn = CB->getCalledFunction();
+      if (!CalledFn)
+        return Unsafe("DV field address passed to non-function call", DV, U);
+      else if (CalledFn->isIntrinsic()) {
+        switch (CalledFn->getIntrinsicID()) {
         default:
           return Unsafe("DV field address passed to unsupported intrinsic", DV,
                         U);
@@ -588,8 +590,7 @@ collectDVPropagatbleAccesses(Function *F, Value *DV, const DataLayout &DL,
         case Intrinsic::directive_region_exit:
           continue;
         }
-      } else if (CB->getCalledFunction()) {
-        Function *CalledFn = CB->getCalledFunction();
+      } else {
         LibFunc TheLibFunc;
         if (TLI.getLibFunc(CalledFn->getName(), TheLibFunc) &&
             TLI.has(TheLibFunc)) {
@@ -663,6 +664,10 @@ static bool propagateAllDVAccesses(OffsetAccessMap &offsetAccessMap,
           auto *Replacement = SI->getValueOperand();
           if (Replacement->getType() != LI->getType()) {
             SkipReplacement(LI, SI, "Different types");
+            continue;
+          }
+          if (!isa<Constant>(Replacement)) {
+            SkipReplacement(LI, SI, "Replacement is not a constant");
             continue;
           }
           if (!DT.dominates(SI, *R)) {

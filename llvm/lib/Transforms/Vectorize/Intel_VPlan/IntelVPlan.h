@@ -5331,7 +5331,7 @@ class VPlanPrinter {
                 const Twine &Label);
 
 public:
-  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
+  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P), Depth(0) {}
   void dump(bool CFGOnly = false);
 };
 

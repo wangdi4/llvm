@@ -215,8 +215,9 @@ public:
                AssumptionCache *AC, DominatorTree *DT,
                FatalErrorHandlerTy FatalErrorHandler);
 
-  VPlanDriverHIRImpl(bool LightWeightMode) :
-    VPlanDriverImpl(), LightWeightMode(LightWeightMode) {};
+  VPlanDriverHIRImpl(bool LightWeightMode)
+      : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr),
+        DDA(nullptr), SafeRedAnalysis(nullptr), LightWeightMode(LightWeightMode){};
 };
 
 class VPlanDriverHIRPass
