@@ -7,24 +7,18 @@
 ; CHECK-NEXT: IS REPLACED BY: i64 1
 ; CHECK: USES OF:   %"main_$C.dim_info$.lower_bound$156[]_fetch.43" = load i64, ptr %"main_$C.dim_info$.lower_bound$156[]", align 8, !tbaa !127, !llfort.type_idx !136
 ; CHECK-NEXT: IS REPLACED BY: i64 1
-; CHECK: USES OF:   %"main_$C.dim_info$.spacing$160[]_fetch.44" = load i64, ptr %"main_$C.dim_info$.spacing$160[]", align 8, !tbaa !133, !range !97, !llfort.type_idx !137
-; CHECK-NEXT: IS REPLACED BY:   %mul.10 = mul nsw i64 8, %slct.11
 ; CHECK: USES OF:   %"main_$B.reserved$_fetch.23" = load i64, ptr %"main_$B.reserved$", align 8, !tbaa !100, !llfort.type_idx !79
 ; CHECK-NEXT: IS REPLACED BY: i64 0
 ; CHECK: USES OF:   %"main_$B.dim_info$.lower_bound$97[]_fetch.28" = load i64, ptr %"main_$B.dim_info$.lower_bound$97[]", align 8, !tbaa !108, !llfort.type_idx !116
 ; CHECK-NEXT: IS REPLACED BY: i64 1
 ; CHECK: USES OF:   %"main_$B.dim_info$.lower_bound$101[]_fetch.29" = load i64, ptr %"main_$B.dim_info$.lower_bound$101[]", align 8, !tbaa !108, !llfort.type_idx !117
 ; CHECK-NEXT: IS REPLACED BY: i64 1
-; CHECK: USES OF:   %"main_$B.dim_info$.spacing$105[]_fetch.30" = load i64, ptr %"main_$B.dim_info$.spacing$105[]", align 8, !tbaa !114, !range !97, !llfort.type_idx !118
-; CHECK-NEXT: IS REPLACED BY:   %mul.6 = mul nsw i64 8, %slct.7
 ; CHECK: USES OF:   %"main_$A.reserved$_fetch.9" = load i64, ptr %"main_$A.reserved$", align 8, !tbaa !70, !llfort.type_idx !79
 ; CHECK-NEXT: IS REPLACED BY: i64 0
 ; CHECK: USES OF:   %"main_$A.dim_info$.lower_bound$42[]_fetch.14" = load i64, ptr %"main_$A.dim_info$.lower_bound$42[]", align 8, !tbaa !86, !llfort.type_idx !94
 ; CHECK-NEXT: IS REPLACED BY: i64 1
 ; CHECK: USES OF:   %"main_$A.dim_info$.lower_bound$46[]_fetch.15" = load i64, ptr %"main_$A.dim_info$.lower_bound$46[]", align 8, !tbaa !86, !llfort.type_idx !95
 ; CHECK-NEXT: IS REPLACED BY: i64 1
-; CHECK: USES OF:   %"main_$A.dim_info$.spacing$50[]_fetch.16" = load i64, ptr %"main_$A.dim_info$.spacing$50[]", align 8, !tbaa !92, !range !97, !llfort.type_idx !96
-; CHECK-NEXT: IS REPLACED BY:   %mul.2 = mul nsw i64 8, %slct.3
 
 
 ; ModuleID = 'simd_autovectorize.bc'
