@@ -120,4 +120,4 @@ Task Outer() {
 // CHECK: musttail call
 // CHECK: musttail call
 // CHECK-NEXT: ret void
-// CHEKC-NEXT: }
+// CHECK-NEXT: }
