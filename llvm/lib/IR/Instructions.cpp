@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -374,34 +374,39 @@ bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
   if (!F)
     return false;
 
-  if (!F->getAttributes().hasParamAttr(ArgNo, Kind))
-    return false;
-
 #if INTEL_CUSTOMIZATION
-  if (CallBaseLookupCallbackAttrs) {
-    // If we are dealing with a callback call site check if callback function
-    // argument has given attribute if broker function forwards it to the
-    // callback and this attribute can be legaly propagated to the caller.
-    if (Kind == Attribute::ByVal || Kind == Attribute::ImmArg ||
-        Kind == Attribute::NoAlias || Kind == Attribute::NoCapture ||
-        Kind == Attribute::NoFree || Kind == Attribute::NonNull ||
-        Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
-        Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
-      if (Argument *CallbackArg =
-              AbstractCallSite::getCallbackArg(*this, ArgNo))
-        return CallbackArg->hasAttribute(Kind);
-  } 
+  auto HasOKOperandBundle = [this](Attribute::AttrKind Kind) -> bool {
+    switch (Kind) {
+      case Attribute::ReadNone:
+        return !hasReadingOperandBundles() && !hasClobberingOperandBundles();
+      case Attribute::ReadOnly:
+        return !hasClobberingOperandBundles();
+      case Attribute::WriteOnly:
+        return !hasReadingOperandBundles();
+      default:
+        return true;
+    }
+  };
+
+  if (F->getAttributes().hasParamAttr(ArgNo, Kind) &&
+      HasOKOperandBundle(Kind))
+    return true;
+
+  // If we are dealing with a callback call site check if callback function
+  // argument has given attribute if broker function forwards it to the
+  // callback and this attribute can be legaly propagated to the caller.
+  if (!CallBaseLookupCallbackAttrs)
+    return false;
+  if (Kind == Attribute::ByVal || Kind == Attribute::ImmArg ||
+      Kind == Attribute::NoAlias || Kind == Attribute::NoCapture ||
+      Kind == Attribute::NoFree || Kind == Attribute::NonNull ||
+      Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
+      Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
+    if (Argument *CallbackArg =
+            AbstractCallSite::getCallbackArg(*this, ArgNo))
+      return CallbackArg->hasAttribute(Kind) && HasOKOperandBundle(Kind);
+  return false;
 #endif // INTEL_CUSTOMIZATION
-  switch (Kind) {
-    case Attribute::ReadNone:
-      return !hasReadingOperandBundles() && !hasClobberingOperandBundles();
-    case Attribute::ReadOnly:
-      return !hasClobberingOperandBundles();
-    case Attribute::WriteOnly:
-      return !hasReadingOperandBundles();
-    default:
-      return true;
-  }
 }
 
 bool CallBase::hasFnAttrOnCalledFunction(Attribute::AttrKind Kind) const {
