@@ -92,7 +92,7 @@ private:
   getSkipAdviceIfUnreachableCallsite(CallBase &CB);
   void print(raw_ostream &OS) const override;
 
-  mutable DenseMap<const Function *, FunctionPropertiesInfo> FPICache;
+  mutable std::map<const Function *, FunctionPropertiesInfo> FPICache;
 
   LazyCallGraph &CG;
 
