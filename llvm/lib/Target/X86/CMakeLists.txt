@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -59,6 +59,7 @@ set(sources
   Intel_X86VecSpill.cpp
   Intel_X86SplitLongBlock.cpp
   Intel_X86PreISelIntrinsicLowering.cpp
+  Intel_X86StackRealign.cpp
 # INTEL_FEATURE_MARKERCOUNT
   Intel_X86MarkerCount.cpp
 # end INTEL_FEATURE_MARKERCOUNT

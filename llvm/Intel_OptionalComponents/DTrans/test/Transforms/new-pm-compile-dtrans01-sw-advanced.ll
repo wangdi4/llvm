@@ -9,7 +9,7 @@
 ; RUN:   -debug-pass-manager -passes='lto-pre-link<O1>' %s 2>&1 | FileCheck %s \
 ; RUN:   --check-prefixes=CHECK-NEWPM-O123
 ; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \
-; RUN:   -debug-pass-manager -passes='lto-pre-link<O3>' %s 2>&1 | FileCheck %s \
+; RUN:   -debug-pass-manager -passes='lto-pre-link<O2>' %s 2>&1 | FileCheck %s \
 ; RUN:   --check-prefixes=CHECK-NEWPM-O123
 ; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \
 ; RUN:   -debug-pass-manager -passes='lto-pre-link<O3>' %s 2>&1 | FileCheck %s \
@@ -21,6 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-NEWPM-O0-NOT: Running pass: FunctionRecognizerPass on foo
 ; CHECK-NEWPM-O0-NOT: Running pass: FunctionRecognizerPass on main
+; CHECK-NEWPM-O0-NOT: Running pass: DeadArgumentEliminationPass on [module]
 
 ; These passes should be enabled at optimization levels over -O0
 
@@ -33,6 +34,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEWPM-O123: Running analysis: DominatorTreeAnalysis on main
 ; CHECK-NEWPM-O123: Running pass: FunctionRecognizerPass on main
 ; CHECK-NEWPM-O123: Running pass: EarlyCSEPass on main
+
+; Ensure that DeadArgumentEliminationPass runs immediately before
+; InstCombinePass
+
+; CHECK-NEWPM-O123: Running pass: DeadArgumentEliminationPass on [module]
+; CHECK-NEWPM-O123-NEXT: Running pass: InstCombinePass on foo (7 instructions)
 
 declare void @bar() local_unnamed_addr
 

@@ -1617,6 +1617,13 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // constants.
   MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
 
+#if INTEL_CUSTOMIZATION
+  // Remove any dead arguments exposed by cleanups, constant folding globals,
+  // and argument promotion.
+  if (DTransEnabled)
+    MPM.addPass(DeadArgumentEliminationPass());
+#endif // INTEL_CUSTOMIZATION
+
   // Create a small function pass pipeline to cleanup after all the global
   // optimizations.
   FunctionPassManager GlobalCleanupPM;

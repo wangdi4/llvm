@@ -1447,7 +1447,7 @@ cl_int ContextModule::SetKernelArgSVMPointer(cl_kernel clKernel,
   }
 
   cl_err_code err =
-      pKernel->SetKernelArg(uiArgIndex, sizeof(void *), pArgValue, true);
+      pKernel->SetKernelArg(uiArgIndex, sizeof(pArgValue), pArgValue, true);
   return CL_ERR_OUT(err);
 }
 
@@ -3512,8 +3512,8 @@ cl_int ContextModule::SetKernelArgUSMPointer(cl_kernel clKernel,
     return CL_INVALID_KERNEL;
   }
 
-  cl_err_code err =
-      pKernel->SetKernelArg(uiArgIndex, sizeof(void *), pArgValue, false, true);
+  cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(pArgValue),
+                                          pArgValue, false, true);
   return CL_ERR_OUT(err);
 }
 
