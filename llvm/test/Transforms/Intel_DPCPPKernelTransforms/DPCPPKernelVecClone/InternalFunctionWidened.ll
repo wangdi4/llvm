@@ -35,7 +35,7 @@ entry:
 }
 
 ; CHECK: define fastcc <4 x i64> @_ZGVeM4_foo(<4 x i64> %mask) #2 {
-; CHECK: attributes #2 = { "may-have-openmp-directive"="true" "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" "widened-size"="4" }
+; CHECK: attributes #2 = { memory(readwrite) "may-have-openmp-directive"="true" "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" "widened-size"="4" }
 
 attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 
