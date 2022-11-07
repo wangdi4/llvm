@@ -323,8 +323,11 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   // getOrInsertVectorVariantFunction() because it's possible that the function
   // is only declared and we won't make it here. The declared only function
   // will be created from VPlan calling getOrInsertVectorVariantFunction().
-  Clone->removeFnAttr(Attribute::ReadOnly);
-  Clone->removeFnAttr(Attribute::ArgMemOnly);
+  Clone->setAttributes(
+      Clone->getAttributes().addFnAttribute(
+            Clone->getContext(),
+            Attribute::getWithMemoryEffects(Clone->getContext(),
+                                      MemoryEffects::unknown())));
 
   LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
   LLVM_DEBUG(Clone->dump());

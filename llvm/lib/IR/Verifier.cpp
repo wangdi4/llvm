@@ -111,6 +111,7 @@
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/ModRef.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/IR/PassManager.h"
@@ -3930,7 +3931,7 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
 
   Check(I.hasFnAttr(Attribute::Speculatable),
          "llvm.intel.subscript should have speculatable attribute", &I);
-  Check(I.hasFnAttr(Attribute::ReadNone),
+  Check(I.getMemoryEffects().doesNotAccessMemory(),
          "llvm.intel.subscript should have readnone attribute", &I);
 
   Check(I.getNumOperandBundles() == 0,

@@ -21,7 +21,7 @@ void foo(float f) {
 // HAS_ERRNO_WIN: declare {{.*}} double @ldexpl(double noundef, i32 noundef) [[NOUNWIND_WIN]]
 };
 
-// NO_ERRNO: attributes [[READNONE_INTRINSIC]] = { {{.*}}readnone{{.*}} }
+// NO_ERRNO: attributes [[READNONE_INTRINSIC]] = { {{.*}}memory(none){{.*}} }
 // HAS_ERRNO: attributes [[NOUNWIND]] = { nounwind {{.*}} }
-// NO_ERRNO_WIN: attributes [[READNONE_INTR_WIN]] = { {{.*}}readnone{{.*}} }
+// NO_ERRNO_WIN: attributes [[READNONE_INTR_WIN]] = { {{.*}}memory(none){{.*}} }
 // HAS_ERRNO_WIN: attributes [[NOUNWIND_WIN]] = { nounwind {{.*}} }

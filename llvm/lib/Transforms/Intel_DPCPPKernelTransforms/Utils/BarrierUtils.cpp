@@ -14,6 +14,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/ModRef.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -460,9 +461,8 @@ Function *BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name,
 
 void BarrierUtils::SetFunctionAttributeReadNone(Function *Func) {
   AttrBuilder attBuilder(Func->getContext());
-  attBuilder.addAttribute(Attribute::NoUnwind)
-      .addAttribute(
-          Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
+  attBuilder.addAttribute(Attribute::NoUnwind); /* .addAttribute(Attribute::UWTable) */
+  attBuilder.addMemoryAttr(llvm::MemoryEffects::none());
   auto FuncFactorialPAL = AttributeList::get(
       Func->getContext(), AttributeList::FunctionIndex, attBuilder);
   Func->setAttributes(FuncFactorialPAL);

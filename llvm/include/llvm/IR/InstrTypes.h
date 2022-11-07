@@ -2317,15 +2317,11 @@ private:
   }
   template <typename AK> Attribute getFnAttrOnCalledFunction(AK Kind) const;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   template <typename AttrKind>
   Attribute getCallSiteOrFuncAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))
       return Attrs.getFnAttr(Kind);
-
-    if (isFnAttrDisallowedByOpBundle(Kind))
-      return Attribute();
 
     if (const Function *F = getCalledFunction())
       return F->getAttributes().getFnAttr(Kind);
@@ -2334,28 +2330,6 @@ private:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  /// A specialized version of hasFnAttrImpl for when the caller wants to
-  /// know if an attribute's semantics are implied, not whether the attribute
-  /// is actually present.  This distinction only exists when checking whether
-  /// something is readonly or writeonly since readnone implies both.  The case
-  /// which motivates the specialized code is a callee with readnone, and an
-  /// operand bundle on the call which disallows readnone but not either
-  /// readonly or writeonly.
-  bool hasImpliedFnAttr(Attribute::AttrKind Kind) const {
-    assert((Kind == Attribute::ReadOnly || Kind == Attribute::WriteOnly) &&
-           "use hasFnAttrImpl instead");
-    if (Attrs.hasFnAttr(Kind) || Attrs.hasFnAttr(Attribute::ReadNone))
-      return true;
-
-    if (isFnAttrDisallowedByOpBundle(Kind))
-      return false;
-
-    return hasFnAttrOnCalledFunction(Kind) ||
-      hasFnAttrOnCalledFunction(Attribute::ReadNone);
-  }
-
-=======
->>>>>>> 304f1d59ca41872c094def3aee0a8689df6aa398
   /// Determine whether the return value has the given attribute. Supports
   /// Attribute::AttrKind and StringRef as \p AttrKind types.
   template <typename AttrKind> bool hasRetAttrImpl(AttrKind Kind) const {

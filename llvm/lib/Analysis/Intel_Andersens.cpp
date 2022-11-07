@@ -6267,8 +6267,8 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
   unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc, TLI);
   DEBUG_WITH_TYPE("imr-query", {
     dbgs() << "irm-query: LibFunc: " << F->getName();
-    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
-    bool FunctionReadNone = F->hasFnAttribute(Attribute::ReadNone);
+    bool FunctionReadOnly = F->onlyReadsMemory();
+    bool FunctionReadNone = F->doesNotAccessMemory();
     dbgs() << ":: ReadNone:" << FunctionReadNone
            << " ReadOnly:" << FunctionReadOnly;
     dbgs() << " - Model: {";
@@ -6304,7 +6304,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
     PrintfReadOnlyArgs = findFormatCheckReadOnlyStart(Call, TheLibFunc);
 
   if (LibFuncModel & LFMR_ARGS) {
-    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
+    bool FunctionReadOnly = F->onlyReadsMemory();
     unsigned FuncArgCount = F->getFunctionType()->getNumParams();
     unsigned ArgCount = Call->arg_size();
     for (unsigned ArgNo = 0; ArgNo < ArgCount; ++ArgNo) {
