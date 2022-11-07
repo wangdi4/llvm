@@ -17,7 +17,6 @@
 #include "BuiltinModules.h"
 #include "CompilerConfig.h"
 #include "OptimizerLTO.h"
-#include "OptimizerLTOLegacyPM.h"
 #include "OptimizerOCL.h"
 #include "VecConfig.h"
 #include "cl_config.h"
@@ -212,8 +211,6 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
   if (s_globalStateInitialized)
     return;
 
-  OptimizerOCLLegacy::initializePasses();
-
   SmallVector<const char *, 32> Args;
 
   Args.push_back("OclBackend");
@@ -275,15 +272,15 @@ applyBuildProgramLLVMOptions(PassManagerType PMType,
                                 : "SSE42";
   Args.push_back(ISA.c_str());
 
-  // Disable unrolling with runtime trip count. It is harmful for
-  // sycl_benchmarks/dnnbench-pooling.
-  if (PMType == PM_LTO_LEGACY || PMType == PM_LTO)
+  if (PMType == PM_LTO) {
+    // Disable unrolling with runtime trip count. It is harmful for
+    // sycl_benchmarks/dnnbench-pooling.
     Args.push_back("-unroll-runtime=false");
 
-  // inline threshold is not exposed by standard new pass manager pipeline, so
-  // we have to set threshold globally here.
-  if (PMType == PM_LTO)
+    // inline threshold is not exposed by standard new pass manager
+    // pipeline, so we have to set threshold globally here.
     Args.push_back("-inline-threshold=16384");
+  }
 
   Args.push_back(nullptr);
   cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
@@ -424,17 +421,9 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   auto &BIModules = GetBuiltinModuleList();
   std::unique_ptr<Optimizer> optimizer;
   switch (m_passManagerType) {
-  case PM_LTO_LEGACY:
-    optimizer = std::make_unique<OptimizerLTOLegacyPM>(*pModule, BIModules,
-                                                       optimizerConfig);
-    break;
   case PM_LTO:
     optimizer =
         std::make_unique<OptimizerLTO>(*pModule, BIModules, optimizerConfig);
-    break;
-  case PM_OCL_LEGACY:
-    optimizer = std::make_unique<OptimizerOCLLegacy>(*pModule, BIModules,
-                                                     optimizerConfig);
     break;
   default:
     optimizer =

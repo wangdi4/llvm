@@ -1,4 +1,3 @@
-#
 # INTEL CONFIDENTIAL
 #
 # Copyright (C) 2022 Intel Corporation
@@ -15,10 +14,9 @@
 
 set(TARGET_NAME OclOptimizer)
 
-set(TARGET_INCLUDE_FILES Optimizer.h OptimizerLTO.h OptimizerLTOLegacyPM.h)
+set(TARGET_INCLUDE_FILES Optimizer.h OptimizerLTO.h)
 
-set(TARGET_SOURCE_FILES Optimizer.cpp OptimizerOCL.cpp OptimizerLTO.cpp
-                        OptimizerLTOLegacyPM.cpp)
+set(TARGET_SOURCE_FILES Optimizer.cpp OptimizerOCL.cpp OptimizerLTO.cpp)
 
 include_directories(BEFORE ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib/SPIRV
                     ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib/SPIRV/Mangler)

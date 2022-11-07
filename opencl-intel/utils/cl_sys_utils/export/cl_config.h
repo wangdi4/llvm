@@ -677,10 +677,6 @@ public:
     return m_pConfigFile->Read<unsigned>("CL_CONFIG_CPU_EXPENSIVE_MEM_OPT", 0);
   }
 
-  bool GetUseLTOLegacyPM() const {
-    return m_pConfigFile->Read<bool>("CL_CONFIG_LTO_LEGACY_PM", false);
-  }
-
 private:
   BasicCLConfigWrapper(const BasicCLConfigWrapper &);
   BasicCLConfigWrapper &operator=(const BasicCLConfigWrapper &);
