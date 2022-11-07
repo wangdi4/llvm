@@ -1163,17 +1163,9 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
            "nnan, nsz is expected to be set for FP min reduction.");
     return ConstantFP::getInfinity(Tp, false /*Negative*/);
   case RecurKind::FMax:
-<<<<<<< HEAD
-    return ConstantFP::getInfinity(Tp, false);
-=======
     assert((FMF.noNaNs() && FMF.noSignedZeros()) &&
            "nnan, nsz is expected to be set for FP max reduction.");
     return ConstantFP::getInfinity(Tp, true /*Negative*/);
-  case RecurKind::SelectICmp:
-  case RecurKind::SelectFCmp:
-    return getRecurrenceStartValue();
-    break;
->>>>>>> d9c52c31a0fee22414bb4024ee5b203fe86ef5bb
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
