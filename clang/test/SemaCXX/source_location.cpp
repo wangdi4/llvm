@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 // RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
-=======
-// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -verify %s
-// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fexceptions -verify %s
->>>>>>> 7acfe3629479c8489fc2d7f629994dc200be990c
+// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -DUSE_CONSTEVAL -fexceptions -verify %s
 // expected-no-diagnostics
 
 #define assert(...) ((__VA_ARGS__) ? ((void)0) : throw 42)
