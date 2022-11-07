@@ -3100,6 +3100,7 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
         {} /*BundleOps*/, FMF);
     CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
     assert(VecCall && "Call instruction is expected to be exist");
+    VecCall->setCallingConv(VectorF->getCallingConv());
 
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
