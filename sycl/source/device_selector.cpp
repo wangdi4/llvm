@@ -26,7 +26,6 @@
 #include <detail/config.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/filter_selector_impl.hpp>
-#include <detail/force_device.hpp>
 #include <detail/global_handler.hpp>
 #include <sycl/backend_types.hpp>
 #include <sycl/detail/device_filter.hpp>
