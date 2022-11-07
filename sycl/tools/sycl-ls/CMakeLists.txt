@@ -21,6 +21,11 @@ foreach(flag_var
     CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
 string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
 endforeach()
+
+if (MSVC)
+  set(CMAKE_CXX_FLAGS_DEBUG "/MDd ${CMAKE_CXX_FLAGS_DEBUG}")
+endif()
+
 intel_clear_stdlib()
 # end INTEL_CUSTOMIZATION
 add_executable(sycl-ls sycl-ls.cpp)
