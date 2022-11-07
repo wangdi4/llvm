@@ -197,51 +197,6 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
 
   return Res;
 }
-<<<<<<< HEAD
-
-void OptimizerOCLLegacy::initializePasses() {
-  // Initialize passes so that -print-after/-print-before work.
-  PassRegistry &Registry = *PassRegistry::getPassRegistry();
-  initializeCore(Registry);
-  initializeScalarOpts(Registry);
-  initializeObjCARCOpts(Registry);
-  initializeVectorization(Registry);
-  initializeIPO(Registry);
-  initializeAnalysis(Registry);
-  initializeTransformUtils(Registry);
-  initializeInstCombine(Registry);
-  initializeTarget(Registry);
-  // For codegen passes, only passes that do IR to IR transformation are
-  // supported.
-  initializeExpandMemCmpPassPass(Registry);
-  initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
-  initializeCodeGenPreparePass(Registry);
-  initializeAtomicExpandPass(Registry);
-  initializeRewriteSymbolsLegacyPassPass(Registry);
-  initializeWinEHPreparePass(Registry);
-  initializeDwarfEHPrepareLegacyPassPass(Registry);
-  initializeSafeStackLegacyPassPass(Registry);
-  initializeSjLjEHPreparePass(Registry);
-  initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
-  initializeGlobalMergePass(Registry);
-  initializeInterleavedAccessPass(Registry);
-  initializeUnreachableBlockElimLegacyPassPass(Registry);
-  initializeExpandReductionsPass(Registry);
-  initializeWriteBitcodePassPass(Registry);
-
-  initializeIntel_LoopAnalysis(Registry);
-  initializeIntel_LoopTransforms(Registry);
-  initializeVecClonePass(Registry);
-  initializeMapIntrinToImlPass(Registry);
-  initializeIntel_OpenCLTransforms(Registry);
-  initializeVPOAnalysis(Registry);
-  initializeVPOTransforms(Registry);
-  initializeOptimizeDynamicCastsWrapperPass(Registry);
-
-  initializeOCLPasses(Registry);
-}
-=======
->>>>>>> 88140d3765d0de8e25f83879c2e643921c5e9268
 } // namespace DeviceBackend
 } // namespace OpenCL
 } // namespace Intel
