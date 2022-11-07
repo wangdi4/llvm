@@ -4833,10 +4833,15 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         // - Entry 3 -> Mangled name of the function where the entry was
         // identified.
         // - Entry 4 -> Line in the file where the entry was identified.
+<<<<<<< HEAD
         // - Entry 5 -> Order the entry was created.
 #if INTEL_COLLAB
         // - Entry 6 -> Entry kind.
 #endif // INTEL_COLLAB
+=======
+        // - Entry 5 -> Count of regions at this DeviceID/FilesID/Line.
+        // - Entry 6 -> Order the entry was created.
+>>>>>>> c954cfeb57a1c8c0996a34da64243bc7f7fe1107
         // The first element of the metadata node is the kind.
 #if INTEL_COLLAB
         llvm::SmallVector<llvm::Metadata*, 7u> Ops = {
@@ -4845,7 +4850,8 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
 #endif // INTEL_COLLAB
             GetMDInt(E.getKind()),      GetMDInt(EntryInfo.DeviceID),
             GetMDInt(EntryInfo.FileID), GetMDString(EntryInfo.ParentName),
-            GetMDInt(EntryInfo.Line),   GetMDInt(E.getOrder())};
+            GetMDInt(EntryInfo.Line),   GetMDInt(EntryInfo.Count),
+            GetMDInt(E.getOrder())};
 
 #if INTEL_COLLAB
        if (IsLateOutline)
@@ -5001,15 +5007,20 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
 
 void TargetRegionEntryInfo::getTargetRegionEntryFnName(
     SmallVectorImpl<char> &Name, StringRef ParentName, unsigned DeviceID,
-    unsigned FileID, unsigned Line) {
+    unsigned FileID, unsigned Line, unsigned Count) {
   raw_svector_ostream OS(Name);
   OS << "__omp_offloading" << llvm::format("_%x", DeviceID)
      << llvm::format("_%x_", FileID) << ParentName << "_l" << Line;
+  if (Count)
+    OS << "_" << Count;
 }
 
-void TargetRegionEntryInfo::getTargetRegionEntryFnName(
-    SmallVectorImpl<char> &Name) {
-  getTargetRegionEntryFnName(Name, ParentName, DeviceID, FileID, Line);
+void OffloadEntriesInfoManager::getTargetRegionEntryFnName(
+    SmallVectorImpl<char> &Name, const TargetRegionEntryInfo &EntryInfo) {
+  unsigned NewCount = getTargetRegionEntryInfoCount(EntryInfo);
+  TargetRegionEntryInfo::getTargetRegionEntryFnName(
+      Name, EntryInfo.ParentName, EntryInfo.DeviceID, EntryInfo.FileID,
+      EntryInfo.Line, NewCount);
 }
 
 /// Loads all the offload entries information from the host IR
@@ -5043,9 +5054,10 @@ void OpenMPIRBuilder::loadOffloadInfoMetadata(
       TargetRegionEntryInfo EntryInfo(/*ParentName=*/GetMDString(3),
                                       /*DeviceID=*/GetMDInt(1),
                                       /*FileID=*/GetMDInt(2),
-                                      /*Line=*/GetMDInt(4));
+                                      /*Line=*/GetMDInt(4),
+                                      /*Count=*/GetMDInt(5));
       OffloadEntriesInfoManager.initializeTargetRegionEntryInfo(
-          EntryInfo, /*Order=*/GetMDInt(5));
+          EntryInfo, /*Order=*/GetMDInt(6));
       break;
     }
     case OffloadEntriesInfoManager::OffloadEntryInfo::
@@ -5072,6 +5084,21 @@ bool OffloadEntriesInfoManager::empty() const {
          OffloadEntriesDeviceGlobalVar.empty();
 }
 
+unsigned OffloadEntriesInfoManager::getTargetRegionEntryInfoCount(
+    const TargetRegionEntryInfo &EntryInfo) const {
+  auto It = OffloadEntriesTargetRegionCount.find(
+      getTargetRegionEntryCountKey(EntryInfo));
+  if (It == OffloadEntriesTargetRegionCount.end())
+    return 0;
+  return It->second;
+}
+
+void OffloadEntriesInfoManager::incrementTargetRegionEntryInfoCount(
+    const TargetRegionEntryInfo &EntryInfo) {
+  OffloadEntriesTargetRegionCount[getTargetRegionEntryCountKey(EntryInfo)] =
+      EntryInfo.Count + 1;
+}
+
 /// Initialize target region entry.
 void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
     const TargetRegionEntryInfo &EntryInfo, unsigned Order) {
@@ -5085,9 +5112,18 @@ void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
 int OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 #else
 void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
     const TargetRegionEntryInfo &EntryInfo, Constant *Addr, Constant *ID,
+=======
+    TargetRegionEntryInfo EntryInfo, Constant *Addr, Constant *ID,
+>>>>>>> c954cfeb57a1c8c0996a34da64243bc7f7fe1107
     OMPTargetRegionEntryKind Flags, bool IsDevice) {
+  assert(EntryInfo.Count == 0 && "expected default EntryInfo");
+
+  // Update the EntryInfo with the next available count for this location.
+  EntryInfo.Count = getTargetRegionEntryInfoCount(EntryInfo);
+
   // If we are emitting code for a target, the entry is already initialized,
   // only has to be registered.
   if (IsDevice) {
@@ -5117,14 +5153,22 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
     OffloadEntriesTargetRegion[EntryInfo] = Entry;
     ++OffloadingEntriesNum;
   }
+<<<<<<< HEAD
 #if INTEL_COLLAB
   auto &E = OffloadEntriesTargetRegion[EntryInfo];
   return E.getOrder();
 #endif // INTEL_COLLAB
+=======
+  incrementTargetRegionEntryInfoCount(EntryInfo);
+>>>>>>> c954cfeb57a1c8c0996a34da64243bc7f7fe1107
 }
 
 bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
-    const TargetRegionEntryInfo &EntryInfo, bool IgnoreAddressId) const {
+    TargetRegionEntryInfo EntryInfo, bool IgnoreAddressId) const {
+
+  // Update the EntryInfo with the next available count for this location.
+  EntryInfo.Count = getTargetRegionEntryInfoCount(EntryInfo);
+
   auto It = OffloadEntriesTargetRegion.find(EntryInfo);
   if (It == OffloadEntriesTargetRegion.end()) {
     return false;
