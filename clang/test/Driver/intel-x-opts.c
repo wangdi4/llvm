@@ -213,6 +213,18 @@
 // RUN:  | FileCheck -check-prefixes=XROCKETLAKE,ADV_OPT %s
 // XROCKETLAKE: "-target-cpu" "rocketlake"
 
+// RUN: %clang -### -c -xRAPTORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XRAPTORLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxRAPTORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XRAPTORLAKE,ADV_OPT %s
+// XRAPTORLAKE: "-target-cpu" "raptorlake"
+
+// RUN: %clang -### -c -xMETEORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XMETEORLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxMETEORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XMETEORLAKE,ADV_OPT %s
+// XMETEORLAKE: "-target-cpu" "meteorlake"
+
 // RUN: %clang -### -c -xHOST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHOST %s 2>&1 \

@@ -846,25 +846,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-    // Raptorlake:
-    case 0xb7: // Raptorlake desktop
-    case 0xba: // Raptorlake mobile
-      CPU = "raptorlake";
-      *Type = X86::INTEL_COREI7;
-      *Subtype = X86::INTEL_COREI7_RAPTORLAKE;
-      break;
-#endif // INTEL_FEATURE_CPU_RPL
-#if INTEL_FEATURE_CPU_MTL
-    // Meteorlake:
-    case 0xb5: // Meteorlake N
-    case 0xaa: // Meteorlake P/M
-    case 0xac: // Meteorlake S
-      CPU = "meteorlake";
-      *Type = X86::INTEL_COREI7;
-      *Subtype = X86::INTEL_COREI7_METEORLAKE;
-      break;
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
     // Emeraldrapids:
     case 0xcf:

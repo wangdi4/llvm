@@ -1141,10 +1141,6 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
-# INTEL_FEATURE_CPU_RPL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_RPL)
-# end INTEL_FEATURE_CPU_RPL
 # INTEL_FEATURE_CPU_GNR
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_GNR)
@@ -1153,10 +1149,6 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_DMR)
 # end INTEL_FEATURE_CPU_DMR
-# INTEL_FEATURE_CPU_MTL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_MTL)
-# end INTEL_FEATURE_CPU_MTL
 # INTEL_FEATURE_CPU_EMR
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_EMR)

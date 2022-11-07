@@ -126,4 +126,12 @@
 // RUN:  | FileCheck -check-prefixes=ARCH-ROCKETLAKE,ARCH-WARN %s
 // ARCH-ROCKETLAKE: "-target-cpu" "rocketlake"
 
+// RUN: %clang_cl -### -c /arch:RAPTORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-RAPTORLAKE,ARCH-WARN %s
+// ARCH-RAPTORLAKE: "-target-cpu" "raptorlake"
+
+// RUN: %clang_cl -### -c /arch:METEORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-METEORLAKE,ARCH-WARN %s
+// ARCH-METEORLAKE: "-target-cpu" "meteorlake"
+
 // ARCH-WARN-NOT: ignoring invalid /arch: argument

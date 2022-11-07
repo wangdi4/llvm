@@ -432,18 +432,6 @@ constexpr FeatureBitset FeaturesAlderlake =
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
     FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_MTL
-#define ENABLE_CPU_MTL
-constexpr FeatureBitset FeaturesMeteorlake =
-#endif // INTEL_FEATURE_CPU_MTL
-#ifdef ENABLE_CPU_MTL
-    FeaturePREFETCHI |
-#endif // ENABLE_CPU_MTL
-#if INTEL_FEATURE_CPU_MTL
-    FeaturesAlderlake;
-#endif // INTEL_FEATURE_CPU_MTL
-#endif // INTEL_CUSTOMIZATION
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =

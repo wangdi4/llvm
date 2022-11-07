@@ -125,18 +125,12 @@ enum ProcessorSubtypes {
   AMDFAM19H_ZNVER3,
   INTEL_COREI7_ROCKETLAKE,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-  INTEL_COREI7_RAPTORLAKE,
-#endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
   INTEL_COREI7_GRANITERAPIDS,
 #endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   INTEL_COREI7_DIAMONDRAPIDS,
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-  INTEL_COREI7_METEORLAKE,
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
   INTEL_COREI7_EMERALDRAPIDS,
 #endif // INTEL_FEATURE_CPU_EMR
@@ -480,25 +474,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-    // Raptorlake:
-    case 0xb7: // Raptorlake desktop
-    case 0xba: // Raptorlake mobile
-      CPU = "raptorlake";
-      *Type = INTEL_COREI7;
-      *Subtype = INTEL_COREI7_RAPTORLAKE;
-      break;
-#endif // INTEL_FEATURE_CPU_RPL
-#if INTEL_FEATURE_CPU_MTL
-    // Meteorlake:
-    case 0xb5: // Meteorlake N
-    case 0xaa: // Meteorlake P/M
-    case 0xac: // Meteorlake S
-      CPU = "meteorlake";
-      *Type = INTEL_COREI7;
-      *Subtype = INTEL_COREI7_METEORLAKE;
-      break;
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
     // Emeraldrapids:
     case 0xcf:

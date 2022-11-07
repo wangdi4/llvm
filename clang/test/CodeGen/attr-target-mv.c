@@ -19,7 +19,7 @@ int __attribute__((target("arch=sapphirerapids"))) foo(void) {return 10;}
 int __attribute__((target("arch=alderlake"))) foo(void) {return 11;}
 int __attribute__((target("arch=rocketlake"))) foo(void) {return 12;}
 int __attribute__((target("arch=core2"))) foo(void) {return 13;}
-int __attribute__((target("arch=gracemont"))) foo(void) {return 14;}  // INTEL
+int __attribute__((target("arch=gracemont"))) foo(void) {return 16;}  // INTEL
 int __attribute__((target("arch=raptorlake"))) foo(void) {return 14;}
 int __attribute__((target("arch=meteorlake"))) foo(void) {return 15;}
 int __attribute__((target("default"))) foo(void) { return 2; }
@@ -158,7 +158,7 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 13
 // if INTEL_CUSTOMIZATION
 // LINUX: define{{.*}} i32 @foo.arch_gracemont()
-// LINUX: ret i32 14
+// LINUX: ret i32 16
 // endif // INTEL_CUSTOMIZATION
 // LINUX: define{{.*}} i32 @foo.arch_raptorlake()
 // LINUX: ret i32 14
@@ -197,7 +197,7 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 13
 // if INTEL_CUSTOMIZATION
 // WINDOWS: define{{.*}} dso_local i32 @foo.arch_gracemont()
-// WINDOWS: ret i32 14
+// WINDOWS: ret i32 16
 // endif // INTEL_CUSTOMIZATION
 // WINDOWS: define dso_local i32 @foo.arch_raptorlake()
 // WINDOWS: ret i32 14

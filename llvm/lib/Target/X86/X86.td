@@ -1674,22 +1674,6 @@ def ProcessorFeatures {
                                       TuningInsertVZEROUPPER];
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_MTL
-#define ENABLE_CPU_MTL
-  // Meteorlake
-  list<SubtargetFeature> MTLAdditionalFeatures = [
-#endif // INTEL_FEATURE_CPU_MTL
-#ifdef ENABLE_CPU_MTL
-                                                  FeaturePREFETCHI
-#endif // ENABLE_CPU_MTL
-#if INTEL_FEATURE_CPU_MTL
-  ];
-  list<SubtargetFeature> MTLFeatures =
-    !listconcat(ADLFeatures, MTLAdditionalFeatures);
-#endif // INTEL_FEATURE_CPU_MTL
-#endif // INTEL_CUSTOMIZATION
-
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
                                         FeatureCX8,
