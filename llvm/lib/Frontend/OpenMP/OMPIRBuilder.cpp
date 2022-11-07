@@ -4833,15 +4833,11 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         // - Entry 3 -> Mangled name of the function where the entry was
         // identified.
         // - Entry 4 -> Line in the file where the entry was identified.
-<<<<<<< HEAD
-        // - Entry 5 -> Order the entry was created.
-#if INTEL_COLLAB
-        // - Entry 6 -> Entry kind.
-#endif // INTEL_COLLAB
-=======
         // - Entry 5 -> Count of regions at this DeviceID/FilesID/Line.
         // - Entry 6 -> Order the entry was created.
->>>>>>> c954cfeb57a1c8c0996a34da64243bc7f7fe1107
+#if INTEL_COLLAB
+        // - Entry 7 -> Entry kind.
+#endif // INTEL_COLLAB
         // The first element of the metadata node is the kind.
 #if INTEL_COLLAB
         llvm::SmallVector<llvm::Metadata*, 7u> Ops = {
@@ -5112,12 +5108,8 @@ void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
 int OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 #else
 void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-    const TargetRegionEntryInfo &EntryInfo, Constant *Addr, Constant *ID,
-=======
     TargetRegionEntryInfo EntryInfo, Constant *Addr, Constant *ID,
->>>>>>> c954cfeb57a1c8c0996a34da64243bc7f7fe1107
     OMPTargetRegionEntryKind Flags, bool IsDevice) {
   assert(EntryInfo.Count == 0 && "expected default EntryInfo");
 
@@ -5153,14 +5145,11 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
     OffloadEntriesTargetRegion[EntryInfo] = Entry;
     ++OffloadingEntriesNum;
   }
-<<<<<<< HEAD
+  incrementTargetRegionEntryInfoCount(EntryInfo);
 #if INTEL_COLLAB
   auto &E = OffloadEntriesTargetRegion[EntryInfo];
   return E.getOrder();
 #endif // INTEL_COLLAB
-=======
-  incrementTargetRegionEntryInfoCount(EntryInfo);
->>>>>>> c954cfeb57a1c8c0996a34da64243bc7f7fe1107
 }
 
 bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
