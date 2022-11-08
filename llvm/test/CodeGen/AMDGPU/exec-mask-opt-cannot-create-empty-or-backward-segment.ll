@@ -30,7 +30,8 @@ define amdgpu_kernel void @cannot_create_empty_or_backwards_segment(i1 %arg, i1 
 ; CHECK-NEXT:    s_and_b64 s[4:5], exec, s[8:9]
 ; CHECK-NEXT:    v_mov_b32_e32 v1, 0
 ; CHECK-NEXT:    s_branch .LBB0_3
-; CHECK-NEXT:  .LBB0_1: ; in Loop: Header=BB0_3 Depth=1
+; CHECK-NEXT:  .LBB0_1: ; %bb7
+; CHECK-NEXT:    ; in Loop: Header=BB0_3 Depth=1
 ; CHECK-NEXT:    s_mov_b64 s[18:19], 0
 ; CHECK-NEXT:    s_mov_b64 s[20:21], -1
 ; CHECK-NEXT:    s_mov_b64 s[16:17], -1
@@ -54,7 +55,8 @@ define amdgpu_kernel void @cannot_create_empty_or_backwards_segment(i1 %arg, i1 
 ; CHECK-NEXT:    s_mov_b64 s[22:23], s[8:9]
 ; CHECK-NEXT:    s_cbranch_execz .LBB0_7
 ; CHECK-NEXT:    s_branch .LBB0_8
-; CHECK-NEXT:  .LBB0_6: ; in Loop: Header=BB0_3 Depth=1
+; CHECK-NEXT:  .LBB0_6: ; %bb8
+; CHECK-NEXT:    ; in Loop: Header=BB0_3 Depth=1
 ; CHECK-NEXT:    s_mov_b64 s[16:17], -1
 ; CHECK-NEXT:    s_mov_b64 s[18:19], 0
 ; CHECK-NEXT:    s_mov_b64 s[22:23], 0
@@ -80,7 +82,8 @@ define amdgpu_kernel void @cannot_create_empty_or_backwards_segment(i1 %arg, i1 
 ; CHECK-NEXT:    s_mov_b64 s[22:23], s[10:11]
 ; CHECK-NEXT:    s_mov_b64 s[18:19], s[16:17]
 ; CHECK-NEXT:    s_branch .LBB0_2
-; CHECK-NEXT:  .LBB0_11: ; in Loop: Header=BB0_3 Depth=1
+; CHECK-NEXT:  .LBB0_11: ; %bb13
+; CHECK-NEXT:    ; in Loop: Header=BB0_3 Depth=1
 ; CHECK-NEXT:    s_mov_b64 s[22:23], -1
 ; CHECK-NEXT:    s_mov_b64 s[20:21], 0
 ; CHECK-NEXT:    ; implicit-def: $sgpr16_sgpr17
