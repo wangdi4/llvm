@@ -755,6 +755,7 @@ FUNCTION_PASS("hir-dead-store-elimination", loopopt::HIRDeadStoreEliminationPass
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())
 FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
 FUNCTION_PASS("hir-temp-cleanup", loopopt::HIRTempCleanupPass())
+FUNCTION_PASS("hir-normalize-casts", loopopt::HIRNormalizeCasts())
 FUNCTION_PASS("hir-propagate-casted-iv", loopopt::HIRPropagateCastedIVPass())
 FUNCTION_PASS("hir-array-transpose", loopopt::HIRArrayTransposePass())
 FUNCTION_PASS("hir-aos-to-soa", loopopt::HIRAosToSoaPass())
