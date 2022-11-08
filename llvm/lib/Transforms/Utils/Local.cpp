@@ -99,6 +99,9 @@
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -2236,6 +2239,11 @@ llvm::removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB) {
       ++NumDeadDbgInst;
     else
       ++NumDeadInst;
+#if INTEL_COLLAB
+    IntrinsicInst *BeginDir = nullptr;
+    if (vpo::VPOAnalysisUtils::getDirectiveID(Inst) == DIR_OMP_END_SIMD)
+      BeginDir = dyn_cast<IntrinsicInst>(Inst->getOperand(0));
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     if (auto CB = dyn_cast<CallBase>(Inst)) {
       InlineReason Reason = NinlrDeletedDeadCode;
@@ -2245,6 +2253,17 @@ llvm::removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB) {
     }
 #endif // INTEL_CUSTOMIZATION
     Inst->eraseFromParent();
+#if INTEL_COLLAB
+    if (BeginDir) {
+      // If Inst is an unreachable END_SIMD, the loop is malformed.
+      // Change the begin directive to a no-op. (We don't delete it as it will
+      // break the worklist)
+      auto *Func = Intrinsic::getDeclaration(BeginDir->getModule(),
+                                             Intrinsic::donothing);
+      BeginDir->mutateFunctionType(Func->getFunctionType());
+      BeginDir->setCalledFunction(Func);
+    }
+#endif // INTEL_COLLAB
   }
   return {NumDeadInst, NumDeadDbgInst};
 }
