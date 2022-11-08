@@ -15,7 +15,7 @@
 ; The test IR was hand-modified to add an extra region number field to the
 ; offload metadata for the second and third target regions.
 
-; When present, region number is at entry 6, and flags are at entry 7.
+; When present, region number is at entry 5, and flags are at entry 7.
 ; Otherwise, region number is implicitly 0, flags are at entry 6.
 
 ; Check that when the region number is non-zero, it gets used in the outlined
@@ -59,5 +59,5 @@ declare void @llvm.directive.region.exit(token)
 !omp_offload.info = !{!0, !1, !2}
 
 !0 = !{i32 0, i32 66313, i32 186595058, !"_Z3foov", i32 2, i32 0, i32 0}
-!1 = !{i32 0, i32 66313, i32 186595058, !"_Z3foov", i32 4, i32 1, i32 0, i32 0}
-!2 = !{i32 0, i32 66313, i32 186595058, !"_Z3foov", i32 4, i32 2, i32 1, i32 0}
+!1 = !{i32 0, i32 66313, i32 186595058, !"_Z3foov", i32 4, i32 0, i32 1, i32 0}
+!2 = !{i32 0, i32 66313, i32 186595058, !"_Z3foov", i32 4, i32 1, i32 2, i32 0}
