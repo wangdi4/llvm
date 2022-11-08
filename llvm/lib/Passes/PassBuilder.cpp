@@ -97,7 +97,11 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/ValueTracking.h" // INTEL
+=======
+#include "llvm/IR/DebugInfo.h"
+>>>>>>> a7bc1a7752f78f6d4e968cfc98f75e7f70a32711
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/PassManager.h"
