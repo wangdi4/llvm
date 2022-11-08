@@ -45,16 +45,18 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"          // INTEL
-#include "llvm/Analysis/Intel_WP.h"                 // INTEL
+#include "llvm/Analysis/Intel_Andersens.h" // INTEL
+#include "llvm/Analysis/Intel_WP.h"        // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/PostDominators.h"           // INTEL
+#include "llvm/Analysis/PostDominators.h" // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -90,6 +92,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -2618,6 +2621,20 @@ bool JumpThreadingPass::maybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
       SinglePred == BB || hasAddressTakenAndUsed(BB))
     return false;
 
+#if INTEL_COLLAB
+  // If BB is a loop header and it is merged with its single pred, the loop
+  // has been deleted. Search the pred for a OpenMP loop directive and remove
+  // it, as well as the corresponding exit directive.
+  if (vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*(BB->getParent())) &&
+      LoopHeaders.count(BB))
+    for (auto &I : *SinglePred)
+      if (vpo::VPOAnalysisUtils::isBeginLoopDirective(&I)) {
+        for (auto *U : llvm::make_early_inc_range(I.users()))
+          (cast<Instruction>(U))->eraseFromParent();
+        I.eraseFromParent();
+        break;
+      }
+#endif // INTEL_COLLAB
   // If SinglePred was a loop header, BB becomes one.
   if (LoopHeaders.erase(SinglePred))
     LoopHeaders.insert(BB);
