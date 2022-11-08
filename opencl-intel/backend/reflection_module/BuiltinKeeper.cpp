@@ -26,7 +26,7 @@ namespace Reflection {
 
 struct PrimitiveVisitor : TypeVisitor {
   void visit(const PrimitiveType *t) override {
-    m_primitivType = t->getPrimitive();
+    PrimitiveType = t->getPrimitive();
   }
 
   void visit(const VectorType *v) override { v->getScalarType()->accept(this); }
@@ -35,16 +35,16 @@ struct PrimitiveVisitor : TypeVisitor {
 
   void visit(const AtomicType *a) override { a->getBaseType()->accept(this); }
 
-  void visit(const BlockType *) override { m_primitivType = PRIMITIVE_NONE; }
+  void visit(const BlockType *) override { PrimitiveType = PRIMITIVE_NONE; }
 
   void visit(const UserDefinedType *) override {
-    m_primitivType = PRIMITIVE_NONE;
+    PrimitiveType = PRIMITIVE_NONE;
   }
 
-  TypePrimitiveEnum getPrimitiveType() const { return m_primitivType; }
+  TypePrimitiveEnum getPrimitiveType() const { return PrimitiveType; }
 
 private:
-  TypePrimitiveEnum m_primitivType;
+  TypePrimitiveEnum PrimitiveType = PRIMITIVE_NONE;
 };
 //
 // Utilities
