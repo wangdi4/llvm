@@ -1755,6 +1755,12 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
                       .Case("icx", "ICXCFG")
                       .Case("icx-cl", "ICXCLCFG")
                       .Default("");
+    // Use of 'DPCPPCFG' is deprecated.
+    if (IsDPCPPMode()) {
+      if (Optional<std::string> EnvVarValue =
+              llvm::sys::Process::GetEnv("DPCPPCFG"))
+        Diag(diag::warn_drv_deprecated_env_var) << "DPCPPCFG" << EnvVar;
+    }
     if (Optional<std::string> EnvVarValue =
             llvm::sys::Process::GetEnv(EnvVar)) {
       if (!readConfigFile(*EnvVarValue)) {
