@@ -23,15 +23,11 @@
  */
 
 #ifndef __STDARG_H
-<<<<<<< HEAD
-#define __STDARG_H
 /* INTEL_CUSTOMIZATION */
 #if defined(_MSC_VER)
 #include <vcruntime.h>
 #endif // if defined(_MSC_VER)
 /* end INTEL_CUSTOMIZATION */
-=======
->>>>>>> 9e956995db1fc7e792e3dfb3a465a52626195557
 
 #ifndef __GNUC_VA_LIST
 #define __GNUC_VA_LIST
