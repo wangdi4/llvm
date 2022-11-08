@@ -399,6 +399,7 @@
 ; CHECK-DEFAULT-NEXT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NOT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NEXT: Running pass: IntelMathLibrariesDeclarationPass ;INTEL
+; CHECK-LTO-NEXT: Running analysis: TargetIRAnalysis on bar ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-LTO-NEXT: Running pass: CanonicalizeAliasesPass

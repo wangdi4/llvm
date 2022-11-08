@@ -1,6 +1,6 @@
 //=-- Intel_MathLibrariesDeclaration.cpp - Add math function declaration -*--=//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -28,12 +28,14 @@
 #include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 using namespace llvm;
 
@@ -48,8 +50,9 @@ static cl::opt<bool> EnableMathLibsDecl("enable-math-libs-decls",
 // Helper class to add the declaration for math libraries
 class MathLibrariesDeclImpl {
 public:
-  MathLibrariesDeclImpl(Module &M) : M(M), SinFunc(nullptr),
-                                     CosFunc(nullptr) {}
+  MathLibrariesDeclImpl(Module &M,
+                        function_ref<TargetTransformInfo &(Function &)> GTTI)
+      : M(M), GetTTI(GTTI), SinFunc(nullptr), CosFunc(nullptr) {}
   bool run();
 
 private:
@@ -84,6 +87,15 @@ private:
   // and cosine for the same angle).
   bool generateSinCos();
 
+  // Generate a declaration for __intel_new_feature_init if libirc is allowed
+  // and we are compiling for advanced opt or auto CPU dispatch. This is
+  // needed because the X86FeatureInitPass in the code generator may need to
+  // generate a call to __intel_new_feature_init on the link step of an -flto
+  // compilation, and library functions called by __intel_new_feature_init will
+  // need to be recognized during the first LTO resolution pass.
+  bool generateIntelNewFeatureProcInit(Function &F);
+
+  function_ref<TargetTransformInfo &(Function &)> GetTTI;
   Function *SinFunc;
   Function *CosFunc;
 };
@@ -220,6 +232,27 @@ bool MathLibrariesDeclImpl::generateSinCos() {
   return GenSinCos || GenFMod;
 }
 
+// Generate "__intel_new_feature_proc_init" if needed.
+bool MathLibrariesDeclImpl::generateIntelNewFeatureProcInit(Function &F) {
+  static bool AlreadyGenerated = false;
+  if (AlreadyGenerated)
+    return false;
+  TargetTransformInfo *FTTI = &GetTTI(F);
+  if (!FTTI->isLibIRCAllowed())
+    return false;
+  if (!FTTI->isIntelAdvancedOptimEnabled() &&
+      !F.getMetadata("llvm.auto.cpu.dispatch"))
+    return false;
+  LLVMContext &Cxt = M.getContext();
+  FunctionCallee FeatureInit = M.getOrInsertFunction(
+      "__intel_new_feature_proc_init", Type::getVoidTy(Cxt),
+      Type::getInt32Ty(Cxt), Type::getInt64Ty(Cxt));
+  Function *NF = cast<Function>(FeatureInit.getCallee());
+  appendToCompilerUsed(M, {NF});
+  AlreadyGenerated = true;
+  return true;
+}
+
 // Return true if the input function is an intrisic to a simple math
 // function and the prototype for the actual math function was generated.
 bool MathLibrariesDeclImpl::isSimpleTypesMathIntrinsic(Function &F) {
@@ -351,6 +384,8 @@ bool MathLibrariesDeclImpl::run() {
     // NOTE: This function handles the cases where the arguments and return
     // types are the same. We may need to define other cases.
     Changed |= isSimpleTypesMathIntrinsic(F);
+    // Check if the compiler might need to add __intel_new_feature_proc_init.
+    Changed |= generateIntelNewFeatureProcInit(F);
   }
 
   // Check if there is a chance that the compiler might add sincos
@@ -366,7 +401,13 @@ bool MathLibrariesDeclImpl::run() {
 PreservedAnalyses
 IntelMathLibrariesDeclarationPass::run(Module &M, ModuleAnalysisManager &AM) {
 
-  MathLibrariesDeclImpl MathLibsDecl(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  auto GetTTI = [&FAM](Function &F) -> TargetTransformInfo & {
+    return FAM.getResult<TargetIRAnalysis>(F);
+  };
+
+  MathLibrariesDeclImpl MathLibsDecl(M, GetTTI);
   MathLibsDecl.run();
 
   return PreservedAnalyses::all();
@@ -387,12 +428,17 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-
-    MathLibrariesDeclImpl MathLibsDecl(M);
+    TargetTransformInfoWrapperPass *TTIWP =
+        &getAnalysis<TargetTransformInfoWrapperPass>();
+    auto GetTTI = [&TTIWP](Function &F) -> TargetTransformInfo & {
+      return TTIWP->getTTI(F);
+    };
+    MathLibrariesDeclImpl MathLibsDecl(M, GetTTI);
     return MathLibsDecl.run();
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -403,6 +449,7 @@ char IntelMathLibrariesDeclarationWrapper::ID = 0;
 
 INITIALIZE_PASS_BEGIN(IntelMathLibrariesDeclarationWrapper, DEBUG_TYPE,
                       "Intel Math Libraries Declaration", false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(IntelMathLibrariesDeclarationWrapper, DEBUG_TYPE,
                     "Intel Math Libraries Declaration", false, false)
 
