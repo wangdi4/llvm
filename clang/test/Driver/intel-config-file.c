@@ -20,6 +20,10 @@
 // RUN: env DPCPPCFG=%S/Inputs/intel-dpcpp.cfg \
 // RUN: %clangxx -### --dpcpp -c %s 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=INTEL_DPCPP_CONFIG
+// RUN: env DPCPPCFG=%S/Inputs/intel-dpcpp.cfg \
+// RUN: %clangxx -### --intel --dpcpp -c %s 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=INTEL_DPCPP_CONFIG_WARN
 // INTEL_CONFIG: "-D" "INTEL_CFG"
 // INTEL_ICPX_CONFIG: "-D" "INTEL_ICPX_CFG"
 // INTEL_DPCPP_CONFIG: "-D" "INTEL_DPCPP_CFG"
+// INTEL_DPCPP_CONFIG_WARN: environment variable 'DPCPPCFG' is deprecated
