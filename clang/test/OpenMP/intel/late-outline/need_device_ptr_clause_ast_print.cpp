@@ -18,12 +18,12 @@
 #ifndef HEADER
 #define HEADER
 
-void bar1(float* F1, float *F2);
+void bar1(float *&F1, float *&F2);
 void bar2(float* F1, float *F2, float *F3);
-int bar_v3(float* F1, ...);
+int bar_v3(float *&F1, ...);
 
 #pragma omp declare variant(bar_v3) match(construct={dispatch})
-int bar3(float *FF1, ...);
+int bar3(float *&FF1, ...);
 
 //PRINT-LABEL: void foo1(
 void foo1(float *Fp1, float *Fp2) {

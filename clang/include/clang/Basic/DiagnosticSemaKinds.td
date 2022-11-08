@@ -11259,6 +11259,9 @@ def err_omp_target_variant_dispatch_statement_call
 def err_omp_need_device_ptr_clause_arg_out_of_bound
     : Error<"'need_device_ptr' specifies argument '%0' but call has only %1" 
             " argument%select{|s}2">;
+def err_omp_need_device_ptr_non_pointer_type
+    : Error<"argument %0 specified in 'need_device_ptr' clause must be a "
+            "pointer">;
 #endif // INTEL_COLLAB
 def err_omp_unroll_full_variable_trip_count : Error<
   "loop to be fully unrolled must have a constant trip count">;
