@@ -18,7 +18,7 @@ include "GENERIC/ll_generation/definition.td"
 // vf=16:
 //   uint64 sub_group_ballot(int16 predicate, uint16 vec_mask)
 let EmitMangledName = true,
-    FuncAttrs = ["readnone", "willreturn", "nounwind"] in {
+    FuncAttrs = ["memory(none)", "willreturn", "nounwind"] in {
   defvar builtin = "sub_group_ballot";
 foreach vf = [4, 8, 16, 32, 64] in {
   defvar ret_type = !cast<VectorType>("v" # !mul(vf, 4) # "i32");
@@ -48,7 +48,7 @@ foreach vf = [4, 8, 16, 32, 64] in {
 // sub_group_reduce_add vector implementations of half type
 // e.g. vf=16: sub_group_reduce_add(int16 src, uint16 vec_mask)
 let EmitMangledName = true,
-    FuncAttrs = ["readnone", "willreturn", "nounwind"] in {
+    FuncAttrs = ["memory(none)", "willreturn", "nounwind"] in {
   defvar reduce_add_builtin = "sub_group_reduce_add";
   defvar reduce_add_builtin_non_uniform = "sub_group_non_uniform_reduce_add";
   defvar reduce_add_ir_code =

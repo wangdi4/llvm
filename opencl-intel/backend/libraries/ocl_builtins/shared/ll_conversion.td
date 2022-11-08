@@ -19,7 +19,7 @@ include "GENERIC/ll_generation/definition.td"
 //     %1 = zext i8 %x to i16
 //     ret i16 %1
 //   }
-//   attributes #46 = { nounwind readnone willreturn }
+//   attributes #46 = { nounwind memory(none) willreturn }
 
 class ExtType<IntType src_type> {
   list<string> Types = !filter(t, ["i16", "i32", "i64"], !gt(!cast<IntType>(t).BitWidth, src_type.BitWidth));
@@ -44,7 +44,7 @@ defvar ExtOrTruncCode = [{
 }];
 
 let EmitMangledName = false,
-    FuncAttrs = ["readnone", "willreturn", "nounwind"] in {
+    FuncAttrs = ["memory(none)", "willreturn", "nounwind"] in {
   foreach len = [1, 2, 3, 4, 8, 16, 32, 64] in {
     foreach src_type_name = ["i8", "i16", "i32"] in {
       defvar scalar_src_type = !cast<IntType>(src_type_name);
