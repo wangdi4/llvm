@@ -293,6 +293,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopRerollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNontemporalMarking.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRNormalizeCasts.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPMSymbolicTripCountCompleteUnrollPass.h"
@@ -2175,6 +2176,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
   FPM.addPass(HIRSSADeconstructionPass());
   FPM.addPass(HIRTempCleanupPass());
+
+  // TODO: Pass disabled until implementation is complete
+  // FPM.addPass(HIRNormalizeCasts());
 
   if (!RunLoopOptFrameworkOnly) {
     // if (vpo::UseOmpRegionsInLoopoptFlag)
