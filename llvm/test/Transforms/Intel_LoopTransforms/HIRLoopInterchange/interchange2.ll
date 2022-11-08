@@ -11,11 +11,14 @@
 ;
 
 ; Check the proper optreport is emitted for Loop Interchange.
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=medium %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=high --enable-debugify %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark #25445: Loop Interchange not done due to: Data Dependencies{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     remark #25445: Loop Interchange not done due to: Data Dependencies
+; OPTREPORT-NEXT:     remark #25446: Dependencies found between following statements:
+; OPTREPORT-NEXT:     remark #25447: Loop interchange: assumed ANTI dependence between (8:1) and (11:1)
+; OPTREPORT-NEXT:     remark #25447: Loop interchange: assumed FLOW dependence between (11:1) and (8:1)
+; OPTREPORT:          LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
