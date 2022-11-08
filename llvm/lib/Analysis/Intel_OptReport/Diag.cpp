@@ -452,6 +452,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25439, "Loop unrolled with remainder by %d"},
     {25444, "Loopnest Interchanged: %s"},
     {25445, "Loop Interchange not done due to: %s"},
+    {25446, "Dependencies found between following statements:"},
+    {25447, "Loop interchange: %s"},
     {25459, "Loopnest replaced by matmul intrinsic"},
     {25474, "Multiversioned v%d"},
     {25476, "Predicate Optimized v%d"},
