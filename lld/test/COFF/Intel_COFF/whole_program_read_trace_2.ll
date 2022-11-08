@@ -8,15 +8,6 @@
 ; RUN: lld-link /out:%t_wpt2.exe /entry:main %t_wpt2.bc %t_wpt2_sub.obj /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
-; RUN:     /opt:noltonewpassmanager \
-; RUN:     2>&1 | FileCheck %s
-
-; RUN: llvm-as -o %t_wpt2.bc %s
-; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t_wpt2_sub.obj \
-; RUN:          -filetype=obj
-; RUN: lld-link /out:%t_wpt2.exe /entry:main %t_wpt2.bc %t_wpt2_sub.obj /subsystem:console  \
-; RUN:     /mllvm:-debug-only=whole-program-analysis \
-; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 

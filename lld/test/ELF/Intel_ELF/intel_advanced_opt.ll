@@ -4,7 +4,6 @@
 ; REQUIRES: x86
 
 ; RUN: opt %s -o %t.o
-; RUN: ld.lld --plugin-opt=fintel-advanced-optim --plugin-opt=legacy-pass-manager -o /dev/null %t.o 2>&1 | FileCheck %s
 ; RUN: ld.lld --plugin-opt=fintel-advanced-optim --plugin-opt=new-pass-manager -o /dev/null %t.o 2>&1 | FileCheck %s
 
 ; CHECK-NOT: error: --plugin-opt: ld.lld: Unknown command line argument 'fintel-advanced-optim'
