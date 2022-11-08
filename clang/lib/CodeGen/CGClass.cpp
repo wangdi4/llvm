@@ -2632,7 +2632,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
 #endif // INTEL_COLLAB
-  // vtable field is is derived from `this` pointer, therefore it should be in
+  // vtable field is derived from `this` pointer, therefore it should be in
   // default address space.
   VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
 #if INTEL_COLLAB
