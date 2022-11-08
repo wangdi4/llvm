@@ -10953,9 +10953,10 @@ static Expr *getDirectCallExpr(Expr *E) {
 }
 
 #if INTEL_COLLAB
-static void
-checkNeedDevicePtrClauseArgumentsBound(Sema &S, unsigned NumArgs,
-                                       ArrayRef<OMPClause *> Clauses) {
+static void checkNeedDevicePtrClauseArgumentsBoundAndType(
+    Sema &S, ArrayRef<OMPClause *> Clauses, Expr *TargetCall) {
+  auto *CE = cast<CallExpr>(TargetCall);
+  unsigned NumArgs = CE->getNumArgs();
   for (const auto *NDPC :
        OMPExecutableDirective::getClausesOfKind<OMPNeedDevicePtrClause>(
            Clauses)) {
@@ -10968,7 +10969,12 @@ checkNeedDevicePtrClauseArgumentsBound(Sema &S, unsigned NumArgs,
         S.Diag(ArgExpr->getExprLoc(),
                diag::err_omp_need_device_ptr_clause_arg_out_of_bound)
             << Result.getExtValue() << NumArgs << (NumArgs < 2 ? 0 : 1);
+        return;
       }
+      if (!CE->getArg(Result.getExtValue() - 1)->getType()->isPointerType())
+        S.Diag(ArgExpr->getExprLoc(),
+               diag::err_omp_need_device_ptr_non_pointer_type)
+            << Result.getExtValue();
     }
   }
 }
@@ -11014,9 +11020,7 @@ StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
     }
     TargetCallLoc = TargetCall->getExprLoc();
 
-    auto *CE = cast<CallExpr>(TargetCall);
-    unsigned NumArgs = CE->getNumArgs();
-    checkNeedDevicePtrClauseArgumentsBound(*this, NumArgs, Clauses);
+    checkNeedDevicePtrClauseArgumentsBoundAndType(*this, Clauses, TargetCall);
   }
 
   setFunctionHasBranchProtectedScope();
@@ -11077,9 +11081,7 @@ StmtResult Sema::ActOnOpenMPDispatchDirective(ArrayRef<OMPClause *> Clauses,
     TargetCallLoc = TargetCall->getExprLoc();
 
 #if INTEL_COLLAB
-    auto *CE = cast<CallExpr>(TargetCall);
-    unsigned NumArgs = CE->getNumArgs();
-    checkNeedDevicePtrClauseArgumentsBound(*this, NumArgs, Clauses);
+    checkNeedDevicePtrClauseArgumentsBoundAndType(*this, Clauses, TargetCall);
 #endif // INTEL_COLLAB
   }
 
