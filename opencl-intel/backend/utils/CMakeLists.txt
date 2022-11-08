@@ -19,7 +19,7 @@ add_subdirectory(objdump)
 
 set(TARGET_EXTRA_SOURCE_FILES SystemInfo.cpp)
 set(TARGET_EXTRA_INCLUDE_FILES
-    exceptions.h ExecutionContext.h ExplicitArgument.h
+    exceptions.h ExplicitArgument.h
     ExplicitGlobalMemArgument.h ExplicitBlockLiteralArgument.h SystemInfo.h)
 
 set(TARGET_INCLUDE_FILES
