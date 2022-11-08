@@ -2279,6 +2279,30 @@ void HLNodeUtils::moveAsLastPostexitNodes(HLLoop *Loop,
 }
 
 void HLNodeUtils::replace(HLNode *OldNode, HLNode *NewNode) {
+
+  // We do prev/next node checks for compile time optimization. Removing OldNode
+  // first gets us a bigger top sort num range for new nodes. This makes it less
+  // likely to hit the slower path in the top sort num range recomputation where
+  // range isn't big enough to hold the new nodes. This is especially useful
+  // when clients are using Marker node for replacement.
+  // Top sort num can be 0 if utility is called from framework. In that case we
+  // cannot use getPrevNode()/getNextNode().
+
+  if (OldNode->getTopSortNum() != 0) {
+    if (auto *NextNode = OldNode->getNextNode()) {
+      remove(OldNode);
+      insertBefore(NextNode, NewNode);
+
+      return;
+
+    } else if (auto *PrevNode = OldNode->getPrevNode()) {
+      remove(OldNode);
+      insertAfter(PrevNode, NewNode);
+
+      return;
+    }
+  }
+
   insertBefore(OldNode, NewNode);
   remove(OldNode);
 }
@@ -2505,6 +2529,11 @@ struct NodeCounter final : public HLNodeVisitorBase {
   void postVisit(HLNode *) {}
 };
 
+// Step of 2048 is sufficient to represent about 2 million nodes in a region.
+static cl::opt<unsigned> TopSortNumSpacing(
+    "hir-topsort-num-spacing", cl::init(2048), cl::Hidden,
+    cl::desc("gap between top sort number of two consecutive HLNodes"));
+
 // The visitor that sets TopSortNums and MaxTopSortNum from MinNum
 // with a fixed Step. If set, the numbering will be started AfterNode.
 //
@@ -2519,11 +2548,11 @@ struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
   const HLNode *AfterNode;
   bool Stop;
 
-  // Step of 2048 is sufficient to represent about 2 million nodes in a region.
-  TopSorter(unsigned MinNum, unsigned Step = 2048,
+  // Step of 0 implies default spacing.
+  TopSorter(unsigned MinNum, unsigned Step = 0,
             const HLNode *AfterNode = nullptr)
       : MinNum(MinNum), TopSortNum(MinNum), AfterNode(AfterNode), Stop(false) {
-    this->Step = Step ? Step : 1;
+    this->Step = Step ? Step : TopSortNumSpacing;
   }
 
   void visit(HLNode *Node) {
@@ -2574,12 +2603,35 @@ void HLNodeUtils::distributeTopSortNum(HLContainerTy::iterator First,
     assert(MinNum < MaxNum && "MinNum should be always less than MaxNum");
 
     unsigned Step = (MaxNum - MinNum) / (NC.Count + 1);
-    // number [First, Last) nodes
-    TopSorter<true> TS(MinNum, Step);
-    HLNodeUtils::visitRange(TS, First, Last);
-    if (Step == 0) {
-      TopSorter<false> TS(MinNum + NC.Count, 1, &*(std::prev(Last)));
-      HLNodeUtils::visit(TS, First->getParentRegion());
+
+    if (Step != 0) {
+      // Evenly assign nodes in [First, Last) top sort numbers in range (MinNum,
+      // MaxNum)
+      TopSorter<true> TS(MinNum, Step);
+      HLNodeUtils::visitRange(TS, First, Last);
+    } else {
+      // There are more nodes in [First, Last) than the available top sort
+      // numbers in range (MinNum, MaxNum) so reassign top sort numbers to nodes
+      // starting from First until the end of the region or until top sort num
+      // of subsequent number is already in order. We use half the default
+      // spacing to make it more probable that we don't have to reassign to all
+      // the subsequent nodes in the region.
+
+      Step = TopSortNumSpacing / 2;
+
+      // We need to force reassignment of the nodes in [First, Last) otheriwse
+      // TopSorter might incorrectly use their existing (invalid) top sort num
+      // value.
+      TopSorter<true> TS1(MinNum, Step);
+      HLNodeUtils::visitRange(TS1, First, Last);
+
+      // Reassign to subseuquent nodes. This traverses the entire region but
+      // starts reassignment from the 'Last' node. This might be expensive in
+      // compile time if the region is big but the alternative is to complicate
+      // the traversal algoritm.
+      // TODO: Look into improving the traversal algorithm.
+      TopSorter<false> TS2(MinNum + (NC.Count * Step), Step, &*std::prev(Last));
+      HLNodeUtils::visit(TS2, First->getParentRegion());
     }
   } else {
     TopSorter<true> TS(MinNum);
@@ -4773,6 +4825,25 @@ HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
                             : std::make_pair(If->else_begin(), If->else_end());
   auto LastNode = std::prev(NodeRange.second);
 
+  // Check for prev/next node is a compile time optimization. See comments in
+  // replace().
+  // Top sort num can be 0 if utility is called from framework. In that case we
+  // cannot use getPrevNode()/getNextNode().
+  if (If->getTopSortNum() != 0) {
+    if (auto *NextNode = If->getNextNode()) {
+      remove(If);
+      moveBefore(NextNode, NodeRange.first, NodeRange.second);
+
+      return make_range(NodeRange.first, std::next(LastNode));
+
+    } else if (auto *PrevNode = If->getPrevNode()) {
+      remove(If);
+      moveAfter(PrevNode, NodeRange.first, NodeRange.second);
+
+      return make_range(NodeRange.first, std::next(LastNode));
+    }
+  }
+
   HLNodeUtils::moveAfter(If, NodeRange.first, NodeRange.second);
   HLNodeUtils::remove(If);
 
@@ -4788,6 +4859,25 @@ HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
                        : std::make_pair(Switch->case_child_begin(CaseNum),
                                         Switch->case_child_end(CaseNum));
   auto LastNode = std::prev(NodeRange.second);
+
+  // Check for prev/next node is a compile time optimization. See comments in
+  // replace().
+  // Top sort num can be 0 if utility is called from framework. In that case we
+  // cannot use getPrevNode()/getNextNode().
+  if (Switch->getTopSortNum() != 0) {
+    if (auto *NextNode = Switch->getNextNode()) {
+      remove(Switch);
+      moveBefore(NextNode, NodeRange.first, NodeRange.second);
+
+      return make_range(NodeRange.first, std::next(LastNode));
+
+    } else if (auto *PrevNode = Switch->getPrevNode()) {
+      remove(Switch);
+      moveAfter(PrevNode, NodeRange.first, NodeRange.second);
+
+      return make_range(NodeRange.first, std::next(LastNode));
+    }
+  }
 
   HLNodeUtils::moveAfter(Switch, NodeRange.first, NodeRange.second);
   HLNodeUtils::remove(Switch);
