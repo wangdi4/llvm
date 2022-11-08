@@ -1322,14 +1322,12 @@ def int_experimental_gc_statepoint : Intrinsic<[llvm_token_ty],
                                 ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<3>>,
                                 ImmArg<ArgIndex<4>>]>;
 
-<<<<<<< HEAD
-def int_experimental_gc_result   : Intrinsic<[llvm_any_ty], [llvm_token_ty],
-                                             [IntrNoMem]>;
-def int_experimental_gc_relocate : Intrinsic<[llvm_any_ty],
-                                             [llvm_token_ty, llvm_i32_ty,
-                                              llvm_i32_ty],
-                                             [IntrNoMem, ImmArg<ArgIndex<1>>,
-                                              ImmArg<ArgIndex<2>>]>;
+def int_experimental_gc_result : DefaultAttrsIntrinsic<
+    [llvm_any_ty], [llvm_token_ty], [IntrNoMem]>;
+
+def int_experimental_gc_relocate : DefaultAttrsIntrinsic<
+    [llvm_any_ty], [llvm_token_ty, llvm_i32_ty, llvm_i32_ty],
+    [IntrNoMem, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
 
 // INTEL_COLLAB
 //===------------------------ Directive Intrinsics ------------------------===//
@@ -1338,21 +1336,6 @@ def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
 def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
 // end INTEL_COLLAB
 
-def int_experimental_gc_get_pointer_base : Intrinsic<[llvm_anyptr_ty],
-                 [llvm_anyptr_ty], [IntrNoMem, IntrWillReturn,
-                 ReadNone<ArgIndex<0>>, NoCapture<ArgIndex<0>>]>;
-
-def int_experimental_gc_get_pointer_offset : Intrinsic<[llvm_i64_ty],
-                 [llvm_anyptr_ty], [IntrNoMem, IntrWillReturn,
-                 ReadNone<ArgIndex<0>>, NoCapture<ArgIndex<0>>]>;
-=======
-def int_experimental_gc_result : DefaultAttrsIntrinsic<
-    [llvm_any_ty], [llvm_token_ty], [IntrNoMem]>;
-
-def int_experimental_gc_relocate : DefaultAttrsIntrinsic<
-    [llvm_any_ty], [llvm_token_ty, llvm_i32_ty, llvm_i32_ty],
-    [IntrNoMem, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
-
 def int_experimental_gc_get_pointer_base : DefaultAttrsIntrinsic<
     [llvm_anyptr_ty], [llvm_anyptr_ty],
     [IntrNoMem, IntrWillReturn, ReadNone<ArgIndex<0>>, NoCapture<ArgIndex<0>>]>;
@@ -1360,7 +1343,6 @@ def int_experimental_gc_get_pointer_base : DefaultAttrsIntrinsic<
 def int_experimental_gc_get_pointer_offset : DefaultAttrsIntrinsic<
     [llvm_i64_ty], [llvm_anyptr_ty],
     [IntrNoMem, IntrWillReturn, ReadNone<ArgIndex<0>>, NoCapture<ArgIndex<0>>]>;
->>>>>>> 3ddf56fd37b863bd778a63339e7c1ad9eca789d9
 
 //===------------------------ Coroutine Intrinsics ---------------===//
 // These are documented in docs/Coroutines.rst
