@@ -2213,6 +2213,7 @@ public:
 
     const ConstantArrayType *CAT =
         SemaRef.getASTContext().getAsConstantArrayType(ArrayTy);
+    assert(CAT && "Should only be called on constant-size array.");
     QualType ModifiedArray = SemaRef.getASTContext().getConstantArrayType(
         ModifiedArrayElement, CAT->getSize(),
         const_cast<Expr *>(CAT->getSizeExpr()), CAT->getSizeModifier(),
