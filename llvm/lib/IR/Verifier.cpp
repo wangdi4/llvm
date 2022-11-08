@@ -843,9 +843,18 @@ void Verifier::visitAliaseeSubExpr(const GlobalAlias &GA, const Constant &C) {
 
 void Verifier::visitAliaseeSubExpr(SmallPtrSetImpl<const GlobalAlias*> &Visited,
                                    const GlobalAlias &GA, const Constant &C) {
-  if (const auto *GV = dyn_cast<GlobalValue>(&C)) {
-    Check(!GV->isDeclarationForLinker(), "Alias must point to a definition",
+  if (GA.hasAvailableExternallyLinkage()) {
+    Check(isa<GlobalValue>(C) &&
+              cast<GlobalValue>(C).hasAvailableExternallyLinkage(),
+          "available_externally alias must point to available_externally "
+          "global value",
           &GA);
+  }
+  if (const auto *GV = dyn_cast<GlobalValue>(&C)) {
+    if (!GA.hasAvailableExternallyLinkage()) {
+      Check(!GV->isDeclarationForLinker(), "Alias must point to a definition",
+            &GA);
+    }
 
     if (const auto *GA2 = dyn_cast<GlobalAlias>(GV)) {
       Check(Visited.insert(GA2).second, "Aliases cannot form a cycle", &GA);
@@ -874,7 +883,7 @@ void Verifier::visitAliaseeSubExpr(SmallPtrSetImpl<const GlobalAlias*> &Visited,
 void Verifier::visitGlobalAlias(const GlobalAlias &GA) {
   Check(GlobalAlias::isValidLinkage(GA.getLinkage()),
         "Alias should have private, internal, linkonce, weak, linkonce_odr, "
-        "weak_odr, or external linkage!",
+        "weak_odr, external, or available_externally linkage!",
         &GA);
   const Constant *Aliasee = GA.getAliasee();
   Check(Aliasee, "Aliasee cannot be NULL!", &GA);
@@ -4703,6 +4712,15 @@ void Verifier::visitDIAssignIDMetadata(Instruction &I, MDNode *MD) {
       isa<AllocaInst>(I) || isa<StoreInst>(I) || isa<MemIntrinsic>(I);
   CheckDI(ExpectedInstTy, "!DIAssignID attached to unexpected instruction kind",
           I, MD);
+  // Iterate over the MetadataAsValue uses of the DIAssignID - these should
+  // only be found as DbgAssignIntrinsic operands.
+  if (auto *AsValue = MetadataAsValue::getIfExists(Context, MD)) {
+    for (auto *User : AsValue->users()) {
+      CheckDI(isa<DbgAssignIntrinsic>(User),
+              "!DIAssignID should only be used by llvm.dbg.assign intrinsics",
+              MD, User);
+    }
+  }
 }
 
 void Verifier::visitCallStackMetadata(MDNode *MD) {
@@ -5194,6 +5212,9 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   case Intrinsic::dbg_value: // llvm.dbg.value
     visitDbgIntrinsic("value", cast<DbgVariableIntrinsic>(Call));
+    break;
+  case Intrinsic::dbg_assign: // llvm.dbg.assign
+    visitDbgIntrinsic("assign", cast<DbgVariableIntrinsic>(Call));
     break;
   case Intrinsic::dbg_label: // llvm.dbg.label
     visitDbgLabelIntrinsic("label", cast<DbgLabelInst>(Call));
@@ -6185,6 +6206,18 @@ void Verifier::visitDbgIntrinsic(StringRef Kind, DbgVariableIntrinsic &DII) {
   CheckDI(isa<DIExpression>(DII.getRawExpression()),
           "invalid llvm.dbg." + Kind + " intrinsic expression", &DII,
           DII.getRawExpression());
+
+  if (auto *DAI = dyn_cast<DbgAssignIntrinsic>(&DII)) {
+    CheckDI(isa<DIAssignID>(DAI->getRawAssignID()),
+            "invalid llvm.dbg.assign intrinsic DIAssignID", &DII,
+            DAI->getRawAssignID());
+    CheckDI(isa<ValueAsMetadata>(DAI->getRawAddress()),
+            "invalid llvm.dbg.assign intrinsic address)", &DII,
+            DAI->getRawAddress());
+    CheckDI(isa<DIExpression>(DAI->getRawAddressExpression()),
+            "invalid llvm.dbg.assign intrinsic address expression", &DII,
+            DAI->getRawAddressExpression());
+  }
 
   // Ignore broken !dbg attachments; they're checked elsewhere.
   if (MDNode *N = DII.getDebugLoc().getAsMDNode())
