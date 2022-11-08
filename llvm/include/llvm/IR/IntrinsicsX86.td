@@ -1679,9 +1679,8 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
       DefaultAttrsIntrinsic<[llvm_v8i32_ty], [llvm_ptr_ty, llvm_v8i32_ty],
                             [IntrReadMem, IntrArgMemOnly]>;
   def int_x86_avx2_maskload_q_256 : ClangBuiltin<"__builtin_ia32_maskloadq256">,
-<<<<<<< HEAD
-        Intrinsic<[llvm_v4i64_ty], [llvm_ptr_ty, llvm_v4i64_ty],
-                  [IntrReadMem, IntrArgMemOnly]>;
+      DefaultAttrsIntrinsic<[llvm_v4i64_ty], [llvm_ptr_ty, llvm_v4i64_ty],
+                            [IntrReadMem, IntrArgMemOnly]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   def int_x86_avx2_maskload_b : ClangBuiltin<"__builtin_ia32_maskloadb">,
@@ -1705,10 +1704,6 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
                     [IntrNoMem, ImmArg<ArgIndex<2>>]>;
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #endif // INTEL_CUSTOMIZATION
-=======
-      DefaultAttrsIntrinsic<[llvm_v4i64_ty], [llvm_ptr_ty, llvm_v4i64_ty],
-                            [IntrReadMem, IntrArgMemOnly]>;
->>>>>>> 3705e038e4eb7514368024b0d70047bd4cecfc73
 }
 
 // Conditional store ops
