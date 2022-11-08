@@ -7383,18 +7383,21 @@ SmallVector<OffloadEntry *, 8> VPOParoptUtils::loadOffloadMetadata(
       return cast<Function>(V->getValue());
     };
 
-    auto &&getRegionNumAndFlags = [&, Node]() -> std::pair<uint64_t, uint64_t> {
+    auto &&getRegionNumIdxFlags =
+        [&, Node]() -> std::tuple<uint64_t, uint64_t, uint64_t> {
       // To handle cases where multiple target regions are present in the same
       // line in user code, the frontend may
       // send the region kind metadata with either 6 or 7 entries:
-      //    6 entries: RegionNum is implictily 0, Entry 6 is for Flags.
-      //    7 entries: Entry 6 is for RegionNum, Entry 7 is for Flags.
+      //    6 entries: RegionNum is implicitly 0, Entry 5 is the Idx,
+      //               Entry 6 is for Flags.
+      //    7 entries: Entry 5 is for RegionNum, Entry 6 is the Idx,
+      //               Entry 7 is for Flags.
       //
       // RegionNum is non-zero when the region is not the first target region in
       // that line in user code. See target_region_num_suffix.ll for reference.
       if (Node->getNumOperands() < 8)
-        return {0, getMDInt(6)};
-      return {getMDInt(6), getMDInt(7)};
+        return {0, getMDInt(5), getMDInt(6)};
+      return {getMDInt(5), getMDInt(6), getMDInt(7)};
     };
 
     switch (getMDInt(0)) {
@@ -7405,8 +7408,7 @@ SmallVector<OffloadEntry *, 8> VPOParoptUtils::loadOffloadMetadata(
         auto File = getMDInt(2u);
         auto Parent = getMDString(3u);
         auto Line = getMDInt(4u);
-        auto Idx = getMDInt(5u);
-        const auto& [RegionNum, Flags] = getRegionNumAndFlags();
+        const auto &[RegionNum, Idx, Flags] = getRegionNumIdxFlags();
 
         switch (Flags) {
           case RegionEntry::Region: {
