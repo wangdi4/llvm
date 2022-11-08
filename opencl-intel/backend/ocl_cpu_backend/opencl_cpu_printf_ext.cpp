@@ -14,7 +14,6 @@
 
 #define NOMINMAX
 
-#include "ExecutionContext.h"
 #include "ICLDevBackendServiceFactory.h"
 #include "exceptions.h"
 #include "opencl_printf_ext.h"
