@@ -296,6 +296,8 @@ void LoopVectorizeHints::getHintsFromMetadata() {
 #if INTEL_CUSTOMIZATION
     if (S->getString() == "llvm.loop.intel.vector.vectorlength") {
       llvm::transform(Args, std::back_inserter(AllowedVFs), [](Metadata *Arg) {
+        assert(mdconst::dyn_extract<ConstantInt>(Arg) &&
+               "Only integer elements are allowed in Vector length pragma");
         return ElementCount::getFixed(mdconst::dyn_extract<ConstantInt>(Arg)->getZExtValue());
       });
       continue;
