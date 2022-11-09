@@ -1045,7 +1045,7 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
       CmdArgs.push_back("-fprofile-update=atomic");
     else if (Val != "single")
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Val;
+          << A->getSpelling() << Val;
   } else if (SanArgs.needsTsanRt()) {
     CmdArgs.push_back("-fprofile-update=atomic");
   }
@@ -1245,7 +1245,7 @@ static void RenderDebugInfoCompressionArgs(const ArgList &Args,
       }
     } else {
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Value;
+          << A->getSpelling() << Value;
     }
   }
 }
@@ -1896,7 +1896,7 @@ static void CollectARMPACBTIOptions(const ToolChain &TC, const ArgList &Args,
     Scope = A->getValue();
     if (Scope != "none" && Scope != "non-leaf" && Scope != "all")
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Scope;
+          << A->getSpelling() << Scope;
     Key = "a_key";
     IndirectBranches = false;
   } else {
@@ -1904,7 +1904,7 @@ static void CollectARMPACBTIOptions(const ToolChain &TC, const ArgList &Args,
     llvm::ARM::ParsedBranchProtection PBP;
     if (!llvm::ARM::parseBranchProtection(A->getValue(), PBP, DiagMsg))
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << DiagMsg;
+          << A->getSpelling() << DiagMsg;
     if (!isAArch64 && PBP.Key == "b_key")
       D.Diag(diag::warn_unsupported_branch_protection)
           << "b-key" << A->getAsString(Args);
@@ -2130,7 +2130,7 @@ void Clang::AddAArch64TargetArgs(const ArgList &Args,
     } else if (!Val.equals("scalable"))
       // Handle the unsupported values passed to msve-vector-bits.
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Val;
+          << A->getSpelling() << Val;
   }
 
   AddAAPCSVolatileBitfieldArgs(Args, CmdArgs);
@@ -2287,7 +2287,7 @@ void Clang::AddMIPSTargetArgs(const ArgList &Args,
         CmdArgs.push_back(Args.MakeArgString("-mips-compact-branches=" + Val));
       } else
         D.Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Val;
+            << A->getSpelling() << Val;
     } else
       D.Diag(diag::warn_target_unsupported_compact_branches) << CPUName;
   }
@@ -2522,7 +2522,7 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
       CmdArgs.push_back(Args.MakeArgString("-inline-asm=" + Value));
     } else {
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Value;
+          << A->getSpelling() << Value;
     }
 #if INTEL_CUSTOMIZATION
   } else if (D.IsCLMode() && !D.IsIntelMode()) {
@@ -2623,7 +2623,7 @@ void Clang::AddLanaiTargetArgs(const ArgList &Args,
       if (Mregparm != 4) {
         getToolChain().getDriver().Diag(
             diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Value;
+            << A->getSpelling() << Value;
       }
     }
   }
@@ -2804,7 +2804,7 @@ static void CollectArgsForIntegratedAssembler(Compilation &C,
         ImplicitIt = A->getValue();
         if (!CheckARMImplicitITArg(ImplicitIt))
           D.Diag(diag::err_drv_unsupported_option_argument)
-              << A->getOption().getName() << ImplicitIt;
+              << A->getSpelling() << ImplicitIt;
         continue;
       default:
         break;
@@ -2967,7 +2967,7 @@ static void CollectArgsForIntegratedAssembler(Compilation &C,
         D.PrintVersion(C, llvm::outs());
       } else {
         D.Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Value;
+            << A->getSpelling() << Value;
       }
     }
   }
@@ -3150,7 +3150,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         TrappingMath = true;
       } else
         D.Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Val;
+            << A->getSpelling() << Val;
       break;
       }
     }
@@ -3248,7 +3248,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         LastSeenFfpContractOption = Val;
       } else
         D.Diag(diag::err_drv_unsupported_option_argument)
-           << A->getOption().getName() << Val;
+            << A->getSpelling() << Val;
       break;
     }
 
@@ -3283,7 +3283,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         TrappingMath = TrappingMathPresent = true;
       } else
         D.Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Val;
+            << A->getSpelling() << Val;
       break;
     }
 
@@ -3295,7 +3295,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         FPEvalMethod = Val;
       else
         D.Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Val;
+            << A->getSpelling() << Val;
       break;
     }
 
@@ -3782,7 +3782,7 @@ static void RenderTrivialAutoVarInitOptions(const Driver &D,
         TrivialAutoVarInit = Val;
       else
         D.Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Val;
+            << A->getSpelling() << Val;
       break;
     }
     }
@@ -4445,7 +4445,7 @@ DwarfFissionKind tools::getDebugFissionKind(const Driver &D,
     return DwarfFissionKind::Single;
 
   D.Diag(diag::err_drv_unsupported_option_argument)
-      << Arg->getOption().getName() << Arg->getValue();
+      << Arg->getSpelling() << Arg->getValue();
   return DwarfFissionKind::None;
 }
 
@@ -9670,7 +9670,7 @@ void ClangAs::AddX86TargetArgs(const ArgList &Args,
       CmdArgs.push_back(Args.MakeArgString("-x86-asm-syntax=" + Value));
     } else {
       getToolChain().getDriver().Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Value;
+          << A->getSpelling() << Value;
     }
   }
 }
