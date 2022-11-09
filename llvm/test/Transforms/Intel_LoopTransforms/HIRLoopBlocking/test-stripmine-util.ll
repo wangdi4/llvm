@@ -1,39 +1,43 @@
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking < %s 2>&1 | FileCheck %s
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s
+; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking -hir-loop-blocking-skip-anti-pattern-check < %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking" -print-after=hir-loop-blocking -print-before=hir-loop-blocking -aa-pipeline="basic-aa" -hir-loop-blocking-skip-anti-pattern-check 2>&1 < %s | FileCheck %s
 
 ; Verify that the transformations end successfully
 
-; CHECK:        BEGIN REGION { modified }
-; CHECK:              + DO i1 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 961>
-; CHECK:              |   + DO i2 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 31>
-; CHECK:              |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = (@"xlm_apply_y_rotation_$QQ")[0][i2 + 30];
-; CHECK:              |   |   %mul.295 = (@"xlm_apply_y_rotation_$DP")[0][i1 + (1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i2]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1823";
-; CHECK:              |   |   %add.278 = (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][i1]  +  %mul.295;
-; CHECK:              |   |   (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][i1] = %add.278;
-; CHECK:              |   + END LOOP
-; CHECK:              + END LOOP
-; CHECK:        END REGION
+; CHECK: Dump Before
 
-; CHECK:        BEGIN REGION { modified }
-; CHECK:              + DO i1 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784")/u64, 1   <DO_LOOP>  <MAX_TC_EST = 961>
-; CHECK:              |   %min = (-64 * i1 + %"xlm_apply_y_rotation_$L_fetch.1784" <= 63) ? -64 * i1 + %"xlm_apply_y_rotation_$L_fetch.1784" : 63;
-; CHECK:              |
-; CHECK:              |   + DO i2 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784")/u64, 1   <DO_LOOP>  <MAX_TC_EST = 31>
-; CHECK:              |   |   %min5 = (-64 * i2 + %"xlm_apply_y_rotation_$L_fetch.1784" <= 63) ? -64 * i2 + %"xlm_apply_y_rotation_$L_fetch.1784" : 63;
-; CHECK:              |   |
-; CHECK:              |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-; CHECK:              |   |   |   + DO i4 = 0, %min5, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-; CHECK:              |   |   |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = (@"xlm_apply_y_rotation_$QQ")[0][64 * i2 + i4 + 30];
-; CHECK:              |   |   |   |   %mul.295 = (@"xlm_apply_y_rotation_$DP")[0][64 * i1 + 64 * (1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i2 + i3 + (1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i4]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1823";
-; CHECK:              |   |   |   |   %add.278 = (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][64 * i1 + i3]  +  %mul.295;
-; CHECK:              |   |   |   |   (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][64 * i1 + i3] = %add.278;
-; CHECK:              |   |   |   + END LOOP
-; CHECK:              |   |   + END LOOP
-; CHECK:              |   + END LOOP
-; CHECK:              + END LOOP
-; CHECK:        END REGION
+; CHECK: BEGIN REGION { }
+; CHECK: + DO i1 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 31>
+; CHECK: |   + DO i2 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 961>
+; CHECK: |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = (@"xlm_apply_y_rotation_$QQ")[0][i1 + 30];
+; CHECK: |   |   %mul.295 = (@"xlm_apply_y_rotation_$DP")[0][(1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i1 + i2]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1823";
+; CHECK: |   |   %add.278 = (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][i2]  +  %mul.295;
+; CHECK: |   |   (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][i2] = %add.278;
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+; CHECK: END REGION
 
-; ModuleID = 'mod.ll'
+
+; CHECK:  Dump After
+
+; CHECK: BEGIN REGION { modified }
+; CHECK: + DO i1 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784" + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 61>
+; CHECK: |   %min6 = (-64 * i1 + %"xlm_apply_y_rotation_$L_fetch.1784" + -1 <= 63) ? -64 * i1 + %"xlm_apply_y_rotation_$L_fetch.1784" + -1 : 63;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784" + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 900>
+; CHECK: |   |   %min7 = (-64 * i2 + %"xlm_apply_y_rotation_$L_fetch.1784" + -1 <= 63) ? -64 * i2 + %"xlm_apply_y_rotation_$L_fetch.1784" + -1 : 63;
+; CHECK: |   |
+; CHECK: |   |   + DO i3 = 0, %min6, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   |   + DO i4 = 0, %min7, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1848" = (@"xlm_apply_y_rotation_$QQ")[0][64 * i1 + i3 + -1 * %"xlm_apply_y_rotation_$L_fetch.1784" + 30];
+; CHECK: |   |   |   |   %mul.296 = (@"xlm_apply_y_rotation_$DM")[0][64 * %"xlm_apply_y_rotation_$L_fetch.1784" * i1 + 64 * i2 + %"xlm_apply_y_rotation_$L_fetch.1784" * i3 + i4]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1848";
+; CHECK: |   |   |   |   %add.282 = (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][64 * i2 + i4 + -1 * %"xlm_apply_y_rotation_$L_fetch.1784"]  +  %mul.296;
+; CHECK: |   |   |   |   (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][64 * i2 + i4 + -1 * %"xlm_apply_y_rotation_$L_fetch.1784"] = %add.282;
+; CHECK: |   |   |   + END LOOP
+; CHECK: |   |   + END LOOP
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+; CHECK: END REGION
+
 source_filename = "/tmp/ifxRlySTi.i"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
