@@ -65,8 +65,12 @@ typedef _Float16 __v8hf __attribute__((__vector_size__(16), __aligned__(16)));
 typedef _Float16 __m128h __attribute__((__vector_size__(16), __aligned__(16)));
 typedef _Float16 __m128h_u __attribute__((__vector_size__(16), __aligned__(1)));
 
+/* INTEL_CUSTOMIZATION */
+#ifndef __SYCL_DEVICE_ONLY__
 typedef __bf16 __v8bf __attribute__((__vector_size__(16), __aligned__(16)));
 typedef __bf16 __m128bh __attribute__((__vector_size__(16), __aligned__(16)));
+#endif
+/* end INTEL_CUSTOMIZATION */
 #endif
 
 /* Define the default attributes for the functions in this file. */
