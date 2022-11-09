@@ -234,6 +234,11 @@ static cl::opt<int> LoopBlockingStrideThreshold(OPT_SWITCH "-stride-threshold",
 static cl::opt<bool> OldVersion(OPT_SWITCH "-old-ver", cl::init(true),
                                 cl::Hidden, cl::desc("Old " OPT_DESC " pass"));
 
+static cl::opt<bool>
+    SkipAntiPatternCheck(OPT_SWITCH "-skip-anti-pattern-check", cl::init(false),
+                         cl::Hidden,
+                         cl::desc("Skip loop blocking's anti pattern check"));
+
 static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
 
 void printDiag(DiagMsg Msg, StringRef FuncName, const HLLoop *Loop = nullptr,
@@ -1678,6 +1683,11 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 static bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
                                  unsigned InnermostLevel,
                                  unsigned OutermostLevel) {
+
+  if (SkipAntiPatternCheck) {
+    return false;
+  }
+
   if (InnermostLevel - OutermostLevel > 1)
     return false;
 
