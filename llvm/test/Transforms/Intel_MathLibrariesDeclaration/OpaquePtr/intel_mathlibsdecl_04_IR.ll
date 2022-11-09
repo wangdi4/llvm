@@ -1,4 +1,4 @@
-; RUN: opt -passes=intel-math-libraries-decl %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=intel-math-libraries-decl %s -S 2>&1 | FileCheck %s
 
 ; This test case checks that the declarations for
 ; void sincos(double, double*, double*) and double fmod(double, double) were
@@ -7,7 +7,7 @@
 
 ; CHECK: declare double @sin(double) #0
 ; CHECK: declare double @cos(double) #0
-; CHECK: declare void @sincos(double, double*, double*)
+; CHECK: declare void @sincos(double, ptr, ptr)
 ; CHECK: declare double @fmod(double, double)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
