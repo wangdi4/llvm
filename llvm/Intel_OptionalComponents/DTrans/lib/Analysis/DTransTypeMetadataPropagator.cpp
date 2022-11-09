@@ -34,9 +34,8 @@ void DTransTypeMetadataPropagator::initialize(Module &M) {
     return;
 
   Initialized = true;
-  bool HasDTransMD = TypeMetadataReader::mapStructsToMDNodes(
-      M, StructToMDDescriptor, /*IncludeOpaque=*/false);
-  if (HasDTransMD)
+  if (TypeMetadataReader::mapStructsToMDNodes(M, StructToMDDescriptor,
+                                              /*IncludeOpaque=*/false))
     DTransTypeMetadataAvailable = true;
 }
 
