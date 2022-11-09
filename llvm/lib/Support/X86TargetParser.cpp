@@ -229,6 +229,7 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256
 #define ENABLE_ISA_AVX256
@@ -411,6 +412,10 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // ENABLE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
+=======
+constexpr FeatureBitset FeaturesGraniteRapids =
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI;
+>>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
@@ -432,6 +437,11 @@ constexpr FeatureBitset FeaturesAlderlake =
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
     FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
+constexpr FeatureBitset FeaturesSierraforest =
+    FeaturesAlderlake | FeatureCMPCCXADD | FeatureAVXIFMA |
+    FeatureAVXNECONVERT | FeatureAVXVNNIINT8;
+constexpr FeatureBitset FeaturesGrandridge =
+    FeaturesSierraforest | FeatureRAOINT;
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
@@ -603,6 +613,12 @@ constexpr ProcInfo Processors[] = {
   { {"raptorlake"}, CK_Raptorlake, FEATURE_AVX2, FeaturesAlderlake },
   // Meteorlake microarchitecture based processors.
   { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesAlderlake },
+  // Sierraforest microarchitecture based processors.
+  { {"sierraforest"}, CK_Sierraforest, FEATURE_AVX2, FeaturesSierraforest },
+  // Grandridge microarchitecture based processors.
+  { {"grandridge"}, CK_Grandridge, FEATURE_AVX2, FeaturesGrandridge },
+  // Graniterapids microarchitecture based processors.
+  { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids },
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.
