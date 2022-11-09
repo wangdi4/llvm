@@ -16,7 +16,7 @@ attributes #0 = { "vector-variants"="_ZGVbN4l4_foo" }
 ; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <4 x ptr>, align 32
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR"(ptr [[ALLOCA_P]], i32 4) ]
+; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED.PTR_TO_PTR"(ptr [[ALLOCA_P]], i8 0, i32 1, i32 4) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_P:%.*]] = load ptr, ptr [[ALLOCA_P]], align 8

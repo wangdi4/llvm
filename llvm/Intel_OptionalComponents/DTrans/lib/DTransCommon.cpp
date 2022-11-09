@@ -325,6 +325,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (EnableMemManageTrans)
     addPass(MPM, memmanagetrans, dtransOP::MemManageTransOPPass());
   addPass(MPM, codealign, dtransOP::CodeAlignPass());
+  addPass(MPM, weakalign, dtrans::WeakAlignPass());
   addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
   addPass(MPM, reorderfields, dtransOP::ReorderFieldsOPPass());
   addPass(MPM, aostosoa, dtransOP::AOSToSOAOPPass());

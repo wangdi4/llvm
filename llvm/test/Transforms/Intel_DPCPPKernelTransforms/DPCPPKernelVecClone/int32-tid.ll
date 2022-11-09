@@ -15,7 +15,7 @@ entry:
 }
 
 ; CHECK: define void @_ZGVbN4u_foo
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(i32 addrspace(1)** %alloca.a) ]
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(i32 addrspace(1)** %alloca.a, i32 addrspace(1)* null, i32 1) ]
 
 declare i32 @_Z12get_local_idj(i32) local_unnamed_addr
 
