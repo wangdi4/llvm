@@ -93,6 +93,10 @@ private:
   // assigned a constant trip count for locality computation.
   std::array<uint64_t, MaxLoopNestLevel> TripCountByLevel;
 
+  /// Stores assumed constant value of single blob in loop upper for the purpose
+  /// of analysis.
+  SmallDenseMap<unsigned, int64_t, 8> AssumedUpperBlobConstVal;
+
   static void updateTotalStrideAndRefs(LocalityInfo &LI,
                                        const RefGroupTy &RefGroup,
                                        uint64_t Stride);
@@ -112,9 +116,9 @@ private:
 
   /// Computes total number of cache lines accessed by \p Loop using refs with
   /// no spatial or temporal locality.
-  static void computeNumNoLocalityCacheLines(LocalityInfo &LI,
-                                             const RefGroupTy &RefGroup,
-                                             unsigned Level, uint64_t TripCnt);
+  void computeNumNoLocalityCacheLines(LocalityInfo &LI,
+                                      const RefGroupTy &RefGroup,
+                                      unsigned Level, uint64_t TripCnt) const;
 
   /// Computes total number of cache lines accessed by \p Loop using refs with
   /// temporal invariant locality.
@@ -158,6 +162,14 @@ private:
   /// Initializes the trip count cache for future use inside the locality
   /// computation.
   void initTripCountByLevel(const SmallVectorImpl<const HLLoop *> &Loops);
+
+  /// Maps single blob in \p Loop's upper to a constant based on the trip count
+  /// assumed for the loop. It is then used by the rest of the analysis when it
+  /// encounteres the blob. This results in more consistent analysis results.
+  void mapUpperBlobToConstant(const HLLoop *Loop, uint64_t AssumedTripCount);
+
+  /// Returns the constant value assumed for \b BlobIndex by locality analysis.
+  int64_t getAssumedBlobValue(unsigned BlobIndex, BlobUtils &BU) const;
 
   /// Prints out the Locality Information.
   void printLocalityInfo(raw_ostream &OS, const HLLoop *L) const;
