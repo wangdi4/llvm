@@ -1398,7 +1398,6 @@ if(LLVM_USE_RELATIVE_PATHS_IN_FILES)
   add_flag_if_supported("-no-canonical-prefixes" NO_CANONICAL_PREFIXES)
 endif()
 
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   option(INTEL_SDL_BUILD
     "Use SDL compilation flags for the compiler/project build" OFF)
@@ -1645,7 +1644,5 @@ if(INTEL_CUSTOMIZATION)
     message(STATUS "INTEL: setting SDL options - end.")
   endif()
 endif(INTEL_CUSTOMIZATION)
-=======
 set(LLVM_THIRD_PARTY_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/../third-party CACHE STRING
     "Directory containing third party software used by LLVM (e.g. googletest)")
->>>>>>> 59052468c3e38cab15582cefbb5133fd4c2ffce5
