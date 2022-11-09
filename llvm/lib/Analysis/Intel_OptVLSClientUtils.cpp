@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -63,10 +63,10 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
 
   // Consecutive load
   // (Extend similarly to stores once OVLSStore is defined).
-  if (isa<OVLSLoad>(I)) {
+  if (auto *Load = dyn_cast<OVLSLoad>(I)) {
     // Get the Address Space
     //
-    const OVLSMemref *Mrf = (cast<OVLSLoad>(I))->getSrc().getBase();
+    const OVLSMemref *Mrf = Load->getSrc()->getBase();
     assert(Mrf && "Expecting a valid Mrf");
     unsigned AS = getMrfAddressSpace(*Mrf);
 
@@ -86,7 +86,7 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     Type *VecTy = getVectorDataType(ElementTy, VLSType);
     // VecTy->dump();
     // If mask is all ones, use unmasked load.
-    uint64_t ElementMask = (cast<OVLSLoad>(I))->getMask();
+    uint64_t ElementMask = Load->getMask();
     bool NeedMask = false;
 #if !defined(NDEBUG)
     uint32_t NumElemsInALoad = 0;
@@ -155,8 +155,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
   // Only used when a shuffle instruction needs to be generated for an
   // OVLSMemref.
   DenseMap<const OVLSMemref *, Value *> MemrefShuffleMap;
-  for (auto &Inst : InstVec) {
-    OVLSInstruction *OInst = Inst.get();
+  for (auto &OInst : InstVec) {
     if (const OVLSLoad *const OLI = dyn_cast<const OVLSLoad>(OInst)) {
       // Bitcast Addr to OLI's type
       OVLSType Ty = OInst->getType();
@@ -166,7 +165,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
 
       // Create GEP instruction
-      int64_t Offset = OLI->getPointerOperand().getOffset();
+      int64_t Offset = OLI->getPointerOperand()->getOffset();
       unsigned GEPIndex = Offset == 0 ? 0 : Offset / TySize;
       Value *NewBasePtr = Builder.CreateInBoundsGEP(VecTy, VecBasePtr,
                                                     Builder.getInt32(GEPIndex));
@@ -259,8 +258,9 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
 
       // Create GEP instruction
-      OVLSAddress OffsetAddr = OStI->getDst(); // Dst->destination operand.
-      int64_t Offset = OffsetAddr.getOffset();
+      const OVLSAddress *OffsetAddr =
+          OStI->getDst(); // Dst->destination operand.
+      int64_t Offset = OffsetAddr->getOffset();
       assert((Offset % TySize == 0) && "Unexpected Offset for OVLSStore.");
       unsigned GEPIndex = Offset == 0 ? 0 : Offset / TySize;
       Value *NewBasePtr = Builder.CreateInBoundsGEP(VecTy, VecBasePtr,

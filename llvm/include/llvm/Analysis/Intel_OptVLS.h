@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -50,8 +50,10 @@
 #define LLVM_ANALYSIS_INTEL_OPTVLS_H
 
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Allocator.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
@@ -86,13 +88,136 @@ typedef class raw_ostream OVLSostream;
 #define MAX_VECTOR_LENGTH 64
 #define BYTE 8
 
+class OVLSContext;
+
 // OptVLS Abstract Types
 typedef OVLSVector<OVLSMemref *> OVLSMemrefVector;
-typedef OVLSVector<std::unique_ptr<OVLSGroup>> OVLSGroupVector;
-typedef OVLSVector<std::unique_ptr<OVLSInstruction>> OVLSInstructionVector;
+typedef OVLSVector<OVLSGroup *> OVLSGroupVector;
+typedef OVLSVector<OVLSInstruction *> OVLSInstructionVector;
 
-typedef OVLSMap<OVLSMemref *, OVLSGroup *> OVLSMemrefToGroupMap;
-typedef OVLSMap<OVLSMemref *, OVLSInstruction *> OVLSMemrefToInstMap;
+typedef OVLSMap<const OVLSMemref *, OVLSGroup *> OVLSMemrefToGroupMap;
+typedef OVLSMap<const OVLSMemref *, OVLSInstruction *> OVLSMemrefToInstMap;
+
+/// Base class for all dynamically-allocated OptVLS data structures.
+/// This is employed, firstly to force all base classes to have a virtual
+/// destructor, but also to provide a unified implementation for obtaining the
+/// OptVLS context from an OptVLS data structure.
+///
+/// Child classes (and children thereof) that wish to be dynamically-allocated
+/// must befriend `OVLSContext` and employ the static `create`-method idiom,
+/// e.g:
+///
+///    class OVLSChild : public OVLSStorage {
+///       protected:
+///         friend class llvm::OVLSContext;
+///         OVLSChild(OVLSContext &C, /* Args ... */) : OVLSStorage(C) { ... }
+///
+///       public:
+///        static OVLSChild *create(OVLSContext &C, /* Args ... */) {
+///           return C.create<OVLSChild>(/* Args ... */);
+///        }
+///    };
+///
+class OVLSStorage {
+  friend class OVLSContext;
+protected:
+  OVLSStorage(OVLSContext &C) : Context(C) {}
+
+public:
+  // Must be virtual so that derived classes can be deleted from a base pointer.
+  virtual ~OVLSStorage() = default;
+
+  /// Obtain a reference to the underlying OptVLS context.
+  OVLSContext &getContext() const { return Context; }
+
+  /// Helper function that returns true if all handles given to this function
+  /// have the same context.
+  template <typename... Ts> static bool hasSameContext(const Ts *...Handles) {
+    return llvm::all_equal({&Handles->Context...});
+  }
+
+protected:
+  /// Protected `new` to avoid clients calling `new` on derived classes. Should
+  /// only be called from `OVLSContext`.
+  void *operator new(size_t Bytes, llvm::BumpPtrAllocator &Alloc,
+                     Align Alignment) {
+    return Alloc.Allocate(Bytes, Alignment);
+  }
+
+  /// Protected `delete` so clients don't accidentally call `delete`.
+  /// OptVLS data will be cleaned up when the owning context is destroyed.
+  void operator delete(void *P) noexcept {}
+
+private:
+  OVLSContext &Context;
+};
+
+/// A context that serves as backing storage for all OptVLS data structures.
+/// All dynamic allocation of OptVLS data should be done through this interface,
+/// and clients must pass a context to the server when making requests that may
+/// allocate.
+///
+/// This is made necessary in part by the graph-like nature of some OptVLS data
+/// structures (e.g. instructions and their operands), but also by the
+/// server-client architecture of OptVLS itself. By using a context, we avoid
+/// having to pass ownership of server-allocated data to the client, or vice
+/// versa. Instead, we provide a single interface for server and client to
+/// allocate data, and tie the ownership of all values to that object.
+class OVLSContext {
+public:
+  /// Allocates and constructs an OptVLS struct, passing this context and
+  /// forwarding any additional arguments to its constructor.
+  ///
+  /// NOTE: Data constructors for all OptVLS structures should take a reference
+  /// to the context as the first parameter.
+  template <typename T, typename... ArgTys> T *create(ArgTys &&...Args) {
+    static_assert(
+        std::is_base_of<OVLSStorage, T>::value,
+        "class must derive OVLSStorage to allocate using OVLSContext");
+    return newHandle<T>(*this, std::forward<ArgTys>(Args)...);
+  }
+
+  /// Clears the context, calling destructors on any allocated handles and
+  /// freeing the underlying storage.
+  void clear() {
+    // BumpPtrAllocator::Reset() will free the underlying storage, but won't
+    // call destructors explicitly. Do so now.
+    for (OVLSStorage *Handle : Handles)
+      Handle->~OVLSStorage();
+
+    Alloc.Reset();
+    Handles.clear();
+  }
+
+  ~OVLSContext() { clear(); }
+
+private:
+  /// Allocate and construct a new object of type \tparam T, forwarding the
+  /// provided \p Args to its constructor, register it for destruction, and
+  /// return a pointer to it.
+  template <typename T, typename... ArgTys> T *newHandle(ArgTys &&...Args) {
+    const auto Handle =
+        new (Alloc, Align::Of<T>()) T(std::forward<ArgTys>(Args)...);
+
+    // If T has a non-trivial destructor, we'll need to call it when we clean up
+    // this context. Record this handle so we can do so.
+    //
+    // NOTE: we have to pessimistically record all handles because there is no
+    // static way to determine if T itself has a trivial destructor: because
+    // OVLSStorage has a virtual destructor, all child classes (i.e. T) have a
+    // non-trivial destructor as well, even if it would otherwise be trivial.
+    Handles.push_back(static_cast<OVLSStorage *>(Handle));
+
+    return Handle;
+  }
+
+  /// The underlying bump allocator.
+  llvm::BumpPtrAllocator Alloc;
+
+  /// The list of handles with non-trivial destructors (kept so we can call them
+  /// upon cleanup).
+  SmallVector<OVLSStorage *, 64> Handles;
+};
 
 // AccessKind: {Strided|Indexed}{Load|Store}
 class OVLSAccessKind {
@@ -182,27 +307,30 @@ static inline OVLSostream &operator<<(OVLSostream &OS, OVLSType T) {
 }
 #endif
 
-class OVLSMemref {
+class OVLSMemref : public OVLSStorage {
 public:
   /// Discriminator for LLVM-style RTTI (dyn_cast<> et al.)
   /// OptVLS works as a server-client system. Its multiple clients are supposed
   /// to communicate with the server through its own memref-kind. Below is the
   /// list of clients that are currently supported.
   enum OVLSMemrefKind {
-    VLSK_ClientMemref, // Represents a test-client
-    VLSK_X86InterleavedClientMemref, // Represents X86InterleavedClient with LLVM-IR
-    VLSK_VPlanVLSClientMemref, // Represents a VPlan-client
-    VLSK_VPlanHIRVLSClientMemref, // Represents a VPlanHIR-client
+    VLSK_ClientMemref,               // Represents a test-client
+    VLSK_X86InterleavedClientMemref, // Represents X86InterleavedClient with
+                                     // LLVM-IR
+    VLSK_VPlanVLSClientMemref,       // Represents a VPlan-client
+    VLSK_VPlanHIRVLSClientMemref,    // Represents a VPlanHIR-client
   };
 
 private:
   const OVLSMemrefKind Kind;
 
+protected:
+  friend class OVLSContext;
+  OVLSMemref(OVLSContext &Context, OVLSMemrefKind K, OVLSType Type,
+             OVLSAccessKind AccessKind);
+
 public:
   OVLSMemrefKind getKind() const { return Kind; }
-
-  OVLSMemref(OVLSMemrefKind K, OVLSType Type, OVLSAccessKind AccessKind);
-  virtual ~OVLSMemref() {}
 
   OVLSAccessKind getAccessKind() const { return AccessKind; }
   OVLSType getType() const { return DType; }
@@ -247,7 +375,8 @@ public:
   ///      = a[3i+1] {stride: j(12)-bytes} accessing every jth byte
   ///      = a[3i+2] {stride: j(12)-bytes} accessing every jth byte
   ///
-  virtual Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Memref) = 0;
+  virtual Optional<int64_t>
+  getConstDistanceFrom(const OVLSMemref &Memref) const = 0;
 
   /// \brief Returns true if this can move to the location of \p Memref. This
   /// means it does not violate any program/control flow semantics nor any
@@ -325,23 +454,31 @@ static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSMemref &M) {
 /// the group are sorted by their offsets. The information about lexical
 /// ordering of the memrefs is not preserved. The InsertPoint points to the
 /// Memref where the Group-wide memory access must be emitted.
-class OVLSGroup {
-public:
-  OVLSGroup(OVLSMemref *InsertPoint, int VLen, OVLSAccessKind AKind)
-      : InsertPoint(InsertPoint), VectorLength(VLen), AccessKind(AKind) {
+class OVLSGroup final : public OVLSStorage {
+protected:
+  friend class OVLSContext;
+  OVLSGroup(OVLSContext &C, const OVLSMemref *InsertPoint, int VLen,
+            OVLSAccessKind AKind)
+      : OVLSStorage(C), InsertPoint(InsertPoint), VectorLength(VLen),
+        AccessKind(AKind) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     static int GroupCounter = 0;
     DebugId = ++GroupCounter;
 #endif
   }
 
-  typedef OVLSMemrefVector::iterator iterator;
-  inline iterator begin() { return MemrefVec.begin(); }
-  inline iterator end() { return MemrefVec.end(); }
+public:
+  static OVLSGroup *create(const OVLSMemref *InsertPoint, int VLen,
+                           OVLSAccessKind AKind) {
+    return InsertPoint->getContext().create<OVLSGroup>(InsertPoint, VLen,
+                                                       AKind);
+  }
 
-  typedef OVLSMemrefVector::const_iterator const_iterator;
-  inline const_iterator begin() const { return MemrefVec.begin(); }
-  inline const_iterator end() const { return MemrefVec.end(); }
+  inline auto begin() { return MemrefVec.begin(); }
+  inline auto end() { return MemrefVec.end(); }
+
+  inline auto begin() const { return MemrefVec.begin(); }
+  inline auto end() const { return MemrefVec.end(); }
 
   // Check if inserting \p Mrf into the group would preserve program semantics.
   bool isSafeToInsert(OVLSMemref &Mrf) const;
@@ -373,16 +510,16 @@ public:
   // Returns the total number of memrefs that this group contains.
   uint32_t size() const { return MemrefVec.size(); }
 
-  OVLSMemref *getInsertPoint() const { return InsertPoint; }
+  const OVLSMemref *getInsertPoint() const { return InsertPoint; }
 
   // Return OVLSMemref with the lowest offset.
-  OVLSMemref *getFirstMemref() const {
+  const OVLSMemref *getFirstMemref() const {
     if (!MemrefVec.empty())
       return MemrefVec[0];
     return nullptr;
   }
 
-  OVLSMemref *getMemref(uint32_t Id) const {
+  const OVLSMemref *getMemref(uint32_t Id) const {
     assert(Id < MemrefVec.size() && "Invalid MemrefId!!!\n");
     return MemrefVec[Id];
   }
@@ -396,7 +533,7 @@ public:
     // A group only comprises the memrefs that have the same matching strides.
     // Therefore, checking whether the first memref in the group has a
     // constant stride is sufficient.
-    OVLSMemref *Mrf = getFirstMemref();
+    const OVLSMemref *Mrf = getFirstMemref();
     return Mrf ? Mrf->getConstStride() : None;
   }
 
@@ -431,7 +568,7 @@ private:
   /// Valid location for the group. The whole group can be replaced with a
   /// different code sequence if the new sequence is put at the location of this
   /// memory reference.
-  OVLSMemref *InsertPoint;
+  const OVLSMemref *InsertPoint;
 
   /// \brief Vector length in bytes, default/maximum supported length is 64.
   /// VectorLength can be the maximum length of the underlying vector register
@@ -449,19 +586,17 @@ private:
 
 /// OVLSOperand is used to define an operand object for OVLSInstruction.
 /// TODO: Support Operand Type.
-class OVLSOperand {
+class OVLSOperand : public OVLSStorage {
 
 public:
   /// An operand can be an address or a temp.
   enum OperandKind { OK_Undef, OK_Address, OK_Instruction, OK_Constant };
 
-  explicit OVLSOperand(OperandKind K, OVLSType T) : Kind(K), Type(T) {}
+  explicit OVLSOperand(OVLSContext &C, OperandKind K, OVLSType T)
+      : OVLSStorage(C), Kind(K), Type(T) {}
 
-  OVLSOperand() {}
-
-  explicit OVLSOperand(OVLSType T) : Kind(OK_Undef), Type(T) {}
-
-  virtual ~OVLSOperand() {}
+  explicit OVLSOperand(OVLSContext &C, OVLSType T)
+      : OVLSOperand(C, OK_Undef, T) {}
 
   OperandKind getKind() const { return Kind; }
   bool IsKindUndefined() const { return Kind == OK_Undef; }
@@ -486,15 +621,22 @@ protected:
 
 /// OVLSConstant provides a raw bitstream to represent a constant of
 /// any type.
-class OVLSConstant : public OVLSOperand {
+class OVLSConstant final : public OVLSOperand {
 private:
   static const int32_t BitWidth = 1024;
   uint8_t ConstValue[BitWidth / 8];
 
-public:
-  explicit OVLSConstant(OVLSType T,const int8_t *V) : OVLSOperand(OK_Constant, T) {
+protected:
+  friend class OVLSContext;
+  explicit OVLSConstant(OVLSContext &C, OVLSType T, const int8_t *V)
+      : OVLSOperand(C, OK_Constant, T) {
     assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
     memcpy(ConstValue, V, T.getSize() / BYTE);
+  }
+
+public:
+  static OVLSConstant *create(OVLSContext &C, OVLSType T, const int8_t *V) {
+    return C.create<OVLSConstant>(T, V);
   }
 
   static bool classof(const OVLSOperand *Operand) {
@@ -531,16 +673,23 @@ public:
 
     // An OVLSConstant is a raw bitstream that can be of any size. This function
     // should be called for the instance of a bitstream of 32bit elements.
-    assert((getType().getElementSize() == 32 && Index < getType().getNumElements())
-            && " Unexpected element!!!");
+    assert((getType().getElementSize() == 32 &&
+            Index < getType().getNumElements()) &&
+           " Unexpected element!!!");
     memcpy(&n, &ConstValue[Index * 4], 4);
     return n;
   }
 };
 
-class OVLSUndef : public OVLSOperand {
+class OVLSUndef final : public OVLSOperand {
+protected:
+  friend class OVLSContext;
+  OVLSUndef(OVLSContext &C, OVLSType T) : OVLSOperand(C, OK_Undef, T) {}
+
 public:
-  OVLSUndef(OVLSType T) : OVLSOperand(OK_Undef, T) {}
+  static OVLSUndef *create(OVLSContext &Context, OVLSType T) {
+    return Context.create<OVLSUndef>(T);
+  }
 
   static bool classof(const OVLSOperand *Operand) {
     return Operand->getKind() == OK_Undef;
@@ -549,31 +698,25 @@ public:
 
 /// OVLSAddress{Base, Offset} represents an address that is Offset
 /// bytes from the Base(which is an address of an OVLSMemref).
-class OVLSAddress : public OVLSOperand {
-public:
-  explicit OVLSAddress(const OVLSMemref *B, int64_t O)
-      : OVLSOperand(OK_Address, B->getType()), Base(B), Offset(O) {}
+class OVLSAddress final : public OVLSOperand {
+protected:
+  friend class OVLSContext;
+  explicit OVLSAddress(OVLSContext &C, const OVLSMemref *B, int64_t O)
+      : OVLSOperand(C, OK_Address, B->getType()), Base(B), Offset(O) {}
 
-  explicit OVLSAddress() {}
+public:
+  static OVLSAddress *create(const OVLSMemref *B, int64_t O) {
+    return B->getContext().create<OVLSAddress>(B, O);
+  }
 
   static bool classof(const OVLSOperand *Operand) {
     return Operand->getKind() == OK_Address;
   }
 
-  void setBase(OVLSMemref *B) { Base = B; }
+  void setBase(const OVLSMemref *B) { Base = B; }
   void setOffset(int64_t O) { Offset = O; }
   const OVLSMemref *getBase() const { return Base; }
   int64_t getOffset() const { return Offset; }
-
-  OVLSAddress &operator=(const OVLSOperand &Operand) {
-    assert(isa<OVLSAddress>(&Operand) && "Expected An Address Operand!!!");
-    const OVLSAddress *AddrOperand = cast<const OVLSAddress>(&Operand);
-    *static_cast<OVLSOperand *>(this) = Operand;
-    Base = AddrOperand->Base;
-    Offset = AddrOperand->Offset;
-
-    return *this;
-  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const override {
@@ -604,21 +747,22 @@ class OVLSInstruction : public OVLSOperand {
 public:
   enum OperationCode { OC_Load, OC_Store, OC_Shuffle };
 
-  explicit OVLSInstruction(OperationCode OC, OVLSType T)
-      : OVLSOperand(OK_Instruction, T), OPCode(OC) {
+protected:
+  explicit OVLSInstruction(OVLSContext &C, OperationCode OC, OVLSType T)
+      : OVLSOperand(C, OK_Instruction, T), OPCode(OC) {
     static uint64_t InstructionId = 1;
     Id = InstructionId++;
   }
 
-  virtual ~OVLSInstruction() {}
-
+public:
   static bool classof(const OVLSOperand *Operand) {
     return Operand->getKind() == OK_Instruction;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printAsOperand(OVLSostream &OS) const override
-  { OS << Type << " %" << Id; }
+  void printAsOperand(OVLSostream &OS) const override {
+    OS << Type << " %" << Id;
+  }
   virtual void dump() const = 0;
 #endif
 
@@ -636,17 +780,20 @@ private:
   uint64_t Id;
 };
 
-class OVLSLoad : public OVLSInstruction {
+class OVLSLoad final : public OVLSInstruction {
+protected:
+  friend class OVLSContext;
+  /// \brief Load <ESize x NElems> bits from S using \p EMask (element mask).
+  explicit OVLSLoad(OVLSContext &C, OVLSType T, OVLSAddress *S, uint64_t EMask)
+      : OVLSInstruction(C, OC_Load, T), Src(S), ElemMask(EMask) {}
 
 public:
-  /// \brief Load <ESize x NElems> bits from S using \p EMask (element mask).
-  explicit OVLSLoad(OVLSType T, const OVLSOperand &S, uint64_t EMask)
-      : OVLSInstruction(OC_Load, T), ElemMask(EMask) {
-    Src = S;
+  static OVLSLoad *create(OVLSType T, OVLSAddress *Src, uint64_t EMask) {
+    return Src->getContext().create<OVLSLoad>(T, Src, EMask);
   }
 
   /// \brief Return the Address (Src) member of the Load.
-  OVLSAddress getSrc() const { return Src; }
+  const OVLSAddress *getSrc() const { return Src; }
 
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Load;
@@ -664,15 +811,15 @@ public:
   uint64_t getMask() const { return ElemMask; }
   void setMask(uint64_t Mask) override { ElemMask = Mask; }
   void setType(OVLSType T) override {
-    Src.setType(T);
+    Src->setType(T);
     OVLSOperand::setType(T);
   }
 
   /// \brief Return the Address(Src) member of the Load.
-  OVLSAddress getPointerOperand() const { return Src; }
+  const OVLSAddress *getPointerOperand() const { return Src; }
 
 private:
-  OVLSAddress Src;
+  OVLSAddress *Src;
 
   /// \brief Reads a vector from memory using this mask. This mask holds a bit
   /// for each element.  When a bit is set the corresponding element in memory
@@ -680,18 +827,26 @@ private:
   uint64_t ElemMask;
 };
 
-class OVLSStore : public OVLSInstruction {
+class OVLSStore final : public OVLSInstruction {
+protected:
+  friend class OVLSContext;
+  /// \brief Store V in D using \p EMask (element mask).
+  explicit OVLSStore(OVLSContext &C, const OVLSOperand *V, OVLSAddress *D,
+                     uint64_t EMask)
+      : OVLSInstruction(C, OC_Store, V->getType()), Value(V), Dst(D),
+        ElemMask(EMask) {
+    assert(OVLSStorage::hasSameContext(V, Dst) &&
+           "Value and destination do not have the same context!");
+  }
 
 public:
-  /// \brief Store V in D using \p EMask (element mask).
-  explicit OVLSStore(const OVLSOperand *const V, const OVLSOperand &D,
-                     uint64_t EMask)
-      : OVLSInstruction(OC_Store, V->getType()), Value(V), ElemMask(EMask) {
-    Dst = D;
+  static OVLSStore *create(const OVLSOperand *V, OVLSAddress *Dst,
+                           uint64_t EMask) {
+    return V->getContext().create<OVLSStore>(V, Dst, EMask);
   }
 
   /// \brief Return the Address (Dst) member of the store.
-  OVLSAddress getDst() const { return Dst; }
+  const OVLSAddress *getDst() const { return Dst; }
 
   /// \brief Return the OVLSOperand (Value) member of the store.
   const OVLSOperand *getSrc() const { return Value; }
@@ -711,15 +866,15 @@ public:
 
   uint64_t getMask() const { return ElemMask; }
   void setMask(uint64_t Mask) override { ElemMask = Mask; }
-  void updateValue(const OVLSOperand *const V) { Value = V; }
+  void updateValue(const OVLSOperand *V) { Value = V; }
   void setType(OVLSType T) override {
-    Dst.setType(T);
+    Dst->setType(T);
     OVLSOperand::setType(T);
   }
 
 private:
   const OVLSOperand *Value;
-  OVLSAddress Dst;
+  OVLSAddress *Dst;
 
   /// \brief Writes a vector to memory using this mask. This mask holds a bit
   /// for each element. When a bit is set the corresponding element in memory
@@ -751,31 +906,40 @@ private:
 /// the first two elements are the 1st two elements of the 1st input vector
 /// and the second two elements of the result vector are the first two elements
 /// of the 2nd input vector.
-class OVLSShuffle : public OVLSInstruction {
+class OVLSShuffle final : public OVLSInstruction {
+protected:
+  friend class OVLSContext;
+  explicit OVLSShuffle(OVLSContext &C, const OVLSOperand *O1,
+                       const OVLSOperand *O2, OVLSType MaskT,
+                       const int8_t *MaskV)
+      : OVLSInstruction(
+            C, OC_Shuffle,
+            OVLSType(O1->getType().getElementSize(), MaskT.getNumElements())),
+        Op1(O1), Op2(O2), Mask(OVLSConstant::create(C, MaskT, MaskV)) {
+    assert(OVLSShuffle::hasValidOperands(Op1, Op2, *Mask) &&
+           "Invalid shuffle vector instruction operand!");
+    assert(OVLSStorage::hasSameContext(Op1, Op2, Mask) &&
+           "operands and mask do not all have the same context!");
+  }
 
 public:
   static constexpr uint32_t UndefMask = std::numeric_limits<uint32_t>::max();
-  explicit OVLSShuffle(OVLSOperand *O1, OVLSOperand *O2, OVLSType MaskT,
-                       const int8_t *MaskV)
-      : OVLSInstruction(OC_Shuffle, OVLSType(O1->getType().getElementSize(),
-                                             MaskT.getNumElements())),
-                                             Mask(MaskT, MaskV) {
-    assert(hasValidOperands(O1, O2) &&
-           "Invalid shuffle vector instruction operand!");
-    Op1 = O1;
-    Op2 = O2;
+  static OVLSShuffle *create(const OVLSOperand *O1, const OVLSOperand *O2,
+                             OVLSType MaskT, const int8_t *MaskV) {
+    return O1->getContext().create<OVLSShuffle>(O1, O2, MaskT, MaskV);
   }
 
   /// isValidOperands - Return true if a shufflevector instruction can be
-  /// formed with the specified operands.
-  bool hasValidOperands(OVLSOperand *O1, OVLSOperand *O2) const;
+  /// formed with the specified operands and mask.
+  static bool hasValidOperands(const OVLSOperand *O1, const OVLSOperand *O2,
+                               const OVLSConstant &MaskT);
 
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Shuffle;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(OVLSostream &OS, unsigned NumSpaces) const override ;
+  void print(OVLSostream &OS, unsigned NumSpaces) const override;
 
   void dump() const override {
     print(OVLSdbgs(), 0);
@@ -789,13 +953,13 @@ public:
     case 1:
       return Op2;
     case 2:
-      return &Mask;
+      return Mask;
     }
     return nullptr;
   }
   void getShuffleMask(SmallVectorImpl<int> &Result) const {
-    for (unsigned i = 0; i < Mask.getType().getNumElements(); i++)
-      Result.push_back(Mask.getElement(i));
+    for (unsigned i = 0; i < Mask->getType().getNumElements(); i++)
+      Result.push_back(Mask->getElement(i));
   }
 
 private:
@@ -805,7 +969,7 @@ private:
   /// \p Mask defines the shuffle mask, specifies for each element of the result
   /// vector, which element of the two source vectors the result element gets.
   /// Having -1 as a shuffle selector means "don't care".
-  const OVLSConstant Mask;
+  const OVLSConstant *Mask;
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -986,7 +1150,7 @@ public:
   virtual uint64_t getShuffleCost(SmallVectorImpl<uint32_t> &Mask,
                                   Type *Tp) const;
 
-  LLVMContext &getContext() const { return C; }
+  LLVMContext &getLLVMContext() const { return C; }
 };
 
 // OptVLS public Interface class that operates on OptVLS Abstract types.
@@ -1010,8 +1174,8 @@ public:
   /// vector length. At the moment, the grouping algorithm is far from perfect.
   /// For best results it is recommended to keep Memrefs in reverse postorder.
   /// This recommendation is to be removed after the algorithm is improved.
-  static void getGroups(const OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
-                        OVLSGroupVector &Grps, uint32_t VectorLength,
+  static void getGroups(const OVLSMemrefVector &Memrefs, OVLSGroupVector &Grps,
+                        uint32_t VectorLength,
                         OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
   /// \brief getGroupCost() examines if it is beneficial to perform
