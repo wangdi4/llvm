@@ -119,6 +119,26 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
   return std::string(CPU);
 }
 
+std::string x86::getCPUForIntelOnly(const Driver &D, StringRef Arch,
+                                    const llvm::Triple &Triple,
+                                    const llvm::opt::Arg *A) {
+  // Prevent any non-Intel targets from being allowed.
+  SmallVector<StringRef, 18> NonIntelTargets = {
+      "k8",        "athlon64",      "athlon-fx",    "opteron",
+      "k8-sse3",   "athlon64-sse3", "opteron-sse3", "amdfam10",
+      "barcelona", "btver1",        "btver2",       "bdver1",
+      "bdver2",    "bdver3",        "bdver4",       "znver1",
+      "znver2",    "znver3"};
+  if (std::find(NonIntelTargets.begin(), NonIntelTargets.end(), Arch) !=
+      NonIntelTargets.end()) {
+    D.Diag(clang::diag::err_drv_unsupported_option_argument)
+        << A->getOption().getName() << Arch;
+    return "";
+  }
+  return getCPUForIntel(Arch, Triple,
+                        A->getOption().matches(options::OPT__SLASH_arch));
+}
+
 bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
   return !getCPUForIntel(CPU, Triple).empty();
 }
@@ -147,7 +167,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     if (A->getOption().matches(options::OPT_x)) {
       // -x<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
-      std::string CPU = getCPUForIntel(Arch, Triple);
+      std::string CPU = getCPUForIntelOnly(D, Arch, Triple, A);
       if (!CPU.empty())
         return CPU;
     }
@@ -175,7 +195,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     if (A->getOption().matches(options::OPT__SLASH_Qx)) {
       // /Qx<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
-      std::string CPU = getCPUForIntel(Arch, Triple);
+      std::string CPU = getCPUForIntelOnly(D, Arch, Triple, A);
       if (!CPU.empty()) {
         A->claim();
         return CPU;
@@ -207,7 +227,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     if (CPU.empty()) {
 #if INTEL_CUSTOMIZATION
       // Handle 'other' /arch variations that are allowed for icx/Intel
-      std::string IntelCPU = getCPUForIntel(A->getValue(), Triple, true);
+      std::string IntelCPU = getCPUForIntelOnly(D, A->getValue(), Triple, A);
       if (!IntelCPU.empty()) {
         A->claim();
         return IntelCPU;
