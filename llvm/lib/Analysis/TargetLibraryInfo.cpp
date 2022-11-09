@@ -5817,6 +5817,19 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
 bool TargetLibraryInfoImpl::isSVMLEnabled() const {
   return CurVectorLibrary == SVML;
 }
+
+bool TargetLibraryInfoImpl::isOCLVectorFunction(StringRef FuncName) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return false;
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    return I->IsOCLFn;
+  }
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
