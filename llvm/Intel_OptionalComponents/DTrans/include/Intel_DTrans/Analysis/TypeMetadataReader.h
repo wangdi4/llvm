@@ -80,10 +80,11 @@ public:
   // the map. Otherwise, opaque structure types will be placed in the map if
   // there is not a non-opaque structure available for it.
   //
-  // Returns 'false' if '!intel.dtrans.types' does not exist.
-  static bool mapStructsToMDNodes(Module &M,
-                                  MapVector<StructType *, MDNode *> &Mapping,
-                                  bool IncludeOpaque);
+  // Returns 'null' if '!intel.dtrans.types' does not exist, otherwise return
+  // the metadata node.
+  static NamedMDNode *
+  mapStructsToMDNodes(Module &M, MapVector<StructType *, MDNode *> &Mapping,
+                      bool IncludeOpaque);
 
   // Get the DTrans metadata node for a specific value. This can be used by
   // the transformations to be able to update the metadata when changing types.

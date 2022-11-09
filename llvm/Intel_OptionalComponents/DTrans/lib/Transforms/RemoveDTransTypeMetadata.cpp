@@ -61,9 +61,9 @@ class RemoveDeadDTransTypeMetadata {
 public:
 public:
   bool run(Module &M) {
-    bool HasDTransMD = TypeMetadataReader::mapStructsToMDNodes(
+    NamedMDNode *DTMDTypes = TypeMetadataReader::mapStructsToMDNodes(
         M, MDStructDescriptorMap, /*IncludeOpaque=*/true);
-    if (!HasDTransMD)
+    if (!DTMDTypes)
       return false;
 
     DTransTypeManager TM(M.getContext());
@@ -130,7 +130,6 @@ public:
     DEBUG_WITH_TYPE(TRACE_DEAD, printResults());
 
     // Rewrite the !intel.dtrans.types metadata node.
-    NamedMDNode *DTMDTypes = TypeMetadataReader::getDTransTypesMetadata(M);
     DTMDTypes->clearOperands();
     for (auto &KV : MDStructDescriptorMap)
       if (IRReferencedStructs.contains(KV.first))

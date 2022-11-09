@@ -43,11 +43,11 @@ NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   return DTMDTypes;
 }
 
-bool TypeMetadataReader::mapStructsToMDNodes(
+NamedMDNode *TypeMetadataReader::mapStructsToMDNodes(
     Module &M, MapVector<StructType *, MDNode *> &Mapping, bool IncludeOpaque) {
   NamedMDNode *DTransMD = TypeMetadataReader::getDTransTypesMetadata(M);
   if (!DTransMD)
-    return false;
+    return nullptr;
 
   MapVector<StructType *, MDNode *> OpaqueTyMap;
   for (auto *MD : DTransMD->operands()) {
@@ -94,7 +94,7 @@ bool TypeMetadataReader::mapStructsToMDNodes(
       Mapping.insert({KV.first, KV.second});
   }
 
-  return true;
+  return DTransMD;
 }
 
 MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
