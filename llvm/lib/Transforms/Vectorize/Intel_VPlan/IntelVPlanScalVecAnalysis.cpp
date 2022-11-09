@@ -485,6 +485,20 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateArrayNonPODCtor:
+  case VPInstruction::PrivateArrayNonPODDtor: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::PrivateLastValueArrayNonPOD: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::LastScalar);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::AllocatePrivate: {
     // We don't set any specific bits for the allocate-private instruction, it
     // will decided only based on uses of the instruction. If there are no
@@ -1075,6 +1089,9 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PrivateFinalArrayMasked:
   case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::PrivateLastValueNonPODMasked:
+  case VPInstruction::PrivateArrayNonPODCtor:
+  case VPInstruction::PrivateArrayNonPODDtor:
+  case VPInstruction::PrivateLastValueArrayNonPOD:
   case VPInstruction::VLSLoad:
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:

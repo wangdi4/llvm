@@ -4793,6 +4793,71 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateArrayNonPODCtor: {
+    vectorizePrivateArrayNonPODInst<VPPrivateNonPODArrayCtorInst>(VPInst);
+    return;
+  }
+  case VPInstruction::PrivateArrayNonPODDtor: {
+    vectorizePrivateArrayNonPODInst<VPPrivateNonPODArrayDtorInst>(VPInst);
+    return;
+  }
+
+  case VPInstruction::PrivateLastValueArrayNonPOD: {
+    // Following HIR output is created for copy-assign
+    // function for array type nonpod privates
+    // + DO i1 = 0, NumEl, 1   <DO_LOOP>
+    // |   copy_assign(&((%st*)(%priv.lpriv)[i1]), &((%st*)(%extract)[i1]));
+    // + END LOOP
+
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    auto *ArrayTy = cast<ArrayType>(Priv->getAllocatedType());
+    Type *IVTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+    auto *LowerRef = DDRefUtilities.createConstDDRef(IVTy, 0);
+    auto *StrideRef = DDRefUtilities.createConstDDRef(IVTy, 1);
+    auto *UpperRef =
+        DDRefUtilities.createConstDDRef(IVTy, ArrayTy->getNumElements());
+    HLLoop *HLoop = HLNodeUtilities.createHLLoop(
+        nullptr /* ZttIf */, LowerRef, UpperRef, StrideRef, 1 /* NumEx */);
+    HLNodeUtilities.insertAfter(InsertPoint, HLoop);
+    RegDDRef *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    RegDDRef *Res = getOrCreateScalarRef(Priv, getVF() - 1);
+    HLoop->addLiveInTemp(Orig);
+    HLoop->addLiveInTemp(Res);
+
+    auto *IVCE = CanonExprUtilities.createCanonExpr(IVTy);
+    IVCE->addIV(HLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+                1 /* constant IV coefficient */);
+    auto *IVRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, IVCE);
+
+    // Create memref to get pointer to current iteration element from last lane
+    // private array.
+    RegDDRef *ResMemref = DDRefUtilities.createAddressOfRef(
+        Priv->getAllocatedType(), Res->getSelfBlobIndex(),
+        HLoop->getNestingLevel());
+    ResMemref->addDimension(IVRef->getSingleCanonExpr() /* i1 */);
+    ResMemref->makeConsistent({IVRef}, HLoop->getNestingLevel());
+    Type *ElemTy = ArrayTy->getElementType();
+    ResMemref->setBitCastDestVecOrElemType(ElemTy);
+
+    // Create memref to get pointer to current iteration element of original
+    // private array.
+    RegDDRef *OrigMemref = DDRefUtilities.createAddressOfRef(
+        Priv->getAllocatedType(), Orig->getSelfBlobIndex(),
+        HLoop->getNestingLevel());
+    OrigMemref->addDimension(IVRef->getSingleCanonExpr() /* i1 */);
+    OrigMemref->makeConsistent({IVRef}, HLoop->getNestingLevel());
+    OrigMemref->setBitCastDestVecOrElemType(ElemTy);
+
+    auto *Fn =
+        cast<VPPrivateLastValueNonPODArrayCopyAssignInst>(VPInst)->getFn();
+    HLInst *PrivFnCall =
+        HLNodeUtilities.createCall(Fn, {OrigMemref, ResMemref});
+
+    HLNodeUtilities.insertAsLastChild(HLoop, PrivFnCall);
+    InsertPoint = HLoop;
+    return;
+  }
+
   case VPInstruction::CompressExpandIndexInit: {
     // Generate a vector of zeros, but put instruction's operand into the first
     // position of the vector.
@@ -5160,6 +5225,75 @@ void VPOCodeGenHIR::insertPrivateFinalCond(const VPInstruction *VPInst) {
 
   addInst(&CondPrivFinalInsts);
   addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
+  return;
+}
+
+template <typename PrivateInstType>
+void VPOCodeGenHIR::vectorizePrivateArrayNonPODInst(
+    const VPInstruction *VPInst) {
+  // Function creates following HIR output
+  // + DO i1 = 0, VF, 1   <DO_LOOP>
+  // |   %ex = extractelement &((<VF x [NumEl x %st]*>)(%priv.mem)[<0, 1>]), i1;
+  // |
+  // |   + DO i2 = 0, NumEl, 1   <DO_LOOP>
+  // |   |   %call = [ctor|dtor](&((%st*)(%ex)[i2]));
+  // |   + END LOOP
+  // + END LOOP
+
+  Type *IVTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+  auto *LowerRef = DDRefUtilities.createConstDDRef(IVTy, 0);
+  auto *StrideRef = DDRefUtilities.createConstDDRef(IVTy, 1);
+  auto *UpperRef = DDRefUtilities.createConstDDRef(IVTy, VF);
+  HLLoop *OuterHLoop = HLNodeUtilities.createHLLoop(
+      nullptr /* ZttIf */, LowerRef, UpperRef, StrideRef, 1 /* NumEx */);
+
+  VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+  auto *ArrayTy = cast<ArrayType>(Priv->getAllocatedType());
+  auto *InnerUpperRef =
+      DDRefUtilities.createConstDDRef(IVTy, ArrayTy->getNumElements());
+
+  HLNodeUtilities.insertAfter(InsertPoint, OuterHLoop);
+  auto *OuterIVCE = CanonExprUtilities.createCanonExpr(IVTy);
+  OuterIVCE->addIV(OuterHLoop->getNestingLevel(),
+                   InvalidBlobIndex /* no blob */,
+                   1 /* constant IV coefficient */);
+  auto *OuterIVRef =
+      DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, OuterIVCE);
+
+  RegDDRef *VecPriv = widenRef(VPInst->getOperand(0), VF);
+  OuterHLoop->addLiveInTemp(VecPriv);
+  HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+      VecPriv->clone(), OuterIVRef, "priv.extract", nullptr);
+  HLNodeUtilities.insertAsLastChild(OuterHLoop, PrivExtract);
+  HLLoop *InnerHLoop = HLNodeUtilities.createHLLoop(
+      nullptr /* ZttIf */, LowerRef->clone(), InnerUpperRef, StrideRef->clone(),
+      1 /* NumEx */);
+  HLNodeUtilities.insertAsLastChild(OuterHLoop, InnerHLoop);
+  RegDDRef *PrivExtTmp = PrivExtract->getLvalDDRef()->clone();
+  InnerHLoop->addLiveInTemp(PrivExtTmp);
+  auto *InnerIVCE = CanonExprUtilities.createCanonExpr(IVTy);
+  InnerIVCE->addIV(InnerHLoop->getNestingLevel(),
+                   InvalidBlobIndex /* no blob */,
+                   1 /* constant IV coefficient */);
+  auto *InnerIVRef =
+      DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, InnerIVCE);
+
+  RegDDRef *PointerRef = PrivExtract->getLvalDDRef()->clone();
+  // Create memref to get pointer to current iteration element from current
+  // lane's (tracked by outer IV) private array.
+  RegDDRef *Memref = DDRefUtilities.createAddressOfRef(
+      Priv->getAllocatedType(), PointerRef->getSelfBlobIndex(),
+      InnerHLoop->getNestingLevel());
+  Memref->addDimension(InnerIVRef->getSingleCanonExpr() /*i2*/);
+  Memref->makeConsistent({InnerIVRef}, InnerHLoop->getNestingLevel());
+  Type *ElemTy = ArrayTy->getElementType();
+  Memref->setBitCastDestVecOrElemType(ElemTy);
+
+  auto *Fn = cast<PrivateInstType>(VPInst)->getFn();
+  HLInst *PrivFnCall = HLNodeUtilities.createCall(Fn, {Memref});
+
+  HLNodeUtilities.insertAsLastChild(InnerHLoop, PrivFnCall);
+  InsertPoint = OuterHLoop;
   return;
 }
 
@@ -5534,6 +5668,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalArrayMasked:
   case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::PrivateLastValueNonPODMasked:
+  case VPInstruction::PrivateArrayNonPODCtor:
+  case VPInstruction::PrivateArrayNonPODDtor:
+  case VPInstruction::PrivateLastValueArrayNonPOD:
   case VPInstruction::CompressStore:
   case VPInstruction::CompressStoreNonu:
   case VPInstruction::ExpandLoad:

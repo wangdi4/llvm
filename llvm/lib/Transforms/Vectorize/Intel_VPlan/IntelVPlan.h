@@ -599,8 +599,8 @@ public:
     InductionFinal,
     ReductionInit,
     ReductionFinal,
-    ReductionFinalUdr, // Custom finalization of UDR. Lowered as sequence of
-                       // calls to combiner function.
+    ReductionFinalUdr,    // Custom finalization of UDR. Lowered as sequence of
+                          // calls to combiner function.
     ReductionFinalInscan, // Reduction finalization (noop for scan).
     AllocatePrivate,
     Subscript,
@@ -651,8 +651,11 @@ public:
     PrivateFinalArray,
     PrivateFinalArrayMasked,
     PrivateLastValueNonPOD,
-    CompressStore, // generate llvm.masked.compressstore intrinsic, for
-                   // unit stride stores
+    PrivateArrayNonPODCtor,
+    PrivateArrayNonPODDtor,
+    PrivateLastValueArrayNonPOD,
+    CompressStore,     // generate llvm.masked.compressstore intrinsic, for
+                       // unit stride stores
     CompressStoreNonu, // generate vcompress intrinsic and masked scatter
                        // mask for scatter: (-1 >> popcnt(exec_mask))
     ExpandLoad, // generate llvm.masked.expandload intrinsic, for unit stride
@@ -661,12 +664,13 @@ public:
                     // gather: (-1 >> popcnt(exec_mask))
     CompressExpandIndexInit,  // placeholder for initial value of index
     CompressExpandIndexFinal, // placeholder for the final value of index
-    CompressExpandIndex,     // calculate vector of indexes for non-unit stride
-                             // compress/expand
+    CompressExpandIndex,      // calculate vector of indexes for non-unit stride
+                              // compress/expand
+
     CompressExpandIndexInc, // compress/expand index increment
                             // operands: index, stride, mask
                             // generate: index += stride * pocnt(mask);
-    CompressExpandMask, // generate mask for nonu load/store
+    CompressExpandMask,     // generate mask for nonu load/store
     PrivateLastValueNonPODMasked,
     GeneralMemOptConflict,
     ConflictInsn,
@@ -1044,19 +1048,18 @@ private:
   }
 };
 
-/// Concrete class to represent last value calculation for masked and non-masked
-/// private nonPODs in VPlan.
+/// Concrete class to represent nonPOD ArrayType private in VPlan.
 template <unsigned InstOpcode>
-class VPPrivateLastValueNonPODTemplInst : public VPInstruction {
+class VPPrivateNonPODInstImpl : public VPInstruction {
 public:
-  /// Create VPPrivateLastValueNonPODTemplInst with its BaseType, operands and
-  /// private object copyassign function pointer.
-  VPPrivateLastValueNonPODTemplInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
-                                    Function *CopyAssign)
-      : VPInstruction(InstOpcode, BaseTy, Operands), CopyAssign(CopyAssign) {}
+  /// Create VPPrivateNonPODInstImpl with its BaseType, operands and
+  /// private object [ctor|dtor] function pointer.
+  VPPrivateNonPODInstImpl(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                          Function *Fn)
+      : VPInstruction(InstOpcode, BaseTy, Operands), Fn(Fn) {}
 
-  /// Return the copyassign function stored by this instruction
-  Function *getCopyAssign() const { return CopyAssign; }
+  /// Return the function pointer stored by this instruction
+  Function *getFn() const { return Fn; }
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:
@@ -1070,12 +1073,35 @@ public:
 protected:
   virtual VPInstruction *cloneImpl() const final {
     SmallVector<VPValue *, 3> Ops(operands());
-    return new VPPrivateLastValueNonPODTemplInst<InstOpcode>(getType(), Ops,
-                                                             getCopyAssign());
+    return new VPPrivateNonPODInstImpl<InstOpcode>(getType(), Ops, getFn());
   }
 
 private:
-  Function *CopyAssign = nullptr;
+  Function *Fn = nullptr;
+};
+
+using VPPrivateNonPODArrayCtorInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateArrayNonPODCtor>;
+using VPPrivateNonPODArrayDtorInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateArrayNonPODDtor>;
+using VPPrivateLastValueNonPODArrayCopyAssignInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateLastValueArrayNonPOD>;
+
+/// Concrete class to represent last value calculation for masked and non-masked
+/// private nonPODs in VPlan.
+template <unsigned InstOpcode>
+class VPPrivateLastValueNonPODTemplInst
+    : public VPPrivateNonPODInstImpl<InstOpcode> {
+public:
+  /// Create VPPrivateLastValueNonPODTemplInst with its BaseType, operands and
+  /// private object copyassign function pointer.
+  VPPrivateLastValueNonPODTemplInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                                    Function *Fn)
+      : VPPrivateNonPODInstImpl<InstOpcode>(BaseTy, Operands, Fn) {}
+  /// Return the copyassign function stored by this instruction
+  Function *getCopyAssign() const {
+    return VPPrivateNonPODInstImpl<InstOpcode>::getFn();
+  }
 };
 
 using VPPrivateLastValueNonPODMaskedInst = VPPrivateLastValueNonPODTemplInst<

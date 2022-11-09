@@ -427,6 +427,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-last-value-nonpod";
   case VPInstruction::PrivateLastValueNonPODMasked:
     return "private-last-value-nonpod-masked";
+  case VPInstruction::PrivateArrayNonPODCtor:
+    return "private-nonpod-array-ctor";
+  case VPInstruction::PrivateArrayNonPODDtor:
+    return "private-nonpod-array-dtor";
+  case VPInstruction::PrivateLastValueArrayNonPOD:
+    return "private-last-value-nonpod-array";
   case VPInstruction::CvtMaskToInt:
     return "convert-mask-to-int";
   case VPInstruction::ExpandLoad:

@@ -1,17 +1,15 @@
-;; Check that we bail out for non-POD array private element type.
+; Check that we bail out from running SOA transformation on non-POD array private element type.
+; See CMPLRLLVM-9193
 
 ; REQUIRES: asserts
 
 ; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
-
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
-
-; FIXME: Test should be updated once support for non-POD private array type will be added.
-; XFAIL: *
+; RUN: -disable-output -disable-vplan-codegen -debug-only=LoopVectorizationPlannerHIR %s 2>&1 | FileCheck %s
 
 ; CHECK: SOA profitability:
 ; CHECK: SOAUnsafe = y3.lpriv
+; CHECK: SOASafe = i.priv Profitable = 1
 
 %struct.int_int = type { i32, i32 }
 %struct.my_struct = type { [12 x %struct.int_int] }
@@ -53,7 +51,7 @@ if.then:
   %4 = load i32, i32* %i.priv, align 4
   %idxprom6 = sext i32 %4 to i64
   %arrayidx7 = getelementptr inbounds [12 x %struct.int_int], [12 x %struct.int_int]* %y3.lpriv, i64 0, i64 %idxprom6
-  %call = call nonnull align 4 dereferenceable(8) %struct.int_int* @_ZN7int_intaSERKS_(%struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx7, %struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx)
+  %call = call nonnull align 4 dereferenceable(8) %struct.int_int* @_ZN7int_intaSERKS_(%struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx7, %struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx) #0
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:
@@ -65,3 +63,5 @@ omp.inner.for.exit:
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }
+
+attributes #0 = { nounwind }
