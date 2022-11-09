@@ -1842,10 +1842,18 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     // operand.
     if (auto *PrivateNonPOD = dyn_cast<VPPrivateNonPOD>(Private)) {
       if (auto *CtorFn = PrivateNonPOD->getCtor()) {
-        if (PrivateNonPOD->isF90())
-          createCustomFunctionCall(CtorFn, {PrivateMem, AI}, Builder, Plan);
-        else
-          createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+        // For non-POD arrays we need to create constructor for each element in
+        // the array.
+        if (isa<ArrayType>(PrivateNonPOD->getAllocatedType())) {
+          Builder.create<VPPrivateNonPODArrayCtorInst>(
+              ".priv.nonpod.array", Type::getVoidTy(*Plan.getLLVMContext()),
+              ArrayRef<VPValue *>{PrivateMem}, PrivateNonPOD->getCtor());
+        } else {
+          if (PrivateNonPOD->isF90())
+            createCustomFunctionCall(CtorFn, {PrivateMem, AI}, Builder, Plan);
+          else
+            createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+        }
       }
 
       if (PrivateNonPOD->isLast()) {
@@ -1853,22 +1861,32 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                "CopyAssign cannot be nullptr");
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(PostExit);
-        // Below instruction creates call for CopyAssign function. It requires pointer
-        // to CopyAssign function to be passed, hence new Instruction type had
-        // to be used. Example IR generrated with -vplan-print-after-vpentity-instrs:
-        // private-last-value-nonpod CopyAssign:
-        // _ZTS3str.omp.copy_assign %struct.str* %vp.alloca.priv %struct.str* %x.lpriv
-        // TODO: Consider using regular VPCall instead of adding new
-        // Instruction. Currently this approach has been skippped, because for
-        // this to work, we'd need to use DoNotWiden scenario, for which value from
-        // first lane is used by default. Such approach is not correct for last value
-        // calculation for non-POD as there one of the operand requires values
-        // from first lane while the other operand requires values from last
-        // lane.
-        Builder.create<VPPrivateLastValueNonPODInst>(
-            ".priv.lastval.nonpod", Type::getVoidTy(*Plan.getLLVMContext()),
-            ArrayRef<VPValue *>{PrivateMem, AI},
-            PrivateNonPOD->getCopyAssign());
+        if (isa<ArrayType>(PrivateNonPOD->getAllocatedType())) {
+          // For non-POD arrays we need to create call to copy assign for each
+          // element in the array.
+          Builder.create<VPPrivateLastValueNonPODArrayCopyAssignInst>(
+              ".priv.nonpod.array", Type::getVoidTy(*Plan.getLLVMContext()),
+              ArrayRef<VPValue *>{PrivateMem, AI},
+              PrivateNonPOD->getCopyAssign());
+        } else {
+          // Below instruction creates call for CopyAssign function. It requires
+          // pointer to CopyAssign function to be passed, hence new Instruction
+          // type had to be used. Example IR generrated with
+          // -vplan-print-after-vpentity-instrs: private-last-value-nonpod
+          // CopyAssign: _ZTS3str.omp.copy_assign %struct.str* %vp.alloca.priv
+          // %struct.str* %x.lpriv
+          // TODO: Consider using regular VPCall instead of adding new
+          // Instruction. Currently this approach has been skippped, because for
+          // this to work, we'd need to use DoNotWiden scenario, for which value
+          // from first lane is used by default. Such approach is not correct
+          // for last value calculation for non-POD as there one of the operand
+          // requires values from first lane while the other operand requires
+          // values from last lane.
+          Builder.create<VPPrivateLastValueNonPODInst>(
+              ".priv.lastval.nonpod", Type::getVoidTy(*Plan.getLLVMContext()),
+              ArrayRef<VPValue *>{PrivateMem, AI},
+              PrivateNonPOD->getCopyAssign());
+        }
       }
 
       if (auto *DtorFn = PrivateNonPOD->getDtor()) {
@@ -1876,9 +1894,17 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
         // of Builder accordingly.
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(PostExit);
-        createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
-      }
 
+        if (isa<ArrayType>(PrivateNonPOD->getAllocatedType())) {
+          // For non-POD arrays we need to create destructor for each element in
+          // the array.
+          Builder.create<VPPrivateNonPODArrayDtorInst>(
+              ".priv.nonpod.array", Type::getVoidTy(*Plan.getLLVMContext()),
+              ArrayRef<VPValue *>{PrivateMem}, DtorFn);
+        } else {
+          createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+        }
+      }
     } else if (Private->isLast()) {
 
       // Handling of last privates generating last value calculation.

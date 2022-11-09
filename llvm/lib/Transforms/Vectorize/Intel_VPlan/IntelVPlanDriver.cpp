@@ -241,6 +241,7 @@ static bool canProcessMaskedVariant(const VPlanVector &P) {
     // Cloning of VPRegion is not implemented yet, hence we can't support masked
     // variants for CFGs containing them.
     case VPInstruction::GeneralMemOptConflict:
+    case VPInstruction::PrivateLastValueArrayNonPOD:
       return false;
     case VPInstruction::PrivateFinalUncond:
     case VPInstruction::PrivateFinalUncondMem:

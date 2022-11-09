@@ -390,6 +390,10 @@ private:
   /// Vectorize unconditional last private final value calculation.
   void vectorizePrivateFinalUncond(VPInstruction *VPInst);
 
+  // Vectorize ArrayType nonPOD privates.
+  template <typename PrivateInstType>
+  void vectorizePrivateArrayNonPODInst(const VPInstruction *VPInst);
+
   // Vectorize running inclusive/exclusive reduction.
   template <class RunningReductionTy>
   Value* vectorizeRunningReduction(RunningReductionTy *InscanRed);
