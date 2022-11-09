@@ -229,7 +229,8 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
-<<<<<<< HEAD
+constexpr FeatureBitset FeaturesGraniteRapids =
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256
 #define ENABLE_ISA_AVX256
@@ -291,25 +292,12 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
     FeaturesSapphireRapids;
 #undef ENABLE_ISA_AVX256
 #endif // INTEL_FEATURE_ISA_AVX256
-#if INTEL_FEATURE_CPU_GNR
-#define ENABLE_CPU_GNR
-constexpr FeatureBitset FeaturesGraniteRapids =
-#endif // INTEL_FEATURE_CPU_GNR
-#ifdef ENABLE_CPU_GNR
-    FeatureAMX_FP16 |
-    FeaturePREFETCHI |
-#endif // ENABLE_CPU_GNR
-#if INTEL_FEATURE_CPU_GNR
-    FeaturesSapphireRapids;
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
 #define ENABLE_CPU_DMR
 constexpr FeatureBitset FeaturesLioncoveServer =
 #endif // INTEL_FEATURE_CPU_DMR
 #ifdef ENABLE_CPU_DMR
-#if INTEL_FEATURE_CPU_GNR
     FeaturesGraniteRapids |
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_ISA_SM3
     FeatureSM3 |
 #endif // INTEL_FEATURE_ISA_SM3
@@ -412,10 +400,6 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // ENABLE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
-=======
-constexpr FeatureBitset FeaturesGraniteRapids =
-    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI;
->>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
@@ -596,10 +580,6 @@ constexpr ProcInfo Processors[] = {
   // Alderlake microarchitecture based processors.
   { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-  // Graniterapids microarchitecture based processors.
-  { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512VP2INTERSECT, FeaturesGraniteRapids },
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   // Diamondrapids microarchitecture based processors.
   { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids },

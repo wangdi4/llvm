@@ -127,11 +127,10 @@ enum ProcessorSubtypes {
   INTEL_COREI7_ALDERLAKE,
   AMDFAM19H_ZNVER3,
   INTEL_COREI7_ROCKETLAKE,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
+  ZHAOXIN_FAM7H_LUJIAZUI,
+  AMDFAM19H_ZNVER4,
   INTEL_COREI7_GRANITERAPIDS,
-#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
   INTEL_COREI7_DIAMONDRAPIDS,
 #endif // INTEL_FEATURE_CPU_DMR
@@ -139,11 +138,6 @@ enum ProcessorSubtypes {
   INTEL_COREI7_EMERALDRAPIDS,
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
-=======
-  ZHAOXIN_FAM7H_LUJIAZUI,
-  AMDFAM19H_ZNVER4,
-  INTEL_COREI7_GRANITERAPIDS,
->>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
   CPU_SUBTYPE_MAX
 };
 
@@ -514,21 +508,15 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = INTEL_COREI7_SAPPHIRERAPIDS;
       break;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-    // Granite Rapids:
-=======
     // Graniterapids:
     case 0xae:
->>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
     case 0xad:
       CPU = "graniterapids";
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_GRANITERAPIDS;
       break;
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_CPU_GNR
+      
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
     // Diamond Rapids:
     case 0xd6:
@@ -538,8 +526,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 #endif // INTEL_FEATURE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
 
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft

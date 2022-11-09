@@ -134,4 +134,16 @@
 // RUN:  | FileCheck -check-prefixes=ARCH-METEORLAKE,ARCH-WARN %s
 // ARCH-METEORLAKE: "-target-cpu" "meteorlake"
 
+// RUN: %clang_cl -### -c /arch:GRANITERAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-GRANITERAPIDS,ARCH-WARN %s
+// ARCH-GRANITERAPIDS: "-target-cpu" "graniterapids"
+
+// RUN: %clang_cl -### -c /arch:SIERRAFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-SIERRAFOREST,ARCH-WARN %s
+// ARCH-SIERRAFOREST: "-target-cpu" "sierraforest"
+
+// RUN: %clang_cl -### -c /arch:GRANDRIDGE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-GRANDRIDGE,ARCH-WARN %s
+// ARCH-GRANDRIDGE: "-target-cpu" "grandridge"
+
 // ARCH-WARN-NOT: ignoring invalid /arch: argument

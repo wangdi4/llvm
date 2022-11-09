@@ -860,9 +860,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_SapphireRapids:
   case CK_Alderlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-  case CK_Graniterapids:
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
@@ -2494,9 +2491,6 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #endif // INTEL_CUSTOMIZATION
     case CK_Alderlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-    case CK_Graniterapids:
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
     case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR

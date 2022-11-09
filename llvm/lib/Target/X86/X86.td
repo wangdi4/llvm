@@ -1360,23 +1360,13 @@ def ProcessorFeatures {
   list<SubtargetFeature> SPRFeatures =
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-#define ENABLE_CPU_GNR
   // Graniterapids
-  list<SubtargetFeature> GNRAdditionalFeatures = [
-#endif // INTEL_FEATURE_CPU_GNR
-#ifdef ENABLE_CPU_GNR
-                                                  FeatureAMXFP16,
-                                                  FeaturePREFETCHI
-#endif // ENABLE_CPU_GNR
-#if INTEL_FEATURE_CPU_GNR
-  ];
-  list<SubtargetFeature> GNRTuning = SPRTuning;
+  list<SubtargetFeature> GNRAdditionalFeatures = [FeatureAMXFP16,
+                                                  FeaturePREFETCHI];
   list<SubtargetFeature> GNRFeatures =
     !listconcat(SPRFeatures, GNRAdditionalFeatures);
-#endif // INTEL_FEATURE_CPU_GNR
+
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
 #define ENABLE_CPU_DMR
   // Lioncove
@@ -1549,13 +1539,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> CommonAVX256Tuning = SPRTuning;
 #endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
-=======
-  // Graniterapids
-  list<SubtargetFeature> GNRAdditionalFeatures = [FeatureAMXFP16,
-                                                  FeaturePREFETCHI];
-  list<SubtargetFeature> GNRFeatures =
-    !listconcat(SPRFeatures, GNRAdditionalFeatures);
->>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
 
   // Atom
   list<SubtargetFeature> AtomFeatures = [FeatureX87,
@@ -1668,7 +1651,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Gracemont
   list<SubtargetFeature> GRTTuning = [TuningMacroFusion,
@@ -1682,7 +1664,6 @@ def ProcessorFeatures {
                                       TuningPOPCNTFalseDeps,
                                       TuningInsertVZEROUPPER];
 #endif // INTEL_CUSTOMIZATION
-=======
   // Sierraforest
   list<SubtargetFeature> SRFAdditionalFeatures = [FeatureCMPCCXADD,
                                                   FeatureAVXIFMA,
@@ -1695,7 +1676,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> GRRAdditionalFeatures = [FeatureRAOINT];
   list<SubtargetFeature> GRRFeatures =
     !listconcat(SRFFeatures, GRRAdditionalFeatures);
->>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
 
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
@@ -2167,10 +2147,6 @@ def : ProcModel<"alderlake", AlderlakePModel,
 #if INTEL_CUSTOMIZATION
 def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
-#if INTEL_FEATURE_CPU_GNR
-def : ProcModel<"graniterapids", SPRModel,
-                ProcessorFeatures.GNRFeatures, ProcessorFeatures.GNRTuning>;
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
 def : ProcModel<"diamondrapids", SPRModel,
                 ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;

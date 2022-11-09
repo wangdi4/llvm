@@ -845,7 +845,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ALDERLAKE;
       break;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_EMR
     // Emeraldrapids:
@@ -856,7 +855,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
-=======
     // Graniterapids:
     case 0xae:
     case 0xad:
@@ -864,7 +862,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = X86::INTEL_COREI7;
       *Subtype = X86::INTEL_COREI7_GRANITERAPIDS;
       break;
->>>>>>> 84a18a260e4607a4b72839ec83c6827650c5138f
 
     // Icelake Xeon:
     case 0x6a:
@@ -882,14 +879,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-    // Graniterapids:
-    case 0xad:
-      CPU = "graniterapids";
-      *Type = X86::INTEL_COREI7;
-      *Subtype = X86::INTEL_COREI7_GRANITERAPIDS;
-      break;
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
     // Diamondrapids:
     case 0xd6:
