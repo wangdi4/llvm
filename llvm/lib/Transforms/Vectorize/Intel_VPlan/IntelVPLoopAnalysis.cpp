@@ -1914,6 +1914,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                "Unsupported aggregate type");
 
         if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTInMemory) {
+            assert(PrivateMem && "PrivateMem suppose to be initialized");
           // No last value for unused in-memory privates. This is an explicit
           // private which was completely registerized.
           if (!VPEntityImportDescr::hasRealUserInLoop(PrivateMem, &Loop))
