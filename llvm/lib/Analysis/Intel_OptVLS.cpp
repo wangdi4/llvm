@@ -1,15 +1,15 @@
-//===- OptVLS.cpp - Optimization of Vector Loads/Stores ----------*- C++ -*-===//
+//===- OptVLS.cpp - Optimization of Vector Loads/Stores --------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -85,8 +85,9 @@ void OVLSAccessKind::dump() const {
 }
 #endif
 
-OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T, OVLSAccessKind AKind)
-    : Kind(K), AccessKind(AKind) {
+OVLSMemref::OVLSMemref(OVLSContext &C, OVLSMemrefKind K, OVLSType T,
+                       OVLSAccessKind AKind)
+    : OVLSStorage(C), Kind(K), AccessKind(AKind) {
   DType = T;
   static unsigned MemrefId = 1;
   Id = MemrefId++;
@@ -553,11 +554,7 @@ public:
   }
 
   // Generate a shuffle instruction for this node.
-  void genShuffle() {
-    OVLSType T;
-    OVLSOperand *Op1 = new OVLSUndef(T);
-    OVLSOperand *Op2 = new OVLSUndef(T);
-
+  void genShuffle(OVLSContext &Context) {
     // Use 'Type' which is the type of this result node to define the
     // instruction
     uint32_t ElemSize = Type.getElementSize();
@@ -565,6 +562,10 @@ public:
 
     const uint32_t MaxNumElems = 256;
     assert(NumElems <= MaxNumElems && "Increase MaxNumElems");
+
+    OVLSType T(ElemSize, NumElems);
+    OVLSOperand *Op1 = OVLSUndef::create(Context, T);
+    OVLSOperand *Op2 = OVLSUndef::create(Context, T);
 
     int32_t IntShuffleMask[MaxNumElems];
     uint32_t MaskIndex = 0;
@@ -608,8 +609,8 @@ public:
     if (isa<OVLSUndef>(Op2))
       Op2->setType(Op1->getType());
 
-    Inst = new OVLSShuffle(Op1, Op2, OVLSType(32, NumElems),
-                           (int8_t *)IntShuffleMask);
+    Inst = OVLSShuffle::create(Op1, Op2, OVLSType(32, NumElems),
+                               (int8_t *)IntShuffleMask);
   } // end of genShuffle()
 
 }; // end of GraphNode
@@ -920,7 +921,7 @@ public:
   uint64_t getMergeCost(const GraphNode &N1, const GraphNode &N2) const {
     // Assumes N1 and N2 has the same element size.
     uint32_t ElemSize = N1.type().getElementSize();
-    Type *ElemType = Type::getIntNTy(CM.getContext(), ElemSize);
+    Type *ElemType = Type::getIntNTy(CM.getLLVMContext(), ElemSize);
 
     // Compute inward impact.
     SmallVector<uint32_t, 16> Mask = getPossibleIncomingMask(N1, N2);
@@ -1070,7 +1071,7 @@ public:
       // load nor a store is a gather or a scatter node.
       if (!N->isALoad() && !N->isAStore()) {
         // Found a gather/scatter-result-node
-        OVLSMemref *GSNode = Group.getMemref(TotalGSNodes);
+        const OVLSMemref *GSNode = Group.getMemref(TotalGSNodes);
         if (N->type().getSize() != GSNode->getType().getSize())
           // Size of the gather/scatter-node does not match the size of the
           // actual gather/scatter memref.
@@ -1115,7 +1116,7 @@ public:
   // Visit the graph in a topological order and push the instruction into the
   // InstVector. While we are at it, generate instruction if the node does not
   // have one already.
-  void getInstructions(OVLSInstructionVector &InstVector,
+  void getInstructions(OVLSContext &Context, OVLSInstructionVector &InstVector,
                        GraphNodeToOVLSMemrefMap &NodeToMemrefMap,
                        OVLSMemrefToInstMap *Map = nullptr) {
     GraphNodeList TopSortedNodes;
@@ -1123,7 +1124,7 @@ public:
 
     for (GraphNode *N : TopSortedNodes) {
       if (N->isUndefined())
-        N->genShuffle();
+        N->genShuffle(Context);
 
       // Update the stored value. Initially when we created the store the
       // initial
@@ -1135,13 +1136,13 @@ public:
 
       OVLSInstruction *I = N->getInstruction();
       assert(I != nullptr && "Inst cannot be null!!!");
-      InstVector.emplace_back(I);
+      InstVector.push_back(I);
 
       if (Map == nullptr)
         continue;
       GraphNodeToOVLSMemrefMap::iterator IT = NodeToMemrefMap.find(N);
       if (IT != NodeToMemrefMap.end())
-        Map->insert(std::pair<OVLSMemref *, OVLSInstruction *>(IT->second, I));
+        Map->emplace(IT->second, I);
     }
   }
 
@@ -1180,15 +1181,13 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
   OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
-  for (const auto& G : Grps)
+  for (const auto &G : Grps)
     G->print(OS, 3);
   OS << '\n';
 }
-static void
-dumpOVLSMemrefVector(OVLSostream &OS,
-                     const OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVec,
-                     unsigned NumSpaces) {
-  for (auto &Memref : MemrefVec) {
+static void dumpOVLSMemrefs(OVLSostream &OS, const OVLSMemrefVector &Memrefs,
+                            unsigned NumSpaces) {
+  for (auto &Memref : Memrefs) {
     Memref->print(OS, NumSpaces);
     OS << "\n";
   }
@@ -1238,8 +1237,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
     auto AdjMemrefSetIt = AdjMemrefSet->begin();
 
     OVLSAccessKind AccessKind = AdjMemrefSetIt->first->getAccessKind();
-    std::unique_ptr<OVLSGroup> CurrGrp = std::make_unique<OVLSGroup>(
-        AdjMemrefSetIt->first, VectorLength, AccessKind);
+    auto *CurrGrp =
+        OVLSGroup::create(AdjMemrefSetIt->first, VectorLength, AccessKind);
     int64_t GrpFirstMDist = 0;
     int64_t GrpLastMDist = 0;
     assert(AdjMemrefSetIt->second == 0 &&
@@ -1269,8 +1268,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
         sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
           return *RHS->getConstDistanceFrom(*LHS) > 0;
         });
-        OVLSGrps.push_back(std::move(CurrGrp));
-        CurrGrp = std::make_unique<OVLSGroup>(Memref, VectorLength, AccessKind);
+        OVLSGrps.push_back(CurrGrp);
+        CurrGrp = OVLSGroup::create(Memref, VectorLength, AccessKind);
 
         // Reset range information for the new group.
         GrpFirstMDist = Dist;
@@ -1282,8 +1281,7 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
 
       CurrGrp->insert(Memref);
       if (MemrefToGroupMap)
-        (*MemrefToGroupMap)
-            .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp.get()));
+        MemrefToGroupMap->emplace(Memref, CurrGrp);
     }
 
     // Sort memrefs in the group using their offsets.
@@ -1372,7 +1370,7 @@ static void splitMrfsStep(OVLSMemref *Memref,
 //
 // The relative order of adjacent loads is preserved, relative order of stores
 // is reversed (so that the first item in every set is a valid insertion point).
-static void splitMrfs(const  OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
+static void splitMrfs(const OVLSMemrefVector &Memrefs,
                       MemrefDistanceMapVector &AdjMemrefSetVec) {
   OVLSDebug(OVLSdbgs() << "\n  Split the vector memrefs into sub groups of "
                           "adjacacent memrefs: \n");
@@ -1391,12 +1389,12 @@ static void splitMrfs(const  OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
   // Process loads top down.
   for (auto &Memref : Memrefs)
     if (Memref->getAccessKind().isLoad())
-      splitMrfsStep(Memref.get(), AdjMemrefSetVec);
+      splitMrfsStep(Memref, AdjMemrefSetVec);
 
   // Process stores bottom up.
   for (auto &Memref : reverse(Memrefs))
     if (Memref->getAccessKind().isStore())
-      splitMrfsStep(Memref.get(), AdjMemrefSetVec);
+      splitMrfsStep(Memref, AdjMemrefSetVec);
 
   OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
   return;
@@ -1423,8 +1421,7 @@ static bool hasContiguousAccesses(APInt ByteAccessMask, uint64_t TotalBytes) {
 
 static bool isSupported(const OVLSGroup &Group) {
   if (Group.size() < 2) {
-    OVLSDebug(
-        OVLSdbgs() << "Minimum Two neighbors required!!!\n");
+    OVLSDebug(OVLSdbgs() << "Minimum Two neighbors required!!!\n");
     return false;
   }
 
@@ -1471,8 +1468,8 @@ static bool isSupported(const OVLSGroup &Group) {
 OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   OVLSType Ty = Mrf.getType();
 
-  OVLSOperand *Op1 = new OVLSAddress(&Mrf, 0);
-  OVLSOperand *Op2 = new OVLSUndef(Ty);
+  OVLSOperand *Op1 = OVLSAddress::create(&Mrf, 0);
+  OVLSOperand *Op2 = OVLSUndef::create(Mrf.getContext(), Ty);
 
   uint32_t ElemSize = Ty.getElementSize();
   uint32_t ElemSizeInByte = ElemSize / BYTE;
@@ -1490,7 +1487,8 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
     Index += *Stride / ElemSizeInByte;
   }
 
-  return new OVLSShuffle(Op1, Op2, OVLSType(32, NumElems), (int8_t *)IntShuffleMask);
+  return OVLSShuffle::create(Op1, Op2, OVLSType(32, NumElems),
+                             (int8_t *)IntShuffleMask);
 }
 
 /// This function returns a vector of contiguous loads/stores for a group of
@@ -1526,8 +1524,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
   // behavior of scatter-node(register).
   int64_t StartIndex = 0;
   OVLSMemref *Prev = nullptr;
-  for (OVLSGroup::const_iterator I = Group.begin(), E = Group.end(); I != E;
-       ++I) {
+  for (auto I = Group.begin(), E = Group.end(); I != E; ++I) {
     OVLSMemref *Curr = *I;
     // Don't create nodes for the duplicates. We will replace the duplicates
     // with
@@ -1551,7 +1548,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
       GSNode = new GraphNode(ScatterdRes, MemrefType);
     }
     G.insert(GSNode);
-    NodeToMemrefMap.insert(std::pair<GraphNode *, OVLSMemref *>(GSNode, *I));
+    NodeToMemrefMap.emplace(GSNode, *I);
 
     uint32_t ElemSize = MemrefType.getElementSize(); // in bits
     assert(ElemSize <= 64 && "Unexpected element size!!!");
@@ -1578,7 +1575,8 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
   // generated loads.
   OVLSType LSType;
 
-  OVLSMemref *GrpFirstMemref = Group.getFirstMemref();
+  OVLSContext &Context = Group.getContext();
+  const OVLSMemref *GrpFirstMemref = Group.getFirstMemref();
 
   uint32_t VecLen = Group.getVectorLength();
   // Bit location of the load mask, gets computed though elements iterations
@@ -1605,15 +1603,16 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
   // the elements.
 
   // Generate the first load/store.
-  OVLSOperand *SrcOrDst = new OVLSAddress(GrpFirstMemref, Offset);
+  auto *SrcOrDst = OVLSAddress::create(GrpFirstMemref, Offset);
   OVLSInstruction *CurrLSInst;
 
-  if (GroupOfGathers)
-    CurrLSInst = new OVLSLoad(LSType, *SrcOrDst, ElementMask);
-  else {
-    OVLSOperand *Undef = new OVLSUndef(LSType);
-    CurrLSInst = new OVLSStore(Undef, *SrcOrDst, ElementMask);
+  if (GroupOfGathers) {
+    CurrLSInst = OVLSLoad::create(LSType, SrcOrDst, ElementMask);
+  } else {
+    CurrLSInst = OVLSStore::create(OVLSUndef::create(Context, LSType), SrcOrDst,
+                                   ElementMask);
   }
+
   // Generate the graph-node for the load/store.
   GraphNode *CurrLSNode = new GraphNode(CurrLSInst, CurrLSInst->getType());
   G.insert(CurrLSNode);
@@ -1634,14 +1633,14 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
       // If this element cannot be loaded using the current load, create a new
       // load.
       if (LSSize + ElemSize + GapSize > VecLen || GapSize % ElemSize != 0) {
-        SrcOrDst = new OVLSAddress(GrpFirstMemref, Offset);
-        if (GroupOfGathers)
+        auto *SrcOrDst = OVLSAddress::create(GrpFirstMemref, Offset);
+        if (GroupOfGathers) {
           // create a new load.
-          CurrLSInst = new OVLSLoad(LSType, *SrcOrDst, ElementMask);
-        else {
+          CurrLSInst = OVLSLoad::create(LSType, SrcOrDst, ElementMask);
+        } else {
           // create a new store
-          OVLSOperand *Undef = new OVLSUndef(LSType);
-          CurrLSInst = new OVLSStore(Undef, *SrcOrDst, ElementMask);
+          CurrLSInst = OVLSStore::create(OVLSUndef::create(Context, LSType),
+                                         SrcOrDst, ElementMask);
         }
         CurrLSNode = new GraphNode(CurrLSInst, CurrLSInst->getType());
         G.insert(CurrLSNode);
@@ -1718,7 +1717,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
     IthElem++;
   }
 } // end of getLoadsOrStores
-} // end of OptVLS namespace
+} // namespace OptVLS
 
 bool OVLSGroup::isSafeToInsert(OVLSMemref &Mrf) const {
   if (!Mrf.canMoveTo(*InsertPoint))
@@ -1787,7 +1786,7 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "mask.load." << getType().getElementSize() << ".";
   OS << getType().getNumElements();
   OS << " (";
-  Src.print(OS, 0);
+  Src->print(OS, 0);
   OS << ", ";
   OptVLS::printMask(OS, APInt(64, getMask()));
   OS << ")";
@@ -1804,7 +1803,7 @@ void OVLSStore::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << " (";
   Value->printAsOperand(OS);
   OS << ", ";
-  Dst.print(OS, 0);
+  Dst->print(OS, 0);
   OS << ", ";
   OptVLS::printMask(OS, APInt(64, getMask()));
   OS << ")";
@@ -1828,7 +1827,9 @@ void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2) const {
+bool OVLSShuffle::hasValidOperands(const OVLSOperand *Op1,
+                                   const OVLSOperand *Op2,
+                                   const OVLSConstant &Mask) {
   assert(Op1 != nullptr && "A minimum of one defined input vector required!!!");
   if (!Op1->getType().isValid())
     return false;
@@ -1859,14 +1860,14 @@ bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2) const {
 // OVLSMemrefs, (and each OVLSMemref is contained by 1 (and only 1) OVLSGroup)
 // in a way where having all the memrefs in OptVLSgroup (at group InsertPoint
 // location) does not violate any program semantics nor any memory dependencies.
-void OptVLSInterface::getGroups(
-    const OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
-    OVLSGroupVector &Grps, unsigned VectorLength,
-    OVLSMemrefToGroupMap *MemrefToGroupMap) {
+void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
+                                OVLSGroupVector &Grps, unsigned VectorLength,
+                                OVLSMemrefToGroupMap *MemrefToGroupMap) {
+
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n"
                        << "  Received a vector of memrefs (" << Memrefs.size()
                        << "): \n");
-  OVLSDebug(OptVLS::dumpOVLSMemrefVector(OVLSdbgs(), Memrefs, 2));
+  OVLSDebug(OptVLS::dumpOVLSMemrefs(OVLSdbgs(), Memrefs, 2));
 
   if (Memrefs.empty())
     return;
@@ -1968,7 +1969,8 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
   if (!G.verifyGraph())
     return false;
 
-  G.getInstructions(InstVector, NodeToMemrefMap, MemrefToInstMap);
+  G.getInstructions(Group.getContext(), InstVector, NodeToMemrefMap,
+                    MemrefToInstMap);
 
   return true;
 }
@@ -2006,9 +2008,8 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   int64_t Offset = 0;
 
   for (int i = 0; i < 8; i++) {
-    OVLSMemref *FirstMemref = Group.getFirstMemref();
-    OVLSAddress Src(FirstMemref, Offset);
-    LoadInst[i] = new OVLSLoad(LType, Src, ElementMask);
+    auto *Src = OVLSAddress::create(Group.getFirstMemref(), Offset);
+    LoadInst[i] = OVLSLoad::create(LType, Src, ElementMask);
     Offset = Offset + 16; // 4 elements offset.
     InstVector.emplace_back(LoadInst[i]);
   }
@@ -2024,8 +2025,8 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   const int32_t IntShuffleMask[8] = {0, 1, 2, 3, 4, 5, 6, 7};
   for (int i = 0; i < 4; i++) {
     ShuffleOnLoad[i] =
-        new OVLSShuffle(LoadInst[i], LoadInst[4 + i], OVLSType(32, 8),
-                        reinterpret_cast<const int8_t *>(IntShuffleMask));
+        OVLSShuffle::create(LoadInst[i], LoadInst[4 + i], OVLSType(32, 8),
+                            reinterpret_cast<const int8_t *>(IntShuffleMask));
     InstVector.emplace_back(ShuffleOnLoad[i]);
   }
 
@@ -2049,16 +2050,16 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   const int32_t IntShuffleMask4[8] = {1, 2, 11, 8, 5, 6, 15, 12};
 
   ShuffleOnShuffles[0] =
-      new OVLSShuffle(ShuffleOnLoad[0], ShuffleOnLoad[1], OVLSType(32, 8),
-                      reinterpret_cast<const int8_t *>(IntShuffleMask1));
+      OVLSShuffle::create(ShuffleOnLoad[0], ShuffleOnLoad[1], OVLSType(32, 8),
+                          reinterpret_cast<const int8_t *>(IntShuffleMask1));
   ShuffleOnShuffles[1] =
-      new OVLSShuffle(ShuffleOnLoad[3], ShuffleOnLoad[2], OVLSType(32, 8),
-                      reinterpret_cast<const int8_t *>(IntShuffleMask2));
+      OVLSShuffle::create(ShuffleOnLoad[3], ShuffleOnLoad[2], OVLSType(32, 8),
+                          reinterpret_cast<const int8_t *>(IntShuffleMask2));
 
-  ShuffleOnShuffles[2] = new OVLSShuffle(
+  ShuffleOnShuffles[2] = OVLSShuffle::create(
       ShuffleOnShuffles[0], ShuffleOnShuffles[1], OVLSType(32, 8),
       reinterpret_cast<const int8_t *>(IntShuffleMask3));
-  ShuffleOnShuffles[3] = new OVLSShuffle(
+  ShuffleOnShuffles[3] = OVLSShuffle::create(
       ShuffleOnShuffles[0], ShuffleOnShuffles[1], OVLSType(32, 8),
       reinterpret_cast<const int8_t *>(IntShuffleMask4));
 
@@ -2083,16 +2084,16 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   const int32_t IntShuffleMask8[8] = {1, 2, 11, 8, 5, 6, 15, 12};
 
   ShuffleOnShuffles[4] =
-      new OVLSShuffle(ShuffleOnLoad[0], ShuffleOnLoad[1], OVLSType(32, 8),
-                      reinterpret_cast<const int8_t *>(IntShuffleMask5));
+      OVLSShuffle::create(ShuffleOnLoad[0], ShuffleOnLoad[1], OVLSType(32, 8),
+                          reinterpret_cast<const int8_t *>(IntShuffleMask5));
   ShuffleOnShuffles[5] =
-      new OVLSShuffle(ShuffleOnLoad[3], ShuffleOnLoad[2], OVLSType(32, 8),
-                      reinterpret_cast<const int8_t *>(IntShuffleMask6));
+      OVLSShuffle::create(ShuffleOnLoad[3], ShuffleOnLoad[2], OVLSType(32, 8),
+                          reinterpret_cast<const int8_t *>(IntShuffleMask6));
 
-  ShuffleOnShuffles[6] = new OVLSShuffle(
+  ShuffleOnShuffles[6] = OVLSShuffle::create(
       ShuffleOnShuffles[4], ShuffleOnShuffles[5], OVLSType(32, 8),
       reinterpret_cast<const int8_t *>(IntShuffleMask7));
-  ShuffleOnShuffles[7] = new OVLSShuffle(
+  ShuffleOnShuffles[7] = OVLSShuffle::create(
       ShuffleOnShuffles[4], ShuffleOnShuffles[5], OVLSType(32, 8),
       reinterpret_cast<const int8_t *>(IntShuffleMask8));
 
@@ -2106,8 +2107,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   if (MemrefToInstMap)
     // Populate the memrefmap.
     for (int i = 0; i < 4; i++)
-      MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
-          Group.getMemref(i), Results[i]));
+      MemrefToInstMap->emplace(Group.getMemref(i), Results[i]);
 
   return true;
 }
@@ -2156,7 +2156,7 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   // %t2 : Corresponding to Memref2 a[4*i+2]
   // %t3 : Corresponding to Memref3 a[4*i+3]
   for (int i = 0; i < 4; i++) {
-    MemrefAddresses[i] = new OVLSAddress(Group.getMemref(i), Offset);
+    MemrefAddresses[i] = OVLSAddress::create(Group.getMemref(i), Offset);
     Offset = Offset + 4; // i32 = 4 bytes.
   }
 
@@ -2177,17 +2177,17 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
       /*IntShuffleMask[5][8] =*/{2, 3, 10, 11, 6, 7, 14, 15}};
 
   for (int i = 0; i < 2; ++i) {
-    ShuffleOnShuffles[4 * i] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i] = OVLSShuffle::create(
         MemrefAddresses[0], MemrefAddresses[1], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i]));
-    ShuffleOnShuffles[4 * i + 1] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 1] = OVLSShuffle::create(
         MemrefAddresses[2], MemrefAddresses[3], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i]));
 
-    ShuffleOnShuffles[4 * i + 2] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 2] = OVLSShuffle::create(
         ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 1]));
-    ShuffleOnShuffles[4 * i + 3] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 3] = OVLSShuffle::create(
         ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 2]));
   }
@@ -2214,19 +2214,19 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   };
 
   for (int i = 0; i < 2; i++) {
-    ShuffleOnShuffles[4 * i + 8] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 8] = OVLSShuffle::create(
         ShuffleOnShuffles[2], ShuffleOnShuffles[2], OVLSType(32, 4),
         reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
 
-    ShuffleOnShuffles[4 * i + 9] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 9] = OVLSShuffle::create(
         ShuffleOnShuffles[3], ShuffleOnShuffles[3], OVLSType(32, 4),
         reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
 
-    ShuffleOnShuffles[4 * i + 10] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 10] = OVLSShuffle::create(
         ShuffleOnShuffles[6], ShuffleOnShuffles[6], OVLSType(32, 4),
         reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
 
-    ShuffleOnShuffles[4 * i + 11] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 11] = OVLSShuffle::create(
         ShuffleOnShuffles[7], ShuffleOnShuffles[7], OVLSType(32, 4),
         reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
   }
@@ -2252,9 +2252,9 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   // %t19 store to base+28elem
 
   for (int i = 0; i < 8; i++) {
-    OVLSMemref *FirstMemref = Group.getFirstMemref();
-    OVLSAddress Src(FirstMemref, Offset);
-    StoreInst[i] = new OVLSStore(ShuffleOnShuffles[i + 8], Src, ElementMask);
+    auto *Dst = OVLSAddress::create(Group.getFirstMemref(), Offset);
+    StoreInst[i] =
+        OVLSStore::create(ShuffleOnShuffles[i + 8], Dst, ElementMask);
     Offset = Offset + 16; // 4 elements offset.
     InstVector.emplace_back(StoreInst[i]);
   }
@@ -2303,9 +2303,8 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   int64_t Offset = 0;
 
   for (int i = 0; i < 8; i++) {
-    OVLSMemref *FirstMemref = Group.getFirstMemref();
-    OVLSAddress Src(FirstMemref, Offset);
-    LoadInst[i] = new OVLSLoad(LType, Src, ElementMask);
+    auto *Src = OVLSAddress::create(Group.getFirstMemref(), Offset);
+    LoadInst[i] = OVLSLoad::create(LType, Src, ElementMask);
     Offset = Offset + 16; // 8 elements offset.
     InstVector.emplace_back(LoadInst[i]);
   }
@@ -2329,13 +2328,13 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   const int32_t IntShuffleMask0[8] = {0, 8, 1, 9, 2, 10, 3, 11};
   const int32_t IntShuffleMask1[8] = {4, 12, 5, 13, 6, 14, 7, 15};
   for (int i = 0; i < 4; i++) {
-    ShuffleOnLoad[2 * i] =
-        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], OVLSType(32, 8),
-                        reinterpret_cast<const int8_t *>(IntShuffleMask0));
+    ShuffleOnLoad[2 * i] = OVLSShuffle::create(
+        LoadInst[2 * i], LoadInst[2 * i + 1], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask0));
 
-    ShuffleOnLoad[2 * i + 1] =
-        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], OVLSType(32, 8),
-                        reinterpret_cast<const int8_t *>(IntShuffleMask1));
+    ShuffleOnLoad[2 * i + 1] = OVLSShuffle::create(
+        LoadInst[2 * i], LoadInst[2 * i + 1], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask1));
   }
 
   for (int i = 0; i < 8; i++)
@@ -2367,17 +2366,17 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   const int32_t IntShuffleMask3[8] = {4, 5, 12, 13, 6, 7, 14, 15};
 
   for (int i = 0; i < 2; i++) {
-    ShuffleOnShuffles[4 * i] =
-        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], OVLSType(32, 8),
-                        reinterpret_cast<const int8_t *>(IntShuffleMask2));
-    ShuffleOnShuffles[4 * i + 1] =
-        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], OVLSType(32, 8),
-                        reinterpret_cast<const int8_t *>(IntShuffleMask3));
+    ShuffleOnShuffles[4 * i] = OVLSShuffle::create(
+        ShuffleOnLoad[i], ShuffleOnLoad[i + 2], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask2));
+    ShuffleOnShuffles[4 * i + 1] = OVLSShuffle::create(
+        ShuffleOnLoad[i], ShuffleOnLoad[i + 2], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask3));
 
-    ShuffleOnShuffles[4 * i + 2] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 2] = OVLSShuffle::create(
         ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask2));
-    ShuffleOnShuffles[4 * i + 3] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 3] = OVLSShuffle::create(
         ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask3));
   }
@@ -2415,17 +2414,17 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   const int32_t IntShuffleMask5[8] = {4, 5, 6, 7, 12, 13, 14, 15};
 
   for (int i = 0; i < 2; i++) {
-    ResultShuffles[4 * i] = new OVLSShuffle(
+    ResultShuffles[4 * i] = OVLSShuffle::create(
         ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask4));
-    ResultShuffles[4 * i + 1] = new OVLSShuffle(
+    ResultShuffles[4 * i + 1] = OVLSShuffle::create(
         ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask5));
 
-    ResultShuffles[4 * i + 2] = new OVLSShuffle(
+    ResultShuffles[4 * i + 2] = OVLSShuffle::create(
         ShuffleOnShuffles[4 * i + 1], ShuffleOnShuffles[4 * i + 3],
         OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask4));
-    ResultShuffles[4 * i + 3] = new OVLSShuffle(
+    ResultShuffles[4 * i + 3] = OVLSShuffle::create(
         ShuffleOnShuffles[4 * i + 1], ShuffleOnShuffles[4 * i + 3],
         OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask5));
   }
@@ -2436,8 +2435,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   if (MemrefToInstMap)
     // Populate the memrefmap.
     for (int i = 0; i < 8; i++)
-      MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
-          Group.getMemref(i), ResultShuffles[i]));
+      MemrefToInstMap->emplace(Group.getMemref(i), ResultShuffles[i]);
 
   return true;
 }
@@ -2573,7 +2571,7 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
   OVLSInstructionVector InstVector;
   if (getSequence(Group, CM, InstVector)) {
     for (auto &I : InstVector) {
-      int64_t C = CM.getInstructionCost(I.get());
+      int64_t C = CM.getInstructionCost(I);
       if (C == OVLSCostModel::UnknownCost)
         return OVLSCostModel::UnknownCost;
       Cost += C;

@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSClient.cpp ---------------------------------------------===/
 //
-//   Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -22,8 +22,8 @@
 using namespace llvm::vpo;
 
 /// Implementation of OVLSMemref::getConstStride.
-static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
-                                            VPlanScalarEvolutionLLVM &VPSE) {
+static Optional<int64_t>
+getConstStrideImpl(const SCEV *Expr, const VPlanScalarEvolutionLLVM &VPSE) {
   VPlanSCEV *VPExpr = VPSE.toVPlanSCEV(Expr);
   Optional<VPConstStepLinear> Linear = VPSE.asConstStepLinear(VPExpr);
   return Linear.transform([](auto &L) { return L.Step; });
@@ -50,7 +50,7 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
 }
 
 Optional<int64_t>
-VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
+VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) const {
   const VPLoadStoreInst *FromInst = cast<VPVLSClientMemref>(From).Inst;
   const SCEV *FromScev = getAddressSCEV(FromInst);
 
@@ -163,6 +163,11 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   // ToInst has not been found in the basic block. Probably, it is in the
   // opposite direction.
   return false;
+}
+
+bool VPVLSClientMemref::isConstStride(const VPLoadStoreInst *Inst,
+                                      const VPlanScalarEvolutionLLVM *VPSE) {
+  return getConstStrideImpl(getAddressSCEV(Inst), *VPSE).has_value();
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {

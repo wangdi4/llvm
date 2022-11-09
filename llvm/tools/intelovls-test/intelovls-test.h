@@ -1,7 +1,7 @@
 //===--- intelovls-test.h - -------------------------------------------*- C++
 //-*-===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -29,52 +29,51 @@
 using namespace llvm;
 using namespace std;
 
-typedef class LLVMContext OVLSContext;
-
 class ClientMemref : public OVLSMemref {
+protected:
+  friend class llvm::OVLSContext;
+  ClientMemref(OVLSContext &Context, char MemrefId, int Dist, Type *ElemType,
+               unsigned NumElements, OVLSAccessKind AKind, char IdxId,
+               VectorType *IdxType, bool ConstVStride, char VsId, int VecStride)
+      : OVLSMemref(Context, VLSK_ClientMemref,
+                   OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
+                   AKind),
+        MId(MemrefId), DataType(FixedVectorType::get(ElemType, NumElements)),
+        Dist(Dist), IndexId(IdxId), IndexDist(), ConstVStride(ConstVStride),
+        VecStride(VecStride), VsId(VsId), IndexType(IdxType) {}
+
 public:
   // Constructor for Indexed Accesses.
-  ClientMemref(char MemrefId, int Distance, Type *ElemType,
-               unsigned NumElements, // VectorType
-               OVLSAccessKind AKind, char IdxId, VectorType *IdxType)
-      : OVLSMemref(VLSK_ClientMemref,
-                   OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
-                   AKind) {
-    MId = MemrefId;
-    Dist = Distance;
-    IndexId = IdxId;
-    IndexType = IdxType;
-    DataType = FixedVectorType::get(ElemType, NumElements);
-    ConstVStride = false;
-    VecStride = 0;
+  static ClientMemref *createIndexed(OVLSContext &Context, char MemrefId,
+                                     int Distance, Type *ElemType,
+                                     unsigned NumElements, // VectorType
+                                     OVLSAccessKind AKind, char IdxId,
+                                     VectorType *IdxType) {
+    return Context.create<ClientMemref>(
+        MemrefId, Distance, ElemType, NumElements, AKind, IdxId, IdxType,
+        /*ConstVStride:*/ false, /*VsID:*/ 0, /*VecStride:*/ 0);
   }
+
   // Constructor for Strided Accesses with unknown strides.
-  ClientMemref(char MemrefId, int Distance, Type *ElemType,
-               unsigned NumElements, // VectorType
-               OVLSAccessKind AKind, bool CVStride, char VectorStrideId)
-      : OVLSMemref(VLSK_ClientMemref,
-                   OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
-                   AKind) {
-    MId = MemrefId;
-    Dist = Distance;
-    ConstVStride = CVStride;
-    VecStride = 0;
-    VsId = VectorStrideId;
-    DataType = FixedVectorType::get(ElemType, NumElements);
+  static ClientMemref *createUnknownStride(OVLSContext &Context, char MemrefId,
+                                           int Distance, Type *ElemType,
+                                           unsigned NumElements, // VectorType
+                                           OVLSAccessKind AKind, bool CVStride,
+                                           char VectorStrideId) {
+    return Context.create<ClientMemref>(
+        MemrefId, Distance, ElemType, NumElements, AKind, /*IdxId:*/ 0,
+        /*IdxType:*/ nullptr, CVStride, /*VsID:*/ 0, /*VecStride:*/ 0);
   }
+
   // Constructor for Strided Accesses with constant strides.
-  ClientMemref(char MemrefId, int Distance, Type *ElemType,
-               unsigned NumElements, // VectorType
-               OVLSAccessKind AKind, bool CVStride, int VStride)
-      : OVLSMemref(VLSK_ClientMemref,
-                   OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
-                   AKind) {
-    MId = MemrefId;
-    Dist = Distance;
-    ConstVStride = CVStride;
-    VecStride = VStride;
-    VsId = '\0';
-    DataType = FixedVectorType::get(ElemType, NumElements);
+  static ClientMemref *createConstStride(OVLSContext &Context, char MemrefId,
+                                         int Distance, Type *ElemType,
+                                         unsigned NumElements, // VectorType
+                                         OVLSAccessKind AKind, bool CVStride,
+                                         int VStride) {
+    return Context.create<ClientMemref>(
+        MemrefId, Distance, ElemType, NumElements, AKind,
+        /*IdxId:*/ 0, /*IdxType:*/ nullptr, CVStride, /*VsId:*/ 0, VStride);
   }
 
   static bool classof(const OVLSMemref *Mrf) {
@@ -88,16 +87,16 @@ public:
 
   // Two memrefs are considered to have same index vectors if they
   // have the same index-id and same index-type.
-  bool haveSameIndexVector(const ClientMemref &Mrf);
+  bool haveSameIndexVector(const ClientMemref &Mrf) const;
 
   bool hasConstVStride() const { return ConstVStride; }
   bool hasVarVStride() const { return VsId != '\0'; }
   int getConstVectorStride() const { return VecStride; }
   char getVarVectorStride() const { return VsId; }
 
-  bool haveSameVectorStride(const ClientMemref &Mrf);
+  bool haveSameVectorStride(const ClientMemref &Mrf) const;
 
-  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Mrf) override;
+  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Mrf) const override;
 
   bool canMoveTo(const OVLSMemref &MemRef) override { return true; }
 

@@ -1,6 +1,6 @@
 //===-- IntelVPlanCostModel.cpp -------------------------------------------===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -79,7 +79,7 @@ namespace vpo {
 #if INTEL_CUSTOMIZATION
 uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   uint32_t ElemSize = I->getType().getElementSize();
-  Type *ElemType = Type::getIntNTy(getContext(), ElemSize);
+  Type *ElemType = Type::getIntNTy(getLLVMContext(), ElemSize);
   if (isa<OVLSLoad>(I) || isa<OVLSStore>(I)) {
     VectorType *VecTy = FixedVectorType::get(ElemType, VF);
     return *TTI.getMemoryOpCost(

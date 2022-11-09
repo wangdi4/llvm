@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSAnalysis.cpp - -----------------------------------------===/
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -45,8 +45,10 @@ cl::opt<VPlanVLSLevelVariant> VPlanVLSLevel(
                           "Always run OptVLS during loop vectorization")),
     cl::init(VPlanVLSRunAuto));
 
-OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
-                                              const unsigned VF) const {
+OVLSMemref *
+VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
+                                  const unsigned VF,
+                                  const VPlanScalarEvolution *VPSE) {
   int Opcode = VPInst->getOpcode();
   OVLSAccessKind AccKind = OVLSAccessKind::Unknown;
   int AccessSize;
@@ -67,18 +69,19 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
 
   OVLSType Ty(AccessSize, VF);
 
-  // At this point we are not sure if this memref should be created. So, we
-  // create a temporary memref on the stack and move it to the heap only if it
-  // is strided.
-  VPVLSClientMemref Memref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccKind, Ty,
-                           VPInst, this);
-  return Memref.getConstStride() ? new VPVLSClientMemref(std::move(Memref))
-                                 : nullptr;
+  // At this point we are not sure if this memref should be created. Perform
+  // a check first and only create the memref if it would be constant strided.
+  if (VPVLSClientMemref::isConstStride(
+          VPInst, static_cast<const VPlanScalarEvolutionLLVM *>(VPSE))) {
+    return VPVLSClientMemref::create(OptVLSContext,
+                                     OVLSMemref::VLSK_VPlanVLSClientMemref,
+                                     AccKind, Ty, VPInst, this);
+  }
+  return nullptr;
 }
 
-void VPlanVLSAnalysis::collectMemrefs(
-    OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVector, const VPlan *Plan,
-    unsigned VF) {
+void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
+                                      const VPlan *Plan, unsigned VF) {
 
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
@@ -88,6 +91,7 @@ void VPlanVLSAnalysis::collectMemrefs(
   if (!TTI->isAggressiveVLSProfitable())
     return;
 
+  const auto *VPSE = cast<VPlanVector>(Plan)->getVPSE();
   for (const VPBasicBlock *Block : depth_first(&Plan->getEntryBlock())) {
     for (const VPInstruction &VPInst : *Block) {
       auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
@@ -101,7 +105,7 @@ void VPlanVLSAnalysis::collectMemrefs(
       if (hasIrregularTypeForUnitStride(MrfTy, &DL))
         continue;
 
-      OVLSMemref *Memref = createVLSMemref(LoadStore, VF);
+      OVLSMemref *Memref = createVLSMemref(LoadStore, VF, VPSE);
       if (!Memref)
         continue;
 
@@ -109,7 +113,6 @@ void VPlanVLSAnalysis::collectMemrefs(
       //        sizes. At the moment, it crashes trying to compute access mask
       //        for a group if element size is greater than MAX_VECTOR_LENGTH.
       if (Memref->getType().getElementSize() >= MAX_VECTOR_LENGTH * 8) {
-        delete Memref;
         continue;
       }
 
@@ -171,12 +174,12 @@ void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
             E = VLSInfoIt->second.Memrefs.end();
        I != E; ++I) {
     dbgs() << "Information about ";
-    auto *From = I->get();
+    auto *From = *I;
     From->print(dbgs());
     dbgs() << '\n';
     for (auto J = I + 1; J != E; ++J) {
       dbgs() << "\t distance to ";
-      const auto *To = J->get();
+      const auto *To = *J;
       To->print(dbgs(), 2);
       dbgs() << "  " << From->getConstDistanceFrom(*To);
 
@@ -202,8 +205,8 @@ void VPVLSClientMemref::print(raw_ostream &OS, unsigned Indent) const {
 
 /// InterleaveIndex is a distance (in elements) of a \p Memref from the first
 /// memory reference in the \p Group.
-int computeInterleaveIndex(OVLSMemref *Memref, OVLSGroup *Group) {
-  OVLSMemref *FirstMemref = Group->getFirstMemref();
+int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group) {
+  const OVLSMemref *FirstMemref = Group->getFirstMemref();
   Optional<int64_t> Offset = Memref->getConstDistanceFrom(*FirstMemref);
   assert(Offset && "Memref is from another group?");
 
@@ -216,7 +219,7 @@ int computeInterleaveIndex(OVLSMemref *Memref, OVLSGroup *Group) {
 }
 
 /// InterleaveFactor is a stride of a \p Memref (in elements).
-int computeInterleaveFactor(OVLSMemref *Memref) {
+int computeInterleaveFactor(const OVLSMemref *Memref) {
   Optional<int64_t> Stride = Memref->getConstStride();
   assert(Stride && "Interleave factor requested for non-strided accesses");
 
