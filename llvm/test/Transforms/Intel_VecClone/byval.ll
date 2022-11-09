@@ -15,7 +15,7 @@ define i32 @foo(%struct.pair* byval(%struct.pair) %x) #0 {
 ; CHECK-NEXT:    [[RET_CAST:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(%struct.pair* [[X:%.*]]) ]
+; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(%struct.pair* [[X:%.*]], %struct.pair zeroinitializer, i32 1) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER:%.*]]
