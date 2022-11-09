@@ -23,7 +23,7 @@ define dso_local i32 @_Z11shift_rows4ji(i32 %v, i32 %n) #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(i32* [[ALLOCA_N0]]), "QUAL.OMP.PRIVATE"(i32* [[V_ADDR0]]), "QUAL.OMP.PRIVATE"(i32* [[N_ADDR0]]), "QUAL.OMP.PRIVATE"(i32* [[I0]]) ]
+; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(i32* [[ALLOCA_N0]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* [[V_ADDR0]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* [[N_ADDR0]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* [[I0]], i32 0, i32 1) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:

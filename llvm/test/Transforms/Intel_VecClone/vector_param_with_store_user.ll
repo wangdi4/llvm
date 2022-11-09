@@ -31,7 +31,7 @@ define dso_local void @_Z6mandelCfj(<2 x float> %c.coerce, i32 %max_iter) #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(i32* [[ALLOCA_MAX_ITER0]]), "QUAL.OMP.PRIVATE"({ float, float }* [[C0]]), "QUAL.OMP.PRIVATE"(i32* [[MAX_ITER_ADDR0]]) ]
+; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(i32* [[ALLOCA_MAX_ITER0]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"({ float, float }* [[C0]], { float, float } zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* [[MAX_ITER_ADDR0]], i32 0, i32 1) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:

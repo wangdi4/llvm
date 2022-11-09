@@ -173,7 +173,7 @@ extern bool Usei1MaskForSimdFunctions;
 
 // Support for future opaque pointers. Will become the only option in future.
 static cl::opt<bool>
-    EmitTypedOMP("vec-clone-typed-omp", cl::init(false), cl::Hidden,
+    EmitTypedOMP("vec-clone-typed-omp", cl::init(true), cl::Hidden,
                  cl::desc("Emit 'TYPED' version of OMP clauses."));
 
 VecClone::VecClone() : ModulePass(ID) {

@@ -21,8 +21,8 @@ attributes #0 = { "vector-variants"="_ZGVbM4uu_foo,_ZGVbN4uu_foo" }
 ; CHECK-NEXT:   %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME:   "DIR.OMP.SIMD"
 ; CHECK-SAME:   "QUAL.OMP.SIMDLEN"
-; CHECK-SAME:   "QUAL.OMP.UNIFORM"(<2 x i8>* %alloca.a)
-; CHECK-SAME:   "QUAL.OMP.UNIFORM"(<3 x i32>* %alloca.b)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<2 x i8>* %alloca.a, <2 x i8> zeroinitializer, i32 1)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<3 x i32>* %alloca.b, <3 x i32> zeroinitializer, i32 1)
 ; CHECK:      simd.loop.preheader:
 ; CHECK-NOT:    %mask
 ; CHECK:      simd.loop.header:
@@ -34,8 +34,8 @@ attributes #0 = { "vector-variants"="_ZGVbM4uu_foo,_ZGVbN4uu_foo" }
 ; CHECK-NEXT:   %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME:   "DIR.OMP.SIMD"
 ; CHECK-SAME:   "QUAL.OMP.SIMDLEN"
-; CHECK-SAME:   "QUAL.OMP.UNIFORM"(<2 x i8>* %alloca.a)
-; CHECK-SAME:   "QUAL.OMP.UNIFORM"(<3 x i32>* %alloca.b)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<2 x i8>* %alloca.a, <2 x i8> zeroinitializer, i32 1)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<3 x i32>* %alloca.b, <3 x i32> zeroinitializer, i32 1)
 ; CHECK:      simd.loop.header:
 ; CHECK:        call void @bar(<2 x i8> %load.a)
 ; CHECK:        %ext = extractelement <3 x i32> %load.b, i32 0

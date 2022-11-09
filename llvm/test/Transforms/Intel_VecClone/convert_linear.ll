@@ -10,7 +10,7 @@
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 2
-; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %i.addr)
+; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(i32* %i.addr, i32 0, i32 1)
 ; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
