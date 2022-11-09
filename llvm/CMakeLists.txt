@@ -1144,10 +1144,6 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
-# INTEL_FEATURE_CPU_GNR
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_GNR)
-# end INTEL_FEATURE_CPU_GNR
 # INTEL_FEATURE_CPU_DMR
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_DMR)

@@ -131,9 +131,6 @@ enum CPUKind {
   CK_SapphireRapids,
   CK_Alderlake,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-  CK_Graniterapids,
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   CK_Diamondrapids,
 #endif // INTEL_FEATURE_CPU_DMR
@@ -143,6 +140,9 @@ enum CPUKind {
 #endif // INTEL_CUSTOMIZATION
   CK_Raptorlake,
   CK_Meteorlake,
+  CK_Sierraforest,
+  CK_Grandridge,
+  CK_Graniterapids,
   CK_KNL,
   CK_KNM,
   CK_Lakemont,

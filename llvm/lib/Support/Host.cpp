@@ -855,6 +855,13 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 #endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
+    // Graniterapids:
+    case 0xae:
+    case 0xad:
+      CPU = "graniterapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_GRANITERAPIDS;
+      break;
 
     // Icelake Xeon:
     case 0x6a:
@@ -872,14 +879,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-    // Graniterapids:
-    case 0xad:
-      CPU = "graniterapids";
-      *Type = X86::INTEL_COREI7;
-      *Subtype = X86::INTEL_COREI7_GRANITERAPIDS;
-      break;
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
     // Diamondrapids:
     case 0xd6:
@@ -922,6 +921,18 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     case 0x86:
       CPU = "tremont";
       *Type = X86::INTEL_TREMONT;
+      break;
+
+    // Sierraforest:
+    case 0xaf:
+      CPU = "sierraforest";
+      *Type = X86::INTEL_SIERRAFOREST;
+      break;
+
+    // Grandridge:
+    case 0xb6:
+      CPU = "grandridge";
+      *Type = X86::INTEL_GRANDRIDGE;
       break;
 
     // Xeon Phi (Knights Landing + Knights Mill):

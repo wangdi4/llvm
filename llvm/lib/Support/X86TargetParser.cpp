@@ -229,6 +229,8 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
+constexpr FeatureBitset FeaturesGraniteRapids =
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256
 #define ENABLE_ISA_AVX256
@@ -290,25 +292,12 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
     FeaturesSapphireRapids;
 #undef ENABLE_ISA_AVX256
 #endif // INTEL_FEATURE_ISA_AVX256
-#if INTEL_FEATURE_CPU_GNR
-#define ENABLE_CPU_GNR
-constexpr FeatureBitset FeaturesGraniteRapids =
-#endif // INTEL_FEATURE_CPU_GNR
-#ifdef ENABLE_CPU_GNR
-    FeatureAMX_FP16 |
-    FeaturePREFETCHI |
-#endif // ENABLE_CPU_GNR
-#if INTEL_FEATURE_CPU_GNR
-    FeaturesSapphireRapids;
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
 #define ENABLE_CPU_DMR
 constexpr FeatureBitset FeaturesLioncoveServer =
 #endif // INTEL_FEATURE_CPU_DMR
 #ifdef ENABLE_CPU_DMR
-#if INTEL_FEATURE_CPU_GNR
     FeaturesGraniteRapids |
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_ISA_SM3
     FeatureSM3 |
 #endif // INTEL_FEATURE_ISA_SM3
@@ -432,6 +421,11 @@ constexpr FeatureBitset FeaturesAlderlake =
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
     FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
+constexpr FeatureBitset FeaturesSierraforest =
+    FeaturesAlderlake | FeatureCMPCCXADD | FeatureAVXIFMA |
+    FeatureAVXNECONVERT | FeatureAVXVNNIINT8;
+constexpr FeatureBitset FeaturesGrandridge =
+    FeaturesSierraforest | FeatureRAOINT;
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
@@ -586,10 +580,6 @@ constexpr ProcInfo Processors[] = {
   // Alderlake microarchitecture based processors.
   { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-  // Graniterapids microarchitecture based processors.
-  { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512VP2INTERSECT, FeaturesGraniteRapids },
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   // Diamondrapids microarchitecture based processors.
   { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids },
@@ -603,6 +593,12 @@ constexpr ProcInfo Processors[] = {
   { {"raptorlake"}, CK_Raptorlake, FEATURE_AVX2, FeaturesAlderlake },
   // Meteorlake microarchitecture based processors.
   { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesAlderlake },
+  // Sierraforest microarchitecture based processors.
+  { {"sierraforest"}, CK_Sierraforest, FEATURE_AVX2, FeaturesSierraforest },
+  // Grandridge microarchitecture based processors.
+  { {"grandridge"}, CK_Grandridge, FEATURE_AVX2, FeaturesGrandridge },
+  // Graniterapids microarchitecture based processors.
+  { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids },
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.

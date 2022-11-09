@@ -860,9 +860,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_SapphireRapids:
   case CK_Alderlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-  case CK_Graniterapids:
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
   case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
@@ -872,6 +869,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif // INTEL_CUSTOMIZATION
   case CK_Raptorlake:
   case CK_Meteorlake:
+  case CK_Sierraforest:
+  case CK_Grandridge:
+  case CK_Graniterapids:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -2491,9 +2491,6 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #endif // INTEL_CUSTOMIZATION
     case CK_Alderlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-    case CK_Graniterapids:
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
     case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
@@ -2503,6 +2500,9 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #endif // INTEL_CUSTOMIZATION
     case CK_Raptorlake:
     case CK_Meteorlake:
+    case CK_Sierraforest:
+    case CK_Grandridge:
+    case CK_Graniterapids:
     case CK_KNL:
     case CK_KNM:
     // K7
