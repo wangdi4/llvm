@@ -303,6 +303,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/Transforms/Intel_IPO/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_IPODeadArgElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_LoopAttrs/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_MathLibrariesDeclaration/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_MultiVersioning/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_QsortRecognition/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Internalize/ @robertcox-github @pvbattin
