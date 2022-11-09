@@ -1276,8 +1276,10 @@ void VPOCodeGenHIR::dumpFinalHIR() {
     return;
   }
 
-  if (NeedPeelLoop)
+  if (NeedPeelLoop) {
+    assert(PeelLoop && "PeelLoop suppose to be initialized");
     PeelLoop->dump(Detailed);
+  }
   MainLoop->getParent()->dump(Detailed);
   if (NeedRemainderLoop)
     OrigLoop->dump(Detailed);
