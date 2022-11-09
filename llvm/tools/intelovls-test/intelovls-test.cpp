@@ -1,7 +1,7 @@
 //===- intelovls-test.cpp - Provides a test client for OptVLS
 //-------------------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -75,7 +75,7 @@
 
 // Two memrefs are considered to have same index vectors if they
 // have the same index-id and same index-type.
-bool ClientMemref::haveSameIndexVector(const ClientMemref &Mrf) {
+bool ClientMemref::haveSameIndexVector(const ClientMemref &Mrf) const {
   if (this->getIndexId() == Mrf.getIndexId() &&
       this->IndexType == Mrf.IndexType) {
     return true;
@@ -83,7 +83,7 @@ bool ClientMemref::haveSameIndexVector(const ClientMemref &Mrf) {
   return false;
 }
 
-bool ClientMemref::haveSameVectorStride(const ClientMemref &Mrf) {
+bool ClientMemref::haveSameVectorStride(const ClientMemref &Mrf) const {
   if (this->hasConstVStride()) {
     if (Mrf.hasConstVStride() &&
         this->getConstVectorStride() == Mrf.getConstVectorStride())
@@ -99,31 +99,29 @@ bool ClientMemref::haveSameVectorStride(const ClientMemref &Mrf) {
 //   - they have the same memref id, and same access type
 //   - for indexed accesses, they have to have the same index vectors or,
 //   - for strided accesses, they have to have the same vector strides
-Optional<int64_t> ClientMemref::getConstDistanceFrom(const OVLSMemref &Mrf) {
+Optional<int64_t>
+ClientMemref::getConstDistanceFrom(const OVLSMemref &Mrf) const {
   assert(isa<ClientMemref>(&Mrf) && "Expected ClientMemref!!!");
   const ClientMemref *CLMrf = cast<const ClientMemref>(&Mrf);
   if ((MId == CLMrf->getMemrefId()) &&                // have same memref id
       this->getAccessKind() == Mrf.getAccessKind() && // have same access type
       // Indexed accesses have matching index-vectors.
-      ((this->getAccessKind().isIndexed() &&
-        haveSameIndexVector(*CLMrf)) ||
+      ((this->getAccessKind().isIndexed() && haveSameIndexVector(*CLMrf)) ||
        // Strided accesses have matching vector strides.
-       (this->getAccessKind().isStrided() &&
-        haveSameVectorStride(*CLMrf)))) {
+       (this->getAccessKind().isStrided() && haveSameVectorStride(*CLMrf)))) {
     return Dist - (CLMrf->getDistance());
   }
   return None;
 }
 
 namespace OVLSTest {
-static OVLSContext Context;
+static LLVMContext LLVMContext;
+static OVLSContext OptVLSContext;
 
 static void parseCommandLineOptions(int argc, char **argv,
                                     const char *Banner = nullptr) {
   cl::ParseCommandLineOptions(argc, argv, Banner);
 }
-
-OVLSContext &getContext() { return Context; }
 
 static OVLSAccessKind getAccessKind(const std::string &AccKind) {
   if (AccKind.compare("SLoad") == 0)
@@ -138,26 +136,23 @@ static OVLSAccessKind getAccessKind(const std::string &AccKind) {
 }
 
 static Type *getScalarType(const std::string ST) {
-  OVLSContext &Context = getContext();
-
   if (ST.compare("i8") == 0 || ST.compare("si8") == 0)
-    return Type::getInt8Ty(Context);
+    return Type::getInt8Ty(LLVMContext);
   else if (ST.compare("i16") == 0 || ST.compare("si16") == 0)
-    return Type::getInt16Ty(Context);
+    return Type::getInt16Ty(LLVMContext);
   else if (ST.compare("i32") == 0 || ST.compare("si32") == 0)
-    return Type::getInt32Ty(Context);
+    return Type::getInt32Ty(LLVMContext);
   else if (ST.compare("i64") == 0 || ST.compare("si64") == 0)
-    return Type::getInt64Ty(Context);
+    return Type::getInt64Ty(LLVMContext);
   else if (ST.compare("f32") == 0)
-    return Type::getFloatTy(Context);
+    return Type::getFloatTy(LLVMContext);
   else if (ST.compare("f64") == 0)
-    return Type::getDoubleTy(Context);
+    return Type::getDoubleTy(LLVMContext);
 
   return nullptr;
 }
 
-static void parseInput(unsigned &GroupSize,
-                       OVLSVector<std::unique_ptr<OVLSMemref>> &Mrfs) {
+static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
 
   char MemrefId, InputChar;
   int Dist;
@@ -202,19 +197,21 @@ static void parseInput(unsigned &GroupSize,
              "IdxNumElems needs to match the NumElements!");
       VectorType *IdxType =
           FixedVectorType::get(getScalarType(SIdxElemType), IdxNumElems);
-      mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
-                             IndexId, IdxType);
+      mrf = ClientMemref::createIndexed(OptVLSContext, MemrefId, Dist, ElemType,
+                                        NumElements, AccKind, IndexId, IdxType);
     } else {
       char VsId;
       int VStride;
       std::cin >> VsId;
       std::cin >> VStride;
       if (VsId == 'C') // memref has a constant vector stride
-        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
-                               true, VStride);
+        mrf = ClientMemref::createConstStride(OptVLSContext, MemrefId, Dist,
+                                              ElemType, NumElements, AccKind,
+                                              true, VStride);
       else
-        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
-                               false, VsId);
+        mrf = ClientMemref::createUnknownStride(OptVLSContext, MemrefId, Dist,
+                                                ElemType, NumElements, AccKind,
+                                                false, VsId);
     }
     Mrfs.emplace_back(mrf);
   }
@@ -251,7 +248,7 @@ int main(int argc, char **argv) {
   unsigned GroupSize = 0;
 
   // parse Input File
-  OVLSVector<std::unique_ptr<OVLSMemref>> Mrfs;
+  OVLSMemrefVector Mrfs;
   OVLSTest::parseInput(GroupSize, Mrfs);
 
   OVLSGroupVector Grps;
@@ -267,15 +264,14 @@ int main(int argc, char **argv) {
 
   if (TM) {
     // Create a dummy module.
-    Module *M = new Module("OptVLS", OVLSTest::Context);
+    Module *M = new Module("OptVLS", OVLSTest::LLVMContext);
     // Create a dummy function declaration.
-    const Function *BarImpl =
-        OVLSTest::createFunctionDecl(
-              FunctionType::get(Type::getInt32Ty(OVLSTest::Context), {}, false),
-              "client_test", M);
+    const Function *BarImpl = OVLSTest::createFunctionDecl(
+        FunctionType::get(Type::getInt32Ty(OVLSTest::LLVMContext), {}, false),
+        "client_test", M);
     FunctionAnalysisManager DummyFAM;
     TargetTransformInfo TTI = TM->getTargetIRAnalysis().run(*BarImpl, DummyFAM);
-    OVLSCostModel CM(TTI, OVLSTest::getContext());
+    OVLSCostModel CM(TTI, OVLSTest::LLVMContext);
 
     // Do something with the grps.
     for (auto &Grp : Grps) {
@@ -283,7 +279,7 @@ int main(int argc, char **argv) {
       if (OptVLSInterface::getSequence(*Grp, CM, InstVec)) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         for (auto &I : InstVec)
-          OVLSdbgs() << I.get() << "\n";
+          OVLSdbgs() << *I << "\n";
 #endif
       }
     }

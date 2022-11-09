@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSClientHIR.h - ------------------------------------------===/
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -37,17 +37,29 @@ private:
   unsigned getLoopLevel() const { return TheLoop->getNestingLevel(); }
   const DDGraph getDDGraph() const { return DDA->getGraph(TheLoop); }
 
-public:
-  explicit VPVLSClientMemrefHIR(OVLSAccessKind AccKind, const OVLSType &Ty,
-                                const VPLoadStoreInst *Inst, const HLLoop *Loop,
-                                HIRDDAnalysis *DDA, const RegDDRef *Ref)
-      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccKind, Ty, Inst,
+protected:
+  friend class llvm::OVLSContext;
+  explicit VPVLSClientMemrefHIR(OVLSContext &Context, OVLSAccessKind AccKind,
+                                const OVLSType &Ty, const VPLoadStoreInst *Inst,
+                                const HLLoop *Loop, HIRDDAnalysis *DDA,
+                                const RegDDRef *Ref)
+      : VPVLSClientMemref(Context, VLSK_VPlanHIRVLSClientMemref, AccKind, Ty,
+                          Inst,
                           /*VLSA=*/nullptr),
         TheLoop(Loop), DDA(DDA), Ref(Ref) {}
 
-  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) override {
-    auto FromMem = dyn_cast<const VPVLSClientMemrefHIR>(&From);
-    assert(FromMem && "Invalid OVLSMemref");
+public:
+  static VPVLSClientMemrefHIR *
+  create(OVLSContext &Context, OVLSAccessKind AccKind, const OVLSType &Ty,
+         const VPLoadStoreInst *Inst, const HLLoop *Loop, HIRDDAnalysis *DDA,
+         const RegDDRef *Ref) {
+    return Context.create<VPVLSClientMemrefHIR>(AccKind, Ty, Inst, Loop, DDA,
+                                                Ref);
+  }
+
+  Optional<int64_t>
+  getConstDistanceFrom(const OVLSMemref &From) const override {
+    auto *FromMem = cast<VPVLSClientMemrefHIR>(&From);
     int64_t Dist;
     if (DDRefUtils::getConstByteDistance(getRegDDRef(), FromMem->getRegDDRef(),
                                          &Dist))
