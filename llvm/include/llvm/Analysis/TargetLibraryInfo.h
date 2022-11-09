@@ -49,6 +49,7 @@ struct VecDesc {
   ElementCount VectorizationFactor;
 #if INTEL_CUSTOMIZATION
   bool Masked;
+  bool IsOCLFn = false;
 #endif
 };
 
@@ -204,6 +205,10 @@ public:
 
   bool getUseSVMLDevice(void) const { return UseSVMLDevice; }
   void setUseSVMLDevice(bool Val) { UseSVMLDevice = Val; }
+
+  /// True if the provided function \p F is an OpenCL function that can be
+  /// vectorized using its vector library equivalent.
+  bool isOCLVectorFunction(StringRef F) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
@@ -394,6 +399,12 @@ public:
   /// True iff vector library is set to SVML.
   bool isSVMLEnabled(void) const {
     return Impl->isSVMLEnabled();
+  }
+
+  /// True if the provided function \p F is an OpenCL function that can be
+  /// vectorized using its vector library equivalent.
+  bool isOCLVectorFunction(StringRef F) const {
+    return Impl->isOCLVectorFunction(F);
   }
 #endif // INTEL_CUSTOMIZATION
 

@@ -337,10 +337,18 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
   }
 
+  LibFunc LibF;
+  // Call is valid for vector library-based vectorization if it represents a
+  // known library function, is an LLVM intrinsic or an OCL vector function.
+  bool IsValidMathLibFunc = TLI->getLibFunc(*F, LibF) || F->isIntrinsic() ||
+                            TLI->isOCLVectorFunction(CalledFuncName);
+
   // Vectorizable library function like SVML calls. Set vector function name in
   // CallVecProperties. NOTE : Vector library calls can be used if call
-  // is known to read memory only (non-default behavior).
-  if (TLI->isFunctionVectorizable(CalledFuncName, ElementCount::getFixed(VF),
+  // is known to read memory only (non-default behavior) and callee is a valid
+  // library function.
+  if (IsValidMathLibFunc &&
+      TLI->isFunctionVectorizable(CalledFuncName, ElementCount::getFixed(VF),
                                   IsMasked) &&
       (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
     VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
@@ -349,12 +357,13 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   }
 
   // Vectorize by pumping the call for a lower VF. Since pumping is only done
-  // for library calls today, ensure that call only reads memory. TODO: When
-  // vector-variant pumping is implemented, restrict the check for library func
-  // call.
+  // for library calls today, ensure that call only reads memory and callee is
+  // valid library function. TODO: When vector-variant pumping is implemented,
+  // restrict the check for library func call.
   unsigned PumpFactor = getPumpFactor(CalledFuncName, IsMasked, VF, TLI);
   if (PumpFactor > 1 &&
-      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
+      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory()) &&
+      IsValidMathLibFunc) {
     unsigned LowerVF = VF / PumpFactor;
     assert(TLI->isFunctionVectorizable(CalledFuncName,
                                        ElementCount::getFixed(LowerVF),
