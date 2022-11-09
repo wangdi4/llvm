@@ -57,12 +57,13 @@ struct LoggerSingletonHandler {
     swprintf_s(szName, sizeof(szName) / sizeof(wchar_t), g_szMemoryNameTemplate,
                GetCurrentProcessId());
 
+    size_t size = sizeof(pLogger);
     // Open shared memory, we are looking for previously allocated executor
     hMapFile = CreateFileMappingW(INVALID_HANDLE_VALUE, // use paging file
                                   nullptr,              // default security
                                   PAGE_READWRITE,       // read/write access
                                   0,                    // max. object size
-                                  sizeof(void *),       // buffer size
+                                  size,                 // buffer size
                                   szName); // name of mapping object
     if (hMapFile == nullptr) {
       return;
@@ -71,7 +72,7 @@ struct LoggerSingletonHandler {
     // Get pointer to shared memory
     pSharedBuf = MapViewOfFile(hMapFile,            // handle to map object
                                FILE_MAP_ALL_ACCESS, // read/write permission
-                               0, 0, sizeof(void *));
+                               0, 0, size);
     if (pSharedBuf == nullptr) {
       CloseHandle(hMapFile);
       return;
