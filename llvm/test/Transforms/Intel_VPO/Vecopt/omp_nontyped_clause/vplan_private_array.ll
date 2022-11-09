@@ -1,20 +1,35 @@
 ; REQUIRES: asserts
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
-; CHECK: VPlan LLVM-IR Driver for Function: test1
-; CHECK: Cannot handle nonPOD array privates.
-; CHECK: VD: Not vectorizing: Cannot prove legality.
+; FIXME: Updated checks once HIR support for private array type is added
+; COM: RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -debug-only=LoopVectorizationPlannerHIR -print-after=hir-vplan-vec -disable-output < %s 2>&1
+; COM: RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -debug-only=LoopVectorizationPlannerHIR -print-after=hir-vplan-vec -disable-output < %s 2>&1
 
-; CHECK: define void @test1
-; CHECK: %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"([12 x %struct.int_int]* %y3.priv, i8* null, void (%struct.int_int*)* @_ZTS7int_int.omp.destr), "QUAL.OMP.LINEAR:IV"(i32* %i.priv, i32 1) ]
+; CHECK:   [12 x %struct.int_int]* [[ALLPRIV:%.*]] = allocate-priv [12 x %struct.int_int]*, OrigAlign = 8
+; CHECK:   private-nonpod-array-dtor [12 x %struct.int_int]* [[ALLPRIV]]
+; CHECK-NOT: private-nonpod-array-ctor [12 x %struct.int_int]* [[ALLPRIV]]
 
-; HIR: VPlan HIR Driver for Function: test1
-; HIR: Cannot handle nonPOD array privates.
-; HIR: VD: Not vectorizing: Cannot prove legality.
-; HIR: Function: test1
+; CHECK:      array.nonpod.private.outer.loop:                  ; preds = %array.nonpod.private.outer.loop.inc, %VPlannedBB11
+; CHECK-NEXT:   %27 = phi i64 [ 0, %VPlannedBB11 ], [ %32, %array.nonpod.private.outer.loop.inc ]
+; CHECK-NEXT:   %priv.extract = extractelement <2 x [12 x %struct.int_int]*> %y3.priv.vec.base.addr, i64 %27
+; CHECK-NEXT:   br label %array.nonpod.private.inner.loop
+; CHECK-EMPTY:
+; CHECK-NEXT: array.nonpod.private.inner.loop:                  ; preds = %array.nonpod.private.inner.loop, %array.nonpod.private.outer.loop
+; CHECK-NEXT:   %28 = phi i64 [ 0, %array.nonpod.private.outer.loop ], [ %30, %array.nonpod.private.inner.loop ]
+; CHECK-NEXT:   %29 = getelementptr [12 x %struct.int_int], [12 x %struct.int_int]* %priv.extract, i64 0, i64 %28
+; CHECK-NEXT:   call void @_ZTS7int_int.omp.destr(%struct.int_int* %29)
+; CHECK-NEXT:   %30 = add i64 %28, 1
+; CHECK-NEXT:   %31 = icmp ult i64 %30, 12
+; CHECK-NEXT:   br i1 %31, label %array.nonpod.private.inner.loop, label %array.nonpod.private.outer.loop.inc
+; CHECK-EMPTY:
+; CHECK-NEXT: array.nonpod.private.outer.loop.inc:              ; preds = %array.nonpod.private.inner.loop
+; CHECK-NEXT:   %32 = add i64 %27, 1
+; CHECK-NEXT:   %33 = icmp ult i64 %27, 2
+; CHECK-NEXT:   br i1 %33, label %array.nonpod.private.outer.loop, label %array.nonpod.private.loop.exit
+; CHECK-EMPTY:
+; CHECK-NEXT: array.nonpod.private.loop.exit:                   ; preds = %array.nonpod.private.outer.loop.inc
+; CHECK:        br label %VPlannedBB13
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -66,7 +81,7 @@ if.then:
   %4 = load i32, i32* %i.priv, align 4
   %idxprom6 = sext i32 %4 to i64
   %arrayidx7 = getelementptr inbounds [12 x %struct.int_int], [12 x %struct.int_int]* %y3.priv, i64 0, i64 %idxprom6
-  %call = call nonnull align 4 dereferenceable(8) %struct.int_int* @_ZN7int_intaSERKS_(%struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx7, %struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx)
+  %call = call nonnull align 4 dereferenceable(8) %struct.int_int* @_ZN7int_intaSERKS_(%struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx7, %struct.int_int* nonnull align 4 dereferenceable(8) %arrayidx) #0
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:
@@ -78,3 +93,5 @@ omp.inner.for.exit:
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }
+
+attributes #0 = { nounwind }

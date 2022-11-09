@@ -1625,6 +1625,12 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueNonPODMasked)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateArrayNonPODCtor)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateArrayNonPODDtor)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateLastValueArrayNonPOD)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::AllocatePrivate)
     NewShape = computeVectorShapeForAllocatePrivateInst(
         cast<const VPAllocatePrivate>(I));
