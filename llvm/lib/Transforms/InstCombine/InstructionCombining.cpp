@@ -2297,7 +2297,11 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
 #endif // INTEL_CUSTOMIZATION
   if (ShouldCanonicalizeSwap && Src->hasOneUse() &&
       Src->getPointerOperandType() == GEP.getPointerOperandType() &&
+<<<<<<< HEAD
       isOpaqueScalarPtrType(Src->getPointerOperandType()) && // INTEL
+=======
+      Src->getPointerOperandType() == GEP.getType() &&
+>>>>>>> bd2b5ec8038e0256dead6f1650318e6c6150e02a
       Src->getType()->isVectorTy() == GEP.getType()->isVectorTy() &&
       !isa<GlobalValue>(Src->getPointerOperand())) {
     // When swapping, GEP with all constant indices are more prioritized than
