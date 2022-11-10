@@ -389,7 +389,6 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size,
   cl_uint uiVal;
   const void *pValue = nullptr;
 
-  cl_err_code clErrRet = CL_SUCCESS;
   switch ((cl_context_info)param_name) {
 
   case CL_CONTEXT_REFERENCE_COUNT:
@@ -413,9 +412,6 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size,
   default:
     LOG_ERROR(TEXT("param_name (=%d) isn't valid"), param_name);
     return CL_INVALID_VALUE;
-  }
-  if (CL_FAILED(clErrRet)) {
-    return clErrRet;
   }
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
