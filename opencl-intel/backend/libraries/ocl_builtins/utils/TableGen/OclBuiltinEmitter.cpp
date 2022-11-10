@@ -136,7 +136,7 @@ std::string OclType::getCType(const OclBuiltin *OB, bool NoAS) const {
 
   if (!NoAS)
     if (!OB->getAS().empty())
-      Ret += (Ret.empty() ? "" : " ") + (NoAS ? "" : OB->getAS());
+      Ret += (Ret.empty() ? "" : " ") + OB->getAS();
 
   Ret += (Ret.empty() ? "" : " ") + m_CType + " *";
 
