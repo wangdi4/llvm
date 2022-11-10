@@ -1397,7 +1397,6 @@ if(LLVM_USE_RELATIVE_PATHS_IN_FILES)
   append_if(SUPPORTS_FFILE_PREFIX_MAP "-ffile-prefix-map=${source_root}/=${LLVM_SOURCE_PREFIX}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   add_flag_if_supported("-no-canonical-prefixes" NO_CANONICAL_PREFIXES)
 endif()
-<<<<<<< HEAD
 
 if(INTEL_CUSTOMIZATION)
   option(INTEL_SDL_BUILD
@@ -1645,7 +1644,3 @@ if(INTEL_CUSTOMIZATION)
     message(STATUS "INTEL: setting SDL options - end.")
   endif()
 endif(INTEL_CUSTOMIZATION)
-set(LLVM_THIRD_PARTY_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/../third-party CACHE STRING
-    "Directory containing third party software used by LLVM (e.g. googletest)")
-=======
->>>>>>> 8a084f68c8a1cac99d9fa0fbcf490b53ab3b6e0c
