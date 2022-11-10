@@ -146,7 +146,6 @@ bool UnloadPlatformCompiler();
 void CreateProgramWithIL();
 bool Timers();
 bool CloneKernel();
-bool cl_device_local_mem_size_test();
 bool clTracingCheckExtensionsTest();
 bool clTracingCheckExtensionsForPlatformTest();
 bool clTracingCheckInvalidArgsTest();
@@ -163,7 +162,6 @@ void passBuildOptionByEnvTest();
 void UniformWorkGroupTest();
 void clKernelLocalMemSizeQueryTest();
 #ifndef _WIN32
-bool cl_device_local_mem_size_unlimited_stack_test();
 bool TbbSetMaxThreads(int NumThreads);
 #endif
 bool cl_CheckBuildNumber();
