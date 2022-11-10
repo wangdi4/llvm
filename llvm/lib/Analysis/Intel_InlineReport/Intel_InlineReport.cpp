@@ -183,10 +183,10 @@ static void printFunctionLanguage(formatted_raw_ostream &OS, unsigned Level,
 ///
 void InlineReportCallSite::printCalleeNameModuleLineCol(
     formatted_raw_ostream &OS, unsigned Level) {
-  if (getIRCallee()) {
+  if (auto IRF = getIRCallee()) {
     printFunctionLinkage(OS, Level, getIRCallee());
     printFunctionLanguage(OS, Level, getIRCallee());
-    OS << getIRCallee()->getName();
+    IRF->printName(OS, Level);
   }
   if (Level & InlineReportOptions::File)
     OS << " " << M->getModuleIdentifier();
@@ -709,7 +709,8 @@ void InlineReport::print() const {
       OS << "DEAD STATIC FUNC: ";
       printFunctionLinkage(OS, Level, IRF);
       printFunctionLanguage(OS, Level, IRF);
-      OS << IRF->getName() << "\n\n";
+      IRF->printName(OS, Level);
+      OS << "\n\n";
     }
   }
 
@@ -726,7 +727,8 @@ void InlineReport::print() const {
       OS << "COMPILE FUNC: ";
       printFunctionLinkage(OS, Level, IRF);
       printFunctionLanguage(OS, Level, IRF);
-      OS << IRF->getName() << "\n";
+      IRF->printName(OS, Level);
+      OS << "\n";
       InlineReportFunction *IRF = Mit->second;
       IRF->print(OS, Level);
       OS << "\n";
