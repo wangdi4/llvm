@@ -228,7 +228,7 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
     }
 #endif
     llvm::sys::path::append(P, CLANG_INSTALL_LIBDIR_BASENAME, "clang",
-                            CLANG_VERSION_STRING);
+                            CLANG_VERSION_MAJOR_STRING);
   }
 
   return std::string(P.str());
