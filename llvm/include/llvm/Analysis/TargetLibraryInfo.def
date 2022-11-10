@@ -2279,6 +2279,10 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(gxx_personality_v0)
 TLI_DEFINE_STRING_INTERNAL("__gxx_personality_v0")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// void __intel_new_feature_proc_init(int, int64);
+TLI_DEFINE_ENUM_INTERNAL(intel_new_feature_proc_init)
+TLI_DEFINE_STRING_INTERNAL("__intel_new_feature_proc_init")
+TLI_DEFINE_SIG_INTERNAL(Void, Int, Int64)
 /// int __isinf(double e);
 TLI_DEFINE_ENUM_INTERNAL(isinf)
 TLI_DEFINE_STRING_INTERNAL("__isinf")

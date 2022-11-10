@@ -749,9 +749,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 
 #if INTEL_CUSTOMIZATION
       "declare i8* @__dynamic_cast(i8*, i8*, i8*, i64)\n";
-
       // Split ASM string to avoid max string literal error
       std::string TestAsm2 = ""
+      "declare void @__intel_new_feature_proc_init(i32, i64)\n"
 #endif // INTEL_CUSTOMIZATION
 
       "declare i32 @__nvvm_reflect(i8*)\n"
