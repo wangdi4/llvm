@@ -413,7 +413,7 @@ public:
   }
 
   void dumpRTI() const { RTI.dump(); }
-#endif //#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   // Collection of suitable StructInfo* types for field reordering
@@ -506,7 +506,7 @@ void ReorderFieldTransInfo::dump() const {
   // print InclusiveStructTypes
   dumpInclusiveStructTypes();
 }
-#endif //#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // This class, which is derived from DTransOptBase, does all necessary
 // work for field-reorder transformation.
@@ -603,10 +603,11 @@ Type *ReorderFieldsOPImpl::getOrigTyOfTransformedType(Type *TType) {
   for (auto &TypesPair : Orig2NewTypeMap) {
     Type *OrigTy = TypesPair.first;
     Type *NewTy = TypesPair.second;
-    LLVM_DEBUG(dbgs() << "OrigTy: " << *OrigTy << "\nNewTy: " << *NewTy
-                      << "\n";);
-    if (NewTy == TType || OrigTy == TType)
+    if (NewTy == TType || OrigTy == TType) {
+      LLVM_DEBUG(dbgs() << "OrigTy: " << *OrigTy << "\nNewTy: " << *NewTy
+                        << "\n";);
       return OrigTy;
+    }
   }
 
   return nullptr;
@@ -907,8 +908,6 @@ void ReorderFieldsOPImpl::processByteFlattenedGetElementPtrInst(
   if (!StructTy)
     return;
 
-  LLVM_DEBUG({ GEP.dump(); });
-
   // Byte-Flatten GEP -- BFGEP
   bool BFGEPHandled = false;
   uint64_t NewOffset = 0;
@@ -1064,10 +1063,6 @@ void ReorderFieldsOPImpl::transformDivOp(BinaryOperator &I) {
 
     (void)Replaced;
     LLVM_DEBUG(dbgs() << "SDiv/UDiv After:" << I << "\n");
-
-  } else {
-    // Unknown case
-    llvm_unreachable("Unknown BinOp case");
   }
 }
 
@@ -1988,6 +1983,10 @@ bool ReorderFieldsAnalyzer::isApplicable(dtrans::TypeInfo *TI,
       NumElems > MaxNumElems)
     return false;
 
+  // Skip if no fields of struct are accessed.
+  if (StInfo->getTotalFrequency() <= 0)
+    return false;
+
   if (isSimpleStructType(TI) || isAdvancedStructType(TI))
     return true;
 
@@ -2089,7 +2088,7 @@ ModulePass *llvm::createDTransReorderFieldsOPWrapperPass() {
 
 PreservedAnalyses ReorderFieldsOPPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
-    DTransSafetyInfo *DTInfo = &AM.getResult<DTransSafetyAnalyzer>(M);
+  DTransSafetyInfo *DTInfo = &AM.getResult<DTransSafetyAnalyzer>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {

@@ -31,6 +31,10 @@ entry:
 ; CHECK: %1 = mul i64 %0, 48
 ; CHECK: %num1 = udiv i64 %diff1, %1
 
+; Access field to have non-zero TotalFrequency for %struct.test.
+  %i = getelementptr %struct.test, ptr %tp, i64 0, i32 0
+  store i32 10, ptr %i, align 8
+
   ret void
 }
 
