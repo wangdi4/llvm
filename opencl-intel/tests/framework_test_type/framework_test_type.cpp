@@ -445,15 +445,7 @@ TEST(INTEL_SUBGR, Test_GetKernelSubGroupInfoKHR) { clGetKernelSubGroupInfo(); }
 // CL21 tests.
 TEST(CL21_depr, Test_CloneKernel) { EXPECT_TRUE(CloneKernel()); }
 
-TEST(FrameworkTestType, cl_device_local_mem_size_test) {
-  EXPECT_TRUE(cl_device_local_mem_size_test());
-}
-
 #ifndef _WIN32
-TEST(FrameworkTestType, cl_device_local_mem_size_unlimited_stack_test) {
-  EXPECT_TRUE(cl_device_local_mem_size_unlimited_stack_test());
-}
-
 TEST(FrameworkTestType, Test_TbbSetMaxThreads1) {
   EXPECT_TRUE(TbbSetMaxThreads(1));
 }
