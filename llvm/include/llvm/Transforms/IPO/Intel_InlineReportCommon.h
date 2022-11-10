@@ -50,7 +50,8 @@ typedef enum {
   RealCost = 0x1000, // Print both early exit and real inlining costs
   DeadStatics = 0x2000, // Print dead static functions
   Externs = 0x4000,     // Print external function callsites
-  Indirects = 0x8000    // Print indirect function callsites
+  Indirects = 0x8000,   // Print indirect function callsites
+  Demangle = 0x10000    // Demangle C++ names
 } InlineReportOptions;
 }
 

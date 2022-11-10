@@ -18,6 +18,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -62,6 +63,9 @@ private:
 
   // Print the linkage character for the Function with name 'CalleeName'.
   void printFunctionLinkageChar(StringRef CalleeName);
+
+  // Get the language character for the Function with name 'CalleeName'.
+  std::string getFunctionLanguageChar(StringRef CalleeName);
 
   // Print the language character for the Function with name 'CalleeName'.
   void printFunctionLanguageChar(StringRef CalleeName);
@@ -130,12 +134,25 @@ void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
   OS << (IsFortran ? "F" : "C") << ' ';
 }
 
+std::string IREmitterInfo::getFunctionLanguageChar(StringRef CalleeName) {
+  if (Function *F = M.getFunction(CalleeName))
+    return llvm::getLanguageStr(F);
+  // If we can't find a function in the module, then it is dead.
+  // Use the DeadFortranFunctionNames set to find its language.
+  bool IsFortran = DeadFortranFunctionNames.count(CalleeName);
+  return IsFortran ? std::string("F") : std::string("C");
+}
+
 void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
   CallSiteInliningReport CSIR(MD);
   StringRef CalleeName = CSIR.getName();
   printFunctionLinkageChar(CalleeName);
   printFunctionLanguageChar(CalleeName);
-  OS << CalleeName;
+  if ((Level & InlineReportOptions::Demangle) &&
+      getFunctionLanguageChar(CalleeName) == "C")
+    OS << demangle(CalleeName.str());
+  else
+    OS << CalleeName;
   unsigned LineNum = 0, ColNum = 0;
   CSIR.getLineAndCol(&LineNum, &ColNum);
   if (Level & InlineReportOptions::File)
@@ -316,12 +333,14 @@ void IREmitterInfo::findDeadFunctionInfo(NamedMDNode *MIR) {
     getOpVal(FuncReport->getOperand(FMDIR_IsDead), "isDead: ", &IsDead);
     if (!IsDead)
       continue;
+    StringRef LangStr =
+        getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
     StringRef SR = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    if ((Level & InlineReportOptions::Demangle) && LangStr == "C")
+      SR = StringRef(demangle(SR.str()));
     StringRef LinkageStr =
         getOpStr(FuncReport->getOperand(FMDIR_LinkageStr), "linkage: ");
     DeadFunctionLinkage[SR] = LinkageStr;
-    StringRef LangStr =
-        getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
     bool IsFortran = LangStr == "F";
     if (!IsFortran)
       continue;
@@ -358,12 +377,18 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
       OS << getOpStr(FuncReport->getOperand(FMDIR_LinkageStr), "linkage: ")
          << ' ';
     }
+    StringRef LangStr =
+        getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
     if (Level & InlineReportOptions::Language)
       // Language letter
-      OS << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ")
-         << ' ';
+      OS << LangStr << ' ';
     // Function name
-    OS << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    StringRef NameStr =
+        getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    if ((Level & InlineReportOptions::Demangle) && LangStr == "C")
+      OS << demangle(NameStr.str());
+    else
+      OS << NameStr;
     // Module name
     if (Level & InlineReportOptions::File)
       OS << ' '
@@ -409,8 +434,12 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
       OS << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ")
          << ' ';
   }
-
-  OS << Name << '\n';
+  StringRef LangStr =
+      getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
+  if ((Level & InlineReportOptions::Demangle) && LangStr == "C")
+    OS << demangle(Name) << '\n';
+  else
+    OS << Name << '\n';
   printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1);
   OS << '\n';
 

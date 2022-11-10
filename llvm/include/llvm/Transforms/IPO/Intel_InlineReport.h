@@ -20,6 +20,7 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -265,6 +266,14 @@ public:
   std::string &getName() { return Name; }
 
   void setName(std::string FunctionName) { Name = FunctionName; }
+
+  void printName(formatted_raw_ostream &OS, unsigned Level) {
+    if ((Level & InlineReportTypes::InlineReportOptions::Demangle) &&
+        getLanguageChar() == 'C')
+      OS << demangle(getName());
+    else
+      OS << getName();
+  }
 
   void print(formatted_raw_ostream &OS, unsigned Level) const;
 
