@@ -794,10 +794,6 @@ cl_err_code PlatformModule::clCreateSubDevices(
 
   tNumDevices = numOutputDevices;
 
-  if (0 == num_entries) {
-    return CL_INVALID_VALUE;
-  }
-
   numSubdevicesToCreate = numOutputDevices;
 
   cl_dev_subdevice_id *subdevice_ids =

@@ -117,7 +117,6 @@ cl_err_code Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize,
   volatile cl_context clContext = 0;
   const void *pValue = nullptr;
 
-  cl_err_code clErrRet = CL_SUCCESS;
   switch ((cl_mem_info)iParamName) {
 
   case CL_SAMPLER_ADDRESSING_MODE:
@@ -148,9 +147,6 @@ cl_err_code Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize,
   default:
     LOG_ERROR(TEXT("param_name (=%d) isn't valid"), iParamName);
     return CL_INVALID_VALUE;
-  }
-  if (CL_FAILED(clErrRet)) {
-    return clErrRet;
   }
 
   // if param_value_size < actual value size return CL_INVALID_VALUE

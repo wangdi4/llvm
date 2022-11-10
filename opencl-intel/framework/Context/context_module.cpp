@@ -3315,9 +3315,6 @@ cl_int ContextModule::GetDeviceFunctionPointer(cl_device_id device,
 
   cl_int error =
       pProgram->GetDeviceFunctionPointer(device, func_name, func_pointer_ret);
-  if (nullptr == func_pointer_ret) {
-    return CL_INVALID_ARG_VALUE;
-  }
 
   return error;
 }

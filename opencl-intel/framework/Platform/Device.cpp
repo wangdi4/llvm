@@ -550,7 +550,6 @@ const SharedPtr<FrontEndCompiler> &Device::GetFrontEndCompiler() const {
 cl_err_code FissionableDevice::FissionDevice(
     const cl_device_partition_property *props, cl_uint num_entries,
     cl_dev_subdevice_id *out_devices, cl_uint *num_devices, size_t *sizes) {
-  cl_err_code ret = CL_SUCCESS;
   cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
   m_default_command_queue = nullptr;
   // identify the partition mode and translate to device enum
@@ -695,11 +694,8 @@ cl_err_code FissionableDevice::FissionDevice(
                                                GetSubdeviceId(), num_devices,
                                                nullptr, out_devices);
   }
-  if (CL_SUCCESS != ret) {
-    return ret;
-  }
   if (CL_DEV_SUCCESS == dev_ret) {
-    return ret;
+    return CL_SUCCESS;
   }
   if (CL_DEV_INVALID_PROPERTIES == dev_ret) {
     // Unsupported fission mode

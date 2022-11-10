@@ -88,7 +88,6 @@ cl_err_code MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
   cl_dx9_surface_info_khr dx9SurfaceInfo;
 #endif
 
-  cl_err_code clErrRet = CL_SUCCESS;
   switch ((cl_mem_info)iParamName) {
   case CL_MEM_TYPE:
     szSize = sizeof(cl_mem_object_type);
@@ -247,9 +246,6 @@ cl_err_code MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
   default:
     LOG_ERROR(TEXT("param_name (=%d) isn't valid"), iParamName);
     return CL_INVALID_VALUE;
-  }
-  if (CL_FAILED(clErrRet)) {
-    return clErrRet;
   }
 
   // if param_value_size < actual value size return CL_INVALID_VALUE

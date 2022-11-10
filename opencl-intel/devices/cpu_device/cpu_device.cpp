@@ -2381,7 +2381,7 @@ cl_dev_err_code CPUDevice::clDevPartition(
   } else {
     availableComputeUnits = pParent->num_compute_units;
   }
-  if ((int)props < CL_DEV_PARTITION_EQUALLY &&
+  if ((int)props < CL_DEV_PARTITION_EQUALLY ||
       (int)props > CL_DEV_PARTITION_AFFINITY_NEXT)
     return CL_DEV_INVALID_VALUE;
 
