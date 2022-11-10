@@ -1475,6 +1475,9 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     break;
   case LibFunc_gxx_personality_v0:
     break;
+  case LibFunc_intel_new_feature_proc_init:
+    Changed |= setDoesNotThrow(F);
+    break;
   case LibFunc_isinf:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
