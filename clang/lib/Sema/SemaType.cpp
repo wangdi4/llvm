@@ -1570,6 +1570,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
   case DeclSpec::TST_half:    Result = Context.HalfTy; break;
   case DeclSpec::TST_BFloat16:
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
     // Disable errors for SYCL and OpenMP device since definition of __bf16 is
     // being moved to a shared header and it causes new errors emitted when
@@ -1579,6 +1580,11 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         !S.getLangOpts().SYCLIsDevice && !S.getLangOpts().OpenMPIsDevice)
 #endif // INTEL_CUSTOMIZATION
       S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported) << "__bf16";
+=======
+    if (!S.Context.getTargetInfo().hasBFloat16Type())
+      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
+	<< "__bf16";
+>>>>>>> 276b3c23fddac406308dea478b4f2dbcbba2b354
     Result = Context.BFloat16Ty;
     break;
   case DeclSpec::TST_float:   Result = Context.FloatTy; break;
@@ -2797,6 +2803,7 @@ QualType Sema::BuildVectorType(QualType CurType, Expr *SizeExpr,
   }
 
   if (!TypeSize || VectorSizeBits % TypeSize) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Disable errors for SYCL and OpenMP device since definition of __bf16 is
     // being moved to a shared header and it causes new errors emitted when
@@ -2808,6 +2815,10 @@ QualType Sema::BuildVectorType(QualType CurType, Expr *SizeExpr,
           << SizeExpr->getSourceRange();
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+      Diag(AttrLoc, diag::err_attribute_invalid_size)
+          << SizeExpr->getSourceRange();
+>>>>>>> 276b3c23fddac406308dea478b4f2dbcbba2b354
     return QualType();
   }
 
