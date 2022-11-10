@@ -772,7 +772,6 @@ def warn_drv_sarif_format_unstable : Warning<
 
 def err_drv_riscv_unsupported_with_linker_relaxation : Error<
   "%0 is unsupported with RISC-V linker relaxation (-mrelax)">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def warn_drv_aot_tool_not_found : Warning<"%0 tool could not be found and is required for AOT compilation. "
   "See: https://www.intel.com/content/www/us/en/develop/documentation/"
@@ -783,9 +782,7 @@ def warn_drv_cxx_input_with_cc: Warning<
   "Use 'icpx' for C++ source compilation and link">,
   InGroup<DiagGroup<"incompatible-compiler">>;
 #endif // INTEL_CUSTOMIZATION
-=======
 
 def err_drv_loongarch_invalid_mfpu_EQ : Error<
   "invalid argument '%0' to -mfpu=; must be one of: 64, 32, 0, none">;
->>>>>>> 135a9272a4c99b7f960086d0bf9d7e7da4c0396d
 }
