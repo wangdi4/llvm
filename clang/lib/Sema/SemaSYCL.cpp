@@ -694,8 +694,14 @@ public:
       if (const CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(Callee))
 #if INTEL_CUSTOMIZATION
         if (!SemaRef.getLangOpts().EnableVariantVirtualCalls)
-#endif // INTEL_CUSTOMIZATION
         if (Method->isVirtual())
+#endif // INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
+        // This branch contains syclos changes which need to be synchronized
+        // with xmain implementation.
+        if (Method->isVirtual() &&
+            !SemaRef.getLangOpts().SYCLAllowVirtualFunctions)
+#endif // INTEL_CUSTOMIZATION
           SemaRef.Diag(e->getExprLoc(), diag::err_sycl_restrict)
               << Sema::KernelCallVirtualFunction;
 
