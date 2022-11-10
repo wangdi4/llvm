@@ -210,6 +210,7 @@ set (SUPPORT_SOURCES
   LineIterator.cpp
   Locale.cpp
   LockFileManager.cpp
+  LoongArchTargetParser.cpp
   LowLevelType.cpp
   ManagedStatic.cpp
   MathExtras.cpp
