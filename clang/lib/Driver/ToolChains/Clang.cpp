@@ -7305,7 +7305,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     if ((Value != "compat") && (Value != "legacy"))
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Value;
+          << A->getSpelling() << Value;
 
     if (Value == "legacy")
       CmdArgs.push_back("-fopenmp-threadprivate-legacy");
@@ -7321,7 +7321,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
           "-fopenmp-declare-target-scalar-defaultmap-firstprivate");
     else if (Value != "default")
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Value;
+          << A->getSpelling() << Value;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -8033,7 +8033,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-finline-functions");
       else
         C.getDriver().Diag(clang::diag::err_drv_unsupported_option_argument)
-            << InlineArg->getOption().getName() << Value;
+            << InlineArg->getSpelling() << Value;
     } else
       InlineArg->render(Args, CmdArgs);
 #endif // INTEL_CUSTOMIZATION

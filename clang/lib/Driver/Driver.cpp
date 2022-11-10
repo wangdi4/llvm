@@ -649,7 +649,7 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
         addClaim(options::OPT_gcolumn_info);
       else if (Value != "none")
         Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << A->getValue();
+            << A->getSpelling() << A->getValue();
     }
   }
 
@@ -1548,7 +1548,7 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
           } else {
             // No colon found, do not use the input
             C.getDriver().Diag(diag::err_drv_unsupported_option_argument)
-                << SYCLAddTargets->getOption().getName() << Val;
+                << SYCLAddTargets->getSpelling() << Val; // INTEL
           }
         }
       } else
@@ -2763,7 +2763,7 @@ void Driver::PrintSYCLToolHelp(const Compilation &C) const {
                                          "opencl-aot", "--help", ""));
     if (HelpArgs.empty()) {
       C.getDriver().Diag(diag::err_drv_unsupported_option_argument)
-                         << A->getOption().getName() << AV;
+                         << A->getSpelling() << AV; // INTEL
       return;
     }
   }
@@ -6026,7 +6026,7 @@ class OffloadingActionBuilder final {
               // Driver::CreateOffloadingDeviceToolChains() to minimize code
               // duplication.
               C.getDriver().Diag(diag::err_drv_unsupported_option_argument)
-                  << A->getOption().getName() << Val;
+                  << A->getSpelling() << Val; // INTEL
             }
             devicelib_link_info[Val] = true && !NoDeviceLibs;
           }

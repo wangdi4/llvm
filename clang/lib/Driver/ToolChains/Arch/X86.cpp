@@ -128,7 +128,7 @@ std::string x86::getCPUForIntelOnly(const Driver &D, StringRef Arch,
   if (std::find(NonIntelTargets.begin(), NonIntelTargets.end(), Arch) !=
       NonIntelTargets.end()) {
     D.Diag(clang::diag::err_drv_unsupported_option_argument)
-        << A->getOption().getName() << Arch;
+        << A->getSpelling() << Arch;
     return "";
   }
   return getCPUForIntel(Arch, Triple,
