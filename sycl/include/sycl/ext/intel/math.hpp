@@ -49,6 +49,10 @@ float __imf_erfcinvf(float);
 double __imf_erfcinv(double);
 float __imf_cdfnormf(float);
 double __imf_cdfnorm(double);
+float __imf_normf(int, const float*);
+double __imf_norm(int, const double*);
+float __imf_rnormf(int, const float*);
+double __imf_rnorm(int, const double*);
 /* end INTEL_CUSTOMIZATION */
 };
 
@@ -114,6 +118,27 @@ template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, double>, double> cdfnorm(Tp x) {
   return __imf_cdfnorm(x);
 }
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> norm(int x, const Tp* y) {
+  return __imf_normf(x, y);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> norm(int x, const Tp* y) {
+  return __imf_norm(x, y);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> rnorm(int x, const Tp* y) {
+  return __imf_rnormf(x, y);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> rnorm(int x, const Tp* y) {
+  return __imf_rnorm(x, y);
+}
+
 /* end INTEL_CUSTOMIZATION */
 #endif
 } // namespace math
