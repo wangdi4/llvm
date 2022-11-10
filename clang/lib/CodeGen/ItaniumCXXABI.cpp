@@ -3883,15 +3883,12 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   // Check if the alias exists. If it doesn't, then get or create the global.
   if (CGM.getItaniumVTableContext().isRelativeLayout())
     VTable = CGM.getModule().getNamedAlias(VTableName);
-<<<<<<< HEAD
-  if (!VTable)
 #if INTEL_COLLAB
+  if (!VTable)
     VTable = CGM.CreateRuntimeVariable(CGM.TargetInt8PtrTy, VTableName);
-#else  // INTEL_COLLAB
-    VTable = CGM.getModule().getOrInsertGlobal(VTableName, CGM.Int8PtrTy);
-#endif  // INTEL_COLLAB
-=======
 
+  // Else branch contains syclos changes.
+#else  // INTEL_COLLAB
   // To generate valid device code global pointers should have global address
   // space in SYCL.
   bool GenTyInfoGVWithGlobalAS =
@@ -3918,7 +3915,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
       VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableTy);
     }
   }
->>>>>>> b90391e520cf1f0dfc26ae429b66948e15803172
+#endif  // INTEL_COLLAB
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
 
@@ -3943,39 +3940,31 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     // The vtable address point is 8 bytes after its start:
     // 4 for the offset to top + 4 for the relative offset to rtti.
     llvm::Constant *Eight = llvm::ConstantInt::get(CGM.Int32Ty, 8);
-<<<<<<< HEAD
 #if INTEL_COLLAB
     VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.TargetInt8PtrTy);
+    // Else branch contains syclos changes.
 #else // INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
-=======
     VTable = llvm::ConstantExpr::getBitCast(VTable, VTableTy);
->>>>>>> b90391e520cf1f0dfc26ae429b66948e15803172
+#endif // INTEL_COLLAB
     VTable =
         llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8Ty, VTable, Eight);
   } else {
     llvm::Constant *Two = llvm::ConstantInt::get(PtrDiffTy, 2);
-<<<<<<< HEAD
 #if INTEL_COLLAB
     VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.TargetInt8PtrTy,
                                                           VTable, Two);
+    // Else branch contains syclos changes.
 #else // INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy, VTable,
-                                                          Two);
+    VTable =
+        llvm::ConstantExpr::getInBoundsGetElementPtr(VTableTy, VTable, Two);
 #endif // INTEL_COLLAB
   }
 #if INTEL_COLLAB
   VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.TargetInt8PtrTy);
+  // Else branch contains syclos changes.
 #else // INTEL_COLLAB
-  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
-=======
-    VTable =
-        llvm::ConstantExpr::getInBoundsGetElementPtr(VTableTy, VTable, Two);
-  }
   VTable = llvm::ConstantExpr::getBitCast(VTable, VTableTy);
->>>>>>> b90391e520cf1f0dfc26ae429b66948e15803172
+#endif // INTEL_COLLAB
 
   Fields.push_back(VTable);
 }
