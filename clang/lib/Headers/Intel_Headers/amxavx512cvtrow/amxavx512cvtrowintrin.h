@@ -56,7 +56,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 /// \headerfile <x86intrin.h>
 ///
 /// \code
-/// __m512i _tile_cvtrowd2pse(__tile tsrc, unsigned int row);
+/// __m512i _tile_cvtrowd2ps(__tile tsrc, unsigned int row);
 /// \endcode
 ///
 /// \code{.operation}
@@ -81,7 +81,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param row
 ///    The row of the source tile
-#define _tile_cvtrowd2pse(tsrc, row) __builtin_ia32_tcvtrowd2pse(tsrc, row)
+#define _tile_cvtrowd2ps(tsrc, row) __builtin_ia32_tcvtrowd2pse(tsrc, row)
 
 /// Moves a row from a tile register to a zmm destination register, converting
 ///    the int32 source elements to fp32. The row of the tile is selected by an
@@ -126,7 +126,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 /// \headerfile <x86intrin.h>
 ///
 /// \code
-/// __m512i _tile_cvtrowps2pbf16he(__tile tsrc, unsigned int row);
+/// __m512i _tile_cvtrowps2pbf16h(__tile tsrc, unsigned int row);
 /// \endcode
 ///
 /// \code{.operation}
@@ -152,7 +152,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 ///    The source tile. Max size is 1024 Bytes.
 /// \param row
 ///    The the row of the source tile.
-#define _tile_cvtrowps2pbf16he(tsrc, row)                                       \
+#define _tile_cvtrowps2pbf16h(tsrc, row)                                       \
   __builtin_ia32_tcvtrowps2pbf16he(tsrc, row)
 
 /// Moves a row from a tile register to a zmm destination register, converting
@@ -201,7 +201,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 /// \headerfile <x86intrin.h>
 ///
 /// \code
-/// __m512i _tile_cvtrowps2pbf16le(__tile tsrc, unsigned int row);
+/// __m512i _tile_cvtrowps2pbf16l(__tile tsrc, unsigned int row);
 /// \endcode
 ///
 /// \code{.operation}
@@ -227,7 +227,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 ///    The source tile. Max size is 1024 Bytes.
 /// \param row
 ///    The the row of the source tile.
-#define _tile_cvtrowps2pbf16le(tsrc, row)                                       \
+#define _tile_cvtrowps2pbf16l(tsrc, row)                                       \
   __builtin_ia32_tcvtrowps2pbf16le(tsrc, row)
 
 /// Moves a row from a tile register to a zmm destination register, converting
@@ -276,7 +276,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 /// \headerfile <x86intrin.h>
 ///
 /// \code
-/// __m512i _tile_cvtrowps2phhe(__tile tsrc, unsigned int row);
+/// __m512i _tile_cvtrowps2phh(__tile tsrc, unsigned int row);
 /// \endcode
 ///
 /// \code{.operation}
@@ -302,7 +302,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 ///    The source tile. Max size is 1024 Bytes.
 /// \param row
 ///    The the row of the source tile.
-#define _tile_cvtrowps2phhe(tsrc, row) __builtin_ia32_tcvtrowps2phhe(tsrc, row)
+#define _tile_cvtrowps2phh(tsrc, row) __builtin_ia32_tcvtrowps2phhe(tsrc, row)
 
 /// Moves a row from a tile register to a zmm destination register, converting
 ///    the fp32 source elements to fp16. It places the resulting fp16 elements
@@ -350,7 +350,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 /// \headerfile <x86intrin.h>
 ///
 /// \code
-/// __m512i _tile_cvtrowps2phle(__tile tsrc, unsigned int row);
+/// __m512i _tile_cvtrowps2phl(__tile tsrc, unsigned int row);
 /// \endcode
 ///
 /// \code{.operation}
@@ -376,7 +376,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 ///    The source tile. Max size is 1024 Bytes.
 /// \param row
 ///    The the row of the source tile.
-#define _tile_cvtrowps2phle(tsrc, row) __builtin_ia32_tcvtrowps2phle(tsrc, row)
+#define _tile_cvtrowps2phl(tsrc, row) __builtin_ia32_tcvtrowps2phle(tsrc, row)
 
 /// Moves a row from a tile register to a zmm destination register, converting
 ///    the fp32 source elements to fp16. It places the resulting fp16 elements
@@ -419,7 +419,7 @@ __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512-cvtrow")))
 /// This is internal intrinsic. C/C++ user should avoid calling it directly.
 
 static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512
-_tile_cvtrowd2pse_internal(unsigned short m, unsigned short n,
+_tile_cvtrowd2ps_internal(unsigned short m, unsigned short n,
                            _tile1024i src, unsigned u) {
   return __builtin_ia32_tcvtrowd2pse_internal(m, n, src, u);
 }
@@ -428,7 +428,7 @@ _tile_cvtrowd2pse_internal(unsigned short m, unsigned short n,
   __builtin_ia32_tcvtrowd2psi_internal(m, n, tsrc, i)
 
 static __inline__ __m512bh __DEFAULT_FN_ATTRS_AVX512
-_tile_cvtrowps2pbf16he_internal(unsigned short m, unsigned short n,
+_tile_cvtrowps2pbf16h_internal(unsigned short m, unsigned short n,
                                 _tile1024i src, unsigned u) {
   return __builtin_ia32_tcvtrowps2pbf16he_internal(m, n, src, u);
 }
@@ -437,7 +437,7 @@ _tile_cvtrowps2pbf16he_internal(unsigned short m, unsigned short n,
   __builtin_ia32_tcvtrowps2pbf16hi_internal(m, n, tsrc, i)
 
 static __inline__ __m512bh __DEFAULT_FN_ATTRS_AVX512
-_tile_cvtrowps2pbf16le_internal(unsigned short m, unsigned short n,
+_tile_cvtrowps2pbf16l_internal(unsigned short m, unsigned short n,
                                 _tile1024i src, unsigned u) {
   return __builtin_ia32_tcvtrowps2pbf16le_internal(m, n, src, u);
 }
@@ -446,7 +446,7 @@ _tile_cvtrowps2pbf16le_internal(unsigned short m, unsigned short n,
   __builtin_ia32_tcvtrowps2pbf16li_internal(m, n, tsrc, i)
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS_AVX512
-_tile_cvtrowps2phhe_internal(unsigned short m, unsigned short n,
+_tile_cvtrowps2phh_internal(unsigned short m, unsigned short n,
                              _tile1024i src, unsigned u) {
   return __builtin_ia32_tcvtrowps2phhe_internal(m, n, src, u);
 }
@@ -455,7 +455,7 @@ _tile_cvtrowps2phhe_internal(unsigned short m, unsigned short n,
   __builtin_ia32_tcvtrowps2phhi_internal(m, n, tsrc, i)
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS_AVX512
-_tile_cvtrowps2phle_internal(unsigned short m, unsigned short n,
+_tile_cvtrowps2phl_internal(unsigned short m, unsigned short n,
                              _tile1024i src, unsigned u) {
   return __builtin_ia32_tcvtrowps2phle_internal(m, n, src, u);
 }
@@ -479,8 +479,8 @@ _tile_cvtrowps2phle_internal(unsigned short m, unsigned short n,
 /// \ret
 ///    The destination v16f32 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
-static __m512 __tile_cvtrowd2pse(__tile1024i src0, unsigned src1) {
-  return _tile_cvtrowd2pse_internal(src0.row, src0.col, src0.tile, src1);
+static __m512 __tile_cvtrowd2ps(__tile1024i src0, unsigned src1) {
+  return _tile_cvtrowd2ps_internal(src0.row, src0.col, src0.tile, src1);
 }
 
 /// Move a row from a tile (src0) to a v16f32 dst, converting the int32 source
@@ -516,8 +516,8 @@ static __m512 __tile_cvtrowd2pse(__tile1024i src0, unsigned src1) {
 /// \ret
 ///    The destination v32bf16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
-static __m512bh __tile_cvtrowps2pbf16he(__tile1024i src0, unsigned src1) {
-  return _tile_cvtrowps2pbf16he_internal(src0.row, src0.col, src0.tile, src1);
+static __m512bh __tile_cvtrowps2pbf16h(__tile1024i src0, unsigned src1) {
+  return _tile_cvtrowps2pbf16h_internal(src0.row, src0.col, src0.tile, src1);
 }
 
 /// Move a row from a tile (src0) to a v32bf16 dst, converting the f32 source
@@ -552,8 +552,8 @@ static __m512bh __tile_cvtrowps2pbf16he(__tile1024i src0, unsigned src1) {
 /// \ret
 ///    The destination v32bf16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
-static __m512bh __tile_cvtrowps2pbf16le(__tile1024i src0, unsigned src1) {
-  return _tile_cvtrowps2pbf16le_internal(src0.row, src0.col, src0.tile, src1);
+static __m512bh __tile_cvtrowps2pbf16l(__tile1024i src0, unsigned src1) {
+  return _tile_cvtrowps2pbf16l_internal(src0.row, src0.col, src0.tile, src1);
 }
 
 /// Move a row from a tile (src0) to a v32bf16 dst, converting the f3232 source
@@ -588,8 +588,8 @@ static __m512bh __tile_cvtrowps2pbf16le(__tile1024i src0, unsigned src1) {
 /// \ret
 ///    The destination v32fp16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
-static __m512h __tile_cvtrowps2phhe(__tile1024i src0, unsigned src1) {
-  return _tile_cvtrowps2phhe_internal(src0.row, src0.col, src0.tile, src1);
+static __m512h __tile_cvtrowps2phh(__tile1024i src0, unsigned src1) {
+  return _tile_cvtrowps2phh_internal(src0.row, src0.col, src0.tile, src1);
 }
 
 /// Move a row from a tile (src0) to a v32fp16 dst, converting the f3232 source
@@ -624,8 +624,8 @@ static __m512h __tile_cvtrowps2phhe(__tile1024i src0, unsigned src1) {
 /// \ret
 ///    The destination v32fp16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
-static __m512h __tile_cvtrowps2phle(__tile1024i src0, unsigned src1) {
-  return _tile_cvtrowps2phle_internal(src0.row, src0.col, src0.tile, src1);
+static __m512h __tile_cvtrowps2phl(__tile1024i src0, unsigned src1) {
+  return _tile_cvtrowps2phl_internal(src0.row, src0.col, src0.tile, src1);
 }
 
 /// Move a row from a tile (src0) to a v32fp16 dst, converting the f3232 source

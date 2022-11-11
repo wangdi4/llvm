@@ -2,7 +2,6 @@
 ; If there is a match we assume they are error handling functions,
 ; and thus add 'cold' attribute to them.
 
-; RUN: opt < %s -S -inferattrs | FileCheck %s
 ; RUN: opt < %s -S -passes=inferattrs | FileCheck %s
 
 ; CHECK: define void @my_croak_func() #0 {

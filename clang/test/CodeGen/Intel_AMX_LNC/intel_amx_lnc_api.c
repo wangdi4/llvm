@@ -35,16 +35,16 @@ void test_tile_tdpfp16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
   __tile_tdpfp16ps(&c, a, b);
 }
 
-__m512 test_tile_tilemovrowe(__tile1024i a, unsigned b) {
-  //CHECK-LABEL: @test_tile_tilemovrowe
+__m512 test_tile_movrow(__tile1024i a, unsigned b) {
+  //CHECK-LABEL: @test_tile_movrow
   //CHECK-DAG: call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> {{%.*}})
   //CHECK-DAG: call <16 x float> @llvm.x86.tilemovrowe.internal
- return __tile_tilemovrowe(a, b);
+ return __tile_movrow(a, b);
 }
 
-__m512 test_tile_tilemovrowi(__tile1024i a) {
-  //CHECK-LABEL: @test_tile_tilemovrowi
+__m512 test_tile_movrowi(__tile1024i a) {
+  //CHECK-LABEL: @test_tile_movrowi
   //CHECK-DAG: call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> {{%.*}})
   //CHECK-DAG: call <16 x float> @llvm.x86.tilemovrowi.internal
- return __tile_tilemovrowi(a, 15);
+ return __tile_movrowi(a, 15);
 }

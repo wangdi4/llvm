@@ -180,7 +180,7 @@
 /// \headerfile <immintrin.h>
 ///
 /// \code
-/// __m512 __tile_tilemovrowi(__tile a, unsigned b);
+/// __m512 _tile_movrowi(__tile a, unsigned b);
 /// \endcode
 ///
 /// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
@@ -204,7 +204,7 @@
 /// 		dst.byte[i] := a.row[row_index].byte[row_chunk+i]
 /// ENDFOR
 /// \endcode
-#define _tile_tilemovrowi(a, b)  __builtin_ia32_tilemovei(a, b)
+#define _tile_movrowi(a, b)  __builtin_ia32_tilemovei(a, b)
 
 /// Move one row of a tile data to a v16f32 data.
 /// The row of the tile is selected by a 32b GPR.
@@ -212,7 +212,7 @@
 /// \headerfile <immintrin.h>
 ///
 /// \code
-/// __m512 __tile_tilemovrowe(__tile a, unsigned b);
+/// __m512 _tile_movrow(__tile a, unsigned b);
 /// \endcode
 ///
 /// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
@@ -236,8 +236,8 @@
 /// 		dst.byte[i] := a.row[row_index].byte[row_chunk+i]
 /// ENDFOR
 /// \endcode
-#define _tile_tilemovrowe(a, b)  __builtin_ia32_tilemovee(a, b)
-#define _tile_tilemovrowx(a, b)  __builtin_ia32_tilemovex(a, b)
+#define _tile_movrow(a, b)  __builtin_ia32_tilemovee(a, b)
+#define _tile_movrowx(a, b)  __builtin_ia32_tilemovex(a, b)
 // BF16EVEX
 #define _tile_dpbf16pse(tsrc1_dst, tsrc2, tsrc3)                               \
   __builtin_ia32_tdpbf16pse(tsrc1_dst, tsrc2, tsrc3)
@@ -289,12 +289,12 @@ _tile_tdpfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
 }
 
 static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512
-_tile_tilemovrowe_internal(unsigned short m, unsigned short n,
-                              _tile1024i src, unsigned u) {
+_tile_movrow_internal(unsigned short m, unsigned short n,
+                      _tile1024i src, unsigned u) {
   return __builtin_ia32_tilemovrowe_internal(m, n, src, u);
 }
 
-#define _tile_tilemovrowi_internal(m, n, tsrc, i)                            \
+#define _tile_movrowi_internal(m, n, tsrc, i)                            \
   __builtin_ia32_tilemovrowi_internal(m, n, tsrc, i)
 
 /// Transpose 32-bit elements from src and write the result to dst.
@@ -378,8 +378,8 @@ static void __tile_tdpfp16ps(__tile1024i *dst, __tile1024i src0,
 /// \returns
 ///    The destination v16f32 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
-static __m512 __tile_tilemovrowe(__tile1024i src0, unsigned src1) {
-  return _tile_tilemovrowe_internal(src0.row, src0.col, src0.tile, src1);
+static __m512 __tile_movrow(__tile1024i src0, unsigned src1) {
+  return _tile_movrow_internal(src0.row, src0.col, src0.tile, src1);
 }
 
 /// Move one row of a tile data to a v16f32 data.
@@ -395,8 +395,8 @@ static __m512 __tile_tilemovrowe(__tile1024i src0, unsigned src1) {
 ///    The 1st source imm8. Size is 4 Bytes.
 /// \returns
 ///    The destination v16f32 data. Size is 64 Bytes.
-#define __tile_tilemovrowi(src0, src1)                                     \
-  _tile_tilemovrowi_internal(src0.row, src0.col, src0.tile, src1);
+#define __tile_movrowi(src0, src1)                                     \
+  _tile_movrowi_internal(src0.row, src0.col, src0.tile, src1);
 
 #endif /* __x86_64__ */
 #endif /* __AMX_LNCINTRIN_H */

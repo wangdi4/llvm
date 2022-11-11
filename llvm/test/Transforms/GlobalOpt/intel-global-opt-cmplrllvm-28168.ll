@@ -1,4 +1,3 @@
-; RUN: opt < %s -S -globalopt | FileCheck %s
 ; RUN: opt < %s -S -passes="globalopt" | FileCheck %s
 
 ; CMPLRLLVM-28168: Add nullptr check to avoid seg fault when processing

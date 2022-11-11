@@ -2,7 +2,6 @@
 ; are removed (including atexit call). instcombine and inline passes are
 ; needed to prove that ??__FgArrayM@@YAXXZ is empty function.
 
-; RUN: opt < %s -S -instcombine -inline -globalopt | FileCheck %s
 ; RUN: opt < %s -S -passes='function(instcombine),cgscc(inline),globalopt' | FileCheck %s
 
 ; CHECK: @"?gArrayM@@3VMArrayImpl@1@A" = dso_local global %MArrayImpl

@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -deadargelim -debug-only=deadargelim -vec-clone -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='deadargelim,vec-clone' -debug-only=deadargelim -S 2>&1 | FileCheck %s
 
 ; Check that dead argument elimination does not happen for @foo because it

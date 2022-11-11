@@ -3,7 +3,6 @@
 ; GlobalModRef should be able to tell that @doesnotmodX() call
 ; doesn't change value of @X.
 
-; RUN: opt < %s -enable-unsafe-globalsmodref-alias-results=true -basic-aa -globals-aa -gvn -S | FileCheck %s
 ; RUN: opt < %s -enable-unsafe-globalsmodref-alias-results=true -aa-pipeline=basic-aa,globals-aa -passes="require<globals-aa>,function(gvn)" -S | FileCheck %s
 
 @X = internal global i32 4
