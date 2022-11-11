@@ -1159,7 +1159,6 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
     return ConstantInt::get(Tp,
                             APInt::getSignedMinValue(Tp->getIntegerBitWidth()));
   case RecurKind::FMin:
-<<<<<<< HEAD
     assert((FMF.noNaNs() && FMF.noSignedZeros()) &&
            "nnan, nsz is expected to be set for FP min reduction.");
     return ConstantFP::getInfinity(Tp, false /*Negative*/);
@@ -1167,11 +1166,6 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
     assert((FMF.noNaNs() && FMF.noSignedZeros()) &&
            "nnan, nsz is expected to be set for FP max reduction.");
     return ConstantFP::getInfinity(Tp, true /*Negative*/);
-=======
-    return ConstantFP::getInfinity(Tp, false /*Negative*/); // INTEL
-  case RecurKind::FMax:
-    return ConstantFP::getInfinity(Tp, true /*Negative*/); // INTEL
->>>>>>> 3390342fd5826efadd984a630b35bebddc73608f
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
