@@ -2,7 +2,6 @@
 ; with "stdout" by globalopt when whole-program-safe is true since
 ; "nabout" is used before value of "stdout" is assigned to "nabout".
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -globalopt -whole-program-assume -S | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,globalopt' -whole-program-assume -S | FileCheck %s
 
 ; CHECK-NOT: %0 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
