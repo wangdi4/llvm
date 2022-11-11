@@ -1563,6 +1563,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
     return;
   }
+  case VPInstruction::ReductionInitArr: {
+    generateArrayReductionInit(VPInst);
+    return;
+  }
   case VPInstruction::ReductionFinal: {
     vectorizeReductionFinal(cast<VPReductionFinal>(VPInst));
     return;
@@ -1588,6 +1592,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // in the operand.
     // ReductionFinalInscan opcode is needed for correct work of CFG merger.
     VPScalarMap[VPInst][0] = getScalarValue(VPInst->getOperand(0), 0);
+    return;
+  }
+  case VPInstruction::ReductionFinalArr: {
+    generateArrayReductionFinal(cast<VPReductionFinalArray>(VPInst));
     return;
   }
   case VPInstruction::InductionInit: {
@@ -4431,6 +4439,237 @@ Value *VPOCodeGen::vectorizeRunningReduction(
   return LastReduced;
 }
 
+void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
+  assert(RedInitArr->getOpcode() == VPInstruction::ReductionInitArr &&
+         "reduction-init-arr instruction expected here.");
+
+  auto *PrivArr = cast<VPAllocatePrivate>(RedInitArr->getOperand(1));
+  auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
+  Type *ElemTy = ArrTy->getElementType();
+  unsigned NumElems = ArrTy->getNumElements();
+
+  // Pseudo IR for generic array reduction initialization -
+  //
+  // PH:
+  //   %bc = bitcast [NumElems x ElemTy]* %lane0.arr to ElemTy*
+  //
+  // init.loop:
+  //   %iv = phi [0, PH], [%iv.next, init.loop]
+  //   %ptr = gep %bc, %iv
+  //   store %identity, %ptr
+  //   %iv.next = add %iv, 1
+  //   %iv.cond = icmp ult %iv.next, VF * NumElems
+  //   br %iv.cond, %init.loop, %init.loop.exit
+  //
+  // TODO: Generate vectorized version of initialization loop similar to
+  // finalization.
+
+  // Bitcast base address from array type to element type -
+  // %bc = bitcast [NumElems x ElemTy]* %priv.arr.firstlane to ElemTy*
+  auto BaseAddrBc = Builder.CreateBitCast(
+      getScalarValue(PrivArr, 0),
+      PointerType::get(
+          ElemTy, cast<PointerType>(PrivArr->getType())->getAddressSpace()),
+      "arr.red.base.addr.bc");
+
+  BasicBlock *InitLoop =
+      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
+                 nullptr /*Memory SSAUpdater*/, "array.redn.init.loop");
+  BasicBlock *InitLoopExit =
+      SplitBlock(InitLoop, InitLoop->getTerminator(), DT, LI,
+                 nullptr /*Memory SSAUpdater*/, "array.redn.init.loopexit");
+  Builder.SetInsertPoint(InitLoop->getTerminator());
+
+  // Loop IV phi to count loop iterations.
+  PHINode *IVPhi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2,
+                                     "cur.elem.idx");
+  IVPhi->addIncoming(Builder.getInt64(0), InitLoop->getSinglePredecessor());
+
+  // Loop body. Access each element of wide alloca (assumes contiguous memory)
+  // and store reduction's identity value in it -
+  // %ptr = gep ElemTy* %bc, %iv.phi
+  // store %Identity, %ptr
+  Value *ElemPtr =
+      Builder.CreateGEP(ElemTy, BaseAddrBc, {IVPhi}, "cur.elem.ptr");
+  Builder.CreateStore(getScalarValue(RedInitArr->getOperand(0), 0), ElemPtr);
+
+  // Increment loop IV phi.
+  Value *IVAdd = Builder.CreateAdd(IVPhi, Builder.getInt64(1), "next.elem.idx");
+  IVPhi->addIncoming(IVAdd, InitLoop);
+  unsigned NumIters = NumElems * VF;
+  Value *IVCond =
+      Builder.CreateICmpULT(IVAdd, Builder.getInt64(NumIters), "initloop.cond");
+
+  Builder.CreateCondBr(IVCond, InitLoop, InitLoopExit);
+  InitLoop->getTerminator()->eraseFromParent();
+
+  Builder.SetInsertPoint(InitLoopExit->getTerminator());
+  State->CFG.PrevBB = InitLoopExit;
+  return;
+}
+
+void VPOCodeGen::generateArrayReductionFinal(
+    VPReductionFinalArray *RedFinalArr) {
+  auto *PrivArr = cast<VPAllocatePrivate>(RedFinalArr->getOperand(0));
+  auto *OrigArr = getScalarValue(RedFinalArr->getOperand(1), 0);
+  auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
+  Type *ElemTy = ArrTy->getElementType();
+  unsigned NumElems = ArrTy->getNumElements();
+
+  // Pseudo IR for generic array reduction finalization -
+  //
+  // final.main.loop:
+  //   %iv = phi [0, PH], [%iv.next, final.main.loop]
+  //   %gep.orig = gep %orig.arr, %iv
+  //   %gep.orig.bc = bitcast %gep.orig to <FinLpVF X ElemTy>*
+  //   %ld.orig = load %gep.orig.bc
+  //   %gep.lane0 = gep %lane0.arr, %iv
+  //   %gep.lane0.bc = bitcast %gep.lane0 to <FinLpVF X ElemTy>*
+  //   %ld.lane0 = load %gep.lane0.bc
+  //   ... (SIMD loop nest VF-times)
+  //   %red.op1 = red-opcode %ld.orig, %ld.lane0
+  //   ...
+  //   store %red.op.last, %gep.orig
+  //   %iv.next = add %iv, FinLpVF
+  //   %iv.cond = icmp ult %iv.next, FinLpUB
+  //   br %iv.cond, %final.rem.loop, %final.main.loop
+  //
+  // final.rem.loop:
+  //   %rem.iv = phi [%iv.next, PH], [%rem.iv.next, final.main.loop]
+  //   %gep.orig = gep %orig.arr, %rem.iv
+  //   %ld.orig = load %gep.orig.bc
+  //   %gep.lane0 = gep %lane0.arr, %rem.iv
+  //   %ld.lane0 = load %gep.lane0.bc
+  //   ... (SIMD loop nest VF-times)
+  //   %red.op1 = red-opcode %ld.orig, %ld.lane0
+  //   ...
+  //   store %red.op.last, %gep.orig
+  //   %rem.iv.next = add %rem.iv, 1
+  //   %rem.iv.cond = icmp ult %rem.iv.next, NumElems
+  //   br %rem.iv.cond, %final.loop.exit, %final.rem.loop
+  //
+  // final.rem.loop is omitted if array size is equally divisible by
+  // finalization loop VF. TODO: final.rem.loop can be vectorized in masked
+  // mode for AVX512 and newer targets.
+
+  // Compute VF that can be used for finalization loop of array reductions. For
+  // example -
+  // NumElems = 5
+  // ElemTy = float (32 bits)
+  // FinalLoopMaxVF = 8 (assuming AVX2)
+  // FinalLoopVF = 4 (since array size is less than max VF)
+  const unsigned MaxVectorWidth =
+      TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+          .getFixedSize();
+  unsigned TypeWidthInBits = ElemTy->getPrimitiveSizeInBits();
+  unsigned FinalLoopMaxVF = std::min(MaxVectorWidth / TypeWidthInBits, 32u);
+  unsigned FinalLoopVF = llvm::PowerOf2Floor(NumElems);
+  if (FinalLoopVF > FinalLoopMaxVF)
+    FinalLoopVF = FinalLoopMaxVF;
+
+  // For the same example used above -
+  // FinalRemLoopIters = 1
+  // FinalLoopUB = 4
+  unsigned FinalRemLoopIters = NumElems % FinalLoopVF;
+  unsigned FinalLoopUB = NumElems - FinalRemLoopIters;
+
+  // Helper lambda to generate array reduction's finalization loop structure. It
+  // will be invoked for main and remainder loops needed for finalization.
+  auto EmitArrayRednFinalLoop = [this, &RedFinalArr, &ArrTy, &OrigArr,
+                                 &PrivArr](BasicBlock *LoopBB,
+                                           BasicBlock *LoopExitBB,
+                                           Type *ElemLdTy, unsigned LoopLB,
+                                           unsigned LoopInc, unsigned LoopUB,
+                                           const Twine &Prefix) {
+    unsigned AddrSpace =
+        cast<PointerType>(OrigArr->getType())->getPointerAddressSpace();
+    Builder.SetInsertPoint(LoopBB->getTerminator());
+    // Loop IV phi to count loop iterations.
+    PHINode *IVPhi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()),
+                                       2, Prefix + ".elem.idx");
+    IVPhi->addIncoming(Builder.getInt64(LoopLB),
+                       LoopBB->getSinglePredecessor());
+
+    // Load elements from original array.
+    Value *OrigArrGep = Builder.CreateGEP(
+        ArrTy, OrigArr, {Builder.getInt64(0), IVPhi}, "orig.arr.gep");
+    // We need an extra bitcast if load type doesn't match GEP's type.
+    Type *ElemLdPtrTy = ElemLdTy->getPointerTo(AddrSpace);
+    if (ElemLdPtrTy != OrigArrGep->getType())
+      OrigArrGep =
+          Builder.CreateBitCast(OrigArrGep, ElemLdPtrTy, "orig.arr.bc");
+    Value *OrigArrLd = Builder.CreateLoad(ElemLdTy, OrigArrGep, "orig.arr.ld");
+
+    // Load elements from private arrays and compute running reduction for
+    // current subarray.
+    Value *ReducedSubArr = OrigArrLd;
+    for (unsigned Lane = 0; Lane < VF; ++Lane) {
+      Value *LaneArrGep = Builder.CreateGEP(
+          ArrTy, getScalarValue(PrivArr, Lane), {Builder.getInt64(0), IVPhi},
+          "priv.arr.gep.lane" + Twine(Lane));
+      if (ElemLdPtrTy != LaneArrGep->getType())
+        LaneArrGep = Builder.CreateBitCast(LaneArrGep, ElemLdPtrTy,
+                                           "priv.arr.bc.lane" + Twine(Lane));
+      Value *LaneArrLd = Builder.CreateLoad(ElemLdTy, LaneArrGep,
+                                            "priv.arr.ld.lane" + Twine(Lane));
+      assert(ReducedSubArr->getType() == LaneArrLd->getType() &&
+             "Expected same type to compute running reduction.");
+      if (Instruction::isBinaryOp(RedFinalArr->getBinOpcode()))
+        ReducedSubArr = Builder.CreateBinOp(
+            static_cast<Instruction::BinaryOps>(RedFinalArr->getBinOpcode()),
+            ReducedSubArr, LaneArrLd, "arr.fin.red");
+      else
+        ReducedSubArr = Builder.CreateBinaryIntrinsic(
+            RedFinalArr->getIntrinsicForOpcode(), ReducedSubArr, LaneArrLd,
+            nullptr /*FMFSource*/, "arr.fin.red");
+      // Set FMF for generated binop.
+      if (isa<FPMathOperator>(ReducedSubArr) && RedFinalArr->hasFastMathFlags())
+        cast<Instruction>(ReducedSubArr)
+            ->setFastMathFlags(RedFinalArr->getFastMathFlags());
+    }
+
+    // Store final reduced subarray to original array
+    Builder.CreateStore(ReducedSubArr, OrigArrGep);
+
+    // Increment loop IV phi.
+    Value *IVAdd = Builder.CreateAdd(IVPhi, Builder.getInt64(LoopInc),
+                                     "next." + Prefix + ".elem.idx");
+    IVPhi->addIncoming(IVAdd, LoopBB);
+    Value *IVCond = Builder.CreateICmpULT(IVAdd, Builder.getInt64(LoopUB),
+                                          "final." + Prefix + "loop.cond");
+
+    Builder.CreateCondBr(IVCond, LoopBB, LoopExitBB);
+    LoopBB->getTerminator()->eraseFromParent();
+  };
+
+  // Generate additional BBs for loop nest.
+  BasicBlock *FinalMainLoop =
+      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
+                 nullptr /*Memory SSAUpdater*/, "array.redn.final.main.loop");
+  BasicBlock *FinalRemLoop =
+      SplitBlock(FinalMainLoop, FinalMainLoop->getTerminator(), DT, LI,
+                 nullptr /*Memory SSAUpdater*/, "array.redn.final.rem.loop");
+  BasicBlock *FinalExit =
+      SplitBlock(FinalRemLoop, FinalRemLoop->getTerminator(), DT, LI,
+                 nullptr /*Memory SSAUpdater*/, "array.redn.final.exit");
+
+  // Emit code for main loop.
+  Type *FinalLoopWideDataTy =
+      cast<FixedVectorType>(getWidenedType(ElemTy, FinalLoopVF));
+  EmitArrayRednFinalLoop(FinalMainLoop, FinalRemLoop, FinalLoopWideDataTy,
+                         0 /*LoopLB*/, FinalLoopVF, FinalLoopUB, "main");
+
+  // Emit code for remainder loop, if needed. Note that we emit scalar remainder
+  // for now.
+  if (FinalRemLoopIters != 0)
+    EmitArrayRednFinalLoop(FinalRemLoop, FinalExit, ElemTy, FinalLoopUB,
+                           1 /*LoopInc*/, NumElems, "rem");
+
+  Builder.SetInsertPoint(FinalExit->getTerminator());
+  State->CFG.PrevBB = FinalExit;
+  return;
+}
+
 void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   unsigned BinOpcode = RedFinal->getBinOpcode();
   if (BinOpcode == Instruction::ICmp || BinOpcode == Instruction::FCmp) {
@@ -4584,6 +4823,11 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   assert(FirstBB.getTerminator() &&
          "Expect the 'entry' basic-block to be well-formed.");
   Builder.SetInsertPoint(FirstBB.getTerminator());
+  // Track if this a private alloca is for an array reduction variable. We don't
+  // want to serialize such allocas since the initialization algorithm assumes
+  // contiguous allocation of elements.
+  bool IsArrayRedn =
+      V->getEntityKind() == VPLoopEntity::Reduction && isa<ArrayType>(OrigTy);
 
   // TODO: We potentially need additional divisibility-based checks here to
   // ensure that correct alignment is set for each vector lane. Check JIRA :
@@ -4594,7 +4838,8 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // should be updated to use results from SOAAnalysis (which should internally
   // account for alignment for all types, before marking a private as SOASafe).
   // Again coverred by JIRA : CMPLRLLVM-11372.
-  if (VecAllocaPrefAlignment >= OrigAlignment || V->isSOALayout()) {
+  if (VecAllocaPrefAlignment >= OrigAlignment || V->isSOALayout() ||
+      IsArrayRedn) {
     // Use widened alloca if preferred alignment can accommodate original
     // alloca's alignment or if we're using SOALayout.
     Value *WidenedPrivArr =

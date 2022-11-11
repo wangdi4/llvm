@@ -583,7 +583,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
                     << "\n");
 
-  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, VF, UF, &LVL,
+  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF, &LVL,
                       &VLSA, Plan, ORBuilder, isOmpSIMDLoop, FatalErrorHandler);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 

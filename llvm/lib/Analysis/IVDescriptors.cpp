@@ -1159,9 +1159,9 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
     return ConstantInt::get(Tp,
                             APInt::getSignedMinValue(Tp->getIntegerBitWidth()));
   case RecurKind::FMin:
-    return ConstantFP::getInfinity(Tp, true);
+    return ConstantFP::getInfinity(Tp, false /*Negative*/); // INTEL
   case RecurKind::FMax:
-    return ConstantFP::getInfinity(Tp, false);
+    return ConstantFP::getInfinity(Tp, true /*Negative*/); // INTEL
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
