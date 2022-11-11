@@ -494,6 +494,7 @@ class VPInstruction : public VPUser,
       case VPInstruction::HIRCopy:
       case VPInstruction::ReductionFinal:
       case VPInstruction::ReductionFinalInscan:
+      case VPInstruction::ReductionFinalArr:
       case VPInstruction::TreeConflict:
       case VPInstruction::RunningInclusiveReduction:
       case VPInstruction::RunningExclusiveReduction: {
@@ -598,10 +599,12 @@ public:
     InductionInitStep,
     InductionFinal,
     ReductionInit,
+    ReductionInitArr, // Custom initialization of array reductions.
     ReductionFinal,
     ReductionFinalUdr,    // Custom finalization of UDR. Lowered as sequence of
                           // calls to combiner function.
     ReductionFinalInscan, // Reduction finalization (noop for scan).
+    ReductionFinalArr,    // Custom finalization of array reductions.
     AllocatePrivate,
     Subscript,
     Blend,
@@ -2936,6 +2939,57 @@ public:
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::ReductionFinalInscan;
   }
+};
+
+/// Concrete class to represent last value calculation for array reductions in
+/// VPlan.
+class VPReductionFinalArray : public VPInstruction {
+public:
+  VPReductionFinalArray(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                        unsigned BinOp)
+      : VPInstruction(VPInstruction::ReductionFinalArr, BaseTy, Operands),
+        BinOpcode(BinOp) {}
+
+  unsigned getBinOpcode() const { return BinOpcode; }
+
+  // Return ID of the corresponding intrinsic for opcodes that are not
+  // Instruction::BinaryOps.
+  Intrinsic::ID getIntrinsicForOpcode() const {
+    switch (BinOpcode) {
+    case VPInstruction::UMin:
+      return Intrinsic::umin;
+    case VPInstruction::SMin:
+      return Intrinsic::smin;
+    case VPInstruction::UMax:
+      return Intrinsic::umax;
+    case VPInstruction::SMax:
+      return Intrinsic::smax;
+    case VPInstruction::FMax:
+      return Intrinsic::maxnum;
+    case VPInstruction::FMin:
+      return Intrinsic::minnum;
+    default:
+      llvm_unreachable("Reduction opcode not supported.");
+    }
+  }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::ReductionFinalArr;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPReductionFinalArray(getType(), Ops, getBinOpcode());
+  }
+
+private:
+  unsigned BinOpcode;
 };
 
 /// Calculates the value of running inclusive reduction using the binary

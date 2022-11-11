@@ -345,12 +345,16 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "induction-final";
   case VPInstruction::ReductionInit:
     return "reduction-init";
+  case VPInstruction::ReductionInitArr:
+    return "reduction-init-arr";
   case VPInstruction::ReductionFinal:
     return "reduction-final";
   case VPInstruction::ReductionFinalUdr:
     return "reduction-final-udr";
   case VPInstruction::ReductionFinalInscan:
     return "reduction-final-inscan";
+  case VPInstruction::ReductionFinalArr:
+    return "reduction-final-arr";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
   case VPInstruction::Subscript:
@@ -626,6 +630,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       O << (cast<const VPReductionFinal>(this)->isSigned() ? "s_" : "u_");
     }
     O << getOpcodeName(cast<const VPReductionFinal>(this)->getBinOpcode())
+      << "}";
+    break;
+  }
+  case VPInstruction::ReductionFinalArr: {
+    O << getOpcodeName(getOpcode()) << "{";
+    O << getOpcodeName(cast<const VPReductionFinalArray>(this)->getBinOpcode())
       << "}";
     break;
   }

@@ -1260,6 +1260,60 @@ void VPLoopEntityList::insertUDRVPInstructions(
   ProcessedReductions.insert(UDR);
 }
 
+// Transform VPlan to explicitly perform initialization/finalization of array
+// reductions. Pseudo VPlan-IR for example -
+//
+// Preheader:
+//   %arr.red.vec = allocate-private ArrType
+//   reduction-init-arr %identity, %arr.red.vec
+//
+// Loop:
+//   * updates to %arr.red.vec *
+//
+// PostExit:
+//   ArrType %fin = reduction-final-arr{redop} %arr.red.vec, %arr.red.orig
+//
+void VPLoopEntityList::insertArrayRedVPInstructions(
+    VPReduction *ArrRed, VPBuilder &Builder, VPBasicBlock *PostExit,
+    VPBasicBlock *Preheader,
+    SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
+  Builder.setInsertPoint(Preheader);
+  Builder.setCurrentDebugLocation(
+      Preheader->getTerminator()->getDebugLocation());
+
+  VPValue *AI = nullptr;
+  VPValue *PrivateMem = createPrivateMemory(*ArrRed, Builder, AI, Preheader);
+  assert(PrivateMem && "Private memory is expected for array reduction.");
+  // Replace all uses of original array reduction variable with private memory.
+  AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+
+  // Initialize array reduction using reduction-init-arr.
+  Type *ElemTy = cast<ArrayType>(ArrRed->getRecurrenceType())->getElementType();
+  Constant *ConstId = VPReduction::getConstRecurrenceIdentity(
+      ArrRed->getRecurrenceKind(), ElemTy, ArrRed->getFastMathFlags());
+  Builder.createNaryOp(VPInstruction::ReductionInitArr,
+                       Type::getVoidTy(*Plan.getLLVMContext()),
+                       {Plan.getVPConstant(ConstId), PrivateMem});
+
+  // Finalize array reduction by emitting a reduction-final-arr instruction.
+  Builder.setInsertPoint(PostExit);
+  Builder.setCurrentDebugLocation(
+      PostExit->getTerminator()->getDebugLocation());
+  VPReductionFinalArray *ArrFinal = Builder.create<VPReductionFinalArray>(
+      "red.final.arr", ArrRed->getRecurrenceType(),
+      ArrayRef<VPValue *>{PrivateMem, AI}, ArrRed->getReductionOpcode());
+
+  // Attach FastMathFlags to reduction-final-arr.
+  FastMathFlags FMF = ArrRed->getFastMathFlags();
+  if (FMF.any())
+    ArrFinal->setFastMathFlags(FMF);
+
+  ProcessedReductions.insert(ArrRed);
+}
+
 // Insert VPInstructions related to VPReductions.
 void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
                                                      VPBasicBlock *Preheader,
@@ -1300,6 +1354,9 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       if (auto *UDR = dyn_cast<VPUserDefinedReduction>(Reduction))
         insertUDRVPInstructions(UDR, Builder, PostExit, Preheader,
                                 ProcessedReductions);
+      else if (Reduction->getRecurrenceType()->isArrayTy())
+        insertArrayRedVPInstructions(Reduction, Builder, PostExit, Preheader,
+                                     ProcessedReductions);
       else
         insertOneReductionVPInstructions(
           Reduction, Builder, PostExit, Preheader, RedExitMap,
@@ -2758,22 +2815,36 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
           break;
         }
     }
-    if (RedFMF.none() && AllocaInst)
-      // For in-memory reductions, analyze the stored values.
-      for (auto *User : AllocaInst->users()) {
-        auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
-        if (!VPLS)
-          continue;
-        // Look through the stores that store into the Alloca.
-        if (VPLS->getOpcode() != Instruction::Store)
-          continue;
-        if (AllocaInst == VPLS->getPointerOperand())
-          if (auto *StoredVal = dyn_cast<VPInstruction>(VPLS->getOperand(0)))
-            if (StoredVal->hasFastMathFlags()) {
-              RedFMF = StoredVal->getFastMathFlags();
-              break;
-            }
+    if (RedFMF.none() && AllocaInst) {
+      // For in-memory reductions, analyze the stored values using a worklist
+      // approach.
+      SmallVector<VPValue *, 4> Worklist;
+      Worklist.push_back(AllocaInst);
+
+      while (!Worklist.empty()) {
+        auto *CurrVal = Worklist.pop_back_val();
+
+        for (auto *User : CurrVal->users()) {
+          // If we encounter a GEP operating on alloca, then add to worklist.
+          if (auto *VPGEP = dyn_cast<VPGEPInstruction>(User))
+            Worklist.push_back(VPGEP);
+
+          auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
+          if (!VPLS)
+            continue;
+          // Look through the stores that store into the alloca or gep that
+          // operates on alloca.
+          if (VPLS->getOpcode() != Instruction::Store)
+            continue;
+          if (CurrVal == VPLS->getPointerOperand())
+            if (auto *StoredVal = dyn_cast<VPInstruction>(VPLS->getOperand(0)))
+              if (StoredVal->hasFastMathFlags()) {
+                RedFMF = StoredVal->getFastMathFlags();
+                break;
+              }
+        }
       }
+    }
   }
 
   if (isUDR()) {
