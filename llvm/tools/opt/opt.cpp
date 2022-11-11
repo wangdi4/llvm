@@ -72,8 +72,10 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Target/TargetMachine.h"
+#ifdef INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
@@ -372,6 +374,7 @@ static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
     PM.add(createVerifierPass());
 }
 
+#ifdef INTEL_CUSTOMIZATION
 /// This routine adds optimization passes based on selected optimization level,
 /// OptLevel.
 ///
@@ -394,9 +397,7 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   }
   Builder.DisableUnrollLoops = (DisableLoopUnrolling.getNumOccurrences() > 0) ?
                                DisableLoopUnrolling : OptLevel == 0;
-#if INTEL_CUSTOMIZATION
   Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
-#endif // INTEL_CUSTOMIZATION
 
   Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
 
@@ -409,6 +410,7 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.populateModulePassManager(MPM);
 }
 
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // CodeGen-related helper functions.
 //
@@ -898,6 +900,14 @@ int main(int argc, char **argv) {
                : 1;
   }
 
+#if !INTEL_CUSTOMIZATION
+  if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
+      OptLevelO3) {
+    errs() << "Cannot use -O# with legacy PM.\n";
+    return 1;
+  }
+#endif // !INTEL_CUSTOMIZATION
+
   // Create a PassManager to hold and optimize the collection of passes we are
   // about to build. If the -debugify-each option is set, wrap each pass with
   // the (-check)-debugify passes.
@@ -937,12 +947,14 @@ int main(int argc, char **argv) {
   }
 
   std::unique_ptr<legacy::FunctionPassManager> FPasses;
+#ifdef INTEL_CUSTOMIZATION
   if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
       OptLevelO3) {
     FPasses.reset(new legacy::FunctionPassManager(M.get()));
     FPasses->add(createTargetTransformInfoWrapperPass(
         TM ? TM->getTargetIRAnalysis() : TargetIRAnalysis()));
   }
+#endif // INTEL_CUSTOMIZATION
 
   if (PrintBreakpoints) {
     // Default to standard output.
@@ -971,6 +983,7 @@ int main(int argc, char **argv) {
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
+#ifdef INTEL_CUSTOMIZATION
     if (OptLevelO0 && OptLevelO0.getPosition() < PassList.getPosition(i)) {
       AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
       OptLevelO0 = false;
@@ -1001,6 +1014,7 @@ int main(int argc, char **argv) {
       OptLevelO3 = false;
     }
 
+#endif
     const PassInfo *PassInf = PassList[i];
     Pass *P = nullptr;
     if (PassInf->getNormalCtor())
@@ -1036,6 +1050,7 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
   }
 
+#ifdef INTEL_CUSTOMIZATION
   if (OptLevelO0)
     AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
 
@@ -1054,6 +1069,7 @@ int main(int argc, char **argv) {
   if (OptLevelO3)
     AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
 
+#endif // INTEL_CUSTOMIZATION
   if (FPasses) {
     FPasses->doInitialization();
     for (Function &F : *M)
