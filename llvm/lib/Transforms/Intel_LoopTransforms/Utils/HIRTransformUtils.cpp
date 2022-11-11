@@ -1757,27 +1757,23 @@ bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
 
 std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
                                                               bool Invalidate) {
-  bool LLVMConstFolded = false;
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
 
   if (isa<BinaryOperator>(LLVMInst)) {
-    RegDDRef *RHS, *LHS, *Result;
-    LHS = Inst->getOperandDDRef(1);
-    RHS = Inst->getOperandDDRef(2);
-    Result = nullptr;
+    auto *LHS = Inst->getOperandDDRef(1);
+    auto *RHS = Inst->getOperandDDRef(2);
+    RegDDRef *Result = nullptr;
+    bool LLVMConstFolded = false;
     bool Negate = false;
     unsigned OpC = LLVMInst->getOpcode();
 
     ConstantFP *ConstR, *ConstL;
-    Constant *ConstResult;
     // Use LLVM Framework to compute new equivalent constant ref
     if (RHS->isFPConstant(&ConstR) && LHS->isFPConstant(&ConstL)) {
-      ConstResult = ConstantFoldBinaryOpOperands(
+      auto *ConstResult = ConstantFoldBinaryOpOperands(
           OpC, ConstL, ConstR, Inst->getHLNodeUtils().getDataLayout());
-      if (ConstResult) {
-        Result = RHS->getDDRefUtils().createConstDDRef(ConstResult);
-        LLVMConstFolded = true;
-      }
+      Result = RHS->getDDRefUtils().createConstDDRef(ConstResult);
+      LLVMConstFolded = true;
     }
 
     if (!LLVMConstFolded) {
@@ -1879,6 +1875,24 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
 
     HLNodeUtils::replace(Inst, NewInst);
     return std::make_pair(true, NewInst);
+
+  } else if (auto *Cast = dyn_cast<CastInst>(LLVMInst)) {
+    auto *Rval = Inst->getRvalDDRef();
+
+    ConstantFP *Const;
+    if (Rval->isFPConstant(&Const)) {
+      auto &HNU = Inst->getHLNodeUtils();
+      auto *CastedConst = ConstantFoldCastOperand(
+          LLVMInst->getOpcode(), Const, Cast->getDestTy(), HNU.getDataLayout());
+
+      auto *NewRval = Rval->getDDRefUtils().createConstDDRef(CastedConst);
+
+      HLInst *NewInst =
+          HNU.createCopyInst(NewRval, "", Inst->removeLvalDDRef());
+
+      HLNodeUtils::replace(Inst, NewInst);
+      return std::make_pair(true, NewInst);
+    }
   }
 
   return std::make_pair(false, nullptr);
