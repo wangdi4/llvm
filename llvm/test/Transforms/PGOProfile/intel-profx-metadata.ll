@@ -1,5 +1,4 @@
 ; RUN: llvm-profdata merge %S/Inputs/intel-profx-metadata.proftext -o %t.profdata
-; RUN: opt < %s -S -pgo-instr-use -pgo-test-profile-file=%t.profdata | FileCheck %s
 ; RUN: opt < %s -S -passes=pgo-instr-use -pgo-test-profile-file=%t.profdata | FileCheck %s
 
 ; Test that the call to foo outside the loop is instrumented with intel-profx

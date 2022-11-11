@@ -1,4 +1,3 @@
-; RUN: opt < %s -pgo-icall-prom -S | FileCheck %s
 ; RUN: opt < %s -passes=pgo-icall-prom -S | FileCheck %s
 
 ; Test that intel_profx metadata execution counts are propagated from

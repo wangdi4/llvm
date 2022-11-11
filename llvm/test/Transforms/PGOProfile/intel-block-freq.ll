@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -pgo-instr-gen -debug-only=cfgmst -disable-output -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=pgo-instr-gen -debug-only=cfgmst -disable-output -S < %s 2>&1 | FileCheck %s
 
 ; Test that block frequencies are updated correctly
 ; by SplitIndirectCriticalEdges. Check that implicitly by dumping MST edges

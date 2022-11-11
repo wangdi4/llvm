@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -convert-to-subscript -O1 -S | FileCheck %s
 ; RUN: opt < %s -passes="default<O1>,convert-to-subscript" -S | FileCheck %s
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
