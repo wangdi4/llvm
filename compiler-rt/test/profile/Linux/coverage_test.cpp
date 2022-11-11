@@ -1,3 +1,12 @@
+// INTEL_CUSTOMIZATION
+// Temporarily mark this test as 'unsupported' because the
+// "-Wl,--gc-sections" command line option causes errors with
+// the version of ld.gold in the binutils we use, and the
+// functionality under test requires this feature. When our
+// binutils is upgraded to at least version 2.37, this test
+// can be re-enabled.
+// UNSUPPORTED: linux
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_profgen -fuse-ld=gold -O2 -fdata-sections -ffunction-sections -fcoverage-mapping -Wl,--gc-sections -o %t %s
 // RUN: env LLVM_PROFILE_FILE=%t.profraw %run %t
 // RUN: llvm-profdata merge -o %t.profdata %t.profraw
