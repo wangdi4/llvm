@@ -7074,7 +7074,13 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
   // support its vectorization.
   QualType RetTy = FD->getReturnType();
   if (RetTy->isComplexType() || RetTy->isStructureType())
-    Diag(ADecl->getLocation(), diag::warn_no_vec_for_struct_return);
+    Diag(ADecl->getLocation(), diag::warn_no_vec_for_struct_type) << 0;
+
+  // Byval arguments are not currently supported. Give a diagnostic rather than
+  // produce incorrect code. See CMPLRLLVM-30008.
+  for (const auto &PD : FD->parameters())
+    if (PD->getType()->isComplexType() || PD->getType()->isStructureType())
+      Diag(PD->getLocation(), diag::warn_no_vec_for_struct_type) << 1;
 #endif // INTEL_CUSTOMIZATION
 
   // OpenMP [2.8.2, declare simd construct, Description]
