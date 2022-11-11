@@ -124,14 +124,6 @@ define i32 @test3(i1 %cmp) nounwind {
 ; CHECK-NEXT:    popl %esi
 ; CHECK-NEXT:    popl %edi
 ; CHECK-NEXT:    retl
-<<<<<<< HEAD
-=======
-; CHECK-NEXT:  .LBB2_6: # Block address taken
-; CHECK-NEXT:    # %indirect
-; CHECK-NEXT:    # Label of block must be emitted
-; CHECK-NEXT:    movl $42, %eax
-; CHECK-NEXT:    jmp .LBB2_5
->>>>>>> 6a8d894ce05353f17367c52c2985a015bcbacf60
 entry:
   br i1 %cmp, label %true, label %false
 
