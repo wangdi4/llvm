@@ -1129,6 +1129,14 @@ private:
       VPBasicBlock *Preheader,
       SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
 
+  // Insert VPInstructions to initialize/finalize array reduction \p ArrRed and
+  // inserting the reduction into list of processed reductions \p
+  // ProcessedReductions.
+  void insertArrayRedVPInstructions(
+      VPReduction *ArrRed, VPBuilder &Builder, VPBasicBlock *PostExit,
+      VPBasicBlock *Preheader,
+      SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
+
   // Insert inscan-related reduction instructions and process
   // inclusive/exclusive pragmas in the loop body.
   void insertRunningInscanReductionInstrs(

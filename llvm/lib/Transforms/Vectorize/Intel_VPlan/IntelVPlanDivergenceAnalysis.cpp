@@ -1599,11 +1599,15 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     const VPReductionInit *Init = cast<VPReductionInit>(I);
     NewShape =
       Init->isScalar() ? getUniformVectorShape() : getRandomVectorShape();
-  } else if (Opcode == VPInstruction::ReductionFinal)
+  } else if (Opcode == VPInstruction::ReductionInitArr)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinal)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinalInscan)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinalUdr)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinalArr)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalMasked)
     NewShape = getUniformVectorShape();

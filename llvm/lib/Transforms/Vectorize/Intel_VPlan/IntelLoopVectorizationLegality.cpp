@@ -82,7 +82,11 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
         WorkList.push_back(U);
         continue;
       }
-      if (isa<AddrSpaceCastInst>(U))
+      if (isa<AddrSpaceCastInst>(U)) {
+        WorkList.push_back(U);
+        continue;
+      }
+      if (isa<GetElementPtrInst>(U))
         WorkList.push_back(U);
     }
   }
