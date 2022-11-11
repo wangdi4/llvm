@@ -1,4 +1,10 @@
-// RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -Wl,--gc-sections -o %t -O3 %s
+// INTEL_CUSTOMIZATION
+// Temporarily remove "-Wl,--gc-sections" from compiler command lines because
+// this is causing errors with the version of ld.gold in the binutils we use.
+// When our binutils is upgraded to at least version 2.37, this option can
+// be added back.
+// RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -o %t -O3 %s
+// end INTEL_CUSTOMIZATION
 // RUN: env LLVM_PROFILE_FILE=%t.profraw %run %t
 // RUN: llvm-profdata merge -o %t.profdata %t.profraw
 // RUN: %clang_profuse=%t.profdata -o - -S -emit-llvm %s | FileCheck %s
