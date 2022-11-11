@@ -5,10 +5,10 @@
 #include <immintrin.h>
 #include <stddef.h>
 
-__m512 test_tile_cvtrowd2pse(unsigned int A) {
-  // CHECK-LABEL: @test_tile_cvtrowd2pse(
+__m512 test_tile_cvtrowd2ps(unsigned int A) {
+  // CHECK-LABEL: @test_tile_cvtrowd2ps(
   // CHECK: call <16 x float> @llvm.x86.tcvtrowd2pse(i8 1, i32 %{{.*}})
-  return _tile_cvtrowd2pse(1, A);
+  return _tile_cvtrowd2ps(1, A);
 }
 
 __m512 test_tile_cvtrowd2psi(void) {
@@ -17,10 +17,10 @@ __m512 test_tile_cvtrowd2psi(void) {
   return _tile_cvtrowd2psi(1, 127);
 }
 
-__m512bh test_tile_cvtrowps2pbf16he(unsigned int A) {
-  // CHECK-LABEL: @test_tile_cvtrowps2pbf16he(
+__m512bh test_tile_cvtrowps2pbf16h(unsigned int A) {
+  // CHECK-LABEL: @test_tile_cvtrowps2pbf16h(
   // CHECK: call <32 x i16> @llvm.x86.tcvtrowps2pbf16he(i8 1, i32 %{{.*}})
-  return _tile_cvtrowps2pbf16he(1, A);
+  return _tile_cvtrowps2pbf16h(1, A);
 }
 
 __m512bh test_tile_cvtrowps2pbf16hi(void) {
@@ -29,10 +29,10 @@ __m512bh test_tile_cvtrowps2pbf16hi(void) {
   return _tile_cvtrowps2pbf16hi(1, 127);
 }
 
-__m512bh test_tile_cvtrowps2pbf16le(unsigned int A) {
-  // CHECK-LABEL: @test_tile_cvtrowps2pbf16le(
+__m512bh test_tile_cvtrowps2pbf16l(unsigned int A) {
+  // CHECK-LABEL: @test_tile_cvtrowps2pbf16l(
   // CHECK: call <32 x i16> @llvm.x86.tcvtrowps2pbf16le(i8 1, i32 %{{.*}})
-  return _tile_cvtrowps2pbf16le(1, A);
+  return _tile_cvtrowps2pbf16l(1, A);
 }
 
 __m512bh test_tile_cvtrowps2pbf16li(void) {
@@ -41,10 +41,10 @@ __m512bh test_tile_cvtrowps2pbf16li(void) {
   return _tile_cvtrowps2pbf16li(1, 127);
 }
 
-__m512h test_tile_cvtrowps2phhe(unsigned int A) {
-  // CHECK-LABEL: @test_tile_cvtrowps2phhe(
+__m512h test_tile_cvtrowps2phh(unsigned int A) {
+  // CHECK-LABEL: @test_tile_cvtrowps2phh(
   // CHECK: call <32 x half> @llvm.x86.tcvtrowps2phhe(i8 1, i32 %{{.*}})
-  return _tile_cvtrowps2phhe(1, A);
+  return _tile_cvtrowps2phh(1, A);
 }
 
 __m512h test_tile_cvtrowps2phhi(void) {
@@ -53,10 +53,10 @@ __m512h test_tile_cvtrowps2phhi(void) {
   return _tile_cvtrowps2phhi(1, 127);
 }
 
-__m512h test_tile_cvtrowps2phle(unsigned int A) {
-  // CHECK-LABEL: @test_tile_cvtrowps2phle(
+__m512h test_tile_cvtrowps2phl(unsigned int A) {
+  // CHECK-LABEL: @test_tile_cvtrowps2phl(
   // CHECK: call <32 x half> @llvm.x86.tcvtrowps2phle(i8 1, i32 %{{.*}})
-  return _tile_cvtrowps2phle(1, A);
+  return _tile_cvtrowps2phl(1, A);
 }
 
 __m512h test_tile_cvtrowps2phli(void) {
