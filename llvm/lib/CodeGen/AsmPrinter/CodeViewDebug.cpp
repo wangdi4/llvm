@@ -935,6 +935,12 @@ static std::string flattenCommandLine(ArrayRef<std::string> Args,
     // Skip fmessage-length for reproduciability.
     if (Arg.startswith("-fmessage-length"))
       continue;
+#if INTEL_CUSTOMIZATION
+    if (Arg.startswith("-dwarf-debug-flags")) {
+      i++; // Skip this argument and next one.
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
     if (PrintedOneArg)
       OS << " ";
     llvm::sys::printArg(OS, Arg, /*Quote=*/true);
