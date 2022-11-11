@@ -950,14 +950,6 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
     return false;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // Code below tries to move the lifetime marker before "C". Check the
-  // correctness of this motion.
-  if (SkippedLifetimeStart && SkippedLifetimeStart->getNumOperands() == 3) {
-    auto *LiveI = cast<Instruction>(SkippedLifetimeStart->getOperand(1));
-    if (!DT->dominates(LiveI, C))
-=======
   // If we need to move a lifetime.start above the call, make sure that we can
   // actually do so. If the argument is bitcasted for example, we would have to
   // move the bitcast as well, which we don't handle.
@@ -966,10 +958,8 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
         dyn_cast<Instruction>(SkippedLifetimeStart->getOperand(1));
     if (LifetimeArg && LifetimeArg->getParent() == C->getParent() &&
         C->comesBefore(LifetimeArg))
->>>>>>> 41861c7b53a300998073d9a2beeb3936e2727a8a
       return false;
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Check that accessing the first srcSize bytes of dest will not cause a
   // trap.  Otherwise the transform is invalid since it might cause a trap
