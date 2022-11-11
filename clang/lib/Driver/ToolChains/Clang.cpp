@@ -3356,15 +3356,11 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       RoundingFPMath = false;
       // If fast-math is set then set the fp-contract mode to fast.
       FPContract = "fast";
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       DenormalFPMath = llvm::DenormalMode::getPreserveSign();
       DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
 #endif // INTEL_CUSTOMIZATION
-      SeenFfastMathOption = true;
-=======
       SeenUnsafeMathModeOption = true;
->>>>>>> 91628f0616ca5203945afb56b3d8a27522b99808
       break;
     case options::OPT_fno_fast_math:
       HonorINFs = true;
