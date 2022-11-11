@@ -12490,6 +12490,9 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
   QualType RetTy = FD->getReturnType();
   if (RetTy->isComplexType() || RetTy->isStructureType())
     return;
+  for (const auto &PD : FD->parameters())
+    if (PD->getType()->isComplexType() || PD->getType()->isStructureType())
+      return;
 #endif // INTEL_CUSTOMIZATION
 
   struct ISADataTy {
