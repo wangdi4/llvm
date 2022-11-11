@@ -784,5 +784,5 @@ def warn_drv_cxx_input_with_cc: Warning<
 #endif // INTEL_CUSTOMIZATION
 
 def err_drv_loongarch_invalid_mfpu_EQ : Error<
-  "invalid argument '%0' to -mfpu=; must be one of: 64, 32, 0, none">;
+  "invalid argument '%0' to -mfpu=; must be one of: 64, 32, none, 0 (alias for none)">;
 }
