@@ -84,6 +84,37 @@ static bool isDereferenceableAndAlignedPointer(
   // Note that it is not safe to speculate into a malloc'd region because
   // malloc may return null.
 
+  // For GEPs, determine if the indexing lands within the allocated object.
+  if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+    const Value *Base = GEP->getPointerOperand();
+
+    APInt Offset(DL.getIndexTypeSizeInBits(GEP->getType()), 0);
+    if (!GEP->accumulateConstantOffset(DL, Offset) || Offset.isNegative() ||
+        !Offset.urem(APInt(Offset.getBitWidth(), Alignment.value()))
+             .isMinValue())
+      return false;
+
+    // If the base pointer is dereferenceable for Offset+Size bytes, then the
+    // GEP (== Base + Offset) is dereferenceable for Size bytes.  If the base
+    // pointer is aligned to Align bytes, and the Offset is divisible by Align
+    // then the GEP (== Base + Offset == k_0 * Align + k_1 * Align) is also
+    // aligned to Align bytes.
+
+    // Offset and Size may have different bit widths if we have visited an
+    // addrspacecast, so we can't do arithmetic directly on the APInt values.
+    return isDereferenceableAndAlignedPointer(
+        Base, Alignment, Offset + Size.sextOrTrunc(Offset.getBitWidth()), DL,
+        CtxI, AC, DT, TLI, Visited, MaxDepth);
+  }
+
+  // bitcast instructions are no-ops as far as dereferenceability is concerned.
+  if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(V)) {
+    if (BC->getSrcTy()->isPointerTy())
+      return isDereferenceableAndAlignedPointer(
+        BC->getOperand(0), Alignment, Size, DL, CtxI, AC, DT, TLI,
+          Visited, MaxDepth);
+  }
+
   // Recurse into both hands of select.
   if (const SelectInst *Sel = dyn_cast<SelectInst>(V)) {
     return isDereferenceableAndAlignedPointer(Sel->getTrueValue(), Alignment,
@@ -92,14 +123,6 @@ static bool isDereferenceableAndAlignedPointer(
            isDereferenceableAndAlignedPointer(Sel->getFalseValue(), Alignment,
                                               Size, DL, CtxI, AC, DT, TLI,
                                               Visited, MaxDepth);
-  }
-
-  // bitcast instructions are no-ops as far as dereferenceability is concerned.
-  if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(V)) {
-    if (BC->getSrcTy()->isPointerTy())
-      return isDereferenceableAndAlignedPointer(BC->getOperand(0), Alignment,
-                                                Size, DL, CtxI, AC, DT, TLI,
-                                                Visited, MaxDepth);
   }
 
   bool CheckForNonNull, CheckForFreed;
@@ -116,31 +139,10 @@ static bool isDereferenceableAndAlignedPointer(
       return isAligned(V, Offset, Alignment, DL);
     }
 
-  if (CtxI) {
-    /// Look through assumes to see if both dereferencability and alignment can
-    /// be provent by an assume
-    RetainedKnowledge AlignRK;
-    RetainedKnowledge DerefRK;
-    if (getKnowledgeForValue(
-            V, {Attribute::Dereferenceable, Attribute::Alignment}, AC,
-            [&](RetainedKnowledge RK, Instruction *Assume, auto) {
-              if (!isValidAssumeForContext(Assume, CtxI))
-                return false;
-              if (RK.AttrKind == Attribute::Alignment)
-                AlignRK = std::max(AlignRK, RK);
-              if (RK.AttrKind == Attribute::Dereferenceable)
-                DerefRK = std::max(DerefRK, RK);
-              if (AlignRK && DerefRK && AlignRK.ArgValue >= Alignment.value() &&
-                  DerefRK.ArgValue >= Size.getZExtValue())
-                return true; // We have found what we needed so we stop looking
-              return false;  // Other assumes may have better information. so
-                             // keep looking
-            }))
-      return true;
-  }
   /// TODO refactor this function to be able to search independently for
   /// Dereferencability and Alignment requirements.
 
+<<<<<<< HEAD
   // For GEPs, determine if the indexing lands within the allocated object.
   if (const GEPOrSubsOperator *GEP = dyn_cast<GEPOrSubsOperator>(V)) { // INTEL
     const Value *Base = GEP->getPointerOperand();
@@ -174,6 +176,8 @@ static bool isDereferenceableAndAlignedPointer(
     return isDereferenceableAndAlignedPointer(ASC->getOperand(0), Alignment,
                                               Size, DL, CtxI, AC, DT, TLI,
                                               Visited, MaxDepth);
+=======
+>>>>>>> 4f2f7e84ff6e01a3b51fa0450d522a6d35e7e726
 
   if (const auto *Call = dyn_cast<CallBase>(V)) {
     if (auto *RP = getArgumentAliasingToReturnedPointer(Call, true))
@@ -206,6 +210,40 @@ static bool isDereferenceableAndAlignedPointer(
         return isAligned(V, Offset, Alignment, DL);
       }
     }
+  }
+
+  // For gc.relocate, look through relocations
+  if (const GCRelocateInst *RelocateInst = dyn_cast<GCRelocateInst>(V))
+    return isDereferenceableAndAlignedPointer(RelocateInst->getDerivedPtr(),
+                                              Alignment, Size, DL, CtxI, AC, DT,
+                                              TLI, Visited, MaxDepth);
+
+  if (const AddrSpaceCastOperator *ASC = dyn_cast<AddrSpaceCastOperator>(V))
+    return isDereferenceableAndAlignedPointer(ASC->getOperand(0), Alignment,
+                                              Size, DL, CtxI, AC, DT, TLI,
+                                              Visited, MaxDepth);
+
+  if (CtxI) {
+    /// Look through assumes to see if both dereferencability and alignment can
+    /// be provent by an assume
+    RetainedKnowledge AlignRK;
+    RetainedKnowledge DerefRK;
+    if (getKnowledgeForValue(
+            V, {Attribute::Dereferenceable, Attribute::Alignment}, AC,
+            [&](RetainedKnowledge RK, Instruction *Assume, auto) {
+              if (!isValidAssumeForContext(Assume, CtxI))
+                return false;
+              if (RK.AttrKind == Attribute::Alignment)
+                AlignRK = std::max(AlignRK, RK);
+              if (RK.AttrKind == Attribute::Dereferenceable)
+                DerefRK = std::max(DerefRK, RK);
+              if (AlignRK && DerefRK && AlignRK.ArgValue >= Alignment.value() &&
+                  DerefRK.ArgValue >= Size.getZExtValue())
+                return true; // We have found what we needed so we stop looking
+              return false;  // Other assumes may have better information. so
+                             // keep looking
+            }))
+      return true;
   }
 
   // If we don't know, assume the worst.
