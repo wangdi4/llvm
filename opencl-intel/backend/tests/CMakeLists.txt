@@ -13,7 +13,6 @@ get_property(OCL_BUILTIN_LIBS GLOBAL PROPERTY OCL_BUILTIN_LIBS)
 list(
   APPEND
   BE_TEST_DEPS
-  oclopt
   ocl-tblgen
   llvm-as
   FileCheck
