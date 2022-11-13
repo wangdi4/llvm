@@ -39,11 +39,6 @@ extern bool DPCPPForceOptnone;
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
-extern "C" {
-llvm::ModulePass *createDebugInfoPass();
-llvm::Pass *createSmartGVNPass(bool);
-}
-
 using namespace intel;
 namespace Intel {
 namespace OpenCL {
