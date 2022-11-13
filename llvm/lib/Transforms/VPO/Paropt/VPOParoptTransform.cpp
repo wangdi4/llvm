@@ -187,7 +187,7 @@ cl::opt<bool>
                               cl::desc("Keep intra-WG reduction items in SLM"));
 cl::opt<bool> AtomicFreeRedUseFPTeamsCounter(
     "vpo-paropt-atomic-free-red-use-fp-team-counter", cl::Hidden,
-    cl::init(false),
+    cl::init(true),
     cl::desc("Use a host-initialized, firstprivate on target, team counter for "
              "atomic-free-reduction. If false (default), it is allocated from "
              "an RTL managed zero-initialized memory."));
