@@ -5,37 +5,37 @@
 #include <immintrin.h>
 #include <stddef.h>
 
-__m128 test_mm_bcstnebf16_ps(const __bfloat16 * __A) {
+__m128 test_mm_bcstnebf16_ps(const __bf16 * __A) {
   // CHECK-LABEL: @test_mm_bcstnebf16_ps(
   // CHECK: call <4 x float> @llvm.x86.avx512.vbcstnebf162ps128(i8* %{{.*}})
   return _mm_bcstnebf16_ps(__A);
 }
 
-__m128 test_mm_mask_bcstnebf16_ps(__m128 __W, __mmask8 __A, const __bfloat16 * __B) {
+__m128 test_mm_mask_bcstnebf16_ps(__m128 __W, __mmask8 __A, const __bf16 * __B) {
   // CHECK-LABEL: @test_mm_mask_bcstnebf16_ps(
   // CHECK: call <4 x float> @llvm.x86.avx512.mask.vbcstnebf162ps128(<4 x float> %{{.*}}, i8 %{{.*}}, i8* %{{.*}})
   return _mm_mask_bcstnebf16_ps(__W, __A, __B);
 }
 
-__m128 test_mm_maskz_bcstnebf16_ps(__mmask8 __A, const __bfloat16 * __B) {
+__m128 test_mm_maskz_bcstnebf16_ps(__mmask8 __A, const __bf16 * __B) {
   // CHECK-LABEL: @test_mm_maskz_bcstnebf16_ps(
   // CHECK: call <4 x float> @llvm.x86.avx512.maskz.vbcstnebf162ps128(i8 %{{.*}}, i8* %{{.*}})
   return _mm_maskz_bcstnebf16_ps(__A, __B);
 }
 
-__m256 test_mm256_bcstnebf16_ps(const __bfloat16 * __A) {
+__m256 test_mm256_bcstnebf16_ps(const __bf16 * __A) {
   // CHECK-LABEL: @test_mm256_bcstnebf16_ps(
   // CHECK: call <8 x float> @llvm.x86.avx512.vbcstnebf162ps256(i8* %{{.*}})
   return _mm256_bcstnebf16_ps(__A);
 }
 
-__m256 test_mm256_mask_bcstnebf16_ps(__m256 __W, __mmask8 __A, const __bfloat16 * __B) {
+__m256 test_mm256_mask_bcstnebf16_ps(__m256 __W, __mmask8 __A, const __bf16 * __B) {
   // CHECK-LABEL: @test_mm256_mask_bcstnebf16_ps(
   // CHECK: call <8 x float> @llvm.x86.avx512.mask.vbcstnebf162ps256(<8 x float> %{{.*}}, i8 %{{.*}}, i8* %{{.*}})
   return _mm256_mask_bcstnebf16_ps(__W, __A, __B);
 }
 
-__m256 test_mm256_maskz_bcstnebf16_ps(__mmask8 __A, const __bfloat16 * __B) {
+__m256 test_mm256_maskz_bcstnebf16_ps(__mmask8 __A, const __bf16 * __B) {
   // CHECK-LABEL: @test_mm256_maskz_bcstnebf16_ps(
   // CHECK: call <8 x float> @llvm.x86.avx512.maskz.vbcstnebf162ps256(i8 %{{.*}}, i8* %{{.*}})
   return _mm256_maskz_bcstnebf16_ps(__A, __B);

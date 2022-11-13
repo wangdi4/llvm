@@ -55,7 +55,6 @@ if (LIBOMPTARGET_CAN_LINK_LIBCUDA AND NOT LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA)
     ${LIBOMPTARGET_DEP_CUDA_DRIVER_LIBRARIES}
     ${OPENMP_PTHREAD_LIB}
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
-    "-Wl,--undefined-version"
     "-Wl,-z,defs"
 
     NO_INSTALL_RPATH
@@ -78,7 +77,6 @@ else()
     MemoryManager
     ${OPENMP_PTHREAD_LIB}
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
-    "-Wl,--undefined-version"
     "-Wl,-z,defs"
 
     NO_INSTALL_RPATH
@@ -89,7 +87,8 @@ add_dependencies(omptarget.rtl.cuda omptarget.devicertl.nvptx)
 # Install plugin under the lib destination folder.
 install(TARGETS omptarget.rtl.cuda LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
 set_target_properties(omptarget.rtl.cuda PROPERTIES 
-  INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
+  INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/.."
+  CXX_VISIBILITY_PRESET protected)
 
 target_include_directories(omptarget.rtl.cuda PRIVATE
   ${LIBOMPTARGET_INCLUDE_DIR}

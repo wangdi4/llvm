@@ -343,6 +343,7 @@ def int_amdgcn_rsq_legacy :  ClangBuiltin<"__builtin_amdgcn_rsq_legacy">,
 def int_amdgcn_rsq_clamp : Intrinsic<
   [llvm_anyfloat_ty], [LLVMMatchType<0>], [IntrNoMem, IntrSpeculatable, IntrWillReturn]>;
 
+// For int_amdgcn_ldexp_f16, only the low 16 bits of the i32 src1 operand will used.
 def int_amdgcn_ldexp : Intrinsic<
   [llvm_anyfloat_ty], [LLVMMatchType<0>, llvm_i32_ty],
   [IntrNoMem, IntrSpeculatable, IntrWillReturn]
@@ -1991,6 +1992,7 @@ def int_amdgcn_image_bvh_intersect_ray :
 
 // llvm.amdgcn.permlane64 <src0>
 def int_amdgcn_permlane64 :
+  ClangBuiltin<"__builtin_amdgcn_permlane64">,
   Intrinsic<[llvm_i32_ty], [llvm_i32_ty],
             [IntrNoMem, IntrConvergent, IntrWillReturn]>;
 

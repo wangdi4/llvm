@@ -411,9 +411,14 @@ for.end:                                          ; preds = %for.body, %entry
 define void @slt_129_unknown_start(i8 %start) mustprogress {
 ; CHECK-LABEL: 'slt_129_unknown_start'
 ; CHECK-NEXT:  Determining loop execution counts for: @slt_129_unknown_start
-; CHECK-NEXT:  Loop %for.body: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %for.body: Unpredictable max backedge-taken count.
-; CHECK-NEXT:  Loop %for.body: Unpredictable predicated backedge-taken count.
+; INTEL_CUSTOMIZATION
+; improved nuw/nsw flags
+; CHECK-NEXT:  Loop %for.body: backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw>
+; CHECK-NEXT:  Loop %for.body: max backedge-taken count is 2
+; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw>
+; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %for.body: Trip multiple is 1
 ;
 entry:
   br label %for.body
@@ -571,4 +576,135 @@ for.end:                                          ; preds = %for.body, %entry
 
 declare void @llvm.assume(i1)
 
+; Test case for PR57818.
+define void @step_is_neg_addrec_slt_8(i64 %n) {
+; CHECK-LABEL: 'step_is_neg_addrec_slt_8'
+; CHECK-NEXT:  Determining loop execution counts for: @step_is_neg_addrec_slt_8
+; CHECK-NEXT:  Loop %inner: backedge-taken count is (7 /u {0,+,-1}<nuw><nsw><%outer.header>)
+; INTEL_CUSTOMIZATION
+; use nuw/nsw to determine max=8
+; CHECK-NEXT:  Loop %inner: max backedge-taken count is 8
+; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is (7 /u {0,+,-1}<nuw><nsw><%outer.header>)
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %inner: Trip multiple is 1
+; CHECK-NEXT:  Loop %outer.header: backedge-taken count is 0
+; CHECK-NEXT:  Loop %outer.header: max backedge-taken count is 0
+; CHECK-NEXT:  Loop %outer.header: Predicated backedge-taken count is 0
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %outer.header: Trip multiple is 1
+;
+entry:
+  br label %outer.header
 
+outer.header:
+  %outer.iv = phi i64 [ 0, %entry ], [ %outer.iv.next, %outer.latch ]
+  %ec.1 = icmp eq i64 %outer.iv, 100
+  br i1 %ec.1, label %inner.ph, label %exit
+
+inner.ph:
+  %outer.trunc = trunc i64 %outer.iv to i32
+  br label %inner
+
+inner:
+  %inner.iv = phi i32 [ 0, %inner.ph ], [ %inner.iv.next, %inner ]
+  %inner.iv.next = add nsw i32 %inner.iv, %outer.trunc
+  %inner.c = icmp slt i32 %inner.iv.next, 8
+  br i1 %inner.c, label %inner, label %outer.latch, !llvm.loop !0
+
+outer.latch:
+  %outer.iv.next = add nsw i64 %outer.iv, -1
+  br label %outer.header
+
+exit:
+  ret void
+}
+
+define void @step_is_neg_addrec_slt_var(i32 %n) {
+; CHECK-LABEL: 'step_is_neg_addrec_slt_var'
+; CHECK-NEXT:  Determining loop execution counts for: @step_is_neg_addrec_slt_var
+; INTEL_CUSTOMIZATION
+; simplify this a lot because of nuw/nsw flags
+; CHECK-NEXT:  Loop %inner: backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))<nuw>
+; CHECK-NEXT:  Loop %inner: max backedge-taken count is 2147483647
+; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))<nuw>
+; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %inner: Trip multiple is 1
+; CHECK-NEXT:  Loop %outer.header: backedge-taken count is 0
+; CHECK-NEXT:  Loop %outer.header: max backedge-taken count is 0
+; CHECK-NEXT:  Loop %outer.header: Predicated backedge-taken count is 0
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %outer.header: Trip multiple is 1
+;
+entry:
+  br label %outer.header
+
+outer.header:
+  %outer.iv = phi i64 [ 0, %entry ], [ %outer.iv.next, %outer.latch ]
+  %ec.1 = icmp eq i64 %outer.iv, 100
+  br i1 %ec.1, label %inner.ph, label %exit
+
+inner.ph:
+  %outer.trunc = trunc i64 %outer.iv to i32
+  br label %inner
+
+inner:
+  %inner.iv = phi i32 [ 0, %inner.ph ], [ %inner.iv.next, %inner ]
+  %inner.iv.next = add nsw i32 %inner.iv, %outer.trunc
+  %inner.c = icmp slt i32 %inner.iv.next, %n
+  br i1 %inner.c, label %inner, label %outer.latch, !llvm.loop !0
+
+outer.latch:
+  %outer.iv.next = add nsw i64 %outer.iv, -1
+  br label %outer.header
+
+exit:
+  ret void
+}
+
+define void @step_is_neg_addrec_unknown_start(i32 %n) {
+; CHECK-LABEL: 'step_is_neg_addrec_unknown_start'
+; CHECK-NEXT:  Determining loop execution counts for: @step_is_neg_addrec_unknown_start
+; INTEL_CUSTOMIZATION
+; simplify this using nuw/nsw flags
+; CHECK-NEXT:  Loop %inner: backedge-taken count is ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nsw><%outer.header>))
+; CHECK-NEXT:  Loop %inner: max backedge-taken count is -2147483640
+; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nsw><%outer.header>))
+; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %inner: Trip multiple is 1
+; CHECK-NEXT:  Loop %outer.header: backedge-taken count is 0
+; CHECK-NEXT:  Loop %outer.header: max backedge-taken count is 0
+; CHECK-NEXT:  Loop %outer.header: Predicated backedge-taken count is 0
+; CHECK-NEXT:   Predicates:
+; CHECK:       Loop %outer.header: Trip multiple is 1
+;
+entry:
+  br label %outer.header
+
+outer.header:
+  %outer.iv = phi i64 [ 0, %entry ], [ %outer.iv.next, %outer.latch ]
+  %ec.1 = icmp eq i64 %outer.iv, 100
+  br i1 %ec.1, label %inner.ph, label %exit
+
+inner.ph:
+  %outer.trunc = trunc i64 %outer.iv to i32
+  br label %inner
+
+inner:
+  %inner.iv = phi i32 [ %n, %inner.ph ], [ %inner.iv.next, %inner ]
+  %inner.iv.next = add nsw i32 %inner.iv, %outer.trunc
+  %inner.c = icmp slt i32 %inner.iv.next, 8
+  br i1 %inner.c, label %inner, label %outer.latch, !llvm.loop !0
+
+outer.latch:
+  %outer.iv.next = add nsw i64 %outer.iv, -1
+  br label %outer.header
+
+exit:
+  ret void
+}
+
+!0 = distinct !{!0, !1}
+!1 = !{!"llvm.loop.mustprogress"}

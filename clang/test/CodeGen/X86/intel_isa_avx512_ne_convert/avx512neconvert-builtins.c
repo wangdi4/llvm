@@ -5,19 +5,19 @@
 #include <immintrin.h>
 #include <stddef.h>
 
-__m512 test_mm512_bcstnebf16_ps(const __bfloat16 * __A) {
+__m512 test_mm512_bcstnebf16_ps(const __bf16 * __A) {
   // CHECK-LABEL: @test_mm512_bcstnebf16_ps(
   // CHECK: call <16 x float> @llvm.x86.avx512.vbcstnebf162ps512(i8* %{{.*}})
   return _mm512_bcstnebf16_ps(__A);
 }
 
-__m512 test_mm512_mask_bcstnebf16_ps(__m512 __W, __mmask16 __A, const __bfloat16 * __B) {
+__m512 test_mm512_mask_bcstnebf16_ps(__m512 __W, __mmask16 __A, const __bf16 * __B) {
   // CHECK-LABEL: @test_mm512_mask_bcstnebf16_ps(
   // CHECK: call <16 x float> @llvm.x86.avx512.mask.vbcstnebf162ps512(<16 x float> %{{.*}}, i16 %{{.*}}, i8* %{{.*}})
   return _mm512_mask_bcstnebf16_ps(__W, __A, __B);
 }
 
-__m512 test_mm512_maskz_bcstnebf16_ps(__mmask16 __A, const __bfloat16 * __B) {
+__m512 test_mm512_maskz_bcstnebf16_ps(__mmask16 __A, const __bf16 * __B) {
   // CHECK-LABEL: @test_mm512_maskz_bcstnebf16_ps(
   // CHECK: call <16 x float> @llvm.x86.avx512.maskz.vbcstnebf162ps512(
   return _mm512_maskz_bcstnebf16_ps(__A, __B);

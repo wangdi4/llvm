@@ -2310,7 +2310,7 @@ void AndersensAAResult::visitCatchPadInst(CatchPadInst &AI) {
   if (AI.getType()->isPointerTy()) {
     CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
   }
-  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
+  for (unsigned Op = 0, NumOps = AI.arg_size(); Op < NumOps; ++Op) {
     Value* v1 = AI.getArgOperand(Op);
     if (v1->getType()->isPointerTy()) {
       CreateConstraint(Constraint::Store, getNode(v1), UniversalSet);
@@ -5644,7 +5644,7 @@ bool IntelModRefImpl::isResolvableCallee(const Function *F) const {
 
   // If the function does not touch memory, then any calls to it do not
   // matter.
-  if (Ander->getModRefBehavior(F).doesNotAccessMemory())
+  if (Ander->getMemoryEffects(F).doesNotAccessMemory())
     return true;
 
   // treat some llvm intrinsics as not-modifying memory.

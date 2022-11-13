@@ -37,7 +37,6 @@ if(${LIBOMPTARGET_DEP_VEO_FOUND})
     ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
     ${additional_libs}
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports -Wl,-z,defs"
-    "-Wl,--undefined-version"
 
     NO_INSTALL_RPATH
   )
@@ -45,7 +44,8 @@ if(${LIBOMPTARGET_DEP_VEO_FOUND})
   # Install plugin under the lib destination folder.
   install(TARGETS  "omptarget.rtl.${tmachine_libname}" LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
   set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES 
-    INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
+    INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/.."
+    CXX_VISIBILITY_PRESET protected)
 
   target_include_directories("omptarget.rtl.${tmachine_libname}" PRIVATE
     ${LIBOMPTARGET_INCLUDE_DIR}
@@ -56,8 +56,7 @@ if(${LIBOMPTARGET_DEP_VEO_FOUND})
     elf_common
     ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
     ${additional_libs}
-    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports -Wl,-z,defs"
-    "-Wl,--undefined-version")
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports -Wl,-z,defs")
 
   # Report to the parent scope that we are building a plugin.
   set(LIBOMPTARGET_SYSTEM_TARGETS

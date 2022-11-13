@@ -45,18 +45,20 @@
 #endif
 /* end INTEL_FEATURE_ISA_GPR_MOVGET */
 
-/* INTEL_FEATURE_ISA_RAO_INT */
-#if defined(__RAOINT_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__RAOINT__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <raoint/raointintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_RAO_INT */
 /* end INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__CRC32__)
 #include <crc32intrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__PRFCHI__)
+#include <prfchiintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__RAOINT__)
+#include <raointintrin.h>
 #endif
 
 #if defined(__i386__)

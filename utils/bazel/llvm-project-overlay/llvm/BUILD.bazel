@@ -418,6 +418,25 @@ cc_library(
 )
 
 cc_library(
+    name = "DebugInfoLogicalView",
+    srcs = glob([
+        "lib/DebugInfo/LogicalView/**/*.cpp",
+    ]),
+    hdrs = glob([
+        "include/llvm/DebugInfo/LogicalView/**/*.h",
+    ]),
+    copts = llvm_copts,
+    deps = [
+        ":DebugInfoDWARF",
+        ":DebugInfoPDB",
+        ":MC",
+        ":MCDisassembler",
+        ":Object",
+        ":Support",
+    ],
+)
+
+cc_library(
     name = "DebugInfoPDB",
     srcs = glob([
         "lib/DebugInfo/PDB/*.cpp",
@@ -1214,6 +1233,21 @@ cc_library(
         ":Target",
         ":TransformUtils",
         ":config",
+    ],
+)
+
+cc_library(
+    name = "FrontendHLSL",
+    srcs = glob([
+        "lib/Frontend/HLSL/*.cpp",
+    ]),
+    hdrs = glob([
+        "include/llvm/Frontend/HLSL/*.h",
+    ]),
+    copts = llvm_copts,
+    deps = [
+        ":Core",
+        ":Support",
     ],
 )
 
@@ -2636,6 +2670,7 @@ cc_library(
         ":Core",
         ":ExecutionEngine",
         ":MC",
+        ":MCA",
         ":MCDisassembler",
         ":MCJIT",
         ":Object",
@@ -2988,6 +3023,22 @@ cc_binary(
         ":CxxfiltOptsTableGen",
         ":Demangle",
         ":Option",
+        ":Support",
+    ],
+)
+
+cc_binary(
+    name = "llvm-debuginfo-analyzer",
+    srcs = glob([
+        "tools/llvm-debuginfo-analyzer/*.cpp",
+        "tools/llvm-debuginfo-analyzer/*.h",
+    ]),
+    copts = llvm_copts,
+    stamp = 0,
+    deps = [
+        ":AllTargetsCodeGens",
+        ":AllTargetsDisassemblers",
+        ":DebugInfoLogicalView",
         ":Support",
     ],
 )

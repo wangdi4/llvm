@@ -156,17 +156,15 @@ def FeaturePFI      : SubtargetFeature<"avx512pf", "HasPFI", "true",
                       "Enable AVX-512 PreFetch Instructions",
                                       [FeatureAVX512]>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
-def FeaturePREFETCHI  : SubtargetFeature<"prefetchi", "HasPREFETCHI",
-                                   "true",
-                                   "Prefetch instruction with T0 or T1 Hint">;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_PREFETCHST2
 def FeaturePREFETCHST2  : SubtargetFeature<"prefetchst2", "HasPREFETCHST2",
                                    "true",
                                    "Prefetch with Intent to Shared and T2 Hint">;
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
+def FeaturePREFETCHI  : SubtargetFeature<"prefetchi", "HasPREFETCHI",
+                                   "true",
+                                   "Prefetch instruction with T0 or T1 Hint">;
 def FeaturePREFETCHWT1  : SubtargetFeature<"prefetchwt1", "HasPREFETCHWT1",
                                    "true",
                                    "Prefetch with Intent to Write and T1 Hint">;
@@ -185,13 +183,9 @@ def FeatureVBMI     : SubtargetFeature<"avx512vbmi", "HasVBMI", "true",
 def FeatureVBMI2    : SubtargetFeature<"avx512vbmi2", "HasVBMI2", "true",
                       "Enable AVX-512 further Vector Byte Manipulation Instructions",
                                       [FeatureBWI]>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
 def FeatureAVXIFMA    : SubtargetFeature<"avxifma", "HasAVXIFMA", "true",
                            "Enable AVX-IFMA",
                            [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
 def FeatureIFMA     : SubtargetFeature<"avx512ifma", "HasIFMA", "true",
                       "Enable AVX-512 Integer Fused Multiple-Add",
                                       [FeatureAVX512]>;
@@ -229,19 +223,16 @@ def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
 def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            "Support 16-bit floating point",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_BF16_NE
-def FeatureNEBF16    : SubtargetFeature<"avx512bf16ne", "HasNEBF16", "true",
-                           "Support bfloat16 floating point without exceptions",
-                           [FeatureFP16]>;
-#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
 def FeatureAVXVNNIINT8  : SubtargetFeature<"avxvnniint8",
                              "HasAVXVNNIINT8", "true",
                              "Enable AVX-VNNI-INT8",
                              [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def FeatureNEBF16    : SubtargetFeature<"avx512bf16ne", "HasNEBF16", "true",
+                           "Support bfloat16 floating point without exceptions",
+                           [FeatureFP16, FeatureBF16]>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def FeatureAVXDOTPRODPHPS  : SubtargetFeature<"avxdotprodphps",
                              "HasAVXDOTPRODPHPS", "true",
@@ -416,12 +407,9 @@ def FeatureAMXAVX512     : SubtargetFeature<"amx-avx512", "HasAMXAVX512", "true"
                                       [FeatureAMXTILE]>;
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
 def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
                                       "Support AMX amx-fp16 instructions",
                                       [FeatureAMXTILE]>;
-
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def FeatureAMXMEMORY2     : SubtargetFeature<"amx-memory2", "HasAMXMEMORY2", "true",
@@ -496,11 +484,6 @@ def FeatureMOVGET64B : SubtargetFeature<"movget64b", "HasMOVGET64B", "true",
                                         "Support MOVGET64B instructions",
                                         [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",
-                                     "Support RAO-INT instructions",
-                                     []>;
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 def FeatureAVXRAOINT : SubtargetFeature<"avxraoint", "HasAVXRAOINT", "true",
                                         "Support AVX-RAO-INT instructions",
@@ -611,13 +594,6 @@ def FeatureVPINSRVPEXTR : SubtargetFeature<"vpinsr-vpextr", "HasVPINSRVPEXTR",
                                     "Support VPINSR_VPEXTR_YMM_ZMM instructions",
                                     [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
-#if INTEL_FEATURE_ISA_CMPCCXADD
-// AUTO GENERATED BY TOOL
-def FeatureCMPCCXADD : SubtargetFeature<"cmpccxadd", "HasCMPCCXADD", "true",
-                                        "Support CMPCCXADD instructions",
-                                        [FeatureAVX2]>;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
 // AUTO GENERATED BY TOOL
 def FeatureAVX512SATCVT : SubtargetFeature<"avx512satcvt", "HasAVX512SATCVT", "true",
@@ -665,6 +641,11 @@ def FeatureAVX512VNNIFP8 :
                        [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
+def FeatureCMPCCXADD : SubtargetFeature<"cmpccxadd", "HasCMPCCXADD", "true",
+                                        "Support CMPCCXADD instructions">;
+def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",
+                                     "Support RAO-INT instructions",
+                                     []>;
 def FeatureINVPCID : SubtargetFeature<"invpcid", "HasINVPCID", "true",
                                       "Invalidate Process-Context Identifier">;
 def FeatureSGX     : SubtargetFeature<"sgx", "HasSGX", "true",
@@ -1390,12 +1371,8 @@ def ProcessorFeatures {
   list<SubtargetFeature> GNRAdditionalFeatures = [
 #endif // INTEL_FEATURE_CPU_GNR
 #ifdef ENABLE_CPU_GNR
-#if INTEL_FEATURE_ISA_AMX_FP16
                                                   FeatureAMXFP16,
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_PREFETCHI
                                                   FeaturePREFETCHI
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // ENABLE_CPU_GNR
 #if INTEL_FEATURE_CPU_GNR
   ];
@@ -1431,9 +1408,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
                                                   FeatureAVXVNNIINT16,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
                                                   FeatureAVXVNNIINT8,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
                                                   FeatureAVX512MEDIAX,
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -1444,12 +1419,8 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
                                                   FeatureNEBF16,
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#if INTEL_FEATURE_ISA_AVX_IFMA
                                                   FeatureAVXIFMA,
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_CMPCCXADD
                                                   FeatureCMPCCXADD,
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #if INTEL_FEATURE_ISA_SHA512
                                                   FeatureSHA512,
 #endif // INTEL_FEATURE_ISA_SHA512
@@ -1512,9 +1483,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
                                                   FeatureVPINSRVPEXTR,
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
-#if INTEL_FEATURE_ISA_RAO_INT
                                                   FeatureRAOINT,
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_FP
                                                   FeatureAVXRAOFP,
 #endif // INTEL_FEATURE_ISA_AVX_RAO_FP
@@ -1537,15 +1506,9 @@ def ProcessorFeatures {
 // FIXME: Need to add AVX512-BF16-NE
 #endif // INTEL_FEATURE_ISA_AVX256
 #ifdef ENABLE_ISA_AVX256
-#if INTEL_FEATURE_ISA_AMX_FP16
     FeatureAMXFP16,
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_PREFETCHI
     FeaturePREFETCHI,
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA,
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 // FIXME: Need to change to AVX-NE-CONVERT
     FeatureAVXCONVERT,
@@ -1553,9 +1516,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
     FeatureAVXVNNIINT16,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
     FeatureAVXVNNIINT8,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     FeatureAVX512MEDIAX,
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -1573,9 +1534,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
     FeatureAVX512VNNIINT8,
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_CMPCCXADD
     FeatureCMPCCXADD,
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #if INTEL_FEATURE_ISA_SM3
     FeatureSM3,
 #endif // INTEL_FEATURE_ISA_SM3
@@ -1726,9 +1685,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> MTLAdditionalFeatures = [
 #endif // INTEL_FEATURE_CPU_MTL
 #ifdef ENABLE_CPU_MTL
-#if INTEL_FEATURE_ISA_PREFETCHI
                                                   FeaturePREFETCHI
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // ENABLE_CPU_MTL
 #if INTEL_FEATURE_CPU_MTL
   ];

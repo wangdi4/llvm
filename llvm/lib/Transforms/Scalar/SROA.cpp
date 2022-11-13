@@ -1232,8 +1232,8 @@ findCommonType(AllocaSlices::const_iterator B, AllocaSlices::const_iterator E,
 ///  - Inst and PN are in the same block
 ///  - And, there are no stores between PN and Inst.
 static bool isLiveAtPHI(const Instruction * Inst,
-                        const PHINode &PN,
-                        Align &MaxAlign, APInt &MaxSize) {
+                        const PHINode &PN, Type *&LoadType,
+                        Align &MaxAlign) {
   if (!Inst || Inst->getParent() != PN.getParent())
     return false;
 
@@ -1247,18 +1247,20 @@ static bool isLiveAtPHI(const Instruction * Inst,
     if (!LI || !LI->isSimple())
       return false;
 
+    if (LoadType) {
+      if (LoadType != LI->getType())
+        return false;
+    } else {
+      LoadType = LI->getType();
+    }
+
     // Ensure that there are no instructions between the PHI and the load that
     // could store.
     for (BasicBlock::const_iterator BBI(PN); &*BBI != LI; ++BBI)
       if (BBI->mayWriteToMemory())
         return false;
 
-    const DataLayout &DL = PN.getModule()->getDataLayout();
-
-    uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
-    uint64_t Size = DL.getTypeStoreSize(LI->getType()).getFixedSize();
     MaxAlign = std::max(MaxAlign, Align(LI->getAlign()));
-    MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
 
     return true;
   }
@@ -1271,7 +1273,7 @@ static bool isLiveAtPHI(const Instruction * Inst,
       return false;
 
     for (const auto *U : GEP->users()) {
-      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
+      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, LoadType, MaxAlign))
         return false;
 
       HasUser = true;
@@ -1312,23 +1314,23 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   // as the PHI, and if there are no stores between the phi and load.
   Align MaxAlign;
   uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
-  APInt MaxSize(APWidth, 0);
-  bool HasLoad = false;
+  Type *LoadType = nullptr;
 
   for (const auto *U : PN.users()) {
     // It is very common to have loads following GEPs. This code supports those
     // cases (one such example can be found in intel-phi-gep.ll).
     // It also supports recursive traversal of phi users.
 
-    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
+    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, LoadType, MaxAlign))
       return false;
 
-    HasLoad = true;
   }
 
-  if (!HasLoad)
+  if (!LoadType)
     return false;
 #endif // INTEL_CUSTOMIZATION
+
+  APInt LoadSize = APInt(APWidth, DL.getTypeStoreSize(LoadType).getFixedSize());
 
   // We can only transform this if it is safe to push the loads into the
   // predecessor blocks. The only thing to watch out for is that we can't put
@@ -1351,7 +1353,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     // If this pointer is always safe to load, or if we can prove that there
     // is already a load in the block, then we can move the load to the pred
     // block.
-    if (isSafeToLoadUnconditionally(InVal, MaxAlign, MaxSize, DL, TI))
+    if (isSafeToLoadUnconditionally(InVal, MaxAlign, LoadSize, DL, TI))
       continue;
 
     return false;
@@ -3944,20 +3946,15 @@ static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
 /// the following:
 ///
 ///   %a = alloca [12 x i8]
-///   %gep1 = getelementptr [12 x i8]* %a, i32 0, i32 0
-///   %gep2 = getelementptr [12 x i8]* %a, i32 0, i32 4
-///   %gep3 = getelementptr [12 x i8]* %a, i32 0, i32 8
-///   %iptr1 = bitcast i8* %gep1 to i64*
-///   %iptr2 = bitcast i8* %gep2 to i64*
-///   %fptr1 = bitcast i8* %gep1 to float*
-///   %fptr2 = bitcast i8* %gep2 to float*
-///   %fptr3 = bitcast i8* %gep3 to float*
-///   store float 0.0, float* %fptr1
-///   store float 1.0, float* %fptr2
-///   %v = load i64* %iptr1
-///   store i64 %v, i64* %iptr2
-///   %f1 = load float* %fptr2
-///   %f2 = load float* %fptr3
+///   %gep1 = getelementptr i8, ptr %a, i32 0
+///   %gep2 = getelementptr i8, ptr %a, i32 4
+///   %gep3 = getelementptr i8, ptr %a, i32 8
+///   store float 0.0, ptr %gep1
+///   store float 1.0, ptr %gep2
+///   %v = load i64, ptr %gep1
+///   store i64 %v, ptr %gep2
+///   %f1 = load float, ptr %gep2
+///   %f2 = load float, ptr %gep3
 ///
 /// Here we want to form 3 partitions of the alloca, each 4 bytes large, and
 /// promote everything so we recover the 2 SSA values that should have been

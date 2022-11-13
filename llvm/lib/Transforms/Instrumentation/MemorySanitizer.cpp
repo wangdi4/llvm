@@ -3043,6 +3043,27 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     setOrigin(&I, getOrigin(Op));
   }
 
+  void handleCountZeroes(IntrinsicInst &I) {
+    IRBuilder<> IRB(&I);
+    Value *Src = I.getArgOperand(0);
+
+    // Set the Output shadow based on input Shadow
+    Value *BoolShadow = IRB.CreateIsNotNull(getShadow(Src), "_mscz_bs");
+
+    // If zero poison is requested, mix in with the shadow
+    Constant *IsZeroPoison = cast<Constant>(I.getOperand(1));
+    if (!IsZeroPoison->isZeroValue()) {
+      Value *BoolZeroPoison = IRB.CreateIsNull(Src, "_mscz_bzp");
+      BoolShadow = IRB.CreateOr(BoolShadow, BoolZeroPoison, "_mscz_bs");
+    }
+
+    Value *OutputShadow =
+        IRB.CreateSExt(BoolShadow, getShadowTy(Src), "_mscz_os");
+
+    setShadow(&I, OutputShadow);
+    setOriginForNaryOp(I);
+  }
+
   // Instrument vector convert intrinsic.
   //
   // This function instruments intrinsics like cvtsi2ss:
@@ -3723,6 +3744,10 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
       break;
     case Intrinsic::bswap:
       handleBswap(I);
+      break;
+    case Intrinsic::ctlz:
+    case Intrinsic::cttz:
+      handleCountZeroes(I);
       break;
     case Intrinsic::masked_compressstore:
       handleMaskedCompressStore(I);

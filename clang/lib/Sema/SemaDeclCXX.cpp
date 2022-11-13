@@ -11625,7 +11625,7 @@ bool Sema::isStdInitializerList(QualType Ty, QualType *Element) {
                  Ty->getAs<TemplateSpecializationType>()) {
     Template = dyn_cast_or_null<ClassTemplateDecl>(
         TST->getTemplateName().getAsTemplateDecl());
-    Arguments = TST->getArgs();
+    Arguments = TST->template_arguments().begin();
   }
   if (!Template)
     return false;
@@ -15656,7 +15656,10 @@ Sema::BuildCXXConstructExpr(SourceLocation ConstructLoc, QualType DeclInitType,
                             SourceRange ParenRange) {
   if (auto *Shadow = dyn_cast<ConstructorUsingShadowDecl>(FoundDecl)) {
     Constructor = findInheritingConstructor(ConstructLoc, Constructor, Shadow);
-    if (DiagnoseUseOfDecl(Constructor, ConstructLoc))
+    // The only way to get here is if we did overlaod resolution to find the
+    // shadow decl, so we don't need to worry about re-checking the trailing
+    // requires clause.
+    if (DiagnoseUseOfOverloadedDecl(Constructor, ConstructLoc))
       return ExprError();
   }
 
@@ -16888,11 +16891,10 @@ Decl *Sema::BuildStaticAssertDeclaration(SourceLocation StaticAssertLoc,
     AllowFoldKind FoldKind = NoFold;
 
     if (!getLangOpts().CPlusPlus) {
-      // In C mode only allow folding and strip the implicit conversion
-      // to the type of the first _Static_assert argument that would
-      // otherwise suppress diagnostics for arguments that convert to int.
+      // In C mode, allow folding as an extension for better compatibility with
+      // C++ in terms of expressions like static_assert("test") or
+      // static_assert(nullptr).
       FoldKind = AllowFold;
-      BaseExpr = BaseExpr->IgnoreImpCasts();
     }
 
     if (!Failed && VerifyIntegerConstantExpression(

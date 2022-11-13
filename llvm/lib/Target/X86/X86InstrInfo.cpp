@@ -1681,6 +1681,10 @@ MachineInstr *X86InstrInfo::convertToThreeAddress(MachineInstr &MI,
       MIB.add(ImplicitOp);
 
     NewMI = addOffset(MIB, -Imm);
+
+    // Add kills if classifyLEAReg created a new register.
+    if (LV && SrcReg != Src.getReg())
+      LV->getVarInfo(SrcReg).Kills.push_back(NewMI);
     break;
   }
 
@@ -1784,6 +1788,7 @@ MachineInstr *X86InstrInfo::convertToThreeAddress(MachineInstr &MI,
               .add(MI.getOperand(5))
               .add(MI.getOperand(6))
               .add(MI.getOperand(7));
+    NumRegOperands = 4;
     break;
   }
 
@@ -1855,7 +1860,7 @@ MachineInstr *X86InstrInfo::convertToThreeAddress(MachineInstr &MI,
   if (LV) {  // Update live variables
     for (unsigned I = 0; I < NumRegOperands; ++I) {
       MachineOperand &Op = MI.getOperand(I);
-      if (Op.isDead() || Op.isKill())
+      if (Op.isReg() && (Op.isDead() || Op.isKill()))
         LV->replaceKillInstruction(Op.getReg(), MI, *NewMI);
     }
   }
@@ -2649,7 +2654,6 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPWUUDSrr:
   case X86::VPDPWUUDSYrr:
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
   case X86::VPDPBSSDSrr:
   case X86::VPDPBSSDSYrr:
   case X86::VPDPBSSDrr:
@@ -2658,7 +2662,6 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPBUUDSYrr:
   case X86::VPDPBUUDrr:
   case X86::VPDPBUUDYrr:
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   case X86::VPDPBSSDSZ128r:
   case X86::VPDPBSSDSZ128rk:
@@ -2716,12 +2719,8 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPWSSDSZr:
   case X86::VPDPWSSDSZrk:
   case X86::VPDPWSSDSZrkz:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
   case X86::VPMADD52HUQrr:
   case X86::VPMADD52HUQYrr:
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
   case X86::VPMADD52HUQZ128r:
   case X86::VPMADD52HUQZ128rk:
   case X86::VPMADD52HUQZ128rkz:
@@ -2731,12 +2730,8 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPMADD52HUQZr:
   case X86::VPMADD52HUQZrk:
   case X86::VPMADD52HUQZrkz:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
   case X86::VPMADD52LUQrr:
   case X86::VPMADD52LUQYrr:
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
   case X86::VPMADD52LUQZ128r:
   case X86::VPMADD52LUQZ128rk:
   case X86::VPMADD52LUQZ128rkz:
@@ -9368,6 +9363,10 @@ bool X86InstrInfo::hasReassociableOperands(const MachineInstr &Inst,
 //       3. Other forms of the same operation (intrinsics and other variants)
 bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   switch (Inst.getOpcode()) {
+  case X86::ADD8rr:
+  case X86::ADD16rr:
+  case X86::ADD32rr:
+  case X86::ADD64rr:
   case X86::AND8rr:
   case X86::AND16rr:
   case X86::AND32rr:

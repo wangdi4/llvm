@@ -23,11 +23,13 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/UniqueCStringMap.h"
+#include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/DataFormatters/CXXFunctionPointer.h"
 #include "lldb/DataFormatters/DataVisualization.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/DataFormatters/VectorType.h"
 #include "lldb/Symbol/SymbolFile.h"
+#include "lldb/Symbol/VariableList.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
@@ -109,6 +111,7 @@ void CPlusPlusLanguage::MethodName::Clear() {
   m_context = llvm::StringRef();
   m_arguments = llvm::StringRef();
   m_qualifiers = llvm::StringRef();
+  m_return_type = llvm::StringRef();
   m_parsed = false;
   m_parse_error = false;
 }
@@ -170,6 +173,40 @@ static bool IsTrivialBasename(const llvm::StringRef &basename) {
   return idx == basename.size();
 }
 
+/// Writes out the function name in 'full_name' to 'out_stream'
+/// but replaces each argument type with the variable name
+/// and the corresponding pretty-printed value
+static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
+                                            char const *full_name,
+                                            ExecutionContextScope *exe_scope,
+                                            VariableList const &args) {
+  CPlusPlusLanguage::MethodName cpp_method{ConstString(full_name)};
+
+  if (!cpp_method.IsValid())
+    return false;
+
+  llvm::StringRef return_type = cpp_method.GetReturnType();
+  if (!return_type.empty()) {
+    out_stream.PutCString(return_type);
+    out_stream.PutChar(' ');
+  }
+
+  out_stream.PutCString(cpp_method.GetScopeQualifiedName());
+  out_stream.PutChar('(');
+
+  FormatEntity::PrettyPrintFunctionArguments(out_stream, args, exe_scope);
+
+  out_stream.PutChar(')');
+
+  llvm::StringRef qualifiers = cpp_method.GetQualifiers();
+  if (!qualifiers.empty()) {
+    out_stream.PutChar(' ');
+    out_stream.PutCString(qualifiers);
+  }
+
+  return true;
+}
+
 bool CPlusPlusLanguage::MethodName::TrySimplifiedParse() {
   // This method tries to parse simple method definitions which are presumably
   // most comman in user programs. Definitions that can be parsed by this
@@ -206,6 +243,7 @@ bool CPlusPlusLanguage::MethodName::TrySimplifiedParse() {
       m_basename = llvm::StringRef();
       m_arguments = llvm::StringRef();
       m_qualifiers = llvm::StringRef();
+      m_return_type = llvm::StringRef();
       return false;
     }
   }
@@ -223,6 +261,7 @@ void CPlusPlusLanguage::MethodName::Parse() {
         m_context = function.value().name.context;
         m_arguments = function.value().arguments;
         m_qualifiers = function.value().qualifiers;
+        m_return_type = function.value().return_type;
         m_parse_error = false;
       } else {
         m_parse_error = true;
@@ -256,6 +295,12 @@ llvm::StringRef CPlusPlusLanguage::MethodName::GetQualifiers() {
   return m_qualifiers;
 }
 
+llvm::StringRef CPlusPlusLanguage::MethodName::GetReturnType() {
+  if (!m_parsed)
+    Parse();
+  return m_return_type;
+}
+
 std::string CPlusPlusLanguage::MethodName::GetScopeQualifiedName() {
   if (!m_parsed)
     Parse();
@@ -269,9 +314,21 @@ std::string CPlusPlusLanguage::MethodName::GetScopeQualifiedName() {
   return res;
 }
 
+llvm::StringRef
+CPlusPlusLanguage::MethodName::GetBasenameNoTemplateParameters() {
+  llvm::StringRef basename = GetBasename();
+  size_t arg_start, arg_end;
+  llvm::StringRef parens("<>", 2);
+  if (ReverseFindMatchingChars(basename, parens, arg_start, arg_end))
+    return basename.substr(0, arg_start);
+
+  return basename;
+}
+
 bool CPlusPlusLanguage::MethodName::ContainsPath(llvm::StringRef path) {
   if (!m_parsed)
     Parse();
+
   // If we can't parse the incoming name, then just check that it contains path.
   if (m_parse_error)
     return m_full.GetStringRef().contains(path);
@@ -286,8 +343,23 @@ bool CPlusPlusLanguage::MethodName::ContainsPath(llvm::StringRef path) {
   if (!success)
     return m_full.GetStringRef().contains(path);
 
-  if (identifier != GetBasename())
+  // Basename may include template arguments.
+  // E.g.,
+  // GetBaseName(): func<int>
+  // identifier   : func
+  //
+  // ...but we still want to account for identifiers with template parameter
+  // lists, e.g., when users set breakpoints on template specializations.
+  //
+  // E.g.,
+  // GetBaseName(): func<uint32_t>
+  // identifier   : func<int32_t*>
+  //
+  // Try to match the basename with or without template parameters.
+  if (GetBasename() != identifier &&
+      GetBasenameNoTemplateParameters() != identifier)
     return false;
+
   // Incoming path only had an identifier, so we match.
   if (context.empty())
     return true;
@@ -1428,4 +1500,67 @@ bool CPlusPlusLanguage::IsSourceFile(llvm::StringRef file_path) const {
   // Check if we're in a STL path (where the files usually have no extension
   // that we could check for.
   return file_path.contains("/usr/include/c++/");
+}
+
+bool CPlusPlusLanguage::GetFunctionDisplayName(
+    const SymbolContext *sc, const ExecutionContext *exe_ctx,
+    FunctionNameRepresentation representation, Stream &s) {
+  switch (representation) {
+  case FunctionNameRepresentation::eNameWithArgs: {
+    // Print the function name with arguments in it
+    if (sc->function) {
+      ExecutionContextScope *exe_scope =
+          exe_ctx ? exe_ctx->GetBestExecutionContextScope() : nullptr;
+      const char *cstr = sc->function->GetName().AsCString(nullptr);
+      if (cstr) {
+        const InlineFunctionInfo *inline_info = nullptr;
+        VariableListSP variable_list_sp;
+        bool get_function_vars = true;
+        if (sc->block) {
+          Block *inline_block = sc->block->GetContainingInlinedBlock();
+
+          if (inline_block) {
+            get_function_vars = false;
+            inline_info = sc->block->GetInlinedFunctionInfo();
+            if (inline_info)
+              variable_list_sp = inline_block->GetBlockVariableList(true);
+          }
+        }
+
+        if (get_function_vars) {
+          variable_list_sp =
+              sc->function->GetBlock(true).GetBlockVariableList(true);
+        }
+
+        if (inline_info) {
+          s.PutCString(cstr);
+          s.PutCString(" [inlined] ");
+          cstr = inline_info->GetName().GetCString();
+        }
+
+        VariableList args;
+        if (variable_list_sp)
+          variable_list_sp->AppendVariablesWithScope(eValueTypeVariableArgument,
+                                                     args);
+        if (args.GetSize() > 0) {
+          if (!PrettyPrintFunctionNameWithArgs(s, cstr, exe_scope, args))
+            return false;
+        } else {
+          s.PutCString(cstr);
+        }
+        return true;
+      }
+    } else if (sc->symbol) {
+      const char *cstr = sc->symbol->GetName().AsCString(nullptr);
+      if (cstr) {
+        s.PutCString(cstr);
+        return true;
+      }
+    }
+  } break;
+  default:
+    return false;
+  }
+
+  return false;
 }

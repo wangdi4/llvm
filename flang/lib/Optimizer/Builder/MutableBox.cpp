@@ -417,8 +417,17 @@ fir::factory::genMutableBoxRead(fir::FirOpBuilder &builder, mlir::Location loc,
       return fir::CharArrayBoxValue{addr, len, extents, lbounds};
     return fir::CharBoxValue{addr, len};
   }
+  mlir::Value tdesc;
+  if (box.isPolymorphic()) {
+    auto loadedBox = builder.create<fir::LoadOp>(loc, box.getAddr());
+    mlir::Type tdescType =
+        fir::TypeDescType::get(mlir::NoneType::get(builder.getContext()));
+    tdesc = builder.create<fir::BoxTypeDescOp>(loc, tdescType, loadedBox);
+  }
   if (rank)
-    return fir::ArrayBoxValue{addr, extents, lbounds};
+    return fir::ArrayBoxValue{addr, extents, lbounds, tdesc};
+  if (box.isPolymorphic())
+    return fir::PolymorphicValue(addr, tdesc);
   return addr;
 }
 
@@ -467,6 +476,10 @@ void fir::factory::associateMutableBox(fir::FirOpBuilder &builder,
                                        mlir::ValueRange lbounds) {
   MutablePropertyWriter writer(builder, loc, box);
   source.match(
+      [&](const fir::PolymorphicValue &p) {
+        writer.updateMutableBox(p.getAddr(), /*lbounds=*/llvm::None,
+                                /*extents=*/llvm::None, /*lengths=*/llvm::None);
+      },
       [&](const fir::UnboxedValue &addr) {
         writer.updateMutableBox(addr, /*lbounds=*/llvm::None,
                                 /*extents=*/llvm::None, /*lengths=*/llvm::None);
@@ -566,6 +579,10 @@ void fir::factory::associateMutableBoxWithRemap(
   };
   MutablePropertyWriter writer(builder, loc, box);
   source.match(
+      [&](const fir::PolymorphicValue &p) {
+        writer.updateMutableBox(cast(p.getAddr()), lbounds, extents,
+                                /*lengths=*/llvm::None);
+      },
       [&](const fir::UnboxedValue &addr) {
         writer.updateMutableBox(cast(addr), lbounds, extents,
                                 /*lengths=*/llvm::None);
@@ -629,7 +646,18 @@ void fir::factory::associateMutableBoxWithRemap(
 
 void fir::factory::disassociateMutableBox(fir::FirOpBuilder &builder,
                                           mlir::Location loc,
-                                          const fir::MutableBoxValue &box) {
+                                          const fir::MutableBoxValue &box,
+                                          bool polymorphicSetType) {
+  if (box.isPolymorphic() && polymorphicSetType) {
+    // 7.3.2.3 point 7. The dynamic type of a disassociated pointer is the
+    // same as its declared type.
+    auto boxTy = box.getBoxTy().dyn_cast<fir::BaseBoxType>();
+    auto eleTy = fir::dyn_cast_ptrOrBoxEleTy(boxTy.getEleTy());
+    if (auto recTy = eleTy.dyn_cast<fir::RecordType>())
+      fir::runtime::genNullifyDerivedType(builder, loc, box.getAddr(), recTy,
+                                          box.rank());
+    return;
+  }
   MutablePropertyWriter{builder, loc, box}.setUnallocatedStatus();
 }
 

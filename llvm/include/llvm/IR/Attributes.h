@@ -59,6 +59,7 @@ class AttributeSetNode;
 class FoldingSetNodeID;
 class Function;
 class LLVMContext;
+class MemoryEffects;
 class Type;
 
 enum class AllocFnKind : uint64_t {
@@ -172,6 +173,7 @@ public:
   static Attribute getWithPreallocatedType(LLVMContext &Context, Type *Ty);
   static Attribute getWithInAllocaType(LLVMContext &Context, Type *Ty);
   static Attribute getWithUWTableKind(LLVMContext &Context, UWTableKind Kind);
+  static Attribute getWithMemoryEffects(LLVMContext &Context, MemoryEffects ME);
 
   /// For a typed attribute, return the equivalent attribute with the type
   /// changed to \p ReplacementTy.
@@ -269,6 +271,9 @@ public:
 
   // Returns the allocator function kind.
   AllocFnKind getAllocKind() const;
+
+  /// Returns memory effects.
+  MemoryEffects getMemoryEffects() const;
 
   /// The Attribute is converted to a string of equivalent mnemonic. This
   /// is, presumably, for writing out the mnemonics for the assembly writer.
@@ -402,6 +407,7 @@ public:
   Optional<unsigned> getVScaleRangeMax() const;
   UWTableKind getUWTableKind() const;
   AllocFnKind getAllocKind() const;
+  MemoryEffects getMemoryEffects() const;
   std::string getAsString(bool InAttrGrp = false) const;
 
   /// Return true if this attribute set belongs to the LLVMContext.
@@ -901,6 +907,9 @@ public:
 
   AllocFnKind getAllocKind() const;
 
+  /// Returns memory effects of the function.
+  MemoryEffects getMemoryEffects() const;
+
   /// Return the attributes at the index as a string.
   std::string getAsString(unsigned Index, bool InAttrGrp = false) const;
 
@@ -1263,6 +1272,9 @@ public:
 
   // This turns the allocator kind into the form used internally in Attribute.
   AttrBuilder &addAllocKindAttr(AllocFnKind Kind);
+
+  /// Add memory effect attribute.
+  AttrBuilder &addMemoryAttr(MemoryEffects ME);
 
   ArrayRef<Attribute> attrs() const { return Attrs; }
 

@@ -162,7 +162,15 @@ struct SimpleValue {
 #endif // INTEL_COLLAB
         }
       }
-      return CI->doesNotAccessMemory() && !CI->getType()->isVoidTy();
+      return CI->doesNotAccessMemory() && !CI->getType()->isVoidTy() &&
+             // FIXME: Currently the calls which may access the thread id may
+             // be considered as not accessing the memory. But this is
+             // problematic for coroutines, since coroutines may resume in a
+             // different thread. So we disable the optimization here for the
+             // correctness. However, it may block many other correct
+             // optimizations. Revert this one when we detect the memory
+             // accessing kind more precisely.
+             !CI->getFunction()->isPresplitCoroutine();
     }
     return isa<CastInst>(Inst) || isa<UnaryOperator>(Inst) ||
            isa<BinaryOperator>(Inst) || isa<GetElementPtrInst>(Inst) ||
@@ -493,7 +501,15 @@ struct CallValue {
       return false;
 
     CallInst *CI = dyn_cast<CallInst>(Inst);
-    if (!CI || !CI->onlyReadsMemory())
+    if (!CI || !CI->onlyReadsMemory() ||
+        // FIXME: Currently the calls which may access the thread id may
+        // be considered as not accessing the memory. But this is
+        // problematic for coroutines, since coroutines may resume in a
+        // different thread. So we disable the optimization here for the
+        // correctness. However, it may block many other correct
+        // optimizations. Revert this one when we detect the memory
+        // accessing kind more precisely.
+        CI->getFunction()->isPresplitCoroutine())
       return false;
     return true;
   }

@@ -310,14 +310,13 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
 
   // We can completely ignore inaccessible memory here, because MemoryLocations
   // can only reference accessible memory.
-  auto MRB = getModRefBehavior(Call, AAQI).getWithoutLoc(
-      FunctionModRefBehavior::InaccessibleMem);
-  if (MRB.doesNotAccessMemory())
+  auto ME = getMemoryEffects(Call, AAQI)
+                .getWithoutLoc(MemoryEffects::InaccessibleMem);
+  if (ME.doesNotAccessMemory())
     return ModRefInfo::NoModRef;
 
-  ModRefInfo ArgMR = MRB.getModRef(FunctionModRefBehavior::ArgMem);
-  ModRefInfo OtherMR =
-      MRB.getWithoutLoc(FunctionModRefBehavior::ArgMem).getModRef();
+  ModRefInfo ArgMR = ME.getModRef(MemoryEffects::ArgMem);
+  ModRefInfo OtherMR = ME.getWithoutLoc(MemoryEffects::ArgMem).getModRef();
   if ((ArgMR | OtherMR) != OtherMR) {
     // Refine the modref info for argument memory. We only bother to do this
     // if ArgMR is not a subset of OtherMR, otherwise this won't have an impact
@@ -368,11 +367,11 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call1,
   // aggregate set of AA results.
 
   // If Call1 or Call2 are readnone, they don't interact.
-  auto Call1B = getModRefBehavior(Call1, AAQI);
+  auto Call1B = getMemoryEffects(Call1, AAQI);
   if (Call1B.doesNotAccessMemory())
     return ModRefInfo::NoModRef;
 
-  auto Call2B = getModRefBehavior(Call2, AAQI);
+  auto Call2B = getMemoryEffects(Call2, AAQI);
   if (Call2B.doesNotAccessMemory())
     return ModRefInfo::NoModRef;
 
@@ -459,12 +458,12 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call1,
   return Result;
 }
 
-FunctionModRefBehavior AAResults::getModRefBehavior(const CallBase *Call,
-                                                    AAQueryInfo &AAQI) {
-  FunctionModRefBehavior Result = FunctionModRefBehavior::unknown();
+MemoryEffects AAResults::getMemoryEffects(const CallBase *Call,
+                                          AAQueryInfo &AAQI) {
+  MemoryEffects Result = MemoryEffects::unknown();
 
   for (const auto &AA : AAs) {
-    Result &= AA->getModRefBehavior(Call, AAQI);
+    Result &= AA->getMemoryEffects(Call, AAQI);
 
     // Early-exit the moment we reach the bottom of the lattice.
     if (Result.doesNotAccessMemory())
@@ -474,16 +473,16 @@ FunctionModRefBehavior AAResults::getModRefBehavior(const CallBase *Call,
   return Result;
 }
 
-FunctionModRefBehavior AAResults::getModRefBehavior(const CallBase *Call) {
+MemoryEffects AAResults::getMemoryEffects(const CallBase *Call) {
   SimpleAAQueryInfo AAQI(*this);
-  return getModRefBehavior(Call, AAQI);
+  return getMemoryEffects(Call, AAQI);
 }
 
-FunctionModRefBehavior AAResults::getModRefBehavior(const Function *F) {
-  FunctionModRefBehavior Result = FunctionModRefBehavior::unknown();
+MemoryEffects AAResults::getMemoryEffects(const Function *F) {
+  MemoryEffects Result = MemoryEffects::unknown();
 
   for (const auto &AA : AAs) {
-    Result &= AA->getModRefBehavior(F);
+    Result &= AA->getMemoryEffects(F);
 
     // Early-exit the moment we reach the bottom of the lattice.
     if (Result.doesNotAccessMemory())
@@ -531,21 +530,20 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, ModRefInfo MR) {
   return OS;
 }
 
-raw_ostream &llvm::operator<<(raw_ostream &OS, FunctionModRefBehavior FMRB) {
-  for (FunctionModRefBehavior::Location Loc :
-       FunctionModRefBehavior::locations()) {
+raw_ostream &llvm::operator<<(raw_ostream &OS, MemoryEffects ME) {
+  for (MemoryEffects::Location Loc : MemoryEffects::locations()) {
     switch (Loc) {
-    case FunctionModRefBehavior::ArgMem:
+    case MemoryEffects::ArgMem:
       OS << "ArgMem: ";
       break;
-    case FunctionModRefBehavior::InaccessibleMem:
+    case MemoryEffects::InaccessibleMem:
       OS << "InaccessibleMem: ";
       break;
-    case FunctionModRefBehavior::Other:
+    case MemoryEffects::Other:
       OS << "Other: ";
       break;
     }
-    OS << FMRB.getModRef(Loc) << ", ";
+    OS << ME.getModRef(Loc) << ", ";
   }
   return OS;
 }
@@ -805,7 +803,7 @@ ModRefInfo AAResults::getModRefInfo(const Instruction *I,
                                     const Optional<LocationSize> &Size) { // INTEL
   if (OptLoc == None) {
     if (const auto *Call = dyn_cast<CallBase>(I))
-      return getModRefBehavior(Call, AAQIP).getModRef();
+      return getMemoryEffects(Call, AAQIP).getModRef();
   }
 
   const MemoryLocation &Loc = OptLoc.value_or(MemoryLocation());
@@ -967,7 +965,7 @@ INITIALIZE_PASS_DEPENDENCY(CFLAndersAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(CFLSteensAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)   // INTEL
 INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass) // INTEL
@@ -1013,9 +1011,11 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
 #endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
+#if INTEL_CUSTOMIZATION
   if (auto *WrapperPass =
           getAnalysisIfAvailable<objcarc::ObjCARCAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
+#endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
@@ -1051,7 +1051,7 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
-  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
+  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
@@ -1085,9 +1085,11 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
 #endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
+#if INTEL_CUSTOMIZATION
   if (auto *WrapperPass =
           P.getAnalysisIfAvailable<objcarc::ObjCARCAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
+#endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
@@ -1186,7 +1188,7 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
-  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
+  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
   AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();

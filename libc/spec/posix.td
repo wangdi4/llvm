@@ -52,7 +52,27 @@ def AtForkCallbackT : NamedType<"__atfork_callback_t">;
 
 def PosixSpawnFileActionsT : NamedType<"posix_spawn_file_actions_t">;
 def PosixSpawnFileActionsTPtr : PtrType<PosixSpawnFileActionsT>;
+def ConstPosixSpawnFileActionsTPtr : ConstType<PosixSpawnFileActionsTPtr>;
 def PosixSpawnFileActionsTRestrictedPtr : RestrictedPtrType<PosixSpawnFileActionsT>;
+
+def PosixSpawnAttrT : NamedType<"posix_spawnattr_t">;
+def RestrictedPosixSpawnAttrTPtrType : RestrictedPtrType<PosixSpawnAttrT>;
+
+def CcT : NamedType<"cc_t">;
+def SpeedT : NamedType<"speed_t">;
+def StructTermios : NamedType<"struct termios">;
+def StructTermiosPtr : PtrType<StructTermios>;
+def ConstStructTermiosPtr : ConstType<StructTermiosPtr>;
+def TcFlagT : NamedType<"tcflag_t">;
+
+def StackT : NamedType<"stack_t">;
+def StackTPtr : PtrType<StackT>;
+def RestrictedStackTPtr : RestrictedPtrType<StackT>;
+def ConstRestrictedStackTPtr : ConstType<RestrictedStackTPtr>;
+
+def FdSet : NamedType<"fd_set">;
+def FdSetPtr : PtrType<FdSet>;
+def RestrictedFdSetPtr : RestrictedPtrType<FdSet>;
 
 def POSIX : StandardSpec<"POSIX"> {
   PtrType CharPtr = PtrType<CharType>;
@@ -262,6 +282,7 @@ def POSIX : StandardSpec<"POSIX"> {
       [
         SigInfoType,
         SigSetType,
+        StackT,
         StructSigaction,
         UnionSigVal,
         PidT,
@@ -280,6 +301,11 @@ def POSIX : StandardSpec<"POSIX"> {
           [ArgSpec<IntType>,
            ArgSpec<ConstRestrictedStructSigactionPtr>,
            ArgSpec<RestrictedStructSigactionPtr>]
+        >,
+        FunctionSpec<
+          "sigaltstack",
+          RetValSpec<IntType>,
+          [ArgSpec<ConstRestrictedStackTPtr>, ArgSpec<RestrictedStackTPtr>]
         >,
         FunctionSpec<
           "sigdelset",
@@ -354,6 +380,11 @@ def POSIX : StandardSpec<"POSIX"> {
           "fchdir",
           RetValSpec<IntType>,
           [ArgSpec<IntType>]
+        >,
+        FunctionSpec<
+          "getcwd",
+          RetValSpec<CharPtr>,
+          [ArgSpec<CharPtr>, ArgSpec<SizeTType>]
         >,
         FunctionSpec<
           "close",
@@ -1052,7 +1083,7 @@ def POSIX : StandardSpec<"POSIX"> {
   HeaderSpec Spawn = HeaderSpec<
     "spawn.h",
     [], // Macros
-    [PosixSpawnFileActionsT, ModeTType],
+    [ModeTType, PosixSpawnAttrT, PidT, PosixSpawnFileActionsT],
     [], // Enumerations
     [
       FunctionSpec<
@@ -1081,7 +1112,107 @@ def POSIX : StandardSpec<"POSIX"> {
         RetValSpec<IntType>,
         [ArgSpec<PosixSpawnFileActionsTPtr>]
       >,
+      FunctionSpec<
+        "posix_spawn",
+        RetValSpec<IntType>,
+        [ArgSpec<RestrictedPidTPtr>, ArgSpec<ConstCharRestrictedPtr>,
+         ArgSpec<PosixSpawnFileActionsTPtr>, ArgSpec<RestrictedPosixSpawnAttrTPtrType>,
+         ArgSpec<ConstCharRestrictedPtrPtr>, ArgSpec<ConstCharRestrictedPtrPtr>]
+      >,
     ]
+  >;
+
+  HeaderSpec Termios = HeaderSpec<
+    "termios.h",
+    [
+      Macro<"NCCS">,
+    ],
+    [CcT, PidT, SpeedT, StructTermios, TcFlagT], // Types
+    [], // Enumerations
+    [
+      FunctionSpec<
+        "cfgetispeed",
+        RetValSpec<SpeedT>,
+        [ArgSpec<ConstStructTermiosPtr>]
+      >,
+      FunctionSpec<
+        "cfgetospeed",
+        RetValSpec<SpeedT>,
+        [ArgSpec<ConstStructTermiosPtr>]
+      >,
+      FunctionSpec<
+        "cfsetispeed",
+        RetValSpec<SpeedT>,
+        [ArgSpec<StructTermiosPtr>, ArgSpec<SpeedT>]
+      >,
+      FunctionSpec<
+        "cfsetospeed",
+        RetValSpec<SpeedT>,
+        [ArgSpec<StructTermiosPtr>, ArgSpec<SpeedT>]
+      >,
+      FunctionSpec<
+        "tcdrain",
+        RetValSpec<IntType>,
+        [ArgSpec<IntType>]
+      >,
+      FunctionSpec<
+        "tcflow",
+        RetValSpec<IntType>,
+        [ArgSpec<IntType>, ArgSpec<IntType>]
+      >,
+      FunctionSpec<
+        "tcflush",
+        RetValSpec<IntType>,
+        [ArgSpec<IntType>, ArgSpec<IntType>]
+      >,
+      FunctionSpec<
+        "tcgetattr",
+        RetValSpec<IntType>,
+        [ArgSpec<IntType>, ArgSpec<StructTermiosPtr>]
+      >,
+      FunctionSpec<
+        "tcgetsid",
+        RetValSpec<PidT>,
+        [ArgSpec<IntType>]
+      >,
+      FunctionSpec<
+        "tcsendbreak",
+        RetValSpec<IntType>,
+        [ArgSpec<IntType>, ArgSpec<IntType>]
+      >,
+      FunctionSpec<
+        "tcsetattr",
+        RetValSpec<IntType>,
+        [ArgSpec<IntType>, ArgSpec<IntType>, ArgSpec<StructTermiosPtr>]
+      >,
+    ]
+  >;
+
+  HeaderSpec SysSelect = HeaderSpec<
+    "sys/select.h",
+    [], // Macros
+    [FdSet, SigSetType, StructTimevalType, StructTimeSpec, SuSecondsT, TimeTType],
+    [], // Enumerations
+    [
+      FunctionSpec<
+        "select",
+        RetValSpec<IntType>,
+        [
+            ArgSpec<IntType>, ArgSpec<RestrictedFdSetPtr>, ArgSpec<RestrictedFdSetPtr>,
+            ArgSpec<RestrictedFdSetPtr>, ArgSpec<RestrictedStructTimevalPtr>
+        ]
+      >
+    ]
+  >;
+
+  HeaderSpec SysTypes = HeaderSpec<
+    "sys/types.h",
+    [], // Macros
+    [BlkCntT, BlkSizeT, ClockIdT, DevT, GidT, InoT, ModeTType, NLinkT, OffTType, PidT,
+     PThreadAttrTType, PThreadKeyT, PThreadMutexTType, PThreadMutexAttrTType, PThreadOnceT, PThreadTType,
+     SizeTType, SSizeTType, SuSecondsT, TimeTType, UidT],
+    [], // Enumerations
+    []  // Functions
   >;
 
   let Headers = [
@@ -1097,10 +1228,13 @@ def POSIX : StandardSpec<"POSIX"> {
     SysIOctl,
     SysMMan,
     SysResource,
+    SysSelect,
     SysStat,
+    SysTypes,
     SysUtsName,
     SysWait,
     Time,
+    Termios,
     UniStd,
     String
   ];

@@ -1583,6 +1583,7 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   //
 }
 
+#if INTEL_CUSTOMIZATION
 /// Looks the given directories for the specified file.
 ///
 /// \param[out] FilePath File path, if the file was found.
@@ -1611,6 +1612,7 @@ static bool searchForFile(SmallVectorImpl<char> &FilePath,
   }
   return false;
 }
+#endif // INTEL_CUSTOMIZATION
 
 static void appendOneArg(InputArgList &Args, const Arg *Opt,
                          const Arg *BaseArg) {
@@ -1628,13 +1630,26 @@ static void appendOneArg(InputArgList &Args, const Arg *Opt,
   Args.append(Copy);
 }
 
-bool Driver::readConfigFile(StringRef FileName) {
+bool Driver::readConfigFile(StringRef FileName,
+                            llvm::cl::ExpansionContext &ExpCtx) {
+  // Try opening the given file.
+  auto Status = getVFS().status(FileName);
+  if (!Status) {
+    Diag(diag::err_drv_cannot_open_config_file)
+        << FileName << Status.getError().message();
+    return true;
+  }
+  if (Status->getType() != llvm::sys::fs::file_type::regular_file) {
+    Diag(diag::err_drv_cannot_open_config_file)
+        << FileName << "not a regular file";
+    return true;
+  }
+
   // Try reading the given file.
   SmallVector<const char *, 32> NewCfgArgs;
-  llvm::cl::ExpansionContext ExpCtx(Alloc, llvm::cl::tokenizeConfigFile);
-  ExpCtx.setVFS(&getVFS());
-  if (!ExpCtx.readConfigFile(FileName, NewCfgArgs)) {
-    Diag(diag::err_drv_cannot_read_config_file) << FileName;
+  if (llvm::Error Err = ExpCtx.readConfigFile(FileName, NewCfgArgs)) {
+    Diag(diag::err_drv_cannot_read_config_file)
+        << FileName << toString(std::move(Err));
     return true;
   }
 
@@ -1673,6 +1688,10 @@ bool Driver::readConfigFile(StringRef FileName) {
 }
 
 bool Driver::loadConfigFiles() {
+  llvm::cl::ExpansionContext ExpCtx(Saver.getAllocator(),
+                                    llvm::cl::tokenizeConfigFile);
+  ExpCtx.setVFS(&getVFS());
+
   // Process options that change search path for config files.
   if (CLOptions) {
     if (CLOptions->hasArg(options::OPT_config_system_dir_EQ)) {
@@ -1697,31 +1716,28 @@ bool Driver::loadConfigFiles() {
 
   // Prepare list of directories where config file is searched for.
   StringRef CfgFileSearchDirs[] = {UserConfigDir, SystemConfigDir, Dir};
+  ExpCtx.setSearchDirs(CfgFileSearchDirs);
 
   // First try to load configuration from the default files, return on error.
-  if (loadDefaultConfigFiles(CfgFileSearchDirs))
+  if (loadDefaultConfigFiles(ExpCtx))
     return true;
 
   // Then load configuration files specified explicitly.
-  llvm::SmallString<128> CfgFilePath;
+  SmallString<128> CfgFilePath;
   if (CLOptions) {
     for (auto CfgFileName : CLOptions->getAllArgValues(options::OPT_config)) {
       // If argument contains directory separator, treat it as a path to
       // configuration file.
       if (llvm::sys::path::has_parent_path(CfgFileName)) {
-        CfgFilePath = CfgFileName;
+        CfgFilePath.assign(CfgFileName);
         if (llvm::sys::path::is_relative(CfgFilePath)) {
-          if (getVFS().makeAbsolute(CfgFilePath))
-            return true;
-          auto Status = getVFS().status(CfgFilePath);
-          if (!Status ||
-              Status->getType() != llvm::sys::fs::file_type::regular_file) {
-            Diag(diag::err_drv_config_file_not_exist) << CfgFilePath;
+          if (getVFS().makeAbsolute(CfgFilePath)) {
+            Diag(diag::err_drv_cannot_open_config_file)
+                << CfgFilePath << "cannot get absolute path";
             return true;
           }
         }
-      } else if (!searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName,
-                                getVFS())) {
+      } else if (!ExpCtx.findConfigFile(CfgFileName, CfgFilePath)) {
         // Report an error that the config file could not be found.
         Diag(diag::err_drv_config_file_not_found) << CfgFileName;
         for (const StringRef &SearchDir : CfgFileSearchDirs)
@@ -1731,7 +1747,7 @@ bool Driver::loadConfigFiles() {
       }
 
       // Try to read the config file, return on error.
-      if (readConfigFile(CfgFilePath))
+      if (readConfigFile(CfgFilePath, ExpCtx))
         return true;
     }
   }
@@ -1740,7 +1756,7 @@ bool Driver::loadConfigFiles() {
   return false;
 }
 
-bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
+bool Driver::loadDefaultConfigFiles(llvm::cl::ExpansionContext &ExpCtx) {
 #if INTEL_CUSTOMIZATION
   if (CLOptions && IsIntelMode()) {
     // Process any user defined .cfg files via environment variables.
@@ -1763,7 +1779,7 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
     }
     if (Optional<std::string> EnvVarValue =
             llvm::sys::Process::GetEnv(EnvVar)) {
-      if (!readConfigFile(*EnvVarValue)) {
+      if (!readConfigFile(*EnvVarValue, ExpCtx)) {
         // The default .cfg file can be empty, allow for more config
         // processing if it is.
         if (CfgOptions.get()->size() > 0)
@@ -1780,7 +1796,7 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
       SmallString<128> AltDir(Dir);
       llvm::sys::path::append(AltDir, "..", "bin");
       if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase, getVFS())) {
-        if (!readConfigFile(CfgFilePath)) {
+        if (!readConfigFile(CfgFilePath, ExpCtx)) {
           // The default .cfg file can be empty, allow for more config
           // processing if it is.
           if (CfgOptions.get()->size() > 0)
@@ -1835,36 +1851,36 @@ bool Driver::loadDefaultConfigFiles(ArrayRef<StringRef> CfgFileSearchDirs) {
   //    (e.g. i386-pc-linux-gnu.cfg + clang-g++.cfg for *clang-g++).
 
   // Try loading <triple>-<mode>.cfg, and return if we find a match.
-  llvm::SmallString<128> CfgFilePath;
+  SmallString<128> CfgFilePath;
   std::string CfgFileName = Triple + '-' + RealMode + ".cfg";
-  if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
-    return readConfigFile(CfgFilePath);
+  if (ExpCtx.findConfigFile(CfgFileName, CfgFilePath))
+    return readConfigFile(CfgFilePath, ExpCtx);
 
   bool TryModeSuffix = !ClangNameParts.ModeSuffix.empty() &&
                        ClangNameParts.ModeSuffix != RealMode;
   if (TryModeSuffix) {
     CfgFileName = Triple + '-' + ClangNameParts.ModeSuffix + ".cfg";
-    if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
-      return readConfigFile(CfgFilePath);
+    if (ExpCtx.findConfigFile(CfgFileName, CfgFilePath))
+      return readConfigFile(CfgFilePath, ExpCtx);
   }
 
   // Try loading <mode>.cfg, and return if loading failed.  If a matching file
   // was not found, still proceed on to try <triple>.cfg.
   CfgFileName = RealMode + ".cfg";
-  if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS())) {
-    if (readConfigFile(CfgFilePath))
+  if (ExpCtx.findConfigFile(CfgFileName, CfgFilePath)) {
+    if (readConfigFile(CfgFilePath, ExpCtx))
       return true;
   } else if (TryModeSuffix) {
     CfgFileName = ClangNameParts.ModeSuffix + ".cfg";
-    if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()) &&
-        readConfigFile(CfgFilePath))
+    if (ExpCtx.findConfigFile(CfgFileName, CfgFilePath) &&
+        readConfigFile(CfgFilePath, ExpCtx))
       return true;
   }
 
   // Try loading <triple>.cfg and return if we find a match.
   CfgFileName = Triple + ".cfg";
-  if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
-    return readConfigFile(CfgFilePath);
+  if (ExpCtx.findConfigFile(CfgFileName, CfgFilePath))
+    return readConfigFile(CfgFilePath, ExpCtx);
 
   // If we were unable to find a config file deduced from executable name,
   // that is not an error.
@@ -6667,7 +6683,15 @@ class OffloadingActionBuilder final {
               }
               SYCLTargetInfoList.emplace_back(*TCIt, nullptr);
             } else {
-              SYCLTargetInfoList.emplace_back(*TCIt, GpuArchList[I].second);
+              const char *OffloadArch = nullptr;
+              for (auto &A : GpuArchList) {
+                if (TT == A.first) {
+                  OffloadArch = A.second;
+                  break;
+                }
+              }
+              assert(OffloadArch && "Failed to find matching arch.");
+              SYCLTargetInfoList.emplace_back(*TCIt, OffloadArch);
               ++I;
             }
           }

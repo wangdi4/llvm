@@ -236,15 +236,9 @@ constexpr FeatureBitset FeaturesSapphireRapids =
 constexpr FeatureBitset FeaturesCommonAVX256 =
 #endif // INTEL_FEATURE_ISA_AVX256
 #ifdef ENABLE_ISA_AVX256
-#if INTEL_FEATURE_ISA_AMX_FP16
     FeatureAMX_FP16 |
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_PREFETCHI
     FeaturePREFETCHI |
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA |
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 // FIXME: Need to change to AVX-NE-CONVERT
     FeatureAVXCONVERT |
@@ -252,9 +246,7 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
     FeatureAVXVNNIINT16 |
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
     FeatureAVXVNNIINT8 |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     FeatureAVX512MEDIAX |
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -271,9 +263,7 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
     FeatureAVX512VNNIINT8 |
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_CMPCCXADD
     FeatureCMPCCXADD |
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #if INTEL_FEATURE_ISA_SM3
     FeatureSM3 |
 #endif // INTEL_FEATURE_ISA_SM3
@@ -305,12 +295,8 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 constexpr FeatureBitset FeaturesGraniteRapids =
 #endif // INTEL_FEATURE_CPU_GNR
 #ifdef ENABLE_CPU_GNR
-#if INTEL_FEATURE_ISA_AMX_FP16
     FeatureAMX_FP16 |
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_PREFETCHI
     FeaturePREFETCHI |
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // ENABLE_CPU_GNR
 #if INTEL_FEATURE_CPU_GNR
     FeaturesSapphireRapids;
@@ -345,9 +331,7 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
     FeatureAVXVNNIINT16 |
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
     FeatureAVXVNNIINT8 |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     FeatureAVX512MEDIAX |
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -358,12 +342,8 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
     FeatureAVX512BF16NE |
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#if INTEL_FEATURE_ISA_AVX_IFMA
     FeatureAVXIFMA |
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_CMPCCXADD
     FeatureCMPCCXADD |
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #if INTEL_FEATURE_ISA_SHA512
     FeatureSHA512 |
 #endif // INTEL_FEATURE_ISA_SHA512
@@ -422,9 +402,7 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
     FeatureVPINSR_VPEXTR |
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
-#if INTEL_FEATURE_ISA_RAO_INT
     FeatureRAOINT |
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_FP
     FeatureAVXRAOFP |
 #endif // INTEL_FEATURE_ISA_AVX_RAO_FP
@@ -460,9 +438,7 @@ constexpr FeatureBitset FeaturesAlderlake =
 constexpr FeatureBitset FeaturesMeteorlake =
 #endif // INTEL_FEATURE_CPU_MTL
 #ifdef ENABLE_CPU_MTL
-#if INTEL_FEATURE_ISA_PREFETCHI
     FeaturePREFETCHI |
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // ENABLE_CPU_MTL
 #if INTEL_FEATURE_CPU_MTL
     FeaturesAlderlake;
@@ -851,233 +827,218 @@ constexpr FeatureBitset ImpliedFeaturesXOP = FeatureFMA4;
 // AMX Features
 constexpr FeatureBitset ImpliedFeaturesAMX_TILE = {};
 constexpr FeatureBitset ImpliedFeaturesAMX_BF16 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_FP16 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-static constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-static constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-static constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODPHPS = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODPHPS = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX_CONVERT
-static constexpr FeatureBitset ImpliedFeaturesAVXCONVERT = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXCONVERT = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #if INTEL_FEATURE_ISA_AVX_BF16
-static constexpr FeatureBitset ImpliedFeaturesAVXBF16 = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXBF16 = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
-static constexpr FeatureBitset ImpliedFeaturesAVXCOMPRESS = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXCOMPRESS = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #if INTEL_FEATURE_ISA_AVX_MEMADVISE
-static constexpr FeatureBitset ImpliedFeaturesAVXMEMADVISE = FeatureAVX2;
-static constexpr FeatureBitset ImpliedFeaturesAVX512MEMADVISE = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesAVXMEMADVISE = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVX512MEMADVISE = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
-static constexpr FeatureBitset ImpliedFeaturesAVX512MEDIAX = FeatureAVX512F |
+constexpr FeatureBitset ImpliedFeaturesAVX512MEDIAX = FeatureAVX512F |
     FeatureAVX512BW;
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
-static constexpr FeatureBitset ImpliedFeaturesAVXMOVGET = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXMOVGET = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
-static constexpr FeatureBitset ImpliedFeaturesAVX512MOVGET = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesAVX512MOVGET = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-static constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT8 = FeatureAVX512F |
+constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT8 = FeatureAVX512F |
     FeatureAVXVNNIINT8;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-static constexpr FeatureBitset ImpliedFeaturesAVX512VNNIFP16 = FeatureAVX512F |
+constexpr FeatureBitset ImpliedFeaturesAVX512VNNIFP16 = FeatureAVX512F |
     FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
     FeatureAVXDOTPRODPHPS;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
-static constexpr FeatureBitset ImpliedFeaturesAVX512CONVERT = FeatureAVX512F |
+constexpr FeatureBitset ImpliedFeaturesAVX512CONVERT = FeatureAVX512F |
     FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
     FeatureAVXCONVERT | FeatureAVX512BF16;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AMX_FP16
-static constexpr FeatureBitset ImpliedFeaturesAMX_FP16 = FeatureAMX_TILE |
-    FeatureAVX512FP16;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_FUTURE
-static constexpr FeatureBitset ImpliedFeaturesAMX_REDUCE = FeatureAMX_TILE;
-static constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY = FeatureAMX_TILE;
-static constexpr FeatureBitset ImpliedFeaturesAMX_FORMAT = FeatureAMX_TILE;
-static constexpr FeatureBitset ImpliedFeaturesAMX_ELEMENT = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_REDUCE = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_FORMAT = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_ELEMENT = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
-static constexpr FeatureBitset ImpliedFeaturesAMX_TRANSPOSE = FeatureAMX_TILE;
-static constexpr FeatureBitset ImpliedFeaturesAMX_AVX512 = FeatureAMX_TILE |
+constexpr FeatureBitset ImpliedFeaturesAMX_TRANSPOSE = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_AVX512 = FeatureAMX_TILE |
     FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
-static constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY2 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY2 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
-static constexpr FeatureBitset ImpliedFeaturesAMX_BF16_EVEX = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_BF16_EVEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
 #if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
-static constexpr FeatureBitset ImpliedFeaturesAMX_ELEMENT_EVEX = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_ELEMENT_EVEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
-static constexpr FeatureBitset ImpliedFeaturesAMX_INT8_EVEX = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_INT8_EVEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
 #if INTEL_FEATURE_ISA_AMX_TILE_EVEX
-static constexpr FeatureBitset ImpliedFeaturesAMX_TILE_EVEX = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_TILE_EVEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-static constexpr FeatureBitset ImpliedFeaturesAMX_TRANSPOSE2 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_TRANSPOSE2 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AMX_CONVERT
-static constexpr FeatureBitset ImpliedFeaturesAMX_CONVERT = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_CONVERT = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AMX_TILE2
-static constexpr FeatureBitset ImpliedFeaturesAMX_TILE2 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_TILE2 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
-static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
-static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE_EVEX = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE_EVEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
-static constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
-static constexpr FeatureBitset ImpliedFeaturesAMX_TF32 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_TF32 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_GPR_MOVGET
-static constexpr FeatureBitset ImpliedFeaturesGPRMOVGET = {};
+constexpr FeatureBitset ImpliedFeaturesGPRMOVGET = {};
 #endif // INTEL_FEATURE_ISA_GPR_MOVGET
 #if INTEL_FEATURE_ISA_MOVGET64B
-static constexpr FeatureBitset ImpliedFeaturesMOVGET64B = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesMOVGET64B = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-static constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
-static constexpr FeatureBitset ImpliedFeaturesAVXRAOINT = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXRAOINT = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_FP
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAVXRAOFP = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXRAOFP = FeatureAVX2;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX_RAO_FP
 #if INTEL_FEATURE_ISA_AVX512_RAO_INT
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAVX512RAOINT = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesAVX512RAOINT = FeatureAVX512F;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
 #if INTEL_FEATURE_ISA_AVX512_RAO_FP
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAVX512RAOFP = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesAVX512RAOFP = FeatureAVX512F;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAMX_AVX512_CVTROW =
+constexpr FeatureBitset ImpliedFeaturesAMX_AVX512_CVTROW =
     FeatureAMX_TILE | FeatureAVX512F;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
 #if INTEL_FEATURE_ISA_AVX_NE_CONVERT
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAVXNECONVERT = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXNECONVERT = FeatureAVX2;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAVX512NECONVERT = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesAVX512NECONVERT = FeatureAVX512F;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #if INTEL_FEATURE_ISA_SHA512
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesSHA512 = FeatureAVX;
+constexpr FeatureBitset ImpliedFeaturesSHA512 = FeatureAVX;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_SHA512
 #if INTEL_FEATURE_ISA_SM3
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesSM3 = FeatureAVX;
+constexpr FeatureBitset ImpliedFeaturesSM3 = FeatureAVX;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_SM3
 #if INTEL_FEATURE_ISA_SM4
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesSM4 = FeatureAVX;
+constexpr FeatureBitset ImpliedFeaturesSM4 = FeatureAVX;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_SM4
 #if INTEL_FEATURE_ISA_DSPV1
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesDSPV1 = FeatureSSE3;
+constexpr FeatureBitset ImpliedFeaturesDSPV1 = FeatureSSE3;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_DSPV1
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT16 = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT16 = FeatureAVX2;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT16 = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT16 = FeatureAVX512F;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
 #if INTEL_FEATURE_ISA_AMX_SPARSE
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAMX_SPARSE = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_SPARSE = FeatureAMX_TILE;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AMX_SPARSE
 #if INTEL_FEATURE_ISA_AMX_V3
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAMX_V3 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_V3 = FeatureAMX_TILE;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AMX_V3
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
-static constexpr FeatureBitset ImpliedFeaturesVPINSR_VPEXTR = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesVPINSR_VPEXTR = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
-#if INTEL_FEATURE_ISA_CMPCCXADD
-// AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = FeatureAVX2;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #if INTEL_FEATURE_ISA_PREFETCHST2
-static constexpr FeatureBitset ImpliedFeaturesPREFETCHST2 = {};
+constexpr FeatureBitset ImpliedFeaturesPREFETCHST2 = {};
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
-#if INTEL_FEATURE_ISA_PREFETCHI
-static constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
-static constexpr FeatureBitset ImpliedFeaturesAVX512SATCVT = FeatureAVX512BF16 | FeatureAVX512FP16;
+constexpr FeatureBitset ImpliedFeaturesAVX512SATCVT = FeatureAVX512BF16 | FeatureAVX512FP16;
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #if INTEL_FEATURE_ISA_AVX512_MINMAX
-static constexpr FeatureBitset ImpliedFeaturesAVX512MINMAX = FeatureAVX512BF16 | FeatureAVX512FP16;
+constexpr FeatureBitset ImpliedFeaturesAVX512MINMAX = FeatureAVX512BF16 | FeatureAVX512FP16;
 #endif // INTEL_FEATURE_ISA_AVX512_MINMAX
 #if INTEL_FEATURE_ISA_AVX512_COMPLEX
-static constexpr FeatureBitset ImpliedFeaturesAVX512COMPLEX = FeatureAVX512FP16;
+constexpr FeatureBitset ImpliedFeaturesAVX512COMPLEX = FeatureAVX512FP16;
 #endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
-static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
+constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
-static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION2 = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
+constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION2 = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #if INTEL_FEATURE_ISA_AVX256P
-static constexpr FeatureBitset ImpliedFeaturesAVX256P = FeatureAVX2 | FeatureF16C | FeatureFMA;
+constexpr FeatureBitset ImpliedFeaturesAVX256P = FeatureAVX2 | FeatureF16C | FeatureFMA;
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
-static constexpr FeatureBitset ImpliedFeaturesAVX512BF16NE =
-    FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
+constexpr FeatureBitset ImpliedFeaturesAVX512BF16NE =
+    FeatureAVX512BF16 | FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #if INTEL_FEATURE_ISA_AMX_FP8
 // AUTO GENERATED BY TOOL
-static constexpr FeatureBitset ImpliedFeaturesAMX_FP8 = FeatureAMX_TILE;
+constexpr FeatureBitset ImpliedFeaturesAMX_FP8 = FeatureAMX_TILE;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AMX_FP8
 #endif // INTEL_CUSTOMIZATION
-static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
+constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
+constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = {};
+constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
+constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
 // Key Locker Features
 constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;

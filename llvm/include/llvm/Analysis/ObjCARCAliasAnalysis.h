@@ -55,8 +55,8 @@ public:
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal);
 
-  using AAResultBase::getModRefBehavior;
-  FunctionModRefBehavior getModRefBehavior(const Function *F);
+  using AAResultBase::getMemoryEffects;
+  MemoryEffects getMemoryEffects(const Function *F);
 
   using AAResultBase::getModRefInfo;
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
@@ -74,6 +74,7 @@ public:
   ObjCARCAAResult run(Function &F, FunctionAnalysisManager &AM);
 };
 
+#if INTEL_CUSTOMIZATION
 /// Legacy wrapper pass to provide the ObjCARCAAResult object.
 class ObjCARCAAWrapperPass : public ImmutablePass {
   std::unique_ptr<ObjCARCAAResult> Result;
@@ -90,6 +91,7 @@ public:
   bool doFinalization(Module &M) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace objcarc
 } // namespace llvm

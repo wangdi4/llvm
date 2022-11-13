@@ -1083,7 +1083,7 @@ static FieldDecl *addFieldToRecordDecl(ASTContext &C, DeclContext *DC,
 CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM, StringRef FirstSeparator,
                                  StringRef Separator)
     : CGM(CGM), FirstSeparator(FirstSeparator), Separator(Separator),
-      OMPBuilder(CGM.getModule()), OffloadEntriesInfoManager(CGM) {
+      OMPBuilder(CGM.getModule()), OffloadEntriesInfoManager() {
   KmpCriticalNameTy = llvm::ArrayType::get(CGM.Int32Ty, /*NumElements*/ 8);
 
   // Initialize Types used in OpenMPIRBuilder from OMPKinds.def
@@ -1987,6 +1987,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_ctor"), FI, Loc, false,
           llvm::GlobalValue::WeakODRLinkage);
+      Fn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
+
 #if INTEL_COLLAB
       if (CGM.getLangOpts().OpenMPLateOutline)
         Fn->setLinkage(llvm::Function::ExternalLinkage);
@@ -2036,7 +2038,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
     Out.clear();
     OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
         DeviceID, FileID, Twine(Buffer, "_ctor").toStringRef(Out), Line, Ctor,
-        ID, OffloadEntriesInfoManagerTy::OMPTargetRegionEntryCtor);
+        ID, llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryCtor,
+        CGM.getLangOpts().OpenMPIsDevice);
   }
   if (VD->getType().isDestructedType() != QualType::DK_none) {
     llvm::Constant *Dtor;
@@ -2056,6 +2059,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_dtor"), FI, Loc, false,
           llvm::GlobalValue::WeakODRLinkage);
+      Fn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
+
 #if INTEL_COLLAB
       if (CGM.getLangOpts().OpenMPLateOutline)
         Fn->setLinkage(llvm::Function::ExternalLinkage);
@@ -2105,7 +2110,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
     Out.clear();
     OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
         DeviceID, FileID, Twine(Buffer, "_dtor").toStringRef(Out), Line, Dtor,
-        ID, OffloadEntriesInfoManagerTy::OMPTargetRegionEntryDtor);
+        ID, llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryDtor,
+        CGM.getLangOpts().OpenMPIsDevice);
   }
   return CGM.getLangOpts().OpenMPIsDevice;
 }
@@ -3096,217 +3102,6 @@ enum KmpTaskTFields {
 };
 } // anonymous namespace
 
-bool CGOpenMPRuntime::OffloadEntriesInfoManagerTy::empty() const {
-  return OffloadEntriesTargetRegion.empty() &&
-         OffloadEntriesDeviceGlobalVar.empty();
-}
-
-/// Initialize target region entry.
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    initializeTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-                                    StringRef ParentName, unsigned LineNum,
-                                    unsigned Order) {
-  assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                             "only required for the device "
-                                             "code generation.");
-  OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] =
-      OffloadEntryInfoTargetRegion(Order, /*Addr=*/nullptr, /*ID=*/nullptr,
-                                   OMPTargetRegionEntryTargetRegion);
-  ++OffloadingEntriesNum;
-}
-
-#if INTEL_COLLAB
-int CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-#else
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-#endif // INTEL_COLLAB
-    registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-                                  StringRef ParentName, unsigned LineNum,
-                                  llvm::Constant *Addr, llvm::Constant *ID,
-                                  OMPTargetRegionEntryKind Flags) {
-  // If we are emitting code for a target, the entry is already initialized,
-  // only has to be registered.
-  if (CGM.getLangOpts().OpenMPIsDevice) {
-    // This could happen if the device compilation is invoked standalone.
-    if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum))
-#if INTEL_COLLAB
-      return -1;
-#else
-      return;
-#endif // INTEL_COLLAB
-
-    auto &Entry =
-        OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
-    Entry.setAddress(Addr);
-    Entry.setID(ID);
-    Entry.setFlags(Flags);
-  } else {
-    if (Flags ==
-            OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion &&
-        hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum,
-                                 /*IgnoreAddressId*/ true))
-#if INTEL_COLLAB
-      return -1;
-#else
-      return;
-#endif // INTEL_COLLAB
-    assert(!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum) &&
-           "Target region entry already registered!");
-    OffloadEntryInfoTargetRegion Entry(OffloadingEntriesNum, Addr, ID, Flags);
-    OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
-    ++OffloadingEntriesNum;
-  }
-#if INTEL_COLLAB
-  auto &E = OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
-  return E.getOrder();
-#endif // INTEL_COLLAB
-}
-
-bool CGOpenMPRuntime::OffloadEntriesInfoManagerTy::hasTargetRegionEntryInfo(
-    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
-    bool IgnoreAddressId) const {
-  auto PerDevice = OffloadEntriesTargetRegion.find(DeviceID);
-  if (PerDevice == OffloadEntriesTargetRegion.end())
-    return false;
-  auto PerFile = PerDevice->second.find(FileID);
-  if (PerFile == PerDevice->second.end())
-    return false;
-  auto PerParentName = PerFile->second.find(ParentName);
-  if (PerParentName == PerFile->second.end())
-    return false;
-  auto PerLine = PerParentName->second.find(LineNum);
-  if (PerLine == PerParentName->second.end())
-    return false;
-  // Fail if this entry is already registered.
-  if (!IgnoreAddressId &&
-      (PerLine->second.getAddress() || PerLine->second.getID()))
-    return false;
-  return true;
-}
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::actOnTargetRegionEntriesInfo(
-    const OffloadTargetRegionEntryInfoActTy &Action) {
-  // Scan all target region entries and perform the provided action.
-  for (const auto &D : OffloadEntriesTargetRegion)
-    for (const auto &F : D.second)
-      for (const auto &P : F.second)
-        for (const auto &L : P.second)
-          Action(D.first, F.first, P.first(), L.first, L.second);
-}
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    initializeDeviceGlobalVarEntryInfo(StringRef Name,
-                                       OMPTargetGlobalVarEntryKind Flags,
-                                       unsigned Order) {
-  assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                             "only required for the device "
-                                             "code generation.");
-  OffloadEntriesDeviceGlobalVar.try_emplace(Name, Order, Flags);
-  ++OffloadingEntriesNum;
-}
-
-#if INTEL_COLLAB
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order) {
-  assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
-                                             "only required for the device "
-                                             "code generation.");
-  OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn IFn(Order);
-  OffloadEntriesDeviceIndirectFn[Name.str()] = IFn;
-  ++OffloadingEntriesNum;
-}
-#endif  // INTEL_COLLAB
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    registerDeviceGlobalVarEntryInfo(StringRef VarName, llvm::Constant *Addr,
-                                     CharUnits VarSize,
-                                     OMPTargetGlobalVarEntryKind Flags,
-                                     llvm::GlobalValue::LinkageTypes Linkage) {
-  if (CGM.getLangOpts().OpenMPIsDevice) {
-    // This could happen if the device compilation is invoked standalone.
-    if (!hasDeviceGlobalVarEntryInfo(VarName))
-      return;
-    auto &Entry = OffloadEntriesDeviceGlobalVar[VarName];
-    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(VarName)) {
-      if (Entry.getVarSize().isZero()) {
-        Entry.setVarSize(VarSize);
-        Entry.setLinkage(Linkage);
-      }
-      return;
-    }
-    Entry.setVarSize(VarSize);
-    Entry.setLinkage(Linkage);
-    Entry.setAddress(Addr);
-  } else {
-    if (hasDeviceGlobalVarEntryInfo(VarName)) {
-      auto &Entry = OffloadEntriesDeviceGlobalVar[VarName];
-      assert(Entry.isValid() && Entry.getFlags() == Flags &&
-             "Entry not initialized!");
-      if (Entry.getVarSize().isZero()) {
-        Entry.setVarSize(VarSize);
-        Entry.setLinkage(Linkage);
-      }
-      return;
-    }
-    OffloadEntriesDeviceGlobalVar.try_emplace(
-        VarName, OffloadingEntriesNum, Addr, VarSize, Flags, Linkage);
-    ++OffloadingEntriesNum;
-  }
-}
-
-#if INTEL_COLLAB
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    registerDeviceIndirectFnEntryInfo(StringRef FnName, llvm::Constant *Addr) {
-  if (CGM.getLangOpts().OpenMPIsDevice) {
-    // This could happen if the device compilation is invoked standalone.
-    if (!hasDeviceIndirectFnEntryInfo(FnName))
-      return;
-    auto &Entry = OffloadEntriesDeviceIndirectFn[FnName.str()];
-    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(FnName))
-      return;
-    Entry.setAddress(Addr);
-  } else {
-    OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn IFn(
-        OffloadingEntriesNum, Addr);
-    OffloadEntriesDeviceIndirectFn[FnName.str()] = IFn;
-    ++OffloadingEntriesNum;
-  }
-}
-
-StringRef CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
-  for (auto &E : OffloadEntriesDeviceGlobalVar) {
-    if (Addr == E.getValue().getAddress())
-      return E.getKey();
-  }
-  return "";
-}
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    updateDeviceGlobalVarEntryInfoAddr(StringRef Name, llvm::Constant *Addr) {
-  auto &Entry = OffloadEntriesDeviceGlobalVar[Name];
-  Entry.setAddress(Addr, /*Force=*/true);
-}
-#endif // INTEL_COLLAB
-
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    actOnDeviceGlobalVarEntriesInfo(
-        const OffloadDeviceGlobalVarEntryInfoActTy &Action) {
-  // Scan all target region entries and perform the provided action.
-  for (const auto &E : OffloadEntriesDeviceGlobalVar)
-    Action(E.getKey(), E.getValue());
-}
-
-#if INTEL_COLLAB
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
-    actOnDeviceIndirectFnEntriesInfo(
-        const OffloadDeviceIndirectFnEntryInfoActTy &Action) {
-  // Scan all target region entries and perform the provided action.
-  for (const auto &E : OffloadEntriesDeviceIndirectFn)
-    Action(E.first, E.second);
-}
-#endif // INTEL_COLLAB
-
 void CGOpenMPRuntime::createOffloadEntry(
     llvm::Constant *ID, llvm::Constant *Addr, uint64_t Size, int32_t Flags,
     llvm::GlobalValue::LinkageTypes Linkage) {
@@ -3330,9 +3125,10 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   llvm::Module &M = CGM.getModule();
   llvm::LLVMContext &C = M.getContext();
-  SmallVector<std::tuple<const OffloadEntriesInfoManagerTy::OffloadEntryInfo *,
-                         SourceLocation, StringRef>,
-              16>
+  SmallVector<
+      std::tuple<const llvm::OffloadEntriesInfoManager::OffloadEntryInfo *,
+                 SourceLocation, StringRef>,
+      16>
       OrderedEntries(OffloadEntriesInfoManager.size());
   llvm::SmallVector<StringRef, 16> ParentFunctions(
       OffloadEntriesInfoManager.size());
@@ -3354,7 +3150,8 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
        &GetMDString](
           unsigned DeviceID, unsigned FileID, StringRef ParentName,
           unsigned Line,
-          const OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion &E) {
+          const llvm::OffloadEntriesInfoManager::OffloadEntryInfoTargetRegion
+              &E) {
         // Generate metadata for target regions. Each entry of this metadata
         // contains:
         // - Entry 0 -> Kind of this type of metadata (0).
@@ -3411,7 +3208,7 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
        &CGM = CGM,
 #endif  // INTEL_COLLAB
        MD](StringRef MangledName,
-           const OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceGlobalVar
+           const llvm::OffloadEntriesInfoManager::OffloadEntryInfoDeviceGlobalVar
                &E) {
         // Generate metadata for global variables. Each entry of this metadata
         // contains:
@@ -3451,7 +3248,7 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   auto DeviceIndirectFnMetadataEmitter =
       [&C, &OrderedEntries, &GetMDInt, &GetMDString,
        MD](StringRef MangledName,
-           const OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn
+           const llvm::OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn
                &E) {
         // Generate metadata for indirect functions. Each entry of this
         // metadata contains:
@@ -3482,9 +3279,9 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   for (const auto &E : OrderedEntries) {
     assert(std::get<0>(E) && "All ordered entries must exist!");
-    if (const auto *CE =
-            dyn_cast<OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion>(
-                std::get<0>(E))) {
+    if (const auto *CE = dyn_cast<
+            llvm::OffloadEntriesInfoManager::OffloadEntryInfoTargetRegion>(
+            std::get<0>(E))) {
       if (!CE->getID() || !CE->getAddress()) {
         // Do not blame the entry if the parent funtion is not emitted.
         StringRef FnName = ParentFunctions[CE->getOrder()];
@@ -3499,14 +3296,15 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
       }
       createOffloadEntry(CE->getID(), CE->getAddress(), /*Size=*/0,
                          CE->getFlags(), llvm::GlobalValue::WeakAnyLinkage);
-    } else if (const auto *CE = dyn_cast<OffloadEntriesInfoManagerTy::
+    } else if (const auto *CE = dyn_cast<llvm::OffloadEntriesInfoManager::
                                              OffloadEntryInfoDeviceGlobalVar>(
                    std::get<0>(E))) {
-      OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryKind Flags =
-          static_cast<OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryKind>(
+      llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind Flags =
+          static_cast<
+              llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind>(
               CE->getFlags());
       switch (Flags) {
-      case OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo: {
+      case llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo: {
         if (CGM.getLangOpts().OpenMPIsDevice &&
             CGM.getOpenMPRuntime().hasRequiresUnifiedSharedMemory())
           continue;
@@ -3519,11 +3317,11 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
           continue;
         }
         // The vaiable has no definition - no need to add the entry.
-        if (CE->getVarSize().isZero())
+        if (CE->getVarSize() == 0)
           continue;
         break;
       }
-      case OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryLink:
+      case llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryLink:
         assert(((CGM.getLangOpts().OpenMPIsDevice && !CE->getAddress()) ||
                 (!CGM.getLangOpts().OpenMPIsDevice && CE->getAddress())) &&
                "Declaret target link address is set.");
@@ -3546,9 +3344,8 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
         if (GV->hasLocalLinkage() || GV->hasHiddenVisibility())
           continue;
 
-      createOffloadEntry(CE->getAddress(), CE->getAddress(),
-                         CE->getVarSize().getQuantity(), Flags,
-                         CE->getLinkage());
+      createOffloadEntry(CE->getAddress(), CE->getAddress(), CE->getVarSize(),
+                         Flags, CE->getLinkage());
     } else {
       llvm_unreachable("Unsupported entry kind.");
     }
@@ -3605,26 +3402,34 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
     default:
       llvm_unreachable("Unexpected metadata!");
       break;
-    case OffloadEntriesInfoManagerTy::OffloadEntryInfo::
+    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
         OffloadingEntryInfoTargetRegion:
+      assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
+                                                 "only required for the "
+                                                 "device code generation.");
       OffloadEntriesInfoManager.initializeTargetRegionEntryInfo(
           /*DeviceID=*/GetMDInt(1), /*FileID=*/GetMDInt(2),
           /*ParentName=*/GetMDString(3), /*Line=*/GetMDInt(4),
           /*Order=*/GetMDInt(5));
       break;
-    case OffloadEntriesInfoManagerTy::OffloadEntryInfo::
+    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
         OffloadingEntryInfoDeviceGlobalVar:
+      assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
+                                                 "only required for the "
+                                                 "device code generation.");
       OffloadEntriesInfoManager.initializeDeviceGlobalVarEntryInfo(
           /*MangledName=*/GetMDString(1),
-          static_cast<OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryKind>(
+          static_cast<
+              llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind>(
               /*Flags=*/GetMDInt(2)),
           /*Order=*/GetMDInt(3));
       break;
 #if INTEL_COLLAB
-    case OffloadEntriesInfoManagerTy::OffloadEntryInfo::
+    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
         OffloadingEntryInfoIndirectFn:
       OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
-          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2));
+          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2),
+          CGM.getLangOpts().OpenMPIsDevice);
       break;
 #endif // INTEL_COLLAB
     }
@@ -4792,39 +4597,26 @@ CGOpenMPRuntime::emitTaskInit(CodeGenFunction &CGF, SourceLocation Loc,
   return Result;
 }
 
-namespace {
-/// Dependence kind for RTL.
-enum RTLDependenceKindTy {
-  DepIn = 0x01,
-  DepInOut = 0x3,
-  DepMutexInOutSet = 0x4,
-  DepInOutSet = 0x8,
-  DepOmpAllMem = 0x80,
-};
-/// Fields ids in kmp_depend_info record.
-enum RTLDependInfoFieldsTy { BaseAddr, Len, Flags };
-} // namespace
-
 /// Translates internal dependency kind into the runtime kind.
 static RTLDependenceKindTy translateDependencyKind(OpenMPDependClauseKind K) {
   RTLDependenceKindTy DepKind;
   switch (K) {
   case OMPC_DEPEND_in:
-    DepKind = DepIn;
+    DepKind = RTLDependenceKindTy::DepIn;
     break;
   // Out and InOut dependencies must use the same code.
   case OMPC_DEPEND_out:
   case OMPC_DEPEND_inout:
-    DepKind = DepInOut;
+    DepKind = RTLDependenceKindTy::DepInOut;
     break;
   case OMPC_DEPEND_mutexinoutset:
-    DepKind = DepMutexInOutSet;
+    DepKind = RTLDependenceKindTy::DepMutexInOutSet;
     break;
   case OMPC_DEPEND_inoutset:
-    DepKind = DepInOutSet;
+    DepKind = RTLDependenceKindTy::DepInOutSet;
     break;
   case OMPC_DEPEND_outallmemory:
-    DepKind = DepOmpAllMem;
+    DepKind = RTLDependenceKindTy::DepOmpAllMem;
     break;
   case OMPC_DEPEND_source:
   case OMPC_DEPEND_sink:
@@ -4872,7 +4664,9 @@ CGOpenMPRuntime::getDepobjElements(CodeGenFunction &CGF, LValue DepobjLVal,
       DepObjAddr, KmpDependInfoTy, Base.getBaseInfo(), Base.getTBAAInfo());
   // NumDeps = deps[i].base_addr;
   LValue BaseAddrLVal = CGF.EmitLValueForField(
-      NumDepsBase, *std::next(KmpDependInfoRD->field_begin(), BaseAddr));
+      NumDepsBase,
+      *std::next(KmpDependInfoRD->field_begin(),
+                 static_cast<unsigned int>(RTLDependInfoFields::BaseAddr)));
   llvm::Value *NumDeps = CGF.EmitLoadOfScalar(BaseAddrLVal, Loc);
   return std::make_pair(NumDeps, Base);
 }
@@ -4918,18 +4712,24 @@ static void emitDependData(CodeGenFunction &CGF, QualType &KmpDependInfoTy,
     }
     // deps[i].base_addr = &<Dependencies[i].second>;
     LValue BaseAddrLVal = CGF.EmitLValueForField(
-        Base, *std::next(KmpDependInfoRD->field_begin(), BaseAddr));
+        Base,
+        *std::next(KmpDependInfoRD->field_begin(),
+                   static_cast<unsigned int>(RTLDependInfoFields::BaseAddr)));
     CGF.EmitStoreOfScalar(Addr, BaseAddrLVal);
     // deps[i].len = sizeof(<Dependencies[i].second>);
     LValue LenLVal = CGF.EmitLValueForField(
-        Base, *std::next(KmpDependInfoRD->field_begin(), Len));
+        Base, *std::next(KmpDependInfoRD->field_begin(),
+                         static_cast<unsigned int>(RTLDependInfoFields::Len)));
     CGF.EmitStoreOfScalar(Size, LenLVal);
     // deps[i].flags = <Dependencies[i].first>;
     RTLDependenceKindTy DepKind = translateDependencyKind(Data.DepKind);
     LValue FlagsLVal = CGF.EmitLValueForField(
-        Base, *std::next(KmpDependInfoRD->field_begin(), Flags));
-    CGF.EmitStoreOfScalar(llvm::ConstantInt::get(LLVMFlagsTy, DepKind),
-                          FlagsLVal);
+        Base,
+        *std::next(KmpDependInfoRD->field_begin(),
+                   static_cast<unsigned int>(RTLDependInfoFields::Flags)));
+    CGF.EmitStoreOfScalar(
+        llvm::ConstantInt::get(LLVMFlagsTy, static_cast<unsigned int>(DepKind)),
+        FlagsLVal);
     if (unsigned *P = Pos.dyn_cast<unsigned *>()) {
       ++(*P);
     } else {
@@ -5225,7 +5025,9 @@ Address CGOpenMPRuntime::emitDepobjDependClause(
   LValue Base = CGF.MakeAddrLValue(DependenciesArray, KmpDependInfoTy);
   // deps[i].base_addr = NumDependencies;
   LValue BaseAddrLVal = CGF.EmitLValueForField(
-      Base, *std::next(KmpDependInfoRD->field_begin(), BaseAddr));
+      Base,
+      *std::next(KmpDependInfoRD->field_begin(),
+                 static_cast<unsigned int>(RTLDependInfoFields::BaseAddr)));
   CGF.EmitStoreOfScalar(NumDepsVal, BaseAddrLVal);
   llvm::PointerUnion<unsigned *, LValue *> Pos;
   unsigned Idx = 1;
@@ -5305,9 +5107,11 @@ void CGOpenMPRuntime::emitUpdateClause(CodeGenFunction &CGF, LValue DepobjLVal,
   // deps[i].flags = NewDepKind;
   RTLDependenceKindTy DepKind = translateDependencyKind(NewDepKind);
   LValue FlagsLVal = CGF.EmitLValueForField(
-      Base, *std::next(KmpDependInfoRD->field_begin(), Flags));
-  CGF.EmitStoreOfScalar(llvm::ConstantInt::get(LLVMFlagsTy, DepKind),
-                        FlagsLVal);
+      Base, *std::next(KmpDependInfoRD->field_begin(),
+                       static_cast<unsigned int>(RTLDependInfoFields::Flags)));
+  CGF.EmitStoreOfScalar(
+      llvm::ConstantInt::get(LLVMFlagsTy, static_cast<unsigned int>(DepKind)),
+      FlagsLVal);
 
   // Shift the address forward by one element.
   Address ElementNext =
@@ -6638,7 +6442,8 @@ int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
   // Register the information for the entry associated with this target region.
   int Index = OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
       DeviceID, FileID, ParentName, Line, nullptr, nullptr,
-      OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion);
+      llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion,
+      CGM.getLangOpts().OpenMPIsDevice);
   if (Index == -1)
     CGM.Error(D.getBeginLoc(),
               "multiple target regions at same the location is not supported");
@@ -6809,6 +6614,7 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
     OutlinedFnID = llvm::ConstantExpr::getBitCast(OutlinedFn, CGM.Int8PtrTy);
     OutlinedFn->setLinkage(llvm::GlobalValue::WeakODRLinkage);
     OutlinedFn->setDSOLocal(false);
+    OutlinedFn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
     if (CGM.getTriple().isAMDGCN())
       OutlinedFn->setCallingConv(llvm::CallingConv::AMDGPU_KERNEL);
   } else {
@@ -6833,7 +6639,8 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   // Register the information for the entry associated with this target region.
   OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
       DeviceID, FileID, ParentName, Line, TargetRegionEntryAddr, OutlinedFnID,
-      OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion);
+      llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion,
+      CGM.getLangOpts().OpenMPIsDevice);
 
   // Add NumTeams and ThreadLimit attributes to the outlined GPU function
   int32_t DefaultValTeams = -1;
@@ -11665,9 +11472,9 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
     return;
   }
   // Register declare target variables.
-  OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryKind Flags;
+  llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind Flags;
   StringRef VarName;
-  CharUnits VarSize;
+  int64_t VarSize;
   llvm::GlobalValue::LinkageTypes Linkage;
 #if INTEL_COLLAB
   std::string ItaniumMangledName;
@@ -11675,7 +11482,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 
   if (*Res == OMPDeclareTargetDeclAttr::MT_To &&
       !HasRequiresUnifiedSharedMemory) {
-    Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo;
+    Flags = llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo;
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutlineTarget &&
@@ -11689,10 +11496,11 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 #endif // INTEL_COLLAB
     VarName = CGM.getMangledName(VD);
     if (VD->hasDefinition(CGM.getContext()) != VarDecl::DeclarationOnly) {
-      VarSize = CGM.getContext().getTypeSizeInChars(VD->getType());
-      assert(!VarSize.isZero() && "Expected non-zero size of the variable");
+      VarSize =
+          CGM.getContext().getTypeSizeInChars(VD->getType()).getQuantity();
+      assert(VarSize != 0 && "Expected non-zero size of the variable");
     } else {
-      VarSize = CharUnits::Zero();
+      VarSize = 0;
     }
     Linkage = CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/false);
     // Temp solution to prevent optimizations of the internal variables.
@@ -11718,9 +11526,9 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
              HasRequiresUnifiedSharedMemory)) &&
            "Declare target attribute must link or to with unified memory.");
     if (*Res == OMPDeclareTargetDeclAttr::MT_Link)
-      Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryLink;
+      Flags = llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryLink;
     else
-      Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo;
+      Flags = llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo;
 
     if (CGM.getLangOpts().OpenMPIsDevice) {
       VarName = Addr->getName();
@@ -11734,12 +11542,12 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
       VarName = getAddrOfDeclareTargetVar(VD).getName();
       Addr = cast<llvm::Constant>(getAddrOfDeclareTargetVar(VD).getPointer());
     }
-    VarSize = CGM.getPointerSize();
+    VarSize = CGM.getPointerSize().getQuantity();
     Linkage = llvm::GlobalValue::WeakAnyLinkage;
   }
 
   OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
-      VarName, Addr, VarSize, Flags, Linkage);
+      VarName, Addr, VarSize, Flags, Linkage, CGM.getLangOpts().OpenMPIsDevice);
 }
 
 #if INTEL_COLLAB
@@ -11748,7 +11556,8 @@ void CGOpenMPRuntime::registerTargetIndirectFn(StringRef FnName,
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
-  OffloadEntriesInfoManager.registerDeviceIndirectFnEntryInfo(FnName, Addr);
+  OffloadEntriesInfoManager.registerDeviceIndirectFnEntryInfo(
+      FnName, Addr, CGM.getLangOpts().OpenMPIsDevice);
 }
 
 void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
@@ -11757,9 +11566,9 @@ void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
   OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
-      VarName, Addr, CGM.getPointerSize(),
-      OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo,
-      llvm::GlobalValue::ExternalLinkage);
+      VarName, Addr, CGM.getPointerSize().getQuantity(),
+      llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo,
+      llvm::GlobalValue::ExternalLinkage, CGM.getLangOpts().OpenMPIsDevice);
 }
 #endif // INTEL_COLLAB
 

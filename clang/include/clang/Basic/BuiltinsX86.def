@@ -1035,13 +1035,14 @@ TARGET_BUILTIN(__builtin_ia32_alignq256, "V4OiV4OiV4OiIi", "ncV:256:", "avx512vl
 TARGET_BUILTIN(__builtin_ia32_extractf64x4_mask, "V4dV8dIiV4dUc", "ncV:512:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_extractf32x4_mask, "V4fV16fIiV4fUc", "ncV:512:", "avx512f")
 
+// AVX-VNNI and AVX512-VNNI
 #if INTEL_FEATURE_ISA_DSPV1
 TARGET_BUILTIN(__builtin_ia32_vpdpbusd128, "V4iV4iV4iV4i", "ncV:128:", "avx512vl,avx512vnni|avxvnni|dspv1" EXT_FEATURES)
 #else // INTEL_FEATURE_ISA_DSPV1
 TARGET_BUILTIN(__builtin_ia32_vpdpbusd128, "V4iV4iV4iV4i", "ncV:128:", "avx512vl,avx512vnni|avxvnni" EXT_FEATURES)
 #endif // INTEL_FEATURE_ISA_DSPV1
 TARGET_BUILTIN(__builtin_ia32_vpdpbusd256, "V8iV8iV8iV8i", "ncV:256:", "avx512vl,avx512vnni|avxvnni" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vpdpbusd512, "V16iV16iV16iV16i", "ncV:512:", "avx512vnni")
+TARGET_BUILTIN(__builtin_ia32_vpdpbusd512, "V16iV16iV16iV16i", "ncV:512:", "avx512vnni" EXT_FEATURES)
 #if INTEL_FEATURE_ISA_DSPV1
 TARGET_BUILTIN(__builtin_ia32_vpdpbusds128, "V4iV4iV4iV4i", "ncV:128:", "avx512vl,avx512vnni|avxvnni|dspv1" EXT_FEATURES)
 #else // INTEL_FEATURE_ISA_DSPV1
@@ -1056,22 +1057,36 @@ TARGET_BUILTIN(__builtin_ia32_vpdpwssds128, "V4iV4iV4iV4i", "ncV:128:", "avx512v
 TARGET_BUILTIN(__builtin_ia32_vpdpwssds256, "V8iV8iV8iV8i", "ncV:256:", "avx512vl,avx512vnni|avxvnni" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vpdpwssds512, "V16iV16iV16iV16i", "ncV:512:", "avx512vnni")
 
-TARGET_BUILTIN(__builtin_ia32_gather3div2df, "V2dV2dvC*V2OiUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3div2di, "V2OiV2OivC*V2OiUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3div4df, "V4dV4dvC*V4OiUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3div4di, "V4OiV4OivC*V4OiUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3div4sf, "V4fV4fvC*V2OiUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3div4si, "V4iV4ivC*V2OiUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3div8sf, "V4fV4fvC*V4OiUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3div8si, "V4iV4ivC*V4OiUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv2df, "V2dV2dvC*V4iUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv2di, "V2OiV2OivC*V4iUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv4df, "V4dV4dvC*V4iUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv4di, "V4OiV4OivC*V4iUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv4sf, "V4fV4fvC*V4iUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv4si, "V4iV4ivC*V4iUcIi", "nV:128:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv8sf, "V8fV8fvC*V8iUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_gather3siv8si, "V8iV8ivC*V8iUcIi", "nV:256:", "avx512vl" EXT_FEATURES)
+// AVX-VNNI-INT8
+TARGET_BUILTIN(__builtin_ia32_vpdpbssd128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbssd256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbssds128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbssds256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsud128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsud256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsuds128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsuds256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuud128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuud256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuuds128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuuds256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
+
+TARGET_BUILTIN(__builtin_ia32_gather3div2df, "V2dV2dvC*V2OiUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3div2di, "V2OiV2OivC*V2OiUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3div4df, "V4dV4dvC*V4OiUcIi", "nV:256:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3div4di, "V4OiV4OivC*V4OiUcIi", "nV:256:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3div4sf, "V4fV4fvC*V2OiUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3div4si, "V4iV4ivC*V2OiUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3div8sf, "V4fV4fvC*V4OiUcIi", "nV:256:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3div8si, "V4iV4ivC*V4OiUcIi", "nV:256:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv2df, "V2dV2dvC*V4iUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv2di, "V2OiV2OivC*V4iUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv4df, "V4dV4dvC*V4iUcIi", "nV:256:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv4di, "V4OiV4OivC*V4iUcIi", "nV:256:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv4sf, "V4fV4fvC*V4iUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv4si, "V4iV4ivC*V4iUcIi", "nV:128:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv8sf, "V8fV8fvC*V8iUcIi", "nV:256:", "avx512vl")
+TARGET_BUILTIN(__builtin_ia32_gather3siv8si, "V8iV8ivC*V8iUcIi", "nV:256:", "avx512vl")
 TARGET_BUILTIN(__builtin_ia32_gathersiv8df, "V8dV8dvC*V8iUcIi", "nV:512:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_gathersiv16sf, "V16fV16fvC*V16iUsIi", "nV:512:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_gatherdiv8df, "V8dV8dvC*V8OiUcIi", "nV:512:", "avx512f")
@@ -1463,18 +1478,12 @@ TARGET_BUILTIN(__builtin_ia32_movdqa64load128_mask, "V2OiV2OiC*V2OiUc", "nV:128:
 TARGET_BUILTIN(__builtin_ia32_movdqa64load256_mask, "V4OiV4OiC*V4OiUc", "nV:256:", "avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_movdqa64store128_mask, "vV2Oi*V2OiUc", "nV:128:", "avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_movdqa64store256_mask, "vV4Oi*V4OiUc", "nV:256:", "avx512vl" EXT_FEATURES)
-#if INTEL_FEATURE_ISA_AVX_IFMA
-TARGET_BUILTIN(__builtin_ia32_vpmadd52huqvex128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avxifma")
-TARGET_BUILTIN(__builtin_ia32_vpmadd52huqvex256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avxifma")
-TARGET_BUILTIN(__builtin_ia32_vpmadd52luqvex128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avxifma")
-TARGET_BUILTIN(__builtin_ia32_vpmadd52luqvex256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avxifma")
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 TARGET_BUILTIN(__builtin_ia32_vpmadd52huq512, "V8OiV8OiV8OiV8Oi", "ncV:512:", "avx512ifma")
 TARGET_BUILTIN(__builtin_ia32_vpmadd52luq512, "V8OiV8OiV8OiV8Oi", "ncV:512:", "avx512ifma")
-TARGET_BUILTIN(__builtin_ia32_vpmadd52huq128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avx512ifma,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vpmadd52huq256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avx512ifma,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vpmadd52luq128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avx512ifma,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vpmadd52luq256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avx512ifma,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vpmadd52huq128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avx512ifma,avx512vl|avxifma" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vpmadd52huq256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avx512ifma,avx512vl|avxifma" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vpmadd52luq128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avx512ifma,avx512vl|avxifma" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vpmadd52luq256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avx512ifma,avx512vl|avxifma" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcomisd, "iV2dV2dIiIi", "ncV:128:", "avx512f" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcomiss, "iV4fV4fIiIi", "ncV:128:", "avx512f" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_kunpckdi, "UOiUOiUOi", "nc", "avx512bw")
@@ -1892,16 +1901,16 @@ TARGET_BUILTIN(__builtin_ia32_vpmultishiftqb128, "V16cV16cV16c", "ncV:128:", "av
 TARGET_BUILTIN(__builtin_ia32_vpmultishiftqb256, "V32cV32cV32c", "ncV:256:", "avx512vbmi,avx512vl" EXT_FEATURES)
 
 // bf16 intrinsics
-TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_128, "V8sV4fV4f", "ncV:128:", "avx512bf16,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_256, "V16sV8fV8f", "ncV:256:", "avx512bf16,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_512, "V32sV16fV16f", "ncV:512:", "avx512bf16")
-TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_128_mask, "V8sV4fV8sUc", "ncV:128:", "avx512bf16,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_256_mask, "V8sV8fV8sUc", "ncV:256:", "avx512bf16,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_512_mask, "V16sV16fV16sUs", "ncV:512:", "avx512bf16")
-TARGET_BUILTIN(__builtin_ia32_dpbf16ps_128, "V4fV4fV4iV4i", "ncV:128:", "avx512bf16,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_dpbf16ps_256, "V8fV8fV8iV8i", "ncV:256:", "avx512bf16,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_dpbf16ps_512, "V16fV16fV16iV16i", "ncV:512:", "avx512bf16")
-TARGET_BUILTIN(__builtin_ia32_cvtsbf162ss_32, "fUs", "nc", "avx512bf16" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_128, "V8yV4fV4f", "ncV:128:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_256, "V16yV8fV8f", "ncV:256:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_512, "V32yV16fV16f", "ncV:512:", "avx512bf16")
+TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_128_mask, "V8yV4fV8yUc", "ncV:128:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_256_mask, "V8yV8fV8yUc", "ncV:256:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_512_mask, "V16yV16fV16yUs", "ncV:512:", "avx512bf16")
+TARGET_BUILTIN(__builtin_ia32_dpbf16ps_128, "V4fV4fV8yV8y", "ncV:128:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_dpbf16ps_256, "V8fV8fV16yV16y", "ncV:256:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_dpbf16ps_512, "V16fV16fV32yV32y", "ncV:512:", "avx512bf16")
+TARGET_BUILTIN(__builtin_ia32_cvtsbf162ss_32, "fy", "nc", "avx512bf16" EXT_FEATURES)
 #if INTEL_FEATURE_ISA_AVX_BF16
 TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16vex128, "V8sV4fV4f", "ncV:128:", "avxbf16")
 TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16vex256, "V16sV8fV8f", "ncV:256:", "avxbf16")
@@ -2226,13 +2235,9 @@ TARGET_BUILTIN(__builtin_ia32_selectd_512, "V16iUsV16iV16i", "ncV:512:", "avx512
 TARGET_BUILTIN(__builtin_ia32_selectph_128, "V8xUcV8xV8x", "ncV:128:", "avx512fp16,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_selectph_256, "V16xUsV16xV16x", "ncV:256:", "avx512fp16,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_selectph_512, "V32xUiV32xV32x", "ncV:512:", "avx512fp16")
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_BF16_NE
-TARGET_BUILTIN(__builtin_ia32_selectpbf16_128, "V8yUcV8yV8y", "ncV:128:", "avx512bf16ne,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_selectpbf16_256, "V16yUsV16yV16y", "ncV:256:", "avx512bf16ne,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_selectpbf16_512, "V32yUiV32yV32y", "ncV:512:", "avx512bf16ne")
-#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#endif // INTEL_CUSTOMIZATION
+TARGET_BUILTIN(__builtin_ia32_selectpbf_128, "V8yUcV8yV8y", "ncV:128:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_selectpbf_256, "V16yUsV16yV16y", "ncV:256:", "avx512bf16,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_selectpbf_512, "V32yUiV32yV32y", "ncV:512:", "avx512bf16")
 TARGET_BUILTIN(__builtin_ia32_selectq_128, "V2OiUcV2OiV2Oi", "ncV:128:", "avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_selectq_256, "V4OiUcV4OiV4Oi", "ncV:256:", "avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_selectq_512, "V8OiUcV8OiV8Oi", "ncV:512:", "avx512f")
@@ -2243,11 +2248,7 @@ TARGET_BUILTIN(__builtin_ia32_selectpd_128, "V2dUcV2dV2d", "ncV:128:", "avx512vl
 TARGET_BUILTIN(__builtin_ia32_selectpd_256, "V4dUcV4dV4d", "ncV:256:", "avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_selectpd_512, "V8dUcV8dV8d", "ncV:512:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_selectsh_128, "V8xUcV8xV8x", "ncV:128:", "avx512fp16" EXT_FEATURES)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_BF16_NE
-TARGET_BUILTIN(__builtin_ia32_selectsbf16_128, "V8yUcV8yV8y", "ncV:128:", "avx512bf16ne" EXT_FEATURES)
-#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#endif // INTEL_CUSTOMIZATION
+TARGET_BUILTIN(__builtin_ia32_selectsbf_128, "V8yUcV8yV8y", "ncV:128:", "avx512bf16" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_selectss_128, "V4fUcV4fV4f", "ncV:128:", "avx512f" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_selectsd_128, "V2dUcV2dV2d", "ncV:128:", "avx512f" EXT_FEATURES)
 
@@ -2322,6 +2323,12 @@ TARGET_BUILTIN(__builtin_ia32_serialize, "v", "n", "serialize")
 TARGET_BUILTIN(__builtin_ia32_xsusldtrk, "v", "n", "tsxldtrk")
 TARGET_BUILTIN(__builtin_ia32_xresldtrk, "v", "n", "tsxldtrk")
 
+// RAO-INT
+TARGET_BUILTIN(__builtin_ia32_aadd32, "vv*Si", "n", "raoint")
+TARGET_BUILTIN(__builtin_ia32_aand32, "vv*Si", "n", "raoint")
+TARGET_BUILTIN(__builtin_ia32_aor32, "vv*Si", "n", "raoint")
+TARGET_BUILTIN(__builtin_ia32_axor32, "vv*Si", "n", "raoint")
+
 // MSVC
 TARGET_HEADER_BUILTIN(_BitScanForward, "UcUNi*UNi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(_BitScanReverse, "UcUNi*UNi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
@@ -2384,23 +2391,6 @@ TARGET_BUILTIN(__builtin_ia32_vpdpbuud512, "V16iV16iV16iV16i", "ncV:512:", "avx5
 TARGET_BUILTIN(__builtin_ia32_vpdpbuuds512, "V16iV16iV16iV16i", "ncV:512:", "avx512vnniint8")
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-TARGET_BUILTIN(__builtin_ia32_vpdpbssd128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbssd256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbssds128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbssds256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
-
-TARGET_BUILTIN(__builtin_ia32_vpdpbsud128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsud256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsuds128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsuds256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
-
-TARGET_BUILTIN(__builtin_ia32_vpdpbuud128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuud256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuuds128, "V4iV4iV4iV4i", "ncV:128:", "avxvnniint8")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuuds256, "V8iV8iV8iV8i", "ncV:256:", "avxvnniint8")
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
-
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 TARGET_BUILTIN(__builtin_ia32_vcvt2ps2ph128_mask, "V8xV4fV4fV8xUc", "ncV:128:", "avx512convert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvt2ps2ph256_mask, "V16xV8fV8fV16xUs", "ncV:256:", "avx512convert,avx512vl" EXT_FEATURES)
@@ -2439,13 +2429,6 @@ TARGET_BUILTIN(__builtin_ia32_movget32, "UiUiC*", "n", "gprmovget")
 #if INTEL_FEATURE_ISA_MOVGET64B
 TARGET_BUILTIN(__builtin_ia32_movget64b32, "UiV16UiC*", "nV:512:", "movget64b")
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-
-#if INTEL_FEATURE_ISA_RAO_INT
-TARGET_BUILTIN(__builtin_ia32_aadd32, "vv*Si", "n", "raoint")
-TARGET_BUILTIN(__builtin_ia32_aand32, "vv*Si", "n", "raoint")
-TARGET_BUILTIN(__builtin_ia32_aor32, "vv*Si", "n", "raoint")
-TARGET_BUILTIN(__builtin_ia32_axor32, "vv*Si", "n", "raoint")
-#endif // INTEL_FEATURE_ISA_RAO_INT
 
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 TARGET_BUILTIN(__builtin_ia32_vpaaddd128, "vV4i*V4i", "nV:128:", "avx512vl,avx512raoint|avxraoint")
@@ -2543,30 +2526,30 @@ TARGET_BUILTIN(__builtin_ia32_vaaddss_mask, "vv*V4fUc", "nV:128:", "avx512raofp"
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #if INTEL_FEATURE_ISA_AVX_NE_CONVERT
 // AUTO GENERATED BY TOOL
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps128, "V4fUsC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps256, "V8fUsC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps128, "V4fyC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps256, "V8fyC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vbcstnesh2ps128, "V4fxC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vbcstnesh2ps256, "V8fxC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps128, "V4fV8sC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps256, "V8fV16sC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps128, "V4fV8yC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps256, "V8fV16yC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps128, "V4fV8xC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps256, "V8fV16xC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps128, "V4fV8sC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps256, "V8fV16sC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps128, "V4fV8yC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps256, "V8fV16yC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneoph2ps128, "V4fV8xC*", "nV:128:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneoph2ps256, "V8fV16xC*", "nV:256:", "avx512neconvert,avx512vl|avxneconvert" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneps2bf16128, "V8sV4f", "nV:128:", "avxneconvert")
-TARGET_BUILTIN(__builtin_ia32_vcvtneps2bf16256, "V8sV8f", "nV:256:", "avxneconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneps2bf16128, "V8yV4f", "nV:128:", "avxneconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneps2bf16256, "V8yV8f", "nV:256:", "avxneconvert")
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps128_mask, "V4fV4fUcUsC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps128_maskz, "V4fUcUsC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps256_mask, "V8fV8fUcUsC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps256_maskz, "V8fUcUsC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps512, "V16fUsC*", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps512_mask, "V16fV16fUsUsC*", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps512_maskz, "V16fUsUsC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps128_mask, "V4fV4fUcyC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps128_maskz, "V4fUcyC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps256_mask, "V8fV8fUcyC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps256_maskz, "V8fUcyC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps512, "V16fyC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps512_mask, "V16fV16fUsyC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vbcstnebf162ps512_maskz, "V16fUsyC*", "nV:512:", "avx512neconvert")
 TARGET_BUILTIN(__builtin_ia32_vbcstnesh2ps128_mask, "V4fV4fUcxC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vbcstnesh2ps128_maskz, "V4fUcxC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vbcstnesh2ps256_mask, "V8fV8fUcxC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
@@ -2577,13 +2560,13 @@ TARGET_BUILTIN(__builtin_ia32_vbcstnesh2ps512_maskz, "V16fUsxC*", "nV:512:", "av
 TARGET_BUILTIN(__builtin_ia32_vcvtne2ps2ph128, "V8xV4fV4f", "ncV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtne2ps2ph256, "V16xV8fV8f", "ncV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtne2ps2ph512, "V32xV16fV16fIi", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps128_mask, "V4fV4fUcV8sC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps128_maskz, "V4fUcV8sC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps256_mask, "V8fV8fUcV16sC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps256_maskz, "V8fUcV16sC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps512, "V16fV32sC*", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps512_mask, "V16fV16fUsV32sC*", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps512_maskz, "V16fUsV32sC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps128_mask, "V4fV4fUcV8yC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps128_maskz, "V4fUcV8yC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps256_mask, "V8fV8fUcV16yC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps256_maskz, "V8fUcV16yC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps512, "V16fV32yC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps512_mask, "V16fV16fUsV32yC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneebf162ps512_maskz, "V16fUsV32yC*", "nV:512:", "avx512neconvert")
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps128_mask, "V4fV4fUcV8xC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps128_maskz, "V4fUcV8xC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps256_mask, "V8fV8fUcV16xC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
@@ -2591,13 +2574,13 @@ TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps256_maskz, "V8fUcV16xC*", "nV:256:", "
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps512, "V16fV32xC*", "nV:512:", "avx512neconvert")
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps512_mask, "V16fV16fUsV32xC*", "nV:512:", "avx512neconvert")
 TARGET_BUILTIN(__builtin_ia32_vcvtneeph2ps512_maskz, "V16fUsV32xC*", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps128_mask, "V4fV4fUcV8sC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps128_maskz, "V4fUcV8sC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps256_mask, "V8fV8fUcV16sC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps256_maskz, "V8fUcV16sC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps512, "V16fV32sC*", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps512_mask, "V16fV16fUsV32sC*", "nV:512:", "avx512neconvert")
-TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps512_maskz, "V16fUsV32sC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps128_mask, "V4fV4fUcV8yC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps128_maskz, "V4fUcV8yC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps256_mask, "V8fV8fUcV16yC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps256_maskz, "V8fUcV16yC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps512, "V16fV32yC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps512_mask, "V16fV16fUsV32yC*", "nV:512:", "avx512neconvert")
+TARGET_BUILTIN(__builtin_ia32_vcvtneobf162ps512_maskz, "V16fUsV32yC*", "nV:512:", "avx512neconvert")
 TARGET_BUILTIN(__builtin_ia32_vcvtneoph2ps128_mask, "V4fV4fUcV8xC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneoph2ps128_maskz, "V4fUcV8xC*", "nV:128:", "avx512neconvert,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneoph2ps256_mask, "V8fV8fUcV16xC*", "nV:256:", "avx512neconvert,avx512vl" EXT_FEATURES)

@@ -2652,9 +2652,7 @@ void LibCallSimplifier::classifyArgUse(
     SmallVectorImpl<CallInst *> &SinCalls,
     SmallVectorImpl<CallInst *> &CosCalls,
     SmallVectorImpl<CallInst *> &SinCosCalls) {
-  CallInst *CI = dyn_cast<CallInst>(Val);
-  Module *M = CI->getModule();
-
+  auto *CI = dyn_cast<CallInst>(Val);
   if (!CI || CI->use_empty())
     return;
 
@@ -2662,6 +2660,7 @@ void LibCallSimplifier::classifyArgUse(
   if (CI->getFunction() != F)
     return;
 
+  Module *M = CI->getModule();
   Function *Callee = CI->getCalledFunction();
   LibFunc Func;
   if (!Callee || !TLI->getLibFunc(*Callee, Func) ||
@@ -2918,6 +2917,8 @@ Value *LibCallSimplifier::optimizePrintF(CallInst *CI, IRBuilderBase &B) {
     return V;
   }
 
+  annotateNonNullNoUndefBasedOnAccess(CI, 0);
+
   // printf(format, ...) -> iprintf(format, ...) if no floating point
   // arguments.
   if (isLibFuncEmittable(M, TLI, LibFunc_iprintf) &&
@@ -2942,7 +2943,6 @@ Value *LibCallSimplifier::optimizePrintF(CallInst *CI, IRBuilderBase &B) {
     return New;
   }
 
-  annotateNonNullNoUndefBasedOnAccess(CI, 0);
   return nullptr;
 }
 
@@ -3041,6 +3041,8 @@ Value *LibCallSimplifier::optimizeSPrintF(CallInst *CI, IRBuilderBase &B) {
     return V;
   }
 
+  annotateNonNullNoUndefBasedOnAccess(CI, {0, 1});
+
   // sprintf(str, format, ...) -> siprintf(str, format, ...) if no floating
   // point arguments.
   if (isLibFuncEmittable(M, TLI, LibFunc_siprintf) &&
@@ -3065,7 +3067,6 @@ Value *LibCallSimplifier::optimizeSPrintF(CallInst *CI, IRBuilderBase &B) {
     return New;
   }
 
-  annotateNonNullNoUndefBasedOnAccess(CI, {0, 1});
   return nullptr;
 }
 

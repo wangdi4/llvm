@@ -1342,7 +1342,8 @@ void OpenMPIRBuilder::createTaskyield(const LocationDescription &Loc) {
 OpenMPIRBuilder::InsertPointTy
 OpenMPIRBuilder::createTask(const LocationDescription &Loc,
                             InsertPointTy AllocaIP, BodyGenCallbackTy BodyGenCB,
-                            bool Tied, Value *Final, Value *IfCondition) {
+                            bool Tied, Value *Final, Value *IfCondition,
+                            ArrayRef<DependData *> Dependencies) {
   if (!updateToLocation(Loc))
     return InsertPointTy();
 
@@ -1374,8 +1375,8 @@ OpenMPIRBuilder::createTask(const LocationDescription &Loc,
   OI.EntryBB = TaskAllocaBB;
   OI.OuterAllocaBB = AllocaIP.getBlock();
   OI.ExitBB = TaskExitBB;
-  OI.PostOutlineCB = [this, Ident, Tied, Final,
-                      IfCondition](Function &OutlinedFn) {
+  OI.PostOutlineCB = [this, Ident, Tied, Final, IfCondition,
+                      Dependencies](Function &OutlinedFn) {
     // The input IR here looks like the following-
     // ```
     // func @current_fn() {
@@ -1485,6 +1486,49 @@ OpenMPIRBuilder::createTask(const LocationDescription &Loc,
                            TaskSize);
     }
 
+    Value *DepArrayPtr = nullptr;
+    if (Dependencies.size()) {
+      InsertPointTy OldIP = Builder.saveIP();
+      Builder.SetInsertPoint(
+          &OldIP.getBlock()->getParent()->getEntryBlock().back());
+
+      Type *DepArrayTy = ArrayType::get(DependInfo, Dependencies.size());
+      Value *DepArray =
+          Builder.CreateAlloca(DepArrayTy, nullptr, ".dep.arr.addr");
+
+      unsigned P = 0;
+      for (DependData *Dep : Dependencies) {
+        Value *Base =
+            Builder.CreateConstInBoundsGEP2_64(DepArrayTy, DepArray, 0, P);
+        // Store the pointer to the variable
+        Value *Addr = Builder.CreateStructGEP(
+            DependInfo, Base,
+            static_cast<unsigned int>(RTLDependInfoFields::BaseAddr));
+        Value *DepValPtr =
+            Builder.CreatePtrToInt(Dep->DepVal, Builder.getInt64Ty());
+        Builder.CreateStore(DepValPtr, Addr);
+        // Store the size of the variable
+        Value *Size = Builder.CreateStructGEP(
+            DependInfo, Base,
+            static_cast<unsigned int>(RTLDependInfoFields::Len));
+        Builder.CreateStore(Builder.getInt64(M.getDataLayout().getTypeStoreSize(
+                                Dep->DepValueType)),
+                            Size);
+        // Store the dependency kind
+        Value *Flags = Builder.CreateStructGEP(
+            DependInfo, Base,
+            static_cast<unsigned int>(RTLDependInfoFields::Flags));
+        Builder.CreateStore(
+            ConstantInt::get(Builder.getInt8Ty(),
+                             static_cast<unsigned int>(Dep->DepKind)),
+            Flags);
+        ++P;
+      }
+
+      DepArrayPtr = Builder.CreateBitCast(DepArray, Builder.getInt8PtrTy());
+      Builder.restoreIP(OldIP);
+    }
+
     // In the presence of the `if` clause, the following IR is generated:
     //    ...
     //    %data = call @__kmpc_omp_task_alloc(...)
@@ -1523,9 +1567,21 @@ OpenMPIRBuilder::createTask(const LocationDescription &Loc,
       Builder.CreateCall(TaskCompleteFn, {Ident, ThreadID, NewTaskData});
       Builder.SetInsertPoint(ThenTI);
     }
-    // Emit the @__kmpc_omp_task runtime call to spawn the task
-    Function *TaskFn = getOrCreateRuntimeFunctionPtr(OMPRTL___kmpc_omp_task);
-    Builder.CreateCall(TaskFn, {Ident, ThreadID, NewTaskData});
+
+    if (Dependencies.size()) {
+      Function *TaskFn =
+          getOrCreateRuntimeFunctionPtr(OMPRTL___kmpc_omp_task_with_deps);
+      Builder.CreateCall(
+          TaskFn,
+          {Ident, ThreadID, NewTaskData, Builder.getInt32(Dependencies.size()),
+           DepArrayPtr, ConstantInt::get(Builder.getInt32Ty(), 0),
+           ConstantPointerNull::get(Type::getInt8PtrTy(M.getContext()))});
+
+    } else {
+      // Emit the @__kmpc_omp_task runtime call to spawn the task
+      Function *TaskFn = getOrCreateRuntimeFunctionPtr(OMPRTL___kmpc_omp_task);
+      Builder.CreateCall(TaskFn, {Ident, ThreadID, NewTaskData});
+    }
 
     StaleCI->eraseFromParent();
 
@@ -3057,9 +3113,10 @@ void OpenMPIRBuilder::createIfVersion(CanonicalLoopInfo *CanonicalLoop,
   Builder.CreateBr(NewBlocks.front());
 }
 
-void OpenMPIRBuilder::applySimd(CanonicalLoopInfo *CanonicalLoop, Value *IfCond,
-                                OrderKind Order, ConstantInt *Simdlen,
-                                ConstantInt *Safelen) {
+void OpenMPIRBuilder::applySimd(CanonicalLoopInfo *CanonicalLoop,
+                                MapVector<Value *, Value *> AlignedVars,
+                                Value *IfCond, OrderKind Order,
+                                ConstantInt *Simdlen, ConstantInt *Safelen) {
   LLVMContext &Ctx = Builder.getContext();
 
   Function *F = CanonicalLoop->getFunction();
@@ -3077,6 +3134,17 @@ void OpenMPIRBuilder::applySimd(CanonicalLoopInfo *CanonicalLoop, Value *IfCond,
   LoopInfo &&LI = LIA.run(*F, FAM);
 
   Loop *L = LI.getLoopFor(CanonicalLoop->getHeader());
+  if (AlignedVars.size()) {
+    InsertPointTy IP = Builder.saveIP();
+    Builder.SetInsertPoint(CanonicalLoop->getPreheader()->getTerminator());
+    for (auto &AlignedItem : AlignedVars) {
+      Value *AlignedPtr = AlignedItem.first;
+      Value *Alignment = AlignedItem.second;
+      Builder.CreateAlignmentAssumption(F->getParent()->getDataLayout(),
+                                        AlignedPtr, Alignment);
+    }
+    Builder.restoreIP(IP);
+  }
 
   if (IfCond) {
     ValueToValueMapTy VMap;
@@ -4690,6 +4758,202 @@ void OpenMPIRBuilder::OutlineInfo::collectBlocks(
         Worklist.push_back(SuccBB);
   }
 }
+
+bool OffloadEntriesInfoManager::empty() const {
+  return OffloadEntriesTargetRegion.empty() &&
+         OffloadEntriesDeviceGlobalVar.empty();
+}
+
+/// Initialize target region entry.
+void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
+    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
+    unsigned Order) {
+  OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] =
+      OffloadEntryInfoTargetRegion(Order, /*Addr=*/nullptr, /*ID=*/nullptr,
+                                   OMPTargetRegionEntryTargetRegion);
+  ++OffloadingEntriesNum;
+}
+
+#if INTEL_COLLAB
+int OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
+#else
+void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
+#endif // INTEL_COLLAB
+    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
+    Constant *Addr, Constant *ID, OMPTargetRegionEntryKind Flags,
+    bool IsDevice) {
+  // If we are emitting code for a target, the entry is already initialized,
+  // only has to be registered.
+  if (IsDevice) {
+    // This could happen if the device compilation is invoked standalone.
+    if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum))
+#if INTEL_COLLAB
+      return -1;
+#else
+      return;
+#endif // INTEL_COLLAB
+    auto &Entry =
+        OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+    Entry.setAddress(Addr);
+    Entry.setID(ID);
+    Entry.setFlags(Flags);
+  } else {
+    if (Flags == OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion &&
+        hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum,
+                                 /*IgnoreAddressId*/ true))
+#if INTEL_COLLAB
+      return -1;
+#else
+      return;
+#endif // INTEL_COLLAB
+    assert(!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum) &&
+           "Target region entry already registered!");
+    OffloadEntryInfoTargetRegion Entry(OffloadingEntriesNum, Addr, ID, Flags);
+    OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
+    ++OffloadingEntriesNum;
+  }
+#if INTEL_COLLAB
+  auto &E = OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+  return E.getOrder();
+#endif // INTEL_COLLAB
+}
+
+bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
+    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
+    bool IgnoreAddressId) const {
+  auto PerDevice = OffloadEntriesTargetRegion.find(DeviceID);
+  if (PerDevice == OffloadEntriesTargetRegion.end())
+    return false;
+  auto PerFile = PerDevice->second.find(FileID);
+  if (PerFile == PerDevice->second.end())
+    return false;
+  auto PerParentName = PerFile->second.find(ParentName);
+  if (PerParentName == PerFile->second.end())
+    return false;
+  auto PerLine = PerParentName->second.find(LineNum);
+  if (PerLine == PerParentName->second.end())
+    return false;
+  // Fail if this entry is already registered.
+  if (!IgnoreAddressId &&
+      (PerLine->second.getAddress() || PerLine->second.getID()))
+    return false;
+  return true;
+}
+
+void OffloadEntriesInfoManager::actOnTargetRegionEntriesInfo(
+    const OffloadTargetRegionEntryInfoActTy &Action) {
+  // Scan all target region entries and perform the provided action.
+  for (const auto &D : OffloadEntriesTargetRegion)
+    for (const auto &F : D.second)
+      for (const auto &P : F.second)
+        for (const auto &L : P.second)
+          Action(D.first, F.first, P.first(), L.first, L.second);
+}
+
+void OffloadEntriesInfoManager::initializeDeviceGlobalVarEntryInfo(
+    StringRef Name, OMPTargetGlobalVarEntryKind Flags, unsigned Order) {
+  OffloadEntriesDeviceGlobalVar.try_emplace(Name, Order, Flags);
+  ++OffloadingEntriesNum;
+}
+
+#if INTEL_COLLAB
+void OffloadEntriesInfoManager::initializeDeviceIndirectFnEntryInfo(
+    StringRef Name, unsigned Order, bool IsDevice) {
+  assert(IsDevice && "Initialization of entries is "
+                     "only required for the device "
+                     "code generation.");
+  OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn IFn(Order);
+  OffloadEntriesDeviceIndirectFn[Name.str()] = IFn;
+  ++OffloadingEntriesNum;
+}
+#endif // INTEL_COLLAB
+
+void OffloadEntriesInfoManager::registerDeviceGlobalVarEntryInfo(
+    StringRef VarName, Constant *Addr, int64_t VarSize,
+    OMPTargetGlobalVarEntryKind Flags, GlobalValue::LinkageTypes Linkage,
+    bool IsDevice) {
+  if (IsDevice) {
+    // This could happen if the device compilation is invoked standalone.
+    if (!hasDeviceGlobalVarEntryInfo(VarName))
+      return;
+    auto &Entry = OffloadEntriesDeviceGlobalVar[VarName];
+    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(VarName)) {
+      if (Entry.getVarSize() == 0) {
+        Entry.setVarSize(VarSize);
+        Entry.setLinkage(Linkage);
+      }
+      return;
+    }
+    Entry.setVarSize(VarSize);
+    Entry.setLinkage(Linkage);
+    Entry.setAddress(Addr);
+  } else {
+    if (hasDeviceGlobalVarEntryInfo(VarName)) {
+      auto &Entry = OffloadEntriesDeviceGlobalVar[VarName];
+      assert(Entry.isValid() && Entry.getFlags() == Flags &&
+             "Entry not initialized!");
+      if (Entry.getVarSize() == 0) {
+        Entry.setVarSize(VarSize);
+        Entry.setLinkage(Linkage);
+      }
+      return;
+    }
+    OffloadEntriesDeviceGlobalVar.try_emplace(VarName, OffloadingEntriesNum,
+                                              Addr, VarSize, Flags, Linkage);
+    ++OffloadingEntriesNum;
+  }
+}
+
+#if INTEL_COLLAB
+void OffloadEntriesInfoManager::registerDeviceIndirectFnEntryInfo(
+    StringRef FnName, llvm::Constant *Addr, bool IsDevice) {
+  if (IsDevice) {
+    // This could happen if the device compilation is invoked standalone.
+    if (!hasDeviceIndirectFnEntryInfo(FnName))
+      return;
+    auto &Entry = OffloadEntriesDeviceIndirectFn[FnName.str()];
+    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(FnName))
+      return;
+    Entry.setAddress(Addr);
+  } else {
+    OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn IFn(
+        OffloadingEntriesNum, Addr);
+    OffloadEntriesDeviceIndirectFn[FnName.str()] = IFn;
+    ++OffloadingEntriesNum;
+  }
+}
+
+StringRef OffloadEntriesInfoManager::getNameOfOffloadEntryDeviceGlobalVar(
+    llvm::Constant *Addr) {
+  for (auto &E : OffloadEntriesDeviceGlobalVar) {
+    if (Addr == E.getValue().getAddress())
+      return E.getKey();
+  }
+  return "";
+}
+
+void OffloadEntriesInfoManager::updateDeviceGlobalVarEntryInfoAddr(
+    StringRef Name, llvm::Constant *Addr) {
+  auto &Entry = OffloadEntriesDeviceGlobalVar[Name];
+  Entry.setAddress(Addr, /*Force=*/true);
+}
+#endif // INTEL_COLLAB
+
+void OffloadEntriesInfoManager::actOnDeviceGlobalVarEntriesInfo(
+    const OffloadDeviceGlobalVarEntryInfoActTy &Action) {
+  // Scan all target region entries and perform the provided action.
+  for (const auto &E : OffloadEntriesDeviceGlobalVar)
+    Action(E.getKey(), E.getValue());
+}
+
+#if INTEL_COLLAB
+void OffloadEntriesInfoManager::actOnDeviceIndirectFnEntriesInfo(
+    const OffloadDeviceIndirectFnEntryInfoActTy &Action) {
+  // Scan all target region entries and perform the provided action.
+  for (const auto &E : OffloadEntriesDeviceIndirectFn)
+    Action(E.first, E.second);
+}
+#endif // INTEL_COLLAB
 
 void CanonicalLoopInfo::collectControlBlocks(
     SmallVectorImpl<BasicBlock *> &BBs) {

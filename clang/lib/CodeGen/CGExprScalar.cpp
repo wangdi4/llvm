@@ -176,7 +176,7 @@ static llvm::Optional<QualType> getUnwidenedIntegerType(const ASTContext &Ctx,
     return llvm::None;
 
   QualType BaseTy = Base->getType();
-  if (!BaseTy->isPromotableIntegerType() ||
+  if (!Ctx.isPromotableIntegerType(BaseTy) ||
       Ctx.getTypeSize(BaseTy) >= Ctx.getTypeSize(E->getType()))
     return llvm::None;
 
@@ -484,6 +484,9 @@ public:
     return llvm::ConstantInt::get(ConvertType(E->getType()), E->getValue());
   }
   Value *VisitCXXScalarValueInitExpr(const CXXScalarValueInitExpr *E) {
+    if (E->getType()->isVoidType())
+      return nullptr;
+
     return EmitNullValue(E->getType());
   }
   Value *VisitGNUNullExpr(const GNUNullExpr *E) {
@@ -2675,7 +2678,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
   } else if (type->isIntegerType()) {
     QualType promotedType;
     bool canPerformLossyDemotionCheck = false;
-    if (type->isPromotableIntegerType()) {
+    if (CGF.getContext().isPromotableIntegerType(type)) {
       promotedType = CGF.getContext().getPromotedIntegerType(type);
       assert(promotedType != type && "Shouldn't promote to the same type.");
       canPerformLossyDemotionCheck = true;

@@ -1381,6 +1381,9 @@ def extract_api : Flag<["-"], "extract-api">, Flags<[CC1Option]>, Group<Action_G
   HelpText<"Extract API information">;
 def product_name_EQ: Joined<["--"], "product-name=">, Flags<[CC1Option]>,
   MarshallingInfoString<FrontendOpts<"ProductName">>;
+def extract_api_ignores_EQ: Joined<["--"], "extract-api-ignores=">, Flags<[CC1Option]>,
+    HelpText<"File containing a new line separated list of API symbols to ignore when extracting API information.">,
+    MarshallingInfoString<FrontendOpts<"ExtractAPIIgnoresFile">>;
 def e : JoinedOrSeparate<["-"], "e">, Flags<[LinkerInput]>, Group<Link_Group>;
 def fmax_tokens_EQ : Joined<["-"], "fmax-tokens=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Max total number of preprocessed tokens for -Wmax-tokens.">,
@@ -1422,11 +1425,11 @@ def fapple_kext : Flag<["-"], "fapple-kext">, Group<f_Group>, Flags<[CC1Option]>
   HelpText<"Use Apple's kernel extensions ABI">,
   MarshallingInfoFlag<LangOpts<"AppleKext">>;
 def fstrict_flex_arrays_EQ : Joined<["-"], "fstrict-flex-arrays=">, Group<f_Group>,
-  MetaVarName<"<n>">, Values<"0,1,2">,
+  MetaVarName<"<n>">, Values<"0,1,2,3">,
   LangOpts<"StrictFlexArraysLevel">,
   Flags<[CC1Option]>,
   NormalizedValuesScope<"LangOptions::StrictFlexArraysLevelKind">,
-  NormalizedValues<["Default", "OneZeroOrIncomplete", "ZeroOrIncomplete"]>,
+  NormalizedValues<["Default", "OneZeroOrIncomplete", "ZeroOrIncomplete", "IncompleteOnly"]>,
   HelpText<"Enable optimizations based on the strict definition of flexible arrays">,
   MarshallingInfoEnum<LangOpts<"StrictFlexArraysLevel">, "Default">;
 defm apple_pragma_pack : BoolFOption<"apple-pragma-pack",
@@ -1897,10 +1900,6 @@ defm fast_math : BoolFOption<"fast-math",
   PosFlag<SetTrue, [CC1Option, CoreOption], "Allow aggressive, lossy floating-point optimizations",
           [cl_fast_relaxed_math.KeyPath]>,
   NegFlag<SetFalse>>;
-def menable_unsafe_fp_math : Flag<["-"], "menable-unsafe-fp-math">, Flags<[CC1Option]>,
-  HelpText<"Allow unsafe floating-point math optimizations which may decrease precision">,
-  MarshallingInfoFlag<LangOpts<"UnsafeFPMath">>,
-  ImpliedByAnyOf<[cl_unsafe_math_optimizations.KeyPath, ffast_math.KeyPath]>;
 defm math_errno : BoolFOption<"math-errno",
   LangOpts<"MathErrno">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Require math functions to indicate errors by setting errno">,
@@ -2180,7 +2179,10 @@ def fsanitize_undefined_strip_path_components_EQ : Joined<["-"], "fsanitize-unde
 } // end -f[no-]sanitize* flags
 
 def funsafe_math_optimizations : Flag<["-"], "funsafe-math-optimizations">,
-  Group<f_Group>;
+  Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Allow unsafe floating-point math optimizations which may decrease precision">,
+  MarshallingInfoFlag<LangOpts<"UnsafeFPMath">>,
+  ImpliedByAnyOf<[cl_unsafe_math_optimizations.KeyPath, ffast_math.KeyPath]>;
 def fno_unsafe_math_optimizations : Flag<["-"], "fno-unsafe-math-optimizations">,
   Group<f_Group>;
 #if INTEL_CUSTOMIZATION
@@ -2198,12 +2200,12 @@ def fno_associative_math : Flag<["-"], "fno-associative-math">, Group<f_Group>;
 defm reciprocal_math : BoolFOption<"reciprocal-math",
   LangOpts<"AllowRecip">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Allow division operations to be reassociated",
-          [menable_unsafe_fp_math.KeyPath]>,
+          [funsafe_math_optimizations.KeyPath]>,
   NegFlag<SetFalse>>;
 defm approx_func : BoolFOption<"approx-func", LangOpts<"ApproxFunc">, DefaultFalse,
    PosFlag<SetTrue, [CC1Option], "Allow certain math function calls to be replaced "
            "with an approximately equivalent calculation",
-           [menable_unsafe_fp_math.KeyPath]>,
+           [funsafe_math_optimizations.KeyPath]>,
    NegFlag<SetFalse>>;
 defm finite_math_only : BoolFOption<"finite-math-only",
   LangOpts<"FiniteMathOnly">, DefaultFalse,
@@ -2212,7 +2214,7 @@ defm finite_math_only : BoolFOption<"finite-math-only",
 defm signed_zeros : BoolFOption<"signed-zeros",
   LangOpts<"NoSignedZero">, DefaultFalse,
   NegFlag<SetTrue, [CC1Option], "Allow optimizations that ignore the sign of floating point zeros",
-            [cl_no_signed_zeros.KeyPath, menable_unsafe_fp_math.KeyPath]>,
+            [cl_no_signed_zeros.KeyPath, funsafe_math_optimizations.KeyPath]>,
   PosFlag<SetFalse>>;
 def fhonor_nans : Flag<["-"], "fhonor-nans">, Group<f_Group>;
 def fno_honor_nans : Flag<["-"], "fno-honor-nans">, Group<f_Group>;
@@ -2231,12 +2233,14 @@ def fno_rounding_math : Flag<["-"], "fno-rounding-math">, Group<f_Group>, Flags<
 def ftrapping_math : Flag<["-"], "ftrapping-math">, Group<f_Group>;
 def fno_trapping_math : Flag<["-"], "fno-trapping-math">, Group<f_Group>;
 def ffp_contract : Joined<["-"], "ffp-contract=">, Group<f_Group>,
-  Flags<[CC1Option]>, HelpText<"Form fused FP ops (e.g. FMAs):"
+  Flags<[CC1Option, FC1Option, FlangOption]>,
+  DocBrief<"Form fused FP ops (e.g. FMAs):"
   " fast (fuses across statements disregarding pragmas)"
   " | on (only fuses in the same statement unless dictated by pragmas)"
   " | off (never fuses)"
   " | fast-honor-pragmas (fuses across statements unless diectated by pragmas)."
   " Default is 'fast' for CUDA, 'fast-honor-pragmas' for HIP, and 'on' otherwise.">,
+  HelpText<"Form fused FP ops (e.g. FMAs)">,
   Values<"fast,on,off,fast-honor-pragmas">;
 
 defm strict_float_cast_overflow : BoolFOption<"strict-float-cast-overflow",
@@ -2342,8 +2346,6 @@ defm legacy_pass_manager : BoolOption<"f", "legacy-pass-manager",
   NegFlag<SetFalse>,
   BothFlags<[CC1Option]>>, Group<f_clang_Group>;
 #endif // INTEL_CUSTOMIZATION
-def fexperimental_new_pass_manager : Flag<["-"], "fexperimental-new-pass-manager">,
-  Group<f_clang_Group>, Flags<[CC1Option]>, Alias<fno_legacy_pass_manager>;
 #if INTEL_CUSTOMIZATION
 def fno_experimental_new_pass_manager : Flag<["-"], "fno-experimental-new-pass-manager">,
   Group<f_clang_Group>, Flags<[CC1Option]>, Alias<flegacy_pass_manager>;
@@ -4908,6 +4910,10 @@ def frtlib_add_rpath: Flag<["-"], "frtlib-add-rpath">, Flags<[NoArgumentUnused]>
   HelpText<"Add -rpath with architecture-specific resource directory to the linker flags">;
 def fno_rtlib_add_rpath: Flag<["-"], "fno-rtlib-add-rpath">, Flags<[NoArgumentUnused]>,
   HelpText<"Do not add -rpath with architecture-specific resource directory to the linker flags">;
+def offload_add_rpath: Flag<["--"], "offload-add-rpath">, Flags<[NoArgumentUnused]>,
+  HelpText<"Add -rpath with HIP runtime library directory to the linker flags">;
+def no_offload_add_rpath: Flag<["--"], "no-offload-add-rpath">, Flags<[NoArgumentUnused]>,
+  HelpText<"Do not add -rpath with HIP runtime library directory to the linker flags">;
 defm openmp_implicit_rpath: BoolFOption<"openmp-implicit-rpath",
   LangOpts<"OpenMP">,
   DefaultTrue,
@@ -5327,7 +5333,9 @@ def mno_amx_avx512_cvtrow : Flag<["-"], "mno-amx-avx512-cvtrow">, Group<m_x86_Fe
 #endif // INTEL_CUSTOMIZATION
 def mamx_bf16 : Flag<["-"], "mamx-bf16">, Group<m_x86_Features_Group>;
 def mno_amx_bf16 : Flag<["-"], "mno-amx-bf16">, Group<m_x86_Features_Group>;
-def mtamx_int8 : Flag<["-"], "mamx-int8">, Group<m_x86_Features_Group>;
+def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
+def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
+def mamx_int8 : Flag<["-"], "mamx-int8">, Group<m_x86_Features_Group>;
 def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
 def mno_amx_tile : Flag<["-"], "mno-amx-tile">, Group<m_x86_Features_Group>;
@@ -5368,10 +5376,6 @@ def mamx_avx512 : Flag<["-"], "mamx-avx512">, Group<m_x86_Features_Group>;
 def mno_amx_avx512 : Flag<["-"], "mno-amx-avx512">, Group<m_x86_Features_Group>;
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
-def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 
 #if INTEL_FEATURE_ISA_AMX_TF32
 def mamx_tf32 : Flag<["-"], "mamx-tf32">, Group<m_x86_Features_Group>;
@@ -5431,14 +5435,9 @@ def mamx_v3 : Flag<["-"], "mamx-v3">, Group<m_x86_Features_Group>;
 def mno_amx_v3 : Flag<["-"], "mno-amx-v3">, Group<m_x86_Features_Group>;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AMX_V3
-
-#if INTEL_FEATURE_ISA_CMPCCXADD
-// AUTO GENERATED BY TOOL
+#endif // INTEL_CUSTOMIZATION
 def mcmpccxadd : Flag<["-"], "mcmpccxadd">, Group<m_x86_Features_Group>;
 def mno_cmpccxadd : Flag<["-"], "mno-cmpccxadd">, Group<m_x86_Features_Group>;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
-#endif // INTEL_CUSTOMIZATION
 def msse : Flag<["-"], "msse">, Group<m_x86_Features_Group>;
 def mno_sse : Flag<["-"], "mno-sse">, Group<m_x86_Features_Group>;
 def msse2 : Flag<["-"], "msse2">, Group<m_x86_Features_Group>;
@@ -5587,10 +5586,6 @@ def mno_avx512vp2intersect : Flag<["-"], "mno-avx512vp2intersect">, Group<m_x86_
 def mavxbf16 : Flag<["-"], "mavxbf16">, Group<m_x86_Features_Group>;
 def mno_avxbf16 : Flag<["-"], "mno-avxbf16">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
-def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
-def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def mavxcompress : Flag<["-"], "mavxcompress">, Group<m_x86_Features_Group>;
 def mno_avxcompress : Flag<["-"], "mno-avxcompress">, Group<m_x86_Features_Group>;
@@ -5603,10 +5598,6 @@ def mno_avxmemadvise : Flag<["-"], "mno-avxmemadvise">, Group<m_x86_Features_Gro
 def mavxconvert : Flag<["-"], "mavxconvert">, Group<m_x86_Features_Group>;
 def mno_avxconvert : Flag<["-"], "mno-avxconvert">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-def mavxvnniint8 : Flag<["-"], "mavxvnniint8">, Group<m_x86_Features_Group>;
-def mno_avxvnniint8 : Flag<["-"], "mno-avxvnniint8">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def mavxdotprodphps : Flag<["-"], "mavxdotprodphps">, Group<m_x86_Features_Group>;
 def mno_avxdotprodphps : Flag<["-"], "mno-avxdotprodphps">, Group<m_x86_Features_Group>;
@@ -5632,6 +5623,10 @@ def mavxraoint : Flag<["-"], "mavxraoint">, Group<m_x86_Features_Group>;
 def mno_avxraoint : Flag<["-"], "mno-avxraoint">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
+def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
+def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
+def mavxvnniint8 : Flag<["-"], "mavxvnniint8">, Group<m_x86_Features_Group>;
+def mno_avxvnniint8 : Flag<["-"], "mno-avxvnniint8">, Group<m_x86_Features_Group>;
 def mavxvnni : Flag<["-"], "mavxvnni">, Group<m_x86_Features_Group>;
 def mno_avxvnni : Flag<["-"], "mno-avxvnni">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
@@ -5726,11 +5721,9 @@ def mpconfig : Flag<["-"], "mpconfig">, Group<m_x86_Features_Group>;
 def mno_pconfig : Flag<["-"], "mno-pconfig">, Group<m_x86_Features_Group>;
 def mpopcnt : Flag<["-"], "mpopcnt">, Group<m_x86_Features_Group>;
 def mno_popcnt : Flag<["-"], "mno-popcnt">, Group<m_x86_Features_Group>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
 def mprefetchi : Flag<["-"], "mprefetchi">, Group<m_x86_Features_Group>;
 def mno_prefetchi : Flag<["-"], "mno-prefetchi">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
 def mprefetchst2 : Flag<["-"], "mprefetchst2">, Group<m_x86_Features_Group>;
 def mno_prefetchst2 : Flag<["-"], "mno-prefetchst2">, Group<m_x86_Features_Group>;
@@ -5742,12 +5735,8 @@ def mprfchw : Flag<["-"], "mprfchw">, Group<m_x86_Features_Group>;
 def mno_prfchw : Flag<["-"], "mno-prfchw">, Group<m_x86_Features_Group>;
 def mptwrite : Flag<["-"], "mptwrite">, Group<m_x86_Features_Group>;
 def mno_ptwrite : Flag<["-"], "mno-ptwrite">, Group<m_x86_Features_Group>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_RAO_INT
 def mraoint : Flag<["-"], "mraoint">, Group<m_x86_Features_Group>;
 def mno_raoint : Flag<["-"], "mno-raoint">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_RAO_INT
-#endif // INTEL_CUSTOMIZATION
 def mrdpid : Flag<["-"], "mrdpid">, Group<m_x86_Features_Group>;
 def mno_rdpid : Flag<["-"], "mno-rdpid">, Group<m_x86_Features_Group>;
 def mrdpru : Flag<["-"], "mrdpru">, Group<m_x86_Features_Group>;
@@ -6591,6 +6580,9 @@ def fno_use_ctor_homing: Flag<["-"], "fno-use-ctor-homing">,
     HelpText<"Don't use constructor homing for debug info">;
 def fuse_ctor_homing: Flag<["-"], "fuse-ctor-homing">,
     HelpText<"Use constructor homing if we are using limited debug info already">;
+def as_secure_log_file : Separate<["-"], "as-secure-log-file">,
+  HelpText<"Emit .secure_log_unique directives to this filename.">,
+  MarshallingInfoString<CodeGenOpts<"AsSecureLogFile">>;
 
 } // let Flags = [CC1Option, CC1AsOption, NoDriverOption]
 
@@ -6710,7 +6702,7 @@ def menable_no_nans : Flag<["-"], "menable-no-nans">,
   MarshallingInfoFlag<LangOpts<"NoHonorNaNs">>, ImpliedByAnyOf<[ffinite_math_only.KeyPath]>;
 def mreassociate : Flag<["-"], "mreassociate">,
   HelpText<"Allow reassociation transformations for floating-point instructions">,
-  MarshallingInfoFlag<LangOpts<"AllowFPReassoc">>, ImpliedByAnyOf<[menable_unsafe_fp_math.KeyPath]>;
+  MarshallingInfoFlag<LangOpts<"AllowFPReassoc">>, ImpliedByAnyOf<[funsafe_math_optimizations.KeyPath]>;
 def mabi_EQ_ieeelongdouble : Flag<["-"], "mabi=ieeelongdouble">,
   HelpText<"Use IEEE 754 quadruple-precision for long double">,
   MarshallingInfoFlag<LangOpts<"PPCIEEELongDouble">>;
@@ -6740,8 +6732,6 @@ def mlink_bitcode_file : Separate<["-"], "mlink-bitcode-file">,
 def mlink_builtin_bitcode : Separate<["-"], "mlink-builtin-bitcode">,
   HelpText<"Link and internalize needed symbols from the given bitcode file "
            "before performing optimizations.">;
-def mlink_cuda_bitcode : Separate<["-"], "mlink-cuda-bitcode">,
-  Alias<mlink_builtin_bitcode>;
 def vectorize_loops : Flag<["-"], "vectorize-loops">,
   HelpText<"Run the Loop vectorization passes">,
   MarshallingInfoFlag<CodeGenOpts<"VectorizeLoop">>;
@@ -7714,6 +7704,9 @@ def setup_static_analyzer : Flag<["-"], "setup-static-analyzer">,
 def disable_pragma_debug_crash : Flag<["-"], "disable-pragma-debug-crash">,
   HelpText<"Disable any #pragma clang __debug that can lead to crashing behavior. This is meant for testing.">,
   MarshallingInfoFlag<PreprocessorOpts<"DisablePragmaDebugCrash">>;
+def source_date_epoch : Separate<["-"], "source-date-epoch">,
+  MetaVarName<"<time since Epoch in seconds>">,
+  HelpText<"Time to be used in __DATE__, __TIME__, and __TIMESTAMP__ macros">;
 
 } // let Flags = [CC1Option, NoDriverOption]
 
@@ -8309,7 +8302,7 @@ def : CLFlag<"Qmno-amx-avx512-cvtrow">, Alias<mno_amx_avx512_cvtrow>;
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
 def : CLFlag<"Qmamx-bf16">, Alias<mamx_bf16>;
 def : CLFlag<"Qmno-amx-bf16">, Alias<mno_amx_bf16>;
-def : CLFlag<"Qmamx-int8">, Alias<mtamx_int8>;
+def : CLFlag<"Qmamx-int8">, Alias<mamx_int8>;
 def : CLFlag<"Qmno-amx-int8">, Alias<mno_amx_int8>;
 def : CLFlag<"Qmamx-tile">, Alias<mamx_tile>;
 def : CLFlag<"Qmno-amx-tile">, Alias<mno_amx_tile>;
@@ -8345,10 +8338,8 @@ def : CLFlag<"Qmno-amx-transpose">, Alias<mno_amx_transpose>;
 def : CLFlag<"Qmamx-avx512">, Alias<mamx_avx512>;
 def : CLFlag<"Qmno-amx-avx512">, Alias<mno_amx_avx512>;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
 def : CLFlag<"Qmamx-fp16">, Alias<mamx_fp16>;
 def : CLFlag<"Qmno-amx-fp16">, Alias<mno_amx_fp16>;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_TF32
 def : CLFlag<"Qmamx-tf32">, Alias<mamx_tf32>;
 def : CLFlag<"Qmno-amx-tf32">, Alias<mno_amx_tf32>;
@@ -8393,10 +8384,8 @@ def : CLFlag<"Qmno-amx-sparse">, Alias<mno_amx_sparse>;
 def : CLFlag<"Qmamx-v3">, Alias<mamx_v3>;
 def : CLFlag<"Qmno-amx-v3">, Alias<mno_amx_v3>;
 #endif // INTEL_FEATURE_ISA_AMX_V3
-#if INTEL_FEATURE_ISA_CMPCCXADD
 def : CLFlag<"Qmcmpccxadd">, Alias<mcmpccxadd>;
 def : CLFlag<"Qmno-cmpccxadd">, Alias<mno_cmpccxadd>;
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 def : CLFlag<"Qmsse">, Alias<msse>;
 def : CLFlag<"Qmno-sse">, Alias<mno_sse>;
 def : CLFlag<"Qmsse2">, Alias<msse2>;
@@ -8497,10 +8486,8 @@ def : CLFlag<"Qmno-avx512vp2intersect">, Alias<mno_avx512vp2intersect>;
 def : CLFlag<"Qmavxbf16">, Alias<mavxbf16>;
 def : CLFlag<"Qmno-avxbf16">, Alias<mno_avxbf16>;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
 def : CLFlag<"Qmavxifma">, Alias<mavxifma>;
 def : CLFlag<"Qmno-avxifma">, Alias<mno_avxifma>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def : CLFlag<"Qmavxcompress">, Alias<mavxcompress>;
 def : CLFlag<"Qmno-avxcompress">, Alias<mno_avxcompress>;
@@ -8513,10 +8500,8 @@ def : CLFlag<"Qmno-avxmemadvise">, Alias<mno_avxmemadvise>;
 def : CLFlag<"Qmavxconvert">, Alias<mavxconvert>;
 def : CLFlag<"Qmno-avxconvert">, Alias<mno_avxconvert>;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
 def : CLFlag<"Qmavxvnniint8">, Alias<mavxvnniint8>;
 def : CLFlag<"Qmno-avxvnniint8">, Alias<mno_avxvnniint8>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def : CLFlag<"Qmavxdotprodphps">, Alias<mavxdotprodphps>;
 def : CLFlag<"Qmno-avxdotprodphps">, Alias<mno_avxdotprodphps>;
@@ -8621,10 +8606,8 @@ def : CLFlag<"Qmpconfig">, Alias<mpconfig>;
 def : CLFlag<"Qmno-pconfig">, Alias<mno_pconfig>;
 def : CLFlag<"Qmpopcnt">, Alias<mpopcnt>;
 def : CLFlag<"Qmno-popcnt">, Alias<mno_popcnt>;
-#if INTEL_FEATURE_ISA_PREFETCHI
 def : CLFlag<"Qmprefetchi">, Alias<mprefetchi>;
 def : CLFlag<"Qmno-prefetchi">, Alias<mno_prefetchi>;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_PREFETCHST2
 def : CLFlag<"Qmprefetchst2">, Alias<mprefetchst2>;
 def : CLFlag<"Qmno-prefetchst2">, Alias<mno_prefetchst2>;
@@ -8635,10 +8618,8 @@ def : CLFlag<"Qmprfchw">, Alias<mprfchw>;
 def : CLFlag<"Qmno-prfchw">, Alias<mno_prfchw>;
 def : CLFlag<"Qmptwrite">, Alias<mptwrite>;
 def : CLFlag<"Qmno-ptwrite">, Alias<mno_ptwrite>;
-#if INTEL_FEATURE_ISA_RAO_INT
 def : CLFlag<"Qmraoint">, Alias<mraoint>;
 def : CLFlag<"Qmno-raoint">, Alias<mno_raoint>;
-#endif // INTEL_FEATURE_ISA_RAO_INT
 def : CLFlag<"Qmrdpid">, Alias<mrdpid>;
 def : CLFlag<"Qmno-rdpid">, Alias<mno_rdpid>;
 def : CLFlag<"Qmrdpru">, Alias<mrdpru>;

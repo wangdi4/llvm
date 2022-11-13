@@ -13,13 +13,60 @@
 #include "detail/kernel_program_cache.hpp"
 #include <helpers/PiImage.hpp>
 #include <helpers/PiMock.hpp>
-#include <helpers/TestKernel.hpp>
 
 #include <gtest/gtest.h>
 
 #include <iostream>
 
 using namespace sycl;
+
+class MultipleDevsCacheTestKernel;
+
+namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
+namespace detail {
+template <> struct KernelInfo<MultipleDevsCacheTestKernel> {
+  static constexpr unsigned getNumParams() { return 0; }
+  static const kernel_param_desc_t &getParamDesc(int) {
+    static kernel_param_desc_t Dummy;
+    return Dummy;
+  }
+  static constexpr const char *getName() {
+    return "MultipleDevsCacheTestKernel";
+  }
+  static constexpr bool isESIMD() { return false; }
+  static constexpr bool callsThisItem() { return false; }
+  static constexpr bool callsAnyThisFreeFunction() { return false; }
+  static constexpr int64_t getKernelSize() { return 1; }
+};
+
+} // namespace detail
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace sycl
+
+static sycl::unittest::PiImage generateDefaultImage() {
+  using namespace sycl::unittest;
+
+  PiPropertySet PropSet;
+
+  std::vector<unsigned char> Bin{0, 1, 2, 3, 4, 5}; // Random data
+
+  PiArray<PiOffloadEntry> Entries =
+      makeEmptyKernels({"MultipleDevsCacheTestKernel"});
+
+  PiImage Img{PI_DEVICE_BINARY_TYPE_SPIRV,            // Format
+              __SYCL_PI_DEVICE_BINARY_TARGET_SPIRV64, // DeviceTargetSpec
+              "",                                     // Compile options
+              "",                                     // Link options
+              std::move(Bin),
+              std::move(Entries),
+              std::move(PropSet)};
+
+  return Img;
+}
+
+static sycl::unittest::PiImage Img = generateDefaultImage();
+static sycl::unittest::PiImageArray<1> ImgArray{&Img};
 
 static pi_result redefinedContextCreate(
     const pi_context_properties *properties, pi_uint32 num_devices,
@@ -137,15 +184,16 @@ TEST_F(MultipleDeviceCacheTest, ProgramRetain) {
     sycl::queue Queue(Context, Devices[0]);
     assert(Devices.size() == 2 && Context.get_devices().size() == 2);
 
-    auto Bundle =
-        sycl::get_kernel_bundle<sycl::bundle_state::input>(Queue.get_context());
+    auto KernelID = sycl::get_kernel_id<MultipleDevsCacheTestKernel>();
+    auto Bundle = sycl::get_kernel_bundle<sycl::bundle_state::input>(
+        Queue.get_context(), {KernelID});
     assert(Bundle.get_devices().size() == 2);
 
-    Queue.submit(
-        [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
+    Queue.submit([&](sycl::handler &cgh) {
+      cgh.single_task<MultipleDevsCacheTestKernel>([]() {});
+    });
 
     auto BundleObject = sycl::build(Bundle, Bundle.get_devices());
-    auto KernelID = sycl::get_kernel_id<TestKernel<>>();
     auto Kernel = BundleObject.get_kernel(KernelID);
 
     // Because of emulating 2 devices program is retained for each one in
@@ -153,8 +201,12 @@ TEST_F(MultipleDeviceCacheTest, ProgramRetain) {
     // image, but other tests can create other images. Additional variable is
     // added to control count of piProgramRetain calls
     auto BundleImpl = getSyclObjImpl(Bundle);
-    int NumRetains = BundleImpl->size() * 2;
 
+    // Bundle should only contain a single image, specifically the one with
+    // MultipleDevsCacheTestKernel.
+    EXPECT_EQ(BundleImpl->size(), size_t{1});
+
+    int NumRetains = BundleImpl->size() * 2;
     EXPECT_EQ(RetainCounter, NumRetains)
         << "Expect " << NumRetains << " piProgramRetain calls";
 
@@ -162,13 +214,17 @@ TEST_F(MultipleDeviceCacheTest, ProgramRetain) {
     detail::KernelProgramCache::KernelCacheT &KernelCache =
         CtxImpl->getKernelProgramCache().acquireKernelsPerProgramCache().get();
 
-    EXPECT_EQ(KernelCache.size(), (size_t)2) << "Expect 2 kernels in cache";
+    EXPECT_EQ(KernelCache.size(), (size_t)1)
+        << "Expect 1 program in kernel cache";
+    for (auto &KernelProgIt : KernelCache)
+      EXPECT_EQ(KernelProgIt.second.size(), (size_t)1)
+          << "Expect 1 kernel cache";
   }
-  // First kernel creating is called in handler::single_task().
+  // The kernel creating is called in handler::single_task().
   // kernel_bundle::get_kernel() creates a kernel and shares it with created
   // programs. Also the kernel is retained in kernel_bundle::get_kernel(). A
   // kernel is removed from cache if piKernelRelease was called for it, so it
   // will not be removed twice for the other programs. As a result we must
-  // expect 3 piKernelRelease calls.
-  EXPECT_EQ(KernelReleaseCounter, 3) << "Expect 3 piKernelRelease calls";
+  // expect 2 piKernelRelease calls.
+  EXPECT_EQ(KernelReleaseCounter, 2) << "Expect 2 piKernelRelease calls";
 }

@@ -1136,7 +1136,8 @@ void MCStreamer::emitInstruction(const MCInst &Inst, const MCSubtargetInfo &) {
 
 void MCStreamer::emitPseudoProbe(uint64_t Guid, uint64_t Index, uint64_t Type,
                                  uint64_t Attr,
-                                 const MCPseudoProbeInlineStack &InlineStack) {
+                                 const MCPseudoProbeInlineStack &InlineStack,
+                                 MCSymbol *FnSym) {
   auto &Context = getContext();
 
   // Create a symbol at in the current section for use in the probe.
@@ -1150,7 +1151,7 @@ void MCStreamer::emitPseudoProbe(uint64_t Guid, uint64_t Index, uint64_t Type,
 
   // Add the probe entry to this section's entries.
   Context.getMCPseudoProbeTable().getProbeSections().addPseudoProbe(
-      getCurrentSectionOnly(), Probe, InlineStack);
+      FnSym, Probe, InlineStack);
 }
 
 void MCStreamer::emitAbsoluteSymbolDiff(const MCSymbol *Hi, const MCSymbol *Lo,

@@ -306,11 +306,12 @@ bool InstCombinerImpl::isDesirableIntType(unsigned BitWidth) const {
 
 /// Return true if it is desirable to convert an integer computation from a
 /// given bit width to a new bit width.
-/// We don't want to convert from a legal to an illegal type or from a smaller
-/// to a larger illegal type. A width of '1' is always treated as a desirable
-/// type because i1 is a fundamental type in IR, and there are many specialized
-/// optimizations for i1 types. Common/desirable widths are equally treated as
-/// legal to convert to, in order to open up more combining opportunities.
+/// We don't want to convert from a legal or desirable type (like i8) to an
+/// illegal type or from a smaller to a larger illegal type. A width of '1'
+/// is always treated as a desirable type because i1 is a fundamental type in
+/// IR, and there are many specialized optimizations for i1 types.
+/// Common/desirable widths are equally treated as legal to convert to, in
+/// order to open up more combining opportunities.
 bool InstCombinerImpl::shouldChangeType(unsigned FromWidth,
                                         unsigned ToWidth) const {
   bool FromLegal = FromWidth == 1 || DL.isLegalInteger(FromWidth);
@@ -321,9 +322,9 @@ bool InstCombinerImpl::shouldChangeType(unsigned FromWidth,
   if (ToWidth < FromWidth && isDesirableIntType(ToWidth))
     return true;
 
-  // If this is a legal integer from type, and the result would be an illegal
-  // type, don't do the transformation.
-  if (FromLegal && !ToLegal)
+  // If this is a legal or desiable integer from type, and the result would be
+  // an illegal type, don't do the transformation.
+  if ((FromLegal || isDesirableIntType(FromWidth)) && !ToLegal)
     return false;
 
   // Otherwise, if both are illegal, do not increase the size of the result. We
@@ -715,10 +716,10 @@ getBinOpsForFactorization(Instruction::BinaryOps TopOpcode, BinaryOperator *Op,
 
 /// This tries to simplify binary operations by factorizing out common terms
 /// (e. g. "(A*B)+(A*C)" -> "A*(B+C)").
-Value *InstCombinerImpl::tryFactorization(BinaryOperator &I,
-                                          Instruction::BinaryOps InnerOpcode,
-                                          Value *A, Value *B, Value *C,
-                                          Value *D) {
+static Value *tryFactorization(BinaryOperator &I, const SimplifyQuery &SQ,
+                               InstCombiner::BuilderTy &Builder,
+                               Instruction::BinaryOps InnerOpcode, Value *A,
+                               Value *B, Value *C, Value *D) {
   assert(A && B && C && D && "All values must be provided");
 
   Value *V = nullptr;
@@ -812,46 +813,58 @@ Value *InstCombinerImpl::tryFactorization(BinaryOperator &I,
   return RetVal;
 }
 
+Value *InstCombinerImpl::tryFactorizationFolds(BinaryOperator &I) {
+  Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
+  BinaryOperator *Op0 = dyn_cast<BinaryOperator>(LHS);
+  BinaryOperator *Op1 = dyn_cast<BinaryOperator>(RHS);
+  Instruction::BinaryOps TopLevelOpcode = I.getOpcode();
+  Value *A, *B, *C, *D;
+  Instruction::BinaryOps LHSOpcode, RHSOpcode;
+
+  if (Op0)
+    LHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op0, A, B);
+  if (Op1)
+    RHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op1, C, D);
+
+  // The instruction has the form "(A op' B) op (C op' D)".  Try to factorize
+  // a common term.
+  if (Op0 && Op1 && LHSOpcode == RHSOpcode)
+    if (Value *V = tryFactorization(I, SQ, Builder, LHSOpcode, A, B, C, D))
+      return V;
+
+  // The instruction has the form "(A op' B) op (C)".  Try to factorize common
+  // term.
+  if (Op0)
+    if (Value *Ident = getIdentityValue(LHSOpcode, RHS))
+      if (Value *V =
+              tryFactorization(I, SQ, Builder, LHSOpcode, A, B, RHS, Ident))
+        return V;
+
+  // The instruction has the form "(B) op (C op' D)".  Try to factorize common
+  // term.
+  if (Op1)
+    if (Value *Ident = getIdentityValue(RHSOpcode, LHS))
+      if (Value *V =
+              tryFactorization(I, SQ, Builder, RHSOpcode, LHS, Ident, C, D))
+        return V;
+
+  return nullptr;
+}
+
 /// This tries to simplify binary operations which some other binary operation
 /// distributes over either by factorizing out common terms
 /// (eg "(A*B)+(A*C)" -> "A*(B+C)") or expanding out if this results in
 /// simplifications (eg: "A & (B | C) -> (A&B) | (A&C)" if this is a win).
 /// Returns the simplified value, or null if it didn't simplify.
-Value *InstCombinerImpl::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
+Value *InstCombinerImpl::foldUsingDistributiveLaws(BinaryOperator &I) {
   Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
   BinaryOperator *Op0 = dyn_cast<BinaryOperator>(LHS);
   BinaryOperator *Op1 = dyn_cast<BinaryOperator>(RHS);
   Instruction::BinaryOps TopLevelOpcode = I.getOpcode();
 
-  {
-    // Factorization.
-    Value *A, *B, *C, *D;
-    Instruction::BinaryOps LHSOpcode, RHSOpcode;
-    if (Op0)
-      LHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op0, A, B);
-    if (Op1)
-      RHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op1, C, D);
-
-    // The instruction has the form "(A op' B) op (C op' D)".  Try to factorize
-    // a common term.
-    if (Op0 && Op1 && LHSOpcode == RHSOpcode)
-      if (Value *V = tryFactorization(I, LHSOpcode, A, B, C, D))
-        return V;
-
-    // The instruction has the form "(A op' B) op (C)".  Try to factorize common
-    // term.
-    if (Op0)
-      if (Value *Ident = getIdentityValue(LHSOpcode, RHS))
-        if (Value *V = tryFactorization(I, LHSOpcode, A, B, RHS, Ident))
-          return V;
-
-    // The instruction has the form "(B) op (C op' D)".  Try to factorize common
-    // term.
-    if (Op1)
-      if (Value *Ident = getIdentityValue(RHSOpcode, LHS))
-        if (Value *V = tryFactorization(I, RHSOpcode, LHS, Ident, C, D))
-          return V;
-  }
+  // Factorization.
+  if (Value *R = tryFactorizationFolds(I))
+    return R;
 
   // Expansion.
   if (Op0 && rightDistributesOverLeft(Op0->getOpcode(), TopLevelOpcode)) {
@@ -2206,6 +2219,14 @@ static Instruction *simplifySplatGEPIndex(GetElementPtrInst &GEP,
 }
 #endif
 
+#if INTEL_CUSTOMIZATION
+// True if Ty is an opaque pointer or vector of opaque pointers.
+bool isOpaqueScalarPtrType(Type *Ty) {
+  auto *PtrTy = dyn_cast<PointerType>(Ty->getScalarType());
+  return PtrTy && PtrTy->isOpaque();
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
                                              GEPOperator *Src) {
   // Combine Indices - If the source pointer to this getelementptr instruction
@@ -2213,6 +2234,14 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // indices of the two getelementptr instructions into a single instruction.
   if (!shouldMergeGEPs(*cast<GEPOperator>(&GEP), *Src))
     return nullptr;
+
+  // LICM moves a GEP with constant indices to the front, while canonicalization
+  // swaps it to the back of a non-constant GEP. If both transformations can be
+  // applied, LICM takes priority because it generally provides greater
+  // optimization by reducing instruction count in the loop body, but performing
+  // canonicalization swapping first negates the LICM opportunity while it does
+  // not necessarily reduce instruction count.
+  bool ShouldCanonicalizeSwap = true;
 
   if (Src->getResultElementType() == GEP.getSourceElementType() &&
       Src->getNumOperands() == 2 && GEP.getNumOperands() == 2 &&
@@ -2223,6 +2252,12 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
     if (LI) {
       // Try to reassociate loop invariant GEP chains to enable LICM.
       if (Loop *L = LI->getLoopFor(GEP.getParent())) {
+        // If SO1 is invariant and GO1 is variant, they should not be swapped by
+        // canonicalization even if it can be applied, otherwise it triggers
+        // LICM swapping in the next iteration, causing an infinite loop.
+        if (!L->isLoopInvariant(GO1) && L->isLoopInvariant(SO1))
+          ShouldCanonicalizeSwap = false;
+
         // Reassociate the two GEPs if SO1 is variant in the loop and GO1 is
         // invariant: this breaks the dependence between GEPs and allows LICM
         // to hoist the invariant part out of the loop.
@@ -2247,12 +2282,41 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
     }
   }
 
-  // Note that if our source is a gep chain itself then we wait for that
-  // chain to be resolved before we perform this transformation.  This
-  // avoids us creating a TON of code in some cases.
-  if (auto *SrcGEP = dyn_cast<GEPOperator>(Src->getOperand(0)))
-    if (SrcGEP->getNumOperands() == 2 && shouldMergeGEPs(*Src, *SrcGEP))
-      return nullptr;   // Wait until our source is folded to completion.
+  // Canonicalize swapping. Swap GEP with constant index suffix to the back if
+  // it doesn't violate def-use relations or contradict with loop invariant
+  // swap above. This allows more potential applications of constant-indexed GEP
+  // optimizations below.
+#if INTEL_CUSTOMIZATION
+  // The xform below only works in the general case of opaque pointers.
+  // %i = gep struct, struct* %p, i32 1   // a[1], element of array of struct
+  // gep struct, struct* %i, i32 0, i32 1 // element of struct
+  // If %p is not homogenous memory, we cannot interchange the GEPs, as
+  // the struct type cannot be overlaid
+  // onto the result of GEP 0, 1 (which is an array of single element type).
+  // Needs a bitcast, or a check for homogeneous types.
+#endif // INTEL_CUSTOMIZATION
+  if (ShouldCanonicalizeSwap && Src->hasOneUse() &&
+      Src->getPointerOperandType() == GEP.getPointerOperandType() &&
+      isOpaqueScalarPtrType(Src->getPointerOperandType()) && // INTEL
+      Src->getType()->isVectorTy() == GEP.getType()->isVectorTy() &&
+      !isa<GlobalValue>(Src->getPointerOperand())) {
+    // When swapping, GEP with all constant indices are more prioritized than
+    // GEP with only the last few indices (but not all) being constant because
+    // it may be merged with GEP with all constant indices.
+    if ((isa<ConstantInt>(*(Src->indices().end() - 1)) &&
+         !isa<ConstantInt>(*(GEP.indices().end() - 1))) ||
+        (Src->hasAllConstantIndices() && !GEP.hasAllConstantIndices())) {
+      // Cannot guarantee inbounds after swapping because the non-const GEP can
+      // have arbitrary sign.
+      Value *NewSrc = Builder.CreateGEP(
+          GEP.getSourceElementType(), Src->getOperand(0),
+          SmallVector<Value *>(GEP.indices()), Src->getName());
+      GetElementPtrInst *NewGEP = GetElementPtrInst::Create(
+          Src->getSourceElementType(), NewSrc,
+          SmallVector<Value *>(Src->indices()), GEP.getName());
+      return NewGEP;
+    }
+  }
 
   // For constant GEPs, use a more general offset-based folding approach.
   // Only do this for opaque pointers, as the result element type may change.
@@ -3559,9 +3623,9 @@ Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
     return visitUnconditionalBranchInst(BI);
 
   // Change br (not X), label True, label False to: br X, label False, True
+  Value *Cond = BI.getCondition();
   Value *X = nullptr;
-  if (match(&BI, m_Br(m_Not(m_Value(X)), m_BasicBlock(), m_BasicBlock())) &&
-      !isa<Constant>(X)) {
+  if (match(Cond, m_Not(m_Value(X))) && !isa<Constant>(X)) {
     // Swap Destinations and condition...
     BI.swapSuccessors();
     return replaceOperand(BI, 0, X);
@@ -3569,21 +3633,18 @@ Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
 
   // If the condition is irrelevant, remove the use so that other
   // transforms on the condition become more effective.
-  if (!isa<ConstantInt>(BI.getCondition()) &&
-      BI.getSuccessor(0) == BI.getSuccessor(1))
-    return replaceOperand(
-        BI, 0, ConstantInt::getFalse(BI.getCondition()->getType()));
+  if (!isa<ConstantInt>(Cond) && BI.getSuccessor(0) == BI.getSuccessor(1))
+    return replaceOperand(BI, 0, ConstantInt::getFalse(Cond->getType()));
 
   // Canonicalize, for example, fcmp_one -> fcmp_oeq.
   CmpInst::Predicate Pred;
-  if (match(&BI, m_Br(m_OneUse(m_FCmp(Pred, m_Value(), m_Value())),
-                      m_BasicBlock(), m_BasicBlock())) &&
+  if (match(Cond, m_OneUse(m_FCmp(Pred, m_Value(), m_Value()))) &&
       !isCanonicalPredicate(Pred)) {
     // Swap destinations and condition.
-    CmpInst *Cond = cast<CmpInst>(BI.getCondition());
-    Cond->setPredicate(CmpInst::getInversePredicate(Pred));
+    auto *Cmp = cast<CmpInst>(Cond);
+    Cmp->setPredicate(CmpInst::getInversePredicate(Pred));
     BI.swapSuccessors();
-    Worklist.push(Cond);
+    Worklist.push(Cmp);
     return &BI;
   }
 

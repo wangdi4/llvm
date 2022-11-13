@@ -247,6 +247,9 @@ def intel_debug_mem: F<"intel-debug=mem">;
 def intel_embedded_linker: F<"intel-embedded-linker">;
 // END INTEL_CUSTOMIZATION
 
+def extra_features: CommaJoined<["--", "-"], "extra-features=">,
+  HelpText<"Comma-separated list of features to add to the default set of features inferred from input objects.">;
+
 // Aliases
 def: JoinedOrSeparate<["-"], "e">, Alias<entry>;
 def: J<"entry=">, Alias<entry>;

@@ -172,14 +172,15 @@ int main(int argc, char **argv) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeScalarOpts(Registry);
+#if INTEL_CUSTOMIZATION
   initializeObjCARCOpts(Registry);
+#endif // INTEL_CUSTOMIZATION
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
   initializeAggressiveInstCombine(Registry);
-  initializeInstrumentation(Registry);
   initializeTarget(Registry);
 
 #if INTEL_CUSTOMIZATION

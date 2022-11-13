@@ -66,6 +66,35 @@ It can be used like this:
   ``__has_builtin`` should not be used to detect support for a builtin macro;
   use ``#ifdef`` instead.
 
+``__has_constexpr_builtin``
+---------------------------
+
+This function-like macro takes a single identifier argument that is the name of
+a builtin function, a builtin pseudo-function (taking one or more type
+arguments), or a builtin template.
+It evaluates to 1 if the builtin is supported and can be constant evaluated or
+0 if not. It can be used for writing conditionally constexpr code like this:
+
+.. code-block:: c++
+
+  #ifndef __has_constexpr_builtin         // Optional of course.
+    #define __has_constexpr_builtin(x) 0  // Compatibility with non-clang compilers.
+  #endif
+
+  ...
+  #if __has_constexpr_builtin(__builtin_fmax)
+    constexpr
+  #endif
+    double money_fee(double amount) {
+        return __builtin_fmax(amount * 0.03, 10.0);
+    }
+  ...
+
+For example, ``__has_constexpr_builtin`` is used in libcxx's implementation of
+the ``<cmath>`` header file to conditionally make a function constexpr whenever
+the constant evaluation of the corresponding builtin (for example,
+``std::fmax`` calls ``__builtin_fmax``) is supported in Clang.
+
 .. _langext-__has_feature-__has_extension:
 
 ``__has_feature`` and ``__has_extension``
@@ -1546,28 +1575,25 @@ Query for this feature with ``__has_extension(blocks)``.
 ASM Goto with Output Constraints
 ================================
 
-In addition to the functionality provided by `GCC's extended
-assembly <https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html>`_, clang
-supports output constraints with the `goto` form.
+.. note::
 
-The goto form of GCC's extended assembly allows the programmer to branch to a C
-label from within an inline assembly block. Clang extends this behavior by
-allowing the programmer to use output constraints:
+  Clang's implementation of ASM goto differs from `GCC's
+  implementation <https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html>`_ in
+  that Clang doesn't yet support outputs on the indirect branch. Use of an
+  output on the indirect branch may result in undefined behavior and should be
+  avoided. E.g., in the following `z` isn't valid when used and may have
+  different values depending on optimization levels. (Clang may not warn about
+  such constructs.)
 
-.. code-block:: c++
+  .. code-block:: c++
 
-  int foo(int x) {
-      int y;
-      asm goto("# %0 %1 %l2" : "=r"(y) : "r"(x) : : err);
+    int foo(int x) {
+      int y, z;
+      asm goto(... : "=r"(y), "=r"(z): "r"(x) : : err);
       return y;
     err:
-      return -1;
-  }
-
-It's important to note that outputs are valid only on the "fallthrough" branch.
-Using outputs on an indirect branch may result in undefined behavior. For
-example, in the function above, use of the value assigned to `y` in the `err`
-block is undefined behavior.
+      return z;
+    }
 
 When using tied-outputs (i.e. outputs that are inputs and outputs, not just
 outputs) with the `+r` constraint, there is a hidden input that's created

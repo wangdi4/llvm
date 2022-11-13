@@ -3607,7 +3607,7 @@ void SelectionDAGBuilder::visitInsertElement(const User &I) {
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   SDValue InVec = getValue(I.getOperand(0));
   SDValue InVal = getValue(I.getOperand(1));
-  SDValue InIdx = DAG.getSExtOrTrunc(getValue(I.getOperand(2)), getCurSDLoc(),
+  SDValue InIdx = DAG.getZExtOrTrunc(getValue(I.getOperand(2)), getCurSDLoc(),
                                      TLI.getVectorIdxTy(DAG.getDataLayout()));
   setValue(&I, DAG.getNode(ISD::INSERT_VECTOR_ELT, getCurSDLoc(),
                            TLI.getValueType(DAG.getDataLayout(), I.getType()),
@@ -3617,7 +3617,7 @@ void SelectionDAGBuilder::visitInsertElement(const User &I) {
 void SelectionDAGBuilder::visitExtractElement(const User &I) {
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   SDValue InVec = getValue(I.getOperand(0));
-  SDValue InIdx = DAG.getSExtOrTrunc(getValue(I.getOperand(1)), getCurSDLoc(),
+  SDValue InIdx = DAG.getZExtOrTrunc(getValue(I.getOperand(1)), getCurSDLoc(),
                                      TLI.getVectorIdxTy(DAG.getDataLayout()));
   setValue(&I, DAG.getNode(ISD::EXTRACT_VECTOR_ELT, getCurSDLoc(),
                            TLI.getValueType(DAG.getDataLayout(), I.getType()),
@@ -9154,6 +9154,23 @@ public:
 
 } // end anonymous namespace
 
+static bool isFunction(SDValue Op) {
+  if (Op && Op.getOpcode() == ISD::GlobalAddress) {
+    if (auto *GA = dyn_cast<GlobalAddressSDNode>(Op)) {
+      auto Fn = dyn_cast_or_null<Function>(GA->getGlobal());
+
+      // In normal "call dllimport func" instruction (non-inlineasm) it force
+      // indirect access by specifing call opcode. And usually specially print
+      // asm with indirect symbol (i.g: "*") according to opcode. Inline asm can
+      // not do in this way now. (In fact, this is similar with "Data Access"
+      // action). So here we ignore dllimport function.
+      if (Fn && !Fn->hasDLLImportStorageClass())
+        return true;
+    }
+  }
+  return false;
+}
+
 /// visitInlineAsm - Handle a call to an InlineAsm object.
 void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
                                          const BasicBlock *EHPadBB) {
@@ -9220,14 +9237,14 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
     Chain = lowerStartEH(Chain, EHPadBB, BeginLabel);
   }
 
-  unsigned ArgNo = -1; // INTEL
-  SmallVector<StringRef> AsmStrs; // INTEL
-  IA->collectAsmStrs(AsmStrs);    // INTEL
+  int OpNo = -1;
+  SmallVector<StringRef> AsmStrs;
+  IA->collectAsmStrs(AsmStrs);
 
   // Second pass over the constraints: compute which constraint option to use.
   for (SDISelAsmOperandInfo &OpInfo : ConstraintOperands) {
-    if (OpInfo.hasArg()) // INTEL
-      ArgNo++;           // INTEL
+    if (OpInfo.hasArg() || OpInfo.Type == InlineAsm::isOutput)
+      OpNo++;
 
     // If this is an output operand with a matching input operand, look up the
     // matching input. If their types mismatch, e.g. one is an integer, the
@@ -9246,56 +9263,31 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
         OpInfo.ConstraintType == TargetLowering::C_Address)
       continue;
 
-#if INTEL_CUSTOMIZATION
-    // TODO: Refine me. This is a temporary/quick fix, it will generate more
-    // load/store.
-    // Current arch of inline asm is not friendly to identify the kinds of
-    // instructions in IR/DAG/MIR level.
+    // In Linux PIC model, there are 4 cases about value/label addressing:
     //
-    // In inline asm, we can't (or hard to) distinguish a global address is used
-    // for what instruction. (In normal instructions we can distinguish them by
-    // checking the instruction type or opcode).
-    // So in following case, though there is "call func", we don't know there is
-    // fucntion call in such an (inline asm) IR/MIR.
+    // 1: Function call or Label jmp inside the module.
+    // 2: Data access (such as global variable, static variable) inside module.
+    // 3: Function call or Label jmp outside the module.
+    // 4: Data access (such as global variable) outside the module.
     //
-    // extern float func(float x); float GV;
-    // float test(float x) {
-    //     GV=x+1;
-    //     __asm { movss xmm0, GV; call func; movss GV, xmm0 }
-    //    return GV;
-    // }
+    // Due to current llvm inline asm architecture designed to not "recognize"
+    // the asm code, there are quite troubles for us to treat mem addressing
+    // differently for same value/adress used in different instuctions.
+    // For example, in pic model, call a func may in plt way or direclty
+    // pc-related, but lea/mov a function adress may use got.
     //
-    // The global address will be see as normal global value's address, like GV
-    // in movss. This cause problems in 64 bit pic mode, becasue in 64 bit pic
-    // mode if we used a global value we first get a indepent address and then
-    // load the context from it. But "call func" is just use the address of
-    // "func", though "func" is also a global value.
+    // Here we try to "recognize" function call for the case 1 and case 3 in
+    // inline asm. And try to adjust the constraint for them.
     //
-    // So it generated following wrong asm:
-    //
-    // movq    func@GOTPCREL(%rip), %rcx
-    // callq   *(%rcx) // There is 1 more dereference
-    //
-    // Correct code should be:
-    // callq   *%rcx   // Replace "(%rcx)" --> "%rcx"
-    //
-    // (Normally, except inline asm, these differentiated lowering for a
-    // global value happened in ISel by checking instruction/dag's type.)
-    //
-    // So here we termporly fix it by remove the isIndirect flag to "reduce"
-    // the times of dereference.
-    bool IsFunc = false;
-    if (OpInfo.CallOperand.getNode() &&
-        OpInfo.CallOperand.getOpcode() == ISD::GlobalAddress) {
-      if (auto *GA = dyn_cast<GlobalAddressSDNode>(OpInfo.CallOperand)) {
-        const GlobalValue *GV = GA->getGlobal();
-        IsFunc = GV && dyn_cast<Function>(GV);
-      }
-    }
-
-    if (IsFunc && TLI.hasExtraIndirectConstraint(AsmStrs, ArgNo))
+    // TODO: Due to current inline asm didn't encourage to jmp to the outsider
+    // label, so here we don't handle jmp function label now, but we need to
+    // enhance it (especilly in PIC model) if we meet meaningful requirements.
+    if (OpInfo.isIndirect && isFunction(OpInfo.CallOperand) &&
+        TLI.isInlineAsmTargetBranch(AsmStrs, OpNo) &&
+        TM.getCodeModel() != CodeModel::Large) {
       OpInfo.isIndirect = false;
-#endif // INTEL_CUSTOMIZATION
+      OpInfo.ConstraintType = TargetLowering::C_Address;
+    }
 
     // If this is a memory input, and if the operand is not indirect, do what we
     // need to provide an address for the memory input.
@@ -9506,8 +9498,7 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
         break;
       }
 
-      if (OpInfo.ConstraintType == TargetLowering::C_Memory ||
-          OpInfo.ConstraintType == TargetLowering::C_Address) {
+      if (OpInfo.ConstraintType == TargetLowering::C_Memory) {
         assert((OpInfo.isIndirect ||
                 OpInfo.ConstraintType != TargetLowering::C_Memory) &&
                "Operand must be indirect to be a mem!");
@@ -9527,6 +9518,37 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
                                                         getCurSDLoc(),
                                                         MVT::i32));
         AsmNodeOperands.push_back(InOperandVal);
+        break;
+      }
+
+      if (OpInfo.ConstraintType == TargetLowering::C_Address) {
+        assert(InOperandVal.getValueType() ==
+                   TLI.getPointerTy(DAG.getDataLayout()) &&
+               "Address operands expect pointer values");
+
+        unsigned ConstraintID =
+            TLI.getInlineAsmMemConstraint(OpInfo.ConstraintCode);
+        assert(ConstraintID != InlineAsm::Constraint_Unknown &&
+               "Failed to convert memory constraint code to constraint id.");
+
+        unsigned ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind_Mem, 1);
+
+        SDValue AsmOp = InOperandVal;
+        if (isFunction(InOperandVal)) {
+          auto *GA = dyn_cast<GlobalAddressSDNode>(InOperandVal);
+          ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind_Func, 1);
+          AsmOp = DAG.getTargetGlobalAddress(GA->getGlobal(), getCurSDLoc(),
+                                             InOperandVal.getValueType(),
+                                             GA->getOffset());
+        }
+
+        // Add information to the INLINEASM node to know about this input.
+        ResOpType = InlineAsm::getFlagWordForMem(ResOpType, ConstraintID);
+
+        AsmNodeOperands.push_back(
+            DAG.getTargetConstant(ResOpType, getCurSDLoc(), MVT::i32));
+
+        AsmNodeOperands.push_back(AsmOp);
         break;
       }
 
@@ -10239,6 +10261,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
     Entry.Alignment = Alignment;
     CLI.getArgs().insert(CLI.getArgs().begin(), Entry);
     CLI.NumFixedArgs += 1;
+    CLI.getArgs()[0].IndirectType = CLI.RetTy;
     CLI.RetTy = Type::getVoidTy(CLI.RetTy->getContext());
 
     // sret demotion isn't compatible with tail-calls, since the sret argument

@@ -54,6 +54,7 @@ class BitcodeFile;
 class ELFFileBase;
 class SharedFile;
 class InputSectionBase;
+class EhInputSection;
 class Symbol;
 class BitcodeCompiler;
 
@@ -457,6 +458,8 @@ struct Ctx {
   SmallVector<BitcodeFile *, 0> lazyBitcodeFiles;
   SmallVector<InputFile *, 0> gnuLTOFiles;  // INTEL
   SmallVector<InputFile *, 0> lazyGNULTOFiles;  // INTEL
+  SmallVector<InputSectionBase *, 0> inputSections;
+  SmallVector<EhInputSection *, 0> ehInputSections;
   // Duplicate symbol candidates.
   SmallVector<DuplicateSymbol, 0> duplicates;
   // Symbols in a non-prevailing COMDAT group which should be changed to an
@@ -472,6 +475,8 @@ struct Ctx {
       backwardReferences;
   // True if SHT_LLVM_SYMPART is used.
   std::atomic<bool> hasSympart{false};
+  // True if there are TLS IE relocations. Set DF_STATIC_TLS if -shared.
+  std::atomic<bool> hasTlsIe{false};
   // True if we need to reserve two .got entries for local-dynamic TLS model.
   std::atomic<bool> needsTlsLd{false};
 

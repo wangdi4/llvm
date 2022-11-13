@@ -1742,12 +1742,12 @@ define void @splat4_v8f32_load_store(ptr %s, ptr %d) nounwind {
 ;
 ; AVX2-LABEL: splat4_v8f32_load_store:
 ; AVX2:       # %bb.0:
-; AVX2-NEXT:    vmovups (%rdi), %ymm0 ;INTEL
+; AVX2-NEXT:    vmovups (%rdi), %ymm0
 ; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
 ; AVX2-NEXT:    vmovups (%rdi), %xmm2 ;INTEL
 ; AVX2-NEXT:    vbroadcastss %xmm2, %xmm3 ;INTEL
 ; AVX2-NEXT:    vpermilps {{.*#+}} xmm4 = xmm2[1,1,1,1] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7]
 ; AVX2-NEXT:    vpermilps {{.*#+}} xmm5 = xmm2[2,2,2,2] ;INTEL
 ; AVX2-NEXT:    vpermilps {{.*#+}} xmm2 = xmm2[3,3,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %xmm4, 16(%rsi) ;INTEL
@@ -1756,28 +1756,28 @@ define void @splat4_v8f32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX2-NEXT:    vmovups %xmm5, 32(%rsi) ;INTEL
 ; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm1, 64(%rsi) ;INTEL
-; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3] ;INTEL
-; AVX2-NEXT:    vmovups %ymm0, 96(%rsi) ;INTEL
-; AVX2-NEXT:    vzeroupper ;INTEL
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3]
+; AVX2-NEXT:    vmovups %ymm0, 96(%rsi)
+; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
 ; AVX512-LABEL: splat4_v8f32_load_store:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vmovupd (%rdi), %ymm0 ;INTEL
-; AVX512-NEXT:    vbroadcastss (%rdi), %ymm1 ;INTEL
-; AVX512-NEXT:    vpermilps {{.*#+}} ymm2 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
-; AVX512-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,1] ;INTEL
+; AVX512-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
+; AVX512-NEXT:    vbroadcastss (%rdi), %ymm2 ;INTEL
+; AVX512-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm1[1,1] ;INTEL
 ; AVX512-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
 ; AVX512-NEXT:    vmovddup {{.*#+}} xmm4 = xmm0[0,0] ;INTEL
 ; AVX512-NEXT:    vpermilpd {{.*#+}} xmm5 = xmm0[1,1] ;INTEL
 ; AVX512-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4 ;INTEL
-; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1 ;INTEL
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm4, %zmm1, %zmm1 ;INTEL
-; AVX512-NEXT:    vmovupd %zmm1, (%rsi) ;INTEL
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm2, %zmm0 ;INTEL
+; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm2, %ymm2 ;INTEL
+; AVX512-NEXT:    vinsertf64x4 $1, %ymm4, %zmm2, %zmm2 ;INTEL
+; AVX512-NEXT:    vmovupd %zmm2, (%rsi) ;INTEL
+; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm1, %zmm0 ;INTEL
 ; AVX512-NEXT:    vpermpd {{.*#+}} zmm0 = zmm0[2,2,3,3,6,6,7,7] ;INTEL
 ; AVX512-NEXT:    vmovupd %zmm0, 64(%rsi) ;INTEL
-; AVX512-NEXT:    vzeroupper ;INTEL
+; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %x = load <8 x float>, ptr %s, align 4
   %x2 = shufflevector <8 x float> %x, <8 x float> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
@@ -1803,17 +1803,17 @@ define void @splat4_v8i32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX1-NEXT:    vmovups %ymm1, 64(%rsi) ;INTEL
 ; AVX1-NEXT:    vperm2f128 {{.*#+}} ymm0 = ymm3[2,3],ymm0[2,3] ;INTEL
 ; AVX1-NEXT:    vmovups %ymm0, 96(%rsi) ;INTEL
-; AVX1-NEXT:    vzeroupper ;INTEL
+; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
 ;
 ; AVX2-LABEL: splat4_v8i32_load_store:
 ; AVX2:       # %bb.0:
-; AVX2-NEXT:    vmovups (%rdi), %ymm0 ;INTEL
+; AVX2-NEXT:    vmovups (%rdi), %ymm0
 ; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
 ; AVX2-NEXT:    vmovddup {{.*#+}} xmm2 = xmm1[0,0] ;INTEL
 ; AVX2-NEXT:    vmovups (%rdi), %xmm3 ;INTEL
 ; AVX2-NEXT:    vpermilps {{.*#+}} xmm4 = xmm3[1,1,1,1] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7]
 ; AVX2-NEXT:    vmovddup {{.*#+}} xmm5 = xmm0[0,0] ;INTEL
 ; AVX2-NEXT:    vpermilps {{.*#+}} xmm3 = xmm3[3,3,3,3] ;INTEL
 ; AVX2-NEXT:    vinsertf128 $1, %xmm4, %ymm2, %ymm2 ;INTEL
@@ -1822,9 +1822,9 @@ define void @splat4_v8i32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX2-NEXT:    vmovups %ymm2, 32(%rsi) ;INTEL
 ; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm1, 64(%rsi) ;INTEL
-; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3] ;INTEL
-; AVX2-NEXT:    vmovups %ymm0, 96(%rsi) ;INTEL
-; AVX2-NEXT:    vzeroupper ;INTEL
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3]
+; AVX2-NEXT:    vmovups %ymm0, 96(%rsi)
+; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
 ; AVX512-LABEL: splat4_v8i32_load_store:
@@ -1843,7 +1843,7 @@ define void @splat4_v8i32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm1, %zmm0 ;INTEL
 ; AVX512-NEXT:    vpermpd {{.*#+}} zmm0 = zmm0[2,2,3,3,6,6,7,7] ;INTEL
 ; AVX512-NEXT:    vmovups %zmm0, 64(%rsi) ;INTEL
-; AVX512-NEXT:    vzeroupper ;INTEL
+; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %x = load <8 x i32>, ptr %s, align 4
   %x2 = shufflevector <8 x i32> %x, <8 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>

@@ -78,13 +78,12 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
       ${LIBOMPTARGET_INCLUDE_DIR}
       ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
 
-      LINK_LIBS 
-      PRIVATE
-      elf_common
-      ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
-      ${OPENMP_PTHREAD_LIB}
-      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
-      "-Wl,--undefined-version"
+        LINK_LIBS 
+        PRIVATE
+        elf_common
+        ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
+        ${OPENMP_PTHREAD_LIB}
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
 
         NO_INSTALL_RPATH
       )
@@ -96,8 +95,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         COMPONENT llvm-${tmachine_libname}-ompplugin
 # end INTEL_CUSTOMIZATION
         LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-      set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES 
-        INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
+    set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES
+      INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/.."
+      CXX_VISIBILITY_PRESET protected)
 
       target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
         ${LIBOMPTARGET_INCLUDE_DIR}

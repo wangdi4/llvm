@@ -3002,7 +3002,7 @@ static object::BuildID parseBuildIDArg(const opt::Arg *A) {
   return object::BuildID(BuildID.begin(), BuildID.end());
 }
 
-static void invalidArgValue(const opt::Arg *A) {
+void objdump::invalidArgValue(const opt::Arg *A) {
   reportCmdLineError("'" + StringRef(A->getValue()) +
                      "' is not a valid value for '" + A->getSpelling() + "'");
 }
@@ -3108,7 +3108,7 @@ static void parseObjdumpOptions(const llvm::opt::InputArgList &InputArgs) {
   RawClangAST = InputArgs.hasArg(OBJDUMP_raw_clang_ast);
   Relocations = InputArgs.hasArg(OBJDUMP_reloc);
   PrintImmHex =
-      InputArgs.hasFlag(OBJDUMP_print_imm_hex, OBJDUMP_no_print_imm_hex, false);
+      InputArgs.hasFlag(OBJDUMP_print_imm_hex, OBJDUMP_no_print_imm_hex, true);
   PrivateHeaders = InputArgs.hasArg(OBJDUMP_private_headers);
   FilterSections = InputArgs.getAllArgValues(OBJDUMP_section_EQ);
   SectionHeaders = InputArgs.hasArg(OBJDUMP_section_headers);
@@ -3299,10 +3299,10 @@ int main(int argc, char **argv) {
       !DynamicSymbolTable && !UnwindInfo && !FaultMapSection && !Offloading &&
       !(MachOOpt &&
         (Bind || DataInCode || ChainedFixups || DyldInfo || DylibId ||
-         DylibsUsed || ExportsTrie || FirstPrivateHeader || FunctionStarts ||
-         IndirectSymbols || InfoPlist || LazyBind || LinkOptHints ||
-         ObjcMetaData || Rebase || Rpaths || UniversalHeaders || WeakBind ||
-         !FilterSections.empty()))) {
+         DylibsUsed || ExportsTrie || FirstPrivateHeader ||
+         FunctionStartsType != FunctionStartsMode::None || IndirectSymbols ||
+         InfoPlist || LazyBind || LinkOptHints || ObjcMetaData || Rebase ||
+         Rpaths || UniversalHeaders || WeakBind || !FilterSections.empty()))) {
     T->printHelp(ToolName);
     return 2;
   }
