@@ -2449,8 +2449,7 @@ public:
           return nullptr;
         if (Info->getUnhandled() || Info->getDependsOnUnhandled())
           return nullptr;
-        auto &DeclAliases =
-            Info->getPointerTypeAliasSet(Kind);
+        auto &DeclAliases = Info->getPointerTypeAliasSet(Kind);
         if (DeclAliases.size() != 1)
           return nullptr;
         DTransType *AliasTy = *DeclAliases.begin();
@@ -6622,9 +6621,18 @@ public:
       // generic pointer, rather than the actual type.
       if (ExpectedRetDTransTy == getDTransI8PtrType() ||
           ExpectedRetDTransTy == getDTransPtrSizedIntType()) {
-        setAllAliasedTypeSafetyData(
-            Info, dtrans::AddressTaken,
-            "Return of aggregate pointer as a generic type", &I);
+        // C++ destructors never return value but do have return type (i8*) in
+        // IR on Windows. Since the type is not converted to I8* in C++ source
+        // and object is not expected to be accessed after destruction, skip
+        // setting AddressTaken safety issue if the routine is destructor.
+        // "intel-mempool-destructor" attribute is used to determine if a
+        // routine is destructor. Checking callsites of destructor to prove that
+        // return value never used doesn’t work always especially for virtual
+        // destructors.
+        if (!I.getFunction()->hasFnAttribute("intel-mempool-destructor"))
+          setAllAliasedTypeSafetyData(
+              Info, dtrans::AddressTaken,
+              "Return of aggregate pointer as a generic type", &I);
       }
       // If a pointer to an aggregate type is being returned as a type that is
       // different than the expected type, we will treat it as BadCasting.
