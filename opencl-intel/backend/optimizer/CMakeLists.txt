@@ -33,8 +33,7 @@ include_directories(
   ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/include)
 
 include_directories(
-  ${BACKEND_ROOT_DIR}/arch_headers ${BACKEND_ROOT_DIR}/passes/PrintIRPass
-  ${BACKEND_ROOT_DIR}/passes/)
+  ${BACKEND_ROOT_DIR}/arch_headers ${BACKEND_ROOT_DIR}/passes/)
 
 add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
                    ${TARGET_SOURCE_FILES})

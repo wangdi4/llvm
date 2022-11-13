@@ -29,9 +29,6 @@ void initializeBuiltinLibInfoPass(llvm::PassRegistry &);
 void initializeLocalBuffersPass(llvm::PassRegistry &);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry &);
 void initializeResolveSubGroupWICallPass(llvm::PassRegistry &);
-void initializeDebugInfoPassPass(llvm::PassRegistry &);
-void initializeSmartGVNPass(llvm::PassRegistry &);
-void initializeStripIntelIPPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
 } // namespace intel
 
