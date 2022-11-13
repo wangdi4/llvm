@@ -1814,6 +1814,16 @@ public:
                                   const OMPDeclareVariantAttr *Attr);
   /// Return a valid OpenMP prefer_type value from the expression.
   unsigned getValidInteropPreferTypeValue(const Expr *E);
+  /// Maps the arguments in the need_device_ptr to the index of the LLVM
+  /// argument register usage by the variant function and then group them in
+  /// two categories based on their types (reference to pointer type vs pointer
+  /// type)
+  void
+  createNeedDevicePtrArgsMapping(const CGFunctionInfo *CallInfo,
+                                 const FunctionDecl *BaseFunc,
+                                 llvm::SmallSet<int64_t, 1> &ArgsSet,
+                                 llvm::SmallVectorImpl<unsigned> &PtrToPtrArgs,
+                                 llvm::SmallVectorImpl<unsigned> &NormalArgs);
 #endif // INTEL_COLLAB
   /// Print the postfix for externalized static variable or kernels for single
   /// source offloading languages CUDA and HIP. The unique postfix is created

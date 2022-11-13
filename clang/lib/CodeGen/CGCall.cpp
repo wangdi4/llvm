@@ -1737,6 +1737,33 @@ CodeGenModule::getDevPtrAttrString(GlobalDecl VariantFunc,
   }
   return Buffer;
 }
+
+/// For a function call associated with a dispatch and target variant dispatch
+/// construct, user specify the the arguments in need_device_ptr clause
+/// based on the index of the parameters in C/C++ function. But we need to map
+/// those arguments with the index from LLVM IR call. This function groups the
+/// arguments into two categories based on their type (reference to pointer type
+/// vs pointer type).
+void CodeGenModule::createNeedDevicePtrArgsMapping(
+    const CGFunctionInfo *CallInfo, const FunctionDecl *BaseFunc,
+    llvm::SmallSet<int64_t, 1> &ArgsSet,
+    llvm::SmallVectorImpl<unsigned> &PtrToPtrArgs,
+    llvm::SmallVectorImpl<unsigned> &NormalArgs) {
+  ClangToLLVMArgMapping IRFunctionArgs(getContext(), *CallInfo);
+  unsigned HasThis = CallInfo->isInstanceMethod() ? 1 : 0;
+  unsigned NumParams = BaseFunc->getNumParams();
+
+  for (auto indx : ArgsSet) {
+    unsigned CurParamArgIndex, NumParamArgRegs;
+    std::tie(CurParamArgIndex, NumParamArgRegs) =
+        IRFunctionArgs.getIRArgs(indx + HasThis);
+    if (indx < NumParams &&
+        BaseFunc->getParamDecl(indx)->getType()->isReferenceType())
+      PtrToPtrArgs.push_back(CurParamArgIndex);
+    else
+      NormalArgs.push_back(CurParamArgIndex);
+  }
+}
 #endif // INTEL_COLLAB
 /***/
 
@@ -6072,6 +6099,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   if (CapturedStmtInfo && CapturedStmtInfo->isDispatchTargetCall(Loc)) {
     BundleList.emplace_back("QUAL.OMP.DISPATCH.CALL",
                             ArrayRef<llvm::Value *>{});
+    CapturedStmtInfo->recordDispatchCallInfo(&CallInfo);
   }
 #endif  // INTEL_COLLAB
   if (!InvokeDest) {

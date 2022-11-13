@@ -79,6 +79,7 @@ class OpenMPLateOutliner {
   SmallVector<DirectiveIntrinsicSet, 4> Directives;
   CodeGenFunction &CGF;
   llvm::LLVMContext &C;
+  const CGFunctionInfo *DispatchCallInfo = nullptr;
 
   // For region entry/exit implementation
   llvm::Function *RegionEntryDirective = nullptr;
@@ -549,6 +550,10 @@ public:
   }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
+  void emitOMPAllNeedDevicePtrClauses();
+  void setDispatchCallInfo(const CGFunctionInfo *CallInfo) {
+    this->DispatchCallInfo = CallInfo;
+  }
 
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
@@ -707,6 +712,10 @@ public:
   FieldDecl *getThisFieldDecl() const override;
 
   bool isDispatchTargetCall(SourceLocation Loc) override;
+
+  void recordDispatchCallInfo(const CGFunctionInfo *CallInfo) override {
+    Outliner.setDispatchCallInfo(CallInfo);
+  }
 
   CodeGenFunction::CGCapturedStmtInfo *getOldCSI() const { return OldCSI; }
 

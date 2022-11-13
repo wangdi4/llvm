@@ -2503,8 +2503,96 @@ void OpenMPLateOutliner::emitOMPOmpxMonotonicClause(
                          : CGF.Builder.getInt32(0));
   }
 }
+
+namespace {
+class CallExprFinder final : public ConstStmtVisitor<CallExprFinder> {
+  SourceLocation TCallLoc;
+  const CallExpr *TargetCall;
+
+public:
+  const CallExpr *getCallExpr() { return TargetCall; }
+
+  void VisitCallExpr(const CallExpr *CE) {
+    if (CE->getExprLoc() == TCallLoc) {
+      TargetCall = CE;
+      return;
+    }
+    if (const Expr *E = CE->getCallee())
+      Visit(E);
+    for (const Expr *E : CE->arguments())
+      if (E)
+        Visit(E);
+  }
+
+  void VisitStmt(const Stmt *S) {
+    for (const Stmt *Child : S->children())
+      if (Child)
+        Visit(Child);
+  }
+
+  CallExprFinder(SourceLocation Loc) : TCallLoc(Loc) {}
+};
+} // namespace
+
 void OpenMPLateOutliner::emitOMPNeedDevicePtrClause(
-    const OMPNeedDevicePtrClause *C) {}
+    const OMPNeedDevicePtrClause *Cl) {}
+
+void OpenMPLateOutliner::emitOMPAllNeedDevicePtrClauses() {
+  if (!Directive.hasClausesOfKind<OMPNeedDevicePtrClause>())
+    return;
+  const Stmt *S = Directive.getInnermostCapturedStmt()->getCapturedStmt();
+  const CallExpr *TargetCall = nullptr;
+
+  if (const auto *DispatchD = dyn_cast<OMPDispatchDirective>(&Directive)) {
+    CallExprFinder Finder(DispatchD->getTargetCallLoc());
+    Finder.Visit(S);
+    TargetCall = Finder.getCallExpr();
+  } else if (const auto *TVDD =
+                 dyn_cast<OMPTargetVariantDispatchDirective>(&Directive)) {
+    CallExprFinder Finder(TVDD->getTargetCallLoc());
+    Finder.Visit(S);
+    TargetCall = Finder.getCallExpr();
+  }
+
+  assert(TargetCall && "call expression is expected in need_device_ptr clause");
+  assert(DispatchCallInfo &&
+         "DispatchCallInfo is expected for need_device_ptr clause");
+
+  llvm::SmallSet<int64_t, 1> ArgsSet;
+  const FunctionDecl *FD = TargetCall->getDirectCallee();
+  assert(FD && "callee function info is expected in need_device_ptr clause");
+
+  for (const auto *C : Directive.getClausesOfKind<OMPNeedDevicePtrClause>()) {
+    for (auto *Arg : C->getArgsRefs()) {
+      int64_t indx =
+          Arg->getIntegerConstantExpr(CGF.getContext())->getExtValue();
+      if (ArgsSet.count(indx - 1) < 1)
+        ArgsSet.insert(indx - 1);
+    }
+  }
+
+  llvm::SmallVector<unsigned, 4> PtrToPtrArgs;
+  llvm::SmallVector<unsigned, 4> NormalArgs;
+  CGF.CGM.createNeedDevicePtrArgsMapping(DispatchCallInfo, FD, ArgsSet,
+                                         PtrToPtrArgs, NormalArgs);
+  if (PtrToPtrArgs.size() > 0) {
+    ClauseEmissionHelper CEH(*this, OMPC_need_device_ptr,
+                             "QUAL.OMP.NEED_DEVICE_PTR");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    CSB.setPtrToPtr();
+    addArg(CSB.getString());
+    for (auto indx : PtrToPtrArgs)
+      addArg(CGF.Builder.getInt32(indx + 1));
+  }
+  if (NormalArgs.size() > 0) {
+    ClauseEmissionHelper CEH(*this, OMPC_need_device_ptr,
+                             "QUAL.OMP.NEED_DEVICE_PTR");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    addArg(CSB.getString());
+    for (auto indx : NormalArgs)
+      addArg(CGF.Builder.getInt32(indx + 1));
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPBindClause(const OMPBindClause *Cl) {
@@ -3296,7 +3384,8 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     if (shouldSkipExplicitClause(ClauseKind))
       continue;
     if (ClauseKind == OMPC_map || ClauseKind == OMPC_to ||
-        ClauseKind == OMPC_from || ClauseKind == OMPC_has_device_addr)
+        ClauseKind == OMPC_from || ClauseKind == OMPC_need_device_ptr ||
+        ClauseKind == OMPC_has_device_addr)
       continue;
     switch (ClauseKind) {
 #define GEN_CLANG_CLAUSE_CLASS
@@ -4108,6 +4197,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
     Outliner.emitVLAExpressions();
     EmitBody(*this, S);
+    Outliner.emitOMPAllNeedDevicePtrClauses();
   }
 }
 
