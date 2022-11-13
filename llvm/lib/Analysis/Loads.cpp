@@ -85,7 +85,7 @@ static bool isDereferenceableAndAlignedPointer(
   // malloc may return null.
 
   // For GEPs, determine if the indexing lands within the allocated object.
-  if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+  if (const GEPOrSubsOperator *GEP = dyn_cast<GEPOrSubsOperator>(V)) { // INTEL
     const Value *Base = GEP->getPointerOperand();
 
     APInt Offset(DL.getIndexTypeSizeInBits(GEP->getType()), 0);
@@ -142,42 +142,6 @@ static bool isDereferenceableAndAlignedPointer(
   /// TODO refactor this function to be able to search independently for
   /// Dereferencability and Alignment requirements.
 
-<<<<<<< HEAD
-  // For GEPs, determine if the indexing lands within the allocated object.
-  if (const GEPOrSubsOperator *GEP = dyn_cast<GEPOrSubsOperator>(V)) { // INTEL
-    const Value *Base = GEP->getPointerOperand();
-
-    APInt Offset(DL.getIndexTypeSizeInBits(GEP->getType()), 0);
-    if (!GEP->accumulateConstantOffset(DL, Offset) || Offset.isNegative() ||
-        !Offset.urem(APInt(Offset.getBitWidth(), Alignment.value()))
-             .isMinValue())
-      return false;
-
-    // If the base pointer is dereferenceable for Offset+Size bytes, then the
-    // GEP (== Base + Offset) is dereferenceable for Size bytes.  If the base
-    // pointer is aligned to Align bytes, and the Offset is divisible by Align
-    // then the GEP (== Base + Offset == k_0 * Align + k_1 * Align) is also
-    // aligned to Align bytes.
-
-    // Offset and Size may have different bit widths if we have visited an
-    // addrspacecast, so we can't do arithmetic directly on the APInt values.
-    return isDereferenceableAndAlignedPointer(
-        Base, Alignment, Offset + Size.sextOrTrunc(Offset.getBitWidth()), DL,
-        CtxI, AC, DT, TLI, Visited, MaxDepth);
-  }
-
-  // For gc.relocate, look through relocations
-  if (const GCRelocateInst *RelocateInst = dyn_cast<GCRelocateInst>(V))
-    return isDereferenceableAndAlignedPointer(RelocateInst->getDerivedPtr(),
-                                              Alignment, Size, DL, CtxI, AC, DT,
-                                              TLI, Visited, MaxDepth);
-
-  if (const AddrSpaceCastOperator *ASC = dyn_cast<AddrSpaceCastOperator>(V))
-    return isDereferenceableAndAlignedPointer(ASC->getOperand(0), Alignment,
-                                              Size, DL, CtxI, AC, DT, TLI,
-                                              Visited, MaxDepth);
-=======
->>>>>>> 4f2f7e84ff6e01a3b51fa0450d522a6d35e7e726
 
   if (const auto *Call = dyn_cast<CallBase>(V)) {
     if (auto *RP = getArgumentAliasingToReturnedPointer(Call, true))
