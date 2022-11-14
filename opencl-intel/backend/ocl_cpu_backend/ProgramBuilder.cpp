@@ -558,7 +558,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetDAZ(buildOptions.GetDenormalsZero());
   pProps->SetCpuId(
       GetCompiler()->GetCpuId()->GetCPUIdForKernelPropertiesSerialize());
-  if (HasNoBarrierPath)
+  if (HasNoBarrierPath && VF > 1)
     pProps->EnableVectorizedWithTail();
 
   pProps->SetBarrierBufferSize(barrierBufferSize);
