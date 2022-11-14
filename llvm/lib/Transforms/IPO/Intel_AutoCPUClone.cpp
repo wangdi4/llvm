@@ -249,6 +249,9 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     std::map<std::string, GlobalValue *> Clones;
 
+    const StringRef GenericVersionTargetCpuDealiased =
+        CPUSpecificCPUDispatchNameDealias(Fn.getFnAttribute("target-cpu").getValueAsString());
+
     for (const MDOperand &TargetInfoIt : AutoCPUDispatchMD->operands()) {
       const StringRef TargetCpu =
           getTargetCPUFromMD(cast<MDNode>(TargetInfoIt.get()));
@@ -264,6 +267,13 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       assert(LibIRCDispatchFeatures != "" && "A target is not recognized!");
       if (LibIRCDispatchFeatures == "")
         continue;
+
+      // Skip, if -x is specified on the command line,
+      // and the target-cpu of -x is identical to the target-cpu of -ax.
+      if (GetTTI(Fn).isIntelAdvancedOptimEnabled() &&
+          GenericVersionTargetCpuDealiased.equals(TargetCpuDealiased)) {
+        continue;
+      }
 
       ValueToValueMapTy VMap;
       Function *New = CloneFunction(&Fn, VMap);
