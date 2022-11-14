@@ -7093,8 +7093,18 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     }
 
     // Get the Annotation string.
-    Value *AnnoOp = cast<User>(I.getArgOperand(0))->getOperand(0);
-    Constant *AnnoCst = cast<GlobalVariable>(AnnoOp)->getInitializer();
+    Value *AnnOp = I.getArgOperand(0);
+
+    // Note the arg is different between with or without opaque pointer, E.g:
+    // Opaque: @.str = ... constant [18 x i8] c"__itt_sync_create\00"
+    // NonOpaque: i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str ...)
+    auto *CE = dyn_cast<ConstantExpr>(AnnOp);
+    // AnnOp is GetElementPtrConstantExpr or GetElementPtrInst.
+    if ((CE && CE->getOpcode() == Instruction::GetElementPtr) ||
+        isa<GetElementPtrInst>(AnnOp))
+      AnnOp = cast<User>(AnnOp)->getOperand(0);
+
+    Constant *AnnoCst = cast<GlobalVariable>(AnnOp)->getInitializer();
     StringRef AnnStr = cast<ConstantDataSequential>(AnnoCst)->getAsCString();
 
     // MCSymbol *LabelIP;
