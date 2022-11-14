@@ -280,27 +280,17 @@ InlineReportFunction::~InlineReportFunction(void) {
 // Member functions for class InlineReport
 //
 
-InlineReportFunction *InlineReport::addFunction(Function *F,
-                                                bool MakeNewCurrent) {
+InlineReportFunction *InlineReport::addFunction(Function *F) {
   if (!isClassicIREnabled())
     return nullptr;
   if (!F)
     return nullptr;
-
-  auto MapIt = IRFunctionMap.find(F);
-  if (MapIt != IRFunctionMap.end()) {
-    InlineReportFunction *IRF = MapIt->second;
-    makeCurrent(F);
-    return IRF;
-  }
-
   bool SuppressInlRpt = false;
   if (F->getMetadata(IPOUtils::getSuppressInlineReportStringRef())) {
     LLVM_DEBUG(dbgs() << "Suppress inline report for Function: " << F->getName()
                       << "() \n";);
     SuppressInlRpt = true;
   }
-
   InlineReportFunction *IRF = new InlineReportFunction(F, SuppressInlRpt);
   IRFunctionMap.insert(std::make_pair(F, IRF));
   IRF->setName(std::string(F->getName()));
@@ -308,9 +298,20 @@ InlineReportFunction *InlineReport::addFunction(Function *F,
   IRF->setLinkageChar(F);
   IRF->setLanguageChar(F);
   addCallback(F);
-  if (MakeNewCurrent)
-    makeCurrent(F);
   return IRF;
+}
+
+InlineReportFunction *InlineReport::getFunction(Function *F) {
+  auto MapIt = IRFunctionMap.find(F);
+  if (MapIt != IRFunctionMap.end())
+    return MapIt->second;
+  return nullptr;
+}
+
+InlineReportFunction *InlineReport::getOrAddFunction(Function *F) {
+  if (auto IRF = getFunction(F))
+    return IRF;
+  return addFunction(F);
 }
 
 static void
@@ -415,24 +416,19 @@ void InlineReport::doOutlining(Function *OldF, Function *OutF,
 InlineReportCallSite *InlineReport::addCallSite(CallBase *Call) {
   if (!isClassicIREnabled())
     return nullptr;
-
+  assert(IRCallBaseCallSiteMap.find(Call) == IRCallBaseCallSiteMap.end());
   bool SuppressInlRpt = false;
   if (Call->getMetadata(IPOUtils::getSuppressInlineReportStringRef())) {
     LLVM_DEBUG(dbgs() << "Suppress inline report on: \n" << *Call << "\n";);
     SuppressInlRpt = true;
   }
-
   DebugLoc DLoc = Call->getDebugLoc();
   Function *F = Call->getCaller();
   auto MapIt = IRFunctionMap.find(F);
   assert(MapIt != IRFunctionMap.end());
   InlineReportFunction *IRF = MapIt->second;
   Function *Callee = Call->getCalledFunction();
-  InlineReportFunction *IRFC = nullptr;
-  if (Callee) {
-    auto MapItC = IRFunctionMap.find(Callee);
-    IRFC = MapItC == IRFunctionMap.end() ? addFunction(Callee) : MapItC->second;
-  }
+  InlineReportFunction *IRFC = Callee ? getOrAddFunction(Callee) : nullptr;
   InlineReportCallSite *IRCS = new InlineReportCallSite(
       IRFC, false, NinlrNoReason, Call->getFunction()->getParent(), &DLoc, Call,
       SuppressInlRpt);
@@ -442,7 +438,7 @@ InlineReportCallSite *InlineReport::addCallSite(CallBase *Call) {
   return IRCS;
 }
 
-InlineReportCallSite *InlineReport::addNewCallSite(CallBase *Call) {
+InlineReportCallSite *InlineReport::getOrAddCallSite(CallBase *Call) {
   if (!isClassicIREnabled())
     return nullptr;
   InlineReportCallSite *IRCS = getCallSite(Call);
@@ -456,12 +452,9 @@ void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner) {
     return;
   ActiveInliners.insert(Inliner);
   M = &SCC.getCallGraph().getModule();
-  for (CallGraphNode *Node : SCC) {
-    Function *F = Node->getFunction();
-    if (!F)
-      continue;
-    beginFunction(F);
-  }
+  for (CallGraphNode *Node : SCC)
+    if (Function *F = Node->getFunction())
+      initFunction(F);
 }
 
 void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner) {
@@ -470,43 +463,8 @@ void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner) {
   ActiveInliners.insert(Inliner);
   LazyCallGraph::Node &LCGN = *(SCC.begin());
   M = LCGN.getFunction().getParent();
-  for (auto &Node : SCC) {
-    Function &F = Node.getFunction();
-    beginFunction(&F);
-  }
-}
-
-void InlineReport::beginFunction(Function *F) {
-  if (!F || F->isDeclaration())
-    return;
-  InlineReportFunction *IRF = addFunction(F);
-  assert(IRF);
-  for (BasicBlock &BB : *F) {
-    for (Instruction &I : BB) {
-      CallBase *Call = dyn_cast<CallBase>(&I);
-      // If this isn't a call, or it is a call to an intrinsic, it can
-      // never be inlined.
-      if (!Call)
-        continue;
-      if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
-          shouldSkipIntrinsic(cast<IntrinsicInst>(&I)))
-        continue;
-      addNewCallSite(Call);
-      if (isa<IntrinsicInst>(I)) {
-        setReasonNotInlined(Call, NinlrIntrinsic);
-        continue;
-      }
-      // If this is a direct call to an external function, we can never
-      // inline it.  If it is an indirect call, inlining may resolve it to be
-      // a direct call, so we keep it.
-      if (Function *Callee = Call->getCalledFunction())
-        if (Callee->isDeclaration()) {
-          setReasonNotInlined(Call, NinlrExtern);
-          continue;
-        }
-    }
-  }
-  IRF->setCurrent(true);
+  for (auto &Node : SCC)
+    initFunction(&Node.getFunction());
 }
 
 void InlineReport::endSCC(void) {
@@ -547,12 +505,9 @@ void InlineReport::inlineCallSite() {
     return;
   //
   // Get the inline report for the routine being inlined.  We are going
-  // to make a clone of it.
-  InlineReportFunction *INR = addFunction(ActiveCallee);
-  //
-  // Ensure that the report is up to date since the last call to
-  // Inliner::runOnSCC
-  makeCurrent(ActiveCallee);
+  // to make a clone of it and ensure that the report is up to date
+  // since the last call to Inliner::runOnSCC
+  InlineReportFunction *INR = initFunction(ActiveCallee);
   //
   // Create InlineReportCallSites "new calls" which appear in the inlined
   // code.  Also, create a mapping from the "original calls" which appeared
@@ -825,11 +780,9 @@ void InlineReport::makeCurrent(Function *F) {
       if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
           shouldSkipIntrinsic(cast<IntrinsicInst>(I)))
         continue;
-      auto MapItICS = IRCallBaseCallSiteMap.find(Call);
-      if (MapItICS != IRCallBaseCallSiteMap.end())
+      if (IRCallBaseCallSiteMap.count(Call))
         continue;
       InlineReportCallSite *IRCS = addCallSite(Call);
-      assert(IRCS);
       if (auto Callee = Call->getCalledFunction()) {
         if (Callee->isDeclaration()) {
           if (Callee->isIntrinsic())
@@ -876,6 +829,14 @@ void InlineReport::replaceAllUsesWith(Function *OldFunction,
   }
 }
 
+InlineReportFunction *InlineReport::initFunction(Function *F) {
+  InlineReportFunction *IRF = getOrAddFunction(F);
+  assert(IRF);
+  IRF->setCurrent(false);
+  makeCurrent(F);
+  return IRF;
+}
+
 void InlineReport::initFunctionClosure(Function *F) {
   if (!isClassicIREnabled())
     return;
@@ -920,9 +881,7 @@ void InlineReport::replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1,
   InlineReportCallSite *IRCS = MapItCS->second;
   IRCS->setCall(CB1);
   if (Function *Callee = CB1->getCalledFunction()) {
-    auto MapItC = IRFunctionMap.find(Callee);
-    auto IRFC =
-        MapItC == IRFunctionMap.end() ? addFunction(Callee) : MapItC->second;
+    InlineReportFunction *IRFC = getOrAddFunction(Callee);
     IRCS->setIRCallee(IRFC);
     if (UpdateReason) {
       if (Callee->isDeclaration()) {

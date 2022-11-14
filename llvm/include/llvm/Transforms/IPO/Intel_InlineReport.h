@@ -334,7 +334,7 @@ public:
     ActiveCallee = Call->getCalledFunction();
     // New call sites can be added from inlining even if they are not a
     // cloned from the inlined callee.
-    ActiveIRCS = addNewCallSite(Call);
+    ActiveIRCS = getOrAddCallSite(Call);
     ActiveInlineCallBase = Call;
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
@@ -493,11 +493,7 @@ public:
   }
 
   // Create or update the exiting representation of 'F'.
-  void initFunction(Function *F) {
-    if (!isClassicIREnabled())
-      return;
-    addFunction(F, true /*MakeNewCurrent */);
-  }
+  InlineReportFunction *initFunction(Function *F);
 
   // Change the called Function of 'CB' to 'F'.
   void setCalledFunction(CallBase *CB, Function *F);
@@ -555,9 +551,6 @@ private:
   /// The output stream to print the inlining report to
   formatted_raw_ostream &OS;
 
-  /// Ensure that a current version of 'F' is in the inlining report.
-  void beginFunction(Function *F);
-
   /// Clone the vector of InlineReportCallSites for NewCallSite
   /// using the mapping of old calls to new calls IIMap
   void cloneChildren(InlineReportCallSiteVector &OldCallSiteVector,
@@ -596,16 +589,17 @@ private:
 
   DenseMap<Value *, InlineReportCallback *> CallbackMap;
 
-  // Create an InlineReportFunction to represent F
-  // If 'MakeNewCurrent', make the newly created InlineReportFunction current.
-  InlineReportFunction *addFunction(Function *F, bool MakeNewCurrent = false);
+  // Create an InlineReportFunction to represent 'F'
+  InlineReportFunction *addFunction(Function *F);
+
+  // Get the existing or create an InlineReportFunction to represent 'F'
+  InlineReportFunction *getOrAddFunction(Function *F);
 
   // Create an InlineReportCallSite to represent Call
   InlineReportCallSite *addCallSite(CallBase *Call);
 
-  // Create an InlineReportCallSite to represent Call, if one does
-  // not already exist
-  InlineReportCallSite *addNewCallSite(CallBase *Call);
+  // Get the existing or create an InlineReportCallSite to represent 'Call'
+  InlineReportCallSite *getOrAddCallSite(CallBase *Call);
 
 #ifndef NDEBUG
   /// Run some simple consistency checking on 'F'. For example,
@@ -642,6 +636,7 @@ private:
   }
 
   InlineReportCallSite *getCallSite(CallBase *Call);
+  InlineReportFunction *getFunction(Function *F);
 
   // Create a new InlineReportCallSite which corresponds to the 'VMap'ped
   // version of 'IRCS', insert it into the 'IRCallBaseCallSiteMap', and

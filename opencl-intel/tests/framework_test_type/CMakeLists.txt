@@ -36,10 +36,6 @@ endif(WIN32)
 
 set(TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM})
 
-# In test with local memory we allocate 7MB for array. And allocate additional
-# stack size with size 8MB = 8388608
-set_source_files_properties(cl_device_local_mem_size.cpp
-                            PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608)
 # In test with private memory we allocate 1MB for array. But due to
 # vectorization stack size depends on width of SIMD and scalar kernel, our
 # compiler can works with maximum width equals to 17. So we have to allocate

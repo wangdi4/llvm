@@ -480,6 +480,7 @@ public:
     virtual void recordValueSuppression(llvm::Value *) {}
     virtual void recordDispatchExplicitVar(const VarDecl *VD) {}
     virtual void recordDependIteratorVar(const VarDecl *VD) {}
+    virtual void recordDispatchCallInfo(const CGFunctionInfo *CallInfo) {}
     virtual bool isDispatchTargetCall(SourceLocation Loc) {return false; }
     virtual bool inDispatchRegion() { return false; }
     virtual bool inNestedTargetConstruct() { return false; }
