@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s  -scev-aa -loop-vectorize -print-alias-sets -S  -o - 2>&1 | FileCheck %s
-=======
 ; RUN: opt < %s  -aa-pipeline=scev-aa -passes=loop-vectorize,print-alias-sets -S  -o - 2>&1 | FileCheck %s
->>>>>>> 458ae539dffd0ec2c02d3f4121b65b54bfd655ab
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; PR25281

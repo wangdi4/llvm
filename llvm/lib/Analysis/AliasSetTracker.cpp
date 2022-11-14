@@ -767,46 +767,6 @@ AliasSetTracker::ASTCallbackVH::operator=(Value *V) {
 //                            AliasSetPrinter Pass
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
-namespace {
-
-  class AliasSetPrinter : public FunctionPass {
-  public:
-    static char ID; // Pass identification, replacement for typeid
-
-    AliasSetPrinter() : FunctionPass(ID) {
-      initializeAliasSetPrinterPass(*PassRegistry::getPassRegistry());
-    }
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.setPreservesAll();
-      AU.addRequired<AAResultsWrapperPass>();
-    }
-
-    bool runOnFunction(Function &F) override {
-      auto &AAWP = getAnalysis<AAResultsWrapperPass>();
-      AliasSetTracker Tracker(AAWP.getAAResults(),
-                                    PrintLoopCarriedAliasSets); // INTEL
-      errs() << "Alias sets for function '" << F.getName() << "':\n";
-      for (Instruction &I : instructions(F))
-        Tracker.add(&I);
-      Tracker.print(errs());
-      return false;
-    }
-  };
-
-} // end anonymous namespace
-
-char AliasSetPrinter::ID = 0;
-
-INITIALIZE_PASS_BEGIN(AliasSetPrinter, "print-alias-sets",
-                "Alias Set Printer", false, true)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_END(AliasSetPrinter, "print-alias-sets",
-                "Alias Set Printer", false, true)
-
-=======
->>>>>>> 458ae539dffd0ec2c02d3f4121b65b54bfd655ab
 AliasSetsPrinterPass::AliasSetsPrinterPass(raw_ostream &OS) : OS(OS) {}
 
 PreservedAnalyses AliasSetsPrinterPass::run(Function &F,

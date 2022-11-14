@@ -1,5 +1,3 @@
-; RUN: opt -disable-output -print-alias-sets < %s 2>&1 | FileCheck --check-prefix=CHECK %s
-; RUN: opt -disable-output -print-alias-sets -print-loopcarried-alias-sets < %s 2>&1 | FileCheck --check-prefix=LOOPCARRIED %s
 ; RUN: opt -disable-output -passes=print-alias-sets < %s 2>&1 | FileCheck --check-prefix=CHECK %s
 ; RUN: opt -disable-output -passes=print-alias-sets -print-loopcarried-alias-sets < %s 2>&1 | FileCheck --check-prefix=LOOPCARRIED %s
 
