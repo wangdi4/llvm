@@ -381,20 +381,24 @@ typedef struct __tile1024i_str {
 #include <avx512vlfp16intrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
 #ifndef __SYCL_DEVICE_ONLY__
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16intrin.h>
 #endif
+#endif
+/* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
+#ifndef __SYCL_DEVICE_ONLY__
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512VL__) && defined(__AVX512BF16__)) ||                      \
     defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
 #include <avx512vlbf16intrin.h>
 #endif
 #endif
+/* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_BF16 */

@@ -68,6 +68,62 @@ static sycl::unittest::PiImage generateDefaultImage() {
 static sycl::unittest::PiImage Img = generateDefaultImage();
 static sycl::unittest::PiImageArray<1> ImgArray{&Img};
 
+static pi_result redefinedContextCreate(
+    const pi_context_properties *properties, pi_uint32 num_devices,
+    const pi_device *devices,
+    void (*pfn_notify)(const char *errinfo, const void *private_info, size_t cb,
+                       void *user_data),
+    void *user_data, pi_context *ret_context) {
+  *ret_context = reinterpret_cast<pi_context>(123);
+  return PI_SUCCESS;
+}
+
+namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
+namespace detail {
+template <> struct KernelInfo<MultipleDevsCacheTestKernel> {
+  static constexpr unsigned getNumParams() { return 0; }
+  static const kernel_param_desc_t &getParamDesc(int) {
+    static kernel_param_desc_t Dummy;
+    return Dummy;
+  }
+  static constexpr const char *getName() {
+    return "MultipleDevsCacheTestKernel";
+  }
+  static constexpr bool isESIMD() { return false; }
+  static constexpr bool callsThisItem() { return false; }
+  static constexpr bool callsAnyThisFreeFunction() { return false; }
+  static constexpr int64_t getKernelSize() { return 1; }
+};
+
+} // namespace detail
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace sycl
+
+static sycl::unittest::PiImage generateDefaultImage() {
+  using namespace sycl::unittest;
+
+  PiPropertySet PropSet;
+
+  std::vector<unsigned char> Bin{0, 1, 2, 3, 4, 5}; // Random data
+
+  PiArray<PiOffloadEntry> Entries =
+      makeEmptyKernels({"MultipleDevsCacheTestKernel"});
+
+  PiImage Img{PI_DEVICE_BINARY_TYPE_SPIRV,            // Format
+              __SYCL_PI_DEVICE_BINARY_TARGET_SPIRV64, // DeviceTargetSpec
+              "",                                     // Compile options
+              "",                                     // Link options
+              std::move(Bin),
+              std::move(Entries),
+              std::move(PropSet)};
+
+  return Img;
+}
+
+static sycl::unittest::PiImage Img = generateDefaultImage();
+static sycl::unittest::PiImageArray<1> ImgArray{&Img};
+
 static pi_result redefinedDevicesGetAfter(pi_platform platform,
                                           pi_device_type device_type,
                                           pi_uint32 num_entries,
