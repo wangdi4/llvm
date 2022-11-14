@@ -21,8 +21,6 @@
 using namespace sycl;
 
 class MultipleDevsCacheTestKernel;
-<<<<<<< HEAD
-=======
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -79,7 +77,6 @@ static pi_result redefinedContextCreate(
   *ret_context = reinterpret_cast<pi_context>(123);
   return PI_SUCCESS;
 }
->>>>>>> 0108c436158b9199c611e2b94e70d15f9cfbf6e0
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
