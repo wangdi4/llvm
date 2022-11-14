@@ -219,11 +219,7 @@ endif(WIN32 AND NOT OPENCL_INTREE_BUILD)
 set(BACKEND_PASSES
     LLVMBarrier
     LLVMVectorizer
-    BuiltinLibInfo
-    DebugInfoPass
-    PrintIRPass
-    SmartGVN
-    StripIntelIP)
+    BuiltinLibInfo)
 
 set(UTILS_LIBS # Utils lib
     OclPluginManager OclOptimizer)
