@@ -1,5 +1,6 @@
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
+#include "cpu_dev_limits.h"
 
 #ifndef _WIN32
 #include <sys/resource.h>
@@ -45,7 +46,8 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
   }
 
-  void testBody(cl_ulong expectedLocalMemSize, const char *programSource[]);
+  void testBody(cl_ulong expectedLocalMemSize, cl_ulong stackSize,
+                const char *programSource[]);
 
   cl_platform_id m_platform = nullptr;
   cl_device_id m_device = nullptr;
@@ -56,12 +58,6 @@ protected:
 };
 
 static cl_ulong trySetLocalMemSize(cl_ulong size) {
-#ifdef _WIN32
-  printf("NOTE:\nDue to some strange behaviour of env variables on Windows\n");
-  printf("\tthis test works only if you specify "
-         "CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE from shell\n");
-  printf("\tIn CI system it is done by .pm runner (framework_test_type.pm)\n");
-#endif
   std::string str = std::to_string(size) + "B";
   // set env variable to change the default value of local mem size
   if (!SETENV("CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE", str.c_str()))
@@ -70,11 +66,24 @@ static cl_ulong trySetLocalMemSize(cl_ulong size) {
   return size;
 }
 
-TEST_F(LocalMemSizeTest, stackSize) {
+// Test env CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE to force a large local memory
+// size.
+TEST_F(LocalMemSizeTest, forceLargeSize) {
+  // Allocate local size with 1MB, which should be larger than
+  // CPU_DEV_LCL_MEM_SIZE. Ideally we shall query CL_DEVICE_LOCAL_MEM_SIZE,
+  // but device isn't initialized yet.
+  cl_ulong forceLocalSize = 1024 * 1024;
+  ASSERT_LT(CPU_DEV_LCL_MEM_SIZE, forceLocalSize)
+      << "need to increase forceLocalSize";
+
+  cl_ulong expectedLocalMemSize = trySetLocalMemSize(forceLocalSize);
+  ASSERT_NE(expectedLocalMemSize, 0) << "trySetLocalMemSize failed";
+
+  ASSERT_NO_FATAL_FAILURE(init());
+
   const char *programSource = R"(
       __kernel void test(__global int* o) {
-        // STACK_SIZE - 1 MB of local memory
-        const int size = (STACK_SIZE - 1024 * 1024) / sizeof(int);
+        const int size = LOCAL_SIZE / sizeof(int);
         __local int buf[size];
         int pwi = size / get_local_size(0);
         int lid = get_local_id(0);
@@ -84,16 +93,55 @@ TEST_F(LocalMemSizeTest, stackSize) {
         o[gid] = buf[pwi * lid + 1] + 2;
       })";
 
-  cl_ulong stackSize = trySetStackSize(STACK_SIZE);
+  ASSERT_NO_FATAL_FAILURE(testBody(expectedLocalMemSize, 0, &programSource));
+}
+
+// Test both large local memory size and larger stack size.
+TEST_F(LocalMemSizeTest, forceLargeLocalSizeAndStackSize) {
+  // Disable auto memory since test of stack size always succeeds in auto memory
+  // mode.
+  ASSERT_TRUE(SETENV("CL_CONFIG_AUTO_MEMORY", "false"));
+
+  // Allocate local size with 1MB, which should be larger than
+  // CPU_DEV_LCL_MEM_SIZE. Ideally we shall query CL_DEVICE_LOCAL_MEM_SIZE,
+  // but device isn't initialized yet.
+  cl_ulong forceLocalSize = 1024 * 1024;
+  ASSERT_LT(CPU_DEV_LCL_MEM_SIZE, forceLocalSize)
+      << "need to increase forceLocalSize";
+
+  // Add with CPU_DEV_TBB_STACK_SIZE because TBB thread stack size is
+  // approximately the sum of forceLocalSize and CPU_DEV_TBB_STACK_SIZE when
+  // auto memory is disabled. Therefore, TBB thread stack size is increased
+  // after env CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE is set, which is necessary
+  // since sum of local and private memory in the kernel exceeds
+  // CPU_DEV_TBB_STACK_SIZE.
+  cl_ulong stackSize = trySetStackSize(forceLocalSize + CPU_DEV_TBB_STACK_SIZE);
   ASSERT_NE(stackSize, 0) << "trySetStackSize failed";
 
-  cl_ulong expectedLocalMemSize = trySetLocalMemSize(STACK_SIZE);
+  cl_ulong expectedLocalMemSize = trySetLocalMemSize(forceLocalSize);
   ASSERT_NE(expectedLocalMemSize, 0) << "trySetLocalMemSize failed";
 
   ASSERT_NO_FATAL_FAILURE(init());
 
-  ASSERT_NO_FATAL_FAILURE(testBody(expectedLocalMemSize, &programSource));
+  const char *programSource = R"(
+      __kernel void test(__global int* o) {
+        const int size = LOCAL_SIZE / sizeof(int);
+        __local int buf[size];
+        // Substract 1MB, which is CPU_DEV_STACK_EXTRA_SIZE.
+        // Program is build in O0 mode so that unused 'a' isn't optimized out.
+        char a[STACK_SIZE - LOCAL_SIZE - 1024 * 1024];
+        int pwi = size / get_local_size(0);
+        int lid = get_local_id(0);
+        int gid = get_global_id(0);
+        for (int i = lid * pwi; i < lid * pwi + pwi; ++i)
+          buf[i] = gid;
+        o[gid] = buf[pwi * lid + 1] + 2;
+      })";
+
+  ASSERT_NO_FATAL_FAILURE(
+      testBody(expectedLocalMemSize, stackSize, &programSource));
 }
+
 #ifndef _WIN32
 TEST_F(LocalMemSizeTest, unlimitedStackSize) {
   const char *programSource = R"(
@@ -115,14 +163,15 @@ TEST_F(LocalMemSizeTest, unlimitedStackSize) {
 
   if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR) {
     // TODO move to fpga_test_type
-    ASSERT_NO_FATAL_FAILURE(testBody(256 * 1024, &programSource));
+    ASSERT_NO_FATAL_FAILURE(testBody(256 * 1024, (cl_ulong)0, &programSource));
   }
 
-  ASSERT_NO_FATAL_FAILURE(testBody(32 * 1024, &programSource));
+  ASSERT_NO_FATAL_FAILURE(testBody(32 * 1024, (cl_ulong)0, &programSource));
 }
 #endif
 
 void LocalMemSizeTest::testBody(cl_ulong expectedLocalMemSize,
+                                cl_ulong stackSize,
                                 const char *programSource[]) {
   cl_ulong localMemSize = 0;
   cl_int err = clGetDeviceInfo(m_device, CL_DEVICE_LOCAL_MEM_SIZE,
@@ -131,11 +180,13 @@ void LocalMemSizeTest::testBody(cl_ulong expectedLocalMemSize,
   ASSERT_EQ(expectedLocalMemSize, localMemSize)
       << "CL_DEVICE_LOCAL_MEM_SIZE mismatch";
 
-  std::string options = "-DSTACK_SIZE=" + std::to_string(expectedLocalMemSize);
+  std::string options =
+      "-cl-opt-disable -DSTACK_SIZE=" + std::to_string(stackSize) +
+      " -DLOCAL_SIZE=" + std::to_string(expectedLocalMemSize);
   ASSERT_TRUE(BuildProgramSynch(m_context, 1, programSource, nullptr,
                                 options.c_str(), &m_program));
 
-  const size_t global_work_size = 100;
+  const size_t global_work_size = 10000;
   cl_mem buffer =
       clCreateBuffer(m_context, CL_MEM_READ_WRITE,
                      global_work_size * sizeof(cl_int), nullptr, &err);
@@ -147,7 +198,7 @@ void LocalMemSizeTest::testBody(cl_ulong expectedLocalMemSize,
   err = clSetKernelArg(m_kernel, 0, sizeof(cl_mem), &buffer);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
 
-  const size_t local_work_size = 10;
+  const size_t local_work_size = 100;
   err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &global_work_size,
                                &local_work_size, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
