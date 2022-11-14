@@ -251,6 +251,25 @@ struct __tgt_interop {
   void *DeviceContext;
   void *TargetSync;
   void *RTLProperty; // implementation-defined interop property
+
+  // for implicitly created Interop objects (e.g., from a dispatch construct) who
+  // owns the object
+  int   OwnerGtid;
+  void *OwnerTask;
+  bool Clean; // marks whether the object was requested since the last time it was synced
+
+  void setOwner ( int gtid, void *task );
+  bool isOwnedBy ( int gtid, void *current_task );
+  bool isCompatibleWith ( int32_t interop_type, uint32_t num_prefers, 
+		          int32_t *prefer_ids, int64_t device_num, 
+			  int gtid, void *current_task );
+  void markClean() { Clean = true; }
+  void markDirty() { Clean = false; }
+  bool isClean() const { return Clean; }
+  int32_t flush();
+  int32_t syncBarrier();
+  int32_t asyncBarrier();
+
   // The following field are temporary intel extensions
   // used for enabling transition from Original Intel interop extension
   // to OpenMP 5.1 extension.  Once MKL transitions to use openmp 5.1 interop
@@ -258,6 +277,14 @@ struct __tgt_interop {
   // require changes in plugin apis which will have to be obsoleted later.
   __tgt_interop_obj *IntelTmpExt;
 };
+
+
+inline void __tgt_interop :: setOwner ( int gtid, void *task )
+{
+   OwnerGtid = gtid;
+   OwnerTask = task;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 
