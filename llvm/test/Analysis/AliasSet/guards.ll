@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -print-alias-sets -S -o - < %s 2>&1 | FileCheck %s
+=======
+>>>>>>> 458ae539dffd0ec2c02d3f4121b65b54bfd655ab
 ; RUN: opt -aa-pipeline=basic-aa -passes=print-alias-sets -S -o - < %s 2>&1 | FileCheck %s
 declare void @llvm.experimental.guard(i1, ...)
 

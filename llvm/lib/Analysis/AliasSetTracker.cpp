@@ -767,6 +767,7 @@ AliasSetTracker::ASTCallbackVH::operator=(Value *V) {
 //                            AliasSetPrinter Pass
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 namespace {
 
   class AliasSetPrinter : public FunctionPass {
@@ -804,6 +805,8 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(AliasSetPrinter, "print-alias-sets",
                 "Alias Set Printer", false, true)
 
+=======
+>>>>>>> 458ae539dffd0ec2c02d3f4121b65b54bfd655ab
 AliasSetsPrinterPass::AliasSetsPrinterPass(raw_ostream &OS) : OS(OS) {}
 
 PreservedAnalyses AliasSetsPrinterPass::run(Function &F,
