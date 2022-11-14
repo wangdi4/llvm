@@ -120,7 +120,6 @@ if(LLVM_BUILD_OCL_CPU_BACKEND)
                    "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_backend")
   add_subdirectory(ocl_cpu_debugging
                    "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging")
-  add_subdirectory(ocl_opt "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt")
   add_subdirectory(optimizer "${CMAKE_CURRENT_BINARY_DIR}/optimizer")
   add_subdirectory(passes "${CMAKE_CURRENT_BINARY_DIR}/passes")
   add_subdirectory(plugin_manager "${CMAKE_CURRENT_BINARY_DIR}/plugin_manager")
