@@ -574,28 +574,6 @@ private:
 
 extern bool deviceIsReady(int DeviceNum);
 
-#if INTEL_CUSTOMIZATION
-struct InteropTblTy {
-  // Just use a simple container for now. It might need to be refactored
-  // in the future if becomes a bottleneck.
-  typedef std::vector<__tgt_interop *> ContainerTy;
-  typedef ContainerTy::iterator iterator;
-
-  ContainerTy Interops;
-
-  void addInterop( __tgt_interop * iop ) { Interops.push_back(iop); }
-  void clear( );
-
-  // Iterators to traverse all interop objects
-  iterator begin ( ) { return Interops.begin(); }
-  iterator end ( ) { return Interops.end(); }
-  // Iterators to traverse at least interop objects owned by gtid/task. 
-  // With the current container we traverse all.
-  iterator begin ( int gtid, void *current_task ) { return Interops.begin(); }
-  iterator end ( int gtid, void *current_task ) { return Interops.end(); }
-};
-#endif
-
 /// Struct for the data required to handle plugins
 struct PluginManager {
   PluginManager(bool UseEventsForAtomicTransfers)
@@ -636,9 +614,6 @@ struct PluginManager {
   int64_t RootDeviceID = -1;
   int64_t SubDeviceMask = 0;
 #endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-  InteropTblTy InteropTbl;
-#endif
 };
 
 extern PluginManager *PM;

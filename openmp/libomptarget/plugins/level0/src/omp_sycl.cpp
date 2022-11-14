@@ -147,28 +147,4 @@ EXTERN void __tgt_sycl_delete_all_interop_wrapper() {
     delete obj;
 }
 
-EXTERN int32_t __tgt_sycl_flush_queue_wrapper(omp_interop_t interop) {
-  #if 0
-  // Without -fsycl the kernel is not recognized
-  // With -fsycl this file doesn't compile!
-  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
-  sycl::queue *Q = static_cast<sycl::queue *>(TgtInterop->TargetSync);
-  sycl::event evt = Q->submit([&] (sycl::handler& cgh) {
-       cgh.single_task<class emptyK>([=] {});
-  });
-  get_native<backend::level_zero>(evt);
-  return OFFLOAD_SUCCESS;
-  #else
-  static int warning = 0;
-  if ( !warning ) {
-      warning = 1;
-      fprintf(stderr,
-              "WARNING: Flush of SYCL objects is not yet supported.\n"
-              "WARNING: Ensure tha the queues are flushed in the application or "
-              "use SYCL_PI_LEVEL_ZERO_BATCH_SIZE=1\n");
-  }
-  return OFFLOAD_FAIL;
-  #endif
-}
-
 #endif // INTEL_CUSTOMIZATION

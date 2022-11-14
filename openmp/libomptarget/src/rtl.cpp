@@ -466,11 +466,6 @@ void RTLsTy::loadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_device_info);
     SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
     SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
-#if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(flush_queue);
-    SET_OPTIONAL_INTERFACE_FN(sync_barrier);
-    SET_OPTIONAL_INTERFACE_FN(async_barrier);
-#endif
     #undef SET_OPTIONAL_INTERFACE
     #undef SET_OPTIONAL_INTERFACE_FN
 
@@ -749,7 +744,6 @@ void RTLsTy::unregisterLib(__tgt_bin_desc *Desc) {
   DP("Unloading target library!\n");
 
   PM->RTLsMtx.lock();
-  PM->InteropTbl.clear();
   // Find which RTL understands each image, if any.
   for (auto &ImageAndInfo : PM->Images) {
     // Obtain the image and information that was previously extracted.
