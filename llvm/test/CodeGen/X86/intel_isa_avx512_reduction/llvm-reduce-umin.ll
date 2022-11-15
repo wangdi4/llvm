@@ -191,3 +191,259 @@ declare i64 @llvm.vector.reduce.umin.v4i64(<4 x i64>)
 declare i64 @llvm.vector.reduce.umin.v3i64(<3 x i64>)
 declare i64 @llvm.vector.reduce.umin.v2i64(<2 x i64>)
 declare i64 @llvm.vector.reduce.umin.v1i64(<1 x i64>)
+
+define i32 @reduce_uminw_17xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_uminw_17xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
+; AVX512REDUCTION-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
+; AVX512REDUCTION-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
+; AVX512REDUCTION-NEXT:    vpminud (%rdi), %zmm0, %zmm0
+; AVX512REDUCTION-NEXT:    vphrmind %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_17xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
+; AVX512F-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
+; AVX512F-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
+; AVX512F-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
+; AVX512F-NEXT:    vpminud (%rdi), %zmm0, %zmm0
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpminud %ymm1, %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrd $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %eax, %ecx
+; AVX512F-NEXT:    cmovbl %ecx, %eax
+; AVX512F-NEXT:    vpextrd $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %ecx, %eax
+; AVX512F-NEXT:    cmovael %ecx, %eax
+; AVX512F-NEXT:    vpextrd $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %ecx, %eax
+; AVX512F-NEXT:    cmovael %ecx, %eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <17 x i32>, ptr %p
+  %res = tail call i32 @llvm.vector.reduce.umin.v17i32(<17 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_16xi32(<16 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_uminw_16xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmind %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_16xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpminud %zmm1, %zmm0, %zmm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %res = tail call i32 @llvm.vector.reduce.umin.v16i32(<16 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_13xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_uminw_13xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
+; AVX512REDUCTION-NEXT:    vpternlogd $255, %zmm1, %zmm1, %zmm1
+; AVX512REDUCTION-NEXT:    movw $8192, %ax # imm = 0x2000
+; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
+; AVX512REDUCTION-NEXT:    vmovdqa32 %zmm1, %zmm0 {%k1}
+; AVX512REDUCTION-NEXT:    movw $16384, %ax # imm = 0x4000
+; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
+; AVX512REDUCTION-NEXT:    vmovdqa32 %zmm1, %zmm0 {%k1}
+; AVX512REDUCTION-NEXT:    movw $-32768, %ax # imm = 0x8000
+; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
+; AVX512REDUCTION-NEXT:    vmovdqa32 %zmm1, %zmm0 {%k1}
+; AVX512REDUCTION-NEXT:    vphrmind %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_13xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
+; AVX512F-NEXT:    vpternlogd $255, %zmm1, %zmm1, %zmm1
+; AVX512F-NEXT:    movw $8192, %ax # imm = 0x2000
+; AVX512F-NEXT:    kmovw %eax, %k1
+; AVX512F-NEXT:    vmovdqa32 %zmm1, %zmm0 {%k1}
+; AVX512F-NEXT:    movw $16384, %ax # imm = 0x4000
+; AVX512F-NEXT:    kmovw %eax, %k1
+; AVX512F-NEXT:    vmovdqa32 %zmm1, %zmm0 {%k1}
+; AVX512F-NEXT:    movw $-32768, %ax # imm = 0x8000
+; AVX512F-NEXT:    kmovw %eax, %k1
+; AVX512F-NEXT:    vmovdqa32 %zmm1, %zmm0 {%k1}
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpminud %ymm1, %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrd $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %eax, %ecx
+; AVX512F-NEXT:    cmovbl %ecx, %eax
+; AVX512F-NEXT:    vpextrd $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %ecx, %eax
+; AVX512F-NEXT:    cmovael %ecx, %eax
+; AVX512F-NEXT:    vpextrd $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %ecx, %eax
+; AVX512F-NEXT:    cmovael %ecx, %eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <13 x i32>, ptr %p
+  %res = tail call i32 @llvm.vector.reduce.umin.v13i32(<13 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_8xi32(<8 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_uminw_8xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmind %ymm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_8xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %res = tail call i32 @llvm.vector.reduce.umin.v8i32(<8 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_7xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_uminw_7xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vpcmpeqd %ymm0, %ymm0, %ymm0
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
+; AVX512REDUCTION-NEXT:    vphrmind %ymm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_7xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpcmpeqd %ymm0, %ymm0, %ymm0
+; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrd $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %eax, %ecx
+; AVX512F-NEXT:    cmovbl %ecx, %eax
+; AVX512F-NEXT:    vpextrd $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %ecx, %eax
+; AVX512F-NEXT:    cmovael %ecx, %eax
+; AVX512F-NEXT:    vpextrd $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpl %ecx, %eax
+; AVX512F-NEXT:    cmovael %ecx, %eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <7 x i32>, ptr %p
+  %res = tail call i32 @llvm.vector.reduce.umin.v7i32(<7 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_4xi32(<4 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_uminw_4xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmind %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_4xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    retq
+  %res = tail call i32 @llvm.vector.reduce.umin.v4i32(<4 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_3xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_uminw_3xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vpcmpeqd %xmm0, %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} xmm0 = mem[0,1,2],xmm0[3]
+; AVX512REDUCTION-NEXT:    vphrmind %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_3xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    movl (%rdi), %ecx
+; AVX512F-NEXT:    movl 4(%rdi), %eax
+; AVX512F-NEXT:    cmpl %eax, %ecx
+; AVX512F-NEXT:    cmovbl %ecx, %eax
+; AVX512F-NEXT:    movl 8(%rdi), %ecx
+; AVX512F-NEXT:    cmpl %ecx, %eax
+; AVX512F-NEXT:    cmovael %ecx, %eax
+; AVX512F-NEXT:    retq
+  %vec= load <3 x i32>, ptr %p
+  %res = tail call i32 @llvm.vector.reduce.umin.v3i32(<3 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_2xi32(<2 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_uminw_2xi32:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vpcmpeqd %xmm1, %xmm1, %xmm1
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} xmm0 = xmm0[0,1],xmm1[2,3]
+; AVX512REDUCTION-NEXT:    vphrmind %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_uminw_2xi32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
+; AVX512F-NEXT:    vpminud %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    retq
+  %res = tail call i32 @llvm.vector.reduce.umin.v2i32(<2 x i32> %vec)
+  ret i32 %res
+}
+
+define i32 @reduce_uminw_1xi32(<1 x i32> %vec) {
+; ALL-LABEL: reduce_uminw_1xi32:
+; ALL:       # %bb.0:
+; ALL-NEXT:    movl %edi, %eax
+; ALL-NEXT:    retq
+  %res = tail call i32 @llvm.vector.reduce.umin.v1i32(<1 x i32> %vec)
+  ret i32 %res
+}
+
+declare i32 @llvm.vector.reduce.umin.v17i32(<17 x i32>)
+declare i32 @llvm.vector.reduce.umin.v16i32(<16 x i32>)
+declare i32 @llvm.vector.reduce.umin.v13i32(<13 x i32>)
+declare i32 @llvm.vector.reduce.umin.v8i32(<8 x i32>)
+declare i32 @llvm.vector.reduce.umin.v7i32(<7 x i32>)
+declare i32 @llvm.vector.reduce.umin.v4i32(<4 x i32>)
+declare i32 @llvm.vector.reduce.umin.v3i32(<3 x i32>)
+declare i32 @llvm.vector.reduce.umin.v2i32(<2 x i32>)
+declare i32 @llvm.vector.reduce.umin.v1i32(<1 x i32>)
