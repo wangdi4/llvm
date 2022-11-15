@@ -80,7 +80,6 @@ static std::string getThinLTOOutputFile(StringRef path) {
 static lto::Config createConfig() {
   lto::Config c;
   c.Options = initTargetOptionsFromCodeGenFlags();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // This change has caused numerous CompFails in CPU2017 LIT testing.
   // Disabling it here
@@ -88,12 +87,9 @@ static lto::Config createConfig() {
   // c.Options.EmitAddrsig = true;
   c.Options.IntelLibIRCAllowed = config->intelLibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
-=======
-  c.Options.EmitAddrsig = true;
   for (StringRef C : config->mllvmOpts)
     c.MllvmArgs.emplace_back(C.str());
 
->>>>>>> 67d311a5fd5065059754098a5d1de6a8566d1fcd
   // Always emit a section per function/datum with LTO. LLVM LTO should get most
   // of the benefit of linker GC, but there are still opportunities for ICF.
   c.Options.FunctionSections = true;
