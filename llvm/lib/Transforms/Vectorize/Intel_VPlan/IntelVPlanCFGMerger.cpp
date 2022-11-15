@@ -1672,6 +1672,8 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P, VPLoopDescrMap &LoopDescrs) {
       DestLI->addTopLevelLoop(NewLoop);
 
     NewLoop->copyHasNormalizedInductionFlag(L);
+    if (L->getIsConflictLoop())
+      NewLoop->setIsConflictLoop();
     NewLoop->setOptReport(L->getOptReport());
     ExtVals.setOptRptStatsForLoop(NewLoop,
                                   ExtVals.getOrCreateOptRptStatsForLoop(L));

@@ -501,6 +501,7 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
     ParentLoop->addChildLoop(ConflictLoop);
     VPLI->changeLoopFor(ConflictHeader, ConflictLoop);
     ConflictLoop->addBlockEntry(ConflictHeader);
+    ConflictLoop->setIsConflictLoop();
 
     // Begin inserting pre-conflict loop instructions.
     VPBldr.setInsertPoint(TreeConflictParent->getTerminator());
@@ -679,6 +680,16 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
                             {TreeConflict->getConflictLoad(),
                             FinalVResPhi});
     DA->markDivergent(*StoreVal);
+
+    // Set max trip count for the conflict loop to VF. i.e., we know there
+    // won't be any more than VF iterations of the conflict loop since the
+    // max number of iterations will be VF conflicts. Setting trip count
+    // must be done here after the backedge for the loop has been set up.
+    // Otherwise, the call to setTripCountInfo will cause a stack trace
+    // because the latch won't be found.
+    TripCountInfo TCInfo;
+    TCInfo.MaxTripCount = VF;
+    ConflictLoop->setTripCountInfo(TCInfo);
 
     TreeConflict->replaceAllUsesWith(StoreVal);
     TreeConflictParent->eraseInstruction(TreeConflict);

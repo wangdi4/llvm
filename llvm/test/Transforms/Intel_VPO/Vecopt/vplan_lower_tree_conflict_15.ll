@@ -40,7 +40,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i16* nocapture nou
 ; CHECK-VF4-NEXT:        |      [[PHI_TEMP70:%.*]] = [[DOTVEC20]]
 ; CHECK-VF4-NEXT:        |      [[PHI_TEMP90:%.*]] = [[DOTVEC40]]
 ; CHECK-VF4-NEXT:        |
-; CHECK-VF4-NEXT:        |      + UNKNOWN LOOP i2 <novectorize>
+; CHECK-VF4-NEXT:        |      + UNKNOWN LOOP i2 <MAX_TC_EST = 4>  <LEGAL_MAX_TC = 4> <nounroll> <novectorize>
 ; CHECK-VF4-NEXT:        |      |   <i2 = 0>
 ; CHECK-VF4-NEXT:        |      |   [[BB0:BB[0-9]+]].43:
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC110:%.*]] = bitcast.<4 x i32>.<4 x float>([[PHI_TEMP70]])
@@ -95,7 +95,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i16* nocapture nou
 ; CHECK-VF8-NEXT:        |      [[PHI_TEMP70:%.*]] = [[DOTVEC20]]
 ; CHECK-VF8-NEXT:        |      [[PHI_TEMP90:%.*]] = [[DOTVEC40]]
 ; CHECK-VF8-NEXT:        |
-; CHECK-VF8-NEXT:        |      + UNKNOWN LOOP i2 <novectorize>
+; CHECK-VF8-NEXT:        |      + UNKNOWN LOOP i2 <MAX_TC_EST = 8>  <LEGAL_MAX_TC = 8> <nounroll> <novectorize>
 ; CHECK-VF8-NEXT:        |      |   <i2 = 0>
 ; CHECK-VF8-NEXT:        |      |   [[BB0:BB[0-9]+]].43:
 ; CHECK-VF8-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx2.permd([[PHI_TEMP70]],  [[PHI_TEMP50]])
