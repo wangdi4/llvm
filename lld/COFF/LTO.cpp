@@ -87,6 +87,9 @@ static lto::Config createConfig() {
   // c.Options.EmitAddrsig = true;
   c.Options.IntelLibIRCAllowed = config->intelLibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
+  for (StringRef C : config->mllvmOpts)
+    c.MllvmArgs.emplace_back(C.str());
+
   // Always emit a section per function/datum with LTO. LLVM LTO should get most
   // of the benefit of linker GC, but there are still opportunities for ICF.
   c.Options.FunctionSections = true;
