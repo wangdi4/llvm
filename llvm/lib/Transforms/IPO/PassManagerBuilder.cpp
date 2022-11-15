@@ -105,7 +105,6 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 #define INTEL_LIMIT_BEGIN(METHOD, PM)                                          \
@@ -355,11 +354,6 @@ static cl::opt<bool> EnableSimpleLoopUnswitch(
     cl::desc("Enable the simple loop unswitch pass. Also enables independent "
              "cleanup passes integrated into the loop pass manager pipeline."));
 #endif // INTEL_CUSTOMIZATION
-=======
-namespace llvm {
-cl::opt<bool> SYCLOptimizationMode("sycl-opt", cl::init(false), cl::Hidden,
-                                   cl::desc("Enable SYCL optimization mode."));
->>>>>>> 0a8ebb35cb14f95534aa32ae36404c6445b60a4a
 } // namespace llvm
 
 PassManagerBuilder::PassManagerBuilder() {
@@ -600,7 +594,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createReassociatePass()); // Reassociate expressions
 #endif // INTEL_COLLAB
 
-<<<<<<< HEAD
 
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
@@ -665,50 +658,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
     // This ends the loop pass pipelines.
-=======
-// Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
-// optimizations rely on TTI, which is not accurate for SPIR target.
-if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
-  // Begin the loop pass pipeline.
-
-  // The simple loop unswitch pass relies on separate cleanup passes. Schedule
-  // them first so when we re-process a loop they run before other loop
-  // passes.
-  MPM.add(createLoopInstSimplifyPass());
-  MPM.add(createLoopSimplifyCFGPass());
-
-  // Try to remove as much code from the loop header as possible,
-  // to reduce amount of IR that will have to be duplicated. However,
-  // do not perform speculative hoisting the first time as LICM
-  // will destroy metadata that may not need to be destroyed if run
-  // after loop rotation.
-  // TODO: Investigate promotion cap for O1.
-  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                         /*AllowSpeculation=*/false));
-  // Rotate Loop - disable header duplication at -Oz
-  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
-  // TODO: Investigate promotion cap for O1.
-  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                         /*AllowSpeculation=*/true));
-  MPM.add(createSimpleLoopUnswitchLegacyPass(OptLevel == 3));
-  // FIXME: We break the loop pass pipeline here in order to do full
-  // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
-  // the need for this.
-  MPM.add(createCFGSimplificationPass(
-      SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-  MPM.add(createInstructionCombiningPass());
-  // We resume loop passes creating a second loop pipeline here.
-  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
-  MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  addExtensionsToPM(EP_LateLoopOptimizations, MPM);
-  MPM.add(createLoopDeletionPass());          // Delete dead loops
-
-  // Unroll small loops and perform peeling.
-  MPM.add(createSimpleLoopUnrollPass(OptLevel, DisableUnrollLoops,
-                                     ForgetAllSCEVInLoopUnroll));
-  addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
-  // This ends the loop pass pipelines.
->>>>>>> 0a8ebb35cb14f95534aa32ae36404c6445b60a4a
 
 } // broken formatting on this line to simplify pulldown
 
