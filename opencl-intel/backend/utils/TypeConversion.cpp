@@ -22,7 +22,7 @@ using namespace llvm;
 namespace intel {
 
 class ConversionVisitor : public reflection::TypeVisitor {
-  llvm::Type *m_llvmTy;
+  llvm::Type *m_llvmTy{nullptr};
   llvm::LLVMContext &m_Ctx;
 
   bool isAddressSpace(reflection::TypeAttributeEnum attr) {
