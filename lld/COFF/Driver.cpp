@@ -1636,12 +1636,17 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   // Parse and evaluate -mllvm options.
   std::vector<const char *> v;
   v.push_back("lld-link (LLVM option parsing)");
-  for (auto *arg : args.filtered(OPT_mllvm))
+  for (const auto *arg : args.filtered(OPT_mllvm)) {
     v.push_back(arg->getValue());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Don't reset llvm::cl states if coff::link is embedded in the compiler.
   if (!args.hasArg(OPT_intel_embedded_linker))
 #endif // INTEL_CUSTOMIZATION
+=======
+    config->mllvmOpts.emplace_back(arg->getValue());
+  }
+>>>>>>> 67d311a5fd5065059754098a5d1de6a8566d1fcd
   cl::ResetAllOptionOccurrences();
   cl::ParseCommandLineOptions(v.size(), v.data());
 

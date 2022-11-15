@@ -227,6 +227,7 @@ struct Configuration {
 
   SymtabPresence localSymbolsPresence = SymtabPresence::All;
   SymbolPatterns localSymbolPatterns;
+  llvm::SmallVector<llvm::StringRef, 0> mllvmOpts;
 
   bool zeroModTime = true;
 
