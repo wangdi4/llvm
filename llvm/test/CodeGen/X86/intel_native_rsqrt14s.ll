@@ -23,7 +23,7 @@ define float @test_native_rsqrt14_ss(float %data) #0 {
       ret float %div
   }
 
-define <2 x float> @test_native_rsqrt14_ps_128(<2 x float> %data) #0 {
+define <4 x float> @test_native_rsqrt14_ps_128(<4 x float> %data) #0 {
 ; AVX512VL-LABEL: test_native_rsqrt14_ps_128:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vrsqrt14ps %xmm0, %xmm0
@@ -33,33 +33,18 @@ define <2 x float> @test_native_rsqrt14_ps_128(<2 x float> %data) #0 {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vrsqrtps %xmm0, %xmm0
 ; AVX-NEXT:    retq
-    %sqrt = tail call <2 x float> @llvm.sqrt.v2f32(<2 x float> %data)
-    %div = fdiv fast <2 x float> <float 1.0, float 1.0>, %sqrt
-    ret <2 x float> %div
-}
-
-define <4 x float> @test_native_rsqrt14_ps_256(<4 x float> %data) #0 {
-; AVX512VL-LABEL: test_native_rsqrt14_ps_256:
-; AVX512VL:       # %bb.0:
-; AVX512VL-NEXT:    vrsqrt14ps %xmm0, %xmm0
-; AVX512VL-NEXT:    retq
-;
-; AVX-LABEL: test_native_rsqrt14_ps_256:
-; AVX:       # %bb.0:
-; AVX-NEXT:    vrsqrtps %xmm0, %xmm0
-; AVX-NEXT:    retq
     %sqrt = tail call <4 x float> @llvm.sqrt.v4f32(<4 x float> %data)
     %div = fdiv fast <4 x float> <float 1.0, float 1.0, float 1.0, float 1.0>, %sqrt
     ret <4 x float> %div
 }
 
-define <8 x float> @test_native_rsqrt14_ps_512(<8 x float> %data) #0 {
-; AVX512VL-LABEL: test_native_rsqrt14_ps_512:
+define <8 x float> @test_native_rsqrt14_ps_256(<8 x float> %data) #0 {
+; AVX512VL-LABEL: test_native_rsqrt14_ps_256:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vrsqrt14ps %ymm0, %ymm0
 ; AVX512VL-NEXT:    retq
 ;
-; AVX-LABEL: test_native_rsqrt14_ps_512:
+; AVX-LABEL: test_native_rsqrt14_ps_256:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
 ; AVX-NEXT:    retq
@@ -68,6 +53,21 @@ define <8 x float> @test_native_rsqrt14_ps_512(<8 x float> %data) #0 {
     ret <8 x float> %div
 }
 
+define <16 x float> @test_native_rsqrt14_ps_512(<16 x float> %data) #0 {
+; AVX512VL-LABEL: test_native_rsqrt14_ps_512:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrsqrt14ps %zmm0, %zmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_rsqrt14_ps_512:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm1, %ymm1
+; AVX-NEXT:    retq
+    %sqrt = tail call <16 x float> @llvm.sqrt.v16f32(<16 x float> %data)
+    %div = fdiv fast <16 x float> <float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0>, %sqrt
+    ret <16 x float> %div
+}
 define float @test_native_rsqrt14_ss_acc_bit14(float %data) #1 {
 ; AVX512VL-LABEL: test_native_rsqrt14_ss_acc_bit14:
 ; AVX512VL:       # %bb.0:
@@ -83,7 +83,7 @@ define float @test_native_rsqrt14_ss_acc_bit14(float %data) #1 {
       ret float %div
   }
 
-define <2 x float> @test_native_rsqrt14_ps_128_acc_bit14(<2 x float> %data) #1 {
+define <4 x float> @test_native_rsqrt14_ps_128_acc_bit14(<4 x float> %data) #1 {
 ; AVX512VL-LABEL: test_native_rsqrt14_ps_128_acc_bit14:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vrsqrt14ps %xmm0, %xmm0
@@ -93,33 +93,18 @@ define <2 x float> @test_native_rsqrt14_ps_128_acc_bit14(<2 x float> %data) #1 {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vrsqrtps %xmm0, %xmm0
 ; AVX-NEXT:    retq
-    %sqrt = tail call <2 x float> @llvm.sqrt.v2f32(<2 x float> %data)
-    %div = fdiv fast <2 x float> <float 1.0, float 1.0>, %sqrt
-    ret <2 x float> %div
-}
-
-define <4 x float> @test_native_rsqrt14_ps_256_acc_bit14(<4 x float> %data) #1 {
-; AVX512VL-LABEL: test_native_rsqrt14_ps_256_acc_bit14:
-; AVX512VL:       # %bb.0:
-; AVX512VL-NEXT:    vrsqrt14ps %xmm0, %xmm0
-; AVX512VL-NEXT:    retq
-;
-; AVX-LABEL: test_native_rsqrt14_ps_256_acc_bit14:
-; AVX:       # %bb.0:
-; AVX-NEXT:    vrsqrtps %xmm0, %xmm0
-; AVX-NEXT:    retq
     %sqrt = tail call <4 x float> @llvm.sqrt.v4f32(<4 x float> %data)
     %div = fdiv fast <4 x float> <float 1.0, float 1.0, float 1.0, float 1.0>, %sqrt
     ret <4 x float> %div
 }
 
-define <8 x float> @test_native_rsqrt14_ps_512_acc_bit14(<8 x float> %data) #1 {
-; AVX512VL-LABEL: test_native_rsqrt14_ps_512_acc_bit14:
+define <8 x float> @test_native_rsqrt14_ps_256_acc_bit14(<8 x float> %data) #1 {
+; AVX512VL-LABEL: test_native_rsqrt14_ps_256_acc_bit14:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vrsqrt14ps %ymm0, %ymm0
 ; AVX512VL-NEXT:    retq
 ;
-; AVX-LABEL: test_native_rsqrt14_ps_512_acc_bit14:
+; AVX-LABEL: test_native_rsqrt14_ps_256_acc_bit14:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
 ; AVX-NEXT:    retq
@@ -128,7 +113,220 @@ define <8 x float> @test_native_rsqrt14_ps_512_acc_bit14(<8 x float> %data) #1 {
     ret <8 x float> %div
 }
 
+define <16 x float> @test_native_rsqrt14_ps_512_acc_bit14(<16 x float> %data) #1 {
+; AVX512VL-LABEL: test_native_rsqrt14_ps_512_acc_bit14:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrsqrt14ps %zmm0, %zmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_rsqrt14_ps_512_acc_bit14:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm1, %ymm1
+; AVX-NEXT:    retq
+    %sqrt = tail call <16 x float> @llvm.sqrt.v16f32(<16 x float> %data)
+    %div = fdiv fast <16 x float> <float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0, float 1.0>, %sqrt
+    ret <16 x float> %div
+}
 
+define float @test_native_div_sqrt14_ss(float %a, float %b) #0 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ss:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vdivss %xmm0, %xmm1, %xmm0
+; AVX512VL-NEXT:    vrsqrt14ss %xmm0, %xmm0, %xmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ss:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vdivss %xmm0, %xmm1, %xmm0
+; AVX-NEXT:    vrsqrtss %xmm0, %xmm0, %xmm0
+; AVX-NEXT:    retq
+    %div = fdiv fast float %a, %b
+    %sqrt = tail call fast float @llvm.sqrt.f32(float %div)
+    ret float %sqrt
+  }
+
+define <4 x float> @test_native_div_sqrt14_ps_128(<4 x float> %a, <4 x float> %b) #0 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ps_128:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrcp14ps %xmm0, %xmm2
+; AVX512VL-NEXT:    vfmsub213ps {{.*#+}} xmm0 = (xmm2 * xmm0) - mem
+; AVX512VL-NEXT:    vmulps %xmm1, %xmm2, %xmm1
+; AVX512VL-NEXT:    vfnmadd213ps {{.*#+}} xmm1 = -(xmm0 * xmm1) + xmm1
+; AVX512VL-NEXT:    vrsqrt14ps %xmm1, %xmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ps_128:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrcpps %xmm0, %xmm2
+; AVX-NEXT:    vmulps %xmm2, %xmm1, %xmm3
+; AVX-NEXT:    vmulps %xmm3, %xmm0, %xmm0
+; AVX-NEXT:    vsubps %xmm0, %xmm1, %xmm0
+; AVX-NEXT:    vmulps %xmm0, %xmm2, %xmm0
+; AVX-NEXT:    vaddps %xmm0, %xmm3, %xmm0
+; AVX-NEXT:    vrsqrtps %xmm0, %xmm0
+; AVX-NEXT:    retq
+    %div = fdiv fast <4 x float> %a, %b
+    %sqrt = tail call fast <4 x float> @llvm.sqrt.v4f32(<4 x float> %div)
+    ret <4 x float> %sqrt
+}
+
+define <8 x float> @test_native_div_sqrt14_ps_256(<8 x float> %a, <8 x float> %b) #0 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ps_256:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrcp14ps %ymm0, %ymm2
+; AVX512VL-NEXT:    vfmsub213ps {{.*#+}} ymm0 = (ymm2 * ymm0) - mem
+; AVX512VL-NEXT:    vmulps %ymm1, %ymm2, %ymm1
+; AVX512VL-NEXT:    vfnmadd213ps {{.*#+}} ymm1 = -(ymm0 * ymm1) + ymm1
+; AVX512VL-NEXT:    vrsqrt14ps %ymm1, %ymm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ps_256:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrcpps %ymm0, %ymm2
+; AVX-NEXT:    vmulps %ymm2, %ymm1, %ymm3
+; AVX-NEXT:    vmulps %ymm3, %ymm0, %ymm0
+; AVX-NEXT:    vsubps %ymm0, %ymm1, %ymm0
+; AVX-NEXT:    vmulps %ymm0, %ymm2, %ymm0
+; AVX-NEXT:    vaddps %ymm0, %ymm3, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
+; AVX-NEXT:    retq
+    %div = fdiv fast <8 x float> %a, %b
+    %sqrt = tail call fast <8 x float> @llvm.sqrt.v8f32(<8 x float> %div)
+    ret <8 x float> %sqrt
+}
+
+define <16 x float> @test_native_div_sqrt14_ps_512(<16 x float> %a, <16 x float> %b) #0 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ps_512:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrcp14ps %zmm0, %zmm2
+; AVX512VL-NEXT:    vfmsub213ps {{.*#+}} zmm0 = (zmm2 * zmm0) - mem
+; AVX512VL-NEXT:    vmulps %zmm1, %zmm2, %zmm1
+; AVX512VL-NEXT:    vfnmadd213ps {{.*#+}} zmm1 = -(zmm0 * zmm1) + zmm1
+; AVX512VL-NEXT:    vrsqrt14ps %zmm1, %zmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ps_512:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrcpps %ymm1, %ymm4
+; AVX-NEXT:    vmulps %ymm4, %ymm3, %ymm5
+; AVX-NEXT:    vmulps %ymm5, %ymm1, %ymm1
+; AVX-NEXT:    vsubps %ymm1, %ymm3, %ymm1
+; AVX-NEXT:    vmulps %ymm1, %ymm4, %ymm1
+; AVX-NEXT:    vaddps %ymm1, %ymm5, %ymm1
+; AVX-NEXT:    vrcpps %ymm0, %ymm3
+; AVX-NEXT:    vmulps %ymm3, %ymm2, %ymm4
+; AVX-NEXT:    vmulps %ymm4, %ymm0, %ymm0
+; AVX-NEXT:    vsubps %ymm0, %ymm2, %ymm0
+; AVX-NEXT:    vmulps %ymm0, %ymm3, %ymm0
+; AVX-NEXT:    vaddps %ymm0, %ymm4, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm1, %ymm1
+; AVX-NEXT:    retq
+    %div = fdiv fast <16 x float> %a, %b
+    %sqrt = tail call fast <16 x float> @llvm.sqrt.v16f32(<16 x float> %div)
+    ret <16 x float> %sqrt
+}
+
+define float @test_native_div_sqrt14_ss_acc_bit14(float %a, float %b) #1 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ss_acc_bit14:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vdivss %xmm0, %xmm1, %xmm0
+; AVX512VL-NEXT:    vrsqrt14ss %xmm0, %xmm0, %xmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ss_acc_bit14:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vdivss %xmm0, %xmm1, %xmm0
+; AVX-NEXT:    vrsqrtss %xmm0, %xmm0, %xmm0
+; AVX-NEXT:    retq
+    %div = fdiv fast float %a, %b
+    %sqrt = tail call fast float @llvm.sqrt.f32(float %div)
+    ret float %sqrt
+  }
+
+define <4 x float> @test_native_div_sqrt14_ps_128_acc_bit14(<4 x float> %a, <4 x float> %b) #1 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ps_128_acc_bit14:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrcp14ps %xmm0, %xmm2
+; AVX512VL-NEXT:    vfmsub213ps {{.*#+}} xmm0 = (xmm2 * xmm0) - mem
+; AVX512VL-NEXT:    vmulps %xmm1, %xmm2, %xmm1
+; AVX512VL-NEXT:    vfnmadd213ps {{.*#+}} xmm1 = -(xmm0 * xmm1) + xmm1
+; AVX512VL-NEXT:    vrsqrt14ps %xmm1, %xmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ps_128_acc_bit14:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrcpps %xmm0, %xmm2
+; AVX-NEXT:    vmulps %xmm2, %xmm1, %xmm3
+; AVX-NEXT:    vmulps %xmm3, %xmm0, %xmm0
+; AVX-NEXT:    vsubps %xmm0, %xmm1, %xmm0
+; AVX-NEXT:    vmulps %xmm0, %xmm2, %xmm0
+; AVX-NEXT:    vaddps %xmm0, %xmm3, %xmm0
+; AVX-NEXT:    vrsqrtps %xmm0, %xmm0
+; AVX-NEXT:    retq
+    %div = fdiv fast <4 x float> %a, %b
+    %sqrt = tail call fast <4 x float> @llvm.sqrt.v4f32(<4 x float> %div)
+    ret <4 x float> %sqrt
+}
+
+define <8 x float> @test_native_div_sqrt14_ps_256_acc_bit14(<8 x float> %a, <8 x float> %b) #1 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ps_256_acc_bit14:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrcp14ps %ymm0, %ymm2
+; AVX512VL-NEXT:    vfmsub213ps {{.*#+}} ymm0 = (ymm2 * ymm0) - mem
+; AVX512VL-NEXT:    vmulps %ymm1, %ymm2, %ymm1
+; AVX512VL-NEXT:    vfnmadd213ps {{.*#+}} ymm1 = -(ymm0 * ymm1) + ymm1
+; AVX512VL-NEXT:    vrsqrt14ps %ymm1, %ymm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ps_256_acc_bit14:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrcpps %ymm0, %ymm2
+; AVX-NEXT:    vmulps %ymm2, %ymm1, %ymm3
+; AVX-NEXT:    vmulps %ymm3, %ymm0, %ymm0
+; AVX-NEXT:    vsubps %ymm0, %ymm1, %ymm0
+; AVX-NEXT:    vmulps %ymm0, %ymm2, %ymm0
+; AVX-NEXT:    vaddps %ymm0, %ymm3, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
+; AVX-NEXT:    retq
+    %div = fdiv fast <8 x float> %a, %b
+    %sqrt = tail call fast <8 x float> @llvm.sqrt.v8f32(<8 x float> %div)
+    ret <8 x float> %sqrt
+}
+
+
+define <16 x float> @test_native_div_sqrt14_ps_512_acc_bit14(<16 x float> %a, <16 x float> %b) #1 {
+; AVX512VL-LABEL: test_native_div_sqrt14_ps_512_acc_bit14:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vrcp14ps %zmm0, %zmm2
+; AVX512VL-NEXT:    vfmsub213ps {{.*#+}} zmm0 = (zmm2 * zmm0) - mem
+; AVX512VL-NEXT:    vmulps %zmm1, %zmm2, %zmm1
+; AVX512VL-NEXT:    vfnmadd213ps {{.*#+}} zmm1 = -(zmm0 * zmm1) + zmm1
+; AVX512VL-NEXT:    vrsqrt14ps %zmm1, %zmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX-LABEL: test_native_div_sqrt14_ps_512_acc_bit14:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vrcpps %ymm1, %ymm4
+; AVX-NEXT:    vmulps %ymm4, %ymm3, %ymm5
+; AVX-NEXT:    vmulps %ymm5, %ymm1, %ymm1
+; AVX-NEXT:    vsubps %ymm1, %ymm3, %ymm1
+; AVX-NEXT:    vmulps %ymm1, %ymm4, %ymm1
+; AVX-NEXT:    vaddps %ymm1, %ymm5, %ymm1
+; AVX-NEXT:    vrcpps %ymm0, %ymm3
+; AVX-NEXT:    vmulps %ymm3, %ymm2, %ymm4
+; AVX-NEXT:    vmulps %ymm4, %ymm0, %ymm0
+; AVX-NEXT:    vsubps %ymm0, %ymm2, %ymm0
+; AVX-NEXT:    vmulps %ymm0, %ymm3, %ymm0
+; AVX-NEXT:    vaddps %ymm0, %ymm4, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm0, %ymm0
+; AVX-NEXT:    vrsqrtps %ymm1, %ymm1
+; AVX-NEXT:    retq
+    %div = fdiv fast <16 x float> %a, %b
+    %sqrt = tail call fast <16 x float> @llvm.sqrt.v16f32(<16 x float> %div)
+    ret <16 x float> %sqrt
+}
 
 attributes #0 = { "reciprocal-estimates"="sqrtf:0,vec-sqrtf:0" }
 attributes #1 = { "imf-accuracy-bits-sqrt"="11" }
