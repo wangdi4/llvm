@@ -685,13 +685,11 @@ public:
     // the uses of them within constant expressions.
     for (auto &F : M)
       for (auto *U : F.users())
-        if (auto *CE = dyn_cast<ConstantExpr>(U))
-          analyzeConstantExpr(CE);
+        analyzeGVUser(U);
 
     for (auto &GV : M.globals())
       for (auto *U : GV.users())
-        if (auto *CE = dyn_cast<ConstantExpr>(U))
-          analyzeConstantExpr(CE);
+        analyzeGVUser(U);
   }
 
   // For certain library global variables that are of known types, set them
@@ -4273,6 +4271,20 @@ private:
       ResultInfo->setPartiallyAnalyzed();
   }
 
+  void analyzeGVUser(User *U) {
+    if (auto *CE = dyn_cast<ConstantExpr>(U)) {
+      analyzeConstantExpr(CE);
+    } else if (auto *GA = dyn_cast<GlobalAlias>(U)) {
+      ValueTypeInfo *DInfo = PTA.getOrCreateValueTypeInfo(GA);
+      ValueTypeInfo *SInfo = PTA.getOrCreateValueTypeInfo(GA->getAliasee());
+      propagate(SInfo, DInfo, /*Decl=*/true, /*Use=*/true,
+                DerefType::DT_SameType);
+      DInfo->setCompletelyAnalyzed();
+      for (auto *UU : GA->users())
+        analyzeGVUser(UU);
+    }
+  }
+
   // Perform pointer type analysis for constant operator expressions
   void analyzeConstantExpr(ConstantExpr *CE) {
     // This verbose trace is not using the filtering predicate test because
@@ -4300,8 +4312,7 @@ private:
     }
 
     for (auto *U : CE->users())
-      if (auto *UCE = dyn_cast<ConstantExpr>(U))
-        analyzeConstantExpr(UCE);
+      analyzeGVUser(U);
 
     DEBUG_WITH_TYPE(VERBOSE_TRACE, {
       dbgs() << "End analyzeConstantExpr for: ";

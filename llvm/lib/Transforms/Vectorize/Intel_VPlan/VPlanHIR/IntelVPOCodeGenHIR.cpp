@@ -1469,6 +1469,21 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     // a vectorized outer loop.
     if (!VPLpHLoop.first->getParentLoop() && !HLoop->isConstTripLoop())
       HLoop->markDoNotUnroll();
+
+    // Do not unroll conflict loops for tree conflict idiom. See CMPLRLLVM-38449
+    // as it causes buildtime regression for no gain.
+    if (VPLpHLoop.first->getIsConflictLoop()) {
+      HLoop->markDoNotUnroll();
+      // Setting max trip count is necessary for downstream optimizations such
+      // as prefetcher so that it will avoid small max trip count loops.
+      TripCountInfo TCInfo = VPLpHLoop.first->getTripCountInfo();
+      // The trip count estimate and legal max trip count don't survive after
+      // HIRCodeGen.
+      HLoop->setMaxTripCountEstimate(TCInfo.MaxTripCount);
+      HLoop->setLegalMaxTripCount(TCInfo.MaxTripCount);
+      // This sets loop metadata that survives after HIRCodeGen.
+      HLoop->setPragmaBasedMaximumTripCount(TCInfo.MaxTripCount);
+    }
   }
   if (NeedRemainderLoop)
     OrigLoop->markDoNotVectorize();
