@@ -612,13 +612,8 @@ enum class LoopOptMode { None, LightWeight, Full };
 extern cl::opt<LoopOptMode> RunLoopOpts;
 extern cl::opt<bool> EnableTbaaProp;
 #endif // INTEL_CUSTOMIZATION
-extern cl::opt<bool> ExtraVectorizerPasses;
 extern cl::opt<unsigned> MaxDevirtIterations;
 extern cl::opt<bool> EnableKnowledgeRetention;
-<<<<<<< HEAD
-extern cl::opt<bool> EnableMatrix;
-extern cl::opt<bool> DisablePreInliner;
-extern cl::opt<int> PreInlineThreshold;
 #if INTEL_COLLAB
 // TODO: Change this to an enum class in PassManagerBuilder.cpp
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
@@ -644,8 +639,6 @@ extern cl::opt<bool> EnableStdContainerOpt;
 extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
 extern cl::opt<bool> EarlyJumpThreading;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> df95e76cb25aa1c78ba0e02d4120d7141d745203
 
 extern cl::opt<bool> SYCLOptimizationMode;
 } // namespace llvm
