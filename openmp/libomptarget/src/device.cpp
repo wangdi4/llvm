@@ -1011,10 +1011,15 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
 __tgt_interop *DeviceTy::createInterop(int32_t InteropContext,
                                        int32_t NumPrefers,
                                        int32_t *PreferIDs) {
-  if (RTL->create_interop)
-    return RTL->create_interop(RTLDeviceID, InteropContext, NumPrefers,
+  if (RTL->create_interop) {
+    __tgt_interop * ret = RTL->create_interop(RTLDeviceID, InteropContext, NumPrefers,
                                PreferIDs);
-  else
+    // common fields to all plugin
+    ret->OwnerGtid = -1;
+    ret->OwnerTask = NULL;
+    ret->markDirty();
+    return ret;
+  } else
     return NULL;
 }
 
@@ -1289,3 +1294,80 @@ bool deviceIsReady(int DeviceNum) {
 
   return true;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+bool __tgt_interop :: isCompatibleWith ( int32_t interop_type, 
+		          uint32_t num_prefers, int32_t *prefer_ids,
+                          int64_t device_num, int gtid, void *current_task )
+{
+  if ( DeviceNum != device_num ) return false;
+  if ( interop_type != OMP_INTEROP_CONTEXT_TARGET && 
+       interop_type != OMP_INTEROP_CONTEXT_TARGETSYNC )
+    return false;
+  if ( interop_type == OMP_INTEROP_CONTEXT_TARGETSYNC && TargetSync == NULL )
+    return false;
+
+  if ( num_prefers > 0 ) {
+    int fid;
+    for ( fid = 0; fid < num_prefers; fid++ )
+       if ( prefer_ids[fid] == FrId ) break;
+    if ( fid == num_prefers ) return false;
+  }
+
+  if ( gtid != OwnerGtid ) return false;
+#if 0
+  // Task ownernship mode still not fully implemented
+  if ( current_task != OwnerTask ) return false;
+#endif
+  return true;
+}
+
+bool __tgt_interop :: isOwnedBy ( int gtid, void *current_task )
+{
+  if ( gtid == OwnerGtid ) return true;
+#if 0
+  // Task ownernship mode still not fully implemented
+  if ( current_task != OwnerTask ) return false;
+#endif
+  return false;
+}
+
+int32_t __tgt_interop :: flush ( )
+{
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  if (Device.RTL->flush_queue)
+    return Device.RTL->flush_queue(this);
+
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_interop :: syncBarrier ( )
+{
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  if (Device.RTL->sync_barrier)
+    return Device.RTL->sync_barrier(this);
+
+  return OFFLOAD_FAIL;
+}
+
+int32_t __tgt_interop :: asyncBarrier ( )
+{
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  if (Device.RTL->async_barrier)
+    return Device.RTL->async_barrier(this);
+
+  return OFFLOAD_FAIL;
+}
+
+void InteropTblTy::clear ( )
+{
+  DP("Clearing Interop Table\n");
+  for( __tgt_interop * iop : Interops ) {
+     iop->flush();
+     iop->syncBarrier();
+     PM->Devices[iop->DeviceNum]->releaseInterop(iop);
+  }
+  Interops.clear();
+}
+
+#endif
