@@ -163,6 +163,173 @@ define <8 x double> @test_native_rsqrt14_pd_512_imf_acc_bt26(<8 x double> %data)
   ret <8 x double> %div
 }
 
+define double @test_native_div_sqrt14_sd(double %a, double %b) #0 {
+; CHECK-LABEL: test_native_div_sqrt14_sd:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivsd %xmm0, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf3,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14sd %xmm0, %xmm0, %xmm0 # encoding: [0x62,0xf2,0xfd,0x08,0x4f,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast double %a, %b
+    %sqrt = tail call fast double @llvm.sqrt.f64(double %div)
+    ret double %sqrt
+  }
+
+define <2 x double> @test_native_div_sqrt14_pd_128(<2 x double> %a, <2 x double> %b) #0 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_128:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %xmm0, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %xmm0, %xmm0 # encoding: [0x62,0xf2,0xfd,0x08,0x4e,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <2 x double> %a, %b
+    %sqrt = tail call fast <2 x double> @llvm.sqrt.v2f64(<2 x double> %div)
+    ret <2 x double> %sqrt
+}
+
+define <4 x double> @test_native_div_sqrt14_pd_256(<4 x double> %a, <4 x double> %b) #0 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_256:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %ymm0, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xf5,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %ymm0, %ymm0 # encoding: [0x62,0xf2,0xfd,0x28,0x4e,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <4 x double> %a, %b
+    %sqrt = tail call fast <4 x double> @llvm.sqrt.v4f64(<4 x double> %div)
+    ret <4 x double> %sqrt
+}
+
+define <8 x double> @test_native_div_sqrt14_pd_512(<8 x double> %a, <8 x double> %b) #0 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %zmm0, %zmm1, %zmm0 # encoding: [0x62,0xf1,0xf5,0x48,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %zmm0, %zmm0 # encoding: [0x62,0xf2,0xfd,0x48,0x4e,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <8 x double> %a, %b
+    %sqrt = tail call fast <8 x double> @llvm.sqrt.v8f64(<8 x double> %div)
+    ret <8 x double> %sqrt
+}
+
+define double @test_native_div_sqrt14_sd_acc_bit14(double %a, double %b) #1 {
+; CHECK-LABEL: test_native_div_sqrt14_sd_acc_bit14:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivsd %xmm0, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf3,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14sd %xmm0, %xmm0, %xmm0 # encoding: [0x62,0xf2,0xfd,0x08,0x4f,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast double %a, %b
+    %sqrt = tail call fast double @llvm.sqrt.f64(double %div)
+    ret double %sqrt
+  }
+
+define <2 x double> @test_native_div_sqrt14_pd_128_acc_bit14(<2 x double> %a, <2 x double> %b) #1 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_128_acc_bit14:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %xmm0, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %xmm0, %xmm0 # encoding: [0x62,0xf2,0xfd,0x08,0x4e,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <2 x double> %a, %b
+    %sqrt = tail call fast <2 x double> @llvm.sqrt.v2f64(<2 x double> %div)
+    ret <2 x double> %sqrt
+}
+
+define <4 x double> @test_native_div_sqrt14_pd_256_acc_bit14(<4 x double> %a, <4 x double> %b) #1 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_256_acc_bit14:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %ymm0, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xf5,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %ymm0, %ymm0 # encoding: [0x62,0xf2,0xfd,0x28,0x4e,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <4 x double> %a, %b
+    %sqrt = tail call fast <4 x double> @llvm.sqrt.v4f64(<4 x double> %div)
+    ret <4 x double> %sqrt
+}
+
+define <8 x double> @test_native_div_sqrt14_pd_512_acc_bit14(<8 x double> %a, <8 x double> %b) #1 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_512_acc_bit14:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %zmm0, %zmm1, %zmm0 # encoding: [0x62,0xf1,0xf5,0x48,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %zmm0, %zmm0 # encoding: [0x62,0xf2,0xfd,0x48,0x4e,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <8 x double> %a, %b
+    %sqrt = tail call fast <8 x double> @llvm.sqrt.v8f64(<8 x double> %div)
+    ret <8 x double> %sqrt
+}
+define double @test_native_div_sqrt14_sd_acc_bit26(double %a, double %b) #2 {
+; CHECK-LABEL: test_native_div_sqrt14_sd_acc_bit26:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivsd %xmm0, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf3,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14sd %xmm0, %xmm0, %xmm1 # encoding: [0x62,0xf2,0xfd,0x08,0x4f,0xc8]
+; CHECK-NEXT:    vmulsd %xmm1, %xmm0, %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xfb,0x59,0xd1]
+; CHECK-NEXT:    vmovsd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression encoding: [0xc5,0xfb,0x10,0x1d,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    # xmm3 = mem[0],zero
+; CHECK-NEXT:    vmulsd %xmm3, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf3,0x59,0xc3]
+; CHECK-NEXT:    vfnmadd213sd %xmm3, %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xe9,0xad,0xc3]
+; CHECK-NEXT:    # xmm0 = -(xmm2 * xmm0) + xmm3
+; CHECK-NEXT:    vfmadd132sd %xmm1, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xf1,0x99,0xc1]
+; CHECK-NEXT:    # xmm0 = (xmm0 * xmm1) + xmm1
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast double %a, %b
+    %sqrt = tail call fast double @llvm.sqrt.f64(double %div)
+    ret double %sqrt
+  }
+
+define <2 x double> @test_native_div_sqrt14_pd_128_acc_bit26(<2 x double> %a, <2 x double> %b) #2 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_128_acc_bit26:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %xmm0, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %xmm0, %xmm1 # encoding: [0x62,0xf2,0xfd,0x08,0x4e,0xc8]
+; CHECK-NEXT:    vmulpd %xmm1, %xmm0, %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x59,0xd1]
+; CHECK-NEXT:    vmovddup {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression xmm3 = [5.0E-1,5.0E-1]
+; CHECK-NEXT:    # encoding: [0xc5,0xfb,0x12,0x1d,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    # xmm3 = mem[0,0]
+; CHECK-NEXT:    vmulpd %xmm3, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0x59,0xc3]
+; CHECK-NEXT:    vfnmadd213pd %xmm3, %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xe9,0xac,0xc3]
+; CHECK-NEXT:    # xmm0 = -(xmm2 * xmm0) + xmm3
+; CHECK-NEXT:    vfmadd132pd %xmm1, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xf1,0x98,0xc1]
+; CHECK-NEXT:    # xmm0 = (xmm0 * xmm1) + xmm1
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <2 x double> %a, %b
+    %sqrt = tail call fast <2 x double> @llvm.sqrt.v2f64(<2 x double> %div)
+    ret <2 x double> %sqrt
+}
+
+define <4 x double> @test_native_div_sqrt14_pd_256_acc_bit26(<4 x double> %a, <4 x double> %b) #2 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_256_acc_bit26:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %ymm0, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xf5,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %ymm0, %ymm1 # encoding: [0x62,0xf2,0xfd,0x28,0x4e,0xc8]
+; CHECK-NEXT:    vmulpd %ymm1, %ymm0, %ymm2 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x59,0xd1]
+; CHECK-NEXT:    vbroadcastsd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm3 # EVEX TO VEX Compression ymm3 = [5.0E-1,5.0E-1,5.0E-1,5.0E-1]
+; CHECK-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x19,0x1d,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vmulpd %ymm3, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xf5,0x59,0xc3]
+; CHECK-NEXT:    vfnmadd213pd %ymm3, %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xed,0xac,0xc3]
+; CHECK-NEXT:    # ymm0 = -(ymm2 * ymm0) + ymm3
+; CHECK-NEXT:    vfmadd132pd %ymm1, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xf5,0x98,0xc1]
+; CHECK-NEXT:    # ymm0 = (ymm0 * ymm1) + ymm1
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <4 x double> %a, %b
+    %sqrt = tail call fast <4 x double> @llvm.sqrt.v4f64(<4 x double> %div)
+    ret <4 x double> %sqrt
+}
+
+define <8 x double> @test_native_div_sqrt14_pd_512_acc_bit26(<8 x double> %a, <8 x double> %b) #2 {
+; CHECK-LABEL: test_native_div_sqrt14_pd_512_acc_bit26:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vdivpd %zmm0, %zmm1, %zmm0 # encoding: [0x62,0xf1,0xf5,0x48,0x5e,0xc0]
+; CHECK-NEXT:    vrsqrt14pd %zmm0, %zmm1 # encoding: [0x62,0xf2,0xfd,0x48,0x4e,0xc8]
+; CHECK-NEXT:    vmulpd %zmm1, %zmm0, %zmm2 # encoding: [0x62,0xf1,0xfd,0x48,0x59,0xd1]
+; CHECK-NEXT:    vbroadcastsd {{.*#+}} zmm3 = [5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1]
+; CHECK-NEXT:    # encoding: [0x62,0xf2,0xfd,0x48,0x19,0x1d,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vmulpd %zmm3, %zmm1, %zmm0 # encoding: [0x62,0xf1,0xf5,0x48,0x59,0xc3]
+; CHECK-NEXT:    vfnmadd213pd %zmm3, %zmm2, %zmm0 # encoding: [0x62,0xf2,0xed,0x48,0xac,0xc3]
+; CHECK-NEXT:    # zmm0 = -(zmm2 * zmm0) + zmm3
+; CHECK-NEXT:    vfmadd132pd %zmm1, %zmm1, %zmm0 # encoding: [0x62,0xf2,0xf5,0x48,0x98,0xc1]
+; CHECK-NEXT:    # zmm0 = (zmm0 * zmm1) + zmm1
+; CHECK-NEXT:    retq # encoding: [0xc3]
+    %div = fdiv fast <8 x double> %a, %b
+    %sqrt = tail call fast <8 x double> @llvm.sqrt.v8f64(<8 x double> %div)
+    ret <8 x double> %sqrt
+}
 attributes #0 = { "reciprocal-estimates"="sqrtd:0,vec-sqrtd:0" }
 attributes #1 = { "imf-accuracy-bits-sqrt"="14" }
 attributes #2 = { "imf-accuracy-bits-sqrt"="26.0" }

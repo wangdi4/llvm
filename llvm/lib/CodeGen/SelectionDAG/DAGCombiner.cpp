@@ -15788,6 +15788,23 @@ SDValue DAGCombiner::visitFSQRT(SDNode *N) {
     return SDValue();
 
   SDValue N0 = N->getOperand(0);
+#if INTEL_CUSTOMIZATION
+  // Transform sqrt(a/b) to rsqrt(b/a)
+  // sqrt(a/b) and rsqrt(b/a) is identical.
+  // But X86's RSQRT's accuracy is only 14/11 bits.
+  // So then calling buildRsqrtEstimate, and its NR refinement depends on
+  // accuracy setting.
+  // This transformatin has to be in the front of isFsqrtCheap(), since
+  // current X86 Target always prefers sqrt than rsqrt estimation.
+  if (N0->getOpcode() == ISD::FDIV) {
+    SDValue LHS = N0->getOperand(0);
+    SDValue RHS = N0->getOperand(1);
+    SDValue N0Recp =
+        DAG.getNode(ISD::FDIV, SDLoc(N0), N0->getValueType(0), RHS, LHS);
+    N0Recp->setFlags(N0->getFlags());
+    return buildRsqrtEstimate(N0Recp, Flags);
+  }
+#endif // INTEL_CUSTOMIZATION
   if (TLI.isFsqrtCheap(N0, DAG))
     return SDValue();
 
