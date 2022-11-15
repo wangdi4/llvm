@@ -113,6 +113,13 @@ VERS1.0 {
     __tgt_interop_init;
     __tgt_interop_use;
     __tgt_interop_destroy;
+# INTEL_CUSTOMIZATION
+    __tgt_get_interop_obj;
+    __tgt_target_sync;
+    __tgt_register_ptask_services;
+    __tgt_task_completed;
+    __tgt_interop_use_async;
+# end INTEL_CUSTOMIZATION
   local:
     *;
 };
