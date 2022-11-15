@@ -614,6 +614,7 @@ extern cl::opt<bool> EnableTbaaProp;
 #endif // INTEL_CUSTOMIZATION
 extern cl::opt<unsigned> MaxDevirtIterations;
 extern cl::opt<bool> EnableKnowledgeRetention;
+<<<<<<< HEAD
 #if INTEL_COLLAB
 // TODO: Change this to an enum class in PassManagerBuilder.cpp
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
@@ -639,6 +640,8 @@ extern cl::opt<bool> EnableStdContainerOpt;
 extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
 extern cl::opt<bool> EarlyJumpThreading;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0a8ebb35cb14f95534aa32ae36404c6445b60a4a
 
 extern cl::opt<bool> SYCLOptimizationMode;
 } // namespace llvm
