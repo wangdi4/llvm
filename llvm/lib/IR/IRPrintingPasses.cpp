@@ -29,7 +29,6 @@
 
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PrintPasses.h"
@@ -42,7 +41,6 @@ using namespace llvm;
 
 PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
-<<<<<<< HEAD
                                  bool ShouldPreserveUseListOrder)
     : OS(OS), Banner(Banner)
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -54,22 +52,14 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
-                                 bool ShouldPreserveUseListOrder,
-                                 bool EmitSummaryIndex)
-    : OS(OS), Banner(Banner),
-      ShouldPreserveUseListOrder(ShouldPreserveUseListOrder),
-      EmitSummaryIndex(EmitSummaryIndex) {}
-
-PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
->>>>>>> ef9e624694c0f125c53f7d0d3472fd486bada57d
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
     M.print(OS, nullptr, ShouldPreserveUseListOrder);
-  } else {
+  }
+  else {
     bool BannerPrinted = false;
-    for (const auto &F : M.functions()) {
+    for(const auto &F : M.functions()) {
       if (llvm::isFunctionInPrintList(F.getName())) {
         if (!BannerPrinted && !Banner.empty()) {
           OS << Banner << "\n";
@@ -79,20 +69,7 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
       }
     }
   }
-<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
-
-  ModuleSummaryIndex *Index =
-      EmitSummaryIndex ? &(AM.getResult<ModuleSummaryIndexAnalysis>(M))
-                       : nullptr;
-  if (Index) {
-    if (Index->modulePaths().empty())
-      Index->addModule("", 0);
-    Index->print(OS);
-  }
-
->>>>>>> ef9e624694c0f125c53f7d0d3472fd486bada57d
   return PreservedAnalyses::all();
 }
 
