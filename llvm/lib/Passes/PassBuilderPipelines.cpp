@@ -614,6 +614,7 @@ extern cl::opt<bool> EnableTbaaProp;
 #endif // INTEL_CUSTOMIZATION
 extern cl::opt<unsigned> MaxDevirtIterations;
 extern cl::opt<bool> EnableKnowledgeRetention;
+<<<<<<< HEAD
 #if INTEL_COLLAB
 // TODO: Change this to an enum class in PassManagerBuilder.cpp
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
@@ -639,8 +640,16 @@ extern cl::opt<bool> EnableStdContainerOpt;
 extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
 extern cl::opt<bool> EarlyJumpThreading;
 #endif // INTEL_CUSTOMIZATION
+=======
+<<<<<<< HEAD
+extern cl::opt<bool> EnableMatrix;
+extern cl::opt<bool> DisablePreInliner;
+extern cl::opt<int> PreInlineThreshold;
+>>>>>>> 1a2c1b38b88cf16276ef5f54f33ee7033cf4aae5
 
 extern cl::opt<bool> SYCLOptimizationMode;
+=======
+>>>>>>> cbcf123af293ee56876cce16dac83c3008478dae
 } // namespace llvm
 
 void PassBuilder::invokePeepholeEPCallbacks(FunctionPassManager &FPM,
