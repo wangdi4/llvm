@@ -128,6 +128,9 @@ public:
   // TODO: Do we need a setter for LoopID?
   MDNode *getLoopID() const;
 
+  void setIsConflictLoop() { IsConflictLoop = true; }
+  bool getIsConflictLoop() const { return IsConflictLoop; }
+
   /// Return true if the loop has normalized induction.
   bool hasNormalizedInduction() const {
     assert(HasNormalizedInduction.has_value() && "The flag is unset");
@@ -186,6 +189,9 @@ private:
   bool ExactUB = true;
   // Track opt-report remarks for this VPLoop.
   OptReport OR = nullptr;
+
+  // Is this a conflict loop for vconflict idiom?
+  bool IsConflictLoop = false;
 };
 
 class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
