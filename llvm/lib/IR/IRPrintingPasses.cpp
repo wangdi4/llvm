@@ -42,6 +42,7 @@ using namespace llvm;
 PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
                                  bool ShouldPreserveUseListOrder)
+<<<<<<< HEAD
     : OS(OS), Banner(Banner)
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
       ,
@@ -52,6 +53,12 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+    : OS(OS), Banner(Banner),
+      ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
+
+PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
+>>>>>>> 8c15c17e3ba7916b2efb2a100495c710bae04fb6
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -69,7 +76,10 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
       }
     }
   }
+<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+>>>>>>> 8c15c17e3ba7916b2efb2a100495c710bae04fb6
   return PreservedAnalyses::all();
 }
 
