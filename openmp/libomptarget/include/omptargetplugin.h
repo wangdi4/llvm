@@ -328,6 +328,11 @@ EXTERN const char *__tgt_rtl_get_interop_property_info(
 
 // Get interop return code description from plugin
 EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t ID, int32_t Rc);
+
+EXTERN int32_t __tgt_rtl_flush_queue (__tgt_interop *Interop);
+EXTERN int32_t __tgt_rtl_sync_barrier(__tgt_interop *Interop);
+EXTERN int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop);
+
 #endif // INTEL_CUSTOMIZATION
 
 // Return number of available sub-devices at the given level

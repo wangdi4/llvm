@@ -147,4 +147,19 @@ EXTERN void __tgt_sycl_delete_all_interop_wrapper() {
     delete obj;
 }
 
+EXTERN int32_t __tgt_sycl_flush_queue_wrapper(omp_interop_t interop) {
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
+  sycl::queue *Q = static_cast<sycl::queue *>(TgtInterop->TargetSync);
+//  sycl::event evt = Q->submit([&] (sycl::handler& cgh) {
+//       cgh.single_task<class emptyK>([=] {});
+//  });
+//  Using a barrier instead of a kernel to get an event to prevent
+//  needing to compile the kernel which creates compilation issues
+  sycl::event evt = Q->ext_oneapi_submit_barrier();
+
+// getting a native handle ensures that the SYCL queue has been flushed
+  get_native<backend::level_zero>(evt);
+  return OFFLOAD_SUCCESS;
+}
+
 #endif // INTEL_CUSTOMIZATION

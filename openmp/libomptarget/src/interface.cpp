@@ -616,39 +616,59 @@ EXTERN int __tgt_get_interop_property(
      ", property ID %" PRId32 "\n", DPxPTR(InteropObj), PropertyId);
 
   int RC = OFFLOAD_FAIL;
+  *PropertyValue = 0;
 
+  __tgt_interop *Interop = (__tgt_interop *)InteropObj;
   __tgt_interop_obj *ExtObj = ((__tgt_interop *)InteropObj)->IntelTmpExt;
+
+  static int interop_plugin_level0_val = INTEROP_PLUGIN_LEVEL0;
+  static int interop_plugin_opencl_val = INTEROP_PLUGIN_OPENCL;
 
   switch (PropertyId) {
   case INTEROP_DEVICE_ID:
-    *PropertyValue = (void *)&ExtObj->DeviceId;
+    *PropertyValue = (void *)&Interop->DeviceNum;
     RC = OFFLOAD_SUCCESS;
     break;
   case INTEROP_IS_ASYNC:
-    *PropertyValue = (void *)&ExtObj->IsAsync;
-    RC = OFFLOAD_SUCCESS;
+    if ( ExtObj ) {
+      *PropertyValue = (void *)&ExtObj->IsAsync;
+      RC = OFFLOAD_SUCCESS;
+    } else return OFFLOAD_FAIL;
     break;
   case INTEROP_ASYNC_OBJ:
-    *PropertyValue = (void *)ExtObj->AsyncObj;
-    RC = OFFLOAD_SUCCESS;
+    if ( ExtObj ) {
+      *PropertyValue = (void *)ExtObj->AsyncObj;
+      RC = OFFLOAD_SUCCESS;
+    } else return OFFLOAD_FAIL;
     break;
   case INTEROP_ASYNC_CALLBACK:
-    *PropertyValue = (void *)ExtObj->AsyncHandler;
+    if ( ExtObj ) {
+      *PropertyValue = (void *)ExtObj->AsyncHandler;
+    } else return OFFLOAD_FAIL;
     break;
   case INTEROP_PLUGIN_INTERFACE:
-    *PropertyValue = (void *)&ExtObj->PlugInType;
+    if ( ExtObj ) {
+      *PropertyValue = (void *)&ExtObj->PlugInType;
+    } else {
+      int PlugInType = Interop->FrId;	    
+      if (PlugInType == 6)
+         *PropertyValue = (void *)&interop_plugin_level0_val;
+      else if (PlugInType == 3)
+         *PropertyValue = (void *)&interop_plugin_opencl_val;
+      else return OFFLOAD_FAIL;
+    }
     RC = OFFLOAD_SUCCESS;
     break;
   case INTEROP_OFFLOAD_QUEUE:
-    if (ExtObj->IsAsync)
+    if (!ExtObj || ExtObj->IsAsync)
       *PropertyValue =
           (void *)omp_get_interop_ptr(InteropObj, omp_ipr_targetsync, &RC);
     else
       *PropertyValue = InteropObjQueues.at(ExtObj->DeviceId);
     break;
   case INTEROP_PLATFORM_HANDLE:
-    // For level zero return PLATFORM_HANDLE, for OpenCL return CONTEXT_HANDLE
-    if (ExtObj->PlugInType == INTEROP_PLUGIN_LEVEL0) {
+    // For level zero & SYCL return PLATFORM_HANDLE, for OpenCL return CONTEXT_HANDLE
+    if ( Interop->FrId == 6 || Interop->FrId == 4 ) {
       *PropertyValue =
           (void *)omp_get_interop_ptr(InteropObj, omp_ipr_platform, &RC);
       break;
@@ -699,6 +719,98 @@ EXTERN omp_interop_t __tgt_create_interop(
   return Interop;
 }
 
+EXTERN omp_interop_t __tgt_get_interop_obj (
+    ident_t *loc_ref, int32_t interop_type, uint32_t num_prefers,
+    int32_t *prefer_ids, int64_t device_num, int gtid, void *current_task ) {
+
+   DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
+      ", num_prefers %" PRId32 ", prefer_ids " DPxMOD ", gtid %" PRId32
+      ", current_task " DPxMOD "\n",
+      __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids),gtid,DPxPTR(current_task));
+
+   if (isOffloadDisabled())
+     return omp_interop_none;
+ 
+   omp_interop_t Interop = omp_interop_none;
+
+   // Now, try to create an interop with device_num.
+   if (device_num == OFFLOAD_DEVICE_DEFAULT)
+     device_num = omp_get_default_device();
+
+   if (deviceIsReady(device_num)) {
+     auto first = PM->InteropTbl.begin(gtid,current_task);
+     auto last = PM->InteropTbl.end(gtid,current_task);
+     __tgt_interop * tiop = NULL;
+     for ( auto iop = first ; iop != last ; ++iop ) {
+       if ( (*iop)->isCompatibleWith (interop_type, num_prefers, prefer_ids, device_num, gtid, current_task) ) {
+         tiop = *iop;
+	 tiop->markDirty();
+         DP("Reused interop " DPxMOD " from device_num %" PRId64 "\n",
+            DPxPTR(tiop), device_num);
+         break;
+       }
+     }
+     if ( !tiop ) {
+       tiop = PM->Devices[device_num]->createInterop(interop_type, num_prefers, prefer_ids);
+       if ( tiop ) {
+          DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
+             DPxPTR(tiop), device_num);
+          tiop->setOwner(gtid,current_task);
+          PM->InteropTbl.addInterop(tiop);
+       }
+     }
+     Interop = tiop;
+   }
+
+   return Interop;
+}
+
+EXTERN void __tgt_target_sync ( ident_t *loc_ref, int gtid, void * current_task, void *event ) {
+   DP("Call to %s with gtid %" PRId32 ", current_task " DPxMOD "event " DPxMOD
+      "\n", __func__, gtid, DPxPTR(current_task), DPxPTR(event));
+
+   auto first = PM->InteropTbl.begin(gtid,current_task);
+   auto last = PM->InteropTbl.end(gtid,current_task);
+   for ( auto it = first ; it != last ; ++it ) {
+      __tgt_interop *iop = *it;
+      if ( iop->TargetSync != NULL &&
+           iop->isOwnedBy ( gtid, current_task ) &&
+           !iop->isClean() ) {
+
+        iop->flush();
+
+        // Implementation option 1
+        iop->syncBarrier();
+        iop->markClean();
+
+        // Alternate implementation option
+        //event = iop->asyncBarrier();
+        // ptask = createProxyTask();
+        //Events->add(event,ptask);
+      }
+   }
+   // This would be needed for the alternate implementation
+   // processEvents();
+}
+
+EXTERN int __tgt_interop_use_async ( ident_t *loc_ref, int gtid, omp_interop_t interop, bool nowait, void *ptask ) {
+   DP("Call to %s with interop " DPxMOD ", nowait %" PRId32 "\n", __func__, DPxPTR(interop), nowait);
+
+   __tgt_interop * iop = static_cast<__tgt_interop *>(interop);
+   if ( iop->TargetSync ) {
+     // async still not supported
+     //if (nowait) iop->asyncBarrier();
+     //else {
+     iop->flush();
+     iop->syncBarrier();
+     //}
+     iop->markClean();
+   }
+
+  return OFFLOAD_SUCCESS;
+}
+
+
 EXTERN int __tgt_release_interop(omp_interop_t Interop) {
   DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(Interop));
 
@@ -737,6 +849,7 @@ EXTERN int __tgt_use_interop(omp_interop_t Interop) {
 
   return PM->Devices[DeviceNum]->useInterop(TgtInterop);
 }
+
 #endif // INTEL_CUSTOMIZATION
 
 EXTERN int __tgt_get_target_memory_info(
@@ -836,3 +949,19 @@ EXTERN int __tgt_print_device_info(int64_t DeviceId) {
   return PM->Devices[DeviceId]->printDeviceInfo(
       PM->Devices[DeviceId]->RTLDeviceID);
 }
+
+#if INTEL_CUSTOMIZATION
+typedef void* (*omp_create_task_fptr)(int);
+typedef void (*omp_complete_task_fptr)(int, void *);
+
+EXTERN void __tgt_register_ptask_services ( omp_create_task_fptr createf, 
+                                            omp_complete_task_fptr completef)
+{
+    DP("Callback to __tgt_register_ptask_services with handlers " DPxMOD " " DPxMOD "\n",DPxPTR(createf),DPxPTR(completef));
+}
+
+EXTERN void __tgt_task_completed ( void * task )
+{
+    DP("Callback to _tgt_task_completed task=" DPxMOD "\n",DPxPTR(task));
+}
+#endif

@@ -292,12 +292,14 @@ namespace L0Interop {
     typedef void(create_sycl_interop_ty)(omp_interop_t);
     typedef void(delete_sycl_interop_ty)(omp_interop_t);
     typedef void(delete_all_sycl_interop_ty)();
+    typedef int32_t (flush_queue_sycl_ty)(omp_interop_t);
 
     init_sycl_interop_ty *init_sycl_interop = nullptr;
     get_sycl_interop_ty *get_sycl_interop = nullptr;
     create_sycl_interop_ty *create_sycl_interop = nullptr;
     delete_sycl_interop_ty *delete_sycl_interop = nullptr;
     delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
+    flush_queue_sycl_ty        *flush_queue_sycl        = nullptr;
 
     std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
   } SyclWrapper;
@@ -339,6 +341,9 @@ namespace L0Interop {
       if (!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
           DynLib->getAddressOfSymbol("__tgt_sycl_delete_all_interop_wrapper")))
         return;
+      if(!(*((void **)&SyclWrapper.flush_queue_sycl) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_flush_queue_wrapper")))
+          return;
 
       SyclWrapper.WrapApiValid = true;
       SyclWrapper.LibHandle = std::move(DynLib);
@@ -7340,4 +7345,44 @@ int32_t __tgt_rtl_prefetch_shared_mem(int32_t DeviceId, size_t NumPtrs,
 
   return OFFLOAD_SUCCESS;
 }
+
+int32_t __tgt_rtl_flush_queue (__tgt_interop *Interop)
+{
+   if (!Interop) {
+     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+     return OFFLOAD_FAIL;
+   }
+
+   // We only need to flush SYCL objects
+   // and only if immediate command list are not being used
+   if (Interop->FrId == 4 && Interop->TargetSync ) {
+     return L0Interop::SyclWrapper.flush_queue_sycl(Interop);
+   }
+
+   return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_sync_barrier (__tgt_interop *Interop)
+{
+   if (!Interop) {
+     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+     return OFFLOAD_FAIL;
+   }
+
+   // We can syncronize both L0 & SYCL objects with the same ze command
+   if (Interop->TargetSync) {
+     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+     auto cmdQueue = L0->CommandQueue;
+     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+   }
+
+   return OFFLOAD_SUCCESS;
+}
+ 
+int32_t __tgt_rtl_async_barrier (__tgt_interop *Interop)
+{
+   assert(0 && "__tgt_rtl_async_barrier not implemented\n");
+   return OFFLOAD_FAIL;
+}
+
 #endif // INTEL_COLLAB
