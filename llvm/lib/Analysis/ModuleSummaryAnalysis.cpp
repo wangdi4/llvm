@@ -904,8 +904,6 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
   return Index;
 }
 
-AnalysisKey ModuleSummaryIndexAnalysis::Key;
-
 ModuleSummaryIndex
 ModuleSummaryIndexAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
