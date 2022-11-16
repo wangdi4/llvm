@@ -125,7 +125,9 @@ else()
   message(STATUS "OMPT target disabled")
 endif()
 
+if (NOT INTEL_CUSTOMIZATION)
 pythonize_bool(LIBOMPTARGET_OMPT_SUPPORT)
+endif(NOT INTEL_CUSTOMIZATION)
 
 set(LIBOMPTARGET_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 message(STATUS "OpenMP tools dir in libomptarget: ${LIBOMP_OMP_TOOLS_INCLUDE_DIR}")
