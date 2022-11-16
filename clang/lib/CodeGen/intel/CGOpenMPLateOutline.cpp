@@ -2795,6 +2795,7 @@ void OpenMPLateOutliner::emitOMPDynamicAllocatorsClause(
     const OMPDynamicAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
+void OpenMPLateOutliner::emitOMPAtClause(const OMPAtClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
 void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
