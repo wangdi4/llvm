@@ -534,6 +534,8 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
 
     AMemSet = Builder.CreateMemSet(StartPtr, ByteVal, Range.End - Range.Start,
                                    Range.Alignment);
+    AMemSet->mergeDIAssignID(Range.TheStores);
+
     LLVM_DEBUG(dbgs() << "Replace stores:\n"; for (Instruction *SI
                                                    : Range.TheStores) dbgs()
                                               << *SI << '\n';
@@ -771,6 +773,7 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
             M = Builder.CreateMemCpy(
                 SI->getPointerOperand(), SI->getAlign(),
                 LI->getPointerOperand(), LI->getAlign(), Size);
+          M->copyMetadata(*SI, LLVMContext::MD_DIAssignID);
 
           LLVM_DEBUG(dbgs() << "Promoting " << *LI << " to " << *SI << " => "
                             << *M << "\n");
@@ -846,6 +849,7 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
       IRBuilder<> Builder(SI);
       auto *M = Builder.CreateMemSet(SI->getPointerOperand(), ByteVal, Size,
                                      SI->getAlign());
+      M->copyMetadata(*SI, LLVMContext::MD_DIAssignID);
 
       LLVM_DEBUG(dbgs() << "Promoting " << *SI << " to " << *M << "\n");
 
@@ -1230,6 +1234,7 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
     NewM = Builder.CreateMemCpy(M->getRawDest(), M->getDestAlign(),
                                 MDep->getRawSource(), MDep->getSourceAlign(),
                                 M->getLength(), M->isVolatile());
+  NewM->copyMetadata(*M, LLVMContext::MD_DIAssignID);
 
   assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M)));
   auto *LastDef = cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M));

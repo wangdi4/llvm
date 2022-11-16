@@ -140,6 +140,7 @@ set (SUPPORT_SOURCES
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
+  ARMTargetParserCommon.cpp
   AMDGPUMetadata.cpp
   APFixedPoint.cpp
   APFloat.cpp
