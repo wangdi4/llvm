@@ -757,7 +757,7 @@ if(INTEL_CUSTOMIZATION)
       RENAME ${fname}
       COMPONENT clang-resource-headers
       PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-      DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+      DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION_MAJOR}/include)
     list(APPEND out_files ${dst})
   endforeach( f )
 endif(INTEL_CUSTOMIZATION)
