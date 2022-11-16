@@ -158,9 +158,9 @@
 ; CM4: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP12]]
 
 ; CM8: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
-; CM8: Cost 23 for float [[VP7:%.*]] = expand-load float* [[VP_SUBSCRIPT_1:%.*]]
-; CM8: Cost 23 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
-; CM8: Cost 23 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
+; CM8: Cost 22 for float [[VP7:%.*]] = expand-load float* [[VP_SUBSCRIPT_1:%.*]]
+; CM8: Cost 22 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
+; CM8: Cost 22 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM8: Cost 6 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
 ; CM8: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP12]]
 
