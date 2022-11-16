@@ -1266,6 +1266,17 @@ public:
     }
   }
 
+  void visitCatchPad(CatchPadInst &I) {
+    // CatchPad can have pointer arguments that are used by personality
+    // function.
+    for (unsigned AI = 0, AE = I.arg_size(); AI < AE; AI++) {
+      Value *V = I.getArgOperand(AI);
+      if (isCompilerConstant(V) || !dtrans::hasPointerType(V->getType()))
+        continue;
+      analyzeValue(V);
+    }
+  }
+
   void visitReturnInst(ReturnInst &I) {
     // No additional analysis needs to be done, since the only time a
     // ReturnInst produces a new type is when a type is cast, which will
