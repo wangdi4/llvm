@@ -1,10 +1,10 @@
 ; REQUIRES: system-linux
-; RUN: opt -S -convert-to-subscript %s 2>&1 | %lli | FileCheck -check-prefix=CHECK-EXEC %s
-; RUN: opt -S -opaque-pointers -convert-to-subscript %s 2>&1 | %lli -opaque-pointers | FileCheck -check-prefix=CHECK-EXEC %s
+; RUN: opt -S -passes=convert-to-subscript %s 2>&1 | %lli | FileCheck -check-prefix=CHECK-EXEC %s
+; RUN: opt -S -opaque-pointers -passes=convert-to-subscript %s 2>&1 | %lli -opaque-pointers | FileCheck -check-prefix=CHECK-EXEC %s
 ; RUN: opt -S %s 2>&1 | %lli | FileCheck -check-prefix=CHECK-EXEC %s
 ; CHECK-EXEC: passed
 
-; RUN: opt -S -convert-to-subscript %s 2>&1 | FileCheck -check-prefix=CHECK-CONV %s
+; RUN: opt -S -passes=convert-to-subscript %s 2>&1 | FileCheck -check-prefix=CHECK-CONV %s
 ; @_Z3fooi (GetElementPtrInst)
 ; CHECK-CONV: call %"struct.A::B"* @"llvm.intel.subscript.p0s_struct.A::Bs.i64.i64.p0s_struct.A::Bs.i64"(i8 0, i64 0, i64 132, %"struct.A::B"* elementtype(%"struct.A::B")
 ; CHECK-CONV: getelementptr inbounds %"struct.A::B", %"struct.A::B"* {{.*}}, i64 0, i32 3, i64 0
@@ -18,7 +18,7 @@
 ; @_Z3bazv (GEPOperator + 0th array offsets)
 ; CHECK-CONV: ret i32* getelementptr inbounds (%struct.A, %struct.A* @a, i64 0, i32 1, i64 0, i32 3, i64 0, i32 5)
 
-; RUN: opt -S -convert-to-subscript -opaque-pointers %s 2>&1 | FileCheck -check-prefix=OPAQUE-CONV %s
+; RUN: opt -S -passes=convert-to-subscript -opaque-pointers %s 2>&1 | FileCheck -check-prefix=OPAQUE-CONV %s
 ; @_Z3fooi (GetElementPtrInst)
 ; OPAQUE-CONV: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 132, ptr elementtype(%"struct.A::B")
 ; OPAQUE-CONV: getelementptr inbounds %"struct.A::B", ptr {{.*}}, i64 0, i32 3, i64 0
