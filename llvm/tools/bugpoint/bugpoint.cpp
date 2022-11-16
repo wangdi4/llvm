@@ -180,7 +180,6 @@ int main(int argc, char **argv) {
   initializeAnalysis(Registry);
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
-  initializeAggressiveInstCombine(Registry);
   initializeTarget(Registry);
 
 #if INTEL_CUSTOMIZATION

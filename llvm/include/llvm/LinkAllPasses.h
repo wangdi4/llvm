@@ -132,7 +132,6 @@ namespace {
 
       (void) llvm::createAAEvalPass();
       (void) llvm::createAggressiveDCEPass();
-      (void) llvm::createAggressiveInstCombinerPass();
       (void) llvm::createBitTrackingDCEPass();
       (void)llvm::createOpenMPOptCGSCCLegacyPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
