@@ -565,65 +565,6 @@ void AliasSetTracker::add(const AliasSetTracker &AST) {
   }
 }
 
-<<<<<<< HEAD
-// deleteValue method - This method is used to remove a pointer value from the
-// AliasSetTracker entirely.  It should be used when an instruction is deleted
-// from the program to update the AST.  If you don't use this, you would have
-// dangling pointers to deleted instructions.
-//
-void AliasSetTracker::deleteValue(Value *PtrVal) {
-  // First, look up the PointerRec for this pointer.
-  PointerMapType::iterator I = PointerMap.find_as(PtrVal);
-  if (I == PointerMap.end()) return;  // Noop
-
-  // If we found one, remove the pointer from the alias set it is in.
-  AliasSet::PointerRec *PtrValEnt = I->second;
-  AliasSet *AS = PtrValEnt->getAliasSet(*this);
-
-  // Unlink and delete from the list of values.
-  PtrValEnt->eraseFromList();
-
-  if (AS->Alias == AliasSet::SetMayAlias) {
-    AS->SetSize--;
-    TotalMayAliasSetSize--;
-  }
-
-  // Stop using the alias set.
-  AS->dropRef(*this);
-
-  PointerMap.erase(I);
-}
-
-// copyValue - This method should be used whenever a preexisting value in the
-// program is copied or cloned, introducing a new value.  Note that it is ok for
-// clients that use this method to introduce the same value multiple times: if
-// the tracker already knows about a value, it will ignore the request.
-//
-void AliasSetTracker::copyValue(Value *From, Value *To) {
-  // First, look up the PointerRec for this pointer.
-  PointerMapType::iterator I = PointerMap.find_as(From);
-  if (I == PointerMap.end())
-    return;  // Noop
-  assert(I->second->hasAliasSet() && "Dead entry?");
-
-  AliasSet::PointerRec &Entry = getEntryFor(To);
-  if (Entry.hasAliasSet()) return;    // Already in the tracker!
-
-  // getEntryFor above may invalidate iterator \c I, so reinitialize it.
-  I = PointerMap.find_as(From);
-  // Add it to the alias set it aliases...
-  AliasSet *AS = I->second->getAliasSet(*this);
-
-  // Special handling of PHINodes is required as their AliasSets    // INTEL
-  // should have 'MayAlias', not 'MustAlias'.                       // INTEL
-  // CMPLRLLVM-186                                                  // INTEL
-  AS->addPointer(*this, Entry, I->second->getSize(),
-                 I->second->getAAInfo(),
-                 !(isa<PHINode>(From)), true);    // INTEL
-}
-
-=======
->>>>>>> db5855d0e49c1a220bb7ba1cd61e6101a4a8626f
 AliasSet &AliasSetTracker::mergeAllAliasSets() {
 #if INTEL_CUSTOMIZATION
   unsigned SaturThres =
