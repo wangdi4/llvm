@@ -405,5 +405,29 @@ void DTransTypeMetadataPropagator::setGlobAppendingVarDTransMetadata(
   NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, ArrMD);
 }
 
+void DTransTypeMetadataPropagator::setNewGlobVarArrayDTransMetadata(
+    GlobalVariable *GV) {
+
+  // Check if we are generating DTrans metadata.
+  if (!TypeMetadataReader::getDTransTypesMetadata(*GV->getParent()))
+    return;
+
+  // Get metadata for Int8Ptr.
+  LLVMContext &Ctx = GV->getType()->getContext();
+  auto CharPtrMD = llvm::MDNode::get(
+      Ctx, {llvm::ConstantAsMetadata::get(
+                llvm::Constant::getNullValue(llvm::Type::getInt8Ty(Ctx))),
+            llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 1))});
+
+  // Create metadata for [i8*]
+  auto ATy = cast<ArrayType>(GV->getValueType());
+  uint64_t AEs = ATy->getNumElements();
+  auto MD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                              ConstantAsMetadata::get(
+                                  ConstantInt::get(Type::getInt32Ty(Ctx), AEs)),
+                              CharPtrMD});
+  GV->setMetadata(llvm::dtransOP::MDDTransTypeTag, MD);
+}
 } // end namespace dtransOP
 } // end namespace llvm

@@ -97,6 +97,8 @@ public:
                                                 GlobalVariable *NewGV,
                                                 uint64_t NewArrSize);
 
+  static void setNewGlobVarArrayDTransMetadata(GlobalVariable *GV);
+
 private:
   void initialize(Module &M);
 

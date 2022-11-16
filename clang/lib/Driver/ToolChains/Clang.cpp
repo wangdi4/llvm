@@ -6695,6 +6695,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   RenderTargetOptions(Triple, Args, KernelOrKext, CmdArgs);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  addMarkerCountArgs(D, Args, CmdArgs, /*IsLTO=*/false);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   // FIXME: For now we want to demote any errors to warnings, when they have
   // been raised for asking the wrong question of scalable vectors, such as
   // asking for the fixed number of elements. This may happen because code that
