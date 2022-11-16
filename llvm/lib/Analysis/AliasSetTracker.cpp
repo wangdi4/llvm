@@ -565,6 +565,7 @@ void AliasSetTracker::add(const AliasSetTracker &AST) {
   }
 }
 
+<<<<<<< HEAD
 // deleteValue method - This method is used to remove a pointer value from the
 // AliasSetTracker entirely.  It should be used when an instruction is deleted
 // from the program to update the AST.  If you don't use this, you would have
@@ -621,6 +622,8 @@ void AliasSetTracker::copyValue(Value *From, Value *To) {
                  !(isa<PHINode>(From)), true);    // INTEL
 }
 
+=======
+>>>>>>> db5855d0e49c1a220bb7ba1cd61e6101a4a8626f
 AliasSet &AliasSetTracker::mergeAllAliasSets() {
 #if INTEL_CUSTOMIZATION
   unsigned SaturThres =
@@ -740,28 +743,6 @@ void AliasSetTracker::print(raw_ostream &OS) const {
 LLVM_DUMP_METHOD void AliasSet::dump() const { print(dbgs()); }
 LLVM_DUMP_METHOD void AliasSetTracker::dump() const { print(dbgs()); }
 #endif
-
-//===----------------------------------------------------------------------===//
-//                     ASTCallbackVH Class Implementation
-//===----------------------------------------------------------------------===//
-
-void AliasSetTracker::ASTCallbackVH::deleted() {
-  assert(AST && "ASTCallbackVH called with a null AliasSetTracker!");
-  AST->deleteValue(getValPtr());
-  // this now dangles!
-}
-
-void AliasSetTracker::ASTCallbackVH::allUsesReplacedWith(Value *V) {
-  AST->copyValue(getValPtr(), V);
-}
-
-AliasSetTracker::ASTCallbackVH::ASTCallbackVH(Value *V, AliasSetTracker *ast)
-  : CallbackVH(V), AST(ast) {}
-
-AliasSetTracker::ASTCallbackVH &
-AliasSetTracker::ASTCallbackVH::operator=(Value *V) {
-  return *this = ASTCallbackVH(V, AST);
-}
 
 //===----------------------------------------------------------------------===//
 //                            AliasSetPrinter Pass
