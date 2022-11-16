@@ -1308,8 +1308,9 @@ bool AArch64InstrInfo::optimizePTestInstr(
   bool PredIsWhileLike = isWhileOpcode(PredOpcode);
 
   if (isPTrueOpcode(MaskOpcode) && (PredIsPTestLike || PredIsWhileLike)) {
-    // For PTEST(PTRUE, OTHER_INST), PTEST is redundant when PTRUE doesn't
-    // deactivate any lanes OTHER_INST might set.
+    // For PTEST(PTRUE_ALL, WHILE), if the element size matches the PTEST is
+    // redundant since WHILE performs an implicit PTEST with an all active
+    // mask.
     uint64_t MaskElementSize = getElementSizeForOpcode(MaskOpcode);
     uint64_t PredElementSize = getElementSizeForOpcode(PredOpcode);
 
@@ -1318,10 +1319,14 @@ bool AArch64InstrInfo::optimizePTestInstr(
         (Mask->getOperand(1).getImm() != 31))
       return false;
 
-    // Fallthough to simply remove the PTEST.
-  } else if ((Mask == Pred) && (PredIsPTestLike || PredIsWhileLike)) {
-    // For PTEST(PG, PG), PTEST is redundant when PG is the result of an
-    // instruction that sets the flags as PTEST would.
+    // For PTEST(PTRUE_ALL, PTEST_LIKE), the PTEST is redundant if the
+    // PTEST_LIKE instruction uses the same all active mask and the element
+    // size matches.
+    if (PredIsPTestLike) {
+      auto PTestLikeMask = MRI->getUniqueVRegDef(Pred->getOperand(1).getReg());
+      if (Mask != PTestLikeMask)
+        return false;
+    }
 
     // Fallthough to simply remove the PTEST.
   } else if (PredIsPTestLike) {
