@@ -1,6 +1,6 @@
 //===-- DuplicateCalledKernelsPass.h - Duplicate called kernels -*- C++ -*-===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,15 +14,20 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+class CallGraph;
+class LocalBufferInfo;
 
-/// \brief Duplicate Called Kernels pass, simply duplicate each kernel  that is
+/// \brief Duplicate Called Kernels pass, duplicate each kernel that is
 /// called from other kernel/function. When duplicating a kernel, this pass
-/// generate a new function that will be called instead of the original kernel.
-//  P.S. It assumes that CloneFunction handles llvm debug info right.
+/// generates a new function that will be called instead of the original kernel.
+///
+/// Two kernels can't share the same local variable. If a function using local
+/// variables is called by multiple kernels, the function and its associated
+/// local variables are also cloned.
 class DuplicateCalledKernelsPass
     : public PassInfoMixin<DuplicateCalledKernelsPass> {
 public:
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, CallGraph &CG, LocalBufferInfo &LBI);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
@@ -38,6 +43,8 @@ public:
   virtual llvm::StringRef getPassName() const override {
     return "DuplicateCalledKernels";
   }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   virtual bool runOnModule(Module &M) override;
 };
