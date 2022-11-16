@@ -804,6 +804,18 @@ void LoopVectorizationPlanner::extractVFsFromMetadata(unsigned Safelen) {
   }
 }
 
+bool LoopVectorizationPlanner::hasVFOneInMetadata() const {
+  if (!VectorlengthMD)
+    return false;
+  for (unsigned I = 1; I < (VectorlengthMD->getNumOperands()); I++) {
+    ConstantInt *IntMD =
+        mdconst::extract<ConstantInt>(VectorlengthMD->getOperand(I));
+    if (IntMD->getZExtValue() == 1)
+      return true;
+  }
+  return false;
+}
+
 ArrayRef<unsigned> LoopVectorizationPlanner::getVectorFactors() { return VFs; }
 
 void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
@@ -1058,6 +1070,14 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VFs.end());
 
   DenseMap<unsigned, VPCostSummary> VFCosts;
+
+  // Add protection from MinVF evaluated to 1 when dealing with 'vector always'
+  // and 'simd' loops. Otherwise, if VF=1 cost is lower than VF>1 costs, VF=1
+  // will be selected. Do not remove VF=1 when it is forced.
+  if (ShouldIgnoreProfitability && (ForcedVF != 1) && !hasVFOneInMetadata())
+    VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
+                             [](unsigned VF) { return (VF == 1); }),
+              VFs.end());
 
   //
   // The main loop where we choose VF.
