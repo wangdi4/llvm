@@ -1271,18 +1271,33 @@ CheckForIncompatibleAttributes(Sema &S,
   if (!DiagnoseMutualExclusions(S, Attrs))
     return;
 
-  // There are 6 categories of loop hints attributes: vectorize, interleave,
-  // unroll, unroll_and_jam, pipeline and distribute. Except for distribute they
-  // come in two variants: a state form and a numeric form.  The state form
-  // selectively defaults/enables/disables the transformation for the loop
-  // (for unroll, default indicates full unrolling rather than enabling the
-  // transformation). The numeric form provides an integer hint (for
-  // example, unroll count) to the transformer. The following array accumulates
-  // the hints encountered while iterating through the attributes to check for
-  // compatibility.
+  enum CategoryType {
+    // For the following categories, they come in two variants: a state form and
+    // a numeric form. The state form may be one of default, enable, and
+    // disable. The numeric form provides an integer hint (for example, unroll
+    // count) to the transformer.
+    Vectorize,
+    Interleave,
+    UnrollAndJam,
+    Pipeline,
+    // For unroll, default indicates full unrolling rather than enabling the
+    // transformation.
+    Unroll,
+    // The loop distribution transformation only has a state form that is
+    // exposed by #pragma clang loop distribute (enable | disable).
+    Distribute,
+    // The vector predication only has a state form that is exposed by
+    // #pragma clang loop vectorize_predicate (enable | disable).
+    VectorizePredicate,
+    // This serves as a indicator to how many category are listed in this enum.
+    NumberOfCategories
+  };
+  // The following array accumulates the hints encountered while iterating
+  // through the attributes to check for compatibility.
   struct {
     const LoopHintAttr *StateAttr;
     const LoopHintAttr *NumericAttr;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   } HintAttrs[] = {{nullptr, nullptr}, // Vectorize
                    {nullptr, nullptr}, // II
@@ -1312,6 +1327,9 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // Distribute
                    {nullptr, nullptr}};// Vectorize Predicate
 #endif // INTEL_CUSTOMIZATION
+=======
+  } HintAttrs[CategoryType::NumberOfCategories] = {};
+>>>>>>> 6dee23919a36a30f3df7e9b20fba8b9edf65340c
 
   for (const auto *I : Attrs) {
     const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(I);
@@ -1320,7 +1338,9 @@ CheckForIncompatibleAttributes(Sema &S,
     if (!LH)
       continue;
 
+    CategoryType Category = CategoryType::NumberOfCategories;
     LoopHintAttr::OptionType Option = LH->getOption();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     enum {
       Vectorize,
@@ -1352,6 +1372,8 @@ CheckForIncompatibleAttributes(Sema &S,
       VectorizePredicate
     } Category;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6dee23919a36a30f3df7e9b20fba8b9edf65340c
     switch (Option) {
 #if INTEL_CUSTOMIZATION
     case LoopHintAttr::IIAtMost:
@@ -1448,7 +1470,7 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     };
 
-    assert(Category < sizeof(HintAttrs) / sizeof(HintAttrs[0]));
+    assert(Category != NumberOfCategories && "Unhandled loop hint option");
     auto &CategoryState = HintAttrs[Category];
     const LoopHintAttr *PrevAttr;
 #if INTEL_CUSTOMIZATION
