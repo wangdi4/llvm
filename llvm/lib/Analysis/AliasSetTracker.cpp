@@ -289,12 +289,11 @@ bool AliasSet::aliases(const AliasSet &AS, AAResults &AA) const {
       return true;
 
   if (!UnknownInsts.empty())
-    for (unsigned I = 0, E = UnknownInsts.size(); I < E; ++I)
-      if (const Instruction *Inst = getUnknownInst(I)) {
-        BatchAAResults BatchAA(AA);
-        if (AS.aliasesUnknownInst(Inst, BatchAA))
-          return true;
-      }
+    for (Instruction *Inst : UnknownInsts) {
+      BatchAAResults BatchAA(AA);
+      if (AS.aliasesUnknownInst(Inst, BatchAA))
+        return true;
+    }
 
   return false;
 }
