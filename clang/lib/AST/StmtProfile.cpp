@@ -618,6 +618,8 @@ void OMPClauseProfiler::VisitOMPDynamicAllocatorsClause(
 void OMPClauseProfiler::VisitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *C) {}
 
+void OMPClauseProfiler::VisitOMPAtClause(const OMPAtClause *C) {}
+
 void OMPClauseProfiler::VisitOMPScheduleClause(const OMPScheduleClause *C) {
   VistOMPClauseWithPreInit(C);
   if (auto *S = C->getChunkSize())
