@@ -544,9 +544,13 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Merge & remove BBs
   // Combine silly seq's
+<<<<<<< HEAD
   if (OptLevel > 2)
     MPM.add(createAggressiveInstCombinerPass());
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
+=======
+  MPM.add(createInstructionCombiningPass());
+>>>>>>> 70dc3b811e4926fa2c88bd3b53b29c46fcba1a90
   if (SizeLevel == 0)
     MPM.add(createLibCallsShrinkWrapPass());
   addExtensionsToPM(EP_Peephole, MPM);
