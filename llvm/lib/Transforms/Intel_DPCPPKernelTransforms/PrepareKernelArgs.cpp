@@ -284,6 +284,13 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     if (!UseTLSGlobals)
       assert(CallIt->getType() == IAInfo->getArgType(I) &&
              "Mismatch in arg found in function and expected arg type");
+    assert((I == ImplicitArgsUtils::IA_SLM_BUFFER ||
+            I == ImplicitArgsUtils::IA_WORK_GROUP_ID ||
+            I == ImplicitArgsUtils::IA_RUNTIME_HANDLE ||
+            I == ImplicitArgsUtils::IA_GLOBAL_BASE_ID ||
+            I == ImplicitArgsUtils::IA_BARRIER_BUFFER ||
+            I == ImplicitArgsUtils::IA_WORK_GROUP_INFO) &&
+           "Invalid implicit argument index!");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
       uint64_t SLMSizeInBytes =
@@ -423,8 +430,6 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // Advance the ArgsBuffer offset based on the size
       CurrOffset += ImplicitArgProp.Size;
     } break;
-    default:
-      assert(false && "Unknown implicit argument");
     }
 
     if (UseTLSGlobals) {
