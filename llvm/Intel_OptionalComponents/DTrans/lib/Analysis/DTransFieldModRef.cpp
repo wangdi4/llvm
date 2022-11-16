@@ -255,6 +255,15 @@ void FieldModRefResult::unionModRefInfo(ModRefInfo &Status,
   if (Call->isIndirectCall())
     return;
 
+  // In the case of InlineAsm, go conservative.
+  // TODO: This may be able to be improved by checking the constraints for
+  // reads/writes of variables and memory.
+  if (auto *IA = dyn_cast<InlineAsm>(Call->getCalledOperand())) {
+    Status |= ModRefInfo::Mod;
+    Status |= ModRefInfo::Ref;
+    return;
+  }
+
   Function *Callee = Call->getCalledFunction();
   assert(Callee && "unexpected indirect call");
 
@@ -443,7 +452,6 @@ bool DTransModRefAnalyzerImpl<InfoClass>::runAnalysis(
     FieldModRefResult &FMRResult) {
   DTInfo = &DTransInfo;
   FMRResult.reset();
-
   if (!WPInfo.isWholeProgramSafe())
     return false;
 

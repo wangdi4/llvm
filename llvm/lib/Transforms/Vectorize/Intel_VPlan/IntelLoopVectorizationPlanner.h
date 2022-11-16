@@ -427,6 +427,9 @@ public:
   /// Extracts VFs from "llvm.loop.vector.vectorlength" metadata
   void extractVFsFromMetadata(unsigned SafeLen);
 
+  /// Check if VF=1 provided in "llvm.loop.vector.vectorlength" metadata
+  bool hasVFOneInMetadata() const;
+
   /// Returns vector of allowed VFs
   ArrayRef<unsigned> getVectorFactors();
 
