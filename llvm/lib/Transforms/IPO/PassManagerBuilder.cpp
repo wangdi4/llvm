@@ -544,13 +544,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Merge & remove BBs
   // Combine silly seq's
-<<<<<<< HEAD
-  if (OptLevel > 2)
-    MPM.add(createAggressiveInstCombinerPass());
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
-=======
-  MPM.add(createInstructionCombiningPass());
->>>>>>> 70dc3b811e4926fa2c88bd3b53b29c46fcba1a90
   if (SizeLevel == 0)
     MPM.add(createLibCallsShrinkWrapPass());
   addExtensionsToPM(EP_Peephole, MPM);
@@ -1475,8 +1469,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // simplification opportunities, and both can propagate functions through
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
-  if (OptLevel > 2)
-    PM.add(createAggressiveInstCombinerPass());
   addInstructionCombiningPass(PM, !DTransEnabled);   // INTEL
   addExtensionsToPM(EP_Peephole, PM);
 

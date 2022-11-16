@@ -892,33 +892,6 @@ static bool runImpl(Function &F, AssumptionCache &AC, TargetTransformInfo &TTI,
   return MadeChange;
 }
 
-<<<<<<< HEAD
-void AggressiveInstCombinerLegacyPass::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.setPreservesCFG();
-  AU.addRequired<AssumptionCacheTracker>();
-  AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addPreserved<AAResultsWrapperPass>();
-  AU.addPreserved<BasicAAWrapperPass>();
-  AU.addPreserved<DominatorTreeWrapperPass>();
-  AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-  AU.addRequired<AAResultsWrapperPass>();
-}
-
-bool AggressiveInstCombinerLegacyPass::runOnFunction(Function &F) {
-  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
-  return runImpl(F, AC, TTI, TLI, DT, AA);
-}
-
-=======
->>>>>>> 70dc3b811e4926fa2c88bd3b53b29c46fcba1a90
 PreservedAnalyses AggressiveInstCombinePass::run(Function &F,
                                                  FunctionAnalysisManager &AM) {
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
