@@ -25,6 +25,7 @@
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis

@@ -23,17 +23,17 @@
 ; This test checks the the DuplicateCalledKernels pass clone a called kernel.
 ; The case: kernel "bar" called from kernel "foo". Module contains debug info
 ; The expected result:
-;      1. Kernel bar is cloned into a new function "__internal.bar"
-;      2. "__internal.bar" is called from "foo" instead of "bar"
+;      1. Kernel bar is cloned into a new function "bar.clone"
+;      2. "bar.clone" is called from "foo" instead of "bar"
 ;      3. Metadata was not changed.
 ;
 
 ; CHECK: define void @bar
 ; CHECK: define void @foo
 ; CHECK-NOT: call void @bar
-; CHECK: call void @__internal.bar
+; CHECK: call void @bar.clone
 ; CHECK-NOT: call void @bar
-; CHECK: define void @__internal.bar
+; CHECK: define internal void @bar.clone
 ;
 ; The following checks that @bar is still a kernel.
 ; CHECK-DAG: !sycl.kernels = !{![[OCL_KERNELS:[0-9]+]]}

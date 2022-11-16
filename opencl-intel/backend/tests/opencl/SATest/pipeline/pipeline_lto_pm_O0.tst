@@ -18,10 +18,10 @@
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: DuplicateCalledKernels
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Skipping pass FMASplitterPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: LinearIdResolverPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: BuiltinCallToInstPass
 
 ; CHECK:      Running pass: DetectRecursionPass

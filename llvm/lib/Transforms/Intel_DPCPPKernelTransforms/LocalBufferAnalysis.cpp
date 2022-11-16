@@ -31,8 +31,11 @@ public:
   LocalBufferInfoImpl(Module *M, CallGraph *CG);
 
   using TUsedLocals = LocalBufferInfo::TUsedLocals;
+  using TUsedLocalsMap = LocalBufferInfo::TUsedLocalsMap;
 
   const TUsedLocals &getDirectLocals(Function *F) { return LocalUsageMap[F]; }
+
+  TUsedLocalsMap &getDirectLocalsMap() { return LocalUsageMap; }
 
   size_t getDirectLocalsSize(Function *F) { return DirectLocalSizeMap[F]; }
 
@@ -61,10 +64,6 @@ private:
   /// function, add direct local sizes with the max size of local buffer needed
   /// by all of callees.
   void calculateLocalsSize(CallGraph *CG);
-
-  /// A mapping between function pointer and the set of local values the
-  /// function uses directly.
-  using TUsedLocalsMap = LocalBufferInfo::TUsedLocalsMap;
 
   /// A mapping between function pointer and the local buffer size that the
   /// function uses.
@@ -203,6 +202,10 @@ LocalBufferInfo::~LocalBufferInfo() = default;
 const LocalBufferInfo::TUsedLocals &
 LocalBufferInfo::getDirectLocals(Function *F) {
   return Impl->getDirectLocals(F);
+}
+
+LocalBufferInfo::TUsedLocalsMap &LocalBufferInfo::getDirectLocalsMap() {
+  return Impl->getDirectLocalsMap();
 }
 
 size_t LocalBufferInfo::getDirectLocalsSize(Function *F) {
