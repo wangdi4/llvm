@@ -776,6 +776,12 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true, PluginOptPrefix);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  addMarkerCountArgs(D, Args, CmdArgs, /*IsLTO=*/true, PluginOptPrefix);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
   // Add -code-model for -mcmodel settings.
   if (Arg *A = Args.getLastArg(options::OPT_mcmodel_EQ)) {
     StringRef CM = A->getValue();
@@ -2340,6 +2346,34 @@ void tools::addX86AlignBranchArgs(const Driver &D, const ArgList &Args,
     }
   }
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void tools::addMarkerCountArgs(const Driver &D, const ArgList &Args,
+                               ArgStringList &CmdArgs, bool IsLTO,
+                               const StringRef PluginOptPrefix) {
+  auto addArg = [&, IsLTO](const Twine &Arg) {
+    if (IsLTO) {
+      assert(!PluginOptPrefix.empty() && "Cannot have empty PluginOptPrefix!");
+      CmdArgs.push_back(Args.MakeArgString(PluginOptPrefix + Arg));
+    } else {
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back(Args.MakeArgString(Arg));
+    }
+  };
+
+  if (Args.hasArg(options::OPT_mmark_prolog_epilog))
+    addArg("-mark-prolog-epilog");
+
+  if (Args.hasArg(options::OPT_mmark_loop_header))
+    addArg("-mark-loop-header");
+
+  if (const Arg *A =
+          Args.getLastArg(options::OPT_mfiltered_markercount_file_EQ))
+    addArg("-filtered-markercount-file=" + Twine(A->getValue()));
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
 /// SDLSearch: Search for Static Device Library
 /// The search for SDL bitcode files is consistent with how static host
