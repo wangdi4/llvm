@@ -565,62 +565,6 @@ void AliasSetTracker::add(const AliasSetTracker &AST) {
   }
 }
 
-// deleteValue method - This method is used to remove a pointer value from the
-// AliasSetTracker entirely.  It should be used when an instruction is deleted
-// from the program to update the AST.  If you don't use this, you would have
-// dangling pointers to deleted instructions.
-//
-void AliasSetTracker::deleteValue(Value *PtrVal) {
-  // First, look up the PointerRec for this pointer.
-  PointerMapType::iterator I = PointerMap.find_as(PtrVal);
-  if (I == PointerMap.end()) return;  // Noop
-
-  // If we found one, remove the pointer from the alias set it is in.
-  AliasSet::PointerRec *PtrValEnt = I->second;
-  AliasSet *AS = PtrValEnt->getAliasSet(*this);
-
-  // Unlink and delete from the list of values.
-  PtrValEnt->eraseFromList();
-
-  if (AS->Alias == AliasSet::SetMayAlias) {
-    AS->SetSize--;
-    TotalMayAliasSetSize--;
-  }
-
-  // Stop using the alias set.
-  AS->dropRef(*this);
-
-  PointerMap.erase(I);
-}
-
-// copyValue - This method should be used whenever a preexisting value in the
-// program is copied or cloned, introducing a new value.  Note that it is ok for
-// clients that use this method to introduce the same value multiple times: if
-// the tracker already knows about a value, it will ignore the request.
-//
-void AliasSetTracker::copyValue(Value *From, Value *To) {
-  // First, look up the PointerRec for this pointer.
-  PointerMapType::iterator I = PointerMap.find_as(From);
-  if (I == PointerMap.end())
-    return;  // Noop
-  assert(I->second->hasAliasSet() && "Dead entry?");
-
-  AliasSet::PointerRec &Entry = getEntryFor(To);
-  if (Entry.hasAliasSet()) return;    // Already in the tracker!
-
-  // getEntryFor above may invalidate iterator \c I, so reinitialize it.
-  I = PointerMap.find_as(From);
-  // Add it to the alias set it aliases...
-  AliasSet *AS = I->second->getAliasSet(*this);
-
-  // Special handling of PHINodes is required as their AliasSets    // INTEL
-  // should have 'MayAlias', not 'MustAlias'.                       // INTEL
-  // CMPLRLLVM-186                                                  // INTEL
-  AS->addPointer(*this, Entry, I->second->getSize(),
-                 I->second->getAAInfo(),
-                 !(isa<PHINode>(From)), true);    // INTEL
-}
-
 AliasSet &AliasSetTracker::mergeAllAliasSets() {
 #if INTEL_CUSTOMIZATION
   unsigned SaturThres =
@@ -740,28 +684,6 @@ void AliasSetTracker::print(raw_ostream &OS) const {
 LLVM_DUMP_METHOD void AliasSet::dump() const { print(dbgs()); }
 LLVM_DUMP_METHOD void AliasSetTracker::dump() const { print(dbgs()); }
 #endif
-
-//===----------------------------------------------------------------------===//
-//                     ASTCallbackVH Class Implementation
-//===----------------------------------------------------------------------===//
-
-void AliasSetTracker::ASTCallbackVH::deleted() {
-  assert(AST && "ASTCallbackVH called with a null AliasSetTracker!");
-  AST->deleteValue(getValPtr());
-  // this now dangles!
-}
-
-void AliasSetTracker::ASTCallbackVH::allUsesReplacedWith(Value *V) {
-  AST->copyValue(getValPtr(), V);
-}
-
-AliasSetTracker::ASTCallbackVH::ASTCallbackVH(Value *V, AliasSetTracker *ast)
-  : CallbackVH(V), AST(ast) {}
-
-AliasSetTracker::ASTCallbackVH &
-AliasSetTracker::ASTCallbackVH::operator=(Value *V) {
-  return *this = ASTCallbackVH(V, AST);
-}
 
 //===----------------------------------------------------------------------===//
 //                            AliasSetPrinter Pass
