@@ -231,6 +231,13 @@ void addMultilibFlag(bool Enabled, const char *const Flag,
 void addX86AlignBranchArgs(const Driver &D, const llvm::opt::ArgList &Args,
                            llvm::opt::ArgStringList &CmdArgs, bool IsLTO,
                            const StringRef PluginOptPrefix = "");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void addMarkerCountArgs(const Driver &D, const llvm::opt::ArgList &Args,
+                        llvm::opt::ArgStringList &CmdArgs, bool IsLTO,
+                        const StringRef PluginOptPrefix = "");
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
 void checkAMDGPUCodeObjectVersion(const Driver &D,
                                   const llvm::opt::ArgList &Args);
