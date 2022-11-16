@@ -2238,6 +2238,14 @@ MicrosoftCXXABI::EmitVirtualMemPtrThunk(const CXXMethodDecl *MD,
   FunctionArgList FunctionArgs;
   buildThisParam(CGF, FunctionArgs);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  CGM.addDTransInfoToFunc(CodeGenTypes::DTransFuncInfo{CGM.getContext().VoidTy,
+                                                       {MD->getThisType()}},
+                          ThunkTy, ThunkFn);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Start defining the function.
   CGF.StartFunction(GlobalDecl(), FnInfo.getReturnType(), ThunkFn, FnInfo,
                     FunctionArgs, MD->getLocation(), SourceLocation());

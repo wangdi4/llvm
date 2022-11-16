@@ -12,13 +12,14 @@ void use() {
   (void)&Struct::func;
 }
 
-// PTR: define linkonce_odr void @"??_9Struct@@$BA@AA"(%"struct..?AUStruct@@.Struct"* noundef %this, ...)
-// OPQ: define linkonce_odr void @"??_9Struct@@$BA@AA"(ptr noundef %this, ...)
+// PTR: define linkonce_odr void @"??_9Struct@@$BA@AA"(%"struct..?AUStruct@@.Struct"* noundef "intel_dtrans_func_index"="1" %this, ...){{.*}}!intel.dtrans.func.type ![[PTR_THUNK:[0-9]+]]
+// OPQ: define linkonce_odr void @"??_9Struct@@$BA@AA"(ptr noundef "intel_dtrans_func_index"="1" %this, ...){{.*}}!intel.dtrans.func.type ![[PTR_THUNK:[0-9]+]]
 // PTR: alloca %"struct..?AUStruct@@.Struct"*, align 8, !intel_dtrans_type ![[STRUCT_PTR:[0-9]+]]
 // OPQ: alloca ptr, align 8, !intel_dtrans_type ![[STRUCT_PTR:[0-9]+]]
 // PTR: musttail call void (%"struct..?AUStruct@@.Struct"*, ...) %{{[0-9]+}}(%"struct..?AUStruct@@.Struct"* noundef %{{.*}}, ...), !intel_dtrans_type ![[MUSTTAIL_CALL:[0-9]+]]
 // OPQ: musttail call void (ptr, ...) %{{[0-9]+}}(ptr noundef %{{.*}}, ...), !intel_dtrans_type ![[MUSTTAIL_CALL:[0-9]+]]
 
+// CHECK: ![[PTR_THUNK]] = distinct !{![[STRUCT_PTR]]}
 // CHECK: ![[STRUCT_PTR]] = !{%"struct..?AUStruct@@.Struct" zeroinitializer, i32 1} 
 // CHECK: ![[MUSTTAIL_CALL]] = !{!"F", i1 true, i32 1, ![[VOID:[0-9]+]], ![[STRUCT_PTR]]}
 // CHECK: ![[VOID]] = !{!"void", i32 0}
