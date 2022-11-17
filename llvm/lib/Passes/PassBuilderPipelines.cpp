@@ -2213,7 +2213,10 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
       if (Level.getSpeedupLevel() > 2 && IsLTO) {
         INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
-        FPM.addPass(HIRRowWiseMVPass());
+#if INTEL_FEATURE_SW_DTRANS
+        if (DTransEnabled)
+          FPM.addPass(HIRRowWiseMVPass());
+#endif // INTEL_FEATURE_SW_DTRANS
         FPM.addPass(HIRSumWindowReusePass());
         INTEL_LIMIT_END(FPM)
       }
