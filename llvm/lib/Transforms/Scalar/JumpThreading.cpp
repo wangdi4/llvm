@@ -433,6 +433,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   PA.preserve<WholeProgramAnalysis>();// INTEL
   return PA;
 }
+
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 TargetTransformInfo *TTI_, LazyValueInfo *LVI_,
                                 AliasAnalysis *AA_, DomTreeUpdater *DTU_,
