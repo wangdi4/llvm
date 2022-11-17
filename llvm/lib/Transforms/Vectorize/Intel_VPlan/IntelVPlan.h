@@ -790,12 +790,6 @@ public:
   }
 
   unsigned getOpcode() const { return Opcode; }
-  // FIXME: Temporary workaround for TTI problems that make the cost
-  // modeling incorrect. The getCMType() returns nullptr in case the underlying
-  // instruction is not set and this makes the cost of this instruction
-  // undefined (i.e. 0). Non-null return value causes calculation by TTI with
-  // incorrect result.
-  virtual Type *getCMType() const override;
 
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
