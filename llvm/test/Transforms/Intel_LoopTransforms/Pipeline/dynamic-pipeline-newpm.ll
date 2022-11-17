@@ -3,7 +3,6 @@
 ; RUN: opt -passes='default<O2>' -loopopt -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s --check-prefix="CHECK-VPO2"
 ; RUN: opt -passes='default<O3>' -loopopt -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s --check-prefix="CHECK-O3"
 ; RUN: opt -passes='lto<O2>' -loopopt -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s --check-prefix="CHECK-LTO"
-; RUN: opt -passes='lto<O3>' -loopopt -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s --check-prefix="CHECK-LTO-O3"
 
 
 ; Verify that full loopopt passes, enabled under -O2, are properly skipped for functions
@@ -44,14 +43,6 @@
 ; CHECK-LTO: Skipping pass ADCEPass on NoLoopOptFunc due to incompatible Full LoopOpt limiter on pass
 ; CHECK-LTO: Skipping pass ADCEPass on LightLoopOptFunc due to incompatible Full LoopOpt limiter on pass
 ; CHECK-LTO: Running pass: ADCEPass on FullLoopOptFunc
-
-
-; Verify that full loopopt passes, enabled only under lto<O3>, are properly skipped for functions
-; NoLoopOptFunc() LightLoopOptFunc() but run for FullLoopOptFunc()
-
-; CHECK-LTO-O3: Skipping pass HIRRowWiseMVPass on NoLoopOptFunc due to incompatible Full LoopOpt limiter on pass
-; CHECK-LTO-O3: Skipping pass HIRRowWiseMVPass on LightLoopOptFunc due to incompatible Full LoopOpt limiter on pass
-; CHECK-LTO-O3: Running pass: HIRRowWiseMVPass on FullLoopOptFunc
 
 
 define void @NoLoopOptFunc() {
