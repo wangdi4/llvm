@@ -62,7 +62,7 @@ declare i8* @get_special_buffer.() #1
 ; CHECK-NEXT: %translated_opencl_printf_call = call i32 @__opencl_printf(i8 addrspace(2)* getelementptr inbounds ([36 x i8], [36 x i8] addrspace(2)* @.str, i64 0, i64 0), i8* [[GEP0]]
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #2 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_name !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 !kernel_has_sub_groups !4 !barrier_buffer_size !5 !kernel_execution_length !6 !kernel_has_global_sync !4 !recommended_vector_length !7 !private_memory_size !8 {
+define dso_local void @test(i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #2 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_name !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 !kernel_has_sub_groups !4 !barrier_buffer_size !5 !kernel_execution_length !6 !kernel_has_global_sync !4 !recommended_vector_length !7 !private_memory_size !8 {
 entry:
   %hhd.addr = alloca i8*, align 8
   %hd.addr = alloca i16*, align 8
@@ -139,7 +139,7 @@ attributes #3 = { convergent nobuiltin }
 
 !0 = !{i32 1, i32 2}
 !1 = !{!"-cl-opt-disable"}
-!2 = !{void (i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @test}
+!2 = !{void (i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @test}
 !3 = !{}
 !4 = !{i1 false}
 !5 = !{i32 48}
@@ -147,7 +147,7 @@ attributes #3 = { convergent nobuiltin }
 !7 = !{i32 1}
 !8 = !{i32 88}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test --  %{{.*}} = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 5
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test --  %{{.*}} = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i32 0, i32 5
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test --  %RuntimeInterface = load {}*, {}** %{{.*}}, align 1
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test --  %temp_arg_buf = alloca [88 x i8], align 4
 ; DEBUGIFY: WARNING: Missing line 7

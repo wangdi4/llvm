@@ -8,7 +8,7 @@
 ; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
 
 ; CHECK-NONOPAQUE: define spir_func i32 @foo(i32 %arg, i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK-NONOPAQUE-SAME:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim
+; CHECK-NONOPAQUE-SAME:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim
 ; CHECK-NONOPAQUE-SAME:          i64* noalias %pWGId,
 ; CHECK-NONOPAQUE-SAME:          [4 x i64] %BaseGlbId,
 ; CHECK-NONOPAQUE-SAME:          i8* noalias %pSpecialBuf,
@@ -22,7 +22,7 @@
 ; CHECK-OPAQUE-SAME:          ptr noalias %RuntimeHandle)
 ;
 ; CHECK: define void @test
-; CHECK-NONOPAQUE: %[[BITCAST:[0-9]+]] = bitcast i32 (i32)* %fp to i32 (i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)*
+; CHECK-NONOPAQUE: %[[BITCAST:[0-9]+]] = bitcast i32 (i32)* %fp to i32 (i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)*
 ; CHECK-OPAQUE: %[[BITCAST:[0-9]+]] = bitcast ptr %fp to ptr
 ; CHECK: call spir_func i32 %[[BITCAST]](i32 %0,
 

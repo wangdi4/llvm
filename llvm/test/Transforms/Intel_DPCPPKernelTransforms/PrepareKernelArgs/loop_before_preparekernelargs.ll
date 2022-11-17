@@ -27,18 +27,18 @@ define void @_Test(double addrspace(1)* noalias %0,
         %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %6,
         %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %7,
         i8 addrspace(3)* noalias %pLocalMemBase,
-        { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim,
+        { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim,
         i64* noalias %pWGId, [4 x i64] %BaseGlbId,
         i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr {
 WGLoopsEntry:
   %BaseGlobalID_0.i = extractvalue [4 x i64] %BaseGlbId, 0
-  %8 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64 0, i32 4, i64 0
+  %8 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i64 0, i32 4, i64 0
   %NumGroups_0.i = load i64, i64* %8, align 8
   %GroupID_0.i = load i64, i64* %pWGId, align 8
   %9 = add nsw i64 %GroupID_0.i, 1
   %10 = icmp eq i64 %NumGroups_0.i, %9
   %11 = zext i1 %10 to i64
-  %12 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64 0, i32 3, i64 %11, i64 0
+  %12 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i64 0, i32 3, i64 %11, i64 0
   %LocalSize_0.i = load i64, i64* %12, align 8
   %.sroa.03.0..sroa_idx = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %3, i64 0, i32 0, i32 0, i64 0
   %.sroa.0.0..sroa_idx = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %7, i64 0, i32 0, i32 0, i64 0

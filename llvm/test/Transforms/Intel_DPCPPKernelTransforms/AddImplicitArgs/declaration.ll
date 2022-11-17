@@ -30,7 +30,7 @@ entry:
 ; CHECK:        define i32 @caller(i32 %x, i32 %y,
 ; CHECK-NONOPAQUE:  i8 addrspace(3)* noalias %pLocalMemBase,
 ; CHECK-OPAQUE:     ptr addrspace(3) noalias %pLocalMemBase,
-; CHECK-NONOPAQUE:  { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias %pWorkDim,
+; CHECK-NONOPAQUE:  { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}*, [3 x i32], [2 x [3 x i32]], [3 x i32] }* noalias %pWorkDim,
 ; CHECK-OPAQUE:     ptr noalias %pWorkDim,
 ; CHECK-NONOPAQUE:  i32* noalias %pWGId,
 ; CHECK-OPAQUE:     ptr noalias %pWGId,

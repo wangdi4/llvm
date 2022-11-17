@@ -54,13 +54,14 @@ public:
                                  IRBuilder<> &Builder);
 
   Value *GenerateGetLocalSize(bool uniformWGSize, Value *WorkInfo, Value *pWGId,
-                              Value *Dimension, IRBuilder<> &Builder);
+                              bool IsUserRequired, Value *Dimension,
+                              IRBuilder<> &Builder);
 
-  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, unsigned Dimension,
-                                      IRBuilder<> &Builder);
+  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, bool IsUserRequired,
+                                      unsigned Dimension, IRBuilder<> &Builder);
 
-  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, Value *Dimension,
-                                      IRBuilder<> &Builder);
+  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, bool IsUserRequired,
+                                      Value *Dimension, IRBuilder<> &Builder);
 
   Value *GenerateGetGroupID(Value *GroupID, unsigned Dimension,
                             IRBuilder<> &Builder);
@@ -76,8 +77,9 @@ private:
 
   /// The following implementation is generic for get_local_size and
   /// get_enqueued_local_size.
-  Value *GenerateGetLocalSizeGeneric(Value *WorkInfo, Value *LocalSizeIdx,
-                                     Value *Dimension, IRBuilder<> &Builder);
+  Value *GenerateGetLocalSizeGeneric(Value *WorkInfo, bool IsUserRequired,
+                                     Value *LocalSizeIdx, Value *Dimension,
+                                     IRBuilder<> &Builder);
 
 private:
   // Each entry matches an IMPLICIT_ARGS enum

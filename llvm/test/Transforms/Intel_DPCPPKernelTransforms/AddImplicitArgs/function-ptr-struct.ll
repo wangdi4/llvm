@@ -14,7 +14,7 @@ target triple = "x86_64-pc-linux"
 
 @g = global %struct.a <{i32 (i32, i32)* @add}>
 
-; CHECK-NONOPAQUE: @g = global %struct.a <{ i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @add to i32 (i32, i32)*) }>
+; CHECK-NONOPAQUE: @g = global %struct.a <{ i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @add to i32 (i32, i32)*) }>
 ; CHECK-OPAQUE: @g = global %struct.a <{ ptr @add }>
 
 define i32 @add(i32 %A, i32 %B) #0 {

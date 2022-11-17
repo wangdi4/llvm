@@ -12,10 +12,10 @@ entry:
   %call = call i8* @__get_device_command_manager() #2
   %call1 = call i8* @__get_block_to_kernel_mapper() #2
   %call2 = call i8* @__get_runtime_handle() #2
-; CHECK: %0 = load { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }** @pWorkDim
-; CHECK-NEXT: %1 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %0, i32 0, i32 5
+; CHECK: %0 = load { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }** @pWorkDim
+; CHECK-NEXT: %1 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %0, i32 0, i32 5
 ; CHECK-NEXT: %RuntimeInterface = load {}*, {}** %1
-; CHECK-NEXT: %2 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %0, i32 0, i32 6
+; CHECK-NEXT: %2 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %0, i32 0, i32 6
 ; CHECK-NEXT: %Block2KernelMapper = load {}*, {}** %2
 ; CHECK-NEXT: %3 = load {}*, {}** @RuntimeHandle
 ; CHECK-NEXT: %4 = bitcast {}* %RuntimeInterface to i8*

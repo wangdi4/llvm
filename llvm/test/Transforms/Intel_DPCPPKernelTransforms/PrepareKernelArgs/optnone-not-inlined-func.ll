@@ -64,7 +64,7 @@ dim_0_pre_head:                                   ; preds = %dim_0_exit, %dim_1_
 
 scalar_kernel_entry:                              ; preds = %scalar_kernel_entry, %dim_0_pre_head
 ; CHECK-LABEL: scalar_kernel_entry
-; CHECK-ARG: call i32 @foo(i32 addrspace(1)* noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, i8 addrspace(3)* noalias %LocalMem_foo, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle)
+; CHECK-ARG: call i32 @foo(i32 addrspace(1)* noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, i8 addrspace(3)* noalias %LocalMem_foo, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle)
 ; CHECK-TLS: call i32 @foo(i32 addrspace(1)* noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}})
 
   %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]
@@ -144,19 +144,19 @@ attributes #3 = { convergent }
 ; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store i8 addrspace(3)* null, i8 addrspace(3)** @pLocalMemBase, align 8
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i8, i8* %UniformArgs, i32 16
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} bitcast i8*
-; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* {{.*}}, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }** @pWorkDim, align 8
+; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* {{.*}}, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }** @pWorkDim, align 8
 ; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store i64* %pWGId, i64** @pWGId, align 8
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i64, i64* %pWGId, i32 0
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
@@ -164,17 +164,17 @@ attributes #3 = { convergent }
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i64, i64* %pWGId, i32 2
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %LocalSize_0, %GroupID_0
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %InternalLocalSize_0, %GroupID_0
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} add i64 %14, %GlobalOffset_0
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %LocalSize_1, %GroupID_1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %InternalLocalSize_1, %GroupID_1
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} add i64 %16, %GlobalOffset_1
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %LocalSize_2, %GroupID_2
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %InternalLocalSize_2, %GroupID_2
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} add i64 %18, %GlobalOffset_2
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} insertvalue [4 x i64] undef
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} insertvalue [4 x i64]
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} insertvalue [4 x i64]
 ; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store [4 x i64] {{.*}}, [4 x i64]* @BaseGlbId, align 8
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul nuw nsw i64 %LocalSize_0, %LocalSize_1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul nuw nsw i64 %InternalLocalSize_0, %InternalLocalSize_1
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul nuw nsw i64
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul nuw nsw i64 0, %LocalSizeProd
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} alloca i8, i64 %BarrierBufferSize, align 128

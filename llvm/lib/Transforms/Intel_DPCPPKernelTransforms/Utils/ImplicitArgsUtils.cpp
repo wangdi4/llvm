@@ -17,26 +17,34 @@
 using namespace llvm;
 
 StringRef NDInfo::getRecordName(unsigned RecordID) {
-  static StringRef Names[NDInfo::LAST] = {
-      "WorkDim",    "GlobalOffset_",    "GlobalSize_",        "LocalSize_",
-      "NumGroups_", "RuntimeInterface", "Block2KernelMapper",
-  };
+  static StringRef Names[NDInfo::LAST] = {"WorkDim",
+                                          "GlobalOffset_",
+                                          "GlobalSize_",
+                                          "LocalSize_",
+                                          "NumGroups_",
+                                          "RuntimeInterface",
+                                          "Block2KernelMapper",
+                                          "InternalGlobalSize_",
+                                          "InternalLocalSize_",
+                                          "InternalNumGroups_"};
   assert(RecordID < NDInfo::LAST && "index is out of range");
   return Names[RecordID];
 }
 
-unsigned NDInfo::internalCall2NDInfo(unsigned InternalCall) {
+unsigned NDInfo::internalCall2NDInfo(unsigned InternalCall,
+                                     bool IsUserWIFunction) {
   assert(InternalCall < ICT_NUMBER);
   switch (InternalCall) {
   case ICT_GET_GLOBAL_OFFSET:
     return NDInfo::GLOBAL_OFFSET;
   case ICT_GET_GLOBAL_SIZE:
-    return NDInfo::GLOBAL_SIZE;
+    return IsUserWIFunction ? NDInfo::GLOBAL_SIZE
+                            : NDInfo::INTERNAL_GLOBAL_SIZE;
   case ICT_GET_LOCAL_SIZE:
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
-    return NDInfo::LOCAL_SIZE;
+    return IsUserWIFunction ? NDInfo::LOCAL_SIZE : NDInfo::INTERNAL_LOCAL_SIZE;
   case ICT_GET_NUM_GROUPS:
-    return NDInfo::WG_NUMBER;
+    return IsUserWIFunction ? NDInfo::WG_NUMBER : NDInfo::INTERNAL_WG_NUMBER;
   default:
     llvm_unreachable("no NDInfo for the internal call");
   }
