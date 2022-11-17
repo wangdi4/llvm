@@ -192,8 +192,6 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         if (m_IsSPIRV && Config.GetRelaxedMath())
           MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));
 
-        MPM.addPass(DuplicateCalledKernelsPass());
-
         if (Level != OptimizationLevel::O0)
           MPM.addPass(InternalizeNonKernelFuncPass());
 
@@ -305,6 +303,8 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
 
     if (Level != OptimizationLevel::O0)
       MPM.addPass(InferArgumentAliasPass());
+
+    MPM.addPass(DuplicateCalledKernelsPass());
 
     MPM.addPass(DPCPPKernelAnalysisPass());
 
