@@ -640,7 +640,7 @@ public:
   /// potentially set the return value.
   bool SawAsmBlock = false;
 
-  const NamedDecl *CurSEHParent = nullptr;
+  GlobalDecl CurSEHParent;
 
   /// True if the current function is an outlined SEH helper. This can be a
   /// finally block or filter expression.
@@ -2458,7 +2458,8 @@ public:
   llvm::Intrinsic::ID getContainerIntrinsic(
       CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName);
 #endif // INTEL_CUSTOMIZATION
-  bool currentFunctionUsesSEHTry() const { return CurSEHParent != nullptr; }
+
+  bool currentFunctionUsesSEHTry() const { return !!CurSEHParent; }
 
   const TargetInfo &getTarget() const { return Target; }
   llvm::LLVMContext &getLLVMContext() { return CGM.getLLVMContext(); }
