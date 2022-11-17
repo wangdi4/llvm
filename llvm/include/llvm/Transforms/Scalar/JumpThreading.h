@@ -131,7 +131,10 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   LazyValueInfo *LVI;
   AAResults *AA;
   DomTreeUpdater *DTU;
+<<<<<<< HEAD
   PostDominatorTree *PDT; // INTEL
+=======
+>>>>>>> 50f8eb05af50904e740088385ec54aae017467e8
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
   bool HasProfileData = false;
@@ -176,8 +179,12 @@ public:
   bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
                bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI,
+<<<<<<< HEAD
                std::unique_ptr<BranchProbabilityInfo> BPI, // INTEL
                PostDominatorTree *PDT_);  // INTEL
+=======
+               std::unique_ptr<BranchProbabilityInfo> BPI);
+>>>>>>> 50f8eb05af50904e740088385ec54aae017467e8
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
