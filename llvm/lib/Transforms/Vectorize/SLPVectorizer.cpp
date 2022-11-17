@@ -1152,7 +1152,8 @@ public:
   /// Vectorize the tree but with the list of externally used values \p
   /// ExternallyUsedValues. Values in this MapVector can be replaced but the
   /// generated extractvalue instructions.
-  Value *vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues);
+  Value *vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues,
+                       Instruction *ReductionRoot = nullptr);
 
   /// \returns the cost incurred by unwanted spills and fills, caused by
   /// holding live values over call sites.
@@ -2486,6 +2487,9 @@ public:
   bool isAnyGathered(const SmallDenseSet<Value *> &Vals) const {
     return any_of(MustGather, [&](Value *V) { return Vals.contains(V); });
   }
+
+  /// Check if the value is vectorized in the tree.
+  bool isVectorized(Value *V) const { return getTreeEntry(V); }
 
   ~BoUpSLP();
 
@@ -11153,8 +11157,8 @@ struct ShuffledInsertData {
 };
 } // namespace
 
-Value *
-BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
+Value *BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues,
+                              Instruction *ReductionRoot) {
   // All blocks must be scheduled before any instructions are inserted.
   for (auto &BSIter : BlocksSchedules) {
     scheduleBlock(BSIter.second.get());
@@ -11171,7 +11175,8 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
     EntryToLastInstruction.try_emplace(E.get(), LastInst);
   }
 
-  Builder.SetInsertPoint(&F->getEntryBlock().front());
+  Builder.SetInsertPoint(ReductionRoot ? ReductionRoot
+                                       : &F->getEntryBlock().front());
   auto *VectorRoot = vectorizeTree(VectorizableTree[0].get());
 
   // If the vectorized tree can be rewritten in a smaller type, we truncate the
@@ -14218,6 +14223,9 @@ public:
         TrackedVals.try_emplace(V, V);
 
     DenseMap<Value *, unsigned> VectorizedVals(ReducedVals.size());
+    // List of the values that were reduced in other trees as part of gather
+    // nodes and thus requiring extract if fully vectorized in other trees.
+    SmallPtrSet<Value *, 4> RequiredExtract;
     Value *VectorizedTree = nullptr;
     bool CheckForReusedReductionOps = false;
     // Try to vectorize elements based on their type.
@@ -14378,6 +14386,9 @@ public:
           if (NumOps != ReducedValsToOps.find(V)->second.size())
             LocalExternallyUsedValues[V];
         }
+        for (Value *RdxVal : VL)
+          if (RequiredExtract.contains(RdxVal))
+            LocalExternallyUsedValues[RdxVal];
         V.buildExternalUses(LocalExternallyUsedValues);
 
         V.computeMinimumValueSizes();
@@ -14440,16 +14451,18 @@ public:
 
         Builder.setFastMathFlags(RdxFMF);
 
-        // Vectorize a tree.
-        Value *VectorizedRoot = V.vectorizeTree(LocalExternallyUsedValues);
-
         // Emit a reduction. If the root is a select (min/max idiom), the insert
         // point is the compare condition of that select.
         Instruction *RdxRootInst = cast<Instruction>(ReductionRoot);
+        Instruction *InsertPt = RdxRootInst;
         if (IsCmpSelMinMax)
-          Builder.SetInsertPoint(GetCmpForMinMaxReduction(RdxRootInst));
-        else
-          Builder.SetInsertPoint(RdxRootInst);
+          InsertPt = GetCmpForMinMaxReduction(RdxRootInst);
+
+        // Vectorize a tree.
+        Value *VectorizedRoot =
+            V.vectorizeTree(LocalExternallyUsedValues, InsertPt);
+
+        Builder.SetInsertPoint(InsertPt);
 
         // To prevent poison from leaking across what used to be sequential,
         // safe, scalar boolean logic operations, the reduction operand must be
@@ -14471,9 +14484,12 @@ public:
                                     ReducedSubTree, "op.rdx", ReductionOps);
         }
         // Count vectorized reduced values to exclude them from final reduction.
-        for (Value *V : VL)
-          ++VectorizedVals.try_emplace(TrackedToOrig.find(V)->second, 0)
+        for (Value *RdxVal : VL) {
+          ++VectorizedVals.try_emplace(TrackedToOrig.find(RdxVal)->second, 0)
                 .first->getSecond();
+          if (!V.isVectorized(RdxVal))
+            RequiredExtract.insert(RdxVal);
+        }
         Pos += ReduxWidth;
         Start = Pos;
         ReduxWidth = PowerOf2Floor(NumReducedVals - Pos);
