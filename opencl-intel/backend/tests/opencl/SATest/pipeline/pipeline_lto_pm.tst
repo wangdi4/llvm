@@ -23,10 +23,7 @@
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK:      Running pass: DuplicateCalledKernelsPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
+; CHECK:      Running pass: InternalizeNonKernelFuncPass
 ; CHECK:      Running pass: FMASplitterPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
@@ -56,6 +53,8 @@
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
+; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: WGLoopBoundariesPass
@@ -197,7 +196,7 @@
 ; QUIET-NEXT: Running pass: SpecializeConstantPass
 ; QUIET-NEXT: Running pass: VerifierPass
 ; QUIET-NEXT: Running pass: DPCPPEqualizerPass
-; QUIET:      Running pass: DuplicateCalledKernelsPass
+; QUIET-NEXT: Running pass: SetPreferVectorWidthPass
 ; QUIET-NEXT: Running pass: InternalizeNonKernelFuncPass
 ; QUIET-NEXT: Running pass: FMASplitterPass
 ; QUIET-NEXT: Running pass: AddFunctionAttrsPass
