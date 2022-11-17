@@ -857,14 +857,21 @@ namespace {
 
 class X86LowerAMXCast {
   Function &Func;
+<<<<<<< HEAD
   ShapeCalculator *SC; // INTEL
 
 public:
 #if INTEL_CUSTOMIZATION
   X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC) : Func(F), SC(ShapeC) {}
 #endif // INTEL_CUSTOMIZATION
+=======
+  std::unique_ptr<DominatorTree> DT;
+
+public:
+  X86LowerAMXCast(Function &F) : Func(F), DT(nullptr) {}
+>>>>>>> 7d59b337f6dbeac3b0c655d52b7ce2edc4a2d364
   void combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
-  void combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
+  bool combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
   bool combineLdSt(SmallVectorImpl<Instruction *> &Casts);
   bool combineAMXcast(TargetLibraryInfo *TLI);
   bool transformAMXCast(IntrinsicInst *AMXCast);
@@ -1102,7 +1109,8 @@ void X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
 // -->
 // %66 = call x86_amx @llvm.x86.tileloadd64.internal(i16 %row, i16 %col,
 //                                                   i8* %p, i64 64)
-void X86LowerAMXCast::combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
+bool X86LowerAMXCast::combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
+  bool EraseLoad = true;
   Value *Row = nullptr, *Col = nullptr;
   Use &U = *(Cast->use_begin());
   unsigned OpNo = U.getOperandNo();
@@ -1110,18 +1118,42 @@ void X86LowerAMXCast::combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
   // TODO: If it is cast intrinsic or phi node, we can propagate the
   // shape information through def-use chain.
   if (!isAMXIntrinsic(II))
+<<<<<<< HEAD
     return;
   std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
+=======
+    return false;
+  std::tie(Row, Col) = getShape(II, OpNo);
+>>>>>>> 7d59b337f6dbeac3b0c655d52b7ce2edc4a2d364
   IRBuilder<> Builder(LD);
   // Use the maximun column as stride.
   Value *Stride = Builder.getInt64(64);
-  Value *I8Ptr =
-      Builder.CreateBitCast(LD->getOperand(0), Builder.getInt8PtrTy());
+  Value *I8Ptr;
+
+  // To save compiling time, we create doninator tree when it is really
+  // needed.
+  if (!DT)
+    DT.reset(new DominatorTree(Func));
+  if (!DT->dominates(Row, LD) || !DT->dominates(Col, LD)) {
+    // store the value to stack and reload it from stack before cast.
+    auto *AllocaAddr =
+        createAllocaInstAtEntry(Builder, Cast->getParent(), LD->getType());
+    Builder.SetInsertPoint(&*std::next(LD->getIterator()));
+    Builder.CreateStore(LD, AllocaAddr);
+
+    Builder.SetInsertPoint(Cast);
+    I8Ptr = Builder.CreateBitCast(AllocaAddr, Builder.getInt8PtrTy());
+    EraseLoad = false;
+  } else {
+    I8Ptr = Builder.CreateBitCast(LD->getOperand(0), Builder.getInt8PtrTy());
+  }
   std::array<Value *, 4> Args = {Row, Col, I8Ptr, Stride};
 
   Value *NewInst =
       Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal, None, Args);
   Cast->replaceAllUsesWith(NewInst);
+
+  return EraseLoad;
 }
 
 bool X86LowerAMXCast::combineLdSt(SmallVectorImpl<Instruction *> &Casts) {
@@ -1155,10 +1187,11 @@ bool X86LowerAMXCast::combineLdSt(SmallVectorImpl<Instruction *> &Casts) {
       // -->
       // %66 = call x86_amx @llvm.x86.tileloadd64.internal(i16 %row, i16 %col,
       //                                                   i8* %p, i64 64)
-      combineLoadCast(cast<IntrinsicInst>(Cast), Load);
-      // Set the operand is null so that load instruction can be erased.
-      Cast->setOperand(0, nullptr);
-      Load->eraseFromParent();
+      if (combineLoadCast(cast<IntrinsicInst>(Cast), Load)) {
+        // Set the operand is null so that load instruction can be erased.
+        Cast->setOperand(0, nullptr);
+        Load->eraseFromParent();
+      }
     }
   }
   return Change;
@@ -1358,8 +1391,13 @@ public:
     TargetMachine *TM = &getAnalysis<TargetPassConfig>().getTM<TargetMachine>();
     TargetLibraryInfo *TLI =
         &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+<<<<<<< HEAD
     ShapeCalculator SC(TM);      // INTEL
     X86LowerAMXCast LAC(F, &SC); // INTEL
+=======
+
+    X86LowerAMXCast LAC(F);
+>>>>>>> 7d59b337f6dbeac3b0c655d52b7ce2edc4a2d364
     C |= LAC.combineAMXcast(TLI);
     // There might be remaining AMXcast after combineAMXcast and they should be
     // handled elegantly.
