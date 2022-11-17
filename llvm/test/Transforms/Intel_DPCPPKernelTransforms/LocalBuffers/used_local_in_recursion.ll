@@ -93,7 +93,7 @@ exit:
 ; OPAQUE-NEXT:   %dummyFloat = load float, ptr addrspace(3) [[VAR8]], align 4
 ; OPAQUE-NEXT:   store float %dummyFloat, ptr addrspace(1) %pFloat
 
-; NONOPAQUE-NEXT:   call void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, i8 addrspace(3)* noalias undef, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias undef, i32* noalias undef, [4 x i32] undef, i8* noalias undef, {}* noalias undef)
+; NONOPAQUE-NEXT:   call void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, i8 addrspace(3)* noalias undef, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}*, [3 x i32], [2 x [3 x i32]], [3 x i32] }* noalias undef, i32* noalias undef, [4 x i32] undef, i8* noalias undef, {}* noalias undef)
 ; OPAQUE-NEXT:   call void @foo(ptr addrspace(1) %ApInt, ptr addrspace(1) %BpInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat, ptr addrspace(3) noalias undef, ptr noalias undef, ptr noalias undef, [4 x i32] undef, ptr noalias undef, ptr noalias undef)
 ; CHECK-NEXT:   br label %exit
 

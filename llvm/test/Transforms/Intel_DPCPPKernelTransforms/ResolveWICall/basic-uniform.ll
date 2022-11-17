@@ -8,7 +8,7 @@ target triple = "x86_64-pc-linux"
 
 define i64 @GLS0() {
 ; CHECK:      @GLS0
-; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
+; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i32 0, i32 8, i32 0, i32 0
 ; CHECK-NEXT: [[LocalSize:%[a-zA-Z0-9_]+]]      = load i64, i64* [[GEP]]
 ; CHECK-NEXT: ret i64 [[LocalSize]]
   %c = tail call i64 @_Z14get_local_sizej(i32 0) nounwind
@@ -16,7 +16,7 @@ define i64 @GLS0() {
 }
 define i64 @GLS1() {
 ; CHECK:      @GLS1
-; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
+; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i32 0, i32 8, i32 0, i32 1
 ; CHECK-NEXT: [[LocalSize:%[a-zA-Z0-9_]+]]      = load i64, i64* [[GEP]]
 ; CHECK-NEXT: ret i64 [[LocalSize]]
   %c = tail call i64 @_Z14get_local_sizej(i32 1) nounwind
@@ -24,7 +24,7 @@ define i64 @GLS1() {
 }
 define i64 @GLS2() {
 ; CHECK:      @GLS2
-; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
+; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i32 0, i32 8, i32 0, i32 2
 ; CHECK-NEXT: [[LocalSize:%[a-zA-Z0-9_]+]]      = load i64, i64* [[GEP]]
 ; CHECK-NEXT: ret i64 [[LocalSize]]
   %c = tail call i64 @_Z14get_local_sizej(i32 2) nounwind
@@ -32,7 +32,7 @@ define i64 @GLS2() {
 }
 define i64 @GLSX(i32 %x) {
 ; CHECK:      @GLSX
-; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 %x 
+; CHECK:      [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i32 0, i32 8, i32 0, i32 %x 
 ; CHECK-NEXT: [[LocalSize:%[a-zA-Z0-9_]+]]      = load i64, i64* [[GEP]]
   %c = tail call i64 @_Z14get_local_sizej(i32 %x) nounwind
   ret i64 %c

@@ -4,7 +4,7 @@
 
 ; CHECK-DAG: @LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
 ; CHECK-DAG: @pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef, align 8
-; CHECK-DAG: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* undef, align 8
+; CHECK-DAG: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* undef, align 8
 ; CHECK-DAG: @pWGId = linkonce_odr thread_local global i64* undef, align 8
 ; CHECK-DAG: @BaseGlbId = linkonce_odr thread_local global [4 x i64] undef, align 16
 ; CHECK-DAG: @pSpecialBuf = linkonce_odr thread_local global i8* undef, align 8

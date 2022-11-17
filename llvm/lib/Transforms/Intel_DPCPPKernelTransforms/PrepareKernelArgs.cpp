@@ -336,7 +336,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
              "Assuming that we are computing Local Sizes here");
       for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
         LocalSize.push_back(
-            IAInfo->GenerateGetEnqueuedLocalSize(WGInfo, Dim, Builder));
+            IAInfo->GenerateGetEnqueuedLocalSize(WGInfo, false, Dim, Builder));
 
       // Obtain values of NDRange Offsets for each dimension
       SmallVector<Value *, 4> GlobalOffsets;

@@ -13,7 +13,7 @@ target triple = "x86_64-pc-linux"
 declare void @llvm.memcpy.p3i8.p1i8.i64(i8 addrspace(3)* noalias nocapture writeonly, i8 addrspace(1)* noalias nocapture readonly, i64, i1 immarg) #0
 
 ; Function Attrs: alwaysinline convergent nounwind
-declare !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !no_barrier_path !17 !kernel_has_sub_groups !17 !max_wg_dimensions !18 !local_buffer_size !19 !barrier_buffer_size !20 !kernel_wrapper !21 !kernel_execution_length !22 !kernel_has_barrier !23 !kernel_has_global_sync !17 !private_memory_size !20 void @___ZTS28Kernel_L3_SLM_8x8_4x16_vec_1_separated_args(%0 addrspace(1)*, %1* byval(%1), %1* byval(%1), %1* byval(%1), %0 addrspace(1)*, %1* byval(%1), %1* byval(%1), %1* byval(%1), %0 addrspace(1)*, %1* byval(%1), %1* byval(%1), %1* byval(%1), %0 addrspace(3)* noalias, %1* byval(%1), %1* byval(%1), %1* byval(%1), float, float, i64, i64, i32, i8 addrspace(3)* noalias, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias, i64* noalias, [4 x i64], i8* noalias, {}* noalias) local_unnamed_addr #1
+declare !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !no_barrier_path !17 !kernel_has_sub_groups !17 !max_wg_dimensions !18 !local_buffer_size !19 !barrier_buffer_size !20 !kernel_wrapper !21 !kernel_execution_length !22 !kernel_has_barrier !23 !kernel_has_global_sync !17 !private_memory_size !20 void @___ZTS28Kernel_L3_SLM_8x8_4x16_vec_1_separated_args(%0 addrspace(1)*, %1* byval(%1), %1* byval(%1), %1* byval(%1), %0 addrspace(1)*, %1* byval(%1), %1* byval(%1), %1* byval(%1), %0 addrspace(1)*, %1* byval(%1), %1* byval(%1), %1* byval(%1), %0 addrspace(3)* noalias, %1* byval(%1), %1* byval(%1), %1* byval(%1), float, float, i64, i64, i32, i8 addrspace(3)* noalias, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias, i64* noalias, [4 x i64], i8* noalias, {}* noalias) local_unnamed_addr #1
 
 define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1, {}* noalias %2) !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !no_barrier_path !17 !kernel_has_sub_groups !17 !max_wg_dimensions !18 !local_buffer_size !19 !barrier_buffer_size !20 !kernel_execution_length !22 !kernel_has_barrier !23 !kernel_has_global_sync !17 !private_memory_size !20 !opencl.stats.InstCounter.CanVect !24 {
 ; CHECK-LABEL: _ZTS28Kernel_L3_SLM_8x8_4x16_vec_1:
@@ -801,7 +801,7 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
   %32 = bitcast i8* %31 to i32*
   %33 = load i32, i32* %32, align 4
   %34 = getelementptr i8, i8* %0, i64 160
-  %35 = bitcast i8* %34 to { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+  %35 = bitcast i8* %34 to { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
   %36 = getelementptr i8, i8* %0, i64 216
   %37 = bitcast i8* %36 to i64*
   %38 = load i64, i64* %37, align 1
@@ -842,7 +842,7 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
   %66 = add nsw i64 %65, 1
   %67 = icmp eq i64 %64, %66
   %68 = zext i1 %67 to i64
-  %69 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %35, i64 0, i32 3, i64 %68, i64 0
+  %69 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %35, i64 0, i32 3, i64 %68, i64 0
   %70 = load i64, i64* %69, align 1, !alias.scope !25, !noalias !28
   %71 = getelementptr i8, i8* %0, i64 272
   %72 = bitcast i8* %71 to i64*
@@ -852,7 +852,7 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
   %76 = add nsw i64 %75, 1
   %77 = icmp eq i64 %73, %76
   %78 = zext i1 %77 to i64
-  %79 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %35, i64 0, i32 3, i64 %78, i64 1
+  %79 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %35, i64 0, i32 3, i64 %78, i64 1
   %80 = load i64, i64* %79, align 1, !alias.scope !25, !noalias !28
   %81 = getelementptr inbounds [3 x i64], [3 x i64]* %4, i64 0, i64 0
   %82 = getelementptr inbounds [3 x i64], [3 x i64]* %4, i64 0, i64 1
@@ -1995,7 +1995,7 @@ attributes #2 = { nounwind }
 !4 = !{}
 !5 = !{i16 6, i16 14}
 !6 = !{!"Code is vectorizable"}
-!7 = !{void (%0 addrspace(1)*, %1*, %1*, %1*, %0 addrspace(1)*, %1*, %1*, %1*, %0 addrspace(1)*, %1*, %1*, %1*, %0 addrspace(3)*, %1*, %1*, %1*, float, float, i64, i64, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @___ZTS28Kernel_L3_SLM_8x8_4x16_vec_1_separated_args}
+!7 = !{void (%0 addrspace(1)*, %1*, %1*, %1*, %0 addrspace(1)*, %1*, %1*, %1*, %0 addrspace(1)*, %1*, %1*, %1*, %0 addrspace(3)*, %1*, %1*, %1*, float, float, i64, i64, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @___ZTS28Kernel_L3_SLM_8x8_4x16_vec_1_separated_args}
 !8 = !{!""}
 !9 = !{!"2021-02-07 16:44:13"}
 !10 = !{!"2021.11.2.0"}

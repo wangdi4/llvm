@@ -344,19 +344,24 @@ Value *ResolveWICallPass::updateGetFunctionInBound(CallInst *CI,
                                                    Instruction *InsertBefore) {
   IRBuilder<> Builder(InsertBefore);
   std::string Name;
+  bool IsUserWIFunction = false;
   switch (CallType) {
   case ICT_GET_GLOBAL_OFFSET:
-  case ICT_GET_GLOBAL_SIZE:
-  case ICT_GET_NUM_GROUPS:
     return IAInfo->GenerateGetFromWorkInfo(
         NDInfo::internalCall2NDInfo(CallType), WorkInfo, CI->getArgOperand(0),
         Builder);
+  case ICT_GET_GLOBAL_SIZE:
+  case ICT_GET_NUM_GROUPS:
+    return IAInfo->GenerateGetFromWorkInfo(
+        NDInfo::internalCall2NDInfo(CallType, IsUserWIFunction), WorkInfo,
+        CI->getArgOperand(0), Builder);
   case ICT_GET_LOCAL_SIZE:
     return IAInfo->GenerateGetLocalSize(IsUniformWG, WorkInfo, WGId,
-                                        CI->getArgOperand(0), Builder);
+                                        IsUserWIFunction, CI->getArgOperand(0),
+                                        Builder);
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
-    return IAInfo->GenerateGetEnqueuedLocalSize(WorkInfo, CI->getArgOperand(0),
-                                                Builder);
+    return IAInfo->GenerateGetEnqueuedLocalSize(WorkInfo, IsUserWIFunction,
+                                                CI->getArgOperand(0), Builder);
   case ICT_GET_BASE_GLOBAL_ID:
     return IAInfo->GenerateGetBaseGlobalID(BaseGlbId, CI->getArgOperand(0),
                                            Builder);

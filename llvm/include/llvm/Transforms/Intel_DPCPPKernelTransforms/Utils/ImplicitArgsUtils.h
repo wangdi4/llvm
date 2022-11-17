@@ -29,12 +29,16 @@ enum _NDInfo {
   WG_NUMBER,
   RUNTIME_INTERFACE,
   BLOCK2KERNEL_MAPPER,
+  INTERNAL_GLOBAL_SIZE,
+  INTERNAL_LOCAL_SIZE,
+  INTERNAL_WG_NUMBER,
   LAST
 };
 
 StringRef getRecordName(unsigned RecordID);
 
-unsigned internalCall2NDInfo(unsigned InternalCall);
+unsigned internalCall2NDInfo(unsigned InternalCall,
+                             bool IsUserWIFunction = false);
 
 } // namespace NDInfo
 

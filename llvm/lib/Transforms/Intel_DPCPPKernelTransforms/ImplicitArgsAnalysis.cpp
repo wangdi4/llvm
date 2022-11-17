@@ -59,7 +59,10 @@ void ImplicitArgsInfo::init(LLVMContext *LC, unsigned PointerSizeInBits) {
   WGInfoMembersTypes[NDInfo::WG_NUMBER] = Sizet3Ty;
   WGInfoMembersTypes[NDInfo::RUNTIME_INTERFACE] = AbstractPtr;
   WGInfoMembersTypes[NDInfo::BLOCK2KERNEL_MAPPER] = AbstractPtr;
-  assert(NDInfo::BLOCK2KERNEL_MAPPER + 1 == NDInfo::LAST);
+  WGInfoMembersTypes[NDInfo::INTERNAL_GLOBAL_SIZE] = Sizet3Ty;
+  WGInfoMembersTypes[NDInfo::INTERNAL_LOCAL_SIZE] = Sizet2x3Ty;
+  WGInfoMembersTypes[NDInfo::INTERNAL_WG_NUMBER] = Sizet3Ty;
+  assert(NDInfo::INTERNAL_WG_NUMBER + 1 == NDInfo::LAST);
   // Initialize the implicit argument types
   ArgTypes[ImplicitArgsUtils::IA_SLM_BUFFER] =
       PointerType::get(CompilationUtils::getSLMBufferElementType(*C), 3);
@@ -135,13 +138,15 @@ Value *ImplicitArgsInfo::GenerateGetGlobalOffset(Value *WorkInfo,
 
 Value *ImplicitArgsInfo::GenerateGetLocalSize(bool uniformWGSize,
                                               Value *WorkInfo, Value *pWGId,
+                                              bool IsUserRequired,
                                               Value *Dimension,
                                               IRBuilder<> &Builder) {
 
   // The OpenCL 2.0 program can be compiled with the option
   // -cl-uniform-work-group-size.
   if (uniformWGSize) {
-    return GenerateGetEnqueuedLocalSize(WorkInfo, Dimension, Builder);
+    return GenerateGetEnqueuedLocalSize(WorkInfo, IsUserRequired, Dimension,
+                                        Builder);
   }
 
   // The non-uniform local size is stored as the second array so
@@ -150,50 +155,57 @@ Value *ImplicitArgsInfo::GenerateGetLocalSize(bool uniformWGSize,
   // %WGIdPlusOne = add nsw i64 %WGId, 1
   // %LastWG = icmp eq i64 %WGIdPlusOne, %WGNum
   // %LocalSizeIdx = zext i1 %2 to i32
-  Value *WGNum =
-      GenerateGetFromWorkInfo(NDInfo::WG_NUMBER, WorkInfo, Dimension, Builder);
+  Value *WGNum = GenerateGetFromWorkInfo(
+      IsUserRequired ? NDInfo::WG_NUMBER : NDInfo::INTERNAL_WG_NUMBER, WorkInfo,
+      Dimension, Builder);
   Value *WGId = GenerateGetGroupID(pWGId, Dimension, Builder);
   Value *WGIdPlusOne =
       Builder.CreateNSWAdd(WGId, ConstantInt::get(WGId->getType(), 1));
   Value *LastWG = Builder.CreateICmpEQ(WGNum, WGIdPlusOne);
   Value *LocalSizeIdx = Builder.CreateZExt(LastWG, IntegerType::get(*C, 32));
 
-  return GenerateGetLocalSizeGeneric(WorkInfo, LocalSizeIdx, Dimension,
-                                     Builder);
+  return GenerateGetLocalSizeGeneric(WorkInfo, IsUserRequired, LocalSizeIdx,
+                                     Dimension, Builder);
 }
 
 Value *ImplicitArgsInfo::GenerateGetEnqueuedLocalSize(Value *WorkInfo,
+                                                      bool IsUserRequired,
                                                       unsigned Dimension,
                                                       IRBuilder<> &Builder) {
   // the uniform local size is stored as the first array
   return GenerateGetEnqueuedLocalSize(
-      WorkInfo, ConstantInt::get(IntegerType::get(*C, 32), Dimension), Builder);
+      WorkInfo, IsUserRequired,
+      ConstantInt::get(IntegerType::get(*C, 32), Dimension), Builder);
 }
 
 Value *ImplicitArgsInfo::GenerateGetEnqueuedLocalSize(Value *WorkInfo,
+                                                      bool IsUserRequired,
                                                       Value *Dimension,
                                                       IRBuilder<> &Builder) {
   // the uniform local size is stored as the first array
   return GenerateGetLocalSizeGeneric(
-      WorkInfo, ConstantInt::get(IntegerType::get(*C, 32), 0), Dimension,
-      Builder);
+      WorkInfo, IsUserRequired, ConstantInt::get(IntegerType::get(*C, 32), 0),
+      Dimension, Builder);
 }
 
 // the following implementation is generic for get_local_size and
 // get_enqueued_local_size
 Value *ImplicitArgsInfo::GenerateGetLocalSizeGeneric(Value *WorkInfo,
+                                                     bool IsUserRequired,
                                                      Value *LocalSizeIdx,
                                                      Value *Dimension,
                                                      IRBuilder<> &Builder) {
+  auto RecordID =
+      IsUserRequired ? NDInfo::LOCAL_SIZE : NDInfo::INTERNAL_LOCAL_SIZE;
   SmallVector<Value *, 4> Params;
   Params.push_back(ConstantInt::get(Type::getInt32Ty(*C), 0));
-  Params.push_back(ConstantInt::get(Type::getInt32Ty(*C), NDInfo::LOCAL_SIZE));
+  Params.push_back(ConstantInt::get(Type::getInt32Ty(*C), RecordID));
   Params.push_back(LocalSizeIdx);
   Params.push_back(Dimension);
   auto *Addr = cast<GEPOperator>(Builder.CreateGEP(
       CompilationUtils::getWorkGroupInfoElementType(*C, WGInfoMembersTypes),
       WorkInfo, ArrayRef<Value *>(Params)));
-  StringRef Name(NDInfo::getRecordName(NDInfo::LOCAL_SIZE));
+  StringRef Name(NDInfo::getRecordName(RecordID));
   std::string NameWithDim = AppendWithDimension(Name, Dimension);
   return Builder.Insert(new LoadInst(Addr->getResultElementType(), Addr, "",
                                      /*volatile*/ false, Align()),

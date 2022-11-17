@@ -228,6 +228,13 @@ void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
       }
     }
 
+    // TODO:
+    // Should update UniformImplicitArgs->InternalLocalSize instead.
+    // Should also notify RemapWICall pass about the work-group uniting so that
+    // we can get rid of the following limitation in
+    // VectorizationDimensionAnalysis::canSwitchDimension():
+    // "no get_local_id, get_group_id, get_local_size, get_num_groups or
+    // get_enqueued_local_size"
     UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] =
         UniformImplicitArgs
             ->LocalSize[NONUNIFORM_WG_SIZE_INDEX][vectorizeOnDim] =
@@ -235,6 +242,8 @@ void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
   }
 
   else if (UseAutoGroupSize) {
+    // Local sizes specified by user are (0, 0, 0). We are eligible to set local
+    // sizes heuristically.
     unsigned int globalWorkSizeYZ = 1;
     for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
       if (vectorizeOnDim == i) { // skip the dimension on which we vectorized
@@ -524,27 +533,47 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
         pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
     pKernelUniformImplicitArgs->GlobalOffset[i] = 0;
     pKernelUniformImplicitArgs->WGCount[i] = 1;
-    // no need to set GlobalOffset as it is used later only according
-    // to dimension
+  }
+
+  // At this point, the user-required global sizes and local sizes are properly
+  // filled.
+  // FIXME:
+  // Copying user-required sizes to internal ones by now.
+  // Will fix this by remapping internal sizes according to the subgroup
+  // construction mode in a follow-up patch.
+  for (auto I = 0; I < MAX_WORK_DIM; ++I) {
+    pKernelUniformImplicitArgs->InternalGlobalSize[I] =
+        pKernelUniformImplicitArgs->GlobalSize[I];
+    pKernelUniformImplicitArgs->InternalLocalSize[UNIFORM_WG_SIZE_INDEX][I] =
+        pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][I];
+    pKernelUniformImplicitArgs->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX][I] =
+        pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][I];
   }
 
   // Calculate number of work groups and WG size
-  for (unsigned int i = 0; i < pKernelUniformImplicitArgs->WorkDim; ++i) {
-    assert((m_pProps->IsNonUniformWGSizeSupported() ||
-            0 == pKernelUniformImplicitArgs->GlobalSize[i] %
-                     pKernelUniformImplicitArgs
-                         ->LocalSize[UNIFORM_WG_SIZE_INDEX][i]) &&
-           "Kernel is built without support of non-uniform work-group size but "
-           "it is non-uniform.");
-    size_t GlbSize = pKernelUniformImplicitArgs->GlobalSize[i];
-    size_t LclSize =
-        pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i];
-    pKernelUniformImplicitArgs->WGCount[i] = GlbSize / LclSize;
-    // In case of non-uniform work-group size there can be a reminder group
-    // with size less than size of other groups.
-    pKernelUniformImplicitArgs->WGCount[i] +=
-        static_cast<size_t>(0 != GlbSize % LclSize);
-  }
+  auto ComputeWGCount = [&](const size_t GlbSizes[MAX_WORK_DIM],
+                            const size_t LclSizes[WG_SIZE_NUM][MAX_WORK_DIM],
+                            size_t WGCounts[MAX_WORK_DIM]) {
+    for (unsigned int I = 0; I < MAX_WORK_DIM; ++I) {
+      assert(
+          (m_pProps->IsNonUniformWGSizeSupported() ||
+           0 == GlbSizes[I] % LclSizes[UNIFORM_WG_SIZE_INDEX][I]) &&
+          "Kernel is built without support of non-uniform work-group size but "
+          "it is non-uniform.");
+      size_t GlbSize = GlbSizes[I];
+      size_t LclSize = LclSizes[UNIFORM_WG_SIZE_INDEX][I];
+      WGCounts[I] = GlbSize / LclSize;
+      // In case of non-uniform work-group size there can be a reminder group
+      // with size less than size of other groups.
+      WGCounts[I] += static_cast<size_t>(0 != GlbSize % LclSize);
+    }
+  };
+  ComputeWGCount(pKernelUniformImplicitArgs->GlobalSize,
+                 pKernelUniformImplicitArgs->LocalSize,
+                 pKernelUniformImplicitArgs->WGCount);
+  ComputeWGCount(pKernelUniformImplicitArgs->InternalGlobalSize,
+                 pKernelUniformImplicitArgs->InternalLocalSize,
+                 pKernelUniformImplicitArgs->InternalWGCount);
 
   size_t barrierSize = m_pProps->GetBarrierBufferSize();
   size_t privateSize = m_pProps->GetPrivateMemorySize();
@@ -574,7 +603,7 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
   size_t ActualBarrierBufferSize = barrierSize;
   for (unsigned I = 0; I < MAX_WORK_DIM; ++I) {
     size_t LocalSize =
-        pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][I];
+        pKernelUniformImplicitArgs->InternalLocalSize[UNIFORM_WG_SIZE_INDEX][I];
     if (I == m_pProps->GetVectorizedDimention())
       LocalSize = ((LocalSize + VF - 1) / VF) * VF;
     ActualBarrierBufferSize *= LocalSize;
@@ -605,7 +634,8 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
       // Use vector JIT if get_local_size(0) is evenly divisible by the vector
       // width and scalar JIT otherwise.
       bool useVectorJit =
-          pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] %
+          pKernelUniformImplicitArgs
+                  ->InternalLocalSize[UNIFORM_WG_SIZE_INDEX][0] %
               pVectorJIT->GetProps()->GetVectorSize() ==
           0;
       pKernelUniformImplicitArgs->UniformJITEntryPoint =
@@ -615,10 +645,10 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
           useVectorJit ? (privateSize - barrierSize) *
                              pVectorJIT->GetProps()->GetVectorSize()
                        : privateSize - barrierSize;
-      useVectorJit =
-          pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][0] %
-              pVectorJIT->GetProps()->GetVectorSize() ==
-          0;
+      useVectorJit = pKernelUniformImplicitArgs
+                             ->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX][0] %
+                         pVectorJIT->GetProps()->GetVectorSize() ==
+                     0;
       pKernelUniformImplicitArgs->NonUniformJITEntryPoint =
           useVectorJit ? CreateEntryPointHandle(pVectorJIT->GetJITCode())
                        : CreateEntryPointHandle(pScalarJIT->GetJITCode());
@@ -697,10 +727,26 @@ void Kernel::DebugPrintUniformKernelArgs(const UniformKernelArgs *A,
      << ": size_t WGCount[MAX_WORK_DIM]" << PRINT3(A->WGCount) << "\n"
      << O + offsetof(UniformKernelArgs, RuntimeInterface)
      << ": void* RuntimeInterface= " << A->RuntimeInterface << "\n"
+     << O + offsetof(UniformKernelArgs, Block2KernelMapper)
+     << ": void* Block2KernelMapper= " << A->Block2KernelMapper << "\n"
+     << O + offsetof(UniformKernelArgs, InternalGlobalSize)
+     << ": size_t InternalGlobalSize[MAX_WORK_DIM]"
+     << PRINT3(A->InternalGlobalSize) << "\n"
+     << O + offsetof(UniformKernelArgs,
+                     InternalLocalSize[UNIFORM_WG_SIZE_INDEX])
+     << ": size_t "
+        "InternalLocalSize[UNIFORM_WG_SIZE_INDEX][MAX_WORK_DIM]"
+     << PRINT3(A->InternalLocalSize[UNIFORM_WG_SIZE_INDEX]) << "\n"
+     << O + offsetof(UniformKernelArgs,
+                     InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX])
+     << ": size_t "
+        "InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX][MAX_WORK_DIM]"
+     << PRINT3(A->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX]) << "\n"
+     << O + offsetof(UniformKernelArgs, InternalWGCount)
+     << ": size_t InternalWGCount[MAX_WORK_DIM]" << PRINT3(A->InternalWGCount)
+     << "\n"
      << O + offsetof(UniformKernelArgs, MinWorkGroupNum)
      << ": size_t MinWorkGroupNum= " << A->MinWorkGroupNum << "\n"
-     << O + offsetof(UniformKernelArgs, RuntimeInterface)
-     << ": void* RuntimeInterface = " << A->RuntimeInterface << "\n"
      << O + offsetof(UniformKernelArgs, UniformJITEntryPoint)
      << ": void* UniformJITEntryPoint = " << A->UniformJITEntryPoint << "\n"
      << O + offsetof(UniformKernelArgs, NonUniformJITEntryPoint)
@@ -804,7 +850,8 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     std::cout << ss.str() << std::endl;
   }
 
-  bool isUniform = (pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1);
+  bool isUniform =
+      (pGroupID[0] != pKernelUniformImplicitArgs->InternalWGCount[0] - 1);
   IKernelJITContainer::JIT_PTR *kernel =
       (IKernelJITContainer::JIT_PTR
            *)(size_t)(isUniform

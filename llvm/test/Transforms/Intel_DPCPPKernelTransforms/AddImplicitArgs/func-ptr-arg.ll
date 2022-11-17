@@ -34,11 +34,11 @@ define void @func() {
 ; CHECK-LABEL: @func(
 ; CHECK-NONOPAQUE: [[BUF:%.*]] = alloca i8*, align 8
 ; CHECK-OPAQUE:    [[BUF:%.*]] = alloca ptr, align 8
-; CHECK-NONOPAQUE: [[TMP1:%.*]] = bitcast i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @foo to i32 (i32, i32)*
+; CHECK-NONOPAQUE: [[TMP1:%.*]] = bitcast i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @foo to i32 (i32, i32)*
 ; CHECK-OPAQUE:    [[TMP1:%.*]] = bitcast ptr @foo to ptr
 ; CHECK-NONOPAQUE: [[LOCALMEM_BAR:%.*]] = getelementptr i8, i8 addrspace(3)* [[PLOCALMEMBASE:%.*]], i32 0
 ; CHECK-OPAQUE:    [[LOCALMEM_BAR:%.*]] = getelementptr i8, ptr addrspace(3) [[PLOCALMEMBASE:%.*]], i32 0
-; CHECK-NONOPAQUE: call void @bar(i32 (i32, i32)* [[TMP1]], i8** [[BUF]], i8 addrspace(3)* noalias [[LOCALMEM_BAR]], { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias [[PWORKDIM:%.*]], i64* noalias [[PWGID:%.*]], [4 x i64] [[BASEGLBID:%.*]], i8* noalias [[PSPECIALBUF:%.*]], {}* noalias [[RUNTIMEHANDLE:%.*]])
+; CHECK-NONOPAQUE: call void @bar(i32 (i32, i32)* [[TMP1]], i8** [[BUF]], i8 addrspace(3)* noalias [[LOCALMEM_BAR]], { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias [[PWORKDIM:%.*]], i64* noalias [[PWGID:%.*]], [4 x i64] [[BASEGLBID:%.*]], i8* noalias [[PSPECIALBUF:%.*]], {}* noalias [[RUNTIMEHANDLE:%.*]])
 ; CHECK-OPAQUE:    call void @bar(ptr [[TMP1]], ptr [[BUF]], ptr addrspace(3) noalias [[LOCALMEM_BAR]], ptr noalias [[PWORKDIM:%.*]], ptr noalias [[PWGID:%.*]], [4 x i64] [[BASEGLBID:%.*]], ptr noalias [[PSPECIALBUF:%.*]], ptr noalias [[RUNTIMEHANDLE:%.*]])
 ; CHECK-NEXT:      ret void
 ;
