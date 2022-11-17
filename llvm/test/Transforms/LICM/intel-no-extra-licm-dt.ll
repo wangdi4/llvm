@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt --enable-new-pm=0 -enable-intel-advanced-opts -enable-dtrans -O3 -S -debug-pass=Structure %s -o /dev/null 2>&1 | FileCheck %s -check-prefix=OLDPM
 ; RUN: opt -enable-intel-advanced-opts -enable-npm-dtrans -debug-pass-manager -passes='default<O3>' -o /dev/null %s 2>&1 | FileCheck %s -check-prefix=NEWPM
 
 ; https://reviews.llvm.org/D99249 has inserted an extra LICM pass just before
@@ -9,10 +8,6 @@
 ; The extra LICM pass is fusing a key loop in 526.blender, which causes cache
 ; misses.
 ; We check the PM output directly, as this is a pass manager related change.
-
-; OLDPM: Loop Pass Manager
-; OLDPM-NOT: Loop Invariant Code Motion
-; OLDPM: Rotate Loops
 
 ; NEWPM: LoopSimplifyCFGPass
 ; NEWPM-NOT: LICMPass

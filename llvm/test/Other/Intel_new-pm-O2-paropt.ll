@@ -3,6 +3,9 @@
 ; RUN:     -debug-pass-manager  -passes='default<O2>' \
 ; RUN:     -paropt=31 -S %s 2>&1 | FileCheck %s
 
+; The LPM equivalent for the test, Intel_opt-O2-pipeline-paropt.ll, was removed in
+; PR #8608 after llorg removed support for opt-level flags for LPM (D137663).
+
 ;            Running pass: XmainOptLevelAnalysisInit on [module] ;INTEL
 ;            Running analysis: XmainOptLevelAnalysis on [module] ;INTEL
 ;            Running pass: Annotation2MetadataPass on [module]

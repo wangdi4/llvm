@@ -1,11 +1,7 @@
-; RUN: opt -enable-new-pm=0 -O0 -paropt=31 -S %s | FileCheck %s
 ; RUN: opt -enable-new-pm=1 -passes='default<O0>' -paropt=31 -S %s | FileCheck %s
 
-
-; RUN: opt -enable-new-pm=0 -O2 -paropt=31 -S %s | FileCheck %s
 ; RUN: opt -enable-new-pm=1 -passes='default<O2>' -paropt=31 -S %s | FileCheck %s
 
-; RUN: opt -enable-new-pm=0 -O3 -paropt=31 -S %s | FileCheck %s
 ; RUN: opt -enable-new-pm=1 -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
 
 ; The test is just to check that this IR doens't cause a comp-fail. The
