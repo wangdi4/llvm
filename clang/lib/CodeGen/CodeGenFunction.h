@@ -640,7 +640,7 @@ public:
   /// potentially set the return value.
   bool SawAsmBlock = false;
 
-  const NamedDecl *CurSEHParent = nullptr;
+  GlobalDecl CurSEHParent;
 
   /// True if the current function is an outlined SEH helper. This can be a
   /// finally block or filter expression.
@@ -2453,12 +2453,17 @@ public:
     if (!EHStack.requiresLandingPad()) return nullptr;
     return getInvokeDestImpl();
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   ImplicitParamDecl *getCXXABIThisDecl() { return CXXABIThisDecl; }
   llvm::Intrinsic::ID getContainerIntrinsic(
       CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName);
 #endif // INTEL_CUSTOMIZATION
   bool currentFunctionUsesSEHTry() const { return CurSEHParent != nullptr; }
+=======
+
+  bool currentFunctionUsesSEHTry() const { return !!CurSEHParent; }
+>>>>>>> 0fcb26c5b6487bf9b31670122f8c931ac020bb34
 
   const TargetInfo &getTarget() const { return Target; }
   llvm::LLVMContext &getLLVMContext() { return CGM.getLLVMContext(); }
