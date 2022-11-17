@@ -126,6 +126,7 @@ enum ConstantPreference { WantInteger, WantBlockAddress };
 /// In this case, the unconditional branch at the end of the first if can be
 /// revectored to the false side of the second if.
 class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
+<<<<<<< HEAD
   TargetLibraryInfo *TLI;
   TargetTransformInfo *TTI;
   LazyValueInfo *LVI;
@@ -135,7 +136,19 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
   bool HasProfileData = false;
+=======
+  Function *F = nullptr;
+  FunctionAnalysisManager *FAM = nullptr;
+  TargetLibraryInfo *TLI = nullptr;
+  TargetTransformInfo *TTI = nullptr;
+  LazyValueInfo *LVI = nullptr;
+  AAResults *AA = nullptr;
+  DomTreeUpdater *DTU = nullptr;
+  Optional<BlockFrequencyInfo *> BFI = None;
+  Optional<BranchProbabilityInfo *> BPI = None;
+>>>>>>> 52a4018506e39f50d0c06ac5a1c987eb83b900c7
   bool HasGuards = false;
+  bool HasProfile = false;
 #ifndef LLVM_ENABLE_ABI_BREAKING_CHECKS
   SmallPtrSet<const BasicBlock *, 16> LoopHeaders;
   SmallPtrSet<const BasicBlock *, 16> CountableSingleExitLoopHeaders; // INTEL
@@ -173,18 +186,19 @@ public:
                     bool AllowCFGSimps = true); // INTEL
 
   // Glue for old PM.
-  bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
+  bool runImpl(Function &F, FunctionAnalysisManager *FAM,
+               TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
+<<<<<<< HEAD
                bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI,
                std::unique_ptr<BranchProbabilityInfo> BPI, // INTEL
                PostDominatorTree *PDT_);  // INTEL
+=======
+               Optional<BlockFrequencyInfo *> BFI,
+               Optional<BranchProbabilityInfo *> BPI);
+>>>>>>> 52a4018506e39f50d0c06ac5a1c987eb83b900c7
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-
-  void releaseMemory() {
-    BFI.reset();
-    BPI.reset();
-  }
 
   void findLoopHeaders(Function &F);
   bool processBlock(BasicBlock *BB);
@@ -259,6 +273,26 @@ private:
 #endif // INTEL_CUSTOMIZATION
   /// Check if the block has profile metadata for its outgoing edges.
   bool doesBlockHaveProfileData(BasicBlock *BB);
+
+  /// Returns an existing instance of BPI if any, otherwise nullptr. By
+  /// "existing" we mean either cached result provided by FunctionAnalysisManger
+  /// or created by preceding call to 'getOrCreateBPI'.
+  BranchProbabilityInfo *getBPI();
+
+  /// Returns an existing instance of BFI if any, otherwise nullptr. By
+  /// "existing" we mean either cached result provided by FunctionAnalysisManger
+  /// or created by preceding call to 'getOrCreateBFI'.
+  BlockFrequencyInfo *getBFI();
+
+  /// Returns an existing instance of BPI if any, otherwise:
+  ///   if 'HasProfile' is true creates new instance through
+  ///   FunctionAnalysisManager, otherwise nullptr.
+  BranchProbabilityInfo *getOrCreateBPI();
+
+  /// Returns an existing instance of BFI if any, otherwise:
+  ///   if 'HasProfile' is true creates new instance through
+  ///   FunctionAnalysisManager, otherwise nullptr.
+  BlockFrequencyInfo *getOrCreateBFI();
 };
 
 } // end namespace llvm
