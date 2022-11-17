@@ -17,8 +17,6 @@
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK:      Running pass: DuplicateCalledKernels
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Skipping pass FMASplitterPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: LinearIdResolverPass
@@ -26,6 +24,8 @@
 
 ; CHECK:      Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
+; CHECK:      Running pass: DuplicateCalledKernels
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
 ; CHECK:      Running pass: ReqdSubGroupSizePass
