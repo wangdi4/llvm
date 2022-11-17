@@ -1277,15 +1277,35 @@ CheckForIncompatibleAttributes(Sema &S,
     // disable. The numeric form provides an integer hint (for example, unroll
     // count) to the transformer.
     Vectorize,
+    II,
+    IVDep,
+    IVDepLoop,
+    IVDepBack,
+    ForceHyperopt,
+    Fusion,
+    VectorAlways,
+    VectorAligned,
+    VectorDynamicAlign,
+    VectorNoDynamicAlign,
+    VectorVecremainder,
+    VectorNoVecremainder,
+    VectorAlwaysAssert,
+    VectorTemporal,
+    VectorNonTemporal,
+    VectorizeLength,
+    LoopCount,
+    LoopCountMin,
+    LoopCountMax,
+    LoopCountAvg,
     Interleave,
-    UnrollAndJam,
-    Pipeline,
     // For unroll, default indicates full unrolling rather than enabling the
     // transformation.
     Unroll,
+    UnrollAndJam,
     // The loop distribution transformation only has a state form that is
     // exposed by #pragma clang loop distribute (enable | disable).
     Distribute,
+    Pipeline,
     // The vector predication only has a state form that is exposed by
     // #pragma clang loop vectorize_predicate (enable | disable).
     VectorizePredicate,
@@ -1297,39 +1317,7 @@ CheckForIncompatibleAttributes(Sema &S,
   struct {
     const LoopHintAttr *StateAttr;
     const LoopHintAttr *NumericAttr;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  } HintAttrs[] = {{nullptr, nullptr}, // Vectorize
-                   {nullptr, nullptr}, // II
-                   {nullptr, nullptr}, // IVDep
-                   {nullptr, nullptr}, // IVDepLoop
-                   {nullptr, nullptr}, // IVDepBack
-                   {nullptr, nullptr}, // ForceHyperopt
-                   {nullptr, nullptr}, // Fusion
-                   {nullptr, nullptr}, // VectorAlways
-                   {nullptr, nullptr}, // VectorAligned
-                   {nullptr, nullptr}, // VectorDynamicAlign
-                   {nullptr, nullptr}, // VectorNoDynamicAlign
-                   {nullptr, nullptr}, // VectorVecremainder
-                   {nullptr, nullptr}, // VectorNoVecremainder
-                   {nullptr, nullptr}, // VectorAlwaysAssert
-                   {nullptr, nullptr}, // VectorTemporal
-                   {nullptr, nullptr}, // VectorNonTemporal
-                   {nullptr, nullptr}, // VectorizeLength
-                   {nullptr, nullptr}, // LoopCount
-                   {nullptr, nullptr}, // LoopCountMin
-                   {nullptr, nullptr}, // LoopCountMax
-                   {nullptr, nullptr}, // LoopCountAvg
-                   {nullptr, nullptr}, // Interleave
-                   {nullptr, nullptr}, // Unroll
-                   {nullptr, nullptr}, // UnrollAndJam
-                   {nullptr, nullptr}, // Pipeline
-                   {nullptr, nullptr}, // Distribute
-                   {nullptr, nullptr}};// Vectorize Predicate
-#endif // INTEL_CUSTOMIZATION
-=======
   } HintAttrs[CategoryType::NumberOfCategories] = {};
->>>>>>> 6dee23919a36a30f3df7e9b20fba8b9edf65340c
 
   for (const auto *I : Attrs) {
     const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(I);
@@ -1340,40 +1328,6 @@ CheckForIncompatibleAttributes(Sema &S,
 
     CategoryType Category = CategoryType::NumberOfCategories;
     LoopHintAttr::OptionType Option = LH->getOption();
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    enum {
-      Vectorize,
-      II,
-      IVDep,
-      IVDepLoop,
-      IVDepBack,
-      ForceHyperopt,
-      Fusion,
-      VectorAlways,
-      VectorAligned,
-      VectorDynamicAlign,
-      VectorNoDynamicAlign,
-      VectorVecremainder,
-      VectorNoVecremainder,
-      VectorAlwaysAssert,
-      VectorTemporal,
-      VectorNonTemporal,
-      VectorizeLength,
-      LoopCount,
-      LoopCountMin,
-      LoopCountMax,
-      LoopCountAvg,
-      Interleave,
-      Unroll,
-      UnrollAndJam,
-      Distribute,
-      Pipeline,
-      VectorizePredicate
-    } Category;
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 6dee23919a36a30f3df7e9b20fba8b9edf65340c
     switch (Option) {
 #if INTEL_CUSTOMIZATION
     case LoopHintAttr::IIAtMost:
