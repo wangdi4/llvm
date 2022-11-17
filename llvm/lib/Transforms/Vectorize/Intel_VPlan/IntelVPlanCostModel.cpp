@@ -809,11 +809,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case Instruction::UIToFP:
   case Instruction::Trunc:
   case Instruction::FPTrunc: {
-    Type *BaseDstTy = VPInst->getCMType();
-    Type *BaseSrcTy = VPInst->getOperand(0)->getCMType();
-
-    if (!BaseDstTy || !BaseSrcTy)
-      return VPInstructionCost::getUnknown();
+    Type *BaseDstTy = VPInst->getType();
+    Type *BaseSrcTy = VPInst->getOperand(0)->getType();
 
     assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
 

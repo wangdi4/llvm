@@ -94,12 +94,6 @@ static cl::opt<bool> VPlanDumpInductionInitDetails(
   "vplan-dump-induction-init-details", cl::init(false), cl::Hidden,
   cl::desc("Print induction value range information."));
 
-static cl::opt<bool> UseGetType(
-  "vplan-cost-model-use-gettype", cl::init(true), cl::Hidden,
-  cl::desc("Use getType() instead of getCMType() if true. "
-           "The knob is temporal and should be removed once every "
-           "getCMType() is replaced with getType()."));
-
 static cl::opt<bool> VPlanDumpSubscriptDetails(
     "vplan-dump-subscript-details", cl::init(false), cl::Hidden,
     cl::desc("Print details for subscript instructions like lower, stride and "
@@ -240,29 +234,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   CG->widenNode(this, nullptr);
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
-}
-
-Type *VPInstruction::getCMType() const {
-  if (UseGetType)
-    return getType();
-
-  if (getUnderlyingValue())
-    return getUnderlyingValue()->getType();
-
-  if (!HIR().isMaster())
-    return nullptr;
-
-  const loopopt::HLNode *Node = HIR().getUnderlyingNode();
-  const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
-
-  if (!Inst)
-    return nullptr;
-
-  const Instruction *LLVMInst = Inst->getLLVMInstruction();
-  if (!LLVMInst)
-    return nullptr;
-
-  return LLVMInst->getType();
 }
 #endif // INTEL_CUSTOMIZATION
 

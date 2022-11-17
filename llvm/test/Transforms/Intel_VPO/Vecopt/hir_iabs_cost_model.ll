@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ;
 ; LIT test to check cost modeling of abs VPInstruction.

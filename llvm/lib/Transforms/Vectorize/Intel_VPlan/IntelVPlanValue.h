@@ -180,9 +180,6 @@ public:
   // FIXME: To be replaced by a proper VPType.
   Type *getType() const { return BaseTy; }
 
-  // FIXME: Remove this when the cost model issues are resolved (see comments
-  // for VPInstruction::getCMType())
-  virtual Type *getCMType() const { return nullptr; }
   // If \p BaseName starts with "vp.", set it as new name. Otherwise, prepend
   // with "vp." and set the result as new name.
   void setName(const Twine &BaseName) {
