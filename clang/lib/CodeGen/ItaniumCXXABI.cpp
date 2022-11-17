@@ -2814,18 +2814,12 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 #else // INTEL_FEATURE_SW_DTRANS
     CGF.EmitNounwindRuntimeCall(getGuardReleaseFn(CGM, guardPtrTy),
                                 guardAddr.getPointer());
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-  } else {
-    // Store 1 into the first byte of the guard variable after initialization is
-    // complete.
-=======
   } else if (D.isLocalVarDecl()) {
     // For local variables, store 1 into the first byte of the guard variable
     // after the object initialization completes so that initialization is
     // retried if initialization is interrupted by an exception.
->>>>>>> 3e25ae605edd88720de3a4407fdd4ea85f758dce
     Builder.CreateStore(llvm::ConstantInt::get(CGM.Int8Ty, 1),
                         Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
   }
