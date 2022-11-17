@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-typemetadatareader,intel-math-libraries-decl' -enable-intel-advanced-opts -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='intel-math-libraries-decl' -enable-intel-advanced-opts -S < %s 2>&1 | FileCheck %s
 
 ; Check that a declaration of __intel_new_feature_proc_init is generated
 ; when auto CPU dispatch is employed and -intel-libirc-allowed=true and
