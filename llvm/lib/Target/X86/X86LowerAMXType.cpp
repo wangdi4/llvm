@@ -857,19 +857,14 @@ namespace {
 
 class X86LowerAMXCast {
   Function &Func;
-<<<<<<< HEAD
   ShapeCalculator *SC; // INTEL
-
-public:
-#if INTEL_CUSTOMIZATION
-  X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC) : Func(F), SC(ShapeC) {}
-#endif // INTEL_CUSTOMIZATION
-=======
   std::unique_ptr<DominatorTree> DT;
 
 public:
-  X86LowerAMXCast(Function &F) : Func(F), DT(nullptr) {}
->>>>>>> 7d59b337f6dbeac3b0c655d52b7ce2edc4a2d364
+#if INTEL_CUSTOMIZATION
+  X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC)
+    : Func(F), SC(ShapeC), DT(nullptr) {}
+#endif // INTEL_CUSTOMIZATION
   void combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
   bool combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
   bool combineLdSt(SmallVectorImpl<Instruction *> &Casts);
@@ -1118,13 +1113,8 @@ bool X86LowerAMXCast::combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
   // TODO: If it is cast intrinsic or phi node, we can propagate the
   // shape information through def-use chain.
   if (!isAMXIntrinsic(II))
-<<<<<<< HEAD
-    return;
-  std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
-=======
     return false;
-  std::tie(Row, Col) = getShape(II, OpNo);
->>>>>>> 7d59b337f6dbeac3b0c655d52b7ce2edc4a2d364
+  std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
   IRBuilder<> Builder(LD);
   // Use the maximun column as stride.
   Value *Stride = Builder.getInt64(64);
@@ -1391,13 +1381,9 @@ public:
     TargetMachine *TM = &getAnalysis<TargetPassConfig>().getTM<TargetMachine>();
     TargetLibraryInfo *TLI =
         &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-<<<<<<< HEAD
+
     ShapeCalculator SC(TM);      // INTEL
     X86LowerAMXCast LAC(F, &SC); // INTEL
-=======
-
-    X86LowerAMXCast LAC(F);
->>>>>>> 7d59b337f6dbeac3b0c655d52b7ce2edc4a2d364
     C |= LAC.combineAMXcast(TLI);
     // There might be remaining AMXcast after combineAMXcast and they should be
     // handled elegantly.
