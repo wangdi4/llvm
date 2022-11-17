@@ -62,8 +62,13 @@ define i32 @main() {
 ; CHECK-NEXT:    store i32 [[SUM7_I]], i32* [[TMP4]], align 4, !noalias !3
 ; CHECK-NEXT:    store i32 4, i32* [[TMP3]], align 4, !noalias !3
 ; CHECK-NEXT:    [[SUM7_I7:%.*]] = add i32 [[N_VAL3_RELOAD12_I]], 6
+<<<<<<< HEAD
 ; CHECK-NEXT:    call void @print(i32 [[SUM7_I7]]), !noalias !6
 ; CHECK-NEXT:    call void @deallocate(i8* [[TMP0]]), !noalias !6
+=======
+; CHECK-NEXT:    tail call void @print(i32 [[SUM7_I7]]), !noalias !6
+; CHECK-NEXT:    tail call void @deallocate(i8* [[TMP0]]), !noalias !6
+>>>>>>> 8adfa29706e5407b62a4726e2172894e0dfdc1e8
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
