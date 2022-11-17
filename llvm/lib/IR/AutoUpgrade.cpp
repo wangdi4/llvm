@@ -3930,28 +3930,14 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
     }
 
     // This must be an upgrade from a named to a literal struct.
-<<<<<<< HEAD
-    auto *OldST = cast<StructType>(CI->getType());
-#if !INTEL_CUSTOMIZATION
-    auto *NewST = cast<StructType>(NewFn->getReturnType());
-    assert(OldST != NewST && "Return type must have changed");
-    assert(OldST->getNumElements() == NewST->getNumElements() &&
-           "Must have same number of elements");
-#endif // INTEL_CUSTOMIZATION
-
-    SmallVector<Value *> Args(CI->args());
-    Value *NewCI = Builder.CreateCall(NewFn, Args);
-    Value *Res = PoisonValue::get(OldST);
-    for (unsigned Idx = 0; Idx < OldST->getNumElements(); ++Idx) {
-      Value *Elem = Builder.CreateExtractValue(NewCI, Idx);
-      Res = Builder.CreateInsertValue(Res, Elem, Idx);
-=======
     if (auto *OldST = dyn_cast<StructType>(CI->getType())) {
+#if !INTEL_CUSTOMIZATION
       assert(OldST != NewFn->getReturnType() &&
              "Return type must have changed");
       assert(OldST->getNumElements() ==
                  cast<StructType>(NewFn->getReturnType())->getNumElements() &&
              "Must have same number of elements");
+#endif // INTEL_CUSTOMIZATION
 
       SmallVector<Value *> Args(CI->args());
       Value *NewCI = Builder.CreateCall(NewFn, Args);
@@ -3963,7 +3949,6 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
       CI->replaceAllUsesWith(Res);
       CI->eraseFromParent();
       return;
->>>>>>> e989b8bb5fb36abac6e8f82809f06144dd762113
     }
 
     // We're probably about to produce something invalid. Let the verifier catch
