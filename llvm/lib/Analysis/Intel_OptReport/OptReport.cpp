@@ -240,7 +240,11 @@ void OptReport::addRemark(OptRemark Remark) const {
 
 void OptReport::addChild(OptReport Child) const {
   assert(Child && "Null Child");
-  assert((Child.OptReportMD != this->OptReportMD) && "Parent/child cycle");
+  if (Child.OptReportMD == this->OptReportMD)
+    report_fatal_error("Found a parent/child cycle when generating opt-report. "
+                       "Proceeding will cause an infinite loop.",
+                       false /*no crash diag*/);
+
   if (OptReport Next = firstChild()) {
     Next.addSibling(Child);
     return;
