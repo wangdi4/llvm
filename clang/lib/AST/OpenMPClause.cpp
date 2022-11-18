@@ -190,6 +190,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
   case OMPC_at:
+  case OMPC_severity:
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
@@ -293,6 +294,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
   case OMPC_at:
+  case OMPC_severity:
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
@@ -2091,6 +2093,12 @@ void OMPClausePrinter::VisitOMPAtomicDefaultMemOrderClause(
 
 void OMPClausePrinter::VisitOMPAtClause(OMPAtClause *Node) {
   OS << "at(" << getOpenMPSimpleClauseTypeName(OMPC_at, Node->getAtKind())
+     << ")";
+}
+
+void OMPClausePrinter::VisitOMPSeverityClause(OMPSeverityClause *Node) {
+  OS << "severity("
+     << getOpenMPSimpleClauseTypeName(OMPC_severity, Node->getSeverityKind())
      << ")";
 }
 
