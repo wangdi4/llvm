@@ -49,6 +49,8 @@ float __imf_erfcinvf(float);
 double __imf_erfcinv(double);
 float __imf_cdfnormf(float);
 double __imf_cdfnorm(double);
+float __imf_cdfnorminvf(float);
+double __imf_cdfnorminv(double);
 float __imf_normf(int, const float*);
 double __imf_norm(int, const double*);
 float __imf_rnormf(int, const float*);
@@ -117,6 +119,16 @@ std::enable_if_t<std::is_same_v<Tp, float>, float> cdfnorm(Tp x) {
 template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, double>, double> cdfnorm(Tp x) {
   return __imf_cdfnorm(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> cdfnorminv(Tp x) {
+  return __imf_cdfnorminvf(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> cdfnorminv(Tp x) {
+  return __imf_cdfnorminv(x);
 }
 
 template <typename Tp>
