@@ -25,6 +25,7 @@ PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
                                  bool ShouldPreserveUseListOrder)
     : OS(OS), Banner(Banner),
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder)
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -32,6 +33,11 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+      ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
+
+PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
+>>>>>>> 7f608a2497c7578b9f3ca98014176ab95cffe3c0
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -48,7 +54,10 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
       }
     }
   }
+<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+>>>>>>> 7f608a2497c7578b9f3ca98014176ab95cffe3c0
   return PreservedAnalyses::all();
 }
 
