@@ -56,7 +56,7 @@ declare i32 @printf(i8 addrspace(2)*, ...) #0
 ; CHECK-NEXT: %translated_opencl_printf_call = call i32 @__opencl_printf(i8 addrspace(2)* %7, i8* [[GEP0]]
 
 ; Function Attrs: noinline nounwind optnone
-define void @_Z11do_d_i_testv(i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #1 {
+define void @_Z11do_d_i_testv(i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #1 {
 entry:
   %CHAR_VALUE = alloca i8, align 1
   %SHORT_VALUE = alloca i16, align 2
@@ -118,7 +118,7 @@ attributes #2 = { nobuiltin nounwind }
 !4 = !{i16 6, i16 14}
 !5 = distinct !{null}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z11do_d_i_testv --  %{{.*}} = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 5
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z11do_d_i_testv --  %{{.*}} = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %pWorkDim, i32 0, i32 5
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z11do_d_i_testv --  %RuntimeInterface = load {}*, {}** %{{.*}}, align 1
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z11do_d_i_testv --  %temp_arg_buf = alloca [72 x i8], align 4
 ; DEBUGIFY-NOT: WARNING

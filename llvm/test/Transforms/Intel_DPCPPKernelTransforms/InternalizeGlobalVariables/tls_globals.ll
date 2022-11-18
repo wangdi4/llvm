@@ -7,7 +7,7 @@
 ; RUN: opt -enable-new-pm=0 -dpcpp-kernel-add-tls-globals -dpcpp-kernel-internalize-global-variables %s -S | FileCheck %s
 
 ; CHECK: @pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef
-; CHECK: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* undef
+; CHECK: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* undef
 ; CHECK: @pWGId = linkonce_odr thread_local global i64* undef
 ; CHECK: @BaseGlbId = linkonce_odr thread_local global [4 x i64] undef
 ; CHECK: @pSpecialBuf = linkonce_odr thread_local global i8* undef

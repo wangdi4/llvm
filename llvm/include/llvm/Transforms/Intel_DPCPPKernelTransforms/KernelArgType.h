@@ -83,6 +83,7 @@ struct PACKED UniformKernelArgs {
   // .  .  .
   // gentype argN;
   // Kernel implicit arguments continue here
+  // Start of WG size info
   size_t WorkDim;                    // Filled by the runtime
   size_t GlobalOffset[MAX_WORK_DIM]; // Filled by the runtime
   size_t GlobalSize[MAX_WORK_DIM];   // Filled by the runtime
@@ -96,6 +97,13 @@ struct PACKED UniformKernelArgs {
   void *RuntimeInterface; // Updated by runtime
   /// reference to BlockToKernelMapper object. Class does not own it
   void *Block2KernelMapper; // Updated by the BE
+  // The following three members represent the actual enqueued work sizes chosen
+  // by the runtime -- they might differ from GlobalSize, LocalSize and WGCount
+  // above when users set different subgroup construction modes.
+  size_t InternalGlobalSize[MAX_WORK_DIM];
+  size_t InternalLocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
+  size_t InternalWGCount[MAX_WORK_DIM];
+  // End of WG size info
   size_t MinWorkGroupNum;   // Filled by the runtime, Required by the heuristic
   // Internal for Running the kernel
   const void *UniformJITEntryPoint;    // Filled by the BE

@@ -11,7 +11,7 @@
 ; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-tls-globals %s -S | FileCheck %s -check-prefix=CHECK-OPAQUE
 
 ; CHECK-NONOPAQUE: @pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef
-; CHECK-NONOPAQUE: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* undef
+; CHECK-NONOPAQUE: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* undef
 ; CHECK-NONOPAQUE: @pWGId = linkonce_odr thread_local global i64* undef
 ; CHECK-NONOPAQUE: @BaseGlbId = linkonce_odr thread_local global [4 x i64] undef
 ; CHECK-NONOPAQUE: @pSpecialBuf = linkonce_odr thread_local global i8* undef

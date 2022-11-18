@@ -913,11 +913,11 @@ int NDRange::Init(size_t region[], unsigned int &dimCount,
   if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
     g_pUserLogger->SetWGSizeCount(
         m_pCmd->id, (size_t)cmdParams->work_dim,
-        m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
-        m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX],
-        m_pImplicitArgs->WGCount);
+        m_pImplicitArgs->InternalLocalSize[UNIFORM_WG_SIZE_INDEX],
+        m_pImplicitArgs->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX],
+        m_pImplicitArgs->InternalWGCount);
 
-  const size_t *pWGSize = m_pImplicitArgs->WGCount;
+  const size_t *pWGSize = m_pImplicitArgs->InternalWGCount;
   assert(pWGSize && "pWGSize must be non zero pointer");
   for (i = 0; i < cmdParams->work_dim; ++i) {
     region[i] = pWGSize[i];
@@ -948,7 +948,7 @@ size_t NDRange::PreferredSequentialItemsPerThread() const {
   size_t preferredSize = 1;
   if (m_needSerializeWGs) {
     assert(m_pImplicitArgs != nullptr && "Init should be called first.");
-    const size_t *pWGSize = m_pImplicitArgs->WGCount;
+    const size_t *pWGSize = m_pImplicitArgs->InternalWGCount;
     for (unsigned int i = 0; i < m_pImplicitArgs->WorkDim; ++i) {
       // The whole NDRange are splitted to several tasks using grainsize.
       // The important fact that 3D-range are handled as three independent
@@ -1035,7 +1035,7 @@ void *NDRange::AttachToThread(void *pWgContextBase, size_t uiNumberOfWorkGroups,
   // Start execution task
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
     unsigned int uiWorkGroupSize = 1;
-    const size_t *pWGSize = m_pImplicitArgs->WGCount;
+    const size_t *pWGSize = m_pImplicitArgs->InternalWGCount;
     cl_dev_cmd_param_kernel *cmdParams =
         (cl_dev_cmd_param_kernel *)m_pCmd->params;
 
@@ -1100,7 +1100,7 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void *pWgCtx) {
   // We always start from (0,0,0) and process whole WG
   // No Need in parameters now
 #ifdef _DEBUG
-  const size_t *pWGCount = m_pImplicitArgs->WGCount;
+  const size_t *pWGCount = m_pImplicitArgs->InternalWGCount;
 
   cl_dev_cmd_param_kernel *cmdParams =
       (cl_dev_cmd_param_kernel *)m_pCmd->params;

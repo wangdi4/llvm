@@ -29,7 +29,7 @@ entry:
 
 ; CHECK-NONOPAQUE:   define void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMemBase,
 ; CHECK-OPAQUE:      define void @functionWithoutArgs(ptr addrspace(3) noalias %pLocalMemBase,
-; CHECK-NONOPAQUE:       { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim
+; CHECK-NONOPAQUE:       { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim
 ; CHECK-OPAQUE:          ptr noalias %pWorkDim
 ; CHECK-NONOPAQUE:       i64* noalias %pWGId,
 ; CHECK-OPAQUE:          ptr noalias %pWGId,
@@ -45,7 +45,7 @@ entry:
 ; CHECK:           define i32 @functionWithArgs(i32 %x, i32 %y,
 ; CHECK-NONOPAQUE:     i8 addrspace(3)* noalias %pLocalMemBase,
 ; CHECK-OPAQUE:        ptr addrspace(3) noalias %pLocalMemBase,
-; CHECK-NONOPAQUE:     { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim
+; CHECK-NONOPAQUE:     { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim
 ; CHECK-OPAQUE:        ptr noalias %pWorkDim
 ; CHECK-NONOPAQUE:     i64* noalias %pWGId,
 ; CHECK-OPAQUE:        ptr noalias %pWGId,

@@ -24,7 +24,7 @@ entry:
 
 define void @test(i32 %arg) local_unnamed_addr #1 {
 entry:
-; CHECK-NONOPAQUE: select i1 %{{[0-9]+}}, <2 x i32 (i32, i32)*> <i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @add to i32 (i32, i32)*), i32 (i32, i32)* poison>, <2 x i32 (i32, i32)*> <i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @sub to i32 (i32, i32)*), i32 (i32, i32)* poison>
+; CHECK-NONOPAQUE: select i1 %{{[0-9]+}}, <2 x i32 (i32, i32)*> <i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @add to i32 (i32, i32)*), i32 (i32, i32)* poison>, <2 x i32 (i32, i32)*> <i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @sub to i32 (i32, i32)*), i32 (i32, i32)* poison>
 ; CHECK-OPAQUE: select i1 %{{[0-9]+}}, <2 x ptr> <ptr @add, ptr poison>, <2 x ptr> <ptr @sub, ptr poison>
 
   %0 = icmp eq i32 %arg, 0

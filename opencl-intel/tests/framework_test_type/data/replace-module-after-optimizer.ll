@@ -2,7 +2,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-declare !kernel_arg_addr_space !9 !kernel_arg_access_qual !10 !kernel_arg_type !11 !kernel_arg_base_type !11 !kernel_arg_type_qual !4 !kernel_arg_name !12 !kernel_arg_host_accessible !13 !kernel_arg_pipe_depth !14 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !no_barrier_path !15 !kernel_has_sub_groups !13 !kernel_has_global_sync !13 !kernel_execution_length !16 !max_wg_dimensions !14 !local_buffer_size !14 !barrier_buffer_size !14 !vectorized_width !9 !kernel_wrapper !17 !private_memory_size !14 dso_local void @__test_separated_args(i32 addrspace(1)* noalias noundef align 4, i8 addrspace(3)* noalias, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias, i64* noalias, [4 x i64], i8* noalias, {}* noalias) local_unnamed_addr #0
+declare !kernel_arg_addr_space !9 !kernel_arg_access_qual !10 !kernel_arg_type !11 !kernel_arg_base_type !11 !kernel_arg_type_qual !4 !kernel_arg_name !12 !kernel_arg_host_accessible !13 !kernel_arg_pipe_depth !14 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !no_barrier_path !15 !kernel_has_sub_groups !13 !kernel_has_global_sync !13 !kernel_execution_length !16 !max_wg_dimensions !14 !local_buffer_size !14 !barrier_buffer_size !14 !vectorized_width !9 !kernel_wrapper !17 !private_memory_size !14 dso_local void @__test_separated_args(i32 addrspace(1)* noalias noundef align 4, i8 addrspace(3)* noalias, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias, i64* noalias, [4 x i64], i8* noalias, {}* noalias) local_unnamed_addr #0
 
 ; Function Attrs: inaccessiblememonly nocallback nofree nosync nounwind willreturn
 declare void @llvm.experimental.noalias.scope.decl(metadata) #1
@@ -35,7 +35,7 @@ attributes #1 = { inaccessiblememonly nocallback nofree nosync nounwind willretu
 !0 = !{i32 1, i32 2}
 !1 = !{}
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!3 = !{void (i32 addrspace(1)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @__test_separated_args}
+!3 = !{void (i32 addrspace(1)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @__test_separated_args}
 !4 = !{!""}
 !5 = !{!"2022-07-11 15:10:54"}
 !6 = !{!"2022.14.7.0"}
