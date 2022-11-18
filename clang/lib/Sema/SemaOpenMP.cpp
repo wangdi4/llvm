@@ -6965,6 +6965,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_match:
       case OMPC_when:
       case OMPC_at:
+      case OMPC_severity:
       default:
         llvm_unreachable("Unexpected clause");
       }
@@ -11746,10 +11747,19 @@ StmtResult Sema::ActOnOpenMPErrorDirective(ArrayRef<OMPClause *> Clauses,
     Diag(AtC->getAtKindKwLoc(), diag::err_omp_unexpected_execution_modifier);
     return StmtError();
   }
+  auto SeverityClauses =
+      OMPExecutableDirective::getClausesOfKind<OMPSeverityClause>(Clauses);
+  const OMPSeverityClause *SeverityC =
+      SeverityClauses.empty() ? nullptr : (*SeverityClauses.begin());
+
   if (!AtC || AtC->getAtKind() == OMPC_AT_compilation) {
-    Diag(AtC ? AtC->getBeginLoc() : StartLoc, diag::err_diagnose_if_succeeded)
-        << "ERROR";
-    return StmtError();
+    if (SeverityC && SeverityC->getSeverityKind() == OMPC_SEVERITY_warning)
+      Diag(SeverityC->getSeverityKindKwLoc(), diag::warn_diagnose_if_succeeded)
+          << "WARNING";
+    else
+      Diag(StartLoc, diag::err_diagnose_if_succeeded) << "ERROR";
+    if (!SeverityC || SeverityC->getSeverityKind() != OMPC_SEVERITY_warning)
+      return StmtError();
   }
   return OMPErrorDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
@@ -16762,6 +16772,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_at:
+  case OMPC_severity:
   case OMPC_destroy:
   case OMPC_inclusive:
   case OMPC_exclusive:
@@ -17976,6 +17987,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_at:
+  case OMPC_severity:
   case OMPC_destroy:
   case OMPC_detach:
   case OMPC_inclusive:
@@ -18427,6 +18439,11 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
     Res = ActOnOpenMPAtClause(static_cast<OpenMPAtClauseKind>(Argument),
                               ArgumentLoc, StartLoc, LParenLoc, EndLoc);
     break;
+  case OMPC_severity:
+    Res = ActOnOpenMPSeverityClause(
+        static_cast<OpenMPSeverityClauseKind>(Argument), ArgumentLoc, StartLoc,
+        LParenLoc, EndLoc);
+    break;
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
@@ -18625,6 +18642,22 @@ OMPClause *Sema::ActOnOpenMPAtClause(OpenMPAtClauseKind Kind,
   }
   return new (Context)
       OMPAtClause(Kind, KindKwLoc, StartLoc, LParenLoc, EndLoc);
+}
+
+OMPClause *Sema::ActOnOpenMPSeverityClause(OpenMPSeverityClauseKind Kind,
+                                           SourceLocation KindKwLoc,
+                                           SourceLocation StartLoc,
+                                           SourceLocation LParenLoc,
+                                           SourceLocation EndLoc) {
+  if (Kind == OMPC_SEVERITY_unknown) {
+    Diag(KindKwLoc, diag::err_omp_unexpected_clause_value)
+        << getListOfPossibleValues(OMPC_severity, /*First=*/0,
+                                   /*Last=*/OMPC_SEVERITY_unknown)
+        << getOpenMPClauseName(OMPC_severity);
+    return nullptr;
+  }
+  return new (Context)
+      OMPSeverityClause(Kind, KindKwLoc, StartLoc, LParenLoc, EndLoc);
 }
 
 OMPClause *Sema::ActOnOpenMPOrderClause(OpenMPOrderClauseKind Kind,
@@ -18827,6 +18860,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_at:
+  case OMPC_severity:
   case OMPC_destroy:
   case OMPC_novariants:
   case OMPC_nocontext:
@@ -19095,6 +19129,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_at:
+  case OMPC_severity:
   case OMPC_novariants:
   case OMPC_nocontext:
   case OMPC_detach:
@@ -19699,6 +19734,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_order:
   case OMPC_at:
+  case OMPC_severity:
   case OMPC_destroy:
   case OMPC_novariants:
   case OMPC_nocontext:
