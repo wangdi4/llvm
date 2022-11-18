@@ -4583,6 +4583,10 @@ void VPOCodeGen::generateArrayReductionFinal(
                                            const Twine &Prefix) {
     unsigned AddrSpace =
         cast<PointerType>(OrigArr->getType())->getPointerAddressSpace();
+    const DataLayout &DL = *Plan->getDataLayout();
+    // Determine alignment of wide load/store using element type of array.
+    Align Alignment = Align(DL.getABITypeAlignment(ArrTy->getElementType()));
+
     Builder.SetInsertPoint(LoopBB->getTerminator());
     // Loop IV phi to count loop iterations.
     PHINode *IVPhi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()),
@@ -4598,7 +4602,8 @@ void VPOCodeGen::generateArrayReductionFinal(
     if (ElemLdPtrTy != OrigArrGep->getType())
       OrigArrGep =
           Builder.CreateBitCast(OrigArrGep, ElemLdPtrTy, "orig.arr.bc");
-    Value *OrigArrLd = Builder.CreateLoad(ElemLdTy, OrigArrGep, "orig.arr.ld");
+    Value *OrigArrLd = Builder.CreateAlignedLoad(ElemLdTy, OrigArrGep,
+                                                 Alignment, "orig.arr.ld");
 
     // Load elements from private arrays and compute running reduction for
     // current subarray.
@@ -4610,8 +4615,8 @@ void VPOCodeGen::generateArrayReductionFinal(
       if (ElemLdPtrTy != LaneArrGep->getType())
         LaneArrGep = Builder.CreateBitCast(LaneArrGep, ElemLdPtrTy,
                                            "priv.arr.bc.lane" + Twine(Lane));
-      Value *LaneArrLd = Builder.CreateLoad(ElemLdTy, LaneArrGep,
-                                            "priv.arr.ld.lane" + Twine(Lane));
+      Value *LaneArrLd = Builder.CreateAlignedLoad(
+          ElemLdTy, LaneArrGep, Alignment, "priv.arr.ld.lane" + Twine(Lane));
       assert(ReducedSubArr->getType() == LaneArrLd->getType() &&
              "Expected same type to compute running reduction.");
       if (Instruction::isBinaryOp(RedFinalArr->getBinOpcode()))
@@ -4629,7 +4634,7 @@ void VPOCodeGen::generateArrayReductionFinal(
     }
 
     // Store final reduced subarray to original array
-    Builder.CreateStore(ReducedSubArr, OrigArrGep);
+    Builder.CreateAlignedStore(ReducedSubArr, OrigArrGep, Alignment);
 
     // Increment loop IV phi.
     Value *IVAdd = Builder.CreateAdd(IVPhi, Builder.getInt64(LoopInc),

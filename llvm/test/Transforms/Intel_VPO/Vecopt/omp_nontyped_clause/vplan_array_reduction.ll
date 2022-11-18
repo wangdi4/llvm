@@ -68,16 +68,16 @@ define i32 @test1(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:    [[MAIN_ELEM_IDX:%.*]] = phi i64 [ 0, [[VPLANNEDBB13:%.*]] ], [ [[NEXT_MAIN_ELEM_IDX:%.*]], [[ARRAY_REDN_FINAL_MAIN_LOOP:%.*]] ]
 ; CHECK-NEXT:    [[ORIG_ARR_GEP:%.*]] = getelementptr [8 x i32], [8 x i32]* [[SUM]], i64 0, i64 [[MAIN_ELEM_IDX]]
 ; CHECK-NEXT:    [[ORIG_ARR_BC:%.*]] = bitcast i32* [[ORIG_ARR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    [[ORIG_ARR_LD:%.*]] = load <4 x i32>, <4 x i32>* [[ORIG_ARR_BC]], align 16
+; CHECK-NEXT:    [[ORIG_ARR_LD:%.*]] = load <4 x i32>, <4 x i32>* [[ORIG_ARR_BC]], align 4
 ; CHECK-NEXT:    [[PRIV_ARR_GEP_LANE0:%.*]] = getelementptr [8 x i32], [8 x i32]* [[SUM_VEC_BASE_ADDR_EXTRACT_0_]], i64 0, i64 [[MAIN_ELEM_IDX]]
 ; CHECK-NEXT:    [[PRIV_ARR_BC_LANE0:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE0]] to <4 x i32>*
-; CHECK-NEXT:    [[PRIV_ARR_LD_LANE0:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE0]], align 16
+; CHECK-NEXT:    [[PRIV_ARR_LD_LANE0:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE0]], align 4
 ; CHECK-NEXT:    [[ARR_FIN_RED:%.*]] = add <4 x i32> [[ORIG_ARR_LD]], [[PRIV_ARR_LD_LANE0]]
 ; CHECK-NEXT:    [[PRIV_ARR_GEP_LANE1:%.*]] = getelementptr [8 x i32], [8 x i32]* [[SUM_VEC_BASE_ADDR_EXTRACT_1_]], i64 0, i64 [[MAIN_ELEM_IDX]]
 ; CHECK-NEXT:    [[PRIV_ARR_BC_LANE1:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE1]] to <4 x i32>*
-; CHECK-NEXT:    [[PRIV_ARR_LD_LANE1:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE1]], align 16
+; CHECK-NEXT:    [[PRIV_ARR_LD_LANE1:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE1]], align 4
 ; CHECK-NEXT:    [[ARR_FIN_RED14:%.*]] = add <4 x i32> [[ARR_FIN_RED]], [[PRIV_ARR_LD_LANE1]]
-; CHECK-NEXT:    store <4 x i32> [[ARR_FIN_RED14]], <4 x i32>* [[ORIG_ARR_BC]], align 16
+; CHECK-NEXT:    store <4 x i32> [[ARR_FIN_RED14]], <4 x i32>* [[ORIG_ARR_BC]], align 4
 ; CHECK-NEXT:    [[NEXT_MAIN_ELEM_IDX]] = add i64 [[MAIN_ELEM_IDX]], 4
 ; CHECK-NEXT:    [[FINAL_MAINLOOP_COND:%.*]] = icmp ult i64 [[NEXT_MAIN_ELEM_IDX]], 8
 ; CHECK-NEXT:    br i1 [[FINAL_MAINLOOP_COND]], label [[ARRAY_REDN_FINAL_MAIN_LOOP]], label [[ARRAY_REDN_FINAL_REM_LOOP:%.*]]
@@ -89,16 +89,16 @@ define i32 @test1(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:    [[MAIN_ELEM_IDX18:%.*]] = phi i64 [ 0, [[ARRAY_REDN_FINAL_EXIT]] ], [ [[NEXT_MAIN_ELEM_IDX30:%.*]], [[ARRAY_REDN_FINAL_MAIN_LOOP15]] ]
 ; CHECK-NEXT:    [[ORIG_ARR_GEP19:%.*]] = getelementptr [9 x i32], [9 x i32]* [[MIN]], i64 0, i64 [[MAIN_ELEM_IDX18]]
 ; CHECK-NEXT:    [[ORIG_ARR_BC20:%.*]] = bitcast i32* [[ORIG_ARR_GEP19]] to <4 x i32>*
-; CHECK-NEXT:    [[ORIG_ARR_LD21:%.*]] = load <4 x i32>, <4 x i32>* [[ORIG_ARR_BC20]], align 16
+; CHECK-NEXT:    [[ORIG_ARR_LD21:%.*]] = load <4 x i32>, <4 x i32>* [[ORIG_ARR_BC20]], align 4
 ; CHECK-NEXT:    [[PRIV_ARR_GEP_LANE022:%.*]] = getelementptr [9 x i32], [9 x i32]* [[MIN_VEC_BASE_ADDR_EXTRACT_0_]], i64 0, i64 [[MAIN_ELEM_IDX18]]
 ; CHECK-NEXT:    [[PRIV_ARR_BC_LANE023:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE022]] to <4 x i32>*
-; CHECK-NEXT:    [[PRIV_ARR_LD_LANE024:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE023]], align 16
+; CHECK-NEXT:    [[PRIV_ARR_LD_LANE024:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE023]], align 4
 ; CHECK-NEXT:    [[ARR_FIN_RED25:%.*]] = call <4 x i32> @llvm.smin.v4i32(<4 x i32> [[ORIG_ARR_LD21]], <4 x i32> [[PRIV_ARR_LD_LANE024]])
 ; CHECK-NEXT:    [[PRIV_ARR_GEP_LANE126:%.*]] = getelementptr [9 x i32], [9 x i32]* [[MIN_VEC_BASE_ADDR_EXTRACT_1_]], i64 0, i64 [[MAIN_ELEM_IDX18]]
 ; CHECK-NEXT:    [[PRIV_ARR_BC_LANE127:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE126]] to <4 x i32>*
-; CHECK-NEXT:    [[PRIV_ARR_LD_LANE128:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE127]], align 16
+; CHECK-NEXT:    [[PRIV_ARR_LD_LANE128:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_ARR_BC_LANE127]], align 4
 ; CHECK-NEXT:    [[ARR_FIN_RED29:%.*]] = call <4 x i32> @llvm.smin.v4i32(<4 x i32> [[ARR_FIN_RED25]], <4 x i32> [[PRIV_ARR_LD_LANE128]])
-; CHECK-NEXT:    store <4 x i32> [[ARR_FIN_RED29]], <4 x i32>* [[ORIG_ARR_BC20]], align 16
+; CHECK-NEXT:    store <4 x i32> [[ARR_FIN_RED29]], <4 x i32>* [[ORIG_ARR_BC20]], align 4
 ; CHECK-NEXT:    [[NEXT_MAIN_ELEM_IDX30]] = add i64 [[MAIN_ELEM_IDX18]], 4
 ; CHECK-NEXT:    [[FINAL_MAINLOOP_COND31:%.*]] = icmp ult i64 [[NEXT_MAIN_ELEM_IDX30]], 8
 ; CHECK-NEXT:    br i1 [[FINAL_MAINLOOP_COND31]], label [[ARRAY_REDN_FINAL_MAIN_LOOP15]], label [[ARRAY_REDN_FINAL_REM_LOOP16:%.*]]
