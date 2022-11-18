@@ -3698,7 +3698,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     if ((CKind == OMPC_ordered || CKind == OMPC_partial) &&
         PP.LookAhead(/*N=*/0).isNot(tok::l_paren))
       Clause = ParseOpenMPClause(CKind, WrongDirective);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     else if (CKind == OMPC_tile)
       Clause = ParseOpenMPExprListClause(CKind, WrongDirective);
@@ -3718,10 +3717,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     else if (CKind == OMPC_ompx_places)
       Clause = ParseOpenMPOmpxPlacesClause(WrongDirective);
 #endif // INTEL_COLLAB
-=======
     else if (CKind == OMPC_grainsize)
       Clause = ParseOpenMPSingleExprWithArgClause(DKind, CKind, WrongDirective);
->>>>>>> ab9eac762c35068e77f57795e660d06f578c9614
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     break;

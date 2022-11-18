@@ -16707,15 +16707,12 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_align:
     Res = ActOnOpenMPAlignClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_ompx_overlap:
     Res = ActOnOpenMPOmpxOverlapClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
 #endif // INTEL_CUSTOMIZATION
-=======
   case OMPC_grainsize:
->>>>>>> ab9eac762c35068e77f57795e660d06f578c9614
   case OMPC_device:
   case OMPC_if:
   case OMPC_default:

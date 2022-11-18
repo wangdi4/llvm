@@ -246,19 +246,16 @@ enum OpenMPBindClauseKind {
   OMPC_BIND_unknown
 };
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 /// Checks if the specified directive if an OpenMP extension.
 /// These use the 'ompx' prefix instead of 'omp'.
 bool isOpenMPExtensionDirective(OpenMPDirectiveKind DKind);
 #endif // INTEL_COLLAB
-=======
 enum OpenMPGrainsizeClauseModifier {
 #define OPENMP_GRAINSIZE_MODIFIER(Name) OMPC_GRAINSIZE_##Name,
 #include "clang/Basic/OpenMPKinds.def"
   OMPC_GRAINSIZE_unknown
 };
->>>>>>> ab9eac762c35068e77f57795e660d06f578c9614
 
 /// Contains 'interop' data for 'append_args' and 'init' clauses.
 class Expr;
