@@ -38,8 +38,7 @@ define dso_local void @foo(i32 noundef %arg, ptr noundef nonnull align 4 derefer
 ; CHECK-NEXT:    br label [[BB12]]
 ; CHECK:       bb12:
 ; CHECK-NEXT:    [[TMP1:%.*]] = phi i64 [ [[I3_SROA_0_0_INSERT_INSERT]], [[BB12_LOOPEXIT:%.*]] ], [ 180388626456, [[BB:%.*]] ]
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds { i64 }, ptr [[ARG1:%.*]], i64 0, i32 0
-; CHECK-NEXT:    store i64 [[TMP1]], ptr [[TMP2]], align 4, !tbaa [[TBAA5:![0-9]+]]
+; CHECK-NEXT:    store i64 [[TMP1]], ptr [[ARG1:%.*]], align 4, !tbaa [[TBAA5:![0-9]+]]
 ; CHECK-NEXT:    ret void
 ; CHECK:       bb13:
 ; CHECK-NEXT:    [[I3_SROA_8_0:%.*]] = phi i32 [ [[I21_3]], [[BB13]] ], [ 42, [[BB]] ]

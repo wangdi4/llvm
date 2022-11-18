@@ -16,11 +16,10 @@ target triple = "x86_64-pc-linux-gnu"
 define void @wibble(ptr %arg) personality ptr null {
 ; CHECK-LABEL: @wibble(
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[I_I_I_3_I_PHI_TRANS_INSERT:%.*]] = getelementptr [64 x i8], ptr [[ARG:%.*]], i64 0, i64 0
-; CHECK-NEXT:    [[I10_3_I_PRE:%.*]] = load i8, ptr [[I_I_I_3_I_PHI_TRANS_INSERT]], align 1
-; CHECK-NEXT:    [[I15_3_I:%.*]] = or i8 [[I10_3_I_PRE]], 1
-; CHECK-NEXT:    [[I16_3_I:%.*]] = zext i8 [[I15_3_I]] to i32
-; CHECK-NEXT:    [[I4_I_I:%.*]] = add nuw nsw i32 [[I16_3_I]], 1
+; CHECK-NEXT:    [[I10_3_I_PRE:%.*]] = load i8, ptr [[ARG:%.*]], align 1
+; CHECK-NEXT:    [[TMP0:%.*]] = or i8 [[I10_3_I_PRE]], 1
+; CHECK-NEXT:    [[I1_SROA_0_0_VEC_EXTRACT:%.*]] = zext i8 [[TMP0]] to i32
+; CHECK-NEXT:    [[I4_I_I:%.*]] = add nuw nsw i32 [[I1_SROA_0_0_VEC_EXTRACT]], 1
 ; CHECK-NEXT:    store i32 [[I4_I_I]], ptr [[ARG]], align 4
 ; CHECK-NEXT:    ret void
 ;

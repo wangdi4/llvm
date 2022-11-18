@@ -1823,6 +1823,10 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
         Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
         PTO.ForgetAllSCEVInLoopUnroll)));
     FPM.addPass(WarnMissedTransformationsPass());
+    // Now that we are done with loop unrolling, be it either by LoopVectorizer,
+    // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
+    // become constant-offset, thus enabling SROA and alloca promotion. Do so.
+    FPM.addPass(SROAPass());
   }
 
   if (!IsFullLTO) {
@@ -1970,6 +1974,10 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
+  // Now that we are done with loop unrolling, be it either by LoopVectorizer,
+  // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
+  // become constant-offset, thus enabling SROA and alloca promotion. Do so.
+  FPM.addPass(SROAPass());
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
