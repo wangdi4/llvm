@@ -63,45 +63,6 @@ void printLLVMNameWithoutPrefix(raw_ostream &OS, StringRef Name);
 /// Return true if a pass is for IR printing.
 bool isIRPrintingPass(Pass *P);
 
-<<<<<<< HEAD
-/// Pass for printing a Module as LLVM's text IR assembly.
-///
-/// Note: This pass is for use with the new pass manager. Use the create...Pass
-/// functions above to create passes for use with the legacy pass manager.
-class PrintModulePass : public PassInfoMixin<PrintModulePass> {
-  raw_ostream &OS;
-  std::string Banner;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  bool ShouldPreserveUseListOrder;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-
-public:
-  PrintModulePass();
-  PrintModulePass(raw_ostream &OS, const std::string &Banner = "",
-                  bool ShouldPreserveUseListOrder = false);
-
-  PreservedAnalyses run(Module &M, AnalysisManager<Module> &);
-  static bool isRequired() { return true; }
-};
-
-/// Pass for printing a Function as LLVM's text IR assembly.
-///
-/// Note: This pass is for use with the new pass manager. Use the create...Pass
-/// functions above to create passes for use with the legacy pass manager.
-class PrintFunctionPass : public PassInfoMixin<PrintFunctionPass> {
-  raw_ostream &OS;
-  std::string Banner;
-
-public:
-  PrintFunctionPass();
-  PrintFunctionPass(raw_ostream &OS, const std::string &Banner = "");
-
-  PreservedAnalyses run(Function &F, AnalysisManager<Function> &);
-  static bool isRequired() { return true; }
-};
-
-=======
->>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
 } // namespace llvm
 
 #endif

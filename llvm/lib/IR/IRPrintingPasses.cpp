@@ -40,60 +40,6 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
-PrintModulePass::PrintModulePass() : OS(dbgs()) {}
-PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
-                                 bool ShouldPreserveUseListOrder)
-    : OS(OS), Banner(Banner)
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-      ,
-      ShouldPreserveUseListOrder(ShouldPreserveUseListOrder)
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-{
-}
-
-PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  if (llvm::isFunctionInPrintList("*")) {
-    if (!Banner.empty())
-      OS << Banner << "\n";
-    M.print(OS, nullptr, ShouldPreserveUseListOrder);
-  }
-  else {
-    bool BannerPrinted = false;
-    for(const auto &F : M.functions()) {
-      if (llvm::isFunctionInPrintList(F.getName())) {
-        if (!BannerPrinted && !Banner.empty()) {
-          OS << Banner << "\n";
-          BannerPrinted = true;
-        }
-        F.print(OS);
-      }
-    }
-  }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  return PreservedAnalyses::all();
-}
-
-PrintFunctionPass::PrintFunctionPass() : OS(dbgs()) {}
-PrintFunctionPass::PrintFunctionPass(raw_ostream &OS, const std::string &Banner)
-    : OS(OS), Banner(Banner) {}
-
-PreservedAnalyses PrintFunctionPass::run(Function &F,
-                                         FunctionAnalysisManager &) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  if (isFunctionInPrintList(F.getName())) {
-    if (forcePrintModuleIR())
-      OS << Banner << " (function: " << F.getName() << ")\n" << *F.getParent();
-    else
-      OS << Banner << '\n' << static_cast<Value &>(F);
-  }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  return PreservedAnalyses::all();
-}
-
-=======
->>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
 namespace {
 
 class PrintModulePassWrapper : public ModulePass {
@@ -110,12 +56,7 @@ public:
         ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
 
   bool runOnModule(Module &M) override {
-<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-    ModuleAnalysisManager DummyMAM;
-    P.run(M, DummyMAM);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
     if (llvm::isFunctionInPrintList("*")) {
       if (!Banner.empty())
         OS << Banner << "\n";
@@ -132,7 +73,7 @@ public:
         }
       }
     }
->>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     return false;
   }
 
@@ -155,12 +96,7 @@ public:
 
   // This pass just prints a banner followed by the function as it's processed.
   bool runOnFunction(Function &F) override {
-<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-    FunctionAnalysisManager DummyFAM;
-    P.run(F, DummyFAM);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
     if (isFunctionInPrintList(F.getName())) {
       if (forcePrintModuleIR())
         OS << Banner << " (function: " << F.getName() << ")\n"
@@ -168,7 +104,7 @@ public:
       else
         OS << Banner << '\n' << static_cast<Value &>(F);
     }
->>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     return false;
   }
 
