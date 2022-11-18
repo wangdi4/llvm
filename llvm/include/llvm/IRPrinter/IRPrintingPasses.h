@@ -35,17 +35,12 @@ class PrintModulePass : public PassInfoMixin<PrintModulePass> {
   std::string Banner;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   bool ShouldPreserveUseListOrder;
-<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
-  bool EmitSummaryIndex;
->>>>>>> 34ab474348e2623cc67abddb7bb662385297ac65
 
 public:
   PrintModulePass();
   PrintModulePass(raw_ostream &OS, const std::string &Banner = "",
-                  bool ShouldPreserveUseListOrder = false,
-                  bool EmitSummaryIndex = false);
+                  bool ShouldPreserveUseListOrder = false);
 
   PreservedAnalyses run(Module &M, AnalysisManager<Module> &);
   static bool isRequired() { return true; }

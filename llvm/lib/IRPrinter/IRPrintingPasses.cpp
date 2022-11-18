@@ -12,7 +12,6 @@
 
 #include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PrintPasses.h"
@@ -24,10 +23,8 @@ using namespace llvm;
 
 PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
-                                 bool ShouldPreserveUseListOrder,
-                                 bool EmitSummaryIndex)
+                                 bool ShouldPreserveUseListOrder)
     : OS(OS), Banner(Banner),
-<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder)
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -35,12 +32,6 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
-      ShouldPreserveUseListOrder(ShouldPreserveUseListOrder),
-      EmitSummaryIndex(EmitSummaryIndex) {}
-
-PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
->>>>>>> 34ab474348e2623cc67abddb7bb662385297ac65
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -57,20 +48,7 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
       }
     }
   }
-<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
-
-  ModuleSummaryIndex *Index =
-      EmitSummaryIndex ? &(AM.getResult<ModuleSummaryIndexAnalysis>(M))
-                       : nullptr;
-  if (Index) {
-    if (Index->modulePaths().empty())
-      Index->addModule("", 0);
-    Index->print(OS);
-  }
-
->>>>>>> 34ab474348e2623cc67abddb7bb662385297ac65
   return PreservedAnalyses::all();
 }
 
