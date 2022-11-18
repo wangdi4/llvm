@@ -1958,8 +1958,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(LoopUnrollPass(LoopUnrollOptions(
         Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
         PTO.ForgetAllSCEVInLoopUnroll)));
-    // We add SROA here, because unroll may convert GEPs with variable
-    // indices to constant indices, which are registerizable.
+    // Moved from below. Convert registerizable values after unrolling.
+    // Do this before NT stores and missed opt warnings.
     FPM.addPass(SROAPass()); // INTEL
   }
 
@@ -1977,7 +1977,10 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // Now that we are done with loop unrolling, be it either by LoopVectorizer,
   // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
   // become constant-offset, thus enabling SROA and alloca promotion. Do so.
+#if !INTEL_CUSTOMIZATION
+  // Moved above (don't need it for PrepareForLTO == true)
   FPM.addPass(SROAPass());
+#endif // !INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
