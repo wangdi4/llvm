@@ -2879,8 +2879,16 @@ private:
           Agg = DSeqTy->getTypeAtIndex(0);
         } else if (auto *DStTy = dyn_cast<DTransStructType>(Agg)) {
           Value *IndexValue = IdxList[CurIdx];
+          auto *IndexValueAsConstant = dyn_cast<Constant>(IndexValue);
+
+          // If the GEP index value is not a constant, then the indexing must
+          // not be for the expected structure type. Give up, and treat the
+          // addressing as UNHANDLED because we cannot tell what type is being
+          // indexed, or what the GEP result type would be.
+          if (!IndexValueAsConstant)
+            return nullptr;
           uint64_t Idx =
-              cast<Constant>(IndexValue)->getUniqueInteger().getZExtValue();
+              IndexValueAsConstant->getUniqueInteger().getZExtValue();
           if (DStTy->getNumFields() <= Idx)
             return nullptr;
 
