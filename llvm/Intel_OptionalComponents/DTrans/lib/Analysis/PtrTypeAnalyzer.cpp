@@ -478,8 +478,8 @@ private:
   // objects (uses 'nullptr' as the 'LocalMaps' lookup key) to avoid having to
   // search a single map of all Value objects when looking up the ValueTypeInfo
   // object for a Value.
-  using PerFunctionLocalMapType = std::map<const Value*, ValueTypeInfo*>;
-  std::map<const Function*, PerFunctionLocalMapType> LocalMaps;
+  using PerFunctionLocalMapType = std::map<const Value *, ValueTypeInfo *>;
+  std::map<const Function *, PerFunctionLocalMapType> LocalMaps;
 
   // Compiler constants such as 'undef' and 'null' need to have context
   // sensitive information. For example:
@@ -600,7 +600,7 @@ public:
     // Build the type that will be used when analyzing the instruction.
     DTransType *FieldTypes[2] = {
         PTA.getDTransI8PtrType(),
-        TM.getOrCreateAtomicType(llvm::Type::getInt32Ty(Ctx)) };
+        TM.getOrCreateAtomicType(llvm::Type::getInt32Ty(Ctx))};
     DTransLandingPadTy = TM.getOrCreateLiteralStructType(Ctx, FieldTypes);
   }
 
@@ -868,8 +868,9 @@ public:
       }
       if (Pred != CmpInst::Predicate::ICMP_SGT &&
           Pred != CmpInst::Predicate::ICMP_UGT) {
-        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
-                          dbgs() << "Not matched. icmp predicate isn't sgt/ugt!\n");
+        DEBUG_WITH_TYPE_P(
+            FNFilter, DTRANS_PARTIALPTR,
+            dbgs() << "Not matched. icmp predicate isn't sgt/ugt!\n");
         return false;
       }
 
@@ -1150,7 +1151,7 @@ public:
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
-  void visitFreezeInst(FreezeInst& I) { analyzeValue(&I); }
+  void visitFreezeInst(FreezeInst &I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitInsertValueInst(InsertValueInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) {
@@ -1238,8 +1239,8 @@ public:
               }
 
               if (auto ElemZeroPair = LocalPTA.getElementZeroType(PropAlias)) {
-                PointerInfo->addElementPointee(
-                    ValueTypeInfo::VAT_Use, ElemZeroPair.value().first, 0);
+                PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
+                                               ElemZeroPair.value().first, 0);
                 ValueInfo->addTypeAlias(Kind, ElemZeroPair.value().second);
 
                 // Need to defer updating the PointerInfo until the loop
@@ -1382,7 +1383,6 @@ private:
         PTA.setUnsupportedAddressSpaceSeen();
       }
     }
-
 
     // Check for the special DTrans type metadata, !dtrans-type, used to
     // communicate type information between DTrans passes because of IR
@@ -1728,8 +1728,8 @@ private:
     if (OtherOp == ValueToInfer)
       OtherOp = ICmp->getOperand(1);
 
-    // Disallow "icmp <pred> ptr %x, %x" since it should not occur, and we cannot
-    // get information about one argument by examining the other.
+    // Disallow "icmp <pred> ptr %x, %x" since it should not occur, and we
+    // cannot get information about one argument by examining the other.
     if (OtherOp == ValueToInfer)
       return;
 
@@ -1741,7 +1741,8 @@ private:
 
     ValueTypeInfo *ValInfo = PTA.getValueTypeInfo(OtherOp);
     if (ValInfo)
-      for (auto *DType : ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      for (auto *DType :
+           ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
         addInferredType(ValueToInfer, DType);
   }
 
@@ -1786,7 +1787,7 @@ private:
     // because we are going to treat any types identified for the value operand
     // as being pointers to the type for the pointer operand, this can lead to
     // many levels of pointer indirection being tracked.
-    // 
+    //
     // For example:
     //   %141 = phi ptr [ %175, %183 ], ...
     //   %170 = ptr @someCall()
@@ -1922,9 +1923,9 @@ private:
               // pointer type, so the storage location should be a
               // pointer-to-pointer type. If that is the case, then add the
               // pointer's element type to the inference set. If the stored
-              // location is not a pointer-to-pointer, but rather a pointer to an
-              // aggregate type, then the store is writing the first field within
-              // the aggregate.
+              // location is not a pointer-to-pointer, but rather a pointer to
+              // an aggregate type, then the store is writing the first field
+              // within the aggregate.
               //
               // Case 1: Store a pointer to an allocated structure
               //   %struct.test03 = type { i32, i32 }
@@ -1949,8 +1950,8 @@ private:
                 auto ElemZeroTy = PTA.getElementZeroType(ElemTy);
                 if (ElemZeroTy && ElemZeroTy.value().second->isPointerTy())
                   addInferredType(PTI, ElemZeroTy.value().second);
+              }
             }
-          }
         }
       }
     }
@@ -2428,7 +2429,7 @@ private:
 
           return;
         }
-      
+
         ResultInfo->setUnhandled();
       }
       return;
@@ -2968,18 +2969,18 @@ private:
           if (IndexedStTy->getNumFields() == 0)
             return false;
 
-          DTransType* FieldTy = IndexedStTy->getFieldType(0);
+          DTransType *FieldTy = IndexedStTy->getFieldType(0);
           if (!FieldTy)
             return false;
 
-          llvm::Type* GEPSrcTy = GEP.getSourceElementType();
-          DTransType* ElemTy = FieldTy;
+          llvm::Type *GEPSrcTy = GEP.getSourceElementType();
+          DTransType *ElemTy = FieldTy;
           bool FoundType = false;
           while (ElemTy->isAggregateType()) {
             FieldTy = ElemTy;
             if (ElemTy->isArrayTy())
               ElemTy = ElemTy->getArrayElementType();
-            else if (auto* NestedStTy = dyn_cast<DTransStructType>(ElemTy))
+            else if (auto *NestedStTy = dyn_cast<DTransStructType>(ElemTy))
               ElemTy = NestedStTy->getFieldType(0);
             else
               llvm_unreachable("Expected Array or Structure type\n");
@@ -2992,7 +2993,7 @@ private:
           if (!FoundType)
             return false;
 
-          DTransType* PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
+          DTransType *PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
           ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, PtrToElemTy);
           ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, FieldTy, 0);
 
@@ -3120,7 +3121,6 @@ private:
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
                                  PTA.getDTransI8PtrType());
     }
-
 
     // When opaque pointers are used, the known type of pointer may not
     // match the indexed type, so add that type as one of the 'usage' types
@@ -3718,14 +3718,14 @@ private:
 
     // Returns true if "IV" is transitively used by ResumeInst only
     // through other InsertValue instructions or no real uses.
-    auto IsUsedByOnlyResumeInst = [] (InsertValueInst *IV) {
+    auto IsUsedByOnlyResumeInst = [](InsertValueInst *IV) {
       SmallVector<const User *, 4> WorkList(IV->user_begin(), IV->user_end());
       while (!WorkList.empty()) {
         const User *U = WorkList.pop_back_val();
         if (isa<InsertValueInst>(U))
           for (const User *UU : U->users())
             WorkList.push_back(UU);
-	else if (!isa<ResumeInst>(U))
+        else if (!isa<ResumeInst>(U))
           return false;
       }
       return true;
@@ -3735,7 +3735,7 @@ private:
     // type { i8*, i32 }.
     if (IV->getNumIndices() > 1 ||
         IV->getType() != getDTransLandingPadTy()->getLLVMType() ||
-	!IsUsedByOnlyResumeInst(IV)) {
+        !IsUsedByOnlyResumeInst(IV)) {
       ResultInfo->setUnhandled();
       LLVM_DEBUG(
           dbgs() << "Unhandled InsertValueInst due to number of indices: "
@@ -3749,8 +3749,7 @@ private:
       return;
     // Allow only I8* type for value operand.
     ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(Val);
-    for (auto Alias :
-         ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+    for (auto Alias : ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
       if (!Alias->isPointerTy())
         continue;
       if (Alias != PTA.getDTransI8PtrType()) {
@@ -3806,7 +3805,7 @@ private:
   }
 
   void analyzeExtractValueInst(ExtractValueInst *EV,
-    ValueTypeInfo *ResultInfo) {
+                               ValueTypeInfo *ResultInfo) {
     if (!isTypeOfInterest(EV->getType()))
       return;
 
@@ -3814,8 +3813,8 @@ private:
     if (EV->getNumIndices() > 1) {
       ResultInfo->setUnhandled();
       LLVM_DEBUG(
-        dbgs() << "Unhandled ExtractValueInst due to number of indices: "
-        << *EV << "\n");
+          dbgs() << "Unhandled ExtractValueInst due to number of indices: "
+                 << *EV << "\n");
       return;
     }
 
@@ -3823,7 +3822,7 @@ private:
     unsigned Idx = EV->getAggregateOperandIndex();
     ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
     for (auto Alias :
-      SrcInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+         SrcInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
       if (!Alias->isAggregateType())
         continue;
 
@@ -3832,12 +3831,10 @@ private:
         for (auto *FieldTTy : Field.getTypes())
           ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, FieldTTy);
         continue;
-      }
-      else if (auto *DSeqTy = dyn_cast<DTransSequentialType>(Alias)) {
+      } else if (auto *DSeqTy = dyn_cast<DTransSequentialType>(Alias)) {
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
-          DSeqTy->getTypeAtIndex(0));
-      }
-      else {
+                                 DSeqTy->getTypeAtIndex(0));
+      } else {
         ResultInfo->setUnhandled();
         LLVM_DEBUG(dbgs() << "Unahndled ExtractValue: " << *EV << "\n");
       }
@@ -3896,84 +3893,85 @@ private:
     //   structure should not be traversed as a potential zero-element load.
     //
     auto &LocalTM = this->TM;
-    auto PropagateDereferencedType =
-        [&LocalTM](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
-                   ValueTypeInfo::ValueAnalysisType Kind,
-                   bool LoadingAggregateType) {
-          // This may also identify that it appears that an element-zero
-          // location of an aggregate is being loaded. In this case the
-          // PointerInfo will be updated to reflect that the pointer operand is
-          // being used as an element-pointee.
-          SmallVector<DTransType *, 4> PendingTypes;
-          for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
-            DTransType *PropAlias = nullptr;
-            if (!Alias->isPointerTy())
-              continue;
+    auto PropagateDereferencedType = [&LocalTM](
+                                         ValueTypeInfo *PointerInfo,
+                                         ValueTypeInfo *ResultInfo,
+                                         ValueTypeInfo::ValueAnalysisType Kind,
+                                         bool LoadingAggregateType) {
+      // This may also identify that it appears that an element-zero
+      // location of an aggregate is being loaded. In this case the
+      // PointerInfo will be updated to reflect that the pointer operand is
+      // being used as an element-pointee.
+      SmallVector<DTransType *, 4> PendingTypes;
+      for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
+        DTransType *PropAlias = nullptr;
+        if (!Alias->isPointerTy())
+          continue;
 
-            PropAlias = Alias->getPointerElementType();
-            // CMPLRLLVM-32994: If the structure is opaque (structure without
-            // body), then we can't collect field 0.
-            //
-            // TODO: We still need to expand this analysis to handle the case
-            // when a pointer to an opaque structure is being cast to a
-            // pointer to a structure with body. For example:
-            //
-            // %struct.test01 = type opaque
-            // %struct.test02 = type { %struct.test02*, i32 }
-            //
-            // define internal void @foo(%struct.test01* %arg) {
-            // entry:
-            //   %tmp0 = bitcast %struct.test01* %arg to %struct.test02**
-            //   %tmp1 = load %struct.test02*, %struct.test02** %tmp0
-            //   ret void
-            // }
-            //
-            // Function @foo will look as follows in the case of opaque
-            // pointers:
-            //
-            // define internal void @foo(ptr %arg) {
-            // entry:
-            //   %tmp0 = load ptr, ptr %arg
-            //   ret void
-            // }
-            //
-            // Notice that the bitcast instruction is gone and the pointer
-            // analyzer will assume that instruction %tmp0 is loading a
-            // pointer to %struct.test01 rather than %struct.test02.
-            if (!LoadingAggregateType && PropAlias->isAggregateType() &&
-                PropAlias->getNumContainedElements() != 0) {
-              // If the pointer was a pointer to an aggregate and we are not
-              // expecting an aggregate type to be loaded (i.e. an array, such
-              // as [2xi16*], or a literal structure, such as {i32, i32}, then
-              // this could be an element zero load of a pointer within a nested
-              // type. Try to find the type.
-              DTransType *PrevNestedType = nullptr;
-              DTransType *NestedType = PropAlias;
-              while (NestedType && !NestedType->isPointerTy()) {
-                PrevNestedType = NestedType;
-                if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
-                  NestedType = StTy->getFieldType(0);
-                else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
-                  NestedType = ArTy->getElementType();
-                else
-                  NestedType = nullptr;
-              }
-
-              if (PrevNestedType->isAggregateType())
-                PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
-                                               PrevNestedType, 0);
-              if (NestedType) {
-                ResultInfo->addTypeAlias(Kind, NestedType);
-                PendingTypes.push_back(LocalTM.getOrCreatePointerType(NestedType));
-              }
-            } else {
-              ResultInfo->addTypeAlias(Kind, PropAlias);
-            }
+        PropAlias = Alias->getPointerElementType();
+        // CMPLRLLVM-32994: If the structure is opaque (structure without
+        // body), then we can't collect field 0.
+        //
+        // TODO: We still need to expand this analysis to handle the case
+        // when a pointer to an opaque structure is being cast to a
+        // pointer to a structure with body. For example:
+        //
+        // %struct.test01 = type opaque
+        // %struct.test02 = type { %struct.test02*, i32 }
+        //
+        // define internal void @foo(%struct.test01* %arg) {
+        // entry:
+        //   %tmp0 = bitcast %struct.test01* %arg to %struct.test02**
+        //   %tmp1 = load %struct.test02*, %struct.test02** %tmp0
+        //   ret void
+        // }
+        //
+        // Function @foo will look as follows in the case of opaque
+        // pointers:
+        //
+        // define internal void @foo(ptr %arg) {
+        // entry:
+        //   %tmp0 = load ptr, ptr %arg
+        //   ret void
+        // }
+        //
+        // Notice that the bitcast instruction is gone and the pointer
+        // analyzer will assume that instruction %tmp0 is loading a
+        // pointer to %struct.test01 rather than %struct.test02.
+        if (!LoadingAggregateType && PropAlias->isAggregateType() &&
+            PropAlias->getNumContainedElements() != 0) {
+          // If the pointer was a pointer to an aggregate and we are not
+          // expecting an aggregate type to be loaded (i.e. an array, such
+          // as [2xi16*], or a literal structure, such as {i32, i32}, then
+          // this could be an element zero load of a pointer within a nested
+          // type. Try to find the type.
+          DTransType *PrevNestedType = nullptr;
+          DTransType *NestedType = PropAlias;
+          while (NestedType && !NestedType->isPointerTy()) {
+            PrevNestedType = NestedType;
+            if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
+              NestedType = StTy->getFieldType(0);
+            else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
+              NestedType = ArTy->getElementType();
+            else
+              NestedType = nullptr;
           }
 
-          for (auto *Ty : PendingTypes)
-            PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
-        };
+          if (PrevNestedType->isAggregateType())
+            PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
+                                           PrevNestedType, 0);
+          if (NestedType) {
+            ResultInfo->addTypeAlias(Kind, NestedType);
+            PendingTypes.push_back(LocalTM.getOrCreatePointerType(NestedType));
+          }
+        } else {
+          ResultInfo->addTypeAlias(Kind, PropAlias);
+        }
+      }
+
+      for (auto *Ty : PendingTypes)
+        PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
+    };
 
     llvm::Type *ValTy = LI->getType();
 
@@ -4217,8 +4215,8 @@ private:
       // variables. In order to ensure the updates to ResultInfo are
       // deterministic, we need to check all the Globals against the ResultInfo
       // before we start adding types into the ResultInfo.
-      SmallPtrSet<ValueTypeInfo*, 4> InfosToMerge;
-      SmallPtrSet<DTransType*, 4> ElementZeroPointeesToAdd;
+      SmallPtrSet<ValueTypeInfo *, 4> InfosToMerge;
+      SmallPtrSet<DTransType *, 4> ElementZeroPointeesToAdd;
       for (auto *GO : PossibleGlobalWithElidedGEP) {
         ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(GO);
         bool IsElementZero = false;
@@ -4231,7 +4229,7 @@ private:
               if (AliasTy == GOType)
                 continue;
 
-              DTransType* AccessedType = nullptr;
+              DTransType *AccessedType = nullptr;
               if (PTA.isElementZeroAccess(GOType, AliasTy, &AccessedType)) {
                 IsElementZero = true;
                 ElementZeroPointeesToAdd.insert(AccessedType);
@@ -4332,9 +4330,7 @@ private:
     });
   }
 
-  DTransStructType *getDTransLandingPadTy() const {
-    return DTransLandingPadTy;
-  }
+  DTransStructType *getDTransLandingPadTy() const { return DTransLandingPadTy; }
 
   ////////////////////////////////////////////////////////////////////////////////
   // Start of member data
@@ -4721,7 +4717,7 @@ void PtrTypeAnalyzerImpl::addFlattenedGEPMapping(GEPOperator *GEP,
       printValue(dbgs(), GEP);
       dbgs() << " - Multiplier = " << Multiplier;
       dbgs() << "\n";
-      });
+    });
 }
 
 llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
@@ -4729,7 +4725,7 @@ PtrTypeAnalyzerImpl::getFlattenedGEPElement(GEPOperator *GEP) const {
   auto Entry = FlattenedGEPInfoMap.find(GEP);
   if (Entry != FlattenedGEPInfoMap.end())
     return Entry->second;
-    
+
   return None;
 }
 
