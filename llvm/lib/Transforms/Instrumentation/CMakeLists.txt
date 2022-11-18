@@ -28,9 +28,13 @@ add_llvm_component_library(LLVMInstrumentation
   Instrumentation.cpp
   InstrOrderFile.cpp
   InstrProfiling.cpp
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_FunctionSplitting.cpp
 # end INTEL_CUSTOMIZATION
+=======
+  KCFI.cpp
+>>>>>>> eb2a57ebc7aaad551af30462097a9e06c96db925
   PGOInstrumentation.cpp
   PGOMemOPSizeOpt.cpp
   PoisonChecking.cpp

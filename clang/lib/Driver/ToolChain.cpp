@@ -1643,7 +1643,7 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
        ~SanitizerKind::Function) |
       (SanitizerKind::CFI & ~SanitizerKind::CFIICall) |
       SanitizerKind::CFICastStrict | SanitizerKind::FloatDivideByZero |
-      SanitizerKind::UnsignedIntegerOverflow |
+      SanitizerKind::KCFI | SanitizerKind::UnsignedIntegerOverflow |
       SanitizerKind::UnsignedShiftBase | SanitizerKind::ImplicitConversion |
       SanitizerKind::Nullability | SanitizerKind::LocalBounds;
   if (getTriple().getArch() == llvm::Triple::x86 ||
@@ -1657,6 +1657,7 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       getTriple().isAArch64() || getTriple().isRISCV())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
+<<<<<<< HEAD
       getTriple().isAArch64(64))
     Res |= SanitizerKind::KCFI;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
@@ -1665,6 +1666,8 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       getTriple().getArch() ==  llvm::Triple::x86_64_xucc ||
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> eb2a57ebc7aaad551af30462097a9e06c96db925
       getTriple().isAArch64(64) || getTriple().isRISCV())
     Res |= SanitizerKind::ShadowCallStack;
   if (getTriple().isAArch64(64))
