@@ -24,8 +24,9 @@ using namespace llvm;
 PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
                                  bool ShouldPreserveUseListOrder)
-    : OS(OS), Banner(Banner),
+    : OS(OS), Banner(Banner)
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+      ,
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder)
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 {}
