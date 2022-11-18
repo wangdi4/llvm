@@ -35,10 +35,7 @@ class PrintModulePass : public PassInfoMixin<PrintModulePass> {
   std::string Banner;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   bool ShouldPreserveUseListOrder;
-<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
->>>>>>> 7f608a2497c7578b9f3ca98014176ab95cffe3c0
 
 public:
   PrintModulePass();
