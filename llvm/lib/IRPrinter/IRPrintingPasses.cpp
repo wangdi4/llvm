@@ -24,26 +24,16 @@ using namespace llvm;
 
 PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
-<<<<<<< HEAD
-                                 bool ShouldPreserveUseListOrder)
-    : OS(OS), Banner(Banner)
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-      ,
-      ShouldPreserveUseListOrder(ShouldPreserveUseListOrder)
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-{}
-
-PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
                                  bool ShouldPreserveUseListOrder,
                                  bool EmitSummaryIndex)
     : OS(OS), Banner(Banner),
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder),
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
       EmitSummaryIndex(EmitSummaryIndex) {}
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
->>>>>>> f102fe73044062542f022182381c17172a999db2
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -60,9 +50,7 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
       }
     }
   }
-<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
 
   ModuleSummaryIndex *Index =
       EmitSummaryIndex ? &(AM.getResult<ModuleSummaryIndexAnalysis>(M))
@@ -73,7 +61,6 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
     Index->print(OS);
   }
 
->>>>>>> f102fe73044062542f022182381c17172a999db2
   return PreservedAnalyses::all();
 }
 
