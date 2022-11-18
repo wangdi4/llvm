@@ -7,28 +7,35 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec -vplan-print-after-call-vec-decisions -disable-output %s 2>&1 | FileCheck %s
 
 ; CHECK: VPlan after CallVecDecisions analysis
+; CHECK:   [DA: Div] float {{%.*}} = call float* {{%.*}} float (float*)* @cdfnormf [Serial]
 ; CHECK:   [DA: Div] float {{%.*}} = call float* {{%.*}} float* {{%.*}} float (...)* @atan2pi [Serial]
 
 ; CHECK:         + DO i1 = 0, 35, 2   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:    |   %serial.temp = undef;
+; CHECK-NEXT:    |   %cdfnormf = @cdfnormf(&((float*)(%A)[i1 + 1]));
+; CHECK-NEXT:    |   %serial.temp = insertelement %serial.temp,  %cdfnormf,  0;
+; CHECK-NEXT:    |   %extract.1. = extractelement &((<2 x float*>)(%A)[i1 + <i64 0, i64 1> + 1]),  1;
+; CHECK-NEXT:    |   %cdfnormf3 = @cdfnormf(%extract.1.);
+; CHECK-NEXT:    |   %serial.temp = insertelement %serial.temp,  %cdfnormf3,  1;
 ; CHECK-NEXT:    |   %.copy = 0.000000e+00;
 ; CHECK-NEXT:    |   %.vec = i1 + <i64 0, i64 1> + 1 >u 14;
-; CHECK-NEXT:    |   %serial.temp = undef;
+; CHECK-NEXT:    |   %serial.temp5 = undef;
 ; CHECK-NEXT:    |   %mask.0. = extractelement %.vec,  0;
 ; CHECK-NEXT:    |   if (%mask.0. == 1)
 ; CHECK-NEXT:    |   {
 ; CHECK-NEXT:    |      %atan2pi = @atan2pi(&((float*)(%A)[i1 + 1]),  &((float*)(%B)[i1 + 1]));
-; CHECK-NEXT:    |      %serial.temp = insertelement %serial.temp,  %atan2pi,  0;
+; CHECK-NEXT:    |      %serial.temp5 = insertelement %serial.temp5,  %atan2pi,  0;
 ; CHECK-NEXT:    |   }
 ; CHECK-NEXT:    |   %mask.1. = extractelement %.vec,  1;
 ; CHECK-NEXT:    |   if (%mask.1. == 1)
 ; CHECK-NEXT:    |   {
-; CHECK-NEXT:    |      %extract.1. = extractelement &((<2 x float*>)(%A)[i1 + <i64 0, i64 1> + 1]),  1;
-; CHECK-NEXT:    |      %extract.1.3 = extractelement &((<2 x float*>)(%B)[i1 + <i64 0, i64 1> + 1]),  1;
-; CHECK-NEXT:    |      %atan2pi4 = @atan2pi(%extract.1.,  %extract.1.3);
-; CHECK-NEXT:    |      %serial.temp = insertelement %serial.temp,  %atan2pi4,  1;
+; CHECK-NEXT:    |      %extract.1.7 = extractelement &((<2 x float*>)(%A)[i1 + <i64 0, i64 1> + 1]),  1;
+; CHECK-NEXT:    |      %extract.1.8 = extractelement &((<2 x float*>)(%B)[i1 + <i64 0, i64 1> + 1]),  1;
+; CHECK-NEXT:    |      %atan2pi9 = @atan2pi(%extract.1.7,  %extract.1.8);
+; CHECK-NEXT:    |      %serial.temp5 = insertelement %serial.temp5,  %atan2pi9,  1;
 ; CHECK-NEXT:    |   }
-; CHECK-NEXT:    |   %.copy6 = %serial.temp;
-; CHECK-NEXT:    |   %select = (%.vec == <i1 true, i1 true>) ? %.copy6 : %.copy;
+; CHECK-NEXT:    |   %.copy11 = %serial.temp5;
+; CHECK-NEXT:    |   %select = (%.vec == <i1 true, i1 true>) ? %.copy11 : %.copy;
 ; CHECK-NEXT:    |   (<2 x float>*)(%R)[i1 + 1] = %select;
 ; CHECK-NEXT:    + END LOOP
 
@@ -44,6 +51,7 @@ bb2.preheader:
 bb2:                                              ; preds = %bb2.preheader, %if.end
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.end ], [ 1, %bb2.preheader ]
   %A.ptr = getelementptr inbounds float, float* %A, i64 %indvars.iv
+  %invalidcdfnorm = call float @cdfnormf(float* %A.ptr) #1
   %B.ptr = getelementptr inbounds float, float* %B, i64 %indvars.iv
   %cond = icmp ugt i64 %indvars.iv, 14
   br i1 %cond, label %if.then, label %if.end
@@ -69,6 +77,7 @@ exit:
 }
 
 declare float @atan2pi(...) local_unnamed_addr
+declare dso_local float @cdfnormf(float*) local_unnamed_addr
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 

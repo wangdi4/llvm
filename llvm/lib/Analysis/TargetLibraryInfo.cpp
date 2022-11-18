@@ -4578,6 +4578,13 @@ case LibFunc_under_commit:
             FTy.getParamType(3)->isIntegerTy() &&
             FTy.getParamType(4)->isPointerTy());
 
+  case LibFunc_cdfnorm:
+  case LibFunc_cdfnormf:
+  case LibFunc_cdfnorminv:
+  case LibFunc_cdfnorminvf:
+    return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
   case LibFunc_chdir:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -4617,7 +4624,14 @@ case LibFunc_under_commit:
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_erf:
   case LibFunc_erfc:
+  case LibFunc_erfcf:
+  case LibFunc_erfcinv:
+  case LibFunc_erfcinvf:
+  case LibFunc_erff:
+  case LibFunc_erfinv:
+  case LibFunc_erfinvf:
     return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
             FTy.getParamType(0)->isFloatingPointTy());
 
