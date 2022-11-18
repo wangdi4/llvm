@@ -23,7 +23,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// PrintModulePass and PrintFunctionPass implementations.
+// PrintModulePass and PrintFunctionPass implementations for the legacy pass
+// manager.
 //
 //===----------------------------------------------------------------------===//
 
@@ -39,6 +40,7 @@
 
 using namespace llvm;
 
+<<<<<<< HEAD
 PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
                                  bool ShouldPreserveUseListOrder)
@@ -90,23 +92,47 @@ PreservedAnalyses PrintFunctionPass::run(Function &F,
   return PreservedAnalyses::all();
 }
 
+=======
+>>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
 namespace {
 
 class PrintModulePassWrapper : public ModulePass {
-  PrintModulePass P;
+  raw_ostream &OS;
+  std::string Banner;
+  bool ShouldPreserveUseListOrder;
 
 public:
   static char ID;
-  PrintModulePassWrapper() : ModulePass(ID) {}
+  PrintModulePassWrapper() : ModulePass(ID), OS(dbgs()) {}
   PrintModulePassWrapper(raw_ostream &OS, const std::string &Banner,
                          bool ShouldPreserveUseListOrder)
-      : ModulePass(ID), P(OS, Banner, ShouldPreserveUseListOrder) {}
+      : ModulePass(ID), OS(OS), Banner(Banner),
+        ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
 
   bool runOnModule(Module &M) override {
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     ModuleAnalysisManager DummyMAM;
     P.run(M, DummyMAM);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+    if (llvm::isFunctionInPrintList("*")) {
+      if (!Banner.empty())
+        OS << Banner << "\n";
+      M.print(OS, nullptr, ShouldPreserveUseListOrder);
+    } else {
+      bool BannerPrinted = false;
+      for (const auto &F : M.functions()) {
+        if (llvm::isFunctionInPrintList(F.getName())) {
+          if (!BannerPrinted && !Banner.empty()) {
+            OS << Banner << "\n";
+            BannerPrinted = true;
+          }
+          F.print(OS);
+        }
+      }
+    }
+>>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
     return false;
   }
 
@@ -118,20 +144,31 @@ public:
 };
 
 class PrintFunctionPassWrapper : public FunctionPass {
-  PrintFunctionPass P;
+  raw_ostream &OS;
+  std::string Banner;
 
 public:
   static char ID;
-  PrintFunctionPassWrapper() : FunctionPass(ID) {}
+  PrintFunctionPassWrapper() : FunctionPass(ID), OS(dbgs()) {}
   PrintFunctionPassWrapper(raw_ostream &OS, const std::string &Banner)
-      : FunctionPass(ID), P(OS, Banner) {}
+      : FunctionPass(ID), OS(OS), Banner(Banner) {}
 
   // This pass just prints a banner followed by the function as it's processed.
   bool runOnFunction(Function &F) override {
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     FunctionAnalysisManager DummyFAM;
     P.run(F, DummyFAM);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+    if (isFunctionInPrintList(F.getName())) {
+      if (forcePrintModuleIR())
+        OS << Banner << " (function: " << F.getName() << ")\n"
+           << *F.getParent();
+      else
+        OS << Banner << '\n' << static_cast<Value &>(F);
+    }
+>>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
     return false;
   }
 
@@ -142,7 +179,7 @@ public:
   StringRef getPassName() const override { return "Print Function IR"; }
 };
 
-}
+} // namespace
 
 char PrintModulePassWrapper::ID = 0;
 INITIALIZE_PASS(PrintModulePassWrapper, "print-module",
@@ -163,7 +200,7 @@ FunctionPass *llvm::createPrintFunctionPass(llvm::raw_ostream &OS,
 }
 
 bool llvm::isIRPrintingPass(Pass *P) {
-  const char *PID = (const char*)P->getPassID();
+  const char *PID = (const char *)P->getPassID();
 
   return (PID == &PrintModulePassWrapper::ID) ||
          (PID == &PrintFunctionPassWrapper::ID);

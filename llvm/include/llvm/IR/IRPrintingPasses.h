@@ -24,18 +24,14 @@
 //===----------------------------------------------------------------------===//
 /// \file
 ///
-/// This file defines passes to print out IR in various granularities. The
-/// PrintModulePass pass simply prints out the entire module when it is
-/// executed. The PrintFunctionPass class is designed to be pipelined with
-/// other FunctionPass's, and prints out the functions of the module as they
-/// are processed.
+/// This file contains an interface for creating legacy passes to print out IR
+/// in various granularities.
 ///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_IRPRINTINGPASSES_H
 #define LLVM_IR_IRPRINTINGPASSES_H
 
-#include "llvm/IR/PassManager.h"
 #include <string>
 
 namespace llvm {
@@ -67,6 +63,7 @@ void printLLVMNameWithoutPrefix(raw_ostream &OS, StringRef Name);
 /// Return true if a pass is for IR printing.
 bool isIRPrintingPass(Pass *P);
 
+<<<<<<< HEAD
 /// Pass for printing a Module as LLVM's text IR assembly.
 ///
 /// Note: This pass is for use with the new pass manager. Use the create...Pass
@@ -103,6 +100,8 @@ public:
   static bool isRequired() { return true; }
 };
 
+=======
+>>>>>>> 7059a6c32cfad8f272fad47265e3890cd7a1a7e1
 } // namespace llvm
 
 #endif

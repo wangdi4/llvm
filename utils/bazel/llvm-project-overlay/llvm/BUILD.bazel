@@ -915,6 +915,7 @@ cc_library(
         ":BinaryFormat",
         ":BitReader",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":MC",
         ":MCParser",
@@ -1375,6 +1376,22 @@ cc_library(
 )
 
 cc_library(
+    name = "IRPrinter",
+    srcs = glob([
+        "lib/IRPrinter/*.cpp",
+        "lib/IRPrinter/*.h",
+    ]),
+    hdrs = glob([
+        "include/llvm/IRPrinter/*.h",
+    ]),
+    copts = llvm_copts,
+    deps = [
+        ":Core",
+        ":Support",
+    ],
+)
+
+cc_library(
     name = "IRReader",
     srcs = glob([
         "lib/IRReader/*.cpp",
@@ -1437,6 +1454,7 @@ cc_library(
         ":BitWriter",
         ":Core",
         ":FrontendOpenMP",
+        ":IRPrinter",
         ":IRReader",
         ":InstCombine",
         ":Instrumentation",
@@ -2264,6 +2282,7 @@ cc_library(
         ":BitWriter",
         ":CodeGen",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":Linker",
         ":MC",
@@ -2750,6 +2769,7 @@ cc_binary(
         ":BitReader",
         ":CodeGen",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":MC",
         ":Support",
@@ -2792,6 +2812,7 @@ cc_binary(
         ":CodeGen",
         ":Core",
         ":ExecutionEngine",
+        ":IRPrinter",
         ":IRReader",
         ":Instrumentation",
         ":Interpreter",
@@ -2890,6 +2911,7 @@ cc_binary(
         ":BitReader",
         ":BitWriter",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":Support",
     ],
@@ -3182,6 +3204,7 @@ cc_binary(
         ":BitWriter",
         ":Core",
         ":IPO",
+        ":IRPrinter",
         ":IRReader",
         ":Support",
     ],
@@ -3315,6 +3338,7 @@ cc_binary(
         ":BitWriter",
         ":Core",
         ":IPO",
+        ":IRPrinter",
         ":IRReader",
         ":Linker",
         ":Object",
@@ -3375,6 +3399,7 @@ cc_binary(
         ":BitWriter",
         ":CodeGen",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":LTO",
         ":Support",
@@ -3486,6 +3511,7 @@ cc_binary(
     deps = [
         ":BitReader",
         ":BitWriter",
+        ":IRPrinter",
         ":IRReader",
         ":Support",
     ],
@@ -4041,6 +4067,7 @@ cc_binary(
     deps = [
         ":BitWriter",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":Support",
         ":TransformUtils",
@@ -4166,6 +4193,7 @@ cc_binary(
         ":BitWriter",
         ":CodeGen",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":MC",
         ":Passes",
@@ -4327,6 +4355,7 @@ cc_binary(
         ":BitWriter",
         ":CodeGen",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":Linker",
         ":Passes",
@@ -4420,6 +4449,7 @@ cc_binary(
     deps = [
         ":Core",
         ":Diff",
+        ":IRPrinter",
         ":IRReader",
         ":Support",
     ],
@@ -4443,6 +4473,7 @@ cc_binary(
         ":CodeGen",
         ":Core",
         ":FuzzMutate",
+        ":IRPrinter",
         ":IRReader",
         ":Support",
         ":Target",
@@ -4590,6 +4621,7 @@ cc_binary(
         ":BitReader",
         ":BitWriter",
         ":Core",
+        ":IRPrinter",
         ":IRReader",
         ":Support",
     ],
