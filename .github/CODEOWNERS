@@ -308,6 +308,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/Transforms/Intel_MultiVersioning/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_QsortRecognition/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Internalize/ @robertcox-github @pvbattin
+/llvm/test/Transforms/OpenMP/ @robertcox-github @pvbattin @clin111
 /llvm/test/Transforms/PartialInlining/ @robertcox-github @pvbattin
 /llvm/test/Transforms/WholeProgramDevirt/ @robertcox-github @pvbattin
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
