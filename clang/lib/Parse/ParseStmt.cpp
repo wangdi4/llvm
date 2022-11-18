@@ -1371,20 +1371,20 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 /// should try to recover harder.  It returns false if the condition is
 /// successfully parsed.  Note that a successful parse can still have semantic
 /// errors in the condition.
-/// Additionally, if LParenLoc and RParenLoc are non-null, it will assign
-/// the location of the outer-most '(' and ')', respectively, to them.
+/// Additionally, it will assign the location of the outer-most '(' and ')',
+/// to LParenLoc and RParenLoc, respectively.
 bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
                                        Sema::ConditionResult &Cond,
                                        SourceLocation Loc,
-                                       Sema::ConditionKind CK, bool MissingOK,
-                                       SourceLocation *LParenLoc,
-                                       SourceLocation *RParenLoc) {
+                                       Sema::ConditionKind CK,
+                                       SourceLocation &LParenLoc,
+                                       SourceLocation &RParenLoc) {
   BalancedDelimiterTracker T(*this, tok::l_paren);
   T.consumeOpen();
   SourceLocation Start = Tok.getLocation();
 
   if (getLangOpts().CPlusPlus) {
-    Cond = ParseCXXCondition(InitStmt, Loc, CK, MissingOK);
+    Cond = ParseCXXCondition(InitStmt, Loc, CK, false);
   } else {
     ExprResult CondExpr = ParseExpression();
 
@@ -1393,7 +1393,7 @@ bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
       Cond = Sema::ConditionError();
     else
       Cond = Actions.ActOnCondition(getCurScope(), Loc, CondExpr.get(), CK,
-                                    MissingOK);
+                                    /*MissingOK=*/false);
   }
 
   // If the parser was confused by the condition and we don't have a ')', try to
@@ -1413,18 +1413,13 @@ bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
         Actions.PreferredConditionType(CK));
     if (!CondExpr.isInvalid())
       Cond = Actions.ActOnCondition(getCurScope(), Loc, CondExpr.get(), CK,
-                                    MissingOK);
+                                    /*MissingOK=*/false);
   }
 
   // Either the condition is valid or the rparen is present.
   T.consumeClose();
-
-  if (LParenLoc != nullptr) {
-    *LParenLoc = T.getOpenLocation();
-  }
-  if (RParenLoc != nullptr) {
-    *RParenLoc = T.getCloseLocation();
-  }
+  LParenLoc = T.getOpenLocation();
+  RParenLoc = T.getCloseLocation();
 
   // Check for extraneous ')'s to catch things like "if (foo())) {".  We know
   // that all callers are looking for a statement after the condition, so ")"
@@ -1600,7 +1595,7 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     if (ParseParenExprOrCondition(&InitStmt, Cond, IfLoc,
                                   IsConstexpr ? Sema::ConditionKind::ConstexprIf
                                               : Sema::ConditionKind::Boolean,
-                                  /*MissingOK=*/false, &LParen, &RParen))
+                                  LParen, RParen))
       return StmtError();
 
     if (IsConstexpr)
@@ -1795,8 +1790,7 @@ StmtResult Parser::ParseSwitchStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation LParen;
   SourceLocation RParen;
   if (ParseParenExprOrCondition(&InitStmt, Cond, SwitchLoc,
-                                Sema::ConditionKind::Switch,
-                                /*MissingOK=*/false, &LParen, &RParen))
+                                Sema::ConditionKind::Switch, LParen, RParen))
     return StmtError();
 
   StmtResult Switch = Actions.ActOnStartOfSwitchStmt(
@@ -1886,8 +1880,7 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation LParen;
   SourceLocation RParen;
   if (ParseParenExprOrCondition(nullptr, Cond, WhileLoc,
-                                Sema::ConditionKind::Boolean,
-                                /*MissingOK=*/false, &LParen, &RParen))
+                                Sema::ConditionKind::Boolean, LParen, RParen))
     return StmtError();
 
   // C99 6.8.5p5 - In C99, the body of the while statement is a scope, even if
