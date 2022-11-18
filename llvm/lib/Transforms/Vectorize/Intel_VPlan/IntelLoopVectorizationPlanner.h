@@ -491,7 +491,7 @@ public:
     return AuxVPlans.back().get();
   }
 
-  // Return the list-range of VPlans created by the merger to the clients.
+  /// Return the list-range of VPlans created by the merger to the clients.
   inline decltype(auto) mergerVPlans() const {
     return make_range(MergerVPlans.begin(), MergerVPlans.end());
   }
@@ -596,6 +596,25 @@ protected:
   /// for details). The scalar loops are skipped due to we don't have VPLoops
   /// for them and they are created only during CG
   void fillLoopDescrs();
+
+  /// Go through all VPlans and run \p ProcessPlan on each of them.
+  template <class F> void transformAllVPlans(F &ProcessPlan) {
+    SmallPtrSet<VPlan *, 2> Visited;
+
+    auto TransformPlan = [&Visited, &ProcessPlan](VPlanVector &P) -> void {
+      if (!Visited.insert(&P).second)
+        return;
+      ProcessPlan(P);
+    };
+
+    for (auto &Pair : VPlans) {
+      if (Pair.first == 1) // skip VF==1
+        continue;
+      TransformPlan(*Pair.second.MainPlan);
+      if (Pair.second.MaskedModeLoop)
+        TransformPlan(*Pair.second.MaskedModeLoop);
+    }
+  }
 
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;

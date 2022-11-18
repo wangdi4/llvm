@@ -5641,6 +5641,9 @@ inline vpinst_iterator vpinst_end(VPlan *F) { return vpinst_iterator(*F, true); 
 inline vpinst_range vpinstructions(VPlan *F) {
   return vpinst_range(vpinst_begin(F), vpinst_end(F));
 }
+inline vpinst_range vpinstructions(VPlan &F) {
+  return vpinstructions(&F);
+}
 
 using const_vpinst_iterator =
     InstIterator<const VPlan::VPBasicBlockListTy, VPlan::const_iterator,
@@ -5655,6 +5658,9 @@ inline const_vpinst_iterator vpinst_end(const VPlan *F) {
 }
 inline const_vpinst_range vpinstructions(const VPlan *F) {
   return const_vpinst_range(vpinst_begin(F), vpinst_end(F));
+}
+inline const_vpinst_range vpinstructions(const VPlan &F) {
+  return vpinstructions(&F);
 }
 
 template <class DivergenceAnalysis>
