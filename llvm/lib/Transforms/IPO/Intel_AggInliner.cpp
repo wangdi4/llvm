@@ -849,7 +849,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
 //
 void InlineAggressiveInfo::setNoRecurseOnTinyFunctions(Module &M) {
 
-  auto ShouldSetNoRecurse = [](Function &F) -> bool {
+  auto ShouldSetNoRecurse = [this](Function &F) -> bool {
     if (F.isDeclaration())
       return false;
     if (F.doesNotRecurse())
@@ -857,17 +857,38 @@ void InlineAggressiveInfo::setNoRecurseOnTinyFunctions(Module &M) {
     if (F.size() > MaxNumBBTinyFuncLimit)
       return false;
     for (auto &I : instructions(F))
-      if (isa<CallBase>(&I))
-        return false;
+      if (auto CB = dyn_cast<CallBase>(&I)) {
+        if (isa<IntrinsicInst>(CB))
+          continue;
+        auto Callee = CB->getCalledFunction();
+        if (!Callee)
+          return false;
+        LibFunc TheLibFunc;
+        const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(Callee));
+        if (TLI.getLibFunc(Callee->getName(), TheLibFunc) &&
+            TLI.has(TheLibFunc))
+          continue;
+        if (!Callee->doesNotRecurse())
+          return false;
+      }
     return true;
   };
 
+  SetVector<Function *> Worklist;
   for (auto &F : M.functions())
-    if (ShouldSetNoRecurse(F)) {
-      F.setDoesNotRecurse();
-      LLVM_DEBUG(dbgs() << "AggInl: Setting NoRecurse on: " << F.getName()
+    Worklist.insert(&F);
+  while (!Worklist.empty()) {
+    Function *F = Worklist.pop_back_val();
+    if (ShouldSetNoRecurse(*F)) {
+      F->setDoesNotRecurse();
+      LLVM_DEBUG(dbgs() << "AggInl: Setting NoRecurse on: " << F->getName()
                         << "\n");
+      for (User *U : F->users())
+        if (auto CB = dyn_cast<CallBase>(U))
+          if (CB->getCalledFunction() == F)
+            Worklist.insert(CB->getCaller());
     }
+  }
 }
 
 bool InlineAggressiveInfo::analyzeModule(Module &M) {
