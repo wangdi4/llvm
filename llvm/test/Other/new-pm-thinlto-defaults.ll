@@ -27,10 +27,10 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS,CHECK-EP-OPT-LAST
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto-pre-link<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Os,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto-pre-link<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Oz,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -new-pm-debug-info-for-profiling \
 ; RUN:     -passes='thinlto-pre-link<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-DIS,CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-PRELINK-O
@@ -56,10 +56,10 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POSTLINK-O23SZ,CHECK-POST-EP-OPT-LAST
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Os,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Oz,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -new-pm-debug-info-for-profiling \
 ; RUN:     -passes='thinlto<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
@@ -179,22 +179,10 @@
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: LoopFullUnrollPass
 ; CHECK-O-NEXT: Running pass: SROAPass on foo
-; CHECK-Os-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-Os-NEXT: Running pass: GVNPass
-; CHECK-Os-NEXT: Running analysis: MemoryDependenceAnalysis
-; CHECK-Os-NEXT: Running analysis: PhiValuesAnalysis
-; CHECK-Oz-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-Oz-NEXT: Running pass: GVNPass
-; CHECK-Oz-NEXT: Running analysis: MemoryDependenceAnalysis
-; CHECK-Oz-NEXT: Running analysis: PhiValuesAnalysis
-; CHECK-O2-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-O2-NEXT: Running pass: GVNPass
-; CHECK-O2-NEXT: Running analysis: MemoryDependenceAnalysis
-; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
-; CHECK-O3-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-O3-NEXT: Running pass: GVNPass
-; CHECK-O3-NEXT: Running analysis: MemoryDependenceAnalysis
-; CHECK-O3-NEXT: Running analysis: PhiValuesAnalysis
+; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass
+; CHECK-O23SZ-NEXT: Running pass: GVNPass
+; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O1-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O-NEXT: Running pass: SCCPPass
 ; CHECK-O-NEXT: Running pass: BDCEPass
