@@ -3348,6 +3348,25 @@ TLI_DEFINE_ENUM_INTERNAL(cbrtl)
 TLI_DEFINE_STRING_INTERNAL("cbrtl")
 TLI_DEFINE_SIG_INTERNAL(LDbl, LDbl)
 
+#if INTEL_CUSTOMIZATION
+/// double cdfnorm(double);
+TLI_DEFINE_ENUM_INTERNAL(cdfnorm)
+TLI_DEFINE_STRING_INTERNAL("cdfnorm")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// float cdfnormf(float);
+TLI_DEFINE_ENUM_INTERNAL(cdfnormf)
+TLI_DEFINE_STRING_INTERNAL("cdfnormf")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// double cdfnorminv(double);
+TLI_DEFINE_ENUM_INTERNAL(cdfnorminv)
+TLI_DEFINE_STRING_INTERNAL("cdfnorminv")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// float cdfnorminvf(float);
+TLI_DEFINE_ENUM_INTERNAL(cdfnorminvf)
+TLI_DEFINE_STRING_INTERNAL("cdfnorminvf")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+#endif // INTEL_CUSTOMIZATION
+
 /// double ceil(double x);
 TLI_DEFINE_ENUM_INTERNAL(ceil)
 TLI_DEFINE_STRING_INTERNAL("ceil")
@@ -3514,9 +3533,37 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(dup2)
 TLI_DEFINE_STRING_INTERNAL("dup2")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
-/// double erfc  (double x);
+/// double erf(double);
+TLI_DEFINE_ENUM_INTERNAL(erf)
+TLI_DEFINE_STRING_INTERNAL("erf")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// double erfc(double x);
 TLI_DEFINE_ENUM_INTERNAL(erfc)
 TLI_DEFINE_STRING_INTERNAL("erfc")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// float erfcf(float);
+TLI_DEFINE_ENUM_INTERNAL(erfcf)
+TLI_DEFINE_STRING_INTERNAL("erfcf")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// double erfcinv(double);
+TLI_DEFINE_ENUM_INTERNAL(erfcinv)
+TLI_DEFINE_STRING_INTERNAL("erfcinv")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// float erfcinvf(float);
+TLI_DEFINE_ENUM_INTERNAL(erfcinvf)
+TLI_DEFINE_STRING_INTERNAL("erfcinvf")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// float erff(float);
+TLI_DEFINE_ENUM_INTERNAL(erff)
+TLI_DEFINE_STRING_INTERNAL("erff")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// double erfinv(double);
+TLI_DEFINE_ENUM_INTERNAL(erfinv)
+TLI_DEFINE_STRING_INTERNAL("erfinv")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// float erfinvf(float);
+TLI_DEFINE_ENUM_INTERNAL(erfinvf)
+TLI_DEFINE_STRING_INTERNAL("erfinvf")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// extern void error (int __status, int __errnum, const char *__format, ...)
 TLI_DEFINE_ENUM_INTERNAL(error)

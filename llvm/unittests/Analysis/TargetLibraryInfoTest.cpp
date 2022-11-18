@@ -166,6 +166,12 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare double @cbrt(double)\n"
       "declare float @cbrtf(float)\n"
       "declare x86_fp80 @cbrtl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @cdfnorm(double)\n"
+      "declare float @cdfnormf(float)\n"
+      "declare double @cdfnorminv(double)\n"
+      "declare float @cdfnorminvf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare double @ceil(double)\n"
       "declare float @ceilf(float)\n"
       "declare x86_fp80 @ceill(x86_fp80)\n"
@@ -1238,7 +1244,16 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct @div(i32, i32)\n"
       "declare i32 @dup(i32)\n"
       "declare i32 @dup2(i32, i32)\n"
+      "declare double @erf(double)\n" // INTEL
       "declare float @erfc(double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare float @erfcf(float)\n"
+      "declare double @erfcinv(double)\n"
+      "declare float @erfcinvf(float)\n"
+      "declare float @erff(float)\n"
+      "declare double @erfinv(double)\n"
+      "declare float @erfinvf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare void @error(i32, i32, i8*)\n"
       "declare i32 @fcntl(i32, i32)\n"
       "declare i32 @fcntl64(i32, i32)\n"
