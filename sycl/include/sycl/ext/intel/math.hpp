@@ -42,7 +42,6 @@ float __imf_saturatef(float);
 float __imf_copysignf(float, float);
 double __imf_copysign(double, double);
 _iml_half_internal __imf_copysignf16(_iml_half_internal, _iml_half_internal);
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 float __imf_erfinvf(float);
 double __imf_erfinv(double);
@@ -57,7 +56,6 @@ double __imf_norm(int, const double*);
 float __imf_rnormf(int, const float*);
 double __imf_rnorm(int, const double*);
 /* end INTEL_CUSTOMIZATION */
-=======
 float __imf_ceilf(float);
 double __imf_ceil(double);
 _iml_half_internal __imf_ceilf16(_iml_half_internal);
@@ -76,7 +74,6 @@ _iml_half_internal __imf_rsqrtf16(_iml_half_internal);
 float __imf_truncf(float);
 double __imf_trunc(double);
 _iml_half_internal __imf_truncf16(_iml_half_internal);
->>>>>>> 1b7582bb91397d03e9c7d25beb818e9957517301
 };
 
 namespace sycl {
@@ -113,7 +110,6 @@ std::enable_if_t<std::is_same_v<Tp, sycl::half>, sycl::half> copysign(Tp x,
   return __builtin_bit_cast(sycl::half, __imf_copysignf16(xi, yi));
 }
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, float>, float> erfinv(Tp x) {
@@ -176,7 +172,6 @@ std::enable_if_t<std::is_same_v<Tp, double>, double> rnorm(int x, const Tp* y) {
 }
 
 /* end INTEL_CUSTOMIZATION */
-=======
 template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, float>, float> ceil(Tp x) {
   return __imf_ceilf(x);
@@ -297,7 +292,6 @@ sycl::half2 trunc(sycl::half2 x) {
   return sycl::half2{trunc(x.s0()), trunc(x.s1())};
 }
 
->>>>>>> 1b7582bb91397d03e9c7d25beb818e9957517301
 #endif
 } // namespace math
 } // namespace intel
