@@ -38,6 +38,7 @@
 #include <string>
 #include <unordered_map>
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 DLWRAP_INITIALIZE()
 
@@ -99,16 +100,20 @@ DLWRAP(cuEventDestroy, 1)
 DLWRAP_FINALIZE()
 #else // INTEL_CUSTOMIZATION
 DLWRAP_INITIALIZE();
+=======
+DLWRAP_INITIALIZE()
+>>>>>>> e42080ae3f62e54cf3f23f35c744dc2e0f2f4e78
 
-DLWRAP_INTERNAL(cuInit, 1);
+DLWRAP_INTERNAL(cuInit, 1)
 
-DLWRAP(cuCtxGetDevice, 1);
-DLWRAP(cuDeviceGet, 2);
-DLWRAP(cuDeviceGetAttribute, 3);
-DLWRAP(cuDeviceGetCount, 1);
-DLWRAP(cuFuncGetAttribute, 3);
+DLWRAP(cuCtxGetDevice, 1)
+DLWRAP(cuDeviceGet, 2)
+DLWRAP(cuDeviceGetAttribute, 3)
+DLWRAP(cuDeviceGetCount, 1)
+DLWRAP(cuFuncGetAttribute, 3)
 
 // Device info
+<<<<<<< HEAD
 DLWRAP(cuDeviceGetName, 3);
 DLWRAP(cuDeviceTotalMem, 2);
 DLWRAP(cuDriverGetVersion, 1);
@@ -157,6 +162,55 @@ DLWRAP(cuEventDestroy, 1);
 
 DLWRAP_FINALIZE();
 #endif // INTEL_CUSTOMIZATION
+=======
+DLWRAP(cuDeviceGetName, 3)
+DLWRAP(cuDeviceTotalMem, 2)
+DLWRAP(cuDriverGetVersion, 1)
+
+DLWRAP(cuGetErrorString, 2)
+DLWRAP(cuLaunchKernel, 11)
+
+DLWRAP(cuMemAlloc, 2)
+DLWRAP(cuMemAllocHost, 2)
+DLWRAP(cuMemAllocManaged, 3)
+
+DLWRAP(cuMemcpyDtoDAsync, 4)
+DLWRAP(cuMemcpyDtoH, 3)
+DLWRAP(cuMemcpyDtoHAsync, 4)
+DLWRAP(cuMemcpyHtoD, 3)
+DLWRAP(cuMemcpyHtoDAsync, 4)
+
+DLWRAP(cuMemFree, 1)
+DLWRAP(cuMemFreeHost, 1)
+DLWRAP(cuModuleGetFunction, 3)
+DLWRAP(cuModuleGetGlobal, 4)
+
+DLWRAP(cuModuleUnload, 1)
+DLWRAP(cuStreamCreate, 2)
+DLWRAP(cuStreamDestroy, 1)
+DLWRAP(cuStreamSynchronize, 1)
+DLWRAP(cuCtxSetCurrent, 1)
+DLWRAP(cuDevicePrimaryCtxRelease, 1)
+DLWRAP(cuDevicePrimaryCtxGetState, 3)
+DLWRAP(cuDevicePrimaryCtxSetFlags, 2)
+DLWRAP(cuDevicePrimaryCtxRetain, 2)
+DLWRAP(cuModuleLoadDataEx, 5)
+
+DLWRAP(cuDeviceCanAccessPeer, 3)
+DLWRAP(cuCtxEnablePeerAccess, 2)
+DLWRAP(cuMemcpyPeerAsync, 6)
+
+DLWRAP(cuCtxGetLimit, 2)
+DLWRAP(cuCtxSetLimit, 2)
+
+DLWRAP(cuEventCreate, 2)
+DLWRAP(cuEventRecord, 2)
+DLWRAP(cuStreamWaitEvent, 3)
+DLWRAP(cuEventSynchronize, 1)
+DLWRAP(cuEventDestroy, 1)
+
+DLWRAP_FINALIZE()
+>>>>>>> e42080ae3f62e54cf3f23f35c744dc2e0f2f4e78
 
 #ifndef DYNAMIC_CUDA_PATH
 #define DYNAMIC_CUDA_PATH "libcuda.so"
