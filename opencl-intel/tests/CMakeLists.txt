@@ -39,7 +39,7 @@ endif()
 set(SPIRV_CONVERTER "${LLVM_PATH_BE}/bin/llvm-spirv")
 set(GTEST_INCLUDE_DIR "${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include")
 set(CLANG_LIBRARY_DIR
-    "${LLVM_LIBRARY_DIR}/clang/${CLANG_VERSION}/lib/${LLVM_TARGET_TRIPLE}")
+    "${LLVM_LIBRARY_DIR}/clang/${CLANG_VERSION_MAJOR}/lib/${LLVM_TARGET_TRIPLE}")
 
 include(itt)
 

@@ -28,7 +28,7 @@ if(NOT WIN32)
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
 endif(NOT WIN32)
 
-add_definitions(-DCLANG_VERSION_STRING="${CLANG_VERSION}")
+add_definitions(-DCLANG_VERSION_STRING="${CLANG_VERSION_MAJOR}")
 
 add_subdirectory(cl_hw_utils)
 add_subdirectory(cl_logger)
