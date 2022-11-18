@@ -123,7 +123,7 @@ public:
     for (auto &NamedMetadata : MDList) {
       auto Name = NamedMetadata.getName();
       if (isDPCPPStatKind(Name)) {
-        StatDescriptionTy StatDescription(&M, Name.str().c_str());
+        StatDescriptionTy StatDescription(&M, Name.data());
         Descs.push_back({std::string(Name), StatDescription.get()});
       }
     }

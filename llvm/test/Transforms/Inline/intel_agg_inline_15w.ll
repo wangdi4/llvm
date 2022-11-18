@@ -1,39 +1,36 @@
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0xe807 -inline-threshold=-50 -S 2>&1 | FileCheck %s
 
-; Check the trace results for the HugeMallocGlobalPointersHeuristic aggressive
-; inlining heuristic.
-; This test case is similar to intel_agg_inline05.ll, but is derived from
+; Check the IR to ensure that there are no calls to the functions we expect
+; to be inlined out due to aggressive inlining.
+; This test case is similar to intel_agg_inline06.ll, but is derived from
 ; the IR generated on Windows rather than Linux.
 
-; CHECK: AggInl: Setting NoRecurse on: __local_stdio_scanf_options
-; CHECK: AggInl: Setting NoRecurse on: __local_stdio_printf_options
-; CHECK: AggInl: HugeMallocGlobalPointersHeuristic
-; CHECK: AggInl: LBM_allocateGrid malloc routine found
-; CHECK-LABEL: AggInl:  All CallSites marked for inline after propagation
-; CHECK-DAG: call fastcc void @LBM_swapGrids
-; CHECK-DAG: call fastcc void @LBM_swapGrids
-; CHECK-DAG: call fastcc void @LBM_performStreamCollideTRT
-; CHECK-DAG: call fastcc void @LBM_performStreamCollideTRT
-; CHECK-DAG: call fastcc void @LBM_freeGrid
-; CHECK-DAG: call fastcc void @LBM_freeGrid
-; CHECK-DAG: tail call fastcc void @LBM_allocateGrid
-; CHECK-DAG: call fastcc void @MAIN_initialize
-; CHECK-DAG: tail call fastcc void @LBM_allocateGrid
-; CHECK-DAG: tail call fastcc void @LBM_initializeGrid
-; CHECK-DAG: tail call fastcc void @LBM_loadObstacleFile
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForChannel
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForLDC
-; CHECK-DAG: call fastcc void @LBM_handleInOutFlow
-; CHECK-DAG: call fastcc void @LBM_showGridStatistics
-; CHECK-DAG: call fastcc void @LBM_showGridStatistics
-; CHECK-DAG: call fastcc void @LBM_showGridStatistics
-; CHECK-DAG: call fastcc void @LBM_compareVelocityField
-; CHECK-DAG: call fastcc void @LBM_storeVelocityField
-; CHECK-DAG: tail call fastcc void @LBM_initializeGrid
-; CHECK-DAG: tail call fastcc void @LBM_loadObstacleFile
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForChannel
-; CHECK-DAG: tail call fastcc void @LBM_initializeSpecialCellsForLDC
-; CHECK-DAG: tail call fastcc void @LBM_showGridStatistics
+; This LIT test also tests adding @__intel_new_feature_proc_init to
+; @llvm.compiler.used
+
+; CHECK-DAG: define {{.*}}__local_stdio_printf_options
+; CHECK-DAG: define {{.*}}__local_stdio_scanf_options
+; CHECK-DAG: define {{.*}}printf
+; CHECK-DAG: define {{.*}}main
+; CHECK-NOT: call{{.*}}LBM_allocateGrid
+; CHECK-NOT: call{{.*}}LBM_initializeGrid
+; CHECK-NOT: call{{.*}}LBM_initializeSpecialCellsForChannel
+; CHECK-NOT: call{{.*}}LBM_initializeSpecialCellsForLDC
+; CHECK-NOT: call{{.*}}LBM_loadObstacleFile
+; CHECK-NOT: call{{.*}}LBM_compareVelocityField
+; CHECK-NOT: call{{.*}}LBM_freeGrid
+; CHECK-NOT: call{{.*}}LBM_handleInOutFlow
+; CHECK-NOT: call{{.*}}LBM_performStreamCollideTRT
+; CHECK-NOT: call{{.*}}LBM_showGridStatistics
+; CHECK-NOT: call{{.*}}LBM_storeVelocityField
+; CHECK-NOT: call{{.*}}LBM_swapGrids
+; CHECK-NOT: call{{.*}}MAIN_initialize
+; CHECK-NOT: call{{.*}}MAIN_parseCommandLine
+
+declare void @__intel_new_feature_proc_init(i32, i64)
+@llvm.compiler.used = appending global [1 x i8*] [i8* bitcast (void (i32, i64)* @__intel_new_feature_proc_init to i8*)]
 
 %struct.MAIN_Param = type { i32, i8*, i32, i32, i8* }
 %struct.stat = type { i64, i64, i64, i32, i32, i32, i32, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, [3 x i64] }
@@ -96,7 +93,7 @@ define weak_odr dso_local i64* @__local_stdio_scanf_options() local_unnamed_addr
   ret i64* @__local_stdio_scanf_options._OptionsStorage
 }
 
-define internal void @printf(i8* readonly %0, ...) unnamed_addr #0 {
+define weak_odr void @printf(i8* readonly %0, ...) unnamed_addr #0 {
   %2 = alloca i8*, align 8
   %3 = bitcast i8** %2 to i8*
   call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %3) #5
@@ -353,3 +350,4 @@ define internal fastcc void @MAIN_initialize(%struct.MAIN_Param* nocapture reado
 }
 
 attributes #0 = { norecurse }
+; end INTEL_FEATURE_SW_ADVANCED
