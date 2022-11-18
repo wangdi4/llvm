@@ -3698,6 +3698,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     if ((CKind == OMPC_ordered || CKind == OMPC_partial) &&
         PP.LookAhead(/*N=*/0).isNot(tok::l_paren))
       Clause = ParseOpenMPClause(CKind, WrongDirective);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     else if (CKind == OMPC_tile)
       Clause = ParseOpenMPExprListClause(CKind, WrongDirective);
@@ -3717,6 +3718,10 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     else if (CKind == OMPC_ompx_places)
       Clause = ParseOpenMPOmpxPlacesClause(WrongDirective);
 #endif // INTEL_COLLAB
+=======
+    else if (CKind == OMPC_grainsize)
+      Clause = ParseOpenMPSingleExprWithArgClause(DKind, CKind, WrongDirective);
+>>>>>>> ab9eac762c35068e77f57795e660d06f578c9614
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     break;
@@ -4397,6 +4402,33 @@ OMPClause *Parser::ParseOpenMPSingleExprWithArgClause(OpenMPDirectiveKind DKind,
       Arg.push_back(OMPC_DEVICE_unknown);
       KLoc.emplace_back();
     }
+  } else if (Kind == OMPC_grainsize) {
+    // Parse optional <grainsize modifier> ':'
+    OpenMPGrainsizeClauseModifier Modifier =
+        static_cast<OpenMPGrainsizeClauseModifier>(getOpenMPSimpleClauseType(
+            Kind, Tok.isAnnotation() ? "" : PP.getSpelling(Tok),
+            getLangOpts()));
+    if (getLangOpts().OpenMP >= 51) {
+      if (NextToken().is(tok::colon)) {
+        Arg.push_back(Modifier);
+        KLoc.push_back(Tok.getLocation());
+        // Parse modifier
+        ConsumeAnyToken();
+        // Parse ':'
+        ConsumeAnyToken();
+      } else {
+        if (Modifier == OMPC_GRAINSIZE_strict) {
+          Diag(Tok, diag::err_modifier_expected_colon) << "strict";
+          // Parse modifier
+          ConsumeAnyToken();
+        }
+        Arg.push_back(OMPC_GRAINSIZE_unknown);
+        KLoc.emplace_back();
+      }
+    } else {
+      Arg.push_back(OMPC_GRAINSIZE_unknown);
+      KLoc.emplace_back();
+    }
   } else {
     assert(Kind == OMPC_if);
     KLoc.push_back(Tok.getLocation());
@@ -4419,7 +4451,8 @@ OMPClause *Parser::ParseOpenMPSingleExprWithArgClause(OpenMPDirectiveKind DKind,
 
   bool NeedAnExpression = (Kind == OMPC_schedule && DelimLoc.isValid()) ||
                           (Kind == OMPC_dist_schedule && DelimLoc.isValid()) ||
-                          Kind == OMPC_if || Kind == OMPC_device;
+                          Kind == OMPC_if || Kind == OMPC_device ||
+                          Kind == OMPC_grainsize;
   if (NeedAnExpression) {
     SourceLocation ELoc = Tok.getLocation();
     ExprResult LHS(ParseCastExpression(AnyCastExpr, false, NotTypeCast));
