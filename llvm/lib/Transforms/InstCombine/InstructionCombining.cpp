@@ -124,6 +124,7 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif // INTEL_COLLAB
@@ -5083,6 +5084,13 @@ static bool combineInstructionsOverFunction(
   bool MadeIRChange = false;
   if (ShouldLowerDbgDeclare)
     MadeIRChange = LowerDbgDeclare(F);
+  // LowerDbgDeclare calls RemoveRedundantDbgInstrs, but LowerDbgDeclare will
+  // almost never return true when running an assignment tracking build. Take
+  // this opportunity to do some clean up for assignment tracking builds too.
+  if (!MadeIRChange && getEnableAssignmentTracking()) {
+    for (auto &BB : F)
+      RemoveRedundantDbgInstrs(&BB);
+  }
 
   // Iterate while there is work to do.
   unsigned Iteration = 0;
