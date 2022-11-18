@@ -36,7 +36,6 @@
 #include "hsa_ext_amd.h"
 #include <memory>
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 DLWRAP_INITIALIZE()
 
@@ -80,10 +79,7 @@ DLWRAP(hsa_amd_memory_unlock, 1)
 
 DLWRAP_FINALIZE()
 #else
-DLWRAP_INITIALIZE();
-=======
 DLWRAP_INITIALIZE()
->>>>>>> e42080ae3f62e54cf3f23f35c744dc2e0f2f4e78
 
 DLWRAP_INTERNAL(hsa_init, 0)
 
@@ -123,12 +119,8 @@ DLWRAP(hsa_amd_memory_unlock, 1)
 DLWRAP(hsa_amd_memory_fill, 3)
 DLWRAP(hsa_amd_register_system_event_handler, 2)
 
-<<<<<<< HEAD
-DLWRAP_FINALIZE();
-#endif // INTEL_CUSTOMIZATION
-=======
 DLWRAP_FINALIZE()
->>>>>>> e42080ae3f62e54cf3f23f35c744dc2e0f2f4e78
+#endif // INTEL_CUSTOMIZATION
 
 #ifndef DYNAMIC_HSA_PATH
 #define DYNAMIC_HSA_PATH "libhsa-runtime64.so"
