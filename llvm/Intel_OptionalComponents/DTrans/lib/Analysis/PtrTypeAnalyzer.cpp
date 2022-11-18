@@ -604,6 +604,65 @@ public:
     DTransLandingPadTy = TM.getOrCreateLiteralStructType(Ctx, FieldTypes);
   }
 
+  // CFE is not attaching DTrans's metadata for GlobalVariables in rare case
+  // (CMPLRLLVM-41694). As a workaround for now, infer DTransType info for a
+  // GlobalVariable from Initializer if possible when metadata is missing for
+  // the GlobalVariable. Only literal struct with either integer or pointer type
+  // fields are allowed.
+  bool inferDTransTypeForGlobalVar(GlobalVariable &GV, ValueTypeInfo *Info) {
+
+    // Returns single alias type for "C" if there is one.
+    auto GetSingleAliasTypeForConstant = [&](Constant *C) -> DTransType * {
+      if (isCompilerConstant(C))
+        return nullptr;
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(C);
+      if (!Info || Info->getUnhandled() || !Info->isCompletelyAnalyzed())
+        return nullptr;
+      auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+      if (UseAliases.size() != 1)
+        return nullptr;
+      return *UseAliases.begin();
+    };
+
+    // Allow only literal structs.
+    auto *StTy = dyn_cast<StructType>(GV.getValueType());
+    if (!StTy || !StTy->isLiteral())
+      return false;
+    // Ignore if there is already metadata attached.
+    DTransType *DType = MDReader.getDTransTypeFromMD(&GV);
+    if (DType)
+      return false;
+    // Allow only simple structs with either int or ptr fields.
+    for (auto *ETy : StTy->elements())
+      if (!ETy->isIntOrPtrTy())
+        return false;
+    if (!GV.hasUniqueInitializer() || !GV.hasDefinitiveInitializer())
+      return false;
+    ConstantStruct *CS = dyn_cast<ConstantStruct>(GV.getInitializer());
+    if (!CS || CS->getNumOperands() != StTy->getNumElements())
+      return false;
+    // Infer type of struct fields from init values.
+    SmallVector<DTransType *, 4> FieldTypes;
+    for (unsigned I = 0, E = CS->getNumOperands(); I != E; ++I) {
+      Constant *CE = CS->getOperand(I);
+      if (CE->getType()->isIntegerTy()) {
+        FieldTypes.push_back(TM.getOrCreateSimpleType(CE->getType()));
+      } else if (CE->getType()->isPointerTy()) {
+        DTransType *DTy = GetSingleAliasTypeForConstant(CE);
+        if (!DTy)
+          return false;
+        FieldTypes.push_back(DTy);
+      } else {
+        llvm_unreachable("Expected int or ptr type\n");
+      }
+    }
+    DTransStructType *DTy =
+        TM.getOrCreateLiteralStructType(GV.getType()->getContext(), FieldTypes);
+    Info->addTypeAlias(ValueTypeInfo::VAT_Decl, TM.getOrCreatePointerType(DTy));
+    Info->setCompletelyAnalyzed();
+    return true;
+  }
+
   void visitModule(Module &M) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     // Reset the state of the trace filter to the default value in case another
@@ -651,6 +710,8 @@ public:
                         << F.getName() << "\n");
     }
 
+    SmallVector<GlobalVariable *, 8> LiteralStructGVS;
+
     // Get the type of all the global variable pointers that were annotated with
     // metadata. Note, GlobalVariables are pointers to a value type. The type
     // recovered is the variable's value type, so we need to make a pointer to
@@ -676,6 +737,14 @@ public:
       if (GV.isDeclaration() && handleLibraryGlobal(GV, Info))
         continue;
 
+      // Literal structs without metadata are handled in
+      // inferDTransTypeForGlobalVar routine as a workaround.
+      auto *StTy = dyn_cast<StructType>(ValTy);
+      if (StTy && StTy->isLiteral()) {
+        LiteralStructGVS.push_back(&GV);
+        continue;
+      }
+
       Info->setUnhandled();
       LLVM_DEBUG(dbgs() << "Unable to set declared type for global variable: "
                         << GV.getName() << "\n");
@@ -690,6 +759,20 @@ public:
     for (auto &GV : M.globals())
       for (auto *U : GV.users())
         analyzeGVUser(U);
+
+    // Trying to infer types for literal struct global variables without
+    // metadata after processing uses of Globals/Aliases since the inferring
+    // depends on types of Globals/Aliases.
+    // For now, not processing uses of literal struct global variables without
+    // metadata after inferring types.
+    for (auto *GV : LiteralStructGVS) {
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(GV);
+      if (!inferDTransTypeForGlobalVar(*GV, Info)) {
+        Info->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Unable to set type for literal global variable: "
+                          << GV->getName() << "\n");
+      }
+    }
   }
 
   // For certain library global variables that are of known types, set them
