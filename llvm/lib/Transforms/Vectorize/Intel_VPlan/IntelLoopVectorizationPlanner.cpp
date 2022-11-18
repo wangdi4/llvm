@@ -1448,25 +1448,21 @@ void LoopVectorizationPlanner::predicate() {
   if (DisableVPlanPredicator)
     return;
 
-  DenseSet<VPlanVector *> PredicatedVPlans;
-  auto Predicate = [&PredicatedVPlans](VPlanVector *VPlan) {
-    if (PredicatedVPlans.count(VPlan))
-      return; // Already predicated.
-
-    VPLoop *OuterLoop = VPlan->getMainLoop(true);
+  auto Predicate = [](VPlanVector &VPlan) {
+    VPLoop *OuterLoop = VPlan.getMainLoop(true);
     // Search loops require multiple hacks. Skipping LCSSA/LoopCFU is one of
     // them.
     bool SearchLoopHack = !OuterLoop->getExitBlock();
 
     if (!SearchLoopHack)
-      formLCSSA(*VPlan, true /* SkipTopLoop */);
+      formLCSSA(VPlan, true /* SkipTopLoop */);
     VPLAN_DUMP(LCSSADumpControl, VPlan);
 
     if (!SearchLoopHack) {
-      assert(!VPlan->getVPlanDA()->isDivergent(
+      assert(!VPlan.getVPlanDA()->isDivergent(
                  *(OuterLoop)->getLoopLatch()->getCondBit()) &&
              "Outer loop doesn't have uniform backedge!");
-      VPlanLoopCFU LoopCFU(*VPlan);
+      VPlanLoopCFU LoopCFU(VPlan);
       LoopCFU.run();
     }
     VPLAN_DUMP(LoopCFUDumpControl, VPlan);
@@ -1474,22 +1470,12 @@ void LoopVectorizationPlanner::predicate() {
     // Predication "has" to be done even for the search loop hack. Our
     // idiom-matching code and CG currently expect that. Note that predicator
     // has some hacks for search loop processing inside it as well.
-    VPlanPredicator VPP(*VPlan);
+    VPlanPredicator VPP(VPlan);
     VPP.predicate();
     VPLAN_DUMP(PredicatorDumpControl, VPlan);
-
-    PredicatedVPlans.insert(VPlan);
   };
 
-  for (const auto &It : VPlans) {
-    if (It.first == 1)
-      continue; // Ignore Scalar VPlan;
-    VPlanVector *MainPlan = It.second.MainPlan.get();
-    Predicate(MainPlan);
-    // Masked mode loop might not exist.
-    if (VPlanVector *MaskedModeLoopPlan = It.second.MaskedModeLoop.get())
-      Predicate(MaskedModeLoopPlan);
-  }
+  transformAllVPlans(Predicate);
 }
 
 void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
@@ -2488,12 +2474,7 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
   if (!EnableIntDivRemBlendWithSafeValue)
     return;
 
-  SmallPtrSet<VPlan *, 2> Visited;
-
-  auto ProcessVPlan = [&Visited](VPlan &P) -> void {
-    if (!Visited.insert(&P).second)
-      return;
-
+  auto ProcessVPlan = [](VPlanVector &P) -> void {
     auto NeedProcessInst = [&P](const VPInstruction &Inst) {
       auto Opcode = Inst.getOpcode();
       if (Opcode != Instruction::SDiv && Opcode != Instruction::UDiv &&
@@ -2516,6 +2497,7 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
     SmallVector<VPInstruction *, 4> InstrToProcess(
         map_range(make_filter_range(vpinstructions(&P), NeedProcessInst),
                   [](VPInstruction &I) { return &I; }));
+
     VPBuilder Builder;
     for (auto *Inst : InstrToProcess) {
       Builder.setInsertPoint(Inst);
@@ -2531,39 +2513,26 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
     VPLAN_DUMP(BlendWithSafeValueDumpControl, P);
   };
 
-  for (auto &Pair : VPlans) {
-    if (Pair.first == 1) // VF
-      continue;
-
-    ProcessVPlan(*Pair.second.MainPlan);
-    if (Pair.second.MaskedModeLoop)
-      ProcessVPlan(*Pair.second.MaskedModeLoop);
-  }
+  transformAllVPlans(ProcessVPlan);
 }
 
 void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
-  SmallPtrSet<VPlan *, 2> Visited;
 
-  auto ProcessVPlan = [&Visited](VPlanMasked &P) -> void {
-    if (!Visited.insert(&P).second)
+  auto ProcessVPlan = [](VPlanVector &Plan) -> void {
+    if (!isa<VPlanMasked>(Plan))
       return;
+
     // Don't disable optimization if TC is unknown.
-    VPLoop *L = P.getMainLoop(true /*StrictCheck*/);
+    VPLoop *L = Plan.getMainLoop(true /*StrictCheck*/);
     if (L->getTripCountInfo().IsEstimated)
       return;
 
     for (auto &Inst :
-         make_filter_range(vpinstructions(&P), [](const VPInstruction &Inst) {
+         make_filter_range(vpinstructions(Plan), [](const VPInstruction &Inst) {
            return isa<VPLoadStoreInst>(Inst);
          }))
       cast<VPLoadStoreInst>(Inst).disableNegOneOpt();
   };
 
-  for (auto &Pair : VPlans) {
-    if (Pair.first == 1) // VF
-      continue;
-
-    if (Pair.second.MaskedModeLoop)
-      ProcessVPlan(*Pair.second.MaskedModeLoop);
-  }
+  transformAllVPlans(ProcessVPlan);
 }
