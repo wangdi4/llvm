@@ -17,6 +17,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
