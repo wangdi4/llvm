@@ -28,7 +28,7 @@ using namespace llvm;
 
 static cl::opt<std::string> FilterMarkerCountFile(
     "filtered-markercount-file",
-    cl::desc("Not insert markercount in functions listed in the file"),
+    cl::desc("Do not insert marker count in functions listed in the file"),
     cl::Optional, cl::Hidden);
 
 namespace {
