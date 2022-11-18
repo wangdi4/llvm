@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -2422,6 +2422,11 @@ struct AAICVTrackerFunction : public AAICVTracker {
 
     for (InternalControlVar ICV : TrackableICVs) {
       auto &SetterRFI = OMPInfoCache.RFIs[OMPInfoCache.ICVs[ICV].Setter];
+#if INTEL_CUSTOMIZATION
+      auto SetterKind = SetterRFI.Kind;
+      auto &GetterRFI = OMPInfoCache.RFIs[OMPInfoCache.ICVs[ICV].Getter];
+      auto GetterKind = GetterRFI.Kind;
+#endif // INTEL_CUSTOMIZATION
 
       auto &ValuesMap = ICVReplacementValuesMap[ICV];
       auto TrackValues = [&](Use &U, Function &) {
@@ -2429,9 +2434,20 @@ struct AAICVTrackerFunction : public AAICVTracker {
         if (!CI)
           return false;
 
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-40128: The case of omp_get_max_threads(0) is a special
+        // case. On replacement, it should yield omp_set_num_threads(1).
+        Value *ReplacementValue = CI->getArgOperand(0);
+        if (GetterKind == OMPRTL_omp_get_max_threads &&
+            SetterKind == OMPRTL_omp_set_num_threads)
+          if (auto CnI = dyn_cast<ConstantInt>(CI->getArgOperand(0)))
+            if (CnI->isZero())
+              ReplacementValue = ConstantInt::get(CnI->getType(), 1);
+
         // FIXME: handle setters with more that 1 arguments.
         /// Track new value.
-        if (ValuesMap.insert(std::make_pair(CI, CI->getArgOperand(0))).second)
+        if (ValuesMap.insert(std::make_pair(CI, ReplacementValue)).second)
+#endif // INTEL_CUSTOMIZATION
           HasChanged = ChangeStatus::CHANGED;
 
         return false;
