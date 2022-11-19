@@ -79,18 +79,18 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:        [[RED_INIT_INSERT40:%.*]] = insertelement [[RED_INIT30]],  [[ADD8240]],  0
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[RED_INIT_INSERT0]]
 ; CHECK-NEXT:        [[PHI_TEMP50:%.*]] = [[RED_INIT_INSERT40]]
-; CHECK:             + DO i1 = 0, 1023, 16   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<16 x i32>*)(@a)[0][i1]
+; CHECK:             + DO i1 = 0, 1023, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)(@a)[0][i1]
 ; CHECK-NEXT:        |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  *  2
-; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = i1 + [[DOTVEC70]] + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>  +  [[PHI_TEMP50]]
+; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = i1 + [[DOTVEC70]] + <i32 0, i32 1, i32 2, i32 3>  +  [[PHI_TEMP50]]
 ; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = [[PHI_TEMP0]]  +  [[DOTVEC80]]
 ; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = [[DOTVEC0]] + 64  +  [[DOTVEC80]]
 ; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[DOTVEC90]]
 ; CHECK-NEXT:        |   [[PHI_TEMP50]] = [[DOTVEC100]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[ADD4260]] = @llvm.vector.reduce.add.v16i32([[DOTVEC90]])
-; CHECK-NEXT:        [[ADD8240]] = @llvm.vector.reduce.add.v16i32([[DOTVEC100]])
-; CHECK:             ([[S_RED0]])[0] = [[ADD8240]]
+; CHECK:             [[ADD4260]] = @llvm.vector.reduce.add.v4i32([[DOTVEC90]])
+; CHECK-NEXT:        [[ADD8240]] = @llvm.vector.reduce.add.v4i32([[DOTVEC100]])
+; CHECK-NEXT:        ([[S_RED0]])[0] = [[ADD8240]]
 ; CHECK-NEXT:        ([[S2_RED0]])[0] = [[ADD4260]]
 ; CHECK-NEXT:        ret [[ADD4260]] + [[ADD8240]] + 42
 ; CHECK-NEXT:  END REGION

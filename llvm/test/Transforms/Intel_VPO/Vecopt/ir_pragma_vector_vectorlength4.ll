@@ -1,4 +1,4 @@
-; RUN: opt %s -S -vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths --debug-only=LoopVectorizationPlanner 2>&1 | FileCheck %s
+; RUN: opt %s -disable-output -vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths --debug-only=LoopVectorizationPlanner 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
 ; Checks if the code with #pragma vector vectorlength(1, 0, 4, 1, 8) (!{!"llvm.loop.vector.vectorlength", i64 1, i64 0, i64 4, i64 1, i64 8} metadata)
@@ -12,7 +12,7 @@
 ; }
 ;
 ; CHECK: LVP: Specified vectorlengths: 4 8{{[[:space:]]}}
-; CHECK: Selecting VPlan with VF=8
+; CHECK: Selecting VPlan with VF=4
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
