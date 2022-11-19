@@ -101,11 +101,11 @@ define void @main3() {
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
-; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
+; CHECK-NEXT:   Remainders: scalar,
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
-; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
+; CHECK-NEXT:   Remainders: scalar,
 ;
 entry:
   br label %preheader

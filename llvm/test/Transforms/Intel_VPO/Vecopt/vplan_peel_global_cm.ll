@@ -20,13 +20,13 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-PEELING-NEXT:  Remainder loop cost without peel = 0 (no remainder loop)
 ; VPLAN-CM-PEELING-NEXT:  Peeling will be performed.
 ; VPLAN-CM-PEELING-NEXT:  Selected peeling: Static(1)
-; VPLAN-CM-PEELING-NEXT:  Using cost model to enable peeling. Trip count is known. GoUnaligned = UnalignedGain > AlignedGain: -6400 > -5917.6875 = 0
-; VPLAN-CM-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 5 + 2559 x 22.3125 + 0 + 15 = 57117.6875
+; VPLAN-CM-PEELING-NEXT:  Using cost model to enable peeling. Trip count is known. GoUnaligned = UnalignedGain > AlignedGain: -8960 > -8476.6875 = 0
+; VPLAN-CM-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 5 + 2559 x 23.3125 + 0 + 15 = 59676.6875
 ; VPLAN-CM-PEELING-NEXT:  Peel loop cost = 5 (scalar peel loop)
-; VPLAN-CM-PEELING-NEXT:  Main loop vector cost = 57097.6875 + 0
+; VPLAN-CM-PEELING-NEXT:  Main loop vector cost = 59656.6875 + 0
 ; VPLAN-CM-PEELING-NEXT:  Remainder loop cost = 15 (scalar remainder loop)
-; VPLAN-CM-PEELING-NEXT:   VectorCostWithoutPeel = 2560 x 22.5 + 0 = 57600
-; VPLAN-CM-PEELING-NEXT:  Main loop vector cost without peel = 57600
+; VPLAN-CM-PEELING-NEXT:   VectorCostWithoutPeel = 2560 x 23.5 + 0 = 60160
+; VPLAN-CM-PEELING-NEXT:  Main loop vector cost without peel = 60160
 ; VPLAN-CM-PEELING-NEXT:  Remainder loop cost without peel = 0 (no remainder loop)
 ; VPLAN-CM-PEELING-NEXT:  Peeling will be performed.
 ; VPLAN-CM-PEELING-NEXT:  Selecting VPlan with VF=4
@@ -44,12 +44,12 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-NO-PEELING-NEXT:  Remainder loop cost without peel = 0 (no remainder loop)
 ; VPLAN-CM-NO-PEELING-NEXT:  Peeling will not be performed.
 ; VPLAN-CM-NO-PEELING-NEXT:  Selected peeling: None
-; VPLAN-CM-NO-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 0 + 2560 x 22.5 + 0 + 0 = 57600
+; VPLAN-CM-NO-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 0 + 2560 x 23.5 + 0 + 0 = 60160
 ; VPLAN-CM-NO-PEELING-NEXT:  Peel loop cost = 0 (no peel loop)
-; VPLAN-CM-NO-PEELING-NEXT:  Main loop vector cost = 57600 + 0
+; VPLAN-CM-NO-PEELING-NEXT:  Main loop vector cost = 60160 + 0
 ; VPLAN-CM-NO-PEELING-NEXT:  Remainder loop cost = 0 (no remainder loop)
-; VPLAN-CM-NO-PEELING-NEXT:   VectorCostWithoutPeel = 2560 x 22.5 + 0 = 57600
-; VPLAN-CM-NO-PEELING-NEXT:  Main loop vector cost without peel = 57600
+; VPLAN-CM-NO-PEELING-NEXT:   VectorCostWithoutPeel = 2560 x 23.5 + 0 = 60160
+; VPLAN-CM-NO-PEELING-NEXT:  Main loop vector cost without peel = 60160
 ; VPLAN-CM-NO-PEELING-NEXT:  Remainder loop cost without peel = 0 (no remainder loop)
 ; VPLAN-CM-NO-PEELING-NEXT:  Peeling will not be performed.
 ; VPLAN-CM-NO-PEELING-NEXT:  Selecting VPlan with VF=4
