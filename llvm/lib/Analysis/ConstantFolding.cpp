@@ -2097,13 +2097,11 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       return ConstantInt::getTrue(Ty->getContext());
     return nullptr;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // ssa_copy is a copy of its operand.
   if (IntrinsicID == Intrinsic::ssa_copy && Operands[0]->isManifestConstant())
     return Operands[0];
 #endif // INTEL_CUSTOMIZATION
-=======
 
   if (isa<PoisonValue>(Operands[0])) {
     // TODO: All of these operations should probably propagate poison.
@@ -2111,7 +2109,6 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       return PoisonValue::get(Ty);
   }
 
->>>>>>> 841a0edd030d4cce2e6b764996d3372773d0089b
   if (isa<UndefValue>(Operands[0])) {
     // cosine(arg) is between -1 and 1. cosine(invalid arg) is NaN.
     // ctpop() is between 0 and bitwidth, pick 0 for undef.
