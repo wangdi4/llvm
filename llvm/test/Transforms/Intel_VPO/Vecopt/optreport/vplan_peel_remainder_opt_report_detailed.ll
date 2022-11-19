@@ -8,9 +8,9 @@
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
 ; CHECK-NEXT:     remark #15475: --- begin vector loop cost summary ---
-; CHECK-NEXT:     remark #15476: scalar cost: 35.000000
-; CHECK-NEXT:     remark #15477: vector cost: 20.750000
-; CHECK-NEXT:     remark #15478: estimated potential speedup: 1.671875
+; CHECK-NEXT:     remark #15476: scalar cost: 37.000000
+; CHECK-NEXT:     remark #15477: vector cost: 24.500000
+; CHECK-NEXT:     remark #15478: estimated potential speedup: 1.500000
 ; CHECK-NEXT:     remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; CHECK-NEXT:     remark #15570: using scalar loop trip count: 300
 ; CHECK-NEXT:     remark #15482: vectorized math library calls: 1

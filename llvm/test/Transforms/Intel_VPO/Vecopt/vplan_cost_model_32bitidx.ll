@@ -33,7 +33,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP2:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP3:%.*]] = sext i32 [[VP2]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 3 for i64 [[VP3:%.*]] = sext i32 [[VP2]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.0 i64 0 i64 [[VP3]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 1 i64 [[VP3]]
@@ -53,11 +53,11 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP4:%.*]] = icmp slt i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br i1 [[VP4]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-HIR-CM-VF8-NEXT:  [[BB2]]: base cost: 52
+; VPLAN-HIR-CM-VF8-NEXT:  [[BB2]]: base cost: 54
 ; VPLAN-HIR-CM-VF8-NEXT:  Block total cost includes GS Cost: 48
-; VPLAN-HIR-CM-VF8-NEXT:  Base Cost: 52
+; VPLAN-HIR-CM-VF8-NEXT:  Base Cost: 54
 ; VPLAN-HIR-CM-VF8-NEXT:  Extra cost due to Gather/Scatter heuristic is 96
-; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 148
+; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 150
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]

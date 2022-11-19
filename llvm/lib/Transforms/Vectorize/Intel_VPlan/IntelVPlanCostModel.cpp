@@ -188,7 +188,8 @@ unsigned VPlanTTICostModel::getLoadStoreIndexSize(
           VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
          TTI.getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
                               VPInst->getOperand(0)->getType(),
-                              TTI::CastContextHint::None) == 0)
+                              TTI::CastContextHint::None,
+                              TTI::TCK_RecipThroughput) == 0)
     Ptr = VPInst->getOperand(0);
 
   const VPInstruction *VPAddrInst = dyn_cast<VPGEPInstruction>(Ptr);
@@ -605,9 +606,9 @@ VPInstructionCost VPlanTTICostModel::getZTTCost(Type *UBType) const {
 
 VPInstructionCost VPlanTTICostModel::getAllZeroCheckInstrCost(Type *VecSrcTy,
                                                               Type *DestTy) {
-  VPInstructionCost CastCost =
-    TTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
-                         TTI::CastContextHint::None);
+  VPInstructionCost CastCost = TTI.getCastInstrCost(
+      Instruction::BitCast, DestTy, VecSrcTy, TTI::CastContextHint::None,
+      TTI::TCK_RecipThroughput);
   VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
     Instruction::ICmp, DestTy, nullptr /* CondTy */,
     CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
@@ -822,7 +823,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
     return TTI.getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
-                                  TTI::CastContextHint::None);
+                                TTI::CastContextHint::None,
+                                TTI::TCK_RecipThroughput);
   }
   case Instruction::Call: {
     auto *VPCall = cast<VPCallInstruction>(VPInst);
@@ -1181,8 +1183,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       if (VPTripCnt->getType()->isIntegerTy(32) &&
           VPStepScalTy->isIntegerTy(64))
         Cost += TTI.getCastInstrCost(
-          Instruction::SExt, VPStepScalTy, VPTripCntVal->getType(),
-          TTI::CastContextHint::None);
+            Instruction::SExt, VPStepScalTy, VPTripCntVal->getType(),
+            TTI::CastContextHint::None, TTI::TCK_RecipThroughput);
     }
 
     // TODO: Possible PowerOfTwo for known Start/TripCount Values are not
@@ -1349,7 +1351,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Type *MaskTy = FixedVectorType::get(
         IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
     Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
-                                 TTI::CastContextHint::None);
+                                 TTI::CastContextHint::None,
+                                 TTI::TCK_RecipThroughput);
     Cost += TTI.getIntrinsicInstrCost(
         IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
         TTI::TCK_RecipThroughput);
@@ -1364,7 +1367,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
         {TargetTransformInfo::OK_UniformConstantValue,
          TargetTransformInfo::OP_None});
     Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
-                                 TTI::CastContextHint::None);
+                                 TTI::CastContextHint::None,
+                                 TTI::TCK_RecipThroughput);
     return Cost;
   }
 

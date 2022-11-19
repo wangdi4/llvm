@@ -44,7 +44,12 @@ class VPBasicBlock;
 class VPInstruction;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#define CM_DEBUG(OS, X) { if (OS) { X; }}
+#define CM_DEBUG(OS, X)                                                        \
+  {                                                                            \
+    if (OS && Plan->isPrintingEnabled()) {                                     \
+      X;                                                                       \
+    }                                                                          \
+  }
 #else  // !NDEBUG || LLVM_ENABLE_DUMP
 #define CM_DEBUG(OS, X)
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

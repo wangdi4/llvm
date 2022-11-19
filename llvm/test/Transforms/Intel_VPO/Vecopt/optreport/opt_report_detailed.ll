@@ -32,7 +32,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
 
-; HIR-LABEL: Function: test_serialized
+; HIR-LABEL:  Function: test_serialized
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
 ; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
@@ -106,7 +106,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:  =================================================================
 
 ; FIXME: Vector-variant isn't supported for HIR yet. They are serialized for now.
-; HIR-LABEL: Function: test_vector_variant
+; HIR-LABEL:  Function: test_vector_variant
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
 ; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
@@ -160,8 +160,8 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; LLVM-NEXT:      remark #15476: scalar cost: 31.000000
-; LLVM-NEXT:      remark #15477: vector cost: 12.000000
-; LLVM-NEXT:      remark #15478: estimated potential speedup: 2.578125
+; LLVM-NEXT:      remark #15477: vector cost: 14.250000
+; LLVM-NEXT:      remark #15478: estimated potential speedup: 2.171875
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
@@ -171,7 +171,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
 
-; HIR-LABEL: Function: test_sqrt
+; HIR-LABEL:  Function: test_sqrt
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
 ; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
@@ -190,8 +190,8 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; HIR-NEXT:      remark #15476: scalar cost: 31.000000
-; HIR-NEXT:      remark #15477: vector cost: 12.000000
-; HIR-NEXT:      remark #15478: estimated potential speedup: 2.578125
+; HIR-NEXT:      remark #15477: vector cost: 14.250000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 2.171875
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 3
@@ -243,7 +243,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
 
-; HIR-LABEL: Function: test_nonvls_mem
+; HIR-LABEL:  Function: test_nonvls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
 ; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
@@ -354,10 +354,10 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
 
-; HIR-LABEL: Function: test_vls_mem
+; HIR-LABEL:  Function: test_vls_mem
 ; HIR-EMPTY:
-; HIR-NEXT: BEGIN REGION { modified }
-; HIR-NEXT:       + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-NEXT:  BEGIN REGION { modified }
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:       |   %.vls.load7 = undef;
 ; HIR-NEXT:       |   %.vec = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>];
 ; HIR-NEXT:       |   %.vec2 = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3> + 1];
@@ -382,9 +382,9 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:       |   %shuffle13 = shufflevector %shuffle11,  %.extended12,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
 ; HIR-NEXT:       |   %vls.mask14 = shufflevector %.vec6,  zeroinitializer,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
 ; HIR-NEXT:       |   (<8 x i64>*)(%ptr4)[2 * i1] = %shuffle13, Mask = @{%vls.mask14};
-; HIR-NEXT:       + END LOOP
+; HIR-NEXT:        + END LOOP
 ; HIR:            ret ;
-; HIR-NEXT: END REGION
+; HIR-NEXT:  END REGION
 
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vls_mem
 ; HIR-EMPTY:
