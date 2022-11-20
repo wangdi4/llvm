@@ -176,8 +176,8 @@ declare i64 @llvm.vector.reduce.umax.v3i64(<3 x i64>)
 declare i64 @llvm.vector.reduce.umax.v2i64(<2 x i64>)
 declare i64 @llvm.vector.reduce.umax.v1i64(<1 x i64>)
 
-define i32 @reduce_umaxw_17xi32(ptr %p) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_17xi32:
+define i32 @reduce_umaxd_17xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_17xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; AVX512REDUCTION-NEXT:    vpmaxud (%rdi), %zmm0, %zmm0
@@ -186,7 +186,7 @@ define i32 @reduce_umaxw_17xi32(ptr %p) {
 ; AVX512REDUCTION-NEXT:    vzeroupper
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_17xi32:
+; AVX512F-LABEL: reduce_umaxd_17xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; AVX512F-NEXT:    vpmaxud (%rdi), %zmm0, %zmm0
@@ -211,15 +211,15 @@ define i32 @reduce_umaxw_17xi32(ptr %p) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_16xi32(<16 x i32> %vec) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_16xi32:
+define i32 @reduce_umaxd_16xi32(<16 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_16xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vphrmaxd %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_16xi32:
+; AVX512F-LABEL: reduce_umaxd_16xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
 ; AVX512F-NEXT:    vpmaxud %zmm1, %zmm0, %zmm0
@@ -236,8 +236,8 @@ define i32 @reduce_umaxw_16xi32(<16 x i32> %vec) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_13xi32(ptr %p) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_13xi32:
+define i32 @reduce_umaxd_13xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_13xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
 ; AVX512REDUCTION-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
@@ -249,7 +249,7 @@ define i32 @reduce_umaxw_13xi32(ptr %p) {
 ; AVX512REDUCTION-NEXT:    vzeroupper
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_13xi32:
+; AVX512F-LABEL: reduce_umaxd_13xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
 ; AVX512F-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
@@ -277,15 +277,15 @@ define i32 @reduce_umaxw_13xi32(ptr %p) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_8xi32(<8 x i32> %vec) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_8xi32:
+define i32 @reduce_umaxd_8xi32(<8 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_8xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vphrmaxd %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_8xi32:
+; AVX512F-LABEL: reduce_umaxd_8xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxud %xmm1, %xmm0, %xmm0
@@ -300,8 +300,8 @@ define i32 @reduce_umaxw_8xi32(<8 x i32> %vec) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_7xi32(ptr %p) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_7xi32:
+define i32 @reduce_umaxd_7xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_7xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
@@ -310,7 +310,7 @@ define i32 @reduce_umaxw_7xi32(ptr %p) {
 ; AVX512REDUCTION-NEXT:    vzeroupper
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_7xi32:
+; AVX512F-LABEL: reduce_umaxd_7xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
@@ -333,14 +333,14 @@ define i32 @reduce_umaxw_7xi32(ptr %p) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_4xi32(<4 x i32> %vec) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_4xi32:
+define i32 @reduce_umaxd_4xi32(<4 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_4xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vphrmaxd %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_4xi32:
+; AVX512F-LABEL: reduce_umaxd_4xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
 ; AVX512F-NEXT:    vpmaxud %xmm1, %xmm0, %xmm0
@@ -352,8 +352,8 @@ define i32 @reduce_umaxw_4xi32(<4 x i32> %vec) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_3xi32(ptr %p) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_3xi32:
+define i32 @reduce_umaxd_3xi32(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_3xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} xmm0 = mem[0,1,2],xmm0[3]
@@ -361,7 +361,7 @@ define i32 @reduce_umaxw_3xi32(ptr %p) {
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_3xi32:
+; AVX512F-LABEL: reduce_umaxd_3xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movl (%rdi), %ecx
 ; AVX512F-NEXT:    movl 4(%rdi), %eax
@@ -376,15 +376,15 @@ define i32 @reduce_umaxw_3xi32(ptr %p) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_2xi32(<2 x i32> %vec) {
-; AVX512REDUCTION-LABEL: reduce_umaxw_2xi32:
+define i32 @reduce_umaxd_2xi32(<2 x i32> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxd_2xi32:
 ; AVX512REDUCTION:       # %bb.0:
 ; AVX512REDUCTION-NEXT:    vmovq {{.*#+}} xmm0 = xmm0[0],zero
 ; AVX512REDUCTION-NEXT:    vphrmaxd %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    retq
 ;
-; AVX512F-LABEL: reduce_umaxw_2xi32:
+; AVX512F-LABEL: reduce_umaxd_2xi32:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
 ; AVX512F-NEXT:    vpmaxud %xmm1, %xmm0, %xmm0
@@ -394,8 +394,8 @@ define i32 @reduce_umaxw_2xi32(<2 x i32> %vec) {
   ret i32 %res
 }
 
-define i32 @reduce_umaxw_1xi32(<1 x i32> %vec) {
-; ALL-LABEL: reduce_umaxw_1xi32:
+define i32 @reduce_umaxd_1xi32(<1 x i32> %vec) {
+; ALL-LABEL: reduce_umaxd_1xi32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    movl %edi, %eax
 ; ALL-NEXT:    retq
@@ -412,3 +412,876 @@ declare i32 @llvm.vector.reduce.umax.v4i32(<4 x i32>)
 declare i32 @llvm.vector.reduce.umax.v3i32(<3 x i32>)
 declare i32 @llvm.vector.reduce.umax.v2i32(<2 x i32>)
 declare i32 @llvm.vector.reduce.umax.v1i32(<1 x i32>)
+
+define i16 @reduce_umaxw_33xi16(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_33xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    movzwl 64(%rdi), %eax
+; AVX512REDUCTION-NEXT:    vmovd %eax, %xmm0
+; AVX512REDUCTION-NEXT:    vpmaxuw (%rdi), %ymm0, %ymm0
+; AVX512REDUCTION-NEXT:    vinserti64x4 $1, 32(%rdi), %zmm0, %zmm0
+; AVX512REDUCTION-NEXT:    vphrmaxw %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_33xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    movzwl 64(%rdi), %eax
+; AVX512F-NEXT:    vmovd %eax, %xmm0
+; AVX512F-NEXT:    vpmaxuw (%rdi), %ymm0, %ymm0
+; AVX512F-NEXT:    vpmaxuw 32(%rdi), %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrw $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %ax, %cx
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrw $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $7, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <33 x i16>, ptr %p
+  %res = tail call i16 @llvm.vector.reduce.umax.v33i16(<33 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_32xi16(<32 x i16> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_32xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmaxw %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_32xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpmaxuw %ymm1, %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpternlogq $15, %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    notl %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %res = tail call i16 @llvm.vector.reduce.umax.v32i16(<32 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_17xi16(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_17xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
+; AVX512REDUCTION-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
+; AVX512REDUCTION-NEXT:    vphrmaxw %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_17xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
+; AVX512F-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpmaxuw %ymm1, %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrw $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %ax, %cx
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrw $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $7, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <17 x i16>, ptr %p
+  %res = tail call i16 @llvm.vector.reduce.umax.v17i16(<17 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_16xi16(<16 x i16> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_16xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmaxw %ymm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_16xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpternlogq $15, %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    notl %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %res = tail call i16 @llvm.vector.reduce.umax.v16i16(<16 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_13xi16(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_13xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovaps (%rdi), %ymm0
+; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
+; AVX512REDUCTION-NEXT:    vphrmaxw %ymm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_13xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa (%rdi), %ymm0
+; AVX512F-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrw $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %ax, %cx
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrw $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $7, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <13 x i16>, ptr %p
+  %res = tail call i16 @llvm.vector.reduce.umax.v13i16(<13 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_8xi16(<8 x i16> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_8xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmaxw %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_8xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpternlogq $15, %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    notl %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    retq
+  %res = tail call i16 @llvm.vector.reduce.umax.v8i16(<8 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_7xi16(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_7xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vpblendw {{.*#+}} xmm0 = mem[0,1,2,3,4,5,6],xmm0[7]
+; AVX512REDUCTION-NEXT:    vphrmaxw %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_7xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa (%rdi), %xmm0
+; AVX512F-NEXT:    vpextrw $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %ax, %cx
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrw $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrw $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpw %cx, %ax
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    retq
+  %vec= load <7 x i16>, ptr %p
+  %res = tail call i16 @llvm.vector.reduce.umax.v7i16(<7 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_4xi16(<4 x i16> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_4xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovq {{.*#+}} xmm0 = xmm0[0],zero
+; AVX512REDUCTION-NEXT:    vphrmaxw %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_4xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpsrld $16, %xmm0, %xmm1
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    retq
+  %res = tail call i16 @llvm.vector.reduce.umax.v4i16(<4 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_3xi16(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_3xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovq {{.*#+}} xmm0 = mem[0],zero
+; AVX512REDUCTION-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; AVX512REDUCTION-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2],xmm1[3,4,5,6,7]
+; AVX512REDUCTION-NEXT:    vphrmaxw %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_3xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    movq (%rdi), %rcx
+; AVX512F-NEXT:    movq %rcx, %rax
+; AVX512F-NEXT:    shrq $16, %rax
+; AVX512F-NEXT:    movzwl %ax, %edx
+; AVX512F-NEXT:    cmpw %ax, %cx
+; AVX512F-NEXT:    cmoval %ecx, %edx
+; AVX512F-NEXT:    shrq $32, %rcx
+; AVX512F-NEXT:    movzwl %cx, %eax
+; AVX512F-NEXT:    cmpw %cx, %dx
+; AVX512F-NEXT:    cmoval %edx, %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    retq
+  %vec= load <3 x i16>, ptr %p
+  %res = tail call i16 @llvm.vector.reduce.umax.v3i16(<3 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_2xi16(<2 x i16> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxw_2xi16:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vxorps %xmm1, %xmm1, %xmm1
+; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3]
+; AVX512REDUCTION-NEXT:    vphrmaxw %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxw_2xi16:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpsrld $16, %xmm0, %xmm1
+; AVX512F-NEXT:    vpmaxuw %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
+; AVX512F-NEXT:    retq
+  %res = tail call i16 @llvm.vector.reduce.umax.v2i16(<2 x i16> %vec)
+  ret i16 %res
+}
+
+define i16 @reduce_umaxw_1xi16(<1 x i16> %vec) {
+; ALL-LABEL: reduce_umaxw_1xi16:
+; ALL:       # %bb.0:
+; ALL-NEXT:    movl %edi, %eax
+; ALL-NEXT:    # kill: def $ax killed $ax killed $eax
+; ALL-NEXT:    retq
+  %res = tail call i16 @llvm.vector.reduce.umax.v1i16(<1 x i16> %vec)
+  ret i16 %res
+}
+
+declare i16 @llvm.vector.reduce.umax.v33i16(<33 x i16>)
+declare i16 @llvm.vector.reduce.umax.v32i16(<32 x i16>)
+declare i16 @llvm.vector.reduce.umax.v17i16(<17 x i16>)
+declare i16 @llvm.vector.reduce.umax.v16i16(<16 x i16>)
+declare i16 @llvm.vector.reduce.umax.v13i16(<13 x i16>)
+declare i16 @llvm.vector.reduce.umax.v8i16(<8 x i16>)
+declare i16 @llvm.vector.reduce.umax.v7i16(<7 x i16>)
+declare i16 @llvm.vector.reduce.umax.v4i16(<4 x i16>)
+declare i16 @llvm.vector.reduce.umax.v3i16(<3 x i16>)
+declare i16 @llvm.vector.reduce.umax.v2i16(<2 x i16>)
+declare i16 @llvm.vector.reduce.umax.v1i16(<1 x i16>)
+
+define i8 @reduce_umaxb_65xi8(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_65xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    movzbl 64(%rdi), %eax
+; AVX512REDUCTION-NEXT:    vmovd %eax, %xmm0
+; AVX512REDUCTION-NEXT:    vpmaxub (%rdi), %ymm0, %ymm0
+; AVX512REDUCTION-NEXT:    vinserti64x4 $1, 32(%rdi), %zmm0, %zmm0
+; AVX512REDUCTION-NEXT:    vphrmaxb %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_65xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    movzbl 64(%rdi), %eax
+; AVX512F-NEXT:    vmovd %eax, %xmm0
+; AVX512F-NEXT:    vpmaxub (%rdi), %ymm0, %ymm0
+; AVX512F-NEXT:    vpmaxub 32(%rdi), %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrb $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %al, %cl
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrb $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $7, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $8, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $9, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $10, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $11, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $12, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $13, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $14, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $15, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <65 x i8>, ptr %p
+  %res = tail call i8 @llvm.vector.reduce.umax.v65i8(<65 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_64xi8(<64 x i8> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_64xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmaxb %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_64xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpmaxub %ymm1, %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpternlogq $15, %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
+; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    notb %al
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %res = tail call i8 @llvm.vector.reduce.umax.v64i8(<64 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_33xi8(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_33xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
+; AVX512REDUCTION-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
+; AVX512REDUCTION-NEXT:    vphrmaxb %zmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_33xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
+; AVX512F-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
+; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; AVX512F-NEXT:    vpmaxub %ymm1, %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrb $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %al, %cl
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrb $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $7, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $8, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $9, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $10, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $11, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $12, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $13, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $14, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $15, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <33 x i8>, ptr %p
+  %res = tail call i8 @llvm.vector.reduce.umax.v33i8(<33 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_32xi8(<32 x i8> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_32xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmaxb %ymm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_32xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpternlogq $15, %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
+; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    notb %al
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %res = tail call i8 @llvm.vector.reduce.umax.v32i8(<32 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_17xi8(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_17xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovaps (%rdi), %ymm0
+; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
+; AVX512REDUCTION-NEXT:    vphrmaxb %ymm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    vzeroupper
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_17xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa (%rdi), %ymm0
+; AVX512F-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
+; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpextrb $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %al, %cl
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrb $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $7, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $8, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $9, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $10, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $11, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $12, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $13, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $14, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $15, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+  %vec= load <17 x i8>, ptr %p
+  %res = tail call i8 @llvm.vector.reduce.umax.v17i8(<17 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_16xi8(<16 x i8> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_16xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vphrmaxb %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_16xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpternlogq $15, %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
+; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    notb %al
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    retq
+  %res = tail call i8 @llvm.vector.reduce.umax.v16i8(<16 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_13xi8(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_13xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovaps (%rdi), %xmm0
+; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vphrmaxb %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_13xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vmovdqa (%rdi), %xmm0
+; AVX512F-NEXT:    vpextrb $1, %xmm0, %eax
+; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %al, %cl
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    vpextrb $2, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $3, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $4, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $5, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $6, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $7, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $8, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $9, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $10, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $11, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    vpextrb $12, %xmm0, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    retq
+  %vec= load <13 x i8>, ptr %p
+  %res = tail call i8 @llvm.vector.reduce.umax.v13i8(<13 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_8xi8(<8 x i8> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_8xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovq {{.*#+}} xmm0 = xmm0[0],zero
+; AVX512REDUCTION-NEXT:    vphrmaxb %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_8xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpsrld $16, %xmm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    retq
+  %res = tail call i8 @llvm.vector.reduce.umax.v8i8(<8 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_7xi8(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_7xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vphrmaxb %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_7xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    movq (%rdi), %rcx
+; AVX512F-NEXT:    movq %rcx, %rax
+; AVX512F-NEXT:    shrq $8, %rax
+; AVX512F-NEXT:    movzbl %al, %edx
+; AVX512F-NEXT:    cmpb %al, %cl
+; AVX512F-NEXT:    cmoval %ecx, %edx
+; AVX512F-NEXT:    movq %rcx, %rax
+; AVX512F-NEXT:    shrq $16, %rax
+; AVX512F-NEXT:    movzbl %al, %esi
+; AVX512F-NEXT:    cmpb %al, %dl
+; AVX512F-NEXT:    cmoval %edx, %esi
+; AVX512F-NEXT:    movq %rcx, %rax
+; AVX512F-NEXT:    shrq $24, %rax
+; AVX512F-NEXT:    movzbl %al, %edx
+; AVX512F-NEXT:    cmpb %al, %sil
+; AVX512F-NEXT:    cmoval %esi, %edx
+; AVX512F-NEXT:    movq %rcx, %rax
+; AVX512F-NEXT:    shrq $32, %rax
+; AVX512F-NEXT:    movzbl %al, %esi
+; AVX512F-NEXT:    cmpb %al, %dl
+; AVX512F-NEXT:    cmoval %edx, %esi
+; AVX512F-NEXT:    movq %rcx, %rax
+; AVX512F-NEXT:    shrq $40, %rax
+; AVX512F-NEXT:    movzbl %al, %edx
+; AVX512F-NEXT:    cmpb %al, %sil
+; AVX512F-NEXT:    cmoval %esi, %edx
+; AVX512F-NEXT:    shrq $48, %rcx
+; AVX512F-NEXT:    movzbl %cl, %eax
+; AVX512F-NEXT:    cmpb %cl, %dl
+; AVX512F-NEXT:    cmoval %edx, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    retq
+  %vec= load <7 x i8>, ptr %p
+  %res = tail call i8 @llvm.vector.reduce.umax.v7i8(<7 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_4xi8(<4 x i8> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_4xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vxorps %xmm1, %xmm1, %xmm1
+; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3]
+; AVX512REDUCTION-NEXT:    vphrmaxb %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_4xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpsrld $16, %xmm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    retq
+  %res = tail call i8 @llvm.vector.reduce.umax.v4i8(<4 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_3xi8(ptr %p) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_3xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vphrmaxb %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_3xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    movl (%rdi), %ecx
+; AVX512F-NEXT:    movl %ecx, %eax
+; AVX512F-NEXT:    shrl $8, %eax
+; AVX512F-NEXT:    movzbl %al, %eax
+; AVX512F-NEXT:    cmpb %al, %cl
+; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    shrl $16, %ecx
+; AVX512F-NEXT:    movzbl %cl, %ecx
+; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmovbel %ecx, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    retq
+  %vec= load <3 x i8>, ptr %p
+  %res = tail call i8 @llvm.vector.reduce.umax.v3i8(<3 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_2xi8(<2 x i8> %vec) {
+; AVX512REDUCTION-LABEL: reduce_umaxb_2xi8:
+; AVX512REDUCTION:       # %bb.0:
+; AVX512REDUCTION-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; AVX512REDUCTION-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3,4,5,6,7]
+; AVX512REDUCTION-NEXT:    vphrmaxb %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
+; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512REDUCTION-NEXT:    retq
+;
+; AVX512F-LABEL: reduce_umaxb_2xi8:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
+; AVX512F-NEXT:    vpmaxub %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vmovd %xmm0, %eax
+; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    retq
+  %res = tail call i8 @llvm.vector.reduce.umax.v2i8(<2 x i8> %vec)
+  ret i8 %res
+}
+
+define i8 @reduce_umaxb_1xi8(<1 x i8> %vec) {
+; ALL-LABEL: reduce_umaxb_1xi8:
+; ALL:       # %bb.0:
+; ALL-NEXT:    movl %edi, %eax
+; ALL-NEXT:    # kill: def $al killed $al killed $eax
+; ALL-NEXT:    retq
+  %res = tail call i8 @llvm.vector.reduce.umax.v1i8(<1 x i8> %vec)
+  ret i8 %res
+}
+
+declare i8 @llvm.vector.reduce.umax.v65i8(<65 x i8>)
+declare i8 @llvm.vector.reduce.umax.v64i8(<64 x i8>)
+declare i8 @llvm.vector.reduce.umax.v33i8(<33 x i8>)
+declare i8 @llvm.vector.reduce.umax.v32i8(<32 x i8>)
+declare i8 @llvm.vector.reduce.umax.v17i8(<17 x i8>)
+declare i8 @llvm.vector.reduce.umax.v16i8(<16 x i8>)
+declare i8 @llvm.vector.reduce.umax.v13i8(<13 x i8>)
+declare i8 @llvm.vector.reduce.umax.v8i8(<8 x i8>)
+declare i8 @llvm.vector.reduce.umax.v7i8(<7 x i8>)
+declare i8 @llvm.vector.reduce.umax.v4i8(<4 x i8>)
+declare i8 @llvm.vector.reduce.umax.v3i8(<3 x i8>)
+declare i8 @llvm.vector.reduce.umax.v2i8(<2 x i8>)
+declare i8 @llvm.vector.reduce.umax.v1i8(<1 x i8>)
