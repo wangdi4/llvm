@@ -15927,107 +15927,310 @@ let Predicates = [HasAVX512REDUCTION] in {
   // ADD
   def : Pat<(i64 (vecreduce_add (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRADDQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_add (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRADDQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_add (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRADDQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_add (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRADDDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_add (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRADDDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_add (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRADDDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_add (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRADDWDZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_add (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRADDBDZrr VR512:$src), GR32)),
+              sub_8bit)>;
   // AND
   def : Pat<(i64 (vecreduce_and (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRANDQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_and (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRANDQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_and (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRANDQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_and (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRANDDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_and (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRANDDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_and (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRANDDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_and (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRANDWZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_and (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRANDBZrr VR512:$src), GR32)),
+              sub_8bit)>;
   // OR
   def : Pat<(i64 (vecreduce_or (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRORQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_or (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRORQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_or (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRORQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_or (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRORDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_or (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRORDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_or (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRORDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_or (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRORWZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_or (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRORBZrr VR512:$src), GR32)),
+              sub_8bit)>;
   // XOR
   def : Pat<(i64 (vecreduce_xor (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRXORQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_xor (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRXORQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_xor (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRXORQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_xor (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRXORDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_xor (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRXORDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_xor (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRXORDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_xor (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRXORWZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_xor (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRXORBZrr VR512:$src), GR32)),
+              sub_8bit)>;
   // SMAX
   def : Pat<(i64 (vecreduce_smax (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMAXSQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_smax (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMAXSQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_smax (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMAXSQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_smax (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRMAXSDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_smax (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMAXSDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_smax (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMAXSDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_smax (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXSWZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_smax (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXSBZrr VR512:$src), GR32)),
+              sub_8bit)>;
   // SMIN
   def : Pat<(i64 (vecreduce_smin (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMINSQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_smin (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMINSQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_smin (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMINSQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_smin (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRMINSDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_smin (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMINSDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_smin (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMINSDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_smin (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINSWZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_smin (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINSBZrr VR512:$src), GR32)),
+              sub_8bit)>;
   // UMAX
   def : Pat<(i64 (vecreduce_umax (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMAXQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_umax (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMAXQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_umax (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMAXQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_umax (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRMAXDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_umax (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMAXDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_umax (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMAXDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_umax (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXWZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_umax (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXBZrr VR512:$src), GR32)),
+              sub_8bit)>;
   // UMIN
   def : Pat<(i64 (vecreduce_umin (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMINQZrr VR512:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_umin (v4i64 VR256:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMINQZ256rr VR256:$src), GR64))>;
-  def : Pat<(i64 (vecreduce_umin (v2i64 VR128:$src))),
-            (i64 (COPY_TO_REGCLASS (VPHRMINQZ128rr VR128:$src), GR64))>;
   def : Pat<(i32 (vecreduce_umin (v16i32 VR512:$src))),
             (i32 (COPY_TO_REGCLASS (VPHRMINDZrr VR512:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_umin (v8i32 VR256:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMINDZ256rr VR256:$src), GR32))>;
-  def : Pat<(i32 (vecreduce_umin (v4i32 VR128:$src))),
-            (i32 (COPY_TO_REGCLASS (VPHRMINDZ128rr VR128:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_umin (v32i16 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINWZrr VR512:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_umin (v64i8 VR512:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINBZrr VR512:$src), GR32)),
+              sub_8bit)>;
+}
+
+let Predicates = [HasAVX512REDUCTION, HasVLX] in {
+  // ADD
+  def : Pat<(i64 (vecreduce_add (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRADDQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_add (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRADDQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_add (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRADDDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_add (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRADDDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_add (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRADDWDZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_add (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRADDWDZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_add (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRADDBDZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_add (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRADDBDZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
+  // AND
+  def : Pat<(i64 (vecreduce_and (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRANDQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_and (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRANDQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_and (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRANDDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_and (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRANDDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_and (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRANDWZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_and (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRANDWZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_and (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRANDBZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_and (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRANDBZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
+  // OR
+  def : Pat<(i64 (vecreduce_or (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRORQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_or (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRORQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_or (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRORDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_or (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRORDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_or (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRORWZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_or (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRORWZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_or (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRORBZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_or (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRORBZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
+  // XOR
+  def : Pat<(i64 (vecreduce_xor (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRXORQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_xor (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRXORQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_xor (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRXORDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_xor (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRXORDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_xor (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRXORWZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_xor (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRXORWZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_xor (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRXORBZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_xor (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRXORBZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
+  // SMAX
+  def : Pat<(i64 (vecreduce_smax (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMAXSQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_smax (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMAXSQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_smax (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMAXSDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_smax (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMAXSDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_smax (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXSWZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_smax (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXSWZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_smax (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXSBZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_smax (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXSBZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
+  // SMIN
+  def : Pat<(i64 (vecreduce_smin (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMINSQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_smin (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMINSQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_smin (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMINSDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_smin (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMINSDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_smin (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINSWZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_smin (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINSWZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_smin (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINSBZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_smin (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINSBZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
+  // UMAX
+  def : Pat<(i64 (vecreduce_umax (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMAXQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_umax (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMAXQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_umax (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMAXDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_umax (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMAXDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_umax (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXWZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_umax (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXWZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_umax (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXBZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_umax (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMAXBZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
+  // UMIN
+  def : Pat<(i64 (vecreduce_umin (v4i64 VR256X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMINQZ256rr VR256X:$src), GR64))>;
+  def : Pat<(i64 (vecreduce_umin (v2i64 VR128X:$src))),
+            (i64 (COPY_TO_REGCLASS (VPHRMINQZ128rr VR128X:$src), GR64))>;
+  def : Pat<(i32 (vecreduce_umin (v8i32 VR256X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMINDZ256rr VR256X:$src), GR32))>;
+  def : Pat<(i32 (vecreduce_umin (v4i32 VR128X:$src))),
+            (i32 (COPY_TO_REGCLASS (VPHRMINDZ128rr VR128X:$src), GR32))>;
+  def : Pat<(i16 (vecreduce_umin (v16i16 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINWZ256rr VR256X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i16 (vecreduce_umin (v8i16 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINWZ128rr VR128X:$src), GR32)),
+              sub_16bit)>;
+  def : Pat<(i8 (vecreduce_umin (v32i8 VR256X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINBZ256rr VR256X:$src), GR32)),
+              sub_8bit)>;
+  def : Pat<(i8 (vecreduce_umin (v16i8 VR128X:$src))),
+            (EXTRACT_SUBREG
+              (i32 (COPY_TO_REGCLASS (VPHRMINBZ128rr VR128X:$src), GR32)),
+              sub_8bit)>;
 }
 // TODO: [CMPLRLLVM-41573] Opoortunities for optimizing codegen through masks
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
