@@ -116,6 +116,7 @@
 #include <cstddef>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <tuple>
 
 using namespace llvm;
@@ -9002,7 +9003,7 @@ static SDValue getAddressForMemoryInput(SDValue Chain, const SDLoc &Location,
 ///
 ///   OpInfo describes the operand
 ///   RefOpInfo describes the matching operand if any, the operand otherwise
-static llvm::Optional<unsigned>
+static std::optional<unsigned>
 getRegistersForValue(SelectionDAG &DAG, const SDLoc &DL,
                      SDISelAsmOperandInfo &OpInfo,
                      SDISelAsmOperandInfo &RefOpInfo) {
@@ -9016,7 +9017,7 @@ getRegistersForValue(SelectionDAG &DAG, const SDLoc &DL,
   // No work to do for memory/address operands.
   if (OpInfo.ConstraintType == TargetLowering::C_Memory ||
       OpInfo.ConstraintType == TargetLowering::C_Address)
-    return None;
+    return std::nullopt;
 
   // If this is a constraint for a single physreg, or a constraint for a
   // register class, find it.
@@ -9026,7 +9027,7 @@ getRegistersForValue(SelectionDAG &DAG, const SDLoc &DL,
       &TRI, RefOpInfo.ConstraintCode, RefOpInfo.ConstraintVT);
   // RC is unset only on failure. Return immediately.
   if (!RC)
-    return None;
+    return std::nullopt;
 
   // Get the actual register value type.  This is important, because the user
   // may have asked for (e.g.) the AX register in i32 type.  We need to
@@ -9071,7 +9072,7 @@ getRegistersForValue(SelectionDAG &DAG, const SDLoc &DL,
   // No need to allocate a matching input constraint since the constraint it's
   // matching to has already been allocated.
   if (OpInfo.isMatchingInputConstraint())
-    return None;
+    return std::nullopt;
 
   EVT ValueVT = OpInfo.ConstraintVT;
   if (OpInfo.ConstraintVT == MVT::Other)
@@ -9109,7 +9110,7 @@ getRegistersForValue(SelectionDAG &DAG, const SDLoc &DL,
   }
 
   OpInfo.AssignedRegs = RegsForValue(Regs, RegVT, ValueVT);
-  return None;
+  return std::nullopt;
 }
 
 static unsigned
