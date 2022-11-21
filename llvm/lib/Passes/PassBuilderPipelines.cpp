@@ -40,10 +40,6 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-<<<<<<< HEAD
-#include "llvm/IRPrinter/IRPrintingPasses.h" // INTEL
-=======
->>>>>>> e5eca55f63bea4ac52ebe1506cc0b8572f5879dc
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -156,7 +152,7 @@
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h"
 #include "llvm/Transforms/IPO/Intel_AggInliner.h"
 #include "llvm/Transforms/IPO/Intel_ArgNoAliasProp.h"
@@ -369,24 +365,6 @@ static cl::opt<bool>
                 cl::desc("Enable the partial inlining for simple functions"));
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-<<<<<<< HEAD
-static cl::opt<InliningAdvisorMode> UseInlineAdvisor(
-    "enable-ml-inliner", cl::init(InliningAdvisorMode::Default), cl::Hidden,
-    cl::desc("Enable ML policy for inliner. Currently trained for -Oz only"),
-    cl::values(clEnumValN(InliningAdvisorMode::Default, "default",
-                          "Heuristics-based inliner version"),
-               clEnumValN(InliningAdvisorMode::Development, "development",
-                          "Use development mode (runtime-loadable model)"),
-               clEnumValN(InliningAdvisorMode::Release, "release",
-                          "Use release mode (AOT-compiled model)")));
-
-static cl::opt<bool> EnableSyntheticCounts(
-    "enable-npm-synthetic-counts", cl::Hidden,
-    cl::desc("Run synthetic function entry count generation "
-             "pass"));
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> e5eca55f63bea4ac52ebe1506cc0b8572f5879dc
 // Inline Aggressive Analysis
 static cl::opt<bool> EnableInlineAggAnalysis(
     "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
@@ -456,7 +434,6 @@ extern cl::opt<bool> RunLoopOptFrameworkOnly;
 enum class LoopOptMode { None, LightWeight, Full };
 extern cl::opt<LoopOptMode> RunLoopOpts;
 extern cl::opt<bool> EnableTbaaProp;
-extern cl::opt<bool> ExtraVectorizerPasses;
 extern cl::opt<bool> EnableVPlanDriver;
 extern cl::opt<bool> RunVecClone;
 extern cl::opt<bool> EnableDeviceSimd;
@@ -656,54 +633,8 @@ PipelineTuningOptions::PipelineTuningOptions() {
 }
 
 namespace llvm {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-extern cl::opt<bool> EnableHandlePragmaVectorAligned;
-// Andersen AliasAnalysis
-extern cl::opt<bool> EnableAndersen;
-extern cl::opt<bool> EnableArgNoAliasProp;
-extern cl::opt<bool> RunLoopOptFrameworkOnly;
-enum class LoopOptMode { None, LightWeight, Full };
-extern cl::opt<LoopOptMode> RunLoopOpts;
-extern cl::opt<bool> EnableTbaaProp;
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> e5eca55f63bea4ac52ebe1506cc0b8572f5879dc
 extern cl::opt<unsigned> MaxDevirtIterations;
 extern cl::opt<bool> EnableKnowledgeRetention;
-<<<<<<< HEAD
-#if INTEL_COLLAB
-// TODO: Change this to an enum class in PassManagerBuilder.cpp
-enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
-extern cl::opt<unsigned> RunVPOOpt;
-extern cl::opt<unsigned> RunVPOParopt;
-extern cl::opt<bool> SPIRVOptimizationMode;
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-extern cl::opt<bool> EnableVPlanDriver;
-extern cl::opt<bool> RunVecClone;
-extern cl::opt<bool> EnableDeviceSimd;
-extern cl::opt<bool> EnableVPlanDriverHIR;
-extern cl::opt<bool> RunVPOVecopt;
-extern cl::opt<bool> RunPreLoopOptVPOPasses;
-extern cl::opt<bool> RunPostLoopOptVPOPasses;
-extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
-extern cl::opt<bool> EnableVPOParoptTargetInline;
-extern cl::opt<bool> EnableEarlyLSR;
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-extern cl::opt<bool> EnableStdContainerOpt;
-extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
-extern cl::opt<bool> EarlyJumpThreading;
-#endif // INTEL_CUSTOMIZATION
-
-extern cl::opt<bool> SYCLOptimizationMode;
-=======
-extern cl::opt<bool> EnableMatrix;
-extern cl::opt<bool> DisablePreInliner;
-extern cl::opt<int> PreInlineThreshold;
->>>>>>> e5eca55f63bea4ac52ebe1506cc0b8572f5879dc
 } // namespace llvm
 
 void PassBuilder::invokePeepholeEPCallbacks(FunctionPassManager &FPM,
