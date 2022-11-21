@@ -57,6 +57,9 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -279,7 +282,6 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
                                     const MemoryLocation &Loc,
                                     AAQueryInfo &AAQI) {
   ModRefInfo Result = ModRefInfo::ModRef;
-
   for (const auto &AA : AAs) {
     Result &= AA->getModRefInfo(Call, Loc, AAQI);
 
@@ -837,6 +839,44 @@ ModRefInfo AAResults::getModRefInfo(const Instruction *I,
   }
 }
 
+#if INTEL_COLLAB
+// Tests the operand bundles on an OpenMP intrinsic, against the given Loc.
+// Returns ModRef if there may/must be an alias, Ref otherwise.
+// Does not analyze the call parameters.
+ModRefInfo AAResults::getDirectiveModRefInfo(const CallBase *Call,
+                                             const MemoryLocation &Loc,
+                                             AAQueryInfo &AAQI) {
+  // The modref for an end directive is the modref for its begin directive.
+  // This prevents/allows motion out of both ends of the region.
+  if (vpo::VPOAnalysisUtils::isEndDirective(const_cast<CallBase *>(Call)))
+    Call = cast<const CallBase>(Call->getOperand(0));
+
+  switch (vpo::VPOAnalysisUtils::getDirectiveID(Call)) {
+  case DIR_OMP_BARRIER:
+  case DIR_OMP_ORDERED:
+  case DIR_OMP_FLUSH:
+    return ModRefInfo::ModRef;
+  }
+
+  for (unsigned I = 0; I < Call->getNumOperandBundles(); ++I) {
+    OperandBundleUse BU = Call->getOperandBundleAt(I);
+    // Check for aliasing on all the bundle inputs.
+    // Nontyped MAP clauses may have multiple values in the inputs.
+    for (const Use &U : BU.Inputs) {
+      Value *V = U;
+      if (V->getType()->isPointerTy()) {
+        AliasResult AR =
+            AAQI.AAR.alias(MemoryLocation::getBeforeOrAfter(V), Loc, AAQI);
+        if (AR != AliasResult::NoAlias)
+          return ModRefInfo::ModRef;
+      }
+    }
+  }
+  // Even if all are "NoAlias" (or no operand bundles), return "Ref".
+  // We want to avoid store motion across calls with operand bundles.
+  return ModRefInfo::Ref;
+}
+#endif // INTEL_COLLAB
 /// Return information about whether a particular call site modifies
 /// or reads the specified memory location \p MemLoc before instruction \p I
 /// in a BasicBlock.
@@ -858,6 +898,13 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
   const auto *Call = dyn_cast<CallBase>(I);
   if (!Call || Call == Object)
     return ModRefInfo::ModRef;
+#if INTEL_COLLAB
+  // "callCapturesBefore" means "Does this call really modref, based on
+  // previous captures". It overrides other AA results, so we need to
+  // analyze OpenMP directives here, as well as in BasicAA.
+  if (vpo::VPOAnalysisUtils::isOpenMPDirective(const_cast<CallBase *>(Call)))
+    return getDirectiveModRefInfo(Call, MemLoc, AAQI);
+#endif // INTEL_COLLAB
 
   if (PointerMayBeCapturedBefore(Object, /* ReturnCaptures */ true,
                                  /* StoreCaptures */ true, I, DT,
