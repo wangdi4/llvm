@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "X86.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -23,17 +23,18 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 using namespace llvm;
 
-#define DEBUG_TYPE "hetero-arch-opt"
+#define DEBUG_TYPE "x86-hetero-arch-opt"
 
-static cl::opt<bool>
-    DisableHeteroArchOpt("disable-hetero-arch-opt", cl::Hidden,
-                         cl::desc("Disable Hetero Architecture Optimization."),
-                         cl::init(false));
+static cl::opt<bool> DisableHeteroArchOpt(
+    "disable-x86-hetero-arch-opt", cl::Hidden,
+    cl::desc("Disable X86 Hetero Architecture Optimization."), cl::init(false));
 
 // Defines preferable loop height to clone. If it's possible, this pass will try
 // to clone loop candidate's ancestor loop with loop height equals to this value
@@ -59,18 +60,18 @@ struct LoopCand {
   LoopCand(Loop *L, unsigned MaxHeight) : L(L), MaxHeight(MaxHeight) {}
 };
 
-class HeteroArchOpt : public FunctionPass {
+class X86HeteroArchOpt : public FunctionPass {
 public:
   static char ID;
 
-  HeteroArchOpt() : FunctionPass(ID) {
-    initializeHeteroArchOptPass(*PassRegistry::getPassRegistry());
-  }
+  X86HeteroArchOpt() : FunctionPass(ID) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequiredID(LoopSimplifyID);
+    AU.addRequiredID(LCSSAID);
     AU.addPreserved<TargetTransformInfoWrapperPass>();
   }
 
@@ -118,15 +119,24 @@ private:
 
 } // end anonymous namespace
 
-char HeteroArchOpt::ID = 0;
-char &llvm::HeteroArchOptID = HeteroArchOpt::ID;
+char X86HeteroArchOpt::ID = 0;
+char &llvm::X86HeteroArchOptID = X86HeteroArchOpt::ID;
 
-INITIALIZE_PASS(HeteroArchOpt, DEBUG_TYPE, "Hetero Arch Optimization", false,
-                false)
+INITIALIZE_PASS_BEGIN(X86HeteroArchOpt, DEBUG_TYPE, "Hetero Arch Optimization",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
+INITIALIZE_PASS_DEPENDENCY(LCSSAWrapperPass)
+INITIALIZE_PASS_END(X86HeteroArchOpt, DEBUG_TYPE, "Hetero Arch Optimization",
+                    false, false)
 
-FunctionPass *llvm::createHeteroArchOptPass() { return new HeteroArchOpt(); }
+FunctionPass *llvm::createX86HeteroArchOptPass() {
+  return new X86HeteroArchOpt();
+}
 
-bool HeteroArchOpt::runOnFunction(Function &F) {
+bool X86HeteroArchOpt::runOnFunction(Function &F) {
   if (DisableHeteroArchOpt || skipFunction(F))
     return false;
 
@@ -152,7 +162,7 @@ bool HeteroArchOpt::runOnFunction(Function &F) {
   return Changed;
 }
 
-bool HeteroArchOpt::optLoop() {
+bool X86HeteroArchOpt::optLoop() {
   SmallVector<LoopCand> LoopCandidates;
   for (auto *Lp : *LI)
     scanLoopCandidates(Lp, LoopCandidates);
@@ -160,8 +170,8 @@ bool HeteroArchOpt::optLoop() {
 }
 
 unsigned
-HeteroArchOpt::scanLoopCandidates(Loop *L,
-                                  SmallVector<LoopCand> &LoopCandidates) {
+X86HeteroArchOpt::scanLoopCandidates(Loop *L,
+                                     SmallVector<LoopCand> &LoopCandidates) {
   unsigned MaxHeight = 0;
   for (Loop *SubLoop : *L)
     MaxHeight =
@@ -217,7 +227,7 @@ HeteroArchOpt::scanLoopCandidates(Loop *L,
   return MaxHeight;
 }
 
-bool HeteroArchOpt::createLoopMultiVersion(
+bool X86HeteroArchOpt::createLoopMultiVersion(
     SmallVector<LoopCand> &LoopCandidates) {
   // Group ancestor loops belonging to same top level loop.
   MapVector<Loop *, SmallVector<Loop *>> TopLevelLoop2AncLoops;
@@ -308,7 +318,7 @@ bool HeteroArchOpt::createLoopMultiVersion(
   return Changed;
 }
 
-bool HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
+bool X86HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
   assert(!NoCloneLoops.count(L) && "Found not cloneable loop");
   if (!L->isLoopSimplifyForm() || !L->isLCSSAForm(*DT))
     return false;

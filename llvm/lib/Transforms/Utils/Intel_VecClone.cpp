@@ -941,7 +941,7 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
 
   for (Argument &Arg : Clone->args()) {
     const VFParameter Parm = Parms[Arg.getArgNo()];
-    if (Parm.isLinear()) {
+    if (Parm.isLinear() || Parm.isLinearRef()) {
       Value *StrideVal = nullptr;
       Value *ArgVal = nullptr;
       Value *ArgMemory = nullptr;
@@ -960,6 +960,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
           }
           StrideVal = ConstantInt::get(Phi->getType(), Stride);
         } else {
+          assert(!Parm.isLinearRef() &&
+                 "linear ref modifier should be pointer");
           assert(Arg.getType()->isIntegerTy() &&
                  "Expected integer type for arg");
           // For integer types with constant stride, the value of the stride
@@ -1366,8 +1368,7 @@ void VecCloneImpl::filterUnsupportedVectorVariants(
                       assert(EncodingEnd != Encoding.npos &&
                              "Unexpected end of vector variant.");
                       Encoding = Encoding.take_front(EncodingEnd);
-                      bool Unsupported = Encoding.contains('R') ||
-                                         Encoding.contains('U') ||
+                      bool Unsupported = Encoding.contains('U') ||
                                          Encoding.contains('L');
                       return !Unsupported;
                     });
@@ -1395,7 +1396,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
 #if INTEL_CUSTOMIZATION
-  // This filtering can be removed once R/U/L encodings are supported.
+  // This filtering can be removed once U/L encodings are supported.
   SmallVector<Function *, 8> FuncDiagList;
   filterUnsupportedVectorVariants(M, FuncDiagList, ORBuilder);
 
@@ -1530,7 +1531,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
    for (auto *F : FuncDiagList) {
        (*ORBuilder)(*F).addRemark(
          OptReportVerbosity::Medium,
-         "'omp declare' vector variants with linear reference/ref()/uval()/" \
+         "'omp declare' vector variants with linear reference/uval()/" \
          "val() or linear step passed as another argument were skipped " \
          "as unsupported.");
 }
