@@ -106,7 +106,6 @@
 using namespace llvm;
 
 namespace llvm {
-class BlockFrequencyInfo;
 class LPMUpdater;
 } // namespace llvm
 
