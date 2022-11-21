@@ -232,7 +232,7 @@ public:
 
 protected:
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
-                Optional<InlineContext> IC = NoneType::None);
+                Optional<InlineContext> IC = llvm::None);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
