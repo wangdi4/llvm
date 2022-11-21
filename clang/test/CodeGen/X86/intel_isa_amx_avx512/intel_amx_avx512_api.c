@@ -1,6 +1,6 @@
-// REQUIRES: intel_feature_isa_amx_avx512_cvtrow
+// REQUIRES: intel_feature_isa_amx_avx512
 // RUN: %clang_cc1 %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown  -target-feature +avx512f  -target-feature +amx-bf16  \
-// RUN: -target-feature +amx-avx512-cvtrow -target-feature +avx512fp16 \
+// RUN: -target-feature +amx-avx512 -target-feature +avx512fp16 \
 // RUN: -emit-llvm -o - -Werror -pedantic | FileCheck %s --check-prefixes=CHECK
 
 #include <immintrin.h>
