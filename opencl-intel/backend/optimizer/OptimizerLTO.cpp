@@ -214,6 +214,9 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         // Flatten get_{local, global}_linear_id()
         if (m_IsOcl20)
           MPM.addPass(LinearIdResolverPass());
+        // Resolve variable argument of get_global_id, get_local_id and
+        // get_group_id.
+        MPM.addPass(ResolveVarTIDCallPass());
 
         if (m_IsFpgaEmulator) {
           MPM.addPass(DPCPPRewritePipesPass());
@@ -289,8 +292,6 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
       }
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
-
-    MPM.addPass(ResolveVarTIDCallPass());
 
     if (m_IsSYCL) {
       MPM.addPass(TaskSeqAsyncHandling());
