@@ -31,12 +31,7 @@ BuiltinModuleManager *BuiltinModuleManager::s_pInstance = nullptr;
 
 BuiltinModuleManager::BuiltinModuleManager() {}
 
-BuiltinModuleManager::~BuiltinModuleManager() {
-  for (BuiltinsMap::iterator i = m_BuiltinLibs.begin(), e = m_BuiltinLibs.end();
-       i != e; ++i) {
-    delete i->second;
-  }
-}
+BuiltinModuleManager::~BuiltinModuleManager() {}
 
 void BuiltinModuleManager::Init(bool isFPGAEmuDev) {
   assert(!s_pInstance);
@@ -68,14 +63,15 @@ BuiltinModuleManager::GetOrLoadDeviceLibrary(const CPUDetect *cpuId) {
   TIdCpuId key = std::make_pair(std::this_thread::get_id(), cpuId->GetCPU());
   BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
   if (it != m_BuiltinLibs.end()) {
-    return it->second;
+    return it->second.get();
   }
 
   std::unique_ptr<BuiltinLibrary> pLibrary(new DeviceBuiltinLibrary(cpuId));
   pLibrary->Load();
 
-  m_BuiltinLibs[key] = pLibrary.get();
-  return pLibrary.release();
+  auto *ptr = pLibrary.get();
+  m_BuiltinLibs[key] = std::move(pLibrary);
+  return ptr;
 }
 
 // TODO: Make this method re-entrable
