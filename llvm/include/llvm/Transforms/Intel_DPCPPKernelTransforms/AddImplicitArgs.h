@@ -29,6 +29,8 @@ public:
   bool runImpl(Module &M, LocalBufferInfo *LBInfo, ImplicitArgsInfo *IAInfo,
                CallGraph *CG);
 
+  static bool isRequired() { return true; }
+
 protected:
   /// Replaces the given function with a copy function that receives the
   /// implicit arguments, maps call instructions that appear in the given

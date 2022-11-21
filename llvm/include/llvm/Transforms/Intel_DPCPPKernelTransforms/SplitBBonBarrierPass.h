@@ -28,6 +28,8 @@ public:
 
   bool runImpl(Module &M);
 
+  static bool isRequired() { return true; }
+
 private:
   /// This is barrier utility class
   BarrierUtils Utils;

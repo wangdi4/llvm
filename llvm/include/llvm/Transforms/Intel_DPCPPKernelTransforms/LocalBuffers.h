@@ -30,6 +30,8 @@ public:
   // Glue for old PM.
   bool runImpl(Module &M, LocalBufferInfo *LBInfo);
 
+  static bool isRequired() { return true; }
+
 private:
   /// @brief Resolves the internal local variables and map them to local buffer
   /// @param F The function which needs it handle its implicite local

@@ -2362,8 +2362,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
   if (!Subtarget.useSoftFloat() && Subtarget.hasAVX512REDUCTION()) {
-    for (auto VT : { MVT::v2i64, MVT::v4i64, MVT::v8i64,
-                     MVT::v4i32, MVT::v8i32, MVT::v16i32 }) {
+    auto SetReduceAction = [&](MVT VT) {
       setOperationAction(ISD::VECREDUCE_ADD, VT, Legal);
       setOperationAction(ISD::VECREDUCE_AND, VT, Legal);
       setOperationAction(ISD::VECREDUCE_OR, VT, Legal);
@@ -2372,6 +2371,13 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::VECREDUCE_SMIN, VT, Legal);
       setOperationAction(ISD::VECREDUCE_UMAX, VT, Legal);
       setOperationAction(ISD::VECREDUCE_UMIN, VT, Legal);
+    };
+    for (auto VT : {MVT::v8i64, MVT::v16i32, MVT::v32i16, MVT::v64i8})
+      SetReduceAction(VT);
+    if (Subtarget.hasVLX()) {
+      for (auto VT : {MVT::v2i64, MVT::v4i64, MVT::v4i32, MVT::v8i32,
+                      MVT::v8i16, MVT::v16i16, MVT::v16i8, MVT::v32i8})
+        SetReduceAction(VT);
     }
   }
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION

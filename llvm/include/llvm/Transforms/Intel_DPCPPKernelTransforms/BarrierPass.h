@@ -48,6 +48,8 @@ public:
 
   bool runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV);
 
+  static bool isRequired() { return true; }
+
 private:
   using BBSet = CompilationUtils::BBSet;
   using FuncSet = CompilationUtils::FuncSet;

@@ -152,23 +152,23 @@ std::enable_if_t<std::is_same_v<Tp, double>, double> cdfnorminv(Tp x) {
 }
 
 template <typename Tp>
-std::enable_if_t<std::is_same_v<Tp, float>, float> norm(int x, const Tp* y) {
-  return __imf_normf(x, y);
+std::enable_if_t<std::is_same_v<Tp, float>, float> norm(int dim, const Tp* p) {
+  return __imf_normf(dim, p);
 }
 
 template <typename Tp>
-std::enable_if_t<std::is_same_v<Tp, double>, double> norm(int x, const Tp* y) {
-  return __imf_norm(x, y);
+std::enable_if_t<std::is_same_v<Tp, double>, double> norm(int dim, const Tp* p) {
+  return __imf_norm(dim, p);
 }
 
 template <typename Tp>
-std::enable_if_t<std::is_same_v<Tp, float>, float> rnorm(int x, const Tp* y) {
-  return __imf_rnormf(x, y);
+std::enable_if_t<std::is_same_v<Tp, float>, float> rnorm(int dim, const Tp* p) {
+  return __imf_rnormf(dim, p);
 }
 
 template <typename Tp>
-std::enable_if_t<std::is_same_v<Tp, double>, double> rnorm(int x, const Tp* y) {
-  return __imf_rnorm(x, y);
+std::enable_if_t<std::is_same_v<Tp, double>, double> rnorm(int dim, const Tp* p) {
+  return __imf_rnorm(dim, p);
 }
 
 /* end INTEL_CUSTOMIZATION */

@@ -27,6 +27,8 @@ public:
   // Glue for old PM.
   bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
+  static bool isRequired() { return true; }
+
 private:
   /// Set block-literal-size attribute for enqueued kernels.
   void setBlockLiteralSizeMetadata(Function &F);
