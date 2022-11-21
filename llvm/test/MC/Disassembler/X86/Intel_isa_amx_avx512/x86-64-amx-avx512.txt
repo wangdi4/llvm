@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_avx512_cvtrow
+// REQUIRES: intel_feature_isa_amx_avx512
 
 # isadb version: d274a29747dda218fd2917ef0d7056e6996b93bf
 

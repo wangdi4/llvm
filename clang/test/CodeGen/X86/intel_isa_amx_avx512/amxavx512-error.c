@@ -1,6 +1,6 @@
-// REQUIRES: intel_feature_isa_amx_avx512_cvtrow
+// REQUIRES: intel_feature_isa_amx_avx512
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
-// RUN: -target-feature +amx-avx512-cvtrow -target-feature +avx512f \
+// RUN: -target-feature +amx-avx512 -target-feature +avx512f \
 // RUN: -target-feature +avx512fp16 -emit-llvm -fsyntax-only -verify
 
 #include <immintrin.h>

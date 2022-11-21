@@ -40018,7 +40018,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_TF32
-#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AMX_AVX512
   case X86::PTCVTROWPS2PBF16Hrri:
   case X86::PTCVTROWPS2PBF16Lrri:
   case X86::PTCVTROWPS2PHHrri:
@@ -40065,7 +40065,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#endif // INTEL_FEATURE_ISA_AMX_AVX512
 #if INTEL_FEATURE_ISA_AMX_SPARSE
   case X86::PTLDEXPANDB:
   case X86::PTLDEXPANDBT1:
