@@ -35,6 +35,8 @@ public:
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
+  static bool isRequired() { return true; }
+
 private:
   /// Add dummyBarrier at function begin and barrier at function end.
   /// F function to modify.

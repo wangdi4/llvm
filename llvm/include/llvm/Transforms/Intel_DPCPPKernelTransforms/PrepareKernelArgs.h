@@ -35,6 +35,8 @@ public:
                function_ref<AssumptionCache *(Function &F)> GetAC,
                ImplicitArgsInfo *IAInfo);
 
+  static bool isRequired() { return true; }
+
 private:
   /// Creates a wrapper function for the given function that receives one buffer
   /// as argument, creates load instructions that load the function arguments

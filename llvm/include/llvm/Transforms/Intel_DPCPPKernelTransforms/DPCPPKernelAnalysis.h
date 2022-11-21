@@ -37,6 +37,8 @@ public:
 
   void print(raw_ostream &OS, const Module *M) const;
 
+  static bool isRequired() { return true; }
+
 private:
   using FuncVec = SmallVector<Function *, 8>;
   using FuncSet = CompilationUtils::FuncSet;
