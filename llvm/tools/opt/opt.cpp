@@ -600,7 +600,6 @@ int main(int argc, char **argv) {
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
   initializeAutoCPUCloneLegacyPassPass(Registry);
-  initializeHeteroArchOptPass(Registry);
 #if INTEL_FEATURE_SW_DTRANS
   initializeDTransPasses(Registry);
 #endif // INTEL_FEATURE_SW_DTRANS

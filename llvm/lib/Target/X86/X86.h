@@ -201,6 +201,10 @@ FunctionPass *createX86SplitLongBlockPass();
 /// Return a pass that avoids creating store forward block issues in the hardware.
 FunctionPass *createX86AvoidMemoryRenamingBlocks();
 
+/// Return a pass to optimize function for hetero arch cpu.
+extern char &X86HeteroArchOptID;
+FunctionPass *createX86HeteroArchOptPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -233,6 +237,7 @@ void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
 void initializeX86CFMAPass(PassRegistry&);      // INTEL
 void initializeX86PRAExpandPseudoPassPass(PassRegistry &); // INTEL
 void initializeX86VecSpillPass(PassRegistry &); // INTEL
+void initializeX86HeteroArchOptPass(PassRegistry &); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);

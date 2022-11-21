@@ -109,20 +109,24 @@ VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(*CallArg);
     auto ParamPos = I - SkippedArgs;
-    bool ArgIsPrivateMemory = false;
+    const VPValue* LinearPrivMem = nullptr;
     if (CallArgShape.isRandom() || CallArgShape.isUndefined()) {
       Parameters.push_back(VFParameter::vector(ParamPos));
-    } else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride()) {
-      Parameters.push_back(VFParameter::linear(ParamPos, CallArgShape.getStrideVal()));
-    } else if (CallArgShape.isAnyStrided() && !CallArgShape.hasKnownStride()) {
-      // Note: this function builds a VFInfo (vector variant encoding) from the
-      // caller side using DA so that later it can be used to find a compatible
-      // match on the callee (function) side. Since there isn't a way on the
-      // caller side to know where the variable stride argument is located, the
-      // same parameter position is used for the stride argument as the current
-      // linear argument. This is accounted for later during the matching
-      // routine.
-      Parameters.push_back(VFParameter::variableStrided(ParamPos, ParamPos));
+    } else if (CallArgShape.isAnyStrided()) {
+      LinearPrivMem = getVPValuePrivateMemoryPtr(CallArg);
+      if (CallArgShape.hasKnownStride()) {
+        Parameters.push_back(
+            VFParameter::linear(ParamPos, CallArgShape.getStrideVal()));
+      } else {
+        // Note: this function builds a VFInfo (vector variant encoding) from
+        // the caller side using DA so that later it can be used to find a
+        // compatible match on the callee (function) side. Since there isn't a
+        // way on the caller side to know where the variable stride argument is
+        // located, the same parameter position is used for the stride argument
+        // as the current linear argument. This is accounted for later during
+        // the matching routine.
+        Parameters.push_back(VFParameter::variableStrided(ParamPos, ParamPos));
+      }
     } else if (CallArgShape.isUniform()) {
       Parameters.push_back(VFParameter::uniform(ParamPos));
     } else {
@@ -134,10 +138,7 @@ VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     // arguments. As an example, if 'i' is the loop index on the caller side,
     // we need to distinguish between 'foo(a[i])' and 'foo(i)'. The latter case
     // will result in private memory being allocated for VF values of 'i'.
-    if (ArgIsPrivateMemory)
-      ArgIsLinearPrivateMem.push_back(true);
-    else
-      ArgIsLinearPrivateMem.push_back(false);
+    ArgIsLinearPrivateMem.push_back(LinearPrivMem != nullptr);
 
     // If the call arg is a pointer, use alignment analysis to try to obtain a
     // known alignment for matching against variants with aligned params.

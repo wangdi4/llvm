@@ -215,14 +215,26 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
       return Scalar2VectorScore; // uniform/linear -> vector
     }
 
-    // Matching for linear integer/pointer args. Matches occur when:
+    // Matching for linear integer/pointer args and ref modifier for integer
+    // reference args.
+    // Matches occur when:
     // 1) both args are linear and have same constant stride
     // 2) caller side arg is recognized by DA as linear with constant stride
     //    and available variant is variable integer strided. As a result, a
     //    lower score is assigned as a tie-breaker in case multiple variants
     //    are available.
     // 3) both args are linear with variable stride.
-    if (Callee[I].isLinear() && Caller[I].isLinear()) {
+    //
+    // Note: The caller side encoding uses 'l' or 'ls' as a generic encoding
+    // for all linear parameters because there is no way to distinguish between
+    // references and pointers once we get to LLVM. E.g., why we don't do a
+    // comparison between isLinearRef(), etc. for both caller/callee. This
+    // differentiation has to come from whether or not the arg is associated
+    // with private memory.
+    //
+    // TODO: add scoring for linear reference parameters for val/uval modifiers.
+    if ((Callee[I].isLinear() && Caller[I].isLinear()) ||
+        (Callee[I].isLinearRef() && Caller[I].isLinear())) {
       if (Callee[I].isConstantStrideLinear() && // Case #1
           Caller[I].isConstantStrideLinear() &&
           Callee[I].getStride() == Caller[I].getStride())
@@ -233,11 +245,8 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
       if (Callee[I].isVariableStride() &&       // Case #3
           Caller[I].isVariableStride())
         return Linear2LinearScore;
-      llvm_unreachable("Unsupported linear to linear match");
+      return NoMatch;
     }
-
-    // TODO: add scoring for linear reference parameters for ref/val/uval
-    // modifiers.
 
     if (Callee[I].isUniform() && Caller[I].isUniform()) {
       // Uniform ptr arguments are more beneficial for performance, so weight

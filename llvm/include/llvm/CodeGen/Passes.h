@@ -241,8 +241,6 @@ namespace llvm {
   /// FoldLoadsToGatherID -- This pass fold loads to gather intrinsic.
   extern char &FoldLoadsToGatherID;
 
-  extern char &HeteroArchOptID;
-
   extern char &ExpandVectorPredicationID;
 
 #endif  // INTEL_CUSTOMIZATION
@@ -567,8 +565,6 @@ namespace llvm {
   FunctionPass *createFloat128ExpandPass();
 
   FunctionPass *createFoldLoadsToGatherPass();
-
-  FunctionPass *createHeteroArchOptPass();
 #endif // INTEL_CUSTOMIZATION
 
   /// This pass inserts pseudo probe annotation for callsite profiling.
