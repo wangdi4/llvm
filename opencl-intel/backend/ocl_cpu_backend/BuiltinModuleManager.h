@@ -16,6 +16,7 @@
 #include "cl_cpu_detect.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include <map>
+#include <memory>
 #include <thread>
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
@@ -80,7 +81,7 @@ private:
   BuiltinLibrary *GetOrLoadDeviceLibrary(const CPUDetect *cpuId);
 
   typedef std::pair<std::thread::id, ECPU> TIdCpuId;
-  typedef std::map<TIdCpuId, BuiltinLibrary *> BuiltinsMap;
+  typedef std::map<TIdCpuId, std::unique_ptr<BuiltinLibrary>> BuiltinsMap;
   static BuiltinModuleManager *s_pInstance;
   BuiltinsMap m_BuiltinLibs;
 };

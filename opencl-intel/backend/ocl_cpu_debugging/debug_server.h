@@ -24,7 +24,7 @@
 #include "llvm/Support/Mutex.h"
 
 #include <memory>
-
+#include <windows.h>
 #pragma warning(disable : 4985) /* disable ceil warnings */
 
 namespace llvm {
@@ -85,6 +85,7 @@ private:
   static DebugServer instance;
   struct DebugServerImpl;
   std::unique_ptr<DebugServerImpl> d;
+  HANDLE e = NULL;
 
   // No copying
   DebugServer(const DebugServer &);

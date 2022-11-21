@@ -76,12 +76,11 @@ extern "C" LLVM_BACKEND_API int _ihc_cond_wait(void *m, void *cv) {
 extern "C" LLVM_BACKEND_API void *_ihc_pthread_create(void *(*func)(void *),
                                                       void *arg) {
   pthread_t *handle = new pthread_t;
-  if (handle == 0)
-    return nullptr;
   int res = pthread_create(handle, NULL, func, arg);
   if (res == 0) {
     return handle;
   } else {
+    delete handle;
     return 0;
   }
 }
