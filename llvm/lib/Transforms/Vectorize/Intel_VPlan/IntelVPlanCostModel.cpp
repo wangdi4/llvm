@@ -1485,21 +1485,63 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // 4. log(VF) shuffles.
     //
     // Exclusive reduction also requires one more shuffle operation.
+
     auto BinOpcode =
         isa<VPRunningExclusiveReduction>(VPInst)
             ? cast<VPRunningExclusiveReduction>(VPInst)->getBinOpcode()
             : cast<VPRunningInclusiveReduction>(VPInst)->getBinOpcode();
+    // TODO: refactor this.
+    auto isMinMax = isa<VPRunningExclusiveReduction>(VPInst)
+                        ? cast<VPRunningExclusiveReduction>(VPInst)->isMinMax()
+                        : cast<VPRunningInclusiveReduction>(VPInst)->isMinMax();
     auto *VecTy = getWidenedType(VPInst->getType(), VF);
     VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
 
     unsigned ShuffleOpsNum =
         isa<VPRunningExclusiveReduction>(VPInst) ? log2(VF) + 1 : log2(VF);
-    Cost += TTI.getArithmeticInstrCost(
-                BinOpcode, VecTy, TargetTransformInfo::TCK_RecipThroughput) *
-            (log2(VF) + 1);
+    if (!isMinMax) {
+      Cost += TTI.getArithmeticInstrCost(
+                  BinOpcode, VecTy, TargetTransformInfo::TCK_RecipThroughput) *
+              (log2(VF) + 1);
+    } else {
+      Intrinsic::ID Intrin = getIntrinsicForMinMaxOpcode(BinOpcode);
+      auto *VecTy = getWidenedType(VPInst->getType(), VF);
+
+      SmallVector<Type *> ParamTys;
+      // Minmax intrinsics take two args.
+      ParamTys.push_back(VecTy);
+      ParamTys.push_back(VecTy);
+
+      FastMathFlags FMF;
+      if (VPInst->hasFastMathFlags())
+        FMF = VPInst->getFastMathFlags();
+
+      Cost += TTI.getIntrinsicInstrCost(
+                  IntrinsicCostAttributes(Intrin, VecTy, ParamTys, FMF),
+                  TTI::TCK_RecipThroughput) *
+              (log2(VF) + 1);
+    }
     Cost += TTI.getShuffleCost(TTI::SK_PermuteTwoSrc, VecTy) * ShuffleOpsNum;
 
     return Cost;
+  }
+  case VPInstruction::FMax:
+  case VPInstruction::FMin: {
+    Intrinsic::ID Intrin = getIntrinsicForMinMaxOpcode(VPInst->getOpcode());
+    auto *VecTy = getWidenedType(VPInst->getType(), VF);
+
+    SmallVector<Type *> ParamTys;
+    // Minmax intrinsics take two args.
+    ParamTys.push_back(VecTy);
+    ParamTys.push_back(VecTy);
+
+    FastMathFlags FMF;
+    if (VPInst->hasFastMathFlags())
+      FMF = VPInst->getFastMathFlags();
+
+    return TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(Intrin, VecTy, ParamTys, FMF),
+        TTI::TCK_RecipThroughput);
   }
   }
 }

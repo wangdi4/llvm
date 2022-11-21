@@ -678,7 +678,8 @@ private:
   }
 
   /// Parsing Min/Max reduction patterns.
-  void parseMinMaxReduction(Value *V, RecurKind Kind);
+  void parseMinMaxReduction(Value *V, RecurKind Kind,
+                            Optional<InscanReductionKind> InscanRedKind);
   /// Parsing arithmetic reduction patterns.
   void parseBinOpReduction(Value *V, RecurKind Kind,
                            Optional<InscanReductionKind> InscanRedKind);

@@ -623,6 +623,17 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     O << "CopyAssign: " << CopyAssignFn->getName();
     break;
   }
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction: {
+    O << getOpcodeName(getOpcode()) << "{";
+    auto BinOpcode =
+        isa<VPRunningExclusiveReduction>(this)
+            ? cast<const VPRunningExclusiveReduction>(this)->getBinOpcode()
+            : cast<const VPRunningInclusiveReduction>(this)->getBinOpcode();
+    O << getOpcodeName(BinOpcode);
+    O << "}";
+    break;
+  }
   default:
     O << getOpcodeName(getOpcode());
   }

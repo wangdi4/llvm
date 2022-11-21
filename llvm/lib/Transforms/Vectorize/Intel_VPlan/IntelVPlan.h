@@ -2946,27 +2946,6 @@ public:
 
   unsigned getBinOpcode() const { return BinOpcode; }
 
-  // Return ID of the corresponding intrinsic for opcodes that are not
-  // Instruction::BinaryOps.
-  Intrinsic::ID getIntrinsicForOpcode() const {
-    switch (BinOpcode) {
-    case VPInstruction::UMin:
-      return Intrinsic::umin;
-    case VPInstruction::SMin:
-      return Intrinsic::smin;
-    case VPInstruction::UMax:
-      return Intrinsic::umax;
-    case VPInstruction::SMax:
-      return Intrinsic::smax;
-    case VPInstruction::FMax:
-      return Intrinsic::maxnum;
-    case VPInstruction::FMin:
-      return Intrinsic::minnum;
-    default:
-      llvm_unreachable("Reduction opcode not supported.");
-    }
-  }
-
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast
   static bool classof(const VPInstruction *VPI) {
@@ -3004,6 +2983,20 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::RunningInclusiveReduction;
+  }
+
+  bool isMinMax() const {
+    switch (BinOpcode) {
+    case VPInstruction::UMin:
+    case VPInstruction::SMin:
+    case VPInstruction::UMax:
+    case VPInstruction::SMax:
+    case VPInstruction::FMax:
+    case VPInstruction::FMin:
+      return true;
+    default:
+      return false;
+    }
   }
 
 protected:

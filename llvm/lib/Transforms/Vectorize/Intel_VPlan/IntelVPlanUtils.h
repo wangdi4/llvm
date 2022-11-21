@@ -151,6 +151,27 @@ inline bool isDivisorSpeculationSafeForDivRem(unsigned Opcode, VPValue *Div) {
   return !ConstVal->isZero() && (!IsSigned || !ConstVal->isMinusOne());
 }
 
+// Return ID of the corresponding intrinsic for opcodes that are not
+// Instruction::BinaryOps.
+inline Intrinsic::ID getIntrinsicForMinMaxOpcode(unsigned BinOpcode) {
+  switch (BinOpcode) {
+  case VPInstruction::UMin:
+    return Intrinsic::umin;
+  case VPInstruction::SMin:
+    return Intrinsic::smin;
+  case VPInstruction::UMax:
+    return Intrinsic::umax;
+  case VPInstruction::SMax:
+    return Intrinsic::smax;
+  case VPInstruction::FMax:
+    return Intrinsic::maxnum;
+  case VPInstruction::FMin:
+    return Intrinsic::minnum;
+  default:
+    llvm_unreachable("Reduction opcode not supported.");
+  }
+}
+
 /////////// VPValue version of common LLVM load/store utilities ///////////
 
 /// Helper function to return pointer operand for a VPInstruction representing
