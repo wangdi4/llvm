@@ -450,6 +450,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   LVP.buildInitialVPlans();
 #endif // INTEL_CUSTOMIZATION
 
+  LVP.runPeepholeBeforePredicator();
+
   if (EnableMaskedVariant)
     generateMaskedModeVPlans(&LVP, &VPAF);
 
@@ -1559,6 +1561,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // TODO: Move after predication.
   if (VPlanConstrStressTest)
     return false;
+
+  LVP.runPeepholeBeforePredicator();
 
   if (EnableMaskedVariantHIR && EnableMaskedVariant)
     generateMaskedModeVPlans(&LVP, &VPAF);
