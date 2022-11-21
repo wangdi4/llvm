@@ -1,4 +1,4 @@
-# REQUIRES: intel_feature_isa_amx_avx512_cvtrow
+# REQUIRES: intel_feature_isa_amx_avx512
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding < %s  | FileCheck %s
 
 // CHECK:      tcvtrowd2ps %ecx, %tmm5, %zmm22

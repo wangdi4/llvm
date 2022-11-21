@@ -1499,9 +1499,9 @@ let Predicates = [HasAMXTF32, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_TF32
 
-#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AMX_AVX512
 multiclass m_tcvtrowd2ps {
-  let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
                     (ins TILEX:$src1, i32u8imm:$src2),
@@ -1512,12 +1512,12 @@ multiclass m_tcvtrowd2ps {
                   "tcvtrowd2ps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   []>, T8XS, EVEX_4V, EVEX_V512;
     }
-  } // HasAMXAVX512CVTROW, In64BitMode
+  } // HasAMXAVX512, In64BitMode
 }
 
 defm TCVTROWD2PS : m_tcvtrowd2ps;
 
-let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
+let Predicates = [HasAMXAVX512, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let  usesCustomInserter = 1 in {
       def PTCVTROWD2PSrri : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, i32u8imm:$src2),
@@ -1582,9 +1582,9 @@ let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
   }
 }
 
-multiclass AMXAVX512CVTROW_BASE<bits<8> Opcode1, bits<8> Opcode2, string Opstr,
+multiclass AMXAVX512_BASE<bits<8> Opcode1, bits<8> Opcode2, string Opstr,
                                 Prefix P1, Prefix P2> {
-  let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
     let OpPrefix = P1 in
       def rre : I<Opcode1, MRMSrcReg4VOp3, (outs VR512:$dst),
                   (ins TILEX:$src1, GR32:$src2),
@@ -1606,11 +1606,11 @@ multiclass AMXAVX512CVTROW_BASE<bits<8> Opcode1, bits<8> Opcode2, string Opstr,
   }
 }
 
-defm TCVTROWPS2PHH : AMXAVX512CVTROW_BASE<0x6d, 0x07, "tcvtrowps2phh", PS, PS>;
-defm TCVTROWPS2PHL : AMXAVX512CVTROW_BASE<0x6d, 0x77, "tcvtrowps2phl", PD, XD>;
-defm TCVTROWPS2PBF16H : AMXAVX512CVTROW_BASE<0x6d, 0x07, "tcvtrowps2pbf16h", XD, XD>;
-defm TCVTROWPS2PBF16L : AMXAVX512CVTROW_BASE<0x6d, 0x77, "tcvtrowps2pbf16l", XS, XS>;
-#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+defm TCVTROWPS2PHH : AMXAVX512_BASE<0x6d, 0x07, "tcvtrowps2phh", PS, PS>;
+defm TCVTROWPS2PHL : AMXAVX512_BASE<0x6d, 0x77, "tcvtrowps2phl", PD, XD>;
+defm TCVTROWPS2PBF16H : AMXAVX512_BASE<0x6d, 0x07, "tcvtrowps2pbf16h", XD, XD>;
+defm TCVTROWPS2PBF16L : AMXAVX512_BASE<0x6d, 0x77, "tcvtrowps2pbf16l", XS, XS>;
+#endif // INTEL_FEATURE_ISA_AMX_AVX512
 
 #if INTEL_FEATURE_ISA_AMX_SPARSE
 let Predicates = [HasAMXSPARSE, In64BitMode], Constraints = "$src1 = $dst" in

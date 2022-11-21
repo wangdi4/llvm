@@ -654,16 +654,16 @@ typedef struct __tile1024i_str {
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_RAO_FP */
 
-/* INTEL_FEATURE_ISA_AMX_AVX512_CVTROW */
+/* INTEL_FEATURE_ISA_AMX_AVX512 */
 /* FIXME: Change these When _Float16 type is supported */
-#if defined(__AMXAVX512CVTROW_SUPPORTED__)
+#if defined(__AMXAVX512_SUPPORTED__)
 #if (!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXAVX512CVTROW__) && defined(__AVX512FP16__) || defined(__M_INTRINSIC_PROMOTE__)) \
+    defined(__AMXAVX512__) && defined(__AVX512FP16__) || defined(__M_INTRINSIC_PROMOTE__)) \
     && defined(__AVX512FP16__)
-#include <amxavx512cvtrow/amxavx512cvtrowintrin.h>
+#include <amxavx512/amxavx512intrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_AVX512_CVTROW */
+/* end INTEL_FEATURE_ISA_AMX_AVX512 */
 
 /* INTEL_FEATURE_ISA_AVX512_NE_CONVERT */
 /* FIXME: Change these When _Float16 type is supported */
