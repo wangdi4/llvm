@@ -107,6 +107,7 @@ static bool runImpl(Module &M) {
   auto *ConstZero = ConstantInt::get(getIndTy(&M), 0);
   bool Changed = runOnTID(M, Builder, ConstZero, mangledGetLID(), "lid.");
   Changed |= runOnTID(M, Builder, ConstZero, mangledGetGID(), "gid.");
+  Changed |= runOnTID(M, Builder, ConstZero, mangledGetGroupID(), "groupid.");
   return Changed;
 }
 

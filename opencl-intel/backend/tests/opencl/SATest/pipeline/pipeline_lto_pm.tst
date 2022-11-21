@@ -31,6 +31,7 @@
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: InstSimplifyPass
 ; CHECK:      Running pass: LinearIdResolverPass
+; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
@@ -51,7 +52,6 @@
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: GVNHoistPass
 ; CHECK:      Running pass: DCEPass
-; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
@@ -205,7 +205,7 @@
 ; QUIET-NEXT: Running pass: InstCombinePass
 ; QUIET-NEXT: Running pass: InstSimplifyPass
 ; QUIET-NEXT: Running pass: LinearIdResolverPass
-; QUIET-NEXT: Running pass: PromotePass
+; QUIET:      Running pass: PromotePass
 ; QUIET-NEXT: Running pass: InferAddressSpacesPass
 ; QUIET-NEXT: Running pass: BuiltinCallToInstPass
 
