@@ -2140,6 +2140,21 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = Builder.CreateExtractValue(Aggregate, Indices, VPInst->getName());
     return;
   }
+  case VPInstruction::UMin:
+  case VPInstruction::SMin:
+  case VPInstruction::UMax:
+  case VPInstruction::SMax:
+  case VPInstruction::FMin:
+  case VPInstruction::FMax: {
+    unsigned BinOpCode = VPInst->getOpcode();
+    Value *Op1 = getVectorValue(VPInst->getOperand(0));
+    Value *Op2 = getVectorValue(VPInst->getOperand(1));
+    FastMathFlags FMF;
+    if (VPInst->hasFastMathFlags())
+      FMF = VPInst->getFastMathFlags();
+    VPWidenMap[VPInst] = generateMinMaxSequence(BinOpCode, Op1, Op2, FMF);
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");
@@ -4353,8 +4368,6 @@ Value *VPOCodeGen::vectorizeRunningReduction(
   Value *Input = getVectorValue(RunningReduction->getInputOperand());
   Value *CarryOver = getVectorValue(RunningReduction->getCarryOverOperand());
   Value *IdentityValue = getVectorValue(RunningReduction->getIdentityOperand());
-  auto BinOpCode =
-    static_cast<Instruction::BinaryOps>(RunningReduction->getBinOpcode());
 
   FastMathFlags FMF;
   if (RunningReduction->hasFastMathFlags())
@@ -4397,6 +4410,20 @@ Value *VPOCodeGen::vectorizeRunningReduction(
       cast<Instruction>(V)->setFastMathFlags(FMF);
   };
 
+  auto CreateReductionStep = [&SetFastMathFlags, &FMF, this,
+                              RunningReduction](Value *Op1, Value *Op2) {
+    auto BinOpCode = RunningReduction->getBinOpcode();
+    if (!RunningReduction->isMinMax()) {
+      auto *BinOp = Builder.CreateBinOp(
+          static_cast<Instruction::BinaryOps>(BinOpCode), Op1, Op2);
+      // Set FMF for generated reduction code.
+      SetFastMathFlags(BinOp);
+      return BinOp;
+    } else {
+      return generateMinMaxSequence(BinOpCode, Op1, Op2, FMF);
+    }
+  };
+
   while (Step <= Steps) {
     unsigned DisplacedElems = 0;
     if (Step % 2 == 1) {
@@ -4416,9 +4443,7 @@ Value *VPOCodeGen::vectorizeRunningReduction(
       ShufMask.push_back(k);  // Pick from the last reduced vector.
     Value *Shuff =
       Builder.CreateShuffleVector(LastReduced, IdentityValue, ShufMask);
-    LastReduced = Builder.CreateBinOp(BinOpCode, LastReduced, Shuff);
-    // Set FMF for generated reduction code.
-    SetFastMathFlags(LastReduced);
+    LastReduced = CreateReductionStep(LastReduced, Shuff);
   }
 
   if (std::is_same<RunningReductionTy, VPRunningExclusiveReduction>::value) {
@@ -4433,10 +4458,22 @@ Value *VPOCodeGen::vectorizeRunningReduction(
   }
 
   // Reduce with the carry-over value from the previous iteration.
-  LastReduced = Builder.CreateBinOp(BinOpCode, LastReduced, CarryOver);
-  SetFastMathFlags(LastReduced);
+  LastReduced = CreateReductionStep(LastReduced, CarryOver);
 
   return LastReduced;
+}
+
+Value *VPOCodeGen::generateMinMaxSequence(unsigned BinOpCode, Value *Op1,
+                                          Value *Op2, FastMathFlags FMF) {
+  auto SetFastMathFlags = [=](Value *V) {
+    if (isa<FPMathOperator>(V))
+      cast<Instruction>(V)->setFastMathFlags(FMF);
+  };
+
+  auto *MinMax = Builder.CreateBinaryIntrinsic(
+      getIntrinsicForMinMaxOpcode(BinOpCode), Op1, Op2, nullptr /*FMFSource*/);
+  SetFastMathFlags(MinMax);
+  return MinMax;
 }
 
 void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
@@ -4625,8 +4662,8 @@ void VPOCodeGen::generateArrayReductionFinal(
             ReducedSubArr, LaneArrLd, "arr.fin.red");
       else
         ReducedSubArr = Builder.CreateBinaryIntrinsic(
-            RedFinalArr->getIntrinsicForOpcode(), ReducedSubArr, LaneArrLd,
-            nullptr /*FMFSource*/, "arr.fin.red");
+            getIntrinsicForMinMaxOpcode(RedFinalArr->getBinOpcode()),
+            ReducedSubArr, LaneArrLd, nullptr /*FMFSource*/, "arr.fin.red");
       // Set FMF for generated binop.
       if (isa<FPMathOperator>(ReducedSubArr) && RedFinalArr->hasFastMathFlags())
         cast<Instruction>(ReducedSubArr)

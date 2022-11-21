@@ -187,6 +187,26 @@ public:
   // For pointers and values of interest, print the type information determined
   // for Value \p CV
   void printInfoComment(const Value &CV, formatted_raw_ostream &OS) override {
+    auto ValueShouldHaveInfo = [](const Value *V) {
+      // PtrToInt should always track the source operand type
+      if (isa<PtrToIntInst>(V))
+        return true;
+
+      // Insert value instruction may be of interest depending on the type and
+      // operands.
+      if (isa<InsertValueInst>(V))
+        return true;
+
+      // Literal structures are types of interest, but only need to be reported
+      // when pointers are contained within them
+      llvm::Type *Ty = V->getType();
+      if (Ty->isStructTy() && cast<llvm::StructType>(Ty)->isLiteral() &&
+          !dtrans::hasPointerType(Ty))
+        return false;
+
+      return isTypeOfInterest(Ty);
+    };
+
     std::function<void(formatted_raw_ostream &, ConstantExpr *)>
         PrintConstantExpr =
             [&PrintConstantExpr, this](formatted_raw_ostream &OS,
@@ -217,12 +237,9 @@ public:
         if (auto *CE = dyn_cast<ConstantExpr>(Op))
           PrintConstantExpr(OS, CE);
 
-    // Report the information about the value produced by the instruction.
-    bool ExpectPointerInfo =
-        isTypeOfInterest(V->getType()) || isa<PtrToIntInst>(V);
-
     // The value is being produced by an instruction, so can use
     // getValueTypeInfo, without checking if it is 'null'/'undef' here.
+    bool ExpectPointerInfo = ValueShouldHaveInfo(V);
     auto *Info = Analyzer.getValueTypeInfo(V);
     if (ExpectPointerInfo && !Info) {
       OS << "\n;    <NO PTR INFO AVAILABLE>\n";
@@ -1218,6 +1235,23 @@ public:
         SetPartialPointerUse({PrimaryPHI, PartnerPHI, GEPUser, PartnerGEP});
       }
     }
+  }
+
+  // Return 'true' if the Value may be tracked as a pointer type.
+  bool isValueOfInterest(Value *V) {
+    llvm::Type *Ty = V->getType();
+    if (dtrans::hasPointerType(Ty))
+      return true;
+
+    if (!isCompilerConstant(V)) {
+      // Check if the operand is derived from a pointer type, such as a PtrToInt
+      // operator of a global variable.
+      ValueTypeInfo *Info = PTA.getValueTypeInfo(V);
+      if (Info && !Info->empty())
+        return true;
+    }
+
+    return false;
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
@@ -3821,6 +3855,12 @@ private:
       }
       return true;
     };
+
+    // No need to collect types when the result type does not contain pointers
+    // or was derived from pointers.
+    if (!isValueOfInterest(IV) &&
+        !isValueOfInterest(IV->getInsertedValueOperand()))
+      return;
 
     // Currently, only handle cases with a single index value and return
     // type { i8*, i32 }.

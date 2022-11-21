@@ -102,7 +102,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:     float [[VP_LOAD_2:%.*]] = load ptr [[VP_X_RED]]
-; CHECK-NEXT:     float [[VP_EXCL_SCAN:%.*]] = running-exclusive-reduction float [[VP_LOAD_2]] float [[VP_INSCAN_ACCUM]] float 0.000000e+00
+; CHECK-NEXT:     float [[VP_EXCL_SCAN:%.*]] = running-exclusive-reduction{fadd} float [[VP_LOAD_2]] float [[VP_INSCAN_ACCUM]] float 0.000000e+00
 ; CHECK-NEXT:     store float [[VP_EXCL_SCAN]] ptr [[VP_X_RED]]
 ; CHECK-NEXT:     float [[VP7:%.*]] = extract-last-vector-lane float [[VP_EXCL_SCAN]]
 ; CHECK-NEXT:     float [[VP8:%.*]] = extract-last-vector-lane float [[VP_LOAD_2]]

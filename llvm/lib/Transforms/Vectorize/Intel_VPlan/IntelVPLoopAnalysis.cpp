@@ -944,7 +944,19 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
     auto *Private = getLinkedInstruction<VPAllocatePrivate>(InscanRed);
 
     // Initalize the reduction with Identity value in the loop header.
+    Type *Ty = InscanRed->getRecurrenceType();
     VPValue *Identity = getReductionIdentity(InscanRed);
+    // Min/max inscan reduction will have start value in-memory.
+    if (!isa<VPConstant>(Identity)) {
+      assert(isa<PointerType>(Identity->getType()) &&
+             "Expected pointer type here.");
+      VPBasicBlock *Preheader = Loop.getLoopPreheader();
+      Builder.setInsertPointFirstNonPhi(Preheader);
+      Builder.setCurrentDebugLocation(
+          Preheader->getTerminator()->getDebugLocation());
+      VPLoadStoreInst *V = Builder.createLoad(Ty, Identity);
+      Identity = V;
+    }
     VPBasicBlock *Header = Loop.getHeader();
     Builder.setInsertPointFirstNonPhi(Header);
     Builder.setCurrentDebugLocation(
@@ -969,7 +981,6 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
 
     // Issue the running reduction instruction based on the inscan kind.
     // Generate load for running reduction instruction.
-    Type *Ty = InscanRed->getRecurrenceType();
     auto *InscanInput = Builder.createLoad(Ty, Private);
     unsigned BinOpcode = InscanRed->getReductionOpcode();
     bool IsInclusive =

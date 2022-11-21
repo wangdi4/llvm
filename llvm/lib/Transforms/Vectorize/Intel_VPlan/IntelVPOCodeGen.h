@@ -419,6 +419,10 @@ private:
   /// Vectorize extract last active vector lane instruction.
   Value *vectorizeExtractLastVectorLane(VPInstruction *VPInst);
 
+  /// Generate vector element-wise min/max instructions.
+  Value *generateMinMaxSequence(unsigned BinOpCode, Value *Op1, Value *Op2,
+                                FastMathFlags FMF);
+
   /// Vectorize blend instructions using selects.
   void vectorizeBlend(VPBlendInst *Blend);
 

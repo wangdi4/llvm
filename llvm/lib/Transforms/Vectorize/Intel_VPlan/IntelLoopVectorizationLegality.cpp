@@ -465,8 +465,9 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
          isEntityAliasingSafe(linearVals(), IsInstInRelevantScope);
 }
 
-void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
-                                                    RecurKind Kind) {
+void VPOVectorizationLegality::parseMinMaxReduction(
+    Value *RedVarPtr, RecurKind Kind,
+    Optional<InscanReductionKind> InscanRedKind) {
 
   // Analyzing some possible scenarios:
   // (1)
@@ -538,8 +539,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr,
                                              None /*InscanReductionKind*/};
   } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse))
-    InMemoryReductions[RedVarPtr] =
-      {Kind, None /*InscanReductionKind*/, ReductionUse};
+    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(
@@ -611,7 +611,7 @@ void VPOVectorizationLegality::addReduction(
 
   // TODO: Support min/max scan reductions as well.
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind)) {
-    parseMinMaxReduction(RedVarPtr, Kind);
+    parseMinMaxReduction(RedVarPtr, Kind, InscanRedKind);
     return;
   }
 
