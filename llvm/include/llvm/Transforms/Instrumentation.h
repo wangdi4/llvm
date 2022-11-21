@@ -45,12 +45,9 @@
 namespace llvm {
 
 class Triple;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 class ModulePass;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 7524db4d447aeee582291cb849174a052a62dfbc
 class OptimizationRemarkEmitter;
 class Comdat;
 class CallBase;
