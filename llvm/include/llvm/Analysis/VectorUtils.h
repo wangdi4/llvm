@@ -139,10 +139,17 @@ struct VFParameter {
     return VFParameter{Pos, VFParamKind::GlobalPredicate, 0, None};
   }
 
-  /// Is this a linear parameter?
+  /// Is this a non-reference linear parameter? This includes linear integral
+  /// parameters and linear pointers.
   bool isLinear() const {
     return ParamKind == VFParamKind::OMP_Linear ||
            ParamKind == VFParamKind::OMP_LinearPos;
+  }
+
+  /// Is this a linear reference parameter with ref modifier?
+  bool isLinearRef() const {
+    return ParamKind == VFParamKind::OMP_LinearRef ||
+           ParamKind == VFParamKind::OMP_LinearRefPos;
   }
 
   /// Is this a uniform parameter?
@@ -164,12 +171,14 @@ struct VFParameter {
   /// Is the stride for a linear parameter a uniform variable? (i.e.,
   /// the stride is stored in a variable but is uniform)
   bool isVariableStride() const {
-    return ParamKind == VFParamKind::OMP_LinearPos;
+    return ParamKind == VFParamKind::OMP_LinearPos ||
+           ParamKind == VFParamKind::OMP_LinearRefPos;
   }
 
   /// Is the stride for a linear parameter a compile-time constant?
   bool isConstantStrideLinear() const {
-    return ParamKind == VFParamKind::OMP_Linear;
+    return ParamKind == VFParamKind::OMP_Linear ||
+           ParamKind == VFParamKind::OMP_LinearRef;
   }
 
   /// Is the stride for a linear variable non-unit stride?

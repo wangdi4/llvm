@@ -175,7 +175,7 @@ class VecCloneImpl {
     void disableLoopUnrolling(BasicBlock *Latch);
 
 #if INTEL_CUSTOMIZATION
-    /// Filter out unsupported R/U/L encodings.
+    /// Filter out unsupported U/L encodings.
     /// Can be removed once these encodings are supported.
     void filterUnsupportedVectorVariants(Module &M,
                                          SmallVector<Function *, 8> &DiagList,

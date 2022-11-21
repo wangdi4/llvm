@@ -4521,7 +4521,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         auto *IndFinalLval =
             Start->getSymbase() == ConstantSymbase ? nullptr : Start->clone();
         HLInst *LastValInst = HLNodeUtilities.createBinaryHLInst(
-            static_cast<Instruction::BinaryOps>(Opc), Start, MulRef,
+            static_cast<Instruction::BinaryOps>(Opc), Start, MulRef->clone(),
             "ind.final", IndFinalLval);
         addInstUnmasked(LastValInst);
         LastValue = LastValInst->getLvalDDRef()->clone();
