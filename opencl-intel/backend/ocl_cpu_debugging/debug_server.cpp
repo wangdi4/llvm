@@ -673,7 +673,11 @@ void DebugServer::DebugServerImpl::TerminateCommunicator() {
 
 DebugServer::DebugServer() : d(new DebugServerImpl) {}
 
-DebugServer::~DebugServer() {}
+DebugServer::~DebugServer() {
+  if (e) {
+    CloseHandle(e);
+  }
+}
 
 bool DebugServer::Init(unsigned int port_number) {
   std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
@@ -686,12 +690,10 @@ bool DebugServer::Init(unsigned int port_number) {
   d->m_comm = new DebugCommunicator(port_num);
   // On Windows, as part of the handshake with the MSVC plugin, we send a
   // Windows event when the server starts listening on the port.
-  //
   static const char *EVENT_NAME_PREFIX = "icldbgevent_";
-
   d->m_comm->waitForListen();
   string eventName = EVENT_NAME_PREFIX + get_my_pid_string();
-  HANDLE e = CreateEventA(0, false, false, eventName.c_str());
+  e = CreateEventA(0, false, false, eventName.c_str());
   SetEvent(e);
 
   DEBUG_SERVER_LOG("Server waiting for connection on port " +
