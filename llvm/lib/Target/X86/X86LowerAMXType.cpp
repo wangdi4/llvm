@@ -311,7 +311,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AMX_AVX512
   case Intrinsic::x86_tcvtrowps2pbf16he_internal:
   case Intrinsic::x86_tcvtrowps2pbf16hi_internal:
   case Intrinsic::x86_tcvtrowps2pbf16le_internal:
@@ -327,7 +327,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     Col = II->getArgOperand(1);
     break;
   }
-#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#endif // INTEL_FEATURE_ISA_AMX_AVX512
   }
 
   return std::make_pair(Row, Col);
