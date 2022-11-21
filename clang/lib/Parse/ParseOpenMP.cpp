@@ -3684,17 +3684,14 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     // OpenMP 5.1, 2.3.6 dispatch Construct, Restrictions.
     // At most one novariants clause can appear on a dispatch directive.
     // At most one nocontext clause can appear on a dispatch directive.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     // Modeling this after similar clauses
     // At most one dataflow clause can appear on the directive.
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
     // OpenMP [5.1, error directive, Restrictions]
     // At most one message clause can appear on the directive
->>>>>>> 9d90cf2fca4446f5c227f6e3217e96c00665cb72
     if (!FirstClause) {
       Diag(Tok, diag::err_omp_more_one_clause)
           << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
