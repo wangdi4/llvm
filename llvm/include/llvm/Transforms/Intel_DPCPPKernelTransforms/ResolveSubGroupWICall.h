@@ -33,6 +33,8 @@ public:
   // Glue for old PM.
   bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
+  static bool isRequired() { return true; }
+
 private:
   Value *replaceGetSubGroupSize(Instruction *insertBefore, Value *VF,
                                 int32_t VD);

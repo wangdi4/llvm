@@ -30,6 +30,8 @@ public:
 
   bool runImpl(Module &M, RuntimeService &RTS);
 
+  static bool isRequired() { return true; }
+
 private:
   /// This module
   Module *M;

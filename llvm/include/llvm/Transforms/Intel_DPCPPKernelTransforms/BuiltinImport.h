@@ -29,6 +29,8 @@ public:
   /// Glue for old PM.
   bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
+  static bool isRequired() { return true; }
+
 private:
   using FuncVec = SmallVector<Function *, 8>;
 

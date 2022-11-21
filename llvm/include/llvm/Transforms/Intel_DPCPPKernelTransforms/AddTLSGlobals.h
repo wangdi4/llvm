@@ -24,6 +24,8 @@ public:
   // Glue for old PM.
   bool runImpl(Module &M, LocalBufferInfo *LBInfo, ImplicitArgsInfo *IAInfo);
 
+  static bool isRequired() { return true; }
+
 private:
   /// @brief Add updates to pLocalMemBase before and after each call instruction
   /// in the function

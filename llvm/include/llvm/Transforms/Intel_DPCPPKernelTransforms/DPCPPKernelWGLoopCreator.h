@@ -23,6 +23,8 @@ public:
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
+  static bool isRequired() { return true; }
+
 private:
   bool UseTLSGlobals;
 };

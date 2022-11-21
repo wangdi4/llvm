@@ -33,6 +33,8 @@ public:
   bool runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
                ImplicitArgsInfo *IAInfo, CallGraph *CG);
 
+  static bool isRequired() { return true; }
+
 private:
   /// Resolves work-item function calls of the kernel.
   /// \param F the function which needs work-item function calls to be resolved.

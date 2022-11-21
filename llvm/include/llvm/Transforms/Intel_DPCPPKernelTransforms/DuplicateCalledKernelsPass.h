@@ -30,6 +30,8 @@ public:
   bool runImpl(Module &M, CallGraph &CG, LocalBufferInfo &LBI);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+
+  static bool isRequired() { return true; }
 };
 
 class DuplicateCalledKernelsLegacy : public ModulePass {
