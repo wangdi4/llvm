@@ -148,6 +148,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86SplitLongBlockPassPass(PR);
   initializeX86PreISelIntrinsicLoweringPass(PR);
   initializeX86StackRealignPass(PR);
+  initializeX86HeteroArchOptPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -513,8 +514,13 @@ void X86PassConfig::addIRPasses() {
   addPass(createX86LowerAMXIntrinsicsPass());
   addPass(createX86LowerAMXTypePass());
 
-  if (TM->getOptLevel() == CodeGenOpt::Aggressive)             // INTEL
-    insertPass(&ExpandVectorPredicationID, &X86InstCombineID); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (TM->getOptLevel() == CodeGenOpt::Aggressive) {
+    insertPass(&ExpandVectorPredicationID, &X86InstCombineID);
+    if (TM->Options.IntelAdvancedOptim)
+      insertPass(&ExpandVectorPredicationID, &X86HeteroArchOptID);
+  }
+#endif
 
   TargetPassConfig::addIRPasses();
 
