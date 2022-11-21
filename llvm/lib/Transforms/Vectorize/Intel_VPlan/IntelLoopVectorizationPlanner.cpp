@@ -30,6 +30,7 @@
 #include "IntelVPlanLCSSA.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanLoopExitCanonicalization.h"
+#include "IntelVPlanPatternMatch.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
@@ -40,6 +41,8 @@
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
+
+using namespace llvm::PatternMatch;
 
 #if INTEL_CUSTOMIZATION
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
@@ -130,6 +133,10 @@ static LoopVPlanDumpControl
 static LoopVPlanDumpControl
     BlendWithSafeValueDumpControl("blend-with-safe-value",
                                  "blend integer div/rem with safe value");
+
+static LoopVPlanDumpControl
+    EarlyPeepholeDumpControl("early-peephole",
+                             "Peephole transformation before predicator");
 
 // The following two options are used together to temporarily disable
 // vectorization for loops that have both properties.
@@ -2535,4 +2542,59 @@ void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
   };
 
   transformAllVPlans(ProcessVPlan);
+}
+
+void LoopVectorizationPlanner::runPeepholeBeforePredicator() {
+
+  auto ProcessPlan = [](VPlan &Plan) -> void {
+    SmallVector<VPInstruction *, 4> InstToRemove;
+
+    auto ReplaceTruncZExtByAnd = [&InstToRemove,
+                                  &Plan](VPInstruction &Inst) -> bool {
+      // Perform the following transformation
+      //   %t = trunc ty1 %op to ty2
+      //   %r = zext %t to ty1
+      // ==>
+      //   %r = and ty1 %op, ty2 all_ones
+      //
+      VPInstruction *TruncI = nullptr, *Operand = nullptr;
+      if (!match(&Inst, m_ZExt(m_Bind(TruncI))) ||
+          !match(TruncI, m_Trunc(m_Bind(Operand))))
+        return false;
+      if (TruncI->getNumUsers() != 1)
+        return false;
+      if (Operand->getType() != Inst.getType())
+        return false;
+      // We don't check postdomination due to that is not needed. E.g. even we
+      // have something like below we can safely replace ZExt by And, we will
+      // just have masked And and all uses of ZExt are under the same mask.
+      //
+      // %t = trunc typeOf_v %v to someTy
+      // if (%cond)
+      //   %r = zext SomeTy %t to typeOf_v
+      //
+      VPBuilder Builder;
+      Builder.setInsertPoint(&Inst);
+      int64_t Width = TruncI->getType()->getPrimitiveSizeInBits();
+      int64_t V = (1 << Width) - 1;
+      VPInstruction *AndI = Builder.createAnd(
+          Operand, Plan.getVPConstant(ConstantInt::get(Operand->getType(), V)));
+      AndI->setDebugLocation(Inst.getDebugLocation());
+      Inst.replaceAllUsesWith(AndI);
+      InstToRemove.push_back(&Inst); // Need first to remove the use
+      InstToRemove.push_back(TruncI);
+      return true;
+    };
+
+    for (auto &Inst : vpinstructions(&Plan)) {
+      if (ReplaceTruncZExtByAnd(Inst))
+        continue; // looks weird at the moment, leaving for further adding
+    }
+    for (auto *Inst : InstToRemove) {
+      Inst->getParent()->eraseInstruction(Inst);
+    }
+    VPLAN_DUMP(EarlyPeepholeDumpControl, Plan);
+  };
+
+  transformAllVPlans(ProcessPlan);
 }

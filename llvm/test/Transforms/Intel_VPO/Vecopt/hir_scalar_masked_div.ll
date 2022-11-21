@@ -37,7 +37,7 @@ define void @foo(i64* noalias %lp1, i64* noalias %lp2, i64 noundef %n1) {
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      [[DOTUNIFLOAD0]] = ([[LP10:%.*]])[0]
 ; CHECK-NEXT:        |   }
-; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = zext.<2 x i8>.<2 x i64>([[DOTUNIFLOAD0]])
+; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[DOTUNIFLOAD0]]  &  255
 ; CHECK-NEXT:        |   [[TMP1:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC10]])
 ; CHECK-NEXT:        |   [[CMP30:%.*]] = [[TMP1]] != 0
 ; CHECK-NEXT:        |   [[DOTSCAL0:%.*]] = undef
