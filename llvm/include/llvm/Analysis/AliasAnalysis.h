@@ -706,6 +706,11 @@ public:
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc, DominatorTree *DT,
                                 AAQueryInfo &AAQIP);
+#if INTEL_COLLAB
+  ModRefInfo getDirectiveModRefInfo(const CallBase *Call,
+                                    const MemoryLocation &Loc,
+                                    AAQueryInfo &AAQI);
+#endif // INTEL_COLLAB
   MemoryEffects getMemoryEffects(const CallBase *Call, AAQueryInfo &AAQI);
 
 private:
