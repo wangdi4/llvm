@@ -2018,18 +2018,12 @@ bool VectorCombine::run() {
       MadeChange |= scalarizeBinopOrCmp(I);
       MadeChange |= scalarizeLoadExtract(I);
     }
-<<<<<<< HEAD
-    MadeChange |= scalarizeBinopOrCmp(I);
-    MadeChange |= scalarizeLoadExtract(I);
 #if INTEL_CUSTOMIZATION
-      // Need put all the customized functions in front of
-      // foldSingleElementStore since it may erase 'I'.
-      MadeChange |= foldVLSInsert(I);
+    // Need put all the customized functions in front of
+    // foldSingleElementStore since it may erase 'I'.
+    MadeChange |= foldVLSInsert(I);
 #endif // INTEL_CUSTOMIZATION
-      MadeChange |= foldSingleElementStore(I);
-=======
     MadeChange |= foldSingleElementStore(I);
->>>>>>> 87debdadaf18f8a5c7e5d563889e10731dc3554d
   };
   for (BasicBlock &BB : F) {
     // Ignore unreachable basic blocks.
