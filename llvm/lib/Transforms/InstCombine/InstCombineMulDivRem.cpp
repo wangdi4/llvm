@@ -197,7 +197,7 @@ static Value *foldMulShl1(BinaryOperator &Mul, bool CommuteOperands,
   if (match(Y, m_OneUse(m_Not(m_OneUse(m_Shl(m_AllOnes(), m_Value(Z))))))) {
     Value *FrX = Builder.CreateFreeze(X, X->getName() + ".fr");
     Value *Shl = Builder.CreateShl(FrX, Z, "mulshl");
-    return Builder.CreateAdd(Shl, FrX, Mul.getName());
+    return Builder.CreateSub(Shl, FrX, Mul.getName());
   }
 
   return nullptr;
