@@ -368,10 +368,11 @@ static void convertToRef(const char *from[width::OCL_VERSIONS],
 
 void BuiltinKeeper::addExceptionToWIFunctions(const StringArray &names,
                                               TypePrimitiveEnum ty) {
-  width::V vwidths[] = {width::TWO, width::THREE, width::FOUR, width::EIGHT,
-                        width::SIXTEEN};
+  const static width::V vwidths[] = {width::TWO, width::THREE, width::FOUR,
+                                     width::EIGHT, width::SIXTEEN};
+  const static width::V ScalarWidth = width::SCALAR;
   VWidthArray arrVWidth(vwidths);
-  VWidthArray arrScalarWidth(width::SCALAR);
+  VWidthArray arrScalarWidth(ScalarWidth);
   Cartesian<llvm::ArrayRef, llvm::StringRef, TypePrimitiveEnum> namesXTy(
       names, PrimitiveArray(ty));
 
