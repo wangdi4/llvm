@@ -43,35 +43,20 @@ entry:
 ; OPAQUE:           define void @foo(ptr addrspace(1) %pInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,
 ; CHECK-NEXT:   entry:
 ; NONOPAQUE-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; NONOPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)**
-; NONOPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load i32 addrspace(3)*, i32 addrspace(3)** [[VAR1]]
+; NONOPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
+; NONOPAQUE-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR1]], align 4
 ; OPAQUE-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; OPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast ptr addrspace(3) [[VAR0]] to ptr
-; OPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load ptr addrspace(3), ptr [[VAR1]]
-
-
-; NONOPAQUE-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR2]], align 4
-; NONOPAQUE-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %pInt
-; OPAQUE-NEXT:   %dummyInt = load i32, ptr addrspace(3) [[VAR2]], align 4
-; OPAQUE-NEXT:   store i32 %dummyInt, ptr addrspace(1) %pInt
-; CHECK-NEXT:   ret void
+; OPAQUE-NEXT:   %dummyInt = load i32, ptr addrspace(3) [[VAR0]], align 4
 
 
 ; NONOPAQUE:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16,
 ; OPAQUE:           define void @bar(ptr addrspace(1) %pInt4, ptr addrspace(1) %pLong16,
 ; CHECK-NEXT:   entry:
 ; NONOPAQUE-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; NONOPAQUE-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR10]] to <16 x i64> addrspace(3)**
-; NONOPAQUE-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = load <16 x i64> addrspace(3)*, <16 x i64> addrspace(3)** [[VAR11]]
+; NONOPAQUE-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR10]] to <16 x i64> addrspace(3)*
+; NONOPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR11]], align 128
 ; OPAQUE-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; OPAQUE-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = addrspacecast ptr addrspace(3) [[VAR10]] to ptr
-; OPAQUE-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = load ptr addrspace(3), ptr [[VAR11]]
-
-; NONOPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR12]], align 128
-; NONOPAQUE-NEXT:   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
-; OPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, ptr addrspace(3) [[VAR12]], align 128
-; OPAQUE-NEXT:   store <16 x i64> %dummyLong16, ptr addrspace(1) %pLong16
-; CHECK-NEXT:   ret void
+; OPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, ptr addrspace(3) [[VAR10]], align 128
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

@@ -15,15 +15,12 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 define void @main_kernel() {
 entry:
 ; NONOPAQUE: %LocalMemBase = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8
-; NONOPAQUE: %0 = getelementptr i8, i8 addrspace(3)* %LocalMemBase, i32 0
-; NONOPAQUE: %1 = addrspacecast i8 addrspace(3)* %0 to i32 addrspace(3)**
-; NONOPAQUE: %2 = load i32 addrspace(3)*, i32 addrspace(3)** %1, align 8
-; NONOPAQUE: store i32 1, i32 addrspace(3)* %2, align 4
+; NONOPAQUE: [[GEP:%[0-9]+]] = getelementptr i8, i8 addrspace(3)* %LocalMemBase, i32 0
+; NONOPAQUE: [[BC:%[0-9]+]] = bitcast i8 addrspace(3)* [[GEP]] to i32 addrspace(3)*
+; NONOPAQUE: store i32 1, i32 addrspace(3)* [[BC]], align 4
 ; OPAQUE:    %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8
-; OPAQUE:    %0 = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
-; OPAQUE:    %1 = addrspacecast ptr addrspace(3) %0 to ptr
-; OPAQUE:    %2 = load ptr addrspace(3), ptr %1, align 8
-; OPAQUE:    store i32 1, ptr addrspace(3) %2, align 4
+; OPAQUE:    [[GEP:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
+; OPAQUE:    store i32 1, ptr addrspace(3) [[GEP]], align 4
   store i32 1, i32 addrspace(3)* @main_kernel.local_arr, align 4
   ret void
 }

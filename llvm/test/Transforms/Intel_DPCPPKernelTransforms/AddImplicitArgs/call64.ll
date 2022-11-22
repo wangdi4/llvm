@@ -80,10 +80,8 @@ entry:
 ; CHECK-NONOPAQUE:          {}* noalias %RuntimeHandle) {
 ; CHECK-OPAQUE:             ptr noalias %RuntimeHandle) {
 ; CHECK-NEXT:             entry:
-; CHECK-NONOPAQUE-NEXT:   %LocalMem_functionWithoutArgs = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-OPAQUE-NEXT:      %LocalMem_functionWithoutArgs = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; CHECK-NONOPAQUE-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* noalias %LocalMem_functionWithoutArgs,
-; CHECK-OPAQUE-NEXT:      call void @functionWithoutArgs(ptr addrspace(3) noalias %LocalMem_functionWithoutArgs,
+; CHECK-NONOPAQUE-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMemBase,
+; CHECK-OPAQUE-NEXT:      call void @functionWithoutArgs(ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK-NONOPAQUE:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim,
 ; CHECK-OPAQUE:             ptr noalias %pWorkDim,
 ; CHECK-NONOPAQUE:          i64* noalias %pWGId,
@@ -93,11 +91,9 @@ entry:
 ; CHECK-OPAQUE:             ptr noalias %pSpecialBuf,
 ; CHECK-NONOPAQUE:          {}* noalias %RuntimeHandle)
 ; CHECK-OPAQUE:             ptr noalias %RuntimeHandle)
-; CHECK-NONOPAQUE-NEXT:   %LocalMem_functionWithArgs = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-OPAQUE-NEXT:      %LocalMem_functionWithArgs = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
 ; CHECK-NEXT:             [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y,
-; CHECK-NONOPAQUE:          i8 addrspace(3)* noalias %LocalMem_functionWithArgs,
-; CHECK-OPAQUE:             ptr addrspace(3) noalias %LocalMem_functionWithArgs,
+; CHECK-NONOPAQUE:          i8 addrspace(3)* noalias %pLocalMemBase,
+; CHECK-OPAQUE:             ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK-NONOPAQUE:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim,
 ; CHECK-OPAQUE:             ptr noalias %pWorkDim,
 ; CHECK-NONOPAQUE:          i64* noalias %pWGId,

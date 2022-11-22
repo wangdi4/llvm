@@ -71,13 +71,11 @@
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: SGSizeAnalysisPass
 ; CHECK:      Invalidating analysis: DataPerBarrierAnalysis
 ; CHECK:      Invalidating analysis: WIRelatedValueAnalysis
 ; CHECK:      Invalidating analysis: DataPerValueAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass

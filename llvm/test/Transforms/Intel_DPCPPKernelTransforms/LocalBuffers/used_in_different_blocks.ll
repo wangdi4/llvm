@@ -17,21 +17,18 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 define void @kernel(i64 addrspace(1)* %arrayidx, i1 %condition) {
 ; CHECK-LABEL: entry:
 ; NONOPAQUE: [[LOCAL_MEM_PTR:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; NONOPAQUE-NEXT: [[GEP_ASC:%.*]] = addrspacecast i8 addrspace(3)* [[LOCAL_MEM_PTR]] to [3 x i8] addrspace(3)**
-; NONOPAQUE-NEXT: [[A_LOCAL_PTR:%.*]] = load [3 x i8] addrspace(3)*, [3 x i8] addrspace(3)** [[GEP_ASC]], align 8
+; NONOPAQUE-NEXT: [[BC:%.*]] = bitcast i8 addrspace(3)* [[LOCAL_MEM_PTR]] to [3 x i8] addrspace(3)*
 ; OPAQUE: [[LOCAL_MEM_PTR:%.*]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; OPAQUE-NEXT: [[GEP_ASC:%.*]] = addrspacecast ptr addrspace(3) [[LOCAL_MEM_PTR]] to ptr
-; OPAQUE-NEXT: [[A_LOCAL_PTR:%.*]] = load ptr addrspace(3), ptr [[GEP_ASC]], align 8
 entry:
   br i1 %condition, label %if, label %else
 
 ; CHECK-LABEL: if:
-; NONOPAQUE: [[IF_GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[A_LOCAL_PTR]], i64 0, i64 1
+; NONOPAQUE: [[IF_GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[BC]], i64 0, i64 1
 ; NONOPAQUE-NEXT: [[IF_PTRTOINT1:%.*]] = ptrtoint i8 addrspace(3)* [[IF_GEP1]] to i64
-; NONOPAQUE: [[IF_PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[A_LOCAL_PTR]] to i64
-; OPAQUE: [[IF_GEP1:%.*]] = getelementptr inbounds [3 x i8], ptr addrspace(3) [[A_LOCAL_PTR]], i64 0, i64 1
+; NONOPAQUE-NEXT: [[IF_PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[BC]] to i64
+; OPAQUE: [[IF_GEP1:%.*]] = getelementptr inbounds [3 x i8], ptr addrspace(3) [[LOCAL_MEM_PTR]], i64 0, i64 1
 ; OPAQUE-NEXT: [[IF_PTRTOINT1:%.*]] = ptrtoint ptr addrspace(3) [[IF_GEP1]] to i64
-; OPAQUE: [[IF_PTRTOINT:%.*]] = ptrtoint ptr addrspace(3) [[A_LOCAL_PTR]] to i64
+; OPAQUE: [[IF_PTRTOINT:%.*]] = ptrtoint ptr addrspace(3) [[LOCAL_MEM_PTR]] to i64
 ; CHECK-NEXT: [[IF_SUB:%.*]] = sub i64 [[IF_PTRTOINT1]], [[IF_PTRTOINT]]
 ; NONOPAQUE-NEXT: store i64 [[IF_SUB]], i64 addrspace(1)* %arrayidx, align 8
 ; OPAQUE-NEXT: store i64 [[IF_SUB]], ptr addrspace(1) %arrayidx, align 8
@@ -40,12 +37,12 @@ if:
   ret void
 
 ; CHECK-LABEL: else:
-; NONOPAQUE: [[ELSE_GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[A_LOCAL_PTR]], i64 0, i64 1
+; NONOPAQUE: [[ELSE_GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[BC]], i64 0, i64 1
 ; NONOPAQUE-NEXT: [[ELSE_PTRTOINT1:%.*]] = ptrtoint i8 addrspace(3)* [[ELSE_GEP1]] to i64
-; NONOPAQUE: [[ELSE_PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[A_LOCAL_PTR]] to i64
-; OPAQUE: [[ELSE_GEP1:%.*]] = getelementptr inbounds [3 x i8], ptr addrspace(3) [[A_LOCAL_PTR]], i64 0, i64 1
+; NONOPAQUE: [[ELSE_PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[BC]] to i64
+; OPAQUE: [[ELSE_GEP1:%.*]] = getelementptr inbounds [3 x i8], ptr addrspace(3) [[LOCAL_MEM_PTR]], i64 0, i64 1
 ; OPAQUE-NEXT: [[ELSE_PTRTOINT1:%.*]] = ptrtoint ptr addrspace(3) [[ELSE_GEP1]] to i64
-; OPAQUE: [[ELSE_PTRTOINT:%.*]] = ptrtoint ptr addrspace(3) [[A_LOCAL_PTR]] to i64
+; OPAQUE: [[ELSE_PTRTOINT:%.*]] = ptrtoint ptr addrspace(3) [[LOCAL_MEM_PTR]] to i64
 ; CHECK-NEXT: [[ELSE_SUB:%.*]] = sub i64 [[ELSE_PTRTOINT1]], [[ELSE_PTRTOINT]]
 ; NONOPAQUE-NEXT: store i64 [[ELSE_SUB]], i64 addrspace(1)* %arrayidx, align 8
 ; OPAQUE-NEXT: store i64 [[ELSE_SUB]], ptr addrspace(1) %arrayidx, align 8

@@ -150,7 +150,6 @@
 
 ; CHECK:      Running pass: AddImplicitArgsPass
 ; CHECK:      Running analysis: CallGraphAnalysis
-; CHECK:      Running analysis: LocalBufferAnalysis
 ; CHECK:      Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis

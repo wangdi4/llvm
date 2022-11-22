@@ -93,8 +93,7 @@ void clKernelLocalMemSizeQueryTest() {
       << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(cl_ulong))
       << "Wrong buffer data size returned";
-  /* OpenCL LocalBuffAnalysis pass adjusts size to maximum align. */
-  ASSERT_EQ(128, kernelLocalMemSize) << "Wrong kernelLocalMemSize returned";
+  ASSERT_EQ(4, kernelLocalMemSize) << "Wrong kernelLocalMemSize returned";
 
   /* Set arguments. */
   status = clSetKernelArg(krnl, 1, 100, NULL);
@@ -108,7 +107,7 @@ void clKernelLocalMemSizeQueryTest() {
       << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(cl_ulong))
       << "Wrong buffer data size returned";
-  ASSERT_EQ(228, kernelLocalMemSize) << "Wrong kernelLocalMemSize returned";
+  ASSERT_EQ(104, kernelLocalMemSize) << "Wrong kernelLocalMemSize returned";
 
   status = clSetKernelArg(krnl, 2, 200, NULL);
   ASSERT_OCL_SUCCESS(status, "clSetKernelArg");
@@ -121,7 +120,7 @@ void clKernelLocalMemSizeQueryTest() {
       << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
   ASSERT_EQ(param_value_size_ret, sizeof(cl_ulong))
       << "Wrong buffer data size returned";
-  ASSERT_EQ(428, kernelLocalMemSize) << "Wrong kernelLocalMemSize returned";
+  ASSERT_EQ(304, kernelLocalMemSize) << "Wrong kernelLocalMemSize returned";
   /* Release stuff. */
   clReleaseKernel(krnl);
   clReleaseProgram(prg);
