@@ -391,8 +391,8 @@ void WGLoopBoundariesImpl::collectBlockData(BasicBlock *BB) {
       if (!Callee || !Callee->isDeclaration() ||
           isWorkGroupDivergent(Callee->getName()) || TIDs.count(CI)) {
         Uni[I] = false;
-        LLVM_DEBUG(dbgs() << "Callee " << Callee->getName()
-                          << " is not uniform\n");
+        LLVM_DEBUG(if (Callee) dbgs()
+                   << "Callee " << Callee->getName() << " is not uniform\n");
         continue;
       }
 
