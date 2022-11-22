@@ -16,19 +16,12 @@
 # Variables for LLVM libraries
 set(VALIDATIONS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  # 32 bit
-  set(PLATFORM 32)
-else()
-  # 64 bit
+if(BUILD_X64)
   set(PLATFORM 64)
-endif()
-
-# icc environment variables
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set(ICC_PLATFORM ia32)
-else()
   set(ICC_PLATFORM intel64)
+else()
+  set(PLATFORM 32)
+  set(ICC_PLATFORM ia32)
 endif()
 
 # To be sure that ICC compiler uses the correct presentation of 80-bit long

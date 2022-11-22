@@ -629,10 +629,10 @@ add_subdirectory(shared)
 # algorithm from compiler-rt for soft types
 add_subdirectory(soft_math)
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set(MINIMAL_SUFFIX n8)
-else()
+if(BUILD_X64)
   set(MINIMAL_SUFFIX h8)
+else()
+  set(MINIMAL_SUFFIX n8)
 endif()
 
 set(RTL_MINIMAL

@@ -25,13 +25,11 @@ if(WIN32)
 
   project(${TARGET_NAME})
 
-  if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # 32 bit
-    set(PLATFORM 32)
-  else(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # 64 bit
+  if(BUILD_X64)
     set(PLATFORM 64)
-  endif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+  else()
+    set(PLATFORM 32)
+  endif()
 
   set(OCL_CPU_DEBUGGING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 

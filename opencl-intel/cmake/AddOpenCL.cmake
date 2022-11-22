@@ -21,11 +21,11 @@ set(OCL_TOOLS_BINARY_DIR ${OCL_BINARY_DIR}/bin)
 set(OCL_TESTS_BINARY_DIR ${OCL_BINARY_DIR}/tests)
 
 # Define architecture and OS suffix for output dirs
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set(OUTPUT_ARCH_SUFF "x86")
-else() # x64
+if(BUILD_X64)
   set(OUTPUT_ARCH_SUFF "x64")
-endif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+else()
+  set(OUTPUT_ARCH_SUFF "x86")
+endif(BUILD_X64)
 
 # Define output install path for the emulator if needed
 set(OUTPUT_EMU_SUFF "emu")

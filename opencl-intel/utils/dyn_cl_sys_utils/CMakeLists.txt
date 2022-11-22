@@ -30,14 +30,14 @@ calculate_target_sources()
 set_unicode_off()
 
 # Include the ASM sources
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(BUILD_X64)
   if(WIN32)
     create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST
                      ../cl_sys_utils/kernel_execute_64.asm)
   else(WIN32)
     set(UTILS_ASM_ADD_TO_SOURCES_LIST ../cl_sys_utils/linux64_utils.s)
   endif(WIN32)
-endif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+endif()
 
 include(itt)
 

@@ -13,8 +13,8 @@
 # implied warranties, other than those that are expressly stated in the License.
 #
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  create_target(core2 v8 ssse3 TRUE)
-else()
+if(BUILD_X64)
   create_target(core2 u8 ssse3 TRUE)
-endif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+else()
+  create_target(core2 v8 ssse3 TRUE)
+endif()
