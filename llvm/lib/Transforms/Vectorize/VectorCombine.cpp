@@ -2023,9 +2023,14 @@ bool VectorCombine::run() {
         break;
       }
     }
-    if (Opcode == Instruction::Store)
+    if (Opcode == Instruction::Store) {
+#if INTEL_CUSTOMIZATION
+      // Need put all the customized functions in front of
+      // foldSingleElementStore since it may erase 'I'.
+      MadeChange |= foldVLSInsert(I);
+#endif // INTEL_CUSTOMIZATION
       MadeChange |= foldSingleElementStore(I);
-
+    }
 
     // If this is an early pipeline invocation of this pass, we are done.
     if (TryEarlyFoldsOnly)
@@ -2065,21 +2070,6 @@ bool VectorCombine::run() {
         break;
       }
     }
-<<<<<<< HEAD
-    if (isa<FixedVectorType>(I.getType())) {
-      MadeChange |= vectorizeLoadInsert(I);
-      MadeChange |= widenSubvectorLoad(I);
-      MadeChange |= scalarizeBinopOrCmp(I);
-      MadeChange |= scalarizeLoadExtract(I);
-    }
-#if INTEL_CUSTOMIZATION
-    // Need put all the customized functions in front of
-    // foldSingleElementStore since it may erase 'I'.
-    MadeChange |= foldVLSInsert(I);
-#endif // INTEL_CUSTOMIZATION
-    MadeChange |= foldSingleElementStore(I);
-=======
->>>>>>> ede6d608f4a92ef508b91f0a37f5b9dc1de45f47
   };
 
   for (BasicBlock &BB : F) {
