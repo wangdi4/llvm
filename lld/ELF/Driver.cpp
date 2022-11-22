@@ -1534,7 +1534,7 @@ static void readConfigs(opt::InputArgList &args) {
     parallel::strategy = hardware_concurrency(1);
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
-  if (auto *arg = args.getLastArg(OPT_thinlto_jobs))
+  if (auto *arg = args.getLastArg(OPT_thinlto_jobs_eq))
     config->thinLTOJobs = arg->getValue();
   config->threadCount = parallel::strategy.compute_thread_count();
 
