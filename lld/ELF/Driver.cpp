@@ -1525,7 +1525,6 @@ static void readConfigs(opt::InputArgList &args) {
     parallel::strategy = hardware_concurrency(threads);
     config->thinLTOJobs = v;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
   // process in Windows unless the user specifies it. This is to avoid
@@ -1535,10 +1534,7 @@ static void readConfigs(opt::InputArgList &args) {
     parallel::strategy = hardware_concurrency(1);
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
-  if (auto *arg = args.getLastArg(OPT_thinlto_jobs))
-=======
   if (auto *arg = args.getLastArg(OPT_thinlto_jobs_eq))
->>>>>>> 4ba3c5d92f397ede5c8475802ad2edb2aa482373
     config->thinLTOJobs = arg->getValue();
   config->threadCount = parallel::strategy.compute_thread_count();
 
