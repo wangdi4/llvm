@@ -1,7 +1,7 @@
 //==--- MapIntrinToIml.cpp - Legalize svml calls and apply IMF -*- C++ -*---==//
 //                           attributes.
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1103,6 +1103,20 @@ static std::string scalarFPIntrinsicToFuncName(Intrinsic::ID IID, Type *T) {
   return Result;
 }
 
+// Convert the type of scalar math function to scalar SVML function, e.g. from
+// float (float) to <1 x float> (<1 x float>)
+static FunctionType *legalizeSVMLScalarFunctionType(FunctionType *FT) {
+  SmallVector<Type *, 8> NewArgTypes;
+  for (unsigned I = 0; I < FT->getNumParams(); I++)
+    NewArgTypes.push_back(
+        VectorType::get(FT->getParamType(I), ElementCount::getFixed(1)));
+
+  Type *ReturnType =
+      VectorType::get(FT->getReturnType(), ElementCount::getFixed(1));
+
+  return FunctionType::get(ReturnType, NewArgTypes, false);
+}
+
 bool MapIntrinToIml::runOnFunction(Function &F) {
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
@@ -1369,6 +1383,7 @@ bool MapIntrinToImlImpl::runImpl() {
   // Legalize scalar math function calls
   for (auto *ScalarCI : ScalarCallsToTranslate) {
     LLVM_DEBUG(dbgs() << "ScalarCI: "; ScalarCI->dump());
+    Builder.SetInsertPoint(ScalarCI);
     // TODO: Can scalar math functions have any prefixes/suffixes?
     Function *F = ScalarCI->getCalledFunction();
     std::string ScalarFuncName;
@@ -1398,19 +1413,44 @@ bool MapIntrinToImlImpl::runImpl() {
     // Don't perform replacement if variant is same as scalar function
     if (VariantFuncName.equals(ScalarFuncName))
       continue;
-    if (VariantFuncName.startswith("__svml"))
-      ScalarCI->setCallingConv(CallingConv::SVML);
+    Dirty = true; // Function call will be updated
 
     LLVM_DEBUG(dbgs() << "Input Scalar Math Function: " << ScalarFuncName
                       << "\n");
     LLVM_DEBUG(dbgs() << "Legalized Scalar Math Function: " << VariantFuncName
                       << "\n");
 
+    // If the math function is converted to a scalar SVML function (possibly via
+    // imf-use-svml), replace scalar type X in the function signature with
+    // <1 x X> to ensure consistency with SVML calls from remainder loops of
+    // vectorization.
+    if (VariantFuncName.startswith("__svml")) {
+      FunctionCallee FCache = M->getOrInsertFunction(
+          VariantFuncName,
+          legalizeSVMLScalarFunctionType(ScalarCI->getFunctionType()));
+
+      SmallVector<Value *, 2> VectorArgs;
+      for (Value *Arg : ScalarCI->args())
+        VectorArgs.push_back(Builder.CreateInsertElement(
+            UndefValue::get(
+                VectorType::get(Arg->getType(), ElementCount::getFixed(1))),
+            Arg, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0)));
+
+      CallInst *ScalarSVMLCall = Builder.CreateCall(FCache, VectorArgs);
+      ScalarSVMLCall->setCallingConv(CallingConv::SVML);
+
+      Value *Result = Builder.CreateExtractElement(
+          ScalarSVMLCall,
+          ConstantInt::get(Type::getInt32Ty(F->getContext()), 0));
+
+      ScalarCI->replaceAllUsesWith(Result);
+      InstToRemove.push_back(ScalarCI);
+      continue;
+    }
+
     FunctionCallee FCache =
         M->getOrInsertFunction(VariantFuncName, ScalarCI->getFunctionType());
     ScalarCI->setCalledFunction(FCache);
-    Dirty = true; // LLVM-IR is changed since function call is updated
-    LLVM_DEBUG(dbgs() << "ScalarCI after legalization: "; ScalarCI->dump());
   }
 
   // Remove the old math library calls since they have been replaced with the
