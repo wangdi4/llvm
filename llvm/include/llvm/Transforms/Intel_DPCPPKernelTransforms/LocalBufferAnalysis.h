@@ -24,36 +24,37 @@ class LocalBufferInfo {
 
 public:
   /// A set of local values used by a function
-  using TUsedLocals = SmallPtrSet<llvm::GlobalValue *, 16>;
+  using TUsedLocals = SmallPtrSet<GlobalVariable *, 16>;
 
   /// A mapping between function pointer and the set of local values the
   /// function uses directly.
   using TUsedLocalsMap = DenseMap<const llvm::Function *, TUsedLocals>;
 
-  LocalBufferInfo(Module *M, CallGraph *CG);
+  LocalBufferInfo(Module &M, CallGraph &CG);
   LocalBufferInfo(LocalBufferInfo &&Other);
   LocalBufferInfo &operator=(LocalBufferInfo &&Other);
   ~LocalBufferInfo();
 
-  /// Returns the set of local values used directly by the given function
-  /// \param F a function for which should return the local values that
-  /// were used by it directly.
-  /// \returns the set of local values used directly by the given function.
-  const TUsedLocals &getDirectLocals(Function *F);
+  void print(raw_ostream &OS);
 
   /// Returns the map from function to the set of local values the function
   /// uses directly.
   TUsedLocalsMap &getDirectLocalsMap();
 
-  /// Returns the size of local buffer used directly by the given function.
+  /// Returns the set of local values used directly by the given function
   /// \param F given function.
-  /// \returns the size of local buffer used directly by the given function.
-  size_t getDirectLocalsSize(Function *F);
+  const TUsedLocals &getDirectLocals(Function *F);
+
+  /// Compute size of the combined local buffer and offset of each local
+  /// variable.
+  void computeSize();
 
   /// Returns the size of local buffer used by the given function.
   /// \param F given function.
-  /// \returns the size of local buffer used by the given function.
-  size_t getLocalsSize(Function *F);
+  size_t getLocalsSize(Function *F) const;
+
+  /// Returns offset of a local variable within the combined local buffer.
+  size_t getLocalGVToOffset(GlobalVariable *GV) const;
 };
 
 /// Provide information about the local values each function uses directly.
@@ -68,6 +69,16 @@ public:
   typedef LocalBufferInfo Result;
 
   LocalBufferInfo run(Module &M, AnalysisManager<Module> &AM);
+};
+
+/// Printer pass for LocalBufferAnalysis.
+class LocalBufferAnalysisPrinter
+    : public PassInfoMixin<LocalBufferAnalysisPrinter> {
+  raw_ostream &OS;
+
+public:
+  explicit LocalBufferAnalysisPrinter(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 // Legacy wrapper pass to provide the LocalBufferInfo object.

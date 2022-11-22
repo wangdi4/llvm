@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBufferAnalysis.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
@@ -19,6 +20,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 
 using namespace llvm;
 
@@ -28,21 +30,29 @@ namespace llvm {
 
 class LocalBufferInfoImpl {
 public:
-  LocalBufferInfoImpl(Module *M, CallGraph *CG);
+  LocalBufferInfoImpl(Module &M, CallGraph &CG);
 
   using TUsedLocals = LocalBufferInfo::TUsedLocals;
   using TUsedLocalsMap = LocalBufferInfo::TUsedLocalsMap;
 
-  const TUsedLocals &getDirectLocals(Function *F) { return LocalUsageMap[F]; }
+  const TUsedLocals &getDirectLocals(Function *F) {
+    return DirectLocalUseMap[F];
+  }
 
-  TUsedLocalsMap &getDirectLocalsMap() { return LocalUsageMap; }
+  TUsedLocalsMap &getDirectLocalsMap() { return DirectLocalUseMap; }
 
-  size_t getDirectLocalsSize(Function *F) { return DirectLocalSizeMap[F]; }
+  void computeLocalsSizeOffset();
 
-  size_t getLocalsSize(Function *F) { return LocalSizeMap[F]; }
+  size_t getLocalsSize(Function *F) const { return LocalSizeMap.lookup(F); }
+
+  size_t getLocalGVToOffset(GlobalVariable *GV) const {
+    return LocalGVToOffsetMap.lookup(GV);
+  }
+
+  void print(raw_ostream &OS);
 
 private:
-  void analyze(CallGraph *CG);
+  void analyze();
 
   /// Adds the given local value to the set of used locals of all functions
   /// that are using the given user directly. It recursively searches the first
@@ -50,141 +60,167 @@ private:
   /// \param LocalVal local value (which is represented by a global value
   /// with address space 3).
   /// \param U direct user of pLocalVal.
-  void updateLocalsMap(GlobalValue *LocalVal, User *U);
+  void updateLocalsMap(GlobalVariable *LocalVal, User *U);
 
   /// Goes over all local values in the module and over all their direct users
   /// and maps between functions and the local values they use.
   /// \param M the module which need to go over its local values.
-  void updateDirectLocals(Module &M);
+  void updateDirectLocals();
 
-  /// calculate direct local sizes used by functions in the module.
-  void calculateDirectLocalsSize();
-
-  /// Iterate all functions in module by postorder traversal, and for each
-  /// function, add direct local sizes with the max size of local buffer needed
-  /// by all of callees.
-  void calculateLocalsSize(CallGraph *CG);
-
-  /// A mapping between function pointer and the local buffer size that the
-  /// function uses.
-  using TLocalSizeMap = DenseMap<Function *, size_t>;
+  /// Get the map from function to local variables which are directly or
+  /// indirectly used in the function.
+  void updateLocalUseMap();
 
   /// The llvm module this pass needs to update.
-  Module *M;
+  Module &M;
 
-  /// Map between function and the local values it uses directly.
-  TUsedLocalsMap LocalUsageMap;
+  CallGraph &CG;
 
-  /// Map between function and the local buffer size.
-  TLocalSizeMap LocalSizeMap;
+  /// Map between function pointer and the set of local values the
+  /// function uses directly.
+  DenseMap<const Function *, TUsedLocals> DirectLocalUseMap;
 
-  /// Map between function and the local buffer size for local values used
-  /// directly by this function.
-  TLocalSizeMap DirectLocalSizeMap;
+  /// Map between function pointer and the set of local values used in
+  /// the function's callgraph.
+  DenseMap<const Function *, TUsedLocals> LocalUseMap;
+
+  /// Map between kernel function and its local buffer size.
+  SmallDenseMap<Function *, size_t, 8> LocalSizeMap;
+
+  /// Map between local variable and its offset in containing kernel's local
+  /// buffer.
+  DenseMap<GlobalVariable *, size_t> LocalGVToOffsetMap;
 };
 
 } // namespace llvm
 
-LocalBufferInfoImpl::LocalBufferInfoImpl(Module *M, CallGraph *CG) : M(M) {
-  analyze(CG);
+LocalBufferInfoImpl::LocalBufferInfoImpl(Module &M, CallGraph &CG)
+    : M(M), CG(CG) {
+  analyze();
 }
 
-void LocalBufferInfoImpl::updateLocalsMap(GlobalValue *LocalVal, User *U) {
-  // Instruction, Operator and Constant are the only possible subtypes of U
-  if (isa<Instruction>(U)) {
-    Instruction *I = cast<Instruction>(U);
-
-    // declaring variables for debugging purposes shouldn't affect local
-    // buffers.
-    if (MDNode *mdn = I->getMetadata("dbg_declare_inst")) {
-      if (mdconst::extract<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
-        return;
+void LocalBufferInfoImpl::updateLocalsMap(GlobalVariable *LocalVal, User *U) {
+  for (auto It = df_begin(U), E = df_end(U); It != E;) {
+    if (auto *I = dyn_cast<Instruction>(*It)) {
+      // declaring variables for debugging purposes shouldn't affect local
+      // buffers.
+      if (MDNode *mdn = I->getMetadata("dbg_declare_inst")) {
+        if (mdconst::extract<ConstantInt>(mdn->getOperand(0))
+                ->isAllOnesValue()) {
+          ++It;
+          continue;
+        }
       }
+      // Add LocalVal to the set of local values used by F
+      Function *F = I->getFunction();
+      DirectLocalUseMap[F].insert(LocalVal);
+      LocalUseMap[F].insert(LocalVal);
+      It.skipChildren();
+      continue;
     }
-    // Parent of Instruction is BasicBlock
-    // Parent of BasicBlock is Function
-    Function *F = I->getFunction();
-    // Add LocalVal to the set of local values used by F
-    LocalUsageMap[F].insert(LocalVal);
-  } else if (isa<Constant>(U)) {
-    // Recursievly locate all Us of the constant value
-    for (auto It = U->user_begin(); It != U->user_end(); ++It) {
-      updateLocalsMap(LocalVal, *It);
-    }
-  } else {
-    // Operator is an internal llvm class, so we do not expect it to be a U
-    // of GlobalValue.
-    llvm_unreachable("Unexpected user type");
+    ++It;
   }
 }
 
-void LocalBufferInfoImpl::updateDirectLocals(Module &M) {
-  // Get a list of all the global values in the module
-  Module::GlobalListType &Globals = M.getGlobalList();
-
+void LocalBufferInfoImpl::updateDirectLocals() {
   // Find globals that appear in the origin kernel as local variables and add
   // update mapping accordingly
-  for (Module::GlobalListType::iterator It = Globals.begin(), E = Globals.end();
-       It != E; ++It) {
-    GlobalValue *Val = &*It;
-
-    const PointerType *TP = cast<PointerType>(Val->getType());
-    if (TP->getAddressSpace() != CompilationUtils::ADDRESS_SPACE_LOCAL) {
-      // LOCL_VALUE_ADDRESS_SPACE = '3' is a magic number for global variables
-      // that were in origin local kernel variable!
+  for (GlobalVariable &GV : M.globals()) {
+    if (cast<PointerType>(GV.getType())->getAddressSpace() !=
+        CompilationUtils::ADDRESS_SPACE_LOCAL)
       continue;
-    }
 
     // If we reached here, then Val is a global value that was originally a
     // local value.
-    for (GlobalValue::user_iterator UI = Val->user_begin(),
-                                    UE = Val->user_end();
-         UI != UE; ++UI) {
-      updateLocalsMap(Val, *UI);
-    }
-  } // Find globals done.
-}
-
-void LocalBufferInfoImpl::calculateDirectLocalsSize() {
-  DataLayout DL(M);
-  for (auto &F : *M) {
-    size_t DirectLocalSize = 0;
-
-    for (GlobalValue *LocalGV : LocalUsageMap[&F]) {
-      assert(LocalGV &&
-             "locals container contains something other than GlobalValue!");
-
-      // Calculate required buffer size.
-      size_t ArraySize = DL.getTypeAllocSize(LocalGV->getValueType());
-      assert(0 != ArraySize && "local buffer size is zero!");
-
-      // Advance total implicit size.
-      DirectLocalSize += ADJUST_SIZE_TO_MAXIMUM_ALIGN(ArraySize);
-    }
-
-    // Update direct local size of this function.
-    DirectLocalSizeMap[&F] = DirectLocalSize;
+    for (User *U : GV.users())
+      updateLocalsMap(&GV, U);
   }
 }
 
-void LocalBufferInfoImpl::calculateLocalsSize(CallGraph *CG) {
-  calculateDirectLocalsSize();
-  CompilationUtils::calculateMemorySizeWithPostOrderTraversal(
-      *CG, DirectLocalSizeMap, LocalSizeMap);
+/// Iterate all functions in module by postorder traversal. For each
+/// function, calculate local variables used.
+void LocalBufferInfoImpl::updateLocalUseMap() {
+  for (auto It = po_begin(&CG), E = po_end(&CG); It != E; ++It) {
+    Function *F = It->getFunction();
+    if (!F || F->isDeclaration() ||
+        WGBoundDecoder::isWGBoundFunction(F->getName()))
+      continue;
+    const CallGraphNode *N = CG[F];
+    for (auto Pair : *N) {
+      Function *Callee = Pair.second->getFunction();
+      if (!Callee || Callee->isDeclaration() ||
+          WGBoundDecoder::isWGBoundFunction(Callee->getName()))
+        continue;
+      if (auto MapIt = LocalUseMap.find(Callee); MapIt != LocalUseMap.end()) {
+        auto Copy = MapIt->second;
+        LocalUseMap[F].insert(Copy.begin(), Copy.end());
+      }
+    }
+  }
 }
 
-void LocalBufferInfoImpl::analyze(CallGraph *CG) {
-  LocalUsageMap.clear();
-  LocalSizeMap.clear();
-  DirectLocalSizeMap.clear();
+void LocalBufferInfoImpl::computeLocalsSizeOffset() {
+  DataLayout DL(&M);
+  for (Function *F : CompilationUtils::getKernels(M)) {
+    // Calculate total local buffer size.
+    size_t LocalSize = 0;
+    if (auto MapIt = LocalUseMap.find(F); MapIt != LocalUseMap.end()) {
+      for (auto *GV : MapIt->second) {
+        assert(!LocalGVToOffsetMap.count(GV) &&
+               "Global variable with local address space can't be used in two "
+               "kernels");
+        size_t ArraySize = DL.getTypeAllocSize(GV->getValueType());
+        assert(0 != ArraySize && "local buffer size is zero!");
+        Align A = GV->getAlign().valueOrOne();
+        LocalSize = alignTo(LocalSize, A);
+        LocalGVToOffsetMap[GV] = LocalSize;
+        LocalSize += ArraySize;
+      }
+    }
+    LocalSizeMap[F] = LocalSize;
 
-  // Initialize localUsageMap
-  updateDirectLocals(*M);
-
-  calculateLocalsSize(CG);
+    // Handle kernel with barrier path case, in which a local variable could
+    // still be shared between a kernel and its vectorized kernel. The local
+    // variable layout is the same between a kernel and its vectorized kernel.
+    // Need not to handle vectorized masked kernel because at this point masked
+    // kernel is already inlined.
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    if (auto *VectorizedF = KIMD.VectorizedKernel.hasValue()
+                                ? KIMD.VectorizedKernel.get()
+                                : nullptr)
+      LocalSizeMap[VectorizedF] = LocalSize;
+  }
 }
 
-LocalBufferInfo::LocalBufferInfo(Module *M, CallGraph *CG) {
+void LocalBufferInfoImpl::print(raw_ostream &OS) {
+  OS << "LocalBufferInfo\n";
+  OS.indent(2) << "Local variables used in kernel\n";
+  CompilationUtils::FuncSet Kernels = CompilationUtils::getAllKernels(M);
+  for (auto *F : Kernels) {
+    OS.indent(4) << F->getName() << "\n";
+    if (auto It = LocalUseMap.find(F); It != LocalUseMap.end()) {
+      for (auto *GV : It->second)
+        OS.indent(6) << GV->getName() << "\n";
+    }
+  }
+  computeLocalsSizeOffset();
+  OS.indent(2) << "Kernel local buffer size\n";
+  for (auto *F : Kernels)
+    OS.indent(4) << F->getName() << " : " << getLocalsSize(F) << "\n";
+  OS.indent(2)
+      << "Offset of local variable in containing kernel's local buffer\n";
+  for (auto &Pair : LocalGVToOffsetMap)
+    OS.indent(4) << Pair.first->getName() << " : " << Pair.second << "\n";
+}
+
+void LocalBufferInfoImpl::analyze() {
+  // Initialize DirectLocalUseMap.
+  updateDirectLocals();
+
+  updateLocalUseMap();
+}
+
+LocalBufferInfo::LocalBufferInfo(Module &M, CallGraph &CG) {
   Impl.reset(new LocalBufferInfoImpl(M, CG));
 }
 
@@ -199,33 +235,43 @@ LocalBufferInfo &LocalBufferInfo::operator=(LocalBufferInfo &&Other) {
 
 LocalBufferInfo::~LocalBufferInfo() = default;
 
-const LocalBufferInfo::TUsedLocals &
-LocalBufferInfo::getDirectLocals(Function *F) {
-  return Impl->getDirectLocals(F);
-}
+void LocalBufferInfo::print(raw_ostream &OS) { return Impl->print(OS); }
 
 LocalBufferInfo::TUsedLocalsMap &LocalBufferInfo::getDirectLocalsMap() {
   return Impl->getDirectLocalsMap();
 }
 
-size_t LocalBufferInfo::getDirectLocalsSize(Function *F) {
-  return Impl->getDirectLocalsSize(F);
+const LocalBufferInfo::TUsedLocals &
+LocalBufferInfo::getDirectLocals(Function *F) {
+  return Impl->getDirectLocals(F);
 }
 
-size_t LocalBufferInfo::getLocalsSize(Function *F) {
+void LocalBufferInfo::computeSize() { Impl->computeLocalsSizeOffset(); }
+
+size_t LocalBufferInfo::getLocalsSize(Function *F) const {
   return Impl->getLocalsSize(F);
+}
+
+size_t LocalBufferInfo::getLocalGVToOffset(GlobalVariable *GV) const {
+  return Impl->getLocalGVToOffset(GV);
+}
+
+LocalBufferInfo LocalBufferAnalysis::run(Module &M,
+                                         AnalysisManager<Module> &AM) {
+  CallGraph &CG = AM.getResult<CallGraphAnalysis>(M);
+  LocalBufferInfo WPAResult(M, CG);
+
+  return WPAResult;
+}
+
+PreservedAnalyses LocalBufferAnalysisPrinter::run(Module &M,
+                                                  ModuleAnalysisManager &MAM) {
+  MAM.getResult<LocalBufferAnalysis>(M).print(OS);
+  return PreservedAnalyses::all();
 }
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey LocalBufferAnalysis::Key;
-
-LocalBufferInfo LocalBufferAnalysis::run(Module &M,
-                                         AnalysisManager<Module> &AM) {
-  CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
-  LocalBufferInfo WPAResult(&M, CG);
-
-  return WPAResult;
-}
 
 INITIALIZE_PASS_BEGIN(LocalBufferAnalysisLegacy, DEBUG_TYPE,
                       "Provide local values analysis info", false, true)
@@ -240,8 +286,8 @@ LocalBufferAnalysisLegacy::LocalBufferAnalysisLegacy() : ModulePass(ID) {
 }
 
 bool LocalBufferAnalysisLegacy::runOnModule(Module &M) {
-  CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  LocalBufferInfo *LBAResult = new LocalBufferInfo(&M, CG);
+  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+  LocalBufferInfo *LBAResult = new LocalBufferInfo(M, CG);
 
   Result.reset(LBAResult);
 

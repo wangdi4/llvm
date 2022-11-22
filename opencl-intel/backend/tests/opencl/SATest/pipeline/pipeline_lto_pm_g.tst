@@ -144,7 +144,6 @@
 ; CHECK:      Running analysis: LoopWIAnalysis
 
 ; CHECK:      Running pass: AddTLSGlobalsPass
-; CHECK:      Running analysis: LocalBufferAnalysis
 ; CHECK:      Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis

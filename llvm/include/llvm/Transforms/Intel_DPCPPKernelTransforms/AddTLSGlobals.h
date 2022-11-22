@@ -22,20 +22,13 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, LocalBufferInfo *LBInfo, ImplicitArgsInfo *IAInfo);
+  bool runImpl(Module &M, ImplicitArgsInfo *IAInfo);
 
   static bool isRequired() { return true; }
 
 private:
-  /// @brief Add updates to pLocalMemBase before and after each call instruction
-  /// in the function
-  /// @param Func The function to handle
-  void runOnFunction(Function *Func);
-
   /// @brief The llvm module this pass needs to update
   Module *M;
-  /// @brief The LocalBuffAnalysis pass, on which the current pass depends
-  LocalBufferInfo *LBInfo;
 
   LLVMContext *Ctx;
   /// @brief Local memory pointer TLS global

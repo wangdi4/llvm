@@ -76,15 +76,9 @@ private:
   /// @brief help to find all compile units in the module
   DebugInfoFinder DIFinder;
 
-  /// @brief Store all kernels in the module
-  CompilationUtils::FuncSet KernelsFunctionSet;
-
   /// @brief stores all the DIGlobalVariableExpression's need to be removed
   ///        in DICompileUnit.globals
   SmallPtrSet<DIGlobalVariableExpression *, 4> GVEToRemove;
-
-  /// @brief stores all the GlobalVariable's need to be removed
-  SmallPtrSet<GlobalVariable *, 4> GVToRemove;
 };
 
 } // namespace llvm
