@@ -1040,6 +1040,7 @@ processInputModule(std::unique_ptr<Module> M) {
   // Top-level per-kernel/per-source splitter. SYCL/ESIMD splitting is applied
   // to modules resulting from all other kinds of splitting.
   std::unique_ptr<module_split::ModuleSplitterBase> ScopedSplitter =
+<<<<<<< HEAD
       module_split::getSplitterByMode(
           module_split::ModuleDesc{std::move(M)}, SplitMode, IROutputOnly,
 #if INTEL_COLLAB
@@ -1049,9 +1050,47 @@ processInputModule(std::unique_ptr<Module> M) {
 #endif // INTEL_COLLAB
   const bool SplitByScope = ScopedSplitter->totalSplits() > 1;
   Modified |= SplitByScope;
+=======
+      module_split::getSplitterByMode(module_split::ModuleDesc{std::move(M)},
+                                      SplitMode, IROutputOnly,
+                                      EmitOnlyKernelsAsEntryPoints);
+>>>>>>> 9a2c4fe579b1ad1d3b26878ab95aa0764c96a89e
 
+  SmallVector<module_split::ModuleDesc, 8> TopLevelModules;
+  bool SplitByOptionalFeatures = false;
+
+  // FIXME: this check should be performed on all split levels
   if (DeviceGlobals)
     ScopedSplitter->verifyNoCrossModuleDeviceGlobalUsage();
+
+  while (ScopedSplitter->hasMoreSplits()) {
+    module_split::ModuleDesc MD = ScopedSplitter->nextSplit();
+
+    if (IROutputOnly || SplitMode == module_split::SPLIT_NONE) {
+      // We can't perform any kind of split.
+      TopLevelModules.emplace_back(std::move(MD));
+      continue;
+    }
+
+    std::unique_ptr<module_split::ModuleSplitterBase> OptionalFeaturesSplitter =
+        module_split::getSplitterByOptionalFeatures(
+            std::move(MD), EmitOnlyKernelsAsEntryPoints);
+
+    // Here we perform second-level splitting based on device-specific
+    // features used/declared in entry points.
+    // This step is mandatory, because it is required for functional
+    // correctness, i.e. to prevent speculative compilation of kernels that use
+    // optional features on a HW which doesn't support them.
+    while (OptionalFeaturesSplitter->hasMoreSplits()) {
+      TopLevelModules.emplace_back(OptionalFeaturesSplitter->nextSplit());
+    }
+
+    SplitByOptionalFeatures |= OptionalFeaturesSplitter->totalSplits() > 1;
+  }
+
+  const bool SplitByScope = ScopedSplitter->totalSplits() > 1;
+  Modified |= SplitByScope;
+  Modified |= SplitByOptionalFeatures;
 
   // TODO this nested splitting scheme will not scale well when other split
   // "dimensions" will be added. Some infra/"split manager" needs to be
@@ -1060,6 +1099,7 @@ processInputModule(std::unique_ptr<Module> M) {
   // "leaf" ModuleDesc's resulted from splitting. Some bookkeeping is needed for
   // ESIMD splitter to link back needed modules.
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   bool OMPOffloadParallelCompile =
       (DoOmpOffload && ScopedSplitter->totalSplits() > 1);
@@ -1080,8 +1120,14 @@ processInputModule(std::unique_ptr<Module> M) {
   // Proceed with top-level splitting.
   while (ScopedSplitter->hasMoreSplits()) {
     module_split::ModuleDesc MDesc = ScopedSplitter->nextSplit();
+=======
+  // Based on results from the top-level splitting, we perform some lower-level
+  // splitting for various unique features.
+  for (module_split::ModuleDesc &MDesc : TopLevelModules) {
+>>>>>>> 9a2c4fe579b1ad1d3b26878ab95aa0764c96a89e
     DUMP_ENTRY_POINTS(MDesc.entries(), MDesc.Name.c_str(), 1);
 
+    // FIXME: large grf should be handled by properties splitter above
     std::unique_ptr<module_split::ModuleSplitterBase> LargeGRFSplitter =
         module_split::getLargeGRFSplitter(std::move(MDesc),
                                           EmitOnlyKernelsAsEntryPoints);
@@ -1156,7 +1202,9 @@ processInputModule(std::unique_ptr<Module> M) {
         DUMP_ENTRY_POINTS(MMs.back().entries(), MMs.back().Name.c_str(), 3);
         Modified = true;
       }
-      bool SplitOccurred = SplitByScope || SplitByLargeGRF || SplitByESIMD;
+
+      bool SplitOccurred = SplitByScope || SplitByLargeGRF || SplitByESIMD ||
+                           SplitByOptionalFeatures;
 
       if (IROutputOnly) {
         if (SplitOccurred) {
