@@ -373,7 +373,13 @@ let canFoldAsLoad = 1, isReMaterializable = 1 in
            Sched<[sched.RM]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 defm VMOVAPS : sse12_mov_packed<0x28, VR128, f128mem, alignedloadv4f32, "movaps",
                                 SSEPackedSingle, SchedWriteFMoveLS.XMM>,
                                 PS, VEX, VEX_WIG;
@@ -418,7 +424,13 @@ defm MOVUPD : sse12_mov_packed<0x10, VR128, f128mem, loadv2f64, "movupd",
                                PD;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX]  in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 let SchedRW = [SchedWriteFMoveLS.XMM.MR] in {
 def VMOVAPSmr : VPSI<0x29, MRMDestMem, (outs), (ins f128mem:$dst, VR128:$src),
                    "movaps\t{$src, $dst|$dst, $src}",
@@ -560,7 +572,13 @@ def : InstAlias<"movups.s\t{$src, $dst|$dst, $src}",
 def : InstAlias<"movupd.s\t{$src, $dst|$dst, $src}",
                 (MOVUPDrr_REV VR128:$dst, VR128:$src), 0>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   // 256-bit load/store need to use floating point load/store in case we don't
   // have AVX2. Execution domain fixing will convert to integer if AVX2 is
   // available and changing the domain is beneficial.
@@ -1245,11 +1263,23 @@ defm CVTSS2SI64 : sse12_cvt_sint<0x2D, VR128, GR64, i64, v4f32, X86cvts2si,
 defm VCVTDQ2PS   : sse12_cvt_p<0x5B, VR128, i128mem, v4f32, v4i32, load,
                                "vcvtdq2ps\t{$src, $dst|$dst, $src}",
                                SSEPackedSingle, WriteCvtI2PS>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                               PS, VEX, Requires<[HasAVX, NoAVX256P_And_NoVLX]>, VEX_WIG;
+#else // INTEL_FEATURE_ISA_AVX256P
                                PS, VEX, Requires<[HasAVX, NoVLX]>, VEX_WIG;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 defm VCVTDQ2PSY  : sse12_cvt_p<0x5B, VR256, i256mem, v8f32, v8i32, load,
                                "vcvtdq2ps\t{$src, $dst|$dst, $src}",
                                SSEPackedSingle, WriteCvtI2PSY>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                               PS, VEX, VEX_L, Requires<[HasAVX, NoAVX256P_And_NoVLX]>, VEX_WIG;
+#else // INTEL_FEATURE_ISA_AVX256P
                                PS, VEX, VEX_L, Requires<[HasAVX, NoVLX]>, VEX_WIG;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
 defm CVTDQ2PS : sse12_cvt_p<0x5B, VR128, i128mem, v4f32, v4i32, memop,
                             "cvtdq2ps\t{$src, $dst|$dst, $src}",
@@ -1534,7 +1564,13 @@ def : Pat<(v4f32 (X86Movss
           (CVTSI2SSrm_Int VR128:$dst, addr:$src)>;
 } // Predicates = [UseSSE1]
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 // Convert packed single/double fp to doubleword
 def VCVTPS2DQrr : VPDI<0x5B, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                        "cvtps2dq\t{$src, $dst|$dst, $src}",
@@ -1568,7 +1604,13 @@ def CVTPS2DQrm : PDI<0x5B, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
 
 
 // Convert Packed Double FP to Packed DW Integers
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 // The assembler can recognize rr 256-bit instructions by seeing a ymm
 // register, but the same isn't true when using memory operands instead.
 // Provide other assembly rr and rm forms to address this explicitly.
@@ -1617,7 +1659,13 @@ def CVTPD2DQrr  : SDI<0xE6, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
 // Convert with truncation packed single/double fp to doubleword
 // SSE2 packed instructions with XS prefix
 let Uses = [MXCSR], mayRaiseFPException = 1 in {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def VCVTTPS2DQrr : VS2SI<0x5B, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                          "cvttps2dq\t{$src, $dst|$dst, $src}",
                          [(set VR128:$dst,
@@ -1656,7 +1704,13 @@ def CVTTPS2DQrm : S2SI<0x5B, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
 // The assembler can recognize rr 256-bit instructions by seeing a ymm
 // register, but the same isn't true when using memory operands instead.
 // Provide other assembly rr and rm forms to address this explicitly.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 // XMM only
 def VCVTTPD2DQrr : VPDI<0xE6, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                         "cvttpd2dq\t{$src, $dst|$dst, $src}",
@@ -1687,7 +1741,13 @@ def : InstAlias<"vcvttpd2dqx\t{$src, $dst|$dst, $src}",
 def : InstAlias<"vcvttpd2dqy\t{$src, $dst|$dst, $src}",
                 (VCVTTPD2DQYrr VR128:$dst, VR256:$src), 0, "att">;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v4i32 (any_fp_to_sint (v4f64 VR256:$src))),
             (VCVTTPD2DQYrr VR256:$src)>;
   def : Pat<(v4i32 (any_fp_to_sint (loadv4f64 addr:$src))),
@@ -1706,7 +1766,13 @@ def CVTTPD2DQrm : PDI<0xE6, MRMSrcMem, (outs VR128:$dst),(ins f128mem:$src),
                       Sched<[WriteCvtPD2ILd]>, SIMD_EXC;
 
 // Convert packed single to packed double
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
                   // SSE2 instructions without OpSize prefix
 def VCVTPS2PDrr : I<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                     "vcvtps2pd\t{$src, $dst|$dst, $src}",
@@ -1738,7 +1804,13 @@ def CVTPS2PDrm : I<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f64mem:$src),
 }
 
 // Convert Packed DW Integers to Packed Double FP
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 let hasSideEffects = 0, mayLoad = 1 in
 def VCVTDQ2PDrm  : S2SI<0xE6, MRMSrcMem, (outs VR128:$dst), (ins i64mem:$src),
                         "vcvtdq2pd\t{$src, $dst|$dst, $src}",
@@ -1782,7 +1854,13 @@ def CVTDQ2PDrr  : S2SI<0xE6, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                        Sched<[WriteCvtI2PD]>;
 
 // AVX register conversion intrinsics
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v2f64 (X86any_VSintToFP (bc_v4i32 (v2i64 (X86vzload64 addr:$src))))),
             (VCVTDQ2PDrm addr:$src)>;
 } // Predicates = [HasAVX, NoVLX]
@@ -1797,7 +1875,13 @@ let Predicates = [UseSSE2] in {
 // The assembler can recognize rr 256-bit instructions by seeing a ymm
 // register, but the same isn't true when using memory operands instead.
 // Provide other assembly rr and rm forms to address this explicitly.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX], Uses = [MXCSR], mayRaiseFPException = 1 in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 // XMM only
 def VCVTPD2PSrr : VPDI<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                        "cvtpd2ps\t{$src, $dst|$dst, $src}",
@@ -2084,7 +2168,13 @@ multiclass sse12_shuffle<RegisterClass RC, X86MemOperand x86memop,
             Sched<[sched]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VSHUFPS  : sse12_shuffle<VR128, f128mem, v4f32,
            "shufps\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
            loadv4f32, SchedWriteFShuffle.XMM, SSEPackedSingle>,
@@ -2135,7 +2225,13 @@ multiclass sse12_unpack_interleave<bits<8> opc, SDNode OpNode, ValueType vt,
              Sched<[sched.Folded, sched.ReadAfterFold]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 defm VUNPCKHPS: sse12_unpack_interleave<0x15, X86Unpckh, v4f32, load,
       VR128, f128mem, "unpckhps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      SchedWriteFShuffle.XMM, SSEPackedSingle>, PS, VEX_4V, VEX_WIG;
@@ -2285,7 +2381,14 @@ multiclass PDI_binop_all<bits<8> opc, string OpcodeStr, SDNode Opcode,
                          ValueType OpVT128, ValueType OpVT256,
                          X86SchedWriteWidths sched, bit IsCommutable,
                          Predicate prd> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, !if(!eq(prd, TruePredicate), TruePredicate, 
+  !if(!eq (prd, NoVLX), NoAVX256P_And_NoVLX, !cast<Predicate>("NoAVX256P_And_"#prd)))] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, prd] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME : PDI_binop_rm<opc, !strconcat("v", OpcodeStr), Opcode, OpVT128,
                              VR128, load, i128mem, sched.XMM,
                              IsCommutable, 0>, VEX_4V, VEX_WIG;
@@ -2294,7 +2397,14 @@ let Constraints = "$src1 = $dst" in
   defm NAME : PDI_binop_rm<opc, OpcodeStr, Opcode, OpVT128, VR128,
                            memop, i128mem, sched.XMM, IsCommutable, 1>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, !if(!eq(prd, TruePredicate), TruePredicate, 
+  !if(!eq (prd, NoVLX), NoAVX256P_And_NoVLX, !cast<Predicate>("NoAVX256P_And_"#prd)))] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, prd] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME#Y : PDI_binop_rm<opc, !strconcat("v", OpcodeStr), Opcode,
                                OpVT256, VR256, load, i256mem, sched.YMM,
                                IsCommutable, 0>, VEX_4V, VEX_L, VEX_WIG;
@@ -2321,7 +2431,13 @@ defm PANDN : PDI_binop_all<0xDF, "pandn", X86andnp, v2i64, v4i64,
 /// and later. There are SSE1 v4f32 patterns later.
 multiclass sse12_fp_packed_logical<bits<8> opc, string OpcodeStr,
                                    X86SchedWriteWidths sched> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME#PSY : sse12_fp_packed_logical_rm<opc, VR256, SSEPackedSingle,
         !strconcat(OpcodeStr, "ps"), f256mem, sched.YMM,
         [], [], 0>, PS, VEX_4V, VEX_L, VEX_WIG;
@@ -2356,7 +2472,13 @@ defm XOR  : sse12_fp_packed_logical<0x57, "xor", SchedWriteFLogic>;
 let isCommutable = 0 in
   defm ANDN : sse12_fp_packed_logical<0x55, "andn", SchedWriteFLogic>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v32i8 (and VR256:$src1, VR256:$src2)),
             (VPANDYrr VR256:$src1, VR256:$src2)>;
   def : Pat<(v16i16 (and VR256:$src1, VR256:$src2)),
@@ -2490,7 +2612,13 @@ let Predicates = [HasAVX1Only] in {
             (VANDNPSYrm VR256:$src1, addr:$src2)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i8 (and VR128:$src1, VR128:$src2)),
             (VPANDrr VR128:$src1, VR128:$src2)>;
   def : Pat<(v8i16 (and VR128:$src1, VR128:$src2)),
@@ -2645,7 +2773,13 @@ def : Pat<(X86fandn VR128:$src1, (memopv4f32 addr:$src2)),
 multiclass basic_sse12_fp_binop_p<bits<8> opc, string OpcodeStr,
                                   SDPatternOperator OpNode, X86SchedWriteSizes sched> {
 let Uses = [MXCSR], mayRaiseFPException = 1 in {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME#PS : sse12_fp_packed<opc, !strconcat(OpcodeStr, "ps"), OpNode,
                                VR128, v4f32, f128mem, loadv4f32,
                                SSEPackedSingle, sched.PS.XMM, 0>, PS, VEX_4V, VEX_WIG;
@@ -2992,7 +3126,13 @@ let Predicates = prds in {
 /// sse2_fp_unop_p - SSE2 unops in vector forms.
 multiclass sse2_fp_unop_p<bits<8> opc, string OpcodeStr,
                           SDPatternOperator OpNode, X86SchedWriteWidths sched> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def V#NAME#PDr : PDI<opc, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                        !strconcat("v", OpcodeStr,
                                   "pd\t{$src, $dst|$dst, $src}"),
@@ -3055,7 +3195,13 @@ multiclass sse2_fp_unop_s<bits<8> opc, string OpcodeStr, SDPatternOperator OpNod
 
 // Square root.
 defm SQRT  : sse1_fp_unop_s<0x51, "sqrt", any_fsqrt, SchedWriteFSqrt, UseAVX>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+             sse1_fp_unop_p<0x51, "sqrt", any_fsqrt, SchedWriteFSqrt, [HasAVX, NoAVX256P_And_NoVLX]>,
+#else // INTEL_FEATURE_ISA_AVX256P
              sse1_fp_unop_p<0x51, "sqrt", any_fsqrt, SchedWriteFSqrt, [HasAVX, NoVLX]>,
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
              sse2_fp_unop_s<0x51, "sqrt", any_fsqrt, SchedWriteFSqrt64, UseAVX>,
              sse2_fp_unop_p<0x51, "sqrt", any_fsqrt, SchedWriteFSqrt64>, SIMD_EXC;
 
@@ -3115,7 +3261,13 @@ defm : scalar_unary_math_intr_patterns<int_x86_sse_rsqrt_ss, "RSQRTSS", X86Movss
 //===----------------------------------------------------------------------===//
 
 let AddedComplexity = 400 in { // Prefer non-temporal versions
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 let SchedRW = [SchedWriteFMoveLSNT.XMM.MR] in {
 def VMOVNTPSmr : VPSI<0x2B, MRMDestMem, (outs),
                      (ins f128mem:$dst, VR128:$src),
@@ -3184,7 +3336,13 @@ def MOVNTI_64mr : RI<0xC3, MRMDestMem, (outs), (ins i64mem:$dst, GR64:$src),
                   PS, Requires<[HasSSE2]>;
 } // SchedRW = [WriteStoreNT]
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(alignednontemporalstore (v8i32 VR256:$src), addr:$dst),
             (VMOVNTDQYmr addr:$dst, VR256:$src)>;
   def : Pat<(alignednontemporalstore (v16i16 VR256:$src), addr:$dst),
@@ -3326,7 +3484,13 @@ def VMOVDQUYrr_REV : VSSI<0x7F, MRMDestReg, (outs VR256:$dst), (ins VR256:$src),
 }
 
 let canFoldAsLoad = 1, mayLoad = 1, isReMaterializable = 1,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    hasSideEffects = 0, Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
     hasSideEffects = 0, Predicates = [HasAVX,NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def VMOVDQArm  : VPDI<0x6F, MRMSrcMem, (outs VR128:$dst), (ins i128mem:$src),
                       "movdqa\t{$src, $dst|$dst, $src}",
                       [(set VR128:$dst, (alignedloadv2i64 addr:$src))]>,
@@ -3346,7 +3510,13 @@ def VMOVDQUYrm : I<0x6F, MRMSrcMem, (outs VR256:$dst), (ins i256mem:$src),
                    XS, VEX, VEX_L, VEX_WIG;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let mayStore = 1, hasSideEffects = 0, Predicates = [HasAVX,NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let mayStore = 1, hasSideEffects = 0, Predicates = [HasAVX,NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def VMOVDQAmr  : VPDI<0x7F, MRMDestMem, (outs),
                       (ins i128mem:$dst, VR128:$src),
                       "movdqa\t{$src, $dst|$dst, $src}",
@@ -3427,7 +3597,13 @@ def : InstAlias<"movdqa.s\t{$src, $dst|$dst, $src}",
 def : InstAlias<"movdqu.s\t{$src, $dst|$dst, $src}",
                 (MOVDQUrr_REV VR128:$dst, VR128:$src), 0>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   // Additional patterns for other integer sizes.
   def : Pat<(alignedloadv4i32 addr:$src),
             (VMOVDQArm addr:$src)>;
@@ -3614,11 +3790,25 @@ multiclass PDI_binop_rmi_all<bits<8> opc, bits<8> opc2, Format ImmForm,
                              ValueType DstVT256, ValueType SrcVT,
                              X86SchedWriteWidths sched,
                              X86SchedWriteWidths schedImm, Predicate prd> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, !if(!eq(prd, TruePredicate), TruePredicate, 
+  !if(!eq (prd, NoVLX), NoAVX256P_And_NoVLX, !cast<Predicate>("NoAVX256P_And_"#prd)))] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, prd] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME : PDI_binop_rmi<opc, opc2, ImmForm, !strconcat("v", OpcodeStr),
                               OpNode, OpNode2, VR128, sched.XMM, schedImm.XMM,
                               DstVT128, SrcVT, load, 0>, VEX_4V, VEX_WIG;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, !if(!eq(prd, TruePredicate), TruePredicate, 
+  !if(!eq (prd, NoVLX), NoAVX256P_And_NoVLX, !cast<Predicate>("NoAVX256P_And_"#prd)))] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, prd] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME#Y : PDI_binop_rmi<opc, opc2, ImmForm, !strconcat("v", OpcodeStr),
                                 OpNode, OpNode2, VR256, sched.YMM, schedImm.YMM,
                                 DstVT256, SrcVT, load, 0>, VEX_4V, VEX_L,
@@ -3642,10 +3832,22 @@ multiclass PDI_binop_ri<bits<8> opc, Format ImmForm, string OpcodeStr,
 
 multiclass PDI_binop_ri_all<bits<8> opc, Format ImmForm, string OpcodeStr,
                             SDNode OpNode, X86SchedWriteWidths sched> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoBWI] in
+#else  // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX_Or_NoBWI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME : PDI_binop_ri<opc, ImmForm, !strconcat("v", OpcodeStr), OpNode,
                              VR128, v16i8, sched.XMM, 0>, VEX_4V, VEX_WIG;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in
+#else  // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm V#NAME#Y : PDI_binop_ri<opc, ImmForm, !strconcat("v", OpcodeStr), OpNode,
                                VR256, v32i8, sched.YMM, 0>,
                                VEX_4V, VEX_L, VEX_WIG;
@@ -3831,7 +4033,13 @@ multiclass sse4_pack<bits<8> opc, string OpcodeStr, ValueType OutVT,
                  Sched<[sched.Folded, sched.ReadAfterFold]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPACKSSWB : sse2_pack<0x63, "vpacksswb", v16i8, v8i16, X86Packss, VR128,
                              i128mem, SchedWriteShuffle.XMM, load, 0>,
                              VEX_4V, VEX_WIG;
@@ -3847,7 +4055,13 @@ let Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
                              VEX_4V, VEX_WIG;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPACKSSWBY : sse2_pack<0x63, "vpacksswb", v32i8, v16i16, X86Packss, VR256,
                               i256mem, SchedWriteShuffle.YMM, load, 0>,
                               VEX_4V, VEX_L, VEX_WIG;
@@ -3917,7 +4131,13 @@ let Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
                                  VEX_4V, VEX_WIG;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPUNPCKLDQ  : sse2_unpack<0x62, "vpunpckldq", v4i32, X86Unpckl, VR128,
                                  i128mem, SchedWriteShuffle.XMM, load, 0>,
                                  VEX_4V, VEX_WIG;
@@ -4445,7 +4665,13 @@ def rm : S3SI<op, MRMSrcMem, (outs RC:$dst), (ins x86memop:$src),
                       Sched<[sched.Folded]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VMOVSHDUP  : sse3_replicate_sfp<0x16, X86Movshdup, "vmovshdup",
                                        v4f32, VR128, loadv4f32, f128mem,
                                        SchedWriteFShuffle.XMM>, VEX, VEX_WIG;
@@ -4464,7 +4690,13 @@ defm MOVSHDUP : sse3_replicate_sfp<0x16, X86Movshdup, "movshdup", v4f32, VR128,
 defm MOVSLDUP : sse3_replicate_sfp<0x12, X86Movsldup, "movsldup", v4f32, VR128,
                                    memopv4f32, f128mem, SchedWriteFShuffle.XMM>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v4i32 (X86Movshdup VR128:$src)),
             (VMOVSHDUPrr VR128:$src)>;
   def : Pat<(v4i32 (X86Movshdup (load addr:$src))),
@@ -4524,7 +4756,13 @@ def rm  : S3DI<0x12, MRMSrcMem, (outs VR256:$dst), (ins f256mem:$src),
                     Sched<[sched.YMM.Folded]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VMOVDDUP  : sse3_replicate_dfp<"vmovddup", SchedWriteFShuffle>,
                                       VEX, VEX_WIG;
   defm VMOVDDUPY : sse3_replicate_dfp_y<"vmovddup", SchedWriteFShuffle>,
@@ -4534,7 +4772,13 @@ let Predicates = [HasAVX, NoVLX] in {
 defm MOVDDUP : sse3_replicate_dfp<"movddup", SchedWriteFShuffle>;
 
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(X86Movddup (v2f64 (X86vzload64 addr:$src))),
             (VMOVDDUPrm addr:$src)>, Requires<[HasAVX]>;
 }
@@ -4744,7 +4988,13 @@ let Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
   defm VPABSW  : SS3I_unop_rm<0x1D, "vpabsw", v8i16, abs, SchedWriteVecALU,
                               load>, VEX, VEX_WIG;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPABSD  : SS3I_unop_rm<0x1E, "vpabsd", v4i32, abs, SchedWriteVecALU,
                               load>, VEX, VEX_WIG;
 }
@@ -4832,7 +5082,13 @@ multiclass SS3I_binop_rm_int_y<bits<8> opc, string OpcodeStr,
        Sched<[sched.Folded, sched.ReadAfterFold]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let ImmT = NoImm, Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let ImmT = NoImm, Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 let isCommutable = 0 in {
   defm VPSHUFB    : SS3I_binop_rm<0x00, "vpshufb", X86pshufb, v16i8, v16i8,
                                   VR128, load, i128mem,
@@ -5060,6 +5316,17 @@ multiclass SS41I_pmovx_rm<bits<8> opc, string OpcodeStr, X86MemOperand MemOp,
                                         MemOp, MemYOp, prd>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+defm BW : SS41I_pmovx_rm<0x20, "bw", i64mem, i128mem, NoAVX256P_And_NoVLX_Or_NoBWI>;
+defm WD : SS41I_pmovx_rm<0x23, "wd", i64mem, i128mem, NoAVX256P_And_NoVLX>;
+defm DQ : SS41I_pmovx_rm<0x25, "dq", i64mem, i128mem, NoAVX256P_And_NoVLX>;
+
+defm BD : SS41I_pmovx_rm<0x21, "bd", i32mem, i64mem, NoAVX256P_And_NoVLX>;
+defm WQ : SS41I_pmovx_rm<0x24, "wq", i32mem, i64mem, NoAVX256P_And_NoVLX>;
+
+defm BQ : SS41I_pmovx_rm<0x22, "bq", i16mem, i32mem, NoAVX256P_And_NoVLX>;
+#else // INTEL_FEATURE_ISA_AVX256P
 defm BW : SS41I_pmovx_rm<0x20, "bw", i64mem, i128mem, NoVLX_Or_NoBWI>;
 defm WD : SS41I_pmovx_rm<0x23, "wd", i64mem, i128mem, NoVLX>;
 defm DQ : SS41I_pmovx_rm<0x25, "dq", i64mem, i128mem, NoVLX>;
@@ -5068,16 +5335,30 @@ defm BD : SS41I_pmovx_rm<0x21, "bd", i32mem, i64mem, NoVLX>;
 defm WQ : SS41I_pmovx_rm<0x24, "wq", i32mem, i64mem, NoVLX>;
 
 defm BQ : SS41I_pmovx_rm<0x22, "bq", i16mem, i32mem, NoVLX>;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
 // AVX2 Patterns
 multiclass SS41I_pmovx_avx2_patterns<string OpcPrefix, string ExtTy,
                                      SDNode ExtOp, SDNode InVecOp> {
   // Register-Register patterns
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i16 (ExtOp (v16i8 VR128:$src))),
             (!cast<I>(OpcPrefix#BWYrr) VR128:$src)>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i32 (InVecOp (v16i8 VR128:$src))),
             (!cast<I>(OpcPrefix#BDYrr) VR128:$src)>;
   def : Pat<(v4i64 (InVecOp (v16i8 VR128:$src))),
@@ -5093,7 +5374,13 @@ multiclass SS41I_pmovx_avx2_patterns<string OpcPrefix, string ExtTy,
   }
 
   // Simple Register-Memory patterns
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i16 (!cast<PatFrag>(ExtTy#"extloadvi8") addr:$src)),
             (!cast<I>(OpcPrefix#BWYrm) addr:$src)>;
 
@@ -5101,7 +5388,13 @@ multiclass SS41I_pmovx_avx2_patterns<string OpcPrefix, string ExtTy,
             (!cast<I>(OpcPrefix#BWYrm) addr:$src)>;
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i32 (!cast<PatFrag>(ExtTy#"extloadvi8") addr:$src)),
             (!cast<I>(OpcPrefix#BDYrm) addr:$src)>;
   def : Pat<(v4i64 (!cast<PatFrag>(ExtTy#"extloadvi8") addr:$src)),
@@ -5117,7 +5410,13 @@ multiclass SS41I_pmovx_avx2_patterns<string OpcPrefix, string ExtTy,
   }
 
   // AVX2 Register-Memory patterns
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i32 (ExtOp (loadv8i16 addr:$src))),
             (!cast<I>(OpcPrefix#WDYrm) addr:$src)>;
 
@@ -5151,11 +5450,23 @@ defm : SS41I_pmovx_avx2_patterns<"VPMOVZX", "z", zext, zext_invec>;
 // SSE4.1/AVX patterns.
 multiclass SS41I_pmovx_patterns<string OpcPrefix, string ExtTy,
                                 SDNode ExtOp> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i16 (ExtOp (v16i8 VR128:$src))),
             (!cast<I>(OpcPrefix#BWrr) VR128:$src)>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v4i32 (ExtOp (v16i8 VR128:$src))),
             (!cast<I>(OpcPrefix#BDrr) VR128:$src)>;
   def : Pat<(v2i64 (ExtOp (v16i8 VR128:$src))),
@@ -5169,11 +5480,23 @@ multiclass SS41I_pmovx_patterns<string OpcPrefix, string ExtTy,
   def : Pat<(v2i64 (ExtOp (v4i32 VR128:$src))),
             (!cast<I>(OpcPrefix#DQrr) VR128:$src)>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i16 (!cast<PatFrag>(ExtTy#"extloadvi8") addr:$src)),
             (!cast<I>(OpcPrefix#BWrm) addr:$src)>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v4i32 (!cast<PatFrag>(ExtTy#"extloadvi8") addr:$src)),
             (!cast<I>(OpcPrefix#BDrm) addr:$src)>;
   def : Pat<(v2i64 (!cast<PatFrag>(ExtTy#"extloadvi8") addr:$src)),
@@ -5187,7 +5510,13 @@ multiclass SS41I_pmovx_patterns<string OpcPrefix, string ExtTy,
   def : Pat<(v2i64 (!cast<PatFrag>(ExtTy#"extloadvi32") addr:$src)),
             (!cast<I>(OpcPrefix#DQrm) addr:$src)>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i16 (ExtOp (bc_v16i8 (v2i64 (scalar_to_vector (loadi64 addr:$src)))))),
             (!cast<I>(OpcPrefix#BWrm) addr:$src)>;
   def : Pat<(v8i16 (ExtOp (bc_v16i8 (v2f64 (scalar_to_vector (loadf64 addr:$src)))))),
@@ -5197,7 +5526,13 @@ multiclass SS41I_pmovx_patterns<string OpcPrefix, string ExtTy,
   def : Pat<(v8i16 (ExtOp (loadv16i8 addr:$src))),
             (!cast<I>(OpcPrefix#BWrm) addr:$src)>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v4i32 (ExtOp (bc_v16i8 (v4i32 (scalar_to_vector (loadi32 addr:$src)))))),
             (!cast<I>(OpcPrefix#BDrm) addr:$src)>;
   def : Pat<(v4i32 (ExtOp (bc_v16i8 (v4i32 (X86vzload32 addr:$src))))),
@@ -5267,7 +5602,13 @@ multiclass SS41I_extract8<bits<8> opc, string OpcodeStr> {
                           addr:$dst)]>, Sched<[WriteVecExtractSt]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoBWI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPEXTRB : SS41I_extract8<0x14, "vpextrb">, VEX, VEX_WIG;
 
 defm PEXTRB      : SS41I_extract8<0x14, "pextrb">;
@@ -5291,7 +5632,13 @@ multiclass SS41I_extract16<bits<8> opc, string OpcodeStr> {
                           addr:$dst)]>, Sched<[WriteVecExtractSt]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoBWI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPEXTRW : SS41I_extract16<0x15, "vpextrw">, VEX, VEX_WIG;
 
 defm PEXTRW      : SS41I_extract16<0x15, "pextrw">;
@@ -5299,8 +5646,21 @@ defm PEXTRW      : SS41I_extract16<0x15, "pextrw">;
 let Predicates = [UseSSE41] in
   def : Pat<(store f16:$src, addr:$dst), (PEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS FR16:$src, VR128)), 0)>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoBWI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(store f16:$src, addr:$dst), (VPEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS FR16:$src, VR128)), 0)>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
+  def : Pat<(store bf16:$src, addr:$dst), (VPEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0)>;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
@@ -5330,7 +5690,13 @@ multiclass SS41I_extract32<bits<8> opc, string OpcodeStr> {
                           addr:$dst)]>, Sched<[WriteVecExtractSt]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoDQI] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoDQI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPEXTRD : SS41I_extract32<0x16, "vpextrd">, VEX;
 
 defm PEXTRD      : SS41I_extract32<0x16, "pextrd">;
@@ -5352,7 +5718,13 @@ multiclass SS41I_extract64<bits<8> opc, string OpcodeStr> {
                           addr:$dst)]>, Sched<[WriteVecExtractSt]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoDQI] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoDQI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPEXTRQ : SS41I_extract64<0x16, "vpextrq">, VEX, VEX_W;
 
 defm PEXTRQ      : SS41I_extract64<0x16, "pextrq">, REX_W;
@@ -5655,7 +6027,13 @@ let ExeDomain = SSEPackedDouble in {
 }
 
 // FP round - roundss, roundps, roundsd, roundpd
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   let ExeDomain = SSEPackedSingle, Uses = [MXCSR], mayRaiseFPException = 1 in {
     // Intrinsic form
     defm VROUNDPS  : sse41_fp_unop_p<0x08, "vroundps", f128mem, VR128, v4f32,
@@ -5879,7 +6257,13 @@ multiclass SS48I_binop_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
        Sched<[sched.Folded, sched.ReadAfterFold]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPMINSD   : SS48I_binop_rm<0x39, "vpminsd", smin, v4i32, VR128,
                                   load, i128mem, SchedWriteVecALU.XMM, 0>,
                                   VEX_4V, VEX_WIG;
@@ -5964,7 +6348,13 @@ let Constraints = "$src1 = $dst" in {
                                  memop, i128mem, SchedWriteVecIMul.XMM, 1>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPMULLD  : SS48I_binop_rm<0x40, "vpmulld", mul, v4i32, VR128,
                                  load, i128mem, SchedWritePMULLD.XMM, 0>,
                                  VEX_4V, VEX_WIG;
@@ -5973,7 +6363,13 @@ let Predicates = [HasAVX] in
                                  load, i128mem, SchedWriteVecALU.XMM, 0>,
                                  VEX_4V, VEX_WIG;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VPMULLDY  : SS48I_binop_rm<0x40, "vpmulld", mul, v8i32, VR256,
                                   load, i256mem, SchedWritePMULLD.YMM, 0>,
                                   VEX_4V, VEX_L, VEX_WIG;
@@ -6126,7 +6522,7 @@ def BlendScaleCommuteImm2to4 : SDNodeXForm<timm, [{
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
-let Predicates = [HasAVX, NoVLX_Or_NoMEDIAX] in {
+let Predicates = !if(!eq(HAV256P, 1), [HasAVX, NoAVX256P_And_NoVLX_Or_NoMEDIAX], [HasAVX, NoVLX_Or_NoMEDIAX]) in {
   let isCommutable = 0 in {
     defm VMPSADBW : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                         v8i16, VR128, load, i128mem, 0,
@@ -6160,7 +6556,7 @@ let Uses = [MXCSR], mayRaiseFPException = 1 in {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
-let Predicates = [HasAVX2, NoVLX_Or_NoMEDIAX] in {
+let Predicates = !if(!eq(HAV256P, 1), [HasAVX2, NoAVX256P_And_NoVLX_Or_NoMEDIAX], [HasAVX2, NoVLX_Or_NoMEDIAX]) in {
   let isCommutable = 0 in {
   defm VMPSADBWY : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                   v16i16, VR256, load, i256mem, 0,
@@ -6535,7 +6931,13 @@ let Predicates = [UseSSE41] in {
 
 let AddedComplexity = 400 in { // Prefer non-temporal versions
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def VMOVNTDQArm : SS48I<0x2A, MRMSrcMem, (outs VR128:$dst), (ins i128mem:$src),
                         "vmovntdqa\t{$src, $dst|$dst, $src}", []>,
                         Sched<[SchedWriteVecMoveLSNT.XMM.RM]>, VEX, VEX_WIG;
@@ -6564,7 +6966,13 @@ let Predicates = [HasAVX2, NoVLX] in {
             (VMOVNTDQAYrm addr:$src)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v4f32 (alignednontemporalload addr:$src)),
             (VMOVNTDQArm addr:$src)>;
   def : Pat<(v2f64 (alignednontemporalload addr:$src)),
@@ -6859,7 +7267,13 @@ multiclass AESI_binop_rm_int<bits<8> opc, string OpcodeStr,
 }
 
 // Perform One Round of an AES Encryption/Decryption Flow
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoVAES, HasAES] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX_Or_NoVAES, HasAES] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VAESENC          : AESI_binop_rm_int<0xDC, "vaesenc",
                          int_x86_aesni_aesenc, load>, VEX_4V, VEX_WIG;
   defm VAESENCLAST      : AESI_binop_rm_int<0xDD, "vaesenclast",
@@ -6870,7 +7284,13 @@ let Predicates = [HasAVX, NoVLX_Or_NoVAES, HasAES] in {
                          int_x86_aesni_aesdeclast, load>, VEX_4V, VEX_WIG;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [NoAVX256P_And_NoVLX, HasVAES] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [NoVLX, HasVAES] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VAESENCY         : AESI_binop_rm_int<0xDC, "vaesenc",
                          int_x86_aesni_aesenc_256, load, 0, VR256,
                          i256mem>, VEX_4V, VEX_L, VEX_WIG;
@@ -7021,11 +7441,23 @@ multiclass vpclmulqdq<RegisterClass RC, X86MemOperand MemOp,
                                            (PCLMULCommuteImm timm:$src3))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoVPCLMULQDQ, HasPCLMUL] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX_Or_NoVPCLMULQDQ, HasPCLMUL] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 defm VPCLMULQDQ : vpclmulqdq<VR128, i128mem, load,
                              int_x86_pclmulqdq>, VEX_4V, VEX_WIG;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [NoAVX256P_And_NoVLX, HasVPCLMULQDQ] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [NoVLX, HasVPCLMULQDQ] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 defm VPCLMULQDQY : vpclmulqdq<VR256, i256mem, load,
                               int_x86_pclmulqdq_256>, VEX_4V, VEX_L, VEX_WIG;
 
@@ -7131,7 +7563,13 @@ class avx2_broadcast_rr<bits<8> opc, string OpcodeStr, RegisterClass RC,
          [(set RC:$dst, (ResVT (X86VBroadcast (OpVT VR128:$src))))]>,
          Sched<[Sched]>, VEX;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let ExeDomain = SSEPackedSingle, Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let ExeDomain = SSEPackedSingle, Predicates = [HasAVX, NoVLX] in {
+  #endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def VBROADCASTSSrm  : avx_broadcast_rm<0x18, "vbroadcastss", VR128,
                                          f32mem, v4f32, X86VBroadcastld32,
                                          SchedWriteFShuffle.XMM.Folded>;
@@ -7139,7 +7577,13 @@ let ExeDomain = SSEPackedSingle, Predicates = [HasAVX, NoVLX] in {
                                          f32mem, v8f32, X86VBroadcastld32,
                                          SchedWriteFShuffle.XMM.Folded>, VEX_L;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let ExeDomain = SSEPackedDouble, Predicates = [HasAVX, NoAVX256P_And_NoVLX] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let ExeDomain = SSEPackedDouble, Predicates = [HasAVX, NoVLX] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def VBROADCASTSDYrm  : avx_broadcast_rm<0x19, "vbroadcastsd", VR256, f64mem,
                                         v4f64, X86VBroadcastld64,
                                         SchedWriteFShuffle.XMM.Folded>, VEX_L;
@@ -7171,7 +7615,13 @@ def VBROADCASTF128 : AVX8I<0x1A, MRMSrcMem, (outs VR256:$dst),
                            "vbroadcastf128\t{$src, $dst|$dst, $src}", []>,
                            Sched<[SchedWriteFShuffle.XMM.Folded]>, VEX, VEX_L;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v4f64 (X86SubVBroadcastld128 addr:$src)),
           (VBROADCASTF128 addr:$src)>;
 def : Pat<(v8f32 (X86SubVBroadcastld128 addr:$src)),
@@ -7278,7 +7728,13 @@ multiclass vinsert_lowering<string InstrStr, string PermStr,
               addr:$src1, (INSERT_get_vperm2x128_commutedimm VR256:$ins))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : vinsert_lowering<"VINSERTF128", "VPERM2F128", v4f32, v8f32, loadv4f32, loadv8f32>;
   defm : vinsert_lowering<"VINSERTF128", "VPERM2F128", v2f64, v4f64, loadv2f64, loadv4f64>;
 }
@@ -7319,7 +7775,13 @@ multiclass vextract_lowering<string InstrStr, ValueType From, ValueType To> {
 }
 
 // AVX1 patterns
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : vextract_lowering<"VEXTRACTF128", v8f32, v4f32>;
   defm : vextract_lowering<"VEXTRACTF128", v4f64, v2f64>;
 }
@@ -7451,7 +7913,13 @@ multiclass avx_permil<bits<8> opc_rm, bits<8> opc_rmi, string OpcodeStr,
                       ValueType f_vt, ValueType i_vt,
                       X86FoldableSchedWrite sched,
                       X86FoldableSchedWrite varsched> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     def rr  : AVX8I<opc_rm, MRMSrcReg, (outs RC:$dst),
                (ins RC:$src1, RC:$src2),
                !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
@@ -7545,7 +8013,13 @@ multiclass f16c_ps2ph<RegisterClass RC, X86MemOperand x86memop,
                TAPD, VEX, Sched<[MR]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasF16C, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasF16C, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm VCVTPH2PS  : f16c_ph2ps<VR128, f64mem, WriteCvtPH2PS>, SIMD_EXC;
   defm VCVTPH2PSY : f16c_ph2ps<VR256, f128mem, WriteCvtPH2PSY>, VEX_L, SIMD_EXC;
   defm VCVTPS2PH  : f16c_ps2ph<VR128, f64mem, WriteCvtPS2PH,
@@ -7677,7 +8151,14 @@ def : Pat<(insert_subvector (loadv32i8 addr:$src2), (v16i8 VR128:$src1), (iPTR 0
 multiclass avx2_broadcast<bits<8> opc, string OpcodeStr,
                           X86MemOperand x86memop, PatFrag bcast_frag,
                           ValueType OpVT128, ValueType OpVT256, Predicate prd> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX2, !if(!eq(prd, TruePredicate), TruePredicate, 
+    !if(!eq (prd, NoVLX), NoAVX256P_And_NoVLX, !cast<Predicate>("NoAVX256P_And_"#prd)))] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX2, prd] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     def rr : AVX28I<opc, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                   !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
                   [(set VR128:$dst,
@@ -7716,7 +8197,13 @@ defm VPBROADCASTD  : avx2_broadcast<0x58, "vpbroadcastd", i32mem, X86VBroadcastl
 defm VPBROADCASTQ  : avx2_broadcast<0x59, "vpbroadcastq", i64mem, X86VBroadcastld64,
                                     v2i64, v4i64, NoVLX>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   // Provide fallback in case the load node that is used in the patterns above
   // is used by additional users, which prevents the pattern selection.
     def : Pat<(v4f32 (X86VBroadcast FR32:$src)),
@@ -7727,7 +8214,13 @@ let Predicates = [HasAVX2, NoVLX] in {
               (VBROADCASTSDYrr (v2f64 (COPY_TO_REGCLASS FR64:$src, VR128)))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i8 (X86VBroadcast GR8:$src)),
         (VPBROADCASTBrr (VMOVDI2PDIrr
                          (i32 (INSERT_SUBREG (i32 (IMPLICIT_DEF)),
@@ -7761,7 +8254,13 @@ let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in {
   def : Pat<(v16f16 (X86VBroadcast (f16 FR16:$src))),
             (VPBROADCASTWYrr (COPY_TO_REGCLASS FR16:$src, VR128))>;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v4i32 (X86VBroadcast GR32:$src)),
             (VPBROADCASTDrr (VMOVDI2PDIrr GR32:$src))>;
   def : Pat<(v8i32 (X86VBroadcast GR32:$src)),
@@ -7784,7 +8283,13 @@ def : Pat<(v4i32 (X86VBroadcastld32 addr:$src)),
 
   // Provide fallback in case the load node that is used in the patterns above
   // is used by additional users, which prevents the pattern selection.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   // 128bit broadcasts:
   def : Pat<(v2f64 (X86VBroadcast f64:$src)),
             (VMOVDDUPrr (v2f64 (COPY_TO_REGCLASS FR64:$src, VR128)))>;
@@ -7927,7 +8432,13 @@ def VINSERTI128rm : AVX2AIi8<0x38, MRMSrcMem, (outs VR256:$dst),
           []>, Sched<[WriteShuffle256.Folded, WriteShuffle256.ReadAfterFold]>, VEX_4V, VEX_L;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : vinsert_lowering<"VINSERTI128", "VPERM2I128", v2i64, v4i64,  loadv2i64,  loadv4i64>;
   defm : vinsert_lowering<"VINSERTI128", "VPERM2I128", v4i32, v8i32,  loadv4i32,  loadv8i32>;
   defm : vinsert_lowering<"VINSERTI128", "VPERM2I128", v8i16, v16i16, loadv8i16,  loadv16i16>;
@@ -7949,7 +8460,13 @@ def VEXTRACTI128mr : AVX2AIi8<0x39, MRMDestMem, (outs),
           "vextracti128\t{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
           Sched<[SchedWriteVecMoveLS.XMM.MR]>, VEX, VEX_L;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : vextract_lowering<"VEXTRACTI128", v4i64,  v2i64>;
   defm : vextract_lowering<"VEXTRACTI128", v8i32,  v4i32>;
   defm : vextract_lowering<"VEXTRACTI128", v16i16, v8i16>;
