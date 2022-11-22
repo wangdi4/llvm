@@ -1040,7 +1040,6 @@ processInputModule(std::unique_ptr<Module> M) {
   // Top-level per-kernel/per-source splitter. SYCL/ESIMD splitting is applied
   // to modules resulting from all other kinds of splitting.
   std::unique_ptr<module_split::ModuleSplitterBase> ScopedSplitter =
-<<<<<<< HEAD
       module_split::getSplitterByMode(
           module_split::ModuleDesc{std::move(M)}, SplitMode, IROutputOnly,
 #if INTEL_COLLAB
@@ -1048,13 +1047,6 @@ processInputModule(std::unique_ptr<Module> M) {
 #else  // INTEL_COLLAB
           EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB
-  const bool SplitByScope = ScopedSplitter->totalSplits() > 1;
-  Modified |= SplitByScope;
-=======
-      module_split::getSplitterByMode(module_split::ModuleDesc{std::move(M)},
-                                      SplitMode, IROutputOnly,
-                                      EmitOnlyKernelsAsEntryPoints);
->>>>>>> 9a2c4fe579b1ad1d3b26878ab95aa0764c96a89e
 
   SmallVector<module_split::ModuleDesc, 8> TopLevelModules;
   bool SplitByOptionalFeatures = false;
@@ -1099,7 +1091,6 @@ processInputModule(std::unique_ptr<Module> M) {
   // "leaf" ModuleDesc's resulted from splitting. Some bookkeeping is needed for
   // ESIMD splitter to link back needed modules.
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   bool OMPOffloadParallelCompile =
       (DoOmpOffload && ScopedSplitter->totalSplits() > 1);
@@ -1117,14 +1108,9 @@ processInputModule(std::unique_ptr<Module> M) {
   CHECK_AND_EXIT(TableE.takeError());
   std::unique_ptr<util::SimpleTable> Table = std::move(TableE.get());
 #endif // INTEL_COLLAB
-  // Proceed with top-level splitting.
-  while (ScopedSplitter->hasMoreSplits()) {
-    module_split::ModuleDesc MDesc = ScopedSplitter->nextSplit();
-=======
   // Based on results from the top-level splitting, we perform some lower-level
   // splitting for various unique features.
   for (module_split::ModuleDesc &MDesc : TopLevelModules) {
->>>>>>> 9a2c4fe579b1ad1d3b26878ab95aa0764c96a89e
     DUMP_ENTRY_POINTS(MDesc.entries(), MDesc.Name.c_str(), 1);
 
     // FIXME: large grf should be handled by properties splitter above
