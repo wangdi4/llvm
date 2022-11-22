@@ -3266,8 +3266,8 @@ PreservedAnalyses SimpleLoopUnswitchPass::run(Loop &L, LoopAnalysisManager &AM,
   if (!unswitchLoop(L, AR.DT, AR.LI, AR.AC, AR.AA, AR.TLI, AR.TTI, Trivial,
                     NonTrivial,
 #endif // INTEL_CUSTOMIZATION
-                    UnswitchCB, &AR.SE, MSSAU ? MSSAU.getPointer() : nullptr,
-                    PSI, AR.BFI, DestroyLoopCB))
+                    UnswitchCB, &AR.SE, MSSAU ? &*MSSAU : nullptr, PSI, AR.BFI,
+                    DestroyLoopCB))
     return PreservedAnalyses::all();
 
   if (AR.MSSA && VerifyMemorySSA)
