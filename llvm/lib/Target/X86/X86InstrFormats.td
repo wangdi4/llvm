@@ -1116,7 +1116,13 @@ class PCLMULIi8<bits<8> o, Format F, dag outs, dag ins, string asm,
 class FMA3<bits<8> o, Format F, dag outs, dag ins, string asm,
            list<dag>pattern>
       : I<o, F, outs, ins, asm, pattern>, T8PD,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        VEX_4V, FMASC, Requires<[HasFMA, NoFMA4, NoAVX256P_And_NoVLX]>;
+#else // INTEL_FEATURE_ISA_AVX256P
         VEX_4V, FMASC, Requires<[HasFMA, NoFMA4, NoVLX]>;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 class FMA3S<bits<8> o, Format F, dag outs, dag ins, string asm,
             list<dag>pattern>
       : I<o, F, outs, ins, asm, pattern>, T8PD,
