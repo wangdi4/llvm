@@ -457,7 +457,6 @@ Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
                                             SQ.getWithInstruction(&EI)))
     return replaceInstUsesWith(EI, V);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   Value *InputVec = nullptr;
   if (matchVecShuffleCast(EI, InputVec)) {
@@ -466,7 +465,7 @@ Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
     return replaceInstUsesWith(EI, BCInst);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // extractelt (select %x, %vec1, %vec2), %const ->
   // select %x, %vec1[%const], %vec2[%const]
   // TODO: Support constant folding of multiple select operands:
@@ -481,7 +480,6 @@ Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
       if (Instruction *R = FoldOpIntoSelect(EI, SI))
         return R;
 
->>>>>>> 470aea5ed403d43b68e2ffdbec451d79913eb15d
   // If extracting a specified index from the vector, see if we can recursively
   // find a previously computed scalar that was inserted into the vector.
   auto *IndexC = dyn_cast<ConstantInt>(Index);
