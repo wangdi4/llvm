@@ -28,18 +28,18 @@ include(itt)
 set_unicode_off()
 
 # Include the ASM sources
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(BUILD_X64)
   if(WIN32)
     create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST kernel_execute_64.asm
                      chkstk_ms_64.asm)
   else(WIN32)
     create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
   endif(WIN32)
-else(CMAKE_SIZEOF_VOID_P EQUAL 8)
+else()
   if(WIN32)
     create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST chkstk_ms_32.asm)
   endif(WIN32)
-endif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+endif()
 
 # cpu id detect uses llvm::Support algorithms
 set(LINK_LIBS LLVMSupport)

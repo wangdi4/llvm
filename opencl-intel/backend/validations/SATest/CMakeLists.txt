@@ -37,10 +37,10 @@ if(WIN32)
       FATAL_ERROR "ICC Compiler env var is not exported! SATest won't link.")
   endif()
 
-  if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(ICC_PLATFORM ia32)
-  else()
+  if(BUILD_X64)
     set(ICC_PLATFORM intel64)
+  else()
+    set(ICC_PLATFORM ia32)
   endif()
 
   link_directories("${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")

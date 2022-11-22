@@ -26,17 +26,17 @@ endif(WIN32)
 set(TARGET_NAME dyn_cl_hw_utils)
 
 if(WIN32)
-  if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    file(
-      GLOB ASM_SOURCES
-      RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-      ../cl_hw_utils/win32Imp/bin32/*.asm)
-  else()
+  if(BUILD_X64)
     file(
       GLOB ASM_SOURCES
       RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
       ../cl_hw_utils/win32Imp/bin64/*.asm)
-  endif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+  else()
+    file(
+      GLOB ASM_SOURCES
+      RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+      ../cl_hw_utils/win32Imp/bin32/*.asm)
+  endif()
 
   create_asm_rules(ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES})
 
