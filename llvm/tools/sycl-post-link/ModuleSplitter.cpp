@@ -181,8 +181,8 @@ groupEntryPointsByKernelType(ModuleDesc &MD,
 
   if (!EntryPointMap.empty()) {
     for (auto &EPG : EntryPointMap) {
-      EntryPointGroups.emplace_back(EntryPointGroup{
-          EPG.first, std::move(EPG.second), MD.getEntryPointGroup().Props});
+      EntryPointGroups.emplace_back(EPG.first, std::move(EPG.second),
+                                    MD.getEntryPointGroup().Props);
       EntryPointGroup &G = EntryPointGroups.back();
 
       if (G.GroupId == ESIMD_SCOPE_NAME) {
@@ -194,8 +194,7 @@ groupEntryPointsByKernelType(ModuleDesc &MD,
     }
   } else {
     // No entry points met, record this.
-    EntryPointGroups.emplace_back(
-        EntryPointGroup{SYCL_SCOPE_NAME, EntryPointSet{}});
+    EntryPointGroups.emplace_back(SYCL_SCOPE_NAME, EntryPointSet{});
     EntryPointGroup &G = EntryPointGroups.back();
     G.Props.HasESIMD = SyclEsimdSplitStatus::SYCL_ONLY;
   }
@@ -271,8 +270,8 @@ EntryPointGroupVec groupEntryPointsByScope(ModuleDesc &MD,
     EntryPointGroups.reserve(EntryPointMap.size());
 #endif // INTEL_COLLAB
     for (auto &EPG : EntryPointMap) {
-      EntryPointGroups.emplace_back(EntryPointGroup{
-          EPG.first, std::move(EPG.second), MD.getEntryPointGroup().Props});
+      EntryPointGroups.emplace_back(EPG.first, std::move(EPG.second),
+                                    MD.getEntryPointGroup().Props);
       EntryPointGroup &G = EntryPointGroups.back();
       G.Props.Scope = EntryScope;
     }
@@ -283,8 +282,7 @@ EntryPointGroupVec groupEntryPointsByScope(ModuleDesc &MD,
 #endif // INTEL_COLLAB
   } else {
     // No entry points met, record this.
-    EntryPointGroups.emplace_back(
-        EntryPointGroup{GLOBAL_SCOPE_NAME, EntryPointSet{}});
+    EntryPointGroups.emplace_back(GLOBAL_SCOPE_NAME, EntryPointSet{});
   }
   return EntryPointGroups;
 }
@@ -313,13 +311,13 @@ groupEntryPointsByAttribute(ModuleDesc &MD, StringRef AttrName,
   if (!EntryPointMap.empty()) {
     EntryPointGroups.reserve(EntryPointMap.size());
     for (auto &EPG : EntryPointMap) {
-      EntryPointGroups.emplace_back(EntryPointGroup{
-          EPG.first, std::move(EPG.second), MD.getEntryPointGroup().Props});
+      EntryPointGroups.emplace_back(EPG.first, std::move(EPG.second),
+                                    MD.getEntryPointGroup().Props);
       F(EntryPointGroups.back());
     }
   } else {
     // No entry points met, record this.
-    EntryPointGroups.push_back({GLOBAL_SCOPE_NAME, {}});
+    EntryPointGroups.emplace_back(GLOBAL_SCOPE_NAME, EntryPointSet{});
     F(EntryPointGroups.back());
   }
   return EntryPointGroups;
