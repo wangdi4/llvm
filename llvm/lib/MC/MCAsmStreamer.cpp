@@ -214,7 +214,8 @@ public:
 
   void emitXCOFFRefDirective(StringRef Name) override;
 
-  void emitXCOFFExceptDirective(const MCSymbol *Symbol, MCSymbol *Trap,
+  void emitXCOFFExceptDirective(const MCSymbol *Symbol, 
+                                const MCSymbol *Trap,
                                 unsigned Lang, unsigned Reason,
                                 unsigned FunctionSize, bool hasDebug) override;
 
@@ -968,7 +969,8 @@ void MCAsmStreamer::emitXCOFFRefDirective(StringRef Name) {
 }
 
 void MCAsmStreamer::emitXCOFFExceptDirective(const MCSymbol *Symbol,
-                                             MCSymbol *Trap, unsigned Lang,
+                                             const MCSymbol *Trap, 
+                                             unsigned Lang,
                                              unsigned Reason,
                                              unsigned FunctionSize,
                                              bool hasDebug) {
