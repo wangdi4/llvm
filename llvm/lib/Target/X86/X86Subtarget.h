@@ -296,9 +296,10 @@ public:
   // because for many cases we don't have a better option.
   bool canExtendTo512DQ() const {
 #if INTEL_CUSTOMIZATION
-    return hasAVX512() &&
 #if INTEL_FEATURE_ISA_AVX256
-           !IsAVX256 &&
+    return X86SSELevel >= AVX512 && !IsAVX256 &&
+#else  // INTEL_FEATURE_ISA_AVX256
+    return hasAVX512() &&
 #endif // INTEL_FEATURE_ISA_AVX256
            (!hasVLX() || getPreferVectorWidth() >= 512);
 #endif // INTEL_CUSTOMIZATION
@@ -311,9 +312,10 @@ public:
   // disable them in the legalizer.
   bool useAVX512Regs() const {
 #if INTEL_CUSTOMIZATION
-    return hasAVX512() &&
 #if INTEL_FEATURE_ISA_AVX256
-           !IsAVX256 &&
+    return X86SSELevel >= AVX512 && !IsAVX256 &&
+#else  // INTEL_FEATURE_ISA_AVX256
+    return hasAVX512() &&
 #endif // INTEL_FEATURE_ISA_AVX256
            (canExtendTo512DQ() || RequiredVectorWidth > 256);
 #endif // INTEL_CUSTOMIZATION
