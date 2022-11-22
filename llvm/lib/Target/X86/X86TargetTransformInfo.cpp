@@ -6460,8 +6460,16 @@ bool X86TTIImpl::isLegalMaskedExpandLoad(Type *DataTy) {
     return false;
 
   unsigned IntWidth = ScalarTy->getIntegerBitWidth();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  return IntWidth == 32 || IntWidth == 64 ||
+         ((IntWidth == 8 || IntWidth == 16) &&
+          (ST->hasVBMI2() || ST->hasAVX256P()));
+#else  // INTEL_FEATURE_ISA_AVX256P
   return IntWidth == 32 || IntWidth == 64 ||
          ((IntWidth == 8 || IntWidth == 16) && ST->hasVBMI2());
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86TTIImpl::isLegalMaskedCompressStore(Type *DataTy) {
@@ -6806,7 +6814,15 @@ bool X86TTIImpl::forceScalarizeMaskedGather(VectorType *VTy, Align Alignment) {
   // case.
   unsigned NumElts = cast<FixedVectorType>(VTy)->getNumElements();
   return NumElts == 1 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+         (ST->hasAVX512() &&
+          (NumElts == 2 ||
+           (NumElts == 4 && !(ST->hasVLX() || ST->hasAVX256P()))));
+#else  // INTEL_FEATURE_ISA_AVX256P
          (ST->hasAVX512() && (NumElts == 2 || (NumElts == 4 && !ST->hasVLX())));
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
