@@ -8195,6 +8195,10 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
   // FIXME: it tries to fix a problem with MSVC buildbots.
   TargetTransformInfo *TTI = this->TTI;
   auto AdjustExtractsCost = [=](InstructionCost &Cost) {
+    // If the resulting type is scalarized, do not adjust the cost.
+    unsigned VecNumParts = TTI->getNumberOfParts(VecTy);
+    if (VecNumParts == VecTy->getNumElements())
+      return;
     DenseMap<Value *, int> ExtractVectorsTys;
     SmallPtrSet<Value *, 4> CheckedExtracts;
     for (auto *V : VL) {
@@ -8216,8 +8220,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       if (!EEIdx)
         continue;
       unsigned Idx = *EEIdx;
-      if (TTI->getNumberOfParts(VecTy) !=
-          TTI->getNumberOfParts(EE->getVectorOperandType())) {
+      if (VecNumParts != TTI->getNumberOfParts(EE->getVectorOperandType())) {
         auto It =
             ExtractVectorsTys.try_emplace(EE->getVectorOperand(), Idx).first;
         It->getSecond() = std::min<int>(It->second, Idx);
@@ -8248,7 +8251,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       unsigned NumElts = VecTy->getNumElements();
       if (Data.second % NumElts == 0)
         continue;
-      if (TTI->getNumberOfParts(EEVTy) > TTI->getNumberOfParts(VecTy)) {
+      if (TTI->getNumberOfParts(EEVTy) > VecNumParts) {
         unsigned Idx = (Data.second / NumElts) * NumElts;
         unsigned EENumElts = EEVTy->getNumElements();
         if (Idx + NumElts <= EENumElts) {
