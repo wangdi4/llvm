@@ -1049,11 +1049,13 @@ processInputModule(std::unique_ptr<Module> M) {
 #endif // INTEL_COLLAB
 
   SmallVector<module_split::ModuleDesc, 8> TopLevelModules;
-  bool SplitByOptionalFeatures = false;
 
   // FIXME: this check should be performed on all split levels
   if (DeviceGlobals)
     ScopedSplitter->verifyNoCrossModuleDeviceGlobalUsage();
+
+  const bool SplitByScope = ScopedSplitter->remainingSplits() > 1;
+  bool SplitByOptionalFeatures = false;
 
   while (ScopedSplitter->hasMoreSplits()) {
     module_split::ModuleDesc MD = ScopedSplitter->nextSplit();
@@ -1073,14 +1075,13 @@ processInputModule(std::unique_ptr<Module> M) {
     // This step is mandatory, because it is required for functional
     // correctness, i.e. to prevent speculative compilation of kernels that use
     // optional features on a HW which doesn't support them.
+    SplitByOptionalFeatures |= OptionalFeaturesSplitter->remainingSplits() > 1;
+
     while (OptionalFeaturesSplitter->hasMoreSplits()) {
       TopLevelModules.emplace_back(OptionalFeaturesSplitter->nextSplit());
     }
-
-    SplitByOptionalFeatures |= OptionalFeaturesSplitter->totalSplits() > 1;
   }
 
-  const bool SplitByScope = ScopedSplitter->totalSplits() > 1;
   Modified |= SplitByScope;
   Modified |= SplitByOptionalFeatures;
 
@@ -1117,7 +1118,7 @@ processInputModule(std::unique_ptr<Module> M) {
     std::unique_ptr<module_split::ModuleSplitterBase> LargeGRFSplitter =
         module_split::getLargeGRFSplitter(std::move(MDesc),
                                           EmitOnlyKernelsAsEntryPoints);
-    const bool SplitByLargeGRF = LargeGRFSplitter->totalSplits() > 1;
+    const bool SplitByLargeGRF = LargeGRFSplitter->remainingSplits() > 1;
     Modified |= SplitByLargeGRF;
 
     // Now split further by "large-grf" attribute.
@@ -1135,7 +1136,7 @@ processInputModule(std::unique_ptr<Module> M) {
       std::unique_ptr<module_split::ModuleSplitterBase> ESIMDSplitter =
           module_split::getSplitterByKernelType(std::move(MDesc1),
                                                 EmitOnlyKernelsAsEntryPoints);
-      const bool SplitByESIMD = ESIMDSplitter->totalSplits() > 1;
+      const bool SplitByESIMD = ESIMDSplitter->remainingSplits() > 1;
       Modified |= SplitByESIMD;
 
       if (SplitByESIMD && SplitByScope &&
