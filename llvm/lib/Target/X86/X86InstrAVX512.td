@@ -12105,13 +12105,9 @@ multiclass avx512_trunc<bits<8> opc, string OpcodeStr, SDNode OpNode128,
   let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasVLX, !cast<Predicate>("HasAVX256P_Or_"#prd))] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX, prd] in {
-<<<<<<< HEAD
-    defm Z128:  avx512_trunc_common<opc, OpcodeStr, OpNode128, MaskNode128, sched.XMM,
-=======
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    defm Z128:  avx512_trunc_common<opc, OpcodeStr, OpNode128, MaskNode128, sched,
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+    defm Z128:  avx512_trunc_common<opc, OpcodeStr, OpNode128, MaskNode128, sched.XMM,
                              VTSrcInfo.info128, DestInfoZ128, x86memopZ128>,
                 avx512_trunc_mr_lowering<VTSrcInfo.info128, truncFrag,
                                          mtruncFrag, NAME>, EVEX_V128;
@@ -12357,13 +12353,9 @@ multiclass avx512_pmovx_bw<bits<8> opc, string OpcodeStr,
   let Predicates = [HasAVX256P_Or_HasBWI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX, HasBWI] in {
-<<<<<<< HEAD
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v8i16x_info,
-=======
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, schedX, v8i16x_info,
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v8i16x_info,
                     v16i8x_info, i64mem, LdFrag, InVecNode>,
                      EVEX_CD8<8, CD8VH>, T8PD, EVEX_V128, VEX_WIG;
 
@@ -12387,13 +12379,9 @@ multiclass avx512_pmovx_bd<bits<8> opc, string OpcodeStr,
   let Predicates = [HasAVX256P_Or_HasVLX] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX, HasAVX512] in {
-<<<<<<< HEAD
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v4i32x_info,
-=======
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, schedX, v4i32x_info,
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v4i32x_info,
                    v16i8x_info, i32mem, LdFrag, InVecNode>,
                          EVEX_CD8<8, CD8VQ>, T8PD, EVEX_V128, VEX_WIG;
 
@@ -12417,13 +12405,9 @@ multiclass avx512_pmovx_bq<bits<8> opc, string OpcodeStr,
   let Predicates = [HasAVX256P_Or_HasVLX] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX, HasAVX512] in {
-<<<<<<< HEAD
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v2i64x_info,
-=======
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, schedX, v2i64x_info,
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v2i64x_info,
                    v16i8x_info, i16mem, LdFrag, InVecNode>,
                      EVEX_CD8<8, CD8VO>, T8PD, EVEX_V128, VEX_WIG;
 
@@ -12447,13 +12431,9 @@ multiclass avx512_pmovx_wd<bits<8> opc, string OpcodeStr,
   let Predicates = [HasAVX256P_Or_HasVLX] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX, HasAVX512] in {
-<<<<<<< HEAD
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v4i32x_info,
-=======
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, schedX, v4i32x_info,
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v4i32x_info,
                    v8i16x_info, i64mem, LdFrag, InVecNode>,
                      EVEX_CD8<16, CD8VH>, T8PD, EVEX_V128, VEX_WIG;
 
@@ -12477,13 +12457,9 @@ multiclass avx512_pmovx_wq<bits<8> opc, string OpcodeStr,
   let Predicates = [HasAVX256P_Or_HasVLX] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX, HasAVX512] in {
-<<<<<<< HEAD
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v2i64x_info,
-=======
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, schedX, v2i64x_info,
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v2i64x_info,
                    v8i16x_info, i32mem, LdFrag, InVecNode>,
                      EVEX_CD8<16, CD8VQ>, T8PD, EVEX_V128, VEX_WIG;
 
@@ -12508,13 +12484,9 @@ multiclass avx512_pmovx_dq<bits<8> opc, string OpcodeStr,
   let Predicates = [HasAVX256P_Or_HasVLX] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX, HasAVX512] in {
-<<<<<<< HEAD
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v2i64x_info,
-=======
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, schedX, v2i64x_info,
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+    defm Z128:  avx512_pmovx_common<opc, OpcodeStr, sched.XMM, v2i64x_info,
                    v4i32x_info, i64mem, LdFrag, InVecNode>,
                      EVEX_CD8<32, CD8VH>, T8PD, EVEX_V128;
 
@@ -15379,17 +15351,13 @@ multiclass GF2P8MULB_avx512_common<bits<8> Op, string OpStr, SDNode OpNode,
   let Predicates = [HasGFNI, HasAVX512] in
   defm Z      : avx512_binop_rm<Op, OpStr, OpNode, v64i8_info, sched.ZMM, 1>,
                                 EVEX_V512;
-<<<<<<< HEAD
-  let Predicates = [HasGFNI, HasVLX] in {
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX256P_Or_HasGFNI, HasBWI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasGFNI, HasVLX, HasBWI] in {
+  let Predicates = [HasGFNI, HasVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
     defm Z256 : avx512_binop_rm<Op, OpStr, OpNode, v32i8x_info, sched.YMM, 1>,
                                 EVEX_V256;
     defm Z128 : avx512_binop_rm<Op, OpStr, OpNode, v16i8x_info, sched.XMM, 1>,
@@ -15421,17 +15389,13 @@ multiclass GF2P8AFFINE_avx512_common<bits<8> Op, string OpStr, SDNode OpNode,
   let Predicates = [HasGFNI, HasAVX512] in
   defm Z      : GF2P8AFFINE_avx512_rmb_imm<Op, OpStr, OpNode, sched.ZMM,
                                            v64i8_info, v8i64_info>, EVEX_V512;
-<<<<<<< HEAD
-  let Predicates = [HasGFNI, HasVLX] in {
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX256P_Or_HasGFNI, HasBWI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasGFNI, HasVLX, HasBWI] in {
+  let Predicates = [HasGFNI, HasVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
     defm Z256 : GF2P8AFFINE_avx512_rmb_imm<Op, OpStr, OpNode, sched.YMM,
                                            v32i8x_info, v4i64x_info>, EVEX_V256;
     defm Z128 : GF2P8AFFINE_avx512_rmb_imm<Op, OpStr, OpNode, sched.XMM,
