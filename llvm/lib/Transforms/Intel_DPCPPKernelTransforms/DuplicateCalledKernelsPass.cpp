@@ -161,7 +161,9 @@ void updateLocalUseMap(const CallGraph &CG, const FuncSet &KernelSet,
 
 /// Find a pair of kernels that need fix, i.e. they call the same function which
 /// directly or indirectly uses local variables.
-static Optional<std::pair<Function *, Function *>>
+/// Returns a tuple of kernels pair and a set of shared local variables.
+static Optional<
+    std::tuple<Function *, Function *, LocalBufferInfo::TUsedLocals>>
 findKernelPairTofix(const FuncSet &KernelSet,
                     const LocalBufferInfo::TUsedLocalsMap &LocalUseMap,
                     FuncPtrSet &SkipKernels) {
@@ -182,9 +184,8 @@ findKernelPairTofix(const FuncSet &KernelSet,
       if (LocalIt2 == LocalUseMap.end())
         continue;
       set_intersect(Locals1, LocalIt2->second);
-      if (!Locals1.empty()) {
-        return std::make_pair(K1, K2);
-      }
+      if (!Locals1.empty())
+        return std::make_tuple(K1, K2, std::move(Locals1));
     }
 
     // K1 doesn't share local variables with other kernels. It can be skipped
@@ -217,11 +218,12 @@ findFunctionToClone(const CallGraph &CG, const FuncSet &KernelSet,
                     const LocalBufferInfo::TUsedLocalsMap &DirectLocalUseMap,
                     LocalBufferInfo::TUsedLocalsMap &LocalUseMap,
                     FuncPtrSet &SkipKernels) {
-  auto KernelPair = findKernelPairTofix(KernelSet, LocalUseMap, SkipKernels);
-  if (!KernelPair)
+  auto KernelsToFix = findKernelPairTofix(KernelSet, LocalUseMap, SkipKernels);
+  if (!KernelsToFix)
     return None;
-  const CallGraphNode *N1 = CG[KernelPair->first];
-  const CallGraphNode *N2 = CG[KernelPair->second];
+
+  const CallGraphNode *N1 = CG[std::get<0>(*KernelsToFix)];
+  const CallGraphNode *N2 = CG[std::get<1>(*KernelsToFix)];
 
   auto HasLocals = [&](Function *F) {
     return F && !F->isDeclaration() && LocalUseMap.count(F);
@@ -277,10 +279,9 @@ static Function *cloneFunctionAndLocalVariable(
 
       // Need to clone the function if it has direct local variable use.
       // Clone local variable's GlobalVariable along the way.
-      for (GlobalValue *V : DIt->second) {
-        if (VMap.count(V))
+      for (GlobalVariable *GV : DIt->second) {
+        if (VMap.count(GV))
           continue;
-        auto *GV = cast<GlobalVariable>(V);
         auto *NewGV = new GlobalVariable(
             M, GV->getValueType(), GV->isConstant(), GV->getLinkage(),
             GV->getInitializer(), Twine(GV->getName()) + CloneNameSuffix,
@@ -375,6 +376,37 @@ static Function *cloneFunctionAndLocalVariable(
   return NewRoot;
 }
 
+static void cloneDirectLocalUseInFunction(
+    Function *F, LocalBufferInfo::TUsedLocals &LocalsToClone,
+    LocalBufferInfo::TUsedLocalsMap &DirectLocalUseMap) {
+  auto MapIt = DirectLocalUseMap.find(F);
+  assert(MapIt != DirectLocalUseMap.end() &&
+         "function should use local variable");
+  ValueToValueMapTy VMap;
+  for (GlobalVariable *GV : LocalsToClone) {
+    auto *NewGV = new GlobalVariable(
+        *F->getParent(), GV->getValueType(), GV->isConstant(), GV->getLinkage(),
+        GV->getInitializer(), Twine(GV->getName()) + CloneNameSuffix, nullptr,
+        GV->getThreadLocalMode(), GV->getAddressSpace());
+    NewGV->copyAttributesFrom(GV);
+    MapIt->second.erase(GV);
+    MapIt->second.insert(NewGV);
+    VMap[GV] = NewGV;
+    for (User *U : make_early_inc_range(GV->users())) {
+      for (auto It = df_begin(U), E = df_end(U); It != E;) {
+        if (auto *I = dyn_cast<Instruction>(*It)) {
+          if (I->getFunction() == F)
+            RemapInstruction(I, VMap,
+                             RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+          It.skipChildren();
+          continue;
+        }
+        ++It;
+      }
+    }
+  }
+}
+
 bool DuplicateCalledKernelsPass::runImpl(Module &M, CallGraph &CG,
                                          LocalBufferInfo &LBI) {
   bool Changed = false;
@@ -402,11 +434,22 @@ bool DuplicateCalledKernelsPass::runImpl(Module &M, CallGraph &CG,
     Changed = true;
   }
 
+  // Clone local variables directly used in two kernels.
+  FuncPtrSet SkipKernels;
+  while (auto KernelsToFix =
+             findKernelPairTofix(KernelSet, DirectLocalUseMap, SkipKernels)) {
+    // Clone local variables in the second kernel.
+    cloneDirectLocalUseInFunction(std::get<1>(*KernelsToFix),
+                                  std::get<2>(*KernelsToFix),
+                                  DirectLocalUseMap);
+    Changed = true;
+  }
+
   // Find a candidate function, which uses local variable and is used
   // by two kernels, to clone. Its dependent functions are also cloned.
   // Cloning changes call graph and potential candidates, so we need to do this
   // recursively.
-  FuncPtrSet SkipKernels;
+  SkipKernels.clear();
   LocalBufferInfo::TUsedLocalsMap LocalUseMap;
   getLocalUseMap(CG, KernelSet, DirectLocalUseMap, LocalUseMap);
   while (auto ToClone = findFunctionToClone(CG, KernelSet, DirectLocalUseMap,

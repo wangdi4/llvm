@@ -6,10 +6,10 @@
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers,dpcpp-kernel-prepare-args' -S < %s | FileCheck %s
 
 ; The test checks that global variables usages marked with the dbg_declare_inst metadata are ignored by the pass, and do not cause extra local memory allocation.
-; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356, which we expect to be rounded to 384 (128*3).
+; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356.
 ; In the problematic scenario, the call to dbg_declare global in @f1 is considered a usage and causes double memory allocation, which wil result in alloca [512 .
 ; CHECK-NOT: alloca [
-; CHECK: alloca [384
+; CHECK: alloca [356
 ; CHECK-NOT: alloca [
 
 ; ModuleID = 'debugInfo.ll'

@@ -249,9 +249,7 @@
 ; CHECK-NEXT: Invalidating analysis: DataPerValueAnalysis
 ; CHECK-NEXT: Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass

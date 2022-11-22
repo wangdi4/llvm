@@ -170,6 +170,7 @@ MODULE_PASS("print<dpcpp-kernel-builtin-info-analysis>", BuiltinLibInfoAnalysisP
 MODULE_PASS("print<dpcpp-kernel-data-per-barrier-analysis>", DataPerBarrierPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-data-per-value-analysis>", DataPerValuePrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-barrier-wi-analysis>", WIRelatedValuePrinter(dbgs()))
+MODULE_PASS("print<dpcpp-kernel-local-buffer-analysis>", LocalBufferAnalysisPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-sg-size-analysis>", SGSizeAnalysisPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-vf-analysis>", VFAnalysisPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-vec-dim-analysis>", VectorizationDimensionAnalysisPrinter(dbgs()))

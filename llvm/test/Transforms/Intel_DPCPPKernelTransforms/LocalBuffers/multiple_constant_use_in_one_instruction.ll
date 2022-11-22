@@ -18,20 +18,18 @@ entry:
   ret void
 }
 ; NONOPAQUE: [[LOCAL_MEM_PTR:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; NONOPAQUE: [[GEP_ASC:%.*]] = addrspacecast i8 addrspace(3)* [[LOCAL_MEM_PTR]] to [3 x i8] addrspace(3)**
-; NONOPAQUE-NEXT: [[A_LOCAL_PTR:%.*]] = load [3 x i8] addrspace(3)*, [3 x i8] addrspace(3)** [[GEP_ASC]], align 8
-; NONOPAQUE-NEXT: [[GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[A_LOCAL_PTR]], i64 0, i64 1
+; NONOPAQUE-NEXT: [[BC:%.*]] = bitcast i8 addrspace(3)* %0 to [3 x i8] addrspace(3)*
+; NONOPAQUE-NEXT: [[GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[BC]], i64 0, i64 1
 ; NONOPAQUE-NEXT: [[PTRTOINT1:%.*]] = ptrtoint i8 addrspace(3)* [[GEP1]] to i64
-; NONOPAQUE: [[PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[A_LOCAL_PTR]] to i64
-; OPAQUE: [[LOCAL_MEM_PTR:%.*]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; OPAQUE: [[GEP_ASC:%.*]] = addrspacecast ptr addrspace(3) [[LOCAL_MEM_PTR]] to ptr
-; OPAQUE-NEXT: [[A_LOCAL_PTR:%.*]] = load ptr addrspace(3), ptr [[GEP_ASC]], align 8
-; OPAQUE-NEXT: [[GEP1:%.*]] = getelementptr inbounds [3 x i8], ptr addrspace(3) [[A_LOCAL_PTR]], i64 0, i64 1
-; OPAQUE-NEXT: [[PTRTOINT1:%.*]] = ptrtoint ptr addrspace(3) [[GEP1]] to i64
-; OPAQUE: [[PTRTOINT:%.*]] = ptrtoint ptr addrspace(3) [[A_LOCAL_PTR]] to i64
-; CHECK-NEXT: [[SUB:%.*]] = sub i64 [[PTRTOINT1]], [[PTRTOINT]]
+; NONOPAQUE-NEXT: [[PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[BC]] to i64
+; NONOPAQUE-NEXT: [[SUB:%.*]] = sub i64 [[PTRTOINT1]], [[PTRTOINT]]
 ; NONOPAQUE-NEXT: store i64 [[SUB]], i64 addrspace(1)* %arrayidx, align 8
+
+; OPAQUE: [[LOCAL_MEM_PTR:%.*]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
+; OPAQUE-NEXT: [[GEP1:%.*]] = getelementptr inbounds [3 x i8], ptr addrspace(3) [[LOCAL_MEM_PTR]], i64 0, i64 1
+; OPAQUE-NEXT: [[PTRTOINT1:%.*]] = ptrtoint ptr addrspace(3) [[GEP1]] to i64
+; OPAQUE-NEXT: [[PTRTOINT:%.*]] = ptrtoint ptr addrspace(3) [[LOCAL_MEM_PTR]] to i64
+; OPAQUE-NEXT: [[SUB:%.*]] = sub i64 [[PTRTOINT1]], [[PTRTOINT]]
 ; OPAQUE-NEXT: store i64 [[SUB]], ptr addrspace(1) %arrayidx, align 8
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: CheckModuleDebugify: PASS

@@ -64,7 +64,7 @@ dim_0_pre_head:                                   ; preds = %dim_0_exit, %dim_1_
 
 scalar_kernel_entry:                              ; preds = %scalar_kernel_entry, %dim_0_pre_head
 ; CHECK-LABEL: scalar_kernel_entry
-; CHECK-ARG: call i32 @foo(i32 addrspace(1)* noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, i8 addrspace(3)* noalias %LocalMem_foo, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle)
+; CHECK-ARG: call i32 @foo(i32 addrspace(1)* noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, i8 addrspace(3)* noalias null, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle)
 ; CHECK-TLS: call i32 @foo(i32 addrspace(1)* noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}})
 
   %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]

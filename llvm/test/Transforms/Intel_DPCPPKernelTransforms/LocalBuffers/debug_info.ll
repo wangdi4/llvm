@@ -10,8 +10,13 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; Original global variables are removed
 ; CHECK-NOT: @a.__local = internal addrspace(3) global
 ; CHECK-NOT: @b.__local = internal addrspace(3) global
+; CHECK-NOT: @a.clone.__local = internal addrspace(3) global
+; CHECK-NOT: @b.clone.__local = internal addrspace(3) global
+
 @a.__local = internal addrspace(3) global [4 x i32] undef, align 4, !dbg !0
 @b.__local = internal addrspace(3) global [4 x i64] undef, align 8, !dbg !17
+@a.clone.__local = internal addrspace(3) global [4 x i32] undef, align 4, !dbg !0
+@b.clone.__local = internal addrspace(3) global [4 x i64] undef, align 8, !dbg !17
 
 ; NONOPAQUE-LABEL: define void @main_kernel
 ; OPAQUE-LABEL: define void @main_kernel
@@ -26,13 +31,13 @@ entry:
 ; OPAQUE-SAME: metadata !DIExpression(DW_OP_deref)
   store i32 0, i32 addrspace(3)* getelementptr inbounds ([4 x i32], [4 x i32] addrspace(3)* @a.__local, i64 0, i64 0), align 4, !dbg !37
 
-; DebugInfo of @b.__local is transferred to pLocalMemBase, with offset 128 (size of [4 x i32])
+; DebugInfo of @b.__local is transferred to pLocalMemBase, with offset 16 (size of [4 x i32])
 ; NONOPAQUE: call void @llvm.dbg.value(metadata i8 addrspace(3)* %pLocalMemBase,
 ; NONOPAQUE-SAME: metadata ![[#B_LOCAL:]],
-; NONOPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 128)
+; NONOPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 16)
 ; OPAQUE: call void @llvm.dbg.value(metadata ptr addrspace(3) %pLocalMemBase,
 ; OPAQUE-SAME: metadata ![[#B_LOCAL:]],
-; OPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 128)
+; OPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 16)
   store i64 0, i64 addrspace(3)* getelementptr inbounds ([4 x i64], [4 x i64] addrspace(3)* @b.__local, i64 0, i64 0), align 8, !dbg !40
   ret void
 }
@@ -41,8 +46,8 @@ entry:
 define void @cloned.main_kernel() !dbg !41 {
 entry:
 ; Test that the optimizer doesn't crash if multiple functions use the same __local GV.
-  store i32 0, i32 addrspace(3)* getelementptr inbounds ([4 x i32], [4 x i32] addrspace(3)* @a.__local, i64 0, i64 0), align 4
-  store i64 0, i64 addrspace(3)* getelementptr inbounds ([4 x i64], [4 x i64] addrspace(3)* @b.__local, i64 0, i64 0), align 8
+  store i32 0, i32 addrspace(3)* getelementptr inbounds ([4 x i32], [4 x i32] addrspace(3)* @a.clone.__local, i64 0, i64 0), align 4
+  store i64 0, i64 addrspace(3)* getelementptr inbounds ([4 x i64], [4 x i64] addrspace(3)* @b.clone.__local, i64 0, i64 0), align 8
   ret void
 }
 
@@ -61,7 +66,7 @@ entry:
 !opencl.stat.run_time_version = !{!32}
 !opencl.stat.workload_name = !{!33}
 !opencl.stat.module_name = !{!34}
-!opencl.kernels = !{!35}
+!sycl.kernels = !{!35}
 !opencl.stats.InstCounter.CanVect = !{!36}
 
 ; Make sure original GlobalVariable DebugInfos are removed

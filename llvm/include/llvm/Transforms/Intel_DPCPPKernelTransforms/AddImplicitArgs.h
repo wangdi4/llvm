@@ -26,8 +26,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, LocalBufferInfo *LBInfo, ImplicitArgsInfo *IAInfo,
-               CallGraph *CG);
+  bool runImpl(Module &M, ImplicitArgsInfo *IAInfo, CallGraph *CG);
 
   static bool isRequired() { return true; }
 
@@ -54,12 +53,6 @@ private:
 
   /// Maps the original and modified Function with implicit args.
   DenseMap<Function *, Function *> FixupFunctionsRefs;
-
-  /// Result of LocalBufferAnalysis pass.
-  LocalBufferInfo *LBInfo;
-
-  /// Maps the modified Function with local values the function uses directly.
-  LocalBufferInfo::TUsedLocalsMap DirectLocalsMap;
 
   /// Result of ImplicitArgsAnalysis pass.
   ImplicitArgsInfo *IAInfo;

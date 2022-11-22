@@ -36,9 +36,6 @@ public:
   bool runOnModule(Module &M) override;
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Depends on LocalBuffAnalysis for finding all local buffers each function
-    // uses directly
-    AU.addRequired<LocalBufferAnalysisLegacy>();
     AU.addRequired<ImplicitArgsAnalysisLegacy>();
     AU.addPreserved<ImplicitArgsAnalysisLegacy>();
   }
@@ -53,7 +50,6 @@ char AddTLSGlobalsLegacy::ID = 0;
 
 INITIALIZE_PASS_BEGIN(AddTLSGlobalsLegacy, "dpcpp-kernel-add-tls-globals",
                       "Adds TLS global variables to the module", false, false)
-INITIALIZE_PASS_DEPENDENCY(LocalBufferAnalysisLegacy)
 INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
 INITIALIZE_PASS_END(AddTLSGlobalsLegacy, "dpcpp-kernel-add-tls-globals",
                     "Adds TLS global variables to the module", false, false)
@@ -63,26 +59,21 @@ AddTLSGlobalsLegacy::AddTLSGlobalsLegacy() : ModulePass(ID) {
 }
 
 bool AddTLSGlobalsLegacy::runOnModule(Module &M) {
-  LocalBufferInfo *LBInfo =
-      &getAnalysis<LocalBufferAnalysisLegacy>().getResult();
   ImplicitArgsAnalysisLegacy *IAA = &getAnalysis<ImplicitArgsAnalysisLegacy>();
   ImplicitArgsInfo *IAInfo = &(IAA->getResult());
-  return Impl.runImpl(M, LBInfo, IAInfo);
+  return Impl.runImpl(M, IAInfo);
 }
 
 PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
-  LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, LBInfo, IAInfo))
+  if (!runImpl(M, IAInfo))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<ImplicitArgsAnalysis>();
   return PA;
 }
 
-bool AddTLSGlobalsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
-                                ImplicitArgsInfo *IAInfo) {
-  this->LBInfo = LBInfo;
+bool AddTLSGlobalsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
   this->M = &M;
   Ctx = &M.getContext();
 
@@ -114,75 +105,7 @@ bool AddTLSGlobalsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
     FunctionsToHandle.push_back(&Func);
   }
 
-  // Run on all collected functions for handling and handle them
-  for (Function *Func : FunctionsToHandle)
-    runOnFunction(Func);
-
   return true;
-}
-
-void AddTLSGlobalsPass::runOnFunction(Function *Func) {
-  llvm::DataLayout DL(M);
-
-  // Calculate pointer to the local memory buffer
-  unsigned int DirectLocalSize =
-      (unsigned int)LBInfo->getDirectLocalsSize(Func);
-
-  // Go through function instructions and search for calls
-  for (BasicBlock &BB : *Func) {
-    for (Instruction &Inst : BB) {
-      if (auto *Call = dyn_cast<CallInst>(&Inst)) {
-        // Check call for not inlined module function
-        // TODO Updating LocalMemBase in this manner renders debugger unable to
-        // call functions that use local buffers properly, they should be
-        // handled differently
-        Function *Callee = Call->getCalledFunction();
-        if (nullptr != Callee && !Callee->isDeclaration()) {
-          IRBuilder<> B(Call);
-          Value *Load =
-              B.CreateLoad(LocalMemBase->getValueType(), LocalMemBase);
-          std::string ValName("pLocalMem_");
-          ValName += Callee->getName();
-          Value *NewLocalMem = B.CreateGEP(
-              CompilationUtils::getSLMBufferElementType(Func->getContext()),
-              Load,
-              ConstantInt::get(IntegerType::get(*Ctx, 32), DirectLocalSize),
-              ValName);
-
-          // Now that the local memory buffer is rebased, the memory location of
-          // directly used local values should be passed to the callee so that
-          // local values can be loaded/stored correctly by callee. In this way,
-          // the pointers to local values are pushed to new local memory buffer
-          // base, and then callee can access local values via the pointers.
-          auto &CalleeLocalSet = LBInfo->getDirectLocals(Callee);
-          Type *Ty =
-              cast<GetElementPtrInst>(NewLocalMem)->getSourceElementType();
-          unsigned int CurrLocalOffset = 0;
-          for (auto *Local : CalleeLocalSet) {
-            GlobalVariable *GV = cast<GlobalVariable>(Local);
-            size_t ArraySize = DL.getTypeAllocSize(GV->getValueType());
-            assert(0 != ArraySize && "zero array size!");
-            // Get the position of Local in NewLocalMem.
-            auto *Idx =
-                ConstantInt::get(IntegerType::get(*Ctx, 32), CurrLocalOffset);
-            auto *LocalPtr = B.CreateGEP(Ty, NewLocalMem, Idx);
-            // Cast to pointer type of Local.
-            auto *Cast =
-                B.CreatePointerCast(LocalPtr, GV->getType()->getPointerTo());
-            // Store Local to NewLocalMem.
-            B.CreateStore(GV, Cast);
-            // Calculate the offset of next direct used local value.
-            CurrLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(ArraySize);
-          }
-
-          B.CreateStore(NewLocalMem, LocalMemBase);
-          B.SetInsertPoint(Call->getNextNode());
-          B.SetCurrentDebugLocation(Call->getDebugLoc());
-          B.CreateStore(Load, LocalMemBase);
-        }
-      }
-    }
-  }
 }
 
 ModulePass *llvm::createAddTLSGlobalsLegacyPass() {

@@ -44,61 +44,35 @@ exit:
 }
 
 
-!0 = !{i1 true}
+!sycl.kernels = !{!1}
 
+!0 = !{i1 true}
+!1 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i8 addrspace(1)*, float addrspace(1)*)* @foo}
 
 ; NONOPAQUE:        define void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat,
 ; OPAQUE:           define void @foo(ptr addrspace(1) %ApInt, ptr addrspace(1) %BpInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,
 ; CHECK-NEXT:   entry:
 ; NONOPAQUE-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; NONOPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)**
-; NONOPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load i32 addrspace(3)*, i32 addrspace(3)** [[VAR1]]
+; NONOPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
 ; OPAQUE-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; OPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast ptr addrspace(3) [[VAR0]] to ptr
-; OPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load ptr addrspace(3), ptr [[VAR1]]
 
-; NONOPAQUE-NEXT:   [[VAR3:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 128
-; NONOPAQUE-NEXT:   [[VAR4:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR3]] to i8 addrspace(3)**
-; NONOPAQUE-NEXT:   [[VAR5:%[a-zA-Z0-9]+]] = load i8 addrspace(3)*, i8 addrspace(3)** [[VAR4]]
-; OPAQUE-NEXT:   [[VAR3:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 128
-; OPAQUE-NEXT:   [[VAR4:%[a-zA-Z0-9]+]] = addrspacecast ptr addrspace(3) [[VAR3]] to ptr
-; OPAQUE-NEXT:   [[VAR5:%[a-zA-Z0-9]+]] = load ptr addrspace(3), ptr [[VAR4]]
+; NONOPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 4
+; OPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 4
 
-; NONOPAQUE-NEXT:   [[VAR6:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 256
-; NONOPAQUE-NEXT:   [[VAR7:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR6]] to float addrspace(3)**
-; NONOPAQUE-NEXT:   [[VAR8:%[a-zA-Z0-9]+]] = load float addrspace(3)*, float addrspace(3)** [[VAR7]]
-; OPAQUE-NEXT:   [[VAR6:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 256
-; OPAQUE-NEXT:   [[VAR7:%[a-zA-Z0-9]+]] = addrspacecast ptr addrspace(3) [[VAR6]] to ptr
-; OPAQUE-NEXT:   [[VAR8:%[a-zA-Z0-9]+]] = load ptr addrspace(3), ptr [[VAR7]]
-
-; NONOPAQUE-NEXT:   %ApIntValue = load i32, i32 addrspace(1)* %ApInt, align 4
-; OPAQUE-NEXT:   %ApIntValue = load i32, ptr addrspace(1) %ApInt, align 4
-; CHECK-NEXT:   %check = icmp eq i32 %ApIntValue, 1000
-; CHECK-NEXT:   br i1 %check, label %body, label %exit
+; NONOPAQUE-NEXT:   [[VAR3:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 8
+; NONOPAQUE-NEXT:   [[VAR4:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR3]] to float addrspace(3)*
+; OPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 8
 
 ; CHECK:   body:
-; NONOPAQUE-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR2]], align 4
-; OPAQUE-NEXT:   %dummyInt = load i32, ptr addrspace(3) [[VAR2]], align 4
-; CHECK-NEXT:   %AddOne = add i32 %dummyInt, 1
-; NONOPAQUE-NEXT:   store i32 %AddOne, i32 addrspace(1)* %ApInt
-; NONOPAQUE-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %BpInt
-; NONOPAQUE-NEXT:   %dummyChar = load i8, i8 addrspace(3)* [[VAR5]], align 1
-; NONOPAQUE-NEXT:   store i8 %dummyChar, i8 addrspace(1)* %pChar
-; NONOPAQUE-NEXT:   %dummyFloat = load float, float addrspace(3)* [[VAR8]], align 4
-; NONOPAQUE-NEXT:   store float %dummyFloat, float addrspace(1)* %pFloat
-; OPAQUE-NEXT:   store i32 %AddOne, ptr addrspace(1) %ApInt
-; OPAQUE-NEXT:   store i32 %dummyInt, ptr addrspace(1) %BpInt
-; OPAQUE-NEXT:   %dummyChar = load i8, ptr addrspace(3) [[VAR5]], align 1
-; OPAQUE-NEXT:   store i8 %dummyChar, ptr addrspace(1) %pChar
-; OPAQUE-NEXT:   %dummyFloat = load float, ptr addrspace(3) [[VAR8]], align 4
-; OPAQUE-NEXT:   store float %dummyFloat, ptr addrspace(1) %pFloat
+; NONOPAQUE:   %dummyInt = load i32, i32 addrspace(3)* [[VAR1]], align 4
+; NONOPAQUE:   %dummyChar = load i8, i8 addrspace(3)* [[VAR2]], align 1
+; NONOPAQUE:   %dummyFloat = load float, float addrspace(3)* [[VAR4]], align 4
+; OPAQUE:   %dummyInt = load i32, ptr addrspace(3) [[VAR0]], align 4
+; OPAQUE:   %dummyChar = load i8, ptr addrspace(3) [[VAR1]], align 1
+; OPAQUE:   %dummyFloat = load float, ptr addrspace(3) [[VAR2]], align 4
 
-; NONOPAQUE-NEXT:   call void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, i8 addrspace(3)* noalias undef, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}*, [3 x i32], [2 x [3 x i32]], [3 x i32] }* noalias undef, i32* noalias undef, [4 x i32] undef, i8* noalias undef, {}* noalias undef)
-; OPAQUE-NEXT:   call void @foo(ptr addrspace(1) %ApInt, ptr addrspace(1) %BpInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat, ptr addrspace(3) noalias undef, ptr noalias undef, ptr noalias undef, [4 x i32] undef, ptr noalias undef, ptr noalias undef)
-; CHECK-NEXT:   br label %exit
-
-; CHECK:   exit:
-; CHECK-NEXT:   ret void
+; NONOPAQUE:   call void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, i8 addrspace(3)* noalias undef, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}*, [3 x i32], [2 x [3 x i32]], [3 x i32] }* noalias undef, i32* noalias undef, [4 x i32] undef, i8* noalias undef, {}* noalias undef)
+; OPAQUE:   call void @foo(ptr addrspace(1) %ApInt, ptr addrspace(1) %BpInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat, ptr addrspace(3) noalias undef, ptr noalias undef, ptr noalias undef, [4 x i32] undef, ptr noalias undef, ptr noalias undef)
 
 
 ; DEBUGIFY-NOT: WARNING
