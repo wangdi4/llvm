@@ -7354,17 +7354,13 @@ const ConstantRange &ScalarEvolution::getRangeRef(
           RangeType);
 
     // A range of Phi is a subset of union of all ranges of its input.
-<<<<<<< HEAD
-    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
+    if (PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
 #if INTEL_CUSTOMIZATION
       // Recursion check before we call getSCEV recursively on each Op.
       // A chain of phi and arithmetic will cause N^2 recursion.
       if (PendingPhiRanges.size() > MaxSCEVCompareDepth)
         return setRange(U, SignHint, std::move(ConservativeResult));
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
->>>>>>> 5dad4c67882a5eac2485f722e8e4109642155058
       // Make sure that we do not run over cycled Phis.
       if (PendingPhiRanges.insert(Phi).second) {
         ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
