@@ -21,6 +21,7 @@
 ; CHECK-NEXT: Running pass: InstSimplifyPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
@@ -101,7 +102,6 @@
 ; CHECK-NEXT: Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
 ; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass

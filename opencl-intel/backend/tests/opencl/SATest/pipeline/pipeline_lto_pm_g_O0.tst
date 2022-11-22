@@ -20,10 +20,10 @@
 ; CHECK:      Skipping pass FMASplitterPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: LinearIdResolverPass
+; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
 
 ; CHECK:      Running pass: DetectRecursionPass
-; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass

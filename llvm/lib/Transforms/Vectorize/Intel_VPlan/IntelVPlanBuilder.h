@@ -267,7 +267,7 @@ public:
                              Name);
   }
 
-  VPValue *createAnd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+  VPInstruction *createAnd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::And, LHS->getType(),
                              {LHS, RHS}, Name);
   }

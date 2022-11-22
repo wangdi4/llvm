@@ -498,6 +498,9 @@ public:
 
   VPLoopDescrMap &getLoopDescrs() { return TopLoopDescrs; }
 
+  /// Execute peephole optimizations before predicator.
+  void runPeepholeBeforePredicator();
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
