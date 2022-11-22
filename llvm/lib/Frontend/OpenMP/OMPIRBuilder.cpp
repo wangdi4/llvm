@@ -4781,15 +4781,10 @@ void OpenMPIRBuilder::createOffloadEntry(Constant *ID, Constant *Addr,
 
 // We only generate metadata for function that contain target regions.
 void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
-<<<<<<< HEAD
 #if INTEL_COLLAB
     bool IsLateOutline,
 #endif // INTEL_COLLAB
-    OffloadEntriesInfoManager &OffloadEntriesInfoManager, bool IsTargetCodegen,
-    bool IsEmbedded, bool HasRequiresUnifiedSharedMemory,
-=======
     OffloadEntriesInfoManager &OffloadEntriesInfoManager,
->>>>>>> 969d787a470a801ad23be1fd53bcc166f75454a5
     EmitMetadataErrorReportFunctionTy &ErrorFn) {
 
   // If there are no entries, we don't need to do anything.

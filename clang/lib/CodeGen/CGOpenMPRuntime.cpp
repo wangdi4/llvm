@@ -3133,7 +3133,6 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
     }
   };
 
-<<<<<<< HEAD
   OMPBuilder.createOffloadEntriesAndInfoMetadata(
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
@@ -3141,13 +3140,7 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 #endif // INTEL_CUSTOMIZATION
       CGM.getLangOpts().OpenMPLateOutline,
 #endif // INTEL_COLLAB
-      OffloadEntriesInfoManager, isTargetCodegen(),
-      CGM.getLangOpts().OpenMPIsDevice,
-      CGM.getOpenMPRuntime().hasRequiresUnifiedSharedMemory(), ErrorReportFn);
-=======
-  OMPBuilder.createOffloadEntriesAndInfoMetadata(OffloadEntriesInfoManager,
-                                                 ErrorReportFn);
->>>>>>> 969d787a470a801ad23be1fd53bcc166f75454a5
+  OffloadEntriesInfoManager, ErrorReportFn);
 }
 
 /// Loads all the offload entries information from the host IR
@@ -6187,8 +6180,7 @@ int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
   // Register the information for the entry associated with this target region.
   int Index = OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
       EntryInfo, nullptr, nullptr,
-      llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion,
-      CGM.getLangOpts().OpenMPIsDevice);
+      llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion);
   if (Index == -1)
     CGM.Error(D.getBeginLoc(),
               "multiple target regions at same the location is not supported");
@@ -11283,7 +11275,7 @@ void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
   OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
       VarName, Addr, CGM.getPointerSize().getQuantity(),
       llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo,
-      llvm::GlobalValue::ExternalLinkage, CGM.getLangOpts().OpenMPIsDevice);
+      llvm::GlobalValue::ExternalLinkage);
 }
 #endif // INTEL_COLLAB
 
