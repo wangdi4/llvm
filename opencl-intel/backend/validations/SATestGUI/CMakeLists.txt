@@ -95,10 +95,10 @@ add_definitions(-DCOI_LIBRARY_VERSION=2)
 if(WIN32)
   set(ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
 
-  if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(ICC_PLATFORM ia32)
-  else()
+  if(BUILD_X64)
     set(ICC_PLATFORM intel64)
+  else()
+    set(ICC_PLATFORM ia32)
   endif()
 
   link_directories("${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}")

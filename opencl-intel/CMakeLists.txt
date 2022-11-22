@@ -74,6 +74,10 @@ include(CMakeFuncs)
 
 use_eh(TRUE)
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(BUILD_X64 True)
+endif()
+
 include(AddOpenCL)
 if(WIN32)
   include(CMake_windows_tools)
@@ -197,11 +201,11 @@ endif(NOT WIN32)
 #
 project(OCL C CXX)
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set(ADDR 32)
-else()
+if(BUILD_X64)
   set(ADDR 64)
-endif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+else()
+  set(ADDR 32)
+endif()
 
 # set windows binary suffix
 if(WIN32)
@@ -384,10 +388,10 @@ set(TBB_ROOT_DIR $ENV{TBBROOT}/$ENV{TBBVER})
 message(STATUS "Environment TBBROOT: $ENV{TBBROOT}")
 message(STATUS "Environment TBBVER: $ENV{TBBVER}")
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set(TBB_ARCH "ia32")
-else()
+if(BUILD_X64)
   set(TBB_ARCH "intel64")
+else()
+  set(TBB_ARCH "ia32")
 endif()
 
 # TBB_LIBRARY_DIR - Used for LIT environment
