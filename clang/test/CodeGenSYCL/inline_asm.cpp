@@ -6,7 +6,7 @@ template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(const Func &kernelFunc) {
   // CHECK: %[[ARRAY_A:[0-9a-z]+]] = alloca [100 x i32], align 4
   // INTEL_CUSTOMIZATION
-  // CHECK: %[[GEP:.*]] = getelementptr inbounds [100 x i32], ptr addrspace(4) %[[ARRAY_A]], i64 0, i64 0
+  // CHECK: %[[GEP:.*]] = getelementptr inbounds [100 x i32], ptr %[[ARRAY_A]], i64 0, i64 0
   // CHECK: %[[IDX:.*]] = addrspacecast ptr %[[GEP]] to ptr addrspace(4)
   // end INTEL_CUSTOMIZATION
   int a[100], i = 0;
