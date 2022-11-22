@@ -984,7 +984,7 @@ void WorkItemInfo::updateDeps() {
 
 void WorkItemInfo::updateCfDependency(const Instruction *I) {
   assert(I->isTerminator() && "Expect a terminator instruction");
-  assert(isa<BranchInst>(I) && dyn_cast<BranchInst>(I)->isConditional() &&
+  assert(cast<BranchInst>(I)->isConditional() &&
          "Branch has to be a conditional branch");
   assert(I->getNumSuccessors() == 2 &&
          "Supports only for conditional branches with two successors");

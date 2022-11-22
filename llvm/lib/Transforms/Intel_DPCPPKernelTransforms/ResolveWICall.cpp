@@ -769,7 +769,7 @@ void ResolveWICallPass::clearPerFunctionCache() {
 Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
   if (UseTLSGlobals)
-    Builder.SetInsertPoint(dyn_cast<Instruction>(WorkInfo)->getNextNode());
+    Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!Block2KernelMapper)
     Block2KernelMapper = IAInfo->GenerateGetFromWorkInfo(
         NDInfo::BLOCK2KERNEL_MAPPER, WorkInfo, Builder);
@@ -779,7 +779,7 @@ Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
 Value *ResolveWICallPass::getOrCreateRuntimeInterface() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
   if (UseTLSGlobals)
-    Builder.SetInsertPoint(dyn_cast<Instruction>(WorkInfo)->getNextNode());
+    Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!RuntimeInterface)
     RuntimeInterface = IAInfo->GenerateGetFromWorkInfo(
         NDInfo::RUNTIME_INTERFACE, WorkInfo, Builder);
