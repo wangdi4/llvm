@@ -2585,14 +2585,10 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #if INTEL_FEATURE_ISA_AVX_BF16
         Subtarget.hasAVXBF16() ||
 #endif // INTEL_FEATURE_ISA_AVX_BF16
-<<<<<<< HEAD
-      (Subtarget.hasAVXNECONVERT() || Subtarget.hasBF16()))) {
-=======
 #if INTEL_FEATURE_ISA_AVX256P
         Subtarget.hasAVX256P() ||
 #endif // INTEL_FEATURE_ISA_AVX256P
-        Subtarget.hasBF16())) {
->>>>>>> af5855f0def4313c60f254bb70eb74fab7a7c0fc
+      (Subtarget.hasAVXNECONVERT() || Subtarget.hasBF16()))) {
     addRegisterClass(MVT::v8bf16, &X86::VR128XRegClass);
     addRegisterClass(MVT::v16bf16, &X86::VR256XRegClass);
     // We set the type action of bf16 to TypeSoftPromoteHalf, but we don't
