@@ -1094,7 +1094,7 @@ processInputModule(std::unique_ptr<Module> M) {
 
 #if INTEL_COLLAB
   bool OMPOffloadParallelCompile =
-      (DoOmpOffload && ScopedSplitter->totalSplits() > 1);
+      (DoOmpOffload && ScopedSplitter->remainingSplits() > 1);
   // Construct the resulting table which will accumulate all the outputs.
   SmallVector<StringRef, MAX_COLUMNS_IN_FILE_TABLE> ColumnTitles{
       StringRef(COL_CODE)};
