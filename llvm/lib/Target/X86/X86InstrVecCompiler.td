@@ -48,9 +48,13 @@ let Predicates = [NoAVX512] in {
             (COPY_TO_REGCLASS (v2f64 VR128:$src), FR64)>;
 }
 
-let Predicates = [HasAVX512] in {
-  // A vector extract of the first f32/f64 position is a subregister copy
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasAVX512] in {
+#else // INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX512] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+  // A vector extract of the first f32/f64 position is a subregister copy
 #if INTEL_FEATURE_ISA_BF16_BASE
   def : Pat<(bf16 (extractelt (v8bf16 VR128X:$src), (iPTR 0))),
             (COPY_TO_REGCLASS (v8bf16 VR128X:$src), BFR16X)>;
@@ -64,7 +68,13 @@ let Predicates = [HasAVX512] in {
             (COPY_TO_REGCLASS (v2f64 VR128X:$src), FR64X)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8f16 (scalar_to_vector FR16:$src)),
             (COPY_TO_REGCLASS FR16:$src, VR128)>;
 #if INTEL_CUSTOMIZATION
@@ -83,8 +93,12 @@ let Predicates = [NoVLX] in {
             (COPY_TO_REGCLASS FR64:$src, VR128)>;
 }
 
-let Predicates = [HasVLX] in {
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_BF16_BASE
   def : Pat<(v8bf16 (scalar_to_vector BFR16X:$src)),
             (COPY_TO_REGCLASS BFR16X:$src, VR128X)>;
@@ -178,7 +192,13 @@ multiclass subvec_zero_lowering<string MoveStr,
              (SrcTy (!cast<Instruction>("VMOV"#MoveStr#"rr") RC:$src)), SubIdx)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : subvec_zero_lowering<"APD", VR128, v4f64, v2f64, sub_xmm>;
   defm : subvec_zero_lowering<"APS", VR128, v8f32, v4f32, sub_xmm>;
   defm : subvec_zero_lowering<"DQA", VR128, v4i64, v2i64, sub_xmm>;
@@ -187,7 +207,13 @@ let Predicates = [HasAVX, NoVLX] in {
   defm : subvec_zero_lowering<"DQA", VR128, v32i8, v16i8, sub_xmm>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : subvec_zero_lowering<"APDZ128", VR128X, v4f64, v2f64, sub_xmm>;
   defm : subvec_zero_lowering<"APSZ128", VR128X, v8f32, v4f32, sub_xmm>;
   defm : subvec_zero_lowering<"DQA64Z128", VR128X, v4i64, v2i64, sub_xmm>;
@@ -195,6 +221,12 @@ let Predicates = [HasVLX] in {
   defm : subvec_zero_lowering<"DQA64Z128", VR128X, v16i16, v8i16, sub_xmm>;
   defm : subvec_zero_lowering<"DQA64Z128", VR128X, v32i8, v16i8, sub_xmm>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+}
+let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : subvec_zero_lowering<"APDZ128", VR128X, v8f64, v2f64, sub_xmm>;
   defm : subvec_zero_lowering<"APSZ128", VR128X, v16f32, v4f32, sub_xmm>;
   defm : subvec_zero_lowering<"DQA64Z128", VR128X, v8i64, v2i64, sub_xmm>;
@@ -226,16 +258,26 @@ let Predicates = [HasAVX512, NoVLX] in {
   defm : subvec_zero_lowering<"DQAY", VR256, v64i8, v32i8, sub_ymm>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasFP16] in
+  defm : subvec_zero_lowering<"APSZ128", VR128X, v16f16, v8f16, sub_xmm>;
+let Predicates = [HasFP16, HasVLX] in {
+  defm : subvec_zero_lowering<"APSZ128", VR128X, v32f16, v8f16, sub_xmm>;
+  defm : subvec_zero_lowering<"APSZ256", VR256X, v32f16, v16f16, sub_ymm>;
+}
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasFP16, HasVLX] in {
   defm : subvec_zero_lowering<"APSZ128", VR128X, v16f16, v8f16, sub_xmm>;
   defm : subvec_zero_lowering<"APSZ128", VR128X, v32f16, v8f16, sub_xmm>;
   defm : subvec_zero_lowering<"APSZ256", VR256X, v32f16, v16f16, sub_ymm>;
 }
+#endif // INTEL_FEATURE_ISA_AVX256P
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-let Predicates = [HasFP16, HasVLX] in {
+let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasFP16], [HasFP16, HasVLX]) in
   defm : subvec_zero_lowering<"APSZ128", VR128X, v16bf16, v8bf16, sub_xmm>;
+let Predicates = [HasFP16, HasVLX] in {
   defm : subvec_zero_lowering<"APSZ128", VR128X, v32bf16, v8bf16, sub_xmm>;
   defm : subvec_zero_lowering<"APSZ256", VR256X, v32bf16, v16bf16, sub_ymm>;
 }
@@ -257,7 +299,13 @@ def maskzeroupperv32i1 : maskzeroupper<v32i1, VK32>;
 // The patterns determine if we can depend on the upper bits of a mask register
 // being zeroed by the previous operation so that we can skip explicit
 // zeroing.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasBWI_NoVL] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
                                      maskzeroupperv1i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK1:$src, VK32)>;
@@ -268,6 +316,12 @@ let Predicates = [HasBWI] in {
                                      maskzeroupperv16i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK16:$src, VK32)>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+}
+let Predicates = [HasBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v64i1 (insert_subvector (v64i1 immAllZerosV),
                                      maskzeroupperv1i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK1:$src, VK64)>;
@@ -282,7 +336,13 @@ let Predicates = [HasBWI] in {
             (COPY_TO_REGCLASS VK32:$src, VK64)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasAVX512] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i1 (insert_subvector (v16i1 immAllZerosV),
                                      maskzeroupperv1i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK1:$src, VK16)>;
@@ -291,13 +351,25 @@ let Predicates = [HasAVX512] in {
             (COPY_TO_REGCLASS VK8:$src, VK16)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasDQI_NoVL] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasDQI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i1 (insert_subvector (v8i1 immAllZerosV),
                                     maskzeroupperv1i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK1:$src, VK8)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasDQI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX, HasDQI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i1 (insert_subvector (v8i1 immAllZerosV),
                                     maskzeroupperv2i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK2:$src, VK8)>;
@@ -306,7 +378,13 @@ let Predicates = [HasVLX, HasDQI] in {
             (COPY_TO_REGCLASS VK4:$src, VK8)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i1 (insert_subvector (v16i1 immAllZerosV),
                                      maskzeroupperv2i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK2:$src, VK16)>;
@@ -315,13 +393,25 @@ let Predicates = [HasVLX] in {
             (COPY_TO_REGCLASS VK4:$src, VK16)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI, HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
                                      maskzeroupperv2i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK2:$src, VK32)>;
   def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
                                      maskzeroupperv4i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK4:$src, VK32)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+}
+let Predicates = [HasBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v64i1 (insert_subvector (v64i1 immAllZerosV),
                                      maskzeroupperv2i1:$src, (iPTR 0))),
             (COPY_TO_REGCLASS VK2:$src, VK64)>;
@@ -332,7 +422,13 @@ let Predicates = [HasBWI, HasVLX] in {
 
 // If the bits are not zero we have to fall back to explicitly zeroing by
 // using shifts.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasAVX512] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i1 (insert_subvector (v16i1 immAllZerosV),
                                      (v1i1 VK1:$mask), (iPTR 0))),
             (KSHIFTRWri (KSHIFTLWri (COPY_TO_REGCLASS VK1:$mask, VK16),
@@ -349,14 +445,27 @@ let Predicates = [HasAVX512] in {
                                     (i8 12)), (i8 12))>;
 }
 
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX512, NoAVX256P_And_NoDQI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512, NoDQI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i1 (insert_subvector (v16i1 immAllZerosV),
                                      (v8i1 VK8:$mask), (iPTR 0))),
             (KSHIFTRWri (KSHIFTLWri (COPY_TO_REGCLASS VK8:$mask, VK16),
                                     (i8 8)), (i8 8))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasDQI_NoVL] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasDQI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i1 (insert_subvector (v16i1 immAllZerosV),
                                      (v8i1 VK8:$mask), (iPTR 0))),
             (COPY_TO_REGCLASS (KMOVBkk VK8:$mask), VK16)>;
@@ -375,10 +484,21 @@ let Predicates = [HasDQI] in {
                                     (i8 4)), (i8 4))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasBWI_NoVL] in {
+  def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
+                                     (v16i1 VK16:$mask), (iPTR 0))),
+            (COPY_TO_REGCLASS (KMOVWkk VK16:$mask), VK32)>;
+}
+let Predicates = [HasBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI] in {
   def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
                                      (v16i1 VK16:$mask), (iPTR 0))),
             (COPY_TO_REGCLASS (KMOVWkk VK16:$mask), VK32)>;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   def : Pat<(v64i1 (insert_subvector (v64i1 immAllZerosV),
                                      (v16i1 VK16:$mask), (iPTR 0))),
@@ -388,11 +508,23 @@ let Predicates = [HasBWI] in {
             (COPY_TO_REGCLASS (KMOVDkk VK32:$mask), VK64)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasBWI, NoAVX256P_And_NoDQI] in {
+  def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
+                                     (v8i1 VK8:$mask), (iPTR 0))),
+            (KSHIFTRDri (KSHIFTLDri (COPY_TO_REGCLASS VK8:$mask, VK32),
+                                    (i8 24)), (i8 24))>;
+}
+let Predicates = [HasBWI, NoDQI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI, NoDQI] in {
   def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
                                      (v8i1 VK8:$mask), (iPTR 0))),
             (KSHIFTRDri (KSHIFTLDri (COPY_TO_REGCLASS VK8:$mask, VK32),
                                     (i8 24)), (i8 24))>;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   def : Pat<(v64i1 (insert_subvector (v64i1 immAllZerosV),
                                      (v8i1 VK8:$mask), (iPTR 0))),
@@ -400,17 +532,34 @@ let Predicates = [HasBWI, NoDQI] in {
                                     (i8 56)), (i8 56))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasBWI_And_HasDQI] in {
+  def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
+                                     (v8i1 VK8:$mask), (iPTR 0))),
+            (COPY_TO_REGCLASS (KMOVBkk VK8:$mask), VK32)>;
+}
+let Predicates = [HasBWI, HasDQI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI, HasDQI] in {
   def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
                                      (v8i1 VK8:$mask), (iPTR 0))),
             (COPY_TO_REGCLASS (KMOVBkk VK8:$mask), VK32)>;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   def : Pat<(v64i1 (insert_subvector (v64i1 immAllZerosV),
                                      (v8i1 VK8:$mask), (iPTR 0))),
             (COPY_TO_REGCLASS (KMOVBkk VK8:$mask), VK64)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasBWI_NoVL] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v32i1 (insert_subvector (v32i1 immAllZerosV),
                                      (v1i1 VK1:$mask), (iPTR 0))),
             (KSHIFTRDri (KSHIFTLDri (COPY_TO_REGCLASS VK1:$mask, VK32),
@@ -424,6 +573,12 @@ let Predicates = [HasBWI] in {
             (KSHIFTRDri (KSHIFTLDri (COPY_TO_REGCLASS VK4:$mask, VK32),
                                     (i8 28)), (i8 28))>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+}
+let Predicates = [HasBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v64i1 (insert_subvector (v64i1 immAllZerosV),
                                      (v1i1 VK1:$mask), (iPTR 0))),
             (KSHIFTRQri (KSHIFTLQri (COPY_TO_REGCLASS VK1:$mask, VK64),
@@ -454,7 +609,13 @@ def : Pat<(loadf128 addr:$src),
           (MOVUPSrm addr:$src)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(alignedstore (f128 VR128:$src), addr:$dst),
           (VMOVAPSmr addr:$dst, VR128:$src)>;
 def : Pat<(store (f128 VR128:$src), addr:$dst),
@@ -466,7 +627,13 @@ def : Pat<(loadf128 addr:$src),
           (VMOVUPSrm addr:$src)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(alignedstore (f128 VR128X:$src), addr:$dst),
           (VMOVAPSZ128mr addr:$dst, VR128X:$src)>;
 def : Pat<(store (f128 VR128X:$src), addr:$dst),
@@ -499,7 +666,13 @@ def : Pat<(f128 (X86fxor VR128:$src1, VR128:$src2)),
           (XORPSrr VR128:$src1, VR128:$src2)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX, NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 // andps is shorter than andpd or pand. andps is SSE and andpd/pand are in SSE2
 def : Pat<(f128 (X86fand VR128:$src1, (loadf128 addr:$src2))),
           (VANDPSrm VR128:$src1, f128mem:$src2)>;
@@ -520,7 +693,13 @@ def : Pat<(f128 (X86fxor VR128:$src1, VR128:$src2)),
           (VXORPSrr VR128:$src1, VR128:$src2)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 // andps is shorter than andpd or pand. andps is SSE and andpd/pand are in SSE2
 def : Pat<(f128 (X86fand VR128X:$src1, (loadf128 addr:$src2))),
           (VANDPSZ128rm VR128X:$src1, f128mem:$src2)>;

@@ -606,7 +606,13 @@ static bool isLegalMaskCompare(SDNode *N, const X86Subtarget *Subtarget) {
     if (Opcode == X86ISD::STRICT_CMPM)
       OpVT = N->getOperand(1).getValueType();
     if (OpVT.is256BitVector() || OpVT.is128BitVector())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      return Subtarget->hasVLX() || Subtarget->hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
       return Subtarget->hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
     return true;
   }
@@ -4602,7 +4608,14 @@ bool X86DAGToDAGISel::tryVPTESTM(SDNode *Root, SDValue Setcc,
   }
 
   // Without VLX we need to widen the operation.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  bool Widen = !(Subtarget->hasVLX() || Subtarget->hasAVX256P()) &&
+               !CmpVT.is512BitVector();
+#else  // INTEL_FEATURE_ISA_AVX256P
   bool Widen = !Subtarget->hasVLX() && !CmpVT.is512BitVector();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   auto tryFoldLoadOrBCast = [&](SDNode *Root, SDNode *P, SDValue &L,
                                 SDValue &Base, SDValue &Scale, SDValue &Index,

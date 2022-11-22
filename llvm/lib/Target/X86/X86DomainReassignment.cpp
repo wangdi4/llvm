@@ -1,4 +1,21 @@
 //===--- X86DomainReassignment.cpp - Selectively switch register classes---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -626,7 +643,13 @@ void X86DomainReassignment::initConverters() {
   createReplacerDstCOPY(X86::MOVZX32rr16, X86::KMOVWkk);
   createReplacerDstCOPY(X86::MOVZX64rr16, X86::KMOVWkk);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (STI->hasDQI() || STI->hasAVX256P()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (STI->hasDQI()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     createReplacerDstCOPY(X86::MOVZX16rm8, X86::KMOVBkm);
     createReplacerDstCOPY(X86::MOVZX32rm8, X86::KMOVBkm);
     createReplacerDstCOPY(X86::MOVZX64rm8, X86::KMOVBkm);
@@ -650,6 +673,34 @@ void X86DomainReassignment::initConverters() {
   createReplacer(X86::AND16rr, X86::KANDWrr);
   createReplacer(X86::XOR16rr, X86::KXORWrr);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (STI->hasBWI() || STI->hasAVX256P()) {
+    createReplacer(X86::MOV32rm, X86::KMOVDkm);
+    createReplacer(X86::MOV32mr, X86::KMOVDmk);
+    createReplacer(X86::MOV32rr, X86::KMOVDkk);
+    createReplacer(X86::SHR32ri, X86::KSHIFTRDri);
+    createReplacer(X86::SHL32ri, X86::KSHIFTLDri);
+    createReplacer(X86::ADD32rr, X86::KADDDrr);
+    createReplacer(X86::NOT32r, X86::KNOTDrr);
+    createReplacer(X86::OR32rr, X86::KORDrr);
+    createReplacer(X86::AND32rr, X86::KANDDrr);
+    createReplacer(X86::ANDN32rr, X86::KANDNDrr);
+    createReplacer(X86::XOR32rr, X86::KXORDrr);
+  }
+  if (STI->hasBWI()) {
+    createReplacer(X86::MOV64rm, X86::KMOVQkm);
+    createReplacer(X86::MOV64mr, X86::KMOVQmk);
+    createReplacer(X86::MOV64rr, X86::KMOVQkk);
+    createReplacer(X86::SHR64ri, X86::KSHIFTRQri);
+    createReplacer(X86::SHL64ri, X86::KSHIFTLQri);
+    createReplacer(X86::ADD64rr, X86::KADDQrr);
+    createReplacer(X86::NOT64r, X86::KNOTQrr);
+    createReplacer(X86::OR64rr, X86::KORQrr);
+    createReplacer(X86::AND64rr, X86::KANDQrr);
+    createReplacer(X86::ANDN64rr, X86::KANDNQrr);
+    createReplacer(X86::XOR64rr, X86::KXORQrr);
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (STI->hasBWI()) {
     createReplacer(X86::MOV32rm, X86::KMOVDkm);
     createReplacer(X86::MOV64rm, X86::KMOVQkm);
@@ -683,6 +734,8 @@ void X86DomainReassignment::initConverters() {
 
     createReplacer(X86::XOR32rr, X86::KXORDrr);
     createReplacer(X86::XOR64rr, X86::KXORQrr);
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
     // TODO: KTEST is not a replacement for TEST due to flag differences. Need
     // to prove only Z flag is used.
@@ -690,7 +743,13 @@ void X86DomainReassignment::initConverters() {
     //createReplacer(X86::TEST64rr, X86::KTESTQrr);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (STI->hasDQI() || STI->hasAVX256P()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (STI->hasDQI()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     createReplacer(X86::ADD8rr, X86::KADDBrr);
     createReplacer(X86::ADD16rr, X86::KADDWrr);
 
@@ -732,7 +791,13 @@ bool X86DomainReassignment::runOnMachineFunction(MachineFunction &MF) {
   // TODO: We're also bailing of AVX512BW isn't supported since we use VK32 and
   // VK64 for GR32/GR64, but those aren't legal classes on KNL. If the register
   // coalescer doesn't clean it up and we generate a spill we will crash.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!(STI->hasAVX512() && STI->hasBWI()) && !STI->hasAVX256P())
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (!STI->hasAVX512() || !STI->hasBWI())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   MRI = &MF.getRegInfo();

@@ -3565,7 +3565,14 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
       return X86::KMOVQrk;
     }
     if (X86::GR32RegClass.contains(DestReg))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      return Subtarget.hasBWI() || Subtarget.hasAVX256P() ? X86::KMOVDrk
+                                                          : X86::KMOVWrk;
+#else  // INTEL_FEATURE_ISA_AVX256P
       return Subtarget.hasBWI() ? X86::KMOVDrk : X86::KMOVWrk;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   }
 
   // SrcReg(GR64) -> DestReg(MaskReg)
@@ -3578,7 +3585,14 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
       return X86::KMOVQkr;
     }
     if (X86::GR32RegClass.contains(SrcReg))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      return Subtarget.hasBWI() || Subtarget.hasAVX256P() ? X86::KMOVDkr
+                                                          : X86::KMOVWkr;
+#else  // INTEL_FEATURE_ISA_AVX256P
       return Subtarget.hasBWI() ? X86::KMOVDkr : X86::KMOVWkr;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   }
 
 
@@ -3632,7 +3646,13 @@ void X86InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                MCRegister SrcReg, bool KillSrc) const {
   // First deal with the normal symmetric copies.
   bool HasAVX = Subtarget.hasAVX();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = Subtarget.hasVLX() || Subtarget.hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
   bool HasVLX = Subtarget.hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   unsigned Opc = 0;
   if (X86::GR64RegClass.contains(DestReg, SrcReg))
     Opc = X86::MOV64rr;
@@ -3688,7 +3708,14 @@ void X86InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     Opc = X86::VMOVAPSZrr;
   // All KMASK RegClasses hold the same k registers, can be tested against anyone.
   else if (X86::VK16RegClass.contains(DestReg, SrcReg))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    Opc = Subtarget.hasBWI() || Subtarget.hasAVX256P() ? X86::KMOVQkk
+                                                       : X86::KMOVWkk;
+#else  // INTEL_FEATURE_ISA_AVX256P
     Opc = Subtarget.hasBWI() ? X86::KMOVQkk : X86::KMOVWkk;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   if (!Opc)
     Opc = CopyToFromAsymmetricReg(DestReg, SrcReg, Subtarget);
 
@@ -5136,7 +5163,13 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0SD:
   case X86::AVX512_FsFLD0F128: {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    bool HasVLX = Subtarget.hasVLX() || Subtarget.hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
     bool HasVLX = Subtarget.hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     Register SrcReg = MIB.getReg(0);
     const TargetRegisterInfo *TRI = &getRegisterInfo();
     if (HasVLX || TRI->getEncodingValue(SrcReg) < 16)
@@ -5150,7 +5183,13 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   }
   case X86::AVX512_256_SET0:
   case X86::AVX512_512_SET0: {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    bool HasVLX = Subtarget.hasVLX() || Subtarget.hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
     bool HasVLX = Subtarget.hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     Register SrcReg = MIB.getReg(0);
     const TargetRegisterInfo *TRI = &getRegisterInfo();
     if (HasVLX || TRI->getEncodingValue(SrcReg) < 16) {
@@ -8752,7 +8791,13 @@ uint16_t X86InstrInfo::getExecutionDomainCustom(const MachineInstr &MI) const {
   case X86::VPXORQZ256rr:  case X86::VPXORQZ256rm:
     // If we don't have DQI see if we can still switch from an EVEX integer
     // instruction to a VEX floating point instruction.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (Subtarget.hasDQI() || Subtarget.hasAVX256P())
+#else  // INTEL_FEATURE_ISA_AVX256P
     if (Subtarget.hasDQI())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return 0;
 
     if (RI.getEncodingValue(MI.getOperand(0).getReg()) >= 16)
@@ -8874,7 +8919,13 @@ bool X86InstrInfo::setExecutionDomainCustom(MachineInstr &MI,
   case X86::VPXORQZ128rr:  case X86::VPXORQZ128rm:
   case X86::VPXORQZ256rr:  case X86::VPXORQZ256rm: {
     // Without DQI, convert EVEX instructions to VEX instructions.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (Subtarget.hasDQI() || Subtarget.hasAVX256P())
+#else  // INTEL_FEATURE_ISA_AVX256P
     if (Subtarget.hasDQI())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return false;
 
     const uint16_t *table = lookupAVX512(MI.getOpcode(), dom,
@@ -8942,10 +8993,19 @@ X86InstrInfo::getExecutionDomain(const MachineInstr &MI) const {
       validDomains = 0xe;
     } else if (lookupAVX512(opcode, domain, ReplaceableInstrsAVX512)) {
       validDomains = 0xe;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    } else if ((Subtarget.hasDQI() || Subtarget.hasAVX256P()) &&
+               lookupAVX512(opcode, domain, ReplaceableInstrsAVX512DQ)) {
+      validDomains = 0xe;
+    } else if (Subtarget.hasDQI() || Subtarget.hasAVX256P()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
     } else if (Subtarget.hasDQI() && lookupAVX512(opcode, domain,
                                                   ReplaceableInstrsAVX512DQ)) {
       validDomains = 0xe;
     } else if (Subtarget.hasDQI()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       if (const uint16_t *table = lookupAVX512(opcode, domain,
                                              ReplaceableInstrsAVX512DQMasked)) {
         if (domain == 1 || (domain == 3 && table[3] == opcode))
@@ -8991,7 +9051,14 @@ void X86InstrInfo::setExecutionDomain(MachineInstr &MI, unsigned Domain) const {
       Domain = 4;
   }
   if (!table) { // try the AVX512DQ table
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    assert((Subtarget.hasDQI() || Subtarget.hasAVX256P() || Domain >= 3) &&
+           "Requires AVX-512DQ");
+#else  // INTEL_FEATURE_ISA_AVX256P
     assert((Subtarget.hasDQI() || Domain >= 3) && "Requires AVX-512DQ");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     table = lookupAVX512(MI.getOpcode(), dom, ReplaceableInstrsAVX512DQ);
     // Don't change integer Q instructions to D instructions and
     // use D instructions if we started with a PS instruction.
@@ -8999,7 +9066,14 @@ void X86InstrInfo::setExecutionDomain(MachineInstr &MI, unsigned Domain) const {
       Domain = 4;
   }
   if (!table) { // try the AVX512DQMasked table
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    assert((Subtarget.hasDQI() || Subtarget.hasAVX256P() || Domain >= 3) &&
+           "Requires AVX-512DQ");
+#else  // INTEL_FEATURE_ISA_AVX256P
     assert((Subtarget.hasDQI() || Domain >= 3) && "Requires AVX-512DQ");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     table = lookupAVX512(MI.getOpcode(), dom, ReplaceableInstrsAVX512DQMasked);
     if (table && Domain == 3 && (dom == 1 || table[3] == MI.getOpcode()))
       Domain = 4;
