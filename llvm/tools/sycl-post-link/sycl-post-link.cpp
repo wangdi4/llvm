@@ -1093,8 +1093,7 @@ processInputModule(std::unique_ptr<Module> M) {
   // ESIMD splitter to link back needed modules.
 
 #if INTEL_COLLAB
-  bool OMPOffloadParallelCompile =
-      (DoOmpOffload && ScopedSplitter->remainingSplits() > 1);
+  bool OMPOffloadParallelCompile = (DoOmpOffload && TopLevelModules.size() > 1);
   // Construct the resulting table which will accumulate all the outputs.
   SmallVector<StringRef, MAX_COLUMNS_IN_FILE_TABLE> ColumnTitles{
       StringRef(COL_CODE)};
