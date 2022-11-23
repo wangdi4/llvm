@@ -1340,11 +1340,12 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd],
                                          HDDA.getGraph(MVLoop));
 
+    if (HIRTransformUtils::doConstantAndCopyPropagation(MVLoop
 #if INTEL_FEATURE_SW_DTRANS
-    if (HIRTransformUtils::doConstantPropagation(MVLoop, DTII)) {
-#else // INTEL_FEATURE_SW_DTRANS
-    if (HIRTransformUtils::doConstantPropagation(MVLoop)) {
+                                                        ,
+                                                        DTII
 #endif // INTEL_FEATURE_SW_DTRANS
+                                                        )) {
       applyPeepHole(MVLoop, HDDA);
       HLNodeUtils::removeRedundantNodes(MVLoop);
     }

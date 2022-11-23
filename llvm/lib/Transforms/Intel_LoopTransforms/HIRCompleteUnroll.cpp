@@ -3396,11 +3396,12 @@ void HIRCompleteUnroll::transformLoops() {
     doUnroll(Loop);
 
     if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
+      HIRTransformUtils::doConstantAndCopyPropagation(ParentNode
 #if INTEL_FEATURE_SW_DTRANS
-      HIRTransformUtils::doConstantPropagation(ParentNode, DTII);
-#else  // INTEL_FEATURE_SW_DTRANS
-      HIRTransformUtils::doConstantPropagation(ParentNode);
+                                                      ,
+                                                      DTII
 #endif // INTEL_FEATURE_SW_DTRANS
+      );
     }
 
     HLNodeUtils::removeRedundantNodes(ParentNode);
