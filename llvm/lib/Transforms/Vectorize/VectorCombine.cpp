@@ -2019,18 +2019,23 @@ bool VectorCombine::run() {
         MadeChange |= scalarizeLoadExtract(I);
         break;
       default:
-        MadeChange |= scalarizeBinopOrCmp(I);
         break;
       }
     }
-    if (Opcode == Instruction::Store) {
+
+    // This transform works with scalable and fixed vectors
+    // TODO: Identify and allow other scalable transforms
+    if (isa<VectorType>(I.getType()))
+      MadeChange |= scalarizeBinopOrCmp(I);
+
 #if INTEL_CUSTOMIZATION
-      // Need put all the customized functions in front of
-      // foldSingleElementStore since it may erase 'I'.
-      MadeChange |= foldVLSInsert(I);
+    // Need put all the customized functions in front of
+    // foldSingleElementStore since it may erase 'I'.
+    MadeChange |= foldVLSInsert(I);
 #endif // INTEL_CUSTOMIZATION
+
+    if (Opcode == Instruction::Store)
       MadeChange |= foldSingleElementStore(I);
-    }
 
     // If this is an early pipeline invocation of this pass, we are done.
     if (TryEarlyFoldsOnly)
