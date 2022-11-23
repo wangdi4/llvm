@@ -693,7 +693,7 @@ cl_err_code GenericMemObject::updateParentInt(
       // Find sharing group that the parent device is valid, and lock the
       // parent on it.
       getParentMemObj().findValidDeviceAndLock(
-          isParent ? READ_WRITE : READ_WRITE, preferedSharingGroupId,
+          isParent ? usage : READ_WRITE, preferedSharingGroupId,
           &parentValidSharingGroupId, tEvent);
 #ifdef _DEBUG
       if ((MAX_DEVICE_SHARING_GROUP_ID != tmp_parent_grp) &&

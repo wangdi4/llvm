@@ -271,6 +271,7 @@ static cl_err_code ParseQueueProperties(
     std::vector<cl_command_queue_properties> &clQueuePropsArray,
     cl_command_queue_properties &queueProps, cl_uint &uiQueueSize,
     const ConstSharedPtr<FissionableDevice> &pDev, cl_bool withProps) {
+  assert(clQueueProperties != nullptr && "Null queue properties!");
   const cl_command_queue_properties *currProperties = clQueueProperties;
   bool bQueueSizeSpecified = false;
 
@@ -316,8 +317,7 @@ static cl_err_code ParseQueueProperties(
   }
 
   // Add a terminator
-  if (nullptr != clQueueProperties)
-    clQueuePropsArray.push_back(0);
+  clQueuePropsArray.push_back(0);
 
   if (bQueueSizeSpecified && !(queueProps & CL_QUEUE_ON_DEVICE)) {
     return CL_INVALID_VALUE;

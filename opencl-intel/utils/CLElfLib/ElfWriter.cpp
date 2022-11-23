@@ -84,65 +84,49 @@ void CElfWriter::Delete(CElfWriter *&pWriter) {
  Member Function: CElfWriter::AddSection
 \******************************************************************************/
 E_RETVAL CElfWriter::AddSection(SSectionNode *pSectionNode) {
-  E_RETVAL retVal = SUCCESS;
   SSectionNode *pNode = nullptr;
   unsigned int nameSize = 0;
   unsigned int dataSize = 0;
 
   // The section header must be non-NULL
-  if (pSectionNode) {
-    pNode = new SSectionNode();
+  if (pSectionNode == nullptr)
+    return FAILURE;
 
-    if (!pNode) {
-      retVal = OUT_OF_MEMORY;
-    }
-  } else {
-    retVal = FAILURE;
-  }
+  pNode = new SSectionNode();
+  if (pNode == nullptr)
+    return OUT_OF_MEMORY;
 
-  if (retVal == SUCCESS) {
-    pNode->Flags = pSectionNode->Flags;
-    pNode->Type = pSectionNode->Type;
+  pNode->Flags = pSectionNode->Flags;
+  pNode->Type = pSectionNode->Type;
 
-    nameSize = pSectionNode->Name.size() + 1;
-    dataSize = pSectionNode->DataSize;
+  nameSize = pSectionNode->Name.size() + 1;
+  dataSize = pSectionNode->DataSize;
 
-    pNode->Name = pSectionNode->Name;
+  pNode->Name = pSectionNode->Name;
 
-    // ok to have NULL data
-    if (dataSize > 0) {
-      pNode->pData = new char[dataSize];
+  // ok to have NULL data
+  if (dataSize > 0) {
+    pNode->pData = new char[dataSize];
 
-      if (pNode->pData) {
-        MEMCPY_S(pNode->pData, dataSize, pSectionNode->pData, dataSize);
-        pNode->DataSize = dataSize;
-      } else {
-        retVal = OUT_OF_MEMORY;
-      }
-    }
-
-    if (retVal == SUCCESS) {
-      // push the node onto the queue
-      m_nodeQueue.push(pNode);
-
-      // increment the sizes for each section
-      m_dataSize += dataSize;
-      m_stringTableSize += nameSize;
-      m_numSections++;
-    } else {
-      // cleanup allocations
-      if (pNode) {
-        if (pNode->pData) {
-          delete[] pNode->pData;
-          pNode->pData = nullptr;
-        }
-
+    if (pNode->pData == nullptr) {
+      if (pNode != nullptr)
         delete pNode;
-      }
+      return OUT_OF_MEMORY;
     }
+
+    MEMCPY_S(pNode->pData, dataSize, pSectionNode->pData, dataSize);
+    pNode->DataSize = dataSize;
   }
 
-  return retVal;
+  // push the node onto the queue
+  m_nodeQueue.push(pNode);
+
+  // increment the sizes for each section
+  m_dataSize += dataSize;
+  m_stringTableSize += nameSize;
+  m_numSections++;
+
+  return SUCCESS;
 }
 
 /******************************************************************************\
