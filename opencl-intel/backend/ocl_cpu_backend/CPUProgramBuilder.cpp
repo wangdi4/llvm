@@ -290,21 +290,6 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
     AddKernelJIT(static_cast<CPUProgram *>(pProgram), spKernel.get(),
                  pWrapperFunc, spKernelJITProps.release());
 
-    // TODO (AABOUD): is this redundant code?
-    const llvm::Type *vTypeHint =
-        nullptr; // pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
-    bool dontVectorize = false;
-
-    if (nullptr != vTypeHint) {
-      // currently if the vector_type_hint attribute is set
-      // we types that vector length is below 4, vectorizer restriction
-      const llvm::FixedVectorType *pVect =
-          llvm::dyn_cast<llvm::FixedVectorType>(vTypeHint);
-      if ((nullptr != pVect) && pVect->getNumElements() >= 4) {
-        dontVectorize = true;
-      }
-    }
-
     // Need to check if Vectorized Kernel Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
     Function *pVecFunc = nullptr;
@@ -314,7 +299,7 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
       assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
              "if the vector kernel is inlined the entry of the vector "
              "kernel should be nullptr");
-      if (nullptr != pVecFunc && !dontVectorize) {
+      if (nullptr != pVecFunc) {
         auto vkimd = KernelInternalMetadataAPI(pVecFunc);
         // Obtain kernel wrapper function from metadata info
         pWrapperVecFunc =
@@ -328,14 +313,14 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
       assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
              "if the vector kernel is inlined the entry of the vector "
              "kernel should be nullptr");
-      if (nullptr != pVecFunc && !dontVectorize) {
+      if (nullptr != pVecFunc) {
         pWrapperVecFunc = llvm::CompilationUtils::getFnAttributeFunction(
             *pModule, *pFunc, "kernel_wrapper");
         llvm::CompilationUtils::getFnAttributeInt(pFunc, "vectorized_width",
                                                   vecSize);
       }
     }
-    if (nullptr != pVecFunc && !dontVectorize) {
+    if (nullptr != pVecFunc) {
       // Create the vectorized kernel - no need to pass argument list here
       assert(pWrapperVecFunc && "vectorized kernel should have wrapper");
       std::unique_ptr<KernelJITProperties> spVKernelJITProps(
@@ -345,11 +330,7 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
                    pWrapperVecFunc, spVKernelJITProps.release());
     }
 
-    if (dontVectorize) {
-      buildResult.LogS() << "Vectorization of kernel \""
-                         << spKernel->GetKernelName()
-                         << "\" was disabled by the developer\n";
-    } else if (vecSize <= 1) {
+    if (vecSize <= 1) {
       buildResult.LogS() << "Kernel \"" << spKernel->GetKernelName()
                          << "\" was not vectorized\n";
     } else {
