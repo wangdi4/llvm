@@ -8662,7 +8662,14 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     auto GetScalarCost = [=](unsigned Idx) {
       auto *VI = cast<LoadInst>(VL[Idx]);
       InstructionCost GEPCost = 0;
-      if (VI != VL0) {
+#if INTEL_CUSTOMIZATION
+      // This GEP cost adjustment is wrong for X86 as different offsets are
+      // encoded just as different displacements. Put it under advanced opts to
+      // avoid tests customization until fixed upstream.
+      if (VI != VL0 &&
+          !TTI->isAdvancedOptEnabled(
+              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
+#endif // INTEL_CUSTOMIZATION
         auto *Ptr = dyn_cast<GetElementPtrInst>(VI->getPointerOperand());
         if (Ptr && Ptr->hasOneUse() && !Ptr->hasAllConstantIndices())
           GEPCost = TTI->getArithmeticInstrCost(Instruction::Add,
@@ -8722,7 +8729,14 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     auto GetScalarCost = [=](unsigned Idx) {
       auto *VI = cast<StoreInst>(VL[Idx]);
       InstructionCost GEPCost = 0;
-      if (VI != SI) {
+#if INTEL_CUSTOMIZATION
+      // This GEP cost adjustment is wrong for X86 as different offsets are
+      // encoded just as different displacements. Put it under advanced opts to
+      // avoid tests customization until fixed upstream.
+      if (VI != VL0 &&
+          !TTI->isAdvancedOptEnabled(
+              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
+#endif // INTEL_CUSTOMIZATION
         auto *Ptr = dyn_cast<GetElementPtrInst>(VI->getPointerOperand());
         if (Ptr && Ptr->hasOneUse() && !Ptr->hasAllConstantIndices())
           GEPCost = TTI->getArithmeticInstrCost(Instruction::Add,
