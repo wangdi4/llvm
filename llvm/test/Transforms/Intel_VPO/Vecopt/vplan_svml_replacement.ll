@@ -48,11 +48,11 @@
 ;RUN: opt -vector-library=SVML -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring  -vplan-vec -vplan-force-vf=8 -S %s | FileCheck %s
 ;RUN: opt -vector-library=SVML -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec" -vplan-force-vf=8 -S %s | FileCheck %s
 
-;CHECK: call <8 x float> @_Z3expDv8_f(<8 x float> {{.*}})
-;CHECK: call <8 x float> @_Z4sqrtDv8_f(<8 x float> {{.*}})
-;CHECK: call <8 x float> @_Z3logDv8_f(<8 x float> {{.*}})
-;CHECK: call <8 x float> @_Z4fmaxDv8_fS_(<8 x float> {{.*}}, <8 x float> {{.*}})
-;CHECK: call <8 x float> @_Z3madDv8_fS_S_(<8 x float> {{.*}}, <8 x float> {{.*}}, <8 x float> {{.*}})
+;CHECK: call afn <8 x float> @_Z3expDv8_f(<8 x float> {{.*}})
+;CHECK: call afn <8 x float> @_Z4sqrtDv8_f(<8 x float> {{.*}})
+;CHECK: call afn <8 x float> @_Z3logDv8_f(<8 x float> {{.*}})
+;CHECK: call afn <8 x float> @_Z4fmaxDv8_fS_(<8 x float> {{.*}}, <8 x float> {{.*}})
+;CHECK: call afn <8 x float> @_Z3madDv8_fS_S_(<8 x float> {{.*}}, <8 x float> {{.*}}, <8 x float> {{.*}})
 
 
 ; ModuleID = 'main'
@@ -101,20 +101,20 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %9 = ashr exact i64 %sext.i, 32
   %10 = getelementptr inbounds float, float addrspace(1)* %3, i64 %9
   %11 = load float, float addrspace(1)* %10, align 4
-  %12 = call float @_Z3expf(float %11)
+  %12 = call afn float @_Z3expf(float %11)
   %13 = getelementptr inbounds float, float addrspace(1)* %0, i64 %9
   store float %12, float addrspace(1)* %13, align 4
   %14 = load float, float addrspace(1)* %10, align 4
-  %15 = call float @_Z4sqrtf(float %14)
+  %15 = call afn float @_Z4sqrtf(float %14)
   store float %15, float addrspace(1)* %13, align 4
   %16 = load float, float addrspace(1)* %10, align 4
-  %17 = call float @_Z3logf(float %16)
+  %17 = call afn float @_Z3logf(float %16)
   store float %17, float addrspace(1)* %13, align 4
   %18 = load float, float addrspace(1)* %10, align 4
-  %19 = call float @_Z4fmaxff(float %18, float %17)
+  %19 = call afn float @_Z4fmaxff(float %18, float %17)
   store float %19, float addrspace(1)* %13, align 4
   %20 = load float, float addrspace(1)* %10, align 4
-  %21 = call float @_Z3madfff(float %20, float %19, float %20)
+  %21 = call afn float @_Z3madfff(float %20, float %19, float %20)
   store float %21, float addrspace(1)* %13, align 4
   br label %simd.loop.exit
 

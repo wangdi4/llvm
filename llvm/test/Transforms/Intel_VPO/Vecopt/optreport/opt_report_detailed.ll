@@ -208,11 +208,11 @@ header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
   %d = sitofp i64 %iv to double
   ; Intrinsic
-  %sqrt = call double @llvm.sqrt.f64(double %d)
+  %sqrt = call afn double @llvm.sqrt.f64(double %d)
   ; Vectorizable, but vector function isn't prefixed with __svml
-  %sqrt2 = call double @_Z4sqrtd(double %d)
+  %sqrt2 = call afn double @_Z4sqrtd(double %d)
   ; Vector function is prefixed with __svml
-  %sqrt3 = call double @sqrt(double %d)
+  %sqrt3 = call afn double @sqrt(double %d)
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 300
   br i1 %exitcond, label %loop.exit, label %header

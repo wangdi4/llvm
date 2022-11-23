@@ -157,7 +157,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
   %vec.variant = call float @simdBar(float %1) #1
   %conv = fpext float %1 to double
   ; Unmasked vector library call.
-  %lib.call = call double @sin(double %conv) #1
+  %lib.call = call afn double @sin(double %conv) #1
   %lib.trunc = fptrunc double %lib.call to float
   ; Unmasked trivially vectorizable intrinsic call.
   %intrin = call float @llvm.fmuladd.f32(float %1, float %serial.call, float %vec.variant)
@@ -167,7 +167,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
 
 if.then:                                          ; preds = %omp.inner.for.body
   ; Masked vector library call.
-  %mask.lib.call = call double @log(double %conv) #1
+  %mask.lib.call = call afn double @log(double %conv) #1
   %mask.lib.trunc = fptrunc double %mask.lib.call to float
   ; User call with SIMD variant available for VF=4 and masked.
   %mask.vec.variant = call float @simdBar(float %1) #1
@@ -344,7 +344,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %.omp.iv.local.014 = phi i32 [ %add6, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.1 ]
   %conv = sitofp i32 %.omp.iv.local.014 to float
-  %pump.call = call float @sinf(float %conv)
+  %pump.call = call afn float @sinf(float %conv)
   %idxprom = sext i32 %.omp.iv.local.014 to i64
   %arrayidxA = getelementptr inbounds float, float* %A, i64 %idxprom
   store float %pump.call, float* %arrayidxA, align 4

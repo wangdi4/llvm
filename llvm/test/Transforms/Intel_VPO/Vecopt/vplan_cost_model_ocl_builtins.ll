@@ -24,7 +24,7 @@ for.body:
   %arg2.load = load float, float* %arg2.gep, align 4
   %arg3.gep = getelementptr inbounds i32, i32* %arg3, i64 %indvars.iv
   %arg3.load = load i32, i32* %arg3.gep, align 4
-  %call = tail call float @_Z6selectffi(float %arg1.load, float %arg2.load, i32 %arg3.load) #9
+  %call = tail call afn float @_Z6selectffi(float %arg1.load, float %arg2.load, i32 %arg3.load) #9
   %res.ptr = getelementptr inbounds float, float* %dest, i64 %indvars.iv
   store float %call, float* %res.ptr, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

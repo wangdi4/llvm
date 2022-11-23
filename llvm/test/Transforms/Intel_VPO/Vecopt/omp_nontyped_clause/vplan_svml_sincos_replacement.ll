@@ -53,7 +53,7 @@ define void @foo(float addrspace(1)* %uni1, float addrspace(1)* %uni2) {
 ; CHECK-NEXT:    [[COSPTR_GEP:%.*]] = getelementptr float, float* [[COSPTR_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 
 ; CHECK:       vector.body
-; CHECK:         {{.*}} = call <8 x float> @_Z6sincosDv8_fPS_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]])
+; CHECK:         {{.*}} = call afn <8 x float> @_Z6sincosDv8_fPS_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]])
 ; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
 ;
 entry:
@@ -69,7 +69,7 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %index64 = sext i32 %index to i64
   %gep1 = getelementptr inbounds float, float addrspace(1)* %uni1, i64 %index64
   %load1 = load float, float addrspace(1)* %gep1, align 4
-  %sinPtr = call float @_Z6sincosfPf(float %load1, float* %cosPtr)
+  %sinPtr = call afn float @_Z6sincosfPf(float %load1, float* %cosPtr)
   %cosVal = load float, float* %cosPtr
   %add = fadd float %cosVal, %sinPtr
   %gep2 = getelementptr inbounds float, float addrspace(1)* %uni2, i64 %index64

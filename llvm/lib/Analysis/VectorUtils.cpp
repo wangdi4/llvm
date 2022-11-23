@@ -1273,10 +1273,12 @@ bool llvm::isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
          isSVMLDeviceScalarFunctionName(DemanglingInfo->ScalarName);
 }
 
-unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
+unsigned llvm::getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
                              const TargetLibraryInfo *TLI) {
+  StringRef FnName = CB.getCalledFunction()->getName();
+
   // Call can already be vectorized for current VF, pumping not needed.
-  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VF), IsMasked))
+  if (TLI->isFunctionVectorizable(CB, ElementCount::getFixed(VF), IsMasked))
     return 1;
 
   // TODO: Pumping is supported only for simple SVML functions.
@@ -1294,12 +1296,14 @@ unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
     return 1;
 
   // Pumping can be done if function can be vectorized for any LowerVF starting
-  // from VF/2 -> 2.
+  // from VF/2 -> 2. Since pumping is only done for library calls today, ensure
+  // that call passes restrictions imposed by TLI for vector library based
+  // vectorization.
   assert(isPowerOf2_32(VF) &&
          "Pumping analysis is not supported for non-power of two VF.");
   unsigned LowerVF;
   for (LowerVF = VF / 2; LowerVF > 1; LowerVF /= 2) {
-    if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(LowerVF),
+    if (TLI->isFunctionVectorizable(CB, ElementCount::getFixed(LowerVF),
                                     IsMasked))
       return VF / LowerVF;
   }

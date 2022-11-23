@@ -930,10 +930,10 @@ bool isSVMLDeviceScalarFunctionName(StringRef FnName);
 bool isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
                           StringRef VFnName);
 
-/// Determine if scalar function \p FnName should be vectorized by pumping
+/// Determine if scalar call \p CB should be vectorized by pumping
 /// feature for the chosen \p VF. If yes, then the factor to pump by is
 /// returned, 1 otherwise.
-unsigned getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
+unsigned getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
                        const TargetLibraryInfo *TLI);
 
 /// \brief A helper function that returns value after skipping 'bitcast' and

@@ -18,17 +18,17 @@ declare float @_Z3logf(float) #0
 
 ; CHECK-LABEL: @test1(
 ; CHECK: vector.body:
-; CHECK: {{.*}} = call <2 x double> @_Z4sqrtDv2_d({{.*}})
+; CHECK: {{.*}} = call afn <2 x double> @_Z4sqrtDv2_d({{.*}})
 ; CHECK: [[WL:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0v2f32
 ; CHECK-NEXT: [[E2:%.*]] = extractelement <2 x float> [[WL]], i32 1
 ; CHECK-NEXT: [[E1:%.*]] = extractelement <2 x float> [[WL]], i32 0
 
 ; CHECK: pred.call.if:
-; CHECK-NEXT: {{.*}} = call float @_Z3logf(float [[E1]])
+; CHECK-NEXT: {{.*}} = call afn float @_Z3logf(float [[E1]])
 ; CHECK-NEXT: br label %[[LBL3:.*]]
 
 ; CHECK: pred.call.if{{[0-9]+}}:
-; CHECK-NEXT: {{.*}} = call float @_Z3logf(float [[E2]])
+; CHECK-NEXT: {{.*}} = call afn float @_Z3logf(float [[E2]])
 ; CHECK-NEXT: br label %[[LBL4:.*]]
 
 define void @test1(double %t, float %tf, i32 %idx) {
@@ -39,8 +39,8 @@ define void @test1(double %t, float %tf, i32 %idx) {
 
   simd.loop:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-  %1 = call double @_Z3expd(double %t)
-  %2 = call double @_Z4sqrtd(double %t)
+  %1 = call afn double @_Z3expd(double %t)
+  %2 = call afn double @_Z4sqrtd(double %t)
   %cmp1 = icmp sgt i32 %index, 2
   br i1 %cmp1, label %if.then, label %omp.body.continue
   if.then:
@@ -51,7 +51,7 @@ define void @test1(double %t, float %tf, i32 %idx) {
   ;; implementation, we should change the test accordingly.
   %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i32 0, i32 %index
   %load = load float, float* %arrayidx, align 4
-  %pred = call float @_Z3logf(float %load)
+  %pred = call afn float @_Z3logf(float %load)
   br label %omp.body.continue
   omp.body.continue:
   br label %simd.loop.exit

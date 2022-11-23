@@ -86,7 +86,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast float* [[SCALAR_GEP0]] to <4 x float>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x float>, <4 x float>* [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[WIDE_LOAD0]])
+; CHECK-NEXT:    [[TMP2:%.*]] = call afn svml_cc <4 x float> @__svml_sinf4(<4 x float> [[WIDE_LOAD0]])
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast float* [[SCALAR_GEP0]] to <4 x float>*
 ; CHECK-NEXT:    store <4 x float> [[TMP2]], <4 x float>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
@@ -98,7 +98,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    [[SCALAR_GEP70:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast float* [[SCALAR_GEP70]] to <4 x float>*
 ; CHECK-NEXT:    [[WIDE_LOAD80:%.*]] = load <4 x float>, <4 x float>* [[TMP7]], align 4
-; CHECK-NEXT:    [[TMP8:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[WIDE_LOAD80]])
+; CHECK-NEXT:    [[TMP8:%.*]] = call afn svml_cc <4 x float> @__svml_sinf4(<4 x float> [[WIDE_LOAD80]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = bitcast float* [[SCALAR_GEP70]] to <4 x float>*
 ; CHECK-NEXT:    store <4 x float> [[TMP8]], <4 x float>* [[TMP9]], align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = add nuw nsw <4 x i64> [[TMP4]], <i64 4, i64 4, i64 4, i64 4>
@@ -110,7 +110,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    [[SCALAR_GEP100:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[TMP11]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = bitcast float* [[SCALAR_GEP100]] to <4 x float>*
 ; CHECK-NEXT:    [[WIDE_LOAD110:%.*]] = load <4 x float>, <4 x float>* [[TMP13]], align 4
-; CHECK-NEXT:    [[TMP14:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[WIDE_LOAD110]])
+; CHECK-NEXT:    [[TMP14:%.*]] = call afn svml_cc <4 x float> @__svml_sinf4(<4 x float> [[WIDE_LOAD110]])
 ; CHECK-NEXT:    [[TMP15:%.*]] = bitcast float* [[SCALAR_GEP100]] to <4 x float>*
 ; CHECK-NEXT:    store <4 x float> [[TMP14]], <4 x float>* [[TMP15]], align 4
 ; CHECK-NEXT:    [[TMP16]] = add nuw nsw <4 x i64> [[TMP10]], <i64 4, i64 4, i64 4, i64 4>
@@ -134,7 +134,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %arrayidx = getelementptr inbounds float, float* %a, i64 %indvars.iv
   %1 = load float, float* %arrayidx, align 4
-  %inc = call float @sinf(float %1)
+  %inc = call afn float @sinf(float %1)
   store float %inc, float* %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
