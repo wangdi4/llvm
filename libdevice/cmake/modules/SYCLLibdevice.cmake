@@ -322,28 +322,20 @@ set(imf_host_cxx_flags -c
 add_custom_command(OUTPUT ${imf_fp32_fallback_src}
                    COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
                                             -D DEST_DIR=${imf_fallback_src_dir}
-<<<<<<< HEAD
-                                            -D FP64=0
+                                            -D IMF_TARGET=FP32
                                              # INTEL_CUSTOMIZATION
                                             -D OMP_LIBDEVICE=0
                                              # end INTEL_CUSTOMIZATION
-=======
-                                            -D IMF_TARGET=FP32
->>>>>>> fc136d69eab778ed670d751b49547e0930ef007b
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_fp32_deps})
 
 add_custom_command(OUTPUT ${imf_fp64_fallback_src}
                    COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
                                             -D DEST_DIR=${imf_fallback_src_dir}
-<<<<<<< HEAD
-                                            -D FP64=1
+                                            -D IMF_TARGET=FP64
                                              # INTEL_CUSTOMIZATION
                                             -D OMP_LIBDEVICE=0
                                              # end INTEL_CUSTOMIZATION
-=======
-                                            -D IMF_TARGET=FP64
->>>>>>> fc136d69eab778ed670d751b49547e0930ef007b
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_fp64_deps})
 
@@ -351,6 +343,9 @@ add_custom_command(OUTPUT ${imf_bf16_fallback_src}
                    COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
                                             -D DEST_DIR=${imf_fallback_src_dir}
                                             -D IMF_TARGET=BF16
+                                             # INTEL_CUSTOMIZATION
+                                            -D OMP_LIBDEVICE=0
+                                             # end INTEL_CUSTOMIZATION
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_bf16_deps})
 

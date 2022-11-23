@@ -179,7 +179,6 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp64.cpp)
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set (imf_omp_lib_funcs_list)
 list (APPEND imf_omp_lib_funcs_list ${imf_fp32_omp_lib_funcs_list})
@@ -187,31 +186,22 @@ list (APPEND imf_omp_lib_funcs_list ${imf_fp64_omp_lib_funcs_list})
 
 if (OMP_LIBDEVICE STREQUAL 0)
 # end INTEL_CUSTOMIZATION
-  if (FP64 STREQUAL 0)
+  set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
+                                 imf/imf_inline_bf16.cpp)
+  if (IMF_TARGET STREQUAL "FP32")
     set(imf_fallback_src_list ${imf_fp32_fallback_src_list})
     set(imf_fallback_dest ${DEST_DIR}/imf_fp32_fallback.cpp)
-  else()
+  elseif (IMF_TARGET STREQUAL "FP64")
     set(imf_fallback_src_list ${imf_fp64_fallback_src_list})
     set(imf_fallback_dest ${DEST_DIR}/imf_fp64_fallback.cpp)
+  elseif (IMF_TARGET STREQUAL "BF16")
+    set(imf_fallback_src_list ${imf_bf16_fallback_src_list})
+    set(imf_fallback_dest ${DEST_DIR}/imf_bf16_fallback.cpp)
   endif()
 # INTEL_CUSTOMIZATION
 else()
   set(imf_fallback_src_list ${imf_omp_lib_funcs_list})
   set(imf_fallback_dest ${DEST_DIR}/imf_simd.cpp)
-=======
-set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
-                               imf/imf_inline_bf16.cpp)
-
-if (IMF_TARGET STREQUAL "FP32")
-  set(imf_fallback_src_list ${imf_fp32_fallback_src_list})
-  set(imf_fallback_dest ${DEST_DIR}/imf_fp32_fallback.cpp)
-elseif (IMF_TARGET STREQUAL "FP64")
-  set(imf_fallback_src_list ${imf_fp64_fallback_src_list})
-  set(imf_fallback_dest ${DEST_DIR}/imf_fp64_fallback.cpp)
-elseif (IMF_TARGET STREQUAL "BF16")
-  set(imf_fallback_src_list ${imf_bf16_fallback_src_list})
-  set(imf_fallback_dest ${DEST_DIR}/imf_bf16_fallback.cpp)
->>>>>>> fc136d69eab778ed670d751b49547e0930ef007b
 endif()
 # end INTEL_CUSTOMIZATION
 
