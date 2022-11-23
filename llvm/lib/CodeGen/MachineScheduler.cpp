@@ -551,7 +551,8 @@ getSchedRegions(MachineBasicBlock *MBB,
         ++NumRegionInstrs;
       }
 #if INTEL_CUSTOMIZATION
-      if (MaxSchedRegionInstrs == NumRegionInstrs)
+      if (enableTargetSchedHeuristics(MF) &&
+          MaxSchedRegionInstrs == NumRegionInstrs)
         break;
 #endif // INTEL_CUSTOMIZATION
     }
