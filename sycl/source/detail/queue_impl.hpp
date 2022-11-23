@@ -486,30 +486,6 @@ protected:
   }
 
 protected:
-<<<<<<< HEAD
-  /// Helper function for checking whether a device is either a member of a
-  /// context or a descendnant of its member.
-  /// \return True iff the device or its parent is a member of the context.
-  static bool isValidDevice(const ContextImplPtr &Context,
-                            DeviceImplPtr Device) {
-    // OpenCL does not support creating a queue with a descendant of a device
-    // from the given context yet.
-    // TODO remove once this limitation is lifted
-    if (!Context->is_host() &&
-        Context->getPlugin().getBackend() == backend::opencl)
-      return Context->hasDevice(Device);
-
-    while (!Context->hasDevice(Device)) {
-      if (Device->isRootDevice())
-        return false;
-      Device = detail::getSyclObjImpl(
-          Device->get_info<info::device::parent_device>());
-    }
-    return true;
-  }
-
-=======
->>>>>>> a7a7303ecc92ab614b4d772c8437ebb0f159d5a6
   /// Performs command group submission to the queue.
   ///
   /// \param CGF is a function object containing command group.
