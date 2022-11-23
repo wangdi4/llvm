@@ -31,8 +31,6 @@ struct VFInfo;
 
 namespace vpo {
 
-extern bool VPlanVecNonReadonlyLibCalls;
-
 class VPlanCallVecDecisions {
 
 public:

@@ -361,13 +361,15 @@ public:
   static bool doIdentityMatrixSubstitution(HLLoop *Loop,
                                            const RegDDRef *IdentityRef);
 
-  /// Propagates constants to refs and does constant folding for instructions.
-  /// Also substitutes constant global refs with equivalent constants.
+  /// Propagates constants and copies to refs and does constant folding for
+  /// instructions. Also substitutes constant global refs with equivalent
+  /// constants.
+  static bool doConstantAndCopyPropagation(HLNode *Node
 #if INTEL_FEATURE_SW_DTRANS
-  static bool doConstantPropagation(HLNode *Node, DTransImmutableInfo *DTII);
-#else  // INTEL_FEATURE_SW_DTRANS
-  static bool doConstantPropagation(HLNode *Node);
+                                           ,
+                                           DTransImmutableInfo *DTII
 #endif // INTEL_FEATURE_SW_DTRANS
+  );
 
   /// Returns true if instruction was folded, along with the new instruction.
   /// If the instruction is null, it folded into a self-assignment (no-op).

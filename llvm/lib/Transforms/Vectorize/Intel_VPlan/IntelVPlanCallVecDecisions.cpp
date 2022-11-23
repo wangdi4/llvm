@@ -19,18 +19,6 @@
 
 using namespace llvm::vpo;
 
-static cl::opt<bool, true> VPlanVecNonReadonlyLibCallsOpt(
-    "vplan-vectorize-non-readonly-libcalls", cl::Hidden,
-    cl::location(VPlanVecNonReadonlyLibCalls),
-    cl::desc(
-        "Vectorize library calls even if they don't have readonly attribute."));
-
-namespace llvm {
-namespace vpo {
-bool VPlanVecNonReadonlyLibCalls = true;
-} // namespace vpo
-} // namespace llvm
-
 static bool isVPPopVF(const VPInstruction *I) {
   return I->getOpcode() == VPInstruction::PopVF;
 }
@@ -338,37 +326,21 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
   }
 
-  LibFunc LibF;
-  // Call is valid for vector library-based vectorization if it represents a
-  // known library function, is an LLVM intrinsic or an OCL vector function.
-  bool IsValidMathLibFunc = TLI->getLibFunc(*F, LibF) || F->isIntrinsic() ||
-                            TLI->isOCLVectorFunction(CalledFuncName);
-
   // Vectorizable library function like SVML calls. Set vector function name in
-  // CallVecProperties. NOTE : Vector library calls can be used if call
-  // is known to read memory only (non-default behavior) and callee is a valid
-  // library function.
-  if (IsValidMathLibFunc &&
-      TLI->isFunctionVectorizable(CalledFuncName, ElementCount::getFixed(VF),
-                                  IsMasked) &&
-      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
+  // CallVecProperties.
+  if (TLI->isFunctionVectorizable(*UnderlyingCI, ElementCount::getFixed(VF),
+                                  IsMasked)) {
     VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
         CalledFuncName, ElementCount::getFixed(VF), IsMasked));
     return;
   }
 
-  // Vectorize by pumping the call for a lower VF. Since pumping is only done
-  // for library calls today, ensure that call only reads memory and callee is
-  // valid library function. TODO: When vector-variant pumping is implemented,
-  // restrict the check for library func call.
-  unsigned PumpFactor = getPumpFactor(CalledFuncName, IsMasked, VF, TLI);
-  if (PumpFactor > 1 &&
-      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory()) &&
-      IsValidMathLibFunc) {
+  // Vectorize by pumping the call for a lower VF.
+  unsigned PumpFactor = getPumpFactor(*UnderlyingCI, IsMasked, VF, TLI);
+  if (PumpFactor > 1) {
     unsigned LowerVF = VF / PumpFactor;
-    assert(TLI->isFunctionVectorizable(CalledFuncName,
-                                       ElementCount::getFixed(LowerVF),
-                                       IsMasked) &&
+    assert(TLI->isFunctionVectorizable(
+               *UnderlyingCI, ElementCount::getFixed(LowerVF), IsMasked) &&
            "Library function cannot be vectorized with lower VF.");
     VPCall->setVectorizeWithLibraryFn(
         TLI->getVectorizedFunction(CalledFuncName,

@@ -2530,7 +2530,10 @@ public:
         Visit(Child);
   }
 
-  CallExprFinder(SourceLocation Loc) : TCallLoc(Loc) {}
+  CallExprFinder(SourceLocation Loc, const Stmt *S) : TCallLoc(Loc) {
+    Visit(S);
+    assert(TargetCall && "expected non-null TargetCall");
+  }
 };
 } // namespace
 
@@ -2544,13 +2547,11 @@ void OpenMPLateOutliner::emitOMPAllNeedDevicePtrClauses() {
   const CallExpr *TargetCall = nullptr;
 
   if (const auto *DispatchD = dyn_cast<OMPDispatchDirective>(&Directive)) {
-    CallExprFinder Finder(DispatchD->getTargetCallLoc());
-    Finder.Visit(S);
+    CallExprFinder Finder(DispatchD->getTargetCallLoc(), S);
     TargetCall = Finder.getCallExpr();
   } else if (const auto *TVDD =
                  dyn_cast<OMPTargetVariantDispatchDirective>(&Directive)) {
-    CallExprFinder Finder(TVDD->getTargetCallLoc());
-    Finder.Visit(S);
+    CallExprFinder Finder(TVDD->getTargetCallLoc(), S);
     TargetCall = Finder.getCallExpr();
   }
 

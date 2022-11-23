@@ -31,7 +31,7 @@ simd.loop:                                        ; preds = %simd.loop, %DIR.QUA
   %1 = load float, float addrspace(2)* %weight_free2, align 4
   %cmp = fcmp ogt float %0, 5.000000e-01
   %conv = sext i1 %cmp to i32
-  %call4 = tail call float @_Z6selectffi(float %0, float %1, i32 %conv) #9
+  %call4 = tail call afn float @_Z6selectffi(float %0, float %1, i32 %conv) #9
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 8
   br i1 %exitcond, label %simd.loop, label %simd.end.region 

@@ -15,15 +15,15 @@
 
 ; CHECK-LABEL: test_sinf
 ; FLOAT-LT-512:   [[MASK_EXT:%.*]] = sext <[[VL]] x i1> [[MASK:%.*]] to <[[VL]] x i32>
-; FLOAT-LT-512:   [[RESULT:%.*]] = call svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> {{.*}}, <[[VL]] x i32> [[MASK_EXT:%.*]])
-; FLOAT-512:      [[RESULT:%.*]] = call svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> undef, <[[VL]] x i1> [[MASK:%.*]], <[[VL]] x float> {{.*}})
+; FLOAT-LT-512:   [[RESULT:%.*]] = call afn svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> {{.*}}, <[[VL]] x i32> [[MASK_EXT:%.*]])
+; FLOAT-512:      [[RESULT:%.*]] = call afn svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> undef, <[[VL]] x i1> [[MASK:%.*]], <[[VL]] x float> {{.*}})
 ; CHECK:          [[PTR:%.*]] = bitcast float* {{.*}} to <[[VL]] x float>*
 ; CHECK:          call void @llvm.masked.store.v[[VL]]f32.p0v[[VL]]f32(<[[VL]] x float> [[RESULT]], <[[VL]] x float>* [[PTR]], i32 4, <[[VL]] x i1> [[MASK]])
 
 ; CHECK-LABEL: test_sin
 ; DOUBLE-LT-512:  [[MASK_EXT:%.*]] = sext <[[VL]] x i1> [[MASK:%.*]] to <[[VL]] x i64>
-; DOUBLE-LT-512:  [[RESULT:%.*]] = call svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> {{.*}}, <[[VL]] x i64> [[MASK_EXT:%.*]])
-; DOUBLE-512:     [[RESULT:%.*]] = call svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> undef, <[[VL]] x i1> [[MASK:%.*]], <[[VL]] x double> {{.*}})
+; DOUBLE-LT-512:  [[RESULT:%.*]] = call afn svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> {{.*}}, <[[VL]] x i64> [[MASK_EXT:%.*]])
+; DOUBLE-512:     [[RESULT:%.*]] = call afn svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> undef, <[[VL]] x i1> [[MASK:%.*]], <[[VL]] x double> {{.*}})
 ; CHECK:          [[PTR:%.*]] = bitcast double* {{.*}} to <[[VL]] x double>*
 ; CHECK:          call void @llvm.masked.store.v[[VL]]f64.p0v[[VL]]f64(<[[VL]] x double> [[RESULT]], <[[VL]] x double>* [[PTR]], i32 8, <[[VL]] x i1> [[MASK]])
 
@@ -58,7 +58,7 @@ if.then:                                          ; preds = %omp.inner.for.body
   %arrayidx8 = getelementptr inbounds float, float* %input, i64 %indvars.iv
   %3 = load float, float* %arrayidx8, align 4, !tbaa !6
   %arrayidx10 = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %call = tail call float @sinf(float %3) #2
+  %call = tail call afn float @sinf(float %3) #2
   store float %call, float* %arrayidx10, align 4, !tbaa !6
   br label %omp.body.continue
 
@@ -101,7 +101,7 @@ if.then:                                          ; preds = %omp.inner.for.body
   %arrayidx8 = getelementptr inbounds double, double* %input, i64 %indvars.iv
   %3 = load double, double* %arrayidx8, align 8
   %arrayidx10 = getelementptr inbounds double, double* %a, i64 %indvars.iv
-  %call = tail call double @sin(double %3) #2
+  %call = tail call afn double @sin(double %3) #2
   store double %call, double* %arrayidx10, align 8
   br label %omp.body.continue
 

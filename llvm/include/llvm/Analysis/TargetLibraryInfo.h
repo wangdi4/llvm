@@ -389,6 +389,15 @@ public:
     return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
 
+  /// A wrapper method for isFunctionVectorizable where the scalar call
+  /// instruction is checked for following properties in addition to checking
+  /// for a valid entry the vector library table -
+  /// 1. Call allows substitution with approximate functions (afn FastMathFlag).
+  /// 2. Call is known to read memory only. This is optional and can be enforced
+  /// by -tli-vectorize-non-readonly-libcalls=0 switch.
+  bool isFunctionVectorizable(const CallBase &CB, const ElementCount &VF,
+                              bool IsMasked = false) const;
+
   /// \p IsMasked defaults to 'false'. This is to leave many of the current
   /// callsites which do not necessarily care about the availability of
   /// masked or unmasked version of a function, unchanged.

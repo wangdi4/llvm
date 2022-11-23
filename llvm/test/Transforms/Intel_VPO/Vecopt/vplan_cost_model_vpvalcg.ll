@@ -845,7 +845,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP13:%.*]] = call fast svml_cc <4 x float> @__svml_expf4(<4 x float> [[TMP12]])
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP14:%.*]] = fpext <4 x float> [[WIDE_LOAD60]] to <4 x double>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 28 for instruction:   [[TMP15:%.*]] = call <4 x double> @llvm.sqrt.v4f64(<4 x double> [[TMP14]])
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP16:%.*]] = call svml_cc <4 x double> @__svml_exp4(<4 x double> [[TMP15]])
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP16:%.*]] = call afn svml_cc <4 x double> @__svml_exp4(<4 x double> [[TMP15]])
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP17:%.*]] = bitcast i32* [[SCALAR_GEP90]] to <4 x i32>*
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <4 x i32> [[TMP4]], <4 x i32>* [[TMP17]], align 16
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP18:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
@@ -902,7 +902,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 26 for instruction:   [[FEXP0:%.*]] = call fast float @llvm.exp.f32(float [[FSQRT0]])
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[FPEXT0:%.*]] = fpext float [[LD_FLOAT0]] to double
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 14 for instruction:   [[DSQRT0:%.*]] = call double @llvm.sqrt.f64(double [[FPEXT0]])
-; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 41 for instruction:   [[DEXP0:%.*]] = call double @llvm.exp.f64(double [[DSQRT0]])
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 41 for instruction:   [[DEXP0:%.*]] = call afn double @llvm.exp.f64(double [[DSQRT0]])
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i32 [[ZEXT0]], i32* [[ST_I32_IDX_10]], align 4
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i32 [[SEXT0]], i32* [[ST_I32_IDX_20]], align 4
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i8 [[TRUNC0]], i8* [[ST_I8_IDX_10]], align 1
@@ -970,7 +970,7 @@ for.body:
   %fexp = call fast float @llvm.exp.f32(float %fsqrt)
   %fpext = fpext float %ld.float to double
   %dsqrt = call double @llvm.sqrt.f64(double %fpext)
-  %dexp = call double @llvm.exp.f64(double %dsqrt)
+  %dexp = call afn double @llvm.exp.f64(double %dsqrt)
 
   store i32 %zext, i32* %st.i32.idx.1
   store i32 %sext, i32* %st.i32.idx.2
