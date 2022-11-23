@@ -1,7 +1,7 @@
 ; Verify that VPlan vectorizers don't vectorize libcalls without readnone
 ; attribute into SVML variants.
 
-; RUN: opt < %s -vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -vplan-vectorize-non-readonly-libcalls=false -vector-library=SVML -S | FileCheck %s --check-prefix=LLVM-IR
+; RUN: opt < %s -vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -tli-vectorize-non-readonly-libcalls=false -vector-library=SVML -S | FileCheck %s --check-prefix=LLVM-IR
 ; Checks for LLVM-IR VPlan vectorizer
 ; LLVM-IR-LABEL: VPlan after ScalVec analysis:
 ; LLVM-IR:         [DA: Div, SVA: ( V )] float {{%vp.*}} = call float {{%vp.*}} float (float)* @logf [Serial] (SVAOpBits 0->V 1->F )
@@ -14,7 +14,7 @@
 ; LLVM-IR-NEXT:    [[SERIAL_CALL_1:%.*]] = call float @logf(float [[ARG_EXTRACT_1]])
 ; LLVM-IR-NEXT:    [[CALL_INSERT_1:%.*]] = insertelement <2 x float> [[CALL_INSERT_0]], float [[SERIAL_CALL_1]], i32 1
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-vectorize-non-readonly-libcalls=false -vector-library=SVML -print-after=hir-vplan-vec -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -tli-vectorize-non-readonly-libcalls=false -vector-library=SVML -print-after=hir-vplan-vec -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; Checks for HIR VPlan vectorizer
 ; HIR:           + DO i1 = 0, 1023, 2   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:      |   %.vec = (<2 x float>*)(%a)[i1];

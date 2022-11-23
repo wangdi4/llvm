@@ -66,7 +66,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @src, i64 0, i64 %indvars.iv
   %1 = load float, float* %arrayidx, align 4
   %conv = fpext float %1 to double
-  %lib.call = call double @sin(double %conv) #1
+  %lib.call = call afn double @sin(double %conv) #1
   %lib.trunc = fptrunc double %lib.call to float
   %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @dst, i64 0, i64 %indvars.iv
   store float %lib.trunc, float* %arrayidx2

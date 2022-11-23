@@ -30,6 +30,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Operator.h" // INTEL
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 using namespace llvm;
@@ -52,6 +53,13 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
 #if INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
                           "Glibc vector math library")));
+
+// Flag to track if TLI should mark non-readonly functions as vectorizable.
+static cl::opt<bool> TLIVecNonReadonlyLibCalls(
+    "tli-vectorize-non-readonly-libcalls", cl::Hidden,
+    cl::desc(
+        "Vectorize library calls even if they don't have readonly attribute."),
+    cl::init(true));
 #endif
 
 StringLiteral const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
@@ -121,6 +129,37 @@ static bool hasBcmp(const Triple &TT) {
   // not have it.
   return TT.isOSFreeBSD() || TT.isOSSolaris();
 }
+
+#if INTEL_CUSTOMIZATION
+bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
+                                               const ElementCount &VF,
+                                               bool IsMasked) const {
+  // Track if call allows substitution with approximate functions. We use
+  // FastMathFlags to determine this property for FP computations.
+  bool CallAllowsApproxFn = true;
+  if (auto *FPCall = dyn_cast<FPMathOperator>(&CB))
+    CallAllowsApproxFn = FPCall->hasApproxFunc();
+  if (!CallAllowsApproxFn)
+    return false;
+
+  // Vector library calls can be used if call is known to read memory only
+  // (non-default behavior).
+  bool CallOnlyReadsMem = TLIVecNonReadonlyLibCalls || CB.onlyReadsMemory();
+  if (!CallOnlyReadsMem)
+    return false;
+
+  LibFunc LibF;
+  Function *F = CB.getCalledFunction();
+  StringRef CalledFnName = F->getName();
+  // Call is valid for vector library-based vectorization if it represents a
+  // known library function, is an LLVM intrinsic or an OCL vector function.
+  bool IsValidMathLibFunc = getLibFunc(*F, LibF) || F->isIntrinsic() ||
+                            isOCLVectorFunction(CalledFnName);
+
+  return IsValidMathLibFunc &&
+         isFunctionVectorizable(CalledFnName, VF, IsMasked);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static bool isCallingConvCCompatible(CallingConv::ID CC, StringRef TT,
                                      FunctionType *FuncTy) {

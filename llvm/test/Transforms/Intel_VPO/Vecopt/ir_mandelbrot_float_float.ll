@@ -10,7 +10,7 @@
 ; RUN: opt -vplan-enable-soa=false -S %s -vplan-vec -vector-library=SVML -vplan-enable-non-masked-vectorized-remainder 2>&1 | FileCheck %s
 ; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vector-library=SVML -vplan-enable-non-masked-vectorized-remainder 2>&1 | FileCheck %s
 ;
-; CHECK: call svml_cc <16 x float> @__svml_sqrtf16(
+; CHECK: call afn svml_cc <16 x float> @__svml_sqrtf16(
 
 ; ModuleID = 'mod.cpp'
 source_filename = "mod.cpp"
@@ -65,7 +65,7 @@ omp.inner.for.body:                               ; preds = %_ZL6mandelffj.exit,
   store float %sub, float* %in_vals_tmp_imagine.priv.priv, align 4, !tbaa !2
   %mul.i = fmul float %add5, %add5
   %add.i = fadd float %mul1.i, %mul.i
-  %call.i = call float @sqrtf(float %add.i) #2
+  %call.i = call afn float @sqrtf(float %add.i) #2
   %cmp.i33 = fcmp olt float %call.i, 2.000000e+00
   br i1 %cmp.i33, label %while.body.i.preheader, label %_ZL6mandelffj.exit
 
@@ -86,7 +86,7 @@ while.body.i:                                     ; preds = %while.body.i.prehea
   %mul9.i = fmul float %add5.i, %add5.i
   %mul10.i = fmul float %add8.i, %add8.i
   %add11.i = fadd float %mul9.i, %mul10.i
-  %call12.i = call float @sqrtf(float %add11.i) #2
+  %call12.i = call afn float @sqrtf(float %add11.i) #2
   %inc.i = add nuw nsw i32 %count.0.i35, 1
   %cmp.i = fcmp olt float %call12.i, 2.000000e+00
   %cmp2.i = icmp ult i32 %inc.i, 3000

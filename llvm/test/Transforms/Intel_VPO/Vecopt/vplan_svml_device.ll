@@ -3,10 +3,10 @@
 
 ; RUN: opt -vplan-vec -vplan-target-vf=16 -vector-library=SVML -S < %s | FileCheck %s
 
-; CHECK: call spir_func <16 x float> @_ZGVxM16v___svml_device_sinf(<16 x float>
-; CHECK: call spir_func <16 x float> @_ZGVxM16v___svml_device_cosf(<16 x float>
-; CHECK: call spir_func <16 x double> @_ZGVxN16vv___svml_device_pow(<16 x double>
-; CHECK: call spir_func <16 x double> @_ZGVxN16v___svml_device_log2(<16 x double>
+; CHECK: call afn spir_func <16 x float> @_ZGVxM16v___svml_device_sinf(<16 x float>
+; CHECK: call afn spir_func <16 x float> @_ZGVxM16v___svml_device_cosf(<16 x float>
+; CHECK: call afn spir_func <16 x double> @_ZGVxN16vv___svml_device_pow(<16 x double>
+; CHECK: call afn spir_func <16 x double> @_ZGVxN16v___svml_device_log2(<16 x double>
 
 target datalayout = "p:32:32-p1:32:32-p2:16:16"
 target triple = "spir64"
@@ -47,18 +47,18 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD, %if.e
   br i1 %test.not, label %if.else, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %call = call float @sinf(float noundef %1)
+  %call = call afn float @sinf(float noundef %1)
   br label %if.end
 
 if.else:                                          ; preds = %omp.inner.for.body
-  %call8 = call float @cosf(float noundef %1)
+  %call8 = call afn float @cosf(float noundef %1)
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   %indvars.iv.next28 = add nuw nsw i32 %indvars.iv27, 1
   %conv14 = uitofp i32 %indvars.iv.next28 to double
-  %call15 = call double @llvm.pow.f64(double noundef %conv14, double noundef 6.000000e+00)
-  %call22 = call double @log2(double noundef %call15)
+  %call15 = call afn double @llvm.pow.f64(double noundef %conv14, double noundef 6.000000e+00)
+  %call22 = call afn double @log2(double noundef %call15)
   %exitcond29.not = icmp eq i32 %indvars.iv.next28, 16
   br i1 %exitcond29.not, label %DIR.OMP.END.SIMD, label %omp.inner.for.body
 

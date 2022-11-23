@@ -74,7 +74,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %arrayidx = getelementptr inbounds float, float* %a, i64 %indvars.iv
   %1 = load float, float* %arrayidx, align 4
-  %inc = call float @sinf(float %1) #3
+  %inc = call afn float @sinf(float %1) #3
   store float %inc, float* %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 80

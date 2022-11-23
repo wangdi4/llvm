@@ -2,10 +2,10 @@
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=4 -vector-library=SVML -S < %s | FileCheck %s
 
 ;CHECK-LABEL: vector.body
-;CHECK: [[SQRT:%.*]] = call <4 x float> @_Z4sqrtDv4_f(<4 x float> {{.*}})
-;CHECK: [[PRED_SQRT:%.*]] = call <4 x float> @_Z4sqrtDv4_f(<4 x float> {{.*}})
-;CHECK: [[PRED_EXPF:%.*]] = call <4 x float> @_Z3expDv4_f(<4 x float> {{.*}})
-;CHECK: [[PRED_NATIVE_EXPF:%.*]] = call <4 x float> @_Z10native_expDv4_f(<4 x float> {{.*}})
+;CHECK: [[SQRT:%.*]] = call afn <4 x float> @_Z4sqrtDv4_f(<4 x float> {{.*}})
+;CHECK: [[PRED_SQRT:%.*]] = call afn <4 x float> @_Z4sqrtDv4_f(<4 x float> {{.*}})
+;CHECK: [[PRED_EXPF:%.*]] = call afn <4 x float> @_Z3expDv4_f(<4 x float> {{.*}})
+;CHECK: [[PRED_NATIVE_EXPF:%.*]] = call afn <4 x float> @_Z10native_expDv4_f(<4 x float> {{.*}})
 
 
 ; ModuleID = 'main'
@@ -48,7 +48,7 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %11 = call i64 @_Z13get_global_idj(i32 1)
   %12 = getelementptr inbounds float, float addrspace(1)* %0, i64 %add
   %13 = load float, float addrspace(1)* %12, align 4
-  %14 = call float @_Z4sqrtf(float %13)
+  %14 = call afn float @_Z4sqrtf(float %13)
   %15 = getelementptr inbounds float, float addrspace(1)* %4, i64 %add
   store float %14, float addrspace(1)* %15, align 4
   %16 = urem i64 600, %11
@@ -60,9 +60,9 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %20 = fpext float %19 to double
   %21 = fmul double %20, 1.040000e+01
   %22 = fptrunc double %21 to float
-  %23 = call float @_Z4sqrtf(float %22)
-  %expResult = call float @_Z3expf(float %22)
-  %native_expResult = call float @_Z10native_expf(float %22)
+  %23 = call afn float @_Z4sqrtf(float %22)
+  %expResult = call afn float @_Z3expf(float %22)
+  %native_expResult = call afn float @_Z10native_expf(float %22)
   %fadd = fadd float %23, %expResult
   %fadd_native = fadd float %fadd, %expResult
   store float %fadd_native, float addrspace(1)* %15, align 4
