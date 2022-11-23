@@ -106,6 +106,33 @@ static const bool ReuseDiscardedEvents = [] {
     return true;
   return std::stoi(ReuseDiscardedEventsFlag) > 0;
 }();
+<<<<<<< HEAD
+=======
+
+// This class encapsulates actions taken along with a call to Level Zero API.
+class ZeCall {
+private:
+  // The global mutex that is used for total serialization of Level Zero calls.
+  static std::mutex GlobalLock;
+
+public:
+  ZeCall() {
+    if ((ZeSerialize & ZeSerializeLock) != 0) {
+      GlobalLock.lock();
+    }
+  }
+  ~ZeCall() {
+    if ((ZeSerialize & ZeSerializeLock) != 0) {
+      GlobalLock.unlock();
+    }
+  }
+
+  // The non-static version just calls static one.
+  ze_result_t doCall(ze_result_t ZeResult, const char *ZeName,
+                     const char *ZeArgs, bool TraceError = true);
+};
+std::mutex ZeCall::GlobalLock;
+>>>>>>> 758dd7a46de98846d16534103b9c8be4931ada4e
 
 // Controls PI level tracing prints.
 static bool PrintPiTrace = false;
