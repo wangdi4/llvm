@@ -2575,8 +2575,8 @@ void LoopVectorizationPlanner::runPeepholeBeforePredicator() {
       //
       VPBuilder Builder;
       Builder.setInsertPoint(&Inst);
-      int64_t Width = TruncI->getType()->getPrimitiveSizeInBits();
-      int64_t V = (1 << Width) - 1;
+      APInt V = APInt::getAllOnes(TruncI->getType()->getPrimitiveSizeInBits())
+                    .zext(Operand->getType()->getPrimitiveSizeInBits());
       VPInstruction *AndI = Builder.createAnd(
           Operand, Plan.getVPConstant(ConstantInt::get(Operand->getType(), V)));
       AndI->setDebugLocation(Inst.getDebugLocation());
