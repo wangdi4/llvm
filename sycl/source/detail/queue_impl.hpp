@@ -62,7 +62,7 @@ public:
 
     ContextImplPtr DefaultContext = detail::getSyclObjImpl(
         Device->get_platform().ext_oneapi_get_default_context());
-    if (isValidDevice(DefaultContext, Device))
+    if (DefaultContext->isDeviceValid(Device))
       return DefaultContext;
     return detail::getSyclObjImpl(
         context{createSyclObjFromImpl<device>(Device), {}, {}});
@@ -104,7 +104,7 @@ public:
                             "Queue cannot be constructed with both of "
                             "discard_events and enable_profiling.");
     }
-    if (!isValidDevice(Context, Device)) {
+    if (!Context->isDeviceValid(Device)) {
       if (!Context->is_host() &&
           Context->getPlugin().getBackend() == backend::opencl)
         throw sycl::invalid_object_error(
@@ -486,6 +486,7 @@ protected:
   }
 
 protected:
+<<<<<<< HEAD
   /// Helper function for checking whether a device is either a member of a
   /// context or a descendnant of its member.
   /// \return True iff the device or its parent is a member of the context.
@@ -507,6 +508,8 @@ protected:
     return true;
   }
 
+=======
+>>>>>>> a7a7303ecc92ab614b4d772c8437ebb0f159d5a6
   /// Performs command group submission to the queue.
   ///
   /// \param CGF is a function object containing command group.
