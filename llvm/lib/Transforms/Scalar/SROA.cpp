@@ -1965,8 +1965,10 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
                       ? Ty->getElementType()
                       : FixedVectorType::get(Ty->getElementType(), NumElements);
 
-  Type *SplitIntTy =
-      Type::getIntNTy(Ty->getContext(), NumElements * ElementSize * 8);
+  Type *SplitIntTy = nullptr;
+  if (uint64_t Bitwidth = NumElements * ElementSize * 8;
+      Bitwidth <= IntegerType::MAX_INT_BITS)
+    SplitIntTy = Type::getIntNTy(Ty->getContext(), Bitwidth);
 
   Use *U = S.getUse();
 
@@ -1985,7 +1987,8 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
     // Disable vector promotion when there are loads or stores of an FCA.
     if (LTy->isStructTy())
       return false;
-    if (P.beginOffset() > S.beginOffset() || P.endOffset() < S.endOffset()) {
+    if (SplitIntTy &&
+        (P.beginOffset() > S.beginOffset() || P.endOffset() < S.endOffset())) {
       assert(LTy->isIntegerTy());
       LTy = SplitIntTy;
     }
@@ -1998,7 +2001,8 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
     // Disable vector promotion when there are loads or stores of an FCA.
     if (STy->isStructTy())
       return false;
-    if (P.beginOffset() > S.beginOffset() || P.endOffset() < S.endOffset()) {
+    if (SplitIntTy &&
+        (P.beginOffset() > S.beginOffset() || P.endOffset() < S.endOffset())) {
       assert(STy->isIntegerTy());
       STy = SplitIntTy;
     }
@@ -2093,6 +2097,9 @@ static VectorType *isVectorPromotionViable(Partition &P, const DataLayout &DL) {
         CheckCandidateType(LI->getType());
       else if (auto *SI = dyn_cast<StoreInst>(S.getUse()->getUser()))
         CheckCandidateType(SI->getValueOperand()->getType());
+      else if (auto *MTI = dyn_cast<MemIntrinsic>(S.getUse()->getUser()))
+        CheckCandidateType(FixedVectorType::get(
+            IntegerType::getInt8Ty(MTI->getContext()), P.size()));
     }
 
   // If we didn't find a vector type, nothing to do here.
@@ -2150,6 +2157,13 @@ static VectorType *isVectorPromotionViable(Partition &P, const DataLayout &DL) {
 #endif
     CandidateTys.resize(1);
   }
+
+  // FIXME: hack. Do we have a named constant for this?
+  // SDAG SDNode can't have more than 65535 operands.
+  llvm::erase_if(CandidateTys, [](VectorType *VTy) {
+    return cast<FixedVectorType>(VTy)->getNumElements() >
+           std::numeric_limits<unsigned short>::max();
+  });
 
   for (VectorType *VTy : CandidateTys)
     if (checkVectorTypeForPromotion(P, VTy, DL))

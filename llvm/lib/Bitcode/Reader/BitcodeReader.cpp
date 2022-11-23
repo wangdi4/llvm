@@ -2926,8 +2926,8 @@ Error BitcodeReader::resolveGlobalAndIndirectSymbolInits() {
         Type *ResolverFTy =
             GlobalIFunc::getResolverFunctionType(GI->getValueType());
         // Transparently fix up the type for compatibility with older bitcode
-        GI->setResolver(
-            ConstantExpr::getBitCast(C, ResolverFTy->getPointerTo()));
+        GI->setResolver(ConstantExpr::getBitCast(
+            C, ResolverFTy->getPointerTo(GI->getAddressSpace())));
       } else {
         return error("Expected an alias or an ifunc");
       }
