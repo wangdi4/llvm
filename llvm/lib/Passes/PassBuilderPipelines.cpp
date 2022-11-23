@@ -1145,8 +1145,12 @@ if (!SYCLOptimizationMode) {
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
+  // Don't add CHR pass for CSIRInstr build in PostLink as the profile
+  // is still the same as the PreLink compilation.
   if (EnableCHR && Level == OptimizationLevel::O3 && PGOOpt &&
-      (PGOOpt->Action == PGOOptions::IRUse ||
+      ((PGOOpt->Action == PGOOptions::IRUse &&
+        (Phase != ThinOrFullLTOPhase::ThinLTOPostLink ||
+         PGOOpt->CSAction != PGOOptions::CSIRInstr)) ||
        PGOOpt->Action == PGOOptions::SampleUse))
     FPM.addPass(ControlHeightReductionPass());
 #if INTEL_CUSTOMIZATION
