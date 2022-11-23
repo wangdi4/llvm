@@ -1420,11 +1420,17 @@ bool MapIntrinToImlImpl::runImpl() {
     LLVM_DEBUG(dbgs() << "Legalized Scalar Math Function: " << VariantFuncName
                       << "\n");
 
+    bool IsSVMLFunction = VariantFuncName.startswith("__svml");
     // If the math function is converted to a scalar SVML function (possibly via
     // imf-use-svml), replace scalar type X in the function signature with
     // <1 x X> to ensure consistency with SVML calls from remainder loops of
-    // vectorization.
-    if (VariantFuncName.startswith("__svml")) {
+    // vectorization. Note this is not necessary if the original function is
+    // complex, as complex functions already uses vectors to represent complex
+    // values and building a <1 x X> type will crash.
+    // TODO: Complex functions has different ABI on different platforms and
+    // need more sophisticated transform.
+    if (IsSVMLFunction && VectorType::isValidElementType(
+                              ScalarCI->getFunctionType()->getReturnType())) {
       FunctionCallee FCache = M->getOrInsertFunction(
           VariantFuncName,
           legalizeSVMLScalarFunctionType(ScalarCI->getFunctionType()));
@@ -1451,6 +1457,8 @@ bool MapIntrinToImlImpl::runImpl() {
     FunctionCallee FCache =
         M->getOrInsertFunction(VariantFuncName, ScalarCI->getFunctionType());
     ScalarCI->setCalledFunction(FCache);
+    if (IsSVMLFunction)
+      ScalarCI->setCallingConv(CallingConv::SVML);
   }
 
   // Remove the old math library calls since they have been replaced with the

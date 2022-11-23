@@ -18,6 +18,18 @@ entry:
   ret void
 }
 
+; CHECK-LABEL: @csqrtf_test
+; CHECK: [[CALL:%.*]] = tail call fast svml_cc <2 x float> @__svml_csqrtf1_l9(<2 x float> %{{.*}})
+; CHECK: store <2 x float> [[CALL]]
+
+define dso_local void @csqrtf_test(<2 x float>* noalias nocapture noundef readonly %src, <2 x float>* noalias nocapture noundef writeonly %dst, i32 noundef %N) local_unnamed_addr #0 {
+entry:
+  %0 = load <2 x float>, <2 x float>* %src, align 4
+  %1 = tail call fast <2 x float> @csqrtf(<2 x float> %0) #2
+  store <2 x float> %1, <2 x float>* %dst, align 4
+  ret void
+}
+
 ; CHECK-LABEL: @sinvec_test
 ; CHECK: call fast svml_cc <1 x float> @__svml_sinf1_l9(<1 x float> %{{.*}})
 
@@ -113,6 +125,8 @@ declare <4 x float> @__svml_sinf4(<4 x float>) #3
 declare <1 x float> @__svml_sinf1(<1 x float>) #3
 
 declare float @llvm.sin.f32(float) #3
+
+declare <2 x float> @csqrtf(<2 x float>) #3
 
 attributes #0 = { argmemonly mustprogress nofree nosync nounwind willreturn uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "imf-use-svml"="true" "loopopt-pipeline"="full" "min-legal-vector-width"="0"
 "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
