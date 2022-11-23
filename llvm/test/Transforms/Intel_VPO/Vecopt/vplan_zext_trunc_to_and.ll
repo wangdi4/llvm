@@ -1,20 +1,27 @@
 ;
 ; RUN: opt -disable-output -vplan-vec -vplan-print-after-early-peephole %s 2>&1 | FileCheck %s
 ;
-; Check correctness of the following peehole transformation
+; Check correctness of the following peehole transformations
 ;    %c1 = trunc i32 %t2 to i8
 ;    %c2 = zext i8 %c1 to i32
 ;  ==>
 ;    %c2 = and i32 t2 i32 255
+
+;    %b1 = trunc i64 %t3 to i35
+;    %b2 = zext i35 %b1 to i64
+;  ==>
+;    %b2 = and i64 t3 i64 34359738367
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i32:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: [[VP1:%.*]] = and i32 [[VP2:%.*]] i32 255
+; CHECK: [[VP3:%.*]] = and i64 [[VP4:%.*]] i64 34359738367
+; TODO: uncomment lines 45-49 and add a check for 128-bit values after corrections in DA.
 ; CHECK-NOT: trunc
 ; CHECK-NOT: zext
 
-define dso_local void @_Z4initPiPli(i32* nocapture noundef writeonly %in0, i32* nocapture noundef readonly %in1, i32 noundef %N) local_unnamed_addr {
+define void @_Z4initPiPli(i32* %in0, i32* %in1, i64* %in2, i128* %in3, i32 noundef %N) local_unnamed_addr {
 entry:
   br label %DIR.OMP.SIMD.1
 
@@ -30,6 +37,16 @@ omp.inner.for.body:
   %c2 = zext i8 %c1 to i32
   %arrayidx6 = getelementptr inbounds i32, i32* %in0, i32 %indvars.iv
   store i32 %c2, i32* %arrayidx6, align 4
+  %arrayidx7 = getelementptr inbounds i64, i64* %in2, i32 %indvars.iv
+  %v = sext i32 %indvars.iv to i64
+  %b1 = trunc i64 %v to i35
+  %b2 = zext i35 %b1 to i64
+  store i64 %b2, i64* %arrayidx7, align 4
+;  %arrayidx8 = getelementptr inbounds i128, i128* %in3, i32 %indvars.iv
+;  %v2 = sext i32 %indvars.iv to i128
+;  %b3 = trunc i128 %v2 to i67
+;  %b4 = zext i67 %b3 to i128
+;  store i128 %b4, i128* %arrayidx8, align 4
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond.not = icmp eq i32 %indvars.iv.next, %N
   br i1 %exitcond.not, label %omp.loopexit, label %omp.inner.for.body
