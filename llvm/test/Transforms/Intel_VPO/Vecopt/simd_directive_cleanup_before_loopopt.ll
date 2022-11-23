@@ -1,7 +1,6 @@
 ; Verify that SIMD directives are cleaned up before loop-opt passes even if VPlan fails to vectorize the SIMD loop.
 ; HIR VPlan now works before LLVM VPlan by default so we need -pre-loopopt-vpo-passes option to make this test work
 
-; RUN: opt -O3 -enable-new-pm=0 -pre-loopopt-vpo-passes -print-after=vplan-vec -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='default<O3>' -pre-loopopt-vpo-passes -print-after=hir-vplan-vec -print-after=vplan-vec -print-after=vpo-directive-cleanup -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that there is no HIR VPlan pass triggered in new pass manager run case
