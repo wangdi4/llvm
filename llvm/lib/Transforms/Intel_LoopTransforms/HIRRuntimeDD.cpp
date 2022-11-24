@@ -2105,6 +2105,10 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
     // (Add live-in for the Max Lval, and make Rval consistent).
     HLNodeUtils::insertBefore(NoAliasLoop, UBLoad);
     HLNodeUtils::insertBefore(NoAliasLoop, UBMax);
+
+    // Load ref can become non-linear if base ptr is defined at outer level.
+    UBLoad->getRvalDDRef()->makeConsistent();
+
     NoAliasLoop->addLiveInTemp(UBMax->getLvalDDRef()->getSymbase());
     UBMax->getRvalDDRef()->makeConsistent({UBLoad->getLvalDDRef()});
 
