@@ -3954,6 +3954,24 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       SplitBlock(LatchBB, DummyInst->getNextNode(), DT, LI, nullptr, "", true);
   ItemExitBB->setName("item.exit");
   DummyInst->eraseFromParent();
+  // In case of multiple reditems in a single loop spawning 'item.exit's
+  // results in an incorrect branch in tree update loop header (it is ok
+  // before the spawning):
+  //   atomic.free.red.global.update.header:
+  //     ...
+  //     br i1 %teams_done, label %atomic.free.red.global.update.store,
+  //                        label %atomic.free.red.global.update.tree.header
+  //   atomic.free.red.global.update.tree.header:
+  //     ...
+  //     br i1 %done, label %item.exit,    <--- wrong target
+  //                  label %atomic.free.red.global.update.body
+  // while it should have LatchBB instead of item.exit.
+  // So we need to fix that up.
+  if (UseParallelReduction) {
+    auto *TreeHeaderBB =
+          cast<BranchInst>(HeaderBB->getTerminator())->getSuccessor(1);
+    TreeHeaderBB->getTerminator()->setSuccessor(0, LatchBB);
+  }
   // Scalar branches:
   //  br LatchBB
   // Array section branches:
