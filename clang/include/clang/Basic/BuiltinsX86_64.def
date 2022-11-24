@@ -295,12 +295,16 @@ TARGET_BUILTIN(__builtin_ia32_ttdpfp16ps, "vIUcIUcIUc", "n", "amx-transpose")
 TARGET_BUILTIN(__builtin_ia32_ttransposed, "vIUcIUc", "n", "amx-transpose")
 
 // AMX_LNC AVX512
-TARGET_BUILTIN(__builtin_ia32_tile16move, "vIUcV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16f", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovei, "V16fIUcIUc", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovee, "V16fIUcUi", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovex, "V16fIUcV4f", "n", "amx-avx512")
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+
+#if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
+// AMX-AVX512-TILE16MOV
+TARGET_BUILTIN(__builtin_ia32_tile16move, "vIUcV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16f", "n", "amx-avx512-tile16mov")
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 TARGET_BUILTIN(__builtin_ia32_tbroadcastrowd, "vIUcvC*", "n", "amx-memory2")

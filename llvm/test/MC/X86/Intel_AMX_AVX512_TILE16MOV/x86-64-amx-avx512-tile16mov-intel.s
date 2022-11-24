@@ -1,0 +1,10 @@
+// REQUIRES: intel_feature_isa_amx_avx512_tile16mov
+// RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
+
+// CHECK:      tile16move tmm31, zmm16
+// CHECK: encoding: [0x62,0x22,0x7d,0x48,0x5f,0xf8]
+               tile16move tmm31, zmm16
+
+// CHECK:      tile16move tmm15, zmm16
+// CHECK: encoding: [0x62,0x32,0x7d,0x48,0x5f,0xf8]
+               tile16move tmm15, zmm16
