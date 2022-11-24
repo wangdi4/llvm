@@ -46,7 +46,7 @@
 ; CHECK: %[[ID_OFF:[^,]+]] = add i64 %[[LOCAL_ID]], %[[IDX_PHI]]
 ; CHECK: %[[ID_OFF_TEST:[^,]+]] = icmp uge i64 %[[ID_OFF]], %[[NUM_GROUPS1]]
 ; CHECK: %[[TREE_UPDATE_TST:[^,]+]] = select i1 %[[ID_TST]], i1 true, i1 %[[ID_OFF_TEST]]
-; CHECK: br i1 %[[TREE_UPDATE_TST]], label %item.exit, label %atomic.free.red.global.update.body
+; CHECK: br i1 %[[TREE_UPDATE_TST]], label %atomic.free.red.global.update.latch, label %atomic.free.red.global.update.body
 
 ; CHECK-LABEL: atomic.free.red.global.update.body:
 ; CHECK: %[[CUR_VAL:[^,]+]] = load i32, ptr addrspace(1) %[[GLOBAL_GEP]]
@@ -54,9 +54,9 @@
 ; CHECK: %[[NEW_VAL:[^,]+]] = add i32 %[[NEIGHB_VAL]], %[[CUR_VAL]]
 ; CHECK: store i32 %[[NEW_VAL]], ptr addrspace(1) %[[GLOBAL_GEP]]
 ; CHECK: br label %item.exit
-; CHECK-LABEL: item.exit:{{ *}}; preds = %atomic.free.red.global.update.body, %atomic.free.red.global.update.tree.header
+; CHECK-LABEL: item.exit:{{ *}}; preds = %atomic.free.red.global.update.body
 ; CHECK: br label %atomic.free.red.global.update.latch
-; CHECK-LABEL: atomic.free.red.global.update.latch:{{ *}}; preds = %item.exit
+; CHECK-LABEL: atomic.free.red.global.update.latch:{{ *}}; preds = %atomic.free.red.global.update.tree.header, %item.exit
 ; CHECK: shl i64 %[[IDX_PHI]], 1
 ; CHECK-NEXT: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
 ; CHECK: br label %atomic.free.red.global.update.header
