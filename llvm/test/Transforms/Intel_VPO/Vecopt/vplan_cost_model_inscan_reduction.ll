@@ -1,7 +1,7 @@
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-force-inscan-reduction-vectorization=true -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=2  -vplan-cost-model-print-analysis-for-vf=2  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-force-inscan-reduction-vectorization=true -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4  -vplan-cost-model-print-analysis-for-vf=4  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-force-inscan-reduction-vectorization=true -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=8  -vplan-cost-model-print-analysis-for-vf=8  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-force-inscan-reduction-vectorization=true -mtriple=x86_64-unknown-unknown -mattr=+avx512f -vplan-force-vf=16 -vplan-cost-model-print-analysis-for-vf=16 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF16
+; RUN: opt -disable-output -passes="vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=2  -vplan-cost-model-print-analysis-for-vf=2  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
+; RUN: opt -disable-output -passes="vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4  -vplan-cost-model-print-analysis-for-vf=4  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -disable-output -passes="vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=8  -vplan-cost-model-print-analysis-for-vf=8  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -disable-output -passes="vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx512f -vplan-force-vf=16 -vplan-cost-model-print-analysis-for-vf=16 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF16
 
 ;; Test costs for inscan reduction related instructions:
 ;;  * reduction-init-scalar;
