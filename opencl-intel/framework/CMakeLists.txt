@@ -12,17 +12,6 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
-if(NOT OPENCL_INTREE_BUILD)
-  if(NOT DEFINED LLVM_PATH_FE)
-    message(
-      FATAL_ERROR
-        "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE"
-    )
-  endif()
-  set(LLVM_PATH ${LLVM_PATH_FE})
-  find_package(LLVM REQUIRED)
-endif()
-
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard
 # system libarary directories
 include(embed.rpath)

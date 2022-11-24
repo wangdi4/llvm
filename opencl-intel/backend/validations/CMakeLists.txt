@@ -16,6 +16,10 @@
 # Variables for LLVM libraries
 set(VALIDATIONS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
+if(NOT OPENCL_INTREE_BUILD)
+  set(LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
+endif()
+
 if(BUILD_X64)
   set(PLATFORM 64)
   set(ICC_PLATFORM intel64)

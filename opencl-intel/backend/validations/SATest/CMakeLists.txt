@@ -13,16 +13,6 @@
 # implied warranties, other than those that are expressly stated in the License.
 #
 
-if(NOT OPENCL_INTREE_BUILD)
-  if(NOT DEFINED LLVM_PATH_FE)
-    message(
-      FATAL_ERROR
-        "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE"
-    )
-  endif()
-  set(LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
-endif()
-
 #
 # Settings for Linux compilation
 #

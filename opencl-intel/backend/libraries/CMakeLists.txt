@@ -20,17 +20,6 @@ project(libraries)
 # assumption above and configure LLVM for the back-end right here.
 set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
 
-if(NOT OPENCL_INTREE_BUILD)
-  if(NOT DEFINED LLVM_PATH_FE)
-    message(
-      FATAL_ERROR
-        "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE")
-  endif()
-
-  set(LLVM_PATH ${LLVM_PATH_FE})
-  find_package(LLVM REQUIRED)
-endif()
-
 set(CL_LIBRARY_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}")
 
