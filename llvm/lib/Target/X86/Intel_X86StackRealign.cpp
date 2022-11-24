@@ -224,7 +224,7 @@ bool X86StackRealign::runOnMachineFunction(MachineFunction &MF) {
     InstRetired += static_cast<double>(RelFrequency) * NumNoDbgInst;
   }
 
-  double AvgCost = TotalCost / InstRetired;
+  double AvgCost = InstRetired == 0.0 ? 0.0 : TotalCost / InstRetired;
 
 #ifndef NDEBUG
   if (TotalCost > 0) {
