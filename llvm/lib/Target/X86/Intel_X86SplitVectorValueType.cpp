@@ -652,6 +652,9 @@ bool SplitWizard::isSupportedOp(const Instruction *I) const {
   // InsertElementInst with constant index could be split.
   if (isa<InsertElementInst>(I)) {
     ConstantInt *Op2 = dyn_cast<ConstantInt>(I->getOperand(2));
+    if (!Op2)
+      return false;
+
     unsigned NumElmts = cast<FixedVectorType>(I->getType())->getNumElements();
     int64_t Index = Op2->getSExtValue();
 
