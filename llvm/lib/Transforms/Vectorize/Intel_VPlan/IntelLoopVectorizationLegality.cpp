@@ -41,10 +41,10 @@ static cl::opt<bool, true> ForceComplexTyReductionVecOpt(
     cl::location(ForceComplexTyReductionVec), cl::Hidden,
     cl::desc("Force vectorization of reduction involving complex type."));
 
-static cl::opt<bool, true> ForceInscanReductionVecOpt(
-    "vplan-force-inscan-reduction-vectorization",
-    cl::location(ForceInscanReductionVec), cl::Hidden,
-    cl::desc("Force vectorization of inscan reduction."));
+static cl::opt<bool, true>
+    ForceUDSReductionVecOpt("vplan-force-uds-reduction-vectorization",
+                            cl::location(ForceUDSReductionVec), cl::Hidden,
+                            cl::desc("Force vectorization of UDS reduction."));
 
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
@@ -53,7 +53,7 @@ static cl::opt<bool>
 namespace llvm {
 namespace vpo {
 bool ForceComplexTyReductionVec = false;
-bool ForceInscanReductionVec = false;
+bool ForceUDSReductionVec = false;
 } // namespace vpo
 } // namespace llvm
 
