@@ -10,16 +10,6 @@
 # implied warranties, other than those that are expressly stated in the License.
 
 if(NOT OPENCL_INTREE_BUILD)
-  # LLVM
-  if(NOT DEFINED LLVM_PATH_BE)
-    message(
-      FATAL_ERROR
-        "LLVM_PATH_BE is not specified. Please specify LLVM library location for backend using LLVM_PATH_BE parameter to CMAKE"
-    )
-  endif()
-
-  set(LLVM_PATH ${LLVM_PATH_BE})
-  find_package(LLVM REQUIRED)
   set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
   set(CLANG_CL_BIN_PATH "${LLVM_BINARY_DIR}/clang-cl")
 else()
