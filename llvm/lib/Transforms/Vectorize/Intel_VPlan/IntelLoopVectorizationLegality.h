@@ -38,7 +38,7 @@ class Function;
 namespace vpo {
 class VPOVectorizationLegality;
 extern bool ForceComplexTyReductionVec;
-extern bool ForceInscanReductionVec;
+extern bool ForceUDSReductionVec;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -63,7 +63,7 @@ public:
     ArrayReduction,
     ArrayPrivate,
     UnsupportedReductionOp,
-    InscanReduction,
+    UDSReduction,
     VectorCondLastPrivate, // need CG implementation
   };
 
@@ -82,8 +82,8 @@ public:
       return "Cannot handle array privates yet.\n";
     case BailoutReason::UnsupportedReductionOp:
       return "A reduction of this operation is not supported.\n";
-    case BailoutReason::InscanReduction:
-      return "Inscan reduction is not supported.\n";
+    case BailoutReason::UDSReduction:
+      return "UDS reduction is not supported.\n";
     case BailoutReason::VectorCondLastPrivate:
       return "Conditional lastprivate of a vector type is not supported.\n";
     }
@@ -97,9 +97,7 @@ public:
   }
 
   /// Return true if requested to vectorize a loop with inscan reduction.
-  static bool forceInscanReductionVec() {
-    return ForceInscanReductionVec;
-  }
+  static bool forceUDSReductionVec() { return ForceUDSReductionVec; }
 
 protected:
   VectorizationLegalityBase() = default;
@@ -315,9 +313,6 @@ private:
     if (!forceComplexTyReductionVec() && Item->getIsComplex())
       return bailout(BailoutReason::ComplexTyReduction);
 
-    if (!forceInscanReductionVec() && Item->getIsInscan())
-      return bailout(BailoutReason::InscanReduction);
-
     Type *Type = nullptr;
     Value *NumElements = nullptr;
     std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
@@ -348,6 +343,11 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     RecurKind Kind = getReductionRecurKind(Item, Type);
+
+    if (!forceUDSReductionVec() && Kind == RecurKind::Udr &&
+        Item->getIsInscan())
+      return bailout(BailoutReason::UDSReduction);
+
     // Capture functions for init/finalization for UDRs.
     if (Kind == RecurKind::Udr) {
       addReduction(Val, Item->getCombiner(), Item->getInitializer(),
