@@ -6033,11 +6033,9 @@ let TargetPrefix = "x86" in {
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 
 
-#if INTEL_FEATURE_ISA_AMX_LNC
-//===----------------------------------------------------------------------===//
-// AMX_LNC - Intel LNC AMX extensions
+#if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 let TargetPrefix = "x86" in {
-//AMX-AVX512
+//AMX-AVX512-TILE16MOV
   def int_x86_tile16move : ClangBuiltin<"__builtin_ia32_tile16move">,
               Intrinsic<[], [llvm_i8_ty, llvm_v16f32_ty,
                              llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty,
@@ -6046,6 +6044,14 @@ let TargetPrefix = "x86" in {
                              llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty,
                              llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty],
                         [ImmArg<ArgIndex<0>>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
+
+#if INTEL_FEATURE_ISA_AMX_LNC
+//===----------------------------------------------------------------------===//
+// AMX_LNC - Intel LNC AMX extensions
+let TargetPrefix = "x86" in {
+//AMX-AVX512
   def int_x86_tilemovei : ClangBuiltin<"__builtin_ia32_tilemovei">,
                           Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_i8_ty],
                                     [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;

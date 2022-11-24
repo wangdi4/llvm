@@ -658,45 +658,6 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
   }
 } // HasAMXTILE, HasAMXELEMENT
 
-let Predicates = [HasAMXAVX512, In64BitMode] in {
-  let SchedRW = [WriteSystem] in {
-    def TILE16MOVE : Ii8<0x5f, MRMSrcReg, (outs TILEX:$dst),
-                         (ins ZMM16Tuples:$src),
-                         "tile16move\t{$src, $dst|$dst, $src}",
-                         []>, T8PD, EVEX, EVEX_V512;
-    def TILE16MOVEPseudo : PseudoI<(outs TILEX:$dst), (ins ZMM16TUPLES:$src),
-                                   []>;
-    let  usesCustomInserter = 1 in {
-      def PTILE16MOVE : PseudoI<(outs), (ins u8imm:$dst, ZMM16TUPLES:$src0),
-                                []>;
-    }
-  }
-
-  def : Pat<(int_x86_tile16move timm:$dst, VR512:$src0, VR512:$src1,
-                                VR512:$src2, VR512:$src3, VR512:$src4,
-                                VR512:$src5, VR512:$src6, VR512:$src7,
-                                VR512:$src8, VR512:$src9, VR512:$src10,
-                                VR512:$src11, VR512:$src12, VR512:$src13,
-                                VR512:$src14, VR512:$src15),
-            (PTILE16MOVE u8imm:$dst,
-             (REG_SEQUENCE ZMM16TUPLES, VR512:$src0, sub_z0,
-                                        VR512:$src1, sub_z1,
-                                        VR512:$src2, sub_z2,
-                                        VR512:$src3, sub_z3,
-                                        VR512:$src4, sub_z4,
-                                        VR512:$src5, sub_z5,
-                                        VR512:$src6, sub_z6,
-                                        VR512:$src7, sub_z7,
-                                        VR512:$src8, sub_z8,
-                                        VR512:$src9, sub_z9,
-                                        VR512:$src10, sub_z10,
-                                        VR512:$src11, sub_z11,
-                                        VR512:$src12, sub_z12,
-                                        VR512:$src13, sub_z13,
-                                        VR512:$src14, sub_z14,
-                                        VR512:$src15, sub_z15))>;
-} // HasAMXAVX512, In64BitMode
-
 multiclass m_tilemovrow {
   let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
@@ -746,6 +707,47 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
   }
 }
 // end INTEL_FEATURE_ISA_AMX_FUTURE
+
+// INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
+let Predicates = [HasAMXAVX512TILE16MOV, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TILE16MOVE : Ii8<0x5f, MRMSrcReg, (outs TILEX:$dst),
+                         (ins ZMM16Tuples:$src),
+                         "tile16move\t{$src, $dst|$dst, $src}",
+                         []>, T8PD, EVEX, EVEX_V512;
+    def TILE16MOVEPseudo : PseudoI<(outs TILEX:$dst), (ins ZMM16TUPLES:$src),
+                                   []>;
+    let  usesCustomInserter = 1 in {
+      def PTILE16MOVE : PseudoI<(outs), (ins u8imm:$dst, ZMM16TUPLES:$src0),
+                                []>;
+    }
+  }
+
+  def : Pat<(int_x86_tile16move timm:$dst, VR512:$src0, VR512:$src1,
+                                VR512:$src2, VR512:$src3, VR512:$src4,
+                                VR512:$src5, VR512:$src6, VR512:$src7,
+                                VR512:$src8, VR512:$src9, VR512:$src10,
+                                VR512:$src11, VR512:$src12, VR512:$src13,
+                                VR512:$src14, VR512:$src15),
+            (PTILE16MOVE u8imm:$dst,
+             (REG_SEQUENCE ZMM16TUPLES, VR512:$src0, sub_z0,
+                                        VR512:$src1, sub_z1,
+                                        VR512:$src2, sub_z2,
+                                        VR512:$src3, sub_z3,
+                                        VR512:$src4, sub_z4,
+                                        VR512:$src5, sub_z5,
+                                        VR512:$src6, sub_z6,
+                                        VR512:$src7, sub_z7,
+                                        VR512:$src8, sub_z8,
+                                        VR512:$src9, sub_z9,
+                                        VR512:$src10, sub_z10,
+                                        VR512:$src11, sub_z11,
+                                        VR512:$src12, sub_z12,
+                                        VR512:$src13, sub_z13,
+                                        VR512:$src14, sub_z14,
+                                        VR512:$src15, sub_z15))>;
+} // HasAMXAVX512TILE16MOV, In64BitMode
+// end INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 
 // INTEL_FEATURE_ISA_AMX_LNC
 //AMX-MEMORY
