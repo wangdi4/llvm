@@ -21,16 +21,7 @@ if(WIN32)
   )
 endif(WIN32)
 
-if(NOT DEFINED LLVM_PATH_FE)
-  message(
-    FATAL_ERROR
-      "LLVM_PATH_FE is not specified. Please specify LLVM library location for frontend using LLVM_PATH_FE parameter to CMAKE"
-  )
-endif()
-
 if(NOT OPENCL_INTREE_BUILD)
-  set(LLVM_PATH ${LLVM_PATH_FE})
-  find_package(LLVM REQUIRED)
   set(CLANG "${LLVM_BINARY_DIR}/clang")
 else()
   set(CLANG clang)

@@ -20,19 +20,6 @@
 use_eh(TRUE)
 use_rtti(FALSE)
 
-if(NOT OPENCL_INTREE_BUILD)
-  if(NOT DEFINED LLVM_PATH_FE)
-    message(
-      FATAL_ERROR
-        "LLVM_PATH_FE is not specified. Please specify LLVM libraries location "
-        "using LLVM_PATH_FE parameter to CMAKE"
-    )
-  endif()
-
-  set(LLVM_PATH ${LLVM_PATH_FE})
-  find_package(LLVM REQUIRED)
-endif()
-
 # align with the definition in ocl-clang.
 math(EXPR CCLANG_MAJOR_VERSION "${LLVM_VERSION_MAJOR} - 1")
 set(CCLANG_LIBRARY_VERSION

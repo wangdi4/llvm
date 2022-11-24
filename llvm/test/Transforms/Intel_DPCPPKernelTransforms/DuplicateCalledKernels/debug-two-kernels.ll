@@ -1,6 +1,6 @@
 ; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
-; Check cloned functions' linkage name in !dbg are changed.
+; Check cloned function's linkage name in !dbg isn't changed.
 ;
 ;       test2
 ;         |
@@ -8,8 +8,11 @@
 ;         |
 ;        foo
 
-; CHECK-DAG: distinct !DISubprogram(name: "foo", linkageName: "foo.clone",
-; CHECK-DAG: distinct !DISubprogram(name: "test", linkageName: "test.clone",
+; CHECK-DAG: distinct !DISubprogram(name: "test", scope:
+; CHECK-DAG: distinct !DISubprogram(name: "foo", scope:
+; CHECK-DAG: distinct !DISubprogram(name: "test2", scope:
+; CHECK-DAG: distinct !DISubprogram(name: "foo", scope:
+; CHECK-DAG: distinct !DISubprogram(name: "test", scope:
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
