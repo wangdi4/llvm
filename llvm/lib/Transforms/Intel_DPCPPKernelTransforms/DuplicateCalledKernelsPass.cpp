@@ -338,8 +338,6 @@ static Function *cloneFunctionAndLocalVariable(
 
     NewF->setName(Twine(F->getName()) + CloneNameSuffix);
     NewF->setLinkage(GlobalValue::InternalLinkage);
-    if (auto *SP = NewF->getSubprogram(); SP && SP->getUnit())
-      SP->replaceLinkageName(MDString::get(M.getContext(), NewF->getName()));
     std::ignore = CG.getOrInsertFunction(NewF);
     // Update DirectLocalUseMap for cloned function.
     if (auto DIt = DirectLocalUseMap.find(F); DIt != DirectLocalUseMap.end()) {
