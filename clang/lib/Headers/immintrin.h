@@ -658,6 +658,15 @@ typedef struct __tile1024i_str {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_AVX512 */
 
+/* INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV */
+#if defined(__AMXAVX512TILE16MOV_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXAVX512TILE16MOV__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <amxavx512tile16mov/amxavx512tile16movintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV */
+
 /* INTEL_FEATURE_ISA_AVX_NE_CONVERT */
 /* FIXME: Change these When _Float16 type is supported */
 #if defined(__AVXNECONVERT__) && defined(__AVX512FP16__)

@@ -168,12 +168,6 @@
 #define _tile_transposed(dst, src)                                          \
   __builtin_ia32_ttransposed(dst, src)
 
-// AMX_LNC AVX512
-#define _tile_tile16move(tdst, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6, tsrc7,\
-  tsrc8, tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16)        \
-  __builtin_ia32_tile16move(tdst, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6,    \
-  tsrc7, tsrc8, tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16)
-
 /// Move one row of a tile data to a v16f32 data.
 /// The row of the tile is selected by an imm8.
 ///
