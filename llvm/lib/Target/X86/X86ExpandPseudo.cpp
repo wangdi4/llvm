@@ -567,7 +567,7 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     ExpandICallBranchFunnel(&MBB, MBBI);
     return true;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
   case X86::TILE16MOVEPseudo: {
     MachineInstrBuilder MIB = BuildMI(MBB, MBBI, DL, TII->get(X86::TILE16MOVE));
 
@@ -590,7 +590,7 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MBBI->eraseFromParent();
     return true;
   }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 #endif // INTEL_CUSTOMIZATION
   case X86::PLDTILECFGV: {
     MI.setDesc(TII->get(X86::LDTILECFG));

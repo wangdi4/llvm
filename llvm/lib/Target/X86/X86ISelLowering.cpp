@@ -40065,20 +40065,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTILE16MOVE:{
-    const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc;
-    switch (MI.getOpcode()) {
-    default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTILE16MOVE: Opc = X86::TILE16MOVEPseudo; break;
-    }
-    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
-    MIB.add(MI.getOperand(1));
-
-    MI.eraseFromParent(); // The pseudo is gone now.
-    return BB;
-  }
   case X86::PTILEMOVROWrri:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc = X86::TILEMOVROWrri;
@@ -40155,6 +40141,22 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
+  case X86::PTILE16MOVE:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTILE16MOVE: Opc = X86::TILE16MOVEPseudo; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   case X86::PTBROADCASTROWD:{
     const DebugLoc &DL = MI.getDebugLoc();
