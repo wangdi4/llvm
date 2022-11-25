@@ -501,6 +501,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
+      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
@@ -533,8 +534,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnFPGA) {
       // First 5 mandatory words
       spv::MagicNumber, SPIRV12Version, 0, 0, 0,
       // Common capabilities
-      SPIRVOpCapability, spv::CapabilityInt64Atomics, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat64AddEXT,
+      SPIRVOpCapability, spv::CapabilityInt64Atomics,
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
 
@@ -605,6 +605,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::CapabilityGroupUniformArithmeticKHR,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
+      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL

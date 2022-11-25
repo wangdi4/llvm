@@ -165,6 +165,10 @@ CPUDeviceConfig::GetExtensionsWithVersion() const {
 
   GET_EXT_VER(OCL_EXT_KHR_SPIRV_LINKONCE_ODR, 1, 0, 0);
 
+  // double floating point extension
+  if (IsDoubleSupported())
+    GET_EXT_VER(OCL_EXT_KHR_FP64, 1, 0, 0);
+
   if (FPGA_EMU_DEVICE == GetDeviceMode()) {
     GET_EXT_VER(OCL_EXT_KHR_ICD, 1, 0, 0);
     GET_EXT_VER(OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE, 1, 0, 0);
@@ -226,10 +230,6 @@ CPUDeviceConfig::GetExtensionsWithVersion() const {
   // SPIR extension
   if (IsSpirSupported())
     GET_EXT_VER(OCL_EXT_KHR_SPIR, 1, 0, 0);
-
-  // double floating point extension
-  if (IsDoubleSupported())
-    GET_EXT_VER(OCL_EXT_KHR_FP64, 1, 0, 0);
 
   // half floating point extension
   if (IsHalfSupported())
