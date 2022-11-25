@@ -1722,6 +1722,7 @@ bool VPOParoptTransform::paroptTransforms() {
       switch (W->getWRegionKindID()) {
       case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
+        RoutineChanged |= createAtomicFreeReductionBuffers(W);
         if (!isTargetSPIRV())
           improveAliasForOutlinedFunc(W);
         break;
@@ -1731,6 +1732,8 @@ bool VPOParoptTransform::paroptTransforms() {
         RoutineChanged |= regularizeOMPLoop(W, false);
         if (isLoopOptimizedAway(W))
           break;
+        if (W->getIsParLoop())
+          RoutineChanged |= createAtomicFreeReductionBuffers(W);
         improveAliasForOutlinedFunc(W);
         break;
       case WRegionNode::WRNTask:
@@ -1893,7 +1896,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= propagateCancellationPointsToIR(W);
           if (auto *WT = dyn_cast<WRNTeamsNode>(W))
             updateKernelHasTeamsReduction(WT);
-          Changed |= createAtomicFreeReductionBuffers(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
@@ -1966,8 +1968,6 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= callBeginEndSpmdParallelAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
-          if (W->getIsParLoop())
-            Changed |= createAtomicFreeReductionBuffers(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (isLoopOptimizedAway(W)) {
@@ -2712,13 +2712,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           Changed |= fixupKnownNDRange(W);
-          // Although atomic-free reduction is not supported for generic loops,
-          // replaceGenericLoop may turn it into a supported parloop
-          if (cast<WRNGenericLoopNode>(W)->getMappedDir() ==
-                  DIR_OMP_DISTRIBUTE_PARLOOP ||
-              cast<WRNGenericLoopNode>(W)->getMappedDir() ==
-                  DIR_OMP_PARALLEL_LOOP)
-            Changed |= createAtomicFreeReductionBuffers(W);
           RemoveDirectives = false;
         }
         break;

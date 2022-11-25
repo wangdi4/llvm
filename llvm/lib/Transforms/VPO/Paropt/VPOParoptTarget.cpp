@@ -2939,6 +2939,11 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
     //        and the null mapper.
     NewClauses.push_back(
         {MapClauseName, ClauseBundleTy({V, V, MapSize, MapTypeVal})});
+
+    // Some reduction LIT tests depend on this debug output
+    LLVM_DEBUG(dbgs() << "createAtomicFreeReductionBuffers: Adding map-type ("
+                      << *V << ", " << *V << ", " << *MapSize << ", "
+                      << *MapTypeVal << ")\n");
   };
   const DataLayout &DL = F->getParent()->getDataLayout();
 
