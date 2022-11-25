@@ -689,11 +689,13 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
   case X86::PTCVTROWPS2PHLrreV:
   case X86::PTCVTROWPS2PHLrriV:
 #endif // INTEL_FEATURE_ISA_AMX_AVX512
+#if INTEL_FEATURE_XISA_COMMON
   {
     for (int i = 2; i > 0; --i)
       MI.removeOperand(i);
     unsigned Opc;
     switch (Opcode) {
+#endif // INTEL_FEATURE_XISA_COMMON
 #if INTEL_FEATURE_ISA_AMX_LNC
     case X86::PTILEMOVROWrreV:           Opc = X86::TILEMOVROWrre; break;
     case X86::PTILEMOVROWrriV:           Opc = X86::TILEMOVROWrri; break;
@@ -714,12 +716,14 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     case X86::PTCVTROWPS2PHLrreV:        Opc = X86::TCVTROWPS2PHLrre; break;
     case X86::PTCVTROWPS2PHLrriV:        Opc = X86::TCVTROWPS2PHLrri; break;
 #endif // INTEL_FEATURE_ISA_AMX_AVX512
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XISA_COMMON
     default: llvm_unreachable("Impossible Opcode!");
     }
     MI.setDesc(TII->get(Opc));
     return true;
   }
+#endif // INTEL_FEATURE_XISA_COMMON
+#endif // INTEL_CUSTOMIZATION
   case X86::CALL64pcrel32_RVMARKER:
   case X86::CALL64r_RVMARKER:
   case X86::CALL64m_RVMARKER:
