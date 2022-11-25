@@ -15353,7 +15353,7 @@ multiclass GF2P8MULB_avx512_common<bits<8> Op, string OpStr, SDNode OpNode,
                                 EVEX_V512;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasGFNI, HasBWI] in {
+  let Predicates = [HasAVX256P_Or_HasGFNI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasGFNI, HasVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -15391,7 +15391,7 @@ multiclass GF2P8AFFINE_avx512_common<bits<8> Op, string OpStr, SDNode OpNode,
                                            v64i8_info, v8i64_info>, EVEX_V512;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasGFNI, HasBWI] in {
+  let Predicates = [HasAVX256P_Or_HasGFNI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasGFNI, HasVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
