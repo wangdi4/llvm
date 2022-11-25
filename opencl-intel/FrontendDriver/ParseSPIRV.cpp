@@ -216,11 +216,11 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::internal::CapabilityGlobalVariableDecorationsINTEL:
     case spv::CapabilityGroupNonUniformBallot:
     case spv::internal::CapabilityMaskedGatherScatterINTEL:
+    case spv::CapabilityAtomicFloat64AddEXT:
       break;
     case spv::CapabilityInt64Atomics:
-    case spv::CapabilityAtomicFloat64AddEXT:
       if (m_sDeviceInfo.bIsFPGAEmu) {
-        error = "64bit atomics are not supported on FPGA emulator.";
+        error = "int 64bit atomics are not supported on FPGA emulator.";
         return false;
       }
       break;

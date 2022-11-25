@@ -60,6 +60,7 @@ TEST_F(TestAtomcis, No64BitAtomicsSupport) {
   clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, log.size(),
                         &log[0], nullptr);
 
-  ASSERT_TRUE(log.find("64bit atomics are not supported on FPGA emulator") !=
-              std::string::npos);
+  ASSERT_TRUE(
+      log.find("int 64bit atomics are not supported on FPGA emulator") !=
+      std::string::npos);
 }
