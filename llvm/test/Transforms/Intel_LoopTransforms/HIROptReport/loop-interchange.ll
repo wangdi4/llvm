@@ -14,7 +14,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-optreport-emitter -hir-cg -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark #25444: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
+; OPTREPORT-NEXT:     remark #25444: Loopnest interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
@@ -25,7 +25,7 @@
 ; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
 ; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25444, !"Loopnest Interchanged: %s", !"( 1 2 ) --> ( 2 1 )"}
+; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25444, !"Loopnest interchanged: %s", !"( 1 2 ) --> ( 2 1 )"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
