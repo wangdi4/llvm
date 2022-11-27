@@ -5,7 +5,7 @@
 ; TODO: ( 3 2 1 ) is the most preferrable permutation.
 ;       Currently, interchanged into (2 3 1).
 ;       Locality computation should be fixed.
-; CHECK: Loopnest interchanged: ( 1 2 3 ) --> ( 3 2 1 )
+; CHECK: Loopnest Interchanged: ( 1 2 3 ) --> ( 3 2 1 )
 ;
 ;IR Dump Before HIR Loop Interchange ***
 ;
