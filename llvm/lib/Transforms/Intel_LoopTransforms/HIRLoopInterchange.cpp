@@ -1633,27 +1633,13 @@ void HIRLoopInterchange::reportLoopInterchangeNotDone(const HLLoop *Loop) {
   ORBuilder(*Lp).addRemark(OptReportVerbosity::Medium, 25445u,
                            "Data Dependencies");
   ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25446u);
-  // Guard the extra information under verbosity high to avoid building
-  // unnecessary strings
-  if (ORBuilder.getVerbosity() < OptReportVerbosity::High)
-    return;
-  for (size_t I = 0;
-       I < Edges.size() && I < LoopInterchangeOptReportDDEdgesLimit; I++) {
+  size_t Limit = ORBuilder.getVerbosity() >= OptReportVerbosity::High
+                     ? LoopInterchangeOptReportDDEdgesLimit
+                     : 0;
+  for (size_t I = 0; I < Edges.size() && I < Limit; I++) {
     ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25447u,
                              Edges[I]->getOptReportStr());
   }
-  // Print the message to suggest desirable loop interchange
-  std::ostringstream OS;
-  OS << "( ";
-  for (unsigned I = OutmostNestingLevel; I <= InnermostNestingLevel; ++I) {
-    OS << I << " ";
-  }
-  OS << ") --> ( ";
-  for (auto &I : LoopPermutation) {
-    OS << I->getNestingLevel() << " ";
-  }
-  OS << ")";
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25451u, OS.str().c_str());
 }
 
 void HIRLoopInterchange::reportTransformation() {
