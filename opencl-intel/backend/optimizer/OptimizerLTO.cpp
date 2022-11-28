@@ -18,6 +18,7 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SGRemapWICall.h"
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // #ifndef NDEBUG
@@ -217,6 +218,8 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         // Resolve variable argument of get_global_id, get_local_id and
         // get_group_id.
         MPM.addPass(ResolveVarTIDCallPass());
+        MPM.addPass(SGRemapWICallPass(static_cast<SubGroupConstructionMode>(
+            Config.GetSubGroupConstructionMode())));
 
         if (m_IsFpgaEmulator) {
           MPM.addPass(DPCPPRewritePipesPass());

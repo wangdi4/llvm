@@ -250,6 +250,7 @@ protected:
   bool m_streamingAlways;
   unsigned m_expensiveMemOpts;
   PassManagerType m_passManagerType;
+  int m_subGroupConstructionMode;
 
   static bool s_globalStateInitialized;
 

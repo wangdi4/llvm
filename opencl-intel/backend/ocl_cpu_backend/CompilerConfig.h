@@ -94,6 +94,10 @@ public:
     return m_passManagerType;
   }
 
+  int GetSubGroupConstructionMode() const override {
+    return m_subGroupConstructionMode;
+  }
+
 protected:
   std::string m_cpuArch;
   std::string m_cpuFeatures;
@@ -111,6 +115,7 @@ protected:
   unsigned m_expensiveMemOpts;
   DeviceMode m_targetDevice;
   PassManagerType m_passManagerType;
+  int m_subGroupConstructionMode;
 };
 
 } // namespace DeviceBackend

@@ -82,6 +82,7 @@ public:
   virtual DeviceMode TargetDevice() const = 0;
 
   virtual PassManagerType GetPassManagerType() const = 0;
+  virtual int GetSubGroupConstructionMode() const = 0;
 };
 
 } // namespace DeviceBackend

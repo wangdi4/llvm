@@ -33,7 +33,8 @@ public:
                   bool debugInfo, bool useNativeDebugger, bool profiling,
                   bool disableOpt, bool relaxedMath, bool uniformWGSize,
                   bool fpgaEmulator, bool heuristicIR, int rtLoopUnrollFactor,
-                  bool streamingAlways, unsigned expensiveMemOpts)
+                  bool streamingAlways, unsigned expensiveMemOpts,
+                  int subGroupConstructionMode)
       : m_cpuId(cpuId), m_transposeSize(tranposeSize), m_targetMachine(machine),
         m_debugInfo(debugInfo), m_useNativeDebugger(useNativeDebugger),
         m_profiling(profiling), m_disableOpt(disableOpt),
@@ -41,7 +42,8 @@ public:
         m_fpgaEmulator(fpgaEmulator), m_dumpHeuristicIR(heuristicIR),
         m_rtLoopUnrollFactor(rtLoopUnrollFactor),
         m_streamingAlways(streamingAlways),
-        m_expensiveMemOpts(expensiveMemOpts) {}
+        m_expensiveMemOpts(expensiveMemOpts),
+        m_subGroupConstructionMode(subGroupConstructionMode) {}
 
   const Intel::OpenCL::Utils::CPUDetect *GetCpuId() const { return m_cpuId; }
   ETransposeSize GetTransposeSize() const { return m_transposeSize; }
@@ -59,6 +61,7 @@ public:
   bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
   bool GetStreamingAlways() const { return m_streamingAlways; }
   bool EnableOCLAA() const;
+  int GetSubGroupConstructionMode() const { return m_subGroupConstructionMode; }
 
 private:
   const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
@@ -82,6 +85,7 @@ private:
   int m_rtLoopUnrollFactor;
   bool m_streamingAlways;
   unsigned m_expensiveMemOpts;
+  int m_subGroupConstructionMode;
 };
 
 } // namespace intel

@@ -13,6 +13,7 @@
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
+; CHECK-NEXT: Running pass: SGRemapWICallPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>

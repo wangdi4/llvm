@@ -37,6 +37,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig &cpuConfig) {
   m_streamingAlways = cpuConfig.GetStreamingAlways();
   m_expensiveMemOpts = cpuConfig.GetExpensiveMemOpts();
   m_passManagerType = cpuConfig.GetPassManagerType();
+  m_subGroupConstructionMode = cpuConfig.GetSubGroupConstructionMode();
 }
 
 void ProgramDumpConfig::InitFromString(const char *options) {

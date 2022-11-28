@@ -301,7 +301,8 @@ Compiler::Compiler(const ICompilerConfig &config)
       m_disableOptimization(false), m_useNativeDebugger(true),
       m_streamingAlways(config.GetStreamingAlways()),
       m_expensiveMemOpts(config.GetExpensiveMemOpts()),
-      m_passManagerType(config.GetPassManagerType()) {
+      m_passManagerType(config.GetPassManagerType()),
+      m_subGroupConstructionMode(config.GetSubGroupConstructionMode()) {
   // WORKAROUND!!! See the notes in TerminationBlocker description
   static Utils::TerminationBlocker blocker;
 }
@@ -417,7 +418,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       m_useNativeDebugger, buildOptions.GetProfilingFlag(),
       buildOptions.GetDisableOpt(), buildOptions.GetRelaxedMath(),
       buildOptions.GetUniformWGSize(), m_bIsFPGAEmulator, m_dumpHeuristicIR,
-      m_rtLoopUnrollFactor, m_streamingAlways, m_expensiveMemOpts);
+      m_rtLoopUnrollFactor, m_streamingAlways, m_expensiveMemOpts,
+      m_subGroupConstructionMode);
   auto &BIModules = GetBuiltinModuleList();
   std::unique_ptr<Optimizer> optimizer;
   switch (m_passManagerType) {
