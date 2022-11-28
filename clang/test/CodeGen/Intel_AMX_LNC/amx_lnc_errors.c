@@ -380,17 +380,3 @@ void test_tile_xord_reg() {
 void test_tile_xord_mem(void *A) {
   _tile_xord_mem(1, 1, A); // expected-error {{tile arguments must refer to different tiles}}
 }
-
-void test_tile_movrowi() {
-  _tile_movrowi(8, 1); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
-}
-
-typedef unsigned int uint32_t;
-void test_tile_movrow(uint32_t A) {
-  _tile_movrow(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
-}
-
-typedef float __m128 __attribute__((__vector_size__(16)));
-void test_tile_movrowx(__m128 A) {
-  _tile_movrowx(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
-}
