@@ -182,12 +182,9 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(metadirective)
 #ifndef OPENMP_GRAINSIZE_MODIFIER
 #define OPENMP_GRAINSIZE_MODIFIER(Name)
 #endif
-<<<<<<< HEAD
 #ifndef OPENMP_NUMTASKS_MODIFIER
 #define OPENMP_NUMTASKS_MODIFIER(Name)
 #endif
-=======
->>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
 
 // Static attributes for 'schedule' clause.
 OPENMP_SCHEDULE_KIND(static)
@@ -323,13 +320,10 @@ OPENMP_OMPX_PLACES_MODIFIER(subnuma_domain)
 // Modifiers for the 'grainsize' clause.
 OPENMP_GRAINSIZE_MODIFIER(strict)
 
-<<<<<<< HEAD
 // Modifiers for the 'num_tasks' clause.
 OPENMP_NUMTASKS_MODIFIER(strict)
 
 #undef OPENMP_NUMTASKS_MODIFIER
-=======
->>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
 #undef OPENMP_GRAINSIZE_MODIFIER
 #undef OPENMP_BIND_KIND
 #undef OPENMP_ADJUST_ARGS_KIND

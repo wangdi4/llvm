@@ -56,7 +56,6 @@ T tmain(T argc) {
   // CHECK-NEXT: #pragma omp cancel taskgroup
   // CHECK-NEXT: #pragma omp cancellation point taskgroup
   // CHECK-NEXT: foo();
-<<<<<<< HEAD
 
 #pragma omp taskgroup
 #pragma omp taskloop num_tasks(strict: N)
@@ -97,8 +96,6 @@ T tmain(T argc) {
   // CHECK-NEXT: #pragma omp cancel taskgroup
   // CHECK-NEXT: #pragma omp cancellation point taskgroup
   // CHECK-NEXT: foo();
-=======
->>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   return T();
 }
 
@@ -179,7 +176,6 @@ int main(int argc, char **argv) {
    // CHECK-NEXT: for (int i = 0; i < 10; ++i)
    // CHECK-NEXT: foo();
 
-<<<<<<< HEAD
 #pragma omp taskloop num_tasks(strict: argc)
   for (int i = 0; i < 10; ++i)
     foo();
@@ -251,8 +247,6 @@ int main(int argc, char **argv) {
    // CHECK-NEXT: for (int i = 0; i < 10; ++i)
    // CHECK-NEXT: foo();
 
-=======
->>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   return (tmain<int, 5>(argc) + tmain<char, 1>(argv[0][0]));
 }
 
