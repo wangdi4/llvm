@@ -216,7 +216,7 @@ class X86InterleavedAccessGroup {
                DL.getTypeSizeInBits(SubVecTy) * NumSubVectors &&
            "Invalid Inst-size!!!");
 
-    auto *SVI = dyn_cast<ShuffleVectorInst>(VecInst);
+    auto *SVI = cast<ShuffleVectorInst>(VecInst);
     Value *Op0 = SVI->getOperand(0);
     Value *Op1 = SVI->getOperand(1);
 
