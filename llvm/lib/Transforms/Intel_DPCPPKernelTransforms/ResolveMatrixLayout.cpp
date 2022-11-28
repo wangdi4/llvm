@@ -116,7 +116,6 @@ static std::pair<bool, Value *> resolveMatrixLayoutLoadHelper(
 
 static std::pair<bool, Value *>
 resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
-  int64_t MRows = cast<ConstantInt>(CI->getOperand(3))->getSExtValue();
   int64_t MCols = cast<ConstantInt>(CI->getOperand(4))->getSExtValue();
   FixedVectorType *MatrixType = cast<FixedVectorType>(CI->getType());
   Metadata *MatL = cast<MetadataAsValue>(CI->getOperand(5))->getMetadata();
@@ -141,6 +140,8 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     //   i8% ptr2, i64 stride, i1 false, i32 4, i32 2,
     //   metadata !"matrix.packed_b", metadata !"matrix.packed_b", metadata
     //   !"scope.subgroup")
+    // PLS: matrix_layout_transform_rowmajor_to_vnni's cols and rows are
+    // the real cols and rows of a matrix
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii",
@@ -156,54 +157,78 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
         Builder.getInt64(MCols * 2), false, WorkList);
   } else if (cast<MDString>(MatL)->getString().equals("matrix.rowmajor") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             cast<MDString>(MemL)->getString().equals("matrix.columnmajor") &&
              MatrixType->getElementType()->isIntegerTy(8)) {
-    // Transform
-    // %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
-    //   i32* addressspace(4) %ptr, i64 stride, i1 false, i32 4, i32 2,
-    //   metadata !"matrix.rowmajor", metadata !"matrix.colmajor", metadata
-    //   !"scope.subgroup")
-    // =>
-    // %alloc = alloca [i8 x 8]
-    // %ptr2 = bitcast %alloc to i8*
-    // matrix_layout_transform_colmajor_to_rowmajor(ptr, %ptr2, rows, cols,
-    // stride) %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
-    //   i8% ptr2, i64 stride, i1 false, i32 4, i32 2,
-    //   metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata
-    //   !"scope.subgroup")
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii",
         Builder.getInt8PtrTy(), CI->getOperand(5), CI->getOperand(1),
-        Builder.getInt64(MRows), false, WorkList);
+        Builder.getInt64(MCols), false, WorkList);
   } else if (cast<MDString>(MatL)->getString().equals("matrix.rowmajor") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             cast<MDString>(MemL)->getString().equals("matrix.columnmajor") &&
              MatrixType->getElementType()->isIntegerTy(16)) {
+    // Transform
+    //   %res = tail call <128 x i16>
+    //   @"llvm.experimental.matrix.load.v128i16.p4bfloat16"(%"bfloat16"
+    //   addrspace(4)* %call.ascast.i72.i, i64 16, i1 false, i32 8, i32 16,
+    //   metadata !"matrix.rowmajor", metadata !"matrix.columnmajor", metadata
+    //   !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    // into:
+    //   @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii(i16*
+    //   %10, i16* %11, i32 8, i32 16, i64 32)
+    // %res = call <128 x i16> @llvm.experimental.matrix.load.v128i16.p0i16(i16*
+    // %11, i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor",
+    // metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata
+    // !"matrix.use.unnecessary")
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
         Type::getInt16PtrTy(Ctx), CI->getOperand(5),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
-        Builder.getInt64(MRows), false, WorkList);
+        Builder.getInt64(MCols), false, WorkList);
   } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             cast<MDString>(MemL)->getString().equals("matrix.columnmajor") &&
              MatrixType->getElementType()->isIntegerTy(8)) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii",
         Builder.getInt8PtrTy(),
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
-        CI->getOperand(1), Builder.getInt64(MRows), true, WorkList);
+        CI->getOperand(1), Builder.getInt64(MCols), true, WorkList);
   } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             cast<MDString>(MemL)->getString().equals("matrix.columnmajor") &&
              MatrixType->getElementType()->isIntegerTy(16)) {
+    // Transform
+    //     %res = tail call <128 x i16>
+    //     @"llvm.experimental.matrix.load.v128i16.p4bfloat16(%"bfloat16"
+    //     addrspace(4)* %call.ascast.i77.i, i64 32, i1 false, i32 16, i32 8,
+    //     metadata !"matrix.packed.b", metadata !"matrix.columnmajor", metadata
+    //     !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    // into:
+    //  call void
+    //  @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii(i16* %13,
+    //  i16* %14, i32 16, i32 8, i64 64)
+    // call void @_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii(i16*
+    // %14, i16* %15, i32 16, i32 8, i64 16)
+    // %res = call <128 x i16>
+    //@llvm.experimental.matrix.load.v128i16.p0i16(i16* %15, i64 16, i1 false,
+    // i32 16, i32 8, metadata !"matrix.packed.b", metadata !"matrix.packed.b",
+    // metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    //
+    // resolveMatrixLayoutLoadHelper's OldStride should be specified in int8
+    // since it is feed to
+    // _Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii;
+    // NewStride should be specified in int16 since it is feed to matrix.load;
+    // _Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii's cols&rows
+    // are the real matrix's cols&rows instead of cols&rows of colmajor's
+    // matrix.
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
         Type::getInt16PtrTy(Ctx),
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
-        Builder.getInt64(MRows), true, WorkList);
+        Builder.getInt64(MCols), true, WorkList);
   } else {
     assert(false && "invalid matrix layout or memory layout!");
   }
