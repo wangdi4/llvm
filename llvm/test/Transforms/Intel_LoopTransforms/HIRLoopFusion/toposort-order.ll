@@ -1,7 +1,12 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
-; Verify nodes are placed in topological order after fusion.
+; XFAIL: *
+; todo: investigate why DD returns dependency on fusenodes 69/70 even though
+; bounds test should result in independence for (@b)[0][5 * i2] & (@b)[0][i2]
+; since the UB is 4.
+; Verify nodes are placed in topological order after fusion of the 2nd and 3rd
+; i2 loops.
 
 ; BEGIN REGION { }
 ;    + DO i1 = 0, -1 * %.pr + -1, 1   <DO_LOOP>
@@ -14,7 +19,7 @@
 ;    |
 ;    |   %conv.le = %hir.de.ssa.copy1.out  *  -8;
 ;    |
-;    |   + DO i2 = 0, 4, 1   <DO_LOOP>
+;    |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ;    |   |   %4 = (@b)[0][i2];
 ;    |   |   (@b)[0][i2] = -1 * %4;
 ;    |   + END LOOP
@@ -24,7 +29,7 @@
 ;    |   %add = 560 * (zext.i8.i32((-8 * trunc.i32.i8(%hir.de.ssa.copy1.out))) * %and22)  ||  -8 * trunc.i32.i8(%hir.de.ssa.copy1.out);
 ;    |
 ;    |   + DO i2 = 0, 1, 1   <DO_LOOP>
-;    |   |   (@b)[0][3 * i2] = %add;
+;    |   |   (@b)[0][5 * i2] = %add;
 ;    |   + END LOOP
 ;    |
 ;    |   %1 = 0;
@@ -38,7 +43,7 @@
 ; CHECK-SAME: %and22
 
 ; CHECK: DO i2
-; CHECK: (@b)[0][3 * i2] = %add;
+; CHECK: (@b)[0][5 * i2] = %add;
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -108,7 +113,7 @@ for.body8:                                        ; preds = %for.body8, %for.end
   %sub = sub i16 0, %4
   store i16 %sub, i16* %arrayidx, align 2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond45 = icmp eq i64 %indvars.iv.next, 5
+  %exitcond45 = icmp eq i64 %indvars.iv.next, 3
   %indvars.iv.in51 = bitcast i64 %indvars.iv.next to i64
   br i1 %exitcond45, label %for.cond16.preheader, label %for.body8
 
@@ -116,7 +121,7 @@ for.body19:                                       ; preds = %for.cond16.preheade
   %indvars.iv46 = phi i64 [ 0, %for.cond16.preheader ], [ %indvars.iv.next47, %for.body19 ]
   %arrayidx28 = getelementptr inbounds [5 x i16], [5 x i16]* @b, i64 0, i64 %indvars.iv46
   store i16 %conv26, i16* %arrayidx28, align 2
-  %indvars.iv.next47 = add nuw nsw i64 %indvars.iv46, 3
+  %indvars.iv.next47 = add nuw nsw i64 %indvars.iv46, 5
   %cmp17 = icmp ult i64 %indvars.iv.next47, 5
   %indvars.iv46.in52 = bitcast i64 %indvars.iv.next47 to i64
   br i1 %cmp17, label %for.body19, label %for.inc32
