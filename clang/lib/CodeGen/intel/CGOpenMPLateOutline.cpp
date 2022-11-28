@@ -1786,8 +1786,11 @@ void OpenMPLateOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
 }
 
 void OpenMPLateOutliner::emitOMPGrainsizeClause(const OMPGrainsizeClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_grainsize);
-  addArg("QUAL.OMP.GRAINSIZE");
+  ClauseEmissionHelper CEH(*this, OMPC_grainsize, "QUAL.OMP.GRAINSIZE");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  if (Cl->getModifier() == OMPC_GRAINSIZE_strict)
+    CSB.setStrict();
+  addArg(CSB.getString());
   addArg(CGF.EmitScalarExpr(Cl->getGrainsize()));
 }
 
