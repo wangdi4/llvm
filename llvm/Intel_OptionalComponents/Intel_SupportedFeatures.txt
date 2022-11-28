@@ -384,6 +384,9 @@
 # INTEL_FEATURE_CPU_EMR
 @CPU_EMR:SECRET@
 # end INTEL_FEATURE_CPU_EMR
+# INTEL_FEATURE_CPU_RYL
+@CPU_RYL:SECRET@
+# end INTEL_FEATURE_CPU_RYL
 # === New CPU section end ===
 
 # Special software features section currently consist of
