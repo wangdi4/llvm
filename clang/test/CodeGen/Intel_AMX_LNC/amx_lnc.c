@@ -62,23 +62,3 @@ void test_tile_transposed(void)
   // CHECK: call void @llvm.x86.ttransposed(i8 1, i8 2)
   _tile_transposed(1, 2);
 }
-
-void test_tile_movrowi(void) {
-  // CHECK-LABEL: @test_tile_movrowi
-  // CHECK: %0 = call <16 x float> @llvm.x86.tilemovei(i8 1, i8 2)
-  _tile_movrowi(1, 2);
-}
-
-typedef unsigned int uint32_t;
-void test_tile_movrow(uint32_t A) {
-  // CHECK-LABEL: @test_tile_movrow
-  // CHECK: %1 = call <16 x float> @llvm.x86.tilemovee(i8 1, i32 %0)
-  _tile_movrow(1, A);
-}
-
-typedef float __m128 __attribute__((__vector_size__(16)));
-void test_tile_movrowx(__m128 A) {
-  // CHECK-LABEL: @test_tile_movrowx
-  // CHECK: %1 = call <16 x float> @llvm.x86.tilemovex(i8 1, <4 x float> %0)
-  _tile_movrowx(1, A);
-}
