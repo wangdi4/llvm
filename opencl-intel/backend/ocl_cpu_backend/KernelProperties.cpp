@@ -53,7 +53,8 @@ KernelProperties::KernelProperties()
       m_uiSizeT(sizeof(void *)), m_bIsBlock(false), m_bIsAutorun(false),
       m_bNeedSerializeWGs(false), m_bIsTask(false),
       m_bCanUseGlobalWorkOffset(true), m_bIsNonUniformWGSizeSupported(false),
-      m_canUniteWG(false), m_verctorizeOnDimention(0), m_debugInfo(false) {
+      m_canUniteWG(false), m_verctorizeOnDimention(0), m_debugInfo(false),
+      m_subGroupConstructionMode(0) {
   memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
   memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
@@ -122,6 +123,8 @@ void KernelProperties::Serialize(IOutputStream &ost,
   Serializer::SerialPrimitive<DeviceMode>(&m_targetDevice, ost);
   tmp = (unsigned long long int)m_cpuMaxWGSize;
   Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  if (OCL_CACHED_BINARY_VERSION >= 18)
+    Serializer::SerialPrimitive<int>(&m_subGroupConstructionMode, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream &ist,
@@ -199,6 +202,8 @@ void KernelProperties::Deserialize(IInputStream &ist,
   Serializer::DeserialPrimitive<DeviceMode>(&m_targetDevice, ist);
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_cpuMaxWGSize = (size_t)tmp;
+  if (stats->m_binaryVersion >= 18)
+    Serializer::DeserialPrimitive<int>(&m_subGroupConstructionMode, ist);
 }
 
 size_t KernelProperties::GetKernelExecutionLength() const {
@@ -457,6 +462,8 @@ void KernelProperties::Print() const {
                     << ((m_targetDevice == CPU_DEVICE) ? "cpu" : "fpga-emu")
                     << "\n";
   outs().indent(NS) << "cpuMaxWGSize: " << m_cpuMaxWGSize << "\n";
+  outs().indent(NS) << "subGroupConstructionMode: "
+                    << m_subGroupConstructionMode << "\n";
 }
 } // namespace DeviceBackend
 } // namespace OpenCL

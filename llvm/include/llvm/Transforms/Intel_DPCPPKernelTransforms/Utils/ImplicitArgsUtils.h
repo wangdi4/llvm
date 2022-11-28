@@ -37,8 +37,7 @@ enum _NDInfo {
 
 StringRef getRecordName(unsigned RecordID);
 
-unsigned internalCall2NDInfo(unsigned InternalCall,
-                             bool IsUserWIFunction = false);
+unsigned internalCall2NDInfo(unsigned InternalCall);
 
 } // namespace NDInfo
 
@@ -48,9 +47,13 @@ enum TInternalCallType : int {
   ICT_GET_SPECIAL_BUFFER,
   ICT_GET_WORK_DIM,
   ICT_GET_GLOBAL_SIZE,
+  ICT_GET_GLOBAL_SIZE_USER_VARIANT,
   ICT_GET_LOCAL_SIZE,
+  ICT_GET_LOCAL_SIZE_USER_VARIANT,
   ICT_GET_ENQUEUED_LOCAL_SIZE,
+  ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT,
   ICT_GET_NUM_GROUPS,
+  ICT_GET_NUM_GROUPS_USER_VARIANT,
   ICT_GET_GROUP_ID,
   ICT_GET_GLOBAL_OFFSET,
   // special functions that need update

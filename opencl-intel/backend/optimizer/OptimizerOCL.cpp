@@ -342,6 +342,8 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(LinearIdResolverPass());
   // Resolve variable argument of get_global_id, get_local_id and get_group_id.
   MPM.addPass(ResolveVarTIDCallPass());
+  MPM.addPass(SGRemapWICallPass(static_cast<SubGroupConstructionMode>(
+      Config.GetSubGroupConstructionMode())));
 
   if (m_IsFpgaEmulator) {
     MPM.addPass(DPCPPRewritePipesPass());

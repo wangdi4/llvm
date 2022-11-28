@@ -21,6 +21,7 @@
 #include "exceptions.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 #include <cmath>
@@ -230,8 +231,8 @@ void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
 
     // TODO:
     // Should update UniformImplicitArgs->InternalLocalSize instead.
-    // Should also notify RemapWICall pass about the work-group uniting so that
-    // we can get rid of the following limitation in
+    // Should also notify SGRemapWICall pass about the work-group uniting so
+    // that we can get rid of the following limitation in
     // VectorizationDimensionAnalysis::canSwitchDimension():
     // "no get_local_id, get_group_id, get_local_size, get_num_groups or
     // get_enqueued_local_size"
@@ -536,18 +537,50 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
   }
 
   // At this point, the user-required global sizes and local sizes are properly
-  // filled.
-  // FIXME:
-  // Copying user-required sizes to internal ones by now.
-  // Will fix this by remapping internal sizes according to the subgroup
-  // construction mode in a follow-up patch.
-  for (auto I = 0; I < MAX_WORK_DIM; ++I) {
-    pKernelUniformImplicitArgs->InternalGlobalSize[I] =
-        pKernelUniformImplicitArgs->GlobalSize[I];
-    pKernelUniformImplicitArgs->InternalLocalSize[UNIFORM_WG_SIZE_INDEX][I] =
-        pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][I];
-    pKernelUniformImplicitArgs->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX][I] =
-        pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][I];
+  // filled. Now determine the internal sizes according to sub-group
+  // construction mode.
+  int SGConstruct = m_pProps->GetSubGroupConstructionMode();
+  assert(SGConstruct >= static_cast<int>(SubGroupConstructionMode::Linear) &&
+         SGConstruct <= static_cast<int>(SubGroupConstructionMode::Z) &&
+         "Invalid subgroup construction mode!");
+  if (SGConstruct == static_cast<int>(SubGroupConstructionMode::Linear)) {
+    size_t LinearizedGlbSize = 1, LinearizedLclSize = 1;
+    for (auto I = 0; I < MAX_WORK_DIM; ++I) {
+      LinearizedGlbSize *= pKernelUniformImplicitArgs->GlobalSize[I];
+      LinearizedLclSize *=
+          pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][I];
+      if (I != 0)
+        pKernelUniformImplicitArgs->InternalGlobalSize[I] =
+            pKernelUniformImplicitArgs
+                ->InternalLocalSize[UNIFORM_WG_SIZE_INDEX][I] = 1;
+    }
+    for (auto I = 0; I < MAX_WORK_DIM; ++I) {
+      pKernelUniformImplicitArgs->InternalGlobalSize[I] =
+          I == 0 ? LinearizedGlbSize : 1;
+      pKernelUniformImplicitArgs->InternalLocalSize[UNIFORM_WG_SIZE_INDEX][I] =
+          I == 0 ? LinearizedLclSize : 1;
+      size_t Remainder = LinearizedGlbSize % LinearizedLclSize;
+      size_t NonUniformLclSize =
+          I == 0 ? (Remainder == 0 ? LinearizedLclSize : Remainder) : 1;
+      pKernelUniformImplicitArgs
+          ->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX][I] = NonUniformLclSize;
+    }
+  } else {
+    unsigned SwapWithZeroDim = SGConstruct;
+    for (unsigned I = 0; I < MAX_WORK_DIM; ++I) {
+      unsigned J = I;
+      if (I == 0)
+        J = SwapWithZeroDim;
+      else if (I == SwapWithZeroDim)
+        J = 0;
+      pKernelUniformImplicitArgs->InternalGlobalSize[I] =
+          pKernelUniformImplicitArgs->GlobalSize[J];
+      pKernelUniformImplicitArgs->InternalLocalSize[UNIFORM_WG_SIZE_INDEX][I] =
+          pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][J];
+      pKernelUniformImplicitArgs
+          ->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX][I] =
+          pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][J];
+    }
   }
 
   // Calculate number of work groups and WG size

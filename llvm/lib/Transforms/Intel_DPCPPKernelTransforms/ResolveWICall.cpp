@@ -182,9 +182,13 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
     case ICT_GET_BASE_GLOBAL_ID:
     case ICT_GET_WORK_DIM:
     case ICT_GET_GLOBAL_SIZE:
+    case ICT_GET_GLOBAL_SIZE_USER_VARIANT:
     case ICT_GET_LOCAL_SIZE:
+    case ICT_GET_LOCAL_SIZE_USER_VARIANT:
     case ICT_GET_ENQUEUED_LOCAL_SIZE:
+    case ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT:
     case ICT_GET_NUM_GROUPS:
+    case ICT_GET_NUM_GROUPS_USER_VARIANT:
     case ICT_GET_GROUP_ID:
     case ICT_GET_GLOBAL_OFFSET:
       // Recognize WI info functions
@@ -264,9 +268,13 @@ Value *ResolveWICallPass::updateGetFunction(CallInst *CI,
   case ICT_GET_GLOBAL_OFFSET:
     break;
   case ICT_GET_NUM_GROUPS:
+  case ICT_GET_NUM_GROUPS_USER_VARIANT:
   case ICT_GET_LOCAL_SIZE:
+  case ICT_GET_LOCAL_SIZE_USER_VARIANT:
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
+  case ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT:
   case ICT_GET_GLOBAL_SIZE:
+  case ICT_GET_GLOBAL_SIZE_USER_VARIANT:
     OverflowValue = 1;
     break;
   default:
@@ -351,14 +359,22 @@ Value *ResolveWICallPass::updateGetFunctionInBound(CallInst *CI,
         NDInfo::internalCall2NDInfo(CallType), WorkInfo, CI->getArgOperand(0),
         Builder);
   case ICT_GET_GLOBAL_SIZE:
+  case ICT_GET_GLOBAL_SIZE_USER_VARIANT:
   case ICT_GET_NUM_GROUPS:
+  case ICT_GET_NUM_GROUPS_USER_VARIANT:
     return IAInfo->GenerateGetFromWorkInfo(
-        NDInfo::internalCall2NDInfo(CallType, IsUserWIFunction), WorkInfo,
-        CI->getArgOperand(0), Builder);
+        NDInfo::internalCall2NDInfo(CallType), WorkInfo, CI->getArgOperand(0),
+        Builder);
+  case ICT_GET_LOCAL_SIZE_USER_VARIANT:
+    IsUserWIFunction = true;
+    LLVM_FALLTHROUGH;
   case ICT_GET_LOCAL_SIZE:
     return IAInfo->GenerateGetLocalSize(IsUniformWG, WorkInfo, WGId,
                                         IsUserWIFunction, CI->getArgOperand(0),
                                         Builder);
+  case ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT:
+    IsUserWIFunction = true;
+    LLVM_FALLTHROUGH;
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
     return IAInfo->GenerateGetEnqueuedLocalSize(WorkInfo, IsUserWIFunction,
                                                 CI->getArgOperand(0), Builder);
@@ -624,8 +640,12 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
     return ICT_GET_WORK_DIM;
   if (CompilationUtils::isGetGlobalSize(FuncName))
     return ICT_GET_GLOBAL_SIZE;
+  if (CompilationUtils::isUserVariantOfGetGlobalSize(FuncName))
+    return ICT_GET_GLOBAL_SIZE_USER_VARIANT;
   if (CompilationUtils::isGetNumGroups(FuncName))
     return ICT_GET_NUM_GROUPS;
+  if (CompilationUtils::isUserVariantOfGetNumGroups(FuncName))
+    return ICT_GET_NUM_GROUPS_USER_VARIANT;
   if (CompilationUtils::isGetGroupId(FuncName))
     return ICT_GET_GROUP_ID;
   if (CompilationUtils::isGlobalOffset(FuncName))
@@ -644,12 +664,18 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
       return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
     if (CompilationUtils::isGetLocalSize(FuncName))
       return ICT_GET_LOCAL_SIZE;
+    if (CompilationUtils::isUserVariantOfGetLocalSize(FuncName))
+      return ICT_GET_LOCAL_SIZE_USER_VARIANT;
     if (CompilationUtils::isGetEnqueuedLocalSize(FuncName))
       return ICT_GET_ENQUEUED_LOCAL_SIZE;
+    if (CompilationUtils::isUserVariantOfGetEnqueuedLocalSize(FuncName))
+      return ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT;
   } else {
     // built-ins which behavior is different in OpenCL versions older than 2.0.
     if (CompilationUtils::isGetLocalSize(FuncName))
       return ICT_GET_ENQUEUED_LOCAL_SIZE;
+    if (CompilationUtils::isUserVariantOfGetLocalSize(FuncName))
+      return ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT;
   }
   return ICT_NONE;
 }

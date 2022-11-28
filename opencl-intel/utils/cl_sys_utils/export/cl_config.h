@@ -677,6 +677,10 @@ public:
     return m_pConfigFile->Read<unsigned>("CL_CONFIG_CPU_EXPENSIVE_MEM_OPT", 0);
   }
 
+  int GetSubGroupConstructionMode() const {
+    return m_pConfigFile->Read<int>("CL_CONFIG_CPU_SUB_GROUP_CONSTRUCTION", 0);
+  }
+
 private:
   BasicCLConfigWrapper(const BasicCLConfigWrapper &);
   BasicCLConfigWrapper &operator=(const BasicCLConfigWrapper &);

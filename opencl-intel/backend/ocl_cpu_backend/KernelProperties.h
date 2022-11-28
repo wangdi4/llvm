@@ -276,6 +276,9 @@ public:
     m_reqdSubGroupSize = value;
   }
   void SetCpuMaxWGSize(const size_t value) { m_cpuMaxWGSize = value; }
+  void SetSubGroupConstructionMode(const int value) {
+    m_subGroupConstructionMode = value;
+  }
 
   unsigned int GetOptWGSize() const { return m_optWGSize; }
   const size_t *GetReqdWGSize() const { return m_reqdWGSize; }
@@ -291,6 +294,7 @@ public:
   }
   size_t GetCpuMaxWGSize() const { return m_cpuMaxWGSize; }
   size_t GetVectorizationWidth() const { return m_vectorizationWidth; }
+  int GetSubGroupConstructionMode() const { return m_subGroupConstructionMode; }
 
   /**
    * Serialization methods for the class (used by the serialization service)
@@ -336,6 +340,7 @@ protected:
   bool m_debugInfo;
   DeviceMode m_targetDevice;
   size_t m_cpuMaxWGSize;
+  int m_subGroupConstructionMode;
 
 private:
   // Returns the correct subgroup size that is one of CPU_DEV_SUB_GROUP_SIZES.

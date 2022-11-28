@@ -57,7 +57,8 @@ namespace DeviceBackend {
     CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE,             //!< Max work-group size for cpu device  |size_t                  |
     CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS,            //!< Use Non-Temporal instruction        |boolean                 |
     CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS,          //!< Enable expensive memory optimization|unsigned                | See cl.cfg for value explanation
-    CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE            //!< Select pass manager                 |PassManagerType
+    CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE,           //!< Select pass manager                 |PassManagerType
+    CL_DEV_BACKEND_OPTION_SUB_GROUP_CONSTRUCTION       //!< Set sub-group construction mode     |int                     | -1, 0, 1, 2
   };
 // clang-format on
 

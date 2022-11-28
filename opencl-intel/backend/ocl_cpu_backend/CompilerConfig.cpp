@@ -171,6 +171,7 @@ void CompilerConfig::LoadDefaults() {
   m_forcedPrivateMemorySize = 0;
   m_useAutoMemory = false;
   m_passManagerType = PM_NONE;
+  m_subGroupConstructionMode = 0;
 }
 
 void CompilerConfig::LoadConfig() {
@@ -233,6 +234,8 @@ void CompilerConfig::ApplyRuntimeOptions(
       (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
   m_passManagerType = static_cast<PassManagerType>(pBackendOptions->GetIntValue(
       CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
+  m_subGroupConstructionMode = pBackendOptions->GetIntValue(
+      (int)CL_DEV_BACKEND_OPTION_SUB_GROUP_CONSTRUCTION, 0);
 
   // Adjust m_forcedPrivateMemorySize if it is not set.
   if (m_forcedPrivateMemorySize == 0)

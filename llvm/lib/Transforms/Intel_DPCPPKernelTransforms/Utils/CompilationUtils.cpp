@@ -29,6 +29,8 @@ using namespace NameMangleAPI;
 
 namespace llvm {
 
+const StringRef UserVariantPrefix = "user.";
+
 // Attributes
 const StringRef KernelAttribute::CallOnce = "kernel-call-once";
 const StringRef KernelAttribute::CallParamNum = "call-params-num";
@@ -281,6 +283,10 @@ bool isGetEnqueuedLocalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_ENQUEUED_LOCAL_SIZE);
 }
 
+bool isUserVariantOfGetEnqueuedLocalSize(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetEnqueuedLocalSize(S);
+}
+
 bool isGetGlobalLinearId(StringRef S) {
   return isMangleOf(S, NAME_GET_LINEAR_GID);
 }
@@ -293,6 +299,10 @@ bool isGetGlobalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_GLOBAL_SIZE);
 }
 
+bool isUserVariantOfGetGlobalSize(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetGlobalSize(S);
+}
+
 bool isGetGroupId(StringRef S) {
   return isMangleOf(S, NAME_GET_GROUP_ID);
 }
@@ -301,8 +311,16 @@ bool isGetLocalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
+bool isUserVariantOfGetLocalSize(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetLocalSize(S);
+}
+
 bool isGetNumGroups(StringRef S) {
   return isMangleOf(S, NAME_GET_NUM_GROUPS);
+}
+
+bool isUserVariantOfGetNumGroups(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetNumGroups(S);
 }
 
 bool isGetWorkDim(StringRef S) {

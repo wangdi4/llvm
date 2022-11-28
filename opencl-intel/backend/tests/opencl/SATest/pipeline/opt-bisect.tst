@@ -11,6 +11,7 @@
 ; CHECK: Running pass: DPCPPEqualizerPass
 ; CHECK: Running pass: LinearIdResolverPass
 ; CHECK: Running pass: ResolveVarTIDCallPass
+; CHECK: Running pass: SGRemapWICallPass
 ; CHECK: Running pass: BuiltinCallToInstPass
 ; CHECK: Running pass: DetectRecursionPass
 ; CHECK: Running pass: DuplicateCalledKernelsPass
