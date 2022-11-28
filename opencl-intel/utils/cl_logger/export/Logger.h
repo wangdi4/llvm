@@ -135,7 +135,7 @@ public:
    * Author: Uri Levy
    * Date: December 2008
    ****************************************************************************/
-  static Logger &GetInstance();
+  static Logger *GetInstance();
 
   /*****************************************************************************
    * Function: Log
