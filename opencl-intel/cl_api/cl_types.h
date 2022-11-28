@@ -122,12 +122,12 @@ typedef struct _cl_mem_obj_descriptor {
   } dimensions;
   size_t pitch[MAX_WORK_DIM - 1]; // Multi-dimensional pitch of the object,
                                   // valid only for images (2D/3D).
-  cl_image_format
-      format;  // Format of the memory object,valid only for images (2D/3D).
+  cl_image_format format = {0, 0};
+  // Format of the memory object,valid only for images (2D/3D).
   void *pData; // A pointer to the object wherein the object data is stored.
                // Could be a valid memory pointer or a handle to other object.
-  unsigned uiElementSize;        // Size of image pixel element.
-  void *imageAuxData;            // auxilary data kept for the image purposes
+  unsigned uiElementSize = 0;    // Size of image pixel element.
+  void *imageAuxData = nullptr;  // auxilary data kept for the image purposes
   cl_mem_object_type memObjType; // type of the memory object
 } cl_mem_obj_descriptor;
 

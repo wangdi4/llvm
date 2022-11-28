@@ -1088,9 +1088,9 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
     const size_t *origin, const size_t *region,
     GenericMemObjectBackingStore &copy_setting_from)
     : m_ptr(nullptr), m_dim_count(0), m_pHostPtr(nullptr),
-      m_user_flags(clMemFlags), m_data_valid(true), m_alignment(0),
-      m_preferred_alignment(0), m_heap(nullptr), m_parent(parent_ps),
-      m_refCount(1) {
+      m_user_flags(clMemFlags), m_data_valid(true), m_used_by_DMA(false),
+      m_alignment(0), m_preferred_alignment(0), m_heap(nullptr),
+      m_pRawMemoryAllocator(nullptr), m_parent(parent_ps), m_refCount(1) {
   size_t raw_data_offset = copy_setting_from.GetRawDataOffset(origin);
 
   m_ptr = (cl_uchar *)parent_ps->GetRawData() + raw_data_offset;

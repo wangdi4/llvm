@@ -47,7 +47,7 @@ using namespace Intel::OpenCL::Framework;
 // ContextModule C'tor
 //////////////////////////////////////////////////////////////////////////
 ContextModule::ContextModule(PlatformModule *pPlatformModule)
-    : m_bIsTerminating(false) {
+    : m_pOclEntryPoints(nullptr), m_pGPAData(nullptr), m_bIsTerminating(false) {
   INIT_LOGGER_CLIENT(TEXT("ContextModule"), LL_DEBUG);
 
   LOG_INFO(TEXT("%s"), TEXT("ContextModule constructor enter"));

@@ -531,24 +531,27 @@ struct cl_dev_cmd_desc {
  * identifiers.
  */
 struct cl_dev_cmd_param_rw {
-  IOCLDevMemoryObject
-      *memObj;       //!< Handle to a memory object from where/to the data to be
-                     //!< read/written. It can be a buffer, image2D or image3D
-  cl_uint dim_count; //!< A number of dimensions in the memory object.
-  size_t origin[MAX_WORK_DIM]; //!< Multi-dimensional offset in the memory
-                               //!< object. For 2Dimages origin[2] must be 0.
-  size_t region[MAX_WORK_DIM]; //!< Defines multi-dimensional region of the
-                               //!< memory object to be used. region[0] is width
-                               //!< of region, region[1] is height of the
-                               //!< region, region[2] is depth of the region.
-  size_t memobj_pitch[MAX_WORK_DIM -
-                      1]; //!< A pointer to array of dimension pitches in bytes
-                          //!< for the read region. The size of the array is
-                          //!< dim_count-1. memobj_pitch[0] will contain the
-                          //!< scan-line pitch in bytes for the read region,
-                          //!< memobj_pitch[1] will contain the size in bytes of
-                          //!< each 2D slice for the mapped region.
-  void *ptr; //!< Pointer to the host memory where the data to be read/written
+  IOCLDevMemoryObject *memObj =
+      nullptr; //!< Handle to a memory object from where/to the data to be
+               //!< read/written. It can be a buffer, image2D or image3D
+  cl_uint dim_count = 0; //!< A number of dimensions in the memory object.
+  size_t origin[MAX_WORK_DIM] = {
+      0}; //!< Multi-dimensional offset in the memory
+          //!< object. For 2Dimages origin[2] must be 0.
+  size_t region[MAX_WORK_DIM] = {
+      0}; //!< Defines multi-dimensional region of the
+          //!< memory object to be used. region[0] is width
+          //!< of region, region[1] is height of the
+          //!< region, region[2] is depth of the region.
+  size_t memobj_pitch[MAX_WORK_DIM - 1] = {
+      0}; //!< A pointer to array of dimension pitches in bytes
+          //!< for the read region. The size of the array is
+          //!< dim_count-1. memobj_pitch[0] will contain the
+          //!< scan-line pitch in bytes for the read region,
+          //!< memobj_pitch[1] will contain the size in bytes of
+          //!< each 2D slice for the mapped region.
+  void *ptr =
+      nullptr; //!< Pointer to the host memory where the data to be read/written
   size_t pitch[MAX_WORK_DIM -
                1]; //!< A pointer to array of dimension pitches in bytes for the
                    //!< pointer parameter. The size of the array is dim_count-1.
@@ -564,26 +567,31 @@ struct cl_dev_cmd_param_rw {
  * cl_dev_cmd_desc and associated with CL_DEV_CMD_COPY identifier.
  */
 struct cl_dev_cmd_param_copy {
-  IOCLDevMemoryObject *srcMemObj; //!< Handle to a source memory object from
-                                  //!< where the data to be read.
-  IOCLDevMemoryObject *dstMemObj; //!< Handle to a source memory object to where
-                                  //!< the data to be written.
-  cl_uint
-      src_dim_count; //!< A number of dimensions in the source memory object.
-  cl_uint dst_dim_count; //!< A number of dimensions in the destination memory
-                         //!< object.
-  size_t src_origin[MAX_WORK_DIM]; //!< Multi-dimensional offset in the source
-                                   //!< memory object.
-  size_t dst_origin[MAX_WORK_DIM]; //!< Multi-dimensional offset in the
-                                   //!< destination memory object.
-  size_t region[MAX_WORK_DIM];     //!< Defines multi-dimensional region of the
-                                   //!< memory object to be copied. region[0] is
+  IOCLDevMemoryObject *srcMemObj =
+      nullptr; //!< Handle to a source memory object from
+               //!< where the data to be read.
+  IOCLDevMemoryObject *dstMemObj = nullptr;
+  //!< Handle to a source memory object to where
+  //!< the data to be written.
+  cl_uint src_dim_count =
+      0; //!< A number of dimensions in the source memory object.
+  cl_uint dst_dim_count = 0; //!< A number of dimensions in the destination
+                             //!< memory object.
+  size_t src_origin[MAX_WORK_DIM] = {0}; //!< Multi-dimensional offset in the
+                                         //!< source memory object.
+  size_t dst_origin[MAX_WORK_DIM] = {0}; //!< Multi-dimensional offset in the
+                                         //!< destination memory object.
+  size_t region[MAX_WORK_DIM] = {
+      0}; //!< Defines multi-dimensional region of the
+          //!< memory object to be copied. region[0] is
   //!< width of region, region[1] is height of the
   //!< region, region[2] is depth of the region.
-  size_t src_pitch[MAX_WORK_DIM - 1]; //!< src memory object pitch, non-relevant
-                                      //!< pitch values are filled with zero
-  size_t dst_pitch[MAX_WORK_DIM - 1]; //!< dst memory object pitch, non-relevant
-                                      //!< pitch values are filled with zero
+  size_t src_pitch[MAX_WORK_DIM - 1] = {
+      0}; //!< src memory object pitch, non-relevant
+          //!< pitch values are filled with zero
+  size_t dst_pitch[MAX_WORK_DIM - 1] = {
+      0}; //!< dst memory object pitch, non-relevant
+          //!< pitch values are filled with zero
 };
 
 /*! \struct cl_dev_cmd_param_map
@@ -592,28 +600,31 @@ struct cl_dev_cmd_param_copy {
  * cl_dev_cmd_desc and associated with CL_DEV_CMD_MAP identifier.
  */
 struct cl_dev_cmd_param_map {
-  IOCLDevMemoryObject *memObj; //!< Handle to a memory object to be mapped
-  void *ptr; //!< A pointer to mapped region associated with the map command
-             //!< [filled by device]
-  cl_map_flags
-      flags; //!< A bit-field is set to indicate how the mapped region will be
-             //!< used. The values are defined by cl_dev_map_flags.
-  cl_uint dim_count; //!< A number of dimensions in the mapped memory object.
-  size_t origin[MAX_WORK_DIM]; //!< Multi-dimensional offset in the memory
-                               //!< object to mapped.
-  size_t region[MAX_WORK_DIM]; //!< Defines multi-dimensional region of the
-                               //!< memory object to be mapped. region[0] is
-                               //!< width of region, region[1] is height of the
-                               //!< region, region[2] is depth of the region.
-  size_t pitch[MAX_WORK_DIM -
-               1]; //!< A pointer to array of dimension pitches in bytes for the
-                   //!< mapped region. The size of the array is dim_count-1.
-                   //!< pitch[0] will contain the scan-line pitch in bytes for
-                   //!< the mapped region, pitch[1] will contain the size in
-                   //!< bytes of each 2D slice for the mapped region.
+  IOCLDevMemoryObject *memObj =
+      nullptr;         //!< Handle to a memory object to be mapped
+  void *ptr = nullptr; //!< A pointer to mapped region associated with the map
+                       //!< command [filled by device]
+  cl_map_flags flags =
+      0; //!< A bit-field is set to indicate how the mapped region will be
+         //!< used. The values are defined by cl_dev_map_flags.
+  cl_uint dim_count =
+      0; //!< A number of dimensions in the mapped memory object.
+  size_t origin[MAX_WORK_DIM] = {0}; //!< Multi-dimensional offset in the memory
+                                     //!< object to mapped.
+  size_t region[MAX_WORK_DIM] = {
+      0}; //!< Defines multi-dimensional region of the
+          //!< memory object to be mapped. region[0] is
+          //!< width of region, region[1] is height of the
+          //!< region, region[2] is depth of the region.
+  size_t pitch[MAX_WORK_DIM - 1] = {
+      0}; //!< A pointer to array of dimension pitches in bytes for the
+          //!< mapped region. The size of the array is dim_count-1.
+          //!< pitch[0] will contain the scan-line pitch in bytes for
+          //!< the mapped region, pitch[1] will contain the size in
+          //!< bytes of each 2D slice for the mapped region.
 
-  void *map_handle; //!< Device-specific handle associated with the map command.
-                    //!< [filled/used by device]
+  void *map_handle = nullptr; //!< Device-specific handle associated with the
+                              //!< map command. [filled/used by device]
 };
 
 /*! \struct cl_dev_cmd_param_kernel
@@ -623,57 +634,61 @@ struct cl_dev_cmd_param_map {
  * identifiers.
  */
 struct cl_dev_cmd_param_kernel {
-  cl_dev_kernel kernel; //!< Handle to a kernel object to be executed
-  cl_uint work_dim;     //!< The number of dimensions used to specify the global
-                    //!< work-items and work-items in the work-group. Work_dim
-                    //!< must be greater than 0 and less than or equal to 3.
-                    //!< When executing a task, this value must be equal to 1.
-  size_t glb_wrk_offs
-      [MAX_WORK_DIM]; //!< Currently must be (0, 0, 0). In a future revision of
-                      //!< OpenCL, glb_work_offs can be used to specify an array
-                      //!< of work_dim unsigned values that describe the offset
-                      //!< used to calculate the global ID of a work-item.
-  size_t glb_wrk_size
-      [MAX_WORK_DIM]; //!< An array of work_dim unsigned values that describe
-                      //!< the number of global work-items in work_dim
-                      //!< dimensions that will execute the kernel function. The
-                      //!< total number of global work-items is computed as
-                      //!< glb_wrk_size[0] * … *glb_wrk_size[work_dim – 1]. When
-                      //!< executing a task, this value must be equal to 1.
-  size_t lcl_wrk_size
-      [WG_SIZE_NUM]
-      [MAX_WORK_DIM]; //!< An array of work_dim unsigned values that describe
-                      //!< the number of work-items+ that make up a work-group
-                      //!< (also referred to as the size of the work-group) that
-                      //!< will execute the kernel specified by kernel. The
-                      //!< total number of work-items in a work-group is
-                      //!< computed as lcl_wrk_size[0] * … *
-                      //!< lcl_wrk_size[work_dim – 1]. When executing a task,
-                      //!< this value must be equal to 1. When the values are 0,
-                      //!< and hint or required work-group size is defined for
-                      //!< the kernel, the agent will use these values for
-                      //!< execution. When the values are 0, and neither hint
-                      //!< nor required work-group sizes is not defined, the
-                      //!< agent will use optimal work-group size.
-  void *arg_values;   //!< An array of argument values of the specific kernel.
-                    //!< An order of the values must be the same as the order of
-                    //!< parameters in the kernel prototype. If an argument is a
-                    //!< memory object, a relevant value contains its handle
-                    //!< (dev_mem_obj).
-  size_t arg_size; //!< Size in bytes of the arg_values array.
-  IOCLDevMemoryObject *
-      *ppNonArgSvmBuffers; //!< an array of pointers to IOCLDevMemoryObjects
-                           //!< representing SVM buffers that are used by
-                           //!< Kernel, but not passed as arguments to it (or
-                           //!< nullptr if they are not needed)
-  cl_uint uiNonArgSvmBuffersCount; //!< number of entries in ppNonArgSvmBuffers
-  IOCLDevMemoryObject *
-      *ppNonArgUsmBuffers; //!< an array of pointers to IOCLDevMemoryObjects
-                           //!< representing USM buffers that are used by
-                           //!< Kernel, but not passed as arguments to it (or
-                           //!< nullptr if they are not needed)
-  cl_uint uiNonArgUsmBuffersCount; //!< number of entries in ppNonArgUsmBuffers
-  cl_dev_cmd_type parallel_copy_cmd_type; //!< command type of parallel copy.
+  cl_dev_kernel kernel = nullptr; //!< Handle to a kernel object to be executed
+  cl_uint work_dim =
+      0; //!< The number of dimensions used to specify the global
+         //!< work-items and work-items in the work-group. Work_dim
+         //!< must be greater than 0 and less than or equal to 3.
+         //!< When executing a task, this value must be equal to 1.
+  size_t glb_wrk_offs[MAX_WORK_DIM] = {
+      0}; //!< Currently must be (0, 0, 0). In a future revision of
+          //!< OpenCL, glb_work_offs can be used to specify an array
+          //!< of work_dim unsigned values that describe the offset
+          //!< used to calculate the global ID of a work-item.
+  size_t glb_wrk_size[MAX_WORK_DIM] = {
+      0}; //!< An array of work_dim unsigned values that describe
+          //!< the number of global work-items in work_dim
+          //!< dimensions that will execute the kernel function. The
+          //!< total number of global work-items is computed as
+          //!< glb_wrk_size[0] * … *glb_wrk_size[work_dim – 1]. When
+          //!< executing a task, this value must be equal to 1.
+  size_t lcl_wrk_size[WG_SIZE_NUM][MAX_WORK_DIM] = {
+      {0}}; //!< An array of work_dim unsigned values that describe
+            //!< the number of work-items+ that make up a work-group
+            //!< (also referred to as the size of the work-group) that
+            //!< will execute the kernel specified by kernel. The
+            //!< total number of work-items in a work-group is
+            //!< computed as lcl_wrk_size[0] * … *
+            //!< lcl_wrk_size[work_dim – 1]. When executing a task,
+            //!< this value must be equal to 1. When the values are 0,
+            //!< and hint or required work-group size is defined for
+            //!< the kernel, the agent will use these values for
+            //!< execution. When the values are 0, and neither hint
+            //!< nor required work-group sizes is not defined, the
+            //!< agent will use optimal work-group size.
+  void *arg_values =
+      nullptr; //!< An array of argument values of the specific kernel.
+               //!< An order of the values must be the same as the order of
+               //!< parameters in the kernel prototype. If an argument is a
+               //!< memory object, a relevant value contains its handle
+               //!< (dev_mem_obj).
+  size_t arg_size = 0; //!< Size in bytes of the arg_values array.
+  IOCLDevMemoryObject **ppNonArgSvmBuffers =
+      nullptr; //!< an array of pointers to IOCLDevMemoryObjects
+               //!< representing SVM buffers that are used by
+               //!< Kernel, but not passed as arguments to it (or
+               //!< nullptr if they are not needed)
+  cl_uint uiNonArgSvmBuffersCount =
+      0; //!< number of entries in ppNonArgSvmBuffers
+  IOCLDevMemoryObject **ppNonArgUsmBuffers =
+      nullptr; //!< an array of pointers to IOCLDevMemoryObjects
+               //!< representing USM buffers that are used by
+               //!< Kernel, but not passed as arguments to it (or
+               //!< nullptr if they are not needed)
+  cl_uint uiNonArgUsmBuffersCount =
+      0; //!< number of entries in ppNonArgUsmBuffers
+  cl_dev_cmd_type parallel_copy_cmd_type =
+      CL_DEV_CMD_INVALID; //!< command type of parallel copy.
 };
 
 /**
@@ -688,19 +703,20 @@ struct cl_dev_cmd_param_kernel {
  * Used for fill image, and fill buffer commands.
  */
 struct cl_dev_cmd_param_fill {
-  IOCLDevMemoryObject *memObj; //!< Handle to a memory object from where/to the
-                               //!< data to be read/written.
+  IOCLDevMemoryObject *memObj =
+      nullptr; //!< Handle to a memory object from where/to the
+               //!< data to be read/written.
   //!< It can be a buffer, image2D or image3D
-  cl_uint dim_count; //!< A number of dimensions in the memory object.
-  size_t
-      offset[MAX_WORK_DIM]; //!< Multi-dimensional offset in the memory object.
+  cl_uint dim_count = 0; //!< A number of dimensions in the memory object.
+  size_t offset[MAX_WORK_DIM] = {
+      0}; //!< Multi-dimensional offset in the memory object.
   //!< For 2Dimages origin[2] must be 0.
-  size_t region[MAX_WORK_DIM]; //!< Defines multi-dimensional region of the
-                               //!< memory object to be used.
+  size_t region[MAX_WORK_DIM] = {0}; //!< Defines multi-dimensional region of
+                                     //!< the memory object to be used.
   //!< region[0] is width of region ; region[1] is height of the region ;
   //!< region[2] is depth of the region.
-  char pattern[MAX_PATTERN_SIZE]; //!< the fill buffer
-  size_t pattern_size;            //!< Size of fill buffer (in bytes)
+  char pattern[MAX_PATTERN_SIZE] = {'\0'}; //!< the fill buffer
+  size_t pattern_size = 0;                 //!< Size of fill buffer (in bytes)
 };
 
 /**
@@ -733,18 +749,21 @@ typedef void(CL_CALLBACK fn_clNativeKernel)(void *INOUT param);
  * cl_dev_cmd_desc and associated with CL_DEV_CMD_NATIVE identifier.
  */
 struct cl_dev_cmd_param_native {
-  fn_clNativeKernel *func_ptr; //!< A pointer to a host callable user function.
-  size_t args; //!< The size in bytes of the argument list that argv points to.
-  void *argv;  //!< A pointer to the args list that user function should be
+  fn_clNativeKernel *func_ptr =
+      nullptr; //!< A pointer to a host callable user function.
+  size_t args =
+      0; //!< The size in bytes of the argument list that argv points to.
+  void *argv =
+      nullptr; //!< A pointer to the args list that user function should be
                //!< called with. Some items contain handles to device memory
                //!< objects. Before the user function is executed, the memory
                //!< object handles are replaced by pointers to global memory.
-  unsigned int
-      mem_num; //!< The number of buffer objects that are passed in argv. These
-               //!< values will be updated by the device agent.
-  size_t
-      *mem_offset; //!< An offset to appropriate locations that argv points to
-                   //!< where memory object handles (void* values) are stored.
+  unsigned int mem_num =
+      0; //!< The number of buffer objects that are passed in argv. These
+         //!< values will be updated by the device agent.
+  size_t *mem_offset =
+      nullptr; //!< An offset to appropriate locations that argv points to
+               //!< where memory object handles (void* values) are stored.
 };
 
 /**
