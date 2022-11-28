@@ -866,6 +866,14 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_EMERALDRAPIDS;
       break;
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+    // Royal:
+    case 0xad:
+      CPU = "royal";
+      *Type = X86::INTEL_RYL;
+      *Subtype = X86::INTEL_RYL_ROYAL;
+      break;
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 
     // Icelake Xeon:

@@ -146,6 +146,9 @@ enum CPUKind {
 #if INTEL_FEATURE_CPU_EMR
   CK_Emeraldrapids,
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+  CK_Royal,
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
   CK_KNL,
   CK_KNM,

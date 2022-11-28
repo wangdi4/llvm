@@ -61,10 +61,13 @@ X86_CPU_TYPE(INTEL_KNM,           "knm")
 X86_CPU_TYPE(INTEL_GOLDMONT,      "goldmont")
 X86_CPU_TYPE(INTEL_GOLDMONT_PLUS, "goldmont-plus")
 X86_CPU_TYPE(INTEL_TREMONT,       "tremont")
+X86_CPU_TYPE(AMDFAM19H,           "amdfam19h")
 #if INTEL_CUSTOMIZATION
 X86_CPU_TYPE(INTEL_GRACEMONT,     "gracemont")
+#if INTEL_FEATURE_CPU_RYL
+X86_CPU_TYPE(INTEL_RYL,           "ryl")
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
-X86_CPU_TYPE(AMDFAM19H,           "amdfam19h")
 
 // Alternate names supported by __builtin_cpu_is and target multiversioning.
 X86_CPU_TYPE_ALIAS(INTEL_BONNELL,    "atom")
@@ -125,6 +128,9 @@ X86_CPU_SUBTYPE(INTEL_COREI7_METEORLAKE,     "meteorlake")
 #if INTEL_FEATURE_CPU_EMR
 X86_CPU_SUBTYPE(INTEL_COREI7_EMERALDRAPIDS,  "emeraldrapids")
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+X86_CPU_SUBTYPE(INTEL_RYL_ROYAL,             "royal")
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 #undef X86_CPU_SUBTYPE
 

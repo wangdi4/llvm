@@ -881,6 +881,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_CPU_EMR
   case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+  case CK_Royal:
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
@@ -2536,6 +2539,9 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #if INTEL_FEATURE_CPU_EMR
     case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+    case CK_Royal:
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
     case CK_KNL:
     case CK_KNM:

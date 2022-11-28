@@ -618,6 +618,10 @@ constexpr ProcInfo Processors[] = {
   // Emeraldrapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+  // Royal microarchitecture based processors.
+  { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesAlderlake },
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
