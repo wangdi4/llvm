@@ -1474,6 +1474,14 @@ list(APPEND features_enabled_by_default
         FORCE)
   endif()
 
+  # A temporary workaround until Royal is in silicon. Then it should be deleted
+  # and enabled by default above.
+  if ("${LLVM_INTELFEATURE_PREFIX}_CPU_RYL" IN_LIST LLVM_INTEL_FEATURES AND
+      "${LLVM_INTELFEATURE_PREFIX}_CPU_GNR" IN_LIST LLVM_INTEL_FEATURES)
+    message(FATAL_ERROR
+      "Royal and Graniterapids are incompatible as share the same CPU model")
+  endif()
+
   # If any Intel features are specified for the build, we have to check
   # them against the list of features located in Intel_SupportedFeatures.txt
   list(LENGTH LLVM_INTEL_FEATURES n)
@@ -1494,7 +1502,7 @@ list(APPEND features_enabled_by_default
       # Intel_SupportedFeatures.txt.  At the same time, the feature names
       # in LLVM_INTEL_FEATURES are prefixed.  Here, we strip the prefix
       # from the feature name before looking for it in the file.
-      string(CONCAT prefix "INTEL_FEATURE" "_")
+      string(CONCAT prefix "${LLVM_INTELFEATURE_PREFIX}" "_")
       string(REPLACE ${prefix} "" fname "${f}")
       string(REGEX MATCH ";${fname};" m ";${supported_features};")
       # If the enabled feature is not present in the features file, then
