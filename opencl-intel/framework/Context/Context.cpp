@@ -110,6 +110,23 @@ Context::Context(const cl_context_properties *clProperties,
   m_pDeviceIds = nullptr;
   m_pOriginalDeviceIds = nullptr;
   m_pGPAData = pGPAData;
+  m_pOriginalNumDevices = 0;
+  m_uiNumRootDevices = 0;
+  m_uiContextPropCount = 0;
+  m_pGPAData = nullptr;
+  m_sz1dImgBufSize = 0;
+  m_sz2dWidth = 0;
+  m_sz2dHeight = 0;
+  m_sz3dWidth = 0;
+  m_sz3dHeight = 0;
+  m_sz3dDepth = 0;
+  m_szArraySize = 0;
+  m_bSupportsSvmSystem = false;
+  m_bSupportsUsmHost = false;
+  m_bSupportsUsmDevice = false;
+  m_bSupportsUsmSharedSingle = false;
+  m_bSupportsUsmSharedCross = false;
+  m_bSupportsUsmSharedSystem = false;
 
   if ((0 != clCreateHeap(0, 0, &m_MemObjectsHeap)) ||
       (nullptr == m_MemObjectsHeap)) {

@@ -722,8 +722,9 @@ MapMemObjCommand::MapMemObjCommand(
     size_t *pszImageRowPitch, size_t *pszImageSlicePitch)
     : Command(cmdQueue), m_clMapFlags(clMapFlags),
       m_pszImageRowPitch(pszImageRowPitch),
-      m_pszImageSlicePitch(pszImageSlicePitch), m_pHostDataPtr(nullptr),
-      m_pActualMappingDevice(nullptr), m_ExecutionType(DEVICE_EXECUTION_TYPE),
+      m_pszImageSlicePitch(pszImageSlicePitch), m_pMappedRegion(nullptr),
+      m_pHostDataPtr(nullptr), m_pActualMappingDevice(nullptr),
+      m_ExecutionType(DEVICE_EXECUTION_TYPE),
       m_pOclEntryPoints(pOclEntryPoints), m_pPostfixCommand(nullptr),
       m_bResourcesAllocated(false) {
   for (cl_uint i = 0; i < MAX_WORK_DIM; i++) {
@@ -1039,7 +1040,7 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue,
     ocl_entry_points *pOclEntryPoints,
     const SharedPtr<MemoryObject> &pMemObject, void *pMappedPtr)
-    : Command(cmdQueue), m_pMappedPtr(pMappedPtr),
+    : Command(cmdQueue), m_pMappedPtr(pMappedPtr), m_pMappedRegion(nullptr),
       m_pActualMappingDevice(nullptr), m_ExecutionType(DEVICE_EXECUTION_TYPE),
       m_pPrefixCommand(nullptr), m_pOclEntryPoints(pOclEntryPoints),
       m_bResourcesAllocated(false) {
@@ -2275,7 +2276,7 @@ WriteMemObjCommand::WriteMemObjCommand(
     : MemoryCommand(cmdQueue), m_bBlocking(bBlocking),
       m_szMemObjRowPitch(szRowPitch), m_szMemObjSlicePitch(szSlicePitch),
       m_cpSrc(cpSrc), m_szSrcRowPitch(szSrcRowPitch),
-      m_szSrcSlicePitch(szSrcSlicePitch) {
+      m_szSrcSlicePitch(szSrcSlicePitch), m_pTempBuffer(nullptr) {
   m_commandType = CL_COMMAND_WRITE_MEM_OBJECT;
   AddToMemoryObjectArgList(m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE);
   // Set region

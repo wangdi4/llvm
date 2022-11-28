@@ -39,16 +39,18 @@ typedef enum _cl_callback_site {
     Return value will be available only within on-exit callback.
 */
 typedef struct _cl_callback_data {
-  cl_callback_site site;      //!< Call site, can be ENTER or EXIT
-  cl_uint correlationId;      //!< Correlation identifier, the same for ENTER
+  cl_callback_site site =
+      CL_CALLBACK_SITE_ENTER; //!< Call site, can be ENTER or EXIT
+  cl_uint correlationId = 0;  //!< Correlation identifier, the same for ENTER
                               //!< and EXIT callbacks
-  cl_ulong *correlationData;  //!< Pointer to correlation data repository,
-                              //!< can be used to move data from ENTER to
-                              //!< EXIT callback
-  const char *functionName;   //!< Name of the traced function
-  const void *functionParams; //!< Traced function arguments, should be
-                              //!< casted to appropriate params structure
-  void *functionReturnValue;  //!< Return value for the traced function
+  cl_ulong *correlationData = nullptr; //!< Pointer to correlation data
+                                       //!< repository, can be used to move data
+                                       //!< from ENTER to EXIT callback
+  const char *functionName = nullptr;  //!< Name of the traced function
+  const void *functionParams =
+      nullptr; //!< Traced function arguments, should be
+               //!< casted to appropriate params structure
+  void *functionReturnValue = nullptr; //!< Return value for the traced function
 } cl_callback_data;
 
 //! Enumeration of supported functions for tracing
@@ -192,967 +194,969 @@ typedef void (*cl_tracing_callback)(cl_function_id fid,
                                     void *userData);
 
 typedef struct _cl_params_clBuildProgram {
-  cl_program *program;
-  cl_uint *numDevices;
-  const cl_device_id **deviceList;
-  const char **options;
-  void(CL_CALLBACK **funcNotify)(cl_program program, void *userData);
-  void **userData;
+  cl_program *program = nullptr;
+  cl_uint *numDevices = nullptr;
+  const cl_device_id **deviceList = nullptr;
+  const char **options = nullptr;
+  void(CL_CALLBACK **funcNotify)(cl_program program, void *userData) = nullptr;
+  void **userData = nullptr;
 } cl_params_clBuildProgram;
 
 typedef struct _cl_params_clSetContextDestructorCallback {
-  cl_context *context;
-  void(CL_CALLBACK **funcNotify)(cl_context context, void *userData);
-  void **userData;
+  cl_context *context = nullptr;
+  void(CL_CALLBACK **funcNotify)(cl_context context, void *userData) = nullptr;
+  void **userData = nullptr;
 } cl_params_clSetContextDestructorCallback;
 
 typedef struct _cl_params_clCloneKernel {
-  cl_kernel *sourceKernel;
-  cl_int **errcodeRet;
+  cl_kernel *sourceKernel = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCloneKernel;
 
 typedef struct _cl_params_clCompileProgram {
-  cl_program *program;
-  cl_uint *numDevices;
-  const cl_device_id **deviceList;
-  const char **options;
-  cl_uint *numInputHeaders;
-  const cl_program **inputHeaders;
-  const char ***headerIncludeNames;
-  void(CL_CALLBACK **funcNotify)(cl_program program, void *userData);
-  void **userData;
+  cl_program *program = nullptr;
+  cl_uint *numDevices = nullptr;
+  const cl_device_id **deviceList = nullptr;
+  const char **options = nullptr;
+  cl_uint *numInputHeaders = nullptr;
+  const cl_program **inputHeaders = nullptr;
+  const char ***headerIncludeNames = nullptr;
+  void(CL_CALLBACK **funcNotify)(cl_program program, void *userData) = nullptr;
+  void **userData = nullptr;
 } cl_params_clCompileProgram;
 
 typedef struct _cl_params_clCreateBuffer {
-  cl_context *context;
-  cl_mem_flags *flags;
-  size_t *size;
-  void **hostPtr;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  size_t *size = nullptr;
+  void **hostPtr = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateBuffer;
 
 typedef struct _cl_params_clCreateBufferWithProperties {
-  cl_context *context;
-  const cl_mem_properties **properties;
-  cl_mem_flags *flags;
-  size_t *size;
-  void **hostPtr;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  const cl_mem_properties **properties = nullptr;
+  cl_mem_flags *flags = nullptr;
+  size_t *size = nullptr;
+  void **hostPtr = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateBufferWithProperties;
 
 typedef struct _cl_params_clCreateCommandQueue {
-  cl_context *context;
-  cl_device_id *device;
-  cl_command_queue_properties *properties;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_device_id *device = nullptr;
+  cl_command_queue_properties *properties = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateCommandQueue;
 
 typedef struct _cl_params_clCreateCommandQueueWithProperties {
-  cl_context *context;
-  cl_device_id *device;
-  const cl_queue_properties **properties;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_device_id *device = nullptr;
+  const cl_queue_properties **properties = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateCommandQueueWithProperties;
 
 typedef struct _cl_params_clCreateContext {
-  const cl_context_properties **properties;
-  cl_uint *numDevices;
-  const cl_device_id **devices;
-  void(CL_CALLBACK **funcNotify)(const char *, const void *, size_t, void *);
-  void **userData;
-  cl_int **errcodeRet;
+  const cl_context_properties **properties = nullptr;
+  cl_uint *numDevices = nullptr;
+  const cl_device_id **devices = nullptr;
+  void(CL_CALLBACK **funcNotify)(const char *, const void *, size_t,
+                                 void *) = nullptr;
+  void **userData = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateContext;
 
 typedef struct _cl_params_clCreateContextFromType {
-  const cl_context_properties **properties;
-  cl_device_type *deviceType;
-  void(CL_CALLBACK **funcNotify)(const char *, const void *, size_t, void *);
-  void **userData;
-  cl_int **errcodeRet;
+  const cl_context_properties **properties = nullptr;
+  cl_device_type *deviceType = nullptr;
+  void(CL_CALLBACK **funcNotify)(const char *, const void *, size_t,
+                                 void *) = nullptr;
+  void **userData = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateContextFromType;
 
 typedef struct _cl_params_clCreateFromGLBuffer {
-  cl_context *context;
-  cl_mem_flags *flags;
-  cl_GLuint *bufobj;
-  int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_GLuint *bufobj = nullptr;
+  int **errcodeRet = nullptr;
 } cl_params_clCreateFromGLBuffer;
 
 typedef struct _cl_params_clCreateFromGLRenderbuffer {
-  cl_context *context;
-  cl_mem_flags *flags;
-  cl_GLuint *renderbuffer;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_GLuint *renderbuffer = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateFromGLRenderbuffer;
 
 typedef struct _cl_params_clCreateFromGLTexture {
-  cl_context *context;
-  cl_mem_flags *flags;
-  cl_GLenum *target;
-  cl_GLint *miplevel;
-  cl_GLuint *texture;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_GLenum *target = nullptr;
+  cl_GLint *miplevel = nullptr;
+  cl_GLuint *texture = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateFromGLTexture;
 
 typedef struct _cl_params_clCreateFromGLTexture2D {
-  cl_context *context;
-  cl_mem_flags *flags;
-  cl_GLenum *target;
-  cl_GLint *miplevel;
-  cl_GLuint *texture;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_GLenum *target = nullptr;
+  cl_GLint *miplevel = nullptr;
+  cl_GLuint *texture = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateFromGLTexture2D;
 
 typedef struct _cl_params_clCreateFromGLTexture3D {
-  cl_context *context;
-  cl_mem_flags *flags;
-  cl_GLenum *target;
-  cl_GLint *miplevel;
-  cl_GLuint *texture;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_GLenum *target = nullptr;
+  cl_GLint *miplevel = nullptr;
+  cl_GLuint *texture = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateFromGLTexture3D;
 
 typedef struct _cl_params_clCreateImage {
-  cl_context *context;
-  cl_mem_flags *flags;
-  const cl_image_format **imageFormat;
-  const cl_image_desc **imageDesc;
-  void **hostPtr;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  const cl_image_format **imageFormat = nullptr;
+  const cl_image_desc **imageDesc = nullptr;
+  void **hostPtr = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateImage;
 
 typedef struct _cl_params_clCreateImageWithProperties {
-  cl_context *context;
-  const cl_mem_properties **properties;
-  cl_mem_flags *flags;
-  const cl_image_format **imageFormat;
-  const cl_image_desc **imageDesc;
-  void **hostPtr;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  const cl_mem_properties **properties = nullptr;
+  cl_mem_flags *flags = nullptr;
+  const cl_image_format **imageFormat = nullptr;
+  const cl_image_desc **imageDesc = nullptr;
+  void **hostPtr = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateImageWithProperties;
 
 typedef struct _cl_params_clCreateImage2D {
-  cl_context *context;
-  cl_mem_flags *flags;
-  const cl_image_format **imageFormat;
-  size_t *imageWidth;
-  size_t *imageHeight;
-  size_t *imageRowPitch;
-  void **hostPtr;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  const cl_image_format **imageFormat = nullptr;
+  size_t *imageWidth = nullptr;
+  size_t *imageHeight = nullptr;
+  size_t *imageRowPitch = nullptr;
+  void **hostPtr = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateImage2D;
 
 typedef struct _cl_params_clCreateImage3D {
-  cl_context *context;
-  cl_mem_flags *flags;
-  const cl_image_format **imageFormat;
-  size_t *imageWidth;
-  size_t *imageHeight;
-  size_t *imageDepth;
-  size_t *imageRowPitch;
-  size_t *imageSlicePitch;
-  void **hostPtr;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  const cl_image_format **imageFormat = nullptr;
+  size_t *imageWidth = nullptr;
+  size_t *imageHeight = nullptr;
+  size_t *imageDepth = nullptr;
+  size_t *imageRowPitch = nullptr;
+  size_t *imageSlicePitch = nullptr;
+  void **hostPtr = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateImage3D;
 
 typedef struct _cl_params_clCreateKernel {
-  cl_program *program;
-  const char **kernelName;
-  cl_int **errcodeRet;
+  cl_program *program = nullptr;
+  const char **kernelName = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateKernel;
 
 typedef struct _cl_params_clCreateKernelsInProgram {
-  cl_program *program;
-  cl_uint *numKernels;
-  cl_kernel **kernels;
-  cl_uint **numKernelsRet;
+  cl_program *program = nullptr;
+  cl_uint *numKernels = nullptr;
+  cl_kernel **kernels = nullptr;
+  cl_uint **numKernelsRet = nullptr;
 } cl_params_clCreateKernelsInProgram;
 
 typedef struct _cl_params_clCreatePipe {
-  cl_context *context;
-  cl_mem_flags *flags;
-  cl_uint *pipePacketSize;
-  cl_uint *pipeMaxPackets;
-  const cl_pipe_properties **properties;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_uint *pipePacketSize = nullptr;
+  cl_uint *pipeMaxPackets = nullptr;
+  const cl_pipe_properties **properties = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreatePipe;
 
 typedef struct _cl_params_clCreateProgramWithBinary {
-  cl_context *context;
-  cl_uint *numDevices;
-  const cl_device_id **deviceList;
-  const size_t **lengths;
-  const unsigned char ***binaries;
-  cl_int **binaryStatus;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_uint *numDevices = nullptr;
+  const cl_device_id **deviceList = nullptr;
+  const size_t **lengths = nullptr;
+  const unsigned char ***binaries = nullptr;
+  cl_int **binaryStatus = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateProgramWithBinary;
 
 typedef struct _cl_params_clCreateProgramWithBuiltInKernels {
-  cl_context *context;
-  cl_uint *numDevices;
-  const cl_device_id **deviceList;
-  const char **kernelNames;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_uint *numDevices = nullptr;
+  const cl_device_id **deviceList = nullptr;
+  const char **kernelNames = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateProgramWithBuiltInKernels;
 
 typedef struct _cl_params_clCreateProgramWithIL {
-  cl_context *context;
-  const void **il;
-  size_t *length;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  const void **il = nullptr;
+  size_t *length = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateProgramWithIL;
 
 typedef struct _cl_params_clCreateProgramWithSource {
-  cl_context *context;
-  cl_uint *count;
-  const char ***strings;
-  const size_t **lengths;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_uint *count = nullptr;
+  const char ***strings = nullptr;
+  const size_t **lengths = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateProgramWithSource;
 
 typedef struct _cl_params_clCreateSampler {
-  cl_context *context;
-  cl_bool *normalizedCoords;
-  cl_addressing_mode *addressingMode;
-  cl_filter_mode *filterMode;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_bool *normalizedCoords = nullptr;
+  cl_addressing_mode *addressingMode = nullptr;
+  cl_filter_mode *filterMode = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateSampler;
 
 typedef struct _cl_params_clCreateSamplerWithProperties {
-  cl_context *context;
-  const cl_sampler_properties **samplerProperties;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  const cl_sampler_properties **samplerProperties = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateSamplerWithProperties;
 
 typedef struct _cl_params_clCreateSubBuffer {
-  cl_mem *buffer;
-  cl_mem_flags *flags;
-  cl_buffer_create_type *bufferCreateType;
-  const void **bufferCreateInfo;
-  cl_int **errcodeRet;
+  cl_mem *buffer = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_buffer_create_type *bufferCreateType = nullptr;
+  const void **bufferCreateInfo = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateSubBuffer;
 
 typedef struct _cl_params_clCreateSubDevices {
-  cl_device_id *inDevice;
-  const cl_device_partition_property **properties;
-  cl_uint *numDevices;
-  cl_device_id **outDevices;
-  cl_uint **numDevicesRet;
+  cl_device_id *inDevice = nullptr;
+  const cl_device_partition_property **properties = nullptr;
+  cl_uint *numDevices = nullptr;
+  cl_device_id **outDevices = nullptr;
+  cl_uint **numDevicesRet = nullptr;
 } cl_params_clCreateSubDevices;
 
 typedef struct _cl_params_clCreateUserEvent {
-  cl_context *context;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clCreateUserEvent;
 
 typedef struct _cl_params_clEnqueueAcquireGLObjects {
-  cl_command_queue *commandQueue;
-  cl_uint *numObjects;
-  const cl_mem **memObjects;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numObjects = nullptr;
+  const cl_mem **memObjects = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueAcquireGLObjects;
 
 typedef struct _cl_params_clEnqueueBarrier {
-  cl_command_queue *commandQueue;
+  cl_command_queue *commandQueue = nullptr;
 } cl_params_clEnqueueBarrier;
 
 typedef struct _cl_params_clEnqueueBarrierWithWaitList {
-  cl_command_queue *commandQueue;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueBarrierWithWaitList;
 
 typedef struct _cl_params_clEnqueueCopyBuffer {
-  cl_command_queue *commandQueue;
-  cl_mem *srcBuffer;
-  cl_mem *dstBuffer;
-  size_t *srcOffset;
-  size_t *dstOffset;
-  size_t *cb;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *srcBuffer = nullptr;
+  cl_mem *dstBuffer = nullptr;
+  size_t *srcOffset = nullptr;
+  size_t *dstOffset = nullptr;
+  size_t *cb = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueCopyBuffer;
 
 typedef struct _cl_params_clEnqueueCopyBufferRect {
-  cl_command_queue *commandQueue;
-  cl_mem *srcBuffer;
-  cl_mem *dstBuffer;
-  const size_t **srcOrigin;
-  const size_t **dstOrigin;
-  const size_t **region;
-  size_t *srcRowPitch;
-  size_t *srcSlicePitch;
-  size_t *dstRowPitch;
-  size_t *dstSlicePitch;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *srcBuffer = nullptr;
+  cl_mem *dstBuffer = nullptr;
+  const size_t **srcOrigin = nullptr;
+  const size_t **dstOrigin = nullptr;
+  const size_t **region = nullptr;
+  size_t *srcRowPitch = nullptr;
+  size_t *srcSlicePitch = nullptr;
+  size_t *dstRowPitch = nullptr;
+  size_t *dstSlicePitch = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueCopyBufferRect;
 
 typedef struct _cl_params_clEnqueueCopyBufferToImage {
-  cl_command_queue *commandQueue;
-  cl_mem *srcBuffer;
-  cl_mem *dstImage;
-  size_t *srcOffset;
-  const size_t **dstOrigin;
-  const size_t **region;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *srcBuffer = nullptr;
+  cl_mem *dstImage = nullptr;
+  size_t *srcOffset = nullptr;
+  const size_t **dstOrigin = nullptr;
+  const size_t **region = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueCopyBufferToImage;
 
 typedef struct _cl_params_clEnqueueCopyImage {
-  cl_command_queue *commandQueue;
-  cl_mem *srcImage;
-  cl_mem *dstImage;
-  const size_t **srcOrigin;
-  const size_t **dstOrigin;
-  const size_t **region;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *srcImage = nullptr;
+  cl_mem *dstImage = nullptr;
+  const size_t **srcOrigin = nullptr;
+  const size_t **dstOrigin = nullptr;
+  const size_t **region = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueCopyImage;
 
 typedef struct _cl_params_clEnqueueCopyImageToBuffer {
-  cl_command_queue *commandQueue;
-  cl_mem *srcImage;
-  cl_mem *dstBuffer;
-  const size_t **srcOrigin;
-  const size_t **region;
-  size_t *dstOffset;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *srcImage = nullptr;
+  cl_mem *dstBuffer = nullptr;
+  const size_t **srcOrigin = nullptr;
+  const size_t **region = nullptr;
+  size_t *dstOffset = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueCopyImageToBuffer;
 
 typedef struct _cl_params_clEnqueueFillBuffer {
-  cl_command_queue *commandQueue;
-  cl_mem *buffer;
-  const void **pattern;
-  size_t *patternSize;
-  size_t *offset;
-  size_t *size;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *buffer = nullptr;
+  const void **pattern = nullptr;
+  size_t *patternSize = nullptr;
+  size_t *offset = nullptr;
+  size_t *size = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueFillBuffer;
 
 typedef struct _cl_params_clEnqueueFillImage {
-  cl_command_queue *commandQueue;
-  cl_mem *image;
-  const void **fillColor;
-  const size_t **origin;
-  const size_t **region;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *image = nullptr;
+  const void **fillColor = nullptr;
+  const size_t **origin = nullptr;
+  const size_t **region = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueFillImage;
 
 typedef struct _cl_params_clEnqueueMapBuffer {
-  cl_command_queue *commandQueue;
-  cl_mem *buffer;
-  cl_bool *blockingMap;
-  cl_map_flags *mapFlags;
-  size_t *offset;
-  size_t *cb;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
-  cl_int **errcodeRet;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *buffer = nullptr;
+  cl_bool *blockingMap = nullptr;
+  cl_map_flags *mapFlags = nullptr;
+  size_t *offset = nullptr;
+  size_t *cb = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clEnqueueMapBuffer;
 
 typedef struct _cl_params_clEnqueueMapImage {
-  cl_command_queue *commandQueue;
-  cl_mem *image;
-  cl_bool *blockingMap;
-  cl_map_flags *mapFlags;
-  const size_t **origin;
-  const size_t **region;
-  size_t **imageRowPitch;
-  size_t **imageSlicePitch;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
-  cl_int **errcodeRet;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *image = nullptr;
+  cl_bool *blockingMap = nullptr;
+  cl_map_flags *mapFlags = nullptr;
+  const size_t **origin = nullptr;
+  const size_t **region = nullptr;
+  size_t **imageRowPitch = nullptr;
+  size_t **imageSlicePitch = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clEnqueueMapImage;
 
 typedef struct _cl_params_clEnqueueMarker {
-  cl_command_queue *commandQueue;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueMarker;
 
 typedef struct _cl_params_clEnqueueMarkerWithWaitList {
-  cl_command_queue *commandQueue;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueMarkerWithWaitList;
 
 typedef struct _cl_params_clEnqueueMigrateMemObjects {
-  cl_command_queue *commandQueue;
-  cl_uint *numMemObjects;
-  const cl_mem **memObjects;
-  cl_mem_migration_flags *flags;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numMemObjects = nullptr;
+  const cl_mem **memObjects = nullptr;
+  cl_mem_migration_flags *flags = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueMigrateMemObjects;
 
 typedef struct _cl_params_clEnqueueNDRangeKernel {
-  cl_command_queue *commandQueue;
-  cl_kernel *kernel;
-  cl_uint *workDim;
-  const size_t **globalWorkOffset;
-  const size_t **globalWorkSize;
-  const size_t **localWorkSize;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_kernel *kernel = nullptr;
+  cl_uint *workDim = nullptr;
+  const size_t **globalWorkOffset = nullptr;
+  const size_t **globalWorkSize = nullptr;
+  const size_t **localWorkSize = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueNDRangeKernel;
 
 typedef struct _cl_params_clEnqueueNativeKernel {
-  cl_command_queue *commandQueue;
-  void(CL_CALLBACK **userFunc)(void *);
-  void **args;
-  size_t *cbArgs;
-  cl_uint *numMemObjects;
-  const cl_mem **memList;
-  const void ***argsMemLoc;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  void(CL_CALLBACK **userFunc)(void *) = nullptr;
+  void **args = nullptr;
+  size_t *cbArgs = nullptr;
+  cl_uint *numMemObjects = nullptr;
+  const cl_mem **memList = nullptr;
+  const void ***argsMemLoc = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueNativeKernel;
 
 typedef struct _cl_params_clEnqueueReadBuffer {
-  cl_command_queue *commandQueue;
-  cl_mem *buffer;
-  cl_bool *blockingRead;
-  size_t *offset;
-  size_t *cb;
-  void **ptr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *buffer = nullptr;
+  cl_bool *blockingRead = nullptr;
+  size_t *offset = nullptr;
+  size_t *cb = nullptr;
+  void **ptr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueReadBuffer;
 
 typedef struct _cl_params_clEnqueueReadBufferRect {
-  cl_command_queue *commandQueue;
-  cl_mem *buffer;
-  cl_bool *blockingRead;
-  const size_t **bufferOrigin;
-  const size_t **hostOrigin;
-  const size_t **region;
-  size_t *bufferRowPitch;
-  size_t *bufferSlicePitch;
-  size_t *hostRowPitch;
-  size_t *hostSlicePitch;
-  void **ptr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *buffer = nullptr;
+  cl_bool *blockingRead = nullptr;
+  const size_t **bufferOrigin = nullptr;
+  const size_t **hostOrigin = nullptr;
+  const size_t **region = nullptr;
+  size_t *bufferRowPitch = nullptr;
+  size_t *bufferSlicePitch = nullptr;
+  size_t *hostRowPitch = nullptr;
+  size_t *hostSlicePitch = nullptr;
+  void **ptr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueReadBufferRect;
 
 typedef struct _cl_params_clEnqueueReadImage {
-  cl_command_queue *commandQueue;
-  cl_mem *image;
-  cl_bool *blockingRead;
-  const size_t **origin;
-  const size_t **region;
-  size_t *rowPitch;
-  size_t *slicePitch;
-  void **ptr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *image = nullptr;
+  cl_bool *blockingRead = nullptr;
+  const size_t **origin = nullptr;
+  const size_t **region = nullptr;
+  size_t *rowPitch = nullptr;
+  size_t *slicePitch = nullptr;
+  void **ptr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueReadImage;
 
 typedef struct _cl_params_clEnqueueReleaseGLObjects {
-  cl_command_queue *commandQueue;
-  cl_uint *numObjects;
-  const cl_mem **memObjects;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numObjects = nullptr;
+  const cl_mem **memObjects = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueReleaseGLObjects;
 
 typedef struct _cl_params_clEnqueueSVMFree {
-  cl_command_queue *commandQueue;
-  cl_uint *numSvmPointers;
-  void ***svmPointers;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numSvmPointers = nullptr;
+  void ***svmPointers = nullptr;
   void(CL_CALLBACK **pfnFreeFunc)(cl_command_queue queue,
                                   cl_uint numSvmPointers, void **svmPointers,
-                                  void *userData);
-  void **userData;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+                                  void *userData) = nullptr;
+  void **userData = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueSVMFree;
 
 typedef struct _cl_params_clEnqueueSVMMap {
-  cl_command_queue *commandQueue;
-  cl_bool *blockingMap;
-  cl_map_flags *mapFlags;
-  void **svmPtr;
-  size_t *size;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_bool *blockingMap = nullptr;
+  cl_map_flags *mapFlags = nullptr;
+  void **svmPtr = nullptr;
+  size_t *size = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueSVMMap;
 
 typedef struct _cl_params_clEnqueueSVMMemFill {
-  cl_command_queue *commandQueue;
-  void **svmPtr;
-  const void **pattern;
-  size_t *patternSize;
-  size_t *size;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  void **svmPtr = nullptr;
+  const void **pattern = nullptr;
+  size_t *patternSize = nullptr;
+  size_t *size = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueSVMMemFill;
 
 typedef struct _cl_params_clEnqueueSVMMemcpy {
-  cl_command_queue *commandQueue;
-  cl_bool *blockingCopy;
-  void **dstPtr;
-  const void **srcPtr;
-  size_t *size;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_bool *blockingCopy = nullptr;
+  void **dstPtr = nullptr;
+  const void **srcPtr = nullptr;
+  size_t *size = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueSVMMemcpy;
 
 typedef struct _cl_params_clEnqueueSVMMigrateMem {
-  cl_command_queue *commandQueue;
-  cl_uint *numSvmPointers;
-  const void ***svmPointers;
-  const size_t **sizes;
-  const cl_mem_migration_flags *flags;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numSvmPointers = nullptr;
+  const void ***svmPointers = nullptr;
+  const size_t **sizes = nullptr;
+  const cl_mem_migration_flags *flags = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueSVMMigrateMem;
 
 typedef struct _cl_params_clEnqueueSVMUnmap {
-  cl_command_queue *commandQueue;
-  void **svmPtr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  void **svmPtr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueSVMUnmap;
 
 typedef struct _cl_params_clEnqueueTask {
-  cl_command_queue *commandQueue;
-  cl_kernel *kernel;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_kernel *kernel = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueTask;
 
 typedef struct _cl_params_clEnqueueUnmapMemObject {
-  cl_command_queue *commandQueue;
-  cl_mem *memobj;
-  void **mappedPtr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *memobj = nullptr;
+  void **mappedPtr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueUnmapMemObject;
 
 typedef struct _cl_params_clEnqueueWaitForEvents {
-  cl_command_queue *commandQueue;
-  cl_uint *numEvents;
-  const cl_event **eventList;
+  cl_command_queue *commandQueue = nullptr;
+  cl_uint *numEvents = nullptr;
+  const cl_event **eventList = nullptr;
 } cl_params_clEnqueueWaitForEvents;
 
 typedef struct _cl_params_clEnqueueWriteBuffer {
-  cl_command_queue *commandQueue;
-  cl_mem *buffer;
-  cl_bool *blockingWrite;
-  size_t *offset;
-  size_t *cb;
-  const void **ptr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *buffer = nullptr;
+  cl_bool *blockingWrite = nullptr;
+  size_t *offset = nullptr;
+  size_t *cb = nullptr;
+  const void **ptr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueWriteBuffer;
 
 typedef struct _cl_params_clEnqueueWriteBufferRect {
-  cl_command_queue *commandQueue;
-  cl_mem *buffer;
-  cl_bool *blockingWrite;
-  const size_t **bufferOrigin;
-  const size_t **hostOrigin;
-  const size_t **region;
-  size_t *bufferRowPitch;
-  size_t *bufferSlicePitch;
-  size_t *hostRowPitch;
-  size_t *hostSlicePitch;
-  const void **ptr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *buffer = nullptr;
+  cl_bool *blockingWrite = nullptr;
+  const size_t **bufferOrigin = nullptr;
+  const size_t **hostOrigin = nullptr;
+  const size_t **region = nullptr;
+  size_t *bufferRowPitch = nullptr;
+  size_t *bufferSlicePitch = nullptr;
+  size_t *hostRowPitch = nullptr;
+  size_t *hostSlicePitch = nullptr;
+  const void **ptr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueWriteBufferRect;
 
 typedef struct _cl_params_clEnqueueWriteImage {
-  cl_command_queue *commandQueue;
-  cl_mem *image;
-  cl_bool *blockingWrite;
-  const size_t **origin;
-  const size_t **region;
-  size_t *inputRowPitch;
-  size_t *inputSlicePitch;
-  const void **ptr;
-  cl_uint *numEventsInWaitList;
-  const cl_event **eventWaitList;
-  cl_event **event;
+  cl_command_queue *commandQueue = nullptr;
+  cl_mem *image = nullptr;
+  cl_bool *blockingWrite = nullptr;
+  const size_t **origin = nullptr;
+  const size_t **region = nullptr;
+  size_t *inputRowPitch = nullptr;
+  size_t *inputSlicePitch = nullptr;
+  const void **ptr = nullptr;
+  cl_uint *numEventsInWaitList = nullptr;
+  const cl_event **eventWaitList = nullptr;
+  cl_event **event = nullptr;
 } cl_params_clEnqueueWriteImage;
 
 typedef struct _cl_params_clFinish {
-  cl_command_queue *commandQueue;
+  cl_command_queue *commandQueue = nullptr;
 } cl_params_clFinish;
 
 typedef struct _cl_params_clFlush {
-  cl_command_queue *commandQueue;
+  cl_command_queue *commandQueue = nullptr;
 } cl_params_clFlush;
 
 typedef struct _cl_params_clGetCommandQueueInfo {
-  cl_command_queue *commandQueue;
-  cl_command_queue_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_command_queue *commandQueue = nullptr;
+  cl_command_queue_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetCommandQueueInfo;
 
 typedef struct _cl_params_clGetContextInfo {
-  cl_context *context;
-  cl_context_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_context *context = nullptr;
+  cl_context_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetContextInfo;
 
 typedef struct _cl_params_clGetDeviceAndHostTimer {
-  cl_device_id *device;
-  cl_ulong **deviceTimestamp;
-  cl_ulong **hostTimestamp;
+  cl_device_id *device = nullptr;
+  cl_ulong **deviceTimestamp = nullptr;
+  cl_ulong **hostTimestamp = nullptr;
 } cl_params_clGetDeviceAndHostTimer;
 
 typedef struct _cl_params_clGetDeviceIDs {
-  cl_platform_id *platform;
-  cl_device_type *deviceType;
-  cl_uint *numEntries;
-  cl_device_id **devices;
-  cl_uint **numDevices;
+  cl_platform_id *platform = nullptr;
+  cl_device_type *deviceType = nullptr;
+  cl_uint *numEntries = nullptr;
+  cl_device_id **devices = nullptr;
+  cl_uint **numDevices = nullptr;
 } cl_params_clGetDeviceIDs;
 
 typedef struct _cl_params_clGetDeviceInfo {
-  cl_device_id *device;
-  cl_device_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_device_id *device = nullptr;
+  cl_device_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetDeviceInfo;
 
 typedef struct _cl_params_clGetEventInfo {
-  cl_event *event;
-  cl_event_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_event *event = nullptr;
+  cl_event_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetEventInfo;
 
 typedef struct _cl_params_clGetEventProfilingInfo {
-  cl_event *event;
-  cl_profiling_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_event *event = nullptr;
+  cl_profiling_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetEventProfilingInfo;
 
 typedef struct _cl_params_clGetExtensionFunctionAddress {
-  const char **funcName;
+  const char **funcName = nullptr;
 } cl_params_clGetExtensionFunctionAddress;
 
 typedef struct _cl_params_clGetExtensionFunctionAddressForPlatform {
-  cl_platform_id *platform;
-  const char **funcName;
+  cl_platform_id *platform = nullptr;
+  const char **funcName = nullptr;
 } cl_params_clGetExtensionFunctionAddressForPlatform;
 
 typedef struct _cl_params_clGetGLObjectInfo {
-  cl_mem *memobj;
-  cl_gl_object_type **glObjectType;
-  cl_GLuint **glObjectName;
+  cl_mem *memobj = nullptr;
+  cl_gl_object_type **glObjectType = nullptr;
+  cl_GLuint **glObjectName = nullptr;
 } cl_params_clGetGLObjectInfo;
 
 typedef struct _cl_params_clGetGLTextureInfo {
-  cl_mem *memobj;
-  cl_gl_texture_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_mem *memobj = nullptr;
+  cl_gl_texture_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetGLTextureInfo;
 
 typedef struct _cl_params_clGetHostTimer {
-  cl_device_id *device;
-  cl_ulong **hostTimestamp;
+  cl_device_id *device = nullptr;
+  cl_ulong **hostTimestamp = nullptr;
 } cl_params_clGetHostTimer;
 
 typedef struct _cl_params_clGetImageInfo {
-  cl_mem *image;
-  cl_image_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_mem *image = nullptr;
+  cl_image_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetImageInfo;
 
 typedef struct _cl_params_clGetKernelArgInfo {
-  cl_kernel *kernel;
-  cl_uint *argIndx;
-  cl_kernel_arg_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_kernel *kernel = nullptr;
+  cl_uint *argIndx = nullptr;
+  cl_kernel_arg_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetKernelArgInfo;
 
 typedef struct _cl_params_clGetKernelInfo {
-  cl_kernel *kernel;
-  cl_kernel_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_kernel *kernel = nullptr;
+  cl_kernel_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetKernelInfo;
 
 typedef struct _cl_params_clGetKernelSubGroupInfo {
-  cl_kernel *kernel;
-  cl_device_id *device;
-  cl_kernel_sub_group_info *paramName;
-  size_t *inputValueSize;
-  const void **inputValue;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_kernel *kernel = nullptr;
+  cl_device_id *device = nullptr;
+  cl_kernel_sub_group_info *paramName = nullptr;
+  size_t *inputValueSize = nullptr;
+  const void **inputValue = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetKernelSubGroupInfo;
 
 typedef struct _cl_params_clGetKernelWorkGroupInfo {
-  cl_kernel *kernel;
-  cl_device_id *device;
-  cl_kernel_work_group_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_kernel *kernel = nullptr;
+  cl_device_id *device = nullptr;
+  cl_kernel_work_group_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetKernelWorkGroupInfo;
 
 typedef struct _cl_params_clGetMemObjectInfo {
-  cl_mem *memobj;
-  cl_mem_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_mem *memobj = nullptr;
+  cl_mem_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetMemObjectInfo;
 
 typedef struct _cl_params_clGetPipeInfo {
-  cl_mem *pipe;
-  cl_pipe_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_mem *pipe = nullptr;
+  cl_pipe_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetPipeInfo;
 
 typedef struct _cl_params_clGetPlatformIDs {
-  cl_uint *numEntries;
-  cl_platform_id **platforms;
-  cl_uint **numPlatforms;
+  cl_uint *numEntries = nullptr;
+  cl_platform_id **platforms = nullptr;
+  cl_uint **numPlatforms = nullptr;
 } cl_params_clGetPlatformIDs;
 
 typedef struct _cl_params_clGetPlatformInfo {
-  cl_platform_id *platform;
-  cl_platform_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_platform_id *platform = nullptr;
+  cl_platform_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetPlatformInfo;
 
 typedef struct _cl_params_clGetProgramBuildInfo {
-  cl_program *program;
-  cl_device_id *device;
-  cl_program_build_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_program *program = nullptr;
+  cl_device_id *device = nullptr;
+  cl_program_build_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetProgramBuildInfo;
 
 typedef struct _cl_params_clGetProgramInfo {
-  cl_program *program;
-  cl_program_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_program *program = nullptr;
+  cl_program_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetProgramInfo;
 
 typedef struct _cl_params_clGetSamplerInfo {
-  cl_sampler *sampler;
-  cl_sampler_info *paramName;
-  size_t *paramValueSize;
-  void **paramValue;
-  size_t **paramValueSizeRet;
+  cl_sampler *sampler = nullptr;
+  cl_sampler_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  void **paramValue = nullptr;
+  size_t **paramValueSizeRet = nullptr;
 } cl_params_clGetSamplerInfo;
 
 typedef struct _cl_params_clGetSupportedImageFormats {
-  cl_context *context;
-  cl_mem_flags *flags;
-  cl_mem_object_type *imageType;
-  cl_uint *numEntries;
-  cl_image_format **imageFormats;
-  cl_uint **numImageFormats;
+  cl_context *context = nullptr;
+  cl_mem_flags *flags = nullptr;
+  cl_mem_object_type *imageType = nullptr;
+  cl_uint *numEntries = nullptr;
+  cl_image_format **imageFormats = nullptr;
+  cl_uint **numImageFormats = nullptr;
 } cl_params_clGetSupportedImageFormats;
 
 typedef struct _cl_params_clLinkProgram {
-  cl_context *context;
-  cl_uint *numDevices;
-  const cl_device_id **deviceList;
-  const char **options;
-  cl_uint *numInputPrograms;
-  const cl_program **inputPrograms;
-  void(CL_CALLBACK **funcNotify)(cl_program program, void *userData);
-  void **userData;
-  cl_int **errcodeRet;
+  cl_context *context = nullptr;
+  cl_uint *numDevices = nullptr;
+  const cl_device_id **deviceList = nullptr;
+  const char **options = nullptr;
+  cl_uint *numInputPrograms = nullptr;
+  const cl_program **inputPrograms = nullptr;
+  void(CL_CALLBACK **funcNotify)(cl_program program, void *userData) = nullptr;
+  void **userData = nullptr;
+  cl_int **errcodeRet = nullptr;
 } cl_params_clLinkProgram;
 
 typedef struct _cl_params_clReleaseCommandQueue {
-  cl_command_queue *commandQueue;
+  cl_command_queue *commandQueue = nullptr;
 } cl_params_clReleaseCommandQueue;
 
 typedef struct _cl_params_clReleaseContext {
-  cl_context *context;
+  cl_context *context = nullptr;
 } cl_params_clReleaseContext;
 
 typedef struct _cl_params_clReleaseDevice {
-  cl_device_id *device;
+  cl_device_id *device = nullptr;
 } cl_params_clReleaseDevice;
 
 typedef struct _cl_params_clReleaseEvent {
-  cl_event *event;
+  cl_event *event = nullptr;
 } cl_params_clReleaseEvent;
 
 typedef struct _cl_params_clReleaseKernel {
-  cl_kernel *kernel;
+  cl_kernel *kernel = nullptr;
 } cl_params_clReleaseKernel;
 
 typedef struct _cl_params_clReleaseMemObject {
-  cl_mem *memobj;
+  cl_mem *memobj = nullptr;
 } cl_params_clReleaseMemObject;
 
 typedef struct _cl_params_clReleaseProgram {
-  cl_program *program;
+  cl_program *program = nullptr;
 } cl_params_clReleaseProgram;
 
 typedef struct _cl_params_clReleaseSampler {
-  cl_sampler *sampler;
+  cl_sampler *sampler = nullptr;
 } cl_params_clReleaseSampler;
 
 typedef struct _cl_params_clRetainCommandQueue {
-  cl_command_queue *commandQueue;
+  cl_command_queue *commandQueue = nullptr;
 } cl_params_clRetainCommandQueue;
 
 typedef struct _cl_params_clRetainContext {
-  cl_context *context;
+  cl_context *context = nullptr;
 } cl_params_clRetainContext;
 
 typedef struct _cl_params_clRetainDevice {
-  cl_device_id *device;
+  cl_device_id *device = nullptr;
 } cl_params_clRetainDevice;
 
 typedef struct _cl_params_clRetainEvent {
-  cl_event *event;
+  cl_event *event = nullptr;
 } cl_params_clRetainEvent;
 
 typedef struct _cl_params_clRetainKernel {
-  cl_kernel *kernel;
+  cl_kernel *kernel = nullptr;
 } cl_params_clRetainKernel;
 
 typedef struct _cl_params_clRetainMemObject {
-  cl_mem *memobj;
+  cl_mem *memobj = nullptr;
 } cl_params_clRetainMemObject;
 
 typedef struct _cl_params_clRetainProgram {
-  cl_program *program;
+  cl_program *program = nullptr;
 } cl_params_clRetainProgram;
 
 typedef struct _cl_params_clRetainSampler {
-  cl_sampler *sampler;
+  cl_sampler *sampler = nullptr;
 } cl_params_clRetainSampler;
 
 typedef struct _cl_params_clSVMAlloc {
-  cl_context *context;
-  cl_svm_mem_flags *flags;
-  size_t *size;
-  cl_uint *alignment;
+  cl_context *context = nullptr;
+  cl_svm_mem_flags *flags = nullptr;
+  size_t *size = nullptr;
+  cl_uint *alignment = nullptr;
 } cl_params_clSVMAlloc;
 
 typedef struct _cl_params_clSVMFree {
-  cl_context *context;
-  void **svmPointer;
+  cl_context *context = nullptr;
+  void **svmPointer = nullptr;
 } cl_params_clSVMFree;
 
 typedef struct _cl_params_clSetCommandQueueProperty {
-  cl_command_queue *commandQueue;
-  cl_command_queue_properties *properties;
-  cl_bool *enable;
-  cl_command_queue_properties **oldProperties;
+  cl_command_queue *commandQueue = nullptr;
+  cl_command_queue_properties *properties = nullptr;
+  cl_bool *enable = nullptr;
+  cl_command_queue_properties **oldProperties = nullptr;
 } cl_params_clSetCommandQueueProperty;
 
 typedef struct _cl_params_clSetDefaultDeviceCommandQueue {
-  cl_context *context;
-  cl_device_id *device;
-  cl_command_queue *commandQueue;
+  cl_context *context = nullptr;
+  cl_device_id *device = nullptr;
+  cl_command_queue *commandQueue = nullptr;
 } cl_params_clSetDefaultDeviceCommandQueue;
 
 typedef struct _cl_params_clSetEventCallback {
-  cl_event *event;
-  cl_int *commandExecCallbackType;
-  void(CL_CALLBACK **funcNotify)(cl_event, cl_int, void *);
-  void **userData;
+  cl_event *event = nullptr;
+  cl_int *commandExecCallbackType = nullptr;
+  void(CL_CALLBACK **funcNotify)(cl_event, cl_int, void *) = nullptr;
+  void **userData = nullptr;
 } cl_params_clSetEventCallback;
 
 typedef struct _cl_params_clSetKernelArg {
-  cl_kernel *kernel;
-  cl_uint *argIndex;
-  size_t *argSize;
-  const void **argValue;
+  cl_kernel *kernel = nullptr;
+  cl_uint *argIndex = nullptr;
+  size_t *argSize = nullptr;
+  const void **argValue = nullptr;
 } cl_params_clSetKernelArg;
 
 typedef struct _cl_params_clSetKernelArgSVMPointer {
-  cl_kernel *kernel;
-  cl_uint *argIndex;
-  const void **argValue;
+  cl_kernel *kernel = nullptr;
+  cl_uint *argIndex = nullptr;
+  const void **argValue = nullptr;
 } cl_params_clSetKernelArgSVMPointer;
 
 typedef struct _cl_params_clSetKernelExecInfo {
-  cl_kernel *kernel;
-  cl_kernel_exec_info *paramName;
-  size_t *paramValueSize;
-  const void **paramValue;
+  cl_kernel *kernel = nullptr;
+  cl_kernel_exec_info *paramName = nullptr;
+  size_t *paramValueSize = nullptr;
+  const void **paramValue = nullptr;
 } cl_params_clSetKernelExecInfo;
 
 typedef struct _cl_params_clSetMemObjectDestructorCallback {
-  cl_mem *memobj;
-  void(CL_CALLBACK **funcNotify)(cl_mem, void *);
-  void **userData;
+  cl_mem *memobj = nullptr;
+  void(CL_CALLBACK **funcNotify)(cl_mem, void *) = nullptr;
+  void **userData = nullptr;
 } cl_params_clSetMemObjectDestructorCallback;
 
 typedef struct _cl_params_clSetUserEventStatus {
-  cl_event *event;
-  cl_int *executionStatus;
+  cl_event *event = nullptr;
+  cl_int *executionStatus = nullptr;
 } cl_params_clSetUserEventStatus;
 
 typedef struct _cl_params_clUnloadPlatformCompiler {
-  cl_platform_id *platform;
+  cl_platform_id *platform = nullptr;
 } cl_params_clUnloadPlatformCompiler;
 
 typedef struct _cl_params_clWaitForEvents {
-  cl_uint *numEvents;
-  const cl_event **eventList;
+  cl_uint *numEvents = nullptr;
+  const cl_event **eventList = nullptr;
 } cl_params_clWaitForEvents;

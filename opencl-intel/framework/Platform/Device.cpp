@@ -50,6 +50,14 @@ Device::Device(_cl_platform_id_int *platform)
   m_usmSharedSingleCaps = 0;
   m_usmSharedCrossCaps = 0;
   m_usmSharedSystemCaps = 0;
+  m_pFnClDevGetDeviceInfo = nullptr;
+  m_pFnClDevGetDeviceTimer = nullptr;
+  m_stMaxLocalMemorySize = 0;
+  m_CL_DEVICE_MAX_WORK_GROUP_SIZE = 0;
+  m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS = 0;
+  m_CL_DEVICE_SVM_CAPABILITIES = 0;
+  m_bSvmSupported = false;
+  m_deviceType = 0;
 }
 
 Device::~Device() { LOG_DEBUG(TEXT("%s"), TEXT("Device destructor enter")); }

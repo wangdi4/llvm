@@ -60,6 +60,7 @@ FrameworkProxy::FrameworkProxy() {
   m_pLoggerClient = nullptr;
   m_pTaskExecutor = nullptr;
   m_pTaskList = nullptr;
+  m_pTaskList_immediate = nullptr;
   m_uiTEActivationCount = 0;
 
   RegisterGlobalAtExitNotification(this);

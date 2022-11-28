@@ -52,9 +52,9 @@ DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp)
     : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false),
       m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(nullptr),
       m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
-      m_emptyString('\0'), m_szBuildOptions(nullptr), m_pBinaryBits(nullptr),
-      m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
-      m_currentAccesses(0) {
+      m_uiBuildLogSize(0), m_szBuildLog(nullptr), m_emptyString('\0'),
+      m_szBuildOptions(nullptr), m_pBinaryBits(nullptr), m_uiBinaryBitsSize(0),
+      m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE), m_currentAccesses(0) {
   SetDevice(dp.m_pDevice);
   SetHandle(dp.m_parentProgramHandle);
   SetContext(dp.m_parentProgramContext);
