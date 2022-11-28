@@ -185,7 +185,6 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
         MStr << " at ";
         MStr << "file: " << SP->getFilename() << ", line:" << SP->getLine();
       }
-      MStr.str();
       Res.push_back(std::move(Message));
     }
   }
