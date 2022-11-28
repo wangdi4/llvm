@@ -875,7 +875,7 @@ void Dependences::dump(raw_ostream &OS) const {
   bool Splitable = false;
 
 #if 0
-	
+
   if (isConfused())
     OS << "confused";
   else {
@@ -1131,7 +1131,7 @@ void DDTest::removeMatchingExtensions(Subscript *Pair) {
 #if 0
   const CanonExpr *Src = Pair->Src;
   const CanonExpr *Dst = Pair->Dst;
-	
+
   if ((isa<SCEVZeroExtendExpr>(Src) && isa<SCEVZeroExtendExpr>(Dst)) ||
       (isa<SCEVSignExtendExpr>(Src) && isa<SCEVSignExtendExpr>(Dst))) {
     const SCEVIntegralCastExpr *SrcCast = cast<SCEVIntegralCastExpr>(Src);
@@ -3381,6 +3381,9 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     ++BanerjeeIndependence;
     Disproved = true;
   }
+
+  LLVM_DEBUG(dbgs() << "\nBanerjee proved independence? " << Disproved
+                    << "\n";);
   return Disproved;
 }
 
@@ -5193,7 +5196,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
         }
       }
     }
-  } else {
+  } else { // ForFusion
     //  Note: The other tests - SIV, RDIV - can only be used when the 2 Refs are
     //  actually within the same  nests
     for (int SI = Separable.find_first(); SI >= 0;
@@ -5204,8 +5207,25 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
           return nullptr;
         break;
       default:
+        const HLLoop *MIVSrcLoop = SrcLoop;
+        const HLLoop *MIVDstLoop = DstLoop;
+        const CanonExpr *SrcUBCE = SrcLoop->getUpperCanonExpr();
+        const CanonExpr *DstUBCE = DstLoop->getUpperCanonExpr();
+        int64_t UBDist;
+
+        //  For fusion case, we pass in the Loop with the higher TC to handle
+        //  checking for peeled iterations
+        if (SrcLevels == DstLevels &&
+            (CanonExprUtils::getConstDistance(SrcUBCE, DstUBCE, &UBDist))) {
+
+          if (UBDist > 0)
+            MIVDstLoop = SrcLoop;
+          else if (UBDist < 0)
+            MIVSrcLoop = DstLoop;
+        }
+
         if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
-                    SrcLoop, DstLoop)) {
+                    MIVSrcLoop, MIVDstLoop)) {
           return nullptr;
         }
       }
@@ -6546,7 +6566,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
     }
   }
 	llvm_unreachable("somehow reached end of routine");
-		
+
   return nullptr;
 }
 
