@@ -1,0 +1,97 @@
+// INTEL_COLLAB
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: -fopenmp-version=51 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+//
+void foo() {
+}
+
+bool foobool(int argc) {
+  return argc;
+}
+
+template <class T, class S>
+int tmain(T argc, S **argv) {
+  T z;
+  #pragma omp taskloop grainsize(strict: 10) 
+  for (int i = 0; i < 10; ++i)
+    foo();
+  return 0;
+}
+
+// CHECK-LABEL: @main
+int main(int argc, char **argv) {
+  int z = 1;
+  
+  // CHECK: "DIR.OMP.MASKED"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  #pragma omp masked taskloop grainsize(strict: argc)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  // CHECK: "DIR.OMP.MASKED"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  // CHECK: "DIR.OMP.SIMD"()
+  #pragma omp masked taskloop simd grainsize(strict: z+1)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  // CHECK: "DIR.OMP.PARALLEL"()
+  // CHECK: "DIR.OMP.MASKED"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  #pragma omp parallel masked taskloop grainsize(strict: 10)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  // CHECK: "DIR.OMP.PARALLEL"()
+  // CHECK: "DIR.OMP.MASKED"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  // CHECK: "DIR.OMP.SIMD"()
+  #pragma omp parallel masked taskloop simd grainsize(strict: 10)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  // CHECK: "DIR.OMP.MASTER"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  #pragma omp master taskloop grainsize(strict: 10)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  // CHECK: "DIR.OMP.MASTER"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  // CHECK: "DIR.OMP.SIMD"()
+  #pragma omp master taskloop simd grainsize(strict: 10)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  // CHECK: "DIR.OMP.PARALLEL"()
+  // CHECK: "DIR.OMP.MASTER"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  #pragma omp parallel master taskloop grainsize(strict: 10)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  // CHECK: "DIR.OMP.PARALLEL"()
+  // CHECK: "DIR.OMP.MASTER"()
+  // CHECK: "DIR.OMP.TASKLOOP"()
+  // CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+  // CHECK: "DIR.OMP.SIMD"()
+  #pragma omp parallel master taskloop simd grainsize(strict: 10)
+  for (int i = 0; i < 10; ++i)
+    foo();
+
+  return tmain(argc, argv);
+}
+
+// CHECK-LABEL: @_Z{{.*}}tmain{{.*}}
+// CHECK: "DIR.OMP.TASKGROUP"()
+// CHECK-SAME: "QUAL.OMP.IMPLICIT"()
+// CHECK: "DIR.OMP.TASKLOOP"()
+// CHECK-SAME: "QUAL.OMP.GRAINSIZE:STRICT"
+// end INTEL_COLLAB

@@ -120,6 +120,7 @@ class OpenMPLateOutliner {
     bool Typed = false;
     bool Fptr = false;
     bool VarLen = false;
+    bool Strict = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -174,6 +175,8 @@ class OpenMPLateOutliner {
         addSeparated("FPTR");
       if (VarLen)
         addSeparated("VARLEN");
+      if (Strict)
+        addSeparated("STRICT");
     }
 
   public:
@@ -202,6 +205,7 @@ class OpenMPLateOutliner {
     void setTyped() { Typed = true; }
     void setFptr() { Fptr = true; }
     void setVarLen() { VarLen = true; }
+    void setStrict() { Strict = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {
