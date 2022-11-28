@@ -874,6 +874,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_CPU_EMR
   case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+  case CK_Royal:
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
   case CK_Raptorlake:
   case CK_Meteorlake:
@@ -2529,6 +2532,9 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #if INTEL_FEATURE_CPU_EMR
     case CK_Emeraldrapids:
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+    case CK_Royal:
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
     case CK_Raptorlake:
     case CK_Meteorlake:

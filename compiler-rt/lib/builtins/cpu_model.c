@@ -93,9 +93,18 @@ enum ProcessorTypes {
   INTEL_GOLDMONT_PLUS,
   INTEL_TREMONT,
   AMDFAM19H,
+<<<<<<< HEAD
   ZHAOXIN_FAM7H,
   INTEL_SIERRAFOREST,
   INTEL_GRANDRIDGE,
+=======
+#if INTEL_CUSTOMIZATION
+  INTEL_GRACEMONT,
+#if INTEL_FEATURE_CPU_RYL
+  INTEL_RYL,
+#endif // INTEL_FEATURE_CPU_RYL
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> d80d9b53efe2713d7ada38bd7b4c14f27bd13793
   CPU_TYPE_MAX
 };
 
@@ -137,6 +146,9 @@ enum ProcessorSubtypes {
 #if INTEL_FEATURE_CPU_EMR
   INTEL_COREI7_EMERALDRAPIDS,
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+  INTEL_RYL_ROYAL,
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
   CPU_SUBTYPE_MAX
 };
@@ -491,6 +503,14 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = INTEL_COREI7_EMERALDRAPIDS;
       break;
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+    // Royal:
+    case 0xad:
+      CPU = "royal";
+      *Type = INTEL_RYL;
+      *Subtype = INTEL_RYL_ROYAL;
+      break;
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 
     // Icelake Xeon:

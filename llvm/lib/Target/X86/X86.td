@@ -1089,6 +1089,9 @@ include "X86SchedAlderlakeP.td"
 #if INTEL_CUSTOMIZATION
 include "Intel_X86ScheduleSPR.td"
 include "Intel_X86ScheduleGRT.td"
+#if INTEL_FEATURE_CPU_RYL
+include "Intel_X86ScheduleRYL.td"
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -2167,6 +2170,10 @@ def : ProcModel<"diamondrapids", SPRModel,
 def : ProcModel<"emeraldrapids", SPRModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+def : ProcModel<"royal", RYLModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 def : ProcModel<"raptorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
