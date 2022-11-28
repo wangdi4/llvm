@@ -31,20 +31,25 @@ StringRef NDInfo::getRecordName(unsigned RecordID) {
   return Names[RecordID];
 }
 
-unsigned NDInfo::internalCall2NDInfo(unsigned InternalCall,
-                                     bool IsUserWIFunction) {
+unsigned NDInfo::internalCall2NDInfo(unsigned InternalCall) {
   assert(InternalCall < ICT_NUMBER);
   switch (InternalCall) {
   case ICT_GET_GLOBAL_OFFSET:
     return NDInfo::GLOBAL_OFFSET;
   case ICT_GET_GLOBAL_SIZE:
-    return IsUserWIFunction ? NDInfo::GLOBAL_SIZE
-                            : NDInfo::INTERNAL_GLOBAL_SIZE;
+    return NDInfo::INTERNAL_GLOBAL_SIZE;
+  case ICT_GET_GLOBAL_SIZE_USER_VARIANT:
+    return NDInfo::GLOBAL_SIZE;
   case ICT_GET_LOCAL_SIZE:
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
-    return IsUserWIFunction ? NDInfo::LOCAL_SIZE : NDInfo::INTERNAL_LOCAL_SIZE;
+    return NDInfo::INTERNAL_LOCAL_SIZE;
+  case ICT_GET_LOCAL_SIZE_USER_VARIANT:
+  case ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT:
+    return NDInfo::LOCAL_SIZE;
   case ICT_GET_NUM_GROUPS:
-    return IsUserWIFunction ? NDInfo::WG_NUMBER : NDInfo::INTERNAL_WG_NUMBER;
+    return NDInfo::INTERNAL_WG_NUMBER;
+  case ICT_GET_NUM_GROUPS_USER_VARIANT:
+    return NDInfo::WG_NUMBER;
   default:
     llvm_unreachable("no NDInfo for the internal call");
   }

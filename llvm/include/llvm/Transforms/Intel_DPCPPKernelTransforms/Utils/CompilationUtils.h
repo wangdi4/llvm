@@ -73,6 +73,12 @@ using VectItem = std::tuple<const char *, const char *, const char *>;
 
 enum class SyncType { None, Barrier, DummyBarrier };
 
+enum class SubGroupConstructionMode { Linear = -1, X = 0, Y = 1, Z = 2 };
+
+// The "user." prefix for a WI function, indicating the corresponding function
+// is associated with user-specified work info.
+extern const StringRef UserVariantPrefix;
+
 namespace KernelAttribute {
 // Attributes
 extern const StringRef CallOnce;
@@ -209,34 +215,47 @@ bool isGeneratedFromOMP(const Module &M);
 /// Return true if IR is generated from SPIRV.
 bool generatedFromSPIRV(const Module &M);
 
-/// Return true if string is plain or mangled get_enqueued_local_size.
+/// Return true if string is mangled get_enqueued_local_size.
 bool isGetEnqueuedLocalSize(StringRef S);
 
-/// Return true if string is plain or mangled get_global_linear_id.
+/// Return true if string is mangled get_enqueued_local_size with user variant
+/// prefix.
+bool isUserVariantOfGetEnqueuedLocalSize(StringRef S);
+
+/// Return true if string is mangled get_global_linear_id.
 bool isGetGlobalLinearId(StringRef S);
 
-/// Return true if string is plain or mangled get_local_linear_id.
+/// Return true if string is mangled get_local_linear_id.
 bool isGetLocalLinearId(StringRef S);
 
-/// Return true if string is plain or mangled get_global_size.
+/// Return true if string is mangled get_global_size.
 bool isGetGlobalSize(StringRef S);
 
-/// Return true if string is plain or mangled get_group_id.
+/// Return true if string is mangled get_global_size with user variant prefix.
+bool isUserVariantOfGetGlobalSize(StringRef S);
+
+/// Return true if string is mangled get_group_id.
 bool isGetGroupId(StringRef S);
 
-/// Return true if string is plain or mangled get_local_size.
+/// Return true if string is mangled get_local_size.
 bool isGetLocalSize(StringRef S);
 
-/// Return true if string is plain or mangled get_num_groups.
+/// Return true if string is mangled get_local_size with user variant prefix.
+bool isUserVariantOfGetLocalSize(StringRef S);
+
+/// Return true if string is mangled get_num_groups.
 bool isGetNumGroups(StringRef S);
 
-/// Return true if string is plain or mangled get_work_dim.
+/// Return true if string is mangled get_num_groups with user variant prefix.
+bool isUserVariantOfGetNumGroups(StringRef S);
+
+/// Return true if string is mangled get_work_dim.
 bool isGetWorkDim(StringRef S);
 
-/// Return true if string is plain or mangled get_local_id.
+/// Return true if string is mangled get_local_id.
 bool isGetLocalId(StringRef S);
 
-/// Return true if string is plain or mangled get_global_id.
+/// Return true if string is mangled get_global_id.
 bool isGetGlobalId(StringRef S);
 
 /// Return true if string is name of atomic builtin.

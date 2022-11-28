@@ -27,6 +27,7 @@
 ; CHECK:      Running pass: InstSimplifyPass
 ; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
+; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass

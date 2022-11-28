@@ -586,6 +586,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetCanUniteWG(skimd.CanUniteWorkgroups.get());
   pProps->SetVerctorizeOnDimention(skimd.VectorizationDimension.get());
 
+  pProps->SetSubGroupConstructionMode(skimd.SubGroupConstructionMode.get());
+
   return pProps;
 }
 

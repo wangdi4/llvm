@@ -46,7 +46,7 @@ public:
         m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
         m_targetDevice(CPU_DEVICE), m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
         m_streamingAlways(false), m_expensiveMemOpts(0),
-        m_passManagerType(PM_NONE) {}
+        m_passManagerType(PM_NONE), m_subGroupConstructionMode(0) {}
 
   void InitFromCpuConfig(const CPUDeviceConfig &cpuConfig);
 
@@ -87,6 +87,8 @@ public:
       return m_expensiveMemOpts;
     case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
       return (int)m_passManagerType;
+    case CL_DEV_BACKEND_OPTION_SUB_GROUP_CONSTRUCTION:
+      return m_subGroupConstructionMode;
     default:
       return defaultValue;
     }
@@ -117,6 +119,7 @@ private:
   bool m_streamingAlways;
   unsigned m_expensiveMemOpts;
   PassManagerType m_passManagerType;
+  int m_subGroupConstructionMode;
 };
 
 /**
