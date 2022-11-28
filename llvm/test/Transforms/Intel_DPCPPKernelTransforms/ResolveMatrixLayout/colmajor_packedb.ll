@@ -13,13 +13,13 @@ define void @test_load_store_same_addrspace_int8(i32* %ptr, i64 %stride, i32* %d
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <8 x i8>* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii(i8* [[TMP2]], i8* [[TMP3]], i32 4, i32 2, i64 [[STRIDE:%.*]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <8 x i8>* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii(i8* [[TMP3]], i8* [[TMP4]], i32 4, i32 2, i64 4)
+; CHECK-NEXT:    call void @_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii(i8* [[TMP3]], i8* [[TMP4]], i32 4, i32 2, i64 2)
 ; CHECK-NEXT:    [[TMP5:%.*]] = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p0i8(i8* [[TMP4]], i64 8, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.b")
 ; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i8.p0i32(<8 x i8> [[TMP5]], i32* [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.b")
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %0 = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8.v2(i32* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.colmajor", metadata !"scope.subgroup", metadata !"matrix.use.b")
+  %0 = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8.v2(i32* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.b")
   call void @llvm.experimental.matrix.store.v8i8.p4i8.v2(<8 x i8> %0, i32* %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.b")
   ret void
 }
@@ -35,13 +35,13 @@ define void @test_load_store_same_addrspace_bf16(i32* %ptr, i64 %stride, i32* %d
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <8 x i16>* [[TMP1]] to i16*
 ; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii(i16* [[TMP3]], i16* [[TMP4]], i32 4, i32 2, i64 [[TMP2]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <8 x i16>* [[TMP0]] to i16*
-; CHECK-NEXT:    call void @_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii(i16* [[TMP4]], i16* [[TMP5]], i32 4, i32 2, i64 8)
+; CHECK-NEXT:    call void @_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii(i16* [[TMP4]], i16* [[TMP5]], i32 4, i32 2, i64 4)
 ; CHECK-NEXT:    [[TMP6:%.*]] = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p0i16(i16* [[TMP5]], i64 4, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.b")
 ; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i16.p0i32(<8 x i16> [[TMP6]], i32* [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.b")
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %0 = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p4i16.v2(i32* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.colmajor", metadata !"scope.subgroup", metadata !"matrix.use.b")
+  %0 = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p4i16.v2(i32* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.b")
   call void @llvm.experimental.matrix.store.v8i16.p4i16.v2(<8 x i16> %0, i32* %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.b")
   ret void
 }
