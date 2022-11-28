@@ -51,6 +51,8 @@ PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule") {
   m_uiRootDevicesCount = 0;
   m_pOclEntryPoints = nullptr;
   m_oclVersion = OPENCL_VERSION_UNKNOWN;
+  m_deviceMode = CPU_DEVICE;
+  m_pGPAData = nullptr;
 
   memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
   // initialize logger
