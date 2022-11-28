@@ -195,9 +195,8 @@ std::string llvm::loopopt::reroll::getOpcodeString(unsigned Opcode) {
   } else if (Opcode == Instruction::Xor) {
     return "  ^  ";
   } else {
-    return "Other-binary";
+    return "Other-binary or Non-binary";
   }
-  return "Non-binary";
 }
 
 LLVM_DUMP_METHOD void llvm::loopopt::reroll::dumpOprdOpSequence(
@@ -225,7 +224,7 @@ LLVM_DUMP_METHOD void llvm::loopopt::reroll::dumpOprdOpSequence(
     dbgs() << "\n";
   }
 
-  for (auto P : Seq.Opcodes) {
+  for (auto const &P : Seq.Opcodes) {
     dbgs() << P.first;
     dbgs() << ": ";
     dbgs() << getOpcodeString(P.second);
@@ -486,7 +485,8 @@ bool SequenceChecker::isBlobsMathchedForReroll(const CanonExpr *CE1,
 
   const CanonExpr *CEs[2] = {CE1, CE2};
   for (int I = 0; I < 2; I++) {
-    for (auto Blob : make_range(CEs[I]->blob_begin(), CEs[I]->blob_end())) {
+    for (auto const &Blob :
+         make_range(CEs[I]->blob_begin(), CEs[I]->blob_end())) {
       CoeffIDs[I].push_back(std::make_pair(Blob.Coeff, Blob.Index));
     }
   }
@@ -1021,7 +1021,9 @@ MoveRerollRewriter::rewriteSelfSR(HLInst *Inst, const SelfSRSeedsTy &Seeds,
   // TODO: replace with SelfSRRerollAnalyzer::isSupportedOp
   //       once the review is done.
   //       The class has to moved before this method.
-  if (SRA->getSafeRedInfo(Inst)->OpCode != Instruction::Add) {
+  auto *SRInfo = SRA->getSafeRedInfo(Inst);
+  assert(SRInfo && "SRInfo should be available");
+  if (SRInfo->OpCode != Instruction::Add) {
     llvm_unreachable("Self Safe Reductions with only add reduction operation "
                      "is taken care of by reroller.");
   }
@@ -1331,7 +1333,7 @@ private:
     assert(Ref->getNumDimensions() == 1);
 
     const CanonExpr *CE = Ref->getSingleCanonExpr();
-    for (auto Blob : make_range(CE->blob_begin(), CE->blob_end())) {
+    for (auto const &Blob : make_range(CE->blob_begin(), CE->blob_end())) {
       if (Blob.Index == RedBlobIndex) {
         continue;
       }
@@ -1795,7 +1797,7 @@ bool areRerollSequencesBuilt(const HLLoop *Loop, HIRDDAnalysis &DDA,
   };
 
   auto AreAllInstsConsumed = [&InstToOccurrence]() {
-    for (auto I : InstToOccurrence) {
+    for (auto const &I : InstToOccurrence) {
       bool IsConsumed = I.second;
       if (!IsConsumed) {
         return false;

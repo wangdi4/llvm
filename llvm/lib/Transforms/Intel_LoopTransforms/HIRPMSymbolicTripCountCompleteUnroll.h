@@ -493,7 +493,7 @@ private:
     FOS << "MapSize: " << M.size() << "\n";
     unsigned Idx = 0;
 
-    for (auto Item : M) {
+    for (auto const &Item : M) {
       RegDDRef *First = Item.first;
       RegDDRef *Second = Item.second;
 
