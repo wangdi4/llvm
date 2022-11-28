@@ -68,13 +68,9 @@ X86_CPU_TYPE(INTEL_GRACEMONT,     "gracemont")
 X86_CPU_TYPE(INTEL_RYL,           "ryl")
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-X86_CPU_TYPE(AMDFAM19H,           "amdfam19h")
 X86_CPU_TYPE(ZHAOXIN_FAM7H,       "zhaoxin_fam7h")
 X86_CPU_TYPE(INTEL_SIERRAFOREST,  "sierraforest")
 X86_CPU_TYPE(INTEL_GRANDRIDGE,    "grandridge")
-=======
->>>>>>> d80d9b53efe2713d7ada38bd7b4c14f27bd13793
 
 // Alternate names supported by __builtin_cpu_is and target multiversioning.
 X86_CPU_TYPE_ALIAS(INTEL_BONNELL,    "atom")
