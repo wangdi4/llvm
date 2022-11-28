@@ -234,6 +234,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
       return OMPC_GRAINSIZE_unknown;
     return Type;
   }
+<<<<<<< HEAD
   case OMPC_num_tasks: {
     unsigned Type = llvm::StringSwitch<unsigned>(Str)
 #define OPENMP_NUMTASKS_MODIFIER(Name) .Case(#Name, OMPC_NUMTASKS_##Name)
@@ -243,6 +244,8 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
       return OMPC_NUMTASKS_unknown;
     return Type;
   }
+=======
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   case OMPC_unknown:
 #if INTEL_COLLAB
   case OMPC_subdevice:
@@ -581,6 +584,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'grainsize' clause modifier");
+<<<<<<< HEAD
   case OMPC_num_tasks:
     switch (Type) {
     case OMPC_NUMTASKS_unknown:
@@ -591,6 +595,8 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'num_tasks' clause modifier");
+=======
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:

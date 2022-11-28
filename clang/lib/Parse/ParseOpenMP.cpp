@@ -3721,7 +3721,11 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     else if (CKind == OMPC_ompx_places)
       Clause = ParseOpenMPOmpxPlacesClause(WrongDirective);
 #endif // INTEL_COLLAB
+<<<<<<< HEAD
     else if (CKind == OMPC_grainsize || CKind == OMPC_num_tasks)
+=======
+    else if (CKind == OMPC_grainsize)
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
       Clause = ParseOpenMPSingleExprWithArgClause(DKind, CKind, WrongDirective);
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
@@ -4430,6 +4434,7 @@ OMPClause *Parser::ParseOpenMPSingleExprWithArgClause(OpenMPDirectiveKind DKind,
       Arg.push_back(OMPC_GRAINSIZE_unknown);
       KLoc.emplace_back();
     }
+<<<<<<< HEAD
   } else if (Kind == OMPC_num_tasks) {
     // Parse optional <num_tasks modifier> ':'
     OpenMPNumTasksClauseModifier Modifier =
@@ -4457,6 +4462,8 @@ OMPClause *Parser::ParseOpenMPSingleExprWithArgClause(OpenMPDirectiveKind DKind,
       Arg.push_back(OMPC_NUMTASKS_unknown);
       KLoc.emplace_back();
     }
+=======
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   } else {
     assert(Kind == OMPC_if);
     KLoc.push_back(Tok.getLocation());
@@ -4480,7 +4487,11 @@ OMPClause *Parser::ParseOpenMPSingleExprWithArgClause(OpenMPDirectiveKind DKind,
   bool NeedAnExpression = (Kind == OMPC_schedule && DelimLoc.isValid()) ||
                           (Kind == OMPC_dist_schedule && DelimLoc.isValid()) ||
                           Kind == OMPC_if || Kind == OMPC_device ||
+<<<<<<< HEAD
                           Kind == OMPC_grainsize || Kind == OMPC_num_tasks;
+=======
+                          Kind == OMPC_grainsize;
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   if (NeedAnExpression) {
     SourceLocation ELoc = Tok.getLocation();
     ExprResult LHS(ParseCastExpression(AnyCastExpr, false, NotTypeCast));

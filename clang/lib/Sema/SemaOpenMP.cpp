@@ -16683,6 +16683,12 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_priority:
     Res = ActOnOpenMPPriorityClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
+<<<<<<< HEAD
+=======
+  case OMPC_num_tasks:
+    Res = ActOnOpenMPNumTasksClause(Expr, StartLoc, LParenLoc, EndLoc);
+    break;
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   case OMPC_hint:
     Res = ActOnOpenMPHintClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
@@ -16716,7 +16722,10 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
     break;
 #endif // INTEL_CUSTOMIZATION
   case OMPC_grainsize:
+<<<<<<< HEAD
   case OMPC_num_tasks:
+=======
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   case OMPC_device:
   case OMPC_if:
   case OMPC_default:
@@ -18816,6 +18825,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
         static_cast<OpenMPGrainsizeClauseModifier>(Argument.back()), Expr,
         StartLoc, LParenLoc, ArgumentLoc.back(), EndLoc);
     break;
+<<<<<<< HEAD
   case OMPC_num_tasks:
     assert(Argument.size() == 1 && ArgumentLoc.size() == 1 &&
            "Modifier for num_tasks clause and its location are expected.");
@@ -18823,6 +18833,8 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
         static_cast<OpenMPNumTasksClauseModifier>(Argument.back()), Expr,
         StartLoc, LParenLoc, ArgumentLoc.back(), EndLoc);
     break;
+=======
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   case OMPC_final:
   case OMPC_num_threads:
   case OMPC_safelen:

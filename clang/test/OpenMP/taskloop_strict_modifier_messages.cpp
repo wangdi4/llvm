@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 // RUN: %clang_cc1 -verify=expected,omp51 -fopenmp -fopenmp-version=51 -ferror-limit 150 %s -Wuninitialized
 // RUN: %clang_cc1 -verify=expected,omp50 -fopenmp -fopenmp-version=50 -ferror-limit 150 %s -Wuninitialized
 
 // RUN: %clang_cc1 -verify=expected,omp51 -fopenmp -fopenmp-version=51 -fopenmp-simd -ferror-limit 150 %s -Wuninitialized
 // RUN: %clang_cc1 -verify=expected,omp50 -fopenmp -fopenmp-version=50 -fopenmp-simd -ferror-limit 150 %s -Wuninitialized
+=======
+// RUN: %clang_cc1 -verify=expected,omp51 -fopenmp -fopenmp-version=51 -ferror-limit 100 %s -Wuninitialized
+// RUN: %clang_cc1 -verify=expected,omp50 -fopenmp -fopenmp-version=50 -ferror-limit 100 %s -Wuninitialized
+
+// RUN: %clang_cc1 -verify=expected,omp51 -fopenmp -fopenmp-version=51 -fopenmp-simd -ferror-limit 100 %s -Wuninitialized
+// RUN: %clang_cc1 -verify=expected,omp50 -fopenmp -fopenmp-version=50 -fopenmp-simd -ferror-limit 100 %s -Wuninitialized
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
 
 void foo() {
 }
@@ -23,6 +31,7 @@ int tmain(T argc, S **argv) {
   #pragma omp taskloop grainsize(aa: 10) // omp51-error {{expected 'strict' in OpenMP clause 'grainsize'}} omp50-error {{use of undeclared identifier 'aa'}} omp50-error {{expected ')'}} omp50-note {{to match this '('}}
   for (int i = 0; i < 10; ++i)
      foo();
+<<<<<<< HEAD
   #pragma omp taskloop num_tasks(strict 10) // omp51-error {{missing ':' after strict modifier}} omp50-error {{use of undeclared identifier 'strict'}} omp50-error {{expected ')'}} omp50-note {{to match this '('}}
   for (int i = 0; i < 10; ++i)
     foo();
@@ -32,6 +41,9 @@ int tmain(T argc, S **argv) {
   #pragma omp taskloop num_tasks(aa: 10) // omp51-error {{expected 'strict' in OpenMP clause 'num_tasks'}} omp50-error {{use of undeclared identifier 'aa'}} omp50-error {{expected ')'}} omp50-note {{to match this '('}}
   for (int i = 0; i < 10; ++i)
      foo();
+=======
+
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   return 0;
 }
 
@@ -116,6 +128,7 @@ int main(int argc, char **argv) {
   #pragma omp parallel master taskloop simd grainsize(aa: 10) // omp51-error {{expected 'strict' in OpenMP clause 'grainsize'}} omp50-error {{use of undeclared identifier 'aa'}} omp50-error {{expected ')'}} omp50-note {{to match this '('}}
   for (int i = 0; i < 10; ++i)
      foo();
+<<<<<<< HEAD
   #pragma omp masked taskloop num_tasks(strict 10) // omp51-error {{missing ':' after strict modifier}} omp50-error {{use of undeclared identifier 'strict'}} omp50-error {{expected ')'}} omp50-note {{to match this '('}}
   for (int i = 0; i < 10; ++i)
     foo();
@@ -194,5 +207,8 @@ int main(int argc, char **argv) {
   #pragma omp parallel master taskloop simd num_tasks(aa: 10) // omp51-error {{expected 'strict' in OpenMP clause 'num_tasks'}} omp50-error {{use of undeclared identifier 'aa'}} omp50-error {{expected ')'}} omp50-note {{to match this '('}}
   for (int i = 0; i < 10; ++i)
      foo();
+=======
+
+>>>>>>> 9b2d74b04be62dd004e159ff7069f8f9f1a3789a
   return tmain(argc, argv);
 }
