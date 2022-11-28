@@ -2218,6 +2218,8 @@ static std::string getFormatStr(Value *V) {
 
   if (T->isIntegerTy(32))
     return Name + ": %d ";
+  if (T->is16bitFPTy())
+    return Name + ": (half/bf16 hex) 0x%X ";
   if (T->isFloatTy())
     return Name + ": %f ";
   if (T->isDoubleTy())
@@ -2265,6 +2267,9 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
         V = Builder.CreateIntCast(V, Builder.getInt32Ty(), false,
                                   V->getName() + "cast.");
     FormatStr += getFormatStr(V);
+    if (T->is16bitFPTy())
+      V = Builder.CreateBitCast(V, Builder.getInt16Ty(),
+                                V->getName() + "cast.");
     TempInputsCast.push_back(V);
   }
   FormatStr += "\n";
