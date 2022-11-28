@@ -408,7 +408,7 @@ cl_int Device::clLogCreateClient(cl_int /*device_id*/, const char *client_name,
     return CL_INVALID_VALUE;
   }
 
-  if (!Logger::GetInstance().IsActive()) {
+  if (Logger::GetInstance() && !Logger::GetInstance()->IsActive()) {
     *client_id = 0;
     return CL_SUCCESS;
   }

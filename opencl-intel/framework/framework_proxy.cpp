@@ -438,11 +438,11 @@ void FrameworkProxy::Initialize() {
       cl_err_code clErrRet =
           m_pFileLogHandler->Init(LL_DEBUG, str.c_str(), title.c_str());
       if (CL_SUCCEEDED(clErrRet)) {
-        Logger::GetInstance().AddLogHandler(m_pFileLogHandler);
+        Logger::GetInstance()->AddLogHandler(m_pFileLogHandler);
       }
     }
   }
-  Logger::GetInstance().SetActive(bUseLogger);
+  Logger::GetInstance()->SetActive(bUseLogger);
 
   INIT_LOGGER_CLIENT(TEXT("FrameworkProxy"), LL_DEBUG);
 #if defined(USE_ITT)
