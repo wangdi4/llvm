@@ -107,9 +107,13 @@ cl_err_code FileDescriptorLogHandler::Init(ELogLevel level,
 
   // redirect stderr to fileDesc (in order to get log messages from MIC device)
   fflush(stderr);
+  // Let m_dupStderr refers to stderr
   m_dupStderr = DUP(fileno(stderr));
-  assert(-1 != m_dupStderr && "duplicate stderr failed");
-  DUP2(fileno(m_fileHandler), fileno(stderr));
+  if (-1 != m_dupStderr)
+    // If succeed, stderr will refer to m_fileHandler.
+    // If an error occurs, we don't need exit. Diagnostic or error messages
+    // are typically attached to the user's terminal instead of m_fileHandler
+    DUP2(fileno(m_fileHandler), fileno(stderr));
 
   const char *pTitle =
       (nullptr == title)

@@ -76,7 +76,7 @@ enum ELogConfigField {
 
 #define INIT_LOGGER_CLIENT(NAME, LEVEL)                                        \
   m_pLoggerClient = nullptr;                                                   \
-  if (Logger::GetInstance().IsActive() ||                                      \
+  if ((Logger::GetInstance() && Logger::GetInstance()->IsActive()) ||          \
       (Intel::OpenCL::Utils::g_pUserLogger != nullptr &&                       \
        Intel::OpenCL::Utils::g_pUserLogger->IsErrorLoggingEnabled())) {        \
     m_pLoggerClient = new Intel::OpenCL::Utils::LoggerClient(NAME, LEVEL);     \

@@ -52,7 +52,13 @@ Logger::~Logger() {}
 struct LoggerSingletonHandler {
   LoggerSingletonHandler() { pLogger = new Logger; }
 
-  ~LoggerSingletonHandler() { delete (pLogger); }
+  ~LoggerSingletonHandler() {
+    delete (pLogger);
+    // Workaround. Set pLogger nullptr to mark pLogger is deleted.
+    // framework module(e.g., Kernel, DeviceKernel) uses log when call their
+    // destructors, however pLogger is deleted before the calls.
+    pLogger = nullptr;
+  }
 
   // Pointer to a singleton object
   static Logger *pLogger;
@@ -62,7 +68,7 @@ Logger *LoggerSingletonHandler::pLogger = nullptr;
 
 LoggerSingletonHandler logger;
 
-Logger &Logger::GetInstance() { return *LoggerSingletonHandler::pLogger; }
+Logger *Logger::GetInstance() { return LoggerSingletonHandler::pLogger; }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::AddLogHandler
@@ -134,14 +140,13 @@ inline LoggerClient::~LoggerClient() {}
 void LoggerClient::Log(ELogLevel level, const char *sourceFile,
                        const char *functionName, __int32 sourceLine,
                        const char *message, ...) {
-  if (m_logLevel > level) {
+  if (!Logger::GetInstance() || m_logLevel > level)
     return;
-  }
   va_list va;
   va_start(va, message);
 
-  Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,
-                            sourceLine, message, va);
+  Logger::GetInstance()->Log(level, m_eLogConfig, "", sourceFile, functionName,
+                             sourceLine, message, va);
 
   va_end(va);
 }
@@ -152,9 +157,9 @@ void LoggerClient::Log(ELogLevel level, const char *sourceFile,
 void LoggerClient::LogArgList(ELogLevel level, const char *sourceFile,
                               const char *functionName, __int32 sourceLine,
                               const char *message, va_list va) {
-  if (m_logLevel > level) {
+  if (!Logger::GetInstance() || m_logLevel > level)
     return;
-  }
-  Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,
-                            sourceLine, message, va);
+
+  Logger::GetInstance()->Log(level, m_eLogConfig, "", sourceFile, functionName,
+                             sourceLine, message, va);
 }
