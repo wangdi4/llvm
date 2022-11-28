@@ -414,6 +414,73 @@
 ///    The the row of the source tile.
 #define _tile_cvtrowps2phli(tsrc, Imm) __builtin_ia32_tcvtrowps2phli(tsrc, Imm)
 
+/// Move one row of a tile data to a v16f32 data.
+/// The row of the tile is selected by an imm8.
+///
+/// \headerfile <immintrin.h>
+///
+/// \code
+/// __m512 _tile_movrowi(__tile a, unsigned b);
+/// \endcode
+///
+/// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
+///
+/// \param a
+///     The 1st source tile. Max size is 1024 Bytes.
+/// \param b
+///     The 2nd source imm8. Size is 4 Bytes.
+/// \returns
+///     The destination v16f32 data. Size is 64 Bytes.
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL>>3
+/// row_index := b&0x3f
+/// row_chunk := (b>>6) * VL_bytes
+/// FOR i := 0 TO (VL_bytes-1)
+///     IF (row_chunk + i >= a.colsb)
+///             dst.byte[i] := 0
+///     ELSE
+///             dst.byte[i] := a.row[row_index].byte[row_chunk+i]
+/// ENDFOR
+/// \endcode
+#define _tile_movrowi(a, b) __builtin_ia32_tilemovei(a, b)
+
+/// Move one row of a tile data to a v16f32 data.
+/// The row of the tile is selected by a 32b GPR.
+///
+/// \headerfile <immintrin.h>
+///
+/// \code
+/// __m512 _tile_movrow(__tile a, unsigned b);
+/// \endcode
+///
+/// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
+///
+/// \param a
+///     The 1st source tile. Max size is 1024 Bytes.
+/// \param b
+///     The 2nd source r32. Size is 4 Bytes.
+/// \returns
+///     The destination v16f32 data. Size is 64 Bytes.
+///
+/// \code{.operation}
+/// VL := 512
+/// VL_bytes := VL>>3
+/// row_index := b&0xffff
+/// row_chunk := ((b>>16)&0xffff) * VL_bytes
+/// FOR i := 0 TO (VL_bytes-1)
+///     IF (row_chunk + i >= a.colsb)
+///             dst.byte[i] := 0
+///     ELSE
+///             dst.byte[i] := a.row[row_index].byte[row_chunk+i]
+/// ENDFOR
+/// \endcode
+#define _tile_movrow(a, b) __builtin_ia32_tilemovee(a, b)
+
+/// Note: tilemovex has been removed, double-check and remove me when upstream.
+#define _tile_movrowx(a, b) __builtin_ia32_tilemovex(a, b)
+
 /// This is internal intrinsic. C/C++ user should avoid calling it directly.
 
 static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512 _tile_cvtrowd2ps_internal(
@@ -457,6 +524,14 @@ static __inline__ __m512h __DEFAULT_FN_ATTRS_AVX512 _tile_cvtrowps2phl_internal(
 
 #define _tile_cvtrowps2phli_internal(m, n, tsrc, i)                            \
   __builtin_ia32_tcvtrowps2phli_internal(m, n, tsrc, i)
+
+static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512 _tile_movrow_internal(
+    unsigned short m, unsigned short n, _tile1024i src, unsigned u) {
+  return __builtin_ia32_tilemovrowe_internal(m, n, src, u);
+}
+
+#define _tile_movrowi_internal(m, n, tsrc, i)                                  \
+  __builtin_ia32_tilemovrowi_internal(m, n, tsrc, i)
 
 /// Move a row from a tile (src0) to a v16f32 dst, converting the int32 source
 /// elements to fp32. No SIMD exceptions are generated. Rounding is done as if
@@ -639,6 +714,40 @@ static __m512h __tile_cvtrowps2phl(__tile1024i src0, unsigned src1) {
 ///    The destination v32fp16 data. Size is 64 Bytes.
 #define __tile_cvtrowps2phli(src0, src1)                                       \
   _tile_cvtrowps2phli_internal(src0.row, src0.col, src0.tile, src1);
+
+/// Move one row of a tile data to a v16f32 data.
+/// The row of the tile is selected by a 32b GPR.
+///
+/// \headerfile <immintrin.h>
+///
+/// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
+///
+/// \param src0
+///    The 1st source tile. Max size is 1024 Bytes.
+/// \param src1
+///    The 1st source r32. Size is 4 Bytes.
+/// \returns
+///    The destination v16f32 data. Size is 64 Bytes.
+__DEFAULT_FN_ATTRS_AVX512
+static __m512 __tile_movrow(__tile1024i src0, unsigned src1) {
+  return _tile_movrow_internal(src0.row, src0.col, src0.tile, src1);
+}
+
+/// Move one row of a tile data to a v16f32 data.
+/// The row of the tile is selected by an imm8.
+///
+/// \headerfile <immintrin.h>
+///
+/// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
+///
+/// \param src0
+///    The 1st source tile. Max size is 1024 Bytes.
+/// \param src1
+///    The 1st source imm8. Size is 4 Bytes.
+/// \returns
+///    The destination v16f32 data. Size is 64 Bytes.
+#define __tile_movrowi(src0, src1)                                             \
+  _tile_movrowi_internal(src0.row, src0.col, src0.tile, src1);
 
 #endif // __x86_64__
 #endif // __AMX_AVX512INTRIN_H
