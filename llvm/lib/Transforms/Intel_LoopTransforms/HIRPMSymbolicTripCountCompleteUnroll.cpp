@@ -1604,7 +1604,7 @@ void HIRPMSymbolicTripCountCompleteUnroll::updateTempUse(
     HLInst *HInst = cast<HLInst>(I);
     // LLVM_DEBUG(HInst->dump(); FOS << "\n";);
 
-    for (auto Item : DefMap) {
+    for (auto const &Item : DefMap) {
       RegDDRef *OldDef = Item.first;
       RegDDRef *NewDef = Item.second;
       unsigned OldIndex = OldDef->getSelfBlobIndex();

@@ -1021,11 +1021,11 @@ bool InnermostLoopAnalyzer::checkDepToUpwardLoops(
     }
 
     // Compare use and def, Ref and RepDefRef
-    for (auto CEPair :
+    for (auto const &CEPair :
          zip(make_range(Ref->canon_begin(), Ref->canon_end()),
              make_range(RepDefRef->canon_begin(), RepDefRef->canon_end()))) {
 
-      CanonExpr *CE = std::get<0>(CEPair);
+      const CanonExpr *CE = std::get<0>(CEPair);
       const CanonExpr *RepDefCE = std::get<1>(CEPair);
 
       // Means use should NOT be in the form of
@@ -1069,9 +1069,10 @@ const RegDDRef *InnermostLoopAnalyzer::checkDefsForAlignment() const {
       continue;
 
     // All Lval dimensions are the same.
-    for (auto CEPair : zip(make_range(Ref->canon_begin(), Ref->canon_end()),
-                           make_range(Representative->canon_begin(),
-                                      Representative->canon_end()))) {
+    for (auto const &CEPair :
+         zip(make_range(Ref->canon_begin(), Ref->canon_end()),
+             make_range(Representative->canon_begin(),
+                        Representative->canon_end()))) {
 
       if (!CanonExprUtils::areEqual(std::get<0>(CEPair), std::get<1>(CEPair))) {
         printMarker("checkDefsForAlignemnts() fails: ", {Representative, Ref});
@@ -1134,6 +1135,8 @@ bool InnermostLoopAnalyzer::tracebackEqualityOfLowersAndStrides(
     const HLLoop *LCA) {
 
   auto GetLoadRval = [DDG](const BlobDDRef *BRef) -> const RegDDRef * {
+    // TODO: Currently, only the first edge of DDG.incoming(BRef)
+    //       is checked, if any. Needs might arise to inspect further.
     for (auto *Edge : DDG.incoming(BRef)) {
       // Only flow edge should exist.
       if (!Edge->isFlow())
@@ -1295,10 +1298,10 @@ bool InnermostLoopAnalyzer::containsEqualTempBlobs(const CanonExpr *CE1,
   SmallVector<unsigned> Ind2;
   BlobUtils &BU = CE1->getBlobUtils();
 
-  for (auto I : make_range(CE1->blob_begin(), CE1->blob_end()))
+  for (auto const &I : make_range(CE1->blob_begin(), CE1->blob_end()))
     BU.collectTempBlobs((I).Index, Ind1);
 
-  for (auto I : make_range(CE2->blob_begin(), CE2->blob_end()))
+  for (auto const &I : make_range(CE2->blob_begin(), CE2->blob_end()))
     BU.collectTempBlobs((I).Index, Ind2);
 
   std::sort(Ind1.begin(), Ind1.end());
@@ -3851,7 +3854,7 @@ calcShiftAmountBeforeUse(const LoopToDimInfoTy &InnermostLoopToDimInfo,
     RefGroupVecTy Groups;
     DDRefIndexGrouping(Groups, Refs);
 
-    for (auto Group : Groups) { // for each base index
+    for (auto const &Group : Groups) { // for each base index
       unsigned BaseIndex = Group.front()->getBasePtrBlobIndex();
 
       bool IsLvalFound = false;

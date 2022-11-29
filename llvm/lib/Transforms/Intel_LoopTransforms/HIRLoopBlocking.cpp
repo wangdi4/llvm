@@ -372,7 +372,10 @@ unsigned adjustBlockSize(uint64_t TC) {
 
 unsigned adjustBlockSize(const HLLoop *Lp) {
   uint64_t ConstantTrip = 0;
-  Lp->isConstTripLoop(&ConstantTrip);
+  bool IsConstTC = Lp->isConstTripLoop(&ConstantTrip);
+  assert(IsConstTC == (bool)ConstantTrip);
+  (void)IsConstTC;
+
   // If non-zero ConstantTrip found, pass that value, otherwise 0
   return adjustBlockSize(ConstantTrip);
 }
@@ -554,7 +557,7 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   // def@level of min UB vars are correctly set.
   // Notice this is true before min's definition is not hoisted.
   // Once it is hoisted, def@level has to be updated.
-  for (auto CurLoopInfo : CurLoopNests) {
+  for (auto &CurLoopInfo : CurLoopNests) {
     HLLoop *CurLoop = CurLoopInfo.first;
     auto It = LoopMap.find(CurLoop);
     if (It == LoopMap.end() || It->second == 0) {
@@ -896,7 +899,7 @@ static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
 
     assert(DelinearizedRefs.size() == Refs.size());
     LLVM_DEBUG_DELINEAR(dbgs() << "Delinearized refs:\n";
-                        for (auto Pair
+                        for (auto const &Pair
                              : zip(Refs, DelinearizedRefs)) {
                           std::get<0>(Pair)->dump();
                           dbgs() << " -> ";
@@ -1668,11 +1671,8 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
   HLLoop *ValidOutermost =
       exploreLoopNest(InnermostLoop, OutermostLoop, KAndRProfitability,
                       StripmineExplorer, DDA, SRA, Func, LoopMap);
-  if (ValidOutermost) {
-    return ValidOutermost;
-  }
 
-  return nullptr;
+  return ValidOutermost;
 }
 
 // LoopDepth are at most 2.
