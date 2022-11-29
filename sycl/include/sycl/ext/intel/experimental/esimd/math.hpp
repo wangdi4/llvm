@@ -1689,7 +1689,7 @@ __ESIMD_NS::simd<T, N> dp4(__ESIMD_NS::simd<T, N> v1,
 template <int N>
 __SYCL_DEPRECATED("use regular conversion: simd<bfloat16, N> res = src0;")
 __ESIMD_API
-    __ESIMD_NS::simd<sycl::ext::oneapi::experimental::bfloat16,
+    __ESIMD_NS::simd<sycl::ext::oneapi::bfloat16,
                      N> convert_to_bf16(__ESIMD_NS::simd<float, N> src0) {
   return src0;
 }
@@ -1700,9 +1700,9 @@ __ESIMD_API
 /// \return converted scalar bf16 value.
 __SYCL_DEPRECATED("use regular conversion:  'bfloat16 res = src0;'"
                   " or 'bfloat16 res = simd<bfloat16,1>(src0)[0];'")
-__ESIMD_API sycl::ext::oneapi::experimental::bfloat16
+__ESIMD_API sycl::ext::oneapi::bfloat16
 convert_to_bf16(float src0) {
-  return __ESIMD_NS::simd<sycl::ext::oneapi::experimental::bfloat16, 1>(
+  return __ESIMD_NS::simd<sycl::ext::oneapi::bfloat16, 1>(
       src0)[0];
 }
 
@@ -1714,7 +1714,7 @@ convert_to_bf16(float src0) {
 template <int N>
 __SYCL_DEPRECATED("use regular conversion: simd<float, N> res = src0;")
 __ESIMD_API __ESIMD_NS::simd<float, N> convert_from_bf16(
-    __ESIMD_NS::simd<sycl::ext::oneapi::experimental::bfloat16, N> src0) {
+    __ESIMD_NS::simd<sycl::ext::oneapi::bfloat16, N> src0) {
   return src0;
 }
 
@@ -1725,7 +1725,7 @@ __ESIMD_API __ESIMD_NS::simd<float, N> convert_from_bf16(
 __SYCL_DEPRECATED("use regular conversion: `float res = src0;`"
                   " or `float res = simd<float, N>(res)[0];`")
 __ESIMD_API float
-convert_from_bf16(sycl::ext::oneapi::experimental::bfloat16 src0) {
+convert_from_bf16(sycl::ext::oneapi::bfloat16 src0) {
   return __ESIMD_NS::simd<float, 1>(src0)[0];
 }
 

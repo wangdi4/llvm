@@ -40,7 +40,7 @@ namespace detail {
 
 /* INTEL_CUSTOMIZATION */
 // TODO: remove this line after the next pulldown.
-using bfloat16 = sycl::ext::oneapi::experimental::bfloat16;
+using bfloat16 = sycl::ext::oneapi::bfloat16;
 /* end INTEL_CUSTOMIZATION */
 
 template <typename T> constexpr dpas_argument_type dpas_precision_from_type() {
