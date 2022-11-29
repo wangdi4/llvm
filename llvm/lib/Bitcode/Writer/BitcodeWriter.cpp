@@ -115,7 +115,6 @@ static cl::opt<bool> WriteRelBFToSummary(
     "write-relbf-to-summary", cl::Hidden, cl::init(false),
     cl::desc("Write relative block frequency to function summary "));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> StripPathFromSrcFileName(
     "strip-module-src-path", cl::Hidden, cl::init(true),
@@ -123,9 +122,7 @@ static cl::opt<bool> StripPathFromSrcFileName(
              "modules"));
 #endif // INTEL_CUSTOMIZATION
 
-=======
 namespace llvm {
->>>>>>> f199f97c720d0b031421b6e8607f57cb54f78c81
 extern FunctionSummary::ForceSummaryHotnessType ForceSummaryEdgesCold;
 }
 
