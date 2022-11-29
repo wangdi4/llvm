@@ -1412,9 +1412,10 @@ protected: // INTEL
   /// ExitNotTakenInfo and BackedgeTakenInfo.
   struct ExitLimit {
     const SCEV *ExactNotTaken; // The exit is not taken exactly this many times
-    const SCEV *MaxNotTaken; // The exit is not taken at most this many times
+    const SCEV *ConstantMaxNotTaken; // The exit is not taken at most this many
+                                     // times
 
-    // Not taken either exactly MaxNotTaken or zero times
+    // Not taken either exactly ConstantMaxNotTaken or zero times
     bool MaxOrZero = false;
 
     /// A set of predicate guards for this ExitLimit. The result is only valid
@@ -1445,7 +1446,7 @@ protected: // INTEL
     /// whether it's all SCEVCouldNotCompute values.
     bool hasAnyInfo() const {
       return !isa<SCEVCouldNotCompute>(ExactNotTaken) ||
-             !isa<SCEVCouldNotCompute>(MaxNotTaken);
+             !isa<SCEVCouldNotCompute>(ConstantMaxNotTaken);
     }
 
     /// Test whether this ExitLimit contains all information.
@@ -1459,15 +1460,15 @@ protected: // INTEL
   struct ExitNotTakenInfo {
     PoisoningVH<BasicBlock> ExitingBlock;
     const SCEV *ExactNotTaken;
-    const SCEV *MaxNotTaken;
+    const SCEV *ConstantMaxNotTaken;
     SmallPtrSet<const SCEVPredicate *, 4> Predicates;
 
-    explicit ExitNotTakenInfo(PoisoningVH<BasicBlock> ExitingBlock,
-                              const SCEV *ExactNotTaken,
-                              const SCEV *MaxNotTaken,
-                              const SmallPtrSet<const SCEVPredicate *, 4> &Predicates)
-      : ExitingBlock(ExitingBlock), ExactNotTaken(ExactNotTaken),
-        MaxNotTaken(MaxNotTaken), Predicates(Predicates) {}
+    explicit ExitNotTakenInfo(
+        PoisoningVH<BasicBlock> ExitingBlock, const SCEV *ExactNotTaken,
+        const SCEV *ConstantMaxNotTaken,
+        const SmallPtrSet<const SCEVPredicate *, 4> &Predicates)
+        : ExitingBlock(ExitingBlock), ExactNotTaken(ExactNotTaken),
+          ConstantMaxNotTaken(ConstantMaxNotTaken), Predicates(Predicates) {}
 
     bool hasAlwaysTruePredicate() const {
       return Predicates.empty();
