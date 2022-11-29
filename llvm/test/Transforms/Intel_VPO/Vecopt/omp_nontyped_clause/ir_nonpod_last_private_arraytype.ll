@@ -83,10 +83,10 @@
 ; *** IR Dump After vpo::VPlanDriverHIRPass ***
 ; HIR:       BEGIN REGION { modified }
 ; HIR-NEXT:        %priv.mem.bc = &(([4 x %struct.point2d]*)(%priv.mem)[0]);
-; HIR:             + DO i1 = 0, 2, 1   <DO_LOOP>
+; HIR:             + DO i1 = 0, 1, 1   <DO_LOOP>
 ; HIR-NEXT:        |   %priv.extract = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc)[<i32 0, i32 1>]),  i1;
 ; HIR-NEXT:        |
-; HIR-NEXT:        |   + DO i2 = 0, 4, 1   <DO_LOOP>
+; HIR-NEXT:        |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; HIR-NEXT:        |   |   %call = @_ZTS7point2d.omp.def_constr(&((%struct.point2d*)(%priv.extract)[i2]));
 ; HIR-NEXT:        |   + END LOOP
 ; HIR-NEXT:        + END LOOP
@@ -94,13 +94,13 @@
 ; HIR:             |   @_Z3bazP7point2di(%extract.0.,  i1);
 ; HIR:             |   @_Z3bazP7point2di(%extract.1.,  %extract.1.2);
 ; HIR:             + END LOOP
-; HIR:             + DO i1 = 0, 4, 1   <DO_LOOP>
+; HIR:             + DO i1 = 0, 3, 1   <DO_LOOP>
 ; HIR-NEXT:        |   @_ZTS7point2d.omp.copy_assign(&((%struct.point2d*)(%myPoint.lpriv)[i1]),  &((%struct.point2d*)(%extract.1.4)[i1]));
 ; HIR-NEXT:        + END LOOP
-; HIR:             + DO i1 = 0, 2, 1   <DO_LOOP>
+; HIR:             + DO i1 = 0, 1, 1   <DO_LOOP>
 ; HIR-NEXT:        |   %priv.extract5 = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc)[<i32 0, i32 1>]),  i1;
 ; HIR-NEXT:        |
-; HIR-NEXT:        |   + DO i2 = 0, 4, 1   <DO_LOOP>
+; HIR-NEXT:        |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; HIR-NEXT:        |   |   @_ZTS7point2d.omp.destr(&((%struct.point2d*)(%priv.extract5)[i2]));
 ; HIR-NEXT:        |   + END LOOP
 ; HIR-NEXT:        + END LOOP

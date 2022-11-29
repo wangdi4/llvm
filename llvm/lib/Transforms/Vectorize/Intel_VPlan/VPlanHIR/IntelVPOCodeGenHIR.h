@@ -1198,7 +1198,11 @@ private:
   void insertPrivateFinalCond(const VPInstruction *VPInst);
 
   template <typename PrivateInstType>
-  void vectorizePrivateArrayNonPODInst(const VPInstruction *VPInst);
+  void vectorizePrivateNonPODArray(const VPInstruction *VPInst);
+
+  template <typename PrivateInstType>
+  void vectorizePrivateLastValueNonPODArray(const VPInstruction *VPInst,
+                                            const RegDDRef *Res);
 
   void makeSymLiveInForParentLoops(unsigned Sym) {
     auto *ParentLoop = OrigLoop->getParentLoop();
