@@ -1111,7 +1111,7 @@ NextIteration:
 
       // Anything using the load now uses the current value.
       LI->replaceAllUsesWith(V);
-      BB->getInstList().erase(LI);
+      LI->eraseFromParent();
     } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
       // Delete this instruction and mark the name as the current holder of the
       // value
@@ -1133,7 +1133,7 @@ NextIteration:
       for (DbgVariableIntrinsic *DII : AllocaDbgUsers[ai->second])
         if (DII->isAddressOfVariable())
           ConvertDebugDeclareToDebugValue(DII, SI, DIB);
-      BB->getInstList().erase(SI);
+      SI->eraseFromParent();
     }
   }
 
