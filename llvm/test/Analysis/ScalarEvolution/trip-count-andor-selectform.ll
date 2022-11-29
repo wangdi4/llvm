@@ -8,7 +8,7 @@ define void @unsimplified_and1(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_and1'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_and1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is -1
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -31,7 +31,7 @@ define void @unsimplified_and2(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_and2'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_and2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is -1
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -54,7 +54,7 @@ define void @unsimplified_and3(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_and3'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_and3
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is false
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is false
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is false
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is false
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -77,7 +77,7 @@ define void @unsimplified_and4(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_and4'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_and4
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is false
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is false
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is false
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is false
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -100,7 +100,7 @@ define void @unsimplified_or1(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_or1'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_or1
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
 ;
 entry:
@@ -121,7 +121,7 @@ define void @unsimplified_or2(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_or2'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_or2
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
 ;
 entry:
@@ -142,9 +142,13 @@ define void @unsimplified_or3(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_or3'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_or3
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
+<<<<<<< HEAD
 ; if INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is -2
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
+>>>>>>> 211d94118823b2a6f7205a6cc07af746b87e7a35
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -167,7 +171,7 @@ define void @unsimplified_or4(i32 %n) {
 ; CHECK-LABEL: 'unsimplified_or4'
 ; CHECK-NEXT:  Determining loop execution counts for: @unsimplified_or4
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is -1
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -190,9 +194,13 @@ define void @reversed_and1(i32 %n) {
 ; CHECK-LABEL: 'reversed_and1'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_and1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
+<<<<<<< HEAD
 ; if INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is -2
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
+>>>>>>> 211d94118823b2a6f7205a6cc07af746b87e7a35
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -215,9 +223,13 @@ define void @reversed_and2(i32 %n) {
 ; CHECK-LABEL: 'reversed_and2'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_and2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
+<<<<<<< HEAD
 ; if INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is -2
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
+>>>>>>> 211d94118823b2a6f7205a6cc07af746b87e7a35
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -240,7 +252,7 @@ define void @reversed_and3(i32 %n) {
 ; CHECK-LABEL: 'reversed_and3'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_and3
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
 ;
 entry:
@@ -261,7 +273,7 @@ define void @reversed_and4(i32 %n) {
 ; CHECK-LABEL: 'reversed_and4'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_and4
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
 ;
 entry:
@@ -282,7 +294,7 @@ define void @reversed_or1(i32 %n) {
 ; CHECK-LABEL: 'reversed_or1'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_or1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is false
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is false
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is false
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is false
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -305,7 +317,7 @@ define void @reversed_or2(i32 %n) {
 ; CHECK-LABEL: 'reversed_or2'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_or2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is false
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is false
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is false
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is false
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -328,7 +340,7 @@ define void @reversed_or3(i32 %n) {
 ; CHECK-LABEL: 'reversed_or3'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_or3
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is -1
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -351,9 +363,13 @@ define void @reversed_or4(i32 %n) {
 ; CHECK-LABEL: 'reversed_or4'
 ; CHECK-NEXT:  Determining loop execution counts for: @reversed_or4
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is %n
+<<<<<<< HEAD
 ; if INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is -2
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
+>>>>>>> 211d94118823b2a6f7205a6cc07af746b87e7a35
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is %n
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
