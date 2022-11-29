@@ -7122,6 +7122,10 @@ public:
     // dynamic.
     // This is an OpenMP extension for the sake of OpenACC support.
     OMP_MAP_OMPX_HOLD = 0x2000,
+#if INTEL_CUSTOMIZATION
+    /// allocate memory in host USM
+    OMP_MAP_HOST_MEM = 0x8000,
+#endif // INTEL_CUSTOMIZATION
     /// Signal that the runtime library should use args as an array of
     /// descriptor_dim pointers and use args_size as dims. Used when we have
     /// non-contiguous list items in target update directive
@@ -9939,6 +9943,26 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         LambdaPointers, CombinedInfo.BasePointers, CombinedInfo.Pointers,
         CombinedInfo.Types);
     MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
+#if INTEL_CUSTOMIZATION
+    if (CGF.getLangOpts().OpenMPUseHostUSMForImpicitReductionMap) {
+      llvm::DenseSet<const Expr *> ReductionExprs;
+      for (const auto *C : Dir.getClausesOfKind<OMPReductionClause>())
+        for (const Expr *E : C->varlists())
+          ReductionExprs.insert(E);
+      if (!ReductionExprs.empty())
+        for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E;
+             ++I)
+          if (!CombinedInfo.VarChain[I].second &&
+              (CombinedInfo.Types[I] &
+               MappableExprsHandler::OMP_MAP_IMPLICIT)) {
+            auto It = ReductionExprs.find(CombinedInfo.Exprs[I].getMapExpr());
+            if (It != ReductionExprs.end())
+              if (CombinedInfo.Types[I] &
+                  MappableExprsHandler::OMP_MAP_IMPLICIT)
+                CombinedInfo.Types[I] |= MappableExprsHandler::OMP_MAP_HOST_MEM;
+          }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   // The informations of offload map name are only built if there is
   // debug information requested.
