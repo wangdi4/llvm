@@ -116,9 +116,6 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
 
   emitMultiVersionResolver(Resolver, MVOptions, false /*UseIFunc*/,
                            true /*UseLibIRC*/);
-
-  // TODO: Comdat?
-  // TODO: CodeGenModule::SetCommonAttributes ?
 }
 
 static void
@@ -139,14 +136,125 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
 
   emitMultiVersionResolver(Resolver, MVOptions, true /*UseIFunc*/,
                            true /*UseLibIRC*/);
+}
 
-  // TODO: CodeGenModule::SetCommonAttributes ?
+static bool
+shouldMultiVersion(Module& M, Function& Fn,
+                   function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
+
+  if (Fn.isDeclaration() || !Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+    return false;
+
+  // Skip available externally functions as they will be removed anyway.
+  if (Fn.hasAvailableExternallyLinkage())
+    return false;
+
+  // Skip weakly defined functions, as GNU ld handles them correctly starting
+  // from binutils 2.31 while support for older linkers is required.
+  // Commit which adds support for such ifuncs:
+  // https://github.com/bminor/binutils-gdb/commit/4ec0995016801cc5d5cf13baf6e10163861e6852
+  //
+  // TODO: Remove this restriction.
+  if (Fn.isWeakForLinker())
+    return false;
+
+  // Skip functions that have addresses of their basic blocks taken, this can
+  // happen when an address of a label is taken to do indirect goto later.
+  // Skip them because Value::replaceAllUsesWith cannot handle them.
+  // TODO: See if we can update such usages manually.
+  if (any_of(Fn.users(), [](User *U) { return isa<BlockAddress>(U); }))
+    return false;
+
+  // Skip functions that have inline assembly.
+  if (any_of(instructions(Fn),
+             [](Instruction &I) {
+               auto *CInst = dyn_cast<CallBase>(&I);
+               return CInst && CInst->isInlineAsm();
+             }))
+    return false;
+
+  // Skip functions that are resolvers of other ifuncs.
+  if (any_of(M.ifuncs(),
+             [&](GlobalIFunc &GIF) {
+               return GIF.getResolverFunction() == &Fn;
+             }))
+    return false;
+
+  // Names of Library functions that come from the ISO C standard are reserved
+  // unconditionally. Redefining them with external linkage will result in
+  // undefined behavior.
+  // Skip multiversioning such redefinitions. This is to achieve consistent
+  // behavior with -ax enabled vs not.
+  LibFunc LF;
+  if (Fn.hasExternalLinkage() && GetTLI(Fn).getLibFunc(Fn.getName(), LF))
+    return false;
+
+  return true;
+}
+
+static void
+CollectCalledFunctions(SetVector<Function*>& MVFunctions, unsigned StartIndex) {
+  for (size_t I = StartIndex; I < MVFunctions.size(); I++) {
+    Function *Fn = MVFunctions[I];
+    assert(Fn && "Pointer must point to a valid Function");
+    for (inst_iterator It = inst_begin(Fn), End = inst_end(Fn); It != End; ++It) {
+      auto *CInst = dyn_cast<CallBase>(&*It);
+      if (!CInst)
+        continue;
+      Function* Callee = CInst->getCalledFunction();
+      if (!Callee || Callee->isDeclaration())
+        continue;
+      MVFunctions.insert(Callee);
+    }
+  }
 }
 
 static bool
 cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
                function_ref<TargetLibraryInfo &(Function &)> GetTLI,
                function_ref<TargetTransformInfo &(Function &)> GetTTI) {
+
+  // Form a set of all functions that are candidates for multi-versioning.
+  SetVector<Function*> MVCandidates;
+  for (Function &Fn : M) {
+    if (Fn.isDeclaration() || MVCandidates.contains(&Fn))
+      continue;
+    // If selective multiversioning is enabled, multi-version only the
+    //   1) functions that contain non-annotation like intrinsics,
+    //   2) functions that contain loops, or
+    //   3) functions that are callable from loop bodies.
+    if (!EnableSelectiveMultiVersioning) {
+      MVCandidates.insert(&Fn);
+      continue;
+    }
+    // Collect functions that contain non-annotation like intrinsics.
+    if (any_of(instructions(Fn),
+               [&](Instruction &I) {
+                 auto *Inst = dyn_cast<IntrinsicInst>(&I);
+                 return Inst && !Inst->isAssumeLikeIntrinsic();
+               })) {
+      MVCandidates.insert(&Fn);
+    }
+    // Collect functions that contain loops.
+    if (GetLoopInfo(Fn).getTopLevelLoops().empty())
+      continue;
+    MVCandidates.insert(&Fn);
+    // Collect functions that are callable from loop bodies.
+    int StartIndex = MVCandidates.size();
+    for (inst_iterator It = inst_begin(Fn), End = inst_end(Fn); It != End; ++It) {
+      auto *CInst = dyn_cast<CallBase>(&*It);
+      if (!CInst)
+        continue;
+      auto ParentBB = CInst->getParent();
+      if (GetLoopInfo(Fn).getLoopDepth(ParentBB) == 0)
+        continue;
+      Function* Callee = CInst->getCalledFunction();
+      if (!Callee || Callee->isDeclaration())
+        continue;
+      MVCandidates.insert(Callee);
+    }
+    CollectCalledFunctions(MVCandidates, StartIndex);
+  }
 
   const Triple TT{M.getTargetTriple()};
 
@@ -163,75 +271,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
   bool Changed = false;
 
-  // Multiversion functions marked for auto cpu dispatching.
-  for (Function &Fn : M) {
+  for (Function *Fn : MVCandidates) {
 
-    if (!Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+    assert(Fn && "Pointer must point to a valid Function");
+    if (!shouldMultiVersion(M, *Fn, GetTLI))
       continue;
-
-    if (Fn.isDeclaration() || Fn.hasOptNone())
-      continue;
-
-    // Skip available externally functions as they will be removed anyway.
-    if (Fn.hasAvailableExternallyLinkage())
-      continue;
-
-    // Skip weakly defined functions, as GNU ld handles them correctly starting
-    // from binutils 2.31 while support for older linkers is required.
-    // Commit which adds support for such ifuncs:
-    // https://github.com/bminor/binutils-gdb/commit/4ec0995016801cc5d5cf13baf6e10163861e6852
-    //
-    // TODO: Remove this restriction.
-    if (Fn.isWeakForLinker())
-      continue;
-
-    // Skip functions that have addresses of their basic blocks taken, this can
-    // happen when an address of a label is taken to do indirect goto later.
-    // Skip them because Value::replaceAllUsesWith cannot handle them.
-    // TODO: See if we can update such usages manually.
-    if (any_of(Fn.users(), [](User *U) { return isa<BlockAddress>(U); }))
-      continue;
-
-    // Skip functions that have inline assembly.
-    if (any_of(instructions(Fn),
-               [](Instruction &I) {
-                 auto *CInst = dyn_cast<CallBase>(&I);
-                 return CInst && CInst->isInlineAsm();
-               })) {
-      continue;
-    }
-
-    // Skip functions that are resolvers of other ifuncs.
-    if (any_of(M.ifuncs(),
-               [&](GlobalIFunc &GIF) {
-                 return GIF.getResolverFunction() == &Fn;
-               })) {
-      continue;
-    }
-
-    // Names of Library functions that come from the ISO C standard are reserved
-    // unconditionally. Redefining them with external linkage will rsult in
-    // undefined behavior.
-    // Skip multiversioning such redefinitions. This is to achieve consistent
-    // behavior with -ax enabled vs not.
-    LibFunc LF;
-    if (Fn.hasExternalLinkage() &&
-        GetTLI(Fn).getLibFunc(Fn.getName(), LF)) {
-      continue;
-    }
-
-    // Do not multiversion functions that do not contain loops nor
-    // functions that do not contain non-annotation like intrinsics
-    if (EnableSelectiveMultiVersioning &&
-        GetLoopInfo(Fn).getTopLevelLoopsVector().empty()) {
-      if (none_of(instructions(Fn),
-                  [&](Instruction &I) {
-                    auto *Inst = dyn_cast<llvm::IntrinsicInst>(&I);
-                    return Inst && !Inst->isAssumeLikeIntrinsic();
-                  })) {
-        continue;
-      }
-    }
 
     // Use wrapper based resolvers on Windows or when -fPIC is specified
     // on the command line.
@@ -239,11 +283,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     bool UseWrapperBasedResolver = TT.isOSWindows() || isPIC;
 
     // Skip multiversioning variable argument functions w/ wrapper based resolvers.
-    if (UseWrapperBasedResolver && Fn.isVarArg())
+    if (UseWrapperBasedResolver && Fn->isVarArg())
       continue;
 
-    MDNode *AutoCPUDispatchMD = Fn.getMetadata("llvm.auto.cpu.dispatch");
-    LLVM_DEBUG(dbgs() << Fn.getName() << ": " << *AutoCPUDispatchMD << "\n");
+    MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
+    LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
 
     SmallVector<MultiVersionResolverOption> MVOptions;
 
@@ -266,7 +310,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
         continue;
 
       ValueToValueMapTy VMap;
-      Function *New = CloneFunction(&Fn, VMap);
+      Function *New = CloneFunction(Fn, VMap);
 
       New->setMetadata("llvm.auto.cpu.dispatch", nullptr);
       New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
@@ -297,7 +341,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       New->addFnAttr("loopopt-pipeline", "full");
       New->addFnAttr("advanced-optim", "true");
 
-      New->setName(Fn.getName() + "." + getTargetSuffix(TargetCpuDealiased));
+      New->setName(Fn->getName() + "." + getTargetSuffix(TargetCpuDealiased));
 
       SmallVector<StringRef> FeaturesArray;
       LibIRCDispatchFeatures.split(FeaturesArray, ',', /*MaxSplit=*/-1,
@@ -316,13 +360,13 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (MVOptions.empty())
       continue;
 
-    std::string OrigName = Fn.getName().str();
-    Fn.setName(OrigName + ".A"); // "generic" suffix.
+    std::string OrigName = Fn->getName().str();
+    Fn->setName(OrigName + ".A"); // "generic" suffix.
 
     // Since we are renaming the function, any comdats with the same name must
     // also be renamed. This is required when targeting COFF, as the comdat name
     // must match one of the names of the symbols in the comdat.
-    if (Comdat *C = Fn.getComdat()) {
+    if (Comdat *C = Fn->getComdat()) {
       if (C->getName() == OrigName) {
         Comdat *NewC = M.getOrInsertComdat(OrigName + ".A");
         NewC->setSelectionKind(C->getSelectionKind());
@@ -332,32 +376,32 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       }
     }
 
-    MVOptions.emplace_back(&Fn, "", ArrayRef<StringRef>()); // generic.
+    MVOptions.emplace_back(Fn, "", ArrayRef<StringRef>()); // generic.
     stable_sort(MVOptions, libIRCMVResolverOptionComparator);
 
     Function* Resolver = nullptr;
     GlobalValue* Dispatcher = nullptr;
     if (UseWrapperBasedResolver)
-      emitWrapperBasedResolver(Fn, OrigName, MVOptions, Resolver, Dispatcher);
+      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
     else
-      emitIFuncBasedResolver(Fn, OrigName, MVOptions, Resolver, Dispatcher);
+      emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
 
-    Orig2MultiFuncs[&Fn] = {Resolver, Dispatcher, std::move(Clones)};
-    Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
-    Fn.setMetadata("llvm.acd.clone", MDNode::get(Fn.getContext(), {}));
+    Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, std::move(Clones)};
+    Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    Fn->setMetadata("llvm.acd.clone", MDNode::get(Fn->getContext(), {}));
 
-    std::string FnAttr = GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false";
-    Fn.addFnAttr("advanced-optim", FnAttr);
+    std::string FnAttr = GetTTI(*Fn).isIntelAdvancedOptimEnabled() ? "true" : "false";
+    Fn->addFnAttr("advanced-optim", FnAttr);
     Resolver->addFnAttr("advanced-optim", FnAttr);
 
-    if (Fn.hasFnAttribute("tune-cpu"))
-      Resolver->addFnAttr(Fn.getFnAttribute("tune-cpu"));
+    if (Fn->hasFnAttribute("tune-cpu"))
+      Resolver->addFnAttr(Fn->getFnAttribute("tune-cpu"));
 
-    if (Fn.hasFnAttribute("target-cpu"))
-      Resolver->addFnAttr(Fn.getFnAttribute("target-cpu"));
+    if (Fn->hasFnAttribute("target-cpu"))
+      Resolver->addFnAttr(Fn->getFnAttribute("target-cpu"));
 
-    if (Fn.hasFnAttribute("target-features"))
-      Resolver->addFnAttr(Fn.getFnAttribute("target-features"));
+    if (Fn->hasFnAttribute("target-features"))
+      Resolver->addFnAttr(Fn->getFnAttribute("target-features"));
 
     Changed = true;
   }
