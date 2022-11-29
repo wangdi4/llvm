@@ -30,10 +30,10 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # Author: Victor Mustya <victor.mustya@intel.com>
-    # Date:   Fri Oct 14 21:03:46 2022 +0000
-    # Correctly restore pointer types for kernel args
-    set(LLVMGenXIntrinsics_GIT_TAG c708e3c18ad8467b4082cc61f7cca38f9f57c9c0)
+    # Author: Gorban, Igor <igor.gorban@intel.com>
+    # Date:   Thu Nov 24 17:13:40 2022 +0000
+    # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
+    set(LLVMGenXIntrinsics_GIT_TAG 782fbf7301dc73acaa049a4324c976ad94f587f7)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -44,10 +44,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # Author: Haohai Wen <haohai.wen@intel.com>
-      # Date:   Fri Jun 10 03:46:22 2022 +0000
-      # Format InstructionSimplify names
-      set(LLVMGenXIntrinsics_GIT_TAG abce9184b7a3a7fe1b02289b9285610d9dc45465)
+      # Author: Gorban, Igor <igor.gorban@intel.com>
+      # Date:   Thu Nov 24 17:13:40 2022 +0000
+      # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
+      set(LLVMGenXIntrinsics_GIT_TAG 782fbf7301dc73acaa049a4324c976ad94f587f7)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: HaohaiWen <haohai.wen@intel.com>
-        # Date:   Fri Jun 10 23:43:35 2022 +0800
-        # [VC BugFix]: Format InstructionSimplify names (#202)
-        set(LLVMGenXIntrinsics_GIT_TAG 6bef8e76ec6a39c324c8fa350580f9a55e661656)
+        # Author: Mariya Podchishchaeva <mariya.podchishchaeva@intel.com>
+        # Date:   Fri Nov 25 18:10:12 2022 +0100
+        # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
+        set(LLVMGenXIntrinsics_GIT_TAG a841e49dd3948f7de0b5f4aed7b7a435cb3928e3)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
