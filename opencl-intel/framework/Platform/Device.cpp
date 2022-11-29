@@ -794,7 +794,9 @@ SubDevice::~SubDevice() {
   }
   IOCLDeviceAgent *pRootAgent = GetDeviceAgent();
   if (!m_bTerminate && (nullptr != pRootAgent)) {
-    pRootAgent->clDevReleaseSubdevice(m_deviceId);
+    cl_dev_err_code err = pRootAgent->clDevReleaseSubdevice(m_deviceId);
+    (void)err;
+    assert(err == CL_DEV_SUCCESS && "Release sub-device failed");
   }
   // Todo: handle more intelligently
   m_pRootDevice->CloseDeviceInstance();

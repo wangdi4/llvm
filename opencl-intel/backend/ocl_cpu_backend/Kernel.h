@@ -21,6 +21,7 @@
 #include "cl_config.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
+#include <memory>
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
@@ -382,7 +383,7 @@ public:
 
   ~KernelSet();
 
-  void AddKernel(Kernel *pKernel);
+  void AddKernel(std::unique_ptr<Kernel> pKernel);
 
   size_t GetCount() const { return m_kernels.size(); }
 
@@ -395,7 +396,7 @@ public:
   Kernel *GetKernel(const char *name) const;
 
 private:
-  std::vector<Kernel *> m_kernels;
+  std::vector<std::unique_ptr<Kernel>> m_kernels;
   size_t m_blockKernelsCount;
 };
 } // namespace DeviceBackend
