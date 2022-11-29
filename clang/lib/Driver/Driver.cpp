@@ -5880,7 +5880,6 @@ class OffloadingActionBuilder final {
       }
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     bool addPerformanceDeviceLibs(const ToolChain *TC,
                                   ActionList &DeviceLinkObjects,
@@ -5925,7 +5924,6 @@ class OffloadingActionBuilder final {
       return PerflibAdded;
     }
 #endif // INTEL_CUSTOMIZATION
-=======
     // Return whether to use native bfloat16 library.
     bool selectBfloatLibs(const ToolChain *TC, bool &useNative) {
       const OptTable &Opts = C.getDriver().getOpts();
@@ -5995,7 +5993,6 @@ class OffloadingActionBuilder final {
 
       return needLibs;
     }
->>>>>>> 9ef25764c9b0a80295d9fa1506ba6baa176c30e5
 
     bool addSYCLDeviceLibs(const ToolChain *TC, ActionList &DeviceLinkObjects,
                            bool isSpirvAOT, bool isMSVCEnv) {
