@@ -132,6 +132,9 @@ LANGOPT(
 LANGOPT(
     OpenMPDeclareTargetGlobalDefaultMap	, 1, 0,
     "Specify defaultmap for Global variable with declare target attribute")
+LANGOPT(
+    OpenMPUseHostUSMForImpicitReductionMap, 1, 0,
+    "Set USM map type for implicit reduction map")
 
 LANGOPT(KeepImportTemps        , 1, 0,
         "Keep temporary files needed for #import processing")
