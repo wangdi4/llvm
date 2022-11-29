@@ -9911,11 +9911,11 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
     // If the loop has maximum trip count metadata, use that as an upper bound
     // for MaxNotTaken.
     if (MaxTripCountFromMetadata) {
-      if (EL.MaxNotTaken == getCouldNotCompute())
-        EL.MaxNotTaken = MaxBackedgeTakenFromMetadata;
+      if (EL.ConstantMaxNotTaken == getCouldNotCompute())
+        EL.ConstantMaxNotTaken = MaxBackedgeTakenFromMetadata;
       else
-        EL.MaxNotTaken = getUMinFromMismatchedTypes(
-            EL.MaxNotTaken, MaxBackedgeTakenFromMetadata);
+        EL.ConstantMaxNotTaken = getUMinFromMismatchedTypes(
+            EL.ConstantMaxNotTaken, MaxBackedgeTakenFromMetadata);
     }
 #endif // INTEL_CUSTOMIZATION
 
