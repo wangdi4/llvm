@@ -270,11 +270,6 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15471, "masked aligned streaming stores: %s "},
     {15472, "masked unaligned streaming loads: %s "},
     {15473, "masked unaligned streaming stores: %s "},
-    // These are really added below. Copy-pasted here for readability.
-    // {25532, "Unmasked VLS-optimized loads (each part of the group counted separately): %s"},
-    // {25533, "Masked VLS-optimized loads (each part of the group counted separately): %s"},
-    // {25534, "Unmasked VLS-optimized stores (each part of the group counted separately): %s"},
-    // {25535, "Masked VLS-optimized stores (each part of the group counted separately): %s"},
     {15474, "--- end vector loop memory reference summary ---"},
     {15475, "--- begin vector loop cost summary ---"},
     {15476, "scalar cost: %s "},
@@ -415,16 +410,22 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15559, "Call to function '%s' was serialized due to no vector variants "
             "were found. Consider adding #pragma omp declare simd."},
     {15560, "Indirect call cannot be vectorized."},
-    {15561, "Call to function '%s' was serialized due to operating on scalar operand(s)."},
+    {15561, "Call to function '%s' was serialized due to operating on scalar "
+            "operand(s)."},
     {15562, "Call '%s' cannot be vectorized for current context."},
-    {15563, "Load/store instruction was serilalized due to operating on non-vectorizable types."},
-    {15564, "Extract/Insert element instruction was serialized due to non-const index."},
+    {15563, "Load/store instruction was serilalized due to operating on "
+            "non-vectorizable types."},
+    {15564, "Extract/Insert element instruction was serialized due to "
+            "non-const index."},
     {15565, "Masked Extract/Insert element instruction is serialized."},
     {15566, "'%s': division was scalarized due to fp-model requirements."},
-    // Entries below semantically belong to "vector loop memory reference summary".
+    // Entries below semantically belong to "vector loop memory reference
+    // summary".
     // Remarks for reasons of generated gather/scatter instructions.
-    {15567, "Gathers are generated due to non-unit stride index of the corresponding loads."},
-    {15568, "Scatters are generated due to non-unit stride index of the corresponding stores."},
+    {15567, "Gathers are generated due to non-unit stride index of the "
+            "corresponding loads."},
+    {15568, "Scatters are generated due to non-unit stride index of the "
+            "corresponding stores."},
     {15569, "Compiler has chosen to target XMM/YMM vector. Try using "
             "-mprefer-vector-width=512 to override."},
     {15570, "using scalar loop trip count: %s"},
@@ -434,8 +435,10 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25033, "Number of indirect prefetches=%d, default dist=%d"},
     {25045, "Fused Loops: %s"},
     {25046, "Loop lost in Fusion"},
-    {25147, "Using directive-based hint=%d, distance=%d for prefetching spatial memory reference"},
-    {25150, "Using directive-based hint=%d, distance=%d for indirect memory reference"},
+    {25147, "Using directive-based hint=%d, distance=%d for prefetching "
+            "spatial memory reference"},
+    {25150, "Using directive-based hint=%d, distance=%d for indirect memory "
+            "reference"},
     {25228, "Loop multiversioned for Data Dependence"},
     {25258, "Loop peeled using condition%s"},
     {25259, "Loop optimized away using condition%s"},
@@ -461,9 +464,11 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25481, "Distribute point pragma not processed"},
     {25482, "No Distribution as requested by pragma"},
     {25483, "Distribute point pragma processed"},
-    {25484, "Distribute point pragma not processed: Unsupported constructs in loops"},
+    {25484,
+     "Distribute point pragma not processed: Unsupported constructs in loops"},
     {25485, "Distribute point pragma not processed: Loop is too complex"},
-    {25486, "Distribute point pragma not processed: Too many Distribute points"},
+    {25486,
+     "Distribute point pragma not processed: Too many Distribute points"},
     {25487, "Loop peeled to eliminate data dependence"},
     {25488, "LOOP WAS REROLLED"},
     {25489, "MEMOP WAS GENERATED FOR THIS LOOP"},
