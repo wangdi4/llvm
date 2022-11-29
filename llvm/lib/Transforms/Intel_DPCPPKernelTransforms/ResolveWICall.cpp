@@ -15,7 +15,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include <algorithm>
@@ -30,62 +29,6 @@ static cl::opt<bool> OptUniformWGSize(
     cl::desc("The flag speficies work groups size as uniform"));
 
 extern bool EnableTLSGlobals;
-
-namespace {
-
-/// Legacy ResolveWICall pass.
-class ResolveWICallLegacy : public ModulePass {
-public:
-  static char ID;
-
-  ResolveWICallLegacy(bool IsUniformWG = false, bool UseTLSGlobals = false);
-
-  llvm::StringRef getPassName() const override { return "ResolveWICallLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addRequired<ImplicitArgsAnalysisLegacy>();
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-
-private:
-  ResolveWICallPass Impl;
-  /// true if a module is compiled with the support of the non-uniform
-  /// work-group size.
-  bool IsUniformWG;
-  /// Use TLS globals instead of implicit arguments.
-  bool UseTLSGlobals;
-};
-
-} // namespace
-
-INITIALIZE_PASS_BEGIN(ResolveWICallLegacy, DEBUG_TYPE,
-                      "Resolve work-item built-in calls", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
-INITIALIZE_PASS_END(ResolveWICallLegacy, DEBUG_TYPE,
-                    "Resolve work-item built-in calls", false, false)
-
-char ResolveWICallLegacy::ID = 0;
-
-ResolveWICallLegacy::ResolveWICallLegacy(bool IsUniformWG, bool UseTLSGlobals)
-    : ModulePass(ID), IsUniformWG(IsUniformWG), UseTLSGlobals(UseTLSGlobals) {
-  initializeResolveWICallLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool ResolveWICallLegacy::runOnModule(Module &M) {
-  CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  ImplicitArgsInfo *IAInfo =
-      &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, IsUniformWG, UseTLSGlobals, IAInfo, CG);
-}
-
-ModulePass *llvm::createResolveWICallLegacyPass(bool IsUniformWGSize,
-                                                bool UseTLSGlobals) {
-  return new ResolveWICallLegacy(IsUniformWGSize, UseTLSGlobals);
-}
 
 PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);

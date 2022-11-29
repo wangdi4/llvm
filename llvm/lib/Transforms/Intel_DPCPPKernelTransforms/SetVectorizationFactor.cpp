@@ -12,55 +12,11 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-set-vf"
-
-namespace {
-
-/// Legacy SetVectorizationFactor pass.
-class SetVectorizationFactorLegacy : public ModulePass {
-  SetVectorizationFactorPass Impl;
-
-public:
-  static char ID;
-
-  SetVectorizationFactorLegacy(VFISAKind ISA = VFISAKind::SSE)
-      : ModulePass(ID), Impl(ISA) {
-    initializeSetVectorizationFactorLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "SetVectorizationFactorLegacy";
-  }
-
-  bool runOnModule(Module &M) override {
-    return Impl.runImpl(M, &getAnalysis<VFAnalysisLegacy>().getResult());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<VFAnalysisLegacy>();
-    AU.setPreservesAll();
-  }
-};
-} // namespace
-
-char SetVectorizationFactorLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(SetVectorizationFactorLegacy, DEBUG_TYPE,
-                      "Set VF metadata for kernels", false, false)
-INITIALIZE_PASS_DEPENDENCY(VFAnalysisLegacy)
-INITIALIZE_PASS_END(SetVectorizationFactorLegacy, DEBUG_TYPE,
-                    "Set VF metadata for kernels", false, false)
-
-ModulePass *
-llvm::createSetVectorizationFactorLegacyPass(VFISAKind ISA) {
-  return new SetVectorizationFactorLegacy(ISA);
-}
 
 extern cl::opt<VFISAKind> IsaEncodingOverride;
 SetVectorizationFactorPass::SetVectorizationFactorPass(

@@ -19,7 +19,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
@@ -353,41 +352,6 @@ void InstToFuncCallImpl::replaceInstWithCall(Function &F, Instruction &I,
   CI->addFnAttr(Attribute::WillReturn);
 
   I.replaceAllUsesWith(CI);
-}
-
-namespace {
-
-/// For legacy pass manager.
-class InstToFuncCallLegacy : public ModulePass {
-public:
-  static char ID;
-
-  InstToFuncCallLegacy(VFISAKind ISA = VFISAKind::SSE)
-      : ModulePass(ID), ISA(ISA) {
-    initializeInstToFuncCallLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "InstToFuncCallLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    InstToFuncCallImpl Impl;
-    return Impl.run(M, ISA);
-  }
-
-private:
-  VFISAKind ISA;
-};
-
-} // namespace
-
-INITIALIZE_PASS(InstToFuncCallLegacy, "dpcpp-kernel-inst-to-func-call",
-                "Replaces LLVM IR instructions with calls to functions", false,
-                false)
-
-char InstToFuncCallLegacy::ID = 0;
-
-ModulePass *llvm::createInstToFuncCallLegacyPass(VFISAKind ISA) {
-  return new InstToFuncCallLegacy(ISA);
 }
 
 PreservedAnalyses InstToFuncCallPass::run(Module &M, ModuleAnalysisManager &) {

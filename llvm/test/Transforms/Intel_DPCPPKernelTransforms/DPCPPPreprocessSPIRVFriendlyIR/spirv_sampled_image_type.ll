@@ -1,6 +1,4 @@
-; RUN: opt -dpcpp-kernel-preprocess-spv-ir -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='dpcpp-kernel-preprocess-spv-ir' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-preprocess-spv-ir -S %s | FileCheck %s
 ; RUN: opt -passes='dpcpp-kernel-preprocess-spv-ir' -S %s | FileCheck %s
 
 ; Extended basing on clang/test/CodeGenOpenCL/sampled_image.cl

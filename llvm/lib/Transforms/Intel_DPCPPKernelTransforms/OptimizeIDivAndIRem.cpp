@@ -20,7 +20,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
@@ -29,50 +28,6 @@ using namespace llvm;
 // TODO: move this functionality to InstToFuncCall pass
 
 #define DEBUG_TYPE "dpcpp-kernel-optimize-idiv-and-irem"
-
-namespace llvm {
-/// OptimizeIDivAndIRemLegacy pass for legacy pass manager.
-class OptimizeIDivAndIRemLegacy : public FunctionPass {
-
-public:
-  OptimizeIDivAndIRemLegacy() : FunctionPass(ID) {
-    initializeOptimizeIDivAndIRemLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  static char ID;
-
-  StringRef getPassName() const override {
-    return "Intel DPCPP Kernel OptimizeIDivAndIRem Pass";
-  }
-
-  bool runOnFunction(Function &F) override {
-    RuntimeService &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                              .getResult()
-                              .getRuntimeService();
-
-    return Impl.runImpl(F, RTS);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  }
-
-private:
-  OptimizeIDivAndIRemPass Impl;
-};
-} // namespace llvm
-
-INITIALIZE_PASS_BEGIN(
-    OptimizeIDivAndIRemLegacy, DEBUG_TYPE,
-    "Replace integer divide and integer remainder instruction with SVML call",
-    false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(
-    OptimizeIDivAndIRemLegacy, DEBUG_TYPE,
-    "Replace integer divide and integer remainder instruction with SVML call",
-    false, false)
-
-char OptimizeIDivAndIRemLegacy::ID = 0;
 
 PreservedAnalyses OptimizeIDivAndIRemPass::run(Function &F,
                                                FunctionAnalysisManager &FAM) {
@@ -209,8 +164,4 @@ bool OptimizeIDivAndIRemPass::runImpl(Function &F, RuntimeService &RTS) {
     Changed |= replaceWithBuiltInCall(DivInst, RTS);
   }
   return Changed;
-}
-
-FunctionPass *llvm::createOptimizeIDivAndIRemLegacyPass() {
-  return new llvm::OptimizeIDivAndIRemLegacy();
 }

@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-set-prefer-vector-width -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-set-prefer-vector-width -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-set-prefer-vector-width -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-set-prefer-vector-width -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 define void @foo() #0 {
 ; CHECK-LABEL: define void @foo

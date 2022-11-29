@@ -9,14 +9,13 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -26,67 +25,6 @@
 
 using namespace llvm;
 using namespace CompilationUtils;
-
-namespace {
-
-/// Legacy DPCPPKernel analysis pass.
-class DPCPPKernelAnalysisLegacy : public ModulePass {
-  DPCPPKernelAnalysisPass Impl;
-
-public:
-  /// Pass identifier.
-  static char ID;
-
-  DPCPPKernelAnalysisLegacy() : ModulePass(ID) {
-    initializeDPCPPKernelAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                    .getResult()
-                    .getRuntimeService();
-    auto GetLI = [&](Function &F) -> LoopInfo & {
-      return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-    return Impl.runImpl(M, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
-                        RTS, GetLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-private:
-  /// Print data collected by the pass on the given module.
-  /// OS stream to print the info to.
-  /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M = 0) const override;
-};
-
-} // namespace
-
-char DPCPPKernelAnalysisLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
-                      "Analyze kernel properties", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
-                    "Analyze kernel properties", false, false)
-
-void DPCPPKernelAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
-  Impl.print(OS, M);
-}
-
-ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
-  return new DPCPPKernelAnalysisLegacy();
-}
 
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   // Get all synchronize built-ins declared in module

@@ -1,5 +1,4 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' %s | FileCheck %s
-; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-value-analysis %s | FileCheck %s
 
 define void @test() {
 entry:

@@ -1,5 +1,3 @@
-; RUN: opt -S -dpcpp-kernel-add-fast-math %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -S -dpcpp-kernel-add-fast-math %s | FileCheck %s
 ; RUN: opt -S -passes=dpcpp-kernel-add-fast-math %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -S -passes=dpcpp-kernel-add-fast-math %s | FileCheck %s
 

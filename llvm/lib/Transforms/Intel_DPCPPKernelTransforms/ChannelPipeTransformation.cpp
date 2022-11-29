@@ -17,7 +17,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ChannelPipeTransformation.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -41,35 +40,6 @@ using ValueValuePair = std::pair<Value *, Value *>;
 using WorkListType = std::stack<ValueValuePair, std::vector<ValueValuePair>>;
 
 extern unsigned DPCPPChannelDepthEmulationMode;
-
-class ChannelPipeTransformationLegacy : public ModulePass {
-public:
-  static char ID;
-  ChannelPipeTransformationLegacy() : ModulePass(ID) {
-    llvm::initializeChannelPipeTransformationLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  virtual StringRef getPassName() const override {
-    return "ChannelPipeTransformationLegacy";
-  }
-
-  bool runOnModule(llvm::Module &M) override;
-
-  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
-
-private:
-  ChannelPipeTransformationPass Impl;
-};
-
-char ChannelPipeTransformationLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(ChannelPipeTransformationLegacy, DEBUG_TYPE,
-                      "Transform Intel FPGA channels into OpenCL 2.0 pipes",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(ChannelPipeTransformationLegacy, DEBUG_TYPE,
-                    "Transform Intel FPGA channels into OpenCL 2.0 pipes",
-                    false, false)
 
 static bool isGlobalChannel(const GlobalValue *GV, const Type *ChannelTy) {
   auto *GVValueTy = GV->getValueType();
@@ -780,12 +750,6 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
   cleanup(M, ToDelete, VMap);
 }
 
-bool ChannelPipeTransformationLegacy::runOnModule(Module &M) {
-  BuiltinLibInfo *BLI =
-      &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, BLI);
-}
-
 PreservedAnalyses
 ChannelPipeTransformationPass::run(Module &M, ModuleAnalysisManager &MAM) {
   BuiltinLibInfo *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
@@ -811,13 +775,4 @@ bool ChannelPipeTransformationPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   replaceGlobalChannelUses(M, ChannelTy, GlobalVMap, RTS);
 
   return true;
-}
-
-void ChannelPipeTransformationLegacy::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-}
-
-ModulePass *llvm::createChannelPipeTransformationLegacyPass() {
-  return new ChannelPipeTransformationLegacy();
 }

@@ -12,7 +12,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 using namespace llvm;
@@ -20,19 +19,6 @@ using namespace llvm;
 extern cl::opt<bool> SkipNonBarrierFunction;
 
 #define DEBUG_TYPE "dpcpp-kernel-redundant-phi-node"
-
-INITIALIZE_PASS(RedundantPhiNodeLegacy, DEBUG_TYPE,
-                "DPCPP Barrier Pass - Handle redundant Phi node", false, false)
-
-char RedundantPhiNodeLegacy::ID = 0;
-
-RedundantPhiNodeLegacy::RedundantPhiNodeLegacy() : FunctionPass(ID) {
-  initializeRedundantPhiNodeLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool RedundantPhiNodeLegacy::runOnFunction(Function &F) {
-  return Impl.runImpl(F);
-}
 
 PreservedAnalyses RedundantPhiNode::run(Function &F,
                                         FunctionAnalysisManager &) {
@@ -85,8 +71,4 @@ bool RedundantPhiNode::runImpl(Function &F) {
   }
   // The module was changed only if there were instructions to remove
   return !InstsToRemove.empty();
-}
-
-FunctionPass *llvm::createRedundantPhiNodeLegacyPass() {
-  return new RedundantPhiNodeLegacy();
 }

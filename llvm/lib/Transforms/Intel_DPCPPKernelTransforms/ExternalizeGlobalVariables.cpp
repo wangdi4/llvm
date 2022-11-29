@@ -16,51 +16,12 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ExternalizeGlobalVariables.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-externalize-global-variables"
-namespace {
-class ExternalizeGlobalVariablesLegacy : public ModulePass {
-public:
-  static char ID;
-
-  ExternalizeGlobalVariablesLegacy();
-
-  bool runOnModule(Module &M) override;
-
-  StringRef getPassName() const override {
-    return "ExternalizeGlobalVariables";
-  }
-
-private:
-  ExternalizeGlobalVariablesPass Impl;
-};
-} // namespace
-
-ModulePass *llvm::createExternalizeGlobalVariablesLegacyPass() {
-  return new ExternalizeGlobalVariablesLegacy();
-}
-
-char ExternalizeGlobalVariablesLegacy::ID = 0;
-
-INITIALIZE_PASS(ExternalizeGlobalVariablesLegacy, DEBUG_TYPE,
-                "ExternalizeGlobalVariables: change linkage type for global"
-                " variables with private/internal linkage to external.",
-                false, false)
-
-bool ExternalizeGlobalVariablesLegacy::runOnModule(Module &M) {
-  return Impl.runImpl(M);
-}
-
-ExternalizeGlobalVariablesLegacy::ExternalizeGlobalVariablesLegacy()
-    : ModulePass(ID) {
-  initializeExternalizeGlobalVariablesLegacyPass(
-      *PassRegistry::getPassRegistry());
-}
 
 PreservedAnalyses
 ExternalizeGlobalVariablesPass::run(Module &M, ModuleAnalysisManager &AM) {

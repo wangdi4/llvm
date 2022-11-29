@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s | FileCheck %s
 
 ; Compiled from:
 ; ----------------------------------------------------

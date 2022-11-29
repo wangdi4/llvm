@@ -16,7 +16,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 
@@ -30,41 +29,6 @@ static const unsigned SHUFFLE_MASK_POS = 1;
 static const unsigned SHUFFLE2_VEC1_POS = 0;
 static const unsigned SHUFFLE2_VEC2_POS = 1;
 static const unsigned SHUFFLE2_MASK_POS = 2;
-
-namespace {
-/// Legacy BuiltinCallToInst pass.
-class BuiltinCallToInstLegacy : public FunctionPass {
-public:
-  static char ID;
-
-  BuiltinCallToInstLegacy() : FunctionPass(ID) {
-    initializeBuiltinCallToInstLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override {
-    return "BuiltinCallToInstLegacy";
-  }
-
-  bool runOnFunction(Function &F) override { return Impl.runImpl(F); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-
-private:
-  BuiltinCallToInstPass Impl;
-};
-
-} // namespace
-
-char BuiltinCallToInstLegacy::ID = 0;
-
-INITIALIZE_PASS(BuiltinCallToInstLegacy, DEBUG_TYPE,
-                "Resolve supported builtin calls", false, false)
-
-FunctionPass *llvm::createBuiltinCallToInstLegacyPass() {
-  return new BuiltinCallToInstLegacy();
-}
 
 PreservedAnalyses BuiltinCallToInstPass::run(Function &F,
                                              FunctionAnalysisManager &AM) {

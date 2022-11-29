@@ -17,43 +17,12 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RemoveDuplicatedBarrier.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-remove-duplicated-barrier"
 
 using namespace llvm;
 
 extern bool EnableNativeDebug;
-
-namespace llvm {
-/// for legacy pass manager
-class RemoveDuplicatedBarrierLegacy : public ModulePass {
-public:
-  RemoveDuplicatedBarrierLegacy(bool IsNativeDebug = false)
-      : ModulePass(ID), Impl(IsNativeDebug) {
-    initializeRemoveDuplicatedBarrierLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  static char ID;
-
-  StringRef getPassName() const override {
-    return "Intel DPCPP Kernel RemoveDuplicatedBarrier Pass";
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-private:
-  RemoveDuplicatedBarrierPass Impl;
-};
-} // namespace llvm
-
-char RemoveDuplicatedBarrierLegacy::ID = 0;
-
-INITIALIZE_PASS(
-    RemoveDuplicatedBarrierLegacy, DEBUG_TYPE,
-    "RemoveDuplicatedBarrier Pass - Remove duplicated barrier instructions",
-    false, false)
 
 RemoveDuplicatedBarrierPass::RemoveDuplicatedBarrierPass(bool IsNativeDebug)
     : IsNativeDBG(IsNativeDebug || EnableNativeDebug) {}
@@ -164,8 +133,4 @@ bool RemoveDuplicatedBarrierPass::runImpl(Module &M) {
     Inst->eraseFromParent();
 
   return true;
-}
-
-ModulePass *llvm::createRemoveDuplicatedBarrierLegacyPass(bool IsNativeDebug) {
-  return new RemoveDuplicatedBarrierLegacy(IsNativeDebug);
 }

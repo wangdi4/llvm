@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-barrier -S < %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier -S < %s | FileCheck %s
 ;;*****************************************************************************
 ; This test checks the Barrier pass
 ;; The case: kernel "main" with barrier instruction and the non-uniform value "%y"

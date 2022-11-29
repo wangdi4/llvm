@@ -14,7 +14,6 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <utility>
@@ -24,40 +23,6 @@
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 using namespace CompilationUtils;
-
-namespace {
-/// Legacy CoerceWin64Types pass.
-class CoerceWin64TypesLegacy : public ModulePass {
-public:
-  static char ID;
-
-  CoerceWin64TypesLegacy();
-
-  StringRef getPassName() const override { return "CoerceWin64TypesLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-private:
-  CoerceWin64TypesPass Impl;
-};
-} // namespace
-
-char CoerceWin64TypesLegacy::ID = 0;
-
-INITIALIZE_PASS(CoerceWin64TypesLegacy, DEBUG_TYPE,
-                "Performs function argument and return value type coercion to "
-                "ensure windows-64 ABI compliance",
-                false, false)
-
-CoerceWin64TypesLegacy::CoerceWin64TypesLegacy() : ModulePass(ID), Impl() {
-  initializeCoerceWin64TypesLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool CoerceWin64TypesLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
-
-ModulePass *llvm::createCoerceWin64TypesLegacyPass() {
-  return new CoerceWin64TypesLegacy();
-}
 
 CoerceWin64TypesPass::CoerceWin64TypesPass() {}
 

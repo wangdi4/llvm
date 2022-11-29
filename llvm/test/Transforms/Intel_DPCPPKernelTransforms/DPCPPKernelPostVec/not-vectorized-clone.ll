@@ -1,8 +1,6 @@
 ; If the kernel is not vectorized, then the cloned kernel is removed.
 ; RUN: opt -passes=dpcpp-kernel-postvec %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-postvec %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-postvec %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-postvec %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 ; CHECK-NOT: define void @_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_
 

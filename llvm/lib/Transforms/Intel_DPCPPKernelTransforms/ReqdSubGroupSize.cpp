@@ -17,7 +17,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReqdSubGroupSize.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-reqd-sub-group-size"
@@ -30,31 +29,6 @@ cl::opt<std::string>
                          cl::desc("Per-kernel required subgroup"
                                   "size. Comma separated list of"
                                   " name(num)"));
-
-namespace llvm {
-/// for legacy pass manager
-class ReqdSubGroupSizeLegacy : public ModulePass {
-  ReqdSubGroupSizePass Impl;
-
-public:
-  ReqdSubGroupSizeLegacy() : ModulePass(ID) {
-    initializeReqdSubGroupSizeLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  static char ID;
-
-  StringRef getPassName() const override {
-    return "Intel DPCPP Kernel ReqdSubGroupSize Pass";
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-};
-} // namespace llvm
-
-char ReqdSubGroupSizeLegacy::ID = 0;
-
-INITIALIZE_PASS(ReqdSubGroupSizeLegacy, DEBUG_TYPE, "ReqdSubGroupSize pass",
-                true /* CFG unchanged */, false /* transform pass */)
 
 PreservedAnalyses ReqdSubGroupSizePass::run(Module &M,
                                             ModuleAnalysisManager &) {
@@ -118,8 +92,4 @@ bool ReqdSubGroupSizePass::runImpl(Module &M) {
     }
   }
   return Changed;
-}
-
-ModulePass *llvm::createReqdSubGroupSizeLegacyPass() {
-  return new llvm::ReqdSubGroupSizeLegacy();
 }

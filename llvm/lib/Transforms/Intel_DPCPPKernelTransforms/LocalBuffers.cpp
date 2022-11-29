@@ -19,7 +19,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -29,54 +28,6 @@ using namespace llvm;
 #define DEBUG_TYPE "dpcpp-kernel-local-buffers"
 
 extern bool EnableTLSGlobals;
-
-namespace {
-
-/// Legacy LocalBuffers Pass
-class LocalBuffersLegacy : public ModulePass {
-  LocalBuffersPass Impl;
-
-public:
-  static char ID;
-
-  LocalBuffersLegacy(bool UseTLSGlobals = false)
-      : ModulePass(ID), Impl(UseTLSGlobals) {
-    initializeLocalBuffersLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  ~LocalBuffersLegacy() {}
-
-  StringRef getPassName() const override { return "LocalBuffersLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LocalBufferAnalysisLegacy>();
-    AU.setPreservesCFG();
-  }
-};
-
-} // namespace
-
-char LocalBuffersLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(LocalBuffersLegacy, DEBUG_TYPE,
-                      "Map __local GlobalVariables to the local buffer", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(LocalBufferAnalysisLegacy)
-INITIALIZE_PASS_END(LocalBuffersLegacy, DEBUG_TYPE,
-                    "Map __local GlobalVariables to the local buffer", false,
-                    false)
-
-bool LocalBuffersLegacy::runOnModule(Module &M) {
-  LocalBufferInfo *LBInfo =
-      &getAnalysis<LocalBufferAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, LBInfo);
-}
-
-ModulePass *llvm::createLocalBuffersLegacyPass(bool UseTLSGlobals) {
-  return new LocalBuffersLegacy(UseTLSGlobals);
-}
 
 PreservedAnalyses LocalBuffersPass::run(Module &M, ModuleAnalysisManager &AM) {
   LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);

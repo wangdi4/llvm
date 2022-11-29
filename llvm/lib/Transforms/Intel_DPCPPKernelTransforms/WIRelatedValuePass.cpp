@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 #include "llvm/IR/InstIterator.h"
@@ -474,21 +473,6 @@ void WIRelatedValue::print(raw_ostream &OS, const Module *M) const {
   }
 }
 
-INITIALIZE_PASS(WIRelatedValueWrapper, "dpcpp-kernel-barrier-wi-analysis",
-                "Intel DPCPP Barrier Pass - Calculate WI relation per Value",
-                false, true)
-
-char WIRelatedValueWrapper::ID = 0;
-
-WIRelatedValueWrapper::WIRelatedValueWrapper() : ModulePass(ID) {
-  initializeWIRelatedValueWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-bool WIRelatedValueWrapper::runOnModule(Module &M) {
-  WRV.reset(new WIRelatedValue{M});
-  return false;
-}
-
 AnalysisKey WIRelatedValueAnalysis::Key;
 
 WIRelatedValue WIRelatedValueAnalysis::run(Module &M,
@@ -500,8 +484,4 @@ PreservedAnalyses WIRelatedValuePrinter::run(Module &M,
                                              ModuleAnalysisManager &MAM) {
   MAM.getResult<WIRelatedValueAnalysis>(M).print(OS, &M);
   return PreservedAnalyses::all();
-}
-
-ModulePass *llvm::createWIRelatedValueWrapperPass() {
-  return new WIRelatedValueWrapper();
 }

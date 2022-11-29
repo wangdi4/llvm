@@ -12,46 +12,10 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-add-nt-attr"
 
 using namespace llvm;
-
-namespace {
-
-class AddNTAttrLegacy : public FunctionPass {
-public:
-  static char ID;
-
-  AddNTAttrLegacy();
-
-  StringRef getPassName() const override { return "AddNTAttrLegacy"; }
-
-  bool runOnFunction(Function &Func) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-private:
-  AddNTAttrPass Impl;
-};
-
-} // namespace
-
-char AddNTAttrLegacy::ID = 0;
-
-AddNTAttrLegacy::AddNTAttrLegacy() : FunctionPass(ID) {
-  initializeAddNTAttrLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-void AddNTAttrLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<AAResultsWrapperPass>();
-}
-
-bool AddNTAttrLegacy::runOnFunction(Function &Func) {
-  auto &AaRet = getAnalysis<AAResultsWrapperPass>().getAAResults();
-  return Impl.runImpl(Func, AaRet);
-}
 
 bool AddNTAttrPass::setNTAttr(StoreInst *SI) {
   if (SI->getMetadata("nontemporal")) {
@@ -143,12 +107,3 @@ bool AddNTAttrPass::runImpl(Function &Func, AAResults &AaRet) {
     LLVM_DEBUG(dbgs() << "Add NT attr for " << Func.getName() << "\n");
   return Changed;
 }
-
-INITIALIZE_PASS_BEGIN(AddNTAttrLegacy, DEBUG_TYPE,
-                      "add non-temporal attribute", false, false)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_END(AddNTAttrLegacy, DEBUG_TYPE,
-                    "add non-temporal attribute", false, false)
-
-FunctionPass *llvm::createAddNTAttrLegacyPass() { return new AddNTAttrLegacy(); }
-

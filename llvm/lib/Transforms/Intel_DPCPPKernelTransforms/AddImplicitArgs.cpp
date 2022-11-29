@@ -14,7 +14,6 @@
 #include "llvm/IR/ValueMap.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -22,57 +21,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-add-implicit-args"
-
-namespace {
-
-/// Legacy AddImplicitArgs pass.
-class AddImplicitArgsLegacy : public ModulePass {
-  AddImplicitArgsPass Impl;
-
-public:
-  /// Pass identification, replacement for typeid
-  static char ID;
-
-  AddImplicitArgsLegacy();
-
-  StringRef getPassName() const override { return "AddImplicitArgsLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addRequired<ImplicitArgsAnalysisLegacy>();
-    AU.setPreservesCFG();
-    AU.addPreserved<CallGraphWrapperPass>();
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-INITIALIZE_PASS_BEGIN(AddImplicitArgsLegacy, DEBUG_TYPE,
-                      "Add implicit arguments to functions", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
-INITIALIZE_PASS_END(AddImplicitArgsLegacy, DEBUG_TYPE,
-                    "Add implicit arguments to functions", false, false)
-
-char AddImplicitArgsLegacy::ID = 0;
-
-AddImplicitArgsLegacy::AddImplicitArgsLegacy() : ModulePass(ID) {
-  initializeAddImplicitArgsLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-ModulePass *llvm::createAddImplicitArgsLegacyPass() {
-  return new AddImplicitArgsLegacy();
-}
-
-bool AddImplicitArgsLegacy::runOnModule(Module &M) {
-  CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  ImplicitArgsInfo *IAInfo =
-      &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, IAInfo, CG);
-}
 
 PreservedAnalyses AddImplicitArgsPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {

@@ -21,7 +21,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
 using namespace llvm;
@@ -125,51 +124,6 @@ bool BuiltinLICMImpl::run() {
 }
 
 } // namespace
-
-namespace {
-
-class BuiltinLICMLegacy : public LoopPass {
-public:
-  static char ID; // LLVM pass ID
-
-  BuiltinLICMLegacy() : LoopPass(ID) {
-    initializeBuiltinLICMLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnLoop(Loop *L, LPPassManager &) override {
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    BuiltinLibInfo &BLI =
-        getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    BuiltinLICMImpl Impl(*L, LI, DT, BLI.getRuntimeService());
-    return Impl.run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.setPreservesCFG();
-  }
-};
-
-} // namespace
-
-char BuiltinLICMLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(BuiltinLICMLegacy, DEBUG_TYPE,
-                      "hoist known uniform dpcpp builtins out of loops", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(BuiltinLICMLegacy, DEBUG_TYPE,
-                    "hoist known uniform dpcpp builtins out of loops", false,
-                    false)
-
-LoopPass *llvm::createBuiltinLICMLegacyPass() {
-  return new BuiltinLICMLegacy();
-}
 
 PreservedAnalyses BuiltinLICMPass::run(Loop &L, LoopAnalysisManager &AM,
                                        LoopStandardAnalysisResults &AR,

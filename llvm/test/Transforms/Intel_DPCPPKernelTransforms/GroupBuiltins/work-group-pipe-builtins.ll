@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-group-builtin %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-group-builtin %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-group-builtin %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-group-builtin %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the GroupBuiltins pass

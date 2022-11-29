@@ -1,5 +1,3 @@
-; RUN: opt %s -dpcpp-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -dpcpp-kernel-indirect-call-lowering -S | FileCheck %s
 ; RUN: opt %s -passes=dpcpp-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt %s -passes=dpcpp-kernel-indirect-call-lowering -S | FileCheck %s
 

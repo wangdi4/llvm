@@ -16,7 +16,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
 
@@ -77,39 +76,4 @@ bool CreateSimdVariantPropagation::runImpl(Module &M) {
   }
 
   return Modified;
-}
-
-// For legacy pass manager
-namespace {
-
-class CreateSimdVariantPropagationLegacy : public ModulePass {
-public:
-  static char ID;
-
-  CreateSimdVariantPropagationLegacy() : ModulePass(ID) {
-    initializeCreateSimdVariantPropagationLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override {
-    return "CreateSimdVariantPropagationLegacy";
-  }
-
-protected:
-  bool runOnModule(llvm::Module &M) override {
-    return CreateSimdVariantPropagation().runImpl(M);
-  }
-};
-
-} // namespace
-
-char CreateSimdVariantPropagationLegacy::ID = 0;
-
-INITIALIZE_PASS(CreateSimdVariantPropagationLegacy,
-                "dpcpp-kernel-create-simd-variant-propagation",
-                "Propagate __intel_create_simd_variant attributes to callees",
-                false, false)
-
-ModulePass *llvm::createCreateSimdVariantPropagationLegacyPass() {
-  return new CreateSimdVariantPropagationLegacy();
 }

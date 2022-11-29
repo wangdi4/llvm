@@ -15,13 +15,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeSupport.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <stack>
@@ -31,41 +30,6 @@ using namespace DPCPPChannelPipeUtils;
 using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-pipe-support"
-
-namespace {
-class PipeSupportLegacy : public ModulePass {
-public:
-  static char ID;
-
-  PipeSupportLegacy();
-
-  StringRef getPassName() const override { return "PipeSupport"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-private:
-  PipeSupportPass Impl;
-};
-
-} // namespace
-
-char PipeSupportLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(
-    PipeSupportLegacy, DEBUG_TYPE,
-    "Apply transformation required by pipe built-ins implementation", false,
-    false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(
-    PipeSupportLegacy, DEBUG_TYPE,
-    "Apply transformation required by pipe built-ins implementation", false,
-    false)
-
-PipeSupportLegacy::PipeSupportLegacy() : ModulePass(ID) {
-  initializePipeSupportLegacyPass(*PassRegistry::getPassRegistry());
-}
 
 struct PipeArrayView {
   Value *Ptr;
@@ -324,12 +288,6 @@ static bool addImplicitFlushCalls(Module *M, Function &F, RuntimeService &RTS,
   return true;
 }
 
-bool PipeSupportLegacy::runOnModule(Module &M) {
-  BuiltinLibInfo *BLI =
-      &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, BLI);
-}
-
 PreservedAnalyses PipeSupportPass::run(Module &M, ModuleAnalysisManager &MAM) {
   BuiltinLibInfo *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
   return runImpl(M, BLI) ? PreservedAnalyses::none() : PreservedAnalyses::all();
@@ -386,12 +344,4 @@ bool PipeSupportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
     }
   }
   return Changed;
-}
-
-void PipeSupportLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-}
-
-ModulePass *llvm::createPipeSupportLegacyPass() {
-  return new PipeSupportLegacy();
 }

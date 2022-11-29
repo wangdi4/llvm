@@ -1,5 +1,3 @@
-; RUN: opt -S -dpcpp-kernel-handle-taskseq-async %s | FileCheck %s
-; RUN: opt -S -dpcpp-kernel-handle-taskseq-async %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -S -passes=dpcpp-kernel-handle-taskseq-async %s | FileCheck %s
 ; RUN: opt -S -passes=dpcpp-kernel-handle-taskseq-async %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 

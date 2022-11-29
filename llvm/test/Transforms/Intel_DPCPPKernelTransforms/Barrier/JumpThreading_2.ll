@@ -1,5 +1,5 @@
-; RUN: opt -dpcpp-kernel-add-function-attrs -jump-threading -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-function-attrs -jump-threading -verify -S < %s | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-add-function-attrs,jump-threading -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-add-function-attrs,jump-threading,verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass JumpThreading does not add new barrier instructions.

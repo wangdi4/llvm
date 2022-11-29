@@ -1,5 +1,3 @@
-; RUN: opt %s -dpcpp-enable-vector-variant-passes -dpcpp-kernel-create-simd-variant-propagation -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -dpcpp-enable-vector-variant-passes -dpcpp-kernel-create-simd-variant-propagation -S | FileCheck %s
 ; RUN: opt %s -dpcpp-enable-vector-variant-passes -passes=dpcpp-kernel-create-simd-variant-propagation -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt %s -dpcpp-enable-vector-variant-passes -passes=dpcpp-kernel-create-simd-variant-propagation -S | FileCheck %s
 

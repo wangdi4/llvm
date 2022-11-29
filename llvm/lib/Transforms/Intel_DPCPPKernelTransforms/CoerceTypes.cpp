@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CoerceTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
@@ -19,40 +18,6 @@ using namespace DPCPPKernelMetadataAPI;
 using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-coerce-types"
-
-namespace {
-
-class CoerceTypesLegacy : public ModulePass {
-public:
-  static char ID;
-
-  CoerceTypesLegacy();
-
-  llvm::StringRef getPassName() const override { return "CoerceTypes"; }
-
-  bool runOnModule(Module &M) override;
-
-private:
-  CoerceTypesPass Impl;
-};
-} // namespace
-
-char CoerceTypesLegacy::ID = 0;
-
-INITIALIZE_PASS(CoerceTypesLegacy, "dpcpp-kernel-coerce-types",
-                "Performs function argument and return value type coercion "
-                "to ensure ABI compliance",
-                false, false)
-
-CoerceTypesLegacy::CoerceTypesLegacy() : ModulePass(ID) {
-  initializeCoerceTypesLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-ModulePass *llvm::createCoerceTypesLegacyPass() {
-  return new CoerceTypesLegacy();
-}
-
-bool CoerceTypesLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
 PreservedAnalyses CoerceTypesPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!runImpl(M))

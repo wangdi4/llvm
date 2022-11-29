@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-uniform-wg-size -dpcpp-kernel-add-implicit-args -debugify -dpcpp-kernel-resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-uniform-wg-size -dpcpp-kernel-add-implicit-args -dpcpp-kernel-resolve-wi-call -S %s | FileCheck %s
 ; RUN: opt -dpcpp-uniform-wg-size -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-uniform-wg-size -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-resolve-wi-call' -S %s | FileCheck %s
 

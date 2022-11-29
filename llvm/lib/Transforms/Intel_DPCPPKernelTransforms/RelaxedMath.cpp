@@ -16,7 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RelaxedMath.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
@@ -73,30 +72,6 @@ static bool runImpl(Module &M) {
   }
 
   return !WorkList.empty();
-}
-
-namespace {
-class RelaxedMathLegacy : public ModulePass {
-public:
-  static char ID;
-
-  RelaxedMathLegacy() : ModulePass(ID) {
-    initializeRelaxedMathLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override { return "RelaxedMathLegacy"; }
-
-  bool runOnModule(Module &M) override { return runImpl(M); }
-};
-} // namespace
-
-char RelaxedMathLegacy::ID = 0;
-
-INITIALIZE_PASS(RelaxedMathLegacy, DEBUG_TYPE,
-                "Relaxed math builtin substitution", false, false)
-
-ModulePass *llvm::createRelaxedMathLegacyPass() {
-  return new RelaxedMathLegacy();
 }
 
 PreservedAnalyses RelaxedMathPass::run(Module &M, ModuleAnalysisManager &) {

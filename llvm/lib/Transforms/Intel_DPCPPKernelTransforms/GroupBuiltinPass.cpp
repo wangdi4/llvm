@@ -14,7 +14,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/TypeSize.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
@@ -48,29 +47,6 @@ typedef uint64_t cl_ulong __attribute__((aligned(8)));
 using namespace llvm;
 using namespace llvm::NameMangleAPI;
 using namespace CompilationUtils;
-
-char GroupBuiltinLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(GroupBuiltinLegacy, DEBUG_TYPE,
-                      "Handle WorkGroup BI calls", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(GroupBuiltinLegacy, DEBUG_TYPE, "Handle WorkGroup BI calls",
-                    false, false)
-
-GroupBuiltinLegacy::GroupBuiltinLegacy() : ModulePass(ID) {
-  initializeGroupBuiltinLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool GroupBuiltinLegacy::runOnModule(Module &M) {
-  auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                  .getResult()
-                  .getRuntimeService();
-  return Impl.runImpl(M, RTS);
-}
-
-void GroupBuiltinLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-}
 
 PreservedAnalyses GroupBuiltinPass::run(Module &M, ModuleAnalysisManager &MAM) {
   auto &RTS = MAM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
@@ -629,8 +605,4 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
   }
 
   return !CallWGSimpleFunc.empty() || !CallWgFunc.empty();
-}
-
-ModulePass *llvm::createGroupBuiltinLegacyPass() {
-  return new llvm::GroupBuiltinLegacy();
 }

@@ -20,9 +20,7 @@
 ; }
 
 ; RUN: opt -passes=dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S | FileCheck %s
 
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

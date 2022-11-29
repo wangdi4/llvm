@@ -19,7 +19,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
@@ -279,23 +278,4 @@ ImplicitArgsInfo ImplicitArgsAnalysis::run(Module &M,
   ImplicitArgsInfo IAResult(M);
 
   return IAResult;
-}
-
-INITIALIZE_PASS(ImplicitArgsAnalysisLegacy,
-                "dpcpp-kernel-implicit-args-analysis",
-                "Implicit arguments analysis", false, true)
-
-char ImplicitArgsAnalysisLegacy::ID = 0;
-
-ImplicitArgsAnalysisLegacy::ImplicitArgsAnalysisLegacy() : ModulePass(ID) {
-  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool ImplicitArgsAnalysisLegacy::runOnModule(Module &M) {
-  Result.reset(new ImplicitArgsInfo(M));
-  return false;
-}
-
-ModulePass *llvm::createImplicitArgsAnalysisLegacyPass() {
-  return new ImplicitArgsAnalysisLegacy();
 }

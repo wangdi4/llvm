@@ -1,4 +1,3 @@
-; RUN: opt --dpcpp-kernel-wgloop-creator -verify -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
 ;
 ; Check that debug info is preserved.

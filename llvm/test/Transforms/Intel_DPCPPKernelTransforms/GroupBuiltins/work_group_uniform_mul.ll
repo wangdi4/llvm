@@ -1,8 +1,6 @@
 ; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.lib.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.lib.bc -passes=dpcpp-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.lib.bc -dpcpp-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.lib.bc -passes=dpcpp-kernel-group-builtin -S < %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.lib.bc -dpcpp-kernel-group-builtin -S < %s | FileCheck %s
 
 declare i32 @_Z21work_group_reduce_muli(i32)
 declare float @_Z21work_group_reduce_mulf(float)

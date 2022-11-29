@@ -12,7 +12,6 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
@@ -24,22 +23,6 @@ static cl::list<std::string>
                           cl::CommaSeparated,
                           cl::desc("Builtin declarations (bitcode) libraries"),
                           cl::value_desc("filename1,filename2"));
-
-INITIALIZE_PASS(BuiltinLibInfoAnalysisLegacy, DEBUG_TYPE,
-                "Builtin runtime library info", false, true)
-
-char BuiltinLibInfoAnalysisLegacy::ID = 0;
-
-BuiltinLibInfoAnalysisLegacy::BuiltinLibInfoAnalysisLegacy(
-    ArrayRef<Module *> BuiltinModules)
-    : ImmutablePass(ID), BLInfo(BuiltinModules) {
-  initializeBuiltinLibInfoAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-ImmutablePass *llvm::createBuiltinLibInfoAnalysisLegacyPass(
-    ArrayRef<Module *> BuiltinModules) {
-  return new BuiltinLibInfoAnalysisLegacy(BuiltinModules);
-}
 
 void BuiltinLibInfo::loadBuiltinModules(Module &M) {
   if (!BuiltinModuleRawPtrs.empty())

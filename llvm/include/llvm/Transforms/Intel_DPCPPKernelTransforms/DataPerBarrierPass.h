@@ -147,36 +147,6 @@ private:
   Barrier2BarrierSetMap BarrierPredecessorsMap;
 };
 
-/// DataPerBarrierWrapper pass for legacy pass manager.
-class DataPerBarrierWrapper : public ModulePass {
-  std::unique_ptr<DataPerBarrier> DPB;
-
-public:
-  static char ID;
-
-  DataPerBarrierWrapper();
-
-  StringRef getPassName() const override {
-    return "Intel Kernel DataPerBarrier Analysis";
-  }
-
-  /// Inform about usage/modification/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Analysis pass preserve all
-    AU.setPreservesAll();
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void print(raw_ostream &OS, const Module *M = nullptr) const override;
-
-  void releaseMemory() override { DPB.reset(); };
-
-  DataPerBarrier &getDPB() { return *DPB; }
-
-  const DataPerBarrier &getDPB() const { return *DPB; }
-};
-
 /// DataPerBarrierAnalysis pass for new pass manager.
 class DataPerBarrierAnalysis
     : public AnalysisInfoMixin<DataPerBarrierAnalysis> {

@@ -11,28 +11,12 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
 namespace {
-
-class CleanupWrappedKernelLegacy : public ModulePass {
-public:
-  static char ID;
-
-  CleanupWrappedKernelLegacy() : ModulePass(ID) {
-    initializeCleanupWrappedKernelLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "CleanupWrappedKernelLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-};
 
 bool runImpl(Module &M) {
   bool Changed = false;
@@ -57,17 +41,6 @@ bool runImpl(Module &M) {
 }
 
 } // namespace
-
-INITIALIZE_PASS(CleanupWrappedKernelLegacy, "dpcpp-kernel-cleanup-wrapped",
-                "Delete bodies of wrapped kernels", false, false)
-
-char CleanupWrappedKernelLegacy::ID = 0;
-
-bool CleanupWrappedKernelLegacy::runOnModule(Module &M) { return runImpl(M); }
-
-ModulePass *llvm::createCleanupWrappedKernelLegacyPass() {
-  return new CleanupWrappedKernelLegacy();
-}
 
 PreservedAnalyses CleanupWrappedKernelPass::run(Module &M,
                                                 ModuleAnalysisManager &AM) {

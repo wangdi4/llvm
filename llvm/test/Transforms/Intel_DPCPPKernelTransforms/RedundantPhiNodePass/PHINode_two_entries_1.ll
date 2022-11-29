@@ -1,12 +1,8 @@
 ; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
 ; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s -check-prefix=SKIP
-; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
-; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s -check-prefix=SKIP
 
 ; RUN: opt -passes=dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
 ; RUN: opt -passes=dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
-; RUN: opt -dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
-; RUN: opt -dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
 
 ;;*****************************************************************************
 ;; This test checks the RedundantPhiNode pass

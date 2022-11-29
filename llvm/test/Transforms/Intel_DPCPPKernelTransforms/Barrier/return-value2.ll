@@ -1,7 +1,5 @@
 ; RUN: opt -enable-native-debug=true -passes=dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-native-debug=true -dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-barrier -S < %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the Barrier pass

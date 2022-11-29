@@ -14,7 +14,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 using namespace llvm;
@@ -25,32 +24,6 @@ cl::opt<bool> SkipNonBarrierFunction(
              "reduce compile time."));
 
 #define DEBUG_TYPE "dpcpp-kernel-phi-canonicalization"
-
-INITIALIZE_PASS_BEGIN(PhiCanonicalizationLegacy, DEBUG_TYPE,
-                      "Phi Canonicalizer pass (two-based Phi)", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(PhiCanonicalizationLegacy,
-                    "dpcpp-kernel-phi-canonicalization",
-                    "Phi Canonicalizer pass (two-based Phi)", false, false)
-
-char PhiCanonicalizationLegacy::ID = 0;
-
-PhiCanonicalizationLegacy::PhiCanonicalizationLegacy() : FunctionPass(ID) {
-  initializePhiCanonicalizationLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-void PhiCanonicalizationLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<PostDominatorTreeWrapperPass>();
-}
-
-bool PhiCanonicalizationLegacy::runOnFunction(Function &F) {
-  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PostDominatorTree *PDT =
-      &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  return Impl.runImpl(F, DT, PDT);
-}
 
 PreservedAnalyses PhiCanonicalization::run(Function &F,
                                            FunctionAnalysisManager &FAM) {
@@ -335,8 +308,4 @@ void PhiCanonicalization::fixBasicBlockSucessor(BasicBlock* to_fix,
   } else {
     assert(false && "Unknown terminator type");
   }
-}
-
-FunctionPass *llvm::createPhiCanonicalizationLegacyPass() {
-  return new PhiCanonicalizationLegacy();
 }

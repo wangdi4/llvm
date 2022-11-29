@@ -19,7 +19,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -1532,41 +1531,4 @@ void KernelBarrier::updateStructureStride(Module &M,
                       << ", PrivateMemorySize=" << KIMD.PrivateMemorySize.get()
                       << '\n');
   }
-}
-
-INITIALIZE_PASS_BEGIN(
-    KernelBarrierLegacy, DEBUG_TYPE,
-    "KernelBarrierLegacy Pass - Handle special values & replace "
-    "barrier/fiber with internal loop over WIs",
-    false, false)
-INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
-INITIALIZE_PASS_DEPENDENCY(DataPerValueWrapper)
-INITIALIZE_PASS_END(
-    KernelBarrierLegacy, DEBUG_TYPE,
-    "KernelBarrierLegacy Pass - Handle special values & replace "
-    "barrier/fiber with internal loop over WIs",
-    false, false)
-
-char KernelBarrierLegacy::ID = 0;
-
-KernelBarrierLegacy::KernelBarrierLegacy(bool IsNativeDebug, bool UseTLSGlobals)
-    : ModulePass(ID), Impl(IsNativeDebug, UseTLSGlobals) {
-  initializeKernelBarrierLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool KernelBarrierLegacy::runOnModule(Module &M) {
-  auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
-  auto *DPV = &getAnalysis<DataPerValueWrapper>().getDPV();
-  return Impl.runImpl(M, DPB, DPV);
-}
-
-void KernelBarrierLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<DataPerBarrierWrapper>();
-  AU.addRequired<DataPerValueWrapper>();
-  AU.addRequired<DominatorTreeWrapperPass>();
-}
-
-ModulePass *llvm::createKernelBarrierLegacyPass(bool IsNativeDebug,
-                                                bool UseTLSGlobals) {
-  return new KernelBarrierLegacy(IsNativeDebug, UseTLSGlobals);
 }
