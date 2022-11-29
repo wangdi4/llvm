@@ -381,6 +381,7 @@ cl::opt<bool> llvm::EnableLoopVectorization(
     "vectorize-loops", cl::init(true), cl::Hidden,
     cl::desc("Run the Loop vectorization passes"));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> VectorizeNonReadonlyLibCalls(
     "vectorize-non-readonly-libcalls", cl::init(true), cl::Hidden,
@@ -390,11 +391,16 @@ static cl::opt<bool> VectorizeNonReadonlyLibCalls(
 
 cl::opt<bool> PrintVPlansInDotFormat(
     "vplan-print-in-dot-format", cl::init(false), cl::Hidden,
+=======
+static cl::opt<bool> PrintVPlansInDotFormat(
+    "vplan-print-in-dot-format", cl::Hidden,
+>>>>>>> fa36d7230519420c6b834fec6cc2c43ce3721070
     cl::desc("Use dot format instead of plain text when dumping VPlans"));
 
-cl::opt<cl::boolOrDefault> ForceSafeDivisor(
+static cl::opt<cl::boolOrDefault> ForceSafeDivisor(
     "force-widen-divrem-via-safe-divisor", cl::Hidden,
-    cl::desc("Override cost based safe divisor widening for div/rem instructions"));
+    cl::desc(
+        "Override cost based safe divisor widening for div/rem instructions"));
 
 /// A helper function that returns true if the given type is irregular. The
 /// type is irregular if its allocated size doesn't equal the store size of an
