@@ -547,10 +547,6 @@ private:
     DeviceDescriptor(const SharedPtr<FissionableDevice> &dev, size_t group,
                      size_t alignment)
         : m_pDevice(dev), m_sharing_group_id(group), m_alignment(alignment){};
-
-    DeviceDescriptor(const DeviceDescriptor &o)
-        : m_pDevice(o.m_pDevice), m_sharing_group_id(o.m_sharing_group_id),
-          m_alignment(o.m_alignment){};
   };
 
   typedef std::list<DeviceDescriptor> TDeviceDescList;
@@ -665,6 +661,14 @@ private:
           m_groups_with_active_writers_count(0), // during creation
           m_last_writer_group(MAX_DEVICE_SHARING_GROUP_ID),
           m_contains_valid_data(o.m_contains_valid_data){};
+    DataValidState &operator=(const DataValidState &o) {
+      m_data_sharing_state = UNIQUE_VALID_COPY;
+      m_groups_with_active_users_count = 0;
+      m_groups_with_active_writers_count = 0;
+      m_last_writer_group = MAX_DEVICE_SHARING_GROUP_ID;
+      m_contains_valid_data = false;
+      return *this;
+    }
   };
 
   struct DataCopyEventWrapper {

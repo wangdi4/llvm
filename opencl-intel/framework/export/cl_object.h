@@ -179,7 +179,6 @@ protected:
    * Date:            December 2008
    ****************************************************************************/
   virtual ~OCLObject(){};
-  OCLObject(const OCLObject & /*O*/) {}
 
   HandleType m_handle; // the OpenCL handle of the object
   cl_int m_iId;        // object id

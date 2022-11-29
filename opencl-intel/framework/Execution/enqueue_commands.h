@@ -220,9 +220,6 @@ protected:
     MemoryObjectArg()
         : pMemObj(nullptr), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT),
           access_rights_realy_used(MemoryObject::MEMOBJ_USAGES_COUNT){};
-    MemoryObjectArg(const MemoryObjectArg &other)
-        : pMemObj(other.pMemObj), access_rights(other.access_rights),
-          access_rights_realy_used(other.access_rights_realy_used) {}
   };
 
   typedef vector<MemoryObjectArg> MemoryObjectArgList;

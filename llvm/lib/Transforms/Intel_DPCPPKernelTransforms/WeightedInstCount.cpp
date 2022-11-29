@@ -1460,6 +1460,11 @@ InstCountResult::InstCountResult(Function &F, TargetTransformInfo &TTI,
 InstCountResult::InstCountResult(InstCountResult &&Other)
     : Impl(std::move(Other.Impl)) {}
 
+InstCountResult& InstCountResult::operator=(InstCountResult &&Other) {
+  Impl = std::move(Other.Impl);
+  return *this;
+}
+
 InstCountResult::~InstCountResult() = default;
 
 void InstCountResult::print(raw_ostream &OS) { return Impl->print(OS); }
