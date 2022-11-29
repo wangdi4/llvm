@@ -381,7 +381,6 @@ cl::opt<bool> llvm::EnableLoopVectorization(
     "vectorize-loops", cl::init(true), cl::Hidden,
     cl::desc("Run the Loop vectorization passes"));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> VectorizeNonReadonlyLibCalls(
     "vectorize-non-readonly-libcalls", cl::init(true), cl::Hidden,
@@ -389,12 +388,8 @@ static cl::opt<bool> VectorizeNonReadonlyLibCalls(
         "Vectorize library calls even if they don't have readonly attribute."));
 #endif
 
-cl::opt<bool> PrintVPlansInDotFormat(
-    "vplan-print-in-dot-format", cl::init(false), cl::Hidden,
-=======
 static cl::opt<bool> PrintVPlansInDotFormat(
     "vplan-print-in-dot-format", cl::Hidden,
->>>>>>> fa36d7230519420c6b834fec6cc2c43ce3721070
     cl::desc("Use dot format instead of plain text when dumping VPlans"));
 
 static cl::opt<cl::boolOrDefault> ForceSafeDivisor(
