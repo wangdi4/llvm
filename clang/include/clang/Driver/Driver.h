@@ -169,6 +169,37 @@ public:
   /// command line.
   std::string Dir;
 
+#if INTEL_CUSTOMIZATION
+  /// Base temporary directory.
+  std::string BaseTempDir;
+
+  /// Intel Print formating.
+  unsigned IntelPrintOptions : 1;
+
+  /// Intel mode selected via --intel option.
+  unsigned IntelMode : 1;
+
+  /// Intel Compiler Pro selected via compiler-auth-pro file
+  unsigned IntelPro : 1;
+
+  /// Intel DPC++ Compiler Mode
+  unsigned DPCPPMode : 1;
+
+  /// Whether the driver should follow Intel compiler behavior.
+  bool IsIntelMode() const { return IntelMode; }
+
+  /// Whether the driver should follow Intel compiler behavior.
+  bool IsDPCPPMode() const { return DPCPPMode; }
+
+  void setDriverName(const std::string &Name) { this->Name = Name; }
+
+  /// GetUserOnlyTemporaryDirectory - Return the pathname of a temporary
+  /// directory to use as part of compilation; the directory will have the
+  /// given prefix and created with user only read/write priviledges.
+  std::string GetUserOnlyTemporaryDirectory(StringRef Prefix) const;
+
+#endif // INTEL_CUSTOMIZATION
+
   /// The original path to the clang executable.
   std::string ClangExecutable;
 
@@ -186,11 +217,6 @@ public:
 
   /// User directory for config files.
   std::string UserConfigDir;
-
-#if INTEL_CUSTOMIZATION
-  /// Base temporary directory.
-  std::string BaseTempDir;
-#endif // INTEL_CUSTOMIZATION
 
   /// A prefix directory used to emulate a limited subset of GCC's '-Bprefix'
   /// functionality.
@@ -245,13 +271,6 @@ public:
   /// Other modes fall back to calling gcc which in turn calls gfortran.
   bool IsFlangMode() const { return Mode == FlangMode; }
 
-#if INTEL_CUSTOMIZATION
-  /// Whether the driver should follow Intel compiler behavior.
-  bool IsIntelMode() const { return IntelMode; }
-
-  /// Whether the driver should follow Intel compiler behavior.
-  bool IsDPCPPMode() const { return DPCPPMode; }
-#endif // INTEL_CUSTOMIZATION
   /// Whether the driver should follow dxc.exe like behavior.
   bool IsDXCMode() const { return Mode == DXCMode; }
 
@@ -370,19 +389,6 @@ private:
   bool getCrashDiagnosticFile(StringRef ReproCrashFilename,
                               SmallString<128> &CrashDiagDir);
 
-#if INTEL_CUSTOMIZATION
-  /// Add any Intel specific arguments that are either set by default or
-  /// implied from other options.
-  void addIntelArgs(llvm::opt::DerivedArgList &DAL,
-                    const llvm::opt::InputArgList &Args,
-                    const llvm::opt::OptTable &Opts) const;
-
-  /// Add OpenMP SPIR-V device libraries for linking.
-  void addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
-                          const llvm::opt::OptTable &Opts,
-                          llvm::opt::DerivedArgList &Args) const;
-#endif // INTEL_CUSTOMIZATION
-
 public:
 
   /// Takes the path to a binary that's either in bin/ or lib/ and returns
@@ -393,10 +399,6 @@ public:
   Driver(StringRef ClangExecutable, StringRef TargetTriple,
          DiagnosticsEngine &Diags, std::string Title = "clang LLVM compiler",
          IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS = nullptr);
-
-#if INTEL_CUSTOMIZATION
-  void setDriverName(const std::string &Name) { this->Name = Name; }
-#endif // INTEL_CUSTOMIZATION
 
   /// @name Accessors
   /// @{
@@ -606,20 +608,6 @@ public:
   /// \param Args - arguments used to control help information
   void PrintHelp(bool ShowHidden) const;
 
-#if INTEL_CUSTOMIZATION
-  /// Intel Print formating.
-  unsigned IntelPrintOptions : 1;
-
-  /// Intel mode selected via --intel option.
-  unsigned IntelMode : 1;
-
-  /// Intel Compiler Pro selected via compiler-auth-pro file
-  unsigned IntelPro : 1;
-
-  /// Intel DPC++ Compiler Mode
-  unsigned DPCPPMode : 1;
-#endif // INTEL_CUSTOMIZATION
-
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
   void PrintSYCLToolHelp(const Compilation &C) const;
 
@@ -712,13 +700,6 @@ public:
   /// use as part of compilation; the directory will have the given prefix.
   std::string GetTemporaryDirectory(StringRef Prefix) const;
 
-#if INTEL_CUSTOMIZATION
-  /// GetUserOnlyTemporaryDirectory - Return the pathname of a temporary
-  /// directory to use as part of compilation; the directory will have the
-  /// given prefix and created with user only read/write priviledges.
-  std::string GetUserOnlyTemporaryDirectory(StringRef Prefix) const;
-#endif // INTEL_CUSTOMIZATION
-
   /// Return the pathname of the pch file in clang-cl mode.
   std::string GetClPchPath(Compilation &C, StringRef BaseName) const;
 
@@ -770,8 +751,25 @@ private:
   bool readConfigFile(StringRef FileName, llvm::cl::ExpansionContext &ExpCtx);
 
 #if INTEL_CUSTOMIZATION
+  /// Add any Intel specific arguments that are either set by default or
+  /// implied from other options.
+  void addIntelArgs(llvm::opt::DerivedArgList &DAL,
+                    const llvm::opt::InputArgList &Args,
+                    const llvm::opt::OptTable &Opts) const;
+
+  /// Add OpenMP SPIR-V device libraries for linking.
+  void addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
+                             const llvm::opt::OptTable &Opts,
+                             llvm::opt::DerivedArgList &Args) const;
+
   /// Parse and set whether we are in Intel/DPCPP mode.
   void parseIntelDriverMode(ArrayRef<const char *> Args);
+
+  /// Specific to Intel, specialization function for setting the option flags
+  /// to handle icx/dpcpp behaviors on Windows.
+  std::pair<unsigned, unsigned>
+  getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
+                                        bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the driver mode (cl, gcc, etc) from the value of the `--driver-mode`
@@ -809,13 +807,6 @@ private:
   /// Get bitmasks for which option flags to include and exclude based on
   /// the driver mode.
   std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const;
-
-#if INTEL_CUSTOMIZATION
-  /// Specific to Intel, specialization function for setting the option flags
-  /// to handle icx/dpcpp behaviors on Windows.
-  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksIntel(
-      bool IsClCompatMode, bool AllowAllOpts) const;
-#endif // INTEL_CUSTOMIZATION
 
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building
   /// jobs specifically for the given action, but will use the cache when
@@ -982,6 +973,10 @@ public:
 #if INTEL_CUSTOMIZATION
 bool isOptimizationLevelFast(const Driver &D,
                              const llvm::opt::ArgList &Args);
+
+/// getLastArchArg - Get the last arch option (-march or -x)
+llvm::opt::Arg *getLastArchArg(const llvm::opt::ArgList &Args,
+                               bool claimArg = true);
 #endif // INTEL_CUSTOMIZATION
 
 /// \return True if the filename has a valid object file extension.
@@ -1002,12 +997,6 @@ llvm::StringRef getDriverMode(StringRef ProgName, ArrayRef<const char *> Args);
 
 /// Checks whether the value produced by getDriverMode is for CL mode.
 bool IsClangCL(StringRef DriverMode);
-
-#if INTEL_CUSTOMIZATION
-/// getLastArchArg - Get the last arch option (-march or -x)
-llvm::opt::Arg * getLastArchArg(const llvm::opt::ArgList &Args,
-                                bool claimArg = true);
-#endif // INTEL_CUSTOMIZATION
 
 } // end namespace driver
 } // end namespace clang

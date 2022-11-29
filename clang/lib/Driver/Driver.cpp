@@ -34,11 +34,6 @@
 #include "ToolChains/CloudABI.h"
 #include "ToolChains/Contiki.h"
 #include "ToolChains/CrossWindows.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-#include "ToolChains/Intel_CSA.h"
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
 #include "ToolChains/Cuda.h"
 #include "ToolChains/Darwin.h"
 #include "ToolChains/DragonFly.h"
@@ -73,9 +68,6 @@
 #include "ToolChains/VEToolchain.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
-#if INTEL_CUSTOMIZATION
-#include "ToolChains/Arch/X86.h"
-#endif // INTEL_CUSTOMIZATION
 #include "ToolChains/ZOS.h"
 #include "clang/Basic/TargetID.h"
 #include "clang/Basic/Version.h"
@@ -132,6 +124,15 @@
 #if LLVM_ON_UNIX
 #include <unistd.h> // getpid
 #endif
+
+// clang-format off
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "ToolChains/Intel_CSA.h"
+#endif  // INTEL_FEATURE_CSA
+#include "ToolChains/Arch/X86.h"
+#endif // INTEL_CUSTOMIZATION
+// clang-format on
 
 using namespace clang::driver;
 using namespace clang;
@@ -243,15 +244,15 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone),
       Offload(OffloadHostDevice), CXX20HeaderType(HeaderMode_None),
       ModulesModeCXX20(false), LTOMode(LTOK_None),
+#if INTEL_CUSTOMIZATION
+      IntelPrintOptions(false), IntelMode(false), DPCPPMode(false),
+#endif // INTEL_CUSTOMIZATION
       ClangExecutable(ClangExecutable), SysRoot(DEFAULT_SYSROOT),
       DriverTitle(Title), CCCPrintBindings(false), CCPrintOptions(false),
       CCPrintHeaders(false), CCLogDiagnostics(false), CCGenDiagnostics(false),
       CCPrintProcessStats(false), TargetTriple(TargetTriple), Saver(Alloc),
       CheckInputsExist(true), ProbePrecompiled(true),
-#if INTEL_CUSTOMIZATION
-      SuppressMissingInputWarning(false),
-      IntelPrintOptions(false), IntelMode(false), DPCPPMode(false) {
-#endif // INTEL_CUSTOMIZATION
+      SuppressMissingInputWarning(false) {
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
@@ -281,26 +282,6 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
   // Compute the path to the resource directory.
   ResourceDir = GetResourcesPath(ClangExecutable, CLANG_RESOURCE_DIR);
 }
-#if INTEL_CUSTOMIZATION
-void Driver::parseIntelDriverMode(ArrayRef<const char *> Args) {
-  static const std::string OptIntel =
-      getOpts().getOption(options::OPT__intel).getPrefixedName();
-  static const std::string OptDPCPP =
-      getOpts().getOption(options::OPT__dpcpp).getPrefixedName();
-
-  for (StringRef Arg : Args) {
-    if (Arg != OptIntel && Arg != OptDPCPP)
-      continue;
-
-    IntelMode = true;
-    if (Arg != OptDPCPP)
-      continue;
-
-    DPCPPMode = true;
-    return;
-  }
-}
-#endif // INTEL_CUSTOMIZATION
 
 void Driver::setDriverMode(StringRef Value) {
   static const std::string OptName =
@@ -340,9 +321,9 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
     std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
         getIncludeExcludeOptionFlagMasksIntel(IsClCompatMode, AllowAllOpts);
   } else
-    std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
-        getIncludeExcludeOptionFlagMasks(IsClCompatMode);
 #endif // INTEL_CUSTOMIZATION
+  std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
+      getIncludeExcludeOptionFlagMasks(IsClCompatMode);
 
   // Make sure that Flang-only options don't pollute the Clang output
   // TODO: Make sure that Clang-only options don't pollute Flang output
@@ -510,8 +491,26 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
     A->claim();
   return A;
 }
-
 #if INTEL_CUSTOMIZATION
+void Driver::parseIntelDriverMode(ArrayRef<const char *> Args) {
+  static const std::string OptIntel =
+      getOpts().getOption(options::OPT__intel).getPrefixedName();
+  static const std::string OptDPCPP =
+      getOpts().getOption(options::OPT__dpcpp).getPrefixedName();
+
+  for (StringRef Arg : Args) {
+    if (Arg != OptIntel && Arg != OptDPCPP)
+      continue;
+
+    IntelMode = true;
+    if (Arg != OptDPCPP)
+      continue;
+
+    DPCPPMode = true;
+    return;
+  }
+}
+
 // Add any Intel specific options to the command line which are implied or
 // are the default.
 void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
@@ -667,6 +666,75 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
       DAL.AddFlagArg(VA, Opts.getOption(options::OPT__HASH_HASH_HASH));
   }
 
+}
+
+static bool HasIntelSYCLPerflib(Compilation &C, const DerivedArgList &Args) {
+  // Performance libraries with -fsycl use offload static libs.
+  bool IsMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
+  return Args.hasArg(options::OPT_fsycl) &&
+         ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ) &&
+           (Args.hasArg(options::OPT_static) || IsMSVC)) ||
+          Args.hasArg(options::OPT_qdaal_EQ));
+}
+
+std::string Driver::GetUserOnlyTemporaryDirectory(StringRef Prefix) const {
+  SmallString<128> Path;
+  llvm::sys::fs::createUniquePath(Twine(Prefix) + Twine("-%%%%%%"), Path, true);
+  std::error_code EC =
+      llvm::sys::fs::create_directory(Path, true, llvm::sys::fs::owner_all);
+  if (EC) {
+    Diag(clang::diag::err_unable_to_make_temp) << EC.message();
+    return "";
+  }
+  return std::string(Path.str());
+}
+
+std::pair<unsigned, unsigned>
+Driver::getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
+                                              bool AllowAllOpts) const {
+  unsigned IncludedFlagsBitmask = 0;
+  unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+
+  // For dpcpp on Windows, we are allowing both MSVC and Linux options to be
+  // accepted and parsed.  This allows for a transition period for using a more
+  // traditional set of drivers; dpcpp for Linux and dpcpp-cl for Windows.
+  if (IsClCompatMode) {
+    if (!AllowAllOpts) {
+      // Include CL and Core options.
+      IncludedFlagsBitmask |= options::CLOption;
+      IncludedFlagsBitmask |= options::CLDXCOption;
+      IncludedFlagsBitmask |= options::CoreOption;
+    }
+  } else {
+    if (!AllowAllOpts)
+      ExcludedFlagsBitmask |= options::CLOption;
+  }
+  if (IsDXCMode()) {
+    // Include DXC and Core options.
+    IncludedFlagsBitmask |= options::DXCOption;
+    IncludedFlagsBitmask |= options::CLDXCOption;
+    IncludedFlagsBitmask |= options::CoreOption;
+  } else {
+    ExcludedFlagsBitmask |= options::DXCOption;
+  }
+  if (!IsClCompatMode && !IsDXCMode())
+    if (!AllowAllOpts)
+      ExcludedFlagsBitmask |= options::CLDXCOption;
+
+  return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
+}
+
+Arg *clang::driver::getLastArchArg(const ArgList &Args, bool claimArg) {
+  Arg *Res = nullptr;
+  for (Arg *A : Args.filtered(options::OPT_march_EQ, options::OPT_x)) {
+    if (A->getOption().matches(options::OPT_x) &&
+        types::lookupTypeForTypeSpecifier(A->getValue()))
+      continue;
+    Res = A;
+    if (claimArg)
+      Res->claim();
+  }
+  return Res;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -830,7 +898,9 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
   }
 #endif
 
+#if INTEL_CUSTOMIZATION
   addIntelArgs(*DAL, Args, Opts);
+#endif // INTEL_CUSTOMIZATION
 
   return DAL;
 }
@@ -839,18 +909,9 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 ///
 /// This routine provides the logic to compute a target triple from various
 /// args passed to the driver and the default triple string.
-static llvm::Triple computeTargetTriple(const Driver &D,
-                                        StringRef TargetTriple,
+static llvm::Triple computeTargetTriple(const Driver &D, StringRef TargetTriple,
                                         const ArgList &Args,
                                         StringRef DarwinArchName = "") {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-  // Handle '-mxucc' flag.
-  if (Args.getLastArg(options::OPT_mxucc))
-    return llvm::Triple(llvm::Triple::normalize("x86_64_xucc-unknown-unknown"));
-#endif // INTEL_FEATURE_XUCC
-#endif // INTEL_CUSTOMIZATION
-
   // FIXME: Already done in Compilation *Driver::BuildCompilation
   if (const Arg *A = Args.getLastArg(options::OPT_target))
     TargetTriple = A->getValue();
@@ -858,6 +919,12 @@ static llvm::Triple computeTargetTriple(const Driver &D,
   llvm::Triple Target(llvm::Triple::normalize(TargetTriple));
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  // Handle '-mxucc' flag.
+  if (Args.getLastArg(options::OPT_mxucc))
+    return llvm::Triple(llvm::Triple::normalize("x86_64_xucc-unknown-unknown"));
+#endif // INTEL_FEATURE_XUCC
+
   // Any use of NVPTX or AMDGCN is not supported.  This should only be allowed
   // during offloading compilations.
   if (D.IsIntelMode() && (Target.isNVPTX() || Target.isAMDGCN()))
@@ -1602,7 +1669,6 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   //
 }
 
-#if INTEL_CUSTOMIZATION
 /// Looks the given directories for the specified file.
 ///
 /// \param[out] FilePath File path, if the file was found.
@@ -1631,7 +1697,6 @@ static bool searchForFile(SmallVectorImpl<char> &FilePath,
   }
   return false;
 }
-#endif // INTEL_CUSTOMIZATION
 
 static void appendOneArg(InputArgList &Args, const Arg *Opt,
                          const Arg *BaseArg) {
@@ -3754,7 +3819,6 @@ static bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
   const char *Targets =
       C.getArgs().MakeArgString(Twine("-targets=sycl-") + TT.str());
   const char *Inputs = C.getArgs().MakeArgString(Twine("-input=") + Object);
-
   // Always use -type=ao for aocx/aocr bundle checking.  The 'bundles' are
   // actually archives.
   SmallVector<StringRef, 6> BundlerArgs = {"-type=ao", Targets, Inputs,
@@ -4082,17 +4146,6 @@ static bool IsSYCLDeviceLibObj(std::string ObjFilePath, bool isMSVCEnv) {
           : false;
   return Ret;
 }
-
-#if INTEL_CUSTOMIZATION
-static bool HasIntelSYCLPerflib(Compilation &C, const DerivedArgList &Args) {
-  // Performance libraries with -fsycl use offload static libs.
-  bool IsMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
-  return Args.hasArg(options::OPT_fsycl) &&
-             ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ) &&
-               (Args.hasArg(options::OPT_static) || IsMSVC)) ||
-         Args.hasArg(options::OPT_qdaal_EQ));
-}
-#endif // INTEL_CUSTOMIZATION
 
 // Goes through all of the arguments, including inputs expected for the
 // linker directly, to determine if we need to potentially add the SYCL
@@ -5293,6 +5346,7 @@ class OffloadingActionBuilder final {
         }
       }
     }
+
 #endif // INTEL_CUSTOMIZATION
 
     void appendLinkDeviceActions(ActionList &AL) override {
@@ -5456,6 +5510,50 @@ class OffloadingActionBuilder final {
 #if INTEL_CUSTOMIZATION
     /// Flag to signal if the user intended for the non-spirv CPU target.
     bool NonSpirvCPU = false;
+
+    bool addPerformanceDeviceLibs(const ToolChain *TC,
+                                  ActionList &DeviceLinkObjects,
+                                  bool IsMSVCEnv) {
+      bool PerflibAdded = false;
+      auto AddToActionList = [&](StringRef LibName) {
+        Arg *InputArg = MakeInputArg(Args, C.getDriver().getOpts(),
+                                     Args.MakeArgString(LibName));
+        auto *SYCLDeviceLibsInputAction =
+            C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
+        auto *SYCLDeviceLibsUnbundleAction =
+            C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
+        addDeviceDependences(SYCLDeviceLibsUnbundleAction);
+
+        auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
+            SYCLDeviceLibsUnbundleAction, types::TY_Tempfilelist);
+        DeviceLinkObjects.push_back(ConvertSPIRVAction);
+        PerflibAdded = true;
+      };
+      // Only add the MKL static lib if used with -static or is Windows.
+      if ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) &&
+          (IsMSVCEnv || Args.hasArg(options::OPT_static))) {
+        SmallString<128> LibName(TC->GetMKLLibPath());
+        LibName = TC->GetMKLLibPath();
+        SmallString<128> MKLLib("libmkl_sycl.a");
+        if (IsMSVCEnv) {
+          MKLLib = "mkl_sycl";
+          if (Args.hasArg(options::OPT__SLASH_MDd))
+            MKLLib += "d";
+          MKLLib += ".lib";
+        }
+        llvm::sys::path::append(LibName, MKLLib);
+        AddToActionList(LibName);
+      }
+      // DAAL is also only available in static form.
+      if (Args.hasArg(options::OPT_qdaal_EQ)) {
+        SmallString<128> LibName(TC->GetDAALLibPath());
+        llvm::sys::path::append(LibName, IsMSVCEnv ? "onedal_sycl.lib"
+                                                   : "libonedal_sycl.a");
+        AddToActionList(LibName);
+      }
+      return PerflibAdded;
+    }
+
 #endif // INTEL_CUSTOMIZATION
 
     /// List of offload device toolchain, bound arch needed to track for
@@ -5880,6 +5978,7 @@ class OffloadingActionBuilder final {
       }
     }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     bool addPerformanceDeviceLibs(const ToolChain *TC,
                                   ActionList &DeviceLinkObjects,
@@ -5994,6 +6093,8 @@ class OffloadingActionBuilder final {
       return needLibs;
     }
 
+=======
+>>>>>>> 57eb4c2a87404143f675df12249f8a140c050ac3
     bool addSYCLDeviceLibs(const ToolChain *TC, ActionList &DeviceLinkObjects,
                            bool isSpirvAOT, bool isMSVCEnv) {
       struct DeviceLibOptInfo {
@@ -9949,20 +10050,6 @@ std::string Driver::GetTemporaryDirectory(StringRef Prefix) const {
   return std::string(Path.str());
 }
 
-#if INTEL_CUSTOMIZATION
-std::string Driver::GetUserOnlyTemporaryDirectory(StringRef Prefix) const {
-  SmallString<128> Path;
-  llvm::sys::fs::createUniquePath(Twine(Prefix) + Twine("-%%%%%%"), Path, true);
-  std::error_code EC =
-      llvm::sys::fs::create_directory(Path, true, llvm::sys::fs::owner_all);
-  if (EC) {
-    Diag(clang::diag::err_unable_to_make_temp) << EC.message();
-    return "";
-  }
-  return std::string(Path.str());
-}
-#endif // INTEL_CUSTOMIZATION
-
 std::string Driver::GetClPchPath(Compilation &C, StringRef BaseName) const {
   SmallString<128> Output;
   if (Arg *FpArg = C.getArgs().getLastArg(options::OPT__SLASH_Fp)) {
@@ -10382,52 +10469,6 @@ Driver::getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const {
   return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
 }
 
-#if INTEL_CUSTOMIZATION
-std::pair<unsigned, unsigned>
-Driver::getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
-                                              bool AllowAllOpts) const {
-  unsigned IncludedFlagsBitmask = 0;
-  unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-
-  // For dpcpp on Windows, we are allowing both MSVC and Linux options to be
-  // accepted and parsed.  This allows for a transition period for using a more
-  // traditional set of drivers; dpcpp for Linux and dpcpp-cl for Windows.
-  if (IsClCompatMode) {
-    if (!AllowAllOpts) {
-      // Include CL and Core options.
-      IncludedFlagsBitmask |= options::CLOption;
-      IncludedFlagsBitmask |= options::CLDXCOption;
-      IncludedFlagsBitmask |= options::CoreOption;
-    }
-  } else {
-    if (!AllowAllOpts)
-      ExcludedFlagsBitmask |= options::CLOption;
-  }
-  if (IsDXCMode()) {
-    // Include DXC and Core options.
-    IncludedFlagsBitmask |= options::DXCOption;
-    IncludedFlagsBitmask |= options::CLDXCOption;
-    IncludedFlagsBitmask |= options::CoreOption;
-  } else {
-    ExcludedFlagsBitmask |= options::DXCOption;
-  }
-  if (!IsClCompatMode && !IsDXCMode())
-    if (!AllowAllOpts)
-      ExcludedFlagsBitmask |= options::CLDXCOption;
-
-  return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
-}
-
-bool clang::driver::isOptimizationLevelFast(const Driver &D,
-                                            const ArgList &Args) {
-  // For Intel and -Ofast is given, don't override if another -O is
-  // provided on the command line.
-  if (D.IsIntelMode() && Args.hasArgNoClaim(options::OPT_Ofast))
-    return true;
-#endif // INTEL_CUSTOMIZATION
-  return Args.hasFlag(options::OPT_Ofast, options::OPT_O_Group, false);
-}
-
 const char *Driver::getExecutableForDriverMode(DriverMode Mode) {
   switch (Mode) {
   case GCCMode:
@@ -10445,6 +10486,16 @@ const char *Driver::getExecutableForDriverMode(DriverMode Mode) {
   }
 
   llvm_unreachable("Unhandled Mode");
+}
+#if INTEL_CUSTOMIZATION
+bool clang::driver::isOptimizationLevelFast(const Driver &D,
+                                            const ArgList &Args) {
+  // For Intel and -Ofast is given, don't override if another -O is
+  // provided on the command line.
+  if (D.IsIntelMode() && Args.hasArgNoClaim(options::OPT_Ofast))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+  return Args.hasFlag(options::OPT_Ofast, options::OPT_O_Group, false);
 }
 
 bool clang::driver::isObjectFile(std::string FileName) {
@@ -10516,18 +10567,3 @@ llvm::StringRef clang::driver::getDriverMode(StringRef ProgName,
 }
 
 bool driver::IsClangCL(StringRef DriverMode) { return DriverMode.equals("cl"); }
-
-#if INTEL_CUSTOMIZATION
-Arg * clang::driver::getLastArchArg(const ArgList &Args, bool claimArg) {
-  Arg *Res = nullptr;
-  for (Arg *A : Args.filtered(options::OPT_march_EQ, options::OPT_x)) {
-    if (A->getOption().matches(options::OPT_x) &&
-        types::lookupTypeForTypeSpecifier(A->getValue()))
-      continue;
-    Res = A;
-    if (claimArg)
-      Res->claim();
-  }
-  return Res;
-}
-#endif // INTEL_CUSTOMIZATION
