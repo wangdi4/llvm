@@ -12,7 +12,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
@@ -23,35 +22,6 @@ extern bool DPCPPEnableSubGroupEmulation;
 
 #define DEBUG_TYPE "dpcpp-kernel-sg-emu-barrier-simplify"
 
-namespace {
-
-/// Legacy SGBarrierSimplify pass
-class SGBarrierSimplifyLegacy : public ModulePass {
-  SGBarrierSimplifyPass Impl;
-
-public:
-  static char ID;
-
-  SGBarrierSimplifyLegacy() : ModulePass(ID) {
-    initializeSGBarrierSimplifyLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "SGBarrierSimplifyLegacy"; }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<SGSizeAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char SGBarrierSimplifyLegacy::ID = 0;
-
-INITIALIZE_PASS(SGBarrierSimplifyLegacy, DEBUG_TYPE,
-                "Remove duplicate barriers and split barrier BB", false, false)
-
 PreservedAnalyses SGBarrierSimplifyPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
   if (!runImpl(M))
@@ -60,10 +30,6 @@ PreservedAnalyses SGBarrierSimplifyPass::run(Module &M,
   PreservedAnalyses PA;
   PA.preserve<SGSizeAnalysisPass>();
   return PA;
-}
-
-ModulePass *llvm::createSGBarrierSimplifyLegacyPass() {
-  return new SGBarrierSimplifyLegacy();
 }
 
 bool SGBarrierSimplifyPass::runImpl(Module &M) {

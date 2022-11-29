@@ -1,7 +1,5 @@
 ; This test is to check i2101 type is supported by CoerceWin64Types pass.
 
-; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s
 ; RUN: opt -passes='debugify,dpcpp-kernel-coerce-win64-types,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes='dpcpp-kernel-coerce-win64-types' -S %s | FileCheck %s
 

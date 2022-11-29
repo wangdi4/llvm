@@ -1,8 +1,6 @@
 ; Check that kernel function pointer in global value is replaced with wrapper
 ; kernel function pointer and comdat is set to wrapper kernel.
 
-; RUN: opt -dpcpp-kernel-prepare-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-prepare-args -S < %s | FileCheck %s --check-prefixes CHECK
 ; RUN: opt -passes=dpcpp-kernel-prepare-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-prepare-args -S < %s | FileCheck %s --check-prefixes CHECK
 

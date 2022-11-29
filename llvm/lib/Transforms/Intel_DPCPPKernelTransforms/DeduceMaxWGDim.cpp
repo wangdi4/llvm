@@ -14,7 +14,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -24,53 +23,6 @@ using namespace llvm;
 using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-deduce-max-dim"
-
-namespace {
-
-/// Legacy DeduceMaxWGDim pass.
-class DeduceMaxWGDimLegacy : public ModulePass {
-  DeduceMaxWGDimPass Impl;
-
-public:
-  static char ID;
-
-  DeduceMaxWGDimLegacy() : ModulePass(ID) {
-    initializeDeduceMaxWGDimLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "DeduceMaxWGDimLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    BuiltinLibInfo *BLI =
-        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-    return Impl.runImpl(M, BLI->getRuntimeService(), CG);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.addRequired<CallGraphWrapperPass>();
-    // Only modifies metadata.
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
-char DeduceMaxWGDimLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(
-    DeduceMaxWGDimLegacy, DEBUG_TYPE,
-    "Deduce the maximum WG dimemsion that needs to be executed", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(DeduceMaxWGDimLegacy, DEBUG_TYPE,
-                    "Deduce the maximum WG dimemsion that needs to be executed",
-                    false, false)
-
-ModulePass *llvm::createDeduceMaxWGDimLegacyPass() {
-  return new DeduceMaxWGDimLegacy();
-}
 
 static bool runOnFunction(Function &F, CallGraph &CG) {
   // If we have subgroups, then at least one vector iteration is expected,

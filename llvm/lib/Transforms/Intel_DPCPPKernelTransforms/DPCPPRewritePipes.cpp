@@ -24,7 +24,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -35,44 +34,6 @@ using namespace DPCPPChannelPipeUtils;
 using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-rewrite-pipes"
-
-namespace {
-
-/// Legacy DPCPPRewritePipes pass.
-class DPCPPRewritePipesLegacy : public ModulePass {
-  DPCPPRewritePipesPass Impl;
-
-public:
-  static char ID;
-
-  DPCPPRewritePipesLegacy() : ModulePass(ID) {
-    initializeDPCPPRewritePipesLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "DPCPPRewritePipesLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    auto *BLI = &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    return Impl.runImpl(M, BLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char DPCPPRewritePipesLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(DPCPPRewritePipesLegacy, DEBUG_TYPE,
-                      "DPCPPRewritePipesLegacy", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(DPCPPRewritePipesLegacy, DEBUG_TYPE,
-                    "DPCPPRewritePipesLegacy", false, false)
-
-ModulePass *llvm::createDPCPPRewritePipesLegacyPass() {
-  return new DPCPPRewritePipesLegacy();
-}
 
 const StringRef CreatePipeFromPipeStorageWriteName =
     "_Z39__spirv_CreatePipeFromPipeStorage_write";

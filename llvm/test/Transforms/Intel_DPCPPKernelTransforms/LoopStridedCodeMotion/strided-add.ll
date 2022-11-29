@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-loop-strided-code-motion -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; Check that
 ; 1. stride is computed from operands of add

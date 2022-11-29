@@ -18,7 +18,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopPeeling.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -1524,60 +1523,6 @@ PHINode *WGLoopCreatorImpl::createLIDPHI(Value *InitVal, Value *IncBy,
   DimTID->addIncoming(InitVal, PreHead);
   DimTID->addIncoming(IncTID, Latch);
   return DimTID;
-}
-
-namespace {
-
-class DPCPPKernelWGLoopCreatorLegacy : public ModulePass {
-public:
-  static char ID;
-
-  DPCPPKernelWGLoopCreatorLegacy(bool UseTLSGlobals = false)
-      : ModulePass(ID), UseTLSGlobals(UseTLSGlobals) {
-    initializeDPCPPKernelWGLoopCreatorLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "WGLoopCreatorLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
-  }
-
-private:
-  bool UseTLSGlobals;
-};
-
-} // namespace
-
-char DPCPPKernelWGLoopCreatorLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
-                      "Create loops over dpcpp kernels", false, false)
-INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodesLegacyPass)
-INITIALIZE_PASS_END(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
-                    "Create loops over dpcpp kernels", false, false)
-
-bool DPCPPKernelWGLoopCreatorLegacy::runOnModule(Module &M) {
-  FuncSet FSet = getAllKernels(M);
-  MapFunctionToReturnInst FuncReturn;
-  for (auto *F : FSet) {
-    bool Changed = false;
-    BasicBlock *SingleRetBB =
-        getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F, &Changed)
-            .getReturnBlock();
-    if (SingleRetBB)
-      FuncReturn[F] = cast<ReturnInst>(SingleRetBB->getTerminator());
-  }
-  WGLoopCreatorImpl Impl(M, UseTLSGlobals, FuncReturn);
-  return Impl.run();
-}
-
-llvm::ModulePass *
-llvm::createDPCPPKernelWGLoopCreatorLegacyPass(bool UseTLSGlobals) {
-  return new DPCPPKernelWGLoopCreatorLegacy(UseTLSGlobals);
 }
 
 PreservedAnalyses DPCPPKernelWGLoopCreatorPass::run(Module &M,

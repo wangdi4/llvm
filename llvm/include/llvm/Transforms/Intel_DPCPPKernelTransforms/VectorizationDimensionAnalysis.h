@@ -103,29 +103,5 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 
-class VectorizationDimensionAnalysisLegacy : public ModulePass {
-public:
-  static char ID;
-
-  VectorizationDimensionAnalysisLegacy();
-
-  bool runOnModule(Module &M) override;
-
-  StringRef getPassName() const override {
-    return "VectorizationDimensionAnalysisLegacy";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void print(raw_ostream &OS, const Module *) const override;
-
-  using Result = MapVector<Function *, VectorizeDimInfo>;
-  Result &getResult() { return VDInfos; }
-  const Result &getResult() const { return VDInfos; }
-
-private:
-  Result VDInfos;
-};
-
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VECTORIZATION_DIMENSION_ANALYSIS_H

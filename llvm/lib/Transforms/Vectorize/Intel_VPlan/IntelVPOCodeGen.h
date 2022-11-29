@@ -410,7 +410,12 @@ private:
 
   // Vectorize ArrayType nonPOD privates.
   template <typename PrivateInstType>
-  void vectorizePrivateArrayNonPODInst(const VPInstruction *VPInst);
+  void vectorizePrivateNonPODArray(const VPInstruction *VPInst);
+
+  // Vectorize ArrayType nonPOD last value privates.
+  template <typename PrivateInstType>
+  void vectorizePrivateLastValueNonPODArray(const VPInstruction *VPInst,
+                                            Value *Res);
 
   // Vectorize running inclusive/exclusive reduction.
   template <class RunningReductionTy>

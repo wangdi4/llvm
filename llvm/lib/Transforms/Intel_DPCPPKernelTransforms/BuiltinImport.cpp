@@ -17,7 +17,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -29,48 +28,6 @@ using namespace CompilationUtils;
 static cl::opt<std::string>
     OptCPUPrefix("dpcpp-kernel-cpu-prefix", cl::Hidden, cl::init(""),
                  cl::desc("Set CPU prefix for BuiltinImport Pass"));
-
-namespace {
-
-/// Legacy BuiltinImport pass.
-class BuiltinImportLegacy : public ModulePass {
-  BuiltinImportPass Impl;
-
-public:
-  static char ID;
-
-  BuiltinImportLegacy(StringRef CPUPrefix = "")
-      : ModulePass(ID), Impl(CPUPrefix) {
-    initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "BuiltinImportLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    BuiltinLibInfo *BLI =
-        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    return Impl.runImpl(M, BLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char BuiltinImportLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(BuiltinImportLegacy, DEBUG_TYPE,
-                      "DPCPP builtin import pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(BuiltinImportLegacy, DEBUG_TYPE,
-                    "DPCPP builtin import pass", false, false)
-
-ModulePass *llvm::createBuiltinImportLegacyPass(StringRef CPUPrefix) {
-  return new BuiltinImportLegacy(CPUPrefix);
-}
 
 static Function *FindFunctionDef(const Function *F,
                                  ArrayRef<Module *> Modules) {
@@ -102,9 +59,7 @@ static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
 }
 
 BuiltinImportPass::BuiltinImportPass(StringRef CPUPrefix)
-    : CPUPrefix(CPUPrefix) {
-  initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
-}
+    : CPUPrefix(CPUPrefix) {}
 
 static StringRef getCPUPrefixSSE(bool is64BitOS) {
   return is64BitOS ? "h8" : "n8";

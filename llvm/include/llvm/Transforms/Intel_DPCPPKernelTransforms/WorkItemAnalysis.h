@@ -235,29 +235,5 @@ public:
   }
 };
 
-/// For legacy pass manager.
-class WorkItemAnalysisLegacy : public FunctionPass {
-  std::unique_ptr<WorkItemInfo> WIInfo;
-  unsigned VectorizeDim;
-
-public:
-  static char ID;
-
-  WorkItemAnalysisLegacy(unsigned VectorizeDim = 0);
-
-  bool runOnFunction(Function &F) override;
-
-  StringRef getPassName() const override { return "WorkItemAnalysisLegacy"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void print(raw_ostream &OS, const Module *) const override {
-    WIInfo->print(OS);
-  }
-
-  WorkItemInfo &getResult() { return *WIInfo; }
-  const WorkItemInfo &getResult() const { return *WIInfo; }
-};
-
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WORKITEM_ANALYSIS_H

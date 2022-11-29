@@ -17,7 +17,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetPreferVectorWidth.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
 
@@ -28,44 +27,7 @@ extern cl::opt<VFISAKind> IsaEncodingOverride;
 static cl::opt<unsigned> ForcedVecWidth("dpcpp-force-prefer-vector-width",
                                         cl::init(0), cl::Hidden);
 
-namespace {
-/// Legacy SetPreferVectorWidthLegacy pass.
-class SetPreferVectorWidthLegacy : public ModulePass {
-public:
-  static char ID;
-
-  SetPreferVectorWidthLegacy(VFISAKind ISA = VFISAKind::SSE);
-
-  StringRef getPassName() const override {
-    return "SetPreferVectorWidthLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-
-private:
-  SetPreferVectorWidthPass Impl;
-};
-
-} // namespace
-
-char SetPreferVectorWidthLegacy::ID = 0;
 static StringRef PreferVecWidth = "prefer-vector-width";
-
-INITIALIZE_PASS(
-    SetPreferVectorWidthLegacy, DEBUG_TYPE,
-    "Set prefer-vector-width function attribute based on CPU architecture",
-    false, false)
-
-SetPreferVectorWidthLegacy::SetPreferVectorWidthLegacy(
-    VFISAKind ISA)
-    : ModulePass(ID), Impl(ISA) {
-  initializeSetPreferVectorWidthLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-ModulePass *
-llvm::createSetPreferVectorWidthLegacyPass(VFISAKind ISA) {
-  return new SetPreferVectorWidthLegacy(ISA);
-}
 
 SetPreferVectorWidthPass::SetPreferVectorWidthPass(VFISAKind ISA)
     : ISA(ISA) {
@@ -109,8 +71,4 @@ static bool setPreferVectorWidth(Module &M, VFISAKind ISA) {
 
 bool SetPreferVectorWidthPass::runImpl(Module &M) {
   return setPreferVectorWidth(M, ISA);
-}
-
-bool SetPreferVectorWidthLegacy::runOnModule(Module &M) {
-  return Impl.runImpl(M);
 }

@@ -15,7 +15,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -266,46 +265,7 @@ private:
   SmallPtrSetImpl<Function *> &FuncDeclToRemove;
 };
 
-/// Legacy DPCPPEqualizer pass.
-class DPCPPEqualizerLegacy : public ModulePass {
-  DPCPPEqualizerPass Impl;
-
-public:
-  static char ID;
-
-  DPCPPEqualizerLegacy() : ModulePass(ID) {
-    initializeDPCPPEqualizerLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "DPCPPEqualizerLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    BuiltinLibInfo *BLI =
-        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    return Impl.runImpl(M, BLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<CallGraphWrapperPass>();
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.setPreservesCFG();
-  }
-};
-
 } // namespace
-
-char DPCPPEqualizerLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DPCPPEqualizerLegacy, DEBUG_TYPE,
-                      "Setup kernel attribute and metadata", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(DPCPPEqualizerLegacy, DEBUG_TYPE,
-                    "Setup kernel attribute and metadata", false, false)
-
-ModulePass *llvm::createDPCPPEqualizerLegacyPass() {
-  return new DPCPPEqualizerLegacy();
-}
-
 void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
   // Find all enqueue_kernel and kernel query calls.

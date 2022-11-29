@@ -22,7 +22,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/InstructionCost.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
@@ -1460,6 +1459,11 @@ InstCountResult::InstCountResult(Function &F, TargetTransformInfo &TTI,
 InstCountResult::InstCountResult(InstCountResult &&Other)
     : Impl(std::move(Other.Impl)) {}
 
+InstCountResult& InstCountResult::operator=(InstCountResult &&Other) {
+  Impl = std::move(Other.Impl);
+  return *this;
+}
+
 InstCountResult::~InstCountResult() = default;
 
 void InstCountResult::print(raw_ostream &OS) { return Impl->print(OS); }
@@ -1479,50 +1483,6 @@ void InstCountResult::countPerBlockHeuristics(
 
 void InstCountResult::copyBlockCosts(std::map<BasicBlock *, int> *Dest) {
   Impl->copyBlockCosts(Dest);
-}
-
-INITIALIZE_PASS_BEGIN(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
-                      "Weighted instruction count analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
-                    "Weighted instruction count analysis", false, true)
-
-char WeightedInstCountAnalysisLegacy::ID = 0;
-
-WeightedInstCountAnalysisLegacy::WeightedInstCountAnalysisLegacy(
-    VFISAKind ISA, bool PreVec)
-    : FunctionPass(ID), ISA(ISA), PreVec(PreVec) {
-  initializeWeightedInstCountAnalysisLegacyPass(
-      *PassRegistry::getPassRegistry());
-}
-
-void WeightedInstCountAnalysisLegacy::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-  AU.addRequired<PostDominatorTreeWrapperPass>();
-  AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<ScalarEvolutionWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool WeightedInstCountAnalysisLegacy::runOnFunction(Function &F) {
-  TargetTransformInfo &TTI =
-      getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  PostDominatorTree &DT =
-      getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  Result.reset(new InstCountResult(F, TTI, DT, LI, SE, ISA, PreVec));
-  return false;
-}
-
-FunctionPass *
-llvm::createWeightedInstCountAnalysisLegacyPass(VFISAKind ISA,
-                                                bool PreVec) {
-  return new WeightedInstCountAnalysisLegacy(ISA, PreVec);
 }
 
 AnalysisKey WeightedInstCountAnalysis::Key;

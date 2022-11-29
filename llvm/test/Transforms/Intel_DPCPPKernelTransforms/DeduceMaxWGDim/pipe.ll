@@ -1,8 +1,6 @@
 ; RUN: llvm-as %S/builtin-lib.rtl -o %t.rtl.bc
 ; RUN: oclopt -passes=dpcpp-kernel-deduce-max-dim -dpcpp-kernel-builtin-lib=%t.rtl.bc -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-deduce-max-dim -dpcpp-kernel-builtin-lib=%t.rtl.bc -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: oclopt -dpcpp-kernel-deduce-max-dim -dpcpp-kernel-builtin-lib=%t.rtl.bc -S %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-deduce-max-dim -dpcpp-kernel-builtin-lib=%t.rtl.bc -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 ; XFAIL: *
 

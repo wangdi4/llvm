@@ -1,10 +1,6 @@
-; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
-; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 
 ; check the metadata is preserved correctly during transformations

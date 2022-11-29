@@ -22,7 +22,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
@@ -35,46 +34,6 @@
 using namespace llvm;
 using namespace DPCPPChannelPipeUtils;
 using namespace CompilationUtils;
-
-namespace {
-
-/// Legacy PipeIOTransformation pass.
-class PipeIOTransformationLegacy : public ModulePass {
-  PipeIOTransformationPass Impl;
-
-public:
-  static char ID;
-
-  PipeIOTransformationLegacy() : ModulePass(ID) {
-    initializePipeIOTransformationLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "PipeIOTransformationLegacy";
-  }
-
-  bool runOnModule(Module &M) override {
-    auto *BLI = &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    return Impl.runImpl(M, BLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char PipeIOTransformationLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(PipeIOTransformationLegacy, DEBUG_TYPE,
-                      "PipeIOTransformationLegacy", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(PipeIOTransformationLegacy, DEBUG_TYPE,
-                    "PipeIOTransformationLegacy", false, false)
-
-ModulePass *llvm::createPipeIOTransformationLegacyPass() {
-  return new PipeIOTransformationLegacy();
-}
 
 // Vector of <Pipe, Pipe Id> pairs.
 using PipesWithIdVector = SmallVector<std::pair<Value *, unsigned>, 4>;

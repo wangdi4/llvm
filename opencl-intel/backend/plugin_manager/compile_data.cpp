@@ -31,6 +31,13 @@ CompileData::CompileData(const CompileData &that) {
   std::copy(that.m_headers.begin(), that.m_headers.end(), m_headers.begin());
 }
 
+CompileData &CompileData::operator=(const CompileData &that) {
+  this->m_sourceFile = that.sourceFile();
+  std::copy(that.m_headers.begin(), that.m_headers.end(),
+            this->m_headers.begin());
+  return *this;
+}
+
 const SourceFile &CompileData::sourceFile() const { return m_sourceFile; }
 
 void CompileData::addIncludeFile(const SourceFile &header) {

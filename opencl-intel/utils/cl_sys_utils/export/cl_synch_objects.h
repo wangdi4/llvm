@@ -87,7 +87,6 @@ private:
 class AtomicCounter {
 public:
   AtomicCounter(long initVal = 0) : m_val(initVal) {}
-  AtomicCounter(const AtomicCounter &ac) { m_val = ac.m_val; }
   ~AtomicCounter() {}
 
   long operator++();               // prefix. Returns new val

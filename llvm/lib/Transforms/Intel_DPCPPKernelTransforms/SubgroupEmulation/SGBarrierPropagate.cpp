@@ -12,7 +12,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
@@ -75,41 +74,6 @@ void SGBarrierPropagatePass::insertBarrierToFunction(Function &F) {
       Helper.insertBarrierBefore(RI);
 }
 
-namespace {
-
-/// Legacy SGBarrierPropagate pass
-class SGBarrierPropagateLegacy : public ModulePass {
-  SGBarrierPropagatePass Impl;
-
-public:
-  static char ID;
-
-  SGBarrierPropagateLegacy() : ModulePass(ID) {
-    initializeSGBarrierPropagateLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "SGBarrierPropagateLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    return Impl.runImpl(M, &getAnalysis<SGSizeAnalysisLegacy>().getResult());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<SGSizeAnalysisLegacy>();
-    AU.addPreserved<SGSizeAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char SGBarrierPropagateLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(SGBarrierPropagateLegacy, DEBUG_TYPE,
-                      "Propagate the sub_group_barrier", false, false)
-INITIALIZE_PASS_DEPENDENCY(SGSizeAnalysisLegacy)
-INITIALIZE_PASS_END(SGBarrierPropagateLegacy, DEBUG_TYPE,
-                    "Propagate the sub_group_barrier", false, false)
-
 PreservedAnalyses SGBarrierPropagatePass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
   if (!runImpl(M, &AM.getResult<SGSizeAnalysisPass>(M)))
@@ -118,8 +82,4 @@ PreservedAnalyses SGBarrierPropagatePass::run(Module &M,
   PreservedAnalyses PA;
   PA.preserve<SGSizeAnalysisPass>();
   return PA;
-}
-
-ModulePass *llvm::createSGBarrierPropagateLegacyPass() {
-  return new SGBarrierPropagateLegacy();
 }

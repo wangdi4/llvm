@@ -1928,71 +1928,41 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
 
   case VPInstruction::PrivateArrayNonPODCtor: {
-    vectorizePrivateArrayNonPODInst<VPPrivateNonPODArrayCtorInst>(VPInst);
+    vectorizePrivateNonPODArray<VPPrivateNonPODArrayCtorInst>(VPInst);
     return;
   }
 
   case VPInstruction::PrivateArrayNonPODDtor: {
-    vectorizePrivateArrayNonPODInst<VPPrivateNonPODArrayDtorInst>(VPInst);
+    vectorizePrivateNonPODArray<VPPrivateNonPODArrayDtorInst>(VPInst);
     return;
   }
 
   case VPInstruction::PrivateLastValueArrayNonPOD: {
-    // Function generates following set of BBs to iterate over VF and number of
-    // elements.
-    // last.private.loop:
-    //   %0 = phi i64 [ 0, %VPlannedBB7 ], [ %3, %last.private.loop ]
-    //   %1 = GEP [NumEl x %st], [NumEl x %st]* %priv.extract.1., i64 0, i64 %0
-    //   %2 = GEP [NumEl x %st], [NumEl x %st]* %priv.lpriv, i64 0, i64 %0
-    //   call void copy_assign(%st* %2, %st* %1)
-    //   %3 = add i64 %0, 1
-    //   %4 = icmp ult i64 %3, NumEl
-    //   br i1 %4, label %last.private.loop, label %last.private.loop.exit
-    //
-    // array.nonpod.last.private.loop.exit:
-    //   unreachable
-
-    BasicBlock *CurrentBB = Builder.GetInsertBlock();
-
-    // Create necessary BBs.
-    BasicBlock *BBLoop =
-        SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
-                   nullptr, "array.nonpod.last.private.loop");
-    BasicBlock *BBExit =
-        SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI, nullptr,
-                   "array.nonpod.last.private.loop.exit");
-
     VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
-    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
-
-    Builder.SetInsertPoint(BBLoop->getTerminator());
-    PHINode *Phi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
-    Phi->addIncoming(Builder.getInt64(0), CurrentBB);
     Value *Res = getScalarValue(Priv, VF - 1);
-    Type *ElementType = Priv->getAllocatedType();
+    vectorizePrivateLastValueNonPODArray<
+        VPPrivateLastValueNonPODArrayCopyAssignInst>(VPInst, Res);
+    return;
+  }
 
-    // Create copy assign call
-    Value *Target =
-        Builder.CreateGEP(ElementType, Res, {Builder.getInt64(0), Phi});
-    Value *OrigTarget =
-        Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
-    auto *CopyAssignFn =
-        cast<VPPrivateLastValueNonPODArrayCopyAssignInst>(VPInst)->getFn();
-    Builder.CreateCall(CopyAssignFn, {OrigTarget, Target});
+  case VPInstruction::PrivateLastValueArrayNonPODMasked: {
+    // Function generates following set of instructions to iterate over all of
+    // array elements in active lane.
+    //   %0 = bitcast <2 x i1> %mask to i2
+    //   %ctlz = call i2 @llvm.ctlz.i2(i2 %0, i1 true)
+    //   %1 = sub i2 1, %ctlz
+    //   %priv.extract = extractelement <2 x [NumEl x %st]*> %exit, i2 %1
+    //   br label %array.nonpod.last.private.loop
+    //
+    // emit code to finalize last value of non-POD array
 
-    // Increment loop IV
-    Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
-    Phi->addIncoming(Index, BBLoop);
-    Value *Cond = Builder.CreateICmpULT(
-        Index,
-        Builder.getInt64(cast<ArrayType>(ElementType)->getNumElements()));
-    Builder.CreateCondBr(Cond, BBLoop, BBExit);
-    BBLoop->getTerminator()->eraseFromParent();
-
-    // Exit loops.
-    Builder.SetInsertPoint(BBExit->getTerminator());
-
-    State->CFG.PrevBB = BBExit;
+    Value *VecMask = getVectorValue(VPInst->getOperand(2));
+    Value *Lane = createLastActiveLaneSequence(VecMask);
+    Value *VecExit = getVectorValue(VPInst->getOperand(0));
+    Value *PrivExtract =
+        Builder.CreateExtractElement(VecExit, Lane, "priv.extract");
+    vectorizePrivateLastValueNonPODArray<
+        VPPrivateLastValueNonPODArrayCopyAssignMaskedInst>(VPInst, PrivExtract);
     return;
   }
 
@@ -4260,7 +4230,7 @@ void VPOCodeGen::vectorizePrivateFinalUncond(VPInstruction *VPInst) {
 }
 
 template <typename PrivateInstType>
-void VPOCodeGen::vectorizePrivateArrayNonPODInst(const VPInstruction *VPInst) {
+void VPOCodeGen::vectorizePrivateNonPODArray(const VPInstruction *VPInst) {
   // Function generates following set of BBs to iterate over VF and number of
   // elements.
   // private.outer.loop:
@@ -4341,6 +4311,63 @@ void VPOCodeGen::vectorizePrivateArrayNonPODInst(const VPInstruction *VPInst) {
   Value *OuterCond = Builder.CreateICmpULT(OuterPhi, Builder.getInt64(VF));
   Builder.CreateCondBr(OuterCond, BBOuterLoop, BBExit);
   BBOuterLoopInc->getTerminator()->eraseFromParent();
+
+  // Exit loops.
+  Builder.SetInsertPoint(BBExit->getTerminator());
+
+  State->CFG.PrevBB = BBExit;
+}
+
+template <typename PrivateInstType>
+void VPOCodeGen::vectorizePrivateLastValueNonPODArray(
+    const VPInstruction *VPInst, Value *Res) {
+  // Function generates following set of BBs to iterate over all of array
+  // elements in specified lane.
+  // array.nonpod.last.private.loop:
+  //   %0 = phi i64 [ 0, %VPlannedBB7 ], [ %3, %last.private.loop ]
+  //   %1 = GEP [NumEl x %st], [NumEl x %st]* %priv.extract.1., i64 0, i64 %0
+  //   %2 = GEP [NumEl x %st], [NumEl x %st]* %priv.lpriv, i64 0, i64 %0
+  //   call void copy_assign(%st* %2, %st* %1)
+  //   %3 = add i64 %0, 1
+  //   %4 = icmp ult i64 %3, NumEl
+  //   br i1 %4, label %last.private.loop, label %last.private.loop.exit
+  //
+  // array.nonpod.last.private.loop.exit:
+  //   unreachable
+
+  BasicBlock *CurrentBB = Builder.GetInsertBlock();
+
+  // Create necessary BBs.
+  BasicBlock *BBLoop =
+      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
+                 nullptr, "array.nonpod.last.private.loop");
+  BasicBlock *BBExit =
+      SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI, nullptr,
+                 "array.nonpod.last.private.loop.exit");
+
+  VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+  Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+
+  Builder.SetInsertPoint(BBLoop->getTerminator());
+  PHINode *Phi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
+  Phi->addIncoming(Builder.getInt64(0), CurrentBB);
+  Type *ElementType = Priv->getAllocatedType();
+
+  // Create copy assign call
+  Value *Target =
+      Builder.CreateGEP(ElementType, Res, {Builder.getInt64(0), Phi});
+  Value *OrigTarget =
+      Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
+  auto *CopyAssignFn = cast<PrivateInstType>(VPInst)->getFn();
+  Builder.CreateCall(CopyAssignFn, {OrigTarget, Target});
+
+  // Increment loop IV
+  Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
+  Phi->addIncoming(Index, BBLoop);
+  Value *Cond = Builder.CreateICmpULT(
+      Index, Builder.getInt64(cast<ArrayType>(ElementType)->getNumElements()));
+  Builder.CreateCondBr(Cond, BBLoop, BBExit);
+  BBLoop->getTerminator()->eraseFromParent();
 
   // Exit loops.
   Builder.SetInsertPoint(BBExit->getTerminator());

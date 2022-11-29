@@ -1,5 +1,3 @@
-; RUN: opt -debugify -dpcpp-kernel-resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-resolve-wi-call -S %s | FileCheck %s
 ; RUN: opt -passes='debugify,dpcpp-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes='dpcpp-kernel-resolve-wi-call' -S %s | FileCheck %s
 

@@ -14,7 +14,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
@@ -526,37 +525,6 @@ void LoopWIInfo::updateConstStride(Value *ToUpdate, Value *UpdateBy,
   } else {
     LLVM_DEBUG(dbgs() << "Unsupported constant stride\n");
   }
-}
-
-INITIALIZE_PASS_BEGIN(LoopWIAnalysisLegacy, DEBUG_TYPE,
-                      "provides work item dependency info for loops", false,
-                      true)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(LoopWIAnalysisLegacy, DEBUG_TYPE,
-                    "provides work item dependency info for loops", false, true)
-
-char LoopWIAnalysisLegacy::ID = 0;
-
-LoopWIAnalysisLegacy::LoopWIAnalysisLegacy() : LoopPass(ID) {
-  initializeLoopWIAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-void LoopWIAnalysisLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<LoopInfoWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool LoopWIAnalysisLegacy::runOnLoop(Loop *L, LPPassManager &LPM) {
-  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  WIInfo.run(L, DT, LI);
-  return false;
-}
-
-LoopPass *llvm::createLoopWIAnalysisLegacyPass() {
-  return new LoopWIAnalysisLegacy();
 }
 
 AnalysisKey LoopWIAnalysis::Key;

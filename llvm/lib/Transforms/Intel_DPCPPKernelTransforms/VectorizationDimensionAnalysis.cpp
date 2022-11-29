@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorizationDimensionAnalysis.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -20,25 +19,6 @@ using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-vec-dim-analysis"
 
-INITIALIZE_PASS_BEGIN(VectorizationDimensionAnalysisLegacy, DEBUG_TYPE,
-                      "Choose vectorization dimension", false, true)
-INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
-INITIALIZE_PASS_END(VectorizationDimensionAnalysisLegacy, DEBUG_TYPE,
-                    "Choose vectorization dimension", false, true)
-
-char VectorizationDimensionAnalysisLegacy::ID = 0;
-
-VectorizationDimensionAnalysisLegacy::VectorizationDimensionAnalysisLegacy()
-    : ModulePass(ID) {
-  initializeVectorizationDimensionAnalysisLegacyPass(
-      *PassRegistry::getPassRegistry());
-}
-
-void VectorizationDimensionAnalysisLegacy::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequired<WorkItemAnalysisLegacy>();
-}
-
 static void print(raw_ostream &OS,
                   const MapVector<Function *, VectorizeDimInfo> &VDInfos) {
   for (auto &VD : VDInfos) {
@@ -46,31 +26,6 @@ static void print(raw_ostream &OS,
        << "\n";
     VD.second.print(OS);
   }
-}
-
-void VectorizationDimensionAnalysisLegacy::print(raw_ostream &OS,
-                                                 const Module *) const {
-  ::print(OS, VDInfos);
-}
-
-bool VectorizationDimensionAnalysisLegacy::runOnModule(Module &M) {
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
-  for (Function *F : Kernels) {
-    if (F->hasOptNone())
-      continue;
-    VectorizeDimInfo VDInfo;
-    if (!VDInfo.preCheckDimZero(*F)) {
-      WorkItemInfo &WIInfo =
-          getAnalysis<WorkItemAnalysisLegacy>(*F).getResult();
-      VDInfo.compute(*F, WIInfo);
-    }
-    VDInfos.insert({F, std::move(VDInfo)});
-  }
-  return false;
-}
-
-ModulePass *llvm::createVectorizationDimensionAnalysisLegacyPass() {
-  return new VectorizationDimensionAnalysisLegacy();
 }
 
 AnalysisKey VectorizationDimensionAnalysis::Key;

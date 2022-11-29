@@ -13,7 +13,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #define DEBUG_TYPE "IndirectCallLowering"
@@ -167,30 +166,3 @@ bool IndirectCallLowering::runImpl(Module &M) {
 }
 
 } // namespace llvm
-
-// For legacy pass manager
-namespace {
-class IndirectCallLoweringLegacy : public llvm::ModulePass {
-public:
-  static char ID;
-
-  IndirectCallLoweringLegacy() : ModulePass(ID) {
-    initializeIndirectCallLoweringLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-protected:
-  bool runOnModule(llvm::Module &M) override {
-    return IndirectCallLowering().runImpl(M);
-  }
-};
-} // namespace
-
-INITIALIZE_PASS(IndirectCallLoweringLegacy,
-                "dpcpp-kernel-indirect-call-lowering",
-                "Lowering __intel_indirect_call scalar calls", false, false)
-
-char IndirectCallLoweringLegacy::ID = 0;
-
-ModulePass *llvm::createIndirectCallLoweringLegacyPass() {
-  return new IndirectCallLoweringLegacy();
-}

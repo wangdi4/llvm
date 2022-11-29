@@ -37,8 +37,6 @@ public:
                BlockedRangeSizeType grain = 1)
       : m_min(left), m_max(right), m_grain(grain){};
 
-  BlockedRange(const BlockedRange &o) = default;
-
   BlockedRange(const size_t dims[], size_t grainsize)
       : m_min(0), m_max(dims[0]), m_grain(grainsize) {}
 
@@ -98,10 +96,6 @@ public:
         m_coord_split_second(min_coord_split_second, max_coord_split_second,
                              grain){};
 
-  BlockedRange2d(const BlockedRange2d &o)
-      : m_coord_split_first(o.m_coord_split_first),
-        m_coord_split_second(o.m_coord_split_second){};
-
   BlockedRange2d(const tbb::blocked_range<size_t> &tbb_coord_split_first,
                  const tbb::blocked_range<size_t> &tbb_coord_split_second,
                  BlockedRange::BlockedRangeSizeType grain = 1)
@@ -158,11 +152,6 @@ public:
         m_coord_split_second(min_coord_split_second, max_coord_split_second),
         m_coord_split_third(min_coord_split_third, max_coord_split_third,
                             grain){};
-
-  BlockedRange3d(const BlockedRange3d &o)
-      : m_coord_split_first(o.m_coord_split_first),
-        m_coord_split_second(o.m_coord_split_second),
-        m_coord_split_third(o.m_coord_split_third){};
 
   BlockedRange3d(const tbb::blocked_range<size_t> &tbb_coord_split_first,
                  const tbb::blocked_range<size_t> &tbb_coord_split_second,
@@ -225,8 +214,6 @@ public:
                       BlockedRange::BlockedRangeSizeType grain = 1)
       : BlockedRange2d(min_rows, max_rows, min_cols, max_cols, grain){};
 
-  BlockedRangeByRow2d(const BlockedRangeByRow2d &o) : BlockedRange2d(o) {}
-
   BlockedRangeByRow2d(const size_t dims[], size_t grainsize)
       : BlockedRange2d(0, dims[1], 0, dims[0], grainsize) {}
 
@@ -257,8 +244,6 @@ public:
                       BlockedRange::BlockedRangeSizeType grain = 1)
       : BlockedRange3d(min_pages, max_pages, min_rows, max_rows, min_cols,
                        max_cols, grain){};
-
-  BlockedRangeByRow3d(const BlockedRangeByRow3d &o) : BlockedRange3d(o){};
 
   BlockedRangeByRow3d(const size_t dims[], size_t grainsize)
       : BlockedRange3d(0, dims[2], 0, dims[1], 0, dims[0], grainsize) {}
@@ -295,8 +280,6 @@ public:
                          BlockedRange::BlockedRangeSizeType grain = 1)
       : BlockedRange2d(min_cols, max_cols, min_rows, max_rows, grain){};
 
-  BlockedRangeByColumn2d(const BlockedRangeByColumn2d &o) : BlockedRange2d(o){};
-
   BlockedRangeByColumn2d(const size_t dims[], size_t grainsize)
       : BlockedRange2d(0, dims[0], 0, dims[1], grainsize) {}
 
@@ -327,8 +310,6 @@ public:
                          BlockedRange::BlockedRangeSizeType grain = 1)
       : BlockedRange3d(min_pages, max_pages, min_cols, max_cols, min_rows,
                        max_rows, grain){};
-
-  BlockedRangeByColumn3d(const BlockedRangeByColumn3d &o) : BlockedRange3d(o){};
 
   BlockedRangeByColumn3d(const tbb::blocked_range3d<size_t> &tbb_r)
       : BlockedRange3d(tbb_r.pages(), tbb_r.cols(), tbb_r.rows(),
@@ -368,9 +349,6 @@ public:
                        BlockedRange::BlockedRangeValueType max_cols,
                        BlockedRange::BlockedRangeSizeType grain = 1)
       : m_rows(min_rows, max_rows, grain), m_cols(min_cols, max_cols, grain){};
-
-  BlockedRangeByTile2d(const BlockedRangeByTile2d &o)
-      : m_rows(o.m_rows), m_cols(o.m_cols){};
 
   BlockedRangeByTile2d(const size_t dims[], size_t grainsize)
       : m_rows(0, dims[1], grainsize), m_cols(0, dims[0], grainsize){};
@@ -422,9 +400,6 @@ public:
                        BlockedRange::BlockedRangeSizeType grain = 1)
       : m_pages(min_pages, max_pages, grain), m_rows(min_rows, max_rows, grain),
         m_cols(min_cols, max_cols, grain){};
-
-  BlockedRangeByTile3d(const BlockedRangeByTile3d &o)
-      : m_pages(o.m_pages), m_rows(o.m_rows), m_cols(o.m_cols){};
 
   BlockedRangeByTile3d(const size_t dims[], size_t grainsize)
       : m_pages(0, dims[2], grainsize), m_rows(0, dims[1], grainsize),
@@ -488,9 +463,6 @@ public:
   BlockedRangeByDefaultTBB1d(size_t left, size_t right, size_t grain = 1)
       : tbb::blocked_range<size_t>(left, right, grain){};
 
-  BlockedRangeByDefaultTBB1d(const BlockedRangeByDefaultTBB1d &o)
-      : tbb::blocked_range<size_t>(o){};
-
   BlockedRangeByDefaultTBB1d(const size_t dims[], size_t grainsize)
       : tbb::blocked_range<size_t>(0, dims[0], grainsize){};
 
@@ -521,9 +493,6 @@ public:
                              size_t grain = 1)
       : tbb::blocked_range2d<size_t>(min_rows, max_rows, grain, min_cols,
                                      max_cols, grain){};
-
-  BlockedRangeByDefaultTBB2d(const BlockedRangeByDefaultTBB2d &o)
-      : tbb::blocked_range2d<size_t>(o){};
 
   BlockedRangeByDefaultTBB2d(const size_t dims[], size_t grainsize)
       : tbb::blocked_range2d<size_t>(0, dims[1], grainsize, 0, dims[0],
@@ -564,9 +533,6 @@ public:
       : tbb::blocked_range3d<size_t>(min_pages, max_pages, grain, min_rows,
                                      max_rows, grain, min_cols, max_cols,
                                      grain){};
-
-  BlockedRangeByDefaultTBB3d(const BlockedRangeByDefaultTBB3d &o)
-      : tbb::blocked_range3d<size_t>(o){};
 
   BlockedRangeByDefaultTBB3d(const size_t dims[], size_t grainsize)
       : tbb::blocked_range3d<size_t>(0, dims[2], grainsize, 0, dims[1],

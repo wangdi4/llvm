@@ -588,7 +588,6 @@ int main(int argc, char **argv) {
   initializeTypePromotionPass(Registry);
   initializeReplaceWithVeclibLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeIntel_DPCPPKernelTransforms(Registry);
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);

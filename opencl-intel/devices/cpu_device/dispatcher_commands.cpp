@@ -871,17 +871,17 @@ int NDRange::Init(size_t region[], unsigned int &dimCount,
   unsigned i;
   for (i = 0; i < cmdParams->work_dim; ++i) {
     m_pImplicitArgs->GlobalOffset[i] = cmdParams->glb_wrk_offs[i];
-    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
+    m_pImplicitArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][i] =
         cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i];
-    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
+    m_pImplicitArgs->UserLocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
         cmdParams->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i];
-    m_pImplicitArgs->GlobalSize[i] = cmdParams->glb_wrk_size[i];
+    m_pImplicitArgs->UserGlobalSize[i] = cmdParams->glb_wrk_size[i];
   }
   for (; i < MAX_WORK_DIM; ++i) {
     m_pImplicitArgs->GlobalOffset[i] = 0;
-    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
-    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
-    m_pImplicitArgs->GlobalSize[i] = 1;
+    m_pImplicitArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
+    m_pImplicitArgs->UserLocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
+    m_pImplicitArgs->UserGlobalSize[i] = 1;
   }
 
   m_pImplicitArgs->MinWorkGroupNum = m_numThreads;
@@ -913,11 +913,11 @@ int NDRange::Init(size_t region[], unsigned int &dimCount,
   if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
     g_pUserLogger->SetWGSizeCount(
         m_pCmd->id, (size_t)cmdParams->work_dim,
-        m_pImplicitArgs->InternalLocalSize[UNIFORM_WG_SIZE_INDEX],
-        m_pImplicitArgs->InternalLocalSize[NONUNIFORM_WG_SIZE_INDEX],
-        m_pImplicitArgs->InternalWGCount);
+        m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
+        m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX],
+        m_pImplicitArgs->WGCount);
 
-  const size_t *pWGSize = m_pImplicitArgs->InternalWGCount;
+  const size_t *pWGSize = m_pImplicitArgs->WGCount;
   assert(pWGSize && "pWGSize must be non zero pointer");
   for (i = 0; i < cmdParams->work_dim; ++i) {
     region[i] = pWGSize[i];
@@ -948,7 +948,7 @@ size_t NDRange::PreferredSequentialItemsPerThread() const {
   size_t preferredSize = 1;
   if (m_needSerializeWGs) {
     assert(m_pImplicitArgs != nullptr && "Init should be called first.");
-    const size_t *pWGSize = m_pImplicitArgs->InternalWGCount;
+    const size_t *pWGSize = m_pImplicitArgs->WGCount;
     for (unsigned int i = 0; i < m_pImplicitArgs->WorkDim; ++i) {
       // The whole NDRange are splitted to several tasks using grainsize.
       // The important fact that 3D-range are handled as three independent
@@ -1035,7 +1035,7 @@ void *NDRange::AttachToThread(void *pWgContextBase, size_t uiNumberOfWorkGroups,
   // Start execution task
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
     unsigned int uiWorkGroupSize = 1;
-    const size_t *pWGSize = m_pImplicitArgs->InternalWGCount;
+    const size_t *pWGSize = m_pImplicitArgs->WGCount;
     cl_dev_cmd_param_kernel *cmdParams =
         (cl_dev_cmd_param_kernel *)m_pCmd->params;
 
@@ -1191,16 +1191,16 @@ bool NDRange::applyForcedWGSize() {
 
   size_t i = 0;
   for (; i < forcedWorkDim; ++i) {
-    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] = forcedWGSize[i];
-    size_t remainder = m_pImplicitArgs->GlobalSize[i] % forcedWGSize[i];
-    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
+    m_pImplicitArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][i] = forcedWGSize[i];
+    size_t remainder = m_pImplicitArgs->UserGlobalSize[i] % forcedWGSize[i];
+    m_pImplicitArgs->UserLocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
         remainder > 0 ? remainder : forcedWGSize[i];
   }
 
   // Set workgroup size of higher dim to 1.
   for (; i < m_pImplicitArgs->WorkDim; ++i) {
-    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
-    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
+    m_pImplicitArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
+    m_pImplicitArgs->UserLocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
   }
   return true;
 }
@@ -1633,7 +1633,7 @@ bool NativeKernelTask::Execute() {
       (UniformKernelArgs *)((char *)pCmd_params->arg_values +
                             pKernel->GetExplicitArgumentBufferSize());
   pUnifromArgs->WorkDim = pCmd_params->work_dim;
-  memcpy(pUnifromArgs->GlobalSize, pCmd_params->glb_wrk_size,
+  memcpy(pUnifromArgs->UserGlobalSize, pCmd_params->glb_wrk_size,
          pCmd_params->work_dim * sizeof(size_t));
 #ifndef __OMP2TBB__
   cl_dev_err_code res = m_pBIKernel->Execute(

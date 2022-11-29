@@ -33,6 +33,7 @@ public:
   CompileData(const std::vector<SourceFile> &headers,
               const SourceFile &sourceFile);
   CompileData(const CompileData &);
+  CompileData &operator=(const CompileData &);
   CompileData();
   //
   // setters

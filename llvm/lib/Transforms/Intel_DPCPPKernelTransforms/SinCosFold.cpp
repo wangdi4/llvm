@@ -20,7 +20,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
@@ -29,46 +28,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-sin-cos-fold"
-
-namespace {
-
-/// Legacy SinCosFold pass.
-class SinCosFoldLegacy : public FunctionPass {
-  SinCosFoldPass Impl;
-
-public:
-  static char ID;
-
-  SinCosFoldLegacy() : FunctionPass(ID) {
-    initializeSinCosFoldLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "SinCosFoldLegacy"; }
-
-  bool runOnFunction(Function &F) override {
-    auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                    .getResult()
-                    .getRuntimeService();
-    return Impl.runImpl(F, RTS);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char SinCosFoldLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(SinCosFoldLegacy, DEBUG_TYPE, "SinCosFoldLegacy", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(SinCosFoldLegacy, DEBUG_TYPE, "SinCosFoldLegacy", false,
-                    false)
-
-FunctionPass *llvm::createSinCosFoldLegacyPass() {
-  return new SinCosFoldLegacy();
-}
 
 struct SinCosPairData {
   SinCosPairData(CallInst *SinCall, CallInst *CosCall, bool IsNativeCall,

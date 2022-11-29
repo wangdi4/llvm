@@ -657,6 +657,7 @@ public:
     PrivateArrayNonPODCtor,
     PrivateArrayNonPODDtor,
     PrivateLastValueArrayNonPOD,
+    PrivateLastValueArrayNonPODMasked,
     CompressStore,     // generate llvm.masked.compressstore intrinsic, for
                        // unit stride stores
     CompressStoreNonu, // generate vcompress intrinsic and masked scatter
@@ -1083,6 +1084,8 @@ using VPPrivateNonPODArrayDtorInst =
     VPPrivateNonPODInstImpl<VPInstruction::PrivateArrayNonPODDtor>;
 using VPPrivateLastValueNonPODArrayCopyAssignInst =
     VPPrivateNonPODInstImpl<VPInstruction::PrivateLastValueArrayNonPOD>;
+using VPPrivateLastValueNonPODArrayCopyAssignMaskedInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateLastValueArrayNonPODMasked>;
 
 /// Concrete class to represent last value calculation for masked and non-masked
 /// private nonPODs in VPlan.

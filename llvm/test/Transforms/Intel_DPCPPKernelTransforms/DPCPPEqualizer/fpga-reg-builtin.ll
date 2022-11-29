@@ -39,9 +39,7 @@
 
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-remove-fpga-reg -passes=dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-remove-fpga-reg -dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-remove-fpga-reg -passes=dpcpp-kernel-equalizer -S %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-remove-fpga-reg -dpcpp-kernel-equalizer -S %s | FileCheck %s
 
 %struct.st = type { i32, float }
 %union.un = type { i32 }

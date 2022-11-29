@@ -1,9 +1,5 @@
-; RUN: opt -dpcpp-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -dpcpp-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='dpcpp-kernel-local-buffers' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -opaque-pointers -passes='dpcpp-kernel-local-buffers' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-local-buffers -S %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
-; RUN: opt -opaque-pointers -dpcpp-kernel-local-buffers -S %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
 ; RUN: opt -passes='dpcpp-kernel-local-buffers' -S %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
 ; RUN: opt -opaque-pointers -passes='dpcpp-kernel-local-buffers' -S %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
 

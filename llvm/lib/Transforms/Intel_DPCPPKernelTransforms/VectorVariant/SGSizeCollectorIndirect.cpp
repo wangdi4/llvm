@@ -13,7 +13,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -177,58 +176,4 @@ PreservedAnalyses SGSizeCollectorIndirectPass::run(Module &M,
   PA.preserve<CallGraphAnalysis>();
   PA.preserveSet<CFGAnalyses>();
   return PA;
-}
-
-// For legacy pass manager
-namespace {
-class SGSizeCollectorIndirectLegacy : public ModulePass {
-public:
-  static char ID;
-
-  SGSizeCollectorIndirectLegacy(VFISAKind ISA = VFISAKind::SSE);
-
-  StringRef getPassName() const override {
-    return "SGSizeCollectorIndirectLegacy";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addPreserved<CallGraphWrapperPass>();
-    AU.setPreservesCFG();
-  }
-
-protected:
-  bool runOnModule(Module &M) override;
-
-private:
-  VFISAKind ISA;
-};
-} // namespace
-
-char SGSizeCollectorIndirectLegacy::ID = 0;
-
-bool SGSizeCollectorIndirectLegacy::runOnModule(Module &M) {
-  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  return SGSizeCollectorIndirectPass(ISA).runImpl(M, CG);
-}
-
-SGSizeCollectorIndirectLegacy::SGSizeCollectorIndirectLegacy(
-    VFISAKind ISA)
-    : ModulePass(ID), ISA(ISA) {
-  initializeSGSizeCollectorIndirectLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-INITIALIZE_PASS_BEGIN(SGSizeCollectorIndirectLegacy,
-                      "dpcpp-kernel-sg-size-collector-indirect",
-                      "Collecting subgroup size information for indirect calls",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(SGSizeCollectorIndirectLegacy,
-                    "dpcpp-kernel-sg-size-collector-indirect",
-                    "Collecting subgroup size information for indirect calls",
-                    false, false)
-
-ModulePass *
-llvm::createSGSizeCollectorIndirectLegacyPass(VFISAKind ISA) {
-  return new SGSizeCollectorIndirectLegacy(ISA);
 }

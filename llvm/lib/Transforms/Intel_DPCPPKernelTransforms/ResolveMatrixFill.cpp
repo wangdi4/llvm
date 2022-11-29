@@ -20,40 +20,11 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-fill"
-
-namespace {
-
-/// Legacy ResolveMatrixFill pass.
-class ResolveMatrixFillLegacy : public ModulePass {
-  ResolveMatrixFillPass Impl;
-
-public:
-  static char ID;
-
-  ResolveMatrixFillLegacy() : ModulePass(ID) {
-    initializeResolveMatrixFillLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "ResolveMatrixFillLegacy"; }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-};
-
-} // namespace
-
-char ResolveMatrixFillLegacy::ID = 0;
-INITIALIZE_PASS(ResolveMatrixFillLegacy, DEBUG_TYPE,
-                "Resolve matrix fill intrinsic", false, false)
-
-ModulePass *llvm::createResolveMatrixFillLegacyPass() {
-  return new ResolveMatrixFillLegacy();
-}
 
 static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
                                  FixedVectorType *MatrixType,

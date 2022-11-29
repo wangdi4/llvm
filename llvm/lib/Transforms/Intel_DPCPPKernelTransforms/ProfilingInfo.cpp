@@ -18,43 +18,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
-
-namespace {
-
-/// For legacy pass pass manager
-class ProfilingInfoLegacy : public ModulePass {
-public:
-  static char ID; // LLVM pass ID
-
-  ProfilingInfoLegacy() : ModulePass(ID) {
-    initializeProfilingInfoLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override { return "ProfilingInfo"; }
-
-  bool runOnModule(Module &M) override;
-
-private:
-  ProfilingInfoPass Impl;
-};
-
-} // namespace
-
-char ProfilingInfoLegacy::ID = 0;
-
-INITIALIZE_PASS(
-    ProfilingInfoLegacy, "dpcpp-kernel-profiling-info",
-    "clean up debug info in the module to be suitable for profiling", false,
-    false)
-
-ModulePass *llvm::createProfilingInfoLegacyPass() {
-  return new ProfilingInfoLegacy();
-}
-
-bool ProfilingInfoLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
 static void runOnUserFunction(Function *F) {
   SmallVector<Instruction *> InstsToRemove;

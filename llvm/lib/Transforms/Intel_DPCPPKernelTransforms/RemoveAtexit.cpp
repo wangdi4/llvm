@@ -18,43 +18,11 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-remove-atexit"
-
-namespace {
-/// Legacy RemoveAtExitLegacy pass.
-class RemoveAtExitLegacy : public ModulePass {
-public:
-  static char ID;
-
-  RemoveAtExitLegacy() : ModulePass(ID) {
-    initializeRemoveAtExitLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "RemoveAtExitLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-private:
-  RemoveAtExitPass Impl;
-};
-
-} // namespace
-
-char RemoveAtExitLegacy::ID = 0;
-
-INITIALIZE_PASS(RemoveAtExitLegacy, DEBUG_TYPE,
-                "remove atexit call temporarily", false, false)
-
-bool RemoveAtExitLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
-
-ModulePass *llvm::createRemoveAtExitLegacyPass() {
-  return new RemoveAtExitLegacy();
-}
 
 PreservedAnalyses RemoveAtExitPass::run(Module &M, ModuleAnalysisManager &AM) {
   return runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();

@@ -16,45 +16,12 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InfiniteLoopCreator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-infinite-loop-creator"
-
-namespace {
-
-class InfiniteLoopCreatorLegacy : public ModulePass {
-public:
-  static char ID;
-
-  InfiniteLoopCreatorLegacy() : ModulePass(ID) {
-    initializeInfiniteLoopCreatorLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "InfiniteLoopCreatorLegacy"; }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-private:
-
-  InfiniteLoopCreatorPass Impl;
-};
-
-} // namespace
-
-char InfiniteLoopCreatorLegacy::ID = 0;
-
-INITIALIZE_PASS(
-    InfiniteLoopCreatorLegacy, DEBUG_TYPE,
-    "Wrap body of autorun kernels by while (true) loop if necessary",
-    /* Only looks at CFG */ false, /* Analysis Pass */ false)
-
-ModulePass *llvm::createInfiniteLoopCreatorLegacyPass() {
-  return new InfiniteLoopCreatorLegacy();
-}
 
 PreservedAnalyses InfiniteLoopCreatorPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {

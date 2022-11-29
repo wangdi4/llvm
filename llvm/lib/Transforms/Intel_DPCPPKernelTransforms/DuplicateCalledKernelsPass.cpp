@@ -15,7 +15,6 @@
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBufferAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -30,36 +29,6 @@ using namespace CompilationUtils;
 using FuncPtrSet = SmallPtrSet<Function *, 16>;
 
 static constexpr StringRef CloneNameSuffix = ".clone";
-
-char DuplicateCalledKernelsLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(
-    DuplicateCalledKernelsLegacy, DEBUG_TYPE,
-    "DuplicateCalledKernelsLegacy Pass - Clone kernels called from "
-    "other functions",
-    false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LocalBufferAnalysisLegacy)
-INITIALIZE_PASS_END(
-    DuplicateCalledKernelsLegacy, DEBUG_TYPE,
-    "DuplicateCalledKernelsLegacy Pass - Clone kernels called from "
-    "other functions",
-    false, false)
-
-DuplicateCalledKernelsLegacy::DuplicateCalledKernelsLegacy() : ModulePass(ID) {
-  initializeDuplicateCalledKernelsLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-void DuplicateCalledKernelsLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<CallGraphWrapperPass>();
-  AU.addRequired<LocalBufferAnalysisLegacy>();
-}
-
-bool DuplicateCalledKernelsLegacy::runOnModule(Module &M) {
-  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  LocalBufferInfo &LBI = getAnalysis<LocalBufferAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, CG, LBI);
-}
 
 PreservedAnalyses DuplicateCalledKernelsPass::run(Module &M,
                                                   ModuleAnalysisManager &AM) {
@@ -461,8 +430,4 @@ bool DuplicateCalledKernelsPass::runImpl(Module &M, CallGraph &CG,
   }
 
   return Changed;
-}
-
-ModulePass *llvm::createDuplicateCalledKernelsLegacyPass() {
-  return new llvm::DuplicateCalledKernelsLegacy();
 }

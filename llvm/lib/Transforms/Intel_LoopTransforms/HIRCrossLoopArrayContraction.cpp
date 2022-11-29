@@ -210,7 +210,7 @@ void HIRCrossLoopArrayContraction::runPostProcessors(
                         << Loop->getNumber() << "\n";
                  Loop->dump(); dbgs() << "\n";);
 
-      HIRTransformUtils::doConstantAndCopyPropagation(Loop, nullptr);
+      HIRTransformUtils::doConstantAndCopyPropagation(Loop);
     });
   }
 

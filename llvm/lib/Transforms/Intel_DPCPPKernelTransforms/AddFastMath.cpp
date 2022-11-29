@@ -18,39 +18,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFastMath.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
-
-namespace {
-
-class AddFastMathLegacy : public FunctionPass {
-public:
-  static char ID;
-
-  AddFastMathLegacy();
-
-  StringRef getPassName() const override { return "AddFastMathLegacy"; }
-
-  bool runOnFunction(Function &F) override;
-
-private:
-  AddFastMathPass Impl;
-};
-
-} // namespace
-
-char AddFastMathLegacy::ID = 0;
-
-INITIALIZE_PASS(AddFastMathLegacy, "dpcpp-kernel-add-fast-math",
-                "Add 'fast' flag for floating-point operations and call", false,
-                false)
-
-AddFastMathLegacy::AddFastMathLegacy() : FunctionPass(ID) {
-  initializeAddFastMathLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool AddFastMathLegacy::runOnFunction(Function &F) { return Impl.runImpl(F); }
 
 bool AddFastMathPass::runImpl(Function &F) {
   bool Changed = false;
@@ -87,8 +56,4 @@ PreservedAnalyses AddFastMathPass::run(Function &F,
   if (!runImpl(F))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
-}
-
-FunctionPass *llvm::createAddFastMathLegacyPass() {
-  return new AddFastMathLegacy();
 }

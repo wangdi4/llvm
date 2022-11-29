@@ -24,9 +24,7 @@
 
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-equalizer -S %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -S %s | FileCheck %s
 
 ; CHECK-LABEL: define void @test1
 ; CHECK-NOT: call i32 @__read_pipe_2_AS{{[0-9]}}

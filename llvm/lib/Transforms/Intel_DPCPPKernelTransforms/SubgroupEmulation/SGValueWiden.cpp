@@ -15,7 +15,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGFunctionWiden.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -825,47 +824,4 @@ void SGValueWidenPass::widenAlloca(Instruction *V, Instruction *FirstI,
   }
 
   InstsToBeRemoved.push_back(AI);
-}
-
-namespace {
-/// Legacy SGValueWiden pass.
-class SGValueWidenLegacy : public ModulePass {
-public:
-  static char ID;
-
-  SGValueWidenLegacy() : ModulePass(ID) {
-    initializeSGValueWidenLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "SGValueWidenLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<SGSizeAnalysisLegacy>();
-  }
-
-private:
-  SGValueWidenPass Impl;
-};
-} // namespace
-
-char SGValueWidenLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(SGValueWidenLegacy, DEBUG_TYPE,
-                      "Insert sub_group_barrier and vector-variants attribute",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(SGSizeAnalysisLegacy)
-INITIALIZE_PASS_END(SGValueWidenLegacy, DEBUG_TYPE,
-                    "Insert sub_group_barrier and vector-variants attribute",
-                    false, false)
-
-bool SGValueWidenLegacy::runOnModule(Module &M) {
-  const SGSizeInfo *SSI = &getAnalysis<SGSizeAnalysisLegacy>().getResult();
-
-  return Impl.runImpl(M, SSI);
-}
-
-ModulePass *llvm::createSGValueWidenLegacyPass() {
-  return new SGValueWidenLegacy();
 }

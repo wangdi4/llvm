@@ -20,7 +20,6 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WeightedInstCount.h"
@@ -405,37 +404,6 @@ void VFAnalysisInfo::print(raw_ostream &OS) const {
   OS << "Kernel --> SGEmuSize:\n";
   for (auto P : KernelToSGEmuSize)
     OS << "  <" << P.getFirst()->getName() << "> : " << P.getSecond() << '\n';
-}
-
-INITIALIZE_PASS_BEGIN(VFAnalysisLegacy, DEBUG_TYPE, DEBUG_TYPE, /*cfg*/ false,
-                      /*analysis*/ true)
-INITIALIZE_PASS_DEPENDENCY(WeightedInstCountAnalysisLegacy)
-INITIALIZE_PASS_END(VFAnalysisLegacy, DEBUG_TYPE, DEBUG_TYPE, /*cfg*/ false,
-                    /*analysis*/ true)
-
-ModulePass *llvm::createVFAnalysisLegacyPass() {
-  return new VFAnalysisLegacy();
-}
-
-char VFAnalysisLegacy::ID = 0;
-
-bool VFAnalysisLegacy::runOnModule(Module &M) {
-  auto GetHeuristicVF = [&](Function &F) {
-    return getAnalysis<WeightedInstCountAnalysisLegacy>(F)
-        .getResult()
-        .getDesiredVF();
-  };
-  Result.analyzeModule(M, GetHeuristicVF);
-  return false;
-}
-
-void VFAnalysisLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<WeightedInstCountAnalysisLegacy>();
-  AU.setPreservesAll();
-}
-
-void VFAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
-  getResult().print(OS);
 }
 
 // Provide a definition for the static class member used to identify passes.

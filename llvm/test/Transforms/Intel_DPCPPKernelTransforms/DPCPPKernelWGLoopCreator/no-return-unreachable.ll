@@ -1,8 +1,6 @@
 ; Check dummpy return block is added if kernel has no return instruction but
 ; unreachable.
 
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 

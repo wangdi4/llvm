@@ -98,6 +98,7 @@ define internal void @test07() {
 }
 ; CHECK-LABEL: void @test07()
 ; CHECK-NONOPAQUE:  %local = alloca %struct.test*
+; CHECK-OPAQUE: !intel_dtrans_type = %struct.test*
 ; CHECK-OPAQUE:  %local = alloca ptr
 ; CHECK:      Aliased types:
 ; CHECK:        %struct.test**
@@ -111,6 +112,7 @@ define internal void @test08() {
 }
 ; CHECK-LABEL: void @test08()
 ; CHECK-NONOPAQUE:  %local = alloca [9 x %struct.test*]*
+; CHECK-OPAQUE: !intel_dtrans_type = [9 x %struct.test*]*
 ; CHECK-OPAQUE:  %local = alloca ptr
 ; CHECK:      Aliased types:
 ; CHECK:        [9 x %struct.test*]**

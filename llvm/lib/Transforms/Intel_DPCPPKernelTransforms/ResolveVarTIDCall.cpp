@@ -17,7 +17,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveVarTIDCall.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -109,32 +108,6 @@ static bool runImpl(Module &M) {
   Changed |= runOnTID(M, Builder, ConstZero, mangledGetGID(), "gid.");
   Changed |= runOnTID(M, Builder, ConstZero, mangledGetGroupID(), "groupid.");
   return Changed;
-}
-
-namespace {
-class ResolveVarTIDCallLegacy : public ModulePass {
-public:
-  static char ID;
-
-  ResolveVarTIDCallLegacy() : ModulePass(ID) {
-    initializeResolveVarTIDCallLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override {
-    return "ResolveVarTIDCallLegacy";
-  }
-
-  bool runOnModule(Module &M) override { return runImpl(M); }
-};
-} // namespace
-
-char ResolveVarTIDCallLegacy::ID = 0;
-
-INITIALIZE_PASS(ResolveVarTIDCallLegacy, DEBUG_TYPE,
-                "Resolve TID with variable argument", false, false)
-
-ModulePass *llvm::createResolveVarTIDCallLegacyPass() {
-  return new ResolveVarTIDCallLegacy();
 }
 
 PreservedAnalyses ResolveVarTIDCallPass::run(Module &M,

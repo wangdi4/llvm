@@ -120,40 +120,6 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 
-/// WIRelatedValueWrapper pass for legacy pass manager.
-class WIRelatedValueWrapper : public ModulePass {
-  std::unique_ptr<WIRelatedValue> WRV;
-
-public:
-  static char ID;
-
-  WIRelatedValueWrapper();
-
-  StringRef getPassName() const override {
-    return "Intel Kernel WIRelatedValue Analysis";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  /// Inform about usage/modification/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Analysis pass preserve all.
-    AU.setPreservesAll();
-  }
-
-  /// Print data collected by the pass on the given module.
-  /// OS stream to print the info regarding the module into.
-  /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M) const override {
-    WRV->print(OS, M);
-  }
-
-  void releaseMemory() override { WRV.reset(); }
-
-  WIRelatedValue &getWRV() { return *WRV; }
-  const WIRelatedValue &getWRV() const { return *WRV; }
-};
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WI_RELATED_VALUE_H

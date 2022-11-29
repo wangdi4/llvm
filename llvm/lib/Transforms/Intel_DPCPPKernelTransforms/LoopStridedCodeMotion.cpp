@@ -22,7 +22,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -663,50 +662,6 @@ void LoopStridedCodeMotionImpl::obtainNonHoistedUsers(
   for (User *U : V->users())
     if (!InstToMoveSet.contains(U))
       Vec.push_back(U);
-}
-
-namespace {
-
-class LoopStridedCodeMotionLegacy : public LoopPass {
-public:
-  static char ID;
-
-  LoopStridedCodeMotionLegacy() : LoopPass(ID) {
-    initializeLoopStridedCodeMotionLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnLoop(Loop *L, LPPassManager &) override {
-    if (skipLoop(L))
-      return false;
-    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    LoopWIInfo &WIInfo = getAnalysis<LoopWIAnalysisLegacy>().getResult();
-    LoopStridedCodeMotionImpl Impl(*L, LI, DT, WIInfo);
-    return Impl.run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<LoopWIAnalysisLegacy>();
-    AU.setPreservesCFG();
-  }
-};
-
-} // namespace
-
-INITIALIZE_PASS_BEGIN(LoopStridedCodeMotionLegacy, DEBUG_TYPE,
-                      "Hoist strided values out of loops", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysisLegacy)
-INITIALIZE_PASS_END(LoopStridedCodeMotionLegacy, DEBUG_TYPE,
-                    "Hoist strided values out of loops", false, false)
-
-char LoopStridedCodeMotionLegacy::ID = 0;
-
-LoopPass *llvm::createLoopStridedCodeMotionLegacyPass() {
-  return new LoopStridedCodeMotionLegacy();
 }
 
 PreservedAnalyses

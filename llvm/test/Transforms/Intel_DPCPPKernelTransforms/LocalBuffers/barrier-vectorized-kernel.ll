@@ -1,4 +1,4 @@
-; RUN: opt -dpcpp-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check local variable used in scalar kernel and vector kernel has the same

@@ -86,23 +86,24 @@ struct PACKED UniformKernelArgs {
   // Start of WG size info
   size_t WorkDim;                    // Filled by the runtime
   size_t GlobalOffset[MAX_WORK_DIM]; // Filled by the runtime
-  size_t GlobalSize[MAX_WORK_DIM];   // Filled by the runtime
-  size_t LocalSize[WG_SIZE_NUM]
-                  [MAX_WORK_DIM]; // Filled by the runtime, updated by the BE in
-                                  // case of (0,0,0) LocalSize[0] contains
-                                  // unifrom local sizes LocalSize[1] contains
-                                  // non-unifrom local sizes
-  size_t WGCount[MAX_WORK_DIM];   // Updated by the BE, based on GLOBAL/LOCAL
+  size_t UserGlobalSize[MAX_WORK_DIM]; // Filled by the runtime
+  size_t
+      UserLocalSize[WG_SIZE_NUM]
+                   [MAX_WORK_DIM];  // Filled by the runtime, updated by the BE
+                                    // in case of (0,0,0) LocalSize[0] contains
+                                    // uniform local sizes LocalSize[1] contains
+                                    // non-uniform local sizes
+  size_t UserWGCount[MAX_WORK_DIM]; // Updated by the BE, based on GLOBAL/LOCAL
   // For Opencl2.0: this is a IDeviceCommandManager: the printf interface thing
   void *RuntimeInterface; // Updated by runtime
   /// reference to BlockToKernelMapper object. Class does not own it
   void *Block2KernelMapper; // Updated by the BE
   // The following three members represent the actual enqueued work sizes chosen
-  // by the runtime -- they might differ from GlobalSize, LocalSize and WGCount
-  // above when users set different subgroup construction modes.
-  size_t InternalGlobalSize[MAX_WORK_DIM];
-  size_t InternalLocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
-  size_t InternalWGCount[MAX_WORK_DIM];
+  // by the runtime -- they might differ from UserGlobalSize, UserLocalSize and
+  // UserWGCount above when users set different subgroup construction modes.
+  size_t GlobalSize[MAX_WORK_DIM];
+  size_t LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
+  size_t WGCount[MAX_WORK_DIM];
   // End of WG size info
   size_t MinWorkGroupNum;   // Filled by the runtime, Required by the heuristic
   // Internal for Running the kernel

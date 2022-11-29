@@ -10,13 +10,6 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=2 -verify %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=1 -verify %s -S | FileCheck %s --check-prefixes=CHECK,DEFAULT
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=0 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=0 -verify %s -S | FileCheck %s --check-prefixes=CHECK,STRICT
-
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=2 %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-channel-pipe-transformation -dpcpp-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s

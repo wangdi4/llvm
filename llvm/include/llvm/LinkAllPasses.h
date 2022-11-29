@@ -78,28 +78,27 @@
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"        // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"         // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/Instrumentation/SPIRITTAnnotations.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/Scalarizer.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h" // INTEL
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"  // INTEL
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
-#include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -439,99 +438,6 @@ namespace {
       (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRIdentityMatrixSubstitutionPass();
       (void) llvm::createHIRArrayScalarizationTestLauncherPass();
-
-      // DPCPP Kernel Transformations
-      (void)llvm::createAddFunctionAttrsLegacyPass();
-      (void)llvm::createBuiltinImportLegacyPass();
-      (void)llvm::createBuiltinLICMLegacyPass();
-      (void)llvm::createBuiltinLibInfoAnalysisLegacyPass();
-      (void)llvm::createCoerceWin64TypesLegacyPass();
-      (void)llvm::createDPCPPAliasAnalysisLegacyPass();
-      (void)llvm::createDPCPPExternalAliasAnalysisLegacyPass();
-      (void)llvm::createDPCPPEqualizerLegacyPass();
-      (void)llvm::createDPCPPKernelVecClonePass();
-      (void)llvm::createDPCPPKernelPostVecPass();
-      (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
-      (void)llvm::createDPCPPKernelAnalysisLegacyPass();
-      (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
-      (void)llvm::createDPCPPRewritePipesLegacyPass();
-      (void)llvm::createDeduceMaxWGDimLegacyPass();
-      (void)llvm::createDetectRecursionLegacyPass();
-      (void)llvm::createDuplicateCalledKernelsLegacyPass();
-      (void)llvm::createExternalizeGlobalVariablesLegacyPass();
-      (void)llvm::createPhiCanonicalizationLegacyPass();
-      (void)llvm::createRedundantPhiNodeLegacyPass();
-      (void)llvm::createGroupBuiltinLegacyPass();
-      (void)llvm::createSetVectorizationFactorLegacyPass();
-      (void)llvm::createSplitBBonBarrierLegacyPass();
-      (void)llvm::createWIRelatedValueWrapperPass();
-      (void)llvm::createDataPerBarrierWrapperPass();
-      (void)llvm::createDataPerValueWrapperPass();
-      (void)llvm::createKernelBarrierLegacyPass(false, false);
-      (void)llvm::createBarrierInFunctionLegacyPass();
-      (void)llvm::createImplicitArgsAnalysisLegacyPass();
-      (void)llvm::createImplicitGIDLegacyPass();
-      (void)llvm::createInferArgumentAliasLegacyPass();
-      (void)llvm::createInfiniteLoopCreatorLegacyPass();
-      (void)llvm::createInstToFuncCallLegacyPass();
-      (void)llvm::createInternalizeGlobalVariablesLegacyPass();
-      (void)llvm::createInternalizeNonKernelFuncLegacyPass();
-      (void)llvm::createLocalBufferAnalysisLegacyPass();
-      (void)llvm::createLocalBuffersLegacyPass(false);
-      (void)llvm::createLoopStridedCodeMotionLegacyPass();
-      (void)llvm::createLoopWIAnalysisLegacyPass();
-      (void)llvm::createAddFastMathLegacyPass();
-      (void)llvm::createAddImplicitArgsLegacyPass();
-      (void)llvm::createAddNTAttrLegacyPass();
-      (void)llvm::createAddTLSGlobalsLegacyPass();
-      (void)llvm::createAutorunReplicatorLegacyPass();
-      (void)llvm::createOptimizeIDivAndIRemLegacyPass();
-      (void)llvm::createRelaxedMathLegacyPass();
-      (void)llvm::createRemoveAtExitLegacyPass();
-      (void)llvm::createRemoveDuplicatedBarrierLegacyPass(false);
-      (void)llvm::createReplaceScalarWithMaskLegacyPass();
-      (void)llvm::createReqdSubGroupSizeLegacyPass();
-      (void)llvm::createResolveMatrixFillLegacyPass();
-      (void)llvm::createResolveMatrixLayoutLegacyPass();
-      (void)llvm::createResolveMatrixWISliceLegacyPass();
-      (void)llvm::createResolveSubGroupWICallLegacyPass();
-      (void)llvm::createResolveVarTIDCallLegacyPass();
-      (void)llvm::createResolveWICallLegacyPass(false, false);
-      (void)llvm::createSetPreferVectorWidthLegacyPass();
-      (void)llvm::createSGBarrierPropagateLegacyPass();
-      (void)llvm::createSGBarrierSimplifyLegacyPass();
-      (void)llvm::createSGBuiltinLegacyPass();
-      (void)llvm::createSGLoopConstructLegacyPass();
-      (void)llvm::createSGSizeAnalysisLegacyPass();
-      (void)llvm::createSGValueWidenLegacyPass();
-      (void)llvm::createSinCosFoldLegacyPass();
-      (void)llvm::createSoaAllocaAnalysisLegacyPass();
-      (void)llvm::createPatchCallbackArgsLegacyPass(false);
-      (void)llvm::createPipeIOTransformationLegacyPass();
-      (void)llvm::createPipeOrderingLegacyPass();
-      (void)llvm::createPipeSupportLegacyPass();
-      (void)llvm::createPrepareKernelArgsLegacyPass(false);
-      (void)llvm::createPreventDivCrashesLegacyPass();
-      (void)llvm::createProfilingInfoLegacyPass();
-      (void)llvm::createChannelPipeTransformationLegacyPass();
-      (void)llvm::createCleanupWrappedKernelLegacyPass();
-      (void)llvm::createCoerceTypesLegacyPass();
-      (void)llvm::createVFAnalysisLegacyPass();
-      (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
-      (void)llvm::createVectorVariantFillInLegacyPass();
-      (void)llvm::createVectorVariantLoweringLegacyPass(llvm::VFISAKind::SSE);
-      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VFISAKind::SSE);
-      (void)llvm::createSGSizeCollectorIndirectLegacyPass(llvm::VFISAKind::SSE);
-      (void)llvm::createTaskSeqAsyncHandlingLegacyPass();
-      (void)llvm::createUpdateCallAttrsLegacyPass();
-      (void)llvm::createIndirectCallLoweringLegacyPass();
-      (void)llvm::createCreateSimdVariantPropagationLegacyPass();
-      (void)llvm::createLinearIdResolverPass();
-      (void)llvm::createVectorKernelEliminationLegacyPass();
-      (void)llvm::createVectorizationDimensionAnalysisLegacyPass();
-      (void)llvm::createWGLoopBoundariesLegacyPass();
-      (void)llvm::createWeightedInstCountAnalysisLegacyPass();
-      (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

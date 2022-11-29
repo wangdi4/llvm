@@ -19,51 +19,12 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 
 #define DEBUG_TYPE "dpcpp-kernel-detect-recursion"
-
-namespace {
-class DetectRecursionLegacy : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  DetectRecursionLegacy();
-
-  StringRef getPassName() const override { return "DetectRecursionLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Depends on CallGraph for SCC
-    AU.addRequired<CallGraphWrapperPass>();
-  }
-
-private:
-  DetectRecursionPass Impl;
-};
-} // namespace
-
-char DetectRecursionLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DetectRecursionLegacy, DEBUG_TYPE,
-                      "detects whether there are recursions", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(DetectRecursionLegacy, DEBUG_TYPE,
-                    "detects whether there are recursions", false, false)
-
-DetectRecursionLegacy::DetectRecursionLegacy() : ModulePass(ID) {
-  initializeDetectRecursionLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool DetectRecursionLegacy::runOnModule(Module &M) {
-  CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  return Impl.runImpl(M, CG);
-}
 
 PreservedAnalyses DetectRecursionPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
@@ -101,8 +62,4 @@ bool DetectRecursionPass::runImpl(Module &M, CallGraph *CG) {
     }
   }
   return RecursionExists;
-}
-
-ModulePass *llvm::createDetectRecursionLegacyPass() {
-  return new DetectRecursionLegacy();
 }

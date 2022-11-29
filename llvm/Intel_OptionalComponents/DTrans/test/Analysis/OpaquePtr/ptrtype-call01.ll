@@ -86,7 +86,11 @@ define internal void @test04(i8* (i8*)* "intel_dtrans_func_index"="1" %f) !intel
 %r = call i8* %f(i8* %c), !intel_dtrans_type !15
 ret void
 }
+
+; CHECK-OPAQUE: ; intel.dtrans.func.type = %struct._IO_FILE* (i8*, i8*)
+; CHECK-OPAQUE: define internal void @test04
 ; CHECK-NONOPAQUE: %r = call i8* %f(i8* %c)
+; CHECK-OPAQUE: !intel_dtrans_type = i8* (i8*)
 ; CHECK-OPAQUE: %r = call ptr %f(ptr %c)
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:

@@ -17,7 +17,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 #define DEBUG_TYPE "VectorVariantFillIn"
 
@@ -181,28 +180,3 @@ bool VectorVariantFillIn::runImpl(Module &M) {
 }
 
 } // namespace llvm
-
-// For legacy pass manager
-namespace {
-class VectorVariantFillInLegacy : public ModulePass {
-public:
-  static char ID;
-
-  VectorVariantFillInLegacy() : ModulePass(ID) {
-    initializeVectorVariantFillInLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    return llvm::VectorVariantFillIn().runImpl(M);
-  }
-};
-} // namespace
-
-INITIALIZE_PASS(VectorVariantFillInLegacy, "dpcpp-kernel-vector-variant-fillin",
-                "Fill-in addresses of vector variants", false, false)
-
-char VectorVariantFillInLegacy::ID = 0;
-
-ModulePass *llvm::createVectorVariantFillInLegacyPass() {
-  return new VectorVariantFillInLegacy();
-}

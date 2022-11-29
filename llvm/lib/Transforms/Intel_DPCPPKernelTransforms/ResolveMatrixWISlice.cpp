@@ -21,45 +21,11 @@
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-wi-slice"
-
-namespace {
-
-/// Legacy ResolveMatrixWISlice pass.
-class ResolveMatrixWISliceLegacy : public ModulePass {
-  ResolveMatrixWISlicePass Impl;
-
-public:
-  static char ID;
-
-  ResolveMatrixWISliceLegacy() : ModulePass(ID) {
-    initializeResolveMatrixWISliceLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "ResolveMatrixWISliceLegacy";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-};
-} // namespace
-
-char ResolveMatrixWISliceLegacy::ID = 0;
-INITIALIZE_PASS(ResolveMatrixWISliceLegacy, DEBUG_TYPE,
-                "Resolve matrix WI slice length intrinsic", false, false)
-
-ModulePass *llvm::createResolveMatrixWISliceLegacyPass() {
-  return new ResolveMatrixWISliceLegacy();
-}
 
 static Value *resolveSliceLengthCall(CallInst *CI) {
   // Extract row, col size of the matrix from the second, third args.

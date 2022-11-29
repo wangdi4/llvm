@@ -17,7 +17,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
@@ -272,28 +271,3 @@ PreservedAnalyses LocalBufferAnalysisPrinter::run(Module &M,
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey LocalBufferAnalysis::Key;
-
-INITIALIZE_PASS_BEGIN(LocalBufferAnalysisLegacy, DEBUG_TYPE,
-                      "Provide local values analysis info", false, true)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(LocalBufferAnalysisLegacy, DEBUG_TYPE,
-                    "Provide local values analysis info", false, true)
-
-char LocalBufferAnalysisLegacy::ID = 0;
-
-LocalBufferAnalysisLegacy::LocalBufferAnalysisLegacy() : ModulePass(ID) {
-  initializeLocalBufferAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool LocalBufferAnalysisLegacy::runOnModule(Module &M) {
-  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  LocalBufferInfo *LBAResult = new LocalBufferInfo(M, CG);
-
-  Result.reset(LBAResult);
-
-  return false;
-}
-
-ModulePass *llvm::createLocalBufferAnalysisLegacyPass() {
-  return new LocalBufferAnalysisLegacy();
-}
