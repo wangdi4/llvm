@@ -5978,51 +5978,6 @@ class OffloadingActionBuilder final {
       }
     }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    bool addPerformanceDeviceLibs(const ToolChain *TC,
-                                  ActionList &DeviceLinkObjects,
-                                  bool IsMSVCEnv) {
-      bool PerflibAdded = false;
-      auto AddToActionList = [&](StringRef LibName) {
-        Arg *InputArg = MakeInputArg(Args, C.getDriver().getOpts(),
-                                     Args.MakeArgString(LibName));
-        auto *SYCLDeviceLibsInputAction =
-            C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
-        auto *SYCLDeviceLibsUnbundleAction =
-            C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
-        addDeviceDependences(SYCLDeviceLibsUnbundleAction);
-
-        auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
-            SYCLDeviceLibsUnbundleAction, types::TY_Tempfilelist);
-        DeviceLinkObjects.push_back(ConvertSPIRVAction);
-        PerflibAdded = true;
-      };
-      // Only add the MKL static lib if used with -static or is Windows.
-      if ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) &&
-          (IsMSVCEnv || Args.hasArg(options::OPT_static))) {
-        SmallString<128> LibName(TC->GetMKLLibPath());
-        LibName = TC->GetMKLLibPath();
-        SmallString<128> MKLLib("libmkl_sycl.a");
-        if (IsMSVCEnv) {
-          MKLLib = "mkl_sycl";
-          if (Args.hasArg(options::OPT__SLASH_MDd))
-            MKLLib += "d";
-          MKLLib += ".lib";
-        }
-        llvm::sys::path::append(LibName, MKLLib);
-        AddToActionList(LibName);
-      }
-      // DAAL is also only available in static form.
-      if (Args.hasArg(options::OPT_qdaal_EQ)) {
-        SmallString<128> LibName(TC->GetDAALLibPath());
-        llvm::sys::path::append(LibName, IsMSVCEnv ? "onedal_sycl.lib"
-                                                   : "libonedal_sycl.a");
-        AddToActionList(LibName);
-      }
-      return PerflibAdded;
-    }
-#endif // INTEL_CUSTOMIZATION
     // Return whether to use native bfloat16 library.
     bool selectBfloatLibs(const ToolChain *TC, bool &useNative) {
       const OptTable &Opts = C.getDriver().getOpts();
@@ -6093,8 +6048,6 @@ class OffloadingActionBuilder final {
       return needLibs;
     }
 
-=======
->>>>>>> 57eb4c2a87404143f675df12249f8a140c050ac3
     bool addSYCLDeviceLibs(const ToolChain *TC, ActionList &DeviceLinkObjects,
                            bool isSpirvAOT, bool isMSVCEnv) {
       struct DeviceLibOptInfo {
