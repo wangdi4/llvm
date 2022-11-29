@@ -258,15 +258,10 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
     LLVM_DEBUG(dbgs() << "Using development-mode inliner policy.\n");
     Advisor =
         llvm::getDevelopmentModeAdvisor(M, MAM, [&FAM, Params](CallBase &CB) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           InlineCost IC = getDefaultInlineAdvice(CB, FAM, Params);
           return IC.getIsRecommended();
 #endif // INTEL_CUSTOMIZATION
-=======
-          auto OIC = getDefaultInlineAdvice(CB, FAM, Params);
-          return OIC.has_value();
->>>>>>> 65abca4611256794176b791a1380ad83ccf0741f
         });
 #endif
     break;
