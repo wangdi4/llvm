@@ -122,7 +122,9 @@ static cl::opt<bool> StripPathFromSrcFileName(
              "modules"));
 #endif // INTEL_CUSTOMIZATION
 
+namespace llvm {
 extern FunctionSummary::ForceSummaryHotnessType ForceSummaryEdgesCold;
+}
 
 namespace {
 
