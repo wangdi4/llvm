@@ -475,6 +475,8 @@ public:
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
   ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
 
+  DTransType *getDTransTypeFromMD(const Value *V) const;
+
   // If the type is used for a single aggregate type, return the type. Returns
   // nullptr if the value does not alias an aggregate type
   // (i.e. canAliasToAggregatePointer() == false), or when an dominant type does
