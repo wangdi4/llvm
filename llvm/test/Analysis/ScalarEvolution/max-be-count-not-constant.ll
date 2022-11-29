@@ -23,7 +23,7 @@ define void @pluto(i32 %arg) {
 ; INTEL - added nsw flag
 ; CHECK-NEXT:  Determining loop execution counts for: @pluto
 ; CHECK-NEXT:  Loop %bb2: backedge-taken count is (1 /u (2 + %tmp)<nsw>)
-; CHECK-NEXT:  Loop %bb2: max backedge-taken count is 1
+; CHECK-NEXT:  Loop %bb2: constant max backedge-taken count is 1
 ; CHECK-NEXT:  Loop %bb2: Predicated backedge-taken count is (1 /u (2 + %tmp)<nsw>)
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %bb2: Trip multiple is 1
