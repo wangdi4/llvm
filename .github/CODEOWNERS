@@ -813,3 +813,6 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 # JIRA: CMPLRLLVM->DPC++ Tools
 sycl-post-link/ @asudarsa
 # Temporarily removed @AlexeySachkov, @mlychkov
+
+# JIRA: COMPLRLLVM->LLVM Compiler Runtime Library
+/compiler-rt/ @zhaomaosu @jinge90
