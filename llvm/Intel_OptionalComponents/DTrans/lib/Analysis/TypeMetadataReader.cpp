@@ -869,11 +869,20 @@ void TypeMetadataReader::buildFunctionTypeTable(Module &M) {
   // Walk all the functions and build up a table of function signatures based on
   // the metadata.
   for (auto &F : M) {
+    DTransFunctionType *DTransFuncTy = nullptr;
     MDNode *MDTypeListNode = F.getMetadata(DTransFuncTypeMDTag);
-    if (!MDTypeListNode)
+    if (MDTypeListNode) {
+      DTransFuncTy = decodeDTransFuncType(F, *MDTypeListNode);
+    } else {
+      llvm::Type *FnType = F.getValueType();
+      if (TM.isSimpleType(FnType)) {
+        DTransType *DType = TM.getOrCreateSimpleType(FnType);
+        assert(DType && "Expected simple type");
+        DTransFuncTy = dyn_cast<DTransFunctionType>(DType);
+      }
+    }
+    if (!DTransFuncTy)
       continue;
-
-    DTransFunctionType *DTransFuncTy = decodeDTransFuncType(F, *MDTypeListNode);
     FunctionToDTransTypeMap[&F] = DTransFuncTy;
   }
 }
