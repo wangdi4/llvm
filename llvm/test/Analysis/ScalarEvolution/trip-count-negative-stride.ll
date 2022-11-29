@@ -432,13 +432,9 @@ define void @slt_129_unknown_start(i8 %start) mustprogress {
 ; improved nuw/nsw flags
 ; CHECK-NEXT:  Loop %for.body: backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw>
 ; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 2
-<<<<<<< HEAD
+; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))
 ; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw>
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))
-; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (((127 + (-1 * (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))<nuw><nsw> + (-1 * %start) + (0 smax (-127 + %start)<nsw>)) /u -127) + (1 umin (127 + (-1 * %start) + (0 smax (-127 + %start)<nsw>))))
->>>>>>> e5fa7eb120319559564332f91859e8dcedb0f6f9
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %for.body: Trip multiple is 1
 ;
@@ -609,15 +605,11 @@ define void @step_is_neg_addrec_slt_8(i64 %n) {
 ; CHECK-LABEL: 'step_is_neg_addrec_slt_8'
 ; CHECK-NEXT:  Determining loop execution counts for: @step_is_neg_addrec_slt_8
 ; CHECK-NEXT:  Loop %inner: backedge-taken count is (7 /u {0,+,-1}<nuw><nsw><%outer.header>)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; use nuw/nsw to determine max=8
 ; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is 8
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is -2147483640
 ; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is (7 /u {0,+,-1}<nuw><nsw><%outer.header>)
->>>>>>> e5fa7eb120319559564332f91859e8dcedb0f6f9
 ; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is (7 /u {0,+,-1}<nuw><nsw><%outer.header>)
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %inner: Trip multiple is 1
@@ -657,19 +649,13 @@ exit:
 define void @step_is_neg_addrec_slt_var(i32 %n) {
 ; CHECK-LABEL: 'step_is_neg_addrec_slt_var'
 ; CHECK-NEXT:  Determining loop execution counts for: @step_is_neg_addrec_slt_var
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; simplify this a lot because of nuw/nsw flags
 ; CHECK-NEXT:  Loop %inner: backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))<nuw>
 ; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is 2147483647
+; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ((((-1 * (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))<nuw><nsw> + {0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n)) /u (1 umax {0,+,-1}<nuw><nsw><%outer.header>)) + (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))
 ; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))<nuw>
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:  Loop %inner: backedge-taken count is ((((-1 * (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))<nuw><nsw> + {0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n)) /u (1 umax {0,+,-1}<nuw><nsw><%outer.header>)) + (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))
-; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is -1
-; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ((((-1 * (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))<nuw><nsw> + {0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n)) /u (1 umax {0,+,-1}<nuw><nsw><%outer.header>)) + (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))
-; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ((((-1 * (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))<nuw><nsw> + {0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n)) /u (1 umax {0,+,-1}<nuw><nsw><%outer.header>)) + (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))
->>>>>>> e5fa7eb120319559564332f91859e8dcedb0f6f9
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %inner: Trip multiple is 1
 ; CHECK-NEXT:  Loop %outer.header: backedge-taken count is 0
@@ -712,13 +698,9 @@ define void @step_is_neg_addrec_unknown_start(i32 %n) {
 ; simplify this using nuw/nsw flags
 ; CHECK-NEXT:  Loop %inner: backedge-taken count is ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nsw><%outer.header>))
 ; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is -2147483640
-<<<<<<< HEAD
+; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ((((-1 * (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))<nuw><nsw> + {(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>)) /u (1 umax {0,+,-1}<%outer.header>)) + (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))
 ; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nsw><%outer.header>))
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ((((-1 * (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))<nuw><nsw> + {(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>)) /u (1 umax {0,+,-1}<%outer.header>)) + (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))
-; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ((((-1 * (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))<nuw><nsw> + {(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>)) /u (1 umax {0,+,-1}<%outer.header>)) + (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))
->>>>>>> e5fa7eb120319559564332f91859e8dcedb0f6f9
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %inner: Trip multiple is 1
 ; CHECK-NEXT:  Loop %outer.header: backedge-taken count is 0

@@ -368,13 +368,9 @@ define void @ult_constant_rhs_stride2(i16 %n.raw, i8 %start) {
 ; INTEL
 ; CHECK-NEXT:  Loop %for.body: backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16)))<nsw> /u 2)
 ; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 127
-<<<<<<< HEAD
+; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16))) /u 2)
 ; INTEL
 ; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16)))<nsw> /u 2)
-=======
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16))) /u 2)
-; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16))) /u 2)
->>>>>>> e5fa7eb120319559564332f91859e8dcedb0f6f9
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %for.body: Trip multiple is 1
 ;
