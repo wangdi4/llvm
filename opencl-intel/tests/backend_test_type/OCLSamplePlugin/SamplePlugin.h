@@ -23,6 +23,7 @@ File Name:  SamplePlugin.h
 #include "cl_device_api.h"
 #include "plugin_interface.h"
 #include <cstddef>
+#include <memory>
 
 #define OCL_SAMPLEPLUGIN_EXPORTS
 
@@ -101,6 +102,7 @@ public:
   ICLDevBackendPlugin *getBackendPlugin() override;
   /// @brief dummy implemntion, SamplePlugin is only for testing in the backend
   Intel::OpenCL::Frontend::ICLFrontendPlugin *getFrontendPlugin() override;
+  std::unique_ptr<SamplePlugin> ret;
 
 private:
   /// @brief singleton instance

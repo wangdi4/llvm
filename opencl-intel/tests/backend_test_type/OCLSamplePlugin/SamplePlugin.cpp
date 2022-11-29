@@ -31,7 +31,10 @@ OclSamplePlugin *OclSamplePlugin::Instance() {
 
 // return the backend plugin SamplePlugin to the plugin manager
 ICLDevBackendPlugin *OclSamplePlugin::getBackendPlugin() {
-  return new SamplePlugin();
+  if (!ret) {
+    ret.reset(new SamplePlugin());
+  }
+  return ret.get();
 }
 
 Intel::OpenCL::Frontend::ICLFrontendPlugin *
