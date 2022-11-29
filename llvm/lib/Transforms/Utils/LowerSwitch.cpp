@@ -564,9 +564,18 @@ void ProcessSwitchInst(SwitchInst *SI,
   BranchInst::Create(SwitchBlock, OrigBlock);
 
   // We are now done with the switch instruction, delete it.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   EraseSwitchInstAndDeleteOrigDefaultIfUnreachable();
 #endif // INTEL_CUSTOMIZATION
+=======
+  BasicBlock *OldDefault = SI->getDefaultDest();
+  SI->eraseFromParent();
+
+  // If the Default block has no more predecessors just add it to DeleteList.
+  if (pred_empty(OldDefault))
+    DeleteList.insert(OldDefault);
+>>>>>>> af4e856fa71c6b5086aeda79bfcd954e98cef591
 }
 
 bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC,
