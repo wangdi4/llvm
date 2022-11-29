@@ -15,7 +15,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-update-call-attrs"
 
@@ -62,30 +61,3 @@ bool UpdateCallAttrs::runImpl(Module &M) {
   return Modified;
 }
 } // namespace llvm
-
-// For legacy pass manager
-namespace {
-class UpdateCallAttrsLegacy : public ModulePass {
-public:
-  static char ID;
-
-  UpdateCallAttrsLegacy() : ModulePass(ID) {
-    initializeUpdateCallAttrsLegacyPass(*PassRegistry::getPassRegistry());
-  }
-  llvm::StringRef getPassName() const override { return "UpdateCallAttrs"; }
-
-protected:
-  bool runOnModule(llvm::Module &M) override {
-    return UpdateCallAttrs().runImpl(M);
-  };
-};
-
-char UpdateCallAttrsLegacy::ID = 0;
-} // namespace
-
-INITIALIZE_PASS(UpdateCallAttrsLegacy, "dpcpp-kernel-update-call-attrs",
-                "Update vector attributes of call statements", false, false)
-
-ModulePass *llvm::createUpdateCallAttrsLegacyPass() {
-  return new UpdateCallAttrsLegacy();
-}

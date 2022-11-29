@@ -12,26 +12,12 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-barrier-in-function"
-
-INITIALIZE_PASS(
-    BarrierInFunctionLegacy, DEBUG_TYPE,
-    "Barrier Pass - Handle barrier instructions called from functions", false,
-    false)
-
-char BarrierInFunctionLegacy::ID = 0;
-
-BarrierInFunctionLegacy::BarrierInFunctionLegacy() : ModulePass(ID) {
-  initializeBarrierInFunctionLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool BarrierInFunctionLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
 PreservedAnalyses BarrierInFunction::run(Module &M, ModuleAnalysisManager &) {
   if (!runImpl(M))
@@ -128,8 +114,4 @@ void BarrierInFunction::addBarrierCallsToFunctionBody(Function *Func) {
   for (Instruction *RetInst: RetInstructions) {
     Utils.createBarrier(RetInst);
   }
-}
-
-ModulePass *llvm::createBarrierInFunctionLegacyPass() {
-  return new llvm::BarrierInFunctionLegacy();
 }

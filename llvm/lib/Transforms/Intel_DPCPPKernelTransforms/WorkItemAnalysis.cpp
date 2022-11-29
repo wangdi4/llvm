@@ -16,7 +16,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
@@ -96,49 +95,6 @@ static constexpr WorkItemInfo::Dependency
             /* PTR */ {STR, RND, RND, RND, RND},
             /* STR */ {RND, RND, RND, RND, RND},
             /* RND */ {RND, RND, RND, RND, RND}};
-
-INITIALIZE_PASS_BEGIN(WorkItemAnalysisLegacy, DEBUG_TYPE,
-                      "Work item dependency analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysisLegacy)
-INITIALIZE_PASS_END(WorkItemAnalysisLegacy, DEBUG_TYPE,
-                    "Work item dependency analysis", false, true)
-
-char WorkItemAnalysisLegacy::ID = 0;
-
-WorkItemAnalysisLegacy::WorkItemAnalysisLegacy(unsigned VectorizeDim)
-    : FunctionPass(ID), VectorizeDim(VectorizeDim) {
-  initializeWorkItemAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool WorkItemAnalysisLegacy::runOnFunction(Function &F) {
-  auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                  .getResult()
-                  .getRuntimeService();
-  auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  auto *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  auto *SA = &getAnalysis<SoaAllocaAnalysisLegacy>().getResult();
-  WIInfo.reset(new WorkItemInfo(F, RTS, DT, PDT, LI, SA));
-  WIInfo->compute(VectorizeDim);
-  return false;
-}
-
-void WorkItemAnalysisLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequired<SoaAllocaAnalysisLegacy>();
-  AU.setPreservesAll();
-}
-
-FunctionPass *llvm::createWorkItemAnalysisLegacyPass(unsigned VectorizeDim) {
-  return new WorkItemAnalysisLegacy();
-}
 
 AnalysisKey WorkItemAnalysis::Key;
 

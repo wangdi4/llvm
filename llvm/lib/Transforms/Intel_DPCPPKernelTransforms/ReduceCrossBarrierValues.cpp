@@ -19,7 +19,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerValuePass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
 
@@ -29,71 +28,6 @@ using namespace llvm;
 
 static cl::opt<unsigned> DPCPPBarrierCopyInstructionThreshold(
     "dpcpp-barrier-copy-instruction-threshold", cl::init(15), cl::Hidden);
-
-namespace {
-
-/// Legacy ReduceCrossBarrierValues pass.
-class ReduceCrossBarrierValuesLegacy : public ModulePass {
-  ReduceCrossBarrierValuesPass Impl;
-
-public:
-  static char ID;
-
-  ReduceCrossBarrierValuesLegacy() : ModulePass(ID) {
-    initializeReduceCrossBarrierValuesLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "ReduceCrossBarrierValuesLegacy";
-  }
-
-  bool runOnModule(Module &M) override {
-    auto *BLI = &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    auto *DPV = &getAnalysis<DataPerValueWrapper>().getDPV();
-    auto *WIRV = &getAnalysis<WIRelatedValueWrapper>().getWRV();
-    auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
-    auto GetDF = [this](Function &F) -> DominanceFrontier & {
-      return this->getAnalysis<DominanceFrontierWrapperPass>(F)
-          .getDominanceFrontier();
-    };
-    auto GetDT = [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-    return Impl.runImpl(M, BLI, DPV, WIRV, DPB, GetDF, GetDT);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.addRequired<DataPerBarrierWrapper>();
-    AU.addRequired<DataPerValueWrapper>();
-    AU.addRequired<DominanceFrontierWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WIRelatedValueWrapper>();
-
-    AU.setPreservesCFG();
-    AU.addPreserved<DataPerBarrierWrapper>();
-    AU.addPreserved<DominanceFrontierWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<WIRelatedValueWrapper>();
-  }
-};
-} // namespace
-
-char ReduceCrossBarrierValuesLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(ReduceCrossBarrierValuesLegacy, DEBUG_TYPE,
-                      "Reduce cross barrier values", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy);
-INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper);
-INITIALIZE_PASS_DEPENDENCY(DataPerValueWrapper);
-INITIALIZE_PASS_DEPENDENCY(DominanceFrontierWrapperPass);
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass);
-INITIALIZE_PASS_DEPENDENCY(WIRelatedValueWrapper);
-INITIALIZE_PASS_END(ReduceCrossBarrierValuesLegacy, DEBUG_TYPE,
-                    "Reduce cross barrier values", false, false)
-ModulePass *llvm::createReduceCrossBarrierValuesLegacyPass() {
-  return new ReduceCrossBarrierValuesLegacy();
-}
 
 PreservedAnalyses
 ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {

@@ -1,9 +1,5 @@
-; RUN: opt %s -dpcpp-enable-byval-byref-function-call-vectorization -dpcpp-kernel-sg-size-collector -S | FileCheck %s
-; RUN: opt %s -dpcpp-kernel-sg-size-collector -S | FileCheck %s
 ; RUN: opt %s -dpcpp-enable-byval-byref-function-call-vectorization -passes=dpcpp-kernel-sg-size-collector -S | FileCheck %s
 ; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector -S | FileCheck %s
-; RUN: opt %s -enable-debugify -disable-output -dpcpp-enable-byval-byref-function-call-vectorization -dpcpp-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt %s -enable-debugify -disable-output -dpcpp-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt %s -enable-debugify -disable-output -dpcpp-enable-byval-byref-function-call-vectorization -passes=dpcpp-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt %s -enable-debugify -disable-output -passes=dpcpp-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 

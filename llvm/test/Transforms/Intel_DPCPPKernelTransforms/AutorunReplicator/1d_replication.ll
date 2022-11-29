@@ -14,8 +14,6 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-autorun-replicator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-autorun-replicator %s -S | FileCheck %s --implicit-check-not get_compute_id
 ; RUN: opt -passes=dpcpp-kernel-autorun-replicator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-autorun-replicator %s -S | FileCheck %s --implicit-check-not get_compute_id
 

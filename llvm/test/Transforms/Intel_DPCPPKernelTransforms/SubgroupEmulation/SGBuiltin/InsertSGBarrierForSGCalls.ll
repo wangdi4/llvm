@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-sg-emu-builtin -dpcpp-vect-info=%p/../../Inputs/VectInfo64.gen -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-sg-emu-builtin -dpcpp-vect-info=%p/../../Inputs/VectInfo64.gen -S %s | FileCheck %s
 ; RUN: opt -dpcpp-vect-info=%p/../../Inputs/VectInfo64.gen -passes='debugify,dpcpp-kernel-sg-emu-builtin,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-vect-info=%p/../../Inputs/VectInfo64.gen -passes='dpcpp-kernel-sg-emu-builtin' -S %s | FileCheck %s
 

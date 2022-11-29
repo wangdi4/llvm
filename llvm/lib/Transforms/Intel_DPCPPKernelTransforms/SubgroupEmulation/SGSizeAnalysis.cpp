@@ -13,26 +13,12 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-sg-size-analysis"
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
-
-char SGSizeAnalysisLegacy::ID = 0;
-
-INITIALIZE_PASS(SGSizeAnalysisLegacy, DEBUG_TYPE,
-                "Analyze the emulation size for functions", false, true)
-
-void SGSizeAnalysisLegacy::print(raw_ostream &OS, const Module * /*M*/) const {
-  getResult().print(OS);
-}
-
-ModulePass *llvm::createSGSizeAnalysisLegacyPass() {
-  return new SGSizeAnalysisLegacy();
-}
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey SGSizeAnalysisPass::Key;

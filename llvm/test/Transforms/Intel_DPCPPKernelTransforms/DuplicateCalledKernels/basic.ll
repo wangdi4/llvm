@@ -14,8 +14,6 @@
 ; Optimizer options:
 ;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
-; RUN: opt -dpcpp-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-duplicate-called-kernels %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S | FileCheck %s
 

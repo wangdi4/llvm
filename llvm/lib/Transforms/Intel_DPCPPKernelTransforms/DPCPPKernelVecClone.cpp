@@ -42,17 +42,13 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 
-#define SV_NAME "dpcpp-kernel-vec-clone"
-
-#define DEBUG_TYPE SV_NAME
+#define DEBUG_TYPE "dpcpp-kernel-vec-clone"
 
 using namespace llvm;
 using namespace llvm::CompilationUtils;
@@ -101,58 +97,7 @@ enum class FnAction {
   UpdateOnly,          // Update use with ind
 };
 
-class DPCPPKernelVecCloneLegacy : public ModulePass {
-private:
-  DPCPPKernelVecCloneImpl Impl;
-
-public:
-  static char ID;
-
-  explicit DPCPPKernelVecCloneLegacy(
-      ArrayRef<VectItem> VectInfos = {},
-      VFISAKind ISA = VFISAKind::SSE, bool IsOCL = false);
-
-  bool runOnModule(Module &M) override {
-    auto *VD = getAnalysisIfAvailable<VectorizationDimensionAnalysisLegacy>();
-    Impl.setVectorizationDimensionMap(VD ? &VD->getResult() : nullptr);
-    return Impl.runImpl(M);
-  }
-
-  /// Returns the name of the pass.
-  llvm::StringRef getPassName() const override {
-    return "DPCPPKernelVecCloneLegacy";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // For SYCL program, we always do vectorization on dim 0, so the pass won't
-    // be added into the pipeline.
-    AU.addUsedIfAvailable<VectorizationDimensionAnalysisLegacy>();
-    AU.addPreserved<VectorizationDimensionAnalysisLegacy>();
-  }
-};
-
 } // namespace
-
-char DPCPPKernelVecCloneLegacy::ID = 0;
-
-static const char lv_name[] = SV_NAME;
-INITIALIZE_PASS_BEGIN(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
-                      false /* not modifies CFG */, false /* is_analysis */)
-INITIALIZE_PASS_DEPENDENCY(VectorizationDimensionAnalysisLegacy)
-INITIALIZE_PASS_END(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
-                    false /* not modifies CFG */, false /* is_analysis */)
-
-DPCPPKernelVecCloneLegacy::DPCPPKernelVecCloneLegacy(
-    ArrayRef<VectItem> VectInfos, VFISAKind ISA, bool IsOCL)
-    : ModulePass(ID), Impl(VectInfos, ISA, IsOCL) {
-  initializeDPCPPKernelVecCloneLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-ModulePass *llvm::createDPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
-                                                VFISAKind ISA,
-                                                bool IsOCL) {
-  return new DPCPPKernelVecCloneLegacy(VectInfos, ISA, IsOCL);
-}
 
 DPCPPKernelVecClonePass::DPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
                                                  VFISAKind ISA,
@@ -850,7 +795,7 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
   Kernels = getKernels(M).getList();
 
   if (Kernels.empty()) {
-    LLVM_DEBUG(dbgs() << lv_name << ":"
+    LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":"
                       << "No kernels found!\n");
     return;
   }

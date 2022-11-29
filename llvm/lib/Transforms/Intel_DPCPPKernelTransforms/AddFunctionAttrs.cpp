@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFunctionAttrs.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
@@ -19,37 +18,6 @@ using namespace llvm;
 using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-add-function-attrs"
-
-namespace {
-
-/// For legacy pass manager.
-class AddFunctionAttrsLegacy : public ModulePass {
-  AddFunctionAttrsPass Impl;
-
-public:
-  static char ID;
-
-  AddFunctionAttrsLegacy();
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-  StringRef getPassName() const override { return "AddFunctionAttrs"; }
-};
-
-} // namespace
-
-INITIALIZE_PASS(AddFunctionAttrsLegacy, DEBUG_TYPE, "Add function attributes",
-                false, false)
-
-char AddFunctionAttrsLegacy::ID = 0;
-
-AddFunctionAttrsLegacy::AddFunctionAttrsLegacy() : ModulePass(ID) {
-  initializeAddFunctionAttrsLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-ModulePass *llvm::createAddFunctionAttrsLegacyPass() {
-  return new AddFunctionAttrsLegacy();
-}
 
 static bool isAMXMatrixIntrinsicFunction(Function &F) {
   switch (F.getIntrinsicID()) {

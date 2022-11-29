@@ -214,38 +214,6 @@ private:
   DenseMap<Function *, MapVector<Instruction *, UseSet>> CrossBarrierUses;
 };
 
-/// DataPerValueWrapper pass for legacy pass manager.
-class DataPerValueWrapper : public ModulePass {
-  std::unique_ptr<DataPerValue> DPV;
-
-public:
-  static char ID;
-
-  DataPerValueWrapper();
-
-  StringRef getPassName() const override {
-    return "Intel Kernel DataPerValue Analysis";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DataPerBarrierWrapper>();
-    AU.addRequired<WIRelatedValueWrapper>();
-    // Analysis pass preserve all.
-    AU.setPreservesAll();
-  }
-
-  void print(raw_ostream &OS, const Module *M) const override {
-    DPV->print(OS, M);
-  };
-
-  void releaseMemory() override { DPV.reset(); };
-
-  DataPerValue &getDPV() { return *DPV; };
-  const DataPerValue &getDPV() const { return *DPV; }
-};
-
 /// DataPerValueAnalysis pass for new pass manager.
 class DataPerValueAnalysis : public AnalysisInfoMixin<DataPerValueAnalysis> {
   friend AnalysisInfoMixin<DataPerValueAnalysis>;

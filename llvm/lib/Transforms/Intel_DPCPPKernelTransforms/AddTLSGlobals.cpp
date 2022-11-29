@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddTLSGlobals.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
@@ -21,48 +20,6 @@ bool EnableTLSGlobals;
 static cl::opt<bool, true> OptEnableTLSGlobals(
     "dpcpp-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
     cl::location(EnableTLSGlobals), cl::init(false), cl::Hidden);
-
-namespace {
-/// @brief  AddTLSGlobals class adds TLS global variables to the module
-class AddTLSGlobalsLegacy : public ModulePass {
-
-public:
-  static char ID;
-
-  AddTLSGlobalsLegacy();
-
-  StringRef getPassName() const override { return "AddTLSGlobalsLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ImplicitArgsAnalysisLegacy>();
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-
-private:
-  AddTLSGlobalsPass Impl;
-};
-
-} // namespace
-
-char AddTLSGlobalsLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(AddTLSGlobalsLegacy, "dpcpp-kernel-add-tls-globals",
-                      "Adds TLS global variables to the module", false, false)
-INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
-INITIALIZE_PASS_END(AddTLSGlobalsLegacy, "dpcpp-kernel-add-tls-globals",
-                    "Adds TLS global variables to the module", false, false)
-
-AddTLSGlobalsLegacy::AddTLSGlobalsLegacy() : ModulePass(ID) {
-  initializeAddTLSGlobalsLegacyPass(*llvm::PassRegistry::getPassRegistry());
-}
-
-bool AddTLSGlobalsLegacy::runOnModule(Module &M) {
-  ImplicitArgsAnalysisLegacy *IAA = &getAnalysis<ImplicitArgsAnalysisLegacy>();
-  ImplicitArgsInfo *IAInfo = &(IAA->getResult());
-  return Impl.runImpl(M, IAInfo);
-}
 
 PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
@@ -106,8 +63,4 @@ bool AddTLSGlobalsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
   }
 
   return true;
-}
-
-ModulePass *llvm::createAddTLSGlobalsLegacyPass() {
-  return new AddTLSGlobalsLegacy();
 }

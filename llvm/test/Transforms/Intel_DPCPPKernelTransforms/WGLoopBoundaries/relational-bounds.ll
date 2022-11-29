@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; The test checks that instructions are placed in order after replacing GID
 ; calls with the corresponding boundaries.

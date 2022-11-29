@@ -16,54 +16,11 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-linear-id-resolver"
-namespace {
-/// Legacy LinearIdResolver pass.
-class LinearIdResolverLegacy : public ModulePass {
-public:
-  static char ID;
-
-  LinearIdResolverLegacy() : ModulePass(ID) {
-    initializeLinearIdResolverLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override {
-    return "LinearIdResolverLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-  }
-
-private:
-  LinearIdResolverPass Impl;
-};
-
-} // namespace
-
-char LinearIdResolverLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(LinearIdResolverLegacy, DEBUG_TYPE,
-                      "Resolve linear id related WI functions", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(LinearIdResolverLegacy, DEBUG_TYPE,
-                    "Resolve linear id related WI functions", false, false)
-
-bool LinearIdResolverLegacy::runOnModule(Module &M) {
-  CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  return Impl.runImpl(M, CG);
-}
-
-ModulePass *llvm::createLinearIdResolverPass() {
-  return new LinearIdResolverLegacy();
-}
 
 PreservedAnalyses LinearIdResolverPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {

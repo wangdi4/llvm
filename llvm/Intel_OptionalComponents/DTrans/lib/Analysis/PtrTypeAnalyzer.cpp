@@ -162,9 +162,16 @@ public:
   // Dump the list of input parameter types detected for the function.
   void emitFunctionAnnot(const Function *F,
                          formatted_raw_ostream &OS) override {
+    auto PrintMDSignature = [&](const Function *F) {
+      if (DTransType *Ty = Analyzer.getDTransTypeFromMD(F))
+        OS << "; intel.dtrans.func.type = " << *Ty << "\n";
+    };
+
     // We don't have information for parameters of function declarations.
-    if (F->isDeclaration())
+    if (F->isDeclaration()) {
+      PrintMDSignature(F);
       return;
+    }
 
     OS << ";  Input Parameters: " << F->getName() << "\n";
     for (auto &A : F->args()) {
@@ -182,6 +189,15 @@ public:
         OS << ";    <NO PTR INFO AVAILABLE>\n";
       }
     }
+    PrintMDSignature(F);
+  }
+
+  // Print a comment before printing an instruction that has a DTrans type
+  // metadata attachment.
+  void emitInstructionAnnot(const Instruction *I,
+                            formatted_raw_ostream &OS) override {
+    if (DTransType *Ty = Analyzer.getDTransTypeFromMD(I))
+      OS << "; !intel_dtrans_type = " << *Ty << "\n";
   }
 
   // For pointers and values of interest, print the type information determined
@@ -313,6 +329,8 @@ public:
   // Get the ValueTypeInfo object, if it exists.
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
   ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
+
+  DTransType *getDTransTypeFromMD(const Value *V) const;
 
   // Record that the GEPOperator is using an i8* type to access the element at
   // 'Idx' of the specified aggregate type 'Ty'
@@ -4926,6 +4944,10 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,
   return getValueTypeInfo(V);
 }
 
+DTransType *PtrTypeAnalyzerImpl::getDTransTypeFromMD(const Value *V) const {
+  return MDReader.getDTransTypeFromMD(V);
+}
+
 void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, DTransType *Ty) {
   ValueTypeInfo *Info = getOrCreateValueTypeInfo(V);
   Info->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
@@ -5353,6 +5375,10 @@ ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const Value *V) const {
 ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const User *U,
                                                  unsigned OpNum) const {
   return Impl->getValueTypeInfo(U, OpNum);
+}
+
+DTransType *PtrTypeAnalyzer::getDTransTypeFromMD(const Value *V) const {
+  return Impl->getDTransTypeFromMD(V);
 }
 
 bool PtrTypeAnalyzer::isElementZeroAccess(DTransType *SrcTy,

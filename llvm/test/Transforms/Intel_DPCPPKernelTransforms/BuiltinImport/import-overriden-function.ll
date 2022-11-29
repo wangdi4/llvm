@@ -1,12 +1,9 @@
 ; RUN: llvm-as %s.1.rtl -o %t.1.rtl.bc
 ; RUN: llvm-as %s.2.rtl -o %t.2.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.1.rtl.bc,%t.2.rtl.bc -dpcpp-kernel-builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.1.rtl.bc,%t.2.rtl.bc -dpcpp-kernel-builtin-import %s -S | FileCheck %s --check-prefixes=CHECK,CHECK1
+
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.1.rtl.bc,%t.2.rtl.bc -passes=dpcpp-kernel-builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.1.rtl.bc,%t.2.rtl.bc -passes=dpcpp-kernel-builtin-import %s -S | FileCheck %s --check-prefixes=CHECK,CHECK1
 
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.2.rtl.bc,%t.1.rtl.bc -dpcpp-kernel-builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.2.rtl.bc,%t.1.rtl.bc -dpcpp-kernel-builtin-import %s -S | FileCheck %s --check-prefixes=CHECK,CHECK2
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.2.rtl.bc,%t.1.rtl.bc -passes=dpcpp-kernel-builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.2.rtl.bc,%t.1.rtl.bc -passes=dpcpp-kernel-builtin-import %s -S | FileCheck %s --check-prefixes=CHECK,CHECK2
 

@@ -32,8 +32,6 @@
 ; Compilation command:
 ; clang -cc1 -x cl -cl-std=CL2.0 -triple spir64 -emit-llvm -disable-llvm-passes -finclude-default-header set_block_size_metadata.cl -o set_block_size_metadata.ll
 
-; RUN: opt -dpcpp-kernel-equalizer %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-equalizer %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-equalizer %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-equalizer %s -S | FileCheck %s
 

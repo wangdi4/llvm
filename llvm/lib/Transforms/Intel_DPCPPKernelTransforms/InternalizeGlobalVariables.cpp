@@ -16,45 +16,12 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InternalizeGlobalVariables.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-internalize-global-variables"
-
-namespace {
-class InternalizeGlobalVariablesLegacy : public ModulePass {
-public:
-  InternalizeGlobalVariablesLegacy() : ModulePass(ID) {
-    initializeInternalizeGlobalVariablesLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override;
-
-  StringRef getPassName() const override {
-    return "InternalizeGlobalVariablesLegacy";
-  }
-
-  static char ID;
-
-private:
-  InternalizeGlobalVariablesPass Impl;
-};
-} // namespace
-
-char InternalizeGlobalVariablesLegacy::ID = 0;
-
-INITIALIZE_PASS(InternalizeGlobalVariablesLegacy, DEBUG_TYPE,
-                "InternalizeGlobalVariables: change a linkage type for almost "
-                "all global variables",
-                false, false)
-
-bool InternalizeGlobalVariablesLegacy::runOnModule(Module &M) {
-  return Impl.runImpl(M);
-}
 
 PreservedAnalyses
 InternalizeGlobalVariablesPass::run(Module &M, ModuleAnalysisManager &AM) {
@@ -86,8 +53,4 @@ bool InternalizeGlobalVariablesPass::runImpl(Module &M) {
     Changed = true;
   }
   return Changed;
-}
-
-ModulePass *llvm::createInternalizeGlobalVariablesLegacyPass() {
-  return new InternalizeGlobalVariablesLegacy();
 }

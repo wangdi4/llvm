@@ -21,43 +21,11 @@
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-layout"
-
-namespace {
-
-/// Legacy ResolveMatrixLayout pass.
-class ResolveMatrixLayoutLegacy : public ModulePass {
-  ResolveMatrixLayoutPass Impl;
-
-public:
-  static char ID;
-
-  ResolveMatrixLayoutLegacy() : ModulePass(ID) {
-    initializeResolveMatrixLayoutLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "ResolveMatrixLayoutLegacy"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-};
-} // namespace
-
-char ResolveMatrixLayoutLegacy::ID = 0;
-INITIALIZE_PASS(ResolveMatrixLayoutLegacy, DEBUG_TYPE,
-                "Resolve layout for matrix intrinsic", false, false)
-
-ModulePass *llvm::createResolveMatrixLayoutLegacyPass() {
-  return new ResolveMatrixLayoutLegacy();
-}
 
 static CallInst *generateCall(Module *M, StringRef FnName, Type *ReturnType,
                               ArrayRef<Value *> Args, IRBuilder<> &Builder,

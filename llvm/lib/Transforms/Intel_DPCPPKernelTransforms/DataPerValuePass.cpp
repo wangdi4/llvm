@@ -14,32 +14,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-data-per-value-analysis"
 
 using namespace llvm;
-
-INITIALIZE_PASS_BEGIN(DataPerValueWrapper, DEBUG_TYPE,
-                      "Barrier Pass - Collect Data per Value", false, true)
-INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
-INITIALIZE_PASS_DEPENDENCY(WIRelatedValueWrapper)
-INITIALIZE_PASS_END(DataPerValueWrapper, DEBUG_TYPE,
-                    "Barrier Pass - Collect Data per Value", false, true)
-
-char DataPerValueWrapper::ID = 0;
-
-DataPerValueWrapper::DataPerValueWrapper() : ModulePass(ID) {
-  initializeDataPerValueWrapperPass(*::PassRegistry::getPassRegistry());
-}
-
-bool DataPerValueWrapper::runOnModule(Module &M) {
-  auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
-  auto *WRV = &getAnalysis<WIRelatedValueWrapper>().getWRV();
-  DPV.reset(new DataPerValue{M, DPB, WRV});
-  return false;
-}
 
 AnalysisKey DataPerValueAnalysis::Key;
 DataPerValue DataPerValueAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
@@ -543,8 +522,4 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   }
 
   OS << "DONE\n";
-}
-
-ModulePass *llvm::createDataPerValueWrapperPass() {
-  return new DataPerValueWrapper();
 }

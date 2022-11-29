@@ -103,7 +103,6 @@ if(OPENCL_INTREE_BUILD)
 endif()
 
 if(LLVM_BUILD_OCL_CPU_BACKEND)
-  add_subdirectory(barrier "${CMAKE_CURRENT_BINARY_DIR}/barrier")
   add_subdirectory(dynamic_lib "${CMAKE_CURRENT_BINARY_DIR}/dynamic_lib")
   add_subdirectory(libraries "${CMAKE_CURRENT_BINARY_DIR}/libraries")
   add_subdirectory(ocl_cpu_backend

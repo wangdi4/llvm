@@ -18,7 +18,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -32,52 +31,6 @@
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 using namespace CompilationUtils;
-
-namespace {
-/// Legacy ResolveSubGroupWICall pass.
-class ResolveSubGroupWICallLegacy : public ModulePass {
-public:
-  static char ID;
-
-  ResolveSubGroupWICallLegacy(bool ResolveSGBarrier = true);
-
-  StringRef getPassName() const override {
-    return "ResolveSubGroupWICallLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  }
-
-private:
-  ResolveSubGroupWICallPass Impl;
-};
-} // namespace
-
-char ResolveSubGroupWICallLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(ResolveSubGroupWICallLegacy, DEBUG_TYPE,
-                      "Resolve Sub Group WI functions", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(ResolveSubGroupWICallLegacy, DEBUG_TYPE,
-                    "Resolve Sub Group WI functions", false, false)
-
-ResolveSubGroupWICallLegacy::ResolveSubGroupWICallLegacy(bool ResolveSGBarrier)
-    : ModulePass(ID), Impl(ResolveSGBarrier) {
-  initializeResolveSubGroupWICallLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool ResolveSubGroupWICallLegacy::runOnModule(Module &M) {
-  BuiltinLibInfo *BLI =
-      &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, BLI);
-}
-
-ModulePass *llvm::createResolveSubGroupWICallLegacyPass(bool ResolveSGBarrier) {
-  return new ResolveSubGroupWICallLegacy(ResolveSGBarrier);
-}
 
 ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(bool ResolveSGBarrier)
     : ResolveSGBarrier(ResolveSGBarrier) {}

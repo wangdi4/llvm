@@ -1,6 +1,4 @@
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ;; Widened inner functions must have "widened-size" attribute so Barrier inserts

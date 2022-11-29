@@ -1,9 +1,7 @@
 ; Checks that ForceVF, "intel_vec_len_hint" and "intel_reqd_sub_group_size"
 ; can't have different values. If not, a diagnostic message is emitted.
 
-; RUN: not opt -dpcpp-kernel-vf-analysis %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-NO-FORCE
 ; RUN: not opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-NO-FORCE
-; RUN: not opt -dpcpp-kernel-vf-analysis -dpcpp-force-vf=4 %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-FORCE
 ; RUN: not opt -passes="print<dpcpp-kernel-vf-analysis>" -dpcpp-force-vf=4 %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-FORCE
 
 define void @heuristic() {

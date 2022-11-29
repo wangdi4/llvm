@@ -12,25 +12,11 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-soa-alloca-analysis"
-
-INITIALIZE_PASS(SoaAllocaAnalysisLegacy, DEBUG_TYPE, "Analyze SOA alloca info",
-                false, true)
-
-char SoaAllocaAnalysisLegacy::ID = 0;
-
-SoaAllocaAnalysisLegacy::SoaAllocaAnalysisLegacy() : FunctionPass(ID) {
-  initializeSoaAllocaAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-FunctionPass *llvm::createSoaAllocaAnalysisLegacyPass() {
-  return new SoaAllocaAnalysisLegacy();
-}
 
 AnalysisKey SoaAllocaAnalysis::Key;
 

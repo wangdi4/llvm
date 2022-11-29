@@ -19,45 +19,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
-
-namespace {
-
-class AutorunReplicatorLegacy : public ModulePass {
-public:
-  static char ID;
-
-  AutorunReplicatorLegacy();
-
-  StringRef getPassName() const override { return "AutorunReplicator"; }
-
-  bool runOnModule(Module &M) override;
-
-private:
-  AutorunReplicatorPass Impl;
-};
-
-} // namespace
-
-char AutorunReplicatorLegacy::ID = 0;
-
-INITIALIZE_PASS(
-    AutorunReplicatorLegacy, "dpcpp-kernel-autorun-replicator",
-    "creates copies of autorun kernels requested by num_compute_units kernel"
-    "attribute and resolves get_compute_id built-in",
-    false, false)
-
-AutorunReplicatorLegacy::AutorunReplicatorLegacy() : ModulePass(ID) {
-  initializeAutorunReplicatorLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool AutorunReplicatorLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
 PreservedAnalyses AutorunReplicatorPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
@@ -177,8 +144,4 @@ void AutorunReplicatorPass::resolveGetComputeID(CallInst *GetComputeIDCall) {
   } else {
     llvm_unreachable("Non-constant arg passed to get_compute_id");
   }
-}
-
-ModulePass *llvm::createAutorunReplicatorLegacyPass() {
-  return new AutorunReplicatorLegacy();
 }

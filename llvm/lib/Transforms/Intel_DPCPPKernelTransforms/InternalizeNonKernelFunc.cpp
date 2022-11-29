@@ -12,52 +12,11 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-internalize-func"
-
-namespace {
-
-/// Legacy InternalizeNonKernelFunc pass.
-class InternalizeNonKernelFuncLegacy : public ModulePass {
-  InternalizeNonKernelFuncPass Impl;
-
-public:
-  static char ID;
-
-  InternalizeNonKernelFuncLegacy() : ModulePass(ID) {
-    initializeInternalizeNonKernelFuncLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  ~InternalizeNonKernelFuncLegacy() {}
-
-  StringRef getPassName() const override {
-    return "InternalizeNonKernelFuncLegacy";
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<CallGraphWrapperPass>();
-    AU.setPreservesCFG();
-  }
-};
-
-} // namespace
-
-char InternalizeNonKernelFuncLegacy::ID = 0;
-
-INITIALIZE_PASS(InternalizeNonKernelFuncLegacy, DEBUG_TYPE,
-                "Internalize global variables and non-kernel functions", false,
-                false)
-
-ModulePass *llvm::createInternalizeNonKernelFuncLegacyPass() {
-  return new InternalizeNonKernelFuncLegacy();
-}
 
 bool InternalizeNonKernelFuncPass::runImpl(Module &M) {
   using namespace DPCPPKernelMetadataAPI;

@@ -20,11 +20,8 @@
 ; without -dpcpp-kernel-wgloop-creator there are no ret instructions (or all of them are
 ; unreachable), check that pass doesn't change the ir
 ; ----------------------------------------------------
-; RUN: opt -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-analysis %s -S > %t1.ll
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-analysis -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-analysis -dpcpp-kernel-infinite-loop-creator %s -S > %t2.ll
-; RUN: diff %t1.ll %t2.ll
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S > %t1.ll
 ; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S > %t3.ll
 ; RUN: diff %t1.ll %t3.ll

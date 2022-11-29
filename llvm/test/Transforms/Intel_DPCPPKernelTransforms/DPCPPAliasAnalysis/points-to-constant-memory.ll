@@ -1,5 +1,4 @@
 ; RUN: opt -passes=instcombine -aa-pipeline=dpcpp-kernel-aa -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-aa -dpcpp-kernel-aa-wrapper -instcombine -S %s | FileCheck %s
 
 ; This test checks that store to constant memory is removed by instcombine.
 

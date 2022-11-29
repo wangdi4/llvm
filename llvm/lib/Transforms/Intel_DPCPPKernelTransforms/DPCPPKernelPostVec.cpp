@@ -17,7 +17,6 @@
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -25,35 +24,6 @@
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
-
-namespace {
-class DPCPPKernelPostVec : public ModulePass {
-  DPCPPKernelPostVecPass Impl;
-
-public:
-  static char ID;
-
-  DPCPPKernelPostVec() : ModulePass(ID) {
-    initializeDPCPPKernelPostVecPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-  /// Returns the name of the pass
-  StringRef getPassName() const override {
-    return "VPlan post vectorization pass for DPCPP kernels";
-  }
-};
-} // namespace
-
-char DPCPPKernelPostVec::ID = 0;
-
-INITIALIZE_PASS(DPCPPKernelPostVec, DEBUG_TYPE, "VPlan post vectorization pass",
-                false, false)
-
-ModulePass *llvm::createDPCPPKernelPostVecPass() {
-  return new DPCPPKernelPostVec();
-}
 
 // Checks if the kernel has openmp directives. If not, then the kernel was
 // vectorized.

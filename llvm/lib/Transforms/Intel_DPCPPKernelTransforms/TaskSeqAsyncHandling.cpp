@@ -534,34 +534,3 @@ PreservedAnalyses TaskSeqAsyncHandling::run(Module &M,
     return PreservedAnalyses::none();
   return PreservedAnalyses::all();
 }
-
-// For legacy PM
-namespace {
-
-class TaskSeqAsyncHandlingLegacy : public ModulePass {
-public:
-  static char ID;
-
-  TaskSeqAsyncHandlingLegacy() : ModulePass(ID) {
-    initializeTaskSeqAsyncHandlingLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "TaskSeqAsyncHandlingLegacy";
-  }
-
-  bool runOnModule(Module &M) override { return Impl(M).run(); }
-};
-
-} // namespace
-
-char TaskSeqAsyncHandlingLegacy::ID = 0;
-
-INITIALIZE_PASS(TaskSeqAsyncHandlingLegacy, DEBUG_TYPE,
-                "Handle async APIs in task_sequence", false, false)
-
-namespace llvm {
-ModulePass *createTaskSeqAsyncHandlingLegacyPass() {
-  return new TaskSeqAsyncHandlingLegacy();
-}
-} // namespace llvm

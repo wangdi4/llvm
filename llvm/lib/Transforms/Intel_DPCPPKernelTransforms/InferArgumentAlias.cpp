@@ -16,45 +16,12 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InferArgumentAlias.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 using namespace CompilationUtils;
 using namespace LoopUtils;
-namespace {
-
-class InferArgumentAliasLegacy : public ModulePass {
-public:
-  static char ID; // LLVM pass ID
-
-  InferArgumentAliasLegacy() : ModulePass(ID) {
-    initializeInferArgumentAliasLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override { return "InferArgumentAlias"; }
-
-  bool runOnModule(Module &M) override;
-
-private:
-  InferArgumentAliasPass Impl;
-};
-
-} // namespace
-
-char InferArgumentAliasLegacy::ID = 0;
-
-INITIALIZE_PASS(InferArgumentAliasLegacy, "dpcpp-kernel-infer-argument-alias",
-                "Infer function argument alias for DPCPP", false, false)
-
-ModulePass *llvm::createInferArgumentAliasLegacyPass() {
-  return new InferArgumentAliasLegacy();
-}
-
-bool InferArgumentAliasLegacy::runOnModule(Module &M) {
-  return Impl.runImpl(M);
-}
 
 // isFunctionMayBeCalled - Returns true if the function may be called from
 // with the module

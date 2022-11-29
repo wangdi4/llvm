@@ -20,7 +20,6 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -30,45 +29,6 @@
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
-
-namespace {
-
-/// Legacy PipeOrdering pass.
-class PipeOrderingLegacy : public ModulePass {
-  PipeOrderingPass Impl;
-
-public:
-  static char ID;
-
-  PipeOrderingLegacy() : ModulePass(ID) {
-    initializePipeOrderingLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "PipeOrderingLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    return Impl.runImpl(M, [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    });
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
-  }
-};
-
-} // namespace
-
-char PipeOrderingLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(PipeOrderingLegacy, DEBUG_TYPE, "PipeOrderingLegacy",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(PipeOrderingLegacy, DEBUG_TYPE, "PipeOrderingLegacy", false,
-                    false)
-
-ModulePass *llvm::createPipeOrderingLegacyPass() {
-  return new PipeOrderingLegacy();
-}
 
 static bool isCalledFromNDRange(const SmallPtrSetImpl<Function *> &Kernels,
                                 Function *F,

@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/HandleVPlanMask.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
@@ -149,36 +148,4 @@ bool HandleVPlanMask::runImpl(Module &M) {
     Func->eraseFromParent();
   }
   return !(FuncsToRemove.empty() && FuncsNeedRemovingAttrs.empty());
-}
-
-// For legacy PM
-namespace {
-class HandleVPlanMaskLegacy : public ModulePass {
-public:
-  static char ID;
-
-  HandleVPlanMaskLegacy(const StringSet<> *VPlanMaskedFuncs = nullptr)
-      : ModulePass(ID), VPlanMaskedFuncs(VPlanMaskedFuncs) {
-    initializeHandleVPlanMaskLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    return HandleVPlanMask(VPlanMaskedFuncs).runImpl(M);
-  }
-
-private:
-  const StringSet<> *VPlanMaskedFuncs;
-};
-} // namespace
-
-char HandleVPlanMaskLegacy::ID = 0;
-
-INITIALIZE_PASS(
-    HandleVPlanMaskLegacy, "dpcpp-kernel-convert-vplan-mask",
-    "HandleVPlanMask pass - convert vplan style mask to volcano style", false,
-    false)
-
-ModulePass *
-llvm::createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs) {
-  return new HandleVPlanMaskLegacy(VPlanMaskedFuncs);
 }

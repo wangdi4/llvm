@@ -47,6 +47,8 @@ public:
 
   InstCountResult(InstCountResult &&Other);
 
+  InstCountResult &operator=(InstCountResult &&Other);
+
   ~InstCountResult();
 
   void print(raw_ostream &OS);

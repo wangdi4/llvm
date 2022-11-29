@@ -215,7 +215,6 @@ if(WIN32 AND NOT OPENCL_INTREE_BUILD)
 endif(WIN32 AND NOT OPENCL_INTREE_BUILD)
 
 set(BACKEND_PASSES
-    LLVMBarrier
     LLVMVectorizer
     BuiltinLibInfo)
 

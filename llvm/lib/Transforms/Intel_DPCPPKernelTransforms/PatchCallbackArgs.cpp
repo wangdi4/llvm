@@ -16,56 +16,12 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PatchCallbackArgs.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-patch-callback-args"
-
-namespace {
-class PatchCallbackArgsLegacy : public ModulePass {
-public:
-  static char ID; // LLVM pass ID
-
-  PatchCallbackArgsLegacy(bool UseTLSGlobals = false)
-      : ModulePass(ID), Impl(UseTLSGlobals) {
-    initializePatchCallbackArgsLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override { return "PatchCallBackArgs"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ImplicitArgsAnalysisLegacy>();
-    AU.setPreservesCFG();
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-
-private:
-  PatchCallbackArgsPass Impl;
-};
-} // namespace
-
-char PatchCallbackArgsLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(PatchCallbackArgsLegacy, DEBUG_TYPE,
-                      "Resolve DPCPP built-in calls to callbacks", false, false)
-INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
-INITIALIZE_PASS_END(PatchCallbackArgsLegacy, DEBUG_TYPE,
-                    "Resolve DPCPP built-in calls to callbacks", false, false)
-
-ModulePass *llvm::createPatchCallbackArgsLegacyPass(bool UseTLSGlobals) {
-  return new PatchCallbackArgsLegacy(UseTLSGlobals);
-}
-
-bool PatchCallbackArgsLegacy::runOnModule(Module &M) {
-  ImplicitArgsInfo *IAInfo =
-      &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, IAInfo);
-}
 
 struct ImplicitArgAccessorFunc {
   const char *FuncName;

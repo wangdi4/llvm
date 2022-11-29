@@ -1,10 +1,7 @@
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-vec-dim-analysis -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,require<dpcpp-kernel-vec-dim-analysis>,dpcpp-kernel-vec-clone' -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-vec-dim-analysis -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s --check-prefixes=CHECK,WithVecDimAnalysis
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,require<dpcpp-kernel-vec-dim-analysis>,dpcpp-kernel-vec-clone' -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s --check-prefixes=CHECK,WithVecDimAnalysis
 
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s --check-prefixes=CHECK,WithoutVecDimAnalysis
 ; RUN: opt -passes='dpcpp-kernel-vec-clone' -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s --check-prefixes=CHECK,WithoutVecDimAnalysis
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -17,7 +17,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -1717,47 +1716,6 @@ void WGLoopBoundariesImpl::print(raw_ostream &OS, StringRef FName) const {
   for (const UniformDesc &UD : UniDescs)
     OS.indent(4) << "ExitOnTrue=" << ToChar(UD.ExitOnTrue) << ", "
                  << "Cond=\"" << *UD.Cond << "\"\n";
-}
-
-namespace {
-/// Legacy WGLoopBoundaries pass.
-class WGLoopBoundariesLegacy : public ModulePass {
-public:
-  static char ID;
-
-  WGLoopBoundariesLegacy() : ModulePass(ID) {
-    initializeWGLoopBoundariesLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  ~WGLoopBoundariesLegacy() {}
-
-  StringRef getPassName() const override { return "WGLoopBoundariesLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    auto &RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                          .getResult()
-                          .getRuntimeService();
-    WGLoopBoundariesImpl Impl(M, RTService);
-    return Impl.run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char WGLoopBoundariesLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(WGLoopBoundariesLegacy, DEBUG_TYPE,
-                      "Create loop boundaries array function", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(WGLoopBoundariesLegacy, DEBUG_TYPE,
-                    "Create loop boundaries array function", false, false)
-
-ModulePass *llvm::createWGLoopBoundariesLegacyPass() {
-  return new WGLoopBoundariesLegacy();
 }
 
 PreservedAnalyses WGLoopBoundariesPass::run(Module &M,

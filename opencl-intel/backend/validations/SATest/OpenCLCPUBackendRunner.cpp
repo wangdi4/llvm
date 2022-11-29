@@ -172,11 +172,11 @@ public:
     memcpy(pKernelArgs->GlobalOffset, workInfo.globalWorkOffset,
            sizetMaxWorkDim); // Filled by the runtime
 
-    memcpy(pKernelArgs->GlobalSize, workInfo.globalWorkSize,
+    memcpy(pKernelArgs->UserGlobalSize, workInfo.globalWorkSize,
            sizetMaxWorkDim); // Filled by the runtime
 
     for (size_t dim = 0; dim < workInfo.workDimension; ++dim) {
-      pKernelArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][dim] =
+      pKernelArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][dim] =
           workInfo.localWorkSize[dim];
       // local size may be 0
       size_t nonUniWGSize =
@@ -184,7 +184,7 @@ public:
               ? 0
               : workInfo.globalWorkSize[dim] % workInfo.localWorkSize[dim];
       // if the remainder is 0 set non-unifrom size to uniform value
-      pKernelArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][dim] =
+      pKernelArgs->UserLocalSize[NONUNIFORM_WG_SIZE_INDEX][dim] =
           nonUniWGSize == 0 ? workInfo.localWorkSize[dim] : nonUniWGSize;
     }
 
@@ -195,7 +195,7 @@ public:
     pKernelArgs->UniformJITEntryPoint = NULL;    // Filled by the BE
     pKernelArgs->NonUniformJITEntryPoint = NULL; // Filled by the BE
 
-    memset(pKernelArgs->WGCount, 0,
+    memset(pKernelArgs->UserWGCount, 0,
            sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
 
     pKernelArgs->WorkDim = workInfo.workDimension; // Filled by the runtime
@@ -208,7 +208,7 @@ public:
         /*calculateWGSize*/ true);
 
     // local group size calculated by PrepareKernelArguments (using heuristic)
-    memcpy(m_LocalSize, pKernelArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
+    memcpy(m_LocalSize, pKernelArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX],
            sizetMaxWorkDim);
   }
 

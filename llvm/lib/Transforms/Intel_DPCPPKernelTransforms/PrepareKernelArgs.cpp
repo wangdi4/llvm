@@ -16,7 +16,6 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -34,58 +33,7 @@ namespace {
 
 uint64_t STACK_PADDING_BUFFER = DEV_MAXIMUM_ALIGN * 1;
 
-class PrepareKernelArgsLegacy : public ModulePass {
-
-public:
-  /// Pass identification, replacement for typeid.
-  static char ID;
-
-  PrepareKernelArgsLegacy(bool UseTLSGlobals = false);
-
-  StringRef getPassName() const override { return "PrepareKernelArgsLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<ImplicitArgsAnalysisLegacy>();
-  }
-
-private:
-  PrepareKernelArgsPass Impl;
-  bool UseTLSGlobals;
-};
-
 } // namespace
-
-INITIALIZE_PASS_BEGIN(PrepareKernelArgsLegacy, DEBUG_TYPE,
-                      "Change the way arguments are passed to kernels", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
-INITIALIZE_PASS_END(PrepareKernelArgsLegacy, DEBUG_TYPE,
-                    "Change the way arguments are passed to kernels", false,
-                    false)
-
-char PrepareKernelArgsLegacy::ID = 0;
-
-PrepareKernelArgsLegacy::PrepareKernelArgsLegacy(bool UseTLSGlobals)
-    : ModulePass(ID), UseTLSGlobals(UseTLSGlobals) {
-  initializePrepareKernelArgsLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool PrepareKernelArgsLegacy::runOnModule(Module &M) {
-  auto GetAC = [&](Function &F) {
-    return &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  };
-  ImplicitArgsInfo *IAInfo =
-      &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, UseTLSGlobals, GetAC, IAInfo);
-}
-
-ModulePass *llvm::createPrepareKernelArgsLegacyPass(bool UseTLSGlobals) {
-  return new PrepareKernelArgsLegacy(UseTLSGlobals);
-}
 
 PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {

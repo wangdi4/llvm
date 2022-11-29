@@ -1,5 +1,3 @@
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 ; RUN: opt -passes=dpcpp-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-sg-emu-value-widen -S %s | FileCheck %s

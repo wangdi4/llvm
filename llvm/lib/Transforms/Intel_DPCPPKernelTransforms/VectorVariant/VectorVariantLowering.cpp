@@ -16,7 +16,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 #define DEBUG_TYPE "VectorVariantLowering"
 
@@ -104,57 +103,4 @@ bool VectorVariantLowering::runImpl(Module &M, CallGraph &CG) {
     }
   }
   return Modified;
-}
-
-// For legacy pass manager
-namespace {
-class VectorVariantLoweringLegacy : public ModulePass {
-public:
-  static char ID;
-
-  VectorVariantLoweringLegacy(VFISAKind ISA = VFISAKind::SSE);
-
-  llvm::StringRef getPassName() const override {
-    return "VectorVariantLoweringLegacy";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addPreserved<CallGraphWrapperPass>();
-    AU.setPreservesCFG();
-  }
-
-protected:
-  bool runOnModule(llvm::Module &M) override;
-
-private:
-  VFISAKind ISA;
-};
-
-char VectorVariantLoweringLegacy::ID = 0;
-
-VectorVariantLoweringLegacy::VectorVariantLoweringLegacy(
-    VFISAKind ISA)
-    : ModulePass(ID), ISA(ISA) {
-  initializeVectorVariantLoweringLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool VectorVariantLoweringLegacy::runOnModule(Module &M) {
-  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  return VectorVariantLowering(ISA).runImpl(M, CG);
-}
-
-} // namespace
-
-INITIALIZE_PASS_BEGIN(VectorVariantLoweringLegacy,
-                "dpcpp-kernel-vector-variant-lowering",
-                "Lowering vector-variant attributes", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(VectorVariantLoweringLegacy,
-                "dpcpp-kernel-vector-variant-lowering",
-                "Lowering vector-variant attributes", false, false)
-
-ModulePass *
-llvm::createVectorVariantLoweringLegacyPass(VFISAKind ISA) {
-  return new VectorVariantLoweringLegacy(ISA);
 }

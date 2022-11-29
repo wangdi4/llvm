@@ -30,8 +30,6 @@
 ; !2 = !{i1 true}
 ; !3 = !{i32 0}
 ; ----------------------------------------------------
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
 

@@ -326,11 +326,11 @@ function(
     OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
     COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
     COMMAND
-      ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB} -infer-address-spaces
+      ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB}
       -dpcpp-kernel-builtin-lib=${TMP_LINKED_RTL_OUTPUT}
-      -dpcpp-kernel-cpu-prefix=${ARCH} -dpcpp-kernel-builtin-import
-      -dpcpp-kernel-builtin-call-to-inst -verify -o
-      ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
+      -dpcpp-kernel-cpu-prefix=${ARCH}
+      "-passes=function(infer-address-spaces),dpcpp-kernel-builtin-import,function(dpcpp-kernel-builtin-call-to-inst),verify"
+      -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
     COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas -O3
             -disable-intel-proprietary-opts -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
     DEPENDS ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB} ${TMP_LINKED_RTL_OUTPUT}
@@ -664,7 +664,7 @@ add_custom_command(
           ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes2.bc
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
   COMMAND ${OPT} -dpcpp-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
-          -dpcpp-kernel-builtin-import pipes.bc -o pipes-builtin.bc
+          -passes=dpcpp-kernel-builtin-import pipes.bc -o pipes-builtin.bc
   COMMAND ${OPT} -O3 -disable-intel-proprietary-opts pipes-builtin.bc -o
           pipes-opt.bc
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc -o clbltpipe.obj)

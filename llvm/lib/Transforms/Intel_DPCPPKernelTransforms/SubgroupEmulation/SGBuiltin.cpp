@@ -15,7 +15,7 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -36,53 +36,6 @@ extern bool DPCPPEnableSubGroupEmulation;
 // 3. mangled vector variant name
 static std::vector<std::tuple<std::string, std::string, std::string>>
     ExtendedVectInfos;
-
-namespace {
-/// Legacy SGBuiltin pass.
-class SGBuiltinLegacy : public ModulePass {
-public:
-  static char ID;
-
-  SGBuiltinLegacy(ArrayRef<VectItem> VectInfos = {});
-
-  StringRef getPassName() const override { return "SGBuiltinLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<SGSizeAnalysisLegacy>();
-    AU.addPreserved<SGSizeAnalysisLegacy>();
-  }
-
-private:
-  SGBuiltinPass Impl;
-};
-} // namespace
-
-char SGBuiltinLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(SGBuiltinLegacy, DEBUG_TYPE,
-                      "Insert sub_group_barrier and vector-variants attribute",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(SGSizeAnalysisLegacy)
-INITIALIZE_PASS_END(SGBuiltinLegacy, DEBUG_TYPE,
-                    "Insert sub_group_barrier and vector-variants attribute",
-                    false, false)
-
-SGBuiltinLegacy::SGBuiltinLegacy(ArrayRef<VectItem> VectInfos)
-    : ModulePass(ID), Impl(VectInfos) {
-  initializeSGBuiltinLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool SGBuiltinLegacy::runOnModule(Module &M) {
-  const SGSizeInfo *SSI = &getAnalysis<SGSizeAnalysisLegacy>().getResult();
-
-  return Impl.runImpl(M, SSI);
-}
-
-ModulePass *llvm::createSGBuiltinLegacyPass(ArrayRef<VectItem> VectInfos) {
-  return new SGBuiltinLegacy(VectInfos);
-}
 
 SGBuiltinPass::SGBuiltinPass(ArrayRef<VectItem> VectInfos)
     : VectInfos(VectInfos) {}

@@ -186,28 +186,6 @@ private:
   raw_ostream &OS;
 };
 
-/// Legacy VFAnalysis module pass.
-class VFAnalysisLegacy : public ModulePass {
-private:
-  VFAnalysisInfo Result;
-
-public:
-  static char ID;
-
-  VFAnalysisLegacy() : ModulePass(ID) {
-    initializeVFAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "VFAnalysisLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  const VFAnalysisInfo &getResult() const { return Result; }
-
-  void print(raw_ostream &OS, const Module *M) const override;
-};
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VF_ANALYSIS_H

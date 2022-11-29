@@ -22,40 +22,10 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-prevent-div-crashes"
-
-namespace llvm {
-/// PreventDivCrashesLegacy pass for legacy pass manager.
-class PreventDivCrashesLegacy : public FunctionPass {
-
-public:
-  PreventDivCrashesLegacy() : FunctionPass(ID) {
-    initializePreventDivCrashesLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  static char ID;
-
-  StringRef getPassName() const override {
-    return "Intel DPCPP Kernel PreventDivCrashes Pass";
-  }
-
-  bool runOnFunction(Function &F) override { return Impl.runImpl(F); }
-
-private:
-  PreventDivCrashesPass Impl;
-};
-} // namespace llvm
-
-INITIALIZE_PASS(PreventDivCrashesLegacy, DEBUG_TYPE,
-                "Dynamically handle cases that divisor is ConstantZero or "
-                "there is integer overflow during division",
-                false, false)
-
-char PreventDivCrashesLegacy::ID = 0;
 
 PreservedAnalyses PreventDivCrashesPass::run(Function &F,
                                              FunctionAnalysisManager &FAM) {
@@ -202,8 +172,4 @@ bool PreventDivCrashesPass::handleDiv() {
   }
 
   return true;
-}
-
-FunctionPass *llvm::createPreventDivCrashesLegacyPass() {
-  return new PreventDivCrashesLegacy();
 }

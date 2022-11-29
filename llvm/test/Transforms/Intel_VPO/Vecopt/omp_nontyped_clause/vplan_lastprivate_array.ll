@@ -60,13 +60,13 @@
 ;    END REGION
 
 ; *** IR Dump After vpo::VPlanDriverHIRPass ***
-; HIR:           + DO i1 = 0, 12, 1   <DO_LOOP>
+; HIR:           + DO i1 = 0, 11, 1   <DO_LOOP>
 ; HIR-NEXT:      |   @_ZTS7int_int.omp.copy_assign(&((%struct.int_int*)(%y3.lpriv)[i1]),  &((%struct.int_int*)(%extract.1.22)[i1]));
 ; HIR-NEXT:      + END LOOP
-; HIR:           + DO i1 = 0, 2, 1   <DO_LOOP>
+; HIR:           + DO i1 = 0, 1, 1   <DO_LOOP>
 ; HIR-NEXT:      |   %priv.extract = extractelement &((<2 x [12 x %struct.int_int]*>)(%priv.mem.bc)[<i32 0, i32 1>]),  i1;
 ; HIR-NEXT:      |
-; HIR-NEXT:      |   + DO i2 = 0, 12, 1   <DO_LOOP>
+; HIR-NEXT:      |   + DO i2 = 0, 11, 1   <DO_LOOP>
 ; HIR-NEXT:      |   |   @_ZTS7int_int.omp.destr(&((%struct.int_int*)(%priv.extract)[i2]));
 ; HIR-NEXT:      |   + END LOOP
 ; HIR-NEXT:      + END LOOP

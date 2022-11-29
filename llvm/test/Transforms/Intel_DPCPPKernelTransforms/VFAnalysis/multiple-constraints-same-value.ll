@@ -1,9 +1,7 @@
 ; Checks that diagnostic message isn't emitted if ForceVF, "intel_vec_len_hint"
 ; and "intel_reqd_sub_group_size" have the same value.
 
-; RUN: opt -dpcpp-kernel-vf-analysis %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
-; RUN: opt -dpcpp-kernel-vf-analysis -dpcpp-force-vf=8 %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" -dpcpp-force-vf=8 %s -S 2>&1 | FileCheck %s
 
 define void @vec_len_hint() !intel_vec_len_hint !{i32 8} {

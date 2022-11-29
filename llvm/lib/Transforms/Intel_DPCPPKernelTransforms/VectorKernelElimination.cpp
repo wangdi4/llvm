@@ -19,7 +19,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WeightedInstCount.h"
 
@@ -103,47 +102,6 @@ bool runImpl(Module &M,
   }
 
   return Changed;
-}
-
-namespace {
-
-class VectorKernelEliminationLegacy : public ModulePass {
-public:
-  static char ID;
-
-  VectorKernelEliminationLegacy() : ModulePass(ID) {
-    initializeVectorKernelEliminationLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "VectorKernelEliminationLegacy";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WeightedInstCountAnalysisLegacy>();
-  }
-
-  bool runOnModule(Module &M) override {
-    auto GetInstCountResult = [&](Function &F) -> InstCountResult & {
-      return getAnalysis<WeightedInstCountAnalysisLegacy>(F).getResult();
-    };
-    return runImpl(M, GetInstCountResult);
-  }
-};
-} // namespace
-
-INITIALIZE_PASS_BEGIN(VectorKernelEliminationLegacy, DEBUG_TYPE,
-                      "Eliminate vector kernel based on cost model", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(WeightedInstCountAnalysisLegacy)
-INITIALIZE_PASS_END(VectorKernelEliminationLegacy, DEBUG_TYPE,
-                    "Eliminate vector kernel based on cost model", false, false)
-
-char VectorKernelEliminationLegacy::ID = 0;
-
-ModulePass *llvm::createVectorKernelEliminationLegacyPass() {
-  return new VectorKernelEliminationLegacy();
 }
 
 PreservedAnalyses VectorKernelEliminationPass::run(Module &M,
