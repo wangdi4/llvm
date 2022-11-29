@@ -5,12 +5,8 @@
 
 ; CHECK: @le
 ; CHECK: Loop %for.body: backedge-taken count is %n
-<<<<<<< HEAD
 ; INTEL - max backedge taken count refined to (signed max - 1).
-; CHECK: Loop %for.body: max backedge-taken count is 9223372036854775806
-=======
-; CHECK: Loop %for.body: constant max backedge-taken count is 9223372036854775807
->>>>>>> 211d94118823b2a6f7205a6cc07af746b87e7a35
+; CHECK: Loop %for.body: constant max backedge-taken count is 9223372036854775806
 
 define void @le(i64 %n, double* nocapture %p) nounwind {
 entry:

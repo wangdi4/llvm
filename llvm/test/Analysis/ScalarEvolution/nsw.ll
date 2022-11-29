@@ -317,15 +317,9 @@ define void @bad_postinc_nsw_a(i32 %n) {
 ; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 7
 ; CHECK-NEXT:    --> {7,+,7}<nuw><%loop> U: [7,0) S: [7,0) Exits: (7 + (7 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw>)) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @bad_postinc_nsw_a
-<<<<<<< HEAD
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw>
-; CHECK-NEXT:  Loop %loop: max backedge-taken count is 613566756
-; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw>
-=======
-; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 613566756
-; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
->>>>>>> 211d94118823b2a6f7205a6cc07af746b87e7a35
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw>
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
 ;
