@@ -71,13 +71,13 @@ void MCWinCOFFStreamer::initSections(bool NoExecStack,
   // This emulates the same behavior of GNU as. This makes it easier
   // to compare the output as the major sections are in the same order.
   switchSection(getContext().getObjectFileInfo()->getTextSection());
-  emitCodeAlignment(4, &STI);
+  emitCodeAlignment(Align(4), &STI);
 
   switchSection(getContext().getObjectFileInfo()->getDataSection());
-  emitCodeAlignment(4, &STI);
+  emitCodeAlignment(Align(4), &STI);
 
   switchSection(getContext().getObjectFileInfo()->getBSSSection());
-  emitCodeAlignment(4, &STI);
+  emitCodeAlignment(Align(4), &STI);
 
   switchSection(getContext().getObjectFileInfo()->getTextSection());
 }
@@ -190,7 +190,7 @@ void MCWinCOFFStreamer::emitCOFFSafeSEH(MCSymbol const *Symbol) {
 
   MCSection *SXData = getContext().getObjectFileInfo()->getSXDataSection();
   getAssembler().registerSection(*SXData);
-  if (SXData->getAlignment() < 4)
+  if (SXData->getAlign() < 4)
     SXData->setAlignment(Align(4));
 
   new MCSymbolIdFragment(Symbol, SXData);
@@ -207,7 +207,7 @@ void MCWinCOFFStreamer::emitCOFFSafeSEH(MCSymbol const *Symbol) {
 void MCWinCOFFStreamer::emitCOFFSymbolIndex(MCSymbol const *Symbol) {
   MCSection *Sec = getCurrentSectionOnly();
   getAssembler().registerSection(*Sec);
-  if (Sec->getAlignment() < 4)
+  if (Sec->getAlign() < 4)
     Sec->setAlignment(Align(4));
 
   new MCSymbolIdFragment(Symbol, getCurrentSectionOnly());
