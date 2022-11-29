@@ -240,7 +240,7 @@ void Program::Deserialize(IInputStream &ist, SerializationStatus *stats) {
     if (nullptr != currentKernel) {
       currentKernel = stats->GetBackendFactory()->CreateKernel();
       currentKernel->Deserialize(ist, stats);
-      m_kernels->AddKernel(currentKernel);
+      m_kernels->AddKernel(std::unique_ptr<Kernel>(currentKernel));
     }
   }
 

@@ -342,7 +342,7 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
     // Notify the plugin manager
     m_pluginManger.OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
-    spKernels->AddKernel(spKernel.release());
+    spKernels->AddKernel(std::move(spKernel));
     spKernelProps.release();
   }
   // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Iterating

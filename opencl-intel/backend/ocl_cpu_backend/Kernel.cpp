@@ -1101,17 +1101,11 @@ void Kernel::Deserialize(IInputStream &ist, SerializationStatus *stats) {
 
 KernelSet::KernelSet() : m_kernels(0), m_blockKernelsCount(0) {}
 
-KernelSet::~KernelSet() {
-  for (std::vector<Kernel *>::const_iterator i = m_kernels.begin(),
-                                             e = m_kernels.end();
-       i != e; ++i) {
-    delete *i;
-  }
-}
+KernelSet::~KernelSet() {}
 
-void KernelSet::AddKernel(Kernel *pKernel) {
-  m_kernels.push_back(pKernel);
+void KernelSet::AddKernel(std::unique_ptr<Kernel> pKernel) {
   m_blockKernelsCount += pKernel->GetKernelProporties()->IsBlock() ? 1 : 0;
+  m_kernels.push_back(std::move(pKernel));
 }
 
 Kernel *KernelSet::GetKernel(int index) const {
@@ -1119,15 +1113,13 @@ Kernel *KernelSet::GetKernel(int index) const {
     throw Exceptions::DeviceBackendExceptionBase(
         "Index OOB while accessing the kernel set");
   }
-  return m_kernels[index];
+  return m_kernels[index].get();
 }
 
 Kernel *KernelSet::GetKernel(const char *name) const {
-  for (std::vector<Kernel *>::const_iterator i = m_kernels.begin(),
-                                             e = m_kernels.end();
-       i != e; ++i) {
+  for (auto i = m_kernels.begin(), e = m_kernels.end(); i != e; ++i) {
     if (!std::string((*i)->GetKernelName()).compare(name))
-      return *i;
+      return i->get();
   }
   throw Exceptions::DeviceBackendExceptionBase(
       "No kernel found for given name");
