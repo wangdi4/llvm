@@ -24,6 +24,7 @@ define hidden i32* @trunc_ptr_to_i64(i8* %arg, i32* %arg10) {
 ; PTR64_IDX64-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i64
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR64_IDX32-LABEL: 'trunc_ptr_to_i64'
@@ -41,6 +42,7 @@ define hidden i32* @trunc_ptr_to_i64(i8* %arg, i32* %arg10) {
 ; PTR64_IDX32-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i64
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX16-LABEL: 'trunc_ptr_to_i64'
@@ -58,6 +60,7 @@ define hidden i32* @trunc_ptr_to_i64(i8* %arg, i32* %arg10) {
 ; PTR16_IDX16-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i64
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX32-LABEL: 'trunc_ptr_to_i64'
@@ -77,6 +80,7 @@ define hidden i32* @trunc_ptr_to_i64(i8* %arg, i32* %arg10) {
 ; PTR16_IDX32-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i64
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 bb:
@@ -113,6 +117,7 @@ define hidden i32* @trunc_ptr_to_i32(i8* %arg, i32* %arg10) {
 ; PTR64_IDX64-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i32
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR64_IDX32-LABEL: 'trunc_ptr_to_i32'
@@ -130,6 +135,7 @@ define hidden i32* @trunc_ptr_to_i32(i8* %arg, i32* %arg10) {
 ; PTR64_IDX32-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i32
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX16-LABEL: 'trunc_ptr_to_i32'
@@ -147,6 +153,7 @@ define hidden i32* @trunc_ptr_to_i32(i8* %arg, i32* %arg10) {
 ; PTR16_IDX16-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i32
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX32-LABEL: 'trunc_ptr_to_i32'
@@ -166,6 +173,7 @@ define hidden i32* @trunc_ptr_to_i32(i8* %arg, i32* %arg10) {
 ; PTR16_IDX32-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i32
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 bb:
@@ -202,6 +210,7 @@ define hidden i32* @trunc_ptr_to_i128(i8* %arg, i32* %arg10) {
 ; PTR64_IDX64-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i128
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR64_IDX32-LABEL: 'trunc_ptr_to_i128'
@@ -219,6 +228,7 @@ define hidden i32* @trunc_ptr_to_i128(i8* %arg, i32* %arg10) {
 ; PTR64_IDX32-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i128
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX16-LABEL: 'trunc_ptr_to_i128'
@@ -236,6 +246,7 @@ define hidden i32* @trunc_ptr_to_i128(i8* %arg, i32* %arg10) {
 ; PTR16_IDX16-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i128
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX32-LABEL: 'trunc_ptr_to_i128'
@@ -255,6 +266,7 @@ define hidden i32* @trunc_ptr_to_i128(i8* %arg, i32* %arg10) {
 ; PTR16_IDX32-NEXT:  Determining loop execution counts for: @trunc_ptr_to_i128
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable constant max backedge-taken count.
+; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb11: Unpredictable predicated backedge-taken count.
 ;
 bb:
@@ -286,6 +298,7 @@ define void @zext_ptr_to_i32(i32 %arg, i32 %arg6) {
 ; PTR64_IDX64-NEXT:  Determining loop execution counts for: @zext_ptr_to_i32
 ; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 ; PTR64_IDX32-LABEL: 'zext_ptr_to_i32'
@@ -297,6 +310,7 @@ define void @zext_ptr_to_i32(i32 %arg, i32 %arg6) {
 ; PTR64_IDX32-NEXT:  Determining loop execution counts for: @zext_ptr_to_i32
 ; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX16-LABEL: 'zext_ptr_to_i32'
@@ -308,6 +322,7 @@ define void @zext_ptr_to_i32(i32 %arg, i32 %arg6) {
 ; PTR16_IDX16-NEXT:  Determining loop execution counts for: @zext_ptr_to_i32
 ; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX32-LABEL: 'zext_ptr_to_i32'
@@ -319,6 +334,7 @@ define void @zext_ptr_to_i32(i32 %arg, i32 %arg6) {
 ; PTR16_IDX32-NEXT:  Determining loop execution counts for: @zext_ptr_to_i32
 ; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 bb:
@@ -345,6 +361,7 @@ define void @sext_to_i32(i32 %arg, i32 %arg6) {
 ; PTR64_IDX64-NEXT:  Determining loop execution counts for: @sext_to_i32
 ; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX64-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 ; PTR64_IDX32-LABEL: 'sext_to_i32'
@@ -356,6 +373,7 @@ define void @sext_to_i32(i32 %arg, i32 %arg6) {
 ; PTR64_IDX32-NEXT:  Determining loop execution counts for: @sext_to_i32
 ; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR64_IDX32-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX16-LABEL: 'sext_to_i32'
@@ -367,6 +385,7 @@ define void @sext_to_i32(i32 %arg, i32 %arg6) {
 ; PTR16_IDX16-NEXT:  Determining loop execution counts for: @sext_to_i32
 ; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX16-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 ; PTR16_IDX32-LABEL: 'sext_to_i32'
@@ -378,6 +397,7 @@ define void @sext_to_i32(i32 %arg, i32 %arg6) {
 ; PTR16_IDX32-NEXT:  Determining loop execution counts for: @sext_to_i32
 ; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable constant max backedge-taken count.
+; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable symbolic max backedge-taken count.
 ; PTR16_IDX32-NEXT:  Loop %bb7: Unpredictable predicated backedge-taken count.
 ;
 bb:
@@ -413,6 +433,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR64_IDX64-NEXT:  Determining loop execution counts for: @sext_like_noop
 ; PTR64_IDX64-NEXT:  Loop %for.body: backedge-taken count is (-2 + (trunc i64 (ptrtoint i64 (i32)* @sext_like_noop to i64) to i32))
 ; PTR64_IDX64-NEXT:  Loop %for.body: constant max backedge-taken count is -1
+; PTR64_IDX64-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-2 + (trunc i64 (ptrtoint i64 (i32)* @sext_like_noop to i64) to i32))
 ; PTR64_IDX64-NEXT:  Loop %for.body: Predicated backedge-taken count is (-2 + (trunc i64 (ptrtoint i64 (i32)* @sext_like_noop to i64) to i32))
 ; PTR64_IDX64-NEXT:   Predicates:
 ; PTR64_IDX64:       Loop %for.body: Trip multiple is 1
@@ -433,6 +454,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR64_IDX32-NEXT:  Determining loop execution counts for: @sext_like_noop
 ; PTR64_IDX32-NEXT:  Loop %for.body: backedge-taken count is (-2 + ptrtoint (i64 (i32)* @sext_like_noop to i32))
 ; PTR64_IDX32-NEXT:  Loop %for.body: constant max backedge-taken count is -1
+; PTR64_IDX32-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-2 + ptrtoint (i64 (i32)* @sext_like_noop to i32))
 ; PTR64_IDX32-NEXT:  Loop %for.body: Predicated backedge-taken count is (-2 + ptrtoint (i64 (i32)* @sext_like_noop to i32))
 ; PTR64_IDX32-NEXT:   Predicates:
 ; PTR64_IDX32:       Loop %for.body: Trip multiple is 1
@@ -453,6 +475,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR16_IDX16-NEXT:  Determining loop execution counts for: @sext_like_noop
 ; PTR16_IDX16-NEXT:  Loop %for.body: backedge-taken count is (-2 + (zext i16 (ptrtoint i64 (i32)* @sext_like_noop to i16) to i32))<nsw>
 ; PTR16_IDX16-NEXT:  Loop %for.body: constant max backedge-taken count is -1
+; PTR16_IDX16-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-2 + (zext i16 (ptrtoint i64 (i32)* @sext_like_noop to i16) to i32))<nsw>
 ; PTR16_IDX16-NEXT:  Loop %for.body: Predicated backedge-taken count is (-2 + (zext i16 (ptrtoint i64 (i32)* @sext_like_noop to i16) to i32))<nsw>
 ; PTR16_IDX16-NEXT:   Predicates:
 ; PTR16_IDX16:       Loop %for.body: Trip multiple is 1
@@ -473,6 +496,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR16_IDX32-NEXT:  Determining loop execution counts for: @sext_like_noop
 ; PTR16_IDX32-NEXT:  Loop %for.body: backedge-taken count is (-2 + ptrtoint (i64 (i32)* @sext_like_noop to i32))<nsw>
 ; PTR16_IDX32-NEXT:  Loop %for.body: constant max backedge-taken count is -1
+; PTR16_IDX32-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-2 + ptrtoint (i64 (i32)* @sext_like_noop to i32))<nsw>
 ; PTR16_IDX32-NEXT:  Loop %for.body: Predicated backedge-taken count is (-2 + ptrtoint (i64 (i32)* @sext_like_noop to i32))<nsw>
 ; PTR16_IDX32-NEXT:   Predicates:
 ; PTR16_IDX32:       Loop %for.body: Trip multiple is 1
