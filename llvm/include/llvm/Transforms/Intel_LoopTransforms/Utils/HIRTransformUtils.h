@@ -367,7 +367,7 @@ public:
   static bool doConstantAndCopyPropagation(HLNode *Node
 #if INTEL_FEATURE_SW_DTRANS
                                            ,
-                                           DTransImmutableInfo *DTII
+                                           DTransImmutableInfo *DTII = nullptr
 #endif // INTEL_FEATURE_SW_DTRANS
   );
 

@@ -835,6 +835,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
   }
 
   bool Result = false;
+  bool SubstitutedLoads = false;
   SmallPtrSet<HLLoop *, 8> OptimizedLoops;
 
   for (auto &RefGroup : EqualityGroups) {
@@ -969,6 +970,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         SubstitutibleLoads.clear();
 
         I -= NumLoads;
+        SubstitutedLoads = (SubstitutedLoads || (NumLoads != 0));
         Result = true;
       }
     }
@@ -978,6 +980,10 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
 
   if (!Result) {
     return false;
+  }
+
+  if (SubstitutedLoads) {
+    HIRTransformUtils::doConstantAndCopyPropagation(&Region);
   }
 
   OptReportBuilder &ORBuilder = HNU.getHIRFramework().getORBuilder();
