@@ -519,8 +519,8 @@ public:
   bool mayEscape(const MemoryLocation &LocB);
 
   // Chases pointers until we find a (constant global) or not.
-  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                              bool OrLocal);
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                              bool IgnoreLocals);
   // Returns true if the given value V does not escape from
   // the current routine.
   bool escapes(const Value *V);

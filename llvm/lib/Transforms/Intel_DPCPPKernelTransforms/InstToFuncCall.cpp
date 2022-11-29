@@ -349,7 +349,7 @@ void InstToFuncCallImpl::replaceInstWithCall(Function &F, Instruction &I,
   // So far the newly created function calls in this pass can have following
   // attributes in order to facilitate optimizations like LICM hoisting.
   CI->addFnAttr(Attribute::NoUnwind);
-  CI->addFnAttr(Attribute::ReadNone);
+  CI->setDoesNotAccessMemory();
   CI->addFnAttr(Attribute::WillReturn);
 
   I.replaceAllUsesWith(CI);

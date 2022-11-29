@@ -170,7 +170,7 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
   // Check if the function is in the table of functions
   Function *OrigFunc = Inst->getCalledFunction();
   if (!OrigFunc)
-    return !Inst->hasFnAttr(Attribute::ReadNone) || hasWIRelatedArgs();
+    return !Inst->doesNotAccessMemory() || hasWIRelatedArgs();
 
   StringRef OrigFuncName = OrigFunc->getName();
 
@@ -215,7 +215,7 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
   // have readnone attribute?
   // 2) Can we further remove all assertion on function names above? I.e., Do
   // all WI-related built-ins have readnone attribute?
-  if ((OrigFunc->isDeclaration() || Inst->hasFnAttr(Attribute::ReadNone)) &&
+  if ((OrigFunc->isDeclaration() || Inst->doesNotAccessMemory()) &&
       !hasWIRelatedArgs()) {
     return false;
   }

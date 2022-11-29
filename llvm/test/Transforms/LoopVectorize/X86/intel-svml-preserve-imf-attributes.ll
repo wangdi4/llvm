@@ -5,7 +5,7 @@
 ; CHECK-LABEL: @foo
 ; CHECK: {{.*}} = call <4 x double> @__svml_sin4(<4 x double> {{.*}}) #1
 
-; CHECK: attributes #1 = { nounwind readnone "imf-arch-consistency"="true"
+; CHECK: attributes #1 = { nounwind memory(none) "imf-arch-consistency"="true"
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -31,4 +31,4 @@ for.end:
 
 declare double @sin(double)
 
-attributes #0 = { nounwind readnone "imf-arch-consistency"="true" }
+attributes #0 = { nounwind memory(none) "imf-arch-consistency"="true" }

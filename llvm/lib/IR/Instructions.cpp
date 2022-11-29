@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -48,6 +48,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/ModRef.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
@@ -368,25 +369,44 @@ bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
 
   if (Attrs.hasParamAttr(ArgNo, Kind))
     return true;
+
+  const Function *F = getCalledFunction();
+  if (!F)
+    return false;
+
 #if INTEL_CUSTOMIZATION
-  if (const Function *F = getCalledFunction()) {
-    if (F->getAttributes().hasParamAttr(ArgNo, Kind))
-      return true;
-    if (CallBaseLookupCallbackAttrs)
-      // If we are dealing with a callback call site check if callback function
-      // argument has given attribute if broker function forwards it to the
-      // callback and this attribute can be legaly propagated to the caller.
-      if (Kind == Attribute::ByVal || Kind == Attribute::ImmArg ||
-          Kind == Attribute::NoAlias || Kind == Attribute::NoCapture ||
-          Kind == Attribute::NoFree || Kind == Attribute::NonNull ||
-          Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
-          Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
-        if (Argument *CallbackArg =
-                AbstractCallSite::getCallbackArg(*this, ArgNo))
-          return CallbackArg->hasAttribute(Kind);
-  }
-#endif // INTEL_CUSTOMIZATION
+  auto HasOKOperandBundle = [this](Attribute::AttrKind Kind) -> bool {
+    switch (Kind) {
+      case Attribute::ReadNone:
+        return !hasReadingOperandBundles() && !hasClobberingOperandBundles();
+      case Attribute::ReadOnly:
+        return !hasClobberingOperandBundles();
+      case Attribute::WriteOnly:
+        return !hasReadingOperandBundles();
+      default:
+        return true;
+    }
+  };
+
+  if (F->getAttributes().hasParamAttr(ArgNo, Kind) &&
+      HasOKOperandBundle(Kind))
+    return true;
+
+  // If we are dealing with a callback call site check if callback function
+  // argument has given attribute if broker function forwards it to the
+  // callback and this attribute can be legaly propagated to the caller.
+  if (!CallBaseLookupCallbackAttrs)
+    return false;
+  if (Kind == Attribute::ByVal || Kind == Attribute::ImmArg ||
+      Kind == Attribute::NoAlias || Kind == Attribute::NoCapture ||
+      Kind == Attribute::NoFree || Kind == Attribute::NonNull ||
+      Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
+      Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
+    if (Argument *CallbackArg =
+            AbstractCallSite::getCallbackArg(*this, ArgNo))
+      return CallbackArg->hasAttribute(Kind) && HasOKOperandBundle(Kind);
   return false;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool CallBase::hasFnAttrOnCalledFunction(Attribute::AttrKind Kind) const {
@@ -415,10 +435,12 @@ bool CallBase::hasFnAttrOnCalledFunction(StringRef Kind) const {
 
 template <typename AK>
 Attribute CallBase::getFnAttrOnCalledFunction(AK Kind) const {
-  // Operand bundles override attributes on the called function, but don't
-  // override attributes directly present on the call instruction.
-  if (isFnAttrDisallowedByOpBundle(Kind))
-    return Attribute();
+  if constexpr (std::is_same_v<AK, Attribute::AttrKind>) {
+    // getMemoryEffects() correctly combines memory effects from the call-site,
+    // operand bundles and function.
+    assert(Kind != Attribute::Memory && "Use getMemoryEffects() instead");
+  }
+
   Value *V = getCalledOperand();
   if (auto *CE = dyn_cast<ConstantExpr>(V))
     if (CE->getOpcode() == BitCast)
@@ -585,6 +607,77 @@ bool CallBase::hasClobberingOperandBundles() const {
              {LLVMContext::OB_deopt, LLVMContext::OB_funclet,
               LLVMContext::OB_ptrauth, LLVMContext::OB_kcfi}) &&
          getIntrinsicID() != Intrinsic::assume;
+}
+
+MemoryEffects CallBase::getMemoryEffects() const {
+  MemoryEffects ME = getAttributes().getMemoryEffects();
+  if (auto *Fn = dyn_cast<Function>(getCalledOperand())) {
+    MemoryEffects FnME = Fn->getMemoryEffects();
+    if (hasOperandBundles()) {
+      // TODO: Add a method to get memory effects for operand bundles instead.
+      if (hasReadingOperandBundles())
+        FnME |= MemoryEffects::readOnly();
+      if (hasClobberingOperandBundles())
+        FnME |= MemoryEffects::writeOnly();
+    }
+    ME &= FnME;
+  }
+  return ME;
+}
+void CallBase::setMemoryEffects(MemoryEffects ME) {
+  addFnAttr(Attribute::getWithMemoryEffects(getContext(), ME));
+}
+
+/// Determine if the function does not access memory.
+bool CallBase::doesNotAccessMemory() const {
+  return getMemoryEffects().doesNotAccessMemory();
+}
+void CallBase::setDoesNotAccessMemory() {
+  setMemoryEffects(MemoryEffects::none());
+}
+
+/// Determine if the function does not access or only reads memory.
+bool CallBase::onlyReadsMemory() const {
+  return getMemoryEffects().onlyReadsMemory();
+}
+void CallBase::setOnlyReadsMemory() {
+  setMemoryEffects(getMemoryEffects() & MemoryEffects::readOnly());
+}
+
+/// Determine if the function does not access or only writes memory.
+bool CallBase::onlyWritesMemory() const {
+  return getMemoryEffects().onlyWritesMemory();
+}
+void CallBase::setOnlyWritesMemory() {
+  setMemoryEffects(getMemoryEffects() & MemoryEffects::writeOnly());
+}
+
+/// Determine if the call can access memmory only using pointers based
+/// on its arguments.
+bool CallBase::onlyAccessesArgMemory() const {
+  return getMemoryEffects().onlyAccessesArgPointees();
+}
+void CallBase::setOnlyAccessesArgMemory() {
+  setMemoryEffects(getMemoryEffects() & MemoryEffects::argMemOnly());
+}
+
+/// Determine if the function may only access memory that is
+///  inaccessible from the IR.
+bool CallBase::onlyAccessesInaccessibleMemory() const {
+  return getMemoryEffects().onlyAccessesInaccessibleMem();
+}
+void CallBase::setOnlyAccessesInaccessibleMemory() {
+  setMemoryEffects(getMemoryEffects() & MemoryEffects::inaccessibleMemOnly());
+}
+
+/// Determine if the function may only access memory that is
+///  either inaccessible from the IR or pointed to by its arguments.
+bool CallBase::onlyAccessesInaccessibleMemOrArgMem() const {
+  return getMemoryEffects().onlyAccessesInaccessibleOrArgMem();
+}
+void CallBase::setOnlyAccessesInaccessibleMemOrArgMem() {
+  setMemoryEffects(getMemoryEffects() &
+                   MemoryEffects::inaccessibleOrArgMemOnly());
 }
 
 //===----------------------------------------------------------------------===//

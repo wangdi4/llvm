@@ -4759,16 +4759,346 @@ void OpenMPIRBuilder::OutlineInfo::collectBlocks(
   }
 }
 
+void OpenMPIRBuilder::createOffloadEntry(bool IsTargetCodegen, Constant *ID,
+                                         Constant *Addr, uint64_t Size,
+                                         int32_t Flags,
+                                         GlobalValue::LinkageTypes) {
+  if (!IsTargetCodegen) {
+    emitOffloadingEntry(ID, Addr->getName(), Size, Flags);
+    return;
+  }
+  // TODO: Add support for global variables on the device after declare target
+  // support.
+  Function *Fn = dyn_cast<Function>(Addr);
+  if (!Fn)
+    return;
+
+  Module &M = *(Fn->getParent());
+  LLVMContext &Ctx = M.getContext();
+
+  // Get "nvvm.annotations" metadata node.
+  NamedMDNode *MD = M.getOrInsertNamedMetadata("nvvm.annotations");
+
+  Metadata *MDVals[] = {
+      ConstantAsMetadata::get(Fn), MDString::get(Ctx, "kernel"),
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1))};
+  // Append metadata to nvvm.annotations.
+  MD->addOperand(MDNode::get(Ctx, MDVals));
+
+  // Add a function attribute for the kernel.
+  Fn->addFnAttr(Attribute::get(Ctx, "kernel"));
+}
+
+// We only generate metadata for function that contain target regions.
+void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
+#if INTEL_COLLAB
+    bool IsLateOutline,
+#endif // INTEL_COLLAB
+    OffloadEntriesInfoManager &OffloadEntriesInfoManager, bool IsTargetCodegen,
+    bool IsEmbedded, bool HasRequiresUnifiedSharedMemory,
+    EmitMetadataErrorReportFunctionTy &ErrorFn) {
+
+  // If there are no entries, we don't need to do anything.
+  if (OffloadEntriesInfoManager.empty())
+    return;
+
+  LLVMContext &C = M.getContext();
+  SmallVector<std::pair<const OffloadEntriesInfoManager::OffloadEntryInfo *,
+                        TargetRegionEntryInfo>,
+              16>
+      OrderedEntries(OffloadEntriesInfoManager.size());
+
+  // Auxiliary methods to create metadata values and strings.
+  auto &&GetMDInt = [this](unsigned V) {
+    return ConstantAsMetadata::get(ConstantInt::get(Builder.getInt32Ty(), V));
+  };
+
+  auto &&GetMDString = [&C](StringRef V) { return MDString::get(C, V); };
+
+  // Create the offloading info metadata node.
+  NamedMDNode *MD = M.getOrInsertNamedMetadata("omp_offload.info");
+  auto &&TargetRegionMetadataEmitter =
+#if INTEL_COLLAB
+      [&C, MD, &OrderedEntries, &GetMDInt, &GetMDString, &IsLateOutline](
+#else // INTEL_COLLAB
+      [&C, MD, &OrderedEntries, &GetMDInt, &GetMDString](
+#endif // INTEL_COLLAB
+          const TargetRegionEntryInfo &EntryInfo,
+          const OffloadEntriesInfoManager::OffloadEntryInfoTargetRegion &E) {
+        // Generate metadata for target regions. Each entry of this metadata
+        // contains:
+        // - Entry 0 -> Kind of this type of metadata (0).
+        // - Entry 1 -> Device ID of the file where the entry was identified.
+        // - Entry 2 -> File ID of the file where the entry was identified.
+        // - Entry 3 -> Mangled name of the function where the entry was
+        // identified.
+        // - Entry 4 -> Line in the file where the entry was identified.
+        // - Entry 5 -> Count of regions at this DeviceID/FilesID/Line.
+        // - Entry 6 -> Order the entry was created.
+#if INTEL_COLLAB
+        // - Entry 7 -> Entry kind.
+#endif // INTEL_COLLAB
+        // The first element of the metadata node is the kind.
+#if INTEL_COLLAB
+        llvm::SmallVector<llvm::Metadata*, 7u> Ops = {
+#else
+        Metadata *Ops[] = {
+#endif // INTEL_COLLAB
+            GetMDInt(E.getKind()),      GetMDInt(EntryInfo.DeviceID),
+            GetMDInt(EntryInfo.FileID), GetMDString(EntryInfo.ParentName),
+            GetMDInt(EntryInfo.Line),   GetMDInt(EntryInfo.Count),
+            GetMDInt(E.getOrder())};
+
+#if INTEL_COLLAB
+       if (IsLateOutline)
+         Ops.push_back(GetMDInt(E.getFlags()));
+#endif // INTEL_COLLAB
+
+        // Save this entry in the right position of the ordered entries array.
+        OrderedEntries[E.getOrder()] = std::make_pair(&E, EntryInfo);
+
+        // Add metadata to the named metadata node.
+        MD->addOperand(MDNode::get(C, Ops));
+      };
+
+  OffloadEntriesInfoManager.actOnTargetRegionEntriesInfo(
+      TargetRegionMetadataEmitter);
+
+  // Create function that emits metadata for each device global variable entry;
+  auto &&DeviceGlobalVarMetadataEmitter =
+#if INTEL_COLLAB
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD, &IsLateOutline](
+#else // INTEL_COLLAB
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString, MD](
+#endif // INTEL_COLLAB
+          StringRef MangledName,
+          const OffloadEntriesInfoManager::OffloadEntryInfoDeviceGlobalVar &E) {
+        // Generate metadata for global variables. Each entry of this metadata
+        // contains:
+        // - Entry 0 -> Kind of this type of metadata (1).
+        // - Entry 1 -> Mangled name of the variable.
+        // - Entry 2 -> Declare target kind.
+        // - Entry 3 -> Order the entry was created.
+        // The first element of the metadata node is the kind.
+#if INTEL_COLLAB
+        SmallVector<llvm::Metadata *, 5> Ops = {
+            GetMDInt(E.getKind()), GetMDString(MangledName),
+            GetMDInt(E.getFlags()), GetMDInt(E.getOrder())};
+
+        if (IsLateOutline)
+          // - Entry 4 -> The variable address (GlobalVariable).
+          Ops.push_back(llvm::ConstantAsMetadata::get(E.getAddress()));
+#else  // INTEL_COLLAB
+        Metadata *Ops[] = {GetMDInt(E.getKind()), GetMDString(MangledName),
+                           GetMDInt(E.getFlags()), GetMDInt(E.getOrder())};
+#endif  // INTEL_COLLAB
+
+        // Save this entry in the right position of the ordered entries array.
+        TargetRegionEntryInfo varInfo(MangledName, 0, 0, 0);
+        OrderedEntries[E.getOrder()] = std::make_pair(&E, varInfo);
+
+        // Add metadata to the named metadata node.
+        MD->addOperand(MDNode::get(C, Ops));
+      };
+
+  OffloadEntriesInfoManager.actOnDeviceGlobalVarEntriesInfo(
+      DeviceGlobalVarMetadataEmitter);
+
+#if INTEL_COLLAB
+  // Create function that emits metadata for each device indirect function
+  // entry;
+  auto DeviceIndirectFnMetadataEmitter =
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString,
+       MD](StringRef MangledName,
+           const llvm::OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn
+               &E) {
+        // Generate metadata for indirect functions. Each entry of this
+        // metadata contains:
+        // - Entry 0 -> Kind of this type of metadata (2).
+        // - Entry 1 -> Mangled name of the indirect function.
+        // - Entry 2 -> Order the entry was created.
+        // - Entry 3 -> The Function address (Function).
+        // The first element of the metadata node is the kind.
+        SmallVector<llvm::Metadata *, 4> Ops = {
+            GetMDInt(E.getKind()), GetMDString(MangledName),
+            GetMDInt(E.getOrder())};
+        Ops.push_back(llvm::ConstantAsMetadata::get(E.getAddress()));
+        // Save this entry in the right position of the ordered entries array.
+        TargetRegionEntryInfo varInfo(MangledName, 0, 0, 0);
+        OrderedEntries[E.getOrder()] = std::make_pair(&E, varInfo);
+        // Add metadata to the named metadata node.
+        MD->addOperand(llvm::MDNode::get(C, Ops));
+      };
+  OffloadEntriesInfoManager.actOnDeviceIndirectFnEntriesInfo(
+      DeviceIndirectFnMetadataEmitter);
+
+  if (IsLateOutline)
+    return;
+#endif // INTEL_COLLAB
+
+  for (const auto &E : OrderedEntries) {
+    assert(E.first && "All ordered entries must exist!");
+    if (const auto *CE =
+            dyn_cast<OffloadEntriesInfoManager::OffloadEntryInfoTargetRegion>(
+                E.first)) {
+      if (!CE->getID() || !CE->getAddress()) {
+        // Do not blame the entry if the parent funtion is not emitted.
+        TargetRegionEntryInfo EntryInfo = E.second;
+        StringRef FnName = EntryInfo.ParentName;
+        if (!M.getNamedValue(FnName))
+          continue;
+        ErrorFn(EMIT_MD_TARGET_REGION_ERROR, EntryInfo);
+        continue;
+      }
+      createOffloadEntry(IsTargetCodegen, CE->getID(), CE->getAddress(),
+                         /*Size=*/0, CE->getFlags(),
+                         GlobalValue::WeakAnyLinkage);
+    } else if (const auto *CE = dyn_cast<
+                   OffloadEntriesInfoManager::OffloadEntryInfoDeviceGlobalVar>(
+                   E.first)) {
+      OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind Flags =
+          static_cast<OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind>(
+              CE->getFlags());
+      switch (Flags) {
+      case OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo: {
+        if (IsEmbedded && HasRequiresUnifiedSharedMemory)
+          continue;
+        if (!CE->getAddress()) {
+          ErrorFn(EMIT_MD_DECLARE_TARGET_ERROR, E.second);
+          continue;
+        }
+        // The vaiable has no definition - no need to add the entry.
+        if (CE->getVarSize() == 0)
+          continue;
+        break;
+      }
+      case OffloadEntriesInfoManager::OMPTargetGlobalVarEntryLink:
+        assert(((IsEmbedded && !CE->getAddress()) ||
+                (!IsEmbedded && CE->getAddress())) &&
+               "Declaret target link address is set.");
+        if (IsEmbedded)
+          continue;
+        if (!CE->getAddress()) {
+          ErrorFn(EMIT_MD_GLOBAL_VAR_LINK_ERROR, TargetRegionEntryInfo());
+          continue;
+        }
+        break;
+      }
+
+      // Hidden or internal symbols on the device are not externally visible.
+      // We should not attempt to register them by creating an offloading
+      // entry.
+      if (auto *GV = dyn_cast<GlobalValue>(CE->getAddress()))
+        if (GV->hasLocalLinkage() || GV->hasHiddenVisibility())
+          continue;
+
+      createOffloadEntry(IsTargetCodegen, CE->getAddress(), CE->getAddress(),
+                         CE->getVarSize(), Flags, CE->getLinkage());
+
+    } else {
+      llvm_unreachable("Unsupported entry kind.");
+    }
+  }
+}
+
+void TargetRegionEntryInfo::getTargetRegionEntryFnName(
+    SmallVectorImpl<char> &Name, StringRef ParentName, unsigned DeviceID,
+    unsigned FileID, unsigned Line, unsigned Count) {
+  raw_svector_ostream OS(Name);
+  OS << "__omp_offloading" << llvm::format("_%x", DeviceID)
+     << llvm::format("_%x_", FileID) << ParentName << "_l" << Line;
+  if (Count)
+    OS << "_" << Count;
+}
+
+void OffloadEntriesInfoManager::getTargetRegionEntryFnName(
+    SmallVectorImpl<char> &Name, const TargetRegionEntryInfo &EntryInfo) {
+  unsigned NewCount = getTargetRegionEntryInfoCount(EntryInfo);
+  TargetRegionEntryInfo::getTargetRegionEntryFnName(
+      Name, EntryInfo.ParentName, EntryInfo.DeviceID, EntryInfo.FileID,
+      EntryInfo.Line, NewCount);
+}
+
+/// Loads all the offload entries information from the host IR
+/// metadata.
+void OpenMPIRBuilder::loadOffloadInfoMetadata(
+    Module &M, OffloadEntriesInfoManager &OffloadEntriesInfoManager) {
+  // If we are in target mode, load the metadata from the host IR. This code has
+  // to match the metadata creation in createOffloadEntriesAndInfoMetadata().
+
+  NamedMDNode *MD = M.getNamedMetadata(ompOffloadInfoName);
+  if (!MD)
+    return;
+
+  for (MDNode *MN : MD->operands()) {
+    auto &&GetMDInt = [MN](unsigned Idx) {
+      auto *V = cast<ConstantAsMetadata>(MN->getOperand(Idx));
+      return cast<ConstantInt>(V->getValue())->getZExtValue();
+    };
+
+    auto &&GetMDString = [MN](unsigned Idx) {
+      auto *V = cast<MDString>(MN->getOperand(Idx));
+      return V->getString();
+    };
+
+    switch (GetMDInt(0)) {
+    default:
+      llvm_unreachable("Unexpected metadata!");
+      break;
+    case OffloadEntriesInfoManager::OffloadEntryInfo::
+        OffloadingEntryInfoTargetRegion: {
+      TargetRegionEntryInfo EntryInfo(/*ParentName=*/GetMDString(3),
+                                      /*DeviceID=*/GetMDInt(1),
+                                      /*FileID=*/GetMDInt(2),
+                                      /*Line=*/GetMDInt(4),
+                                      /*Count=*/GetMDInt(5));
+      OffloadEntriesInfoManager.initializeTargetRegionEntryInfo(
+          EntryInfo, /*Order=*/GetMDInt(6));
+      break;
+    }
+    case OffloadEntriesInfoManager::OffloadEntryInfo::
+        OffloadingEntryInfoDeviceGlobalVar:
+      OffloadEntriesInfoManager.initializeDeviceGlobalVarEntryInfo(
+          /*MangledName=*/GetMDString(1),
+          static_cast<OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind>(
+              /*Flags=*/GetMDInt(2)),
+          /*Order=*/GetMDInt(3));
+      break;
+#if INTEL_COLLAB
+    case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
+        OffloadingEntryInfoIndirectFn:
+      OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
+          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2));
+      break;
+#endif // INTEL_COLLAB
+    }
+  }
+}
+
 bool OffloadEntriesInfoManager::empty() const {
   return OffloadEntriesTargetRegion.empty() &&
          OffloadEntriesDeviceGlobalVar.empty();
 }
 
+unsigned OffloadEntriesInfoManager::getTargetRegionEntryInfoCount(
+    const TargetRegionEntryInfo &EntryInfo) const {
+  auto It = OffloadEntriesTargetRegionCount.find(
+      getTargetRegionEntryCountKey(EntryInfo));
+  if (It == OffloadEntriesTargetRegionCount.end())
+    return 0;
+  return It->second;
+}
+
+void OffloadEntriesInfoManager::incrementTargetRegionEntryInfoCount(
+    const TargetRegionEntryInfo &EntryInfo) {
+  OffloadEntriesTargetRegionCount[getTargetRegionEntryCountKey(EntryInfo)] =
+      EntryInfo.Count + 1;
+}
+
 /// Initialize target region entry.
 void OffloadEntriesInfoManager::initializeTargetRegionEntryInfo(
-    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
-    unsigned Order) {
-  OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] =
+    const TargetRegionEntryInfo &EntryInfo, unsigned Order) {
+  OffloadEntriesTargetRegion[EntryInfo] =
       OffloadEntryInfoTargetRegion(Order, /*Addr=*/nullptr, /*ID=*/nullptr,
                                    OMPTargetRegionEntryTargetRegion);
   ++OffloadingEntriesNum;
@@ -4779,63 +5109,61 @@ int OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 #else
 void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 #endif // INTEL_COLLAB
-    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
-    Constant *Addr, Constant *ID, OMPTargetRegionEntryKind Flags,
-    bool IsDevice) {
+    TargetRegionEntryInfo EntryInfo, Constant *Addr, Constant *ID,
+    OMPTargetRegionEntryKind Flags, bool IsDevice) {
+  assert(EntryInfo.Count == 0 && "expected default EntryInfo");
+
+  // Update the EntryInfo with the next available count for this location.
+  EntryInfo.Count = getTargetRegionEntryInfoCount(EntryInfo);
+
   // If we are emitting code for a target, the entry is already initialized,
   // only has to be registered.
   if (IsDevice) {
     // This could happen if the device compilation is invoked standalone.
-    if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum))
+    if (!hasTargetRegionEntryInfo(EntryInfo)) {
 #if INTEL_COLLAB
       return -1;
 #else
       return;
 #endif // INTEL_COLLAB
-    auto &Entry =
-        OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+    }
+    auto &Entry = OffloadEntriesTargetRegion[EntryInfo];
     Entry.setAddress(Addr);
     Entry.setID(ID);
     Entry.setFlags(Flags);
   } else {
     if (Flags == OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion &&
-        hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum,
-                                 /*IgnoreAddressId*/ true))
+        hasTargetRegionEntryInfo(EntryInfo, /*IgnoreAddressId*/ true))
 #if INTEL_COLLAB
       return -1;
 #else
       return;
 #endif // INTEL_COLLAB
-    assert(!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum) &&
+    assert(!hasTargetRegionEntryInfo(EntryInfo) &&
            "Target region entry already registered!");
     OffloadEntryInfoTargetRegion Entry(OffloadingEntriesNum, Addr, ID, Flags);
-    OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
+    OffloadEntriesTargetRegion[EntryInfo] = Entry;
     ++OffloadingEntriesNum;
   }
+  incrementTargetRegionEntryInfoCount(EntryInfo);
 #if INTEL_COLLAB
-  auto &E = OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+  auto &E = OffloadEntriesTargetRegion[EntryInfo];
   return E.getOrder();
 #endif // INTEL_COLLAB
 }
 
 bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
-    unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned LineNum,
-    bool IgnoreAddressId) const {
-  auto PerDevice = OffloadEntriesTargetRegion.find(DeviceID);
-  if (PerDevice == OffloadEntriesTargetRegion.end())
+    TargetRegionEntryInfo EntryInfo, bool IgnoreAddressId) const {
+
+  // Update the EntryInfo with the next available count for this location.
+  EntryInfo.Count = getTargetRegionEntryInfoCount(EntryInfo);
+
+  auto It = OffloadEntriesTargetRegion.find(EntryInfo);
+  if (It == OffloadEntriesTargetRegion.end()) {
     return false;
-  auto PerFile = PerDevice->second.find(FileID);
-  if (PerFile == PerDevice->second.end())
-    return false;
-  auto PerParentName = PerFile->second.find(ParentName);
-  if (PerParentName == PerFile->second.end())
-    return false;
-  auto PerLine = PerParentName->second.find(LineNum);
-  if (PerLine == PerParentName->second.end())
-    return false;
+  }
   // Fail if this entry is already registered.
-  if (!IgnoreAddressId &&
-      (PerLine->second.getAddress() || PerLine->second.getID()))
+  if (!IgnoreAddressId && (It->second.getAddress() || It->second.getID()))
     return false;
   return true;
 }
@@ -4843,11 +5171,9 @@ bool OffloadEntriesInfoManager::hasTargetRegionEntryInfo(
 void OffloadEntriesInfoManager::actOnTargetRegionEntriesInfo(
     const OffloadTargetRegionEntryInfoActTy &Action) {
   // Scan all target region entries and perform the provided action.
-  for (const auto &D : OffloadEntriesTargetRegion)
-    for (const auto &F : D.second)
-      for (const auto &P : F.second)
-        for (const auto &L : P.second)
-          Action(D.first, F.first, P.first(), L.first, L.second);
+  for (const auto &It : OffloadEntriesTargetRegion) {
+    Action(It.first, It.second);
+  }
 }
 
 void OffloadEntriesInfoManager::initializeDeviceGlobalVarEntryInfo(
@@ -4858,10 +5184,7 @@ void OffloadEntriesInfoManager::initializeDeviceGlobalVarEntryInfo(
 
 #if INTEL_COLLAB
 void OffloadEntriesInfoManager::initializeDeviceIndirectFnEntryInfo(
-    StringRef Name, unsigned Order, bool IsDevice) {
-  assert(IsDevice && "Initialization of entries is "
-                     "only required for the device "
-                     "code generation.");
+    StringRef Name, unsigned Order) {
   OffloadEntriesInfoManager::OffloadEntryInfoDeviceIndirectFn IFn(Order);
   OffloadEntriesDeviceIndirectFn[Name.str()] = IFn;
   ++OffloadingEntriesNum;

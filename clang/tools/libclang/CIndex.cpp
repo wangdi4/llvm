@@ -2192,6 +2192,7 @@ public:
   void VisitOMPTaskyieldDirective(const OMPTaskyieldDirective *D);
   void VisitOMPBarrierDirective(const OMPBarrierDirective *D);
   void VisitOMPTaskwaitDirective(const OMPTaskwaitDirective *D);
+  void VisitOMPErrorDirective(const OMPErrorDirective *D);
   void VisitOMPTaskgroupDirective(const OMPTaskgroupDirective *D);
   void
   VisitOMPCancellationPointDirective(const OMPCancellationPointDirective *D);
@@ -3198,6 +3199,10 @@ void EnqueueVisitor::VisitOMPBarrierDirective(const OMPBarrierDirective *D) {
 }
 
 void EnqueueVisitor::VisitOMPTaskwaitDirective(const OMPTaskwaitDirective *D) {
+  VisitOMPExecutableDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPErrorDirective(const OMPErrorDirective *D) {
   VisitOMPExecutableDirective(D);
 }
 
@@ -5485,6 +5490,22 @@ CXString clang_getCursorDisplayName(CXCursor C) {
   return clang_getCursorSpelling(C);
 }
 
+CXString
+clang_getCompletionResultKindSpelling(enum CXCompletionResultKind Kind) {
+  switch (Kind) {
+  case CXCompletionResult_Declaration:
+    return cxstring::createRef("Declaration");
+  case CXCompletionResult_Keyword:
+    return cxstring::createRef("Keyword");
+  case CXCompletionResult_Macro:
+    return cxstring::createRef("Macro");
+  case CXCompletionResult_Pattern:
+    return cxstring::createRef("Pattern");
+  }
+
+  llvm_unreachable("Unhandled CXCompletionResultKind");
+}
+
 CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
   switch (Kind) {
   case CXCursor_FunctionDecl:
@@ -5914,6 +5935,8 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPBarrierDirective");
   case CXCursor_OMPTaskwaitDirective:
     return cxstring::createRef("OMPTaskwaitDirective");
+  case CXCursor_OMPErrorDirective:
+    return cxstring::createRef("OMPErrorDirective");
   case CXCursor_OMPTaskgroupDirective:
     return cxstring::createRef("OMPTaskgroupDirective");
   case CXCursor_OMPFlushDirective:

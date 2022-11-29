@@ -36,7 +36,7 @@ def err_drv_unsupported_opt_for_target : Error<
 def err_drv_unsupported_opt_for_language_mode : Error<
   "unsupported option '%0' for language mode '%1'">;
 def err_drv_unsupported_option_argument : Error<
-  "unsupported argument '%1' to option '-%0'">;
+  "unsupported argument '%1' to option '%0'">;
 def err_drv_unknown_stdin_type : Error<
   "-E or -x required when input is from standard input">;
 def err_drv_unknown_stdin_type_clang_cl : Error<
@@ -782,4 +782,7 @@ def warn_drv_cxx_input_with_cc: Warning<
   "Use 'icpx' for C++ source compilation and link">,
   InGroup<DiagGroup<"incompatible-compiler">>;
 #endif // INTEL_CUSTOMIZATION
+
+def err_drv_loongarch_invalid_mfpu_EQ : Error<
+  "invalid argument '%0' to -mfpu=; must be one of: 64, 32, none, 0 (alias for none)">;
 }

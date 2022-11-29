@@ -118,7 +118,7 @@
 
 ; Check the generated attributes
 ; CHECK: attributes #0 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
-; CHECK: attributes #1 = { nounwind readnone speculatable }
+; CHECK: attributes #1 = { nounwind speculatable memory(none) }
 ; CHECK: attributes #2 = { nounwind "contains-rec-pro-clone" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "prefer-inline-rec-pro-clone" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
 
 @brute_force_mp_sudoku1_ = common dso_local global [9 x [9 x i32]] zeroinitializer, align 8
@@ -2053,12 +2053,12 @@ bb1271:                                           ; preds = %bb1268, %bb864, %bb
   ret void
 }
 
-; Function Attrs: nounwind readnone speculatable
+; Function Attrs: nounwind speculatable memory(none)
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
-; Function Attrs: nounwind readnone speculatable
+; Function Attrs: nounwind speculatable memory(none)
 declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #1
 
 attributes #0 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind readnone speculatable }
+attributes #1 = { nounwind speculatable memory(none) }
 ; end INTEL_FEATURE_SW_ADVANCED

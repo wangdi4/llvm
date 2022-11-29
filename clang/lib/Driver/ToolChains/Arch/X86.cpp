@@ -85,18 +85,14 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                           "sapphire_rapids", "sapphirerapids")
               .CaseLower("alderlake", "alderlake")
               .CaseLower("rocketlake", "rocketlake")
-#if INTEL_FEATURE_CPU_RPL
               .CaseLower("raptorlake", "raptorlake")
-#endif // INTEL_FEATURE_CPU_RPL
-#if INTEL_FEATURE_CPU_GNR
+              .CaseLower("meteorlake", "meteorlake")
               .CaseLower("graniterapids", "graniterapids")
-#endif // INTEL_FEATURE_CPU_GNR
+              .CaseLower("sierraforest", "sierraforest")
+              .CaseLower("grandridge", "grandridge")
 #if INTEL_FEATURE_CPU_DMR
               .CaseLower("diamondrapids", "diamondrapids")
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-              .CaseLower("meteorlake", "meteorlake")
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
               .CaseLower("emeraldrapids", "emeraldrapids")
 #endif // INTEL_FEATURE_CPU_EMR
@@ -135,7 +131,7 @@ std::string x86::getCPUForIntelOnly(const Driver &D, StringRef Arch,
   if (std::find(NonIntelTargets.begin(), NonIntelTargets.end(), Arch) !=
       NonIntelTargets.end()) {
     D.Diag(clang::diag::err_drv_unsupported_option_argument)
-        << A->getOption().getName() << Arch;
+        << A->getSpelling() << Arch;
     return "";
   }
   return getCPUForIntel(Arch, Triple,
@@ -183,9 +179,6 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
 
     // FIXME: Reject attempts to use -march=native unless the target matches
     // the host.
-    //
-    // FIXME: We should also incorporate the detected target features for use
-    // with -native.
     CPU = llvm::sys::getHostCPUName();
     if (!CPU.empty() && CPU != "generic")
       return std::string(CPU);
@@ -453,7 +446,7 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       Features.push_back("+harden-sls-ijmp");
     } else if (Scope != "none") {
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Scope;
+          << A->getSpelling() << Scope;
     }
   }
 }

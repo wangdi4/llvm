@@ -322,6 +322,7 @@ public:
 
   /// This returns the SDNode that contains this Use.
   SDNode *getUser() { return User; }
+  const SDNode *getUser() const { return User; }
 
   /// Get the next SDUse in the use list.
   SDUse *getNext() const { return Next; }

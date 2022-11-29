@@ -207,6 +207,7 @@ public:
   Instruction *visitInsertValueInst(InsertValueInst &IV);
   Instruction *visitInsertElementInst(InsertElementInst &IE);
   Instruction *visitExtractElementInst(ExtractElementInst &EI);
+  Instruction *simplifyBinOpSplats(ShuffleVectorInst &SVI);
   Instruction *visitShuffleVectorInst(ShuffleVectorInst &SVI);
   Instruction *visitExtractValueInst(ExtractValueInst &EV);
   Instruction *visitLandingPadInst(LandingPadInst &LI);
@@ -431,6 +432,7 @@ private:
   Instruction *foldExtractOfOverflowIntrinsic(ExtractValueInst &EV);
   Instruction *foldIntrinsicWithOverflowCommon(IntrinsicInst *II);
   Instruction *foldFPSignBitOps(BinaryOperator &I);
+  Instruction *foldFDivConstantDivisor(BinaryOperator &I);
 
   // Optimize one of these forms:
   //   and i1 Op, SI / select i1 Op, i1 SI, i1 false (if IsAnd = true)
@@ -826,6 +828,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   // Helpers of visitSelectInst().
+  Instruction *foldSelectOfBools(SelectInst &SI);
   Instruction *foldSelectExtConst(SelectInst &Sel);
   Instruction *foldSelectOpOp(SelectInst &SI, Instruction *TI, Instruction *FI);
   Instruction *foldSelectIntoOp(SelectInst &SI, Value *, Value *);

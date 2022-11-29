@@ -1514,21 +1514,21 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
   return R;
 }
 
-/// pointsToConstantMemory - If we can determine that this pointer only points
-/// to constant memory, return true.  In practice, this means that if the
+/// getModRefInfoMask - If we can determine that this pointer only points
+/// to constant memory, return NoModRef.  In practice, this means that if the
 /// pointer can only point to constant globals, functions, or the null pointer,
-/// return true.
+/// return NoModRef.
 ///
-bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
+ModRefInfo AndersensAAResult::getModRefInfoMask(const MemoryLocation &Loc,
                                                AAQueryInfo &AAQI,
-                                               bool OrLocal) {
+                                               bool IgnoreLocals) {
   if (ValueNodes.size() == 0) {
-    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+    return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
   }
 
   NumPtrQuery++;
   if (NumPtrQuery > MaxPtrQuery) {
-      return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+      return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
   }
   auto *P = const_cast<Value *>(Loc.Ptr);
   Node *N = &GraphNodes[FindNode(getNode(const_cast<Value*>(P)))];
@@ -1552,7 +1552,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
             dbgs() << " Points-to can't decide (Invalidated node)\n";
             dbgs() << " ConstMem_End \n";
         }
-        return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+        return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
     }
 
     if (PrintAndersConstMemQueries) {
@@ -1568,7 +1568,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               dbgs() << " Points-to can't decide \n";
               dbgs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+          return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
       }
     } else {
       if (i != NullObject) {
@@ -1576,16 +1576,16 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               dbgs() << " Points-to can't decide \n";
               dbgs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+          return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
       }
     }
   }
 
   if (PrintAndersConstMemQueries) {
-      dbgs() << " Result: true \n";
-      dbgs() << " ConstMem_End \n";
+    dbgs() << " Result: NoModRef\n";
+    dbgs() << " ConstMem_End \n";
   }
-  return true;
+  return ModRefInfo::NoModRef;
 }
 
 // Returns true if the given value V escapes
@@ -6267,8 +6267,8 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
   unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc, TLI);
   DEBUG_WITH_TYPE("imr-query", {
     dbgs() << "irm-query: LibFunc: " << F->getName();
-    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
-    bool FunctionReadNone = F->hasFnAttribute(Attribute::ReadNone);
+    bool FunctionReadOnly = F->onlyReadsMemory();
+    bool FunctionReadNone = F->doesNotAccessMemory();
     dbgs() << ":: ReadNone:" << FunctionReadNone
            << " ReadOnly:" << FunctionReadOnly;
     dbgs() << " - Model: {";
@@ -6304,7 +6304,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
     PrintfReadOnlyArgs = findFormatCheckReadOnlyStart(Call, TheLibFunc);
 
   if (LibFuncModel & LFMR_ARGS) {
-    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
+    bool FunctionReadOnly = F->onlyReadsMemory();
     unsigned FuncArgCount = F->getFunctionType()->getNumParams();
     unsigned ArgCount = Call->arg_size();
     for (unsigned ArgNo = 0; ArgNo < ArgCount; ++ArgNo) {

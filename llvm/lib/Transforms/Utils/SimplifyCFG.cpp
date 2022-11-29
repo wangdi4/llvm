@@ -2683,6 +2683,34 @@ static bool MergeCompatibleInvokes(BasicBlock *BB, DomTreeUpdater *DTU) {
   return Changed;
 }
 
+namespace {
+/// Track ephemeral values, which should be ignored for cost-modelling
+/// purposes. Requires walking instructions in reverse order.
+class EphemeralValueTracker {
+  SmallPtrSet<const Instruction *, 32> EphValues;
+
+  bool isEphemeral(const Instruction *I) {
+    if (isa<AssumeInst>(I))
+      return true;
+    return !I->mayHaveSideEffects() && !I->isTerminator() &&
+           all_of(I->users(), [&](const User *U) {
+             return EphValues.count(cast<Instruction>(U));
+           });
+  }
+
+public:
+  bool track(const Instruction *I) {
+    if (isEphemeral(I)) {
+      EphValues.insert(I);
+      return true;
+    }
+    return false;
+  }
+
+  bool contains(const Instruction *I) const { return EphValues.contains(I); }
+};
+} // namespace
+
 /// Determine if we can hoist sink a sole store instruction out of a
 /// conditional block.
 ///
@@ -2907,13 +2935,11 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   unsigned SpeculatedInstructions = 0;
   Value *SpeculatedStoreValue = nullptr;
   StoreInst *SpeculatedStore = nullptr;
-  for (BasicBlock::iterator BBI = ThenBB->begin(),
-                            BBE = std::prev(ThenBB->end());
-       BBI != BBE; ++BBI) {
-    Instruction *I = &*BBI;
+  EphemeralValueTracker EphTracker;
+  for (Instruction &I : reverse(drop_end(*ThenBB))) {
     // Skip debug info.
     if (isa<DbgInfoIntrinsic>(I)) {
-      SpeculatedDbgIntrinsics.push_back(I);
+      SpeculatedDbgIntrinsics.push_back(&I);
       continue;
     }
 
@@ -2925,9 +2951,13 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
       // the samples collected on the non-conditional path are counted towards
       // the conditional path. We leave it for the counts inference algorithm to
       // figure out a proper count for an unknown probe.
-      SpeculatedDbgIntrinsics.push_back(I);
+      SpeculatedDbgIntrinsics.push_back(&I);
       continue;
     }
+
+    // Ignore ephemeral values, they will be dropped by the transform.
+    if (EphTracker.track(&I))
+      continue;
 
     // Only speculatively execute a single instruction (not counting the
     // terminator) for now.
@@ -2936,23 +2966,23 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
       return false;
 
     // Don't hoist the instruction if it's unsafe or expensive.
-    if (!isSafeToSpeculativelyExecute(I) &&
+    if (!isSafeToSpeculativelyExecute(&I) &&
         !(HoistCondStores && (SpeculatedStoreValue = isSafeToSpeculateStore(
-                                  I, BB, ThenBB, EndBB))))
+                                  &I, BB, ThenBB, EndBB))))
       return false;
     if (!SpeculatedStoreValue &&
-        computeSpeculationCost(I, TTI) >
+        computeSpeculationCost(&I, TTI) >
             PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic)
       return false;
 
     // Store the store speculation candidate.
     if (SpeculatedStoreValue)
-      SpeculatedStore = cast<StoreInst>(I);
+      SpeculatedStore = cast<StoreInst>(&I);
 
     // Do not hoist the instruction if any of its operands are defined but not
     // used in BB. The transformation will prevent the operand from
     // being sunk into the use block.
-    for (Use &Op : I->operands()) {
+    for (Use &Op : I.operands()) {
       Instruction *OpI = dyn_cast<Instruction>(Op);
       if (!OpI || OpI->getParent() != BB || OpI->mayHaveSideEffects())
         continue; // Not a candidate for sinking.
@@ -3008,10 +3038,16 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   // be misleading while debugging.
   // Similarly strip attributes that maybe dependent on condition we are
   // hoisting above.
-  for (auto &I : *ThenBB) {
+  for (auto &I : make_early_inc_range(*ThenBB)) {
     if (!SpeculatedStoreValue || &I != SpeculatedStore)
       I.setDebugLoc(DebugLoc());
     I.dropUndefImplyingAttrsAndUnknownMetadata();
+
+    // Drop ephemeral values.
+    if (EphTracker.contains(&I)) {
+      I.replaceAllUsesWith(PoisonValue::get(I.getType()));
+      I.eraseFromParent();
+    }
   }
 
   // Hoist the instructions.
@@ -3054,15 +3090,8 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   int Size = 0;
+  EphemeralValueTracker EphTracker;
 
-  SmallPtrSet<const Value *, 32> EphValues;
-  auto IsEphemeral = [&](const Instruction *I) {
-    if (isa<AssumeInst>(I))
-      return true;
-    return !I->mayHaveSideEffects() && !I->isTerminator() &&
-           all_of(I->users(),
-                  [&](const User *U) { return EphValues.count(U); });
-  };
   // Walk the loop in reverse so that we can identify ephemeral values properly
   // (values only feeding assumes).
   for (Instruction &I : reverse(BB->instructionsWithoutDebug(false))) {
@@ -3077,11 +3106,9 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
         return false;
 
     // Ignore ephemeral values which are deleted during codegen.
-    if (IsEphemeral(&I))
-      EphValues.insert(&I);
     // We will delete Phis while threading, so Phis should not be accounted in
     // block's size.
-    else if (!isa<PHINode>(I)) {
+    if (!EphTracker.track(&I) && !isa<PHINode>(I)) {
       if (Size++ > MaxSmallBlockSize)
         return false; // Don't clone large BB's.
     }

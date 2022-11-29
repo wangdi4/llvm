@@ -1998,6 +1998,7 @@ SCEVExpander::replaceCongruentIVs(Loop *L, const DominatorTree *DT,
     if (Value *V = SimplifyPHINode(Phi)) {
       if (V->getType() != Phi->getType())
         continue;
+      SE.forgetValue(Phi);
       Phi->replaceAllUsesWith(V);
       DeadInsts.emplace_back(Phi);
       ++NumElim;

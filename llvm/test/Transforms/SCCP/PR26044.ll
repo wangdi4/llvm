@@ -3,9 +3,9 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @fn2(i32* %P) {
+define void @fn2(ptr %P) {
 ; CHECK-LABEL: define {{[^@]+}}@fn2
-; CHECK-SAME: (i32* [[P:%.*]]) {
+; CHECK-SAME: (ptr [[P:%.*]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       for.cond1:
@@ -21,10 +21,10 @@ for.cond1:                                        ; preds = %if.end, %for.end
   br i1 undef, label %if.end, label %if.end
 
 if.end:                                           ; preds = %lbl, %for.cond1
-  %e.2 = phi i32* [ undef, %entry ], [ null, %for.cond1 ], [ null, %for.cond1 ]
-  %0 = load i32, i32* %e.2, align 4
+  %e.2 = phi ptr [ undef, %entry ], [ null, %for.cond1 ], [ null, %for.cond1 ]
+  %0 = load i32, ptr %e.2, align 4
   %call = call i32 @fn1(i32 %0)
-  store i32 %call, i32* %P
+  store i32 %call, ptr %P
   br label %for.cond1
 }
 
@@ -42,9 +42,9 @@ entry:
   ret i32 %cond
 }
 
-define void @fn_no_null_opt(i32* %P) #0 {
+define void @fn_no_null_opt(ptr %P) #0 {
 ; CHECK-LABEL: define {{[^@]+}}@fn_no_null_opt
-; CHECK-SAME: (i32* [[P:%.*]]) #[[ATTR0:[0-9]+]] {
+; CHECK-SAME: (ptr [[P:%.*]]) #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       for.cond1:
@@ -60,10 +60,10 @@ for.cond1:                                        ; preds = %if.end, %for.end
   br i1 undef, label %if.end, label %if.end
 
 if.end:                                           ; preds = %lbl, %for.cond1
-  %e.2 = phi i32* [ undef, %entry ], [ null, %for.cond1 ], [ null, %for.cond1 ]
-  %0 = load i32, i32* %e.2, align 4
+  %e.2 = phi ptr [ undef, %entry ], [ null, %for.cond1 ], [ null, %for.cond1 ]
+  %0 = load i32, ptr %e.2, align 4
   %call = call i32 @fn0(i32 %0)
-  store i32 %call, i32* %P
+  store i32 %call, ptr %P
   br label %for.cond1
 }
 

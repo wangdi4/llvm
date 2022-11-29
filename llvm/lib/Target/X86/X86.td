@@ -648,6 +648,9 @@ def FeatureCMPCCXADD : SubtargetFeature<"cmpccxadd", "HasCMPCCXADD", "true",
 def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",
                                      "Support RAO-INT instructions",
                                      []>;
+def FeatureAVXNECONVERT : SubtargetFeature<"avxneconvert", "HasAVXNECONVERT", "true",
+                                           "Support AVX-NE-CONVERT instructions",
+                                           [FeatureAVX2]>;
 def FeatureINVPCID : SubtargetFeature<"invpcid", "HasINVPCID", "true",
                                       "Invalidate Process-Context Identifier">;
 def FeatureSGX     : SubtargetFeature<"sgx", "HasSGX", "true",
@@ -1369,22 +1372,13 @@ def ProcessorFeatures {
   list<SubtargetFeature> SPRFeatures =
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-#define ENABLE_CPU_GNR
   // Graniterapids
-  list<SubtargetFeature> GNRAdditionalFeatures = [
-#endif // INTEL_FEATURE_CPU_GNR
-#ifdef ENABLE_CPU_GNR
-                                                  FeatureAMXFP16,
-                                                  FeaturePREFETCHI
-#endif // ENABLE_CPU_GNR
-#if INTEL_FEATURE_CPU_GNR
-  ];
-  list<SubtargetFeature> GNRTuning = SPRTuning;
+  list<SubtargetFeature> GNRAdditionalFeatures = [FeatureAMXFP16,
+                                                  FeaturePREFETCHI];
   list<SubtargetFeature> GNRFeatures =
     !listconcat(SPRFeatures, GNRAdditionalFeatures);
-#endif // INTEL_FEATURE_CPU_GNR
+
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
 #define ENABLE_CPU_DMR
   // Lioncove
@@ -1685,22 +1679,18 @@ def ProcessorFeatures {
                                       TuningPOPCNTFalseDeps,
                                       TuningInsertVZEROUPPER];
 #endif // INTEL_CUSTOMIZATION
+  // Sierraforest
+  list<SubtargetFeature> SRFAdditionalFeatures = [FeatureCMPCCXADD,
+                                                  FeatureAVXIFMA,
+                                                  FeatureAVXNECONVERT,
+                                                  FeatureAVXVNNIINT8];
+  list<SubtargetFeature> SRFFeatures =
+    !listconcat(ADLFeatures, SRFAdditionalFeatures);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_MTL
-#define ENABLE_CPU_MTL
-  // Meteorlake
-  list<SubtargetFeature> MTLAdditionalFeatures = [
-#endif // INTEL_FEATURE_CPU_MTL
-#ifdef ENABLE_CPU_MTL
-                                                  FeaturePREFETCHI
-#endif // ENABLE_CPU_MTL
-#if INTEL_FEATURE_CPU_MTL
-  ];
-  list<SubtargetFeature> MTLFeatures =
-    !listconcat(ADLFeatures, MTLAdditionalFeatures);
-#endif // INTEL_FEATURE_CPU_MTL
-#endif // INTEL_CUSTOMIZATION
+  // Grandridge
+  list<SubtargetFeature> GRRAdditionalFeatures = [FeatureRAOINT];
+  list<SubtargetFeature> GRRFeatures =
+    !listconcat(SRFFeatures, GRRAdditionalFeatures);
 
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
@@ -2093,6 +2083,10 @@ def : ProcModel<"goldmont-plus", SLMModel, ProcessorFeatures.GLPFeatures,
                 ProcessorFeatures.GLPTuning>;
 def : ProcModel<"tremont", SLMModel, ProcessorFeatures.TRMFeatures,
                 ProcessorFeatures.TRMTuning>;
+def : ProcModel<"sierraforest", AlderlakePModel, ProcessorFeatures.SRFFeatures,
+                ProcessorFeatures.TRMTuning>;
+def : ProcModel<"grandridge", AlderlakePModel, ProcessorFeatures.GRRFeatures,
+                ProcessorFeatures.TRMTuning>;
 
 // "Arrandale" along with corei3 and corei5
 foreach P = ["nehalem", "corei7"] in {
@@ -2168,22 +2162,10 @@ def : ProcModel<"alderlake", AlderlakePModel,
 #if INTEL_CUSTOMIZATION
 def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
-#if INTEL_FEATURE_CPU_RPL
-def : ProcModel<"raptorlake", AlderlakePModel,
-                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
-#endif // INTEL_FEATURE_CPU_RPL
-#if INTEL_FEATURE_CPU_GNR
-def : ProcModel<"graniterapids", SPRModel,
-                ProcessorFeatures.GNRFeatures, ProcessorFeatures.GNRTuning>;
-#endif // INTEL_FEATURE_CPU_GNR
 #if INTEL_FEATURE_CPU_DMR
 def : ProcModel<"diamondrapids", SPRModel,
                 ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-def : ProcModel<"meteorlake", AlderlakePModel,
-                ProcessorFeatures.MTLFeatures, ProcessorFeatures.ADLTuning>;
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
 def : ProcModel<"emeraldrapids", SPRModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
@@ -2193,6 +2175,12 @@ def : ProcModel<"royal", RYLModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
+def : ProcModel<"raptorlake", AlderlakePModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+def : ProcModel<"meteorlake", AlderlakePModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+def : ProcModel<"graniterapids", SkylakeServerModel,
+                ProcessorFeatures.GNRFeatures, ProcessorFeatures.SPRTuning>;
 
 // AMD CPUs.
 

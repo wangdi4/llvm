@@ -93,6 +93,9 @@ enum ProcessorTypes {
   INTEL_GOLDMONT_PLUS,
   INTEL_TREMONT,
   AMDFAM19H,
+  ZHAOXIN_FAM7H,
+  INTEL_SIERRAFOREST,
+  INTEL_GRANDRIDGE,
 #if INTEL_CUSTOMIZATION
   INTEL_GRACEMONT,
 #if INTEL_FEATURE_CPU_RYL
@@ -130,19 +133,13 @@ enum ProcessorSubtypes {
   INTEL_COREI7_ALDERLAKE,
   AMDFAM19H_ZNVER3,
   INTEL_COREI7_ROCKETLAKE,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-  INTEL_COREI7_RAPTORLAKE,
-#endif // INTEL_FEATURE_CPU_RPL
-#if INTEL_FEATURE_CPU_GNR
+  ZHAOXIN_FAM7H_LUJIAZUI,
+  AMDFAM19H_ZNVER4,
   INTEL_COREI7_GRANITERAPIDS,
-#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
   INTEL_COREI7_DIAMONDRAPIDS,
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-  INTEL_COREI7_METEORLAKE,
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
   INTEL_COREI7_EMERALDRAPIDS,
 #endif // INTEL_FEATURE_CPU_EMR
@@ -483,31 +480,18 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     // Alderlake:
     case 0x97:
     case 0x9a:
+    // Raptorlake:
+    case 0xb7:
+    // Meteorlake:
+    case 0xb5:
+    case 0xaa:
+    case 0xac:
       CPU = "alderlake";
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_ALDERLAKE;
       break;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RPL
-    // Raptorlake:
-    case 0xb7: // Raptorlake desktop
-    case 0xba: // Raptorlake mobile
-      CPU = "raptorlake";
-      *Type = INTEL_COREI7;
-      *Subtype = INTEL_COREI7_RAPTORLAKE;
-      break;
-#endif // INTEL_FEATURE_CPU_RPL
-#if INTEL_FEATURE_CPU_MTL
-    // Meteorlake:
-    case 0xb5: // Meteorlake N
-    case 0xaa: // Meteorlake P/M
-    case 0xac: // Meteorlake S
-      CPU = "meteorlake";
-      *Type = INTEL_COREI7;
-      *Subtype = INTEL_COREI7_METEORLAKE;
-      break;
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
     // Emeraldrapids:
     case 0xcf:
@@ -541,15 +525,15 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = INTEL_COREI7_SAPPHIRERAPIDS;
       break;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GNR
-    // Granite Rapids:
+    // Graniterapids:
+    case 0xae:
     case 0xad:
       CPU = "graniterapids";
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_GRANITERAPIDS;
       break;
-#endif // INTEL_FEATURE_CPU_GNR
+      
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
     // Diamond Rapids:
     case 0xd6:
@@ -592,6 +576,18 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     case 0x86:
       CPU = "tremont";
       *Type = INTEL_TREMONT;
+      break;
+
+    // Sierraforest:
+    case 0xaf:
+      CPU = "sierraforest";
+      *Type = INTEL_SIERRAFOREST;
+      break;
+
+    // Grandridge:
+    case 0xb6:
+      CPU = "grandridge";
+      *Type = INTEL_GRANDRIDGE;
       break;
 
     case 0x57:
@@ -686,9 +682,14 @@ getAMDProcessorTypeAndSubtype(unsigned Family, unsigned Model,
   case 25:
     CPU = "znver3";
     *Type = AMDFAM19H;
-    if (Model <= 0x0f || Model == 0x21) {
+    if (Model <= 0x0f || (Model >= 0x20 && Model <= 0x5f)) {
+      // Family 19h Models 00h-0Fh - Zen3
+      // Family 19h Models 20h-2Fh - Zen3
+      // Family 19h Models 30h-3Fh - Zen3
+      // Family 19h Models 40h-4Fh - Zen3+
+      // Family 19h Models 50h-5Fh - Zen3+
       *Subtype = AMDFAM19H_ZNVER3;
-      break; // 00h-0Fh, 21h: Zen3
+      break;
     }
     break;
   default:

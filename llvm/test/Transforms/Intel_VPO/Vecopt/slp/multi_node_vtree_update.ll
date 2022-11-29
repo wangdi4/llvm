@@ -21,18 +21,18 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 define void @crash_condition(i64 %c) {
 ; CHECK-LABEL: @crash_condition(
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x i64> poison, i64 [[C:%.*]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i64> [[TMP1]], i64 [[C]], i32 1
-; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i64> [[TMP2]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4:%.*]] = sub nsw <2 x i64> [[TMP3]], <i64 1, i64 1>
-; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <2 x i64> [[TMP4]], <2 x i64> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 1>
-; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([4 x i64]* @C to <4 x i64>*), align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([4 x i64]* @B to <4 x i64>*), align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = shl <4 x i64> [[TMP6]], [[SHUFFLE1]]
-; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <2 x i64> [[TMP4]], <2 x i64> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i64> [[TMP8]], <4 x i64> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP9:%.*]] = shl <4 x i64> [[TMP5]], [[SHUFFLE]]
-; CHECK-NEXT:    [[TMP10:%.*]] = add <4 x i64> [[TMP9]], [[TMP7]]
-; CHECK-NEXT:    store <4 x i64> [[TMP10]], <4 x i64>* bitcast ([4 x i64]* @A to <4 x i64>*), align 8
+; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <2 x i64> [[TMP1]], <2 x i64> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i64> [[SHUFFLE1]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP3:%.*]] = sub nsw <2 x i64> [[TMP2]], <i64 1, i64 1>
+; CHECK-NEXT:    [[SHUFFLE2:%.*]] = shufflevector <2 x i64> [[TMP3]], <2 x i64> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([4 x i64]* @C to <4 x i64>*), align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([4 x i64]* @B to <4 x i64>*), align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = shl <4 x i64> [[TMP5]], [[SHUFFLE2]]
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <2 x i64> [[TMP3]], <2 x i64> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i64> [[TMP7]], <4 x i64> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP8:%.*]] = shl <4 x i64> [[TMP4]], [[SHUFFLE]]
+; CHECK-NEXT:    [[TMP9:%.*]] = add <4 x i64> [[TMP8]], [[TMP6]]
+; CHECK-NEXT:    store <4 x i64> [[TMP9]], <4 x i64>* bitcast ([4 x i64]* @A to <4 x i64>*), align 8
 ; CHECK-NEXT:    ret void
 ;
   %t0 = add i64 %c, 2

@@ -12,6 +12,6 @@ define void @sample_test(double %x, i64* %y) nounwind {
 
 ; CHECK: call i64 @_Z12convert_longd(double %x) [[ATTR:#[0-9]+]]
 
-; CHECK: [[ATTR]] = { nounwind readnone willreturn }
+; CHECK: [[ATTR]] = { nounwind willreturn memory(none) }
 
 ; DEBUGIFY-NOT: WARNING

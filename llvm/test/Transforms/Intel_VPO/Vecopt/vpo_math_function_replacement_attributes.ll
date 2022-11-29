@@ -8,10 +8,10 @@
 ; MFREPLACE:        %_Z4uremjj = call i32 @_Z4uremjj(i32 %dividend, i32 %divisor)
 ; MFREPLACE-NEXT:   %call = tail call i32 @_Z19sub_group_broadcastjj(i32 %iv, i32 %_Z4uremjj) #3
 
-; MFREPLACE:      ; Function Attrs: nounwind readnone
+; MFREPLACE:      ; Function Attrs: nounwind willreturn memory(none)
 ; MFREPLACE-NEXT: declare i32 @_Z4uremjj(i32, i32) #2
 
-; MFREPLACE: attributes #2 = { nounwind readnone willreturn }
+; MFREPLACE: attributes #2 = { nounwind willreturn memory(none) }
 
 ; RUN: opt -replace-with-math-library-functions -vplan-vec -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
 

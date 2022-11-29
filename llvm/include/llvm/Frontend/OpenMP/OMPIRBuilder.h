@@ -24,6 +24,8 @@
 
 namespace llvm {
 class CanonicalLoopInfo;
+struct TargetRegionEntryInfo;
+class OffloadEntriesInfoManager;
 
 /// Move the instruction after an InsertPoint to the beginning of another
 /// BasicBlock.
@@ -1092,6 +1094,40 @@ public:
                                     bool EmitDebug = false,
                                     bool ForEndCall = false);
 
+  /// Creates offloading entry for the provided entry ID \a ID,
+  /// address \a Addr, size \a Size, and flags \a Flags.
+  void createOffloadEntry(bool IsTargetCodegen, Constant *ID, Constant *Addr,
+                          uint64_t Size, int32_t Flags,
+                          GlobalValue::LinkageTypes);
+
+  /// The kind of errors that can occur when emitting the offload entries and
+  /// metadata.
+  enum EmitMetadataErrorKind {
+    EMIT_MD_TARGET_REGION_ERROR,
+    EMIT_MD_DECLARE_TARGET_ERROR,
+    EMIT_MD_GLOBAL_VAR_LINK_ERROR
+  };
+
+  /// Callback function type
+  using EmitMetadataErrorReportFunctionTy =
+      std::function<void(EmitMetadataErrorKind, TargetRegionEntryInfo)>;
+
+  // Emit the offloading entries and metadata so that the device codegen side
+  // can easily figure out what to emit. The produced metadata looks like
+  // this:
+  //
+  // !omp_offload.info = !{!1, ...}
+  //
+  // We only generate metadata for function that contain target regions.
+  void createOffloadEntriesAndInfoMetadata(
+#if INTEL_COLLAB
+      bool IsLateOutline,
+#endif // INTEL_COLLAB
+      OffloadEntriesInfoManager &OffloadEntriesInfoManager,
+      bool IsTargetCodegen, bool IsEmbedded,
+      bool HasRequiresUnifiedSharedMemory,
+      EmitMetadataErrorReportFunctionTy &ErrorReportFunction);
+
 public:
   /// Generator for __kmpc_copyprivate
   ///
@@ -1695,6 +1731,47 @@ public:
                                         BasicBlock *PreInsertBefore,
                                         BasicBlock *PostInsertBefore,
                                         const Twine &Name = {});
+  /// OMP Offload Info Metadata name string
+  const std::string ompOffloadInfoName = "omp_offload.info";
+
+  /// Loads all the offload entries information from the host IR
+  /// metadata. This function is only meant to be used with device code
+  /// generation.
+  ///
+  /// \param M         Module to load Metadata info from. Module passed maybe
+  /// loaded from bitcode file, i.e, different from OpenMPIRBuilder::M module.
+  /// \param OffloadEntriesInfoManager Initialize Offload Entry information.
+  void
+  loadOffloadInfoMetadata(Module &M,
+                          OffloadEntriesInfoManager &OffloadEntriesInfoManager);
+};
+
+/// Data structure to contain the information needed to uniquely identify
+/// a target entry.
+struct TargetRegionEntryInfo {
+  std::string ParentName;
+  unsigned DeviceID;
+  unsigned FileID;
+  unsigned Line;
+  unsigned Count;
+
+  TargetRegionEntryInfo()
+      : ParentName(""), DeviceID(0), FileID(0), Line(0), Count(0) {}
+  TargetRegionEntryInfo(StringRef ParentName, unsigned DeviceID,
+                        unsigned FileID, unsigned Line, unsigned Count = 0)
+      : ParentName(ParentName), DeviceID(DeviceID), FileID(FileID), Line(Line),
+        Count(Count) {}
+
+  static void getTargetRegionEntryFnName(SmallVectorImpl<char> &Name,
+                                         StringRef ParentName,
+                                         unsigned DeviceID, unsigned FileID,
+                                         unsigned Line, unsigned Count);
+
+  bool operator<(const TargetRegionEntryInfo RHS) const {
+    return std::make_tuple(ParentName, DeviceID, FileID, Line, Count) <
+           std::make_tuple(RHS.ParentName, RHS.DeviceID, RHS.FileID, RHS.Line,
+                           RHS.Count);
+  }
 };
 
 /// Class that manages information about offload code regions and data
@@ -1812,27 +1889,29 @@ public:
 
   /// Initialize target region entry.
   /// This is ONLY needed for DEVICE compilation.
-  void initializeTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-                                       StringRef ParentName, unsigned LineNum,
+  void initializeTargetRegionEntryInfo(const TargetRegionEntryInfo &EntryInfo,
                                        unsigned Order);
 #if INTEL_COLLAB
   /// Register target region entry. Return the entry's order in the table.
-  int registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+  int registerTargetRegionEntryInfo(TargetRegionEntryInfo EntryInfo,
 #else
   /// Register target region entry.
-  void registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+  void registerTargetRegionEntryInfo(TargetRegionEntryInfo EntryInfo,
 #endif // INTEL_COLLAB
-                                     StringRef ParentName, unsigned LineNum,
                                      Constant *Addr, Constant *ID,
                                      OMPTargetRegionEntryKind Flags,
                                      bool IsDevice);
   /// Return true if a target region entry with the provided information
   /// exists.
-  bool hasTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-                                StringRef ParentName, unsigned LineNum,
+  bool hasTargetRegionEntryInfo(TargetRegionEntryInfo EntryInfo,
                                 bool IgnoreAddressId = false) const;
+
+  // Return the Name based on \a EntryInfo using the next available Count.
+  void getTargetRegionEntryFnName(SmallVectorImpl<char> &Name,
+                                  const TargetRegionEntryInfo &EntryInfo);
+
   /// brief Applies action \a Action on all registered entries.
-  typedef function_ref<void(unsigned, unsigned, StringRef, unsigned,
+  typedef function_ref<void(const TargetRegionEntryInfo &EntryInfo,
                             const OffloadEntryInfoTargetRegion &)>
       OffloadTargetRegionEntryInfoActTy;
   void
@@ -1922,8 +2001,7 @@ public:
   };
 
   /// Initialize device declare target indirect function entry
-  void initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order,
-                                           bool IsDevice);
+  void initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order);
 
   /// Register device declare targeta indirect function entry
   void registerDeviceIndirectFnEntryInfo(StringRef FnName, llvm::Constant *Addr,
@@ -1948,17 +2026,26 @@ public:
       const OffloadDeviceGlobalVarEntryInfoActTy &Action);
 
 private:
-  // Storage for target region entries kind. The storage is to be indexed by
-  // file ID, device ID, parent function name and line number.
-  typedef DenseMap<unsigned, OffloadEntryInfoTargetRegion>
-      OffloadEntriesTargetRegionPerLine;
-  typedef StringMap<OffloadEntriesTargetRegionPerLine>
-      OffloadEntriesTargetRegionPerParentName;
-  typedef DenseMap<unsigned, OffloadEntriesTargetRegionPerParentName>
-      OffloadEntriesTargetRegionPerFile;
-  typedef DenseMap<unsigned, OffloadEntriesTargetRegionPerFile>
-      OffloadEntriesTargetRegionPerDevice;
-  typedef OffloadEntriesTargetRegionPerDevice OffloadEntriesTargetRegionTy;
+  /// Return the count of entries at a particular source location.
+  unsigned
+  getTargetRegionEntryInfoCount(const TargetRegionEntryInfo &EntryInfo) const;
+
+  /// Update the count of entries at a particular source location.
+  void
+  incrementTargetRegionEntryInfoCount(const TargetRegionEntryInfo &EntryInfo);
+
+  static TargetRegionEntryInfo
+  getTargetRegionEntryCountKey(const TargetRegionEntryInfo &EntryInfo) {
+    return TargetRegionEntryInfo(EntryInfo.ParentName, EntryInfo.DeviceID,
+                                 EntryInfo.FileID, EntryInfo.Line, 0);
+  }
+
+  // Count of entries at a location.
+  std::map<TargetRegionEntryInfo, unsigned> OffloadEntriesTargetRegionCount;
+
+  // Storage for target region entries kind.
+  typedef std::map<TargetRegionEntryInfo, OffloadEntryInfoTargetRegion>
+      OffloadEntriesTargetRegionTy;
   OffloadEntriesTargetRegionTy OffloadEntriesTargetRegion;
   /// Storage for device global variable entries kind. The storage is to be
   /// indexed by mangled name.

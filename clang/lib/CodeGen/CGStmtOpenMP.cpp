@@ -1397,6 +1397,7 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     case OMPD_parallel_for_simd:
     case OMPD_task:
     case OMPD_taskyield:
+    case OMPD_error:
     case OMPD_barrier:
     case OMPD_taskwait:
     case OMPD_taskgroup:
@@ -5327,6 +5328,10 @@ void CodeGenFunction::EmitOMPTaskDirective(const OMPTaskDirective &S) {
 void CodeGenFunction::EmitOMPTaskyieldDirective(
     const OMPTaskyieldDirective &S) {
   CGM.getOpenMPRuntime().emitTaskyieldCall(*this, S.getBeginLoc());
+}
+
+void CodeGenFunction::EmitOMPErrorDirective(const OMPErrorDirective &S) {
+  llvm_unreachable("CodeGen for 'omp error' is not supported yet.");
 }
 
 void CodeGenFunction::EmitOMPBarrierDirective(const OMPBarrierDirective &S) {

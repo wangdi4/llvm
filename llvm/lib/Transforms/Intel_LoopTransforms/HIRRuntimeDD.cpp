@@ -1900,9 +1900,9 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   }
 
   AttrBuilder AB(LLVMContext);
-  AB.addAttribute(Attribute::Speculatable)
-      .addAttribute(Attribute::ReadOnly)
-      .addAttribute(Attribute::ArgMemOnly);
+  AB.addAttribute(Attribute::Speculatable);
+  AB.addMemoryAttr(llvm::MemoryEffects::readOnly());
+  AB.addMemoryAttr(llvm::MemoryEffects::argMemOnly());
 
   AttributeList Attrs =
       AttributeList::get(LLVMContext, AttributeList::FunctionIndex, AB);

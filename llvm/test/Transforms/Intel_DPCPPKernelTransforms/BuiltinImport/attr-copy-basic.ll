@@ -16,7 +16,7 @@ define spir_func float @test_copy_attr_basic(float %x) {
 
 declare spir_func float @_Z3cosf(float)
 ; CHECK: define {{.*}} @_Z3cosf
-; CHECK: attributes {{.*}} nounwind readnone
+; CHECK: attributes {{.*}} nounwind memory(none)
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z3cosf --  ret float %x
 ; DEBUGIFY-NOT: WARNING

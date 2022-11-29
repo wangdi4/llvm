@@ -72,7 +72,7 @@ declare i32 (i32, i32)* @__intel_create_simd_variant.5(i32 (i32, i32)*)
 declare i32 (i32, i32)* @__intel_create_simd_variant.6(i32 (i32, i32)*)
 declare i32 (i32, i32)* @__intel_create_simd_variant.7(i32 (i32, i32)*)
 
-attributes #0 = { nounwind readnone "referenced-indirectly" }
+attributes #0 = { nounwind memory(none) "referenced-indirectly" }
 ; NOTE: This attribute is artificially added to check we don't miss them during update
 attributes #1 = { "vector-variants"="_ZGVbN4vv__Z3subii" }
 attributes #3 = { nounwind "vector-variants"="_ZGVxM16vl__Z3addii" }
@@ -80,7 +80,7 @@ attributes #4 = { nounwind "vector-variants"="_ZGVxN16uu__Z3addii" }
 attributes #5 = { nounwind "vector-variants"="_ZGVxM16vl__Z3subii" }
 attributes #6 = { nounwind "vector-variants"="_ZGVxN16uu__Z3subii" }
 
-; CHECK:      attributes #[[ATTRS1]] = { nounwind readnone "referenced-indirectly" "vector-variants"="_ZGVxM16vl__Z3addii,_ZGVxN16uu__Z3addii" }
+; CHECK:      attributes #[[ATTRS1]] = { nounwind memory(none) "referenced-indirectly" "vector-variants"="_ZGVxM16vl__Z3addii,_ZGVxN16uu__Z3addii" }
 ; CHECK-NEXT: attributes #[[ATTRS2]] = { "vector-variants"="_ZGVbN4vv__Z3subii,_ZGVxM16vl__Z3subii,_ZGVxN16uu__Z3subii" }
 ; CHECK-NEXT: attributes #[[ATTRS3]] = { nounwind "vector-variants"="_ZGVxM16vl__Z3addii" }
 ; CHECK-NEXT: attributes #[[ATTRS4]] = { nounwind "vector-variants"="_ZGVxN16uu__Z3addii" }

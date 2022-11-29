@@ -336,6 +336,13 @@ typedef struct __tile1024i_str {
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXNECONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
+#include <avxneconvertintrin.h>
+#endif
+
+/* INTEL_CUSTOMIZATION */
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512VBMI__) && defined(__AVX512VL__)) ||                      \
     defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */

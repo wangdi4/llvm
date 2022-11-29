@@ -1416,8 +1416,9 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
   llvm::FunctionType *FTy = llvm::FunctionType::get(Int8PtrTy, Args, false);
 
   // Mark the function as nounwind readonly.
-  llvm::Attribute::AttrKind FuncAttrs[] = { llvm::Attribute::NoUnwind,
-                                            llvm::Attribute::ReadOnly };
+  llvm::AttrBuilder FuncAttrs(CGF.getLLVMContext());
+  FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
+  FuncAttrs.addMemoryAttr(llvm::MemoryEffects::readOnly());
   llvm::AttributeList Attrs = llvm::AttributeList::get(
       CGF.getLLVMContext(), llvm::AttributeList::FunctionIndex, FuncAttrs);
 
@@ -3882,11 +3883,38 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   // Check if the alias exists. If it doesn't, then get or create the global.
   if (CGM.getItaniumVTableContext().isRelativeLayout())
     VTable = CGM.getModule().getNamedAlias(VTableName);
-  if (!VTable)
 #if INTEL_COLLAB
+  if (!VTable)
     VTable = CGM.CreateRuntimeVariable(CGM.TargetInt8PtrTy, VTableName);
+
+  // Else branch contains syclos changes.
 #else  // INTEL_COLLAB
-    VTable = CGM.getModule().getOrInsertGlobal(VTableName, CGM.Int8PtrTy);
+  // To generate valid device code global pointers should have global address
+  // space in SYCL.
+  bool GenTyInfoGVWithGlobalAS =
+      CGM.getLangOpts().SYCLIsDevice &&
+      CGM.getLangOpts().SYCLAllowVirtualFunctions &&
+      (VTableName == ClassTypeInfo || VTableName == SIClassTypeInfo);
+  auto VTableTy =
+      GenTyInfoGVWithGlobalAS
+          ? CGM.Int8Ty->getPointerTo(
+                CGM.getContext().getTargetAddressSpace(LangAS::sycl_global))
+          : CGM.Int8PtrTy;
+  if (!VTable) {
+    if (GenTyInfoGVWithGlobalAS) {
+      VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableTy, [&] {
+        return new llvm::GlobalVariable(
+            CGM.getModule(), VTableTy, /*isConstant=*/false,
+            llvm::GlobalVariable::ExternalLinkage, /*Initializer=*/nullptr,
+            VTableName, /*InsertBefore=*/nullptr,
+            llvm::GlobalValue::ThreadLocalMode::NotThreadLocal,
+            llvm::Optional<unsigned>(
+                CGM.getContext().getTargetAddressSpace(LangAS::sycl_global)));
+      });
+    } else {
+      VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableTy);
+    }
+  }
 #endif  // INTEL_COLLAB
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
@@ -3914,8 +3942,9 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     llvm::Constant *Eight = llvm::ConstantInt::get(CGM.Int32Ty, 8);
 #if INTEL_COLLAB
     VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.TargetInt8PtrTy);
+    // Else branch contains syclos changes.
 #else // INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
+    VTable = llvm::ConstantExpr::getBitCast(VTable, VTableTy);
 #endif // INTEL_COLLAB
     VTable =
         llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8Ty, VTable, Eight);
@@ -3924,15 +3953,17 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #if INTEL_COLLAB
     VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.TargetInt8PtrTy,
                                                           VTable, Two);
+    // Else branch contains syclos changes.
 #else // INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy, VTable,
-                                                          Two);
+    VTable =
+        llvm::ConstantExpr::getInBoundsGetElementPtr(VTableTy, VTable, Two);
 #endif // INTEL_COLLAB
   }
 #if INTEL_COLLAB
   VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.TargetInt8PtrTy);
+  // Else branch contains syclos changes.
 #else // INTEL_COLLAB
-  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
+  VTable = llvm::ConstantExpr::getBitCast(VTable, VTableTy);
 #endif // INTEL_COLLAB
 
   Fields.push_back(VTable);

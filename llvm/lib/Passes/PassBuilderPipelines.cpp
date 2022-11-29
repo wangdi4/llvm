@@ -536,6 +536,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   DisableIntelProprietaryOpts = false; // INTEL
   EnableAutoCPUDispatch = EnableAX;    // INTEL
   MergeFunctions = EnableMergeFunctions;
+  InlinerThreshold = -1;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
 }
 
@@ -1216,10 +1217,16 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 #else
                                   ThinOrFullLTOPhase Phase) {
 #endif // INTEL_COLLAB
+  InlineParams IP;
+  if (PTO.InlinerThreshold == -1)
 #if INTEL_CUSTOMIZATION
-  InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
+    IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
       LinkForLTO, SYCLOptimizationMode);
+#else
+    IP = getInlineParamsFromOptLevel(Level);
 #endif // INTEL_CUSTOMIZATION
+  else
+    IP = getInlineParams(PTO.InlinerThreshold);
   // For PreLinkThinLTO + SamplePGO, set hot-caller threshold to 0 to
   // disable hot callsite inline (as much as possible [1]) because it makes
   // profile annotation in the backend inaccurate.

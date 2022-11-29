@@ -4765,7 +4765,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory() &&
                              !Call->onlyAccessesInaccessibleMemory());
   bool IsReadOnly =
-      (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
+      (FakeDDRefsRequired && Call->onlyReadsMemory());
 
   unsigned NumArgOperands = Call ? Call->arg_size() : 0;
 

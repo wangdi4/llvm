@@ -130,6 +130,45 @@ slid.nonzero:
 ; CHECK: call {{(spir_func )?}}<4 x i32> @_Z23intel_sub_group_shuffleDv4_iDv4_jS0_(<4 x i32> %wide.load, <4 x i32> <i32 4, i32 4, i32 4, i32 4>, <4 x i32> [[MASKEXT]])
   br label %end
 
+; This test previously had a large number of CHECK lines against function call
+; attributes with hardcoded numbers, which was brittle to attribute changes.
+; These CHECK lines are added to make sure the attributes being checked are the
+; intended ones even if the numbering changes.
+; CHECK: [[V54:%.*]] = load i32, i32 addrspace(1)* %arrayidx, align 4
+; CHECK: [[V55:%.*]] = trunc i32 [[V54]] to i16
+; CHECK: [[V56:%.*]] = trunc i32 [[V54]] to i8
+; CHECK: [[V57:%.*]] = zext i32 [[V54]] to i64
+; CHECK: %val2 = call i32 @_Z23intel_sub_group_shufflejj(i32 [[V54]], i32 %slid.reverse) [[AT12:#.*]]
+; CHECK:  %val3 = call <3 x i32> @_Z23intel_sub_group_shuffleDv3_ij(<3 x i32> %vec2, i32 %slid.reverse) [[AT13:#.*]]
+; CHECK:  %val4 = call <16 x i16> @_Z23intel_sub_group_shuffleDv16_sj(<16 x i16> %vec3, i32 %slid.reverse) [[AT14:#.*]]
+; CHECK:  %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 [[V54]]) [[AT15:#.*]]
+; CHECK:  %call3 = tail call spir_func i64 @_Z19sub_group_broadcastlj(i64 [[V57]], i32 0) [[AT16:#.*]]
+; CHECK:  %call4 = tail call spir_func i32 @_Z19sub_group_broadcastij(i32 [[V54]], i32 0) [[AT17:#.*]]
+; CHECK:  %call5 = tail call spir_func i16 @_Z25intel_sub_group_broadcastsj(i16 [[V55]], i32 0) [[AT18:#.*]]
+; CHECK:  %call6 = tail call spir_func i8 @_Z25intel_sub_group_broadcastcj(i8 [[V56]], i32 0) [[AT19:#.*]]
+; CHECK:  %call7 = tail call spir_func i32 @_Z20sub_group_reduce_addi(i32 [[V54]]) [[AT20:#.*]]
+; CHECK:  %call8 = tail call spir_func i16 @_Z26intel_sub_group_reduce_mins(i16 [[V55]]) [[AT21:#.*]]
+; CHECK:  %call9 = tail call spir_func i8 @_Z26intel_sub_group_reduce_maxc(i8 [[V56]]) [[AT22:#.*]]
+; CHECK:  %call10 = tail call spir_func i32 @_Z28sub_group_scan_exclusive_addi(i32 [[V54]]) [[AT23:#.*]]
+; CHECK:  %call11 = tail call spir_func i16 @_Z34intel_sub_group_scan_exclusive_mins(i16 [[V55]]) [[AT24:#.*]]
+; CHECK:  %call12 = tail call spir_func i8 @_Z34intel_sub_group_scan_exclusive_maxc(i8 [[V56]]) [[AT25:#.*]]
+; CHECK:  %call13 = tail call spir_func i32 @_Z28sub_group_scan_inclusive_addi(i32 [[V54]]) [[AT26:#.*]]
+; CHECK:  %call14 = tail call spir_func i16 @_Z34intel_sub_group_scan_inclusive_mins(i16 [[V55]]) [[AT27:#.*]]
+; CHECK:  %call15 = tail call spir_func i8 @_Z34intel_sub_group_scan_inclusive_maxc(i8 [[V56]]) [[AT28:#.*]]
+; CHECK:  %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %add1, i64 42, i32 %slid.reverse) [[AT29:#.*]]
+; CHECK:  %call17 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse) [[AT30:#.*]]
+; CHECK:  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %load.a) [[AT31:#.*]]
+; CHECK: call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %load.b, <2 x i32> %blk_read.x2) [[AT32:#.*]]
+; CHECK: %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)* %short_ptr) [[AT33:#.*]]
+; CHECK: call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2) [[AT34:#.*]]
+; CHECK: %blk_img_read = call <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer) [[AT35:#.*]]
+; CHECK: call void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <2 x i32> <i32 4, i32 4>) [[AT36:#.*]]
+; CHECK: %blk_img_read1 = call <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer) [[AT37:#.*]]
+; CHECK: call void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <2 x i16> <i16 4, i16 4>) [[AT38:#.*]]
+; CHECK: %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 [[V54]]) [[AT39:#.*]]
+; CHECK: %call19 = call i32 @intel_sub_group_ballot(i1 zeroext %tobool) [[AT40:#.*]]
+; CHECK: %masked_shuffle = call i32 @_Z23intel_sub_group_shuffleij(i32 [[V54]], i32 4) [[AT11:#.*]]
+
 end:
   ret void
 }
@@ -195,36 +234,36 @@ attributes #2 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp
 attributes #3 = { convergent nounwind readnone }
 attributes #4 = { convergent nounwind }
 
-; CHECK: attributes #11 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shuffleij(_Z23intel_sub_group_shuffleDv4_iDv4_jS0_)" }
-; CHECK-NEXT: attributes #12 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shufflejj(_Z23intel_sub_group_shuffleDv4_jS_S_)" }
-; CHECK-NEXT: attributes #13 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shuffleDv3_ij(_Z23intel_sub_group_shuffleDv12_iDv4_jS0_)" }
-; CHECK-NEXT: attributes #14 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shuffleDv16_sj(_Z23intel_sub_group_shuffleDv64_sDv4_jS0_)" }
-; CHECK-NEXT: attributes #15 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z13sub_group_alli(_Z13sub_group_allDv4_iDv4_j)" }
-; CHECK-NEXT: attributes #16 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z19sub_group_broadcastlj(_Z19sub_group_broadcastDv4_lDv4_jS0_),_ZGVbM4vu__Z19sub_group_broadcastlj(_Z19sub_group_broadcastDv4_ljDv4_j)" }
-; CHECK-NEXT: attributes #17 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z19sub_group_broadcastij(_Z19sub_group_broadcastDv4_iDv4_jS0_),_ZGVbM4vu__Z19sub_group_broadcastij(_Z19sub_group_broadcastDv4_ijDv4_j)" }
-; CHECK-NEXT: attributes #18 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z25intel_sub_group_broadcastsj(_Z25intel_sub_group_broadcastDv4_sDv4_jS0_),_ZGVbM4vu__Z25intel_sub_group_broadcastsj(_Z25intel_sub_group_broadcastDv4_sjDv4_j)" }
-; CHECK-NEXT: attributes #19 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z25intel_sub_group_broadcastcj(_Z25intel_sub_group_broadcastDv4_cDv4_jS0_),_ZGVbM4vu__Z25intel_sub_group_broadcastcj(_Z25intel_sub_group_broadcastDv4_cjDv4_j)" }
-; CHECK-NEXT: attributes #20 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z20sub_group_reduce_addi(_Z20sub_group_reduce_addDv4_iDv4_j)" }
-; CHECK-NEXT: attributes #21 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z26intel_sub_group_reduce_mins(_Z26intel_sub_group_reduce_minDv4_sDv4_j)" }
-; CHECK-NEXT: attributes #22 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z26intel_sub_group_reduce_maxc(_Z26intel_sub_group_reduce_maxDv4_cDv4_j)" }
-; CHECK-NEXT: attributes #23 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z28sub_group_scan_exclusive_addi(_Z28sub_group_scan_exclusive_addDv4_iDv4_j)" }
-; CHECK-NEXT: attributes #24 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_exclusive_mins(_Z34intel_sub_group_scan_exclusive_minDv4_sDv4_j)" }
-; CHECK-NEXT: attributes #25 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_exclusive_maxc(_Z34intel_sub_group_scan_exclusive_maxDv4_cDv4_j)" }
-; CHECK-NEXT: attributes #26 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z28sub_group_scan_inclusive_addi(_Z28sub_group_scan_inclusive_addDv4_iDv4_j)" }
-; CHECK-NEXT: attributes #27 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_inclusive_mins(_Z34intel_sub_group_scan_inclusive_minDv4_sDv4_j)" }
-; CHECK-NEXT: attributes #28 = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_inclusive_maxc(_Z34intel_sub_group_scan_inclusive_maxDv4_cDv4_j)" }
-; CHECK-NEXT: attributes #29 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vvv__Z28intel_sub_group_shuffle_downllj(_Z28intel_sub_group_shuffle_downDv4_lS_Dv4_jS0_)" }
-; CHECK-NEXT: attributes #30 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vvv__Z28intel_sub_group_shuffle_downDv4_iS_j(_Z28intel_sub_group_shuffle_downDv16_iS_Dv4_jS0_)" }
-; CHECK-NEXT: attributes #31 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4u__Z27intel_sub_group_block_read2PU3AS1Kj(_Z29intel_sub_group_block_read2_4PU3AS1KjDv4_j),_ZGVbM4v__Z27intel_sub_group_block_read2PU3AS1Kj(_Z29intel_sub_group_block_read2_4Dv4_PU3AS1KjDv4_j)" }
-; CHECK-NEXT: attributes #32 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uv__Z28intel_sub_group_block_write2PU3AS1jDv2_j(_Z30intel_sub_group_block_write2_4PU3AS1jDv8_jDv4_j),_ZGVbM4vv__Z28intel_sub_group_block_write2PU3AS1jDv2_j(_Z30intel_sub_group_block_write2_4Dv4_PU3AS1jDv8_jDv4_j)" }
-; CHECK-NEXT: attributes #33 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4u__Z30intel_sub_group_block_read_us2PU3AS1Kt(_Z32intel_sub_group_block_read_us2_4PU3AS1KtDv4_j),_ZGVbM4v__Z30intel_sub_group_block_read_us2PU3AS1Kt(_Z32intel_sub_group_block_read_us2_4Dv4_PU3AS1KtDv4_j)" }
-; CHECK-NEXT: attributes #34 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uv__Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_tDv4_j),_ZGVbM4vv__Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(_Z33intel_sub_group_block_write_us2_4Dv4_PU3AS1tDv8_tDv4_j)" }
-; CHECK-NEXT: attributes #35 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uu__Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(_Z29intel_sub_group_block_read2_414ocl_image2d_roDv2_iDv4_j),_ZGVbM4vv__Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(_Z29intel_sub_group_block_read2_4Dv4_14ocl_image2d_roDv8_iDv4_j)" }
-; CHECK-NEXT: attributes #36 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uuv__Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(_Z30intel_sub_group_block_write2_414ocl_image2d_woDv2_iDv8_jDv4_j),_ZGVbM4vvv__Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(_Z30intel_sub_group_block_write2_4Dv4_14ocl_image2d_woDv8_iDv8_jDv4_j)" }
-; CHECK-NEXT: attributes #37 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uu__Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(_Z32intel_sub_group_block_read_us2_414ocl_image2d_roDv2_iDv4_j),_ZGVbM4vv__Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(_Z32intel_sub_group_block_read_us2_4Dv4_14ocl_image2d_roDv8_iDv4_j)" }
-; CHECK-NEXT: attributes #38 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uuv__Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(_Z33intel_sub_group_block_write_us2_414ocl_image2d_woDv2_iDv8_tDv4_j),_ZGVbM4vvv__Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(_Z33intel_sub_group_block_write_us2_4Dv4_14ocl_image2d_woDv8_iDv8_tDv4_j)" }
-; CHECK-NEXT: attributes #39 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z22intel_sub_group_balloti(_Z22intel_sub_group_ballotDv4_iDv4_j)" }
-; CHECK-NEXT: attributes #40 = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v_intel_sub_group_balloti(intel_sub_group_ballot_vf4)" }
+; CHECK-DAG: attributes [[AT11]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shuffleij(_Z23intel_sub_group_shuffleDv4_iDv4_jS0_)" }
+; CHECK-DAG: attributes [[AT12]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shufflejj(_Z23intel_sub_group_shuffleDv4_jS_S_)" }
+; CHECK-DAG: attributes [[AT13]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shuffleDv3_ij(_Z23intel_sub_group_shuffleDv12_iDv4_jS0_)" }
+; CHECK-DAG: attributes [[AT14]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z23intel_sub_group_shuffleDv16_sj(_Z23intel_sub_group_shuffleDv64_sDv4_jS0_)" }
+; CHECK-DAG: attributes [[AT15]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z13sub_group_alli(_Z13sub_group_allDv4_iDv4_j)" }
+; CHECK-DAG: attributes [[AT16]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z19sub_group_broadcastlj(_Z19sub_group_broadcastDv4_lDv4_jS0_),_ZGVbM4vu__Z19sub_group_broadcastlj(_Z19sub_group_broadcastDv4_ljDv4_j)" }
+; CHECK-DAG: attributes [[AT17]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z19sub_group_broadcastij(_Z19sub_group_broadcastDv4_iDv4_jS0_),_ZGVbM4vu__Z19sub_group_broadcastij(_Z19sub_group_broadcastDv4_ijDv4_j)" }
+; CHECK-DAG: attributes [[AT18]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z25intel_sub_group_broadcastsj(_Z25intel_sub_group_broadcastDv4_sDv4_jS0_),_ZGVbM4vu__Z25intel_sub_group_broadcastsj(_Z25intel_sub_group_broadcastDv4_sjDv4_j)" }
+; CHECK-DAG: attributes [[AT19]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vv__Z25intel_sub_group_broadcastcj(_Z25intel_sub_group_broadcastDv4_cDv4_jS0_),_ZGVbM4vu__Z25intel_sub_group_broadcastcj(_Z25intel_sub_group_broadcastDv4_cjDv4_j)" }
+; CHECK-DAG: attributes [[AT20]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z20sub_group_reduce_addi(_Z20sub_group_reduce_addDv4_iDv4_j)" }
+; CHECK-DAG: attributes [[AT21]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z26intel_sub_group_reduce_mins(_Z26intel_sub_group_reduce_minDv4_sDv4_j)" }
+; CHECK-DAG: attributes [[AT22]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z26intel_sub_group_reduce_maxc(_Z26intel_sub_group_reduce_maxDv4_cDv4_j)" }
+; CHECK-DAG: attributes [[AT23]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z28sub_group_scan_exclusive_addi(_Z28sub_group_scan_exclusive_addDv4_iDv4_j)" }
+; CHECK-DAG: attributes [[AT24]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_exclusive_mins(_Z34intel_sub_group_scan_exclusive_minDv4_sDv4_j)" }
+; CHECK-DAG: attributes [[AT25]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_exclusive_maxc(_Z34intel_sub_group_scan_exclusive_maxDv4_cDv4_j)" }
+; CHECK-DAG: attributes [[AT26]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z28sub_group_scan_inclusive_addi(_Z28sub_group_scan_inclusive_addDv4_iDv4_j)" }
+; CHECK-DAG: attributes [[AT27]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_inclusive_mins(_Z34intel_sub_group_scan_inclusive_minDv4_sDv4_j)" }
+; CHECK-DAG: attributes [[AT28]] = { convergent nounwind "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z34intel_sub_group_scan_inclusive_maxc(_Z34intel_sub_group_scan_inclusive_maxDv4_cDv4_j)" }
+; CHECK-DAG: attributes [[AT29]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vvv__Z28intel_sub_group_shuffle_downllj(_Z28intel_sub_group_shuffle_downDv4_lS_Dv4_jS0_)" }
+; CHECK-DAG: attributes [[AT30]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4vvv__Z28intel_sub_group_shuffle_downDv4_iS_j(_Z28intel_sub_group_shuffle_downDv16_iS_Dv4_jS0_)" }
+; CHECK-DAG: attributes [[AT31]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4u__Z27intel_sub_group_block_read2PU3AS1Kj(_Z29intel_sub_group_block_read2_4PU3AS1KjDv4_j),_ZGVbM4v__Z27intel_sub_group_block_read2PU3AS1Kj(_Z29intel_sub_group_block_read2_4Dv4_PU3AS1KjDv4_j)" }
+; CHECK-DAG: attributes [[AT32]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uv__Z28intel_sub_group_block_write2PU3AS1jDv2_j(_Z30intel_sub_group_block_write2_4PU3AS1jDv8_jDv4_j),_ZGVbM4vv__Z28intel_sub_group_block_write2PU3AS1jDv2_j(_Z30intel_sub_group_block_write2_4Dv4_PU3AS1jDv8_jDv4_j)" }
+; CHECK-DAG: attributes [[AT33]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4u__Z30intel_sub_group_block_read_us2PU3AS1Kt(_Z32intel_sub_group_block_read_us2_4PU3AS1KtDv4_j),_ZGVbM4v__Z30intel_sub_group_block_read_us2PU3AS1Kt(_Z32intel_sub_group_block_read_us2_4Dv4_PU3AS1KtDv4_j)" }
+; CHECK-DAG: attributes [[AT34]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uv__Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_tDv4_j),_ZGVbM4vv__Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(_Z33intel_sub_group_block_write_us2_4Dv4_PU3AS1tDv8_tDv4_j)" }
+; CHECK-DAG: attributes [[AT35]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uu__Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(_Z29intel_sub_group_block_read2_414ocl_image2d_roDv2_iDv4_j),_ZGVbM4vv__Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(_Z29intel_sub_group_block_read2_4Dv4_14ocl_image2d_roDv8_iDv4_j)" }
+; CHECK-DAG: attributes [[AT36]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uuv__Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(_Z30intel_sub_group_block_write2_414ocl_image2d_woDv2_iDv8_jDv4_j),_ZGVbM4vvv__Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(_Z30intel_sub_group_block_write2_4Dv4_14ocl_image2d_woDv8_iDv8_jDv4_j)" }
+; CHECK-DAG: attributes [[AT37]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uu__Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(_Z32intel_sub_group_block_read_us2_414ocl_image2d_roDv2_iDv4_j),_ZGVbM4vv__Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(_Z32intel_sub_group_block_read_us2_4Dv4_14ocl_image2d_roDv8_iDv4_j)" }
+; CHECK-DAG: attributes [[AT38]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4uuv__Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(_Z33intel_sub_group_block_write_us2_414ocl_image2d_woDv2_iDv8_tDv4_j),_ZGVbM4vvv__Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(_Z33intel_sub_group_block_write_us2_4Dv4_14ocl_image2d_woDv8_iDv8_tDv4_j)" }
+; CHECK-DAG: attributes [[AT39]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v__Z22intel_sub_group_balloti(_Z22intel_sub_group_ballotDv4_iDv4_j)" }
+; CHECK-DAG: attributes [[AT40]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM4v_intel_sub_group_balloti(intel_sub_group_ballot_vf4)" }
 
 !llvm.module.flags = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
