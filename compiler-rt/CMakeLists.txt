@@ -589,6 +589,14 @@ endif()
 set(COMPILER_RT_COMMON_CFLAGS ${SANITIZER_COMMON_CFLAGS})
 set(COMPILER_RT_COMMON_LINK_FLAGS ${SANITIZER_COMMON_LINK_FLAGS})
 
+# INTEL_CUSTOMIZATION
+if (NOT APPLE)
+  # Build the sanitizers with CET support if the compiler allows.
+  # reg1runC/check_cet_property@default checks for CET support in libraries.
+  append_list_if(COMPILER_RT_HAS_FCF_PROTECTION_FLAG -fcf-protection=full SANITIZER_COMMON_CFLAGS)
+endif()
+# end INTEL_CUSTOMIZATION
+
 # We don't use the C++ standard library, so avoid including it by mistake.
 append_list_if(COMPILER_RT_HAS_NOSTDINCXX_FLAG -nostdinc++ SANITIZER_COMMON_CFLAGS)
 append_list_if(COMPILER_RT_HAS_NOSTDLIBXX_FLAG -nostdlib++ SANITIZER_COMMON_LINK_FLAGS)
