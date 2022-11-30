@@ -1992,7 +1992,7 @@ public:
     InteropInit
   } InteropAction;
 
-  enum InitClauseMod {
+  typedef enum InitClauseMod {
     InitTarget       = 0x0001,
     InitTargetSync   = 0x0002,
     InitPrefer       = 0x0004,
@@ -2003,7 +2003,7 @@ public:
 
 private:
   VAR InteropObj;
-  InteropAction Action;
+  InteropAction Action = InteropNone;
   unsigned InitModifiers; // bit vector for INIT modifiers
   SmallVector<unsigned, 4> PreferList;
 

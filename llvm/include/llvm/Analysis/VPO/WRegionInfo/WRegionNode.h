@@ -109,7 +109,7 @@ private:
   ///   DIR_OMP_TARGET_DATA, DIR_OMP_TARGET_ENTER_DATA, and
   ///   DIR_OMP_TARGET_EXIT_DATA
   /// all map to WRNTargetDataNode
-  int DirID;
+  int DirID = -1;
 
   /// Bit vector for attributes such as WRNIsParLoop or WRNIsTask.
   /// The enum WRNAttributes lists the attributes.

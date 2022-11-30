@@ -10139,7 +10139,7 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
   for (Instruction &I : *BB) {
     if (!isa<PHINode>(I))
       break;
-    PHINode *PN = dyn_cast<PHINode>(&I);
+    PHINode *PN = cast<PHINode>(&I);
     unsigned NumPHIValues = PN->getNumIncomingValues();
     unsigned II;
     Value *V = nullptr, *OV = nullptr;
@@ -10236,10 +10236,10 @@ void VPOParoptTransform::AnalyzePhisECs(Loop *L, Value *PV, Value *V,
 // e.g. a = phi(b).
 void VPOParoptTransform::buildECs(Loop *L, Value *V,
                                   EquivalenceClasses<Value *> &ECs) {
-  if (!isa<PHINode>(V))
+  if (!isa<PHINode>(V)) {
     ECs.getOrInsertLeaderValue(V);
-  else {
-    PHINode *PN = dyn_cast<PHINode>(V);
+  } else {
+    PHINode *PN = cast<PHINode>(V);
     SmallPtrSet<PHINode *, 16> PhiUsers;
     Value *Leader = ECs.getOrInsertLeaderValue(PN);
     unsigned NumPHIValues = PN->getNumIncomingValues();

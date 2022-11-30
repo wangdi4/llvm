@@ -517,7 +517,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
   class BitMatrix {
   private:
     BitVector BV;
-    unsigned RecLen;
+    unsigned RecLen = 0;
 
   public:
     BitMatrix(){};
