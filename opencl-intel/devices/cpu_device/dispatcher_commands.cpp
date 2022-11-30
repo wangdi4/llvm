@@ -1100,7 +1100,7 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void *pWgCtx) {
   // We always start from (0,0,0) and process whole WG
   // No Need in parameters now
 #ifdef _DEBUG
-  const size_t *pWGCount = m_pImplicitArgs->InternalWGCount;
+  const size_t *pWGCount = m_pImplicitArgs->WGCount;
 
   cl_dev_cmd_param_kernel *cmdParams =
       (cl_dev_cmd_param_kernel *)m_pCmd->params;
