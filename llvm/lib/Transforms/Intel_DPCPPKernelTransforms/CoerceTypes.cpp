@@ -323,7 +323,44 @@ Type *CoerceTypesPass::getIntegerType(StructType *T, unsigned Offset) const {
 
 Type *CoerceTypesPass::getSSEType(StructType *T, unsigned Offset) const {
   Type *TyAt0 = getNonCompositeTypeAtExactOffset(T, Offset);
-  if (TyAt0 && TyAt0->isFloatTy()) {
+  assert(TyAt0 && "Unexpected SSE type that occupies more than 1 eightbyte!");
+  if (TyAt0->is16bitFPTy()) {
+    // The other 6 bytes are either empty or a combination of half/bfloat,
+    // float.
+    // Since "half" and "bfloat" have the same bit width, we treat both
+    // types consistently.
+    Type *FP16Ty = TyAt0;
+    unsigned NumOfConsecutiveFP16 = 1;
+    if (Type *TyAt2 = getNonCompositeTypeAtExactOffset(T, Offset + 2)) {
+      // Example struct: { half, half, ... }
+      assert(TyAt2->is16bitFPTy() && "Unexpected SSE type at offset 2");
+      ++NumOfConsecutiveFP16;
+    }
+    if (Type *TyAt4 = getNonCompositeTypeAtExactOffset(T, Offset + 4)) {
+      if (TyAt4->is16bitFPTy()) {
+        // { half, half, half, ... }
+        ++NumOfConsecutiveFP16;
+      } else {
+        // { half, half, float } or { half, float }
+        assert(TyAt4->isFloatTy() && "Unexpected SSE type at offset 4");
+        // In this case we coerce the whole eightbyte to a double.
+        return Type::getDoubleTy(PModule->getContext());
+      }
+    }
+    if (Type *TyAt6 = getNonCompositeTypeAtExactOffset(T, Offset + 6)) {
+      // { half, half, half, half }
+      assert(TyAt6->is16bitFPTy() && "Unexpected SSE type at offset 6");
+      ++NumOfConsecutiveFP16;
+    }
+
+    // Coerce to <N x half> or <N x bfloat> if there're multiple consecutive
+    // 2-byte fp types.
+    return NumOfConsecutiveFP16 == 1
+               ? FP16Ty
+               : FixedVectorType::get(FP16Ty, NumOfConsecutiveFP16);
+  }
+
+  if (TyAt0->isFloatTy()) {
     // Since the class is SSE, the other 4 bytes are either float or empty
     // Coerce to <2 x float> in the first case
     Type *TyAt4 = getNonCompositeTypeAtExactOffset(T, Offset + 4);
