@@ -761,27 +761,10 @@ define i1 @bit_extract_cmp(i64 %x) {
 ; LE128-NEXT:    [[R:%.*]] = fcmp oeq float [[E]], 0.000000e+00
 ; LE128-NEXT:    ret i1 [[R]]
 ;
-<<<<<<< HEAD
-; BE64-LABEL: @bit_extract_cmp(
-; INTEL_CUSTOMIZATION
-; preserve fcmp, support denormal round-down.
-; BE64-NEXT:    [[TMP1:%.*]] = trunc i64 [[X:%.*]] to i32
-; BE64-NEXT:    [[E:%.*]] = bitcast i32 [[TMP1]] to float
-; BE64-NEXT:    [[R:%.*]] = fcmp oeq float [[E]], 0.000000e+00
-; end INTEL_CUSTOMIZATION
-; BE64-NEXT:    ret i1 [[R]]
-;
-; BE128-LABEL: @bit_extract_cmp(
-; BE128-NEXT:    [[V:%.*]] = bitcast i64 [[X:%.*]] to <2 x float>
-; BE128-NEXT:    [[E:%.*]] = extractelement <2 x float> [[V]], i64 1
-; BE128-NEXT:    [[R:%.*]] = fcmp oeq float [[E]], 0.000000e+00
-; BE128-NEXT:    ret i1 [[R]]
-=======
 ; ANYBE-LABEL: @bit_extract_cmp(
 ; ANYBE-NEXT:    [[TMP1:%.*]] = and i64 [[X:%.*]], 2147483647
 ; ANYBE-NEXT:    [[R:%.*]] = icmp eq i64 [[TMP1]], 0
 ; ANYBE-NEXT:    ret i1 [[R]]
->>>>>>> 535c5d56a7bc9966036a11362d8984983a4bf090
 ;
   %v = bitcast i64 %x to <2 x float>
   %e = extractelement <2 x float> %v, i8 1
