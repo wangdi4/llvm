@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2018-2021 Intel Corporation.
+// Copyright 2018-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -125,7 +125,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
   llvm::SmallVector<llvm::StringRef, 8> splittedOptions;
   llvm::StringRef(m_pProgDesc->pszOptions).split(splittedOptions, " ");
-  for (const auto opt : splittedOptions) {
+  for (const auto &opt : splittedOptions) {
     if (opt.str() == "-profiling")
       bProfiling = true;
     if (opt.str() == "-cl-fast-relaxed-math")
@@ -164,7 +164,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   llvm::SmallVector<llvm::StringRef, 16> ExtVec;
   ExtStr.split(ExtVec, ' ', -1, false);
   optionsEx << " -cl-ext=-all";
-  for (auto Ext : ExtVec)
+  for (const auto &Ext : ExtVec)
     optionsEx << ",+" << Ext.str();
 
   optionsEx << " -Dcl_intel_device_attribute_query";

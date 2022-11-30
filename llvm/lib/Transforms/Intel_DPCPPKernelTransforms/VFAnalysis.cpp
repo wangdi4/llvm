@@ -398,11 +398,11 @@ void VFAnalysisInfo::analyzeModule(
 
 void VFAnalysisInfo::print(raw_ostream &OS) const {
   OS << "Kernel --> VF:\n";
-  for (auto P : KernelToVF)
+  for (const auto &P : KernelToVF)
     OS << "  <" << P.getFirst()->getName() << "> : " << P.getSecond() << '\n';
 
   OS << "Kernel --> SGEmuSize:\n";
-  for (auto P : KernelToSGEmuSize)
+  for (const auto &P : KernelToSGEmuSize)
     OS << "  <" << P.getFirst()->getName() << "> : " << P.getSecond() << '\n';
 }
 

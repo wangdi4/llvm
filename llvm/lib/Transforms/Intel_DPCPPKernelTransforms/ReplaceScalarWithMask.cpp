@@ -90,7 +90,7 @@ bool ReplaceScalarWithMaskPass::runImpl(Module &M) {
     // Clone metadatas from the old function, including debug info descriptor.
     SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
     MaskKernel->getAllMetadata(MDs);
-    for (auto MD : MDs)
+    for (const auto &MD : MDs)
       ScalarKernel->addMetadata(MD.first, *MD.second);
 
     // Set the masked kernel to itself.

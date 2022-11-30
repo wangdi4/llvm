@@ -648,7 +648,7 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
   }
 
   SetVector <Function *> UsesToDelete;
-  for (auto It : VMap) {
+  for (const auto &It : VMap) {
     if (Function *F = dyn_cast<Function>(It.first)) {
       Function *R = cast<Function>(It.second);
       findUsesToDelete(F, UsesToDelete);

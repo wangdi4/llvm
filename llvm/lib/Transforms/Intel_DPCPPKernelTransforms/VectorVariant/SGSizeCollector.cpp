@@ -130,7 +130,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
   }
 
   // Update vector length information according to the call graph.
-  for (auto It : SGSizes) {
+  for (const auto &It : SGSizes) {
     Function *F = It.first;
     StringRef VarsStr;
     DenseSet<unsigned> ExistingVars;

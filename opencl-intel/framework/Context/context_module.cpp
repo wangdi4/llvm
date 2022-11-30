@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -3448,7 +3448,7 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
     OclAutoMutex mu(&m_SvmUsmMutex);
     waitListIter = m_mapUSMFreeWaitList.find(ptr);
     if (waitListIter != m_mapUSMFreeWaitList.end())
-      for (auto eventSPtr : waitListIter->second)
+      for (const auto &eventSPtr : waitListIter->second)
         waitList.push_back(eventSPtr.get());
   }
 

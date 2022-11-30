@@ -167,7 +167,7 @@ CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts)
 
   llvm::SmallVector<llvm::StringRef, 8> splittedOptions;
   buildOptions.split(splittedOptions, " ");
-  for (const auto opt : splittedOptions) {
+  for (const auto &opt : splittedOptions) {
     std::string opts = opt.str();
     if (opt.equals("-profiling"))
       m_profiling = true;
@@ -446,7 +446,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
         Reasons[Value].push_back(F.getName().str());
       }
 
-    for (auto It : Reasons)
+    for (const auto &It : Reasons)
       Utils::LogVectorVariantFailureFunctions(pResult->LogS(), It.second,
                                               It.first);
 

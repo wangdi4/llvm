@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -468,7 +468,7 @@ int main(int Argc, char *Argv[]) {
   // Ignored options only for FPGA emulator. Issue error message for other
   // device types.
   if (OptDevice != fpga_fast_emu) {
-    for (auto opt : IgnoredAOCOptions)
+    for (auto *opt : IgnoredAOCOptions)
       if (opt->getNumOccurrences() != 0) {
         opt->error("unknown command line argument");
         exit(1);
