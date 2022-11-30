@@ -28,4 +28,8 @@ entry:
 ; OPAQUE-NEXT: [[SUB:%.*]] = sub i64 [[PTRTOINT1]], [[PTRTOINT]]
 ; OPAQUE-NEXT: store i64 [[SUB]], ptr addrspace(1) %arrayidx, align 8
 
+!sycl.kernels = !{!0}
+
+!0 = !{void (i64 addrspace(1)*)* @kernel}
+
 ; DEBUGIFY-NOT: WARNING

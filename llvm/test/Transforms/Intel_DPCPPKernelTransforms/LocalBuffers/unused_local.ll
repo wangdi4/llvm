@@ -33,7 +33,9 @@ entry:
   ret void
 }
 
+!sycl.kernels = !{!0}
 
+!0 = !{void (i32 addrspace(1)*, i8 addrspace(1)*, float addrspace(1)*)* @foo, void (<4 x i32> addrspace(1)*, <16 x i64> addrspace(1)*)* @bar}
 
 ; NONOPAQUE:        define void @foo(i32 addrspace(1)* %pInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat,
 ; OPAQUE:           define void @foo(ptr addrspace(1) %pInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,

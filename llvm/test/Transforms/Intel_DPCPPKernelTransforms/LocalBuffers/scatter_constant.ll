@@ -36,5 +36,9 @@ entry:
 ; Function Attrs: nounwind
 declare void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*>, <2 x i32 addrspace(4)* addrspace(3)*>, i32 immarg, <2 x i1>)
 
+!sycl.kernels = !{!0}
+
+!0 = !{void ()* @foo}
+
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

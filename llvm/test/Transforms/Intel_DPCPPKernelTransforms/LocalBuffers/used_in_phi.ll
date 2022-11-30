@@ -41,5 +41,9 @@ B:
   ret void
 }
 
+!sycl.kernels = !{!0}
+
+!0 = !{void (i64 addrspace(1)*, i1)* @kernel}
+
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

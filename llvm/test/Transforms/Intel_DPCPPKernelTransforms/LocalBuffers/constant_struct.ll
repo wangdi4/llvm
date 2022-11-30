@@ -23,5 +23,9 @@ define void @test() {
   ret void
 }
 
+!sycl.kernels = !{!0}
+
+!0 = !{void ()* @test}
+
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

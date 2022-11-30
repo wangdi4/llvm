@@ -110,5 +110,5 @@ attributes #2 = { nounwind "prefer-vector-width"="512" }
 !0 = !{void (i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i8 addrspace(1)*)* @_ZTSZZ4mainENKUlRN2cl4sycl7handlerEE_clES2_EUlNS0_14kernel_handlerEE_, void (i8*)* @_Z8user_sotPiS_i._block_invoke_kernel, void (i8*)* @_Z7lib_sotPiS_i._block_invoke_kernel, void (i8*)* @_Z11dot_productPiS_i._block_invoke_kernel}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-180: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-176: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

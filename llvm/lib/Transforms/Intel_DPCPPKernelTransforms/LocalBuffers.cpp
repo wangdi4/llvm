@@ -44,6 +44,7 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
   this->M = &M;
   this->LBInfo = LBInfo;
   LBInfo->computeSize();
+  const auto &LocalsMap = LBInfo->getDirectLocalsMap();
 
   UseTLSGlobals |= EnableTLSGlobals;
   Context = &M.getContext();
@@ -53,6 +54,8 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
 
   // Get all kernels
   auto KernelsFunctionSet = CompilationUtils::getAllKernels(M);
+  if (KernelsFunctionSet.empty())
+    return false;
 
   // Run on all defined function in the module
   for (auto &Func : M) {
@@ -66,7 +69,8 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
     if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(F))
       continue;
 
-    runOnFunction(F);
+    if (!LocalsMap.lookup(F).empty())
+      runOnFunction(F);
     if (KernelsFunctionSet.count(F)) {
       // We have a kernel, update metadata
       KernelInternalMetadataAPI(F).LocalBufferSize.set(
@@ -262,9 +266,10 @@ void LocalBuffersPass::updateDICompileUnitGlobals() {
 // parameters
 void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
   IRBuilder<> Builder(InsertPoint);
+  const auto &LocalsMap = LBInfo->getDirectLocalsMap();
 
   // Iterate through local buffers directly used in F.
-  for (GlobalVariable *GV : LBInfo->getDirectLocals(F)) {
+  for (GlobalVariable *GV : LocalsMap.lookup(F)) {
     // Retrieve the offset of the local buffer.
     size_t Offset = LBInfo->getLocalGVToOffset(GV);
     Type *Ty = CompilationUtils::getSLMBufferElementType(*Context);
