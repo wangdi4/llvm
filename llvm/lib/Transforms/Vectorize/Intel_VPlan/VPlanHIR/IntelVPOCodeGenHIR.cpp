@@ -4418,13 +4418,15 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
             DDRefUtilities.createConstDDRef(TripCnt->getSrcType(), 1);
         if (IndFini->isLastValPreIncrement()) {
           TripInst = HLNodeUtilities.createSub(TripCnt, ConstOne, "sub.tripcnt",
-                                               TripCnt);
+                                               TripCnt->clone());
           addInstUnmasked(TripInst);
+          TripCnt = TripCnt->clone();
         }
         if (!ExactUB) {
           TripInst = HLNodeUtilities.createAdd(TripCnt, ConstOne, "add.tripcnt",
-                                               TripCnt);
+                                               TripCnt->clone());
           addInstUnmasked(TripInst);
+          TripCnt = TripCnt->clone();
         }
 
         // In some cases we need to subtract loop IV's lower bound from TC to
@@ -4483,7 +4485,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
           TripInst = HLNodeUtilities.createCastHLInst(StepType, CastOp, TripCnt,
                                                       "cast.crd");
           addInstUnmasked(TripInst);
-          TripCnt = TripInst->getLvalDDRef();
+          TripCnt = TripInst->getLvalDDRef()->clone();
           if (NeedsLBSubtraction) {
             // LB will be same type as TC, cast since subtraction will be done
             // below.
@@ -4500,7 +4502,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                                               ? Instruction::FSub
                                               : Instruction::Sub;
           HLInst *SubIVLB = HLNodeUtilities.createBinaryHLInst(
-              SubOpc, TripCnt->clone(), IVLowerBound->clone(), "iv.lb.sub");
+              SubOpc, TripCnt, IVLowerBound->clone(), "iv.lb.sub");
           addInstUnmasked(SubIVLB);
           TripCnt = SubIVLB->getLvalDDRef()->clone();
         }
