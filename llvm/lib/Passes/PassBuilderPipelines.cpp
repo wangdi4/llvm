@@ -2177,10 +2177,13 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
   FPM.addPass(HIRSSADeconstructionPass());
   FPM.addPass(HIRTempCleanupPass());
 
-  // TODO: Pass disabled until implementation is complete
-  // FPM.addPass(HIRNormalizeCasts());
-
   if (!RunLoopOptFrameworkOnly) {
+    // This pass should be kept at the beginning of the loopopt pass manager
+    // since it doesn't invalidate DDAnalysis. If another pass is added before
+    // this pass, the we need to update HIRNormalizeCasts to handle the
+    // DDAnalysis.
+    FPM.addPass(HIRNormalizeCasts());
+
     // if (vpo::UseOmpRegionsInLoopoptFlag)
     //   FPM.addPass(HIRRecognizeParLoopPass());
 

@@ -46,6 +46,9 @@
 // This fix will help with other analyses that checks if the loop bound is
 // used in the memory references.
 //
+// TODO: Add support for converting zext to sext in the memrefs for the
+// HLInst.
+//
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNormalizeCasts.h"
@@ -69,21 +72,228 @@ static cl::opt<bool>
     DisableNormalizeCasts("disable-" OPT_SWITCH, cl::init(false), cl::Hidden,
                           cl::desc("Disable HIR normalize casts"));
 
+STATISTIC(NumLoopsNormalized,
+          "Number of loops upperbounds that were normalized");
+
 class NormalizeCasts {
 public:
   NormalizeCasts(HIRFramework &HIRF) : HIRF(HIRF) {}
   bool run();
 
-  // TODO: Field needs to be private
+private:
   HIRFramework &HIRF;
+
+  // Traverse the HIR to find loop candidates
+  struct LoopsAnalyzer;
+
+  // Loops that will be transformed
+  SmallPtrSet<HLLoop *, MaxLoopNestLevel> LoopCandidates;
+
+  // Transform the zext into sext for the loop upperbound found
+  void transformLoops();
 };
 
-// TODO: Implement pass
+struct NormalizeCasts::LoopsAnalyzer final : public HLNodeVisitorBase {
+  NormalizeCasts &Pass;
+  // Map a loop with the zext blob found in the upperbound
+  SmallVector<std::pair<HLLoop *, BlobTy>, MaxLoopNestLevel> LoopZextInfoVect;
+
+  LoopsAnalyzer(NormalizeCasts &Pass) : Pass(Pass) {}
+  void visit(HLLoop *Loop);
+  void visit(HLDDNode *DDNode);
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+  void postVisit(HLLoop *Loop);
+
+  // Find which loop in LoopZextInfoVect matches with the input blob and
+  // add it as candidate
+  void findAndCollectCandidateLoops(BlobTy SextBlobOP);
+};
+
+// Check if the upper bound of the input loop has a zext blob, if so then store
+// the loop and the blob found in LoopZextInfoVect. For example:
+//
+//   + DO i1 = 0, zext.i32.i64(%cols) + -1, 1   <DO_LOOP>
+//             <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+//
+// The loop above shows that the lower bound of the loop is 0 and the
+// upperbound is zext.i32.i64(%cols) + -1, and the legal trip count is INT_MAX.
+// This loop would be a candidate for transformation.
+void NormalizeCasts::LoopsAnalyzer::visit(HLLoop *Loop) {
+  if (!Loop->isDo() || !Loop->isNormalized())
+    return;
+
+  uint64_t LegalTC = Loop->getLegalMaxTripCount();
+  if (LegalTC == 0)
+    return;
+
+  // We are looking that the upper bound doesn't have an IV, and the expression
+  // is in the form of:
+  //
+  //   C1 * zext(%n) + C2 + 1 = Legal max trip count
+  //
+  // where C1 and C2 are constants. This basically means that:
+  //
+  //   zext(%n) = (Legal max trip count - C2 - 1) / C1
+  //
+  // In order to secure that zext(%n) is in the bounds of INT_MAX then we need
+  // to confirm that (Legal max trip count - C2 - 1) <=u INT_MAX and that
+  // 0 < C1.
+  auto *UBCE = Loop->getUpperCanonExpr();
+  auto &BU = UBCE->getBlobUtils();
+  if (UBCE->numBlobs() != 1 || UBCE->hasIV() || UBCE->getDenominator() != 1)
+    return;
+
+  // BlobCoeff (C1 from the example above) needs to be larger than 0
+  int64_t BlobCoeff = UBCE->getSingleBlobCoeff();
+  if (BlobCoeff <= 0)
+    return;
+
+  unsigned BlobIdx = UBCE->getSingleBlobIndex();
+
+  BlobTy CurrBlob = BU.getBlob(BlobIdx);
+  BlobTy ZextOP = nullptr;
+  if (!BU.isZeroExtendBlob(CurrBlob, &ZextOP))
+    return;
+
+  // Legal trip cound - upper bound coeff (C2 from the example) - 1 needs to
+  // be less or equal that INT_MAX
+  Type *CastType = ZextOP->getType();
+  uint64_t MaxInt =
+      APInt::getSignedMaxValue(CastType->getIntegerBitWidth()).getZExtValue();
+  if ((LegalTC - UBCE->getConstant() - 1) > MaxInt)
+    return;
+
+  LoopZextInfoVect.push_back(std::make_pair(Loop, ZextOP));
+}
+
+// Traverse through the LoopZextInfoVect vector and find which zext's operand
+// matches with the input blob. The input blob is the sext blob's operand. If
+// the blobs match, then the loop that is mapped with the zext blob will be
+// selected as a candidate for transformation.
+void NormalizeCasts::LoopsAnalyzer::findAndCollectCandidateLoops(
+    BlobTy SextBlobOP) {
+  if (LoopZextInfoVect.empty())
+    return;
+
+  for (auto It : make_range(LoopZextInfoVect.begin(), LoopZextInfoVect.end())) {
+    if (SextBlobOP == It.second)
+      Pass.LoopCandidates.insert(It.first);
+  }
+}
+
+// Check if the input HLDDNode has a memref that will use one of the zext
+// blobs in the loop nest as a sext. For example:
+//
+//   + DO i1 = 0, zext.i32.i64(%cols) + -1, 1   <DO_LOOP>
+//             <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+//   |   %3 = (%arr)[sext.i32.i64(%cols) * i1];
+//
+// In the example above, intruction %3 uses the blob %cols in the memref for
+// %arr as a signed extension, and %cols is used as a zero extension in the
+// upperbound. Therefore we are going to update the information in the
+// LoopZextInfo for the i1 loop.
+void NormalizeCasts::LoopsAnalyzer::visit(HLDDNode *DDNode) {
+  if (LoopZextInfoVect.empty() || isa<HLLoop>(DDNode))
+    return;
+
+  for (unsigned I = 0, E = DDNode->getNumOperands(); I < E; I++) {
+    auto *OpRef = DDNode->getOperandDDRef(I);
+    if (!OpRef->isMemRef())
+      continue;
+
+    unsigned NumDims = OpRef->getNumDimensions();
+    for (unsigned Dim = 1; Dim <= NumDims; Dim++) {
+      auto *CE = OpRef->getDimensionIndex(Dim);
+
+      SmallVector<unsigned, 4> BlobIndices;
+      CE->collectBlobIndices(BlobIndices);
+      if (BlobIndices.empty())
+        continue;
+
+      auto &BU = CE->getBlobUtils();
+      for (auto Index : BlobIndices) {
+        auto *CurrBlob = BU.getBlob(Index);
+        BlobTy SExtBlobOP;
+        if (BU.isSignExtendBlob(CurrBlob, &SExtBlobOP))
+          findAndCollectCandidateLoops(SExtBlobOP);
+      }
+    }
+  }
+}
+
+// Remove the current loop from LoopZextInfoVect since it isn't needed anymore
+void NormalizeCasts::LoopsAnalyzer::postVisit(HLLoop *Loop) {
+  if (LoopZextInfoVect.empty())
+    return;
+
+  auto LastEntry = LoopZextInfoVect.rbegin();
+  if (LastEntry->first == Loop)
+    LoopZextInfoVect.pop_back();
+}
+
+// Traverse through each candidate loop and convert the zext blobs in the
+// upperbound's canon expression into sext blobs using the information
+// collected. For example, the loop
+//
+//   + DO i1 = 0, zext.i32.i64(%cols) + -1, 1   <DO_LOOP>
+//             <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+//
+// will be converted into:
+//
+//   + DO i1 = 0, sext.i32.i64(%cols) + -1, 1   <DO_LOOP>
+//             <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+//
+void NormalizeCasts::transformLoops() {
+  assert(!LoopCandidates.empty() &&
+         "Trying to transform loops without information");
+
+  bool Transformed = false;
+  for (auto *Loop : LoopCandidates) {
+    auto *UBCE = Loop->getUpperCanonExpr();
+    auto &BU = UBCE->getBlobUtils();
+
+    unsigned ZextBlobIdx = UBCE->getSingleBlobIndex();
+    auto *ZextBlob = cast<SCEVZeroExtendExpr>(BU.getBlob(ZextBlobIdx));
+    unsigned SextBlobIdx;
+    BU.createSignExtendBlob(ZextBlob->getOperand(), UBCE->getSrcType(), true,
+                            &SextBlobIdx);
+    UBCE->replaceBlob(ZextBlobIdx, SextBlobIdx);
+    Transformed = true;
+    NumLoopsNormalized++;
+  }
+
+  assert(Transformed && "Casting in loop upperbound not normalized");
+  (void)Transformed;
+}
+
 bool NormalizeCasts::run() {
   if (DisableNormalizeCasts)
     return false;
 
-  return false;
+  LLVM_DEBUG(dbgs() << "Analyzing function: " << HIRF.getFunction().getName()
+                    << "\n");
+
+  LoopsAnalyzer AnalyzeLoops(*this);
+  HIRF.getHLNodeUtils().visitAll(AnalyzeLoops);
+
+  if (LoopCandidates.empty()) {
+    LLVM_DEBUG(dbgs() << "    No loop found to normalize\n");
+    return false;
+  }
+
+  LLVM_DEBUG({
+    dbgs() << "  Loop" << (LoopCandidates.size() > 1 ? "s" : "") << " found:\n";
+    for (auto *Loop : LoopCandidates) {
+      auto *Region = Loop->getParentRegion();
+      dbgs() << "    Loop <" << Loop->getNumber() << "> in Region <"
+             << Region->getNumber() << ">\n";
+    }
+  });
+
+  transformLoops();
+
+  return true;
 }
 
 PreservedAnalyses HIRNormalizeCasts::runImpl(Function &F,
