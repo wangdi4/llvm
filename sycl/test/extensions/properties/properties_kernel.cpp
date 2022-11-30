@@ -25,8 +25,12 @@ using device_has_all =
              aspect::ext_intel_device_info_uuid, aspect::ext_oneapi_srgb,
              aspect::ext_oneapi_native_assert, aspect::host_debuggable,
              aspect::ext_intel_gpu_hw_threads_per_eu,
+<<<<<<< HEAD
              aspect::ext_oneapi_cuda_async_barrier,
              aspect::ext_oneapi_bfloat16_math_functions,
+=======
+             aspect::ext_oneapi_cuda_async_barrier, aspect::ext_oneapi_bfloat16,
+>>>>>>> 0d525f744cd5893fdcfaafb448e8030cfc4a1b39
              aspect::ext_intel_free_memory, aspect::ext_intel_device_id,
              aspect::ext_intel_memory_clock_rate,
              aspect::ext_intel_memory_bus_width>);
