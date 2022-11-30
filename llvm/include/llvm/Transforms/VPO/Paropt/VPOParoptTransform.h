@@ -347,22 +347,22 @@ private:
   public:
     /// The array of base pointers passed to the runtime library.
     Value *BaseDataPtrs = nullptr;
-    Value *ResBaseDataPtrs;
+    Value *ResBaseDataPtrs = nullptr;
     /// The array of data pointers passed to the runtime library.
     Value *DataPtrs = nullptr;
-    Value *ResDataPtrs;
+    Value *ResDataPtrs = nullptr;
     /// The array of data sizes passed to the runtime library.
     Value *DataSizes = nullptr;
-    Value *ResDataSizes;
+    Value *ResDataSizes = nullptr;
     /// The array of data map types passed to the runtime library.
     Value *DataMapTypes = nullptr;
-    Value *ResDataMapTypes;
+    Value *ResDataMapTypes = nullptr;
     /// The array of mapper names passed to the runtime library.
     Value *Names = nullptr;
-    Value *ResNames;
+    Value *ResNames = nullptr;
     /// The array of mapper pointers passed to the runtime library.
     Value *Mappers = nullptr;
-    Value *ResMappers;
+    Value *ResMappers = nullptr;
     bool FoundValidMapper = false;
     /// The number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;

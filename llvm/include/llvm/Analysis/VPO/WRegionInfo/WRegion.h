@@ -383,9 +383,9 @@ private:
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used from Fortran DO Concurrent
-  loopopt::HLNode *EntryHLNode; // for HIR only
-  loopopt::HLNode *ExitHLNode;  // for HIR only
-  loopopt::HLLoop *HLp;         // for HIR only
+  loopopt::HLNode *EntryHLNode = nullptr; // for HIR only
+  loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
+  loopopt::HLLoop *HLp = nullptr;         // for HIR only
 #if INTEL_FEATURE_CSA
   int NumWorkers;
   int PipelineDepth;
@@ -1447,22 +1447,22 @@ private:
   UniformClause Uniform; // The simd construct does not take a uniform clause,
                          // so we won't get this from the front-end, but this
                          // list can/will be populated by the vector backend
-  EXPR IfExpr;
-  int Simdlen;
-  int Safelen;
-  int Collapse;
+  EXPR IfExpr = nullptr;
+  int Simdlen = 0;
+  int Safelen = 0;
+  int Collapse = 0;
 
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
-  bool IsAutoVec;
-  bool HasVectorAlways;
+  bool IsAutoVec = false;
+  bool HasVectorAlways = false;
   bool HasAligned = false; // SIMD aligned clause was specified
 
-  loopopt::HLNode *EntryHLNode; // for HIR only
-  loopopt::HLNode *ExitHLNode;  // for HIR only
-  loopopt::HLLoop *HLp;         // for HIR only
+  loopopt::HLNode *EntryHLNode = nullptr; // for HIR only
+  loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
+  loopopt::HLLoop *HLp = nullptr;         // for HIR only
 #endif //INTEL_CUSTOMIZATION
 
 public:

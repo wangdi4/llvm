@@ -51,7 +51,7 @@ StringRef VPOAnalysisUtils::getRegionDirectiveString(const Instruction *I,
                                                      bool *IsEntry) {
   StringRef DirString;  // ctor initializes its data to nullptr
   if (VPOAnalysisUtils::isRegionDirective(I, IsEntry)) {
-    const IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    const IntrinsicInst *Call = cast<IntrinsicInst>(I);
     if (Call->getNumOperandBundles() > 0) {
       // First operand bundle has the directive name
       OperandBundleUse BU = Call->getOperandBundleAt(0);

@@ -1680,7 +1680,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
           GID = Map->second;
         }
       } else if (DTy->isDoubleTy()) {
-        auto Map = GenXMath32.find(ID);
+        auto Map = GenXMath64.find(ID);
         if (Map != GenXMath64.end()) {
           GID = Map->second;
         }
