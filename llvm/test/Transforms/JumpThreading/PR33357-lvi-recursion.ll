@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -S -jump-threading -jump-thread-loop-header=false -verify -o - %s | FileCheck %s ;INTEL
-=======
-; RUN: opt -S -passes=jump-threading,verify -o - %s | FileCheck %s
->>>>>>> 07e34d2de565a88da2724d52cdcf47b4bca873db
+; RUN: opt -S -passes=jump-threading,verify -jump-thread-loop-header=false -o - %s | FileCheck %s ;INTEL
 @a = external global i16, align 1
 
 ; CHECK-LABEL: f

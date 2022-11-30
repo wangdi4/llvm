@@ -1,14 +1,10 @@
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION - The community implementation of ProcessThreadableEdges
 ;       has an early return for loop headers that we avoid in the xmain
 ;       implementation. That causes a different series of transformations for
 ;       this code which is also valid but fails the specific checks this test
 ;       is doing.
 ; END INTEL_CUSTOMIZATION
-; RUN: opt -S < %s -jump-threading -jump-thread-loop-header=false | FileCheck %s
-=======
-; RUN: opt -S < %s -passes=jump-threading | FileCheck %s
->>>>>>> 07e34d2de565a88da2724d52cdcf47b4bca873db
+; RUN: opt -S < %s -passes=jump-threading -jump-thread-loop-header=false | FileCheck %s
 ; CHECK-LABEL: @foo
 ; CHECK: bb6:
 ; CHECK-NEXT: ret void
