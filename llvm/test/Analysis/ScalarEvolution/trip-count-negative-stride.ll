@@ -653,7 +653,7 @@ define void @step_is_neg_addrec_slt_var(i32 %n) {
 ; simplify this a lot because of nuw/nsw flags
 ; CHECK-NEXT:  Loop %inner: backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))<nuw>
 ; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is 2147483647
-; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ((((-1 * (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))<nuw><nsw> + {0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n)) /u (1 umax {0,+,-1}<nuw><nsw><%outer.header>)) + (1 umin ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))))
+; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))<nuw>
 ; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nuw><nsw><%outer.header> smax %n))<nuw>
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   Predicates:
@@ -698,7 +698,7 @@ define void @step_is_neg_addrec_unknown_start(i32 %n) {
 ; simplify this using nuw/nsw flags
 ; CHECK-NEXT:  Loop %inner: backedge-taken count is ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nsw><%outer.header>))
 ; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is -2147483640
-; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ((((-1 * (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))<nuw><nsw> + {(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>)) /u (1 umax {0,+,-1}<%outer.header>)) + (1 umin ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nuw><nsw><%outer.header>))))
+; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nsw><%outer.header>))
 ; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({(-1 * %n),+,1}<nw><%outer.header> + (8 smax {%n,+,-1}<nsw><%outer.header>))
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   Predicates:
