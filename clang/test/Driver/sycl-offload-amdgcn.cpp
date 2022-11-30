@@ -56,3 +56,13 @@
 // CHK-ARCHIVE: clang-offload-bundler{{.*}} "-input={{.*}}/Inputs/SYCL/liblin64.a"
 // CHK-ARCHIVE: llvm-link{{.*}}
 // CHK-ARCHIVE-NOT: clang-offload-bundler{{.*}} "-unbundle"
+
+// INTEL_CUSTOMIZATION
+/// Check for -disable-intel-proprietary-opts
+// RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fsycl \
+// RUN:   -fsycl-targets=amdgcn-amd-amdhsa \
+// RUN:   -Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=gfx1030 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHK-INTEL-PROP-OPTS %s
+// CHK-INTEL-PROP-OPTS: "-cc1" "-triple" "amdgcn-amd-amdhsa" "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}} "-fsycl-is-device"{{.*}} "-disable-intel-proprietary-opts"
+// end INTEL_CUSTOMIZATION
