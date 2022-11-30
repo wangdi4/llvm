@@ -734,10 +734,15 @@ Stripminer::addFloorLoop(BasicBlock *Pred, BasicBlock *OutermostPreheader,
   BasicBlock *FloorPreHeader =
       SplitEdge(Pred, FloorHeader, nullptr, nullptr, nullptr, "FLOOR.PREHEAD");
 
-  // Add store 0 to %floor_iv
   Builder.SetInsertPoint(FloorPreHeader->getTerminator());
-  auto *Zero = Builder.getIntN(cast<IntegerType>(IndVarTy)->getBitWidth(), 0);
-  Builder.CreateStore(Zero, FloorIV);
+  // vpo-paropt-loop-collapse pass expects the first operand of this store
+  // a load instruction.
+  //     $floor.lb.val = load %floor_lb
+  //     store %floor.lb.val to %floor_iv
+  // We could just directly store 0 to %floor_iv since the loop is already
+  // normalized. However, collapse pass expects a load instead of const 0.
+  auto *FloorLBVal = Builder.CreateLoad(IndVarTy, FloorLB, "floor.lb");
+  Builder.CreateStore(FloorLBVal, FloorIV);
 
   // 2. Replace OutermostHeader's br to Floor Latch
   auto *LoopCondBr = cast<BranchInst>(OutermostHeader->getTerminator());
