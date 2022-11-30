@@ -213,9 +213,16 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
     // Skip non-contiguous stores; they won't benefit from our later
     // optimizations.
     bool IsNegStride;
-    RegDDRef *StoreAddr = I->getLvalDDRef();
-    if (!StoreAddr->isUnitStride(Loop->getNestingLevel(), IsNegStride)) {
+    RegDDRef *StoreRef = I->getLvalDDRef();
+    if (!StoreRef->isUnitStride(Loop->getNestingLevel(), IsNegStride)) {
       LLVM_DEBUG(dbgs() << "Not contiguous\n");
+      continue;
+    }
+
+    // Skip masked stores; they won't benefit from the later optimization
+    // either.
+    if (StoreRef->isMasked()) {
+      LLVM_DEBUG(dbgs() << "Store is masked\n");
       continue;
     }
 
@@ -223,8 +230,8 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
     // optimization is not available. Stores that are 8 bytes or smaller are
     // assumed to not benefit from nontemporal marking alone in this case.
     if (OnlyVectorAligned) {
-      const unsigned Alignment = StoreAddr->getAlignment();
-      if (Alignment <= 8 || Alignment < StoreAddr->getDestTypeSizeInBytes()) {
+      const unsigned Alignment = StoreRef->getAlignment();
+      if (Alignment <= 8 || Alignment < StoreRef->getDestTypeSizeInBytes()) {
         LLVM_DEBUG(dbgs() << "Not vector-aligned\n");
         continue;
       }
@@ -232,7 +239,7 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
 
     // Regular store in the main body of the loop, check dependencies.
     if (const DDEdge *const Conflict = hasConflictingAccess(
-          DepGraph.outgoing(StoreAddr), Loop->getNestingLevel())) {
+          DepGraph.outgoing(StoreRef), Loop->getNestingLevel())) {
       LLVM_DEBUG(dbgs() << "Interference from edge ");
       LLVM_DEBUG(Conflict->dump());
       continue;
@@ -244,14 +251,14 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
     // operations will still bring data into the cache and negate the benefits
     // of our nontemporal store.
     if (const DDEdge *const Conflict = hasConflictingAccess(
-          DepGraph.incoming(StoreAddr), Loop->getNestingLevel())) {
+          DepGraph.incoming(StoreRef), Loop->getNestingLevel())) {
       LLVM_DEBUG(dbgs() << "Located temporal incoming edge ");
       LLVM_DEBUG(Conflict->dump());
       continue;
     }
 
     // We're good to mark this as nontemporal.
-    StoreAddr->setMetadata(LLVMContext::MD_nontemporal, NT_metadata);
+    StoreRef->setMetadata(LLVMContext::MD_nontemporal, NT_metadata);
     LLVM_DEBUG(dbgs() << "No interference, marked as nontemporal\n");
     Converted = true;
   }

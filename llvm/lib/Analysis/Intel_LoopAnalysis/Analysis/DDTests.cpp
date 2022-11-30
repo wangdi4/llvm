@@ -5209,13 +5209,15 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       default:
         const HLLoop *MIVSrcLoop = SrcLoop;
         const HLLoop *MIVDstLoop = DstLoop;
-        const CanonExpr *SrcUBCE = SrcLoop->getUpperCanonExpr();
-        const CanonExpr *DstUBCE = DstLoop->getUpperCanonExpr();
+        const CanonExpr *SrcUBCE =
+            collectUpperBound(SrcLoop, Pair[SI].Src->getSrcType());
+        const CanonExpr *DstUBCE =
+            collectUpperBound(DstLoop, Pair[SI].Dst->getSrcType());
         int64_t UBDist;
 
         //  For fusion case, we pass in the Loop with the higher TC to handle
         //  checking for peeled iterations
-        if (SrcLevels == DstLevels &&
+        if (SrcLevels == DstLevels && SrcUBCE && DstUBCE &&
             (CanonExprUtils::getConstDistance(SrcUBCE, DstUBCE, &UBDist))) {
 
           if (UBDist > 0)
