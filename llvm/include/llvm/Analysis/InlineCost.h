@@ -41,11 +41,8 @@
 #include "llvm/IR/PassManager.h"
 #include <cassert>
 #include <climits>
-<<<<<<< HEAD
 #include <map>                                // INTEL
-=======
 #include <optional>
->>>>>>> 4c88bc5017d28ba219d6f6272bd654727cdc6452
 
 namespace llvm {
 class AssumptionCache;
