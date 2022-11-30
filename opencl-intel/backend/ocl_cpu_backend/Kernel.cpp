@@ -232,7 +232,7 @@ void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
     }
 
     // TODO:
-    // Should update UniformImplicitArgs->InternalLocalSize instead.
+    // Should update UniformImplicitArgs->LocalSize instead.
     // Should also notify SGRemapWICall pass about the work-group uniting so
     // that we can get rid of the following limitation in
     // VectorizationDimensionAnalysis::canSwitchDimension():

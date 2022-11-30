@@ -48,6 +48,7 @@ LogMessage::LogMessage(ELogLevel eLevel, ELogConfigField eConfig,
   m_psFormattedMsg = nullptr;
 
   CreateFormattedMessage();
+  VA_END(m_va);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +61,6 @@ LogMessage::~LogMessage() {
   } else if (m_psFormattedMsg) {
     delete[] m_psFormattedMsg;
   }
-  VA_END(m_va);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
