@@ -21,91 +21,93 @@
 ;    end do
 ;  end do
 ;  end subroutine
-
 ; CHECK: bb_new6:                                          ; preds = %alloca_0
-; CHECK-NEXT:  br label %FLOOR.PREHEAD[[V43:[0-9]*]]
+; CHECK-NEXT:  br label %FLOOR.PREHEAD[[V45:[0-9]*]]
 ;
-; CHECK-DAG: FLOOR.PREHEAD[[V43]]:                                  ; preds = %bb_new6
-; CHECK:  store i32 0, ptr %floor_iv29, align 4
-; CHECK:  br label %FLOOR.HEAD39
+; CHECK-DAG: FLOOR.PREHEAD[[V45]]:                                  ; preds = %bb_new6
+;   %floor.lb46 = load i32, ptr %floor_lb27, align 4
+; CHECK:  store i32 [[T:%.*]], ptr [[FIV31:%.*]], align 4
+; CHECK:  br label %FLOOR.HEAD[[V41:[0-9]*]]
 ;
-; CHECK-DAG: FLOOR.HEAD[[V39:[0-9]*]]:                                     ; preds = %FLOOR.LATCH[[V44:[0-9]*]], %FLOOR.PREHEAD[[V43]]
-;   %floor.iv40 = load i32, ptr %floor_iv29, align 4
-;   %floor.ub41 = load i32, ptr %floor_ub26, align 4
-;   %tile.loop.cond42 = icmp sle i32 %floor.iv40, %floor.ub41
-; CHECK:  br i1 %tile.loop.cond42, label %FLOOR.PREHEAD[[V21:[0-9]*]], label %omp.pdo.epilog5
+; CHECK-DAG: FLOOR.HEAD[[V41]]:                                     ; preds = %FLOOR.LATCH[[V47:[0-9]*]], %FLOOR.PREHEAD[[V45]]
+; CHECK:  [[FIVLD:%.*]] = load i32, ptr [[FIV31]], align 4
+; CHECK:  [[FUBLD:%.*]]  = load i32, ptr [[FUB28:%.*]], align 4
+; CHECK:  [[T:%.*]] = icmp sle i32 [[FIVLD]], [[FUBLD]]
+; CHECK:  br i1 [[T]], label %FLOOR.PREHEAD[[V22:[0-9]*]], label %omp.pdo.epilog5
 ;
-; CHECK-DAG:FLOOR.PREHEAD[[V21]]:                                  ; preds = %FLOOR.HEAD[[V39]]
-;   store i32 0, ptr %floor_iv7, align 4
-; CHECK:  br label %FLOOR.HEAD[[V17:[0-9]*]]
+; CHECK-DAG: FLOOR.PREHEAD[[V22]]:                                  ; preds = %FLOOR.HEAD[[V41]]
+; CHECK:  [[T:%.*]] = load i32, ptr [[FLB:%.*]], align 4
+; CHECK:  store i32 [[T]], ptr [[FIV8:%.*]], align 4
+; CHECK:  br label %FLOOR.HEAD[[V18:[0-9]*]]
 ;
-; CHECK-DAG:FLOOR.HEAD[[V17]]:                                     ; preds = %FLOOR.LATCH[[V22:[0-9]*]], %FLOOR.PREHEAD[[V21]]
-;   %floor.iv18 = load i32, ptr %floor_iv7, align 4
-;   %floor.ub19 = load i32, ptr %floor_ub4, align 4
-;   %tile.loop.cond20 = icmp sle i32 %floor.iv18, %floor.ub19
-; CHECK:  br i1 %tile.loop.cond20, label %DIR.OMP.TILE.1, label %FLOOR.LATCH[[V44]]
+; CHECK-DAG: FLOOR.HEAD[[V18]]:                                     ; preds = %FLOOR.LATCH[[V24:[0-9]*]], %FLOOR.PREHEAD[[V22]]
+; CHECK:  [[FIVLD:%.*]] = load i32, ptr [[FIV8]], align 4
+;   %floor.ub20 = load i32, ptr %floor_ub5, align 4
+; CHECK:  icmp sle i32 [[FIVLD]]
+; CHECK:  br i1 [[C:%.*]], label %DIR.OMP.TILE.1, label %FLOOR.LATCH[[V47]]
 ;
-; CHECK-DAG:FLOOR.LATCH[[V44]]:                                    ; preds = %FLOOR.HEAD[[V17]]
-;   %floor.iv45 = load i32, ptr %floor_iv29, align 4
-;   %inc46 = add i32 %floor.iv45, 1
-;   store i32 %inc46, ptr %floor_iv29, align 4
-; CHECK-DAG:  br label %FLOOR.HEAD[[V39]]
+; CHECK-DAG: FLOOR.LATCH[[V47]]:                                    ; preds = %FLOOR.HEAD[[V18]]
+; CHECK:  [[T:%.*]] = load i32, ptr [[FIV31]], align 4
+; CHECK:  [[V:%.*]] = add i32 [[T]], 1
+; CHECK:  store i32 [[V]], ptr [[FIV31]], align 4
+; CHECK:  br label %FLOOR.HEAD[[V41]]
 ;
-; CHECK-DAG:DIR.OMP.TILE.1:                                   ; preds = %FLOOR.HEAD[[V17]]
+; CHECK-DAG: DIR.OMP.TILE.1:                                   ; preds = %FLOOR.HEAD[[V18]]
 ;   %omp.pdo.norm.lb_fetch.1 = load i32, ptr %omp.pdo.norm.lb2, align 4, !llfort.type_idx !5
 ;   store i32 %omp.pdo.norm.lb_fetch.1, ptr %omp.pdo.norm.iv1, align 4
-;   %norm.floor.iv.val32 = load i32, ptr %floor_iv29, align 4
-;   %tile.lb33 = mul i32 4, %norm.floor.iv.val32
-;   store i32 %tile.lb33, ptr %omp.pdo.norm.iv1, align 4
-;   %norm.orig.ub.val34 = load i32, ptr %orig_ub31, align 4
-;   %add35 = add i32 %tile.lb33, 4
-;   %dec36 = sub i32 %add35, 1
-;   %cond37 = icmp sle i32 %dec36, %norm.orig.ub.val34
-;   %tile.ub38 = select i1 %cond37, i32 %dec36, i32 %norm.orig.ub.val34
-;   store i32 %tile.ub38, ptr %omp.pdo.norm.ub3, align 4
+;   %norm.floor.iv.val34 = load i32, ptr %floor_iv31, align 4
+;   %tile.lb35 = mul i32 4, %norm.floor.iv.val34
+;   store i32 %tile.lb35, ptr %omp.pdo.norm.iv1, align 4
+;   %norm.orig.ub.val36 = load i32, ptr %orig_ub33, align 4
+;   %add37 = add i32 %tile.lb35, 4
+;   %dec38 = sub i32 %add37, 1
+;   %cond39 = icmp sle i32 %dec38, %norm.orig.ub.val36
+;   %tile.ub40 = select i1 %cond39, i32 %dec38, i32 %norm.orig.ub.val36
+;   store i32 %tile.ub40, ptr %omp.pdo.norm.ub3, align 4
 ; CHECK:  br label %omp.pdo.cond3
 ;
 ; CHECK-DAG: omp.pdo.cond3:                                    ; preds = %DIR.OMP.END.TILE.3, %DIR.OMP.TILE.1
 ;   %omp.pdo.norm.iv_fetch.2 = load i32, ptr %omp.pdo.norm.iv1, align 4, !llfort.type_idx !5
 ;   %omp.pdo.norm.ub_fetch.3 = load i32, ptr %omp.pdo.norm.ub3, align 4, !llfort.type_idx !5
 ;   %rel.1 = icmp sle i32 %omp.pdo.norm.iv_fetch.2, %omp.pdo.norm.ub_fetch.3
-; CHEK:  br i1 %rel.1, label %omp.pdo.body4, label %FLOOR.LATCH[[V22]]
+; CHECK:  br i1 %rel.1, label %omp.pdo.body4, label %FLOOR.LATCH[[V24]]
 ;
-; CHECK: FLOOR.LATCH[[V22]]:                                    ; preds = %omp.pdo.cond3
-;   %floor.iv23 = load i32, ptr %floor_iv7, align 4
-;   %inc24 = add i32 %floor.iv23, 1
-;   store i32 %inc24, ptr %floor_iv7, align 4
-; CHECK:  br label %FLOOR.HEAD[[V17]]
+; CHECK: FLOOR.LATCH[[V24]]:                                    ; preds = %omp.pdo.cond3
+;   %floor.iv25 = load i32, ptr [[FIV8]], align 4
+;   %inc26 = add i32 %floor.iv25, 1
+;   store i32 %inc26, ptr [[FIV8]], align 4
+; CHECK:  br label %FLOOR.HEAD
 ;
-; CHECK: omp.pdo.body4:                                    ; preds = %omp.pdo.cond3
+; omp.pdo.body4:                                    ; preds = %omp.pdo.cond3
 ;   %omp.pdo.norm.iv_fetch.4 = load i32, ptr %omp.pdo.norm.iv1, align 4, !llfort.type_idx !5
 ;   %add.2 = add nsw i32 %omp.pdo.norm.iv_fetch.4, 1
 ;   store i32 %add.2, ptr %"test_$I", align 8
-; CHECK:  br label %bb_new12
+;   br label %bb_new12
 ;
-; CHECK-DAG:bb_new12:                                         ; preds = %omp.pdo.body4
-; CHECK:  br label %FLOOR.PREHEAD
+; bb_new12:                                         ; preds = %omp.pdo.body4
+; CHECK-DAG:  br label %FLOOR.PREHEAD
 ;
-; CHECK-DAG:FLOOR.PREHEAD:                                    ; preds = %bb_new12
-;   store i32 0, ptr %floor_iv, align 4
-;   %norm.floor.iv.val10 = load i32, ptr %floor_iv7, align 4
-;   %tile.lb11 = mul i32 2, %norm.floor.iv.val10
-;   store i32 %tile.lb11, ptr %floor_iv, align 4
-;   %norm.orig.ub.val12 = load i32, ptr %orig_ub9, align 4
-;   %add13 = add i32 %tile.lb11, 2
-;   %dec14 = sub i32 %add13, 1
-;   %cond15 = icmp sle i32 %dec14, %norm.orig.ub.val12
-;   %tile.ub16 = select i1 %cond15, i32 %dec14, i32 %norm.orig.ub.val12
-;   store i32 %tile.ub16, ptr %floor_ub, align 4
-; CHECK:  br label %FLOOR.HEAD
+; CHECK-DAG: FLOOR.PREHEAD:                                    ; preds = %bb_new12
+;   %floor.lb2 = load i32, ptr %floor_lb, align 4
+;   store i32 %floor.lb2, ptr %floor_iv, align 4
+; CHECK:  %norm.floor.iv.val[[V11:[0-9]*]] = load i32, ptr [[FIV8]], align 4
+;   %tile.lb12 = mul i32 2, %norm.floor.iv.val[[V11]]
+;   store i32 %tile.lb12, ptr %floor_iv, align 4
+;   %norm.orig.ub.val13 = load i32, ptr %orig_ub10, align 4
+;   %add14 = add i32 %tile.lb12, 2
+;   %dec15 = sub i32 %add14, 1
+;   %cond16 = icmp sle i32 %dec15, %norm.orig.ub.val13
+;   %tile.ub17 = select i1 %cond16, i32 %dec15, i32 %norm.orig.ub.val13
+;   store i32 %tile.ub17, ptr %floor_ub, align 4
+; CHECK: br label %FLOOR.HEAD
 ;
-; CHECK-DAG:FLOOR.HEAD:                                       ; preds = %FLOOR.LATCH, %FLOOR.PREHEAD
+; CHECK-DAG: FLOOR.HEAD:                                       ; preds = %FLOOR.LATCH, %FLOOR.PREHEAD
 ;   %floor.iv = load i32, ptr %floor_iv, align 4
 ;   %floor.ub = load i32, ptr %floor_ub, align 4
 ;   %tile.loop.cond = icmp sle i32 %floor.iv, %floor.ub
-; CHECK:  br i1 %tile.loop.cond, label %DIR.OMP.TILE.2, label %omp.pdo.epilog11
+;   br i1 %tile.loop.cond, label %DIR.OMP.TILE.2, label %omp.pdo.epilog11
 ;
-; CHECK-DAG:DIR.OMP.TILE.2:                                   ; preds = %FLOOR.HEAD
+; DIR.OMP.TILE.2:                                   ; preds = %FLOOR.HEAD
 ;   %omp.pdo.norm.lb_fetch.5 = load i32, ptr %omp.pdo.norm.lb, align 4, !llfort.type_idx !5
 ;   store i32 %omp.pdo.norm.lb_fetch.5, ptr %omp.pdo.norm.iv, align 4
 ;   %norm.floor.iv.val = load i32, ptr %floor_iv, align 4
@@ -117,21 +119,21 @@
 ;   %cond = icmp sle i32 %dec, %norm.orig.ub.val1
 ;   %tile.ub = select i1 %cond, i32 %dec, i32 %norm.orig.ub.val1
 ;   store i32 %tile.ub, ptr %omp.pdo.norm.ub, align 4
-; CHECK:  br label %omp.pdo.cond9
+;   br label %omp.pdo.cond9
 ;
-; CHECK-DAG: omp.pdo.cond9:                                    ; preds = %omp.pdo.body10, %DIR.OMP.TILE.2
+; CHECK: omp.pdo.cond9:                                    ; preds = %omp.pdo.body10, %DIR.OMP.TILE.2
 ;   %omp.pdo.norm.iv_fetch.6 = load i32, ptr %omp.pdo.norm.iv, align 4, !llfort.type_idx !5
 ;   %omp.pdo.norm.ub_fetch.7 = load i32, ptr %omp.pdo.norm.ub, align 4, !llfort.type_idx !5
 ;   %rel.2 = icmp sle i32 %omp.pdo.norm.iv_fetch.6, %omp.pdo.norm.ub_fetch.7
-; CHECK:  br i1 %rel.2, label %omp.pdo.body10, label %FLOOR.LATCH
+; CHECK:  br i1 [[C:%.*]], label %omp.pdo.body10, label %FLOOR.LATCH
 ;
-; CHECK-DAG: FLOOR.LATCH:                                      ; preds = %omp.pdo.cond9
-;   %floor.iv2 = load i32, ptr %floor_iv, align 4
-;   %inc = add i32 %floor.iv2, 1
+; CHECK: FLOOR.LATCH:                                      ; preds = %omp.pdo.cond9
+;   %floor.iv3 = load i32, ptr %floor_iv, align 4
+;   %inc = add i32 %floor.iv3, 1
 ;   store i32 %inc, ptr %floor_iv, align 4
 ; CHECK:  br label %FLOOR.HEAD
 ;
-; CHECK-DAG: omp.pdo.body10:                                   ; preds = %omp.pdo.cond9
+; CHECK: omp.pdo.body10:                                   ; preds = %omp.pdo.cond9
 ;   %omp.pdo.norm.iv_fetch.8 = load i32, ptr %omp.pdo.norm.iv, align 4, !llfort.type_idx !5
 ;   %add.4 = add nsw i32 %omp.pdo.norm.iv_fetch.8, 1
 ;   store i32 %add.4, ptr %"test_$J", align 8
@@ -143,6 +145,7 @@
 ;   %add.6 = add nsw i32 %omp.pdo.norm.iv_fetch.10, 1
 ;   store i32 %add.6, ptr %omp.pdo.norm.iv, align 4
 ; CHECK:  br label %omp.pdo.cond9
+
 
 source_filename = "tile2__tile1.f90"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
