@@ -2083,7 +2083,7 @@ void LinkerDriver::doGNULTOLinking(
     fatal("ExecuteAndWait failed: " + newCMD);
 
   // Load the generated object
-  Optional<MemoryBufferRef> buffer = readFile(gNUOutputObj.str().str());
+  std::optional<MemoryBufferRef> buffer = readFile(gNUOutputObj.str().str());
   if (!buffer.has_value())
     fatal("Output from GNU LTO not created: " + gNUOutputObj.str());
   MemoryBufferRef mbref = *buffer;
