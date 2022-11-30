@@ -8494,8 +8494,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   // Disable Intel proprietary optimizations for the .bc generation during
-  // and offload compilation.
-  if (JA.isHostOffloading(Action::OFK_OpenMP) && isa<CompileJobAction>(JA))
+  // an offload compilation.
+  if ((isa<CompileJobAction>(JA) && JA.isHostOffloading(Action::OFK_OpenMP)) ||
+      (IsSYCLOffloadDevice && Triple.isAMDGCN() && isa<AssembleJobAction>(JA)))
     CmdArgs.push_back("-disable-intel-proprietary-opts");
 #endif // INTEL_CUSTOMIZATION
 
