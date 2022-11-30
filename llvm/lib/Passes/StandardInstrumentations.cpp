@@ -903,28 +903,40 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void OptBisectInstrumentation::registerCallbacks(
+=======
+bool OptPassGateInstrumentation::shouldRun(StringRef PassName, Any IR) {
+  if (isIgnored(PassName))
+    return true;
+
+  bool ShouldRun =
+      Context.getOptPassGate().shouldRunPass(PassName, getIRName(IR));
+  if (!ShouldRun && !this->HasWrittenIR && !OptBisectPrintIRPath.empty()) {
+    // FIXME: print IR if limit is higher than number of opt-bisect
+    // invocations
+    this->HasWrittenIR = true;
+    const Module *M = unwrapModule(IR, /*Force=*/true);
+    assert((M && &M->getContext() == &Context) && "Missing/Mismatching Module");
+    std::error_code EC;
+    raw_fd_ostream OS(OptBisectPrintIRPath, EC);
+    if (EC)
+      report_fatal_error(errorCodeToError(EC));
+    M->print(OS, nullptr);
+  }
+  return ShouldRun;
+}
+
+void OptPassGateInstrumentation::registerCallbacks(
+>>>>>>> 721f975d3518403502f770ce11f3f02509b30c5b
     PassInstrumentationCallbacks &PIC) {
-  if (!getOptBisector().isEnabled())
+  OptPassGate &PassGate = Context.getOptPassGate();
+  if (!PassGate.isEnabled())
     return;
-  PIC.registerShouldRunOptionalPassCallback([this](StringRef PassID, Any IR) {
-    if (isIgnored(PassID))
-      return true;
-    bool ShouldRun = getOptBisector().checkPass(PassID, getIRName(IR));
-    if (!ShouldRun && !this->HasWrittenIR && !OptBisectPrintIRPath.empty()) {
-      // FIXME: print IR if limit is higher than number of opt-bisect
-      // invocations
-      this->HasWrittenIR = true;
-      const Module *M = unwrapModule(IR, /*Force=*/true);
-      assert(M && "expected Module");
-      std::error_code EC;
-      raw_fd_ostream OS(OptBisectPrintIRPath, EC);
-      if (EC)
-        report_fatal_error(errorCodeToError(EC));
-      M->print(OS, nullptr);
-    }
-    return ShouldRun;
+
+  PIC.registerShouldRunOptionalPassCallback([this](StringRef PassName, Any IR) {
+    return this->shouldRun(PassName, IR);
   });
 }
 
@@ -2203,6 +2215,7 @@ void DotCfgChangeReporter::registerCallbacks(
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 StandardInstrumentations::StandardInstrumentations(
+<<<<<<< HEAD
     bool DebugLogging, bool VerifyEach, PrintPassOptions PrintPassOpts)
     : PrintPass(DebugLogging, PrintPassOpts), OptNone(DebugLogging),
 #if INTEL_CUSTOMIZATION
@@ -2211,6 +2224,13 @@ StandardInstrumentations::StandardInstrumentations(
     // in release builds. The upstream code in the "!defined(NDEBUG)"
     // block should be accepted when it changes.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+=======
+    LLVMContext &Context, bool DebugLogging, bool VerifyEach,
+    PrintPassOptions PrintPassOpts)
+    : PrintPass(DebugLogging, PrintPassOpts),
+      OptNone(DebugLogging),
+      OptPassGate(Context),
+>>>>>>> 721f975d3518403502f770ce11f3f02509b30c5b
       PrintChangedIR(PrintChanged == ChangePrinter::Verbose),
       PrintChangedDiff(PrintChanged == ChangePrinter::DiffVerbose ||
                            PrintChanged == ChangePrinter::ColourDiffVerbose,
@@ -2281,7 +2301,7 @@ void StandardInstrumentations::registerCallbacks(
   TimePasses.registerCallbacks(PIC);
   Limiter.registerCallbacks(PIC);   // INTEL
   OptNone.registerCallbacks(PIC);
-  OptBisect.registerCallbacks(PIC);
+  OptPassGate.registerCallbacks(PIC);
   if (FAM)
     PreservedCFGChecker.registerCallbacks(PIC, *FAM);
   PrintChangedIR.registerCallbacks(PIC);
