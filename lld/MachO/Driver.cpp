@@ -99,7 +99,7 @@ static HeaderFileType getOutputType(const InputArgList &args) {
 }
 
 static DenseMap<CachedHashStringRef, StringRef> resolvedLibraries;
-static Optional<StringRef> findLibrary(StringRef name) {
+static std::optional<StringRef> findLibrary(StringRef name) {
   CachedHashStringRef key(name);
   auto entry = resolvedLibraries.find(key);
   if (entry != resolvedLibraries.end())
@@ -107,7 +107,7 @@ static Optional<StringRef> findLibrary(StringRef name) {
 
   auto doFind = [&] {
     if (config->searchDylibsFirst) {
-      if (Optional<StringRef> path = findPathCombination(
+      if (std::optional<StringRef> path = findPathCombination(
               "lib" + name, config->librarySearchPaths, {".tbd", ".dylib"}))
         return path;
       return findPathCombination("lib" + name, config->librarySearchPaths,
@@ -117,7 +117,7 @@ static Optional<StringRef> findLibrary(StringRef name) {
                                {".tbd", ".dylib", ".a"});
   };
 
-  Optional<StringRef> path = doFind();
+  std::optional<StringRef> path = doFind();
   if (path)
     resolvedLibraries[key] = *path;
 
@@ -125,7 +125,7 @@ static Optional<StringRef> findLibrary(StringRef name) {
 }
 
 static DenseMap<CachedHashStringRef, StringRef> resolvedFrameworks;
-static Optional<StringRef> findFramework(StringRef name) {
+static std::optional<StringRef> findFramework(StringRef name) {
   CachedHashStringRef key(name);
   auto entry = resolvedFrameworks.find(key);
   if (entry != resolvedFrameworks.end())
@@ -151,7 +151,7 @@ static Optional<StringRef> findFramework(StringRef name) {
       // Suffix lookup failed, fall through to the no-suffix case.
     }
 
-    if (Optional<StringRef> path = resolveDylibPath(symlink.str()))
+    if (std::optional<StringRef> path = resolveDylibPath(symlink.str()))
       return resolvedFrameworks[key] = *path;
   }
   return {};
@@ -285,7 +285,7 @@ static InputFile *addFile(StringRef path, LoadType loadType,
                           bool isLazy = false, bool isExplicit = true,
                           bool isBundleLoader = false,
                           bool isForceHidden = false) {
-  Optional<MemoryBufferRef> buffer = readFile(path);
+  std::optional<MemoryBufferRef> buffer = readFile(path);
   if (!buffer)
     return nullptr;
   MemoryBufferRef mbref = *buffer;
@@ -326,7 +326,7 @@ static InputFile *addFile(StringRef path, LoadType loadType,
                                path::filename(path).startswith("libswift");
     if ((isCommandLineLoad && config->allLoad) ||
         loadType == LoadType::CommandLineForce || isLCLinkerForceLoad) {
-      if (Optional<MemoryBufferRef> buffer = readFile(path)) {
+      if (std::optional<MemoryBufferRef> buffer = readFile(path)) {
         Error e = Error::success();
         for (const object::Archive::Child &c : file->getArchive().children(e)) {
           StringRef reason;
@@ -356,7 +356,7 @@ static InputFile *addFile(StringRef path, LoadType loadType,
 
       // TODO: no need to look for ObjC sections for a given archive member if
       // we already found that it contains an ObjC symbol.
-      if (Optional<MemoryBufferRef> buffer = readFile(path)) {
+      if (std::optional<MemoryBufferRef> buffer = readFile(path)) {
         Error e = Error::success();
         for (const object::Archive::Child &c : file->getArchive().children(e)) {
           Expected<MemoryBufferRef> mb = c.getMemoryBufferRef();
@@ -426,7 +426,7 @@ static InputFile *addFile(StringRef path, LoadType loadType,
 static void addLibrary(StringRef name, bool isNeeded, bool isWeak,
                        bool isReexport, bool isHidden, bool isExplicit,
                        LoadType loadType) {
-  if (Optional<StringRef> path = findLibrary(name)) {
+  if (std::optional<StringRef> path = findLibrary(name)) {
     if (auto *dylibFile = dyn_cast_or_null<DylibFile>(
             addFile(*path, loadType, /*isLazy=*/false, isExplicit,
                     /*isBundleLoader=*/false, isHidden))) {
@@ -447,7 +447,7 @@ static void addLibrary(StringRef name, bool isNeeded, bool isWeak,
 static DenseSet<StringRef> loadedObjectFrameworks;
 static void addFramework(StringRef name, bool isNeeded, bool isWeak,
                          bool isReexport, bool isExplicit, LoadType loadType) {
-  if (Optional<StringRef> path = findFramework(name)) {
+  if (std::optional<StringRef> path = findFramework(name)) {
     if (loadedObjectFrameworks.contains(*path))
       return;
 
@@ -513,7 +513,7 @@ void macho::parseLCLinkerOption(InputFile *f, unsigned argc, StringRef data) {
 }
 
 static void addFileList(StringRef path, bool isLazy) {
-  Optional<MemoryBufferRef> buffer = readFile(path);
+  std::optional<MemoryBufferRef> buffer = readFile(path);
   if (!buffer)
     return;
   MemoryBufferRef mbref = *buffer;
@@ -1054,7 +1054,7 @@ bool SymbolPatterns::match(StringRef symbolName) const {
 static void parseSymbolPatternsFile(const Arg *arg,
                                     SymbolPatterns &symbolPatterns) {
   StringRef path = arg->getValue();
-  Optional<MemoryBufferRef> buffer = readFile(path);
+  std::optional<MemoryBufferRef> buffer = readFile(path);
   if (!buffer) {
     error("Could not read symbol file: " + path);
     return;
@@ -1842,7 +1842,7 @@ bool macho::link(ArrayRef<const char *> argsArr, llvm::raw_ostream &stdoutOS,
       StringRef segName = arg->getValue(0);
       StringRef sectName = arg->getValue(1);
       StringRef fileName = arg->getValue(2);
-      Optional<MemoryBufferRef> buffer = readFile(fileName);
+      std::optional<MemoryBufferRef> buffer = readFile(fileName);
       if (buffer)
         inputFiles.insert(make<OpaqueFile>(*buffer, segName, sectName));
     }

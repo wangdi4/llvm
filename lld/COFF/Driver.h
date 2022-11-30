@@ -31,7 +31,6 @@
 #include "SymbolTable.h"
 #include "lld/Common/LLVM.h"
 #include "lld/Common/Reproduce.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Object/Archive.h"
@@ -42,6 +41,7 @@
 #include "llvm/Support/TarWriter.h"
 #include "llvm/WindowsDriver/MSVCPaths.h"
 #include <memory>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -51,7 +51,7 @@ extern std::unique_ptr<class LinkerDriver> driver;
 
 using llvm::COFF::MachineTypes;
 using llvm::COFF::WindowsSubsystem;
-using llvm::Optional;
+using std::optional;
 
 class COFFOptTable : public llvm::opt::OptTable {
 public:
@@ -121,8 +121,8 @@ public:
 
 private:
   // Searches a file from search paths.
-  Optional<StringRef> findFile(StringRef filename);
-  Optional<StringRef> findLib(StringRef filename);
+  std::optional<StringRef> findFile(StringRef filename);
+  std::optional<StringRef> findLib(StringRef filename);
   StringRef doFindFile(StringRef filename);
   StringRef doFindLib(StringRef filename);
   StringRef doFindLibMinGW(StringRef filename);

@@ -193,7 +193,7 @@ struct Configuration {
   // they can't easily fix them.
   llvm::StringSet<> ignoreAutoLinkOptions;
   PlatformInfo platformInfo;
-  llvm::Optional<PlatformInfo> secondaryPlatformInfo;
+  std::optional<PlatformInfo> secondaryPlatformInfo;
   NamespaceKind namespaceKind = NamespaceKind::twolevel;
   UndefinedSymbolTreatment undefinedSymbolTreatment =
       UndefinedSymbolTreatment::error;
