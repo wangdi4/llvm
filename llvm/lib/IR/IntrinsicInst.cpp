@@ -47,6 +47,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Statepoint.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -769,7 +770,7 @@ static ICmpInst::Predicate getIntPredicateFromMD(const Value *Op) {
 
 CmpInst::Predicate VPCmpIntrinsic::getPredicate() const {
   bool IsFP = true;
-  Optional<unsigned> CCArgIdx;
+  std::optional<unsigned> CCArgIdx;
   switch (getIntrinsicID()) {
   default:
     break;

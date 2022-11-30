@@ -53,6 +53,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <optional>
 #include <utility>
 using namespace llvm;
 
@@ -2088,7 +2089,7 @@ class IRLinker {
 
   /// The Error encountered during materialization. We use an Optional here to
   /// avoid needing to manage an unconsumed success value.
-  Optional<Error> FoundError;
+  std::optional<Error> FoundError;
   void setError(Error E) {
     if (E)
       FoundError = std::move(E);
