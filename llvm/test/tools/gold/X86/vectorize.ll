@@ -4,7 +4,7 @@
 ; RUN: llvm-as %s -o %t.o
 ; INTEL - added loopopt in pipeline.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:    --plugin-opt=save-temps --plugin-opt="-loopopt=1" -shared %t.o -o %t2.o
+; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers --plugin-opt="-loopopt=1" -shared %t.o -o %t2.o
 ; RUN: llvm-dis %t2.o.0.4.opt.bc -o - | FileCheck %s
 
 ; test that the vectorizer is run.
@@ -13,11 +13,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-<<<<<<< HEAD
-define void @f(float* nocapture %x, i64 %n) "loopopt-pipeline"="full" {
-=======
-define void @f(ptr nocapture %x, i64 %n) {
->>>>>>> a273c40820f78d8b08e411897eee84dbda983488
+define void @f(ptr nocapture %x, i64 %n) "loopopt-pipeline"="full" {
 bb:
   br label %bb1
 
