@@ -1,4 +1,4 @@
-; RUN: opt -S -jump-threading -jump-thread-loop-header=false %s | FileCheck %s ;INTEL
+; RUN: opt -S -passes=jump-threading -jump-thread-loop-header=false %s | FileCheck %s ;INTEL
 
 ; Value of predicate known on all inputs (trivial case)
 ; Note: InstCombine/EarlyCSE would also get this case
