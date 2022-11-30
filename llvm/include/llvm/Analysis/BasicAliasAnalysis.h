@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace llvm {
@@ -259,8 +260,8 @@ BasicAAResult createLegacyPMBasicAAResult(Pass &P, Function &F);
 /// they live long enough to be queried, but we re-use them each time.
 class LegacyAARGetter {
   Pass &P;
-  Optional<BasicAAResult> BAR;
-  Optional<AAResults> AAR;
+  std::optional<BasicAAResult> BAR;
+  std::optional<AAResults> AAR;
 
 public:
   LegacyAARGetter(Pass &P) : P(P) {}
