@@ -227,6 +227,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   SmallVector<Value *, 4> LocalSize;
   unsigned PtrSizeInBytes = M->getDataLayout().getPointerSize();
   ImplicitArgsUtils::initImplicitArgProps(PtrSizeInBytes);
+  uint64_t SLMSizeInBytes =
+      KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
   for (unsigned int I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     Value *Arg = nullptr;
     if (!UseTLSGlobals)
@@ -241,10 +243,6 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
            "Invalid implicit argument index!");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
-      uint64_t SLMSizeInBytes =
-          KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
-      // TODO: when SLMSizeInBytes equal 0, we might want to set dummy
-      // address for debugging!
       if (SLMSizeInBytes == 0) { // no need to create of pad this buffer.
         Arg = Constant::getNullValue(PointerType::get(I8Ty, 3));
       } else {
@@ -382,8 +380,10 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
     if (UseTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
-      GlobalVariable *GV = CompilationUtils::getTLSGlobal(M, I);
-      Builder.CreateAlignedStore(Arg, GV, DL.getABITypeAlign(Arg->getType()));
+      if (!(I == ImplicitArgsUtils::IA_SLM_BUFFER && SLMSizeInBytes == 0)) {
+        GlobalVariable *GV = CompilationUtils::getTLSGlobal(M, I);
+        Builder.CreateAlignedStore(Arg, GV, DL.getABITypeAlign(Arg->getType()));
+      }
     } else {
       assert(Arg && "No value was created for this implicit argument!");
       Arg->setName(ImplicitArgsUtils::getArgName(I));

@@ -137,7 +137,6 @@ attributes #3 = { convergent }
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i8, i8* %UniformArgs, i32 8
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} bitcast i8*
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i32
-; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store i8 addrspace(3)* null, i8 addrspace(3)** @pLocalMemBase, align 8
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i8, i8* %UniformArgs, i32 16
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} bitcast i8*
 ; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* {{.*}}, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }** @pWorkDim, align 8

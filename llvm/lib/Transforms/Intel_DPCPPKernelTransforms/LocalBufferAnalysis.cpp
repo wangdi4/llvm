@@ -34,10 +34,6 @@ public:
   using TUsedLocals = LocalBufferInfo::TUsedLocals;
   using TUsedLocalsMap = LocalBufferInfo::TUsedLocalsMap;
 
-  const TUsedLocals &getDirectLocals(Function *F) {
-    return DirectLocalUseMap[F];
-  }
-
   TUsedLocalsMap &getDirectLocalsMap() { return DirectLocalUseMap; }
 
   void computeLocalsSizeOffset();
@@ -238,11 +234,6 @@ void LocalBufferInfo::print(raw_ostream &OS) { return Impl->print(OS); }
 
 LocalBufferInfo::TUsedLocalsMap &LocalBufferInfo::getDirectLocalsMap() {
   return Impl->getDirectLocalsMap();
-}
-
-const LocalBufferInfo::TUsedLocals &
-LocalBufferInfo::getDirectLocals(Function *F) {
-  return Impl->getDirectLocals(F);
 }
 
 void LocalBufferInfo::computeSize() { Impl->computeLocalsSizeOffset(); }

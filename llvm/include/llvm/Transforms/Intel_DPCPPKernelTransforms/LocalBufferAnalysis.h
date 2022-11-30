@@ -41,10 +41,6 @@ public:
   /// uses directly.
   TUsedLocalsMap &getDirectLocalsMap();
 
-  /// Returns the set of local values used directly by the given function
-  /// \param F given function.
-  const TUsedLocals &getDirectLocals(Function *F);
-
   /// Compute size of the combined local buffer and offset of each local
   /// variable.
   void computeSize();

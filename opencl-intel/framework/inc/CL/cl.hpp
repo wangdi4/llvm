@@ -4567,7 +4567,7 @@ public:
 
     ::size_t *lengths = (::size_t *)alloca(numDevices * sizeof(::size_t));
     const unsigned char **images = (const unsigned char **)alloca(
-        numDevices * sizeof(const unsigned char **));
+        numDevices * sizeof(const unsigned char *));
 
     for (::size_t i = 0; i < numDevices; ++i) {
       images[i] = (const unsigned char *)binaries[i].first;

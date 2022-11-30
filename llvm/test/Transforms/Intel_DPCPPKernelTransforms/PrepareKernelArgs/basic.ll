@@ -79,5 +79,5 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 ; DEBUGIFY-NOT: WARNING
 
 ; DEBUGIFY-TLS-NOT: WARNING
-; DEBUGIFY-TLS-COUNT-48: WARNING: Instruction with empty DebugLoc in function A
+; DEBUGIFY-TLS-COUNT-47: WARNING: Instruction with empty DebugLoc in function A
 ; DEBUGIFY-TLS-NOT: WARNING
