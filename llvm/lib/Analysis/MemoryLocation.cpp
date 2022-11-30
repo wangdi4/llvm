@@ -31,12 +31,8 @@
 #include "llvm/IR/IntrinsicsARM.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-<<<<<<< HEAD
 #include "llvm/IR/Operator.h"  // INTEL
-
-=======
 #include <optional>
->>>>>>> 2a324cb261a86a1de4a16a392ac46783ab933e2f
 using namespace llvm;
 
 void LocationSize::print(raw_ostream &OS) const {
