@@ -4,29 +4,29 @@
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    --shared \
-; RUN:    --plugin-opt=save-temps %t.o -o %t-out
+; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers %t.o -o %t-out
 ; RUN: llvm-readobj -r %t-out.lto.o | FileCheck %s --check-prefix=PIC
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    --export-dynamic --noinhibit-exec -pie \
-; RUN:    --plugin-opt=save-temps %t.o -o %t-out
+; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers %t.o -o %t-out
 ; RUN: llvm-readobj -r %t-out.lto.o | FileCheck %s --check-prefix=PIC
 
 ;; PIC source.
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    --shared \
-; RUN:    --plugin-opt=save-temps %t.o -o %t-out
+; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers %t.o -o %t-out
 ; RUN: llvm-readobj -r %t-out.lto.o | FileCheck %s --check-prefix=PIC
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    --export-dynamic --noinhibit-exec -pie \
-; RUN:    --plugin-opt=save-temps %t.o -o %t-out
+; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers %t.o -o %t-out
 ; RUN: llvm-readobj -r %t-out.lto.o | FileCheck %s --check-prefix=PIC
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -r \
-; RUN:    --plugin-opt=save-temps %t.o -o %t-out
+; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers %t.o -o %t-out
 ; RUN: llvm-readobj -r %t-out.lto.o | FileCheck %s --check-prefix=PIC
 
 
@@ -37,7 +37,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @foo = external global i32
 define i32 @main() {
-  %t = load i32, i32* @foo
+  %t = load i32, ptr @foo
   ret i32 %t
 }
 
