@@ -187,7 +187,7 @@ static bool isDereferenceableForAllocaSize(const Value *V, const AllocaInst *AI,
 }
 
 static Instruction *simplifyAllocaArraySize(InstCombinerImpl &IC,
-                                            AllocaInst &AI) {
+                                            AllocaInst &AI, DominatorTree &DT) {
   // Check for array size of 1 (scalar allocation).
   if (!AI.isArrayAllocation()) {
     // i32 1 is the canonical array size for scalar allocations.
@@ -205,6 +205,8 @@ static Instruction *simplifyAllocaArraySize(InstCombinerImpl &IC,
       AllocaInst *New = IC.Builder.CreateAlloca(NewTy, AI.getAddressSpace(),
                                                 nullptr, AI.getName());
       New->setAlignment(AI.getAlign());
+
+      replaceAllDbgUsesWith(AI, *New, *New, DT);
 
       // Scan to the end of the allocation instructions, to skip over a block of
       // allocas if possible...also skip interleaved debug info
@@ -374,7 +376,7 @@ void PointerReplacer::replacePointer(Instruction &I, Value *V) {
 }
 
 Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
-  if (auto *I = simplifyAllocaArraySize(*this, AI))
+  if (auto *I = simplifyAllocaArraySize(*this, AI, DT))
     return I;
 
   if (AI.getAllocatedType()->isSized()) {

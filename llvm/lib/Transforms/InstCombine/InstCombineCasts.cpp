@@ -184,6 +184,8 @@ Instruction *InstCombinerImpl::PromoteCastOfAllocation(BitCastInst &CI,
   New->setMetadata(LLVMContext::MD_DIAssignID,
                    AI.getMetadata(LLVMContext::MD_DIAssignID));
 
+  replaceAllDbgUsesWith(AI, *New, *New, DT);
+
   // If the allocation has multiple real uses, insert a cast and change all
   // things that used it to use the new cast.  This will also hack on CI, but it
   // will die soon.
