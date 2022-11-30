@@ -41,7 +41,11 @@
 #include "llvm/IR/PassManager.h"
 #include <cassert>
 #include <climits>
+<<<<<<< HEAD
 #include <map>                                // INTEL
+=======
+#include <optional>
+>>>>>>> 4c88bc5017d28ba219d6f6272bd654727cdc6452
 
 namespace llvm {
 class AssumptionCache;
@@ -518,13 +522,13 @@ struct InlineParams {
   Optional<int> ColdCallSiteThreshold;
 
   /// Compute inline cost even when the cost has exceeded the threshold.
-  Optional<bool> ComputeFullInlineCost;
+  std::optional<bool> ComputeFullInlineCost;
 
   /// Indicate whether we should allow inline deferral.
-  Optional<bool> EnableDeferral;
+  std::optional<bool> EnableDeferral;
 
   /// Indicate whether we allow inlining for recursive call.
-  Optional<bool> AllowRecursiveCall = false;
+  std::optional<bool> AllowRecursiveCall = false;
 };
 
 Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
