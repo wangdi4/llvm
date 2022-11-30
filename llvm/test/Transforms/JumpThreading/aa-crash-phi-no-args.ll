@@ -2,16 +2,14 @@
 ; RUN: opt -S -passes=jump-threading -aa-pipeline basic-aa < %s | FileCheck %s
 
 define void @foo(ptr %arg1, ptr %arg2) {
+; INTEL_CUSTOMIZATION
+; JT multi-block in xmain can do a much better job than llorg.
 ; CHECK-LABEL: @foo(
-; CHECK-NEXT:  bb:
-; CHECK-NEXT:    br label [[BB1:%.*]]
-; CHECK:       bb1:
-; CHECK-NEXT:    [[TMP:%.*]] = phi i1 [ false, [[BB24:%.*]] ], [ true, [[BB:%.*]] ]
-; CHECK-NEXT:    br i1 [[TMP]], label [[BB8:%.*]], label [[BB24]]
-; CHECK:       bb8:
+; CHECK-NEXT:  bb8:
 ; CHECK-NEXT:    ret void
-; CHECK:       bb24:
-; CHECK-NEXT:    br label [[BB1]]
+; CHECK:       bb1:
+; CHECK-NEXT:    br label [[BB1:%.*]]
+; end INTEL_CUSTOMIZATION
 ;
 bb:
   br label %bb1

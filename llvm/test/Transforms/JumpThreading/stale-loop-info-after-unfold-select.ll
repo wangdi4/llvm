@@ -6,16 +6,19 @@
 
 define dso_local ptr @func2(ptr %this, ptr) {
 ; CHECK-LABEL: @func2(
-; CHECK-NEXT:  entry:
-; CHECK-NEXT:    br label [[WHILE_COND:%.*]]
+; INTEL_CUSTOMIZATION
+; xmain JT merges some of these blocks together.
+; CHECK-NEXT:  while.cond.thread:
+; CHECK-NEXT:    br label [[IF_END_I:%.*]]
 ; CHECK:       select.unfold:
-; CHECK-NEXT:    br label [[WHILE_COND]]
+; CHECK-NEXT:    br label [[WHILE_COND:%.*]]
 ; CHECK:       while.cond:
-; CHECK-NEXT:    [[MONTH_0:%.*]] = phi i32 [ undef, [[ENTRY:%.*]] ], [ [[CALL2:%.*]], [[FUNC1_EXIT:%.*]] ], [ [[ADD:%.*]], [[SELECT_UNFOLD:%.*]] ]
-; CHECK-NEXT:    switch i32 [[MONTH_0]], label [[IF_END_I:%.*]] [
+; CHECK-NEXT:    [[MONTH_0:%.*]] = phi i32 [ [[CALL2:%.*]], [[FUNC1_EXIT:%.*]] ], [ [[ADD:%.*]], [[SELECT_UNFOLD:%.*]] ]
+; CHECK-NEXT:    switch i32 [[MONTH_0]], label [[IF_END_I]] [
 ; CHECK-NEXT:    i32 4, label [[FUNC1_EXIT]]
 ; CHECK-NEXT:    i32 1, label [[FUNC1_EXIT]]
 ; CHECK-NEXT:    ]
+; end INTEL_CUSTOMIZATION
 ; CHECK:       if.end.i:
 ; CHECK-NEXT:    br label [[FUNC1_EXIT]]
 ; CHECK:       func1.exit:
@@ -31,8 +34,8 @@ entry:
 while.cond:                                       ; preds = %func1.exit, %entry
   %month.0 = phi i32 [ undef, %entry ], [ %month.0.be, %func1.exit ]
   switch i32 %month.0, label %if.end.i [
-    i32 4, label %func1.exit
-    i32 1, label %func1.exit
+  i32 4, label %func1.exit
+  i32 1, label %func1.exit
   ]
 
 if.end.i:                                         ; preds = %while.cond
