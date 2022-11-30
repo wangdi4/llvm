@@ -762,8 +762,12 @@ define i1 @bit_extract_cmp(i64 %x) {
 ; LE128-NEXT:    ret i1 [[R]]
 ;
 ; ANYBE-LABEL: @bit_extract_cmp(
-; ANYBE-NEXT:    [[TMP1:%.*]] = and i64 [[X:%.*]], 2147483647
-; ANYBE-NEXT:    [[R:%.*]] = icmp eq i64 [[TMP1]], 0
+; INTEL_CUSTOMIZATION
+; preserve fcmp, support denormal round-down.
+; ANYBE-NEXT:    [[TMP1:%.*]] = trunc i64 [[X:%.*]] to i32
+; ANYBE-NEXT:    [[E:%.*]] = bitcast i32 [[TMP1]] to float
+; ANYBE-NEXT:    [[R:%.*]] = fcmp oeq float [[E]], 0.000000e+00
+; end INTEL_CUSTOMIZATION
 ; ANYBE-NEXT:    ret i1 [[R]]
 ;
   %v = bitcast i64 %x to <2 x float>
