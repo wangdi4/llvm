@@ -139,15 +139,12 @@ static cl::opt<bool>
 
 namespace llvm {
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 extern cl::opt<bool> DTransInlineHeuristics;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-=======
 }
->>>>>>> fa71c16455873bcd218dc443dae8a4ec158d770b
 
 static cl::opt<std::string> CGSCCInlineReplayFile(
     "cgscc-inline-replay", cl::init(""), cl::value_desc("filename"),
