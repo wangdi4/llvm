@@ -1795,8 +1795,11 @@ void OpenMPLateOutliner::emitOMPGrainsizeClause(const OMPGrainsizeClause *Cl) {
 }
 
 void OpenMPLateOutliner::emitOMPNumTasksClause(const OMPNumTasksClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_num_tasks);
-  addArg("QUAL.OMP.NUM_TASKS");
+  ClauseEmissionHelper CEH(*this, OMPC_num_tasks, "QUAL.OMP.NUM_TASKS");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  if (Cl->getModifier() == OMPC_NUMTASKS_strict)
+    CSB.setStrict();
+  addArg(CSB.getString());
   addArg(CGF.EmitScalarExpr(Cl->getNumTasks()));
 }
 
