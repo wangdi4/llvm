@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2255,7 +2255,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   // Register tracker event for wait list of USM buffers to free.
   // For USM buffers passed as kernel argument.
   std::vector<const void *> usmPtrList;
-  for (auto IndexUSMBuffer : pKernel->GetUsmArgs()) {
+  for (const auto &IndexUSMBuffer : pKernel->GetUsmArgs()) {
     USMBuffer *buf = IndexUSMBuffer.second;
     if (nullptr != buf)
       usmPtrList.push_back(buf->GetAddr());
@@ -2263,7 +2263,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   // For USM buffers that kernel may access indirectly.
   std::vector<SharedPtr<USMBuffer>> nonArgUsmBufs;
   pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
-  for (auto buf : nonArgUsmBufs)
+  for (const auto &buf : nonArgUsmBufs)
     usmPtrList.push_back(buf->GetAddr());
   SetTrackerForUSM(pNDRangeKernelCmd.get(), usmPtrList, trackerEvent,
                    pEvent != nullptr);

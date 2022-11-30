@@ -194,8 +194,8 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
 
 void SGValueWidenPass::collectWideCalls(Module &) {
   FuncSet EmulateFuncs;
-  for (auto &Pair : FuncMap)
-    for (auto EmuFunc : Pair.second)
+  for (const auto &Pair : FuncMap)
+    for (auto *EmuFunc : Pair.second)
       EmulateFuncs.insert(EmuFunc);
 
   for (Function *F : FunctionsToBeWidened) {
@@ -596,7 +596,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   VecVariantStringValue.split(VariantStrs, ",");
   StringRef VariantStringValue;
   // Select Variant and emulation size
-  for (auto VarStr : VariantStrs) {
+  for (const auto &VarStr : VariantStrs) {
     unsigned Vlen = VFABI::demangleForVFABI(VarStr).getVF();
     if (Vlen == EmuSize) {
       VariantStringValue = VarStr;

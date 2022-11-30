@@ -1,6 +1,6 @@
 //=------------------ CreateSimdVariantPropagation.cpp -*- C++ -*------------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -64,7 +64,7 @@ bool CreateSimdVariantPropagation::runImpl(Module &M) {
     }
   }
 
-  for (auto It : VariantsToAdd) {
+  for (const auto &It : VariantsToAdd) {
     Function *F = It.first;
     std::string Vars = join(It.second, ",");
     if (F->hasFnAttribute("vector-variants")) {

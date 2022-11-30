@@ -435,7 +435,7 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
   DenseMap<BasicBlock * /*RegionHeader*/, Instruction * /*InsertPoint*/>
       InsertPoints;
   std::vector<Use *> CrossBarrierUses;
-  for (auto KV : *CrossBarrierUseMap) {
+  for (const auto &KV : *CrossBarrierUseMap) {
     auto &Uses = KV.second;
     CrossBarrierUses.insert(CrossBarrierUses.end(), Uses.begin(), Uses.end());
   }

@@ -80,7 +80,7 @@ getLocalUseMap(const CallGraph &CG, const FuncSet &KernelSet,
         continue;
       LocalUseMap[F] = DirectLocalUseMap.lookup(F);
       const CallGraphNode *N = CG[F];
-      for (auto Pair : *N) {
+      for (auto &Pair : *N) {
         Function *Callee = Pair.second->getFunction();
         if (!Callee || Callee->isDeclaration())
           continue;

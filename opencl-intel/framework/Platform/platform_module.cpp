@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -423,7 +423,7 @@ cl_int PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
       // If there is more than 1 device, return the intersection set of
       // extensions for the platform.
       std::vector<cl_name_version> intersection;
-      for (auto ext : extsWithVer) {
+      for (const auto &ext : extsWithVer) {
         if (contains(extsWithVerPlatform, ext))
           intersection.push_back(ext);
       }

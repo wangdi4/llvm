@@ -32,7 +32,7 @@ static cl::opt<std::string>
 static Function *FindFunctionDef(const Function *F,
                                  ArrayRef<Module *> Modules) {
   assert(F && "Invalid function.");
-  for (auto M : Modules) {
+  for (auto *M : Modules) {
     assert(M && "Invalid module.");
 
     Function *Ret = M->getFunction(F->getName());
@@ -46,7 +46,7 @@ static Function *FindFunctionDef(const Function *F,
 static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
                                      ArrayRef<Module *> Modules) {
   assert(GV && "Invalid global variable.");
-  for (auto M : Modules) {
+  for (auto *M : Modules) {
     assert(M && "Invalid module.");
 
     auto Ret = M->getGlobalVariable(GV->getName());
@@ -320,7 +320,7 @@ static void unifyMinLegalVectorWidthAttr(Module &M) {
     CallGraphNode *CGN = CG[&F];
     WeaklyConnectedComponents.insert(&F);
     // Visit all functions called by F.
-    for (auto CallRecord : *CGN) {
+    for (const auto &CallRecord : *CGN) {
       Function *Callee = CallRecord.second->getFunction();
       if (!Callee)
         continue;
@@ -405,7 +405,7 @@ bool BuiltinImportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   // Lets clone rtl modules and filter out everything we don't need.
   SmallVector<std::unique_ptr<Module>, 2> ClonedRtlModules;
   ValueToValueMapTy VMap;
-  for (auto RTL : BuiltinModules)
+  for (auto *RTL : BuiltinModules)
     ClonedRtlModules.push_back(
         CloneModuleOnlyRequired(RTL, VMap, UsedFunctions, UsedGlobals));
 

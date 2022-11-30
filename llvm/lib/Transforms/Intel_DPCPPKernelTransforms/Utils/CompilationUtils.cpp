@@ -1435,7 +1435,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     Argument *A = &*NewI;
     A->setName(NewArgumentNames[I]);
     if (!NewAttrs.empty())
-      for (auto Attr : NewAttrs[I])
+      for (const auto &Attr : NewAttrs[I])
         A->addAttr(Attr);
   }
 
@@ -2020,9 +2020,9 @@ void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
 #define INT2_TYPE VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_INT), 2)
 
 static reflection::TypeVector
-widenParameters(reflection::TypeVector ScalarParams, unsigned int VF) {
+widenParameters(const reflection::TypeVector ScalarParams, unsigned int VF) {
   reflection::TypeVector VectorParams;
-  for (auto Param : ScalarParams) {
+  for (auto &Param : ScalarParams) {
     if (auto *VecParam =
             reflection::dyn_cast<reflection::VectorType>(Param.get())) {
       int widen_len = VecParam->getLength() * VF;
@@ -2372,7 +2372,7 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
         HasUnnamedType = true;
     } else {
       Result += "sl_";
-      for (auto Elem : STyp->elements())
+      for (auto *Elem : STyp->elements())
         Result += getMangledTypeStr(Elem, HasUnnamedType);
     }
     // Ensure nested structs are distinguishable.

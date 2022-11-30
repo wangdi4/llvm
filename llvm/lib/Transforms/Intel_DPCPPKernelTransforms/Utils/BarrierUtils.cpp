@@ -186,9 +186,10 @@ CompilationUtils::FuncVec BarrierUtils::getAllKernelsWithBarrier() {
   KernelFunctions = getAllKernelsAndVectorizedCounterparts(KernelsWithBarrier);
 
   // collect functions to process
-  auto TodoList = getAllKernelsAndVectorizedCounterparts(Kernels.getList());
+  const auto &TodoList =
+      getAllKernelsAndVectorizedCounterparts(Kernels.getList());
 
-  for (auto Func : TodoList) {
+  for (auto *Func : TodoList) {
     auto kimd = KernelInternalMetadataAPI(Func);
     KernelVectorizationWidths[Func] =
         kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
