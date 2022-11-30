@@ -903,10 +903,7 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
-<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-void OptBisectInstrumentation::registerCallbacks(
-=======
 bool OptPassGateInstrumentation::shouldRun(StringRef PassName, Any IR) {
   if (isIgnored(PassName))
     return true;
@@ -929,7 +926,6 @@ bool OptPassGateInstrumentation::shouldRun(StringRef PassName, Any IR) {
 }
 
 void OptPassGateInstrumentation::registerCallbacks(
->>>>>>> 721f975d3518403502f770ce11f3f02509b30c5b
     PassInstrumentationCallbacks &PIC) {
   OptPassGate &PassGate = Context.getOptPassGate();
   if (!PassGate.isEnabled())
@@ -2215,22 +2211,17 @@ void DotCfgChangeReporter::registerCallbacks(
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 StandardInstrumentations::StandardInstrumentations(
-<<<<<<< HEAD
-    bool DebugLogging, bool VerifyEach, PrintPassOptions PrintPassOpts)
-    : PrintPass(DebugLogging, PrintPassOpts), OptNone(DebugLogging),
+    LLVMContext &Context, bool DebugLogging, bool VerifyEach,
+    PrintPassOptions PrintPassOpts)
+    : PrintPass(DebugLogging, PrintPassOpts),
+      OptNone(DebugLogging),
+      OptPassGate(Context),
 #if INTEL_CUSTOMIZATION
       Limiter(DebugLogging),
     // The Intel customization here is only to exclude the IR printing
     // in release builds. The upstream code in the "!defined(NDEBUG)"
     // block should be accepted when it changes.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-=======
-    LLVMContext &Context, bool DebugLogging, bool VerifyEach,
-    PrintPassOptions PrintPassOpts)
-    : PrintPass(DebugLogging, PrintPassOpts),
-      OptNone(DebugLogging),
-      OptPassGate(Context),
->>>>>>> 721f975d3518403502f770ce11f3f02509b30c5b
       PrintChangedIR(PrintChanged == ChangePrinter::Verbose),
       PrintChangedDiff(PrintChanged == ChangePrinter::DiffVerbose ||
                            PrintChanged == ChangePrinter::ColourDiffVerbose,

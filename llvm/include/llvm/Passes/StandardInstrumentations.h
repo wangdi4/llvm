@@ -565,12 +565,8 @@ class StandardInstrumentations {
   TimeProfilingPassesHandler TimeProfilingPasses;
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptNoneInstrumentation OptNone;
-<<<<<<< HEAD
-  OptBisectInstrumentation OptBisect;
-  LimitingInstrumentation Limiter;        // INTEL
-=======
   OptPassGateInstrumentation OptPassGate;
->>>>>>> 721f975d3518403502f770ce11f3f02509b30c5b
+  LimitingInstrumentation Limiter;        // INTEL
   PreservedCFGCheckerInstrumentation PreservedCFGChecker;
   IRChangedPrinter PrintChangedIR;
   PseudoProbeVerifier PseudoProbeVerification;
