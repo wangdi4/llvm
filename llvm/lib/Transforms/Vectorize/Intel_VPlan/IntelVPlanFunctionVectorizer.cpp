@@ -181,7 +181,8 @@ static std::string getDescription(const Function &F) {
 
 bool VPlanFunctionVectorizerLegacyPass::skipFunction(const Function &F) const {
   OptPassGate &Gate = F.getContext().getOptPassGate();
-  if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(F)))
+  if (Gate.isEnabled() &&
+      !Gate.shouldRunPass(this->getPassName(), getDescription(F)))
     return true;
 
   if (F.hasOptNone() &&

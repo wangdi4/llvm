@@ -103,11 +103,12 @@ private:
   bool shouldRun(StringRef PassID, Any IR);
 };
 
-class OptBisectInstrumentation {
+class OptPassGateInstrumentation {
+  LLVMContext &Context;
   bool HasWrittenIR = false;
-
 public:
-  OptBisectInstrumentation() = default;
+  OptPassGateInstrumentation(LLVMContext &Context) : Context(Context) {}
+  bool shouldRun(StringRef PassName, Any IR);
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 };
 
@@ -564,7 +565,7 @@ class StandardInstrumentations {
   TimeProfilingPassesHandler TimeProfilingPasses;
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptNoneInstrumentation OptNone;
-  OptBisectInstrumentation OptBisect;
+  OptPassGateInstrumentation OptPassGate;
   LimitingInstrumentation Limiter;        // INTEL
   PreservedCFGCheckerInstrumentation PreservedCFGChecker;
   IRChangedPrinter PrintChangedIR;
@@ -579,7 +580,8 @@ class StandardInstrumentations {
   bool VerifyEach;
 
 public:
-  StandardInstrumentations(bool DebugLogging, bool VerifyEach = false,
+  StandardInstrumentations(LLVMContext &Context, bool DebugLogging,
+                           bool VerifyEach = false,
                            PrintPassOptions PrintPassOpts = PrintPassOptions());
 
   // Register all the standard instrumentation callbacks. If \p FAM is nullptr
