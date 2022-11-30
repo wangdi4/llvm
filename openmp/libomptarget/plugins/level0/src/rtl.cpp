@@ -808,6 +808,12 @@ class TLSTy {
   /// Link copy command queues for each device
   std::map<int32_t, ze_command_queue_handle_t> LinkCopyCmdQueues;
 
+  /// Immediate command list for each device
+  std::map<int32_t, ze_command_list_handle_t> ImmCmdLists;
+
+  /// Immediate copy command list for each device
+  std::map<int32_t, ze_command_list_handle_t> ImmCopyCmdLists;
+
   /// Run profile for each device
   std::map<int32_t, RTLProfileTy *> Profiles;
 
@@ -838,6 +844,10 @@ public:
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
     for (auto CmdQueue : LinkCopyCmdQueues)
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
+    for (auto &CmdList : ImmCmdLists)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList.second);
+    for (auto &CmdList : ImmCopyCmdLists)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList.second);
     for (auto Profile : Profiles)
       delete Profile.second;
   }
@@ -869,6 +879,14 @@ public:
   ze_command_queue_handle_t getLinkCopyCmdQueue(int32_t ID) {
     return
         (LinkCopyCmdQueues.count(ID) > 0) ? LinkCopyCmdQueues.at(ID) : nullptr;
+  }
+
+  ze_command_list_handle_t getImmCmdList(int32_t ID) {
+    return (ImmCmdLists.count(ID) > 0) ? ImmCmdLists.at(ID) : nullptr;
+  }
+
+  ze_command_list_handle_t getImmCopyCmdList(int32_t ID) {
+    return (ImmCopyCmdLists.count(ID) > 0) ? ImmCopyCmdLists.at(ID) : nullptr;
   }
 
   RTLProfileTy *getProfile(int32_t ID) {
@@ -909,6 +927,14 @@ public:
 
   void setLinkCopyCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
     LinkCopyCmdQueues[ID] = CmdQueue;
+  }
+
+  void setImmCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
+    ImmCmdLists[ID] = CmdList;
+  }
+
+  void setImmCopyCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
+    ImmCopyCmdLists[ID] = CmdList;
   }
 
   void setProfile(int32_t ID, RTLProfileTy *Profile) {
@@ -1316,8 +1342,7 @@ struct RTLFlagsTy {
   uint64_t UseImageOptions : 1;
   uint64_t UseMultipleComputeQueues : 1;
   uint64_t ShowBuildLog : 1;
-  uint64_t UseImmCmdList : 1;
-  uint64_t Reserved : 53;
+  uint64_t Reserved : 54;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -1329,7 +1354,6 @@ struct RTLFlagsTy {
       UseImageOptions(1),
       UseMultipleComputeQueues(0),
       ShowBuildLog(0),
-      UseImmCmdList(0),
       Reserved(0) {}
 };
 
@@ -1616,6 +1640,10 @@ struct RTLOptionTy {
   uint32_t ForcedLocalSizes[3] = {0, 0, 0};
   uint32_t ForcedGlobalSizes[3] = {0, 0, 0};
 #endif // INTEL_INTERNAL_BUILD
+
+  /// Enable/disable using immediate command lists
+  /// 0: Disable, 1: Compute, 2: Copy, 3: All
+  uint32_t UseImmCmdList = 0;
 
   // Compilation options for IGC
   // OpenCL 2.0 builtins (like atomic_load_explicit and etc.) are used by
@@ -2075,12 +2103,22 @@ struct RTLOptionTy {
         DP("Using default value: %f\n", ThinThreadsThreshold);
       }
     }
-    // LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Bool>
+    // LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Value>
+    // <Value> := <Bool> | all | compute | copy
     if ((Env =
         readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST"))) {
       int32_t Value = parseBool(Env);
-      if (Value >= 0 && Value <= 1)
-        Flags.UseImmCmdList = Value;
+      if (Value >= 0 && Value <= 1) {
+        UseImmCmdList = Value;
+      } else {
+        std::string Val(Env);
+        if (Val == "all" || Val == "ALL")
+          UseImmCmdList = 3;
+        else if (Val == "compute" || Val == "COMPUTE")
+          UseImmCmdList = 1;
+        else if (Val == "copy" || Val == "COPY")
+          UseImmCmdList = 2;
+      }
     }
   }
 
@@ -3194,6 +3232,36 @@ struct RTLDeviceInfoTy {
     return CmdQueue;
   }
 
+  ze_command_list_handle_t getImmCmdList(int32_t DeviceId) {
+#if INTEL_CUSTOMIZATION
+    // Using per-thread Imm command list does not work as expected at least
+    // within pure OpenMP (verified with NEOReadDebugKeys=1 EventWaitOnHost=1).
+    // This may not be that important now since what matters most is per-interop
+    // SYCL immediate command list.
+#if 0
+    auto *TLS = getTLS();
+    auto CmdList = TLS->getImmCmdList(DeviceId);
+    if (!CmdList) {
+      CmdList = createImmCmdList(DeviceId);
+      TLS->setImmCmdList(DeviceId, CmdList);
+    }
+    return CmdList;
+#endif
+#endif // INTEL_CUSTOMIZATION
+    /// Keep using the shared Imm command list within OpenMP
+    return ImmCmdLists[DeviceId];
+  }
+
+  ze_command_list_handle_t getImmCopyCmdList(int32_t DeviceId) {
+    auto *TLS = getTLS();
+    auto CmdList = TLS->getImmCopyCmdList(DeviceId);
+    if (!CmdList) {
+      CmdList = createImmCopyCmdList(DeviceId);
+      TLS->setImmCopyCmdList(DeviceId, CmdList);
+    }
+    return CmdList;
+  }
+
   RTLProfileTy *getProfile(int32_t DeviceId) {
     if (!Option.Flags.EnableProfile)
       return nullptr;
@@ -3279,6 +3347,39 @@ struct RTLDeviceInfoTy {
   KernelPropertiesTy &getKernelProperties(ze_kernel_handle_t Kernel) {
     std::lock_guard<std::mutex> Lock(RTLMutex);
     return KernelProperties[Kernel];
+  }
+
+  /// Create an immediate command list
+  ze_command_list_handle_t createImmCmdList(int32_t DeviceId, uint32_t Ordinal,
+                                            uint32_t Index) {
+    ze_command_queue_desc_t Desc {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, Ordinal, Index,
+      0 /* Flags */, ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL
+    };
+    ze_command_list_handle_t CmdList = nullptr;
+    CALL_ZE_RET_NULL(zeCommandListCreateImmediate, Context, Devices[DeviceId],
+                     &Desc, &CmdList);
+    DP("Created an immediate command list " DPxMOD " (Ordinal: %" PRIu32
+       ", Index: %" PRIu32 ") for device %s.\n", DPxPTR(CmdList), Ordinal,
+       Index, DeviceIdStr[DeviceId].c_str());
+    return CmdList;
+  }
+
+  /// Create an immediate command list for computing
+  ze_command_list_handle_t createImmCmdList(int32_t DeviceId) {
+    return createImmCmdList(DeviceId, ComputeOrdinals[DeviceId].first,
+                            ComputeIndices[DeviceId]);
+  }
+
+  /// Create an immediate command list for copying
+  ze_command_list_handle_t createImmCopyCmdList(int32_t DeviceId) {
+    uint32_t Ordinal = CopyOrdinals[DeviceId].first;
+    if (Ordinal == UINT32_MAX)
+      Ordinal = LinkCopyOrdinals[DeviceId].first;
+    if (Ordinal == UINT32_MAX)
+      Ordinal = ComputeOrdinals[DeviceId].first;
+    return createImmCmdList(DeviceId, Ordinal, /*Index*/0);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -3595,23 +3696,19 @@ static void closeRTL() {
   if (DeviceInfo->NumDevices == 0)
     return;
 
-  for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
-    if (!DeviceInfo->Initialized[i])
+  for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
+    if (!DeviceInfo->Initialized[I])
       continue;
 #if INTEL_CUSTOMIZATION
     if (OMPT_ENABLED) {
-      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, I);
     }
 #endif // INTEL_CUSTOMIZATION
-    DeviceInfo->Mutexes[i].lock();
+    if (DeviceInfo->Option.UseImmCmdList > 0)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[I]);
 
-    if (DeviceInfo->Option.Flags.UseImmCmdList)
-      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[i]);
-
-    DeviceInfo->Programs[i].clear();
-
-    DeviceInfo->Mutexes[i].unlock();
+    DeviceInfo->Programs[I].clear();
   }
 
   DeviceInfo->MemAllocator.clear();
@@ -4463,8 +4560,10 @@ static int32_t runTargetTeamRegion(
                      GroupSizes[2]);
   }
 
+  auto &Option = DeviceInfo->Option;
+
 #if INTEL_CUSTOMIZATION
-  if (DeviceInfo->Option.CommandBatchLevel > 0) {
+  if (Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueLaunchKernel(SubId, Kernel, &GroupCounts, KernelLock);
@@ -4473,13 +4572,14 @@ static int32_t runTargetTeamRegion(
 
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
+  bool UseImmCmdList = Option.UseImmCmdList == 1 || Option.UseImmCmdList == 3;
 
-  if (DeviceInfo->Option.Flags.UseImmCmdList) {
-    CmdList = DeviceInfo->ImmCmdLists[SubId];
+  if (UseImmCmdList) {
+    CmdList = DeviceInfo->getImmCmdList(SubId);
     // Command queue is not used with immediate command list
   } else {
     CmdList = DeviceInfo->getCmdList(SubId);
-    if (DeviceInfo->Option.Flags.UseMultipleComputeQueues && OnRoot)
+    if (Option.Flags.UseMultipleComputeQueues && OnRoot)
       CmdQueue = DeviceInfo->getCCSCmdQueue(RootId);
     else
       CmdQueue = DeviceInfo->getCmdQueue(SubId);
@@ -4493,7 +4593,7 @@ static int32_t runTargetTeamRegion(
     DP("Appended kernel " DPxMOD " to command list " DPxMOD "\n",
        DPxPTR(Kernel), DPxPTR(BatchQueue.CmdList));
     BatchQueue.run(DeviceInfo->Mutexes[RootId]);
-  } else if (DeviceInfo->Option.Flags.UseImmCmdList) {
+  } else if (UseImmCmdList) {
     // Kernel batching with immediate command list is handled first by the
     // previous branch.
     DP("Using immediate command list for kernel submission.\n");
@@ -4503,12 +4603,12 @@ static int32_t runTargetTeamRegion(
                          &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-    if (DeviceInfo->Option.Flags.EnableProfile)
+    if (Option.Flags.EnableProfile)
       KernelTimer.updateDeviceTime(Event);
     DeviceInfo->EventPool.releaseEvent(Event);
   } else {
     ze_event_handle_t Event = nullptr;
-    if (DeviceInfo->Option.Flags.EnableProfile)
+    if (Option.Flags.EnableProfile)
       Event = DeviceInfo->EventPool.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                      &GroupCounts, Event, 0, nullptr);
@@ -4523,7 +4623,7 @@ static int32_t runTargetTeamRegion(
     DP("Submitted kernel " DPxMOD " to device %s\n", DPxPTR(Kernel), SubIdStr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
-    if (DeviceInfo->Option.Flags.EnableProfile) {
+    if (Option.Flags.EnableProfile) {
       KernelTimer.updateDeviceTime(Event);
       DeviceInfo->EventPool.releaseEvent(Event);
     }
@@ -4774,28 +4874,39 @@ int32_t RTLDeviceInfoTy::setKernelIndirectAccessFlags(
 int32_t RTLDeviceInfoTy::enqueueMemCopy(
     int32_t DeviceId, void *Dst, const void *Src, size_t Size,
     ScopedTimerTy *Timer, bool Locked) {
-  auto CmdList = getLinkCopyCmdList(DeviceId);
-  auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
-
+  bool UseImm = (Option.UseImmCmdList >= 2);
+  ze_command_list_handle_t CmdList = nullptr;
+  ze_command_queue_handle_t CmdQueue = nullptr;
   ze_event_handle_t Event = nullptr;
-  if (Timer && Option.Flags.EnableProfile) {
+
+  if (UseImm) {
+    CmdList = getImmCopyCmdList(DeviceId);
     Event = EventPool.getEvent();
-  }
-
-  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
-                   Event, 0, nullptr);
-  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-  if (Locked) {
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                     nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
+                     Event, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
   } else {
-    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists, Mutexes[DeviceId],
-                         CmdQueue, 1, &CmdList, nullptr);
-  }
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+    CmdList = getLinkCopyCmdList(DeviceId);
+    CmdQueue = getLinkCopyCmdQueue(DeviceId);
 
-  if (Event) {
+    if (Timer && Option.Flags.EnableProfile)
+      Event = EventPool.getEvent();
+
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
+                     Event, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+    if (Locked) {
+      CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                       nullptr);
+    } else {
+      CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists, Mutexes[DeviceId],
+                           CmdQueue, 1, &CmdList, nullptr);
+    }
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+  }
+
+  if (Timer && Event) {
     Timer->updateDeviceTime(Event);
     EventPool.releaseEvent(Event);
   }
@@ -4949,19 +5060,13 @@ bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
 void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
   auto &Batch = BatchCmdQueues[DeviceId];
   Batch.MaxCommands = MaxKernels;
-  Batch.UseImmCmdList = Option.Flags.UseImmCmdList;
+  Batch.UseImmCmdList = Option.UseImmCmdList == 1 || Option.UseImmCmdList == 3;
   if (Batch.CmdList != nullptr)
     return;
 
   // Requires initialization
   if (Batch.UseImmCmdList) {
-    ze_command_queue_desc_t QueueDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-      ComputeOrdinals[DeviceId].first, 0, 0,
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
-    };
-    CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
-                     &QueueDesc, &Batch.CmdList);
+    Batch.CmdList = createImmCmdList(DeviceId);
 
     // Event pool with a single event needs to be initialized
     ze_event_pool_desc_t PoolDesc = {
@@ -4994,31 +5099,11 @@ void RTLDeviceInfoTy::endKernelBatch(int32_t DeviceId) {
 
 void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
   // Initialize immediate command list
-  ze_command_queue_desc_t QueueDesc = {
-    ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-    ComputeOrdinals[DeviceId].first, ComputeIndices[DeviceId], 0,
-    ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
-  };
-  ze_command_list_handle_t CmdList;
-  CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
-                   &QueueDesc, &CmdList);
-  ImmCmdLists[DeviceId] = CmdList;
-  DP("Created an IMM command list " DPxMOD " (Ordinal: %" PRIu32
-     ", Index: %" PRIu32 ") for device %s.\n", DPxPTR(CmdList),
-     QueueDesc.ordinal, QueueDesc.index, DeviceIdStr[DeviceId].c_str());
+  ImmCmdLists[DeviceId] = createImmCmdList(DeviceId);
   // For subdevices
-  for (auto &SubLevel : SubDeviceIds[DeviceId]) {
-    for (auto SubId : SubLevel) {
-      QueueDesc.ordinal = ComputeOrdinals[SubId].first;
-      QueueDesc.index = ComputeIndices[SubId];
-      CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[SubId],
-                       &QueueDesc, &CmdList);
-      ImmCmdLists[SubId] = CmdList;
-      DP("Created an IMM command list " DPxMOD " (Ordinal: %" PRIu32
-         ", Index: %" PRIu32 ") for internal device %s.\n", DPxPTR(CmdList),
-         QueueDesc.ordinal, QueueDesc.index, DeviceIdStr[SubId].c_str());
-    }
-  }
+  for (auto &SubLevel : SubDeviceIds[DeviceId])
+    for (auto SubId : SubLevel)
+      ImmCmdLists[SubId] = createImmCmdList(SubId);
 }
 
 /// Return the internal device ID for the specified subdevice
@@ -6388,7 +6473,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   auto Q = DeviceInfo->getCmdQueue(DeviceId);
   (void)Q;
 
-  if (DeviceInfo->Option.Flags.UseImmCmdList)
+  if (DeviceInfo->Option.UseImmCmdList > 0)
     DeviceInfo->initImmCmdList(DeviceId);
 
   for (auto &SubIds : DeviceInfo->SubDeviceIds[DeviceId])
@@ -6764,7 +6849,7 @@ __tgt_interop *__tgt_rtl_create_interop(
   ret->RTLProperty = new L0Interop::Property();
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
     auto L0 = static_cast<L0Interop::Property *>(ret->RTLProperty);
-    if (DeviceInfo->Option.Flags.UseImmCmdList) {
+    if (DeviceInfo->Option.UseImmCmdList) {
       ze_command_queue_desc_t QueueDesc = {
         ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, 
         nullptr,
@@ -6813,7 +6898,7 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
 
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    if (DeviceInfo->Option.Flags.UseImmCmdList) {
+    if (DeviceInfo->Option.UseImmCmdList) {
       auto immCmdList = L0->ImmCmdList;
       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0,
                        nullptr);
@@ -6842,7 +6927,7 @@ int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
 
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    if (DeviceInfo->Option.Flags.UseImmCmdList) {
+    if (DeviceInfo->Option.UseImmCmdList) {
       auto immCmdList = L0->ImmCmdList;
       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0, nullptr);
     } else {

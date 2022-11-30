@@ -445,13 +445,24 @@ device supports.
 
 **Default**: Disabled
 
-``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Bool>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
-  <Bool> := 1 | T | t | 0 | F | f
+  <True>  := 1 | T | t
+  <False> := 0 | F | f
+  <Bool>  := <True> | <False>
+  <Value> := <Bool> | compute | COMPUTE | copy | COPY | all | ALL
 
-Enables/disables using immediate command list for kernel submission.
+Enables/disables using immediate command list for kernel submission and/or
+memory copy operations.
+
+``compute``: Enables immediate command list for kernel submission
+``copy``: Enables immediate command list for memory copy operations
+``all``: Enables immediate command list for kernel submission and memory copy
+operations
+``<True>``: Equivalent to ``compute``
+``<False>``: Immediate command list is disabled
 
 **Default**: Disabled
 
