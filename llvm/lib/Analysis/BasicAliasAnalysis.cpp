@@ -78,6 +78,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
 #include <utility>
 
 #define DEBUG_TYPE "basicaa"
@@ -599,7 +600,7 @@ struct BasicAAResult::DecomposedGEP {
   SmallVector<VariableGEPIndex, 4> VarIndices;
   // Are all operations inbounds GEPs or non-indexing operations?
   // (None iff expression doesn't involve any geps)
-  Optional<bool> InBounds;
+  std::optional<bool> InBounds;
 
   void dump() const {
     print(dbgs());
@@ -1433,7 +1434,7 @@ AliasResult BasicAAResult::aliasGEP(
 
   // Try to determine the range of values for VarIndex such that
   // VarIndex <= -MinAbsVarIndex || MinAbsVarIndex <= VarIndex.
-  Optional<APInt> MinAbsVarIndex;
+  std::optional<APInt> MinAbsVarIndex;
   if (DecompGEP1.VarIndices.size() == 1) {
     // VarIndex = Scale*V.
     const VariableGEPIndex &Var = DecompGEP1.VarIndices[0];
@@ -1570,7 +1571,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   if (!AAQI.NeedLoopCarried) // INTEL
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
-      Optional<AliasResult> Alias;
+      std::optional<AliasResult> Alias;
       for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
         AliasResult ThisAlias = AAQI.AAR.alias(
             MemoryLocation(PN->getIncomingValue(i), PNSize),
