@@ -15,7 +15,6 @@ define void @switch_phi_const(i32 %x) {
 ; CHECK-NEXT:    i32 7, label [[CASE_7:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       case_13:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[DOTSPLIT9:%.*]]
 ; CHECK:       .split9:
@@ -47,29 +46,6 @@ define void @switch_phi_const(i32 %x) {
 ; CHECK-NEXT:    store i32 7, i32* @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT9]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[X0:%.*]] = phi i32 [ [[X]], [[BB0:%.*]] ], [ [[X_LOOPBACK:%.*]], [[CASE_7]] ]
-; CHECK-NEXT:    store i32 13, ptr @effect, align 4
-; CHECK-NEXT:    br label [[CASE_42]]
-; CHECK:       case_42:
-; CHECK-NEXT:    [[X1:%.*]] = phi i32 [ [[X]], [[BB0]] ], [ [[X0]], [[CASE_13]] ]
-; CHECK-NEXT:    store i32 [[X1]], ptr @effect, align 4
-; CHECK-NEXT:    br label [[CASE_50_51]]
-; CHECK:       case_50_51:
-; CHECK-NEXT:    [[X2:%.*]] = phi i32 [ 50, [[BB0]] ], [ 50, [[BB0]] ], [ [[X1]], [[CASE_42]] ]
-; CHECK-NEXT:    [[X2_2:%.*]] = phi i32 [ 51, [[BB0]] ], [ 51, [[BB0]] ], [ [[X1]], [[CASE_42]] ]
-; CHECK-NEXT:    store i32 [[X2]], ptr @effect, align 4
-; CHECK-NEXT:    store i32 [[X2_2]], ptr @effect, align 4
-; CHECK-NEXT:    br label [[CASE_55]]
-; CHECK:       case_55:
-; CHECK-NEXT:    [[X3:%.*]] = phi i32 [ 42, [[BB0]] ], [ 55, [[CASE_50_51]] ]
-; CHECK-NEXT:    store i32 [[X3]], ptr @effect, align 4
-; CHECK-NEXT:    br label [[DEFAULT]]
-; CHECK:       case_7:
-; CHECK-NEXT:    [[X_LOOPBACK]] = load i32, ptr @g, align 4
-; CHECK-NEXT:    store i32 7, ptr @effect, align 4
-; CHECK-NEXT:    br label [[CASE_13]]
->>>>>>> d9e51e75521d5e33f24a6c1afacae5dbc115f96d
 ; CHECK:       default:
 ; CHECK-NEXT:    ret void
 ;
@@ -129,7 +105,6 @@ define void @switch_phi_const_multiple_phis(i32 %x) {
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i32 [[X:%.*]], 13
 ; CHECK-NEXT:    br i1 [[COND]], label [[CASE_13:%.*]], label [[DEFAULT:%.*]]
 ; CHECK:       case_13:
-<<<<<<< HEAD
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ 1, [[BB0:%.*]] ]
@@ -139,14 +114,6 @@ define void @switch_phi_const_multiple_phis(i32 %x) {
 ; CHECK-NEXT:    store volatile i32 [[MERGE2]], i32* @effect, align 4
 ; CHECK-NEXT:    store volatile i32 [[MERGE4]], i32* @effect, align 4
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[X0:%.*]] = phi i32 [ [[X]], [[BB1]] ], [ 1, [[BB0:%.*]] ]
-; CHECK-NEXT:    [[N0:%.*]] = phi i32 [ 14, [[BB1]] ], [ 1, [[BB0]] ]
-; CHECK-NEXT:    [[X1:%.*]] = phi i32 [ 27, [[BB0]] ], [ [[X]], [[BB1]] ]
-; CHECK-NEXT:    store volatile i32 [[X0]], ptr @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[N0]], ptr @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[X1]], ptr @effect, align 4
->>>>>>> d9e51e75521d5e33f24a6c1afacae5dbc115f96d
 ; CHECK-NEXT:    ret void
 ; CHECK:       default:
 ; CHECK-NEXT:    ret void
@@ -218,7 +185,6 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-NEXT:    i32 7, label [[CASE_7:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       case_13:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[DOTSPLIT4:%.*]]
 ; CHECK:       .split4:
@@ -242,23 +208,6 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-NEXT:    store i64 7, i64* @effect64, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT4]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[X0:%.*]] = phi i64 [ [[TMP0]], [[BB0:%.*]] ], [ [[X7:%.*]], [[CASE_7]] ]
-; CHECK-NEXT:    store i64 13, ptr @effect64, align 4
-; CHECK-NEXT:    br label [[CASE_42]]
-; CHECK:       case_42:
-; CHECK-NEXT:    [[X1:%.*]] = phi i64 [ [[TMP1]], [[BB0]] ], [ [[X0]], [[CASE_13]] ]
-; CHECK-NEXT:    store i64 [[X1]], ptr @effect64, align 4
-; CHECK-NEXT:    br label [[CASE_55]]
-; CHECK:       case_55:
-; CHECK-NEXT:    [[X2:%.*]] = phi i64 [ 3895, [[BB0]] ], [ 55, [[CASE_42]] ]
-; CHECK-NEXT:    store i64 [[X2]], ptr @effect64, align 4
-; CHECK-NEXT:    br label [[DEFAULT]]
-; CHECK:       case_7:
-; CHECK-NEXT:    [[X7]] = load i64, ptr @g64, align 4
-; CHECK-NEXT:    store i64 7, ptr @effect64, align 4
-; CHECK-NEXT:    br label [[CASE_13]]
->>>>>>> d9e51e75521d5e33f24a6c1afacae5dbc115f96d
 ; CHECK:       default:
 ; CHECK-NEXT:    ret void
 ;

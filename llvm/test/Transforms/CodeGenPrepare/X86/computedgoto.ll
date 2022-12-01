@@ -27,13 +27,9 @@ declare void @useptr(ptr) local_unnamed_addr
 @noncritical.targets = constant [2 x ptr] [ptr blockaddress(@noncritical, %bb0), ptr blockaddress(@noncritical, %bb1)], align 16
 
 ; Check that we break the critical edge when an jump table has only one use.
-<<<<<<< HEAD
-define void @simple(i32* nocapture readonly %p) {
+define void @simple(ptr nocapture readonly %p) {
 ; INTEL_CUSTOMIZATION
 ; Critical edges splitting algorithm is changed, clone BB isn't generated anymore.
-=======
-define void @simple(ptr nocapture readonly %p) {
->>>>>>> d9e51e75521d5e33f24a6c1afacae5dbc115f96d
 ; CHECK-LABEL: @simple(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, ptr [[P:%.*]], i64 1
@@ -44,24 +40,10 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    i32 1, label [[DOTSPLIT:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       bb0:
-<<<<<<< HEAD
 ; CHECK-NEXT:    br label [[DOTSPLIT3]]
 ; CHECK:       .split3:
 ; CHECK-NEXT:    [[MERGE5:%.*]] = phi i32* [ [[PTR:%.*]], [[BB0:%.*]] ], [ [[INCDEC_PTR]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ 0, [[BB0]] ], [ [[INITVAL]], [[ENTRY]] ]
-=======
-; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
-; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[PTR:%.*]], [[BB0:%.*]] ], [ [[INCDEC_PTR]], [[BB0_CLONE]] ]
-; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 0, [[BB0]] ], [ [[INITVAL]], [[BB0_CLONE]] ]
-; CHECK-NEXT:    tail call void @use(i32 [[MERGE2]])
-; CHECK-NEXT:    br label [[INDIRECTGOTO:%.*]]
-; CHECK:       bb1:
-; CHECK-NEXT:    br label [[DOTSPLIT3:%.*]]
-; CHECK:       .split3:
-; CHECK-NEXT:    [[MERGE5:%.*]] = phi ptr [ [[PTR]], [[BB1:%.*]] ], [ [[INCDEC_PTR]], [[BB1_CLONE]] ]
-; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ 1, [[BB1]] ], [ [[INITVAL]], [[BB1_CLONE]] ]
->>>>>>> d9e51e75521d5e33f24a6c1afacae5dbc115f96d
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE7]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO:%.*]]
 ; CHECK:       bb1:
@@ -72,15 +54,9 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE2]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO]]
 ; CHECK:       indirectgoto:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi i32* [ [[MERGE]], [[DOTSPLIT]] ], [ [[MERGE5]], [[DOTSPLIT3]] ]
 ; CHECK-NEXT:    [[PTR]] = getelementptr inbounds i32, i32* [[P_ADDR_SINK]], i64 1
 ; CHECK-NEXT:    [[NEWP:%.*]] = load i32, i32* [[P_ADDR_SINK]], align 4
-=======
-; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi ptr [ [[MERGE5]], [[DOTSPLIT3]] ], [ [[MERGE]], [[DOTSPLIT]] ]
-; CHECK-NEXT:    [[PTR]] = getelementptr inbounds i32, ptr [[P_ADDR_SINK]], i64 1
-; CHECK-NEXT:    [[NEWP:%.*]] = load i32, ptr [[P_ADDR_SINK]], align 4
->>>>>>> d9e51e75521d5e33f24a6c1afacae5dbc115f96d
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @simple.targets, i64 0, i64 [[IDX]]
 ; CHECK-NEXT:    [[NEWOP:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
@@ -275,18 +251,12 @@ define void @loop(ptr nocapture readonly %p) {
 ; CHECK:       bb0:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Critical edges splitting algorithm is changed, clone BB isn't generated anymore.
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, i64* [[P:%.*]], i64 [[MERGE]]
 ; CHECK-NEXT:    store i64 [[MERGE]], i64* [[TMP0]], align 4
-=======
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[BB0_CLONE:%.*]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, ptr [[P:%.*]], i64 [[MERGE]]
-; CHECK-NEXT:    store i64 [[MERGE]], ptr [[TMP0]], align 4
->>>>>>> d9e51e75521d5e33f24a6c1afacae5dbc115f96d
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i64 [[MERGE]], 1
 ; CHECK-NEXT:    [[IDX:%.*]] = srem i64 [[MERGE]], 2
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @loop.targets, i64 0, i64 [[IDX]]
