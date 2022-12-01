@@ -403,9 +403,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
 
   Builder.SLPVectorize = OptLevel > 1 && SizeLevel < 2;
 
-  if (TM)
-    TM->adjustPassManager(Builder);
-
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
 }
