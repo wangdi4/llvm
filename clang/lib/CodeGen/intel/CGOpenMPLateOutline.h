@@ -460,6 +460,7 @@ class OpenMPLateOutliner {
   llvm::DenseSet<const VarDecl *> DispatchExplicitVars;
   llvm::DenseSet<const VarDecl *> DependIteratorVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
+  llvm::DenseMap<const VarDecl *, Address> LocalDeclMaps;
 #if INTEL_CUSTOMIZATION
   llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
 #endif  // INTEL_CUSTOMIZATION
@@ -488,6 +489,7 @@ public:
       llvm::Type *Ty = MT.first->getType();
       Address A = CGF.CreateDefaultAlignTempAlloca(Ty, MT.second->getName() +
                                                            ".map.ptr.tmp");
+      LocalDeclMaps.insert({MT.second, A});
       if (MT.second->getType()->isReferenceType())
         A.setRemovedReference();
       if (auto *DI = CGF.getDebugInfo())
@@ -495,6 +497,15 @@ public:
           (void)DI->EmitDeclareOfAutoVariable(MT.second, A.getPointer(),
                                               CGF.Builder);
       CGF.Builder.CreateStore(MT.first, A);
+      if (MT.second->getType()->isArrayType()) {
+        // For variable with array type need to load the pointer for correct
+        // mapping, since pointer is passes to BE map clause.
+        QualType PtrTy = CGF.getContext().getPointerType(
+            MT.second->getType().getNonReferenceType());
+        A = CGF.EmitLoadOfPointer(
+            CGF.Builder.CreateElementBitCast(A, CGF.ConvertTypeForMem(PtrTy)),
+            PtrTy->castAs<PointerType>());
+      }
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
       CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
     }
@@ -548,6 +559,7 @@ public:
   void emitOMPPrefetchDirective();
   void emitOMPScopeDirective();
   void emitOMPScanDirective();
+  void emitLiveinClauseForUseDeviceAddrClause();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();
