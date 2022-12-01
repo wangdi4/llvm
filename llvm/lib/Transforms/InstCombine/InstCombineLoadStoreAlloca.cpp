@@ -630,63 +630,50 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
         return nullptr;
     }
 
-<<<<<<< HEAD
-    if (auto* CI = dyn_cast<CastInst>(LI.user_back()))
-      if (CI->isNoopCast(DL) && LI.getType()->isPtrOrPtrVectorTy() ==
-                                    CI->getDestTy()->isPtrOrPtrVectorTy())
-        if (!LI.isAtomic() || isSupportedAtomicType(CI->getDestTy())) {
-#if INTEL_CUSTOMIZATION
-          // Field-by-field Memcpy lowering (if possible) helps to retain
-          // tbaa metadata to have better AA. Structure types for the source
-          // operand and destination operand in memcpy are needed to trigger
-          // field-by-field Memcpy lowering.
-          // Inhibit eliminating BitCast if it is used by a Memcpy instruction
-          // that is a potential candidate for lowering. It is difficult to
-          // find types for the source and destination operands in a Memcpy
-          // during Memcpy lowering if BitCast is optimized away.
-          //   Ex:
-          //     %i12 = load %struct.Pixel*, %struct.Pixel** %q9,
-          //     %i15 = bitcast %struct.Pixel* %i12 to i8*
-          //     call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 %i15,
-          //          i8* align 2 %i16, i64 8, i1 false), !tbaa.struct !11
-          //
-          if (any_of(CI->users(), [&](User *CIU) {
-                auto *MI = dyn_cast<MemTransferInst>(CIU);
-                if (!MI)
-                  return false;
-                auto *MemOpLength = dyn_cast<ConstantInt>(MI->getLength());
-                if (!MemOpLength)
-                  return false;
-                // Heuristic: Check if MI is a potential candidate for lowering.
-                // This could be improved by calling IsGoodStructMemcpy if
-                // needed in future.
-                uint64_t Size = MemOpLength->getLimitedValue();
-                if (Size > 8 || (Size & (Size - 1)) ||
-                    !MI->getMetadata(LLVMContext::MD_tbaa_struct))
-                  return false;
-                return true;
-              }))
-            return nullptr;
-#endif // INTEL_CUSTOMIZATION
-
-          LoadInst *NewLoad = IC.combineLoadToNewType(LI, CI->getDestTy());
-          CI->replaceAllUsesWith(NewLoad);
-          IC.eraseInstFromFunction(*CI);
-          return &LI;
-        }
-=======
     if (auto *CastUser = dyn_cast<CastInst>(Load.user_back())) {
       Type *DestTy = CastUser->getDestTy();
       if (CastUser->isNoopCast(IC.getDataLayout()) &&
           LoadTy->isPtrOrPtrVectorTy() == DestTy->isPtrOrPtrVectorTy() &&
           (!Load.isAtomic() || isSupportedAtomicType(DestTy))) {
+#if INTEL_CUSTOMIZATION
+        // Field-by-field Memcpy lowering (if possible) helps to retain
+        // tbaa metadata to have better AA. Structure types for the source
+        // operand and destination operand in memcpy are needed to trigger
+        // field-by-field Memcpy lowering.
+        // Inhibit eliminating BitCast if it is used by a Memcpy instruction
+        // that is a potential candidate for lowering. It is difficult to
+        // find types for the source and destination operands in a Memcpy
+        // during Memcpy lowering if BitCast is optimized away.
+        //   Ex:
+        //     %i12 = load %struct.Pixel*, %struct.Pixel** %q9,
+        //     %i15 = bitcast %struct.Pixel* %i12 to i8*
+        //     call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 %i15,
+        //          i8* align 2 %i16, i64 8, i1 false), !tbaa.struct !11
+        //
+        if (any_of(CastUser->users(), [&](User *CIU) {
+              auto *MI = dyn_cast<MemTransferInst>(CIU);
+              if (!MI)
+                return false;
+              auto *MemOpLength = dyn_cast<ConstantInt>(MI->getLength());
+              if (!MemOpLength)
+                return false;
+              // Heuristic: Check if MI is a potential candidate for lowering.
+              // This could be improved by calling IsGoodStructMemcpy if
+              // needed in future.
+              uint64_t Size = MemOpLength->getLimitedValue();
+              if (Size > 8 || (Size & (Size - 1)) ||
+                  !MI->getMetadata(LLVMContext::MD_tbaa_struct))
+                return false;
+              return true;
+            }))
+          return nullptr;
+#endif // INTEL_CUSTOMIZATION
         LoadInst *NewLoad = IC.combineLoadToNewType(Load, DestTy);
         CastUser->replaceAllUsesWith(NewLoad);
         IC.eraseInstFromFunction(*CastUser);
         return &Load;
       }
     }
->>>>>>> a00936484b65f4d9756e03ab32c7ec3705fcdc53
   }
 
   // FIXME: We should also canonicalize loads of vectors when their elements are
