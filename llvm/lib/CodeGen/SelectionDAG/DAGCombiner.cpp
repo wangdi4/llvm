@@ -15800,12 +15800,30 @@ SDValue DAGCombiner::visitFSQRT(SDNode *N) {
   // This transformatin has to be in the front of isFsqrtCheap(), since
   // current X86 Target always prefers sqrt than rsqrt estimation.
   if (N0->getOpcode() == ISD::FDIV) {
-    SDValue LHS = N0->getOperand(0);
-    SDValue RHS = N0->getOperand(1);
-    SDValue N0Recp =
-        DAG.getNode(ISD::FDIV, SDLoc(N0), N0->getValueType(0), RHS, LHS);
-    N0Recp->setFlags(N0->getFlags());
-    return buildRsqrtEstimate(N0Recp, Flags);
+    MachineFunction &MF = DAG.getMachineFunction();
+    EVT VT = N->getValueType(0);
+    EVT VTScalarTy = VT.getScalarType();
+    int Iterations = TLI.getSqrtRefinementSteps(VT, MF);
+    StringRef IABRValueStr;
+    double IABRValue = 53; // The maximum accuracy of float point.
+
+    if (Iterations == TargetLoweringBase::ReciprocalEstimate::Unspecified) {
+      IABRValueStr = MF.getFunction()
+                         .getFnAttribute("imf-accuracy-bits-sqrt")
+                         .getValueAsString();
+      if (!IABRValueStr.empty())
+        IABRValueStr.getAsDouble(IABRValue);
+    }
+    if (Iterations != TargetLoweringBase::ReciprocalEstimate::Unspecified ||
+        ((VTScalarTy == MVT::f32 && IABRValue <= 23) ||
+         (VTScalarTy == MVT::f64 && IABRValue <= 26))) {
+      SDValue LHS = N0->getOperand(0);
+      SDValue RHS = N0->getOperand(1);
+      SDValue N0Recp =
+          DAG.getNode(ISD::FDIV, SDLoc(N0), N0->getValueType(0), RHS, LHS);
+      N0Recp->setFlags(N0->getFlags());
+      return buildRsqrtEstimate(N0Recp, Flags);
+    }
   }
 #endif // INTEL_CUSTOMIZATION
   if (TLI.isFsqrtCheap(N0, DAG))
