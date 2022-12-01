@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -82,6 +82,8 @@ public:
   bool enableFcmpMinMaxCombine() const { return EnableFcmpMinMaxCombine; }
 
   bool enableUpCasting() const { return EnableUpCasting; }
+
+  bool enableCanonicalizeSwap() const { return EnableCanonicalizeSwap; }
 #endif // INTEL_CUSTOMIZATION
 
 protected:
@@ -110,6 +112,12 @@ protected:
   /// Enable the simplification of a load instruction into a bitcast if the
   /// it produces an upcasting.
   const bool EnableUpCasting;
+
+  /// Enable swaps of GEP indices to move all the constant indices to the end
+  /// when feasible. This transformation causes difficulties for analyzing
+  /// structure field and array element accesses for DTrans and HIR when
+  /// enabled.
+  bool EnableCanonicalizeSwap;
 #endif // INTEL_CUSTOMIZATION
 
   AAResults *AA;
@@ -135,18 +143,20 @@ public:
 #if INTEL_CUSTOMIZATION
                bool MinimizeSize, bool PreserveForDTrans,
                bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-               bool EnableUpCasting, AAResults *AA, AssumptionCache &AC,
-               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
-               DominatorTree &DT, OptimizationRemarkEmitter &ORE,
-               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               const DataLayout &DL, LoopInfo *LI)
+               bool EnableUpCasting, bool EnableCanonicalizeSwap, AAResults *AA,
+               AssumptionCache &AC, TargetLibraryInfo &TLI,
+               TargetTransformInfo &TTI, DominatorTree &DT,
+               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
+               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), PreserveForDTrans(PreserveForDTrans),
         EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
         PreserveAddrCompute(PreserveAddrCompute),
-        EnableUpCasting(EnableUpCasting), AA(AA), AC(AC), TLI(TLI),
-        DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),
-        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {
+        EnableUpCasting(EnableUpCasting),
+        EnableCanonicalizeSwap(EnableCanonicalizeSwap), AA(AA), AC(AC),
+        TLI(TLI), DT(DT), DL(DL),
+        SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI), ORE(ORE), BFI(BFI),
+        PSI(PSI), LI(LI) {
   }
 #endif // INTEL_CUSTOMIZATION
 
