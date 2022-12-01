@@ -604,77 +604,76 @@ static bool isMinMaxWithLoads(Value *V, Type *&LoadTy) {
 /// later. However, it is risky in case some backend or other part of LLVM is
 /// relying on the exact type loaded to select appropriate atomic operations.
 static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
-                                               LoadInst &LI) {
+                                               LoadInst &Load) {
   // FIXME: We could probably with some care handle both volatile and ordered
   // atomic loads here but it isn't clear that this is important.
-  if (!LI.isUnordered())
+  if (!Load.isUnordered())
     return nullptr;
 
-  if (LI.use_empty())
+  if (Load.use_empty())
     return nullptr;
 
   // swifterror values can't be bitcasted.
-  if (LI.getPointerOperand()->isSwiftError())
+  if (Load.getPointerOperand()->isSwiftError())
     return nullptr;
-
-  const DataLayout &DL = IC.getDataLayout();
 
   // Fold away bit casts of the loaded value by loading the desired type.
   // Note that we should not do this for pointer<->integer casts,
   // because that would result in type punning.
-  if (LI.hasOneUse()) {
+  if (Load.hasOneUse()) {
     // Don't transform when the type is x86_amx, it makes the pass that lower
     // x86_amx type happy.
-    if (auto *BC = dyn_cast<BitCastInst>(LI.user_back())) {
-      assert(!LI.getType()->isX86_AMXTy() &&
-             "load from x86_amx* should not happen!");
+    Type *LoadTy = Load.getType();
+    if (auto *BC = dyn_cast<BitCastInst>(Load.user_back())) {
+      assert(!LoadTy->isX86_AMXTy() && "Load from x86_amx* should not happen!");
       if (BC->getType()->isX86_AMXTy())
         return nullptr;
     }
 
-    if (auto* CI = dyn_cast<CastInst>(LI.user_back()))
-      if (CI->isNoopCast(DL) && LI.getType()->isPtrOrPtrVectorTy() ==
-                                    CI->getDestTy()->isPtrOrPtrVectorTy())
-        if (!LI.isAtomic() || isSupportedAtomicType(CI->getDestTy())) {
+    if (auto *CastUser = dyn_cast<CastInst>(Load.user_back())) {
+      Type *DestTy = CastUser->getDestTy();
+      if (CastUser->isNoopCast(IC.getDataLayout()) &&
+          LoadTy->isPtrOrPtrVectorTy() == DestTy->isPtrOrPtrVectorTy() &&
+          (!Load.isAtomic() || isSupportedAtomicType(DestTy))) {
 #if INTEL_CUSTOMIZATION
-          // Field-by-field Memcpy lowering (if possible) helps to retain
-          // tbaa metadata to have better AA. Structure types for the source
-          // operand and destination operand in memcpy are needed to trigger
-          // field-by-field Memcpy lowering.
-          // Inhibit eliminating BitCast if it is used by a Memcpy instruction
-          // that is a potential candidate for lowering. It is difficult to
-          // find types for the source and destination operands in a Memcpy
-          // during Memcpy lowering if BitCast is optimized away.
-          //   Ex:
-          //     %i12 = load %struct.Pixel*, %struct.Pixel** %q9,
-          //     %i15 = bitcast %struct.Pixel* %i12 to i8*
-          //     call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 %i15,
-          //          i8* align 2 %i16, i64 8, i1 false), !tbaa.struct !11
-          //
-          if (any_of(CI->users(), [&](User *CIU) {
-                auto *MI = dyn_cast<MemTransferInst>(CIU);
-                if (!MI)
-                  return false;
-                auto *MemOpLength = dyn_cast<ConstantInt>(MI->getLength());
-                if (!MemOpLength)
-                  return false;
-                // Heuristic: Check if MI is a potential candidate for lowering.
-                // This could be improved by calling IsGoodStructMemcpy if
-                // needed in future.
-                uint64_t Size = MemOpLength->getLimitedValue();
-                if (Size > 8 || (Size & (Size - 1)) ||
-                    !MI->getMetadata(LLVMContext::MD_tbaa_struct))
-                  return false;
-                return true;
-              }))
-            return nullptr;
+        // Field-by-field Memcpy lowering (if possible) helps to retain
+        // tbaa metadata to have better AA. Structure types for the source
+        // operand and destination operand in memcpy are needed to trigger
+        // field-by-field Memcpy lowering.
+        // Inhibit eliminating BitCast if it is used by a Memcpy instruction
+        // that is a potential candidate for lowering. It is difficult to
+        // find types for the source and destination operands in a Memcpy
+        // during Memcpy lowering if BitCast is optimized away.
+        //   Ex:
+        //     %i12 = load %struct.Pixel*, %struct.Pixel** %q9,
+        //     %i15 = bitcast %struct.Pixel* %i12 to i8*
+        //     call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 %i15,
+        //          i8* align 2 %i16, i64 8, i1 false), !tbaa.struct !11
+        //
+        if (any_of(CastUser->users(), [&](User *CIU) {
+              auto *MI = dyn_cast<MemTransferInst>(CIU);
+              if (!MI)
+                return false;
+              auto *MemOpLength = dyn_cast<ConstantInt>(MI->getLength());
+              if (!MemOpLength)
+                return false;
+              // Heuristic: Check if MI is a potential candidate for lowering.
+              // This could be improved by calling IsGoodStructMemcpy if
+              // needed in future.
+              uint64_t Size = MemOpLength->getLimitedValue();
+              if (Size > 8 || (Size & (Size - 1)) ||
+                  !MI->getMetadata(LLVMContext::MD_tbaa_struct))
+                return false;
+              return true;
+            }))
+          return nullptr;
 #endif // INTEL_CUSTOMIZATION
-
-          LoadInst *NewLoad = IC.combineLoadToNewType(LI, CI->getDestTy());
-          CI->replaceAllUsesWith(NewLoad);
-          IC.eraseInstFromFunction(*CI);
-          return &LI;
-        }
+        LoadInst *NewLoad = IC.combineLoadToNewType(Load, DestTy);
+        CastUser->replaceAllUsesWith(NewLoad);
+        IC.eraseInstFromFunction(*CastUser);
+        return &Load;
+      }
+    }
   }
 
   // FIXME: We should also canonicalize loads of vectors when their elements are
