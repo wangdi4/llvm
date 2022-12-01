@@ -182,14 +182,9 @@ static cl::opt<bool> DisablePipelineVerification(
              "-print-pipeline-passes can be used to create a pipeline."),
     cl::Hidden);
 
-<<<<<<< HEAD
-// Individual pipeline tuning options.
-extern cl::opt<bool> DisableLoopUnrolling;
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> DisableIntelProprietaryOpts;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> f976a2d244f94c7b89009f667d6556bce8b99236
 
 static cl::opt<PGOKind>
     PGOKindFlag("pgo-kind", cl::init(NoPGO), cl::Hidden,

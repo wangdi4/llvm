@@ -360,8 +360,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   } else {
     Builder.Inliner = createAlwaysInlinerLegacyPass();
   }
-  Builder.DisableUnrollLoops = (DisableLoopUnrolling.getNumOccurrences() > 0) ?
-                               DisableLoopUnrolling : OptLevel == 0;
   Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
 
   Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
