@@ -6,14 +6,10 @@
 ; Index based WPD
 ; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt -thinlto-bc -o %t2.o %s
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run %t2.o -save-temps -use-new-pm -pass-remarks=. \
+; RUN: llvm-lto2 run %t2.o -opaque-pointers -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
-=======
-; RUN: llvm-lto2 run %t2.o -opaque-pointers -save-temps -pass-remarks=. \
->>>>>>> fdd7bc41fa08305aa13a365354bdf2e287a0411d
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t2.o,test,px \
 ; RUN:   -r=%t2.o,_ZN1A1nEi,p \
@@ -28,15 +24,11 @@
 ; Hybrid WPD
 ; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
-<<<<<<< HEAD
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 ; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run %t.o -save-temps -use-new-pm -pass-remarks=. \
+; RUN: llvm-lto2 run %t.o -opaque-pointers -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
-=======
-; RUN: llvm-lto2 run %t.o -opaque-pointers -save-temps -pass-remarks=. \
->>>>>>> fdd7bc41fa08305aa13a365354bdf2e287a0411d
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \
