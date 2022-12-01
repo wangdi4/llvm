@@ -113,8 +113,8 @@ Optional<StringRef> getGlobalVariableString(const Value *StringV) {
 }
 
 /// Tries to generate a SPIR-V decorate metadata node from an attribute. If
-///// the attribute is unknown \c nullptr will be returned.
-/////
+/// the attribute is unknown \c nullptr will be returned.
+///
 /// @param Ctx   [in] the LLVM context.
 /// @param Attr  [in] the LLVM attribute to generate metadata for.
 ///
@@ -271,7 +271,8 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
                   attributeToDecorateMetadata(Ctx, Attribute))
             MDArgOps.push_back(SPIRVMetadata);
         }
-        MDOps.push_back(MDNode::get(Ctx, MDArgOps));
+        if (!MDArgOps.empty())
+            MDOps.push_back(MDNode::get(Ctx, MDArgOps));
       }
       // Add the generated metadata to the kernel function.
       if (!MDOps.empty()) {
