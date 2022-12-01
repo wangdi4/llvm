@@ -26,7 +26,8 @@
 // OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" "-output" "[[SKLOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "skl"
 // OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "-output" "[[TGLLPOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "tgllp"
 // OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" "-output" "[[DGPUOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "dg2"
-// OCLOC_MULTIPLE: {{.*}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" "concat" "[[SKLOUT]]" "[[TGLLPOUT]]" "[[DGPUOUT]]" "-out" "[[CONCATOUT:.+\.out]]"
+// OCLOC_MULTIPLE: {{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat" "[[TGLLPOUT]]" "[[DGPUOUT]]" "-out" "[[CONCATOUT1:.+\.out]]"
+// OCLOC_MULTIPLE: {{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat" "[[CONCATOUT1]]" "[[SKLOUT]]" "-out" "[[CONCATOUT:.+\.out]]"
 // OCLOC_MULTIPLE: {{.*}}file-table-tform" "-replace=Code,Code" "-o" {{.*}} "[[CONCATOUT]]"
 
 /// Verify -device *
@@ -37,7 +38,7 @@
 // OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "gen9,gen11"
 // OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
 // OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "XE_HPG_CORE"
-// OCLOC_STAR: {{.*}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" "concat"
+// OCLOC_STAR: {{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat"
 
 /// phases with split ocloc
 // RUN: touch %t.o
