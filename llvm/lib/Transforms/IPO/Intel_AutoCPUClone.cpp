@@ -285,9 +285,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     // Skip multiversioning variable argument functions w/ wrapper based resolvers.
     if (UseWrapperBasedResolver && Fn->isVarArg())
       continue;
-
+      
     MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
-    LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
+    if (AutoCPUDispatchMD)
+        LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
 
     SmallVector<MultiVersionResolverOption> MVOptions;
 

@@ -52,9 +52,10 @@ using SmValVecImpl = SmallVectorImpl<Value *>;
 //
 // Search 'BBI' and if it has exactly two StoreInsts, and no other
 // Instruction that writes to memory, return 'true'. If we return 'true',
-// we set the values of 'ST1' and 'ST2' to the two StoreInsts found.
+// we set the values of 'SI1' and 'SI2' to the two StoreInsts found.
 //
 static bool getTwoStores(BasicBlock *BBI, StoreInst **SI1, StoreInst **SI2) {
+  if (!SI1 || !SI2 ) return false;
   *SI1 = nullptr;
   *SI2 = nullptr;
   for (auto &I : *BBI) {
