@@ -862,10 +862,8 @@ int main(int argc, char **argv) {
     errs() << "Cannot use -O# with legacy PM.\n";
     return 1;
   }
-<<<<<<< HEAD
 #endif // !INTEL_CUSTOMIZATION
 
-=======
   if (EmitSummaryIndex) {
     errs() << "Cannot use -module-summary with legacy PM.\n";
     return 1;
@@ -878,7 +876,6 @@ int main(int argc, char **argv) {
     errs() << "Cannot use -thinlto-bc with legacy PM.\n";
     return 1;
   }
->>>>>>> b5f2167804324dbcfabeba3ea49a340b4a5906c6
   // Create a PassManager to hold and optimize the collection of passes we are
   // about to build. If the -debugify-each option is set, wrap each pass with
   // the (-check)-debugify passes.
