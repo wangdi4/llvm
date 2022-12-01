@@ -690,6 +690,8 @@ void SYCL::gen::BackendCompiler::constructOclocConcatCommand(Compilation &C,
   assert(Inputs.size() >= 2 && "Expecting 2 or more inputs to ocloc concat");
   for (const auto &II : Inputs) {
     std::string Filename(II.getFilename());
+    if (II.getType() == types::TY_Tempfilelist)
+      ForeachInputs.push_back(II);
     CmdArgs.push_back(C.getArgs().MakeArgString(Filename));
   }
   CmdArgs.push_back("-out");
@@ -698,7 +700,16 @@ void SYCL::gen::BackendCompiler::constructOclocConcatCommand(Compilation &C,
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
-  C.addCommand(std::move(Cmd));
+  if (!ForeachInputs.empty()) {
+    Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
+    StringRef ParallelJobs =
+        C.getArgs().getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+    constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
+                                this, "", "out", ParallelJobs);
+  } else
+    C.addCommand(std::move(Cmd));
 }
 
 struct OclocInfo {
@@ -1060,14 +1071,36 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
             types::getTypeTempSuffix(Output.getType()));
         const char *TempOutput = C.addTempFile(
             C.getArgs().MakeArgString(OutputTempFile));
-        InputInfo OclocOutput(Output.getType(), TempOutput, TempOutput);
+        InputInfo OclocOutput(types::TY_Tempfilelist, TempOutput, TempOutput);
         Outputs.push_back(OclocOutput);
         constructOclocCommand(C, JA, OclocOutput, Inputs,
                               combineArgs(OclocItem.second), OclocDir->second);
       }
       // perform a concatenation.
-      auto OclocDir = OclocDirs.find(OclocTargets[0].first.data());
-      constructOclocConcatCommand(C, JA, Output, Outputs, OclocDir->second);
+      auto OclocDir = OclocDirs.find("xe");
+      // 3 inputs for concat.  Perform a concat against the first 2.
+      InputInfoList OutputsP2;
+      assert((Outputs.size() == 2 || Outputs.size() == 3) && "Incorrect number "
+             "of expected concat inputs.");
+      if (Outputs.size() == 3) {
+        // Create new output temporary file
+        std::string OutputTempFile;
+        OutputTempFile = C.getDriver().GetTemporaryPath(
+            llvm::sys::path::stem(Output.getFilename()).str() + "-ocloc",
+            types::getTypeTempSuffix(Output.getType()));
+        const char *TempOutput = C.addTempFile(
+            C.getArgs().MakeArgString(OutputTempFile));
+        InputInfo OclocOutput(types::TY_Tempfilelist, TempOutput, TempOutput);
+        InputInfoList OutputsP1;
+        OutputsP1.push_back(Outputs[1]);
+        OutputsP1.push_back(Outputs[2]);
+        constructOclocConcatCommand(C, JA, OclocOutput, OutputsP1,
+                                    OclocDir->second);
+        OutputsP2.push_back(OclocOutput);
+      } else
+        OutputsP2.push_back(Outputs[1]);
+      OutputsP2.push_back(Outputs[0]);
+      constructOclocConcatCommand(C, JA, Output, OutputsP2, OclocDir->second);
       return;
     } else if (OclocTargets.size() == 1) {
       auto OclocItem = OclocTargets[0];
