@@ -1963,6 +1963,29 @@ protected:
   }
 };
 
+/// Lightweight value struct that mimics the structure of an OperandBundleUse,
+/// and provides access to the VPValues corresponding to the bundle's inputs.
+/// These are computed on-demand from VPCallInstructions using the underlying
+/// call inst and operand bundle info.
+struct VPOperandBundle {
+  StringRef Tag;
+  struct InputsTy {
+    VPInstruction::const_operand_range Ops;
+
+    auto begin() const { return Ops.begin(); }
+    auto end() const { return Ops.end(); }
+    size_t size() const { return Ops.end() - Ops.begin(); }
+
+    VPValue *operator[](unsigned I) {
+      assert(I < size() && "index out of range!");
+      return *(Ops.begin() + I);
+    }
+    const VPValue *operator[](unsigned I) const {
+      return const_cast<InputsTy &>(*this)[I];
+    }
+  } Inputs;
+};
+
 /// Concrete class to represent Call instruction in VPlan.
 class VPCallInstruction : public VPInstruction {
 private:
@@ -2360,6 +2383,91 @@ public:
     return VecProperties.getSerializationReason();
   }
 
+private:
+  /// \brief Get a VPOperandBundle corresponding to the given underlying \b BOI.
+  ///
+  /// The values for a given operand bundle span a range in the underlying
+  /// call's operand vector, e.g:
+  ///
+  /// [i1 true, i64* %p, i64 32, '@llvm.assume']
+  ///           ^^^^^^^^^^^^^^^
+  ///                  |
+  ///                  +----------- "align"(i64* %p, i64 32)
+  ///
+  /// From this, we compute a VPOperandBundle which spans the equivalent range
+  /// in this VPCallInstruction's operand vector.
+  VPOperandBundle
+  getVPOperandBundleFromInfo(const CallBase::BundleOpInfo &BOI) const {
+    const auto *Begin = op_begin() + BOI.Begin;
+    const auto *End = op_begin() + BOI.End;
+
+    assert(bundle_op_begin() <= Begin && Begin < bundle_op_end() &&
+           "begin iterator out-of-range?");
+    assert(Begin < End && End <= bundle_op_end() &&
+           "end iterator out-of-range?");
+
+    return VPOperandBundle{BOI.Tag->getKey(), {llvm::make_range(Begin, End)}};
+  }
+
+public:
+  /// Gets the number of operand bundles attached to the underlying call, if one
+  /// exists, otherwise zero.
+  unsigned getNumOperandBundles() const {
+    const CallInst *CI = getUnderlyingCallInst();
+    return CI ? CI->getNumOperandBundles() : 0;
+  }
+
+  /// Gets the number of operands contained in operand bundles attached to the
+  /// underlying call, if one exists, otherwise zero.
+  unsigned getNumTotalBundleOperands() const {
+    const CallInst *CI = getUnderlyingCallInst();
+    return CI ? CI->getNumTotalBundleOperands() : 0;
+  }
+
+  /// Returns if there are any operand bundles attached this call.
+  bool hasOperandBundles() const { return getNumOperandBundles() > 0; }
+
+  /// Returns a list of VPValue operand bundles corresponding to the underlying
+  /// operand bundles attached to this call, if any.
+  void getOperandBundles(SmallVectorImpl<VPOperandBundle> &Bundles) const {
+    if (!hasOperandBundles())
+      return;
+
+    const auto *CI = getUnderlyingCallInst();
+    assert(CI && "No underlying call inst, but has operand bundles?");
+
+    // Walk each bundles op's info, and mark the range of the operand vector
+    // spanned by the bundle.
+    for (const CallBase::BundleOpInfo &Bundle : CI->bundle_op_infos())
+      Bundles.push_back(getVPOperandBundleFromInfo(Bundle));
+  }
+
+  /// Returns a VPOperandBundle for the underlying operand bundle at the given
+  /// \p Index.
+  VPOperandBundle getOperandBundleAt(unsigned Index) const {
+    const CallInst *CI = getUnderlyingCallInst();
+    assert(CI && "can't get operand bundles with no underlying call!");
+    assert(Index < CI->getNumOperandBundles() && "index out of range!");
+
+    return getVPOperandBundleFromInfo(*(CI->bundle_op_info_begin() + Index));
+  }
+
+  /// Returns the VPOperandBundle with the given \p Tag, if one is present.
+  /// Asserts if more than one is present.
+  Optional<VPOperandBundle> getOperandBundle(StringRef Tag) const {
+    if (const CallInst *CI = getUnderlyingCallInst()) {
+      assert(CI->countOperandBundlesOfType(Tag) < 2 &&
+             "more than one tag present!");
+
+      for (unsigned I = 0; I < getNumOperandBundles(); ++I) {
+        VPOperandBundle B = getOperandBundleAt(I);
+        if (B.Tag == Tag)
+          return B;
+      }
+    }
+    return None;
+  }
+
   /// Call argument list size.
   unsigned getNumArgOperands() const {
     assert(getNumOperands() != 0 && "Invalid VPCallInstruction.");
@@ -2372,6 +2480,23 @@ public:
   }
   const_operand_range arg_operands(void) const {
     return make_range(op_begin(), op_end() - 1);
+  }
+
+  operand_iterator bundle_op_begin() {
+    return op_begin() + (getNumArgOperands() - getNumTotalBundleOperands());
+  }
+  const_operand_iterator bundle_op_begin() const {
+    return op_begin() + (getNumArgOperands() - getNumTotalBundleOperands());
+  }
+  operand_iterator bundle_op_end() { return op_end() - 1; }
+  const_operand_iterator bundle_op_end() const { return op_end() - 1; }
+
+  /// Call bundle operand ranges
+  operand_range bundle_operands(void) {
+    return make_range(bundle_op_begin(), bundle_op_end());
+  }
+  const_operand_range bundle_operands(void) const {
+    return make_range(bundle_op_begin(), bundle_op_end());
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
