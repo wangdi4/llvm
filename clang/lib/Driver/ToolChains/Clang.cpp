@@ -1625,10 +1625,11 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
   if (D.IsIntelMode()) {
     SmallString<128> IntelDir(D.Dir);
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-    llvm::sys::path::append(IntelDir, "..", "..", "include");
+    llvm::sys::path::append(IntelDir, "..", "..", "opt", "compiler");
 #else
-    llvm::sys::path::append(IntelDir, "..", "compiler", "include");
+    llvm::sys::path::append(IntelDir, "..", "compiler");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(IntelDir, "include");
     CmdArgs.push_back("-internal-isystem");
     CmdArgs.push_back(Args.MakeArgString(IntelDir));
     // IA32ROOT

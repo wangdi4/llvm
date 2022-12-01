@@ -384,7 +384,7 @@ static void addIntelLibPaths(ArgStringList &CmdArgs,
   llvm::sys::path::append(BaseDir, "..");
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
   // The driver is located in <installdir>/bin/compiler
-  llvm::sys::path::append(BaseDir, "..");
+  llvm::sys::path::append(BaseDir, "..", "opt", "compiler");
   llvm::sys::path::append(LibDir, BaseDir);
   if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64)
     // lib location is in <installdir>/lib.
@@ -3777,7 +3777,7 @@ Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
     // If using the new unified/flat layout, the "../include" will only exist
     // when the driver is invoked from the build directory. If invoked from the
     // deployment we need to look an additional level up.
-    else if(AddIncludePath(getDriver().Dir + "/../../include"))
+    else if (AddIncludePath(getDriver().Dir + "/../../opt/compiler/include"))
       return;
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // INTEL_CUSTOMIZATION
