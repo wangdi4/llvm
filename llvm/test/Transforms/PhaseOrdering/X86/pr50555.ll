@@ -5,23 +5,20 @@
 define void @trunc_through_one_add(ptr noalias %0, ptr noalias readonly %1) {
 ; INTEL_CUSTOMIZATION
 ; SSE-LABEL: @trunc_through_one_add(
-; SSE-NEXT:    [[TMP3:%.*]] = bitcast ptr [[TMP1:%.*]] to ptr
-; SSE-NEXT:    [[COALESCEDLOAD:%.*]] = load <16 x i8>, ptr [[TMP3]], align 1
+; SSE-NEXT:    [[COALESCEDLOAD:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD]], <16 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_1:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD]], <16 x i8> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; SSE-NEXT:    [[TMP4:%.*]] = zext <8 x i8> [[LOADCOALESCINGSHUFFLE_]] to <8 x i16>
 ; SSE-NEXT:    [[TMP5:%.*]] = lshr <8 x i16> [[TMP4]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
 ; SSE-NEXT:    [[TMP6:%.*]] = add nuw nsw <8 x i16> [[TMP5]], [[TMP4]]
-; SSE-NEXT:    [[TMP7:%.*]] = bitcast ptr [[TMP0:%.*]] to ptr
 ; SSE-NEXT:    [[TMP8:%.*]] = lshr <8 x i16> [[TMP6]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
-; SSE-NEXT:    store <8 x i16> [[TMP8]], ptr [[TMP7]], align 2
+; SSE-NEXT:    store <8 x i16> [[TMP8]], ptr [[TMP0:%.*]], align 2
 ; SSE-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i16, ptr [[TMP0]], i64 8
 ; SSE-NEXT:    [[TMP10:%.*]] = zext <8 x i8> [[LOADCOALESCINGSHUFFLE_1]] to <8 x i16>
 ; SSE-NEXT:    [[TMP11:%.*]] = lshr <8 x i16> [[TMP10]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
 ; SSE-NEXT:    [[TMP12:%.*]] = add nuw nsw <8 x i16> [[TMP11]], [[TMP10]]
 ; SSE-NEXT:    [[TMP13:%.*]] = lshr <8 x i16> [[TMP12]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
-; SSE-NEXT:    [[TMP14:%.*]] = bitcast ptr [[TMP9]] to ptr
-; SSE-NEXT:    store <8 x i16> [[TMP13]], ptr [[TMP14]], align 2
+; SSE-NEXT:    store <8 x i16> [[TMP13]], ptr [[TMP9:%.*]], align 2
 ; SSE-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
@@ -182,22 +179,19 @@ define void @trunc_through_one_add(ptr noalias %0, ptr noalias readonly %1) {
 define void @trunc_through_two_adds(ptr noalias %0, ptr noalias readonly %1, ptr noalias readonly %2) {
 ; INTEL_CUSTOMIZATION
 ; SSE-LABEL: @trunc_through_two_adds(
-; SSE-NEXT:    [[TMP4:%.*]] = bitcast ptr [[TMP1:%.*]] to ptr
-; SSE-NEXT:    [[COALESCEDLOAD:%.*]] = load <16 x i8>, ptr [[TMP4]], align 1
+; SSE-NEXT:    [[COALESCEDLOAD:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD]], <16 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; SSE-NEXT:    [[TMP5:%.*]] = zext <8 x i8> [[LOADCOALESCINGSHUFFLE_]] to <8 x i16>
-; SSE-NEXT:    [[TMP6:%.*]] = bitcast ptr [[TMP2:%.*]] to ptr
-; SSE-NEXT:    [[COALESCEDLOAD2:%.*]] = load <16 x i8>, ptr [[TMP6]], align 1
+; SSE-NEXT:    [[COALESCEDLOAD2:%.*]] = load <16 x i8>, ptr [[TMP2:%.*]], align 1
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_3:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD2]], <16 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_4:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD2]], <16 x i8> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; SSE-NEXT:    [[TMP7:%.*]] = zext <8 x i8> [[LOADCOALESCINGSHUFFLE_3]] to <8 x i16>
 ; SSE-NEXT:    [[TMP8:%.*]] = add nuw nsw <8 x i16> [[TMP7]], [[TMP5]]
 ; SSE-NEXT:    [[TMP9:%.*]] = lshr <8 x i16> [[TMP8]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
 ; SSE-NEXT:    [[TMP10:%.*]] = add nuw nsw <8 x i16> [[TMP9]], [[TMP8]]
-; SSE-NEXT:    [[TMP11:%.*]] = bitcast ptr [[TMP0:%.*]] to ptr
 ; SSE-NEXT:    [[TMP12:%.*]] = lshr <8 x i16> [[TMP10]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_1:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD]], <16 x i8> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-; SSE-NEXT:    store <8 x i16> [[TMP12]], ptr [[TMP11]], align 2
+; SSE-NEXT:    store <8 x i16> [[TMP12]], ptr [[TMP0:%.*]], align 2
 ; SSE-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i16, ptr [[TMP0]], i64 8
 ; SSE-NEXT:    [[TMP14:%.*]] = zext <8 x i8> [[LOADCOALESCINGSHUFFLE_1]] to <8 x i16>
 ; SSE-NEXT:    [[TMP15:%.*]] = zext <8 x i8> [[LOADCOALESCINGSHUFFLE_4]] to <8 x i16>
@@ -205,8 +199,7 @@ define void @trunc_through_two_adds(ptr noalias %0, ptr noalias readonly %1, ptr
 ; SSE-NEXT:    [[TMP17:%.*]] = lshr <8 x i16> [[TMP16]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
 ; SSE-NEXT:    [[TMP18:%.*]] = add nuw nsw <8 x i16> [[TMP17]], [[TMP16]]
 ; SSE-NEXT:    [[TMP19:%.*]] = lshr <8 x i16> [[TMP18]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
-; SSE-NEXT:    [[TMP20:%.*]] = bitcast ptr [[TMP13]] to ptr
-; SSE-NEXT:    store <8 x i16> [[TMP19]], ptr [[TMP20]], align 2
+; SSE-NEXT:    store <8 x i16> [[TMP19]], ptr [[TMP13:%.*]], align 2
 ; SSE-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
