@@ -8,7 +8,7 @@
 ;; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt --thinlto-bc -o %t1a.o %s
 ; RUN: opt --thinlto-bc -o %t2a.o %S/Inputs/devirt_vcall_vis_shared_def.ll
-; RUN: ld.lld %t1a.o %t2a.o -o %t3a -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld -mllvm -opaque-pointers %t1a.o %t2a.o -o %t3a -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
@@ -19,7 +19,7 @@
 ;; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t1b.o %s
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t2b.o %S/Inputs/devirt_vcall_vis_shared_def.ll
-; RUN: ld.lld %t1b.o %t2b.o -o %t3b -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld -mllvm -opaque-pointers %t1b.o %t2b.o -o %t3b -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
@@ -29,7 +29,7 @@
 ;; Regular LTO WPD
 ; RUN: opt -o %t1c.o %s
 ; RUN: opt -o %t2c.o %S/Inputs/devirt_vcall_vis_shared_def.ll
-; RUN: ld.lld %t1c.o %t2c.o -o %t3c -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld -mllvm -opaque-pointers %t1c.o %t2c.o -o %t3c -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
@@ -40,18 +40,18 @@
 
 ;; Check that WPD fails with when linking against a shared library
 ;; containing the strong defs of the vtables.
-; RUN: ld.lld %t2c.o -o %t.so -shared
+; RUN: ld.lld -mllvm -opaque-pointers %t2c.o -o %t.so -shared
 
 ;; Index based WPD
-; RUN: ld.lld %t1a.o %t.so -o %t4a --lto-whole-program-visibility \
+; RUN: ld.lld -mllvm -opaque-pointers %t1a.o %t.so -o %t4a --lto-whole-program-visibility \
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | count 0
 
 ;; Hybrid WPD
-; RUN: ld.lld %t1b.o %t.so -o %t4b --lto-whole-program-visibility \
+; RUN: ld.lld -mllvm -opaque-pointers %t1b.o %t.so -o %t4b --lto-whole-program-visibility \
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | count 0
 
 ;; Regular LTO WPD
-; RUN: ld.lld %t1c.o %t.so -o %t4c --lto-whole-program-visibility \
+; RUN: ld.lld -mllvm -opaque-pointers %t1c.o %t.so -o %t4c --lto-whole-program-visibility \
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | count 0
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,6 +1,6 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
-; RUN: ld.lld %t.o -o %t2 -save-temps
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t2 -save-temps
 ; RUN: llvm-dis < %t2.0.2.internalize.bc | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
