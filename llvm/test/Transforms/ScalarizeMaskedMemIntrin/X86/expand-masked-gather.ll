@@ -63,7 +63,6 @@ define <2 x i64> @scalarize_v2i64_const_mask(<2 x ptr> %p, <2 x i64> %passthru) 
   ret <2 x i64> %ret
 }
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 define <2 x i64> @scalarize_v2i64_ones_mask_gep(i64* %p, <2 x i64> %passthru) {
 ; CHECK-LABEL: @scalarize_v2i64_ones_mask_gep(
@@ -118,7 +117,4 @@ define <2 x i64> @scalarize_v2i64_var_mask_gep(i64* %p, <2 x i64> %passthru, <2 
 }
 ; end INTEL_CUSTOMIZATION
 
-declare <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*>, i32, <2 x i1>, <2 x i64>)
-=======
 declare <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr>, i32, <2 x i1>, <2 x i64>)
->>>>>>> 9e5fa4b405b60b24a9bd8ab3ef470ce9d86a9453
