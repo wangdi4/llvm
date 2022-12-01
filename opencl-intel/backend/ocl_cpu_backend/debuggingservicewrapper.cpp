@@ -53,8 +53,6 @@ DebuggingServiceWrapper::DebuggingServiceWrapper()
       m_instance_func(nullptr) {}
 
 cl_dev_err_code DebuggingServiceWrapper::Init() {
-  unsigned int port_number = 0;
-  bool debugging_enabled = false;
   assert(!m_dll_loaded &&
          "DebuggingServiceWrapper::Init called more than once");
 
@@ -63,21 +61,18 @@ cl_dev_err_code DebuggingServiceWrapper::Init() {
   bool res = pipeWrapper.init("\\\\.\\pipe\\INTEL_OCL_DBG_PIPE" +
                               stringify(GetCurrentProcessId()));
   if (res && pipeWrapper.isDebuggingEnabled()) {
-    debugging_enabled = true;
-    port_number = pipeWrapper.getDebuggingPort();
-  }
-#endif
-  if (debugging_enabled) {
+    unsigned int port_number = pipeWrapper.getDebuggingPort();
     cl_dev_err_code rc = LoadDll();
     if (CL_DEV_FAILED(rc))
       return rc;
-
     if (m_init_func(port_number) == false)
       return CL_DEV_ERROR_FAIL;
     else
       return CL_DEV_SUCCESS;
-  } else
-    return CL_DEV_SUCCESS;
+  }
+#endif
+
+  return CL_DEV_SUCCESS;
 }
 
 void DebuggingServiceWrapper::Terminate() {
