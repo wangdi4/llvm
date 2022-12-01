@@ -381,8 +381,6 @@ class KernelSet {
 public:
   KernelSet();
 
-  ~KernelSet();
-
   void AddKernel(std::unique_ptr<Kernel> pKernel);
 
   size_t GetCount() const { return m_kernels.size(); }
