@@ -124,7 +124,6 @@ public:
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
   /// We are after SLP pass.
@@ -136,12 +135,7 @@ public:
   void addWholeProgramUtils(WholeProgramUtils WPUtils) {
     this->WPUtils = std::move(WPUtils);
   }
-#endif // INTEL_CUSTOMIZATION
 private:
-  /// ExtensionList - This is list of all of the extensions that are registered.
-  std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
-
-#if INTEL_CUSTOMIZATION
   /// True if the compiler is built to include DTrans and the option
   /// EnableDTrans is turned on.
   bool DTransEnabled;
@@ -151,8 +145,6 @@ private:
   WholeProgramUtils WPUtils;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 4e9cab92b78a5a5593a2e41c38346ab1e242997c
 public:
   PassManagerBuilder();
   ~PassManagerBuilder();

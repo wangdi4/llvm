@@ -692,21 +692,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
 
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
 
-  if (CodeGenOpts.DebugInfoForProfiling ||
-      !CodeGenOpts.SampleProfileFile.empty())
-    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
-                           addAddDiscriminatorsPass);
-
-  // In ObjC ARC mode, add the main ARC optimization passes.
-  if (LangOpts.ObjCAutoRefCount) {
-    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
-                           addObjCARCExpandPass);
-    PMBuilder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-                           addObjCARCAPElimPass);
-    PMBuilder.addExtension(PassManagerBuilder::EP_ScalarOptimizerLate,
-                           addObjCARCOptPass);
-  }
-
   // Set up the per-function pass manager.
   FPM.add(new TargetLibraryInfoWrapperPass(*TLII));
   if (CodeGenOpts.VerifyModule)
