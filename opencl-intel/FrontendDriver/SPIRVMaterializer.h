@@ -27,7 +27,7 @@ namespace ClangFE {
 
 class ClangFECompilerMaterializeSPIRVTask {
 public:
-  ClangFECompilerMaterializeSPIRVTask(SPIRV::TranslatorOpts opts)
+  ClangFECompilerMaterializeSPIRVTask(SPIRV::TranslatorOpts &opts)
       : m_opts(opts) {}
 
   /// \brief Correct the given module to be processed by the BE.
@@ -37,7 +37,7 @@ public:
   bool MaterializeSPIRV(llvm::Module *&pM);
 
 private:
-  SPIRV::TranslatorOpts m_opts;
+  SPIRV::TranslatorOpts &m_opts;
 };
 
 } // namespace ClangFE
