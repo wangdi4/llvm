@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -197,6 +197,14 @@ static cl::opt<bool> DisableFcmpMinMaxCombine(
 static cl::opt<bool> DisableUpcasting(
     "disable-combine-upcasting",
     cl::desc("disable the generation of pointer up casting"));
+
+// Used for LIT tests to unconditionally suppress canonicalizing GEP of GEP
+// constant indices
+static cl::opt<bool> DisableCanonicalizeSwap(
+    "disable-canonicalize-swap",
+    cl::desc("disable canonicalizing GEP of GEP constant indices to "
+             "have constants as the rightmost indices"),
+    cl::ReallyHidden, cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
@@ -2233,7 +2241,7 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // optimization by reducing instruction count in the loop body, but performing
   // canonicalization swapping first negates the LICM opportunity while it does
   // not necessarily reduce instruction count.
-  bool ShouldCanonicalizeSwap = true;
+  bool ShouldCanonicalizeSwap = enableCanonicalizeSwap(); // INTEL
 
   if (Src->getResultElementType() == GEP.getSourceElementType() &&
       Src->getNumOperands() == 2 && GEP.getNumOperands() == 2 &&
@@ -5050,18 +5058,22 @@ static bool combineInstructionsOverFunction(
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, unsigned MaxIterations, bool PreserveForDTrans,
     bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-    bool EnableUpCasting, LoopInfo *LI) {
+    bool EnableUpCasting, bool EnableCanonicalizeSwap, LoopInfo *LI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
-  if (EnablePreserveForDTrans)      // INTEL
-    PreserveForDTrans = true;       // INTEL
-  if (PreserveAddrComputations)     // INTEL
-    PreserveAddrCompute = true;     // INTEL
-  if (DisableFcmpMinMaxCombine)     // INTEL
-    EnableFcmpMinMaxCombine = false;  // INTEL
-  if (DisableUpcasting)       // INTEL
-    EnableUpCasting = false;  // INTEL
+#if INTEL_CUSTOMIZATION
+  if (EnablePreserveForDTrans)
+    PreserveForDTrans = true;
+  if (PreserveAddrComputations)
+    PreserveAddrCompute = true;
+  if (DisableFcmpMinMaxCombine)
+    EnableFcmpMinMaxCombine = false;
+  if (DisableUpcasting)
+    EnableUpCasting = false;
+  if (DisableCanonicalizeSwap)
+    EnableCanonicalizeSwap = false;
+#endif // INTEL_CUSTOMIZATION
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -5106,8 +5118,8 @@ static bool combineInstructionsOverFunction(
 #if INTEL_CUSTOMIZATION
     InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), PreserveForDTrans,
                         EnableFcmpMinMaxCombine, PreserveAddrCompute,
-                        EnableUpCasting, AA, AC, TLI, TTI, DT,
-                        ORE, BFI, PSI, DL, LI);
+                        EnableUpCasting, EnableCanonicalizeSwap, AA, AC, TLI,
+                        TTI, DT, ORE, BFI, PSI, DL, LI);
 #endif // INTEL_CUSTOMIZATION
     IC.MaxArraySizeForCombine = MaxArraySize;
 
@@ -5124,22 +5136,26 @@ static bool combineInstructionsOverFunction(
 InstCombinePass::InstCombinePass(bool PreserveForDTrans,
                                  bool PreserveAddrCompute,
                                  bool EnableFcmpMinMaxCombine,
-                                 bool EnableUpCasting)
+                                 bool EnableUpCasting,
+                                 bool EnableCanonicalizeSwap)
     : PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       MaxIterations(LimitMaxIterations),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
-      EnableUpCasting(EnableUpCasting) {}
+      EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
 
 InstCombinePass::InstCombinePass(bool PreserveForDTrans,
                                  bool PreserveAddrCompute,
                                  unsigned MaxIterations,
                                  bool EnableFcmpMinMaxCombine,
-                                 bool EnableUpCasting)
+                                 bool EnableUpCasting,
+                                 bool EnableCanonicalizeSwap)
     : PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute), MaxIterations(MaxIterations),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
-      EnableUpCasting(EnableUpCasting) {}
+      EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses InstCombinePass::run(Function &F,
@@ -5162,10 +5178,12 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        MaxIterations,                 // INTEL
-                                       PreserveForDTrans,              // INTEL
+                                       PreserveForDTrans,             // INTEL
                                        EnableFcmpMinMaxCombine,       // INTEL
                                        PreserveAddrCompute,           // INTEL
-                                       EnableUpCasting, LI))    // INTEL
+                                       EnableUpCasting,               // INTEL
+                                       EnableCanonicalizeSwap,        // INTEL
+                                       LI))                           // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -5219,10 +5237,11 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          MaxIterations,                 // INTEL
-                                         PreserveForDTrans,              // INTEL
+                                         PreserveForDTrans,             // INTEL
                                          EnableFcmpMinMaxCombine,       // INTEL
                                          PreserveAddrCompute,           // INTEL
-                                         EnableUpCasting, LI);    // INTEL
+                                         EnableUpCasting,               // INTEL
+                                         EnableCanonicalizeSwap, LI);   // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -5231,13 +5250,15 @@ char InstructionCombiningPass::ID = 0;
 InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
                                                    bool PreserveAddrCompute,
                                                    bool EnableFcmpMinMaxCombine,
-                                                   bool EnableUpCasting)
+                                                   bool EnableUpCasting,
+                                                   bool EnableCanonicalizeSwap)
     : FunctionPass(ID), PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap),
 #endif // INTEL_CUSTOMIZATION
-      MaxIterations(InstCombineDefaultMaxIterations) {
+          MaxIterations(InstCombineDefaultMaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -5246,13 +5267,15 @@ InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
                                                    bool PreserveAddrCompute,
                                                    unsigned MaxIterations,
                                                    bool EnableFcmpMinMaxCombine,
-                                                   bool EnableUpCasting)
+                                                   bool EnableUpCasting,
+                                                   bool EnableCanonicalizeSwap)
     : FunctionPass(ID), PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap),
 #endif // INTEL_CUSTOMIZATION
-      MaxIterations(MaxIterations) {
+          MaxIterations(MaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -5281,22 +5304,22 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 }
 
 #if INTEL_CUSTOMIZATION
-FunctionPass *
-llvm::createInstructionCombiningPass(bool PreserveForDTrans,
-                                     bool PreserveAddrCompute,
-                                     bool EnableFcmpMinMaxCombine,
-                                     bool EnableUpCasting) {
+FunctionPass *llvm::createInstructionCombiningPass(
+    bool PreserveForDTrans, bool PreserveAddrCompute,
+    bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
+    bool EnableCanonicalizeSwap) {
   return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
-                                      EnableFcmpMinMaxCombine,
-                                      EnableUpCasting);
+                                      EnableFcmpMinMaxCombine, EnableUpCasting,
+                                      EnableCanonicalizeSwap);
 }
 
 FunctionPass *llvm::createInstructionCombiningPass(
     bool PreserveForDTrans, bool PreserveAddrCompute, unsigned MaxIterations,
-    bool EnableFcmpMinMaxCombine, bool EnableUpCasting) {
+    bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
+    bool EnableCanonicalizeSwap) {
   return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
                                       MaxIterations, EnableFcmpMinMaxCombine,
-                                      EnableUpCasting);
+                                      EnableUpCasting, EnableCanonicalizeSwap);
 }
 #endif // INTEL_CUSTOMIZATION
 
