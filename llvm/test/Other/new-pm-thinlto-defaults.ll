@@ -59,13 +59,8 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<Oz>' -S %s 2>&1 \
-<<<<<<< HEAD
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -new-pm-debug-info-for-profiling \
-=======
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -debug-info-for-profiling \
->>>>>>> 4b3202e639eb41e919b059dae49ad545a97e2af2
 ; RUN:     -passes='thinlto<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
 ; end INTEL_CUSTOMIZATION
