@@ -819,7 +819,27 @@ RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref) {
     }
 
     // TODO: add support for constant GEP exprs.
+    // In general, we don't know how to assign symbase to the addressOf ref
+    // based on the base pointer of GEPOperator.
     if (!Val || isa<GEPOperator>(Val)) {
+      return nullptr;
+    }
+
+    if (Val->getType()->isPointerTy() && !Val->isNullValue()) {
+
+      auto *GlobVar = dyn_cast<GlobalVariable>(Val);
+
+      if (isa<Function>(Val) || (GlobVar && GlobVar->isConstant())) {
+        unsigned BlobIndex;
+        auto *GlobalObj = cast<GlobalObject>(Val);
+        Ref->getBlobUtils().createConstGlobalObjectBlob(GlobalObj, true,
+                                                        &BlobIndex);
+        return Ref->getDDRefUtils().createSelfAddressOfRef(
+            GlobalObj->getValueType(), BlobIndex, 0, GenericRvalSymbase);
+      }
+
+      // We don't know how to assign symbase to the addressOf refs based on
+      // other global objects as they can cause data dependencies.
       return nullptr;
     }
 

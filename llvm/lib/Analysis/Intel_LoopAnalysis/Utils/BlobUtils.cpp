@@ -304,6 +304,38 @@ BlobTy BlobUtils::createGlobalVarBlob(GlobalVariable *Global, bool Insert,
   return getHIRParser().createBlob(Global, Symbase, Insert, NewBlobIndex);
 }
 
+BlobTy BlobUtils::createConstGlobalObjectBlob(GlobalObject *Global, bool Insert,
+                                              unsigned *NewBlobIndex) {
+
+  auto *GlobalVar = dyn_cast<GlobalVariable>(Global);
+  (void)GlobalVar;
+
+  assert((isa<Function>(Global) || (GlobalVar && GlobalVar->isConstant())) &&
+         "Invalid constant global object!");
+
+  auto *Blob =
+      getHIRParser().createBlob(Global, InvalidSymbase, false, nullptr);
+
+  if (!Insert) {
+    return Blob;
+  }
+
+  unsigned BlobIndex = findBlob(Blob);
+
+  if (BlobIndex == InvalidBlobIndex) {
+    // Use a new symbase as it hasn't been seen by HIR before and add an entry
+    // into the blob table.
+    unsigned NewSymbase = getHIRParser().getHIRFramework().getNewSymbase();
+    // Second
+    getHIRParser().createBlob(Global, NewSymbase, true, NewBlobIndex);
+
+  } else if (NewBlobIndex) {
+    *NewBlobIndex = BlobIndex;
+  }
+
+  return Blob;
+}
+
 BlobTy BlobUtils::createConstantBlob(Constant *Const, bool Insert,
                                      unsigned *NewBlobIndex) {
   return getHIRParser().createBlob(Const, ConstantSymbase, Insert,

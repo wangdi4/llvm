@@ -22,6 +22,7 @@
 namespace llvm {
 class raw_ostream;
 class GlobalVariable;
+class GlobalObject;
 class Value;
 class Type;
 class SCEV;
@@ -200,6 +201,16 @@ public:
   /// a blob for PaddedCounter and it must not be used as generic utility.
   BlobTy createGlobalVarBlob(GlobalVariable *Global, bool Insert = true,
                              unsigned *NewBlobIndex = nullptr);
+
+  /// Returns a new blob created from passed const global object. A constant
+  /// global object is one which cannot cause data dependencies like a function
+  /// or constant global var. Although, other global vars also cannot cause
+  /// dependencies by themselves, we don't know how to assign a symbase to
+  /// addressOf refs/memrefs based on them which can cause dependencies.
+  /// Supposedly, the caller is trying to create a blob out of this object to
+  /// eventually create the addressOf/memref.
+  BlobTy createConstGlobalObjectBlob(GlobalObject *Global, bool Insert = true,
+                                     unsigned *NewBlobIndex = nullptr);
 
   /// Returns a new blob created from a constant value.
   /// The default behavior should be to not insert constant blobs into the blob table.
