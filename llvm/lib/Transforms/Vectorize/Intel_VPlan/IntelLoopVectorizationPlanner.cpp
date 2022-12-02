@@ -2097,6 +2097,12 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
         assert(false && "Registerized UDR/Scan unexpected.");
         return false;
       }
+
+      if (isa<VPUserDefinedScanReduction>(Red)) {
+        LLVM_DEBUG(
+            dbgs() << "LVP: UDS lowering and codegen are not supported yet!\n");
+        return false;
+      }
     }
 
     // Check that reduction does not have more than one liveout instruction.

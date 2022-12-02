@@ -65,6 +65,7 @@ public:
     IndexReduction,
     InscanReduction,
     UserDefinedReduction,
+    UserDefinedScanReduction,
     Induction,
     Private,
     PrivateNonPOD,
@@ -156,9 +157,10 @@ public:
   VPUserDefinedReduction(Function *Combiner, Function *Initializer,
                          Function *Ctor, Function *Dtor, VPValue *Start,
                          FastMathFlags FMF, Type *RT, bool Signed,
-                         bool IsMemOnly = false)
+                         bool IsMemOnly = false,
+                         unsigned char Id = UserDefinedReduction)
       : VPReduction(Start, nullptr /*Exit*/, RecurKind::Udr, FMF, RT, Signed,
-                    IsMemOnly, UserDefinedReduction),
+                    IsMemOnly, Id),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
 
   Function *getCombiner() const { return Combiner; }
@@ -183,6 +185,35 @@ private:
   Function *Initializer;
   Function *Ctor;
   Function *Dtor;
+};
+
+/// Descriptor for user-defined inscan reduction.
+class VPUserDefinedScanReduction : public VPUserDefinedReduction {
+public:
+  VPUserDefinedScanReduction(Function *Combiner, Function *Initializer,
+                             Function *Ctor, Function *Dtor, VPValue *Start,
+                             FastMathFlags FMF, Type *RT, bool Signed,
+                             InscanReductionKind InscanRedKind,
+                             bool IsMemOnly = false)
+      : VPUserDefinedReduction(Combiner, Initializer, Ctor, Dtor, Start, FMF,
+                               RT, Signed, IsMemOnly, UserDefinedScanReduction),
+        InscanRedKind(InscanRedKind) {}
+
+  InscanReductionKind getInscanKind() const { return InscanRedKind; }
+
+  virtual StringRef getNameSuffix() const override { return "uds"; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == UserDefinedScanReduction;
+  }
+
+private:
+  InscanReductionKind InscanRedKind;
 };
 
 /// Descriptor for inscan reduction.
@@ -673,7 +704,8 @@ public:
   addUserDefinedReduction(Function *Combiner, Function *Initializer,
                           Function *Ctor, Function *Dtor, VPValue *Incoming,
                           FastMathFlags FMF, Type *RedTy, bool Signed,
-                          VPValue *AI, bool ValidMemOnly);
+                          VPValue *AI, bool ValidMemOnly,
+                          Optional<InscanReductionKind> InscanRedKind);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
   /// \p InductionOp, starting instruction \pStart, incoming value
@@ -923,6 +955,8 @@ public:
       linkValue(ReductionMap, Red, Val);
     else if (auto Red = dyn_cast<VPUserDefinedReduction>(E))
       linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPUserDefinedScanReduction>(E))
+      linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);
     else if (auto Priv = dyn_cast<VPPrivate>(E))
@@ -1140,8 +1174,8 @@ private:
   // Insert inscan-related reduction instructions and process
   // inclusive/exclusive pragmas in the loop body.
   void insertRunningInscanReductionInstrs(
-    const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
-    VPBuilder &Builder);
+      const SmallVectorImpl<const VPReduction *> &InscanReductions,
+      VPBuilder &Builder);
 
   // Look through min/max+index reductions and identify which ones
   // are linears. See comment for VPIndexReduction::isLinearIndex().

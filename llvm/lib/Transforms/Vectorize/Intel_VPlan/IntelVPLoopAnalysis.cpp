@@ -123,6 +123,20 @@ void VPUserDefinedReduction::dump(raw_ostream &OS) const {
   OS << "}\n";
 }
 
+void VPUserDefinedScanReduction::dump(raw_ostream &OS) const {
+  VPUserDefinedReduction::dump(OS);
+  OS << "  inscan ReductionKind: ";
+  switch (InscanRedKind) {
+  case InscanReductionKind::Inclusive:
+    OS << "inclusive";
+    break;
+  case InscanReductionKind::Exclusive:
+    OS << "exclusive";
+    break;
+  }
+  OS << '\n';
+}
+
 void VPInduction::dump(raw_ostream &OS) const {
   switch (getKind()) {
   default:
@@ -422,11 +436,16 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
 VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
     Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
     VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed, VPValue *AI,
-    bool ValidMemOnly) {
+    bool ValidMemOnly, Optional<InscanReductionKind> InscanRedKind) {
   // Create a new VPEntity to represent UDR.
   VPUserDefinedReduction *Red =
-      new VPUserDefinedReduction(Combiner, Initializer, Ctor, Dtor, Incoming,
-                                 FMF, RedTy, Signed, ValidMemOnly);
+      !InscanRedKind.has_value()
+          ? new VPUserDefinedReduction(Combiner, Initializer, Ctor, Dtor,
+                                       Incoming, FMF, RedTy, Signed,
+                                       ValidMemOnly)
+          : new VPUserDefinedScanReduction(Combiner, Initializer, Ctor, Dtor,
+                                           Incoming, FMF, RedTy, Signed,
+                                           *InscanRedKind, ValidMemOnly);
   ReductionList.emplace_back(Red);
   createMemDescFor(Red, AI);
   return Red;
@@ -846,7 +865,7 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
 }
 
 void VPLoopEntityList::insertRunningInscanReductionInstrs(
-    const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
+    const SmallVectorImpl<const VPReduction *> &InscanReductions,
     VPBuilder &Builder) {
   // Nothing to do if no inscan reductions present.
   if (InscanReductions.empty())
@@ -895,12 +914,28 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
 
   // Assert that all inscan reductions are of the same inscan kind,
   // like all inclusive, or all exclusive.
-  assert((all_of(InscanReductions, [](const VPInscanReduction *InscanRed) {
-           return InscanRed->getInscanKind() == InscanReductionKind::Inclusive;
-         }) ||
-         all_of(InscanReductions, [](const VPInscanReduction *InscanRed) {
-           return InscanRed->getInscanKind() == InscanReductionKind::Exclusive;
-         })) && "Expect inscan reductions of the same kind!");
+  assert(
+      (all_of(InscanReductions,
+              [](const VPReduction *InscanRed) {
+                if (auto *UDS = dyn_cast<VPUserDefinedScanReduction>(InscanRed))
+                  return UDS->getInscanKind() == InscanReductionKind::Inclusive;
+                else if (auto *PlainInscanRed =
+                             dyn_cast<VPInscanReduction>(InscanRed))
+                  return PlainInscanRed->getInscanKind() ==
+                         InscanReductionKind::Inclusive;
+                return false;
+              }) ||
+       all_of(InscanReductions,
+              [](const VPReduction *InscanRed) {
+                if (auto *UDS = dyn_cast<VPUserDefinedScanReduction>(InscanRed))
+                  return UDS->getInscanKind() == InscanReductionKind::Exclusive;
+                else if (auto *PlainInscanRed =
+                             dyn_cast<VPInscanReduction>(InscanRed))
+                  return PlainInscanRed->getInscanKind() ==
+                         InscanReductionKind::Exclusive;
+                return false;
+              })) &&
+      "Expect inscan reductions of the same kind!");
 
   // Process each inscan reduction one by one.
   // The following needs to happen for in-memory reduction:
@@ -940,7 +975,10 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   //   float %final_red = reduction-final-inscan float %carry_over.next
 
   VPBuilder::InsertPointGuard Guard(Builder);
-  for (const VPInscanReduction *InscanRed : InscanReductions) {
+  for (const VPReduction *Red : InscanReductions) {
+    const VPInscanReduction *InscanRed = dyn_cast<VPInscanReduction>(Red);
+    assert(InscanRed && "UDS are not supported yet!");
+
     auto *Private = getLinkedInstruction<VPAllocatePrivate>(InscanRed);
 
     // Initalize the reduction with Identity value in the loop header.
@@ -1335,7 +1373,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 
   DenseMap<const VPReduction *, VPInstruction *> RedExitMap;
   SmallPtrSet<const VPReduction *, 4> ProcessedReductions;
-  SmallVector<const VPInscanReduction *, 2> InscanReductions;
+  SmallVector<const VPReduction *, 2> InscanReductions;
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
@@ -1360,6 +1398,8 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     // inclusive/exclusive pragmas in the loop body.
     if (auto InscanReduction = dyn_cast<VPInscanReduction>(Reduction))
       InscanReductions.push_back(InscanReduction);
+    if (auto UDS = dyn_cast<VPUserDefinedScanReduction>(Reduction))
+      InscanReductions.push_back(UDS);
 
     for (auto *Reduction : reverse(WorkList)) {
       if (auto *UDR = dyn_cast<VPUserDefinedReduction>(Reduction))
@@ -2862,7 +2902,7 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
     assert(Exit == nullptr && "UDR not expected to have an Exit instruction.");
     VPRed = LE->addUserDefinedReduction(Combiner, Initializer, Ctor, Dtor,
                                         Start, RedFMF, RT, Signed, AllocaInst,
-                                        ValidMemOnly);
+                                        ValidMemOnly, InscanRedKind);
   } else if (LinkPhi == nullptr) {
     VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
                              InscanRedKind, AllocaInst, ValidMemOnly);
