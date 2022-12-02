@@ -2240,17 +2240,6 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   if (!shouldMergeGEPs(*cast<GEPOperator>(&GEP), *Src))
     return nullptr;
 
-<<<<<<< HEAD
-  // LICM moves a GEP with constant indices to the front, while canonicalization
-  // swaps it to the back of a non-constant GEP. If both transformations can be
-  // applied, LICM takes priority because it generally provides greater
-  // optimization by reducing instruction count in the loop body, but performing
-  // canonicalization swapping first negates the LICM opportunity while it does
-  // not necessarily reduce instruction count.
-  bool ShouldCanonicalizeSwap = enableCanonicalizeSwap(); // INTEL
-
-=======
->>>>>>> be4b1dd35bd1e0519c901e11d8fe4e6f95203c99
   if (Src->getResultElementType() == GEP.getSourceElementType() &&
       Src->getNumOperands() == 2 && GEP.getNumOperands() == 2 &&
       Src->hasOneUse()) {
