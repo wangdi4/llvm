@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -gvn -S | FileCheck %s
+=======
+; RUN: opt < %s -passes=gvn -S | FileCheck %s
+>>>>>>> 881c6c0d46ae1b72fb60bbb6a547577f79a5d14f
 
 	%struct.INT2 = type { i32, i32 }
 @blkshifts = external global %struct.INT2*		; <%struct.INT2**> [#uses=2]

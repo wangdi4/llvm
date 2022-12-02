@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -instcombine -S < %s | FileCheck %s
+=======
+; RUN: opt -passes=instcombine -S < %s | FileCheck %s
+>>>>>>> 881c6c0d46ae1b72fb60bbb6a547577f79a5d14f
 
 ; CHECK-LABEL: @test_load_combine_aa(
 ; CHECK: %[[V:.*]] = load i32, ptr %0
