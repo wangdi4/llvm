@@ -1491,12 +1491,12 @@ public:
   /// \return true if VLS is expected to be profitable in almost all cases.
   bool isAggressiveVLSProfitable() const;
 
-  /// Attempt to match the vector variant of the call \p ForCall with each
+  /// Attempt to match each possible variant of the call \p ForCall with each
   /// possible variant of "vector-variants" function attribute. Each variant
   /// of the attribute is recorded in \p Variants. \returns The index of the
   /// best match in \p Variants, or -1 of no match is found.
   int getMatchingVectorVariant(
-      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
       const Module *M,
       const ArrayRef<bool> ArgIsLinearPrivateMem) const;
@@ -2043,7 +2043,7 @@ public:
   virtual bool isVPlanVLSProfitable() const = 0;
   virtual bool isAggressiveVLSProfitable() const = 0;
   virtual int getMatchingVectorVariant(
-      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
       const Module *M,
       const ArrayRef<bool> ArgIsLinearPrivateMem) const = 0;
@@ -2755,7 +2755,7 @@ public:
   }
 
   int getMatchingVectorVariant(
-      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
       const Module *M,
       const ArrayRef<bool> ArgIsLinearPrivateMem) const override {

@@ -234,7 +234,7 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
     //
     // TODO: add scoring for linear reference parameters for val/uval modifiers.
     if ((Callee[I].isLinear() && Caller[I].isLinear()) ||
-        (Callee[I].isLinearRef() && Caller[I].isLinear())) {
+        (Callee[I].isLinearRef() && Caller[I].isLinearRef())) {
       if (Callee[I].isConstantStrideLinear() && // Case #1
           Caller[I].isConstantStrideLinear() &&
           Callee[I].getStride() == Caller[I].getStride())
