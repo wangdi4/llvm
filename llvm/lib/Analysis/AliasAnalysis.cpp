@@ -790,12 +790,27 @@ ModRefInfo AAResults::getModRefInfo(const Instruction *I,
 }
 
 #if INTEL_COLLAB
+static bool isSimpleReductionClause(StringRef ClauseStr) {
+  // Allowing no-mod on reduction operands, allows the private-copy reduction
+  // result to live outside the region. For basic-type reductions in SIMD
+  // regions, the vectorizer can detect this, and the copy removal can improve
+  // performance. For multi-instruction reductions such as UDRs and scans, the
+  // private reduction variable must stay inside the region.
+  int ClauseID = vpo::VPOAnalysisUtils::getClauseID(ClauseStr);
+  return vpo::VPOAnalysisUtils::isReductionClause(ClauseID) &&
+         ClauseID != QUAL_OMP_REDUCTION_UDR &&
+         ClauseID != QUAL_OMP_INREDUCTION_UDR && !ClauseStr.contains("SCAN");
+}
+
 // Tests the operand bundles on an OpenMP intrinsic, against the given Loc.
 // Returns ModRef if there may/must be an alias, Ref otherwise.
 // Does not analyze the call parameters.
 ModRefInfo AAResults::getDirectiveModRefInfo(const CallBase *Call,
                                              const MemoryLocation &Loc,
                                              AAQueryInfo &AAQI) {
+  bool isEndSimd =
+      vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_END_SIMD;
+
   // The modref for an end directive is the modref for its begin directive.
   // This prevents/allows motion out of both ends of the region.
   if (vpo::VPOAnalysisUtils::isEndDirective(const_cast<CallBase *>(Call)))
@@ -808,8 +823,26 @@ ModRefInfo AAResults::getDirectiveModRefInfo(const CallBase *Call,
     return ModRefInfo::ModRef;
   }
 
+  // Thread-locals should never live in-out of a potential parallel region.
+  if (auto *GV = dyn_cast<GlobalValue>(Loc.Ptr))
+    if ((GV->isThreadLocal() || GV->isThreadPrivate()) &&
+        vpo::VPOAnalysisUtils::getDirectiveID(Call) != DIR_OMP_SIMD)
+      return ModRefInfo::ModRef;
+
   for (unsigned I = 0; I < Call->getNumOperandBundles(); ++I) {
     OperandBundleUse BU = Call->getOperandBundleAt(I);
+    // Some operands should be blocked from hoisting above the region entry,
+    // but can still be partially registerized as a live-out, if the
+    // region is SIMD.
+    if (isEndSimd) {
+      StringRef ClauseName = BU.getTagName();
+      if (isSimpleReductionClause(ClauseName))
+        continue;
+      else if (vpo::VPOAnalysisUtils::getClauseID(ClauseName) ==
+               QUAL_OMP_LIVEIN)
+        continue;
+    }
+
     // Check for aliasing on all the bundle inputs.
     // Nontyped MAP clauses may have multiple values in the inputs.
     for (const Use &U : BU.Inputs) {
@@ -823,7 +856,8 @@ ModRefInfo AAResults::getDirectiveModRefInfo(const CallBase *Call,
     }
   }
   // Even if all are "NoAlias" (or no operand bundles), return "Ref".
-  // We want to avoid store motion across calls with operand bundles.
+  // We want to ensure that objects are stored back to memory at the end
+  // of the region.
   return ModRefInfo::Ref;
 }
 #endif // INTEL_COLLAB

@@ -626,6 +626,33 @@ using VPlanCostModelFull = VPlanCostModelWithHeuristics<
     VPlanCostModelHeuristics::HeuristicSpillFill,
     VPlanCostModelHeuristics::HeuristicPsadbw>>;
 
+using VPlanCostModelBaseNoSLP = VPlanCostModelWithHeuristics<
+  HeuristicsList<const VPInstruction>, // empty list
+  HeuristicsList<const VPBasicBlock>,  // empty list
+  HeuristicsList<const VPlanVector,
+                 VPlanCostModelHeuristics::HeuristicSpillFill>>;
+
+using VPlanCostModelLiteNoSLP = VPlanCostModelWithHeuristics<
+  HeuristicsList<const VPInstruction>, // empty list
+  HeuristicsList<const VPBasicBlock>,  // empty list
+  HeuristicsList<
+    const VPlanVector,
+    VPlanCostModelHeuristics::HeuristicGatherScatter,
+    VPlanCostModelHeuristics::HeuristicSpillFill,
+    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+
+using VPlanCostModelFullNoSLP = VPlanCostModelWithHeuristics<
+  HeuristicsList<
+    const VPInstruction,
+    VPlanCostModelHeuristics::HeuristicOVLSMember,
+    VPlanCostModelHeuristics::HeuristicSVMLIDivIRem>,
+  HeuristicsList<const VPBasicBlock>, // empty list
+  HeuristicsList<
+    const VPlanVector,
+    VPlanCostModelHeuristics::HeuristicGatherScatter,
+    VPlanCostModelHeuristics::HeuristicSpillFill,
+    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+
 #else // INTEL_FEATURE_SW_ADVANCED
 
 using VPlanCostModelBase = VPlanCostModelWithHeuristics<
@@ -635,6 +662,9 @@ using VPlanCostModelBase = VPlanCostModelWithHeuristics<
 
 using VPlanCostModelLite = VPlanCostModelBase;
 using VPlanCostModelFull = VPlanCostModelLite;
+using VPlanCostModelBaseNoSLP = VPlanCostModelBase;
+using VPlanCostModelLiteNoSLP = VPlanCostModelLite;
+using VPlanCostModelFullNoSLP = VPlanCostModelFull;
 
 #endif // INTEL_FEATURE_SW_ADVANCED
 
