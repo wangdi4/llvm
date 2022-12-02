@@ -1153,16 +1153,6 @@ processInputModule(std::unique_ptr<Module> M) {
         // before large-GRF split.
         Modified |= lowerEsimdConstructs(MDesc2);
       }
-<<<<<<< HEAD
-      for (module_split::ModuleDesc &IrMD : MMs) {
-#if INTEL_COLLAB
-        IrPropSymFilenameTriple T =
-            saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
-#else  // INTEL_COLLAB
-        IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
-#endif // INTEL_COLLAB
-        addTableRow(*Table, T);
-=======
       MMs.emplace_back(std::move(MDesc2));
     }
     if (!SplitEsimd && (MMs.size() > 1)) {
@@ -1193,7 +1183,6 @@ processInputModule(std::unique_ptr<Module> M) {
       if (SplitOccurred) {
         error("some modules had to be split, '-" + IROutputOnly.ArgStr +
               "' can't be used");
->>>>>>> 3386c6020fd1638a729067ace0336d415500b7ba
       }
       saveModuleIR(MMs.front().getModule(), OutputFilename);
       return Table;
@@ -1209,7 +1198,12 @@ processInputModule(std::unique_ptr<Module> M) {
                 "have been made\n";
     }
     for (module_split::ModuleDesc &IrMD : MMs) {
+#if INTEL_COLLAB
+      IrPropSymFilenameTriple T =
+          saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
+#else // INTEL_COLLAB
       IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
+#endif // INTEL_COLLAB
       addTableRow(*Table, T);
     }
 
