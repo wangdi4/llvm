@@ -10753,8 +10753,13 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_INTEL_bfloat16_conversion"
                 ",+SPV_INTEL_joint_matrix"
                 ",+SPV_INTEL_hw_thread_queries"
+<<<<<<< HEAD
                 ",+SPV_INTEL_memory_access_aliasing" // INTEL_COLLAB
                 ",+SPV_KHR_uniform_group_instructions";
+=======
+                ",+SPV_KHR_uniform_group_instructions"
+                ",+SPV_INTEL_masked_gather_scatter";
+>>>>>>> 334d0e9708ebb7c7582f8f2f0883ac20bb7b7580
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 
