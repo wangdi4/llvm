@@ -54,27 +54,6 @@ struct PatchableFunction : public MachineFunctionPass {
 };
 }
 
-<<<<<<< HEAD
-/// Returns true if instruction \p MI will not result in actual machine code
-/// instructions.
-static bool doesNotGeneratecode(const MachineInstr &MI) {
-  // TODO: Introduce an MCInstrDesc flag for this
-  switch (MI.getOpcode()) {
-  default: return false;
-  case TargetOpcode::IMPLICIT_DEF:
-  case TargetOpcode::KILL:
-  case TargetOpcode::CFI_INSTRUCTION:
-  case TargetOpcode::EH_LABEL:
-  case TargetOpcode::NOTIFY_LABEL: // INTEL
-  case TargetOpcode::GC_LABEL:
-  case TargetOpcode::DBG_VALUE:
-  case TargetOpcode::DBG_LABEL:
-    return true;
-  }
-}
-
-=======
->>>>>>> 3f3438a596d4883ecd934fc725a9d5f620082c3b
 bool PatchableFunction::runOnMachineFunction(MachineFunction &MF) {
   if (MF.getFunction().hasFnAttribute("patchable-function-entry")) {
     MachineBasicBlock &FirstMBB = *MF.begin();
