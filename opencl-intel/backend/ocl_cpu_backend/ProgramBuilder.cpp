@@ -487,10 +487,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   bool needSerializeWGs =
       (skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get()) || isAutorun;
 
-  // Need to check if NoBarrierPath Value exists, it is not guaranteed that
-  // KernelAnalysisPass is running in all scenarios.
-  const bool HasNoBarrierPath =
-      skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get();
+  const bool HasNoBarrierPath = skimd.NoBarrierPath.get();
   const bool HasMatrixCall =
       skimd.HasMatrixCall.hasValue() && skimd.HasMatrixCall.get();
   const unsigned int localBufferSize = skimd.LocalBufferSize.get();

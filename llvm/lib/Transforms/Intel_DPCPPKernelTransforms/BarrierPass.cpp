@@ -1175,6 +1175,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
       BaseGID = Utils.createGetBaseGlobalId(Dim, OldCall);
 
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
+    // Non-kernel function doesn't have NoBarrierPath metadata.
     if (KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()) {
       OldCall->replaceAllUsesWith(BaseGID);
     } else {
@@ -1506,15 +1507,13 @@ void KernelBarrier::updateStructureStride(Module &M,
 
     auto PrivateSize = getCalculatedPrivateSize(Func, FuncToPrivSize);
 
-    // Need to check if NoBarrierPath Value exists, it is not guaranteed that
-    // KernelAnalysisPass is running in all scenarios.
     // CSSD100016517, CSSD100018743: workaround
     // Private memory is always considered to be non-uniform. I.e. it is not
     // shared by each WI per vector lane. If it is uniform (i.e. its content
     // doesn't depend on non-uniform values) the private memory query returns a
     // smaller value than actual private memory usage. This subtle is taken
     // into account in the query for the maximum work-group.
-    if (KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()) {
+    if (KIMD.NoBarrierPath.get()) {
       KIMD.BarrierBufferSize.set(0);
       // If there are no barrier in the kernel, StrideSize is the kernel
       // body's private memory usage. So need to add sub-function's memory size.

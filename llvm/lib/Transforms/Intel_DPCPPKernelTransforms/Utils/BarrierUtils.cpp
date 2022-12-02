@@ -177,7 +177,7 @@ CompilationUtils::FuncVec BarrierUtils::getAllKernelsWithBarrier() {
   SmallVector<Function *, 4> KernelsWithBarrier;
   for (auto Func : Kernels) {
     auto kimd = KernelInternalMetadataAPI(Func);
-    if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get())
+    if (kimd.NoBarrierPath.get())
       continue;
 
     // Currently no check if kernel already added to the list!
