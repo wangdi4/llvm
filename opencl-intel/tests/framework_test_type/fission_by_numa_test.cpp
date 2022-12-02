@@ -34,7 +34,7 @@ public:
   SubDevicesByNumaTest() : platform(nullptr), device(nullptr) {
     // clCreateSubDevice is not supported on windows,
     // skip this test temporarily.
-    //  TODO: Re-enable this test after the issue CMPLRLLVM-37007 has been fixed
+    //  TODO: Re-enable this test
     skipTests = 1;
   }
 

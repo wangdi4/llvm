@@ -2636,7 +2636,7 @@ CPUDevice::clDevReleaseSubdevice(cl_dev_subdevice_id IN subdevice_id) {
   cl_dev_internal_subdevice_id *pSubdeviceData =
       reinterpret_cast<cl_dev_internal_subdevice_id *>(subdevice_id);
   if (nullptr != pSubdeviceData) {
-// This is disabled due to shutdown issue and will be fixed by CMPLRLLVM-20324
+// This is disabled due to shutdown issue and will be fixed.
 #if 0
         pSubdeviceData->pSubDevice->ShutDown();
         if (nullptr != pSubdeviceData->legal_core_ids)
