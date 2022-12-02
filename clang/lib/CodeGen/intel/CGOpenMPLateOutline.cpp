@@ -419,6 +419,7 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
         Length = nullptr;
     } else {
       auto *CAT = C.getAsConstantArrayType(BaseTy);
+      assert(CAT && "BaseTy not of constant array type!");
       ConstLength = llvm::APSInt{CAT->getSize()};
     }
     llvm::Value *LengthVal;
