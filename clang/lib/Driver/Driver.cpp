@@ -5982,7 +5982,6 @@ class OffloadingActionBuilder final {
 
     // Return whether to use native bfloat16 library.
     bool selectBfloatLibs(const ToolChain *TC, bool &useNative) {
-      const OptTable &Opts = C.getDriver().getOpts();
       const char *TargetOpt = nullptr;
       const char *DeviceOpt = nullptr;
       bool needLibs = false;
