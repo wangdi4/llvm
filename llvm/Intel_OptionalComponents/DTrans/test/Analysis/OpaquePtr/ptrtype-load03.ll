@@ -2,58 +2,48 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test pointer type recovery on load instructions of a variety of types.
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
 
 ; The loads in this function generate types involving pointers, which
 ; need to be collected by the pointer type analyzer.
 %struct.test01 = type { i16, i16 }
 define internal void @test01() {
-  %p32 = alloca i32*, !intel_dtrans_type !2
-  %vp16 = alloca <2 x i16*>, !intel_dtrans_type !3
-  %ap16 = alloca [2 x i16*], !intel_dtrans_type !5
-  %litp = alloca {i16*, i16*}, !intel_dtrans_type !6
+  %p32 = alloca ptr, !intel_dtrans_type !2
+  %vp16 = alloca <2 x ptr>, !intel_dtrans_type !3
+  %ap16 = alloca [2 x ptr], !intel_dtrans_type !5
+  %litp = alloca { ptr, ptr }, !intel_dtrans_type !6
 
-  %val_p32 = load i32*, i32** %p32
-  %val_vp16 = load <2 x i16*>, <2 x i16*>* %vp16
-  %val_ap16 = load [2 x i16*], [2 x i16*]* %ap16
-  %val_litp9 = load { i16*, i16* }, { i16*, i16* }* %litp
+  %val_p32 = load ptr, ptr %p32
+  %val_vp16 = load <2 x ptr>, ptr %vp16
+  %val_ap16 = load [2 x ptr], ptr %ap16
+  %val_litp9 = load { ptr, ptr }, ptr %litp
 
   ret void
 }
 ; CHECK-LABEL: define internal void @test01
-; CHECK-NONOPAQUE: %val_p32 = load i32*, i32** %p32
-; CHECK-OPAQUE: %val_p32 = load ptr, ptr %p32
+; CHECK: %val_p32 = load ptr, ptr %p32
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
-; CHECK-NONOPAQUE:  %val_vp16 = load <2 x i16*>, <2 x i16*>* %vp16
-; CHECK-OPAQUE:  %val_vp16 = load <2 x ptr>, ptr %vp16
+; CHECK:  %val_vp16 = load <2 x ptr>, ptr %vp16
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT: <2 x i16*>{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
-; CHECK-NONOPAQUE: %val_ap16 = load [2 x i16*], [2 x i16*]* %ap16
-; CHECK-OPAQUE: %val_ap16 = load [2 x ptr], ptr %ap16
+; CHECK: %val_ap16 = load [2 x ptr], ptr %ap16
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT: [2 x i16*]{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
-; CHECK-NONOPAQUE: %val_litp9 = load { i16*, i16* }, { i16*, i16* }* %litp
-; CHECK-OPAQUE: %val_litp9 = load { ptr, ptr }, ptr %litp
+; CHECK: %val_litp9 = load { ptr, ptr }, ptr %litp
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT: { i16*, i16* }{{ *$}}
@@ -69,10 +59,10 @@ define internal void @test02() {
   %st = alloca %struct.test01
   %lit = alloca {i16, i16}
 
-  %val_32 = load i32, i32* %s32
-  %val_v16 = load <2 x i16>, <2 x i16>* %v16
-  %val_a16 = load [2 x i16], [2 x i16]* %a16
-  %val_lit = load {i16, i16}, {i16, i16}* %lit
+  %val_32 = load i32, ptr %s32
+  %val_v16 = load <2 x i16>, ptr %v16
+  %val_a16 = load [2 x i16], ptr %a16
+  %val_lit = load {i16, i16}, ptr %lit
 
   ret void
 }
@@ -89,10 +79,10 @@ define internal void @test02() {
 ; alias type.
 @test_var03 = internal global [64 x [8 x i8]] zeroinitializer
 define internal i8 @test03(i64 %table, i32 %idx) {
-  %arr_ptr = getelementptr inbounds [64 x [8 x i8]], [64 x [8 x i8]]* @test_var03, i64 0, i64 %table
+  %arr_ptr = getelementptr inbounds [64 x [8 x i8]], ptr @test_var03, i64 0, i64 %table
   %z_idx = zext i32 %idx to i64
-  %ptr = getelementptr inbounds [8 x i8], [8 x i8]* %arr_ptr, i64 0, i64 %z_idx
-  %val = load i8, i8* %ptr
+  %ptr = getelementptr inbounds [8 x i8], ptr %arr_ptr, i64 0, i64 %z_idx
+  %val = load i8, ptr %ptr
   ret i8 %val
 }
 ; There should be no aliased type lists reported between the 'load'

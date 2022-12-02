@@ -2,8 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test inttoptr conversion of an integer constant to a
 ; pointer type. Because the conversion is not taking place
@@ -11,27 +10,26 @@ target triple = "x86_64-unknown-linux-gnu"
 ; being a pointer to a structure type of interest, it does
 ; not need to be marked as 'unhandled'
 
-%struct.test = type { i32, i32, i8*, i32 }
+%struct.test = type { i32, i32, ptr, i32 }
 
-define void @test(%struct.test* "intel_dtrans_func_index"="1" nonnull %in) !intel.dtrans.func.type !4 {
-  %cmp = icmp eq %struct.test* %in, null
+define void @test(ptr "intel_dtrans_func_index"="1" nonnull %in) !intel.dtrans.func.type !4 {
+  %cmp = icmp eq ptr %in, null
   br i1 %cmp, label %t, label %f
 
 t:
   br label %join
 
 f:
- %gep = getelementptr %struct.test, %struct.test* %in, i64 0, i32 2
+ %gep = getelementptr %struct.test, ptr %in, i64 0, i32 2
  br label %join
 
 join:
-  %phi = phi i8** [ inttoptr (i64 8 to i8**), %t ], [ %gep, %f ]
-  %ptr = load i8*, i8** %phi, align 8
+  %phi = phi ptr [ inttoptr (i64 8 to ptr), %t ], [ %gep, %f ]
+  %ptr = load ptr, ptr %phi, align 8
   ret void
 }
 
-; CHECK-NONOPAQUE: %ptr = load i8*, i8** %phi
-; CHECK-OPAQUE: %ptr = load ptr, ptr %phi
+; CHECK: %ptr = load ptr, ptr %phi
 ; CHECK-NEXT: LocalPointerInfo
 ; CHECK-NOT: <DEPENDS ON UNHANDLED>
 ; CHECK: ret void

@@ -12,35 +12,35 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test = type { i64, i64 }
 
 ; Wrapper function for new
-define internal "intel_dtrans_func_index"="1" i8* @_ZN10MemManager8allocateEl(i64 %size) !intel.dtrans.func.type !3 {
-  %mem = call i8* @_Znwm(i64 %size)
-  ret i8* %mem
+define internal "intel_dtrans_func_index"="1" ptr @_ZN10MemManager8allocateEl(i64 %size) !intel.dtrans.func.type !3 {
+  %mem = call ptr @_Znwm(i64 %size)
+  ret ptr %mem
 }
 
 ; Wrapper function for delete
-define internal void @_ZN10MemManager10deallocateEPv(i8* "intel_dtrans_func_index"="1" %mem) !intel.dtrans.func.type !6 {
-  call void @_ZdlPv(i8* %mem)
+define internal void @_ZN10MemManager10deallocateEPv(ptr "intel_dtrans_func_index"="1" %mem) !intel.dtrans.func.type !6 {
+  call void @_ZdlPv(ptr %mem)
   ret void
 }
 
 define i64 @test() {
-  %p = call i8* @_ZN10MemManager8allocateEl(i64 16)
+  %p = call ptr @_ZN10MemManager8allocateEl(i64 16)
 
-  %ps = bitcast i8* %p to %struct.test*
-  %f0 = getelementptr %struct.test, %struct.test* %ps, i64 0, i32 0
-  %f1 = getelementptr %struct.test, %struct.test* %ps, i64 0, i32 1
-  %v = load i64, i64* %f1
-  store i64 0, i64* %f0
-  store i64 1, i64* %f1
+  %ps = bitcast ptr %p to ptr
+  %f0 = getelementptr %struct.test, ptr %ps, i64 0, i32 0
+  %f1 = getelementptr %struct.test, ptr %ps, i64 0, i32 1
+  %v = load i64, ptr %f1
+  store i64 0, ptr %f0
+  store i64 1, ptr %f1
 
-  %orig = bitcast %struct.test* %ps to i8*
-  call void @_ZN10MemManager10deallocateEPv(i8* %orig)
+  %orig = bitcast ptr %ps to ptr
+  call void @_ZN10MemManager10deallocateEPv(ptr %orig)
 
   ret i64 %v
 }
 
-declare !intel.dtrans.func.type !4 void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
+declare !intel.dtrans.func.type !4 void @_ZdlPv(ptr "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @_Znwm(i64)
 
 !intel.dtrans.types = !{!7}
 !1 = !{i64 0, i32 0}  ; i64

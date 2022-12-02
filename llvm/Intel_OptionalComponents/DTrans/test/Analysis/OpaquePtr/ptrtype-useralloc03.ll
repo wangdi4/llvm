@@ -10,17 +10,17 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.test = type { i64, i64 }
 
-define internal "intel_dtrans_func_index"="1" i8* @AcquireMagicMemory(i64 %size) !intel.dtrans.func.type !3 {
+define internal "intel_dtrans_func_index"="1" ptr @AcquireMagicMemory(i64 %size) !intel.dtrans.func.type !3 {
 entry:
-%mem = tail call i8* @malloc(i64 %size)
-  %failed = icmp eq i8* %mem, null
+%mem = tail call ptr @malloc(i64 %size)
+  %failed = icmp eq ptr %mem, null
   br i1 %failed, label %report, label %done
 report:
   call void @reportError()
   br label %done
 done:
-  %res = phi i8* [ %mem, %entry ], [ null, %report ]
-  ret i8* %res
+  %res = phi ptr [ %mem, %entry ], [ null, %report ]
+  ret ptr %res
 }
 
 define void @reportError() {
@@ -28,20 +28,20 @@ define void @reportError() {
 }
 
 define i64 @test() {
-  %p = call i8* @AcquireMagicMemory(i64 16)
+  %p = call ptr @AcquireMagicMemory(i64 16)
 
-  %ps = bitcast i8* %p to %struct.test*
-  %f0 = getelementptr %struct.test, %struct.test* %ps, i64 0, i32 0
-  %f1 = getelementptr %struct.test, %struct.test* %ps, i64 0, i32 1
-  %v = load i64, i64* %f1
-  store i64 0, i64* %f0
-  store i64 1, i64* %f1
+  %ps = bitcast ptr %p to ptr
+  %f0 = getelementptr %struct.test, ptr %ps, i64 0, i32 0
+  %f1 = getelementptr %struct.test, ptr %ps, i64 0, i32 1
+  %v = load i64, ptr %f1
+  store i64 0, ptr %f0
+  store i64 1, ptr %f1
 
   ret i64 %v
 }
 
-declare !intel.dtrans.func.type !4 void @free(i8* "intel_dtrans_func_index"="1") #1
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !4 void @free(ptr "intel_dtrans_func_index"="1") #1
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 attributes #1 = { allockind("free") "alloc-family"="malloc" }

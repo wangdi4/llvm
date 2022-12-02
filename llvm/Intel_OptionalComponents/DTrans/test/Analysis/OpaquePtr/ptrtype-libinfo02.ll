@@ -34,39 +34,39 @@ define void @test_intrinsic() {
 ; CHECK:   LocalPointerInfo:
 ; CHECK-NOT: UNHANDLED
 
-  %r = call i32 @llvm.eh.typeid.for(i8* @_ZTIi)
-  call void (...) @llvm.icall.branch.funnel(i8* %p8.3, i8* getelementptr (i8, i8* @g, i64 0))
-  call void @llvm.lifetime.start.p0i8(i64 0, i8* %p8.1)
-  call void @llvm.lifetime.end.p0i8(i64 0, i8* %p8.1)
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p8.1, i8* %p8.2, i64 1, i1 false)
-  call void @llvm.memmove.p0i8.p0i8.i64(i8* %p8.1, i8* %p8.2, i64 1, i1 false)
-  call void @llvm.memset.p0i8.i64(i8* %p8.1, i8 0, i64 1, i1 false)
+  %r = call i32 @llvm.eh.typeid.for(ptr @_ZTIi)
+  call void (...) @llvm.icall.branch.funnel(ptr %p8.3, ptr getelementptr (i8, ptr @g, i64 0))
+  call void @llvm.lifetime.start.p0i8(i64 0, ptr %p8.1)
+  call void @llvm.lifetime.end.p0i8(i64 0, ptr %p8.1)
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %p8.1, ptr %p8.2, i64 1, i1 false)
+  call void @llvm.memmove.p0i8.p0i8.i64(ptr %p8.1, ptr %p8.2, i64 1, i1 false)
+  call void @llvm.memset.p0i8.i64(ptr %p8.1, i8 0, i64 1, i1 false)
 
-  call void @llvm.prefetch.p0i8(i8* %p8.1, i32 0, i32 3, i32 1)
+  call void @llvm.prefetch.p0i8(ptr %p8.1, i32 0, i32 3, i32 1)
 
-  %ss = call i8* @llvm.stacksave()
-  call void @llvm.stackrestore(i8* %ss)
+  %ss = call ptr @llvm.stacksave()
+  call void @llvm.stackrestore(ptr %ss)
 
-  call void @llvm.va_start(i8* %p8.2)
-  call void @llvm.va_copy(i8* %p8.2, i8* %p8.1)
-  call void @llvm.va_end(i8* %p8.2)
+  call void @llvm.va_start(ptr %p8.2)
+  call void @llvm.va_copy(ptr %p8.2, ptr %p8.1)
+  call void @llvm.va_end(ptr %p8.2)
 
   ret void
 }
 
 ; Intrinsic library functions declared without DTrans metadata.
-declare i32 @llvm.eh.typeid.for(i8*)
+declare i32 @llvm.eh.typeid.for(ptr)
 declare void @llvm.icall.branch.funnel(...)
-declare void @llvm.lifetime.start.p0i8(i64, i8*)
-declare void @llvm.lifetime.end.p0i8(i64, i8*)
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
-declare void @llvm.memmove.p0i8.p0i8.i64(i8*, i8*, i64, i1)
-declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
-declare void @llvm.prefetch.p0i8(i8*, i32, i32, i32)
-declare void @llvm.stackrestore(i8*)
-declare i8* @llvm.stacksave()
-declare void @llvm.va_copy(i8*, i8*)
-declare void @llvm.va_end(i8*)
-declare void @llvm.va_start(i8*)
+declare void @llvm.lifetime.start.p0i8(i64, ptr)
+declare void @llvm.lifetime.end.p0i8(i64, ptr)
+declare void @llvm.memcpy.p0i8.p0i8.i64(ptr, ptr, i64, i1)
+declare void @llvm.memmove.p0i8.p0i8.i64(ptr, ptr, i64, i1)
+declare void @llvm.memset.p0i8.i64(ptr, i8, i64, i1)
+declare void @llvm.prefetch.p0i8(ptr, i32, i32, i32)
+declare void @llvm.stackrestore(ptr)
+declare ptr @llvm.stacksave()
+declare void @llvm.va_copy(ptr, ptr)
+declare void @llvm.va_end(ptr)
+declare void @llvm.va_start(ptr)
 
 !intel.dtrans.types = !{}

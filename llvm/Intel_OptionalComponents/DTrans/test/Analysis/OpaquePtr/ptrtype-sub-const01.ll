@@ -11,10 +11,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; original operand.
 
 %struct.test01 = type { i32, i32 }
-define void @test01(%struct.test01** "intel_dtrans_func_index"="1" %p1, %struct.test01** "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !3 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !3 {
   ; (%p1 - 8) - %p2
-  %t1 = ptrtoint %struct.test01** %p1 to i64
-  %t2 = ptrtoint %struct.test01** %p2 to i64
+  %t1 = ptrtoint ptr %p1 to i64
+  %t2 = ptrtoint ptr %p2 to i64
   %tmp = sub i64 %t1, 8
   %offset = sub i64 %tmp, %t2
   %div = sdiv i64 %offset, 8
@@ -28,10 +28,10 @@ define void @test01(%struct.test01** "intel_dtrans_func_index"="1" %p1, %struct.
 ; CHECK-NEXT: No element pointees.
 
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p1, %struct.test02* "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !5 {
+define void @test02(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !5 {
   ; (%p1 - 8) - %p2
-  %t1 = ptrtoint %struct.test02* %p1 to i64
-  %t2 = ptrtoint %struct.test02* %p2 to i64
+  %t1 = ptrtoint ptr %p1 to i64
+  %t2 = ptrtoint ptr %p2 to i64
   %tmp = sub i64 %t1, 8
   %offset = sub i64 %tmp, %t2
   %div = sdiv i64 %offset, 8

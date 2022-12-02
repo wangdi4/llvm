@@ -1,15 +1,9 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test pointer type recovery on byte flattened GEPs
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
 
 ; Include a data layout so that padding will be inserted to align structure
@@ -18,57 +12,52 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Access to element of non-nested structure
-%struct.test01 = type { i32, i64*, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
+%struct.test01 = type { i32, ptr, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
 define internal void @test01() {
   %local = alloca %struct.test01
-  %flat = bitcast %struct.test01* %local to i8*
+  %flat = bitcast ptr %local to ptr
 
-  %addr0 = getelementptr i8, i8* %flat, i32 0
-  %addr1 = getelementptr i8, i8* %flat, i32 8
-  %addr2 = getelementptr i8, i8* %flat, i32 16
-  %addr3 = getelementptr i8, i8* %flat, i32 20
-  %addr4 = getelementptr i8, i8* %flat, i32 22
-  call void @test01helper(i8* %addr0, i8* %addr1, i8* %addr2, i8* %addr3, i8* %addr4)
+  %addr0 = getelementptr i8, ptr %flat, i32 0
+  %addr1 = getelementptr i8, ptr %flat, i32 8
+  %addr2 = getelementptr i8, ptr %flat, i32 16
+  %addr3 = getelementptr i8, ptr %flat, i32 20
+  %addr4 = getelementptr i8, ptr %flat, i32 22
+  call void @test01helper(ptr %addr0, ptr %addr1, ptr %addr2, ptr %addr3, ptr %addr4)
   ret void
 }
-define internal void @test01helper(i8* "intel_dtrans_func_index"="1" %arg0, i8* "intel_dtrans_func_index"="2" %arg1, i8* "intel_dtrans_func_index"="3" %arg2, i8* "intel_dtrans_func_index"="4" %arg3, i8* "intel_dtrans_func_index"="5" %arg4) !intel.dtrans.func.type !5 {
+define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %arg0, ptr "intel_dtrans_func_index"="2" %arg1, ptr "intel_dtrans_func_index"="3" %arg2, ptr "intel_dtrans_func_index"="4" %arg3, ptr "intel_dtrans_func_index"="5" %arg4) !intel.dtrans.func.type !5 {
   ret void
 }
 ; CHECK-LABEL: void @test01()
-; CHECK-NONOPAQUE: %addr0 = getelementptr i8, i8* %flat, i32 0
-; CHECK-OPAQUE: %addr0 = getelementptr i8, ptr %flat, i32 0
+; CHECK: %addr0 = getelementptr i8, ptr %flat, i32 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 
-; CHECK-NONOPAQUE: %addr1 = getelementptr i8, i8* %flat, i32 8
-; CHECK-OPAQUE: %addr1 = getelementptr i8, ptr %flat, i32 8
+; CHECK: %addr1 = getelementptr i8, ptr %flat, i32 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64**{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 1
 
-; CHECK-NONOPAQUE: %addr2 = getelementptr i8, i8* %flat, i32 16
-; CHECK-OPAQUE: %addr2 = getelementptr i8, ptr %flat, i32 16
+; CHECK: %addr2 = getelementptr i8, ptr %flat, i32 16
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 2
 
-; CHECK-NONOPAQUE: %addr3 = getelementptr i8, i8* %flat, i32 20
-; CHECK-OPAQUE: %addr3 = getelementptr i8, ptr %flat, i32 20
+; CHECK: %addr3 = getelementptr i8, ptr %flat, i32 20
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i16*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 3
 
-; CHECK-NONOPAQUE: %addr4 = getelementptr i8, i8* %flat, i32 22
-; CHECK-OPAQUE: %addr4 = getelementptr i8, ptr %flat, i32 22
+; CHECK: %addr4 = getelementptr i8, ptr %flat, i32 22
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i16*{{ *$}}
@@ -81,16 +70,15 @@ define internal void @test01helper(i8* "intel_dtrans_func_index"="1" %arg0, i8* 
 %struct.test02 = type { i32, i64, i32 } ; Offsets: 0, 8, 16
 define internal void @test02() {
   %local = alloca %struct.test02
-  %flat = bitcast %struct.test02* %local to i8*
+  %flat = bitcast ptr %local to ptr
   %offset = select i1 undef, i32 0, i32 16
-  %faddr = getelementptr i8, i8* %flat, i32 %offset
-  %addr = bitcast i8* %faddr to i32*
-  store i32 0, i32* %addr
+  %faddr = getelementptr i8, ptr %flat, i32 %offset
+  %addr = bitcast ptr %faddr to ptr
+  store i32 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: void @test02()
-; CHECK-NONOPAQUE:  %faddr = getelementptr i8, i8* %flat, i32 %offset
-; CHECK-OPAQUE:  %faddr = getelementptr i8, ptr %flat, i32 %offset
+; CHECK:  %faddr = getelementptr i8, ptr %flat, i32 %offset
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
@@ -111,16 +99,15 @@ define internal void @test02() {
 %struct.test03 = type { i32, i64, i32 } ; Offsets: 0, 8, 16
 define internal void @test03(i32 %x, i32 %y) {
   %local = alloca %struct.test03
-  %flat = bitcast %struct.test03* %local to i8*
+  %flat = bitcast ptr %local to ptr
   %offset = select i1 undef, i32 %x, i32 %y
-  %faddr = getelementptr i8, i8* %flat, i32 %offset
-  %addr = bitcast i8* %faddr to i32*
-  store i32 0, i32* %addr
+  %faddr = getelementptr i8, ptr %flat, i32 %offset
+  %addr = bitcast ptr %faddr to ptr
+  store i32 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: void @test03(i32 %x, i32 %y)
-; CHECK-NONOPAQUE:  %faddr = getelementptr i8, i8* %flat, i32 %offset
-; CHECK-OPAQUE:  %faddr = getelementptr i8, ptr %flat, i32 %offset
+; CHECK:  %faddr = getelementptr i8, ptr %flat, i32 %offset
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
@@ -132,16 +119,15 @@ define internal void @test03(i32 %x, i32 %y) {
 %struct.test04 = type { i32, i64, i32 } ; Offsets: 0, 8, 16
 define internal void @test04() {
   %local = alloca %struct.test04
-  %flat = bitcast %struct.test04* %local to i8*
+  %flat = bitcast ptr %local to ptr
   %offset = select i1 undef, i32 0, i32 12
-  %faddr = getelementptr i8, i8* %flat, i32 %offset
-  %addr = bitcast i8* %faddr to i32*
-  store i32 0, i32* %addr
+  %faddr = getelementptr i8, ptr %flat, i32 %offset
+  %addr = bitcast ptr %faddr to ptr
+  store i32 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: void @test04()
-; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i32 %offset
-; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i32 %offset
+; CHECK: %faddr = getelementptr i8, ptr %flat, i32 %offset
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
@@ -154,16 +140,15 @@ define internal void @test04() {
 %struct.test05b = type { i16, %struct.test05a } ; Offsets 0, 4
 define internal void @test05() {
   %local = alloca %struct.test05b
-  %flat = bitcast %struct.test05b* %local to i8*
-  %faddr = getelementptr i8, i8* %flat, i64 8
+  %flat = bitcast ptr %local to ptr
+  %faddr = getelementptr i8, ptr %flat, i64 8
 
-  %addr = bitcast i8* %faddr to i32*
-  store i32 0, i32* %addr
+  %addr = bitcast ptr %faddr to ptr
+  store i32 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: void @test05()
-; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 8
-; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 8
+; CHECK: %faddr = getelementptr i8, ptr %flat, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:  Aliased types:
 ; CHECK-NEXT:    i32*{{ *$}}
@@ -174,14 +159,13 @@ define internal void @test05() {
 ; Access into an array of non-i8 types
 define internal void @test06() {
   %local = alloca [32767 x i16]
-  %flat = bitcast [32767 x i16]* %local to i8*
-  %faddr = getelementptr i8, i8* %flat, i64 2
-  %half = load i8, i8* %faddr
+  %flat = bitcast ptr %local to ptr
+  %faddr = getelementptr i8, ptr %flat, i64 2
+  %half = load i8, ptr %faddr
   ret void
 }
 ; CHECK-LABEL: void @test06()
-; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 2
-; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 2
+; CHECK: %faddr = getelementptr i8, ptr %flat, i64 2
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:    i16*{{ *$}}
@@ -193,14 +177,13 @@ define internal void @test06() {
 ; Access into an array of non-i8 types with a non-constant index
 define internal void @test07(i32 %idx) {
   %local = alloca [32767 x i16]
-  %flat = bitcast [32767 x i16]* %local to i8*
-  %faddr = getelementptr i8, i8* %flat, i32 %idx
-  %half = load i8, i8* %faddr
+  %flat = bitcast ptr %local to ptr
+  %faddr = getelementptr i8, ptr %flat, i32 %idx
+  %half = load i8, ptr %faddr
   ret void
 }
 ; CHECK-LABEL: void @test07(i32 %idx) {
-; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i32 %idx
-; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i32 %idx
+; CHECK: %faddr = getelementptr i8, ptr %flat, i32 %idx
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   [32767 x i16]*{{ *$}}
@@ -216,15 +199,14 @@ define internal void @test07(i32 %idx) {
 %struct.test08 = type { i32, [3 x i64] } ; Offsets: 0, [8, 16, 24]
 define internal void @test08() {
   %local = alloca %struct.test08
-  %flat = bitcast %struct.test08* %local to i8*
-  %faddr = getelementptr i8, i8* %flat, i64 24
-  %addr = bitcast i8* %faddr to i64*
-  store i64 0, i64* %addr
+  %flat = bitcast ptr %local to ptr
+  %faddr = getelementptr i8, ptr %flat, i64 24
+  %addr = bitcast ptr %faddr to ptr
+  store i64 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: void @test08()
-; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 24
-; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 24
+; CHECK: %faddr = getelementptr i8, ptr %flat, i64 24
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
@@ -236,17 +218,16 @@ define internal void @test08() {
 %struct.test09 = type { i32, i64, i32 } ; Size = 24
 define internal void @test09() {
   %local = alloca [10 x %struct.test09]
-  %flat = bitcast [10 x %struct.test09]* %local to i8*
+  %flat = bitcast ptr %local to i8*
 
   ; i64 field of 2nd array element
-  %faddr = getelementptr i8, i8* %flat, i64 56
-  %addr = bitcast i8* %faddr to i64*
-  store i64 0, i64* %addr
+  %faddr = getelementptr i8, ptr %flat, i64 56
+  %addr = bitcast ptr %faddr to ptr
+  store i64 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: void @test09()
-; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 56
-; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 56
+; CHECK: %faddr = getelementptr i8, ptr %flat, i64 56
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
@@ -258,17 +239,16 @@ define internal void @test09() {
 %struct.test10 = type { i32, i64, i32 } ; Size = 24
 define internal void @test10(i64 %idx) {
   %local = alloca [10 x %struct.test10]
-  %flat = bitcast [10 x %struct.test10]* %local to i8*
+  %flat = bitcast ptr %local to i8*
 
   ; access unknown field
-  %faddr = getelementptr i8, i8* %flat, i64 %idx
-  %addr = bitcast i8* %faddr to i32*
-  store i32 0, i32* %addr
+  %faddr = getelementptr i8, ptr %flat, i64 %idx
+  %addr = bitcast ptr %faddr to ptr
+  store i32 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: void @test10(i64 %idx)
-; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 %idx
-; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 %idx
+; CHECK: %faddr = getelementptr i8, ptr %flat, i64 %idx
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT: Aliased types:

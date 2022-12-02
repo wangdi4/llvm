@@ -12,23 +12,23 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test = type { i64, i64 }
 
 ; User allocation call that returns either 'null' or allocated memory.
-define internal "intel_dtrans_func_index"="1" i8* @AcquireMagicMemory(i64 %size) !intel.dtrans.func.type !3 {
-  %mem = tail call i8* @malloc(i64 %size)
-  %failed = icmp eq i8* %mem, null
+define internal "intel_dtrans_func_index"="1" ptr @AcquireMagicMemory(i64 %size) !intel.dtrans.func.type !3 {
+  %mem = tail call ptr @malloc(i64 %size)
+  %failed = icmp eq ptr %mem, null
   br i1 %failed, label %report, label %done
 report:
   call void @reportError()
-  ret i8* null
+  ret ptr null
 done:
-  ret i8* %mem
+  ret ptr %mem
 }
 
 ; User free wrapper function that tests argument for 'null'
-define internal void @ReleaseMagicMemory(i8* "intel_dtrans_func_index"="1" %mem) !intel.dtrans.func.type !6 {
-  %is_null = icmp eq i8* %mem, null
+define internal void @ReleaseMagicMemory(ptr "intel_dtrans_func_index"="1" %mem) !intel.dtrans.func.type !6 {
+  %is_null = icmp eq ptr %mem, null
   br i1 %is_null, label %done, label %do_free
 do_free:
-  call void @free(i8* %mem)
+  call void @free(ptr %mem)
   br label %done
 done:
   ret void
@@ -39,23 +39,23 @@ define void @reportError() {
 }
 
 define i64 @test() {
-  %p = call i8* @AcquireMagicMemory(i64 16)
+  %p = call ptr @AcquireMagicMemory(i64 16)
 
-  %ps = bitcast i8* %p to %struct.test*
-  %f0 = getelementptr %struct.test, %struct.test* %ps, i64 0, i32 0
-  %f1 = getelementptr %struct.test, %struct.test* %ps, i64 0, i32 1
-  %v = load i64, i64* %f1
-  store i64 0, i64* %f0
-  store i64 1, i64* %f1
+  %ps = bitcast ptr %p to ptr
+  %f0 = getelementptr %struct.test, ptr %ps, i64 0, i32 0
+  %f1 = getelementptr %struct.test, ptr %ps, i64 0, i32 1
+  %v = load i64, ptr %f1
+  store i64 0, ptr %f0
+  store i64 1, ptr %f1
 
-  %orig = bitcast %struct.test* %ps to i8*
-  call void @ReleaseMagicMemory(i8* %orig)
+  %orig = bitcast ptr %ps to ptr
+  call void @ReleaseMagicMemory(ptr %orig)
 
   ret i64 %v
 }
 
-declare !intel.dtrans.func.type !4 void @free(i8* "intel_dtrans_func_index"="1") #1
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !4 void @free(ptr "intel_dtrans_func_index"="1") #1
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 attributes #1 = { allockind("free") "alloc-family"="malloc" }

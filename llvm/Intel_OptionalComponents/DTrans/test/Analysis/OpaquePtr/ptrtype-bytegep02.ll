@@ -1,17 +1,11 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test various cases of byte-flattened GEP accesses. In particular, verify
 ; cases where first element of an aggregate matches the element-zero handling
 ; rules for DTrans. This test is based on the cases within
 ; DTrans/test/Analysis/byte-flattened-gep.ll
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -19,16 +13,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Byte-flattend GEP without special handling of first element of the structure.
 %struct.test01 = type { i64, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !4 {
-  %p2 = bitcast %struct.test01* %p to i8*
-  %py8 = getelementptr i8, i8* %p2, i64 8
-  %py = bitcast i8* %py8 to i32*
-  %y = load i32, i32* %py
+define void @test01(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !4 {
+  %p2 = bitcast ptr %p to ptr
+  %py8 = getelementptr i8, ptr %p2, i64 8
+  %py = bitcast ptr %py8 to ptr
+  %y = load i32, ptr %py
   ret void
 }
 ; CHECK-LABEL: void @test01(
-; CHECK-NONOPAQUE: %py8 = getelementptr i8, i8* %p2, i64 8
-; CHECK-OPAQUE: %py8 = getelementptr i8, ptr %p2, i64 8
+; CHECK: %py8 = getelementptr i8, ptr %p2, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
@@ -36,17 +29,16 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; CHECK-NEXT:     %struct.test01 @ 1
 
 ; Byte-flattened GEP when first element of the structure is ptr-to-ptr.
-%struct.test02 = type { i64**, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !7 {
-  %p2 = bitcast %struct.test02* %p to i8*
-  %py8 = getelementptr i8, i8* %p2, i64 8
-  %py = bitcast i8* %py8 to i32*
-  %y = load i32, i32* %py
+%struct.test02 = type { ptr, i32 }
+define void @test02(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !7 {
+  %p2 = bitcast ptr %p to ptr
+  %py8 = getelementptr i8, ptr %p2, i64 8
+  %py = bitcast ptr %py8 to ptr
+  %y = load i32, ptr %py
   ret void
 }
 ; CHECK-LABEL: void @test02(
-; CHECK-NONOPAQUE: %py8 = getelementptr i8, i8* %p2, i64 8
-; CHECK-OPAQUE: %py8 = getelementptr i8, ptr %p2, i64 8
+; CHECK: %py8 = getelementptr i8, ptr %p2, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
@@ -55,17 +47,16 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtr
 
 
 ; Byte-flattened GEP when first element of the structure is i8*.
-%struct.test03 = type { i8*, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !10 {
-  %p2 = bitcast %struct.test03* %p to i8*
-  %py8 = getelementptr i8, i8* %p2, i64 8
-  %py = bitcast i8* %py8 to i32*
-  %y = load i32, i32* %py
+%struct.test03 = type { ptr, i32 }
+define void @test03(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !10 {
+  %p2 = bitcast ptr %p to ptr
+  %py8 = getelementptr i8, ptr %p2, i64 8
+  %py = bitcast ptr %py8 to ptr
+  %y = load i32, ptr %py
   ret void
 }
 ; CHECK-LABEL: void @test03(
-; CHECK-NONOPAQUE: %py8 = getelementptr i8, i8* %p2, i64 8
-; CHECK-OPAQUE: %py8 = getelementptr i8, ptr %p2, i64 8
+; CHECK: %py8 = getelementptr i8, ptr %p2, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
@@ -75,16 +66,15 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %p) !intel.dtr
 
 ; Byte-flattened GEP when first element of the structure is an array of i8.
 %struct.test04 = type { [8 x i8], i32 }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !14 {
-  %p2 = bitcast %struct.test04* %p to i8*
-  %py8 = getelementptr i8, i8* %p2, i64 8
-  %py = bitcast i8* %py8 to i32*
-  %y = load i32, i32* %py
+define void @test04(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !14 {
+  %p2 = bitcast ptr %p to ptr
+  %py8 = getelementptr i8, ptr %p2, i64 8
+  %py = bitcast ptr %py8 to ptr
+  %y = load i32, ptr %py
   ret void
 }
 ; CHECK-LABEL: void @test04(
-; CHECK-NONOPAQUE: %py8 = getelementptr i8, i8* %p2, i64 8
-; CHECK-OPAQUE: %py8 = getelementptr i8, ptr %p2, i64 8
+; CHECK: %py8 = getelementptr i8, ptr %p2, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
@@ -94,18 +84,17 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p) !intel.dtr
 
 ; Byte-flattened GEP when first element of a nested structure is i8*,
 ; and GEP accesses element of the inner structure.
-%struct.test05inner = type { i8*, i32, i32 }
+%struct.test05inner = type { ptr, i32, i32 }
 %struct.test05outer = type { %struct.test05inner, i32 }
-define void @test05(%struct.test05outer* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !17 {
-  %p2 = bitcast %struct.test05outer* %p to i8*
-  %py8 = getelementptr i8, i8* %p2, i64 8
-  %py = bitcast i8* %py8 to i32*
-  %y = load i32, i32* %py
+define void @test05(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !17 {
+  %p2 = bitcast ptr %p to ptr
+  %py8 = getelementptr i8, ptr %p2, i64 8
+  %py = bitcast ptr %py8 to ptr
+  %y = load i32, ptr %py
   ret void
 }
 ; CHECK-LABEL: void @test05(
-; CHECK-NONOPAQUE: %py8 = getelementptr i8, i8* %p2, i64 8
-; CHECK-OPAQUE: %py8 = getelementptr i8, ptr %p2, i64 8
+; CHECK: %py8 = getelementptr i8, ptr %p2, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
@@ -114,18 +103,17 @@ define void @test05(%struct.test05outer* "intel_dtrans_func_index"="1" %p) !inte
 
 ; Byte-flattened GEP when first element of a nested structure is i8*,
 ; and GEP accesses element of the outer structure.
-%struct.test06inner = type { i8*, i32, i32 }
+%struct.test06inner = type { ptr, i32, i32 }
 %struct.test06outer = type { %struct.test05inner, i32 }
-define void @test06(%struct.test06outer* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !19 {
-  %p2 = bitcast %struct.test06outer* %p to i8*
-  %py8 = getelementptr i8, i8* %p2, i64 16
-  %py = bitcast i8* %py8 to i32*
-  %y = load i32, i32* %py
+define void @test06(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !19 {
+  %p2 = bitcast ptr %p to ptr
+  %py8 = getelementptr i8, ptr %p2, i64 16
+  %py = bitcast ptr %py8 to ptr
+  %y = load i32, ptr %py
   ret void
 }
 ; CHECK-LABEL: void @test06(
-; CHECK-NONOPAQUE: %py8 = getelementptr i8, i8* %p2, i64 16
-; CHECK-OPAQUE: %py8 = getelementptr i8, ptr %p2, i64 16
+; CHECK: %py8 = getelementptr i8, ptr %p2, i64 16
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
@@ -136,16 +124,15 @@ define void @test06(%struct.test06outer* "intel_dtrans_func_index"="1" %p) !inte
 ; Byte-flattened GEP when first element of the structure is
 ; a multi-dimension array of i8.
 %struct.test07 = type { [2 x [4 x i8]], i32 }
-define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !23 {
-  %p2 = bitcast %struct.test07* %p to i8*
-  %py8 = getelementptr i8, i8* %p2, i64 8
-  %py = bitcast i8* %py8 to i32*
-  %y = load i32, i32* %py
+define void @test07(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !23 {
+  %p2 = bitcast ptr %p to ptr
+  %py8 = getelementptr i8, ptr %p2, i64 8
+  %py = bitcast ptr %py8 to ptr
+  %y = load i32, ptr %py
   ret void
 }
 ; CHECK-LABEL: void @test07(
-; CHECK-NONOPAQUE: %py8 = getelementptr i8, i8* %p2, i64 8
-; CHECK-OPAQUE: %py8 = getelementptr i8, ptr %p2, i64 8
+; CHECK: %py8 = getelementptr i8, ptr %p2, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}

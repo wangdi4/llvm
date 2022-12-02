@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -12,11 +11,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; and collect the types that the safety analyzer will need to set a safety
 ; bit on.
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
 ; None of the elements should be added as byte-flattened GEPs.
 ; CHECK-NOT: Adding BF-GEP access
@@ -28,19 +22,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ; With additional analysis, it may be possible to treat the result of the
 ; GEP as just i8*.
 %struct.test01elem = type { i32, i32 }
-%struct.test01 = type { i32, %struct.test01elem* }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !4 {
-  %dyn_array_addr = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 1
-  %dyn_array = load %struct.test01elem*, %struct.test01elem** %dyn_array_addr
-  %bc = bitcast %struct.test01elem* %dyn_array to i8*
-  %count_addr.i8 = getelementptr i8, i8* %bc, i64 -8
-  %count_addr = bitcast i8* %count_addr.i8 to i64*
-  %count = load i64, i64* %count_addr
+%struct.test01 = type { i32, ptr }
+define void @test01(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !4 {
+  %dyn_array_addr = getelementptr %struct.test01, ptr %in, i64 0, i32 1
+  %dyn_array = load ptr, ptr %dyn_array_addr
+  %bc = bitcast ptr %dyn_array to ptr
+  %count_addr.i8 = getelementptr i8, ptr %bc, i64 -8
+  %count_addr = bitcast ptr %count_addr.i8 to ptr
+  %count = load i64, ptr %count_addr
   ret void
 }
 ; CHECK-LABEL: void @test01(
-; CHECK-NONOPAQUE:  %count_addr.i8 = getelementptr i8, i8* %bc, i64 -8
-; CHECK-OPAQUE:  %count_addr.i8 = getelementptr i8, ptr %bc, i64 -8
+; CHECK:  %count_addr.i8 = getelementptr i8, ptr %bc, i64 -8
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-SAME: <UNKNOWN BYTE FLATTENED GEP>
 ; CHECK-NEXT:      Aliased types:
@@ -53,17 +46,16 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dt
 ; should be possible to avoid setting the 'unknown byte flattened gep' flag on
 ; it, if necessary.
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !6 {
-  %bc1 = bitcast %struct.test02* %p to i8*
-  %addr = getelementptr i8, i8* %bc1, i64 -8
-  %bc2 = bitcast i8* %addr to %struct.test02*
-  %use = getelementptr %struct.test02, %struct.test02* %bc2, i64 0, i32 1
-  %val = load i32, i32* %use
+define void @test02(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !6 {
+  %bc1 = bitcast ptr %p to ptr
+  %addr = getelementptr i8, ptr %bc1, i64 -8
+  %bc2 = bitcast ptr %addr to ptr
+  %use = getelementptr %struct.test02, ptr %bc2, i64 0, i32 1
+  %val = load i32, ptr %use
   ret void
 }
 ; CHECK-LABEL: void @test02(
-; CHECK-NONOPAQUE: %addr = getelementptr i8, i8* %bc1, i64 -8
-; CHECK-OPAQUE: %addr = getelementptr i8, ptr %bc1, i64 -8
+; CHECK: %addr = getelementptr i8, ptr %bc1, i64 -8
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-SAME: <UNKNOWN BYTE FLATTENED GEP>
 ; CHECK-NEXT:      Aliased types:
@@ -73,21 +65,20 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtr
 
 ; This case comes from a case where the user code is explicitly doing some
 ; pointer arithmetic to cast one type to another.
-%struct.test03nodebase = type { i32 (...)** }
+%struct.test03nodebase = type { ptr }
 %struct.test03nodeimpl = type { %struct.test03nodebase, i16 }
-%struct.test03elementbase = type  { %struct.test03nodebase* }
+%struct.test03elementbase = type  { ptr }
 %struct.test03elementimpl = type { %struct.test03elementbase, %struct.test03nodeimpl, i32 }
-define void @test03(%struct.test03nodeimpl* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !15 {
-  %bc1 = bitcast %struct.test03nodeimpl* %p to i8*
-  %addr = getelementptr inbounds i8, i8* %bc1, i64 -8
-  %bc2 = bitcast i8* %addr to %struct.test03elementimpl*
-  %use = getelementptr %struct.test03elementimpl, %struct.test03elementimpl* %bc2, i64 0, i32 2
-  %val = load i32, i32* %use
+define void @test03(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !15 {
+  %bc1 = bitcast ptr %p to ptr
+  %addr = getelementptr inbounds i8, ptr %bc1, i64 -8
+  %bc2 = bitcast ptr %addr to ptr
+  %use = getelementptr %struct.test03elementimpl, ptr %bc2, i64 0, i32 2
+  %val = load i32, ptr %use
   ret void
 }
 ; CHECK-LABEL: void @test03(
-; CHECK-NONOPAQUE: %addr = getelementptr inbounds i8, i8* %bc1, i64 -8
-; CHECK-OPAQUE: %addr = getelementptr inbounds i8, ptr %bc1, i64 -8
+; CHECK: %addr = getelementptr inbounds i8, ptr %bc1, i64 -8
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-SAME: <UNKNOWN BYTE FLATTENED GEP>
 ; CHECK-NEXT:      Aliased types:

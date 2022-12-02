@@ -9,23 +9,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; because the value freed is not the value used in the argument to
 ; @mybadfree.
 
-%struct._ZTS4Arr0.Arr0 = type { i32, float**, i32 }
+%struct._ZTS4Arr0.Arr0 = type { i32, ptr, i32 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @mybadfree(%struct._ZTS4Arr0.Arr0* noundef "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !6 {
+define dso_local void @mybadfree(ptr noundef "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !6 {
 entry:
-  %this.addr = alloca %struct._ZTS4Arr0.Arr0*, align 8, !intel_dtrans_type !7
-  store %struct._ZTS4Arr0.Arr0* %this, %struct._ZTS4Arr0.Arr0** %this.addr, align 8, !tbaa !8
-  %0 = load %struct._ZTS4Arr0.Arr0*, %struct._ZTS4Arr0.Arr0** %this.addr, align 8, !tbaa !8
-  %field1 = getelementptr inbounds %struct._ZTS4Arr0.Arr0, %struct._ZTS4Arr0.Arr0* %0, i32 0, i32 1, !intel-tbaa !12
-  %1 = load float**, float*** %field1, align 8, !tbaa !12
-  %2 = bitcast float** %1 to i8*
-  call void @free(i8* noundef %2)
+  %this.addr = alloca ptr, align 8, !intel_dtrans_type !7
+  store ptr %this, ptr %this.addr, align 8, !tbaa !8
+  %0 = load ptr, ptr %this.addr, align 8, !tbaa !8
+  %field1 = getelementptr inbounds %struct._ZTS4Arr0.Arr0, ptr %0, i32 0, i32 1, !intel-tbaa !12
+  %1 = load ptr, ptr %field1, align 8, !tbaa !12
+  %2 = bitcast ptr %1 to ptr
+  call void @free(ptr noundef %2)
   ret void
 }
 
 ; Function Attrs: nounwind
-declare !intel.dtrans.func.type !16 dso_local void @free(i8* noundef "intel_dtrans_func_index"="1") #0
+declare !intel.dtrans.func.type !16 dso_local void @free(ptr noundef "intel_dtrans_func_index"="1") #0
 
 attributes #0 = { allockind("free") "alloc-family"="malloc" }
 

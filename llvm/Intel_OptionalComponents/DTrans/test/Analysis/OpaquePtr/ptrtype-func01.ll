@@ -10,17 +10,17 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i64, i32, i32 }
 
 ; Check a function definition that returns a pointer type
-define internal "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.func.type !4 {
-  %mem = call i8* @malloc(i64 16)
-  %st = bitcast i8* %mem to %struct.test01*
-  ret %struct.test01* %st
+define internal "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !4 {
+  %mem = call ptr @malloc(i64 16)
+  %st = bitcast ptr %mem to ptr
+  ret ptr %st
 }
 ; CHECK: Added alias [DECL]: @test01 -- %struct.test01* ()*
 ; CHECK: Added alias [USE]: @test01 -- %struct.test01* ()*
 
 
 ; Check a function definition that has a pointer type parameter
-define internal void @test02(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
+define internal void @test02(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
   ret void
 }
 ; CHECK: Added alias [DECL]: @test02 -- void (%struct.test01*)*
@@ -40,7 +40,7 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK: Added alias [USE]: @llvm.directive.region.exit -- void (token)*
 
 
-declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{i32 0, i32 0}  ; i32

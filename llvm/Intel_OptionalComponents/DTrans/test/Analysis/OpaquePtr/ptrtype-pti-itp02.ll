@@ -2,26 +2,24 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test pointer type recovery for "ptrtoint" and "inttoptr" instructions
 ; where result type of "inttoptr" differs from source type of "ptrtoint"
 
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i16, i16, i32 }
-define internal void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !4 {
-  %i = ptrtoint %struct.test01a* %in to i64
-  %p = inttoptr i64 %i to %struct.test01b*
-  %half0 = getelementptr %struct.test01b, %struct.test01b* %p, i64 0, i32 0
-  store i16 1, i16* %half0
-  %half1 = getelementptr %struct.test01b, %struct.test01b* %p, i64 0, i32 1
-  store i16 1, i16* %half1
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !4 {
+  %i = ptrtoint ptr %in to i64
+  %p = inttoptr i64 %i to ptr
+  %half0 = getelementptr %struct.test01b, ptr %p, i64 0, i32 0
+  store i16 1, ptr %half0
+  %half1 = getelementptr %struct.test01b, ptr %p, i64 0, i32 1
+  store i16 1, ptr %half1
   ret void
 }
 ; CHECK-LABEL: define internal void @test01
-; CHECK-NONOPAQUE: %p = inttoptr i64 %i to %struct.test01b*
-; CHECK-OPAQUE: %p = inttoptr i64 %i to ptr
+; CHECK: %p = inttoptr i64 %i to ptr
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     %struct.test01a*
