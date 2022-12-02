@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test that pointer type recovery handles "call" instructions to vararg
@@ -14,8 +13,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define internal void @test01() {
   %type1 = alloca %struct.test01a
   %type2 = alloca %struct.test01b
-  call void (i32, ...) @va_test01(i32 0, %struct.test01a* %type1);
-  call void (i32, ...) @va_test01(i32 1, %struct.test01b* %type2);
+  call void (i32, ...) @va_test01(i32 0, ptr %type1);
+  call void (i32, ...) @va_test01(i32 1, ptr %type2);
   ret void
 }
 ; CHECK-LABEL: internal void @test01

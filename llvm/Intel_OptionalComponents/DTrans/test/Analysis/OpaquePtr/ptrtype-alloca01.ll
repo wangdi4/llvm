@@ -2,16 +2,10 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test pointer type recovery for alloca instruction
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
 %struct.test = type { i32, i32, i64 }
 
@@ -93,13 +87,12 @@ define internal void @test06() {
 
 ; allocate a pointer to a structure
 define internal void @test07() {
-  %local = alloca %struct.test*, !intel_dtrans_type !3
+  %local = alloca ptr, !intel_dtrans_type !3
   ret void
 }
 ; CHECK-LABEL: void @test07()
-; CHECK-NONOPAQUE:  %local = alloca %struct.test*
-; CHECK-OPAQUE: !intel_dtrans_type = %struct.test*
-; CHECK-OPAQUE:  %local = alloca ptr
+; CHECK: !intel_dtrans_type = %struct.test*
+; CHECK:  %local = alloca ptr
 ; CHECK:      Aliased types:
 ; CHECK:        %struct.test**
 ; CHECK:      No element pointees.
@@ -107,13 +100,12 @@ define internal void @test07() {
 
 ; allocate a pointer to an array of structure pointers
 define internal void @test08() {
-  %local = alloca [9 x %struct.test*]*, !intel_dtrans_type !4
+  %local = alloca ptr, !intel_dtrans_type !4
   ret void
 }
 ; CHECK-LABEL: void @test08()
-; CHECK-NONOPAQUE:  %local = alloca [9 x %struct.test*]*
-; CHECK-OPAQUE: !intel_dtrans_type = [9 x %struct.test*]*
-; CHECK-OPAQUE:  %local = alloca ptr
+; CHECK: !intel_dtrans_type = [9 x %struct.test*]*
+; CHECK:  %local = alloca ptr
 ; CHECK:      Aliased types:
 ; CHECK:        [9 x %struct.test*]**
 ; CHECK:      No element pointees.

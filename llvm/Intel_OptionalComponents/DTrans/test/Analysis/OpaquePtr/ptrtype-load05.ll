@@ -2,17 +2,11 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test pointer type recovery when loading the element-zero member of a
 ; nested structure using a pointer to the structure itself.
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
 
 ; In this case, element zero is loaded using different IR sequences that are all
@@ -20,43 +14,40 @@ target triple = "x86_64-unknown-linux-gnu"
 ; type of the underlying pointer that is being loaded.
 %struct.test01outer = type { %struct.test01middle }
 %struct.test01middle = type { %struct.test01inner }
-%struct.test01inner = type { %struct.test01inner_impl* }
+%struct.test01inner = type { ptr }
 %struct.test01inner_impl = type { i32, i32, i32 }
 
-define internal void @test01(%struct.test01outer* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !6 {
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !6 {
   ; Loading the pointer stored at the first location of the nested structure.
-  %elem_zero_addr1 = getelementptr %struct.test01outer, %struct.test01outer* %p, i64 0, i32 0, i32 0, i32 0
-  %val1 = load %struct.test01inner_impl*, %struct.test01inner_impl** %elem_zero_addr1
+  %elem_zero_addr1 = getelementptr %struct.test01outer, ptr %p, i64 0, i32 0, i32 0, i32 0
+  %val1 = load ptr, ptr %elem_zero_addr1
 
   ; Also, loading the pointer stored at the first location of the nested
   ; structure.
-  %elem_zero_addr2 = bitcast %struct.test01outer* %p to %struct.test01inner_impl**
-  %val2 = load %struct.test01inner_impl*, %struct.test01inner_impl** %elem_zero_addr2
+  %elem_zero_addr2 = bitcast ptr %p to ptr
+  %val2 = load ptr, ptr %elem_zero_addr2
 
   ; Also, loading the pointer stored at the first location of the nested
   ; structure.
-  %elem_zero_addr3 = bitcast %struct.test01outer* %p to i64*
-  %val3 = load i64, i64* %elem_zero_addr3
+  %elem_zero_addr3 = bitcast ptr %p to ptr
+  %val3 = load i64, ptr %elem_zero_addr3
 
   ret void
 }
 ; CHECK-LABEL: define internal void @test01
-; CHECK-NONOPAQUE: %val1 = load %struct.test01inner_impl*, %struct.test01inner_impl** %elem_zero_addr1
-; CHECK-OPAQUE: %val1 = load ptr, ptr %elem_zero_addr1
+; CHECK: %val1 = load ptr, ptr %elem_zero_addr1
 ; CHECK-NEXT:  LocalPointerInfo:
 ; CHECK-NEXT:    Aliased types:
 ; CHECK-NEXT:      %struct.test01inner_impl*{{ *$}}
 ; CHECK-NEXT:    No element pointees.
 
-; CHECK-NONOPAQUE: %val2 = load %struct.test01inner_impl*, %struct.test01inner_impl** %elem_zero_addr2
-; CHECK-OPAQUE: %val2 = load ptr, ptr %elem_zero_addr2
+; CHECK: %val2 = load ptr, ptr %elem_zero_addr2
 ; CHECK-NEXT:  LocalPointerInfo:
 ; CHECK-NEXT:    Aliased types:
 ; CHECK-NEXT:      %struct.test01inner_impl*{{ *$}}
 ; CHECK-NEXT:    No element pointees.
 
-; CHECK-NONOPAQUE: %val3 = load i64, i64* %elem_zero_addr3
-; CHECK-OPAQUE: %val3 = load i64, ptr %elem_zero_addr3
+; CHECK: %val3 = load i64, ptr %elem_zero_addr3
 ; CHECK-NEXT:  LocalPointerInfo:
 ; CHECK-NEXT:    Aliased types:
 ; CHECK-NEXT:      %struct.test01inner_impl*{{ *$}}
@@ -67,27 +58,25 @@ define internal void @test01(%struct.test01outer* "intel_dtrans_func_index"="1" 
 %struct.test02outer = type { %struct.test02middle }
 %struct.test02middle = type { %struct.test02inner }
 %struct.test02inner = type { %struct.test02inner_impl }
-%struct.test02inner_impl = type { i64*, i64* }
+%struct.test02inner_impl = type { ptr, ptr }
 
-define internal void @test02(%struct.test02outer* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !12 {
-  %elem_zero_addr1 = getelementptr %struct.test02outer, %struct.test02outer* %p, i64 0, i32 0, i32 0, i32 0, i32 0
-  %val1 = load i64*, i64** %elem_zero_addr1
+define internal void @test02(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !12 {
+  %elem_zero_addr1 = getelementptr %struct.test02outer, ptr %p, i64 0, i32 0, i32 0, i32 0, i32 0
+  %val1 = load ptr, ptr %elem_zero_addr1
 
-  %elem_zero_addr2 = bitcast %struct.test02outer* %p to i64**
-  %val2 = load i64*, i64** %elem_zero_addr2
+  %elem_zero_addr2 = bitcast ptr %p to ptr
+  %val2 = load ptr, ptr %elem_zero_addr2
 
   ret void
 }
 ; CHECK-LABEL: define internal void @test02
-; CHECK-NONOPAQUE: %val1 = load i64*, i64** %elem_zero_addr1
-; CHECK-OPAQUE: %val1 = load ptr, ptr %elem_zero_addr1
+; CHECK: %val1 = load ptr, ptr %elem_zero_addr1
 ; CHECK-NEXT:  LocalPointerInfo:
 ; CHECK-NEXT:    Aliased types:
 ; CHECK-NEXT:      i64*{{ *$}}
 ; CHECK-NEXT:    No element pointees.
 
-; CHECK-NONOPAQUE: %val2 = load i64*, i64** %elem_zero_addr2
-; CHECK-OPAQUE: %val2 = load ptr, ptr %elem_zero_addr2
+; CHECK: %val2 = load ptr, ptr %elem_zero_addr2
 ; CHECK-NEXT:  LocalPointerInfo:
 ; CHECK-NEXT:    Aliased types:
 ; CHECK-NEXT:      i64*{{ *$}}
@@ -102,22 +91,20 @@ define internal void @test02(%struct.test02outer* "intel_dtrans_func_index"="1" 
 %struct.test03inner = type { %struct.test03inner_impl }
 %struct.test03inner_impl = type { i64, i64 }
 
-define internal void @test03(%struct.test03outer* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !18 {
-  %elem_zero_addr1 = getelementptr %struct.test03outer, %struct.test03outer* %p, i64 0, i32 0, i32 0, i32 0, i32 0
-  %val1 = load i64, i64* %elem_zero_addr1
+define internal void @test03(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !18 {
+  %elem_zero_addr1 = getelementptr %struct.test03outer, ptr %p, i64 0, i32 0, i32 0, i32 0, i32 0
+  %val1 = load i64, ptr %elem_zero_addr1
 
-  %elem_zero_addr2 = bitcast %struct.test03outer* %p to i64*
-  %val2 = load i64, i64* %elem_zero_addr2
+  %elem_zero_addr2 = bitcast ptr %p to ptr
+  %val2 = load i64, ptr %elem_zero_addr2
 
   ret void
 }
 ; CHECK-LABEL: define internal void @test03
-; CHECK-NONOPAQUE: %val1 = load i64, i64* %elem_zero_addr1
-; CHECK-OPAQUE: %val1 = load i64, ptr %elem_zero_addr1
+; CHECK: %val1 = load i64, ptr %elem_zero_addr1
 ; CHECK-NOT:   LocalPointerInfo:
 ; CHECK: %elem_zero_addr2 = bitcast
-; CHECK-NONOPAQUE: %val2 = load i64, i64* %elem_zero_addr2
-; CHECK-OPAQUE: %val2 = load i64, ptr %elem_zero_addr2
+; CHECK: %val2 = load i64, ptr %elem_zero_addr2
 ; CHECK-NOT:   LocalPointerInfo:
 ; CHECK: ret void
 

@@ -2,8 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test dominant type resolution when the pointer type information contains 3
 ; pointer types, where one type is considered the dominant type of the other
@@ -13,32 +12,31 @@ target triple = "x86_64-unknown-linux-gnu"
 ; dominant type.
 
 %class.Block = type { %class.Base, i16, i16, [4 x i8] }
-%class.Base = type { %class.Allocator, i16, i16, %class.Fragment* }
-%class.Allocator = type { %class.Manager* }
-%class.Manager = type { i32 (...)** }
+%class.Base = type { %class.Allocator, i16, i16, ptr }
+%class.Allocator = type { ptr }
+%class.Manager = type { ptr }
 %class.Fragment = type { double }
-%struct.Node = type { %class.Block*, %struct.Node*, %struct.Node* }
+%struct.Node = type { ptr, ptr, ptr }
 
 define i1 @test01() {
-  %i = getelementptr inbounds %struct.Node, %struct.Node* undef, i64 0, i32 0
-  %i2 = getelementptr inbounds %struct.Node, %struct.Node* undef, i64 0, i32 1
-  %i3 = load %struct.Node*, %struct.Node** %i2, align 8
+  %i = getelementptr inbounds %struct.Node, ptr undef, i64 0, i32 0
+  %i2 = getelementptr inbounds %struct.Node, ptr undef, i64 0, i32 1
+  %i3 = load ptr, ptr %i2, align 8
 
   ; The inference of the usage type for this instruction will result
   ; in 3 pointer types. We want to check the that dominant type from
   ; them is deterministic.
-  %i4 = bitcast %struct.Node* %i3 to %class.Base**
+  %i4 = bitcast ptr %i3 to ptr
 
-  %i5 = load %class.Base*, %class.Base** %i4, align 8
-  %i6 = getelementptr inbounds %class.Base, %class.Base* %i5, i64 0, i32 3
-  %i7 = bitcast %class.Base* %i5 to %class.Block*
-  %i9 = load %class.Block*, %class.Block** %i, align 8
-  %i10 = icmp eq %class.Block* %i9, %i7
+  %i5 = load ptr, ptr %i4, align 8
+  %i6 = getelementptr inbounds %class.Base, ptr %i5, i64 0, i32 3
+  %i7 = bitcast ptr %i5 to ptr
+  %i9 = load ptr, ptr %i, align 8
+  %i10 = icmp eq ptr %i9, %i7
   ret i1 true
 }
 
-; CHECK-NONOPAQUE: %i4 = bitcast %struct.Node* %i3 to %class.Base**
-; CHECK-OPAQUE: %i4 = bitcast ptr %i3 to ptr
+; CHECK: %i4 = bitcast ptr %i3 to ptr
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %class.Base**{{ *}}

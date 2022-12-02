@@ -2,25 +2,19 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test access to first element of the structure, which happens to also serve
 ; as the address of the structure. This is for the BitCastEquivalent clause
 ; of the getelementptr analyzer.
 
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
 ; Test bitcast equivalent for a GEP
 define internal void @test01() {
   %local = alloca [80 x i8]
-  %bce = getelementptr inbounds [80 x i8], [80 x i8]* %local, i64 0, i64 0
-  store i8 32, i8* %bce
+  %bce = getelementptr inbounds [80 x i8], ptr %local, i64 0, i64 0
+  store i8 32, ptr %bce
   ret void
 }
 ; CHECK-LABEL: void @test01
@@ -30,8 +24,7 @@ define internal void @test01() {
 ; CHECK-NEXT:   [80 x i8]*{{ *$}}
 ; CHECK:      No element pointees.
 
-; CHECK-NONOPAQUE: %bce = getelementptr inbounds [80 x i8], [80 x i8]* %local, i64 0, i64 0
-; CHECK-OPAQUE: %bce = getelementptr inbounds [80 x i8], ptr %local, i64 0, i64 0
+; CHECK: %bce = getelementptr inbounds [80 x i8], ptr %local, i64 0, i64 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   [80 x i8]*{{ *$}}
@@ -43,14 +36,13 @@ define internal void @test01() {
 ; Test bitcast equivalent for GEP that addresses a structure element that starts
 ; with an i8 element.
 %struct.test02 = type { i8, i32, i64 }
-define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
-  %ptr = getelementptr %struct.test02, %struct.test02* %in, i64 0, i32 0
-  store i8 64, i8* %ptr
+define internal void @test02(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
+  %ptr = getelementptr %struct.test02, ptr %in, i64 0, i32 0
+  store i8 64, ptr %ptr
   ret void
 }
 ; CHECK-LABEL: void @test02
-; CHECK-NONOPAQUE: %ptr = getelementptr %struct.test02, %struct.test02* %in, i64 0, i32 0
-; CHECK-OPAQUE: %ptr = getelementptr %struct.test02, ptr %in, i64 0, i32 0
+; CHECK: %ptr = getelementptr %struct.test02, ptr %in, i64 0, i32 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test02*{{ *$}}
@@ -63,14 +55,13 @@ define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %in) 
 ; with an array of i8 elements.
 %struct.test03a = type { [256 x i8], i32 }
 %struct.test03b = type { %struct.test03a }
-define internal void @test03(%struct.test03b* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !9 {
-  %ptr = getelementptr %struct.test03b, %struct.test03b* %in, i64 0, i32 0, i32 0, i32 0
-  store i8 64, i8* %ptr
+define internal void @test03(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !9 {
+  %ptr = getelementptr %struct.test03b, ptr %in, i64 0, i32 0, i32 0, i32 0
+  store i8 64, ptr %ptr
   ret void
 }
 ; CHECK-LABEL: void @test03
-; CHECK-NONOPAQUE: %ptr = getelementptr %struct.test03b, %struct.test03b* %in, i64 0, i32 0, i32 0, i32 0
-; CHECK-OPAQUE: %ptr = getelementptr %struct.test03b, ptr %in, i64 0, i32 0, i32 0, i32 0
+; CHECK: %ptr = getelementptr %struct.test03b, ptr %in, i64 0, i32 0, i32 0, i32 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test03b*{{ *$}}

@@ -2,8 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -disable-output -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -disable-output -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Test pointer type recovery on instruction using compiler constants
 ; where the pointer type analyzer is attempting to resolve pointer types.
@@ -19,35 +18,32 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.test01 = type { i64, i64 }
 %struct.test02 = type { i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test01* @test() !intel.dtrans.func.type !4 {
-  %mem = tail call i8* @malloc(i64 16)
-  %failed = icmp eq i8* %mem, null
+define "intel_dtrans_func_index"="1" ptr @test() !intel.dtrans.func.type !4 {
+  %mem = tail call ptr @malloc(i64 16)
+  %failed = icmp eq ptr %mem, null
   br i1 %failed, label %fail, label %success
 fail:
-  call void @free(i8* null)
-  %bad = bitcast i8* null to %struct.test01*
-; CHECK-NONOPAQUE: %bad = bitcast i8* null to %struct.test01*
-; CHECK-OPAQUE:    %bad = bitcast ptr null to ptr
+  call void @free(ptr null)
+  %bad = bitcast ptr null to ptr
+; CHECK:    %bad = bitcast ptr null to ptr
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test01*
 ; CHECK-NEXT:      No element pointees.
-  %other = bitcast i8* null to %struct.test02*
+  %other = bitcast ptr null to ptr
 
-; CHECK-NONOPAQUE: %other = bitcast i8* null to %struct.test02*
-; CHECK-OPAQUE:    %other = bitcast ptr null to ptr
+; CHECK:    %other = bitcast ptr null to ptr
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test02*
 ; CHECK-NEXT:      No element pointees.
 
-  %cmp = icmp eq %struct.test02* null, %other
-  %g = getelementptr %struct.test02, %struct.test02* %other, i64 0, i32 0
+  %cmp = icmp eq ptr null, %other
+  %g = getelementptr %struct.test02, ptr %other, i64 0, i32 0
   br label %done
 success:
-  %good = bitcast i8* %mem to %struct.test01*
-; CHECK-NONOPAQUE: %good = bitcast i8* %mem to %struct.test01*
-; CHECK-OPAQUE:    %good = bitcast ptr %mem to ptr
+  %good = bitcast ptr %mem to ptr
+; CHECK:    %good = bitcast ptr %mem to ptr
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test01*
@@ -57,61 +53,55 @@ success:
   br label %done
 
 done:
-  %res = phi %struct.test01* [ %good, %success ], [ %bad, %fail ]
-; CHECK-NONOPAQUE: %res = phi %struct.test01* [ %good, %success ], [ %bad, %fail ]
-; CHECK-OPAQUE:    %res = phi ptr [ %good, %success ], [ %bad, %fail ]
+  %res = phi ptr [ %good, %success ], [ %bad, %fail ]
+; CHECK:    %res = phi ptr [ %good, %success ], [ %bad, %fail ]
 ; CHECK-NEXT:     LocalPointerInfo:
 ; CHECK-NEXT:       Aliased types:
 ; CHECK-NEXT:         %struct.test01*
 ; CHECK-NEXT:         i8*
 ; CHECK-NEXT:       No element pointees.
 
-  %phi2 = phi %struct.test01* [ %good, %success ], [ null, %fail ]
-; CHECK-NONOPAQUE: %phi2 = phi %struct.test01* [ %good, %success ], [ null, %fail ]
-; CHECK-OPAQUE:    %phi2 = phi ptr [ %good, %success ], [ null, %fail ]
+  %phi2 = phi ptr [ %good, %success ], [ null, %fail ]
+; CHECK:    %phi2 = phi ptr [ %good, %success ], [ null, %fail ]
 ; CHECK-NEXT:     LocalPointerInfo:
 ; CHECK-NEXT:       Aliased types:
 ; CHECK-NEXT:         %struct.test01*
 ; CHECK-NEXT:         i8*
 ; CHECK-NEXT:       No element pointees.
 
-  %gep = getelementptr i8, i8* null, i64 32
-; CHECK-NONOPAQUE: %gep = getelementptr i8, i8* null, i64 32
-; CHECK-OPAQUE:    %gep = getelementptr i8, ptr null, i64 32
+  %gep = getelementptr i8, ptr null, i64 32
+; CHECK:    %gep = getelementptr i8, ptr null, i64 32
 ; CHECK-NEXT:     LocalPointerInfo:
 ; CHECK-NEXT:       Aliased types:
 ; CHECK-NEXT:         i8*
 ; CHECK-NEXT:       No element pointees.
 
-%gep2 = getelementptr %struct.test02, %struct.test02* null, i64 0
-; CHECK-NONOPAQUE: %gep2 = getelementptr %struct.test02, %struct.test02* null, i64 0
-; CHECK-OPAQUE:    %gep2 = getelementptr %struct.test02, ptr null, i64 0
+%gep2 = getelementptr %struct.test02, ptr null, i64 0
+; CHECK:    %gep2 = getelementptr %struct.test02, ptr null, i64 0
 ; CHECK-NEXT:     LocalPointerInfo:
 ; CHECK-NEXT:       Aliased types:
 ; CHECK-NEXT:         %struct.test02*
 ; CHECK-NEXT:       No element pointees.
 
-  %itp = inttoptr i64 0 to %struct.test01*
-; CHECK-NONOPAQUE: %itp = inttoptr i64 0 to %struct.test01*
-; CHECK-OPAQUE:    %itp = inttoptr i64 0 to ptr
+  %itp = inttoptr i64 0 to ptr
+; CHECK:    %itp = inttoptr i64 0 to ptr
 ; CHECK-NEXT:     LocalPointerInfo:
 ; CHECK-NEXT:       Aliased types:
 ; CHECK-NEXT:         %struct.test01*
 ; CHECK-NEXT:       No element pointees.
 
-  %t1 = getelementptr %struct.test01, %struct.test01* %itp, i64 0
-; CHECK-NONOPAQUE: %t1 = getelementptr %struct.test01, %struct.test01* %itp, i64 0
-; CHECK-OPAQUE:    %t1 = getelementptr %struct.test01, ptr %itp, i64 0
+  %t1 = getelementptr %struct.test01, ptr %itp, i64 0
+; CHECK:    %t1 = getelementptr %struct.test01, ptr %itp, i64 0
 ; CHECK-NEXT:     LocalPointerInfo:
 ; CHECK-NEXT:       Aliased types:
 ; CHECK-NEXT:         %struct.test01*
 ; CHECK-NEXT:       No element pointees.
 
-  ret %struct.test01* %res
+  ret ptr %res
 }
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !7 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64)
+declare !intel.dtrans.func.type !7 void @free(ptr "intel_dtrans_func_index"="1")
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{i32 0, i32 0}  ; i32

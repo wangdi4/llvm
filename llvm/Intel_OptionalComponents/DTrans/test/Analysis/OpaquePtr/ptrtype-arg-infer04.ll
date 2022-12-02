@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -9,10 +8,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; this case the argument is not used, so will not have an inferred
 ; type, but should not cause an 'Unhandled' safety condition.
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
 
 @.source.0.0 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
-@.kmpc_loc.0.0 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0, i32 0, i32 0) }
+@.kmpc_loc.0.0 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, ptr getelementptr inbounds ([22 x i8], ptr @.source.0.0, i32 0, i32 0) }
 
 
 define internal void @_Z9doNothingv() {
@@ -24,7 +23,7 @@ bb:
   br label %codeRepl
 
 codeRepl:                                         ; preds = %bb
-  call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main.bb.split to void (i32*, i32*, ...)*))
+  call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr @.kmpc_loc.0.0, i32 0, ptr bitcast (ptr @main.bb.split to ptr))
   br label %DIR.OMP.END.PARALLEL.AFTEROMP
 
 DIR.OMP.END.PARALLEL.AFTEROMP:                    ; preds = %codeRepl
@@ -35,7 +34,7 @@ DIR.OMP.END.PARALLEL.AFTEROMP:                    ; preds = %codeRepl
 ; the PtrTypeAnalyzer to infer the argument types based on usage.
 ; In this case the input arguments are not used, so do not need to be marked as
 ; 'Unhandled' when there is no metadata describing them.
-define internal void @main.bb.split(i32* %tid, i32* %bid) {
+define internal void @main.bb.split(ptr %tid, ptr %bid) {
 newFuncRoot:
   br label %bb.split
 
@@ -55,17 +54,15 @@ DIR.OMP.END.PARALLEL.AFTEROMP.exitStub:           ; preds = %DIR.OMP.END.PARALLE
 }
 
 ; CHECK: Input Parameters: main.bb.split
-; CHECK-NONOPAQUE: Arg 0: i32* %tid
-; CHECK-OPAQUE:    Arg 0: ptr %tid
+; CHECK:    Arg 0: ptr %tid
 ; CHECK:   LocalPointerInfo:
 ; CHECK-NOT: <UNHANDLED>
-; CHECK-NONOPAQUE: Arg 1: i32* %bid
-; CHECK-OPAQUE:    Arg 1: ptr %bid
+; CHECK:    Arg 1: ptr %bid
 ; CHECK:   LocalPointerInfo:
 ; CHECK-NOT: <UNHANDLED>
 ; CHECK: define internal void @main.bb.split
 
-declare !intel.dtrans.func.type !9 !callback !0 void @__kmpc_fork_call(%struct.ident_t* "intel_dtrans_func_index"="1", i32, void (i32*, i32*, ...)* "intel_dtrans_func_index"="2", ...)
+declare !intel.dtrans.func.type !9 !callback !0 void @__kmpc_fork_call(ptr "intel_dtrans_func_index"="1", i32, ptr "intel_dtrans_func_index"="2", ...)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
