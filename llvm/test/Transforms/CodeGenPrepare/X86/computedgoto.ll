@@ -42,21 +42,21 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK:       bb0:
 ; CHECK-NEXT:    br label [[DOTSPLIT3]]
 ; CHECK:       .split3:
-; CHECK-NEXT:    [[MERGE5:%.*]] = phi i32* [ [[PTR:%.*]], [[BB0:%.*]] ], [ [[INCDEC_PTR]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[MERGE5:%.*]] = phi ptr [ [[PTR:%.*]], [[BB0:%.*]] ], [ [[INCDEC_PTR]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ 0, [[BB0]] ], [ [[INITVAL]], [[ENTRY]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE7]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO:%.*]]
 ; CHECK:       bb1:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32* [ [[PTR]], [[BB1:%.*]] ], [ [[INCDEC_PTR]], [[ENTRY]] ]
+; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[PTR]], [[BB1:%.*]] ], [ [[INCDEC_PTR]], [[ENTRY]] ]
 ; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 1, [[BB1]] ], [ [[INITVAL]], [[ENTRY]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE2]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO]]
 ; CHECK:       indirectgoto:
-; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi i32* [ [[MERGE]], [[DOTSPLIT]] ], [ [[MERGE5]], [[DOTSPLIT3]] ]
-; CHECK-NEXT:    [[PTR]] = getelementptr inbounds i32, i32* [[P_ADDR_SINK]], i64 1
-; CHECK-NEXT:    [[NEWP:%.*]] = load i32, i32* [[P_ADDR_SINK]], align 4
+; CHECK-NEXT:    [[P_ADDR_SINK:%.*]] = phi ptr [ [[MERGE]], [[DOTSPLIT]] ], [ [[MERGE5]], [[DOTSPLIT3]] ]
+; CHECK-NEXT:    [[PTR]] = getelementptr inbounds i32, ptr [[P_ADDR_SINK]], i64 1
+; CHECK-NEXT:    [[NEWP:%.*]] = load i32, ptr [[P_ADDR_SINK]], align 4
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @simple.targets, i64 0, i64 [[IDX]]
 ; CHECK-NEXT:    [[NEWOP:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
@@ -64,13 +64,11 @@ define void @simple(ptr nocapture readonly %p) {
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ;
-; end INTEL_CUSTOMIZATION
-; INTEL_CUSTOMIZATION
 ; SPLIT-SWITCH-CE-LABEL: @simple(
 ; SPLIT-SWITCH-CE-NEXT:  entry:
-; SPLIT-SWITCH-CE-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, i32* [[P:%.*]], i64 1
-; SPLIT-SWITCH-CE-NEXT:    [[INITVAL:%.*]] = load i32, i32* [[P]], align 4
-; SPLIT-SWITCH-CE-NEXT:    [[INITOP:%.*]] = load i32, i32* [[INCDEC_PTR]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, ptr [[P:%.*]], i64 1
+; SPLIT-SWITCH-CE-NEXT:    [[INITVAL:%.*]] = load i32, ptr [[P]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[INITOP:%.*]] = load i32, ptr [[INCDEC_PTR]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    switch i32 [[INITOP]], label [[EXIT:%.*]] [
 ; SPLIT-SWITCH-CE-NEXT:    i32 0, label [[DOTSPLIT7:%.*]]
 ; SPLIT-SWITCH-CE-NEXT:    i32 1, label [[DOTSPLIT:%.*]]
@@ -80,7 +78,7 @@ define void @simple(ptr nocapture readonly %p) {
 ; SPLIT-SWITCH-CE:       .split7:
 ; SPLIT-SWITCH-CE-NEXT:    br label [[DOTSPLIT12]]
 ; SPLIT-SWITCH-CE:       .split12:
-; SPLIT-SWITCH-CE-NEXT:    [[MERGE14:%.*]] = phi i32* [ [[INCDEC_PTR]], [[DOTSPLIT7]] ], [ [[PTR:%.*]], [[BB0:%.*]] ]
+; SPLIT-SWITCH-CE-NEXT:    [[MERGE14:%.*]] = phi ptr [ [[INCDEC_PTR]], [[DOTSPLIT7]] ], [ [[PTR:%.*]], [[BB0:%.*]] ]
 ; SPLIT-SWITCH-CE-NEXT:    [[MERGE16:%.*]] = phi i32 [ [[INITVAL]], [[DOTSPLIT7]] ], [ 0, [[BB0]] ]
 ; SPLIT-SWITCH-CE-NEXT:    tail call void @use(i32 [[MERGE16]])
 ; SPLIT-SWITCH-CE-NEXT:    br label [[INDIRECTGOTO:%.*]]
@@ -89,18 +87,18 @@ define void @simple(ptr nocapture readonly %p) {
 ; SPLIT-SWITCH-CE:       .split:
 ; SPLIT-SWITCH-CE-NEXT:    br label [[DOTSPLIT3]]
 ; SPLIT-SWITCH-CE:       .split3:
-; SPLIT-SWITCH-CE-NEXT:    [[MERGE5:%.*]] = phi i32* [ [[INCDEC_PTR]], [[DOTSPLIT]] ], [ [[PTR]], [[BB1:%.*]] ]
+; SPLIT-SWITCH-CE-NEXT:    [[MERGE5:%.*]] = phi ptr [ [[INCDEC_PTR]], [[DOTSPLIT]] ], [ [[PTR]], [[BB1:%.*]] ]
 ; SPLIT-SWITCH-CE-NEXT:    [[MERGE:%.*]] = phi i32 [ [[INITVAL]], [[DOTSPLIT]] ], [ 1, [[BB1]] ]
 ; SPLIT-SWITCH-CE-NEXT:    tail call void @use(i32 [[MERGE]])
 ; SPLIT-SWITCH-CE-NEXT:    br label [[INDIRECTGOTO]]
 ; SPLIT-SWITCH-CE:       indirectgoto:
-; SPLIT-SWITCH-CE-NEXT:    [[P_ADDR_SINK:%.*]] = phi i32* [ [[MERGE5]], [[DOTSPLIT3]] ], [ [[MERGE14]], [[DOTSPLIT12]] ]
-; SPLIT-SWITCH-CE-NEXT:    [[PTR]] = getelementptr inbounds i32, i32* [[P_ADDR_SINK]], i64 1
-; SPLIT-SWITCH-CE-NEXT:    [[NEWP:%.*]] = load i32, i32* [[P_ADDR_SINK]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[P_ADDR_SINK:%.*]] = phi ptr [ [[MERGE5]], [[DOTSPLIT3]] ], [ [[MERGE14]], [[DOTSPLIT12]] ]
+; SPLIT-SWITCH-CE-NEXT:    [[PTR]] = getelementptr inbounds i32, ptr [[P_ADDR_SINK]], i64 1
+; SPLIT-SWITCH-CE-NEXT:    [[NEWP:%.*]] = load i32, ptr [[P_ADDR_SINK]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
-; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x i8*], [2 x i8*]* @simple.targets, i64 0, i64 [[IDX]]
-; SPLIT-SWITCH-CE-NEXT:    [[NEWOP:%.*]] = load i8*, i8** [[ARRAYIDX]], align 8
-; SPLIT-SWITCH-CE-NEXT:    indirectbr i8* [[NEWOP]], [label [[BB0]], label %bb1]
+; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @simple.targets, i64 0, i64 [[IDX]]
+; SPLIT-SWITCH-CE-NEXT:    [[NEWOP:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
+; SPLIT-SWITCH-CE-NEXT:    indirectbr ptr [[NEWOP]], [label [[BB0]], label %bb1]
 ; SPLIT-SWITCH-CE:       exit:
 ; SPLIT-SWITCH-CE-NEXT:    ret void
 ;
@@ -176,33 +174,33 @@ define void @multi(ptr nocapture readonly %p) {
 ; INTEL_CUSTOMIZATION
 ; SPLIT-SWITCH-CE-LABEL: @multi(
 ; SPLIT-SWITCH-CE-NEXT:  entry:
-; SPLIT-SWITCH-CE-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, i32* [[P:%.*]], i64 1
-; SPLIT-SWITCH-CE-NEXT:    [[INITVAL:%.*]] = load i32, i32* [[P]], align 4
-; SPLIT-SWITCH-CE-NEXT:    [[INITOP:%.*]] = load i32, i32* [[INCDEC_PTR]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, ptr [[P:%.*]], i64 1
+; SPLIT-SWITCH-CE-NEXT:    [[INITVAL:%.*]] = load i32, ptr [[P]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[INITOP:%.*]] = load i32, ptr [[INCDEC_PTR]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    switch i32 [[INITOP]], label [[EXIT:%.*]] [
 ; SPLIT-SWITCH-CE-NEXT:    i32 0, label [[BB0:%.*]]
 ; SPLIT-SWITCH-CE-NEXT:    i32 1, label [[BB1:%.*]]
 ; SPLIT-SWITCH-CE-NEXT:    ]
 ; SPLIT-SWITCH-CE:       bb0:
-; SPLIT-SWITCH-CE-NEXT:    [[P_ADDR_0:%.*]] = phi i32* [ [[INCDEC_PTR]], [[ENTRY:%.*]] ], [ [[NEXT0:%.*]], [[BB0]] ], [ [[NEXT1:%.*]], [[BB1]] ]
+; SPLIT-SWITCH-CE-NEXT:    [[P_ADDR_0:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY:%.*]] ], [ [[NEXT0:%.*]], [[BB0]] ], [ [[NEXT1:%.*]], [[BB1]] ]
 ; SPLIT-SWITCH-CE-NEXT:    [[OPCODE_0:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ 0, [[BB0]] ], [ 1, [[BB1]] ]
 ; SPLIT-SWITCH-CE-NEXT:    tail call void @use(i32 [[OPCODE_0]])
-; SPLIT-SWITCH-CE-NEXT:    [[NEXT0]] = getelementptr inbounds i32, i32* [[P_ADDR_0]], i64 1
-; SPLIT-SWITCH-CE-NEXT:    [[NEWP0:%.*]] = load i32, i32* [[P_ADDR_0]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[NEXT0]] = getelementptr inbounds i32, ptr [[P_ADDR_0]], i64 1
+; SPLIT-SWITCH-CE-NEXT:    [[NEWP0:%.*]] = load i32, ptr [[P_ADDR_0]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    [[IDX0:%.*]] = sext i32 [[NEWP0]] to i64
-; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [2 x i8*], [2 x i8*]* @multi.targets, i64 0, i64 [[IDX0]]
-; SPLIT-SWITCH-CE-NEXT:    [[NEWOP0:%.*]] = load i8*, i8** [[ARRAYIDX0]], align 8
-; SPLIT-SWITCH-CE-NEXT:    indirectbr i8* [[NEWOP0]], [label [[BB0]], label %bb1]
+; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [2 x ptr], ptr @multi.targets, i64 0, i64 [[IDX0]]
+; SPLIT-SWITCH-CE-NEXT:    [[NEWOP0:%.*]] = load ptr, ptr [[ARRAYIDX0]], align 8
+; SPLIT-SWITCH-CE-NEXT:    indirectbr ptr [[NEWOP0]], [label [[BB0]], label %bb1]
 ; SPLIT-SWITCH-CE:       bb1:
-; SPLIT-SWITCH-CE-NEXT:    [[P_ADDR_1:%.*]] = phi i32* [ [[INCDEC_PTR]], [[ENTRY]] ], [ [[NEXT0]], [[BB0]] ], [ [[NEXT1]], [[BB1]] ]
+; SPLIT-SWITCH-CE-NEXT:    [[P_ADDR_1:%.*]] = phi ptr [ [[INCDEC_PTR]], [[ENTRY]] ], [ [[NEXT0]], [[BB0]] ], [ [[NEXT1]], [[BB1]] ]
 ; SPLIT-SWITCH-CE-NEXT:    [[OPCODE_1:%.*]] = phi i32 [ [[INITVAL]], [[ENTRY]] ], [ 0, [[BB0]] ], [ 1, [[BB1]] ]
 ; SPLIT-SWITCH-CE-NEXT:    tail call void @use(i32 [[OPCODE_1]])
-; SPLIT-SWITCH-CE-NEXT:    [[NEXT1]] = getelementptr inbounds i32, i32* [[P_ADDR_1]], i64 1
-; SPLIT-SWITCH-CE-NEXT:    [[NEWP1:%.*]] = load i32, i32* [[P_ADDR_1]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[NEXT1]] = getelementptr inbounds i32, ptr [[P_ADDR_1]], i64 1
+; SPLIT-SWITCH-CE-NEXT:    [[NEWP1:%.*]] = load i32, ptr [[P_ADDR_1]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    [[IDX1:%.*]] = sext i32 [[NEWP1]] to i64
-; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds [2 x i8*], [2 x i8*]* @multi.targets, i64 0, i64 [[IDX1]]
-; SPLIT-SWITCH-CE-NEXT:    [[NEWOP1:%.*]] = load i8*, i8** [[ARRAYIDX1]], align 8
-; SPLIT-SWITCH-CE-NEXT:    indirectbr i8* [[NEWOP1]], [label [[BB0]], label %bb1]
+; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds [2 x ptr], ptr @multi.targets, i64 0, i64 [[IDX1]]
+; SPLIT-SWITCH-CE-NEXT:    [[NEWOP1:%.*]] = load ptr, ptr [[ARRAYIDX1]], align 8
+; SPLIT-SWITCH-CE-NEXT:    indirectbr ptr [[NEWOP1]], [label [[BB0]], label %bb1]
 ; SPLIT-SWITCH-CE:       exit:
 ; SPLIT-SWITCH-CE-NEXT:    ret void
 ;
@@ -255,8 +253,8 @@ define void @loop(ptr nocapture readonly %p) {
 ; Critical edges splitting algorithm is changed, clone BB isn't generated anymore.
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, i64* [[P:%.*]], i64 [[MERGE]]
-; CHECK-NEXT:    store i64 [[MERGE]], i64* [[TMP0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, ptr [[P:%.*]], i64 [[MERGE]]
+; CHECK-NEXT:    store i64 [[MERGE]], ptr [[TMP0]], align 4
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i64 [[MERGE]], 1
 ; CHECK-NEXT:    [[IDX:%.*]] = srem i64 [[MERGE]], 2
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @loop.targets, i64 0, i64 [[IDX]]
@@ -273,13 +271,13 @@ define void @loop(ptr nocapture readonly %p) {
 ; SPLIT-SWITCH-CE-NEXT:    br label [[DOTSPLIT]]
 ; SPLIT-SWITCH-CE:       .split:
 ; SPLIT-SWITCH-CE-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; SPLIT-SWITCH-CE-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, i64* [[P:%.*]], i64 [[MERGE]]
-; SPLIT-SWITCH-CE-NEXT:    store i64 [[MERGE]], i64* [[TMP0]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, ptr [[P:%.*]], i64 [[MERGE]]
+; SPLIT-SWITCH-CE-NEXT:    store i64 [[MERGE]], ptr [[TMP0]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    [[I_NEXT]] = add nuw nsw i64 [[MERGE]], 1
 ; SPLIT-SWITCH-CE-NEXT:    [[IDX:%.*]] = srem i64 [[MERGE]], 2
-; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x i8*], [2 x i8*]* @loop.targets, i64 0, i64 [[IDX]]
-; SPLIT-SWITCH-CE-NEXT:    [[TARGET:%.*]] = load i8*, i8** [[ARRAYIDX]], align 8
-; SPLIT-SWITCH-CE-NEXT:    indirectbr i8* [[TARGET]], [label [[BB0]], label %bb1]
+; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @loop.targets, i64 0, i64 [[IDX]]
+; SPLIT-SWITCH-CE-NEXT:    [[TARGET:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
+; SPLIT-SWITCH-CE-NEXT:    indirectbr ptr [[TARGET]], [label [[BB0]], label %bb1]
 ; SPLIT-SWITCH-CE:       bb1:
 ; SPLIT-SWITCH-CE-NEXT:    ret void
 ;
@@ -330,8 +328,8 @@ define void @nophi(ptr %p) {
 ; INTEL_CUSTOMIZATION
 ; SPLIT-SWITCH-CE-LABEL: @nophi(
 ; SPLIT-SWITCH-CE-NEXT:  entry:
-; SPLIT-SWITCH-CE-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, i32* [[P:%.*]], i64 1
-; SPLIT-SWITCH-CE-NEXT:    [[INITOP:%.*]] = load i32, i32* [[INCDEC_PTR]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, ptr [[P:%.*]], i64 1
+; SPLIT-SWITCH-CE-NEXT:    [[INITOP:%.*]] = load i32, ptr [[INCDEC_PTR]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    switch i32 [[INITOP]], label [[EXIT:%.*]] [
 ; SPLIT-SWITCH-CE-NEXT:    i32 0, label [[BB0:%.*]]
 ; SPLIT-SWITCH-CE-NEXT:    i32 1, label [[BB1:%.*]]
@@ -343,14 +341,12 @@ define void @nophi(ptr %p) {
 ; SPLIT-SWITCH-CE-NEXT:    tail call void @use(i32 1)
 ; SPLIT-SWITCH-CE-NEXT:    br label [[INDIRECTGOTO]]
 ; SPLIT-SWITCH-CE:       indirectgoto:
-; SPLIT-SWITCH-CE-NEXT:    [[TMP0:%.*]] = bitcast i32* [[P]] to i8*
-; SPLIT-SWITCH-CE-NEXT:    [[SUNKADDR:%.*]] = getelementptr inbounds i8, i8* [[TMP0]], i64 4
-; SPLIT-SWITCH-CE-NEXT:    [[TMP1:%.*]] = bitcast i8* [[SUNKADDR]] to i32*
-; SPLIT-SWITCH-CE-NEXT:    [[NEWP:%.*]] = load i32, i32* [[TMP1]], align 4
+; SPLIT-SWITCH-CE-NEXT:    [[SUNKADDR:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 4
+; SPLIT-SWITCH-CE-NEXT:    [[NEWP:%.*]] = load i32, ptr [[SUNKADDR]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
-; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x i8*], [2 x i8*]* @nophi.targets, i64 0, i64 [[IDX]]
-; SPLIT-SWITCH-CE-NEXT:    [[NEWOP:%.*]] = load i8*, i8** [[ARRAYIDX]], align 8
-; SPLIT-SWITCH-CE-NEXT:    indirectbr i8* [[NEWOP]], [label [[BB0]], label %bb1]
+; SPLIT-SWITCH-CE-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [2 x ptr], ptr @nophi.targets, i64 0, i64 [[IDX]]
+; SPLIT-SWITCH-CE-NEXT:    [[NEWOP:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
+; SPLIT-SWITCH-CE-NEXT:    indirectbr ptr [[NEWOP]], [label [[BB0]], label %bb1]
 ; SPLIT-SWITCH-CE:       exit:
 ; SPLIT-SWITCH-CE-NEXT:    ret void
 ;
@@ -401,7 +397,7 @@ define i32 @noncritical(i32 %k, ptr %p)
 ; SPLIT-SWITCH-CE-LABEL: @noncritical(
 ; SPLIT-SWITCH-CE-NEXT:  entry:
 ; SPLIT-SWITCH-CE-NEXT:    [[D:%.*]] = add i32 [[K:%.*]], 1
-; SPLIT-SWITCH-CE-NEXT:    indirectbr i8* [[P:%.*]], [label [[BB0:%.*]], label %bb1]
+; SPLIT-SWITCH-CE-NEXT:    indirectbr ptr [[P:%.*]], [label [[BB0:%.*]], label %bb1]
 ; SPLIT-SWITCH-CE:       bb0:
 ; SPLIT-SWITCH-CE-NEXT:    [[R0:%.*]] = sub i32 [[K]], [[D]]
 ; SPLIT-SWITCH-CE-NEXT:    br label [[EXIT:%.*]]

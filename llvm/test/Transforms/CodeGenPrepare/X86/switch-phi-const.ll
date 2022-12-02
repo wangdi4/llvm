@@ -19,31 +19,31 @@ define void @switch_phi_const(i32 %x) {
 ; CHECK-NEXT:    br label [[DOTSPLIT9:%.*]]
 ; CHECK:       .split9:
 ; CHECK-NEXT:    [[MERGE11:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ [[X_LOOPBACK:%.*]], [[CASE_7]] ]
-; CHECK-NEXT:    store i32 13, i32* @effect, align 4
+; CHECK-NEXT:    store i32 13, ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT6:%.*]]
 ; CHECK:       case_42:
 ; CHECK-NEXT:    br label [[DOTSPLIT6]]
 ; CHECK:       .split6:
 ; CHECK-NEXT:    [[MERGE8:%.*]] = phi i32 [ [[X]], [[CASE_42]] ], [ [[MERGE11]], [[DOTSPLIT9]] ]
-; CHECK-NEXT:    store i32 [[MERGE8]], i32* @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE8]], ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT1:%.*]]
 ; CHECK:       case_50_51:
 ; CHECK-NEXT:    br label [[DOTSPLIT1]]
 ; CHECK:       .split1:
 ; CHECK-NEXT:    [[MERGE3:%.*]] = phi i32 [ 50, [[CASE_50_51]] ], [ [[MERGE8]], [[DOTSPLIT6]] ]
 ; CHECK-NEXT:    [[MERGE5:%.*]] = phi i32 [ 51, [[CASE_50_51]] ], [ [[MERGE8]], [[DOTSPLIT6]] ]
-; CHECK-NEXT:    store i32 [[MERGE3]], i32* @effect, align 4
-; CHECK-NEXT:    store i32 [[MERGE5]], i32* @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE3]], ptr @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE5]], ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       case_55:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 42, [[CASE_55]] ], [ 55, [[DOTSPLIT1]] ]
-; CHECK-NEXT:    store i32 [[MERGE]], i32* @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE]], ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DEFAULT]]
 ; CHECK:       case_7:
-; CHECK-NEXT:    [[X_LOOPBACK]] = load i32, i32* @g, align 4
-; CHECK-NEXT:    store i32 7, i32* @effect, align 4
+; CHECK-NEXT:    [[X_LOOPBACK]] = load i32, ptr @g, align 4
+; CHECK-NEXT:    store i32 7, ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT9]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK:       default:
@@ -110,9 +110,9 @@ define void @switch_phi_const_multiple_phis(i32 %x) {
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ 1, [[BB0:%.*]] ]
 ; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 14, [[CASE_13]] ], [ 1, [[BB0]] ]
 ; CHECK-NEXT:    [[MERGE4:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ 27, [[BB0]] ]
-; CHECK-NEXT:    store volatile i32 [[MERGE]], i32* @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[MERGE2]], i32* @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[MERGE4]], i32* @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE]], ptr @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE2]], ptr @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE4]], ptr @effect, align 4
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret void
 ; CHECK:       default:
@@ -189,23 +189,23 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-NEXT:    br label [[DOTSPLIT4:%.*]]
 ; CHECK:       .split4:
 ; CHECK-NEXT:    [[MERGE6:%.*]] = phi i64 [ [[TMP0]], [[CASE_13]] ], [ [[X7:%.*]], [[CASE_7]] ]
-; CHECK-NEXT:    store i64 13, i64* @effect64, align 4
+; CHECK-NEXT:    store i64 13, ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT1:%.*]]
 ; CHECK:       case_42:
 ; CHECK-NEXT:    br label [[DOTSPLIT1]]
 ; CHECK:       .split1:
 ; CHECK-NEXT:    [[MERGE3:%.*]] = phi i64 [ [[TMP1]], [[CASE_42]] ], [ [[MERGE6]], [[DOTSPLIT4]] ]
-; CHECK-NEXT:    store i64 [[MERGE3]], i64* @effect64, align 4
+; CHECK-NEXT:    store i64 [[MERGE3]], ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       case_55:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ 3895, [[CASE_55]] ], [ 55, [[DOTSPLIT1]] ]
-; CHECK-NEXT:    store i64 [[MERGE]], i64* @effect64, align 4
+; CHECK-NEXT:    store i64 [[MERGE]], ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DEFAULT]]
 ; CHECK:       case_7:
-; CHECK-NEXT:    [[X7]] = load i64, i64* @g64, align 4
-; CHECK-NEXT:    store i64 7, i64* @effect64, align 4
+; CHECK-NEXT:    [[X7]] = load i64, ptr @g64, align 4
+; CHECK-NEXT:    store i64 7, ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT4]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK:       default:
