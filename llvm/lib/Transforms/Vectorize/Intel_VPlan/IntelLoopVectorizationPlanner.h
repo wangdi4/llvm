@@ -367,6 +367,12 @@ public:
   std::unique_ptr<VPlanCostModelInterface> createCostModel(
     const VPlanVector *Plan, unsigned VF, unsigned UF = 1) const;
 
+  /// Create and return Plan/VF/UF specific CostModel object based on global
+  /// compilation settings such as presence of -x knob in command line.
+  /// Do not include the SLP-breakage heuristic.
+  std::unique_ptr<VPlanCostModelInterface> createNoSLPCostModel(
+    const VPlanVector *Plan, unsigned VF, unsigned UF = 1) const;
+
   /// Record CM's decision and dispose of all other VPlans.
   // void setBestPlan(unsigned VF, unsigned UF);
 

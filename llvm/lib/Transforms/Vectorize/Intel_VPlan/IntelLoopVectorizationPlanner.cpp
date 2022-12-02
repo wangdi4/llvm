@@ -769,6 +769,27 @@ LoopVectorizationPlanner::createCostModel(const VPlanVector *Plan,
   llvm_unreachable("Uncovered Planner type in the switch-case above.");
 }
 
+std::unique_ptr<VPlanCostModelInterface>
+LoopVectorizationPlanner::createNoSLPCostModel(const VPlanVector *Plan,
+                                               unsigned VF,
+                                               unsigned UF) const {
+  // Do not run VLSA for VF = 1
+  VPlanVLSAnalysis *VLSACM = VF > 1 ? VLSA : nullptr;
+
+  switch (getPlannerType()) {
+    case PlannerType::Full:
+      return VPlanCostModelFullNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
+                                                    TLI, DL, VLSACM);
+    case PlannerType::LightWeight:
+      return VPlanCostModelLiteNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
+                                                    TLI, DL, VLSACM);
+    case PlannerType::Base:
+      return VPlanCostModelBaseNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
+                                                    TLI, DL, VLSACM);
+  }
+  llvm_unreachable("Uncovered Planner type in the switch-case above.");
+}
+
 unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
   if (VPlanForceUF == 0) {
     if (Forced)
@@ -1114,7 +1135,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     assert(Plan && "Unexpected null VPlan");
 
     // Calculate cost for one iteration of the main loop.
-    auto MainLoopCM = createCostModel(Plan, VF, BestUF);
+    auto MainLoopCM = IsVectorAlways || ForcedVF > 1 ?
+      createNoSLPCostModel(Plan, VF, BestUF) :
+      createCostModel(Plan, VF, BestUF);
     VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
 
     // Peeling is not supported for non-normalized loops.
