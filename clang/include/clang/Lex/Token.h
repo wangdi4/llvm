@@ -336,6 +336,14 @@ struct PragmaLoopHintInfo {
   Token PragmaName;
   Token Option;
   ArrayRef<Token> Toks;
+#if INTEL_CUSTOMIZATION
+  ArrayRef<Token> ArrayToks;
+  PragmaLoopHintInfo() { Option.startToken(); }
+  PragmaLoopHintInfo(const Token &PragmaTok) {
+    PragmaName = PragmaTok;
+    Option.startToken();
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 } // end namespace clang
 
