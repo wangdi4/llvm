@@ -70,7 +70,7 @@ static bool canSwitchDimension(Function *F) {
   // 1. Check whether KernelAnalysis pass said "no barrier", otherwise
   // switching dimension is not supported.
   auto KIMD = KernelInternalMetadataAPI(F);
-  if (!(KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()))
+  if (!KIMD.NoBarrierPath.get())
     return false;
 
   // 1a. Check whether we use subgroups. That is not a hard requirement, it is

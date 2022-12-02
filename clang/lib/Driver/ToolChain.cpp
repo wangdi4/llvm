@@ -1199,24 +1199,27 @@ bool ToolChain::CheckAddIntelLib(StringRef LibName, const ArgList &Args) const {
 }
 
 static const std::string getIntelBasePath(const std::string DriverDir) {
-  // Perf libs are located in different locations depending on the package
-  // being used.  This is PSXE vs oneAPI installations.
-  //  oneAPI: <install>/compiler/<ver>/<os>/bin
-  //  PSXE: <install>/compiler/<os>/bin
-  // FIXME - The path returned is based on oneAPI.  Additional checks need to
-  // be added to properly enable for PSXE.
+  // Perf libs are located in the oneAPI package
   const std::string BasePath(DriverDir);
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  return BasePath + "/../../";
+#else
   return BasePath + "/../../../../";
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 }
 
 static std::string getIPPBasePath(const ArgList &Args,
                                   const std::string DriverDir) {
   const char * IPPRoot = getenv("IPPROOT");
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   bool IsCrypto = false;
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ)) {
     if (A->getValue() == StringRef("crypto") ||
         A->getValue() == StringRef("nonpic_crypto")) {
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
       IsCrypto = true;
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
       IPPRoot = getenv("IPPCRYPTOROOT");
     }
   }
@@ -1224,9 +1227,12 @@ static std::string getIPPBasePath(const ArgList &Args,
   if (IPPRoot)
     P.append(IPPRoot);
   else {
-    P.append(getIntelBasePath(DriverDir) + "ipp");
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "ipp");
     if (IsCrypto)
       P.append("cp");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
   }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
@@ -1252,10 +1258,16 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
       IsNonPIC = true;
   SmallString<128> P(Opt);
   P.append(getIPPBasePath(Args, getDriver().Dir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ);
   if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
     llvm::sys::path::append(P, "nonpic");
@@ -1270,8 +1282,12 @@ static std::string getMKLBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (MKLRoot)
     P.append(MKLRoot);
-  else
-    P.append(getIntelBasePath(DriverDir) + "mkl");
+  else {
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "mkl");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
+  }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
@@ -1297,10 +1313,16 @@ std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
 std::string ToolChain::GetMKLLibPath(void) const {
   SmallString<128> P(getMKLBasePath(getDriver().Dir));
   llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
   }
@@ -1318,8 +1340,12 @@ static std::string getTBBBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (TBBRoot)
     P.append(TBBRoot);
-  else
-    P.append(getIntelBasePath(DriverDir) + "tbb");
+  else {
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "tbb");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
+  }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
@@ -1338,10 +1364,16 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Opt) const {
   SmallString<128> P(Opt);
   P.append(getTBBBasePath(getDriver().Dir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   // FIXME - this only handles Linux and Windows for now
   if (getTriple().isWindowsMSVCEnvironment())
     llvm::sys::path::append(P, "vc14");
@@ -1358,8 +1390,12 @@ static std::string getDAALBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (DAALRoot)
     P.append(DAALRoot);
-  else
-    P.append(getIntelBasePath(DriverDir) + "dal");
+  else {
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "dal");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
+  }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
@@ -1376,10 +1412,16 @@ std::string ToolChain::GetDAALIncludePath(const ArgList &Args) const {
 std::string ToolChain::GetDAALLibPath(void) const {
   SmallString<128> P(getDAALBasePath(getDriver().Dir));
   llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
   }

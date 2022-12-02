@@ -5337,9 +5337,11 @@ class OffloadingActionBuilder final {
                  : omp_device_libs) {
           SmallString<128> LibName(TC->getDriver().Dir);
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
+          llvm::sys::path::append(LibName, "..", "opt", "compiler");
+#else
           llvm::sys::path::append(LibName, "..");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
-          llvm::sys::path::append(LibName, "..", "lib", Lib.first);
+          llvm::sys::path::append(LibName, "lib", Lib.first);
           llvm::sys::path::replace_extension(LibName, IsMSVC ? ".obj" : ".o");
           if ((Lib.second & LinkForOMP) == Lib.second)
             addInput(Args.MakeArgString(LibName));

@@ -197,8 +197,10 @@ private:
 
   /// Add an explicit user-defined reduction variable.
   void addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr) {
-    UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr);
+                    Function *Constr, Function *Destr,
+                    Optional<InscanReductionKind> InscanRedKind = None) {
+    UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr,
+                         InscanRedKind);
   }
 
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type

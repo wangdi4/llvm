@@ -2097,6 +2097,27 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
         assert(false && "Registerized UDR/Scan unexpected.");
         return false;
       }
+
+      if (isa<VPUserDefinedScanReduction>(Red)) {
+        LLVM_DEBUG(
+            dbgs() << "LVP: UDS lowering and codegen are not supported yet!\n");
+        return false;
+      }
+    }
+
+    // Check that reduction does not have more than one liveout instruction.
+    // TODO: This scenario can potentially be handled in the future by emitting
+    // a reduction-final for each liveout value.
+    unsigned NumLiveOutInsts =
+        llvm::count_if(Red->getLinkedVPValues(), [&VPLp](VPValue *V) {
+          if (auto *I = dyn_cast<VPInstruction>(V))
+            return VPLp->isLiveOut(I);
+          return false;
+        });
+    if (NumLiveOutInsts > 1) {
+      LLVM_DEBUG(dbgs() << "LVP: Reduction with multiple liveout instructions "
+                           "is not supported.\n");
+      return false;
     }
   }
 

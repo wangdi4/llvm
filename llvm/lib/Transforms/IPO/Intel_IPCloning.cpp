@@ -1030,7 +1030,7 @@ static bool isRecProAllocaIntArray(AllocaInst *AI, int *ArrayLengthOut) {
 //
 static bool isRecProLatchBlock(bool TestSimpleOnly, BasicBlock *BBLoopHeader,
                                BasicBlock *BBLatch, bool *IsSimple) {
-  if (!BBLoopHeader || !BBLoopHeader)
+  if (!BBLoopHeader || !BBLatch)
     return false;
   if (BBLoopHeader == BBLatch) {
     *IsSimple = true;

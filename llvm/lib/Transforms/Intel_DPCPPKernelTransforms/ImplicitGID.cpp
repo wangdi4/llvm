@@ -159,7 +159,7 @@ bool ImplicitGIDImpl::run() {
   for (auto *F : KL) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F);
     if (HandleBarrier) {
-      if (!(KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()))
+      if (!KIMD.NoBarrierPath.get())
         Changed |= runOnFunction(*F);
       continue;
     }

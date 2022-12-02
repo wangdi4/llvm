@@ -370,12 +370,15 @@ private:
   Function *Initializer = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
+  Optional<InscanReductionKind> InscanRedKind = None;
 
 public:
   RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
-              Function *Ctor, Function *Dtor)
+              Function *Ctor, Function *Dtor,
+              Optional<InscanReductionKind> InscanRedKind = None)
       : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/),
-        Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
+        Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor),
+        InscanRedKind(InscanRedKind) {}
 
   // Move constructor
   RedDescrUDR(RedDescrUDR &&Other) = default;
@@ -388,6 +391,10 @@ public:
   Function *getCtor() const { return Ctor; }
   /// Get destructor function for UDR datatype.
   Function *getDtor() const { return Dtor; }
+  /// Get inscan reduction type (optional).
+  Optional<InscanReductionKind> getInscanReductionKind() const {
+    return InscanRedKind;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
@@ -397,6 +404,17 @@ public:
     OS << ", Initializer: " << (Initializer ? Initializer->getName() : "none");
     OS << ", Ctor: " << (Ctor ? Ctor->getName() : "none");
     OS << ", Dtor: " << (Dtor ? Dtor->getName() : "none");
+    if (InscanRedKind) {
+      OS << ", Inscan: ";
+      switch (*InscanRedKind) {
+      case InscanReductionKind::Inclusive:
+        OS << "inclusive";
+        break;
+      case InscanReductionKind::Exclusive:
+        OS << "exclusive";
+        break;
+      }
+    }
     OS << "}\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

@@ -2707,6 +2707,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNTarget:
+  case WRNTargetData:
   case WRNTile:
   case WRNGuardMemMotion:
     return true;

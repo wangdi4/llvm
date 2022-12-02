@@ -344,6 +344,7 @@ public:
     Descriptor.setInitializer(CurValue->getInitializer());
     Descriptor.setCtor(CurValue->getCtor());
     Descriptor.setDtor(CurValue->getDtor());
+    Descriptor.setInscanReductionKind(CurValue->getInscanReductionKind());
   }
 };
 

@@ -44,7 +44,7 @@ bool ReplaceScalarWithMaskPass::runImpl(Module &M) {
     if (ScalarKernel->hasOptNone())
       continue;
     auto SKIMD = KernelInternalMetadataAPI(ScalarKernel);
-    if ((SKIMD.NoBarrierPath.hasValue() && SKIMD.NoBarrierPath.get()) ||
+    if (SKIMD.NoBarrierPath.get() ||
         !(SKIMD.VectorizedMaskedKernel.hasValue() &&
           SKIMD.VectorizedMaskedKernel.get()))
       continue;

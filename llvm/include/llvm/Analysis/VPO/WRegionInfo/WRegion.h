@@ -952,6 +952,7 @@ private:
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
+  LiveinClause Livein;
 
 public:
   WRNTargetDataNode(BasicBlock *BB);
@@ -964,6 +965,7 @@ public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
 
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }

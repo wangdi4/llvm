@@ -39,10 +39,14 @@ void OCLObjectBase::PrintDependencyGraphRecursive(std::ostream &os,
 
 void OCLObjectBase::PrintDependencyGraph(std::ostream &os) {
   m_muAcquireRelease.Lock();
+  // Save ostream flags
+  ios::fmtflags f(os.flags());
   os << std::hex;
   os << "Dependency graph for " << m_typename << " " << this << ":"
      << std::endl;
   PrintDependencyGraphRecursive(os, 1);
+  // Restore ostream flags
+  os.flags(f);
   m_muAcquireRelease.Unlock();
 }
 

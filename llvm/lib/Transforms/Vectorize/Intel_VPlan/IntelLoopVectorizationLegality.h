@@ -348,11 +348,23 @@ private:
         Item->getIsInscan())
       return bailout(BailoutReason::UDSReduction);
 
-    // Capture functions for init/finalization for UDRs.
     if (Kind == RecurKind::Udr) {
+      // Check for UDR and inscan flags, that would make this UDS.
+      Optional<InscanReductionKind> InscanRedKind = None;
+      if (Item->getIsInscan()) {
+        InscanRedKind =
+            isa<InclusiveItem>(
+                WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp,
+                                                                        Item))
+                ? InscanReductionKind::Inclusive
+                : InscanReductionKind::Exclusive;
+      }
+      // Capture functions for init/finalization for UDRs.
       addReduction(Val, Item->getCombiner(), Item->getInitializer(),
-                   Item->getConstructor(), Item->getDestructor());
+                   Item->getConstructor(), Item->getDestructor(),
+                   InscanRedKind);
     } else if (Item->getIsInscan()) {
+      // Add an ordinary inscan reduction.
       addReduction(Val, Kind, isa<InclusiveItem>(
           WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp, Item)) ?
                    InscanReductionKind::Inclusive :
@@ -391,9 +403,10 @@ private:
   }
 
   void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr) {
+                    Function *Constr, Function *Destr,
+                    Optional<InscanReductionKind> InscanRedKind) {
     return static_cast<LegalityTy *>(this)->addReduction(
-        V, Combiner, Initializer, Constr, Destr);
+        V, Combiner, Initializer, Constr, Destr, InscanRedKind);
   }
 };
 
@@ -672,9 +685,10 @@ private:
   /// Add a user-defined reduction variable \p V and functions that are needed
   /// for its initialization/finalization.
   void addReduction(Value *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr) {
-    UserDefinedReductions.emplace_back(
-        std::make_unique<UDRDescrTy>(V, Combiner, Initializer, Constr, Destr));
+                    Function *Constr, Function *Destr,
+                    Optional<InscanReductionKind> InscanRedKind) {
+    UserDefinedReductions.emplace_back(std::make_unique<UDRDescrTy>(
+        V, Combiner, Initializer, Constr, Destr, InscanRedKind));
   }
 
   /// Parsing Min/Max reduction patterns.
