@@ -837,7 +837,7 @@ void FrameworkProxy::DeactivateTaskExecutor() const {
     --m_uiTEActivationCount;
 
     if (0 == m_uiTEActivationCount) {
-// This is disabled due to shutdown issue and will be fixed by CMPLRLLVM-20324
+// This is disabled due to shutdown issue and will be fixed
 #if 0
             // this is the normal deletion - undo the counting here to delete the object
             long ref = m_pTaskList->DecRefCnt();

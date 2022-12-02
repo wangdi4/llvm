@@ -224,7 +224,7 @@ __attribute__((noinline)) void foo(__global int *x, int s) {
 
 // Define multiple kernels that all invoke foo()
 // All call edges on `foo` contributes to the total barrier buffer size
-// due to the limitation of barrier design [CMPLRLLVM-29148].
+// due to the limitation of barrier design.
 KERNEL(1)
 KERNEL(2)
 KERNEL(3)

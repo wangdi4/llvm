@@ -398,7 +398,7 @@ cl_err_code Device::CloseDeviceInstance() {
   LOG_DEBUG(TEXT("%s"), TEXT("CloseDeviceInstance enter"));
   if (0 == --m_pDeviceRefCount) {
     if (!m_bTerminate) {
-// This is disabled due to shutdown issue and will be fixed by CMPLRLLVM-20324
+// This is disabled due to shutdown issue and will be fixed.
 #if 0
             m_pDevice->clDevCloseDevice();
             m_pPlatformModule->DeviceClosed();

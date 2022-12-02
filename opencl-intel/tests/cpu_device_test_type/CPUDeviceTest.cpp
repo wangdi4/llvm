@@ -960,8 +960,7 @@ int main(int argc, char *argv[]) {
     return -1;
 
   int rc = RUN_ALL_TESTS();
-  // This is disabled due to shutdown issue and will be fixed by
-  // CMPLRLLVM-20324.
+  // This is disabled due to shutdown issue and will be fixed.
   // dev_entry->clDevCloseDevice();
   delete config;
   return rc;

@@ -355,7 +355,7 @@ void TBBTaskExecutor::InitTBBNuma() {
   if (Intel::OpenCL::Utils::getEnvVar(envCPUPlaces, "DPCPP_CPU_PLACES") &&
       ("numa_domains" == StringRef(envCPUPlaces).lower())) {
     // Only call tbb::info::numa_nodes if env is set, otherwise there is perf
-    // regression (CMPLRLLVM-20763) since this call take 45ms on 2-socket CLX.
+    // regression since this call take 45ms on 2-socket CLX.
     m_tbbNumaNodes = tbb::info::numa_nodes();
     int nodesCount = (int)m_tbbNumaNodes.size();
     // Only use TBB NUMA support if env is "numa_domains" and there are at least
