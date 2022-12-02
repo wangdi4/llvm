@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basic-aa -gvn -S | FileCheck %s
-=======
 ; RUN: opt < %s -passes=gvn -S | FileCheck %s
->>>>>>> 881c6c0d46ae1b72fb60bbb6a547577f79a5d14f
 ; PR2503
 
 @g_3 = external global i8		; <i8*> [#uses=2]

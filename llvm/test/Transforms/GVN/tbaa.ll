@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -tbaa -basic-aa -gvn -S < %s | FileCheck %s
-=======
 ; RUN: opt -passes=gvn -S < %s | FileCheck %s
->>>>>>> 881c6c0d46ae1b72fb60bbb6a547577f79a5d14f
 
 define i32 @test1(i8* %p, i8* %q) {
 ; CHECK-LABEL: @test1(i8* %p, i8* %q)

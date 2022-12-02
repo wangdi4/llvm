@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basic-aa -gvn -S | FileCheck %s
-=======
 ; RUN: opt < %s -passes=gvn -S | FileCheck %s
->>>>>>> 881c6c0d46ae1b72fb60bbb6a547577f79a5d14f
 
 declare void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> , <2 x i32*> , i32 , <2 x i1> )
 declare <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*>, i32, <2 x i1>, <2 x i32>)

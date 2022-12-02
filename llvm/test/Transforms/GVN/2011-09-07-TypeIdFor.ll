@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basic-aa -gvn -S | FileCheck %s
-=======
 ; RUN: opt < %s -passes=gvn -S | FileCheck %s
->>>>>>> 881c6c0d46ae1b72fb60bbb6a547577f79a5d14f
 %struct.__fundamental_type_info_pseudo = type { %struct.__type_info_pseudo }
 %struct.__type_info_pseudo = type { i8*, i8* }
 
