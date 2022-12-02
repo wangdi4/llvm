@@ -111,21 +111,12 @@ OPENCL_EXTENSION(__cl_clang_bitfields, true, 100)
 OPENCL_EXTENSION(cl_amd_media_ops, true, 100)
 OPENCL_EXTENSION(cl_amd_media_ops2, true, 100)
 
-<<<<<<< HEAD
-// ARM OpenCL extensions
-OPENCL_EXTENSION(cl_arm_integer_dot_product_int8, true, 120)
-OPENCL_EXTENSION(cl_arm_integer_dot_product_accumulate_int8, true, 120)
-OPENCL_EXTENSION(cl_arm_integer_dot_product_accumulate_int16, true, 120)
-OPENCL_EXTENSION(cl_arm_integer_dot_product_accumulate_saturate_int8, true, 120)
-
 #if INTEL_CUSTOMIZATION
 OPENCL_EXTENSION(cl_intel_vec_len_hint, true, 120)
 OPENCL_EXTENSION(cl_intel_channels,  true, 100)
 OPENCL_EXTENSION(cl_intel_fpga_host_pipe, true, 100)
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> b0e4897a1bd2ea5eeeb8c104e32df1402a397ac1
 // Intel OpenCL extensions
 OPENCL_EXTENSION(cl_intel_subgroups, true, 120)
 OPENCL_EXTENSION(cl_intel_subgroups_short, true, 120)
