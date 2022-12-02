@@ -15,6 +15,7 @@
 
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include <cassert>
 
@@ -330,6 +331,20 @@ struct PPConditionalInfo {
   bool FoundElse;
 };
 
+// Extra information needed for annonation tokens.
+struct PragmaLoopHintInfo {
+  Token PragmaName;
+  Token Option;
+  ArrayRef<Token> Toks;
+#if INTEL_CUSTOMIZATION
+  ArrayRef<Token> ArrayToks;
+  PragmaLoopHintInfo() { Option.startToken(); }
+  PragmaLoopHintInfo(const Token &PragmaTok) {
+    PragmaName = PragmaTok;
+    Option.startToken();
+  }
+#endif // INTEL_CUSTOMIZATION
+};
 } // end namespace clang
 
 #endif // LLVM_CLANG_LEX_TOKEN_H
