@@ -1544,6 +1544,9 @@ void X86AsmPrinter::LowerPATCHABLE_OP(const MachineInstr &MI,
 
   unsigned MinSize = MI.getOperand(0).getImm();
   unsigned Opcode = MI.getOperand(1).getImm();
+  // Opcode PATCHABLE_OP is a special case: there is no instruction to wrap,
+  // simply emit a nop of size MinSize.
+  bool EmptyInst = (Opcode == TargetOpcode::PATCHABLE_OP);
 
   MCInst MCI;
   MCI.setOpcode(Opcode);
@@ -1552,9 +1555,11 @@ void X86AsmPrinter::LowerPATCHABLE_OP(const MachineInstr &MI,
       MCI.addOperand(*MaybeOperand);
 
   SmallString<256> Code;
-  SmallVector<MCFixup, 4> Fixups;
-  raw_svector_ostream VecOS(Code);
-  CodeEmitter->encodeInstruction(MCI, VecOS, Fixups, getSubtargetInfo());
+  if (!EmptyInst) {
+    SmallVector<MCFixup, 4> Fixups;
+    raw_svector_ostream VecOS(Code);
+    CodeEmitter->encodeInstruction(MCI, VecOS, Fixups, getSubtargetInfo());
+  }
 
   if (Code.size() < MinSize) {
     if (MinSize == 2 && Subtarget->is32Bit() &&
@@ -1580,8 +1585,8 @@ void X86AsmPrinter::LowerPATCHABLE_OP(const MachineInstr &MI,
       (void)NopSize;
     }
   }
-
-  OutStreamer->emitInstruction(MCI, getSubtargetInfo());
+  if (!EmptyInst)
+    OutStreamer->emitInstruction(MCI, getSubtargetInfo());
 }
 
 // Lower a stackmap of the form:

@@ -54,6 +54,7 @@ struct PatchableFunction : public MachineFunctionPass {
 };
 }
 
+<<<<<<< HEAD
 /// Returns true if instruction \p MI will not result in actual machine code
 /// instructions.
 static bool doesNotGeneratecode(const MachineInstr &MI) {
@@ -72,6 +73,8 @@ static bool doesNotGeneratecode(const MachineInstr &MI) {
   }
 }
 
+=======
+>>>>>>> 3f3438a596d4883ecd934fc725a9d5f620082c3b
 bool PatchableFunction::runOnMachineFunction(MachineFunction &MF) {
   if (MF.getFunction().hasFnAttribute("patchable-function-entry")) {
     MachineBasicBlock &FirstMBB = *MF.begin();
@@ -92,11 +95,28 @@ bool PatchableFunction::runOnMachineFunction(MachineFunction &MF) {
 #endif
 
   auto &FirstMBB = *MF.begin();
-  MachineBasicBlock::iterator FirstActualI = FirstMBB.begin();
-  for (; doesNotGeneratecode(*FirstActualI); ++FirstActualI)
-    assert(FirstActualI != FirstMBB.end());
-
   auto *TII = MF.getSubtarget().getInstrInfo();
+
+  MachineBasicBlock::iterator FirstActualI = llvm::find_if(
+      FirstMBB, [](const MachineInstr &MI) { return !MI.isMetaInstruction(); });
+
+  if (FirstActualI == FirstMBB.end()) {
+    // As of Microsoft documentation on /hotpatch feature, we must ensure that
+    // "the first instruction of each function is at least two bytes, and no
+    // jump within the function goes to the first instruction"
+
+    // When the first MBB is empty, insert a patchable no-op. This ensures the
+    // first instruction is patchable in two special cases:
+    // - the function is empty (e.g. unreachable)
+    // - the function jumps back to the first instruction, which is in a
+    // successor MBB.
+    BuildMI(&FirstMBB, DebugLoc(), TII->get(TargetOpcode::PATCHABLE_OP))
+        .addImm(2)
+        .addImm(TargetOpcode::PATCHABLE_OP);
+    MF.ensureAlignment(Align(16));
+    return true;
+  }
+
   auto MIB = BuildMI(FirstMBB, FirstActualI, FirstActualI->getDebugLoc(),
                      TII->get(TargetOpcode::PATCHABLE_OP))
                  .addImm(2)
