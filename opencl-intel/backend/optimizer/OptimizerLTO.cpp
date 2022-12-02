@@ -110,7 +110,8 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   PrintPassOptions PrintPassOpts;
   PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
   PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
-  StandardInstrumentations SI(DebugPassManager, VerifyEachPass, PrintPassOpts);
+  StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
+                              VerifyEachPass, PrintPassOpts);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 
