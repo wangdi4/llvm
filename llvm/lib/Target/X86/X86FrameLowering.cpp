@@ -750,7 +750,8 @@ void X86FrameLowering::emitStackProbeInlineGenericLoop(
     uint64_t AlignOffset) const {
   assert(Offset && "null offset");
 
-  assert(!MBB.isLiveIn(X86::EFLAGS) &&
+  assert(MBB.computeRegisterLiveness(TRI, X86::EFLAGS, MBBI) !=
+             MachineBasicBlock::LQR_Live &&
          "Inline stack probe loop will clobber live EFLAGS.");
 
   const bool NeedsDwarfCFI = needsDwarfCFI(MF);
@@ -890,7 +891,8 @@ void X86FrameLowering::emitStackProbeInlineWindowsCoreCLR64(
   const TargetInstrInfo &TII = *STI.getInstrInfo();
   const BasicBlock *LLVM_BB = MBB.getBasicBlock();
 
-  assert(!MBB.isLiveIn(X86::EFLAGS) &&
+  assert(MBB.computeRegisterLiveness(TRI, X86::EFLAGS, MBBI) !=
+             MachineBasicBlock::LQR_Live &&
          "Inline stack probe loop will clobber live EFLAGS.");
 
   // RAX contains the number of bytes of desired stack adjustment.
@@ -1129,7 +1131,8 @@ void X86FrameLowering::emitStackProbeCall(
     report_fatal_error("Emitting stack probe calls on 64-bit with the large "
                        "code model and indirect thunks not yet implemented.");
 
-  assert(!MBB.isLiveIn(X86::EFLAGS) &&
+  assert(MBB.computeRegisterLiveness(TRI, X86::EFLAGS, MBBI) !=
+             MachineBasicBlock::LQR_Live &&
          "Stack probe calls will clobber live EFLAGS.");
 
   unsigned CallOp;
