@@ -14,6 +14,8 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/CommandLine.h"
+#include <algorithm>
+#include <iterator>
 
 #define DEBUG_TYPE "VPlanCallVecDecisions"
 
@@ -84,60 +86,151 @@ void VPlanCallVecDecisions::reset() {
   }
 }
 
-VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
-    const VPCallInstruction *VPCall, bool Masked, int VF,
-    SmallVectorImpl<bool> &ArgIsLinearPrivateMem) {
+static void getCartesianProduct(std::vector<std::vector<VFParameter>> &Scratch,
+                                std::vector<VFParameter> &CurrentEncodings,
+                                std::vector<std::vector<VFParameter>> &Result) {
+  // Compute the cartesian product of the previous result with the current
+  // vector of parameter encodings. Scratch is used to compute temporary results
+  // and then stored back to result, and then the caller passes in the next vector
+  // of parameter encodings and we do it again.  E.g.,
+  //
+  // Result = { u }
+  // CurrentEncodings = { l, R, U, L }
+  // Scratch = { ul, uR, uU, uL }
+  for (auto &PreviousEncodings : Result) {
+    for (auto ParamEncoding : CurrentEncodings) {
+      Scratch.push_back(PreviousEncodings);
+      Scratch.back().push_back(ParamEncoding);
+    }
+  }
+}
 
+void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
+    const VPCallInstruction *VPCall, bool Masked, int VF,
+    SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
+    SmallVectorImpl<VFInfo> &VFInfos) {
+
+  std::vector<std::vector<VFParameter>> Encodings;
   auto VPAA = VPlanAlignmentAnalysis(*Plan.getVPSE(), *Plan.getVPVT(), VF);
 
   auto *DA = Plan.getVPlanDA();
-  SmallVector<VFParameter, 8> Parameters;
   auto SkippedArgs = VPCall->isIntelIndirectCall() ? 1 : 0;
   for (unsigned I = SkippedArgs; I < VPCall->getNumArgOperands(); ++I) {
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(*CallArg);
     auto ParamPos = I - SkippedArgs;
     const VPValue* LinearPrivMem = nullptr;
+    std::vector<VFParameter> ParamEncodings;
+    MaybeAlign ArgAlign = None;
+    bool IsPointerArg = CallArg->getType()->isPointerTy();
+    if (IsPointerArg)
+      ArgAlign = VPAA.tryGetKnownAlignment(CallArg, VPCall);
+
     if (CallArgShape.isRandom() || CallArgShape.isUndefined()) {
-      Parameters.push_back(VFParameter::vector(ParamPos));
-    } else if (CallArgShape.isAnyStrided()) {
-      LinearPrivMem = getVPValuePrivateMemoryPtr(CallArg);
+      ParamEncodings.push_back(VFParameter::vector(ParamPos, ArgAlign));
+    } else if (CallArgShape.isAnyStrided() && !IsPointerArg) {
+      // Handle linear integer args
       if (CallArgShape.hasKnownStride()) {
-        Parameters.push_back(
-            VFParameter::linear(ParamPos, CallArgShape.getStrideVal()));
+        int64_t Stride = CallArgShape.getStrideVal();
+        ParamEncodings.push_back(
+            VFParameter::linear(ParamPos, Stride, ArgAlign));
       } else {
-        // Note: this function builds a VFInfo (vector variant encoding) from
-        // the caller side using DA so that later it can be used to find a
-        // compatible match on the callee (function) side. Since there isn't a
-        // way on the caller side to know where the variable stride argument is
-        // located, the same parameter position is used for the stride argument
-        // as the current linear argument. This is accounted for later during
-        // the matching routine.
-        Parameters.push_back(VFParameter::variableStrided(ParamPos, ParamPos));
+        ParamEncodings.push_back(
+            VFParameter::linearPos(ParamPos, ParamPos, ArgAlign));
+      }
+    } else if (CallArgShape.isAnyStrided() && IsPointerArg) {
+      if (CallArgShape.hasKnownStride()) {
+        int64_t Stride = CallArgShape.getStrideVal();
+        // Stride is known for the pointer, so possible variants include
+        // 'l' and 'R' (ref modifier) encodings since the pointer could
+        // be a reference arg.
+        ParamEncodings.push_back(
+            VFParameter::linear(ParamPos, Stride, ArgAlign));
+        ParamEncodings.push_back(
+            VFParameter::linearRef(ParamPos, Stride, ArgAlign));
+        LinearPrivMem = getVPValuePrivateMemoryPtr(CallArg);
+        if (LinearPrivMem) {
+          // Adjust stride value for private memory to enable matching for uval
+          // and val modifiers. The stride for the pointer to the private memory
+          // is unit stride because it will be widened by VF. The stride needed
+          // here to match the callee is adjusted to be the stride of the value
+          // pointed to, if in fact it is a constant stride. If the adjusted
+          // stride is unknown, then a variable stride encoding is used.
+          std::vector<int64_t> AdjustedStrides;
+          for (auto *User : LinearPrivMem->users()) {
+            auto *VPInst = dyn_cast<VPInstruction>(User);
+            if (VPInst && VPInst->getOpcode() == Instruction::Store) {
+              auto StoredValShape = DA->getVectorShape(*VPInst->getOperand(0));
+              if (!StoredValShape.hasKnownStride()) {
+                AdjustedStrides.clear();
+                break;
+              }
+              int64_t AdjustedStride = StoredValShape.getStrideVal();
+              AdjustedStrides.push_back(AdjustedStride);
+            }
+          }
+
+          // If we have multiple stores of a value to private memory, make sure
+          // all strides match.
+          if (AdjustedStrides.size() > 0 &&
+              all_of(AdjustedStrides.begin()+1, AdjustedStrides.end(),
+                  [&](int64_t S) { return S == AdjustedStrides[0];})) {
+            // Since we can prove that the values stored to the private memory
+            // are linear, encode the val/uval variants.
+            ParamEncodings.push_back(
+                VFParameter::linearUVal(ParamPos, AdjustedStrides[0],
+                                        ArgAlign));
+            ParamEncodings.push_back(
+                VFParameter::linearVal(ParamPos, AdjustedStrides[0], ArgAlign));
+          }
+        }
+      } else {
+        // Stride of pointer is unknown, so possible variants include 'ls'
+        // and 'Rs'. 'U' and 'L' variants, uval and val, respectively are
+        // not a possibility because we can't prove the linearity of the
+        // values stored to the pointer.
+        ParamEncodings.push_back(
+            VFParameter::linearPos(ParamPos, ParamPos, ArgAlign));
+        ParamEncodings.push_back(
+            VFParameter::linearRefPos(ParamPos, ParamPos, ArgAlign));
       }
     } else if (CallArgShape.isUniform()) {
-      Parameters.push_back(VFParameter::uniform(ParamPos));
+      ParamEncodings.push_back(VFParameter::uniform(ParamPos, ArgAlign));
     } else {
       llvm_unreachable("Invalid parameter kind");
     }
 
-    // Parameter matching needs to know that this arg is private memory so that
-    // it can distinguish between ref and val/uval cases for linear reference
-    // arguments. As an example, if 'i' is the loop index on the caller side,
-    // we need to distinguish between 'foo(a[i])' and 'foo(i)'. The latter case
-    // will result in private memory being allocated for VF values of 'i'.
+    // TODO: ArgIsLinearPrivateMem is no longer needed for matching since we
+    // now build multiple VFInfo objects and let the matching logic decide which
+    // is the best one.
     ArgIsLinearPrivateMem.push_back(LinearPrivMem != nullptr);
 
-    // If the call arg is a pointer, use alignment analysis to try to obtain a
-    // known alignment for matching against variants with aligned params.
-    if (CallArg->getType()->isPointerTy())
-      Parameters.back().Alignment = VPAA.tryGetKnownAlignment(CallArg, VPCall);
+    Encodings.push_back(ParamEncodings);
   }
 
   Function *F = VPCall->getCalledFunction();
   assert(F && "Function is expected here.");
-  return VFInfo::get(VFISAKind::Unknown, Masked, VF, Parameters,
-                     F->getName().str());
+
+  // Get all combinations of parameter encodings and create a VFInfo for each
+  // one.
+  std::vector<std::vector<VFParameter>> Scratch;
+  std::vector<std::vector<VFParameter>> Result = {{}};
+  for (auto &ParamEncoding : Encodings) {
+    getCartesianProduct(Scratch, ParamEncoding, Result);
+    Result = std::move(Scratch);
+  }
+
+  for (unsigned long i=0; i<Result.size(); ++i) {
+    SmallVector<VFParameter, 8> Parameters;
+    for (unsigned long j=0; j<Result[i].size(); ++j) {
+      Parameters.push_back(Result[i][j]);
+    }
+    VFInfo CallVariant =
+        VFInfo::get(VFISAKind::Unknown, Masked, VF, Parameters,
+                    F->getName().str());
+    LLVM_DEBUG(dbgs() << "Call Variant: " << CallVariant.VectorName << "\n");
+    VFInfos.push_back(CallVariant);
+  }
 }
 
 llvm::Optional<std::pair<VFInfo, unsigned>>
@@ -187,12 +280,12 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   // modifiers, matching is done on private memory. See matchParameters() in
   // VectorUtils.cpp for more detail.
   SmallVector<bool, 8> ArgIsLinearPrivateMem;
-  const VFInfo VariantForCall =
-      getVectorVariantForCallParameters(VPCall, Masked, VF,
-                                        ArgIsLinearPrivateMem);
+  SmallVector<VFInfo, 8> VFInfos;
+  getVectorVariantsForCallParameters(VPCall, Masked, VF, ArgIsLinearPrivateMem,
+                                     VFInfos);
 
   int VariantIdx =
-      TTI->getMatchingVectorVariant(VariantForCall, Variants,
+      TTI->getMatchingVectorVariant(VFInfos, Variants,
                                     Call->getModule(), ArgIsLinearPrivateMem);
 
   if (VariantIdx >= 0) {

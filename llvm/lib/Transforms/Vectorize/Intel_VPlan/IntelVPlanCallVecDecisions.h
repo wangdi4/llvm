@@ -77,11 +77,12 @@ private:
                    const TargetLibraryInfo *TLI,
                    const TargetTransformInfo *TTI);
 
-  /// Generates a VFInfo placeholder for TTI so that it can match the
+  /// Generates multiple candidate VFInfos for TTI so that it can match the
   /// most appropriate vector variant of the called function \p VPCall.
-  VFInfo getVectorVariantForCallParameters(
+  void getVectorVariantsForCallParameters(
       const VPCallInstruction *VPCall, bool Masked, int VF,
-      SmallVectorImpl<bool> &ArgIsLinearPrivateMem);
+      SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
+      SmallVectorImpl<VFInfo> &VFInfos);
 
   VPlanVector &Plan;
 };

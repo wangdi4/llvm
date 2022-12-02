@@ -1591,44 +1591,46 @@ bool X86TTIImpl::targetMatchesVariantISA(
 }
 
 int X86TTIImpl::getMatchingVectorVariant(
-    const VFInfo &ForCall,
+    const SmallVectorImpl<VFInfo> &ForCall,
     const SmallVectorImpl<VFInfo> &Variants,
     const Module *M,
     const ArrayRef<bool> ArgIsLinearPrivateMem) const {
   // ForCall is a VFInfo created for the call instruction.
   int BestIndex = -1;
-  int CurrIndex = -1;
   // Keep track of parameter position containing the largest score. Can be
   // used as a tiebreaker when selecting the best variant.
   int BestArg = -1;
   int BestScore = 0;
   Optional<VFISAKind> BestISA;
-  for (auto Variant : Variants) {
-    CurrIndex++;
-    if (!targetMatchesVariantISA(Variant.getISA()))
-      continue;
-    int MaxArg = 0;
-    auto Score = ForCall.getMatchingScore(Variant, MaxArg, M,
-                                          ArgIsLinearPrivateMem);
-    if (Score > BestScore) {
-      BestScore = Score;
-      BestIndex = CurrIndex;
-      BestISA = Variant.getISA();
-      BestArg = MaxArg;
-      continue;
-    }
-    if (Score == BestScore) {
-      if (Variant.getISA() > BestISA) {
+  for (auto CallVariant : ForCall) {
+    int CurrIndex = -1;
+    for (auto Variant : Variants) {
+      CurrIndex++;
+      if (!targetMatchesVariantISA(Variant.getISA()))
+        continue;
+      int MaxArg = 0;
+      auto Score = CallVariant.getMatchingScore(Variant, MaxArg, M,
+                                                ArgIsLinearPrivateMem);
+      if (Score > BestScore) {
+        BestScore = Score;
         BestIndex = CurrIndex;
         BestISA = Variant.getISA();
         BestArg = MaxArg;
         continue;
       }
-      if (Variant.getISA() == BestISA) {
-        // Check best parameter score
-        if (MaxArg > BestArg) {
+      if (Score == BestScore) {
+        if (Variant.getISA() > BestISA) {
           BestIndex = CurrIndex;
+          BestISA = Variant.getISA();
           BestArg = MaxArg;
+          continue;
+        }
+        if (Variant.getISA() == BestISA) {
+          // Check best parameter score
+          if (MaxArg > BestArg) {
+            BestIndex = CurrIndex;
+            BestArg = MaxArg;
+          }
         }
       }
     }

@@ -320,7 +320,7 @@ public:
   bool isVPlanVLSProfitable() const;
   bool isAggressiveVLSProfitable() const;
   int getMatchingVectorVariant(
-      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
       const Module *M,
       const ArrayRef<bool> ArgIsLinearPrivateMem) const;

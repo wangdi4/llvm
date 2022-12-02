@@ -121,11 +121,53 @@ struct VFParameter {
     return VFParameter{Pos, VFParamKind::OMP_Linear, Stride, Alignment};
   }
 
+  // Create a linear ref parameter at the given position, with the given stride,
+  // with a possible alignment.
+  static VFParameter linearRef(unsigned Pos, int Stride,
+                               MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearRef, Stride, Alignment};
+  }
+
+  // Create a linear uval parameter at the given position, with the given stride,
+  // with a possible alignment.
+  static VFParameter linearUVal(unsigned Pos, int Stride,
+                                MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearUVal, Stride, Alignment};
+  }
+
+  // Create a linear val parameter at the given position, with the given stride,
+  // with a possible alignment.
+  static VFParameter linearVal(unsigned Pos, int Stride,
+                               MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearVal, Stride, Alignment};
+  }
+
   // Create a linear parameter at the given position, with the given variable
   // position, with a possible alignment.
-  static VFParameter variableStrided(unsigned Pos, int LinearPos,
-                                     MaybeAlign Alignment = None) {
+  static VFParameter linearPos(unsigned Pos, int LinearPos,
+                               MaybeAlign Alignment = None) {
     return VFParameter{Pos, VFParamKind::OMP_LinearPos, LinearPos, Alignment};
+  }
+
+  // Create a linearRef parameter at the given position, with the given variable
+  // position, with a possible alignment.
+  static VFParameter linearRefPos(unsigned Pos, int LinearPos,
+                                  MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearRefPos, LinearPos, Alignment};
+  }
+
+  // Create a linearUVal parameter at the given position, with the given variable
+  // position, with a possible alignment.
+  static VFParameter linearUValPos(unsigned Pos, int LinearPos,
+                                   MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearUValPos, LinearPos, Alignment};
+  }
+
+  // Create a linearVal parameter at the given position, with the given variable
+  // position, with a possible alignment.
+  static VFParameter linearValPos(unsigned Pos, int LinearPos,
+                                  MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearValPos, LinearPos, Alignment};
   }
 
   // Create a uniform parameter at the given position, with a possible
