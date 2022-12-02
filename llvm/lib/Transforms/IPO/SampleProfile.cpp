@@ -1172,7 +1172,7 @@ bool SampleProfileLoader::inlineHotFunctions(
       bool Hot = false;
       SmallVector<CallBase *, 10> AllCandidates;
       SmallVector<CallBase *, 10> ColdCandidates;
-      for (auto &I : BB.getInstList()) {
+      for (auto &I : BB) {
         const FunctionSamples *FS = nullptr;
         if (auto *CB = dyn_cast<CallBase>(&I)) {
           if (!isa<IntrinsicInst>(I)) {
@@ -1446,7 +1446,7 @@ bool SampleProfileLoader::inlineHotFunctionsWithPriority(
   CandidateQueue CQueue;
   InlineCandidate NewCandidate;
   for (auto &BB : F) {
-    for (auto &I : BB.getInstList()) {
+    for (auto &I : BB) {
       auto *CB = dyn_cast<CallBase>(&I);
       if (!CB)
         continue;
@@ -1640,7 +1640,7 @@ void SampleProfileLoader::generateMDProfMetadata(Function &F) {
     BasicBlock *BB = &BI;
 
     if (BlockWeights[BB]) {
-      for (auto &I : BB->getInstList()) {
+      for (auto &I : *BB) {
         if (!isa<CallInst>(I) && !isa<InvokeInst>(I))
           continue;
         if (!cast<CallBase>(I).getCalledFunction()) {
@@ -1692,7 +1692,7 @@ void SampleProfileLoader::generateMDProfMetadata(Function &F) {
     } else if (OverwriteExistingWeights || ProfileSampleBlockAccurate) {
       // Set profile metadata (possibly annotated by LTO prelink) to zero or
       // clear it for cold code.
-      for (auto &I : BB->getInstList()) {
+      for (auto &I : *BB) {
         if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
           if (cast<CallBase>(I).isIndirectCall())
             I.setMetadata(LLVMContext::MD_prof, nullptr);
@@ -2095,7 +2095,7 @@ void SampleProfileMatcher::detectProfileMismatch(const Function &F,
   // Go through all the callsites on the IR and flag the callsite if the target
   // name is the same as the one in the profile.
   for (auto &BB : F) {
-    for (auto &I : BB.getInstList()) {
+    for (auto &I : BB) {
       if (!isa<CallBase>(&I) || isa<IntrinsicInst>(&I))
         continue;
 

@@ -668,7 +668,7 @@ template <typename CFLAA> class CFLGraphBuilder {
     GetEdgesVisitor Visitor(*this, Fn.getParent()->getDataLayout());
 
     for (auto &Bb : Fn.getBasicBlockList())
-      for (auto &Inst : Bb.getInstList())
+      for (auto &Inst : Bb)
         addInstructionToGraph(Visitor, Inst);
 
     for (auto &Arg : Fn.args())
