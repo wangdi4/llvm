@@ -10,30 +10,15 @@ declare i64 @_Z12get_group_idj(i32)
 define void @testKernel(i32 %a, i64* %b) {
 entry:
   %call = call i64 @_Z12get_group_idj(i32 %a)
-; CHECK: entry:
-; CHECK-NEXT: [[GROUPID0:%.*]] = call i64 @_Z12get_group_idj(i32 0)
+; CHECK:      [[GroupID0:%.*]] = call i64 @_Z12get_group_idj(i32 0)
+; CHECK-NEXT: [[GroupID1:%.*]] = call i64 @_Z12get_group_idj(i32 1)
+; CHECK-NEXT: [[GroupID2:%.*]] = call i64 @_Z12get_group_idj(i32 2)
 ; CHECK-NEXT: [[CMP0:%.*]] = icmp eq i32 %a, 0
-; CHECK-NEXT: br i1 [[CMP0]], label %[[L_RES:.*]], label %[[L_1:.*]]
-
-; CHECK: [[L_1]]:
-; CHECK-NEXT: [[GROUPID1:%.*]] = call i64 @_Z12get_group_idj(i32 1)
+; CHECK-NEXT: [[SEL0:%.*]] = select i1 [[CMP0]], i64 [[GroupID0]], i64 0
 ; CHECK-NEXT: [[CMP1:%.*]] = icmp eq i32 %a, 1
-; CHECK-NEXT: br i1 [[CMP1]], label %[[L_RES]], label %[[L_2:.*]]
-
-; CHECK: [[L_2]]:
-; CHECK-NEXT: [[GROUPID2:%.*]] = call i64 @_Z12get_group_idj(i32 2)
+; CHECK-NEXT: [[SEL1:%.*]] = select i1 [[CMP1]], i64 [[GroupID1]], i64 [[SEL0]]
 ; CHECK-NEXT: [[CMP2:%.*]] = icmp eq i32 %a, 2
-; CHECK-NEXT: br i1 [[CMP2]], label %[[L_RES]], label %[[L_OOB:.*]]
-
-; CHECK: [[L_OOB]]:
-; CHECK-NEXT: br label %[[L_RES]]
-
-; CHECK: [[L_RES]]:
-; CHECK-NEXT: [[CALL:%.*]] = phi i64
-; CHECK-DAG: [ 0, %[[L_OOB]] ]
-; CHECK-DAG: [ [[GROUPID0]], %entry ]
-; CHECK-DAG: [ [[GROUPID1]], %[[L_1]] ]
-; CHECK-DAG: [ [[GROUPID2]], %[[L_2]] ]
+; CHECK-NEXT: [[CALL:%.*]] = select i1 [[CMP2]], i64 [[GroupID2]], i64 [[SEL1]]
   store i64 %call, i64* %b
 ; CHECK: store i64 [[CALL]], i64* %b
   ret void
