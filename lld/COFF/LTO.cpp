@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -116,6 +116,7 @@ static lto::Config createConfig() {
   c.RunCSIRInstr = config->ltoCSProfileGenerate;
   c.PGOWarnMismatch = config->ltoPGOWarnMismatch;
 #if INTEL_CUSTOMIZATION
+  c.ShouldDiscardValueNames = config->intelShouldDiscardValueNames;
   c.PTO.LoopVectorization = c.OptLevel > 1;
   c.PTO.SLPVectorization = c.OptLevel > 1;
 #endif // INTEL_CUSTOMIZATION
