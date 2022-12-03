@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -disable-output -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt -S < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -disable-output -dtrans-print-types 2>&1 | FileCheck %s
 
 ; See explanation in C code.
 
@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Call graph: enclosing type: struct.outer
 ; CHECK: Safety data:{{.*}}
 ;
-; CHECK-LABEL: LLVMType: %struct.outer = type { %struct.inner1*, %struct.inner2* }
+; CHECK-LABEL: LLVMType: %struct.outer = type { ptr, ptr }
 ; CHECK: Call graph: top
 ; CHECK: Safety data:{{.*}}
 
@@ -59,7 +59,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
-%struct.outer = type { %struct.inner1*, %struct.inner2* }
+%struct.outer = type { ptr, ptr }
 %struct.inner1 = type { i32 }
 %struct.inner2 = type { i32 }
 
@@ -71,106 +71,106 @@ $_ZN6inner13getEv = comdat any
 
 $_ZN6inner23getEv = comdat any
 
-define i32 @main() #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+define i32 @main() #0 personality ptr bitcast (ptr @__gxx_personality_v0 to ptr) {
 entry:
   %i1 = alloca %struct.inner1, align 4
-  %call = call i8* @_Znwm(i64 16) #5
-  %tmp = bitcast i8* %call to %struct.outer*
-  invoke void @_ZN5outerC2Ev(%struct.outer* %tmp)
+  %call = call ptr @_Znwm(i64 16) #5
+  %tmp = bitcast ptr %call to ptr
+  invoke void @_ZN5outerC2Ev(ptr %tmp)
           to label %invoke.cont unwind label %lpad
 
 invoke.cont:                                      ; preds = %entry
-  %i = getelementptr inbounds %struct.inner1, %struct.inner1* %i1, i32 0, i32 0
-  store i32 0, i32* %i, align 4
-  %call3 = call i32 @_ZN5outer3fooEv(%struct.outer* %tmp)
-  %isnull = icmp eq %struct.outer* %tmp, null
+  %i = getelementptr inbounds %struct.inner1, ptr %i1, i32 0, i32 0
+  store i32 0, ptr %i, align 4
+  %call3 = call i32 @_ZN5outer3fooEv(ptr %tmp)
+  %isnull = icmp eq ptr %tmp, null
   br i1 %isnull, label %delete.end, label %delete.notnull
 
 delete.notnull:                                   ; preds = %invoke.cont
-  %tmp1 = bitcast %struct.outer* %tmp to i8*
-  call void @_ZdlPv(i8* %tmp1) #6
+  %tmp1 = bitcast ptr %tmp to ptr
+  call void @_ZdlPv(ptr %tmp1) #6
   br label %delete.end
 
 delete.end:                                       ; preds = %delete.notnull, %invoke.cont
-  %i4 = getelementptr inbounds %struct.inner1, %struct.inner1* %i1, i32 0, i32 0
-  %tmp2 = load i32, i32* %i4, align 4
+  %i4 = getelementptr inbounds %struct.inner1, ptr %i1, i32 0, i32 0
+  %tmp2 = load i32, ptr %i4, align 4
   %add = add nsw i32 %call3, %tmp2
   ret i32 %add
 
 lpad:                                             ; preds = %entry
-  %tmp3 = landingpad { i8*, i32 }
+  %tmp3 = landingpad { ptr, i32 }
           cleanup
-  %tmp4 = extractvalue { i8*, i32 } %tmp3, 0
-  %tmp5 = extractvalue { i8*, i32 } %tmp3, 1
-  call void @_ZdlPv(i8* %call) #6
+  %tmp4 = extractvalue { ptr, i32 } %tmp3, 0
+  %tmp5 = extractvalue { ptr, i32 } %tmp3, 1
+  call void @_ZdlPv(ptr %call) #6
   br label %eh.resume
 
 eh.resume:                                        ; preds = %lpad
-  %lpad.val = insertvalue { i8*, i32 } undef, i8* %tmp4, 0
-  %lpad.val5 = insertvalue { i8*, i32 } %lpad.val, i32 %tmp5, 1
-  resume { i8*, i32 } %lpad.val5
+  %lpad.val = insertvalue { ptr, i32 } undef, ptr %tmp4, 0
+  %lpad.val5 = insertvalue { ptr, i32 } %lpad.val, i32 %tmp5, 1
+  resume { ptr, i32 } %lpad.val5
 }
 
-declare noalias i8* @_Znwm(i64) #1
+declare noalias ptr @_Znwm(i64) #1
 
-define void @_ZN5outerC2Ev(%struct.outer* "intel_dtrans_func_index"="1" %this) unnamed_addr #2 comdat align 2 !intel.dtrans.func.type !13 {
+define void @_ZN5outerC2Ev(ptr "intel_dtrans_func_index"="1" %this) unnamed_addr #2 comdat align 2 !intel.dtrans.func.type !13 {
 entry:
-  %call = call i8* @_Znwm(i64 4) #5
-  %tmp = bitcast i8* %call to %struct.inner1*
-  %i1 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 0
-  store %struct.inner1* %tmp, %struct.inner1** %i1, align 8
-  %i12 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 0
-  %tmp1 = load %struct.inner1*, %struct.inner1** %i12, align 8
-  %i = getelementptr inbounds %struct.inner1, %struct.inner1* %tmp1, i32 0, i32 0
-  store i32 0, i32* %i, align 4
-  %call3 = call i8* @_Znwm(i64 4) #5
-  %tmp2 = bitcast i8* %call3 to %struct.inner2*
-  %i2 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 1
-  store %struct.inner2* %tmp2, %struct.inner2** %i2, align 8
-  %i24 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 1
-  %tmp3 = load %struct.inner2*, %struct.inner2** %i24, align 8
-  %i5 = getelementptr inbounds %struct.inner2, %struct.inner2* %tmp3, i32 0, i32 0
-  store i32 0, i32* %i5, align 4
+  %call = call ptr @_Znwm(i64 4) #5
+  %tmp = bitcast ptr %call to ptr
+  %i1 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 0
+  store ptr %tmp, ptr %i1, align 8
+  %i12 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 0
+  %tmp1 = load ptr, ptr %i12, align 8
+  %i = getelementptr inbounds %struct.inner1, ptr %tmp1, i32 0, i32 0
+  store i32 0, ptr %i, align 4
+  %call3 = call ptr @_Znwm(i64 4) #5
+  %tmp2 = bitcast ptr %call3 to ptr
+  %i2 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 1
+  store ptr %tmp2, ptr %i2, align 8
+  %i24 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 1
+  %tmp3 = load ptr, ptr %i24, align 8
+  %i5 = getelementptr inbounds %struct.inner2, ptr %tmp3, i32 0, i32 0
+  store i32 0, ptr %i5, align 4
   ret void
 }
 
 declare i32 @__gxx_personality_v0(...)
 
-declare !intel.dtrans.func.type !14 void @_ZdlPv(i8* "intel_dtrans_func_index"="1") #3
+declare !intel.dtrans.func.type !14 void @_ZdlPv(ptr "intel_dtrans_func_index"="1") #3
 
-define i32 @_ZN5outer3fooEv(%struct.outer* "intel_dtrans_func_index"="1" %this) #2 comdat align 2 !intel.dtrans.func.type !15 {
+define i32 @_ZN5outer3fooEv(ptr "intel_dtrans_func_index"="1" %this) #2 comdat align 2 !intel.dtrans.func.type !15 {
 entry:
-  %i1 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 0
-  %tmp = load %struct.inner1*, %struct.inner1** %i1, align 8
-  %call = call i32 @_ZN6inner13getEv(%struct.inner1* %tmp)
-  %i12 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 0
-  %tmp1 = load %struct.inner1*, %struct.inner1** %i12, align 8
-  %i = getelementptr inbounds %struct.inner1, %struct.inner1* %tmp1, i32 0, i32 0
-  %tmp2 = load i32, i32* %i, align 4
+  %i1 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 0
+  %tmp = load ptr, ptr %i1, align 8
+  %call = call i32 @_ZN6inner13getEv(ptr %tmp)
+  %i12 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 0
+  %tmp1 = load ptr, ptr %i12, align 8
+  %i = getelementptr inbounds %struct.inner1, ptr %tmp1, i32 0, i32 0
+  %tmp2 = load i32, ptr %i, align 4
   %add = add nsw i32 %call, %tmp2
-  %i2 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 1
-  %tmp3 = load %struct.inner2*, %struct.inner2** %i2, align 8
-  %call3 = call i32 @_ZN6inner23getEv(%struct.inner2* %tmp3)
+  %i2 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 1
+  %tmp3 = load ptr, ptr %i2, align 8
+  %call3 = call i32 @_ZN6inner23getEv(ptr %tmp3)
   %add4 = add nsw i32 %add, %call3
-  %i25 = getelementptr inbounds %struct.outer, %struct.outer* %this, i32 0, i32 1
-  %tmp4 = load %struct.inner2*, %struct.inner2** %i25, align 8
-  %i6 = getelementptr inbounds %struct.inner2, %struct.inner2* %tmp4, i32 0, i32 0
-  %tmp5 = load i32, i32* %i6, align 4
+  %i25 = getelementptr inbounds %struct.outer, ptr %this, i32 0, i32 1
+  %tmp4 = load ptr, ptr %i25, align 8
+  %i6 = getelementptr inbounds %struct.inner2, ptr %tmp4, i32 0, i32 0
+  %tmp5 = load i32, ptr %i6, align 4
   %add7 = add nsw i32 %add4, %tmp5
   ret i32 %add7
 }
 
-define i32 @_ZN6inner13getEv(%struct.inner1* "intel_dtrans_func_index"="1" %this) #4 comdat align 2 !intel.dtrans.func.type !16 {
+define i32 @_ZN6inner13getEv(ptr "intel_dtrans_func_index"="1" %this) #4 comdat align 2 !intel.dtrans.func.type !16 {
 entry:
-  %i = getelementptr inbounds %struct.inner1, %struct.inner1* %this, i32 0, i32 0
-  %tmp = load i32, i32* %i, align 4
+  %i = getelementptr inbounds %struct.inner1, ptr %this, i32 0, i32 0
+  %tmp = load i32, ptr %i, align 4
   ret i32 %tmp
 }
 
-define i32 @_ZN6inner23getEv(%struct.inner2* "intel_dtrans_func_index"="1" %this) #4 comdat align 2 !intel.dtrans.func.type !17 {
+define i32 @_ZN6inner23getEv(ptr "intel_dtrans_func_index"="1" %this) #4 comdat align 2 !intel.dtrans.func.type !17 {
 entry:
-  %i = getelementptr inbounds %struct.inner2, %struct.inner2* %this, i32 0, i32 0
-  %tmp = load i32, i32* %i, align 4
+  %i = getelementptr inbounds %struct.inner2, ptr %this, i32 0, i32 0
+  %tmp = load i32, ptr %i, align 4
   ret i32 %tmp
 }
 

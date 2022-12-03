@@ -2,17 +2,17 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that a call to calloc updates the field value info.
 
 ; Test calloc to allocate 1 copy of a structure
 %struct.test01 = type { i32, float }
-define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.func.type !4 {
-  %ptr = call i8* @calloc(i64 1, i64 8)
+define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !4 {
+  %ptr = call ptr @calloc(i64 1, i64 8)
 
-  %obj = bitcast i8* %ptr to %struct.test01*
-  ret %struct.test01* %obj
+  %obj = bitcast ptr %ptr to ptr
+  ret ptr %obj
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
 ; CHECK:   0)Field LLVM Type: i32
@@ -25,11 +25,11 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 
 ; Test calloc to allocate %n copies of a structure
 %struct.test02 = type { i32, float }
-define "intel_dtrans_func_index"="1" %struct.test02* @test02(i64 %n) !intel.dtrans.func.type !6 {
-  %ptr = call i8* @calloc(i64 %n, i64 8)
+define "intel_dtrans_func_index"="1" ptr @test02(i64 %n) !intel.dtrans.func.type !6 {
+  %ptr = call ptr @calloc(i64 %n, i64 8)
 
-  %obj = bitcast i8* %ptr to %struct.test02*
-  ret %struct.test02* %obj
+  %obj = bitcast ptr %ptr to ptr
+  ret ptr %obj
 }
 ; CHECK-LABEL: LLVMType: %struct.test02
 ; CHECK:   0)Field LLVM Type: i32
@@ -40,7 +40,7 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02(i64 %n) !intel.dtra
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

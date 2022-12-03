@@ -2,24 +2,24 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test is to verify field value collection of structure fields for
 ; the "zeroth-element access" idiom.
 
 %struct.test01 = type { %struct.test01inner, i32 }
 %struct.test01inner = type { i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.func.type !4 {
-  %flat = call i8* @malloc(i64 12)
-  %obj = bitcast i8* %flat to %struct.test01*
+define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !4 {
+  %flat = call ptr @malloc(i64 12)
+  %obj = bitcast ptr %flat to ptr
 
   ; Perform a direct write to the zeroth element of the nested structure using
   ; the address of the outer structure to verify the store tracks the value to
   ; the appropriate field.
-  %elemZero = bitcast %struct.test01* %obj to i32*
-  store i32 1, i32* %elemZero
+  %elemZero = bitcast ptr %obj to ptr
+  store i32 1, ptr %elemZero
 
-  ret %struct.test01* %obj
+  ret ptr %obj
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
 ; CHECK:  0)Field LLVM Type: %struct.test01inner = type { i32, i32 }
@@ -38,7 +38,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK:  Safety data: Nested structure{{ *$}}
 ; CHECK:  End LLVMType: %struct.test01inner
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

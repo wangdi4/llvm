@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test is to verify field value collection of structure fields for
 ; the "select between constant values to store" idiom.
@@ -10,14 +10,14 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32 }
 define void @test01() {
   %local = alloca %struct.test01
-  %pA = getelementptr %struct.test01, %struct.test01* %local, i64 0, i32 0
-  %pB = getelementptr %struct.test01, %struct.test01* %local, i64 0, i32 1
+  %pA = getelementptr %struct.test01, ptr %local, i64 0, i32 0
+  %pB = getelementptr %struct.test01, ptr %local, i64 0, i32 1
 
-  store i32 1, i32* %pA
-  store i32 2, i32* %pB
+  store i32 1, ptr %pA
+  store i32 2, ptr %pB
 
   %chosen = select i1 undef, i32 3, i32 4
-  store i32 %chosen, i32* %pB
+  store i32 %chosen, ptr %pB
 
   ret void
 }

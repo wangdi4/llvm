@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
 
 
 ; This test verifies that frequencies of field accesses are computed from
@@ -20,21 +20,21 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Frequency: 2
 ; CHECK: Total Frequency: 10
 %struct.test01 = type { i32, i32, i32, i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
   ; Write fields 0 - 4
-  %pField0 = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 0
-  %pStart = bitcast i32* %pField0 to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 20, i1 false)
+  %pField0 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
+  %pStart = bitcast ptr %pField0 to ptr
+  call void @llvm.memset.p0i8.i64(ptr %pStart, i8 1, i64 20, i1 false)
 
   ; Write fields 1 - 2
-  %pField1 = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
-  %pStart1 = bitcast i32* %pField1 to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart1, i8 2, i64 8, i1 false)
+  %pField1 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
+  %pStart1 = bitcast ptr %pField1 to ptr
+  call void @llvm.memset.p0i8.i64(ptr %pStart1, i8 2, i64 8, i1 false)
 
   ; Write fields 2 - 4
-  %pField2 = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 2
-  %pStart2 = bitcast i32* %pField2 to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart2, i8 3, i64 12, i1 false)
+  %pField2 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 2
+  %pStart2 = bitcast ptr %pField2 to ptr
+  call void @llvm.memset.p0i8.i64(ptr %pStart2, i8 3, i64 12, i1 false)
 
   ret void
 }
@@ -46,22 +46,22 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: Frequency: 1
 ; CHECK: Total Frequency: 5
 %struct.test02 = type { i32, i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %struct.test02* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
   ; Write fields 0 - 2
-  %pFieldA = getelementptr %struct.test02, %struct.test02* %pStructA, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test02, %struct.test02* %pStructB, i64 0, i32 0
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
+  %pFieldA = getelementptr %struct.test02, ptr %pStructA, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test02, ptr %pStructB, i64 0, i32 0
+  %pDst = bitcast ptr %pFieldA to ptr
+  %pSrc = bitcast ptr %pFieldB to ptr
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
 
   ; Write fields 0 - 1
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 8, i1 false)
 
   ret void
 }
 
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
-declare !intel.dtrans.func.type !8 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !8 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

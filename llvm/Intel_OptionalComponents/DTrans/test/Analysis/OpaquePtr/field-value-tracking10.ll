@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that a call to memcpy does not change the field value info
 ; for calls that are safe. For cases that are not safe, the value
@@ -11,10 +11,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Copy an entire structure.
 %struct.test01 = type { i32, i32, i32 }
 @glob01 = internal global %struct.test01 { i32 1, i32 2, i32 3 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %struct.test01* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !3 {
-  %pDst = bitcast %struct.test01* %pStructA to i8*
-  %pSrc = bitcast %struct.test01* %pStructB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !3 {
+  %pDst = bitcast ptr %pStructA to ptr
+  %pSrc = bitcast ptr %pStructB to ptr
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
@@ -31,12 +31,12 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %st
 ; Copy a subset of structure fields, starting from a GEP of field 0.
 %struct.test02 = type { i32, i32, i32 }
 @glob02 = internal global %struct.test02 { i32 1, i32 2, i32 3 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %struct.test02* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
-  %pFieldA = getelementptr %struct.test02, %struct.test02* %pStructA, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test02, %struct.test02* %pStructB, i64 0, i32 0
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
+  %pFieldA = getelementptr %struct.test02, ptr %pStructA, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test02, ptr %pStructB, i64 0, i32 0
+  %pDst = bitcast ptr %pFieldA to ptr
+  %pSrc = bitcast ptr %pFieldB to ptr
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test02
@@ -54,12 +54,12 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %st
 ; boundary.
 %struct.test03 = type { i32, i32, i32, i32, i32 }
 @glob03 = internal global %struct.test03 { i32 1, i32 2, i32 3, i32 4, i32 5 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStructA, %struct.test03* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !7 {
-  %pFieldA = getelementptr %struct.test03, %struct.test03* %pStructA, i64 0, i32 2
-  %pFieldB = getelementptr %struct.test03, %struct.test03* %pStructB, i64 0, i32 2
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 6, i1 false)
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !7 {
+  %pFieldA = getelementptr %struct.test03, ptr %pStructA, i64 0, i32 2
+  %pFieldB = getelementptr %struct.test03, ptr %pStructB, i64 0, i32 2
+  %pDst = bitcast ptr %pFieldA to ptr
+  %pSrc = bitcast ptr %pFieldB to ptr
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 6, i1 false)
   ret void
 }
 ; Currently, the analysis conservatively marks all fields as 'incomplete' for
@@ -89,12 +89,12 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStructA, %st
 %struct.test04b = type { i32, i32, i32 }
 @glob04a = internal global %struct.test04a { i32 1, i32 2, i32 3 }
 @glob04b = internal global %struct.test04b { i32 4, i32 5, i32 6 }
-define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStructA, %struct.test04b* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !10 {
-  %pFieldA = getelementptr %struct.test04a, %struct.test04a* %pStructA, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test04b, %struct.test04b* %pStructB, i64 0, i32 0
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !10 {
+  %pFieldA = getelementptr %struct.test04a, ptr %pStructA, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test04b, ptr %pStructB, i64 0, i32 0
+  %pDst = bitcast ptr %pFieldA to ptr
+  %pSrc = bitcast ptr %pFieldB to ptr
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test04a
@@ -117,7 +117,7 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStructA, %s
 ; CHECK:   Safety data: Global instance | Has initializer list | Bad memfunc manipulation{{ *}}
 ; CHECK: End LLVMType: %struct.test04b
 
-declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
 
 ; This test checks that the safety analyzer detects that pointers which
 ; are not in the default address space are used causing the DTrans safety
@@ -11,8 +11,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i64, i64 }
 @var = internal addrspace(5) global %struct.test01 zeroinitializer
 define void @test01() {
-  %f = getelementptr %struct.test01, %struct.test01 addrspace(5)* @var, i64 0, i32 1
-  store i64 0, i64 addrspace(5)* %f
+  %f = getelementptr %struct.test01, ptr addrspace(5) @var, i64 0, i32 1
+  store i64 0, ptr addrspace(5) %f
   ret void
 }
 
