@@ -221,10 +221,8 @@ bool mlir::vector::isDisjointTransferSet(VectorTransferOpInterface transferA,
 static LogicalResult incSlicePosition(MutableArrayRef<int64_t> position,
                                       ArrayRef<int64_t> shape,
                                       ArrayRef<int64_t> offsets) {
-  assert(position.size() == shape.size());
-  assert(position.size() == offsets.size());
   for (auto [posInDim, dimSize, offsetInDim] :
-       llvm::reverse(llvm::zip(position, shape, offsets))) {
+       llvm::reverse(llvm::zip_equal(position, shape, offsets))) {
     ++posInDim;
     if (posInDim < dimSize + offsetInDim)
       return success();
@@ -1748,13 +1746,6 @@ llvm::SetVector<int64_t> BroadcastOp::computeBroadcastedUnitDims() {
     return {};
   return ::computeBroadcastedUnitDims(srcVectorType.getShape(),
                                       getVectorType().getShape());
-}
-
-static bool allBitsSet(llvm::SmallBitVector &bv, int64_t lb, int64_t ub) {
-  for (int64_t i = lb; i < ub; ++i)
-    if (!bv.test(i))
-      return false;
-  return true;
 }
 
 /// Broadcast `value` to a vector of `dstShape`, knowing that exactly the
