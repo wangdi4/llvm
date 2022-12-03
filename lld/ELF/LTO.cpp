@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -106,6 +106,7 @@ static lto::Config createConfig() {
 #if INTEL_CUSTOMIZATION
   c.Options.IntelAdvancedOptim = config->intelAdvancedOptim;
   c.Options.IntelLibIRCAllowed = config->intelLibIRCAllowed;
+  c.ShouldDiscardValueNames = config->intelShouldDiscardValueNames;
 
   // Linking for an executable
   if (!config->relocatable)
