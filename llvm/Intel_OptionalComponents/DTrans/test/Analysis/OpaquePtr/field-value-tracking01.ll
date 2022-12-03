@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test is to verify field value collection of structure fields is
 ; handled when storing a value to the field.
@@ -12,10 +12,10 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32, i32 }
 define void @test01() {
   %local = alloca %struct.test01
-  %pA = getelementptr %struct.test01, %struct.test01* %local, i64 0, i32 0
-  %pB = getelementptr %struct.test01, %struct.test01* %local, i64 0, i32 1
-  store i32 1, i32* %pA
-  store i32 2, i32* %pB
+  %pA = getelementptr %struct.test01, ptr %local, i64 0, i32 0
+  %pB = getelementptr %struct.test01, ptr %local, i64 0, i32 1
+  store i32 1, ptr %pA
+  store i32 2, ptr %pB
 
   ret void
 }
@@ -35,19 +35,19 @@ define void @test01() {
 define void @test02() {
   %localA = alloca %struct.test02
   %localB = alloca %struct.test02
-  %pA = getelementptr %struct.test02, %struct.test02* %localA, i64 0, i32 0
-  %pB = getelementptr %struct.test02, %struct.test02* %localA, i64 0, i32 1
-  %pC = getelementptr %struct.test02, %struct.test02* %localA, i64 0, i32 2
-  store i32 1, i32* %pA
-  store i32 2, i32* %pB
-  store i32 4, i32* %pC
+  %pA = getelementptr %struct.test02, ptr %localA, i64 0, i32 0
+  %pB = getelementptr %struct.test02, ptr %localA, i64 0, i32 1
+  %pC = getelementptr %struct.test02, ptr %localA, i64 0, i32 2
+  store i32 1, ptr %pA
+  store i32 2, ptr %pB
+  store i32 4, ptr %pC
 
-  %oA = getelementptr %struct.test02, %struct.test02* %localA, i64 0, i32 0
-  %oB = getelementptr %struct.test02, %struct.test02* %localA, i64 0, i32 1
-  %oC = getelementptr %struct.test02, %struct.test02* %localA, i64 0, i32 2
-  store i32 1, i32* %oA
-  store i32 2, i32* %oB
-  store i32 4, i32* %oC
+  %oA = getelementptr %struct.test02, ptr %localA, i64 0, i32 0
+  %oB = getelementptr %struct.test02, ptr %localA, i64 0, i32 1
+  %oC = getelementptr %struct.test02, ptr %localA, i64 0, i32 2
+  store i32 1, ptr %oA
+  store i32 2, ptr %oB
+  store i32 4, ptr %oC
 
   ret void
 }
@@ -67,19 +67,19 @@ define void @test02() {
 define void @test03() {
   %localA = alloca %struct.test03
   %localB = alloca %struct.test03
-  %pA = getelementptr %struct.test03, %struct.test03* %localA, i64 0, i32 0
-  %pB = getelementptr %struct.test03, %struct.test03* %localA, i64 0, i32 1
-  %pC = getelementptr %struct.test03, %struct.test03* %localA, i64 0, i32 2
-  store i32 1, i32* %pA
-  store i32 2, i32* %pB
-  store i32 4, i32* %pC
+  %pA = getelementptr %struct.test03, ptr %localA, i64 0, i32 0
+  %pB = getelementptr %struct.test03, ptr %localA, i64 0, i32 1
+  %pC = getelementptr %struct.test03, ptr %localA, i64 0, i32 2
+  store i32 1, ptr %pA
+  store i32 2, ptr %pB
+  store i32 4, ptr %pC
 
-  %oA = getelementptr %struct.test03, %struct.test03* %localA, i64 0, i32 0
-  %oB = getelementptr %struct.test03, %struct.test03* %localA, i64 0, i32 1
-  %oC = getelementptr %struct.test03, %struct.test03* %localA, i64 0, i32 2
-  store i32 8, i32* %oA
-  store i32 16, i32* %oB
-  store i32 32, i32* %oC
+  %oA = getelementptr %struct.test03, ptr %localA, i64 0, i32 0
+  %oB = getelementptr %struct.test03, ptr %localA, i64 0, i32 1
+  %oC = getelementptr %struct.test03, ptr %localA, i64 0, i32 2
+  store i32 8, ptr %oA
+  store i32 16, ptr %oB
+  store i32 32, ptr %oC
 
   ret void
 }
@@ -103,22 +103,22 @@ define void @test03() {
 define void @test04(i32 %in0, i32 %in1, i32 %in2) {
   %localA = alloca %struct.test04
   %localB = alloca %struct.test04
-  %pA = getelementptr %struct.test04, %struct.test04* %localA, i64 0, i32 0
-  %pB = getelementptr %struct.test04, %struct.test04* %localA, i64 0, i32 1
-  %pC = getelementptr %struct.test04, %struct.test04* %localA, i64 0, i32 2
-  store i32 %in0, i32* %pA
-  store i32 2, i32* %pB
-  store i32 %in2, i32* %pC
+  %pA = getelementptr %struct.test04, ptr %localA, i64 0, i32 0
+  %pB = getelementptr %struct.test04, ptr %localA, i64 0, i32 1
+  %pC = getelementptr %struct.test04, ptr %localA, i64 0, i32 2
+  store i32 %in0, ptr %pA
+  store i32 2, ptr %pB
+  store i32 %in2, ptr %pC
 
-  %oA = getelementptr %struct.test04, %struct.test04* %localA, i64 0, i32 0
-  %oB = getelementptr %struct.test04, %struct.test04* %localA, i64 0, i32 1
-  %oC = getelementptr %struct.test04, %struct.test04* %localA, i64 0, i32 2
-  store i32 8, i32* %oA
-  store i32 %in1, i32* %oB
-  store i32 %in2, i32* %oC
+  %oA = getelementptr %struct.test04, ptr %localA, i64 0, i32 0
+  %oB = getelementptr %struct.test04, ptr %localA, i64 0, i32 1
+  %oC = getelementptr %struct.test04, ptr %localA, i64 0, i32 2
+  store i32 8, ptr %oA
+  store i32 %in1, ptr %oB
+  store i32 %in2, ptr %oC
 
   ; Store field 0 again, to get multiple constants
-  store i32 1, i32* %oA
+  store i32 1, ptr %oA
 
   ret void
 }
@@ -137,19 +137,19 @@ define void @test04(i32 %in0, i32 %in1, i32 %in2) {
 %struct.test05 = type { i32, i32, i32 }
 define void @test05() {
   %localA = alloca [2 x %struct.test05]
-  %pA = getelementptr [2 x %struct.test05], [2 x %struct.test05]* %localA, i64 0, i64 0, i32 0
-  %pB = getelementptr [2 x %struct.test05], [2 x %struct.test05]* %localA, i64 0, i64 0, i32 1
-  %pC = getelementptr [2 x %struct.test05], [2 x %struct.test05]* %localA, i64 0, i64 0, i32 2
-  store i32 1, i32* %pA
-  store i32 2, i32* %pB
-  store i32 4, i32* %pC
+  %pA = getelementptr [2 x %struct.test05], ptr %localA, i64 0, i64 0, i32 0
+  %pB = getelementptr [2 x %struct.test05], ptr %localA, i64 0, i64 0, i32 1
+  %pC = getelementptr [2 x %struct.test05], ptr %localA, i64 0, i64 0, i32 2
+  store i32 1, ptr %pA
+  store i32 2, ptr %pB
+  store i32 4, ptr %pC
 
-  %oA = getelementptr [2 x %struct.test05], [2 x %struct.test05]* %localA, i64 0, i64 1, i32 0
-  %oB = getelementptr [2 x %struct.test05], [2 x %struct.test05]* %localA, i64 0, i64 1, i32 1
-  %oC = getelementptr [2 x %struct.test05], [2 x %struct.test05]* %localA, i64 0, i64 1, i32 2
-  store i32 8, i32* %oA
-  store i32 16, i32* %oB
-  store i32 32, i32* %oC
+  %oA = getelementptr [2 x %struct.test05], ptr %localA, i64 0, i64 1, i32 0
+  %oB = getelementptr [2 x %struct.test05], ptr %localA, i64 0, i64 1, i32 1
+  %oC = getelementptr [2 x %struct.test05], ptr %localA, i64 0, i64 1, i32 2
+  store i32 8, ptr %oA
+  store i32 16, ptr %oB
+  store i32 32, ptr %oC
 
   ret void
 }

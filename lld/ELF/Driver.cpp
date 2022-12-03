@@ -1420,6 +1420,10 @@ static void readConfigs(opt::InputArgList &args) {
   if (args.hasArg(OPT_plugin_opt_intel_advanced_optim))
     config->intelAdvancedOptim = true;
 
+  // Handle -plugin-opt=fintel-preserve-value-names
+  if (args.hasArg(OPT_plugin_opt_intel_preserve_value_names))
+    config->intelShouldDiscardValueNames = false;
+
   // Handle -plugin-opt=fintel-libirc-allowed
   if (args.hasArg(OPT_plugin_opt_intel_libirc_allowed))
     config->intelLibIRCAllowed = true;

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -255,6 +255,7 @@ struct Config {
 # if INTEL_CUSTOMIZATION
   bool intelAdvancedOptim = false;
   bool intelLibIRCAllowed = false;
+  bool intelShouldDiscardValueNames = true;
 #endif // INTEL_CUSTOMIZATION
   bool ltoCSProfileGenerate;
   bool ltoPGOWarnMismatch;

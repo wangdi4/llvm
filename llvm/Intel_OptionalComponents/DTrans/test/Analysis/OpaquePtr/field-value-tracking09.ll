@@ -2,18 +2,18 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that a call to memset updates the field value info.
 
 ; Test memset that writes 0 to the entire structure.
 %struct.test01 = type { i32, float }
-define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.func.type !4 {
-  %ptr = call i8* @malloc(i64 8)
-  call void @llvm.memset.p0i8.i64(i8* %ptr, i8 0, i64 8, i1 false)
+define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !4 {
+  %ptr = call ptr @malloc(i64 8)
+  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 8, i1 false)
 
-  %obj = bitcast i8* %ptr to %struct.test01*
-  ret %struct.test01* %obj
+  %obj = bitcast ptr %ptr to ptr
+  ret ptr %obj
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
 ; CHECK:   0)Field LLVM Type: i32
@@ -26,12 +26,12 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 
 ; Test memset call that sets a non-zero value.
 %struct.test02 = type { i32, float }
-define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.func.type !6 {
-  %ptr = call i8* @malloc(i64 8)
-  call void @llvm.memset.p0i8.i64(i8* %ptr, i8 205, i64 8, i1 false)
+define "intel_dtrans_func_index"="1" ptr @test02() !intel.dtrans.func.type !6 {
+  %ptr = call ptr @malloc(i64 8)
+  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 205, i64 8, i1 false)
 
-  %obj = bitcast i8* %ptr to %struct.test02*
-  ret %struct.test02* %obj
+  %obj = bitcast ptr %ptr to ptr
+  ret ptr %obj
 }
 ; CHECK-LABEL: LLVMType: %struct.test02
 ; CHECK:   0)Field LLVM Type: i32
@@ -45,12 +45,12 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.fun
 ; Test memset that writes 0 to the entire structure when allocating and setting
 ; a multiple of the structure size.
 %struct.test03 = type { i32, float }
-define "intel_dtrans_func_index"="1" %struct.test03* @test03() !intel.dtrans.func.type !8 {
-  %ptr = call i8* @malloc(i64 64)
-  call void @llvm.memset.p0i8.i64(i8* %ptr, i8 0, i64 64, i1 false)
+define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !8 {
+  %ptr = call ptr @malloc(i64 64)
+  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 64, i1 false)
 
-  %obj = bitcast i8* %ptr to %struct.test03*
-  ret %struct.test03* %obj
+  %obj = bitcast ptr %ptr to ptr
+  ret ptr %obj
 }
 ; CHECK-LABEL: LLVMType: %struct.test03
 ; CHECK:   0)Field LLVM Type: i32
@@ -63,12 +63,12 @@ define "intel_dtrans_func_index"="1" %struct.test03* @test03() !intel.dtrans.fun
 
 ; Test memset that writes 0 to part of the structure.
 %struct.test04 = type { i32, i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test04* @test04() !intel.dtrans.func.type !10 {
-  %ptr = call i8* @malloc(i64 12)
-  call void @llvm.memset.p0i8.i64(i8* %ptr, i8 0, i64 8, i1 false)
+define "intel_dtrans_func_index"="1" ptr @test04() !intel.dtrans.func.type !10 {
+  %ptr = call ptr @malloc(i64 12)
+  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 8, i1 false)
 
-  %obj = bitcast i8* %ptr to %struct.test04*
-  ret %struct.test04* %obj
+  %obj = bitcast ptr %ptr to ptr
+  ret ptr %obj
 }
 ; CHECK-LABEL: LLVMType: %struct.test04
 ; CHECK:   0)Field LLVM Type: i32
@@ -84,12 +84,12 @@ define "intel_dtrans_func_index"="1" %struct.test04* @test04() !intel.dtrans.fun
 ; Test memset that writes 0 to part of the structure that does not set all
 ; of the bytes for a field.
 %struct.test05 = type { i32, i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test05* @test05() !intel.dtrans.func.type !12 {
-  %ptr = call i8* @malloc(i64 12)
-  call void @llvm.memset.p0i8.i64(i8* %ptr, i8 0, i64 6, i1 false)
+define "intel_dtrans_func_index"="1" ptr @test05() !intel.dtrans.func.type !12 {
+  %ptr = call ptr @malloc(i64 12)
+  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 6, i1 false)
 
-  %obj = bitcast i8* %ptr to %struct.test05*
-  ret %struct.test05* %obj
+  %obj = bitcast ptr %ptr to ptr
+  ret ptr %obj
 }
 ; The analysis for this case can be improved to not mark fields 0 and 2 as
 ; incomplete. Instead, field 0, could be a single value of 0, and field 2
@@ -106,8 +106,8 @@ define "intel_dtrans_func_index"="1" %struct.test05* @test05() !intel.dtrans.fun
 ; CHECK: End LLVMType: %struct.test05
 
 
-declare !intel.dtrans.func.type !14 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1)
-declare !intel.dtrans.func.type !15 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !14 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1)
+declare !intel.dtrans.func.type !15 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
