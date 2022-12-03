@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -dtrans-usecrulecompat -passes='require<dtrans-fieldmodrefop-analysis>' -debug-only=dtrans-fmr-candidates-post -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -dtrans-usecrulecompat -passes='require<dtrans-fieldmodrefop-analysis>' -debug-only=dtrans-fmr-candidates-post -disable-output 2>&1 | FileCheck %s
 
 ; Check handling of address taken functions for field based Mod/Ref analysis.
@@ -10,40 +9,40 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.test01 = type { i32, i32*, i64 }
-@funcAddr = global void (%struct.test01*, void (%struct.test01*)*)* zeroinitializer, !intel_dtrans_type !9
+%struct.test01 = type { i32, ptr, i64 }
+@funcAddr = global ptr zeroinitializer, !intel_dtrans_type !9
 
 define internal void @test01() {
-  %st_mem = call i8* @malloc(i64 24)
-  %st = bitcast i8* %st_mem to %struct.test01*
+  %st_mem = call ptr @malloc(i64 24)
+  %st = bitcast ptr %st_mem to ptr
 
-  %f0 = getelementptr %struct.test01, %struct.test01* %st, i64 0, i32 0
-  store i32 8, i32* %f0
+  %f0 = getelementptr %struct.test01, ptr %st, i64 0, i32 0
+  store i32 8, ptr %f0
 
-  %ar1_mem = call i8* @malloc(i64 64)
-  %ar1_mem2 = bitcast i8* %ar1_mem to i32*
-  %f1 = getelementptr %struct.test01, %struct.test01* %st, i64 0, i32 1
-  store i32* %ar1_mem2, i32** %f1
+  %ar1_mem = call ptr @malloc(i64 64)
+  %ar1_mem2 = bitcast ptr %ar1_mem to ptr
+  %f1 = getelementptr %struct.test01, ptr %st, i64 0, i32 1
+  store ptr %ar1_mem2, ptr %f1
 
-  %f2 = getelementptr %struct.test01, %struct.test01* %st, i64 0, i32 2
-  store i64 1, i64* %f2
+  %f2 = getelementptr %struct.test01, ptr %st, i64 0, i32 2
+  store i64 1, ptr %f2
 
-  %fptr = load void (%struct.test01*, void (%struct.test01*)*)*, void (%struct.test01*, void (%struct.test01*)*)** @funcAddr
+  %fptr = load ptr, ptr @funcAddr
 
   ; Pass the address of a function to an indirect function call.
-  call void %fptr(%struct.test01* %st, void (%struct.test01*)* @filter01a), !intel_dtrans_type !4
+  call void %fptr(ptr %st, ptr @filter01a), !intel_dtrans_type !4
   ret void
 }
 
-define void @use01a(%struct.test01* "intel_dtrans_func_index"="1" %st, void (%struct.test01*)* "intel_dtrans_func_index"="2" nocapture %filter) !intel.dtrans.func.type !10 {
-  call void %filter(%struct.test01* %st), !intel_dtrans_type !7
+define void @use01a(ptr "intel_dtrans_func_index"="1" %st, ptr "intel_dtrans_func_index"="2" nocapture %filter) !intel.dtrans.func.type !10 {
+  call void %filter(ptr %st), !intel_dtrans_type !7
   ret void
 }
 
 ; Function that will be address taken.
-define void @filter01a(%struct.test01* "intel_dtrans_func_index"="1" %st) !intel.dtrans.func.type !11 {
-  %fieldaddr = getelementptr %struct.test01, %struct.test01* %st, i64 0, i32 0
-  %ld1 = load i32, i32* %fieldaddr
+define void @filter01a(ptr "intel_dtrans_func_index"="1" %st) !intel.dtrans.func.type !11 {
+  %fieldaddr = getelementptr %struct.test01, ptr %st, i64 0, i32 0
+  %ld1 = load i32, ptr %fieldaddr
   ret void
 }
 
@@ -60,7 +59,7 @@ define void @filter01a(%struct.test01* "intel_dtrans_func_index"="1" %st) !intel
 ; CHECK: RWState: computed
 ; CHECK: End LLVMType: %struct.test01
 
-declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

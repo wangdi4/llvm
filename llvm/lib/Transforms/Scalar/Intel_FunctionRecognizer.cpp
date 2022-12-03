@@ -55,7 +55,7 @@ using SmValVecImpl = SmallVectorImpl<Value *>;
 // we set the values of 'SI1' and 'SI2' to the two StoreInsts found.
 //
 static bool getTwoStores(BasicBlock *BBI, StoreInst **SI1, StoreInst **SI2) {
-  if (!SI1 || !SI2 ) return false;
+  assert(SI1 && SI2 && "SI1 and SI2 must not be null");
   *SI1 = nullptr;
   *SI2 = nullptr;
   for (auto &I : *BBI) {
@@ -70,7 +70,7 @@ static bool getTwoStores(BasicBlock *BBI, StoreInst **SI1, StoreInst **SI2) {
       return false;
     }
   }
-  return SI1 && SI2;
+  return *SI1 && *SI2;
 }
 
 //

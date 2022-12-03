@@ -2,12 +2,10 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Verify results get copied to the DTrans immutable analysis.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
 
 ; Check that field value collection occurs, and the results of likely values are
@@ -56,37 +54,37 @@ target triple = "x86_64-unknown-linux-gnu"
 ; IMMUTABLE:     Likely Values: null
 ; IMMUTABLE:     Likely Indirect Array Values: 5{{ *}}
 
-%struct.MYSTRUCTARRAY = type { i32, i32, i32*, i32* }
+%struct.MYSTRUCTARRAY = type { i32, i32, ptr, ptr }
 
 @george = internal global %struct.MYSTRUCTARRAY zeroinitializer, align 8
 @fred = internal global %struct.MYSTRUCTARRAY zeroinitializer, align 8
 
 define i32 @main() {
  ; Set field values for the structures.
-  store i32 1, i32* getelementptr inbounds (%struct.MYSTRUCTARRAY, %struct.MYSTRUCTARRAY* @george, i64 0, i32 0), align 8
-  store i32 2, i32* getelementptr inbounds (%struct.MYSTRUCTARRAY, %struct.MYSTRUCTARRAY* @george, i64 0, i32 1), align 4
-  %alloc1 = tail call i8* @malloc(i64 80)
-  %alloc1.ptr = bitcast i8* %alloc1 to i32*
-  store i32* %alloc1.ptr, i32** getelementptr inbounds (%struct.MYSTRUCTARRAY, %struct.MYSTRUCTARRAY* @george, i64 0, i32 2), align 8
-  %alloc2 = tail call i8* @malloc(i64 80)
-  %alloc2.ptr = bitcast i8* %alloc2 to i32*
-  store i32* %alloc2.ptr, i32** getelementptr inbounds (%struct.MYSTRUCTARRAY, %struct.MYSTRUCTARRAY* @george, i64 0, i32 3), align 8
-  %alloc3 = tail call i8* @malloc(i64 160)
-  %alloc3.ptr = bitcast i8* %alloc3 to i32*
-  store i32* %alloc3.ptr, i32** getelementptr inbounds (%struct.MYSTRUCTARRAY, %struct.MYSTRUCTARRAY* @fred, i64 0, i32 2), align 8
-  %alloc4 = tail call i8* @malloc(i64 160)
-  %alloc4.ptr = bitcast i8* %alloc4 to i32*
-  store i32* %alloc4.ptr, i32** getelementptr inbounds (%struct.MYSTRUCTARRAY, %struct.MYSTRUCTARRAY* @fred, i64 0, i32 3), align 8
+  store i32 1, ptr getelementptr inbounds (%struct.MYSTRUCTARRAY, ptr @george, i64 0, i32 0), align 8
+  store i32 2, ptr getelementptr inbounds (%struct.MYSTRUCTARRAY, ptr @george, i64 0, i32 1), align 4
+  %alloc1 = tail call ptr @malloc(i64 80)
+  %alloc1.ptr = bitcast ptr %alloc1 to ptr
+  store ptr %alloc1.ptr, ptr getelementptr inbounds (%struct.MYSTRUCTARRAY, ptr @george, i64 0, i32 2), align 8
+  %alloc2 = tail call ptr @malloc(i64 80)
+  %alloc2.ptr = bitcast ptr %alloc2 to ptr
+  store ptr %alloc2.ptr, ptr getelementptr inbounds (%struct.MYSTRUCTARRAY, ptr @george, i64 0, i32 3), align 8
+  %alloc3 = tail call ptr @malloc(i64 160)
+  %alloc3.ptr = bitcast ptr %alloc3 to ptr
+  store ptr %alloc3.ptr, ptr getelementptr inbounds (%struct.MYSTRUCTARRAY, ptr @fred, i64 0, i32 2), align 8
+  %alloc4 = tail call ptr @malloc(i64 160)
+  %alloc4.ptr = bitcast ptr %alloc4 to ptr
+  store ptr %alloc4.ptr, ptr getelementptr inbounds (%struct.MYSTRUCTARRAY, ptr @fred, i64 0, i32 3), align 8
 
   ; Set values for the allocated arrays of the structures.
-  %ar1.2 = getelementptr inbounds i32, i32* %alloc1.ptr, i64 2
-  store i32 1, i32* %ar1.2, align 4
-  %ar2.2 = getelementptr inbounds i32, i32* %alloc2.ptr, i64 2
-  store i32 5, i32* %ar2.2, align 4
+  %ar1.2 = getelementptr inbounds i32, ptr %alloc1.ptr, i64 2
+  store i32 1, ptr %ar1.2, align 4
+  %ar2.2 = getelementptr inbounds i32, ptr %alloc2.ptr, i64 2
+  store i32 5, ptr %ar2.2, align 4
   ret i32 8
 }
 
-declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
 
 !1 = !{i32 0, i32 0}  ; i32

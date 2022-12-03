@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that a whole structure store marks all field members as 'incomplete' for
 ; the value collection. This could be improved to try to determine when new
@@ -13,12 +13,12 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32 }
 define void @test01() {
   %tmp = alloca %struct.test01
-  %f0 = getelementptr %struct.test01, %struct.test01* %tmp, i64 0, i32 0
-  %f1 = getelementptr %struct.test01, %struct.test01* %tmp, i64 0, i32 1
-  store i32 99, i32* %f0
-  store i32 98, i32* %f1
+  %f0 = getelementptr %struct.test01, ptr %tmp, i64 0, i32 0
+  %f1 = getelementptr %struct.test01, ptr %tmp, i64 0, i32 1
+  store i32 99, ptr %f0
+  store i32 98, ptr %f1
 
-  store %struct.test01 { i32 100, i32 0 }, %struct.test01* %tmp
+  store %struct.test01 { i32 100, i32 0 }, ptr %tmp
   ret void
 }
 ; CHECK-LABEL:  LLVMType: %struct.test01
@@ -33,12 +33,12 @@ define void @test01() {
 %struct.test02 = type { i32, i32 }
 define void @test02(%struct.test02 %in) {
   %tmp = alloca %struct.test02
-  %f0 = getelementptr %struct.test02, %struct.test02* %tmp, i64 0, i32 0
-  %f1 = getelementptr %struct.test02, %struct.test02* %tmp, i64 0, i32 1
-  store i32 99, i32* %f0
-  store i32 98, i32* %f1
+  %f0 = getelementptr %struct.test02, ptr %tmp, i64 0, i32 0
+  %f1 = getelementptr %struct.test02, ptr %tmp, i64 0, i32 1
+  store i32 99, ptr %f0
+  store i32 98, ptr %f1
 
-  store %struct.test02 %in, %struct.test02* %tmp
+  store %struct.test02 %in, ptr %tmp
   ret void
 }
 ; CHECK-LABEL:  LLVMType: %struct.test02

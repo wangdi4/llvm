@@ -196,6 +196,9 @@ struct Configuration {
 
   // Used for /opt:fintel-libirc-allowed
   bool intelLibIRCAllowed = false;
+
+  // Used for /opt:fintel-preserve-value-names
+  bool intelShouldDiscardValueNames = true;
 #endif // INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltodebugpassmanager
   bool ltoDebugPassManager = false;

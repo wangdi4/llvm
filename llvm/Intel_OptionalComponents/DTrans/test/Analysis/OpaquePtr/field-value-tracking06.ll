@@ -2,8 +2,8 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK_OOB_F
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK_OOB_T
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK_OOB_F
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK_OOB_T
 
 ; This test is to verify field value collection of structure fields results in
 ; the 'incomplete' value list condition for all fields when there is a 'field
@@ -14,16 +14,16 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32 }
 define void @test01() {
   %local = alloca %struct.test01
-  %pA = getelementptr %struct.test01, %struct.test01* %local, i64 0, i32 0
-  %pB = getelementptr %struct.test01, %struct.test01* %local, i64 0, i32 1
-  store i32 1, i32* %pA
-  store i32 2, i32* %pB
+  %pA = getelementptr %struct.test01, ptr %local, i64 0, i32 0
+  %pB = getelementptr %struct.test01, ptr %local, i64 0, i32 1
+  store i32 1, ptr %pA
+  store i32 2, ptr %pB
 
   ; Introduce a 'field address taken' safety condition.
-  call void @unknownFunc(i32* %pB)
+  call void @unknownFunc(ptr %pB)
   ret void
 }
-declare !intel.dtrans.func.type !3 void @unknownFunc(i32* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !3 void @unknownFunc(ptr "intel_dtrans_func_index"="1")
 
 ; CHECK-LABEL: LLVMType: %struct.test01
 ; CHECK:  0)Field LLVM Type: i32

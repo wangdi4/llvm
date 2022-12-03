@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-use-block-freq=false -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that frequencies of field accesses are computed. This test
 ; uses the flag -dtrans-use-block-freq=false to cause the counters to just use
@@ -24,61 +24,61 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Frequency: 1
 ; CHECK: Frequency: 3
 ; CHECK: Total Frequency: 4
-%struct.test02 = type { %struct.test01*, i64 }
+%struct.test02 = type { ptr, i64 }
 
 ; Checks field frequencies of struct.test03.
 ; CHECK: Name: struct.test03
 ; CHECK: Frequency: 5
 ; CHECK: Frequency: 3
 ; CHECK: Total Frequency: 8
-%struct.test03 = type { %struct.test02*, %struct.test01* }
+%struct.test03 = type { ptr, ptr }
 
 ; Max Total Frequency of all structures
 ; CHECK: MaxTotalFrequency: 9
 
-define void @foo(%struct.test01* "intel_dtrans_func_index"="1" %tp, %struct.test02* "intel_dtrans_func_index"="2" %tp2) !intel.dtrans.func.type !5 {
+define void @foo(ptr "intel_dtrans_func_index"="1" %tp, ptr "intel_dtrans_func_index"="2" %tp2) !intel.dtrans.func.type !5 {
 entry:
-  %i = getelementptr inbounds %struct.test01, %struct.test01* %tp, i64 0, i32 0
-  %0 = load i32, i32* %i, align 8	; test01 @ 0
-  %1 = load i32, i32* %i, align 8	; test01 @ 0
-  %2 = load i32, i32* %i, align 8	; test01 @ 0
-  %3 = load i32, i32* %i, align 8	; test01 @ 0
-  %4 = load i32, i32* %i, align 8	; test01 @ 0
-  %j = getelementptr inbounds %struct.test02, %struct.test02* %tp2, i64 0, i32 1
-  %5 = load i64, i64* %j, align 8	; test02 @ 1
-  %c = getelementptr inbounds %struct.test01, %struct.test01* %tp, i64 0, i32 1
-  store i64 0, i64* %c, align 8	; test01 @ 1
-  %t = getelementptr inbounds %struct.test01, %struct.test01* %tp, i64 0, i32 0
-  store i32 10, i32* %t, align 8	; test01 @ 0
-  %h = getelementptr inbounds %struct.test01, %struct.test01* %tp, i64 0, i32 0
-  store i32 20, i32* %h, align 4	; test01 @ 0
-  store i64 30, i64* getelementptr (%struct.test01, %struct.test01* @g_instance.test01, i64 0, i32 1), align 4 ; test01 @ 1
+  %i = getelementptr inbounds %struct.test01, ptr %tp, i64 0, i32 0
+  %0 = load i32, ptr %i, align 8	; test01 @ 0
+  %1 = load i32, ptr %i, align 8	; test01 @ 0
+  %2 = load i32, ptr %i, align 8	; test01 @ 0
+  %3 = load i32, ptr %i, align 8	; test01 @ 0
+  %4 = load i32, ptr %i, align 8	; test01 @ 0
+  %j = getelementptr inbounds %struct.test02, ptr %tp2, i64 0, i32 1
+  %5 = load i64, ptr %j, align 8	; test02 @ 1
+  %c = getelementptr inbounds %struct.test01, ptr %tp, i64 0, i32 1
+  store i64 0, ptr %c, align 8	; test01 @ 1
+  %t = getelementptr inbounds %struct.test01, ptr %tp, i64 0, i32 0
+  store i32 10, ptr %t, align 8	; test01 @ 0
+  %h = getelementptr inbounds %struct.test01, ptr %tp, i64 0, i32 0
+  store i32 20, ptr %h, align 4	; test01 @ 0
+  store i64 30, ptr getelementptr (%struct.test01, ptr @g_instance.test01, i64 0, i32 1), align 4 ; test01 @ 1
   ret void
 }
 
-define void @bar(%struct.test01* "intel_dtrans_func_index"="1" %tp, %struct.test02* "intel_dtrans_func_index"="2" %tp2, %struct.test03* "intel_dtrans_func_index"="3" %tp3) !intel.dtrans.func.type !7 {
+define void @bar(ptr "intel_dtrans_func_index"="1" %tp, ptr "intel_dtrans_func_index"="2" %tp2, ptr "intel_dtrans_func_index"="3" %tp3) !intel.dtrans.func.type !7 {
 entry:
-  %i = getelementptr inbounds %struct.test02, %struct.test02* %tp2, i64 0, i32 1
-  %0 = load i64, i64* %i, align 8 ; test02 @ 1
-  %j = getelementptr inbounds %struct.test02, %struct.test02* %tp2, i64 0, i32 0
-  store %struct.test01* null,  %struct.test01** %j, align 4 ; test02 @ 0
-  %k = getelementptr inbounds %struct.test03, %struct.test03* %tp3, i64 0, i32 1
-  store %struct.test01* null,  %struct.test01** %k, align 4 ; test03 @ 1
-  store %struct.test01* null,  %struct.test01** %k, align 4 ; test03 @ 1
-  store %struct.test01* null,  %struct.test01** %k, align 4 ; test03 @ 1
+  %i = getelementptr inbounds %struct.test02, ptr %tp2, i64 0, i32 1
+  %0 = load i64, ptr %i, align 8 ; test02 @ 1
+  %j = getelementptr inbounds %struct.test02, ptr %tp2, i64 0, i32 0
+  store ptr null,  ptr %j, align 4 ; test02 @ 0
+  %k = getelementptr inbounds %struct.test03, ptr %tp3, i64 0, i32 1
+  store ptr null,  ptr %k, align 4 ; test03 @ 1
+  store ptr null,  ptr %k, align 4 ; test03 @ 1
+  store ptr null,  ptr %k, align 4 ; test03 @ 1
   ret void
 }
 
-define void @baz(%struct.test02* "intel_dtrans_func_index"="1" %tp2, %struct.test03* "intel_dtrans_func_index"="2" %tp3) !intel.dtrans.func.type !8 {
+define void @baz(ptr "intel_dtrans_func_index"="1" %tp2, ptr "intel_dtrans_func_index"="2" %tp3) !intel.dtrans.func.type !8 {
 entry:
-  %i = getelementptr inbounds %struct.test02, %struct.test02* %tp2, i64 0, i32 1
-  %0 = load i64, i64* %i, align 8 ; test02 @ 1
-  %j = getelementptr inbounds %struct.test03, %struct.test03* %tp3, i64 0, i32 0
-  store %struct.test02* null,  %struct.test02** %j, align 4 ; test03 @ 0
-  %1 = load %struct.test02*, %struct.test02** %j, align 8 ; test03 @ 0
-  %2 = load %struct.test02*, %struct.test02** %j, align 8 ; test03 @ 0
-  %3 = load %struct.test02*, %struct.test02** %j, align 8 ; test03 @ 0
-  %4 = load %struct.test02*, %struct.test02** %j, align 8 ; test03 @ 0
+  %i = getelementptr inbounds %struct.test02, ptr %tp2, i64 0, i32 1
+  %0 = load i64, ptr %i, align 8 ; test02 @ 1
+  %j = getelementptr inbounds %struct.test03, ptr %tp3, i64 0, i32 0
+  store ptr null,  ptr %j, align 4 ; test03 @ 0
+  %1 = load ptr, ptr %j, align 8 ; test03 @ 0
+  %2 = load ptr, ptr %j, align 8 ; test03 @ 0
+  %3 = load ptr, ptr %j, align 8 ; test03 @ 0
+  %4 = load ptr, ptr %j, align 8 ; test03 @ 0
   ret void
 }
 

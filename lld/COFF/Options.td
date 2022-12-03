@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -316,6 +316,9 @@ def intel_debug_mem : F<"intel-debug=mem">;
 // Option for keeping the information related to LLVM in
 // case LLD is embedded in the compiler
 def intel_embedded_linker : F<"intel-embedded-linker">;
+
+// Option for fintel-preserve-value-names
+def intel_preserve_value_names : F<"fintel-preserve-value-names">;
 #endif // INTEL_CUSTOMIZATION
 
 //==============================================================================

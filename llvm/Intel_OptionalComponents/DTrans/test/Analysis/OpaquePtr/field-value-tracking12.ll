@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that field value sets get marked as 'incomplete' when
 ; an unknown value is stored to the field which is tracking
@@ -13,13 +13,13 @@ target triple = "x86_64-unknown-linux-gnu"
 @var01 = internal global %struct.test01 zeroinitializer
 define void @test01(i32 %in1) {
   %local = alloca %struct.test01
-  %f0 = getelementptr %struct.test01, %struct.test01* %local, i64 0, i32 0
+  %f0 = getelementptr %struct.test01, ptr %local, i64 0, i32 0
 
   ; Store a constant to make the value set multiple value.
-  store i32 1, i32* %f0
+  store i32 1, ptr %f0
 
   ; Store an unknown value to make the value set incomplete.
-  store i32 %in1, i32* %f0
+  store i32 %in1, ptr %f0
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
