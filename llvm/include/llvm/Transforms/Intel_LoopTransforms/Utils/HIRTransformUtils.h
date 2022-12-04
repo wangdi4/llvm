@@ -338,11 +338,6 @@ public:
   /// merged with logical and operation.
   static void mergeZtt(HLLoop *Loop, SmallVectorImpl<PredicateTuple> &ZTTs);
 
-  /// Run HIRDeadStoreElimination Pass on a HLLoop
-  static bool doDeadStoreElimination(HLRegion &Region, HLLoop *Lp,
-                                     HIRDDAnalysis &HDDA,
-                                     HIRLoopStatistics &HLS);
-
   /// Run HIRDeadStoreElimination Pass on a HLRegion
   static bool doDeadStoreElimination(HLRegion &Region, HIRDDAnalysis &HDDA,
                                      HIRLoopStatistics &HLS);

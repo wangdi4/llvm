@@ -369,6 +369,14 @@ public:
   /// directive.
   bool isAutoVecDirective() const;
 
+  /// Returns true if instruction is either lifetime.start or lifetime.end
+  /// intrinsic.
+  bool isLifetimeIntrinsic() const {
+    Intrinsic::ID Id;
+    return (isIntrinCall(Id) &&
+            (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end));
+  }
+
   /// Checks if the Opcode is a reduction and returns it in \p OpCode.
   /// Select Opcode is returned for min/max intrinsics.
   bool isReductionOp(unsigned *OpCode = nullptr) const;

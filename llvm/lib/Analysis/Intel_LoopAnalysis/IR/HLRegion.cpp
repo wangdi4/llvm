@@ -154,3 +154,28 @@ bool HLRegion::isInvariant(unsigned Symbase) const {
   // value is 0.
   return IRReg.isLiveInValue(Symbase, BU.getTempBlobValue(Index));
 }
+
+bool HLRegion::containsAllUses(const AllocaInst *Alloca) const {
+  SmallVector<const Instruction *, 16> TrackableUses;
+
+  TrackableUses.push_back(Alloca);
+
+  while (!TrackableUses.empty()) {
+    auto *CurUseInst = TrackableUses.pop_back_val();
+
+    for (auto *User : CurUseInst->users()) {
+      auto *UserInst = cast<Instruction>(User);
+      if (isa<BitCastInst>(User) || isa<GetElementPtrInst>(User) ||
+          isa<SubscriptInst>(User)) {
+        TrackableUses.push_back(UserInst);
+        continue;
+      }
+
+      if (!containsBBlock(UserInst->getParent())) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
