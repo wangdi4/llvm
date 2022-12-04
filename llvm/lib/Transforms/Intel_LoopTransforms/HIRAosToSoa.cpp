@@ -270,6 +270,9 @@ private:
     HLLoop *Loop;
     const SmallVectorImpl<HLLoop *> &LoopNests;
     const SmallVectorImpl<RegDDRef *> &RefsToCopy;
+    // Maps blob index of created alloca to the symbase used for creating
+    // memrefs based on the alloca.
+    SmallDenseMap<unsigned, unsigned> AllocaToMemRefSB;
     unsigned IVBlobLevel;
 
     unsigned AllocaLevel; // Level where the alloca will be populated.
@@ -570,9 +573,13 @@ void HIRAosToSoa::TransformAosToSoa::populatedBodyOfCopyLoop(
 
     // Create Lval of store, alloca0[%add * i2  + i3]
     HLInst *Alloca = TrailingOffsetToAlloca.find(TrailingOffset)->second;
-    RegDDRef *AllocaRef =
-        DDRU.createMemRef(cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(), Alloca->getLvalDDRef()->getSelfBlobIndex(),
-                          Alloca->getNodeLevel());
+
+    unsigned AllocaIndex = Alloca->getLvalDDRef()->getSelfBlobIndex();
+    assert(AllocaToMemRefSB.find(AllocaIndex) != AllocaToMemRefSB.end() &&
+           "Did not find alloca's symbase");
+    RegDDRef *AllocaRef = DDRU.createMemRef(
+        cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
+        AllocaIndex, Alloca->getNodeLevel(), AllocaToMemRefSB[AllocaIndex]);
 
     CanonExpr *NewDimension = CEU.createCanonExpr(IVType);
     NewDimension->setIVCoeff(InnerLevel, InvalidBlobIndex, 1);
@@ -602,9 +609,12 @@ void HIRAosToSoa::TransformAosToSoa::replaceTrailingOffsetWithAlloca(
     HLInst *Alloca =
         TrailingOffsetToAlloca.find(getTrailingOffset(Ref))->second;
 
-    RegDDRef *AllocaRef = DDRU.createMemRef(cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
-        Alloca->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
-        Alloca->getNodeLevel());
+    unsigned AllocaIndex = Alloca->getLvalDDRef()->getSelfBlobIndex();
+    assert(AllocaToMemRefSB.find(AllocaIndex) != AllocaToMemRefSB.end() &&
+           "Did not find alloca's symbase");
+    RegDDRef *AllocaRef = DDRU.createMemRef(
+        cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
+        AllocaIndex, Alloca->getNodeLevel(), AllocaToMemRefSB[AllocaIndex]);
 
     CanonExpr *NewDimension = HIRAosToSoa::getIndexCE(Ref)->clone();
     NewDimension->setIVBlobCoeff(IVBlobLevel, AddBlobIndex);
@@ -727,6 +737,9 @@ void HIRAosToSoa::TransformAosToSoa::insertAllocas(
         HNU.createAlloca(DestTy, ArraySizeMulInst->getLvalDDRef()->clone());
     TrailingOffsetToAlloca[Offset] = Alloca;
     HNU.insertBefore(Anchor, Alloca);
+
+    AllocaToMemRefSB[Alloca->getLvalDDRef()->getSelfBlobIndex()] =
+        Ref->getDDRefUtils().getNewSymbase();
   }
 }
 

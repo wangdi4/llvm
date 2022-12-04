@@ -205,10 +205,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     // to distribute in most cases, but may inhibit later optimizations, so we
     // bail out as a heuristic here.
     auto isLifetimeIntrin = [&](HLInst *I) {
-      Intrinsic::ID IntrinId;
-      return I && I->isIntrinCall(IntrinId) &&
-             (IntrinId == Intrinsic::lifetime_start ||
-              IntrinId == Intrinsic::lifetime_end);
+      return I && I->isLifetimeIntrinsic();
     };
 
     if (I->isUnsafeSideEffectsCallInst() || I->isUnknownAliasingCallInst() ||

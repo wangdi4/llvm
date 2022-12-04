@@ -1248,26 +1248,12 @@ void HIRTransformUtils::mergeZtt(HLLoop *Loop,
   }
 }
 
-bool HIRTransformUtils::doDeadStoreElimination(HLRegion &Region, HLLoop *Lp,
-                                               HIRDDAnalysis &HDDA,
-                                               HIRLoopStatistics &HLS) {
-  assert(Lp && "Lp* can't be null\n");
-  if (Lp->getParentRegion() != &Region) {
-    LLVM_DEBUG(dbgs() << "Expect Loop be in the region provided\n";);
-    return false;
-  }
-
-  HIRDeadStoreElimination DSE(Region.getHLNodeUtils().getHIRFramework(), HDDA,
-                              HLS);
-  return DSE.run(Region, Lp, /* IsRegion */ false);
-}
-
 bool HIRTransformUtils::doDeadStoreElimination(HLRegion &Region,
                                                HIRDDAnalysis &HDDA,
                                                HIRLoopStatistics &HLS) {
   HIRDeadStoreElimination DSE(Region.getHLNodeUtils().getHIRFramework(), HDDA,
                               HLS);
-  return DSE.run(Region, nullptr, /* IsRegion */ true);
+  return DSE.run(Region);
 }
 
 typedef DDRefGathererLambda<RegDDRef> MemRefGatherer;

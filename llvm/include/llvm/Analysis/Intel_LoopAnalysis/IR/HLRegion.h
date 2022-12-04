@@ -238,6 +238,9 @@ public:
   OptReport getOptReport() const { return OR; }
   void setOptReport(OptReport R) { OR = R; }
   void eraseOptReport() { OR = nullptr; }
+
+  /// Returns true if all uses of \p Alloca are within the region.
+  bool containsAllUses(const AllocaInst *Alloca) const;
 };
 
 } // End namespace loopopt
