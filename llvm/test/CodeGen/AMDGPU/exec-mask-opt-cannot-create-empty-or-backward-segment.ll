@@ -81,13 +81,7 @@ define amdgpu_kernel void @cannot_create_empty_or_backwards_segment(i1 %arg, i1 
 ; CHECK-NEXT:    s_mov_b64 s[22:23], s[10:11]
 ; CHECK-NEXT:    s_mov_b64 s[18:19], s[16:17]
 ; CHECK-NEXT:    s_branch .LBB0_2
-<<<<<<< HEAD
-; CHECK-NEXT:  .LBB0_11: ; %bb13
-; CHECK-NEXT:    ; in Loop: Header=BB0_3 Depth=1
-; CHECK-NEXT:    s_mov_b64 s[22:23], -1
-=======
 ; CHECK-NEXT:  .LBB0_11: ; in Loop: Header=BB0_3 Depth=1
->>>>>>> 6d12599fd4134c1da63198c74a25490d28c733f6
 ; CHECK-NEXT:    s_mov_b64 s[20:21], 0
 ; CHECK-NEXT:    ; implicit-def: $sgpr16_sgpr17
 ; CHECK-NEXT:    s_mov_b64 s[18:19], s[16:17]
