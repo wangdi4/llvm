@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -sroa -loop-rotate %s | opt -aa-pipeline=basic-aa -passes='require<aa>,require<targetir>,require<scalar-evolution>,require<opt-remark-emit>,loop-mssa(licm)' -S | FileCheck %s
-; RUN: opt -basic-aa -sroa -loop-rotate -licm -verify-memoryssa -S < %s | FileCheck %s
-=======
 ; RUN: opt -passes='sroa,loop(loop-rotate)' %s | opt -aa-pipeline=basic-aa -passes='require<aa>,require<targetir>,require<scalar-evolution>,require<opt-remark-emit>,loop-mssa(licm)' -S | FileCheck %s
 ; RUN: opt -passes='sroa,loop(loop-rotate),loop-mssa(licm)' -verify-memoryssa -S < %s | FileCheck %s
->>>>>>> 7850ab21128875611dead7d312ffbe4c8b47a5f2
 ; The objects *p and *q are aliased to each other, but even though *q is
 ; volatile, *p can be considered invariant in the loop. Check if it is moved
 ; out of the loop.
