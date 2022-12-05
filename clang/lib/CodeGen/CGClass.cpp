@@ -512,7 +512,7 @@ llvm::Value *CodeGenFunction::GetVTTParameter(GlobalDecl GD,
     // A VTT parameter was passed to the constructor, use it.
     llvm::Value *VTT = LoadCXXVTT();
 #if INTEL_COLLAB
-    return Builder.CreateConstInBoundsGEP1_64(TargetInt8PtrTy, VTT,
+    return Builder.CreateConstInBoundsGEP1_64(DefaultInt8PtrTy, VTT,
                                               SubVTTIndex);
 #else // INTEL_COLLAB
     return Builder.CreateConstInBoundsGEP1_64(VoidPtrTy, VTT, SubVTTIndex);
