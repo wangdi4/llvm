@@ -480,10 +480,7 @@ static bool isSIMDOrLifetimeIntrinsic(const HLNode *Node) {
     return true;
   }
 
-  Intrinsic::ID Id;
-
-  return (HInst->isIntrinCall(Id) &&
-          (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end));
+  return HInst->isLifetimeIntrinsic();
 }
 
 static bool canIgnoreNode(const HLNode *Node) {

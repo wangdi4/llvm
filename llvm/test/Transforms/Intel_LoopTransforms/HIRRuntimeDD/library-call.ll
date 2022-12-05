@@ -1,5 +1,5 @@
-; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -enable-intel-advanced-opts -disable-simplify-libcalls -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
 ; No disable-simplify-libcalls support in new pass manager.
@@ -51,45 +51,56 @@
 ;          + END LOOP
 ;     END REGION
 
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%s)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%s)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%r)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%r)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%q)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%q)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%p)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%p)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%o)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%o)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%n)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%n)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%m)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%m)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%l)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%l)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%k)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%k)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%j)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%j)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%i)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%i)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%h)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%h)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%g)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%g)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%f)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%f)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%e)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%e)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%d)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%d)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%c)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%c)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%b)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%b)[99]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].0 = &((%a)[0]);
-; CHECK-DAG: (%dd)[0][{{[0-9]+}}].1 = &((%a)[99]);
+; CHECK: (%dd)[0][0].0 = &((%s)[0]);
+; Verify that we assign same symbase to all %dd based memrefs.
+; CHECK-NEXT: <LVAL-REG>{{.*}}{sb:[[SB:[0-9]+]]}
+; CHECK: (%dd)[0][0].1 = &((%s)[99]);
+; CHECK: (%dd)[0][1].0 = &((%r)[0]);
+; CHECK: (%dd)[0][1].1 = &((%r)[99]);
+; CHECK: (%dd)[0][2].0 = &((%q)[0]);
+; CHECK: (%dd)[0][2].1 = &((%q)[99]);
+; CHECK: (%dd)[0][3].0 = &((%p)[0]);
+; CHECK-NEXT: <LVAL-REG>{{.*}}{sb:[[SB]]}
+; CHECK: (%dd)[0][3].1 = &((%p)[99]);
+; CHECK: (%dd)[0][4].0 = &((%o)[0]);
+; CHECK: (%dd)[0][4].1 = &((%o)[99]);
+; CHECK: (%dd)[0][5].0 = &((%n)[0]);
+; CHECK: (%dd)[0][5].1 = &((%n)[99]);
+; CHECK: (%dd)[0][6].0 = &((%m)[0]);
+; CHECK: (%dd)[0][6].1 = &((%m)[99]);
+; CHECK: (%dd)[0][7].0 = &((%l)[0]);
+; CHECK: (%dd)[0][7].1 = &((%l)[99]);
+; CHECK: (%dd)[0][8].0 = &((%k)[0]);
+; CHECK: (%dd)[0][8].1 = &((%k)[99]);
+; CHECK: (%dd)[0][9].0 = &((%j)[0]);
+; CHECK: (%dd)[0][9].1 = &((%j)[99]);
+; CHECK: (%dd)[0][10].0 = &((%i)[0]);
+; CHECK: (%dd)[0][10].1 = &((%i)[99]);
+; CHECK: (%dd)[0][11].0 = &((%h)[0]);
+; CHECK: (%dd)[0][11].1 = &((%h)[99]);
+; CHECK-NEXT: <LVAL-REG>{{.*}}{sb:[[SB]]}
+; CHECK: (%dd)[0][12].0 = &((%g)[0]);
+; CHECK: (%dd)[0][12].1 = &((%g)[99]);
+; CHECK: (%dd)[0][13].0 = &((%f)[0]);
+; CHECK: (%dd)[0][13].1 = &((%f)[99]);
+; CHECK: (%dd)[0][14].0 = &((%e)[0]);
+; CHECK: (%dd)[0][14].1 = &((%e)[99]);
+; CHECK: (%dd)[0][15].0 = &((%d)[0]);
+; CHECK: (%dd)[0][15].1 = &((%d)[99]);
+; CHECK: (%dd)[0][16].0 = &((%c)[0]);
+; CHECK: (%dd)[0][16].1 = &((%c)[99]);
+; CHECK: (%dd)[0][17].0 = &((%b)[0]);
+; CHECK: (%dd)[0][17].1 = &((%b)[99]);
+; CHECK: (%dd)[0][18].0 = &((%a)[0]);
+; CHECK: (%dd)[0][18].1 = &((%a)[99]);
+; CHECK-NEXT: <LVAL-REG>{{.*}}{sb:[[SB]]}
+
 ; CHECK: %call = @__intel_rtdd_indep(&((i8*)(%dd)[0]),  19);
+; CHECK: <RVAL-REG>{{.*}}{sb:[[SB]]}
+
+; Verify that we add a fake rval memref for %dd
+; CHECK: <FAKE-RVAL-REG>{{.*}}{sb:[[SB]]}
+
 ; CHECK: if (%call == 0)
 
 ; NOLIBCALL-NOT: __intel_rtdd_indep

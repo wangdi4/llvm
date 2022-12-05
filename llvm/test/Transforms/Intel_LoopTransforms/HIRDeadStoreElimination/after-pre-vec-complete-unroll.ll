@@ -113,7 +113,6 @@
 ; CHECK:           %mul441.lcssa445451.out1 = %mul441.lcssa445451;
 ; CHECK:           (%la)[0][2] = %mul441.lcssa445451;
 ; CHECK:           %t52 = (%mx)[0][3];
-; CHECK:           (%mx)[0][3] = %t52 + %n5.promoted + 1;
 ; CHECK:           %t53 = (%rc9)[0][3];
 ; CHECK:           %t54 = (%la)[0][3];
 ; CHECK:           (%la)[0][3] = -1 * %t53 + %t54;
@@ -141,7 +140,6 @@
 ; CHECK:           %mul441.lcssa445451.out1 = %mul441.lcssa445451;
 ; CHECK:           (%la)[0][1] = %mul441.lcssa445451;
 ; CHECK:           %t52 = (%mx)[0][2];
-; CHECK:           (%mx)[0][2] = %t52 + %n5.promoted + 2;
 ; CHECK:           %t53 = (%rc9)[0][2];
 ; CHECK:           %t54 = (%la)[0][2];
 ; CHECK:           (%la)[0][2] = -1 * %t53 + %t54;

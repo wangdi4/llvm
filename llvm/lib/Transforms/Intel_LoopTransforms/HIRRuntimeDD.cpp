@@ -1875,6 +1875,9 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   auto IVType = Context.Loop->getIVType();
   unsigned TestIdx = 0;
 
+  // Use same symbase for all refs of the alloca and the fake ref on the call so
+  // HIRDeadStoreElimination does not eliminate them.
+  unsigned TestArraySB = DRU.getNewSymbase();
   // Create stores of region addresses to the temporary alloca.
   // ex.:
   //   (%dd)[0].0 = &(%A)[%lower]
@@ -1883,8 +1886,8 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   //   (%dd)[49].0 = &(%Q)[%lower]
   //   (%dd)[49].1 = &(%Q)[%upper]
   for (auto &S : Context.SegmentList) {
-    RegDDRef *LBDDRef =
-        DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+    RegDDRef *LBDDRef = DRU.createMemRef(SegmentArrayRuntimeTy,
+                                         TestArrayBlobIndex, 0, TestArraySB);
     LBDDRef->addDimension(CEU.createCanonExpr(IVType));
     LBDDRef->addDimension(CEU.createCanonExpr(IVType, 0, TestIdx));
     LBDDRef->setTrailingStructOffsets(1, 0);
@@ -1911,16 +1914,22 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   FunctionCallee RtddIndep = HNU.getModule().getOrInsertFunction(
       "__intel_rtdd_indep", Attrs, IntPtrType, I8PtrType, IntPtrType);
 
-  RegDDRef *ArrayRef =
-      DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+  RegDDRef *ArrayRef = DRU.createMemRef(SegmentArrayRuntimeTy,
+                                        TestArrayBlobIndex, 0, TestArraySB);
+
   ArrayRef->setAddressOf(true);
   ArrayRef->addDimension(CEU.createCanonExpr(IVType));
   ArrayRef->setBitCastDestVecOrElemType(Type::getInt8Ty(LLVMContext));
+
+  auto *FakeRvalRef = ArrayRef->clone();
+  FakeRvalRef->setAddressOf(false);
 
   RegDDRef *SegementSizeRef =
       DRU.createConstDDRef(IntPtrType, Context.SegmentList.size());
 
   HLInst *Call = HNU.createCall(RtddIndep, {ArrayRef, SegementSizeRef});
+  Call->addFakeRvalDDRef(FakeRvalRef);
+
   Nodes.push_back(*Call);
 
   RegDDRef *ZeroRef = DRU.createConstDDRef(IntPtrType, 0);

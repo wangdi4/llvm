@@ -650,9 +650,7 @@ static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
         }
       }
 
-      Intrinsic::ID Id;
-      if (!IgnoreEdge && OtherInst->isIntrinCall(Id) &&
-          (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end)) {
+      if (!IgnoreEdge && OtherInst->isLifetimeIntrinsic()) {
 
         bool EqualBase = CanonExprUtils::areEqual(MemRef->getBaseCE(),
                                                   OtherMemRef->getBaseCE());
