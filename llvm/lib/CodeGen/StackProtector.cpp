@@ -431,13 +431,19 @@ static Value *getStackGuard(const TargetLoweringBase *TLI, Module *M,
 ///
 /// Returns true if the platform/triple supports the stackprotectorcreate pseudo
 /// node.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 416e8c6ad529c57f21f46c6f52ded96d3ed239fb
 static bool CreatePrologue(Function *F, Module *M, Instruction *CheckLoc,
                            const TargetLoweringBase *TLI, AllocaInst *&AI) {
   bool SupportsSelectionDAGSP = false;
   IRBuilder<> B(&F->getEntryBlock().front());
   PointerType *PtrTy = Type::getInt8PtrTy(CheckLoc->getContext());
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 416e8c6ad529c57f21f46c6f52ded96d3ed239fb
   AI = B.CreateAlloca(PtrTy, nullptr, "StackGuardSlot");
 
   Value *GuardSlot = getStackGuard(TLI, M, B, &SupportsSelectionDAGSP);
@@ -478,8 +484,23 @@ bool StackProtector::InsertStackProtectors() {
 #if INTEL_CUSTOMIZATION
   for (BasicBlock &BB : llvm::make_early_inc_range(*F)) {
     Instruction *CheckLoc = dyn_cast<ReturnInst>(BB.getTerminator());
+<<<<<<< HEAD
     if (!CheckLoc)
       CheckLoc = findNoReturnFunc(BB);
+=======
+    if (!CheckLoc) {
+      for (auto &Inst : BB) {
+        auto *CB = dyn_cast<CallBase>(&Inst);
+        if (!CB)
+          continue;
+        if (!CB->doesNotReturn())
+          continue;
+        // Do stack check before non-return calls (e.g: __cxa_throw)
+        CheckLoc = CB;
+        break;
+      }
+    }
+>>>>>>> 416e8c6ad529c57f21f46c6f52ded96d3ed239fb
 
     if (!CheckLoc)
       continue;
@@ -514,7 +535,11 @@ bool StackProtector::InsertStackProtectors() {
     // verifier guarantees that a tail call is either directly before the
     // return or with a single correct bitcast of the return value in between so
     // we don't need to worry about many situations here.
+<<<<<<< HEAD
     Instruction *Prev = CheckLoc->getPrevNonDebugInstruction(); // INTEL
+=======
+    Instruction *Prev = CheckLoc->getPrevNonDebugInstruction();
+>>>>>>> 416e8c6ad529c57f21f46c6f52ded96d3ed239fb
     if (Prev && isa<CallInst>(Prev) && cast<CallInst>(Prev)->isTailCall())
       CheckLoc = Prev;
     else if (Prev) {
