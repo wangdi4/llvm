@@ -1003,6 +1003,171 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
             generateStrideForArgument(Clone, ArgVal, User, StrideVal, Phi);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
+    } else if (Parm.isLinearUVal()) {
+      // The following example shows the before/after LLVM of the linear uval
+      // modifier transformation. The basic idea is that the stride calculation
+      // must be added to the value loaded from the reference (pointer) arg.
+      // In order to do this for all optimization levels, we keep track of any
+      // loads from either the arg directly or through aliases (store/load of
+      // the arg). In this example, %0 is the value for which stride must be
+      // applied.
+      //
+      // Input LLVM for #pragma omp declare simd linear(val(k):2)
+      //
+      // simd.loop.preheader:
+      //   br label %simd.loop.header
+      //
+      // simd.loop.header:
+      //   %index = phi i32 [ 0, %simd.loop.preheader ],
+      //                    [ %indvar, %simd.loop.latch ]
+      //   %0 = load i64, i64* %x, align 8, !tbaa !4
+      //   %add = add nsw i64 %0, 1
+      //   %ret.cast.gep = getelementptr i64, i64* %ret.cast, i32 %index
+      //   store i64 %add, i64* %ret.cast.gep, align 8
+      //   br label %simd.loop.latch
+      //
+      // Output LLVM:
+      //
+      // entry:
+      //   %alloca.x = alloca i64*, align 8
+      //   store i64* %x, i64** %alloca.x, align 8
+      //   br label %simd.loop.preheader
+      //
+      // simd.loop.preheader:
+      //   %load.x = load i64*, i64** %alloca.x, align 8
+      //   br label %simd.loop.header
+      //
+      // simd.loop.header:
+      //   %index = phi i32 [ 0, %simd.loop.preheader ],
+      //                    [ %indvar, %simd.loop.latch ]
+      //   %0 = load i64, i64* %load.x, align 8, !tbaa !4
+      //   %phi.cast = zext i32 %index to i64
+      //   %stride.mul = mul i64 2, %phi.cast (stride on pragma is 2)
+      //   %stride.add = add i64 %0, %stride.mul
+      //   %add = add nsw i64 %stride.add, 1
+      //   %ret.cast.gep = getelementptr i64, i64* %ret.cast, i32 %index
+      //   store i64 %add, i64* %ret.cast.gep, align 8
+      //   br label %simd.loop.latch
+
+      // Note: for unoptimized incoming LLVM, there will be an additional
+      // level of pointer dereferencing because the arg (a pointer) will be
+      // stored/loaded to/from local memory. Thus, the first load will result
+      // in a pointer, essentially an alias to the original arg. The second
+      // load will be used to access the actual value, which is then used to
+      // apply the stride.
+
+      Value *ArgMemory = nullptr;
+      Value *ArgVal = nullptr;
+      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                           ArgVal, ArgMemory);
+      Value *ScalarArg = ArgVal; // the load from the new arg memory
+
+      SmallVector<Value*, 4> ArgLocalMem;
+      SmallVector<LoadInst*, 4> ArgValLoads;
+      // Determine whether the argument is stored through local memory. If
+      // so, then record the local memory used for the arg. Later, we'll
+      // find the associated loads from this memory to find aliases for the
+      // arg. If a value is loaded directly from the arg, then record that
+      // this is a direct load from the arg.
+      for (auto *U : ScalarArg->users()) {
+        auto *User = cast<Instruction>(U);
+        // Unoptimized case where the incoming LLVM has a store of the argument
+        // (pointer) is made to local memory. Note that at this point we have
+        // created a new alloca/store/load for the arg and that load has now
+        // replaced the original parameter. E.g.
+        // Incoming LLVM: store i64* %x, i64** %x.addr, align 8
+        // As of this point: store i64* %load.x, i64** %x.addr, align 8
+        // %x.addr will be recorded in ArgLocalMem and was the original alloca
+        // for the arg. However, by always handling args through memory (even
+        // for optimized incoming LLVM) this allows VecClone to work the same
+        // across all opt levels because RAUW can simply be done on any
+        // existing memory and all LLVM can be handled basically the same.
+        // However, here we have the additional requirement of finding the load
+        // that will yield the value on which the stride needs to be applied. We
+        // have two cases for that:
+        // 1) There is an additional store/load through memory to get the
+        //    arg pointer to load the value from.
+        // 2) The arg pointer is loaded from directly.
+        if (auto *StoreUser = dyn_cast<StoreInst>(User)) {
+          // Case 1
+          // Don't include any possible store in the entry block because for
+          // Val ref modifiers, there will be an extract of elem 0 from the
+          // original arg and stored to local memory. We're only interested
+          // in the stores that are made within the loop.
+          if (StoreUser->getParent() != EntryBlock)
+            ArgLocalMem.push_back(StoreUser->getPointerOperand());
+        }
+        // Case 2 - Value is loaded directly from the argument.
+        // E.g., %0 = load i64, i64* %load.x, align 8
+        if (auto *ArgValLoad = dyn_cast<LoadInst>(User))
+          ArgValLoads.push_back(ArgValLoad);
+      }
+
+      // Find the aliases for the pointer args and the loads from those
+      // aliases. Aliases in this context refers to the loaded pointer from
+      // local memory. E.g., if %load.x is the arg pointer
+      // store i64* %load.x, i64** %x.addr, align 8
+      // %0 = load i64*, i64** %x.addr, align 8
+      // %1 = load i64, i64* %0
+      // %0 is the alias for the arg pointer because it goes through %x.addr
+      // %1 is the value loaded from the arg and stride must be applied here
+      for (auto *ArgMem : ArgLocalMem) {
+        for (auto *ArgMemU : ArgMem->users()) {
+          auto *ArgMemUser = cast<Instruction>(ArgMemU);
+          if (isa<LoadInst>(ArgMemUser)) {
+            for (auto *ArgLoadU : ArgMemUser->users()) {
+              auto *ArgLoadUser = cast<Instruction>(ArgLoadU);
+              if (auto *ArgLoad = dyn_cast<LoadInst>(ArgLoadUser))
+                ArgValLoads.push_back(ArgLoad);
+            }
+          }
+        }
+      }
+
+      // At this point ArgValLoads contains all the Values for which stride
+      // needs to be applied.
+
+      // Get the constant or variable stride value
+      Value *StrideVal = nullptr;
+      if (Parm.isConstantStrideLinear()) {
+        int Stride = Parm.getStride();
+        StrideVal =
+            GeneralUtils::getConstantValue(Phi->getType(), Clone->getContext(),
+                                           Stride);
+        LinearMemory[ArgMemory] = StrideVal;
+      } else if (Parm.isVariableStride()) {
+        // Get the stride value from the argument holding it.
+        int StrideArgPos = Parm.getStrideArgumentPosition();
+        Argument *StrideArg = Clone->getArg(StrideArgPos);
+        StrideVal = UniformMemory[StrideArg].second;
+        // TODO: temporarily just set stride to constant 0 because there is an
+        // importing bug in VPlan that needs to be fixed for both HIR and LLVM.
+        // Since VecClone adds the instructions for stride calculation in this
+        // function, VPlan doesn't need to have a correct value set to generate
+        // correct code. However, once the linear processing moves to VPlan,
+        // this will need to be fixed. All that needs to be done here is to
+        // remove TempStrideVal and replace with the value coming from
+        // UniformMemory.
+        Value *TempStrideVal =
+            GeneralUtils::getConstantValue(Phi->getType(), Clone->getContext(),
+                                           0);
+        // Uncomment this line of code and remove the line after it once
+        // importing bugs are fixed.
+        //LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
+        LinearMemory[ArgMemory] = TempStrideVal;
+      } else {
+        llvm_unreachable("Unsupported linear modifier");
+      }
+      // Generate stride instruction and update users of the load.
+      for (auto *ArgValLoad : ArgValLoads) {
+        for (auto &U:  make_early_inc_range(ArgValLoad->uses())) {
+          auto *User = cast<Instruction>(U.getUser());
+          Value *StrideInst =
+              generateStrideForArgument(Clone, ArgValLoad, User, StrideVal,
+                                        Phi);
+          User->setOperand(U.getOperandNo(), StrideInst);
+        }
+      }
     }
   }
 
@@ -1368,8 +1533,7 @@ void VecCloneImpl::filterUnsupportedVectorVariants(
                       assert(EncodingEnd != Encoding.npos &&
                              "Unexpected end of vector variant.");
                       Encoding = Encoding.take_front(EncodingEnd);
-                      bool Unsupported = Encoding.contains('U') ||
-                                         Encoding.contains('L');
+                      bool Unsupported = Encoding.contains('L');
                       return !Unsupported;
                     });
 
@@ -1531,8 +1695,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
    for (auto *F : FuncDiagList) {
        (*ORBuilder)(*F).addRemark(
          OptReportVerbosity::Medium,
-         "'omp declare' vector variants with linear reference/uval()/" \
-         "val() or linear step passed as another argument were skipped " \
+         "'omp declare' vector variants with linear reference/val()/" \
+         " or linear step passed as another argument were skipped " \
          "as unsupported.");
 }
 #endif // INTEL_CUSTOMIZATION

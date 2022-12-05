@@ -182,6 +182,13 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
                                         ArgAlign));
             ParamEncodings.push_back(
                 VFParameter::linearVal(ParamPos, AdjustedStrides[0], ArgAlign));
+          } else {
+            // Stride was unknown or inconsistent, so we can try to match
+            // variable stride cases.
+            ParamEncodings.push_back(
+                VFParameter::linearUValPos(ParamPos, ParamPos, ArgAlign));
+            ParamEncodings.push_back(
+                VFParameter::linearValPos(ParamPos, ParamPos, ArgAlign));
           }
         }
       } else {
