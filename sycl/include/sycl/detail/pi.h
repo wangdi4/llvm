@@ -56,11 +56,16 @@
 // 11.16 Add PI_EXT_INTEL_DEVICE_INFO_MEMORY_CLOCK_RATE and
 // PI_EXT_INTEL_DEVICE_INFO_MEMORY_BUS_WIDTH as an extension for
 // piDeviceGetInfo.
+<<<<<<< HEAD
 // 11.17 Added new PI_EXT_ONEAPI_QUEUE_PRIORITY_LOW and
 // PI_EXT_ONEAPI_QUEUE_PRIORITY_HIGH queue properties.
+=======
+// 11.17 Add new parameter name PI_EXT_ONEAPI_QUEUE_INFO_EMPTY to
+// _pi_queue_info.
+>>>>>>> 13d335e58600ed8db21f0104bb8da19eadbe8af8
 
 #define _PI_H_VERSION_MAJOR 11
-#define _PI_H_VERSION_MINOR 16
+#define _PI_H_VERSION_MINOR 17
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
@@ -331,7 +336,10 @@ typedef enum {
   PI_QUEUE_INFO_DEVICE_DEFAULT = 0x1095,
   PI_QUEUE_INFO_PROPERTIES = 0x1093,
   PI_QUEUE_INFO_REFERENCE_COUNT = 0x1092,
-  PI_QUEUE_INFO_SIZE = 0x1094
+  PI_QUEUE_INFO_SIZE = 0x1094,
+  // Return 'true' if all commands previously submitted to the queue have
+  // completed, otherwise return 'false'.
+  PI_EXT_ONEAPI_QUEUE_INFO_EMPTY = 0x2096
 } _pi_queue_info;
 
 typedef enum {
