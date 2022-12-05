@@ -1006,13 +1006,6 @@ void PassManagerBuilder::populateModulePassManager(
                  /* AddNoOpBarrierPassBeforeRestore= */ true);
   }
 #endif // INTEL_COLLAB
-  if (OptLevel > 1)
-    MPM.add(createSROALegacyCGSCCAdaptorPass());
-
-  // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
-  // there are no OpenMP runtime calls present in the module.
-  if (OptLevel > 1)
-    MPM.add(createOpenMPOptCGSCCLegacyPass());
 
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
 
@@ -1440,11 +1433,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(Inliner);
     Inliner = nullptr;
   }
-
-  // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
-  // there are no OpenMP runtime calls present in the module.
-  if (OptLevel > 1)
-    PM.add(createOpenMPOptCGSCCLegacyPass());
 
   // Optimize globals again if we ran the inliner.
   if (RunInliner) { // INTEL
