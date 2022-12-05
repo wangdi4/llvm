@@ -45,15 +45,22 @@ namespace {
 class PrintModulePassWrapper : public ModulePass {
   raw_ostream &OS;
   std::string Banner;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   bool ShouldPreserveUseListOrder;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 public:
   static char ID;
   PrintModulePassWrapper() : ModulePass(ID), OS(dbgs()) {}
   PrintModulePassWrapper(raw_ostream &OS, const std::string &Banner,
                          bool ShouldPreserveUseListOrder)
-      : ModulePass(ID), OS(OS), Banner(Banner),
-        ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
+      : ModulePass(ID), OS(OS), Banner(Banner)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+        ,
+        ShouldPreserveUseListOrder(ShouldPreserveUseListOrder)
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  {
+  }
 
   bool runOnModule(Module &M) override {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
