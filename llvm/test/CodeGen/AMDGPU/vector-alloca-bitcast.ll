@@ -2,7 +2,7 @@
 ; re-enable gep0 optimization
 ; RUN: llc -xmain-enable-gep0-removal -march=amdgcn -mtriple=amdgcn-- -mcpu=tonga -mattr=-promote-alloca -verify-machineinstrs < %s | FileCheck -enable-var-scope --check-prefixes=GCN,GCN-ALLOCA %s
 ; RUN: llc -xmain-enable-gep0-removal -march=amdgcn -mtriple=amdgcn-- -mcpu=tonga -mattr=+promote-alloca -verify-machineinstrs < %s | FileCheck -enable-var-scope --check-prefixes=GCN,GCN-PROMOTE %s
-; RUN: opt -S -xmain-enable-gep0-removal -mtriple=amdgcn-- -passes=amdgpu-promote-alloca,sroa,instcombine < %s | FileCheck -check-prefix=OPT %s
+; RUN: opt -S -xmain-enable-gep0-removal -mtriple=amdgcn-- -passes='amdgpu-promote-alloca,sroa,instcombine' < %s | FileCheck -check-prefix=OPT %s
 ; end INTEL_CUSTOMIZATION
 
 target datalayout = "A5"
