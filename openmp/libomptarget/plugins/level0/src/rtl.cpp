@@ -4500,6 +4500,11 @@ static int32_t runTargetTeamRegion(
           KernelPR, GroupSizes, GroupCounts);
       if (RC != OFFLOAD_SUCCESS)
         return OFFLOAD_FAIL;
+      // L0 has implemented heuristics to batch WG-submission. However, L0
+      // is not able apply this optimization if number of WG's is not a multiple
+      // of 8. This could result in  3x performance for small work-items.
+      if (GroupCounts.groupCountX > 8)
+        GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
     } else {
       decideKernelGroupArguments(
           SubId, (uint32_t )NumTeams, (uint32_t)ThreadLimit, Kernel, KernelPR,
