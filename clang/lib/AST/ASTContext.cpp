@@ -2285,8 +2285,8 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
 #if INTEL_CUSTOMIZATION
     case BuiltinType::VAArgPack:
-      Width = Target->getPointerWidth(0);
-      Align = Target->getPointerAlign(0);
+      Width = Target->getPointerWidth(LangAS::Default);
+      Align = Target->getPointerAlign(LangAS::Default);
       break;
 #endif // INTEL_CUSTOMIZATION
     case BuiltinType::OCLSampler:
