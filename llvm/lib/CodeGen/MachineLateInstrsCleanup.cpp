@@ -180,8 +180,9 @@ bool MachineLateInstrsCleanup::processBlock(MachineBasicBlock *MBB) {
   if (!MBB->pred_empty()) {
     MachineBasicBlock *FirstPred = *MBB->pred_begin();
     for (auto [Reg, DefMI] : RegDefs[FirstPred->getNumber()])
-      if (llvm::all_of(drop_begin(MBB->predecessors()),
-                       [&](const MachineBasicBlock *Pred) {
+      if (llvm::all_of(
+              drop_begin(MBB->predecessors()),
+              [&, &Reg = Reg, &DefMI = DefMI](const MachineBasicBlock *Pred) {
                          auto PredDefI = RegDefs[Pred->getNumber()].find(Reg);
                          return PredDefI != RegDefs[Pred->getNumber()].end() &&
                                 DefMI->isIdenticalTo(*PredDefI->second);
