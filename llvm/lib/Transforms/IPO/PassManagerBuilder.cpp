@@ -995,6 +995,7 @@ void PassManagerBuilder::populateModulePassManager(
     RunInliner = true;
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
   if (RunVPOOpt == InvokeParoptAfterInliner) {
@@ -1014,6 +1015,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel > 1)
     MPM.add(createOpenMPOptCGSCCLegacyPass());
 
+=======
+>>>>>>> 0630d0e319f83605af9068cbbe2bb0c7e6a647b5
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
 
   addFunctionSimplificationPasses(MPM);
