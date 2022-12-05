@@ -1101,7 +1101,6 @@ static ShapeT getTileShape(Register VirtReg, VirtRegMap *VRM,
   case X86::PTDPBUUDV:
   case X86::PTILEZEROV:
   case X86::PTDPBF16PSV:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_LNC
   case X86::PTTRANSPOSEDV:
@@ -1121,9 +1120,7 @@ static ShapeT getTileShape(Register VirtReg, VirtRegMap *VRM,
   case X86::PTTMMULTF32PSV:
 #endif // INTEL_FEATURE_ISA_AMX_TF32
 #endif // INTEL_CUSTOMIZATION
-=======
   case X86::PTDPFP16PSV:
->>>>>>> 94c5df8a7618b4d0fae8796d393bcc0d32c845ee
     MachineOperand &MO1 = MI->getOperand(1);
     MachineOperand &MO2 = MI->getOperand(2);
     ShapeT Shape(&MO1, &MO2, MRI);

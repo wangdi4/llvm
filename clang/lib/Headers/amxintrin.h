@@ -287,8 +287,6 @@ _tile_dpbf16ps_internal(unsigned short m, unsigned short n, unsigned short k,
   return __builtin_ia32_tdpbf16ps_internal(m, n, k, dst, src1, src2);
 }
 
-<<<<<<< HEAD
-=======
 /// This is internal intrinsic. C/C++ user should avoid calling it directly.
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_FP16
 _tile_dpfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
@@ -296,17 +294,6 @@ _tile_dpfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
   return __builtin_ia32_tdpfp16ps_internal(m, n, k, dst, src1, src2);
 }
 
-/// This struct pack the shape and tile data together for user. We suggest
-/// initializing the struct as early as possible, because compiler depends
-/// on the shape information to do configure. The constant value is preferred
-/// for optimization by compiler.
-typedef struct __tile1024i_str {
-  const unsigned short row;
-  const unsigned short col;
-  _tile1024i tile;
-} __tile1024i;
-
->>>>>>> 94c5df8a7618b4d0fae8796d393bcc0d32c845ee
 /// Load tile rows from memory specifieid by "base" address and "stride" into
 /// destination tile "dst".
 ///
