@@ -1918,9 +1918,8 @@ bool VPOParoptTransform::paroptTransforms() {
               isTargetSPIRV() && isFunctionOpenMPTargetDeclare();
           if (SkipTargetCodeGenForParallelRegion)
             emitWarning(W,
-                        "'" + W->getName() +
-                            +"' construct, in a declare target function, was "
-                             "ignored for calls from target regions.");
+                        "do/for/loop construct, in a declare target function, "
+                        "was ignored for calls from target regions.");
           if (!isTargetSPIRV()) {
             // Privatization is enabled for Transform pass
             Changed |= genPrivatizationCode(W);
@@ -2028,9 +2027,8 @@ bool VPOParoptTransform::paroptTransforms() {
 
           if (SkipTargetCodeGenForParallelRegion)
             emitWarning(W,
-                        "'" + W->getName() +
-                            +"' construct, in a declare target function, was "
-                             "ignored for calls from target regions.");
+                        "do/for/loop construct, in a declare target function, "
+                        "was ignored for calls from target regions.");
           else if (TreatDistributeParLoopAsDistribute) {
             W->setTreatDistributeParLoopAsDistribute(true);
             emitWarning(W, "'" + W->getName() +
@@ -2478,9 +2476,9 @@ bool VPOParoptTransform::paroptTransforms() {
               !W->getIsDistribute() &&
               (W->getParent() && W->getParent()->getIsPar());
           if (SkipTargetCodeGenForRegion)
-            emitWarning(W, "'" + W->getName() +
-                               "' construct, in a declare target function, "
-                               "was ignored for calls from target regions.");
+            emitWarning(W,
+                        "do/for/loop construct, in a declare target function, "
+                        "was ignored for calls from target regions.");
           if (isTargetSPIRV()) {
             if (!SkipTargetCodeGenForRegion) {
               SmallVector<Value *, 3> IsLastLocs;

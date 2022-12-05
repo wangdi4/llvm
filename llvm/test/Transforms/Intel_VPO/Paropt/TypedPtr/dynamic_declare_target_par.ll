@@ -21,7 +21,7 @@ target triple = "spir64"
 target device_triples = "spir64"
 
 ; Check that warning is emitted for the ignored construct.
-; CHECK: warning:{{.*}}'parallel' construct, in a declare target function, was ignored for calls from target regions.
+; CHECK: warning:{{.*}} do/for/loop construct, in a declare target function, was ignored for calls from target regions.
 
 ; Function Attrs: noinline nounwind optnone
 define hidden spir_func void @foo(i32 addrspace(4)* %x, i32 %n) #0 {

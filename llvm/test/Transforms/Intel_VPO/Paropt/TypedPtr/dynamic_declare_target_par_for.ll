@@ -22,8 +22,8 @@ target triple = "spir64"
 target device_triples = "spir64"
 
 ; Check that warnings are emitted for the ignored constructs.
-; CHECK: warning:{{.*}}'loop' construct, in a declare target function, was ignored for calls from target regions.
-; CHECK: warning:{{.*}}'parallel' construct, in a declare target function, was ignored for calls from target regions.
+; CHECK: warning:{{.*}} do/for/loop construct, in a declare target function, was ignored for calls from target regions.
+; CHECK: warning:{{.*}} do/for/loop construct, in a declare target function, was ignored for calls from target regions.
 
 ; Check that scheduling code for parallel-for is not generated.
 ; CHECK-NOT: call spir_func i64 @_Z14get_local_sizej(i32 0)
