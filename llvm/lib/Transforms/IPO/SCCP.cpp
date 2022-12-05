@@ -155,7 +155,7 @@ PreservedAnalyses FunctionSpecializationPass::run(Module &M,
             &FAM.getResult<LoopAnalysis>(F)};
   };
 
-  if (!runFunctionSpecialization(M, DL, GetTLI, GetTTI, GetAC, GetAnalysis))
+  if (!runFunctionSpecialization(M, &FAM, DL, GetTLI, GetTTI, GetAC, GetAnalysis))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
@@ -204,7 +204,7 @@ struct FunctionSpecializationLegacyPass : public ModulePass {
           nullptr, // manager, so set them to nullptr.
           nullptr};
     };
-    return runFunctionSpecialization(M, DL, GetTLI, GetTTI, GetAC, GetAnalysis);
+    return runFunctionSpecialization(M, nullptr, DL, GetTLI, GetTTI, GetAC, GetAnalysis);
   }
 };
 } // namespace
