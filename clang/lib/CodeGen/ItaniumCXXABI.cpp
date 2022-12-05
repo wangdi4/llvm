@@ -40,6 +40,7 @@
 #include "CGVTables.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "CodeGenTypeCache.h"
 #include "TargetInfo.h"
 #if INTEL_COLLAB
 #include "CGOpenMPRuntime.h"
@@ -3913,6 +3914,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   if (!VTable)
     VTable = CGM.CreateRuntimeVariable(CGM.TargetInt8PtrTy, VTableName);
 
+<<<<<<< HEAD
   // Else branch contains syclos changes.
 #else  // INTEL_COLLAB
   // To generate valid device code global pointers should have global address
@@ -3942,6 +3944,10 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     }
   }
 #endif  // INTEL_COLLAB
+=======
+  if (!VTable)
+    VTable = CGM.CreateRuntimeVariable(CGM.DefaultInt8PtrTy, VTableName);
+>>>>>>> ca10db9538e2d2719564382879da18ca79054bd8
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
 
@@ -3966,16 +3972,21 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     // The vtable address point is 8 bytes after its start:
     // 4 for the offset to top + 4 for the relative offset to rtti.
     llvm::Constant *Eight = llvm::ConstantInt::get(CGM.Int32Ty, 8);
+<<<<<<< HEAD
 #if INTEL_COLLAB
     VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.TargetInt8PtrTy);
     // Else branch contains syclos changes.
 #else // INTEL_COLLAB
     VTable = llvm::ConstantExpr::getBitCast(VTable, VTableTy);
 #endif // INTEL_COLLAB
+=======
+    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.DefaultInt8PtrTy);
+>>>>>>> ca10db9538e2d2719564382879da18ca79054bd8
     VTable =
         llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8Ty, VTable, Eight);
   } else {
     llvm::Constant *Two = llvm::ConstantInt::get(PtrDiffTy, 2);
+<<<<<<< HEAD
 #if INTEL_COLLAB
     VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.TargetInt8PtrTy,
                                                           VTable, Two);
@@ -3991,6 +4002,12 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #else // INTEL_COLLAB
   VTable = llvm::ConstantExpr::getBitCast(VTable, VTableTy);
 #endif // INTEL_COLLAB
+=======
+    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.DefaultInt8PtrTy,
+                                                          VTable, Two);
+  }
+  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.DefaultInt8PtrTy);
+>>>>>>> ca10db9538e2d2719564382879da18ca79054bd8
 
   Fields.push_back(VTable);
 }

@@ -171,10 +171,15 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   const llvm::DataLayout &DL = M.getDataLayout();
   AllocaInt8PtrTy = Int8Ty->getPointerTo(DL.getAllocaAddrSpace());
   GlobalsInt8PtrTy = Int8Ty->getPointerTo(DL.getDefaultGlobalsAddressSpace());
+<<<<<<< HEAD
 #if INTEL_COLLAB
   TargetInt8PtrTy =
       Int8Ty->getPointerTo(getContext().getTargetAddressSpace(LangAS::Default));
 #endif // INTEL_COLLAB
+=======
+  DefaultInt8PtrTy =
+      Int8Ty->getPointerTo(getContext().getTargetAddressSpace(LangAS::Default));
+>>>>>>> ca10db9538e2d2719564382879da18ca79054bd8
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
 
   // Build C++20 Module initializers.
