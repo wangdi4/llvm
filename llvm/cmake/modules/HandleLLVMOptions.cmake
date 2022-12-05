@@ -1089,6 +1089,12 @@ add_definitions( -D__STDC_LIMIT_MACROS )
 if (WIN32)
   add_definitions( -D_HAS_STD_BYTE=0 )
 endif()
+
+# CMPLRLLVM-41540: CMake omits an explicit optimization level for "Debug"
+# builds with the expectation that this means no optimizations. Intel drivers
+# behave this way with '-g', but emit a warning. Silence the warning for
+# self-builds.
+add_flag_if_supported("-Rno-debug-disables-optimization" RNO_DEBUG_DISABLES_OPTIMIZATION)
 # end INTEL_CUSTOMIZATION
 
 # clang and gcc don't default-print colored diagnostics when invoked from Ninja.
