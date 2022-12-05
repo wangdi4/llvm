@@ -171,10 +171,8 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   const llvm::DataLayout &DL = M.getDataLayout();
   AllocaInt8PtrTy = Int8Ty->getPointerTo(DL.getAllocaAddrSpace());
   GlobalsInt8PtrTy = Int8Ty->getPointerTo(DL.getDefaultGlobalsAddressSpace());
-#if INTEL_COLLAB
-  TargetInt8PtrTy =
+  DefaultInt8PtrTy =
       Int8Ty->getPointerTo(getContext().getTargetAddressSpace(LangAS::Default));
-#endif // INTEL_COLLAB
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
 
   // Build C++20 Module initializers.
@@ -8314,7 +8312,7 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
       (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
        getTriple().isNVPTX()))
 #if INTEL_COLLAB
-    return llvm::Constant::getNullValue(TargetInt8PtrTy);
+    return llvm::Constant::getNullValue(DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     return llvm::Constant::getNullValue(Int8PtrTy);
 #endif // INTEL_COLLAB

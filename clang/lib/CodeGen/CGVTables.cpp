@@ -728,7 +728,7 @@ llvm::Type *CodeGenVTables::getVTableComponentType() const {
   if (useRelativeLayout())
     return CGM.Int32Ty;
 #if INTEL_COLLAB
-  return CGM.TargetInt8PtrTy;
+  return CGM.DefaultInt8PtrTy;
 #else // INTEL_COLLAB
   return CGM.Int8PtrTy;
 #endif // INTEL_COLLAB
@@ -740,7 +740,7 @@ static void AddPointerLayoutOffset(const CodeGenModule &CGM,
 #if INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
-      CGM.TargetInt8PtrTy));
+      CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
@@ -784,7 +784,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
     else
 #if INTEL_COLLAB
       return builder.add(
-          llvm::ConstantExpr::getBitCast(rtti, CGM.TargetInt8PtrTy));
+          llvm::ConstantExpr::getBitCast(rtti, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
        return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
 #endif // INTEL_COLLAB
@@ -881,7 +881,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
     } else
 #if INTEL_COLLAB
       return builder.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-          fnPtr, CGM.TargetInt8PtrTy));
+          fnPtr, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
       return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
 #endif // INTEL_COLLAB
@@ -892,7 +892,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int32Ty));
     else
 #if INTEL_COLLAB
-      return builder.addNullPointer(CGM.TargetInt8PtrTy);
+      return builder.addNullPointer(CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
       return builder.addNullPointer(CGM.Int8PtrTy);
 #endif  // INTEL_COLLAB
