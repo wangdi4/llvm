@@ -4477,8 +4477,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
         // If types of step and trip count don't match, then an additional cast
         // is needed.
-        Type *StepType = Step->getSrcType();
-        if (TripCnt->getSrcType() != StepType) {
+        Type *StepType = Step->getDestType();
+        if (TripCnt->getDestType() != StepType) {
           auto *TCTyUndef = UndefValue::get(TripCnt->getDestType());
           Instruction::CastOps CastOp = CastInst::getCastOpcode(
               TCTyUndef, true /*SrcIsSigned*/, StepType, true /*DestIsSigned*/);

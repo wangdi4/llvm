@@ -18,13 +18,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; OPT-REPORT:        Global optimization report for : _Z4add1RiS_S_
 ; OPT-REPORT-EMPTY:
 ; OPT-REPORT-NEXT:   FUNCTION REPORT BEGIN
-; OPT-REPORT-NEXT:       remark: 'omp declare' vector variants with linear reference/uval()/val() or linear step passed as another argument were skipped as unsupported.
+; OPT-REPORT-NEXT:       remark: 'omp declare' vector variants with linear reference/val()/ or linear step passed as another argument were skipped as unsupported.
 ; OPT-REPORT-NEXT:   FUNCTION REPORT END
 ; OPT-REPORT-NEXT:   =================================================================
 
 ;; no vector variants to create
 ; VEC-CLONE-NOT: _ZGVb{{.*}}4L2v
-; VEC-CLONE-NOT: _ZGVb{{.*}}4U8v
 
 define double @_Z4add1RiS_S_(i32* align 4 dereferenceable(4) %a, i32* dereferenceable(4) %b) #0 {
 entry:

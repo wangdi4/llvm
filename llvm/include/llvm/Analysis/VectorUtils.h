@@ -194,6 +194,12 @@ struct VFParameter {
            ParamKind == VFParamKind::OMP_LinearRefPos;
   }
 
+  /// Is this a linear reference parameter with uval modifer?
+  bool isLinearUVal() const {
+    return ParamKind == VFParamKind::OMP_LinearUVal ||
+           ParamKind == VFParamKind::OMP_LinearUValPos;
+  }
+
   /// Is this a uniform parameter?
   bool isUniform() const { return ParamKind == VFParamKind::OMP_Uniform; }
 
@@ -214,13 +220,15 @@ struct VFParameter {
   /// the stride is stored in a variable but is uniform)
   bool isVariableStride() const {
     return ParamKind == VFParamKind::OMP_LinearPos ||
-           ParamKind == VFParamKind::OMP_LinearRefPos;
+           ParamKind == VFParamKind::OMP_LinearRefPos ||
+           ParamKind == VFParamKind::OMP_LinearUValPos;
   }
 
   /// Is the stride for a linear parameter a compile-time constant?
   bool isConstantStrideLinear() const {
     return ParamKind == VFParamKind::OMP_Linear ||
-           ParamKind == VFParamKind::OMP_LinearRef;
+           ParamKind == VFParamKind::OMP_LinearRef ||
+           ParamKind == VFParamKind::OMP_LinearUVal;
   }
 
   /// Is the stride for a linear variable non-unit stride?

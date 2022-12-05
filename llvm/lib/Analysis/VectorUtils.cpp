@@ -232,9 +232,11 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
     // differentiation has to come from whether or not the arg is associated
     // with private memory.
     //
-    // TODO: add scoring for linear reference parameters for val/uval modifiers.
+    // TODO: add scoring for linear reference parameters for val modifiers.
+    //
     if ((Callee[I].isLinear() && Caller[I].isLinear()) ||
-        (Callee[I].isLinearRef() && Caller[I].isLinearRef())) {
+        (Callee[I].isLinearRef() && Caller[I].isLinearRef()) ||
+        (Callee[I].isLinearUVal() && Caller[I].isLinearUVal())) {
       if (Callee[I].isConstantStrideLinear() && // Case #1
           Caller[I].isConstantStrideLinear() &&
           Callee[I].getStride() == Caller[I].getStride())
