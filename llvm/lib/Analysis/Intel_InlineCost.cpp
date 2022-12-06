@@ -140,6 +140,10 @@ static cl::opt<unsigned> DynAllocaMaxCharArraySize(
     "inlining-dyn-alloca-max-char-array-size", cl::init(4096), cl::ReallyHidden,
     cl::desc("Maximum size of char array which is dynamic alloca exception"));
 
+static cl::opt<bool> DynAllocaAdjustable(
+    "inlining-dyn-alloca-adjustable", cl::init(true), cl::ReallyHidden,
+    cl::desc("Allow inlining of functions with adjustable dynamic allocas"));
+
 //
 // Options controlling the recognition of a huge function
 //
@@ -782,6 +786,54 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     return false;
   };
 
+  // Return 'true' if 'I' represents a special Fortran adjustable array
+  // whose presence in a function entry block should not inhibit inlining.
+  auto IsSpecialFortranAdjustableArray = [](AllocaInst &I,
+                                            bool LinkForLTO) -> bool {
+    // Return 'true' if 'I' is a multiply or shift (multiply by power of 2).
+    auto MulVal = [](Instruction *I) -> User * {
+      if (auto LS = dyn_cast<LShrOperator>(I))
+        return LS;
+      if (auto BO = dyn_cast<BinaryOperator>(I))
+        if (BO->getOpcode() == Instruction::Mul)
+          return BO;
+      return nullptr;
+    };
+
+    // Return 'true' if 'I' is hoistable to its function's entry block.
+    auto IsHoistableToEntryBlock = [&MulVal](AllocaInst &I) -> bool {
+      BasicBlock &BB = I.getFunction()->getEntryBlock();
+      Value *V = I.getArraySize();
+      if (auto II = dyn_cast<Instruction>(V)) {
+        if (II->getParent() == &BB)
+          return true;
+        // The following special case can be generalized if this is
+        // found to be useful.
+        if (auto MO = MulVal(II))
+          if (auto IIL = dyn_cast<Instruction>(MO->getOperand(0)))
+            if (IIL->getParent() == &BB)
+              if (isa<ConstantInt>(MO->getOperand(1)))
+                return true;
+      }
+      return false;
+    };
+
+    Function *F = I.getFunction();
+    if (!DynAllocaAdjustable)
+      return false;
+    if (!(LinkForLTO || EnableLTOInlineCost))
+      return false;
+    if (!F->isFortran())
+      return false;
+    if (I.getParent() != &F->getEntryBlock() && !IsHoistableToEntryBlock(I))
+      return false;
+    // The following special case can be generalized if this is
+    // found to be useful.
+    if (!F->hasOneUser())
+      return false;
+    return true;
+  };
+
   // Return 'true' if 'I' is in a BasicBlock which will be an entry block after
   // OpenMP outlining. There should be no penalty for Allocas in such blocks.
   auto IsInFirstOMPOutlineBlock = [](AllocaInst &I) -> bool {
@@ -803,6 +855,11 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
 
   // CMPLRLLVM-21826: Ignore AllocaInsts that appear in an OMP_SIMD directive
   if (IsInOmpSimd(I))
+    return true;
+
+  // Ignore AllocaInsts from special Fortran adjustable arrays
+  bool LinkForLTO = Params.LinkForLTO.value_or(false);
+  if (IsSpecialFortranAdjustableArray(I, LinkForLTO))
     return true;
 
   // In Fortran, dynamic allocas can be used to represent local arrays
