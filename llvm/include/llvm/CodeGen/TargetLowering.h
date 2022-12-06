@@ -1634,17 +1634,12 @@ public:
   /// instance with i128 inline assembly operands on SystemZ.
   virtual unsigned
   getNumRegisters(LLVMContext &Context, EVT VT,
-<<<<<<< HEAD
-                  Optional<MVT> RegisterVT = None) const {
+                  std::optional<MVT> RegisterVT = std::nullopt) const {
 #if INTEL_CUSTOMIZATION
     // For non-power of 2 vector let target decide whether to use
     // getVectorTypeBreakdown or not.
     if (VT.isSimple() && !breakDownNonPow2VectorType(VT)) {
 #endif // INTEL_CUSTOMIZATION
-=======
-                  std::optional<MVT> RegisterVT = std::nullopt) const {
-    if (VT.isSimple()) {
->>>>>>> 864aaa21b4a6795057c2f461614dafbc0d0881db
       assert((unsigned)VT.getSimpleVT().SimpleTy <
              std::size(NumRegistersForVT));
       return NumRegistersForVT[VT.getSimpleVT().SimpleTy];
