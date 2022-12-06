@@ -855,15 +855,7 @@ bool HIRDeadStoreElimination::hasAllUsesWithinRegion(HLRegion &Region,
     return Iter->second;
   }
 
-  // We perform specific set of transformations for this region and dead store
-  // elimination happens in HIRCrossLoopArrayContraction. It is better to not do
-  // DSE here.
-  bool IsSpecificRegion = Region.isFunctionLevel() &&
-                          Region.getHLNodeUtils().getFunction().hasFnAttribute(
-                              "prefer-function-level-region");
-
-  if (IsSpecificRegion || !Region.containsAllUses(Alloca) ||
-      basePtrEscapesAnalysis(Ref)) {
+  if (!Region.containsAllUses(Alloca) || basePtrEscapesAnalysis(Ref)) {
     AllUsesInSingleRegion[Alloca] = false;
     return false;
   }
