@@ -1,6 +1,6 @@
 // Unsupported on AIX because we don't support the requisite "__clangast"
 // section in XCOFF yet.
-// UNSUPPORTED: aix
+// UNSUPPORTED: target={{.*}}-aix{{.*}}
 // Flaky on windows tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41521
 // UNSUPPORTED: windows
 
