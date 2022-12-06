@@ -69,7 +69,7 @@ entry:
 declare i32 @_Z20work_group_broadcastim(i32, i64) #1
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define void @addVectors(i32 addrspace(1)* %src, i32 addrspace(1)* %dst) #2 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_name !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !use_fpga_pipes !5 !kernel_has_sub_groups !5 !kernel_execution_length !13 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
+define void @addVectors(i32 addrspace(1)* %src, i32 addrspace(1)* %dst) #2 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_name !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !use_fpga_pipes !5 !kernel_has_sub_groups !5 !kernel_execution_length !13 !no_barrier_path !5 !kernel_has_global_sync !5 {
 entry:
   call void @dummy_barrier.()
   %src.addr = alloca i32 addrspace(1)*, align 8

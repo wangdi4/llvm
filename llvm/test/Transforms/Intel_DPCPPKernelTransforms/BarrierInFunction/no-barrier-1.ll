@@ -5,8 +5,8 @@
 ;; This test checks the BarrierInFunction pass
 ;; The case: kernel "main" with no barrier instruction
 ;; The expected result:
-;;      1. A call to @dummy_barrier.() at the begining of the kernel "main"
-;;      2. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
+;;      1. No call to @dummy_barrier.() at the begining of the kernel "main"
+;;      2. No call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -14,12 +14,12 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 target triple = "i686-pc-win32"
 ; CHECK: @main
-define void @main(i32 %x) nounwind {
+define void @main(i32 %x) nounwind !no_barrier_path !1 {
   %y = xor i32 %x, %x
   ret void
-; CHECK: @dummy_barrier.()
+; CHECK-NOT: @dummy_barrier.()
 ; CHECK: %y = xor i32 %x, %x
-; CHECK: @_Z18work_group_barrierj(i32 1)
+; CHECK-NOT: @_Z18work_group_barrierj(i32 1)
 ; CHECK: ret
 }
 
@@ -27,6 +27,6 @@ define void @main(i32 %x) nounwind {
 !opencl.disabled.FP_CONTRACT = !{}
 
 !0 = !{void (i32)* @main}
+!1 = !{i1 true}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummy_barrier.()
 ; DEBUGIFY-NOT: WARNING

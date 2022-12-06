@@ -490,11 +490,17 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   const bool HasNoBarrierPath = skimd.NoBarrierPath.get();
   const bool HasMatrixCall =
       skimd.HasMatrixCall.hasValue() && skimd.HasMatrixCall.get();
-  const unsigned int localBufferSize = skimd.LocalBufferSize.get();
-  const bool hasGlobalSync = skimd.KernelHasGlobalSync.get();
-  const size_t scalarExecutionLength = skimd.KernelExecutionLength.get();
-  const unsigned int scalarBufferStride = skimd.BarrierBufferSize.get();
-  unsigned int privateMemorySize = skimd.PrivateMemorySize.get();
+  const unsigned int localBufferSize =
+      skimd.LocalBufferSize.hasValue() ? skimd.LocalBufferSize.get() : 0;
+  const bool hasGlobalSync =
+      skimd.KernelHasGlobalSync.hasValue() && skimd.KernelHasGlobalSync.get();
+  const size_t scalarExecutionLength = skimd.KernelExecutionLength.hasValue()
+                                           ? skimd.KernelExecutionLength.get()
+                                           : 0;
+  const unsigned int scalarBufferStride =
+      skimd.BarrierBufferSize.hasValue() ? skimd.BarrierBufferSize.get() : 0;
+  unsigned int privateMemorySize =
+      skimd.PrivateMemorySize.hasValue() ? skimd.PrivateMemorySize.get() : 0;
   size_t VF =
       skimd.VectorizedWidth.hasValue() ? skimd.VectorizedWidth.get() : 1;
 
@@ -580,10 +586,14 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   }
 
   // set can unite WG and vectorization dimention
-  pProps->SetCanUniteWG(skimd.CanUniteWorkgroups.get());
-  pProps->SetVerctorizeOnDimention(skimd.VectorizationDimension.get());
+  pProps->SetCanUniteWG(skimd.CanUniteWorkgroups.hasValue() &&
+                        skimd.CanUniteWorkgroups.get());
+  pProps->SetVerctorizeOnDimention(skimd.VectorizationDimension.hasValue()
+                                       ? skimd.VectorizationDimension.get()
+                                       : 0);
 
-  pProps->SetSubGroupConstructionMode(skimd.SubGroupConstructionMode.get());
+  if (skimd.SubGroupConstructionMode.hasValue())
+    pProps->SetSubGroupConstructionMode(skimd.SubGroupConstructionMode.get());
 
   return pProps;
 }

@@ -47,7 +47,7 @@ target triple = "x86_64-pc-linux"
 @d = addrspace(2) constant i32 4, align 4, !dbg !10
 
 ; Function Attrs: convergent noinline nounwind
-define void @fourth_kernel() #0 !dbg !23 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !27 !kernel_has_barrier !26 !kernel_has_global_sync !26 {
+define void @fourth_kernel() #0 !dbg !23 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !27 !no_barrier_path !26 !kernel_has_global_sync !26 {
 ; CHECK-LABEL: @fourth_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
@@ -65,7 +65,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline nounwind
-define void @third_kernel() #0 !dbg !29 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !30 !kernel_has_barrier !26 !kernel_has_global_sync !26 {
+define void @third_kernel() #0 !dbg !29 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !30 !no_barrier_path !26 !kernel_has_global_sync !26 {
 ; CHECK-LABEL: @third_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
@@ -84,7 +84,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline nounwind
-define void @second_kernel() #0 !dbg !33 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !30 !kernel_has_barrier !26 !kernel_has_global_sync !26 {
+define void @second_kernel() #0 !dbg !33 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !30 !no_barrier_path !26 !kernel_has_global_sync !26 {
 ; CHECK-LABEL: @second_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
@@ -103,7 +103,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline nounwind
-define void @main_kernel(i8 addrspace(1)* %buf_in, i8 addrspace(1)* %buf_out) #0 !dbg !36 !kernel_arg_addr_space !40 !kernel_arg_access_qual !41 !kernel_arg_type !42 !kernel_arg_base_type !42 !kernel_arg_type_qual !43 !kernel_arg_host_accessible !44 !kernel_arg_pipe_depth !45 !kernel_arg_pipe_io !43 !kernel_arg_buffer_location !43 !kernel_arg_name !46 !use_fpga_pipes !26 !kernel_execution_length !47 !kernel_has_barrier !26 !kernel_has_global_sync !26 {
+define void @main_kernel(i8 addrspace(1)* %buf_in, i8 addrspace(1)* %buf_out) #0 !dbg !36 !kernel_arg_addr_space !40 !kernel_arg_access_qual !41 !kernel_arg_type !42 !kernel_arg_base_type !42 !kernel_arg_type_qual !43 !kernel_arg_host_accessible !44 !kernel_arg_pipe_depth !45 !kernel_arg_pipe_io !43 !kernel_arg_buffer_location !43 !kernel_arg_name !46 !use_fpga_pipes !26 !kernel_execution_length !47 !no_barrier_path !26 !kernel_has_global_sync !26 {
 ; CHECK-LABEL: @main_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
