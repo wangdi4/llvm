@@ -1,8 +1,12 @@
 // Unsupported on AIX because we don't support the requisite "__clangast"
 // section in XCOFF yet.
+<<<<<<< HEAD
 // UNSUPPORTED: aix
 // Flaky on windows tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41521
 // UNSUPPORTED: windows
+=======
+// UNSUPPORTED: target={{.*}}-aix{{.*}}
+>>>>>>> 178fc194ffff25c3ac18450886433f704a9d15ec
 
 // This test checks that the dependency scanner can handle larger amount of
 // explicitly built modules retrieved from the PCH.
