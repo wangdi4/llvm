@@ -67,6 +67,7 @@
 #include "llvm/Transforms/Utils/CallGraphUpdater.h"
 
 #include <algorithm>
+#include <optional>
 
 using namespace llvm;
 using namespace omp;
@@ -1525,7 +1526,7 @@ private:
               continue;
 
             auto IsPotentiallyAffectedByBarrier =
-                [](Optional<MemoryLocation> Loc) {
+                [](std::optional<MemoryLocation> Loc) {
                   const Value *Obj = (Loc && Loc->Ptr)
                                          ? getUnderlyingObject(Loc->Ptr)
                                          : nullptr;
@@ -1555,11 +1556,12 @@ private:
                 };
 
             if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(I)) {
-              Optional<MemoryLocation> Loc = MemoryLocation::getForDest(MI);
+              std::optional<MemoryLocation> Loc =
+                  MemoryLocation::getForDest(MI);
               if (IsPotentiallyAffectedByBarrier(Loc))
                 return false;
               if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
-                Optional<MemoryLocation> Loc =
+                std::optional<MemoryLocation> Loc =
                     MemoryLocation::getForSource(MTI);
                 if (IsPotentiallyAffectedByBarrier(Loc))
                   return false;
@@ -1571,7 +1573,7 @@ private:
               if (LI->hasMetadata(LLVMContext::MD_invariant_load))
                 continue;
 
-            Optional<MemoryLocation> Loc = MemoryLocation::getOrNone(I);
+            std::optional<MemoryLocation> Loc = MemoryLocation::getOrNone(I);
             if (IsPotentiallyAffectedByBarrier(Loc))
               return false;
           }

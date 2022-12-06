@@ -4975,7 +4975,7 @@ bool X86AsmParser::parseDirectiveSEHPushReg(SMLoc Loc) {
     return true;
 
   if (getLexer().isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in directive");
+    return TokError("expected end of directive");
 
   getParser().Lex();
   getStreamer().emitWinCFIPushReg(Reg, Loc);
@@ -4995,7 +4995,7 @@ bool X86AsmParser::parseDirectiveSEHSetFrame(SMLoc Loc) {
     return true;
 
   if (getLexer().isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in directive");
+    return TokError("expected end of directive");
 
   getParser().Lex();
   getStreamer().emitWinCFISetFrame(Reg, Off, Loc);
@@ -5015,7 +5015,7 @@ bool X86AsmParser::parseDirectiveSEHSaveReg(SMLoc Loc) {
     return true;
 
   if (getLexer().isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in directive");
+    return TokError("expected end of directive");
 
   getParser().Lex();
   getStreamer().emitWinCFISaveReg(Reg, Off, Loc);
@@ -5035,7 +5035,7 @@ bool X86AsmParser::parseDirectiveSEHSaveXMM(SMLoc Loc) {
     return true;
 
   if (getLexer().isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in directive");
+    return TokError("expected end of directive");
 
   getParser().Lex();
   getStreamer().emitWinCFISaveXMM(Reg, Off, Loc);
@@ -5056,7 +5056,7 @@ bool X86AsmParser::parseDirectiveSEHPushFrame(SMLoc Loc) {
   }
 
   if (getLexer().isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in directive");
+    return TokError("expected end of directive");
 
   getParser().Lex();
   getStreamer().emitWinCFIPushFrame(Code, Loc);
