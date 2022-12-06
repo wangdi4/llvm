@@ -1559,17 +1559,10 @@ bool X86TTIImpl::isVPlanVLSProfitable() const {
 }
 
 bool X86TTIImpl::isAggressiveVLSProfitable() const {
-  // Old processors without support for GATHER/SCATTER instructions always
-  // benefit from the optimization.
-  if (!ST->hasAVX2())
-    return true;
-
-  // We know that it is safe to run VLS aggressively when tuning for IA.
-  if (getTLI()->getTargetMachine().Options.IntelAdvancedOptim)
-    return true;
-
-  // Be conservative otherwise.
-  return false;
+  // CMPLRLLVM-39697, CMPLRLLVM-40145: Modern AMD EPYC CPU measurements show
+  // that aggressive VLS also benefit them, so no reason to disable it if it
+  // benefit old and new non Intel CPUs
+  return true;
 }
 
 bool X86TTIImpl::targetMatchesVariantISA(
