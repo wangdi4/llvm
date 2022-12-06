@@ -16,6 +16,8 @@
 #include "VectorizerCommon.h"
 #include "exceptions.h"
 
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 

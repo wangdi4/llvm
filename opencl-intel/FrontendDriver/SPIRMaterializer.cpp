@@ -24,6 +24,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"

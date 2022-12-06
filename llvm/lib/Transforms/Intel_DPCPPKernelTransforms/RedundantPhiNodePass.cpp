@@ -12,6 +12,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 using namespace llvm;

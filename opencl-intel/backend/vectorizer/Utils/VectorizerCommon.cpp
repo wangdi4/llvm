@@ -12,6 +12,7 @@
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 
 extern cl::opt<llvm::VFISAKind> IsaEncodingOverride;
