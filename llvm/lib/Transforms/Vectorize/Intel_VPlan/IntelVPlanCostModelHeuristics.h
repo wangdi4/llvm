@@ -168,7 +168,8 @@ class HeuristicSpillFill : public HeuristicBase {
   using LiveValuesTy = DenseMap<const VPInstruction*, int>;
   VPInstructionCost operator()(const VPBasicBlock *VPBB,
                                LiveValuesTy &LiveValues,
-                               bool VectorRegsPressure) const;
+                               bool SSERegsPressure) const;
+
 public:
   HeuristicSpillFill(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Spill/Fill") {};
