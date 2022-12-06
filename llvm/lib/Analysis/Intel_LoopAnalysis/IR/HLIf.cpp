@@ -59,7 +59,7 @@ HLIf::HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
 HLIf::HLIf(const HLIf &HLIfObj)
     : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates),
       UnswitchDisabled(HLIfObj.UnswitchDisabled),
-      BranchDbgLoc(HLIfObj.BranchDbgLoc) {
+      BranchDbgLoc(HLIfObj.BranchDbgLoc), MVTag(HLIfObj.MVTag) {
   const RegDDRef *Ref;
   ElseBegin = Children.end();
   initialize();

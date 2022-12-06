@@ -38,12 +38,33 @@
 ; CHECK: |      |   %5 = (%n)[0][-1 * i1 + 4 * i2 + 61];
 ; CHECK: |      |   %add21136 = -1 * i1 + 4 * i2 + %5 + 61  +  %add21136;
 ; CHECK: |      + END LOOP
-; CHECK: |      + DO i2 = 4 * %tgu, zext.i32.i64((49 + (-1 * trunc.i64.i32(%indvars.iv169)))), 1   <DO_LOOP>  <MAX_TC_EST = 3>
-; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK: |      |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %4;
-; CHECK: |      |   %5 = (%n)[0][-1 * i1 + i2 + 58];
-; CHECK: |      |   %add21136 = -1 * i1 + i2 + %5 + 58  +  %add21136;
-; CHECK: |      + END LOOP
+;        |
+; CHECK: |      switch(zext.i32.i64((49 + (-1 * trunc.i64.i32(%indvars.iv169)))) + -4 * %tgu)
+; CHECK: |      {
+; CHECK: |      case 2:
+;        |         L2.72:
+;        |         %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+;        |         (%ti)[0][-1 * i1 + 4 * %tgu + 60][-1 * i1 + 4 * %tgu + 60] = %4;
+;        |         %5 = (%n)[0][-1 * i1 + 4 * %tgu + 60];
+;        |         %add21136 = -1 * i1 + %5 + (4 * trunc.i64.i32(%tgu)) + 60  +  %add21136;
+;        |         goto L1.77;
+; CHECK: |      case 1:
+;        |         L1.77:
+;        |         %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+;        |         (%ti)[0][-1 * i1 + 4 * %tgu + 59][-1 * i1 + 4 * %tgu + 59] = %4;
+;        |         %5 = (%n)[0][-1 * i1 + 4 * %tgu + 59];
+;        |         %add21136 = -1 * i1 + %5 + (4 * trunc.i64.i32(%tgu)) + 59  +  %add21136;
+;        |         goto L0.83;
+; CHECK: |      case 0:
+;        |         L0.83:
+;        |         %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+;        |         (%ti)[0][-1 * i1 + 4 * %tgu + 58][-1 * i1 + 4 * %tgu + 58] = %4;
+;        |         %5 = (%n)[0][-1 * i1 + 4 * %tgu + 58];
+;        |         %add21136 = -1 * i1 + %5 + (4 * trunc.i64.i32(%tgu)) + 58  +  %add21136;
+;        |         break;
+; CHECK: |      default:
+;        |         break;
+; CHECK: |      }
 ; CHECK: |      (%fs)[0] = %add21136;
 
 
