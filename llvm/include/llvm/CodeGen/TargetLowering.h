@@ -1096,9 +1096,9 @@ public:
     // value representing memory location
     PointerUnion<const Value *, const PseudoSourceValue *> ptrVal;
 
-    // Fallback address space for use if ptrVal is nullptr. None means unknown
-    // address space.
-    Optional<unsigned> fallbackAddressSpace;
+    // Fallback address space for use if ptrVal is nullptr. std::nullopt means
+    // unknown address space.
+    std::optional<unsigned> fallbackAddressSpace;
 
     int          offset = 0;       // offset off of ptrVal
     uint64_t     size = 0;         // the size of the memory location
@@ -1634,7 +1634,7 @@ public:
   /// instance with i128 inline assembly operands on SystemZ.
   virtual unsigned
   getNumRegisters(LLVMContext &Context, EVT VT,
-                  Optional<MVT> RegisterVT = None) const {
+                  std::optional<MVT> RegisterVT = std::nullopt) const {
 #if INTEL_CUSTOMIZATION
     // For non-power of 2 vector let target decide whether to use
     // getVectorTypeBreakdown or not.
@@ -4158,10 +4158,9 @@ public:
 
   /// Target-specific splitting of values into parts that fit a register
   /// storing a legal type
-  virtual bool splitValueIntoRegisterParts(SelectionDAG &DAG, const SDLoc &DL,
-                                           SDValue Val, SDValue *Parts,
-                                           unsigned NumParts, MVT PartVT,
-                                           Optional<CallingConv::ID> CC) const {
+  virtual bool splitValueIntoRegisterParts(
+      SelectionDAG & DAG, const SDLoc &DL, SDValue Val, SDValue *Parts,
+      unsigned NumParts, MVT PartVT, std::optional<CallingConv::ID> CC) const {
     return false;
   }
 
@@ -4187,7 +4186,7 @@ public:
   joinRegisterPartsIntoValue(SelectionDAG &DAG, const SDLoc &DL,
                              const SDValue *Parts, unsigned NumParts,
                              MVT PartVT, EVT ValueVT,
-                             Optional<CallingConv::ID> CC) const {
+                             std::optional<CallingConv::ID> CC) const {
     return SDValue();
   }
 
