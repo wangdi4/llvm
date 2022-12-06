@@ -218,15 +218,11 @@ public:
   virtual void Print(llvm::raw_ostream &OS, const char *Terminator, bool Quote,
                      CrashReportInfo *CrashInfo = nullptr) const;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual void PrintArgsFile(raw_ostream &OS, bool Quote) const;
 #endif // INTEL_CUSTOMIZATION
 
-  virtual int Execute(ArrayRef<Optional<StringRef>> Redirects,
-=======
   virtual int Execute(ArrayRef<std::optional<StringRef>> Redirects,
->>>>>>> 9aa0277b75d8a1a3d21dbf03e9bb50e8a2d108bb
                       std::string *ErrMsg, bool *ExecutionFailed) const;
 
   /// Store a custom driver diagnostic message upon a particular error code

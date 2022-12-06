@@ -1975,7 +1975,7 @@ void LinkerDriver::doGNULTOLinking(
     StringRef(linkerOutputCmd).split(newArgs," ");
 
     // Only write stderr
-    Optional<StringRef> redirects[3];
+    std::optional<StringRef> redirects[3];
     redirects[0] = None;
     redirects[1] = None;
     redirects[2] = gccOutMessage.str();
