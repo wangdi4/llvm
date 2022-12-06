@@ -22,7 +22,7 @@ entry:
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent mustprogress nofree norecurse nounwind willreturn writeonly
-define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* nocapture writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 !no_barrier_path !10 !kernel_has_sub_groups !8 !vectorized_width !16 !recommended_vector_length !16 !scalar_kernel !2 {
+define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* nocapture writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 !no_barrier_path !10 !kernel_has_sub_groups !8 !vectorized_width !16 !recommended_vector_length !16 !scalar_kernel !2 !vectorization_dimension !9 !can_unite_workgroups !8 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %sext = shl i64 %call, 32

@@ -324,6 +324,7 @@ public:
 
   value_type get() const {
     load();
+    assert(m_value.hasValue() && "value doesn't exist");
     return static_cast<value_type>(m_value.get());
   }
 

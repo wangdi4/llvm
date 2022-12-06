@@ -27,7 +27,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define void @main_kernel() #1 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 !kernel_arg_name !1 !kernel_execution_length !5 !kernel_has_barrier !6 !kernel_has_global_sync !6 {
+define void @main_kernel() #1 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 !kernel_arg_name !1 !kernel_execution_length !5 !no_barrier_path !6 !kernel_has_global_sync !6 {
 entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %g.addr = alloca i32*

@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #0 {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #0 !recommended_vector_length !3 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i64 0) #3
   %arrayidx = getelementptr inbounds i32, i32* %in, i64 %call
@@ -20,7 +20,7 @@ entry:
 
 declare dso_local i64 @_Z12get_local_idj(i64)
 
-define dso_local void @_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #1 {
+define dso_local void @_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #1 !recommended_vector_length !3 {
 entry:
   %alloca.in = alloca i32*
   store i32* %in, i32** %alloca.in
@@ -79,5 +79,6 @@ attributes #1 = { "recommended-vector-length"="16" "prefer-vector-width"="512" "
 
 !sycl.kernels = !{!2}
 !2 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}
+!3 = !{i32 16}
 
 ; DEBUGIFY-NOT: WARNING

@@ -5,7 +5,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @build_hash_table() #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_name !2 {
+define void @build_hash_table() #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_name !2 !no_barrier_path !11 {
 entry:
   %done = alloca i1, align 1
   call void @llvm.lifetime.start.p0i8(i64 1, i1* %done) #3
@@ -72,6 +72,7 @@ attributes #4 = { convergent }
 !8 = !{!"omnipotent char", !9, i64 0}
 !9 = !{!"Simple C/C++ TBAA"}
 !10 = !{i1 0, i1 1}
+!11 = !{i1 false}
 
 ; CHECK: %done = alloca i1, align 1
 

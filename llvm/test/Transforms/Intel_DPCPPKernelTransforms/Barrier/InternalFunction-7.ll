@@ -19,7 +19,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 ; CHECK: @main
-define void @main() nounwind {
+define void @main() nounwind !no_barrier_path !1 {
 L1:
   call void @dummy_barrier.()
   %x = alloca i32
@@ -82,6 +82,7 @@ declare void @dummy_barrier.()
 !sycl.kernels = !{!0}
 
 !0 = !{void ()* @main}
+!1 = !{i1 false}
 
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrBarrier = alloca i32, align 4

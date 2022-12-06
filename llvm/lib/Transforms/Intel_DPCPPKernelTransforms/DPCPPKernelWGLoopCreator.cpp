@@ -314,8 +314,12 @@ bool WGLoopCreatorImpl::run() {
 
     unsigned VectWidth = 0;
     // Get the vectorized function
-    Function *VectKernel = KIMD.VectorizedKernel.get();
-    Function *MaskedKernel = KIMD.VectorizedMaskedKernel.get();
+    Function *VectKernel = KIMD.VectorizedKernel.hasValue()
+                               ? KIMD.VectorizedKernel.get()
+                               : nullptr;
+    Function *MaskedKernel = KIMD.VectorizedMaskedKernel.hasValue()
+                                 ? KIMD.VectorizedMaskedKernel.get()
+                                 : nullptr;
     // Need to check if vectorized kernel exists, it is not guaranteed that
     // vectorizer is running in all scenarios.
     Function *VectOrMaskedKernel = VectKernel     ? VectKernel
