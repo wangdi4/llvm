@@ -15,6 +15,7 @@
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBufferAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"

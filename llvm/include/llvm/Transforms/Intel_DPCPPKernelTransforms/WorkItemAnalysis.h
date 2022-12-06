@@ -11,6 +11,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WORKITEM_ANALYSIS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WORKITEM_ANALYSIS_H
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/PassManager.h"
 #include <map>
 #include <queue>

@@ -11,9 +11,11 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGFunctionWiden.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-sg-emu-function-widen"
