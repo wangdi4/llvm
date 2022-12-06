@@ -407,6 +407,12 @@ class DDTest {
   void refineAAIndep(Dependences &Result, const RegDDRef *SrcRegDDRef,
                      const RegDDRef *DstRegDDRef);
 
+  /// Refine DV for refs that could not be delinearized. If difference between
+  /// refs is not more than 1, then we can refine the DV.
+  bool refineLinearizedMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
+                               Dependences &Result, const RegDDRef *SrcRegDDRef,
+                               const RegDDRef *DstRegDDRef);
+
   /// When IVDEP directive is present for a level, DV can be adjusted
   /// SameBase indicates if the base pointer of src/dst DD_REF are the same
   /// Returns true IVDEP is hit
@@ -741,7 +747,8 @@ class DDTest {
   bool testMIV(const CanonExpr *Src, const CanonExpr *Dst,
                const DirectionVector &InputDV, const SmallBitVector &Loops,
                Dependences &Result, const HLLoop *SrcParentLoop,
-               const HLLoop *DstParentLoop);
+               const HLLoop *DstParentLoop, const RegDDRef *SrcRegDDRef,
+               const RegDDRef *DstRegDDRef);
 
   /// strongSIVtest - Tests the strong SIV subscript pair (Src and Dst)
   /// for dependence.
