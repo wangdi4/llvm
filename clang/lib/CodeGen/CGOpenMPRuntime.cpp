@@ -1999,7 +1999,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
             llvm::PointerType::getWithSamePointeeType(
                 cast<llvm::PointerType>(Addr->getType()),
                 CGM.getLangOpts().OpenMPLateOutline
-                    ? CGM.getContext().getTargetAddressSpace(VD->getType())
+                    ? CGM.getTypes().getTargetAddressSpace(VD->getType())
                     : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
@@ -2074,7 +2074,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
             llvm::PointerType::getWithSamePointeeType(
                 cast<llvm::PointerType>(Addr->getType()),
                 CGM.getLangOpts().OpenMPLateOutline
-                    ? CGM.getContext().getTargetAddressSpace(VD->getType())
+                    ? CGM.getTypes().getTargetAddressSpace(VD->getType())
                     : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(

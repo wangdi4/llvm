@@ -4032,7 +4032,7 @@ ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
   // See if there is already something with the target's name in the module.
   llvm::GlobalValue *Entry = GetGlobalValue(AA->getAliasee());
   if (Entry) {
-    unsigned AS = getContext().getTargetAddressSpace(VD->getType());
+    unsigned AS = getTypes().getTargetAddressSpace(VD->getType());
     auto Ptr = llvm::ConstantExpr::getBitCast(Entry, DeclTy->getPointerTo(AS));
     return ConstantAddress(Ptr, DeclTy, Alignment);
   }
@@ -4667,7 +4667,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
 #endif // INTEL_CUSTOMIZATION
     ResolverType = llvm::FunctionType::get(
         llvm::PointerType::get(DeclTy,
-                               Context.getTargetAddressSpace(FD->getType())),
+                               getTypes().getTargetAddressSpace(FD->getType())),
         false);
   }
   else {
@@ -4844,8 +4844,8 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(GlobalDecl GD) {
         (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion()))) {
 #endif // INTEL_CUSTOMIZATION
     llvm::Type *ResolverType = llvm::FunctionType::get(
-        llvm::PointerType::get(
-            DeclTy, getContext().getTargetAddressSpace(FD->getType())),
+        llvm::PointerType::get(DeclTy,
+                               getTypes().getTargetAddressSpace(FD->getType())),
         false);
     llvm::Constant *Resolver = GetOrCreateLLVMFunction(
         MangledName + ".resolver", ResolverType, GlobalDecl{},
@@ -5910,7 +5910,7 @@ void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
                    *LineNoCst = EmitAnnotationLineNo(VD->getLocation());
 
     llvm::Constant *C;
-    if (getContext().getTargetAddressSpace(VD->getType()) != 0)
+    if (getTypes().getTargetAddressSpace(VD->getType()) != 0)
       C = llvm::ConstantExpr::getAddrSpaceCast(GV, Int8PtrTy);
     else
       C = llvm::ConstantExpr::getBitCast(GV, Int8PtrTy);
