@@ -199,7 +199,9 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     OS << "Kernel <" << FuncName << ">:\n";
     OS.indent(2) << "NoBarrierPath=" << KIMD.NoBarrierPath.get() << "\n";
-    OS.indent(2) << "KernelHasMatrixCall=" << KIMD.HasMatrixCall.get() << "\n";
+    if (KIMD.HasMatrixCall.hasValue())
+      OS.indent(2) << "KernelHasMatrixCall=" << KIMD.HasMatrixCall.get()
+                   << "\n";
     OS.indent(2) << "KernelHasSubgroups=" << KIMD.KernelHasSubgroups.get()
                  << "\n";
     OS.indent(2) << "KernelHasGlobalSync=" << KIMD.KernelHasGlobalSync.get()

@@ -49,7 +49,7 @@ TEST_F(MetadataTest, Test_GetRecursiveCallMetadataFromNoMetadataFunction) {
 
   FunctionMetadataAPI mdApi(pModule->getFunction("metatest_plain_func"));
 
-  EXPECT_FALSE(mdApi.RecursiveCall.get());
+  EXPECT_FALSE(mdApi.RecursiveCall.hasValue() && mdApi.RecursiveCall.get());
 }
 
 /// kernel_arg_base_type

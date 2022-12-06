@@ -30,7 +30,7 @@ using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-PlatformModule *volatile Device::m_pPlatformModule = nullptr;
+PlatformModule *Device::m_pPlatformModule = nullptr;
 
 Device::Device(_cl_platform_id_int *platform)
     : FissionableDevice(platform), m_bFrontEndCompilerDone(false),

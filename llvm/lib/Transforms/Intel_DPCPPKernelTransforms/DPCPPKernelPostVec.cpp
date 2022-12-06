@@ -49,8 +49,11 @@ static void removeRecommendedVLMetadata(Function *F) {
 static bool rebindVectorizedKernel(Function *F) {
   bool Changed = false;
   auto FMD = KernelInternalMetadataAPI(F);
-  Function *ClonedKernel = FMD.VectorizedKernel.get();
-  Function *MaskedKernel = FMD.VectorizedMaskedKernel.get();
+  Function *ClonedKernel =
+      FMD.VectorizedKernel.hasValue() ? FMD.VectorizedKernel.get() : nullptr;
+  Function *MaskedKernel = FMD.VectorizedMaskedKernel.hasValue()
+                               ? FMD.VectorizedMaskedKernel.get()
+                               : nullptr;
   // Vectorized kernel already binded.
   if (ClonedKernel || MaskedKernel)
     return Changed;
@@ -115,10 +118,12 @@ bool DPCPPKernelPostVecPass::runImpl(Module &M) {
       Changed = true;
     };
     auto FMD = KernelInternalMetadataAPI(F);
-    RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
-                             FMD.VectorizedKernel.getID());
-    RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
-                             FMD.VectorizedMaskedKernel.getID());
+    if (FMD.VectorizedKernel.hasValue())
+      RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
+                               FMD.VectorizedKernel.getID());
+    if (FMD.VectorizedMaskedKernel.hasValue())
+      RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
+                               FMD.VectorizedMaskedKernel.getID());
   }
 
   return Changed;

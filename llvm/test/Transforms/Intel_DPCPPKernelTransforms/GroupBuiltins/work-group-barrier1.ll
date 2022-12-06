@@ -21,7 +21,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: nounwind
-define spir_kernel void @build_hash_table() #0 {
+define spir_kernel void @build_hash_table() #0 !no_barrier_path !1 {
 entry:
   %done = alloca i32, align 4
   store i32 0, i32* %done, align 4
@@ -60,6 +60,7 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !llvm.ident = !{!9}
 
 !0 = !{void ()* @build_hash_table}
+!1 = !{i1 false}
 !6 = !{i32 1, i32 2}
 !7 = !{i32 2, i32 0}
 !8 = !{}

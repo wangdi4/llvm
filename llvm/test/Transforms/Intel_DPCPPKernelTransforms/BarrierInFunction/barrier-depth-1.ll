@@ -19,7 +19,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 target triple = "i686-pc-win32"
 ; CHECK: @main
-define void @main(i32 %x) nounwind {
+define void @main(i32 %x) nounwind !no_barrier_path !1 {
   %y = xor i32 %x, %x
   call void @foo(i32 %x)
   ret void
@@ -50,6 +50,7 @@ declare void @_Z18work_group_barrierj(i32)
 !opencl.disabled.FP_CONTRACT = !{}
 
 !0 = !{void (i32)* @main}
+!1 = !{i1 false}
 
 ; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function main -- call void @dummy_barrier.()
 ; DEBUGIFY-COUNT-1: WARNING: Instruction with empty DebugLoc in function foo -- call void @dummy_barrier.()

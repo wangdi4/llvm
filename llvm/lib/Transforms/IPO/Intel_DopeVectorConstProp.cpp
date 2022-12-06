@@ -46,6 +46,10 @@ static cl::opt<bool> DVGlobalConstProp("dope-vector-global-const-prop",
 static cl::opt<bool> DVLocalConstProp("dope-vector-local-const-prop",
                                       cl::init(true), cl::ReallyHidden);
 
+// Enable the early local dope vector constant propagation
+static cl::opt<bool> EarlyDVLocalConstProp("early-dope-vector-local-const-prop",
+                                           cl::init(false), cl::ReallyHidden);
+
 #if INTEL_FEATURE_SW_ADVANCED
 // Lowest number of call instructions with the attribute
 // "prefer-inline-tile-choice" in a function.
@@ -952,7 +956,7 @@ PreservedAnalyses DopeVectorConstPropPass::run(Module &M,
 PreservedAnalyses DopeVectorConstPropPass::run(Function &F,
                                                FunctionAnalysisManager &AM) {
   bool Changed = false;
-  if (DVLocalConstProp && !F.isDeclaration() && F.isFortran()) {
+  if (EarlyDVLocalConstProp && !F.isDeclaration() && F.isFortran()) {
     const DataLayout &DL = F.getParent()->getDataLayout();
     const auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
     const auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);

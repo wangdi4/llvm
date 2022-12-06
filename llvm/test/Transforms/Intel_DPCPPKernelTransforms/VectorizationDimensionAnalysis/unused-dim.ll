@@ -1,4 +1,4 @@
-; RUN: opt -passes='print<dpcpp-kernel-vec-dim-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='dpcpp-kernel-analysis,print<dpcpp-kernel-vec-dim-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ; The test checks that vec dim won't be set to 1 or 2 even if there is
 ; get_global_id(1 or 2) but it's not used.

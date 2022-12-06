@@ -1,3 +1,4 @@
+; XFAIL: *
 ; REQUIRES: asserts
 ; RUN: opt < %s -opaque-pointers -disable-output -passes=localdvprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
