@@ -123,6 +123,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), HasSignedIV(HLLoopObj.HasSignedIV),
+      MVTag(HLLoopObj.MVTag),
+      MVDelinearizableBlobIndices(HLLoopObj.MVDelinearizableBlobIndices),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),

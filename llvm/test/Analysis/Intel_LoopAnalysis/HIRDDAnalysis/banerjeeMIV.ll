@@ -8,8 +8,8 @@
 ;    END LOOP
 ;
 ; REQUIRES: asserts
-; RUN: opt -tbaa -scoped-noalias-aa -hir-ssa-deconstruction  -analyze -enable-new-pm=0 -hir-temp-cleanup -hir-vec-dir-insert  -S -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="tbaa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert"  -S -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s
+; RUN: opt -tbaa -scoped-noalias-aa -hir-ssa-deconstruction  -analyze -enable-new-pm=0 -hir-temp-cleanup -hir-vec-dir-insert -hir-dd-test-skip-lin-refs-test -S -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="tbaa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert" -hir-dd-test-skip-lin-refs-test -S -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s
 ;
 ; CHECK-DAG: (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] --> (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] FLOW (* * *)
 ; CHECK:    (= = =)
