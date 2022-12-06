@@ -1622,7 +1622,7 @@ bool ToolChain::detectGCCPIEDefault() const {
   llvm::SmallString<64> OutputFile(
       getDriver().GetTemporaryPath("gcc-enable-pie", "txt"));
   llvm::FileRemover OutputRemover(OutputFile.c_str());
-  llvm::Optional<llvm::StringRef> Redirects[] = {
+  std::optional<llvm::StringRef> Redirects[] = {
       {""},
       OutputFile.str(),
       OutputFile.str(),
