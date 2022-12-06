@@ -757,6 +757,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
     setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 2, SVAKind::Vector);
     return true;
   }
   case VPInstruction::ExpandLoad: {
@@ -769,6 +770,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForReturnValue(Inst, SVAKind::Vector);
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
     return true;
   }
   case VPInstruction::CompressExpandIndexInit: {
