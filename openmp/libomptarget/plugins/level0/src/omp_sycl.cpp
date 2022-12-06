@@ -129,22 +129,25 @@ EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop) {
   TgtInterop->FrName = GETNAME(sycl);
 
   DP("Created sycl wrapper " DPxMOD " for interop " DPxMOD "\n",
-     DPxPTR(interop), DPxPTR(SyclWrapperObj));
+     DPxPTR(SyclWrapperObj), DPxPTR(interop));
 }
 
-EXTERN void __tgt_sycl_delete_interop_wrapper(omp_interop_t interop) {
-  for (auto obj : SyclWrappers)
-    if (obj->interop == interop) {
-      delete obj;
-      DP("Deleted sycl wrapper for interop " DPxMOD "\n", DPxPTR(interop));
+EXTERN void __tgt_sycl_delete_interop_wrapper(omp_interop_t Interop) {
+  for (auto Itr = SyclWrappers.begin(), End = SyclWrappers.end(); Itr != End;
+       ++Itr)
+    if ((*Itr)->interop == Interop) {
+      delete *Itr;
+      SyclWrappers.erase(Itr);
+      DP("Deleted sycl wrapper for interop " DPxMOD "\n", DPxPTR(Interop));
       return;
     }
-  DP("ERROR: Could not find sycl wrapper " DPxMOD "\n", DPxPTR(interop));
+  DP("ERROR: Could not find sycl wrapper " DPxMOD "\n", DPxPTR(Interop));
 }
 
 EXTERN void __tgt_sycl_delete_all_interop_wrapper() {
-  for (auto obj : SyclWrappers)
-    delete obj;
+  for (auto *Wrapper : SyclWrappers)
+    delete Wrapper;
+  SyclWrappers.clear();
 }
 
 EXTERN int32_t __tgt_sycl_flush_queue_wrapper(omp_interop_t interop) {
