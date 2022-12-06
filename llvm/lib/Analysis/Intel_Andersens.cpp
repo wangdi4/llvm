@@ -320,13 +320,11 @@ static const char *(Andersens_Store_Arg_0_in_Arg_1_Intrinsics[]) = {
 // Note realloc, memcpy etc are in multiple tables.
 //
 static const char *(Andersens_Return_Arg_0_Intrinsics[]) = {
-  "realloc", "memset", "strchr", "strrchr", "strstr",
-  "strtok", "fgets", "gets", "strcat",  "strcpy", "strncpy", 
-  "memchr", "memrchr", "rawmemchr", "strtok_r", "strsep", "strpbrk",
-  "strncat", "memmem", "strcasestr", "memccpy", "memcpy", "mempcpy",
-  "memmove", "strfry", "strupr", "gets_s",
-  nullptr
-};
+    "realloc", "memset",     "strchr",    "strrchr", "strstr",
+    "fgets",   "gets",       "strcat",    "strcpy",  "strncpy",
+    "memchr",  "memrchr",    "rawmemchr", "strpbrk", "strncat",
+    "memmem",  "strcasestr", "memccpy",   "memcpy",  "mempcpy",
+    "memmove", "strfry",     "strupr",    "gets_s",  nullptr};
 
 // TODO: Need to add intrinsics like below:
 //       operator new(std::size_t, void *)
