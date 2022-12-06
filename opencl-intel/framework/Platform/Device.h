@@ -442,7 +442,7 @@ private:
   cl_context_properties m_hHDC;
 
   // cache for platform module pointer
-  static PlatformModule *volatile m_pPlatformModule;
+  static PlatformModule *m_pPlatformModule;
 };
 
 class SubDevice : public FissionableDevice {
