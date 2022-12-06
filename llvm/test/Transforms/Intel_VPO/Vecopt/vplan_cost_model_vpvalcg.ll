@@ -2539,10 +2539,11 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  [[BB2]]: base cost: 61
+; VPLAN-CM-VF4-NEXT:  Block Scalar spill/fill approximate cost (not included into base cost): 12
 ; VPLAN-CM-VF4-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 8
 ; VPLAN-CM-VF4-NEXT:  Base Cost: 61
-; VPLAN-CM-VF4-NEXT:  Extra cost due to Spill/Fill heuristic is 8
-; VPLAN-CM-VF4-NEXT:  Total Cost: 69
+; VPLAN-CM-VF4-NEXT:  Extra cost due to Spill/Fill heuristic is 20
+; VPLAN-CM-VF4-NEXT:  Total Cost: 81
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 3
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -2606,11 +2607,12 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP5]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  [[BB2]]: base cost: 66
 ; VPLAN-HIR-CM-VF4-NEXT:  Block total cost includes GS Cost: 55
+; VPLAN-HIR-CM-VF4-NEXT:  Block Scalar spill/fill approximate cost (not included into base cost): 8
 ; VPLAN-HIR-CM-VF4-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 8
 ; VPLAN-HIR-CM-VF4-NEXT:  Base Cost: 66
 ; VPLAN-HIR-CM-VF4-NEXT:  Extra cost due to Gather/Scatter heuristic is 110
-; VPLAN-HIR-CM-VF4-NEXT:  Extra cost due to Spill/Fill heuristic is 8
-; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 184
+; VPLAN-HIR-CM-VF4-NEXT:  Extra cost due to Spill/Fill heuristic is 16
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 192
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]

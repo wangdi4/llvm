@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert \
 ; RUN:     -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vec-threshold=20 -debug-only=LoopVectorizationPlanner \
+; RUN:     -vec-threshold=10 -debug-only=LoopVectorizationPlanner \
 ; RUN:     -enable-intel-advanced-opts 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=HIR-VECTORIZE
 
