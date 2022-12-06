@@ -5910,7 +5910,7 @@ void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
                    *LineNoCst = EmitAnnotationLineNo(VD->getLocation());
 
     llvm::Constant *C;
-    if (getContext().getTargetAddressSpace(VD->getType()) != 0)
+    if (getTypes().getTargetAddressSpace(VD->getType()) != 0)
       C = llvm::ConstantExpr::getAddrSpaceCast(GV, Int8PtrTy);
     else
       C = llvm::ConstantExpr::getBitCast(GV, Int8PtrTy);
