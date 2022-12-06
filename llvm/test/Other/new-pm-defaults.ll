@@ -286,6 +286,7 @@
 ; CHECK-DEFAULT-NEXT:  Running pass: AlignmentFromAssumptionsPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: ScalarEvolutionAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: LoopAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: VPORestoreOperandsPass
 ; CHECK-DEFAULT-NEXT:  Running pass: VPlanPragmaOmpSimdIfPass
 ; CHECK-DEFAULT-NEXT:  Running pass: LoopSimplifyPass
 ; CHECK-DEFAULT-NEXT:  Running pass: LowerSwitchPass
