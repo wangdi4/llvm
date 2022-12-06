@@ -344,6 +344,7 @@ static void ParseMPreferVectorWidth(const Driver &D, const ArgList &Args,
   }
 }
 
+<<<<<<< HEAD
 static void getWebAssemblyTargetFeatures(const ArgList &Args,
                                          std::vector<StringRef> &Features) {
   handleTargetFeaturesGroup(Args, Features, options::OPT_m_wasm_Features_Group);
@@ -441,6 +442,8 @@ static void getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
   }
 }
 
+=======
+>>>>>>> 3951a73490df0f3dd307e8ea6aa52d2776259a4c
 static bool
 shouldUseExceptionTablesForObjCExceptions(const ObjCRuntime &runtime,
                                           const llvm::Triple &Triple) {
