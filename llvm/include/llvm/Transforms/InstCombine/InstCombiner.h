@@ -446,12 +446,12 @@ public:
   TargetTransformInfo &getTargetTransformInfo() const { return TTI; } // INTEL
 
   // Call target specific combiners
-  Optional<Instruction *> targetInstCombineIntrinsic(IntrinsicInst &II);
-  Optional<Value *>
+  std::optional<Instruction *> targetInstCombineIntrinsic(IntrinsicInst &II);
+  std::optional<Value *>
   targetSimplifyDemandedUseBitsIntrinsic(IntrinsicInst &II, APInt DemandedMask,
                                          KnownBits &Known,
                                          bool &KnownBitsComputed);
-  Optional<Value *> targetSimplifyDemandedVectorEltsIntrinsic(
+  std::optional<Value *> targetSimplifyDemandedVectorEltsIntrinsic(
       IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
       APInt &UndefElts2, APInt &UndefElts3,
       std::function<void(Instruction *, unsigned, APInt, APInt &)>
