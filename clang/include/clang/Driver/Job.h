@@ -30,13 +30,13 @@
 #include "clang/Driver/InputInfo.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/Program.h"
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -182,10 +182,10 @@ private:
   std::vector<const char *> Environment;
 
   /// Optional redirection for stdin, stdout, stderr.
-  std::vector<Optional<std::string>> RedirectFiles;
+  std::vector<std::optional<std::string>> RedirectFiles;
 
   /// Information on executable run provided by OS.
-  mutable Optional<llvm::sys::ProcessStatistics> ProcStat;
+  mutable std::optional<llvm::sys::ProcessStatistics> ProcStat;
 
   /// When a response file is needed, we try to put most arguments in an
   /// exclusive file, while others remains as regular command line arguments.
@@ -218,11 +218,15 @@ public:
   virtual void Print(llvm::raw_ostream &OS, const char *Terminator, bool Quote,
                      CrashReportInfo *CrashInfo = nullptr) const;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual void PrintArgsFile(raw_ostream &OS, bool Quote) const;
 #endif // INTEL_CUSTOMIZATION
 
   virtual int Execute(ArrayRef<Optional<StringRef>> Redirects,
+=======
+  virtual int Execute(ArrayRef<std::optional<StringRef>> Redirects,
+>>>>>>> 9aa0277b75d8a1a3d21dbf03e9bb50e8a2d108bb
                       std::string *ErrMsg, bool *ExecutionFailed) const;
 
   /// Store a custom driver diagnostic message upon a particular error code
@@ -268,7 +272,8 @@ public:
   ///         from the parent process will be used.
   virtual void setEnvironment(llvm::ArrayRef<const char *> NewEnvironment);
 
-  void setRedirectFiles(const std::vector<Optional<std::string>> &Redirects);
+  void
+  setRedirectFiles(const std::vector<std::optional<std::string>> &Redirects);
 
   void replaceArguments(llvm::opt::ArgStringList List) {
     Arguments = std::move(List);
@@ -286,7 +291,7 @@ public:
     return OutputFilenames;
   }
 
-  Optional<llvm::sys::ProcessStatistics> getProcessStatistics() const {
+  std::optional<llvm::sys::ProcessStatistics> getProcessStatistics() const {
     return ProcStat;
   }
 
@@ -306,7 +311,7 @@ public:
   void Print(llvm::raw_ostream &OS, const char *Terminator, bool Quote,
              CrashReportInfo *CrashInfo = nullptr) const override;
 
-  int Execute(ArrayRef<Optional<StringRef>> Redirects, std::string *ErrMsg,
+  int Execute(ArrayRef<std::optional<StringRef>> Redirects, std::string *ErrMsg,
               bool *ExecutionFailed) const override;
 
   void setEnvironment(llvm::ArrayRef<const char *> NewEnvironment) override;
@@ -325,7 +330,7 @@ public:
   void Print(llvm::raw_ostream &OS, const char *Terminator, bool Quote,
              CrashReportInfo *CrashInfo = nullptr) const override;
 
-  int Execute(ArrayRef<Optional<StringRef>> Redirects, std::string *ErrMsg,
+  int Execute(ArrayRef<std::optional<StringRef>> Redirects, std::string *ErrMsg,
               bool *ExecutionFailed) const override;
 };
 

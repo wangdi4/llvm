@@ -427,6 +427,6 @@ StringRef Compilation::getSysRoot() const {
   return getDriver().SysRoot;
 }
 
-void Compilation::Redirect(ArrayRef<Optional<StringRef>> Redirects) {
+void Compilation::Redirect(ArrayRef<std::optional<StringRef>> Redirects) {
   this->Redirects = Redirects;
 }
