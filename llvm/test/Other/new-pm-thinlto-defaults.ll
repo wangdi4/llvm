@@ -252,6 +252,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis
+; CHECK-POSTLINK-O-NEXT: Running pass: VPORestoreOperandsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerSwitchPass
