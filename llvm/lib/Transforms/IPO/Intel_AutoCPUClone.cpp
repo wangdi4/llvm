@@ -256,6 +256,14 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     CollectCalledFunctions(MVCandidates, StartIndex);
   }
 
+  // Collect functions that have GlobalAlias(es) and are in MVCandidates.
+  std::set<Function*> HasGlobalAliasSet;
+  for (GlobalAlias &GA : M.aliases()) {
+    Function *Fn = dyn_cast<Function>(GA.getAliaseeObject());
+    if (Fn && MVCandidates.contains(Fn))
+      HasGlobalAliasSet.insert(Fn);
+  }
+
   const Triple TT{M.getTargetTriple()};
 
   // Maps that are used to do to RAUW later.
@@ -277,18 +285,21 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (!shouldMultiVersion(M, *Fn, GetTLI))
       continue;
 
-    // Use wrapper based resolvers on Windows or when -fPIC is specified
-    // on the command line.
+    // Use wrapper based resolvers when:
+    //    1) on Windows, or
+    //    2) -fPIC is specified on the command line, or
+    //    3) function has GlobalAlias(es)
     bool isPIC = M.getPICLevel() != PICLevel::NotPIC;
-    bool UseWrapperBasedResolver = TT.isOSWindows() || isPIC;
+    bool UseWrapperBasedResolver =
+        TT.isOSWindows() || isPIC || HasGlobalAliasSet.count(Fn) > 0;
 
     // Skip multiversioning variable argument functions w/ wrapper based resolvers.
     if (UseWrapperBasedResolver && Fn->isVarArg())
       continue;
-      
+
     MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
     if (AutoCPUDispatchMD)
-        LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
+      LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
 
     SmallVector<MultiVersionResolverOption> MVOptions;
 
@@ -419,19 +430,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (Orig2MultiFuncs.count(Fn) == 0)
       continue;
 
-    GlobalAliasWorklist.push_back(&GA);
-  }
-
-  for (auto It : GlobalAliasWorklist) {
-
-    GlobalAlias &GA = *It;
-    std::string Name = GA.getName().str();
-
     // Set GA's name to indicate that it aliases the generic version of Fn.
+    std::string Name = GA.getName().str();
     GA.setName(Name + ".A");
 
     // Make a clone of GA aliasing the dispatcher.
-    GlobalValue *Fn = GA.getAliaseeObject();
     GlobalValue *Dispatcher = std::get<1>(Orig2MultiFuncs[Fn]);
     GlobalAlias *DispatcherGA =
       GlobalAlias::create(GA.getValueType(), GA.getType()->getPointerAddressSpace(),
@@ -467,6 +470,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     }
 
     Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, std::move(GAClones)};
+    GlobalAliasWorklist.push_back(&GA);
   }
 
   // Update uses of the original functions.
@@ -557,15 +561,15 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     GlobalAlias &GA = *It;
     assert(GA.getName().endswith(".A") && "GlobalAlias name criteria mismatch");
-    GlobalIFunc *GIF = dyn_cast<GlobalIFunc>(GA.getAliaseeObject());
-    if (!GIF)
+    Function *Dispatcher = dyn_cast<Function>(GA.getAliaseeObject());
+    if (!Dispatcher)
       continue;
 
-    Function *Fn = M.getFunction(GIF->getName().str() + ".A");
+    Function *Fn = M.getFunction(Dispatcher->getName().str() + ".A");
     assert(Fn && "Aliasee must exist");
     if (Fn->hasMetadata("llvm.acd.clone")) {
       ValueToValueMapTy VMap;
-      VMap[GIF] = Fn;
+      VMap[Dispatcher] = Fn;
       if (const Constant *C = GA.getAliasee())
         GA.setAliasee(MapValue(C, VMap));
     }
