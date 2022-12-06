@@ -1606,7 +1606,7 @@ public:
   /// Convenience function that returns the value of vscale_range iff
   /// vscale_range.min == vscale_range.max or otherwise returns the value
   /// returned by the corresponding TLI method.
-  Optional<unsigned> getVScaleForTuning() const;
+  std::optional<unsigned> getVScaleForTuning() const;
 
 private:
   unsigned NumPredStores = 0;
@@ -4949,7 +4949,7 @@ LoopVectorizationCostModel::getMaxLegalScalableVF(unsigned MaxSafeElements) {
     return MaxScalableVF;
 
   // Limit MaxScalableVF by the maximum safe dependence distance.
-  Optional<unsigned> MaxVScale = TTI.getMaxVScale();
+  std::optional<unsigned> MaxVScale = TTI.getMaxVScale();
   if (!MaxVScale && TheFunction->hasFnAttribute(Attribute::VScaleRange))
     MaxVScale =
         TheFunction->getFnAttribute(Attribute::VScaleRange).getVScaleRangeMax();
@@ -5311,7 +5311,7 @@ ElementCount LoopVectorizationCostModel::getMaximizedVFForTarget(
   return MaxVF;
 }
 
-Optional<unsigned> LoopVectorizationCostModel::getVScaleForTuning() const {
+std::optional<unsigned> LoopVectorizationCostModel::getVScaleForTuning() const {
   if (TheFunction->hasFnAttribute(Attribute::VScaleRange)) {
     auto Attr = TheFunction->getFnAttribute(Attribute::VScaleRange);
     auto Min = Attr.getVScaleRangeMin();
@@ -5347,7 +5347,7 @@ bool LoopVectorizationCostModel::isMoreProfitable(
   // Improve estimate for the vector width if it is scalable.
   unsigned EstimatedWidthA = A.Width.getKnownMinValue();
   unsigned EstimatedWidthB = B.Width.getKnownMinValue();
-  if (Optional<unsigned> VScale = getVScaleForTuning()) {
+  if (std::optional<unsigned> VScale = getVScaleForTuning()) {
     if (A.Width.isScalable())
       EstimatedWidthA *= VScale.value();
     if (B.Width.isScalable())
@@ -5397,7 +5397,7 @@ VectorizationFactor LoopVectorizationCostModel::selectVectorizationFactor(
 
 #ifndef NDEBUG
     unsigned AssumedMinimumVscale = 1;
-    if (Optional<unsigned> VScale = getVScaleForTuning())
+    if (std::optional<unsigned> VScale = getVScaleForTuning())
       AssumedMinimumVscale = *VScale;
     unsigned Width =
         Candidate.Width.isScalable()
@@ -5620,7 +5620,7 @@ LoopVectorizationCostModel::selectEpilogueVectorizationFactor(
   ElementCount EstimatedRuntimeVF = MainLoopVF;
   if (MainLoopVF.isScalable()) {
     EstimatedRuntimeVF = ElementCount::getFixed(MainLoopVF.getKnownMinValue());
-    if (Optional<unsigned> VScale = getVScaleForTuning())
+    if (std::optional<unsigned> VScale = getVScaleForTuning())
       EstimatedRuntimeVF *= *VScale;
   }
 
@@ -10130,7 +10130,7 @@ static void checkMixedPrecision(Loop *L, OptimizationRemarkEmitter *ORE) {
 
 static bool areRuntimeChecksProfitable(GeneratedRTChecks &Checks,
                                        VectorizationFactor &VF,
-                                       Optional<unsigned> VScale, Loop *L,
+                                       std::optional<unsigned> VScale, Loop *L,
                                        ScalarEvolution &SE) {
   InstructionCost CheckCost = Checks.getCost();
   if (!CheckCost.isValid())
