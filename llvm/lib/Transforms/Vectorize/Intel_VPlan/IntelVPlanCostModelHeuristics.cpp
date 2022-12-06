@@ -282,17 +282,33 @@ void HeuristicSLP::apply(
     Cost *= VF;
 }
 
-VPInstructionCost HeuristicSpillFill::operator()(
-  const VPBasicBlock *VPBlock,
-  LiveValuesTy &LiveValues,
-  bool VectorRegsPressure) const {
+VPInstructionCost HeuristicSpillFill::operator()(const VPBasicBlock *VPBlock,
+                                                 LiveValuesTy &LiveValues,
+                                                 bool SSERegsPressure) const {
   int NumberLiveValuesMax = 0;
   VPLoop *OuterMostVPLoop = *(Plan->getVPLoopInfo()->begin());
-  auto SkipInst = [&](const VPInstruction* I) -> bool {
-    // Ignore instructions that do not induce vector code if VectorRegsPressure
-    // is true or ignore 'vector only' instructions for VectorRegsPressure
-    // false.
-    //
+  StringRef TargetISA = CM->TTI.getISASetForIMLFunctions();
+  bool TargetHasKReg = TargetISA.contains("avx512");
+
+  // Skip values of such Type as if they don't make any register pressure when
+  // value of such type isn't placed on register type which matches the request:
+  // NeedsVecValue/NeedsScalValue and SSERegsPressure settings.
+  auto SkipTy = [&](const Type *Ty,
+                    bool NeedsVecValue,
+                    bool NeedsScalValue) {
+    bool BurnsVecReg =
+      (NeedsVecValue || Ty->isVectorTy() ||
+       (Ty->isFloatingPointTy() && !Ty->isX86_FP80Ty())) &&
+      !(Ty->getScalarType()->isIntegerTy(1) && TargetHasKReg);
+    bool BurnsGPR = NeedsScalValue && Ty->isIntegerTy();
+    // Note that both predicates above can be false meaning that the value
+    // in question presumably allocated elsewhere: X87 stack or k-register.
+    return (SSERegsPressure && !BurnsVecReg) || (!SSERegsPressure && !BurnsGPR);
+  };
+
+  // Skip Inst result when it doesn't contribute into register pressure type
+  // we model on this call (SSERegsPressure setting).
+  auto SkipInstRes = [&](const VPInstruction *I) {
     // TODO:
     // VF checks should be removed eventually. It is a bug in the current
     // SVA implementation that we need them.
@@ -302,30 +318,49 @@ VPInstructionCost HeuristicSpillFill::operator()(
     // instruction going to be scalarized contributing into scalar registers
     // pressure, not vector.
     //
-    // TODO:
-    // SVA marks input vector types that are not re-vectorized as
-    // NeedsFirst/LastScalarCode while they still contribute into vector
-    // register pressure, not scalar.
-    //
-    bool NeedsVecInst =
+    bool ResNeedsVec =
       (VF > 1) && Plan->getVPlanSVA()->instNeedsVectorCode(I);
-    bool NeedsScalInst =
-      (VF == 1) || Plan->getVPlanSVA()->instNeedsFirstScalarCode(I);
-    return (VectorRegsPressure && !NeedsVecInst) ||
-           (!VectorRegsPressure && !NeedsScalInst);
+    bool ResNeedsScal =
+      (VF == 1) ||
+      Plan->getVPlanSVA()->instNeedsFirstScalarCode(I) ||
+      Plan->getVPlanSVA()->instNeedsLastScalarCode(I);
+
+    return SkipTy(I->getType(), ResNeedsVec, ResNeedsScal);
   };
+
+  // Skip Inst operand when it doesn't contribute into register pressure type
+  // we model on this call (SSERegsPressure setting).
+  auto SkipInstOperand = [&](const VPInstruction *I, unsigned OpndIdx) {
+    // TODO:
+    // VF checks should be removed eventually. It is a bug in the current
+    // SVA implementation that we need them.
+    //
+    // TODO:
+    // The implementation doesn't cover scalarization cases, when vector
+    // instruction going to be scalarized contributing into scalar registers
+    // pressure, not vector.
+    //
+    bool OpndNeedsVec =
+      (VF > 1) && Plan->getVPlanSVA()->operandNeedsVectorCode(I, OpndIdx);
+    bool OpndNeedsScal =
+      (VF == 1) ||
+      Plan->getVPlanSVA()->operandNeedsFirstScalarCode(I, OpndIdx) ||
+      Plan->getVPlanSVA()->operandNeedsLastScalarCode(I, OpndIdx);
+
+    return
+      SkipTy(I->getOperand(OpndIdx)->getType(), OpndNeedsVec, OpndNeedsScal);
+  };
+
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
   int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
-    return !SkipInst(&PHI);});
+    return !SkipInstRes(&PHI);});
   int FreeVecHWRegsNum = CM->TTI.getNumberOfRegisters(
-    CM->TTI.getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
+                             CM->TTI.getRegisterClassForType(SSERegsPressure)) -
+                         NumberPHIs;
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
-    if (SkipInst(&VPInst))
-      continue;
-
-    // Zero-cost and unknown-cost instructions are ignored.  That might be
-    // pseudo inst that don't induce real code on output.
+    // Zero-cost and unknown-cost instructions are ignored.
+    // That might be pseudo inst that don't induce real code on output.
     VPInstructionCost InstCost = CM->getTTICost(&VPInst);
     if (!InstCost.isValid() || InstCost == 0)
       continue;
@@ -333,7 +368,8 @@ VPInstructionCost HeuristicSpillFill::operator()(
     // Once definition is met the value is marked dead as the result of
     // instruction generally can occupy the same register as one of its
     // operand, unless all its operands are alive throughout the intruction.
-    LiveValues[&VPInst] = 0;
+    if (!SkipInstRes(&VPInst))
+      LiveValues[&VPInst] = 0;
 
     // Populate LiveValues for operands of given inst.
 
@@ -362,10 +398,14 @@ VPInstructionCost HeuristicSpillFill::operator()(
       return (VPInstRP + 6) / 2;
     };
 
-    for (auto *Op : VPInst.operands()) {
+    for (unsigned Idx = 0; Idx < VPInst.getNumOperands(); Idx++) {
+      auto *Op = VPInst.getOperand(Idx);
       // TODO:
       // Constants yet to be supported.
       if (!isa<VPInstruction>(Op))
+        continue;
+
+      if (SkipInstOperand(&VPInst, Idx))
         continue;
 
       const VPInstruction *OpInst = cast<VPInstruction>(Op);
@@ -459,6 +499,12 @@ VPInstructionCost HeuristicSpillFill::operator()(
       // Load/Store basing on truncated to integer cost of given instruction.
       // int(InstCost) gives an estimation of the number of instructions the
       // serialized load/store is implemented with.
+      //
+      // Note:
+      // The estimation applies to both register files: Vector registers and
+      // Scalar registers. In order to do better estimation individually for
+      // GPR and Vector registers we need to know what instructions the
+      // serialized instruction decomposes into.
       NumberLiveValuesCur += TranslateVPInstRPToHWRP(InstCost.getInt64Value());
 
     LLVM_DEBUG(const auto &LVNs = make_second_range(LiveValues);
@@ -480,7 +526,8 @@ VPInstructionCost HeuristicSpillFill::operator()(
 
   LLVM_DEBUG(dbgs() << "Max RP " << NumberLiveValuesMax <<
              ", Num free regs: " << FreeVecHWRegsNum <<
-             " for block " << VPBlock->getName() << " (VF = " << VF << ")\n";);
+             " for block " << VPBlock->getName() << " (VF = " << VF <<
+             ", SSERegsPressure = " << SSERegsPressure << ")\n";);
 
   if (NumberLiveValuesMax <= FreeVecHWRegsNum)
     return 0;
@@ -544,9 +591,7 @@ void HeuristicSpillFill::apply(
     // normally and we don't see non linear CFG in VPlan in the most cases for
     // HIR pipeline.
     Cost += (*this)(Block, ScalLiveValues, false);
-
-    if (VF > 1)
-      Cost += (*this)(Block, VecLiveValues, true);
+    Cost += (*this)(Block, VecLiveValues, true);
   }
 }
 
