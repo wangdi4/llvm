@@ -1015,7 +1015,7 @@ void PrintPassInstrumentation::registerCallbacks(
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &) {}
-void OptBisectInstrumentation::registerCallbacks(
+void OptPassGateInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &) {
   (void)this->HasWrittenIR;
 }
