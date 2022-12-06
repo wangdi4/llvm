@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-; INTEL CUSTOMIZATION
-; XFAIL: *
-; END INTEL CUSTOMIZATION
-; RUN: opt < %s -mtriple=x86_64-- -inferattrs -S | FileCheck --match-full-lines --check-prefixes=CHECK,CHECK-NOLINUX,CHECK-OPEN,CHECK-UNKNOWN %s
-=======
->>>>>>> a11faeed446882a81e79d780125d93e7199df645
 ; RUN: opt < %s -mtriple=x86_64-- -passes=inferattrs -S | FileCheck --match-full-lines --check-prefixes=CHECK,CHECK-NOLINUX,CHECK-OPEN,CHECK-UNKNOWN %s
 ; RUN: opt < %s -mtriple=x86_64-apple-macosx10.8.0 -passes=inferattrs -S | FileCheck --match-full-lines --check-prefixes=CHECK,CHECK-KNOWN,CHECK-NOLINUX,CHECK-OPEN,CHECK-DARWIN %s
 ; RUN: opt < %s -mtriple=x86_64-unknown-linux-gnu -passes=inferattrs -S | FileCheck --match-full-lines --check-prefixes=CHECK,CHECK-KNOWN,CHECK-LINUX %s

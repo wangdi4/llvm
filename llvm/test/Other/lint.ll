@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -lint -disable-output < %s 2>&1 | FileCheck %s
-=======
->>>>>>> a11faeed446882a81e79d780125d93e7199df645
 ; RUN: opt -aa-pipeline=basic-aa -passes=lint -disable-output < %s 2>&1 | FileCheck %s
 target datalayout = "e-p:64:64:64"
 
