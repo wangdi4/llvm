@@ -2030,7 +2030,6 @@ public:
   virtual unsigned getAtomicMemIntrinsicMaxElementSize() const = 0;
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual bool isIntelAdvancedOptimEnabled() const = 0;
   virtual bool isAdvancedOptEnabled(AdvancedOptLevel AO) const = 0;
@@ -2054,17 +2053,10 @@ public:
   virtual bool has4KDSB() const = 0;
   virtual bool displacementFoldable() const = 0;
 #endif // INTEL_CUSTOMIZATION
-  virtual Type *
-  getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                            unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                            unsigned SrcAlign, unsigned DestAlign,
-                            Optional<uint32_t> AtomicElementSize) const = 0;
-=======
   virtual Type *getMemcpyLoopLoweringType(
       LLVMContext &Context, Value *Length, unsigned SrcAddrSpace,
       unsigned DestAddrSpace, unsigned SrcAlign, unsigned DestAlign,
       std::optional<uint32_t> AtomicElementSize) const = 0;
->>>>>>> b83711248cb12639e7ef7303cfbb4452b4067e85
 
   virtual void getMemcpyLoopResidualLoweringType(
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
