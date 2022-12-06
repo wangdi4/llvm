@@ -74,8 +74,6 @@ extern llvm::cl::opt<bool> Verbose;
 
 extern llvm::cl::opt<std::string> TimePasses;
 
-extern llvm::cl::opt<std::string> DebugPassManager;
-
 extern llvm::cl::opt<uint64_t> RandomDGSeed;
 
 extern llvm::cl::opt<std::string> ObjectFile;
@@ -98,8 +96,8 @@ BERunOptions::BERunOptions()
       m_cpuFeatures(::CPUFeatures),
       m_optimizedLLVMIRDumpFile(::OptimizedLLVMIRDumpFile),
       m_transposeSize(::TransposeSize), m_DumpJIT(::DumpJIT),
-      m_TimePasses(::TimePasses), m_DebugPassManager(::DebugPassManager),
-      m_LLVMOption(::LLVMOption), m_dumpHeuristcIR(::DumpHeuristicIR),
+      m_TimePasses(::TimePasses), m_LLVMOption(::LLVMOption),
+      m_dumpHeuristcIR(::DumpHeuristicIR),
       m_dumpKernelProperty(::DumpKernelProperty),
       m_vectorizerType(::OptVectorizerType),
       m_enableSubgroupEmulation(::EnableSubgroupEmulation),
@@ -195,8 +193,6 @@ BERunOptions::GetValue<std::string>(RunConfigurationOption rc,
     return m_DumpJIT;
   case RC_BR_TIME_PASSES:
     return m_TimePasses;
-  case RC_BR_DEBUG_PASS_MANAGER:
-    return m_DebugPassManager;
   case RC_BR_LLVM_OPTION:
     return m_LLVMOption;
   case RC_BR_PERF_LOG:
@@ -280,7 +276,6 @@ void BERunOptions::InitFromCommandLine() {
   m_perfLogFile = ::PerformanceLog;
   m_DumpJIT = ::DumpJIT;
   m_TimePasses = ::TimePasses;
-  m_DebugPassManager = ::DebugPassManager;
   m_LLVMOption = ::LLVMOption;
   m_InjectedObject = ::ObjectFile;
   m_dumpHeuristcIR = ::DumpHeuristicIR;
