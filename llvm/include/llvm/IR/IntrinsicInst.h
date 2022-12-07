@@ -52,6 +52,7 @@
 #include "llvm/Support/Casting.h"
 #include <cassert>
 #include <cstdint>
+#include <optional>
 
 namespace llvm {
 
@@ -611,8 +612,8 @@ class ConstrainedFPIntrinsic : public IntrinsicInst {
 public:
   bool isUnaryOp() const;
   bool isTernaryOp() const;
-  Optional<RoundingMode> getRoundingMode() const;
-  Optional<fp::ExceptionBehavior> getExceptionBehavior() const;
+  std::optional<RoundingMode> getRoundingMode() const;
+  std::optional<fp::ExceptionBehavior> getExceptionBehavior() const;
   bool isDefaultFPEnvironment() const;
 
   // Methods for support type inquiry through isa, cast, and dyn_cast:

@@ -1841,7 +1841,7 @@ parseOpenMPSimpleClause(Parser &P, OpenMPClauseKind Kind) {
   BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
   if (T.expectAndConsume(diag::err_expected_lparen_after,
                          getOpenMPClauseName(Kind).data()))
-    return llvm::None;
+    return std::nullopt;
 
   unsigned Type = getOpenMPSimpleClauseType(
       Kind, Tok.isAnnotation() ? "" : P.getPreprocessor().getSpelling(Tok),
@@ -3348,7 +3348,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
                DKind == OMPD_target_exit_data) {
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());
       AssociatedStmt = (Sema::CompoundScopeRAII(Actions),
-                        Actions.ActOnCompoundStmt(Loc, Loc, llvm::None,
+                        Actions.ActOnCompoundStmt(Loc, Loc, std::nullopt,
                                                   /*isStmtExpr=*/false));
       AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses);
     }

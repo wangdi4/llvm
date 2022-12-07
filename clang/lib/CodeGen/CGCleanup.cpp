@@ -1357,7 +1357,8 @@ static void EmitSehScope(CodeGenFunction &CGF,
       CGF.getBundlesForFunclet(SehCppScope.getCallee());
   if (CGF.CurrentFuncletPad)
     BundleList.emplace_back("funclet", CGF.CurrentFuncletPad);
-  CGF.Builder.CreateInvoke(SehCppScope, Cont, InvokeDest, None, BundleList);
+  CGF.Builder.CreateInvoke(SehCppScope, Cont, InvokeDest, std::nullopt,
+                           BundleList);
   CGF.EmitBlock(Cont);
 }
 

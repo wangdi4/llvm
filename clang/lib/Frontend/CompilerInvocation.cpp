@@ -196,7 +196,7 @@ static llvm::Optional<bool> normalizeSimpleFlag(OptSpecifier Opt,
                                                 DiagnosticsEngine &Diags) {
   if (Args.hasArg(Opt))
     return true;
-  return None;
+  return std::nullopt;
 }
 
 static Optional<bool> normalizeSimpleNegativeFlag(OptSpecifier Opt, unsigned,
@@ -204,7 +204,7 @@ static Optional<bool> normalizeSimpleNegativeFlag(OptSpecifier Opt, unsigned,
                                                   DiagnosticsEngine &) {
   if (Args.hasArg(Opt))
     return false;
-  return None;
+  return std::nullopt;
 }
 
 /// The tblgen-erated code passes in a fifth parameter of an arbitrary type, but
@@ -229,7 +229,7 @@ static auto makeFlagToValueNormalizer(T Value) {
                  DiagnosticsEngine &) -> Optional<T> {
     if (Args.hasArg(Opt))
       return Value;
-    return None;
+    return std::nullopt;
   };
 }
 
@@ -247,7 +247,7 @@ static auto makeBooleanOptionNormalizer(bool Value, bool OtherValue,
     if (const Arg *A = Args.getLastArg(Opt, OtherOpt)) {
       return A->getOption().matches(Opt) ? Value : OtherValue;
     }
-    return None;
+    return std::nullopt;
   };
 }
 
@@ -296,7 +296,7 @@ findValueTableByName(const SimpleEnumValueTable &Table, StringRef Name) {
     if (Name == Table.Table[I].Name)
       return Table.Table[I];
 
-  return None;
+  return std::nullopt;
 }
 
 static Optional<SimpleEnumValue>
@@ -305,7 +305,7 @@ findValueTableByValue(const SimpleEnumValueTable &Table, unsigned Value) {
     if (Value == Table.Table[I].Value)
       return Table.Table[I];
 
-  return None;
+  return std::nullopt;
 }
 
 static llvm::Optional<unsigned> normalizeSimpleEnum(OptSpecifier Opt,
@@ -317,7 +317,7 @@ static llvm::Optional<unsigned> normalizeSimpleEnum(OptSpecifier Opt,
 
   auto *Arg = Args.getLastArg(Opt);
   if (!Arg)
-    return None;
+    return std::nullopt;
 
   StringRef ArgValue = Arg->getValue();
   if (auto MaybeEnumVal = findValueTableByName(Table, ArgValue))
@@ -325,7 +325,7 @@ static llvm::Optional<unsigned> normalizeSimpleEnum(OptSpecifier Opt,
 
   Diags.Report(diag::err_drv_invalid_value)
       << Arg->getAsString(Args) << ArgValue;
-  return None;
+  return std::nullopt;
 }
 
 static void denormalizeSimpleEnumImpl(SmallVectorImpl<const char *> &Args,
@@ -359,7 +359,7 @@ static Optional<std::string> normalizeString(OptSpecifier Opt, int TableIndex,
                                              DiagnosticsEngine &Diags) {
   auto *Arg = Args.getLastArg(Opt);
   if (!Arg)
-    return None;
+    return std::nullopt;
   return std::string(Arg->getValue());
 }
 
@@ -369,12 +369,12 @@ static Optional<IntTy> normalizeStringIntegral(OptSpecifier Opt, int,
                                                DiagnosticsEngine &Diags) {
   auto *Arg = Args.getLastArg(Opt);
   if (!Arg)
-    return None;
+    return std::nullopt;
   IntTy Res;
   if (StringRef(Arg->getValue()).getAsInteger(0, Res)) {
     Diags.Report(diag::err_drv_invalid_int_value)
         << Arg->getAsString(Args) << Arg->getValue();
-    return None;
+    return std::nullopt;
   }
   return Res;
 }
@@ -422,7 +422,7 @@ static Optional<std::string> normalizeTriple(OptSpecifier Opt, int TableIndex,
                                              DiagnosticsEngine &Diags) {
   auto *Arg = Args.getLastArg(Opt);
   if (!Arg)
-    return None;
+    return std::nullopt;
   return llvm::Triple::normalize(Arg->getValue());
 }
 
@@ -1099,11 +1099,12 @@ static void initOption(AnalyzerOptions::ConfigTable &Config,
 static void initOption(AnalyzerOptions::ConfigTable &Config,
                        DiagnosticsEngine *Diags,
                        bool &OptionField, StringRef Name, bool DefaultVal) {
-  auto PossiblyInvalidVal = llvm::StringSwitch<Optional<bool>>(
-                 getStringOption(Config, Name, (DefaultVal ? "true" : "false")))
-      .Case("true", true)
-      .Case("false", false)
-      .Default(None);
+  auto PossiblyInvalidVal =
+      llvm::StringSwitch<Optional<bool>>(
+          getStringOption(Config, Name, (DefaultVal ? "true" : "false")))
+          .Case("true", true)
+          .Case("false", false)
+          .Default(std::nullopt);
 
   if (!PossiblyInvalidVal) {
     if (Diags)
@@ -1427,10 +1428,10 @@ void CompilerInvocation::GenerateCodeGenArgs(
     DebugInfoVal = "unused-types";
     break;
   case codegenoptions::NoDebugInfo: // default value
-    DebugInfoVal = None;
+    DebugInfoVal = std::nullopt;
     break;
   case codegenoptions::LocTrackingOnly: // implied value
-    DebugInfoVal = None;
+    DebugInfoVal = std::nullopt;
     break;
   }
   if (DebugInfoVal)
@@ -2600,7 +2601,7 @@ static Optional<frontend::ActionKind> getFrontendAction(OptSpecifier &Opt) {
     if (ActionOpt.second == Opt.getID())
       return ActionOpt.first;
 
-  return None;
+  return std::nullopt;
 }
 
 /// Maps frontend action to command line option.
@@ -2610,7 +2611,7 @@ getProgramActionOpt(frontend::ActionKind ProgramAction) {
     if (ActionOpt.first == ProgramAction)
       return OptSpecifier(ActionOpt.second);
 
-  return None;
+  return std::nullopt;
 }
 
 static void GenerateFrontendArgs(const FrontendOptions &Opts,
@@ -3092,8 +3093,8 @@ static void GenerateHeaderSearchArgs(HeaderSearchOptions &Opts,
   auto End = Opts.UserEntries.end();
 
   // Add -I..., -F..., and -index-header-map options in order.
-  for (; It < End &&
-         Matches(*It, {frontend::IndexHeaderMap, frontend::Angled}, None, true);
+  for (; It < End && Matches(*It, {frontend::IndexHeaderMap, frontend::Angled},
+                             std::nullopt, true);
        ++It) {
     OptSpecifier Opt = [It, Matches]() {
       if (Matches(*It, frontend::IndexHeaderMap, true, true))
@@ -3131,7 +3132,8 @@ static void GenerateHeaderSearchArgs(HeaderSearchOptions &Opts,
     GenerateArg(Args, OPT_idirafter, It->Path, SA);
   for (; It < End && Matches(*It, {frontend::Quoted}, false, true); ++It)
     GenerateArg(Args, OPT_iquote, It->Path, SA);
-  for (; It < End && Matches(*It, {frontend::System}, false, None); ++It)
+  for (; It < End && Matches(*It, {frontend::System}, false, std::nullopt);
+       ++It)
     GenerateArg(Args, It->IgnoreSysRoot ? OPT_isystem : OPT_iwithsysroot,
                 It->Path, SA);
   for (; It < End && Matches(*It, {frontend::System}, true, true); ++It)

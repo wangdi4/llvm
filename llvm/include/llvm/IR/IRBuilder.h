@@ -63,6 +63,7 @@
 #include <cassert>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <utility>
 
 namespace llvm {
@@ -335,7 +336,8 @@ public:
   /// Set the exception handling to be used with constrained floating point
   void setDefaultConstrainedExcept(fp::ExceptionBehavior NewExcept) {
 #ifndef NDEBUG
-    Optional<StringRef> ExceptStr = convertExceptionBehaviorToStr(NewExcept);
+    std::optional<StringRef> ExceptStr =
+        convertExceptionBehaviorToStr(NewExcept);
     assert(ExceptStr && "Garbage strict exception behavior!");
 #endif
     DefaultConstrainedExcept = NewExcept;
@@ -344,7 +346,8 @@ public:
   /// Set the rounding mode handling to be used with constrained floating point
   void setDefaultConstrainedRounding(RoundingMode NewRounding) {
 #ifndef NDEBUG
-    Optional<StringRef> RoundingStr = convertRoundingModeToStr(NewRounding);
+    std::optional<StringRef> RoundingStr =
+        convertRoundingModeToStr(NewRounding);
     assert(RoundingStr && "Garbage strict rounding mode!");
 #endif
     DefaultConstrainedRounding = NewRounding;
@@ -1247,7 +1250,8 @@ private:
     if (Rounding)
       UseRounding = Rounding.value();
 
-    Optional<StringRef> RoundingStr = convertRoundingModeToStr(UseRounding);
+    std::optional<StringRef> RoundingStr =
+        convertRoundingModeToStr(UseRounding);
     assert(RoundingStr && "Garbage strict rounding mode!");
     auto *RoundingMDS = MDString::get(Context, RoundingStr.value());
 
@@ -1260,7 +1264,8 @@ private:
     if (Except)
       UseExcept = Except.value();
 
-    Optional<StringRef> ExceptStr = convertExceptionBehaviorToStr(UseExcept);
+    std::optional<StringRef> ExceptStr =
+        convertExceptionBehaviorToStr(UseExcept);
     assert(ExceptStr && "Garbage strict exception behavior!");
     auto *ExceptMDS = MDString::get(Context, ExceptStr.value());
 
