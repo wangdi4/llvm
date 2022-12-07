@@ -515,8 +515,8 @@ static void shortenAssignment(Instruction *Inst, uint64_t OldOffsetInBits,
     // FIXME: This should be using the DIExpression in the Alloca's dbg.assign
     // for the variable, since that could also contain a fragment?
     return *DIExpression::createFragmentExpression(
-        DIExpression::get(Inst->getContext(), None), DeadFragment.OffsetInBits,
-        DeadFragment.SizeInBits);
+        DIExpression::get(Inst->getContext(), std::nullopt),
+        DeadFragment.OffsetInBits, DeadFragment.SizeInBits);
   };
 
   // A DIAssignID to use so that the inserted dbg.assign intrinsics do not
@@ -1321,7 +1321,7 @@ struct DSEState {
                   bool IsMemTerm, unsigned &PartialLimit) {
     if (ScanLimit == 0 || WalkerStepLimit == 0) {
       LLVM_DEBUG(dbgs() << "\n    ...  hit scan limit\n");
-      return None;
+      return std::nullopt;
     }
 
     MemoryAccess *Current = StartAccess;
@@ -1354,7 +1354,7 @@ struct DSEState {
         if (CanOptimize && Current != KillingDef->getDefiningAccess())
           // The first clobbering def is... none.
           KillingDef->setOptimized(Current);
-        return None;
+        return std::nullopt;
       }
 
       // Cost of a step. Accesses in the same block are more likely to be valid
@@ -1364,7 +1364,7 @@ struct DSEState {
                               : MemorySSAOtherBBStepCost;
       if (WalkerStepLimit <= StepCost) {
         LLVM_DEBUG(dbgs() << "   ...  hit walker step limit\n");
-        return None;
+        return std::nullopt;
       }
       WalkerStepLimit -= StepCost;
 
@@ -1389,14 +1389,14 @@ struct DSEState {
       // instructions that block us from DSEing
       if (mayThrowBetween(KillingI, CurrentI, KillingUndObj)) {
         LLVM_DEBUG(dbgs() << "  ... skip, may throw!\n");
-        return None;
+        return std::nullopt;
       }
 
       // Check for anything that looks like it will be a barrier to further
       // removal
       if (isDSEBarrier(KillingUndObj, CurrentI)) {
         LLVM_DEBUG(dbgs() << "  ... skip, barrier\n");
-        return None;
+        return std::nullopt;
       }
 
       // If Current is known to be on path that reads DefLoc or is a read
@@ -1404,7 +1404,7 @@ struct DSEState {
       // for intrinsic calls, because the code knows how to handle memcpy
       // intrinsics.
       if (!isa<IntrinsicInst>(CurrentI) && isReadClobber(KillingLoc, CurrentI))
-        return None;
+        return std::nullopt;
 
       // Quick check if there are direct uses that are read-clobbers.
       if (any_of(Current->uses(), [this, &KillingLoc, StartAccess](Use &U) {
@@ -1414,7 +1414,7 @@ struct DSEState {
             return false;
           })) {
         LLVM_DEBUG(dbgs() << "   ...  found a read clobber\n");
-        return None;
+        return std::nullopt;
       }
 
       // If Current does not have an analyzable write location or is not
@@ -1508,7 +1508,7 @@ struct DSEState {
       // Bail out if the number of accesses to check exceeds the scan limit.
       if (ScanLimit < (WorkList.size() - I)) {
         LLVM_DEBUG(dbgs() << "\n    ...  hit scan limit\n");
-        return None;
+        return std::nullopt;
       }
       --ScanLimit;
       NumDomMemDefChecks++;
@@ -1553,14 +1553,14 @@ struct DSEState {
 
       if (UseInst->mayThrow() && !isInvisibleToCallerOnUnwind(KillingUndObj)) {
         LLVM_DEBUG(dbgs() << "  ... found throwing instruction\n");
-        return None;
+        return std::nullopt;
       }
 
       // Uses which may read the original MemoryDef mean we cannot eliminate the
       // original MD. Stop walk.
       if (isReadClobber(MaybeDeadLoc, UseInst)) {
         LLVM_DEBUG(dbgs() << "    ... found read clobber\n");
-        return None;
+        return std::nullopt;
       }
 
       // If this worklist walks back to the original memory access (and the
@@ -1569,7 +1569,7 @@ struct DSEState {
       if (MaybeDeadAccess == UseAccess &&
           !isGuaranteedLoopInvariant(MaybeDeadLoc.Ptr)) {
         LLVM_DEBUG(dbgs() << "    ... found not loop invariant self access\n");
-        return None;
+        return std::nullopt;
       }
       // Otherwise, for the KillingDef and MaybeDeadAccess we only have to check
       // if it reads the memory location.
@@ -1603,7 +1603,7 @@ struct DSEState {
           } else {
             LLVM_DEBUG(dbgs()
                        << "    ... found preceeding def " << *UseInst << "\n");
-            return None;
+            return std::nullopt;
           }
         } else
           PushMemUses(UseDef);
@@ -1633,7 +1633,7 @@ struct DSEState {
       // killing block.
       if (!PDT.dominates(CommonPred, MaybeDeadAccess->getBlock())) {
         if (!AnyUnreachableExit)
-          return None;
+          return std::nullopt;
 
         // Fall back to CFG scan starting at all non-unreachable roots if not
         // all paths to the exit go through CommonPred.
@@ -1664,7 +1664,7 @@ struct DSEState {
         if (KillingBlocks.count(Current))
           continue;
         if (Current == MaybeDeadAccess->getBlock())
-          return None;
+          return std::nullopt;
 
         // MaybeDeadAccess is reachable from the entry, so we don't have to
         // explore unreachable blocks further.
@@ -1675,7 +1675,7 @@ struct DSEState {
           WorkList.insert(Pred);
 
         if (WorkList.size() >= MemorySSAPathCheckLimit)
-          return None;
+          return std::nullopt;
       }
       NumCFGSuccess++;
     }
