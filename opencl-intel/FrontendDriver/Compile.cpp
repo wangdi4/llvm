@@ -244,8 +244,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
 #ifndef INTEL_PRODUCT_RELEASE
   std::string IntermediateType;
-  Intel::OpenCL::Utils::getEnvVar(IntermediateType, "OCL_INTERMEDIATE");
-  if (IntermediateType == "SPIRV")
+  if (Intel::OpenCL::Utils::getEnvVar(IntermediateType, "OCL_INTERMEDIATE") &&
+      IntermediateType == "SPIRV")
     optionsEx << " -emit-spirv";
 #endif // INTEL_PRODUCT_RELEASE
 
