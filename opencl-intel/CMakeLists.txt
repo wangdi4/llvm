@@ -535,7 +535,6 @@ if(NOT OPENCL_INTREE_BUILD)
       OpenCL-ICD
       ocl-intelocl${BUILD_PLATFORM}
       ocl-config
-      ocl-cpu_device${BUILD_PLATFORM}
       ocl-task_executor${BUILD_PLATFORM}
       ocl-common_clang
       ocl-builtins-shared

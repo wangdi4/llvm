@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -50,8 +50,6 @@ Device::Device(_cl_platform_id_int *platform)
   m_usmSharedSingleCaps = 0;
   m_usmSharedCrossCaps = 0;
   m_usmSharedSystemCaps = 0;
-  m_pFnClDevGetDeviceInfo = nullptr;
-  m_pFnClDevGetDeviceTimer = nullptr;
   m_stMaxLocalMemorySize = 0;
   m_CL_DEVICE_MAX_WORK_GROUP_SIZE = 0;
   m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS = 0;
@@ -74,11 +72,10 @@ void Device::Cleanup(bool /*bIsTerminate*/) {
   }
   m_mapDeviceLoggerClinets.clear();
 
-  m_dlModule.Close();
   delete this;
 }
 
-cl_ulong Device::GetDeviceTimer() const { return m_pFnClDevGetDeviceTimer(); }
+cl_ulong Device::GetDeviceTimer() const { return clDevGetDeviceTimer(); }
 
 cl_err_code Device::GetInfo(cl_int param_name, size_t param_value_size,
                             void *param_value,
@@ -127,8 +124,8 @@ cl_err_code Device::GetInfo(cl_int param_name, size_t param_value_size,
 
   default:
     size_t s;
-    clDevErr = m_pFnClDevGetDeviceInfo(m_devId, param_name, param_value_size,
-                                       param_value, &s);
+    clDevErr = clDevGetDeviceInfo(m_devId, param_name, param_value_size,
+                                  param_value, &s);
     if ((clDevErr != (int)CL_DEV_SUCCESS) ||
         (param_value && (param_value_size < s))) {
       return CL_INVALID_VALUE;
@@ -160,58 +157,13 @@ cl_err_code Device::GetInfo(cl_int param_name, size_t param_value_size,
 cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(
     const char *psDeviceAgentDllPath, _cl_platform_id_int *pClPlatformId,
     vector<SharedPtr<Device>> *pOutDevices) {
-  Intel::OpenCL::Utils::OclDynamicLib dlModule(
-      false); // this is a work-around, because Vtune crashes when one of the
-              // libraries is loaded and then unloaded.
-  // Load the DA library (First time); dlModule call to unload at destruction
-  // (when exiting from this function) BUT Device::InitDevice() is going to load
-  // it again before the unload...
-  if (dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
-          psDeviceAgentDllPath)) != 0) {
-    if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
-      g_pUserLogger->PrintError("Failed to load " +
-                                std::string(psDeviceAgentDllPath) +
-                                " with error message: " + dlModule.GetError());
-    return CL_ERR_DEVICE_INIT_FAIL;
-  }
-
-  fn_clDevInitDeviceAgent *pFnClDevInitDeviceAgent =
-      (fn_clDevInitDeviceAgent *)dlModule.GetFunctionPtrByName(
-          "clDevInitDeviceAgent");
-  if (nullptr == pFnClDevInitDeviceAgent) {
-    return CL_ERR_DEVICE_INIT_FAIL;
-  }
-
-  // Get pointer to the GetInfo function
-  fn_clDevGetDeviceInfo *pFnClDevGetDeviceInfo =
-      (fn_clDevGetDeviceInfo *)dlModule.GetFunctionPtrByName(
-          "clDevGetDeviceInfo");
-  if (nullptr == pFnClDevGetDeviceInfo) {
-    return CL_ERR_DEVICE_INIT_FAIL;
-  }
-
-  // Get pointer to the GetTimer function
-  fn_clDevGetDeviceTimer *pFnClDevGetDeviceTimer =
-      (fn_clDevGetDeviceTimer *)dlModule.GetFunctionPtrByName(
-          "clDevGetDeviceTimer");
-  if (nullptr == pFnClDevGetDeviceTimer) {
-    return CL_ERR_DEVICE_INIT_FAIL;
-  }
-
-  fn_clDevGetAvailableDeviceList *pFnClDevGetAvailableDeviceList =
-      (fn_clDevGetAvailableDeviceList *)dlModule.GetFunctionPtrByName(
-          "clDevGetAvailableDeviceList");
-  if (nullptr == pFnClDevGetAvailableDeviceList) {
-    return CL_ERR_DEVICE_INIT_FAIL;
-  }
-
-  if (CL_DEV_FAILED(pFnClDevInitDeviceAgent())) {
+  if (CL_DEV_FAILED(clDevInitDeviceAgent())) {
     return CL_ERR_DEVICE_INIT_FAIL;
   }
 
   size_t numDevicesInDeviceType = 0;
   cl_dev_err_code dev_err =
-      pFnClDevGetAvailableDeviceList(0, nullptr, &numDevicesInDeviceType);
+      clDevGetAvailableDeviceList(0, nullptr, &numDevicesInDeviceType);
 
   if ((CL_DEV_FAILED(dev_err)) || (0 == numDevicesInDeviceType)) {
     return CL_ERR_DEVICE_INIT_FAIL;
@@ -224,8 +176,8 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(
   }
 
   size_t numDevicesInDeviceTypeRet = 0;
-  dev_err = pFnClDevGetAvailableDeviceList(
-      numDevicesInDeviceType, deviceIdsList, &numDevicesInDeviceTypeRet);
+  dev_err = clDevGetAvailableDeviceList(numDevicesInDeviceType, deviceIdsList,
+                                        &numDevicesInDeviceTypeRet);
   if ((CL_DEV_FAILED(dev_err)) ||
       (numDevicesInDeviceTypeRet != numDevicesInDeviceType)) {
     STACK_FREE(deviceIdsList);
@@ -244,8 +196,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(
       break;
     }
 
-    clErr = pDevice->InitDevice(psDeviceAgentDllPath, pFnClDevGetDeviceInfo,
-                                pFnClDevGetDeviceTimer, deviceIdsList[i]);
+    clErr = pDevice->InitDevice(deviceIdsList[i]);
     if (CL_FAILED(clErr)) {
       clErrRet = clErr;
       pDevice = nullptr;
@@ -259,91 +210,72 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(
   return clErrRet;
 }
 
-cl_err_code Device::InitDevice(const char *psDeviceAgentDllPath,
-                               fn_clDevGetDeviceInfo *pFnClDevGetDeviceInfo,
-                               fn_clDevGetDeviceTimer *pFnClDevGetDeviceTimer,
-                               unsigned int devId) {
-  LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
-
-  // Loading again the library in order to increase the reference counter of the
-  // library.
-  LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
-
-  if (m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
-          psDeviceAgentDllPath)) != 0) {
-    LogErrorA("LoadLibrary(%s) failed", psDeviceAgentDllPath);
-    return CL_ERR_DEVICE_INIT_FAIL;
-  }
-
-  m_pFnClDevGetDeviceInfo = pFnClDevGetDeviceInfo;
-  m_pFnClDevGetDeviceTimer = pFnClDevGetDeviceTimer;
+cl_err_code Device::InitDevice(unsigned int devId) {
   m_devId = devId;
 
   m_stMaxLocalMemorySize = 0;
-  cl_dev_err_code dev_err = m_pFnClDevGetDeviceInfo(
-      m_devId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong),
-      &m_stMaxLocalMemorySize, nullptr);
+  cl_dev_err_code dev_err =
+      clDevGetDeviceInfo(m_devId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong),
+                         &m_stMaxLocalMemorySize, nullptr);
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
     dev_err =
-        m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_TYPE, sizeof(cl_device_type),
-                                &m_deviceType, nullptr);
+        clDevGetDeviceInfo(m_devId, CL_DEVICE_TYPE, sizeof(cl_device_type),
+                           &m_deviceType, nullptr);
+  }
+
+  if (CL_DEV_SUCCEEDED(dev_err)) {
+    dev_err = clDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                                 sizeof(m_CL_DEVICE_MAX_WORK_GROUP_SIZE),
+                                 &m_CL_DEVICE_MAX_WORK_GROUP_SIZE, nullptr);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
     dev_err =
-        m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_GROUP_SIZE,
-                                sizeof(m_CL_DEVICE_MAX_WORK_GROUP_SIZE),
-                                &m_CL_DEVICE_MAX_WORK_GROUP_SIZE, nullptr);
+        clDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
+                           sizeof(m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS),
+                           &m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, nullptr);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
-    dev_err =
-        m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
-                                sizeof(m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS),
-                                &m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, nullptr);
+    dev_err = clDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_SIZES,
+                                 sizeof(m_CL_DEVICE_MAX_WORK_ITEM_SIZES),
+                                 &m_CL_DEVICE_MAX_WORK_ITEM_SIZES, nullptr);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
-    dev_err =
-        m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_SIZES,
-                                sizeof(m_CL_DEVICE_MAX_WORK_ITEM_SIZES),
-                                &m_CL_DEVICE_MAX_WORK_ITEM_SIZES, nullptr);
-  }
-
-  if (CL_DEV_SUCCEEDED(dev_err)) {
-    dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_SVM_CAPABILITIES,
-                                      sizeof(m_CL_DEVICE_SVM_CAPABILITIES),
-                                      &m_CL_DEVICE_SVM_CAPABILITIES, nullptr);
+    dev_err = clDevGetDeviceInfo(m_devId, CL_DEVICE_SVM_CAPABILITIES,
+                                 sizeof(m_CL_DEVICE_SVM_CAPABILITIES),
+                                 &m_CL_DEVICE_SVM_CAPABILITIES, nullptr);
     m_bSvmSupported = CL_DEV_SUCCEEDED(dev_err);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
     dev_err =
-        m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
-                                sizeof(m_usmHostCaps), &m_usmHostCaps, nullptr);
+        clDevGetDeviceInfo(m_devId, CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
+                           sizeof(m_usmHostCaps), &m_usmHostCaps, nullptr);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
-    dev_err = m_pFnClDevGetDeviceInfo(
-        m_devId, CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
-        sizeof(m_usmDeviceCaps), &m_usmDeviceCaps, nullptr);
+    dev_err =
+        clDevGetDeviceInfo(m_devId, CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
+                           sizeof(m_usmDeviceCaps), &m_usmDeviceCaps, nullptr);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
-    dev_err = m_pFnClDevGetDeviceInfo(
+    dev_err = clDevGetDeviceInfo(
         m_devId, CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
         sizeof(m_usmSharedSingleCaps), &m_usmSharedSingleCaps, nullptr);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
-    dev_err = m_pFnClDevGetDeviceInfo(
+    dev_err = clDevGetDeviceInfo(
         m_devId, CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
         sizeof(m_usmSharedCrossCaps), &m_usmSharedCrossCaps, nullptr);
   }
 
   if (CL_DEV_SUCCEEDED(dev_err)) {
-    dev_err = m_pFnClDevGetDeviceInfo(
+    dev_err = clDevGetDeviceInfo(
         m_devId, CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL,
         sizeof(m_usmSharedSystemCaps), &m_usmSharedSystemCaps, nullptr);
   }
@@ -362,17 +294,9 @@ cl_err_code Device::CreateInstance() {
   if (0 == m_pDeviceRefCount) {
     LOG_DEBUG(TEXT("%s"),
               TEXT("Creating new device instance (Device::CreateInstance)"));
-    auto *devCreateInstance =
-        (fn_clDevCreateDeviceInstance *)m_dlModule.GetFunctionPtrByName(
-            "clDevCreateDeviceInstance");
-    if (nullptr == devCreateInstance) {
-      LOG_ERROR(TEXT("%s"), TEXT("GetProcAddress(clDevCreateDeviceInstance) "
-                                 "failed (devCreateInstance==NULL)"));
-      return CL_ERR_DEVICE_INIT_FAIL;
-    }
 
     LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
-    int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice);
+    int clDevErr = clDevCreateDeviceInstance(m_devId, this, this, &m_pDevice);
     if (clDevErr != (int)CL_DEV_SUCCESS) {
       LOG_ERROR(TEXT("Device::devCreateInstance returned %d"), clDevErr);
       return CL_DEVICE_NOT_AVAILABLE;
