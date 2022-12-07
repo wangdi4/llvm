@@ -230,6 +230,7 @@ MaxArraySize("instcombine-maxarray-size", cl::init(1024),
 static cl::opt<unsigned> ShouldLowerDbgDeclare("instcombine-lower-dbg-declare",
                                                cl::Hidden, cl::init(true));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Returns true if the code is targeted to Intel AVX2 vector architectures.
 // Any of the following can be true:
@@ -262,15 +263,18 @@ static bool TargetIsAVX2(TargetTransformInfo &TTI, Function *F) {
 #endif // INTEL_CUSTOMIZATION
 
 Optional<Instruction *>
+=======
+std::optional<Instruction *>
+>>>>>>> 86fe4dfdb626d472f88bf8331da7cc98e9631cfe
 InstCombiner::targetInstCombineIntrinsic(IntrinsicInst &II) {
   // Handle target specific intrinsics
   if (II.getCalledFunction()->isTargetIntrinsic()) {
     return TTI.instCombineIntrinsic(*this, II);
   }
-  return None;
+  return std::nullopt;
 }
 
-Optional<Value *> InstCombiner::targetSimplifyDemandedUseBitsIntrinsic(
+std::optional<Value *> InstCombiner::targetSimplifyDemandedUseBitsIntrinsic(
     IntrinsicInst &II, APInt DemandedMask, KnownBits &Known,
     bool &KnownBitsComputed) {
   // Handle target specific intrinsics
@@ -278,10 +282,10 @@ Optional<Value *> InstCombiner::targetSimplifyDemandedUseBitsIntrinsic(
     return TTI.simplifyDemandedUseBitsIntrinsic(*this, II, DemandedMask, Known,
                                                 KnownBitsComputed);
   }
-  return None;
+  return std::nullopt;
 }
 
-Optional<Value *> InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic(
+std::optional<Value *> InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic(
     IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts, APInt &UndefElts2,
     APInt &UndefElts3,
     std::function<void(Instruction *, unsigned, APInt, APInt &)>
@@ -292,7 +296,7 @@ Optional<Value *> InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic(
         *this, II, DemandedElts, UndefElts, UndefElts2, UndefElts3,
         SimplifyAndSetOp);
   }
-  return None;
+  return std::nullopt;
 }
 
 Value *InstCombinerImpl::EmitGEPOffset(User *GEP) {
