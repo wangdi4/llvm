@@ -3866,6 +3866,8 @@
 ; CHECK-NEXT: _Z20work_group_broadcasttmmm
 ; CHECK-NEXT: _Z21SOA4_ProjectToEdgeIntP15_image_aux_dataDv4_iS2_PS2_S4_
 ; CHECK-NEXT: _Z21SOA8_ProjectToEdgeIntP15_image_aux_dataDv8_iS2_PS2_S4_
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS1DhPU3AS3KDhm9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv16_DhPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv16_cPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv16_dPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv16_fPU3AS3KS_m9ocl_event
@@ -3876,6 +3878,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv16_mPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv16_sPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv16_tPU3AS3KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv2_DhPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv2_cPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv2_dPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv2_fPU3AS3KS_m9ocl_event
@@ -3886,6 +3889,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv2_mPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv2_sPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv2_tPU3AS3KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv3_DhPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv3_cPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv3_dPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv3_fPU3AS3KS_m9ocl_event
@@ -3896,6 +3900,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv3_mPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv3_sPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv3_tPU3AS3KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv4_DhPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv4_cPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv4_dPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv4_fPU3AS3KS_m9ocl_event
@@ -3906,6 +3911,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv4_mPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv4_sPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv4_tPU3AS3KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv8_DhPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv8_cPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv8_dPU3AS3KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1Dv8_fPU3AS3KS_m9ocl_event
@@ -3926,6 +3932,8 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1mPU3AS3Kmm9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1sPU3AS3Ksm9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS1tPU3AS3Ktm9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS3DhPU3AS1KDhm9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv16_DhPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv16_cPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv16_dPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv16_fPU3AS1KS_m9ocl_event
@@ -3936,6 +3944,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv16_mPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv16_sPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv16_tPU3AS1KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv2_DhPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv2_cPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv2_dPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv2_fPU3AS1KS_m9ocl_event
@@ -3946,6 +3955,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv2_mPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv2_sPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv2_tPU3AS1KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv3_DhPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv3_cPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv3_dPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv3_fPU3AS1KS_m9ocl_event
@@ -3956,6 +3966,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv3_mPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv3_sPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv3_tPU3AS1KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv4_DhPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv4_cPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv4_dPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv4_fPU3AS1KS_m9ocl_event
@@ -3966,6 +3977,7 @@
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv4_mPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv4_sPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv4_tPU3AS1KS_m9ocl_event
+; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv8_DhPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv8_cPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv8_dPU3AS1KS_m9ocl_event
 ; CHECK-NEXT: _Z21async_work_group_copyPU3AS3Dv8_fPU3AS1KS_m9ocl_event
@@ -7851,6 +7863,8 @@
 ; CHECK-NEXT: _Z28work_group_reduce_logical_orDv8_iPS_
 ; CHECK-NEXT: _Z28work_group_reduce_logical_ori
 ; CHECK-NEXT: _Z28work_group_reduce_logical_oriPi
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1DhPU3AS3KDhmm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv16_DhPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv16_cPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv16_dPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv16_fPU3AS3KS_mm9ocl_event
@@ -7861,6 +7875,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv16_mPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv16_sPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv16_tPU3AS3KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv2_DhPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv2_cPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv2_dPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv2_fPU3AS3KS_mm9ocl_event
@@ -7871,6 +7886,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv2_mPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv2_sPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv2_tPU3AS3KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv3_DhPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv3_cPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv3_dPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv3_fPU3AS3KS_mm9ocl_event
@@ -7881,6 +7897,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv3_mPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv3_sPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv3_tPU3AS3KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv4_DhPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv4_cPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv4_dPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv4_fPU3AS3KS_mm9ocl_event
@@ -7891,6 +7908,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv4_mPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv4_sPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv4_tPU3AS3KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv8_DhPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv8_cPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv8_dPU3AS3KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1Dv8_fPU3AS3KS_mm9ocl_event
@@ -7911,6 +7929,8 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1mPU3AS3Kmmm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1sPU3AS3Ksmm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS1tPU3AS3Ktmm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3DhPU3AS1KDhmm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv16_DhPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv16_cPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv16_dPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv16_fPU3AS1KS_mm9ocl_event
@@ -7921,6 +7941,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv16_mPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv16_sPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv16_tPU3AS1KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv2_DhPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv2_cPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv2_dPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv2_fPU3AS1KS_mm9ocl_event
@@ -7931,6 +7952,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv2_mPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv2_sPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv2_tPU3AS1KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv3_DhPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv3_cPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv3_dPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv3_fPU3AS1KS_mm9ocl_event
@@ -7941,6 +7963,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv3_mPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv3_sPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv3_tPU3AS1KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv4_DhPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv4_cPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv4_dPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv4_fPU3AS1KS_mm9ocl_event
@@ -7951,6 +7974,7 @@
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv4_mPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv4_sPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv4_tPU3AS1KS_mm9ocl_event
+; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv8_DhPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv8_cPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv8_dPU3AS1KS_mm9ocl_event
 ; CHECK-NEXT: _Z29async_work_group_strided_copyPU3AS3Dv8_fPU3AS1KS_mm9ocl_event
