@@ -4201,7 +4201,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
           if (ArgOffset + Size > kParamTLSSize)
             break;
           const MaybeAlign ParamAlignment(CB.getParamAlign(i));
-          MaybeAlign Alignment = llvm::None;
+          MaybeAlign Alignment = std::nullopt;
           if (ParamAlignment)
             Alignment = std::min(*ParamAlignment, kShadowTLSAlignment);
           Value *AShadowPtr, *AOriginPtr;

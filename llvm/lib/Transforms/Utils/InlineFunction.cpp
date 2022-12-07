@@ -1183,7 +1183,7 @@ void ScopedAliasMetadataDeepCloner::clone() {
 
   SmallVector<TempMDTuple, 16> DummyNodes;
   for (const MDNode *I : MD) {
-    DummyNodes.push_back(MDTuple::getTemporary(I->getContext(), None));
+    DummyNodes.push_back(MDTuple::getTemporary(I->getContext(), std::nullopt));
     MDMap[I].reset(DummyNodes.back().get());
   }
 
@@ -2354,9 +2354,9 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
                               BlockFrequencyInfo *CallerBFI) {
   if (CalleeEntryCount.isSynthetic() || CalleeEntryCount.getCount() < 1)
     return;
-  auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : None;
+  auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : std::nullopt;
 #if INTEL_CUSTOMIZATION
-  if (CallSiteCount == None) {
+  if (CallSiteCount == std::nullopt) {
     // Get profile for call from intel_profx if not available elsewhere
     auto *MD = TheCall.getMetadata(LLVMContext::MD_intel_profx);
     if (MD) {

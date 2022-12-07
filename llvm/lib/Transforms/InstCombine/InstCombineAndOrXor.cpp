@@ -260,7 +260,7 @@ getMaskedTypeForICmpPair(Value *&A, Value *&B, Value *&C,
   // Don't allow pointers. Splat vectors are fine.
   if (!LHS->getOperand(0)->getType()->isIntOrIntVectorTy() ||
       !RHS->getOperand(0)->getType()->isIntOrIntVectorTy())
-    return None;
+    return std::nullopt;
 
   // Here comes the tricky part:
   // LHS might be of the form L11 & L12 == X, X == L21 & L22,
@@ -291,7 +291,7 @@ getMaskedTypeForICmpPair(Value *&A, Value *&B, Value *&C,
 
   // Bail if LHS was a icmp that can't be decomposed into an equality.
   if (!ICmpInst::isEquality(PredL))
-    return None;
+    return std::nullopt;
 
   Value *R1 = RHS->getOperand(0);
   Value *R2 = RHS->getOperand(1);
@@ -305,7 +305,7 @@ getMaskedTypeForICmpPair(Value *&A, Value *&B, Value *&C,
       A = R12;
       D = R11;
     } else {
-      return None;
+      return std::nullopt;
     }
     E = R2;
     R1 = nullptr;
@@ -333,7 +333,7 @@ getMaskedTypeForICmpPair(Value *&A, Value *&B, Value *&C,
 
   // Bail if RHS was a icmp that can't be decomposed into an equality.
   if (!ICmpInst::isEquality(PredR))
-    return None;
+    return std::nullopt;
 
   // Look for ANDs on the right side of the RHS icmp.
   if (!Ok) {
@@ -353,7 +353,7 @@ getMaskedTypeForICmpPair(Value *&A, Value *&B, Value *&C,
       E = R1;
       Ok = true;
     } else {
-      return None;
+      return std::nullopt;
     }
 
     assert(Ok && "Failed to find AND on the right side of the RHS icmp.");
@@ -1036,7 +1036,7 @@ struct IntPart {
 static Optional<IntPart> matchIntPart(Value *V) {
   Value *X;
   if (!match(V, m_OneUse(m_Trunc(m_Value(X)))))
-    return None;
+    return std::nullopt;
 
   unsigned NumOriginalBits = X->getType()->getScalarSizeInBits();
   unsigned NumExtractedBits = V->getType()->getScalarSizeInBits();
