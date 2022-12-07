@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that calls to memset with a size parameter that is not supported by
 ; DTrans are marked with "Bad memfunc size"
@@ -16,10 +16,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; structure.
 %struct.test01a = type { i32, i32, i32, i32, i32 }
 %struct.test01b = type { i32, [10 x %struct.test01a] }
-define void @test14(%struct.test01b* "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !5 {
-  %a = getelementptr inbounds %struct.test01b, %struct.test01b* %b, i64 0, i32 1
-  %t0 = bitcast [10 x %struct.test01a]* %a to i8*
-  tail call void @llvm.memset.p0i8.i64(i8* %t0, i8 0, i64 100, i1 false)
+define void @test14(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !5 {
+  %a = getelementptr inbounds %struct.test01b, ptr %b, i64 0, i32 1
+  %t0 = bitcast ptr %a to i8*
+  tail call void @llvm.memset.p0i8.i64(ptr %t0, i8 0, i64 100, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -33,7 +33,7 @@ define void @test14(%struct.test01b* "intel_dtrans_func_index"="1" %b) !intel.dt
 ; CHECK: End LLVMType: %struct.test01b
 
 
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"A", i32 10, !3}  ; [10 x %struct.test01a]

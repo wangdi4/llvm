@@ -2,18 +2,17 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a store uses a pointer to the start of a structure, but
 ; stores a type that does not match the type that the structure begins with.
 ; These cases are storing a scalar type when the structure starts with a
 ; pointer to a structure type.
 
-%struct.test01a = type { %struct.test01b*, %struct.test01b*, %struct.test01b* }
+%struct.test01a = type { ptr, ptr, ptr }
 %struct.test01b = type { i32, i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
-  %pStruct.as.p8 = bitcast %struct.test01a* %pStruct to i8*
-  store i8 0, i8* %pStruct.as.p8
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
+  store i8 0, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -28,11 +27,10 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: End LLVMType: %struct.test01b
 
 
-%struct.test02a = type { %struct.test02b*, %struct.test02b*, %struct.test02b* }
+%struct.test02a = type { ptr, ptr, ptr }
 %struct.test02b = type { i32, i32, i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pStruct.as.p16 = bitcast %struct.test02a* %pStruct to i16*
-  store i16 0, i16* %pStruct.as.p16
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  store i16 0, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -50,11 +48,10 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; pointer to the element zero pointer, but for now we will treat it as unsafe to
 ; avoid special case code that looks at the value being stored when analyzing
 ; the store instructions.
-%struct.test03a = type { %struct.test03b*, %struct.test03b*, %struct.test03b* }
+%struct.test03a = type { ptr, ptr, ptr }
 %struct.test03b = type { i32, i32, i32 }
-define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
-  %pStruct.as.p64 = bitcast %struct.test03a* %pStruct to i64*
-  store i64 0, i64* %pStruct.as.p64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
+  store i64 0, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

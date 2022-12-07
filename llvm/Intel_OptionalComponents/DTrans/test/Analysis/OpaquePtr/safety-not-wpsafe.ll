@@ -5,19 +5,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Test that checks the safety analysis is not run when the input is not
 ; marked as Whole Program Safe
 
-; RUN: opt -dtransop-allow-typed-pointers -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
 
 %struct.testmember01 = type { i64, i64 }
-%struct.test01 = type { %struct.testmember01* }
+%struct.test01 = type { ptr }
 @var_test01 = internal global %struct.test01 zeroinitializer
 define void @test01() {
-  %mem_i8 = call i8* @malloc(i64 16)
-  %mystruct = bitcast i8* %mem_i8 to %struct.testmember01*
-  store %struct.testmember01* %mystruct, %struct.testmember01** getelementptr (%struct.test01, %struct.test01* @var_test01, i64 0, i32 0)
+  %mem_i8 = call ptr @malloc(i64 16)
+  store ptr %mem_i8, ptr getelementptr (%struct.test01, ptr @var_test01, i64 0, i32 0)
   ret void
 }
 
-declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
 ; CHECK: DTransSafetyInfo::analyzeModule running
 ; CHECK: DTransSafetyInfo: Not Whole Program Safe

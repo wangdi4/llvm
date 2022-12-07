@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test byte-flattened GEP cases that result in "Bad pointer manipulation"
 
@@ -11,11 +11,9 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i64, i32 }
 define internal void @test01(i32 %x, i32 %y) {
   %local = alloca %struct.test01
-  %flat = bitcast %struct.test01* %local to i8*
   %offset = select i1 undef, i32 %x, i32 %y
-  %faddr = getelementptr i8, i8* %flat, i32 %offset
-  %addr = bitcast i8* %faddr to i32*
-  store i32 0, i32* %addr
+  %faddr = getelementptr i8, ptr %local, i32 %offset
+  store i32 0, ptr %faddr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -29,10 +27,8 @@ define internal void @test01(i32 %x, i32 %y) {
 %struct.test02 = type { i32, i32, i32 }
 define internal void @test02(i32 %x) {
   %local = alloca %struct.test02
-  %flat = bitcast %struct.test02* %local to i8*
-  %faddr = getelementptr i8, i8* %flat, i32 2
-  %addr = bitcast i8* %faddr to i16*
-  store i16 0, i16* %addr
+  %faddr = getelementptr i8, ptr %local, i32 2
+  store i16 0, ptr %faddr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

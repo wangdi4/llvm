@@ -2,8 +2,8 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_T
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_F
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_T
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_F
 
 ; Test case where "Bad memfunc manipulation" occurs on an array element within a structure.
 ;
@@ -20,9 +20,8 @@ target triple = "x86_64-unknown-linux-gnu"
 @str = internal global [4 x i8] zeroinitializer
 define void @test01(i64 %arg)  {
   ; Here we cannot prove that the destination stays within the array bounds.
-  %pDst = getelementptr %struct.test01a, %struct.test01a* @var01a, i64 0, i32 2, i32 1, i64 %arg
-  %pSrc = bitcast [4 x i8]* @str to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+  %pDst = getelementptr %struct.test01a, ptr @var01a, i64 0, i32 2, i32 1, i64 %arg
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr @str, i64 8, i1 false)
   ret void
 }
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
@@ -38,7 +37,7 @@ define void @test01(i64 %arg)  {
 ; CHECK: End LLVMType: %struct.test01b
 
 
-declare !intel.dtrans.func.type !7 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 
 !1 = !{i64 0, i32 0}  ; i64

@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing the address of an array element which has the same address as a
 ; structure type. This should cause the "Field address taken call" to be set.
@@ -16,8 +16,11 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { [200 x i8], [200 x i8], i64, i64 }
 @net01 = internal global %struct.test01 zeroinitializer
 define void @test01() {
-  %tmp = call i8* @strcpy(i8* getelementptr (%struct.test01, %struct.test01* @net01, i64 0, i32 0, i64 0),
-                          i8* getelementptr (%struct.test01, %struct.test01* @net01, i64 0, i32 1, i64 0))
+  ; NOTE: We need to use the instruction form of the GEP.0.0 rather than the
+  ; operator form, because the IR reader will elide the GEPOperator form.
+  %gep0 = getelementptr %struct.test01, ptr @net01, i64 0, i32 0, i64 0
+  %tmp = call ptr @strcpy(ptr %gep0,
+                          ptr getelementptr (%struct.test01, ptr @net01, i64 0, i32 1, i64 0))
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -42,8 +45,11 @@ define void @test01() {
 @net02 = internal global %struct.test02 zeroinitializer
 @str02 = private constant [31 x i8] c"network %s: not enough memory\0A\00"
 define void @test02() {
-  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr ([31 x i8], [31 x i8]* @str02, i64 0, i64 0),
-                                     i8* getelementptr (%struct.test02, %struct.test02* @net02, i64 0, i32 0, i64 0))
+  ; NOTE: We need to use the instruction form of the GEP.0.0 rather than the
+  ; operator form, because the IR reader will elide the GEPOperator form.
+  %gep0struct = getelementptr %struct.test02, ptr @net02, i64 0, i32 0, i64 0
+  %gep0array = getelementptr [31 x i8], ptr @str02, i64 0, i64 0
+  %tmp = call i32 (ptr, ...) @printf(ptr %gep0array, ptr %gep0struct)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -60,8 +66,8 @@ define void @test02() {
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @strcpy(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
-declare !intel.dtrans.func.type !6 i32 @printf(i8* "intel_dtrans_func_index"="1", ...)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @strcpy(ptr "intel_dtrans_func_index"="2", ptr "intel_dtrans_func_index"="3")
+declare !intel.dtrans.func.type !6 i32 @printf(ptr "intel_dtrans_func_index"="1", ...)
 
 !1 = !{!"A", i32 200, !2}  ; [200 x i8]
 !2 = !{i8 0, i32 0}  ; i8

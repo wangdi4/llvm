@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a load uses a pointer to the start of a structure, but
 ; loads a type that does not match the type of the first element of the
@@ -14,9 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; it means a pointer to the structure is being used as an incorrect type.
 %struct.test01a = type { %struct.test01b }
 %struct.test01b = type { i32, i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
-  %pStruct.as.p8 = bitcast %struct.test01a* %pStruct to i8*
-  %vField = load i8, i8* %pStruct.as.p8
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
+  %vField = load i8, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -32,9 +31,8 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 
 %struct.test02a = type { %struct.test02b }
 %struct.test02b = type { i32, i32, i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pStruct.as.p16 = bitcast %struct.test02a* %pStruct to i16*
-  %vField = load i16, i16* %pStruct.as.p16
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %vField = load i16, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -50,9 +48,8 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
 
 %struct.test03a = type { %struct.test03b }
 %struct.test03b = type { i32, i32, i32 }
-define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
-  %pStruct.as.p64 = bitcast %struct.test03a* %pStruct to i64*
-  %vField = load i64, i64* %pStruct.as.p64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
+  %vField = load i64, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -71,9 +68,8 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; access".
 %struct.test04a = type { %struct.test04b }
 %struct.test04b = type { i32, i32 }
-define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !13 {
-  %pStruct.as.p64 = bitcast %struct.test04a* %pStruct to i64*
-  %vField = load i64, i64* %pStruct.as.p64
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !13 {
+  %vField = load i64, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -90,10 +86,9 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct) !in
 %struct.test05a = type { %struct.test05b }
 %struct.test05b = type { i32, i32 }
 %struct.test05c = type { i64 }
-define void @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !17 {
-  %pStruct.as.ppS5c = bitcast %struct.test05a* %pStruct to %struct.test05c**
-  %vField = load %struct.test05c*, %struct.test05c** %pStruct.as.ppS5c
-  %use = getelementptr %struct.test05c, %struct.test05c* %vField, i64 0, i32 0
+define void @test05(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !17 {
+  %vField = load ptr, ptr %pStruct
+  %use = getelementptr %struct.test05c, ptr %vField, i64 0, i32 0
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -115,9 +110,8 @@ define void @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; A safe access to a nested element.
 %struct.test06a = type{ %struct.test06b }
 %struct.test06b = type { i32, i32, i32 }
-define void @test06(%struct.test06a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !20 {
-  %pStruct.as.p32 = bitcast %struct.test06a* %pStruct to i32*
-  %vField = load i32, i32* %pStruct.as.p32
+define void @test06(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !20 {
+  %vField = load i32, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

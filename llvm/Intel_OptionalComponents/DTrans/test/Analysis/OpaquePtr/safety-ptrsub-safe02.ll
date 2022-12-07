@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the collection of type information for pointer subtraction cases that are
 ; safe for transformations which may require updating an operand that represents
@@ -11,9 +11,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Subtracting two pointers of the same type yields a safe offset when the
 ; result is used for dividing by the structure's size.
 %struct.test01 = type { i64, i64 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1, %struct.test01* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !3 {
-  %t1 = ptrtoint %struct.test01* %pStruct1 to i64
-  %t2 = ptrtoint %struct.test01* %pStruct2 to i64
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !3 {
+  %t1 = ptrtoint ptr %pStruct1 to i64
+  %t2 = ptrtoint ptr %pStruct2 to i64
   %offset = sub i64 %t2, %t1
   ; Division by structure size.
   %count = sdiv i64 %offset, 16
@@ -22,9 +22,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1, %st
 
 ; udiv is also safe.
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %struct.test02* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !6 {
-  %t1 = ptrtoint %struct.test02* %pStruct1 to i64
-  %t2 = ptrtoint %struct.test02* %pStruct2 to i64
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !6 {
+  %t1 = ptrtoint ptr %pStruct1 to i64
+  %t2 = ptrtoint ptr %pStruct2 to i64
   %offset = sub i64 %t2, %t1
   ; Division by structure size.
   %count = udiv i64 %offset, 8
@@ -34,9 +34,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; Pointer subtraction that gets used in a divide using a multiple of the
 ; structure size.
 %struct.test03 = type { i64, i64, i64 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %ppStruct1, %struct.test03* "intel_dtrans_func_index"="2" %ppStruct2) !intel.dtrans.func.type !8 {
-  %t1 = ptrtoint %struct.test03* %ppStruct1 to i64
-  %t2 = ptrtoint %struct.test03* %ppStruct2 to i64
+define void @test03(ptr "intel_dtrans_func_index"="1" %ppStruct1, ptr "intel_dtrans_func_index"="2" %ppStruct2) !intel.dtrans.func.type !8 {
+  %t1 = ptrtoint ptr %ppStruct1 to i64
+  %t2 = ptrtoint ptr %ppStruct2 to i64
   %mult = mul i64 24, 4
   %offset = sub i64 %t2, %t1
   ; Division by a multiple of the structure size.

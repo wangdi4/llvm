@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that safe GEP uses do not get marked with safety flags by the checks
 ; for 'Ambiguous GEP' or 'Bad pointer manipulation'. The cases are checking
@@ -10,20 +10,19 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Access to element of non-nested structure
-%struct.test01 = type { i32, i64*, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
+%struct.test01 = type { i32, ptr, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
 define internal void @test01() {
   %local = alloca %struct.test01
-  %flat = bitcast %struct.test01* %local to i8*
 
-  %addr0 = getelementptr i8, i8* %flat, i32 0
-  %addr1 = getelementptr i8, i8* %flat, i32 8
-  %addr2 = getelementptr i8, i8* %flat, i32 16
-  %addr3 = getelementptr i8, i8* %flat, i32 20
-  %addr4 = getelementptr i8, i8* %flat, i32 22
-  call void @test01helper(i8* %addr0, i8* %addr1, i8* %addr2, i8* %addr3, i8* %addr4)
+  %addr0 = getelementptr i8, ptr %local, i32 0
+  %addr1 = getelementptr i8, ptr %local, i32 8
+  %addr2 = getelementptr i8, ptr %local, i32 16
+  %addr3 = getelementptr i8, ptr %local, i32 20
+  %addr4 = getelementptr i8, ptr %local, i32 22
+  call void @test01helper(ptr %addr0, ptr %addr1, ptr %addr2, ptr %addr3, ptr %addr4)
   ret void
 }
-define internal void @test01helper(i8* "intel_dtrans_func_index"="1" %arg0, i8* "intel_dtrans_func_index"="2" %arg1, i8* "intel_dtrans_func_index"="3" %arg2, i8* "intel_dtrans_func_index"="4" %arg3, i8* "intel_dtrans_func_index"="5" %arg4) !intel.dtrans.func.type !5 {
+define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %arg0, ptr "intel_dtrans_func_index"="2" %arg1, ptr "intel_dtrans_func_index"="3" %arg2, ptr "intel_dtrans_func_index"="4" %arg3, ptr "intel_dtrans_func_index"="5" %arg4) !intel.dtrans.func.type !5 {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -36,10 +35,8 @@ define internal void @test01helper(i8* "intel_dtrans_func_index"="1" %arg0, i8* 
 %struct.test02b = type { i16, %struct.test02a } ; Offsets 0, 4
 define internal void @test02() {
   %local = alloca %struct.test02b
-  %flat = bitcast %struct.test02b* %local to i8*
-  %faddr = getelementptr i8, i8* %flat, i64 8
-  %addr = bitcast i8* %faddr to i32*
-  store i32 0, i32* %addr
+  %faddr = getelementptr i8, ptr %local, i64 8
+  store i32 0, ptr %faddr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -58,9 +55,8 @@ define internal void @test02() {
 %struct.test03 = type { i32, i16, i32 } ; Offsets: 0, 4, 8
 define internal void @test03(i32 %x) {
   %local = alloca %struct.test03
-  %flat = bitcast %struct.test03* %local to i8*
-  %pad_addr = getelementptr i8, i8* %flat, i32 6
-  call void @llvm.memset.p0i8.i64(i8* %pad_addr, i8 0, i64 6, i1 false)
+  %pad_addr = getelementptr i8, ptr %local, i32 6
+  call void @llvm.memset.p0i8.i64(ptr %pad_addr, i8 0, i64 6, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -70,7 +66,7 @@ define internal void @test03(i32 %x) {
 ; CHECK: Local instance{{ *$}}
 
 
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 
 !1 = !{i32 0, i32 0}  ; i32

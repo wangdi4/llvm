@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where an entire structure is written with a call to memcpy by
 ; passing a pointer to the structure to the memcpy call.
@@ -11,10 +11,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Copy the entire structure.
 %struct.test01 = type { i32, i16, i8 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1, %struct.test01* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !5 {
-  %pDst = bitcast %struct.test01* %pStruct1 to i8*
-  %pSrc = bitcast %struct.test01* %pStruct2 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !5 {
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -31,10 +29,8 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1, %st
 
 ; Copy that uses a multiple of the structure size, such as for an array of structures.
 %struct.test02 = type { i32, i16, i8 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %struct.test02* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !7 {
-  %pDst = bitcast %struct.test02* %pStruct1 to i8*
-  %pSrc = bitcast %struct.test02* %pStruct2 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 80, i1 false)
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !7 {
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 80, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -53,12 +49,10 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; structures, where the size is not a compile time constant, but the multiplier
 ; is a multiple of the structure size.
 %struct.test03 = type { i32, i16, i8 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct1, %struct.test03* "intel_dtrans_func_index"="2" %pStruct2, i32 %n) !intel.dtrans.func.type !9 {
-  %pDst = bitcast %struct.test03* %pStruct1 to i8*
-  %pSrc = bitcast %struct.test03* %pStruct2 to i8*
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2, i32 %n) !intel.dtrans.func.type !9 {
   %conv = sext i32 %n to i64
   %mul = mul i64 %conv, 8
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 %mul, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 %mul, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -76,12 +70,10 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; Copy a structure, where the size of the copy cannot be resolved to a multiple
 ; of the structure size.
 %struct.test04 = type { i32, i16, i8 }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct1, %struct.test04* "intel_dtrans_func_index"="2" %pStruct2, i32 %n, i64 %sz) !intel.dtrans.func.type !11 {
-  %pDst = bitcast %struct.test04* %pStruct1 to i8*
-  %pSrc = bitcast %struct.test04* %pStruct2 to i8*
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2, i32 %n, i64 %sz) !intel.dtrans.func.type !11 {
   %conv = sext i32 %n to i64
   %mul = mul i64 %conv, %sz
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 %mul, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 %mul, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -95,10 +87,8 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct1, %st
 %struct.test05a = type { i16, i32, [2 x i32] }
 %struct.test05b = type { i32, i16, i8 }
 %struct.test05c = type { %struct.test05a, %struct.test05b }
-define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %pStruct1, %struct.test05c* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !16 {
-  %pDst = bitcast %struct.test05c* %pStruct1 to i8*
-  %pSrc = bitcast %struct.test05c* %pStruct2 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 24, i1 false)
+define void @test05(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !16 {
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 24, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -134,11 +124,9 @@ define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %pStruct1, %s
 ; with 'Written'.
 %struct.test06a = type { i16, i32, [2 x i32] }
 %struct.test06b = type { i32, i16, i8 }
-%struct.test06c = type { %struct.test06a*, %struct.test06b* }
-define void @test06(%struct.test06c* "intel_dtrans_func_index"="1" %pStruct1, %struct.test06c* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !20 {
-  %pDst = bitcast %struct.test06c* %pStruct1 to i8*
-  %pSrc = bitcast %struct.test06c* %pStruct2 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 16, i1 false)
+%struct.test06c = type { ptr, ptr }
+define void @test06(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !20 {
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -177,10 +165,8 @@ define void @test06(%struct.test06c* "intel_dtrans_func_index"="1" %pStruct1, %s
 
 ; Copy a subset of the structure using a pointer to the start of the structure.
 %struct.test07 = type { i32, i32, i32, i32 }
-define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct1, %struct.test07* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !22 {
-  %pDst = bitcast %struct.test07* %pStruct1 to i8*
-  %pSrc = bitcast %struct.test07* %pStruct2 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define void @test07(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !22 {
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -196,7 +182,7 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
 ; CHECK: End LLVMType: %struct.test07
 
-declare !intel.dtrans.func.type !24 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !24 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 
 !1 = !{i32 0, i32 0}  ; i32

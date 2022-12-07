@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a load uses a pointer to the start of a structure, but
 ; loads a type that does not match the type of the first element of the
@@ -11,11 +11,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; These cases are for when the field element is a pointer to a structure type,
 ; and the load type is a scalar type.
 
-%struct.test01a = type { %struct.test01b*, %struct.test01b*, %struct.test01b* }
+%struct.test01a = type { ptr, ptr, ptr }
 %struct.test01b = type { i32, i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
-  %pStruct.as.p8 = bitcast %struct.test01a* %pStruct to i8*
-  %vField = load i8, i8* %pStruct.as.p8
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
+  %vField = load i8, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -29,11 +28,10 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: End LLVMType: %struct.test01b
 
 
-%struct.test02a = type { %struct.test02b*, %struct.test02b*, %struct.test02b* }
+%struct.test02a = type { ptr, ptr, ptr }
 %struct.test02b = type { i32, i32, i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pStruct.as.p16 = bitcast %struct.test02a* %pStruct to i16*
-  %vField = load i16, i16* %pStruct.as.p16
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %vField = load i16, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -49,11 +47,10 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
 
 ; This case does not trigger a "Mismatched element access" because it is using
 ; a pointer sized int to load a pointer.
-%struct.test03a = type { %struct.test03b*, %struct.test03b*, %struct.test03b* }
+%struct.test03a = type { ptr, ptr, ptr }
 %struct.test03b = type { i32, i32, i32 }
-define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
-  %pStruct.as.p64 = bitcast %struct.test03a* %pStruct to i64*
-  %vField = load i64, i64* %pStruct.as.p64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
+  %vField = load i64, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -67,13 +64,12 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: End LLVMType: %struct.test03b
 
 
-%struct.test04a = type { %struct.test04b*, %struct.test04b*, %struct.test04b* }
+%struct.test04a = type { ptr, ptr, ptr }
 %struct.test04b = type { i32, i32, i32 }
 %struct.test04c = type { i16, i16 }
-define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !14 {
-  %pStruct.as.ppS4c = bitcast %struct.test04a* %pStruct to %struct.test04c**
-  %vField = load %struct.test04c*, %struct.test04c** %pStruct.as.ppS4c
-  %use4b = getelementptr %struct.test04c, %struct.test04c* %vField, i64 0, i32 1
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !14 {
+  %vField = load ptr, ptr %pStruct
+  %use4b = getelementptr %struct.test04c, ptr %vField, i64 0, i32 1
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

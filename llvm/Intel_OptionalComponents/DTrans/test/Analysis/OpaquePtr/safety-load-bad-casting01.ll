@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Load a pointer to a structure with a different type than expected
 ; for the structure. This should result in the 'Bad casting' safety
@@ -12,10 +12,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.test01a = type { i32 }
 %struct.test01b = type { i16, i16 }
-define void @test01(%struct.test01a** "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
-  %bc = bitcast %struct.test01a** %pStruct to %struct.test01b**
-  %pB = load %struct.test01b*, %struct.test01b** %bc
-  %pField = getelementptr %struct.test01b, %struct.test01b* %pB, i64 0, i32 1
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
+  %pB = load ptr, ptr %pStruct
+  %pField = getelementptr %struct.test01b, ptr %pB, i64 0, i32 1
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

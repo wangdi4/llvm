@@ -2,29 +2,29 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test setting of "Global pointer" safety bit.
 
 %struct.test01 = type { i32, i32 }
-@global_ptr_to_struct = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
+@global_ptr_to_struct = internal global ptr zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global pointer
 ; CHECK: End LLVMType: %struct.test01
 
 %struct.test02 = type { i32, i32 }
-@global_ptr_to_ptr_to_struct = internal global %struct.test02** zeroinitializer, !intel_dtrans_type !3
+@global_ptr_to_ptr_to_struct = internal global ptr zeroinitializer, !intel_dtrans_type !3
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Global pointer
 ; CHECK: End LLVMType: %struct.test02
 
-%struct.test03a = type { %struct.test03b, %struct.test03c* }
+%struct.test03a = type { %struct.test03b, ptr }
 %struct.test03b = type { i32, i32 }
 %struct.test03c = type { i32, i32 }
-@global_ptr_struct3 =  internal global %struct.test03a* zeroinitializer, !intel_dtrans_type !6
+@global_ptr_struct3 =  internal global ptr zeroinitializer, !intel_dtrans_type !6
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Global pointer

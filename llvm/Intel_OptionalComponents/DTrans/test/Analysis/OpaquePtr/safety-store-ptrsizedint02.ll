@@ -2,26 +2,25 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that storing a pointer to a function type that contains pointers to
 ; structure type in the function signature to a 'i64' field does NOT generate
 ; the 'Address taken' safety bit on the structure types.
 
-%struct.test01 = type { i64, void (i32, %struct.test02*)* }
+%struct.test01 = type { i64, ptr }
 %struct.test02 = type { i32, i32 }
 %struct.test03 = type { i64 }
 
-define void @test(%struct.test01 *%a1, %struct.test03* "intel_dtrans_func_index"="1" %a2) !intel.dtrans.func.type !8 {
-  %f1 = getelementptr %struct.test01, %struct.test01* %a1, i64 0, i32 1
-  %fptr = load void (i32, %struct.test02*)*, void (i32, %struct.test02*)** %f1
-  store void (i32, %struct.test02*)* @foo, void (i32, %struct.test02*)** %f1
-  %pti = ptrtoint void (i32, %struct.test02*)* %fptr to i64
+define void @test(ptr %a1, ptr "intel_dtrans_func_index"="1" %a2) !intel.dtrans.func.type !8 {
+  %f1 = getelementptr %struct.test01, ptr %a1, i64 0, i32 1
+  %fptr = load ptr, ptr %f1
+  store ptr @foo, ptr %f1
+  %pti = ptrtoint ptr %fptr to i64
 
 
-  %f2 = getelementptr %struct.test03, %struct.test03* %a2, i64 0, i32 0
-  store i64 %pti, i64* %f2
+  %f2 = getelementptr %struct.test03, ptr %a2, i64 0, i32 0
+  store i64 %pti, ptr %f2
 
   ret void
 }
@@ -37,7 +36,7 @@ define void @test(%struct.test01 *%a1, %struct.test03* "intel_dtrans_func_index"
 ; CHECK: Safety data: No issues found
 ; CHECK: End LLVMType: %struct.test03
 
-define void @foo(i32 %a1, %struct.test02* "intel_dtrans_func_index"="1" %a2) !intel.dtrans.func.type !9 {
+define void @foo(i32 %a1, ptr "intel_dtrans_func_index"="1" %a2) !intel.dtrans.func.type !9 {
   ret void
 }
 

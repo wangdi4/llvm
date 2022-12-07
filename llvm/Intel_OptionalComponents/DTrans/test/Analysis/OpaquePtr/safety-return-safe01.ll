@@ -2,15 +2,15 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases that are safe uses of the return instruction.
 
 ; Test with return of pointer of the expected type
 ; Return a properly typed pointer to a structure.
 %struct.test01 = type { i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test01* @test1(%struct.test01* "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !3 {
-  ret %struct.test01* %pStruct
+define "intel_dtrans_func_index"="1" ptr @test1(ptr "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !3 {
+  ret ptr %pStruct
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
@@ -20,8 +20,8 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test1(%struct.test01* "int
 
 ; Test with return of null pointer.
 %struct.test02 = type { i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test02* @test2() !intel.dtrans.func.type !5 {
-  ret %struct.test02* null
+define "intel_dtrans_func_index"="1" ptr @test2() !intel.dtrans.func.type !5 {
+  ret ptr null
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
@@ -32,9 +32,9 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test2() !intel.dtrans.func
 ; Return an i64 type that does not represent a pointer to a
 ; structure.
 %struct.test03 = type { i64 }
-define i64 @test3(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !8 {
-  %addr = getelementptr %struct.test03, %struct.test03* %pStruct, i64 0, i32 0
-  %val = load i64, i64* %addr
+define i64 @test3(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !8 {
+  %addr = getelementptr %struct.test03, ptr %pStruct, i64 0, i32 0
+  %val = load i64, ptr %addr
   ret i64 %val
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

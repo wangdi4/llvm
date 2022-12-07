@@ -2,24 +2,23 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Store a non-pointer value into a structure field identified as a
 ; VTable pointer type to verify the analysis does not crash. This
 ; is a contrived situation for a regression test of CMPLRLLVM-31983.
 
 %"class.XMLPlatformUtilsException" = type { %"class.XMLException" }
-%"class.XMLException" = type { i32 (...)**, i32 }
+%"class.XMLException" = type { ptr, i32 }
 
-@XMLPlatformUtilsExceptionE.0 = global [2 x i8*] [i8* null, i8* bitcast (void(%"class.XMLPlatformUtilsException")* @foo to i8*)], !intel_dtrans_type !5
+@XMLPlatformUtilsExceptionE.0 = global [2 x ptr] [ptr null, ptr @foo], !intel_dtrans_type !5
 
-define internal void @XMLPlatformUtilsExceptionTest01(%"class.XMLPlatformUtilsException"* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !8 {
-  %vtbl_addr = getelementptr %"class.XMLPlatformUtilsException", %"class.XMLPlatformUtilsException"* %arg, i64 0, i32 0, i32 0
-  %vtbl_addr.as.p32 = bitcast i32 (...)*** %vtbl_addr to i32*
+define internal void @XMLPlatformUtilsExceptionTest01(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !8 {
+  %vtbl_addr = getelementptr %"class.XMLPlatformUtilsException", ptr %arg, i64 0, i32 0, i32 0
 
   ; This is the instruction under test, which should trigger a
   ; "Mismatched element access" on the pointer operand.
-  store i32 0, i32* %vtbl_addr.as.p32
+  store i32 0, ptr %vtbl_addr
   ret void
 }
 

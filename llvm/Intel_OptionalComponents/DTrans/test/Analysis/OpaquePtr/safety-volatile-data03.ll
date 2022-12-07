@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases for stores that are marked 'volatile' which store structure field
 ; elements.
@@ -12,8 +12,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32, i32 }
 @pStruct01 = internal global %struct.test01 zeroinitializer
 define void @test01(i32 %value) {
-  %pField = getelementptr %struct.test01, %struct.test01* @pStruct01, i64 0, i32 1
-  store volatile i32 %value, i32* %pField
+  %pField = getelementptr %struct.test01, ptr @pStruct01, i64 0, i32 1
+  store volatile i32 %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -23,12 +23,12 @@ define void @test01(i32 %value) {
 
 
 ; Store to a pointer of another type, safety data is not pointer-carried.
-%struct.test02a = type { %struct.test02b* }
+%struct.test02a = type { ptr }
 %struct.test02b = type { i32 }
 @pStruct02 = internal global %struct.test02a zeroinitializer
-define void @test02(%struct.test02b* "intel_dtrans_func_index"="1" %value) !intel.dtrans.func.type !3 {
-  %pField = getelementptr %struct.test02a, %struct.test02a* @pStruct02, i64 0, i32 0
-  store volatile %struct.test02b* %value, %struct.test02b** %pField
+define void @test02(ptr "intel_dtrans_func_index"="1" %value) !intel.dtrans.func.type !3 {
+  %pField = getelementptr %struct.test02a, ptr @pStruct02, i64 0, i32 0
+  store volatile ptr %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -48,8 +48,8 @@ define void @test02(%struct.test02b* "intel_dtrans_func_index"="1" %value) !inte
 %struct.test03b = type { i32 }
 @pStruct03 = internal global %struct.test03a zeroinitializer
 define void @test03(i32 %value) {
-  %pField = getelementptr %struct.test03a, %struct.test03a* @pStruct03, i64 0, i32 0
-  store volatile i32 %value, i32* %pField
+  %pField = getelementptr %struct.test03a, ptr @pStruct03, i64 0, i32 0
+  store volatile i32 %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

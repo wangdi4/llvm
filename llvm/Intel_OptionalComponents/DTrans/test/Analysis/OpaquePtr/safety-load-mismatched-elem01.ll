@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a load uses a pointer to a field in a structure, and the loaded
 ; type does not correspond to the field type.
@@ -12,10 +12,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; because the incorrect scalar type is used to access the field.
 
 %struct.test01 = type { i32, i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
-  %pField.as.p8 = bitcast i32* %pField to i8*
-  %vField = load i8, i8* %pField.as.p8
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %pField = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
+  %vField = load i8, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -25,10 +24,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 
 
 %struct.test02 = type { i32, i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  %pField = getelementptr %struct.test02, %struct.test02* %pStruct, i64 0, i32 1
-  %pField.as.p16 = bitcast i32* %pField to i16*
-  %vField = load i16, i16* %pField.as.p16
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
+  %pField = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 1
+  %vField = load i16, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -38,10 +36,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 
 
 %struct.test03 = type { i32, i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pField = getelementptr %struct.test03, %struct.test03* %pStruct, i64 0, i32 1
-  %pField.as.p64 = bitcast i32* %pField to i64*
-  %pVal = load i64, i64* %pField.as.p64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %pField = getelementptr %struct.test03, ptr %pStruct, i64 0, i32 1
+  %pVal = load i64, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

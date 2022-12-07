@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test detection of "Ambiguous GEP" safety condition by DTrans safety analyzer
 ; for a global variable that uses a GEPOperator with an incompatible type.
@@ -12,11 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @g_u01 = internal global %test01.union.u zeroinitializer
 define i32 @test01() {
-  %value = load i32, i32* getelementptr (%test01.struct.anon,
-                                       %test01.struct.anon*
-                                         bitcast (%test01.union.u* @g_u01 to
-                                                  %test01.struct.anon*),
-                                       i64 0, i32 1)
+  %value = load i32, ptr getelementptr (%test01.struct.anon, ptr @g_u01, i64 0, i32 1)
   ret i32 %value
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

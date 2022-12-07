@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing a pointer to a structure where the callee does not use the
 ; argument. This does not require marking it as "Address taken"
@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01a = type { i32, i32 }
 define void @test01() {
   %pStruct = alloca %struct.test01a
-  %pStruct.as.i64 = ptrtoint %struct.test01a* %pStruct to i64
+  %pStruct.as.i64 = ptrtoint ptr %pStruct to i64
   call void @test01callee(i64 %pStruct.as.i64)
   ret void
 }
@@ -27,13 +27,13 @@ define void @test01callee(i64 %in) {
 ; Test with bitcast function call
 %struct.test02a = type { i32, i32 }
 %struct.test02b = type { i64 }
-define void @test02(%struct.test02a** "intel_dtrans_func_index"="1" %pp) !intel.dtrans.func.type !4 {
-  %pStruct = load %struct.test02a*, %struct.test02a** %pp
-  call void bitcast (void (%struct.test02b*)* @test02callee
-                       to void (%struct.test02a*)*)(%struct.test02a* %pStruct)
+define void @test02(ptr "intel_dtrans_func_index"="1" %pp) !intel.dtrans.func.type !4 {
+  %pStruct = load ptr, ptr %pp
+  call void bitcast (ptr @test02callee
+                       to ptr)(ptr %pStruct)
   ret void
 }
-define void @test02callee(%struct.test02b* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !6 {
+define void @test02callee(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !6 {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

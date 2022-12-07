@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test for loading element zero of a nested type that resolves to an array
 ; element when using the correct type for the elements in the array.
@@ -10,10 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01a = type { i64, %struct.test01b }
 %struct.test01b = type { %struct.test01c }
 %struct.test01c = type { [8 x i64], i64 }
-define i64 @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
-  %pField = getelementptr %struct.test01a, %struct.test01a* %pStruct, i64 0, i32 1
-  %pField.as.i64 = bitcast %struct.test01b* %pField to i64*
-  %val = load i64, i64* %pField.as.i64
+define i64 @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
+  %pField = getelementptr %struct.test01a, ptr %pStruct, i64 0, i32 1
+  %val = load i64, ptr %pField
   ret i64 %val
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

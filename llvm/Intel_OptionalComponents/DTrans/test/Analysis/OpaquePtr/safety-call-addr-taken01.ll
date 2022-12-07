@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing a pointer to a structure as a pointer-sized int type. This should
 ; result in the "Address taken" safety bit on the type passed because it is unknown
@@ -13,14 +13,13 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01b = type { i32, i32 }
 define void @test01() {
   %pStruct = alloca %struct.test01a
-  %pStruct.as.i64 = ptrtoint %struct.test01a* %pStruct to i64
+  %pStruct.as.i64 = ptrtoint ptr %pStruct to i64
   call void @test01h(i64 %pStruct.as.i64)
   ret void
 }
 define void @test01h(i64 %in) {
   %pStruct = alloca %struct.test01b
-  %pStruct.as.p64 = bitcast %struct.test01b* %pStruct to i64*
-  store i64 %in, i64* %pStruct.as.p64
+  store i64 %in, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

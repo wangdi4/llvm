@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
 
 ; Test calls to memset using byte-flattened GEP addressing.
 
@@ -10,12 +10,11 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Call memset using a byte address that is field start.
 %struct.test01 = type { i32, i64, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
-define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.func.type !5 {
-  %mem = call i8* @malloc(i64 24)
-  %addr0 = getelementptr i8, i8* %mem, i32 8
-  call void @llvm.memset.p0i8.i64(i8* %addr0, i8 1, i64 16, i1 false)
-  %newStruct = bitcast i8* %mem to %struct.test01*
-  ret %struct.test01* %newStruct
+define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !5 {
+  %mem = call ptr @malloc(i64 24)
+  %addr0 = getelementptr i8, ptr %mem, i32 8
+  call void @llvm.memset.p0i8.i64(ptr %addr0, i8 1, i64 16, i1 false)
+  ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
@@ -35,12 +34,11 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 
 ; Call memset starting with the address of a padding byte between fields.
 %struct.test02 = type { i32, i64, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
-define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.func.type !7 {
-  %mem = call i8* @malloc(i64 24)
-  %addr0 = getelementptr i8, i8* %mem, i32 4
-  call void @llvm.memset.p0i8.i64(i8* %addr0, i8 1, i64 20, i1 false)
-  %newStruct = bitcast i8* %mem to %struct.test02*
-  ret %struct.test02* %newStruct
+define "intel_dtrans_func_index"="1" ptr @test02() !intel.dtrans.func.type !7 {
+  %mem = call ptr @malloc(i64 24)
+  %addr0 = getelementptr i8, ptr %mem, i32 4
+  call void @llvm.memset.p0i8.i64(ptr %addr0, i8 1, i64 20, i1 false)
+  ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
@@ -60,12 +58,11 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.fun
 
 ; Call memset starting with a byte that is not padding or a field boundary.
 %struct.test03 = type { i32, i64, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
-define "intel_dtrans_func_index"="1" %struct.test03* @test03() !intel.dtrans.func.type !9 {
-  %mem = call i8* @malloc(i64 24)
-  %addr0 = getelementptr i8, i8* %mem, i32 12
-  call void @llvm.memset.p0i8.i64(i8* %addr0, i8 1, i64 12, i1 false)
-  %newStruct = bitcast i8* %mem to %struct.test03*
-  ret %struct.test03* %newStruct
+define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !9 {
+  %mem = call ptr @malloc(i64 24)
+  %addr0 = getelementptr i8, ptr %mem, i32 12
+  call void @llvm.memset.p0i8.i64(ptr %addr0, i8 1, i64 12, i1 false)
+  ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03
@@ -73,8 +70,8 @@ define "intel_dtrans_func_index"="1" %struct.test03* @test03() !intel.dtrans.fun
 ; CHECK: End LLVMType: %struct.test03
 
 
-declare !intel.dtrans.func.type !11 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
-declare !intel.dtrans.func.type !12 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !11 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
+declare !intel.dtrans.func.type !12 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

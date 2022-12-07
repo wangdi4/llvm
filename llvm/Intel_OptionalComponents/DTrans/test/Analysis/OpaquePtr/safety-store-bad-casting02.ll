@@ -2,49 +2,50 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test storing a pointer to an aggregate type that gets used as multiple types
 ; does not result in a failure.
 
-%struct.test01.base = type { i32 (...)** }
+%struct.test01.base = type { ptr }
 %struct.test01.derived1 = type { %struct.test01.base }
 %struct.test01.derived2 = type { %struct.test01.base }
 
-@testVar01 = internal unnamed_addr global %struct.test01.base* null, !intel_dtrans_type !5
+@testVar01 = internal unnamed_addr global ptr null, !intel_dtrans_type !5
 
-define void @test01(%struct.test01.base* "intel_dtrans_func_index"="1" %pStruct.in) !intel.dtrans.func.type !6 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct.in) !intel.dtrans.func.type !6 {
   ; This store instruction was causing a crash on the DTransSafetyAnalyzer
   ; pass in an earlier change set.
-  store %struct.test01.base* %pStruct.in, %struct.test01.base** @testVar01
+  store ptr %pStruct.in, ptr @testVar01
 
   ; Use the pointer as different pointer types than it was declared as.
-  %tmp5 = bitcast %struct.test01.base* %pStruct.in to i8* (%struct.test01.base*, i64)***
-  %tmp6 = load i8* (%struct.test01.base*, i64)**, i8* (%struct.test01.base*, i64)*** %tmp5
-  %tmp7 = getelementptr inbounds i8* (%struct.test01.base*, i64)*, i8* (%struct.test01.base*, i64)** %tmp6, i64 2
-  %tmp8 = load i8* (%struct.test01.base*, i64)*, i8* (%struct.test01.base*, i64)** %tmp7
-  %tmp9 = bitcast i8* (%struct.test01.base*, i64)* %tmp8 to i8*
-  %tmp10 = bitcast i8* (%struct.test01.derived1*, i64)* @test01a to i8*
-  %tmp11 = icmp eq i8* %tmp9, %tmp10
+  ; Keep the bitcasts here to trigger the type inference for the uses.
+  %tmp5 = bitcast ptr %pStruct.in to ptr
+  %tmp6 = load ptr, ptr %tmp5
+  %tmp7 = getelementptr inbounds ptr, ptr %tmp6, i64 2
+  %tmp8 = load ptr, ptr %tmp7
+  %tmp9 = bitcast ptr %tmp8 to ptr
+  %tmp10 = bitcast ptr @test01a to ptr
+  %tmp11 = icmp eq ptr %tmp9, %tmp10
   br i1 %tmp11, label %type1, label %type2
 
 type1:
-  %tmp13 = tail call i8* bitcast (i8* (%struct.test01.derived1*, i64)* @test01a to i8* (%struct.test01.base*, i64)*)(%struct.test01.base* nonnull %pStruct.in, i64 48)
+  %tmp13 = tail call ptr bitcast (ptr @test01a to ptr)(ptr nonnull %pStruct.in, i64 48)
   br label %done
 
 type2:
-  %tmp15 = tail call i8* bitcast (i8* (%struct.test01.derived2*, i64)* @test01b to i8* (%struct.test01.base*, i64)*)(%struct.test01.base* nonnull %pStruct.in, i64 48)
+  %tmp15 = tail call ptr bitcast (ptr @test01b to ptr)(ptr nonnull %pStruct.in, i64 48)
   br label %done
 done:
   ret void
 }
 
-define internal "intel_dtrans_func_index"="1" i8* @test01a(%struct.test01.derived1* "intel_dtrans_func_index"="2" %0, i64 %1) !intel.dtrans.func.type !9 {
-  ret i8* null
+define internal "intel_dtrans_func_index"="1" ptr @test01a(ptr "intel_dtrans_func_index"="2" %0, i64 %1) !intel.dtrans.func.type !9 {
+  ret ptr null
 }
 
-define internal "intel_dtrans_func_index"="1" i8* @test01b(%struct.test01.derived2* "intel_dtrans_func_index"="2" %0, i64 %1) !intel.dtrans.func.type !11 {
-  ret i8* null
+define internal "intel_dtrans_func_index"="1" ptr @test01b(ptr "intel_dtrans_func_index"="2" %0, i64 %1) !intel.dtrans.func.type !11 {
+  ret ptr null
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01.base

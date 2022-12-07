@@ -2,49 +2,47 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-safetyanalyzer-ir -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-safetyanalyzer-ir -disable-output %s 2>&1 | FileCheck %s
 
 ; Test case for the option 'dtrans-print-safetyanalyzer-ir' to verify the
 ; printing of the IR with comments that indicate the safety flags triggered by
 ; the instruction.
 
-%struct.test01a = type { i32*, %struct.test01b }
+%struct.test01a = type { ptr, %struct.test01b }
 %struct.test01b = type { i32, %struct.test01c }
 %struct.test01c = type { i32 }
 @globalInst01 = internal global %struct.test01a zeroinitializer
 ; CHECK: @globalInst01 = internal global %struct.test01a
-; CHECK: ; -> Safety data: %struct.test01a : Global instance{{ *$}}
-; CHECK: ; -> Safety data: %struct.test01b : Global instance[Cascaded]
-; CHECK: ; -> Safety data: %struct.test01c : Global instance[Cascaded]
+; CHECK-DAG: ; -> Safety data: %struct.test01a : Global instance{{ *$}}
+; CHECK-DAG: ; -> Safety data: %struct.test01b : Global instance[Cascaded]
+; CHECK-DAG: ; -> Safety data: %struct.test01c : Global instance[Cascaded]
 
 %struct.test02 = type { i64, i64 }
-@globalPtrToAOS = internal global [2 x %struct.test02]* zeroinitializer, !intel_dtrans_type !6
-; CHECK: @globalPtrToAOS = internal global [2 x %struct.test02]*
-; CHECK: ; -> Safety data: %struct.test02 : Global pointer[Cascaded]
-; CHECK: ; -> Safety data: [2 x %struct.test02] : Global pointer{{ *$}}
+@globalPtrToAOS = internal global ptr zeroinitializer, !intel_dtrans_type !6
+; CHECK: @globalPtrToAOS = internal global ptr
+; CHECK-DAG: ; -> Safety data: %struct.test02 : Global pointer[Cascaded]
+; CHECK-DAG: ; -> Safety data: [2 x %struct.test02] : Global pointer{{ *$}}
 
-%struct.test03 = type { i32*, %struct.test03*, %struct.test03b* }
+%struct.test03 = type { ptr, ptr, ptr }
 %struct.test03b = type { i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct, i32* "intel_dtrans_func_index"="2" %p32) !intel.dtrans.func.type !11 {
-  %pField = getelementptr %struct.test03, %struct.test03* %pStruct, i64 0, i32 1
-  %pValue = load %struct.test03*, %struct.test03** %pField
-  %badCast = bitcast %struct.test03* %pValue to i32*
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct, ptr "intel_dtrans_func_index"="2" %p32) !intel.dtrans.func.type !11 {
+  %pField = getelementptr %struct.test03, ptr %pStruct, i64 0, i32 1
+  %pValue = load ptr, ptr %pField
 
   ; Test with a pointer carried safety condition.
-  %badMerge = select i1 undef, i32* %p32, i32* %badCast
+  %badMerge = select i1 undef, ptr %p32, ptr %pValue
 
   ; Test with one pointer carried, and one non-pointer carried safety condition.
-  %badLoad = load i32, i32* %badMerge
+  %badLoad = load i32, ptr %badMerge
   ret void
 }
 ; CHECK-LABEL: define void @test03
-; CHECK-NEXT: %pField = getelementptr %struct.test03, %struct.test03* %pStruct, i64 0, i32 1
-; CHECK-NEXT: %pValue = load %struct.test03*, %struct.test03** %pField
-; CHECK-NEXT: %badCast = bitcast %struct.test03* %pValue to i32*
-; CHECK-NEXT: %badMerge = select i1 undef, i32* %p32, i32* %badCast
+; CHECK-NEXT: %pField = getelementptr %struct.test03, ptr %pStruct, i64 0, i32 1
+; CHECK-NEXT: %pValue = load ptr, ptr %pField
+; CHECK-NEXT: %badMerge = select i1 undef, ptr %p32, ptr %pValue
 ; CHECK-NEXT: ; -> Safety data: %struct.test03 : Unsafe pointer merge{{ *$}}
 ; CHECK-NEXT: ; -> Safety data: %struct.test03b : Unsafe pointer merge[Cascaded][PtrCarried]
-; CHECK-NEXT: %badLoad = load i32, i32* %badMerge
+; CHECK-NEXT: %badLoad = load i32, ptr %badMerge
 ; CHECK-NEXT: ; -> Safety data: %struct.test03 : Bad casting{{ *$}}
 ; CHECK-NEXT: ; -> Safety data: %struct.test03 : Mismatched element access{{ *$}}
 ; CHECK-NEXT: ; -> Safety data: %struct.test03b : Bad casting[Cascaded][PtrCarried]
@@ -54,29 +52,27 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct, i32*
 %struct.test04b = type { i32, i32 }
 define void @test04() {
   %pStruct = alloca %struct.test04a
-  %pStruct.as.i64 = ptrtoint %struct.test04a* %pStruct to i64
+  %pStruct.as.i64 = ptrtoint ptr %pStruct to i64
   call void @testcallee04(i64 %pStruct.as.i64)
   ret void
 }
 ; CHECK-LABEL: define void @test04
 ; CHECK-NEXT: %pStruct = alloca %struct.test04a
 ; CHECK-NEXT: ; -> Safety data: %struct.test04a : Local instance
-; CHECK-NEXT: %pStruct.as.i64 = ptrtoint %struct.test04a* %pStruct to i64
+; CHECK-NEXT: %pStruct.as.i64 = ptrtoint ptr %pStruct to i64
 ; CHECK-NEXT: call void @testcallee04(i64 %pStruct.as.i64)
 ; CHECK-NEXT: ; -> Safety data: %struct.test04a : Address taken
 ; CHECK-NEXT: ret void
 
 define void @testcallee04(i64 %in) {
   %pStruct = alloca %struct.test04b
-  %pStruct.as.p64 = bitcast %struct.test04b* %pStruct to i64*
-  store i64 %in, i64* %pStruct.as.p64
+  store i64 %in, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: define void @testcallee04
 ; CHECK-NEXT: %pStruct = alloca %struct.test04b
 ; CHECK-NEXT: ; -> Safety data: %struct.test04b : Local instance{{ *$}}
-; CHECK-NEXT: %pStruct.as.p64 = bitcast %struct.test04b* %pStruct to i64*
-; CHECK-NEXT: store i64 %in, i64* %pStruct.as.p64
+; CHECK-NEXT: store i64 %in, ptr %pStruct
 ; CHECK-NEXT: ; -> Safety data: %struct.test04b : Bad casting{{ *$}}
 ; CHECK-NEXT: ; -> Safety data: %struct.test04b : Unsafe pointer store{{ *$}}
 ; CHECK-NEXT: ret void

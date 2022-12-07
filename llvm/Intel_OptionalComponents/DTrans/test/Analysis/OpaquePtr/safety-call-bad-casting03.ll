@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Call a function using a bitcast alias to a function using a different type
 ; than expected.
@@ -14,18 +14,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ;
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i32, i32 }
-@f01_alias = internal alias void (%struct.test01a*), bitcast (void (%struct.test01b*)* @f01 to void (%struct.test01a*)*)
+@f01_alias = internal alias void (ptr), bitcast (ptr @f01 to ptr)
 
-define internal void @f01(%struct.test01b* "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !3 {
-  %p = getelementptr %struct.test01b, %struct.test01b* %s, i64 0, i32 0
-  %i = load i32, i32* %p
+define internal void @f01(ptr "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !3 {
+  %p = getelementptr %struct.test01b, ptr %s, i64 0, i32 0
+  %i = load i32, ptr %p
   ret void
 }
 
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !5 {
-  %p = getelementptr %struct.test01a, %struct.test01a* %s, i64 0, i32 0
-  %i = load i32, i32* %p
-  call void @f01_alias(%struct.test01a* %s)
+define void @test01(ptr "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !5 {
+  %p = getelementptr %struct.test01a, ptr %s, i64 0, i32 0
+  %i = load i32, ptr %p
+  call void @f01_alias(ptr %s)
   ret void
 }
 ; NOTE: These also get "Ambiguous GEP" from %p within @test01 being collected
