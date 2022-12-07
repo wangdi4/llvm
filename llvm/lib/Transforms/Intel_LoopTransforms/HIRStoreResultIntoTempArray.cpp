@@ -162,7 +162,7 @@ private:
   HLLoop *createExtractedLoop(HLLoop *Lp, RegDDRef *MaxRef, RegDDRef *MinRef,
                               HLInst *ExpensiveInst,
                               SmallVectorImpl<HLInst *> &InstsInExprTree,
-                              HLInst *&AllocaInst,
+                              HLInst *&AllocaInst, unsigned &AllocaMemRefSB,
                               SmallVectorImpl<int64_t> &Offsets);
 
   HLLoop *createExtractedLoopWithLargestLoopUpperBounds(
@@ -171,7 +171,7 @@ private:
       SmallVectorImpl<RegDDRef *> &LoopUpperBounds,
       SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs,
       SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst,
-      SmallVectorImpl<int64_t> &Offsets);
+      unsigned &AllocaMemRefSB, SmallVectorImpl<int64_t> &Offsets);
 
   HLLoop *getDistsBetweenMinRefAndMaxRef(
       LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
@@ -1051,7 +1051,7 @@ static void updateLiveInForBlobs(RegDDRef *MemRef, HLLoop *InnermostLp) {
 HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
     HLLoop *Lp, RegDDRef *MaxRef, RegDDRef *MinRef, HLInst *ExpensiveInst,
     SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&Alloca,
-    SmallVectorImpl<int64_t> &Offsets) {
+    unsigned &AllocaMemRefSB, SmallVectorImpl<int64_t> &Offsets) {
 
   unsigned OutermostLoopLevel = Lp->getNestingLevel() - NumLoopnestLevel + 1;
 
@@ -1114,6 +1114,8 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
   RegDDRef *AllocaDDRef = DRU.createMemRef(cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
       Alloca->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
       Alloca->getNodeLevel());
+
+  AllocaMemRefSB = AllocaDDRef->getSymbase();
 
   RegDDRef *MemRef = getMemRef(InstsInExprTree);
 
@@ -1197,16 +1199,18 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
   std::sort(InstsInExprTree.begin(), InstsInExprTree.end(), LowerTopSortNum);
 
   HLInst *Alloca = nullptr;
+  unsigned AllocaMemRefSB;
   SmallVector<int64_t, 4> Offsets;
 
   HLLoop *ExtractedLoop =
       createExtractedLoop(Lp, MaxRef, MinRef, ExpensiveInsts[0],
-                          InstsInExprTree, Alloca, Offsets);
+                          InstsInExprTree, Alloca, AllocaMemRefSB, Offsets);
 
   // Create a temporary alloca to store the result
-  RegDDRef *AllocaDDRef = DRU.createMemRef(cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
+  RegDDRef *AllocaDDRef = DRU.createMemRef(
+      cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
       Alloca->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
-      Alloca->getNodeLevel());
+      Alloca->getNodeLevel(), AllocaMemRefSB);
 
   // Handle the transformation of the rest of expression trees in the loop
   for (auto It = ExpensiveInsts.begin(), End = ExpensiveInsts.end(); It != End;
@@ -1554,7 +1558,7 @@ HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
     SmallVectorImpl<RegDDRef *> &LoopUpperBounds,
     SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs,
     SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&Alloca,
-    SmallVectorImpl<int64_t> &Offsets) {
+    unsigned &AllocaMemRefSB, SmallVectorImpl<int64_t> &Offsets) {
   unsigned OuterLoopLevel =
       LoopWithMinRef->getNestingLevel() - NumLoopnestLevel + 1;
   HLLoop *OuterAnchorLp = FirstLoop->getParentLoopAtLevel(OuterLoopLevel);
@@ -1620,6 +1624,8 @@ HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
   RegDDRef *AllocaDDRef =
       DRU.createMemRef(cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(), AllocaLval->getSingleCanonExpr()->getSingleBlobIndex(),
                        Alloca->getNodeLevel());
+
+  AllocaMemRefSB = AllocaDDRef->getSymbase();
 
   RegDDRef *AllocaDDRefClone = AllocaDDRef->clone();
 
@@ -1763,17 +1769,19 @@ bool HIRStoreResultIntoTempArray::doBulkLoopCarriedScalarReplacement(
   std::sort(InstsInExprTree.begin(), InstsInExprTree.end(), LowerTopSortNum);
 
   HLInst *Alloca = nullptr;
+  unsigned AllocaMemRefSB;
   SmallVector<int64_t, 4> Offsets;
 
   HLLoop *ExtractedLoop = createExtractedLoopWithLargestLoopUpperBounds(
       FirstLoop, LoopWithMinRef, MemRef, ExpensiveInstForExtractedLoop,
       LoopUpperBounds, DistsBetweenMemRefs, InstsInExprTree, Alloca,
-      Offsets);
+      AllocaMemRefSB, Offsets);
 
   // Create a temporary alloca to store the result
-  RegDDRef *AllocaDDRef = DRU.createMemRef( cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
+  RegDDRef *AllocaDDRef = DRU.createMemRef(
+      cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
       Alloca->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
-      Alloca->getNodeLevel());
+      Alloca->getNodeLevel(), AllocaMemRefSB);
 
   // Handle the transformation of the rest of expression trees in the loop
   for (auto &LpInstPair : LpExpensiveInstsPairs) {

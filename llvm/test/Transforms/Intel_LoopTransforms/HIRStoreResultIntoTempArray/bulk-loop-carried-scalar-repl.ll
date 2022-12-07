@@ -3,8 +3,8 @@
 ; The largest loop upper bounds are used for the extracted loop.
 ; We expand the loop upper bounds by the largest distances for each dimension between minref and maxref.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
@@ -94,9 +94,9 @@
 ; CHECK:           %array_size7 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 4  *  %array_size;
 ; CHECK:           %TempArray = alloca %array_size7;
 ;
-; CHECK:              + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + 3, 1   <DO_LOOP>
-; CHECK:              |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch"), 1   <DO_LOOP>
-; CHECK:              |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch"), 1   <DO_LOOP>
+; CHECK:              + DO i64 i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + 3, 1   <DO_LOOP>
+; CHECK:              |   + DO i64 i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch"), 1   <DO_LOOP>
+; CHECK:              |   |   + DO i64 i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch"), 1   <DO_LOOP>
 ; CHECK:              |   |   |   %"jacobian_$Q[][][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0];
 ; CHECK:              |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][1]  /  %"jacobian_$Q[][][][]_fetch";
 ; CHECK:              |   |   |   %div65 = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][2]  /  %"jacobian_$Q[][][][]_fetch";
@@ -106,18 +106,22 @@
 ; CHECK:              |   |   |   %mul81 = %add80  *  2.000000e+00;
 ; CHECK:              |   |   |   %div83 = %mul81  /  %"jacobian_$Q[][][][]_fetch";
 ; CHECK:              |   |   |   (%TempArray)[i1][i2][i3] = @llvm.pow.f64(%div83,  2.500000e+00);
+; CHECK:              |   |   |      <LVAL-REG> (LINEAR {{.*}} %TempArray)[LINEAR i64 i1][LINEAR i64 i2][LINEAR i64 i3] inbounds  {sb:[[ALLOCASB:.*]]}
+
 ; CHECK:              |   |   + END LOOP
 ; CHECK:              |   + END LOOP
 ; CHECK:              + END LOOP
 ;
 ;
-; CHECK:              + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
-; CHECK:              |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
+; CHECK:              + DO i64 i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
+; CHECK:              |   + DO i64 i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:              |   |   %mod = i2 + 2  %  %"jacobian_$NY_fetch";
 ; CHECK:              |   |
-; CHECK:              |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
+; CHECK:              |   |   + DO i64 i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:              |   |   |   %mod31 = i3 + 3  %  %"jacobian_$NX_fetch";
 ; CHECK:              |   |   |   %func_result = (%TempArray)[i1][i2][i3];
+; CHECK:              |   |   |      <RVAL-REG> (LINEAR {{.*}} %TempArray)[LINEAR i64 i1][LINEAR i64 i2][LINEAR i64 i3] inbounds  {sb:[[ALLOCASB]]}
+
 ; CHECK:              |   |   |   %func_result146 = (%TempArray)[i1 + 1][zext.i32.i64(%mod) + -1][zext.i32.i64(%mod31) + -1];
 ; CHECK:              |   |   |   %add155 = %"jacobian_$M.0"  +  %func_result;
 ; CHECK:              |   |   |   %"jacobian_$M.0" = %add155  +  %func_result146;
@@ -127,13 +131,15 @@
 ;
 ; CHECK:              %"jacobian_$M.6" = %"jacobian_$M.0";
 ;
-; CHECK:              + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + 1, 1   <DO_LOOP>
-; CHECK:              |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
+; CHECK:              + DO i64 i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + 1, 1   <DO_LOOP>
+; CHECK:              |   + DO i64 i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:              |   |   %mod198 = i2 + 2  %  %"jacobian_$NY_fetch";
 ; CHECK:              |   |
-; CHECK:              |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
+; CHECK:              |   |   + DO i64 i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:              |   |   |   %mod206 = i3 + 3  %  %"jacobian_$NX_fetch";
 ; CHECK:              |   |   |   %func_result271 = (%TempArray)[i1 + 1][i2][i3];
+; CHECK:              |   |   |   <RVAL-REG> (LINEAR {{.*}} %TempArray)[LINEAR i64 i1 + 1][LINEAR i64 i2][LINEAR i64 i3] inbounds  {sb:[[ALLOCASB]]}
+
 ; CHECK:              |   |   |   %func_result342 = (%TempArray)[i1 + 2][zext.i32.i64(%mod198) + -1][zext.i32.i64(%mod206) + -1];
 ; CHECK:              |   |   |   %add352 = %"jacobian_$M.6"  +  %func_result271;
 ; CHECK:              |   |   |   %"jacobian_$M.6" = %add352  +  %func_result342;
