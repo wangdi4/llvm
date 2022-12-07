@@ -2,19 +2,18 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Store a pointer to a structure to a location that expects a pointer to a
 ; different type of structure.
 
 ; This case will not be able to resolve a dominant aggregate type for the value
 ; operand of the store because it is declared as one type, but used as another.
-%struct.test01a = type { i64*, i64*, i64* }
+%struct.test01a = type { ptr, ptr, ptr }
 %struct.test01b = type { i64, i64, i64 }
-define i64 @test01(%struct.test01a** "intel_dtrans_func_index"="1" %ppStructA) !intel.dtrans.func.type !4 {
+define i64 @test01(ptr "intel_dtrans_func_index"="1" %ppStructA) !intel.dtrans.func.type !4 {
   %pStructB = alloca %struct.test01b
-  %pStructB.as.A = bitcast %struct.test01b* %pStructB to %struct.test01a*
-  store %struct.test01a* %pStructB.as.A, %struct.test01a** %ppStructA
+  store ptr %pStructB, ptr %ppStructA
   ret i64 0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -31,11 +30,10 @@ define i64 @test01(%struct.test01a** "intel_dtrans_func_index"="1" %ppStructA) !
 ; This case will not be able to resolve a dominant type for the pointer operand
 ; of the store because it is declared at one level of indirection, but used at a
 ; different level of indirection.
-%struct.test02a = type { i64*, i64*, i64* }
-define i64 @test02(%struct.test02a*** "intel_dtrans_func_index"="1" %pppStructA) !intel.dtrans.func.type !6 {
+%struct.test02a = type { ptr, ptr, ptr }
+define i64 @test02(ptr "intel_dtrans_func_index"="1" %pppStructA) !intel.dtrans.func.type !6 {
   %pStructA = alloca %struct.test02a
-  %ppStructA = bitcast %struct.test02a*** %pppStructA to %struct.test02a**
-  store %struct.test02a* %pStructA, %struct.test02a** %ppStructA
+  store ptr %pStructA, ptr %pppStructA
   ret i64 0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -47,9 +45,8 @@ define i64 @test02(%struct.test02a*** "intel_dtrans_func_index"="1" %pppStructA)
 ; This case stores an arbitrary i64 value to a location that should hold a
 ; pointer to an aggregate type.
 %struct.test03a = type { i64, i64, i64 }
-define i64 @test03(%struct.test03a** "intel_dtrans_func_index"="1" %ppStructA, i64 %value) !intel.dtrans.func.type !8 {
-  %ppStructA.as.pi64 = bitcast %struct.test03a** %ppStructA to i64*
-  store i64 %value, i64* %ppStructA.as.pi64
+define i64 @test03(ptr "intel_dtrans_func_index"="1" %ppStructA, i64 %value) !intel.dtrans.func.type !8 {
+  store i64 %value, ptr %ppStructA
   ret i64 0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

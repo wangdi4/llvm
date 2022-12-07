@@ -2,17 +2,20 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Passing a pointer-to-pointer type that is a member of a structure
 ; to a library call.
 
-%struct.test01 = type { i8*, i64, i64 }
+%struct.test01 = type { ptr, i64, i64 }
 @str01 = internal global [200 x i8] zeroinitializer
 @net01 = internal global %struct.test01 zeroinitializer
 define void @test01() {
-  %tmp = call double @strtod(i8* getelementptr ([200 x i8], [200 x i8]* @str01, i64 0, i32 0),
-                             i8** getelementptr (%struct.test01, %struct.test01* @net01, i64 0, i32 0))
+  ; NOTE: We need to use the instruction form of the GEP.0.0 rather than the
+  ; operator form, becuase the IR reader will elide the GEPOperator form.
+  %gep0struct = getelementptr %struct.test01, ptr @net01, i64 0, i32 0
+  %gep0array = getelementptr [200 x i8], ptr @str01, i64 0, i32 0
+  %tmp = call double @strtod(ptr %gep0array, ptr %gep0struct)
   ret void
 }
 ; In this case, there is no special handling needed related to the "Address
@@ -27,7 +30,7 @@ define void @test01() {
 ; CHECK: End LLVMType: %struct.test01
 
 
-declare !intel.dtrans.func.type !4 double @strtod(i8* "intel_dtrans_func_index"="1", i8** "intel_dtrans_func_index"="2")
+declare !intel.dtrans.func.type !4 double @strtod(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2")
 
 !1 = !{i8 0, i32 1}  ; i8*
 !2 = !{i64 0, i32 0}  ; i64

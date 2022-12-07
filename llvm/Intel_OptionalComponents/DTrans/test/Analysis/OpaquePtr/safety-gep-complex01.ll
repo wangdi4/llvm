@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test where the result of a GEP does not lead directly to the load/store.
 
@@ -11,11 +11,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; support cases where the GEP result is used for a load/store because
 ; those instructions can easily be deleted.
 %struct.test01 = type { i32, i32, i32 }
-define internal i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %field0 = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 0
-  %field2 = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 2
-  %fieldAddr = select i1 undef, i32* %field0, i32* %field2
-  %val = load i32, i32* %fieldAddr
+define internal i32 @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %field0 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
+  %field2 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 2
+  %fieldAddr = select i1 undef, ptr %field0, ptr %field2
+  %val = load i32, ptr %fieldAddr
   ret i32 %val
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -38,9 +38,8 @@ define internal i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStru
 %struct.test02 = type { i32, i16, i32 }
 define internal void @test02(i32 %x) {
   %local = alloca %struct.test02
-  %flat = bitcast %struct.test02* %local to i8*
-  %pad_addr = getelementptr i8, i8* %flat, i32 0
-  call void @llvm.memset.p0i8.i64(i8* %pad_addr, i8 0, i64 12, i1 false)
+  %pad_addr = getelementptr i8, ptr %local, i32 0
+  call void @llvm.memset.p0i8.i64(ptr %pad_addr, i8 0, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -56,7 +55,7 @@ define internal void @test02(i32 %x) {
 ; CHECK-NOT: ComplexUse
 ; CHECK: End LLVMType: %struct.test02
 
-declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

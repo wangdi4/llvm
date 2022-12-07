@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test detection of "Ambiguous GEP" safety condition by DTrans safety analyzer.
 
@@ -12,10 +12,9 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01a = type { %struct.test01b, i64 }
 %struct.test01b = type { i32, i16, i16 }
 %struct.test01c = type { i64 }
-define internal void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct1a) !intel.dtrans.func.type !6 {
-  %pStruct1a.as.1c = bitcast %struct.test01a* %pStruct1a to %struct.test01c*
-  %pField = getelementptr %struct.test01c, %struct.test01c* %pStruct1a.as.1c, i64 0, i32 0
-  %fieldVal = load i64, i64* %pField
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %pStruct1a) !intel.dtrans.func.type !6 {
+  %pField = getelementptr %struct.test01c, ptr %pStruct1a, i64 0, i32 0
+  %fieldVal = load i64, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -39,10 +38,9 @@ define internal void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pSt
 ; should not be marked as "Ambiguous GEP"
 %struct.test02a = type { %struct.test02b, i64 }
 %struct.test02b = type { i32, i16 }
-define internal void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct2a) !intel.dtrans.func.type !9 {
-  %pStruct2a.as.2b = bitcast %struct.test02a* %pStruct2a to %struct.test02b*
-  %pField = getelementptr %struct.test02b, %struct.test02b* %pStruct2a.as.2b, i64 0, i32 0
-  %fieldVal = load i32, i32* %pField
+define internal void @test02(ptr "intel_dtrans_func_index"="1" %pStruct2a) !intel.dtrans.func.type !9 {
+  %pField = getelementptr %struct.test02b, ptr %pStruct2a, i64 0, i32 0
+  %fieldVal = load i32, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

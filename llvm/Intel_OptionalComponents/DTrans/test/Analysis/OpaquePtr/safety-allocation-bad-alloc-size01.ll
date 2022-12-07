@@ -2,17 +2,16 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test memory allocations that are not the expected structure size for DTrans
 
 %struct.test01 = type { i32, i32, i32, i32 }
 define void @test01() {
   ; mem = (struct test01*)malloc(20);
-  %mem = call i8* @malloc(i64 20)
-  %mem.as.pStruct = bitcast i8* %mem to %struct.test01*
-  %a.addr = getelementptr %struct.test01, %struct.test01* %mem.as.pStruct, i64 0, i32 2
-  store i32 1, i32* %a.addr
+  %mem = call ptr @malloc(i64 20)
+  %a.addr = getelementptr %struct.test01, ptr %mem, i64 0, i32 2
+  store i32 1, ptr %a.addr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -24,13 +23,12 @@ define void @test01() {
 ; This structure will be allocated with a variable size argument that cannot
 ; be proven to be a multiple of the structure size.
 %struct.test02 = type { i32, i32, i32 }
-define void @test02(i64 %num1, i64 %num2, %struct.test02** "intel_dtrans_func_index"="1" %result) !intel.dtrans.func.type !3 {
+define void @test02(i64 %num1, i64 %num2, ptr "intel_dtrans_func_index"="1" %result) !intel.dtrans.func.type !3 {
   ; mem = (struct test02*)malloc((num1 * 19) * num2);
   %mul1 = mul i64 %num1, 19
   %mul2 = mul i64 %mul1, %num2
-  %mem = call noalias i8* @malloc(i64 %mul2)
-  %mem.as.pStruct = bitcast i8* %mem to %struct.test02*
-  store %struct.test02* %mem.as.pStruct, %struct.test02** %result
+  %mem = call noalias ptr @malloc(i64 %mul2)
+  store ptr %mem, ptr %result
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -42,12 +40,11 @@ define void @test02(i64 %num1, i64 %num2, %struct.test02** "intel_dtrans_func_in
 ; This structure will be allocated with a variable size argument that we don't
 ; know anything about.
 %struct.test03 = type { i32, i32 }
-@var03 = internal global %struct.test03* zeroinitializer, !intel_dtrans_type !4
+@var03 = internal global ptr zeroinitializer, !intel_dtrans_type !4
 define void @test03(i64 %size) {
   ; mem = (struct test03*)malloc(<some random size>);
-  %mem = call noalias i8* @malloc(i64 %size)
-  %mem.as.pStruct = bitcast i8* %mem to %struct.test03*
-  store %struct.test03* %mem.as.pStruct, %struct.test03** @var03
+  %mem = call noalias ptr @malloc(i64 %size)
+  store ptr %mem, ptr @var03
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -58,14 +55,14 @@ define void @test03(i64 %size) {
 
 ; Here we make sure that 'sext' instruction handling isn't masking a bad size.
 %struct.test04 = type { i32, i32, i32 }
-@var04 = internal global %struct.test04* zeroinitializer, !intel_dtrans_type !5
+@var04 = internal global ptr zeroinitializer, !intel_dtrans_type !5
 define void @test04(i32 %num1, i64 %num2) {
   ; mem = (struct test04*)malloc((num1 * 19) * num2);
   %mul1 = mul i32 %num1, 19
   %tmp = sext i32 %mul1 to i64
   %mul2 = mul i64 %tmp, %num2
-  %mem = call noalias i8* @malloc(i64 %mul2)
-  store i8* %mem, i8** bitcast (%struct.test04** @var04 to i8**)
+  %mem = call noalias ptr @malloc(i64 %mul2)
+  store ptr %mem, ptr @var04
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -77,9 +74,8 @@ define void @test04(i32 %num1, i64 %num2) {
 ; Here we make sure that we don't fail on zero size arrays.
 %struct.test05 = type { i32, i32, i32 }
 define void @test05() {
-  %mem = call noalias i8* @malloc(i64 0)
-  %mem.as.array = bitcast i8* %mem to [0 x %struct.test05]*
-  %field = getelementptr [0 x %struct.test05], [0 x %struct.test05]* %mem.as.array, i64 0, i32 0, i32 1
+  %mem = call noalias ptr @malloc(i64 0)
+  %field = getelementptr [0 x %struct.test05], ptr %mem, i64 0, i32 0, i32 1
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -88,7 +84,7 @@ define void @test05() {
 ; CHECK: End LLVMType: %struct.test05
 
 
-declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where memset is called on an element of an array that starts the
 ; structure, but the array element address is not known to be the same as the
@@ -21,9 +21,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; stay within the bounds of the array or not.
 %struct.test01 = type { [200 x i8], i32, i32, i32, i32 }
 @var01 = internal global %struct.test01 zeroinitializer
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  %elem = getelementptr %struct.test01, %struct.test01* @var01, i64 0, i32 0, i32 32
-  call void @llvm.memset.p0i8.i64(i8* %elem, i8 1, i64 40, i1 false)
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
+  %elem = getelementptr %struct.test01, ptr @var01, i64 0, i32 0, i32 32
+  call void @llvm.memset.p0i8.i64(ptr %elem, i8 1, i64 40, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -39,9 +39,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 ; handled by DTrans.
 %struct.test02 = type { [200 x i8], i32, i32, i32, i32 }
 @var02 = internal global %struct.test02 zeroinitializer
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i32 %idx) !intel.dtrans.func.type !7 {
-  %elem = getelementptr %struct.test02, %struct.test02* @var02, i64 0, i32 0, i32 %idx
-  call void @llvm.memset.p0i8.i64(i8* %elem, i8 1, i64 1, i1 false)
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct, i32 %idx) !intel.dtrans.func.type !7 {
+  %elem = getelementptr %struct.test02, ptr @var02, i64 0, i32 0, i32 %idx
+  call void @llvm.memset.p0i8.i64(ptr %elem, i8 1, i64 1, i1 false)
   ret void
 }
 ; NOTE: This test is run with -dtrans-outofboundsok=false, because otherwise the
@@ -53,7 +53,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i32 
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !9 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !9 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{!"A", i32 200, !2}  ; [200 x i8]
 !2 = !{i8 0, i32 0}  ; i8

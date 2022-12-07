@@ -2,30 +2,32 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test a case where there are multiple aggregate type pointers into the select
 ; statement, but the merge is safe because they represent aliases of the same
 ; base type due to element zero of the derived type being the base type.
 
-%class.test01.base = type { i32, %class.test01.base* }
+%class.test01.base = type { i32, ptr }
 %class.test01.derived = type { %class.test01.base, i32 }
-define internal void @test01(%class.test01.derived* "intel_dtrans_func_index"="1" %pDerived) !intel.dtrans.func.type !5 {
-  %pField = getelementptr %class.test01.derived, %class.test01.derived* %pDerived, i64 0, i32 0, i32 1
-  %pField.as.pDerived = bitcast %class.test01.base** %pField to %class.test01.derived**
-  %pDerived2 = load %class.test01.derived*, %class.test01.derived** %pField.as.pDerived
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %pDerived) !intel.dtrans.func.type !5 {
+  %pField = getelementptr %class.test01.derived, ptr %pDerived, i64 0, i32 0, i32 1
+  ; We need to keep the bitcast here for this test, in order to trigger the type
+  ; inference.
+  %pField.as.pDerived = bitcast ptr %pField to ptr
+  %pDerived2 = load ptr, ptr %pField.as.pDerived
 
   ; %pDerived2 will have both the base type and the derived type associated with
   ; it. For the purpose of the merge it is safe, because both operands have the
   ; same dominant type, so there will not be an 'Unsafe pointer merge'. However,
   ; the load will have triggered safety violations.
-  %merge = select i1 undef, %class.test01.derived* %pDerived, %class.test01.derived* %pDerived2
-  call void @test01helper(%class.test01.derived* %merge)
+  %merge = select i1 undef, ptr %pDerived, ptr %pDerived2
+  call void @test01helper(ptr %merge)
   ret void
 }
 
-define internal void @test01helper(%class.test01.derived* "intel_dtrans_func_index"="1" %pDerived) !intel.dtrans.func.type !6 {
-  %pField = getelementptr %class.test01.derived, %class.test01.derived* %pDerived, i64 0, i32 1
+define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %pDerived) !intel.dtrans.func.type !6 {
+  %pField = getelementptr %class.test01.derived, ptr %pDerived, i64 0, i32 1
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

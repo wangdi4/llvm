@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a load uses a pointer to the start of a structure, but
 ; loads a type that does not match the type of the first element of the
@@ -12,13 +12,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; type is a pointer type.
 
 %struct.test01 = type { i32, i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %pStruct.as.pp8 = bitcast %struct.test01* %pStruct to i8**
-  %vField = load i8*, i8** %pStruct.as.pp8
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %vField = load ptr, ptr %pStruct
 
   ; This instruction is needed for the pointer type analyzer to identify
   ; %vField as being used as an i8* type.
-  %use = load i8, i8* %vField
+  %use = load i8, ptr %vField
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -28,13 +27,12 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 
 
 %struct.test02 = type { i32, i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  %pStruct.as.pp32 = bitcast %struct.test02* %pStruct to i32**
-  %vField = load i32*, i32** %pStruct.as.pp32
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
+  %vField = load ptr, ptr %pStruct
 
   ; This instruction is needed for the pointer type analyzer to identify
   ; %vField as being used as a i32* type.
-  %use = load i32, i32* %vField
+  %use = load i32, ptr %vField
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -44,13 +42,12 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 
 
 %struct.test03 = type { i32, i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pStruct.as.pp64 = bitcast %struct.test03* %pStruct to i64**
-  %vField = load i64*, i64** %pStruct.as.pp64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %vField = load ptr, ptr %pStruct
 
   ; This instruction is needed for the pointer type analyzer to identify
   ; %vField as being used as a i64* type.
-  %use = load i64, i64* %vField
+  %use = load i64, ptr %vField
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -61,10 +58,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !int
 
 %struct.test04a = type { i32, i32, i32 }
 %struct.test04b = type { i32 }
-define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
-  %pStruct.as.ppS4b = bitcast %struct.test04a* %pStruct to %struct.test04b**
-  %vField = load %struct.test04b*, %struct.test04b** %pStruct.as.ppS4b
-  %use_test04 = getelementptr %struct.test04b, %struct.test04b* %vField, i64 0, i32 0
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
+  %vField = load ptr, ptr %pStruct
+  %use_test04 = getelementptr %struct.test04b, ptr %vField, i64 0, i32 0
   ret void
 }
 ; CHECK: DTRANS_StructInfo:

@@ -2,13 +2,13 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the safety checks for 'ptrtoint' instruction when it is safe.
 
 %struct.test01 = type { i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !3 {
-  %tmp1 = ptrtoint %struct.test01* %pStruct1 to i64
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !3 {
+  %tmp1 = ptrtoint ptr %pStruct1 to i64
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

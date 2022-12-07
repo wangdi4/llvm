@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the safety analysis for calls to memset that take the address of an
 ; element within a structure type.
@@ -11,10 +11,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Write the entire structure, starting from a GEP of field 0.
 %struct.test01 = type { i32, i32, i32, i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 0
-  %pStart = bitcast i32* %pField to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 20, i1 false)
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %pField = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
+  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 20, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -35,10 +34,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 
 ; Write a subset of structure fields, starting from a GEP of field 0.
 %struct.test02 = type { i32, i32, i32, i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  %pField = getelementptr %struct.test02, %struct.test02* %pStruct, i64 0, i32 0
-  %pStart = bitcast i32* %pField to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 12, i1 false)
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
+  %pField = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 0
+  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -59,10 +57,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 
 ; Write beyond the end of the structure, starting from a GEP of field 0.
 %struct.test03 = type { i32, i32, i32, i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pField = getelementptr %struct.test03, %struct.test03* %pStruct, i64 0, i32 0
-  %pStart = bitcast i32* %pField to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 40, i1 false)
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %pField = getelementptr %struct.test03, ptr %pStruct, i64 0, i32 0
+  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 40, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -73,10 +70,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !int
 
 ; Write a subset of the structure, starting and ending on a field boundary.
 %struct.test04 = type { i32, i32, i32, i32, i32 }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
-  %pField = getelementptr %struct.test04, %struct.test04* %pStruct, i64 0, i32 2
-  %pStart = bitcast i32* %pField to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 8, i1 false)
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
+  %pField = getelementptr %struct.test04, ptr %pStruct, i64 0, i32 2
+  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -97,10 +93,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !int
 
 ; Write a subset of the structure, with a size that extends beyond the structure end.
 %struct.test05 = type { i32, i32, i32, i32, i32 }
-define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !11 {
-  %pField = getelementptr %struct.test05, %struct.test05* %pStruct, i64 0, i32 2
-  %pStart = bitcast i32* %pField to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 16, i1 false)
+define void @test05(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !11 {
+  %pField = getelementptr %struct.test05, ptr %pStruct, i64 0, i32 2
+  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -111,10 +106,9 @@ define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %pStruct) !int
 
 ; Write a subset of the structure, with a size that does not end on a field boundary.
 %struct.test06 = type { i32, i32, i32, i32, i32 }
-define void @test06(%struct.test06* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !13 {
-  %pField = getelementptr %struct.test06, %struct.test06* %pStruct, i64 0, i32 2
-  %pStart = bitcast i32* %pField to i8*
-  call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 6, i1 false)
+define void @test06(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !13 {
+  %pField = getelementptr %struct.test06, ptr %pStruct, i64 0, i32 2
+  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 6, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -123,7 +117,7 @@ define void @test06(%struct.test06* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: End LLVMType: %struct.test06
 
 
-declare !intel.dtrans.func.type !15 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !15 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

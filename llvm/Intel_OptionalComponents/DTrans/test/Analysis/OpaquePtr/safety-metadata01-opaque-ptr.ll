@@ -41,7 +41,7 @@ define i32 @test01() {
 ; Test where an instruction is marked with metadata that is not the expected
 ; type results in safety flags being set on the types.
 %struct.test02a = type { i64, i64 }
-%struct.test02b = type { %struct.test02a**, %struct.test02a**}
+%struct.test02b = type { ptr, ptr}
 %struct.test02bad = type { i64, i64 }
 @glob_test02 = internal unnamed_addr global %struct.test02b zeroinitializer
 
@@ -68,7 +68,7 @@ define i32 @test02() {
 ; CHECK: Safety data: Bad casting{{ *}}
 ; CHECK: End LLVMType: %struct.test02bad
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
 !0 = !{ %struct.test01a zeroinitializer, i32 2}
 !1 = !{%struct.test02bad zeroinitializer, i32 2}

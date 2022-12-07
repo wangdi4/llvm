@@ -2,20 +2,20 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test select statements that are safe.
 
 ; This case is safe because both arguments of the select are
 ; the same pointer type.
-%struct.test01 = type { %struct.test01*, %struct.test01* }
-define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct.in) !intel.dtrans.func.type !2 {
-  %pField0 = getelementptr %struct.test01, %struct.test01* %pStruct.in, i64 0, i32 0
-  %pField1 = getelementptr %struct.test01, %struct.test01* %pStruct.in, i64 0, i32 1
-  %pStruct0 = load %struct.test01*, %struct.test01** %pField0
-  %pStruct1 = load %struct.test01*, %struct.test01** %pField1
-  %chosen = select i1 undef, %struct.test01* %pStruct0, %struct.test01* %pStruct1
-  call void @test01(%struct.test01* %chosen)
+%struct.test01 = type { ptr, ptr }
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %pStruct.in) !intel.dtrans.func.type !2 {
+  %pField0 = getelementptr %struct.test01, ptr %pStruct.in, i64 0, i32 0
+  %pField1 = getelementptr %struct.test01, ptr %pStruct.in, i64 0, i32 1
+  %pStruct0 = load ptr, ptr %pField0
+  %pStruct1 = load ptr, ptr %pField1
+  %chosen = select i1 undef, ptr %pStruct0, ptr %pStruct1
+  call void @test01(ptr %chosen)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -26,15 +26,14 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStr
 
 ; This case is safe because the structure type can be safely aliased
 ; as a pointer to the element zero type.
-%struct.test02 = type { i32*, %struct.test02* }
-define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct.in, i32** "intel_dtrans_func_index"="2" %other) !intel.dtrans.func.type !6 {
-  %pStruct.in.elemzero = bitcast %struct.test02* %pStruct.in to i32**
-  %chosen = select i1 undef, i32** %pStruct.in.elemzero, i32** %other
-  %val = load i32*, i32** %chosen
+%struct.test02 = type { ptr, ptr }
+define internal void @test02(ptr "intel_dtrans_func_index"="1" %pStruct.in, ptr "intel_dtrans_func_index"="2" %other) !intel.dtrans.func.type !6 {
+  %chosen = select i1 undef, ptr %pStruct.in, ptr %other
+  %val = load ptr, ptr %chosen
 
   ; This is needed because otherwise the pointer type analyzer cannot figure
   ; out a type for the bitcast result.
-  %use = load i32, i32* %val
+  %use = load i32, ptr %val
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

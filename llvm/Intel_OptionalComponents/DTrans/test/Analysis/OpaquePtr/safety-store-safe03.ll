@@ -2,16 +2,15 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Store element zero of a nested structure using a pointer to the structure
 %struct.test01a = type { %struct.test01b }
 %struct.test01b = type { %struct.test01c, i64 }
 %struct.test01c = type { i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
-  %pField = getelementptr %struct.test01a, %struct.test01a* %pStruct, i64 0, i32 0
-  %pField.as.p32 = bitcast %struct.test01b* %pField to i32*
-  store i32 1, i32* %pField.as.p32
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
+  %pField = getelementptr %struct.test01a, ptr %pStruct, i64 0, i32 0
+  store i32 1, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -39,10 +38,10 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 %struct.test02a = type { [2 x %struct.test02b] }
 %struct.test02b = type { [6 x %struct.test02c], i64 }
 %struct.test02c = type { i32, i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !12 {
-  %pField = getelementptr %struct.test02a, %struct.test02a* %pStruct, i64 0, i32 0
-  %pField.as.p32 = bitcast [2 x %struct.test02b]* %pField to i32*
-  store i32 2, i32* %pField.as.p32
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !12 {
+  %pField = getelementptr %struct.test02a, ptr %pStruct, i64 0, i32 0
+  %pField.as.p32 = bitcast ptr %pField to i32*
+  store i32 2, ptr %pField.as.p32
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

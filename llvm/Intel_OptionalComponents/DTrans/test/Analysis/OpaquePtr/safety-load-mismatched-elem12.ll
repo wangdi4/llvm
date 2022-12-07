@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a load uses a pointer to the start of a structure, but
 ; loads a type that does not match the type of the first element of the
@@ -13,15 +13,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This case does not trigger a "Mismatched element access" because it is using
 ; a i8* to load a pointer to the structure pointer, which is safe.
-%struct.test01a = type { %struct.test01b*, %struct.test01b*, %struct.test01b* }
+%struct.test01a = type { ptr, ptr, ptr }
 %struct.test01b = type { i32, i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
-  %pStruct.as.pp8 = bitcast %struct.test01a* %pStruct to i8**
-  %vField = load i8*, i8** %pStruct.as.pp8
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
+  %vField = load ptr, ptr %pStruct
 
   ; This instruction is needed for the pointer type analyzer to identify
   ; %vField as being used as an i8* type.
-  call void @free(i8* %vField)
+  call void @free(ptr %vField)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -35,15 +34,14 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: End LLVMType: %struct.test01b
 
 
-%struct.test02a = type{ %struct.test02b*, %struct.test02b*, %struct.test02b* }
+%struct.test02a = type{ ptr, ptr, ptr }
 %struct.test02b = type { i32, i32, i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pStruct.as.pp16 = bitcast %struct.test02a* %pStruct to i16**
-  %vField = load i16*, i16** %pStruct.as.pp16
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %vField = load ptr, ptr %pStruct
 
   ; This instruction is needed for the pointer type analyzer to identify
   ; %vField as being used as an i16* type.
-  %use = getelementptr i16, i16* %vField, i64 4
+  %use = getelementptr i16, ptr %vField, i64 4
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -57,16 +55,15 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: End LLVMType: %struct.test02b
 
 
-%struct.test03a = type{ %struct.test03b*, %struct.test03b*, %struct.test03b* }
+%struct.test03a = type{ ptr, ptr, ptr }
 %struct.test03b = type { i32, i32, i32 }
-define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
-  %pStruct.as.pp64 = bitcast %struct.test03a* %pStruct to i64**
-  %vField = load i64*, i64** %pStruct.as.pp64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
+  %vField = load ptr, ptr %pStruct
 
   ; Use vField as an i64* type so that the local pointer analyzer will mark
   ; it 'i64*' as one of the aliases, because otherwise there is no use seen
   ; as being an i64*.
-  %use = load i64, i64* %vField
+  %use = load i64, ptr %vField
 
   ret void
 }
@@ -80,7 +77,7 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
 ; CHECK: End LLVMType: %struct.test03b
 
-declare !intel.dtrans.func.type !12 void @free(i8* "intel_dtrans_func_index"="1") #0
+declare !intel.dtrans.func.type !12 void @free(ptr "intel_dtrans_func_index"="1") #0
 
 attributes #0 = { allockind("free") "alloc-family"="malloc" }
 

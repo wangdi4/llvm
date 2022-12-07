@@ -78,10 +78,16 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::desc("Disable " OPT_DESC " pass"));
 
 static cl::opt<unsigned>
-    TCThreshold(OPT_SWITCH "-tc",
-                cl::desc("minimum profitable TC count required for enabling "
-                         "HIR temp array transpose."),
-                cl::Hidden, cl::init(8));
+    MinTCThreshold(OPT_SWITCH "-mintc",
+                   cl::desc("minimum profitable TC count for enabling "
+                            "HIR temp array transpose."),
+                   cl::Hidden, cl::init(8));
+
+static cl::opt<unsigned> MaxAllocaSizeThreshold(
+    OPT_SWITCH "-max-alloca-dimsize",
+    cl::desc("maximum profitable size for single alloca dimension "
+             "used in HIR temp array transpose."),
+    cl::Hidden, cl::init(250));
 
 class ArrayTransposeAnalyzer {
 
@@ -211,8 +217,8 @@ static bool isTransposeCandidate(const RegDDRef *Ref, unsigned LoopLevel) {
       return false;
     }
     unsigned NumElems = Ref->getNumDimensionElements(Dim);
-    if (NumElems && NumElems < TCThreshold) {
-        return false;
+    if (NumElems && NumElems < MinTCThreshold) {
+      return false;
     }
   }
 
@@ -392,13 +398,13 @@ bool ArrayTransposeAnalyzer::isProfitable() {
     // though we mostly care about the IV levels mostly.
     while (Lp) {
       auto MaxTCEst = Lp->getMaxTripCountEstimate();
-      if (MaxTCEst && MaxTCEst < TCThreshold) {
+      if (MaxTCEst && MaxTCEst < MinTCThreshold) {
         MeetsTCThreshold = false;
         break;
       }
 
       uint64_t TC = 0;
-      if (Lp->isConstTripLoop(&TC) && TC < TCThreshold) {
+      if (Lp->isConstTripLoop(&TC) && TC < MinTCThreshold) {
         MeetsTCThreshold = false;
         break;
       }
@@ -715,6 +721,29 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
 #endif
       }
     }
+  }
+
+  // Bail out if constant dimsize is greater than threshold
+  if (InnerDimSize > MaxAllocaSizeThreshold ||
+      OuterDimSize > MaxAllocaSizeThreshold) {
+    LLVM_DEBUG(
+        dbgs() << "[Profit] DimSize surpasses Alloca Size threshold!\n";);
+    return false;
+  }
+
+  uint64_t TripCount;
+  if (FirstUse.OrigOuterLoop->isConstTripLoop(&TripCount) &&
+      TripCount > MaxAllocaSizeThreshold) {
+    LLVM_DEBUG(
+        dbgs() << "[Profit] OuterLp surpasses Alloca Size threshold!\n";);
+    return false;
+  }
+
+  if (FirstUse.OrigInnerLoop->isConstTripLoop(&TripCount) &&
+      TripCount > MaxAllocaSizeThreshold) {
+    LLVM_DEBUG(
+        dbgs() << "[Profit] InnerLp surpasses Alloca Size threshold!\n";);
+    return false;
   }
 
   SmallPtrSet<const HLNode *, 2> IgnoreNodes;

@@ -2,15 +2,14 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test initializing an array of structure pointers with an incompatible pointer type.
 
 %struct.test01a = type { i32, i32 }
 
 @var01b = internal global i32 zeroinitializer
-@var01a = internal global [2 x %struct.test01a*] [%struct.test01a* bitcast (i32* @var01b to %struct.test01a*),
-                                                  %struct.test01a* bitcast (i32* @var01b to %struct.test01a*)], !intel_dtrans_type !0
+@var01a = internal global [2 x ptr] [ptr @var01b, ptr @var01b], !intel_dtrans_type !0
 
 ; CHECK-LABEL: LLVMType: %struct.test01a = type { i32, i32 }
 ; CHECK: Safety data: Unsafe pointer store | Global pointer{{ *$}}

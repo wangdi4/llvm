@@ -2,19 +2,18 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test memory allocations that are safe for DTrans
 
 ; Allocation of pointer-to-pointer
 %struct.test00 = type { i32, i32, i32 }
-@var_test00 = internal global %struct.test00** zeroinitializer, !intel_dtrans_type !2
+@var_test00 = internal global ptr zeroinitializer, !intel_dtrans_type !2
 define internal void @test00() {
   ; Allocate with something other than a multiple of the structure size to
   ; verify that the structure is not marked with "Bad alloc size"
-  %mem_i8 = call i8* @malloc(i64 64)
-  %ptrtoptr = bitcast i8* %mem_i8 to %struct.test00**
-  store %struct.test00** %ptrtoptr, %struct.test00*** @var_test00
+  %mem_i8 = call ptr @malloc(i64 64)
+  store ptr %mem_i8, ptr @var_test00
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -25,19 +24,17 @@ define internal void @test00() {
 
 ; Allocation using malloc that is resolved based on location stored to.
 %struct.test01member = type { i64, i64 }
-%struct.test01 = type { %struct.test01member* }
+%struct.test01 = type { ptr }
 @var_test01 = internal global %struct.test01 zeroinitializer
 define internal void @test01() {
-  %mem_i8 = call i8* @malloc(i64 16)
-  %mystruct = bitcast i8* %mem_i8 to %struct.test01member*
-  store %struct.test01member* %mystruct, %struct.test01member** getelementptr (%struct.test01, %struct.test01* @var_test01, i64 0, i32 0)
+  %mem_i8 = call ptr @malloc(i64 16)
+  store ptr %mem_i8, ptr getelementptr (%struct.test01, ptr @var_test01, i64 0, i32 0)
   ret void
 }
 
 define internal void @test01f() {
-  %mem = load %struct.test01member*, %struct.test01member** getelementptr (%struct.test01, %struct.test01* @var_test01, i64 0, i32 0)
-  %mem.p8 = bitcast %struct.test01member* %mem to i8*
-  call void @free(i8* %mem.p8)
+  %mem = load ptr, ptr getelementptr (%struct.test01, ptr @var_test01, i64 0, i32 0)
+  call void @free(ptr %mem)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -53,15 +50,13 @@ define internal void @test01f() {
 
 ; Allocation using malloc that is resolved based on function return type metadata.
 %struct.test02 = type { i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.func.type !6 {
-  %mem = call i8* @malloc(i64 8)
-  %mem.as.struct = bitcast i8* %mem to %struct.test02*
-  ret %struct.test02* %mem.as.struct
+define "intel_dtrans_func_index"="1" ptr @test02() !intel.dtrans.func.type !6 {
+  %mem = call ptr @malloc(i64 8)
+  ret ptr %mem
 }
 
-define void @test02f(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %mem.p8 = bitcast %struct.test02* %pStruct to i8*
-  call void @free(i8* %mem.p8)
+define void @test02f(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  call void @free(ptr %pStruct)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -71,15 +66,14 @@ define void @test02f(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !in
 
 
 ; Allocation using calloc
-%struct.test03 = type { %struct.test03* }
-define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in, i64 %index) !intel.dtrans.func.type !9 {
-  %mem_i8 = call i8* @calloc(i64 16, i64 8)
-  %array = bitcast i8* %mem_i8 to %struct.test03**
-  %array_elem = getelementptr %struct.test03*, %struct.test03** %array, i64 %index
-  store %struct.test03* %in, %struct.test03** %array_elem
+%struct.test03 = type { ptr }
+define internal void @test03(ptr "intel_dtrans_func_index"="1" %in, i64 %index) !intel.dtrans.func.type !9 {
+  %mem_i8 = call ptr @calloc(i64 16, i64 8)
+  %array_elem = getelementptr ptr, ptr %mem_i8, i64 %index
+  store ptr %in, ptr %array_elem
 
-  call void @free(i8* %mem_i8)
-  store %struct.test03* null, %struct.test03** %array_elem
+  call void @free(ptr %mem_i8)
+  store ptr null, ptr %array_elem
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -90,16 +84,13 @@ define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in, 
 
 ; Allocation using realloc
 %struct.test04 = type { i64, i64 }
-define internal "intel_dtrans_func_index"="1" %struct.test04* @test04(%struct.test04* "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !11 {
-  %in_i8 = bitcast %struct.test04* %in to i8*
-  %out_i8 = call i8* @realloc(i8* %in_i8, i64 256)
-  %out = bitcast i8* %out_i8 to %struct.test04*
-  ret %struct.test04* %out
+define internal "intel_dtrans_func_index"="1" ptr @test04(ptr "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !11 {
+  %out_i8 = call ptr @realloc(ptr %in, i64 256)
+  ret ptr %out_i8
 }
 
-define void @test04f(%struct.test04* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !12 {
-  %mem.p8 = bitcast %struct.test04* %in to i8*
-  call void @free(i8* %mem.p8)
+define void @test04f(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !12 {
+  call void @free(ptr %in)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -110,15 +101,13 @@ define void @test04f(%struct.test04* "intel_dtrans_func_index"="1" %in) !intel.d
 
 ; Allocation using new
 %struct.test05 = type { i64, i64 }
-define "intel_dtrans_func_index"="1" %struct.test05* @test05() !intel.dtrans.func.type !14 {
-  %mem = call i8* @_Znwm(i64 16)
-  %mem.as.struct = bitcast i8* %mem to %struct.test05*
-  ret %struct.test05* %mem.as.struct
+define "intel_dtrans_func_index"="1" ptr @test05() !intel.dtrans.func.type !14 {
+  %mem = call ptr @_Znwm(i64 16)
+  ret ptr %mem
 }
 
-define void @test05f(%struct.test05* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !15 {
-  %mem.p8 = bitcast %struct.test05* %pStruct to i8*
-  call void @_ZdlPv(i8* %mem.p8)
+define void @test05f(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !15 {
+  call void @_ZdlPv(ptr %pStruct)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -129,16 +118,14 @@ define void @test05f(%struct.test05* "intel_dtrans_func_index"="1" %pStruct) !in
 
 ; Allocation using new[]
 %struct.test06 = type { i64, i64 }
-define "intel_dtrans_func_index"="1" %struct.test06* @test06(i64 %n) !intel.dtrans.func.type !17 {
+define "intel_dtrans_func_index"="1" ptr @test06(i64 %n) !intel.dtrans.func.type !17 {
   %bytes = mul i64 %n, 16
-  %mem = call i8* @_Znam(i64 %bytes)
-  %mem.as.struct = bitcast i8* %mem to %struct.test06*
-  ret %struct.test06* %mem.as.struct
+  %mem = call ptr @_Znam(i64 %bytes)
+  ret ptr %mem
 }
 
-define void @test06f(%struct.test06* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !18 {
-  %mem.p8 = bitcast %struct.test06* %pStruct to i8*
-  call void @_ZdaPv(i8* %mem.p8)
+define void @test06f(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !18 {
+  call void @_ZdaPv(ptr %pStruct)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -150,22 +137,20 @@ define void @test06f(%struct.test06* "intel_dtrans_func_index"="1" %pStruct) !in
 ; Test an allocation that is not used for the structure type, but instead
 ; for an i32* that is stored within the structure. This does not cause a
 ; safety flag to be set on the structure.
-%struct.test07 = type { i32* }
+%struct.test07 = type { ptr }
 @var07 = internal global %struct.test07 zeroinitializer
 define void @test07() {
   ; Allocation that is not a multiple of the element size
-  %mem = call i8* @malloc(i64 18)
-  %mem.as.p32 = bitcast i8* %mem to i32*
-  %field.addr = getelementptr %struct.test07, %struct.test07* @var07, i64 0, i32 0
-  store i32* %mem.as.p32, i32** %field.addr
+  %mem = call ptr @malloc(i64 18)
+  %field.addr = getelementptr %struct.test07, ptr @var07, i64 0, i32 0
+  store ptr %mem, ptr %field.addr
   ret void
 }
 
 define void @test07f() {
-  %field.addr = getelementptr %struct.test07, %struct.test07* @var07, i64 0, i32 0
-  %mem = load i32*, i32** %field.addr
-  %mem.as.p8 = bitcast i32* %mem to i8*
-  call void @free(i8* %mem.as.p8)
+  %field.addr = getelementptr %struct.test07, ptr @var07, i64 0, i32 0
+  %mem = load ptr, ptr %field.addr
+  call void @free(ptr %mem)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -174,15 +159,15 @@ define void @test07f() {
 ; CHECK: End LLVMType: %struct.test07
 
 
-declare !intel.dtrans.func.type !21 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
-declare !intel.dtrans.func.type !22 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #1
-declare !intel.dtrans.func.type !23 "intel_dtrans_func_index"="1" i8* @realloc(i8* "intel_dtrans_func_index"="2", i64) #2
-declare !intel.dtrans.func.type !24 void @free(i8* "intel_dtrans_func_index"="1") #3
+declare !intel.dtrans.func.type !21 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
+declare !intel.dtrans.func.type !22 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #1
+declare !intel.dtrans.func.type !23 "intel_dtrans_func_index"="1" ptr @realloc(ptr "intel_dtrans_func_index"="2", i64) #2
+declare !intel.dtrans.func.type !24 void @free(ptr "intel_dtrans_func_index"="1") #3
 
-declare !intel.dtrans.func.type !25 "intel_dtrans_func_index"="1" i8* @_Znwm(i64) ; new(unsigned long)
-declare !intel.dtrans.func.type !26 void @_ZdlPv(i8* "intel_dtrans_func_index"="1") ; delete(void*)
-declare !intel.dtrans.func.type !27 "intel_dtrans_func_index"="1" i8* @_Znam(i64) ;  new[](unsigned long)
-declare !intel.dtrans.func.type !28 void @_ZdaPv(i8* "intel_dtrans_func_index"="1") ; delete(void*)
+declare !intel.dtrans.func.type !25 "intel_dtrans_func_index"="1" ptr @_Znwm(i64) ; new(unsigned long)
+declare !intel.dtrans.func.type !26 void @_ZdlPv(ptr "intel_dtrans_func_index"="1") ; delete(void*)
+declare !intel.dtrans.func.type !27 "intel_dtrans_func_index"="1" ptr @_Znam(i64) ;  new[](unsigned long)
+declare !intel.dtrans.func.type !28 void @_ZdaPv(ptr "intel_dtrans_func_index"="1") ; delete(void*)
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

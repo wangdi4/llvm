@@ -2,22 +2,22 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that safe GEP uses do not get marked with safety flags by the checks
 ; for 'Ambiguous GEP' or 'Bad pointer manipulation'
 
 ; Test accesses for simple GEPs.
-%struct.test01 = type { i64, %struct.test01* }
-define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !3 {
-  %f0 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 0
-  %v0 = load i64, i64* %f0
+%struct.test01 = type { i64, ptr }
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !3 {
+  %f0 = getelementptr %struct.test01, ptr %in, i64 0, i32 0
+  %v0 = load i64, ptr %f0
 
-  %f1 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 1
-  %v1 = load %struct.test01*, %struct.test01** %f1
+  %f1 = getelementptr %struct.test01, ptr %in, i64 0, i32 1
+  %v1 = load ptr, ptr %f1
 
-  %f2 = getelementptr %struct.test01, %struct.test01* %v1, i64 0, i32 0
-  %v2 = load i64, i64* %f2
+  %f2 = getelementptr %struct.test01, ptr %v1, i64 0, i32 0
+  %v2 = load i64, ptr %f2
 
   ret void
 }
@@ -30,11 +30,11 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) 
 ; Test a GEP that is used for a pointer-to-pointer, followed by a safe
 ; field access.
 %struct.test02 = type { i64, i64 }
-define internal void @test02(%struct.test02** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
-  %p2p = getelementptr %struct.test02*, %struct.test02** %in, i64 5
-  %ptr = load %struct.test02*, %struct.test02** %p2p
-  %field_addr = getelementptr %struct.test02, %struct.test02* %ptr, i64 0, i32 1
-  store i64 0, i64* %field_addr
+define internal void @test02(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
+  %p2p = getelementptr ptr, ptr %in, i64 5
+  %ptr = load ptr, ptr %p2p
+  %field_addr = getelementptr %struct.test02, ptr %ptr, i64 0, i32 1
+  store i64 0, ptr %field_addr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -45,9 +45,9 @@ define internal void @test02(%struct.test02** "intel_dtrans_func_index"="1" %in)
 
 ; Test handling for a zero-sized array element at the end of the structure.
 %struct.test03 = type { i64, [0 x i8] }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !9 {
-  %f1 = getelementptr %struct.test03, %struct.test03* %in, i64 0, i32 1, i32 2
-  %v8 = load i8, i8* %f1
+define void @test03(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !9 {
+  %f1 = getelementptr %struct.test03, ptr %in, i64 0, i32 1, i32 2
+  %v8 = load i8, ptr %f1
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -57,18 +57,18 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in) !intel.dt
 
 
 ; Test access with nested structure element using multiple GEPs to traverse structure
-%struct.test04inner = type { i64, i32, i64* }
+%struct.test04inner = type { i64, i32, ptr }
 %struct.test04mid = type { i64, i64, %struct.test04inner }
-%struct.test04outer = type { i64*, %struct.test04mid }
-define internal i64 @test04(%struct.test04outer* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !15 {
-  %outer.1 = getelementptr %struct.test04outer, %struct.test04outer* %in, i64 0, i32 1
-  %mid.2 = getelementptr %struct.test04mid, %struct.test04mid* %outer.1, i64 0, i32 2
-  %inner.0 = getelementptr %struct.test04inner, %struct.test04inner* %mid.2, i64 0, i32 0
-  %val0 = load i64, i64* %inner.0
+%struct.test04outer = type { ptr, %struct.test04mid }
+define internal i64 @test04(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !15 {
+  %outer.1 = getelementptr %struct.test04outer, ptr %in, i64 0, i32 1
+  %mid.2 = getelementptr %struct.test04mid, ptr %outer.1, i64 0, i32 2
+  %inner.0 = getelementptr %struct.test04inner, ptr %mid.2, i64 0, i32 0
+  %val0 = load i64, ptr %inner.0
 
-  %inner.2 = getelementptr %struct.test04inner, %struct.test04inner* %mid.2, i64 0, i32 2
-  %ptr = load i64*, i64** %inner.2
-  %val2 = load i64, i64* %ptr
+  %inner.2 = getelementptr %struct.test04inner, ptr %mid.2, i64 0, i32 2
+  %ptr = load ptr, ptr %inner.2
+  %val2 = load i64, ptr %ptr
 
   ret i64 %val0
 }
@@ -89,15 +89,15 @@ define internal i64 @test04(%struct.test04outer* "intel_dtrans_func_index"="1" %
 
 
 ; Test access with nested structure element using single GEP to traverse structure
-%struct.test05inner = type { i64, i32, i64* }
+%struct.test05inner = type { i64, i32, ptr }
 %struct.test05mid = type { i64, i64, %struct.test05inner }
-%struct.test05outer = type { i64*, %struct.test05mid }
-define internal i64 @test05(%struct.test05outer* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !19 {
-  %addr0 = getelementptr %struct.test05outer, %struct.test05outer* %in, i64 0, i32 1, i32 2, i32 0
-  %val0 = load i64, i64* %addr0
-  %addr2 = getelementptr %struct.test05outer, %struct.test05outer* %in, i64 0, i32 1, i32 2, i32 2
-  %ptr = load i64*, i64** %addr2
-  %val2 = load i64, i64* %ptr
+%struct.test05outer = type { ptr, %struct.test05mid }
+define internal i64 @test05(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !19 {
+  %addr0 = getelementptr %struct.test05outer, ptr %in, i64 0, i32 1, i32 2, i32 0
+  %val0 = load i64, ptr %addr0
+  %addr2 = getelementptr %struct.test05outer, ptr %in, i64 0, i32 1, i32 2, i32 2
+  %ptr = load ptr, ptr %addr2
+  %val2 = load i64, ptr %ptr
   ret i64 %val0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -118,9 +118,9 @@ define internal i64 @test05(%struct.test05outer* "intel_dtrans_func_index"="1" %
 
 ; Test access to an element of an array member of a structure.
 %struct.test06 = type { i32, [20 x i64] }
-define internal i64 @test06(%struct.test06* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !22 {
-  %elem_addr = getelementptr inbounds %struct.test06, %struct.test06* %in, i64 0, i32 1, i64 4
-  %val = load i64, i64* %elem_addr
+define internal i64 @test06(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !22 {
+  %elem_addr = getelementptr inbounds %struct.test06, ptr %in, i64 0, i32 1, i64 4
+  %val = load i64, ptr %elem_addr
   ret i64 %val
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -131,10 +131,10 @@ define internal i64 @test06(%struct.test06* "intel_dtrans_func_index"="1" %in) !
 
 ; Test access to an element that is an array of pointers
 %struct.test07 = type { i64, i64 }
-@var07 = internal global [16 x %struct.test07*] zeroinitializer, !intel_dtrans_type !23
+@var07 = internal global [16 x ptr] zeroinitializer, !intel_dtrans_type !23
 define internal void @test07() {
-  %addr = getelementptr [16 x %struct.test07*], [16 x %struct.test07*]* @var07, i64 0, i32 2
-  %sptr = load %struct.test07*, %struct.test07** %addr
+  %addr = getelementptr [16 x ptr], ptr @var07, i64 0, i32 2
+  %sptr = load ptr, ptr %addr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -147,8 +147,8 @@ define internal void @test07() {
 %struct.test08 = type { i64, i64 }
 @var08 = internal global [16 x %struct.test08] zeroinitializer
 define internal void @test08() {
-  %addr = getelementptr [16 x %struct.test08], [16 x %struct.test08]* @var08, i64 0, i32 5, i32 1
-  %sptr = load i64, i64* %addr
+  %addr = getelementptr [16 x %struct.test08], ptr @var08, i64 0, i32 5, i32 1
+  %sptr = load i64, ptr %addr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -159,15 +159,15 @@ define internal void @test08() {
 
 ; This is a special case of a GEP that uses a null value for the pointer
 ; operand.
-%struct.test09 = type { void (i8*)*, i8* }
+%struct.test09 = type { ptr, ptr }
 define internal void @test09(i64 %offset) {
-  %null_offset = getelementptr %struct.test09, %struct.test09* null, i64 %offset
-  %fptr_addr = getelementptr inbounds %struct.test09, %struct.test09* %null_offset, i64 0, i32 0
-  %fptr = load void (i8*)*, void (i8*)** %fptr_addr
+  %null_offset = getelementptr %struct.test09, ptr null, i64 %offset
+  %fptr_addr = getelementptr inbounds %struct.test09, ptr %null_offset, i64 0, i32 0
+  %fptr = load ptr, ptr %fptr_addr
 
-  %cptr_addr = getelementptr %struct.test09, %struct.test09* %null_offset, i64 0, i32 1
-  %cptr = load i8*, i8** %cptr_addr
-  call void %fptr(i8* %cptr), !intel_dtrans_type !25
+  %cptr_addr = getelementptr %struct.test09, ptr %null_offset, i64 0, i32 1
+  %cptr = load ptr, ptr %cptr_addr
+  call void %fptr(ptr %cptr), !intel_dtrans_type !25
 
  ret void
 }

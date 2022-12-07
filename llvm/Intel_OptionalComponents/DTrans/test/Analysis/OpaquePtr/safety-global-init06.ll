@@ -2,23 +2,23 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test initializing a global variable that is an array of structures, which
 ; has a field that is a pointer to a function type.
 
-%struct._ResizeFilter = type { float (float, %struct._ResizeFilter*)*, float (float, %struct._ResizeFilter*)*, float, float, float, float, [7 x float], i32, i32, i64 }
-%struct.anon.0 = type { float (float, %struct._ResizeFilter*)*, double, double, double, double, i32 }
+%struct._ResizeFilter = type { ptr, ptr, float, float, float, float, [7 x float], i32, i32, i64 }
+%struct.anon.0 = type { ptr, double, double, double, double, i32 }
 
 @AcquireResizeFilter.filters = internal unnamed_addr constant [2 x %struct.anon.0] [
-  %struct.anon.0 { float (float, %struct._ResizeFilter*)* @Box, double 5.000000e-01, double 5.000000e-01, double 0.000000e+00, double 0.000000e+00, i32 0 },
-  %struct.anon.0 { float (float, %struct._ResizeFilter*)* @Triangle, double 1.000000e+00, double 1.000000e+00, double 0.000000e+00, double 0.000000e+00, i32 1 }]
+  %struct.anon.0 { ptr @Box, double 5.000000e-01, double 5.000000e-01, double 0.000000e+00, double 0.000000e+00, i32 0 },
+  %struct.anon.0 { ptr @Triangle, double 1.000000e+00, double 1.000000e+00, double 0.000000e+00, double 0.000000e+00, i32 1 }]
 
-define float @Box(float %in0, %struct._ResizeFilter* "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !9 {
+define float @Box(float %in0, ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !9 {
   ret float 1.000000e+00
 }
 
-define float @Triangle(float %in0, %struct._ResizeFilter* "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !10 {
+define float @Triangle(float %in0, ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !10 {
   %test = fcmp fast olt float %in0, 1.000000e+00
   %sub = fsub fast float 1.000000e+00, %in0
   %res = select i1 %test, float %sub, float 0.000000e+00

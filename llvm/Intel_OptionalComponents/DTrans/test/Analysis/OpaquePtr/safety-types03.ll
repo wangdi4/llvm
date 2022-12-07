@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test of the -dtrans-print-types option of the DTransSafetyAnalyzer pass.
@@ -12,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %union._ZTSZ13ReadBlobFloatE3$_0.anon = type { i32 }
 %struct._ZTSZ19AcquireResizeFilterE3$_0.anon = type { i32, i32 }
-%struct._ZTSZ19AcquireResizeFilterE3$_0.anon.0 = type { float (float)*, double, i32 }
+%struct._ZTSZ19AcquireResizeFilterE3$_0.anon.0 = type { ptr, double, i32 }
 %struct._ZTS10_ErrorInfo._ErrorInfo = type { double, double }
 %"struct.std::less" = type { i8 }
 

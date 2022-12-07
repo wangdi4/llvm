@@ -2,32 +2,31 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Test callback function that forwards parameters to an indirect
 ; function call.
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
-@.kmpc_loc.0.0.27 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.694, i32 0, i32 0) }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
+@.kmpc_loc.0.0.27 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, ptr getelementptr inbounds ([22 x i8], ptr @.source.0.0.694, i32 0, i32 0) }
 @.source.0.0.694 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
 
 ; The parameters that are forwarded for the callback function cannot be
 ; checked because that target is unknown, so should be marked as "Unhandled use"
 %struct.test01 = type { i32, i32, i32, i64, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %img, i64* "intel_dtrans_func_index"="2" %buf, void (i32*, i32*, i64, %struct.test01*, i64*)* "intel_dtrans_func_index"="3" %func) !intel.dtrans.func.type !11 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %img, ptr "intel_dtrans_func_index"="2" %buf, ptr "intel_dtrans_func_index"="3" %func) !intel.dtrans.func.type !11 {
   tail call void @broker(
-    %struct.ident_t* @.kmpc_loc.0.0.27,
+    ptr @.kmpc_loc.0.0.27,
     i32 6,
-    void (i32*, i32*, i64, %struct.test01*, i64*)* %func,
+    ptr %func,
     i64 1,
-    %struct.test01* %img,
-    i64* %buf
+    ptr %img,
+    ptr %buf
   )
   ret void
 }
 
-declare !intel.dtrans.func.type !13 !callback !0 void @broker(%struct.ident_t* "intel_dtrans_func_index"="1" %0, i32 %1, void (i32*, i32*, i64, %struct.test01*, i64*)* "intel_dtrans_func_index"="2" %2, i64, %struct.test01* "intel_dtrans_func_index"="3", i64* "intel_dtrans_func_index"="4")
+declare !intel.dtrans.func.type !13 !callback !0 void @broker(ptr "intel_dtrans_func_index"="1" %0, i32 %1, ptr "intel_dtrans_func_index"="2" %2, i64, ptr "intel_dtrans_func_index"="3", ptr "intel_dtrans_func_index"="4")
 
 
 ; This structure should get marked "Address taken" because it is passed to the

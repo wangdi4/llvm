@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where an entire structure is written with a call to memset by
 ; passing a pointer to the structure to the memset call.
@@ -12,9 +12,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; This test checks that all the structure fields are marked as "Written" by the
 ; memset call.
 %struct.test01 = type { i32, i16, i8 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !5 {
-  %p = bitcast %struct.test01* %a to i8*
-  tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 8, i1 false)
+define void @test01(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !5 {
+  tail call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -32,9 +31,8 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %a) !intel.dtr
 ; This test checks when a multiple of the structure size is used, such as
 ; for an array of structures.
 %struct.test02 = type { i32, i16, i8 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !7 {
-  %p = bitcast %struct.test02* %a to i8*
-  tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 32, i1 false)
+define void @test02(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !7 {
+  tail call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 32, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -52,11 +50,10 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %a) !intel.dtr
 ; This test checks when a multiple of the structure size is used, such as for an
 ; array of structures, but the size is not a compile time constant.
 %struct.test03 = type { i32, i16, i8 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %a, i32 %n) !intel.dtrans.func.type !9 {
-  %p = bitcast %struct.test03* %a to i8*
+define void @test03(ptr "intel_dtrans_func_index"="1" %a, i32 %n) !intel.dtrans.func.type !9 {
   %conv = sext i32 %n to i64
   %mul = mul i64 %conv, 8
-  tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 %mul, i1 false)
+  tail call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 %mul, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -76,9 +73,8 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %a, i32 %n) !i
 %struct.test04a = type { i16, i32, [2 x i32] }
 %struct.test04b = type { i32, i16, i8 }
 %struct.test04c = type { %struct.test04a, %struct.test04b }
-define void @test04(%struct.test04c* "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !14 {
-  %c0 = bitcast %struct.test04c* %c to i8*
-  tail call void @llvm.memset.p0i8.i64(i8* %c0, i8 0, i64 24, i1 false)
+define void @test04(ptr "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !14 {
+  tail call void @llvm.memset.p0i8.i64(ptr %c, i8 0, i64 24, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -114,10 +110,9 @@ define void @test04(%struct.test04c* "intel_dtrans_func_index"="1" %c) !intel.dt
 ; with 'Written'.
 %struct.test05a = type { i16, i32, [2 x i32] }
 %struct.test05b = type { i32, i16, i8 }
-%struct.test05c = type { %struct.test05a*, %struct.test05b* }
-define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !18 {
-  %c0 = bitcast %struct.test05c* %c to i8*
-  tail call void @llvm.memset.p0i8.i64(i8* %c0, i8 0, i64 16, i1 false)
+%struct.test05c = type { ptr, ptr }
+define void @test05(ptr "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !18 {
+  tail call void @llvm.memset.p0i8.i64(ptr %c, i8 0, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -154,7 +149,7 @@ define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %c) !intel.dt
 ; CHECK: End LLVMType: %struct.test05c
 
 
-declare !intel.dtrans.func.type !20 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !20 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16

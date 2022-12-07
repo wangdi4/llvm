@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the safety checks for 'ptrtoint' instructions when there are unsafe
 ; uses.
@@ -10,10 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; 'ptrtoint' of a pointer that may alias multiple types is not permitted.
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i64 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !4 {
-  %pStruct1.as.pB = bitcast %struct.test01a* %pStruct1 to %struct.test01b*
-  %use1 = getelementptr %struct.test01b, %struct.test01b* %pStruct1.as.pB, i64 0, i32 0
-  %tmp1 = ptrtoint %struct.test01b* %pStruct1.as.pB to i64
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !4 {
+  %use1 = getelementptr %struct.test01b, ptr %pStruct1, i64 0, i32 0
+  %tmp1 = ptrtoint ptr %pStruct1 to i64
   ret void
 }
 
@@ -30,8 +29,8 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct1) !i
 
 ; 'ptrtoint' that does not go to the same size as a pointer is not permitted.
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !6 {
-  %tmp1 = ptrtoint %struct.test02* %pStruct1 to i32
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !6 {
+  %tmp1 = ptrtoint ptr %pStruct1 to i32
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

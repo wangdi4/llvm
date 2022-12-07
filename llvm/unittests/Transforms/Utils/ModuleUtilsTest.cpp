@@ -1,4 +1,21 @@
 //===- ModuleUtilsTest.cpp - Unit tests for Module utility ----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -67,3 +84,26 @@ TEST(ModuleUtils, AppendToUsedList2) {
   appendToUsed(*M, Globals);
   EXPECT_EQ(1, getUsedListSize(*M, "llvm.used"));
 }
+
+#if INTEL_CUSTOMIZATION
+TEST(ModuleUtils, AppendToUsedListRemoveOldArrays) {
+  LLVMContext C;
+
+  std::unique_ptr<Module> M = parseIR(C, R"(
+@x = global [2 x i32] zeroinitializer, align 4
+@y = global [2 x i32] zeroinitializer, align 4
+)");
+  SmallVector<GlobalValue *, 2> Globals;
+  for (auto &G : M->globals()) {
+    Globals.push_back(&G);
+  }
+  appendToCompilerUsed(*M, Globals[0]);
+  EXPECT_EQ(1u, Globals[0]->user_begin()->getNumUses());
+
+  appendToCompilerUsed(*M, Globals[1]);
+  // Ensure the ConstantArray created by the previous appendToCompilerUsed is
+  // deleted
+  EXPECT_EQ(1u, Globals[0]->user_begin()->getNumUses());
+  EXPECT_EQ(1u, Globals[1]->user_begin()->getNumUses());
+}
+#endif // INTEL_CUSTOMIZATION

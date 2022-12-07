@@ -2,18 +2,18 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing a pointer to a structure to an external library function
 ; results in the type being marked as a "System object"
 
 ; Pass a value to a LibFunc
-%"class._ZTSSt9exception.std::exception" = type { i32 (...)** }
-define void @test01(%"class._ZTSSt9exception.std::exception"* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
-  call void @_ZNSt9exceptionD1Ev(%"class._ZTSSt9exception.std::exception"* %in)
+%"class._ZTSSt9exception.std::exception" = type { ptr }
+define void @test01(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
+  call void @_ZNSt9exceptionD1Ev(ptr %in)
   ret void
 }
-declare !intel.dtrans.func.type !6 void @_ZNSt9exceptionD1Ev(%"class._ZTSSt9exception.std::exception"* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !6 void @_ZNSt9exceptionD1Ev(ptr "intel_dtrans_func_index"="1")
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %"class._ZTSSt9exception.std::exception"

@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-usecrulecompat -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-usecrulecompat -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test for indirect function calls which need to have the structure type passed
 ; marked as "Address taken" because there is no compatible type that could be
@@ -12,23 +12,23 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01b = type { i32, i32 }
 
 @myarg = internal global %struct.test01a { i32 3, i32 5 }
-@fp = internal global i32 (%struct.test01a*)* null, !intel_dtrans_type !4
+@fp = internal global ptr null, !intel_dtrans_type !4
 
-define i32 @target1(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  %fieldAddr = getelementptr inbounds %struct.test01a, %struct.test01a* %pStruct, i32 0, i32 0
-  %res = load i32, i32* %fieldAddr
+define i32 @target1(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
+  %fieldAddr = getelementptr inbounds %struct.test01a, ptr %pStruct, i32 0, i32 0
+  %res = load i32, ptr %fieldAddr
   ret i32 %res
 }
 
-define i32 @target2(%struct.test01b* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %fieldAddr = getelementptr inbounds %struct.test01b, %struct.test01b* %pStruct, i32 0, i32 1
-  %res = load i32, i32* %fieldAddr
+define i32 @target2(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %fieldAddr = getelementptr inbounds %struct.test01b, ptr %pStruct, i32 0, i32 1
+  %res = load i32, ptr %fieldAddr
   ret i32 %res
 }
 
 define i32 @main() {
-  %fptr = load i32 (%struct.test01a*)*, i32 (%struct.test01a*)** @fp, align 8
-  %res = call i32 %fptr(%struct.test01a* @myarg), !intel_dtrans_type !2
+  %fptr = load ptr, ptr @fp, align 8
+  %res = call i32 %fptr(ptr @myarg), !intel_dtrans_type !2
   ret i32 %res
 }
 ; This case differs from safety-call-indirect-safe01.ll, in that it will

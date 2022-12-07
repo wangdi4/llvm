@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Test callback function which can invoke multiple functions with a specifier
@@ -10,28 +9,28 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.test01 = type { i32, i32, i32, i64, i32 }
 %struct.test02 = type { i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %img, %struct.test02* "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !7 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %img, ptr "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !7 {
   tail call void @broker(
-    void (%struct.test01*)* @test01callee,
-	void (%struct.test02*)* @test01callee2,
-    %struct.test01* %img,
-    %struct.test02* %s2
+    ptr @test01callee,
+    ptr @test01callee2,
+    ptr %img,
+    ptr %s2
   )
 
   ret void
 }
 
-define void @test01callee(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !8 {
-  %use1 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 1
+define void @test01callee(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !8 {
+  %use1 = getelementptr %struct.test01, ptr %in, i64 0, i32 1
   ret void
 }
 
-define void @test01callee2(%struct.test02* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !9 {
-  %use1 = getelementptr %struct.test02, %struct.test02* %in, i64 0, i32 1
+define void @test01callee2(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !9 {
+  %use1 = getelementptr %struct.test02, ptr %in, i64 0, i32 1
   ret void
 }
 
-declare !intel.dtrans.func.type !15 !callback !0 void @broker(void (%struct.test01*)* "intel_dtrans_func_index"="1", void (%struct.test02*)* "intel_dtrans_func_index"="2", %struct.test01* "intel_dtrans_func_index"="3", %struct.test02* "intel_dtrans_func_index"="4")
+declare !intel.dtrans.func.type !15 !callback !0 void @broker(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", ptr "intel_dtrans_func_index"="3", ptr "intel_dtrans_func_index"="4")
 
 ; These structures should not get marked "Address taken" because they are passed
 ; to the external broker function to be forwarded to the callback function.

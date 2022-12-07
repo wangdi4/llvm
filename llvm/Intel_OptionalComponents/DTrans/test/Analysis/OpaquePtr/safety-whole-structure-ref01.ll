@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test detection of 'Whole structure reference' safety condition on 'load'
 ; instructions.
@@ -10,9 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Test whole structure load of a member field
 %struct.test01a = type { %struct.test01b }
 %struct.test01b = type { i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !4 {
-  %nested = getelementptr %struct.test01a, %struct.test01a* %p, i64 0, i32 0
-  %t = load %struct.test01b, %struct.test01b* %nested
+define void @test01(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !4 {
+  %nested = getelementptr %struct.test01a, ptr %p, i64 0, i32 0
+  %t = load %struct.test01b, ptr %nested
   ret void
 }
 ; The "whole structure reference" should not propagate to the outer structure.
@@ -35,8 +35,8 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %p) !intel.dt
 
 ; Test whole structure load of a pointer that is not for a member field
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !6 {
-  %t = load %struct.test02, %struct.test02* %p
+define void @test02(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !6 {
+  %t = load %struct.test02, ptr %p
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

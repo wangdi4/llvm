@@ -1,4 +1,5 @@
 ; RUN: opt -passes="default<O2>" -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s --match-full-lines
+; RUN: opt -passes="default<O2>" -debug-pass-manager -loopopt < %s -o /dev/null 2>&1 | FileCheck %s --match-full-lines --check-prefixes=CHECK,HIR
 
 ; #pragma omp ordered simd is processed by running the following passes for
 ; LLVM-IR and HIR path:
@@ -23,6 +24,15 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK:  Running pass: VecClonePass on [module]
 ; CHECK:  Running analysis: LoopAnalysis on var_tripcount
 ; CHECK:  Running pass: VPlanPragmaOmpSimdIfPass on var_tripcount (1 instruction)
+; HIR:  Running pass: VPlanPragmaOmpOrderedSimdExtractPass on [module]
+; HIR:  Running pass: HIRSSADeconstructionPass on var_tripcount (1 instruction)
+; HIR:  Running analysis: HIRParVecAnalysisPass on var_tripcount
+; HIR:  Skipping pass: vpo::VPlanDriverHIRPass on var_tripcount
+; HIR:  Running pass: HIRPostVecCompleteUnrollPass on var_tripcount (1 instruction)
+; HIR:  Running pass: HIRGeneralUnrollPass on var_tripcount (1 instruction)
+; HIR:  Running analysis: HIRLoopResourceAnalysis on var_tripcount
+; HIR:  Running pass: HIRScalarReplArrayPass on var_tripcount (1 instruction)
+; HIR:  Running pass: HIRCodeGenPass on var_tripcount (1 instruction)
 ; CHECK:  Running pass: LoopSimplifyPass on var_tripcount (1 instruction)
 ; CHECK:  Running pass: LCSSAPass on var_tripcount (1 instruction)
 ; CHECK:  Running pass: VPOCFGRestructuringPass on var_tripcount (1 instruction)

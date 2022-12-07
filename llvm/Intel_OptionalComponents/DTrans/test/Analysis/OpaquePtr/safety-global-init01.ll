@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that "Has initializer list" safety flag is set on types that have global
 ; variables with non-zero initializers.
@@ -11,8 +11,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32 }
 @g_instance.test01 = internal global %struct.test01 zeroinitializer
 define void @test01() {
-  %pField1 = getelementptr %struct.test01, %struct.test01* @g_instance.test01, i64 0, i32 1
-  store i32 1, i32* %pField1
+  %pField1 = getelementptr %struct.test01, ptr @g_instance.test01, i64 0, i32 1
+  store i32 1, ptr %pField1
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -23,9 +23,9 @@ define void @test01() {
 
 ; This case is for a pointer, and does not have an initializer list.
 %struct.test02 = type { i32, i32 }
-@g_ptr.test02 = internal global %struct.test02* null, !intel_dtrans_type !2
+@g_ptr.test02 = internal global ptr null, !intel_dtrans_type !2
 define void @test02() {
-  %pStruct = load %struct.test02*, %struct.test02** @g_ptr.test02
+  %pStruct = load ptr, ptr @g_ptr.test02
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -38,9 +38,9 @@ define void @test02() {
 ; Neither should trigger "Has initializer list".
 %struct.test03 = type { i32, i32 }
 @g_instance.test03 = internal global %struct.test03 zeroinitializer
-@g_ptr.test03 = internal global %struct.test03* @g_instance.test03, !intel_dtrans_type !3
+@g_ptr.test03 = internal global ptr @g_instance.test03, !intel_dtrans_type !3
 define void @test03() {
-  store %struct.test03* @g_instance.test03, %struct.test03** @g_ptr.test03
+  store ptr @g_instance.test03, ptr @g_ptr.test03
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -53,8 +53,8 @@ define void @test03() {
 %struct.test04 = type { i32, i32 }
 @g_instance.test04 = internal global %struct.test04 { i32 2, i32 3 }
 define void @test04() {
-  %pField1 = getelementptr %struct.test04, %struct.test04* @g_instance.test04, i64 0, i32 1
-  store i32 1, i32* %pField1
+  %pField1 = getelementptr %struct.test04, ptr @g_instance.test04, i64 0, i32 1
+  store i32 1, ptr %pField1
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -78,7 +78,7 @@ define void @test05() {
 ; An array of pointers should not trigger "Has initializer list"
 %struct.test06 = type { i32, i32 }
 @g_instance.test06 = internal global %struct.test06 zeroinitializer
-@g_array.test06 = internal global [2 x %struct.test06*] [ %struct.test06* @g_instance.test06, %struct.test06* @g_instance.test06], !intel_dtrans_type !4
+@g_array.test06 = internal global [2 x ptr] [ ptr @g_instance.test06, ptr @g_instance.test06], !intel_dtrans_type !4
 define void @test06() {
   ret void
 }
@@ -92,8 +92,8 @@ define void @test06() {
 %struct.test07 = type { i32, i32 }
 @g_instance.test07 = internal global %struct.test07 undef
 define void @test07() {
-  %pField1 = getelementptr %struct.test07, %struct.test07* @g_instance.test07, i64 0, i32 1
-  store i32 1, i32* %pField1
+  %pField1 = getelementptr %struct.test07, ptr @g_instance.test07, i64 0, i32 1
+  store i32 1, ptr %pField1
   ret void
 }
 ; CHECK: DTRANS_StructInfo:

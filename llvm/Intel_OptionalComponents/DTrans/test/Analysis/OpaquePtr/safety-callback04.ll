@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Test callback function with a specifier that identifies which parameters to
@@ -10,20 +9,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ; not match the expected type, so should trigger a DTrans safety flag.
 %struct.test01 = type { i32, i32, i32, i64, i32 }
 %struct.test01alt = type { i64, i32, i64, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %img) !intel.dtrans.func.type !5 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %img) !intel.dtrans.func.type !5 {
   tail call void @broker(
-    void (%struct.test01alt*)* @test01callee,
-    %struct.test01* %img
+    ptr @test01callee,
+    ptr %img
   )
   ret void
 }
 
-define void @test01callee(%struct.test01alt* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !7 {
-  %use1 = getelementptr %struct.test01alt, %struct.test01alt* %in, i64 0, i32 1
+define void @test01callee(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !7 {
+  %use1 = getelementptr %struct.test01alt, ptr %in, i64 0, i32 1
   ret void
 }
 
-declare !intel.dtrans.func.type !11 !callback !0 void @broker(void (%struct.test01alt*)* "intel_dtrans_func_index"="1", %struct.test01* "intel_dtrans_func_index"="2")
+declare !intel.dtrans.func.type !11 !callback !0 void @broker(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2")
 
 ; These should get "Mismatched argument use" because the type passed to the
 ; broker function does not match the type of the function the broker function

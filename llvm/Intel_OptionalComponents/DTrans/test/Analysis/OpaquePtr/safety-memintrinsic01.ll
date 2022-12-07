@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that safety analyzer handling of mem intrinsic calls with pointer
 ; operands of 'undef' or 'null' do not cause an assertion failure.
@@ -11,14 +11,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define internal void @test01() {
   %l = alloca %struct.test01
-  %l.i8 = bitcast %struct.test01* %l to i8*
-  call void @llvm.memmove.p0i8.p0i8.i64(i8* %l.i8, i8* null, i64 24, i1 false)
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* null, i8* %l.i8, i64 24, i1 false)
+  call void @llvm.memmove.p0i8.p0i8.i64(ptr %l, ptr null, i64 24, i1 false)
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr null, ptr %l, i64 24, i1 false)
   ret void
 }
 
-declare !intel.dtrans.func.type !3 void @llvm.memmove.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
-declare !intel.dtrans.func.type !4 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !3 void @llvm.memmove.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !4 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !intel.dtrans.types = !{!5}
 

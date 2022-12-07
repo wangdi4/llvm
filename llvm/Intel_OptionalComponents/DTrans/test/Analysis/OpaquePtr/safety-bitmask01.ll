@@ -2,15 +2,15 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test validates correct handling of pointer alignment checking idioms
 ; when performing the safety check.
 
 ; Check for 8-byte alignment
 %struct.test01 = type { i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !3 {
-  %t1 = ptrtoint %struct.test01* %p to i64
+define void @test01(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !3 {
+  %t1 = ptrtoint ptr %p to i64
   %t2 = and i64 %t1, 7
   %cmp = icmp eq i64 %t2, 0
   ret void
@@ -23,8 +23,8 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %p) !intel.dtr
 
 ; Check for 8-byte alignment with an extraneous bit set
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !5 {
-  %t1 = ptrtoint %struct.test02* %p to i64
+define void @test02(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !5 {
+  %t1 = ptrtoint ptr %p to i64
   %t2 = or i64 %t1, 8
   %t3 = and i64 %t2, 7
   %cmp = icmp eq i64 %t3, 0
@@ -39,8 +39,8 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; Check for variable bitmask -- this may be OK, but we don't need it so it's
 ; easier to exclude it and not worry about unintended consequences.
 %struct.test03 = type { i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %p, i64 %mask) !intel.dtrans.func.type !7 {
-  %t1 = ptrtoint %struct.test03* %p to i64
+define void @test03(ptr "intel_dtrans_func_index"="1" %p, i64 %mask) !intel.dtrans.func.type !7 {
+  %t1 = ptrtoint ptr %p to i64
   %t2 = or i64 %t1, 8
   %t3 = and i64 %t2, %mask
   %cmp = icmp eq i64 %t3, 0
@@ -54,11 +54,11 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %p, i64 %mask)
 
 ; Check for comparison of two masked pointers
 %struct.test04 = type { i32, i32 }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p1, %struct.test04* "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !9 {
-  %t1 = ptrtoint %struct.test04* %p1 to i64
+define void @test04(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !9 {
+  %t1 = ptrtoint ptr %p1 to i64
   %t2 = or i64 %t1, 8
   %t3 = and i64 %t2, 7
-  %t4 = ptrtoint %struct.test04* %p2 to i64
+  %t4 = ptrtoint ptr %p2 to i64
   %t5 = or i64 %t4, 8
   %t6 = and i64 %t5, 7
   %cmp = icmp eq i64 %t3, %t6
@@ -72,9 +72,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p1, %struct.t
 
 ; Check for alignment check on a field element address
 %struct.test05 = type <{ i16, i32 }>
-define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !12 {
-  %t0 = getelementptr %struct.test05, %struct.test05* %p, i64 0, i32 1
-  %t1 = ptrtoint i32* %t0 to i64
+define void @test05(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !12 {
+  %t0 = getelementptr %struct.test05, ptr %p, i64 0, i32 1
+  %t1 = ptrtoint ptr %t0 to i64
   %t2 = and i64 %t1, 7
   %cmp = icmp eq i64 %t2, 0
   ret void
@@ -89,11 +89,11 @@ define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; on pointer-types should not cause an issue, but we don't have cases that
 ; require it currently, so mark it as unhandled.
 %struct.test06 = type { i32, i32 }
-define void @test06(%struct.test06** "intel_dtrans_func_index"="1" %p1, %struct.test06** "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !14 {
-  %t1 = ptrtoint %struct.test06** %p1 to i64
+define void @test06(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !14 {
+  %t1 = ptrtoint ptr %p1 to i64
   %t2 = or i64 %t1, 8
   %t3 = and i64 %t2, 7
-  %t4 = ptrtoint %struct.test06** %p2 to i64
+  %t4 = ptrtoint ptr %p2 to i64
   %t5 = or i64 %t4, 8
   %t6 = and i64 %t5, 7
   %cmp = icmp eq i64 %t3, %t6

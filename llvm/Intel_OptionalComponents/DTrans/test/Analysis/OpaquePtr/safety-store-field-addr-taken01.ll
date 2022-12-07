@@ -2,19 +2,19 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_T
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_F
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_T
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK_ALWAYS --check-prefix=CHECK_OOB_F
 
 
 ; Test that storing the address of a structure field results in the "Field
 ; address taken memory" safety bit.
 
-%struct.test01a = type { i64, %struct.test01b* }
+%struct.test01a = type { i64, ptr }
 %struct.test01b = type { i32, i32 }
-@gTest01b = internal global %struct.test01b** zeroinitializer, !intel_dtrans_type !4
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
-  %pField = getelementptr %struct.test01a, %struct.test01a* %pStruct, i64 0, i32 1
-  store %struct.test01b** %pField, %struct.test01b*** @gTest01b
+@gTest01b = internal global ptr zeroinitializer, !intel_dtrans_type !4
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
+  %pField = getelementptr %struct.test01a, ptr %pStruct, i64 0, i32 1
+  store ptr %pField, ptr @gTest01b
   ret void
 }
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
@@ -30,12 +30,12 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; This case is to verify that storing the address of field into another field
 ; (ie. the pointer location is an element pointee) results in the "Field
 ; address taken" safety bit.
-%struct.test02a = type { i64*, i64, %struct.test02b* }
+%struct.test02a = type { ptr, i64, ptr }
 %struct.test02b = type { i32, i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
-  %pField0 = getelementptr %struct.test02a, %struct.test02a* %pStruct, i64 0, i32 0
-  %pField1 = getelementptr %struct.test02a, %struct.test02a* %pStruct, i64 0, i32 1
-  store i64* %pField1, i64** %pField0
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
+  %pField0 = getelementptr %struct.test02a, ptr %pStruct, i64 0, i32 0
+  %pField1 = getelementptr %struct.test02a, ptr %pStruct, i64 0, i32 1
+  store ptr %pField1, ptr %pField0
   ret void
 }
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:

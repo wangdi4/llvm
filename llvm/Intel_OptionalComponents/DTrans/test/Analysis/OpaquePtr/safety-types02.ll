@@ -2,31 +2,24 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Basic test of the DTransSafetyAnalyzer pass collection of
 ; structure properties. Also, checks printing of structure field types.
 
-; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
-; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
-;   changed when the future opaque pointer form of IR is used.
-; Lines marked with CHECK should remain the same when changing to use opaque
-;   pointers.
 
-%struct.base = type { i32 (...)** }
+%struct.base = type { ptr }
 %struct.derived1 = type { %struct.base, i8 }
 %struct.derived2 = type { %struct.derived1, i32 }
 %struct.empty = type { }
-%struct.fptrs = type { void (i32, i64*, i64)*, i32, i32 }
+%struct.fptrs = type { ptr, i32, i32 }
 %struct.zeroarray = type { i32, [0 x i32] }
 define void @test01() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.base
-; CHECK-NONOPAQUE: Field LLVM Type: i32 (...)**
-; CHECK-OPAQUE: Field LLVM Type: ptr
+; CHECK: Field LLVM Type: ptr
 ; CHECK: DTrans Type: i32 (...)**
 ; CHECK: Safety data: Nested structure | Has vtable
 ; CHECK: End LLVMType: %struct.base
@@ -56,8 +49,7 @@ define void @test01() {
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.fptrs
-; CHECK-NONOPAQUE: Field LLVM Type: void (i32, i64*, i64)*
-; CHECK-OPAQUE: Field LLVM Type: ptr
+; CHECK: Field LLVM Type: ptr
 ; CHECK: DTrans Type: void (i32, i64*, i64)*
 ; CHECK: Field LLVM Type: i32
 ; CHECK: DTrans Type: i32

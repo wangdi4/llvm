@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that storing the address of an element of an array member within a
 ; structure type is also treated as "Field address taken memory" for the structure if it
@@ -13,10 +13,10 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01a = type { i64, float, %struct.test01b }
 %struct.test01b = type { i64, [10 x i8] }
 @var01a = internal global %struct.test01a zeroinitializer
-@var01charptr = internal global i8* zeroinitializer, !intel_dtrans_type !6
+@var01charptr = internal global ptr zeroinitializer, !intel_dtrans_type !6
 define void @test01()  {
-  %array_elem_addr = getelementptr %struct.test01a, %struct.test01a* @var01a, i64 0, i32 2, i32 1, i64 0
-  store i8* %array_elem_addr, i8** @var01charptr
+  %array_elem_addr = getelementptr %struct.test01a, ptr @var01a, i64 0, i32 2, i32 1, i64 0
+  store ptr %array_elem_addr, ptr @var01charptr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -35,10 +35,10 @@ define void @test01()  {
 %struct.test02a = type { i64, float, %struct.test02b }
 %struct.test02b = type { i64, [10 x i8] }
 @var02a = internal global %struct.test02a zeroinitializer
-@var02charptr = internal global i8* zeroinitializer, !intel_dtrans_type !6
+@var02charptr = internal global ptr zeroinitializer, !intel_dtrans_type !6
 define void @test02()  {
-  %array_elem_addr = getelementptr %struct.test02a, %struct.test02a* @var02a, i64 0, i32 2, i32 1, i64 3
-  store i8* %array_elem_addr, i8** @var02charptr
+  %array_elem_addr = getelementptr %struct.test02a, ptr @var02a, i64 0, i32 2, i32 1, i64 3
+  store ptr %array_elem_addr, ptr @var02charptr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

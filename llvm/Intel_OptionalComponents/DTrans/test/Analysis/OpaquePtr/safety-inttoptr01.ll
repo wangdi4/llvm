@@ -2,21 +2,21 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test safety analyzer handling of a store instruction that uses an
 ; inttoptr operator as the pointer operand.
 
 define internal void @test01() {
-  store i32 1, i32* inttoptr (i64 120 to i32*)
+  store i32 1, ptr inttoptr (i64 120 to ptr)
   ret void
 }
 
 %struct.test02 = type { i64, i64, i64 }
 define internal void @test02() {
   %l = alloca %struct.test02
-  %pti = ptrtoint %struct.test02* %l to i64
-  store i64 %pti, i64* inttoptr (i64 1024 to i64*)
+  %pti = ptrtoint ptr %l to i64
+  store i64 %pti, ptr inttoptr (i64 1024 to ptr)
   ret void
 }
 

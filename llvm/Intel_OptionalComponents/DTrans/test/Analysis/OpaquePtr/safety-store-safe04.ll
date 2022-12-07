@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where element-pointee stored is from a byte-flattened GEP.
 
@@ -9,22 +9,18 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.test01 = type { i32, i64*, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
+%struct.test01 = type { i32, ptr, i32, i16, i16 } ; Offsets: 0, 8, 16, 20, 22
 define internal void @test01() {
   %local = alloca %struct.test01
-  %flat = bitcast %struct.test01* %local to i8*
 
-  %addr0 = getelementptr i8, i8* %flat, i32 0
-  %field0 = bitcast i8* %addr0 to i32*
-  store i32 0, i32* %field0
+  %addr0 = getelementptr i8, ptr %local, i32 0
+  store i32 0, ptr %addr0
 
-  %addr2 = getelementptr i8, i8* %flat, i32 16
-  %field2 = bitcast i8* %addr2 to i32*
-  store i32 0, i32* %field2
+  %addr2 = getelementptr i8, ptr %local, i32 16
+  store i32 0, ptr %addr2
 
-  %addr4 = getelementptr i8, i8* %flat, i32 22
-  %field4 = bitcast i8* %addr4 to i16*
-  store i16 0, i16* %field4
+  %addr4 = getelementptr i8, ptr %local, i32 22
+  store i16 0, ptr %addr4
 
   ret void
 }
@@ -32,7 +28,7 @@ define internal void @test01() {
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK:   Field info: Written{{ *$}}
-; CHECK: 1)Field LLVM Type: i64*
+; CHECK: 1)Field LLVM Type: ptr
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK:   Field info: Written{{ *$}}

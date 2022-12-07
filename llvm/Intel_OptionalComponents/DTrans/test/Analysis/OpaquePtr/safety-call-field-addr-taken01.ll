@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing the address of a field to a function to trigger the "Field
 ; address taken call" safety bit.
@@ -10,12 +10,12 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32 }
 define void @test01() {
   %pStruct = alloca %struct.test01
-  %pFieldAddr = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
-  call void @test01h(i32* %pFieldAddr)
+  %pFieldAddr = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
+  call void @test01h(ptr %pFieldAddr)
   ret void
 }
-define void @test01h(i32* "intel_dtrans_func_index"="1" %pAddr) !intel.dtrans.func.type !3 {
-  store i32 0, i32* %pAddr
+define void @test01h(ptr "intel_dtrans_func_index"="1" %pAddr) !intel.dtrans.func.type !3 {
+  store i32 0, ptr %pAddr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

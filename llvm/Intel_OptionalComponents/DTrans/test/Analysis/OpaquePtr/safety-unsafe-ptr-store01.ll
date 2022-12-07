@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a store uses a pointer to the start of a structure, but
 ; stores a type that does not match the type of the structure begins with.
@@ -14,9 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; compatible with the implementation that was done in the LocalPointerAnalyzer.
 
 %struct.test01 = type { i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i8 %value) !intel.dtrans.func.type !3 {
-  %pStruct.as.p8 = bitcast %struct.test01* %pStruct to i8*
-  store i8 %value, i8* %pStruct.as.p8
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct, i8 %value) !intel.dtrans.func.type !3 {
+  store i8 %value, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -26,9 +25,8 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i8 %
 
 
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i16 %value) !intel.dtrans.func.type !5 {
-  %pStruct.as.p16 = bitcast %struct.test02* %pStruct to i16*
-  store i16 %value, i16* %pStruct.as.p16
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct, i16 %value) !intel.dtrans.func.type !5 {
+  store i16 %value, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -38,9 +36,8 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i16 
 
 
 %struct.test03 = type { i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct, i64 %value) !intel.dtrans.func.type !7 {
-  %pStruct.as.p64 = bitcast %struct.test03* %pStruct to i64*
-  store i64 %value, i64* %pStruct.as.p64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct, i64 %value) !intel.dtrans.func.type !7 {
+  store i64 %value, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

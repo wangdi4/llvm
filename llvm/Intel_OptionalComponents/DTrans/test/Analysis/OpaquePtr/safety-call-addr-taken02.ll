@@ -2,22 +2,22 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Calling a function using an alias to the function which appears to be a
 ; properly typed pointer to the structure. However, this case is not safe
 ; for DTrans because the alias is defined using a weak alias linkage.
 %struct.test01 = type { i32, i32 }
-@f01_alias = weak alias void (%struct.test01*), void (%struct.test01*)* @f01
+@f01_alias = weak alias void (ptr), ptr @f01
 
-define internal void @f01(%struct.test01* "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !3 {
-  %p = getelementptr %struct.test01, %struct.test01* %s, i64 0, i32 0
-  %i = load i32, i32* %p
+define internal void @f01(ptr "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !3 {
+  %p = getelementptr %struct.test01, ptr %s, i64 0, i32 0
+  %i = load i32, ptr %p
   ret void
 }
 
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !4 {
-  call void @f01_alias(%struct.test01* %s)
+define void @test01(ptr "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !4 {
+  call void @f01_alias(ptr %s)
   ret void
 }
 
