@@ -39,6 +39,9 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/GlobalStatus.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace llvm;
 
 #define DEBUG_TYPE "moduleutils"
@@ -101,11 +104,18 @@ static void appendToUsedList(Module &M, StringRef Name, ArrayRef<GlobalValue *> 
   if (GV) {
     if (GV->hasInitializer()) {
       auto *CA = cast<ConstantArray>(GV->getInitializer());
+#if INTEL_CUSTOMIZATION
+      GV->setInitializer(nullptr);
+#endif // INTEL_CUSTOMIZATION
       for (auto &Op : CA->operands()) {
         Constant *C = cast_or_null<Constant>(Op);
         if (InitAsSet.insert(C).second)
           Init.push_back(C);
       }
+#if INTEL_CUSTOMIZATION
+      if (isSafeToDestroyConstant(CA))
+        CA->destroyConstant();
+#endif // INTEL_CUSTOMIZATION
     }
     GV->eraseFromParent();
   }
