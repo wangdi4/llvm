@@ -1035,7 +1035,7 @@ protected:
   /// registers as machine operands.
   virtual Optional<DestSourcePair>
   isCopyInstrImpl(const MachineInstr &MI) const {
-    return None;
+    return std::nullopt;
   }
 
   /// Return true if the given terminator MI is not expected to spill. This
@@ -1069,7 +1069,7 @@ public:
   /// register and the offset which has been added.
   virtual Optional<RegImmPair> isAddImmediate(const MachineInstr &MI,
                                               Register Reg) const {
-    return None;
+    return std::nullopt;
   }
 
   /// Returns true if MI is an instruction that defines Reg to have a constant
@@ -1407,7 +1407,7 @@ public:
   virtual Optional<ExtAddrMode>
   getAddrModeFromMemoryOp(const MachineInstr &MemI,
                           const TargetRegisterInfo *TRI) const {
-    return None;
+    return std::nullopt;
   }
 
   /// Returns true if MI's Def is NullValueReg, and the MI
@@ -1870,7 +1870,7 @@ public:
   /// defined by this method.
   virtual ArrayRef<std::pair<int, const char *>>
   getSerializableTargetIndices() const {
-    return None;
+    return std::nullopt;
   }
 
   /// Decompose the machine operand's target flags into two values - the direct
@@ -1887,7 +1887,7 @@ public:
   /// defined by this method.
   virtual ArrayRef<std::pair<unsigned, const char *>>
   getSerializableDirectMachineOperandTargetFlags() const {
-    return None;
+    return std::nullopt;
   }
 
   /// Return an array that contains the bitmask target flag values and their
@@ -1897,7 +1897,7 @@ public:
   /// defined by this method.
   virtual ArrayRef<std::pair<unsigned, const char *>>
   getSerializableBitmaskMachineOperandTargetFlags() const {
-    return None;
+    return std::nullopt;
   }
 
   /// Return an array that contains the MMO target flag values and their
@@ -1907,7 +1907,7 @@ public:
   /// defined by this method.
   virtual ArrayRef<std::pair<MachineMemOperand::Flags, const char *>>
   getSerializableMachineMemOperandTargetFlags() const {
-    return None;
+    return std::nullopt;
   }
 
   /// Determines whether \p Inst is a tail call instruction. Override this
