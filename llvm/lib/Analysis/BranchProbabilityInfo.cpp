@@ -810,7 +810,7 @@ Optional<uint32_t>
 BranchProbabilityInfo::getEstimatedBlockWeight(const BasicBlock *BB) const {
   auto WeightIt = EstimatedBlockWeight.find(BB);
   if (WeightIt == EstimatedBlockWeight.end())
-    return None;
+    return std::nullopt;
   return WeightIt->second;
 }
 
@@ -818,7 +818,7 @@ Optional<uint32_t>
 BranchProbabilityInfo::getEstimatedLoopWeight(const LoopData &L) const {
   auto WeightIt = EstimatedLoopWeight.find(L);
   if (WeightIt == EstimatedLoopWeight.end())
-    return None;
+    return std::nullopt;
   return WeightIt->second;
 }
 
@@ -841,7 +841,7 @@ Optional<uint32_t> BranchProbabilityInfo::getMaxEstimatedEdgeWeight(
     auto Weight = getEstimatedEdgeWeight({SrcLoopBB, DstLoopBB});
 
     if (!Weight)
-      return None;
+      return std::nullopt;
 
     if (!MaxWeight || *MaxWeight < *Weight)
       MaxWeight = Weight;
@@ -964,7 +964,7 @@ Optional<uint32_t> BranchProbabilityInfo::getInitialEstimatedBlockWeight(
       if (CI->hasFnAttr(Attribute::Cold))
         return static_cast<uint32_t>(BlockExecWeight::COLD);
 
-  return None;
+  return std::nullopt;
 }
 
 // Does RPO traversal over all blocks in \p F and assigns weights to

@@ -279,7 +279,7 @@ class InlineCost {
   const char *Reason = nullptr;
 
   /// The cost-benefit pair computed by cost-benefit analysis.
-  Optional<CostBenefitPair> CostBenefit = None;
+  Optional<CostBenefitPair> CostBenefit = std::nullopt;
 
 #if INTEL_CUSTOMIZATION
   bool IsRecommended = false;
@@ -301,7 +301,7 @@ class InlineCost {
 #if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, int StaticBonusApplied,
     const char* Reason = nullptr,
-    Optional<CostBenefitPair> CostBenefit = None,
+    Optional<CostBenefitPair> CostBenefit = std::nullopt,
     bool IsRecommended = false,
     InlineReportTypes::InlineReason IntelReason
     = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
@@ -324,33 +324,40 @@ public:
     return InlineCost(Cost, Threshold, StaticBonus);
   }
 #if INTEL_CUSTOMIZATION
-  static InlineCost get(int Cost, int Threshold, const char* Reason,
-    bool IsRecommended, InlineReportTypes::InlineReason IntelReason,
-    int EarlyExitCost, int EarlyExitThreshold, int StaticBonus = 0) {
+  static InlineCost get(int Cost, int Threshold, const char *Reason,
+                        bool IsRecommended,
+                        InlineReportTypes::InlineReason IntelReason,
+                        int EarlyExitCost, int EarlyExitThreshold,
+                        int StaticBonus = 0) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold, StaticBonus, Reason, None, IsRecommended,
-                      IntelReason, EarlyExitCost, EarlyExitThreshold);
+    return InlineCost(Cost, Threshold, StaticBonus, Reason, std::nullopt,
+                      IsRecommended, IntelReason, EarlyExitCost,
+                      EarlyExitThreshold);
   }
 #endif // INTEL_CUSTOMIZATION
-  static InlineCost getAlways(const char *Reason,
-                              Optional<CostBenefitPair> CostBenefit = None) {
-    return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit,// INTEL
-                      true, InlineReportTypes::InlrAlwaysInline); // INTEL
+  static InlineCost
+  getAlways(const char *Reason,
+            Optional<CostBenefitPair> CostBenefit = std::nullopt) {
+    return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit, // INTEL
+                      true, InlineReportTypes::InlrAlwaysInline);  // INTEL
   }
-  static InlineCost getNever(const char *Reason,
-                             Optional<CostBenefitPair> CostBenefit = None) {
+  static InlineCost
+  getNever(const char *Reason,
+           Optional<CostBenefitPair> CostBenefit = std::nullopt) {
     return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit,  // INTEL
                       false, InlineReportTypes::NinlrNeverInline); // INTEL
   }
 #if INTEL_CUSTOMIZATION
-  static InlineCost getAlways(const char* Reason,
+  static InlineCost getAlways(const char *Reason,
                               InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(AlwaysInlineCost, 0, 0, Reason, None, true, IntelReason);
+    return InlineCost(AlwaysInlineCost, 0, 0, Reason, std::nullopt, true,
+                      IntelReason);
   }
-  static InlineCost getNever(const char* Reason,
+  static InlineCost getNever(const char *Reason,
                              InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(NeverInlineCost, 0, 0, Reason, None, false, IntelReason);
+    return InlineCost(NeverInlineCost, 0, 0, Reason, std::nullopt, false,
+                      IntelReason);
   }
   static InlineCost getAlways(const char *Reason,
                               Optional<CostBenefitPair> CostBenefit,

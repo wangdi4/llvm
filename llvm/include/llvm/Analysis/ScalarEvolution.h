@@ -1434,10 +1434,9 @@ protected: // INTEL
     /// as arguments and asserts enforce that internally.
     /*implicit*/ ExitLimit(const SCEV *E);
 
-    ExitLimit(
-        const SCEV *E, const SCEV *ConstantMaxNotTaken, bool MaxOrZero,
-        ArrayRef<const SmallPtrSetImpl<const SCEVPredicate *> *> PredSetList =
-            None);
+    ExitLimit(const SCEV *E, const SCEV *ConstantMaxNotTaken, bool MaxOrZero,
+              ArrayRef<const SmallPtrSetImpl<const SCEVPredicate *> *>
+                  PredSetList = std::nullopt);
 
     ExitLimit(const SCEV *E, const SCEV *ConstantMaxNotTaken, bool MaxOrZero,
               const SmallPtrSetImpl<const SCEVPredicate *> &PredSet);

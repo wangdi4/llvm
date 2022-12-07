@@ -753,7 +753,7 @@ ModRefInfo AAResults::getModRefInfo(const Instruction *I,
                                     const Optional<MemoryLocation> &OptLoc,
                                     AAQueryInfo &AAQIP,                   // INTEL
                                     const Optional<LocationSize> &Size) { // INTEL
-  if (OptLoc == None) {
+  if (OptLoc == std::nullopt) {
     if (const auto *Call = dyn_cast<CallBase>(I))
       return getMemoryEffects(Call, AAQIP).getModRef();
   }

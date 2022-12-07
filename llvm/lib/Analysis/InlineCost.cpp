@@ -250,7 +250,7 @@ Optional<int> getStringFnAttrAsInt(const Attribute &Attr) {
     if (!Attr.getValueAsString().getAsInteger(10, AttrValue))
       return AttrValue;
   }
-  return None;
+  return std::nullopt;
 }
 
 Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
@@ -605,7 +605,7 @@ public:
   std::optional<Constant *> getSimplifiedValue(Instruction *I) {
     if (SimplifiedValues.find(I) != SimplifiedValues.end())
       return SimplifiedValues[I];
-    return None;
+    return std::nullopt;
   }
 
   // Keep a bunch of stats about the cost savings found so we can print them
@@ -696,7 +696,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   bool DecidedByCostBenefit = false;
 
   // The cost-benefit pair computed by cost-benefit analysis.
-  Optional<CostBenefitPair> CostBenefit = None;
+  Optional<CostBenefitPair> CostBenefit = std::nullopt;
 
   unsigned SROACostSavings = 0;
   unsigned SROACostSavingsLost = 0;
@@ -958,14 +958,14 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // suficient profiling information to determine.
   std::optional<bool> costBenefitAnalysis() {
     if (!CostBenefitAnalysisEnabled)
-      return None;
+      return std::nullopt;
 
     // buildInlinerPipeline in the pass builder sets HotCallSiteThreshold to 0
     // for the prelink phase of the AutoFDO + ThinLTO build.  Honor the logic by
     // falling back to the cost-based metric.
     // TODO: Improve this hacky condition.
     if (Threshold == 0)
-      return None;
+      return std::nullopt;
 
     assert(GetBFI);
     BlockFrequencyInfo *CalleeBFI = &(GetBFI(F));
@@ -1281,7 +1281,7 @@ public:
   Optional<InstructionCostDetail> getCostDetails(const Instruction *I) {
     if (InstructionCostDetailMap.find(I) != InstructionCostDetailMap.end())
       return InstructionCostDetailMap[I];
-    return None;
+    return std::nullopt;
   }
 
   virtual ~InlineCostCallAnalyzer() = default;
@@ -2053,7 +2053,7 @@ InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
   // Otherwise we need BFI to be available and to have a locally hot callsite
   // threshold.
   if (!CallerBFI || !Params.LocallyHotCallSiteThreshold)
-    return None;
+    return std::nullopt;
 
   // Determine if the callsite is hot relative to caller's entry. We could
   // potentially cache the computation of scaled entry frequency, but the added
@@ -2066,7 +2066,7 @@ InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
     return Params.LocallyHotCallSiteThreshold;
 
   // Otherwise treat it normally.
-  return None;
+  return std::nullopt;
 }
 
 void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
@@ -3244,7 +3244,7 @@ Optional<int> llvm::getInliningCostEstimate(
 #endif // INTEL_CUSTOMIZATION
   auto R = CA.analyze(CalleeTTI); // INTEL
   if (!R.isSuccess())
-    return None;
+    return std::nullopt;
   return CA.getCost();
 }
 
@@ -3257,7 +3257,7 @@ Optional<InlineCostFeatures> llvm::getInliningCostFeatures(
                                  ORE, *Call.getCalledFunction(), Call);
   auto R = CFA.analyze(CalleeTTI); // INTEL
   if (!R.isSuccess())
-    return None;
+    return std::nullopt;
   return CFA.features();
 }
 
@@ -3380,7 +3380,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
     return {InlineResult::failure("noinline call site attribute") // INTEL
                 .setIntelInlReason(NinlrNoinlineCallsite)};       // INTEL
 
-  return None;
+  return std::nullopt;
 }
 
 InlineCost llvm::getInlineCost(

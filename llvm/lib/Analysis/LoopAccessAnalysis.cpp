@@ -1393,7 +1393,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
   if (isa<ScalableVectorType>(AccessTy)) {
     LLVM_DEBUG(dbgs() << "LAA: Bad stride - Scalable object: " << *AccessTy
                       << "\n");
-    return None;
+    return std::nullopt;
   }
 
   const SCEV *PtrScev = replaceSymbolicStrideSCEV(PSE, StridesMap, Ptr);
@@ -1405,7 +1405,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
   if (!AR) {
     LLVM_DEBUG(dbgs() << "LAA: Bad stride - Not an AddRecExpr pointer " << *Ptr
                       << " SCEV: " << *PtrScev << "\n");
-    return None;
+    return std::nullopt;
   }
 
   // The access function must stride over the innermost loop.
@@ -1423,7 +1423,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
     if (Lp != AR->getLoop()) {
       LLVM_DEBUG(dbgs() << "LAA: Bad stride - Not striding over innermost loop "
                         << *Ptr << " SCEV: " << *AR << "\n");
-      return None;
+      return std::nullopt;
     }
 #endif
   }
@@ -1453,7 +1453,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
       LLVM_DEBUG(
           dbgs() << "LAA: Bad stride - Pointer may wrap in the address space "
                  << *Ptr << " SCEV: " << *AR << "\n");
-      return None;
+      return std::nullopt;
     }
   }
 
@@ -1465,7 +1465,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
   if (!C) {
     LLVM_DEBUG(dbgs() << "LAA: Bad stride - Not a constant strided " << *Ptr
                       << " SCEV: " << *AR << "\n");
-    return None;
+    return std::nullopt;
   }
 
   auto &DL = Lp->getHeader()->getModule()->getDataLayout();
@@ -1475,7 +1475,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
 
   // Huge step value - give up.
   if (APStepVal.getBitWidth() > 64)
-    return None;
+    return std::nullopt;
 
   int64_t StepVal = APStepVal.getSExtValue();
 
@@ -1483,7 +1483,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
   int64_t Stride = StepVal / Size;
   int64_t Rem = StepVal % Size;
   if (Rem)
-    return None;
+    return std::nullopt;
 
   // If the SCEV could wrap but we have an inbounds gep with a unit stride we
   // know we can't "wrap around the address space". In case of address space
@@ -1500,7 +1500,7 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
                         << "LAA:   Added an overflow assumption\n");
       PSE.setNoOverflow(Ptr, SCEVWrapPredicate::IncrementNUSW);
     } else
-      return None;
+      return std::nullopt;
   }
 
   return Stride;
@@ -1522,14 +1522,14 @@ Optional<int> llvm::getPointersDiff(Type *ElemTyA, Value *PtrA, Type *ElemTyB,
 
   // Make sure that the element types are the same if required.
   if (CheckType && ElemTyA != ElemTyB)
-    return None;
+    return std::nullopt;
 
   unsigned ASA = PtrA->getType()->getPointerAddressSpace();
   unsigned ASB = PtrB->getType()->getPointerAddressSpace();
 
   // Check that the address spaces match.
   if (ASA != ASB)
-    return None;
+    return std::nullopt;
   unsigned IdxWidth = DL.getIndexSizeInBits(ASA);
 
   APInt OffsetA(IdxWidth, 0), OffsetB(IdxWidth, 0);
@@ -1544,7 +1544,7 @@ Optional<int> llvm::getPointersDiff(Type *ElemTyA, Value *PtrA, Type *ElemTyB,
     ASB = cast<PointerType>(PtrB1->getType())->getAddressSpace();
     // Check that the address spaces match and that the pointers are valid.
     if (ASA != ASB)
-      return None;
+      return std::nullopt;
 
     IdxWidth = DL.getIndexSizeInBits(ASA);
     OffsetA = OffsetA.sextOrTrunc(IdxWidth);
@@ -1559,7 +1559,7 @@ Optional<int> llvm::getPointersDiff(Type *ElemTyA, Value *PtrA, Type *ElemTyB,
     const auto *Diff =
         dyn_cast<SCEVConstant>(SE.getMinusSCEV(PtrSCEVB, PtrSCEVA));
     if (!Diff)
-      return None;
+      return std::nullopt;
     Val = Diff->getAPInt().getSExtValue();
   }
   int Size = DL.getTypeStoreSize(ElemTyA);
@@ -1569,7 +1569,7 @@ Optional<int> llvm::getPointersDiff(Type *ElemTyA, Value *PtrA, Type *ElemTyB,
   // the bitcasts removal in the provided pointers.
   if (!StrictCheck || Dist * Size == Val)
     return Dist;
-  return None;
+  return std::nullopt;
 }
 
 bool llvm::sortPtrAccesses(ArrayRef<Value *> VL, Type *ElemTy,
