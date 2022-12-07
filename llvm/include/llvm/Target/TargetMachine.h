@@ -127,7 +127,7 @@ protected: // Can only create subclasses.
   unsigned O0WantsFastISel : 1;
 
   // PGO related tunables.
-  Optional<PGOOptions> PGOOption = None;
+  Optional<PGOOptions> PGOOption = std::nullopt;
 
 public:
   const TargetOptions DefaultOptions;
