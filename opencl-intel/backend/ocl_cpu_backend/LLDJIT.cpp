@@ -63,7 +63,8 @@ LLDJIT::createJIT(std::unique_ptr<Module> M, std::string *ErrorStr,
                   std::unique_ptr<TargetMachine> TM) {
 
   // Try to register the program as a source of symbols to resolve against.
-  sys::DynamicLibrary::LoadLibraryPermanently(nullptr, nullptr);
+  if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr, nullptr))
+    throw Exceptions::CompilerException("Error loading library Permanently");
 
   return std::unique_ptr<LLDJIT>(new LLDJIT(std::move(M), std::move(TM)));
 }
