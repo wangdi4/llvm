@@ -1719,7 +1719,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
 
   // In the recursive alias queries below, we may compare values from two
   // different loop iterations.
-  SaveAndRestore<bool> SavedMayBeCrossIteration(AAQI.MayBeCrossIteration, true);
+  SaveAndRestore SavedMayBeCrossIteration(AAQI.MayBeCrossIteration, true);
 
 #if INTEL_CUSTOMIZATION
   AliasResult Alias = AliasResult::MayAlias;
