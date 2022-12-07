@@ -32,7 +32,7 @@ inline std::optional<Hexagon::ArchEnum> getCpu(StringRef CPU) {
       .Case("hexagonv67t", Hexagon::ArchEnum::V67)
       .Case("hexagonv68", Hexagon::ArchEnum::V68)
       .Case("hexagonv69", Hexagon::ArchEnum::V69)
-      .Default(None);
+      .Default(std::nullopt);
 }
 } // namespace Hexagon
 } // namespace llvm
