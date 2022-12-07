@@ -232,8 +232,7 @@ public:
 
 protected:
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
-<<<<<<< HEAD
-                Optional<InlineContext> IC = llvm::None);
+                Optional<InlineContext> IC = std::nullopt);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
@@ -242,12 +241,6 @@ protected:
   getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                      WholeProgramInfo *WPI, InlineCost **IC, bool Advice);
 #endif // INTEL_CUSTOMIZATION
-=======
-                Optional<InlineContext> IC = std::nullopt);
-  virtual std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) = 0;
-  virtual std::unique_ptr<InlineAdvice> getMandatoryAdvice(CallBase &CB,
-                                                           bool Advice);
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
 
   Module &M;
   FunctionAnalysisManager &FAM;

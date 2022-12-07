@@ -1410,7 +1410,6 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
 
   // The access function must stride over the innermost loop.
   if (Lp != AR->getLoop()) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     PtrScev = PSE.getSE()->getSCEVAtScope(Ptr, Lp);
     AR = dyn_cast<SCEVAddRecExpr>(PtrScev);
@@ -1424,14 +1423,9 @@ llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
     if (Lp != AR->getLoop()) {
       LLVM_DEBUG(dbgs() << "LAA: Bad stride - Not striding over innermost loop "
                         << *Ptr << " SCEV: " << *AR << "\n");
-      return None;
+      return std::nullopt;
     }
 #endif
-=======
-    LLVM_DEBUG(dbgs() << "LAA: Bad stride - Not striding over innermost loop "
-                      << *Ptr << " SCEV: " << *AR << "\n");
-    return std::nullopt;
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
   }
 
   // The address calculation must not wrap. Otherwise, a dependence could be

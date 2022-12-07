@@ -227,7 +227,6 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
        FTy->getParamType(SndParam)->isIntegerTy(32) ||
        FTy->getParamType(SndParam)->isIntegerTy(64)))
     return *FnData;
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   // Model a free or delete call signature
@@ -239,10 +238,7 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
     return *FnData;
 #endif // INTEL_CUSTOMIZATION
 
-  return None;
-=======
   return std::nullopt;
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
 }
 
 static Optional<AllocFnsTy> getAllocationData(const Value *V, AllocType AllocTy,

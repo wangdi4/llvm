@@ -397,12 +397,8 @@ Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
 #if !INTEL_CUSTOMIZATION
   // A valid mangled name can have an empty set of parameters (see VFABI docs).
   if (Parameters.empty())
-<<<<<<< HEAD
-    return None;
-#endif
-=======
     return std::nullopt;
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
+#endif
 
   // Check for the <scalarname> and the optional <redirection>, which
   // are separated from the prefix with "_"
@@ -480,15 +476,9 @@ Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
   // 2. We don't accept the demangling if the vector function is not
   // present in the module.
   if (VF == 0)
-<<<<<<< HEAD
-    return None;
+    return std::nullopt;
   if (M && !M->getFunction(VectorName)) // INTEL
-    return None;
-=======
     return std::nullopt;
-  if (!M.getFunction(VectorName))
-    return std::nullopt;
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
 
   const VFShape Shape({ElementCount::get(VF, IsScalable), Parameters});
 #if INTEL_CUSTOMIZATION

@@ -463,14 +463,10 @@ InlineCost llvm::shouldInline(
       });
     }
     setInlineRemark(CB, inlineCostStr(IC));
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     IC.setIsRecommended(false);
     return IC;
 #endif // INTEL_CUSTOMIZATION
-=======
-    return std::nullopt;
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
   }
 
   int TotalSecondaryCost = 0;
@@ -487,15 +483,11 @@ InlineCost llvm::shouldInline(
              << "' in other contexts";
     });
     setInlineRemark(CB, "deferred");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     IC.setInlineReason(NinlrOuterInlining);
     IC.setIsRecommended(false);
     return IC;
 #endif // INTEL_CUSTOMIZATION
-=======
-    return std::nullopt;
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
   }
 
   LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC) << ", Call: " << CB

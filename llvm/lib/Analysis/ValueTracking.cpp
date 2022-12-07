@@ -7454,7 +7454,6 @@ Optional<bool> llvm::isImpliedByDomCondition(const Value *Cond,
                                              DominatorTree *DT) {
 #endif // INTEL_CUSTOMIZATION
   assert(Cond->getType()->isIntOrIntVectorTy(1) && "Condition must be bool");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // When DominatorTree is present, use all dominating blocks to detect implied
   // condition.
@@ -7463,20 +7462,14 @@ Optional<bool> llvm::isImpliedByDomCondition(const Value *Cond,
     auto PredCond = getDomPredecessorCondition(ContextI);
     if (PredCond.first) {
       auto Res = isImpliedCondition(PredCond.first, Cond, DL, PredCond.second);
-      if (Res != None)
+      if (Res != std::nullopt)
         return Res;
     }
 
     ContextI = getDominatingContext(DomNode);
   } while (ContextI);
 #endif // INTEL_CUSTOMIZATION
-  return None;
-=======
-  auto PredCond = getDomPredecessorCondition(ContextI);
-  if (PredCond.first)
-    return isImpliedCondition(PredCond.first, Cond, DL, PredCond.second);
   return std::nullopt;
->>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
 }
 
 Optional<bool> llvm::isImpliedByDomCondition(CmpInst::Predicate Pred,
