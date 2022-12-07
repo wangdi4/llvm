@@ -19,6 +19,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 
 cl::opt<bool>
@@ -80,6 +81,16 @@ public:
       if (VFADI->getSeverity() == DS_Error)
         throw Exceptions::CompilerException(
             "Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
+      return true;
+    }
+    if (auto *DKADI = dyn_cast<llvm::DPCPPKernelAnalysisDiagInfo>(&DI)) {
+      OS << llvm::LLVMContext::getDiagnosticMessagePrefix(DKADI->getSeverity())
+         << ": ";
+      DKADI->print(OS);
+      OS << ".\n";
+      if (DKADI->getSeverity() == DS_Error)
+        throw Exceptions::CompilerException(
+            "Analyzing DPCPP kernel properties Failed", CL_DEV_INVALID_BINARY);
       return true;
     }
     return false;

@@ -51,13 +51,11 @@ namespace Intel {
 namespace OpenCL {
 namespace Utils {
 
-FrameworkUserLogger *g_pUserLogger = nullptr;
+extern FrameworkUserLogger *g_pUserLogger;
 
 }
 } // namespace OpenCL
 } // namespace Intel
-
-USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 
 #if defined(_M_X64) || defined(__x86_64__)
 #define MEMORY_LIMIT (TotalPhysicalSize())

@@ -45,24 +45,6 @@ defvar rhadd_igeneric_code = [{
     return (s >> (($ReturnType)1)) + (c | (s & (($ReturnType)1)));
   }];
 
-defvar max_ivector_code = [{
-    return ($Arg0VarName > $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
-  }];
-
-defvar max_s_code =[{
-    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-    return $Func($Arg0VarName, vec$Arg1VarName);
-  }];
-
-defvar min_ivector_code = [{
-    return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
-  }];
-
-defvar min_s_code = [{
-    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-    return $Func($Arg0VarName, vec$Arg1VarName);
-  }];
-
 defvar sub_sat_svector_code = [{
     $Arg0BaseType zero = 0;
     $ReturnType r = $Arg0VarName - $Arg1VarName;
@@ -96,15 +78,4 @@ defvar masked_impl_code_UG_G2_M = [{
 /// Common functions
 defvar clamp_f_code = [{
     return fmax(fmin($Arg0VarName, $Arg2VarName), $Arg1VarName);
-  }];
-
-defvar max_f_code = [{
-    // !!! order of arguments in comparison is important. DO NOT CHANGE
-    // Reason is how NaN is treated. "y < x ? y : x" sequence generates max_ps x86 intrinsics
-    // max_ps treats NaN differently in case NaN is in 1st argument or in 2nd argument
-    return ($Arg1VarName < $Arg0VarName) ? $Arg0VarName : $Arg1VarName;
-  }];
-
-defvar min_f_code = [{
-    return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }];

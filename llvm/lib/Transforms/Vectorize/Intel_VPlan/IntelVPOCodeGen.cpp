@@ -4191,7 +4191,10 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
 
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
-  if (isSOAAccess(VPPhi, Plan)) {
+  // For SOAConverted we have a usual pointer (actually vector of pointers),
+  // so should process them as usual.
+  if (isSOAAccess(VPPhi, Plan) &&
+      !Plan->getVPlanDA()->hasBeenSOAConverted(VPPhi)) {
     auto *PhiPtrTy = cast<PointerType>(PhiTy);
     if (!PhiPtrTy->isOpaque()) {
       Type *ElemTy = PhiTy->getPointerElementType();

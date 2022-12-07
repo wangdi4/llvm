@@ -311,7 +311,8 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
 
     MPM.addPass(DuplicateCalledKernelsPass());
 
-    MPM.addPass(DPCPPKernelAnalysisPass());
+    MPM.addPass(DPCPPKernelAnalysisPass(
+        Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasAMX()));
 
     if (Level != OptimizationLevel::O0) {
       MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));

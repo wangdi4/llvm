@@ -24,8 +24,8 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-void __attribute__((constructor)) dll_init(void);
-void __attribute__((destructor)) dll_fini(void);
+static void __attribute__((constructor)) dll_init(void);
+static void __attribute__((destructor)) dll_fini(void);
 
 pthread_key_t thkMasterContext;
 

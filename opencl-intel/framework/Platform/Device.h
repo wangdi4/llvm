@@ -357,17 +357,13 @@ private:
 
   /*****************************************************************************
    * Function:     InitDevice
-   * Description: Load OpenCL device library
-   * Arguments: pwcDllPath [in] full path of device driver's dll
-   *            devId [in] the device id inside specific device type.
+   * Description:  Init device
+   * Arguments:    devId [in] the device id inside specific device type
    * Return value: CL_SUCCESS - operation succeeded
-   * Author: Uri Levy
-   * Date: December 2008
+   * Author:       Uri Levy
+   * Date:         December 2008
    ****************************************************************************/
-  cl_err_code InitDevice(const char *psDeviceAgentDllPath,
-                         fn_clDevGetDeviceInfo *pFnClDevGetDeviceInfo,
-                         fn_clDevGetDeviceTimer *pFnClDevGetDeviceTimer,
-                         unsigned int devId);
+  cl_err_code InitDevice(unsigned int devId);
 
   //////////////////////////////////////////////////////////////////////////////
   // callback functions
@@ -395,14 +391,9 @@ private:
   // class private members
   //////////////////////////////////////////////////////////////////////////////
 
-  Intel::OpenCL::Utils::OclDynamicLib m_dlModule;
   // front-end compiler
   mutable SharedPtr<FrontEndCompiler> m_pFrontEndCompiler;
   mutable volatile bool m_bFrontEndCompilerDone;
-
-  // Pointer to the device GetInfo function.
-  fn_clDevGetDeviceInfo *m_pFnClDevGetDeviceInfo;
-  fn_clDevGetDeviceTimer *m_pFnClDevGetDeviceTimer;
 
   cl_int m_iNextClientId; // hold the next client logger id
 
@@ -545,3 +536,22 @@ private:
 } // namespace Framework
 } // namespace OpenCL
 } // namespace Intel
+
+extern "C" {
+cl_dev_err_code clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_info param,
+                                   size_t valSize, void *paramVal,
+                                   size_t *paramValSizeRet);
+
+cl_ulong clDevGetDeviceTimer();
+
+cl_dev_err_code clDevGetAvailableDeviceList(size_t IN deviceListSize,
+                                            unsigned int *OUT deviceIdsList,
+                                            size_t *OUT deviceIdsListSizeRet);
+
+cl_dev_err_code clDevInitDeviceAgent(void);
+
+cl_dev_err_code clDevCreateDeviceInstance(cl_uint dev_id,
+                                          IOCLFrameworkCallbacks *pDevCallBacks,
+                                          IOCLDevLogDescriptor *pLogDesc,
+                                          IOCLDeviceAgent **pOutDevice);
+}

@@ -12,6 +12,9 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_KERNEL_ANALYSIS_H
 
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/IR/DiagnosticHandler.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
@@ -29,6 +32,7 @@ class RuntimeService;
 ///      instructions in the kernel.
 class DPCPPKernelAnalysisPass : public PassInfoMixin<DPCPPKernelAnalysisPass> {
 public:
+  DPCPPKernelAnalysisPass(bool IsAMX = false) : IsAMX(IsAMX) {}
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
@@ -61,6 +65,8 @@ private:
   /// Current module.
   Module *M;
 
+  bool IsAMX;
+
   /// Kernels.
   FuncSet Kernels;
 
@@ -72,6 +78,34 @@ private:
 
   /// Set of funcs containing subgroup builtins.
   FuncSet SubgroupCallingFuncs;
+};
+
+enum DPCPPKernelAnalysisDiagKind {
+  DKDK_Error_MatrixIntrinOnUnsupportedCPU,
+};
+
+class DPCPPKernelAnalysisDiagInfo : public DiagnosticInfoWithLocationBase {
+  const Twine &Msg;
+  const DPCPPKernelAnalysisDiagKind DKDiagKind;
+
+public:
+  static DiagnosticKind Kind;
+
+  DPCPPKernelAnalysisDiagInfo(const Function &F, const Twine &Msg,
+                              DPCPPKernelAnalysisDiagKind DKDiagKind,
+                              DiagnosticSeverity Severity = DS_Error)
+      : DiagnosticInfoWithLocationBase(Kind, Severity, F, DiagnosticLocation()),
+        Msg(Msg), DKDiagKind(DKDiagKind) {}
+
+  static bool classof(const DiagnosticInfo *DI) {
+    return DI->getKind() == Kind;
+  }
+
+  void print(DiagnosticPrinter &DP) const override {
+    DP << getFunction().getName() << "\": " << Msg;
+  }
+
+  DPCPPKernelAnalysisDiagKind getDKDiagKind() const { return DKDiagKind; }
 };
 
 } // namespace llvm

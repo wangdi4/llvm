@@ -107,7 +107,9 @@ struct MangledNameEmmiter {
         llvm::parseIRFile(fileName, errDiagnostic, context);
     assert(pModule && "module parsing failed");
     // deleting the temporary output file
-    remove(fileName);
+    int err = remove(fileName);
+    (void)err;
+    assert(!err && "failed to remove file");
     llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();
     assert(pModule && "null llvm module");
     assert(it != e && "module contains no functions!");
