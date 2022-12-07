@@ -35,6 +35,7 @@
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetOptions.h"
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -59,7 +60,7 @@ Optional<Reloc::Model> getExplicitRelocModel();
 ThreadModel::Model getThreadModel();
 
 CodeModel::Model getCodeModel();
-Optional<CodeModel::Model> getExplicitCodeModel();
+std::optional<CodeModel::Model> getExplicitCodeModel();
 
 llvm::ExceptionHandling getExceptionModel();
 
