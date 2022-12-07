@@ -66,6 +66,7 @@ bool VPRecipeBase::mayWriteToMemory() const {
     return cast<Instruction>(getVPSingleValue()->getUnderlyingValue())
         ->mayWriteToMemory();
   case VPBranchOnMaskSC:
+  case VPScalarIVStepsSC:
     return false;
   case VPWidenIntOrFpInductionSC:
   case VPWidenCanonicalIVSC:
@@ -97,6 +98,7 @@ bool VPRecipeBase::mayReadFromMemory() const {
     return cast<Instruction>(getVPSingleValue()->getUnderlyingValue())
         ->mayReadFromMemory();
   case VPBranchOnMaskSC:
+  case VPScalarIVStepsSC:
     return false;
   case VPWidenIntOrFpInductionSC:
   case VPWidenCanonicalIVSC:
