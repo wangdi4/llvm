@@ -591,9 +591,11 @@ public:
     // Initialize the FileManager. We can't do this in update(), since that
     // performs the initialization too late (once both target and language
     // options are read).
+#ifdef INTEL_CUSTOMIZATION
     PP.getFileManager().setVirtualFileSystem(createVFSFromOverlayFiles(
-        HSOpts.VFSOverlayFiles, PP.getDiagnostics(),
+        HSOpts.VFSOverlayFiles, HSOpts.VFSOverlayLibs, PP.getDiagnostics(),
         PP.getFileManager().getVirtualFileSystemPtr()));
+#endif // INTEL_CUSTOMIZATION
 
     InitializedHeaderSearchPaths = true;
 
