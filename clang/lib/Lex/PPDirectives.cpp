@@ -3099,7 +3099,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   StringRef Args[] = { MSCompiler, "/P", ResponseArg };
 
   StringRef Nul("NUL");
-  Optional<StringRef> Redirects[] = {Nul, Nul, Nul};
+  std::optional<StringRef> Redirects[] = {Nul, Nul, Nul};
   if (llvm::sys::ExecuteAndWait(MSCompiler, Args, None, Redirects, 0, 0,
                                 &ErrMsg)) {
     Diag(FilenameTok, diag::err_import_exec) << MSCompiler;
