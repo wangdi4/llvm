@@ -5184,14 +5184,24 @@ clang::createVFSFromCompilerInvocation(
     const CompilerInvocation &CI, DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
 #if INTEL_CUSTOMIZATION
-  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty() &&
-      CI.getHeaderSearchOpts().VFSOverlayLibs.empty())
+  return createVFSFromOverlayFiles(CI.getHeaderSearchOpts().VFSOverlayFiles,
+                                   CI.getHeaderSearchOpts().VFSOverlayLibs,
+                                   Diags, std::move(BaseFS));
+#endif // INTEL_CUSTOMIZATION
+}
+
+#if INTEL_CUSTOMIZATION
+IntrusiveRefCntPtr<llvm::vfs::FileSystem> clang::createVFSFromOverlayFiles(
+    ArrayRef<std::string> VFSOverlayFiles, ArrayRef<std::string> VFSOverlayLibs,
+    DiagnosticsEngine &Diags,
+    IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
+  if (VFSOverlayFiles.empty() && VFSOverlayLibs.empty())
 #endif // INTEL_CUSTOMIZATION
     return BaseFS;
 
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> Result = BaseFS;
   // earlier vfs files are on the bottom
-  for (const auto &File : CI.getHeaderSearchOpts().VFSOverlayFiles) {
+  for (const auto &File : VFSOverlayFiles) {
     llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> Buffer =
         Result->getBufferForFile(File);
     if (!Buffer) {
@@ -5211,14 +5221,14 @@ clang::createVFSFromCompilerInvocation(
   }
 
 #if INTEL_CUSTOMIZATION
-  if (!CI.getHeaderSearchOpts().VFSOverlayLibs.empty()) {
+  if (!VFSOverlayLibs.empty()) {
     IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> Overlay(
         new llvm::vfs::OverlayFileSystem(Result));
 
     Result = Overlay;
 
     // Load shared libraries that provide a VFS.
-    for (const auto &LibFile : CI.getHeaderSearchOpts().VFSOverlayLibs) {
+    for (const auto &LibFile : VFSOverlayLibs) {
       std::string Error;
       auto Lib = llvm::sys::DynamicLibrary::getPermanentLibrary(
           LibFile.c_str(), &Error);
