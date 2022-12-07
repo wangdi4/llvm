@@ -2048,10 +2048,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // FIXME: This stuff needs to go into the Compilation, not the driver.
   bool CCCPrintPhases;
 
-<<<<<<< HEAD
-  // Silence driver warnings if requested
-  Diags.setIgnoreAllWarnings(Args.hasArg(options::OPT_w));
-
 #if INTEL_CUSTOMIZATION
   if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
                            options::OPT_v, options::OPT__HASH_HASH_HASH)) {
@@ -2064,8 +2060,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   setTitle(Title);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> b4b54697b7aacda1fabef36d4e74d5ee45641618
   // -canonical-prefixes, -no-canonical-prefixes are used very early in main.
   Args.ClaimAllArgs(options::OPT_canonical_prefixes);
   Args.ClaimAllArgs(options::OPT_no_canonical_prefixes);
