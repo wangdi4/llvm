@@ -10,21 +10,15 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-foreach name = ["clamp", "max", "min"] in {
+foreach name = ["clamp"] in {
   defvar builtin = !cast<OclBuiltin>(name);
-  defvar code_impl = !cond(!eq(name, "clamp"): clamp_f_code,
-                           !eq(name, "max"): max_f_code,
-                           !eq(name, "min"): min_f_code);
-  def name # _v32v64_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, code_impl>;
+  def name # _v32v64_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, clamp_f_code>;
 }
 
-foreach name = ["clamp_s", "max_s", "min_s"] in {
+foreach name = ["clamp_s"] in {
   defvar builtin = !cast<OclBuiltin>(name);
   defvar types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
-  defvar code_impl = !cond(!eq(name, "clamp_s"): clamp_s_code,
-                           !eq(name, "max_s"): max_s_code,
-                           !eq(name, "min_s"): min_s_code);
-  def name # _v32v64_impl : OclBuiltinImpl<builtin, types, 0, code_impl>;
+  def name # _v32v64_impl : OclBuiltinImpl<builtin, types, 0, clamp_s_code>;
 }
 
 foreach name = ["mix", "mix_s", "step_s", "smoothstep_s"] in {
