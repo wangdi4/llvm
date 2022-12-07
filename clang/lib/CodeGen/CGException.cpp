@@ -1316,17 +1316,12 @@ void CodeGenFunction::ExitCXXTryStmt(const CXXTryStmt &S, bool IsFnTryBlock) {
     RunCleanupsScope CatchScope(*this);
 
     // Initialize the catch variable and set up the cleanups.
-<<<<<<< HEAD
-    SaveAndRestore<llvm::Instruction *> RestoreCurrentFuncletPad(
-        CurrentFuncletPad);
+    SaveAndRestore RestoreCurrentFuncletPad(CurrentFuncletPad);
 #if INTEL_COLLAB
     if (CapturedStmtInfo)
       if (const VarDecl *VD = C->getExceptionDecl())
         CapturedStmtInfo->recordVariableDefinition(VD);
 #endif  // INTEL_COLLAB
-=======
-    SaveAndRestore RestoreCurrentFuncletPad(CurrentFuncletPad);
->>>>>>> 0af012ac13bf023f42ef65602ccf907fd9d67f9c
     CGM.getCXXABI().emitBeginCatch(*this, C);
 
     // Emit the PGO counter increment.
