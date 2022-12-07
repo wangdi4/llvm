@@ -39,16 +39,17 @@ OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive)
 
   if (m_bRecursive) {
     p_attr = &attr;
-    pthread_mutexattr_init(p_attr);
-    pthread_mutexattr_settype(p_attr, PTHREAD_MUTEX_RECURSIVE);
+    if (pthread_mutexattr_init(p_attr) ||
+        pthread_mutexattr_settype(p_attr, PTHREAD_MUTEX_RECURSIVE))
+      assert(false &&
+             "Failed to Set Mutex attribute as PTHREAD_MUTEX_RECURSIVE");
   }
 
-  if (0 != pthread_mutex_init(&m_mutex, p_attr)) {
-    assert(0 && "Failed initialize pthread mutex");
-  }
-  if (nullptr != p_attr) {
-    pthread_mutexattr_destroy(p_attr);
-  }
+  if (0 != pthread_mutex_init(&m_mutex, p_attr))
+    assert(false && "Failed to initialize pthread mutex");
+
+  if (nullptr != p_attr && 0 != pthread_mutexattr_destroy(p_attr))
+    assert(false && "Failed to Destroy Mutex attribute");
 }
 
 /************************************************************************

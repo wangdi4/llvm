@@ -1315,8 +1315,11 @@ cl_err_code ExecutionModule::EnqueueFillBuffer(
     cl_uint devAlignment;
 
     SharedPtr<FissionableDevice> pDevice = pCommandQueue->GetDefaultDevice();
-    pDevice->GetInfo(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(devAlignment),
-                     &devAlignment, NULL);
+    errVal = pDevice->GetInfo(CL_DEVICE_MEM_BASE_ADDR_ALIGN,
+                              sizeof(devAlignment), &devAlignment, NULL);
+    if (CL_SUCCESS != errVal)
+      return errVal;
+
     // CL_DEVICE_MEM_BASE_ADDR_ALIGN is in bits, convert to bytes
     devAlignment /= 8;
 
