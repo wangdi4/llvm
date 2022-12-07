@@ -230,7 +230,6 @@ MaxArraySize("instcombine-maxarray-size", cl::init(1024),
 static cl::opt<unsigned> ShouldLowerDbgDeclare("instcombine-lower-dbg-declare",
                                                cl::Hidden, cl::init(true));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Returns true if the code is targeted to Intel AVX2 vector architectures.
 // Any of the following can be true:
@@ -262,10 +261,7 @@ static bool TargetIsAVX2(TargetTransformInfo &TTI, Function *F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Optional<Instruction *>
-=======
 std::optional<Instruction *>
->>>>>>> 86fe4dfdb626d472f88bf8331da7cc98e9631cfe
 InstCombiner::targetInstCombineIntrinsic(IntrinsicInst &II) {
   // Handle target specific intrinsics
   if (II.getCalledFunction()->isTargetIntrinsic()) {
