@@ -1071,6 +1071,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
       break;
     }
   }
+<<<<<<< HEAD
   SaveAndRestore<bool> save_nomerge(InNoMergeAttributedStmt, nomerge);
   SaveAndRestore<bool> save_noinline(InNoInlineAttributedStmt, noinline);
   SaveAndRestore<bool> save_alwaysinline(InAlwaysInlineAttributedStmt,
@@ -1083,6 +1084,12 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
   IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
+=======
+  SaveAndRestore save_nomerge(InNoMergeAttributedStmt, nomerge);
+  SaveAndRestore save_noinline(InNoInlineAttributedStmt, noinline);
+  SaveAndRestore save_alwaysinline(InAlwaysInlineAttributedStmt, alwaysinline);
+  SaveAndRestore save_musttail(MustTailCall, musttail);
+>>>>>>> 0af012ac13bf023f42ef65602ccf907fd9d67f9c
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }
 
