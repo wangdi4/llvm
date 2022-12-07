@@ -816,7 +816,6 @@ public:
     return nullptr;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool isIntelAdvancedOptimEnabled() const { return false; }
 
@@ -856,17 +855,10 @@ public:
 
   bool displacementFoldable() const { return false; }
 #endif
-  Type *
-  getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                            unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                            unsigned SrcAlign, unsigned DestAlign,
-                            std::optional<uint32_t> AtomicElementSize) const {
-=======
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAddrSpace, unsigned DestAddrSpace,
                                   unsigned SrcAlign, unsigned DestAlign,
                                   Optional<uint32_t> AtomicElementSize) const {
->>>>>>> 4e12d1836ae03f1f30226b8c4f2edeef6bf4a650
     return AtomicElementSize ? Type::getIntNTy(Context, *AtomicElementSize * 8)
                              : Type::getInt8Ty(Context);
   }
