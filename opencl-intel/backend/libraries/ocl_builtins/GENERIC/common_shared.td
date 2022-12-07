@@ -16,14 +16,6 @@
 OclBuiltinImpl clamp_fgeneric = OclBuiltinImpl<clamp,
   ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout, 0, clamp_f_code>;
 
-// max
-OclBuiltinImpl max_fgeneric = OclBuiltinImpl<max,
-  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout, 0, max_f_code>;
-
-// min
-OclBuiltinImpl min_fgeneric = OclBuiltinImpl<min,
-  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout, 0, min_f_code>;
-
 // step
 OclBuiltinImpl step_f32_generic = OclBuiltinImpl<step,
   [v1f32, v2f32, v3f32, v4f32] , 0, [{

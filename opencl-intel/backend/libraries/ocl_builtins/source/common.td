@@ -11,6 +11,8 @@
 // License.
 
 defvar common_f16_types = ExpandTypeByVF<v1f16, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
+defvar common_scalar_types = [v1i8, v1u8, v1i16, v1u16, v1f16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
+defvar common_types = ExpandTypesByVFAndFlatten<common_scalar_types, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
 
 // --- Common Functions ---
 // https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html#common-functions
@@ -23,8 +25,6 @@ let Types = common_f16_types,
 defset list<OclBuiltin> common_builtins_with_general_vect_info = {
   def clamp_f16 : OclBuiltin<"clamp", (outs gentype:$ret), (ins gentype:$x, gentype:$minval, gentype:$maxval)>;
   def degrees_f16 : OclBuiltin<"degrees", (outs gentype:$ret), (ins gentype:$radians)>;
-  def max_f16 : OclBuiltin<"max", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-  def min_f16 : OclBuiltin<"min", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
   def mix_f16 : OclBuiltin<"mix", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$a)>;
   def radians_f16 : OclBuiltin<"radians", (outs gentype:$ret), (ins gentype:$degrees)>;
   def step_f16 : OclBuiltin<"step", (outs gentype:$ret), (ins gentype:$edge, gentype:$x)>;
@@ -33,11 +33,22 @@ defset list<OclBuiltin> common_builtins_with_general_vect_info = {
 } // defset common_builtins_with_general_vect_info
 
   def clamp_s_f16 : OclBuiltin<"clamp", (outs gentype:$ret), (ins gentype:$x, sgentype:$minval, sgentype:$maxval)>, Except<[v1f16]>;
-  def max_s_f16 : OclBuiltin<"max", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16]>;
-  def min_s_f16 : OclBuiltin<"min", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16]>;
   def mix_s_f16 : OclBuiltin<"mix", (outs gentype:$ret), (ins gentype:$x, gentype:$y, sgentype:$a)>, Except<[v1f16]>;
   def step_s_f16 : OclBuiltin<"step", (outs gentype:$ret), (ins sgentype:$edge, gentype:$x)>, Except<[v1f16]>;
   def smoothstep_s_f16 : OclBuiltin<"smoothstep", (outs gentype:$ret), (ins sgentype:$edge0, sgentype:$edge1, gentype:$x)>, Except<[v1f16]>;
+}
+
+let Types = common_types,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = true in {
+// Builtins that use vector version as vector variants.
+defset list<OclBuiltin> common_all_type_builtins_with_general_vect_info = {
+  def max_all_type : OclBuiltin<"max", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
+  def min_all_type : OclBuiltin<"min", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
+} // defset common_builtins_with_general_vect_info
+
+  def max_s_all_type : OclBuiltin<"max", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<common_scalar_types>;
+  def min_s_all_type : OclBuiltin<"min", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<common_scalar_types>;
 }
 
 // Implementations
@@ -51,13 +62,13 @@ def : OclBuiltinImpl<degrees_f16, degrees_f16.Types, false, [{
   return 180 * M_1_PI_H * $Arg0VarName;
 }]>, SHARED;
 
-foreach bi = [max_f16, max_s_f16] in {
+foreach bi = [max_all_type, max_s_all_type] in {
   def : OclBuiltinImpl<bi, bi.Types, false, [{
     return select($Arg0VarName, $Arg1VarName, ($Arg0igentype)($Arg1VarName > $Arg0VarName));
   }]>, SHARED;
 }
 
-foreach bi = [min_f16, min_s_f16] in {
+foreach bi = [min_all_type, min_s_all_type] in {
   def : OclBuiltinImpl<bi, bi.Types, false, [{
     return select($Arg0VarName, $Arg1VarName, ($Arg0igentype)($Arg1VarName < $Arg0VarName));
   }]>, SHARED;
@@ -95,6 +106,6 @@ defvar sign_code = [{
 def : OclBuiltinImpl<sign_f16, sign_f16.Types, false, sign_code>, SHARED;
 
 // VectInfos
-foreach bi = common_builtins_with_general_vect_info in {
+foreach bi = common_builtins_with_general_vect_info # common_all_type_builtins_with_general_vect_info in {
   def : VectInfo<[v1f16], bi, bi, bi, bi, bi, bi>;
 }
