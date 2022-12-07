@@ -192,24 +192,24 @@ public:
     return PredicationStyle::None;
   }
 
-  std::optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
-                                                    IntrinsicInst &II) const {
-    return std::nullopt;
+  Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
+                                               IntrinsicInst &II) const {
+    return None;
   }
 
-  std::optional<Value *>
+  Optional<Value *>
   simplifyDemandedUseBitsIntrinsic(InstCombiner &IC, IntrinsicInst &II,
                                    APInt DemandedMask, KnownBits &Known,
                                    bool &KnownBitsComputed) const {
-    return std::nullopt;
+    return None;
   }
 
-  std::optional<Value *> simplifyDemandedVectorEltsIntrinsic(
+  Optional<Value *> simplifyDemandedVectorEltsIntrinsic(
       InstCombiner &IC, IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
       APInt &UndefElts2, APInt &UndefElts3,
       std::function<void(Instruction *, unsigned, APInt, APInt &)>
           SimplifyAndSetOp) const {
-    return std::nullopt;
+    return None;
   }
 
   void getUnrollingPreferences(Loop *, ScalarEvolution &,
@@ -505,24 +505,25 @@ public:
   }
 
   unsigned getCacheLineSize() const { return 0; }
-  std::optional<unsigned>
+
+  llvm::Optional<unsigned>
   getCacheSize(TargetTransformInfo::CacheLevel Level) const {
     switch (Level) {
     case TargetTransformInfo::CacheLevel::L1D:
       [[fallthrough]];
     case TargetTransformInfo::CacheLevel::L2D:
-      return std::nullopt;
+      return llvm::None;
     }
     llvm_unreachable("Unknown TargetTransformInfo::CacheLevel");
   }
 
-  std::optional<unsigned>
+  llvm::Optional<unsigned>
   getCacheAssociativity(TargetTransformInfo::CacheLevel Level) const {
     switch (Level) {
     case TargetTransformInfo::CacheLevel::L1D:
       [[fallthrough]];
     case TargetTransformInfo::CacheLevel::L2D:
-      return std::nullopt;
+      return llvm::None;
     }
 
     llvm_unreachable("Unknown TargetTransformInfo::CacheLevel");
@@ -770,7 +771,7 @@ public:
   }
 
   InstructionCost getArithmeticReductionCost(unsigned, VectorType *,
-                                             std::optional<FastMathFlags> FMF,
+                                             Optional<FastMathFlags> FMF,
                                              TTI::TargetCostKind) const {
     return 1;
   }
@@ -782,7 +783,7 @@ public:
 
   InstructionCost getExtendedReductionCost(unsigned Opcode, bool IsUnsigned,
                                            Type *ResTy, VectorType *Ty,
-                                           std::optional<FastMathFlags> FMF,
+                                           Optional<FastMathFlags> FMF,
                                            TTI::TargetCostKind CostKind) const {
     return 1;
   }
@@ -854,11 +855,10 @@ public:
 
   bool displacementFoldable() const { return false; }
 #endif
-  Type *
-  getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                            unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                            unsigned SrcAlign, unsigned DestAlign,
-                            std::optional<uint32_t> AtomicElementSize) const {
+  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
+                                  unsigned SrcAddrSpace, unsigned DestAddrSpace,
+                                  unsigned SrcAlign, unsigned DestAlign,
+                                  Optional<uint32_t> AtomicElementSize) const {
     return AtomicElementSize ? Type::getIntNTy(Context, *AtomicElementSize * 8)
                              : Type::getInt8Ty(Context);
   }
@@ -867,7 +867,7 @@ public:
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
       unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
       unsigned SrcAlign, unsigned DestAlign,
-      std::optional<uint32_t> AtomicCpySize) const {
+      Optional<uint32_t> AtomicCpySize) const {
     unsigned OpSizeInBytes = AtomicCpySize ? *AtomicCpySize : 1;
     Type *OpType = Type::getIntNTy(Context, OpSizeInBytes * 8);
     for (unsigned i = 0; i != RemainingBytes; i += OpSizeInBytes)
