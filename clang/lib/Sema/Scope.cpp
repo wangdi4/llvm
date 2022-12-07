@@ -96,7 +96,7 @@ void Scope::Init(Scope *parent, unsigned flags) {
   UsingDirectives.clear();
   Entity = nullptr;
   ErrorTrap.reset();
-  NRVO = None;
+  NRVO = std::nullopt;
 }
 
 bool Scope::containedInPrototypeScope() const {

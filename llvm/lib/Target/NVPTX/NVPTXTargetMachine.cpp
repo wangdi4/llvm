@@ -128,7 +128,7 @@ static std::string computeDataLayout(bool is64Bit, bool UseShortPointers) {
 NVPTXTargetMachine::NVPTXTargetMachine(const Target &T, const Triple &TT,
                                        StringRef CPU, StringRef FS,
                                        const TargetOptions &Options,
-                                       Optional<Reloc::Model> RM,
+                                       std::optional<Reloc::Model> RM,
                                        std::optional<CodeModel::Model> CM,
                                        CodeGenOpt::Level OL, bool is64bit)
     // The pic relocation model is used regardless of what the client has
@@ -155,7 +155,7 @@ void NVPTXTargetMachine32::anchor() {}
 NVPTXTargetMachine32::NVPTXTargetMachine32(const Target &T, const Triple &TT,
                                            StringRef CPU, StringRef FS,
                                            const TargetOptions &Options,
-                                           Optional<Reloc::Model> RM,
+                                           std::optional<Reloc::Model> RM,
                                            std::optional<CodeModel::Model> CM,
                                            CodeGenOpt::Level OL, bool JIT)
     : NVPTXTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL, false) {}
@@ -165,7 +165,7 @@ void NVPTXTargetMachine64::anchor() {}
 NVPTXTargetMachine64::NVPTXTargetMachine64(const Target &T, const Triple &TT,
                                            StringRef CPU, StringRef FS,
                                            const TargetOptions &Options,
-                                           Optional<Reloc::Model> RM,
+                                           std::optional<Reloc::Model> RM,
                                            std::optional<CodeModel::Model> CM,
                                            CodeGenOpt::Level OL, bool JIT)
     : NVPTXTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL, true) {}

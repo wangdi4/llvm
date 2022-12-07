@@ -5145,7 +5145,7 @@ public:
 
   Optional<unsigned> getPackIndex() const {
     if (SubstTemplateTypeParmTypeBits.PackIndex == 0)
-      return None;
+      return std::nullopt;
     return SubstTemplateTypeParmTypeBits.PackIndex - 1;
   }
 
@@ -5887,7 +5887,7 @@ public:
   Optional<unsigned> getNumExpansions() const {
     if (PackExpansionTypeBits.NumExpansions)
       return PackExpansionTypeBits.NumExpansions - 1;
-    return None;
+    return std::nullopt;
   }
 
   bool isSugared() const { return false; }

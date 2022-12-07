@@ -139,7 +139,7 @@ Response
 HandleDefaultTempArgIntoTempTempParam(const TemplateTemplateParmDecl *TTP,
                                       MultiLevelTemplateArgumentList &Result) {
   for (unsigned I = 0, N = TTP->getDepth() + 1; I != N; ++I)
-    Result.addOuterTemplateArguments(None);
+    Result.addOuterTemplateArguments(std::nullopt);
   return Response::Done();
 }
 
@@ -540,8 +540,8 @@ Sema::InstantiatingTemplate::InstantiatingTemplate(
     : InstantiatingTemplate(
           SemaRef, CodeSynthesisContext::RequirementInstantiation,
           PointOfInstantiation, InstantiationRange, /*Entity=*/nullptr,
-          /*Template=*/nullptr, /*TemplateArgs=*/None, &DeductionInfo) {}
-
+          /*Template=*/nullptr, /*TemplateArgs=*/std::nullopt, &DeductionInfo) {
+}
 
 Sema::InstantiatingTemplate::InstantiatingTemplate(
     Sema &SemaRef, SourceLocation PointOfInstantiation,
@@ -550,7 +550,7 @@ Sema::InstantiatingTemplate::InstantiatingTemplate(
     : InstantiatingTemplate(
           SemaRef, CodeSynthesisContext::NestedRequirementConstraintsCheck,
           PointOfInstantiation, InstantiationRange, /*Entity=*/nullptr,
-          /*Template=*/nullptr, /*TemplateArgs=*/None) {}
+          /*Template=*/nullptr, /*TemplateArgs=*/std::nullopt) {}
 
 Sema::InstantiatingTemplate::InstantiatingTemplate(
     Sema &SemaRef, SourceLocation PointOfInstantiation, const RequiresExpr *RE,
@@ -558,7 +558,8 @@ Sema::InstantiatingTemplate::InstantiatingTemplate(
     : InstantiatingTemplate(
           SemaRef, CodeSynthesisContext::RequirementParameterInstantiation,
           PointOfInstantiation, InstantiationRange, /*Entity=*/nullptr,
-          /*Template=*/nullptr, /*TemplateArgs=*/None, &DeductionInfo) {}
+          /*Template=*/nullptr, /*TemplateArgs=*/std::nullopt, &DeductionInfo) {
+}
 
 Sema::InstantiatingTemplate::InstantiatingTemplate(
     Sema &SemaRef, SourceLocation PointOfInstantiation,
@@ -1048,7 +1049,7 @@ Optional<TemplateDeductionInfo *> Sema::isSFINAEContext() const {
     case CodeSynthesisContext::ConstraintNormalization:
     case CodeSynthesisContext::NestedRequirementConstraintsCheck:
       // This is a template instantiation, so there is no SFINAE.
-      return None;
+      return std::nullopt;
 
     case CodeSynthesisContext::DefaultTemplateArgumentInstantiation:
     case CodeSynthesisContext::PriorTemplateArgumentSubstitution:
@@ -1078,7 +1079,7 @@ Optional<TemplateDeductionInfo *> Sema::isSFINAEContext() const {
     case CodeSynthesisContext::BuildingBuiltinDumpStructCall:
       // This happens in a context unrelated to template instantiation, so
       // there is no SFINAE.
-      return None;
+      return std::nullopt;
 
     case CodeSynthesisContext::ExceptionSpecEvaluation:
       // FIXME: This should not be treated as a SFINAE context, because
@@ -1096,7 +1097,7 @@ Optional<TemplateDeductionInfo *> Sema::isSFINAEContext() const {
       return Optional<TemplateDeductionInfo *>(nullptr);
   }
 
-  return None;
+  return std::nullopt;
 }
 
 //===----------------------------------------------------------------------===/
@@ -1152,7 +1153,7 @@ namespace {
     Optional<unsigned> getPackIndex(TemplateArgument Pack) {
       int Index = getSema().ArgumentPackSubstitutionIndex;
       if (Index == -1)
-        return None;
+        return std::nullopt;
       return Pack.pack_size() - 1 - Index;
     }
 

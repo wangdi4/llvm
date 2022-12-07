@@ -629,7 +629,8 @@ TypeResult Sema::ActOnPackExpansion(ParsedType Type,
   if (!TSInfo)
     return true;
 
-  TypeSourceInfo *TSResult = CheckPackExpansion(TSInfo, EllipsisLoc, None);
+  TypeSourceInfo *TSResult =
+      CheckPackExpansion(TSInfo, EllipsisLoc, std::nullopt);
   if (!TSResult)
     return true;
 
@@ -676,7 +677,7 @@ QualType Sema::CheckPackExpansion(QualType Pattern, SourceRange PatternRange,
 }
 
 ExprResult Sema::ActOnPackExpansion(Expr *Pattern, SourceLocation EllipsisLoc) {
-  return CheckPackExpansion(Pattern, EllipsisLoc, None);
+  return CheckPackExpansion(Pattern, EllipsisLoc, std::nullopt);
 }
 
 ExprResult Sema::CheckPackExpansion(Expr *Pattern, SourceLocation EllipsisLoc,
@@ -848,7 +849,7 @@ Optional<unsigned> Sema::getNumArgumentsInExpansion(QualType T,
   for (auto [I, _] : Unexpanded) {
     if (const auto *TTP = I.dyn_cast<const TemplateTypeParmType *>()) {
       if (setResultPos({TTP->getDepth(), TTP->getIndex()}))
-        return None;
+        return std::nullopt;
     } else if (const auto *STP =
                    I.dyn_cast<const SubstTemplateTypeParmPackType *>()) {
       setResultSz(STP->getNumArgs());
@@ -865,10 +866,10 @@ Optional<unsigned> Sema::getNumArgumentsInExpansion(QualType T,
         if (!DAP)
           // The pattern refers to an unexpanded pack. We're not ready to expand
           // this pack yet.
-          return None;
+          return std::nullopt;
         setResultSz(DAP->size());
       } else if (setResultPos(getDepthAndIndex(ND))) {
-        return None;
+        return std::nullopt;
       }
     }
   }
@@ -1152,7 +1153,7 @@ Optional<unsigned> Sema::getFullyPackExpandedSize(TemplateArgument Arg) {
     if (auto *Subst = Arg.getAsType()->getAs<SubstTemplateTypeParmPackType>())
       Pack = Subst->getArgumentPack();
     else
-      return None;
+      return std::nullopt;
     break;
 
   case TemplateArgument::Expression:
@@ -1162,10 +1163,10 @@ Optional<unsigned> Sema::getFullyPackExpandedSize(TemplateArgument Arg) {
     else if (auto *Subst = dyn_cast<FunctionParmPackExpr>(Arg.getAsExpr()))  {
       for (VarDecl *PD : *Subst)
         if (PD->isParameterPack())
-          return None;
+          return std::nullopt;
       return Subst->getNumExpansions();
     } else
-      return None;
+      return std::nullopt;
     break;
 
   case TemplateArgument::Template:
@@ -1173,7 +1174,7 @@ Optional<unsigned> Sema::getFullyPackExpandedSize(TemplateArgument Arg) {
             Arg.getAsTemplate().getAsSubstTemplateTemplateParmPack())
       Pack = Subst->getArgumentPack();
     else
-      return None;
+      return std::nullopt;
     break;
 
   case TemplateArgument::Declaration:
@@ -1182,7 +1183,7 @@ Optional<unsigned> Sema::getFullyPackExpandedSize(TemplateArgument Arg) {
   case TemplateArgument::Integral:
   case TemplateArgument::Pack:
   case TemplateArgument::Null:
-    return None;
+    return std::nullopt;
   }
 
   // Check that no argument in the pack is itself a pack expansion.
@@ -1190,7 +1191,7 @@ Optional<unsigned> Sema::getFullyPackExpandedSize(TemplateArgument Arg) {
     // There's no point recursing in this case; we would have already
     // expanded this pack expansion into the enclosing pack if we could.
     if (Elem.isPackExpansion())
-      return None;
+      return std::nullopt;
   }
   return Pack.pack_size();
 }
@@ -1271,7 +1272,7 @@ ExprResult Sema::ActOnCXXFoldExpr(Scope *S, SourceLocation LParenLoc, Expr *LHS,
   }
 
   return BuildCXXFoldExpr(ULE, LParenLoc, LHS, Opc, EllipsisLoc, RHS, RParenLoc,
-                          None);
+                          std::nullopt);
 }
 
 ExprResult Sema::BuildCXXFoldExpr(UnresolvedLookupExpr *Callee,
